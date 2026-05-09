@@ -904,9 +904,9 @@ export function AiUsageClient({ payload: initialPayload }: { payload: AiUsagePay
           <ApiServiceCard
             name="Anthropic API"
             icon={<Sparkles className="h-4 w-4" />}
-            docHref="https://console.anthropic.com/settings/billing"
+            docHref="https://console.anthropic.com/settings/admin-keys"
             data={payload.anthropic}
-            envKeyHint="ANTHROPIC_API_KEY"
+            envKeyHint="ANTHROPIC_ADMIN_KEY"
           />
           <ApiServiceCard
             name="OpenAI API"
