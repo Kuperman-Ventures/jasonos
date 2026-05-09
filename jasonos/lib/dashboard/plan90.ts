@@ -1,4 +1,4 @@
-// 90-Day Plan — April 27, 2026 → July 19, 2026
+// 90-Day Plan — May 11, 2026 → August 2, 2026
 // Primary focus: Kuperman Advisors (GTM Architect positioning + network activation)
 // Parallel tracks: GTMTools.io, Executive Job Search
 // Edit freely — this is a starting draft, not a contract.
@@ -63,8 +63,8 @@ export const PLAN_TRACK_TO_REPO: Record<string, RepoTrack> = {
 // ---------------------------------------------------------------------------
 
 export const PLAN90: Plan90 = {
-  startDate: "2026-04-27",
-  endDate: "2026-07-19",
+  startDate: "2026-05-11",
+  endDate: "2026-08-02",
   weekCount: 12,
   primaryMetric: "Warm, senior, on-thesis conversations per week",
   phaseDefinitions: [
