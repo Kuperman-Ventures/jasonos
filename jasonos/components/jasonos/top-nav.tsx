@@ -24,7 +24,17 @@ type NavItem =
 
 const NAV: NavItem[] = [
   { kind: "link",  href: "/",        label: "Home" },
-  { kind: "link",  href: "/today",   label: "Today" },
+  {
+    kind: "group",
+    label: "CoSA",
+    children: [
+      { href: "/today",          label: "Today" },
+      { href: "/tasks",          label: "Task Library" },
+      { href: "/calendar",       label: "Calendar" },
+      { href: "/weekly-review",  label: "Weekly Review" },
+      { href: "/nyui",           label: "NYUI" },
+    ],
+  },
   {
     kind: "group",
     label: "Job Search",
@@ -43,11 +53,7 @@ const NAV: NavItem[] = [
       { href: "/todos",    label: "To-Dos" },
     ],
   },
-  { kind: "link",  href: "/tasks",          label: "Task Library" },
-  { kind: "link",  href: "/calendar",       label: "Calendar" },
-  { kind: "link",  href: "/weekly-review",  label: "Weekly Review" },
   { kind: "link",  href: "/ai-usage",  label: "AI Usage" },
-  { kind: "link",  href: "/nyui",      label: "NYUI" },
   { kind: "link",  href: "/settings",  label: "Settings" },
 ];
 
