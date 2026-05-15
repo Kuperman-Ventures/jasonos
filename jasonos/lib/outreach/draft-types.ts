@@ -79,15 +79,35 @@ export type LogTouchChannel =
   | "email"
   | "linkedin"
   | "phone"
-  | "in_person"
   | "calendar"
+  | "in_person"
+  | "coffee_chat"
+  | "text"
+  | "thank_you_note"
+  | "value_sharing"
   | "other";
 
-export const LOG_TOUCH_CHANNELS: { value: LogTouchChannel; label: string }[] = [
+export const LOG_TOUCH_CHANNELS: { value: LogTouchChannel; label: string; hint?: string }[] = [
   { value: "email", label: "Email" },
   { value: "linkedin", label: "LinkedIn" },
   { value: "phone", label: "Phone" },
-  { value: "calendar", label: "Meeting" },
-  { value: "in_person", label: "In person" },
+  { value: "calendar", label: "Meeting", hint: "Scheduled meeting / video call" },
+  { value: "coffee_chat", label: "Coffee chat", hint: "In-person 1:1, casual" },
+  { value: "in_person", label: "In person", hint: "Bumped into them, event, etc." },
+  { value: "text", label: "Text" },
+  { value: "thank_you_note", label: "Thank-you note", hint: "Handwritten or sent gift" },
+  { value: "value_sharing", label: "Value-share", hint: "Sent an article, intro, or resource" },
   { value: "other", label: "Other" },
+];
+
+/**
+ * Touch channels that are interpretable as "we actually had a conversation"
+ * (vs a one-way send). Used in cadence-stage progression heuristics and the
+ * Draft Assist mode auto-selector.
+ */
+export const CONVERSATIONAL_CHANNELS: LogTouchChannel[] = [
+  "calendar",
+  "coffee_chat",
+  "in_person",
+  "phone",
 ];

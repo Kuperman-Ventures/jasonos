@@ -32,8 +32,14 @@ import { ClassifyMenu } from "@/components/jasonos/outreach/classify-menu";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
 import {
   CADENCE_LABELS,
+  CADENCE_STAGE_SHORT,
+  TOUCH_OBJECTIVES,
+  TOUCH_OBJECTIVE_HELPERS,
+  TOUCH_OBJECTIVE_LABELS,
   type CadenceInterval,
+  type CadenceStage,
   type RelationshipType,
+  type TouchObjective,
 } from "@/lib/outreach/types";
 import {
   loadOutreachContext,
@@ -65,6 +71,7 @@ export interface ContactDetailDrawerProps {
     vip: boolean;
     relationship_type: RelationshipType | null;
     cadence_interval: CadenceInterval;
+    cadence_stage?: CadenceStage | null;
     next_touch_date?: string | null;
     last_touch_date?: string | null;
   };
@@ -98,6 +105,8 @@ export function ContactDetailDrawer({
   // -- Log-touch state
   const [logChannel, setLogChannel] = useState<LogTouchChannel>("email");
   const [logBrief, setLogBrief] = useState("");
+  const [logObjective, setLogObjective] = useState<TouchObjective | null>(null);
+  const [logOutcome, setLogOutcome] = useState("");
   const [logging, startLogTransition] = useTransition();
 
   // Pre-load context once when the drawer opens. Initial state already has
@@ -183,21 +192,33 @@ export function ContactDetailDrawer({
   };
 
   const handleLog = () => {
+    if (!logObjective) {
+      toast.error("Pick an outcome — did this touch achieve its goal?");
+      return;
+    }
     startLogTransition(async () => {
       const result = await logContactTouch({
         contactId: contact.id,
         channel: logChannel,
         direction: "outbound",
         brief: logBrief.trim() || undefined,
+        objectiveAchieved: logObjective,
+        outcome: logOutcome.trim() || undefined,
       });
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
+      const stageMsg =
+        logObjective === "yes"
+          ? "Cadence stage advanced."
+          : "Cadence reset.";
       toast.success(
-        `Logged ${logChannel} touch with ${contact.name}. Cadence advanced.`
+        `Logged ${logChannel} touch with ${contact.name}. ${stageMsg}`
       );
       setLogBrief("");
+      setLogOutcome("");
+      setLogObjective(null);
       router.refresh();
     });
   };
@@ -243,6 +264,14 @@ export function ContactDetailDrawer({
                 <RefreshCw className="h-3 w-3" />
                 {cadenceLabel}
               </span>
+              {contact.cadence_stage ? (
+                <span
+                  className="inline-flex items-center rounded-sm border border-foreground/20 bg-muted/60 px-1 py-0.5 text-[9px] font-medium uppercase tracking-wider text-foreground/80"
+                  title={`Cadence arc: ${contact.cadence_stage}`}
+                >
+                  {CADENCE_STAGE_SHORT[contact.cadence_stage]}
+                </span>
+              ) : null}
               {contact.next_touch_date ? (
                 <span>next: {fmtRelative(contact.next_touch_date)}</span>
               ) : null}
@@ -303,6 +332,10 @@ export function ContactDetailDrawer({
               setChannel={setLogChannel}
               brief={logBrief}
               setBrief={setLogBrief}
+              outcome={logOutcome}
+              setOutcome={setLogOutcome}
+              objective={logObjective}
+              setObjective={setLogObjective}
               onLog={handleLog}
               logging={logging}
               cadenceInterval={contact.cadence_interval}
@@ -602,6 +635,10 @@ function LogTouchSection({
   setChannel,
   brief,
   setBrief,
+  outcome,
+  setOutcome,
+  objective,
+  setObjective,
   onLog,
   logging,
   cadenceInterval,
@@ -610,6 +647,10 @@ function LogTouchSection({
   setChannel: (c: LogTouchChannel) => void;
   brief: string;
   setBrief: (s: string) => void;
+  outcome: string;
+  setOutcome: (s: string) => void;
+  objective: TouchObjective | null;
+  setObjective: (v: TouchObjective | null) => void;
   onLog: () => void;
   logging: boolean;
   cadenceInterval: CadenceInterval;
@@ -620,37 +661,95 @@ function LogTouchSection({
         <CheckCircle2 className="h-3 w-3" />
         Log a touch
       </h3>
-      <div className="space-y-2 rounded-md border bg-card/40 p-3">
-        <div className="flex flex-wrap gap-1.5">
-          {LOG_TOUCH_CHANNELS.map((c) => (
-            <button
-              key={c.value}
-              type="button"
-              onClick={() => setChannel(c.value)}
-              className={cn(
-                "rounded-full border px-2 py-0.5 text-[10px] transition-colors",
-                channel === c.value
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-border text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {c.label}
-            </button>
-          ))}
+      <div className="space-y-3 rounded-md border bg-card/40 p-3">
+        {/* Channel */}
+        <div>
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            How
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {LOG_TOUCH_CHANNELS.map((c) => (
+              <button
+                key={c.value}
+                type="button"
+                onClick={() => setChannel(c.value)}
+                title={c.hint}
+                className={cn(
+                  "rounded-full border px-2 py-0.5 text-[10px] transition-colors",
+                  channel === c.value
+                    ? "border-foreground bg-foreground text-background"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
         </div>
+
+        {/* Objective tri-state */}
+        <div>
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Did this touch achieve its goal?{" "}
+            <span className="font-normal text-muted-foreground/60">required</span>
+          </div>
+          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+            {TOUCH_OBJECTIVES.map((value) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setObjective(value)}
+                className={cn(
+                  "rounded-md border px-2 py-1.5 text-left text-[11px] transition-colors",
+                  objective === value
+                    ? value === "yes"
+                      ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-300"
+                      : value === "no"
+                      ? "border-amber-500/60 bg-amber-500/15 text-amber-300"
+                      : "border-border bg-muted text-foreground"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <div className="font-medium">{TOUCH_OBJECTIVE_LABELS[value]}</div>
+                <div
+                  className={cn(
+                    "text-[10px] font-normal opacity-80",
+                    objective === value ? "" : "text-muted-foreground/70"
+                  )}
+                >
+                  {TOUCH_OBJECTIVE_HELPERS[value]}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Summary */}
         <Input
           placeholder="One-line summary (optional)"
           value={brief}
           onChange={(e) => setBrief(e.target.value)}
           className="h-8 text-xs"
         />
+
+        {/* Outcome textarea */}
+        <Textarea
+          placeholder="Outcome / next step (optional)"
+          value={outcome}
+          onChange={(e) => setOutcome(e.target.value)}
+          rows={2}
+          className="text-xs"
+        />
+
         <div className="flex items-center justify-between gap-2">
           <p className="text-[10px] text-muted-foreground">
             {cadenceInterval === "none"
               ? "No cadence set — will only stamp last-touch."
-              : `Will advance next touch by ${CADENCE_LABELS[cadenceInterval]?.toLowerCase()}.`}
+              : objective === "yes"
+              ? `Advances cadence stage and pushes next touch out by ${CADENCE_LABELS[cadenceInterval]?.toLowerCase()}.`
+              : `Resets cadence clock by ${CADENCE_LABELS[cadenceInterval]?.toLowerCase()}.`}
           </p>
-          <Button onClick={onLog} disabled={logging} size="sm">
+          <Button onClick={onLog} disabled={logging || !objective} size="sm">
             {logging ? (
               <Loader2 className="h-3 w-3 animate-spin" />
             ) : (

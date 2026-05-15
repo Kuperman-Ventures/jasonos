@@ -7,7 +7,12 @@ import {
   createPublicServiceRoleClient,
   createServiceRoleClient,
 } from "@/lib/supabase/server";
-import type { CadenceInterval, RelationshipType } from "@/lib/outreach/types";
+import { CADENCE_DAYS } from "@/lib/outreach/types";
+import type {
+  CadenceInterval,
+  CadenceStage,
+  RelationshipType,
+} from "@/lib/outreach/types";
 
 export interface OutreachPerson {
   id: string;
@@ -20,6 +25,8 @@ export interface OutreachPerson {
   vip: boolean;
   relationship_type: RelationshipType | null;
   cadence_interval: CadenceInterval;
+  /** Phase 5A: where in the arc (initial / followup_1 / followup_2 / ongoing). */
+  cadence_stage: CadenceStage | null;
   next_touch_date: string | null;
   last_touch_date: string | null;
   last_touch_channel: string | null;
@@ -109,7 +116,7 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
       .from("contacts")
       .select(
         `id,name,emails,linkedin_url,title,vip,tags,source_ids,
-         relationship_type,cadence_interval,next_touch_date,
+         relationship_type,cadence_interval,cadence_stage,next_touch_date,
          last_touch_date,last_touch_channel`
       )
       .order("name", { ascending: true });
@@ -154,6 +161,7 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
           (row.relationship_type as RelationshipType | null) ?? null,
         cadence_interval:
           (row.cadence_interval as CadenceInterval | null) ?? "none",
+        cadence_stage: (row.cadence_stage as CadenceStage | null) ?? null,
         next_touch_date: (row.next_touch_date as string | null) ?? null,
         last_touch_date: (row.last_touch_date as string | null) ?? null,
         last_touch_channel: (row.last_touch_channel as string | null) ?? null,
@@ -220,6 +228,102 @@ export async function getOutreachFirms(): Promise<OutreachFirm[]> {
     if (bv !== av) return bv - av;
     return b.count - a.count;
   });
+}
+
+// ---------------------------------------------------------------------------
+// getWarmthReminders — Phase 5A. Contacts whose cadence has drifted: their
+// last_touch_date is well behind what the cadence_interval says it should
+// be. Three urgency tiers based on how far overdue.
+//
+// Borrowed concept from EncoreOS WarmthMaintenanceReminders, adapted to use
+// CoSA's per-contact cadence_interval rather than a fixed 60/90/120-day rule.
+// ---------------------------------------------------------------------------
+
+export type WarmthUrgency = "critical" | "high" | "medium";
+
+export interface WarmthReminder {
+  person: OutreachPerson;
+  daysSinceTouch: number; // Infinity when never touched
+  daysOverdue: number; // days_since - cadenceDays (clamped >= 0)
+  urgency: WarmthUrgency;
+  suggestedAction: string;
+}
+
+function urgencyFromOverdue(daysSinceTouch: number, cadenceDays: number): WarmthUrgency | null {
+  const ratio = cadenceDays > 0 ? daysSinceTouch / cadenceDays : Infinity;
+  if (ratio >= 2 || daysSinceTouch === Infinity) return "critical";
+  if (ratio >= 1.5) return "high";
+  if (ratio >= 1.25) return "medium";
+  return null;
+}
+
+function suggestedActionFor(
+  relationshipType: OutreachPerson["relationship_type"],
+  urgency: WarmthUrgency
+): string {
+  if (urgency === "critical") {
+    if (relationshipType === "personal") return "Send a personal note — no agenda.";
+    if (relationshipType === "mentor_advisor")
+      return "Re-open with a real update + one specific question.";
+    return "Re-open authentically — acknowledge the gap, lead with value.";
+  }
+  if (urgency === "high") {
+    if (relationshipType === "operator_peer")
+      return "Share something you saw they'd find useful.";
+    return "Send a short check-in with a fresh hook.";
+  }
+  // medium
+  return "Quick value-share to stay on radar.";
+}
+
+export async function getWarmthReminders(limit = 20): Promise<WarmthReminder[]> {
+  const people = await getOutreachPeople();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const reminders: WarmthReminder[] = [];
+
+  for (const person of people) {
+    if (!person.cadence_interval || person.cadence_interval === "none") continue;
+    const cadenceDays = CADENCE_DAYS[person.cadence_interval as Exclude<CadenceInterval, "none">];
+    if (!cadenceDays) continue;
+
+    let daysSinceTouch: number;
+    if (!person.last_touch_date) {
+      daysSinceTouch = Infinity;
+    } else {
+      const [y, m, d] = person.last_touch_date.split("-").map(Number);
+      const last = new Date(y, m - 1, d);
+      daysSinceTouch = Math.floor((today.getTime() - last.getTime()) / 86_400_000);
+    }
+
+    const urgency = urgencyFromOverdue(daysSinceTouch, cadenceDays);
+    if (!urgency) continue;
+
+    const daysOverdue = daysSinceTouch === Infinity
+      ? cadenceDays * 3
+      : Math.max(0, daysSinceTouch - cadenceDays);
+
+    reminders.push({
+      person,
+      daysSinceTouch,
+      daysOverdue,
+      urgency,
+      suggestedAction: suggestedActionFor(person.relationship_type, urgency),
+    });
+  }
+
+  const urgencyRank: Record<WarmthUrgency, number> = { critical: 0, high: 1, medium: 2 };
+  reminders.sort((a, b) => {
+    const ua = urgencyRank[a.urgency];
+    const ub = urgencyRank[b.urgency];
+    if (ua !== ub) return ua - ub;
+    // VIPs ahead within same urgency
+    if (a.person.vip !== b.person.vip) return a.person.vip ? -1 : 1;
+    return b.daysOverdue - a.daysOverdue;
+  });
+
+  return reminders.slice(0, limit);
 }
 
 // ---------------------------------------------------------------------------

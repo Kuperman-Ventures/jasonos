@@ -3,9 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
+  RELATIONSHIP_TYPE_META,
   nextTouchFromCadence,
   type CadenceInterval,
   type RelationshipType,
+  type TouchObjective,
 } from "@/lib/outreach/types";
 import type { LogTouchChannel } from "@/lib/outreach/draft-types";
 import {
@@ -50,9 +52,44 @@ export async function setRelationshipType(
   if (!contactId) return { ok: false, error: "contactId is required." };
 
   const sb = createServiceRoleClient();
+
+  // Phase 5A: when classifying a contact for the first time, apply the
+  // relationship type's default cadence if no cadence has been set yet.
+  // This avoids the gotcha of "classified them as Operator Peer but they
+  // never appear in the queue because cadence is still none."
+  const updatePayload: Record<string, unknown> = { relationship_type: type };
+
+  if (type) {
+    const { data: existing, error: readError } = await sb
+      .from("contacts")
+      .select("cadence_interval,last_touch_date")
+      .eq("id", contactId)
+      .maybeSingle();
+
+    if (readError) return { ok: false, error: readError.message };
+
+    const currentCadence =
+      (existing?.cadence_interval as CadenceInterval | null) ?? "none";
+
+    if (currentCadence === "none") {
+      const defaultCadence = RELATIONSHIP_TYPE_META[type].defaultCadence;
+      if (defaultCadence !== "none") {
+        updatePayload.cadence_interval = defaultCadence;
+        const lastTouch = (existing?.last_touch_date as string | null) ?? null;
+        const anchor = lastTouch
+          ? new Date(`${lastTouch}T00:00:00`)
+          : new Date();
+        updatePayload.next_touch_date = nextTouchFromCadence(
+          defaultCadence,
+          anchor
+        );
+      }
+    }
+  }
+
   const { error } = await sb
     .from("contacts")
-    .update({ relationship_type: type })
+    .update(updatePayload)
     .eq("id", contactId);
 
   if (error) return { ok: false, error: error.message };
@@ -158,6 +195,10 @@ export async function logContactTouch(input: {
   brief?: string;
   /** Optional override; defaults to today. */
   touchedAtISO?: string;
+  /** Phase 5A: did this touch achieve its goal? */
+  objectiveAchieved?: TouchObjective | null;
+  /** Phase 5A: free-form post-touch outcome. */
+  outcome?: string | null;
 }): Promise<ActionResult> {
   const guard = ensureConfigured();
   if (guard) return guard;
@@ -166,7 +207,7 @@ export async function logContactTouch(input: {
   const touchedAt = input.touchedAtISO ?? new Date().toISOString();
 
   // Insert into the canonical jasonos.contact_touches table; this also
-  // auto-advances last_touch_date + next_touch_date based on cadence.
+  // auto-advances last_touch_date + next_touch_date + cadence_stage.
   const result = await insertContactTouches([
     {
       contact_id: input.contactId,
@@ -175,6 +216,8 @@ export async function logContactTouch(input: {
       touched_at: touchedAt,
       source: "manual",
       brief: input.brief?.trim() || null,
+      objective_achieved: input.objectiveAchieved ?? null,
+      outcome: input.outcome?.trim() || null,
     },
   ]);
 

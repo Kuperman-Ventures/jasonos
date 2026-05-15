@@ -188,6 +188,8 @@ export interface Contact {
   cadence_interval?: CadenceInterval | null;
   /** ISO date (YYYY-MM-DD). When the next touch is due. See migration 0013. */
   next_touch_date?: string | null;
+  /** Stage in the touch arc (initial → followup_1 → followup_2 → ongoing). Migration 0015. */
+  cadence_stage?: "initial" | "followup_1" | "followup_2" | "ongoing" | null;
 }
 
 export interface ContactScore {

@@ -206,6 +206,7 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
             vip: drawerTarget.vip,
             relationship_type: drawerTarget.relationship_type,
             cadence_interval: drawerTarget.cadence_interval,
+            cadence_stage: drawerTarget.cadence_stage,
             next_touch_date: drawerTarget.next_touch_date,
             last_touch_date: drawerTarget.last_touch_date,
           }}

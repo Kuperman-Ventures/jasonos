@@ -6,7 +6,13 @@
 
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { CADENCE_DAYS, type CadenceInterval } from "@/lib/outreach/types";
+import {
+  CADENCE_DAYS,
+  advanceCadenceStage,
+  type CadenceInterval,
+  type CadenceStage,
+  type TouchObjective,
+} from "@/lib/outreach/types";
 
 export type TouchChannel =
   | "email"
@@ -14,6 +20,10 @@ export type TouchChannel =
   | "linkedin"
   | "phone"
   | "in_person"
+  | "coffee_chat"
+  | "text"
+  | "thank_you_note"
+  | "value_sharing"
   | "other";
 
 export type TouchDirection = "outbound" | "inbound";
@@ -30,6 +40,15 @@ export interface ContactTouchInput {
   brief?: string | null;
   subject?: string | null;
   thread_url?: string | null;
+  /**
+   * Phase 5A: did this touch achieve its goal? Drives cadence_stage progression.
+   * - "yes"     → advance cadence_stage one step
+   * - "no"      → hold at current stage (default when not provided for sync)
+   * - "neutral" → hold at current stage (casual check-in)
+   */
+  objective_achieved?: TouchObjective | null;
+  /** Free-form post-touch note (what happened). */
+  outcome?: string | null;
 }
 
 export interface InsertTouchesResult {
@@ -118,7 +137,7 @@ export async function insertContactTouches(
 
   const { data: contactRows, error: readErr } = await client
     .from("contacts")
-    .select("id, cadence_interval, last_touch_date")
+    .select("id, cadence_interval, last_touch_date, cadence_stage")
     .in("id", contactIds);
 
   if (readErr) {
@@ -138,7 +157,8 @@ export async function insertContactTouches(
       const cadence =
         (row.cadence_interval as CadenceInterval | null) ?? "none";
 
-      // Pick the channel from the latest touch we wrote for this contact.
+      // Pick the latest touch input we wrote for this contact so we can
+      // pull its channel + objective_achieved.
       const latestTouch = touches
         .filter((t) => t.contact_id === row.id)
         .reduce<ContactTouchInput | null>((acc, cur) => {
@@ -155,6 +175,20 @@ export async function insertContactTouches(
         const anchor = new Date(`${newestDate}T00:00:00`);
         anchor.setDate(anchor.getDate() + CADENCE_DAYS[cadence]);
         updatePayload.next_touch_date = anchor.toISOString().split("T")[0];
+      }
+
+      // Cadence stage progression. Three rules:
+      //   1. If contact has no stage yet AND we just logged a touch → stamp 'initial'.
+      //   2. If this touch is objective_achieved = 'yes' → advance one step.
+      //   3. Otherwise leave the stage alone.
+      const currentStage =
+        (row.cadence_stage as CadenceStage | null) ?? null;
+      const objective = latestTouch?.objective_achieved ?? null;
+
+      if (objective === "yes") {
+        updatePayload.cadence_stage = advanceCadenceStage(currentStage);
+      } else if (!currentStage) {
+        updatePayload.cadence_stage = "initial";
       }
 
       const { error: updErr } = await client
