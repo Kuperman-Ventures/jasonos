@@ -24,7 +24,7 @@ type NavItem =
   | { kind: "group"; label: string; children: { href: string; label: string }[] };
 
 const NAV: NavItem[] = [
-  { kind: "link",  href: "/",        label: "Home" },
+  { kind: "link",  href: "/",         label: "Home" },
   {
     kind: "group",
     label: "CoSA",
@@ -36,15 +36,8 @@ const NAV: NavItem[] = [
       { href: "/nyui",           label: "NYUI" },
     ],
   },
-  {
-    kind: "group",
-    label: "Job Search",
-    children: [
-      { href: "/reconnect",      label: "Reconnect" },
-      { href: "/communications", label: "Communications" },
-      { href: "/runner/triage",  label: "Triage" },
-    ],
-  },
+  { kind: "link",  href: "/outreach", label: "Outreach" },
+  { kind: "link",  href: "/runner/triage", label: "Triage" },
   { kind: "link",  href: "/contacts", label: "Contacts" },
   {
     kind: "group",
@@ -54,24 +47,39 @@ const NAV: NavItem[] = [
       { href: "/todos",    label: "To-Dos" },
     ],
   },
-  { kind: "link",  href: "/ai-usage",  label: "AI Usage" },
-  { kind: "link",  href: "/settings",  label: "Settings" },
+  { kind: "link",  href: "/ai-usage", label: "AI Usage" },
+  { kind: "link",  href: "/settings", label: "Settings" },
 ];
 
 // ─── NavLink ──────────────────────────────────────────────────────────────
 
-function NavLink({ href, label, active }: { href: string; label: string; active: boolean }) {
+function NavLink({
+  href,
+  label,
+  active,
+  badgeCount,
+}: {
+  href: string;
+  label: string;
+  active: boolean;
+  badgeCount?: number;
+}) {
   return (
     <Link
       href={href}
       className={cn(
-        "rounded-md px-2.5 py-1.5 text-sm transition-colors",
+        "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
         active
           ? "bg-muted text-foreground"
           : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
       )}
     >
       {label}
+      {badgeCount && badgeCount > 0 ? (
+        <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
+          {badgeCount}
+        </Badge>
+      ) : null}
     </Link>
   );
 }
@@ -173,6 +181,7 @@ export function TopNav() {
                 href={item.href}
                 label={item.label}
                 active={isActive(item)}
+                badgeCount={item.href === "/runner/triage" ? triageCount : undefined}
               />
             ) : (
               <NavGroup

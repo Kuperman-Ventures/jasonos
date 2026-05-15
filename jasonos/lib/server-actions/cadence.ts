@@ -9,6 +9,7 @@ import {
   type CadenceInterval,
   type CadenceScheduleOption,
 } from "@/lib/cadence/types";
+import type { RelationshipType } from "@/lib/outreach/types";
 
 interface AddCadenceContactInput {
   name: string;
@@ -18,6 +19,8 @@ interface AddCadenceContactInput {
   email?: string;
   cadence: CadenceInterval;
   notes?: string;
+  /** Optional 6-bucket classification (migration 0013). */
+  relationshipType?: RelationshipType | null;
 }
 
 type AddResult =
@@ -142,18 +145,24 @@ export async function addCadenceContact(input: AddCadenceContactInput): Promise<
       ? Array.from(new Set([email, ...existingEmails]))
       : undefined;
 
+    const updatePayload: Record<string, unknown> = {
+      name,
+      title: input.title?.trim() || null,
+      linkedin_url: linkedinUrl,
+      emails: mergedEmails,
+      tracks: ["personal"],
+      tags,
+      cadence_interval: contactCadence,
+      next_touch_date: contactNextTouch,
+    };
+    if (input.relationshipType) {
+      // Only stamp relationship_type on explicit input — don't clobber a
+      // previously-set classification when the sheet leaves it empty.
+      updatePayload.relationship_type = input.relationshipType;
+    }
     const { error } = await sb
       .from("contacts")
-      .update({
-        name,
-        title: input.title?.trim() || null,
-        linkedin_url: linkedinUrl,
-        emails: mergedEmails,
-        tracks: ["personal"],
-        tags,
-        cadence_interval: contactCadence,
-        next_touch_date: contactNextTouch,
-      })
+      .update(updatePayload)
       .eq("id", contactId);
     if (error) return { ok: false, error: error.message };
   } else {
@@ -168,8 +177,7 @@ export async function addCadenceContact(input: AddCadenceContactInput): Promise<
         tags: newTags,
         cadence_interval: contactCadence,
         next_touch_date: contactNextTouch,
-        // Quick-add doesn't ask for relationship_type yet; user classifies in
-        // the People view (Phase 2). Left null on purpose.
+        relationship_type: input.relationshipType ?? null,
       })
       .select("id")
       .single();
