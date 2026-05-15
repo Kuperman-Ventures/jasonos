@@ -124,6 +124,12 @@ export async function addCadenceContact(input: AddCadenceContactInput): Promise<
 
   let contactId: string;
   const newTags = [roleTag, cadenceTag, ...(firmTag ? [firmTag] : [])];
+  // Phase 1 dual-write: cadence_interval + next_touch_date are now first-class
+  // fields on jasonos.contacts (migration 0013). Existing cards stay in sync
+  // for now; Phase 2/3 will read from contacts directly and we can drop the
+  // card-body mirror.
+  const contactCadence = input.cadence;
+  const contactNextTouch = nextTouchFromCadence(contactCadence);
 
   if (existingLookup.data) {
     contactId = existingLookup.data.id as string;
@@ -145,6 +151,8 @@ export async function addCadenceContact(input: AddCadenceContactInput): Promise<
         emails: mergedEmails,
         tracks: ["personal"],
         tags,
+        cadence_interval: contactCadence,
+        next_touch_date: contactNextTouch,
       })
       .eq("id", contactId);
     if (error) return { ok: false, error: error.message };
@@ -158,6 +166,10 @@ export async function addCadenceContact(input: AddCadenceContactInput): Promise<
         emails: email ? [email] : [],
         tracks: ["personal"],
         tags: newTags,
+        cadence_interval: contactCadence,
+        next_touch_date: contactNextTouch,
+        // Quick-add doesn't ask for relationship_type yet; user classifies in
+        // the People view (Phase 2). Left null on purpose.
       })
       .select("id")
       .single();
@@ -252,7 +264,7 @@ export async function scheduleCadenceTouch(
   const sb = createServiceRoleClient();
   const { data: card, error: readError } = await sb
     .from("cards")
-    .select("id,body")
+    .select("id,body,linked_object_ids")
     .eq("id", cardId)
     .maybeSingle();
 
@@ -260,9 +272,10 @@ export async function scheduleCadenceTouch(
   if (!card) return { ok: false, error: "Card not found." };
 
   const prior = (card.body as Partial<CadenceCardBody> | null) ?? {};
+  const newDueDate = dueDateFromOption(option, customDate);
   const nextBody: CadenceCardBody = {
     cadence_interval: (prior.cadence_interval as CadenceInterval) ?? "none",
-    next_touch_date: dueDateFromOption(option, customDate),
+    next_touch_date: newDueDate,
     notes: prior.notes ?? null,
     firm: prior.firm ?? null,
   };
@@ -273,6 +286,17 @@ export async function scheduleCadenceTouch(
     .eq("id", cardId);
 
   if (error) return { ok: false, error: error.message };
+
+  // Phase 1 dual-write: keep jasonos.contacts.next_touch_date in sync with
+  // the card body so the unified queries in Phase 2 read consistent data.
+  const linked = card.linked_object_ids as Record<string, unknown> | null;
+  const contactId = typeof linked?.contact_id === "string" ? linked.contact_id : null;
+  if (contactId) {
+    await sb
+      .from("contacts")
+      .update({ next_touch_date: newDueDate })
+      .eq("id", contactId);
+  }
 
   revalidatePath("/communications");
   return { ok: true };

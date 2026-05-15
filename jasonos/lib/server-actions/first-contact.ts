@@ -89,6 +89,8 @@ export async function addColdTarget(input: {
         tags,
         intent: input.intent,
         personal_goal: input.personalGoal?.trim() || null,
+        // Phase 1: classify outreach targets as prospects (migration 0013).
+        relationship_type: "prospect",
       })
       .eq("id", contactId);
     if (error) return { ok: false, error: error.message };
@@ -104,6 +106,8 @@ export async function addColdTarget(input: {
         tags: ["role:cold_target", firmTag],
         intent: input.intent,
         personal_goal: input.personalGoal?.trim() || null,
+        // Phase 1: classify outreach targets as prospects (migration 0013).
+        relationship_type: "prospect",
       })
       .select("id")
       .single();

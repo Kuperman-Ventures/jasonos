@@ -143,6 +143,29 @@ export interface Project {
   completed_at?: string;
 }
 
+/**
+ * Six-bucket role classification, lifted onto contacts in migration 0013.
+ * See lib/outreach/types.ts for label/helper exports.
+ */
+export type RelationshipType =
+  | "recruiter"
+  | "hiring_manager"
+  | "operator_peer"
+  | "mentor_advisor"
+  | "prospect"
+  | "personal";
+
+/**
+ * How often the user wants to communicate with this contact. Stored as text on
+ * jasonos.contacts (migration 0013). `none` means "no cadence — schedule manually".
+ */
+export type CadenceInterval =
+  | "weekly"
+  | "biweekly"
+  | "monthly"
+  | "quarterly"
+  | "none";
+
 export interface Contact {
   id: string;
   name: string;
@@ -159,6 +182,12 @@ export interface Contact {
   last_touch_channel?: string;
   objective_result?: "yes" | "no" | "neutral";
   notes?: string;
+  /** Six-bucket role: who this person is to me. See migration 0013. */
+  relationship_type?: RelationshipType | null;
+  /** How often to touch this person. `none` = no cadence set. See migration 0013. */
+  cadence_interval?: CadenceInterval | null;
+  /** ISO date (YYYY-MM-DD). When the next touch is due. See migration 0013. */
+  next_touch_date?: string | null;
 }
 
 export interface ContactScore {
