@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +13,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DispatchInbox } from "@/components/dispatch/DispatchInbox";
 import { AddContactSheet } from "@/components/jasonos/add-contact-sheet";
-import { getUntriagedReconnectCount } from "@/lib/server-actions/triage";
 import { ChevronDown, Command, Plus, Sparkles } from "lucide-react";
 
 // ─── Nav structure ─────────────────────────────────────────────────────────
@@ -37,8 +35,6 @@ const NAV: NavItem[] = [
     ],
   },
   { kind: "link",  href: "/outreach", label: "Outreach" },
-  { kind: "link",  href: "/runner/triage", label: "Triage" },
-  { kind: "link",  href: "/contacts", label: "Contacts" },
   {
     kind: "group",
     label: "Project Management",
@@ -57,12 +53,10 @@ function NavLink({
   href,
   label,
   active,
-  badgeCount,
 }: {
   href: string;
   label: string;
   active: boolean;
-  badgeCount?: number;
 }) {
   return (
     <Link
@@ -75,11 +69,6 @@ function NavLink({
       )}
     >
       {label}
-      {badgeCount && badgeCount > 0 ? (
-        <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
-          {badgeCount}
-        </Badge>
-      ) : null}
     </Link>
   );
 }
@@ -88,14 +77,12 @@ function NavLink({
 
 function NavGroup({
   label,
-  children,
+  items,
   active,
-  triageCount,
 }: {
   label: string;
-  children: { href: string; label: string }[];
+  items: { href: string; label: string }[];
   active: boolean;
-  triageCount: number;
 }) {
   const router = useRouter();
 
@@ -113,18 +100,13 @@ function NavGroup({
         <ChevronDown className="h-3 w-3 opacity-60" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-40">
-        {children.map((child) => (
+        {items.map((item) => (
           <DropdownMenuItem
-            key={child.href}
+            key={item.href}
             className="cursor-pointer"
-            onClick={() => router.push(child.href)}
+            onClick={() => router.push(item.href)}
           >
-            <span className="flex-1">{child.label}</span>
-            {child.href === "/runner/triage" && triageCount > 0 && (
-              <Badge variant="secondary" className="ml-2 h-4 px-1.5 text-[10px]">
-                {triageCount}
-              </Badge>
-            )}
+            <span className="flex-1">{item.label}</span>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
@@ -136,16 +118,7 @@ function NavGroup({
 
 export function TopNav() {
   const pathname = usePathname();
-  const [triageCount, setTriageCount] = useState(0);
   const [addContactOpen, setAddContactOpen] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    getUntriagedReconnectCount()
-      .then((count) => { if (active) setTriageCount(count); })
-      .catch(() => { if (active) setTriageCount(0); });
-    return () => { active = false; };
-  }, [pathname]);
 
   useEffect(() => {
     const open = () => setAddContactOpen(true);
@@ -181,15 +154,13 @@ export function TopNav() {
                 href={item.href}
                 label={item.label}
                 active={isActive(item)}
-                badgeCount={item.href === "/runner/triage" ? triageCount : undefined}
               />
             ) : (
               <NavGroup
                 key={item.label}
                 label={item.label}
-                children={item.children}
+                items={item.children}
                 active={isActive(item)}
-                triageCount={triageCount}
               />
             )
           )}

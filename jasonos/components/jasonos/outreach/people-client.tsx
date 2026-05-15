@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Search,
   Link2,
@@ -8,6 +9,7 @@ import {
   Star,
   Tag as TagIcon,
   CalendarClock,
+  ListOrdered,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -94,11 +96,22 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
               contact&rdquo; button.
             </p>
           </div>
-          <div className="text-xs text-muted-foreground">
-            <span className="font-mono text-sm text-foreground">
-              {filtered.length}
-            </span>{" "}
-            of <span className="font-mono">{people.length}</span> shown
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              render={<Link href="/contacts" />}
+              title="Bulk-rank contacts and auto-promote the top 30 to ActionQueue"
+            >
+              <ListOrdered className="h-3.5 w-3.5" />
+              Run Tier 1 Ranker
+            </Button>
+            <div className="text-xs text-muted-foreground">
+              <span className="font-mono text-sm text-foreground">
+                {filtered.length}
+              </span>{" "}
+              of <span className="font-mono">{people.length}</span> shown
+            </div>
           </div>
         </header>
 
