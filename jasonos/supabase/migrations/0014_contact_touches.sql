@@ -67,8 +67,15 @@ create unique index if not exists uniq_contact_touches_source_external_id
 --     gmail/calendar syncs won't double-insert.
 --   - Otherwise stamp source='rr_legacy', external_id=rr_touches.id so we
 --     have *some* unique key per row.
--- The ON CONFLICT clause uses the partial unique index so re-running this
--- migration is safe.
+--
+-- NOTE on idempotency: the unique index on (source, external_id) is partial
+-- (only enforced when both are NOT NULL). Postgres won't infer a partial
+-- unique index for ON CONFLICT unless we restate its predicate. Since we
+-- coalesce both source and external_id to non-null values above, every
+-- backfill row IS in the partial index — so we either spell out the WHERE
+-- predicate in ON CONFLICT, or skip ON CONFLICT and use a NOT EXISTS guard.
+-- We use the NOT EXISTS path because some Postgres versions still won't
+-- accept the partial-index predicate in ON CONFLICT inference.
 
 insert into jasonos.contact_touches
   (contact_id, channel, direction, touched_at, source, external_id,
@@ -87,7 +94,12 @@ select
 from public.rr_touches rt
 join jasonos.contacts c
   on (c.source_ids->>'recruiter_pipeline_id')::uuid = rt.contact_id
-on conflict (source, external_id) do nothing;
+where not exists (
+  select 1
+  from jasonos.contact_touches ct
+  where ct.source      = coalesce(rt.source,      'rr_legacy')
+    and ct.external_id = coalesce(rt.external_id, rt.id::text)
+);
 
 -- ---------------------------------------------------------------------------
 -- Sync state — persist last-sync timestamps so the UI can show "last synced
