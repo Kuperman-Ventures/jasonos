@@ -112,14 +112,31 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
 
   try {
     const sb = createServiceRoleClient();
-    const { data, error } = await sb
+    // Try the full select first. If the Phase 5A migration (0015) hasn't
+    // been applied yet, cadence_stage will be missing — retry without it
+    // so the whole People list doesn't disappear.
+    const fullColumns = `id,name,emails,linkedin_url,title,vip,tags,source_ids,
+       relationship_type,cadence_interval,cadence_stage,next_touch_date,
+       last_touch_date,last_touch_channel`;
+    const fallbackColumns = `id,name,emails,linkedin_url,title,vip,tags,source_ids,
+       relationship_type,cadence_interval,next_touch_date,
+       last_touch_date,last_touch_channel`;
+
+    let result = await sb
       .from("contacts")
-      .select(
-        `id,name,emails,linkedin_url,title,vip,tags,source_ids,
-         relationship_type,cadence_interval,cadence_stage,next_touch_date,
-         last_touch_date,last_touch_channel`
-      )
+      .select(fullColumns)
       .order("name", { ascending: true });
+
+    if (result.error && /cadence_stage/i.test(result.error.message)) {
+      console.warn(
+        "[outreach.getOutreachPeople] cadence_stage missing — run migration 0015. Falling back."
+      );
+      result = (await sb
+        .from("contacts")
+        .select(fallbackColumns)
+        .order("name", { ascending: true })) as typeof result;
+    }
+    const { data, error } = result;
 
     if (error) {
       console.error("[outreach.getOutreachPeople]", error);
