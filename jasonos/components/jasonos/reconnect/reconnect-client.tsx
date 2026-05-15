@@ -19,7 +19,7 @@ import type {
 import { getFunnelStage, type FunnelStage } from "@/lib/reconnect/priority";
 import { isBench } from "@/lib/reconnect/firm-focus";
 import { ReconnectQueueCard } from "./queue-card";
-import { ReconnectDetailDrawer } from "./detail-drawer";
+import { ReconnectDetailModal } from "./detail-modal";
 import { AddColdTargetDialog } from "./add-cold-target-dialog";
 import { PriorityOutreachStrip } from "./priority-outreach-strip";
 import { ReconnectStatsStrip } from "./stats-strip";
@@ -359,7 +359,7 @@ export function ReconnectClient({
         )}
       </section>
 
-      <ReconnectDetailDrawer
+      <ReconnectDetailModal
         contact={selected}
         contacts={contacts}
         onClose={() => setSelectedId(null)}

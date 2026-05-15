@@ -12,12 +12,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -48,7 +48,7 @@ import { FocusBadge } from "./focus-badge";
 import { NotesTimeline } from "./notes-timeline";
 import { FirstContactSequence } from "./first-contact-sequence";
 
-export function ReconnectDetailDrawer({
+export function ReconnectDetailModal({
   contact,
   contacts,
   onClose,
@@ -272,9 +272,12 @@ export function ReconnectDetailDrawer({
   };
 
   return (
-    <Sheet open={!!contact} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="w-full overflow-y-auto p-0 sm:max-w-none lg:w-1/2">
-        <SheetHeader className="border-b p-5">
+    <Dialog open={!!contact} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        showCloseButton={false}
+        className="flex max-h-[90vh] w-full max-w-4xl flex-col gap-0 p-0 sm:max-w-4xl"
+      >
+        <DialogHeader className="shrink-0 border-b p-5">
           <div className="flex flex-wrap items-start gap-3">
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -282,11 +285,11 @@ export function ReconnectDetailDrawer({
                 <FocusBadge rank={contact.firm_focus_rank} />
                 <ScoreChip score={contact.strategic_score} />
               </div>
-              <SheetTitle className="mt-3 text-2xl">{contact.name}</SheetTitle>
-              <SheetDescription>
+              <DialogTitle className="mt-3 text-2xl">{contact.name}</DialogTitle>
+              <DialogDescription>
                 {contact.title ? `${contact.title} · ` : ""}
                 {contact.firm}
-              </SheetDescription>
+              </DialogDescription>
               <div className="mt-3 space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant={contact.intent ? "secondary" : "outline"}>
@@ -347,9 +350,9 @@ export function ReconnectDetailDrawer({
               ) : null}
             </div>
           </div>
-        </SheetHeader>
+        </DialogHeader>
 
-        <div className="space-y-5 p-5">
+        <div className="flex-1 overflow-y-auto space-y-5 p-5">
           <section className="rounded-xl border border-orange-400/20 bg-orange-400/5 p-4">
             <h3 className="text-sm font-semibold tracking-tight text-orange-200">
               Strategic Recommendation
@@ -629,11 +632,11 @@ export function ReconnectDetailDrawer({
 
           <Button variant="ghost" size="sm" onClick={onClose} className="gap-2">
             <XCircle className="h-4 w-4" />
-            Close drawer
+            Close
           </Button>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
 

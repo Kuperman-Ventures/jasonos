@@ -20,7 +20,7 @@ import { ScoreChip } from "./score-chip";
 import { IntentBadge } from "./intent-badge";
 import { FocusBadge } from "./focus-badge";
 import { isBench } from "@/lib/reconnect/firm-focus";
-import { ReconnectDetailDrawer } from "./detail-drawer";
+import { ReconnectDetailModal } from "./detail-modal";
 
 const TIERS: RecruiterTier[] = ["TIER 1", "TIER 2", "TIER 3", "TIER 4"];
 const STATUSES: RecruiterStatus[] = [
@@ -165,7 +165,7 @@ export function ReconnectContactsClient({
         emptyMessage="No non-recruiter contacts match the current filters yet."
       />
 
-      <ReconnectDetailDrawer
+      <ReconnectDetailModal
         contact={selected}
         contacts={contacts}
         onClose={() => setSelectedId(null)}
