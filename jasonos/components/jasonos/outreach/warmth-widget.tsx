@@ -8,7 +8,7 @@ import { useState } from "react";
 import { AlertTriangle, ChevronDown, Star, Tag as TagIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ContactDetailDrawer } from "@/components/jasonos/outreach/contact-detail-drawer";
+import { ContactDetailModal } from "@/components/jasonos/outreach/contact-detail-modal";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
 import type { OutreachPerson, WarmthReminder, WarmthUrgency } from "@/lib/outreach/data";
 
@@ -40,7 +40,7 @@ interface WarmthWidgetProps {
 
 export function WarmthWidget({ reminders, initialLimit = 4 }: WarmthWidgetProps) {
   const [expanded, setExpanded] = useState(false);
-  const [drawerTarget, setDrawerTarget] = useState<OutreachPerson | null>(null);
+  const [modalTarget, setModalTarget] = useState<OutreachPerson | null>(null);
 
   if (!reminders.length) return null;
 
@@ -70,7 +70,7 @@ export function WarmthWidget({ reminders, initialLimit = 4 }: WarmthWidgetProps)
             <WarmthRow
               key={r.person.id}
               reminder={r}
-              onOpen={() => setDrawerTarget(r.person)}
+              onOpen={() => setModalTarget(r.person)}
             />
           ))}
         </ul>
@@ -94,25 +94,25 @@ export function WarmthWidget({ reminders, initialLimit = 4 }: WarmthWidgetProps)
         ) : null}
       </section>
 
-      {drawerTarget ? (
-        <ContactDetailDrawer
-          open={Boolean(drawerTarget)}
+      {modalTarget ? (
+        <ContactDetailModal
+          open={Boolean(modalTarget)}
           onOpenChange={(open) => {
-            if (!open) setDrawerTarget(null);
+            if (!open) setModalTarget(null);
           }}
           contact={{
-            id: drawerTarget.id,
-            name: drawerTarget.name,
-            title: drawerTarget.title,
-            firm: drawerTarget.firm,
-            primary_email: drawerTarget.primary_email,
-            linkedin_url: drawerTarget.linkedin_url,
-            vip: drawerTarget.vip,
-            relationship_type: drawerTarget.relationship_type,
-            cadence_interval: drawerTarget.cadence_interval,
-            cadence_stage: drawerTarget.cadence_stage,
-            next_touch_date: drawerTarget.next_touch_date,
-            last_touch_date: drawerTarget.last_touch_date,
+            id: modalTarget.id,
+            name: modalTarget.name,
+            title: modalTarget.title,
+            firm: modalTarget.firm,
+            primary_email: modalTarget.primary_email,
+            linkedin_url: modalTarget.linkedin_url,
+            vip: modalTarget.vip,
+            relationship_type: modalTarget.relationship_type,
+            cadence_interval: modalTarget.cadence_interval,
+            cadence_stage: modalTarget.cadence_stage,
+            next_touch_date: modalTarget.next_touch_date,
+            last_touch_date: modalTarget.last_touch_date,
           }}
         />
       ) : null}

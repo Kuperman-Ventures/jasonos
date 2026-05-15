@@ -58,7 +58,7 @@ import {
 } from "@/lib/outreach/draft-types";
 import type { DraftSource } from "@/lib/server-actions/draft-from-history";
 
-export interface ContactDetailDrawerProps {
+export interface ContactDetailModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contact: {
@@ -77,11 +77,11 @@ export interface ContactDetailDrawerProps {
   };
 }
 
-export function ContactDetailDrawer({
+export function ContactDetailModal({
   open,
   onOpenChange,
   contact,
-}: ContactDetailDrawerProps) {
+}: ContactDetailModalProps) {
   const router = useRouter();
 
   // -- Classify menu state

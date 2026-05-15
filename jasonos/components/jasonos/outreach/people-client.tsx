@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
 import { ClassifyMenu } from "@/components/jasonos/outreach/classify-menu";
-import { ContactDetailDrawer } from "@/components/jasonos/outreach/contact-detail-drawer";
+import { ContactDetailModal } from "@/components/jasonos/outreach/contact-detail-modal";
 import {
   CADENCE_LABELS,
   RELATIONSHIP_TYPES,
@@ -43,7 +43,7 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
   const [classifyTarget, setClassifyTarget] = useState<OutreachPerson | null>(
     null
   );
-  const [drawerTarget, setDrawerTarget] = useState<OutreachPerson | null>(null);
+  const [modalTarget, setModalTarget] = useState<OutreachPerson | null>(null);
 
   const counts = useMemo(() => {
     const result: Record<RelFilter, number> = {
@@ -165,7 +165,7 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
                 <PersonRow
                   key={person.id}
                   person={person}
-                  onOpen={() => setDrawerTarget(person)}
+                  onOpen={() => setModalTarget(person)}
                   onClassify={() => setClassifyTarget(person)}
                 />
               ))}
@@ -190,25 +190,25 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
         />
       ) : null}
 
-      {drawerTarget ? (
-        <ContactDetailDrawer
-          open={Boolean(drawerTarget)}
+      {modalTarget ? (
+        <ContactDetailModal
+          open={Boolean(modalTarget)}
           onOpenChange={(open) => {
-            if (!open) setDrawerTarget(null);
+            if (!open) setModalTarget(null);
           }}
           contact={{
-            id: drawerTarget.id,
-            name: drawerTarget.name,
-            title: drawerTarget.title,
-            firm: drawerTarget.firm,
-            primary_email: drawerTarget.primary_email,
-            linkedin_url: drawerTarget.linkedin_url,
-            vip: drawerTarget.vip,
-            relationship_type: drawerTarget.relationship_type,
-            cadence_interval: drawerTarget.cadence_interval,
-            cadence_stage: drawerTarget.cadence_stage,
-            next_touch_date: drawerTarget.next_touch_date,
-            last_touch_date: drawerTarget.last_touch_date,
+            id: modalTarget.id,
+            name: modalTarget.name,
+            title: modalTarget.title,
+            firm: modalTarget.firm,
+            primary_email: modalTarget.primary_email,
+            linkedin_url: modalTarget.linkedin_url,
+            vip: modalTarget.vip,
+            relationship_type: modalTarget.relationship_type,
+            cadence_interval: modalTarget.cadence_interval,
+            cadence_stage: modalTarget.cadence_stage,
+            next_touch_date: modalTarget.next_touch_date,
+            last_touch_date: modalTarget.last_touch_date,
           }}
         />
       ) : null}

@@ -113,7 +113,7 @@ export function ClassifyMenu({ open, onOpenChange, contact }: ClassifyMenuProps)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+      <DialogContent className="z-[60] max-h-[90vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Classify {contact.name}</DialogTitle>
           <DialogDescription>
