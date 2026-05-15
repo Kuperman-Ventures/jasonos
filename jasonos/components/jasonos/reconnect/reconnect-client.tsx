@@ -244,7 +244,7 @@ export function ReconnectClient({
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setAddColdOpen(true)}>
             <Plus className="h-4 w-4" />
-            Add cold target
+            Add outreach target
           </Button>
           <Button variant="default" render={<Link href="/runner/triage" />}>
             Triage queue
@@ -459,7 +459,7 @@ function TypeTabs({
     { type: "recruiter", label: "Recruiters", count: counts.by_type.recruiter ?? 0 },
     { type: "tier1_contact", label: "Tier 1", count: counts.by_type.tier1_contact ?? 0 },
     { type: "manual", label: "Manual", count: counts.by_type.manual ?? 0 },
-    { type: "cold_target", label: "Cold targets", count: counts.by_type.cold_target ?? 0 },
+    { type: "cold_target", label: "Outreach targets", count: counts.by_type.cold_target ?? 0 },
   ];
 
   return (
@@ -489,7 +489,7 @@ function getTypeEmptyHint(type: ReconnectObjectType) {
     case "manual":
       return "Click 'Send to Triage' on any contact to add them here.";
     case "cold_target":
-      return "Click '+ Add cold target' to start a First Contact sequence.";
+      return "Click '+ Add outreach target' to start a First Contact sequence.";
     case "recruiter":
       return "Recruiter cards will appear here when they are open in Reconnect.";
     case "all":

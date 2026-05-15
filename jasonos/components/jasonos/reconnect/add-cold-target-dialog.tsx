@@ -82,7 +82,7 @@ export function AddColdTargetDialog({
       }
 
       onCreated(toLocalContact(result.contactId, result.cardId, form));
-      toast.success("Cold target added");
+      toast.success("Outreach target added");
       setForm(INITIAL);
       onOpenChange(false);
     });
@@ -92,7 +92,7 @@ export function AddColdTargetDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Add cold target</DialogTitle>
+          <DialogTitle>Add outreach target</DialogTitle>
           <DialogDescription>
             Add a high-fit target and start the staged First Contact sequence.
           </DialogDescription>
@@ -178,7 +178,7 @@ export function AddColdTargetDialog({
             onClick={submit}
             disabled={isPending || !form.name.trim() || !form.firm.trim() || !form.title.trim()}
           >
-            {isPending ? "Adding..." : "Add cold target"}
+            {isPending ? "Adding..." : "Add outreach target"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -223,7 +223,7 @@ function toLocalContact(id: string, cardId: string, form: FormState): ReconnectC
     recency_score: 0,
     signal_score: 0,
     strategic_recommended_approach:
-      form.whyTarget || "Cold target added manually. Use First Contact Sequence for staged outreach.",
+      form.whyTarget || "Outreach target added manually. Use First Contact Sequence for staged outreach.",
     linkedin_url: form.linkedinUrl || undefined,
     last_contact_date: now,
     state: {

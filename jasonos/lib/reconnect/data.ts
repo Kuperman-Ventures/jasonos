@@ -254,7 +254,7 @@ async function getColdTargetContacts(): Promise<ReconnectContact[]> {
           signal_score: 0,
           strategic_recommended_approach:
             card.body?.why_target ??
-            "Cold target added manually. Use First Contact Sequence for staged outreach.",
+            "Outreach target added manually. Use First Contact Sequence for staged outreach.",
           summary_of_prior_comms: undefined,
           outlook_history: undefined,
           linkedin_url: contact.linkedin_url ?? undefined,
