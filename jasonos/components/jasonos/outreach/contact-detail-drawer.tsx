@@ -4,12 +4,12 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -228,25 +228,24 @@ export function ContactDetailDrawer({
 
   return (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent
-          side="right"
-          className="flex w-full max-w-xl flex-col p-0 sm:max-w-xl"
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          className="flex max-h-[90vh] w-full max-w-3xl flex-col gap-0 p-0 sm:max-w-3xl"
         >
-          <SheetHeader className="border-b px-5 py-4">
+          <DialogHeader className="shrink-0 border-b px-5 py-4 pr-12">
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
-                <SheetTitle className="flex items-center gap-2">
+                <DialogTitle className="flex items-center gap-2">
                   <span className="truncate">{contact.name}</span>
                   {contact.vip ? (
                     <Star className="h-4 w-4 shrink-0 fill-amber-400 text-amber-400" />
                   ) : null}
                   <RelationshipBadge type={contact.relationship_type} />
-                </SheetTitle>
-                <SheetDescription className="mt-0.5 truncate text-xs">
+                </DialogTitle>
+                <DialogDescription className="mt-0.5 truncate text-xs">
                   {[contact.title, contact.firm].filter(Boolean).join(" · ") ||
                     "No title or firm on file"}
-                </SheetDescription>
+                </DialogDescription>
               </div>
               <Button
                 variant="outline"
@@ -301,7 +300,7 @@ export function ContactDetailDrawer({
                 </a>
               ) : null}
             </div>
-          </SheetHeader>
+          </DialogHeader>
 
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
             <RecentContextSection
@@ -341,8 +340,8 @@ export function ContactDetailDrawer({
               cadenceInterval={contact.cadence_interval}
             />
           </div>
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
 
       {classifyOpen ? (
         <ClassifyMenu
