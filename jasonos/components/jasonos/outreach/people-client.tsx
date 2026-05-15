@@ -26,10 +26,9 @@ import {
 } from "@/lib/outreach/types";
 import type { OutreachPerson } from "@/lib/outreach/data";
 
-type RelFilter = RelationshipType | "all" | "unclassified";
+type RelFilter = RelationshipType | "unclassified";
 
 const FILTERS: { value: RelFilter; label: string }[] = [
-  { value: "all", label: "All" },
   { value: "unclassified", label: "Unclassified" },
   ...RELATIONSHIP_TYPES.map((t) => ({
     value: t,
@@ -39,7 +38,9 @@ const FILTERS: { value: RelFilter; label: string }[] = [
 
 export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<RelFilter>("all");
+  const [activeFilters, setActiveFilters] = useState<Set<RelFilter>>(
+    () => new Set()
+  );
   const [classifyTarget, setClassifyTarget] = useState<OutreachPerson | null>(
     null
   );
@@ -47,7 +48,6 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
 
   const counts = useMemo(() => {
     const result: Record<RelFilter, number> = {
-      all: people.length,
       unclassified: 0,
       recruiter: 0,
       hiring_manager: 0,
@@ -63,16 +63,24 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
     return result;
   }, [people]);
 
+  const toggleFilter = (value: RelFilter) => {
+    setActiveFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return next;
+    });
+  };
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return people.filter((p) => {
-      if (filter === "unclassified" && p.relationship_type !== null) return false;
-      if (
-        filter !== "all" &&
-        filter !== "unclassified" &&
-        p.relationship_type !== filter
-      ) {
-        return false;
+      if (activeFilters.size > 0) {
+        const matches =
+          p.relationship_type === null
+            ? activeFilters.has("unclassified")
+            : activeFilters.has(p.relationship_type);
+        if (!matches) return false;
       }
       if (!q) return true;
       return (
@@ -82,7 +90,7 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
         (p.primary_email ?? "").toLowerCase().includes(q)
       );
     });
-  }, [people, query, filter]);
+  }, [people, query, activeFilters]);
 
   return (
     <>
@@ -126,31 +134,58 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
             />
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {FILTERS.map((f) => (
-              <button
-                key={f.value}
-                type="button"
-                onClick={() => setFilter(f.value)}
+            <button
+              key="all"
+              type="button"
+              onClick={() => setActiveFilters(new Set())}
+              className={cn(
+                "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                activeFilters.size === 0
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              All
+              <span
                 className={cn(
-                  "rounded-full border px-2.5 py-1 text-xs transition-colors",
-                  filter === f.value
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                  "ml-1.5 font-mono text-[10px]",
+                  activeFilters.size === 0
+                    ? "text-background/70"
+                    : "text-muted-foreground/70"
                 )}
               >
-                {f.label}
-                <span
+                {people.length}
+              </span>
+            </button>
+            {FILTERS.map((f) => {
+              const active = activeFilters.has(f.value);
+              return (
+                <button
+                  key={f.value}
+                  type="button"
+                  onClick={() => toggleFilter(f.value)}
+                  aria-pressed={active}
                   className={cn(
-                    "ml-1.5 font-mono text-[10px]",
-                    filter === f.value
-                      ? "text-background/70"
-                      : "text-muted-foreground/70"
+                    "rounded-full border px-2.5 py-1 text-xs transition-colors",
+                    active
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                   )}
                 >
-                  {counts[f.value]}
-                </span>
-              </button>
-            ))}
+                  {f.label}
+                  <span
+                    className={cn(
+                      "ml-1.5 font-mono text-[10px]",
+                      active
+                        ? "text-background/70"
+                        : "text-muted-foreground/70"
+                    )}
+                  >
+                    {counts[f.value]}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
