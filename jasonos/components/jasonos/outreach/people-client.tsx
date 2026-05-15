@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
 import { ClassifyMenu } from "@/components/jasonos/outreach/classify-menu";
+import { ContactDetailDrawer } from "@/components/jasonos/outreach/contact-detail-drawer";
 import {
   CADENCE_LABELS,
   RELATIONSHIP_TYPES,
@@ -40,6 +41,7 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
   const [classifyTarget, setClassifyTarget] = useState<OutreachPerson | null>(
     null
   );
+  const [drawerTarget, setDrawerTarget] = useState<OutreachPerson | null>(null);
 
   const counts = useMemo(() => {
     const result: Record<RelFilter, number> = {
@@ -150,6 +152,7 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
                 <PersonRow
                   key={person.id}
                   person={person}
+                  onOpen={() => setDrawerTarget(person)}
                   onClassify={() => setClassifyTarget(person)}
                 />
               ))}
@@ -173,19 +176,56 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
           }}
         />
       ) : null}
+
+      {drawerTarget ? (
+        <ContactDetailDrawer
+          open={Boolean(drawerTarget)}
+          onOpenChange={(open) => {
+            if (!open) setDrawerTarget(null);
+          }}
+          contact={{
+            id: drawerTarget.id,
+            name: drawerTarget.name,
+            title: drawerTarget.title,
+            firm: drawerTarget.firm,
+            primary_email: drawerTarget.primary_email,
+            linkedin_url: drawerTarget.linkedin_url,
+            vip: drawerTarget.vip,
+            relationship_type: drawerTarget.relationship_type,
+            cadence_interval: drawerTarget.cadence_interval,
+            next_touch_date: drawerTarget.next_touch_date,
+            last_touch_date: drawerTarget.last_touch_date,
+          }}
+        />
+      ) : null}
     </>
   );
 }
 
 function PersonRow({
   person,
+  onOpen,
   onClassify,
 }: {
   person: OutreachPerson;
+  onOpen: () => void;
   onClassify: () => void;
 }) {
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
+
   return (
-    <li className="flex flex-wrap items-center gap-3 px-4 py-3">
+    <li
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      className="flex flex-wrap items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40 focus:bg-muted/40 focus:outline-none cursor-pointer"
+    >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium">{person.name}</span>
@@ -207,7 +247,7 @@ function PersonRow({
         lastTouch={person.last_touch_date}
       />
 
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="flex items-center gap-1 shrink-0" onClick={stop}>
         {person.linkedin_url ? (
           <Button
             variant="ghost"
@@ -234,7 +274,14 @@ function PersonRow({
             <Mail className="h-3.5 w-3.5" />
           </Button>
         ) : null}
-        <Button variant="outline" size="sm" onClick={onClassify}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClassify();
+          }}
+        >
           <TagIcon className="h-3.5 w-3.5" />
           Classify
         </Button>
