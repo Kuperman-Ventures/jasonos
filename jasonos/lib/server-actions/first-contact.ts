@@ -20,6 +20,8 @@ import type {
   FirstContactStageEvent,
   FirstContactState,
 } from "@/lib/first-contact/types";
+import type { CadenceInterval, RelationshipType } from "@/lib/outreach/types";
+import { nextTouchFromCadence } from "@/lib/outreach/types";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 type Track = "advisors" | "job_search" | "venture" | "personal";
@@ -42,6 +44,10 @@ export async function addColdTarget(input: {
   track?: Track;
   whyTarget?: string;
   specialty?: string;
+  /** Optional outreach sorting fields (defaults: prospect / no cadence / false). */
+  relationshipType?: RelationshipType | null;
+  cadence?: CadenceInterval | null;
+  vip?: boolean;
 }): Promise<{ ok: true; contactId: string; cardId: string } | { ok: false; error: string }> {
   if (!input.name.trim() || !input.firm.trim()) {
     return { ok: false, error: "Name and firm are required." };
@@ -55,6 +61,10 @@ export async function addColdTarget(input: {
   const track = input.track ?? "job_search";
   const linkedinUrl = input.linkedinUrl?.trim() || null;
   const email = input.email?.trim() || null;
+  const relationshipType: RelationshipType = input.relationshipType ?? "prospect";
+  const cadence: CadenceInterval = input.cadence ?? "none";
+  const nextTouch = cadence === "none" ? null : nextTouchFromCadence(cadence);
+  const vip = input.vip === true;
 
   const existingContact = linkedinUrl
     ? await sb
@@ -89,8 +99,10 @@ export async function addColdTarget(input: {
         tags,
         intent: input.intent,
         personal_goal: input.personalGoal?.trim() || null,
-        // Phase 1: classify outreach targets as prospects (migration 0013).
-        relationship_type: "prospect",
+        relationship_type: relationshipType,
+        cadence_interval: cadence,
+        next_touch_date: nextTouch,
+        vip,
       })
       .eq("id", contactId);
     if (error) return { ok: false, error: error.message };
@@ -106,8 +118,10 @@ export async function addColdTarget(input: {
         tags: ["role:cold_target", firmTag],
         intent: input.intent,
         personal_goal: input.personalGoal?.trim() || null,
-        // Phase 1: classify outreach targets as prospects (migration 0013).
-        relationship_type: "prospect",
+        relationship_type: relationshipType,
+        cadence_interval: cadence,
+        next_touch_date: nextTouch,
+        vip,
       })
       .select("id")
       .single();
@@ -506,6 +520,10 @@ function addTags(existing: string[], tags: string[]) {
 function revalidateReconnect() {
   revalidatePath("/reconnect");
   revalidatePath("/reconnect/contacts");
+  revalidatePath("/outreach/queue");
+  revalidatePath("/outreach/schedule");
+  revalidatePath("/outreach/people");
+  revalidatePath("/outreach/firms");
 }
 
 function hasSupabaseServiceRole() {

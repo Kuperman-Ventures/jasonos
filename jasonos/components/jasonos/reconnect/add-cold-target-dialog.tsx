@@ -2,6 +2,7 @@
 
 import { useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
+import { Star } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +15,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { addColdTarget } from "@/lib/server-actions/first-contact";
+import {
+  CADENCE_INTERVALS,
+  CADENCE_LABELS,
+  RELATIONSHIP_TYPES,
+  RELATIONSHIP_TYPE_LABELS,
+  type CadenceInterval,
+  type RelationshipType,
+} from "@/lib/outreach/types";
+import { cn } from "@/lib/utils";
 import type { Intent } from "@/lib/triage/types";
 import type { ReconnectContact } from "@/lib/reconnect/types";
 
@@ -30,6 +40,9 @@ interface FormState {
   intent: Intent;
   personalGoal: string;
   track: Track;
+  relationshipType: RelationshipType;
+  cadence: CadenceInterval;
+  vip: boolean;
 }
 
 const INITIAL: FormState = {
@@ -43,6 +56,9 @@ const INITIAL: FormState = {
   intent: "door",
   personalGoal: "",
   track: "job_search",
+  relationshipType: "prospect",
+  cadence: "none",
+  vip: false,
 };
 
 export function AddColdTargetDialog({
@@ -74,6 +90,9 @@ export function AddColdTargetDialog({
         intent: form.intent,
         personalGoal: form.personalGoal,
         track: form.track,
+        relationshipType: form.relationshipType,
+        cadence: form.cadence,
+        vip: form.vip,
       });
 
       if (!result.ok) {
@@ -167,6 +186,75 @@ export function AddColdTargetDialog({
                 onChange={(event) => setField("personalGoal", event.target.value)}
               />
             </Field>
+          </div>
+
+          <div className="mt-2 grid gap-3 rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 p-3">
+            <div className="text-xs font-medium text-muted-foreground">
+              Outreach sorting
+              <span className="ml-1 text-[10px] font-normal text-muted-foreground/60">
+                shows up in People, Schedule, and filters
+              </span>
+            </div>
+
+            <Field label="Relationship">
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                {RELATIONSHIP_TYPES.map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setField("relationshipType", value)}
+                    className={cn(
+                      "rounded-md border px-2 py-1.5 text-xs transition-colors",
+                      form.relationshipType === value
+                        ? "border-foreground bg-foreground text-background"
+                        : "border-input bg-background text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {RELATIONSHIP_TYPE_LABELS[value]}
+                  </button>
+                ))}
+              </div>
+            </Field>
+
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+              <Field label="Cadence">
+                <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+                  {CADENCE_INTERVALS.map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setField("cadence", value)}
+                      className={cn(
+                        "rounded-md border px-2 py-1.5 text-xs transition-colors",
+                        form.cadence === value
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-input bg-background text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      {CADENCE_LABELS[value]}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+
+              <Field label="VIP">
+                <button
+                  type="button"
+                  onClick={() => setField("vip", !form.vip)}
+                  className={cn(
+                    "inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs transition-colors",
+                    form.vip
+                      ? "border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                      : "border-input bg-background text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <Star
+                    className={cn("h-3.5 w-3.5", form.vip && "fill-amber-500 text-amber-500")}
+                  />
+                  {form.vip ? "VIP" : "Flag as VIP"}
+                </button>
+              </Field>
+            </div>
           </div>
         </div>
 
