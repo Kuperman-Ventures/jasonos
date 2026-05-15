@@ -399,7 +399,7 @@ function RecentContextSection({
       {!loading && sources && !sources.some((s) => s.found) && !recentTouches.length ? (
         <p className="text-xs text-muted-foreground">
           No prior history found across Gmail, HubSpot, Granola, Fireflies, or
-          recruiter notes. This will be drafted as a first reach.
+          your prior notes. This will be drafted as a first reach.
         </p>
       ) : null}
     </section>

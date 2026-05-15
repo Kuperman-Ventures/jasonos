@@ -233,14 +233,15 @@ export function ReconnectClient({
         <div>
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-orange-300">
             <Radar className="h-4 w-4" />
-            Reconnect
+            Outreach
           </div>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-            Recruiter Pipeline
+            Outreach Queue
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Daily outreach queue for executive search relationships. Not a CRM:
-            this is the action surface for the next best recruiter touch.
+            Daily action list across every relationship — search, advisors,
+            operators, prospects, personal. Not a CRM: this is the surface for
+            the next best touch.
           </p>
         </div>
         <div className="flex gap-2">
@@ -347,7 +348,7 @@ export function ReconnectClient({
             <p className="mt-1 max-w-md text-sm text-muted-foreground">
               {funnelFilter
                 ? "No priority contacts match this funnel stage."
-                : "No Tier 1 or Tier 2 recruiter touches are due today. Pull Tier 3 forward if you want to widen the field."}
+                : "No Tier 1 or Tier 2 touches are due today. Pull Tier 3 forward if you want to widen the field."}
             </p>
             {!funnelFilter ? (
               <Button className="mt-4" onClick={() => setIncludeTier3(true)}>

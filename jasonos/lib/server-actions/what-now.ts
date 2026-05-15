@@ -130,11 +130,13 @@ function buildWhatNowUserPrompt(enriched: Awaited<ReturnType<typeof enrichContex
 
   lines.push("AVAILABLE ROUTES (use these as href values):");
   lines.push("- /runner/triage — triage queue");
-  lines.push("- /reconnect — recruiter pipeline");
-  lines.push("- /reconnect?intent=triaged_ready — only triaged-ready contacts");
-  lines.push("- /reconnect?intent=door — only door-opener contacts");
+  lines.push("- /outreach/queue — outreach queue (relationships, search, advisors, prospects, personal)");
+  lines.push("- /outreach/queue?intent=triaged_ready — only triaged-ready contacts");
+  lines.push("- /outreach/queue?intent=door — only door-opener contacts");
+  lines.push("- /outreach/people — full people directory (classify, set cadence, draft)");
+  lines.push("- /outreach/schedule — time-grouped cadence view");
   lines.push("- /todos — initiative dashboard");
-  lines.push("- /contacts — Tier 1 ranker");
+  lines.push("- /contacts — Tier 1 ranker (bulk-rank-and-promote)");
   lines.push("");
 
   lines.push("Output the JSON only, no preamble.");

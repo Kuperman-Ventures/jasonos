@@ -15,8 +15,8 @@ export default async function OutreachFirmsPage() {
       <header>
         <h1 className="text-xl font-semibold tracking-tight">Firms</h1>
         <p className="mt-1 text-xs text-muted-foreground">
-          Contacts grouped by firm. Average strategic score is from the
-          recruiter pipeline where available.
+          Contacts grouped by firm. Average strategic score is shown where
+          available.
         </p>
       </header>
 
