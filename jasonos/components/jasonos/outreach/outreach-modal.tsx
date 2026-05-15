@@ -50,7 +50,11 @@ import {
   loadOutreachContext,
   generateOutreachDraft,
 } from "@/lib/server-actions/outreach-draft";
-import { logContactTouch } from "@/lib/server-actions/outreach";
+import {
+  getOutreachContactByRecruiterId,
+  logContactTouch,
+} from "@/lib/server-actions/outreach";
+import type { OutreachPerson } from "@/lib/outreach/data";
 import {
   LOG_TOUCH_CHANNELS,
   OUTREACH_DRAFT_MODES,
@@ -109,6 +113,14 @@ export function OutreachModal({
   const [suggestedMode, setSuggestedMode] =
     useState<OutreachDraftMode>("cadence_touchpoint");
 
+  // -- Linked jasonos.contacts row for recruiter-pipeline contacts. When
+  // recruiterPipeline is set, contact.id is an rr_recruiters.id; the new
+  // cadence-stage sections need the matching jasonos.contacts row (resolved
+  // by source_ids->>'recruiter_pipeline_id') to function.
+  const [linkedContact, setLinkedContact] = useState<OutreachPerson | null>(
+    null
+  );
+
   // -- Draft state
   const [mode, setMode] = useState<OutreachDraftMode | "auto">("auto");
   const [draftBody, setDraftBody] = useState("");
@@ -124,52 +136,77 @@ export function OutreachModal({
   const [logOutcome, setLogOutcome] = useState("");
   const [logging, startLogTransition] = useTransition();
 
-  // Pre-load context once when the modal opens. Initial state already has
-  // loadingCtx=true / sources=null so we don't reset synchronously here.
-  // Skip entirely when in recruiter-pipeline mode (the contact.id is a
-  // rr_recruiters.id, not a jasonos.contacts.id, and the new sections
-  // aren't rendered anyway).
+  // Pre-load context once when the modal opens. For recruiter-pipeline
+  // contacts we first resolve the matching jasonos.contacts row via
+  // source_ids->>'recruiter_pipeline_id'; only then do we load context
+  // against that resolved id. When the lookup yields no match (orphan
+  // recruiter), the new sections stay hidden — only the recruiter panel
+  // renders.
+  //
+  // OutreachModal is remounted on each open (parent renders {selected ?
+  // <OutreachModal/> : null}), so we rely on initial state for resets and
+  // avoid synchronous setState in the effect body.
   useEffect(() => {
     if (!open) return;
-    if (recruiterPipeline) {
-      setLoadingCtx(false);
-      return;
-    }
     let cancelled = false;
 
-    loadOutreachContext({ contactId: contact.id })
-      .then((result) => {
+    const run = async () => {
+      let resolvedId: string | null;
+      if (recruiterPipeline) {
+        const linked = await getOutreachContactByRecruiterId(contact.id);
         if (cancelled) return;
-        if (!result.ok) {
-          toast.error(result.error);
-          setLoadingCtx(false);
-          return;
-        }
-        setSources(result.sources);
-        setRecentTouches(result.recentTouches);
-        setSuggestedMode(result.suggestedMode);
+        setLinkedContact(linked);
+        resolvedId = linked?.id ?? null;
+      } else {
+        resolvedId = contact.id;
+      }
+
+      if (!resolvedId) {
         setLoadingCtx(false);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        toast.error(err instanceof Error ? err.message : "Failed to load context");
+        return;
+      }
+
+      const result = await loadOutreachContext({ contactId: resolvedId });
+      if (cancelled) return;
+      if (!result.ok) {
+        toast.error(result.error);
         setLoadingCtx(false);
-      });
+        return;
+      }
+      setSources(result.sources);
+      setRecentTouches(result.recentTouches);
+      setSuggestedMode(result.suggestedMode);
+      setLoadingCtx(false);
+    };
+
+    run().catch((err) => {
+      if (cancelled) return;
+      toast.error(err instanceof Error ? err.message : "Failed to load context");
+      setLoadingCtx(false);
+    });
 
     return () => {
       cancelled = true;
     };
   }, [open, contact.id, recruiterPipeline]);
 
+  // The "effective" contact used by the new cadence-stage sections. For
+  // regular contacts this is just the prop. For recruiter-pipeline contacts
+  // it's the looked-up jasonos.contacts row (or null if no match — in which
+  // case the new sections aren't rendered).
+  const sectionsContact = recruiterPipeline ? linkedContact : contact;
+  const showNewSections = sectionsContact !== null;
+
   const effectiveMode: OutreachDraftMode = mode === "auto" ? suggestedMode : mode;
 
   const handleGenerate = () => {
+    if (!sectionsContact) return;
     setGenerating(true);
     setDraftBody("");
     setDraftRationale("");
     setDraftMeta(null);
     generateOutreachDraft({
-      contactId: contact.id,
+      contactId: sectionsContact.id,
       mode: mode === "auto" ? undefined : mode,
     })
       .then((result) => {
@@ -201,12 +238,12 @@ export function OutreachModal({
   };
 
   const handleOpenInEmail = () => {
-    if (!draftBody) return;
-    const to = contact.primary_email ?? "";
+    if (!draftBody || !sectionsContact) return;
+    const to = sectionsContact.primary_email ?? "";
     const subject =
       draftMeta?.channel === "email_reply" ? "Re: " : draftMeta?.channel === "linkedin"
         ? ""
-        : `Quick note · ${contact.name}`;
+        : `Quick note · ${sectionsContact.name}`;
     const url = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(
       subject
     )}&body=${encodeURIComponent(draftBody)}`;
@@ -214,13 +251,14 @@ export function OutreachModal({
   };
 
   const handleLog = () => {
+    if (!sectionsContact) return;
     if (!logObjective) {
       toast.error("Pick an outcome — did this touch achieve its goal?");
       return;
     }
     startLogTransition(async () => {
       const result = await logContactTouch({
-        contactId: contact.id,
+        contactId: sectionsContact.id,
         channel: logChannel,
         direction: "outbound",
         brief: logBrief.trim() || undefined,
@@ -236,7 +274,7 @@ export function OutreachModal({
           ? "Cadence stage advanced."
           : "Cadence reset.";
       toast.success(
-        `Logged ${logChannel} touch with ${contact.name}. ${stageMsg}`
+        `Logged ${logChannel} touch with ${sectionsContact.name}. ${stageMsg}`
       );
       setLogBrief("");
       setLogOutcome("");
@@ -336,13 +374,26 @@ export function OutreachModal({
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-            {/* New unified-outreach sections — shown when this is a regular
-                jasonos.contacts row. Recruiter-pipeline contacts use the
-                pipeline panel below instead, since their id is the legacy
-                rr_recruiters.id (loadOutreachContext / logContactTouch
-                wouldn't resolve against contact_touches). */}
-            {!recruiterPipeline ? (
+            {recruiterPipeline ? (
+              <RecruiterPipelinePanel
+                contact={recruiterPipeline.contact}
+                contacts={recruiterPipeline.contacts}
+                onLocalStatus={recruiterPipeline.onLocalStatus}
+                onLocalNote={recruiterPipeline.onLocalNote}
+                onLocalTriage={recruiterPipeline.onLocalTriage}
+                onLocalFirstContact={recruiterPipeline.onLocalFirstContact}
+              />
+            ) : null}
+
+            {/* Unified-outreach sections. Always shown for regular contacts;
+                also shown beneath the recruiter panel when the rr_recruiters
+                row links to a jasonos.contacts row (source_ids
+                ->>'recruiter_pipeline_id') — letting cadence-stage progression
+                drive follow-up once the first-contact sequence is done. */}
+            {showNewSections && sectionsContact ? (
               <>
+                {recruiterPipeline ? <div className="border-t" /> : null}
+
                 <RecentContextSection
                   loading={loadingCtx}
                   sources={sources}
@@ -363,7 +414,7 @@ export function OutreachModal({
                   onGenerate={handleGenerate}
                   onCopy={handleCopy}
                   onOpenInEmail={handleOpenInEmail}
-                  hasEmail={Boolean(contact.primary_email)}
+                  hasEmail={Boolean(sectionsContact.primary_email)}
                 />
 
                 <LogTouchSection
@@ -377,19 +428,10 @@ export function OutreachModal({
                   setObjective={setLogObjective}
                   onLog={handleLog}
                   logging={logging}
-                  cadenceInterval={contact.cadence_interval}
+                  cadenceInterval={sectionsContact.cadence_interval}
                 />
               </>
-            ) : (
-              <RecruiterPipelinePanel
-                contact={recruiterPipeline.contact}
-                contacts={recruiterPipeline.contacts}
-                onLocalStatus={recruiterPipeline.onLocalStatus}
-                onLocalNote={recruiterPipeline.onLocalNote}
-                onLocalTriage={recruiterPipeline.onLocalTriage}
-                onLocalFirstContact={recruiterPipeline.onLocalFirstContact}
-              />
-            )}
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>

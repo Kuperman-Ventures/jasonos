@@ -1,15 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createServiceRoleClient } from "@/lib/supabase/server";
+import {
+  createPublicServiceRoleClient,
+  createServiceRoleClient,
+} from "@/lib/supabase/server";
 import {
   RELATIONSHIP_TYPE_META,
   nextTouchFromCadence,
   type CadenceInterval,
+  type CadenceStage,
   type RelationshipType,
   type TouchObjective,
 } from "@/lib/outreach/types";
 import type { LogTouchChannel } from "@/lib/outreach/draft-types";
+import type { OutreachPerson } from "@/lib/outreach/data";
 import {
   insertContactTouches,
   type TouchChannel,
@@ -289,4 +294,88 @@ export async function snoozeContact(
 
   revalidate();
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// getOutreachContactByRecruiterId — resolve the jasonos.contacts row that
+// links to a given rr_recruiters.id via source_ids.recruiter_pipeline_id.
+//
+// Used by the OutreachModal so recruiter-pipeline contacts can ALSO surface
+// the unified Recent Context / Draft Assist / Log Touch sections (which key
+// off jasonos.contacts.id, not rr_recruiters.id).
+// ---------------------------------------------------------------------------
+
+export async function getOutreachContactByRecruiterId(
+  recruiterId: string
+): Promise<OutreachPerson | null> {
+  if (!recruiterId) return null;
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.SUPABASE_SERVICE_ROLE_KEY
+  ) {
+    return null;
+  }
+
+  const sb = createServiceRoleClient();
+  const columns = `id,name,emails,linkedin_url,title,vip,tags,
+     relationship_type,cadence_interval,cadence_stage,next_touch_date,
+     last_touch_date,last_touch_channel`;
+
+  const { data, error } = await sb
+    .from("contacts")
+    .select(columns)
+    .filter("source_ids->>recruiter_pipeline_id", "eq", recruiterId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  // Enrich firm/title from rr_recruiters so the modal header & section
+  // helpers see real firm context even when contacts.title is null.
+  let firm: string | null = null;
+  let firmNormalized: string | null = null;
+  let title: string | null = (data.title as string | null) ?? null;
+  let strategicScore: number | null = null;
+  let firmFocusRank: number | null = null;
+  try {
+    const sbPublic = createPublicServiceRoleClient();
+    const { data: recruiter } = await sbPublic
+      .from("rr_recruiters")
+      .select("firm,firm_normalized,title,strategic_score,firm_focus_rank")
+      .eq("id", recruiterId)
+      .maybeSingle();
+    if (recruiter) {
+      firm = (recruiter.firm as string) ?? null;
+      firmNormalized = (recruiter.firm_normalized as string) ?? null;
+      title = title ?? ((recruiter.title as string) ?? null);
+      strategicScore = (recruiter.strategic_score as number) ?? null;
+      firmFocusRank = (recruiter.firm_focus_rank as number) ?? null;
+    }
+  } catch (err) {
+    console.error("[outreach.getOutreachContactByRecruiterId.enrich]", err);
+  }
+
+  const emails = (data.emails as string[] | null) ?? [];
+
+  return {
+    id: data.id as string,
+    name: data.name as string,
+    title,
+    firm,
+    firm_normalized: firmNormalized,
+    linkedin_url: (data.linkedin_url as string) ?? null,
+    primary_email: emails[0] ?? null,
+    vip: Boolean(data.vip),
+    relationship_type:
+      (data.relationship_type as RelationshipType | null) ?? null,
+    cadence_interval:
+      (data.cadence_interval as CadenceInterval | null) ?? "none",
+    cadence_stage: (data.cadence_stage as CadenceStage | null) ?? null,
+    next_touch_date: (data.next_touch_date as string | null) ?? null,
+    last_touch_date: (data.last_touch_date as string | null) ?? null,
+    last_touch_channel: (data.last_touch_channel as string | null) ?? null,
+    tags: (data.tags as string[] | null) ?? [],
+    strategic_score: strategicScore,
+    firm_focus_rank: firmFocusRank,
+  };
 }
