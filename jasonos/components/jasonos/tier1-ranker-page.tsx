@@ -60,7 +60,7 @@ import {
   type RunnerStateShape,
 } from "@/lib/contacts/runner";
 import { CandidateImport } from "@/components/jasonos/candidate-import";
-import { AddContactSheet } from "@/components/jasonos/add-contact-sheet";
+import { ContactCreateModal } from "@/components/jasonos/outreach/contact-create-modal";
 
 // ---- Cluster chip palette (Tailwind utility classes) ---------------------
 
@@ -445,7 +445,11 @@ export function Tier1RankerPage({
       )}
 
       <CandidateImport open={importOpen} onOpenChange={setImportOpen} />
-      <AddContactSheet open={addContactOpen} onOpenChange={setAddContactOpen} />
+      <ContactCreateModal
+        open={addContactOpen}
+        onOpenChange={setAddContactOpen}
+        defaultMode="contact"
+      />
     </div>
   );
 }

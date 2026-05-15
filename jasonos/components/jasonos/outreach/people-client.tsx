@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
 import { ClassifyMenu } from "@/components/jasonos/outreach/classify-menu";
-import { ContactDetailModal } from "@/components/jasonos/outreach/contact-detail-modal";
+import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import {
   CADENCE_LABELS,
   RELATIONSHIP_TYPES,
@@ -191,7 +191,7 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
       ) : null}
 
       {modalTarget ? (
-        <ContactDetailModal
+        <OutreachModal
           open={Boolean(modalTarget)}
           onOpenChange={(open) => {
             if (!open) setModalTarget(null);

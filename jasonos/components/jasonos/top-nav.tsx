@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { DispatchInbox } from "@/components/dispatch/DispatchInbox";
-import { AddContactSheet } from "@/components/jasonos/add-contact-sheet";
+import { ContactCreateModal } from "@/components/jasonos/outreach/contact-create-modal";
 import { ChevronDown, Command, Plus, Sparkles } from "lucide-react";
 
 // ─── Nav structure ─────────────────────────────────────────────────────────
@@ -193,7 +193,11 @@ export function TopNav() {
           </Button>
         </div>
       </div>
-      <AddContactSheet open={addContactOpen} onOpenChange={setAddContactOpen} />
+      <ContactCreateModal
+        open={addContactOpen}
+        onOpenChange={setAddContactOpen}
+        defaultMode="contact"
+      />
     </header>
   );
 }

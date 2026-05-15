@@ -31,6 +31,11 @@ import { cn } from "@/lib/utils";
 import { ClassifyMenu } from "@/components/jasonos/outreach/classify-menu";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
 import {
+  RecruiterPipelineActions,
+  RecruiterPipelinePanel,
+  type RecruiterPipelineProps,
+} from "@/components/jasonos/outreach/recruiter-pipeline-panel";
+import {
   CADENCE_LABELS,
   CADENCE_STAGE_SHORT,
   TOUCH_OBJECTIVES,
@@ -58,7 +63,7 @@ import {
 } from "@/lib/outreach/draft-types";
 import type { DraftSource } from "@/lib/server-actions/draft-from-history";
 
-export interface ContactDetailModalProps {
+export interface OutreachModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contact: {
@@ -75,13 +80,23 @@ export interface ContactDetailModalProps {
     next_touch_date?: string | null;
     last_touch_date?: string | null;
   };
+  /**
+   * Optional recruiter-pipeline data. When provided, the modal renders
+   * the recruiter-specific action buttons in the header and a full
+   * RecruiterPipelinePanel below the standard sections.
+   *
+   * Pass this when opening the modal for a contact that has an active
+   * recruiter pipeline record (rr_recruiters row + reconnect card).
+   */
+  recruiterPipeline?: RecruiterPipelineProps;
 }
 
-export function ContactDetailModal({
+export function OutreachModal({
   open,
   onOpenChange,
   contact,
-}: ContactDetailModalProps) {
+  recruiterPipeline,
+}: OutreachModalProps) {
   const router = useRouter();
 
   // -- Classify menu state
@@ -109,10 +124,17 @@ export function ContactDetailModal({
   const [logOutcome, setLogOutcome] = useState("");
   const [logging, startLogTransition] = useTransition();
 
-  // Pre-load context once when the drawer opens. Initial state already has
+  // Pre-load context once when the modal opens. Initial state already has
   // loadingCtx=true / sources=null so we don't reset synchronously here.
+  // Skip entirely when in recruiter-pipeline mode (the contact.id is a
+  // rr_recruiters.id, not a jasonos.contacts.id, and the new sections
+  // aren't rendered anyway).
   useEffect(() => {
     if (!open) return;
+    if (recruiterPipeline) {
+      setLoadingCtx(false);
+      return;
+    }
     let cancelled = false;
 
     loadOutreachContext({ contactId: contact.id })
@@ -137,7 +159,7 @@ export function ContactDetailModal({
     return () => {
       cancelled = true;
     };
-  }, [open, contact.id]);
+  }, [open, contact.id, recruiterPipeline]);
 
   const effectiveMode: OutreachDraftMode = mode === "auto" ? suggestedMode : mode;
 
@@ -258,6 +280,17 @@ export function ContactDetailModal({
               </Button>
             </div>
 
+            {recruiterPipeline ? (
+              <div className="mt-3 border-t pt-3">
+                <RecruiterPipelineActions
+                  contact={recruiterPipeline.contact}
+                  onLocalReconnectCardSent={
+                    recruiterPipeline.onLocalReconnectCardSent
+                  }
+                />
+              </div>
+            ) : null}
+
             <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
                 <RefreshCw className="h-3 w-3" />
@@ -303,42 +336,60 @@ export function ContactDetailModal({
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-            <RecentContextSection
-              loading={loadingCtx}
-              sources={sources}
-              recentTouches={recentTouches}
-            />
+            {/* New unified-outreach sections — shown when this is a regular
+                jasonos.contacts row. Recruiter-pipeline contacts use the
+                pipeline panel below instead, since their id is the legacy
+                rr_recruiters.id (loadOutreachContext / logContactTouch
+                wouldn't resolve against contact_touches). */}
+            {!recruiterPipeline ? (
+              <>
+                <RecentContextSection
+                  loading={loadingCtx}
+                  sources={sources}
+                  recentTouches={recentTouches}
+                />
 
-            <DraftAssistSection
-              loadingCtx={loadingCtx}
-              suggestedMode={suggestedMode}
-              mode={mode}
-              setMode={setMode}
-              effectiveMode={effectiveMode}
-              draftBody={draftBody}
-              setDraftBody={setDraftBody}
-              draftRationale={draftRationale}
-              draftMeta={draftMeta}
-              generating={generating}
-              onGenerate={handleGenerate}
-              onCopy={handleCopy}
-              onOpenInEmail={handleOpenInEmail}
-              hasEmail={Boolean(contact.primary_email)}
-            />
+                <DraftAssistSection
+                  loadingCtx={loadingCtx}
+                  suggestedMode={suggestedMode}
+                  mode={mode}
+                  setMode={setMode}
+                  effectiveMode={effectiveMode}
+                  draftBody={draftBody}
+                  setDraftBody={setDraftBody}
+                  draftRationale={draftRationale}
+                  draftMeta={draftMeta}
+                  generating={generating}
+                  onGenerate={handleGenerate}
+                  onCopy={handleCopy}
+                  onOpenInEmail={handleOpenInEmail}
+                  hasEmail={Boolean(contact.primary_email)}
+                />
 
-            <LogTouchSection
-              channel={logChannel}
-              setChannel={setLogChannel}
-              brief={logBrief}
-              setBrief={setLogBrief}
-              outcome={logOutcome}
-              setOutcome={setLogOutcome}
-              objective={logObjective}
-              setObjective={setLogObjective}
-              onLog={handleLog}
-              logging={logging}
-              cadenceInterval={contact.cadence_interval}
-            />
+                <LogTouchSection
+                  channel={logChannel}
+                  setChannel={setLogChannel}
+                  brief={logBrief}
+                  setBrief={setLogBrief}
+                  outcome={logOutcome}
+                  setOutcome={setLogOutcome}
+                  objective={logObjective}
+                  setObjective={setLogObjective}
+                  onLog={handleLog}
+                  logging={logging}
+                  cadenceInterval={contact.cadence_interval}
+                />
+              </>
+            ) : (
+              <RecruiterPipelinePanel
+                contact={recruiterPipeline.contact}
+                contacts={recruiterPipeline.contacts}
+                onLocalStatus={recruiterPipeline.onLocalStatus}
+                onLocalNote={recruiterPipeline.onLocalNote}
+                onLocalTriage={recruiterPipeline.onLocalTriage}
+                onLocalFirstContact={recruiterPipeline.onLocalFirstContact}
+              />
+            )}
           </div>
         </DialogContent>
       </Dialog>

@@ -20,7 +20,7 @@ import { ScoreChip } from "./score-chip";
 import { IntentBadge } from "./intent-badge";
 import { FocusBadge } from "./focus-badge";
 import { isBench } from "@/lib/reconnect/firm-focus";
-import { ReconnectDetailModal } from "./detail-modal";
+import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 
 const TIERS: RecruiterTier[] = ["TIER 1", "TIER 2", "TIER 3", "TIER 4"];
 const STATUSES: RecruiterStatus[] = [
@@ -165,80 +165,101 @@ export function ReconnectContactsClient({
         emptyMessage="No non-recruiter contacts match the current filters yet."
       />
 
-      <ReconnectDetailModal
-        contact={selected}
-        contacts={contacts}
-        onClose={() => setSelectedId(null)}
-        onLocalStatus={(id, status, note) =>
-          setContacts((current) =>
-            current.map((c) =>
-              c.id === id
-                ? {
-                    ...c,
-                    state: { ...c.state, status, updated_at: new Date().toISOString() },
-                    notes: note
-                      ? [
+      {selected ? (
+        <OutreachModal
+          open={!!selected}
+          onOpenChange={(open) => {
+            if (!open) setSelectedId(null);
+          }}
+          contact={{
+            id: selected.id,
+            name: selected.name,
+            title: selected.title ?? null,
+            firm: selected.firm ?? null,
+            primary_email: null,
+            linkedin_url: selected.linkedin_url ?? null,
+            vip: false,
+            relationship_type: "recruiter",
+            cadence_interval: "none",
+            cadence_stage: null,
+            next_touch_date: null,
+            last_touch_date: selected.last_contact_date ?? null,
+          }}
+          recruiterPipeline={{
+            contact: selected,
+            contacts,
+            onLocalStatus: (id, status, note) =>
+              setContacts((current) =>
+                current.map((c) =>
+                  c.id === id
+                    ? {
+                        ...c,
+                        state: {
+                          ...c.state,
+                          status,
+                          updated_at: new Date().toISOString(),
+                        },
+                        notes: note
+                          ? [
+                              {
+                                id: `local-note-${Date.now()}`,
+                                recruiter_id: id,
+                                body: note,
+                                created_at: new Date().toISOString(),
+                              },
+                              ...c.notes,
+                            ]
+                          : c.notes,
+                      }
+                    : c
+                )
+              ),
+            onLocalNote: (id, body) =>
+              setContacts((current) =>
+                current.map((c) =>
+                  c.id === id
+                    ? {
+                        ...c,
+                        notes: [
                           {
                             id: `local-note-${Date.now()}`,
                             recruiter_id: id,
-                            body: note,
+                            body,
                             created_at: new Date().toISOString(),
                           },
                           ...c.notes,
-                        ]
-                      : c.notes,
-                  }
-                : c
-            )
-          )
-        }
-        onLocalNote={(id, body) =>
-          setContacts((current) =>
-            current.map((c) =>
-              c.id === id
-                ? {
-                    ...c,
-                    notes: [
-                      {
-                        id: `local-note-${Date.now()}`,
-                        recruiter_id: id,
-                        body,
-                        created_at: new Date().toISOString(),
-                      },
-                      ...c.notes,
-                    ],
-                  }
-                : c
-            )
-          )
-        }
-        onLocalTriage={(id: string, intent: Intent | null, personalGoal: string | null) =>
-          setContacts((current) =>
-            current.map((c) =>
-              c.id === id
-                ? {
-                    ...c,
-                    intent,
-                    personal_goal: personalGoal,
-                  }
-                : c
-            )
-          )
-        }
-        onLocalReconnectCardSent={(id) =>
-          setContacts((current) =>
-            current.map((c) =>
-              c.id === id
-                ? {
-                    ...c,
-                    reconnect_object_type: "manual",
-                    has_open_reconnect_card: true,
-                  }
-                : c
-            )
-          )
-        }
-      />
+                        ],
+                      }
+                    : c
+                )
+              ),
+            onLocalTriage: (
+              id: string,
+              intent: Intent | null,
+              personalGoal: string | null
+            ) =>
+              setContacts((current) =>
+                current.map((c) =>
+                  c.id === id
+                    ? { ...c, intent, personal_goal: personalGoal }
+                    : c
+                )
+              ),
+            onLocalReconnectCardSent: (id) =>
+              setContacts((current) =>
+                current.map((c) =>
+                  c.id === id
+                    ? {
+                        ...c,
+                        reconnect_object_type: "manual",
+                        has_open_reconnect_card: true,
+                      }
+                    : c
+                )
+              ),
+          }}
+        />
+      ) : null}
     </div>
   );
 }

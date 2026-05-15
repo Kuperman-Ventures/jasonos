@@ -19,8 +19,8 @@ import type {
 import { getFunnelStage, type FunnelStage } from "@/lib/reconnect/priority";
 import { isBench } from "@/lib/reconnect/firm-focus";
 import { ReconnectQueueCard } from "./queue-card";
-import { ReconnectDetailModal } from "./detail-modal";
-import { AddColdTargetDialog } from "./add-cold-target-dialog";
+import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
+import { ContactCreateModal } from "@/components/jasonos/outreach/contact-create-modal";
 import { PriorityOutreachStrip } from "./priority-outreach-strip";
 import { ReconnectStatsStrip } from "./stats-strip";
 import type { FirstContactState } from "@/lib/first-contact/types";
@@ -359,20 +359,44 @@ export function ReconnectClient({
         )}
       </section>
 
-      <ReconnectDetailModal
-        contact={selected}
-        contacts={contacts}
-        onClose={() => setSelectedId(null)}
-        onLocalStatus={setStatus}
-        onLocalNote={addLocalNote}
-        onLocalTriage={setLocalTriage}
-        onLocalReconnectCardSent={setLocalReconnectCardSent}
-        onLocalFirstContact={setLocalFirstContact}
-      />
-      <AddColdTargetDialog
+      {selected ? (
+        <OutreachModal
+          open={!!selected}
+          onOpenChange={(open) => {
+            if (!open) setSelectedId(null);
+          }}
+          contact={{
+            id: selected.id,
+            name: selected.name,
+            title: selected.title ?? null,
+            firm: selected.firm ?? null,
+            primary_email: null,
+            linkedin_url: selected.linkedin_url ?? null,
+            vip: false,
+            relationship_type: "recruiter",
+            cadence_interval: "none",
+            cadence_stage: null,
+            next_touch_date: null,
+            last_touch_date: selected.last_contact_date ?? null,
+          }}
+          recruiterPipeline={{
+            contact: selected,
+            contacts,
+            onLocalStatus: setStatus,
+            onLocalNote: addLocalNote,
+            onLocalTriage: setLocalTriage,
+            onLocalReconnectCardSent: setLocalReconnectCardSent,
+            onLocalFirstContact: setLocalFirstContact,
+          }}
+        />
+      ) : null}
+      <ContactCreateModal
         open={addColdOpen}
         onOpenChange={setAddColdOpen}
-        onCreated={addLocalColdTarget}
+        defaultMode="outreach_target"
+        onCreated={({ reconnectContact }) => {
+          if (reconnectContact) addLocalColdTarget(reconnectContact);
+        }}
       />
     </div>
   );

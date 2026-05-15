@@ -8,7 +8,7 @@ import { useState } from "react";
 import { AlertTriangle, ChevronDown, Star, Tag as TagIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ContactDetailModal } from "@/components/jasonos/outreach/contact-detail-modal";
+import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
 import type { OutreachPerson, WarmthReminder, WarmthUrgency } from "@/lib/outreach/data";
 
@@ -95,7 +95,7 @@ export function WarmthWidget({ reminders, initialLimit = 4 }: WarmthWidgetProps)
       </section>
 
       {modalTarget ? (
-        <ContactDetailModal
+        <OutreachModal
           open={Boolean(modalTarget)}
           onOpenChange={(open) => {
             if (!open) setModalTarget(null);
