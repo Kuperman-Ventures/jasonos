@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ArrowRight, CheckCircle2, Plus, Radar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +55,7 @@ export function ReconnectClient({
   initialIntentFilter?: IntentFilter;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [contacts, setContacts] = useState(data.contacts);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [includeTier3, setIncludeTier3] = useState(false);
@@ -64,11 +65,12 @@ export function ReconnectClient({
   const [addColdOpen, setAddColdOpen] = useState(false);
 
   useEffect(() => {
+    if (!pathname) return;
     const params = new URLSearchParams();
     if (intentFilter === "anchors_only") params.set("focus", "anchors");
     else if (intentFilter === "triaged_ready") params.set("intent", "triaged_ready");
-    router.replace(`/reconnect${params.size ? `?${params}` : ""}`, { scroll: false });
-  }, [intentFilter, router]);
+    router.replace(`${pathname}${params.size ? `?${params}` : ""}`, { scroll: false });
+  }, [intentFilter, pathname, router]);
 
   const stats = useMemo(() => computeStats(contacts), [contacts]);
   const intentCounts = useMemo(() => computeIntentCounts(contacts), [contacts]);
