@@ -445,18 +445,42 @@ async function loadOutreachContactRow(
 }
 
 async function getRecentTouches(ctx: ContactContext): Promise<RecentTouch[]> {
+  const sb = createServiceRoleClient();
+
+  // Primary source of truth (Phase 4): jasonos.contact_touches keyed on
+  // the canonical jasonos.contacts.id.
+  const { data, error } = await sb
+    .from("contact_touches")
+    .select("id,channel,direction,touched_at,brief")
+    .eq("contact_id", ctx.id)
+    .order("touched_at", { ascending: false })
+    .limit(10);
+
+  if (error) {
+    console.error("[outreach.getRecentTouches.contact_touches]", error);
+  } else if (data && data.length) {
+    return data.map((row): RecentTouch => ({
+      id: row.id as string,
+      channel: row.channel as string,
+      direction: row.direction as string,
+      touched_at: row.touched_at as string,
+      brief: (row.brief as string) ?? null,
+    }));
+  }
+
+  // Fallback for environments where the 0014 backfill hasn't been applied
+  // yet — read directly from rr_touches via the recruiter_pipeline_id link.
   const recruiterId = getStringField(ctx.source_ids?.recruiter_pipeline_id);
   if (!recruiterId) return [];
 
-  const sb = createServiceRoleClient();
-  const { data } = await sb
+  const { data: legacy } = await sb
     .from("rr_touches")
     .select("id,channel,direction,touched_at,brief")
     .eq("contact_id", recruiterId)
     .order("touched_at", { ascending: false })
     .limit(10);
 
-  return (data ?? []).map((row): RecentTouch => ({
+  return (legacy ?? []).map((row): RecentTouch => ({
     id: row.id as string,
     channel: row.channel as string,
     direction: row.direction as string,

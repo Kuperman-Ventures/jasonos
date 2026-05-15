@@ -39,6 +39,12 @@ export interface OutreachFirm {
   people: OutreachPerson[];
 }
 
+export interface OutreachSyncSnapshot {
+  source: string;
+  last_synced_at: string | null;
+  last_result: Record<string, unknown> | null;
+}
+
 function hasServiceRole() {
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -214,4 +220,37 @@ export async function getOutreachFirms(): Promise<OutreachFirm[]> {
     if (bv !== av) return bv - av;
     return b.count - a.count;
   });
+}
+
+// ---------------------------------------------------------------------------
+// getOutreachSyncState — read jasonos.outreach_sync_state for the tab nav
+// "last synced" indicator. Returns empty array if the Phase 4 migration
+// hasn't been applied yet (table missing → falls back gracefully).
+// ---------------------------------------------------------------------------
+
+export async function getOutreachSyncState(): Promise<OutreachSyncSnapshot[]> {
+  if (!hasServiceRole()) return [];
+  try {
+    const sb = createServiceRoleClient();
+    const { data, error } = await sb
+      .from("outreach_sync_state")
+      .select("source,last_synced_at,last_result")
+      .order("source", { ascending: true });
+    if (error) {
+      // Table missing means the user hasn't applied 0014 yet; not a real
+      // error worth surfacing.
+      if (!/relation .+ does not exist/i.test(error.message)) {
+        console.error("[outreach.getOutreachSyncState]", error);
+      }
+      return [];
+    }
+    return (data ?? []).map((row) => ({
+      source: row.source as string,
+      last_synced_at: (row.last_synced_at as string) ?? null,
+      last_result: (row.last_result as Record<string, unknown> | null) ?? null,
+    }));
+  } catch (err) {
+    console.error("[outreach.getOutreachSyncState]", err);
+    return [];
+  }
 }

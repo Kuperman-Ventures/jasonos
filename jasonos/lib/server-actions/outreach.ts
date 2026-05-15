@@ -3,12 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
-  CADENCE_DAYS,
   nextTouchFromCadence,
   type CadenceInterval,
   type RelationshipType,
 } from "@/lib/outreach/types";
 import type { LogTouchChannel } from "@/lib/outreach/draft-types";
+import {
+  insertContactTouches,
+  type TouchChannel,
+} from "@/lib/outreach/touch-capture";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -160,54 +163,40 @@ export async function logContactTouch(input: {
   if (guard) return guard;
   if (!input.contactId) return { ok: false, error: "contactId is required." };
 
-  const sb = createServiceRoleClient();
-
   const touchedAt = input.touchedAtISO ?? new Date().toISOString();
-  const touchedDate = touchedAt.split("T")[0];
 
-  const { data: contact, error: readErr } = await sb
-    .from("contacts")
-    .select("id,cadence_interval,source_ids")
-    .eq("id", input.contactId)
-    .maybeSingle();
-  if (readErr) return { ok: false, error: readErr.message };
-  if (!contact) return { ok: false, error: "Contact not found." };
+  // Insert into the canonical jasonos.contact_touches table; this also
+  // auto-advances last_touch_date + next_touch_date based on cadence.
+  const result = await insertContactTouches([
+    {
+      contact_id: input.contactId,
+      channel: input.channel as TouchChannel,
+      direction: input.direction ?? "outbound",
+      touched_at: touchedAt,
+      source: "manual",
+      brief: input.brief?.trim() || null,
+    },
+  ]);
 
-  const cadence =
-    (contact.cadence_interval as CadenceInterval | null) ?? "none";
-
-  // Auto-advance next_touch_date when a cadence is set; for outbound touches
-  // this is the standard "saw them, reschedule next reach". For inbound we
-  // still advance — receiving a reply also resets the rhythm.
-  let nextTouchDate: string | null = null;
-  if (cadence !== "none") {
-    const anchor = new Date(`${touchedDate}T00:00:00`);
-    anchor.setDate(anchor.getDate() + CADENCE_DAYS[cadence]);
-    nextTouchDate = anchor.toISOString().split("T")[0];
+  if (result.errors.length) {
+    return { ok: false, error: result.errors.join("; ") };
   }
 
-  const updatePayload: Record<string, unknown> = {
-    last_touch_date: touchedDate,
-    last_touch_channel: input.channel,
-  };
-  if (nextTouchDate) updatePayload.next_touch_date = nextTouchDate;
-
-  const { error: updateErr } = await sb
+  // Mirror to rr_touches for recruiter contacts so the existing legacy
+  // Communications timeline view continues to render manual touches.
+  const sb = createServiceRoleClient();
+  const { data: contact } = await sb
     .from("contacts")
-    .update(updatePayload)
-    .eq("id", input.contactId);
-  if (updateErr) return { ok: false, error: updateErr.message };
+    .select("source_ids")
+    .eq("id", input.contactId)
+    .maybeSingle();
 
-  // Mirror to rr_touches for recruiter contacts so the existing timeline view
-  // shows the manually-logged touch.
-  const sourceIds = (contact.source_ids as Record<string, unknown> | null) ?? {};
+  const sourceIds = (contact?.source_ids as Record<string, unknown> | null) ?? {};
   const recruiterId =
     typeof sourceIds.recruiter_pipeline_id === "string"
       ? sourceIds.recruiter_pipeline_id
       : null;
   if (recruiterId) {
-    // Best-effort; ignore failures here so logging the touch on the contact
-    // succeeds even if the rr_touches mirror has a transient issue.
     await sb
       .from("rr_touches")
       .insert({
@@ -215,7 +204,7 @@ export async function logContactTouch(input: {
         channel: input.channel,
         direction: input.direction ?? "outbound",
         touched_at: touchedAt,
-        brief: input.brief ?? null,
+        brief: input.brief?.trim() || null,
         source: "manual",
       })
       .then(
