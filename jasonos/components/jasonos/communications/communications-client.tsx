@@ -35,6 +35,7 @@ import type {
   CommChannel,
   CommUrgency,
   LastContactContents,
+  CadenceInterval,
 } from "@/lib/server-actions/communications";
 import {
   dismissCommunicationContact,
@@ -42,6 +43,10 @@ import {
   syncSentToday,
   getLastContactContents,
 } from "@/lib/server-actions/communications";
+import {
+  dismissCadenceContact,
+  scheduleCadenceTouch,
+} from "@/lib/server-actions/cadence";
 import { getFirmmates } from "@/lib/server-actions/firmmates";
 import type { Firmmate } from "@/lib/server-actions/firmmates";
 import { FocusBadge } from "@/components/jasonos/reconnect/focus-badge";
@@ -137,6 +142,18 @@ const CADENCE_OPTIONS = [
   { label: "Every 6 months", value: "6_months" },
   { label: "Annually", value: "annually" },
 ];
+
+const CADENCE_INTERVAL_LABELS: Record<CadenceInterval, string> = {
+  weekly: "Weekly",
+  biweekly: "Biweekly",
+  monthly: "Monthly",
+  quarterly: "Quarterly",
+  none: "No",
+};
+
+function cadenceLabel(interval: CadenceInterval): string {
+  return CADENCE_INTERVAL_LABELS[interval] ?? interval;
+}
 
 const SORT_OPTIONS = [
   "Priority score",
@@ -277,9 +294,14 @@ export function CommunicationsClient({
     setSelectedId((prev) => (prev === id ? null : id));
 
   const handleDismiss = (id: string) => {
+    const target = activeContacts.find((c) => c.id === id) ?? null;
     setDismissed((prev) => new Set([...prev, id]));
     if (selectedId === id) setSelectedId(null);
-    void dismissCommunicationContact(id);
+    if (target?.source === "cadence" && target.cadenceCardId) {
+      void dismissCadenceContact(target.cadenceCardId);
+    } else {
+      void dismissCommunicationContact(id);
+    }
   };
 
   return (
@@ -607,7 +629,11 @@ function ContactDetailPanel({
 
   const handleSchedule = () => {
     startTransition(async () => {
-      await scheduleNextTouch(contact.id, nextContactOption);
+      if (contact.source === "cadence" && contact.cadenceCardId) {
+        await scheduleCadenceTouch(contact.cadenceCardId, nextContactOption);
+      } else {
+        await scheduleNextTouch(contact.id, nextContactOption);
+      }
       setScheduled(true);
     });
   };
@@ -639,6 +665,12 @@ function ContactDetailPanel({
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Building2 className="h-3.5 w-3.5 shrink-0" />
             <span className="font-medium text-foreground/80">{contact.firm}</span>
+          </div>
+        ) : null}
+        {contact.source === "cadence" && contact.cadenceInterval && contact.cadenceInterval !== "none" ? (
+          <div className="inline-flex items-center gap-1.5 rounded-md border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium text-sky-300">
+            <RefreshCw className="h-3 w-3" />
+            {cadenceLabel(contact.cadenceInterval)} cadence
           </div>
         ) : null}
         {contact.hubspot_url ? (

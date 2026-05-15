@@ -16,6 +16,7 @@ import {
   CircleAlert,
   Inbox,
   CheckCircle2,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -59,6 +60,7 @@ import {
   type RunnerStateShape,
 } from "@/lib/contacts/runner";
 import { CandidateImport } from "@/components/jasonos/candidate-import";
+import { AddContactSheet } from "@/components/jasonos/add-contact-sheet";
 
 // ---- Cluster chip palette (Tailwind utility classes) ---------------------
 
@@ -115,6 +117,7 @@ export function Tier1RankerPage({
   );
   const [view, setView] = useState<ViewMode>("all");
   const [importOpen, setImportOpen] = useState(false);
+  const [addContactOpen, setAddContactOpen] = useState(false);
   const [recruitersOpen, setRecruitersOpen] = useState(true);
   const [contactsOpen, setContactsOpen] = useState(true);
 
@@ -346,26 +349,35 @@ export function Tier1RankerPage({
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Contacts</h1>
           <p className="mt-1 text-xs text-muted-foreground">
-            Tier 1 Reconnect Ranker — score the network 1-5 on recency /
-            seniority / fit, then auto-rank the top 30. Picks get written to{" "}
-            <code>jasonos.cards</code> so they feed ActionQueue and Today&apos;s
-            Must-Dos automatically.
+            Add anyone you want to stay in touch with on a regular cadence, or run
+            the Tier 1 Reconnect Ranker over a bulk import to score the network
+            and auto-promote the top 30 to ActionQueue.
           </p>
         </div>
-        <div className="flex flex-col items-end gap-1.5">
-          <span className="text-xs text-muted-foreground">
-            <span className={cn("font-mono text-sm", selectedCount === TARGET_SIZE ? "text-sky-400" : "text-foreground")}>
-              {selectedCount}
+        <div className="flex flex-col items-end gap-2">
+          <Button
+            size="sm"
+            className="h-8 gap-1.5"
+            onClick={() => setAddContactOpen(true)}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add contact
+          </Button>
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-xs text-muted-foreground">
+              <span className={cn("font-mono text-sm", selectedCount === TARGET_SIZE ? "text-sky-400" : "text-foreground")}>
+                {selectedCount}
+              </span>
+              <span className="mx-1">/</span>
+              <span className="font-mono text-sm">{TARGET_SIZE}</span>
+              <span className="ml-1.5">selected</span>
             </span>
-            <span className="mx-1">/</span>
-            <span className="font-mono text-sm">{TARGET_SIZE}</span>
-            <span className="ml-1.5">selected</span>
-          </span>
-          <div className="h-1 w-48 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full bg-sky-400 transition-all"
-              style={{ width: `${progress * 100}%` }}
-            />
+            <div className="h-1 w-48 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full bg-sky-400 transition-all"
+                style={{ width: `${progress * 100}%` }}
+              />
+            </div>
           </div>
         </div>
       </header>
@@ -433,6 +445,7 @@ export function Tier1RankerPage({
       )}
 
       <CandidateImport open={importOpen} onOpenChange={setImportOpen} />
+      <AddContactSheet open={addContactOpen} onOpenChange={setAddContactOpen} />
     </div>
   );
 }

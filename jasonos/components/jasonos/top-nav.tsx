@@ -13,8 +13,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { DispatchInbox } from "@/components/dispatch/DispatchInbox";
+import { AddContactSheet } from "@/components/jasonos/add-contact-sheet";
 import { getUntriagedReconnectCount } from "@/lib/server-actions/triage";
-import { ChevronDown, Command, Sparkles } from "lucide-react";
+import { ChevronDown, Command, Plus, Sparkles } from "lucide-react";
 
 // ─── Nav structure ─────────────────────────────────────────────────────────
 
@@ -128,6 +129,7 @@ function NavGroup({
 export function TopNav() {
   const pathname = usePathname();
   const [triageCount, setTriageCount] = useState(0);
+  const [addContactOpen, setAddContactOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -136,6 +138,12 @@ export function TopNav() {
       .catch(() => { if (active) setTriageCount(0); });
     return () => { active = false; };
   }, [pathname]);
+
+  useEffect(() => {
+    const open = () => setAddContactOpen(true);
+    window.addEventListener("jasonos:open-add-contact", open as EventListener);
+    return () => window.removeEventListener("jasonos:open-add-contact", open as EventListener);
+  }, []);
 
   function isActive(item: NavItem): boolean {
     if (item.kind === "link") {
@@ -183,6 +191,15 @@ export function TopNav() {
           <Button
             variant="outline"
             size="sm"
+            className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => setAddContactOpen(true)}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add contact
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             className="h-8 gap-2 text-xs text-muted-foreground hover:text-foreground"
             onClick={() =>
               window.dispatchEvent(new CustomEvent("jasonos:open-tell-claude"))
@@ -196,6 +213,7 @@ export function TopNav() {
           </Button>
         </div>
       </div>
+      <AddContactSheet open={addContactOpen} onOpenChange={setAddContactOpen} />
     </header>
   );
 }

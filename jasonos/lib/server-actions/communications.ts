@@ -14,6 +14,7 @@ import {
 import {
   getHubSpotContactActivities,
 } from "@/lib/integrations/hubspot";
+import type { CadenceInterval as CadenceIntervalType } from "@/lib/cadence/types";
 
 // Kupe's known outbound email addresses (v1 hardcode — update if addresses change)
 const MY_EMAILS = ["jason@kupermanadvisors.com", "jskuperman@gmail.com"];
@@ -52,6 +53,9 @@ export interface CommPeer {
   firm: string | null;
 }
 
+export type CommSource = "recruiter" | "cadence";
+export type { CadenceInterval } from "@/lib/cadence/types";
+
 export interface CommunicationsContact {
   id: string;
   name: string;
@@ -67,6 +71,12 @@ export interface CommunicationsContact {
   summaryOfPriorComms: string | null;
   peers: CommPeer[];
   hubspot_url: string | null;
+  /** Identifies the upstream store backing this contact. */
+  source: CommSource;
+  /** When source === "cadence", the id of the open jasonos.cards row. */
+  cadenceCardId: string | null;
+  /** When source === "cadence", the interval the user picked. */
+  cadenceInterval: CadenceIntervalType | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -144,7 +154,13 @@ export async function getCommunicationsData(): Promise<CommunicationsContact[]> 
       )
       .order("strategic_score", { ascending: false });
 
-    if (error || !recruiters?.length) return [];
+    if (error) {
+      console.error("[communications] rr_recruiters query failed", error);
+    }
+    if (!recruiters?.length) {
+      // No recruiter pipeline rows — fall back to cadence-only contacts.
+      return await getCadenceCommunicationsContacts();
+    }
 
     const ids = recruiters.map((r) => r.id as string);
     const today = startOfToday();
@@ -183,9 +199,9 @@ export async function getCommunicationsData(): Promise<CommunicationsContact[]> 
       firmMap.set(r.firm as string, arr);
     }
 
-    return recruiters
+    const recruiterContacts: CommunicationsContact[] = recruiters
       .filter((r) => stateMap.get(r.id as string)?.status !== "dismissed")
-      .map((r) => {
+      .map((r): CommunicationsContact => {
         const state = stateMap.get(r.id as string) ?? null;
         const contactTouches = touchesByContact.get(r.id as string) ?? [];
 
@@ -248,10 +264,124 @@ export async function getCommunicationsData(): Promise<CommunicationsContact[]> 
           summaryOfPriorComms: (r.summary_of_prior_comms as string) ?? null,
           peers,
           hubspot_url: (r.hubspot_url as string) ?? null,
+          source: "recruiter" as const,
+          cadenceCardId: null,
+          cadenceInterval: null,
         };
       });
+
+    // Merge in cadence contacts (added via the global "Add contact" sheet).
+    // These live in jasonos.contacts + jasonos.cards, not the rr_* pipeline.
+    const cadenceContacts = await getCadenceCommunicationsContacts();
+    const recruiterIds = new Set(recruiterContacts.map((c) => c.id));
+    const merged = [
+      ...recruiterContacts,
+      ...cadenceContacts.filter((c) => !recruiterIds.has(c.id)),
+    ];
+    return merged;
   } catch (err) {
     console.error("[communications] getCommunicationsData failed", err);
+    return [];
+  }
+}
+
+async function getCadenceCommunicationsContacts(): Promise<CommunicationsContact[]> {
+  try {
+    const sb = createServiceRoleClient();
+    const { data: cards, error } = await sb
+      .from("cards")
+      .select("id,title,subtitle,body,linked_object_ids,state,created_at")
+      .eq("module", "reconnect")
+      .eq("object_type", "cadence_contact")
+      .eq("state", "open");
+
+    if (error) {
+      console.error("[communications] cadence cards query failed", error);
+      return [];
+    }
+    if (!cards?.length) return [];
+
+    const contactIds = cards
+      .map((c) => {
+        const linked = c.linked_object_ids as Record<string, unknown> | null;
+        const id = linked?.contact_id;
+        return typeof id === "string" ? id : null;
+      })
+      .filter((id): id is string => Boolean(id));
+
+    if (!contactIds.length) return [];
+
+    const { data: contacts } = await sb
+      .from("contacts")
+      .select("id,name,title,linkedin_url,emails,tags,last_touch_date,last_touch_channel,notes")
+      .in("id", contactIds);
+
+    const contactsById = new Map(
+      (contacts ?? []).map((c) => [c.id as string, c])
+    );
+    const today = startOfToday();
+
+    return cards
+      .map((card): CommunicationsContact | null => {
+        const linked = card.linked_object_ids as Record<string, unknown> | null;
+        const contactId = typeof linked?.contact_id === "string" ? linked.contact_id : null;
+        if (!contactId) return null;
+        const contact = contactsById.get(contactId);
+        if (!contact) return null;
+
+        const body = (card.body as
+          | {
+              cadence_interval?: CadenceIntervalType;
+              next_touch_date?: string | null;
+              notes?: string | null;
+              firm?: string | null;
+            }
+          | null) ?? {};
+        const cadenceInterval = (body.cadence_interval as CadenceIntervalType) ?? "none";
+        const nextDue = typeof body.next_touch_date === "string" ? body.next_touch_date : null;
+
+        const lastTouchDate = (contact.last_touch_date as string | null) ?? null;
+        const lastTouchChannel = toCommChannel(contact.last_touch_channel as string | null);
+        const lastTouch: CommTouch | null = lastTouchDate
+          ? {
+              id: `cadence-${card.id as string}-last`,
+              channel: lastTouchChannel,
+              direction: "outbound",
+              touched_at: new Date(`${lastTouchDate}T00:00:00`).toISOString(),
+              brief: (contact.notes as string | null) ?? null,
+            }
+          : null;
+
+        const contactedToday = lastTouchDate
+          ? new Date(`${lastTouchDate}T00:00:00`) >= today
+          : false;
+        const recentlyContacted = lastTouchDate
+          ? new Date(`${lastTouchDate}T00:00:00`) >= addDays(today, -3)
+          : false;
+
+        return {
+          id: contactId,
+          name: (contact.name as string) ?? (card.title as string) ?? "Untitled",
+          title: (contact.title as string) ?? null,
+          firm: body.firm ?? null,
+          firm_normalized: body.firm ? body.firm.toLowerCase() : null,
+          firm_focus_rank: null,
+          strength: 1,
+          urgency: computeUrgency(nextDue, contactedToday, recentlyContacted),
+          lastTouch,
+          recentTouches: lastTouch ? [lastTouch] : [],
+          nextActionDueDate: nextDue,
+          summaryOfPriorComms: (body.notes as string | null) ?? (contact.notes as string | null) ?? null,
+          peers: [],
+          hubspot_url: null,
+          source: "cadence",
+          cadenceCardId: card.id as string,
+          cadenceInterval,
+        };
+      })
+      .filter((c): c is CommunicationsContact => c !== null);
+  } catch (err) {
+    console.error("[communications] getCadenceCommunicationsContacts failed", err);
     return [];
   }
 }
