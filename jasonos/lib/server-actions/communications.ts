@@ -733,31 +733,73 @@ export async function syncSentToday(): Promise<SyncSentTodayResult> {
     console.error("[communications] hubspot sync failed", err);
   }
 
-  // --- Upsert ---
+  // --- Insert with pre-check dedup ---
+  // The unique index `rr_touches_source_external_id_uniq` (migration 0011) is
+  // *partial* — it only applies WHERE source IS NOT NULL AND external_id
+  // IS NOT NULL. Postgres won't infer a partial unique index for ON CONFLICT
+  // unless the same WHERE predicate is restated, and Supabase's .upsert() has
+  // no way to pass that predicate. So we mirror the NOT EXISTS pre-check
+  // pattern used for jasonos.contact_touches in 0014. The partial unique
+  // index stays as defense-in-depth against two sync workers racing.
   const allRows = [...gmailRows, ...hubspotRows];
   let written = 0;
 
   if (allRows.length) {
     try {
-      const { data, error } = await sbPublic
-        .from("rr_touches")
-        .upsert(allRows, { onConflict: "source,external_id", ignoreDuplicates: true })
-        .select("id");
+      const sources = Array.from(new Set(allRows.map((r) => r.source)));
+      const externalIds = Array.from(
+        new Set(allRows.map((r) => r.external_id))
+      );
 
-      if (error) {
-        const hint = error.message.includes("column")
-          ? " — Apply migration 0011 in Supabase Dashboard SQL Editor first."
-          : "";
+      const { data: existingRows, error: preErr } = await sbPublic
+        .from("rr_touches")
+        .select("source, external_id")
+        .in("source", sources)
+        .in("external_id", externalIds);
+
+      if (preErr) {
         return {
           ok: false,
           written: 0,
           gmail: gmailRows.length,
           hubspot: hubspotRows.length,
           skippedUnmatched,
-          error: error.message + hint,
+          error: `pre-check: ${preErr.message}`,
         };
       }
-      written = data?.length ?? 0;
+
+      const existingKeys = new Set<string>();
+      for (const row of existingRows ?? []) {
+        const src = (row as { source: string | null }).source;
+        const ext = (row as { external_id: string | null }).external_id;
+        if (src && ext) existingKeys.add(`${src}::${ext}`);
+      }
+
+      const newRows = allRows.filter(
+        (r) => !existingKeys.has(`${r.source}::${r.external_id}`)
+      );
+
+      if (newRows.length) {
+        const { data, error } = await sbPublic
+          .from("rr_touches")
+          .insert(newRows)
+          .select("id");
+
+        if (error) {
+          const hint = error.message.includes("column")
+            ? " — Apply migration 0011 in Supabase Dashboard SQL Editor first."
+            : "";
+          return {
+            ok: false,
+            written: 0,
+            gmail: gmailRows.length,
+            hubspot: hubspotRows.length,
+            skippedUnmatched,
+            error: error.message + hint,
+          };
+        }
+        written = data?.length ?? 0;
+      }
     } catch (err) {
       return {
         ok: false,

@@ -78,26 +78,77 @@ export async function insertContactTouches(
   };
   if (!touches.length) return result;
 
-  // ---- Step 1: upsert into contact_touches (dedup on source, external_id)
-  // We upsert in two batches: rows with an external_id (use ON CONFLICT) and
-  // rows without (always insert). For the simple case we use a single upsert.
+  // ---- Step 1: insert into contact_touches (dedup on source, external_id)
+  // We split rows in two batches: rows with an external_id (need dedup) and
+  // rows without (always insert; manual entries get a fresh row each time).
+  //
+  // Why not .upsert({ onConflict: "source,external_id" })? The unique index
+  // `uniq_contact_touches_source_external_id` (see 0014_contact_touches.sql)
+  // is *partial* — it only applies WHERE source IS NOT NULL AND external_id
+  // IS NOT NULL. Postgres won't infer a partial unique index for ON CONFLICT
+  // unless the same WHERE predicate is restated, and the Supabase client API
+  // has no way to pass that predicate. Result: the upsert fails at runtime
+  // with "no unique or exclusion constraint matching the ON CONFLICT
+  // specification". We mirror the NOT EXISTS pre-check pattern used in the
+  // 0014 backfill instead. The partial unique index stays as defense-in-depth
+  // against two sync workers racing past the pre-check.
 
   const withDedup = touches.filter((t) => t.external_id);
   const noDedup = touches.filter((t) => !t.external_id);
 
   if (withDedup.length) {
-    const { data, error } = await client
+    const sources = Array.from(
+      new Set(
+        withDedup
+          .map((t) => t.source)
+          .filter((s): s is TouchSource => Boolean(s))
+      )
+    );
+    const externalIds = Array.from(
+      new Set(
+        withDedup
+          .map((t) => t.external_id)
+          .filter((id): id is string => Boolean(id))
+      )
+    );
+
+    // Pre-check: which (source, external_id) tuples already exist? The .in()
+    // pair may match a small cross-product superset; we filter precisely in
+    // JS below using a Set of `${source}::${external_id}` keys.
+    const { data: existingRows, error: preErr } = await client
       .from("contact_touches")
-      .upsert(withDedup, {
-        onConflict: "source,external_id",
-        ignoreDuplicates: true,
-      })
-      .select("id, contact_id");
-    if (error) {
-      result.errors.push(`upsert(dedup): ${error.message}`);
+      .select("source, external_id")
+      .in("source", sources)
+      .in("external_id", externalIds);
+
+    if (preErr) {
+      // Bail safely: without the pre-check we'd risk inserting duplicates
+      // (the partial unique index can't catch us via ON CONFLICT here).
+      result.errors.push(`pre-check: ${preErr.message}`);
     } else {
-      result.inserted += data?.length ?? 0;
-      result.duplicates += withDedup.length - (data?.length ?? 0);
+      const existingKeys = new Set<string>();
+      for (const row of existingRows ?? []) {
+        const src = row.source as string | null;
+        const ext = row.external_id as string | null;
+        if (src && ext) existingKeys.add(`${src}::${ext}`);
+      }
+
+      const newRows = withDedup.filter(
+        (t) => !existingKeys.has(`${t.source}::${t.external_id}`)
+      );
+      result.duplicates += withDedup.length - newRows.length;
+
+      if (newRows.length) {
+        const { data, error } = await client
+          .from("contact_touches")
+          .insert(newRows)
+          .select("id, contact_id");
+        if (error) {
+          result.errors.push(`insert(dedup): ${error.message}`);
+        } else {
+          result.inserted += data?.length ?? 0;
+        }
+      }
     }
   }
 
