@@ -210,9 +210,15 @@ export function CommunicationsClient({
   const [needsSchedOpen, setNeedsSchedOpen] = useState(true);
   const [sentTodayOpen, setSentTodayOpen] = useState(true);
   const [scheduledOpen, setScheduledOpen] = useState(false);
+  const [urgencyFilter, setUrgencyFilter] = useState<CommUrgency | null>(null);
 
   const today = new Date().toISOString().split("T")[0];
 
+  // Kept intact alongside the syncSentToday import — the Schedule-local
+  // "Sync today" button that called this has been removed, but the global
+  // sync surface still uses the syncSentToday server action and may want
+  // this wrapper. Remove only as a separate cleanup.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const requestEmailSync = async () => {
     if (isSyncing) return;
     setIsSyncing(true);
@@ -265,13 +271,16 @@ export function CommunicationsClient({
       : activeContacts.filter(
           (c) => c.firm_focus_rank === null || c.firm_focus_rank === 1
         );
+    const urgencyFiltered = urgencyFilter
+      ? base.filter((c) => c.urgency === urgencyFilter)
+      : base;
     const list = q
-      ? base.filter(
+      ? urgencyFiltered.filter(
           (c) =>
             c.name.toLowerCase().includes(q) ||
             (c.firm ?? "").toLowerCase().includes(q)
         )
-      : base;
+      : urgencyFiltered;
 
     return [...list].sort((a, b) => {
       if (sort === "Last contact") {
@@ -284,7 +293,7 @@ export function CommunicationsClient({
         return (a.firm ?? "").localeCompare(b.firm ?? "");
       return b.strength - a.strength;
     });
-  }, [activeContacts, query, sort]);
+  }, [activeContacts, query, sort, urgencyFilter]);
 
   const selectedContact = selectedId
     ? activeContacts.find((c) => c.id === selectedId) ?? null
@@ -376,11 +385,20 @@ export function CommunicationsClient({
               ).length;
               if (!count) return null;
               const cfg = URGENCY_CONFIG[u];
+              const active = urgencyFilter === u;
               return (
                 <button
                   key={u}
                   type="button"
-                  className="rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  aria-pressed={active}
+                  onClick={() =>
+                    setUrgencyFilter((current) => (current === u ? null : u))
+                  }
+                  className={`rounded-full border px-2 py-0.5 text-[10px] transition-colors ${
+                    active
+                      ? "border-foreground bg-foreground text-background"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
                 >
                   {cfg.label} · {count}
                 </button>
@@ -530,16 +548,6 @@ export function CommunicationsClient({
               <RotateCcw className="h-3 w-3" />
               Refresh
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 gap-1.5 text-xs border-violet-400/40 bg-violet-500/10 text-violet-200 hover:bg-violet-500/20 hover:border-violet-300/60"
-              onClick={() => void requestEmailSync()}
-              disabled={isSyncing}
-            >
-              <Mail className="h-3 w-3" />
-              {isSyncing ? "Syncing…" : "Sync today"}
-            </Button>
           </div>
         </div>
 
@@ -558,8 +566,10 @@ export function CommunicationsClient({
         ) : null}
 
         <div className="flex-1 overflow-y-auto min-h-0">
-          {URGENCY_ORDER.map((urgency) => {
-            const bucket = activeContacts.filter(
+          {URGENCY_ORDER.filter(
+            (urgency) => !urgencyFilter || urgency === urgencyFilter
+          ).map((urgency) => {
+            const bucket = filteredForList.filter(
               (c) => c.urgency === urgency
             );
             return (

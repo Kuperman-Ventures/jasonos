@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
   Link2,
@@ -10,6 +11,7 @@ import {
   Tag as TagIcon,
   CalendarClock,
   ListOrdered,
+  X,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -37,6 +39,12 @@ const FILTERS: { value: RelFilter; label: string }[] = [
 ];
 
 export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const firmFilter = searchParams.get("firm");
+  const firmFilterNormalized = firmFilter?.trim().toLowerCase() ?? null;
+
   const [query, setQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState<Set<RelFilter>>(
     () => new Set()
@@ -45,6 +53,13 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
     null
   );
   const [modalTarget, setModalTarget] = useState<OutreachPerson | null>(null);
+
+  const clearFirmFilter = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("firm");
+    const next = params.toString();
+    router.replace(next ? `${pathname}?${next}` : pathname);
+  };
 
   const counts = useMemo(() => {
     const result: Record<RelFilter, number> = {
@@ -75,6 +90,11 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return people.filter((p) => {
+      if (firmFilterNormalized) {
+        if ((p.firm ?? "").trim().toLowerCase() !== firmFilterNormalized) {
+          return false;
+        }
+      }
       if (activeFilters.size > 0) {
         const matches =
           p.relationship_type === null
@@ -90,7 +110,7 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
         (p.primary_email ?? "").toLowerCase().includes(q)
       );
     });
-  }, [people, query, activeFilters]);
+  }, [people, query, activeFilters, firmFilterNormalized]);
 
   return (
     <>
@@ -134,6 +154,19 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
             />
           </div>
           <div className="flex flex-wrap gap-1.5">
+            {firmFilter ? (
+              <button
+                type="button"
+                onClick={clearFirmFilter}
+                title="Clear firm filter"
+                className="inline-flex items-center gap-1 rounded-full border border-sky-500/60 bg-sky-500/15 px-2.5 py-1 text-xs text-sky-200 transition-colors hover:bg-sky-500/25"
+              >
+                <span>
+                  Firm: <span className="font-medium">{firmFilter}</span>
+                </span>
+                <X className="h-3 w-3" />
+              </button>
+            ) : null}
             <button
               key="all"
               type="button"

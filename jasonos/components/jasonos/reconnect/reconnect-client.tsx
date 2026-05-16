@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowRight, CheckCircle2, Plus, Radar } from "lucide-react";
+import { ArrowRight, CheckCircle2, Plus, Radar, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { AskDispatchButton } from "@/components/dispatch/AskDispatchButton";
 import type { Intent } from "@/lib/triage/types";
 import type {
@@ -63,6 +64,7 @@ export function ReconnectClient({
   const [intentFilter, setIntentFilter] = useState<IntentFilter>(initialIntentFilter);
   const [funnelFilter, setFunnelFilter] = useState<FunnelStage | null>(null);
   const [addColdOpen, setAddColdOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (!pathname) return;
@@ -86,8 +88,12 @@ export function ReconnectClient({
     [sortedContacts, selectedType]
   );
   const filteredContacts = useMemo(
-    () => filterByFunnel(filterByIntent(typeFilteredContacts, intentFilter), funnelFilter),
-    [typeFilteredContacts, intentFilter, funnelFilter]
+    () =>
+      filterBySearch(
+        filterByFunnel(filterByIntent(typeFilteredContacts, intentFilter), funnelFilter),
+        searchQuery
+      ),
+    [typeFilteredContacts, intentFilter, funnelFilter, searchQuery]
   );
   const displayedContacts = useMemo(
     () => (funnelFilter ? filteredContacts : getQueue(filteredContacts, includeTier3)),
@@ -257,7 +263,7 @@ export function ReconnectClient({
           </Button>
           <AskDispatchButton
             requestType="pipeline_analysis"
-            sourcePage="/reconnect"
+            sourcePage="/outreach/queue"
             context={{
               total_roles: contacts.length,
               stage_distribution: getStageDistribution(contacts),
@@ -272,11 +278,23 @@ export function ReconnectClient({
         </div>
       </header>
 
-      <IntentFilterChips
-        selected={intentFilter}
-        counts={intentCounts}
-        onSelect={setIntentFilter}
-      />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative w-full max-w-xs">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search name or firm…"
+            className="h-9 pl-8"
+          />
+        </div>
+        <IntentFilterChips
+          selected={intentFilter}
+          counts={intentCounts}
+          onSelect={setIntentFilter}
+        />
+      </div>
 
       <ReconnectStatsStrip
         stats={stats}
@@ -629,6 +647,16 @@ function filterByIntent(contacts: ReconnectContact[], filter: IntentFilter) {
 function filterByFunnel(contacts: ReconnectContact[], filter: FunnelStage | null) {
   if (!filter) return contacts;
   return contacts.filter((contact) => getFunnelStage(contact) === filter);
+}
+
+function filterBySearch(contacts: ReconnectContact[], rawQuery: string) {
+  const q = rawQuery.trim().toLowerCase();
+  if (!q) return contacts;
+  return contacts.filter((contact) => {
+    const name = (contact.name ?? "").toLowerCase();
+    const firm = (contact.firm ?? "").toLowerCase();
+    return name.includes(q) || firm.includes(q);
+  });
 }
 
 function compareReconnectContacts(a: ReconnectContact, b: ReconnectContact) {

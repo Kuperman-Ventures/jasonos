@@ -283,8 +283,40 @@ export function OutreachModal({
     });
   };
 
+  // When opened with recruiterPipeline and the linked jasonos.contacts row
+  // resolves, the header reads from that canonical OutreachPerson so the
+  // surface matches People exactly. Orphan recruiters (no linked row) fall
+  // back to the recruiter-shim contact prop.
+  const header = recruiterPipeline && linkedContact
+    ? {
+        name: linkedContact.name,
+        title: linkedContact.title,
+        firm: linkedContact.firm,
+        vip: linkedContact.vip,
+        relationship_type: linkedContact.relationship_type,
+        cadence_interval: linkedContact.cadence_interval,
+        cadence_stage: linkedContact.cadence_stage,
+        next_touch_date: linkedContact.next_touch_date,
+        last_touch_date: linkedContact.last_touch_date,
+        primary_email: linkedContact.primary_email,
+        linkedin_url: linkedContact.linkedin_url,
+      }
+    : {
+        name: contact.name,
+        title: contact.title ?? null,
+        firm: contact.firm ?? null,
+        vip: contact.vip,
+        relationship_type: contact.relationship_type,
+        cadence_interval: contact.cadence_interval,
+        cadence_stage: contact.cadence_stage ?? null,
+        next_touch_date: contact.next_touch_date ?? null,
+        last_touch_date: contact.last_touch_date ?? null,
+        primary_email: contact.primary_email ?? null,
+        linkedin_url: contact.linkedin_url ?? null,
+      };
+
   const cadenceLabel =
-    CADENCE_LABELS[contact.cadence_interval] || contact.cadence_interval;
+    CADENCE_LABELS[header.cadence_interval] || header.cadence_interval;
 
   return (
     <>
@@ -296,14 +328,14 @@ export function OutreachModal({
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
                 <DialogTitle className="flex items-center gap-2">
-                  <span className="truncate">{contact.name}</span>
-                  {contact.vip ? (
+                  <span className="truncate">{header.name}</span>
+                  {header.vip ? (
                     <Star className="h-4 w-4 shrink-0 fill-amber-400 text-amber-400" />
                   ) : null}
-                  <RelationshipBadge type={contact.relationship_type} />
+                  <RelationshipBadge type={header.relationship_type} />
                 </DialogTitle>
                 <DialogDescription className="mt-0.5 truncate text-xs">
-                  {[contact.title, contact.firm].filter(Boolean).join(" · ") ||
+                  {[header.title, header.firm].filter(Boolean).join(" · ") ||
                     "No title or firm on file"}
                 </DialogDescription>
               </div>
@@ -334,34 +366,34 @@ export function OutreachModal({
                 <RefreshCw className="h-3 w-3" />
                 {cadenceLabel}
               </span>
-              {contact.cadence_stage ? (
+              {header.cadence_stage ? (
                 <span
                   className="inline-flex items-center rounded-sm border border-foreground/20 bg-muted/60 px-1 py-0.5 text-[9px] font-medium uppercase tracking-wider text-foreground/80"
-                  title={`Cadence arc: ${contact.cadence_stage}`}
+                  title={`Cadence arc: ${header.cadence_stage}`}
                 >
-                  {CADENCE_STAGE_SHORT[contact.cadence_stage]}
+                  {CADENCE_STAGE_SHORT[header.cadence_stage]}
                 </span>
               ) : null}
-              {contact.next_touch_date ? (
-                <span>next: {fmtRelative(contact.next_touch_date)}</span>
+              {header.next_touch_date ? (
+                <span>next: {fmtRelative(header.next_touch_date)}</span>
               ) : null}
-              {contact.last_touch_date ? (
-                <span>last: {fmtRelative(contact.last_touch_date)}</span>
+              {header.last_touch_date ? (
+                <span>last: {fmtRelative(header.last_touch_date)}</span>
               ) : (
                 <span className="italic">no touches yet</span>
               )}
-              {contact.primary_email ? (
+              {header.primary_email ? (
                 <a
-                  href={`mailto:${contact.primary_email}`}
+                  href={`mailto:${header.primary_email}`}
                   className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
                 >
                   <Mail className="h-3 w-3" />
-                  {contact.primary_email}
+                  {header.primary_email}
                 </a>
               ) : null}
-              {contact.linkedin_url ? (
+              {header.linkedin_url ? (
                 <a
-                  href={contact.linkedin_url}
+                  href={header.linkedin_url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
