@@ -1,7 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createPublicServiceRoleClient } from "@/lib/supabase/server";
+import {
+  createPublicClient,
+  createPublicServiceRoleClient,
+  createServiceRoleClient,
+} from "@/lib/supabase/server";
 import {
   getGoogleAccessToken,
   fetchAllCosaCalendarEvents,
@@ -18,6 +22,52 @@ function hasConfig() {
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
   );
+}
+
+// Resolve the owner's auth.users.id for tables that require user_id (single-user app).
+// Tries (in order): the authenticated session, JASONOS_OWNER_USER_ID env, the Google
+// integration row's owner, then any timer_sessions row. Returns null if none can be found.
+async function getOwnerUserId(): Promise<string | null> {
+  try {
+    const sb = await createPublicClient();
+    const { data, error } = await sb.auth.getUser();
+    if (!error && data.user?.id) return data.user.id;
+  } catch {
+    // ignored — no auth context (e.g. background invocation)
+  }
+
+  const configured = process.env.JASONOS_OWNER_USER_ID?.trim();
+  if (configured) return configured;
+
+  if (!hasConfig()) return null;
+
+  try {
+    const jasonosDb = createServiceRoleClient();
+    const { data } = await jasonosDb
+      .from("user_integrations")
+      .select("user_id")
+      .eq("provider", "google")
+      .not("user_id", "is", null)
+      .limit(1)
+      .maybeSingle();
+    const id = (data as { user_id?: string | null } | null)?.user_id ?? null;
+    if (id) return id;
+  } catch {
+    // continue
+  }
+
+  try {
+    const publicDb = createPublicServiceRoleClient();
+    const { data } = await publicDb
+      .from("timer_sessions")
+      .select("user_id")
+      .not("user_id", "is", null)
+      .limit(1)
+      .maybeSingle();
+    return (data as { user_id?: string | null } | null)?.user_id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -87,18 +137,35 @@ export async function saveAllocations(
 async function loadCalendarTags(): Promise<Record<string, CalendarTag>> {
   if (!hasConfig()) return {};
   const db = createPublicServiceRoleClient();
-  const { data } = await db.from("calendar_event_tags").select("*");
+  const userId = await getOwnerUserId();
+
+  let query = db.from("calendar_event_tags").select("*");
+  if (userId) query = query.eq("user_id", userId);
+  const { data } = await query;
+
   const tags: Record<string, CalendarTag> = {};
   for (const row of data ?? []) {
-    const r = row as { gcal_event_id: string; track: string; sub_track?: string | null; title?: string; duration_min?: number; date?: string; kpi_credits?: string[]; kpi_quantities?: Record<string, number> };
+    const r = row as {
+      gcal_event_id: string;
+      track: string;
+      sub_track?: string | null;
+      event_title?: string | null;
+      duration_min?: number | null;
+      event_date?: string | null;
+      kpi_credits?: string[] | null;
+      kpi_quantities?: Record<string, number> | null;
+    };
     tags[r.gcal_event_id] = {
       track: r.track,
       subTrack: r.sub_track ?? null,
-      title: r.title,
-      durationMin: r.duration_min,
-      date: r.date,
-      kpiCredits: r.kpi_credits ?? [],
-      kpiQuantities: r.kpi_quantities ?? {},
+      title: r.event_title ?? undefined,
+      durationMin: r.duration_min ?? undefined,
+      date: r.event_date ?? undefined,
+      kpiCredits: Array.isArray(r.kpi_credits) ? r.kpi_credits : [],
+      kpiQuantities:
+        r.kpi_quantities && typeof r.kpi_quantities === "object" && !Array.isArray(r.kpi_quantities)
+          ? r.kpi_quantities
+          : {},
     };
   }
   return tags;
@@ -109,21 +176,32 @@ export async function upsertCalendarTag(
   tag: CalendarTag
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
+  if (!gcalEventId) return { ok: false, error: "Missing calendar event id" };
+
+  const userId = await getOwnerUserId();
+  if (!userId) {
+    return {
+      ok: false,
+      error:
+        "Cannot persist calendar tag: no owner user_id resolved (set JASONOS_OWNER_USER_ID or sign in).",
+    };
+  }
 
   const db = createPublicServiceRoleClient();
   const { error } = await db.from("calendar_event_tags").upsert(
     {
+      user_id: userId,
       gcal_event_id: gcalEventId,
       track: tag.track,
       sub_track: tag.subTrack ?? null,
-      title: tag.title ?? null,
+      event_title: tag.title ?? null,
       duration_min: tag.durationMin ?? null,
-      date: tag.date ?? null,
+      event_date: tag.date ?? null,
       kpi_credits: tag.kpiCredits ?? [],
       kpi_quantities: tag.kpiQuantities ?? {},
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "gcal_event_id" }
+    { onConflict: "user_id,gcal_event_id" }
   );
 
   if (error) return { ok: false, error: error.message };
@@ -135,12 +213,14 @@ export async function removeCalendarTag(
   gcalEventId: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
+  if (!gcalEventId) return { ok: false, error: "Missing calendar event id" };
 
   const db = createPublicServiceRoleClient();
-  const { error } = await db
-    .from("calendar_event_tags")
-    .delete()
-    .eq("gcal_event_id", gcalEventId);
+  const userId = await getOwnerUserId();
+
+  let query = db.from("calendar_event_tags").delete().eq("gcal_event_id", gcalEventId);
+  if (userId) query = query.eq("user_id", userId);
+  const { error } = await query;
 
   if (error) return { ok: false, error: error.message };
   return { ok: true };

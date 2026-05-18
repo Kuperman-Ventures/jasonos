@@ -482,7 +482,7 @@ function TagModal({
 }: {
   ev: GCalEvent;
   calendarTags: Record<string, CalendarTag>;
-  onSave: (track: string, subTrack: string | null, kpiPayload: { kpiCredits: string[]; kpiQuantities: Record<string, number> }) => void;
+  onSave: (track: string, subTrack: string | null, kpiPayload: { kpiCredits: string[]; kpiQuantities: Record<string, number> }) => Promise<void>;
   onClose: () => void;
 }) {
   const existing = calendarTags[ev.id ?? ""];
@@ -490,7 +490,21 @@ function TagModal({
   const [subTrack, setSubTrack] = useState(existing?.subTrack ?? "");
   const [kpiCredits, setKpiCredits] = useState<string[]>(existing?.kpiCredits ?? []);
   const [kpiQuantities, setKpiQuantities] = useState<Record<string, number>>(existing?.kpiQuantities ?? {});
+  const [saving, setSaving] = useState(false);
   const kpiGroups = quickLogGroupsForTrack(track);
+
+  async function handleSave() {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await onSave(track, subTrack || null, {
+        kpiCredits,
+        kpiQuantities: Object.fromEntries(kpiCredits.map((m) => [m, kpiQuantities[m] ?? 1])),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
 
   function handleTrackChange(nextTrack: string) {
     setTrack(nextTrack);
@@ -565,9 +579,12 @@ function TagModal({
           </div>
         </div>
         <div className="flex gap-2 border-t border-border p-4">
-          <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-border py-2 text-sm text-muted-foreground hover:bg-muted">Cancel</button>
-          <button type="button" onClick={() => onSave(track, subTrack || null, { kpiCredits, kpiQuantities: Object.fromEntries(kpiCredits.map((m) => [m, kpiQuantities[m] ?? 1])) })}
-            className="flex-1 rounded-lg bg-foreground py-2 text-sm font-semibold text-background hover:bg-foreground/90">Save Tag</button>
+          <button type="button" onClick={onClose} disabled={saving}
+            className="flex-1 rounded-lg border border-border py-2 text-sm text-muted-foreground hover:bg-muted disabled:opacity-40">Cancel</button>
+          <button type="button" onClick={handleSave} disabled={saving}
+            className="flex-1 rounded-lg bg-foreground py-2 text-sm font-semibold text-background hover:bg-foreground/90 disabled:opacity-40">
+            {saving ? "Saving…" : "Save Tag"}
+          </button>
         </div>
       </div>
     </div>
@@ -937,11 +954,19 @@ export function WeekPlannerClient({
           weekEvents: [...prev.weekEvents, result.event],
           untaggedCosaEvents: prev.untaggedCosaEvents.filter((e) => e.id !== ev.id),
         }));
+      } else {
+        setError(`Failed to update calendar event: ${result.error}`);
+        return;
       }
     }
 
-    await upsertCalendarTag(ev.id ?? "", tag);
+    const tagResult = await upsertCalendarTag(ev.id ?? "", tag);
+    if (!tagResult.ok) {
+      setError(`Failed to save categorization: ${tagResult.error}`);
+      return;
+    }
     setWeekData((prev) => ({ ...prev, calendarTags: { ...prev.calendarTags, [ev.id ?? ""]: tag } }));
+    setError("");
     setTagModal(null);
   }
 
