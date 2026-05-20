@@ -47,7 +47,7 @@ import {
   Snowflake,
   Sparkles,
   Flame,
-  X,
+  Archive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
@@ -56,9 +56,9 @@ import {
   CADENCE_HELPERS,
   CADENCE_INTERVALS,
   CADENCE_LABELS,
-  CONTACT_INTENTS,
   CONTACT_INTENT_HELPERS,
   CONTACT_INTENT_LABELS,
+  PRIMARY_CONTACT_INTENTS,
   RELATIONSHIP_TYPES,
   RELATIONSHIP_TYPE_HELPERS,
   RELATIONSHIP_TYPE_LABELS,
@@ -460,6 +460,9 @@ export function OutreachModal({
         toast.error(result.error);
         return;
       }
+      if (next === "backrow") {
+        toast.success("Moved to Backrow — not in your queue.");
+      }
       router.refresh();
     });
   };
@@ -684,6 +687,7 @@ function IntentControl({
   intent: ContactIntent | null;
   onChange: (next: ContactIntent | null) => void;
 }) {
+  const backrowActive = intent === "backrow";
   return (
     <section>
       <div className="mb-2 flex items-center justify-between gap-2">
@@ -694,15 +698,15 @@ function IntentControl({
           <button
             type="button"
             onClick={() => onChange(null)}
+            title="Clear the intent pin — queue-buckets derivation rules will decide again."
             className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground"
           >
-            <X className="h-3 w-3" />
-            Clear
+            Reset intent
           </button>
         ) : null}
       </div>
       <div className="grid grid-cols-3 gap-1.5">
-        {CONTACT_INTENTS.map((value) => {
+        {PRIMARY_CONTACT_INTENTS.map((value) => {
           const Icon =
             value === "warm" ? Flame : value === "specific" ? Sparkles : Snowflake;
           const active = intent === value;
@@ -734,6 +738,25 @@ function IntentControl({
           );
         })}
       </div>
+      <button
+        type="button"
+        onClick={() => onChange("backrow")}
+        title="Remove from queue — kept in your contacts list."
+        className={cn(
+          "mt-1.5 flex w-full items-center justify-between gap-2 rounded-md border border-dashed px-3 py-1.5 text-left text-[11px] transition-colors",
+          backrowActive
+            ? "border-foreground/60 bg-muted text-foreground"
+            : "border-border/80 text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+        )}
+      >
+        <span className="flex items-center gap-1.5 font-medium">
+          <Archive className="h-3 w-3" />
+          {CONTACT_INTENT_LABELS.backrow}
+        </span>
+        <span className="text-[10px] font-normal opacity-80">
+          {CONTACT_INTENT_HELPERS.backrow}
+        </span>
+      </button>
     </section>
   );
 }
@@ -841,6 +864,24 @@ function IntentSection({
         </div>
 
         {children}
+      </section>
+    );
+  }
+
+  if (intent === "backrow") {
+    return (
+      <section className="space-y-3">
+        <div className="rounded-md border border-dashed bg-muted/20 p-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1.5 font-medium text-foreground/80">
+            <Archive className="h-3.5 w-3.5" />
+            This contact is in Backrow — not in your queue.
+          </div>
+          <p className="mt-1 leading-relaxed">
+            They&rsquo;re still in your contacts list. Pick Warm, Specific, or
+            Cold above to bring them back into the queue, or use
+            &ldquo;Reset intent&rdquo; to let the derivation rules decide.
+          </p>
+        </div>
       </section>
     );
   }

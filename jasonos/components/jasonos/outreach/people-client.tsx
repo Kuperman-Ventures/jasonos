@@ -11,6 +11,7 @@ import {
   Tag as TagIcon,
   CalendarClock,
   ListOrdered,
+  Archive,
   X,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -282,6 +283,15 @@ function PersonRow({
           <span className="truncate text-sm font-medium">{person.name}</span>
           {person.vip ? (
             <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" />
+          ) : null}
+          {person.intent === "backrow" ? (
+            <span
+              title="Removed from queue — kept in your contacts list."
+              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-dashed border-border bg-muted/40 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-muted-foreground"
+            >
+              <Archive className="h-2.5 w-2.5" />
+              Backrow
+            </span>
           ) : null}
           <RelationshipBadge type={person.relationship_type} />
         </div>

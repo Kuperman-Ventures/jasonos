@@ -187,9 +187,10 @@ export async function toggleVip(
 }
 
 // ---------------------------------------------------------------------------
-// setContactIntent — pin a contact to a queue column (warm/specific/cold) or
-// clear it (null) so the queue-buckets derivation rules decide. Backed by
-// migration 0017.
+// setContactIntent — pin a contact to a queue column (warm/specific/cold),
+// remove them from the queue entirely (backrow, migration 0019), or clear
+// the value (null) so the queue-buckets derivation rules decide. Backed by
+// migration 0017 (column) + 0018/0019 (CHECK constraint widenings).
 // ---------------------------------------------------------------------------
 
 export async function setContactIntent(
@@ -209,13 +210,14 @@ export async function setContactIntent(
   if (error) {
     // The legacy `jasonos.contacts.intent` column ships with a CHECK
     // constraint (`contacts_intent_check`) whose allow-list pre-dates the
-    // new outreach-queue intents. If that constraint hasn't been widened by
-    // migration 0018, writes of 'specific' / 'cold' will fail here.
+    // new outreach-queue intents. If that constraint hasn't been widened
+    // to include the latest intent values (currently 'backrow' from
+    // migration 0019), writes will fail here.
     if (/contacts_intent_check/i.test(error.message)) {
       return {
         ok: false,
         error:
-          "Intent CHECK constraint is too narrow — run migration 0018_widen_contacts_intent_check.sql, then try again.",
+          "Intent CHECK constraint is too narrow — run migration 0019_add_backrow_intent.sql (or the latest), then try again.",
       };
     }
     if (/\bintent\b/i.test(error.message) || /\bcontact_intent\b/i.test(error.message)) {

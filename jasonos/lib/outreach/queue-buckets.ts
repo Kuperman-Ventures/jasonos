@@ -10,10 +10,20 @@
 // linked recruiter pipeline row. New contacts never land in Cold by
 // derivation; they stay off the queue until the user classifies them.
 //
+// Backrow is the explicit opt-out signal (migration 0019). When the user
+// sets `intent='backrow'` on a contact, the contact is kept in
+// jasonos.contacts (still visible on /outreach/people with a Backrow
+// badge) but is REMOVED from the queue entirely — no column. The backrow
+// guard runs BEFORE any other classification logic, so it overrides
+// recent inbound touches, an active first-contact sequence, cadence
+// windows, and every other Specific/Cold/Warm trigger.
+//
 // Precedence (mutually exclusive):
-//   Cold     → wins first; explicit intent pin or an active First-Contact
+//   Backrow  → first; if set, classify() short-circuits and returns null.
+//              The contact does not appear in any column.
+//   Cold     → wins next; explicit intent pin or an active First-Contact
 //              Sequence stage.
-//   Specific → second; recent inbound, an outcome on the latest touch, or a
+//   Specific → next; recent inbound, an outcome on the latest touch, or a
 //              triage intent paired with a sent/replied/in-conversation
 //              recruiter status.
 //   Warm     → last; cadence is set, the relationship has graduated past
@@ -252,21 +262,26 @@ function classify(
   today: Date,
   sevenDaysOut: Date
 ): QueueCard | null {
+  // ---- Backrow short-circuit (migration 0019). Explicit user opt-out:
+  // keep the contact in jasonos.contacts but exclude it from every queue
+  // column regardless of cadence, touches, sequence stage, etc.
+  if (person.intent === "backrow") return null;
+
   const stage = reconnect?.first_contact?.stage ?? null;
   const isActiveCold = stage ? ACTIVE_COLD_STAGES.includes(stage) : false;
   const hasResponded = stage ? RESPONDED_STAGES.includes(stage) : false;
 
   // ---- Explicit intent wins over derivation (migration 0017). When the
   // user has pinned this contact to a column, the column is fixed; we only
-  // pick the most informative reason / stage label we can.
+  // pick the most informative reason / stage label we can. 'backrow' is
+  // excluded above, so person.intent here is "warm" | "specific" | "cold".
   if (person.intent) {
+    const pinned = person.intent;
     return makeCard(person, reconnect, recruiterPipelineId, {
-      column: person.intent,
-      reason: pinnedReason(person.intent),
+      column: pinned,
+      reason: pinnedReason(pinned),
       sequenceStageLabel:
-        person.intent === "cold"
-          ? STAGE_LABEL[stage ?? "identified"]
-          : null,
+        pinned === "cold" ? STAGE_LABEL[stage ?? "identified"] : null,
     });
   }
 
@@ -351,6 +366,13 @@ function classifyReconnectOnly(
   r: ReconnectContact,
   today: Date
 ): QueueCard | null {
+  // ---- Backrow short-circuit (migration 0019). Pure-recruiter rows that
+  // get here have no linked jasonos.contacts row, so they can't carry a
+  // 'backrow' value today; this guard is defensive so backrow remains the
+  // universal opt-out even if a pure-recruiter surface ever gains the
+  // intent column.
+  if ((r as { intent?: unknown }).intent === "backrow") return null;
+
   const stage = r.first_contact?.stage ?? null;
   if (stage && ACTIVE_COLD_STAGES.includes(stage)) {
     return makeCardFromReconnect(r, {
@@ -494,7 +516,7 @@ function getAnchor(card: QueueCard): number | null {
 // Reason helpers
 // ---------------------------------------------------------------------------
 
-function pinnedReason(intent: ContactIntent): string {
+function pinnedReason(intent: Exclude<ContactIntent, "backrow">): string {
   switch (intent) {
     case "warm":
       return "Pinned to Warm";

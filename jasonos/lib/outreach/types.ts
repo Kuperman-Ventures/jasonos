@@ -157,23 +157,39 @@ export function cadenceStageLabel(value: CadenceStage | null | undefined): strin
 
 // ---------------------------------------------------------------------------
 // Contact INTENT — first-class state set on the contact (migration 0017).
-// Pins the queue column. NULL means "let derivation rules decide".
+// Pins the queue column for the three primary intents (warm/specific/cold).
+// 'backrow' is a fourth value (migration 0019) that opts the contact OUT of
+// the queue entirely while keeping the row in jasonos.contacts. NULL means
+// "let queue-buckets derivation rules decide".
 // ---------------------------------------------------------------------------
 
-export type ContactIntent = "warm" | "specific" | "cold";
+export type ContactIntent = "warm" | "specific" | "cold" | "backrow";
 
-export const CONTACT_INTENTS: ContactIntent[] = ["warm", "specific", "cold"];
+export const CONTACT_INTENTS: ContactIntent[] = [
+  "warm",
+  "specific",
+  "cold",
+  "backrow",
+];
+
+/** Just the three primary queue-column intents — useful when rendering the
+ *  segmented control, since "backrow" is a visually-secondary opt-out. */
+export const PRIMARY_CONTACT_INTENTS: Array<
+  Exclude<ContactIntent, "backrow">
+> = ["warm", "specific", "cold"];
 
 export const CONTACT_INTENT_LABELS: Record<ContactIntent, string> = {
   warm: "Warm",
   specific: "Specific",
   cold: "Cold",
+  backrow: "Backrow",
 };
 
 export const CONTACT_INTENT_HELPERS: Record<ContactIntent, string> = {
   warm: "Stay in touch on a steady cadence.",
   specific: "There's an active follow-up to drive.",
   cold: "Cold outreach in flight — first-contact sequence.",
+  backrow: "Removed from queue; still in your contacts list.",
 };
 
 // ---------------------------------------------------------------------------
