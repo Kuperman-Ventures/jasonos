@@ -574,6 +574,7 @@ function modalContactPayload(ctx: OpenContext): {
   relationship_type: OutreachPerson["relationship_type"];
   cadence_interval: OutreachPerson["cadence_interval"];
   cadence_stage?: OutreachPerson["cadence_stage"];
+  intent?: OutreachPerson["intent"];
   next_touch_date?: string | null;
   last_touch_date?: string | null;
 } {
@@ -589,6 +590,7 @@ function modalContactPayload(ctx: OpenContext): {
       relationship_type: ctx.person.relationship_type,
       cadence_interval: ctx.person.cadence_interval,
       cadence_stage: ctx.person.cadence_stage,
+      intent: ctx.person.intent,
       next_touch_date: ctx.person.next_touch_date,
       last_touch_date: ctx.person.last_touch_date,
     };
@@ -608,6 +610,7 @@ function modalContactPayload(ctx: OpenContext): {
       relationship_type: "recruiter",
       cadence_interval: "none",
       cadence_stage: null,
+      intent: null,
       next_touch_date: null,
       last_touch_date: ctx.reconnect.last_contact_date ?? null,
     };
@@ -624,6 +627,7 @@ function modalContactPayload(ctx: OpenContext): {
     relationship_type: null,
     cadence_interval: "none",
     cadence_stage: null,
+    intent: null,
     next_touch_date: null,
     last_touch_date: null,
   };

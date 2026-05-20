@@ -156,6 +156,27 @@ export function cadenceStageLabel(value: CadenceStage | null | undefined): strin
 }
 
 // ---------------------------------------------------------------------------
+// Contact INTENT — first-class state set on the contact (migration 0017).
+// Pins the queue column. NULL means "let derivation rules decide".
+// ---------------------------------------------------------------------------
+
+export type ContactIntent = "warm" | "specific" | "cold";
+
+export const CONTACT_INTENTS: ContactIntent[] = ["warm", "specific", "cold"];
+
+export const CONTACT_INTENT_LABELS: Record<ContactIntent, string> = {
+  warm: "Warm",
+  specific: "Specific",
+  cold: "Cold",
+};
+
+export const CONTACT_INTENT_HELPERS: Record<ContactIntent, string> = {
+  warm: "Stay in touch on a steady cadence.",
+  specific: "There's an active follow-up to drive.",
+  cold: "Cold outreach in flight — first-contact sequence.",
+};
+
+// ---------------------------------------------------------------------------
 // Touch objective — tri-state ("did this touch achieve its goal?"). The
 // answer drives whether cadence_stage advances. Borrowed from EncoreOS's
 // LogTouchModal, adapted for CoSA's stage progression.

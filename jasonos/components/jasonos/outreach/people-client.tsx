@@ -275,6 +275,7 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
             relationship_type: modalTarget.relationship_type,
             cadence_interval: modalTarget.cadence_interval,
             cadence_stage: modalTarget.cadence_stage,
+            intent: modalTarget.intent,
             next_touch_date: modalTarget.next_touch_date,
             last_touch_date: modalTarget.last_touch_date,
           }}

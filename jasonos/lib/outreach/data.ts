@@ -11,6 +11,7 @@ import { CADENCE_DAYS } from "@/lib/outreach/types";
 import type {
   CadenceInterval,
   CadenceStage,
+  ContactIntent,
   RelationshipType,
 } from "@/lib/outreach/types";
 
@@ -27,6 +28,9 @@ export interface OutreachPerson {
   cadence_interval: CadenceInterval;
   /** Phase 5A: where in the arc (initial / followup_1 / followup_2 / ongoing). */
   cadence_stage: CadenceStage | null;
+  /** Phase 5B / migration 0017: explicit queue-column pin. NULL means
+   *  the queue-buckets derivation rules decide. */
+  intent: ContactIntent | null;
   next_touch_date: string | null;
   last_touch_date: string | null;
   last_touch_channel: string | null;
@@ -112,13 +116,18 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
 
   try {
     const sb = createServiceRoleClient();
-    // Try the full select first. If the Phase 5A migration (0015) hasn't
-    // been applied yet, cadence_stage will be missing — retry without it
-    // so the whole People list doesn't disappear.
+    // Try the full select first. Two graceful fallbacks layered on top of
+    // each other:
+    //   - intent missing (migration 0017 not applied) -> drop intent
+    //   - cadence_stage missing (migration 0015 not applied) -> drop both
+    // Either way the People list keeps rendering instead of disappearing.
     const fullColumns = `id,name,emails,linkedin_url,title,vip,tags,source_ids,
+       relationship_type,cadence_interval,cadence_stage,intent,next_touch_date,
+       last_touch_date,last_touch_channel`;
+    const noIntentColumns = `id,name,emails,linkedin_url,title,vip,tags,source_ids,
        relationship_type,cadence_interval,cadence_stage,next_touch_date,
        last_touch_date,last_touch_channel`;
-    const fallbackColumns = `id,name,emails,linkedin_url,title,vip,tags,source_ids,
+    const noStageColumns = `id,name,emails,linkedin_url,title,vip,tags,source_ids,
        relationship_type,cadence_interval,next_touch_date,
        last_touch_date,last_touch_channel`;
 
@@ -127,13 +136,23 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
       .select(fullColumns)
       .order("name", { ascending: true });
 
+    if (result.error && /\bintent\b/i.test(result.error.message)) {
+      console.warn(
+        "[outreach.getOutreachPeople] intent missing — run migration 0017. Falling back."
+      );
+      result = (await sb
+        .from("contacts")
+        .select(noIntentColumns)
+        .order("name", { ascending: true })) as typeof result;
+    }
+
     if (result.error && /cadence_stage/i.test(result.error.message)) {
       console.warn(
         "[outreach.getOutreachPeople] cadence_stage missing — run migration 0015. Falling back."
       );
       result = (await sb
         .from("contacts")
-        .select(fallbackColumns)
+        .select(noStageColumns)
         .order("name", { ascending: true })) as typeof result;
     }
     const { data, error } = result;
@@ -179,6 +198,10 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
         cadence_interval:
           (row.cadence_interval as CadenceInterval | null) ?? "none",
         cadence_stage: (row.cadence_stage as CadenceStage | null) ?? null,
+        intent:
+          ((row as { intent?: ContactIntent | null }).intent as
+            | ContactIntent
+            | null) ?? null,
         next_touch_date: (row.next_touch_date as string | null) ?? null,
         last_touch_date: (row.last_touch_date as string | null) ?? null,
         last_touch_channel: (row.last_touch_channel as string | null) ?? null,

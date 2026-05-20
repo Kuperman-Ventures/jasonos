@@ -10,6 +10,7 @@ import {
   nextTouchFromCadence,
   type CadenceInterval,
   type CadenceStage,
+  type ContactIntent,
   type RelationshipType,
   type TouchObjective,
 } from "@/lib/outreach/types";
@@ -186,6 +187,41 @@ export async function toggleVip(
 }
 
 // ---------------------------------------------------------------------------
+// setContactIntent — pin a contact to a queue column (warm/specific/cold) or
+// clear it (null) so the queue-buckets derivation rules decide. Backed by
+// migration 0017.
+// ---------------------------------------------------------------------------
+
+export async function setContactIntent(
+  contactId: string,
+  intent: ContactIntent | null
+): Promise<ActionResult> {
+  const guard = ensureConfigured();
+  if (guard) return guard;
+  if (!contactId) return { ok: false, error: "contactId is required." };
+
+  const sb = createServiceRoleClient();
+  const { error } = await sb
+    .from("contacts")
+    .update({ intent })
+    .eq("id", contactId);
+
+  if (error) {
+    if (/\bintent\b/i.test(error.message) || /\bcontact_intent\b/i.test(error.message)) {
+      return {
+        ok: false,
+        error:
+          "Intent column is missing — run migration 0017_contact_intent.sql, then try again.",
+      };
+    }
+    return { ok: false, error: error.message };
+  }
+
+  revalidate();
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // logContactTouch — record a manual touch (in-person / phone / LinkedIn DM /
 // meeting). Writes last_touch_date + last_touch_channel on the contact, then
 // auto-advances next_touch_date based on the cadence. Mirrors to rr_touches
@@ -317,17 +353,30 @@ export async function getOutreachContactByRecruiterId(
   }
 
   const sb = createServiceRoleClient();
-  const columns = `id,name,emails,linkedin_url,title,vip,tags,
+  const fullColumns = `id,name,emails,linkedin_url,title,vip,tags,
+     relationship_type,cadence_interval,cadence_stage,intent,next_touch_date,
+     last_touch_date,last_touch_channel`;
+  const noIntentColumns = `id,name,emails,linkedin_url,title,vip,tags,
      relationship_type,cadence_interval,cadence_stage,next_touch_date,
      last_touch_date,last_touch_channel`;
 
-  const { data, error } = await sb
+  let result = await sb
     .from("contacts")
-    .select(columns)
+    .select(fullColumns)
     .filter("source_ids->>recruiter_pipeline_id", "eq", recruiterId)
     .limit(1)
     .maybeSingle();
 
+  if (result.error && /\bintent\b/i.test(result.error.message)) {
+    result = (await sb
+      .from("contacts")
+      .select(noIntentColumns)
+      .filter("source_ids->>recruiter_pipeline_id", "eq", recruiterId)
+      .limit(1)
+      .maybeSingle()) as typeof result;
+  }
+
+  const { data, error } = result;
   if (error || !data) return null;
 
   // Enrich firm/title from rr_recruiters so the modal header & section
@@ -371,6 +420,10 @@ export async function getOutreachContactByRecruiterId(
     cadence_interval:
       (data.cadence_interval as CadenceInterval | null) ?? "none",
     cadence_stage: (data.cadence_stage as CadenceStage | null) ?? null,
+    intent:
+      ((data as { intent?: ContactIntent | null }).intent as
+        | ContactIntent
+        | null) ?? null,
     next_touch_date: (data.next_touch_date as string | null) ?? null,
     last_touch_date: (data.last_touch_date as string | null) ?? null,
     last_touch_channel: (data.last_touch_channel as string | null) ?? null,

@@ -41,6 +41,7 @@ import type { FirstContactStage } from "@/lib/first-contact/types";
 import type {
   CadenceInterval,
   CadenceStage,
+  ContactIntent,
   RelationshipType,
 } from "@/lib/outreach/types";
 
@@ -248,6 +249,20 @@ function classify(
   const stage = reconnect?.first_contact?.stage ?? null;
   const isActiveCold = stage ? ACTIVE_COLD_STAGES.includes(stage) : false;
   const hasResponded = stage ? RESPONDED_STAGES.includes(stage) : false;
+
+  // ---- Explicit intent wins over derivation (migration 0017). When the
+  // user has pinned this contact to a column, the column is fixed; we only
+  // pick the most informative reason / stage label we can.
+  if (person.intent) {
+    return makeCard(person, reconnect, recruiterPipelineId, {
+      column: person.intent,
+      reason: pinnedReason(person.intent),
+      sequenceStageLabel:
+        person.intent === "cold"
+          ? STAGE_LABEL[stage ?? "identified"]
+          : null,
+    });
+  }
 
   // ---- Cold ----
   if (isActiveCold && stage) {
@@ -469,6 +484,17 @@ function getAnchor(card: QueueCard): number | null {
 // ---------------------------------------------------------------------------
 // Reason helpers
 // ---------------------------------------------------------------------------
+
+function pinnedReason(intent: ContactIntent): string {
+  switch (intent) {
+    case "warm":
+      return "Pinned to Warm";
+    case "specific":
+      return "Pinned to Specific";
+    case "cold":
+      return "Pinned to Cold";
+  }
+}
 
 function coldReason(stage: FirstContactStage): string {
   switch (stage) {
