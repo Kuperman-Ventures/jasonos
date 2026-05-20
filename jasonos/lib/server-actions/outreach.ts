@@ -207,6 +207,17 @@ export async function setContactIntent(
     .eq("id", contactId);
 
   if (error) {
+    // The legacy `jasonos.contacts.intent` column ships with a CHECK
+    // constraint (`contacts_intent_check`) whose allow-list pre-dates the
+    // new outreach-queue intents. If that constraint hasn't been widened by
+    // migration 0018, writes of 'specific' / 'cold' will fail here.
+    if (/contacts_intent_check/i.test(error.message)) {
+      return {
+        ok: false,
+        error:
+          "Intent CHECK constraint is too narrow — run migration 0018_widen_contacts_intent_check.sql, then try again.",
+      };
+    }
     if (/\bintent\b/i.test(error.message) || /\bcontact_intent\b/i.test(error.message)) {
       return {
         ok: false,
