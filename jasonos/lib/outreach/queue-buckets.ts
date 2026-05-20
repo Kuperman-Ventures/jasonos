@@ -438,6 +438,12 @@ function makeCardFromReconnect(
   r: ReconnectContact,
   attrs: ColumnAttrs
 ): QueueCard {
+  // NOTE: rr_recruiters is legacy naming — it backs ANY first-contact /
+  // cold-outreach pipeline row, not literally recruiters. We leave
+  // relationship_type unset (null) here so the card doesn't falsely tag
+  // these contacts as recruiters in the UI; the real classification gets
+  // populated the moment the contact is linked via
+  // ensureContactForRecruiter.
   const card: QueueCard = {
     key: r.id,
     column: attrs.column,
@@ -445,7 +451,7 @@ function makeCardFromReconnect(
     title: r.title ?? null,
     firm: r.firm ?? null,
     vip: false,
-    relationship_type: "recruiter",
+    relationship_type: null,
     primary_email: null,
     linkedin_url: r.linkedin_url ?? null,
     cadence_interval: "none",

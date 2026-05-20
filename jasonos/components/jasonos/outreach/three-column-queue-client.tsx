@@ -595,9 +595,11 @@ function modalContactPayload(ctx: OpenContext): {
       last_touch_date: ctx.person.last_touch_date,
     };
   }
-  // Pure-recruiter (no jasonos.contacts row). The modal will resolve the
-  // linked OutreachPerson internally via source_ids; we just need an id +
-  // identity shim here, mirroring ReconnectClient's behavior.
+  // Pure-pipeline row (no jasonos.contacts row yet). rr_recruiters is
+  // legacy naming — it backs any first-contact / cold-outreach pipeline,
+  // not just literal recruiters. Leave relationship_type null so we don't
+  // mislabel the contact; ensureContactForRecruiter will populate it when
+  // the user takes their first action on the card.
   if (ctx.reconnect) {
     return {
       id: ctx.reconnect.id,
@@ -607,7 +609,7 @@ function modalContactPayload(ctx: OpenContext): {
       primary_email: null,
       linkedin_url: ctx.reconnect.linkedin_url ?? null,
       vip: false,
-      relationship_type: "recruiter",
+      relationship_type: null,
       cadence_interval: "none",
       cadence_stage: null,
       intent: null,

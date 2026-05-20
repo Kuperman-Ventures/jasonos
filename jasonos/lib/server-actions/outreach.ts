@@ -333,6 +333,155 @@ export async function snoozeContact(
 }
 
 // ---------------------------------------------------------------------------
+// ensureContactForRecruiter — guarantee a jasonos.contacts row exists and is
+// back-linked to a given rr_recruiters.id (via source_ids.recruiter_pipeline_id).
+//
+// "rr_recruiters" is legacy naming — the table backs ANY first-contact /
+// cold-outreach pipeline row, not literally recruiters. So this action does
+// NOT classify the resulting contact as a recruiter; new rows default to
+// relationship_type='prospect' and the user can re-classify later.
+//
+// Idempotent and duplicate-safe:
+//   1. If a contact already links to recruiterId, return it.
+//   2. Else look for an unlinked contact matching name+firm
+//      (case-insensitive). If exactly one match, BACK-LINK by merging
+//      { recruiter_pipeline_id: recruiterId } into its source_ids and
+//      return it. If >1 match, bail with a clear error so the user can
+//      link manually rather than guessing.
+//   3. Otherwise INSERT a new contact populated from the rr_recruiters row.
+// ---------------------------------------------------------------------------
+
+export async function ensureContactForRecruiter(
+  recruiterId: string
+): Promise<
+  | { ok: true; contactId: string }
+  | { ok: false; error: string }
+> {
+  if (!recruiterId) return { ok: false, error: "recruiterId is required." };
+  const guard = ensureConfigured();
+  if (guard && !guard.ok) return guard;
+
+  const sb = createServiceRoleClient();
+
+  // Step 1: existing back-link wins.
+  {
+    const { data: existing, error } = await sb
+      .from("contacts")
+      .select("id")
+      .filter("source_ids->>recruiter_pipeline_id", "eq", recruiterId)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) return { ok: false, error: error.message };
+    if (existing) return { ok: true, contactId: existing.id as string };
+  }
+
+  // Step 2: load the recruiter row to get name/firm/title/linkedin.
+  const sbPublic = createPublicServiceRoleClient();
+  const { data: recruiter, error: recruiterError } = await sbPublic
+    .from("rr_recruiters")
+    .select("id,name,firm,title,linkedin_url")
+    .eq("id", recruiterId)
+    .maybeSingle();
+
+  if (recruiterError) return { ok: false, error: recruiterError.message };
+  if (!recruiter) {
+    return { ok: false, error: "Pipeline row not found for this contact." };
+  }
+
+  const recruiterName = ((recruiter.name as string) ?? "").trim();
+  const recruiterFirm = ((recruiter.firm as string | null) ?? "").trim();
+  const recruiterTitle = ((recruiter.title as string | null) ?? "").trim();
+  const recruiterLinkedin =
+    ((recruiter.linkedin_url as string | null) ?? "").trim();
+
+  if (!recruiterName) {
+    return { ok: false, error: "Pipeline row is missing a name; cannot link." };
+  }
+
+  // Step 3: try to find an unlinked match on name+firm (case-insensitive).
+  // jasonos.contacts has no `firm` column; firm is encoded as a `firm:<slug>`
+  // tag. So we filter by case-insensitive name and then compare each
+  // candidate's tag-derived firm against the recruiter's firm.
+  const { data: candidatesRaw, error: candidatesError } = await sb
+    .from("contacts")
+    .select("id,name,tags,source_ids")
+    .ilike("name", recruiterName);
+
+  if (candidatesError) return { ok: false, error: candidatesError.message };
+
+  const lcFirm = recruiterFirm.toLowerCase();
+  const matches = (candidatesRaw ?? []).filter((row) => {
+    const tags = (row.tags as string[] | null) ?? [];
+    const rowFirm = (firmFromTags(tags) ?? "").trim().toLowerCase();
+    return rowFirm === lcFirm;
+  });
+
+  if (matches.length > 1) {
+    return {
+      ok: false,
+      error:
+        "Multiple contacts match this name+firm — link manually from People.",
+    };
+  }
+
+  if (matches.length === 1) {
+    const match = matches[0];
+    const existingSourceIds =
+      (match.source_ids as Record<string, unknown> | null) ?? {};
+    const mergedSourceIds = {
+      ...existingSourceIds,
+      recruiter_pipeline_id: recruiterId,
+    };
+    const { error: linkError } = await sb
+      .from("contacts")
+      .update({ source_ids: mergedSourceIds })
+      .eq("id", match.id as string);
+    if (linkError) return { ok: false, error: linkError.message };
+    revalidate();
+    return { ok: true, contactId: match.id as string };
+  }
+
+  // Step 4: no match — INSERT a brand-new contact, back-linked from the start.
+  const tags: string[] = [];
+  if (recruiterFirm) tags.push(`firm:${slugifyFirm(recruiterFirm)}`);
+
+  const { data: inserted, error: insertError } = await sb
+    .from("contacts")
+    .insert({
+      name: recruiterName,
+      title: recruiterTitle || null,
+      linkedin_url: recruiterLinkedin || null,
+      emails: [],
+      tags,
+      relationship_type: "prospect",
+      cadence_interval: "none",
+      source_ids: { recruiter_pipeline_id: recruiterId },
+    })
+    .select("id")
+    .single();
+
+  if (insertError) return { ok: false, error: insertError.message };
+
+  revalidate();
+  return { ok: true, contactId: inserted.id as string };
+}
+
+function firmFromTags(tags: string[]): string | null {
+  const tag = tags.find((t) => t.startsWith("firm:"));
+  if (!tag) return null;
+  return tag.slice("firm:".length).replace(/-/g, " ");
+}
+
+function slugifyFirm(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+// ---------------------------------------------------------------------------
 // getOutreachContactByRecruiterId — resolve the jasonos.contacts row that
 // links to a given rr_recruiters.id via source_ids.recruiter_pipeline_id.
 //

@@ -56,6 +56,7 @@ import {
 } from "@/lib/outreach/types";
 import { loadOutreachContext } from "@/lib/server-actions/outreach-draft";
 import {
+  ensureContactForRecruiter,
   getOutreachContactByRecruiterId,
   logContactTouch,
   setCadence,
@@ -253,24 +254,96 @@ export function OutreachModal({
 
   // ------------------------------------------------------------------
   // Intent handler (optimistic)
+  //
+  // For pipeline-only cards (recruiter pipeline row with no linked
+  // jasonos.contacts row yet) the user wouldn't otherwise have a way to
+  // set intent — those contacts don't appear in /outreach/people. We
+  // auto-link first (idempotent) so the click "just works" and subsequent
+  // actions (Log Touch, etc.) target the canonical contact row.
   // ------------------------------------------------------------------
 
   const handleIntentChange = (next: ContactIntent | null) => {
-    if (!effectiveContactId) {
-      toast.error("No linked contact yet — open from People to set intent.");
-      return;
-    }
     const prev = intent;
     setIntent(next);
-    startIntentTransition(async () => {
-      const result = await setContactIntent(effectiveContactId, next);
-      if (!result.ok) {
-        setIntent(prev);
-        toast.error(result.error);
-        return;
-      }
-      router.refresh();
-    });
+
+    if (effectiveContactId) {
+      startIntentTransition(async () => {
+        const result = await setContactIntent(effectiveContactId, next);
+        if (!result.ok) {
+          setIntent(prev);
+          toast.error(result.error);
+          return;
+        }
+        router.refresh();
+      });
+      return;
+    }
+
+    if (recruiterPipeline) {
+      // contact.id is the rr_recruiters.id when opened against a pipeline row
+      // with no linked contact (see modalContactPayload in
+      // three-column-queue-client.tsx).
+      const recruiterId = contact.id;
+      startIntentTransition(async () => {
+        const linked = await ensureContactForRecruiter(recruiterId);
+        if (!linked.ok) {
+          setIntent(prev);
+          toast.error(linked.error);
+          return;
+        }
+        const newContactId = linked.contactId;
+
+        // Synthesize a linked-contact payload from the pipeline row so the
+        // rest of the modal (header, sub-sections, Log Touch) targets the
+        // canonical jasonos.contacts.id immediately. The next router.refresh
+        // will replace this with the server-loaded OutreachPerson.
+        const reconnect = recruiterPipeline.contact;
+        setLinkedContact({
+          id: newContactId,
+          name: reconnect.name,
+          title: reconnect.title ?? null,
+          firm: reconnect.firm ?? null,
+          firm_normalized: reconnect.firm_normalized ?? null,
+          linkedin_url: reconnect.linkedin_url ?? null,
+          primary_email: null,
+          vip: false,
+          relationship_type: "prospect",
+          cadence_interval: "none",
+          cadence_stage: null,
+          intent: next,
+          next_touch_date: null,
+          last_touch_date: reconnect.last_contact_date ?? null,
+          last_touch_channel: null,
+          tags: [],
+          strategic_score: null,
+          firm_focus_rank: null,
+        });
+        setRelationshipTypeState("prospect");
+
+        if (next === null) {
+          toast.success("Contact linked.");
+          router.refresh();
+          return;
+        }
+
+        const intentResult = await setContactIntent(newContactId, next);
+        if (!intentResult.ok) {
+          // Contact creation is the irreversible part — surface the error
+          // but leave the synthesized linked state in place so the user
+          // can retry without re-creating the row.
+          toast.error(intentResult.error);
+          router.refresh();
+          return;
+        }
+        toast.success(`Linked & pinned to ${CONTACT_INTENT_LABELS[next]}.`);
+        router.refresh();
+      });
+      return;
+    }
+
+    // Truly orphan — should not happen.
+    setIntent(prev);
+    toast.error("No linked contact yet — open from People to set intent.");
   };
 
   // ------------------------------------------------------------------
