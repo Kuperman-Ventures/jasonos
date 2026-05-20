@@ -33,6 +33,14 @@ interface FirstContactCardBody {
   first_contact?: FirstContactState;
 }
 
+/**
+ * @deprecated New contacts always start unclassified — use
+ * `createContactUnclassified` from `@/lib/server-actions/contacts`. This
+ * function auto-classifies the contact (relationship_type, intent,
+ * recruiter pipeline card, First-Contact Sequence at stage `identified`),
+ * which the explicit-intent redesign forbids. Kept around only for legacy
+ * callsites that have not yet been migrated; remove once those are gone.
+ */
 export async function addColdTarget(input: {
   name: string;
   firm: string;

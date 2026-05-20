@@ -5,8 +5,14 @@
 // columns: Warm (cadence maintenance), Specific (active follow-up), or
 // Cold (cold outreach in flight).
 //
+// Cold requires an explicit signal — either the user pinned `intent='cold'`
+// on the contact, or an active First-Contact Sequence stage exists on the
+// linked recruiter pipeline row. New contacts never land in Cold by
+// derivation; they stay off the queue until the user classifies them.
+//
 // Precedence (mutually exclusive):
-//   Cold     → wins first; an active First-Contact Sequence is its own state.
+//   Cold     → wins first; explicit intent pin or an active First-Contact
+//              Sequence stage.
 //   Specific → second; recent inbound, an outcome on the latest touch, or a
 //              triage intent paired with a sent/replied/in-conversation
 //              recruiter status.
@@ -265,24 +271,15 @@ function classify(
   }
 
   // ---- Cold ----
+  // Cold requires an explicit signal: an active First-Contact Sequence
+  // stage on the linked pipeline row. The user pins `intent='cold'`
+  // separately above; there is no derivation from relationship_type +
+  // cadence + lack of touches.
   if (isActiveCold && stage) {
     return makeCard(person, reconnect, recruiterPipelineId, {
       column: "cold",
       reason: coldReason(stage),
       sequenceStageLabel: STAGE_LABEL[stage],
-    });
-  }
-  // Cold-by-default: a brand-new prospect with no rhythm and no touches yet.
-  if (
-    !reconnect &&
-    person.relationship_type === "prospect" &&
-    person.cadence_interval === "none" &&
-    !person.last_touch_date
-  ) {
-    return makeCard(person, reconnect, recruiterPipelineId, {
-      column: "cold",
-      reason: "Prospect — no outreach started yet",
-      sequenceStageLabel: STAGE_LABEL.identified,
     });
   }
 

@@ -96,6 +96,15 @@ function revalidate() {
 // addCadenceContact — upsert contact + create/refresh cadence card
 // ---------------------------------------------------------------------------
 
+/**
+ * @deprecated New contacts always start unclassified — use
+ * `createContactUnclassified` from `@/lib/server-actions/contacts` and let
+ * the user pin Intent / Relationship / Cadence from the contact card. This
+ * function still creates a cadence card and stamps `relationship_type`, so
+ * it auto-classifies a contact at create time, which the explicit-intent
+ * redesign forbids. Kept around only for legacy callsites that have not
+ * yet been migrated; remove once those are gone.
+ */
 export async function addCadenceContact(input: AddCadenceContactInput): Promise<AddResult> {
   const name = input.name.trim();
   if (!name) return { ok: false, error: "Name is required." };

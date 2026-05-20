@@ -196,7 +196,6 @@ export function TopNav() {
       <ContactCreateModal
         open={addContactOpen}
         onOpenChange={setAddContactOpen}
-        defaultMode="contact"
       />
     </header>
   );

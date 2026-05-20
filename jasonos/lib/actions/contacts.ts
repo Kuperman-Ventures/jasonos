@@ -95,6 +95,16 @@ export interface BulkInsertRow {
   alumniCluster?: AlumniCluster;
 }
 
+/**
+ * Bulk-insert contacts from the spreadsheet importer.
+ *
+ * This is the ONLY path that is exempt from the "new contacts start
+ * unclassified" rule. The CSV/spreadsheet upload carries its own
+ * classification mapping (cluster tags, etc.) so any classification it
+ * sets comes from the imported file, not from a derivation rule. Every
+ * other in-app create flow goes through `createContactUnclassified` in
+ * `@/lib/server-actions/contacts`.
+ */
 export async function bulkInsertContacts(
   rows: BulkInsertRow[]
 ): Promise<ActionResult & { inserted?: number }> {

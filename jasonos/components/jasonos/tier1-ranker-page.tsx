@@ -448,7 +448,6 @@ export function Tier1RankerPage({
       <ContactCreateModal
         open={addContactOpen}
         onOpenChange={setAddContactOpen}
-        defaultMode="contact"
       />
     </div>
   );

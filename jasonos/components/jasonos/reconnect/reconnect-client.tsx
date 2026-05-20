@@ -222,17 +222,6 @@ export function ReconnectClient({
     );
   };
 
-  const addLocalColdTarget = (contact: ReconnectContact) => {
-    setContacts((current) => [contact, ...current.filter((item) => item.id !== contact.id)]);
-    setSelectedId(contact.id);
-    setSelectedType("cold_target");
-    setTimeout(() => {
-      document
-        .getElementById("first-contact-sequence")
-        ?.scrollIntoView({ block: "start", behavior: "smooth" });
-    }, 100);
-  };
-
   return (
     <div className="mx-auto max-w-[1500px] space-y-4 px-4 py-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -253,7 +242,7 @@ export function ReconnectClient({
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setAddColdOpen(true)}>
             <Plus className="h-4 w-4" />
-            Add outreach target
+            Add contact
           </Button>
           <Button variant="default" render={<Link href="/runner/triage" />}>
             Triage queue
@@ -411,10 +400,6 @@ export function ReconnectClient({
       <ContactCreateModal
         open={addColdOpen}
         onOpenChange={setAddColdOpen}
-        defaultMode="outreach_target"
-        onCreated={({ reconnectContact }) => {
-          if (reconnectContact) addLocalColdTarget(reconnectContact);
-        }}
       />
     </div>
   );

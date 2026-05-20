@@ -84,7 +84,7 @@ const COLUMNS: ColumnDef[] = [
     icon: Snowflake,
     emptyState: {
       title: "No cold outreach in flight",
-      body: "Try + Add outreach target to start a new sequence.",
+      body: "Open a contact and pin Intent = Cold to start a sequence.",
     },
     accent: "text-sky-300",
     stripe: "from-sky-500/15",
@@ -97,7 +97,6 @@ export function ThreeColumnQueueClient({
 }: ThreeColumnQueueClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [openContext, setOpenContext] = useState<OpenContext | null>(null);
-  const [addTargetOpen, setAddTargetOpen] = useState(false);
   const [addContactOpen, setAddContactOpen] = useState(false);
   // Local-state mirrors so logging touches / advancing the sequence inside the
   // modal updates the cards optimistically without a full server round-trip.
@@ -256,16 +255,6 @@ export function ThreeColumnQueueClient({
     );
   };
 
-  // Add a freshly-created cold target to local state so it shows up in Cold
-  // immediately without waiting on router.refresh().
-  const addLocalColdTarget = (contact: ReconnectContact) => {
-    setReconnectContacts((current) => [
-      contact,
-      ...current.filter((item) => item.id !== contact.id),
-    ]);
-    setOpenContext({ card: null, person: null, reconnect: contact });
-  };
-
   return (
     <div className="mx-auto max-w-[1500px] space-y-4 px-4 py-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -287,10 +276,6 @@ export function ThreeColumnQueueClient({
           <Button variant="outline" onClick={() => setAddContactOpen(true)}>
             <Plus className="h-4 w-4" />
             Add contact
-          </Button>
-          <Button variant="outline" onClick={() => setAddTargetOpen(true)}>
-            <Plus className="h-4 w-4" />
-            Add outreach target
           </Button>
           <Button variant="default" render={<Link href="/runner/triage" />}>
             Triage queue
@@ -365,17 +350,8 @@ export function ThreeColumnQueueClient({
       ) : null}
 
       <ContactCreateModal
-        open={addTargetOpen}
-        onOpenChange={setAddTargetOpen}
-        defaultMode="outreach_target"
-        onCreated={({ reconnectContact }) => {
-          if (reconnectContact) addLocalColdTarget(reconnectContact);
-        }}
-      />
-      <ContactCreateModal
         open={addContactOpen}
         onOpenChange={setAddContactOpen}
-        defaultMode="contact"
       />
     </div>
   );

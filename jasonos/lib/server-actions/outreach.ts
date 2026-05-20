@@ -337,9 +337,10 @@ export async function snoozeContact(
 // back-linked to a given rr_recruiters.id (via source_ids.recruiter_pipeline_id).
 //
 // "rr_recruiters" is legacy naming — the table backs ANY first-contact /
-// cold-outreach pipeline row, not literally recruiters. So this action does
-// NOT classify the resulting contact as a recruiter; new rows default to
-// relationship_type='prospect' and the user can re-classify later.
+// cold-outreach pipeline row, not literally recruiters. So this action
+// does NOT classify the resulting contact: new rows leave
+// relationship_type as null and the user picks Intent + Relationship from
+// the contact card.
 //
 // Idempotent and duplicate-safe:
 //   1. If a contact already links to recruiterId, return it.
@@ -454,7 +455,7 @@ export async function ensureContactForRecruiter(
       linkedin_url: recruiterLinkedin || null,
       emails: [],
       tags,
-      relationship_type: "prospect",
+      relationship_type: null,
       cadence_interval: "none",
       source_ids: { recruiter_pipeline_id: recruiterId },
     })
