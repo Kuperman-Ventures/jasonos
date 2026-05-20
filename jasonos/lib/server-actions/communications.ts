@@ -16,6 +16,7 @@ import {
 } from "@/lib/integrations/hubspot";
 import type { CadenceInterval as CadenceIntervalType } from "@/lib/cadence/types";
 import { getOutreachPeople, type OutreachPerson } from "@/lib/outreach/data";
+import { setCadence } from "@/lib/server-actions/outreach";
 
 // Kupe's known outbound email addresses (v1 hardcode — update if addresses change)
 const MY_EMAILS = ["jason@kupermanadvisors.com", "jskuperman@gmail.com"];
@@ -484,7 +485,58 @@ export async function dismissCommunicationContact(contactId: string): Promise<vo
 }
 
 // ---------------------------------------------------------------------------
-// Schedule next touch
+// setContactCadence — canonical write for the Schedule page's Cadence picker.
+//
+// Accepts either a jasonos.contacts.id OR an rr_recruiters.id (the
+// CommunicationsContact.id is heterogeneous: rpid for recruiter-linked rows,
+// jasonos.contacts.id otherwise). Resolves to the canonical contact row,
+// then delegates to setCadence(), which:
+//   - Updates contacts.cadence_interval
+//   - Recomputes contacts.next_touch_date to today + CADENCE_DAYS[interval]
+//     (or null when interval === "none")
+//   - Mirrors next_action_due_date in rr_contact_state for recruiter-linked
+//     contacts so the recruiter pipeline view stays in sync
+//   - Revalidates /outreach/queue, /outreach/schedule, /outreach/people, and
+//     legacy /communications + /reconnect paths
+// ---------------------------------------------------------------------------
+
+export async function setContactCadence(
+  idOrRpid: string,
+  cadence: CadenceIntervalType
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return { ok: false, error: "Supabase service role is not configured." };
+  }
+  if (!idOrRpid) return { ok: false, error: "contactId is required." };
+
+  const sb = createServiceRoleClient();
+
+  let contactId: string | null = null;
+  const direct = await sb
+    .from("contacts")
+    .select("id")
+    .eq("id", idOrRpid)
+    .maybeSingle();
+  if (direct.data) {
+    contactId = direct.data.id as string;
+  } else {
+    const lookup = await sb
+      .from("contacts")
+      .select("id")
+      .filter("source_ids->>recruiter_pipeline_id", "eq", idOrRpid)
+      .limit(1)
+      .maybeSingle();
+    contactId = (lookup.data?.id as string | undefined) ?? null;
+  }
+
+  if (!contactId) return { ok: false, error: "Contact not found." };
+
+  return setCadence(contactId, cadence);
+}
+
+// ---------------------------------------------------------------------------
+// Schedule next touch (legacy preset-driven actions — kept for backwards
+// compat; the canonical write is setContactCadence above).
 // ---------------------------------------------------------------------------
 
 type ScheduleOption =
@@ -513,6 +565,14 @@ function dueDateFromOption(option: ScheduleOption, customDate?: string): string 
   }
 }
 
+/**
+ * @deprecated Use {@link setContactCadence} instead. This action writes a
+ * one-off `next_action_due_date` to `rr_contact_state` from a hard-coded
+ * preset (asap/next_week/2_weeks/1_month/3_months) and does NOT update
+ * `cadence_interval`. The Schedule picker is now cadence-driven; new
+ * callers should set the canonical `cadence_interval` and let
+ * `next_touch_date` follow.
+ */
 export async function scheduleNextTouch(
   contactId: string,
   option: ScheduleOption,
@@ -533,13 +593,12 @@ export async function scheduleNextTouch(
   revalidatePath("/outreach/schedule");
 }
 
-// ---------------------------------------------------------------------------
-// scheduleContactNextTouch — write directly to jasonos.contacts.next_touch_date
-// for non-recruiter, no-cadence-card contacts that the unified Schedule page
-// now surfaces. Avoids leaving phantom rows in rr_contact_state for contacts
-// that never lived in the recruiter pipeline.
-// ---------------------------------------------------------------------------
-
+/**
+ * @deprecated Use {@link setContactCadence} instead. Writes a one-off
+ * `next_touch_date` directly to `jasonos.contacts` from a preset without
+ * touching `cadence_interval`, so the picker drifts out of sync with the
+ * canonical cadence on the next render.
+ */
 export async function scheduleContactNextTouch(
   contactId: string,
   option: ScheduleOption,

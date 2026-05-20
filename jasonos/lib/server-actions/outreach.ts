@@ -105,8 +105,13 @@ export async function setRelationshipType(
 }
 
 // ---------------------------------------------------------------------------
-// setCadence — change cadence rhythm; recompute next_touch_date from today
-// when the rhythm changes (we don't carry forward a stale date).
+// setCadence — canonical cadence write for the contact card AND the Schedule
+// picker. Cadence is now the canonical scheduling concept:
+//   - cadence === "none" → next_touch_date = null (no rhythm scheduled)
+//   - else              → next_touch_date = today + CADENCE_DAYS[cadence]
+// For recruiter-linked contacts (source_ids.recruiter_pipeline_id present),
+// also mirror next_action_due_date in rr_contact_state so the recruiter
+// pipeline view stays in sync.
 // ---------------------------------------------------------------------------
 
 export async function setCadence(
@@ -119,34 +124,17 @@ export async function setCadence(
 
   const sb = createServiceRoleClient();
 
-  // Pull existing values so we only re-compute next_touch_date when the
-  // cadence interval actually changes; otherwise preserve a manually-scheduled
-  // future date.
   const { data: existing, error: readError } = await sb
     .from("contacts")
-    .select("cadence_interval,next_touch_date,last_touch_date")
+    .select("source_ids")
     .eq("id", contactId)
     .maybeSingle();
 
   if (readError) return { ok: false, error: readError.message };
   if (!existing) return { ok: false, error: "Contact not found." };
 
-  const priorCadence =
-    (existing.cadence_interval as CadenceInterval | null) ?? "none";
-  const priorNext = (existing.next_touch_date as string | null) ?? null;
-  const cadenceChanged = priorCadence !== cadence;
-
-  let nextTouchDate: string | null;
-  if (cadence === "none") {
-    nextTouchDate = priorNext; // keep any manually-set date even with no rhythm
-  } else if (cadenceChanged) {
-    // Anchor from last_touch_date if it exists, otherwise from today.
-    const lastTouch = existing.last_touch_date as string | null;
-    const anchor = lastTouch ? new Date(`${lastTouch}T00:00:00`) : new Date();
-    nextTouchDate = nextTouchFromCadence(cadence, anchor);
-  } else {
-    nextTouchDate = priorNext ?? nextTouchFromCadence(cadence);
-  }
+  const nextTouchDate =
+    cadence === "none" ? null : nextTouchFromCadence(cadence);
 
   const { error } = await sb
     .from("contacts")
@@ -157,6 +145,25 @@ export async function setCadence(
     .eq("id", contactId);
 
   if (error) return { ok: false, error: error.message };
+
+  // Mirror to rr_contact_state for recruiter-linked contacts so the
+  // recruiter pipeline's next_action_due_date stays in sync with cadence.
+  const sourceIds = existing.source_ids as Record<string, unknown> | null;
+  const rpid =
+    typeof sourceIds?.recruiter_pipeline_id === "string"
+      ? sourceIds.recruiter_pipeline_id
+      : null;
+  if (rpid) {
+    const sbPublic = createPublicServiceRoleClient();
+    await sbPublic.from("rr_contact_state").upsert(
+      {
+        contact_id: rpid,
+        next_action_due_date: nextTouchDate,
+        status_updated_at: new Date().toISOString(),
+      },
+      { onConflict: "contact_id" }
+    );
+  }
 
   revalidate();
   return { ok: true };

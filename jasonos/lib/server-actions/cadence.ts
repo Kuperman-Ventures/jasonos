@@ -269,6 +269,14 @@ export async function addCadenceContact(input: AddCadenceContactInput): Promise<
 // scheduleCadenceTouch — set the next_touch_date on a cadence card
 // ---------------------------------------------------------------------------
 
+/**
+ * @deprecated Use `setContactCadence` from
+ * `@/lib/server-actions/communications` instead. This action writes a one-off
+ * `next_touch_date` from a hard-coded preset onto a cadence card body and
+ * does NOT update `cadence_interval`. The Schedule picker is now
+ * cadence-driven; new callers should set the canonical `cadence_interval`
+ * and let `next_touch_date` follow.
+ */
 export async function scheduleCadenceTouch(
   cardId: string,
   option: CadenceScheduleOption,

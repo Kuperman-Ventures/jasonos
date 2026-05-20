@@ -40,19 +40,20 @@ import type {
 import {
   dismissCommunicationContact,
   dismissContactFromSchedule,
-  scheduleContactNextTouch,
-  scheduleNextTouch,
+  setContactCadence,
   syncSentToday,
   getLastContactContents,
 } from "@/lib/server-actions/communications";
-import {
-  dismissCadenceContact,
-  scheduleCadenceTouch,
-} from "@/lib/server-actions/cadence";
+import { dismissCadenceContact } from "@/lib/server-actions/cadence";
 import { getFirmmates } from "@/lib/server-actions/firmmates";
 import type { Firmmate } from "@/lib/server-actions/firmmates";
 import { FocusBadge } from "@/components/jasonos/reconnect/focus-badge";
 import { isBench } from "@/lib/reconnect/firm-focus";
+import {
+  CADENCE_HELPERS,
+  CADENCE_INTERVALS,
+  CADENCE_LABELS,
+} from "@/lib/outreach/types";
 
 // ---------------------------------------------------------------------------
 // Config
@@ -129,59 +130,29 @@ const CHANNEL_LABELS: Record<CommChannel, string> = {
   other: "Other",
 };
 
-const NEXT_CONTACT_OPTIONS = [
-  { label: "ASAP", value: "asap" as const },
-  { label: "Next week", value: "next_week" as const },
-  { label: "2 weeks", value: "2_weeks" as const },
-  { label: "1 month", value: "1_month" as const },
-  { label: "3 months", value: "3_months" as const },
-];
+function cadenceLabel(interval: CadenceInterval): string {
+  return CADENCE_LABELS[interval] ?? interval;
+}
 
-type NextContactPreset = (typeof NEXT_CONTACT_OPTIONS)[number]["value"];
-
-// Map an existing next_touch_date (ISO string) to whichever preset matches
-// today's day-delta exactly. Used to seed the picker so it reflects the
-// contact's actual schedule instead of a hard-coded "Next week" default.
-// A past-or-today date collapses to "asap"; anything that doesn't land on
-// the canonical 7/14/30/90-day buckets returns null so the picker stays
-// unselected and the user has to make an intentional choice before
-// re-writing the date.
-function matchPresetToDate(dateIso: string | null): NextContactPreset | null {
-  if (!dateIso) return null;
+// "Currently scheduled: <date> (in N days)" / overdue / today / no-date copy
+// for the informational line above the cadence picker.
+function formatScheduledLine(nextActionDueDate: string | null): string {
+  if (!nextActionDueDate) return "No next touch scheduled.";
+  const target = new Date(`${nextActionDueDate}T00:00:00`);
+  if (Number.isNaN(target.getTime())) return "No next touch scheduled.";
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const target = new Date(dateIso);
-  if (Number.isNaN(target.getTime())) return null;
-  target.setHours(0, 0, 0, 0);
   const diffDays = Math.round(
     (target.getTime() - today.getTime()) / 86_400_000
   );
-  if (diffDays <= 0) return "asap";
-  if (diffDays === 7) return "next_week";
-  if (diffDays === 14) return "2_weeks";
-  if (diffDays === 30) return "1_month";
-  if (diffDays === 90) return "3_months";
-  return null;
-}
-
-const CADENCE_OPTIONS = [
-  { label: "No repeat", value: "none" },
-  { label: "Monthly", value: "monthly" },
-  { label: "Quarterly", value: "quarterly" },
-  { label: "Every 6 months", value: "6_months" },
-  { label: "Annually", value: "annually" },
-];
-
-const CADENCE_INTERVAL_LABELS: Record<CadenceInterval, string> = {
-  weekly: "Weekly",
-  biweekly: "Biweekly",
-  monthly: "Monthly",
-  quarterly: "Quarterly",
-  none: "No",
-};
-
-function cadenceLabel(interval: CadenceInterval): string {
-  return CADENCE_INTERVAL_LABELS[interval] ?? interval;
+  const human = fmtDate(nextActionDueDate);
+  if (diffDays < 0) {
+    const days = Math.abs(diffDays);
+    return `Currently scheduled: ${human} (${days}d overdue)`;
+  }
+  if (diffDays === 0) return `Currently scheduled: ${human} (today)`;
+  if (diffDays === 1) return `Currently scheduled: ${human} (in 1 day)`;
+  return `Currently scheduled: ${human} (in ${diffDays} days)`;
 }
 
 const SORT_OPTIONS = [
@@ -655,24 +626,18 @@ function ContactDetailPanel({
   onSelectPeer: (id: string) => void;
   onDismiss: (id: string) => void;
 }) {
-  const existingPreset = useMemo(
-    () => matchPresetToDate(contact.nextActionDueDate),
-    [contact.nextActionDueDate]
-  );
-  const [nextContactOption, setNextContactOption] = useState<
-    NextContactPreset | null
-  >(existingPreset);
-  const [cadence, setCadence] = useState("quarterly");
+  const router = useRouter();
+  const initialCadence: CadenceInterval = contact.cadenceInterval ?? "none";
+  const [cadence, setCadenceLocal] = useState<CadenceInterval>(initialCadence);
   const [isPending, startTransition] = useTransition();
   const [isDismissPending, startDismissTransition] = useTransition();
-  const [scheduled, setScheduled] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [firmmates, setFirmmates] = useState<Firmmate[]>([]);
 
-  // Picker is a no-op until the user explicitly chooses a different preset
-  // than the contact's current schedule. Prevents accidental "Set Schedule"
-  // clicks from silently pulling the next_touch_date earlier.
-  const canSchedule =
-    nextContactOption !== null && nextContactOption !== existingPreset;
+  // Picker is a no-op until the user picks a cadence different from the
+  // contact's current canonical cadence_interval.
+  const canSet = cadence !== initialCadence;
+  const scheduledLine = formatScheduledLine(contact.nextActionDueDate);
 
   useEffect(() => {
     let active = true;
@@ -683,22 +648,17 @@ function ContactDetailPanel({
     return () => { active = false; };
   }, [contact.id]);
 
-  const handleSchedule = () => {
-    if (!nextContactOption) return;
-    const choice = nextContactOption;
+  const handleSetCadence = () => {
+    if (!canSet) return;
+    const choice = cadence;
     startTransition(async () => {
-      if (contact.source === "cadence") {
-        if (contact.cadenceCardId) {
-          await scheduleCadenceTouch(contact.cadenceCardId, choice);
-        } else {
-          // Bare jasonos.contacts row — write next_touch_date directly so
-          // the urgency bucket on the next refresh reflects the new date.
-          await scheduleContactNextTouch(contact.id, choice);
-        }
-      } else {
-        await scheduleNextTouch(contact.id, choice);
+      const result = await setContactCadence(contact.id, choice);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
       }
-      setScheduled(true);
+      setSaved(true);
+      router.refresh();
     });
   };
 
@@ -844,68 +804,65 @@ function ContactDetailPanel({
           </p>
         ) : null}
 
-        {/* Next touch scheduler */}
+        {/* Cadence */}
         <section className="space-y-2">
           <div className="flex items-center justify-between">
-            <SectionLabel>Schedule Next Touch</SectionLabel>
-            {contact.nextActionDueDate ? (
-              <span className="text-[10px] text-muted-foreground">
-                Due {fmtDate(contact.nextActionDueDate)}
-              </span>
-            ) : null}
+            <SectionLabel>Cadence</SectionLabel>
+            <span className="text-[10px] text-muted-foreground">
+              Current: {cadenceLabel(initialCadence)}
+            </span>
           </div>
-          <div className="grid grid-cols-3 gap-1">
-            {NEXT_CONTACT_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => {
-                  setNextContactOption(opt.value);
-                  setScheduled(false);
-                }}
-                className={`rounded-md border px-2 py-1.5 text-[11px] font-medium transition-colors ${
-                  nextContactOption === opt.value
-                    ? "border-foreground/60 bg-foreground text-background"
-                    : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <RefreshCw className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            <select
-              value={cadence}
-              onChange={(e) => setCadence(e.target.value)}
-              className="flex-1 bg-transparent text-xs text-muted-foreground border border-border rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring"
-            >
-              {CADENCE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+            {CADENCE_INTERVALS.map((value) => {
+              const active = cadence === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => {
+                    setCadenceLocal(value);
+                    setSaved(false);
+                  }}
+                  className={`rounded-md border px-2 py-1.5 text-left text-[11px] transition-colors ${
+                    active
+                      ? "border-foreground/60 bg-foreground text-background"
+                      : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+                >
+                  <div className="font-medium">{CADENCE_LABELS[value]}</div>
+                  <div
+                    className={`text-[10px] font-normal ${
+                      active
+                        ? "text-background/70"
+                        : "text-muted-foreground/70"
+                    }`}
+                  >
+                    {CADENCE_HELPERS[value]}
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
-          {scheduled ? (
+          <p className="text-[11px] text-muted-foreground">{scheduledLine}</p>
+
+          {saved ? (
             <div className="w-full rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-center text-xs text-emerald-400">
-              Scheduled ✓
+              Saved ✓
             </div>
           ) : (
             <Button
               size="sm"
               className="w-full"
-              onClick={handleSchedule}
-              disabled={isPending || !canSchedule}
+              onClick={handleSetCadence}
+              disabled={isPending || !canSet}
             >
               <Calendar className="h-3.5 w-3.5 mr-1.5" />
               {isPending
                 ? "Saving…"
-                : existingPreset && nextContactOption === existingPreset
-                ? "Already scheduled"
-                : "Set Schedule"}
+                : !canSet
+                ? "Already set"
+                : "Set Cadence"}
             </Button>
           )}
         </section>
