@@ -137,6 +137,33 @@ const NEXT_CONTACT_OPTIONS = [
   { label: "3 months", value: "3_months" as const },
 ];
 
+type NextContactPreset = (typeof NEXT_CONTACT_OPTIONS)[number]["value"];
+
+// Map an existing next_touch_date (ISO string) to whichever preset matches
+// today's day-delta exactly. Used to seed the picker so it reflects the
+// contact's actual schedule instead of a hard-coded "Next week" default.
+// A past-or-today date collapses to "asap"; anything that doesn't land on
+// the canonical 7/14/30/90-day buckets returns null so the picker stays
+// unselected and the user has to make an intentional choice before
+// re-writing the date.
+function matchPresetToDate(dateIso: string | null): NextContactPreset | null {
+  if (!dateIso) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(dateIso);
+  if (Number.isNaN(target.getTime())) return null;
+  target.setHours(0, 0, 0, 0);
+  const diffDays = Math.round(
+    (target.getTime() - today.getTime()) / 86_400_000
+  );
+  if (diffDays <= 0) return "asap";
+  if (diffDays === 7) return "next_week";
+  if (diffDays === 14) return "2_weeks";
+  if (diffDays === 30) return "1_month";
+  if (diffDays === 90) return "3_months";
+  return null;
+}
+
 const CADENCE_OPTIONS = [
   { label: "No repeat", value: "none" },
   { label: "Monthly", value: "monthly" },
@@ -598,6 +625,7 @@ export function CommunicationsClient({
       {/* ---------------------------------------------------------------- */}
       {selectedContact ? (
         <ContactDetailPanel
+          key={selectedContact.id}
           contact={selectedContact}
           onSelectPeer={handleSelect}
           onDismiss={handleDismiss}
@@ -627,14 +655,24 @@ function ContactDetailPanel({
   onSelectPeer: (id: string) => void;
   onDismiss: (id: string) => void;
 }) {
+  const existingPreset = useMemo(
+    () => matchPresetToDate(contact.nextActionDueDate),
+    [contact.nextActionDueDate]
+  );
   const [nextContactOption, setNextContactOption] = useState<
-    (typeof NEXT_CONTACT_OPTIONS)[number]["value"]
-  >("next_week");
+    NextContactPreset | null
+  >(existingPreset);
   const [cadence, setCadence] = useState("quarterly");
   const [isPending, startTransition] = useTransition();
   const [isDismissPending, startDismissTransition] = useTransition();
   const [scheduled, setScheduled] = useState(false);
   const [firmmates, setFirmmates] = useState<Firmmate[]>([]);
+
+  // Picker is a no-op until the user explicitly chooses a different preset
+  // than the contact's current schedule. Prevents accidental "Set Schedule"
+  // clicks from silently pulling the next_touch_date earlier.
+  const canSchedule =
+    nextContactOption !== null && nextContactOption !== existingPreset;
 
   useEffect(() => {
     let active = true;
@@ -646,17 +684,19 @@ function ContactDetailPanel({
   }, [contact.id]);
 
   const handleSchedule = () => {
+    if (!nextContactOption) return;
+    const choice = nextContactOption;
     startTransition(async () => {
       if (contact.source === "cadence") {
         if (contact.cadenceCardId) {
-          await scheduleCadenceTouch(contact.cadenceCardId, nextContactOption);
+          await scheduleCadenceTouch(contact.cadenceCardId, choice);
         } else {
           // Bare jasonos.contacts row — write next_touch_date directly so
           // the urgency bucket on the next refresh reflects the new date.
-          await scheduleContactNextTouch(contact.id, nextContactOption);
+          await scheduleContactNextTouch(contact.id, choice);
         }
       } else {
-        await scheduleNextTouch(contact.id, nextContactOption);
+        await scheduleNextTouch(contact.id, choice);
       }
       setScheduled(true);
     });
@@ -858,10 +898,14 @@ function ContactDetailPanel({
               size="sm"
               className="w-full"
               onClick={handleSchedule}
-              disabled={isPending}
+              disabled={isPending || !canSchedule}
             >
               <Calendar className="h-3.5 w-3.5 mr-1.5" />
-              {isPending ? "Saving…" : "Set Schedule"}
+              {isPending
+                ? "Saving…"
+                : existingPreset && nextContactOption === existingPreset
+                ? "Already scheduled"
+                : "Set Schedule"}
             </Button>
           )}
         </section>
