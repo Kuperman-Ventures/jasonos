@@ -69,8 +69,8 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
       personal: 0,
     };
     for (const p of people) {
-      if (!p.relationship_type) result.unclassified += 1;
-      else result[p.relationship_type] += 1;
+      if (p.intent === null) result.unclassified += 1;
+      if (p.relationship_type) result[p.relationship_type] += 1;
     }
     return result;
   }, [people]);
@@ -94,9 +94,9 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
       }
       if (activeFilters.size > 0) {
         const matches =
-          p.relationship_type === null
-            ? activeFilters.has("unclassified")
-            : activeFilters.has(p.relationship_type);
+          (activeFilters.has("unclassified") && p.intent === null) ||
+          (p.relationship_type !== null &&
+            activeFilters.has(p.relationship_type));
         if (!matches) return false;
       }
       if (!q) return true;
