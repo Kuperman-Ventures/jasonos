@@ -1,5 +1,22 @@
 "use client";
 
+// OutreachModal — the single contact card across every entry point.
+//
+// API contract:
+//   - Callers pass a `contactId` (canonical jasonos.contacts.id),
+//     a `recruiterId` (rr_recruiters.id for pipeline-only cards), or
+//     both. Optional `initialDisplay` paints the header immediately while
+//     the fetcher resolves the full payload.
+//   - On open, the modal calls getContactCardData() to materialize a
+//     uniform shape from any entry point. Caller-shape variation stops here.
+//   - Pipeline-only cards (recruiterId with no linked contact) auto-link
+//     silently via ensureContactForRecruiter() on the first user action
+//     that requires a canonical contactId (intent / cadence / VIP / log).
+//     Toasts once; subsequent actions are silent.
+//
+// The redesigned layout from commit 927dd18 is preserved unchanged:
+// Header → Intent → intent-conditional sub-section → Communication Context.
+
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -49,7 +66,6 @@ import {
   TOUCH_OBJECTIVE_HELPERS,
   TOUCH_OBJECTIVE_LABELS,
   type CadenceInterval,
-  type CadenceStage,
   type ContactIntent,
   type RelationshipType,
   type TouchObjective,
@@ -57,12 +73,13 @@ import {
 import { loadOutreachContext } from "@/lib/server-actions/outreach-draft";
 import {
   ensureContactForRecruiter,
-  getOutreachContactByRecruiterId,
+  getContactCardData,
   logContactTouch,
   setCadence,
   setContactIntent,
   setRelationshipType,
   toggleVip,
+  type ContactCardDataResult,
 } from "@/lib/server-actions/outreach";
 import type { OutreachPerson } from "@/lib/outreach/data";
 import {
@@ -71,81 +88,91 @@ import {
   type RecentTouch,
 } from "@/lib/outreach/draft-types";
 import type { DraftSource } from "@/lib/server-actions/draft-from-history";
-// `recruiter-pipeline-panel` is intentionally NOT rendered from this modal
-// any more (per the explicit-intent redesign), but its props type is still
-// exported for callers that pass through optional pipeline context. We keep
-// the import so existing callsites compile unchanged.
+// Kept for callsites that pass through the recruiter pipeline ReconnectContact
+// so the Cold sub-section's First-Contact Sequence widget still works.
 import type { RecruiterPipelineProps } from "@/components/jasonos/outreach/recruiter-pipeline-panel";
+
+// ---------------------------------------------------------------------------
+// Props
+// ---------------------------------------------------------------------------
 
 export interface OutreachModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  contact: {
-    id: string;
+  /** Canonical jasonos.contacts.id. Provide when the caller already has one. */
+  contactId?: string | null;
+  /** rr_recruiters.id. Provide for pipeline-only cards (queue rows from
+   *  recruiter pipeline with no linked contact yet). */
+  recruiterId?: string | null;
+  /** Optional initial header data so the modal paints immediately while
+   *  the fetcher resolves the full payload. */
+  initialDisplay?: {
     name: string;
     title?: string | null;
     firm?: string | null;
-    primary_email?: string | null;
-    linkedin_url?: string | null;
-    vip: boolean;
-    relationship_type: RelationshipType | null;
-    cadence_interval: CadenceInterval;
-    cadence_stage?: CadenceStage | null;
-    intent?: ContactIntent | null;
-    next_touch_date?: string | null;
-    last_touch_date?: string | null;
   };
-  /**
-   * Recruiter-pipeline data passed through from the queue / triage flows.
-   * Used to (a) resolve the linked jasonos.contacts row when the modal is
-   * opened against an rr_recruiters id, and (b) surface the existing
-   * First-Contact Sequence widget inside the Cold sub-section.
-   *
-   * The legacy in-modal recruiter UI (action cluster + RecruiterPipelinePanel)
-   * is intentionally not rendered any more — Intent is the new top-level
-   * organizer.
-   */
+  /** Optional recruiter pipeline context. When passed, the Cold sub-section
+   *  uses `contact.first_contact` to render the First-Contact Sequence widget
+   *  and the local-state callbacks let the parent mirror server mutations. */
   recruiterPipeline?: RecruiterPipelineProps;
 }
+
+// ---------------------------------------------------------------------------
+// Internal card-state shape — what the modal renders from regardless of
+// the entry point's caller shape.
+// ---------------------------------------------------------------------------
+
+type CardState =
+  | { status: "loading" }
+  | {
+      status: "needs_link";
+      /** rr_recruiters.id we'll back-link on the first action. */
+      recruiterId: string;
+      stub: { name: string; title: string | null; firm: string | null };
+    }
+  | {
+      status: "ready";
+      contact: OutreachPerson;
+      recruiterId: string | null;
+      recentTouches: RecentTouch[];
+    }
+  | { status: "error"; message: string };
 
 export function OutreachModal({
   open,
   onOpenChange,
-  contact,
+  contactId,
+  recruiterId,
+  initialDisplay,
   recruiterPipeline,
 }: OutreachModalProps) {
   const router = useRouter();
+  const [card, setCard] = useState<CardState>({ status: "loading" });
+
+  // Loading state for the slow Gmail / HubSpot / Granola / Fireflies fetch.
+  // Lives alongside the card state so the rest of the modal stays
+  // interactive while sources stream in.
+  const [loadingCtx, setLoadingCtx] = useState(true);
+  const [sources, setSources] = useState<DraftSource[] | null>(null);
+  const [contextRecentTouches, setContextRecentTouches] = useState<
+    RecentTouch[]
+  >([]);
 
   // -- Header-controlled state (relationship + VIP). Optimistic; reverts on
   //    server-action failure.
-  const [relationshipType, setRelationshipTypeState] = useState<
-    RelationshipType | null
-  >(contact.relationship_type);
-  const [vipState, setVipState] = useState<boolean>(contact.vip);
+  const [relationshipState, setRelationshipState] =
+    useState<RelationshipType | null>(null);
+  const [vipState, setVipState] = useState<boolean>(false);
   const [, startVipTransition] = useTransition();
   const [, startRelationshipTransition] = useTransition();
 
   // -- Intent state (drives which sub-section renders)
-  const [intent, setIntent] = useState<ContactIntent | null>(
-    contact.intent ?? null
-  );
+  const [intent, setIntent] = useState<ContactIntent | null>(null);
   const [, startIntentTransition] = useTransition();
 
   // -- Cadence state — surfaced in the Warm sub-section
-  const [cadenceInterval, setCadenceState] = useState<CadenceInterval>(
-    contact.cadence_interval
-  );
+  const [cadenceInterval, setCadenceState] = useState<CadenceInterval>("none");
   const [, startCadenceTransition] = useTransition();
-
-  // -- Communication context state
-  const [loadingCtx, setLoadingCtx] = useState(true);
-  const [sources, setSources] = useState<DraftSource[] | null>(null);
-  const [recentTouches, setRecentTouches] = useState<RecentTouch[]>([]);
-
-  // -- Linked jasonos.contacts row when opened against a recruiter pipeline.
-  const [linkedContact, setLinkedContact] = useState<OutreachPerson | null>(
-    null
-  );
 
   // -- Log-touch state (shared across sub-sections that render the panel)
   const [logChannel, setLogChannel] = useState<LogTouchChannel>("email");
@@ -154,78 +181,239 @@ export function OutreachModal({
   const [logOutcome, setLogOutcome] = useState("");
   const [logging, startLogTransition] = useTransition();
 
+  // Track whether we've already toast'd the auto-link for this open.
+  const [autoLinked, setAutoLinked] = useState(false);
+
+  // ------------------------------------------------------------------
+  // Fetch on open
+  // ------------------------------------------------------------------
+
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
 
     const run = async () => {
-      let resolvedId: string | null;
-      if (recruiterPipeline) {
-        const linked = await getOutreachContactByRecruiterId(contact.id);
-        if (cancelled) return;
-        setLinkedContact(linked);
-        resolvedId = linked?.id ?? null;
-        if (linked) {
-          // Prefer the canonical contact's persisted state (intent, cadence,
-          // relationship, vip) when we resolved a linked row.
-          setIntent(linked.intent ?? null);
-          setRelationshipTypeState(linked.relationship_type);
-          setCadenceState(linked.cadence_interval);
-          setVipState(linked.vip);
-        }
-      } else {
-        resolvedId = contact.id;
-      }
-
-      if (!resolvedId) {
-        setLoadingCtx(false);
-        return;
-      }
-
-      const result = await loadOutreachContext({ contactId: resolvedId });
+      // Yield to the next microtask so the synchronous reset writes happen
+      // outside the effect body (keeps react-hooks/set-state-in-effect happy
+      // while still resetting on every open).
+      await Promise.resolve();
       if (cancelled) return;
-      if (!result.ok) {
-        toast.error(result.error);
+      setCard({ status: "loading" });
+      setAutoLinked(false);
+      setLoadingCtx(true);
+      setSources(null);
+      setContextRecentTouches([]);
+
+      const result = await getContactCardData({
+        contactId: contactId ?? null,
+        recruiterId: recruiterId ?? null,
+      });
+      if (cancelled) return;
+      applyFetchResult(result);
+
+      if (result.ok) {
+        await loadContext(result.contact.id);
+      } else {
+        // Either a hard error or no_linked_contact — nothing else to load
+        // until the user takes their first action and back-links.
         setLoadingCtx(false);
+      }
+    };
+
+    const loadContext = async (id: string) => {
+      try {
+        const ctxResult = await loadOutreachContext({ contactId: id });
+        if (cancelled) return;
+        if (!ctxResult.ok) {
+          toast.error(ctxResult.error);
+          setLoadingCtx(false);
+          return;
+        }
+        setSources(ctxResult.sources);
+        setContextRecentTouches(ctxResult.recentTouches);
+        setLoadingCtx(false);
+      } catch (err) {
+        if (cancelled) return;
+        toast.error(
+          err instanceof Error ? err.message : "Failed to load context"
+        );
+        setLoadingCtx(false);
+      }
+    };
+
+    const applyFetchResult = (result: ContactCardDataResult) => {
+      if (result.ok) {
+        setCard({
+          status: "ready",
+          contact: result.contact,
+          recruiterId: result.recruiterId,
+          recentTouches: result.recentTouches,
+        });
+        setRelationshipState(result.contact.relationship_type);
+        setVipState(result.contact.vip);
+        setIntent(result.contact.intent ?? null);
+        setCadenceState(result.contact.cadence_interval);
         return;
       }
-      setSources(result.sources);
-      setRecentTouches(result.recentTouches);
-      setLoadingCtx(false);
+      if (
+        result.error === "no_linked_contact" &&
+        result.recruiterId &&
+        result.stub
+      ) {
+        setCard({
+          status: "needs_link",
+          recruiterId: result.recruiterId,
+          stub: result.stub,
+        });
+        // Defaults for an unlinked card: everything neutral; the user picks
+        // intent first which back-links via ensureContactForRecruiter.
+        setRelationshipState(null);
+        setVipState(false);
+        setIntent(null);
+        setCadenceState("none");
+        return;
+      }
+      setCard({ status: "error", message: result.error });
     };
 
     run().catch((err) => {
       if (cancelled) return;
-      toast.error(err instanceof Error ? err.message : "Failed to load context");
+      setCard({
+        status: "error",
+        message: err instanceof Error ? err.message : "Failed to load card",
+      });
       setLoadingCtx(false);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [open, contact.id, recruiterPipeline]);
-
-  // The "effective" contact used by intent-driven sub-sections. For regular
-  // contacts this is the prop; for recruiter-pipeline contacts it's the
-  // looked-up jasonos.contacts row (or null if there's no link yet).
-  const sectionsContact = recruiterPipeline ? linkedContact : contact;
-  const effectiveContactId = sectionsContact?.id ?? null;
+  }, [open, contactId, recruiterId]);
 
   // ------------------------------------------------------------------
-  // Header handlers
+  // Auto-link helper for pipeline-only cards. Idempotent on the server.
+  // Returns the canonical contact id once linked, or null on failure.
+  // ------------------------------------------------------------------
+
+  const ensureLinked = async (): Promise<string | null> => {
+    if (card.status === "ready") return card.contact.id;
+    if (card.status !== "needs_link") return null;
+    const linkResult = await ensureContactForRecruiter(card.recruiterId);
+    if (!linkResult.ok) {
+      toast.error(linkResult.error);
+      return null;
+    }
+    const newContactId = linkResult.contactId;
+    // Re-fetch the full payload so the rest of the modal targets the
+    // canonical row from here on out.
+    const refreshed = await getContactCardData({ contactId: newContactId });
+    if (refreshed.ok) {
+      setCard({
+        status: "ready",
+        contact: refreshed.contact,
+        recruiterId: refreshed.recruiterId,
+        recentTouches: refreshed.recentTouches,
+      });
+      setRelationshipState(refreshed.contact.relationship_type);
+      setVipState(refreshed.contact.vip);
+      setIntent(refreshed.contact.intent ?? null);
+      setCadenceState(refreshed.contact.cadence_interval);
+    } else {
+      // Even on refresh failure we still got a contactId — fall back to a
+      // minimal synthesized ready state so subsequent actions can proceed.
+      const stub = card.stub;
+      setCard({
+        status: "ready",
+        contact: {
+          id: newContactId,
+          name: stub.name,
+          title: stub.title,
+          firm: stub.firm,
+          firm_normalized: null,
+          linkedin_url: null,
+          primary_email: null,
+          vip: false,
+          relationship_type: null,
+          cadence_interval: "none",
+          cadence_stage: null,
+          intent: null,
+          next_touch_date: null,
+          last_touch_date: null,
+          last_touch_channel: null,
+          tags: [],
+          strategic_score: null,
+          firm_focus_rank: null,
+        },
+        recruiterId: card.recruiterId,
+        recentTouches: [],
+      });
+    }
+    if (!autoLinked) {
+      toast.success(`Linked ${card.stub.name} to your contacts list`);
+      setAutoLinked(true);
+    }
+    return newContactId;
+  };
+
+  // ------------------------------------------------------------------
+  // Header / state derivations
+  // ------------------------------------------------------------------
+
+  const header = useMemo(() => {
+    if (card.status === "ready") {
+      return {
+        name: card.contact.name,
+        title: card.contact.title,
+        firm: card.contact.firm,
+        primary_email: card.contact.primary_email,
+        linkedin_url: card.contact.linkedin_url,
+        next_touch_date: card.contact.next_touch_date,
+        last_touch_date: card.contact.last_touch_date,
+      };
+    }
+    if (card.status === "needs_link") {
+      return {
+        name: card.stub.name,
+        title: card.stub.title,
+        firm: card.stub.firm,
+        primary_email: null as string | null,
+        linkedin_url: null as string | null,
+        next_touch_date: null as string | null,
+        last_touch_date: null as string | null,
+      };
+    }
+    return {
+      name: initialDisplay?.name ?? "Loading…",
+      title: initialDisplay?.title ?? null,
+      firm: initialDisplay?.firm ?? null,
+      primary_email: null as string | null,
+      linkedin_url: null as string | null,
+      next_touch_date: null as string | null,
+      last_touch_date: null as string | null,
+    };
+  }, [card, initialDisplay]);
+
+  const effectiveContactId =
+    card.status === "ready" ? card.contact.id : null;
+  const nextTouchDate =
+    card.status === "ready" ? card.contact.next_touch_date : null;
+
+  // ------------------------------------------------------------------
+  // Header handlers — Relationship + VIP. Auto-link first when needed.
   // ------------------------------------------------------------------
 
   const handleRelationshipChange = (next: RelationshipType | null) => {
-    if (!effectiveContactId) {
-      toast.error("No linked contact yet — open from People to classify.");
-      return;
-    }
-    const prev = relationshipType;
-    setRelationshipTypeState(next);
+    const prev = relationshipState;
+    setRelationshipState(next);
     startRelationshipTransition(async () => {
-      const result = await setRelationshipType(effectiveContactId, next);
+      const targetId = effectiveContactId ?? (await ensureLinked());
+      if (!targetId) {
+        setRelationshipState(prev);
+        return;
+      }
+      const result = await setRelationshipType(targetId, next);
       if (!result.ok) {
-        setRelationshipTypeState(prev);
+        setRelationshipState(prev);
         toast.error(result.error);
         return;
       }
@@ -234,15 +422,16 @@ export function OutreachModal({
   };
 
   const handleVipToggle = () => {
-    if (!effectiveContactId) {
-      toast.error("No linked contact yet — open from People to flag VIP.");
-      return;
-    }
     const prev = vipState;
     const next = !prev;
     setVipState(next);
     startVipTransition(async () => {
-      const result = await toggleVip(effectiveContactId, next);
+      const targetId = effectiveContactId ?? (await ensureLinked());
+      if (!targetId) {
+        setVipState(prev);
+        return;
+      }
+      const result = await toggleVip(targetId, next);
       if (!result.ok) {
         setVipState(prev);
         toast.error(result.error);
@@ -253,112 +442,42 @@ export function OutreachModal({
   };
 
   // ------------------------------------------------------------------
-  // Intent handler (optimistic)
-  //
-  // For pipeline-only cards (recruiter pipeline row with no linked
-  // jasonos.contacts row yet) the user wouldn't otherwise have a way to
-  // set intent — those contacts don't appear in /outreach/people. We
-  // auto-link first (idempotent) so the click "just works" and subsequent
-  // actions (Log Touch, etc.) target the canonical contact row.
+  // Intent handler — auto-link first if needed. Idempotent.
   // ------------------------------------------------------------------
 
   const handleIntentChange = (next: ContactIntent | null) => {
     const prev = intent;
     setIntent(next);
-
-    if (effectiveContactId) {
-      startIntentTransition(async () => {
-        const result = await setContactIntent(effectiveContactId, next);
-        if (!result.ok) {
-          setIntent(prev);
-          toast.error(result.error);
-          return;
-        }
-        router.refresh();
-      });
-      return;
-    }
-
-    if (recruiterPipeline) {
-      // contact.id is the rr_recruiters.id when opened against a pipeline row
-      // with no linked contact (see modalContactPayload in
-      // three-column-queue-client.tsx).
-      const recruiterId = contact.id;
-      startIntentTransition(async () => {
-        const linked = await ensureContactForRecruiter(recruiterId);
-        if (!linked.ok) {
-          setIntent(prev);
-          toast.error(linked.error);
-          return;
-        }
-        const newContactId = linked.contactId;
-
-        // Synthesize a linked-contact payload from the pipeline row so the
-        // rest of the modal (header, sub-sections, Log Touch) targets the
-        // canonical jasonos.contacts.id immediately. The next router.refresh
-        // will replace this with the server-loaded OutreachPerson.
-        const reconnect = recruiterPipeline.contact;
-        setLinkedContact({
-          id: newContactId,
-          name: reconnect.name,
-          title: reconnect.title ?? null,
-          firm: reconnect.firm ?? null,
-          firm_normalized: reconnect.firm_normalized ?? null,
-          linkedin_url: reconnect.linkedin_url ?? null,
-          primary_email: null,
-          vip: false,
-          relationship_type: "prospect",
-          cadence_interval: "none",
-          cadence_stage: null,
-          intent: next,
-          next_touch_date: null,
-          last_touch_date: reconnect.last_contact_date ?? null,
-          last_touch_channel: null,
-          tags: [],
-          strategic_score: null,
-          firm_focus_rank: null,
-        });
-        setRelationshipTypeState("prospect");
-
-        if (next === null) {
-          toast.success("Contact linked.");
-          router.refresh();
-          return;
-        }
-
-        const intentResult = await setContactIntent(newContactId, next);
-        if (!intentResult.ok) {
-          // Contact creation is the irreversible part — surface the error
-          // but leave the synthesized linked state in place so the user
-          // can retry without re-creating the row.
-          toast.error(intentResult.error);
-          router.refresh();
-          return;
-        }
-        toast.success(`Linked & pinned to ${CONTACT_INTENT_LABELS[next]}.`);
-        router.refresh();
-      });
-      return;
-    }
-
-    // Truly orphan — should not happen.
-    setIntent(prev);
-    toast.error("No linked contact yet — open from People to set intent.");
+    startIntentTransition(async () => {
+      const targetId = effectiveContactId ?? (await ensureLinked());
+      if (!targetId) {
+        setIntent(prev);
+        return;
+      }
+      const result = await setContactIntent(targetId, next);
+      if (!result.ok) {
+        setIntent(prev);
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
+    });
   };
 
   // ------------------------------------------------------------------
-  // Cadence handler (Warm sub-section)
+  // Cadence handler
   // ------------------------------------------------------------------
 
   const handleCadenceChange = (next: CadenceInterval) => {
-    if (!effectiveContactId) {
-      toast.error("No linked contact yet — open from People to set cadence.");
-      return;
-    }
     const prev = cadenceInterval;
     setCadenceState(next);
     startCadenceTransition(async () => {
-      const result = await setCadence(effectiveContactId, next);
+      const targetId = effectiveContactId ?? (await ensureLinked());
+      if (!targetId) {
+        setCadenceState(prev);
+        return;
+      }
+      const result = await setCadence(targetId, next);
       if (!result.ok) {
         setCadenceState(prev);
         toast.error(result.error);
@@ -373,14 +492,15 @@ export function OutreachModal({
   // ------------------------------------------------------------------
 
   const handleLog = () => {
-    if (!sectionsContact) return;
     if (!logObjective) {
       toast.error("Pick an outcome — did this touch achieve its goal?");
       return;
     }
     startLogTransition(async () => {
+      const targetId = effectiveContactId ?? (await ensureLinked());
+      if (!targetId) return;
       const result = await logContactTouch({
-        contactId: sectionsContact.id,
+        contactId: targetId,
         channel: logChannel,
         direction: "outbound",
         brief: logBrief.trim() || undefined,
@@ -393,9 +513,7 @@ export function OutreachModal({
       }
       const stageMsg =
         logObjective === "yes" ? "Cadence stage advanced." : "Cadence reset.";
-      toast.success(
-        `Logged ${logChannel} touch with ${sectionsContact.name}. ${stageMsg}`
-      );
+      toast.success(`Logged ${logChannel} touch. ${stageMsg}`);
       setLogBrief("");
       setLogOutcome("");
       setLogObjective(null);
@@ -404,28 +522,8 @@ export function OutreachModal({
   };
 
   // ------------------------------------------------------------------
-  // Header data
+  // Render
   // ------------------------------------------------------------------
-
-  const header = recruiterPipeline && linkedContact
-    ? {
-        name: linkedContact.name,
-        title: linkedContact.title,
-        firm: linkedContact.firm,
-        next_touch_date: linkedContact.next_touch_date,
-        last_touch_date: linkedContact.last_touch_date,
-        primary_email: linkedContact.primary_email,
-        linkedin_url: linkedContact.linkedin_url,
-      }
-    : {
-        name: contact.name,
-        title: contact.title ?? null,
-        firm: contact.firm ?? null,
-        next_touch_date: contact.next_touch_date ?? null,
-        last_touch_date: contact.last_touch_date ?? null,
-        primary_email: contact.primary_email ?? null,
-        linkedin_url: contact.linkedin_url ?? null,
-      };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -436,6 +534,9 @@ export function OutreachModal({
             <div className="min-w-0 flex-1">
               <DialogTitle className="flex flex-wrap items-center gap-2">
                 <span className="truncate">{header.name}</span>
+                {card.status === "loading" ? (
+                  <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+                ) : null}
                 <button
                   type="button"
                   onClick={handleVipToggle}
@@ -459,7 +560,7 @@ export function OutreachModal({
                     title="Change relationship type"
                     className="rounded-full outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <RelationshipBadge type={relationshipType} />
+                    <RelationshipBadge type={relationshipState} />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="min-w-56">
                     {RELATIONSHIP_TYPES.map((value) => (
@@ -494,7 +595,7 @@ export function OutreachModal({
             </div>
           </div>
 
-          {(header.primary_email || header.linkedin_url) ? (
+          {header.primary_email || header.linkedin_url ? (
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
               {header.primary_email ? (
                 <a
@@ -522,47 +623,49 @@ export function OutreachModal({
 
         {/* BODY */}
         <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
-          {/* INTENT segmented control */}
+          {card.status === "error" ? (
+            <div className="rounded-md border border-red-500/40 bg-red-500/5 p-3 text-xs text-red-300">
+              {card.message}
+            </div>
+          ) : null}
+
           <IntentControl intent={intent} onChange={handleIntentChange} />
 
-          {/* INTENT-DEPENDENT SUB-SECTION */}
-          {sectionsContact ? (
-            <IntentSection
-              intent={intent}
+          <IntentSection
+            intent={intent}
+            cadenceInterval={cadenceInterval}
+            onCadenceChange={handleCadenceChange}
+            nextTouchDate={nextTouchDate}
+            recruiterPipeline={recruiterPipeline}
+            outcomeValue={logOutcome}
+            onOutcomeChange={setLogOutcome}
+          >
+            <LogTouchPanel
+              channel={logChannel}
+              setChannel={setLogChannel}
+              brief={logBrief}
+              setBrief={setLogBrief}
+              outcome={logOutcome}
+              setOutcome={setLogOutcome}
+              hideOutcomeField={intent === "specific"}
+              objective={logObjective}
+              setObjective={setLogObjective}
+              onLog={handleLog}
+              logging={logging}
               cadenceInterval={cadenceInterval}
-              onCadenceChange={handleCadenceChange}
-              nextTouchDate={sectionsContact.next_touch_date ?? null}
-              recruiterPipeline={recruiterPipeline}
-              outcomeValue={logOutcome}
-              onOutcomeChange={setLogOutcome}
-            >
-              <LogTouchPanel
-                channel={logChannel}
-                setChannel={setLogChannel}
-                brief={logBrief}
-                setBrief={setLogBrief}
-                outcome={logOutcome}
-                setOutcome={setLogOutcome}
-                hideOutcomeField={intent === "specific"}
-                objective={logObjective}
-                setObjective={setLogObjective}
-                onLog={handleLog}
-                logging={logging}
-                cadenceInterval={cadenceInterval}
-              />
-            </IntentSection>
-          ) : (
-            <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
-              Open this contact from the People view to enable intent and
-              touch logging.
-            </div>
-          )}
+            />
+          </IntentSection>
 
-          {/* COMMUNICATION CONTEXT (unchanged) */}
           <RecentContextSection
             loading={loadingCtx}
             sources={sources}
-            recentTouches={recentTouches}
+            recentTouches={
+              contextRecentTouches.length > 0
+                ? contextRecentTouches
+                : card.status === "ready"
+                ? card.recentTouches
+                : []
+            }
           />
         </div>
       </DialogContent>
@@ -956,7 +1059,7 @@ function LogTouchPanel({
 }
 
 // ---------------------------------------------------------------------------
-// Communication Context (recent touches + source cards) — unchanged
+// Communication Context (recent touches + source cards)
 // ---------------------------------------------------------------------------
 
 function RecentContextSection({
@@ -970,7 +1073,10 @@ function RecentContextSection({
 }) {
   const empty = useMemo(
     () =>
-      !loading && sources && !sources.some((s) => s.found) && !recentTouches.length,
+      !loading &&
+      sources &&
+      !sources.some((s) => s.found) &&
+      !recentTouches.length,
     [loading, sources, recentTouches.length]
   );
 

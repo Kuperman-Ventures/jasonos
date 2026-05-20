@@ -17,7 +17,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
-import { ClassifyMenu } from "@/components/jasonos/outreach/classify-menu";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import {
   CADENCE_LABELS,
@@ -48,9 +47,6 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
   const [query, setQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState<Set<RelFilter>>(
     () => new Set()
-  );
-  const [classifyTarget, setClassifyTarget] = useState<OutreachPerson | null>(
-    null
   );
   const [modalTarget, setModalTarget] = useState<OutreachPerson | null>(null);
 
@@ -234,7 +230,6 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
                   key={person.id}
                   person={person}
                   onOpen={() => setModalTarget(person)}
-                  onClassify={() => setClassifyTarget(person)}
                 />
               ))}
             </ul>
@@ -242,42 +237,17 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
         </div>
       </div>
 
-      {classifyTarget ? (
-        <ClassifyMenu
-          open={Boolean(classifyTarget)}
-          onOpenChange={(open) => {
-            if (!open) setClassifyTarget(null);
-          }}
-          contact={{
-            id: classifyTarget.id,
-            name: classifyTarget.name,
-            relationship_type: classifyTarget.relationship_type,
-            cadence_interval: classifyTarget.cadence_interval,
-            vip: classifyTarget.vip,
-          }}
-        />
-      ) : null}
-
       {modalTarget ? (
         <OutreachModal
           open={Boolean(modalTarget)}
           onOpenChange={(open) => {
             if (!open) setModalTarget(null);
           }}
-          contact={{
-            id: modalTarget.id,
+          contactId={modalTarget.id}
+          initialDisplay={{
             name: modalTarget.name,
             title: modalTarget.title,
             firm: modalTarget.firm,
-            primary_email: modalTarget.primary_email,
-            linkedin_url: modalTarget.linkedin_url,
-            vip: modalTarget.vip,
-            relationship_type: modalTarget.relationship_type,
-            cadence_interval: modalTarget.cadence_interval,
-            cadence_stage: modalTarget.cadence_stage,
-            intent: modalTarget.intent,
-            next_touch_date: modalTarget.next_touch_date,
-            last_touch_date: modalTarget.last_touch_date,
           }}
         />
       ) : null}
@@ -288,11 +258,9 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
 function PersonRow({
   person,
   onOpen,
-  onClassify,
 }: {
   person: OutreachPerson;
   onOpen: () => void;
-  onClassify: () => void;
 }) {
   const stop = (e: React.MouseEvent) => e.stopPropagation();
 
@@ -362,11 +330,11 @@ function PersonRow({
           size="sm"
           onClick={(e) => {
             e.stopPropagation();
-            onClassify();
+            onOpen();
           }}
         >
           <TagIcon className="h-3.5 w-3.5" />
-          Classify
+          Open
         </Button>
       </div>
     </li>

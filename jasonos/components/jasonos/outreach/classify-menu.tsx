@@ -1,5 +1,12 @@
 "use client";
 
+/**
+ * @deprecated Replaced by OutreachModal. The Header → Intent → Cadence flow
+ * inside the contact card covers everything this menu did (relationship type,
+ * cadence, VIP). File scheduled for removal in a follow-up cleanup once we're
+ * confident no callsites are left.
+ */
+
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { ArrowLeft, HelpCircle, Sparkles, Star } from "lucide-react";

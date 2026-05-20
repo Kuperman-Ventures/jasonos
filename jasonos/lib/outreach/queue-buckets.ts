@@ -425,7 +425,13 @@ function makeCard(
     reason: attrs.reason,
     sequenceStageLabel: attrs.sequenceStageLabel,
     contactId: person.id,
-    recruiterId: recruiterPipelineId ?? (reconnect ? reconnect.id : null),
+    // Only set `recruiterId` when we have a true rr_recruiters.id. Cold-target
+    // reconnect rows are keyed by jasonos.contacts.id, NOT rr_recruiters.id —
+    // assigning reconnect.id here would cause ensureContactForRecruiter to
+    // look up a non-existent rr_recruiters row and bail with "Pipeline row
+    // not found". The bucketing match still uses `reconnect` for firm/title
+    // enrichment above; it just doesn't leak into recruiterId.
+    recruiterId: recruiterPipelineId ?? null,
   };
   attachSortAnchor(card, attrs.sortAnchor ?? null);
   return card;

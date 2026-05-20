@@ -212,20 +212,11 @@ export function ContactCreateModal({
               router.refresh();
             }
           }}
-          contact={{
-            id: classifyTarget.id,
+          contactId={classifyTarget.id}
+          initialDisplay={{
             name: classifyTarget.name,
             title: classifyTarget.title,
             firm: classifyTarget.firm,
-            primary_email: classifyTarget.primary_email,
-            linkedin_url: classifyTarget.linkedin_url,
-            vip: false,
-            relationship_type: null,
-            cadence_interval: "none",
-            cadence_stage: null,
-            intent: null,
-            next_touch_date: null,
-            last_touch_date: null,
           }}
         />
       ) : null}

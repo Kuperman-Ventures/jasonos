@@ -372,19 +372,11 @@ export function ReconnectClient({
           onOpenChange={(open) => {
             if (!open) setSelectedId(null);
           }}
-          contact={{
-            id: selected.id,
+          recruiterId={selected.id}
+          initialDisplay={{
             name: selected.name,
             title: selected.title ?? null,
             firm: selected.firm ?? null,
-            primary_email: null,
-            linkedin_url: selected.linkedin_url ?? null,
-            vip: false,
-            relationship_type: "recruiter",
-            cadence_interval: "none",
-            cadence_stage: null,
-            next_touch_date: null,
-            last_touch_date: selected.last_contact_date ?? null,
           }}
           recruiterPipeline={{
             contact: selected,

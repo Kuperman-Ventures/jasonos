@@ -100,19 +100,11 @@ export function WarmthWidget({ reminders, initialLimit = 4 }: WarmthWidgetProps)
           onOpenChange={(open) => {
             if (!open) setModalTarget(null);
           }}
-          contact={{
-            id: modalTarget.id,
+          contactId={modalTarget.id}
+          initialDisplay={{
             name: modalTarget.name,
             title: modalTarget.title,
             firm: modalTarget.firm,
-            primary_email: modalTarget.primary_email,
-            linkedin_url: modalTarget.linkedin_url,
-            vip: modalTarget.vip,
-            relationship_type: modalTarget.relationship_type,
-            cadence_interval: modalTarget.cadence_interval,
-            cadence_stage: modalTarget.cadence_stage,
-            next_touch_date: modalTarget.next_touch_date,
-            last_touch_date: modalTarget.last_touch_date,
           }}
         />
       ) : null}

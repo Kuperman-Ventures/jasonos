@@ -14,7 +14,7 @@ import {
   type RelationshipType,
   type TouchObjective,
 } from "@/lib/outreach/types";
-import type { LogTouchChannel } from "@/lib/outreach/draft-types";
+import type { LogTouchChannel, RecentTouch } from "@/lib/outreach/draft-types";
 import type { OutreachPerson } from "@/lib/outreach/data";
 import {
   insertContactTouches,
@@ -581,4 +581,259 @@ export async function getOutreachContactByRecruiterId(
     strategic_score: strategicScore,
     firm_focus_rank: firmFocusRank,
   };
+}
+
+// ---------------------------------------------------------------------------
+// getContactCardData — single source of truth for "what's in this card".
+//
+// The OutreachModal calls this on open with whatever minimal context the
+// entry point has (a canonical contactId, an rr_recruiters.id, or both).
+// The action does the heavy lifting of resolving the canonical contact,
+// the linked recruiter-pipeline id, and recent touches.
+//
+// Behavior:
+//   - contactId provided           → load contact + recruiterId back-link
+//   - recruiterId only             → resolve link; if none, return
+//                                    { ok: false, error: "no_linked_contact" }
+//                                    with a stub for header paint. The modal
+//                                    can decide to call ensureContactForRecruiter
+//                                    on the user's first action.
+//   - both provided                → contactId wins
+//   - neither                      → error
+//
+// No row creation happens here. That stays in ensureContactForRecruiter,
+// which the modal only triggers on a real user action.
+// ---------------------------------------------------------------------------
+
+export type ContactCardDataResult =
+  | {
+      ok: true;
+      contact: OutreachPerson;
+      /** rr_recruiters.id linked via source_ids.recruiter_pipeline_id, or null. */
+      recruiterId: string | null;
+      recentTouches: RecentTouch[];
+    }
+  | {
+      ok: false;
+      /** "no_linked_contact" is special: the caller has only a recruiterId
+       *  and there is no jasonos.contacts row linked yet. The modal can
+       *  render from `stub` and call ensureContactForRecruiter on the
+       *  user's first action. Any other error string is a hard failure. */
+      error: string;
+      recruiterId?: string;
+      stub?: { name: string; title: string | null; firm: string | null };
+    };
+
+export async function getContactCardData(input: {
+  contactId?: string | null;
+  recruiterId?: string | null;
+}): Promise<ContactCardDataResult> {
+  const guard = ensureConfigured();
+  if (guard && !guard.ok) return { ok: false, error: guard.error };
+
+  const contactIdInput = input.contactId?.trim() || null;
+  const recruiterIdInput = input.recruiterId?.trim() || null;
+
+  if (!contactIdInput && !recruiterIdInput) {
+    return {
+      ok: false,
+      error: "Provide a contactId or recruiterId.",
+    };
+  }
+
+  const sb = createServiceRoleClient();
+
+  // 1. Resolve which canonical jasonos.contacts.id we're targeting.
+  let resolvedContactId: string | null = contactIdInput;
+
+  if (!resolvedContactId && recruiterIdInput) {
+    const { data: linked, error } = await sb
+      .from("contacts")
+      .select("id")
+      .filter("source_ids->>recruiter_pipeline_id", "eq", recruiterIdInput)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) return { ok: false, error: error.message };
+
+    if (linked) {
+      resolvedContactId = linked.id as string;
+    } else {
+      // No linked contact yet — return a stub from the pipeline row so the
+      // modal can render the header immediately, and surface the
+      // no_linked_contact signal so the modal knows to auto-link on the
+      // user's first action via ensureContactForRecruiter.
+      const sbPublic = createPublicServiceRoleClient();
+      const { data: recruiter } = await sbPublic
+        .from("rr_recruiters")
+        .select("name,firm,title")
+        .eq("id", recruiterIdInput)
+        .maybeSingle();
+
+      return {
+        ok: false,
+        error: "no_linked_contact",
+        recruiterId: recruiterIdInput,
+        stub: {
+          name: (recruiter?.name as string) ?? "Unknown",
+          title: (recruiter?.title as string | null) ?? null,
+          firm: (recruiter?.firm as string | null) ?? null,
+        },
+      };
+    }
+  }
+
+  if (!resolvedContactId) {
+    return { ok: false, error: "Could not resolve a contact id." };
+  }
+
+  // 2. Load the canonical contact row. Mirrors getOutreachContactByRecruiterId
+  // schema fallbacks so this works even when migration 0017 hasn't shipped.
+  const fullColumns = `id,name,emails,linkedin_url,title,vip,tags,source_ids,
+     relationship_type,cadence_interval,cadence_stage,intent,next_touch_date,
+     last_touch_date,last_touch_channel`;
+  const noIntentColumns = `id,name,emails,linkedin_url,title,vip,tags,source_ids,
+     relationship_type,cadence_interval,cadence_stage,next_touch_date,
+     last_touch_date,last_touch_channel`;
+
+  let contactResult = await sb
+    .from("contacts")
+    .select(fullColumns)
+    .eq("id", resolvedContactId)
+    .maybeSingle();
+
+  if (contactResult.error && /\bintent\b/i.test(contactResult.error.message)) {
+    contactResult = (await sb
+      .from("contacts")
+      .select(noIntentColumns)
+      .eq("id", resolvedContactId)
+      .maybeSingle()) as typeof contactResult;
+  }
+
+  if (contactResult.error) {
+    return { ok: false, error: contactResult.error.message };
+  }
+  const row = contactResult.data;
+  if (!row) {
+    return { ok: false, error: "Contact not found." };
+  }
+
+  // 3. Pull the linked recruiter pipeline id (if any) so callers can hand
+  //    pipeline-aware context (FirstContactSequence) back into the modal.
+  const sourceIds = (row.source_ids as Record<string, unknown> | null) ?? {};
+  const recruiterPipelineId =
+    typeof sourceIds.recruiter_pipeline_id === "string"
+      ? sourceIds.recruiter_pipeline_id
+      : null;
+
+  // 4. Enrich firm / title / strategic score from the recruiter pipeline
+  //    row when available, matching getOutreachContactByRecruiterId.
+  let firm: string | null = inferFirmFromTagsLocal(
+    (row.tags as string[] | null) ?? []
+  );
+  let firmNormalized: string | null = firm ? firm.toLowerCase() : null;
+  let title: string | null = (row.title as string | null) ?? null;
+  let strategicScore: number | null = null;
+  let firmFocusRank: number | null = null;
+  if (recruiterPipelineId) {
+    try {
+      const sbPublic = createPublicServiceRoleClient();
+      const { data: recruiter } = await sbPublic
+        .from("rr_recruiters")
+        .select("firm,firm_normalized,title,strategic_score,firm_focus_rank")
+        .eq("id", recruiterPipelineId)
+        .maybeSingle();
+      if (recruiter) {
+        firm = (recruiter.firm as string) ?? firm;
+        firmNormalized =
+          (recruiter.firm_normalized as string) ?? firmNormalized;
+        title = title ?? ((recruiter.title as string) ?? null);
+        strategicScore = (recruiter.strategic_score as number) ?? null;
+        firmFocusRank = (recruiter.firm_focus_rank as number) ?? null;
+      }
+    } catch (err) {
+      console.error("[outreach.getContactCardData.enrich]", err);
+    }
+  }
+
+  const emails = (row.emails as string[] | null) ?? [];
+  const contact: OutreachPerson = {
+    id: row.id as string,
+    name: row.name as string,
+    title,
+    firm,
+    firm_normalized: firmNormalized,
+    linkedin_url: (row.linkedin_url as string) ?? null,
+    primary_email: emails[0] ?? null,
+    vip: Boolean(row.vip),
+    relationship_type:
+      (row.relationship_type as RelationshipType | null) ?? null,
+    cadence_interval:
+      (row.cadence_interval as CadenceInterval | null) ?? "none",
+    cadence_stage: (row.cadence_stage as CadenceStage | null) ?? null,
+    intent:
+      ((row as { intent?: ContactIntent | null }).intent as
+        | ContactIntent
+        | null) ?? null,
+    next_touch_date: (row.next_touch_date as string | null) ?? null,
+    last_touch_date: (row.last_touch_date as string | null) ?? null,
+    last_touch_channel: (row.last_touch_channel as string | null) ?? null,
+    tags: (row.tags as string[] | null) ?? [],
+    strategic_score: strategicScore,
+    firm_focus_rank: firmFocusRank,
+  };
+
+  // 5. Recent touches — primary source jasonos.contact_touches.
+  const recentTouches: RecentTouch[] = [];
+  try {
+    const { data: touches } = await sb
+      .from("contact_touches")
+      .select("id,channel,direction,touched_at,brief")
+      .eq("contact_id", contact.id)
+      .order("touched_at", { ascending: false })
+      .limit(10);
+    if (touches?.length) {
+      for (const t of touches) {
+        recentTouches.push({
+          id: t.id as string,
+          channel: t.channel as string,
+          direction: t.direction as string,
+          touched_at: t.touched_at as string,
+          brief: (t.brief as string) ?? null,
+        });
+      }
+    } else if (recruiterPipelineId) {
+      // Fallback: rr_touches via the recruiter link (legacy path).
+      const { data: legacy } = await sb
+        .from("rr_touches")
+        .select("id,channel,direction,touched_at,brief")
+        .eq("contact_id", recruiterPipelineId)
+        .order("touched_at", { ascending: false })
+        .limit(10);
+      for (const t of legacy ?? []) {
+        recentTouches.push({
+          id: t.id as string,
+          channel: t.channel as string,
+          direction: t.direction as string,
+          touched_at: t.touched_at as string,
+          brief: (t.brief as string) ?? null,
+        });
+      }
+    }
+  } catch (err) {
+    console.error("[outreach.getContactCardData.touches]", err);
+  }
+
+  return {
+    ok: true,
+    contact,
+    recruiterId: recruiterPipelineId,
+    recentTouches,
+  };
+}
+
+function inferFirmFromTagsLocal(tags: string[]): string | null {
+  const tag = tags.find((t) => t.startsWith("firm:"));
+  if (!tag) return null;
+  return tag.slice("firm:".length).replace(/-/g, " ");
 }

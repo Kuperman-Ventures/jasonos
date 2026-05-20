@@ -332,7 +332,9 @@ export function ThreeColumnQueueClient({
           onOpenChange={(open) => {
             if (!open) setOpenContext(null);
           }}
-          contact={modalContactPayload(openContext)}
+          contactId={openContext.card?.contactId ?? undefined}
+          recruiterId={openContext.card?.recruiterId ?? undefined}
+          initialDisplay={modalDisplay(openContext)}
           recruiterPipeline={
             openContext.reconnect
               ? {
@@ -539,74 +541,28 @@ interface OpenContext {
   reconnect: ReconnectContact | null;
 }
 
-function modalContactPayload(ctx: OpenContext): {
-  id: string;
+function modalDisplay(ctx: OpenContext): {
   name: string;
   title?: string | null;
   firm?: string | null;
-  primary_email?: string | null;
-  linkedin_url?: string | null;
-  vip: boolean;
-  relationship_type: OutreachPerson["relationship_type"];
-  cadence_interval: OutreachPerson["cadence_interval"];
-  cadence_stage?: OutreachPerson["cadence_stage"];
-  intent?: OutreachPerson["intent"];
-  next_touch_date?: string | null;
-  last_touch_date?: string | null;
 } {
   if (ctx.person) {
     return {
-      id: ctx.person.id,
       name: ctx.person.name,
       title: ctx.person.title,
       firm: ctx.person.firm,
-      primary_email: ctx.person.primary_email,
-      linkedin_url: ctx.person.linkedin_url,
-      vip: ctx.person.vip,
-      relationship_type: ctx.person.relationship_type,
-      cadence_interval: ctx.person.cadence_interval,
-      cadence_stage: ctx.person.cadence_stage,
-      intent: ctx.person.intent,
-      next_touch_date: ctx.person.next_touch_date,
-      last_touch_date: ctx.person.last_touch_date,
     };
   }
-  // Pure-pipeline row (no jasonos.contacts row yet). rr_recruiters is
-  // legacy naming — it backs any first-contact / cold-outreach pipeline,
-  // not just literal recruiters. Leave relationship_type null so we don't
-  // mislabel the contact; ensureContactForRecruiter will populate it when
-  // the user takes their first action on the card.
   if (ctx.reconnect) {
     return {
-      id: ctx.reconnect.id,
       name: ctx.reconnect.name,
       title: ctx.reconnect.title ?? null,
       firm: ctx.reconnect.firm ?? null,
-      primary_email: null,
-      linkedin_url: ctx.reconnect.linkedin_url ?? null,
-      vip: false,
-      relationship_type: null,
-      cadence_interval: "none",
-      cadence_stage: null,
-      intent: null,
-      next_touch_date: null,
-      last_touch_date: ctx.reconnect.last_contact_date ?? null,
     };
   }
-  // Should never happen — both card.contactId and recruiterId would be null.
   return {
-    id: ctx.card?.key ?? "unknown",
     name: ctx.card?.name ?? "Unknown",
-    title: null,
-    firm: null,
-    primary_email: null,
-    linkedin_url: null,
-    vip: false,
-    relationship_type: null,
-    cadence_interval: "none",
-    cadence_stage: null,
-    intent: null,
-    next_touch_date: null,
-    last_touch_date: null,
+    title: ctx.card?.title ?? null,
+    firm: ctx.card?.firm ?? null,
   };
 }
