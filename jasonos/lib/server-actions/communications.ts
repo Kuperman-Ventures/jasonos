@@ -15,6 +15,7 @@ import {
   getHubSpotContactActivities,
 } from "@/lib/integrations/hubspot";
 import type { CadenceInterval as CadenceIntervalType } from "@/lib/cadence/types";
+import { getOutreachPeople, type OutreachPerson } from "@/lib/outreach/data";
 
 // Kupe's known outbound email addresses (v1 hardcode — update if addresses change)
 const MY_EMAILS = ["jason@kupermanadvisors.com", "jskuperman@gmail.com"];
@@ -139,249 +140,279 @@ function computeUrgency(
 
 // ---------------------------------------------------------------------------
 // Main query
+//
+// Schedule reads from the unified jasonos.contacts source via
+// getOutreachPeople() so EVERY contact with a scheduling-relevant signal
+// shows up here, not just rr_recruiters pipeline rows. Recruiter-linked
+// contacts are still enriched with their richer pipeline data (rr_touches,
+// rr_contact_state, hubspot_url, summary_of_prior_comms) so the existing
+// recruiter UI keeps working.
 // ---------------------------------------------------------------------------
+
+interface RecruiterEnrichmentRow {
+  id: string;
+  summary_of_prior_comms: string | null;
+  hubspot_url: string | null;
+}
+
+interface ContactStateRow {
+  contact_id: string;
+  status: string | null;
+  next_action_due_date: string | null;
+}
+
+interface TouchRow {
+  id: string;
+  contact_id: string;
+  channel: string | null;
+  direction: string | null;
+  touched_at: string;
+  brief: string | null;
+}
 
 export async function getCommunicationsData(): Promise<CommunicationsContact[]> {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return [];
 
   try {
-    const sb = createPublicServiceRoleClient();
+    const sbPublic = createPublicServiceRoleClient();
+    const sbJasonos = createServiceRoleClient();
 
-    const { data: recruiters, error } = await sb
-      .from("rr_recruiters")
-      .select(
-        "id,name,firm,firm_normalized,title,strategic_score,last_contact_date,summary_of_prior_comms,hubspot_url,firm_focus_rank"
-      )
-      .order("strategic_score", { ascending: false });
+    // 1. Unified contact source — Phase 2/3 canonical store.
+    const people = await getOutreachPeople();
+    if (!people.length) return [];
 
-    if (error) {
-      console.error("[communications] rr_recruiters query failed", error);
+    // 2. Map every contact to its recruiter-pipeline link (when present)
+    //    so we know which rows still get the richer pipeline enrichment.
+    const allIds = people.map((p) => p.id);
+    const { data: rpidRows } = await sbJasonos
+      .from("contacts")
+      .select("id, source_ids")
+      .in("id", allIds);
+
+    const contactToRpid = new Map<string, string>();
+    for (const row of rpidRows ?? []) {
+      const si = row.source_ids as Record<string, unknown> | null;
+      const rpid = si?.recruiter_pipeline_id;
+      if (typeof rpid === "string" && rpid.length > 0) {
+        contactToRpid.set(row.id as string, rpid);
+      }
     }
-    if (!recruiters?.length) {
-      // No recruiter pipeline rows — fall back to cadence-only contacts.
-      return await getCadenceCommunicationsContacts();
-    }
+    const recruiterIds = Array.from(new Set(contactToRpid.values()));
 
-    const ids = recruiters.map((r) => r.id as string);
+    // 3. Inclusion criteria — keep this aligned with the spec:
+    //    - cadence_interval != 'none' AND next_touch_date set, OR
+    //    - next_touch_date set on its own (one-off scheduled touch), OR
+    //    - intent in {warm, specific, cold} (explicitly placed in queue), OR
+    //    - has a recruiter pipeline link (preserves legacy Schedule
+    //      behavior — every triaged recruiter still surfaces here).
+    //    Backrow contacts are universally excluded.
+    const eligible = people.filter((p) => {
+      if (p.intent === "backrow") return false;
+      if (p.cadence_interval !== "none" && p.next_touch_date) return true;
+      if (p.next_touch_date) return true;
+      if (p.intent) return true;
+      if (contactToRpid.has(p.id)) return true;
+      return false;
+    });
+    if (!eligible.length) return [];
+
+    // 4. Pull recruiter-side enrichment + state + touches in parallel,
+    //    plus the cadence-card lookup needed for non-recruiter dismiss /
+    //    schedule actions.
     const today = startOfToday();
     const ninetyDaysAgo = addDays(today, -90);
 
-    const [{ data: states }, { data: touches }] = await Promise.all([
-      sb
-        .from("rr_contact_state")
-        .select("contact_id,status,next_action_due_date")
-        .in("contact_id", ids),
-      sb
-        .from("rr_touches")
-        .select("id,contact_id,channel,direction,touched_at,brief")
-        .in("contact_id", ids)
-        .gte("touched_at", ninetyDaysAgo.toISOString())
-        .order("touched_at", { ascending: false }),
-    ]);
+    const recruiterPromise = recruiterIds.length
+      ? sbPublic
+          .from("rr_recruiters")
+          .select("id,summary_of_prior_comms,hubspot_url")
+          .in("id", recruiterIds)
+      : Promise.resolve({ data: [] as RecruiterEnrichmentRow[] });
 
-    const stateMap = new Map(
-      (states ?? []).map((s) => [s.contact_id as string, s])
-    );
+    const statePromise = recruiterIds.length
+      ? sbPublic
+          .from("rr_contact_state")
+          .select("contact_id,status,next_action_due_date")
+          .in("contact_id", recruiterIds)
+      : Promise.resolve({ data: [] as ContactStateRow[] });
 
-    const touchesByContact = new Map<string, NonNullable<typeof touches>>();
-    for (const t of touches ?? []) {
-      const arr = touchesByContact.get(t.contact_id as string) ?? [];
-      arr.push(t);
-      touchesByContact.set(t.contact_id as string, arr);
-    }
+    const touchesPromise = recruiterIds.length
+      ? sbPublic
+          .from("rr_touches")
+          .select("id,contact_id,channel,direction,touched_at,brief")
+          .in("contact_id", recruiterIds)
+          .gte("touched_at", ninetyDaysAgo.toISOString())
+          .order("touched_at", { ascending: false })
+      : Promise.resolve({ data: [] as TouchRow[] });
 
-    // Build peer map by firm
-    const firmMap = new Map<string, typeof recruiters>();
-    for (const r of recruiters) {
-      if (!r.firm) continue;
-      const arr = firmMap.get(r.firm as string) ?? [];
-      arr.push(r);
-      firmMap.set(r.firm as string, arr);
-    }
-
-    const recruiterContacts: CommunicationsContact[] = recruiters
-      .filter((r) => stateMap.get(r.id as string)?.status !== "dismissed")
-      .map((r): CommunicationsContact => {
-        const state = stateMap.get(r.id as string) ?? null;
-        const contactTouches = touchesByContact.get(r.id as string) ?? [];
-
-        const contactedToday = contactTouches.some(
-          (t) =>
-            t.direction === "outbound" && new Date(t.touched_at as string) >= today
-        );
-
-        const threeDaysAgo = addDays(today, -3);
-        const recentlyContacted = contactTouches.some(
-          (t) =>
-            t.direction === "outbound" && new Date(t.touched_at as string) >= threeDaysAgo
-        );
-
-        const lastTouchRaw = contactTouches[0] ?? null;
-        const lastTouch: CommTouch | null = lastTouchRaw
-          ? {
-              id: lastTouchRaw.id as string,
-              channel: toCommChannel(lastTouchRaw.channel as string),
-              direction: (lastTouchRaw.direction ?? "outbound") as "inbound" | "outbound",
-              touched_at: lastTouchRaw.touched_at as string,
-              brief: (lastTouchRaw.brief as string) ?? null,
-            }
-          : null;
-
-        const recentTouches: CommTouch[] = contactTouches.slice(0, 5).map((t) => ({
-          id: t.id as string,
-          channel: toCommChannel(t.channel as string),
-          direction: (t.direction ?? "outbound") as "inbound" | "outbound",
-          touched_at: t.touched_at as string,
-          brief: (t.brief as string) ?? null,
-        }));
-
-        const peers: CommPeer[] = (firmMap.get(r.firm as string) ?? [])
-          .filter((p) => p.id !== r.id)
-          .slice(0, 5)
-          .map((p) => ({
-            id: p.id as string,
-            name: p.name as string,
-            title: (p.title as string) ?? null,
-            firm: (p.firm as string) ?? null,
-          }));
-
-        return {
-          id: r.id as string,
-          name: r.name as string,
-          title: (r.title as string) ?? null,
-          firm: (r.firm as string) ?? null,
-          firm_normalized: (r.firm_normalized as string) ?? null,
-          firm_focus_rank: (r.firm_focus_rank as number) ?? null,
-          strength: normalizeStrength(r.strategic_score as number | null),
-          urgency: computeUrgency(
-            (state?.next_action_due_date as string) ?? null,
-            contactedToday,
-            recentlyContacted,
-          ),
-          lastTouch,
-          recentTouches,
-          nextActionDueDate: (state?.next_action_due_date as string) ?? null,
-          summaryOfPriorComms: (r.summary_of_prior_comms as string) ?? null,
-          peers,
-          hubspot_url: (r.hubspot_url as string) ?? null,
-          source: "recruiter" as const,
-          cadenceCardId: null,
-          cadenceInterval: null,
-        };
-      });
-
-    // Merge in cadence contacts (added via the global "Add contact" sheet).
-    // These live in jasonos.contacts + jasonos.cards, not the rr_* pipeline.
-    const cadenceContacts = await getCadenceCommunicationsContacts();
-    const recruiterIds = new Set(recruiterContacts.map((c) => c.id));
-    const merged = [
-      ...recruiterContacts,
-      ...cadenceContacts.filter((c) => !recruiterIds.has(c.id)),
-    ];
-    return merged;
-  } catch (err) {
-    console.error("[communications] getCommunicationsData failed", err);
-    return [];
-  }
-}
-
-async function getCadenceCommunicationsContacts(): Promise<CommunicationsContact[]> {
-  try {
-    const sb = createServiceRoleClient();
-    const { data: cards, error } = await sb
+    const cardsPromise = sbJasonos
       .from("cards")
-      .select("id,title,subtitle,body,linked_object_ids,state,created_at")
+      .select("id, linked_object_ids")
       .eq("module", "reconnect")
       .eq("object_type", "cadence_contact")
       .eq("state", "open");
 
-    if (error) {
-      console.error("[communications] cadence cards query failed", error);
-      return [];
+    const [
+      { data: recruiterRows },
+      { data: stateRows },
+      { data: touchRows },
+      { data: cardRows },
+    ] = await Promise.all([
+      recruiterPromise,
+      statePromise,
+      touchesPromise,
+      cardsPromise,
+    ]);
+
+    const recruiterMap = new Map<string, RecruiterEnrichmentRow>();
+    for (const r of (recruiterRows ?? []) as RecruiterEnrichmentRow[]) {
+      recruiterMap.set(r.id, r);
     }
-    if (!cards?.length) return [];
 
-    const contactIds = cards
-      .map((c) => {
-        const linked = c.linked_object_ids as Record<string, unknown> | null;
-        const id = linked?.contact_id;
-        return typeof id === "string" ? id : null;
-      })
-      .filter((id): id is string => Boolean(id));
+    const stateMap = new Map<string, ContactStateRow>();
+    for (const s of (stateRows ?? []) as ContactStateRow[]) {
+      stateMap.set(s.contact_id, s);
+    }
 
-    if (!contactIds.length) return [];
+    const touchesByRpid = new Map<string, TouchRow[]>();
+    for (const t of (touchRows ?? []) as TouchRow[]) {
+      const arr = touchesByRpid.get(t.contact_id) ?? [];
+      arr.push(t);
+      touchesByRpid.set(t.contact_id, arr);
+    }
 
-    const { data: contacts } = await sb
-      .from("contacts")
-      .select("id,name,title,linkedin_url,emails,tags,last_touch_date,last_touch_channel,notes")
-      .in("id", contactIds);
+    const cardByContactId = new Map<string, string>();
+    for (const c of cardRows ?? []) {
+      const linked = c.linked_object_ids as Record<string, unknown> | null;
+      const cid = linked?.contact_id;
+      if (typeof cid === "string") cardByContactId.set(cid, c.id as string);
+    }
 
-    const contactsById = new Map(
-      (contacts ?? []).map((c) => [c.id as string, c])
-    );
-    const today = startOfToday();
+    // 5. Peer map — keyed by firm_normalized so non-recruiters at the same
+    //    firm can also surface as peers in the right-rail card.
+    const peersByFirm = new Map<string, OutreachPerson[]>();
+    for (const p of eligible) {
+      if (!p.firm_normalized) continue;
+      const arr = peersByFirm.get(p.firm_normalized) ?? [];
+      arr.push(p);
+      peersByFirm.set(p.firm_normalized, arr);
+    }
 
-    return cards
-      .map((card): CommunicationsContact | null => {
-        const linked = card.linked_object_ids as Record<string, unknown> | null;
-        const contactId = typeof linked?.contact_id === "string" ? linked.contact_id : null;
-        if (!contactId) return null;
-        const contact = contactsById.get(contactId);
-        if (!contact) return null;
+    const threeDaysAgo = addDays(today, -3);
 
-        const body = (card.body as
-          | {
-              cadence_interval?: CadenceIntervalType;
-              next_touch_date?: string | null;
-              notes?: string | null;
-              firm?: string | null;
-            }
-          | null) ?? {};
-        const cadenceInterval = (body.cadence_interval as CadenceIntervalType) ?? "none";
-        const nextDue = typeof body.next_touch_date === "string" ? body.next_touch_date : null;
+    // 6. Build the CommunicationsContact[] result.
+    const contacts: CommunicationsContact[] = [];
+    for (const p of eligible) {
+      const rpid = contactToRpid.get(p.id) ?? null;
+      const state = rpid ? stateMap.get(rpid) ?? null : null;
 
-        const lastTouchDate = (contact.last_touch_date as string | null) ?? null;
-        const lastTouchChannel = toCommChannel(contact.last_touch_channel as string | null);
-        const lastTouch: CommTouch | null = lastTouchDate
-          ? {
-              id: `cadence-${card.id as string}-last`,
-              channel: lastTouchChannel,
-              direction: "outbound",
-              touched_at: new Date(`${lastTouchDate}T00:00:00`).toISOString(),
-              brief: (contact.notes as string | null) ?? null,
-            }
-          : null;
+      // Preserve the existing "dismiss recruiter" behavior — once a
+      // recruiter is marked dismissed in rr_contact_state, they stay out
+      // of the queue.
+      if (rpid && state?.status === "dismissed") continue;
 
-        const contactedToday = lastTouchDate
-          ? new Date(`${lastTouchDate}T00:00:00`) >= today
-          : false;
-        const recentlyContacted = lastTouchDate
-          ? new Date(`${lastTouchDate}T00:00:00`) >= addDays(today, -3)
-          : false;
+      const recruiter = rpid ? recruiterMap.get(rpid) ?? null : null;
+      const contactTouches = rpid ? touchesByRpid.get(rpid) ?? [] : [];
 
-        return {
-          id: contactId,
-          name: (contact.name as string) ?? (card.title as string) ?? "Untitled",
-          title: (contact.title as string) ?? null,
-          firm: body.firm ?? null,
-          firm_normalized: body.firm ? body.firm.toLowerCase() : null,
-          firm_focus_rank: null,
-          strength: 1,
-          urgency: computeUrgency(nextDue, contactedToday, recentlyContacted),
-          lastTouch,
-          recentTouches: lastTouch ? [lastTouch] : [],
-          nextActionDueDate: nextDue,
-          summaryOfPriorComms: (body.notes as string | null) ?? (contact.notes as string | null) ?? null,
-          peers: [],
-          hubspot_url: null,
-          source: "cadence",
-          cadenceCardId: card.id as string,
-          cadenceInterval,
+      let lastTouch: CommTouch | null = null;
+      let recentTouches: CommTouch[] = [];
+      let contactedToday = false;
+      let recentlyContacted = false;
+
+      if (contactTouches.length) {
+        const top = contactTouches[0];
+        lastTouch = {
+          id: top.id,
+          channel: toCommChannel(top.channel),
+          direction: (top.direction ?? "outbound") as "inbound" | "outbound",
+          touched_at: top.touched_at,
+          brief: top.brief ?? null,
         };
-      })
-      .filter((c): c is CommunicationsContact => c !== null);
+        recentTouches = contactTouches.slice(0, 5).map((t) => ({
+          id: t.id,
+          channel: toCommChannel(t.channel),
+          direction: (t.direction ?? "outbound") as "inbound" | "outbound",
+          touched_at: t.touched_at,
+          brief: t.brief ?? null,
+        }));
+        contactedToday = contactTouches.some(
+          (t) =>
+            t.direction === "outbound" && new Date(t.touched_at) >= today
+        );
+        recentlyContacted = contactTouches.some(
+          (t) =>
+            t.direction === "outbound" &&
+            new Date(t.touched_at) >= threeDaysAgo
+        );
+      } else if (p.last_touch_date) {
+        const synth = new Date(`${p.last_touch_date}T00:00:00`);
+        lastTouch = {
+          id: `contact-${p.id}-last`,
+          channel: toCommChannel(p.last_touch_channel),
+          direction: "outbound",
+          touched_at: synth.toISOString(),
+          brief: null,
+        };
+        recentTouches = [lastTouch];
+        contactedToday = synth >= today;
+        recentlyContacted = synth >= threeDaysAgo;
+      }
+
+      // Prefer rr_contact_state.next_action_due_date when the recruiter
+      // pipeline owns the schedule (legacy behavior). Otherwise fall back
+      // to jasonos.contacts.next_touch_date — the canonical Phase 1+ field.
+      const nextActionDueDate =
+        state?.next_action_due_date ?? p.next_touch_date ?? null;
+
+      const peers: CommPeer[] = (p.firm_normalized
+        ? peersByFirm.get(p.firm_normalized) ?? []
+        : []
+      )
+        .filter((peer) => peer.id !== p.id)
+        .slice(0, 5)
+        .map((peer) => ({
+          // Mirror the contact-id convention used below: recruiter-linked
+          // peers expose their rr_recruiters.id so peer-click drills into
+          // the same row that getCommunicationsData() returns.
+          id: contactToRpid.get(peer.id) ?? peer.id,
+          name: peer.name,
+          title: peer.title ?? null,
+          firm: peer.firm ?? null,
+        }));
+
+      contacts.push({
+        // Recruiter-linked rows expose rr_recruiters.id so the existing
+        // server actions (dismissCommunicationContact, scheduleNextTouch,
+        // getLastContactContents, getFirmmates) keep working unchanged.
+        // Non-recruiter rows expose jasonos.contacts.id — the canonical
+        // identifier for everything else.
+        id: rpid ?? p.id,
+        name: p.name,
+        title: p.title ?? null,
+        firm: p.firm ?? null,
+        firm_normalized: p.firm_normalized ?? null,
+        firm_focus_rank: p.firm_focus_rank ?? null,
+        strength: normalizeStrength(p.strategic_score),
+        urgency: computeUrgency(
+          nextActionDueDate,
+          contactedToday,
+          recentlyContacted
+        ),
+        lastTouch,
+        recentTouches,
+        nextActionDueDate,
+        summaryOfPriorComms: recruiter?.summary_of_prior_comms ?? null,
+        peers,
+        hubspot_url: recruiter?.hubspot_url ?? null,
+        source: rpid ? "recruiter" : "cadence",
+        cadenceCardId: rpid ? null : cardByContactId.get(p.id) ?? null,
+        cadenceInterval: p.cadence_interval ?? null,
+      });
+    }
+
+    return contacts;
   } catch (err) {
-    console.error("[communications] getCadenceCommunicationsContacts failed", err);
+    console.error("[communications] getCommunicationsData failed", err);
     return [];
   }
 }
@@ -499,6 +530,45 @@ export async function scheduleNextTouch(
     { onConflict: "contact_id" }
   );
   revalidatePath("/communications");
+  revalidatePath("/outreach/schedule");
+}
+
+// ---------------------------------------------------------------------------
+// scheduleContactNextTouch — write directly to jasonos.contacts.next_touch_date
+// for non-recruiter, no-cadence-card contacts that the unified Schedule page
+// now surfaces. Avoids leaving phantom rows in rr_contact_state for contacts
+// that never lived in the recruiter pipeline.
+// ---------------------------------------------------------------------------
+
+export async function scheduleContactNextTouch(
+  contactId: string,
+  option: ScheduleOption,
+  customDate?: string
+): Promise<void> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+  const sb = createServiceRoleClient();
+  const dueDate = dueDateFromOption(option, customDate);
+  await sb
+    .from("contacts")
+    .update({ next_touch_date: dueDate })
+    .eq("id", contactId);
+  revalidatePath("/communications");
+  revalidatePath("/outreach/schedule");
+}
+
+// ---------------------------------------------------------------------------
+// dismissContactFromSchedule — set intent='backrow' on a non-recruiter
+// contact so the unified inclusion criteria removes it from /outreach/schedule
+// on next load. Recruiter-linked contacts keep using
+// dismissCommunicationContact (rr_contact_state.status='dismissed').
+// ---------------------------------------------------------------------------
+
+export async function dismissContactFromSchedule(contactId: string): Promise<void> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return;
+  const sb = createServiceRoleClient();
+  await sb.from("contacts").update({ intent: "backrow" }).eq("id", contactId);
+  revalidatePath("/communications");
+  revalidatePath("/outreach/schedule");
 }
 
 // ---------------------------------------------------------------------------

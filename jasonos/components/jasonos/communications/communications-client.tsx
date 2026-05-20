@@ -39,6 +39,8 @@ import type {
 } from "@/lib/server-actions/communications";
 import {
   dismissCommunicationContact,
+  dismissContactFromSchedule,
+  scheduleContactNextTouch,
   scheduleNextTouch,
   syncSentToday,
   getLastContactContents,
@@ -306,8 +308,14 @@ export function CommunicationsClient({
     const target = activeContacts.find((c) => c.id === id) ?? null;
     setDismissed((prev) => new Set([...prev, id]));
     if (selectedId === id) setSelectedId(null);
-    if (target?.source === "cadence" && target.cadenceCardId) {
-      void dismissCadenceContact(target.cadenceCardId);
+    if (target?.source === "cadence") {
+      if (target.cadenceCardId) {
+        void dismissCadenceContact(target.cadenceCardId);
+      } else {
+        // Pure jasonos.contacts row (no cadence card) — flag it backrow so
+        // the unified Schedule loader excludes it on next load.
+        void dismissContactFromSchedule(id);
+      }
     } else {
       void dismissCommunicationContact(id);
     }
@@ -639,8 +647,14 @@ function ContactDetailPanel({
 
   const handleSchedule = () => {
     startTransition(async () => {
-      if (contact.source === "cadence" && contact.cadenceCardId) {
-        await scheduleCadenceTouch(contact.cadenceCardId, nextContactOption);
+      if (contact.source === "cadence") {
+        if (contact.cadenceCardId) {
+          await scheduleCadenceTouch(contact.cadenceCardId, nextContactOption);
+        } else {
+          // Bare jasonos.contacts row — write next_touch_date directly so
+          // the urgency bucket on the next refresh reflects the new date.
+          await scheduleContactNextTouch(contact.id, nextContactOption);
+        }
       } else {
         await scheduleNextTouch(contact.id, nextContactOption);
       }
