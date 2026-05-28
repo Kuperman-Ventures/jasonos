@@ -35,6 +35,7 @@ const NAV: NavItem[] = [
     ],
   },
   { kind: "link",  href: "/outreach", label: "Outreach" },
+  { kind: "link",  href: "/browning", label: "Browning" },
   {
     kind: "group",
     label: "Project Management",

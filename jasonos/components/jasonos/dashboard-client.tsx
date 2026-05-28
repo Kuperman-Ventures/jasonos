@@ -7,6 +7,7 @@ import { MustDos } from "@/components/jasonos/must-dos";
 import { ActionQueue } from "@/components/jasonos/action-queue";
 import { MonitoringGrid } from "@/components/jasonos/monitoring-grid";
 import { RecruiterOutreachCard } from "@/components/jasonos/recruiter-outreach-card";
+import { BrowningCard } from "@/components/jasonos/browning-card";
 import { DailyWrap } from "@/components/jasonos/daily-wrap";
 import { ThisWeekCard } from "@/components/jasonos/this-week-card";
 import { WhatNowCard } from "@/components/jasonos/what-now-card";
@@ -15,15 +16,18 @@ import { AskDispatchButton } from "@/components/dispatch/AskDispatchButton";
 import type { Track, ActionCard } from "@/lib/types";
 import type { DashboardData } from "@/lib/data/dashboard";
 import type { WhatNowAdvice } from "@/lib/server-actions/what-now";
+import type { BrowningSummary } from "@/lib/browning/types";
 
 export function DashboardClient({
   data,
   whatNow,
   pinned,
+  browningSummary,
 }: {
   data: DashboardData;
   whatNow: WhatNowAdvice;
   pinned: ActionCard[];
+  browningSummary: BrowningSummary;
 }) {
   const [trackFilter, setTrackFilter] = useState<Track | null>(null);
 
@@ -62,6 +66,7 @@ export function DashboardClient({
         </div>
         <div className="space-y-4">
           <RecruiterOutreachCard stats={data.recruiterOutreach} />
+          <BrowningCard summary={browningSummary} />
           <MonitoringGrid tiles={data.tiles} trackFilter={trackFilter} />
         </div>
       </div>

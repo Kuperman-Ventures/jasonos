@@ -91,6 +91,12 @@ import type { DraftSource } from "@/lib/server-actions/draft-from-history";
 // Kept for callsites that pass through the recruiter pipeline ReconnectContact
 // so the Cold sub-section's First-Contact Sequence widget still works.
 import type { RecruiterPipelineProps } from "@/components/jasonos/outreach/recruiter-pipeline-panel";
+// Browning module — auto-prompt the score dialog when a touch is logged on
+// a Browning-tagged contact.
+import { getBrowningPostTouchPrompt } from "@/lib/server-actions/browning";
+import { ScoreConversationDialog } from "@/components/jasonos/browning/score-conversation-dialog";
+import { toBrowningChannel } from "@/lib/browning/format";
+import type { BrowningChannel } from "@/lib/browning/types";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -184,6 +190,17 @@ export function OutreachModal({
   // Track whether we've already toast'd the auto-link for this open.
   const [autoLinked, setAutoLinked] = useState(false);
 
+  // -- Browning auto-prompt state. Once dismissed within this modal session,
+  //    we do NOT re-prompt — the home Unscored backstop catches it later.
+  const [browningPrompt, setBrowningPrompt] = useState<{
+    contactId: string;
+    contactName: string;
+    linkedTouchId: string | null;
+    defaultDate: string;
+    defaultChannel: BrowningChannel;
+  } | null>(null);
+  const [browningDismissed, setBrowningDismissed] = useState(false);
+
   // ------------------------------------------------------------------
   // Fetch on open
   // ------------------------------------------------------------------
@@ -203,6 +220,8 @@ export function OutreachModal({
       setLoadingCtx(true);
       setSources(null);
       setContextRecentTouches([]);
+      setBrowningPrompt(null);
+      setBrowningDismissed(false);
 
       const result = await getContactCardData({
         contactId: contactId ?? null,
@@ -521,6 +540,32 @@ export function OutreachModal({
       setLogOutcome("");
       setLogObjective(null);
       router.refresh();
+
+      // Browning module: if this contact is Browning-tagged AND the user
+      // hasn't already dismissed a score prompt this session, auto-open the
+      // score dialog with the touch's metadata pre-filled. The server-side
+      // helper short-circuits when the contact isn't tagged or the latest
+      // touch already has a conversation row.
+      if (!browningDismissed) {
+        try {
+          const prompt = await getBrowningPostTouchPrompt(targetId);
+          if (prompt) {
+            const touchedAtIso =
+              prompt.latest_touch_at ?? new Date().toISOString();
+            setBrowningPrompt({
+              contactId: targetId,
+              contactName: prompt.contact_name,
+              linkedTouchId: prompt.latest_touch_id,
+              defaultDate: touchedAtIso.slice(0, 10),
+              defaultChannel: toBrowningChannel(
+                prompt.latest_touch_channel ?? logChannel
+              ),
+            });
+          }
+        } catch (err) {
+          console.error("[outreach-modal] browning prompt failed", err);
+        }
+      }
     });
   };
 
@@ -672,6 +717,22 @@ export function OutreachModal({
           />
         </div>
       </DialogContent>
+      {browningPrompt ? (
+        <ScoreConversationDialog
+          open={!!browningPrompt}
+          onOpenChange={(next) => {
+            if (!next) {
+              setBrowningPrompt(null);
+              setBrowningDismissed(true);
+            }
+          }}
+          contactId={browningPrompt.contactId}
+          contactName={browningPrompt.contactName}
+          linkedTouchId={browningPrompt.linkedTouchId}
+          defaultDate={browningPrompt.defaultDate}
+          defaultChannel={browningPrompt.defaultChannel}
+        />
+      ) : null}
     </Dialog>
   );
 }
