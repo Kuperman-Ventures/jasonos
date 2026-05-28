@@ -44,20 +44,51 @@ const cachedWhatNow = unstable_cache(
 );
 
 async function computeWhatNow(): Promise<WhatNowAdvice> {
-  const [enriched, pinned] = await Promise.all([
+  // Pull pipeline state + pins independently so a single failure (e.g. unauth,
+  // missing migration, Supabase blip) doesn't cascade into a page-level 500.
+  const [enrichedRes, pinnedRes] = await Promise.allSettled([
     enrichContext("What should Jason focus on right now?", { scope: "global" }),
     getPinnedTodayCards(),
   ]);
 
+  const enriched =
+    enrichedRes.status === "fulfilled" ? enrichedRes.value : null;
+  const pinned = pinnedRes.status === "fulfilled" ? pinnedRes.value : [];
+
+  if (!enriched) {
+    return makeFallbackAdvice({
+      reason:
+        enrichedRes.status === "rejected" && enrichedRes.reason instanceof Error
+          ? enrichedRes.reason.message
+          : "context_unavailable",
+      pinned_today_count: pinned.length,
+    });
+  }
+
   const systemPrompt = buildWhatNowSystemPrompt();
   const userPrompt = buildWhatNowUserPrompt(enriched, pinned);
 
-  const { text } = await generateText({
-    model: heavyModel,
-    system: systemPrompt,
-    prompt: userPrompt,
-    maxOutputTokens: 800,
-  });
+  // The AI Gateway can refuse a model (e.g. 403 RestrictedModelsError when the
+  // team isn't on paid credits for Opus) or be misconfigured. Either case
+  // should degrade to a usable dashboard, not crash the RSC.
+  let text: string;
+  try {
+    const result = await generateText({
+      model: heavyModel,
+      system: systemPrompt,
+      prompt: userPrompt,
+      maxOutputTokens: 800,
+    });
+    text = result.text;
+  } catch (error) {
+    console.error("[what-now] AI Gateway call failed; serving fallback", error);
+    return makeFallbackAdvice({
+      reason: error instanceof Error ? error.message : "ai_unavailable",
+      triaged_count: enriched.global_state.triaged_count,
+      high_priority_untriaged: enriched.global_state.high_priority_untriaged ?? 0,
+      pinned_today_count: pinned.length,
+    });
+  }
 
   const parsed = parseWhatNowResponse(text);
 
@@ -69,6 +100,38 @@ async function computeWhatNow(): Promise<WhatNowAdvice> {
       triaged_count: enriched.global_state.triaged_count,
       high_priority_untriaged: enriched.global_state.high_priority_untriaged ?? 0,
       pinned_today_count: pinned.length,
+    },
+  };
+}
+
+// Static fallback so the dashboard always renders. Surfaces a short rationale
+// and a couple of safe deep-links Jason can act on without waiting on AI.
+function makeFallbackAdvice(args: {
+  reason: string;
+  triaged_count?: number;
+  high_priority_untriaged?: number;
+  pinned_today_count: number;
+}): WhatNowAdvice {
+  const isRestricted =
+    /restrictedmodels|free tier|no_providers_available|gatewayinternal/i.test(
+      args.reason
+    );
+  const rationale = isRestricted
+    ? "What Now is paused — the AI Gateway is refusing the configured model (likely a billing / model-access issue on this Vercel team). Jump straight into the queue while that's sorted."
+    : "What Now is temporarily unavailable. Jump straight into the queue and triage what's loudest — a fresh recommendation will return on the next refresh.";
+
+  return {
+    rationale,
+    actions: [
+      { rank: 1, label: "Open triage queue", href: "/runner/triage" },
+      { rank: 2, label: "Outreach queue", href: "/outreach/queue" },
+      { rank: 3, label: "Today's pins", href: "/today" },
+    ],
+    generated_at: new Date().toISOString(),
+    data_snapshot: {
+      triaged_count: args.triaged_count ?? 0,
+      high_priority_untriaged: args.high_priority_untriaged ?? 0,
+      pinned_today_count: args.pinned_today_count,
     },
   };
 }
