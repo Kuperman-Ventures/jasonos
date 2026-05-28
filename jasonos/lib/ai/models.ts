@@ -8,7 +8,10 @@ import { gateway } from "@ai-sdk/gateway";
 import { generateText } from "ai";
 
 // Heavy reasoning — used by the Best-Next-Action engine once per morning.
-export const heavyModel = gateway("anthropic/claude-opus-4-7");
+// Sonnet 4.6 — temporary downgrade from Opus until Vercel AI Gateway paid
+// credits are enabled on the kuperman-ventures team (Opus 4-7 returns 403
+// RestrictedModelsError on the free tier).
+export const heavyModel = gateway("anthropic/claude-sonnet-4-6");
 
 // Fast / cheap — used by the always-on "Tell Claude" command bar and
 // Goal→Plan refinements.
