@@ -366,6 +366,37 @@ export async function getBrowningContacts(): Promise<BrowningContactRow[]> {
     stats.set(row.contact_id, cur);
   }
 
+  // Latest open cadence card draft per contact. The Pipeline panel only
+  // needs a boolean (the dialog fetches the full draft on demand). Pull all
+  // open reconnect cards in one go and filter by contact_id in JS — the
+  // PostgREST `.in('linked_object_ids->>contact_id', ids)` filter is
+  // brittle on JSONB-extracted text and the data volume is tiny.
+  const hasDraftByContact = new Map<string, boolean>();
+  const { data: draftCards } = await sb
+    .from("cards")
+    .select("linked_object_ids, body, pinned_at, created_at")
+    .eq("module", "reconnect")
+    .eq("object_type", "cadence_contact")
+    .eq("state", "open")
+    .order("pinned_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false });
+  const idSet = new Set(ids);
+  for (const card of (draftCards ?? []) as Array<{
+    linked_object_ids: Record<string, unknown> | null;
+    body: Record<string, unknown> | null;
+  }>) {
+    const linked = card.linked_object_ids ?? {};
+    const contactId =
+      typeof linked.contact_id === "string" ? linked.contact_id : null;
+    if (!contactId || !idSet.has(contactId)) continue;
+    if (hasDraftByContact.has(contactId)) continue;
+    const draftMessage = card.body?.draft_message;
+    hasDraftByContact.set(
+      contactId,
+      typeof draftMessage === "string" && draftMessage.trim().length > 0
+    );
+  }
+
   // Most-recent touch per contact (we already have last_touch_date as a YYYY-MM-DD,
   // but we want a precise timestamp for "stalled" detection).
   const { data: touchRows } = await sb
@@ -411,6 +442,7 @@ export async function getBrowningContacts(): Promise<BrowningContactRow[]> {
       avg_warmth: stat && stat.count ? stat.warmthSum / stat.count : null,
       avg_quality_overall:
         stat && stat.count ? stat.qualitySum / stat.count : null,
+      has_draft: hasDraftByContact.get(id) ?? false,
     };
   });
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Search, Sparkles } from "lucide-react";
+import { FileText, Plus, Search, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { ScoreConversationDialog } from "@/components/jasonos/browning/score-conversation-dialog";
 import { AddToBrowningDialog } from "@/components/jasonos/browning/add-to-browning-dialog";
+import { ReactivationDraftDialog } from "@/components/jasonos/browning/reactivation-draft-dialog";
 import {
   BROWNING_SOURCE_LABELS,
   type BrowningContactRow,
@@ -42,6 +43,7 @@ export function PipelinePanel({ contacts }: Props) {
   const [stalledOnly, setStalledOnly] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [activeRow, setActiveRow] = useState<BrowningContactRow | null>(null);
+  const [draftRow, setDraftRow] = useState<BrowningContactRow | null>(null);
   // Compute "now" once on mount so the stalled filter is stable across
   // renders and Date.now() doesn't run during render (purity rule).
   const [nowMs, setNowMs] = useState<number>(0);
@@ -81,8 +83,24 @@ export function PipelinePanel({ contacts }: Props) {
     });
   }, [contacts, query, sourceFilter, tierFilter, stalledOnly, nowMs]);
 
+  const draftCount = useMemo(
+    () => contacts.filter((contact) => contact.has_draft).length,
+    [contacts]
+  );
+
   return (
     <div className="space-y-3">
+      {draftCount > 0 ? (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
+          <span className="font-medium text-amber-200/90">
+            {draftCount} {draftCount === 1 ? "contact has" : "contacts have"} a
+            draft ready.
+          </span>{" "}
+          Click <span className="font-medium">Draft</span> on a row to open and
+          send.
+        </div>
+      ) : null}
+
       {/* Filter row */}
       <div className="flex flex-wrap items-end gap-2">
         <div className="min-w-[220px] flex-1">
@@ -236,15 +254,31 @@ export function PipelinePanel({ contacts }: Props) {
                     <WarmthChip value={c.avg_quality_overall} />
                   </td>
                   <td className="px-3 py-2 text-right">
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      title="Score the most recent conversation"
-                      onClick={() => setActiveRow(c)}
-                    >
-                      <Sparkles className="h-3 w-3" />
-                      Score
-                    </Button>
+                    <div className="flex justify-end gap-1.5">
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        title={
+                          c.has_draft
+                            ? "Open reactivation draft + log send"
+                            : "No draft on file"
+                        }
+                        disabled={!c.has_draft}
+                        onClick={() => setDraftRow(c)}
+                      >
+                        <FileText className="h-3 w-3" />
+                        Draft
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        title="Score the most recent conversation"
+                        onClick={() => setActiveRow(c)}
+                      >
+                        <Sparkles className="h-3 w-3" />
+                        Score
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -254,7 +288,8 @@ export function PipelinePanel({ contacts }: Props) {
       </div>
 
       <div className="text-[10px] text-muted-foreground">
-        Showing {filtered.length} of {contacts.length} Browning contacts.
+        Showing {filtered.length} of {contacts.length} Browning contacts •{" "}
+        {draftCount} with drafts ready.
       </div>
 
       <AddToBrowningDialog open={addOpen} onOpenChange={setAddOpen} />
@@ -267,6 +302,17 @@ export function PipelinePanel({ contacts }: Props) {
           }}
           contactId={activeRow.contact_id}
           contactName={activeRow.name}
+        />
+      ) : null}
+
+      {draftRow ? (
+        <ReactivationDraftDialog
+          open={!!draftRow}
+          onOpenChange={(next) => {
+            if (!next) setDraftRow(null);
+          }}
+          contactId={draftRow.contact_id}
+          contactName={draftRow.name}
         />
       ) : null}
     </div>

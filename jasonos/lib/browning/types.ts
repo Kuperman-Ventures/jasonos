@@ -95,6 +95,7 @@ export interface BrowningContactRow {
   conversations_count: number;
   avg_warmth: number | null;
   avg_quality_overall: number | null;
+  has_draft: boolean;
 }
 
 export interface UnscoredTouch {

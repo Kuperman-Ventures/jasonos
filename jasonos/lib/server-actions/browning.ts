@@ -289,6 +289,186 @@ export async function fetchUnscoredTouches(): Promise<UnscoredTouch[]> {
 }
 
 // ---------------------------------------------------------------------------
+// Reactivation draft surface — used by the Pipeline tab Draft button.
+//
+// The Dex/Browning drafting pipeline writes one jasonos.cards row per
+// reactivation slate item (module=reconnect, object_type=cadence_contact)
+// with body keyed exactly the way the spec describes:
+//   { hook, draft_message, summary_of_prior_comms,
+//     strategic_recommended_approach, channel, linkedin_url, source, ... }
+// plus the card's own top-level `subtitle`. The dialog reads that shape
+// directly — we deliberately do NOT re-derive role/company from contact
+// tags, because the card already carries an editorialized subtitle from
+// the drafting workflow.
+// ---------------------------------------------------------------------------
+
+export interface ReactivationDraft {
+  card_id: string;
+  pinned_at: string | null;
+  subtitle: string | null;
+  hook: string | null;
+  draft_message: string | null;
+  summary_of_prior_comms: string | null;
+  strategic_recommended_approach: string | null;
+  channel: string | null;
+  linkedin_url: string | null;
+  source: string | null;
+}
+
+export async function getReactivationDraftForContact(
+  contactId: string
+): Promise<ReactivationDraft | null> {
+  const guard = ensureConfigured();
+  if (guard) return null;
+  if (!contactId) return null;
+
+  const sb = createServiceRoleClient();
+
+  // Pull all reconnect cadence cards in one shot and filter in JS. PostgREST
+  // `.eq('linked_object_ids->>contact_id', ...)` works in many cases but we
+  // hit edge cases on this project (and the spec calls out the fallback
+  // explicitly), so we keep things simple.
+  const { data: rows, error } = await sb
+    .from("cards")
+    .select("id, subtitle, body, linked_object_ids, pinned_at, created_at")
+    .eq("module", "reconnect")
+    .eq("object_type", "cadence_contact")
+    .order("pinned_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("[browning.getReactivationDraftForContact]", error);
+    return null;
+  }
+
+  type Row = {
+    id: string;
+    subtitle: string | null;
+    body: Record<string, unknown> | null;
+    linked_object_ids: Record<string, unknown> | null;
+    pinned_at: string | null;
+    created_at: string;
+  };
+
+  const card = ((rows ?? []) as Row[]).find((r) => {
+    const linked = r.linked_object_ids ?? {};
+    return (
+      typeof linked.contact_id === "string" && linked.contact_id === contactId
+    );
+  });
+
+  if (!card) return null;
+
+  const body = (card.body ?? {}) as Record<string, unknown>;
+  const str = (key: string): string | null => {
+    const v = body[key];
+    return typeof v === "string" && v.trim() ? v : null;
+  };
+
+  return {
+    card_id: card.id,
+    pinned_at: card.pinned_at,
+    subtitle: card.subtitle,
+    hook: str("hook"),
+    draft_message: str("draft_message"),
+    summary_of_prior_comms: str("summary_of_prior_comms"),
+    strategic_recommended_approach: str("strategic_recommended_approach"),
+    channel: str("channel"),
+    linkedin_url: str("linkedin_url"),
+    source: str("source"),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// markBrowningTouchSent — log an outbound LinkedIn touch from the
+// Pipeline panel's Mark Sent affordance. Channel is fixed to 'linkedin'
+// because the current Dex-sourced reactivation drafts target LinkedIn DMs;
+// a future prompt can add a channel picker. Side effects per spec:
+//   1. Insert into contact_touches
+//   2. Stamp contacts.last_touch_{date,channel}
+//   3. If a matching open card exists, mark it actioned (do NOT re-action
+//      already-actioned cards)
+//   4. Revalidate /browning and /
+// ---------------------------------------------------------------------------
+
+export interface MarkBrowningTouchSentInput {
+  contactId: string;
+  cardId?: string | null;
+  brief?: string | null;
+  subject?: string | null;
+  threadUrl?: string | null;
+  /** ISO timestamp; defaults to now(). */
+  touchedAt?: string;
+}
+
+export async function markBrowningTouchSent(
+  input: MarkBrowningTouchSentInput
+): Promise<ActionResult> {
+  const guard = ensureConfigured();
+  if (guard) return guard;
+  if (!input.contactId) return { ok: false, error: "contactId is required." };
+
+  const sb = createServiceRoleClient();
+  const touchedAt =
+    input.touchedAt && !Number.isNaN(Date.parse(input.touchedAt))
+      ? input.touchedAt
+      : new Date().toISOString();
+  const todayIso = touchedAt.slice(0, 10);
+  const nowIso = new Date().toISOString();
+
+  const { error: touchError } = await sb.from("contact_touches").insert({
+    contact_id: input.contactId,
+    channel: "linkedin",
+    direction: "outbound",
+    touched_at: touchedAt,
+    source: "browning_pipeline_manual",
+    brief: input.brief?.trim() || null,
+    subject: input.subject?.trim() || null,
+    thread_url: input.threadUrl?.trim() || null,
+  });
+  if (touchError) {
+    console.error("[browning.markBrowningTouchSent] touch insert", touchError);
+    return { ok: false, error: touchError.message };
+  }
+
+  const { error: updateContactError } = await sb
+    .from("contacts")
+    .update({
+      last_touch_date: todayIso,
+      last_touch_channel: "linkedin",
+      updated_at: nowIso,
+    })
+    .eq("id", input.contactId);
+  if (updateContactError) {
+    console.error(
+      "[browning.markBrowningTouchSent] contact update",
+      updateContactError
+    );
+    return { ok: false, error: updateContactError.message };
+  }
+
+  if (input.cardId) {
+    // Action the card only if it's currently open — never overwrite a card
+    // that's already been actioned/dismissed/snoozed/archived.
+    const { error: updateCardError } = await sb
+      .from("cards")
+      .update({ state: "actioned", actioned_at: nowIso })
+      .eq("id", input.cardId)
+      .eq("state", "open");
+    if (updateCardError) {
+      console.error(
+        "[browning.markBrowningTouchSent] card update",
+        updateCardError
+      );
+      return { ok: false, error: updateCardError.message };
+    }
+  }
+
+  revalidate();
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // getBrowningPostTouchPrompt — called by the OutreachModal immediately after
 // a touch is logged on a contact. Returns the metadata needed to decide
 // whether to auto-open the score dialog (and what to prefill it with).
