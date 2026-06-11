@@ -31,27 +31,34 @@ When making code or documentation changes in this repository:
 
 ## Pull Requests
 
-- Create or update a draft PR after pushing agent-made changes.
+- Create or update a PR after pushing agent-made changes so the work is
+  documented, even when proceeding directly to production deployment.
 - Use `main` as the default base branch unless the user specifies otherwise.
 - Keep PR descriptions current with:
   - Summary of changes.
   - Verification performed.
   - Known limitations or unrelated existing failures.
-- Do not mark a draft PR ready for review, merge a PR, enable auto-merge, or
-  otherwise change merge state unless explicitly asked.
+- The user has given a standing JasonOS instruction to proceed through review
+  and deployment steps autonomously after verification. Do not leave work only
+  in a draft/preview state when production deployment is available.
 
 ## Deployment
 
-- Treat deployment as PR-driven unless the user gives explicit instructions.
+- For JasonOS changes, the expected end state is production/live deployment,
+  not just a branch push or preview deployment.
 - A pushed branch may create a preview deployment automatically (for example,
-  through Vercel). Use that preview for validation when available.
-- Production changes should be expected only after the relevant PR is merged
-  and the hosting platform deploys `main`.
-- Do not manually deploy, trigger production deploys, or merge to production
-  unless explicitly asked.
+  through Vercel). Use that preview for validation when useful, but do not stop
+  there if the user is expecting to review in the live deployed environment.
+- After verification, proceed with the available repo/platform workflow that
+  makes `main` deploy to production.
+- If production deployment cannot be completed from the agent environment
+  because of branch protection, missing permissions, failing checks, or
+  unavailable tooling, report the blocker explicitly and include the closest
+  live/preview URL available.
 
 ## Final Updates to the User
 
 - State whether changes were committed and pushed.
 - Include the branch name and latest commit hash when relevant.
-- Mention preview/PR status if the user is trying to verify a deployed change.
+- State whether the change is live in production. If it is not live, explain
+  exactly what is blocking production deployment.
