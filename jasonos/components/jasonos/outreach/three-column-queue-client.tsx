@@ -527,38 +527,15 @@ export function ThreeColumnQueueClient({
         </div>
       ) : null}
 
-      {/* Column headers — Warm / Specific / Cold, shared by every band */}
-      <div className="hidden grid-cols-3 gap-3 md:grid">
-        {COLUMNS.map((col) => {
-          const Icon = col.icon;
-          return (
-            <div
-              key={col.key}
-              className={cn(
-                "flex items-center gap-2 rounded-xl border bg-gradient-to-b px-3 py-2.5",
-                col.stripe,
-                "to-transparent"
-              )}
-            >
-              <Icon className={cn("h-4 w-4", col.accent)} />
-              <h2 className="text-sm font-semibold tracking-tight">
-                {col.title}
-              </h2>
-              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                · {counts[col.key]} · {col.helper}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Urgency bands — each cuts across all three columns */}
-      <div className="space-y-3">
-        {BANDS.map((band) => (
-          <UrgencyBand
-            key={band.key}
-            def={band}
-            cells={bandCells[band.key]}
+      {/* Three vertical intent columns, each repeating the colored urgency
+          section headers from the Schedule page's Outreach Grid. */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {COLUMNS.map((col) => (
+          <QueueColumn
+            key={col.key}
+            def={col}
+            count={counts[col.key]}
+            bandCells={bandCells}
             commByContactId={commByContactId}
             onCardClick={onCardClick}
           />
@@ -599,46 +576,100 @@ export function ThreeColumnQueueClient({
 }
 
 // ---------------------------------------------------------------------------
-// Urgency band — a full-width status row spanning the three intent columns.
-// Collapsible header matching the Schedule page's Outreach Grid sections.
+// Queue column — a vertical Warm/Specific/Cold column that repeats the
+// Schedule page Outreach Grid's colored urgency section headers inside it.
 // ---------------------------------------------------------------------------
 
-function UrgencyBand({
+function QueueColumn({
   def,
-  cells,
+  count,
+  bandCells,
+  commByContactId,
+  onCardClick,
+}: {
+  def: ColumnDef;
+  count: number;
+  bandCells: BandCells;
+  commByContactId: Map<string, CommunicationsContact>;
+  onCardClick: (card: QueueCard) => void;
+}) {
+  const Icon = def.icon;
+  return (
+    <section className="flex flex-col overflow-hidden rounded-xl border bg-card/40">
+      <header
+        className={cn(
+          "flex items-center gap-2 border-b bg-gradient-to-b px-3 py-2.5",
+          def.stripe,
+          "to-transparent"
+        )}
+      >
+        <Icon className={cn("h-4 w-4", def.accent)} />
+        <h2 className="text-sm font-semibold tracking-tight">{def.title}</h2>
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          · {count} · {def.helper}
+        </span>
+      </header>
+      <div className="flex flex-col">
+        {BANDS.map((band) => (
+          <ColumnUrgencySection
+            key={band.key}
+            def={band}
+            cards={bandCells[band.key][def.key]}
+            commByContactId={commByContactId}
+            onCardClick={onCardClick}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Urgency section within a column — collapsible colored header + vertically
+// scrolling contact rows, matching the Schedule page's Outreach Grid.
+// ---------------------------------------------------------------------------
+
+function ColumnUrgencySection({
+  def,
+  cards,
   commByContactId,
   onCardClick,
 }: {
   def: BandDef;
-  cells: Record<QueueColumnKey, QueueCard[]>;
+  cards: QueueCard[];
   commByContactId: Map<string, CommunicationsContact>;
   onCardClick: (card: QueueCard) => void;
 }) {
   const [collapsed, setCollapsed] = useState(def.defaultCollapsed);
   const Icon = def.icon;
-  const total = cells.warm.length + cells.specific.length + cells.cold.length;
 
   return (
-    <section className="overflow-hidden rounded-xl border">
+    <div className="border-b last:border-b-0">
       <button
         type="button"
         onClick={() => setCollapsed((v) => !v)}
         className={cn(
-          "flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left",
+          "flex w-full items-center justify-between gap-3 px-3 py-2 text-left",
           def.headerBg
         )}
       >
-        <div className="flex items-center gap-2">
-          <Icon className={cn("h-4 w-4", def.textColor)} />
-          <div>
-            <div className={cn("text-sm font-semibold", def.textColor)}>
+        <div className="flex min-w-0 items-center gap-2">
+          <Icon className={cn("h-3.5 w-3.5 shrink-0", def.textColor)} />
+          <div className="min-w-0">
+            <div className={cn("text-xs font-semibold", def.textColor)}>
               {def.label}
             </div>
-            <div className="text-[11px] text-white/60">{def.helper}</div>
+            <div className="truncate text-[10px] text-white/60">
+              {def.helper}
+            </div>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <span className="text-xs font-medium text-white/80">{total}</span>
+          {cards.length > 0 ? (
+            <span className="text-xs font-medium text-white/80">
+              {cards.length}
+            </span>
+          ) : null}
           {collapsed ? (
             <ChevronDown className="h-4 w-4 text-white/60" />
           ) : (
@@ -648,41 +679,26 @@ function UrgencyBand({
       </button>
 
       {!collapsed ? (
-        <div className="grid grid-cols-1 gap-3 bg-card/20 p-2 md:grid-cols-3">
-          {COLUMNS.map((col) => (
-            <div key={col.key} className="flex min-h-[3rem] flex-col">
-              {/* Mobile-only column label since the shared header row is hidden */}
-              <div className="mb-1 flex items-center gap-1.5 md:hidden">
-                <col.icon className={cn("h-3 w-3", col.accent)} />
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {col.title}
-                </span>
-              </div>
-              {cells[col.key].length === 0 ? (
-                <div className="grid flex-1 place-items-center rounded-md border border-dashed border-border/40 px-3 py-3 text-center text-xs italic text-muted-foreground">
-                  No contacts in this bucket
-                </div>
-              ) : (
-                <div className="max-h-48 divide-y divide-border/30 overflow-y-auto rounded-md border border-border/30 bg-card/10">
-                  {cells[col.key].map((c) => (
-                    <BandContactRow
-                      key={c.key}
-                      card={c}
-                      comm={
-                        c.contactId
-                          ? commByContactId.get(c.contactId) ?? null
-                          : null
-                      }
-                      onOpen={onCardClick}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+        cards.length === 0 ? (
+          <div className="px-3 py-2.5 text-xs italic text-muted-foreground">
+            No contacts in this bucket
+          </div>
+        ) : (
+          <div className="max-h-48 divide-y divide-border/30 overflow-y-auto bg-card/10">
+            {cards.map((c) => (
+              <BandContactRow
+                key={c.key}
+                card={c}
+                comm={
+                  c.contactId ? commByContactId.get(c.contactId) ?? null : null
+                }
+                onOpen={onCardClick}
+              />
+            ))}
+          </div>
+        )
       ) : null}
-    </section>
+    </div>
   );
 }
 
