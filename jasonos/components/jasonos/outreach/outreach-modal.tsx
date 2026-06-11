@@ -42,6 +42,7 @@ import {
   Link2,
   Star,
   CheckCircle2,
+  CalendarClock,
   History,
   ExternalLink,
   Snowflake,
@@ -861,42 +862,13 @@ function IntentSection({
   if (intent === "warm") {
     return (
       <section className="space-y-3">
-        <div className="rounded-lg border bg-card/40 p-3">
-          <h3 className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            <Flame className="h-3 w-3" />
-            Warm cadence
-          </h3>
-          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
-            {CADENCE_INTERVALS.map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => onCadenceChange(value)}
-                className={cn(
-                  "rounded-md border px-2 py-1.5 text-left text-[11px] transition-colors",
-                  cadenceInterval === value
-                    ? "border-foreground/60 bg-foreground text-background"
-                    : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <div className="font-medium">{CADENCE_LABELS[value]}</div>
-                <div
-                  className={cn(
-                    "text-[10px] font-normal",
-                    cadenceInterval === value
-                      ? "text-background/70"
-                      : "text-muted-foreground/70"
-                  )}
-                >
-                  {CADENCE_HELPERS[value]}
-                </div>
-              </button>
-            ))}
-          </div>
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            {nextTouchHint(cadenceInterval, nextTouchDate)}
-          </p>
-        </div>
+        <CadencePicker
+          title="Warm cadence"
+          icon={<Flame className="h-3 w-3" />}
+          cadenceInterval={cadenceInterval}
+          onCadenceChange={onCadenceChange}
+          nextTouchDate={nextTouchDate}
+        />
 
         {children}
       </section>
@@ -923,6 +895,14 @@ function IntentSection({
             follow-up thread legible from Recent Context.
           </p>
         </div>
+
+        <CadencePicker
+          title="Communication cadence"
+          icon={<CalendarClock className="h-3 w-3" />}
+          cadenceInterval={cadenceInterval}
+          onCadenceChange={onCadenceChange}
+          nextTouchDate={nextTouchDate}
+        />
 
         {children}
       </section>
@@ -953,6 +933,59 @@ function IntentSection({
       <ColdSequenceSection recruiterPipeline={recruiterPipeline} />
       {children}
     </section>
+  );
+}
+
+function CadencePicker({
+  title,
+  icon,
+  cadenceInterval,
+  onCadenceChange,
+  nextTouchDate,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  cadenceInterval: CadenceInterval;
+  onCadenceChange: (next: CadenceInterval) => void;
+  nextTouchDate: string | null;
+}) {
+  return (
+    <div className="rounded-lg border bg-card/40 p-3">
+      <h3 className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {icon}
+        {title}
+      </h3>
+      <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+        {CADENCE_INTERVALS.map((value) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => onCadenceChange(value)}
+            className={cn(
+              "rounded-md border px-2 py-1.5 text-left text-[11px] transition-colors",
+              cadenceInterval === value
+                ? "border-foreground/60 bg-foreground text-background"
+                : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <div className="font-medium">{CADENCE_LABELS[value]}</div>
+            <div
+              className={cn(
+                "text-[10px] font-normal",
+                cadenceInterval === value
+                  ? "text-background/70"
+                  : "text-muted-foreground/70"
+              )}
+            >
+              {CADENCE_HELPERS[value]}
+            </div>
+          </button>
+        ))}
+      </div>
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        {nextTouchHint(cadenceInterval, nextTouchDate)}
+      </p>
+    </div>
   );
 }
 
@@ -1006,7 +1039,7 @@ function nextTouchHint(
   nextTouchDate: string | null
 ): string {
   if (cadence === "none") {
-    return "No cadence set — Warm contacts will only stamp last-touch when you log.";
+    return "No cadence set — contacts will only stamp last-touch when you log.";
   }
   if (!nextTouchDate) {
     return `Cadence: ${CADENCE_LABELS[cadence]}. Next touch will be scheduled when you log the first one.`;
