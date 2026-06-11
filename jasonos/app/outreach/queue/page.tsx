@@ -1,6 +1,7 @@
 import { getThreeColumnQueue } from "@/lib/outreach/queue-buckets";
 import { getUntriagedReconnectCount } from "@/lib/server-actions/triage";
 import { getWarmthReminders } from "@/lib/outreach/data";
+import { getCommunicationsData } from "@/lib/server-actions/communications";
 import { ThreeColumnQueueClient } from "@/components/jasonos/outreach/three-column-queue-client";
 import { WarmthWidget } from "@/components/jasonos/outreach/warmth-widget";
 
@@ -8,10 +9,11 @@ export const metadata = { title: "Outreach · Queue" };
 export const dynamic = "force-dynamic";
 
 export default async function OutreachQueuePage() {
-  const [buckets, triageCount, warmthReminders] = await Promise.all([
+  const [buckets, triageCount, warmthReminders, scheduleContacts] = await Promise.all([
     getThreeColumnQueue(),
     getUntriagedReconnectCount(),
     getWarmthReminders(12),
+    getCommunicationsData(),
   ]);
 
   return (
@@ -21,7 +23,11 @@ export default async function OutreachQueuePage() {
           <WarmthWidget reminders={warmthReminders} />
         </div>
       ) : null}
-      <ThreeColumnQueueClient buckets={buckets} triageCount={triageCount} />
+      <ThreeColumnQueueClient
+        buckets={buckets}
+        triageCount={triageCount}
+        scheduleContacts={scheduleContacts}
+      />
     </>
   );
 }
