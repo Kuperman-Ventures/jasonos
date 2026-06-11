@@ -7,11 +7,13 @@ import { type VercelConfig } from "@vercel/config/v1";
 export const config: VercelConfig = {
   framework: "nextjs",
   buildCommand: "next build",
-  // Skip the build if the commit didn't touch the jasonos/ subfolder.
+  // Skip preview builds if the commit didn't touch the jasonos/ subfolder.
+  // Always build `main` so production deploys don't get skipped when a push
+  // contains JasonOS changes followed by a repo-level docs/config commit.
   // Runs from the project's Root Directory (jasonos/), so we cd up to the
   // repo root before checking the path. Exit 0 = skip, exit 1 = build.
   ignoreCommand:
-    'cd "$(git rev-parse --show-toplevel)" && git diff --quiet HEAD^ HEAD -- jasonos',
+    'if [ "$VERCEL_GIT_COMMIT_REF" = "main" ]; then exit 1; fi; cd "$(git rev-parse --show-toplevel)" && git diff --quiet HEAD^ HEAD -- jasonos',
   functions: {
     // BNA engine can take its time once we feed it real state.
     "app/api/bna/route.ts": { maxDuration: 300 },
