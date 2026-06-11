@@ -29,7 +29,6 @@ import {
   Search,
   Snowflake,
   Sparkles,
-  Star,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,10 +36,10 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import { ContactCreateModal } from "@/components/jasonos/outreach/contact-create-modal";
-import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
 import type { OutreachPerson } from "@/lib/outreach/data";
 import type { QueueCard, QueueColumnKey, ThreeColumnQueue } from "@/lib/outreach/queue-buckets";
 import type {
+  CommChannel,
   CommunicationsContact,
   CommUrgency,
 } from "@/lib/server-actions/communications";
@@ -158,7 +157,7 @@ const BANDS: BandDef[] = [
     icon: HelpCircle,
     textColor: "text-muted-foreground",
     headerBg: "bg-muted/60",
-    defaultCollapsed: true,
+    defaultCollapsed: false,
   },
 ];
 
@@ -252,15 +251,65 @@ export function ThreeColumnQueueClient({
     return map;
   }, [reconnectContacts]);
 
+  // Schedule contacts indexed by contact id — supplies the same urgency,
+  // next-touch, last-touch, and strength data the Schedule page grid uses.
+  const commByContactId = useMemo(() => {
+    const map = new Map<string, CommunicationsContact>();
+    for (const c of scheduleContacts) map.set(c.id, c);
+    return map;
+  }, [scheduleContacts]);
+
+  // Union population: every queue card, PLUS every Schedule contact that has
+  // no queue card yet (so the grid shows the exact same contact set as the
+  // Schedule page). Unmatched contacts land in the column of their pinned
+  // intent; scheduled-cadence contacts without a pin default to Warm.
+  const columns = useMemo(() => {
+    const seen = new Set<string>();
+    const result: Record<QueueColumnKey, QueueCard[]> = {
+      warm: [...buckets.warm],
+      specific: [...buckets.specific],
+      cold: [...buckets.cold],
+    };
+    for (const colKey of ["warm", "specific", "cold"] as const) {
+      for (const card of result[colKey]) {
+        if (card.contactId) seen.add(card.contactId);
+      }
+    }
+    for (const cc of scheduleContacts) {
+      if (seen.has(cc.id)) continue;
+      const person = peopleById.get(cc.id);
+      const column: QueueColumnKey =
+        person?.intent === "specific"
+          ? "specific"
+          : person?.intent === "cold"
+          ? "cold"
+          : "warm";
+      result[column].push({
+        key: `sched-${cc.id}`,
+        column,
+        name: cc.name,
+        title: cc.title,
+        firm: cc.firm,
+        vip: person?.vip ?? false,
+        relationship_type: person?.relationship_type ?? null,
+        primary_email: person?.primary_email ?? null,
+        linkedin_url: person?.linkedin_url ?? null,
+        cadence_interval: person?.cadence_interval ?? "none",
+        cadence_stage: person?.cadence_stage ?? null,
+        next_touch_date: cc.nextActionDueDate,
+        last_touch_date: cc.lastTouch?.touched_at ?? null,
+        reason: "Scheduled touch",
+        sequenceStageLabel: null,
+        contactId: cc.id,
+        recruiterId: null,
+      });
+    }
+    return result;
+  }, [buckets, scheduleContacts, peopleById]);
+
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) {
-      return {
-        warm: buckets.warm,
-        specific: buckets.specific,
-        cold: buckets.cold,
-      };
-    }
+    if (!q) return columns;
     const fn = (cards: QueueCard[]) =>
       cards.filter((c) => {
         const name = c.name.toLowerCase();
@@ -268,11 +317,11 @@ export function ThreeColumnQueueClient({
         return name.includes(q) || firm.includes(q);
       });
     return {
-      warm: fn(buckets.warm),
-      specific: fn(buckets.specific),
-      cold: fn(buckets.cold),
+      warm: fn(columns.warm),
+      specific: fn(columns.specific),
+      cold: fn(columns.cold),
     };
-  }, [searchQuery, buckets]);
+  }, [searchQuery, columns]);
 
   const counts = {
     warm: filtered.warm.length,
@@ -280,27 +329,32 @@ export function ThreeColumnQueueClient({
     cold: filtered.cold.length,
   };
 
-  // Schedule-page urgency per contact id — drives which band each card
-  // lands in so the buckets behave the same way they do on /outreach/schedule.
-  const urgencyByContactId = useMemo(() => {
-    const map = new Map<string, CommUrgency>();
-    for (const c of scheduleContacts) map.set(c.id, c.urgency);
-    return map;
-  }, [scheduleContacts]);
-
   const bandCells = useMemo(() => {
     const cells = emptyBandCells();
     for (const colKey of ["warm", "specific", "cold"] as const) {
       for (const card of filtered[colKey]) {
         const urgency = deriveCardUrgency(
           card,
-          card.contactId ? urgencyByContactId.get(card.contactId) : undefined
+          card.contactId
+            ? commByContactId.get(card.contactId)?.urgency
+            : undefined
         );
         cells[urgency][colKey].push(card);
       }
     }
+    // Match the Schedule page's default "Priority score" ordering within
+    // each bucket (strength desc, then name).
+    const strengthOf = (card: QueueCard) =>
+      (card.contactId ? commByContactId.get(card.contactId)?.strength : 0) ?? 0;
+    for (const band of Object.values(cells)) {
+      for (const list of Object.values(band)) {
+        list.sort(
+          (a, b) => strengthOf(b) - strengthOf(a) || a.name.localeCompare(b.name)
+        );
+      }
+    }
     return cells;
-  }, [filtered, urgencyByContactId]);
+  }, [filtered, commByContactId]);
 
   const onCardClick = (card: QueueCard) => {
     const reconnect = card.recruiterId
@@ -505,6 +559,7 @@ export function ThreeColumnQueueClient({
             key={band.key}
             def={band}
             cells={bandCells[band.key]}
+            commByContactId={commByContactId}
             onCardClick={onCardClick}
           />
         ))}
@@ -551,10 +606,12 @@ export function ThreeColumnQueueClient({
 function UrgencyBand({
   def,
   cells,
+  commByContactId,
   onCardClick,
 }: {
   def: BandDef;
   cells: Record<QueueColumnKey, QueueCard[]>;
+  commByContactId: Map<string, CommunicationsContact>;
   onCardClick: (card: QueueCard) => void;
 }) {
   const [collapsed, setCollapsed] = useState(def.defaultCollapsed);
@@ -591,27 +648,35 @@ function UrgencyBand({
       </button>
 
       {!collapsed ? (
-        <div className="grid grid-cols-1 gap-3 bg-card/30 p-3 md:grid-cols-3 md:divide-x md:divide-border/40">
+        <div className="grid grid-cols-1 gap-3 bg-card/20 p-2 md:grid-cols-3">
           {COLUMNS.map((col) => (
-            <div
-              key={col.key}
-              className="flex min-h-[3.5rem] flex-col gap-2 md:px-3 md:first:pl-0 md:last:pr-0"
-            >
+            <div key={col.key} className="flex min-h-[3rem] flex-col">
               {/* Mobile-only column label since the shared header row is hidden */}
-              <div className="flex items-center gap-1.5 md:hidden">
+              <div className="mb-1 flex items-center gap-1.5 md:hidden">
                 <col.icon className={cn("h-3 w-3", col.accent)} />
                 <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   {col.title}
                 </span>
               </div>
               {cells[col.key].length === 0 ? (
-                <div className="grid flex-1 place-items-center rounded-lg border border-dashed border-border/40 px-3 py-3 text-center text-[11px] italic text-muted-foreground/60">
-                  No {col.title.toLowerCase()} contacts
+                <div className="grid flex-1 place-items-center rounded-md border border-dashed border-border/40 px-3 py-3 text-center text-xs italic text-muted-foreground">
+                  No contacts in this bucket
                 </div>
               ) : (
-                cells[col.key].map((c) => (
-                  <QueueCardRow key={c.key} card={c} onOpen={onCardClick} />
-                ))
+                <div className="max-h-48 divide-y divide-border/30 overflow-y-auto rounded-md border border-border/30 bg-card/10">
+                  {cells[col.key].map((c) => (
+                    <BandContactRow
+                      key={c.key}
+                      card={c}
+                      comm={
+                        c.contactId
+                          ? commByContactId.get(c.contactId) ?? null
+                          : null
+                      }
+                      onOpen={onCardClick}
+                    />
+                  ))}
+                </div>
               )}
             </div>
           ))}
@@ -622,100 +687,90 @@ function UrgencyBand({
 }
 
 // ---------------------------------------------------------------------------
-// Card row
+// Band contact row — the Schedule page Outreach Grid's compact contact row.
+// Name + firm on the left; next-touch date (or last touch) + strength dots
+// on the right. Vertically scrollable inside each band cell.
 // ---------------------------------------------------------------------------
 
-function QueueCardRow({
+function BandContactRow({
   card,
+  comm,
   onOpen,
 }: {
   card: QueueCard;
+  comm: CommunicationsContact | null;
   onOpen: (card: QueueCard) => void;
 }) {
-  const subline = [card.title, card.firm].filter(Boolean).join(" · ");
-  const dateLabel = renderDateLabel(card);
+  const nextDate = comm?.nextActionDueDate ?? card.next_touch_date;
+  const lastTouch = comm?.lastTouch ?? null;
+  const lastDate = lastTouch?.touched_at ?? card.last_touch_date;
 
   return (
-    <article
-      role="button"
-      tabIndex={0}
+    <button
+      type="button"
       onClick={() => onOpen(card)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onOpen(card);
-        }
-      }}
-      className="cursor-pointer rounded-lg border bg-card p-3 text-left transition-colors hover:border-orange-400/40 hover:bg-card/90 focus:border-orange-400/60 focus:outline-none"
+      className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/30"
     >
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {card.vip ? (
-              <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" />
-            ) : null}
-            <span className="truncate text-sm font-medium">{card.name}</span>
-            <RelationshipBadge type={card.relationship_type} />
-          </div>
-          {subline ? (
-            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-              {subline}
-            </p>
-          ) : null}
-        </div>
-        {card.sequenceStageLabel ? (
-          <span className="shrink-0 rounded-sm border border-sky-500/40 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-sky-200">
-            {card.sequenceStageLabel}
+      <div className="min-w-0 flex-1">
+        <span className="truncate text-xs font-medium">{card.name}</span>
+        {card.firm ? (
+          <span className="ml-1.5 text-[10px] text-muted-foreground">
+            · {card.firm}
           </span>
         ) : null}
       </div>
-
-      <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-        <span className="truncate">{card.reason}</span>
-        {dateLabel ? (
-          <span className="shrink-0 font-mono text-[10px]">{dateLabel}</span>
+      <div className="flex shrink-0 items-center gap-2">
+        {nextDate ? (
+          <span className="text-[10px] text-sky-400">{fmtDate(nextDate)}</span>
+        ) : lastTouch ? (
+          <span className="text-[10px] text-muted-foreground">
+            {CHANNEL_LABELS[lastTouch.channel]} · {fmtDate(lastTouch.touched_at)}
+          </span>
+        ) : lastDate ? (
+          <span className="text-[10px] text-muted-foreground">
+            {fmtDate(lastDate)}
+          </span>
         ) : null}
+        <StrengthDots strength={comm?.strength ?? 1} />
       </div>
-    </article>
+    </button>
   );
 }
 
-function renderDateLabel(card: QueueCard): string | null {
-  if (card.column === "warm" && card.next_touch_date) {
-    return formatRelative(card.next_touch_date, true);
-  }
-  if (card.column === "specific" && card.last_touch_date) {
-    return `last ${formatRelative(card.last_touch_date, false)}`;
-  }
-  if (card.column === "cold" && card.last_touch_date) {
-    return formatRelative(card.last_touch_date, false);
-  }
-  return null;
+const CHANNEL_LABELS: Record<CommChannel, string> = {
+  email: "Email",
+  linkedin: "LinkedIn",
+  phone: "Phone",
+  meeting: "Meeting",
+  other: "Other",
+};
+
+function StrengthDots({ strength }: { strength: number }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div
+          key={i}
+          className={cn(
+            "h-1.5 w-1.5 rounded-full",
+            i < strength ? "bg-foreground/70" : "bg-muted-foreground/20"
+          )}
+        />
+      ))}
+    </div>
+  );
 }
 
-function formatRelative(value: string, withDuePrefix: boolean): string {
-  // value may be either YYYY-MM-DD or full ISO.
-  const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
-  const target = new Date(isDateOnly ? `${value}T00:00:00` : value);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const days = Math.round(
-    (target.getTime() - today.getTime()) / 86_400_000
-  );
-  if (withDuePrefix) {
-    if (days < 0) return `${Math.abs(days)}d overdue`;
-    if (days === 0) return "today";
-    if (days === 1) return "tomorrow";
-    return `in ${days}d`;
+function fmtDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return iso;
   }
-  if (days === 0) return "today";
-  if (days === -1) return "yesterday";
-  if (days < 0 && days >= -60) return `${Math.abs(days)}d ago`;
-  if (days > 0 && days <= 14) return `in ${days}d`;
-  return target.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-  });
 }
 
 // ---------------------------------------------------------------------------
