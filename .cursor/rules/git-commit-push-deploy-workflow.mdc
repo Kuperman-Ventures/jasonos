@@ -1,0 +1,57 @@
+---
+description: Commit, push, PR, and deployment workflow for Cursor agents
+alwaysApply: true
+---
+
+# Git, PR, and Deployment Workflow
+
+When making code or documentation changes in this repository:
+
+## Branches
+
+- Do work on a feature branch, not directly on `main`.
+- New agent-created branches should use the `cursor/` prefix and a short,
+  descriptive, lowercase name.
+- Keep unrelated changes on separate branches/PRs when practical.
+
+## Commits
+
+- Commit every completed logical change with a clear, descriptive message.
+- Do not amend, squash, rebase, or force-push unless explicitly asked.
+- Do not revert user changes unless explicitly asked.
+- Before testing a substantial implementation, commit and push the current
+  revision so there is a remote checkpoint.
+
+## Pushes
+
+- Push with upstream tracking, for example:
+  `git push -u origin <branch-name>`.
+- If a push fails because of a transient network error, retry with backoff.
+- After pushing, confirm the branch is clean and tracking the expected remote.
+
+## Pull Requests
+
+- Create or update a draft PR after pushing agent-made changes.
+- Use `main` as the default base branch unless the user specifies otherwise.
+- Keep PR descriptions current with:
+  - Summary of changes.
+  - Verification performed.
+  - Known limitations or unrelated existing failures.
+- Do not mark a draft PR ready for review, merge a PR, enable auto-merge, or
+  otherwise change merge state unless explicitly asked.
+
+## Deployment
+
+- Treat deployment as PR-driven unless the user gives explicit instructions.
+- A pushed branch may create a preview deployment automatically (for example,
+  through Vercel). Use that preview for validation when available.
+- Production changes should be expected only after the relevant PR is merged
+  and the hosting platform deploys `main`.
+- Do not manually deploy, trigger production deploys, or merge to production
+  unless explicitly asked.
+
+## Final Updates to the User
+
+- State whether changes were committed and pushed.
+- Include the branch name and latest commit hash when relevant.
+- Mention preview/PR status if the user is trying to verify a deployed change.
