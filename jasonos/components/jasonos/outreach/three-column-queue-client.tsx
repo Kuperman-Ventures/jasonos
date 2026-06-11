@@ -31,8 +31,10 @@ import { cn } from "@/lib/utils";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import { ContactCreateModal } from "@/components/jasonos/outreach/contact-create-modal";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
+import { ScheduleUrgencyGrid } from "@/components/jasonos/outreach/schedule-urgency-grid";
 import type { OutreachPerson } from "@/lib/outreach/data";
 import type { QueueCard, QueueColumnKey, ThreeColumnQueue } from "@/lib/outreach/queue-buckets";
+import type { CommunicationsContact } from "@/lib/server-actions/communications";
 import type { ReconnectContact, RecruiterStatus } from "@/lib/reconnect/types";
 import type { Intent } from "@/lib/triage/types";
 import type { FirstContactState } from "@/lib/first-contact/types";
@@ -40,6 +42,7 @@ import type { FirstContactState } from "@/lib/first-contact/types";
 interface ThreeColumnQueueClientProps {
   buckets: ThreeColumnQueue;
   triageCount: number;
+  scheduleContacts: CommunicationsContact[];
 }
 
 interface ColumnDef {
@@ -94,6 +97,7 @@ const COLUMNS: ColumnDef[] = [
 export function ThreeColumnQueueClient({
   buckets,
   triageCount,
+  scheduleContacts,
 }: ThreeColumnQueueClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [openContext, setOpenContext] = useState<OpenContext | null>(null);
@@ -150,7 +154,16 @@ export function ThreeColumnQueueClient({
       ? reconnectByRecruiterId.get(card.recruiterId) ?? null
       : null;
     const person = card.contactId ? peopleById.get(card.contactId) ?? null : null;
-    setOpenContext({ card, person, reconnect });
+    setOpenContext({ card, person, reconnect, scheduleContact: null });
+  };
+
+  const onScheduleContactClick = (contact: CommunicationsContact) => {
+    setOpenContext({
+      card: null,
+      person: peopleById.get(contact.id) ?? null,
+      reconnect: null,
+      scheduleContact: contact,
+    });
   };
 
   // Local-state helpers mirroring ReconnectClient. They keep the modal's
@@ -315,6 +328,12 @@ export function ThreeColumnQueueClient({
         </div>
       ) : null}
 
+      <ScheduleUrgencyGrid
+        contacts={scheduleContacts}
+        searchQuery={searchQuery}
+        onContactClick={onScheduleContactClick}
+      />
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {COLUMNS.map((col) => (
           <Column
@@ -332,7 +351,11 @@ export function ThreeColumnQueueClient({
           onOpenChange={(open) => {
             if (!open) setOpenContext(null);
           }}
-          contactId={openContext.card?.contactId ?? undefined}
+          contactId={
+            openContext.card?.contactId ??
+            openContext.scheduleContact?.id ??
+            undefined
+          }
           recruiterId={openContext.card?.recruiterId ?? undefined}
           initialDisplay={modalDisplay(openContext)}
           recruiterPipeline={
@@ -539,6 +562,7 @@ interface OpenContext {
   card: QueueCard | null;
   person: OutreachPerson | null;
   reconnect: ReconnectContact | null;
+  scheduleContact: CommunicationsContact | null;
 }
 
 function modalDisplay(ctx: OpenContext): {
@@ -558,6 +582,13 @@ function modalDisplay(ctx: OpenContext): {
       name: ctx.reconnect.name,
       title: ctx.reconnect.title ?? null,
       firm: ctx.reconnect.firm ?? null,
+    };
+  }
+  if (ctx.scheduleContact) {
+    return {
+      name: ctx.scheduleContact.name,
+      title: ctx.scheduleContact.title,
+      firm: ctx.scheduleContact.firm,
     };
   }
   return {
