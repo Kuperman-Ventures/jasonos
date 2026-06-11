@@ -150,16 +150,20 @@ const BANDS: BandDef[] = [
     headerBg: "bg-sky-800/50",
     defaultCollapsed: false,
   },
-  {
-    key: "needs_scheduling",
-    label: "Needs Scheduling",
-    helper: "No next-touch date set — set a cadence to activate",
-    icon: HelpCircle,
-    textColor: "text-muted-foreground",
-    headerBg: "bg-muted/60",
-    defaultCollapsed: false,
-  },
 ];
+
+// Rendered as a single full-width section at the very bottom of the page
+// (not repeated per column) — contacts with no next-touch date that still
+// need classification and/or a cadence.
+const NEEDS_ATTENTION_BAND: BandDef = {
+  key: "needs_scheduling",
+  label: "Needs to be Classified & Scheduled",
+  helper: "No next-touch date set — classify and set a cadence to activate",
+  icon: HelpCircle,
+  textColor: "text-muted-foreground",
+  headerBg: "bg-muted/60",
+  defaultCollapsed: false,
+};
 
 function fromCommUrgency(urgency: CommUrgency): QueueUrgencyKey {
   switch (urgency) {
@@ -356,6 +360,20 @@ export function ThreeColumnQueueClient({
     return cells;
   }, [filtered, commByContactId]);
 
+  // Bottom-of-page bucket: every unscheduled contact across all three
+  // columns, in one full-width list.
+  const needsAttention = useMemo(() => {
+    const strengthOf = (card: QueueCard) =>
+      (card.contactId ? commByContactId.get(card.contactId)?.strength : 0) ?? 0;
+    return [
+      ...bandCells.needs_scheduling.warm,
+      ...bandCells.needs_scheduling.specific,
+      ...bandCells.needs_scheduling.cold,
+    ].sort(
+      (a, b) => strengthOf(b) - strengthOf(a) || a.name.localeCompare(b.name)
+    );
+  }, [bandCells, commByContactId]);
+
   const onCardClick = (card: QueueCard) => {
     const reconnect = card.recruiterId
       ? reconnectByRecruiterId.get(card.recruiterId) ?? null
@@ -542,6 +560,18 @@ export function ThreeColumnQueueClient({
         ))}
       </div>
 
+      {/* Needs to be Classified & Scheduled — full width, very bottom */}
+      <section className="overflow-hidden rounded-xl border">
+        <ColumnUrgencySection
+          def={NEEDS_ATTENTION_BAND}
+          cards={needsAttention}
+          commByContactId={commByContactId}
+          onCardClick={onCardClick}
+          showColumn
+          listMaxHeightClass="max-h-80"
+        />
+      </section>
+
       {openContext ? (
         <OutreachModal
           open={Boolean(openContext)}
@@ -634,11 +664,16 @@ function ColumnUrgencySection({
   cards,
   commByContactId,
   onCardClick,
+  showColumn = false,
+  listMaxHeightClass = "max-h-48",
 }: {
   def: BandDef;
   cards: QueueCard[];
   commByContactId: Map<string, CommunicationsContact>;
   onCardClick: (card: QueueCard) => void;
+  /** Show each row's Warm/Specific/Cold tag (used by the bottom bucket). */
+  showColumn?: boolean;
+  listMaxHeightClass?: string;
 }) {
   const [collapsed, setCollapsed] = useState(def.defaultCollapsed);
   const Icon = def.icon;
@@ -684,7 +719,12 @@ function ColumnUrgencySection({
             No contacts in this bucket
           </div>
         ) : (
-          <div className="max-h-48 divide-y divide-border/30 overflow-y-auto bg-card/10">
+          <div
+            className={cn(
+              "divide-y divide-border/30 overflow-y-auto bg-card/10",
+              listMaxHeightClass
+            )}
+          >
             {cards.map((c) => (
               <BandContactRow
                 key={c.key}
@@ -693,6 +733,7 @@ function ColumnUrgencySection({
                   c.contactId ? commByContactId.get(c.contactId) ?? null : null
                 }
                 onOpen={onCardClick}
+                showColumn={showColumn}
               />
             ))}
           </div>
@@ -708,14 +749,22 @@ function ColumnUrgencySection({
 // on the right. Vertically scrollable inside each band cell.
 // ---------------------------------------------------------------------------
 
+const COLUMN_TAG_COLORS: Record<QueueColumnKey, string> = {
+  warm: "text-rose-300",
+  specific: "text-amber-300",
+  cold: "text-sky-300",
+};
+
 function BandContactRow({
   card,
   comm,
   onOpen,
+  showColumn = false,
 }: {
   card: QueueCard;
   comm: CommunicationsContact | null;
   onOpen: (card: QueueCard) => void;
+  showColumn?: boolean;
 }) {
   const nextDate = comm?.nextActionDueDate ?? card.next_touch_date;
   const lastTouch = comm?.lastTouch ?? null;
@@ -728,6 +777,16 @@ function BandContactRow({
       className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/30"
     >
       <div className="min-w-0 flex-1">
+        {showColumn ? (
+          <span
+            className={cn(
+              "mr-1.5 text-[9px] font-semibold uppercase tracking-wider",
+              COLUMN_TAG_COLORS[card.column]
+            )}
+          >
+            {card.column}
+          </span>
+        ) : null}
         <span className="truncate text-xs font-medium">{card.name}</span>
         {card.firm ? (
           <span className="ml-1.5 text-[10px] text-muted-foreground">

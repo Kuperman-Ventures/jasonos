@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Inbox, CalendarDays, Users, Building2 } from "lucide-react";
+import { Inbox, Users, Building2 } from "lucide-react";
 import { SyncNowButton } from "@/components/jasonos/outreach/sync-now-button";
 import type { OutreachSyncSnapshot } from "@/lib/outreach/data";
 
+// The Schedule tab was retired once its buckets moved into the Queue page;
+// the /outreach/schedule route still exists for direct links.
 const TABS = [
   { href: "/outreach/queue", label: "Queue", icon: Inbox },
-  { href: "/outreach/schedule", label: "Schedule", icon: CalendarDays },
   { href: "/outreach/people", label: "People", icon: Users },
   { href: "/outreach/firms", label: "Firms", icon: Building2 },
 ] as const;
