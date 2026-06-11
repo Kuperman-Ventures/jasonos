@@ -15,8 +15,15 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
+  AlertCircle,
   ArrowRight,
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  Clock,
   Flame,
+  HelpCircle,
+  Mail,
   Plus,
   Radar,
   Search,
@@ -31,10 +38,12 @@ import { cn } from "@/lib/utils";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import { ContactCreateModal } from "@/components/jasonos/outreach/contact-create-modal";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
-import { ScheduleUrgencyGrid } from "@/components/jasonos/outreach/schedule-urgency-grid";
 import type { OutreachPerson } from "@/lib/outreach/data";
 import type { QueueCard, QueueColumnKey, ThreeColumnQueue } from "@/lib/outreach/queue-buckets";
-import type { CommunicationsContact } from "@/lib/server-actions/communications";
+import type {
+  CommunicationsContact,
+  CommUrgency,
+} from "@/lib/server-actions/communications";
 import type { ReconnectContact, RecruiterStatus } from "@/lib/reconnect/types";
 import type { Intent } from "@/lib/triage/types";
 import type { FirstContactState } from "@/lib/first-contact/types";
@@ -50,7 +59,6 @@ interface ColumnDef {
   title: string;
   helper: string;
   icon: React.ComponentType<{ className?: string }>;
-  emptyState: { title: string; body: string };
   accent: string;
   stripe: string;
 }
@@ -61,10 +69,6 @@ const COLUMNS: ColumnDef[] = [
     title: "Warm",
     helper: "this week",
     icon: Flame,
-    emptyState: {
-      title: "Nothing warm due this week",
-      body: "Cadence is on track. Check back as touch dates roll in.",
-    },
     accent: "text-rose-300",
     stripe: "from-rose-500/15",
   },
@@ -73,10 +77,6 @@ const COLUMNS: ColumnDef[] = [
     title: "Specific",
     helper: "pending follow-up",
     icon: Sparkles,
-    emptyState: {
-      title: "No active follow-ups",
-      body: "Replies, outcomes, and live conversations land here.",
-    },
     accent: "text-amber-300",
     stripe: "from-amber-500/15",
   },
@@ -85,14 +85,145 @@ const COLUMNS: ColumnDef[] = [
     title: "Cold",
     helper: "in progress",
     icon: Snowflake,
-    emptyState: {
-      title: "No cold outreach in flight",
-      body: "Open a contact and pin Intent = Cold to start a sequence.",
-    },
     accent: "text-sky-300",
     stripe: "from-sky-500/15",
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Urgency bands — the Schedule page's Outreach Grid statuses, rendered as
+// horizontal rows that cut across all three intent columns. Each queue card
+// lands at the intersection of its status band and its Warm/Specific/Cold
+// column.
+// ---------------------------------------------------------------------------
+
+type QueueUrgencyKey =
+  | "engaged_today"
+  | "overdue"
+  | "due_this_week"
+  | "scheduled"
+  | "needs_scheduling";
+
+interface BandDef {
+  key: QueueUrgencyKey;
+  label: string;
+  helper: string;
+  icon: React.ComponentType<{ className?: string }>;
+  textColor: string;
+  headerBg: string;
+  defaultCollapsed: boolean;
+}
+
+const BANDS: BandDef[] = [
+  {
+    key: "engaged_today",
+    label: "Engaged Today",
+    helper: "Outbound touches recorded today",
+    icon: Mail,
+    textColor: "text-emerald-300",
+    headerBg: "bg-emerald-700/70",
+    defaultCollapsed: false,
+  },
+  {
+    key: "overdue",
+    label: "Overdue",
+    helper: "Due today or past next-touch date",
+    icon: AlertCircle,
+    textColor: "text-red-300",
+    headerBg: "bg-red-700/80",
+    defaultCollapsed: false,
+  },
+  {
+    key: "due_this_week",
+    label: "Due This Week",
+    helper: "Scheduled for outreach in the next 7 days",
+    icon: Clock,
+    textColor: "text-amber-300",
+    headerBg: "bg-amber-600/70",
+    defaultCollapsed: false,
+  },
+  {
+    key: "scheduled",
+    label: "Scheduled",
+    helper: "Next touch set after this week",
+    icon: Calendar,
+    textColor: "text-sky-300",
+    headerBg: "bg-sky-800/50",
+    defaultCollapsed: false,
+  },
+  {
+    key: "needs_scheduling",
+    label: "Needs Scheduling",
+    helper: "No next-touch date set — set a cadence to activate",
+    icon: HelpCircle,
+    textColor: "text-muted-foreground",
+    headerBg: "bg-muted/60",
+    defaultCollapsed: true,
+  },
+];
+
+function fromCommUrgency(urgency: CommUrgency): QueueUrgencyKey {
+  switch (urgency) {
+    case "sent_today":
+      return "engaged_today";
+    case "due_today":
+      return "overdue";
+    case "this_week":
+      return "due_this_week";
+    case "scheduled":
+      return "scheduled";
+    case "needs_scheduling":
+      return "needs_scheduling";
+  }
+}
+
+function todayYMD(): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString().split("T")[0];
+}
+
+function addDaysYMD(base: string, days: number): string {
+  const d = new Date(`${base}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
+}
+
+/**
+ * Status derivation for a queue card. Prefers the Schedule page's
+ * urgency (which accounts for synced sent-today touches and recruiter
+ * pipeline due dates); falls back to the card's own dates so cards
+ * without a Schedule row still land in a band.
+ */
+function deriveCardUrgency(
+  card: QueueCard,
+  commUrgency: CommUrgency | undefined
+): QueueUrgencyKey {
+  if (commUrgency) return fromCommUrgency(commUrgency);
+
+  const today = todayYMD();
+  if (card.last_touch_date && card.last_touch_date.slice(0, 10) === today) {
+    return "engaged_today";
+  }
+  if (card.next_touch_date) {
+    if (card.next_touch_date <= today) return "overdue";
+    if (card.next_touch_date <= addDaysYMD(today, 7)) return "due_this_week";
+    return "scheduled";
+  }
+  return "needs_scheduling";
+}
+
+type BandCells = Record<QueueUrgencyKey, Record<QueueColumnKey, QueueCard[]>>;
+
+function emptyBandCells(): BandCells {
+  return {
+    engaged_today: { warm: [], specific: [], cold: [] },
+    overdue: { warm: [], specific: [], cold: [] },
+    due_this_week: { warm: [], specific: [], cold: [] },
+    scheduled: { warm: [], specific: [], cold: [] },
+    needs_scheduling: { warm: [], specific: [], cold: [] },
+  };
+}
 
 export function ThreeColumnQueueClient({
   buckets,
@@ -149,21 +280,34 @@ export function ThreeColumnQueueClient({
     cold: filtered.cold.length,
   };
 
+  // Schedule-page urgency per contact id — drives which band each card
+  // lands in so the buckets behave the same way they do on /outreach/schedule.
+  const urgencyByContactId = useMemo(() => {
+    const map = new Map<string, CommUrgency>();
+    for (const c of scheduleContacts) map.set(c.id, c.urgency);
+    return map;
+  }, [scheduleContacts]);
+
+  const bandCells = useMemo(() => {
+    const cells = emptyBandCells();
+    for (const colKey of ["warm", "specific", "cold"] as const) {
+      for (const card of filtered[colKey]) {
+        const urgency = deriveCardUrgency(
+          card,
+          card.contactId ? urgencyByContactId.get(card.contactId) : undefined
+        );
+        cells[urgency][colKey].push(card);
+      }
+    }
+    return cells;
+  }, [filtered, urgencyByContactId]);
+
   const onCardClick = (card: QueueCard) => {
     const reconnect = card.recruiterId
       ? reconnectByRecruiterId.get(card.recruiterId) ?? null
       : null;
     const person = card.contactId ? peopleById.get(card.contactId) ?? null : null;
-    setOpenContext({ card, person, reconnect, scheduleContact: null });
-  };
-
-  const onScheduleContactClick = (contact: CommunicationsContact) => {
-    setOpenContext({
-      card: null,
-      person: peopleById.get(contact.id) ?? null,
-      reconnect: null,
-      scheduleContact: contact,
-    });
+    setOpenContext({ card, person, reconnect });
   };
 
   // Local-state helpers mirroring ReconnectClient. They keep the modal's
@@ -280,9 +424,10 @@ export function ThreeColumnQueueClient({
             Outreach Queue
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Three intent-based columns: Warm maintenance, Specific follow-ups,
-            Cold outreach in flight. Cards move on data — log a touch, advance
-            a sequence, get a reply.
+            Status bands (Engaged Today, Overdue, Due This Week, Scheduled)
+            cut across the three intent columns: Warm maintenance, Specific
+            follow-ups, Cold outreach in flight. Cards move on data — log a
+            touch, advance a sequence, get a reply.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -328,18 +473,38 @@ export function ThreeColumnQueueClient({
         </div>
       ) : null}
 
-      <ScheduleUrgencyGrid
-        contacts={scheduleContacts}
-        searchQuery={searchQuery}
-        onContactClick={onScheduleContactClick}
-      />
+      {/* Column headers — Warm / Specific / Cold, shared by every band */}
+      <div className="hidden grid-cols-3 gap-3 md:grid">
+        {COLUMNS.map((col) => {
+          const Icon = col.icon;
+          return (
+            <div
+              key={col.key}
+              className={cn(
+                "flex items-center gap-2 rounded-xl border bg-gradient-to-b px-3 py-2.5",
+                col.stripe,
+                "to-transparent"
+              )}
+            >
+              <Icon className={cn("h-4 w-4", col.accent)} />
+              <h2 className="text-sm font-semibold tracking-tight">
+                {col.title}
+              </h2>
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                · {counts[col.key]} · {col.helper}
+              </span>
+            </div>
+          );
+        })}
+      </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {COLUMNS.map((col) => (
-          <Column
-            key={col.key}
-            def={col}
-            cards={filtered[col.key]}
+      {/* Urgency bands — each cuts across all three columns */}
+      <div className="space-y-3">
+        {BANDS.map((band) => (
+          <UrgencyBand
+            key={band.key}
+            def={band}
+            cells={bandCells[band.key]}
             onCardClick={onCardClick}
           />
         ))}
@@ -351,11 +516,7 @@ export function ThreeColumnQueueClient({
           onOpenChange={(open) => {
             if (!open) setOpenContext(null);
           }}
-          contactId={
-            openContext.card?.contactId ??
-            openContext.scheduleContact?.id ??
-            undefined
-          }
+          contactId={openContext.card?.contactId ?? undefined}
           recruiterId={openContext.card?.recruiterId ?? undefined}
           initialDisplay={modalDisplay(openContext)}
           recruiterPipeline={
@@ -383,55 +544,80 @@ export function ThreeColumnQueueClient({
 }
 
 // ---------------------------------------------------------------------------
-// Column
+// Urgency band — a full-width status row spanning the three intent columns.
+// Collapsible header matching the Schedule page's Outreach Grid sections.
 // ---------------------------------------------------------------------------
 
-function Column({
+function UrgencyBand({
   def,
-  cards,
+  cells,
   onCardClick,
 }: {
-  def: ColumnDef;
-  cards: QueueCard[];
+  def: BandDef;
+  cells: Record<QueueColumnKey, QueueCard[]>;
   onCardClick: (card: QueueCard) => void;
 }) {
+  const [collapsed, setCollapsed] = useState(def.defaultCollapsed);
   const Icon = def.icon;
+  const total = cells.warm.length + cells.specific.length + cells.cold.length;
+
   return (
-    <section className="flex min-h-[20rem] flex-col rounded-xl border bg-card/40">
-      <header
+    <section className="overflow-hidden rounded-xl border">
+      <button
+        type="button"
+        onClick={() => setCollapsed((v) => !v)}
         className={cn(
-          "sticky top-0 z-10 flex items-center justify-between gap-2 rounded-t-xl border-b bg-gradient-to-b px-3 py-2.5 backdrop-blur",
-          def.stripe,
-          "to-transparent"
+          "flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left",
+          def.headerBg
         )}
       >
         <div className="flex items-center gap-2">
-          <Icon className={cn("h-4 w-4", def.accent)} />
-          <h2 className="text-sm font-semibold tracking-tight">{def.title}</h2>
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            · {cards.length} · {def.helper}
-          </span>
+          <Icon className={cn("h-4 w-4", def.textColor)} />
+          <div>
+            <div className={cn("text-sm font-semibold", def.textColor)}>
+              {def.label}
+            </div>
+            <div className="text-[11px] text-white/60">{def.helper}</div>
+          </div>
         </div>
-      </header>
-      <div className="flex flex-1 flex-col gap-2 p-2">
-        {cards.length === 0 ? (
-          <EmptyState title={def.emptyState.title} body={def.emptyState.body} />
-        ) : (
-          cards.map((c) => (
-            <QueueCardRow key={c.key} card={c} onOpen={onCardClick} />
-          ))
-        )}
-      </div>
-    </section>
-  );
-}
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="text-xs font-medium text-white/80">{total}</span>
+          {collapsed ? (
+            <ChevronDown className="h-4 w-4 text-white/60" />
+          ) : (
+            <ChevronUp className="h-4 w-4 text-white/60" />
+          )}
+        </div>
+      </button>
 
-function EmptyState({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="grid flex-1 place-items-center px-4 py-8 text-center">
-      <p className="text-sm font-medium">{title}</p>
-      <p className="mt-1 max-w-[20rem] text-xs text-muted-foreground">{body}</p>
-    </div>
+      {!collapsed ? (
+        <div className="grid grid-cols-1 gap-3 bg-card/30 p-3 md:grid-cols-3 md:divide-x md:divide-border/40">
+          {COLUMNS.map((col) => (
+            <div
+              key={col.key}
+              className="flex min-h-[3.5rem] flex-col gap-2 md:px-3 md:first:pl-0 md:last:pr-0"
+            >
+              {/* Mobile-only column label since the shared header row is hidden */}
+              <div className="flex items-center gap-1.5 md:hidden">
+                <col.icon className={cn("h-3 w-3", col.accent)} />
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {col.title}
+                </span>
+              </div>
+              {cells[col.key].length === 0 ? (
+                <div className="grid flex-1 place-items-center rounded-lg border border-dashed border-border/40 px-3 py-3 text-center text-[11px] italic text-muted-foreground/60">
+                  No {col.title.toLowerCase()} contacts
+                </div>
+              ) : (
+                cells[col.key].map((c) => (
+                  <QueueCardRow key={c.key} card={c} onOpen={onCardClick} />
+                ))
+              )}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </section>
   );
 }
 
@@ -562,7 +748,6 @@ interface OpenContext {
   card: QueueCard | null;
   person: OutreachPerson | null;
   reconnect: ReconnectContact | null;
-  scheduleContact: CommunicationsContact | null;
 }
 
 function modalDisplay(ctx: OpenContext): {
@@ -582,13 +767,6 @@ function modalDisplay(ctx: OpenContext): {
       name: ctx.reconnect.name,
       title: ctx.reconnect.title ?? null,
       firm: ctx.reconnect.firm ?? null,
-    };
-  }
-  if (ctx.scheduleContact) {
-    return {
-      name: ctx.scheduleContact.name,
-      title: ctx.scheduleContact.title,
-      firm: ctx.scheduleContact.firm,
     };
   }
   return {
