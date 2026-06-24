@@ -2,7 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Clock, FileDown, X, CheckCircle2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Clock,
+  FileDown,
+  X,
+  CheckCircle2,
+  Printer,
+  Plus,
+  Info,
+} from "lucide-react";
 import {
   addWorkSearch,
   addBusinessHours,
@@ -15,12 +24,19 @@ import {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const CONTACT_METHODS = [
+  // Original six — unchanged, kept first to preserve existing behavior.
   "Online Portal",
   "Direct Email",
   "Phone Call",
   "LinkedIn",
   "Networking Event",
   "Interview",
+  // Added Jun 2026 (NYS DOL work-search review) — each validated as creditable.
+  "In-Person Meeting",
+  "Video Meeting",
+  "Recruiter / Headhunter Screen",
+  "Networking Contact",
+  "Career-Center Advisor Meeting",
 ];
 const RESULT_OPTIONS = [
   "Application Submitted",
@@ -30,6 +46,106 @@ const RESULT_OPTIONS = [
   "Offer Received",
 ];
 const ENTITIES = ["Kuperman Ventures LLC", "Kuperman Advisors LLC"];
+
+// ─── Two-tier ledger (Gap 1) ────────────────────────────────────────────────
+
+type ActivityTier = "employer_contact" | "networking";
+
+const TIER_LABELS: Record<ActivityTier, string> = {
+  employer_contact: "Tier A — Employer Contact",
+  networking: "Tier B — Networking / Fruitful Activity",
+};
+const TIER_SHORT: Record<ActivityTier, string> = {
+  employer_contact: "Tier A",
+  networking: "Tier B",
+};
+
+// Default tier derived from contact method; user can override in the form.
+const TIER_BY_METHOD: Record<string, ActivityTier> = {
+  "Online Portal": "employer_contact",
+  "Direct Email": "employer_contact",
+  "Phone Call": "employer_contact",
+  LinkedIn: "networking",
+  "Networking Event": "networking",
+  Interview: "employer_contact",
+  "In-Person Meeting": "employer_contact",
+  "Video Meeting": "employer_contact",
+  "Recruiter / Headhunter Screen": "employer_contact",
+  "Networking Contact": "networking",
+  "Career-Center Advisor Meeting": "networking",
+};
+
+function deriveTier(method: string): ActivityTier {
+  return TIER_BY_METHOD[method] ?? "employer_contact";
+}
+
+function tierOf(ws: WorkSearch): ActivityTier {
+  if (ws.activity_tier === "employer_contact" || ws.activity_tier === "networking") {
+    return ws.activity_tier;
+  }
+  return deriveTier(ws.contact_method);
+}
+
+// Helper notes shown under specific Contact Method options.
+const METHOD_NOTES: Record<string, string> = {
+  LinkedIn:
+    "Only active outreach / connecting counts. Browsing or saving job ads is NOT a qualifying activity — the DOL discounts it.",
+  "In-Person Meeting":
+    "Record the physical office or venue address below so an auditor never has to ask who this is or why you met.",
+  "Video Meeting": "Teams/Zoom. You may paste the meeting link in the address field (fine if dead later).",
+  "Recruiter / Headhunter Screen":
+    "Tier A — the recruiter stands in for the employer. Put the recruiter's name & title in Person Contacted and the represented employer (or “client — to be clarified”) in Company.",
+  "Networking Contact":
+    "Tier B — a person who does NOT work at the end employer (industry/former colleague, vendor, client).",
+  "Career-Center Advisor Meeting":
+    "The mandated DOL advisor meeting itself counts as one of your three weekly activities.",
+};
+
+// Tier-B activity types to substitute on a short week (Gap 7 guidance) — so a
+// week is never padded with junk applications to ill-fitting roles.
+const TIER_B_SUGGESTIONS = [
+  "Active LinkedIn outreach — connect or message a real person (not ad browsing)",
+  "Coffee or call with a former colleague or industry peer",
+  "Attend a networking event or industry meetup",
+  "Reach out to a vendor or client contact",
+  "Your mandated Career-Center advisor meeting",
+];
+
+// Read-only prevailing-wage reference (Gap 7). Display only — no logic.
+const WAGE_REFERENCE = {
+  targetBase: "$300,000",
+  benchmarkAnnual: "$293,769",
+  benchmarkHourly: "$141.23 / hr",
+  thresholdAnnual: "$264,388",
+  thresholdHourly: "$127.11 / hr",
+};
+
+// One-click preset for the mandated advisor meeting (Gap 2).
+const ADVISOR_PRESET = {
+  company_name: "NYS DOL Career Center",
+  company_location: "NYS Department of Labor — Career Center",
+  contact_method: "Career-Center Advisor Meeting",
+  activity_tier: "networking" as ActivityTier,
+  contact_person: "",
+  position_applied: "N/A — mandated work-search advisor review",
+  result: "Pending",
+  outcome_next_step: "Completed mandated DOL work-search review with advisor.",
+  next_contact_date: "",
+};
+
+// Prefill payload passed from the dashboard "add follow-up" action (Gap 4).
+type WorkSearchPrefill = {
+  company_name?: string;
+  company_location?: string;
+  contact_method?: string;
+  activity_tier?: ActivityTier;
+  contact_person?: string;
+  position_applied?: string;
+  result?: string;
+  outcome_next_step?: string;
+  next_contact_date?: string;
+  parent_activity_id?: string | null;
+};
 
 const WEEKLY_LIMIT = 10 * 60;
 const WARN_THRESHOLD = 8 * 60;
@@ -66,6 +182,147 @@ function buildCSV(columns: { key: string; label: string }[], rows: Record<string
   const header = columns.map((c) => esc(c.label)).join(",");
   const lines = rows.map((row) => columns.map((c) => esc(row[c.key])).join(","));
   return [header, ...lines].join("\n");
+}
+
+// HTML-escape for the printable ledger.
+function escHtml(v: unknown): string {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// Claim-week bounds for a given date. Uses the SAME Sunday-start boundary as
+// the dashboard so grouping stays consistent. NOTE (Gap 6): the advisor
+// described a Monday→Sunday certifiable week — pending Kupe's confirmation.
+function weekRangeOf(dateStr: string): { start: string; end: string } {
+  const d = new Date(dateStr + "T12:00:00");
+  const sunday = new Date(d);
+  sunday.setDate(d.getDate() - d.getDay());
+  const saturday = new Date(sunday);
+  saturday.setDate(sunday.getDate() + 6);
+  const fmt = (x: Date) => x.toISOString().split("T")[0];
+  return { start: fmt(sunday), end: fmt(saturday) };
+}
+
+function fmtLong(dateStr: string) {
+  return new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+// Build the audit-ready, per-claim-week, two-section ledger (Gap 5) as a
+// standalone printable HTML document. Tier A (Employer Contacts) on top,
+// Tier B (Networking) below, within each claim week. Stamped with the Work
+// Search ID (never the SSN).
+function buildLedgerHtml(
+  workSearches: WorkSearch[],
+  startDate: string,
+  endDate: string,
+  workSearchId: string | null
+): string {
+  // Group by Sunday-start claim week.
+  const weeks = new Map<string, WorkSearch[]>();
+  for (const ws of workSearches) {
+    const key = weekRangeOf(ws.date).start;
+    const list = weeks.get(key);
+    if (list) list.push(ws);
+    else weeks.set(key, [ws]);
+  }
+  const weekKeys = [...weeks.keys()].sort();
+
+  const rowHtml = (ws: WorkSearch) => {
+    const contact = ws.contact_person ? escHtml(ws.contact_person) : "—";
+    const where = escHtml(ws.company_location || "number withheld");
+    const next = [
+      ws.outcome_next_step ? escHtml(ws.outcome_next_step) : "",
+      ws.next_contact_date ? `(next: ${escHtml(ws.next_contact_date)})` : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+    return `<tr>
+      <td>${escHtml(ws.date)}</td>
+      <td>${escHtml(ws.company_name)}</td>
+      <td>${contact}</td>
+      <td>${escHtml(ws.position_applied)}</td>
+      <td>${escHtml(ws.contact_method)}</td>
+      <td>${where}</td>
+      <td>${escHtml(ws.result)}${next ? ` — ${next}` : ""}</td>
+    </tr>`;
+  };
+
+  const sectionHtml = (title: string, rows: WorkSearch[]) => `
+    <h3 class="tier">${escHtml(title)} <span class="count">(${rows.length})</span></h3>
+    ${
+      rows.length === 0
+        ? `<p class="empty">No activities in this section.</p>`
+        : `<table>
+            <thead><tr>
+              <th>Date</th><th>Company / Org</th><th>Contact + Title</th>
+              <th>Position</th><th>Method</th><th>Address / URL / Phone</th>
+              <th>Result · Outcome / Next Step</th>
+            </tr></thead>
+            <tbody>${rows.map(rowHtml).join("")}</tbody>
+          </table>`
+    }`;
+
+  const weeksHtml = weekKeys
+    .map((key) => {
+      const { start, end } = weekRangeOf(key);
+      const inWeek = weeks.get(key)!.slice().sort((a, b) => a.date.localeCompare(b.date));
+      const tierA = inWeek.filter((w) => tierOf(w) === "employer_contact");
+      const tierB = inWeek.filter((w) => tierOf(w) === "networking");
+      return `<section class="week">
+        <h2>Claim Week: ${escHtml(fmtLong(start))} – ${escHtml(fmtLong(end))}
+          <span class="count">· ${inWeek.length} activit${inWeek.length === 1 ? "y" : "ies"}</span>
+        </h2>
+        ${sectionHtml("Tier A — Employer Contacts", tierA)}
+        ${sectionHtml("Tier B — Networking / Fruitful Activities", tierB)}
+      </section>`;
+    })
+    .join("");
+
+  return `<!doctype html><html><head><meta charset="utf-8" />
+    <title>NYS DOL Work Search Ledger</title>
+    <style>
+      *{box-sizing:border-box} body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111;margin:32px;font-size:12px}
+      h1{font-size:18px;margin:0 0 4px} .meta{color:#444;font-size:12px;margin:0 0 2px}
+      .week{margin-top:24px;page-break-inside:avoid} .week>h2{font-size:14px;border-bottom:2px solid #111;padding-bottom:4px}
+      h3.tier{font-size:12px;margin:14px 0 6px;text-transform:uppercase;letter-spacing:.04em;color:#222}
+      .count{color:#666;font-weight:400}
+      table{width:100%;border-collapse:collapse;margin-bottom:8px} th,td{border:1px solid #bbb;padding:5px 7px;text-align:left;vertical-align:top}
+      th{background:#f1f1f1;font-size:10px;text-transform:uppercase;letter-spacing:.03em}
+      .empty{color:#888;font-style:italic;margin:2px 0 8px}
+      .foot{margin-top:28px;color:#888;font-size:10px;border-top:1px solid #ddd;padding-top:8px}
+      @media print{body{margin:12mm}}
+    </style></head><body>
+    <h1>NYS DOL — Work Search Proof-of-Effort Ledger</h1>
+    <p class="meta"><strong>Work Search ID:</strong> ${escHtml(workSearchId || "—— set NYUI_WORK_SEARCH_ID to stamp ——")}</p>
+    <p class="meta"><strong>Range:</strong> ${escHtml(fmtLong(startDate))} – ${escHtml(fmtLong(endDate))}</p>
+    <p class="meta"><strong>Generated:</strong> ${escHtml(new Date().toLocaleString())}</p>
+    ${weeksHtml || `<p class="empty">No work-search activities in this range.</p>`}
+    <p class="foot">Claim weeks shown Sunday–Saturday (pending confirmation of the Monday–Sunday boundary). SSN intentionally omitted; identity is matched by Work Search ID only.</p>
+    </body></html>`;
+}
+
+function openPrintableLedger(
+  workSearches: WorkSearch[],
+  startDate: string,
+  endDate: string,
+  workSearchId: string | null
+) {
+  const html = buildLedgerHtml(workSearches, startDate, endDate, workSearchId);
+  const win = window.open("", "_blank");
+  if (!win) return false;
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  // Give the new document a tick to lay out before invoking print.
+  setTimeout(() => win.print(), 350);
+  return true;
 }
 
 // ─── Shared UI Primitives ─────────────────────────────────────────────────────
@@ -194,12 +451,15 @@ function ExportModal({ onClose }: { onClose: () => void }) {
 
       const wsCols = [
         { key: "date", label: "Date" },
+        { key: "tier_label", label: "Tier" },
         { key: "company_name", label: "Company / Organization" },
         { key: "company_location", label: "Location / URL" },
         { key: "contact_method", label: "Contact Method" },
         { key: "contact_person", label: "Contact Person" },
         { key: "position_applied", label: "Position Applied For" },
         { key: "result", label: "Result" },
+        { key: "outcome_next_step", label: "Outcome / Next Step" },
+        { key: "next_contact_date", label: "Next Contact Date" },
         { key: "created_at", label: "Date Logged" },
       ];
       const bhCols = [
@@ -211,7 +471,10 @@ function ExportModal({ onClose }: { onClose: () => void }) {
         { key: "created_at", label: "Date Logged" },
       ];
 
-      const ws = result.workSearches as unknown as Record<string, unknown>[];
+      const ws = result.workSearches.map((w) => ({
+        ...w,
+        tier_label: TIER_SHORT[tierOf(w)],
+      })) as unknown as Record<string, unknown>[];
       const bh = result.businessHours as unknown as Record<string, unknown>[];
       const report = [
         `"NYS DOL COMPLIANCE AUDIT REPORT"`,
@@ -244,6 +507,37 @@ function ExportModal({ onClose }: { onClose: () => void }) {
     }
   }
 
+  async function handleLedger() {
+    if (!startDate || !endDate) {
+      setError("Please select both dates.");
+      return;
+    }
+    if (endDate < startDate) {
+      setError("End date must be on or after start date.");
+      return;
+    }
+    setError(null);
+    setLoading(true);
+    try {
+      const result = await getExportData(startDate, endDate);
+      if (result.error) throw new Error(result.error);
+      const opened = openPrintableLedger(
+        result.workSearches,
+        startDate,
+        endDate,
+        result.workSearchId
+      );
+      if (!opened) {
+        throw new Error("Pop-up blocked — allow pop-ups to open the printable ledger.");
+      }
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ledger generation failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       <div className="w-full max-w-md rounded-xl bg-card border border-border shadow-xl">
@@ -251,7 +545,7 @@ function ExportModal({ onClose }: { onClose: () => void }) {
           <div>
             <h3 className="font-semibold text-foreground">Generate NYS DOL Audit Report</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Downloads a CSV with Work Search and Business Hours data
+              CSV (Work Search + Business Hours) or a printable, per-claim-week ledger
             </p>
           </div>
           <button
@@ -286,24 +580,40 @@ function ExportModal({ onClose }: { onClose: () => void }) {
               {error}
             </p>
           )}
-          <div className="flex gap-3 pt-1">
+          <div className="space-y-2 pt-1">
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={handleExport}
+                disabled={loading || !startDate || !endDate}
+                className="flex-1 rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:bg-foreground/90 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <FileDown className="h-4 w-4" />
+                {loading ? "Generating…" : "Download CSV"}
+              </button>
+              <button
+                type="button"
+                onClick={handleLedger}
+                disabled={loading || !startDate || !endDate}
+                className="flex-1 rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <Printer className="h-4 w-4" />
+                {loading ? "Generating…" : "Printable Ledger"}
+              </button>
+            </div>
             <button
               type="button"
               onClick={onClose}
               disabled={loading}
-              className="flex-1 rounded-md border border-border bg-muted px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/80"
+              className="w-full rounded-md border border-border bg-muted px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/80"
             >
               Cancel
             </button>
-            <button
-              type="button"
-              onClick={handleExport}
-              disabled={loading || !startDate || !endDate}
-              className="flex-1 rounded-md bg-foreground px-4 py-2 text-sm font-medium text-background hover:bg-foreground/90 disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              <FileDown className="h-4 w-4" />
-              {loading ? "Generating…" : "Download CSV"}
-            </button>
+            <p className="text-[11px] text-muted-foreground pt-0.5">
+              The printable ledger groups by claim week with Tier A (Employer Contacts) and Tier B
+              (Networking) sections, stamped with your Work Search ID. Use your browser&apos;s
+              &ldquo;Save as PDF&rdquo; to hand it over in a one-week audit.
+            </p>
           </div>
         </div>
       </div>
@@ -319,12 +629,14 @@ function NYUIDashboard({
   weekStart,
   weekEnd,
   onNavigate,
+  onFollowUp,
 }: {
   workSearches: WorkSearch[];
   businessHours: BusinessHour[];
   weekStart: string;
   weekEnd: string;
-      onNavigate: (screen: SubScreen) => void;
+  onNavigate: (screen: SubScreen) => void;
+  onFollowUp: (ws: WorkSearch) => void;
 }) {
   const [showExport, setShowExport] = useState(false);
 
@@ -342,6 +654,10 @@ function NYUIDashboard({
   const uniqueDays = new Set(workSearches.map((w) => w.date)).size;
   const wsProgressPct = (Math.min(uniqueDays, 3) / 3) * 100;
   const goalMet = uniqueDays >= 3;
+
+  // Two-tier breakdown (Gap 1).
+  const tierACount = workSearches.filter((w) => tierOf(w) === "employer_contact").length;
+  const tierBCount = workSearches.filter((w) => tierOf(w) === "networking").length;
 
   const wsByDate = workSearches.reduce<Record<string, WorkSearch[]>>((acc, ws) => {
     acc[ws.date] = acc[ws.date] ? [...acc[ws.date], ws] : [ws];
@@ -413,6 +729,22 @@ function NYUIDashboard({
         </div>
         <ProgressBar pct={wsProgressPct} variant={goalMet ? "success" : "default"} />
 
+        {/* Two-tier breakdown (Gap 1) */}
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              Tier A — Employer Contacts
+            </p>
+            <p className="text-lg font-bold tabular-nums text-foreground">{tierACount}</p>
+          </div>
+          <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              Tier B — Networking / Fruitful
+            </p>
+            <p className="text-lg font-bold tabular-nums text-foreground">{tierBCount}</p>
+          </div>
+        </div>
+
         {workSearches.length > 0 && uniqueDays < workSearches.length && (
           <p className="mt-3 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded px-3 py-2">
             {workSearches.length - uniqueDays} activit
@@ -420,6 +752,44 @@ function NYUIDashboard({
             — only unique days count toward the 3-day goal.
           </p>
         )}
+
+        {/* Short-week guidance (Gap 7) — substitutable Tier-B activities */}
+        {workSearches.length < 3 && (
+          <div className="mt-3 rounded-lg border border-border bg-muted/20 px-3 py-2.5">
+            <p className="text-xs font-medium text-foreground">
+              Short on activities this week? Don&apos;t pad with junk applications to roles that
+              don&apos;t fit. These Tier-B activities also count:
+            </p>
+            <ul className="mt-1.5 space-y-0.5">
+              {TIER_B_SUGGESTIONS.map((s) => (
+                <li key={s} className="text-xs text-muted-foreground flex gap-1.5">
+                  <span className="text-muted-foreground/50">•</span>
+                  {s}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Gap 6 — compliance assumptions to confirm (do not silently change) */}
+        <div className="mt-3 rounded-lg border border-sky-500/30 bg-sky-500/5 px-3 py-2.5">
+          <p className="text-xs font-semibold text-sky-300 flex items-center gap-1.5">
+            <Info className="h-3.5 w-3.5 shrink-0" />
+            Two rules to confirm with your advisor
+          </p>
+          <ul className="mt-1.5 space-y-1 text-xs text-sky-200/80">
+            <li>
+              <strong>Claim-week boundary:</strong> this dashboard uses Sunday–Saturday. Your
+              advisor described Monday–Sunday (certifiable after Sunday). Unchanged pending your
+              confirmation.
+            </li>
+            <li>
+              <strong>&ldquo;3 separate days&rdquo;:</strong> this dashboard requires 3 activities
+              on 3 different calendar days. Your advisor framed it as 3 activities per week (not
+              necessarily 3 days). Unchanged pending your confirmation.
+            </li>
+          </ul>
+        </div>
 
         {Object.keys(wsByDate).length > 0 ? (
           <div className="mt-4 divide-y divide-border rounded-lg border border-border overflow-hidden">
@@ -439,10 +809,30 @@ function NYUIDashboard({
                       {i === 0 ? fmtDate(date) : "↳ same day"}
                     </span>
                     <div>
-                      <p className="font-medium text-foreground leading-snug">{ws.company_name}</p>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <p className="font-medium text-foreground leading-snug">
+                          {ws.company_name}
+                        </p>
+                        <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                          {TIER_SHORT[tierOf(ws)]}
+                        </span>
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {ws.position_applied} · {ws.contact_method}
                       </p>
+                      {ws.outcome_next_step && (
+                        <p className="text-xs text-muted-foreground/80 mt-0.5">
+                          ↳ {ws.outcome_next_step}
+                          {ws.next_contact_date ? ` (next: ${fmtDate(ws.next_contact_date)})` : ""}
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => onFollowUp(ws)}
+                        className="mt-1 inline-flex items-center gap-1 text-[11px] text-foreground/70 hover:text-foreground underline underline-offset-2"
+                      >
+                        <Plus className="h-3 w-3" /> Add follow-up
+                      </button>
                     </div>
                     <StatusBadge
                       variant={
@@ -617,6 +1007,45 @@ function NYUIDashboard({
         )}
       </div>
 
+      {/* Prevailing-wage reference (Gap 7) — read-only, no logic */}
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+        <div className="flex items-start justify-between mb-3 gap-3">
+          <div>
+            <h3 className="font-semibold text-foreground">Prevailing-Wage Reference</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              For reference only — the line at which a rejected offer could be questioned.
+            </p>
+          </div>
+          <StatusBadge variant="neutral">Read-only</StatusBadge>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+          <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              Target Base
+            </p>
+            <p className="font-bold tabular-nums text-foreground">{WAGE_REFERENCE.targetBase}</p>
+          </div>
+          <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              DOL Chief-Executive Benchmark
+            </p>
+            <p className="font-bold tabular-nums text-foreground">
+              {WAGE_REFERENCE.benchmarkAnnual}
+            </p>
+            <p className="text-[11px] text-muted-foreground">{WAGE_REFERENCE.benchmarkHourly}</p>
+          </div>
+          <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              90% Threshold
+            </p>
+            <p className="font-bold tabular-nums text-foreground">
+              {WAGE_REFERENCE.thresholdAnnual}
+            </p>
+            <p className="text-[11px] text-muted-foreground">{WAGE_REFERENCE.thresholdHourly}</p>
+          </div>
+        </div>
+      </div>
+
       {showExport && <ExportModal onClose={() => setShowExport(false)} />}
     </div>
   );
@@ -627,36 +1056,75 @@ function NYUIDashboard({
 function WorkSearchForm({
   onSuccess,
   onBack,
+  prefill,
 }: {
   onSuccess: () => void;
   onBack: () => void;
+  prefill?: WorkSearchPrefill | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState({
     date: todayStr(),
-    company_name: "",
-    company_location: "",
-    contact_method: "",
-    contact_person: "",
-    position_applied: "",
-    result: "",
+    company_name: prefill?.company_name ?? "",
+    company_location: prefill?.company_location ?? "",
+    contact_method: prefill?.contact_method ?? "",
+    activity_tier: prefill?.activity_tier ?? "",
+    contact_person: prefill?.contact_person ?? "",
+    position_applied: prefill?.position_applied ?? "",
+    result: prefill?.result ?? "",
+    outcome_next_step: prefill?.outcome_next_step ?? "",
+    next_contact_date: prefill?.next_contact_date ?? "",
   });
+  const [parentActivityId] = useState<string | null>(prefill?.parent_activity_id ?? null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
   function set(field: string) {
-    return (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-      setForm((f) => ({ ...f, [field]: e.target.value }));
+    return (
+      e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+    ) => setForm((f) => ({ ...f, [field]: e.target.value }));
   }
+
+  // Contact method drives the default tier; the user can still override the
+  // tier select afterward (a Phone Call can be Tier A or Tier B).
+  function setMethod(e: React.ChangeEvent<HTMLSelectElement>) {
+    const method = e.target.value;
+    setForm((f) => ({
+      ...f,
+      contact_method: method,
+      activity_tier: method ? deriveTier(method) : f.activity_tier,
+    }));
+  }
+
+  function applyAdvisorPreset() {
+    setForm((f) => ({
+      ...f,
+      company_name: ADVISOR_PRESET.company_name,
+      company_location: ADVISOR_PRESET.company_location,
+      contact_method: ADVISOR_PRESET.contact_method,
+      activity_tier: ADVISOR_PRESET.activity_tier,
+      contact_person: ADVISOR_PRESET.contact_person,
+      position_applied: ADVISOR_PRESET.position_applied,
+      result: ADVISOR_PRESET.result,
+      outcome_next_step: ADVISOR_PRESET.outcome_next_step,
+      next_contact_date: ADVISOR_PRESET.next_contact_date,
+    }));
+    setErrors({});
+  }
+
+  const isInPerson = form.contact_method === "In-Person Meeting";
 
   function validate() {
     const e: Record<string, string> = {};
     if (!form.date) e.date = "Required";
     if (!form.company_name.trim()) e.company_name = "Required";
-    if (!form.company_location.trim()) e.company_location = "Required";
+    if (!form.company_location.trim()) {
+      e.company_location = isInPerson ? "Physical address required for an in-person meeting" : "Required";
+    }
     if (!form.contact_method) e.contact_method = "Required";
+    if (!form.activity_tier) e.activity_tier = "Required";
     if (!form.position_applied.trim()) e.position_applied = "Required";
     if (!form.result) e.result = "Required";
     return e;
@@ -680,6 +1148,10 @@ function WorkSearchForm({
         contact_person: form.contact_person.trim() || null,
         position_applied: form.position_applied.trim(),
         result: form.result,
+        activity_tier: form.activity_tier || deriveTier(form.contact_method),
+        outcome_next_step: form.outcome_next_step.trim() || null,
+        next_contact_date: form.next_contact_date || null,
+        parent_activity_id: parentActivityId,
       });
       if (!result.ok) {
         setServerError(result.error);
@@ -716,6 +1188,24 @@ function WorkSearchForm({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
+            {parentActivityId && (
+              <div className="rounded-md border border-sky-500/30 bg-sky-500/5 px-3 py-2 text-xs text-sky-200">
+                Adding a follow-up stage to an existing opportunity — employer details are
+                pre-filled. This still counts as its own activity toward the weekly requirement.
+              </div>
+            )}
+
+            {!parentActivityId && (
+              <button
+                type="button"
+                onClick={applyAdvisorPreset}
+                className="w-full rounded-md border border-border bg-muted/40 px-3 py-2 text-sm font-medium text-foreground hover:bg-muted flex items-center justify-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Quick-log: Career-Center Advisor Meeting
+              </button>
+            )}
+
             {serverError && (
               <div className="rounded-md bg-destructive/10 border border-destructive/30 px-3 py-2 text-sm text-destructive">
                 {serverError}
@@ -751,11 +1241,7 @@ function WorkSearchForm({
             </Field>
 
             <Field label="Contact Method" required error={errors.contact_method}>
-              <select
-                className={selectCls}
-                value={form.contact_method}
-                onChange={set("contact_method")}
-              >
+              <select className={selectCls} value={form.contact_method} onChange={setMethod}>
                 <option value="">Select contact method…</option>
                 {CONTACT_METHODS.map((m) => (
                   <option key={m} value={m}>
@@ -763,6 +1249,30 @@ function WorkSearchForm({
                   </option>
                 ))}
               </select>
+              {METHOD_NOTES[form.contact_method] && (
+                <p className="text-xs text-muted-foreground mt-1.5 flex gap-1.5">
+                  <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                  {METHOD_NOTES[form.contact_method]}
+                </p>
+              )}
+            </Field>
+
+            <Field
+              label="Activity Tier"
+              required
+              hint="auto-set from method; override if needed"
+              error={errors.activity_tier}
+            >
+              <select className={selectCls} value={form.activity_tier} onChange={set("activity_tier")}>
+                <option value="">Select tier…</option>
+                <option value="employer_contact">{TIER_LABELS.employer_contact}</option>
+                <option value="networking">{TIER_LABELS.networking}</option>
+              </select>
+              <p className="text-xs text-muted-foreground mt-1.5">
+                Tier A = direct contact with an employer or someone representing one (a recruiter
+                screening for a specific employer counts). Tier B = networking that advances the
+                search (the contact does not work at the end employer).
+              </p>
             </Field>
 
             <Field label="Name & Title of Person Contacted" hint="optional">
@@ -794,6 +1304,27 @@ function WorkSearchForm({
                   </option>
                 ))}
               </select>
+            </Field>
+
+            <Field
+              label="Outcome / Next Step"
+              hint="optional"
+            >
+              <textarea
+                className={inputCls + " min-h-[70px] resize-y"}
+                placeholder="e.g., Phone screen Jun 11 · Next round projected Jul 1 · Speak again in two weeks"
+                value={form.outcome_next_step}
+                onChange={set("outcome_next_step")}
+              />
+            </Field>
+
+            <Field label="Next Contact Date" hint="optional">
+              <input
+                type="date"
+                className={inputCls}
+                value={form.next_contact_date}
+                onChange={set("next_contact_date")}
+              />
             </Field>
 
             <button
@@ -995,6 +1526,27 @@ export function NyuiClient({
   weekEnd: string;
 }) {
   const [subScreen, setSubScreen] = useState<SubScreen>("dashboard");
+  const [wsPrefill, setWsPrefill] = useState<WorkSearchPrefill | null>(null);
+
+  // Tab navigation always starts a fresh (non-prefilled) work-search log.
+  function goToScreen(screen: SubScreen) {
+    if (screen === "log-work-search") setWsPrefill(null);
+    setSubScreen(screen);
+  }
+
+  // "Add follow-up" (Gap 4): pre-fill employer details + link to the parent.
+  function handleFollowUp(ws: WorkSearch) {
+    setWsPrefill({
+      company_name: ws.company_name,
+      company_location: ws.company_location,
+      contact_method: ws.contact_method,
+      activity_tier: tierOf(ws),
+      contact_person: ws.contact_person ?? "",
+      position_applied: ws.position_applied,
+      parent_activity_id: ws.id,
+    });
+    setSubScreen("log-work-search");
+  }
 
   return (
     <section className="pb-4">
@@ -1003,7 +1555,7 @@ export function NyuiClient({
           <button
             key={item.id}
             type="button"
-            onClick={() => setSubScreen(item.id)}
+            onClick={() => goToScreen(item.id)}
             className={`px-4 py-2 text-sm font-medium rounded-t-md transition-colors ${
               subScreen === item.id
                 ? "bg-foreground text-background"
@@ -1021,13 +1573,21 @@ export function NyuiClient({
           businessHours={initialData.businessHours}
           weekStart={weekStart}
           weekEnd={weekEnd}
-          onNavigate={setSubScreen}
+          onNavigate={goToScreen}
+          onFollowUp={handleFollowUp}
         />
       )}
       {subScreen === "log-work-search" && (
         <WorkSearchForm
-          onSuccess={() => setSubScreen("dashboard")}
-          onBack={() => setSubScreen("dashboard")}
+          prefill={wsPrefill}
+          onSuccess={() => {
+            setWsPrefill(null);
+            setSubScreen("dashboard");
+          }}
+          onBack={() => {
+            setWsPrefill(null);
+            setSubScreen("dashboard");
+          }}
         />
       )}
       {subScreen === "log-business-hours" && (
