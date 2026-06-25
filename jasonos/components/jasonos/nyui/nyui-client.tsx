@@ -194,8 +194,7 @@ function escHtml(v: unknown): string {
 }
 
 // Claim-week bounds for a given date. Uses the SAME Sunday-start boundary as
-// the dashboard so grouping stays consistent. NOTE (Gap 6): the advisor
-// described a Monday→Sunday certifiable week — pending Kupe's confirmation.
+// the dashboard so grouping stays consistent.
 function weekRangeOf(dateStr: string): { start: string; end: string } {
   const d = new Date(dateStr + "T12:00:00");
   const sunday = new Date(d);
@@ -304,7 +303,7 @@ function buildLedgerHtml(
     <p class="meta"><strong>Range:</strong> ${escHtml(fmtLong(startDate))} – ${escHtml(fmtLong(endDate))}</p>
     <p class="meta"><strong>Generated:</strong> ${escHtml(new Date().toLocaleString())}</p>
     ${weeksHtml || `<p class="empty">No work-search activities in this range.</p>`}
-    <p class="foot">Claim weeks shown Sunday–Saturday (pending confirmation of the Monday–Sunday boundary). SSN intentionally omitted; identity is matched by Work Search ID only.</p>
+    <p class="foot">Claim weeks shown Sunday–Saturday. SSN intentionally omitted; identity is matched by Work Search ID only.</p>
     </body></html>`;
 }
 
@@ -771,25 +770,6 @@ function NYUIDashboard({
           </div>
         )}
 
-        {/* Gap 6 — compliance assumptions to confirm (do not silently change) */}
-        <div className="mt-3 rounded-lg border border-sky-500/30 bg-sky-500/5 px-3 py-2.5">
-          <p className="text-xs font-semibold text-sky-300 flex items-center gap-1.5">
-            <Info className="h-3.5 w-3.5 shrink-0" />
-            Two rules to confirm with your advisor
-          </p>
-          <ul className="mt-1.5 space-y-1 text-xs text-sky-200/80">
-            <li>
-              <strong>Claim-week boundary:</strong> this dashboard uses Sunday–Saturday. Your
-              advisor described Monday–Sunday (certifiable after Sunday). Unchanged pending your
-              confirmation.
-            </li>
-            <li>
-              <strong>&ldquo;3 separate days&rdquo;:</strong> this dashboard requires 3 activities
-              on 3 different calendar days. Your advisor framed it as 3 activities per week (not
-              necessarily 3 days). Unchanged pending your confirmation.
-            </li>
-          </ul>
-        </div>
 
         {Object.keys(wsByDate).length > 0 ? (
           <div className="mt-4 divide-y divide-border rounded-lg border border-border overflow-hidden">
