@@ -36,6 +36,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import { ContactCreateModal } from "@/components/jasonos/outreach/contact-create-modal";
+import { RELATIONSHIP_TYPE_LABELS } from "@/lib/outreach/types";
 import type { OutreachPerson } from "@/lib/outreach/data";
 import type { QueueCard, QueueColumnKey, ThreeColumnQueue } from "@/lib/outreach/queue-buckets";
 import type {
@@ -228,6 +229,33 @@ function emptyBandCells(): BandCells {
   };
 }
 
+// Synthesize a queue card from a raw contact so unclassified people (no intent,
+// no cadence, no touch/recruiter signal — e.g. a fresh spreadsheet import) can
+// surface in the bottom "Needs to be Classified & Scheduled" inbox.
+function personToCard(p: OutreachPerson): QueueCard {
+  const column: QueueColumnKey =
+    p.intent === "specific" ? "specific" : p.intent === "cold" ? "cold" : "warm";
+  return {
+    key: `person-${p.id}`,
+    column,
+    name: p.name,
+    title: p.title,
+    firm: p.firm,
+    vip: p.vip,
+    relationship_type: p.relationship_type,
+    primary_email: p.primary_email,
+    linkedin_url: p.linkedin_url,
+    cadence_interval: p.cadence_interval,
+    cadence_stage: p.cadence_stage,
+    next_touch_date: p.next_touch_date,
+    last_touch_date: p.last_touch_date,
+    reason: "Needs classification & scheduling",
+    sequenceStageLabel: null,
+    contactId: p.id,
+    recruiterId: null,
+  };
+}
+
 export function ThreeColumnQueueClient({
   buckets,
   triageCount,
@@ -360,19 +388,55 @@ export function ThreeColumnQueueClient({
     return cells;
   }, [filtered, commByContactId]);
 
-  // Bottom-of-page bucket: every unscheduled contact across all three
-  // columns, in one full-width list.
+  // Bottom-of-page inbox: contacts that still need classification and/or
+  // scheduling. Two sources, deduped by contact id:
+  //   1) Classified cards already in a column whose status is needs_scheduling
+  //      (they have an intent but no next-touch date yet).
+  //   2) Every other non-backrow contact that isn't represented in any column
+  //      at all — i.e. unclassified people (no intent / cadence / signal), such
+  //      as a freshly imported list. These drop out of this inbox the moment
+  //      they're given an intent (which lands them in a column).
   const needsAttention = useMemo(() => {
     const strengthOf = (card: QueueCard) =>
       (card.contactId ? commByContactId.get(card.contactId)?.strength : 0) ?? 0;
-    return [
+
+    const fromColumns = [
       ...bandCells.needs_scheduling.warm,
       ...bandCells.needs_scheduling.specific,
       ...bandCells.needs_scheduling.cold,
-    ].sort(
+    ];
+
+    const cardedIds = new Set<string>();
+    for (const colKey of ["warm", "specific", "cold"] as const) {
+      for (const c of columns[colKey]) if (c.contactId) cardedIds.add(c.contactId);
+    }
+
+    const q = searchQuery.trim().toLowerCase();
+    const unplaced = buckets.outreachPeople
+      .filter((p) => p.intent !== "backrow" && !cardedIds.has(p.id))
+      .filter(
+        (p) =>
+          !q ||
+          p.name.toLowerCase().includes(q) ||
+          (p.firm ?? "").toLowerCase().includes(q)
+      )
+      .map(personToCard);
+
+    const seen = new Set(
+      fromColumns
+        .map((c) => c.contactId)
+        .filter((id): id is string => Boolean(id))
+    );
+    const merged = [...fromColumns];
+    for (const c of unplaced) {
+      if (c.contactId && seen.has(c.contactId)) continue;
+      merged.push(c);
+    }
+
+    return merged.sort(
       (a, b) => strengthOf(b) - strengthOf(a) || a.name.localeCompare(b.name)
     );
-  }, [bandCells, commByContactId]);
+  }, [bandCells, columns, buckets.outreachPeople, searchQuery, commByContactId]);
 
   const onCardClick = (card: QueueCard) => {
     const reconnect = card.recruiterId
@@ -567,8 +631,8 @@ export function ThreeColumnQueueClient({
           cards={needsAttention}
           commByContactId={commByContactId}
           onCardClick={onCardClick}
-          showColumn
-          listMaxHeightClass="max-h-80"
+          showRelationship
+          listMaxHeightClass="max-h-96"
         />
       </section>
 
@@ -665,6 +729,7 @@ function ColumnUrgencySection({
   commByContactId,
   onCardClick,
   showColumn = false,
+  showRelationship = false,
   listMaxHeightClass = "max-h-48",
 }: {
   def: BandDef;
@@ -673,6 +738,8 @@ function ColumnUrgencySection({
   onCardClick: (card: QueueCard) => void;
   /** Show each row's Warm/Specific/Cold tag (used by the bottom bucket). */
   showColumn?: boolean;
+  /** Show each row's relationship type (used by the unclassified inbox). */
+  showRelationship?: boolean;
   listMaxHeightClass?: string;
 }) {
   const [collapsed, setCollapsed] = useState(def.defaultCollapsed);
@@ -734,6 +801,7 @@ function ColumnUrgencySection({
                 }
                 onOpen={onCardClick}
                 showColumn={showColumn}
+                showRelationship={showRelationship}
               />
             ))}
           </div>
@@ -760,11 +828,13 @@ function BandContactRow({
   comm,
   onOpen,
   showColumn = false,
+  showRelationship = false,
 }: {
   card: QueueCard;
   comm: CommunicationsContact | null;
   onOpen: (card: QueueCard) => void;
   showColumn?: boolean;
+  showRelationship?: boolean;
 }) {
   const nextDate = comm?.nextActionDueDate ?? card.next_touch_date;
   const lastTouch = comm?.lastTouch ?? null;
@@ -785,6 +855,13 @@ function BandContactRow({
             )}
           >
             {card.column}
+          </span>
+        ) : null}
+        {showRelationship ? (
+          <span className="mr-1.5 rounded-full border border-border px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+            {card.relationship_type
+              ? RELATIONSHIP_TYPE_LABELS[card.relationship_type]
+              : "Unclassified"}
           </span>
         ) : null}
         <span className="truncate text-xs font-medium">{card.name}</span>
