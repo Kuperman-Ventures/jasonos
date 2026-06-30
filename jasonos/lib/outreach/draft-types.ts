@@ -97,7 +97,6 @@ export const LOG_TOUCH_CHANNELS: { value: LogTouchChannel; label: string; hint?:
   { value: "linkedin", label: "LinkedIn" },
   { value: "phone", label: "Phone" },
   { value: "text", label: "Text" },
-  { value: "call", label: "Call", hint: "Voice call" },
   { value: "video", label: "Video Call", hint: "Zoom / Teams / Meet" },
   { value: "in_person", label: "In Person Meeting" },
 ];
