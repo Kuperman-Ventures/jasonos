@@ -19,6 +19,8 @@ export type TouchChannel =
   | "calendar"
   | "linkedin"
   | "phone"
+  | "call"
+  | "video"
   | "in_person"
   | "coffee_chat"
   | "text"

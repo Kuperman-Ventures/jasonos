@@ -186,6 +186,9 @@ export function OutreachModal({
   const [logBrief, setLogBrief] = useState("");
   const [logObjective, setLogObjective] = useState<TouchObjective | null>(null);
   const [logOutcome, setLogOutcome] = useState("");
+  // Date the touch actually happened — defaults to today, but can be backdated
+  // so a forgotten touch still drives the cadence from the right day.
+  const [logDate, setLogDate] = useState<string>(() => todayISODate());
   const [logging, startLogTransition] = useTransition();
 
   // Track whether we've already toast'd the auto-link for this open.
@@ -522,11 +525,16 @@ export function OutreachModal({
     startLogTransition(async () => {
       const targetId = effectiveContactId ?? (await ensureLinked());
       if (!targetId) return;
+      // Anchor the touch at noon on the chosen day so the date never shifts
+      // across time zones, then let insertContactTouches derive last/next
+      // touch dates from it — backdating drives the cadence correctly.
+      const touchedAtISO = new Date(`${logDate}T12:00:00`).toISOString();
       const result = await logContactTouch({
         contactId: targetId,
         channel: logChannel,
         direction: "outbound",
         brief: logBrief.trim() || undefined,
+        touchedAtISO,
         objectiveAchieved: logObjective,
         outcome: logOutcome.trim() || undefined,
       });
@@ -540,6 +548,7 @@ export function OutreachModal({
       setLogBrief("");
       setLogOutcome("");
       setLogObjective(null);
+      setLogDate(todayISODate());
       router.refresh();
 
       // Browning module: if this contact is Browning-tagged AND the user
@@ -702,6 +711,8 @@ export function OutreachModal({
               onLog={handleLog}
               logging={logging}
               cadenceInterval={cadenceInterval}
+              logDate={logDate}
+              setLogDate={setLogDate}
             />
           </IntentSection>
 
@@ -1034,6 +1045,10 @@ function ColdSequenceSection({
   );
 }
 
+function todayISODate(): string {
+  return new Date().toISOString().split("T")[0];
+}
+
 function nextTouchHint(
   cadence: CadenceInterval,
   nextTouchDate: string | null
@@ -1073,6 +1088,8 @@ function LogTouchPanel({
   onLog,
   logging,
   cadenceInterval,
+  logDate,
+  setLogDate,
 }: {
   channel: LogTouchChannel;
   setChannel: (c: LogTouchChannel) => void;
@@ -1086,7 +1103,10 @@ function LogTouchPanel({
   onLog: () => void;
   logging: boolean;
   cadenceInterval: CadenceInterval;
+  logDate: string;
+  setLogDate: (s: string) => void;
 }) {
+  const todayStr = todayISODate();
   return (
     <section>
       <h3 className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -1116,6 +1136,24 @@ function LogTouchPanel({
               </button>
             ))}
           </div>
+        </div>
+
+        <div>
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            When
+          </div>
+          <Input
+            type="date"
+            value={logDate}
+            max={todayStr}
+            onChange={(e) => setLogDate(e.target.value || todayStr)}
+            className="h-8 w-auto text-xs"
+          />
+          {logDate !== todayStr && (
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              Backdated — the cadence will count from this date.
+            </p>
+          )}
         </div>
 
         <div>

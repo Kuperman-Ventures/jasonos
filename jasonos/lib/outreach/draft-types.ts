@@ -79,6 +79,8 @@ export type LogTouchChannel =
   | "email"
   | "linkedin"
   | "phone"
+  | "call"
+  | "video"
   | "calendar"
   | "in_person"
   | "coffee_chat"
@@ -87,17 +89,17 @@ export type LogTouchChannel =
   | "value_sharing"
   | "other";
 
+// The manual "Log a touch" picker buttons (in display order). Other channel
+// values (calendar, coffee_chat, thank_you_note, value_sharing, other) remain
+// valid for sync flows and historical rows — they're just not offered here.
 export const LOG_TOUCH_CHANNELS: { value: LogTouchChannel; label: string; hint?: string }[] = [
   { value: "email", label: "Email" },
   { value: "linkedin", label: "LinkedIn" },
   { value: "phone", label: "Phone" },
-  { value: "calendar", label: "Meeting", hint: "Scheduled meeting / video call" },
-  { value: "coffee_chat", label: "Coffee chat", hint: "In-person 1:1, casual" },
-  { value: "in_person", label: "In person", hint: "Bumped into them, event, etc." },
   { value: "text", label: "Text" },
-  { value: "thank_you_note", label: "Thank-you note", hint: "Handwritten or sent gift" },
-  { value: "value_sharing", label: "Value-share", hint: "Sent an article, intro, or resource" },
-  { value: "other", label: "Other" },
+  { value: "call", label: "Call", hint: "Voice call" },
+  { value: "video", label: "Video Call", hint: "Zoom / Teams / Meet" },
+  { value: "in_person", label: "In Person Meeting" },
 ];
 
 /**
@@ -110,4 +112,6 @@ export const CONVERSATIONAL_CHANNELS: LogTouchChannel[] = [
   "coffee_chat",
   "in_person",
   "phone",
+  "call",
+  "video",
 ];

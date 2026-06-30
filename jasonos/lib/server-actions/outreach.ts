@@ -301,11 +301,32 @@ export async function logContactTouch(input: {
       ? sourceIds.recruiter_pipeline_id
       : null;
   if (recruiterId) {
+    // rr_touches has a narrower channel CHECK (email/linkedin/phone/meeting/
+    // event/referral/other) than jasonos.contact_touches. Map the richer
+    // channel down so the legacy mirror insert doesn't violate it.
+    const rrChannel = ((ch: LogTouchChannel): string => {
+      switch (ch) {
+        case "email":
+          return "email";
+        case "linkedin":
+          return "linkedin";
+        case "phone":
+        case "call":
+          return "phone";
+        case "video":
+        case "calendar":
+        case "in_person":
+        case "coffee_chat":
+          return "meeting";
+        default:
+          return "other";
+      }
+    })(input.channel);
     await sb
       .from("rr_touches")
       .insert({
         contact_id: recruiterId,
-        channel: input.channel,
+        channel: rrChannel,
         direction: input.direction ?? "outbound",
         touched_at: touchedAt,
         brief: input.brief?.trim() || null,
