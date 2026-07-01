@@ -54,6 +54,7 @@ import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
 import { FirstContactSequence } from "@/components/jasonos/reconnect/first-contact-sequence";
 import {
+  CADENCE_DAYS,
   CADENCE_HELPERS,
   CADENCE_INTERVALS,
   CADENCE_LABELS,
@@ -189,6 +190,9 @@ export function OutreachModal({
   // Date the touch actually happened — defaults to today, but can be backdated
   // so a forgotten touch still drives the cadence from the right day.
   const [logDate, setLogDate] = useState<string>(() => todayISODate());
+  // Manual next-touch override (YYYY-MM-DD). Null means "use the cadence-derived
+  // date shown in the panel"; set when the user picks a date by hand.
+  const [nextTouchOverride, setNextTouchOverride] = useState<string | null>(null);
   const [logging, startLogTransition] = useTransition();
 
   // Track whether we've already toast'd the auto-link for this open.
@@ -529,6 +533,10 @@ export function OutreachModal({
       // across time zones, then let insertContactTouches derive last/next
       // touch dates from it — backdating drives the cadence correctly.
       const touchedAtISO = new Date(`${logDate}T12:00:00`).toISOString();
+      // What the user sees in the "Next touch" field is what we persist:
+      // their manual override, else the cadence-derived date.
+      const effectiveNextTouch =
+        nextTouchOverride || autoNextTouchDate(cadenceInterval, logDate) || null;
       const result = await logContactTouch({
         contactId: targetId,
         channel: logChannel,
@@ -537,6 +545,7 @@ export function OutreachModal({
         touchedAtISO,
         objectiveAchieved: logObjective,
         outcome: logOutcome.trim() || undefined,
+        nextTouchDateOverride: effectiveNextTouch,
       });
       if (!result.ok) {
         toast.error(result.error);
@@ -549,6 +558,7 @@ export function OutreachModal({
       setLogOutcome("");
       setLogObjective(null);
       setLogDate(todayISODate());
+      setNextTouchOverride(null);
       router.refresh();
 
       // Browning module: if this contact is Browning-tagged AND the user
@@ -713,6 +723,8 @@ export function OutreachModal({
               cadenceInterval={cadenceInterval}
               logDate={logDate}
               setLogDate={setLogDate}
+              nextTouchOverride={nextTouchOverride}
+              setNextTouchOverride={setNextTouchOverride}
             />
           </IntentSection>
 
@@ -1049,6 +1061,19 @@ function todayISODate(): string {
   return new Date().toISOString().split("T")[0];
 }
 
+function addDaysISO(baseYMD: string, days: number): string {
+  const d = new Date(`${baseYMD}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
+}
+
+// The cadence-derived next-touch date for a given touch date, or "" when the
+// contact has no cadence set.
+function autoNextTouchDate(cadence: CadenceInterval, touchYMD: string): string {
+  if (cadence === "none") return "";
+  return addDaysISO(touchYMD, CADENCE_DAYS[cadence]);
+}
+
 function nextTouchHint(
   cadence: CadenceInterval,
   nextTouchDate: string | null
@@ -1090,6 +1115,8 @@ function LogTouchPanel({
   cadenceInterval,
   logDate,
   setLogDate,
+  nextTouchOverride,
+  setNextTouchOverride,
 }: {
   channel: LogTouchChannel;
   setChannel: (c: LogTouchChannel) => void;
@@ -1105,8 +1132,19 @@ function LogTouchPanel({
   cadenceInterval: CadenceInterval;
   logDate: string;
   setLogDate: (s: string) => void;
+  nextTouchOverride: string | null;
+  setNextTouchOverride: (s: string | null) => void;
 }) {
   const todayStr = todayISODate();
+  const autoNext = autoNextTouchDate(cadenceInterval, logDate);
+  const effectiveNext = nextTouchOverride || autoNext;
+  // Warn only on the "too long between touches" side: the chosen next touch is
+  // later than the cadence would put it. Sooner is always fine.
+  const tooLong =
+    cadenceInterval !== "none" &&
+    Boolean(effectiveNext) &&
+    Boolean(autoNext) &&
+    effectiveNext > autoNext;
   return (
     <section>
       <h3 className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -1138,23 +1176,75 @@ function LogTouchPanel({
           </div>
         </div>
 
-        <div>
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            When
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              When
+            </div>
+            <Input
+              type="date"
+              value={logDate}
+              max={todayStr}
+              onChange={(e) => setLogDate(e.target.value || todayStr)}
+              className="h-8 w-full text-xs"
+            />
+            {logDate !== todayStr && (
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Backdated — cadence counts from this date.
+              </p>
+            )}
           </div>
-          <Input
-            type="date"
-            value={logDate}
-            max={todayStr}
-            onChange={(e) => setLogDate(e.target.value || todayStr)}
-            className="h-8 w-auto text-xs"
-          />
-          {logDate !== todayStr && (
-            <p className="mt-1 text-[10px] text-muted-foreground">
-              Backdated — the cadence will count from this date.
-            </p>
-          )}
+
+          <div>
+            <div className="mb-1 flex items-center justify-between gap-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Next touch
+              </span>
+              {nextTouchOverride && autoNext && (
+                <button
+                  type="button"
+                  onClick={() => setNextTouchOverride(null)}
+                  className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                  title="Revert to the cadence-derived date"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+            <Input
+              type="date"
+              value={effectiveNext}
+              min={logDate}
+              disabled={cadenceInterval === "none" && !nextTouchOverride}
+              onChange={(e) =>
+                setNextTouchOverride(e.target.value || null)
+              }
+              className="h-8 w-full text-xs"
+            />
+            {cadenceInterval === "none" && !nextTouchOverride ? (
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                No cadence set — pick a date to schedule the next touch.
+              </p>
+            ) : nextTouchOverride ? (
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Manually set{autoNext ? ` (cadence: ${autoNext})` : ""}.
+              </p>
+            ) : (
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Auto from cadence — editable.
+              </p>
+            )}
+          </div>
         </div>
+
+        {tooLong && (
+          <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-[10px] text-amber-300">
+            Heads up: this next-touch date is later than your{" "}
+            {CADENCE_LABELS[cadenceInterval]?.toLowerCase()} cadence
+            ({autoNext}). That&rsquo;s a longer gap than intended — you can still
+            save it.
+          </p>
+        )}
 
         <div>
           <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">

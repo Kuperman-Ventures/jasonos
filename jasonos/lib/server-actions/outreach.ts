@@ -260,6 +260,12 @@ export async function logContactTouch(input: {
   objectiveAchieved?: TouchObjective | null;
   /** Phase 5A: free-form post-touch outcome. */
   outcome?: string | null;
+  /**
+   * Explicit next-touch date (YYYY-MM-DD) chosen in the Log a Touch panel.
+   * When provided it wins over the cadence-derived date so the user can
+   * manually schedule the next touch (even against the cadence).
+   */
+  nextTouchDateOverride?: string | null;
 }): Promise<ActionResult> {
   const guard = ensureConfigured();
   if (guard) return guard;
@@ -286,9 +292,20 @@ export async function logContactTouch(input: {
     return { ok: false, error: result.errors.join("; ") };
   }
 
+  const sb = createServiceRoleClient();
+
+  // Explicit next-touch override wins over the cadence-derived date that
+  // insertContactTouches just stamped.
+  if (input.nextTouchDateOverride) {
+    const { error: ntErr } = await sb
+      .from("contacts")
+      .update({ next_touch_date: input.nextTouchDateOverride })
+      .eq("id", input.contactId);
+    if (ntErr) return { ok: false, error: ntErr.message };
+  }
+
   // Mirror to rr_touches for recruiter contacts so the existing legacy
   // Communications timeline view continues to render manual touches.
-  const sb = createServiceRoleClient();
   const { data: contact } = await sb
     .from("contacts")
     .select("source_ids")
