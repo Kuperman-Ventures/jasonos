@@ -1,0 +1,328 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createServiceRoleClient } from "@/lib/supabase/server";
+import { listRecentCounterparties } from "@/lib/integrations/gmail";
+import {
+  buildContactLookup,
+  canonicalEmail,
+  isMyOwnAddress,
+} from "@/lib/outreach/email-matching";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface ContactCandidate {
+  id: string;
+  email: string;
+  name: string | null;
+  company: string | null;
+  first_seen: string;
+  last_seen: string;
+  last_subject: string | null;
+  inbound_count: number;
+  outbound_count: number;
+  status: "new" | "added" | "dismissed";
+}
+
+type ActionResult = { ok: true } | { ok: false; error: string };
+
+function hasConfig() {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Noise filtering — keep real people, drop automated / role / bulk senders.
+// ---------------------------------------------------------------------------
+
+const AUTOMATED_LOCAL_RE =
+  /^(no-?reply|noreply|do-?not-?reply|donotreply|mailer-daemon|postmaster|bounce[s]?|notif(y|ication|ications)?|automated|auto-?confirm|calendar-notification|invitation|invites?|team|updates?|newsletter|mailer|email|via)([._+-]|$)/i;
+
+const AUTOMATED_DOMAIN_RE =
+  /(^|\.)(bounce|bounces|mailer|notifications?|reply|em|sendgrid|mailchimp|mcsv|substack|mailgun|amazonses|sparkpostmail|sendinblue|hubspotemail|mktomail)\./i;
+
+function isNoiseEmail(email: string): boolean {
+  const [local, domain] = email.split("@");
+  if (!local || !domain) return true;
+  if (AUTOMATED_LOCAL_RE.test(local)) return true;
+  if (AUTOMATED_DOMAIN_RE.test(domain)) return true;
+  return false;
+}
+
+function companyFromEmail(email: string): string | null {
+  const domain = email.split("@")[1] ?? "";
+  const base = domain.split(".").slice(0, -1).join(".");
+  const free = new Set([
+    "gmail",
+    "yahoo",
+    "hotmail",
+    "outlook",
+    "icloud",
+    "aol",
+    "me",
+    "proton",
+    "protonmail",
+    "msn",
+    "live",
+  ]);
+  if (!base || free.has(base.toLowerCase())) return null;
+  return base
+    .split(/[.-]/)
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(" ");
+}
+
+function nameFromEmail(email: string): string {
+  const local = email.split("@")[0] ?? email;
+  return local
+    .replace(/[._\-+]+/g, " ")
+    .replace(/\d+/g, "")
+    .trim()
+    .split(/\s+/)
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(" ")
+    .trim();
+}
+
+// ---------------------------------------------------------------------------
+// captureEmailCandidates — scan recent mail, stage unknown counterparties.
+// ---------------------------------------------------------------------------
+
+interface Agg {
+  email: string;
+  name: string | null;
+  company: string | null;
+  inbound: number;
+  outbound: number;
+  lastSeen: string;
+  lastSubject: string | null;
+}
+
+export async function captureEmailCandidates(opts?: {
+  days?: number;
+  max?: number;
+}): Promise<
+  | { ok: true; scanned: number; created: number; updated: number; skipped: number }
+  | { ok: false; error: string }
+> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+
+  const days = opts?.days ?? 30;
+  const sinceIso = new Date(Date.now() - days * 86_400_000).toISOString();
+  const scan = await listRecentCounterparties({ sinceIso, max: opts?.max ?? 120 });
+  if (!scan.configured) {
+    return { ok: false, error: "Gmail is not connected." };
+  }
+  if (scan.error) return { ok: false, error: scan.error };
+
+  const lookup = await buildContactLookup();
+
+  // Aggregate scan rows per canonical email.
+  const agg = new Map<string, Agg>();
+  let skipped = 0;
+  for (const cp of scan.data) {
+    if (!cp.email || isMyOwnAddress(cp.email)) continue;
+    if (cp.bulk || isNoiseEmail(cp.email)) {
+      skipped += 1;
+      continue;
+    }
+    const canon = canonicalEmail(cp.email);
+    // Already a known contact (by email or name) → not a candidate.
+    if (lookup.byEmail.get(canon)) continue;
+
+    const prev = agg.get(canon);
+    if (prev) {
+      if (cp.direction === "inbound") prev.inbound += 1;
+      else prev.outbound += 1;
+      if (cp.dateIso > prev.lastSeen) {
+        prev.lastSeen = cp.dateIso;
+        prev.lastSubject = cp.subject ?? prev.lastSubject;
+      }
+      if (!prev.name && cp.name) prev.name = cp.name;
+    } else {
+      agg.set(canon, {
+        email: canon,
+        name: cp.name ?? null,
+        company: companyFromEmail(canon),
+        inbound: cp.direction === "inbound" ? 1 : 0,
+        outbound: cp.direction === "outbound" ? 1 : 0,
+        lastSeen: cp.dateIso,
+        lastSubject: cp.subject ?? null,
+      });
+    }
+  }
+
+  if (!agg.size) {
+    return { ok: true, scanned: scan.data.length, created: 0, updated: 0, skipped };
+  }
+
+  const sb = createServiceRoleClient();
+  const emails = Array.from(agg.keys());
+  const { data: existingRows, error: readErr } = await sb
+    .from("contact_candidates")
+    .select("id,email,status,name,first_seen")
+    .in("email", emails);
+  if (readErr) return { ok: false, error: readErr.message };
+
+  const existingByEmail = new Map<string, { id: string; status: string; name: string | null }>();
+  for (const r of existingRows ?? []) {
+    existingByEmail.set(r.email as string, {
+      id: r.id as string,
+      status: r.status as string,
+      name: (r.name as string | null) ?? null,
+    });
+  }
+
+  const toInsert: Record<string, unknown>[] = [];
+  const updates: Promise<unknown>[] = [];
+  let created = 0;
+  let updated = 0;
+
+  for (const a of agg.values()) {
+    const existing = existingByEmail.get(a.email);
+    if (existing) {
+      // Respect prior decisions — never resurrect an added/dismissed row.
+      if (existing.status !== "new") continue;
+      updated += 1;
+      updates.push(
+        (async () => {
+          await sb
+            .from("contact_candidates")
+            .update({
+              name: existing.name ?? a.name,
+              company: a.company,
+              inbound_count: a.inbound,
+              outbound_count: a.outbound,
+              last_seen: a.lastSeen,
+              last_subject: a.lastSubject,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", existing.id);
+        })()
+      );
+    } else {
+      created += 1;
+      toInsert.push({
+        email: a.email,
+        name: a.name ?? nameFromEmail(a.email),
+        company: a.company,
+        inbound_count: a.inbound,
+        outbound_count: a.outbound,
+        first_seen: a.lastSeen,
+        last_seen: a.lastSeen,
+        last_subject: a.lastSubject,
+        status: "new",
+      });
+    }
+  }
+
+  if (toInsert.length) {
+    const { error: insErr } = await sb.from("contact_candidates").insert(toInsert);
+    if (insErr) return { ok: false, error: insErr.message };
+  }
+  await Promise.all(updates);
+
+  revalidatePath("/outreach/suggested");
+  return { ok: true, scanned: scan.data.length, created, updated, skipped };
+}
+
+// ---------------------------------------------------------------------------
+// Reads
+// ---------------------------------------------------------------------------
+
+export async function getContactCandidates(): Promise<ContactCandidate[]> {
+  if (!hasConfig()) return [];
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("contact_candidates")
+    .select("*")
+    .eq("status", "new");
+  if (error) {
+    console.error("[contact-candidates.getContactCandidates]", error);
+    return [];
+  }
+  const rows = (data ?? []) as ContactCandidate[];
+  // Rank: two-way exchanges first, then total volume, then most recent.
+  return rows.sort((a, b) => {
+    const twoWayA = a.inbound_count > 0 && a.outbound_count > 0 ? 1 : 0;
+    const twoWayB = b.inbound_count > 0 && b.outbound_count > 0 ? 1 : 0;
+    if (twoWayA !== twoWayB) return twoWayB - twoWayA;
+    const totalA = a.inbound_count + a.outbound_count;
+    const totalB = b.inbound_count + b.outbound_count;
+    if (totalA !== totalB) return totalB - totalA;
+    return (b.last_seen ?? "").localeCompare(a.last_seen ?? "");
+  });
+}
+
+export async function getNewCandidateCount(): Promise<number> {
+  if (!hasConfig()) return 0;
+  const sb = createServiceRoleClient();
+  const { count, error } = await sb
+    .from("contact_candidates")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "new");
+  if (error) return 0;
+  return count ?? 0;
+}
+
+// ---------------------------------------------------------------------------
+// Mutations
+// ---------------------------------------------------------------------------
+
+export async function addCandidateAsContact(id: string): Promise<ActionResult> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  if (!id) return { ok: false, error: "id is required." };
+
+  const sb = createServiceRoleClient();
+  const { data: cand, error: readErr } = await sb
+    .from("contact_candidates")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (readErr) return { ok: false, error: readErr.message };
+  if (!cand) return { ok: false, error: "Candidate not found." };
+  if (cand.status === "added") return { ok: true };
+
+  const email = cand.email as string;
+  const canon = canonicalEmail(email);
+
+  // Dedupe: if a contact already carries this email, just mark it added.
+  const lookup = await buildContactLookup();
+  if (!lookup.byEmail.get(canon)) {
+    const name = (cand.name as string | null)?.trim() || nameFromEmail(email);
+    const tags = ["source:email"];
+    const { error: insErr } = await sb.from("contacts").insert({
+      name,
+      emails: [email],
+      tags,
+    });
+    if (insErr) return { ok: false, error: insErr.message };
+  }
+
+  const { error: updErr } = await sb
+    .from("contact_candidates")
+    .update({ status: "added", updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (updErr) return { ok: false, error: updErr.message };
+
+  revalidatePath("/outreach/suggested");
+  revalidatePath("/outreach/people");
+  revalidatePath("/outreach/queue");
+  return { ok: true };
+}
+
+export async function dismissCandidate(id: string): Promise<ActionResult> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  if (!id) return { ok: false, error: "id is required." };
+  const sb = createServiceRoleClient();
+  const { error } = await sb
+    .from("contact_candidates")
+    .update({ status: "dismissed", updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/outreach/suggested");
+  return { ok: true };
+}

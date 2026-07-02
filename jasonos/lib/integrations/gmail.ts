@@ -4,6 +4,7 @@
 
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { isFromMe } from "@/lib/outreach/email-matching";
 import { emptyResult, envConfigured, type IntegrationResult } from "./_base";
 
 export interface GmailReply {
@@ -197,6 +198,111 @@ export async function getOvernightReplies(opts?: {
     return emptyResult(replies, true);
   } catch (err) {
     console.error("[gmail] overnight fetch failed:", err);
+    return emptyResult([], true, err instanceof Error ? err.message : String(err));
+  }
+}
+
+export interface EmailCounterparty {
+  email: string;
+  name?: string;
+  direction: "inbound" | "outbound";
+  subject?: string;
+  dateIso: string;
+  /** Message carried bulk/list headers (newsletter, marketing, automated). */
+  bulk: boolean;
+}
+
+/** Split a To/Cc header ("A <a@x>, b@y") into individual address tokens. */
+function splitAddresses(value: string | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Scan recent mail (both directions) and return the counterparties — the
+ * non-me addresses on each message — with direction, subject, timestamp, and
+ * a `bulk` flag derived from list/precedence headers. Feeds the Suggested
+ * Contacts capture flow. Uses the same read scope as getOvernightReplies.
+ */
+export async function listRecentCounterparties(opts?: {
+  sinceIso?: string;
+  max?: number;
+}): Promise<IntegrationResult<EmailCounterparty[]>> {
+  const access = await getAccessToken();
+  if (!access) return emptyResult([], false);
+
+  try {
+    const since = opts?.sinceIso
+      ? new Date(opts.sinceIso)
+      : new Date(Date.now() - 30 * 86_400_000);
+    const afterEpoch = Math.floor(since.getTime() / 1000);
+    const max = opts?.max ?? 80;
+    const q = encodeURIComponent(`-in:chats after:${afterEpoch}`);
+    const list = await gmailFetch<GmailListResp>(
+      `/users/me/messages?maxResults=${max}&q=${q}`,
+      access
+    );
+    const messages = list.messages ?? [];
+    const detailed = await Promise.all(
+      messages.map((m) =>
+        gmailFetch<GmailMsgResp>(
+          `/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=List-Unsubscribe&metadataHeaders=Precedence`,
+          access
+        )
+      )
+    );
+
+    const out: EmailCounterparty[] = [];
+    for (const d of detailed) {
+      const headers = d.payload?.headers ?? [];
+      const get = (n: string) =>
+        headers.find((h) => h.name.toLowerCase() === n.toLowerCase())?.value;
+      const fromHeader = get("From") ?? "";
+      const subject = get("Subject") ?? undefined;
+      const ts = d.internalDate ? Number(d.internalDate) : Date.now();
+      const dateIso = new Date(ts).toISOString();
+      const bulk =
+        Boolean(get("List-Unsubscribe")) ||
+        /\b(bulk|list|auto_reply|junk)\b/i.test(get("Precedence") ?? "");
+
+      if (isFromMe(fromHeader)) {
+        // Outbound — counterparties are the recipients.
+        for (const raw of [
+          ...splitAddresses(get("To")),
+          ...splitAddresses(get("Cc")),
+        ]) {
+          const p = parseFrom(raw);
+          if (!p.email) continue;
+          out.push({
+            email: p.email.toLowerCase(),
+            name: p.name,
+            direction: "outbound",
+            subject,
+            dateIso,
+            bulk,
+          });
+        }
+      } else {
+        // Inbound — counterparty is the sender.
+        const p = parseFrom(fromHeader);
+        if (p.email) {
+          out.push({
+            email: p.email.toLowerCase(),
+            name: p.name,
+            direction: "inbound",
+            subject,
+            dateIso,
+            bulk,
+          });
+        }
+      }
+    }
+    return emptyResult(out, true);
+  } catch (err) {
+    console.error("[gmail] counterparty scan failed:", err);
     return emptyResult([], true, err instanceof Error ? err.message : String(err));
   }
 }
