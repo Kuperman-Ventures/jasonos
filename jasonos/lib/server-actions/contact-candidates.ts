@@ -112,7 +112,7 @@ export async function captureEmailCandidates(opts?: {
 
   const days = opts?.days ?? 30;
   const sinceIso = new Date(Date.now() - days * 86_400_000).toISOString();
-  const scan = await listRecentCounterparties({ sinceIso, max: opts?.max ?? 120 });
+  const scan = await listRecentCounterparties({ sinceIso, max: opts?.max ?? 60 });
   if (!scan.configured) {
     return { ok: false, error: "Gmail is not connected." };
   }

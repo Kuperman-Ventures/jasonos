@@ -108,16 +108,49 @@ async function getAccessToken(): Promise<string | null> {
   return row.access_token ?? null;
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function gmailFetch<T>(path: string, accessToken: string): Promise<T> {
-  const res = await fetch(`${GMAIL_BASE}${path}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-    cache: "no-store",
-  });
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(`Gmail ${res.status} ${path} :: ${txt.slice(0, 200)}`);
+  // Gmail rate-limits concurrent + per-user requests; retry 429/5xx with
+  // exponential backoff + jitter instead of failing the whole scan.
+  const maxAttempts = 5;
+  for (let attempt = 1; ; attempt++) {
+    const res = await fetch(`${GMAIL_BASE}${path}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: "no-store",
+    });
+    if (res.ok) return (await res.json()) as T;
+
+    const retryable = res.status === 429 || res.status >= 500;
+    if (!retryable || attempt >= maxAttempts) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`Gmail ${res.status} ${path} :: ${txt.slice(0, 200)}`);
+    }
+    const backoff = Math.min(2000, 250 * 2 ** (attempt - 1));
+    await sleep(backoff + Math.floor(Math.random() * 200));
   }
-  return (await res.json()) as T;
+}
+
+/**
+ * Map over items with bounded concurrency (Gmail rejects too many concurrent
+ * requests per user). Preserves input order in the output array.
+ */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < items.length) {
+      const i = cursor++;
+      results[i] = await fn(items[i], i);
+    }
+  };
+  const workers = Array.from({ length: Math.min(limit, items.length) }, worker);
+  await Promise.all(workers);
+  return results;
 }
 
 interface GmailListResp {
@@ -171,12 +204,10 @@ export async function getOvernightReplies(opts?: {
       access
     );
     const messages = list.messages ?? [];
-    const detailed = await Promise.all(
-      messages.map((m) =>
-        gmailFetch<GmailMsgResp>(
-          `/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`,
-          access
-        )
+    const detailed = await mapWithConcurrency(messages, 5, (m) =>
+      gmailFetch<GmailMsgResp>(
+        `/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`,
+        access
       )
     );
     const replies: GmailReply[] = detailed.map((d) => {
@@ -246,12 +277,10 @@ export async function listRecentCounterparties(opts?: {
       access
     );
     const messages = list.messages ?? [];
-    const detailed = await Promise.all(
-      messages.map((m) =>
-        gmailFetch<GmailMsgResp>(
-          `/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=List-Unsubscribe&metadataHeaders=Precedence`,
-          access
-        )
+    const detailed = await mapWithConcurrency(messages, 5, (m) =>
+      gmailFetch<GmailMsgResp>(
+        `/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=List-Unsubscribe&metadataHeaders=Precedence`,
+        access
       )
     );
 
