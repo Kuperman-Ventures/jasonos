@@ -361,6 +361,59 @@ export async function logContactTouch(input: {
 }
 
 // ---------------------------------------------------------------------------
+// setNextTouchDate — directly set (or clear) a contact's next_touch_date
+// WITHOUT logging a touch or changing the cadence interval. This is the
+// "reschedule / push out" action: e.g. a contact is overdue but unreachable
+// until next week, so bump the next touch to next week and it moves straight
+// from Overdue to Scheduled. Mirrors rr_contact_state for recruiter-linked
+// contacts so the legacy pipeline stays in sync.
+// ---------------------------------------------------------------------------
+
+export async function setNextTouchDate(
+  contactId: string,
+  date: string | null
+): Promise<ActionResult> {
+  const guard = ensureConfigured();
+  if (guard) return guard;
+  if (!contactId) return { ok: false, error: "contactId is required." };
+
+  const sb = createServiceRoleClient();
+  const { data: existing, error: readError } = await sb
+    .from("contacts")
+    .select("source_ids")
+    .eq("id", contactId)
+    .maybeSingle();
+  if (readError) return { ok: false, error: readError.message };
+  if (!existing) return { ok: false, error: "Contact not found." };
+
+  const { error } = await sb
+    .from("contacts")
+    .update({ next_touch_date: date })
+    .eq("id", contactId);
+  if (error) return { ok: false, error: error.message };
+
+  const sourceIds = existing.source_ids as Record<string, unknown> | null;
+  const rpid =
+    typeof sourceIds?.recruiter_pipeline_id === "string"
+      ? sourceIds.recruiter_pipeline_id
+      : null;
+  if (rpid) {
+    const sbPublic = createPublicServiceRoleClient();
+    await sbPublic.from("rr_contact_state").upsert(
+      {
+        contact_id: rpid,
+        next_action_due_date: date,
+        status_updated_at: new Date().toISOString(),
+      },
+      { onConflict: "contact_id" }
+    );
+  }
+
+  revalidate();
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // snoozeContact — push the next_touch_date forward by N days (or to a specific
 // date). Lightweight: doesn't change the cadence interval.
 // ---------------------------------------------------------------------------

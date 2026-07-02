@@ -79,6 +79,7 @@ import {
   logContactTouch,
   setCadence,
   setContactIntent,
+  setNextTouchDate,
   setRelationshipType,
   toggleVip,
   type ContactCardDataResult,
@@ -182,6 +183,10 @@ export function OutreachModal({
   const [cadenceInterval, setCadenceState] = useState<CadenceInterval>("none");
   const [, startCadenceTransition] = useTransition();
 
+  // -- Next-touch date — editable directly (reschedule without logging a touch)
+  const [nextTouchState, setNextTouchState] = useState<string | null>(null);
+  const [reschedulePending, startRescheduleTransition] = useTransition();
+
   // -- Log-touch state (shared across sub-sections that render the panel)
   const [logChannel, setLogChannel] = useState<LogTouchChannel>("email");
   const [logBrief, setLogBrief] = useState("");
@@ -280,6 +285,7 @@ export function OutreachModal({
         setVipState(result.contact.vip);
         setIntent(result.contact.intent ?? null);
         setCadenceState(result.contact.cadence_interval);
+        setNextTouchState(result.contact.next_touch_date);
         return;
       }
       if (
@@ -298,6 +304,7 @@ export function OutreachModal({
         setVipState(false);
         setIntent(null);
         setCadenceState("none");
+        setNextTouchState(null);
         return;
       }
       setCard({ status: "error", message: result.error });
@@ -345,6 +352,7 @@ export function OutreachModal({
       setVipState(refreshed.contact.vip);
       setIntent(refreshed.contact.intent ?? null);
       setCadenceState(refreshed.contact.cadence_interval);
+      setNextTouchState(refreshed.contact.next_touch_date);
     } else {
       // Even on refresh failure we still got a contactId — fall back to a
       // minimal synthesized ready state so subsequent actions can proceed.
@@ -422,8 +430,9 @@ export function OutreachModal({
 
   const effectiveContactId =
     card.status === "ready" ? card.contact.id : null;
-  const nextTouchDate =
-    card.status === "ready" ? card.contact.next_touch_date : null;
+  // Live next-touch date (optimistic local state, seeded from the loaded
+  // contact) so the reschedule control and the Warm hint stay in sync.
+  const nextTouchDate = nextTouchState;
 
   // ------------------------------------------------------------------
   // Header handlers — Relationship + VIP. Auto-link first when needed.
@@ -500,16 +509,48 @@ export function OutreachModal({
 
   const handleCadenceChange = (next: CadenceInterval) => {
     const prev = cadenceInterval;
+    const prevNext = nextTouchState;
     setCadenceState(next);
+    // setCadence re-derives next_touch_date server-side (today + cadence, or
+    // null for "none"); mirror that optimistically so the reschedule control
+    // and hint stay in sync.
+    setNextTouchState(
+      next === "none" ? null : addDaysISO(todayISODate(), CADENCE_DAYS[next])
+    );
     startCadenceTransition(async () => {
       const targetId = effectiveContactId ?? (await ensureLinked());
       if (!targetId) {
         setCadenceState(prev);
+        setNextTouchState(prevNext);
         return;
       }
       const result = await setCadence(targetId, next);
       if (!result.ok) {
         setCadenceState(prev);
+        setNextTouchState(prevNext);
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  // ------------------------------------------------------------------
+  // Reschedule handler — set next_touch_date directly, no touch logged.
+  // ------------------------------------------------------------------
+
+  const handleNextTouchChange = (date: string | null) => {
+    const prev = nextTouchState;
+    setNextTouchState(date);
+    startRescheduleTransition(async () => {
+      const targetId = effectiveContactId ?? (await ensureLinked());
+      if (!targetId) {
+        setNextTouchState(prev);
+        return;
+      }
+      const result = await setNextTouchDate(targetId, date);
+      if (!result.ok) {
+        setNextTouchState(prev);
         toast.error(result.error);
         return;
       }
@@ -559,6 +600,7 @@ export function OutreachModal({
       setLogObjective(null);
       setLogDate(todayISODate());
       setNextTouchOverride(null);
+      if (effectiveNextTouch) setNextTouchState(effectiveNextTouch);
       router.refresh();
 
       // Browning module: if this contact is Browning-tagged AND the user
@@ -698,6 +740,14 @@ export function OutreachModal({
           ) : null}
 
           <IntentControl intent={intent} onChange={handleIntentChange} />
+
+          {intent !== "backrow" ? (
+            <NextTouchScheduler
+              value={nextTouchDate}
+              onChange={handleNextTouchChange}
+              saving={reschedulePending}
+            />
+          ) : null}
 
           <IntentSection
             intent={intent}
@@ -1072,6 +1122,98 @@ function addDaysISO(baseYMD: string, days: number): string {
 function autoNextTouchDate(cadence: CadenceInterval, touchYMD: string): string {
   if (cadence === "none") return "";
   return addDaysISO(touchYMD, CADENCE_DAYS[cadence]);
+}
+
+function nextTouchScheduleStatus(value: string | null, today: string): string {
+  if (!value)
+    return "No next touch scheduled — pick a date to put this contact on the schedule.";
+  const days = Math.round(
+    (new Date(`${value}T00:00:00`).getTime() -
+      new Date(`${today}T00:00:00`).getTime()) /
+      86_400_000
+  );
+  if (days < 0)
+    return `Overdue by ${Math.abs(days)}d — reschedule to move it out of Overdue.`;
+  if (days === 0) return "Due today.";
+  if (days === 1) return "Scheduled for tomorrow.";
+  if (days <= 7) return `Scheduled in ${days}d — shows in Due This Week.`;
+  return `Scheduled in ${days}d.`;
+}
+
+// Reschedule the next touch directly — no touch logged, cadence unchanged.
+// This is how an overdue-but-unreachable contact gets pushed out of the
+// Overdue zone into Scheduled.
+function NextTouchScheduler({
+  value,
+  onChange,
+  saving,
+}: {
+  value: string | null;
+  onChange: (date: string | null) => void;
+  saving: boolean;
+}) {
+  const today = todayISODate();
+  const chip =
+    "rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50";
+  return (
+    <section className="rounded-lg border bg-card/40 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <CalendarClock className="h-3 w-3" />
+          Next touch
+        </h3>
+        {saving ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+        ) : null}
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Input
+          type="date"
+          value={value ?? ""}
+          disabled={saving}
+          onChange={(e) => onChange(e.target.value || null)}
+          className="h-8 w-auto text-xs"
+        />
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => onChange(addDaysISO(today, 7))}
+          className={chip}
+        >
+          Next week
+        </button>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => onChange(addDaysISO(today, 14))}
+          className={chip}
+        >
+          +2 weeks
+        </button>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => onChange(addDaysISO(today, 30))}
+          className={chip}
+        >
+          +1 month
+        </button>
+        {value ? (
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => onChange(null)}
+            className={chip}
+          >
+            Clear
+          </button>
+        ) : null}
+      </div>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">
+        {nextTouchScheduleStatus(value, today)}
+      </p>
+    </section>
+  );
 }
 
 function nextTouchHint(
