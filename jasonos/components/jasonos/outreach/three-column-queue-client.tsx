@@ -293,8 +293,10 @@ export function ThreeColumnQueueClient({
 
   // Union population: every queue card, PLUS every Schedule contact that has
   // no queue card yet (so the grid shows the exact same contact set as the
-  // Schedule page). Unmatched contacts land in the column of their pinned
-  // intent; scheduled-cadence contacts without a pin default to Warm.
+  // Schedule page). A contact with an explicit intent is already carded by
+  // getThreeColumnQueue; anything left here is unclassified but has a
+  // next-touch date, so we surface it in the SPECIFIC column (in its correct
+  // urgency zone) without stamping an intent — it stays honestly unclassified.
   const columns = useMemo(() => {
     const seen = new Set<string>();
     const result: Record<QueueColumnKey, QueueCard[]> = {
@@ -310,12 +312,12 @@ export function ThreeColumnQueueClient({
     for (const cc of scheduleContacts) {
       if (seen.has(cc.id)) continue;
       const person = peopleById.get(cc.id);
+      // Respect a pinned intent if somehow present; otherwise (unclassified
+      // but scheduled) park the contact in Specific.
       const column: QueueColumnKey =
-        person?.intent === "specific"
-          ? "specific"
-          : person?.intent === "cold"
-          ? "cold"
-          : "warm";
+        person?.intent === "warm" || person?.intent === "cold"
+          ? person.intent
+          : "specific";
       result[column].push({
         key: `sched-${cc.id}`,
         column,
