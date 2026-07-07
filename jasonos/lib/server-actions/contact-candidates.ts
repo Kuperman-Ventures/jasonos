@@ -130,8 +130,11 @@ export async function captureEmailCandidates(opts?: {
       continue;
     }
     const canon = canonicalEmail(cp.email);
-    // Already a known contact (by email or name) → not a candidate.
-    if (lookup.byEmail.get(canon)) continue;
+    // Already a known contact → not a candidate. Match by email AND name
+    // (resolve() tries email, then display name, then a name guessed from the
+    // local-part) so imported contacts without an email on file still dedupe.
+    const header = cp.name ? `${cp.name} <${cp.email}>` : cp.email;
+    if (lookup.resolve(header)) continue;
 
     const prev = agg.get(canon);
     if (prev) {
@@ -244,7 +247,13 @@ export async function getContactCandidates(): Promise<ContactCandidate[]> {
     console.error("[contact-candidates.getContactCandidates]", error);
     return [];
   }
-  const rows = (data ?? []) as ContactCandidate[];
+  // Hide any suggestion that now matches a contact in the DB (by email or
+  // name) — covers people added manually after they were first suggested.
+  const lookup = await buildContactLookup();
+  const rows = ((data ?? []) as ContactCandidate[]).filter((r) => {
+    const header = r.name ? `${r.name} <${r.email}>` : r.email;
+    return !lookup.resolve(header);
+  });
   // Rank: two-way exchanges first, then total volume, then most recent.
   return rows.sort((a, b) => {
     const twoWayA = a.inbound_count > 0 && a.outbound_count > 0 ? 1 : 0;
@@ -259,13 +268,9 @@ export async function getContactCandidates(): Promise<ContactCandidate[]> {
 
 export async function getNewCandidateCount(): Promise<number> {
   if (!hasConfig()) return 0;
-  const sb = createServiceRoleClient();
-  const { count, error } = await sb
-    .from("contact_candidates")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "new");
-  if (error) return 0;
-  return count ?? 0;
+  // Count the same filtered set the Suggested list shows (excludes any that
+  // already match a contact) so the tab badge never overcounts.
+  return (await getContactCandidates()).length;
 }
 
 // ---------------------------------------------------------------------------
@@ -289,15 +294,29 @@ export async function addCandidateAsContact(id: string): Promise<ActionResult> {
   const email = cand.email as string;
   const canon = canonicalEmail(email);
 
-  // Dedupe: if a contact already carries this email, just mark it added.
+  // Dedupe by email OR name. If a matching contact already exists, enrich it
+  // with this email (so future scans match by email) instead of creating a
+  // duplicate. Only create a new contact when there's no match at all.
   const lookup = await buildContactLookup();
-  if (!lookup.byEmail.get(canon)) {
+  const header = (cand.name as string | null) ? `${cand.name} <${email}>` : email;
+  const existingContact = lookup.resolve(header);
+  if (existingContact) {
+    const hasEmail = existingContact.emails.some(
+      (e) => canonicalEmail(e) === canon
+    );
+    if (!hasEmail) {
+      const { error: enrichErr } = await sb
+        .from("contacts")
+        .update({ emails: [...existingContact.emails, email] })
+        .eq("id", existingContact.id);
+      if (enrichErr) return { ok: false, error: enrichErr.message };
+    }
+  } else {
     const name = (cand.name as string | null)?.trim() || nameFromEmail(email);
-    const tags = ["source:email"];
     const { error: insErr } = await sb.from("contacts").insert({
       name,
       emails: [email],
-      tags,
+      tags: ["source:email"],
     });
     if (insErr) return { ok: false, error: insErr.message };
   }
