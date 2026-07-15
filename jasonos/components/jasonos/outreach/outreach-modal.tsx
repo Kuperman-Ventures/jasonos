@@ -49,6 +49,7 @@ import {
   Sparkles,
   Flame,
   Archive,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
@@ -713,7 +714,10 @@ export function OutreachModal({
             </div>
           </div>
 
-          {header.primary_email || header.linkedin_url ? (
+          {header.primary_email ||
+          header.linkedin_url ||
+          cardRelevance ||
+          cardDegree ? (
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
               {header.primary_email ? (
                 <a
@@ -735,15 +739,10 @@ export function OutreachModal({
                   LinkedIn
                 </a>
               ) : null}
-            </div>
-          ) : null}
-
-          {cardRelevance || cardDegree ? (
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
               {cardRelevance ? (
                 <span
                   title={RELEVANCE_TIER_LABELS[cardRelevance]}
-                  className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+                  className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[10px] font-medium"
                 >
                   Relevance{" "}
                   <span className="font-semibold text-foreground">
@@ -754,7 +753,7 @@ export function OutreachModal({
               {cardDegree ? (
                 <span
                   title={NETWORK_DEGREE_LABELS[cardDegree]}
-                  className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+                  className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[10px] font-medium"
                 >
                   Degree{" "}
                   <span className="font-semibold text-foreground">
@@ -767,7 +766,7 @@ export function OutreachModal({
         </DialogHeader>
 
         {/* BODY */}
-        <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+        <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
           {card.status === "error" ? (
             <div className="rounded-md border border-red-500/40 bg-red-500/5 p-3 text-xs text-red-300">
               {card.message}
@@ -1063,7 +1062,7 @@ function CadencePicker({
         {icon}
         {title}
       </h3>
-      <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5">
+      <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
         {CADENCE_INTERVALS.map((value) => (
           <button
             key={value}
@@ -1511,6 +1510,7 @@ function RecentContextSection({
   sources: DraftSource[] | null;
   recentTouches: RecentTouch[];
 }) {
+  const [open, setOpen] = useState(false);
   const empty = useMemo(
     () =>
       !loading &&
@@ -1520,20 +1520,42 @@ function RecentContextSection({
     [loading, sources, recentTouches.length]
   );
 
+  const sourceHits = sources?.filter((s) => s.found).length ?? 0;
+  const summary = loading
+    ? "Loading…"
+    : empty
+    ? "No prior history found"
+    : [
+        recentTouches.length > 0
+          ? `${recentTouches.length} recent touch${recentTouches.length === 1 ? "" : "es"}`
+          : null,
+        sourceHits > 0 ? `${sourceHits} source${sourceHits === 1 ? "" : "s"}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ") || "History";
+
   return (
     <section>
-      <h3 className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        <History className="h-3 w-3" />
-        Communication context
-      </h3>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between gap-2 rounded-md border bg-card/40 px-3 py-2 text-left transition-colors hover:bg-muted/40"
+      >
+        <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <History className="h-3 w-3" />
+          Communication context
+        </span>
+        <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+          {summary}
+          <ChevronDown
+            className={cn("h-3.5 w-3.5 transition-transform", open ? "rotate-180" : "")}
+          />
+        </span>
+      </button>
 
-      {loading ? (
-        <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Loading Gmail / HubSpot / Granola / Fireflies…
-        </div>
-      ) : null}
-
+      {!open ? null : (
+        <div className="mt-2">
       {!loading && sources ? (
         <div className="space-y-2">
           {recentTouches.length > 0 ? (
@@ -1581,6 +1603,8 @@ function RecentContextSection({
           your prior notes.
         </p>
       ) : null}
+        </div>
+      )}
     </section>
   );
 }

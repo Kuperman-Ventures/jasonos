@@ -324,6 +324,7 @@ export const CLASSIFIER_START_STEP_ID = "start";
 export const CADENCE_INTERVALS: CadenceInterval[] = [
   "weekly",
   "biweekly",
+  "triweekly",
   "monthly",
   "quarterly",
   "none",
@@ -332,6 +333,7 @@ export const CADENCE_INTERVALS: CadenceInterval[] = [
 export const CADENCE_DAYS: Record<Exclude<CadenceInterval, "none">, number> = {
   weekly: 7,
   biweekly: 14,
+  triweekly: 21,
   monthly: 30,
   quarterly: 90,
 };
@@ -339,6 +341,7 @@ export const CADENCE_DAYS: Record<Exclude<CadenceInterval, "none">, number> = {
 export const CADENCE_LABELS: Record<CadenceInterval, string> = {
   weekly: "Weekly",
   biweekly: "Biweekly",
+  triweekly: "Every 3 weeks",
   monthly: "Monthly",
   quarterly: "Quarterly",
   none: "No cadence",
@@ -347,6 +350,7 @@ export const CADENCE_LABELS: Record<CadenceInterval, string> = {
 export const CADENCE_HELPERS: Record<CadenceInterval, string> = {
   weekly: "every 7 days",
   biweekly: "every 2 weeks",
+  triweekly: "every 3 weeks",
   monthly: "every 30 days",
   quarterly: "every 90 days",
   none: "I'll schedule manually",

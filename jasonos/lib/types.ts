@@ -162,6 +162,7 @@ export type RelationshipType =
 export type CadenceInterval =
   | "weekly"
   | "biweekly"
+  | "triweekly"
   | "monthly"
   | "quarterly"
   | "none";
