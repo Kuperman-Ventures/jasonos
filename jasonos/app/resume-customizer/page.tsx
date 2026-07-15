@@ -7,6 +7,12 @@ import {
   ArrowRight,
   Sparkles,
 } from "lucide-react";
+import {
+  RESUME_ANALYSIS_CATEGORIES,
+  RESUME_CHANGE_FIELDS,
+  RESUME_FINAL_OUTPUTS,
+  RESUME_PRIORITY_TIERS,
+} from "@/lib/resume-customizer/prompt";
 
 export const metadata: Metadata = { title: "Resume Customizer · JasonOS" };
 
@@ -95,16 +101,57 @@ export default function ResumeCustomizerPage() {
         </button>
       </div>
 
-      <div className="rounded-lg border border-border bg-card/40 p-4 text-xs text-muted-foreground">
-        <p className="font-medium text-foreground">What&rsquo;s next</p>
-        <p className="mt-1">
-          Share how you want this to work — how the core resume is stored and
-          versioned, what parts should adapt to the JD (summary, bullets,
-          skills ordering, keywords), the tone/length rules, and the output
-          format (edited .docx, PDF, or side-by-side diff). I&rsquo;ll wire the
-          steps above accordingly.
+      {/* Baked-in customization guidance (drives the engine once wired). */}
+      <section className="rounded-xl border bg-card/40 p-5">
+        <h2 className="text-sm font-semibold tracking-tight">
+          How it will customize your resume
+        </h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          The rules below are locked in and will drive the analysis and the
+          tailored .docx output. Original design, formatting, and branding are
+          preserved; nothing is invented — content is only reworded,
+          repositioned, or reordered.
         </p>
-      </div>
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <GuidanceList title="What it evaluates" items={RESUME_ANALYSIS_CATEGORIES} />
+          <GuidanceList title="Priority tiers" items={RESUME_PRIORITY_TIERS} />
+          <GuidanceList title="For each change" items={RESUME_CHANGE_FIELDS} />
+          <GuidanceList title="Final summary" items={RESUME_FINAL_OUTPUTS} />
+        </div>
+
+        <p className="mt-4 text-[11px] text-muted-foreground">
+          Output: a downloadable Word (.docx) with original formatting, a
+          Before/After summary of every change (with the reason and the related
+          job requirement), and any formatting that couldn&rsquo;t be preserved.
+          Executive resumes prioritize leadership, strategic impact, and
+          measurable business outcomes over tactical duties.
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function GuidanceList({
+  title,
+  items,
+}: {
+  title: string;
+  items: readonly string[];
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-muted/20 p-3">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {title}
+      </p>
+      <ul className="mt-1.5 space-y-1">
+        {items.map((it) => (
+          <li key={it} className="flex gap-1.5 text-xs text-foreground/80">
+            <span className="text-muted-foreground/50">•</span>
+            {it}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
