@@ -1,26 +1,26 @@
 import type { Metadata } from "next";
-import {
-  FileText,
-  Upload,
-  Briefcase,
-  Wand2,
-  ArrowRight,
-  Sparkles,
-} from "lucide-react";
+import { Wand2 } from "lucide-react";
 import {
   RESUME_ANALYSIS_CATEGORIES,
   RESUME_CHANGE_FIELDS,
   RESUME_FINAL_OUTPUTS,
   RESUME_PRIORITY_TIERS,
 } from "@/lib/resume-customizer/prompt";
+import {
+  listResumes,
+  listCustomizations,
+} from "@/lib/server-actions/resume-customizer";
+import { ResumeCustomizerClient } from "@/components/jasonos/resume-customizer/resume-customizer-client";
 
 export const metadata: Metadata = { title: "Resume Customizer · JasonOS" };
+export const dynamic = "force-dynamic";
 
-// Placeholder scaffold. The working tool will: (1) store a "core" resume
-// (.docx), (2) ingest a target job description, (3) generate a tailored
-// version of the core resume for that JD. Wiring comes in a follow-up.
+export default async function ResumeCustomizerPage() {
+  const [resumes, customizations] = await Promise.all([
+    listResumes(),
+    listCustomizations(),
+  ]);
 
-export default function ResumeCustomizerPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 py-6">
       <header>
@@ -33,84 +33,26 @@ export default function ResumeCustomizerPage() {
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           Keep one master &ldquo;core&rdquo; resume, drop in a job description,
-          and generate a customized version tuned to that role. This section is
-          scaffolded — the steps below are placeholders while we build the
-          workflow.
+          and get back a customized Word document tuned to that role — with a
+          Before/After summary of every change. Original design and formatting
+          are preserved; nothing is invented.
         </p>
-        <span className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-300">
-          <Sparkles className="h-3 w-3" />
-          Coming soon — placeholder UI
-        </span>
       </header>
 
-      {/* Step flow */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <StepCard
-          step={1}
-          icon={<FileText className="h-4 w-4" />}
-          title="Core resume"
-          body="Your master resume (.docx) — the source of truth we tailor from."
-        >
-          <div className="grid place-items-center rounded-lg border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
-            <Upload className="mb-2 h-6 w-6 text-muted-foreground/50" />
-            <p className="text-xs text-muted-foreground">
-              Upload .docx (coming soon)
-            </p>
-          </div>
-        </StepCard>
+      <ResumeCustomizerClient
+        initialResumes={resumes}
+        initialCustomizations={customizations}
+      />
 
-        <StepCard
-          step={2}
-          icon={<Briefcase className="h-4 w-4" />}
-          title="Job description"
-          body="Paste or ingest the target role's description."
-        >
-          <div className="rounded-lg border border-dashed border-border bg-muted/20 px-3 py-3">
-            <div className="h-24 rounded-md bg-muted/30" />
-            <p className="mt-2 text-xs text-muted-foreground">
-              Paste a job description (coming soon)
-            </p>
-          </div>
-        </StepCard>
-
-        <StepCard
-          step={3}
-          icon={<Wand2 className="h-4 w-4" />}
-          title="Customized resume"
-          body="A new version of your core resume, tuned to the job."
-        >
-          <div className="grid place-items-center rounded-lg border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
-            <Sparkles className="mb-2 h-6 w-6 text-muted-foreground/50" />
-            <p className="text-xs text-muted-foreground">
-              Tailored output will appear here
-            </p>
-          </div>
-        </StepCard>
-      </div>
-
-      <div className="flex items-center justify-end gap-3">
-        <button
-          type="button"
-          disabled
-          className="inline-flex items-center gap-2 rounded-md bg-foreground/40 px-4 py-2 text-sm font-medium text-background/80 opacity-60"
-          title="Available once the workflow is wired up"
-        >
-          <Wand2 className="h-4 w-4" />
-          Customize resume
-          <ArrowRight className="h-4 w-4" />
-        </button>
-      </div>
-
-      {/* Baked-in customization guidance (drives the engine once wired). */}
+      {/* Baked-in customization guidance (what the engine does under the hood). */}
       <section className="rounded-xl border bg-card/40 p-5">
         <h2 className="text-sm font-semibold tracking-tight">
-          How it will customize your resume
+          How it customizes your resume
         </h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          The rules below are locked in and will drive the analysis and the
-          tailored .docx output. Original design, formatting, and branding are
-          preserved; nothing is invented — content is only reworded,
-          repositioned, or reordered.
+          These rules drive the analysis and the tailored .docx output. Original
+          design, formatting, and branding are preserved; content is only
+          reworded, repositioned, or reordered — never invented.
         </p>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -153,33 +95,5 @@ function GuidanceList({
         ))}
       </ul>
     </div>
-  );
-}
-
-function StepCard({
-  step,
-  icon,
-  title,
-  body,
-  children,
-}: {
-  step: number;
-  icon: React.ReactNode;
-  title: string;
-  body: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="flex flex-col rounded-xl border bg-card/40 p-4">
-      <div className="mb-2 flex items-center gap-2">
-        <span className="grid h-5 w-5 place-items-center rounded-full bg-foreground text-[10px] font-bold text-background">
-          {step}
-        </span>
-        <span className="text-muted-foreground">{icon}</span>
-        <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
-      </div>
-      <p className="mb-3 text-xs text-muted-foreground">{body}</p>
-      <div className="mt-auto">{children}</div>
-    </section>
   );
 }
