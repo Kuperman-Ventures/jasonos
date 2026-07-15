@@ -48,7 +48,7 @@ You are returning STRUCTURED data (not a document). Rules for the structured out
 - For every change, "before" MUST be the exact, verbatim text of ONE resume paragraph from the RESUME PARAGRAPHS list (copy it character-for-character) so the edit can be applied automatically. Use an empty "before" only for a genuinely new line to add.
 - "after" must be truthful and paste-ready. Never invent experience, titles, employers, dates, credentials, or metrics not present in the resume — only reword, reposition, resurface, or reorder what genuinely exists.
 - Use changeType "reorder" only to suggest moving an existing bullet; for reorder, set before/after to that bullet's exact text.
-- LENGTH: Every "after" must be the same length or shorter than its "before" (same or fewer characters, never more lines) so the resume's page count does not grow. Tighten wording to fit; do not lengthen. Do not propose additions with an empty "before" that would add new lines.
+- LENGTH IS A HARD CONSTRAINT (critical): The system AUTOMATICALLY REJECTS and does NOT apply any change whose "after" has more characters than its "before". So to make your edit actually take effect, every "after" MUST have the same number of characters as its "before" or FEWER. Count the characters. Work the target keywords in by REPLACING weaker words and cutting filler (adjectives, "responsible for", "successfully", "in order to", etc.) — a swap, not an addition — so the character count stays equal or drops. Never make a bullet longer. This keeps the resume at its original page count. Do NOT propose additions with an empty "before".
 - Provide up to 20 topKeywords.`;
 
   const prompt = `TARGET JOB DESCRIPTION:
