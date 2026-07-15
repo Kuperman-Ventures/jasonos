@@ -20,6 +20,8 @@ import {
   Star,
   AlertTriangle,
   ArrowRight,
+  RefreshCw,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +30,8 @@ import {
   setActiveCoreResume,
   deleteResume,
   customizeResume,
+  regenerateCustomization,
+  applyEditAnyway,
   listCustomizations,
   getCustomizationDownload,
   deleteCustomization,
@@ -38,10 +42,6 @@ import {
 
 const DOCX_TYPE =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-
-function norm(s: string): string {
-  return s.replace(/\s+/g, " ").trim();
-}
 
 function downloadBase64Docx(base64: string, filename: string) {
   const bin = atob(base64);
@@ -92,6 +92,7 @@ export function ResumeCustomizerClient({
 
   const [customizing, startCustomize] = useTransition();
   const [busy, startBusy] = useTransition();
+  const [regenerating, startRegenerate] = useTransition();
 
   const jdFileRef = useRef<HTMLInputElement>(null);
   const coreFileRef = useRef<HTMLInputElement>(null);
@@ -159,6 +160,21 @@ export function ResumeCustomizerClient({
         setResult(res);
         downloadBase64Docx(res.docxBase64, res.filename);
         toast.success(`Tailored resume ready — ${res.filename}`);
+        await refresh();
+      } else {
+        toast.error(res.error);
+      }
+    });
+  }
+
+  function handleRegenerate() {
+    if (!result) return;
+    startRegenerate(async () => {
+      const res = await regenerateCustomization(result.customizationId);
+      if (res.ok) {
+        setResult(res);
+        downloadBase64Docx(res.docxBase64, res.filename);
+        toast.success(`Regenerated — ${res.filename}`);
         await refresh();
       } else {
         toast.error(res.error);
@@ -280,9 +296,14 @@ export function ResumeCustomizerClient({
           </div>
         </div>
 
-        {result && <ResultPanel result={result} onDownload={() =>
-          downloadBase64Docx(result.docxBase64, result.filename)
-        } />}
+        {result && (
+          <ResultPanel
+            key={result.customizationId}
+            result={result}
+            regenerating={regenerating}
+            onRegenerate={handleRegenerate}
+          />
+        )}
       </section>
 
       {/* ---------------------------------------------------------------- */}
@@ -471,18 +492,59 @@ function CoreStatus({ core }: { core: ResumeRow | null }) {
 
 function ResultPanel({
   result,
-  onDownload,
+  regenerating,
+  onRegenerate,
 }: {
   result: CustomizeResult;
-  onDownload: () => void;
+  regenerating: boolean;
+  onRegenerate: () => void;
 }) {
   const { analysis } = result;
   const present = analysis.topKeywords.filter((k) => k.present);
   const missing = analysis.topKeywords.filter((k) => !k.present);
+
+  // Live document state — Apply-anyway rewrites the file and re-downloads.
+  const [docx, setDocx] = useState(result.docxBase64);
+  const [appliedCount, setAppliedCount] = useState(result.applied);
+  const [skipped, setSkipped] = useState<Set<number>>(
+    () => new Set(result.skippedIndices)
+  );
+  const [forced, setForced] = useState<Set<number>>(() => new Set());
+  const [workingIdx, setWorkingIdx] = useState<number | null>(null);
+
+  function download() {
+    downloadBase64Docx(docx, result.filename);
+  }
+
+  async function applyAnyway(idx: number, before: string, after: string) {
+    setWorkingIdx(idx);
+    const res = await applyEditAnyway({
+      customizationId: result.customizationId,
+      before,
+      after,
+    });
+    setWorkingIdx(null);
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
+    setDocx(res.docxBase64);
+    setAppliedCount((n) => n + 1);
+    setSkipped((prev) => {
+      const next = new Set(prev);
+      next.delete(idx);
+      return next;
+    });
+    setForced((prev) => new Set(prev).add(idx));
+    downloadBase64Docx(res.docxBase64, res.filename);
+    toast.success("Applied — updated file downloaded.");
+  }
+
+  const indexed = analysis.changes.map((c, idx) => ({ c, idx }));
   const grouped = {
-    critical: analysis.changes.filter((c) => c.priority === "critical"),
-    important: analysis.changes.filter((c) => c.priority === "important"),
-    optional: analysis.changes.filter((c) => c.priority === "optional"),
+    critical: indexed.filter((x) => x.c.priority === "critical"),
+    important: indexed.filter((x) => x.c.priority === "important"),
+    optional: indexed.filter((x) => x.c.priority === "optional"),
   };
 
   return (
@@ -492,6 +554,7 @@ function ResultPanel({
           <p className="text-xs uppercase tracking-wider text-muted-foreground">
             {analysis.company}
             {analysis.roleTitle ? ` · ${analysis.roleTitle}` : ""}
+            {result.version > 1 ? ` · v${result.version}` : ""}
           </p>
           <p className="mt-0.5 text-lg font-semibold">
             Match score {analysis.matchScore}/100
@@ -502,18 +565,18 @@ function ResultPanel({
             </span>
           </p>
         </div>
-        <Button onClick={onDownload}>
+        <Button onClick={download}>
           <Download className="h-4 w-4" />
           Download {result.filename}
         </Button>
       </div>
 
       <div className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
-        <span>{result.applied} edit(s) applied to the .docx</span>
-        {result.skippedForLength.length > 0 && (
+        <span>{appliedCount} edit(s) applied to the .docx</span>
+        {skipped.size > 0 && (
           <span className="text-amber-300">
-            {result.skippedForLength.length} suggestion(s) not applied to keep the
-            page count (would lengthen — apply manually)
+            {skipped.size} suggestion(s) held back to keep the page count — use
+            &ldquo;Apply anyway&rdquo; to force any of them
           </span>
         )}
         {result.unmatched.length > 0 && (
@@ -571,53 +634,91 @@ function ResultPanel({
                 {PRIORITY_META[tier].label} ({grouped[tier].length})
               </span>
               <div className="mt-2 space-y-2">
-                {grouped[tier].map((c, i) => (
-                  <div
-                    key={`${tier}-${i}`}
-                    className="rounded-md border border-border p-3"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-medium">{c.section}</p>
-                      {c.changeType === "reorder" ? (
-                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                          reorder — apply manually
-                        </span>
-                      ) : (
-                        c.before &&
-                        c.after &&
-                        norm(c.after).length > norm(c.before).length && (
-                          <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-300">
-                            not applied — would add length
+                {grouped[tier].map(({ c, idx }) => {
+                  const isSkipped = skipped.has(idx);
+                  const isForced = forced.has(idx);
+                  return (
+                    <div key={idx} className="rounded-md border border-border p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-medium">{c.section}</p>
+                        {c.changeType === "reorder" ? (
+                          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            reorder — apply manually
                           </span>
-                        )
+                        ) : isForced ? (
+                          <span className="inline-flex items-center gap-1 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] text-emerald-300">
+                            <CheckCircle2 className="h-3 w-3" />
+                            applied (added length)
+                          </span>
+                        ) : isSkipped ? (
+                          <div className="flex items-center gap-2">
+                            <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-300">
+                              not applied — would add length
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="xs"
+                              disabled={workingIdx !== null}
+                              onClick={() => applyAnyway(idx, c.before, c.after)}
+                            >
+                              {workingIdx === idx ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Plus className="h-3 w-3" />
+                              )}
+                              Apply anyway
+                            </Button>
+                          </div>
+                        ) : null}
+                      </div>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        <span className="font-medium text-foreground/80">Why:</span>{" "}
+                        {c.reason}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        <span className="font-medium text-foreground/80">
+                          JD requirement:
+                        </span>{" "}
+                        {c.jobRequirement}
+                      </p>
+                      {c.before && (
+                        <p className="mt-2 rounded bg-red-500/5 px-2 py-1 text-[11px] text-red-200/90 line-through decoration-red-400/40">
+                          {c.before}
+                        </p>
+                      )}
+                      {c.after && (
+                        <p className="mt-1 rounded bg-emerald-500/5 px-2 py-1 text-[11px] text-emerald-200/90">
+                          {c.after}
+                        </p>
                       )}
                     </div>
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      <span className="font-medium text-foreground/80">Why:</span>{" "}
-                      {c.reason}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      <span className="font-medium text-foreground/80">
-                        JD requirement:
-                      </span>{" "}
-                      {c.jobRequirement}
-                    </p>
-                    {c.before && (
-                      <p className="mt-2 rounded bg-red-500/5 px-2 py-1 text-[11px] text-red-200/90 line-through decoration-red-400/40">
-                        {c.before}
-                      </p>
-                    )}
-                    {c.after && (
-                      <p className="mt-1 rounded bg-emerald-500/5 px-2 py-1 text-[11px] text-emerald-200/90">
-                        {c.after}
-                      </p>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )
         )}
+      </div>
+
+      {/* Regenerate — new variation saved as the next version (v2, v3, …). */}
+      <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+        <p className="text-[11px] text-muted-foreground">
+          Not quite right? Regenerate a fresh take on the same job description —
+          saved as the next version.
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onRegenerate}
+          disabled={regenerating}
+        >
+          {regenerating ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5" />
+          )}
+          Regenerate (v{result.version + 1})
+        </Button>
       </div>
     </div>
   );

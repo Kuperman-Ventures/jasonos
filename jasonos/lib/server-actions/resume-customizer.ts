@@ -47,6 +47,9 @@ export interface CustomizeResult {
   unmatched: string[];
   unpreserved: string[];
   skippedForLength: string[];
+  /** Indices (into analysis.changes) of edits skipped to avoid adding a page. */
+  skippedIndices: number[];
+  version: number;
 }
 
 export interface ActionError {
@@ -62,13 +65,126 @@ function normalize(s: string): string {
   return s.replace(/\s+/g, " ").trim();
 }
 
-function safeCompanyFilename(company: string): string {
+function safeCompanyBase(company: string): string {
   const cleaned = company
     .replace(/[^\w\s.&-]/g, "")
     .replace(/\s+/g, " ")
     .trim();
-  const base = cleaned.length > 0 ? cleaned : "Company";
-  return `${base} - Resume.docx`.slice(0, 180);
+  return (cleaned.length > 0 ? cleaned : "Company").slice(0, 160);
+}
+
+/** `Acme - Resume.docx` for v1, `Acme - Resume v2.docx` for later versions. */
+function versionedFilename(company: string, version: number): string {
+  const base = safeCompanyBase(company);
+  return version <= 1
+    ? `${base} - Resume.docx`
+    : `${base} - Resume v${version}.docx`;
+}
+
+/** Next version number for a company (1 if none exist yet). */
+async function nextVersionForCompany(company: string): Promise<number> {
+  const supabase = createServiceRoleClient();
+  const { data } = await supabase
+    .from("resume_customizations")
+    .select("version")
+    .eq("company", company)
+    .order("version", { ascending: false })
+    .limit(1);
+  const max = data && data.length > 0 ? (data[0].version as number) : 0;
+  return (max || 0) + 1;
+}
+
+/**
+ * Shared engine: analyze a JD against a source resume, apply the line-aware
+ * edits, store the tailored .docx + a versioned row, and return the result.
+ */
+async function generateAndStore(input: {
+  sourceResumeId: string;
+  sourceStoragePath: string;
+  jobDescription: string;
+}): Promise<CustomizeResult | ActionError> {
+  const supabase = createServiceRoleClient();
+
+  let resumeBuffer: Buffer;
+  try {
+    resumeBuffer = await downloadBuffer(input.sourceStoragePath);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not load the core resume." };
+  }
+  const resumeText = await extractResumeText(resumeBuffer);
+  const resumeParagraphs = extractParagraphs(resumeBuffer);
+
+  let analysis: ResumeAnalysis;
+  try {
+    analysis = await analyzeResume({
+      resumeText,
+      resumeParagraphs,
+      jobDescription: input.jobDescription,
+    });
+  } catch (e) {
+    return { ok: false, error: `Analysis failed: ${e instanceof Error ? e.message : "unknown error"}` };
+  }
+
+  const isTextEdit = (c: (typeof analysis.changes)[number]) =>
+    c.changeType !== "reorder" &&
+    c.before.trim().length > 0 &&
+    c.after.trim().length > 0 &&
+    normalize(c.before) !== normalize(c.after);
+
+  const textEdits = analysis.changes.filter(isTextEdit);
+  const edits: ParagraphEdit[] = textEdits.map((c) => ({
+    before: c.before,
+    after: c.after,
+  }));
+
+  const { output, applied, unmatched, unpreserved, overLength } =
+    applyParagraphEdits(resumeBuffer, edits);
+
+  const overSet = new Set(overLength);
+  const skippedIndices: number[] = [];
+  analysis.changes.forEach((c, idx) => {
+    if (isTextEdit(c) && overSet.has(normalize(c.before))) skippedIndices.push(idx);
+  });
+  const skippedForLength = skippedIndices.map((i) => analysis.changes[i].section);
+
+  const version = await nextVersionForCompany(analysis.company);
+  const filename = versionedFilename(analysis.company, version);
+  const storagePath = `customizations/${crypto.randomUUID()}.docx`;
+  const { error: upErr } = await supabase.storage
+    .from(BUCKET)
+    .upload(storagePath, output, { contentType: DOCX_TYPE, upsert: false });
+  if (upErr) return { ok: false, error: `Could not save output: ${upErr.message}` };
+
+  const { data: inserted, error: insErr } = await supabase
+    .from("resume_customizations")
+    .insert({
+      source_resume_id: input.sourceResumeId,
+      company: analysis.company,
+      filename,
+      storage_path: storagePath,
+      match_score: analysis.matchScore,
+      version,
+      job_description: input.jobDescription,
+      report: { analysis, applied, unmatched, unpreserved, skippedForLength, skippedIndices },
+    })
+    .select("id")
+    .single();
+  if (insErr) return { ok: false, error: `Could not record output: ${insErr.message}` };
+
+  revalidatePath("/resume-customizer");
+  return {
+    ok: true,
+    customizationId: inserted.id as string,
+    filename,
+    docxBase64: output.toString("base64"),
+    analysis,
+    applied,
+    unmatched,
+    unpreserved,
+    skippedForLength,
+    skippedIndices,
+    version,
+  };
 }
 
 async function downloadBuffer(storagePath: string): Promise<Buffer> {
@@ -227,84 +343,143 @@ export async function customizeResume(
     return { ok: false, error: "Paste or upload a job description first." };
   }
 
-  // 3. Load + parse the core resume
-  let resumeBuffer: Buffer;
-  try {
-    resumeBuffer = await downloadBuffer(core.storage_path as string);
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Could not load the core resume." };
+  return generateAndStore({
+    sourceResumeId: core.id as string,
+    sourceStoragePath: core.storage_path as string,
+    jobDescription: jobDescription.trim(),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Regenerate: re-run the tailoring on the same JD → new versioned file
+// ---------------------------------------------------------------------------
+
+export async function regenerateCustomization(
+  id: string
+): Promise<CustomizeResult | ActionError> {
+  const supabase = createServiceRoleClient();
+  const { data: row, error } = await supabase
+    .from("resume_customizations")
+    .select("job_description,source_resume_id")
+    .eq("id", id)
+    .single();
+  if (error || !row) return { ok: false, error: "Customization not found." };
+
+  const jobDescription = (row.job_description as string | null)?.trim();
+  if (!jobDescription || jobDescription.length < 20) {
+    return {
+      ok: false,
+      error:
+        "This resume was made before regenerate was available, so its job description wasn't saved. Run a fresh customization to enable regenerate.",
+    };
   }
-  const resumeText = await extractResumeText(resumeBuffer);
-  const resumeParagraphs = extractParagraphs(resumeBuffer);
 
-  // 4. Analyze
-  let analysis: ResumeAnalysis;
-  try {
-    analysis = await analyzeResume({ resumeText, resumeParagraphs, jobDescription });
-  } catch (e) {
-    return { ok: false, error: `Analysis failed: ${e instanceof Error ? e.message : "unknown error"}` };
+  // Prefer the resume this was built from; fall back to the active core.
+  let sourceId = row.source_resume_id as string | null;
+  let sourcePath: string | null = null;
+  if (sourceId) {
+    const { data: src } = await supabase
+      .from("resumes")
+      .select("id,storage_path")
+      .eq("id", sourceId)
+      .maybeSingle();
+    if (src) sourcePath = src.storage_path as string;
+  }
+  if (!sourcePath) {
+    const { data: core } = await supabase
+      .from("resumes")
+      .select("id,storage_path")
+      .eq("is_core", true)
+      .maybeSingle();
+    if (!core) return { ok: false, error: "No source resume available to regenerate from." };
+    sourceId = core.id as string;
+    sourcePath = core.storage_path as string;
   }
 
-  // 5. Apply Before/After edits (reorder suggestions are reported, not auto-moved).
-  //    Hard length backstop: never write an edit that would grow the paragraph
-  //    (after must be <= before in length). This guarantees the tailored .docx
-  //    cannot spill onto extra pages — length-growing suggestions are reported
-  //    for manual application instead of being applied automatically.
-  const isTextEdit = (c: (typeof analysis.changes)[number]) =>
-    c.changeType !== "reorder" &&
-    c.before.trim().length > 0 &&
-    c.after.trim().length > 0 &&
-    normalize(c.before) !== normalize(c.after);
+  return generateAndStore({
+    sourceResumeId: sourceId as string,
+    sourceStoragePath: sourcePath,
+    jobDescription,
+  });
+}
 
-  const textEdits = analysis.changes.filter(isTextEdit);
-  const edits: ParagraphEdit[] = textEdits.map((c) => ({
-    before: c.before,
-    after: c.after,
-  }));
+// ---------------------------------------------------------------------------
+// Apply anyway: force one skipped (length-growing) edit onto an existing file
+// ---------------------------------------------------------------------------
 
-  // The line-aware apply step decides what fits without adding a page; it hands
-  // back the edits it skipped because they'd wrap onto a new line.
-  const { output, applied, unmatched, unpreserved, overLength } =
-    applyParagraphEdits(resumeBuffer, edits);
+export async function applyEditAnyway(input: {
+  customizationId: string;
+  before: string;
+  after: string;
+}): Promise<{ ok: true; filename: string; docxBase64: string } | ActionError> {
+  const supabase = createServiceRoleClient();
+  const { data: row, error } = await supabase
+    .from("resume_customizations")
+    .select("storage_path,filename,report")
+    .eq("id", input.customizationId)
+    .single();
+  if (error || !row) return { ok: false, error: "Customization not found." };
 
-  const overSet = new Set(overLength);
-  const skippedForLength: string[] = textEdits
-    .filter((c) => overSet.has(normalize(c.before)))
-    .map((c) => c.section);
+  let buffer: Buffer;
+  try {
+    buffer = await downloadBuffer(row.storage_path as string);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Could not load the file." };
+  }
 
-  // 6. Store the tailored output (filename from the company)
-  const filename = safeCompanyFilename(analysis.company);
-  const storagePath = `customizations/${crypto.randomUUID()}.docx`;
+  const { output, applied } = applyParagraphEdits(
+    buffer,
+    [{ before: input.before, after: input.after }],
+    { ignoreLineBudget: true }
+  );
+  if (applied === 0) {
+    return {
+      ok: false,
+      error:
+        "Couldn't locate that line in the current document (it may have already been changed).",
+    };
+  }
+
   const { error: upErr } = await supabase.storage
     .from(BUCKET)
-    .upload(storagePath, output, { contentType: DOCX_TYPE, upsert: false });
-  if (upErr) return { ok: false, error: `Could not save output: ${upErr.message}` };
+    .upload(row.storage_path as string, output, {
+      contentType: DOCX_TYPE,
+      upsert: true,
+    });
+  if (upErr) return { ok: false, error: `Could not save the update: ${upErr.message}` };
 
-  const { data: inserted, error: insErr } = await supabase
+  // Reflect the forced edit in the stored report so the counts stay accurate.
+  const report = (row.report ?? {}) as Record<string, unknown>;
+  const prevApplied = typeof report.applied === "number" ? report.applied : 0;
+  const skippedIndices = Array.isArray(report.skippedIndices)
+    ? (report.skippedIndices as number[])
+    : [];
+  const changes =
+    ((report.analysis as { changes?: { before: string; section: string }[] } | undefined)
+      ?.changes) ?? [];
+  const matchIdx = changes.findIndex(
+    (c) => normalize(c.before) === normalize(input.before)
+  );
+  const newSkippedIndices = skippedIndices.filter((i) => i !== matchIdx);
+  const newSkippedForLength = newSkippedIndices.map((i) => changes[i]?.section ?? "");
+
+  await supabase
     .from("resume_customizations")
-    .insert({
-      source_resume_id: core.id,
-      company: analysis.company,
-      filename,
-      storage_path: storagePath,
-      match_score: analysis.matchScore,
-      report: { analysis, applied, unmatched, unpreserved, skippedForLength },
+    .update({
+      report: {
+        ...report,
+        applied: prevApplied + applied,
+        skippedIndices: newSkippedIndices,
+        skippedForLength: newSkippedForLength,
+      },
     })
-    .select("id")
-    .single();
-  if (insErr) return { ok: false, error: `Could not record output: ${insErr.message}` };
+    .eq("id", input.customizationId);
 
   revalidatePath("/resume-customizer");
   return {
     ok: true,
-    customizationId: inserted.id as string,
-    filename,
+    filename: row.filename as string,
     docxBase64: output.toString("base64"),
-    analysis,
-    applied,
-    unmatched,
-    unpreserved,
-    skippedForLength,
   };
 }
 

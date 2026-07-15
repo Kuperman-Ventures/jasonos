@@ -165,8 +165,10 @@ function estimateLines(textLen: number, charsPerLine: number): number {
  */
 export function applyParagraphEdits(
   buffer: Buffer,
-  edits: ParagraphEdit[]
+  edits: ParagraphEdit[],
+  options?: { ignoreLineBudget?: boolean }
 ): ApplyEditsResult {
+  const ignoreLineBudget = options?.ignoreLineBudget ?? false;
   const { zip, doc } = loadDocumentXml(buffer);
   const paragraphs = doc.getElementsByTagName("w:p");
 
@@ -201,7 +203,7 @@ export function applyParagraphEdits(
     const cpl = Math.max(20, Math.floor(paraWidth / avgCharTwips));
     const beforeLines = estimateLines(key.length, cpl);
     const afterLines = estimateLines(normalize(after).length, cpl);
-    if (afterLines > beforeLines) {
+    if (!ignoreLineBudget && afterLines > beforeLines) {
       overLength.push(key);
       remaining.delete(key);
       continue;
