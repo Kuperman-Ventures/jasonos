@@ -28,6 +28,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import { createContactUnclassified } from "@/lib/server-actions/contacts";
+import type { BrowningSource } from "@/lib/browning/types";
+import {
+  NETWORK_DEGREES,
+  NETWORK_DEGREE_LABELS,
+  RELEVANCE_TIERS,
+  RELEVANCE_TIER_LABELS,
+  type NetworkDegree,
+  type RelevanceTier,
+} from "@/lib/outreach/types";
+
+type BrowningChoice = "none" | BrowningSource;
 
 interface FormState {
   name: string;
@@ -35,6 +46,9 @@ interface FormState {
   firm: string;
   email: string;
   linkedinUrl: string;
+  browning: BrowningChoice;
+  relevance: RelevanceTier | "";
+  degree: NetworkDegree | "";
 }
 
 const INITIAL: FormState = {
@@ -43,6 +57,9 @@ const INITIAL: FormState = {
   firm: "",
   email: "",
   linkedinUrl: "",
+  browning: "none",
+  relevance: "",
+  degree: "",
 };
 
 export interface ContactCreateModalProps {
@@ -100,6 +117,9 @@ export function ContactCreateModal({
         firm,
         email,
         linkedin_url: linkedinUrl,
+        browning_source: form.browning === "none" ? null : form.browning,
+        relevance_tier: form.relevance || null,
+        network_degree: form.degree || null,
       });
       if (!result.ok) {
         toast.error(result.error);
@@ -179,6 +199,90 @@ export function ContactCreateModal({
                   onChange={(e) => setField("linkedinUrl", e.target.value)}
                   placeholder="https://www.linkedin.com/in/..."
                 />
+              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Relevance (A/B/C)">
+                  <div className="flex gap-1.5">
+                    {(["", ...RELEVANCE_TIERS] as (RelevanceTier | "")[]).map(
+                      (t) => {
+                        const active = form.relevance === t;
+                        return (
+                          <button
+                            key={t || "none"}
+                            type="button"
+                            title={t ? RELEVANCE_TIER_LABELS[t] : "Unset"}
+                            onClick={() => setField("relevance", t)}
+                            className={
+                              "flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors " +
+                              (active
+                                ? "border-foreground bg-foreground text-background"
+                                : "border-border text-muted-foreground hover:bg-muted hover:text-foreground")
+                            }
+                          >
+                            {t || "—"}
+                          </button>
+                        );
+                      }
+                    )}
+                  </div>
+                </Field>
+                <Field label="Network degree (1/2/3)">
+                  <div className="flex gap-1.5">
+                    {(["", ...NETWORK_DEGREES] as (NetworkDegree | "")[]).map(
+                      (d) => {
+                        const active = form.degree === d;
+                        return (
+                          <button
+                            key={d || "none"}
+                            type="button"
+                            title={d ? NETWORK_DEGREE_LABELS[d] : "Unset"}
+                            onClick={() => setField("degree", d)}
+                            className={
+                              "flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors " +
+                              (active
+                                ? "border-foreground bg-foreground text-background"
+                                : "border-border text-muted-foreground hover:bg-muted hover:text-foreground")
+                            }
+                          >
+                            {d || "—"}
+                          </button>
+                        );
+                      }
+                    )}
+                  </div>
+                </Field>
+              </div>
+              <Field label="Browning">
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(
+                    [
+                      { value: "none", label: "Not Browning" },
+                      { value: "my_list", label: "My List" },
+                      { value: "browning_referral", label: "Browning Referral" },
+                    ] as { value: BrowningChoice; label: string }[]
+                  ).map((opt) => {
+                    const active = form.browning === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setField("browning", opt.value)}
+                        className={
+                          "rounded-md border px-2 py-1.5 text-xs font-medium transition-colors " +
+                          (active
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border text-muted-foreground hover:bg-muted hover:text-foreground")
+                        }
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <span className="mt-1 block text-[11px] text-muted-foreground">
+                  Is this someone from your own list, or a person Browning
+                  connected you to? Choosing either enrolls them in Browning.
+                </span>
               </Field>
             </div>
           </div>

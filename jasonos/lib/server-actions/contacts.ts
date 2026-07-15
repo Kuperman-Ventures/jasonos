@@ -17,6 +17,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import type { BrowningSource } from "@/lib/browning/types";
+import type { NetworkDegree, RelevanceTier } from "@/lib/outreach/types";
 
 interface CreateContactUnclassifiedInput {
   name: string;
@@ -24,6 +26,16 @@ interface CreateContactUnclassifiedInput {
   firm?: string | null;
   email?: string | null;
   linkedin_url?: string | null;
+  /**
+   * Browning classification set at creation time: 'my_list' (a contact from
+   * my own network) or 'browning_referral' (someone Browning connected me to).
+   * null = not a Browning contact. Setting it enrolls the contact in Browning.
+   */
+  browning_source?: BrowningSource | null;
+  /** Relevance vector A/B/C (optional at creation). */
+  relevance_tier?: RelevanceTier | null;
+  /** Network degree 1/2/3 (optional at creation). */
+  network_degree?: NetworkDegree | null;
 }
 
 type CreateContactUnclassifiedResult =
@@ -73,6 +85,10 @@ export async function createContactUnclassified(
   const tags: string[] = [];
   if (firm) tags.push(`firm:${slugify(firm)}`);
 
+  const browningSource = input.browning_source ?? null;
+  const relevanceTier = input.relevance_tier ?? null;
+  const networkDegree = input.network_degree ?? null;
+
   const { data, error } = await sb
     .from("contacts")
     .insert({
@@ -85,6 +101,9 @@ export async function createContactUnclassified(
       cadence_interval: "none",
       intent: null,
       vip: false,
+      browning_source: browningSource,
+      relevance_tier: relevanceTier,
+      network_degree: networkDegree,
     })
     .select("id")
     .single();
@@ -104,6 +123,9 @@ export async function createContactUnclassified(
           relationship_type: null,
           cadence_interval: "none",
           vip: false,
+          browning_source: browningSource,
+          relevance_tier: relevanceTier,
+          network_degree: networkDegree,
         })
         .select("id")
         .single();

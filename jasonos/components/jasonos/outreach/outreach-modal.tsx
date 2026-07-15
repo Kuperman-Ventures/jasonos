@@ -60,7 +60,9 @@ import {
   CADENCE_LABELS,
   CONTACT_INTENT_HELPERS,
   CONTACT_INTENT_LABELS,
+  NETWORK_DEGREE_LABELS,
   PRIMARY_CONTACT_INTENTS,
+  RELEVANCE_TIER_LABELS,
   RELATIONSHIP_TYPES,
   RELATIONSHIP_TYPE_HELPERS,
   RELATIONSHIP_TYPE_LABELS,
@@ -435,6 +437,10 @@ export function OutreachModal({
   // Live next-touch date (optimistic local state, seeded from the loaded
   // contact) so the reschedule control and the Warm hint stay in sync.
   const nextTouchDate = nextTouchState;
+  const cardRelevance =
+    card.status === "ready" ? card.contact.relevance_tier : null;
+  const cardDegree =
+    card.status === "ready" ? card.contact.network_degree : null;
 
   // ------------------------------------------------------------------
   // Header handlers — Relationship + VIP. Auto-link first when needed.
@@ -728,6 +734,33 @@ export function OutreachModal({
                   <Link2 className="h-3 w-3" />
                   LinkedIn
                 </a>
+              ) : null}
+            </div>
+          ) : null}
+
+          {cardRelevance || cardDegree ? (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {cardRelevance ? (
+                <span
+                  title={RELEVANCE_TIER_LABELS[cardRelevance]}
+                  className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+                >
+                  Relevance{" "}
+                  <span className="font-semibold text-foreground">
+                    {cardRelevance}
+                  </span>
+                </span>
+              ) : null}
+              {cardDegree ? (
+                <span
+                  title={NETWORK_DEGREE_LABELS[cardDegree]}
+                  className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+                >
+                  Degree{" "}
+                  <span className="font-semibold text-foreground">
+                    {cardDegree}
+                  </span>
+                </span>
               ) : null}
             </div>
           ) : null}
