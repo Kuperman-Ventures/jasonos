@@ -136,7 +136,7 @@ const BANDS: BandDef[] = [
   {
     key: "due_this_week",
     label: "Due This Week",
-    helper: "Scheduled for outreach in the next 7 days",
+    helper: "Due for outreach by the end of this week (Fri)",
     icon: Clock,
     textColor: "text-amber-300",
     headerBg: "bg-amber-600/70",
@@ -187,9 +187,13 @@ function todayYMD(): string {
   return d.toISOString().split("T")[0];
 }
 
-function addDaysYMD(base: string, days: number): string {
-  const d = new Date(`${base}T00:00:00`);
-  d.setDate(d.getDate() + days);
+// End of the current calendar work week (the coming Friday, inclusive) as a
+// YYYY-MM-DD string. "This week" runs through this Friday; later rolls to next
+// week ("Scheduled"). On a weekend, points to next Friday.
+function endOfWorkWeekYMD(baseYmd: string): string {
+  const d = new Date(`${baseYmd}T00:00:00Z`);
+  const daysUntilFriday = (5 - d.getUTCDay() + 7) % 7; // Fri = 5
+  d.setUTCDate(d.getUTCDate() + daysUntilFriday);
   return d.toISOString().split("T")[0];
 }
 
@@ -211,7 +215,7 @@ function deriveCardUrgency(
   }
   if (card.next_touch_date) {
     if (card.next_touch_date <= today) return "overdue";
-    if (card.next_touch_date <= addDaysYMD(today, 7)) return "due_this_week";
+    if (card.next_touch_date <= endOfWorkWeekYMD(today)) return "due_this_week";
     return "scheduled";
   }
   return "needs_scheduling";

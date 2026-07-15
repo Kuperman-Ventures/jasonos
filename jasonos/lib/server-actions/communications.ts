@@ -117,6 +117,17 @@ function addDays(base: Date, n: number): Date {
   return d;
 }
 
+// End of the current calendar work week (the coming Friday, inclusive), at
+// 00:00. "This week" means through this Friday — anything due Sat/Sun or later
+// rolls to next week ("Scheduled"). On a weekend, points to the next Friday.
+function endOfWorkWeek(today: Date): Date {
+  const d = new Date(today);
+  const daysUntilFriday = (5 - d.getDay() + 7) % 7; // Fri = 5
+  d.setDate(d.getDate() + daysUntilFriday);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 function computeUrgency(
   nextActionDueDate: string | null,
   contactedToday: boolean,
@@ -135,7 +146,8 @@ function computeUrgency(
   // If already reached out recently and next touch is in the future, they're
   // scheduled — not an active action item for this week.
   if (recentlyContacted) return "scheduled";
-  if (diffDays <= 7) return "this_week";
+  // Calendar week: due on or before this Friday → this week; later → scheduled.
+  if (due.getTime() <= endOfWorkWeek(today).getTime()) return "this_week";
   return "scheduled";
 }
 
