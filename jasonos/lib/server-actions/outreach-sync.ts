@@ -7,10 +7,14 @@ import {
   isGmailConnected,
 } from "@/lib/integrations/gmail";
 import { getGoogleAccessToken } from "@/lib/integrations/google-calendar";
+import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
   buildContactLookup,
+  canonicalEmail,
+  extractEmail,
   isFromMe,
   isMyOwnAddress,
+  type ContactLookupRow,
 } from "@/lib/outreach/email-matching";
 import {
   insertContactTouches,
@@ -18,6 +22,59 @@ import {
   type ContactTouchInput,
   type InsertTouchesResult,
 } from "@/lib/outreach/touch-capture";
+
+// ---------------------------------------------------------------------------
+// Email write-back — when a sync matches a contact (typically by NAME, e.g. a
+// spreadsheet-imported contact with no email on file) using an address that
+// isn't yet on the contact, record it so we can attach it. This binds future
+// email/calendar activity to that same canonical contact instead of drifting
+// onto a duplicate, and stops the Suggested-Contacts scan from re-suggesting.
+// ---------------------------------------------------------------------------
+
+type EnrichMap = Map<string, { existing: string[]; adds: string[] }>;
+
+function recordEnrich(
+  enrich: EnrichMap,
+  contact: ContactLookupRow,
+  rawEmail: string
+): void {
+  const email = extractEmail(rawEmail);
+  if (!email || isMyOwnAddress(email)) return;
+  const canon = canonicalEmail(email);
+  if (contact.emails.some((e) => canonicalEmail(e) === canon)) return;
+  const cur = enrich.get(contact.id) ?? { existing: contact.emails, adds: [] };
+  if (!cur.adds.some((a) => canonicalEmail(a) === canon)) cur.adds.push(email);
+  enrich.set(contact.id, cur);
+}
+
+function mergeEmails(existing: string[], adds: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const e of [...existing, ...adds]) {
+    if (!e) continue;
+    const key = canonicalEmail(e);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(e);
+  }
+  return out;
+}
+
+async function applyEmailEnrichments(enrich: EnrichMap): Promise<void> {
+  if (!enrich.size) return;
+  const sb = createServiceRoleClient();
+  for (const [contactId, { existing, adds }] of enrich) {
+    if (!adds.length) continue;
+    await sb
+      .from("contacts")
+      .update({ emails: mergeEmails(existing, adds) })
+      .eq("id", contactId)
+      .then(
+        () => undefined,
+        (err) => console.error("[outreach-sync.emailEnrich]", err)
+      );
+  }
+}
 
 export type SyncResultSource = "gmail" | "gcal";
 
@@ -62,6 +119,7 @@ export async function syncOutreachFromGmail(opts?: {
 
   const afterEpoch = Math.floor((Date.now() - daysBack * 86_400_000) / 1000);
   const touches: ContactTouchInput[] = [];
+  const enrich: EnrichMap = new Map();
   let skipped = 0;
 
   try {
@@ -86,6 +144,7 @@ export async function syncOutreachFromGmail(opts?: {
           skipped += 1;
           continue;
         }
+        recordEnrich(enrich, contact, m.to);
 
         touches.push({
           contact_id: contact.id,
@@ -107,6 +166,7 @@ export async function syncOutreachFromGmail(opts?: {
   }
 
   const insertResult = await insertContactTouches(touches);
+  await applyEmailEnrichments(enrich);
   await recordSyncState("gmail", {
     matched: touches.length,
     inserted: insertResult.inserted,
@@ -184,6 +244,7 @@ export async function syncOutreachFromCalendar(opts?: {
 
   const events = raw.items ?? [];
   const touches: ContactTouchInput[] = [];
+  const enrich: EnrichMap = new Map();
   let skipped = 0;
 
   for (const ev of events) {
@@ -207,6 +268,7 @@ export async function syncOutreachFromCalendar(opts?: {
       if (a.responseStatus === "declined") continue;
 
       matchedAny = true;
+      if (a.email) recordEnrich(enrich, contact, a.email);
       touches.push({
         contact_id: contact.id,
         channel: "calendar",
@@ -224,6 +286,7 @@ export async function syncOutreachFromCalendar(opts?: {
   }
 
   const insertResult = await insertContactTouches(touches);
+  await applyEmailEnrichments(enrich);
   await recordSyncState("gcal", {
     matched: touches.length,
     inserted: insertResult.inserted,
