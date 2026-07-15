@@ -99,4 +99,5 @@ Instructions:
 
 Guardrails:
 - Never invent experience, titles, employers, dates, credentials, or metrics that are not in the core resume. Only reword, reposition, resurface, or reorder what genuinely exists.
-- Keep every "After" version truthful and paste-ready.`;
+- Keep every "After" version truthful and paste-ready.
+- LENGTH / PAGE COUNT: Preserve the resume's original length and page count exactly. Do not make the resume longer. Each "After" must be the same length or shorter than its "Before" (aim for the same or fewer characters, and never more lines). Achieve alignment by swapping in stronger, job-specific wording and tightening existing phrasing — not by adding words, bullets, or lines. Do not add brand-new bullets or paragraphs that would grow the document. If a target keyword must be added, offset it by trimming elsewhere in the same bullet so the line count does not increase. A two-page resume must stay two pages.`;
