@@ -371,6 +371,8 @@ export function OutreachModal({
           relationship_type: null,
           cadence_interval: "none",
           cadence_stage: null,
+          relevance_tier: null,
+          network_degree: null,
           intent: null,
           next_touch_date: null,
           last_touch_date: null,

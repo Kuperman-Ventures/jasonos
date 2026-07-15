@@ -46,6 +46,36 @@ export function relationshipTypeLabel(value: RelationshipType | null | undefined
 }
 
 // ---------------------------------------------------------------------------
+// Relevance tier (migration 0025) — how relevant a contact is to me.
+//   A = most relevant  ·  B = relevant  ·  C = least relevant
+// ---------------------------------------------------------------------------
+
+export type RelevanceTier = "A" | "B" | "C";
+
+export const RELEVANCE_TIERS: RelevanceTier[] = ["A", "B", "C"];
+
+export const RELEVANCE_TIER_LABELS: Record<RelevanceTier, string> = {
+  A: "A — Most relevant",
+  B: "B — Relevant",
+  C: "C — Least relevant",
+};
+
+// ---------------------------------------------------------------------------
+// Network degree (migration 0025) — how I'm connected to a contact.
+//   1 = I know them well  ·  2 = introduced by a 1  ·  3 = introduced by a 2
+// ---------------------------------------------------------------------------
+
+export type NetworkDegree = 1 | 2 | 3;
+
+export const NETWORK_DEGREES: NetworkDegree[] = [1, 2, 3];
+
+export const NETWORK_DEGREE_LABELS: Record<NetworkDegree, string> = {
+  1: "1 — I know them well",
+  2: "2 — Introduced by a 1",
+  3: "3 — Introduced by a 2",
+};
+
+// ---------------------------------------------------------------------------
 // Relationship-type METADATA (borrowed/condensed from EncoreOS).
 // Each bucket has a default cadence, primary objective, tone guidance, and
 // typical activities. These flow into the Classify menu helper copy AND the

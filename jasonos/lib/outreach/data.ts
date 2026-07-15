@@ -12,7 +12,9 @@ import type {
   CadenceInterval,
   CadenceStage,
   ContactIntent,
+  NetworkDegree,
   RelationshipType,
+  RelevanceTier,
 } from "@/lib/outreach/types";
 
 export interface OutreachPerson {
@@ -31,6 +33,10 @@ export interface OutreachPerson {
   /** Phase 5B / migration 0017: explicit queue-column pin. NULL means
    *  the queue-buckets derivation rules decide. */
   intent: ContactIntent | null;
+  /** Relevance vector (migration 0025): A most relevant .. C least. */
+  relevance_tier: RelevanceTier | null;
+  /** Network degree (migration 0025): 1 know well, 2 intro'd by a 1, 3 by a 2. */
+  network_degree: NetworkDegree | null;
   next_touch_date: string | null;
   last_touch_date: string | null;
   last_touch_channel: string | null;
@@ -122,14 +128,14 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
     //   - cadence_stage missing (migration 0015 not applied) -> drop both
     // Either way the People list keeps rendering instead of disappearing.
     const fullColumns = `id,name,emails,linkedin_url,title,vip,tags,source_ids,
-       relationship_type,cadence_interval,cadence_stage,intent,next_touch_date,
-       last_touch_date,last_touch_channel`;
+       relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
+       network_degree,next_touch_date,last_touch_date,last_touch_channel`;
     const noIntentColumns = `id,name,emails,linkedin_url,title,vip,tags,source_ids,
-       relationship_type,cadence_interval,cadence_stage,next_touch_date,
-       last_touch_date,last_touch_channel`;
+       relationship_type,cadence_interval,cadence_stage,relevance_tier,
+       network_degree,next_touch_date,last_touch_date,last_touch_channel`;
     const noStageColumns = `id,name,emails,linkedin_url,title,vip,tags,source_ids,
-       relationship_type,cadence_interval,next_touch_date,
-       last_touch_date,last_touch_channel`;
+       relationship_type,cadence_interval,relevance_tier,network_degree,
+       next_touch_date,last_touch_date,last_touch_channel`;
 
     let result = await sb
       .from("contacts")
@@ -201,6 +207,14 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
         intent:
           ((row as { intent?: ContactIntent | null }).intent as
             | ContactIntent
+            | null) ?? null,
+        relevance_tier:
+          ((row as { relevance_tier?: RelevanceTier | null }).relevance_tier as
+            | RelevanceTier
+            | null) ?? null,
+        network_degree:
+          ((row as { network_degree?: NetworkDegree | null }).network_degree as
+            | NetworkDegree
             | null) ?? null,
         next_touch_date: (row.next_touch_date as string | null) ?? null,
         last_touch_date: (row.last_touch_date as string | null) ?? null,

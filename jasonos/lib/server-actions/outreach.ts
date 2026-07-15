@@ -11,7 +11,9 @@ import {
   type CadenceInterval,
   type CadenceStage,
   type ContactIntent,
+  type NetworkDegree,
   type RelationshipType,
+  type RelevanceTier,
   type TouchObjective,
 } from "@/lib/outreach/types";
 import type { LogTouchChannel, RecentTouch } from "@/lib/outreach/draft-types";
@@ -187,6 +189,49 @@ export async function toggleVip(
     .update({ vip })
     .eq("id", contactId);
 
+  if (error) return { ok: false, error: error.message };
+
+  revalidate();
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// setRelevanceTier / setNetworkDegree — the two new classification vectors
+// (migration 0025). Both accept null to clear.
+// ---------------------------------------------------------------------------
+
+export async function setRelevanceTier(
+  contactId: string,
+  tier: RelevanceTier | null
+): Promise<ActionResult> {
+  const guard = ensureConfigured();
+  if (guard) return guard;
+  if (!contactId) return { ok: false, error: "contactId is required." };
+
+  const sb = createServiceRoleClient();
+  const { error } = await sb
+    .from("contacts")
+    .update({ relevance_tier: tier })
+    .eq("id", contactId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidate();
+  return { ok: true };
+}
+
+export async function setNetworkDegree(
+  contactId: string,
+  degree: NetworkDegree | null
+): Promise<ActionResult> {
+  const guard = ensureConfigured();
+  if (guard) return guard;
+  if (!contactId) return { ok: false, error: "contactId is required." };
+
+  const sb = createServiceRoleClient();
+  const { error } = await sb
+    .from("contacts")
+    .update({ network_degree: degree })
+    .eq("id", contactId);
   if (error) return { ok: false, error: error.message };
 
   revalidate();
@@ -681,6 +726,14 @@ export async function getOutreachContactByRecruiterId(
     cadence_interval:
       (data.cadence_interval as CadenceInterval | null) ?? "none",
     cadence_stage: (data.cadence_stage as CadenceStage | null) ?? null,
+    relevance_tier:
+      ((data as { relevance_tier?: RelevanceTier | null }).relevance_tier as
+        | RelevanceTier
+        | null) ?? null,
+    network_degree:
+      ((data as { network_degree?: NetworkDegree | null }).network_degree as
+        | NetworkDegree
+        | null) ?? null,
     intent:
       ((data as { intent?: ContactIntent | null }).intent as
         | ContactIntent
@@ -882,6 +935,14 @@ export async function getContactCardData(input: {
     cadence_interval:
       (row.cadence_interval as CadenceInterval | null) ?? "none",
     cadence_stage: (row.cadence_stage as CadenceStage | null) ?? null,
+    relevance_tier:
+      ((row as { relevance_tier?: RelevanceTier | null }).relevance_tier as
+        | RelevanceTier
+        | null) ?? null,
+    network_degree:
+      ((row as { network_degree?: NetworkDegree | null }).network_degree as
+        | NetworkDegree
+        | null) ?? null,
     intent:
       ((row as { intent?: ContactIntent | null }).intent as
         | ContactIntent

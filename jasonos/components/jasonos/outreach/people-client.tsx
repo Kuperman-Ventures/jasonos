@@ -1,15 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 import {
   Search,
   Link2,
   Mail,
   Star,
   Tag as TagIcon,
-  CalendarClock,
   ListOrdered,
   Archive,
   X,
@@ -20,12 +20,29 @@ import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import {
+  CADENCE_INTERVALS,
   CADENCE_LABELS,
+  CONTACT_INTENTS,
+  CONTACT_INTENT_LABELS,
+  NETWORK_DEGREES,
+  NETWORK_DEGREE_LABELS,
   RELATIONSHIP_TYPES,
   RELATIONSHIP_TYPE_LABELS,
+  RELEVANCE_TIERS,
+  RELEVANCE_TIER_LABELS,
   type CadenceInterval,
+  type ContactIntent,
+  type NetworkDegree,
   type RelationshipType,
+  type RelevanceTier,
 } from "@/lib/outreach/types";
+import {
+  setCadence,
+  setContactIntent,
+  setNetworkDegree,
+  setRelationshipType,
+  setRelevanceTier,
+} from "@/lib/server-actions/outreach";
 import type { OutreachPerson } from "@/lib/outreach/data";
 
 type RelFilter = RelationshipType | "unclassified";
@@ -228,9 +245,20 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
             <ul className="divide-y">
               {filtered.map((person) => (
                 <PersonRow
-                  key={person.id}
+                  // Composite key so the row remounts (re-seeding its dropdown
+                  // state from fresh props) whenever any classification changes
+                  // — from these dropdowns or the contact modal.
+                  key={[
+                    person.id,
+                    person.relevance_tier ?? "",
+                    person.network_degree ?? "",
+                    person.intent ?? "",
+                    person.cadence_interval,
+                    person.relationship_type ?? "",
+                  ].join(":")}
                   person={person}
                   onOpen={() => setModalTarget(person)}
+                  onSaved={() => router.refresh()}
                 />
               ))}
             </ul>
@@ -259,9 +287,11 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
 function PersonRow({
   person,
   onOpen,
+  onSaved,
 }: {
   person: OutreachPerson;
   onOpen: () => void;
+  onSaved: () => void;
 }) {
   const stop = (e: React.MouseEvent) => e.stopPropagation();
 
@@ -278,7 +308,7 @@ function PersonRow({
       }}
       className="flex flex-wrap items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40 focus:bg-muted/40 focus:outline-none cursor-pointer"
     >
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 basis-52">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium">{person.name}</span>
           {person.vip ? (
@@ -299,14 +329,14 @@ function PersonRow({
           {person.title ? <span className="truncate">{person.title}</span> : null}
           {person.title && person.firm ? <span>·</span> : null}
           {person.firm ? <span className="truncate">{person.firm}</span> : null}
+          <span>·</span>
+          <span className={cn(scheduleIsPast(person) ? "text-amber-400" : "")}>
+            {scheduleHint(person)}
+          </span>
         </div>
       </div>
 
-      <CadenceCell
-        cadence={person.cadence_interval}
-        nextTouch={person.next_touch_date}
-        lastTouch={person.last_touch_date}
-      />
+      <PersonControls person={person} onSaved={onSaved} onStop={stop} />
 
       <div className="flex items-center gap-1 shrink-0" onClick={stop}>
         {person.linkedin_url ? (
@@ -351,38 +381,219 @@ function PersonRow({
   );
 }
 
-function CadenceCell({
-  cadence,
-  nextTouch,
-  lastTouch,
+// ─── Inline classification dropdowns ────────────────────────────────────────
+
+const SELECT_CLS =
+  "h-7 rounded-md border border-border bg-background px-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring";
+
+function ControlField({
+  label,
+  title,
+  children,
 }: {
-  cadence: CadenceInterval;
-  nextTouch: string | null;
-  lastTouch: string | null;
+  label: string;
+  title?: string;
+  children: React.ReactNode;
 }) {
-  const isPast = nextTouch && nextTouch <= todayISO();
   return (
-    <div className="w-44 shrink-0 text-[11px]">
-      <div className="flex items-center gap-1.5">
-        <CalendarClock className="h-3 w-3 text-muted-foreground" />
-        <span className="font-medium text-foreground/90">
-          {CADENCE_LABELS[cadence]}
-        </span>
-      </div>
-      <div className="mt-0.5 text-muted-foreground">
-        {nextTouch ? (
-          <span className={cn(isPast ? "text-amber-400" : "")}>
-            {isPast ? "due " : "next "}
-            {fmtRelative(nextTouch)}
-          </span>
-        ) : lastTouch ? (
-          <span>last touch {fmtRelative(lastTouch)}</span>
-        ) : (
-          <span className="italic">no schedule</span>
-        )}
-      </div>
+    <label className="flex flex-col gap-0.5" title={title}>
+      <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function PersonControls({
+  person,
+  onSaved,
+  onStop,
+}: {
+  person: OutreachPerson;
+  onSaved: () => void;
+  onStop: (e: React.MouseEvent) => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  // Optimistic local state seeded from props. The row remounts (new key) after
+  // onSaved -> router.refresh, so these stay in sync with any external edits.
+  const [relevance, setRelevance] = useState(person.relevance_tier ?? "");
+  const [degree, setDegree] = useState(
+    person.network_degree != null ? String(person.network_degree) : ""
+  );
+  const [intent, setIntentVal] = useState<string>(person.intent ?? "");
+  const [cadence, setCadenceVal] = useState<string>(person.cadence_interval);
+  const [rel, setRel] = useState<string>(person.relationship_type ?? "");
+
+  function commit(
+    apply: () => Promise<{ ok: true } | { ok: false; error: string }>,
+    revert: () => void
+  ) {
+    startTransition(async () => {
+      const result = await apply();
+      if (!result.ok) {
+        revert();
+        toast.error(result.error);
+        return;
+      }
+      onSaved();
+    });
+  }
+
+  return (
+    <div
+      className={cn("flex flex-wrap items-end gap-1.5", pending && "opacity-60")}
+      onClick={onStop}
+    >
+      <ControlField label="A/B/C" title="Relevance — A most relevant → C least">
+        <select
+          className={SELECT_CLS}
+          value={relevance}
+          disabled={pending}
+          onChange={(e) => {
+            const prev = relevance;
+            const next = e.target.value;
+            setRelevance(next);
+            commit(
+              () =>
+                setRelevanceTier(
+                  person.id,
+                  (next || null) as RelevanceTier | null
+                ),
+              () => setRelevance(prev)
+            );
+          }}
+        >
+          <option value="">—</option>
+          {RELEVANCE_TIERS.map((t) => (
+            <option key={t} value={t} title={RELEVANCE_TIER_LABELS[t]}>
+              {t}
+            </option>
+          ))}
+        </select>
+      </ControlField>
+
+      <ControlField label="1/2/3" title="Network degree — 1 know well, 2 intro'd by a 1, 3 by a 2">
+        <select
+          className={SELECT_CLS}
+          value={degree}
+          disabled={pending}
+          onChange={(e) => {
+            const prev = degree;
+            const next = e.target.value;
+            setDegree(next);
+            commit(
+              () =>
+                setNetworkDegree(
+                  person.id,
+                  next ? (Number(next) as NetworkDegree) : null
+                ),
+              () => setDegree(prev)
+            );
+          }}
+        >
+          <option value="">—</option>
+          {NETWORK_DEGREES.map((d) => (
+            <option key={d} value={String(d)} title={NETWORK_DEGREE_LABELS[d]}>
+              {d}
+            </option>
+          ))}
+        </select>
+      </ControlField>
+
+      <ControlField label="Intent">
+        <select
+          className={SELECT_CLS}
+          value={intent}
+          disabled={pending}
+          onChange={(e) => {
+            const prev = intent;
+            const next = e.target.value;
+            setIntentVal(next);
+            commit(
+              () =>
+                setContactIntent(
+                  person.id,
+                  (next || null) as ContactIntent | null
+                ),
+              () => setIntentVal(prev)
+            );
+          }}
+        >
+          <option value="">Auto</option>
+          {CONTACT_INTENTS.map((i) => (
+            <option key={i} value={i}>
+              {CONTACT_INTENT_LABELS[i]}
+            </option>
+          ))}
+        </select>
+      </ControlField>
+
+      <ControlField label="Cadence">
+        <select
+          className={SELECT_CLS}
+          value={cadence}
+          disabled={pending}
+          onChange={(e) => {
+            const prev = cadence;
+            const next = e.target.value;
+            setCadenceVal(next);
+            commit(
+              () => setCadence(person.id, next as CadenceInterval),
+              () => setCadenceVal(prev)
+            );
+          }}
+        >
+          {CADENCE_INTERVALS.map((c) => (
+            <option key={c} value={c}>
+              {CADENCE_LABELS[c]}
+            </option>
+          ))}
+        </select>
+      </ControlField>
+
+      <ControlField label="Classification">
+        <select
+          className={SELECT_CLS}
+          value={rel}
+          disabled={pending}
+          onChange={(e) => {
+            const prev = rel;
+            const next = e.target.value;
+            setRel(next);
+            commit(
+              () =>
+                setRelationshipType(
+                  person.id,
+                  (next || null) as RelationshipType | null
+                ),
+              () => setRel(prev)
+            );
+          }}
+        >
+          <option value="">Unclassified</option>
+          {RELATIONSHIP_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {RELATIONSHIP_TYPE_LABELS[t]}
+            </option>
+          ))}
+        </select>
+      </ControlField>
     </div>
   );
+}
+
+function scheduleIsPast(person: OutreachPerson): boolean {
+  return Boolean(person.next_touch_date && person.next_touch_date <= todayISO());
+}
+
+function scheduleHint(person: OutreachPerson): string {
+  if (person.next_touch_date) {
+    const past = person.next_touch_date <= todayISO();
+    return `${past ? "due" : "next"} ${fmtRelative(person.next_touch_date)}`;
+  }
+  if (person.last_touch_date) return `last touch ${fmtRelative(person.last_touch_date)}`;
+  return "no schedule";
 }
 
 function todayISO() {
