@@ -193,6 +193,21 @@ export async function updateWorkSearch(data: {
   return { ok: true };
 }
 
+export async function deleteWorkSearch(
+  id: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+
+  const db = createPublicServiceRoleClient();
+  // parent_activity_id is ON DELETE SET NULL, so removing a parent just unlinks
+  // any follow-ups rather than deleting them.
+  const { error } = await db.from("work_searches").delete().eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/nyui");
+  return { ok: true };
+}
+
 export async function addBusinessHours(data: {
   date: string;
   entity: string;

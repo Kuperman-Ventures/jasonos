@@ -11,11 +11,13 @@ import {
   Printer,
   Plus,
   Pencil,
+  Trash2,
   Info,
 } from "lucide-react";
 import {
   addWorkSearch,
   updateWorkSearch,
+  deleteWorkSearch,
   addBusinessHours,
   getExportData,
   type NyuiWeekData,
@@ -1529,12 +1531,18 @@ function AllApplications({
   currentWeekStart,
   onFollowUp,
   onEdit,
+  onDelete,
+  onAddToWeek,
+  deletingId,
   onNavigate,
 }: {
   workSearches: WorkSearch[];
   currentWeekStart: string;
   onFollowUp: (ws: WorkSearch) => void;
   onEdit: (ws: WorkSearch) => void;
+  onDelete: (ws: WorkSearch) => void;
+  onAddToWeek: (weekStart: string) => void;
+  deletingId: string | null;
   onNavigate: (screen: SubScreen) => void;
 }) {
   // Group every activity into its Sunday-start claim week (same boundary as the
@@ -1625,15 +1633,24 @@ function AllApplications({
                   Tier A {tierA} · Tier B {tierB}
                 </p>
               </div>
-              {goalMet ? (
-                <StatusBadge variant="success">
-                  <CheckCircle2 className="h-3 w-3" /> Goal Met
-                </StatusBadge>
-              ) : (
-                <StatusBadge variant={uniqueDays >= 2 ? "warning" : "neutral"}>
-                  {uniqueDays} / 3 days
-                </StatusBadge>
-              )}
+              <div className="flex items-center gap-2">
+                {goalMet ? (
+                  <StatusBadge variant="success">
+                    <CheckCircle2 className="h-3 w-3" /> Goal Met
+                  </StatusBadge>
+                ) : (
+                  <StatusBadge variant={uniqueDays >= 2 ? "warning" : "neutral"}>
+                    {uniqueDays} / 3 days
+                  </StatusBadge>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onAddToWeek(start)}
+                  className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium text-foreground hover:bg-muted/80"
+                >
+                  <Plus className="h-3 w-3" /> Add to this week
+                </button>
+              </div>
             </div>
 
             <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
@@ -1687,6 +1704,15 @@ function AllApplications({
                           >
                             <Plus className="h-3 w-3" /> Add follow-up
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => onDelete(ws)}
+                            disabled={deletingId === ws.id}
+                            className="inline-flex items-center gap-1 text-[11px] text-destructive/80 hover:text-destructive underline underline-offset-2 disabled:opacity-50"
+                          >
+                            <Trash2 className="h-3 w-3" />{" "}
+                            {deletingId === ws.id ? "Deleting…" : "Delete"}
+                          </button>
                         </div>
                       </div>
                       <StatusBadge variant={resultVariant(ws.result)}>
@@ -1727,9 +1753,12 @@ export function NyuiClient({
   weekEnd: string;
   allWorkSearches: WorkSearch[];
 }) {
+  const router = useRouter();
   const [subScreen, setSubScreen] = useState<SubScreen>("dashboard");
   const [wsPrefill, setWsPrefill] = useState<WorkSearchPrefill | null>(null);
   const [wsEditId, setWsEditId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [, startDelete] = useTransition();
 
   // Tab navigation always starts a fresh (non-prefilled) work-search log.
   function goToScreen(screen: SubScreen) {
@@ -1780,6 +1809,32 @@ export function NyuiClient({
     setSubScreen("log-work-search");
   }
 
+  // "Add to this week": start a fresh log pre-dated into the chosen claim week
+  // (Sunday start); the user can pick the exact day in the form.
+  function handleAddToWeek(weekStart: string) {
+    setWsEditId(null);
+    setWsPrefill({ date: weekStart });
+    setSubScreen("log-work-search");
+  }
+
+  // Remove an entire activity (with confirmation), then refresh server data.
+  function handleDelete(ws: WorkSearch) {
+    const label = `${ws.company_name} — ${fmtDate(ws.date)}`;
+    if (!window.confirm(`Delete this work-search entry?\n\n${label}\n\nThis can't be undone.`)) {
+      return;
+    }
+    setDeletingId(ws.id);
+    startDelete(async () => {
+      const res = await deleteWorkSearch(ws.id);
+      setDeletingId(null);
+      if (!res.ok) {
+        window.alert(`Could not delete: ${res.error}`);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
   return (
     <section className="pb-4">
       <div className="flex gap-1 mb-6 border-b border-border">
@@ -1815,6 +1870,9 @@ export function NyuiClient({
           currentWeekStart={weekStart}
           onFollowUp={handleFollowUp}
           onEdit={handleEdit}
+          onDelete={handleDelete}
+          onAddToWeek={handleAddToWeek}
+          deletingId={deletingId}
           onNavigate={goToScreen}
         />
       )}
