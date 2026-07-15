@@ -10,10 +10,12 @@ import {
   CheckCircle2,
   Printer,
   Plus,
+  Pencil,
   Info,
 } from "lucide-react";
 import {
   addWorkSearch,
+  updateWorkSearch,
   addBusinessHours,
   getExportData,
   type NyuiWeekData,
@@ -133,8 +135,10 @@ const ADVISOR_PRESET = {
   next_contact_date: "",
 };
 
-// Prefill payload passed from the dashboard "add follow-up" action (Gap 4).
+// Prefill payload passed from the dashboard "add follow-up" action (Gap 4) and
+// the "edit" action (which also carries the date so the whole row loads).
 type WorkSearchPrefill = {
+  date?: string;
   company_name?: string;
   company_location?: string;
   contact_method?: string;
@@ -1037,15 +1041,18 @@ function WorkSearchForm({
   onSuccess,
   onBack,
   prefill,
+  editId,
 }: {
   onSuccess: () => void;
   onBack: () => void;
   prefill?: WorkSearchPrefill | null;
+  editId?: string | null;
 }) {
+  const isEdit = Boolean(editId);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState({
-    date: todayStr(),
+    date: prefill?.date ?? todayStr(),
     company_name: prefill?.company_name ?? "",
     company_location: prefill?.company_location ?? "",
     contact_method: prefill?.contact_method ?? "",
@@ -1120,7 +1127,7 @@ function WorkSearchForm({
     setErrors({});
     setServerError(null);
     startTransition(async () => {
-      const result = await addWorkSearch({
+      const payload = {
         date: form.date,
         company_name: form.company_name.trim(),
         company_location: form.company_location.trim(),
@@ -1131,8 +1138,11 @@ function WorkSearchForm({
         activity_tier: form.activity_tier || deriveTier(form.contact_method),
         outcome_next_step: form.outcome_next_step.trim() || null,
         next_contact_date: form.next_contact_date || null,
-        parent_activity_id: parentActivityId,
-      });
+      };
+      const result =
+        isEdit && editId
+          ? await updateWorkSearch({ id: editId, ...payload })
+          : await addWorkSearch({ ...payload, parent_activity_id: parentActivityId });
       if (!result.ok) {
         setServerError(result.error);
         return;
@@ -1153,9 +1163,13 @@ function WorkSearchForm({
         >
           ← Back to Dashboard
         </button>
-        <h2 className="text-lg font-bold text-foreground">Log Work Search Activity</h2>
+        <h2 className="text-lg font-bold text-foreground">
+          {isEdit ? "Edit Work Search Activity" : "Log Work Search Activity"}
+        </h2>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Record each contact or application attempt for NYS DOL compliance.
+          {isEdit
+            ? "Update this logged activity. Changes save to the existing entry."
+            : "Record each contact or application attempt for NYS DOL compliance."}
         </p>
       </div>
 
@@ -1163,19 +1177,26 @@ function WorkSearchForm({
         {done ? (
           <div className="py-8 text-center">
             <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto mb-3" />
-            <p className="font-semibold text-foreground">Activity logged successfully</p>
+            <p className="font-semibold text-foreground">
+              {isEdit ? "Changes saved" : "Activity logged successfully"}
+            </p>
             <p className="text-sm text-muted-foreground mt-1">Returning to dashboard…</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
-            {parentActivityId && (
+            {isEdit && (
+              <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-200">
+                Editing a previously logged activity. Saving updates this entry in place.
+              </div>
+            )}
+            {!isEdit && parentActivityId && (
               <div className="rounded-md border border-sky-500/30 bg-sky-500/5 px-3 py-2 text-xs text-sky-200">
                 Adding a follow-up stage to an existing opportunity — employer details are
                 pre-filled. This still counts as its own activity toward the weekly requirement.
               </div>
             )}
 
-            {!parentActivityId && (
+            {!parentActivityId && !isEdit && (
               <button
                 type="button"
                 onClick={applyAdvisorPreset}
@@ -1312,7 +1333,11 @@ function WorkSearchForm({
               disabled={isPending}
               className="w-full rounded-md bg-foreground py-2.5 text-sm font-semibold text-background hover:bg-foreground/90 disabled:opacity-50 transition-colors"
             >
-              {isPending ? "Submitting…" : "Log Work Search Activity"}
+              {isPending
+                ? "Submitting…"
+                : isEdit
+                ? "Save Changes"
+                : "Log Work Search Activity"}
             </button>
           </form>
         )}
@@ -1503,11 +1528,13 @@ function AllApplications({
   workSearches,
   currentWeekStart,
   onFollowUp,
+  onEdit,
   onNavigate,
 }: {
   workSearches: WorkSearch[];
   currentWeekStart: string;
   onFollowUp: (ws: WorkSearch) => void;
+  onEdit: (ws: WorkSearch) => void;
   onNavigate: (screen: SubScreen) => void;
 }) {
   // Group every activity into its Sunday-start claim week (same boundary as the
@@ -1645,13 +1672,22 @@ function AllApplications({
                               : ""}
                           </p>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => onFollowUp(ws)}
-                          className="mt-1 inline-flex items-center gap-1 text-[11px] text-foreground/70 hover:text-foreground underline underline-offset-2"
-                        >
-                          <Plus className="h-3 w-3" /> Add follow-up
-                        </button>
+                        <div className="mt-1 flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => onEdit(ws)}
+                            className="inline-flex items-center gap-1 text-[11px] text-foreground/70 hover:text-foreground underline underline-offset-2"
+                          >
+                            <Pencil className="h-3 w-3" /> Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onFollowUp(ws)}
+                            className="inline-flex items-center gap-1 text-[11px] text-foreground/70 hover:text-foreground underline underline-offset-2"
+                          >
+                            <Plus className="h-3 w-3" /> Add follow-up
+                          </button>
+                        </div>
                       </div>
                       <StatusBadge variant={resultVariant(ws.result)}>
                         {ws.result}
@@ -1693,15 +1729,26 @@ export function NyuiClient({
 }) {
   const [subScreen, setSubScreen] = useState<SubScreen>("dashboard");
   const [wsPrefill, setWsPrefill] = useState<WorkSearchPrefill | null>(null);
+  const [wsEditId, setWsEditId] = useState<string | null>(null);
 
   // Tab navigation always starts a fresh (non-prefilled) work-search log.
   function goToScreen(screen: SubScreen) {
-    if (screen === "log-work-search") setWsPrefill(null);
+    if (screen === "log-work-search") {
+      setWsPrefill(null);
+      setWsEditId(null);
+    }
     setSubScreen(screen);
+  }
+
+  function resetWorkSearchForm() {
+    setWsPrefill(null);
+    setWsEditId(null);
+    setSubScreen("dashboard");
   }
 
   // "Add follow-up" (Gap 4): pre-fill employer details + link to the parent.
   function handleFollowUp(ws: WorkSearch) {
+    setWsEditId(null);
     setWsPrefill({
       company_name: ws.company_name,
       company_location: ws.company_location,
@@ -1710,6 +1757,25 @@ export function NyuiClient({
       contact_person: ws.contact_person ?? "",
       position_applied: ws.position_applied,
       parent_activity_id: ws.id,
+    });
+    setSubScreen("log-work-search");
+  }
+
+  // "Edit" from the All Applications history: load the whole row into the same
+  // work-search form; saving updates the entry in place.
+  function handleEdit(ws: WorkSearch) {
+    setWsEditId(ws.id);
+    setWsPrefill({
+      date: ws.date,
+      company_name: ws.company_name,
+      company_location: ws.company_location,
+      contact_method: ws.contact_method,
+      activity_tier: tierOf(ws),
+      contact_person: ws.contact_person ?? "",
+      position_applied: ws.position_applied,
+      result: ws.result,
+      outcome_next_step: ws.outcome_next_step ?? "",
+      next_contact_date: ws.next_contact_date ?? "",
     });
     setSubScreen("log-work-search");
   }
@@ -1748,20 +1814,17 @@ export function NyuiClient({
           workSearches={allWorkSearches}
           currentWeekStart={weekStart}
           onFollowUp={handleFollowUp}
+          onEdit={handleEdit}
           onNavigate={goToScreen}
         />
       )}
       {subScreen === "log-work-search" && (
         <WorkSearchForm
+          key={wsEditId ?? "new"}
           prefill={wsPrefill}
-          onSuccess={() => {
-            setWsPrefill(null);
-            setSubScreen("dashboard");
-          }}
-          onBack={() => {
-            setWsPrefill(null);
-            setSubScreen("dashboard");
-          }}
+          editId={wsEditId}
+          onSuccess={resetWorkSearchForm}
+          onBack={resetWorkSearchForm}
         />
       )}
       {subScreen === "log-business-hours" && (

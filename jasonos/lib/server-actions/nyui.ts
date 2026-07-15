@@ -156,6 +156,43 @@ export async function addWorkSearch(data: {
   return { ok: true };
 }
 
+export async function updateWorkSearch(data: {
+  id: string;
+  date: string;
+  company_name: string;
+  company_location: string;
+  contact_method: string;
+  contact_person: string | null;
+  position_applied: string;
+  result: string;
+  activity_tier?: string | null;
+  outcome_next_step?: string | null;
+  next_contact_date?: string | null;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+
+  const db = createPublicServiceRoleClient();
+  const { error } = await db
+    .from("work_searches")
+    .update({
+      date: data.date,
+      company_name: data.company_name,
+      company_location: data.company_location,
+      contact_method: data.contact_method,
+      contact_person: data.contact_person,
+      position_applied: data.position_applied,
+      result: data.result,
+      activity_tier: data.activity_tier ?? null,
+      outcome_next_step: data.outcome_next_step ?? null,
+      next_contact_date: data.next_contact_date ?? null,
+    })
+    .eq("id", data.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/nyui");
+  return { ok: true };
+}
+
 export async function addBusinessHours(data: {
   date: string;
   entity: string;
