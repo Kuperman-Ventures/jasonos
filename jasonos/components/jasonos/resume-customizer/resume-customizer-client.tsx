@@ -39,6 +39,10 @@ import {
 const DOCX_TYPE =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
+function norm(s: string): string {
+  return s.replace(/\s+/g, " ").trim();
+}
+
 function downloadBase64Docx(base64: string, filename: string) {
   const bin = atob(base64);
   const bytes = new Uint8Array(bin.length);
@@ -504,8 +508,14 @@ function ResultPanel({
         </Button>
       </div>
 
-      <div className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-3">
+      <div className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
         <span>{result.applied} edit(s) applied to the .docx</span>
+        {result.skippedForLength.length > 0 && (
+          <span className="text-amber-300">
+            {result.skippedForLength.length} suggestion(s) not applied to keep the
+            page count (would lengthen — apply manually)
+          </span>
+        )}
         {result.unmatched.length > 0 && (
           <span className="text-amber-300">
             {result.unmatched.length} suggested edit(s) couldn&rsquo;t be located
@@ -568,10 +578,18 @@ function ResultPanel({
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p className="text-xs font-medium">{c.section}</p>
-                      {c.changeType === "reorder" && (
+                      {c.changeType === "reorder" ? (
                         <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
                           reorder — apply manually
                         </span>
+                      ) : (
+                        c.before &&
+                        c.after &&
+                        norm(c.after).length > norm(c.before).length && (
+                          <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-300">
+                            not applied — would add length
+                          </span>
+                        )
                       )}
                     </div>
                     <p className="mt-1 text-[11px] text-muted-foreground">

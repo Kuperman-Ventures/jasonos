@@ -46,6 +46,7 @@ export interface CustomizeResult {
   applied: number;
   unmatched: string[];
   unpreserved: string[];
+  skippedForLength: string[];
 }
 
 export interface ActionError {
@@ -244,16 +245,28 @@ export async function customizeResume(
     return { ok: false, error: `Analysis failed: ${e instanceof Error ? e.message : "unknown error"}` };
   }
 
-  // 5. Apply Before/After edits (reorder suggestions are reported, not auto-moved)
+  // 5. Apply Before/After edits (reorder suggestions are reported, not auto-moved).
+  //    Hard length backstop: never write an edit that would grow the paragraph
+  //    (after must be <= before in length). This guarantees the tailored .docx
+  //    cannot spill onto extra pages — length-growing suggestions are reported
+  //    for manual application instead of being applied automatically.
+  const isTextEdit = (c: (typeof analysis.changes)[number]) =>
+    c.changeType !== "reorder" &&
+    c.before.trim().length > 0 &&
+    c.after.trim().length > 0 &&
+    normalize(c.before) !== normalize(c.after);
+
   const edits: ParagraphEdit[] = analysis.changes
     .filter(
-      (c) =>
-        c.changeType !== "reorder" &&
-        c.before.trim().length > 0 &&
-        c.after.trim().length > 0 &&
-        normalize(c.before) !== normalize(c.after)
+      (c) => isTextEdit(c) && normalize(c.after).length <= normalize(c.before).length
     )
     .map((c) => ({ before: c.before, after: c.after }));
+
+  const skippedForLength: string[] = analysis.changes
+    .filter(
+      (c) => isTextEdit(c) && normalize(c.after).length > normalize(c.before).length
+    )
+    .map((c) => c.section);
 
   const { output, applied, unmatched, unpreserved } = applyParagraphEdits(
     resumeBuffer,
@@ -276,7 +289,7 @@ export async function customizeResume(
       filename,
       storage_path: storagePath,
       match_score: analysis.matchScore,
-      report: { analysis, applied, unmatched, unpreserved },
+      report: { analysis, applied, unmatched, unpreserved, skippedForLength },
     })
     .select("id")
     .single();
@@ -292,6 +305,7 @@ export async function customizeResume(
     applied,
     unmatched,
     unpreserved,
+    skippedForLength,
   };
 }
 
