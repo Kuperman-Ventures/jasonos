@@ -131,7 +131,6 @@ function endOfWorkWeek(today: Date): Date {
 function computeUrgency(
   nextActionDueDate: string | null,
   contactedToday: boolean,
-  recentlyContacted: boolean, // outbound touch within last 3 days
 ): CommUrgency {
   if (contactedToday) return "sent_today";
 
@@ -143,10 +142,10 @@ function computeUrgency(
   const diffDays = (due.getTime() - today.getTime()) / 86_400_000;
 
   if (diffDays <= 0) return "due_today";
-  // If already reached out recently and next touch is in the future, they're
-  // scheduled — not an active action item for this week.
-  if (recentlyContacted) return "scheduled";
-  // Calendar week: due on or before this Friday → this week; later → scheduled.
+  // The next-action date is authoritative: due on or before this Friday → this
+  // week; later → scheduled. A manual reschedule INTO this week therefore moves
+  // the contact into "Due This Week" even if we reached out recently (previously
+  // a recent-touch shortcut kept such contacts parked in Scheduled).
   if (due.getTime() <= endOfWorkWeek(today).getTime()) return "this_week";
   return "scheduled";
 }
@@ -311,8 +310,6 @@ export async function getCommunicationsData(): Promise<CommunicationsContact[]> 
       peersByFirm.set(p.firm_normalized, arr);
     }
 
-    const threeDaysAgo = addDays(today, -3);
-
     // 6. Build the CommunicationsContact[] result.
     const contacts: CommunicationsContact[] = [];
     for (const p of eligible) {
@@ -330,7 +327,6 @@ export async function getCommunicationsData(): Promise<CommunicationsContact[]> 
       let lastTouch: CommTouch | null = null;
       let recentTouches: CommTouch[] = [];
       let contactedToday = false;
-      let recentlyContacted = false;
 
       if (contactTouches.length) {
         const top = contactTouches[0];
@@ -352,11 +348,6 @@ export async function getCommunicationsData(): Promise<CommunicationsContact[]> 
           (t) =>
             t.direction === "outbound" && new Date(t.touched_at) >= today
         );
-        recentlyContacted = contactTouches.some(
-          (t) =>
-            t.direction === "outbound" &&
-            new Date(t.touched_at) >= threeDaysAgo
-        );
       } else if (p.last_touch_date) {
         const synth = new Date(`${p.last_touch_date}T00:00:00`);
         lastTouch = {
@@ -368,7 +359,6 @@ export async function getCommunicationsData(): Promise<CommunicationsContact[]> 
         };
         recentTouches = [lastTouch];
         contactedToday = synth >= today;
-        recentlyContacted = synth >= threeDaysAgo;
       }
 
       // Prefer rr_contact_state.next_action_due_date when the recruiter
@@ -406,11 +396,7 @@ export async function getCommunicationsData(): Promise<CommunicationsContact[]> 
         firm_normalized: p.firm_normalized ?? null,
         firm_focus_rank: p.firm_focus_rank ?? null,
         strength: normalizeStrength(p.strategic_score),
-        urgency: computeUrgency(
-          nextActionDueDate,
-          contactedToday,
-          recentlyContacted
-        ),
+        urgency: computeUrgency(nextActionDueDate, contactedToday),
         lastTouch,
         recentTouches,
         nextActionDueDate,
