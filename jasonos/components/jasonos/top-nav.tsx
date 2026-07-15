@@ -34,6 +34,7 @@ const NAV: NavItem[] = [
       { href: "/nyui",           label: "NYUI" },
     ],
   },
+  { kind: "link",  href: "/resume-customizer", label: "Resume Customizer" },
   { kind: "link",  href: "/outreach", label: "Outreach" },
   { kind: "link",  href: "/browning", label: "Browning" },
   { kind: "link",  href: "/activity", label: "Weekly Report" },
