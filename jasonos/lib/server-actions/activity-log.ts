@@ -39,10 +39,13 @@ export interface GateMoved {
 }
 
 export interface WeeklyActivityLog {
-  weekStart: string; // Saturday (YYYY-MM-DD)
-  weekEnd: string; // Friday (YYYY-MM-DD)
-  prevWeekEnd: string;
-  nextWeekEnd: string;
+  weekStart: string; // last Tuesday (YYYY-MM-DD) — first day covered
+  weekEnd: string; // the following Monday (YYYY-MM-DD) — last day covered
+  /** The Tuesday this report is anchored to ("this Tuesday"). */
+  anchor: string;
+  /** Anchor Tuesdays for navigation (passed as ?week=). */
+  prevWeek: string;
+  nextWeek: string;
   isCurrentWeek: boolean;
   outreach: {
     touchCount: number;
@@ -89,12 +92,13 @@ function addDays(base: string, days: number): string {
   return ymd(d);
 }
 
-// The Friday that ends the Saturday→Friday week containing `anchor`.
-function weekEndingFriday(anchor: string): string {
-  const d = new Date(`${anchor}T00:00:00Z`);
-  const day = d.getUTCDay(); // 0 Sun .. 6 Sat
-  const daysToFriday = (5 - day + 7) % 7;
-  d.setUTCDate(d.getUTCDate() + daysToFriday);
+// The most recent Tuesday on or before `ref`. The report is "Tuesday to
+// Tuesday": generated on a Tuesday, it covers the 7 days ending the day
+// before (last Tue → this Mon), i.e. the week that just completed.
+function tuesdayAnchor(ref: string): string {
+  const d = new Date(`${ref}T00:00:00Z`);
+  const back = (d.getUTCDay() - 2 + 7) % 7; // Tue = 2
+  d.setUTCDate(d.getUTCDate() - back);
   return ymd(d);
 }
 
@@ -112,18 +116,20 @@ export async function getWeeklyActivityLog(
   weekParam?: string
 ): Promise<WeeklyActivityLog> {
   const todayYmd = ymd(new Date());
-  const anchor = weekParam && /^\d{4}-\d{2}-\d{2}$/.test(weekParam) ? weekParam : todayYmd;
-  const weekEnd = weekEndingFriday(anchor);
-  const weekStart = addDays(weekEnd, -6);
-  const prevWeekEnd = addDays(weekEnd, -7);
-  const nextWeekEnd = addDays(weekEnd, 7);
-  const isCurrentWeek = weekEnd === weekEndingFriday(todayYmd);
+  const ref = weekParam && /^\d{4}-\d{2}-\d{2}$/.test(weekParam) ? weekParam : todayYmd;
+  const anchor = tuesdayAnchor(ref); // "this Tuesday"
+  const weekStart = addDays(anchor, -7); // last Tuesday (first day covered)
+  const weekEnd = addDays(anchor, -1); // Monday (last day covered)
+  const prevWeek = addDays(anchor, -7);
+  const nextWeek = addDays(anchor, 7);
+  const isCurrentWeek = anchor === tuesdayAnchor(todayYmd);
 
   const empty: WeeklyActivityLog = {
     weekStart,
     weekEnd,
-    prevWeekEnd,
-    nextWeekEnd,
+    anchor,
+    prevWeek,
+    nextWeek,
     isCurrentWeek,
     outreach: {
       touchCount: 0,
@@ -309,8 +315,9 @@ export async function getWeeklyActivityLog(
   return {
     weekStart,
     weekEnd,
-    prevWeekEnd,
-    nextWeekEnd,
+    anchor,
+    prevWeek,
+    nextWeek,
     isCurrentWeek,
     outreach: {
       touchCount: touches.length,
