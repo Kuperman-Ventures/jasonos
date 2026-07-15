@@ -1,4 +1,4 @@
-import { getWeekData } from "@/lib/server-actions/nyui";
+import { getWeekData, getAllWorkSearches } from "@/lib/server-actions/nyui";
 import { NyuiClient } from "@/components/jasonos/nyui/nyui-client";
 
 export const dynamic = "force-dynamic";
@@ -16,11 +16,19 @@ function getWeekBounds(): { start: string; end: string } {
 
 export default async function NyuiPage() {
   const { start, end } = getWeekBounds();
-  const data = await getWeekData(start, end);
+  const [data, allWorkSearches] = await Promise.all([
+    getWeekData(start, end),
+    getAllWorkSearches(),
+  ]);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
-      <NyuiClient initialData={data} weekStart={start} weekEnd={end} />
+      <NyuiClient
+        initialData={data}
+        weekStart={start}
+        weekEnd={end}
+        allWorkSearches={allWorkSearches}
+      />
     </div>
   );
 }

@@ -1488,10 +1488,194 @@ function BusinessHoursForm({
 
 // ─── Root Client Component ────────────────────────────────────────────────────
 
-type SubScreen = "dashboard" | "log-work-search" | "log-business-hours";
+// ─── All Applications (all-time history, grouped by claim week) ─────────────────
+
+function resultVariant(
+  result: string
+): "success" | "warning" | "danger" | "neutral" {
+  if (result === "Offer Received") return "success";
+  if (result === "Interview Scheduled") return "warning";
+  if (result === "Rejected") return "danger";
+  return "neutral";
+}
+
+function AllApplications({
+  workSearches,
+  currentWeekStart,
+  onFollowUp,
+  onNavigate,
+}: {
+  workSearches: WorkSearch[];
+  currentWeekStart: string;
+  onFollowUp: (ws: WorkSearch) => void;
+  onNavigate: (screen: SubScreen) => void;
+}) {
+  // Group every activity into its Sunday-start claim week (same boundary as the
+  // dashboard and the audit ledger), newest week first.
+  const weeks = new Map<string, WorkSearch[]>();
+  for (const ws of workSearches) {
+    const key = weekRangeOf(ws.date).start;
+    const list = weeks.get(key);
+    if (list) list.push(ws);
+    else weeks.set(key, [ws]);
+  }
+  const weekKeys = [...weeks.keys()].sort((a, b) => (a < b ? 1 : -1));
+
+  const totalActivities = workSearches.length;
+
+  if (totalActivities === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm text-center py-12">
+        <Clock className="h-7 w-7 mx-auto mb-2 text-muted-foreground/30" />
+        <p className="text-sm text-muted-foreground">
+          No work search activities logged yet
+        </p>
+        <button
+          type="button"
+          onClick={() => onNavigate("log-work-search")}
+          className="mt-2 text-xs text-foreground underline underline-offset-2"
+        >
+          Log your first activity →
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-foreground">All Applications</h2>
+          <p className="text-sm text-muted-foreground">
+            Every logged work-search activity, broken out by claim week
+          </p>
+        </div>
+        <StatusBadge variant="neutral">
+          {totalActivities} activit{totalActivities !== 1 ? "ies" : "y"} ·{" "}
+          {weekKeys.length} week{weekKeys.length !== 1 ? "s" : ""}
+        </StatusBadge>
+      </div>
+
+      {weekKeys.map((key) => {
+        const items = weeks.get(key)!;
+        const { start, end } = weekRangeOf(items[0].date);
+        const uniqueDays = new Set(items.map((w) => w.date)).size;
+        const goalMet = uniqueDays >= 3;
+        const tierA = items.filter((w) => tierOf(w) === "employer_contact").length;
+        const tierB = items.filter((w) => tierOf(w) === "networking").length;
+        const isCurrent = start === currentWeekStart;
+
+        // Chronological within the week; "↳ same day" for repeats on a date.
+        const byDate = items.reduce<Record<string, WorkSearch[]>>((acc, ws) => {
+          acc[ws.date] = acc[ws.date] ? [...acc[ws.date], ws] : [ws];
+          return acc;
+        }, {});
+
+        const startShort = new Date(start + "T12:00:00").toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        });
+        const endShort = new Date(end + "T12:00:00").toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+
+        return (
+          <div key={key} className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <h3 className="font-semibold text-foreground flex items-center gap-2">
+                  Week of {startShort} – {endShort}
+                  {isCurrent && (
+                    <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-foreground text-background">
+                      This week
+                    </span>
+                  )}
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {items.length} activit{items.length !== 1 ? "ies" : "y"} ·{" "}
+                  Tier A {tierA} · Tier B {tierB}
+                </p>
+              </div>
+              {goalMet ? (
+                <StatusBadge variant="success">
+                  <CheckCircle2 className="h-3 w-3" /> Goal Met
+                </StatusBadge>
+              ) : (
+                <StatusBadge variant={uniqueDays >= 2 ? "warning" : "neutral"}>
+                  {uniqueDays} / 3 days
+                </StatusBadge>
+              )}
+            </div>
+
+            <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
+              {Object.keys(byDate)
+                .sort()
+                .map((date) =>
+                  byDate[date].map((ws, i) => (
+                    <div
+                      key={ws.id}
+                      className="grid grid-cols-[104px_1fr_auto] gap-3 px-3 py-2.5 text-sm items-start"
+                    >
+                      <span
+                        className={`font-medium tabular-nums text-xs pt-0.5 ${
+                          i > 0 ? "text-muted-foreground/40" : "text-muted-foreground"
+                        }`}
+                      >
+                        {i === 0 ? fmtDate(date) : "↳ same day"}
+                      </span>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <p className="font-medium text-foreground leading-snug">
+                            {ws.company_name}
+                          </p>
+                          <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                            {TIER_SHORT[tierOf(ws)]}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {ws.position_applied} · {ws.contact_method}
+                        </p>
+                        {ws.outcome_next_step && (
+                          <p className="text-xs text-muted-foreground/80 mt-0.5">
+                            ↳ {ws.outcome_next_step}
+                            {ws.next_contact_date
+                              ? ` (next: ${fmtDate(ws.next_contact_date)})`
+                              : ""}
+                          </p>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => onFollowUp(ws)}
+                          className="mt-1 inline-flex items-center gap-1 text-[11px] text-foreground/70 hover:text-foreground underline underline-offset-2"
+                        >
+                          <Plus className="h-3 w-3" /> Add follow-up
+                        </button>
+                      </div>
+                      <StatusBadge variant={resultVariant(ws.result)}>
+                        {ws.result}
+                      </StatusBadge>
+                    </div>
+                  ))
+                )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+type SubScreen =
+  | "dashboard"
+  | "all-applications"
+  | "log-work-search"
+  | "log-business-hours";
 
 const SUB_NAV: { id: SubScreen; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
+  { id: "all-applications", label: "All Applications" },
   { id: "log-work-search", label: "Log Work Search" },
   { id: "log-business-hours", label: "Log Business Hours" },
 ];
@@ -1500,10 +1684,12 @@ export function NyuiClient({
   initialData,
   weekStart,
   weekEnd,
+  allWorkSearches,
 }: {
   initialData: NyuiWeekData;
   weekStart: string;
   weekEnd: string;
+  allWorkSearches: WorkSearch[];
 }) {
   const [subScreen, setSubScreen] = useState<SubScreen>("dashboard");
   const [wsPrefill, setWsPrefill] = useState<WorkSearchPrefill | null>(null);
@@ -1555,6 +1741,14 @@ export function NyuiClient({
           weekEnd={weekEnd}
           onNavigate={goToScreen}
           onFollowUp={handleFollowUp}
+        />
+      )}
+      {subScreen === "all-applications" && (
+        <AllApplications
+          workSearches={allWorkSearches}
+          currentWeekStart={weekStart}
+          onFollowUp={handleFollowUp}
+          onNavigate={goToScreen}
         />
       )}
       {subScreen === "log-work-search" && (

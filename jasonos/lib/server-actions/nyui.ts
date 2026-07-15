@@ -62,6 +62,23 @@ export async function getWeekData(weekStart: string, weekEnd: string): Promise<N
 }
 
 /**
+ * All work-search activities across all time, newest first. Powers the
+ * "All Applications" history view (grouped by claim week in the client).
+ */
+export async function getAllWorkSearches(): Promise<WorkSearch[]> {
+  if (!hasConfig()) return [];
+
+  const db = createPublicServiceRoleClient();
+  const { data } = await db
+    .from("work_searches")
+    .select("*")
+    .order("date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  return (data ?? []) as WorkSearch[];
+}
+
+/**
  * NYS Work Search ID (format "NY" + 9 digits). Sensitive config — stamped on
  * audit exports so an auditor can match the claimant, NEVER the SSN. Stored in
  * the NYUI_WORK_SEARCH_ID env var (server-only); the SSN is never stored or
