@@ -660,11 +660,11 @@ export async function getOutreachContactByRecruiterId(
 
   const sb = createServiceRoleClient();
   const fullColumns = `id,name,emails,linkedin_url,title,vip,tags,
-     relationship_type,cadence_interval,cadence_stage,intent,next_touch_date,
-     last_touch_date,last_touch_channel`;
+     relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
+     network_degree,next_touch_date,last_touch_date,last_touch_channel`;
   const noIntentColumns = `id,name,emails,linkedin_url,title,vip,tags,
-     relationship_type,cadence_interval,cadence_stage,next_touch_date,
-     last_touch_date,last_touch_channel`;
+     relationship_type,cadence_interval,cadence_stage,relevance_tier,
+     network_degree,next_touch_date,last_touch_date,last_touch_channel`;
 
   let result = await sb
     .from("contacts")
@@ -854,11 +854,11 @@ export async function getContactCardData(input: {
   // 2. Load the canonical contact row. Mirrors getOutreachContactByRecruiterId
   // schema fallbacks so this works even when migration 0017 hasn't shipped.
   const fullColumns = `id,name,emails,linkedin_url,title,vip,tags,source_ids,
-     relationship_type,cadence_interval,cadence_stage,intent,next_touch_date,
-     last_touch_date,last_touch_channel`;
+     relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
+     network_degree,next_touch_date,last_touch_date,last_touch_channel`;
   const noIntentColumns = `id,name,emails,linkedin_url,title,vip,tags,source_ids,
-     relationship_type,cadence_interval,cadence_stage,next_touch_date,
-     last_touch_date,last_touch_channel`;
+     relationship_type,cadence_interval,cadence_stage,relevance_tier,
+     network_degree,next_touch_date,last_touch_date,last_touch_channel`;
 
   let contactResult = await sb
     .from("contacts")
