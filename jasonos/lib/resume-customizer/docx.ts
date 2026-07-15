@@ -92,12 +92,76 @@ export interface ApplyEditsResult {
   unmatched: string[];
   /** Edited paragraphs whose intra-run styling was collapsed (see note above). */
   unpreserved: string[];
+  /**
+   * Matched edits that were NOT applied because the "after" would wrap onto an
+   * extra line (which would grow the page count). Values are normalized
+   * `before` text. Prevents a tailored resume from spilling onto a new page.
+   */
+  overLength: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Line-budget estimation. We keep the resume's page count by never letting an
+// edited paragraph occupy MORE lines than it already does (and we never add or
+// remove paragraphs). To decide that, we estimate how many text lines a
+// paragraph occupies from the document's real page width, margins, default
+// font size, and the paragraph's own indent — deliberately biased slightly
+// conservative so we don't under-count lines and accidentally grow a page.
+// ---------------------------------------------------------------------------
+
+function usableWidthTwips(doc: XmlDocument): number {
+  const sects = doc.getElementsByTagName("w:sectPr");
+  const sect = sects.length ? sects[sects.length - 1] : null;
+  let pageW = 12240; // US Letter default
+  let left = 1440;
+  let right = 1440;
+  if (sect) {
+    const pgSz = sect.getElementsByTagName("w:pgSz")[0];
+    if (pgSz) pageW = parseInt(pgSz.getAttribute("w:w") ?? "", 10) || pageW;
+    const pgMar = sect.getElementsByTagName("w:pgMar")[0];
+    if (pgMar) {
+      left = parseInt(pgMar.getAttribute("w:left") ?? "", 10) || left;
+      right = parseInt(pgMar.getAttribute("w:right") ?? "", 10) || right;
+    }
+  }
+  return Math.max(2000, pageW - left - right);
+}
+
+function defaultFontHalfPoints(zip: PizZip): number {
+  const styles = zip.file("word/styles.xml")?.asText();
+  if (styles) {
+    const def = styles.match(
+      /<w:docDefaults>[\s\S]*?<w:rPrDefault>[\s\S]*?<w:sz\s+w:val="(\d+)"/
+    );
+    if (def) return parseInt(def[1], 10) || 22;
+    const any = styles.match(/<w:sz\s+w:val="(\d+)"/);
+    if (any) return parseInt(any[1], 10) || 22;
+  }
+  return 22; // 11pt
+}
+
+function paragraphIndentTwips(p: XmlElement): number {
+  const pPr = p.getElementsByTagName("w:pPr")[0];
+  if (!pPr) return 0;
+  const ind = pPr.getElementsByTagName("w:ind")[0];
+  if (!ind) return 0;
+  const left = ind.getAttribute("w:left") ?? ind.getAttribute("w:start");
+  return left ? Math.max(0, parseInt(left, 10) || 0) : 0;
+}
+
+function estimateLines(textLen: number, charsPerLine: number): number {
+  if (textLen <= 0) return 1;
+  return Math.max(1, Math.ceil(textLen / charsPerLine));
 }
 
 /**
- * Apply Before/After paragraph edits in place, preserving all formatting.
- * Only <w:t> text within matched paragraphs changes; every other zip part is
- * left byte-identical.
+ * Apply Before/After paragraph edits in place, preserving all formatting AND
+ * the page count. Only <w:t> text within matched paragraphs changes; every
+ * other zip part is left byte-identical. An edit is applied only if the
+ * replacement text fits within the SAME number of lines the paragraph already
+ * uses — so keyword swaps that consume a line's trailing slack are allowed, but
+ * anything that would wrap onto a new line (and risk a new page) is skipped and
+ * reported in `overLength`.
  */
 export function applyParagraphEdits(
   buffer: Buffer,
@@ -105,6 +169,12 @@ export function applyParagraphEdits(
 ): ApplyEditsResult {
   const { zip, doc } = loadDocumentXml(buffer);
   const paragraphs = doc.getElementsByTagName("w:p");
+
+  const usable = usableWidthTwips(doc);
+  const fontHalfPt = defaultFontHalfPoints(zip);
+  // Average glyph advance for a proportional body font ≈ 0.52 × point size,
+  // nudged up ~5% for safety. In twips: (fontHalfPt/2 pt) × 0.52 × 1.05 × 20.
+  const avgCharTwips = Math.max(60, fontHalfPt * 5.46);
 
   const remaining = new Map<string, string>();
   for (const e of edits) {
@@ -114,6 +184,7 @@ export function applyParagraphEdits(
 
   let applied = 0;
   const unpreserved: string[] = [];
+  const overLength: string[] = [];
 
   for (let i = 0; i < paragraphs.length && remaining.size > 0; i++) {
     const p = paragraphs[i];
@@ -123,6 +194,18 @@ export function applyParagraphEdits(
 
     const runs = p.getElementsByTagName("w:t");
     if (runs.length === 0) continue;
+
+    // Line-budget check: subtract this paragraph's indent, keep a small safety
+    // margin for list indents defined via numbering (not direct w:ind).
+    const paraWidth = Math.max(1500, usable - paragraphIndentTwips(p) - 180);
+    const cpl = Math.max(20, Math.floor(paraWidth / avgCharTwips));
+    const beforeLines = estimateLines(key.length, cpl);
+    const afterLines = estimateLines(normalize(after).length, cpl);
+    if (afterLines > beforeLines) {
+      overLength.push(key);
+      remaining.delete(key);
+      continue;
+    }
 
     // Multiple text runs → we'll collapse intra-run styling onto run 0.
     let nonEmptyRuns = 0;
@@ -146,5 +229,11 @@ export function applyParagraphEdits(
     compression: "DEFLATE",
   }) as Buffer;
 
-  return { output, applied, unmatched: [...remaining.keys()], unpreserved };
+  return {
+    output,
+    applied,
+    unmatched: [...remaining.keys()],
+    unpreserved,
+    overLength,
+  };
 }

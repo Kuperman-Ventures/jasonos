@@ -256,22 +256,21 @@ export async function customizeResume(
     c.after.trim().length > 0 &&
     normalize(c.before) !== normalize(c.after);
 
-  const edits: ParagraphEdit[] = analysis.changes
-    .filter(
-      (c) => isTextEdit(c) && normalize(c.after).length <= normalize(c.before).length
-    )
-    .map((c) => ({ before: c.before, after: c.after }));
+  const textEdits = analysis.changes.filter(isTextEdit);
+  const edits: ParagraphEdit[] = textEdits.map((c) => ({
+    before: c.before,
+    after: c.after,
+  }));
 
-  const skippedForLength: string[] = analysis.changes
-    .filter(
-      (c) => isTextEdit(c) && normalize(c.after).length > normalize(c.before).length
-    )
+  // The line-aware apply step decides what fits without adding a page; it hands
+  // back the edits it skipped because they'd wrap onto a new line.
+  const { output, applied, unmatched, unpreserved, overLength } =
+    applyParagraphEdits(resumeBuffer, edits);
+
+  const overSet = new Set(overLength);
+  const skippedForLength: string[] = textEdits
+    .filter((c) => overSet.has(normalize(c.before)))
     .map((c) => c.section);
-
-  const { output, applied, unmatched, unpreserved } = applyParagraphEdits(
-    resumeBuffer,
-    edits
-  );
 
   // 6. Store the tailored output (filename from the company)
   const filename = safeCompanyFilename(analysis.company);
