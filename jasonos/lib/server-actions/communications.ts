@@ -141,11 +141,13 @@ function computeUrgency(
   due.setHours(0, 0, 0, 0);
   const diffDays = (due.getTime() - today.getTime()) / 86_400_000;
 
-  if (diffDays <= 0) return "due_today";
-  // The next-action date is authoritative: due on or before this Friday → this
-  // week; later → scheduled. A manual reschedule INTO this week therefore moves
-  // the contact into "Due This Week" even if we reached out recently (previously
-  // a recent-touch shortcut kept such contacts parked in Scheduled).
+  // Strictly past the next-touch date → overdue ("Due Now"). Due TODAY is not
+  // overdue; it belongs to this week.
+  if (diffDays < 0) return "due_today";
+  // The next-action date is authoritative: due today or on/before this Friday →
+  // this week; later → scheduled. A manual reschedule INTO this week therefore
+  // moves the contact into "Due This Week" even if we reached out recently
+  // (previously a recent-touch shortcut kept such contacts parked in Scheduled).
   if (due.getTime() <= endOfWorkWeek(today).getTime()) return "this_week";
   return "scheduled";
 }

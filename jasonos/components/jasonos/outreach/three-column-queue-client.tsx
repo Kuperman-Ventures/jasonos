@@ -127,7 +127,7 @@ const BANDS: BandDef[] = [
   {
     key: "overdue",
     label: "Overdue",
-    helper: "Due today or past next-touch date",
+    helper: "Past next-touch date",
     icon: AlertCircle,
     textColor: "text-red-300",
     headerBg: "bg-red-700/80",
@@ -136,7 +136,7 @@ const BANDS: BandDef[] = [
   {
     key: "due_this_week",
     label: "Due This Week",
-    helper: "Due for outreach by the end of this week (Fri)",
+    helper: "Due today or by the end of this week (Fri)",
     icon: Clock,
     textColor: "text-amber-300",
     headerBg: "bg-amber-600/70",
@@ -214,7 +214,7 @@ function deriveCardUrgency(
     return "engaged_today";
   }
   if (card.next_touch_date) {
-    if (card.next_touch_date <= today) return "overdue";
+    if (card.next_touch_date < today) return "overdue";
     if (card.next_touch_date <= endOfWorkWeekYMD(today)) return "due_this_week";
     return "scheduled";
   }
