@@ -33,6 +33,51 @@ export const resumeAnalysisSchema = z.object({
 export type ResumeAnalysis = z.infer<typeof resumeAnalysisSchema>;
 export type ResumeChange = z.infer<typeof resumeChangeSchema>;
 
+/**
+ * Strip "AI writing tells" from generated text so the tailored resume reads as
+ * human-written. Hard rule (per requirements): NEVER emit em-dashes. Also
+ * normalizes en-dashes, smart quotes, ellipsis, and non-breaking spaces to
+ * plain punctuation. Applied to every model-produced string that can reach the
+ * .docx or the report.
+ */
+export function stripAiTells(s: string): string {
+  return s
+    // Numeric ranges with an en-dash → hyphen (e.g. 2019–2024 → 2019-2024).
+    .replace(/(\d)\s*[\u2013\u2014\u2015]\s*(\d)/g, "$1-$2")
+    // Em / en / horizontal dashes used as punctuation → comma (human phrasing).
+    .replace(/\s*[\u2014\u2015]\s*/g, ", ")
+    .replace(/\s*\u2013\s*/g, ", ")
+    // Smart quotes → straight quotes.
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+    // Ellipsis → three dots; non-breaking / thin spaces → normal space.
+    .replace(/\u2026/g, "...")
+    .replace(/[\u00A0\u2009\u202F]/g, " ")
+    // Tidy artifacts from the replacements above.
+    .replace(/\s+,/g, ",")
+    .replace(/,\s*,/g, ",")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function sanitizeAnalysis(a: ResumeAnalysis): ResumeAnalysis {
+  return {
+    ...a,
+    company: stripAiTells(a.company),
+    roleTitle: stripAiTells(a.roleTitle),
+    summary: stripAiTells(a.summary),
+    // NOTE: `before` is left untouched — it must match the resume verbatim so
+    // the edit can be located. Only `after` (what gets written) is sanitized.
+    changes: a.changes.map((c) => ({
+      ...c,
+      section: stripAiTells(c.section),
+      reason: stripAiTells(c.reason),
+      jobRequirement: stripAiTells(c.jobRequirement),
+      after: stripAiTells(c.after),
+    })),
+  };
+}
+
 export async function analyzeResume(input: {
   resumeText: string;
   resumeParagraphs: { index: number; text: string }[];
@@ -49,7 +94,8 @@ You are returning STRUCTURED data (not a document). Rules for the structured out
 - "after" must be truthful and paste-ready. Never invent experience, titles, employers, dates, credentials, or metrics not present in the resume — only reword, reposition, resurface, or reorder what genuinely exists.
 - Use changeType "reorder" only to suggest moving an existing bullet; for reorder, set before/after to that bullet's exact text.
 - STRATEGY — PRIORITIZED SUBSTITUTION (most important): This is a fixed-length document. You are not adding content; you are UPGRADING it in place. Rank the resume's existing wording by how relevant it is to THIS job description, then spend your edits replacing the LEAST job-relevant existing words/phrases with the MOST job-relevant ones (missing keywords, required skills, the role's terminology). Every edit is a swap: keep what already aligns, and trade out generic or off-target wording for language that maps directly to the JD's priorities. Focus first on the highest-impact bullets (summary, most recent role, core-competency lines).
-- LENGTH / PAGE COUNT (hard constraint): The system automatically rejects any "after" that would wrap the paragraph onto an ADDITIONAL line, because that grows the page count. Each paragraph has a little trailing slack on its last line — you may use it, but do not exceed the paragraph's current number of lines. The safe way to guarantee this is to make each "after" the SAME LENGTH OR SHORTER than its "before": drop filler ("responsible for", "successfully", "in order to", redundant adjectives) to make room for the keyword you're swapping in. Never propose additions with an empty "before".
+- LENGTH / PAGE COUNT (hard constraint): The system automatically rejects any "after" that would wrap the paragraph onto an ADDITIONAL line, because that grows the page count. Each paragraph has a little trailing slack on its last line, you may use it, but do not exceed the paragraph's current number of lines. The safe way to guarantee this is to make each "after" the SAME LENGTH OR SHORTER than its "before": drop filler ("responsible for", "successfully", "in order to", redundant adjectives) to make room for the keyword you're swapping in. Never propose additions with an empty "before".
+- NO AI WRITING TELLS (hard rule): NEVER use em-dashes (—) or en-dashes (–) anywhere in "after" text — use commas, periods, or hyphens instead. Use straight quotes (' and ") only, never curly quotes. No ellipsis characters. Avoid clichéd AI filler words (e.g. "delve", "leverage" as filler, "seamless", "robust", "moreover", "furthermore", "in today's landscape"). Write plainly, like a human executive wrote it.
 - Provide up to 20 topKeywords.`;
 
   const prompt = `TARGET JOB DESCRIPTION:
@@ -69,5 +115,5 @@ ${numbered}`;
     maxOutputTokens: 8000,
   });
 
-  return object;
+  return sanitizeAnalysis(object);
 }
