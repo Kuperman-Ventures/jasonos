@@ -921,7 +921,14 @@ function StrengthDots({ strength }: { strength: number }) {
 
 function fmtDate(iso: string): string {
   try {
-    return new Date(iso).toLocaleDateString("en-US", {
+    // Date-only strings (YYYY-MM-DD, e.g. next_touch_date) must be parsed as
+    // LOCAL time. `new Date("2026-07-16")` is UTC midnight, which renders a day
+    // early in negative-UTC timezones — the source of the queue/card mismatch.
+    // Full ISO timestamps (touched_at) carry a zone and render as-is.
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(iso)
+      ? new Date(`${iso}T00:00:00`)
+      : new Date(iso);
+    return d.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
