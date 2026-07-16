@@ -265,9 +265,11 @@ export function Plan90Roadmap() {
             {progressPct}%
           </span>
         </div>
-        <p className="mt-1.5 text-[11px] italic text-muted-foreground">
-          North-star metric: {PLAN90.primaryMetric}
-        </p>
+        {PLAN90.primaryMetric ? (
+          <p className="mt-1.5 text-[11px] italic text-muted-foreground">
+            North-star metric: {PLAN90.primaryMetric}
+          </p>
+        ) : null}
       </div>
 
       <div className="overflow-x-auto px-4 pb-4">

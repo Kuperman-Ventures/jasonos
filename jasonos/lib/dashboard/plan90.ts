@@ -62,7 +62,10 @@ export const PLAN_TRACK_TO_REPO: Record<string, RepoTrack> = {
 // THE PLAN
 // ---------------------------------------------------------------------------
 
-export const PLAN90: Plan90 = {
+// Full previous plan retained as a template (not exported). The exported
+// PLAN90 below is intentionally emptied so the To-Dos 90-Day Plan starts blank;
+// restore by setting `tracks: PLAN90_TEMPLATE.tracks` in the export.
+const PLAN90_TEMPLATE: Plan90 = {
   startDate: "2026-05-11",
   endDate: "2026-08-02",
   weekCount: 12,
@@ -363,6 +366,14 @@ export const PLAN90: Plan90 = {
       ],
     },
   ],
+};
+
+// The 90-Day Plan content is intentionally empty. To repopulate, add tracks
+// here (or set `tracks: PLAN90_TEMPLATE.tracks` to restore the previous plan).
+export const PLAN90: Plan90 = {
+  ...PLAN90_TEMPLATE,
+  primaryMetric: "",
+  tracks: [],
 };
 
 // ---------------------------------------------------------------------------
