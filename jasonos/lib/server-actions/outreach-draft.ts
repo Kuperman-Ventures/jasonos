@@ -105,6 +105,20 @@ export async function loadOutreachContext(input: {
     },
   ];
 
+  // Replace the raw email/CRM dumps with a short, clear AI summary for the card.
+  // (Draft generation builds its own raw sources separately, so this is
+  // display-only and never starves the draft prompt of detail.)
+  await Promise.all(
+    sources.map(async (s) => {
+      if (!s.found || !s.summary) return;
+      if (s.source !== "gmail" && s.source !== "hubspot") return;
+      s.summary = await summarizeSourceForCard(
+        s.summary,
+        s.source === "gmail" ? "email thread" : "CRM activity log"
+      );
+    })
+  );
+
   const suggestedMode = autoSelectMode({
     contact,
     gmail: gmailResult,
@@ -118,6 +132,29 @@ export async function loadOutreachContext(input: {
     recentTouches: touches,
     suggestedMode,
   };
+}
+
+// Compress a raw email thread / CRM activity dump into a short, clear blurb for
+// the contact card. Falls back to the raw text if the model call fails or the
+// content is already short.
+async function summarizeSourceForCard(raw: string, kind: string): Promise<string> {
+  const trimmed = raw.trim();
+  if (trimmed.length < 200) return trimmed;
+  try {
+    const text = await callClaude({
+      model: "claude-sonnet-4-6",
+      maxTokens: 180,
+      system:
+        "You compress raw communication history into a crisp summary for a networking CRM card. Reply with 1-2 short, plain sentences stating what the exchange is about and the latest status or next step. No preamble, no bullet points, no quotes, no greeting.",
+      messages: [
+        { role: "user", content: `Summarize this ${kind}:\n\n${trimmed.slice(0, 4000)}` },
+      ],
+    });
+    const out = text.trim();
+    return out.length > 0 ? out : trimmed;
+  } catch {
+    return trimmed;
+  }
 }
 
 function stubContextFor(contact: OutreachContact): ContactContext {
