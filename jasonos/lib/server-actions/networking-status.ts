@@ -1,17 +1,17 @@
 "use server";
 
-// Networking Status — a cumulative, all-time view of the network, derived
-// entirely from data already collected in the outreach feature (contacts,
-// contact_touches, browning_conversations). Mirrors the manual "activity log"
-// spreadsheet: roster by relevance/closeness, real conversations, awaiting-
-// response, and headline KPIs. No new data entry required.
+// Networking Activity — a thin, activity-only report broken out by week
+// (Tuesday to Tuesday). Shows what you DID: conversations had, new contacts
+// added, thank-yous sent, referrals received. No "what you didn't do" — no
+// awaiting/overdue/drift. Current week on top, history below. Derived entirely
+// from data already collected; nothing new to log.
 
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { getOutreachPeople } from "@/lib/outreach/data";
 import type { NetworkDegree, RelevanceTier } from "@/lib/outreach/types";
 
-// "Real conversation" channels — email/LinkedIn/text are how you land the
-// meeting, not networking itself, so they never count as a conversation.
+// "Real conversation" channels — email/LinkedIn/text land the meeting, they
+// aren't networking conversations, so they never appear as conversations.
 const CONVERSATION_CHANNELS = new Set([
   "phone",
   "call",
@@ -20,28 +20,6 @@ const CONVERSATION_CHANNELS = new Set([
   "calendar",
   "coffee_chat",
 ]);
-
-export type NsStatus =
-  | "spoke"
-  | "scheduled"
-  | "overdue"
-  | "awaiting"
-  | "contacted"
-  | "new";
-
-export interface NsRosterEntry {
-  id: string;
-  name: string;
-  firm: string | null;
-  title: string | null;
-  tier: RelevanceTier | null;
-  degree: NetworkDegree | null;
-  code: string;
-  lastTouch: string | null;
-  nextTouch: string | null;
-  status: NsStatus;
-  browning: boolean;
-}
 
 export interface NsConversation {
   id: string;
@@ -53,29 +31,35 @@ export interface NsConversation {
   brief: string | null;
   outcome: string | null;
   browning: boolean;
+  tier: RelevanceTier | null;
+  degree: NetworkDegree | null;
 }
 
-export interface NsNoResponse {
+export interface NsNewContact {
   id: string;
   name: string;
   firm: string | null;
-  lastOutreach: string;
-  channel: string;
+  tier: RelevanceTier | null;
+  degree: NetworkDegree | null;
 }
 
-export interface NetworkingStatus {
-  generatedAt: string;
-  kpis: {
-    total: number;
-    spoke: number;
-    awaiting: number;
+export interface WeekActivity {
+  weekStart: string; // Tuesday (YYYY-MM-DD), inclusive
+  weekEnd: string; // Monday (YYYY-MM-DD), inclusive
+  isCurrent: boolean;
+  conversations: NsConversation[];
+  newContacts: NsNewContact[];
+  stats: {
+    conversations: number;
+    newContacts: number;
     thankYous: number;
     referrals: number;
-    tierMatrix: { code: string; count: number }[];
   };
-  roster: NsRosterEntry[];
-  conversations: NsConversation[];
-  noResponse: NsNoResponse[];
+}
+
+export interface NetworkingActivity {
+  generatedAt: string;
+  weeks: WeekActivity[];
 }
 
 function hasConfig() {
@@ -84,172 +68,156 @@ function hasConfig() {
   );
 }
 
-function todayYmd(): string {
-  return new Date().toISOString().split("T")[0];
+function ymd(d: Date): string {
+  return d.toISOString().split("T")[0];
 }
 
-// Sort key so A1, A2, A3, A, B1… order correctly and unclassified sinks last.
-function sortCode(code: string): number {
-  if (!code) return 9999;
-  const tier = code[0];
-  const deg = code.slice(1);
-  const tierRank = tier === "A" ? 0 : tier === "B" ? 100 : tier === "C" ? 200 : 900;
-  const degRank = deg ? parseInt(deg, 10) || 8 : 9;
-  return tierRank + degRank;
+// Tuesday-start week for any YYYY-MM-DD: the most recent Tuesday on/before it.
+function weekStartOf(dateStr: string): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  const back = (d.getUTCDay() - 2 + 7) % 7; // Tue = 2
+  d.setUTCDate(d.getUTCDate() - back);
+  return ymd(d);
 }
 
-export async function getNetworkingStatus(): Promise<NetworkingStatus> {
-  const today = todayYmd();
-  const empty: NetworkingStatus = {
-    generatedAt: today,
-    kpis: { total: 0, spoke: 0, awaiting: 0, thankYous: 0, referrals: 0, tierMatrix: [] },
-    roster: [],
-    conversations: [],
-    noResponse: [],
-  };
-  if (!hasConfig()) return empty;
+function addDaysStr(dateStr: string, days: number): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return ymd(d);
+}
+
+function firmFromTags(tags: string[] | null): string | null {
+  const t = (tags ?? []).find((x) => x.startsWith("firm:"));
+  return t ? t.slice("firm:".length).replace(/-/g, " ") : null;
+}
+
+export async function getNetworkingActivity(): Promise<NetworkingActivity> {
+  const today = ymd(new Date());
+  const currentWeekStart = weekStartOf(today);
+  if (!hasConfig()) {
+    return {
+      generatedAt: today,
+      weeks: [
+        {
+          weekStart: currentWeekStart,
+          weekEnd: addDaysStr(currentWeekStart, 6),
+          isCurrent: true,
+          conversations: [],
+          newContacts: [],
+          stats: { conversations: 0, newContacts: 0, thankYous: 0, referrals: 0 },
+        },
+      ],
+    };
+  }
 
   const sb = createServiceRoleClient();
-  const [people, touchesRes, browningIdsRes, referralsRes] = await Promise.all([
-    getOutreachPeople(),
-    sb
-      .from("contact_touches")
-      .select("id,contact_id,channel,direction,touched_at,brief,outcome")
-      .order("touched_at", { ascending: false })
-      .limit(5000),
-    sb.from("contacts").select("id").eq("browning_source", true),
-    sb.from("browning_conversations").select("referrals_received"),
-  ]);
+  const [people, touchesRes, browningIdsRes, contactsRes, referralsRes] =
+    await Promise.all([
+      getOutreachPeople(),
+      sb
+        .from("contact_touches")
+        .select("id,contact_id,channel,direction,touched_at,brief,outcome")
+        .order("touched_at", { ascending: false })
+        .limit(8000),
+      sb.from("contacts").select("id").eq("browning_source", true),
+      sb
+        .from("contacts")
+        .select("id,name,tags,relevance_tier,network_degree,created_at,intent")
+        .order("created_at", { ascending: false }),
+      sb.from("browning_conversations").select("referrals_received,conversation_date"),
+    ]);
 
   const touches = touchesRes.data ?? [];
   const browningIds = new Set(
     (browningIdsRes.data ?? []).map((r) => r.id as string)
   );
-  const referrals = (referralsRes.data ?? []).reduce(
-    (s, r) => s + ((r.referrals_received as number | null) ?? 0),
-    0
-  );
-
-  // Per-contact touch aggregates for status + no-response detection.
-  type Agg = {
-    hasConversation: boolean;
-    hasInbound: boolean;
-    hasOutbound: boolean;
-    lastOutreach: { date: string; channel: string } | null;
-  };
-  const agg = new Map<string, Agg>();
-  for (const t of touches) {
-    const cid = t.contact_id as string | null;
-    if (!cid) continue;
-    const a =
-      agg.get(cid) ??
-      ({ hasConversation: false, hasInbound: false, hasOutbound: false, lastOutreach: null } as Agg);
-    const ch = (t.channel as string) ?? "";
-    const dir = (t.direction as string) ?? "outbound";
-    if (CONVERSATION_CHANNELS.has(ch)) a.hasConversation = true;
-    if (dir === "inbound") {
-      a.hasInbound = true;
-    } else {
-      a.hasOutbound = true;
-      // touches come newest-first, so the first outbound outreach we see is the
-      // most recent one (used for the "awaiting response" list).
-      if (!CONVERSATION_CHANNELS.has(ch) && ch !== "thank_you_note" && !a.lastOutreach) {
-        a.lastOutreach = { date: (t.touched_at as string).slice(0, 10), channel: ch };
-      }
-    }
-    agg.set(cid, a);
-  }
-
   const peopleById = new Map(people.map((p) => [p.id, p]));
 
-  const roster: NsRosterEntry[] = people
-    .filter((p) => p.intent !== "backrow")
-    .map((p) => {
-      const a = agg.get(p.id);
-      const code = `${p.relevance_tier ?? ""}${p.network_degree ?? ""}`;
-      let status: NsStatus;
-      if (a?.hasConversation) status = "spoke";
-      else if (p.next_touch_date && p.next_touch_date < today) status = "overdue";
-      else if (p.next_touch_date) status = "scheduled";
-      else if (a?.hasOutbound && !a.hasInbound) status = "awaiting";
-      else if (a?.hasOutbound) status = "contacted";
-      else status = "new";
-      return {
-        id: p.id,
-        name: p.name,
-        firm: p.firm,
-        title: p.title,
-        tier: p.relevance_tier,
-        degree: p.network_degree,
-        code,
-        lastTouch: p.last_touch_date ?? null,
-        nextTouch: p.next_touch_date ?? null,
-        status,
-        browning: browningIds.has(p.id),
+  // Ensure every week bucket exists lazily.
+  const weeks = new Map<string, WeekActivity>();
+  const weekFor = (weekStart: string): WeekActivity => {
+    let w = weeks.get(weekStart);
+    if (!w) {
+      w = {
+        weekStart,
+        weekEnd: addDaysStr(weekStart, 6),
+        isCurrent: weekStart === currentWeekStart,
+        conversations: [],
+        newContacts: [],
+        stats: { conversations: 0, newContacts: 0, thankYous: 0, referrals: 0 },
       };
-    })
-    .sort(
-      (a, b) => sortCode(a.code) - sortCode(b.code) || a.name.localeCompare(b.name)
-    );
+      weeks.set(weekStart, w);
+    }
+    return w;
+  };
+  // Always show the current week, even if quiet.
+  weekFor(currentWeekStart);
 
-  const conversations: NsConversation[] = touches
-    .filter((t) => CONVERSATION_CHANNELS.has((t.channel as string) ?? ""))
-    .slice(0, 400)
-    .map((t) => {
+  // Conversations + thank-yous from touches.
+  for (const t of touches) {
+    const date = (t.touched_at as string).slice(0, 10);
+    const ch = (t.channel as string) ?? "";
+    const wk = weekFor(weekStartOf(date));
+    if (ch === "thank_you_note") {
+      wk.stats.thankYous += 1;
+      continue;
+    }
+    if (CONVERSATION_CHANNELS.has(ch)) {
       const cid = t.contact_id as string;
       const p = peopleById.get(cid);
-      return {
+      wk.conversations.push({
         id: t.id as string,
         contactId: cid,
         name: p?.name ?? "Unknown contact",
         firm: p?.firm ?? null,
-        date: (t.touched_at as string).slice(0, 10),
-        channel: (t.channel as string) ?? "",
+        date,
+        channel: ch,
         brief: (t.brief as string | null) ?? null,
         outcome: (t.outcome as string | null) ?? null,
         browning: browningIds.has(cid),
-      };
-    });
-
-  const noResponse: NsNoResponse[] = roster
-    .filter((r) => r.status === "awaiting")
-    .map((r) => {
-      const a = agg.get(r.id);
-      return {
-        id: r.id,
-        name: r.name,
-        firm: r.firm,
-        lastOutreach: a?.lastOutreach?.date ?? r.lastTouch ?? today,
-        channel: a?.lastOutreach?.channel ?? "email",
-      };
-    })
-    .sort((a, b) => a.lastOutreach.localeCompare(b.lastOutreach));
-
-  const thankYous = touches.filter(
-    (t) => (t.channel as string) === "thank_you_note"
-  ).length;
-
-  const tierCounts = new Map<string, number>();
-  for (const r of roster) {
-    const c = r.code || "—";
-    tierCounts.set(c, (tierCounts.get(c) ?? 0) + 1);
+        tier: p?.relevance_tier ?? null,
+        degree: p?.network_degree ?? null,
+      });
+      wk.stats.conversations += 1;
+    }
   }
-  const tierMatrix = [...tierCounts.entries()]
-    .map(([code, count]) => ({ code, count }))
-    .sort((a, b) => sortCode(a.code === "—" ? "" : a.code) - sortCode(b.code === "—" ? "" : b.code));
 
-  return {
-    generatedAt: today,
-    kpis: {
-      total: roster.length,
-      spoke: roster.filter((r) => r.status === "spoke").length,
-      awaiting: noResponse.length,
-      thankYous,
-      referrals,
-      tierMatrix,
-    },
-    roster,
-    conversations,
-    noResponse,
-  };
+  // New contacts added, by created_at week.
+  for (const c of contactsRes.data ?? []) {
+    if ((c.intent as string) === "backrow") continue;
+    const created = c.created_at ? (c.created_at as string).slice(0, 10) : null;
+    if (!created) continue;
+    const wk = weekFor(weekStartOf(created));
+    const p = peopleById.get(c.id as string);
+    wk.newContacts.push({
+      id: c.id as string,
+      name: (c.name as string) ?? "Unknown",
+      firm: p?.firm ?? firmFromTags(c.tags as string[] | null),
+      tier: (c.relevance_tier as RelevanceTier | null) ?? null,
+      degree: (c.network_degree as NetworkDegree | null) ?? null,
+    });
+    wk.stats.newContacts += 1;
+  }
+
+  // Referrals received, by browning conversation_date week.
+  for (const r of referralsRes.data ?? []) {
+    const date = r.conversation_date as string | null;
+    if (!date) continue;
+    const wk = weekFor(weekStartOf(date.slice(0, 10)));
+    wk.stats.referrals += (r.referrals_received as number | null) ?? 0;
+  }
+
+  const ordered = [...weeks.values()].sort((a, b) =>
+    a.weekStart < b.weekStart ? 1 : -1
+  );
+
+  // Keep the current week (always) plus any historical week that has activity.
+  const hasActivity = (w: WeekActivity) =>
+    w.stats.conversations > 0 ||
+    w.stats.newContacts > 0 ||
+    w.stats.thankYous > 0 ||
+    w.stats.referrals > 0;
+  const filtered = ordered.filter((w) => w.isCurrent || hasActivity(w));
+
+  return { generatedAt: today, weeks: filtered };
 }
