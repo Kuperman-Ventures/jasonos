@@ -11,6 +11,7 @@ import {
   Star,
   Tag as TagIcon,
   ListOrdered,
+  ArrowDownWideNarrow,
   Archive,
   X,
 } from "lucide-react";
@@ -48,6 +49,34 @@ import type { OutreachPerson } from "@/lib/outreach/data";
 
 type RelFilter = RelationshipType | "unclassified";
 
+type SortKey = "relevance" | "closeness" | "name";
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: "relevance", label: "Relevance (A→C)" },
+  { value: "closeness", label: "Closeness (1→3)" },
+  { value: "name", label: "Name (A→Z)" },
+];
+
+// Nulls sort last so classified contacts lead.
+function tierRank(t: RelevanceTier | null): number {
+  return t === "A" ? 0 : t === "B" ? 1 : t === "C" ? 2 : 9;
+}
+function degreeRank(d: NetworkDegree | null): number {
+  return d ?? 9;
+}
+function comparePeople(a: OutreachPerson, b: OutreachPerson, sort: SortKey): number {
+  if (sort === "name") return a.name.localeCompare(b.name);
+  const at = tierRank(a.relevance_tier);
+  const bt = tierRank(b.relevance_tier);
+  const ad = degreeRank(a.network_degree);
+  const bd = degreeRank(b.network_degree);
+  if (sort === "relevance") {
+    return at - bt || ad - bd || a.name.localeCompare(b.name);
+  }
+  // closeness
+  return ad - bd || at - bt || a.name.localeCompare(b.name);
+}
+
 const FILTERS: { value: RelFilter; label: string }[] = [
   { value: "unclassified", label: "Unclassified" },
   ...RELATIONSHIP_TYPES.map((t) => ({
@@ -67,6 +96,7 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
   const [activeFilters, setActiveFilters] = useState<Set<RelFilter>>(
     () => new Set()
   );
+  const [sort, setSort] = useState<SortKey>("relevance");
   const [modalTarget, setModalTarget] = useState<OutreachPerson | null>(null);
 
   const clearFirmFilter = () => {
@@ -104,7 +134,7 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return people.filter((p) => {
+    const matched = people.filter((p) => {
       if (firmFilterNormalized) {
         if ((p.firm ?? "").trim().toLowerCase() !== firmFilterNormalized) {
           return false;
@@ -125,7 +155,8 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
         (p.primary_email ?? "").toLowerCase().includes(q)
       );
     });
-  }, [people, query, activeFilters, firmFilterNormalized]);
+    return matched.sort((a, b) => comparePeople(a, b, sort));
+  }, [people, query, activeFilters, firmFilterNormalized, sort]);
 
   return (
     <>
@@ -168,6 +199,21 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
               className="h-9 pl-8"
             />
           </div>
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <ArrowDownWideNarrow className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Sort</span>
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortKey)}
+              className="h-9 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="flex flex-wrap gap-1.5">
             {firmFilter ? (
               <button
