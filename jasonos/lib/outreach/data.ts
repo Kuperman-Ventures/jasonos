@@ -334,11 +334,19 @@ export async function getWarmthReminders(limit = 20): Promise<WarmthReminder[]> 
   const people = await getOutreachPeople();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  const todayStr = today.toISOString().split("T")[0];
 
   const reminders: WarmthReminder[] = [];
 
   for (const person of people) {
+    // Backrow contacts are out of the queue — never nag about them.
+    if (person.intent === "backrow") continue;
     if (!person.cadence_interval || person.cadence_interval === "none") continue;
+    // An explicit next-touch date is authoritative: if it's today or in the
+    // future, this contact is SCHEDULED, not drifting. (Manually pushing a
+    // touch out to, say, October must remove them from cadence drift.) Only
+    // contacts with no scheduled next touch, or a past-due one, can drift.
+    if (person.next_touch_date && person.next_touch_date >= todayStr) continue;
     const cadenceDays = CADENCE_DAYS[person.cadence_interval as Exclude<CadenceInterval, "none">];
     if (!cadenceDays) continue;
 
