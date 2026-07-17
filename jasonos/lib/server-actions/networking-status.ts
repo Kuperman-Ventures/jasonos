@@ -165,6 +165,8 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     if (CONVERSATION_CHANNELS.has(ch)) {
       const cid = t.contact_id as string;
       const p = peopleById.get(cid);
+      // Backburner (Backrow) contacts never appear in reports.
+      if (p?.intent === "backrow") continue;
       wk.conversations.push({
         id: t.id as string,
         contactId: cid,
