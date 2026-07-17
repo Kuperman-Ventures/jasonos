@@ -296,9 +296,11 @@ export function NetworkingStatusClient({ data }: { data: NetworkingStatus }) {
 
 function Kpi({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border bg-card p-3">
-      <p className="text-lg font-bold tabular-nums">{value}</p>
-      <p className="text-[11px] text-muted-foreground">{label}</p>
+    <div className="rounded-xl border bg-card p-3 shadow-sm">
+      <p className="text-2xl font-semibold tabular-nums leading-none">{value}</p>
+      <p className="mt-1.5 text-[11px] uppercase tracking-wider text-muted-foreground">
+        {label}
+      </p>
     </div>
   );
 }
@@ -324,24 +326,22 @@ function SectionHeader({
 function RosterRow({ r }: { r: NsRosterEntry }) {
   const st = STATUS_META[r.status];
   return (
-    <div className="flex items-center gap-3 px-4 py-2 text-sm">
+    <div className="grid grid-cols-[44px_1fr_auto] items-center gap-3 px-4 py-2 text-sm transition-colors hover:bg-muted/30 sm:grid-cols-[44px_1fr_150px_120px]">
       <TierDegreeBadge tier={r.tier} degree={r.degree} />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0">
         <p className="truncate font-medium">
           {r.name}
-          {r.firm ? (
-            <span className="ml-1.5 text-[11px] text-muted-foreground">
-              · {r.firm}
-            </span>
-          ) : null}
           {r.browning ? (
             <span className="ml-1.5 rounded-full border border-border bg-muted px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-muted-foreground">
               Browning
             </span>
           ) : null}
         </p>
+        {r.firm ? (
+          <p className="truncate text-[11px] text-muted-foreground">{r.firm}</p>
+        ) : null}
       </div>
-      <span className="shrink-0 text-[11px] text-muted-foreground">
+      <span className="hidden shrink-0 text-right text-[11px] text-muted-foreground sm:block">
         {r.nextTouch
           ? `Next ${fmt(r.nextTouch)}`
           : r.lastTouch
@@ -349,7 +349,7 @@ function RosterRow({ r }: { r: NsRosterEntry }) {
           : "—"}
       </span>
       <span
-        className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${st.cls}`}
+        className={`justify-self-end rounded-full border px-2 py-0.5 text-[10px] font-medium ${st.cls}`}
       >
         {st.label}
       </span>
@@ -359,36 +359,43 @@ function RosterRow({ r }: { r: NsRosterEntry }) {
 
 function ConversationRow({ c }: { c: NsConversation }) {
   return (
-    <li className="px-4 py-2.5 text-sm">
-      <div className="flex items-center gap-2">
-        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-          {fmt(c.date)}
-        </span>
+    <li className="grid grid-cols-[1fr] gap-x-3 px-4 py-2.5 text-sm transition-colors hover:bg-muted/30 sm:grid-cols-[92px_74px_1fr]">
+      <span className="hidden shrink-0 pt-0.5 font-mono text-[10px] text-muted-foreground sm:block">
+        {fmt(c.date)}
+      </span>
+      <span className="hidden pt-0.5 sm:block">
         <span className="rounded-sm border border-border px-1 py-0.5 text-[9px] uppercase text-muted-foreground">
           {chLabel(c.channel)}
         </span>
-        <span className="min-w-0 flex-1 truncate font-medium">
-          {c.name}
-          {c.firm ? (
-            <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">
-              · {c.firm}
+      </span>
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="min-w-0 flex-1 truncate font-medium">
+            {c.name}
+            {c.firm ? (
+              <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">
+                · {c.firm}
+              </span>
+            ) : null}
+          </span>
+          <span className="shrink-0 font-mono text-[10px] text-muted-foreground sm:hidden">
+            {chLabel(c.channel)} · {fmt(c.date)}
+          </span>
+          {c.browning ? (
+            <span className="shrink-0 rounded-full border border-border bg-muted px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-muted-foreground">
+              Browning
             </span>
           ) : null}
-        </span>
-        {c.browning ? (
-          <span className="shrink-0 rounded-full border border-border bg-muted px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-muted-foreground">
-            Browning
-          </span>
+        </div>
+        {c.brief ? (
+          <p className="mt-1 text-xs text-muted-foreground">{c.brief}</p>
+        ) : null}
+        {c.outcome ? (
+          <p className="mt-0.5 text-xs text-muted-foreground/80">
+            ↳ Next: {c.outcome}
+          </p>
         ) : null}
       </div>
-      {c.brief ? (
-        <p className="mt-1 text-xs text-muted-foreground">{c.brief}</p>
-      ) : null}
-      {c.outcome ? (
-        <p className="mt-0.5 text-xs text-muted-foreground/80">
-          ↳ Next: {c.outcome}
-        </p>
-      ) : null}
     </li>
   );
 }
