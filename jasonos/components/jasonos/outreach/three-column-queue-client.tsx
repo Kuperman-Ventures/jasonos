@@ -36,6 +36,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import { ContactCreateModal } from "@/components/jasonos/outreach/contact-create-modal";
+import { TierDegreeBadge } from "@/components/jasonos/outreach/tier-degree-badge";
 import { RELATIONSHIP_TYPE_LABELS } from "@/lib/outreach/types";
 import type { OutreachPerson } from "@/lib/outreach/data";
 import type { QueueCard, QueueColumnKey, ThreeColumnQueue } from "@/lib/outreach/queue-buckets";
@@ -247,6 +248,8 @@ function personToCard(p: OutreachPerson): QueueCard {
     firm: p.firm,
     vip: p.vip,
     relationship_type: p.relationship_type,
+    relevance_tier: p.relevance_tier,
+    network_degree: p.network_degree,
     primary_email: p.primary_email,
     linkedin_url: p.linkedin_url,
     cadence_interval: p.cadence_interval,
@@ -330,6 +333,8 @@ export function ThreeColumnQueueClient({
         firm: cc.firm,
         vip: person?.vip ?? false,
         relationship_type: person?.relationship_type ?? null,
+        relevance_tier: person?.relevance_tier ?? null,
+        network_degree: person?.network_degree ?? null,
         primary_email: person?.primary_email ?? null,
         linkedin_url: person?.linkedin_url ?? null,
         cadence_interval: person?.cadence_interval ?? "none",
@@ -871,6 +876,13 @@ function BandContactRow({
           </span>
         ) : null}
         <span className="truncate text-xs font-medium">{card.name}</span>
+        {card.relevance_tier || card.network_degree ? (
+          <TierDegreeBadge
+            tier={card.relevance_tier}
+            degree={card.network_degree}
+            className="ml-1.5 align-middle"
+          />
+        ) : null}
         {card.firm ? (
           <span className="ml-1.5 text-[10px] text-muted-foreground">
             · {card.firm}

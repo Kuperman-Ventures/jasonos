@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
+import { TierDegreeBadge } from "@/components/jasonos/outreach/tier-degree-badge";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import {
   CADENCE_INTERVALS,
@@ -311,6 +312,10 @@ function PersonRow({
       <div className="min-w-0 flex-1 basis-52">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-medium">{person.name}</span>
+          <TierDegreeBadge
+            tier={person.relevance_tier}
+            degree={person.network_degree}
+          />
           {person.vip ? (
             <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" />
           ) : null}

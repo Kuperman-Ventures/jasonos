@@ -52,6 +52,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
+import { TierDegreeBadge } from "@/components/jasonos/outreach/tier-degree-badge";
 import { FirstContactSequence } from "@/components/jasonos/reconnect/first-contact-sequence";
 import {
   CADENCE_DAYS,
@@ -60,9 +61,7 @@ import {
   CADENCE_LABELS,
   CONTACT_INTENT_HELPERS,
   CONTACT_INTENT_LABELS,
-  NETWORK_DEGREE_LABELS,
   PRIMARY_CONTACT_INTENTS,
-  RELEVANCE_TIER_LABELS,
   RELATIONSHIP_TYPES,
   RELATIONSHIP_TYPE_HELPERS,
   RELATIONSHIP_TYPE_LABELS,
@@ -744,27 +743,8 @@ export function OutreachModal({
                   LinkedIn
                 </a>
               ) : null}
-              {cardRelevance ? (
-                <span
-                  title={RELEVANCE_TIER_LABELS[cardRelevance]}
-                  className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[10px] font-medium"
-                >
-                  Relevance{" "}
-                  <span className="font-semibold text-foreground">
-                    {cardRelevance}
-                  </span>
-                </span>
-              ) : null}
-              {cardDegree ? (
-                <span
-                  title={NETWORK_DEGREE_LABELS[cardDegree]}
-                  className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[10px] font-medium"
-                >
-                  Degree{" "}
-                  <span className="font-semibold text-foreground">
-                    {cardDegree}
-                  </span>
-                </span>
+              {cardRelevance || cardDegree ? (
+                <TierDegreeBadge tier={cardRelevance} degree={cardDegree} />
               ) : null}
             </div>
           ) : null}

@@ -59,6 +59,8 @@ import type {
   CadenceStage,
   ContactIntent,
   RelationshipType,
+  RelevanceTier,
+  NetworkDegree,
 } from "@/lib/outreach/types";
 
 export type QueueColumnKey = "warm" | "specific" | "cold";
@@ -75,6 +77,8 @@ export interface QueueCard {
   firm: string | null;
   vip: boolean;
   relationship_type: RelationshipType | null;
+  relevance_tier: RelevanceTier | null;
+  network_degree: NetworkDegree | null;
   primary_email: string | null;
   linkedin_url: string | null;
 
@@ -438,6 +442,8 @@ function makeCard(
     firm: person.firm ?? reconnect?.firm ?? null,
     vip: person.vip,
     relationship_type: person.relationship_type,
+    relevance_tier: person.relevance_tier,
+    network_degree: person.network_degree,
     primary_email: person.primary_email,
     linkedin_url: person.linkedin_url ?? reconnect?.linkedin_url ?? null,
     cadence_interval: person.cadence_interval,
@@ -477,6 +483,8 @@ function makeCardFromReconnect(
     firm: r.firm ?? null,
     vip: false,
     relationship_type: null,
+    relevance_tier: null,
+    network_degree: null,
     primary_email: null,
     linkedin_url: r.linkedin_url ?? null,
     cadence_interval: "none",
