@@ -49,7 +49,6 @@ import {
   Sparkles,
   Flame,
   Archive,
-  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
@@ -217,6 +216,10 @@ export function OutreachModal({
   } | null>(null);
   const [browningDismissed, setBrowningDismissed] = useState(false);
 
+  // Which body tab is showing. "engage" = classify/schedule/log; "history" =
+  // communication context. Reset to "engage" on each open.
+  const [tab, setTab] = useState<"engage" | "history">("engage");
+
   // ------------------------------------------------------------------
   // Fetch on open
   // ------------------------------------------------------------------
@@ -238,6 +241,7 @@ export function OutreachModal({
       setContextRecentTouches([]);
       setBrowningPrompt(null);
       setBrowningDismissed(false);
+      setTab("engage");
 
       const result = await getContactCardData({
         contactId: contactId ?? null,
@@ -649,7 +653,8 @@ export function OutreachModal({
       <DialogContent className="flex max-h-[90vh] w-full max-w-3xl flex-col gap-0 p-0 sm:max-w-3xl">
         {/* HEADER */}
         <DialogHeader className="shrink-0 border-b px-5 py-4 pr-12">
-          <div className="flex items-start gap-2">
+          <div className="flex items-start gap-3">
+            <Monogram name={header.name} />
             <div className="min-w-0 flex-1">
               <DialogTitle className="flex flex-wrap items-center gap-2">
                 <span className="truncate">{header.name}</span>
@@ -763,66 +768,85 @@ export function OutreachModal({
               ) : null}
             </div>
           ) : null}
+
+          <StatusBar intent={intent} nextTouchDate={nextTouchDate} />
         </DialogHeader>
 
+        {/* TABS */}
+        <div className="shrink-0 border-b px-5">
+          <div className="-mb-px flex gap-5">
+            <TabBtn active={tab === "engage"} onClick={() => setTab("engage")}>
+              Engage
+            </TabBtn>
+            <TabBtn active={tab === "history"} onClick={() => setTab("history")}>
+              History
+            </TabBtn>
+          </div>
+        </div>
+
         {/* BODY */}
-        <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+        <div className="flex-1 overflow-y-auto px-5 py-4">
           {card.status === "error" ? (
-            <div className="rounded-md border border-red-500/40 bg-red-500/5 p-3 text-xs text-red-300">
+            <div className="mb-4 rounded-md border border-red-500/40 bg-red-500/5 p-3 text-xs text-red-300">
               {card.message}
             </div>
           ) : null}
 
-          <IntentControl intent={intent} onChange={handleIntentChange} />
+          {tab === "engage" ? (
+            <div className="space-y-4">
+              <IntentControl intent={intent} onChange={handleIntentChange} />
 
-          {intent !== "backrow" ? (
-            <NextTouchScheduler
-              value={nextTouchDate}
-              onChange={handleNextTouchChange}
-              saving={reschedulePending}
+              {intent === null ? <PickIntentHint /> : null}
+              {intent === "backrow" ? <BackrowExplainer /> : null}
+              {intent === "cold" ? (
+                <ColdSequenceSection recruiterPipeline={recruiterPipeline} />
+              ) : null}
+              {intent === "specific" ? (
+                <NextStepCard value={logOutcome} onChange={setLogOutcome} />
+              ) : null}
+
+              {intent !== "backrow" ? (
+                <ScheduleCard
+                  cadenceInterval={cadenceInterval}
+                  onCadenceChange={handleCadenceChange}
+                  nextTouchDate={nextTouchDate}
+                  onNextTouchChange={handleNextTouchChange}
+                  reschedulePending={reschedulePending}
+                />
+              ) : null}
+
+              <LogTouchPanel
+                channel={logChannel}
+                setChannel={setLogChannel}
+                brief={logBrief}
+                setBrief={setLogBrief}
+                outcome={logOutcome}
+                setOutcome={setLogOutcome}
+                hideOutcomeField={intent === "specific"}
+                objective={logObjective}
+                setObjective={setLogObjective}
+                onLog={handleLog}
+                logging={logging}
+                cadenceInterval={cadenceInterval}
+                logDate={logDate}
+                setLogDate={setLogDate}
+                nextTouchOverride={nextTouchOverride}
+                setNextTouchOverride={setNextTouchOverride}
+              />
+            </div>
+          ) : (
+            <RecentContextSection
+              loading={loadingCtx}
+              sources={sources}
+              recentTouches={
+                contextRecentTouches.length > 0
+                  ? contextRecentTouches
+                  : card.status === "ready"
+                  ? card.recentTouches
+                  : []
+              }
             />
-          ) : null}
-
-          <IntentSection
-            intent={intent}
-            cadenceInterval={cadenceInterval}
-            onCadenceChange={handleCadenceChange}
-            nextTouchDate={nextTouchDate}
-            recruiterPipeline={recruiterPipeline}
-            outcomeValue={logOutcome}
-            onOutcomeChange={setLogOutcome}
-          >
-            <LogTouchPanel
-              channel={logChannel}
-              setChannel={setLogChannel}
-              brief={logBrief}
-              setBrief={setLogBrief}
-              outcome={logOutcome}
-              setOutcome={setLogOutcome}
-              hideOutcomeField={intent === "specific"}
-              objective={logObjective}
-              setObjective={setLogObjective}
-              onLog={handleLog}
-              logging={logging}
-              cadenceInterval={cadenceInterval}
-              logDate={logDate}
-              setLogDate={setLogDate}
-              nextTouchOverride={nextTouchOverride}
-              setNextTouchOverride={setNextTouchOverride}
-            />
-          </IntentSection>
-
-          <RecentContextSection
-            loading={loadingCtx}
-            sources={sources}
-            recentTouches={
-              contextRecentTouches.length > 0
-                ? contextRecentTouches
-                : card.status === "ready"
-                ? card.recentTouches
-                : []
-            }
-          />
+          )}
         </div>
       </DialogContent>
       {browningPrompt ? (
@@ -931,137 +955,209 @@ function IntentControl({
 }
 
 // ---------------------------------------------------------------------------
-// Intent-dependent sub-sections
+// Header pieces — monogram avatar, at-a-glance status bar, tab button
 // ---------------------------------------------------------------------------
 
-function IntentSection({
-  intent,
-  cadenceInterval,
-  onCadenceChange,
-  nextTouchDate,
-  recruiterPipeline,
-  outcomeValue,
-  onOutcomeChange,
-  children,
-}: {
-  intent: ContactIntent | null;
-  cadenceInterval: CadenceInterval;
-  onCadenceChange: (next: CadenceInterval) => void;
-  nextTouchDate: string | null;
-  recruiterPipeline: RecruiterPipelineProps | undefined;
-  outcomeValue: string;
-  onOutcomeChange: (value: string) => void;
-  children: React.ReactNode;
-}) {
-  if (intent === null) {
-    return (
-      <section className="space-y-3">
-        <div className="rounded-md border border-dashed bg-muted/20 p-3 text-xs text-muted-foreground">
-          Pick an intent above to get started — Warm sets a steady cadence,
-          Specific drives an active next-step, Cold runs a first-contact
-          sequence.
-        </div>
-        {children}
-      </section>
-    );
-  }
-
-  if (intent === "warm") {
-    return (
-      <section className="space-y-3">
-        <CadencePicker
-          title="Warm cadence"
-          icon={<Flame className="h-3 w-3" />}
-          cadenceInterval={cadenceInterval}
-          onCadenceChange={onCadenceChange}
-          nextTouchDate={nextTouchDate}
-        />
-
-        {children}
-      </section>
-    );
-  }
-
-  if (intent === "specific") {
-    return (
-      <section className="space-y-3">
-        <div className="rounded-lg border bg-card/40 p-3">
-          <h3 className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            <Sparkles className="h-3 w-3" />
-            Next step
-          </h3>
-          <Textarea
-            placeholder="What's the outcome you're driving? (saved as the touch outcome when you log below)"
-            value={outcomeValue}
-            onChange={(e) => onOutcomeChange(e.target.value)}
-            rows={3}
-            className="text-xs"
-          />
-          <p className="mt-1 text-[10px] text-muted-foreground">
-            Writes to the next touch&rsquo;s outcome field — keeps the
-            follow-up thread legible from Recent Context.
-          </p>
-        </div>
-
-        <CadencePicker
-          title="Communication cadence"
-          icon={<CalendarClock className="h-3 w-3" />}
-          cadenceInterval={cadenceInterval}
-          onCadenceChange={onCadenceChange}
-          nextTouchDate={nextTouchDate}
-        />
-
-        {children}
-      </section>
-    );
-  }
-
-  if (intent === "backrow") {
-    return (
-      <section className="space-y-3">
-        <div className="rounded-md border border-dashed bg-muted/20 p-3 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1.5 font-medium text-foreground/80">
-            <Archive className="h-3.5 w-3.5" />
-            This contact is in Backrow — not in your queue.
-          </div>
-          <p className="mt-1 leading-relaxed">
-            They&rsquo;re still in your contacts list. Pick Warm, Specific, or
-            Cold above to bring them back into the queue, or use
-            &ldquo;Reset intent&rdquo; to let the derivation rules decide.
-          </p>
-        </div>
-      </section>
-    );
-  }
-
-  // intent === "cold"
+function Monogram({ name }: { name: string }) {
+  const initials =
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase() ?? "")
+      .join("") || "?";
   return (
-    <section className="space-y-3">
-      <ColdSequenceSection recruiterPipeline={recruiterPipeline} />
-      {children}
-    </section>
+    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-xs font-semibold text-muted-foreground">
+      {initials}
+    </div>
   );
 }
 
-function CadencePicker({
-  title,
-  icon,
-  cadenceInterval,
-  onCadenceChange,
+const INTENT_DOT: Record<ContactIntent, string> = {
+  warm: "bg-orange-400",
+  specific: "bg-sky-400",
+  cold: "bg-slate-400",
+  backrow: "bg-muted-foreground",
+};
+
+function nextTouchPill(
+  date: string | null,
+  today: string
+): { label: string; cls: string } {
+  if (!date)
+    return { label: "No next touch", cls: "border-border text-muted-foreground" };
+  const days = Math.round(
+    (new Date(`${date}T00:00:00`).getTime() -
+      new Date(`${today}T00:00:00`).getTime()) /
+      86_400_000
+  );
+  if (days < 0)
+    return {
+      label: `Overdue ${Math.abs(days)}d`,
+      cls: "border-red-500/40 bg-red-500/10 text-red-300",
+    };
+  if (days === 0)
+    return {
+      label: "Due today",
+      cls: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+    };
+  if (days <= 7)
+    return {
+      label: `Due in ${days}d`,
+      cls: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+    };
+  return {
+    label: `In ${days}d`,
+    cls: "border-sky-500/40 bg-sky-500/10 text-sky-300",
+  };
+}
+
+function StatusBar({
+  intent,
   nextTouchDate,
 }: {
-  title: string;
-  icon: React.ReactNode;
-  cadenceInterval: CadenceInterval;
-  onCadenceChange: (next: CadenceInterval) => void;
+  intent: ContactIntent | null;
   nextTouchDate: string | null;
+}) {
+  const nt = nextTouchPill(nextTouchDate, todayISODate());
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px]">
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5 font-medium text-muted-foreground">
+        <span
+          className={cn(
+            "h-1.5 w-1.5 rounded-full",
+            intent ? INTENT_DOT[intent] : "bg-muted-foreground/50"
+          )}
+        />
+        {intent ? CONTACT_INTENT_LABELS[intent] : "Unclassified"}
+      </span>
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium",
+          nt.cls
+        )}
+      >
+        <CalendarClock className="h-3 w-3" />
+        {nt.label}
+      </span>
+    </div>
+  );
+}
+
+function TabBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "border-b-2 px-1 py-2.5 text-sm font-medium transition-colors",
+        active
+          ? "border-foreground text-foreground"
+          : "border-transparent text-muted-foreground hover:text-foreground"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Engage-tab pieces — intent hints, next-step, unified schedule
+// ---------------------------------------------------------------------------
+
+function PickIntentHint() {
+  return (
+    <div className="rounded-md border border-dashed bg-muted/20 p-3 text-xs text-muted-foreground">
+      Pick an intent above to get started. Warm sets a steady cadence, Specific
+      drives an active next-step, Cold runs a first-contact sequence.
+    </div>
+  );
+}
+
+function BackrowExplainer() {
+  return (
+    <div className="rounded-md border border-dashed bg-muted/20 p-3 text-xs text-muted-foreground">
+      <div className="flex items-center gap-1.5 font-medium text-foreground/80">
+        <Archive className="h-3.5 w-3.5" />
+        This contact is in Backrow — not in your queue.
+      </div>
+      <p className="mt-1 leading-relaxed">
+        They&rsquo;re still in your contacts list. Pick Warm, Specific, or Cold
+        above to bring them back into the queue, or use &ldquo;Reset
+        intent&rdquo; to let the derivation rules decide.
+      </p>
+    </div>
+  );
+}
+
+function NextStepCard({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
 }) {
   return (
     <div className="rounded-lg border bg-card/40 p-3">
       <h3 className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {icon}
-        {title}
+        <Sparkles className="h-3 w-3" />
+        Next step
       </h3>
+      <Textarea
+        placeholder="What's the outcome you're driving? (saved as the touch outcome when you log below)"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={3}
+        className="text-xs"
+      />
+      <p className="mt-1 text-[10px] text-muted-foreground">
+        Writes to the next touch&rsquo;s outcome field, keeping the follow-up
+        thread legible from History.
+      </p>
+    </div>
+  );
+}
+
+// Unified scheduling: cadence rhythm + the concrete next-touch date, together.
+function ScheduleCard({
+  cadenceInterval,
+  onCadenceChange,
+  nextTouchDate,
+  onNextTouchChange,
+  reschedulePending,
+}: {
+  cadenceInterval: CadenceInterval;
+  onCadenceChange: (next: CadenceInterval) => void;
+  nextTouchDate: string | null;
+  onNextTouchChange: (date: string | null) => void;
+  reschedulePending: boolean;
+}) {
+  const today = todayISODate();
+  const chip =
+    "rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50";
+  return (
+    <section className="rounded-lg border bg-card/40 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <CalendarClock className="h-3 w-3" />
+          Schedule
+        </h3>
+        {reschedulePending ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+        ) : null}
+      </div>
+
+      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+        Cadence
+      </div>
       <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
         {CADENCE_INTERVALS.map((value) => (
           <button
@@ -1089,10 +1185,57 @@ function CadencePicker({
           </button>
         ))}
       </div>
-      <p className="mt-2 text-[11px] text-muted-foreground">
-        {nextTouchHint(cadenceInterval, nextTouchDate)}
+
+      <div className="mb-1 mt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+        Next touch
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Input
+          type="date"
+          value={nextTouchDate ?? ""}
+          disabled={reschedulePending}
+          onChange={(e) => onNextTouchChange(e.target.value || null)}
+          className="h-8 w-auto text-xs"
+        />
+        <button
+          type="button"
+          disabled={reschedulePending}
+          onClick={() => onNextTouchChange(addDaysISO(today, 7))}
+          className={chip}
+        >
+          Next week
+        </button>
+        <button
+          type="button"
+          disabled={reschedulePending}
+          onClick={() => onNextTouchChange(addDaysISO(today, 14))}
+          className={chip}
+        >
+          +2 weeks
+        </button>
+        <button
+          type="button"
+          disabled={reschedulePending}
+          onClick={() => onNextTouchChange(addDaysISO(today, 30))}
+          className={chip}
+        >
+          +1 month
+        </button>
+        {nextTouchDate ? (
+          <button
+            type="button"
+            disabled={reschedulePending}
+            onClick={() => onNextTouchChange(null)}
+            className={chip}
+          >
+            Clear
+          </button>
+        ) : null}
+      </div>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">
+        {nextTouchScheduleStatus(nextTouchDate, today)}
       </p>
-    </div>
+    </section>
   );
 }
 
@@ -1172,104 +1315,6 @@ function nextTouchScheduleStatus(value: string | null, today: string): string {
   if (days === 1) return "Scheduled for tomorrow.";
   if (days <= 7) return `Scheduled in ${days}d — shows in Due This Week.`;
   return `Scheduled in ${days}d.`;
-}
-
-// Reschedule the next touch directly — no touch logged, cadence unchanged.
-// This is how an overdue-but-unreachable contact gets pushed out of the
-// Overdue zone into Scheduled.
-function NextTouchScheduler({
-  value,
-  onChange,
-  saving,
-}: {
-  value: string | null;
-  onChange: (date: string | null) => void;
-  saving: boolean;
-}) {
-  const today = todayISODate();
-  const chip =
-    "rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50";
-  return (
-    <section className="rounded-lg border bg-card/40 p-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          <CalendarClock className="h-3 w-3" />
-          Next touch
-        </h3>
-        {saving ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-        ) : null}
-      </div>
-      <div className="flex flex-wrap items-center gap-1.5">
-        <Input
-          type="date"
-          value={value ?? ""}
-          disabled={saving}
-          onChange={(e) => onChange(e.target.value || null)}
-          className="h-8 w-auto text-xs"
-        />
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => onChange(addDaysISO(today, 7))}
-          className={chip}
-        >
-          Next week
-        </button>
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => onChange(addDaysISO(today, 14))}
-          className={chip}
-        >
-          +2 weeks
-        </button>
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => onChange(addDaysISO(today, 30))}
-          className={chip}
-        >
-          +1 month
-        </button>
-        {value ? (
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => onChange(null)}
-            className={chip}
-          >
-            Clear
-          </button>
-        ) : null}
-      </div>
-      <p className="mt-1.5 text-[11px] text-muted-foreground">
-        {nextTouchScheduleStatus(value, today)}
-      </p>
-    </section>
-  );
-}
-
-function nextTouchHint(
-  cadence: CadenceInterval,
-  nextTouchDate: string | null
-): string {
-  if (cadence === "none") {
-    return "No cadence set — contacts will only stamp last-touch when you log.";
-  }
-  if (!nextTouchDate) {
-    return `Cadence: ${CADENCE_LABELS[cadence]}. Next touch will be scheduled when you log the first one.`;
-  }
-  const target = new Date(`${nextTouchDate}T00:00:00`);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const days = Math.round(
-    (target.getTime() - today.getTime()) / 86_400_000
-  );
-  if (days < 0) return `Next touch is ${Math.abs(days)}d overdue.`;
-  if (days === 0) return "Next touch due today.";
-  if (days === 1) return "Next touch due tomorrow.";
-  return `Next touch due in ${days}d.`;
 }
 
 // ---------------------------------------------------------------------------
@@ -1510,7 +1555,6 @@ function RecentContextSection({
   sources: DraftSource[] | null;
   recentTouches: RecentTouch[];
 }) {
-  const [open, setOpen] = useState(false);
   const empty = useMemo(
     () =>
       !loading &&
@@ -1520,42 +1564,20 @@ function RecentContextSection({
     [loading, sources, recentTouches.length]
   );
 
-  const sourceHits = sources?.filter((s) => s.found).length ?? 0;
-  const summary = loading
-    ? "Loading…"
-    : empty
-    ? "No prior history found"
-    : [
-        recentTouches.length > 0
-          ? `${recentTouches.length} recent touch${recentTouches.length === 1 ? "" : "es"}`
-          : null,
-        sourceHits > 0 ? `${sourceHits} source${sourceHits === 1 ? "" : "s"}` : null,
-      ]
-        .filter(Boolean)
-        .join(" · ") || "History";
-
   return (
-    <section>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-2 rounded-md border bg-card/40 px-3 py-2 text-left transition-colors hover:bg-muted/40"
-      >
-        <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          <History className="h-3 w-3" />
-          Communication context
-        </span>
-        <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-          {summary}
-          <ChevronDown
-            className={cn("h-3.5 w-3.5 transition-transform", open ? "rotate-180" : "")}
-          />
-        </span>
-      </button>
+    <div className="space-y-2">
+      <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <History className="h-3 w-3" />
+        Communication context
+      </h3>
 
-      {!open ? null : (
-        <div className="mt-2">
+      {loading ? (
+        <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Loading Gmail / HubSpot / Granola / Fireflies…
+        </div>
+      ) : null}
+
       {!loading && sources ? (
         <div className="space-y-2">
           {recentTouches.length > 0 ? (
@@ -1603,9 +1625,7 @@ function RecentContextSection({
           your prior notes.
         </p>
       ) : null}
-        </div>
-      )}
-    </section>
+    </div>
   );
 }
 
