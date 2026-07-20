@@ -61,16 +61,22 @@ import {
   CADENCE_LABELS,
   CONTACT_INTENT_HELPERS,
   CONTACT_INTENT_LABELS,
+  NETWORK_DEGREES,
+  NETWORK_DEGREE_LABELS,
   PRIMARY_CONTACT_INTENTS,
   RELATIONSHIP_TYPES,
   RELATIONSHIP_TYPE_HELPERS,
   RELATIONSHIP_TYPE_LABELS,
+  RELEVANCE_TIERS,
+  RELEVANCE_TIER_LABELS,
   TOUCH_OBJECTIVES,
   TOUCH_OBJECTIVE_HELPERS,
   TOUCH_OBJECTIVE_LABELS,
   type CadenceInterval,
   type ContactIntent,
+  type NetworkDegree,
   type RelationshipType,
+  type RelevanceTier,
   type TouchObjective,
 } from "@/lib/outreach/types";
 import { loadOutreachContext } from "@/lib/server-actions/outreach-draft";
@@ -80,8 +86,10 @@ import {
   logContactTouch,
   setCadence,
   setContactIntent,
+  setNetworkDegree,
   setNextTouchDate,
   setRelationshipType,
+  setRelevanceTier,
   toggleVip,
   type ContactCardDataResult,
 } from "@/lib/server-actions/outreach";
@@ -175,6 +183,15 @@ export function OutreachModal({
   const [vipState, setVipState] = useState<boolean>(false);
   const [, startVipTransition] = useTransition();
   const [, startRelationshipTransition] = useTransition();
+
+  // -- Relevance (A/B/C) + closeness/network-degree (1/2/3). Optimistic;
+  //    reverts on server-action failure. Mirrors the People-list controls.
+  const [relevanceState, setRelevanceState] = useState<RelevanceTier | null>(
+    null
+  );
+  const [degreeState, setDegreeState] = useState<NetworkDegree | null>(null);
+  const [relevancePending, startRelevanceTransition] = useTransition();
+  const [degreePending, startDegreeTransition] = useTransition();
 
   // -- Intent state (drives which sub-section renders)
   const [intent, setIntent] = useState<ContactIntent | null>(null);
@@ -289,6 +306,8 @@ export function OutreachModal({
         });
         setRelationshipState(result.contact.relationship_type);
         setVipState(result.contact.vip);
+        setRelevanceState(result.contact.relevance_tier);
+        setDegreeState(result.contact.network_degree);
         setIntent(result.contact.intent ?? null);
         setCadenceState(result.contact.cadence_interval);
         setNextTouchState(result.contact.next_touch_date);
@@ -308,6 +327,8 @@ export function OutreachModal({
         // intent first which back-links via ensureContactForRecruiter.
         setRelationshipState(null);
         setVipState(false);
+        setRelevanceState(null);
+        setDegreeState(null);
         setIntent(null);
         setCadenceState("none");
         setNextTouchState(null);
@@ -356,6 +377,8 @@ export function OutreachModal({
       });
       setRelationshipState(refreshed.contact.relationship_type);
       setVipState(refreshed.contact.vip);
+      setRelevanceState(refreshed.contact.relevance_tier);
+      setDegreeState(refreshed.contact.network_degree);
       setIntent(refreshed.contact.intent ?? null);
       setCadenceState(refreshed.contact.cadence_interval);
       setNextTouchState(refreshed.contact.next_touch_date);
@@ -441,10 +464,10 @@ export function OutreachModal({
   // Live next-touch date (optimistic local state, seeded from the loaded
   // contact) so the reschedule control and the Warm hint stay in sync.
   const nextTouchDate = nextTouchState;
-  const cardRelevance =
-    card.status === "ready" ? card.contact.relevance_tier : null;
-  const cardDegree =
-    card.status === "ready" ? card.contact.network_degree : null;
+  // Reflect the optimistic local state so the header badge updates the moment
+  // the Relevance / Closeness dropdowns change.
+  const cardRelevance = relevanceState;
+  const cardDegree = degreeState;
 
   // ------------------------------------------------------------------
   // Header handlers — Relationship + VIP. Auto-link first when needed.
@@ -482,6 +505,49 @@ export function OutreachModal({
       const result = await toggleVip(targetId, next);
       if (!result.ok) {
         setVipState(prev);
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  // ------------------------------------------------------------------
+  // Relevance + closeness handlers — mirror the People-list dropdowns,
+  // reusing setRelevanceTier / setNetworkDegree. Auto-link first when needed.
+  // ------------------------------------------------------------------
+
+  const handleRelevanceChange = (next: RelevanceTier | null) => {
+    const prev = relevanceState;
+    setRelevanceState(next);
+    startRelevanceTransition(async () => {
+      const targetId = effectiveContactId ?? (await ensureLinked());
+      if (!targetId) {
+        setRelevanceState(prev);
+        return;
+      }
+      const result = await setRelevanceTier(targetId, next);
+      if (!result.ok) {
+        setRelevanceState(prev);
+        toast.error(result.error);
+        return;
+      }
+      router.refresh();
+    });
+  };
+
+  const handleDegreeChange = (next: NetworkDegree | null) => {
+    const prev = degreeState;
+    setDegreeState(next);
+    startDegreeTransition(async () => {
+      const targetId = effectiveContactId ?? (await ensureLinked());
+      if (!targetId) {
+        setDegreeState(prev);
+        return;
+      }
+      const result = await setNetworkDegree(targetId, next);
+      if (!result.ok) {
+        setDegreeState(prev);
         toast.error(result.error);
         return;
       }
@@ -774,6 +840,14 @@ export function OutreachModal({
 
           {tab === "engage" ? (
             <div className="space-y-4">
+              <ClassificationControls
+                relevance={relevanceState}
+                degree={degreeState}
+                onRelevanceChange={handleRelevanceChange}
+                onDegreeChange={handleDegreeChange}
+                pending={relevancePending || degreePending}
+              />
+
               <IntentControl intent={intent} onChange={handleIntentChange} />
 
               {intent === null ? <PickIntentHint /> : null}
@@ -846,6 +920,88 @@ export function OutreachModal({
         />
       ) : null}
     </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Relevance + closeness dropdowns — mirror the People-list inline controls
+// (same option labels/values, same server actions) so the two views stay in
+// lockstep. A/B/C = relevance, 1/2/3 = network degree ("closeness").
+// ---------------------------------------------------------------------------
+
+const CLASSIFY_SELECT_CLS =
+  "h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60";
+
+function ClassificationControls({
+  relevance,
+  degree,
+  onRelevanceChange,
+  onDegreeChange,
+  pending,
+}: {
+  relevance: RelevanceTier | null;
+  degree: NetworkDegree | null;
+  onRelevanceChange: (next: RelevanceTier | null) => void;
+  onDegreeChange: (next: NetworkDegree | null) => void;
+  pending: boolean;
+}) {
+  return (
+    <section>
+      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        Relevance &amp; closeness
+      </h3>
+      <div className="flex flex-wrap gap-4">
+        <label
+          className="flex flex-col gap-1"
+          title="Relevance — A most relevant → C least"
+        >
+          <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+            Relevance (A/B/C)
+          </span>
+          <select
+            className={CLASSIFY_SELECT_CLS}
+            value={relevance ?? ""}
+            disabled={pending}
+            onChange={(e) =>
+              onRelevanceChange((e.target.value || null) as RelevanceTier | null)
+            }
+          >
+            <option value="">—</option>
+            {RELEVANCE_TIERS.map((t) => (
+              <option key={t} value={t} title={RELEVANCE_TIER_LABELS[t]}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label
+          className="flex flex-col gap-1"
+          title="Closeness / network degree — 1 know well, 2 intro'd by a 1, 3 by a 2"
+        >
+          <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+            Closeness (1/2/3)
+          </span>
+          <select
+            className={CLASSIFY_SELECT_CLS}
+            value={degree != null ? String(degree) : ""}
+            disabled={pending}
+            onChange={(e) =>
+              onDegreeChange(
+                e.target.value ? (Number(e.target.value) as NetworkDegree) : null
+              )
+            }
+          >
+            <option value="">—</option>
+            {NETWORK_DEGREES.map((d) => (
+              <option key={d} value={String(d)} title={NETWORK_DEGREE_LABELS[d]}>
+                {d}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+    </section>
   );
 }
 
