@@ -119,7 +119,7 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
       </div>
       ${chips ? `<div class="chips">${chips}</div>` : ""}
       <section class="card">
-        <div class="card-h">Relevance &times; closeness</div>
+        <div class="card-h">This Week's Conversation Log</div>
         <div class="card-b">${heatmapHtml(current.conversations)}</div>
       </section>
       ${
@@ -362,7 +362,7 @@ function heatmapHtml(conversations: NsConversation[]): string {
   }
   const { grid, newGrid, rows, cols, max, rowTotals } = buildMatrix(conversations);
   const gridCols = `grid-template-columns:76px repeat(${cols.length},1fr) 46px`;
-  const head = `<div class="hrow" style="${gridCols}"><div class="hrl-h">Rel / Close</div>${cols
+  const head = `<div class="hrow" style="${gridCols}"><div class="hrl-h"></div>${cols
     .map((d) => `<div class="hc">${escHtml(colLabel(d))}</div>`)
     .join("")}<div class="hc">Total</div></div>`;
   const body = rows
@@ -383,8 +383,7 @@ function heatmapHtml(conversations: NsConversation[]): string {
       return `<div class="hrow" style="${gridCols}"><div class="hrl" style="color:${TIER_HEX[r]}">${escHtml(label)}</div>${cells}<div class="htot">${rowTotals[r]}</div></div>`;
     })
     .join("");
-  return `<div class="heat">${head}${body}</div>
-    <p class="legend">Rows = relevance (A most &rarr; C). Columns = closeness (1 = know well &rarr; 3). Darker = more conversations. <span class="ilegend"></span> = includes a first-ever contact.</p>`;
+  return `<div class="heat">${head}${body}</div>`;
 }
 
 // Printable HTML for the new-vs-repeat split and the NYS DOL snapshot, so the
@@ -452,9 +451,7 @@ function WeekHeatmap({
     <div>
       {/* Column header */}
       <div className="grid items-center gap-1" style={{ gridTemplateColumns: template }}>
-        <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Rel ⇣ / Close ⇢
-        </span>
+        <span aria-hidden />
         {cols.map((d) => (
           <span
             key={`h-${d}`}
@@ -515,17 +512,6 @@ function WeekHeatmap({
           </div>
         ))}
       </div>
-
-      <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
-        <span>
-          Rows = relevance (A most → C). Columns = closeness (1 = know well → 3).
-          Darker = more conversations. Click a square to see who&rsquo;s in it.
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
-          = includes a first-ever contact
-        </span>
-      </p>
 
       <NewRepeatSummary conversations={conversations} />
 
