@@ -77,10 +77,10 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
     const apps = nyuiHtml(current);
 
     const html = `<!doctype html><html><head><meta charset="utf-8"/>
-      <title>Networking Activity — ${escHtml(range)}</title>
+      <title>Jason Kuperman — Networking Activity — ${escHtml(range)}</title>
       <style>
         *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-        body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1e293b;background:#fff;margin:0;padding:40px;max-width:760px;}
+        body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1e293b;background:#fff;margin:0;padding:24px;max-width:960px;}
         .eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#059669;}
         h1{font-size:24px;font-weight:800;color:#0f172a;margin:5px 0 2px;}
         .sub{color:#64748b;font-size:12px;margin:0;}
@@ -122,10 +122,10 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
         .li-meta.neutral{color:#64748b;border-color:#e2e8f0;}
         .empty{color:#94a3b8;font-size:12px;font-style:italic;margin:0;}
         .foot{margin-top:28px;border-top:1px solid #e2e8f0;padding-top:10px;color:#94a3b8;font-size:10px;}
-        @media print{body{padding:16mm;}}
+        @media print{body{padding:9mm;}}
       </style></head><body>
       <div class="head">
-        <div class="eyebrow">Networking Activity</div>
+        <div class="eyebrow">Jason Kuperman's Networking Activity</div>
         <h1>${escHtml(title)}</h1>
         <p class="sub">Week of ${escHtml(range)} · Wednesday to Tuesday</p>
       </div>
