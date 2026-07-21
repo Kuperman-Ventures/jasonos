@@ -13,7 +13,9 @@ import {
   Pencil,
   Trash2,
   Info,
+  Search,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import {
   addWorkSearch,
   updateWorkSearch,
@@ -1545,10 +1547,32 @@ function AllApplications({
   deletingId: string | null;
   onNavigate: (screen: SubScreen) => void;
 }) {
-  // Group every activity into its Sunday-start claim week (same boundary as the
-  // dashboard and the audit ledger), newest week first.
+  const [query, setQuery] = useState("");
+
+  const totalActivities = workSearches.length;
+
+  // Case-insensitive filter across the meaningful text fields of each activity.
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? workSearches.filter((ws) =>
+        [
+          ws.company_name,
+          ws.company_location,
+          ws.contact_method,
+          ws.contact_person,
+          ws.position_applied,
+          ws.result,
+          ws.outcome_next_step,
+        ]
+          .filter(Boolean)
+          .some((field) => String(field).toLowerCase().includes(q))
+      )
+    : workSearches;
+
+  // Group the (filtered) activities into their Sunday-start claim week (same
+  // boundary as the dashboard and the audit ledger), newest week first.
   const weeks = new Map<string, WorkSearch[]>();
-  for (const ws of workSearches) {
+  for (const ws of filtered) {
     const key = weekRangeOf(ws.date).start;
     const list = weeks.get(key);
     if (list) list.push(ws);
@@ -1556,7 +1580,7 @@ function AllApplications({
   }
   const weekKeys = [...weeks.keys()].sort((a, b) => (a < b ? 1 : -1));
 
-  const totalActivities = workSearches.length;
+  const matchCount = filtered.length;
 
   if (totalActivities === 0) {
     return (
@@ -1586,10 +1610,46 @@ function AllApplications({
           </p>
         </div>
         <StatusBadge variant="neutral">
-          {totalActivities} activit{totalActivities !== 1 ? "ies" : "y"} ·{" "}
-          {weekKeys.length} week{weekKeys.length !== 1 ? "s" : ""}
+          {q ? (
+            <>
+              {matchCount} of {totalActivities} shown
+            </>
+          ) : (
+            <>
+              {totalActivities} activit{totalActivities !== 1 ? "ies" : "y"} ·{" "}
+              {weekKeys.length} week{weekKeys.length !== 1 ? "s" : ""}
+            </>
+          )}
         </StatusBadge>
       </div>
+
+      <div className="relative w-full max-w-sm">
+        <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search applications…"
+          className="h-9 pl-8"
+          aria-label="Search applications"
+        />
+      </div>
+
+      {matchCount === 0 ? (
+        <div className="rounded-xl border border-border bg-card p-6 shadow-sm text-center py-12">
+          <Search className="h-7 w-7 mx-auto mb-2 text-muted-foreground/30" />
+          <p className="text-sm text-muted-foreground">
+            No applications match &ldquo;{query.trim()}&rdquo;
+          </p>
+          <button
+            type="button"
+            onClick={() => setQuery("")}
+            className="mt-2 text-xs text-foreground underline underline-offset-2"
+          >
+            Clear search
+          </button>
+        </div>
+      ) : null}
 
       {weekKeys.map((key) => {
         const items = weeks.get(key)!;
