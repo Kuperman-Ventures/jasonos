@@ -160,6 +160,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     contactsRes,
     referralsRes,
     workSearchRes,
+    companiesRes,
   ] = await Promise.all([
     getOutreachPeople(),
     sb
@@ -170,14 +171,16 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     sb.from("contacts").select("id").eq("browning_source", true),
     sb
       .from("contacts")
-      .select("id,name,tags,relevance_tier,network_degree,created_at,intent")
-      .order("created_at", { ascending: false }),
+      .select("id,name,tags,relevance_tier,network_degree,created_at,intent,company_id")
+      .order("created_at", { ascending: false })
+      .limit(20000),
     sb.from("browning_conversations").select("referrals_received,conversation_date"),
     pub
       .from("work_searches")
       .select("date,company_name,position_applied")
       .gte("date", nyuiSince)
       .order("date", { ascending: true }),
+    sb.from("companies").select("id,name"),
   ]);
 
   const touches = touchesRes.data ?? [];
@@ -185,6 +188,22 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     (browningIdsRes.data ?? []).map((r) => r.id as string)
   );
   const peopleById = new Map(people.map((p) => [p.id, p]));
+
+  // Company-the-contact-works-at, resolved via contacts.company_id →
+  // companies.name. Used as a fallback when the outreach layer's firm (from
+  // tags / recruiter enrichment) is empty, so "the company they work at" shows
+  // whenever it's recorded anywhere.
+  const companyNameById = new Map(
+    (companiesRes.data ?? []).map((c) => [c.id as string, (c.name as string) ?? null])
+  );
+  const companyByContact = new Map<string, string | null>();
+  for (const c of contactsRes.data ?? []) {
+    const cid = c.id as string;
+    const companyId = (c.company_id as string | null) ?? null;
+    companyByContact.set(cid, companyId ? companyNameById.get(companyId) ?? null : null);
+  }
+  const firmForContact = (cid: string): string | null =>
+    peopleById.get(cid)?.firm ?? companyByContact.get(cid) ?? null;
 
   // ── New-vs-repeat ordinals ────────────────────────────────────────────────
   // For every contact, order ALL their touches (any channel) chronologically
@@ -254,7 +273,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
         id: t.id as string,
         contactId: cid,
         name: p?.name ?? "Unknown contact",
-        firm: p?.firm ?? null,
+        firm: firmForContact(cid),
         date,
         channel: ch,
         brief: (t.brief as string | null) ?? null,
@@ -281,7 +300,10 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     wk.newContacts.push({
       id: c.id as string,
       name: (c.name as string) ?? "Unknown",
-      firm: p?.firm ?? firmFromTags(c.tags as string[] | null),
+      firm:
+        p?.firm ??
+        companyByContact.get(c.id as string) ??
+        firmFromTags(c.tags as string[] | null),
       tier: (c.relevance_tier as RelevanceTier | null) ?? null,
       degree: (c.network_degree as NetworkDegree | null) ?? null,
     });
