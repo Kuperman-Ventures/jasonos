@@ -6,7 +6,10 @@
 // awaiting/overdue/drift. Current week on top, history below. Derived entirely
 // from data already collected; nothing new to log.
 
-import { createServiceRoleClient } from "@/lib/supabase/server";
+import {
+  createServiceRoleClient,
+  createPublicServiceRoleClient,
+} from "@/lib/supabase/server";
 import { getOutreachPeople } from "@/lib/outreach/data";
 import type { NetworkDegree, RelevanceTier } from "@/lib/outreach/types";
 
@@ -21,6 +24,47 @@ const CONVERSATION_CHANNELS = new Set([
   "coffee_chat",
 ]);
 
+// NYUI business-hours entities (mirrors the NYUI tool). Kept here so the
+// weekly report can show a per-entity split without importing client code.
+const NYUI_ENTITIES = ["Kuperman Ventures LLC", "Kuperman Advisors LLC"];
+
+// Default NYUI work-search tier by contact method, mirroring the NYUI tool.
+// An explicit `activity_tier` on the row wins; otherwise we derive from method.
+const NYUI_TIER_BY_METHOD: Record<string, "employer_contact" | "networking"> = {
+  "Online Portal": "employer_contact",
+  "Direct Email": "employer_contact",
+  "Phone Call": "employer_contact",
+  LinkedIn: "networking",
+  "Networking Event": "networking",
+  Interview: "employer_contact",
+  "In-Person Meeting": "employer_contact",
+  "Video Meeting": "employer_contact",
+  "Recruiter / Headhunter Screen": "employer_contact",
+  "Networking Contact": "networking",
+  "Career-Center Advisor Meeting": "networking",
+};
+
+function nyuiTierOf(row: {
+  activity_tier: string | null;
+  contact_method: string | null;
+}): "employer_contact" | "networking" {
+  if (row.activity_tier === "employer_contact" || row.activity_tier === "networking") {
+    return row.activity_tier;
+  }
+  return NYUI_TIER_BY_METHOD[row.contact_method ?? ""] ?? "employer_contact";
+}
+
+function emptyNyui(): NyuiWeekSummary {
+  return {
+    workSearches: 0,
+    tierA: 0,
+    tierB: 0,
+    qualifyingDays: 0,
+    businessMinutes: 0,
+    businessByEntity: NYUI_ENTITIES.map((entity) => ({ entity, minutes: 0 })),
+  };
+}
+
 export interface NsConversation {
   id: string;
   contactId: string;
@@ -33,6 +77,13 @@ export interface NsConversation {
   browning: boolean;
   tier: RelevanceTier | null;
   degree: NetworkDegree | null;
+  /** True when this is the first-ever logged communication with this contact
+   *  (no earlier touch of any channel). A "new communication with a new
+   *  contact". */
+  isFirstContact: boolean;
+  /** How many communications with this contact came before this one (any
+   *  channel). 0 for a first contact; higher means "spoken to repeatedly". */
+  priorContactCount: number;
 }
 
 export interface NsNewContact {
@@ -41,6 +92,18 @@ export interface NsNewContact {
   firm: string | null;
   tier: RelevanceTier | null;
   degree: NetworkDegree | null;
+}
+
+/** NYS DOL (NYUI) activity that fell inside this reporting week. Aligned to
+ *  the report's Wednesday→Tuesday week, not the official Sunday–Saturday claim
+ *  week, so it reads on one timeline with the networking activity. */
+export interface NyuiWeekSummary {
+  workSearches: number;
+  tierA: number; // employer contacts
+  tierB: number; // networking / fruitful activity
+  qualifyingDays: number; // unique calendar days with a work search
+  businessMinutes: number;
+  businessByEntity: { entity: string; minutes: number }[];
 }
 
 export interface WeekActivity {
@@ -54,7 +117,12 @@ export interface WeekActivity {
     newContacts: number;
     thankYous: number;
     referrals: number;
+    /** Conversations that were a first-ever communication with the contact. */
+    newConversations: number;
+    /** Conversations with a contact already spoken to before. */
+    repeatConversations: number;
   };
+  nyui: NyuiWeekSummary;
 }
 
 export interface NetworkingActivity {
@@ -106,34 +174,81 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
           isCurrent: true,
           conversations: [],
           newContacts: [],
-          stats: { conversations: 0, newContacts: 0, thankYous: 0, referrals: 0 },
+          stats: {
+            conversations: 0,
+            newContacts: 0,
+            thankYous: 0,
+            referrals: 0,
+            newConversations: 0,
+            repeatConversations: 0,
+          },
+          nyui: emptyNyui(),
         },
       ],
     };
   }
 
   const sb = createServiceRoleClient();
-  const [people, touchesRes, browningIdsRes, contactsRes, referralsRes] =
-    await Promise.all([
-      getOutreachPeople(),
-      sb
-        .from("contact_touches")
-        .select("id,contact_id,channel,direction,touched_at,brief,outcome")
-        .order("touched_at", { ascending: false })
-        .limit(8000),
-      sb.from("contacts").select("id").eq("browning_source", true),
-      sb
-        .from("contacts")
-        .select("id,name,tags,relevance_tier,network_degree,created_at,intent")
-        .order("created_at", { ascending: false }),
-      sb.from("browning_conversations").select("referrals_received,conversation_date"),
-    ]);
+  // work_searches / business_hours (NYUI) live in the public schema.
+  const pub = createPublicServiceRoleClient();
+  // NYUI history window — comfortably covers every week the report can show.
+  const nyuiSince = addDaysStr(currentWeekStart, -400);
+  const [
+    people,
+    touchesRes,
+    browningIdsRes,
+    contactsRes,
+    referralsRes,
+    workSearchRes,
+    businessHoursRes,
+  ] = await Promise.all([
+    getOutreachPeople(),
+    sb
+      .from("contact_touches")
+      .select("id,contact_id,channel,direction,touched_at,brief,outcome")
+      .order("touched_at", { ascending: false })
+      .limit(8000),
+    sb.from("contacts").select("id").eq("browning_source", true),
+    sb
+      .from("contacts")
+      .select("id,name,tags,relevance_tier,network_degree,created_at,intent")
+      .order("created_at", { ascending: false }),
+    sb.from("browning_conversations").select("referrals_received,conversation_date"),
+    pub
+      .from("work_searches")
+      .select("date,contact_method,activity_tier")
+      .gte("date", nyuiSince),
+    pub
+      .from("business_hours")
+      .select("date,entity,hours,minutes")
+      .gte("date", nyuiSince),
+  ]);
 
   const touches = touchesRes.data ?? [];
   const browningIds = new Set(
     (browningIdsRes.data ?? []).map((r) => r.id as string)
   );
   const peopleById = new Map(people.map((p) => [p.id, p]));
+
+  // ── New-vs-repeat ordinals ────────────────────────────────────────────────
+  // For every contact, order ALL their touches (any channel) chronologically
+  // and remember each touch's position. A conversation whose position is 0 is
+  // the first-ever communication with that contact ("new"); a higher position
+  // means we've spoken before ("repeat"), and the number itself shows how many
+  // times prior — so "spoken to repeatedly" is legible.
+  const priorCountByTouchId = new Map<string, number>();
+  const touchesByContact = new Map<string, { id: string; ts: string }[]>();
+  for (const t of touches) {
+    const cid = t.contact_id as string;
+    const list = touchesByContact.get(cid);
+    const entry = { id: t.id as string, ts: (t.touched_at as string) ?? "" };
+    if (list) list.push(entry);
+    else touchesByContact.set(cid, [entry]);
+  }
+  for (const list of touchesByContact.values()) {
+    list.sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : a.id < b.id ? -1 : 1));
+    list.forEach((entry, idx) => priorCountByTouchId.set(entry.id, idx));
+  }
 
   // Ensure every week bucket exists lazily.
   const weeks = new Map<string, WeekActivity>();
@@ -146,7 +261,15 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
         isCurrent: weekStart === currentWeekStart,
         conversations: [],
         newContacts: [],
-        stats: { conversations: 0, newContacts: 0, thankYous: 0, referrals: 0 },
+        stats: {
+          conversations: 0,
+          newContacts: 0,
+          thankYous: 0,
+          referrals: 0,
+          newConversations: 0,
+          repeatConversations: 0,
+        },
+        nyui: emptyNyui(),
       };
       weeks.set(weekStart, w);
     }
@@ -169,6 +292,8 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
       const p = peopleById.get(cid);
       // Backburner (Backrow) contacts never appear in reports.
       if (p?.intent === "backrow") continue;
+      const priorContactCount = priorCountByTouchId.get(t.id as string) ?? 0;
+      const isFirstContact = priorContactCount === 0;
       wk.conversations.push({
         id: t.id as string,
         contactId: cid,
@@ -181,8 +306,12 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
         browning: browningIds.has(cid),
         tier: p?.relevance_tier ?? null,
         degree: p?.network_degree ?? null,
+        isFirstContact,
+        priorContactCount,
       });
       wk.stats.conversations += 1;
+      if (isFirstContact) wk.stats.newConversations += 1;
+      else wk.stats.repeatConversations += 1;
     }
   }
 
@@ -211,16 +340,64 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     wk.stats.referrals += (r.referrals_received as number | null) ?? 0;
   }
 
+  // ── NYUI (NYS DOL) activity, bucketed into the report's Wed→Tue weeks ──────
+  // Work searches: count + Tier A/B split + unique qualifying days.
+  const nyuiQualifyingDays = new Map<string, Set<string>>();
+  for (const ws of workSearchRes.data ?? []) {
+    const date = (ws.date as string | null) ?? null;
+    if (!date) continue;
+    const weekStart = weekStartOf(date);
+    const wk = weekFor(weekStart);
+    wk.nyui.workSearches += 1;
+    if (
+      nyuiTierOf({
+        activity_tier: (ws.activity_tier as string | null) ?? null,
+        contact_method: (ws.contact_method as string | null) ?? null,
+      }) === "employer_contact"
+    ) {
+      wk.nyui.tierA += 1;
+    } else {
+      wk.nyui.tierB += 1;
+    }
+    let days = nyuiQualifyingDays.get(weekStart);
+    if (!days) {
+      days = new Set();
+      nyuiQualifyingDays.set(weekStart, days);
+    }
+    days.add(date);
+  }
+  for (const [weekStart, days] of nyuiQualifyingDays) {
+    weekFor(weekStart).nyui.qualifyingDays = days.size;
+  }
+
+  // Business hours: total + per-entity split.
+  for (const bh of businessHoursRes.data ?? []) {
+    const date = (bh.date as string | null) ?? null;
+    if (!date) continue;
+    const wk = weekFor(weekStartOf(date));
+    const mins =
+      ((bh.hours as number | null) ?? 0) * 60 + ((bh.minutes as number | null) ?? 0);
+    wk.nyui.businessMinutes += mins;
+    const entity = (bh.entity as string | null) ?? "Other";
+    const row = wk.nyui.businessByEntity.find((e) => e.entity === entity);
+    if (row) row.minutes += mins;
+    else wk.nyui.businessByEntity.push({ entity, minutes: mins });
+  }
+
   const ordered = [...weeks.values()].sort((a, b) =>
     a.weekStart < b.weekStart ? 1 : -1
   );
 
-  // Keep the current week (always) plus any historical week that has activity.
+  // Keep the current week (always) plus any historical week with networking OR
+  // NYUI activity — NYUI is now part of the report, so a week with only work
+  // searches / business hours still earns its place.
   const hasActivity = (w: WeekActivity) =>
     w.stats.conversations > 0 ||
     w.stats.newContacts > 0 ||
     w.stats.thankYous > 0 ||
-    w.stats.referrals > 0;
+    w.stats.referrals > 0 ||
+    w.nyui.workSearches > 0 ||
+    w.nyui.businessMinutes > 0;
   const filtered = ordered.filter((w) => w.isCurrent || hasActivity(w));
 
   return { generatedAt: today, weeks: filtered };
