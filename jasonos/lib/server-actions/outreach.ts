@@ -276,12 +276,22 @@ export async function updateContactIdentity(
   if (readError) return { ok: false, error: readError.message };
   if (!existing) return { ok: false, error: "Contact not found." };
 
-  // Firm → `firm:<slug>` tag: strip any existing firm tag, add the new one.
+  // Firm: link a companies row that preserves the EXACT, user-typed casing
+  // (so "Goldman Sachs" stays "Goldman Sachs"), and keep the legacy
+  // `firm:<slug>` tag in sync for name+firm matching. Firm display reads the
+  // company name first, so capitalization edits stick.
   const tags = ((existing.tags as string[] | null) ?? []).filter(
     (t) => !t.startsWith("firm:")
   );
   const firm = input.firm?.trim() || null;
   if (firm) tags.push(`firm:${slugifyFirm(firm)}`);
+
+  let companyId: string | null = null;
+  if (firm) {
+    const resolved = await resolveCompanyId(sb, firm);
+    if (!resolved.ok) return { ok: false, error: resolved.error };
+    companyId = resolved.companyId;
+  }
 
   // Primary email = emails[0]; preserve any additional emails.
   const currentEmails = (existing.emails as string[] | null) ?? [];
@@ -291,7 +301,13 @@ export async function updateContactIdentity(
 
   const phone = input.phone?.trim() || null;
 
-  const payload: Record<string, unknown> = { name, tags, emails, phone };
+  const payload: Record<string, unknown> = {
+    name,
+    tags,
+    emails,
+    phone,
+    company_id: companyId,
+  };
   let { error } = await sb.from("contacts").update(payload).eq("id", contactId);
 
   // Graceful fallback if the phone column hasn't been added yet.
@@ -706,6 +722,40 @@ function slugifyFirm(value: string): string {
     .replace(/(^-|-$)/g, "");
 }
 
+// Find (case-insensitively) or create a jasonos.companies row for a firm name,
+// preserving the exact casing the user typed. If a company already exists with
+// different casing, its name is updated to the new casing so the edit "sticks"
+// everywhere the company is referenced. Returns the company id.
+async function resolveCompanyId(
+  sb: ReturnType<typeof createServiceRoleClient>,
+  firm: string
+): Promise<{ ok: true; companyId: string } | { ok: false; error: string }> {
+  // Escape LIKE wildcards so a stray % / _ in a name can't widen the match.
+  const pattern = firm.replace(/[\\%_]/g, (m) => `\\${m}`);
+  const { data: existing, error } = await sb
+    .from("companies")
+    .select("id,name")
+    .ilike("name", pattern)
+    .limit(1)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+
+  if (existing) {
+    if ((existing.name as string) !== firm) {
+      await sb.from("companies").update({ name: firm }).eq("id", existing.id);
+    }
+    return { ok: true, companyId: existing.id as string };
+  }
+
+  const { data: created, error: insErr } = await sb
+    .from("companies")
+    .insert({ name: firm })
+    .select("id")
+    .single();
+  if (insErr) return { ok: false, error: insErr.message };
+  return { ok: true, companyId: created.id as string };
+}
+
 // ---------------------------------------------------------------------------
 // getOutreachContactByRecruiterId — resolve the jasonos.contacts row that
 // links to a given rr_recruiters.id via source_ids.recruiter_pipeline_id.
@@ -922,10 +972,10 @@ export async function getContactCardData(input: {
 
   // 2. Load the canonical contact row. Mirrors getOutreachContactByRecruiterId
   // schema fallbacks so this works even when migration 0017 hasn't shipped.
-  const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,
+  const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,
      relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
      network_degree,next_touch_date,last_touch_date,last_touch_channel`;
-  const noIntentColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,
+  const noIntentColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,
      relationship_type,cadence_interval,cadence_stage,relevance_tier,
      network_degree,next_touch_date,last_touch_date,last_touch_channel`;
 
@@ -959,11 +1009,21 @@ export async function getContactCardData(input: {
       ? sourceIds.recruiter_pipeline_id
       : null;
 
-  // 4. Enrich firm / title / strategic score from the recruiter pipeline
-  //    row when available, matching getOutreachContactByRecruiterId.
-  let firm: string | null = inferFirmFromTagsLocal(
-    (row.tags as string[] | null) ?? []
-  );
+  // 4. Firm resolution. The linked company name (exact casing, via company_id)
+  //    wins over the legacy firm:<slug> tag; the recruiter pipeline enrichment
+  //    below still wins over both for recruiter-linked contacts.
+  const contactCompanyId = (row.company_id as string | null) ?? null;
+  let companyName: string | null = null;
+  if (contactCompanyId) {
+    const { data: co } = await sb
+      .from("companies")
+      .select("name")
+      .eq("id", contactCompanyId)
+      .maybeSingle();
+    companyName = (co?.name as string | null) ?? null;
+  }
+  let firm: string | null =
+    companyName ?? inferFirmFromTagsLocal((row.tags as string[] | null) ?? []);
   let firmNormalized: string | null = firm ? firm.toLowerCase() : null;
   let title: string | null = (row.title as string | null) ?? null;
   let strategicScore: number | null = null;
