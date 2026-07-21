@@ -239,6 +239,74 @@ export async function setNetworkDegree(
 }
 
 // ---------------------------------------------------------------------------
+// updateContactIdentity — edit the core identity fields from the contact card:
+// name, firm, primary email, and phone. Firm is stored as a `firm:<slug>` tag
+// (the app's convention); email is the primary entry of the emails array
+// (additional emails are preserved); phone is the new `contacts.phone` column
+// (migration 0030).
+//
+// Note: for contacts whose firm is enriched from the recruiter pipeline, that
+// enrichment still wins on display — editing the firm here updates the tag,
+// which is what the People list and reports read for non-pipeline contacts.
+// ---------------------------------------------------------------------------
+
+export async function updateContactIdentity(
+  contactId: string,
+  input: {
+    name: string;
+    firm: string | null;
+    email: string | null;
+    phone: string | null;
+  }
+): Promise<ActionResult> {
+  const guard = ensureConfigured();
+  if (guard) return guard;
+  if (!contactId) return { ok: false, error: "contactId is required." };
+
+  const name = input.name?.trim();
+  if (!name) return { ok: false, error: "Name can't be empty." };
+
+  const sb = createServiceRoleClient();
+
+  const { data: existing, error: readError } = await sb
+    .from("contacts")
+    .select("tags,emails")
+    .eq("id", contactId)
+    .maybeSingle();
+  if (readError) return { ok: false, error: readError.message };
+  if (!existing) return { ok: false, error: "Contact not found." };
+
+  // Firm → `firm:<slug>` tag: strip any existing firm tag, add the new one.
+  const tags = ((existing.tags as string[] | null) ?? []).filter(
+    (t) => !t.startsWith("firm:")
+  );
+  const firm = input.firm?.trim() || null;
+  if (firm) tags.push(`firm:${slugifyFirm(firm)}`);
+
+  // Primary email = emails[0]; preserve any additional emails.
+  const currentEmails = (existing.emails as string[] | null) ?? [];
+  const email = input.email?.trim() || null;
+  const rest = currentEmails.slice(1).filter((e) => e && e !== email);
+  const emails = email ? [email, ...rest] : rest;
+
+  const phone = input.phone?.trim() || null;
+
+  const payload: Record<string, unknown> = { name, tags, emails, phone };
+  let { error } = await sb.from("contacts").update(payload).eq("id", contactId);
+
+  // Graceful fallback if the phone column hasn't been added yet.
+  if (error && /\bphone\b/i.test(error.message)) {
+    delete payload.phone;
+    ({ error } = await sb.from("contacts").update(payload).eq("id", contactId));
+  }
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidate();
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // setContactIntent — pin a contact to a queue column (warm/specific/cold),
 // remove them from the queue entirely (backrow, migration 0019), or clear
 // the value (null) so the queue-buckets derivation rules decide. Backed by
@@ -659,10 +727,10 @@ export async function getOutreachContactByRecruiterId(
   }
 
   const sb = createServiceRoleClient();
-  const fullColumns = `id,name,emails,linkedin_url,title,vip,tags,
+  const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,
      relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
      network_degree,next_touch_date,last_touch_date,last_touch_channel`;
-  const noIntentColumns = `id,name,emails,linkedin_url,title,vip,tags,
+  const noIntentColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,
      relationship_type,cadence_interval,cadence_stage,relevance_tier,
      network_degree,next_touch_date,last_touch_date,last_touch_channel`;
 
@@ -720,6 +788,7 @@ export async function getOutreachContactByRecruiterId(
     firm_normalized: firmNormalized,
     linkedin_url: (data.linkedin_url as string) ?? null,
     primary_email: emails[0] ?? null,
+    phone: ((data as { phone?: string | null }).phone as string | null) ?? null,
     vip: Boolean(data.vip),
     relationship_type:
       (data.relationship_type as RelationshipType | null) ?? null,
@@ -853,10 +922,10 @@ export async function getContactCardData(input: {
 
   // 2. Load the canonical contact row. Mirrors getOutreachContactByRecruiterId
   // schema fallbacks so this works even when migration 0017 hasn't shipped.
-  const fullColumns = `id,name,emails,linkedin_url,title,vip,tags,source_ids,
+  const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,
      relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
      network_degree,next_touch_date,last_touch_date,last_touch_channel`;
-  const noIntentColumns = `id,name,emails,linkedin_url,title,vip,tags,source_ids,
+  const noIntentColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,
      relationship_type,cadence_interval,cadence_stage,relevance_tier,
      network_degree,next_touch_date,last_touch_date,last_touch_channel`;
 
@@ -929,6 +998,7 @@ export async function getContactCardData(input: {
     firm_normalized: firmNormalized,
     linkedin_url: (row.linkedin_url as string) ?? null,
     primary_email: emails[0] ?? null,
+    phone: ((row as { phone?: string | null }).phone as string | null) ?? null,
     vip: Boolean(row.vip),
     relationship_type:
       (row.relationship_type as RelationshipType | null) ?? null,

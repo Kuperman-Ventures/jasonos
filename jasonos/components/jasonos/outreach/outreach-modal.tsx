@@ -49,6 +49,8 @@ import {
   Sparkles,
   Flame,
   Archive,
+  Phone,
+  Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
@@ -91,6 +93,7 @@ import {
   setRelationshipType,
   setRelevanceTier,
   toggleVip,
+  updateContactIdentity,
   type ContactCardDataResult,
 } from "@/lib/server-actions/outreach";
 import type { OutreachPerson } from "@/lib/outreach/data";
@@ -396,6 +399,7 @@ export function OutreachModal({
           firm_normalized: null,
           linkedin_url: null,
           primary_email: null,
+          phone: null,
           vip: false,
           relationship_type: null,
           cadence_interval: "none",
@@ -432,6 +436,7 @@ export function OutreachModal({
         title: card.contact.title,
         firm: card.contact.firm,
         primary_email: card.contact.primary_email,
+        phone: card.contact.phone,
         linkedin_url: card.contact.linkedin_url,
         next_touch_date: card.contact.next_touch_date,
         last_touch_date: card.contact.last_touch_date,
@@ -443,6 +448,7 @@ export function OutreachModal({
         title: card.stub.title,
         firm: card.stub.firm,
         primary_email: null as string | null,
+        phone: null as string | null,
         linkedin_url: null as string | null,
         next_touch_date: null as string | null,
         last_touch_date: null as string | null,
@@ -453,6 +459,7 @@ export function OutreachModal({
       title: initialDisplay?.title ?? null,
       firm: initialDisplay?.firm ?? null,
       primary_email: null as string | null,
+      phone: null as string | null,
       linkedin_url: null as string | null,
       next_touch_date: null as string | null,
       last_touch_date: null as string | null,
@@ -468,6 +475,33 @@ export function OutreachModal({
   // the Relevance / Closeness dropdowns change.
   const cardRelevance = relevanceState;
   const cardDegree = degreeState;
+
+  // ------------------------------------------------------------------
+  // Identity edit — name, firm, email, phone. Updates local card state so
+  // the header reflects the change immediately, then refreshes server data.
+  // ------------------------------------------------------------------
+
+  const applyIdentityUpdate = (v: {
+    name: string;
+    firm: string | null;
+    email: string | null;
+    phone: string | null;
+  }) => {
+    setCard((prev) => {
+      if (prev.status !== "ready") return prev;
+      return {
+        ...prev,
+        contact: {
+          ...prev.contact,
+          name: v.name,
+          firm: v.firm,
+          primary_email: v.email,
+          phone: v.phone,
+        },
+      };
+    });
+    router.refresh();
+  };
 
   // ------------------------------------------------------------------
   // Header handlers — Relationship + VIP. Auto-link first when needed.
@@ -785,6 +819,7 @@ export function OutreachModal({
           </div>
 
           {header.primary_email ||
+          header.phone ||
           header.linkedin_url ||
           cardRelevance ||
           cardDegree ? (
@@ -796,6 +831,15 @@ export function OutreachModal({
                 >
                   <Mail className="h-3 w-3" />
                   {header.primary_email}
+                </a>
+              ) : null}
+              {header.phone ? (
+                <a
+                  href={`tel:${header.phone}`}
+                  className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                >
+                  <Phone className="h-3 w-3" />
+                  {header.phone}
                 </a>
               ) : null}
               {header.linkedin_url ? (
@@ -840,6 +884,18 @@ export function OutreachModal({
 
           {tab === "engage" ? (
             <div className="space-y-4">
+              {effectiveContactId ? (
+                <IdentityCard
+                  key={effectiveContactId}
+                  contactId={effectiveContactId}
+                  initialName={header.name}
+                  initialFirm={header.firm}
+                  initialEmail={header.primary_email}
+                  initialPhone={header.phone}
+                  onSaved={applyIdentityUpdate}
+                />
+              ) : null}
+
               <ClassificationControls
                 relevance={relevanceState}
                 degree={degreeState}
@@ -1000,6 +1056,156 @@ function ClassificationControls({
             ))}
           </select>
         </label>
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Identity card — edit name, firm, email, phone inline on the contact card.
+// ---------------------------------------------------------------------------
+
+function IdentityCard({
+  contactId,
+  initialName,
+  initialFirm,
+  initialEmail,
+  initialPhone,
+  onSaved,
+}: {
+  contactId: string;
+  initialName: string;
+  initialFirm: string | null;
+  initialEmail: string | null;
+  initialPhone: string | null;
+  onSaved: (v: {
+    name: string;
+    firm: string | null;
+    email: string | null;
+    phone: string | null;
+  }) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(initialName);
+  const [firm, setFirm] = useState(initialFirm ?? "");
+  const [email, setEmail] = useState(initialEmail ?? "");
+  const [phone, setPhone] = useState(initialPhone ?? "");
+  const [saving, startSaving] = useTransition();
+
+  const norm = (s: string | null) => (s ?? "").trim();
+  const dirty =
+    name.trim() !== norm(initialName) ||
+    firm.trim() !== norm(initialFirm) ||
+    email.trim() !== norm(initialEmail) ||
+    phone.trim() !== norm(initialPhone);
+
+  const save = () => {
+    if (!name.trim()) {
+      toast.error("Name can't be empty.");
+      return;
+    }
+    startSaving(async () => {
+      const payload = {
+        name: name.trim(),
+        firm: firm.trim() || null,
+        email: email.trim() || null,
+        phone: phone.trim() || null,
+      };
+      const res = await updateContactIdentity(contactId, payload);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success("Contact details saved.");
+      onSaved(payload);
+      setEditing(false);
+    });
+  };
+
+  const cancel = () => {
+    setName(initialName);
+    setFirm(initialFirm ?? "");
+    setEmail(initialEmail ?? "");
+    setPhone(initialPhone ?? "");
+    setEditing(false);
+  };
+
+  if (!editing) {
+    return (
+      <section className="flex items-center justify-between gap-2">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Contact details
+        </h3>
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+        >
+          <Pencil className="h-3 w-3" /> Edit
+        </button>
+      </section>
+    );
+  }
+
+  const fieldLabel =
+    "text-[10px] font-medium uppercase tracking-wider text-muted-foreground";
+  return (
+    <section className="rounded-lg border bg-card/40 p-3">
+      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        Contact details
+      </h3>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <label className="flex flex-col gap-1">
+          <span className={fieldLabel}>Name</span>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="h-8 text-xs"
+            placeholder="Full name"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className={fieldLabel}>Firm / Company</span>
+          <Input
+            value={firm}
+            onChange={(e) => setFirm(e.target.value)}
+            className="h-8 text-xs"
+            placeholder="Company they work at"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className={fieldLabel}>Email</span>
+          <Input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="h-8 text-xs"
+            placeholder="name@company.com"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className={fieldLabel}>Phone</span>
+          <Input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="h-8 text-xs"
+            placeholder="+1 555 123 4567"
+          />
+        </label>
+      </div>
+      <div className="mt-2 flex items-center justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={cancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button size="sm" onClick={save} disabled={saving || !dirty || !name.trim()}>
+          {saving ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <CheckCircle2 className="h-3 w-3" />
+          )}
+          Save
+        </Button>
       </div>
     </section>
   );
