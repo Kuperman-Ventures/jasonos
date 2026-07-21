@@ -5,7 +5,9 @@
 // (Wednesday to Tuesday) on top, history scrolling below. No "what wasn't done".
 // The "Weekly PDF" prints the current week for the advisor hand-off.
 
+import { useState } from "react";
 import { Network, Download } from "lucide-react";
+import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import type {
   NetworkingActivity,
   NsConversation,
@@ -41,6 +43,7 @@ function weekTitle(w: WeekActivity): string {
 
 export function NetworkingActivityClient({ data }: { data: NetworkingActivity }) {
   const current = data.weeks.find((w) => w.isCurrent) ?? data.weeks[0];
+  const [target, setTarget] = useState<NsConversation | null>(null);
 
   function downloadWeeklyPdf() {
     if (!current) return;
@@ -102,13 +105,30 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
       </header>
 
       {data.weeks.map((w) => (
-        <WeekCard key={w.weekStart} w={w} />
+        <WeekCard key={w.weekStart} w={w} onOpenContact={setTarget} />
       ))}
+
+      <OutreachModal
+        open={!!target}
+        onOpenChange={(o) => {
+          if (!o) setTarget(null);
+        }}
+        contactId={target?.contactId}
+        initialDisplay={
+          target ? { name: target.name, title: null, firm: target.firm } : undefined
+        }
+      />
     </div>
   );
 }
 
-function WeekCard({ w }: { w: WeekActivity }) {
+function WeekCard({
+  w,
+  onOpenContact,
+}: {
+  w: WeekActivity;
+  onOpenContact: (c: NsConversation) => void;
+}) {
   const chips: { label: string; value: number }[] = [
     { label: "conversations", value: w.stats.conversations },
     { label: "new contacts", value: w.stats.newContacts },
@@ -158,7 +178,7 @@ function WeekCard({ w }: { w: WeekActivity }) {
         </p>
       ) : (
         <div className="p-4">
-          <WeekHeatmap conversations={w.conversations} />
+          <WeekHeatmap conversations={w.conversations} onOpenContact={onOpenContact} />
         </div>
       )}
     </section>
@@ -248,9 +268,29 @@ function heatmapHtml(conversations: NsConversation[]): string {
     <p class="legend">Rows = relevance (A most &rarr; C). Columns = closeness (1 = know well &rarr; 3). Darker = more conversations.</p>`;
 }
 
-function WeekHeatmap({ conversations }: { conversations: NsConversation[] }) {
+function normTier(t: NsConversation["tier"]): string {
+  return t === "A" || t === "B" || t === "C" ? t : "—";
+}
+function normDeg(d: NsConversation["degree"]): number {
+  return d === 1 || d === 2 || d === 3 ? d : 0;
+}
+
+function WeekHeatmap({
+  conversations,
+  onOpenContact,
+}: {
+  conversations: NsConversation[];
+  onOpenContact: (c: NsConversation) => void;
+}) {
   const { grid, rows, cols, max, rowTotals } = buildMatrix(conversations);
   const template = `64px repeat(${cols.length}, minmax(34px, 1fr)) 44px`;
+  const [sel, setSel] = useState<{ tier: string; deg: number } | null>(null);
+
+  const selected =
+    sel &&
+    conversations.filter(
+      (c) => normTier(c.tier) === sel.tier && normDeg(c.degree) === sel.deg
+    );
 
   return (
     <div>
@@ -285,15 +325,25 @@ function WeekHeatmap({ conversations }: { conversations: NsConversation[] }) {
             </span>
             {cols.map((d) => {
               const count = grid[r][d];
+              const isSel = sel?.tier === r && sel?.deg === d;
               return (
-                <div
+                <button
                   key={`${r}-${d}`}
-                  className="flex h-8 items-center justify-center rounded-sm text-[11px] font-medium tabular-nums"
+                  type="button"
+                  disabled={count === 0}
+                  onClick={() => setSel(isSel ? null : { tier: r, deg: d })}
+                  className={`flex h-8 items-center justify-center rounded-sm text-[11px] font-medium tabular-nums transition-[box-shadow,transform] disabled:cursor-default ${
+                    count > 0 ? "cursor-pointer hover:brightness-125" : ""
+                  } ${isSel ? "ring-2 ring-emerald-300 ring-offset-1 ring-offset-card" : ""}`}
                   style={{ backgroundColor: cellBg(count, max) }}
-                  title={`Relevance ${r} · closeness ${colLabel(d)} — ${count} conversation${count === 1 ? "" : "s"}`}
+                  title={
+                    count > 0
+                      ? `Relevance ${r} · closeness ${colLabel(d)} — ${count} conversation${count === 1 ? "" : "s"} (click to see who)`
+                      : `Relevance ${r} · closeness ${colLabel(d)} — none`
+                  }
                 >
                   {count > 0 ? count : ""}
-                </div>
+                </button>
               );
             })}
             <span className="text-right text-[11px] font-semibold tabular-nums">
@@ -305,8 +355,58 @@ function WeekHeatmap({ conversations }: { conversations: NsConversation[] }) {
 
       <p className="mt-2 text-[10px] text-muted-foreground">
         Rows = relevance (A most → C). Columns = closeness (1 = know well → 3).
-        Darker = more conversations.
+        Darker = more conversations. Click a square to see who&rsquo;s in it.
       </p>
+
+      {/* Drill-down: who is counted in the clicked square */}
+      {sel && selected ? (
+        <div className="mt-3 rounded-lg border border-border bg-muted/20 p-2.5">
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <p className="text-[11px] font-semibold">
+              {sel.tier === "—" ? "Unclassified" : `Relevance ${sel.tier}`} ·
+              closeness {colLabel(sel.deg)}
+              <span className="ml-1.5 text-muted-foreground">
+                ({selected.length})
+              </span>
+            </p>
+            <button
+              type="button"
+              onClick={() => setSel(null)}
+              className="text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+            >
+              Close
+            </button>
+          </div>
+          <ul className="divide-y divide-border/60">
+            {selected.map((c) => (
+              <li key={c.id}>
+                <button
+                  type="button"
+                  onClick={() => onOpenContact(c)}
+                  className="flex w-full items-center gap-2 rounded px-1 py-1.5 text-left text-xs transition-colors hover:bg-muted/50"
+                >
+                  <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                    {fmtShort(c.date)}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-medium">
+                    {c.name}
+                    {c.firm ? (
+                      <span className="ml-1.5 font-normal text-muted-foreground">
+                        · {c.firm}
+                      </span>
+                    ) : null}
+                  </span>
+                  {c.browning ? (
+                    <span className="shrink-0 rounded-full border border-border bg-muted px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-muted-foreground">
+                      Browning
+                    </span>
+                  ) : null}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }
