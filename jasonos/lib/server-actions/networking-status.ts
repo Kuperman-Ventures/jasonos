@@ -64,6 +64,7 @@ export interface NsNewContact {
 export interface NyuiWeekSummary {
   applicationCount: number;
   applications: {
+    date: string;
     company: string;
     position: string;
     method: string;
@@ -332,6 +333,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     const wk = weekFor(weekStartOf(date));
     wk.nyui.applicationCount += 1;
     wk.nyui.applications.push({
+      date,
       company: (ws.company_name as string | null) ?? "—",
       position: (ws.position_applied as string | null) ?? "—",
       method: (ws.contact_method as string | null) ?? "—",

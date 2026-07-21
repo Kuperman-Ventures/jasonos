@@ -113,6 +113,7 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
         ul.list li:first-child{border-top:none;}
         ul.list li b{font-weight:600;}
         .li-main{min-width:0;}
+        .li-date{color:#94a3b8;font-size:10px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin-right:2px;}
         .li-right{display:flex;gap:6px;flex-shrink:0;align-items:center;}
         .li-meta{flex-shrink:0;color:#64748b;font-size:10px;border:1px solid #e2e8f0;border-radius:999px;padding:1px 8px;white-space:nowrap;}
         .li-meta.ok{color:#047857;border-color:#a7f3d0;background:#ecfdf5;}
@@ -282,9 +283,14 @@ function NyuiPanel({ nyui }: { nyui: NyuiWeekSummary }) {
             key={i}
             className="flex items-baseline justify-between gap-2 px-3 py-1.5 text-xs"
           >
-            <span className="min-w-0">
-              <span className="font-medium text-foreground">{a.company}</span>
-              <span className="text-muted-foreground"> · {a.position}</span>
+            <span className="flex min-w-0 items-baseline gap-2">
+              <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                {fmtShort(a.date)}
+              </span>
+              <span className="min-w-0">
+                <span className="font-medium text-foreground">{a.company}</span>
+                <span className="text-muted-foreground"> · {a.position}</span>
+              </span>
             </span>
             <span className="flex shrink-0 items-center gap-1">
               <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
@@ -460,7 +466,7 @@ function nyuiHtml(w: WeekActivity): string {
         a.result && a.result !== "—"
           ? `<span class="li-meta ${resultTone(a.result)}">${escHtml(a.result)}</span>`
           : "";
-      return `<li><span class="li-main"><b>${escHtml(a.company)}</b> <span class="muted">&middot; ${escHtml(a.position)}</span></span><span class="li-right"><span class="li-meta">${escHtml(a.method)}</span>${resultPill}</span></li>`;
+      return `<li><span class="li-main"><span class="li-date">${escHtml(fmtShort(a.date))}</span> <b>${escHtml(a.company)}</b> <span class="muted">&middot; ${escHtml(a.position)}</span></span><span class="li-right"><span class="li-meta">${escHtml(a.method)}</span>${resultPill}</span></li>`;
     })
     .join("");
   return `<ul class="list">${rows}</ul>`;
