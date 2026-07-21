@@ -63,7 +63,12 @@ export interface NsNewContact {
  *  networking activity. Business hours are intentionally excluded. */
 export interface NyuiWeekSummary {
   applicationCount: number;
-  applications: { company: string; position: string; method: string }[];
+  applications: {
+    company: string;
+    position: string;
+    method: string;
+    result: string;
+  }[];
 }
 
 export interface WeekActivity {
@@ -177,7 +182,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     sb.from("browning_conversations").select("referrals_received,conversation_date"),
     pub
       .from("work_searches")
-      .select("date,company_name,position_applied,contact_method")
+      .select("date,company_name,position_applied,contact_method,result")
       .gte("date", nyuiSince)
       .order("date", { ascending: true }),
     sb.from("companies").select("id,name"),
@@ -330,6 +335,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
       company: (ws.company_name as string | null) ?? "—",
       position: (ws.position_applied as string | null) ?? "—",
       method: (ws.contact_method as string | null) ?? "—",
+      result: (ws.result as string | null) ?? "—",
     });
   }
 

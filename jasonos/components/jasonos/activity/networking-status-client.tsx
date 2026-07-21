@@ -113,7 +113,12 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
         ul.list li:first-child{border-top:none;}
         ul.list li b{font-weight:600;}
         .li-main{min-width:0;}
+        .li-right{display:flex;gap:6px;flex-shrink:0;align-items:center;}
         .li-meta{flex-shrink:0;color:#64748b;font-size:10px;border:1px solid #e2e8f0;border-radius:999px;padding:1px 8px;white-space:nowrap;}
+        .li-meta.ok{color:#047857;border-color:#a7f3d0;background:#ecfdf5;}
+        .li-meta.warn{color:#b45309;border-color:#fde68a;background:#fffbeb;}
+        .li-meta.bad{color:#b91c1c;border-color:#fecaca;background:#fef2f2;}
+        .li-meta.neutral{color:#64748b;border-color:#e2e8f0;}
         .empty{color:#94a3b8;font-size:12px;font-style:italic;margin:0;}
         .foot{margin-top:28px;border-top:1px solid #e2e8f0;padding-top:10px;color:#94a3b8;font-size:10px;}
         @media print{body{padding:16mm;}}
@@ -281,8 +286,17 @@ function NyuiPanel({ nyui }: { nyui: NyuiWeekSummary }) {
               <span className="font-medium text-foreground">{a.company}</span>
               <span className="text-muted-foreground"> · {a.position}</span>
             </span>
-            <span className="shrink-0 rounded-full border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-              {a.method}
+            <span className="flex shrink-0 items-center gap-1">
+              <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                {a.method}
+              </span>
+              {a.result && a.result !== "—" ? (
+                <span
+                  className={`rounded-full border px-1.5 py-0.5 text-[10px] ${RESULT_PILL[resultTone(a.result)]}`}
+                >
+                  {a.result}
+                </span>
+              ) : null}
             </span>
           </li>
         ))}
@@ -422,14 +436,32 @@ function newRepeatHtml(w: WeekActivity): string {
     ${newNames ? `<div class="sub2">New contacts</div><ul class="list">${newNames}</ul>` : ""}`;
 }
 
+// Result → tone bucket for the colored result pill on Search Activity rows.
+type ResultTone = "ok" | "warn" | "bad" | "neutral";
+function resultTone(result: string): ResultTone {
+  if (result === "Offer Received") return "ok";
+  if (result === "Interview Scheduled") return "warn";
+  if (result === "Rejected") return "bad";
+  return "neutral";
+}
+const RESULT_PILL: Record<ResultTone, string> = {
+  ok: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
+  warn: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+  bad: "border-rose-500/40 bg-rose-500/10 text-rose-300",
+  neutral: "border-border text-muted-foreground",
+};
+
 function nyuiHtml(w: WeekActivity): string {
   const n = w.nyui;
   if (n.applicationCount === 0) return "";
   const rows = n.applications
-    .map(
-      (a) =>
-        `<li><span class="li-main"><b>${escHtml(a.company)}</b> <span class="muted">&middot; ${escHtml(a.position)}</span></span><span class="li-meta">${escHtml(a.method)}</span></li>`
-    )
+    .map((a) => {
+      const resultPill =
+        a.result && a.result !== "—"
+          ? `<span class="li-meta ${resultTone(a.result)}">${escHtml(a.result)}</span>`
+          : "";
+      return `<li><span class="li-main"><b>${escHtml(a.company)}</b> <span class="muted">&middot; ${escHtml(a.position)}</span></span><span class="li-right"><span class="li-meta">${escHtml(a.method)}</span>${resultPill}</span></li>`;
+    })
     .join("");
   return `<ul class="list">${rows}</ul>`;
 }
