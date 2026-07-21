@@ -87,6 +87,50 @@ function nameFromEmail(email: string): string {
     .trim();
 }
 
+// Capitalize the first letter of each alphabetic run so hyphenated and
+// apostrophed names read correctly ("o'brien" -> "O'Brien").
+function titleCaseToken(w: string): string {
+  return w.replace(
+    /[a-zA-Z]+/g,
+    (m) => m[0].toUpperCase() + m.slice(1).toLowerCase()
+  );
+}
+
+// Normalize a display name captured from an email header into a consistent
+// "First Last" order with sane casing. Best-effort — ambiguous names are left
+// alone:
+//   "Smith, John"     -> "John Smith"
+//   "JOHN SMITH"      -> "John Smith"
+//   "john smith"      -> "John Smith"
+//   "McDonald, Fiona" -> "Fiona McDonald"  (deliberate internal caps kept)
+function normalizePersonName(raw: string | null | undefined): string {
+  let s = (raw ?? "").trim().replace(/\s+/g, " ");
+  // Strip surrounding quotes some mail clients wrap display names in.
+  s = s.replace(/^['"]+|['"]+$/g, "").trim();
+  if (!s) return "";
+  // Drop an email address if it leaked into the display name.
+  if (/\S+@\S+\.\S+/.test(s)) {
+    s = s.replace(/\S+@\S+\.\S+/g, "").trim();
+    if (!s) return "";
+  }
+  // "Last, First [Middle]" -> "First [Middle] Last" (a single comma only).
+  const commaParts = s.split(",").map((p) => p.trim()).filter(Boolean);
+  if (commaParts.length === 2) {
+    s = `${commaParts[1]} ${commaParts[0]}`;
+  }
+  // Title-case ALL-CAPS or all-lowercase tokens; keep deliberate mixed casing.
+  return s
+    .split(" ")
+    .map((w) => {
+      if (!w) return w;
+      const isAllUpper = w === w.toUpperCase();
+      const isAllLower = w === w.toLowerCase();
+      return isAllUpper || isAllLower ? titleCaseToken(w) : w;
+    })
+    .join(" ")
+    .trim();
+}
+
 // ---------------------------------------------------------------------------
 // captureEmailCandidates — scan recent mail, stage unknown counterparties.
 // ---------------------------------------------------------------------------
@@ -144,11 +188,11 @@ export async function captureEmailCandidates(opts?: {
         prev.lastSeen = cp.dateIso;
         prev.lastSubject = cp.subject ?? prev.lastSubject;
       }
-      if (!prev.name && cp.name) prev.name = cp.name;
+      if (!prev.name && cp.name) prev.name = normalizePersonName(cp.name);
     } else {
       agg.set(canon, {
         email: canon,
-        name: cp.name ?? null,
+        name: cp.name ? normalizePersonName(cp.name) : null,
         company: companyFromEmail(canon),
         inbound: cp.direction === "inbound" ? 1 : 0,
         outbound: cp.direction === "outbound" ? 1 : 0,
@@ -312,7 +356,8 @@ export async function addCandidateAsContact(id: string): Promise<ActionResult> {
       if (enrichErr) return { ok: false, error: enrichErr.message };
     }
   } else {
-    const name = (cand.name as string | null)?.trim() || nameFromEmail(email);
+    const name =
+      normalizePersonName(cand.name as string | null) || nameFromEmail(email);
     const { error: insErr } = await sb.from("contacts").insert({
       name,
       emails: [email],
