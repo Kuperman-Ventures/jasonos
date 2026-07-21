@@ -128,13 +128,13 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
     //   - intent missing (migration 0017 not applied) -> drop intent
     //   - cadence_stage missing (migration 0015 not applied) -> drop both
     // Either way the People list keeps rendering instead of disappearing.
-    const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,
+    const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,
        relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
        network_degree,next_touch_date,last_touch_date,last_touch_channel`;
-    const noIntentColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,
+    const noIntentColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,
        relationship_type,cadence_interval,cadence_stage,relevance_tier,
        network_degree,next_touch_date,last_touch_date,last_touch_channel`;
-    const noStageColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,
+    const noStageColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,
        relationship_type,cadence_interval,relevance_tier,network_degree,
        next_touch_date,last_touch_date,last_touch_channel`;
 
@@ -179,6 +179,26 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
 
     const enrichmentMap = await loadRecruiterEnrichment(recruiterIds);
 
+    // Company names (exact casing) via company_id — preferred over the legacy
+    // firm:<slug> tag so edited capitalization shows everywhere.
+    const companyIds = Array.from(
+      new Set(
+        (data ?? [])
+          .map((row) => (row as { company_id?: string | null }).company_id)
+          .filter((id): id is string => Boolean(id))
+      )
+    );
+    const companyNameById = new Map<string, string>();
+    if (companyIds.length) {
+      const { data: companies } = await sb
+        .from("companies")
+        .select("id,name")
+        .in("id", companyIds);
+      for (const c of companies ?? []) {
+        companyNameById.set(c.id as string, (c.name as string) ?? "");
+      }
+    }
+
     return (data ?? []).map((row): OutreachPerson => {
       const si = row.source_ids as Record<string, unknown> | null;
       const rpid = typeof si?.recruiter_pipeline_id === "string"
@@ -186,7 +206,12 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
         : null;
       const enrichment = rpid ? enrichmentMap.get(rpid) : undefined;
       const tags = (row.tags as string[] | null) ?? [];
-      const firm = enrichment?.firm ?? inferFirmFromTags(tags);
+      const companyId =
+        (row as { company_id?: string | null }).company_id ?? null;
+      const companyName = companyId
+        ? companyNameById.get(companyId) ?? null
+        : null;
+      const firm = enrichment?.firm ?? companyName ?? inferFirmFromTags(tags);
       const firmNormalized =
         enrichment?.firm_normalized ?? (firm ? firm.toLowerCase() : null);
       const emails = (row.emails as string[] | null) ?? [];
