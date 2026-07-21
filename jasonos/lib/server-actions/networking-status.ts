@@ -24,45 +24,8 @@ const CONVERSATION_CHANNELS = new Set([
   "coffee_chat",
 ]);
 
-// NYUI business-hours entities (mirrors the NYUI tool). Kept here so the
-// weekly report can show a per-entity split without importing client code.
-const NYUI_ENTITIES = ["Kuperman Ventures LLC", "Kuperman Advisors LLC"];
-
-// Default NYUI work-search tier by contact method, mirroring the NYUI tool.
-// An explicit `activity_tier` on the row wins; otherwise we derive from method.
-const NYUI_TIER_BY_METHOD: Record<string, "employer_contact" | "networking"> = {
-  "Online Portal": "employer_contact",
-  "Direct Email": "employer_contact",
-  "Phone Call": "employer_contact",
-  LinkedIn: "networking",
-  "Networking Event": "networking",
-  Interview: "employer_contact",
-  "In-Person Meeting": "employer_contact",
-  "Video Meeting": "employer_contact",
-  "Recruiter / Headhunter Screen": "employer_contact",
-  "Networking Contact": "networking",
-  "Career-Center Advisor Meeting": "networking",
-};
-
-function nyuiTierOf(row: {
-  activity_tier: string | null;
-  contact_method: string | null;
-}): "employer_contact" | "networking" {
-  if (row.activity_tier === "employer_contact" || row.activity_tier === "networking") {
-    return row.activity_tier;
-  }
-  return NYUI_TIER_BY_METHOD[row.contact_method ?? ""] ?? "employer_contact";
-}
-
 function emptyNyui(): NyuiWeekSummary {
-  return {
-    workSearches: 0,
-    tierA: 0,
-    tierB: 0,
-    qualifyingDays: 0,
-    businessMinutes: 0,
-    businessByEntity: NYUI_ENTITIES.map((entity) => ({ entity, minutes: 0 })),
-  };
+  return { applicationCount: 0, applications: [] };
 }
 
 export interface NsConversation {
@@ -94,16 +57,13 @@ export interface NsNewContact {
   degree: NetworkDegree | null;
 }
 
-/** NYS DOL (NYUI) activity that fell inside this reporting week. Aligned to
- *  the report's Wednesday→Tuesday week, not the official Sunday–Saturday claim
- *  week, so it reads on one timeline with the networking activity. */
+/** Job applications (NYUI work searches) logged inside this reporting week.
+ *  Aligned to the report's Wednesday→Tuesday week, not the official
+ *  Sunday–Saturday claim week, so it reads on one timeline with the
+ *  networking activity. Business hours are intentionally excluded. */
 export interface NyuiWeekSummary {
-  workSearches: number;
-  tierA: number; // employer contacts
-  tierB: number; // networking / fruitful activity
-  qualifyingDays: number; // unique calendar days with a work search
-  businessMinutes: number;
-  businessByEntity: { entity: string; minutes: number }[];
+  applicationCount: number;
+  applications: { company: string; position: string }[];
 }
 
 export interface WeekActivity {
@@ -189,7 +149,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
   }
 
   const sb = createServiceRoleClient();
-  // work_searches / business_hours (NYUI) live in the public schema.
+  // work_searches (NYUI job applications) live in the public schema.
   const pub = createPublicServiceRoleClient();
   // NYUI history window — comfortably covers every week the report can show.
   const nyuiSince = addDaysStr(currentWeekStart, -400);
@@ -200,7 +160,6 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     contactsRes,
     referralsRes,
     workSearchRes,
-    businessHoursRes,
   ] = await Promise.all([
     getOutreachPeople(),
     sb
@@ -216,12 +175,9 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     sb.from("browning_conversations").select("referrals_received,conversation_date"),
     pub
       .from("work_searches")
-      .select("date,contact_method,activity_tier")
-      .gte("date", nyuiSince),
-    pub
-      .from("business_hours")
-      .select("date,entity,hours,minutes")
-      .gte("date", nyuiSince),
+      .select("date,company_name,position_applied")
+      .gte("date", nyuiSince)
+      .order("date", { ascending: true }),
   ]);
 
   const touches = touchesRes.data ?? [];
@@ -340,48 +296,18 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     wk.stats.referrals += (r.referrals_received as number | null) ?? 0;
   }
 
-  // ── NYUI (NYS DOL) activity, bucketed into the report's Wed→Tue weeks ──────
-  // Work searches: count + Tier A/B split + unique qualifying days.
-  const nyuiQualifyingDays = new Map<string, Set<string>>();
+  // ── Job applications (NYUI work searches), bucketed into Wed→Tue weeks ─────
+  // Only the count + the company/position for each logged application; no
+  // business hours, no tier split (per the networking report's scope).
   for (const ws of workSearchRes.data ?? []) {
     const date = (ws.date as string | null) ?? null;
     if (!date) continue;
-    const weekStart = weekStartOf(date);
-    const wk = weekFor(weekStart);
-    wk.nyui.workSearches += 1;
-    if (
-      nyuiTierOf({
-        activity_tier: (ws.activity_tier as string | null) ?? null,
-        contact_method: (ws.contact_method as string | null) ?? null,
-      }) === "employer_contact"
-    ) {
-      wk.nyui.tierA += 1;
-    } else {
-      wk.nyui.tierB += 1;
-    }
-    let days = nyuiQualifyingDays.get(weekStart);
-    if (!days) {
-      days = new Set();
-      nyuiQualifyingDays.set(weekStart, days);
-    }
-    days.add(date);
-  }
-  for (const [weekStart, days] of nyuiQualifyingDays) {
-    weekFor(weekStart).nyui.qualifyingDays = days.size;
-  }
-
-  // Business hours: total + per-entity split.
-  for (const bh of businessHoursRes.data ?? []) {
-    const date = (bh.date as string | null) ?? null;
-    if (!date) continue;
     const wk = weekFor(weekStartOf(date));
-    const mins =
-      ((bh.hours as number | null) ?? 0) * 60 + ((bh.minutes as number | null) ?? 0);
-    wk.nyui.businessMinutes += mins;
-    const entity = (bh.entity as string | null) ?? "Other";
-    const row = wk.nyui.businessByEntity.find((e) => e.entity === entity);
-    if (row) row.minutes += mins;
-    else wk.nyui.businessByEntity.push({ entity, minutes: mins });
+    wk.nyui.applicationCount += 1;
+    wk.nyui.applications.push({
+      company: (ws.company_name as string | null) ?? "—",
+      position: (ws.position_applied as string | null) ?? "—",
+    });
   }
 
   const ordered = [...weeks.values()].sort((a, b) =>
@@ -389,15 +315,14 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
   );
 
   // Keep the current week (always) plus any historical week with networking OR
-  // NYUI activity — NYUI is now part of the report, so a week with only work
-  // searches / business hours still earns its place.
+  // job-application activity — a week with only job applications still earns
+  // its place in the report.
   const hasActivity = (w: WeekActivity) =>
     w.stats.conversations > 0 ||
     w.stats.newContacts > 0 ||
     w.stats.thankYous > 0 ||
     w.stats.referrals > 0 ||
-    w.nyui.workSearches > 0 ||
-    w.nyui.businessMinutes > 0;
+    w.nyui.applicationCount > 0;
   const filtered = ordered.filter((w) => w.isCurrent || hasActivity(w));
 
   return { generatedAt: today, weeks: filtered };
