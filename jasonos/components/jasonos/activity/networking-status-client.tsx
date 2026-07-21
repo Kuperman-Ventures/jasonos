@@ -105,9 +105,11 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
         .muted{color:#94a3b8;}
         .sub2{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;margin:14px 0 6px;}
         ul.list{list-style:none;margin:0;padding:0;border:1px solid #e2e8f0;border-radius:10px;}
-        ul.list li{padding:6px 12px;font-size:12px;color:#1e293b;border-top:1px solid #f1f5f9;}
+        ul.list li{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:6px 12px;font-size:12px;color:#1e293b;border-top:1px solid #f1f5f9;}
         ul.list li:first-child{border-top:none;}
         ul.list li b{font-weight:600;}
+        .li-main{min-width:0;}
+        .li-meta{flex-shrink:0;color:#64748b;font-size:10px;border:1px solid #e2e8f0;border-radius:999px;padding:1px 8px;white-space:nowrap;}
         .empty{color:#94a3b8;font-size:12px;font-style:italic;margin:0;}
         .foot{margin-top:28px;border-top:1px solid #e2e8f0;padding-top:10px;color:#94a3b8;font-size:10px;}
         @media print{body{padding:16mm;}}
@@ -269,10 +271,15 @@ function NyuiPanel({ nyui }: { nyui: NyuiWeekSummary }) {
         {nyui.applications.map((a, i) => (
           <li
             key={i}
-            className="flex flex-wrap items-baseline gap-x-2 px-3 py-1.5 text-xs"
+            className="flex items-baseline justify-between gap-2 px-3 py-1.5 text-xs"
           >
-            <span className="font-medium text-foreground">{a.company}</span>
-            <span className="text-muted-foreground">· {a.position}</span>
+            <span className="min-w-0">
+              <span className="font-medium text-foreground">{a.company}</span>
+              <span className="text-muted-foreground"> · {a.position}</span>
+            </span>
+            <span className="shrink-0 rounded-full border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              {a.method}
+            </span>
           </li>
         ))}
       </ul>
@@ -417,7 +424,7 @@ function nyuiHtml(w: WeekActivity): string {
   const rows = n.applications
     .map(
       (a) =>
-        `<li><b>${escHtml(a.company)}</b> <span class="muted">&middot; ${escHtml(a.position)}</span></li>`
+        `<li><span class="li-main"><b>${escHtml(a.company)}</b> <span class="muted">&middot; ${escHtml(a.position)}</span></span><span class="li-meta">${escHtml(a.method)}</span></li>`
     )
     .join("");
   return `<ul class="list">${rows}</ul>`;
