@@ -6,11 +6,12 @@
 // The "Weekly PDF" prints the current week for the advisor hand-off.
 
 import { useState } from "react";
-import { Network, Download } from "lucide-react";
+import { Network, Download, Sparkles, Repeat, Briefcase, Clock } from "lucide-react";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import type {
   NetworkingActivity,
   NsConversation,
+  NyuiWeekSummary,
   WeekActivity,
 } from "@/lib/server-actions/networking-status";
 
@@ -35,6 +36,22 @@ function escHtml(v: unknown): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function fmtHm(totalMinutes: number): string {
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
+// Ordinal for "spoken to repeatedly" — priorContactCount is how many talks came
+// before, so this conversation is the (count + 1)-th.
+function ordinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] ?? s[v] ?? s[0]}`;
 }
 
 function weekTitle(w: WeekActivity): string {
@@ -69,7 +86,9 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
         <span><b>${current.stats.thankYous}</b> thank-yous</span>
         <span><b>${current.stats.referrals}</b> referrals</span>
       </div>
+      ${newRepeatHtml(current)}
       ${heatmapHtml(current.conversations)}
+      ${nyuiHtml(current)}
       <script>window.onload=function(){window.print();}</script>
       </body></html>`;
     const w = window.open("", "_blank");
@@ -181,7 +200,83 @@ function WeekCard({
           <WeekHeatmap conversations={w.conversations} onOpenContact={onOpenContact} />
         </div>
       )}
+
+      <NyuiPanel nyui={w.nyui} />
     </section>
+  );
+}
+
+// NYS DOL (NYUI) weekly snapshot — work-search activities + business hours that
+// fell inside this reporting week. Aligned to the Wed→Tue reporting week (not
+// the official Sun–Sat claim week), so it reads on one timeline with the rest
+// of the report.
+function NyuiPanel({ nyui }: { nyui: NyuiWeekSummary }) {
+  if (nyui.workSearches === 0 && nyui.businessMinutes === 0) return null;
+  const entitiesWithTime = nyui.businessByEntity.filter((e) => e.minutes > 0);
+
+  return (
+    <div className="border-t bg-muted/10 px-4 py-3">
+      <div className="mb-2 flex items-center gap-2">
+        <Briefcase className="h-3.5 w-3.5 text-violet-300" />
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          NYS DOL — work search &amp; business hours
+        </h3>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="rounded-lg border border-border bg-background/40 px-3 py-2">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Work searches
+          </p>
+          <p className="text-lg font-bold tabular-nums text-foreground">
+            {nyui.workSearches}
+          </p>
+          <p className="text-[10px] text-muted-foreground">
+            {nyui.qualifyingDays} day{nyui.qualifyingDays === 1 ? "" : "s"}
+          </p>
+        </div>
+        <div className="rounded-lg border border-border bg-background/40 px-3 py-2">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Tier A / Tier B
+          </p>
+          <p className="text-lg font-bold tabular-nums text-foreground">
+            {nyui.tierA} / {nyui.tierB}
+          </p>
+          <p className="text-[10px] text-muted-foreground">employer / networking</p>
+        </div>
+        <div className="rounded-lg border border-border bg-background/40 px-3 py-2">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Business hours
+          </p>
+          <p className="inline-flex items-center gap-1 text-lg font-bold tabular-nums text-foreground">
+            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+            {fmtHm(nyui.businessMinutes)}
+          </p>
+          <p className="text-[10px] text-muted-foreground">of 10h weekly cap</p>
+        </div>
+        <div className="rounded-lg border border-border bg-background/40 px-3 py-2">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Hours by entity
+          </p>
+          {entitiesWithTime.length ? (
+            <ul className="mt-0.5 space-y-0.5">
+              {entitiesWithTime.map((e) => (
+                <li
+                  key={e.entity}
+                  className="flex items-baseline justify-between gap-2 text-[11px]"
+                >
+                  <span className="truncate text-muted-foreground">{e.entity}</span>
+                  <span className="shrink-0 font-semibold tabular-nums text-foreground">
+                    {fmtHm(e.minutes)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-[11px] text-muted-foreground">—</p>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -204,6 +299,14 @@ function buildMatrix(conversations: NsConversation[]) {
     C: { 1: 0, 2: 0, 3: 0, 0: 0 },
     "—": { 1: 0, 2: 0, 3: 0, 0: 0 },
   };
+  // Parallel grid counting only first-ever ("new") communications, so we can
+  // flag which squares landed a brand-new contact this week.
+  const newGrid: Record<string, Record<number, number>> = {
+    A: { 1: 0, 2: 0, 3: 0, 0: 0 },
+    B: { 1: 0, 2: 0, 3: 0, 0: 0 },
+    C: { 1: 0, 2: 0, 3: 0, 0: 0 },
+    "—": { 1: 0, 2: 0, 3: 0, 0: 0 },
+  };
   let hasUnclassified = false;
   let hasUnknownDeg = false;
   for (const c of conversations) {
@@ -212,6 +315,7 @@ function buildMatrix(conversations: NsConversation[]) {
     const d = c.degree === 1 || c.degree === 2 || c.degree === 3 ? c.degree : 0;
     if (d === 0) hasUnknownDeg = true;
     grid[t][d] += 1;
+    if (c.isFirstContact) newGrid[t][d] += 1;
   }
   const rows = hasUnclassified ? ["A", "B", "C", "—"] : ["A", "B", "C"];
   const cols: number[] = hasUnknownDeg ? [1, 2, 3, 0] : [1, 2, 3];
@@ -226,7 +330,7 @@ function buildMatrix(conversations: NsConversation[]) {
     }
     rowTotals[r] = tot;
   }
-  return { grid, rows, cols, max, rowTotals };
+  return { grid, newGrid, rows, cols, max, rowTotals };
 }
 
 function cellBg(count: number, max: number): string {
@@ -244,7 +348,7 @@ function heatmapHtml(conversations: NsConversation[]): string {
   if (conversations.length === 0) {
     return '<p class="empty">No conversations logged this week.</p>';
   }
-  const { grid, rows, cols, max, rowTotals } = buildMatrix(conversations);
+  const { grid, newGrid, rows, cols, max, rowTotals } = buildMatrix(conversations);
   const head = `<tr><th></th>${cols
     .map((d) => `<th>${escHtml(colLabel(d))}</th>`)
     .join("")}<th>Total</th></tr>`;
@@ -253,11 +357,14 @@ function heatmapHtml(conversations: NsConversation[]): string {
       const cells = cols
         .map((d) => {
           const count = grid[r][d];
+          const newCount = newGrid[r][d];
           const bg =
             count > 0
               ? `background:rgba(16,185,129,${(0.16 + 0.6 * (count / max)).toFixed(3)});`
               : "background:#f5f7f6;";
-          return `<td style="text-align:center;${bg}">${count > 0 ? count : ""}</td>`;
+          // A superscript dot marks a square that landed a first-ever contact.
+          const marker = newCount > 0 ? '<sup style="color:#d97706">&bull;</sup>' : "";
+          return `<td style="text-align:center;${bg}">${count > 0 ? count + marker : ""}</td>`;
         })
         .join("");
       const label = r === "—" ? "Unclass." : r;
@@ -265,7 +372,38 @@ function heatmapHtml(conversations: NsConversation[]): string {
     })
     .join("");
   return `<table class="heat"><thead>${head}</thead><tbody>${body}</tbody></table>
-    <p class="legend">Rows = relevance (A most &rarr; C). Columns = closeness (1 = know well &rarr; 3). Darker = more conversations.</p>`;
+    <p class="legend">Rows = relevance (A most &rarr; C). Columns = closeness (1 = know well &rarr; 3). Darker = more conversations. <sup style="color:#d97706">&bull;</sup> = includes a first-ever contact.</p>`;
+}
+
+// Printable HTML for the new-vs-repeat split and the NYS DOL snapshot, so the
+// advisor hand-off PDF carries the same two additions shown on screen.
+function newRepeatHtml(w: WeekActivity): string {
+  const total = w.stats.conversations;
+  if (total === 0) return "";
+  const newC = w.stats.newConversations;
+  const repeat = w.stats.repeatConversations;
+  const pct = Math.round((newC / total) * 100);
+  return `<div class="kpis">
+      <span><b>${newC}</b> new contact${newC === 1 ? "" : "s"}</span>
+      <span><b>${repeat}</b> repeat conversation${repeat === 1 ? "" : "s"}</span>
+      <span><b>${pct}%</b> new</span>
+    </div>`;
+}
+
+function nyuiHtml(w: WeekActivity): string {
+  const n = w.nyui;
+  if (n.workSearches === 0 && n.businessMinutes === 0) return "";
+  const entities = n.businessByEntity
+    .filter((e) => e.minutes > 0)
+    .map((e) => `${escHtml(e.entity)} ${fmtHm(e.minutes)}`)
+    .join(" &middot; ");
+  return `<h2 style="font-size:13px;margin:18px 0 6px;">NYS DOL — work search &amp; business hours</h2>
+    <div class="kpis">
+      <span><b>${n.workSearches}</b> work searches (${n.qualifyingDays} day${n.qualifyingDays === 1 ? "" : "s"})</span>
+      <span><b>${n.tierA} / ${n.tierB}</b> Tier A / Tier B</span>
+      <span><b>${fmtHm(n.businessMinutes)}</b> business hours</span>
+    </div>
+    ${entities ? `<p class="sub" style="margin-top:6px;">By entity: ${entities}</p>` : ""}`;
 }
 
 function normTier(t: NsConversation["tier"]): string {
@@ -282,7 +420,7 @@ function WeekHeatmap({
   conversations: NsConversation[];
   onOpenContact: (c: NsConversation) => void;
 }) {
-  const { grid, rows, cols, max, rowTotals } = buildMatrix(conversations);
+  const { grid, newGrid, rows, cols, max, rowTotals } = buildMatrix(conversations);
   const template = `64px repeat(${cols.length}, minmax(34px, 1fr)) 44px`;
   const [sel, setSel] = useState<{ tier: string; deg: number } | null>(null);
 
@@ -325,6 +463,7 @@ function WeekHeatmap({
             </span>
             {cols.map((d) => {
               const count = grid[r][d];
+              const newCount = newGrid[r][d];
               const isSel = sel?.tier === r && sel?.deg === d;
               return (
                 <button
@@ -332,17 +471,23 @@ function WeekHeatmap({
                   type="button"
                   disabled={count === 0}
                   onClick={() => setSel(isSel ? null : { tier: r, deg: d })}
-                  className={`flex h-8 items-center justify-center rounded-sm text-[11px] font-medium tabular-nums transition-[box-shadow,transform] disabled:cursor-default ${
+                  className={`relative flex h-8 items-center justify-center rounded-sm text-[11px] font-medium tabular-nums transition-[box-shadow,transform] disabled:cursor-default ${
                     count > 0 ? "cursor-pointer hover:brightness-125" : ""
                   } ${isSel ? "ring-2 ring-emerald-300 ring-offset-1 ring-offset-card" : ""}`}
                   style={{ backgroundColor: cellBg(count, max) }}
                   title={
                     count > 0
-                      ? `Relevance ${r} · closeness ${colLabel(d)} — ${count} conversation${count === 1 ? "" : "s"} (click to see who)`
+                      ? `Relevance ${r} · closeness ${colLabel(d)} — ${count} conversation${count === 1 ? "" : "s"}${newCount > 0 ? `, ${newCount} with a new contact` : ""} (click to see who)`
                       : `Relevance ${r} · closeness ${colLabel(d)} — none`
                   }
                 >
                   {count > 0 ? count : ""}
+                  {newCount > 0 ? (
+                    <span
+                      className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-amber-400 ring-1 ring-card"
+                      aria-hidden
+                    />
+                  ) : null}
                 </button>
               );
             })}
@@ -353,10 +498,18 @@ function WeekHeatmap({
         ))}
       </div>
 
-      <p className="mt-2 text-[10px] text-muted-foreground">
-        Rows = relevance (A most → C). Columns = closeness (1 = know well → 3).
-        Darker = more conversations. Click a square to see who&rsquo;s in it.
+      <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-muted-foreground">
+        <span>
+          Rows = relevance (A most → C). Columns = closeness (1 = know well → 3).
+          Darker = more conversations. Click a square to see who&rsquo;s in it.
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
+          = includes a first-ever contact
+        </span>
       </p>
+
+      <NewRepeatSummary conversations={conversations} />
 
       {/* Drill-down: who is counted in the clicked square */}
       {sel && selected ? (
@@ -396,6 +549,10 @@ function WeekHeatmap({
                       </span>
                     ) : null}
                   </span>
+                  <ContactKindBadge
+                    isFirstContact={c.isFirstContact}
+                    priorContactCount={c.priorContactCount}
+                  />
                   {c.browning ? (
                     <span className="shrink-0 rounded-full border border-border bg-muted px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-muted-foreground">
                       Browning
@@ -408,5 +565,69 @@ function WeekHeatmap({
         </div>
       ) : null}
     </div>
+  );
+}
+
+// New vs. repeat split for a set of conversations — a clear, at-a-glance
+// indicator of how much of the week was fresh outreach vs. staying in touch.
+function NewRepeatSummary({ conversations }: { conversations: NsConversation[] }) {
+  const total = conversations.length;
+  if (total === 0) return null;
+  const newCount = conversations.filter((c) => c.isFirstContact).length;
+  const repeatCount = total - newCount;
+  const newPct = Math.round((newCount / total) * 100);
+
+  return (
+    <div className="mt-3 rounded-lg border border-border bg-muted/20 p-2.5">
+      <div className="flex flex-wrap items-center gap-3 text-[11px]">
+        <span className="inline-flex items-center gap-1.5 font-medium text-amber-300">
+          <Sparkles className="h-3.5 w-3.5" />
+          {newCount} new contact{newCount === 1 ? "" : "s"}
+        </span>
+        <span className="inline-flex items-center gap-1.5 font-medium text-sky-300">
+          <Repeat className="h-3.5 w-3.5" />
+          {repeatCount} repeat conversation{repeatCount === 1 ? "" : "s"}
+        </span>
+        <span className="text-muted-foreground">· {newPct}% new</span>
+      </div>
+      {/* Split bar: amber = new, sky = repeat */}
+      <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-border">
+        {newCount > 0 ? (
+          <div className="h-full bg-amber-400" style={{ width: `${newPct}%` }} />
+        ) : null}
+        {repeatCount > 0 ? (
+          <div className="h-full bg-sky-400" style={{ width: `${100 - newPct}%` }} />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// Per-contact indicator: a first-ever communication ("New") vs. a repeat
+// conversation with someone already spoken to (showing which touch this is,
+// so "spoken to repeatedly" is legible at a glance).
+function ContactKindBadge({
+  isFirstContact,
+  priorContactCount,
+}: {
+  isFirstContact: boolean;
+  priorContactCount: number;
+}) {
+  if (isFirstContact) {
+    return (
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-300">
+        <Sparkles className="h-2.5 w-2.5" />
+        New
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-sky-400/40 bg-sky-400/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-sky-300"
+      title={`You've communicated with this contact ${priorContactCount} time${priorContactCount === 1 ? "" : "s"} before — this is the ${ordinal(priorContactCount + 1)} touch.`}
+    >
+      <Repeat className="h-2.5 w-2.5" />
+      Repeat · {ordinal(priorContactCount + 1)}
+    </span>
   );
 }
