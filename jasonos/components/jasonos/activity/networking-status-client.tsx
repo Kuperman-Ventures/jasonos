@@ -129,7 +129,7 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
       }
       ${
         apps
-          ? `<section class="card"><div class="card-h">Job applications (${current.nyui.applicationCount})</div><div class="card-b">${apps}</div></section>`
+          ? `<section class="card"><div class="card-h">Search Activity (${current.nyui.applicationCount})</div><div class="card-b">${apps}</div></section>`
           : ""
       }
       <div class="foot">JasonOS &middot; Networking activity &middot; ${escHtml(range)}. Reporting week runs Wednesday to Tuesday.</div>
@@ -259,7 +259,7 @@ function NyuiPanel({ nyui }: { nyui: NyuiWeekSummary }) {
       <div className="mb-2 flex items-center gap-2">
         <Briefcase className="h-3.5 w-3.5 text-violet-300" />
         <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Job applications
+          Search Activity
         </h3>
         <span className="rounded-full bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-violet-300">
           {nyui.applicationCount}
