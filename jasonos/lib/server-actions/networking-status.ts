@@ -1,7 +1,7 @@
 "use server";
 
 // Networking Activity — a thin, activity-only report broken out by week
-// (Tuesday to Tuesday). Shows what you DID: conversations had, new contacts
+// (Wednesday to Tuesday). Shows what you DID: conversations had, new contacts
 // added, thank-yous sent, referrals received. No "what you didn't do" — no
 // awaiting/overdue/drift. Current week on top, history below. Derived entirely
 // from data already collected; nothing new to log.
@@ -44,8 +44,8 @@ export interface NsNewContact {
 }
 
 export interface WeekActivity {
-  weekStart: string; // Tuesday (YYYY-MM-DD), inclusive
-  weekEnd: string; // Monday (YYYY-MM-DD), inclusive
+  weekStart: string; // Wednesday (YYYY-MM-DD), inclusive
+  weekEnd: string; // Tuesday (YYYY-MM-DD), inclusive
   isCurrent: boolean;
   conversations: NsConversation[];
   newContacts: NsNewContact[];
@@ -72,10 +72,12 @@ function ymd(d: Date): string {
   return d.toISOString().split("T")[0];
 }
 
-// Tuesday-start week for any YYYY-MM-DD: the most recent Tuesday on/before it.
+// Wednesday-start week for any YYYY-MM-DD: the most recent Wednesday on/before
+// it. Weeks run Wednesday → Tuesday, so Tuesday is the LAST day of the week
+// that began the prior Wednesday.
 function weekStartOf(dateStr: string): string {
   const d = new Date(`${dateStr}T00:00:00Z`);
-  const back = (d.getUTCDay() - 2 + 7) % 7; // Tue = 2
+  const back = (d.getUTCDay() - 3 + 7) % 7; // Wed = 3
   d.setUTCDate(d.getUTCDate() - back);
   return ymd(d);
 }

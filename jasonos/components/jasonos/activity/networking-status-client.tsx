@@ -2,7 +2,7 @@
 
 // Networking Activity — a thin, week-by-week feed of what you DID: conversations
 // had, new contacts added, thank-yous sent, referrals received. Current week
-// (Tuesday to Tuesday) on top, history scrolling below. No "what wasn't done".
+// (Wednesday to Tuesday) on top, history scrolling below. No "what wasn't done".
 // The "Weekly PDF" prints the current week for the advisor hand-off.
 
 import { Network, Download } from "lucide-react";
@@ -59,7 +59,7 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
         .empty{color:#888;padding:16px;}
       </style></head><body>
       <h1>Networking Activity</h1>
-      <p class="sub">Week of ${escHtml(fmt(current.weekStart))} through ${escHtml(fmt(current.weekEnd))} (Tuesday to Tuesday)</p>
+      <p class="sub">Week of ${escHtml(fmt(current.weekStart))} through ${escHtml(fmt(current.weekEnd))} (Wednesday to Tuesday)</p>
       <div class="kpis">
         <span><b>${current.stats.conversations}</b> conversations</span>
         <span><b>${current.stats.newContacts}</b> new contacts</span>
@@ -87,7 +87,7 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
             What you did, week by week
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Tuesday to Tuesday. This week on top, history below. Derived from
+            Wednesday to Tuesday. This week on top, history below. Derived from
             your outreach data.
           </p>
         </div>
