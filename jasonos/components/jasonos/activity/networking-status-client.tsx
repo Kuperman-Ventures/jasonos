@@ -56,31 +56,83 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
 
   function downloadWeeklyPdf() {
     if (!current) return;
+    const title = current.isCurrent
+      ? "This week"
+      : `Week of ${fmtShort(current.weekStart)}`;
+    const range = `${fmt(current.weekStart)} through ${fmt(current.weekEnd)}`;
+    const chips = [
+      { label: "conversations", value: current.stats.conversations },
+      { label: "thank-yous", value: current.stats.thankYous },
+      { label: "referrals", value: current.stats.referrals },
+    ]
+      .filter((c) => c.value > 0)
+      .map((c) => `<span class="chip"><b>${c.value}</b> ${c.label}</span>`)
+      .join("");
+
+    const nr = newRepeatHtml(current);
+    const apps = nyuiHtml(current);
+
     const html = `<!doctype html><html><head><meta charset="utf-8"/>
-      <title>Networking Activity ${escHtml(current.weekStart)}</title>
+      <title>Networking Activity — ${escHtml(range)}</title>
       <style>
-        body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111;margin:32px;}
-        h1{font-size:18px;margin:0 0 2px;} .sub{color:#555;font-size:12px;margin:0 0 16px;}
-        .kpis{display:flex;gap:18px;margin:0 0 18px;font-size:12px;color:#333;}
-        .kpis b{font-size:16px;display:block;}
-        table.heat{border-collapse:collapse;font-size:12px;}
-        table.heat th,table.heat td{border:1px solid #e5e7eb;padding:8px 12px;min-width:40px;}
-        table.heat thead th{background:#f3f3f3;font-size:11px;color:#555;text-align:center;}
-        table.heat .rowlab{background:#fafafa;font-weight:600;text-align:left;}
-        .legend{color:#777;font-size:11px;margin-top:10px;}
-        .empty{color:#888;padding:16px;}
+        *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+        body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1e293b;background:#fff;margin:0;padding:40px;max-width:760px;}
+        .eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#059669;}
+        h1{font-size:24px;font-weight:800;color:#0f172a;margin:5px 0 2px;}
+        .sub{color:#64748b;font-size:12px;margin:0;}
+        .chips{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0 4px;}
+        .chip{border:1px solid #e2e8f0;border-radius:999px;padding:3px 11px;font-size:11px;color:#475569;}
+        .chip b{color:#0f172a;font-weight:700;}
+        .card{border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-top:16px;page-break-inside:avoid;}
+        .card-h{background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:8px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#334155;}
+        .card-b{padding:14px;}
+        .heat{display:flex;flex-direction:column;gap:5px;max-width:440px;}
+        .hrow{display:grid;gap:5px;align-items:center;}
+        .hc{font-size:10px;font-weight:600;color:#64748b;text-align:center;}
+        .hrl-h{font-size:9px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.04em;}
+        .hrl{font-size:13px;font-weight:800;}
+        .hcell{position:relative;height:30px;display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:12px;font-weight:700;color:#0f172a;}
+        .htot{text-align:right;font-size:12px;font-weight:800;color:#0f172a;}
+        .ndot{position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;background:#f59e0b;}
+        .legend{color:#94a3b8;font-size:10px;margin:10px 0 0;line-height:1.5;}
+        .ilegend{display:inline-block;width:6px;height:6px;border-radius:50%;background:#f59e0b;vertical-align:middle;}
+        .nr-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:#334155;align-items:center;}
+        .nr-legend b{color:#0f172a;}
+        .dot{display:inline-block;width:9px;height:9px;border-radius:50%;vertical-align:middle;margin-right:5px;}
+        .dot.amber{background:#f59e0b;} .dot.sky{background:#38bdf8;}
+        .bar{display:flex;height:8px;border-radius:999px;overflow:hidden;background:#e2e8f0;margin-top:10px;max-width:440px;}
+        .bar-new{background:#f59e0b;} .bar-rep{background:#38bdf8;}
+        .muted{color:#94a3b8;}
+        .sub2{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;margin:14px 0 6px;}
+        ul.list{list-style:none;margin:0;padding:0;border:1px solid #e2e8f0;border-radius:10px;}
+        ul.list li{padding:6px 12px;font-size:12px;color:#1e293b;border-top:1px solid #f1f5f9;}
+        ul.list li:first-child{border-top:none;}
+        ul.list li b{font-weight:600;}
+        .empty{color:#94a3b8;font-size:12px;font-style:italic;margin:0;}
+        .foot{margin-top:28px;border-top:1px solid #e2e8f0;padding-top:10px;color:#94a3b8;font-size:10px;}
+        @media print{body{padding:16mm;}}
       </style></head><body>
-      <h1>Networking Activity</h1>
-      <p class="sub">Week of ${escHtml(fmt(current.weekStart))} through ${escHtml(fmt(current.weekEnd))} (Wednesday to Tuesday)</p>
-      <div class="kpis">
-        <span><b>${current.stats.conversations}</b> conversations</span>
-        <span><b>${current.stats.newContacts}</b> new contacts</span>
-        <span><b>${current.stats.thankYous}</b> thank-yous</span>
-        <span><b>${current.stats.referrals}</b> referrals</span>
+      <div class="head">
+        <div class="eyebrow">Networking Activity</div>
+        <h1>${escHtml(title)}</h1>
+        <p class="sub">Week of ${escHtml(range)} · Wednesday to Tuesday</p>
       </div>
-      ${newRepeatHtml(current)}
-      ${heatmapHtml(current.conversations)}
-      ${nyuiHtml(current)}
+      ${chips ? `<div class="chips">${chips}</div>` : ""}
+      <section class="card">
+        <div class="card-h">Relevance &times; closeness</div>
+        <div class="card-b">${heatmapHtml(current.conversations)}</div>
+      </section>
+      ${
+        nr
+          ? `<section class="card"><div class="card-h">New vs. repeat</div><div class="card-b">${nr}</div></section>`
+          : ""
+      }
+      ${
+        apps
+          ? `<section class="card"><div class="card-h">Job applications (${current.nyui.applicationCount})</div><div class="card-b">${apps}</div></section>`
+          : ""
+      }
+      <div class="foot">JasonOS &middot; Networking activity &middot; ${escHtml(range)}. Reporting week runs Wednesday to Tuesday.</div>
       <script>window.onload=function(){window.print();}</script>
       </body></html>`;
     const w = window.open("", "_blank");
@@ -291,15 +343,28 @@ function colLabel(deg: number): string {
   return deg === 0 ? "?" : String(deg);
 }
 
-// Same matrix, rendered as a static HTML table for the printable PDF.
+// Tier accent colors for the printable heatmap row labels, echoing the
+// on-screen tier colors (A emerald, B sky, C slate, unclassified muted).
+const TIER_HEX: Record<string, string> = {
+  A: "#059669",
+  B: "#0284c7",
+  C: "#475569",
+  "—": "#94a3b8",
+};
+
+// Relevance × closeness heatmap rendered as a CSS-grid graphic for the
+// printable PDF — mirrors the on-screen grid (rounded emerald cells, tier-
+// colored row labels, per-row totals, and an amber dot on any square that
+// landed a first-ever contact).
 function heatmapHtml(conversations: NsConversation[]): string {
   if (conversations.length === 0) {
     return '<p class="empty">No conversations logged this week.</p>';
   }
   const { grid, newGrid, rows, cols, max, rowTotals } = buildMatrix(conversations);
-  const head = `<tr><th></th>${cols
-    .map((d) => `<th>${escHtml(colLabel(d))}</th>`)
-    .join("")}<th>Total</th></tr>`;
+  const gridCols = `grid-template-columns:76px repeat(${cols.length},1fr) 46px`;
+  const head = `<div class="hrow" style="${gridCols}"><div class="hrl-h">Rel / Close</div>${cols
+    .map((d) => `<div class="hc">${escHtml(colLabel(d))}</div>`)
+    .join("")}<div class="hc">Total</div></div>`;
   const body = rows
     .map((r) => {
       const cells = cols
@@ -308,19 +373,18 @@ function heatmapHtml(conversations: NsConversation[]): string {
           const newCount = newGrid[r][d];
           const bg =
             count > 0
-              ? `background:rgba(16,185,129,${(0.16 + 0.6 * (count / max)).toFixed(3)});`
-              : "background:#f5f7f6;";
-          // A superscript dot marks a square that landed a first-ever contact.
-          const marker = newCount > 0 ? '<sup style="color:#d97706">&bull;</sup>' : "";
-          return `<td style="text-align:center;${bg}">${count > 0 ? count + marker : ""}</td>`;
+              ? `rgba(16,185,129,${(0.16 + 0.6 * (count / max)).toFixed(3)})`
+              : "#f1f5f9";
+          const dot = newCount > 0 ? '<span class="ndot"></span>' : "";
+          return `<div class="hcell" style="background:${bg}">${count > 0 ? count : ""}${dot}</div>`;
         })
         .join("");
-      const label = r === "—" ? "Unclass." : r;
-      return `<tr><th class="rowlab">${escHtml(label)}</th>${cells}<td style="text-align:right;font-weight:600;">${rowTotals[r]}</td></tr>`;
+      const label = r === "—" ? "Uncl." : r;
+      return `<div class="hrow" style="${gridCols}"><div class="hrl" style="color:${TIER_HEX[r]}">${escHtml(label)}</div>${cells}<div class="htot">${rowTotals[r]}</div></div>`;
     })
     .join("");
-  return `<table class="heat"><thead>${head}</thead><tbody>${body}</tbody></table>
-    <p class="legend">Rows = relevance (A most &rarr; C). Columns = closeness (1 = know well &rarr; 3). Darker = more conversations. <sup style="color:#d97706">&bull;</sup> = includes a first-ever contact.</p>`;
+  return `<div class="heat">${head}${body}</div>
+    <p class="legend">Rows = relevance (A most &rarr; C). Columns = closeness (1 = know well &rarr; 3). Darker = more conversations. <span class="ilegend"></span> = includes a first-ever contact.</p>`;
 }
 
 // Printable HTML for the new-vs-repeat split and the NYS DOL snapshot, so the
@@ -336,15 +400,16 @@ function newRepeatHtml(w: WeekActivity): string {
     .filter((c) => c.isFirstContact && !seen.has(c.contactId) && seen.add(c.contactId))
     .map(
       (c) =>
-        `<li>${escHtml(c.name)}${c.firm ? ` <span style="color:#777;">&middot; ${escHtml(c.firm)}</span>` : ""}</li>`
+        `<li><b>${escHtml(c.name)}</b>${c.firm ? ` <span class="muted">&middot; ${escHtml(c.firm)}</span>` : ""}</li>`
     )
     .join("");
-  return `<div class="kpis">
-      <span><b>${newC}</b> new contact${newC === 1 ? "" : "s"}</span>
-      <span><b>${repeat}</b> repeat conversation${repeat === 1 ? "" : "s"}</span>
-      <span><b>${pct}%</b> new</span>
+  return `<div class="nr-legend">
+      <span><span class="dot amber"></span><b>${newC}</b> new contact${newC === 1 ? "" : "s"}</span>
+      <span><span class="dot sky"></span><b>${repeat}</b> repeat conversation${repeat === 1 ? "" : "s"}</span>
+      <span class="muted">&middot; ${pct}% new</span>
     </div>
-    ${newNames ? `<p class="sub" style="margin:8px 0 2px;font-weight:600;">New contacts</p><ul style="margin:2px 0 0;padding-left:18px;font-size:12px;">${newNames}</ul>` : ""}`;
+    <div class="bar">${newC > 0 ? `<div class="bar-new" style="width:${pct}%"></div>` : ""}${repeat > 0 ? `<div class="bar-rep" style="width:${100 - pct}%"></div>` : ""}</div>
+    ${newNames ? `<div class="sub2">New contacts</div><ul class="list">${newNames}</ul>` : ""}`;
 }
 
 function nyuiHtml(w: WeekActivity): string {
@@ -353,11 +418,10 @@ function nyuiHtml(w: WeekActivity): string {
   const rows = n.applications
     .map(
       (a) =>
-        `<li>${escHtml(a.company)} <span style="color:#777;">&middot; ${escHtml(a.position)}</span></li>`
+        `<li><b>${escHtml(a.company)}</b> <span class="muted">&middot; ${escHtml(a.position)}</span></li>`
     )
     .join("");
-  return `<h2 style="font-size:13px;margin:18px 0 6px;">Job applications <span style="color:#777;font-weight:400;">(${n.applicationCount})</span></h2>
-    <ul style="margin:4px 0 0;padding-left:18px;font-size:12px;">${rows}</ul>`;
+  return `<ul class="list">${rows}</ul>`;
 }
 
 function normTier(t: NsConversation["tier"]): string {
