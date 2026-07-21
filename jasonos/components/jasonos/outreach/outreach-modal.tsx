@@ -237,7 +237,11 @@ export function OutreachModal({
 
   // Which body tab is showing. "engage" = classify/schedule/log; "history" =
   // communication context. Reset to "engage" on each open.
-  const [tab, setTab] = useState<"engage" | "history">("engage");
+  const [tab, setTab] = useState<"engage" | "history" | "contact">("engage");
+
+  // Whether the identity editor (name / firm / email / phone) is open. Toggled
+  // from the Edit button in the header, next to the name and company.
+  const [editingIdentity, setEditingIdentity] = useState(false);
 
   // ------------------------------------------------------------------
   // Fetch on open
@@ -261,6 +265,7 @@ export function OutreachModal({
       setBrowningPrompt(null);
       setBrowningDismissed(false);
       setTab("engage");
+      setEditingIdentity(false);
 
       const result = await getContactCardData({
         contactId: contactId ?? null,
@@ -500,6 +505,7 @@ export function OutreachModal({
         },
       };
     });
+    setEditingIdentity(false);
     router.refresh();
   };
 
@@ -816,6 +822,20 @@ export function OutreachModal({
                   "No title or firm on file"}
               </DialogDescription>
             </div>
+            {effectiveContactId ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setTab("contact");
+                  setEditingIdentity(true);
+                }}
+                title="Edit name, firm, email, and phone"
+                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <Pencil className="h-3 w-3" />
+                Edit
+              </button>
+            ) : null}
           </div>
 
           {header.primary_email ||
@@ -871,6 +891,9 @@ export function OutreachModal({
             <TabBtn active={tab === "history"} onClick={() => setTab("history")}>
               History
             </TabBtn>
+            <TabBtn active={tab === "contact"} onClick={() => setTab("contact")}>
+              Contact info
+            </TabBtn>
           </div>
         </div>
 
@@ -884,18 +907,6 @@ export function OutreachModal({
 
           {tab === "engage" ? (
             <div className="space-y-4">
-              {effectiveContactId ? (
-                <IdentityCard
-                  key={effectiveContactId}
-                  contactId={effectiveContactId}
-                  initialName={header.name}
-                  initialFirm={header.firm}
-                  initialEmail={header.primary_email}
-                  initialPhone={header.phone}
-                  onSaved={applyIdentityUpdate}
-                />
-              ) : null}
-
               <ClassificationControls
                 relevance={relevanceState}
                 degree={degreeState}
@@ -944,7 +955,7 @@ export function OutreachModal({
                 setNextTouchOverride={setNextTouchOverride}
               />
             </div>
-          ) : (
+          ) : tab === "history" ? (
             <RecentContextSection
               loading={loadingCtx}
               sources={sources}
@@ -956,6 +967,23 @@ export function OutreachModal({
                   : []
               }
             />
+          ) : effectiveContactId ? (
+            <IdentityCard
+              key={effectiveContactId}
+              contactId={effectiveContactId}
+              initialName={header.name}
+              initialFirm={header.firm}
+              initialEmail={header.primary_email}
+              initialPhone={header.phone}
+              editing={editingIdentity}
+              onEdit={() => setEditingIdentity(true)}
+              onCancel={() => setEditingIdentity(false)}
+              onSaved={applyIdentityUpdate}
+            />
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Contact information will appear once this contact is linked.
+            </p>
           )}
         </div>
       </DialogContent>
@@ -1071,6 +1099,9 @@ function IdentityCard({
   initialFirm,
   initialEmail,
   initialPhone,
+  editing,
+  onEdit,
+  onCancel,
   onSaved,
 }: {
   contactId: string;
@@ -1078,6 +1109,9 @@ function IdentityCard({
   initialFirm: string | null;
   initialEmail: string | null;
   initialPhone: string | null;
+  editing: boolean;
+  onEdit: () => void;
+  onCancel: () => void;
   onSaved: (v: {
     name: string;
     firm: string | null;
@@ -1085,7 +1119,6 @@ function IdentityCard({
     phone: string | null;
   }) => void;
 }) {
-  const [editing, setEditing] = useState(false);
   const [name, setName] = useState(initialName);
   const [firm, setFirm] = useState(initialFirm ?? "");
   const [email, setEmail] = useState(initialEmail ?? "");
@@ -1118,7 +1151,6 @@ function IdentityCard({
       }
       toast.success("Contact details saved.");
       onSaved(payload);
-      setEditing(false);
     });
   };
 
@@ -1127,32 +1159,77 @@ function IdentityCard({
     setFirm(initialFirm ?? "");
     setEmail(initialEmail ?? "");
     setPhone(initialPhone ?? "");
-    setEditing(false);
+    onCancel();
   };
 
+  const fieldLabel =
+    "text-[10px] font-medium uppercase tracking-wider text-muted-foreground";
+
+  // ── Read view ──────────────────────────────────────────────────────────
   if (!editing) {
+    const rows: { label: string; value: string | null; href?: string }[] = [
+      { label: "Name", value: initialName },
+      { label: "Firm / Company", value: initialFirm },
+      {
+        label: "Email",
+        value: initialEmail,
+        href: initialEmail ? `mailto:${initialEmail}` : undefined,
+      },
+      {
+        label: "Phone",
+        value: initialPhone,
+        href: initialPhone ? `tel:${initialPhone}` : undefined,
+      },
+    ];
     return (
-      <section className="flex items-center justify-between gap-2">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Contact details
-        </h3>
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
-        >
-          <Pencil className="h-3 w-3" /> Edit
-        </button>
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Contact information
+          </h3>
+          <button
+            type="button"
+            onClick={onEdit}
+            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Pencil className="h-3 w-3" /> Edit
+          </button>
+        </div>
+        <dl className="divide-y divide-border/50 rounded-lg border">
+          {rows.map((r) => (
+            <div
+              key={r.label}
+              className="flex items-baseline gap-3 px-3 py-2 text-xs"
+            >
+              <dt className={`${fieldLabel} w-28 shrink-0`}>{r.label}</dt>
+              <dd className="min-w-0 flex-1 break-words text-foreground">
+                {r.value ? (
+                  r.href ? (
+                    <a
+                      href={r.href}
+                      className="text-foreground hover:underline"
+                    >
+                      {r.value}
+                    </a>
+                  ) : (
+                    r.value
+                  )
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </dd>
+            </div>
+          ))}
+        </dl>
       </section>
     );
   }
 
-  const fieldLabel =
-    "text-[10px] font-medium uppercase tracking-wider text-muted-foreground";
+  // ── Edit view ──────────────────────────────────────────────────────────
   return (
     <section className="rounded-lg border bg-card/40 p-3">
       <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Contact details
+        Contact information
       </h3>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <label className="flex flex-col gap-1">
