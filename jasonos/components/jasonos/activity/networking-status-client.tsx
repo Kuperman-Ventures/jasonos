@@ -8,6 +8,10 @@
 import { useState } from "react";
 import { Network, Download, Sparkles, Repeat, Briefcase } from "lucide-react";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
+import {
+  TierDegreeBadge,
+  tierDegreeLabel,
+} from "@/components/jasonos/outreach/tier-degree-badge";
 import type {
   NetworkingActivity,
   NsConversation,
@@ -404,10 +408,10 @@ function newRepeatHtml(w: WeekActivity): string {
   const seen = new Set<string>();
   const newNames = w.conversations
     .filter((c) => c.isFirstContact && !seen.has(c.contactId) && seen.add(c.contactId))
-    .map(
-      (c) =>
-        `<li><b>${escHtml(c.name)}</b>${c.firm ? ` <span class="muted">&middot; ${escHtml(c.firm)}</span>` : ""}</li>`
-    )
+    .map((c) => {
+      const rank = tierDegreeLabel(c.tier, c.degree);
+      return `<li><span class="li-main"><b>${escHtml(c.name)}</b>${c.firm ? ` <span class="muted">&middot; ${escHtml(c.firm)}</span>` : ""}</span>${rank ? `<span class="li-meta">${escHtml(rank)}</span>` : ""}</li>`;
+    })
     .join("");
   return `<div class="nr-legend">
       <span><span class="dot amber"></span><b>${newC}</b> new contact${newC === 1 ? "" : "s"}</span>
@@ -627,12 +631,19 @@ function NewRepeatSummary({ conversations }: { conversations: NsConversation[] }
             {newContacts.map((c) => (
               <li
                 key={c.contactId}
-                className="flex flex-wrap items-baseline gap-x-2 px-3 py-1.5 text-xs"
+                className="flex items-baseline justify-between gap-2 px-3 py-1.5 text-xs"
               >
-                <span className="font-medium text-foreground">{c.name}</span>
-                {c.firm ? (
-                  <span className="text-muted-foreground">· {c.firm}</span>
-                ) : null}
+                <span className="min-w-0">
+                  <span className="font-medium text-foreground">{c.name}</span>
+                  {c.firm ? (
+                    <span className="text-muted-foreground"> · {c.firm}</span>
+                  ) : null}
+                </span>
+                <TierDegreeBadge
+                  tier={c.tier}
+                  degree={c.degree}
+                  className="shrink-0"
+                />
               </li>
             ))}
           </ul>
