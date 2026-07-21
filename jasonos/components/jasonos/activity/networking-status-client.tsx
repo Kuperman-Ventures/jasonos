@@ -6,25 +6,11 @@
 // The "Weekly PDF" prints the current week for the advisor hand-off.
 
 import { Network, Download } from "lucide-react";
-import { TierDegreeBadge } from "@/components/jasonos/outreach/tier-degree-badge";
 import type {
   NetworkingActivity,
   NsConversation,
   WeekActivity,
 } from "@/lib/server-actions/networking-status";
-
-const CHANNEL_LABELS: Record<string, string> = {
-  phone: "Call",
-  call: "Call",
-  video: "Video",
-  in_person: "In person",
-  calendar: "Meeting",
-  coffee_chat: "Coffee",
-};
-
-function chLabel(c: string): string {
-  return CHANNEL_LABELS[c] ?? c;
-}
 
 function fmt(dateStr: string): string {
   return new Date(`${dateStr}T12:00:00`).toLocaleDateString("en-US", {
@@ -58,39 +44,19 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
 
   function downloadWeeklyPdf() {
     if (!current) return;
-    const rows = current.conversations
-      .map(
-        (c) => `<tr>
-          <td>${escHtml(fmt(c.date))}</td>
-          <td>${escHtml(chLabel(c.channel))}</td>
-          <td>${escHtml(c.name)}${c.firm ? ` <span class="firm">${escHtml(c.firm)}</span>` : ""}${
-          c.browning ? ' <span class="tag">Browning</span>' : ""
-        }</td>
-          <td>${escHtml(c.brief ?? "")}${
-          c.outcome ? `<div class="next">Next: ${escHtml(c.outcome)}</div>` : ""
-        }</td>
-        </tr>`
-      )
-      .join("");
-    const newList = current.newContacts
-      .map(
-        (n) =>
-          `${escHtml(n.name)}${n.tier || n.degree ? ` (${escHtml(`${n.tier ?? ""}${n.degree ?? ""}`)})` : ""}`
-      )
-      .join(", ");
     const html = `<!doctype html><html><head><meta charset="utf-8"/>
       <title>Networking Activity ${escHtml(current.weekStart)}</title>
       <style>
         body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111;margin:32px;}
         h1{font-size:18px;margin:0 0 2px;} .sub{color:#555;font-size:12px;margin:0 0 16px;}
-        .kpis{display:flex;gap:18px;margin:0 0 16px;font-size:12px;color:#333;}
+        .kpis{display:flex;gap:18px;margin:0 0 18px;font-size:12px;color:#333;}
         .kpis b{font-size:16px;display:block;}
-        table{width:100%;border-collapse:collapse;font-size:12px;}
-        th,td{text-align:left;border-bottom:1px solid #ddd;padding:6px 8px;vertical-align:top;}
-        th{background:#f3f3f3;text-transform:uppercase;font-size:10px;letter-spacing:.04em;color:#555;}
-        .firm{color:#777;} .tag{background:#eee;border-radius:8px;padding:1px 6px;font-size:9px;color:#555;}
-        .next{color:#666;font-size:11px;margin-top:2px;} .new{margin-top:14px;font-size:12px;color:#333;}
-        .empty{color:#888;padding:16px;text-align:center;}
+        table.heat{border-collapse:collapse;font-size:12px;}
+        table.heat th,table.heat td{border:1px solid #e5e7eb;padding:8px 12px;min-width:40px;}
+        table.heat thead th{background:#f3f3f3;font-size:11px;color:#555;text-align:center;}
+        table.heat .rowlab{background:#fafafa;font-weight:600;text-align:left;}
+        .legend{color:#777;font-size:11px;margin-top:10px;}
+        .empty{color:#888;padding:16px;}
       </style></head><body>
       <h1>Networking Activity</h1>
       <p class="sub">Week of ${escHtml(fmt(current.weekStart))} through ${escHtml(fmt(current.weekEnd))} (Tuesday to Tuesday)</p>
@@ -100,9 +66,7 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
         <span><b>${current.stats.thankYous}</b> thank-yous</span>
         <span><b>${current.stats.referrals}</b> referrals</span>
       </div>
-      <table><thead><tr><th>Date</th><th>How</th><th>Who</th><th>Notes / next step</th></tr></thead>
-      <tbody>${rows || '<tr><td colspan="4" class="empty">No conversations logged this week.</td></tr>'}</tbody></table>
-      ${newList ? `<p class="new"><b>New contacts:</b> ${newList}</p>` : ""}
+      ${heatmapHtml(current.conversations)}
       <script>window.onload=function(){window.print();}</script>
       </body></html>`;
     const w = window.open("", "_blank");
@@ -186,89 +150,163 @@ function WeekCard({ w }: { w: WeekActivity }) {
         ) : null}
       </div>
 
-      {quiet ? (
+      {w.conversations.length === 0 ? (
         <p className="px-4 py-6 text-center text-xs text-muted-foreground">
-          No activity logged yet this week.
+          {quiet
+            ? "No activity logged yet this week."
+            : "No conversations logged this week."}
         </p>
       ) : (
-        <>
-          {w.conversations.length > 0 ? (
-            <ul className="divide-y divide-border">
-              {w.conversations.map((c) => (
-                <ConversationRow key={c.id} c={c} />
-              ))}
-            </ul>
-          ) : null}
-
-          {w.newContacts.length > 0 ? (
-            <div className="border-t border-border/60 px-4 py-2.5">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                New contacts added
-              </p>
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {w.newContacts.map((n) => (
-                  <span
-                    key={n.id}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs"
-                  >
-                    <TierDegreeBadge tier={n.tier} degree={n.degree} />
-                    <span className="truncate">{n.name}</span>
-                    {n.firm ? (
-                      <span className="text-[10px] text-muted-foreground">
-                        · {n.firm}
-                      </span>
-                    ) : null}
-                  </span>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </>
+        <div className="p-4">
+          <WeekHeatmap conversations={w.conversations} />
+        </div>
       )}
     </section>
   );
 }
 
-function ConversationRow({ c }: { c: NsConversation }) {
+// ---------------------------------------------------------------------------
+// Relevance × closeness heatmap — the graphic. Rows = relevance (A best → C),
+// columns = closeness (1 = know well → 3). Cell = # conversations that week.
+// ---------------------------------------------------------------------------
+
+const TIER_META: Record<string, { label: string; text: string }> = {
+  A: { label: "A", text: "text-emerald-300" },
+  B: { label: "B", text: "text-sky-300" },
+  C: { label: "C", text: "text-slate-300" },
+  "—": { label: "Unclass.", text: "text-muted-foreground" },
+};
+
+function buildMatrix(conversations: NsConversation[]) {
+  const grid: Record<string, Record<number, number>> = {
+    A: { 1: 0, 2: 0, 3: 0, 0: 0 },
+    B: { 1: 0, 2: 0, 3: 0, 0: 0 },
+    C: { 1: 0, 2: 0, 3: 0, 0: 0 },
+    "—": { 1: 0, 2: 0, 3: 0, 0: 0 },
+  };
+  let hasUnclassified = false;
+  let hasUnknownDeg = false;
+  for (const c of conversations) {
+    const t = c.tier === "A" || c.tier === "B" || c.tier === "C" ? c.tier : "—";
+    if (t === "—") hasUnclassified = true;
+    const d = c.degree === 1 || c.degree === 2 || c.degree === 3 ? c.degree : 0;
+    if (d === 0) hasUnknownDeg = true;
+    grid[t][d] += 1;
+  }
+  const rows = hasUnclassified ? ["A", "B", "C", "—"] : ["A", "B", "C"];
+  const cols: number[] = hasUnknownDeg ? [1, 2, 3, 0] : [1, 2, 3];
+  let max = 1;
+  const rowTotals: Record<string, number> = {};
+  for (const r of rows) {
+    let tot = 0;
+    for (const col of cols) {
+      const v = grid[r][col];
+      tot += v;
+      if (v > max) max = v;
+    }
+    rowTotals[r] = tot;
+  }
+  return { grid, rows, cols, max, rowTotals };
+}
+
+function cellBg(count: number, max: number): string {
+  if (count <= 0) return "rgba(148,163,184,0.06)";
+  const alpha = 0.16 + 0.6 * (count / max);
+  return `rgba(16,185,129,${alpha.toFixed(3)})`;
+}
+
+function colLabel(deg: number): string {
+  return deg === 0 ? "?" : String(deg);
+}
+
+// Same matrix, rendered as a static HTML table for the printable PDF.
+function heatmapHtml(conversations: NsConversation[]): string {
+  if (conversations.length === 0) {
+    return '<p class="empty">No conversations logged this week.</p>';
+  }
+  const { grid, rows, cols, max, rowTotals } = buildMatrix(conversations);
+  const head = `<tr><th></th>${cols
+    .map((d) => `<th>${escHtml(colLabel(d))}</th>`)
+    .join("")}<th>Total</th></tr>`;
+  const body = rows
+    .map((r) => {
+      const cells = cols
+        .map((d) => {
+          const count = grid[r][d];
+          const bg =
+            count > 0
+              ? `background:rgba(16,185,129,${(0.16 + 0.6 * (count / max)).toFixed(3)});`
+              : "background:#f5f7f6;";
+          return `<td style="text-align:center;${bg}">${count > 0 ? count : ""}</td>`;
+        })
+        .join("");
+      const label = r === "—" ? "Unclass." : r;
+      return `<tr><th class="rowlab">${escHtml(label)}</th>${cells}<td style="text-align:right;font-weight:600;">${rowTotals[r]}</td></tr>`;
+    })
+    .join("");
+  return `<table class="heat"><thead>${head}</thead><tbody>${body}</tbody></table>
+    <p class="legend">Rows = relevance (A most &rarr; C). Columns = closeness (1 = know well &rarr; 3). Darker = more conversations.</p>`;
+}
+
+function WeekHeatmap({ conversations }: { conversations: NsConversation[] }) {
+  const { grid, rows, cols, max, rowTotals } = buildMatrix(conversations);
+  const template = `64px repeat(${cols.length}, minmax(34px, 1fr)) 44px`;
+
   return (
-    <li className="grid grid-cols-[1fr] gap-x-3 px-4 py-2.5 text-sm transition-colors hover:bg-muted/30 sm:grid-cols-[92px_74px_1fr]">
-      <span className="hidden shrink-0 pt-0.5 font-mono text-[10px] text-muted-foreground sm:block">
-        {fmtShort(c.date)}
-      </span>
-      <span className="hidden pt-0.5 sm:block">
-        <span className="rounded-sm border border-border px-1 py-0.5 text-[9px] uppercase text-muted-foreground">
-          {chLabel(c.channel)}
+    <div>
+      {/* Column header */}
+      <div className="grid items-center gap-1" style={{ gridTemplateColumns: template }}>
+        <span className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Rel ⇣ / Close ⇢
         </span>
-      </span>
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <TierDegreeBadge tier={c.tier} degree={c.degree} />
-          <span className="min-w-0 flex-1 truncate font-medium">
-            {c.name}
-            {c.firm ? (
-              <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">
-                · {c.firm}
-              </span>
-            ) : null}
+        {cols.map((d) => (
+          <span
+            key={`h-${d}`}
+            className="text-center text-[10px] font-semibold tabular-nums text-muted-foreground"
+          >
+            {colLabel(d)}
           </span>
-          <span className="shrink-0 font-mono text-[10px] text-muted-foreground sm:hidden">
-            {chLabel(c.channel)} · {fmtShort(c.date)}
-          </span>
-          {c.browning ? (
-            <span className="shrink-0 rounded-full border border-border bg-muted px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-muted-foreground">
-              Browning
-            </span>
-          ) : null}
-        </div>
-        {c.brief ? (
-          <p className="mt-1 text-xs text-muted-foreground">{c.brief}</p>
-        ) : null}
-        {c.outcome ? (
-          <p className="mt-0.5 text-xs text-muted-foreground/80">
-            ↳ Next: {c.outcome}
-          </p>
-        ) : null}
+        ))}
+        <span className="text-right text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Total
+        </span>
       </div>
-    </li>
+
+      {/* Rows */}
+      <div className="mt-1 space-y-1">
+        {rows.map((r) => (
+          <div
+            key={r}
+            className="grid items-center gap-1"
+            style={{ gridTemplateColumns: template }}
+          >
+            <span className={`text-[11px] font-semibold ${TIER_META[r].text}`}>
+              {TIER_META[r].label}
+            </span>
+            {cols.map((d) => {
+              const count = grid[r][d];
+              return (
+                <div
+                  key={`${r}-${d}`}
+                  className="flex h-8 items-center justify-center rounded-sm text-[11px] font-medium tabular-nums"
+                  style={{ backgroundColor: cellBg(count, max) }}
+                  title={`Relevance ${r} · closeness ${colLabel(d)} — ${count} conversation${count === 1 ? "" : "s"}`}
+                >
+                  {count > 0 ? count : ""}
+                </div>
+              );
+            })}
+            <span className="text-right text-[11px] font-semibold tabular-nums">
+              {rowTotals[r]}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-2 text-[10px] text-muted-foreground">
+        Rows = relevance (A most → C). Columns = closeness (1 = know well → 3).
+        Darker = more conversations.
+      </p>
+    </div>
   );
 }
