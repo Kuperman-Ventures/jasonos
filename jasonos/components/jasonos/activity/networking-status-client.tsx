@@ -6,7 +6,7 @@
 // The "Weekly PDF" prints the current week for the advisor hand-off.
 
 import { useState } from "react";
-import { Network, Download, Sparkles, Repeat, Briefcase, Clock } from "lucide-react";
+import { Network, Download, Sparkles, Repeat, Briefcase } from "lucide-react";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import type {
   NetworkingActivity,
@@ -36,14 +36,6 @@ function escHtml(v: unknown): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-}
-
-function fmtHm(totalMinutes: number): string {
-  const h = Math.floor(totalMinutes / 60);
-  const m = totalMinutes % 60;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
 }
 
 // Ordinal for "spoken to repeatedly" — priorContactCount is how many talks came
@@ -206,76 +198,34 @@ function WeekCard({
   );
 }
 
-// NYS DOL (NYUI) weekly snapshot — work-search activities + business hours that
-// fell inside this reporting week. Aligned to the Wed→Tue reporting week (not
-// the official Sun–Sat claim week), so it reads on one timeline with the rest
-// of the report.
+// Job applications (NYUI work searches) logged inside this reporting week.
+// Aligned to the Wed→Tue reporting week — count + the company/position for
+// each. Business hours are intentionally excluded from this report.
 function NyuiPanel({ nyui }: { nyui: NyuiWeekSummary }) {
-  if (nyui.workSearches === 0 && nyui.businessMinutes === 0) return null;
-  const entitiesWithTime = nyui.businessByEntity.filter((e) => e.minutes > 0);
+  if (nyui.applicationCount === 0) return null;
 
   return (
     <div className="border-t bg-muted/10 px-4 py-3">
       <div className="mb-2 flex items-center gap-2">
         <Briefcase className="h-3.5 w-3.5 text-violet-300" />
         <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          NYS DOL — work search &amp; business hours
+          Job applications
         </h3>
+        <span className="rounded-full bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-violet-300">
+          {nyui.applicationCount}
+        </span>
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <div className="rounded-lg border border-border bg-background/40 px-3 py-2">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Work searches
-          </p>
-          <p className="text-lg font-bold tabular-nums text-foreground">
-            {nyui.workSearches}
-          </p>
-          <p className="text-[10px] text-muted-foreground">
-            {nyui.qualifyingDays} day{nyui.qualifyingDays === 1 ? "" : "s"}
-          </p>
-        </div>
-        <div className="rounded-lg border border-border bg-background/40 px-3 py-2">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Tier A / Tier B
-          </p>
-          <p className="text-lg font-bold tabular-nums text-foreground">
-            {nyui.tierA} / {nyui.tierB}
-          </p>
-          <p className="text-[10px] text-muted-foreground">employer / networking</p>
-        </div>
-        <div className="rounded-lg border border-border bg-background/40 px-3 py-2">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Business hours
-          </p>
-          <p className="inline-flex items-center gap-1 text-lg font-bold tabular-nums text-foreground">
-            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-            {fmtHm(nyui.businessMinutes)}
-          </p>
-          <p className="text-[10px] text-muted-foreground">of 10h weekly cap</p>
-        </div>
-        <div className="rounded-lg border border-border bg-background/40 px-3 py-2">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Hours by entity
-          </p>
-          {entitiesWithTime.length ? (
-            <ul className="mt-0.5 space-y-0.5">
-              {entitiesWithTime.map((e) => (
-                <li
-                  key={e.entity}
-                  className="flex items-baseline justify-between gap-2 text-[11px]"
-                >
-                  <span className="truncate text-muted-foreground">{e.entity}</span>
-                  <span className="shrink-0 font-semibold tabular-nums text-foreground">
-                    {fmtHm(e.minutes)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-[11px] text-muted-foreground">—</p>
-          )}
-        </div>
-      </div>
+      <ul className="divide-y divide-border/40 rounded-lg border border-border bg-background/40">
+        {nyui.applications.map((a, i) => (
+          <li
+            key={i}
+            className="flex flex-wrap items-baseline gap-x-2 px-3 py-1.5 text-xs"
+          >
+            <span className="font-medium text-foreground">{a.company}</span>
+            <span className="text-muted-foreground">· {a.position}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -392,18 +342,15 @@ function newRepeatHtml(w: WeekActivity): string {
 
 function nyuiHtml(w: WeekActivity): string {
   const n = w.nyui;
-  if (n.workSearches === 0 && n.businessMinutes === 0) return "";
-  const entities = n.businessByEntity
-    .filter((e) => e.minutes > 0)
-    .map((e) => `${escHtml(e.entity)} ${fmtHm(e.minutes)}`)
-    .join(" &middot; ");
-  return `<h2 style="font-size:13px;margin:18px 0 6px;">NYS DOL — work search &amp; business hours</h2>
-    <div class="kpis">
-      <span><b>${n.workSearches}</b> work searches (${n.qualifyingDays} day${n.qualifyingDays === 1 ? "" : "s"})</span>
-      <span><b>${n.tierA} / ${n.tierB}</b> Tier A / Tier B</span>
-      <span><b>${fmtHm(n.businessMinutes)}</b> business hours</span>
-    </div>
-    ${entities ? `<p class="sub" style="margin-top:6px;">By entity: ${entities}</p>` : ""}`;
+  if (n.applicationCount === 0) return "";
+  const rows = n.applications
+    .map(
+      (a) =>
+        `<li>${escHtml(a.company)} <span style="color:#777;">&middot; ${escHtml(a.position)}</span></li>`
+    )
+    .join("");
+  return `<h2 style="font-size:13px;margin:18px 0 6px;">Job applications <span style="color:#777;font-weight:400;">(${n.applicationCount})</span></h2>
+    <ul style="margin:4px 0 0;padding-left:18px;font-size:12px;">${rows}</ul>`;
 }
 
 function normTier(t: NsConversation["tier"]): string {
