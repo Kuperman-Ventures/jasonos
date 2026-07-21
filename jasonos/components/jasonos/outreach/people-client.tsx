@@ -158,6 +158,28 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
     return matched.sort((a, b) => comparePeople(a, b, sort));
   }, [people, query, activeFilters, firmFilterNormalized, sort]);
 
+  // Backrow (Backburner) folks live in their own list at the very bottom.
+  const mainPeople = filtered.filter((p) => p.intent !== "backrow");
+  const backrowPeople = filtered.filter((p) => p.intent === "backrow");
+
+  const renderRow = (person: OutreachPerson) => (
+    <PersonRow
+      // Composite key so the row remounts (re-seeding its dropdown state from
+      // fresh props) whenever any classification changes.
+      key={[
+        person.id,
+        person.relevance_tier ?? "",
+        person.network_degree ?? "",
+        person.intent ?? "",
+        person.cadence_interval,
+        person.relationship_type ?? "",
+      ].join(":")}
+      person={person}
+      onOpen={() => setModalTarget(person)}
+      onSaved={() => router.refresh()}
+    />
+  );
+
   return (
     <>
       <div className="mx-auto max-w-[1400px] space-y-4 px-4 py-6">
@@ -288,29 +310,33 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
             <div className="px-4 py-10 text-center text-sm text-muted-foreground">
               No people match these filters.
             </div>
+          ) : mainPeople.length === 0 ? (
+            <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+              Only Backrow contacts match — see the Backrow list below.
+            </div>
           ) : (
-            <ul className="divide-y">
-              {filtered.map((person) => (
-                <PersonRow
-                  // Composite key so the row remounts (re-seeding its dropdown
-                  // state from fresh props) whenever any classification changes
-                  // — from these dropdowns or the contact modal.
-                  key={[
-                    person.id,
-                    person.relevance_tier ?? "",
-                    person.network_degree ?? "",
-                    person.intent ?? "",
-                    person.cadence_interval,
-                    person.relationship_type ?? "",
-                  ].join(":")}
-                  person={person}
-                  onOpen={() => setModalTarget(person)}
-                  onSaved={() => router.refresh()}
-                />
-              ))}
-            </ul>
+            <ul className="divide-y">{mainPeople.map(renderRow)}</ul>
           )}
         </div>
+
+        {/* Backrow — a separate list at the very bottom. */}
+        {backrowPeople.length > 0 ? (
+          <div className="pt-2">
+            <div className="mb-2 flex items-center gap-2">
+              <Archive className="h-4 w-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold tracking-tight">Backrow</h2>
+              <span className="text-[11px] text-muted-foreground">
+                {backrowPeople.length} · removed from the queue, kept in your
+                contacts
+              </span>
+            </div>
+            <div className="rounded-lg border border-dashed bg-card/50">
+              <ul className="divide-y opacity-90">
+                {backrowPeople.map(renderRow)}
+              </ul>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {modalTarget ? (
