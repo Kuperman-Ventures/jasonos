@@ -141,8 +141,6 @@ function WeekCard({
   onOpenContact: (c: NsConversation) => void;
 }) {
   const chips: { label: string; value: number }[] = [
-    { label: "conversations", value: w.stats.conversations },
-    { label: "new contacts", value: w.stats.newContacts },
     { label: "thank-yous", value: w.stats.thankYous },
     { label: "referrals", value: w.stats.referrals },
   ].filter((c) => c.value > 0);
@@ -333,11 +331,20 @@ function newRepeatHtml(w: WeekActivity): string {
   const newC = w.stats.newConversations;
   const repeat = w.stats.repeatConversations;
   const pct = Math.round((newC / total) * 100);
+  const seen = new Set<string>();
+  const newNames = w.conversations
+    .filter((c) => c.isFirstContact && !seen.has(c.contactId) && seen.add(c.contactId))
+    .map(
+      (c) =>
+        `<li>${escHtml(c.name)}${c.firm ? ` <span style="color:#777;">&middot; ${escHtml(c.firm)}</span>` : ""}</li>`
+    )
+    .join("");
   return `<div class="kpis">
       <span><b>${newC}</b> new contact${newC === 1 ? "" : "s"}</span>
       <span><b>${repeat}</b> repeat conversation${repeat === 1 ? "" : "s"}</span>
       <span><b>${pct}%</b> new</span>
-    </div>`;
+    </div>
+    ${newNames ? `<p class="sub" style="margin:8px 0 2px;font-weight:600;">New contacts</p><ul style="margin:2px 0 0;padding-left:18px;font-size:12px;">${newNames}</ul>` : ""}`;
 }
 
 function nyuiHtml(w: WeekActivity): string {
@@ -520,9 +527,15 @@ function WeekHeatmap({
 function NewRepeatSummary({ conversations }: { conversations: NsConversation[] }) {
   const total = conversations.length;
   if (total === 0) return null;
-  const newCount = conversations.filter((c) => c.isFirstContact).length;
+  const newConversations = conversations.filter((c) => c.isFirstContact);
+  const newCount = newConversations.length;
   const repeatCount = total - newCount;
   const newPct = Math.round((newCount / total) * 100);
+  // Dedupe by contact (a contact's first-ever touch is unique, but guard anyway).
+  const seen = new Set<string>();
+  const newContacts = newConversations.filter((c) =>
+    seen.has(c.contactId) ? false : (seen.add(c.contactId), true)
+  );
 
   return (
     <div className="mt-3 rounded-lg border border-border bg-muted/20 p-2.5">
@@ -546,6 +559,28 @@ function NewRepeatSummary({ conversations }: { conversations: NsConversation[] }
           <div className="h-full bg-sky-400" style={{ width: `${100 - newPct}%` }} />
         ) : null}
       </div>
+
+      {/* Names of the new contacts reached this week */}
+      {newContacts.length > 0 ? (
+        <div className="mt-2.5">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-amber-300/90">
+            New contacts
+          </p>
+          <ul className="divide-y divide-border/40 rounded-lg border border-border bg-background/40">
+            {newContacts.map((c) => (
+              <li
+                key={c.contactId}
+                className="flex flex-wrap items-baseline gap-x-2 px-3 py-1.5 text-xs"
+              >
+                <span className="font-medium text-foreground">{c.name}</span>
+                {c.firm ? (
+                  <span className="text-muted-foreground">· {c.firm}</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }
