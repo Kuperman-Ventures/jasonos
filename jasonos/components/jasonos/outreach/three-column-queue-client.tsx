@@ -399,14 +399,33 @@ export function ThreeColumnQueueClient({
       }
     }
     // Match the Schedule page's default "Priority score" ordering within
-    // each bucket (strength desc, then name).
+    // each bucket (strength desc, then name) — EXCEPT the "scheduled" band,
+    // which reads best in chronological (next-touch date) order.
     const strengthOf = (card: QueueCard) =>
       (card.contactId ? commByContactId.get(card.contactId)?.strength : 0) ?? 0;
-    for (const band of Object.values(cells)) {
+    const nextDateOf = (card: QueueCard) =>
+      (card.contactId
+        ? commByContactId.get(card.contactId)?.nextActionDueDate
+        : null) ??
+      card.next_touch_date ??
+      null;
+    for (const [bandKey, band] of Object.entries(cells)) {
       for (const list of Object.values(band)) {
-        list.sort(
-          (a, b) => strengthOf(b) - strengthOf(a) || a.name.localeCompare(b.name)
-        );
+        if (bandKey === "scheduled") {
+          list.sort((a, b) => {
+            const ad = nextDateOf(a);
+            const bd = nextDateOf(b);
+            if (ad && bd) {
+              if (ad !== bd) return ad < bd ? -1 : 1; // soonest first
+            } else if (ad) return -1;
+            else if (bd) return 1;
+            return a.name.localeCompare(b.name);
+          });
+        } else {
+          list.sort(
+            (a, b) => strengthOf(b) - strengthOf(a) || a.name.localeCompare(b.name)
+          );
+        }
       }
     }
     return cells;
