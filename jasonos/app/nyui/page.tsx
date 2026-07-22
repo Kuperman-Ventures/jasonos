@@ -1,4 +1,5 @@
 import { getWeekData, getAllWorkSearches } from "@/lib/server-actions/nyui";
+import { getResumeApplicationQueue } from "@/lib/server-actions/resume-applications";
 import { NyuiClient } from "@/components/jasonos/nyui/nyui-client";
 
 export const dynamic = "force-dynamic";
@@ -16,9 +17,10 @@ function getWeekBounds(): { start: string; end: string } {
 
 export default async function NyuiPage() {
   const { start, end } = getWeekBounds();
-  const [data, allWorkSearches] = await Promise.all([
+  const [data, allWorkSearches, applicationQueue] = await Promise.all([
     getWeekData(start, end),
     getAllWorkSearches(),
+    getResumeApplicationQueue(),
   ]);
 
   return (
@@ -28,6 +30,7 @@ export default async function NyuiPage() {
         weekStart={start}
         weekEnd={end}
         allWorkSearches={allWorkSearches}
+        applicationQueue={applicationQueue}
       />
     </div>
   );
