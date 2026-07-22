@@ -8,11 +8,13 @@ import {
   FileDown,
   X,
   CheckCircle2,
+  ChevronDown,
   Printer,
   Plus,
   Pencil,
   Trash2,
   Info,
+  Loader2,
   Search,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -27,6 +29,7 @@ import {
   type BusinessHour,
 } from "@/lib/server-actions/nyui";
 import {
+  findJobPostingUrl,
   markResumeApplicationLogged,
   type ResumeApplication,
 } from "@/lib/server-actions/resume-applications";
@@ -657,6 +660,23 @@ function NYUIDashboard({
   onLogApplication: (app: ResumeApplication) => void;
 }) {
   const [showExport, setShowExport] = useState(false);
+  // Web-search-found URLs per customization (client-only; flow into the prefill).
+  const [foundUrls, setFoundUrls] = useState<Record<string, string>>({});
+  const [findingId, setFindingId] = useState<string | null>(null);
+
+  async function findUrl(app: ResumeApplication) {
+    setFindingId(app.customizationId);
+    const res = await findJobPostingUrl({
+      company: app.company ?? "",
+      roleTitle: app.roleTitle ?? "",
+    });
+    setFindingId(null);
+    if (res.ok) {
+      setFoundUrls((prev) => ({ ...prev, [app.customizationId]: res.url }));
+    } else {
+      window.alert(res.error);
+    }
+  }
 
   const startDisplay = new Date(weekStart + "T12:00:00").toLocaleDateString("en-US", {
     month: "long",
@@ -721,8 +741,8 @@ function NYUIDashboard({
 
       {/* From your customized resumes — each tailored resume is a job app */}
       {applicationQueue.length > 0 && (
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-          <div className="flex items-start justify-between mb-3 gap-3">
+        <details className="group rounded-xl border border-border bg-card p-6 shadow-sm">
+          <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
             <div>
               <h3 className="font-semibold text-foreground">
                 From your customized resumes
@@ -733,36 +753,60 @@ function NYUIDashboard({
                 rest.
               </p>
             </div>
-            <StatusBadge variant={applicationQueue.length >= 3 ? "success" : "neutral"}>
-              {applicationQueue.length} to log
-            </StatusBadge>
-          </div>
-          <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
-            {applicationQueue.map((app) => (
-              <div
-                key={app.customizationId}
-                className="flex items-center gap-3 px-3 py-2.5 text-sm"
+            <div className="flex shrink-0 items-center gap-2">
+              <StatusBadge
+                variant={applicationQueue.length >= 3 ? "success" : "neutral"}
               >
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-foreground truncate">
-                    {app.company ?? "Company"}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {app.roleTitle ?? "Role from the job description"}
-                    {app.url ? ` · ${app.url}` : ""}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onLogApplication(app)}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-muted px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80"
+                {applicationQueue.length} to log
+              </StatusBadge>
+              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+            </div>
+          </summary>
+          <div className="mt-4 divide-y divide-border rounded-lg border border-border overflow-hidden">
+            {applicationQueue.map((app) => {
+              const url = app.url ?? foundUrls[app.customizationId] ?? null;
+              return (
+                <div
+                  key={app.customizationId}
+                  className="flex items-center gap-3 px-3 py-2.5 text-sm"
                 >
-                  <Plus className="h-3.5 w-3.5" /> Add as work search
-                </button>
-              </div>
-            ))}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-foreground truncate">
+                      {app.company ?? "Company"}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {app.roleTitle ?? "Role from the job description"}
+                      {url ? ` · ${url}` : ""}
+                    </p>
+                  </div>
+                  {!url && (
+                    <button
+                      type="button"
+                      onClick={() => findUrl(app)}
+                      disabled={findingId === app.customizationId}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
+                      title="Web-search for the job posting URL"
+                    >
+                      {findingId === app.customizationId ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Search className="h-3.5 w-3.5" />
+                      )}
+                      Find URL
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => onLogApplication({ ...app, url })}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-muted px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add as work search
+                  </button>
+                </div>
+              );
+            })}
           </div>
-        </div>
+        </details>
       )}
 
       {/* Work Search Progress */}
