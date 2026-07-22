@@ -86,6 +86,8 @@ import {
 import { loadOutreachContext } from "@/lib/server-actions/outreach-draft";
 import {
   addReferredContact,
+  searchContacts,
+  setReferredBy as linkReferredBy,
   ensureContactForRecruiter,
   getContactCardData,
   logContactTouch,
@@ -1020,6 +1022,7 @@ export function OutreachModal({
                 referredBy={referredBy}
                 referrals={referrals}
                 onAdded={(c) => setReferrals((prev) => [c, ...prev])}
+                onReferredByChange={setReferredBy}
               />
             </div>
           ) : (
@@ -1143,18 +1146,75 @@ function ReferralsCard({
   referredBy,
   referrals,
   onAdded,
+  onReferredByChange,
 }: {
   contactId: string;
   contactName: string;
   referredBy: { id: string; name: string } | null;
   referrals: { id: string; name: string }[];
   onAdded: (c: { id: string; name: string }) => void;
+  onReferredByChange: (r: { id: string; name: string } | null) => void;
 }) {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [firm, setFirm] = useState("");
   const [email, setEmail] = useState("");
   const [saving, startSaving] = useTransition();
+
+  // "Referred by" picker — type-ahead over existing contacts (no new contact
+  // is created; it just links the two existing people).
+  const [editingRef, setEditingRef] = useState(false);
+  const [refQuery, setRefQuery] = useState("");
+  const [refResults, setRefResults] = useState<
+    { id: string; name: string; firm: string | null }[]
+  >([]);
+  const [refPending, startRefTransition] = useTransition();
+
+  useEffect(() => {
+    let cancelled = false;
+    if (refQuery.trim().length < 2) {
+      // Defer the clear so it doesn't run synchronously in the effect body.
+      Promise.resolve().then(() => {
+        if (!cancelled) setRefResults([]);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+    searchContacts(refQuery, contactId).then((r) => {
+      if (!cancelled) setRefResults(r);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [refQuery, contactId]);
+
+  const selectReferrer = (r: { id: string; name: string }) => {
+    startRefTransition(async () => {
+      const res = await linkReferredBy(contactId, r.id);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      onReferredByChange({ id: r.id, name: r.name });
+      toast.success(`Referred by ${r.name}.`);
+      setEditingRef(false);
+      setRefQuery("");
+      setRefResults([]);
+    });
+  };
+
+  const clearReferrer = () => {
+    startRefTransition(async () => {
+      const res = await linkReferredBy(contactId, null);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      onReferredByChange(null);
+      setEditingRef(false);
+    });
+  };
 
   const fieldLabel =
     "text-[10px] font-medium uppercase tracking-wider text-muted-foreground";
@@ -1191,14 +1251,80 @@ function ReferralsCard({
       </h3>
 
       <div className="space-y-1 text-xs">
-        <p className="text-muted-foreground">
-          Referred by:{" "}
-          {referredBy ? (
-            <span className="font-medium text-foreground">{referredBy.name}</span>
-          ) : (
-            <span>—</span>
-          )}
-        </p>
+        <div className="text-muted-foreground">
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>Referred by:</span>
+            {referredBy ? (
+              <span className="font-medium text-foreground">
+                {referredBy.name}
+              </span>
+            ) : (
+              <span>—</span>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setEditingRef((v) => !v);
+                setRefQuery("");
+                setRefResults([]);
+              }}
+              disabled={refPending}
+              className="text-[11px] font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              {referredBy ? "Change" : "Set"}
+            </button>
+            {referredBy ? (
+              <button
+                type="button"
+                onClick={clearReferrer}
+                disabled={refPending}
+                className="text-[11px] text-muted-foreground/70 hover:text-destructive"
+              >
+                Clear
+              </button>
+            ) : null}
+          </span>
+          {editingRef ? (
+            <div className="mt-1.5">
+              <Input
+                value={refQuery}
+                onChange={(e) => setRefQuery(e.target.value)}
+                className="h-8 text-xs"
+                placeholder="Search your contacts by name…"
+                autoFocus
+              />
+              {refResults.length > 0 ? (
+                <ul className="mt-1 max-h-44 overflow-auto rounded-md border border-border bg-popover">
+                  {refResults.map((r) => (
+                    <li key={r.id}>
+                      <button
+                        type="button"
+                        onClick={() => selectReferrer(r)}
+                        disabled={refPending}
+                        className="flex w-full items-baseline gap-2 px-2.5 py-1.5 text-left text-xs hover:bg-muted"
+                      >
+                        <span className="font-medium text-foreground">
+                          {r.name}
+                        </span>
+                        {r.firm ? (
+                          <span className="text-muted-foreground">· {r.firm}</span>
+                        ) : null}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : refQuery.trim().length >= 2 ? (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  No matching contacts.
+                </p>
+              ) : (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Type at least 2 letters to search existing contacts.
+                </p>
+              )}
+            </div>
+          ) : null}
+        </div>
         <div className="text-muted-foreground">
           Introduced you to:{" "}
           {referrals.length === 0 ? (
