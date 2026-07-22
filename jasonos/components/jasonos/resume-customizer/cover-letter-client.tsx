@@ -6,7 +6,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Copy, Loader2, Printer, Trash2, Wand2 } from "lucide-react";
+import { Copy, Loader2, Printer, RotateCcw, Trash2, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   deleteCoverLetter,
@@ -145,11 +145,15 @@ export function CoverLetterClient({
       "jasonos:resume-customized",
       onCustomized as EventListener
     );
-    return () =>
+    const onReset = () => setActive(null);
+    window.addEventListener("jasonos:custom-comms-reset", onReset);
+    return () => {
       window.removeEventListener(
         "jasonos:resume-customized",
         onCustomized as EventListener
       );
+      window.removeEventListener("jasonos:custom-comms-reset", onReset);
+    };
   }, []);
 
   const generate = () => {
@@ -208,13 +212,28 @@ export function CoverLetterClient({
 
   return (
     <section className="rounded-xl border bg-card/40 p-5">
-      <div className="flex items-center gap-2">
-        <span className="grid h-6 w-6 place-items-center rounded-full bg-foreground text-[11px] font-bold text-background">
-          2
-        </span>
-        <h2 className="text-sm font-semibold tracking-tight">
-          Cover Letter Customizer
-        </h2>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-foreground text-[11px] font-bold text-background">
+            2
+          </span>
+          <h2 className="text-sm font-semibold tracking-tight">
+            Cover Letter Customizer
+          </h2>
+        </div>
+        {active ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              window.dispatchEvent(new CustomEvent("jasonos:custom-comms-reset"))
+            }
+            title="Clear everything and start the next application"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Reset
+          </Button>
+        ) : null}
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
         Draft a cover letter from a resume you&rsquo;ve already tailored to a job.
