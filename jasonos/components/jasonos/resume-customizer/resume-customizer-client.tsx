@@ -6,7 +6,7 @@
 //     company, plus a Before/After report. Nothing is invented; formatting is
 //     preserved by editing only the text of the original document.
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   Wand2,
@@ -21,8 +21,13 @@ import {
   AlertTriangle,
   ArrowRight,
   RefreshCw,
+  RotateCcw,
   Plus,
 } from "lucide-react";
+
+// Shared reset signal so "Reset" clears both the resume customizer and the
+// cover letter section (separate sibling components).
+const RESET_EVENT = "jasonos:custom-comms-reset";
 import { Button } from "@/components/ui/button";
 import {
   listResumes,
@@ -115,6 +120,24 @@ export function ResumeCustomizerClient({
   const coreFileRef = useRef<HTMLInputElement>(null);
 
   const activeCore = resumes.find((r) => r.is_core) ?? null;
+
+  // Reset the whole flow (this component + the cover-letter section) so you can
+  // start the next application without leaving the page.
+  useEffect(() => {
+    const onReset = () => {
+      setJdText("");
+      setJdFileName(null);
+      if (jdFileRef.current) jdFileRef.current.value = "";
+      setResult(null);
+    };
+    window.addEventListener(RESET_EVENT, onReset);
+    return () => window.removeEventListener(RESET_EVENT, onReset);
+  }, []);
+
+  function handleReset() {
+    window.dispatchEvent(new CustomEvent(RESET_EVENT));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   async function refresh() {
     const [r, c] = await Promise.all([listResumes(), listCustomizations()]);
@@ -232,7 +255,20 @@ export function ResumeCustomizerClient({
               Customize for a job
             </h2>
           </div>
-          <CoreStatus core={activeCore} />
+          <div className="flex items-center gap-2">
+            {(result || jdText.trim() || jdFileName) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleReset}
+                title="Clear everything and start the next application"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reset
+              </Button>
+            )}
+            <CoreStatus core={activeCore} />
+          </div>
         </div>
 
         {!activeCore && (
