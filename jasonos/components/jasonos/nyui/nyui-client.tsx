@@ -29,6 +29,7 @@ import {
   type BusinessHour,
 } from "@/lib/server-actions/nyui";
 import {
+  dismissResumeApplication,
   findJobPostingUrl,
   markResumeApplicationLogged,
   type ResumeApplication,
@@ -649,6 +650,7 @@ function NYUIDashboard({
   onFollowUp,
   applicationQueue,
   onLogApplication,
+  onDismissApplication,
 }: {
   workSearches: WorkSearch[];
   businessHours: BusinessHour[];
@@ -658,24 +660,27 @@ function NYUIDashboard({
   onFollowUp: (ws: WorkSearch) => void;
   applicationQueue: ResumeApplication[];
   onLogApplication: (app: ResumeApplication) => void;
+  onDismissApplication: (customizationId: string) => void;
 }) {
   const [showExport, setShowExport] = useState(false);
-  // Web-search-found URLs per customization (client-only; flow into the prefill).
-  const [foundUrls, setFoundUrls] = useState<Record<string, string>>({});
+  // The item currently auto-finding its URL before opening the prefilled form.
   const [findingId, setFindingId] = useState<string | null>(null);
 
-  async function findUrl(app: ResumeApplication) {
+  // Clicking "Add as work search" auto-searches for the posting URL (when we
+  // don't already have one), then opens the log form prefilled with company,
+  // role, AND the URL — just like the other fields.
+  async function handleAddApplication(app: ResumeApplication) {
+    if (app.url) {
+      onLogApplication(app);
+      return;
+    }
     setFindingId(app.customizationId);
     const res = await findJobPostingUrl({
       company: app.company ?? "",
       roleTitle: app.roleTitle ?? "",
     });
     setFindingId(null);
-    if (res.ok) {
-      setFoundUrls((prev) => ({ ...prev, [app.customizationId]: res.url }));
-    } else {
-      window.alert(res.error);
-    }
+    onLogApplication({ ...app, url: res.ok ? res.url : null });
   }
 
   const startDisplay = new Date(weekStart + "T12:00:00").toLocaleDateString("en-US", {
@@ -764,7 +769,7 @@ function NYUIDashboard({
           </summary>
           <div className="mt-4 divide-y divide-border rounded-lg border border-border overflow-hidden">
             {applicationQueue.map((app) => {
-              const url = app.url ?? foundUrls[app.customizationId] ?? null;
+              const finding = findingId === app.customizationId;
               return (
                 <div
                   key={app.customizationId}
@@ -776,31 +781,36 @@ function NYUIDashboard({
                     </p>
                     <p className="text-xs text-muted-foreground truncate">
                       {app.roleTitle ?? "Role from the job description"}
-                      {url ? ` · ${url}` : ""}
+                      {app.url ? ` · ${app.url}` : ""}
                     </p>
                   </div>
-                  {!url && (
-                    <button
-                      type="button"
-                      onClick={() => findUrl(app)}
-                      disabled={findingId === app.customizationId}
-                      className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground disabled:opacity-50"
-                      title="Web-search for the job posting URL"
-                    >
-                      {findingId === app.customizationId ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Search className="h-3.5 w-3.5" />
-                      )}
-                      Find URL
-                    </button>
-                  )}
                   <button
                     type="button"
-                    onClick={() => onLogApplication({ ...app, url })}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-muted px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80"
+                    onClick={() => handleAddApplication(app)}
+                    disabled={finding}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-muted px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 disabled:opacity-60"
+                    title="Finds the posting URL, then opens the prefilled work-search form"
                   >
-                    <Plus className="h-3.5 w-3.5" /> Add as work search
+                    {finding ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Finding URL…
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-3.5 w-3.5" /> Add as work search
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDismissApplication(app.customizationId)}
+                    disabled={finding}
+                    className="text-muted-foreground hover:text-destructive disabled:opacity-50"
+                    aria-label="Remove from list"
+                    title="Remove from list (don't log)"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               );
@@ -1993,6 +2003,13 @@ export function NyuiClient({
     setSubScreen("log-work-search");
   }
 
+  function handleDismissApplication(customizationId: string) {
+    startDelete(async () => {
+      await dismissResumeApplication(customizationId);
+      router.refresh();
+    });
+  }
+
   // "Add to this week": start a fresh log pre-dated into the chosen claim week
   // (Sunday start); the user can pick the exact day in the form.
   function handleAddToWeek(weekStart: string) {
@@ -2048,6 +2065,7 @@ export function NyuiClient({
           onFollowUp={handleFollowUp}
           applicationQueue={applicationQueue}
           onLogApplication={handleLogApplication}
+          onDismissApplication={handleDismissApplication}
         />
       )}
       {subScreen === "all-applications" && (
