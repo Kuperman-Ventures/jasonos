@@ -282,9 +282,11 @@ export async function updateContactIdentity(
   contactId: string,
   input: {
     name: string;
+    title: string | null;
     firm: string | null;
     email: string | null;
     phone: string | null;
+    linkedinUrl: string | null;
   }
 ): Promise<ActionResult> {
   const guard = ensureConfigured();
@@ -328,9 +330,13 @@ export async function updateContactIdentity(
   const emails = email ? [email, ...rest] : rest;
 
   const phone = input.phone?.trim() || null;
+  const title = input.title?.trim() || null;
+  const linkedinUrl = input.linkedinUrl?.trim() || null;
 
   const payload: Record<string, unknown> = {
     name,
+    title,
+    linkedin_url: linkedinUrl,
     tags,
     emails,
     phone,

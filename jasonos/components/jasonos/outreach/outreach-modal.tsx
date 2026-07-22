@@ -507,9 +507,11 @@ export function OutreachModal({
 
   const applyIdentityUpdate = (v: {
     name: string;
+    title: string | null;
     firm: string | null;
     email: string | null;
     phone: string | null;
+    linkedinUrl: string | null;
   }) => {
     setCard((prev) => {
       if (prev.status !== "ready") return prev;
@@ -518,9 +520,11 @@ export function OutreachModal({
         contact: {
           ...prev.contact,
           name: v.name,
+          title: v.title,
           firm: v.firm,
           primary_email: v.email,
           phone: v.phone,
+          linkedin_url: v.linkedinUrl,
         },
       };
     });
@@ -1003,9 +1007,11 @@ export function OutreachModal({
                 key={effectiveContactId}
                 contactId={effectiveContactId}
                 initialName={header.name}
+                initialTitle={header.title}
                 initialFirm={header.firm}
                 initialEmail={header.primary_email}
                 initialPhone={header.phone}
+                initialLinkedin={header.linkedin_url}
                 editing={editingIdentity}
                 onEdit={() => setEditingIdentity(true)}
                 onCancel={() => setEditingIdentity(false)}
@@ -1397,15 +1403,17 @@ function ReferralsCard({
 }
 
 // ---------------------------------------------------------------------------
-// Identity card — edit name, firm, email, phone inline on the contact card.
+// Identity card — edit name, title, firm, email, phone, and LinkedIn inline.
 // ---------------------------------------------------------------------------
 
 function IdentityCard({
   contactId,
   initialName,
+  initialTitle,
   initialFirm,
   initialEmail,
   initialPhone,
+  initialLinkedin,
   editing,
   onEdit,
   onCancel,
@@ -1413,31 +1421,39 @@ function IdentityCard({
 }: {
   contactId: string;
   initialName: string;
+  initialTitle: string | null;
   initialFirm: string | null;
   initialEmail: string | null;
   initialPhone: string | null;
+  initialLinkedin: string | null;
   editing: boolean;
   onEdit: () => void;
   onCancel: () => void;
   onSaved: (v: {
     name: string;
+    title: string | null;
     firm: string | null;
     email: string | null;
     phone: string | null;
+    linkedinUrl: string | null;
   }) => void;
 }) {
   const [name, setName] = useState(initialName);
+  const [title, setTitle] = useState(initialTitle ?? "");
   const [firm, setFirm] = useState(initialFirm ?? "");
   const [email, setEmail] = useState(initialEmail ?? "");
   const [phone, setPhone] = useState(initialPhone ?? "");
+  const [linkedin, setLinkedin] = useState(initialLinkedin ?? "");
   const [saving, startSaving] = useTransition();
 
   const norm = (s: string | null) => (s ?? "").trim();
   const dirty =
     name.trim() !== norm(initialName) ||
+    title.trim() !== norm(initialTitle) ||
     firm.trim() !== norm(initialFirm) ||
     email.trim() !== norm(initialEmail) ||
-    phone.trim() !== norm(initialPhone);
+    phone.trim() !== norm(initialPhone) ||
+    linkedin.trim() !== norm(initialLinkedin);
 
   const save = () => {
     if (!name.trim()) {
@@ -1447,9 +1463,11 @@ function IdentityCard({
     startSaving(async () => {
       const payload = {
         name: name.trim(),
+        title: title.trim() || null,
         firm: firm.trim() || null,
         email: email.trim() || null,
         phone: phone.trim() || null,
+        linkedinUrl: linkedin.trim() || null,
       };
       const res = await updateContactIdentity(contactId, payload);
       if (!res.ok) {
@@ -1463,9 +1481,11 @@ function IdentityCard({
 
   const cancel = () => {
     setName(initialName);
+    setTitle(initialTitle ?? "");
     setFirm(initialFirm ?? "");
     setEmail(initialEmail ?? "");
     setPhone(initialPhone ?? "");
+    setLinkedin(initialLinkedin ?? "");
     onCancel();
   };
 
@@ -1476,6 +1496,7 @@ function IdentityCard({
   if (!editing) {
     const rows: { label: string; value: string | null; href?: string }[] = [
       { label: "Name", value: initialName },
+      { label: "Title", value: initialTitle },
       { label: "Firm / Company", value: initialFirm },
       {
         label: "Email",
@@ -1486,6 +1507,11 @@ function IdentityCard({
         label: "Phone",
         value: initialPhone,
         href: initialPhone ? `tel:${initialPhone}` : undefined,
+      },
+      {
+        label: "LinkedIn",
+        value: initialLinkedin,
+        href: initialLinkedin ?? undefined,
       },
     ];
     return (
@@ -1549,6 +1575,15 @@ function IdentityCard({
           />
         </label>
         <label className="flex flex-col gap-1">
+          <span className={fieldLabel}>Title</span>
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="h-8 text-xs"
+            placeholder="e.g. VP of Marketing"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
           <span className={fieldLabel}>Firm / Company</span>
           <Input
             value={firm}
@@ -1575,6 +1610,15 @@ function IdentityCard({
             onChange={(e) => setPhone(e.target.value)}
             className="h-8 text-xs"
             placeholder="+1 555 123 4567"
+          />
+        </label>
+        <label className="flex flex-col gap-1 sm:col-span-2">
+          <span className={fieldLabel}>LinkedIn URL</span>
+          <Input
+            value={linkedin}
+            onChange={(e) => setLinkedin(e.target.value)}
+            className="h-8 text-xs"
+            placeholder="https://linkedin.com/in/…"
           />
         </label>
       </div>
