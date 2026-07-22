@@ -66,25 +66,25 @@ interface ColumnDef {
 
 const COLUMNS: ColumnDef[] = [
   {
-    key: "warm",
-    title: "Warm",
-    helper: "this week",
-    icon: Flame,
-    accent: "text-rose-300",
-    stripe: "from-rose-500/15",
-  },
-  {
-    key: "specific",
-    title: "Specific",
-    helper: "pending follow-up",
+    key: "network_growth",
+    title: "Network Growth",
+    helper: "building / deepening",
     icon: Sparkles,
     accent: "text-amber-300",
     stripe: "from-amber-500/15",
   },
   {
-    key: "cold",
-    title: "Cold",
-    helper: "in progress",
+    key: "network_maintenance",
+    title: "Network Maintenance",
+    helper: "keep warm",
+    icon: Flame,
+    accent: "text-rose-300",
+    stripe: "from-rose-500/15",
+  },
+  {
+    key: "browning_cold",
+    title: "Browning / Cold",
+    helper: "cold outreach",
     icon: Snowflake,
     accent: "text-sky-300",
     stripe: "from-sky-500/15",
@@ -226,11 +226,11 @@ type BandCells = Record<QueueUrgencyKey, Record<QueueColumnKey, QueueCard[]>>;
 
 function emptyBandCells(): BandCells {
   return {
-    engaged_today: { warm: [], specific: [], cold: [] },
-    overdue: { warm: [], specific: [], cold: [] },
-    due_this_week: { warm: [], specific: [], cold: [] },
-    scheduled: { warm: [], specific: [], cold: [] },
-    needs_scheduling: { warm: [], specific: [], cold: [] },
+    engaged_today: { network_growth: [], network_maintenance: [], browning_cold: [] },
+    overdue: { network_growth: [], network_maintenance: [], browning_cold: [] },
+    due_this_week: { network_growth: [], network_maintenance: [], browning_cold: [] },
+    scheduled: { network_growth: [], network_maintenance: [], browning_cold: [] },
+    needs_scheduling: { network_growth: [], network_maintenance: [], browning_cold: [] },
   };
 }
 
@@ -239,7 +239,11 @@ function emptyBandCells(): BandCells {
 // surface in the bottom "Needs to be Classified & Scheduled" inbox.
 function personToCard(p: OutreachPerson): QueueCard {
   const column: QueueColumnKey =
-    p.intent === "specific" ? "specific" : p.intent === "cold" ? "cold" : "warm";
+    p.intent === "network_growth"
+      ? "network_growth"
+      : p.intent === "browning_cold"
+      ? "browning_cold"
+      : "network_maintenance";
   return {
     key: `person-${p.id}`,
     column,
@@ -307,11 +311,15 @@ export function ThreeColumnQueueClient({
   const columns = useMemo(() => {
     const seen = new Set<string>();
     const result: Record<QueueColumnKey, QueueCard[]> = {
-      warm: [...buckets.warm],
-      specific: [...buckets.specific],
-      cold: [...buckets.cold],
+      network_growth: [...buckets.network_growth],
+      network_maintenance: [...buckets.network_maintenance],
+      browning_cold: [...buckets.browning_cold],
     };
-    for (const colKey of ["warm", "specific", "cold"] as const) {
+    for (const colKey of [
+      "network_growth",
+      "network_maintenance",
+      "browning_cold",
+    ] as const) {
       for (const card of result[colKey]) {
         if (card.contactId) seen.add(card.contactId);
       }
@@ -322,9 +330,10 @@ export function ThreeColumnQueueClient({
       // Respect a pinned intent if somehow present; otherwise (unclassified
       // but scheduled) park the contact in Specific.
       const column: QueueColumnKey =
-        person?.intent === "warm" || person?.intent === "cold"
+        person?.intent === "network_maintenance" ||
+        person?.intent === "browning_cold"
           ? person.intent
-          : "specific";
+          : "network_growth";
       result[column].push({
         key: `sched-${cc.id}`,
         column,
@@ -360,21 +369,25 @@ export function ThreeColumnQueueClient({
         return name.includes(q) || firm.includes(q);
       });
     return {
-      warm: fn(columns.warm),
-      specific: fn(columns.specific),
-      cold: fn(columns.cold),
+      network_growth: fn(columns.network_growth),
+      network_maintenance: fn(columns.network_maintenance),
+      browning_cold: fn(columns.browning_cold),
     };
   }, [searchQuery, columns]);
 
   const counts = {
-    warm: filtered.warm.length,
-    specific: filtered.specific.length,
-    cold: filtered.cold.length,
+    network_growth: filtered.network_growth.length,
+    network_maintenance: filtered.network_maintenance.length,
+    browning_cold: filtered.browning_cold.length,
   };
 
   const bandCells = useMemo(() => {
     const cells = emptyBandCells();
-    for (const colKey of ["warm", "specific", "cold"] as const) {
+    for (const colKey of [
+      "network_growth",
+      "network_maintenance",
+      "browning_cold",
+    ] as const) {
       for (const card of filtered[colKey]) {
         const urgency = deriveCardUrgency(
           card,
@@ -412,13 +425,17 @@ export function ThreeColumnQueueClient({
       (card.contactId ? commByContactId.get(card.contactId)?.strength : 0) ?? 0;
 
     const fromColumns = [
-      ...bandCells.needs_scheduling.warm,
-      ...bandCells.needs_scheduling.specific,
-      ...bandCells.needs_scheduling.cold,
+      ...bandCells.needs_scheduling.network_growth,
+      ...bandCells.needs_scheduling.network_maintenance,
+      ...bandCells.needs_scheduling.browning_cold,
     ];
 
     const cardedIds = new Set<string>();
-    for (const colKey of ["warm", "specific", "cold"] as const) {
+    for (const colKey of [
+      "network_growth",
+      "network_maintenance",
+      "browning_cold",
+    ] as const) {
       for (const c of columns[colKey]) if (c.contactId) cardedIds.add(c.contactId);
     }
 
@@ -607,9 +624,9 @@ export function ThreeColumnQueueClient({
           />
         </div>
         <ReconnectSummaryStrip
-          warm={counts.warm}
-          specific={counts.specific}
-          cold={counts.cold}
+          network_growth={counts.network_growth}
+          network_maintenance={counts.network_maintenance}
+          browning_cold={counts.browning_cold}
         />
       </div>
 
@@ -829,9 +846,9 @@ function ColumnUrgencySection({
 // ---------------------------------------------------------------------------
 
 const COLUMN_TAG_COLORS: Record<QueueColumnKey, string> = {
-  warm: "text-rose-300",
-  specific: "text-amber-300",
-  cold: "text-sky-300",
+  network_growth: "text-amber-300",
+  network_maintenance: "text-rose-300",
+  browning_cold: "text-sky-300",
 };
 
 function BandContactRow({
@@ -955,19 +972,20 @@ function fmtDate(iso: string): string {
 // ---------------------------------------------------------------------------
 
 function ReconnectSummaryStrip({
-  warm,
-  specific,
-  cold,
+  network_growth,
+  network_maintenance,
+  browning_cold,
 }: {
-  warm: number;
-  specific: number;
-  cold: number;
+  network_growth: number;
+  network_maintenance: number;
+  browning_cold: number;
 }) {
   return (
     <p className="text-[11px] text-muted-foreground">
-      <span className="font-medium text-rose-300">{warm}</span> warm ·{" "}
-      <span className="font-medium text-amber-300">{specific}</span> specific ·{" "}
-      <span className="font-medium text-sky-300">{cold}</span> cold
+      <span className="font-medium text-amber-300">{network_growth}</span> growth ·{" "}
+      <span className="font-medium text-rose-300">{network_maintenance}</span>{" "}
+      maintenance ·{" "}
+      <span className="font-medium text-sky-300">{browning_cold}</span> Browning/cold
     </p>
   );
 }

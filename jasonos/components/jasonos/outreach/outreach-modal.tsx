@@ -93,7 +93,6 @@ import {
   setContactIntent,
   setNetworkDegree,
   setNextTouchDate,
-  setNetworkingFlag,
   setRelationshipType,
   setRelevanceTier,
   toggleVip,
@@ -190,10 +189,6 @@ export function OutreachModal({
   const [vipState, setVipState] = useState<boolean>(false);
   const [, startVipTransition] = useTransition();
   const [, startRelationshipTransition] = useTransition();
-
-  // -- Networking vs. operational classification. Optimistic; reverts on error.
-  const [isNetworking, setIsNetworking] = useState<boolean>(true);
-  const [, startNetworkingTransition] = useTransition();
 
   // -- Relevance (A/B/C) + closeness/network-degree (1/2/3). Optimistic;
   //    reverts on server-action failure. Mirrors the People-list controls.
@@ -333,7 +328,6 @@ export function OutreachModal({
         });
         setRelationshipState(result.contact.relationship_type);
         setVipState(result.contact.vip);
-        setIsNetworking(result.contact.is_networking);
         setRelevanceState(result.contact.relevance_tier);
         setDegreeState(result.contact.network_degree);
         setIntent(result.contact.intent ?? null);
@@ -357,7 +351,6 @@ export function OutreachModal({
         // intent first which back-links via ensureContactForRecruiter.
         setRelationshipState(null);
         setVipState(false);
-        setIsNetworking(true);
         setRelevanceState(null);
         setDegreeState(null);
         setIntent(null);
@@ -408,7 +401,6 @@ export function OutreachModal({
       });
       setRelationshipState(refreshed.contact.relationship_type);
       setVipState(refreshed.contact.vip);
-      setIsNetworking(refreshed.contact.is_networking);
       setRelevanceState(refreshed.contact.relevance_tier);
       setDegreeState(refreshed.contact.network_degree);
       setIntent(refreshed.contact.intent ?? null);
@@ -575,31 +567,6 @@ export function OutreachModal({
         toast.error(result.error);
         return;
       }
-      router.refresh();
-    });
-  };
-
-  const handleNetworkingChange = (next: boolean) => {
-    const prev = isNetworking;
-    if (next === prev) return;
-    setIsNetworking(next);
-    startNetworkingTransition(async () => {
-      const targetId = effectiveContactId ?? (await ensureLinked());
-      if (!targetId) {
-        setIsNetworking(prev);
-        return;
-      }
-      const result = await setNetworkingFlag(targetId, next);
-      if (!result.ok) {
-        setIsNetworking(prev);
-        toast.error(result.error);
-        return;
-      }
-      toast.success(
-        next
-          ? "Network Building — counts toward your networking report."
-          : "Network Maintenance — still tracked, but excluded from the networking report."
-      );
       router.refresh();
     });
   };
@@ -962,11 +929,6 @@ export function OutreachModal({
 
           {tab === "engage" ? (
             <div className="space-y-4">
-              <NetworkingToggle
-                value={isNetworking}
-                onChange={handleNetworkingChange}
-              />
-
               <ClassificationControls
                 relevance={relevanceState}
                 degree={degreeState}
@@ -979,10 +941,10 @@ export function OutreachModal({
 
               {intent === null ? <PickIntentHint /> : null}
               {intent === "backrow" ? <BackrowExplainer /> : null}
-              {intent === "cold" ? (
+              {intent === "browning_cold" ? (
                 <ColdSequenceSection recruiterPipeline={recruiterPipeline} />
               ) : null}
-              {intent === "specific" ? (
+              {intent === "network_growth" ? (
                 <NextStepCard value={logOutcome} onChange={setLogOutcome} />
               ) : null}
 
@@ -1003,7 +965,7 @@ export function OutreachModal({
                 setBrief={setLogBrief}
                 outcome={logOutcome}
                 setOutcome={setLogOutcome}
-                hideOutcomeField={intent === "specific"}
+                hideOutcomeField={intent === "network_growth"}
                 objective={logObjective}
                 setObjective={setLogObjective}
                 onLog={handleLog}
@@ -1164,75 +1126,6 @@ function ClassificationControls({
             ))}
           </select>
         </label>
-      </div>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Networking vs. operational toggle. Off = a frequent/operational contact that
-// shouldn't skew the networking report/funnel.
-// ---------------------------------------------------------------------------
-
-function NetworkingToggle({
-  value,
-  onChange,
-}: {
-  value: boolean;
-  onChange: (next: boolean) => void;
-}) {
-  // Two-state rocker: Network Maintenance (tracked, doesn't count) vs
-  // Network Building (counts toward the networking report/funnel).
-  const options: {
-    building: boolean;
-    label: string;
-    hint: string;
-  }[] = [
-    {
-      building: false,
-      label: "Network Maintenance",
-      hint: "Tracked, doesn't count",
-    },
-    {
-      building: true,
-      label: "Network Building",
-      hint: "Counts toward networking",
-    },
-  ];
-  return (
-    <section>
-      <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-border bg-muted/20 p-1">
-        {options.map((o) => {
-          const active = value === o.building;
-          return (
-            <button
-              key={o.label}
-              type="button"
-              aria-pressed={active}
-              onClick={() => onChange(o.building)}
-              className={cn(
-                "flex flex-col rounded-md px-3 py-2 text-left transition-colors",
-                active
-                  ? o.building
-                    ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/40"
-                    : "bg-muted text-foreground ring-1 ring-border"
-                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-              )}
-            >
-              <span className="text-sm font-medium">{o.label}</span>
-              <span
-                className={cn(
-                  "text-[10px] font-normal",
-                  active && o.building
-                    ? "text-emerald-300/70"
-                    : "text-muted-foreground/70"
-                )}
-              >
-                {o.hint}
-              </span>
-            </button>
-          );
-        })}
       </div>
     </section>
   );
@@ -1613,7 +1506,11 @@ function IntentControl({
       <div className="grid grid-cols-3 gap-1.5">
         {PRIMARY_CONTACT_INTENTS.map((value) => {
           const Icon =
-            value === "warm" ? Flame : value === "specific" ? Sparkles : Snowflake;
+            value === "network_growth"
+              ? Sparkles
+              : value === "network_maintenance"
+              ? Flame
+              : Snowflake;
           const active = intent === value;
           return (
             <button
@@ -1686,9 +1583,9 @@ function Monogram({ name }: { name: string }) {
 }
 
 const INTENT_DOT: Record<ContactIntent, string> = {
-  warm: "bg-orange-400",
-  specific: "bg-sky-400",
-  cold: "bg-slate-400",
+  network_growth: "bg-amber-400",
+  network_maintenance: "bg-rose-400",
+  browning_cold: "bg-sky-400",
   backrow: "bg-muted-foreground",
 };
 
