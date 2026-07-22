@@ -6,6 +6,9 @@
 // and marks a customization logged once it's added to NYUI.
 
 import { revalidatePath } from "next/cache";
+import { gateway } from "@ai-sdk/gateway";
+import { anthropic } from "@ai-sdk/anthropic";
+import { generateText } from "ai";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
 export interface ResumeApplication {
@@ -55,6 +58,43 @@ export async function getResumeApplicationQueue(): Promise<ResumeApplication[]> 
       createdAt: row.created_at as string,
     };
   });
+}
+
+// Best-effort: web-search for the job posting / application URL for a role at
+// a company. Returns the model's single best URL (or the company's careers
+// page) via Anthropic's web_search tool through the AI gateway.
+export async function findJobPostingUrl(input: {
+  company: string;
+  roleTitle: string;
+}): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  const company = input.company?.trim();
+  if (!company) return { ok: false, error: "No company to search for." };
+  try {
+    const result = await generateText({
+      model: gateway("anthropic/claude-sonnet-4-6"),
+      tools: { web_search: anthropic.tools.webSearch_20250305({ maxUses: 4 }) },
+      maxOutputTokens: 400,
+      system:
+        "Find the direct URL of the job posting / application page for the given role at the given company. If you can't find the exact posting, return the company's careers or jobs page URL. Respond with ONLY the single best URL and nothing else. If you truly cannot find one, respond with exactly NONE.",
+      prompt: `Role: ${input.roleTitle || "(role unknown)"}\nCompany: ${company}\nReturn the best application/posting URL.`,
+    });
+    const text = (result.text ?? "").trim();
+    const fromText = text.match(/https?:\/\/[^\s)>\]"']+/)?.[0];
+    const fromSource = (result.sources ?? [])
+      .map((s) => (s as { url?: string }).url)
+      .find(Boolean);
+    const url = (fromText || fromSource || "").replace(/[.,;]+$/, "");
+    if (!url || /^NONE$/i.test(text)) {
+      return { ok: false, error: "Couldn't find a posting URL." };
+    }
+    return { ok: true, url };
+  } catch (err) {
+    console.error("[resume-applications.findJobPostingUrl]", err);
+    return {
+      ok: false,
+      error: "Web search isn't available here yet — paste the URL manually.",
+    };
+  }
 }
 
 export async function markResumeApplicationLogged(
