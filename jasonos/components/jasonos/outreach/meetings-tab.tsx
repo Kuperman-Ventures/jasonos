@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Loader2,
   Pencil,
+  Search,
   Trash2,
   UserPlus,
 } from "lucide-react";
@@ -24,7 +25,9 @@ import {
   deleteMeeting,
   getMeetingsForContact,
   markMeetingHeld,
+  runMeetingResearch,
   updateMeetingPrep,
+  type IntroWish,
   type Meeting,
   type MeetingChannel,
 } from "@/lib/server-actions/meetings";
@@ -359,6 +362,7 @@ function MeetingRow({
             onChange(m);
             setMode("view");
           }}
+          onUpdated={(m) => onChange(m)}
         />
       ) : null}
 
@@ -382,22 +386,51 @@ function PrepForm({
   meeting,
   onCancel,
   onSaved,
+  onUpdated,
 }: {
   meeting: Meeting;
   onCancel: () => void;
   onSaved: (m: Meeting) => void;
+  onUpdated: (m: Meeting) => void;
 }) {
   const [when, setWhen] = useState(toLocalInput(meeting.scheduledAt));
-  const [goal, setGoal] = useState(meeting.prepGoal ?? "");
   const [notes, setNotes] = useState(meeting.prepNotes ?? "");
+  // Always three intro rows, seeded from what's saved.
+  const [intros, setIntros] = useState<IntroWish[]>(() => {
+    const seed = meeting.introWishlist.slice(0, 3);
+    while (seed.length < 3) seed.push({ name: "", company: "" });
+    return seed;
+  });
+  const [research, setResearch] = useState<string | null>(meeting.prepResearch);
+  const [researchAt, setResearchAt] = useState<string | null>(
+    meeting.prepResearchAt
+  );
+  const [researching, startResearch] = useTransition();
   const [saving, startSaving] = useTransition();
+
+  const setIntro = (i: number, field: keyof IntroWish, value: string) =>
+    setIntros((prev) => prev.map((w, idx) => (idx === i ? { ...w, [field]: value } : w)));
+
+  const runResearch = () => {
+    startResearch(async () => {
+      const res = await runMeetingResearch(meeting.id);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      setResearch(res.meeting.prepResearch);
+      setResearchAt(res.meeting.prepResearchAt);
+      onUpdated(res.meeting);
+      toast.success("Research updated.");
+    });
+  };
 
   const save = () => {
     startSaving(async () => {
       const res = await updateMeetingPrep(meeting.id, {
         scheduledAt: when ? fromLocalInput(when) : undefined,
-        prepGoal: goal,
         prepNotes: notes,
+        introWishlist: intros,
       });
       if (!res.ok) {
         toast.error(res.error);
@@ -409,7 +442,7 @@ function PrepForm({
   };
 
   return (
-    <div className="mt-2 space-y-2 border-t pt-2">
+    <div className="mt-2 space-y-3 border-t pt-2">
       <label className="flex flex-col gap-1">
         <span className={fieldLabel}>When</span>
         <Input
@@ -419,26 +452,78 @@ function PrepForm({
           className="h-8 w-full text-xs"
         />
       </label>
+
+      {/* AI web-search brief */}
+      <div>
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <span className={fieldLabel}>Recent news (AI web search)</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={runResearch}
+            disabled={researching}
+          >
+            {researching ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <Search className="h-3 w-3" />
+            )}
+            {research ? "Refresh" : "Run web search"}
+          </Button>
+        </div>
+        {research ? (
+          <div className="rounded-md border bg-background/40 p-2.5 text-xs">
+            <p className="whitespace-pre-wrap leading-relaxed text-foreground/90">
+              {research}
+            </p>
+            {researchAt ? (
+              <p className="mt-2 text-[10px] text-muted-foreground">
+                Searched {new Date(researchAt).toLocaleString()}
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-[11px] text-muted-foreground">
+            Pulls news from the last ~30 days about {""}
+            this person and their company.
+          </p>
+        )}
+      </div>
+
+      {/* Intro wishlist */}
+      <div>
+        <span className={fieldLabel}>Intros to ask for</span>
+        <div className="mt-1 space-y-1.5">
+          {intros.map((w, i) => (
+            <div key={i} className="flex gap-2">
+              <Input
+                value={w.name}
+                onChange={(e) => setIntro(i, "name", e.target.value)}
+                className="h-8 flex-1 text-xs"
+                placeholder={`Person ${i + 1}`}
+              />
+              <Input
+                value={w.company}
+                onChange={(e) => setIntro(i, "company", e.target.value)}
+                className="h-8 flex-1 text-xs"
+                placeholder="Company"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
       <label className="flex flex-col gap-1">
-        <span className={fieldLabel}>Goal</span>
-        <Textarea
-          value={goal}
-          onChange={(e) => setGoal(e.target.value)}
-          rows={2}
-          className="text-xs"
-          placeholder="What you want out of the meeting"
-        />
-      </label>
-      <label className="flex flex-col gap-1">
-        <span className={fieldLabel}>Prep notes</span>
+        <span className={fieldLabel}>Notes</span>
         <Textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          rows={2}
+          rows={3}
           className="text-xs"
-          placeholder="Background, talking points, questions to ask"
+          placeholder="Anything else to remember going in"
         />
       </label>
+
       <div className="flex items-center justify-end gap-2">
         <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>
           Cancel

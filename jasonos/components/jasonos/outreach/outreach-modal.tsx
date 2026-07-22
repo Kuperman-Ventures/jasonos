@@ -57,7 +57,6 @@ import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
 import { MeetingsTab } from "@/components/jasonos/outreach/meetings-tab";
 import { TierDegreeBadge } from "@/components/jasonos/outreach/tier-degree-badge";
-import { FirstContactSequence } from "@/components/jasonos/reconnect/first-contact-sequence";
 import {
   CADENCE_DAYS,
   CADENCE_HELPERS,
@@ -170,7 +169,6 @@ export function OutreachModal({
   contactId,
   recruiterId,
   initialDisplay,
-  recruiterPipeline,
 }: OutreachModalProps) {
   const router = useRouter();
   const [card, setCard] = useState<CardState>({ status: "loading" });
@@ -943,9 +941,6 @@ export function OutreachModal({
 
               {intent === null ? <PickIntentHint /> : null}
               {intent === "backrow" ? <BackrowExplainer /> : null}
-              {intent === "browning_cold" ? (
-                <ColdSequenceSection recruiterPipeline={recruiterPipeline} />
-              ) : null}
               {intent === "network_growth" ? (
                 <NextStepCard value={logOutcome} onChange={setLogOutcome} />
               ) : null}
@@ -1971,51 +1966,6 @@ function ScheduleCard({
         {nextTouchScheduleStatus(nextTouchDate, today)}
       </p>
     </section>
-  );
-}
-
-function ColdSequenceSection({
-  recruiterPipeline,
-}: {
-  recruiterPipeline: RecruiterPipelineProps | undefined;
-}) {
-  const reconnect = recruiterPipeline?.contact;
-  const firstContact = reconnect?.first_contact ?? null;
-
-  if (reconnect && firstContact) {
-    if (firstContact.stage === "completed") {
-      return (
-        <div className="flex items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          First contact complete — cadence-driven follow-up is the next move.
-        </div>
-      );
-    }
-    return (
-      <FirstContactSequence
-        contactId={reconnect.id}
-        contactName={reconnect.name}
-        state={firstContact}
-        onAdvance={(newState) =>
-          recruiterPipeline?.onLocalFirstContact?.(reconnect.id, newState)
-        }
-      />
-    );
-  }
-
-  return (
-    <div className="rounded-lg border border-dashed bg-muted/20 p-3 text-xs text-muted-foreground">
-      <div className="flex items-center gap-1.5 font-medium text-foreground/80">
-        <Snowflake className="h-3.5 w-3.5" />
-        First-Contact Sequence
-      </div>
-      <p className="mt-1 leading-relaxed">
-        The structured sequence (connect → DM → email → meeting) is only wired
-        up for contacts with a recruiter-pipeline link today. For now, log
-        cold touches below — the sequence widget will land here for everyone
-        in a follow-up.
-      </p>
-    </div>
   );
 }
 
