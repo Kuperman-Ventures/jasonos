@@ -30,7 +30,7 @@ import {
 } from "@/lib/server-actions/nyui";
 import {
   dismissResumeApplication,
-  findJobPostingUrl,
+  findCompanyUrl,
   markResumeApplicationLogged,
   type ResumeApplication,
 } from "@/lib/server-actions/resume-applications";
@@ -675,10 +675,7 @@ function NYUIDashboard({
       return;
     }
     setFindingId(app.customizationId);
-    const res = await findJobPostingUrl({
-      company: app.company ?? "",
-      roleTitle: app.roleTitle ?? "",
-    });
+    const res = await findCompanyUrl({ company: app.company ?? "" });
     setFindingId(null);
     onLogApplication({ ...app, url: res.ok ? res.url : null });
   }
