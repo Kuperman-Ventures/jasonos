@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getOutreachFirms } from "@/lib/outreach/data";
 import { Button } from "@/components/ui/button";
-import { Building2 } from "lucide-react";
+import { Building2, ChevronDown } from "lucide-react";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
 
 export const metadata = { title: "Outreach · Firms" };
@@ -28,11 +28,11 @@ export default async function OutreachFirmsPage() {
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {firms.map((firm) => (
-            <article
+            <details
               key={firm.firm_normalized}
-              className="rounded-xl border bg-card p-4"
+              className="group h-fit rounded-xl border bg-card p-4"
             >
-              <div className="flex items-start justify-between gap-3">
+              <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h2 className="truncate font-semibold tracking-tight">
                     {firm.firm}
@@ -41,12 +41,15 @@ export default async function OutreachFirmsPage() {
                     {firm.count} contact{firm.count === 1 ? "" : "s"}
                   </p>
                 </div>
-                {firm.avg_strategic_score !== null ? (
-                  <div className="font-mono shrink-0 rounded-md border px-2 py-1 text-sm">
-                    {firm.avg_strategic_score}
-                  </div>
-                ) : null}
-              </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {firm.avg_strategic_score !== null ? (
+                    <div className="font-mono rounded-md border px-2 py-1 text-sm">
+                      {firm.avg_strategic_score}
+                    </div>
+                  ) : null}
+                  <ChevronDown className="mt-1 h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+                </div>
+              </summary>
 
               <p className="mt-3 text-xs text-muted-foreground">
                 Top contact:{" "}
@@ -87,7 +90,7 @@ export default async function OutreachFirmsPage() {
                   Open firm contacts
                 </Button>
               </div>
-            </article>
+            </details>
           ))}
         </div>
       )}
