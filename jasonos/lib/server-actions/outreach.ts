@@ -444,6 +444,42 @@ export async function setReferredBy(
   return { ok: true };
 }
 
+// searchContacts — lightweight name type-ahead over existing contacts (used by
+// the "Referred by" picker so you can link an existing contact instead of
+// accidentally creating a duplicate). Returns up to 10 matches.
+export async function searchContacts(
+  query: string,
+  excludeId?: string
+): Promise<{ id: string; name: string; firm: string | null }[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.SUPABASE_SERVICE_ROLE_KEY
+  ) {
+    return [];
+  }
+  const sb = createServiceRoleClient();
+  const pattern = `%${q.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
+  const { data, error } = await sb
+    .from("contacts")
+    .select("id,name,tags")
+    .ilike("name", pattern)
+    .order("name", { ascending: true })
+    .limit(10);
+  if (error) {
+    console.error("[outreach.searchContacts]", error);
+    return [];
+  }
+  return (data ?? [])
+    .filter((r) => (r.id as string) !== excludeId)
+    .map((r) => ({
+      id: r.id as string,
+      name: (r.name as string) ?? "Unknown",
+      firm: firmFromTags((r.tags as string[] | null) ?? []),
+    }));
+}
+
 // ---------------------------------------------------------------------------
 // setContactIntent — pin a contact to a queue column (warm/specific/cold),
 // remove them from the queue entirely (backrow, migration 0019), or clear
