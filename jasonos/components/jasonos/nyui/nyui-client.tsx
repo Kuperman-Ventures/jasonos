@@ -26,6 +26,10 @@ import {
   type WorkSearch,
   type BusinessHour,
 } from "@/lib/server-actions/nyui";
+import {
+  markResumeApplicationLogged,
+  type ResumeApplication,
+} from "@/lib/server-actions/resume-applications";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -153,6 +157,9 @@ type WorkSearchPrefill = {
   outcome_next_step?: string;
   next_contact_date?: string;
   parent_activity_id?: string | null;
+  /** When set, this work search came from a customized resume; logging it
+   *  marks that customization as logged so it leaves the "to log" queue. */
+  customizationId?: string | null;
 };
 
 const WEEKLY_LIMIT = 10 * 60;
@@ -637,6 +644,8 @@ function NYUIDashboard({
   weekEnd,
   onNavigate,
   onFollowUp,
+  applicationQueue,
+  onLogApplication,
 }: {
   workSearches: WorkSearch[];
   businessHours: BusinessHour[];
@@ -644,6 +653,8 @@ function NYUIDashboard({
   weekEnd: string;
   onNavigate: (screen: SubScreen) => void;
   onFollowUp: (ws: WorkSearch) => void;
+  applicationQueue: ResumeApplication[];
+  onLogApplication: (app: ResumeApplication) => void;
 }) {
   const [showExport, setShowExport] = useState(false);
 
@@ -707,6 +718,52 @@ function NYUIDashboard({
           Audit Report
         </button>
       </div>
+
+      {/* From your customized resumes — each tailored resume is a job app */}
+      {applicationQueue.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
+          <div className="flex items-start justify-between mb-3 gap-3">
+            <div>
+              <h3 className="font-semibold text-foreground">
+                From your customized resumes
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Each tailored resume is a job application. Log it as a work
+                search — company, URL, and role are pre-filled; you complete the
+                rest.
+              </p>
+            </div>
+            <StatusBadge variant={applicationQueue.length >= 3 ? "success" : "neutral"}>
+              {applicationQueue.length} to log
+            </StatusBadge>
+          </div>
+          <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
+            {applicationQueue.map((app) => (
+              <div
+                key={app.customizationId}
+                className="flex items-center gap-3 px-3 py-2.5 text-sm"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-foreground truncate">
+                    {app.company ?? "Company"}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {app.roleTitle ?? "Role from the job description"}
+                    {app.url ? ` · ${app.url}` : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onLogApplication(app)}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-muted px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add as work search
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Work Search Progress */}
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
@@ -1068,6 +1125,7 @@ function WorkSearchForm({
     next_contact_date: prefill?.next_contact_date ?? "",
   });
   const [parentActivityId] = useState<string | null>(prefill?.parent_activity_id ?? null);
+  const [customizationId] = useState<string | null>(prefill?.customizationId ?? null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -1150,6 +1208,10 @@ function WorkSearchForm({
       if (!result.ok) {
         setServerError(result.error);
         return;
+      }
+      // If this came from a customized resume, drop it from the "to log" queue.
+      if (!isEdit && customizationId) {
+        await markResumeApplicationLogged(customizationId);
       }
       setDone(true);
       router.refresh();
@@ -1807,11 +1869,13 @@ export function NyuiClient({
   weekStart,
   weekEnd,
   allWorkSearches,
+  applicationQueue = [],
 }: {
   initialData: NyuiWeekData;
   weekStart: string;
   weekEnd: string;
   allWorkSearches: WorkSearch[];
+  applicationQueue?: ResumeApplication[];
 }) {
   const router = useRouter();
   const [subScreen, setSubScreen] = useState<SubScreen>("dashboard");
@@ -1869,6 +1933,22 @@ export function NyuiClient({
     setSubScreen("log-work-search");
   }
 
+  // "Log application" from a customized resume: prefill the work-search form
+  // with company / URL / role and default it to an online-portal application.
+  function handleLogApplication(app: ResumeApplication) {
+    setWsEditId(null);
+    setWsPrefill({
+      company_name: app.company ?? "",
+      company_location: app.url ?? "",
+      contact_method: "Online Portal",
+      activity_tier: "employer_contact",
+      position_applied: app.roleTitle ?? "",
+      result: "Application Submitted",
+      customizationId: app.customizationId,
+    });
+    setSubScreen("log-work-search");
+  }
+
   // "Add to this week": start a fresh log pre-dated into the chosen claim week
   // (Sunday start); the user can pick the exact day in the form.
   function handleAddToWeek(weekStart: string) {
@@ -1922,6 +2002,8 @@ export function NyuiClient({
           weekEnd={weekEnd}
           onNavigate={goToScreen}
           onFollowUp={handleFollowUp}
+          applicationQueue={applicationQueue}
+          onLogApplication={handleLogApplication}
         />
       )}
       {subScreen === "all-applications" && (
