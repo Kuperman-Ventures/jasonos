@@ -351,6 +351,100 @@ export async function updateContactIdentity(
 }
 
 // ---------------------------------------------------------------------------
+// addReferredContact — a contact introduced you to someone new: create the new
+// contact, linked back to the referrer (referred_by_contact_id). Auto-sets the
+// new person's closeness degree one hop further than the referrer's (capped at
+// 3), and links a company for exact-cased firm display. This is the entry point
+// the meeting Debrief uses to capture referrals.
+// ---------------------------------------------------------------------------
+
+export async function addReferredContact(input: {
+  referrerContactId: string;
+  name: string;
+  firm?: string | null;
+  email?: string | null;
+  referredAt?: string | null; // YYYY-MM-DD, defaults to today
+}): Promise<{ ok: true; contactId: string } | { ok: false; error: string }> {
+  const guard = ensureConfigured();
+  if (guard && !guard.ok) return guard;
+  const name = input.name?.trim();
+  if (!name) return { ok: false, error: "Name is required." };
+  if (!input.referrerContactId)
+    return { ok: false, error: "referrerContactId is required." };
+
+  const sb = createServiceRoleClient();
+
+  // Referrer's degree → the new person's degree, one hop further (max 3).
+  const { data: referrer } = await sb
+    .from("contacts")
+    .select("network_degree")
+    .eq("id", input.referrerContactId)
+    .maybeSingle();
+  const refDeg = (referrer?.network_degree as number | null) ?? null;
+  const newDegree = refDeg ? Math.min(refDeg + 1, 3) : 2;
+
+  const firm = input.firm?.trim() || null;
+  const tags: string[] = ["source:referral"];
+  if (firm) tags.push(`firm:${slugifyFirm(firm)}`);
+  let companyId: string | null = null;
+  if (firm) {
+    const resolved = await resolveCompanyId(sb, firm);
+    if (resolved.ok) companyId = resolved.companyId;
+  }
+  const email = input.email?.trim() || null;
+
+  const { data, error } = await sb
+    .from("contacts")
+    .insert({
+      name,
+      emails: email ? [email] : [],
+      tags,
+      company_id: companyId,
+      referred_by_contact_id: input.referrerContactId,
+      referred_at: input.referredAt || new Date().toISOString().split("T")[0],
+      network_degree: newDegree,
+      relationship_type: null,
+      cadence_interval: "none",
+      is_networking: true,
+    })
+    .select("id")
+    .single();
+  if (error) return { ok: false, error: error.message };
+
+  revalidate();
+  revalidatePath("/activity");
+  return { ok: true, contactId: data.id as string };
+}
+
+// setReferredBy — mark (or clear) who introduced you to an existing contact.
+export async function setReferredBy(
+  contactId: string,
+  referrerContactId: string | null
+): Promise<ActionResult> {
+  const guard = ensureConfigured();
+  if (guard) return guard;
+  if (!contactId) return { ok: false, error: "contactId is required." };
+  if (referrerContactId === contactId)
+    return { ok: false, error: "A contact can't refer themselves." };
+
+  const sb = createServiceRoleClient();
+  const { error } = await sb
+    .from("contacts")
+    .update({
+      referred_by_contact_id: referrerContactId,
+      referred_at: referrerContactId
+        ? new Date().toISOString().split("T")[0]
+        : null,
+    })
+    .eq("id", contactId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidate();
+  revalidatePath("/activity");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // setContactIntent — pin a contact to a queue column (warm/specific/cold),
 // remove them from the queue entirely (backrow, migration 0019), or clear
 // the value (null) so the queue-buckets derivation rules decide. Backed by
@@ -925,6 +1019,10 @@ export type ContactCardDataResult =
       /** rr_recruiters.id linked via source_ids.recruiter_pipeline_id, or null. */
       recruiterId: string | null;
       recentTouches: RecentTouch[];
+      /** Who introduced you to this contact, if recorded. */
+      referredBy: { id: string; name: string } | null;
+      /** New people this contact introduced you to. */
+      referrals: { id: string; name: string }[];
     }
   | {
       ok: false;
@@ -1002,10 +1100,10 @@ export async function getContactCardData(input: {
 
   // 2. Load the canonical contact row. Mirrors getOutreachContactByRecruiterId
   // schema fallbacks so this works even when migration 0017 hasn't shipped.
-  const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
+  const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,referred_by_contact_id,
      relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
      network_degree,next_touch_date,last_touch_date,last_touch_channel`;
-  const noIntentColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
+  const noIntentColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,referred_by_contact_id,
      relationship_type,cadence_interval,cadence_stage,relevance_tier,
      network_degree,next_touch_date,last_touch_date,last_touch_channel`;
 
@@ -1158,11 +1256,42 @@ export async function getContactCardData(input: {
     console.error("[outreach.getContactCardData.touches]", err);
   }
 
+  // Referral relationships: who introduced you to this contact, and the new
+  // people this contact introduced you to.
+  let referredBy: { id: string; name: string } | null = null;
+  const referrerId =
+    (row.referred_by_contact_id as string | null) ?? null;
+  if (referrerId) {
+    const { data: refRow } = await sb
+      .from("contacts")
+      .select("id,name")
+      .eq("id", referrerId)
+      .maybeSingle();
+    if (refRow) {
+      referredBy = { id: refRow.id as string, name: (refRow.name as string) ?? "Unknown" };
+    }
+  }
+  const referrals: { id: string; name: string }[] = [];
+  try {
+    const { data: referredRows } = await sb
+      .from("contacts")
+      .select("id,name")
+      .eq("referred_by_contact_id", contact.id)
+      .order("created_at", { ascending: false });
+    for (const r of referredRows ?? []) {
+      referrals.push({ id: r.id as string, name: (r.name as string) ?? "Unknown" });
+    }
+  } catch (err) {
+    console.error("[outreach.getContactCardData.referrals]", err);
+  }
+
   return {
     ok: true,
     contact,
     recruiterId: recruiterPipelineId,
     recentTouches,
+    referredBy,
+    referrals,
   };
 }
 
