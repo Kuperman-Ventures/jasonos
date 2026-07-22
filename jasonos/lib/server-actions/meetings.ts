@@ -9,6 +9,12 @@ import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { insertContactTouches, type TouchChannel } from "@/lib/outreach/touch-capture";
 import type { TouchObjective } from "@/lib/outreach/types";
+import { researchPersonNews } from "@/lib/ai/research";
+
+export interface IntroWish {
+  name: string;
+  company: string;
+}
 
 export type MeetingChannel = "call" | "video" | "in_person" | "coffee_chat";
 export type MeetingStatus = "scheduled" | "held" | "cancelled";
@@ -26,6 +32,9 @@ export interface Meeting {
   thankYouSent: boolean;
   nextStep: string | null;
   heldAt: string | null;
+  prepResearch: string | null;
+  prepResearchAt: string | null;
+  introWishlist: IntroWish[];
 }
 
 type Result<T> = ({ ok: true } & T) | { ok: false; error: string };
@@ -51,6 +60,19 @@ function rowToMeeting(row: Record<string, unknown>): Meeting {
     thankYouSent: Boolean(row.thank_you_sent),
     nextStep: (row.next_step as string | null) ?? null,
     heldAt: (row.held_at as string | null) ?? null,
+    prepResearch: (row.prep_research as string | null) ?? null,
+    prepResearchAt: (row.prep_research_at as string | null) ?? null,
+    introWishlist: Array.isArray(row.intro_wishlist)
+      ? (row.intro_wishlist as unknown[])
+          .map((x) => {
+            const o = (x ?? {}) as { name?: unknown; company?: unknown };
+            return {
+              name: typeof o.name === "string" ? o.name : "",
+              company: typeof o.company === "string" ? o.company : "",
+            };
+          })
+          .filter((w) => w.name || w.company)
+      : [],
   };
 }
 
@@ -106,6 +128,7 @@ export async function updateMeetingPrep(
     channel?: MeetingChannel;
     prepGoal?: string | null;
     prepNotes?: string | null;
+    introWishlist?: IntroWish[];
   }
 ): Promise<Result<{ meeting: Meeting }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured." };
@@ -117,6 +140,11 @@ export async function updateMeetingPrep(
   if (patch.prepGoal !== undefined) payload.prep_goal = patch.prepGoal?.trim() || null;
   if (patch.prepNotes !== undefined)
     payload.prep_notes = patch.prepNotes?.trim() || null;
+  if (patch.introWishlist !== undefined) {
+    payload.intro_wishlist = patch.introWishlist
+      .map((w) => ({ name: (w.name ?? "").trim(), company: (w.company ?? "").trim() }))
+      .filter((w) => w.name || w.company);
+  }
 
   const sb = createServiceRoleClient();
   const { data, error } = await sb
@@ -192,6 +220,86 @@ export async function markMeetingHeld(
       linked_touch_id: linkedTouchId,
       updated_at: new Date().toISOString(),
     })
+    .eq("id", id)
+    .select("*")
+    .single();
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/activity");
+  return { ok: true, meeting: rowToMeeting(data) };
+}
+
+// Run an AI web-search brief for a meeting's contact (recent news about the
+// person + their company) and store it on the meeting.
+export async function runMeetingResearch(
+  id: string
+): Promise<Result<{ meeting: Meeting }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured." };
+  if (!id) return { ok: false, error: "id is required." };
+
+  const sb = createServiceRoleClient();
+  const { data: mtg, error: mErr } = await sb
+    .from("meetings")
+    .select("contact_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (mErr) return { ok: false, error: mErr.message };
+  if (!mtg) return { ok: false, error: "Meeting not found." };
+
+  const { data: contact } = await sb
+    .from("contacts")
+    .select("name,tags,company_id")
+    .eq("id", mtg.contact_id as string)
+    .maybeSingle();
+  const name = (contact?.name as string) ?? "";
+  if (!name) return { ok: false, error: "Contact has no name to research." };
+
+  // Resolve firm: company_id → companies.name, else firm:<slug> tag.
+  let firm: string | null = null;
+  const companyId = (contact?.company_id as string | null) ?? null;
+  if (companyId) {
+    const { data: co } = await sb
+      .from("companies")
+      .select("name")
+      .eq("id", companyId)
+      .maybeSingle();
+    firm = (co?.name as string | null) ?? null;
+  }
+  if (!firm) {
+    const tag = ((contact?.tags as string[] | null) ?? []).find((t) =>
+      t.startsWith("firm:")
+    );
+    if (tag) firm = tag.slice("firm:".length).replace(/-/g, " ");
+  }
+
+  let brief: string;
+  try {
+    const res = await researchPersonNews({ name, firm });
+    const sourceLines = res.sources.length
+      ? "\n\nSources:\n" +
+        res.sources
+          .slice(0, 8)
+          .map((s) => `- ${s.title ? `${s.title} — ` : ""}${s.url}`)
+          .join("\n")
+      : "";
+    brief =
+      (res.searched
+        ? res.text
+        : `${res.text}\n\n(Note: live web search returned no sources — treat the above as unverified.)`) +
+      sourceLines;
+  } catch (err) {
+    console.error("[meetings.runMeetingResearch]", err);
+    return {
+      ok: false,
+      error:
+        "Couldn't run the web search. The AI web-search tool may not be enabled on this environment yet.",
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+  const { data, error } = await sb
+    .from("meetings")
+    .update({ prep_research: brief, prep_research_at: nowIso, updated_at: nowIso })
     .eq("id", id)
     .select("*")
     .single();
