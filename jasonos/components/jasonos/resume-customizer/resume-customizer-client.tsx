@@ -570,6 +570,62 @@ function ResultPanel({
     optional: indexed.filter((x) => x.c.priority === "optional"),
   };
 
+  // Per-change status so it's obvious what actually made it into the .docx.
+  const norm = (s: string) => s.replace(/\s+/g, " ").trim();
+  const isTextEditChange = (c: (typeof analysis.changes)[number]) =>
+    c.changeType !== "reorder" &&
+    c.before.trim().length > 0 &&
+    c.after.trim().length > 0 &&
+    norm(c.before) !== norm(c.after);
+  const unmatchedSet = new Set(result.unmatched.map(norm));
+  type ChangeStatus = "applied" | "forced" | "skipped" | "unmatched" | "reorder";
+  const statusOf = (c: (typeof analysis.changes)[number], idx: number): ChangeStatus => {
+    if (c.changeType === "reorder") return "reorder";
+    if (forced.has(idx)) return "forced";
+    if (skipped.has(idx)) return "skipped";
+    if (isTextEditChange(c) && unmatchedSet.has(norm(c.before))) return "unmatched";
+    return "applied";
+  };
+  const textEdits = analysis.changes.filter(isTextEditChange);
+  const totalTextEdits = textEdits.length;
+  const unmatchedCount = textEdits.filter((c) =>
+    unmatchedSet.has(norm(c.before))
+  ).length;
+  const reorderCount = analysis.changes.filter(
+    (c) => c.changeType === "reorder"
+  ).length;
+
+  const STATUS_META: Record<
+    ChangeStatus,
+    { label: string; badge: string; accent: string }
+  > = {
+    applied: {
+      label: "Applied",
+      badge: "border-emerald-500/40 bg-emerald-500/15 text-emerald-300",
+      accent: "border-l-emerald-400/60",
+    },
+    forced: {
+      label: "Applied (added length)",
+      badge: "border-emerald-500/40 bg-emerald-500/15 text-emerald-300",
+      accent: "border-l-emerald-400/60",
+    },
+    skipped: {
+      label: "Not applied — would add length",
+      badge: "border-amber-500/40 bg-amber-500/15 text-amber-300",
+      accent: "border-l-amber-400/60",
+    },
+    unmatched: {
+      label: "Not applied — couldn't locate in the doc",
+      badge: "border-red-500/40 bg-red-500/15 text-red-300",
+      accent: "border-l-red-400/60",
+    },
+    reorder: {
+      label: "Reorder — apply manually",
+      badge: "border-border bg-muted text-muted-foreground",
+      accent: "border-l-border",
+    },
+  };
+
   return (
     <div className="mt-5 space-y-4 rounded-lg border border-border bg-background/60 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -594,24 +650,35 @@ function ResultPanel({
         </Button>
       </div>
 
-      <div className="grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
-        <span>{appliedCount} edit(s) applied to the .docx</span>
-        {skipped.size > 0 && (
-          <span className="text-amber-300">
-            {skipped.size} suggestion(s) held back to keep the page count — use
-            &ldquo;Apply anyway&rdquo; to force any of them
-          </span>
-        )}
-        {result.unmatched.length > 0 && (
-          <span className="text-amber-300">
-            {result.unmatched.length} suggested edit(s) couldn&rsquo;t be located
-          </span>
-        )}
-        {result.unpreserved.length > 0 && (
-          <span className="text-amber-300">
-            {result.unpreserved.length} line(s) had mixed styling collapsed
-          </span>
-        )}
+      <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs">
+        <p className="font-semibold text-emerald-300">
+          {appliedCount} of {totalTextEdits} suggested rewrites are in your
+          downloaded resume.
+        </p>
+        <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
+          {skipped.size > 0 && (
+            <span className="text-amber-300">
+              {skipped.size} held back to keep the page count — use &ldquo;Apply
+              anyway&rdquo;
+            </span>
+          )}
+          {unmatchedCount > 0 && (
+            <span className="text-red-300">
+              {unmatchedCount} couldn&rsquo;t be located in the document
+            </span>
+          )}
+          {reorderCount > 0 && (
+            <span>{reorderCount} reorder(s) to apply manually</span>
+          )}
+          {result.unpreserved.length > 0 && (
+            <span>
+              {result.unpreserved.length} line(s) had mixed styling collapsed
+            </span>
+          )}
+        </div>
+        <p className="mt-1.5 text-[11px] text-muted-foreground">
+          Every rewrite below is tagged with whether it made it into the file.
+        </p>
       </div>
 
       {analysis.summary && (
@@ -658,26 +725,25 @@ function ResultPanel({
               </span>
               <div className="mt-2 space-y-2">
                 {grouped[tier].map(({ c, idx }) => {
-                  const isSkipped = skipped.has(idx);
-                  const isForced = forced.has(idx);
+                  const status = statusOf(c, idx);
+                  const meta = STATUS_META[status];
                   return (
-                    <div key={idx} className="rounded-md border border-border p-3">
+                    <div
+                      key={idx}
+                      className={`rounded-md border border-l-2 border-border ${meta.accent} p-3`}
+                    >
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-xs font-medium">{c.section}</p>
-                        {c.changeType === "reorder" ? (
-                          <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                            reorder — apply manually
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${meta.badge}`}
+                          >
+                            {(status === "applied" || status === "forced") && (
+                              <CheckCircle2 className="h-3 w-3" />
+                            )}
+                            {meta.label}
                           </span>
-                        ) : isForced ? (
-                          <span className="inline-flex items-center gap-1 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] text-emerald-300">
-                            <CheckCircle2 className="h-3 w-3" />
-                            applied (added length)
-                          </span>
-                        ) : isSkipped ? (
-                          <div className="flex items-center gap-2">
-                            <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-300">
-                              not applied — would add length
-                            </span>
+                          {status === "skipped" && (
                             <Button
                               variant="outline"
                               size="xs"
@@ -691,8 +757,8 @@ function ResultPanel({
                               )}
                               Apply anyway
                             </Button>
-                          </div>
-                        ) : null}
+                          )}
+                        </div>
                       </div>
                       <p className="mt-1 text-[11px] text-muted-foreground">
                         <span className="font-medium text-foreground/80">Why:</span>{" "}
