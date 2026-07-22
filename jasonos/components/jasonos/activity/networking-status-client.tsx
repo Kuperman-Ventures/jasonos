@@ -76,6 +76,25 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
     const nr = newRepeatHtml(current);
     const apps = nyuiHtml(current);
 
+    const f = current.funnel;
+    const target = data.goalTarget || 10;
+    const goalPct = Math.min(100, Math.round((f.freshOutreach / target) * 100));
+    const goalMet = f.freshOutreach >= target;
+    const cum = data.cumulative;
+    const goalCard = `<section class="card">
+        <div class="card-h">Weekly outreach goal</div>
+        <div class="card-b">
+          <div class="nr-legend"><span><b>${f.freshOutreach}</b> / ${target} fresh outreach</span><span class="muted">people not contacted in the last 30 days</span></div>
+          <div class="bar"><div style="width:${goalPct}%;background:${goalMet ? "#10b981" : "#38bdf8"}"></div></div>
+          <div class="chips" style="margin-top:12px;">
+            <span class="chip"><b>${f.reachedOut}</b> reached out</span>
+            <span class="chip"><b>${f.replied}</b> replied</span>
+            <span class="chip"><b>${f.metHeld}</b> met &middot; held</span>
+          </div>
+          <p class="sub" style="margin-top:8px;">All-time: reached ${cum.reachedOut} of ${cum.listSize} networking contacts &middot; ${cum.replied} replied &middot; ${cum.metHeld} met</p>
+        </div>
+      </section>`;
+
     const html = `<!doctype html><html><head><meta charset="utf-8"/>
       <title>Jason Kuperman — Networking Activity — ${escHtml(range)}</title>
       <style>
@@ -130,6 +149,7 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
         <p class="sub">Week of ${escHtml(range)} · Wednesday to Tuesday</p>
       </div>
       ${chips ? `<div class="chips">${chips}</div>` : ""}
+      ${goalCard}
       <section class="card">
         <div class="card-h">This Week's Conversation Log</div>
         <div class="card-b">${heatmapHtml(current.conversations)}</div>
@@ -179,6 +199,8 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
         </button>
       </header>
 
+      <FunnelSummary data={data} />
+
       {data.weeks.map((w) => (
         <WeekCard key={w.weekStart} w={w} onOpenContact={setTarget} />
       ))}
@@ -193,6 +215,71 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
           target ? { name: target.name, title: null, firm: target.firm } : undefined
         }
       />
+    </div>
+  );
+}
+
+// Top-of-report summary: the weekly fresh-outreach goal + the reach → reply →
+// meeting funnel (this week) and all-time coverage of the networking list.
+function FunnelSummary({ data }: { data: NetworkingActivity }) {
+  const current = data.weeks.find((w) => w.isCurrent) ?? data.weeks[0];
+  if (!current) return null;
+  const f = current.funnel;
+  const target = data.goalTarget || 10;
+  const pct = Math.min(100, Math.round((f.freshOutreach / target) * 100));
+  const met = f.freshOutreach >= target;
+  const cum = data.cumulative;
+
+  return (
+    <section className="space-y-4 rounded-xl border bg-card p-4">
+      {/* Weekly fresh-outreach goal */}
+      <div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="font-semibold tracking-tight">Weekly outreach goal</span>
+          <span className="tabular-nums text-muted-foreground">
+            {f.freshOutreach} / {target}
+          </span>
+        </div>
+        <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-border">
+          <div
+            className={`h-full rounded-full ${met ? "bg-emerald-400" : "bg-sky-400"}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Fresh outreach — people you hadn&rsquo;t contacted in the last 30 days.{" "}
+          {met
+            ? "Goal met."
+            : `${target - f.freshOutreach} to go this week.`}
+        </p>
+      </div>
+
+      {/* This week's funnel */}
+      <div className="grid grid-cols-3 gap-2">
+        <FunnelStat label="Reached out" value={f.reachedOut} />
+        <FunnelStat label="Replied" value={f.replied} />
+        <FunnelStat label="Met · held" value={f.metHeld} />
+      </div>
+
+      {/* All-time coverage */}
+      <p className="text-[11px] text-muted-foreground">
+        All-time: reached{" "}
+        <span className="font-semibold text-foreground">{cum.reachedOut}</span> of{" "}
+        {cum.listSize} networking contacts ·{" "}
+        <span className="font-semibold text-foreground">{cum.replied}</span> replied
+        · <span className="font-semibold text-foreground">{cum.metHeld}</span> met
+      </p>
+    </section>
+  );
+}
+
+function FunnelStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
+      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        {label}
+      </p>
+      <p className="text-lg font-bold tabular-nums text-foreground">{value}</p>
     </div>
   );
 }

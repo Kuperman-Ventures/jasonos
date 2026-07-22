@@ -28,6 +28,15 @@ function emptyNyui(): NyuiWeekSummary {
   return { applicationCount: 0, applications: [] };
 }
 
+// Weekly fresh-outreach goal: reach out to this many people you haven't been in
+// contact with in the last FRESH_WINDOW_DAYS days.
+const WEEKLY_OUTREACH_GOAL = 10;
+const FRESH_WINDOW_DAYS = 30;
+
+function emptyFunnel(): WeekFunnel {
+  return { reachedOut: 0, replied: 0, metHeld: 0, freshOutreach: 0 };
+}
+
 export interface NsConversation {
   id: string;
   contactId: string;
@@ -72,6 +81,28 @@ export interface NyuiWeekSummary {
   }[];
 }
 
+/** Outreach funnel counts for a single reporting week — distinct networking
+ *  contacts (operational contacts already excluded). */
+export interface WeekFunnel {
+  /** Distinct networking contacts you sent an outbound touch to. */
+  reachedOut: number;
+  /** Distinct networking contacts who replied (an inbound touch). */
+  replied: number;
+  /** Distinct networking contacts you had a call/meeting with (held). */
+  metHeld: number;
+  /** Goal numerator: distinct networking contacts you made FRESH outreach to —
+   *  people you hadn't contacted in the previous 30 days. */
+  freshOutreach: number;
+}
+
+/** All-time coverage funnel across the networking list. */
+export interface CumulativeFunnel {
+  listSize: number; // networking contacts (not backrow)
+  reachedOut: number;
+  replied: number;
+  metHeld: number;
+}
+
 export interface WeekActivity {
   weekStart: string; // Wednesday (YYYY-MM-DD), inclusive
   weekEnd: string; // Tuesday (YYYY-MM-DD), inclusive
@@ -88,12 +119,16 @@ export interface WeekActivity {
     /** Conversations with a contact already spoken to before. */
     repeatConversations: number;
   };
+  funnel: WeekFunnel;
   nyui: NyuiWeekSummary;
 }
 
 export interface NetworkingActivity {
   generatedAt: string;
   weeks: WeekActivity[];
+  cumulative: CumulativeFunnel;
+  /** Weekly fresh-outreach target (people not contacted in the last 30 days). */
+  goalTarget: number;
 }
 
 function hasConfig() {
@@ -148,9 +183,12 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
             newConversations: 0,
             repeatConversations: 0,
           },
+          funnel: emptyFunnel(),
           nyui: emptyNyui(),
         },
       ],
+      cumulative: { listSize: 0, reachedOut: 0, replied: 0, metHeld: 0 },
+      goalTarget: WEEKLY_OUTREACH_GOAL,
     };
   }
 
@@ -218,6 +256,10 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
   // means we've spoken before ("repeat"), and the number itself shows how many
   // times prior — so "spoken to repeatedly" is legible.
   const priorCountByTouchId = new Map<string, number>();
+  // Also remember the timestamp of the immediately-preceding touch for each
+  // touch, so we can tell "fresh" outreach (no contact in the last 30 days)
+  // from ongoing back-and-forth.
+  const prevTsByTouchId = new Map<string, string | null>();
   const touchesByContact = new Map<string, { id: string; ts: string }[]>();
   for (const t of touches) {
     const cid = t.contact_id as string;
@@ -228,8 +270,33 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
   }
   for (const list of touchesByContact.values()) {
     list.sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : a.id < b.id ? -1 : 1));
-    list.forEach((entry, idx) => priorCountByTouchId.set(entry.id, idx));
+    list.forEach((entry, idx) => {
+      priorCountByTouchId.set(entry.id, idx);
+      prevTsByTouchId.set(entry.id, idx > 0 ? list[idx - 1].ts : null);
+    });
   }
+
+  // ── Outreach funnel accumulators ──────────────────────────────────────────
+  // Distinct networking contacts per week (and cumulatively) at each stage.
+  type FunnelSets = {
+    reached: Set<string>;
+    replied: Set<string>;
+    met: Set<string>;
+    fresh: Set<string>;
+  };
+  const weeklyFunnel = new Map<string, FunnelSets>();
+  const funnelSetsFor = (weekStart: string): FunnelSets => {
+    let s = weeklyFunnel.get(weekStart);
+    if (!s) {
+      s = { reached: new Set(), replied: new Set(), met: new Set(), fresh: new Set() };
+      weeklyFunnel.set(weekStart, s);
+    }
+    return s;
+  };
+  const cumReached = new Set<string>();
+  const cumReplied = new Set<string>();
+  const cumMet = new Set<string>();
+  const freshWindowMs = FRESH_WINDOW_DAYS * 86_400_000;
 
   // Ensure every week bucket exists lazily.
   const weeks = new Map<string, WeekActivity>();
@@ -250,6 +317,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
           newConversations: 0,
           repeatConversations: 0,
         },
+        funnel: emptyFunnel(),
         nyui: emptyNyui(),
       };
       weeks.set(weekStart, w);
@@ -268,6 +336,32 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     // appear in the networking report — for any channel.
     const tp = peopleById.get(t.contact_id as string);
     if (tp?.intent === "backrow" || tp?.is_networking === false) continue;
+
+    // Funnel accumulation (all channels; networking contacts only).
+    const fcid = t.contact_id as string;
+    const dir = (t.direction as string) ?? "outbound";
+    const fSets = funnelSetsFor(weekStartOf(date));
+    if (dir === "outbound") {
+      fSets.reached.add(fcid);
+      cumReached.add(fcid);
+      // "Fresh" = no prior touch with this contact in the last 30 days.
+      const prevTs = prevTsByTouchId.get(t.id as string) ?? null;
+      const isFresh =
+        !prevTs ||
+        new Date(t.touched_at as string).getTime() -
+          new Date(prevTs).getTime() >
+          freshWindowMs;
+      if (isFresh) fSets.fresh.add(fcid);
+    }
+    if (dir === "inbound") {
+      fSets.replied.add(fcid);
+      cumReplied.add(fcid);
+    }
+    if (CONVERSATION_CHANNELS.has(ch)) {
+      fSets.met.add(fcid);
+      cumMet.add(fcid);
+    }
+
     if (ch === "thank_you_note") {
       wk.stats.thankYous += 1;
       continue;
@@ -344,6 +438,19 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     });
   }
 
+  // Assign per-week funnel counts from the accumulated sets.
+  for (const w of weeks.values()) {
+    const s = weeklyFunnel.get(w.weekStart);
+    if (s) {
+      w.funnel = {
+        reachedOut: s.reached.size,
+        replied: s.replied.size,
+        metHeld: s.met.size,
+        freshOutreach: s.fresh.size,
+      };
+    }
+  }
+
   const ordered = [...weeks.values()].sort((a, b) =>
     a.weekStart < b.weekStart ? 1 : -1
   );
@@ -356,8 +463,24 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     w.stats.newContacts > 0 ||
     w.stats.thankYous > 0 ||
     w.stats.referrals > 0 ||
-    w.nyui.applicationCount > 0;
+    w.nyui.applicationCount > 0 ||
+    w.funnel.reachedOut > 0;
   const filtered = ordered.filter((w) => w.isCurrent || hasActivity(w));
 
-  return { generatedAt: today, weeks: filtered };
+  // Cumulative coverage across the networking list (operational + backrow out).
+  const listSize = people.filter(
+    (p) => p.is_networking && p.intent !== "backrow"
+  ).length;
+
+  return {
+    generatedAt: today,
+    weeks: filtered,
+    cumulative: {
+      listSize,
+      reachedOut: cumReached.size,
+      replied: cumReplied.size,
+      metHeld: cumMet.size,
+    },
+    goalTarget: WEEKLY_OUTREACH_GOAL,
+  };
 }
