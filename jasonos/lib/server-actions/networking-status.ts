@@ -34,7 +34,13 @@ const WEEKLY_OUTREACH_GOAL = 10;
 const FRESH_WINDOW_DAYS = 30;
 
 function emptyFunnel(): WeekFunnel {
-  return { reachedOut: 0, replied: 0, metHeld: 0, freshOutreach: 0 };
+  return {
+    reachedOut: 0,
+    replied: 0,
+    metHeld: 0,
+    freshOutreach: 0,
+    newReferrals: 0,
+  };
 }
 
 export interface NsConversation {
@@ -93,6 +99,8 @@ export interface WeekFunnel {
   /** Goal numerator: distinct networking contacts you made FRESH outreach to —
    *  people you hadn't contacted in the previous 30 days. */
   freshOutreach: number;
+  /** New people a contact introduced you to this week (referrals recorded). */
+  newReferrals: number;
 }
 
 /** All-time coverage funnel across the networking list. */
@@ -101,6 +109,11 @@ export interface CumulativeFunnel {
   reachedOut: number;
   replied: number;
   metHeld: number;
+  /** People introduced to you via a referral (referred_by set). */
+  referred: number;
+  /** Of the referred people, how many you've reached out to / met. */
+  referredReached: number;
+  referredMet: number;
 }
 
 export interface WeekActivity {
@@ -187,7 +200,15 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
           nyui: emptyNyui(),
         },
       ],
-      cumulative: { listSize: 0, reachedOut: 0, replied: 0, metHeld: 0 },
+      cumulative: {
+        listSize: 0,
+        reachedOut: 0,
+        replied: 0,
+        metHeld: 0,
+        referred: 0,
+        referredReached: 0,
+        referredMet: 0,
+      },
       goalTarget: WEEKLY_OUTREACH_GOAL,
     };
   }
@@ -215,7 +236,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     sb.from("contacts").select("id").eq("browning_source", true),
     sb
       .from("contacts")
-      .select("id,name,tags,relevance_tier,network_degree,created_at,intent,company_id,is_networking")
+      .select("id,name,tags,relevance_tier,network_degree,created_at,intent,company_id,is_networking,referred_by_contact_id,referred_at")
       .order("created_at", { ascending: false })
       .limit(20000),
     sb.from("browning_conversations").select("referrals_received,conversation_date"),
@@ -297,6 +318,10 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
   const cumReplied = new Set<string>();
   const cumMet = new Set<string>();
   const freshWindowMs = FRESH_WINDOW_DAYS * 86_400_000;
+
+  // Referral funnel: networking contacts introduced to you by someone else.
+  const referredIds = new Set<string>();
+  const weeklyReferralIds = new Map<string, Set<string>>();
 
   // Ensure every week bucket exists lazily.
   const weeks = new Map<string, WeekActivity>();
@@ -411,6 +436,22 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
       degree: (c.network_degree as NetworkDegree | null) ?? null,
     });
     wk.stats.newContacts += 1;
+
+    // Referral: introduced to you by another contact.
+    if ((c as { referred_by_contact_id?: string | null }).referred_by_contact_id) {
+      const rid = c.id as string;
+      referredIds.add(rid);
+      const refAt =
+        ((c as { referred_at?: string | null }).referred_at as string | null) ??
+        created;
+      const refWeek = weekStartOf(refAt);
+      let set = weeklyReferralIds.get(refWeek);
+      if (!set) {
+        set = new Set();
+        weeklyReferralIds.set(refWeek, set);
+      }
+      set.add(rid);
+    }
   }
 
   // Referrals received, by browning conversation_date week.
@@ -438,17 +479,19 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     });
   }
 
+  // Materialize any week that only has referral activity so it still shows.
+  for (const wk of weeklyReferralIds.keys()) weekFor(wk);
+
   // Assign per-week funnel counts from the accumulated sets.
   for (const w of weeks.values()) {
     const s = weeklyFunnel.get(w.weekStart);
-    if (s) {
-      w.funnel = {
-        reachedOut: s.reached.size,
-        replied: s.replied.size,
-        metHeld: s.met.size,
-        freshOutreach: s.fresh.size,
-      };
-    }
+    w.funnel = {
+      reachedOut: s?.reached.size ?? 0,
+      replied: s?.replied.size ?? 0,
+      metHeld: s?.met.size ?? 0,
+      freshOutreach: s?.fresh.size ?? 0,
+      newReferrals: weeklyReferralIds.get(w.weekStart)?.size ?? 0,
+    };
   }
 
   const ordered = [...weeks.values()].sort((a, b) =>
@@ -464,13 +507,20 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     w.stats.thankYous > 0 ||
     w.stats.referrals > 0 ||
     w.nyui.applicationCount > 0 ||
-    w.funnel.reachedOut > 0;
+    w.funnel.reachedOut > 0 ||
+    w.funnel.newReferrals > 0;
   const filtered = ordered.filter((w) => w.isCurrent || hasActivity(w));
 
   // Cumulative coverage across the networking list (operational + backrow out).
   const listSize = people.filter(
     (p) => p.is_networking && p.intent !== "backrow"
   ).length;
+  let referredReached = 0;
+  let referredMet = 0;
+  for (const id of referredIds) {
+    if (cumReached.has(id)) referredReached += 1;
+    if (cumMet.has(id)) referredMet += 1;
+  }
 
   return {
     generatedAt: today,
@@ -480,6 +530,9 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
       reachedOut: cumReached.size,
       replied: cumReplied.size,
       metHeld: cumMet.size,
+      referred: referredIds.size,
+      referredReached,
+      referredMet,
     },
     goalTarget: WEEKLY_OUTREACH_GOAL,
   };

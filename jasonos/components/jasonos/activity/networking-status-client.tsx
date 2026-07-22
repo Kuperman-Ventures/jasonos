@@ -90,8 +90,10 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
             <span class="chip"><b>${f.reachedOut}</b> reached out</span>
             <span class="chip"><b>${f.replied}</b> replied</span>
             <span class="chip"><b>${f.metHeld}</b> met &middot; held</span>
+            <span class="chip"><b>${f.newReferrals}</b> new referrals</span>
           </div>
           <p class="sub" style="margin-top:8px;">All-time: reached ${cum.reachedOut} of ${cum.listSize} networking contacts &middot; ${cum.replied} replied &middot; ${cum.metHeld} met</p>
+          <p class="sub" style="margin-top:4px;">Referrals: ${cum.referred} introduced to you &middot; ${cum.referredReached} reached out to &middot; ${cum.referredMet} met</p>
         </div>
       </section>`;
 
@@ -255,10 +257,11 @@ function FunnelSummary({ data }: { data: NetworkingActivity }) {
       </div>
 
       {/* This week's funnel */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <FunnelStat label="Reached out" value={f.reachedOut} />
         <FunnelStat label="Replied" value={f.replied} />
         <FunnelStat label="Met · held" value={f.metHeld} />
+        <FunnelStat label="New referrals" value={f.newReferrals} />
       </div>
 
       {/* All-time coverage */}
@@ -268,6 +271,18 @@ function FunnelSummary({ data }: { data: NetworkingActivity }) {
         {cum.listSize} networking contacts ·{" "}
         <span className="font-semibold text-foreground">{cum.replied}</span> replied
         · <span className="font-semibold text-foreground">{cum.metHeld}</span> met
+      </p>
+
+      {/* Referral funnel */}
+      <p className="text-[11px] text-muted-foreground">
+        Referrals:{" "}
+        <span className="font-semibold text-foreground">{cum.referred}</span>{" "}
+        people introduced to you ·{" "}
+        <span className="font-semibold text-foreground">
+          {cum.referredReached}
+        </span>{" "}
+        reached out to ·{" "}
+        <span className="font-semibold text-foreground">{cum.referredMet}</span> met
       </p>
     </section>
   );
