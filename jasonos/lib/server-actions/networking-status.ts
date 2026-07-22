@@ -177,7 +177,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     sb.from("contacts").select("id").eq("browning_source", true),
     sb
       .from("contacts")
-      .select("id,name,tags,relevance_tier,network_degree,created_at,intent,company_id")
+      .select("id,name,tags,relevance_tier,network_degree,created_at,intent,company_id,is_networking")
       .order("created_at", { ascending: false })
       .limit(20000),
     sb.from("browning_conversations").select("referrals_received,conversation_date"),
@@ -264,6 +264,10 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     const date = (t.touched_at as string).slice(0, 10);
     const ch = (t.channel as string) ?? "";
     const wk = weekFor(weekStartOf(date));
+    // Backrow (archived) and operational (non-networking) contacts never
+    // appear in the networking report — for any channel.
+    const tp = peopleById.get(t.contact_id as string);
+    if (tp?.intent === "backrow" || tp?.is_networking === false) continue;
     if (ch === "thank_you_note") {
       wk.stats.thankYous += 1;
       continue;
@@ -271,8 +275,6 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     if (CONVERSATION_CHANNELS.has(ch)) {
       const cid = t.contact_id as string;
       const p = peopleById.get(cid);
-      // Backburner (Backrow) contacts never appear in reports.
-      if (p?.intent === "backrow") continue;
       const priorContactCount = priorCountByTouchId.get(t.id as string) ?? 0;
       const isFirstContact = priorContactCount === 0;
       wk.conversations.push({
@@ -299,6 +301,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
   // New contacts added, by created_at week.
   for (const c of contactsRes.data ?? []) {
     if ((c.intent as string) === "backrow") continue;
+    if ((c as { is_networking?: boolean | null }).is_networking === false) continue;
     const created = c.created_at ? (c.created_at as string).slice(0, 10) : null;
     if (!created) continue;
     const wk = weekFor(weekStartOf(created));

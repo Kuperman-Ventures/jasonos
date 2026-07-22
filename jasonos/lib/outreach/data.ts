@@ -27,6 +27,9 @@ export interface OutreachPerson {
   primary_email: string | null;
   phone: string | null;
   vip: boolean;
+  /** False = frequent/operational contact excluded from the networking report
+   *  and funnel. Defaults true. */
+  is_networking: boolean;
   relationship_type: RelationshipType | null;
   cadence_interval: CadenceInterval;
   /** Phase 5A: where in the arc (initial / followup_1 / followup_2 / ongoing). */
@@ -128,13 +131,13 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
     //   - intent missing (migration 0017 not applied) -> drop intent
     //   - cadence_stage missing (migration 0015 not applied) -> drop both
     // Either way the People list keeps rendering instead of disappearing.
-    const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,
+    const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
        relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
        network_degree,next_touch_date,last_touch_date,last_touch_channel`;
-    const noIntentColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,
+    const noIntentColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
        relationship_type,cadence_interval,cadence_stage,relevance_tier,
        network_degree,next_touch_date,last_touch_date,last_touch_channel`;
-    const noStageColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,
+    const noStageColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
        relationship_type,cadence_interval,relevance_tier,network_degree,
        next_touch_date,last_touch_date,last_touch_channel`;
 
@@ -226,6 +229,9 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
         primary_email: emails[0] ?? null,
         phone: ((row as { phone?: string | null }).phone as string | null) ?? null,
         vip: Boolean(row.vip),
+        is_networking:
+          ((row as { is_networking?: boolean | null }).is_networking ?? true) !==
+          false,
         relationship_type:
           (row.relationship_type as RelationshipType | null) ?? null,
         cadence_interval:

@@ -90,6 +90,7 @@ import {
   setContactIntent,
   setNetworkDegree,
   setNextTouchDate,
+  setNetworkingFlag,
   setRelationshipType,
   setRelevanceTier,
   toggleVip,
@@ -186,6 +187,10 @@ export function OutreachModal({
   const [vipState, setVipState] = useState<boolean>(false);
   const [, startVipTransition] = useTransition();
   const [, startRelationshipTransition] = useTransition();
+
+  // -- Networking vs. operational classification. Optimistic; reverts on error.
+  const [isNetworking, setIsNetworking] = useState<boolean>(true);
+  const [, startNetworkingTransition] = useTransition();
 
   // -- Relevance (A/B/C) + closeness/network-degree (1/2/3). Optimistic;
   //    reverts on server-action failure. Mirrors the People-list controls.
@@ -314,6 +319,7 @@ export function OutreachModal({
         });
         setRelationshipState(result.contact.relationship_type);
         setVipState(result.contact.vip);
+        setIsNetworking(result.contact.is_networking);
         setRelevanceState(result.contact.relevance_tier);
         setDegreeState(result.contact.network_degree);
         setIntent(result.contact.intent ?? null);
@@ -335,6 +341,7 @@ export function OutreachModal({
         // intent first which back-links via ensureContactForRecruiter.
         setRelationshipState(null);
         setVipState(false);
+        setIsNetworking(true);
         setRelevanceState(null);
         setDegreeState(null);
         setIntent(null);
@@ -385,6 +392,7 @@ export function OutreachModal({
       });
       setRelationshipState(refreshed.contact.relationship_type);
       setVipState(refreshed.contact.vip);
+      setIsNetworking(refreshed.contact.is_networking);
       setRelevanceState(refreshed.contact.relevance_tier);
       setDegreeState(refreshed.contact.network_degree);
       setIntent(refreshed.contact.intent ?? null);
@@ -406,6 +414,7 @@ export function OutreachModal({
           primary_email: null,
           phone: null,
           vip: false,
+          is_networking: true,
           relationship_type: null,
           cadence_interval: "none",
           cadence_stage: null,
@@ -548,6 +557,31 @@ export function OutreachModal({
         toast.error(result.error);
         return;
       }
+      router.refresh();
+    });
+  };
+
+  const handleNetworkingToggle = () => {
+    const prev = isNetworking;
+    const next = !prev;
+    setIsNetworking(next);
+    startNetworkingTransition(async () => {
+      const targetId = effectiveContactId ?? (await ensureLinked());
+      if (!targetId) {
+        setIsNetworking(prev);
+        return;
+      }
+      const result = await setNetworkingFlag(targetId, next);
+      if (!result.ok) {
+        setIsNetworking(prev);
+        toast.error(result.error);
+        return;
+      }
+      toast.success(
+        next
+          ? "Counts toward networking."
+          : "Marked operational — excluded from the networking report."
+      );
       router.refresh();
     });
   };
@@ -907,6 +941,11 @@ export function OutreachModal({
 
           {tab === "engage" ? (
             <div className="space-y-4">
+              <NetworkingToggle
+                value={isNetworking}
+                onToggle={handleNetworkingToggle}
+              />
+
               <ClassificationControls
                 relevance={relevanceState}
                 degree={degreeState}
@@ -1085,6 +1124,50 @@ function ClassificationControls({
           </select>
         </label>
       </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Networking vs. operational toggle. Off = a frequent/operational contact that
+// shouldn't skew the networking report/funnel.
+// ---------------------------------------------------------------------------
+
+function NetworkingToggle({
+  value,
+  onToggle,
+}: {
+  value: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <section className="flex items-center justify-between gap-3 rounded-lg border bg-card/40 px-3 py-2.5">
+      <div className="min-w-0">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Counts as networking
+        </h3>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">
+          Turn off for frequent / operational contacts so they don&rsquo;t skew
+          your networking report.
+        </p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={value}
+        onClick={onToggle}
+        className={cn(
+          "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
+          value ? "bg-emerald-500/70" : "bg-muted-foreground/30"
+        )}
+      >
+        <span
+          className={cn(
+            "inline-block h-4 w-4 transform rounded-full bg-background shadow transition-transform",
+            value ? "translate-x-4" : "translate-x-0.5"
+          )}
+        />
+      </button>
     </section>
   );
 }
