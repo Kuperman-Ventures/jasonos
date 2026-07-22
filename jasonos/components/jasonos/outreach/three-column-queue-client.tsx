@@ -43,6 +43,7 @@ import type { QueueCard, QueueColumnKey, ThreeColumnQueue } from "@/lib/outreach
 import type {
   CommChannel,
   CommunicationsContact,
+  CommTouch,
   CommUrgency,
 } from "@/lib/server-actions/communications";
 import type { ReconnectContact, RecruiterStatus } from "@/lib/reconnect/types";
@@ -937,7 +938,7 @@ function BandContactRow({
             {fmtDate(lastDate)}
           </span>
         ) : null}
-        <StrengthDots strength={comm?.strength ?? 1} />
+        <ReplyStatusLight lastTouch={comm?.lastTouch ?? null} />
       </div>
     </button>
   );
@@ -951,19 +952,44 @@ const CHANNEL_LABELS: Record<CommChannel, string> = {
   other: "Other",
 };
 
-function StrengthDots({ strength }: { strength: number }) {
+// Reply-status light:
+//   green  = the last message came FROM them (they replied)
+//   yellow = last message was yours; waiting on their reply (<= 10 days)
+//   red    = your message has gone unanswered for more than 10 days
+//   grey   = no communication logged yet
+function ReplyStatusLight({ lastTouch }: { lastTouch: CommTouch | null }) {
+  const [nowMs] = useState(() => Date.now());
+  if (!lastTouch) {
+    return (
+      <span
+        title="No communication logged yet"
+        className="h-2.5 w-2.5 shrink-0 rounded-full bg-muted-foreground/25"
+      />
+    );
+  }
+  const days = Math.floor(
+    (nowMs - new Date(lastTouch.touched_at).getTime()) / 86_400_000
+  );
+  let cls: string;
+  let title: string;
+  if (lastTouch.direction === "inbound") {
+    cls = "bg-emerald-400";
+    title = "They replied — last message came from them";
+  } else if (days > 10) {
+    cls = "bg-red-400";
+    title = `Waiting on their reply — ${days} days, no response`;
+  } else {
+    cls = "bg-amber-400";
+    title =
+      days > 0
+        ? `Waiting on their reply — ${days} day${days === 1 ? "" : "s"} so far`
+        : "Waiting on their reply";
+  }
   return (
-    <div className="flex items-center gap-0.5">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div
-          key={i}
-          className={cn(
-            "h-1.5 w-1.5 rounded-full",
-            i < strength ? "bg-foreground/70" : "bg-muted-foreground/20"
-          )}
-        />
-      ))}
-    </div>
+    <span
+      title={title}
+      className={cn("h-2.5 w-2.5 shrink-0 rounded-full", cls)}
+    />
   );
 }
 
