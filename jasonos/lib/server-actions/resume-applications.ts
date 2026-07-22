@@ -61,23 +61,22 @@ export async function getResumeApplicationQueue(): Promise<ResumeApplication[]> 
   });
 }
 
-// Best-effort: web-search for the job posting / application URL for a role at
-// a company. Returns the model's single best URL (or the company's careers
-// page) via Anthropic's web_search tool through the AI gateway.
-export async function findJobPostingUrl(input: {
+// Best-effort: web-search for a company's official website URL via Anthropic's
+// web_search tool through the AI gateway. (Just the company site, not a
+// specific job posting.)
+export async function findCompanyUrl(input: {
   company: string;
-  roleTitle: string;
 }): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
   const company = input.company?.trim();
   if (!company) return { ok: false, error: "No company to search for." };
   try {
     const result = await generateText({
       model: gateway("anthropic/claude-sonnet-4-6"),
-      tools: { web_search: anthropic.tools.webSearch_20250305({ maxUses: 4 }) },
-      maxOutputTokens: 400,
+      tools: { web_search: anthropic.tools.webSearch_20250305({ maxUses: 3 }) },
+      maxOutputTokens: 300,
       system:
-        "Find the direct URL of the job posting / application page for the given role at the given company. If you can't find the exact posting, return the company's careers or jobs page URL. Respond with ONLY the single best URL and nothing else. If you truly cannot find one, respond with exactly NONE.",
-      prompt: `Role: ${input.roleTitle || "(role unknown)"}\nCompany: ${company}\nReturn the best application/posting URL.`,
+        "Find the official website URL of the given company (its homepage, e.g. https://company.com). Respond with ONLY the single best URL and nothing else. If you truly cannot find one, respond with exactly NONE.",
+      prompt: `Company: ${company}\nReturn the company's official website URL.`,
     });
     const text = (result.text ?? "").trim();
     const fromText = text.match(/https?:\/\/[^\s)>\]"']+/)?.[0];
