@@ -57,6 +57,23 @@ function downloadBase64Docx(base64: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+// Let the Cover Letter Customizer (a sibling component) auto-select a resume
+// the moment it's customized here, without a full page reload.
+function announceCustomization(res: CustomizeResult) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent("jasonos:resume-customized", {
+      detail: {
+        id: res.customizationId,
+        company: res.analysis.company,
+        filename: res.filename,
+        match_score: res.analysis.matchScore,
+        created_at: new Date().toISOString(),
+      },
+    })
+  );
+}
+
 const PRIORITY_META: Record<
   string,
   { label: string; className: string }
@@ -159,6 +176,7 @@ export function ResumeCustomizerClient({
       if (res.ok) {
         setResult(res);
         downloadBase64Docx(res.docxBase64, res.filename);
+        announceCustomization(res);
         toast.success(`Tailored resume ready — ${res.filename}`);
         await refresh();
       } else {
@@ -174,6 +192,7 @@ export function ResumeCustomizerClient({
       if (res.ok) {
         setResult(res);
         downloadBase64Docx(res.docxBase64, res.filename);
+        announceCustomization(res);
         toast.success(`Regenerated — ${res.filename}`);
         await refresh();
       } else {
@@ -310,10 +329,14 @@ export function ResumeCustomizerClient({
       {/* Recent customizations                                            */}
       {/* ---------------------------------------------------------------- */}
       {customizations.length > 0 && (
-        <section className="rounded-xl border bg-card/40 p-5">
-          <h2 className="text-sm font-semibold tracking-tight">
-            Recent tailored resumes
-          </h2>
+        <details className="group rounded-xl border bg-card/40 p-5">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold tracking-tight">
+              Recent tailored resumes{" "}
+              <span className="text-muted-foreground">({customizations.length})</span>
+            </h2>
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+          </summary>
           <ul className="mt-3 divide-y divide-border/60">
             {customizations.map((c) => (
               <li
@@ -351,7 +374,7 @@ export function ResumeCustomizerClient({
               </li>
             ))}
           </ul>
-        </section>
+        </details>
       )}
 
       {/* ---------------------------------------------------------------- */}

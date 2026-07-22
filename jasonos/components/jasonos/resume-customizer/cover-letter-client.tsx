@@ -4,9 +4,9 @@
 // that's already been customized for a job (reuses that job + resume context).
 // Preview it, copy the text, or print/save as PDF in the letter format.
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Copy, FileText, Loader2, Printer, Trash2, Wand2 } from "lucide-react";
+import { Copy, Loader2, Printer, Trash2, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   deleteCoverLetter,
@@ -125,11 +125,32 @@ export function CoverLetterClient({
   customizations: CustomizationRow[];
   initialCoverLetters: CoverLetterRow[];
 }) {
+  const [custs, setCusts] = useState<CustomizationRow[]>(customizations);
   const [selectedId, setSelectedId] = useState(customizations[0]?.id ?? "");
   const [letters, setLetters] = useState<CoverLetterRow[]>(initialCoverLetters);
   const [active, setActive] = useState<CoverLetter | null>(null);
   const [generating, startGen] = useTransition();
   const [busy, startBusy] = useTransition();
+
+  // When a resume is customized just above, auto-add it and select it so the
+  // cover letter is written from the resume you just tailored.
+  useEffect(() => {
+    const onCustomized = (e: Event) => {
+      const d = (e as CustomEvent).detail as CustomizationRow | undefined;
+      if (!d?.id) return;
+      setCusts((prev) => [d, ...prev.filter((c) => c.id !== d.id)]);
+      setSelectedId(d.id);
+    };
+    window.addEventListener(
+      "jasonos:resume-customized",
+      onCustomized as EventListener
+    );
+    return () =>
+      window.removeEventListener(
+        "jasonos:resume-customized",
+        onCustomized as EventListener
+      );
+  }, []);
 
   const generate = () => {
     if (!selectedId) {
@@ -187,9 +208,13 @@ export function CoverLetterClient({
 
   return (
     <section className="rounded-xl border bg-card/40 p-5">
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-orange-300">
-        <FileText className="h-4 w-4" />
-        Cover Letter Customizer
+      <div className="flex items-center gap-2">
+        <span className="grid h-6 w-6 place-items-center rounded-full bg-foreground text-[11px] font-bold text-background">
+          2
+        </span>
+        <h2 className="text-sm font-semibold tracking-tight">
+          Cover Letter Customizer
+        </h2>
       </div>
       <p className="mt-1 text-sm text-muted-foreground">
         Draft a cover letter from a resume you&rsquo;ve already tailored to a job.
@@ -197,7 +222,7 @@ export function CoverLetterClient({
         letter is skewed to the opportunity and your background.
       </p>
 
-      {customizations.length === 0 ? (
+      {custs.length === 0 ? (
         <p className="mt-4 rounded-md border border-dashed bg-muted/20 p-3 text-xs text-muted-foreground">
           Customize a resume for a job first (above). The cover letter is built
           from that tailored resume and its job description.
@@ -213,7 +238,7 @@ export function CoverLetterClient({
               onChange={(e) => setSelectedId(e.target.value)}
               className="h-9 rounded-md border border-border bg-background px-2 text-sm text-foreground"
             >
-              {customizations.map((c) => (
+              {custs.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.company ?? "Company"} — {c.filename}
                 </option>
