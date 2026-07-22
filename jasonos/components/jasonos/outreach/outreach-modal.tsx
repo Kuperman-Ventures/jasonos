@@ -55,6 +55,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
+import { MeetingsTab } from "@/components/jasonos/outreach/meetings-tab";
 import { TierDegreeBadge } from "@/components/jasonos/outreach/tier-degree-badge";
 import { FirstContactSequence } from "@/components/jasonos/reconnect/first-contact-sequence";
 import {
@@ -244,7 +245,9 @@ export function OutreachModal({
 
   // Which body tab is showing. "engage" = classify/schedule/log; "history" =
   // communication context. Reset to "engage" on each open.
-  const [tab, setTab] = useState<"engage" | "history" | "contact">("engage");
+  const [tab, setTab] = useState<
+    "engage" | "history" | "contact" | "meetings"
+  >("engage");
 
   // Whether the identity editor (name / firm / email / phone) is open. Toggled
   // from the Edit button in the header, next to the name and company.
@@ -940,6 +943,9 @@ export function OutreachModal({
             <TabBtn active={tab === "history"} onClick={() => setTab("history")}>
               History
             </TabBtn>
+            <TabBtn active={tab === "meetings"} onClick={() => setTab("meetings")}>
+              Meetings
+            </TabBtn>
             <TabBtn active={tab === "contact"} onClick={() => setTab("contact")}>
               Contact info
             </TabBtn>
@@ -1021,6 +1027,17 @@ export function OutreachModal({
                   : []
               }
             />
+          ) : tab === "meetings" ? (
+            effectiveContactId ? (
+              <MeetingsTab
+                contactId={effectiveContactId}
+                contactName={header.name}
+              />
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Meetings will appear once this contact is linked.
+              </p>
+            )
           ) : effectiveContactId ? (
             <div className="space-y-4">
               <IdentityCard

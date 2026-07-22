@@ -1,0 +1,228 @@
+"use server";
+
+// Meetings — prep → held → debrief records for a single contact. Backs the
+// contact card's Meeting tab. Marking a meeting held also writes a conversation
+// touch (via the shared touch-capture helper) so it flows into the networking
+// activity heatmap and funnel.
+
+import { revalidatePath } from "next/cache";
+import { createServiceRoleClient } from "@/lib/supabase/server";
+import { insertContactTouches, type TouchChannel } from "@/lib/outreach/touch-capture";
+import type { TouchObjective } from "@/lib/outreach/types";
+
+export type MeetingChannel = "call" | "video" | "in_person" | "coffee_chat";
+export type MeetingStatus = "scheduled" | "held" | "cancelled";
+
+export interface Meeting {
+  id: string;
+  contactId: string;
+  scheduledAt: string; // ISO
+  channel: MeetingChannel;
+  status: MeetingStatus;
+  prepGoal: string | null;
+  prepNotes: string | null;
+  debriefNotes: string | null;
+  objectiveAchieved: TouchObjective | null;
+  thankYouSent: boolean;
+  nextStep: string | null;
+  heldAt: string | null;
+}
+
+type Result<T> = ({ ok: true } & T) | { ok: false; error: string };
+type OkResult = { ok: true } | { ok: false; error: string };
+
+function hasConfig() {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+}
+
+function rowToMeeting(row: Record<string, unknown>): Meeting {
+  return {
+    id: row.id as string,
+    contactId: row.contact_id as string,
+    scheduledAt: row.scheduled_at as string,
+    channel: ((row.channel as string) ?? "video") as MeetingChannel,
+    status: ((row.status as string) ?? "scheduled") as MeetingStatus,
+    prepGoal: (row.prep_goal as string | null) ?? null,
+    prepNotes: (row.prep_notes as string | null) ?? null,
+    debriefNotes: (row.debrief_notes as string | null) ?? null,
+    objectiveAchieved: (row.objective_achieved as TouchObjective | null) ?? null,
+    thankYouSent: Boolean(row.thank_you_sent),
+    nextStep: (row.next_step as string | null) ?? null,
+    heldAt: (row.held_at as string | null) ?? null,
+  };
+}
+
+export async function getMeetingsForContact(contactId: string): Promise<Meeting[]> {
+  if (!hasConfig() || !contactId) return [];
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("meetings")
+    .select("*")
+    .eq("contact_id", contactId)
+    .order("scheduled_at", { ascending: false });
+  if (error) {
+    console.error("[meetings.getMeetingsForContact]", error);
+    return [];
+  }
+  return (data ?? []).map(rowToMeeting);
+}
+
+export async function createMeeting(input: {
+  contactId: string;
+  scheduledAt: string;
+  channel?: MeetingChannel;
+  prepGoal?: string | null;
+  prepNotes?: string | null;
+}): Promise<Result<{ meeting: Meeting }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured." };
+  if (!input.contactId) return { ok: false, error: "contactId is required." };
+  if (!input.scheduledAt) return { ok: false, error: "A date/time is required." };
+
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("meetings")
+    .insert({
+      contact_id: input.contactId,
+      scheduled_at: input.scheduledAt,
+      channel: input.channel ?? "video",
+      status: "scheduled",
+      prep_goal: input.prepGoal?.trim() || null,
+      prep_notes: input.prepNotes?.trim() || null,
+    })
+    .select("*")
+    .single();
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/activity");
+  return { ok: true, meeting: rowToMeeting(data) };
+}
+
+export async function updateMeetingPrep(
+  id: string,
+  patch: {
+    scheduledAt?: string;
+    channel?: MeetingChannel;
+    prepGoal?: string | null;
+    prepNotes?: string | null;
+  }
+): Promise<Result<{ meeting: Meeting }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured." };
+  if (!id) return { ok: false, error: "id is required." };
+
+  const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (patch.scheduledAt) payload.scheduled_at = patch.scheduledAt;
+  if (patch.channel) payload.channel = patch.channel;
+  if (patch.prepGoal !== undefined) payload.prep_goal = patch.prepGoal?.trim() || null;
+  if (patch.prepNotes !== undefined)
+    payload.prep_notes = patch.prepNotes?.trim() || null;
+
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("meetings")
+    .update(payload)
+    .eq("id", id)
+    .select("*")
+    .single();
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/activity");
+  return { ok: true, meeting: rowToMeeting(data) };
+}
+
+// Mark a meeting held + record the debrief. Also writes a conversation touch so
+// the meeting shows up in the activity heatmap and funnel.
+export async function markMeetingHeld(
+  id: string,
+  debrief: {
+    debriefNotes?: string | null;
+    objectiveAchieved?: TouchObjective | null;
+    thankYouSent?: boolean;
+    nextStep?: string | null;
+  }
+): Promise<Result<{ meeting: Meeting }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured." };
+  if (!id) return { ok: false, error: "id is required." };
+
+  const sb = createServiceRoleClient();
+  const { data: existing, error: readErr } = await sb
+    .from("meetings")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (readErr) return { ok: false, error: readErr.message };
+  if (!existing) return { ok: false, error: "Meeting not found." };
+
+  const contactId = existing.contact_id as string;
+  const channel = ((existing.channel as string) ?? "video") as TouchChannel;
+  const heldAtIso = (existing.scheduled_at as string) ?? new Date().toISOString();
+
+  // Log the meeting as a conversation touch (feeds heatmap + funnel + cadence).
+  const linkedTouchId: string | null =
+    (existing.linked_touch_id as string | null) ?? null;
+  if (!linkedTouchId) {
+    const touchResult = await insertContactTouches([
+      {
+        contact_id: contactId,
+        channel,
+        direction: "outbound",
+        touched_at: heldAtIso,
+        source: "manual",
+        brief: existing.prep_goal ? `Meeting: ${existing.prep_goal as string}` : "Meeting",
+        objective_achieved: debrief.objectiveAchieved ?? null,
+        outcome: debrief.nextStep?.trim() || debrief.debriefNotes?.trim() || null,
+      },
+    ]);
+    if (touchResult.errors.length) {
+      // Non-fatal: still record the debrief even if the touch insert failed.
+      console.error("[meetings.markMeetingHeld.touch]", touchResult.errors);
+    }
+  }
+
+  const { data, error } = await sb
+    .from("meetings")
+    .update({
+      status: "held",
+      held_at: new Date().toISOString(),
+      debrief_notes: debrief.debriefNotes?.trim() || null,
+      objective_achieved: debrief.objectiveAchieved ?? null,
+      thank_you_sent: Boolean(debrief.thankYouSent),
+      next_step: debrief.nextStep?.trim() || null,
+      linked_touch_id: linkedTouchId,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select("*")
+    .single();
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/activity");
+  return { ok: true, meeting: rowToMeeting(data) };
+}
+
+export async function setMeetingStatus(
+  id: string,
+  status: MeetingStatus
+): Promise<OkResult> {
+  if (!hasConfig()) return { ok: false, error: "Not configured." };
+  if (!id) return { ok: false, error: "id is required." };
+  const sb = createServiceRoleClient();
+  const { error } = await sb
+    .from("meetings")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/activity");
+  return { ok: true };
+}
+
+export async function deleteMeeting(id: string): Promise<OkResult> {
+  if (!hasConfig()) return { ok: false, error: "Not configured." };
+  if (!id) return { ok: false, error: "id is required." };
+  const sb = createServiceRoleClient();
+  const { error } = await sb.from("meetings").delete().eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/activity");
+  return { ok: true };
+}
