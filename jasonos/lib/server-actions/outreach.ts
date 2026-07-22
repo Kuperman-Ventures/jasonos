@@ -196,6 +196,34 @@ export async function toggleVip(
 }
 
 // ---------------------------------------------------------------------------
+// setNetworkingFlag — mark a contact as a networking relationship (true) or a
+// frequent/operational contact (false). Operational contacts are excluded from
+// the networking Weekly Report and funnel so day-to-day chatter doesn't skew
+// the picture. Defaults true for every contact.
+// ---------------------------------------------------------------------------
+
+export async function setNetworkingFlag(
+  contactId: string,
+  isNetworking: boolean
+): Promise<ActionResult> {
+  const guard = ensureConfigured();
+  if (guard) return guard;
+  if (!contactId) return { ok: false, error: "contactId is required." };
+
+  const sb = createServiceRoleClient();
+  const { error } = await sb
+    .from("contacts")
+    .update({ is_networking: isNetworking })
+    .eq("id", contactId);
+
+  if (error) return { ok: false, error: error.message };
+
+  revalidate();
+  revalidatePath("/activity");
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // setRelevanceTier / setNetworkDegree — the two new classification vectors
 // (migration 0025). Both accept null to clear.
 // ---------------------------------------------------------------------------
@@ -777,10 +805,10 @@ export async function getOutreachContactByRecruiterId(
   }
 
   const sb = createServiceRoleClient();
-  const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,
+  const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,is_networking,
      relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
      network_degree,next_touch_date,last_touch_date,last_touch_channel`;
-  const noIntentColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,
+  const noIntentColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,is_networking,
      relationship_type,cadence_interval,cadence_stage,relevance_tier,
      network_degree,next_touch_date,last_touch_date,last_touch_channel`;
 
@@ -840,6 +868,8 @@ export async function getOutreachContactByRecruiterId(
     primary_email: emails[0] ?? null,
     phone: ((data as { phone?: string | null }).phone as string | null) ?? null,
     vip: Boolean(data.vip),
+    is_networking:
+      ((data as { is_networking?: boolean | null }).is_networking ?? true) !== false,
     relationship_type:
       (data.relationship_type as RelationshipType | null) ?? null,
     cadence_interval:
@@ -972,10 +1002,10 @@ export async function getContactCardData(input: {
 
   // 2. Load the canonical contact row. Mirrors getOutreachContactByRecruiterId
   // schema fallbacks so this works even when migration 0017 hasn't shipped.
-  const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,
+  const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
      relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
      network_degree,next_touch_date,last_touch_date,last_touch_channel`;
-  const noIntentColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,
+  const noIntentColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
      relationship_type,cadence_interval,cadence_stage,relevance_tier,
      network_degree,next_touch_date,last_touch_date,last_touch_channel`;
 
@@ -1060,6 +1090,8 @@ export async function getContactCardData(input: {
     primary_email: emails[0] ?? null,
     phone: ((row as { phone?: string | null }).phone as string | null) ?? null,
     vip: Boolean(row.vip),
+    is_networking:
+      ((row as { is_networking?: boolean | null }).is_networking ?? true) !== false,
     relationship_type:
       (row.relationship_type as RelationshipType | null) ?? null,
     cadence_interval:
