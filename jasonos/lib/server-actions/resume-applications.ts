@@ -41,6 +41,7 @@ export async function getResumeApplicationQueue(): Promise<ResumeApplication[]> 
     .from("resume_customizations")
     .select("id,company,filename,job_description,report,created_at,nyui_logged_at")
     .is("nyui_logged_at", null)
+    .is("nyui_dismissed_at", null)
     .order("created_at", { ascending: false })
     .limit(25);
   if (error) {
@@ -110,5 +111,21 @@ export async function markResumeApplicationLogged(
   if (error) return { ok: false, error: error.message };
   revalidatePath("/nyui");
   revalidatePath("/resume-customizer");
+  return { ok: true };
+}
+
+// Remove a customization from the NYUI "to log" queue without logging it.
+export async function dismissResumeApplication(
+  customizationId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!hasConfig()) return { ok: false, error: "Not configured." };
+  if (!customizationId) return { ok: false, error: "customizationId is required." };
+  const sb = createServiceRoleClient();
+  const { error } = await sb
+    .from("resume_customizations")
+    .update({ nyui_dismissed_at: new Date().toISOString() })
+    .eq("id", customizationId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/nyui");
   return { ok: true };
 }
