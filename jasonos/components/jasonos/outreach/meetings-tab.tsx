@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import {
   CalendarPlus,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Loader2,
   Pencil,
   Search,
@@ -306,7 +308,7 @@ function MeetingRow({
                 onClick={() => setMode(mode === "prep" ? "view" : "prep")}
                 className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
               >
-                <Pencil className="h-3 w-3" /> Prep
+                <Pencil className="h-3 w-3" /> Edit prep
               </button>
               <Button size="sm" onClick={() => setMode("debrief")}>
                 <CheckCircle2 className="h-3 w-3" /> Log debrief
@@ -332,11 +334,7 @@ function MeetingRow({
         </div>
       </div>
 
-      {meeting.prepGoal && mode === "view" ? (
-        <p className="mt-1.5 text-xs text-muted-foreground">
-          <span className="font-medium text-foreground/80">Goal:</span> {meeting.prepGoal}
-        </p>
-      ) : null}
+      {mode === "view" ? <PrepReadout meeting={meeting} /> : null}
 
       {held ? (
         <div className="mt-2 space-y-1 border-t pt-2 text-xs text-muted-foreground">
@@ -379,6 +377,90 @@ function MeetingRow({
         />
       ) : null}
     </section>
+  );
+}
+
+// Read-only prep sheet shown on the meeting card — everything you want in front
+// of you during the call. Research is collapsible (it can be long); intros and
+// notes stay visible.
+function PrepReadout({ meeting }: { meeting: Meeting }) {
+  const [researchOpen, setResearchOpen] = useState(true);
+  const intros = meeting.introWishlist.filter((w) => w.name || w.company);
+  const hasResearch = Boolean(meeting.prepResearch);
+  const hasNotes = Boolean(meeting.prepNotes);
+  const hasGoal = Boolean(meeting.prepGoal);
+
+  if (!hasResearch && !hasNotes && !hasGoal && intros.length === 0) return null;
+
+  return (
+    <div className="mt-2 space-y-2.5 border-t pt-2 text-xs">
+      {hasGoal ? (
+        <p className="text-muted-foreground">
+          <span className="font-medium text-foreground/80">Goal:</span>{" "}
+          {meeting.prepGoal}
+        </p>
+      ) : null}
+
+      {hasResearch ? (
+        <div>
+          <button
+            type="button"
+            onClick={() => setResearchOpen((o) => !o)}
+            className="flex w-full items-center gap-1 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+          >
+            {researchOpen ? (
+              <ChevronDown className="h-3 w-3" />
+            ) : (
+              <ChevronRight className="h-3 w-3" />
+            )}
+            Recent news (AI web search)
+          </button>
+          {researchOpen ? (
+            <div className="mt-1 rounded-md border bg-background/40 p-2.5">
+              <p className="whitespace-pre-wrap leading-relaxed text-foreground/90">
+                {meeting.prepResearch}
+              </p>
+              {meeting.prepResearchAt ? (
+                <p className="mt-2 text-[10px] text-muted-foreground">
+                  Searched {new Date(meeting.prepResearchAt).toLocaleString()}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {intros.length > 0 ? (
+        <div>
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Intros to ask for
+          </p>
+          <ul className="divide-y divide-border/40 rounded-md border">
+            {intros.map((w, i) => (
+              <li key={i} className="px-2.5 py-1.5">
+                <span className="font-medium text-foreground">
+                  {w.name || "—"}
+                </span>
+                {w.company ? (
+                  <span className="text-muted-foreground"> · {w.company}</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {hasNotes ? (
+        <div>
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Notes
+          </p>
+          <p className="whitespace-pre-wrap leading-relaxed text-foreground/90">
+            {meeting.prepNotes}
+          </p>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
