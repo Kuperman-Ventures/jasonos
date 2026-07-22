@@ -51,6 +51,7 @@ import {
   Archive,
   Phone,
   Pencil,
+  UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
@@ -83,6 +84,7 @@ import {
 } from "@/lib/outreach/types";
 import { loadOutreachContext } from "@/lib/server-actions/outreach-draft";
 import {
+  addReferredContact,
   ensureContactForRecruiter,
   getContactCardData,
   logContactTouch,
@@ -248,6 +250,13 @@ export function OutreachModal({
   // from the Edit button in the header, next to the name and company.
   const [editingIdentity, setEditingIdentity] = useState(false);
 
+  // Referral relationships for this contact (who introduced them + who they
+  // introduced you to), loaded alongside the card.
+  const [referredBy, setReferredBy] = useState<{ id: string; name: string } | null>(
+    null
+  );
+  const [referrals, setReferrals] = useState<{ id: string; name: string }[]>([]);
+
   // ------------------------------------------------------------------
   // Fetch on open
   // ------------------------------------------------------------------
@@ -271,6 +280,8 @@ export function OutreachModal({
       setBrowningDismissed(false);
       setTab("engage");
       setEditingIdentity(false);
+      setReferredBy(null);
+      setReferrals([]);
 
       const result = await getContactCardData({
         contactId: contactId ?? null,
@@ -325,6 +336,8 @@ export function OutreachModal({
         setIntent(result.contact.intent ?? null);
         setCadenceState(result.contact.cadence_interval);
         setNextTouchState(result.contact.next_touch_date);
+        setReferredBy(result.referredBy);
+        setReferrals(result.referrals);
         return;
       }
       if (
@@ -398,6 +411,8 @@ export function OutreachModal({
       setIntent(refreshed.contact.intent ?? null);
       setCadenceState(refreshed.contact.cadence_interval);
       setNextTouchState(refreshed.contact.next_touch_date);
+      setReferredBy(refreshed.referredBy);
+      setReferrals(refreshed.referrals);
     } else {
       // Even on refresh failure we still got a contactId — fall back to a
       // minimal synthesized ready state so subsequent actions can proceed.
@@ -1007,18 +1022,27 @@ export function OutreachModal({
               }
             />
           ) : effectiveContactId ? (
-            <IdentityCard
-              key={effectiveContactId}
-              contactId={effectiveContactId}
-              initialName={header.name}
-              initialFirm={header.firm}
-              initialEmail={header.primary_email}
-              initialPhone={header.phone}
-              editing={editingIdentity}
-              onEdit={() => setEditingIdentity(true)}
-              onCancel={() => setEditingIdentity(false)}
-              onSaved={applyIdentityUpdate}
-            />
+            <div className="space-y-4">
+              <IdentityCard
+                key={effectiveContactId}
+                contactId={effectiveContactId}
+                initialName={header.name}
+                initialFirm={header.firm}
+                initialEmail={header.primary_email}
+                initialPhone={header.phone}
+                editing={editingIdentity}
+                onEdit={() => setEditingIdentity(true)}
+                onCancel={() => setEditingIdentity(false)}
+                onSaved={applyIdentityUpdate}
+              />
+              <ReferralsCard
+                contactId={effectiveContactId}
+                contactName={header.name}
+                referredBy={referredBy}
+                referrals={referrals}
+                onAdded={(c) => setReferrals((prev) => [c, ...prev])}
+              />
+            </div>
           ) : (
             <p className="text-xs text-muted-foreground">
               Contact information will appear once this contact is linked.
@@ -1168,6 +1192,150 @@ function NetworkingToggle({
           )}
         />
       </button>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Referrals card — who introduced you to this contact, and the new people
+// this contact introduced you to. Adding a referral creates the new person
+// already linked back to this contact (and one closeness-degree further out).
+// ---------------------------------------------------------------------------
+
+function ReferralsCard({
+  contactId,
+  contactName,
+  referredBy,
+  referrals,
+  onAdded,
+}: {
+  contactId: string;
+  contactName: string;
+  referredBy: { id: string; name: string } | null;
+  referrals: { id: string; name: string }[];
+  onAdded: (c: { id: string; name: string }) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  const [firm, setFirm] = useState("");
+  const [email, setEmail] = useState("");
+  const [saving, startSaving] = useTransition();
+
+  const fieldLabel =
+    "text-[10px] font-medium uppercase tracking-wider text-muted-foreground";
+
+  const save = () => {
+    if (!name.trim()) {
+      toast.error("Name is required.");
+      return;
+    }
+    startSaving(async () => {
+      const res = await addReferredContact({
+        referrerContactId: contactId,
+        name: name.trim(),
+        firm: firm.trim() || null,
+        email: email.trim() || null,
+      });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success(`Added ${name.trim()} — introduced by ${contactName}.`);
+      onAdded({ id: res.contactId, name: name.trim() });
+      setName("");
+      setFirm("");
+      setEmail("");
+      setAdding(false);
+    });
+  };
+
+  return (
+    <section className="rounded-lg border bg-card/40 p-3">
+      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        Referrals
+      </h3>
+
+      <div className="space-y-1 text-xs">
+        <p className="text-muted-foreground">
+          Referred by:{" "}
+          {referredBy ? (
+            <span className="font-medium text-foreground">{referredBy.name}</span>
+          ) : (
+            <span>—</span>
+          )}
+        </p>
+        <div className="text-muted-foreground">
+          Introduced you to:{" "}
+          {referrals.length === 0 ? (
+            <span>—</span>
+          ) : (
+            <span className="font-medium text-foreground">
+              {referrals.map((r) => r.name).join(", ")}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {adding ? (
+        <div className="mt-3 space-y-2 border-t pt-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <label className="flex flex-col gap-1">
+              <span className={fieldLabel}>Name</span>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="h-8 text-xs"
+                placeholder="New person's name"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className={fieldLabel}>Firm</span>
+              <Input
+                value={firm}
+                onChange={(e) => setFirm(e.target.value)}
+                className="h-8 text-xs"
+                placeholder="Company"
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className={fieldLabel}>Email</span>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-8 text-xs"
+                placeholder="Optional"
+              />
+            </label>
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAdding(false)}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+            <Button size="sm" onClick={save} disabled={saving || !name.trim()}>
+              {saving ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-3 w-3" />
+              )}
+              Add referral
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setAdding(true)}
+          className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+        >
+          <UserPlus className="h-3 w-3" /> They introduced me to someone
+        </button>
+      )}
     </section>
   );
 }
