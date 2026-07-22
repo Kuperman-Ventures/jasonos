@@ -10,15 +10,18 @@ import {
   listResumes,
   listCustomizations,
 } from "@/lib/server-actions/resume-customizer";
+import { listCoverLetters } from "@/lib/server-actions/cover-letter";
 import { ResumeCustomizerClient } from "@/components/jasonos/resume-customizer/resume-customizer-client";
+import { CoverLetterClient } from "@/components/jasonos/resume-customizer/cover-letter-client";
 
-export const metadata: Metadata = { title: "Resume Customizer · JasonOS" };
+export const metadata: Metadata = { title: "Custom Communications · JasonOS" };
 export const dynamic = "force-dynamic";
 
-export default async function ResumeCustomizerPage() {
-  const [resumes, customizations] = await Promise.all([
+export default async function CustomCommunicationsPage() {
+  const [resumes, customizations, coverLetters] = await Promise.all([
     listResumes(),
     listCustomizations(),
+    listCoverLetters(),
   ]);
 
   return (
@@ -26,22 +29,28 @@ export default async function ResumeCustomizerPage() {
       <header>
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-orange-300">
           <Wand2 className="h-4 w-4" />
-          Resume Customizer
+          Custom Communications
         </div>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">
-          Tailor your resume to any job
+          Tailor your resume and cover letter to any job
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           Keep one master &ldquo;core&rdquo; resume, drop in a job description,
           and get back a customized Word document tuned to that role — with a
-          Before/After summary of every change. Original design and formatting
-          are preserved; nothing is invented.
+          Before/After summary of every change. Then draft a matching cover
+          letter from the same job and tailored resume. Original design and
+          formatting are preserved; nothing is invented.
         </p>
       </header>
 
       <ResumeCustomizerClient
         initialResumes={resumes}
         initialCustomizations={customizations}
+      />
+
+      <CoverLetterClient
+        customizations={customizations}
+        initialCoverLetters={coverLetters}
       />
 
       {/* Baked-in customization guidance (what the engine does under the hood). */}
