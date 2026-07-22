@@ -44,7 +44,11 @@ function todayYmd(): string {
   return d.toISOString().split("T")[0];
 }
 
-const QUEUE_INTENTS: ContactIntent[] = ["warm", "specific", "cold"];
+const QUEUE_INTENTS: ContactIntent[] = [
+  "network_growth",
+  "network_maintenance",
+  "browning_cold",
+];
 
 export async function getHomeData(): Promise<HomeData> {
   const today = todayYmd();
@@ -93,7 +97,7 @@ export async function getHomeData(): Promise<HomeData> {
       title: r.person.title,
       tier: r.person.relevance_tier,
       degree: r.person.network_degree,
-      column: (r.person.intent as ContactIntent) ?? "warm",
+      column: (r.person.intent as ContactIntent) ?? "network_maintenance",
       nextTouch: null,
       lastTouch: r.person.last_touch_date ?? null,
       daysOverdue: r.daysOverdue,

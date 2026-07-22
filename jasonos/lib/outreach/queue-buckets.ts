@@ -63,7 +63,10 @@ import type {
   NetworkDegree,
 } from "@/lib/outreach/types";
 
-export type QueueColumnKey = "warm" | "specific" | "cold";
+export type QueueColumnKey =
+  | "network_growth"
+  | "network_maintenance"
+  | "browning_cold";
 
 export interface QueueCard {
   /** Stable React key. Prefers the jasonos.contacts.id when available; else
@@ -103,9 +106,9 @@ export interface QueueCard {
 }
 
 export interface ThreeColumnQueue {
-  warm: QueueCard[];
-  specific: QueueCard[];
-  cold: QueueCard[];
+  network_growth: QueueCard[];
+  network_maintenance: QueueCard[];
+  browning_cold: QueueCard[];
   /** Full reconnect list — passed through so the client can hand it to the
    *  RecruiterPipelinePanel for "other contacts at firm" lookups and to
    *  power its local-state mutations when a recruiter card is open. */
@@ -231,23 +234,23 @@ export async function getThreeColumnQueue(): Promise<ThreeColumnQueue> {
     if (card) cards.push(card);
   }
 
-  const warm: QueueCard[] = [];
-  const specific: QueueCard[] = [];
-  const cold: QueueCard[] = [];
+  const network_growth: QueueCard[] = [];
+  const network_maintenance: QueueCard[] = [];
+  const browning_cold: QueueCard[] = [];
   for (const c of cards) {
-    if (c.column === "warm") warm.push(c);
-    else if (c.column === "specific") specific.push(c);
-    else cold.push(c);
+    if (c.column === "network_growth") network_growth.push(c);
+    else if (c.column === "network_maintenance") network_maintenance.push(c);
+    else browning_cold.push(c);
   }
 
-  warm.sort(byWarmOrder);
-  specific.sort(bySpecificOrder);
-  cold.sort(byColdOrder);
+  network_growth.sort(bySpecificOrder);
+  network_maintenance.sort(byWarmOrder);
+  browning_cold.sort(byColdOrder);
 
   return {
-    warm,
-    specific,
-    cold,
+    network_growth,
+    network_maintenance,
+    browning_cold,
     reconnectContacts,
     outreachPeople: people,
     caveats,
@@ -278,14 +281,14 @@ function classify(
   // ---- Explicit intent wins over derivation (migration 0017). When the
   // user has pinned this contact to a column, the column is fixed; we only
   // pick the most informative reason / stage label we can. 'backrow' is
-  // excluded above, so person.intent here is "warm" | "specific" | "cold".
+  // excluded above, so person.intent here is one of the three primary buckets.
   if (person.intent) {
     const pinned = person.intent;
     return makeCard(person, reconnect, recruiterPipelineId, {
       column: pinned,
       reason: pinnedReason(pinned),
       sequenceStageLabel:
-        pinned === "cold" ? STAGE_LABEL[stage ?? "identified"] : null,
+        pinned === "browning_cold" ? STAGE_LABEL[stage ?? "identified"] : null,
     });
   }
 
@@ -296,7 +299,7 @@ function classify(
   // cadence + lack of touches.
   if (isActiveCold && stage) {
     return makeCard(person, reconnect, recruiterPipelineId, {
-      column: "cold",
+      column: "browning_cold",
       reason: coldReason(stage),
       sequenceStageLabel: STAGE_LABEL[stage],
     });
@@ -328,7 +331,7 @@ function classify(
 
   if (specificTrigger) {
     return makeCard(person, reconnect, recruiterPipelineId, {
-      column: "specific",
+      column: "network_growth",
       reason: specificReason({
         signal,
         reconnect,
@@ -360,7 +363,7 @@ function classify(
   if (ntd > sevenDaysOut) return null;
 
   return makeCard(person, reconnect, recruiterPipelineId, {
-    column: "warm",
+    column: "network_maintenance",
     reason: warmReason(ntd, today),
     sequenceStageLabel: null,
   });
@@ -380,7 +383,7 @@ function classifyReconnectOnly(
   const stage = r.first_contact?.stage ?? null;
   if (stage && ACTIVE_COLD_STAGES.includes(stage)) {
     return makeCardFromReconnect(r, {
-      column: "cold",
+      column: "browning_cold",
       reason: coldReason(stage),
       sequenceStageLabel: STAGE_LABEL[stage],
     });
@@ -394,7 +397,7 @@ function classifyReconnectOnly(
 
   if (recentInbound || recruiterIntentActive || hasResponded) {
     return makeCardFromReconnect(r, {
-      column: "specific",
+      column: "network_growth",
       reason: specificReason({
         signal: null,
         reconnect: r,
@@ -526,12 +529,12 @@ function getAnchor(card: QueueCard): number | null {
 
 function pinnedReason(intent: Exclude<ContactIntent, "backrow">): string {
   switch (intent) {
-    case "warm":
-      return "Pinned to Warm";
-    case "specific":
-      return "Pinned to Specific";
-    case "cold":
-      return "Pinned to Cold";
+    case "network_growth":
+      return "Pinned to Network Growth";
+    case "network_maintenance":
+      return "Pinned to Network Maintenance";
+    case "browning_cold":
+      return "Pinned to Browning / Cold";
   }
 }
 

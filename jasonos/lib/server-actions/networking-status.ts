@@ -357,10 +357,11 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     const date = (t.touched_at as string).slice(0, 10);
     const ch = (t.channel as string) ?? "";
     const wk = weekFor(weekStartOf(date));
-    // Backrow (archived) and operational (non-networking) contacts never
-    // appear in the networking report — for any channel.
+    // Backrow (archived) and Network Maintenance contacts never appear in the
+    // networking report — for any channel.
     const tp = peopleById.get(t.contact_id as string);
-    if (tp?.intent === "backrow" || tp?.is_networking === false) continue;
+    if (tp?.intent === "backrow" || tp?.intent === "network_maintenance")
+      continue;
 
     // Funnel accumulation (all channels; networking contacts only).
     const fcid = t.contact_id as string;
@@ -420,7 +421,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
   // New contacts added, by created_at week.
   for (const c of contactsRes.data ?? []) {
     if ((c.intent as string) === "backrow") continue;
-    if ((c as { is_networking?: boolean | null }).is_networking === false) continue;
+    if ((c.intent as string) === "network_maintenance") continue;
     const created = c.created_at ? (c.created_at as string).slice(0, 10) : null;
     if (!created) continue;
     const wk = weekFor(weekStartOf(created));
@@ -513,7 +514,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
 
   // Cumulative coverage across the networking list (operational + backrow out).
   const listSize = people.filter(
-    (p) => p.is_networking && p.intent !== "backrow"
+    (p) => p.intent !== "network_maintenance" && p.intent !== "backrow"
   ).length;
   let referredReached = 0;
   let referredMet = 0;
