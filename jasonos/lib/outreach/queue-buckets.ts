@@ -62,6 +62,7 @@ import type {
   RelevanceTier,
   NetworkDegree,
 } from "@/lib/outreach/types";
+import type { ReplyStatusOverride } from "@/lib/outreach/reply-status";
 
 export type QueueColumnKey =
   | "network_growth"
@@ -90,6 +91,9 @@ export interface QueueCard {
   cadence_stage: CadenceStage | null;
   next_touch_date: string | null;
   last_touch_date: string | null;
+  /** Manual reply-status pin; null = derive from last logged touch. */
+  reply_status_override: ReplyStatusOverride;
+  reply_status_override_at: string | null;
 
   // ---- Column-specific surface bits ----
   /** One-line "why this card is here" hint shown under the firm. */
@@ -453,6 +457,8 @@ function makeCard(
     cadence_stage: person.cadence_stage,
     next_touch_date: person.next_touch_date,
     last_touch_date: person.last_touch_date,
+    reply_status_override: person.reply_status_override,
+    reply_status_override_at: person.reply_status_override_at,
     reason: attrs.reason,
     sequenceStageLabel: attrs.sequenceStageLabel,
     contactId: person.id,
@@ -494,6 +500,8 @@ function makeCardFromReconnect(
     cadence_stage: null,
     next_touch_date: null,
     last_touch_date: r.last_contact_date ?? null,
+    reply_status_override: null,
+    reply_status_override_at: null,
     reason: attrs.reason,
     sequenceStageLabel: attrs.sequenceStageLabel,
     contactId: null,
