@@ -29,24 +29,24 @@ export const coverLetterSchema = z.object({
   opening: z
     .string()
     .describe(
-      "Paragraph one: a catchy hook (often a question) that matches what the role is looking for, a statement of strong candidacy, and a fact showing research about the company."
+      "Paragraph one, 2-3 sentences MAX: a catchy hook (often a question) that matches what the role is looking for, a statement of strong candidacy, and a fact showing research about the company."
     ),
   background: z
     .string()
     .describe(
-      "Paragraph two: briefly frame Jason's professional background, matching the role's most significant requirements to his real skills and accomplishments."
+      "Paragraph two, 3-4 sentences MAX: briefly frame Jason's professional background, matching the role's most significant requirements to his real skills and accomplishments."
     ),
   highlights: z
     .array(z.string())
     .min(3)
-    .max(5)
+    .max(4)
     .describe(
-      "Career highlight bullets (aim for 4), each a concrete, truthful accomplishment from Jason's background mapped to this role's priorities."
+      "Exactly 4 career highlight bullets. Each MUST be a single line (~15-20 words, no semicolons or sub-clauses): one concrete, truthful accomplishment from Jason's background mapped to this role's priorities."
     ),
   closing: z
     .string()
     .describe(
-      "Paragraph three: thank them for reviewing, reinforce enthusiasm, tie his abilities to their needs, and invite a conversation (a concrete ask)."
+      "Paragraph three, 2-3 sentences MAX: thank them for reviewing, reinforce enthusiasm, tie his abilities to their needs, and invite a conversation (a concrete ask)."
     ),
 });
 
@@ -67,7 +67,7 @@ RULES:
 - Truthful only: use accomplishments, roles, metrics, and employers that actually appear in Jason's resume/identity. Never invent numbers, titles, employers, or credentials.
 - Voice: Jason's direct, anti-fluff, metric-driven "Architect" voice. Short sentences. No filler greetings ("I hope this finds you well", "circling back", "touching base"). No exclamation points.
 - NO AI WRITING TELLS: never use em-dashes or en-dashes (use commas, periods, or hyphens). Straight quotes only, no curly quotes, no ellipsis characters. Avoid clichés ("delve", "leverage" as filler, "seamless", "robust", "moreover", "furthermore", "in today's landscape").
-- Keep it to one page: opening + background + 4 bullets + closing. Tight and specific, not padded.`;
+- ONE PAGE — HARD LIMIT: the entire letter (letterhead + date + Re + salutation + opening + background + 4 bullets + closing + sign-off) MUST fit on a single US-Letter page. Budget strictly: opening 2-3 sentences; background 3-4 sentences; exactly 4 bullets, each ONE line (~15-20 words, no semicolons or sub-clauses); closing 2-3 sentences. Keep the whole body under ~300 words. Prefer fewer, sharper sentences over more. Cut any sentence that does not directly prove fit.`;
 
 function clean(s: string): string {
   return stripAiTells(s ?? "");

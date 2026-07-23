@@ -77,22 +77,22 @@ function esc(v: string): string {
 
 function printLetter(l: CoverLetter) {
   const highlights = l.highlights.length
-    ? `<p style="margin:14px 0 4px">Select highlights of my career contributions and achievements thus far include:</p>
-       <ul style="margin:0 0 14px 0;padding-left:22px">${l.highlights
-         .map((h) => `<li style="margin:2px 0">${esc(h)}</li>`)
+    ? `<p style="margin:9px 0 3px">Select highlights of my career contributions and achievements thus far include:</p>
+       <ul style="margin:0 0 9px 0;padding-left:20px">${l.highlights
+         .map((h) => `<li style="margin:1px 0">${esc(h)}</li>`)
          .join("")}</ul>`
     : "";
   const html = `<!doctype html><html><head><meta charset="utf-8"/>
     <title>${esc(LETTERHEAD.name)} — Cover Letter${reLine(l) ? ` — ${esc(reLine(l))}` : ""}</title>
     <style>
       *{box-sizing:border-box}
-      body{font-family:Georgia,'Times New Roman',serif;color:#111;background:#fff;margin:0;padding:48px;max-width:800px;font-size:13px;line-height:1.55}
-      .head{text-align:center;border-bottom:2px solid #111;padding-bottom:10px;margin-bottom:20px}
-      .name{font-size:26px;font-weight:700;letter-spacing:.5px}
-      .contact{font-size:11px;color:#333;margin-top:4px}
-      p{margin:0 0 14px}
-      .meta{margin:0 0 6px}
-      @media print{body{padding:16mm}}
+      body{font-family:Georgia,'Times New Roman',serif;color:#111;background:#fff;margin:0;padding:40px;max-width:800px;font-size:12px;line-height:1.4}
+      .head{text-align:center;border-bottom:1.5px solid #111;padding-bottom:7px;margin-bottom:13px}
+      .name{font-size:22px;font-weight:700;letter-spacing:.5px}
+      .contact{font-size:10.5px;color:#333;margin-top:3px}
+      p{margin:0 0 9px}
+      .meta{margin:0 0 4px}
+      @media print{body{padding:14mm}}
     </style></head><body>
     <div class="head">
       <div class="name">${esc(LETTERHEAD.name)}</div>
@@ -105,7 +105,7 @@ function printLetter(l: CoverLetter) {
     ${l.background ? `<p>${esc(l.background)}</p>` : ""}
     ${highlights}
     ${l.closing ? `<p>${esc(l.closing)}</p>` : ""}
-    <p style="margin-top:18px">Sincerely,</p>
+    <p style="margin-top:12px;margin-bottom:0">Sincerely,</p>
     <p style="margin-top:2px">${esc(LETTERHEAD.name)}</p>
     <script>window.onload=function(){window.print();}</script>
     </body></html>`;
