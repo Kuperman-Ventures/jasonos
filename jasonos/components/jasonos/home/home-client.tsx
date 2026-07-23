@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import { TierDegreeBadge } from "@/components/jasonos/outreach/tier-degree-badge";
+import { Logo } from "@/components/jasonos/logo";
 import type { AttentionContact, HomeData, SitePanel } from "@/lib/data/home";
 
 const COLUMN_LABEL: Record<string, string> = {
@@ -24,6 +25,16 @@ export function HomeClient({ data }: { data: HomeData }) {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-6">
+      <header className="flex items-center gap-3">
+        <Logo size={36} />
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight">Home</h1>
+          <p className="text-xs text-muted-foreground">
+            What needs attention across outreach and sites.
+          </p>
+        </div>
+      </header>
+
       {/* ---- Needs attention: overdue + cadence drift --------------------- */}
       <div className="grid gap-4 lg:grid-cols-2">
         <AttentionCard

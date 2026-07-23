@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DispatchInbox } from "@/components/dispatch/DispatchInbox";
 import { ContactCreateModal } from "@/components/jasonos/outreach/contact-create-modal";
+import { Logo } from "@/components/jasonos/logo";
 import { ChevronDown, Command, Plus, Sparkles } from "lucide-react";
 
 // ─── Nav structure ─────────────────────────────────────────────────────────
@@ -140,9 +141,7 @@ export function TopNav() {
     <header className="sticky top-0 z-40 glass hairline border-b">
       <div className="mx-auto flex h-12 max-w-[1800px] items-center gap-6 px-4">
         <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-          <span className="grid h-6 w-6 place-items-center rounded-md bg-foreground text-background text-[10px] font-bold">
-            J
-          </span>
+          <Logo size={24} priority />
           <span className="text-sm">JasonOS</span>
           <span className="ml-2 hidden rounded-sm bg-muted px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-muted-foreground sm:inline">
             v0.1

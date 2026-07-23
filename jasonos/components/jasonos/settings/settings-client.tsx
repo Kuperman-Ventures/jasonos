@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/jasonos/logo";
 import {
   AVAILABLE_MODELS,
   SERVICE_DEFINITIONS,
@@ -188,11 +189,14 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-6">
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
-        <p className="mt-1 max-w-3xl text-xs text-muted-foreground">
-          Manage JasonOS integrations, Dispatch, alert thresholds, and model routing from one control panel.
-        </p>
+      <header className="flex items-start gap-3">
+        <Logo size={40} className="mt-0.5" />
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
+          <p className="mt-1 max-w-3xl text-xs text-muted-foreground">
+            Manage JasonOS integrations, Dispatch, alert thresholds, and model routing from one control panel.
+          </p>
+        </div>
       </header>
 
       {settings.authRequired ? (

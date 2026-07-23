@@ -13,6 +13,13 @@ export const metadata: Metadata = {
   title: "JasonOS",
   description:
     "Personal command center — four tracks, one always-on pull-model view.",
+  icons: {
+    icon: [
+      { url: "/logo.svg", type: "image/svg+xml" },
+      { url: "/icon.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({

@@ -2519,7 +2519,7 @@ function App() {
     return (
       <main className="mx-auto flex min-h-screen w-full max-w-[min(1800px,calc(100vw-2rem))] items-center justify-center bg-slate-50 p-4 text-slate-900">
         <section className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <img src="/logo.png" alt="CoSA" className="mb-3 h-16 w-auto" />
+          <img src="/jasonos-mark.png" alt="CoSA" className="mb-3 h-16 w-16 rounded-[22%]" />
           <p className="mt-1 text-sm text-slate-600">Sign in with Google to sync data across devices.</p>
           <button
             type="button"
@@ -4347,7 +4347,7 @@ function App() {
       <section className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="CoSA" className="h-10 w-auto" />
+            <img src="/jasonos-mark.png" alt="CoSA" className="h-10 w-10 rounded-[22%]" />
             <div>
               <p className="text-sm text-slate-600">{activeScreenLabel}</p>
               {activeScreen === 'today' && todayTasks.length > 0 && queueDate ? (
