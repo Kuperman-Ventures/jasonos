@@ -57,6 +57,8 @@ import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
 import { MeetingsTab } from "@/components/jasonos/outreach/meetings-tab";
 import { TierDegreeBadge } from "@/components/jasonos/outreach/tier-degree-badge";
+import { ReplyStatusLight } from "@/components/jasonos/outreach/reply-status-light";
+import type { ReplyStatusOverride } from "@/lib/outreach/reply-status";
 import {
   CADENCE_DAYS,
   CADENCE_HELPERS,
@@ -198,6 +200,11 @@ export function OutreachModal({
   const [degreeState, setDegreeState] = useState<NetworkDegree | null>(null);
   const [relevancePending, startRelevanceTransition] = useTransition();
   const [degreePending, startDegreeTransition] = useTransition();
+  // Reply-status light — auto from last logged touch, or a manual pin for
+  // texts / other channels the system doesn't track.
+  const [replyOverride, setReplyOverride] =
+    useState<ReplyStatusOverride>(null);
+  const [replyOverrideAt, setReplyOverrideAt] = useState<string | null>(null);
 
   // -- Intent state (drives which sub-section renders)
   const [intent, setIntent] = useState<ContactIntent | null>(null);
@@ -333,6 +340,8 @@ export function OutreachModal({
         setIntent(result.contact.intent ?? null);
         setCadenceState(result.contact.cadence_interval);
         setNextTouchState(result.contact.next_touch_date);
+        setReplyOverride(result.contact.reply_status_override);
+        setReplyOverrideAt(result.contact.reply_status_override_at);
         setReferredBy(result.referredBy);
         setReferrals(result.referrals);
         return;
@@ -406,6 +415,8 @@ export function OutreachModal({
       setIntent(refreshed.contact.intent ?? null);
       setCadenceState(refreshed.contact.cadence_interval);
       setNextTouchState(refreshed.contact.next_touch_date);
+      setReplyOverride(refreshed.contact.reply_status_override);
+      setReplyOverrideAt(refreshed.contact.reply_status_override_at);
       setReferredBy(refreshed.referredBy);
       setReferrals(refreshed.referrals);
     } else {
@@ -434,6 +445,8 @@ export function OutreachModal({
           next_touch_date: null,
           last_touch_date: null,
           last_touch_channel: null,
+          reply_status_override: null,
+          reply_status_override_at: null,
           tags: [],
           strategic_score: null,
           firm_focus_rank: null,
@@ -902,7 +915,37 @@ export function OutreachModal({
             </div>
           ) : null}
 
-          <StatusBar intent={intent} nextTouchDate={nextTouchDate} />
+          <StatusBar
+            intent={intent}
+            nextTouchDate={nextTouchDate}
+            contactId={effectiveContactId}
+            lastTouch={
+              (card.status === "ready"
+                ? card.recentTouches[0] ?? contextRecentTouches[0] ?? null
+                : null) as
+                | { direction: string; touched_at: string }
+                | null
+            }
+            replyOverride={replyOverride}
+            replyOverrideAt={replyOverrideAt}
+            onReplyOverrideChange={(next) => {
+              setReplyOverride(next);
+              setReplyOverrideAt(next ? new Date().toISOString() : null);
+              setCard((prev) => {
+                if (prev.status !== "ready") return prev;
+                return {
+                  ...prev,
+                  contact: {
+                    ...prev.contact,
+                    reply_status_override: next,
+                    reply_status_override_at: next
+                      ? new Date().toISOString()
+                      : null,
+                  },
+                };
+              });
+            }}
+          />
         </DialogHeader>
 
         {/* TABS */}
@@ -1789,9 +1832,19 @@ function nextTouchPill(
 function StatusBar({
   intent,
   nextTouchDate,
+  contactId,
+  lastTouch,
+  replyOverride,
+  replyOverrideAt,
+  onReplyOverrideChange,
 }: {
   intent: ContactIntent | null;
   nextTouchDate: string | null;
+  contactId: string | null;
+  lastTouch: { direction: string; touched_at: string } | null;
+  replyOverride: ReplyStatusOverride;
+  replyOverrideAt: string | null;
+  onReplyOverrideChange: (next: ReplyStatusOverride) => void;
 }) {
   const nt = nextTouchPill(nextTouchDate, todayISODate());
   return (
@@ -1814,6 +1867,18 @@ function StatusBar({
         <CalendarClock className="h-3 w-3" />
         {nt.label}
       </span>
+      {contactId ? (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5 font-medium text-muted-foreground">
+          <ReplyStatusLight
+            size="md"
+            contactId={contactId}
+            lastTouch={lastTouch}
+            override={replyOverride}
+            overrideAt={replyOverrideAt}
+            onOverrideChange={onReplyOverrideChange}
+          />
+        </span>
+      ) : null}
     </div>
   );
 }

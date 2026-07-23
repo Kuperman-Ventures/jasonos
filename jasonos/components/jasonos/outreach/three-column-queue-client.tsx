@@ -37,13 +37,13 @@ import { cn } from "@/lib/utils";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import { ContactCreateModal } from "@/components/jasonos/outreach/contact-create-modal";
 import { TierDegreeBadge } from "@/components/jasonos/outreach/tier-degree-badge";
+import { ReplyStatusLight } from "@/components/jasonos/outreach/reply-status-light";
 import { RELATIONSHIP_TYPE_LABELS } from "@/lib/outreach/types";
 import type { OutreachPerson } from "@/lib/outreach/data";
 import type { QueueCard, QueueColumnKey, ThreeColumnQueue } from "@/lib/outreach/queue-buckets";
 import type {
   CommChannel,
   CommunicationsContact,
-  CommTouch,
   CommUrgency,
 } from "@/lib/server-actions/communications";
 import type { ReconnectContact, RecruiterStatus } from "@/lib/reconnect/types";
@@ -261,6 +261,8 @@ function personToCard(p: OutreachPerson): QueueCard {
     cadence_stage: p.cadence_stage,
     next_touch_date: p.next_touch_date,
     last_touch_date: p.last_touch_date,
+    reply_status_override: p.reply_status_override,
+    reply_status_override_at: p.reply_status_override_at,
     reason: "Needs classification & scheduling",
     sequenceStageLabel: null,
     contactId: p.id,
@@ -351,6 +353,8 @@ export function ThreeColumnQueueClient({
         cadence_stage: person?.cadence_stage ?? null,
         next_touch_date: cc.nextActionDueDate,
         last_touch_date: cc.lastTouch?.touched_at ?? null,
+        reply_status_override: person?.reply_status_override ?? null,
+        reply_status_override_at: person?.reply_status_override_at ?? null,
         reason: "Scheduled touch",
         sequenceStageLabel: null,
         contactId: cc.id,
@@ -938,7 +942,11 @@ function BandContactRow({
             {fmtDate(lastDate)}
           </span>
         ) : null}
-        <ReplyStatusLight lastTouch={comm?.lastTouch ?? null} />
+        <ReplyStatusLight
+          lastTouch={comm?.lastTouch ?? null}
+          override={card.reply_status_override}
+          overrideAt={card.reply_status_override_at}
+        />
       </div>
     </button>
   );
@@ -951,47 +959,6 @@ const CHANNEL_LABELS: Record<CommChannel, string> = {
   meeting: "Meeting",
   other: "Other",
 };
-
-// Reply-status light:
-//   green  = the last message came FROM them (they replied)
-//   yellow = last message was yours; waiting on their reply (<= 10 days)
-//   red    = your message has gone unanswered for more than 10 days
-//   grey   = no communication logged yet
-function ReplyStatusLight({ lastTouch }: { lastTouch: CommTouch | null }) {
-  const [nowMs] = useState(() => Date.now());
-  if (!lastTouch) {
-    return (
-      <span
-        title="No communication logged yet"
-        className="h-2.5 w-2.5 shrink-0 rounded-full bg-muted-foreground/25"
-      />
-    );
-  }
-  const days = Math.floor(
-    (nowMs - new Date(lastTouch.touched_at).getTime()) / 86_400_000
-  );
-  let cls: string;
-  let title: string;
-  if (lastTouch.direction === "inbound") {
-    cls = "bg-emerald-400";
-    title = "They replied — last message came from them";
-  } else if (days > 10) {
-    cls = "bg-red-400";
-    title = `Waiting on their reply — ${days} days, no response`;
-  } else {
-    cls = "bg-amber-400";
-    title =
-      days > 0
-        ? `Waiting on their reply — ${days} day${days === 1 ? "" : "s"} so far`
-        : "Waiting on their reply";
-  }
-  return (
-    <span
-      title={title}
-      className={cn("h-2.5 w-2.5 shrink-0 rounded-full", cls)}
-    />
-  );
-}
 
 function fmtDate(iso: string): string {
   try {

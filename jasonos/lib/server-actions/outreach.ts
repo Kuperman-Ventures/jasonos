@@ -18,6 +18,7 @@ import {
 } from "@/lib/outreach/types";
 import type { LogTouchChannel, RecentTouch } from "@/lib/outreach/draft-types";
 import type { OutreachPerson } from "@/lib/outreach/data";
+import type { ReplyStatusOverride } from "@/lib/outreach/reply-status";
 import {
   insertContactTouches,
   type TouchChannel,
@@ -259,6 +260,38 @@ export async function setNetworkDegree(
   const { error } = await sb
     .from("contacts")
     .update({ network_degree: degree })
+    .eq("id", contactId);
+  if (error) return { ok: false, error: error.message };
+
+  revalidate();
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// setReplyStatusOverride — pin the green/yellow/red reply-status light by
+// hand. Texts aren't tracked automatically, so this is how Jason marks
+// "they texted back" / "I'm waiting" without inventing a fake touch row.
+// Pass null to clear the pin and fall back to auto (last logged touch).
+// ---------------------------------------------------------------------------
+
+export async function setReplyStatusOverride(
+  contactId: string,
+  override: ReplyStatusOverride
+): Promise<ActionResult> {
+  const guard = ensureConfigured();
+  if (guard) return guard;
+  if (!contactId) return { ok: false, error: "contactId is required." };
+  if (override && !["replied", "waiting", "overdue"].includes(override)) {
+    return { ok: false, error: "Invalid reply status." };
+  }
+
+  const sb = createServiceRoleClient();
+  const { error } = await sb
+    .from("contacts")
+    .update({
+      reply_status_override: override,
+      reply_status_override_at: override ? new Date().toISOString() : null,
+    })
     .eq("id", contactId);
   if (error) return { ok: false, error: error.message };
 
@@ -943,6 +976,10 @@ export async function getOutreachContactByRecruiterId(
   const sb = createServiceRoleClient();
   const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,is_networking,
      relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
+     network_degree,next_touch_date,last_touch_date,last_touch_channel,
+     reply_status_override,reply_status_override_at`;
+  const noOverrideColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,is_networking,
+     relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
      network_degree,next_touch_date,last_touch_date,last_touch_channel`;
   const noIntentColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,is_networking,
      relationship_type,cadence_interval,cadence_stage,relevance_tier,
@@ -954,6 +991,15 @@ export async function getOutreachContactByRecruiterId(
     .filter("source_ids->>recruiter_pipeline_id", "eq", recruiterId)
     .limit(1)
     .maybeSingle();
+
+  if (result.error && /reply_status_override/i.test(result.error.message)) {
+    result = (await sb
+      .from("contacts")
+      .select(noOverrideColumns)
+      .filter("source_ids->>recruiter_pipeline_id", "eq", recruiterId)
+      .limit(1)
+      .maybeSingle()) as typeof result;
+  }
 
   if (result.error && /\bintent\b/i.test(result.error.message)) {
     result = (await sb
@@ -1026,6 +1072,15 @@ export async function getOutreachContactByRecruiterId(
     next_touch_date: (data.next_touch_date as string | null) ?? null,
     last_touch_date: (data.last_touch_date as string | null) ?? null,
     last_touch_channel: (data.last_touch_channel as string | null) ?? null,
+    reply_status_override:
+      ((data as { reply_status_override?: ReplyStatusOverride }).reply_status_override as
+        | ReplyStatusOverride
+        | undefined) ?? null,
+    reply_status_override_at:
+      ((data as { reply_status_override_at?: string | null }).reply_status_override_at as
+        | string
+        | null
+        | undefined) ?? null,
     tags: (data.tags as string[] | null) ?? [],
     strategic_score: strategicScore,
     firm_focus_rank: firmFocusRank,
@@ -1144,6 +1199,10 @@ export async function getContactCardData(input: {
   // schema fallbacks so this works even when migration 0017 hasn't shipped.
   const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,referred_by_contact_id,
      relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
+     network_degree,next_touch_date,last_touch_date,last_touch_channel,
+     reply_status_override,reply_status_override_at`;
+  const noOverrideColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,referred_by_contact_id,
+     relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
      network_degree,next_touch_date,last_touch_date,last_touch_channel`;
   const noIntentColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,referred_by_contact_id,
      relationship_type,cadence_interval,cadence_stage,relevance_tier,
@@ -1154,6 +1213,14 @@ export async function getContactCardData(input: {
     .select(fullColumns)
     .eq("id", resolvedContactId)
     .maybeSingle();
+
+  if (contactResult.error && /reply_status_override/i.test(contactResult.error.message)) {
+    contactResult = (await sb
+      .from("contacts")
+      .select(noOverrideColumns)
+      .eq("id", resolvedContactId)
+      .maybeSingle()) as typeof contactResult;
+  }
 
   if (contactResult.error && /\bintent\b/i.test(contactResult.error.message)) {
     contactResult = (await sb
@@ -1252,6 +1319,15 @@ export async function getContactCardData(input: {
     next_touch_date: (row.next_touch_date as string | null) ?? null,
     last_touch_date: (row.last_touch_date as string | null) ?? null,
     last_touch_channel: (row.last_touch_channel as string | null) ?? null,
+    reply_status_override:
+      ((row as { reply_status_override?: ReplyStatusOverride }).reply_status_override as
+        | ReplyStatusOverride
+        | undefined) ?? null,
+    reply_status_override_at:
+      ((row as { reply_status_override_at?: string | null }).reply_status_override_at as
+        | string
+        | null
+        | undefined) ?? null,
     tags: (row.tags as string[] | null) ?? [],
     strategic_score: strategicScore,
     firm_focus_rank: firmFocusRank,

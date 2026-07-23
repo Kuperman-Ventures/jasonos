@@ -16,6 +16,7 @@ import type {
   RelationshipType,
   RelevanceTier,
 } from "@/lib/outreach/types";
+import type { ReplyStatusOverride } from "@/lib/outreach/reply-status";
 
 export interface OutreachPerson {
   id: string;
@@ -44,6 +45,13 @@ export interface OutreachPerson {
   next_touch_date: string | null;
   last_touch_date: string | null;
   last_touch_channel: string | null;
+  /**
+   * Manual reply-status light pin (migration 0039). null = derive from the
+   * last logged touch. Used because texts aren't tracked automatically.
+   */
+  reply_status_override: ReplyStatusOverride;
+  /** When the manual reply-status override was last set. */
+  reply_status_override_at: string | null;
   tags: string[];
   /** Pulled from rr_recruiters when source_ids.recruiter_pipeline_id matches. */
   strategic_score: number | null;
@@ -133,6 +141,10 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
     // Either way the People list keeps rendering instead of disappearing.
     const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
        relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
+       network_degree,next_touch_date,last_touch_date,last_touch_channel,
+       reply_status_override,reply_status_override_at`;
+    const noOverrideColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
+       relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
        network_degree,next_touch_date,last_touch_date,last_touch_channel`;
     const noIntentColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
        relationship_type,cadence_interval,cadence_stage,relevance_tier,
@@ -145,6 +157,16 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
       .from("contacts")
       .select(fullColumns)
       .order("name", { ascending: true });
+
+    if (result.error && /reply_status_override/i.test(result.error.message)) {
+      console.warn(
+        "[outreach.getOutreachPeople] reply_status_override missing — run migration 0039. Falling back."
+      );
+      result = (await sb
+        .from("contacts")
+        .select(noOverrideColumns)
+        .order("name", { ascending: true })) as typeof result;
+    }
 
     if (result.error && /\bintent\b/i.test(result.error.message)) {
       console.warn(
@@ -252,6 +274,15 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
         next_touch_date: (row.next_touch_date as string | null) ?? null,
         last_touch_date: (row.last_touch_date as string | null) ?? null,
         last_touch_channel: (row.last_touch_channel as string | null) ?? null,
+        reply_status_override:
+          ((row as { reply_status_override?: ReplyStatusOverride }).reply_status_override as
+            | ReplyStatusOverride
+            | undefined) ?? null,
+        reply_status_override_at:
+          ((row as { reply_status_override_at?: string | null }).reply_status_override_at as
+            | string
+            | null
+            | undefined) ?? null,
         tags,
         strategic_score: enrichment?.strategic_score ?? null,
         firm_focus_rank: enrichment?.firm_focus_rank ?? null,
