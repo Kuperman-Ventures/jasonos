@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
@@ -16,6 +16,7 @@ import {
   Info,
   Loader2,
   Search,
+  ExternalLink,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -2037,18 +2038,31 @@ export function NyuiClient({
     <section className="pb-4">
       <div className="flex gap-1 mb-6 border-b border-border">
         {SUB_NAV.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => goToScreen(item.id)}
-            className={`px-4 py-2 text-sm font-medium rounded-t-md transition-colors ${
-              subScreen === item.id
-                ? "bg-foreground text-background"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-          >
-            {item.label}
-          </button>
+          <Fragment key={item.id}>
+            {item.id === "log-business-hours" && (
+              <a
+                href="https://my.ny.gov/LoginV4/login.xhtml"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium rounded-t-md text-muted-foreground transition-colors hover:text-foreground hover:bg-muted"
+                title="Open the NYS DOL / NY.gov site"
+              >
+                NYUI
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            )}
+            <button
+              type="button"
+              onClick={() => goToScreen(item.id)}
+              className={`px-4 py-2 text-sm font-medium rounded-t-md transition-colors ${
+                subScreen === item.id
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              }`}
+            >
+              {item.label}
+            </button>
+          </Fragment>
         ))}
       </div>
 
