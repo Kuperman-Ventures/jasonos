@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="JasonOS">
+  <rect width="512" height="512" rx="112" fill="#0A0E14"/>
+  <path d="M266 102 A154 154 0 0 1 266 410 Z" fill="#2CB5D1"/>
+  <polygon points="82,102 82,410 297,256" fill="#FFFFFF"/>
+</svg>
