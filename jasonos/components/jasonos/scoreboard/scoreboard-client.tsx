@@ -7,6 +7,7 @@ import {
   SCOREBOARD_STATUSES,
   SCOREBOARD_STATUS_DOT,
   SCOREBOARD_STATUS_LABELS,
+  SCOREBOARD_SUBMITTED_STALE_DAYS,
   type ScoreboardApplication,
   type ScoreboardStatus,
 } from "@/lib/scoreboard/types";
@@ -52,7 +53,13 @@ export function ScoreboardClient({
 
     setRows((current) =>
       current.map((row) =>
-        row.id === id ? { ...row, scoreboard_status: status } : row
+        row.id === id
+          ? {
+              ...row,
+              scoreboard_status: status,
+              scoreboard_status_set_at: new Date().toISOString(),
+            }
+          : row
       )
     );
     setPendingId(id);
@@ -78,36 +85,29 @@ export function ScoreboardClient({
       <header className="space-y-1">
         <h1 className="text-xl font-semibold tracking-tight">Scoreboard</h1>
         <p className="text-sm text-muted-foreground">
-          Track where each submitted application stands.
+          Track where each submitted application stands. Blues age to orange
+          after {SCOREBOARD_SUBMITTED_STALE_DAYS} days unless you move them.
         </p>
       </header>
 
+      <StatusSummary
+        total={rows.length}
+        counts={counts}
+        filter={filter}
+        onFilter={setFilter}
+      />
+
       <section className="space-y-3">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-semibold tracking-tight">
-              Submitted Applications
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              From NYUI · {rows.length} total
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <FilterChip
-              active={filter === "all"}
-              onClick={() => setFilter("all")}
-              label={`All ${rows.length}`}
-            />
-            {SCOREBOARD_STATUSES.map((status) => (
-              <FilterChip
-                key={status}
-                active={filter === status}
-                onClick={() => setFilter(status)}
-                label={`${SCOREBOARD_STATUS_LABELS[status]} ${counts[status]}`}
-                dotClass={SCOREBOARD_STATUS_DOT[status]}
-              />
-            ))}
-          </div>
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight">
+            Submitted Applications
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            From NYUI
+            {filter === "all"
+              ? ` · ${rows.length} total`
+              : ` · ${visible.length} of ${rows.length} · ${SCOREBOARD_STATUS_LABELS[filter]}`}
+          </p>
         </div>
 
         <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -161,6 +161,118 @@ export function ScoreboardClient({
   );
 }
 
+function StatusSummary({
+  total,
+  counts,
+  filter,
+  onFilter,
+}: {
+  total: number;
+  counts: Record<ScoreboardStatus, number>;
+  filter: ScoreboardStatus | "all";
+  onFilter: (next: ScoreboardStatus | "all") => void;
+}) {
+  const max = Math.max(1, ...SCOREBOARD_STATUSES.map((s) => counts[s]));
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-muted/30">
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border/70 px-5 py-5">
+        <button
+          type="button"
+          onClick={() => onFilter("all")}
+          className={cn(
+            "text-left transition-opacity",
+            filter !== "all" && "opacity-70 hover:opacity-100"
+          )}
+        >
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Pipeline
+          </p>
+          <p className="mt-1 font-heading text-5xl font-semibold tracking-tight tabular-nums text-foreground">
+            {total}
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            applications in play
+          </p>
+        </button>
+
+        <div className="flex min-w-[12rem] flex-1 flex-col justify-end gap-2 pb-1 sm:max-w-xs">
+          <div className="flex h-3 overflow-hidden rounded-full bg-muted">
+            {SCOREBOARD_STATUSES.map((status) => {
+              const n = counts[status];
+              if (!n) return null;
+              return (
+                <button
+                  key={status}
+                  type="button"
+                  title={`${SCOREBOARD_STATUS_LABELS[status]}: ${n}`}
+                  onClick={() => onFilter(status)}
+                  className={cn(
+                    "h-full transition-opacity hover:opacity-90",
+                    SCOREBOARD_STATUS_DOT[status],
+                    filter !== "all" && filter !== status && "opacity-30"
+                  )}
+                  style={{ width: `${(n / total) * 100 || 0}%` }}
+                />
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Click a bar or card to filter the list
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-px bg-border/60 sm:grid-cols-5">
+        {SCOREBOARD_STATUSES.map((status) => {
+          const n = counts[status];
+          const active = filter === status;
+          return (
+            <button
+              key={status}
+              type="button"
+              onClick={() => onFilter(active ? "all" : status)}
+              className={cn(
+                "relative flex flex-col gap-2 bg-card px-4 py-4 text-left transition-colors hover:bg-muted/40",
+                active && "bg-muted/50 ring-1 ring-inset ring-foreground/15"
+              )}
+            >
+              <span
+                className={cn(
+                  "h-2.5 w-2.5 rounded-full",
+                  SCOREBOARD_STATUS_DOT[status]
+                )}
+              />
+              <span className="font-heading text-3xl font-semibold tabular-nums tracking-tight text-foreground">
+                {n}
+              </span>
+              <span className="text-[11px] font-medium leading-tight text-muted-foreground">
+                {SCOREBOARD_STATUS_LABELS[status]}
+              </span>
+              <span
+                className="absolute inset-x-4 bottom-0 h-0.5 origin-left rounded-full bg-current opacity-20"
+                style={{
+                  color: "currentColor",
+                  transform: `scaleX(${n / max})`,
+                }}
+                aria-hidden
+              />
+              <span
+                className={cn(
+                  "absolute inset-x-4 bottom-0 h-0.5 origin-left rounded-full",
+                  SCOREBOARD_STATUS_DOT[status]
+                )}
+                style={{ transform: `scaleX(${n / max})` }}
+                aria-hidden
+              />
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function StatusDots({
   value,
   disabled,
@@ -208,36 +320,6 @@ function StatusDots({
   );
 }
 
-function FilterChip({
-  active,
-  onClick,
-  label,
-  dotClass,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  dotClass?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium transition-colors",
-        active
-          ? "border-foreground/30 bg-muted text-foreground"
-          : "border-border text-muted-foreground hover:text-foreground"
-      )}
-    >
-      {dotClass ? (
-        <span className={cn("h-1.5 w-1.5 rounded-full", dotClass)} />
-      ) : null}
-      {label}
-    </button>
-  );
-}
-
 function Legend() {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
@@ -249,6 +331,9 @@ function Legend() {
           {SCOREBOARD_STATUS_LABELS[status]}
         </span>
       ))}
+      <span className="text-muted-foreground/70">
+        · Blue → orange after {SCOREBOARD_SUBMITTED_STALE_DAYS}d if untouched
+      </span>
     </div>
   );
 }
