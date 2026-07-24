@@ -176,7 +176,7 @@ I won't pretend I don't know what you've been up to; hard to miss, and it's been
 
 We worked together back at {{sharedContext}}, which feels like several lifetimes ago now. I'm writing because I've been reconnecting with people I lost track of, and a lot of the ones who shaped how I think about this business are people I haven't spoken to in over a decade.
 
-Since then: a startup that got acquired into OUTFRONT Media, then eight years there leading marketing and product experience through their digital transformation, including the New York subway. Left last fall. Now doing fractional CMO work for growth-stage companies and building AI tooling for go-to-market work, which has been more fun than I expected.
+On my end, after coming back from Omnicom in China and Singapore, I joined a startup that got acquired into OUTFRONT Media. I stayed eight years leading their digital transformation, including the evolution of the New York City subway's digital inventory. I left last fall and am now doing fractional CMO work for growth-stage companies and building AI tooling for go-to-market work, which has been more fun than I expected.
 
 I'm not looking for anything in particular. I'd just genuinely enjoy a conversation with you about where you think this is all heading. If you've got 30 minutes in the next month or two, I'd take it.
 
