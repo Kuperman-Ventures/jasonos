@@ -174,7 +174,7 @@ Jason`,
 
 I won't pretend I don't know what you've been up to; hard to miss, and it's been a pleasure to watch from a distance.
 
-We worked together back at {{sharedContext}}, which feels like several lifetimes ago now. I'm writing because I've hit one of those moments where you take stock, and it turns out a lot of the people who shaped how I think about this business are people I haven't spoken to in over a decade.
+We worked together back at {{sharedContext}}, which feels like several lifetimes ago now. I'm writing because I've been reconnecting with people I lost track of, and a lot of the ones who shaped how I think about this business are people I haven't spoken to in over a decade.
 
 Since then: a startup that got acquired into OUTFRONT Media, then eight years there leading marketing and product experience through their digital transformation, including the New York subway. Left last fall. Now doing fractional CMO work for growth-stage companies and building AI tooling for go-to-market work, which has been more fun than I expected.
 
