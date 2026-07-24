@@ -37,8 +37,15 @@ const NAV: NavItem[] = [
   },
   { kind: "link",  href: "/resume-customizer", label: "Custom Communications" },
   { kind: "link",  href: "/outreach", label: "Outreach" },
-  { kind: "link",  href: "/browning", label: "Browning" },
-  { kind: "link",  href: "/activity", label: "Weekly Report" },
+  {
+    kind: "group",
+    label: "Browning",
+    children: [
+      { href: "/browning", label: "Browning" },
+      { href: "/activity", label: "Weekly Report" },
+    ],
+  },
+  { kind: "link",  href: "/scoreboard", label: "Scoreboard" },
   {
     kind: "group",
     label: "Project Management",
