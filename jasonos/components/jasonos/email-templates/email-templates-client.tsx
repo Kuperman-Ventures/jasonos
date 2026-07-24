@@ -109,7 +109,7 @@ export function EmailTemplatesClient() {
     const text = `To: ${recipient?.email ?? ""}\nSubject: ${subject}\n\n${body}`;
     try {
       await navigator.clipboard.writeText(text);
-      toast.success("Draft copied — paste into Mail if needed.");
+      toast.success("Draft copied - paste into Mail if needed.");
     } catch {
       toast.error("Couldn't copy to clipboard.");
     }
@@ -298,7 +298,7 @@ function RecipientStep({
               Option {String(template.optionNumber).padStart(2, "0")} ·{" "}
               {template.title}
             </span>
-            . Pick someone from your contact list — their email will be the
+            . Pick someone from your contact list - their email will be the
             recipient in Mail.
           </p>
         </div>
@@ -488,7 +488,7 @@ function PreviewStep({
           <p className="mt-0.5 max-w-xl text-xs text-muted-foreground">
             Option {String(template.optionNumber).padStart(2, "0")} ·{" "}
             {template.title}. Opens your Mac&rsquo;s Mail app with To, subject,
-            and body filled in. Do the final edit and send there — once it hits
+            and body filled in. Do the final edit and send there - once it hits
             your synced inbox, JasonOS will pick it up and update the queue.
           </p>
         </div>
@@ -505,7 +505,7 @@ function PreviewStep({
       </div>
 
       <div className="space-y-3 rounded-lg border bg-background/50 p-4">
-        <MetaRow label="To" value={recipient.email ?? "—"} />
+        <MetaRow label="To" value={recipient.email ?? "-"} />
         <MetaRow label="Subject" value={subject} />
         <div>
           <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">

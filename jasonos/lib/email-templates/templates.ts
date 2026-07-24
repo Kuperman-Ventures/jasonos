@@ -1,4 +1,4 @@
-// Network reconnection campaign templates — starter set from
+// Network reconnection campaign templates - starter set from
 // Kuperman Outreach Templates (July 2026). Placeholders use {{key}} syntax.
 
 export type TemplateField = {
@@ -26,7 +26,7 @@ const NAME_FIELD: TemplateField = {
   key: "name",
   label: "First name",
   placeholder: "Alex",
-  hint: "How you greet them — usually their first name.",
+  hint: "How you greet them - usually their first name.",
   required: true,
   fromContactFirstName: true,
 };
@@ -80,7 +80,7 @@ Jason`,
     optionNumber: 3,
     title: "Personal Hook Opener",
     blurb:
-      "Highest response rate — but only if the brackets are filled with something real.",
+      "Highest response rate - but only if the brackets are filled with something real.",
     subjectTemplate: "Been thinking about the {{era}} days",
     bodyTemplate: `Hi {{name}},
 
@@ -107,7 +107,7 @@ Jason`,
         key: "memory",
         label: "Specific memory / project / place",
         placeholder: "that Shanghai launch week",
-        hint: "Must be real — if you can't fill this honestly, use Option 01 instead.",
+        hint: "Must be real - if you can't fill this honestly, use Option 01 instead.",
         required: true,
       },
     ],
@@ -172,7 +172,7 @@ Jason`,
     subjectTemplate: "From the {{era}} days",
     bodyTemplate: `Hi {{name}},
 
-I won't pretend I don't know what you've been up to — hard to miss, and it's been a pleasure to watch from a distance.
+I won't pretend I don't know what you've been up to; hard to miss, and it's been a pleasure to watch from a distance.
 
 We worked together back at {{sharedContext}}, which feels like several lifetimes ago now. I'm writing because I've hit one of those moments where you take stock, and it turns out a lot of the people who shaped how I think about this business are people I haven't spoken to in over a decade.
 
@@ -203,11 +203,11 @@ Jason`,
 ];
 
 export const CAMPAIGN_RULES = [
-  "Send no more than 5–10 per day. These people talk to each other.",
+  "Send no more than 5-10 per day. These people talk to each other.",
   "Personalize at least the first line of every single one.",
   "Never send Option 03 with an unfilled bracket.",
-  "Log every send. Follow up once at 10–14 days, then stop.",
-  "No ask in the first note. The update is the signal — the ones who can help will offer.",
+  "Log every send. Follow up once at 10-14 days, then stop.",
+  "No ask in the first note. The update is the signal - the ones who can help will offer.",
 ] as const;
 
 export function getEmailTemplate(id: string): EmailTemplate | undefined {

@@ -19,7 +19,7 @@ export default function EmailTemplatesPage() {
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           Pick a reconnection note, choose someone from your contact list, fill
           the personal bits, then open Apple Mail with the draft ready. You
-          finish and send there — sync brings the send back into the queue.
+          finish and send there - sync brings the send back into the queue.
         </p>
       </header>
 
