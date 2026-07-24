@@ -37,6 +37,10 @@ function ensureConfigured(): ActionResult | null {
 }
 
 function revalidate() {
+  // Home attention cards (overdue / drift) read the same contact fields
+  // that touch logging and cadence edits change — must invalidate or the
+  // dashboard stays stale after a log that already refreshed the queue.
+  revalidatePath("/");
   revalidatePath("/outreach");
   revalidatePath("/outreach/queue");
   revalidatePath("/outreach/schedule");
@@ -620,9 +624,10 @@ export async function logContactTouch(input: {
 
   const sb = createServiceRoleClient();
 
-  // Explicit next-touch override wins over the cadence-derived date that
-  // insertContactTouches just stamped.
-  if (input.nextTouchDateOverride) {
+  // Explicit next-touch override wins over the cadence-derived (or cleared)
+  // date that insertContactTouches just stamped. Allow clearing with null
+  // when the caller passes the key intentionally.
+  if (input.nextTouchDateOverride !== undefined) {
     const { error: ntErr } = await sb
       .from("contacts")
       .update({ next_touch_date: input.nextTouchDateOverride })
