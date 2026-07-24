@@ -7,6 +7,10 @@ import {
   generateCoverLetterContent,
   type CoverLetterContent,
 } from "@/lib/resume-customizer/cover-letter";
+import {
+  buildCoverLetterDocx,
+  coverLetterFilename,
+} from "@/lib/resume-customizer/cover-letter-docx";
 
 const BUCKET = "resumes";
 
@@ -165,4 +169,42 @@ export async function deleteCoverLetter(
   if (error) return { ok: false, error: error.message };
   revalidatePath("/resume-customizer");
   return { ok: true };
+}
+
+/** Build an editable Word (.docx) download for a saved cover letter. */
+export async function getCoverLetterDocx(
+  id: string
+): Promise<
+  | { ok: true; filename: string; docxBase64: string }
+  | { ok: false; error: string }
+> {
+  const result = await getCoverLetter(id);
+  if (!result.ok) return result;
+
+  const letter = result.coverLetter;
+  const input = {
+    company: letter.company,
+    roleTitle: letter.role_title,
+    salutation: letter.salutation,
+    opening: letter.opening,
+    background: letter.background,
+    highlights: letter.highlights,
+    closing: letter.closing,
+  };
+
+  try {
+    const buffer = buildCoverLetterDocx(input);
+    return {
+      ok: true,
+      filename: coverLetterFilename(input),
+      docxBase64: buffer.toString("base64"),
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      error: `Could not build Word file: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    };
+  }
 }

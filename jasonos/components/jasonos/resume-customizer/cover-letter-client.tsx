@@ -2,20 +2,47 @@
 
 // Cover Letter Customizer — generate a tailored cover letter from a resume
 // that's already been customized for a job (reuses that job + resume context).
-// Preview it, copy the text, or print/save as PDF in the letter format.
+// Preview it, download as Word for further editing, copy the text, or
+// print/save as PDF in the letter format.
 
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Copy, Loader2, Printer, RotateCcw, Trash2, Wand2 } from "lucide-react";
+import {
+  Copy,
+  Download,
+  Loader2,
+  Printer,
+  RotateCcw,
+  Trash2,
+  Wand2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   deleteCoverLetter,
   generateCoverLetterForCustomization,
   getCoverLetter,
+  getCoverLetterDocx,
   type CoverLetter,
   type CoverLetterRow,
 } from "@/lib/server-actions/cover-letter";
 import type { CustomizationRow } from "@/lib/server-actions/resume-customizer";
+
+const DOCX_TYPE =
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+function downloadBase64Docx(base64: string, filename: string) {
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const url = URL.createObjectURL(new Blob([bytes], { type: DOCX_TYPE }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 const LETTERHEAD = {
   name: "Jason Kuperman",
@@ -210,6 +237,20 @@ export function CoverLetterClient({
     }
   };
 
+  const [downloading, startDownload] = useTransition();
+  const downloadWord = () => {
+    if (!active) return;
+    startDownload(async () => {
+      const res = await getCoverLetterDocx(active.id);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      downloadBase64Docx(res.docxBase64, res.filename);
+      toast.success(`Downloaded ${res.filename}`);
+    });
+  };
+
   return (
     <section className="rounded-xl border bg-card/40 p-5">
       <div className="flex items-center justify-between gap-2">
@@ -282,7 +323,20 @@ export function CoverLetterClient({
               {[active.role_title, active.company].filter(Boolean).join(" — ") ||
                 "Cover letter"}
             </h3>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Button
+                size="sm"
+                onClick={downloadWord}
+                disabled={downloading}
+                title="Download an editable Word document"
+              >
+                {downloading ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5" />
+                )}
+                Word
+              </Button>
               <Button variant="outline" size="sm" onClick={copy}>
                 <Copy className="h-3.5 w-3.5" /> Copy
               </Button>
