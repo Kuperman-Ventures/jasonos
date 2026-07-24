@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   AlertCircle,
   Clock,
+  CalendarClock,
   BarChart3,
   ExternalLink,
   ArrowUpRight,
@@ -15,9 +16,13 @@ import { Logo } from "@/components/jasonos/logo";
 import type { AttentionContact, HomeData, SitePanel } from "@/lib/data/home";
 
 const COLUMN_LABEL: Record<string, string> = {
-  warm: "Warm",
-  specific: "Specific",
-  cold: "Cold",
+  network_growth: "Growth",
+  network_maintenance: "Maintenance",
+  browning_cold: "Browning",
+  // Legacy labels (kept so old payloads still render cleanly).
+  warm: "Growth",
+  specific: "Growth",
+  cold: "Browning",
 };
 
 export function HomeClient({ data }: { data: HomeData }) {
@@ -35,23 +40,33 @@ export function HomeClient({ data }: { data: HomeData }) {
         </div>
       </header>
 
-      {/* ---- Needs attention: overdue + cadence drift --------------------- */}
-      <div className="grid gap-4 lg:grid-cols-2">
+      {/* ---- Needs attention ------------------------------------------------ */}
+      <div className="grid gap-4 lg:grid-cols-3">
         <AttentionCard
           tone="red"
           icon={<AlertCircle className="h-4 w-4" />}
           title="Overdue"
-          subtitle="Past their next-touch date · warm, specific & cold"
+          subtitle="Past their next-touch date"
           contacts={data.overdue}
           emptyText="Nothing overdue. Clear."
           onOpen={setTarget}
           mode="overdue"
         />
         <AttentionCard
+          tone="sky"
+          icon={<CalendarClock className="h-4 w-4" />}
+          title="Due this week"
+          subtitle="Today through Friday — same band as the queue"
+          contacts={data.dueSoon}
+          emptyText="Nothing due this week."
+          onOpen={setTarget}
+          mode="dueSoon"
+        />
+        <AttentionCard
           tone="amber"
           icon={<Clock className="h-4 w-4" />}
           title="Cadence drift"
-          subtitle="No next touch scheduled and the cadence has lapsed"
+          subtitle="No next touch · cadence lapsed or needs scheduling"
           contacts={data.drift}
           emptyText="No drift — everyone active is scheduled."
           onOpen={setTarget}
@@ -99,16 +114,28 @@ function AttentionCard({
   onOpen,
   mode,
 }: {
-  tone: "red" | "amber";
+  tone: "red" | "amber" | "sky";
   icon: React.ReactNode;
   title: string;
   subtitle: string;
   contacts: AttentionContact[];
   emptyText: string;
   onOpen: (c: AttentionContact) => void;
-  mode: "overdue" | "drift";
+  mode: "overdue" | "dueSoon" | "drift";
 }) {
-  const headerBg = tone === "red" ? "bg-red-700/70" : "bg-amber-600/60";
+  const headerBg =
+    tone === "red"
+      ? "bg-red-700/70"
+      : tone === "sky"
+        ? "bg-sky-700/70"
+        : "bg-amber-600/60";
+  const accent =
+    tone === "red"
+      ? "text-red-300"
+      : tone === "sky"
+        ? "text-sky-300"
+        : "text-amber-300";
+
   return (
     <section className="overflow-hidden rounded-xl border bg-card">
       <div className={`flex items-center gap-2 px-4 py-2.5 text-white ${headerBg}`}>
@@ -148,19 +175,21 @@ function AttentionCard({
                     <span className="rounded-sm border border-border px-1 py-0.5 text-[9px] uppercase tracking-wider">
                       {COLUMN_LABEL[c.column] ?? c.column}
                     </span>
-                    {mode === "drift" && c.note ? (
+                    {(mode === "drift" || mode === "dueSoon") && c.note ? (
                       <span className="ml-1.5">{c.note}</span>
                     ) : null}
                   </p>
                 </div>
-                <span
-                  className={`shrink-0 text-[11px] font-medium ${
-                    tone === "red" ? "text-red-300" : "text-amber-300"
-                  }`}
-                >
+                <span className={`shrink-0 text-[11px] font-medium ${accent}`}>
                   {mode === "overdue"
                     ? `${c.daysOverdue}d overdue`
-                    : `${c.daysOverdue}d drift`}
+                    : mode === "dueSoon"
+                      ? c.note === "Due today"
+                        ? "Today"
+                        : c.nextTouch ?? ""
+                      : c.note?.startsWith("Set a next")
+                        ? "Needs date"
+                        : `${c.daysOverdue}d drift`}
                 </span>
               </button>
             </li>

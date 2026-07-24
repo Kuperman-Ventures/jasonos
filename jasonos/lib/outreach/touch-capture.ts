@@ -228,6 +228,10 @@ export async function insertContactTouches(
         const anchor = new Date(`${newestDate}T00:00:00`);
         anchor.setDate(anchor.getDate() + CADENCE_DAYS[cadence]);
         updatePayload.next_touch_date = anchor.toISOString().split("T")[0];
+      } else {
+        // No rhythm scheduled — clear any leftover next-touch so they land in
+        // "needs scheduling" instead of staying falsely overdue after a log.
+        updatePayload.next_touch_date = null;
       }
 
       // Cadence stage progression. Three rules:
