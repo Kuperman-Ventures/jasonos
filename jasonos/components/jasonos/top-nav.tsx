@@ -35,7 +35,14 @@ const NAV: NavItem[] = [
       { href: "/nyui",           label: "NYUI" },
     ],
   },
-  { kind: "link",  href: "/resume-customizer", label: "Custom Communications" },
+  {
+    kind: "group",
+    label: "Custom Communications",
+    children: [
+      { href: "/resume-customizer", label: "Resume & Cover Letter" },
+      { href: "/email-templates", label: "Email Templates" },
+    ],
+  },
   { kind: "link",  href: "/outreach", label: "Outreach" },
   {
     kind: "group",
