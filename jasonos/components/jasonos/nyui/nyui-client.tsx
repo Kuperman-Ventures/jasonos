@@ -327,6 +327,29 @@ function buildLedgerHtml(
     </body></html>`;
 }
 
+function writeLedgerToWindow(
+  win: Window,
+  workSearches: WorkSearch[],
+  startDate: string,
+  endDate: string,
+  workSearchId: string | null
+) {
+  const html = buildLedgerHtml(workSearches, startDate, endDate, workSearchId);
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  // Give the new document a tick to lay out before invoking print.
+  setTimeout(() => {
+    try {
+      win.focus();
+      win.print();
+    } catch {
+      // Print may be blocked; the page is still open for Save as PDF.
+    }
+  }, 350);
+}
+
+/** Fallback when the blank window was closed/blocked after the async fetch. */
 function openPrintableLedger(
   workSearches: WorkSearch[],
   startDate: string,
@@ -334,14 +357,30 @@ function openPrintableLedger(
   workSearchId: string | null
 ) {
   const html = buildLedgerHtml(workSearches, startDate, endDate, workSearchId);
-  const win = window.open("", "_blank");
-  if (!win) return false;
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
-  // Give the new document a tick to lay out before invoking print.
-  setTimeout(() => win.print(), 350);
-  return true;
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, "_blank");
+  if (!win) {
+    // Last resort: trigger a download the user can open locally.
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `nys-dol-ledger-${startDate}-to-${endDate}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    return "downloaded" as const;
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  setTimeout(() => {
+    try {
+      win.focus();
+      win.print();
+    } catch {
+      // Page still usable for Save as PDF.
+    }
+  }, 350);
+  return "opened" as const;
 }
 
 // ─── Shared UI Primitives ─────────────────────────────────────────────────────
@@ -447,9 +486,17 @@ function ProgressBar({
 
 // ─── Export Modal ─────────────────────────────────────────────────────────────
 
-function ExportModal({ onClose }: { onClose: () => void }) {
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+function ExportModal({
+  onClose,
+  defaultStart = "",
+  defaultEnd = "",
+}: {
+  onClose: () => void;
+  defaultStart?: string;
+  defaultEnd?: string;
+}) {
+  const [startDate, setStartDate] = useState(defaultStart);
+  const [endDate, setEndDate] = useState(defaultEnd);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -495,19 +542,26 @@ function ExportModal({ onClose }: { onClose: () => void }) {
         tier_label: TIER_SHORT[tierOf(w)],
       })) as unknown as Record<string, unknown>[];
       const bh = result.businessHours as unknown as Record<string, unknown>[];
-      const report = [
-        `"NYS DOL COMPLIANCE AUDIT REPORT"`,
-        `"Date Range: ${startDate} to ${endDate}"`,
-        `"Generated: ${new Date().toLocaleString()}"`,
-        "",
-        "",
-        `"=== SECTION 1: WORK SEARCH LOG (${ws.length} records) ==="`,
-        buildCSV(wsCols, ws),
-        "",
-        "",
-        `"=== SECTION 2: BUSINESS HOURS LOG (${bh.length} records) ==="`,
-        buildCSV(bhCols, bh),
-      ].join("\n");
+      const workSearchIdLine = result.workSearchId
+        ? `"Work Search ID: ${result.workSearchId}"`
+        : `"Work Search ID: (set NYUI_WORK_SEARCH_ID env to stamp)"`;
+      // UTF-8 BOM helps Excel open the multi-section CSV with correct encoding.
+      const report =
+        "\uFEFF" +
+        [
+          `"NYS DOL COMPLIANCE AUDIT REPORT"`,
+          `"Date Range: ${startDate} to ${endDate}"`,
+          workSearchIdLine,
+          `"Generated: ${new Date().toLocaleString()}"`,
+          "",
+          "",
+          `"=== SECTION 1: WORK SEARCH LOG (${ws.length} records) ==="`,
+          buildCSV(wsCols, ws),
+          "",
+          "",
+          `"=== SECTION 2: BUSINESS HOURS LOG (${bh.length} records) ==="`,
+          buildCSV(bhCols, bh),
+        ].join("\n");
 
       const blob = new Blob([report], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
@@ -537,20 +591,46 @@ function ExportModal({ onClose }: { onClose: () => void }) {
     }
     setError(null);
     setLoading(true);
+    // Open the tab in the same user-gesture turn. Waiting on the server
+    // action first lets browsers treat window.open as a blocked pop-up.
+    const placeholder = window.open("", "_blank");
+    if (placeholder) {
+      try {
+        placeholder.document.write(
+          "<!doctype html><title>Preparing ledger…</title><body style=\"font-family:sans-serif;padding:24px;color:#444\">Preparing printable ledger…</body>"
+        );
+      } catch {
+        // Cross-origin timing quirks — ignore; we'll rewrite below.
+      }
+    }
     try {
       const result = await getExportData(startDate, endDate);
       if (result.error) throw new Error(result.error);
-      const opened = openPrintableLedger(
-        result.workSearches,
-        startDate,
-        endDate,
-        result.workSearchId
-      );
-      if (!opened) {
-        throw new Error("Pop-up blocked — allow pop-ups to open the printable ledger.");
+      if (placeholder && !placeholder.closed) {
+        writeLedgerToWindow(
+          placeholder,
+          result.workSearches,
+          startDate,
+          endDate,
+          result.workSearchId
+        );
+      } else {
+        const mode = openPrintableLedger(
+          result.workSearches,
+          startDate,
+          endDate,
+          result.workSearchId
+        );
+        if (mode === "downloaded") {
+          setError(
+            "Pop-up blocked — downloaded an HTML ledger file instead. Open it and use Save as PDF."
+          );
+          return;
+        }
       }
       onClose();
     } catch (err) {
+      if (placeholder && !placeholder.closed) placeholder.close();
       setError(err instanceof Error ? err.message : "Ledger generation failed");
     } finally {
       setLoading(false);
@@ -564,7 +644,8 @@ function ExportModal({ onClose }: { onClose: () => void }) {
           <div>
             <h3 className="font-semibold text-foreground">Generate NYS DOL Audit Report</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              CSV (Work Search + Business Hours) or a printable, per-claim-week ledger
+              Dates default to this claim week. CSV (Work Search + Business Hours) or a
+              printable per-claim-week ledger.
             </p>
           </div>
           <button
@@ -1143,7 +1224,13 @@ function NYUIDashboard({
         </div>
       </div>
 
-      {showExport && <ExportModal onClose={() => setShowExport(false)} />}
+      {showExport && (
+        <ExportModal
+          onClose={() => setShowExport(false)}
+          defaultStart={weekStart}
+          defaultEnd={weekEnd}
+        />
+      )}
     </div>
   );
 }
