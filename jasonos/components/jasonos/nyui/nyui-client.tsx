@@ -42,6 +42,7 @@ import { recoverFromStaleServerAction } from "@/lib/client/stale-server-action";
 type BusinessHoursPrefill = {
   date?: string;
   entity?: string;
+  client_name?: string;
   activity_category?: string;
   activity_description?: string;
   hours?: string;
@@ -239,12 +240,28 @@ function shortEntity(entity: string) {
 
 function hoursFingerprint(e: {
   entity: string;
+  client_name?: string | null;
   activity_category: string | null | undefined;
   activity_description: string;
   hours: number;
   minutes: number;
 }) {
-  return `${e.entity}|${e.activity_category ?? ""}|${e.activity_description}|${e.hours}|${e.minutes}`;
+  return `${e.entity}|${e.client_name ?? ""}|${e.activity_category ?? ""}|${e.activity_description}|${e.hours}|${e.minutes}`;
+}
+
+/** Unique prior client names, most recently used first (case-insensitive dedupe). */
+function knownClientNames(entries: BusinessHour[]): string[] {
+  const seen = new Map<string, string>();
+  const ordered = entries
+    .slice()
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  for (const e of ordered) {
+    const raw = e.client_name?.trim();
+    if (!raw) continue;
+    const key = raw.toLowerCase();
+    if (!seen.has(key)) seen.set(key, raw);
+  }
+  return Array.from(seen.values());
 }
 
 function fmtHm(totalMinutes: number) {
@@ -406,6 +423,7 @@ function buildLedgerHtml(
         (e) => `<tr>
           <td>${escHtml(e.date)}</td>
           <td>${escHtml(e.entity)}</td>
+          <td>${escHtml(e.client_name || "—")}</td>
           <td>${escHtml(e.activity_category || "—")}</td>
           <td>${escHtml(e.activity_description)}</td>
           <td>${escHtml(fmtHm(entryMins(e)))}</td>
@@ -423,7 +441,7 @@ function buildLedgerHtml(
       </table>
       <table>
         <thead><tr>
-          <th>Date</th><th>Entity</th><th>Category</th><th>Note / Description</th><th>Duration</th>
+          <th>Date</th><th>Entity</th><th>Client</th><th>Category</th><th>Note / Description</th><th>Duration</th>
         </tr></thead>
         <tbody>${detailRows}</tbody>
       </table>`;
@@ -699,6 +717,7 @@ function ExportModal({
       const bhCols = [
         { key: "date", label: "Date" },
         { key: "entity", label: "Entity" },
+        { key: "client_name", label: "Client" },
         { key: "activity_category", label: "Category" },
         { key: "activity_description", label: "Note / Description" },
         { key: "hours", label: "Hours" },
@@ -1393,6 +1412,11 @@ function NYUIDashboard({
                       <p className="text-xs font-medium text-muted-foreground">
                         {entry.entity}
                       </p>
+                      {entry.client_name && (
+                        <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-foreground/10 text-foreground">
+                          {entry.client_name}
+                        </span>
+                      )}
                       {entry.activity_category && (
                         <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
                           {entry.activity_category}
@@ -1819,6 +1843,8 @@ function BusinessHoursForm({
   const [isPending, startTransition] = useTransition();
   const [date, setDate] = useState(prefill?.date ?? todayStr());
   const [entity, setEntity] = useState(prefill?.entity ?? "");
+  /** Kept across "Add another" so multi-entry days for one client are fast. */
+  const [clientName, setClientName] = useState(prefill?.client_name ?? "");
   // One activity at a time. After save, pick "+ Add another" or Done.
   const [row, setRow] = useState<BreakdownRow>(() =>
     newBreakdownRow({
@@ -1835,6 +1861,7 @@ function BusinessHoursForm({
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   /** Just-saved rows shown immediately until router.refresh() catches up. */
   const [optimisticDay, setOptimisticDay] = useState<BusinessHour[]>([]);
+  const clientListId = "nyui-business-hours-clients";
 
   const serverForDay = existingHours.filter(
     (h) => h.date === date && (!editId || h.id !== editId)
@@ -1847,10 +1874,12 @@ function BusinessHoursForm({
     b.created_at.localeCompare(a.created_at)
   );
   const dayTotalMins = dayBlocks.reduce((sum, h) => sum + entryMins(h), 0);
+  const clientSuggestions = knownClientNames([...optimisticDay, ...existingHours]);
 
   function rememberSaved(payloads: {
     date: string;
     entity: string;
+    client_name: string | null;
     activity_category: string;
     activity_description: string;
     hours: number;
@@ -1862,6 +1891,7 @@ function BusinessHoursForm({
         id: `opt-${now}-${i}`,
         date: p.date,
         entity: p.entity,
+        client_name: p.client_name,
         activity_category: p.activity_category,
         activity_description: p.activity_description,
         hours: p.hours,
@@ -1875,7 +1905,7 @@ function BusinessHoursForm({
   const hours = parseInt(row.hours, 10) || 0;
   const minutes = parseInt(row.minutes, 10) || 0;
   const rowMins = hours * 60 + minutes;
-  const rowReady = Boolean(row.category) && rowMins > 0;
+  const rowReady = Boolean(clientName.trim()) && Boolean(row.category) && rowMins > 0;
 
   function updateRow(patch: Partial<BreakdownRow>) {
     setRow((prev) => ({ ...prev, ...patch }));
@@ -1886,6 +1916,7 @@ function BusinessHoursForm({
   }
 
   function openAnotherActivity() {
+    // Keep date / entity / client; only clear the activity details.
     setRow(newBreakdownRow());
     setErrors({});
     setServerError(null);
@@ -1897,6 +1928,7 @@ function BusinessHoursForm({
     const e: Record<string, string> = {};
     if (!date) e.date = "Required";
     if (!entity) e.entity = "Required";
+    if (!clientName.trim()) e.client = "Required";
 
     const h = parseInt(row.hours, 10);
     const m = parseInt(row.minutes, 10);
@@ -1920,9 +1952,11 @@ function BusinessHoursForm({
     setServerError(null);
 
     const note = row.note.trim();
+    const trimmedClient = clientName.trim();
     const payload = {
       date,
       entity,
+      client_name: trimmedClient,
       activity_category: row.category,
       activity_description: note || row.category,
       hours: parseInt(row.hours, 10) || 0,
@@ -1938,8 +1972,9 @@ function BusinessHoursForm({
             return;
           }
           rememberSaved([payload]);
+          setClientName(trimmedClient);
           setSaveNotice(
-            `Saved ${payload.activity_category} · ${fmtHm(payload.hours * 60 + payload.minutes)}. Add another or tap Done.`
+            `Saved ${payload.client_name} · ${payload.activity_category} · ${fmtHm(payload.hours * 60 + payload.minutes)}. Add another or tap Done.`
           );
           setRow(newBreakdownRow());
           setEntryOpen(false);
@@ -1954,8 +1989,9 @@ function BusinessHoursForm({
           return;
         }
         rememberSaved([payload]);
+        setClientName(trimmedClient);
         setSaveNotice(
-          `Logged ${payload.activity_category} · ${fmtHm(payload.hours * 60 + payload.minutes)}. Add another or tap Done.`
+          `Logged ${payload.client_name} · ${payload.activity_category} · ${fmtHm(payload.hours * 60 + payload.minutes)}. Add another or tap Done.`
         );
         setRow(newBreakdownRow());
         setEntryOpen(false);
@@ -2027,6 +2063,27 @@ function BusinessHoursForm({
               </Field>
             </div>
 
+            <Field label="Client" required error={errors.client}>
+              <input
+                type="text"
+                className={inputCls}
+                list={clientListId}
+                autoComplete="off"
+                placeholder={
+                  clientSuggestions.length > 0
+                    ? "Type to match a previous client, or enter a new one"
+                    : "Client name…"
+                }
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+              />
+              <datalist id={clientListId}>
+                {clientSuggestions.map((name) => (
+                  <option key={name.toLowerCase()} value={name} />
+                ))}
+              </datalist>
+            </Field>
+
             <div className="space-y-3">
               <div>
                 <p className="text-sm font-medium text-foreground">Activity</p>
@@ -2059,7 +2116,12 @@ function BusinessHoursForm({
                         >
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="font-medium text-foreground truncate">
+                              {block.client_name && (
+                                <span className="font-medium text-foreground truncate">
+                                  {block.client_name}
+                                </span>
+                              )}
+                              <span className="text-muted-foreground truncate">
                                 {block.activity_category || block.activity_description}
                               </span>
                               <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -2182,7 +2244,7 @@ function BusinessHoursForm({
                     : isEdit
                       ? "Save Changes"
                       : rowReady
-                        ? `Log ${row.category} (${fmtHm(rowMins)})`
+                        ? `Log ${clientName.trim()} · ${row.category} (${fmtHm(rowMins)})`
                         : "Log Business Hours"}
                 </button>
               ) : (
@@ -2275,7 +2337,7 @@ function AllActivity({
     : workSearches;
   const filteredHours = q
     ? businessHours.filter((bh) =>
-        [bh.entity, bh.activity_category, bh.activity_description]
+        [bh.entity, bh.client_name, bh.activity_category, bh.activity_description]
           .filter(Boolean)
           .some((field) => String(field).toLowerCase().includes(q))
       )
@@ -2575,8 +2637,13 @@ function AllActivity({
                           <div>
                             <div className="flex flex-wrap items-center gap-1.5">
                               <p className="font-medium text-foreground leading-snug">
-                                {bh.entity}
+                                {bh.client_name || bh.entity}
                               </p>
+                              {bh.client_name && (
+                                <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                  {shortEntity(bh.entity)}
+                                </span>
+                              )}
                               {bh.activity_category && (
                                 <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
                                   {bh.activity_category}
@@ -2731,6 +2798,7 @@ export function NyuiClient({
     setBhPrefill({
       date: bh.date,
       entity: bh.entity,
+      client_name: bh.client_name ?? "",
       activity_category: bh.activity_category ?? "",
       // If the stored description was just the category name, leave note empty.
       activity_description:

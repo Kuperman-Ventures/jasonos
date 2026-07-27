@@ -39,6 +39,8 @@ export interface BusinessHour {
   created_at: string;
   // Category for hourly breakdowns (migration 0042). Nullable for older rows.
   activity_category: string | null;
+  // Client the hours were for (migration 0043). Nullable for older rows.
+  client_name: string | null;
 }
 
 export interface NyuiWeekData {
@@ -234,6 +236,7 @@ export async function addBusinessHours(data: {
   hours: number;
   minutes: number;
   activity_category?: string | null;
+  client_name?: string | null;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
 
@@ -246,6 +249,7 @@ export async function addBusinessHours(data: {
       hours: data.hours,
       minutes: data.minutes,
       activity_category: data.activity_category ?? null,
+      client_name: data.client_name?.trim() || null,
     },
   ]);
   if (error) return { ok: false, error: error.message };
@@ -263,6 +267,7 @@ export async function addBusinessHoursBatch(
     hours: number;
     minutes: number;
     activity_category: string;
+    client_name?: string | null;
   }[]
 ): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
@@ -277,6 +282,7 @@ export async function addBusinessHoursBatch(
       hours: r.hours,
       minutes: r.minutes,
       activity_category: r.activity_category,
+      client_name: r.client_name?.trim() || null,
     }))
   );
   if (error) return { ok: false, error: error.message };
@@ -293,6 +299,7 @@ export async function updateBusinessHours(data: {
   hours: number;
   minutes: number;
   activity_category?: string | null;
+  client_name?: string | null;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
 
@@ -306,6 +313,7 @@ export async function updateBusinessHours(data: {
       hours: data.hours,
       minutes: data.minutes,
       activity_category: data.activity_category ?? null,
+      client_name: data.client_name?.trim() || null,
     })
     .eq("id", data.id);
   if (error) return { ok: false, error: error.message };
