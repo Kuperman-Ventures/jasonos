@@ -1541,7 +1541,7 @@ function WorkSearchForm({
           onClick={onBack}
           className="text-xs text-muted-foreground hover:text-foreground mb-2 flex items-center gap-1"
         >
-          ← Back to Dashboard
+          ← Back
         </button>
         <h2 className="text-lg font-bold text-foreground">
           {isEdit ? "Edit Work Search Activity" : "Log Work Search Activity"}
