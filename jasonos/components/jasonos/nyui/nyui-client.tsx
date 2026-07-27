@@ -23,7 +23,7 @@ import {
   addWorkSearch,
   updateWorkSearch,
   deleteWorkSearch,
-  addBusinessHours,
+  addBusinessHoursBatch,
   updateBusinessHours,
   deleteBusinessHours,
   getExportData,
@@ -42,6 +42,7 @@ import { recoverFromStaleServerAction } from "@/lib/client/stale-server-action";
 type BusinessHoursPrefill = {
   date?: string;
   entity?: string;
+  activity_category?: string;
   activity_description?: string;
   hours?: string;
   minutes?: string;
@@ -72,6 +73,48 @@ const RESULT_OPTIONS = [
   "Offer Received",
 ];
 const ENTITIES = ["Kuperman Ventures LLC", "Kuperman Advisors LLC"];
+
+/** Categories for NYUI business-hours hourly breakdowns. */
+const ACTIVITY_CATEGORIES = [
+  "Material & Deliverable Developments",
+  "Emails & Communications",
+  "Project Management",
+  "Research",
+  "Strategy",
+  "Meetings",
+  "Sales & Business Development",
+  "Product / Software Development",
+  "Admin & Operations",
+  "Finance & Legal",
+  "Other",
+] as const;
+
+const DURATION_PRESETS = [
+  { label: "15m", hours: 0, minutes: 15 },
+  { label: "30m", hours: 0, minutes: 30 },
+  { label: "45m", hours: 0, minutes: 45 },
+  { label: "1h", hours: 1, minutes: 0 },
+  { label: "1.5h", hours: 1, minutes: 30 },
+  { label: "2h", hours: 2, minutes: 0 },
+] as const;
+
+type BreakdownRow = {
+  key: string;
+  category: string;
+  hours: string;
+  minutes: string;
+  note: string;
+};
+
+function newBreakdownRow(partial?: Partial<BreakdownRow>): BreakdownRow {
+  return {
+    key: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    category: partial?.category ?? "",
+    hours: partial?.hours ?? "0",
+    minutes: partial?.minutes ?? "0",
+    note: partial?.note ?? "",
+  };
+}
 
 // ─── Two-tier ledger (Gap 1) ────────────────────────────────────────────────
 
@@ -347,6 +390,7 @@ function buildLedgerHtml(
         (e) => `<tr>
           <td>${escHtml(e.date)}</td>
           <td>${escHtml(e.entity)}</td>
+          <td>${escHtml(e.activity_category || "—")}</td>
           <td>${escHtml(e.activity_description)}</td>
           <td>${escHtml(fmtHm(entryMins(e)))}</td>
         </tr>`
@@ -363,7 +407,7 @@ function buildLedgerHtml(
       </table>
       <table>
         <thead><tr>
-          <th>Date</th><th>Entity</th><th>Activity Description</th><th>Duration</th>
+          <th>Date</th><th>Entity</th><th>Category</th><th>Note / Description</th><th>Duration</th>
         </tr></thead>
         <tbody>${detailRows}</tbody>
       </table>`;
@@ -639,7 +683,8 @@ function ExportModal({
       const bhCols = [
         { key: "date", label: "Date" },
         { key: "entity", label: "Entity" },
-        { key: "activity_description", label: "Activity Description" },
+        { key: "activity_category", label: "Category" },
+        { key: "activity_description", label: "Note / Description" },
         { key: "hours", label: "Hours" },
         { key: "minutes", label: "Minutes" },
         { key: "created_at", label: "Date Logged" },
@@ -1328,9 +1373,16 @@ function NYUIDashboard({
                     {fmtDate(entry.date)}
                   </span>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-0.5">
-                      {entry.entity}
-                    </p>
+                    <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        {entry.entity}
+                      </p>
+                      {entry.activity_category && (
+                        <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                          {entry.activity_category}
+                        </span>
+                      )}
+                    </div>
                     <p className="text-foreground leading-snug">{entry.activity_description}</p>
                   </div>
                   <span className="text-xs font-semibold tabular-nums text-foreground whitespace-nowrap pt-0.5">
@@ -1742,33 +1794,74 @@ function BusinessHoursForm({
   const isEdit = Boolean(editId);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [form, setForm] = useState({
-    date: prefill?.date ?? todayStr(),
-    entity: prefill?.entity ?? "",
-    activity_description: prefill?.activity_description ?? "",
-    hours: prefill?.hours ?? "0",
-    minutes: prefill?.minutes ?? "0",
-  });
+  const [date, setDate] = useState(prefill?.date ?? todayStr());
+  const [entity, setEntity] = useState(prefill?.entity ?? "");
+  // Edit mode uses a single row; create mode supports a multi-category breakdown.
+  const [rows, setRows] = useState<BreakdownRow[]>(() => [
+    newBreakdownRow({
+      category: prefill?.activity_category ?? "",
+      hours: prefill?.hours ?? "0",
+      minutes: prefill?.minutes ?? "0",
+      note: prefill?.activity_description ?? "",
+    }),
+  ]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
 
-  function set(field: string) {
-    return (
-      e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
-    ) => setForm((f) => ({ ...f, [field]: e.target.value }));
+  const totalMinutes = rows.reduce((sum, row) => {
+    const h = parseInt(row.hours, 10);
+    const m = parseInt(row.minutes, 10);
+    if (isNaN(h) || isNaN(m)) return sum;
+    return sum + h * 60 + m;
+  }, 0);
+
+  function updateRow(key: string, patch: Partial<BreakdownRow>) {
+    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  }
+
+  function setPreset(key: string, hours: number, minutes: number) {
+    updateRow(key, { hours: String(hours), minutes: String(minutes) });
+  }
+
+  function addRow() {
+    setRows((prev) => [...prev, newBreakdownRow()]);
+  }
+
+  function removeRow(key: string) {
+    setRows((prev) => (prev.length <= 1 ? prev : prev.filter((r) => r.key !== key)));
   }
 
   function validate() {
     const e: Record<string, string> = {};
-    if (!form.date) e.date = "Required";
-    if (!form.entity) e.entity = "Required";
-    if (!form.activity_description.trim()) e.activity_description = "Required";
-    const h = parseInt(form.hours, 10);
-    const m = parseInt(form.minutes, 10);
-    if (isNaN(h) || h < 0 || h > 24) e.hours = "Must be 0–24";
-    if (isNaN(m) || m < 0 || m > 59) e.minutes = "Must be 0–59";
-    if (!isNaN(h) && !isNaN(m) && h === 0 && m === 0) e.hours = "Time must be greater than 0";
+    if (!date) e.date = "Required";
+    if (!entity) e.entity = "Required";
+
+    const filled = rows.filter((r) => {
+      const h = parseInt(r.hours, 10) || 0;
+      const m = parseInt(r.minutes, 10) || 0;
+      return h > 0 || m > 0 || r.category || r.note.trim();
+    });
+    if (filled.length === 0) {
+      e.rows = "Add time for at least one category.";
+      return e;
+    }
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const h = parseInt(row.hours, 10);
+      const m = parseInt(row.minutes, 10);
+      const hasTime = !isNaN(h) && !isNaN(m) && (h > 0 || m > 0);
+      const touched = hasTime || Boolean(row.category) || Boolean(row.note.trim());
+      if (!touched) continue;
+      if (!row.category) e[`cat-${row.key}`] = "Pick a category";
+      if (isNaN(h) || h < 0 || h > 24) e[`hours-${row.key}`] = "0–24";
+      if (isNaN(m) || m < 0 || m > 59) e[`mins-${row.key}`] = "0–59";
+      if (!isNaN(h) && !isNaN(m) && h === 0 && m === 0) {
+        e[`hours-${row.key}`] = "Time required";
+      }
+    }
     return e;
   }
 
@@ -1781,22 +1874,45 @@ function BusinessHoursForm({
     }
     setErrors({});
     setServerError(null);
+
+    const payloads = rows
+      .map((row) => {
+        const hours = parseInt(row.hours, 10) || 0;
+        const minutes = parseInt(row.minutes, 10) || 0;
+        if (hours === 0 && minutes === 0) return null;
+        const note = row.note.trim();
+        return {
+          date,
+          entity,
+          activity_category: row.category,
+          activity_description: note || row.category,
+          hours,
+          minutes,
+        };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+
     startTransition(async () => {
       try {
-        const payload = {
-          date: form.date,
-          entity: form.entity,
-          activity_description: form.activity_description.trim(),
-          hours: parseInt(form.hours, 10),
-          minutes: parseInt(form.minutes, 10),
-        };
-        const result =
-          isEdit && editId
-            ? await updateBusinessHours({ id: editId, ...payload })
-            : await addBusinessHours(payload);
-        if (!result.ok) {
-          setServerError(result.error);
-          return;
+        if (isEdit && editId) {
+          const only = payloads[0];
+          if (!only) {
+            setServerError("Time must be greater than 0");
+            return;
+          }
+          const result = await updateBusinessHours({ id: editId, ...only });
+          if (!result.ok) {
+            setServerError(result.error);
+            return;
+          }
+          setSavedCount(1);
+        } else {
+          const result = await addBusinessHoursBatch(payloads);
+          if (!result.ok) {
+            setServerError(result.error);
+            return;
+          }
+          setSavedCount(result.count);
         }
         setDone(true);
         router.refresh();
@@ -1823,8 +1939,8 @@ function BusinessHoursForm({
         </h2>
         <p className="text-sm text-muted-foreground mt-0.5">
           {isEdit
-            ? "Update this Kuperman Ventures or Kuperman Advisors hours entry."
-            : "Record operational work for Kuperman Ventures LLC or Kuperman Advisors LLC. Combined weekly hours must stay under 10."}
+            ? "Update this hours entry. Category, time, and optional note."
+            : "Break the day into categories (Materials, Emails, Meetings, etc.). Combined weekly hours must stay under 10."}
         </p>
       </div>
 
@@ -1833,7 +1949,9 @@ function BusinessHoursForm({
           <div className="py-8 text-center">
             <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto mb-3" />
             <p className="font-semibold text-foreground">
-              {isEdit ? "Hours updated successfully" : "Hours logged successfully"}
+              {isEdit
+                ? "Hours updated successfully"
+                : `Logged ${savedCount} categor${savedCount === 1 ? "y" : "ies"} · ${fmtHm(totalMinutes)}`}
             </p>
             <p className="text-sm text-muted-foreground mt-1">Returning…</p>
           </div>
@@ -1845,56 +1963,171 @@ function BusinessHoursForm({
               </div>
             )}
 
-            <Field label="Date" required error={errors.date}>
-              <input type="date" className={inputCls} value={form.date} onChange={set("date")} />
-            </Field>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Field label="Date" required error={errors.date}>
+                <input
+                  type="date"
+                  className={inputCls}
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+              </Field>
+              <Field label="Entity" required error={errors.entity}>
+                <select
+                  className={selectCls}
+                  value={entity}
+                  onChange={(e) => setEntity(e.target.value)}
+                >
+                  <option value="">Select entity…</option>
+                  {ENTITIES.map((ent) => (
+                    <option key={ent} value={ent}>
+                      {ent}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </div>
 
-            <Field label="Entity" required error={errors.entity}>
-              <select className={selectCls} value={form.entity} onChange={set("entity")}>
-                <option value="">Select entity…</option>
-                {ENTITIES.map((e) => (
-                  <option key={e} value={e}>
-                    {e}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="Activity Description" required error={errors.activity_description}>
-              <textarea
-                className={inputCls + " min-h-[100px] resize-y"}
-                placeholder="Detailed description of operational activity performed…"
-                value={form.activity_description}
-                onChange={set("activity_description")}
-              />
-            </Field>
-
-            <Field label="Time Spent" required error={errors.hours || errors.minutes}>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="0"
-                    max="24"
-                    className={inputCls + " w-20 text-center"}
-                    value={form.hours}
-                    onChange={set("hours")}
-                  />
-                  <span className="text-sm text-muted-foreground">hours</span>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {isEdit ? "Category & time" : "Hourly breakdown"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {isEdit
+                      ? "Pick the category and how long you spent."
+                      : "Add one row per category. Use the quick chips for common durations."}
+                  </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min="0"
-                    max="59"
-                    className={inputCls + " w-20 text-center"}
-                    value={form.minutes}
-                    onChange={set("minutes")}
-                  />
-                  <span className="text-sm text-muted-foreground">minutes</span>
-                </div>
+                {!isEdit && (
+                  <StatusBadge variant="neutral">{fmtHm(totalMinutes)} total</StatusBadge>
+                )}
               </div>
-            </Field>
+
+              {errors.rows && (
+                <p className="text-xs text-destructive bg-destructive/10 border border-destructive/30 rounded px-3 py-2">
+                  {errors.rows}
+                </p>
+              )}
+
+              <div className="space-y-3">
+                {rows.map((row, index) => {
+                  const catErr = errors[`cat-${row.key}`];
+                  const timeErr = errors[`hours-${row.key}`] || errors[`mins-${row.key}`];
+                  return (
+                    <div
+                      key={row.key}
+                      className="rounded-lg border border-border bg-muted/20 p-3 space-y-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          {isEdit ? "Entry" : `Category ${index + 1}`}
+                        </p>
+                        {!isEdit && rows.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeRow(row.key)}
+                            className="inline-flex items-center gap-1 text-[11px] text-destructive/80 hover:text-destructive"
+                          >
+                            <Trash2 className="h-3 w-3" /> Remove
+                          </button>
+                        )}
+                      </div>
+
+                      <Field label="Category" required error={catErr}>
+                        <select
+                          className={selectCls}
+                          value={row.category}
+                          onChange={(e) => updateRow(row.key, { category: e.target.value })}
+                        >
+                          <option value="">Select category…</option>
+                          {ACTIVITY_CATEGORIES.map((cat) => (
+                            <option key={cat} value={cat}>
+                              {cat}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+
+                      <Field label="Time" required error={timeErr}>
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap gap-1.5">
+                            {DURATION_PRESETS.map((p) => {
+                              const active =
+                                Number(row.hours) === p.hours &&
+                                Number(row.minutes) === p.minutes;
+                              return (
+                                <button
+                                  key={p.label}
+                                  type="button"
+                                  onClick={() => setPreset(row.key, p.hours, p.minutes)}
+                                  className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                                    active
+                                      ? "border-foreground bg-foreground text-background"
+                                      : "border-border bg-background text-foreground hover:bg-muted"
+                                  }`}
+                                >
+                                  {p.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                min="0"
+                                max="24"
+                                className={inputCls + " w-20 text-center"}
+                                value={row.hours}
+                                onChange={(e) => updateRow(row.key, { hours: e.target.value })}
+                              />
+                              <span className="text-sm text-muted-foreground">hours</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                min="0"
+                                max="59"
+                                className={inputCls + " w-20 text-center"}
+                                value={row.minutes}
+                                onChange={(e) => updateRow(row.key, { minutes: e.target.value })}
+                              />
+                              <span className="text-sm text-muted-foreground">minutes</span>
+                            </div>
+                          </div>
+                        </div>
+                      </Field>
+
+                      <Field
+                        label="Note"
+                        hint="optional"
+                        error={errors[`note-${row.key}`]}
+                      >
+                        <input
+                          type="text"
+                          className={inputCls}
+                          placeholder="What you worked on (optional)"
+                          value={row.note}
+                          onChange={(e) => updateRow(row.key, { note: e.target.value })}
+                        />
+                      </Field>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {!isEdit && (
+                <button
+                  type="button"
+                  onClick={addRow}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted px-3 py-2 text-xs font-medium text-foreground hover:bg-muted/80"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add another category
+                </button>
+              )}
+            </div>
 
             <button
               type="submit"
@@ -1904,10 +2137,12 @@ function BusinessHoursForm({
               {isPending
                 ? isEdit
                   ? "Saving…"
-                  : "Submitting…"
+                  : "Logging…"
                 : isEdit
                   ? "Save Changes"
-                  : "Log Business Hours"}
+                  : totalMinutes > 0
+                    ? `Log ${fmtHm(totalMinutes)}`
+                    : "Log Business Hours"}
             </button>
           </form>
         )}
@@ -1981,7 +2216,7 @@ function AllActivity({
     : workSearches;
   const filteredHours = q
     ? businessHours.filter((bh) =>
-        [bh.entity, bh.activity_description]
+        [bh.entity, bh.activity_category, bh.activity_description]
           .filter(Boolean)
           .some((field) => String(field).toLowerCase().includes(q))
       )
@@ -2283,6 +2518,11 @@ function AllActivity({
                               <p className="font-medium text-foreground leading-snug">
                                 {bh.entity}
                               </p>
+                              {bh.activity_category && (
+                                <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                  {bh.activity_category}
+                                </span>
+                              )}
                             </div>
                             <p className="text-xs text-muted-foreground">
                               {bh.activity_description}
@@ -2421,7 +2661,12 @@ export function NyuiClient({
     setBhPrefill({
       date: bh.date,
       entity: bh.entity,
-      activity_description: bh.activity_description,
+      activity_category: bh.activity_category ?? "",
+      // If the stored description was just the category name, leave note empty.
+      activity_description:
+        bh.activity_description && bh.activity_description !== bh.activity_category
+          ? bh.activity_description
+          : "",
       hours: String(bh.hours),
       minutes: String(bh.minutes),
     });
