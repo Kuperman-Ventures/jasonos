@@ -37,6 +37,8 @@ export interface BusinessHour {
   hours: number;
   minutes: number;
   created_at: string;
+  // Category for hourly breakdowns (migration 0042). Nullable for older rows.
+  activity_category: string | null;
 }
 
 export interface NyuiWeekData {
@@ -231,15 +233,56 @@ export async function addBusinessHours(data: {
   activity_description: string;
   hours: number;
   minutes: number;
+  activity_category?: string | null;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
 
   const db = createPublicServiceRoleClient();
-  const { error } = await db.from("business_hours").insert([data]);
+  const { error } = await db.from("business_hours").insert([
+    {
+      date: data.date,
+      entity: data.entity,
+      activity_description: data.activity_description,
+      hours: data.hours,
+      minutes: data.minutes,
+      activity_category: data.activity_category ?? null,
+    },
+  ]);
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/nyui");
   return { ok: true };
+}
+
+/** Insert multiple category breakdown rows for one date + entity in one shot. */
+export async function addBusinessHoursBatch(
+  rows: {
+    date: string;
+    entity: string;
+    activity_description: string;
+    hours: number;
+    minutes: number;
+    activity_category: string;
+  }[]
+): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  if (rows.length === 0) return { ok: false, error: "No hours to log" };
+
+  const db = createPublicServiceRoleClient();
+  const { error } = await db.from("business_hours").insert(
+    rows.map((r) => ({
+      date: r.date,
+      entity: r.entity,
+      activity_description: r.activity_description,
+      hours: r.hours,
+      minutes: r.minutes,
+      activity_category: r.activity_category,
+    }))
+  );
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/nyui");
+  return { ok: true, count: rows.length };
 }
 
 export async function updateBusinessHours(data: {
@@ -249,6 +292,7 @@ export async function updateBusinessHours(data: {
   activity_description: string;
   hours: number;
   minutes: number;
+  activity_category?: string | null;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
 
@@ -261,6 +305,7 @@ export async function updateBusinessHours(data: {
       activity_description: data.activity_description,
       hours: data.hours,
       minutes: data.minutes,
+      activity_category: data.activity_category ?? null,
     })
     .eq("id", data.id);
   if (error) return { ok: false, error: error.message };
