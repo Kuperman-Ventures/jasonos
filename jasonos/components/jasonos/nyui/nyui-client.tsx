@@ -1819,21 +1819,17 @@ function BusinessHoursForm({
   const [isPending, startTransition] = useTransition();
   const [date, setDate] = useState(prefill?.date ?? todayStr());
   const [entity, setEntity] = useState(prefill?.entity ?? "");
-  // Edit = one row. Create starts with two activity slots so logging
-  // e.g. 1h Emails + 2h Meetings is obvious without hunting for "add".
-  const [rows, setRows] = useState<BreakdownRow[]>(() => {
-    if (isEdit || prefill?.activity_category || prefill?.hours || prefill?.minutes) {
-      return [
-        newBreakdownRow({
-          category: prefill?.activity_category ?? "",
-          hours: prefill?.hours ?? "0",
-          minutes: prefill?.minutes ?? "0",
-          note: prefill?.activity_description ?? "",
-        }),
-      ];
-    }
-    return [newBreakdownRow(), newBreakdownRow()];
-  });
+  // One activity at a time. After save, pick "+ Add another" or Done.
+  const [row, setRow] = useState<BreakdownRow>(() =>
+    newBreakdownRow({
+      category: prefill?.activity_category ?? "",
+      hours: prefill?.hours ?? "0",
+      minutes: prefill?.minutes ?? "0",
+      note: prefill?.activity_description ?? "",
+    })
+  );
+  /** After a successful save, hide the entry fields until "+ Add another activity". */
+  const [entryOpen, setEntryOpen] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
@@ -1876,31 +1872,25 @@ function BusinessHoursForm({
     ]);
   }
 
-  const readyRows = rows
-    .map((row) => {
-      const hours = parseInt(row.hours, 10) || 0;
-      const minutes = parseInt(row.minutes, 10) || 0;
-      if (!row.category || (hours === 0 && minutes === 0)) return null;
-      return { ...row, hours, minutes, mins: hours * 60 + minutes };
-    })
-    .filter((r): r is NonNullable<typeof r> => r !== null);
+  const hours = parseInt(row.hours, 10) || 0;
+  const minutes = parseInt(row.minutes, 10) || 0;
+  const rowMins = hours * 60 + minutes;
+  const rowReady = Boolean(row.category) && rowMins > 0;
 
-  const totalMinutes = readyRows.reduce((sum, row) => sum + row.mins, 0);
-
-  function updateRow(key: string, patch: Partial<BreakdownRow>) {
-    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  function updateRow(patch: Partial<BreakdownRow>) {
+    setRow((prev) => ({ ...prev, ...patch }));
   }
 
-  function setPreset(key: string, hours: number, minutes: number) {
-    updateRow(key, { hours: String(hours), minutes: String(minutes) });
+  function setPreset(h: number, m: number) {
+    updateRow({ hours: String(h), minutes: String(m) });
   }
 
-  function addRow() {
-    setRows((prev) => [...prev, newBreakdownRow()]);
-  }
-
-  function removeRow(key: string) {
-    setRows((prev) => (prev.length <= 1 ? prev : prev.filter((r) => r.key !== key)));
+  function openAnotherActivity() {
+    setRow(newBreakdownRow());
+    setErrors({});
+    setServerError(null);
+    setSaveNotice(null);
+    setEntryOpen(true);
   }
 
   function validate() {
@@ -1908,37 +1898,15 @@ function BusinessHoursForm({
     if (!date) e.date = "Required";
     if (!entity) e.entity = "Required";
 
-    const filled = rows.filter((r) => {
-      const h = parseInt(r.hours, 10) || 0;
-      const m = parseInt(r.minutes, 10) || 0;
-      return h > 0 || m > 0 || r.category || r.note.trim();
-    });
-    if (filled.length === 0) {
-      e.rows = "Add at least one activity with a category and time.";
-      return e;
-    }
-
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      const h = parseInt(row.hours, 10);
-      const m = parseInt(row.minutes, 10);
-      const hasTime = !isNaN(h) && !isNaN(m) && (h > 0 || m > 0);
-      const touched = hasTime || Boolean(row.category) || Boolean(row.note.trim());
-      if (!touched) continue;
-      if (!row.category) e[`cat-${row.key}`] = "Pick a category";
-      if (isNaN(h) || h < 0 || h > 24) e[`hours-${row.key}`] = "0–24";
-      if (isNaN(m) || m < 0 || m > 59) e[`mins-${row.key}`] = "0–59";
-      if (!isNaN(h) && !isNaN(m) && h === 0 && m === 0) {
-        e[`hours-${row.key}`] = "Time required";
-      }
+    const h = parseInt(row.hours, 10);
+    const m = parseInt(row.minutes, 10);
+    if (!row.category) e.category = "Pick a category";
+    if (isNaN(h) || h < 0 || h > 24) e.hours = "0–24";
+    if (isNaN(m) || m < 0 || m > 59) e.mins = "0–59";
+    if (!isNaN(h) && !isNaN(m) && h === 0 && m === 0) {
+      e.hours = "Time required";
     }
     return e;
-  }
-
-  function resetRowsForMore() {
-    setRows([newBreakdownRow(), newBreakdownRow()]);
-    setErrors({});
-    setServerError(null);
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -1951,57 +1919,46 @@ function BusinessHoursForm({
     setErrors({});
     setServerError(null);
 
-    const payloads = rows
-      .map((row) => {
-        const hours = parseInt(row.hours, 10) || 0;
-        const minutes = parseInt(row.minutes, 10) || 0;
-        if (hours === 0 && minutes === 0) return null;
-        const note = row.note.trim();
-        return {
-          date,
-          entity,
-          activity_category: row.category,
-          activity_description: note || row.category,
-          hours,
-          minutes,
-        };
-      })
-      .filter((r): r is NonNullable<typeof r> => r !== null);
+    const note = row.note.trim();
+    const payload = {
+      date,
+      entity,
+      activity_category: row.category,
+      activity_description: note || row.category,
+      hours: parseInt(row.hours, 10) || 0,
+      minutes: parseInt(row.minutes, 10) || 0,
+    };
 
     startTransition(async () => {
       try {
         if (isEdit && editId) {
-          const only = payloads[0];
-          if (!only) {
-            setServerError("Time must be greater than 0");
-            return;
-          }
-          const result = await updateBusinessHours({ id: editId, ...only });
+          const result = await updateBusinessHours({ id: editId, ...payload });
           if (!result.ok) {
             setServerError(result.error);
             return;
           }
-          // Keep the form open so more activities can be added for this day.
-          rememberSaved([only]);
+          rememberSaved([payload]);
           setSaveNotice(
-            `Saved ${only.activity_category} · ${fmtHm(only.hours * 60 + only.minutes)}. Add more activities below.`
+            `Saved ${payload.activity_category} · ${fmtHm(payload.hours * 60 + payload.minutes)}. Add another or tap Done.`
           );
-          resetRowsForMore();
+          setRow(newBreakdownRow());
+          setEntryOpen(false);
           router.refresh();
           onContinueAfterSave({ date, entity });
           return;
         }
 
-        const result = await addBusinessHoursBatch(payloads);
+        const result = await addBusinessHoursBatch([payload]);
         if (!result.ok) {
           setServerError(result.error);
           return;
         }
-        rememberSaved(payloads);
+        rememberSaved([payload]);
         setSaveNotice(
-          `Logged ${result.count} activit${result.count === 1 ? "y" : "ies"} · ${fmtHm(totalMinutes)}. Add more below, or tap Done.`
+          `Logged ${payload.activity_category} · ${fmtHm(payload.hours * 60 + payload.minutes)}. Add another or tap Done.`
         );
-        resetRowsForMore();
+        setRow(newBreakdownRow());
+        setEntryOpen(false);
         router.refresh();
         onContinueAfterSave({ date, entity });
       } catch (err) {
@@ -2026,8 +1983,8 @@ function BusinessHoursForm({
         </h2>
         <p className="text-sm text-muted-foreground mt-0.5">
           {isEdit
-            ? "Update this entry, then you can keep adding more activities for the same day."
-            : "Log several activities in one go — e.g. 1h Emails + 2h Meetings. Combined weekly hours must stay under 10."}
+            ? "Update this entry, then add another activity or head back to All Activity."
+            : "Log one activity at a time. After saving, add another or head back to All Activity. Combined weekly hours must stay under 10."}
         </p>
       </div>
 
@@ -2071,23 +2028,11 @@ function BusinessHoursForm({
             </div>
 
             <div className="space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    {isEdit ? "Activity" : "Activities"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {isEdit
-                      ? "Pick the category and how long you spent."
-                      : "Each row is its own activity with its own time. Leave unused rows blank."}
-                  </p>
-                </div>
-                {!isEdit && (
-                  <StatusBadge variant="neutral">
-                    {readyRows.length} activit{readyRows.length === 1 ? "y" : "ies"} ·{" "}
-                    {fmtHm(totalMinutes)}
-                  </StatusBadge>
-                )}
+              <div>
+                <p className="text-sm font-medium text-foreground">Activity</p>
+                <p className="text-xs text-muted-foreground">
+                  Pick the category and how long you spent. Saved blocks for this day show above.
+                </p>
               </div>
 
               {dayBlocks.length > 0 ? (
@@ -2139,171 +2084,117 @@ function BusinessHoursForm({
                 </div>
               )}
 
-              {errors.rows && (
-                <p className="text-xs text-destructive bg-destructive/10 border border-destructive/30 rounded px-3 py-2">
-                  {errors.rows}
-                </p>
-              )}
-
-              <div className="space-y-3">
-                {rows.map((row, index) => {
-                  const catErr = errors[`cat-${row.key}`];
-                  const timeErr = errors[`hours-${row.key}`] || errors[`mins-${row.key}`];
-                  return (
-                    <div
-                      key={row.key}
-                      className="rounded-lg border border-border bg-muted/20 p-3 space-y-3"
+              {entryOpen && (
+                <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-3">
+                  <Field label="Category" required error={errors.category}>
+                    <select
+                      className={selectCls}
+                      value={row.category}
+                      onChange={(e) => updateRow({ category: e.target.value })}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          {isEdit ? "Entry" : `Activity ${index + 1}`}
-                        </p>
-                        {!isEdit && rows.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => removeRow(row.key)}
-                            className="inline-flex items-center gap-1 text-[11px] text-destructive/80 hover:text-destructive"
-                          >
-                            <Trash2 className="h-3 w-3" /> Remove
-                          </button>
-                        )}
+                      <option value="">Select category…</option>
+                      {ACTIVITY_CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+
+                  <Field
+                    label="Time for this activity"
+                    required
+                    error={errors.hours || errors.mins}
+                  >
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-1.5">
+                        {DURATION_PRESETS.map((p) => {
+                          const active =
+                            Number(row.hours) === p.hours &&
+                            Number(row.minutes) === p.minutes;
+                          return (
+                            <button
+                              key={p.label}
+                              type="button"
+                              onClick={() => setPreset(p.hours, p.minutes)}
+                              className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
+                                active
+                                  ? "border-foreground bg-foreground text-background"
+                                  : "border-border bg-background text-foreground hover:bg-muted"
+                              }`}
+                            >
+                              {p.label}
+                            </button>
+                          );
+                        })}
                       </div>
-
-                      <Field label="Category" required error={catErr}>
-                        <select
-                          className={selectCls}
-                          value={row.category}
-                          onChange={(e) => updateRow(row.key, { category: e.target.value })}
-                        >
-                          <option value="">Select category…</option>
-                          {ACTIVITY_CATEGORIES.map((cat) => (
-                            <option key={cat} value={cat}>
-                              {cat}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
-
-                      <Field label="Time for this activity" required error={timeErr}>
-                        <div className="space-y-2">
-                          <div className="flex flex-wrap gap-1.5">
-                            {DURATION_PRESETS.map((p) => {
-                              const active =
-                                Number(row.hours) === p.hours &&
-                                Number(row.minutes) === p.minutes;
-                              return (
-                                <button
-                                  key={p.label}
-                                  type="button"
-                                  onClick={() => setPreset(row.key, p.hours, p.minutes)}
-                                  className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
-                                    active
-                                      ? "border-foreground bg-foreground text-background"
-                                      : "border-border bg-background text-foreground hover:bg-muted"
-                                  }`}
-                                >
-                                  {p.label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="number"
-                                min="0"
-                                max="24"
-                                className={inputCls + " w-20 text-center"}
-                                value={row.hours}
-                                onChange={(e) => updateRow(row.key, { hours: e.target.value })}
-                              />
-                              <span className="text-sm text-muted-foreground">hours</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="number"
-                                min="0"
-                                max="59"
-                                className={inputCls + " w-20 text-center"}
-                                value={row.minutes}
-                                onChange={(e) => updateRow(row.key, { minutes: e.target.value })}
-                              />
-                              <span className="text-sm text-muted-foreground">minutes</span>
-                            </div>
-                          </div>
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            max="24"
+                            className={inputCls + " w-20 text-center"}
+                            value={row.hours}
+                            onChange={(e) => updateRow({ hours: e.target.value })}
+                          />
+                          <span className="text-sm text-muted-foreground">hours</span>
                         </div>
-                      </Field>
-
-                      <Field
-                        label="Note"
-                        hint="optional"
-                        error={errors[`note-${row.key}`]}
-                      >
-                        <input
-                          type="text"
-                          className={inputCls}
-                          placeholder="What you worked on (optional)"
-                          value={row.note}
-                          onChange={(e) => updateRow(row.key, { note: e.target.value })}
-                        />
-                      </Field>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            max="59"
+                            className={inputCls + " w-20 text-center"}
+                            value={row.minutes}
+                            onChange={(e) => updateRow({ minutes: e.target.value })}
+                          />
+                          <span className="text-sm text-muted-foreground">minutes</span>
+                        </div>
+                      </div>
                     </div>
-                  );
-                })}
-              </div>
+                  </Field>
 
-              {!isEdit && (
-                <button
-                  type="button"
-                  onClick={addRow}
-                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-muted/40 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted"
-                >
-                  <Plus className="h-4 w-4" /> Add another activity
-                </button>
-              )}
-
-              {!isEdit && readyRows.length > 0 && (
-                <div className="rounded-lg border border-border bg-background px-3 py-2.5 space-y-1.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Ready to log
-                  </p>
-                  <ul className="space-y-1">
-                    {readyRows.map((row) => (
-                      <li
-                        key={row.key}
-                        className="flex items-center justify-between gap-3 text-sm"
-                      >
-                        <span className="text-foreground truncate">{row.category}</span>
-                        <span className="tabular-nums font-medium text-foreground shrink-0">
-                          {fmtHm(row.mins)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="flex items-center justify-between border-t border-border pt-1.5 text-sm font-semibold">
-                    <span>Total</span>
-                    <span className="tabular-nums">{fmtHm(totalMinutes)}</span>
-                  </div>
+                  <Field label="Note" hint="optional" error={errors.note}>
+                    <input
+                      type="text"
+                      className={inputCls}
+                      placeholder="What you worked on (optional)"
+                      value={row.note}
+                      onChange={(e) => updateRow({ note: e.target.value })}
+                    />
+                  </Field>
                 </div>
               )}
             </div>
 
             <div className="space-y-2">
-              <button
-                type="submit"
-                disabled={isPending}
-                className="w-full rounded-md bg-foreground py-2.5 text-sm font-semibold text-background hover:bg-foreground/90 disabled:opacity-50 transition-colors"
-              >
-                {isPending
-                  ? isEdit
-                    ? "Saving…"
-                    : "Logging…"
-                  : isEdit
-                    ? "Save Changes"
-                    : readyRows.length > 0
-                      ? `Log ${readyRows.length} activit${readyRows.length === 1 ? "y" : "ies"} (${fmtHm(totalMinutes)})`
-                      : "Log Business Hours"}
-              </button>
+              {entryOpen ? (
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="w-full rounded-md bg-foreground py-2.5 text-sm font-semibold text-background hover:bg-foreground/90 disabled:opacity-50 transition-colors"
+                >
+                  {isPending
+                    ? isEdit
+                      ? "Saving…"
+                      : "Logging…"
+                    : isEdit
+                      ? "Save Changes"
+                      : rowReady
+                        ? `Log ${row.category} (${fmtHm(rowMins)})`
+                        : "Log Business Hours"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={openAnotherActivity}
+                  disabled={isPending}
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-foreground py-2.5 text-sm font-semibold text-background hover:bg-foreground/90 disabled:opacity-50 transition-colors"
+                >
+                  <Plus className="h-4 w-4" /> Add another activity
+                </button>
+              )}
               <button
                 type="button"
                 onClick={onDone}
