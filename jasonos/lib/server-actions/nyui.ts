@@ -63,7 +63,7 @@ export async function getWeekData(weekStart: string, weekEnd: string): Promise<N
 
 /**
  * All work-search activities across all time, newest first. Powers the
- * "All Applications" history view (grouped by claim week in the client).
+ * "All Activity" history view (grouped by claim week in the client).
  */
 export async function getAllWorkSearches(): Promise<WorkSearch[]> {
   if (!hasConfig()) return [];
@@ -76,6 +76,23 @@ export async function getAllWorkSearches(): Promise<WorkSearch[]> {
     .order("created_at", { ascending: false });
 
   return (data ?? []) as WorkSearch[];
+}
+
+/**
+ * All business-hours entries across all time, newest first. Shown under each
+ * claim week in the All Activity view alongside work searches.
+ */
+export async function getAllBusinessHours(): Promise<BusinessHour[]> {
+  if (!hasConfig()) return [];
+
+  const db = createPublicServiceRoleClient();
+  const { data } = await db
+    .from("business_hours")
+    .select("*")
+    .order("date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  return (data ?? []) as BusinessHour[];
 }
 
 /**
@@ -219,6 +236,46 @@ export async function addBusinessHours(data: {
 
   const db = createPublicServiceRoleClient();
   const { error } = await db.from("business_hours").insert([data]);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/nyui");
+  return { ok: true };
+}
+
+export async function updateBusinessHours(data: {
+  id: string;
+  date: string;
+  entity: string;
+  activity_description: string;
+  hours: number;
+  minutes: number;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+
+  const db = createPublicServiceRoleClient();
+  const { error } = await db
+    .from("business_hours")
+    .update({
+      date: data.date,
+      entity: data.entity,
+      activity_description: data.activity_description,
+      hours: data.hours,
+      minutes: data.minutes,
+    })
+    .eq("id", data.id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/nyui");
+  return { ok: true };
+}
+
+export async function deleteBusinessHours(
+  id: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+
+  const db = createPublicServiceRoleClient();
+  const { error } = await db.from("business_hours").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/nyui");

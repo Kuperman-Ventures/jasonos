@@ -24,6 +24,8 @@ import {
   updateWorkSearch,
   deleteWorkSearch,
   addBusinessHours,
+  updateBusinessHours,
+  deleteBusinessHours,
   getExportData,
   type NyuiWeekData,
   type WorkSearch,
@@ -36,6 +38,14 @@ import {
   type ResumeApplication,
 } from "@/lib/server-actions/resume-applications";
 import { recoverFromStaleServerAction } from "@/lib/client/stale-server-action";
+
+type BusinessHoursPrefill = {
+  date?: string;
+  entity?: string;
+  activity_description?: string;
+  hours?: string;
+  minutes?: string;
+};
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -1721,18 +1731,23 @@ function WorkSearchForm({
 function BusinessHoursForm({
   onSuccess,
   onBack,
+  prefill,
+  editId,
 }: {
   onSuccess: () => void;
   onBack: () => void;
+  prefill?: BusinessHoursPrefill | null;
+  editId?: string | null;
 }) {
+  const isEdit = Boolean(editId);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState({
-    date: todayStr(),
-    entity: "",
-    activity_description: "",
-    hours: "0",
-    minutes: "0",
+    date: prefill?.date ?? todayStr(),
+    entity: prefill?.entity ?? "",
+    activity_description: prefill?.activity_description ?? "",
+    hours: prefill?.hours ?? "0",
+    minutes: prefill?.minutes ?? "0",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
@@ -1768,13 +1783,17 @@ function BusinessHoursForm({
     setServerError(null);
     startTransition(async () => {
       try {
-        const result = await addBusinessHours({
+        const payload = {
           date: form.date,
           entity: form.entity,
           activity_description: form.activity_description.trim(),
           hours: parseInt(form.hours, 10),
           minutes: parseInt(form.minutes, 10),
-        });
+        };
+        const result =
+          isEdit && editId
+            ? await updateBusinessHours({ id: editId, ...payload })
+            : await addBusinessHours(payload);
         if (!result.ok) {
           setServerError(result.error);
           return;
@@ -1797,12 +1816,15 @@ function BusinessHoursForm({
           onClick={onBack}
           className="text-xs text-muted-foreground hover:text-foreground mb-2 flex items-center gap-1"
         >
-          ← Back to Dashboard
+          ← Back
         </button>
-        <h2 className="text-lg font-bold text-foreground">Log Business Hours</h2>
+        <h2 className="text-lg font-bold text-foreground">
+          {isEdit ? "Edit Business Hours" : "Log Business Hours"}
+        </h2>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Record operational work for Kuperman Ventures LLC or Kuperman Advisors LLC. Combined
-          weekly hours must stay under 10.
+          {isEdit
+            ? "Update this Kuperman Ventures or Kuperman Advisors hours entry."
+            : "Record operational work for Kuperman Ventures LLC or Kuperman Advisors LLC. Combined weekly hours must stay under 10."}
         </p>
       </div>
 
@@ -1810,8 +1832,10 @@ function BusinessHoursForm({
         {done ? (
           <div className="py-8 text-center">
             <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto mb-3" />
-            <p className="font-semibold text-foreground">Hours logged successfully</p>
-            <p className="text-sm text-muted-foreground mt-1">Returning to dashboard…</p>
+            <p className="font-semibold text-foreground">
+              {isEdit ? "Hours updated successfully" : "Hours logged successfully"}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">Returning…</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -1877,7 +1901,13 @@ function BusinessHoursForm({
               disabled={isPending}
               className="w-full rounded-md bg-foreground py-2.5 text-sm font-semibold text-background hover:bg-foreground/90 disabled:opacity-50 transition-colors"
             >
-              {isPending ? "Submitting…" : "Log Business Hours"}
+              {isPending
+                ? isEdit
+                  ? "Saving…"
+                  : "Submitting…"
+                : isEdit
+                  ? "Save Changes"
+                  : "Log Business Hours"}
             </button>
           </form>
         )}
@@ -1888,7 +1918,7 @@ function BusinessHoursForm({
 
 // ─── Root Client Component ────────────────────────────────────────────────────
 
-// ─── All Applications (all-time history, grouped by claim week) ─────────────────
+// ─── All Activity (all-time history, grouped by claim week) ────────────────────
 
 function resultVariant(
   result: string
@@ -1899,32 +1929,42 @@ function resultVariant(
   return "neutral";
 }
 
-function AllApplications({
+function AllActivity({
   workSearches,
+  businessHours,
   currentWeekStart,
   onFollowUp,
   onEdit,
   onDelete,
+  onEditHours,
+  onDeleteHours,
   onAddToWeek,
+  onAddHoursToWeek,
   deletingId,
   onNavigate,
 }: {
   workSearches: WorkSearch[];
+  businessHours: BusinessHour[];
   currentWeekStart: string;
   onFollowUp: (ws: WorkSearch) => void;
   onEdit: (ws: WorkSearch) => void;
   onDelete: (ws: WorkSearch) => void;
+  onEditHours: (bh: BusinessHour) => void;
+  onDeleteHours: (bh: BusinessHour) => void;
   onAddToWeek: (weekStart: string) => void;
+  onAddHoursToWeek: (weekStart: string) => void;
   deletingId: string | null;
   onNavigate: (screen: SubScreen) => void;
 }) {
   const [query, setQuery] = useState("");
 
-  const totalActivities = workSearches.length;
+  const totalWorkSearches = workSearches.length;
+  const totalHoursEntries = businessHours.length;
+  const totalActivities = totalWorkSearches + totalHoursEntries;
 
-  // Case-insensitive filter across the meaningful text fields of each activity.
+  // Case-insensitive filter across work searches + business hours.
   const q = query.trim().toLowerCase();
-  const filtered = q
+  const filteredWorkSearches = q
     ? workSearches.filter((ws) =>
         [
           ws.company_name,
@@ -1939,34 +1979,57 @@ function AllApplications({
           .some((field) => String(field).toLowerCase().includes(q))
       )
     : workSearches;
+  const filteredHours = q
+    ? businessHours.filter((bh) =>
+        [bh.entity, bh.activity_description]
+          .filter(Boolean)
+          .some((field) => String(field).toLowerCase().includes(q))
+      )
+    : businessHours;
 
-  // Group the (filtered) activities into their Sunday-start claim week (same
-  // boundary as the dashboard and the audit ledger), newest week first.
-  const weeks = new Map<string, WorkSearch[]>();
-  for (const ws of filtered) {
-    const key = weekRangeOf(ws.date).start;
-    const list = weeks.get(key);
-    if (list) list.push(ws);
-    else weeks.set(key, [ws]);
+  // Group into Sunday-start claim weeks (same boundary as dashboard / audit).
+  // Weeks with only hours (no applications) still appear.
+  type WeekBucket = { workSearches: WorkSearch[]; businessHours: BusinessHour[] };
+  const weeks = new Map<string, WeekBucket>();
+  const ensureWeek = (key: string) => {
+    let bucket = weeks.get(key);
+    if (!bucket) {
+      bucket = { workSearches: [], businessHours: [] };
+      weeks.set(key, bucket);
+    }
+    return bucket;
+  };
+  for (const ws of filteredWorkSearches) {
+    ensureWeek(weekRangeOf(ws.date).start).workSearches.push(ws);
+  }
+  for (const bh of filteredHours) {
+    ensureWeek(weekRangeOf(bh.date).start).businessHours.push(bh);
   }
   const weekKeys = [...weeks.keys()].sort((a, b) => (a < b ? 1 : -1));
 
-  const matchCount = filtered.length;
+  const matchCount = filteredWorkSearches.length + filteredHours.length;
 
   if (totalActivities === 0) {
     return (
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm text-center py-12">
         <Clock className="h-7 w-7 mx-auto mb-2 text-muted-foreground/30" />
-        <p className="text-sm text-muted-foreground">
-          No work search activities logged yet
-        </p>
-        <button
-          type="button"
-          onClick={() => onNavigate("log-work-search")}
-          className="mt-2 text-xs text-foreground underline underline-offset-2"
-        >
-          Log your first activity →
-        </button>
+        <p className="text-sm text-muted-foreground">No activity logged yet</p>
+        <div className="mt-2 flex items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => onNavigate("log-work-search")}
+            className="text-xs text-foreground underline underline-offset-2"
+          >
+            Log work search →
+          </button>
+          <button
+            type="button"
+            onClick={() => onNavigate("log-business-hours")}
+            className="text-xs text-foreground underline underline-offset-2"
+          >
+            Log business hours →
+          </button>
+        </div>
       </div>
     );
   }
@@ -1975,9 +2038,9 @@ function AllApplications({
     <div className="space-y-6">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-bold text-foreground">All Applications</h2>
+          <h2 className="text-lg font-bold text-foreground">All Activity</h2>
           <p className="text-sm text-muted-foreground">
-            Every logged work-search activity, broken out by claim week
+            Work searches and business hours, broken out by claim week
           </p>
         </div>
         <StatusBadge variant="neutral">
@@ -1987,8 +2050,10 @@ function AllApplications({
             </>
           ) : (
             <>
-              {totalActivities} activit{totalActivities !== 1 ? "ies" : "y"} ·{" "}
-              {weekKeys.length} week{weekKeys.length !== 1 ? "s" : ""}
+              {totalWorkSearches} app{totalWorkSearches !== 1 ? "s" : ""} ·{" "}
+              {totalHoursEntries} hours entr
+              {totalHoursEntries !== 1 ? "ies" : "y"} · {weekKeys.length} week
+              {weekKeys.length !== 1 ? "s" : ""}
             </>
           )}
         </StatusBadge>
@@ -2000,9 +2065,9 @@ function AllApplications({
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search applications…"
+          placeholder="Search activity…"
           className="h-9 pl-8"
-          aria-label="Search applications"
+          aria-label="Search activity"
         />
       </div>
 
@@ -2010,7 +2075,7 @@ function AllApplications({
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm text-center py-12">
           <Search className="h-7 w-7 mx-auto mb-2 text-muted-foreground/30" />
           <p className="text-sm text-muted-foreground">
-            No applications match &ldquo;{query.trim()}&rdquo;
+            No activity matches &ldquo;{query.trim()}&rdquo;
           </p>
           <button
             type="button"
@@ -2023,19 +2088,24 @@ function AllApplications({
       ) : null}
 
       {weekKeys.map((key) => {
-        const items = weeks.get(key)!;
-        const { start, end } = weekRangeOf(items[0].date);
+        const bucket = weeks.get(key)!;
+        const items = bucket.workSearches;
+        const hours = bucket.businessHours;
+        const { start, end } = weekRangeOf(key);
         const uniqueDays = new Set(items.map((w) => w.date)).size;
         const goalMet = uniqueDays >= 3;
         const tierA = items.filter((w) => tierOf(w) === "employer_contact").length;
         const tierB = items.filter((w) => tierOf(w) === "networking").length;
+        const hoursMins = hours.reduce((s, e) => s + entryMins(e), 0);
         const isCurrent = start === currentWeekStart;
 
-        // Chronological within the week; "↳ same day" for repeats on a date.
         const byDate = items.reduce<Record<string, WorkSearch[]>>((acc, ws) => {
           acc[ws.date] = acc[ws.date] ? [...acc[ws.date], ws] : [ws];
           return acc;
         }, {});
+        const hoursByDate = hours
+          .slice()
+          .sort((a, b) => a.date.localeCompare(b.date) || a.created_at.localeCompare(b.created_at));
 
         const startShort = new Date(start + "T12:00:00").toLocaleDateString("en-US", {
           month: "short",
@@ -2060,98 +2130,189 @@ function AllApplications({
                   )}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {items.length} activit{items.length !== 1 ? "ies" : "y"} ·{" "}
-                  Tier A {tierA} · Tier B {tierB}
+                  {items.length} work search{items.length !== 1 ? "es" : ""} · Tier A {tierA} ·
+                  Tier B {tierB}
+                  {hoursMins > 0 ? ` · ${fmtHm(hoursMins)} business hours` : ""}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                {goalMet ? (
-                  <StatusBadge variant="success">
-                    <CheckCircle2 className="h-3 w-3" /> Goal Met
-                  </StatusBadge>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {items.length > 0 ? (
+                  goalMet ? (
+                    <StatusBadge variant="success">
+                      <CheckCircle2 className="h-3 w-3" /> Goal Met
+                    </StatusBadge>
+                  ) : (
+                    <StatusBadge variant={uniqueDays >= 2 ? "warning" : "neutral"}>
+                      {uniqueDays} / 3 days
+                    </StatusBadge>
+                  )
                 ) : (
-                  <StatusBadge variant={uniqueDays >= 2 ? "warning" : "neutral"}>
-                    {uniqueDays} / 3 days
-                  </StatusBadge>
+                  <StatusBadge variant="neutral">Hours only</StatusBadge>
                 )}
                 <button
                   type="button"
                   onClick={() => onAddToWeek(start)}
                   className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium text-foreground hover:bg-muted/80"
                 >
-                  <Plus className="h-3 w-3" /> Add to this week
+                  <Plus className="h-3 w-3" /> Add application
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onAddHoursToWeek(start)}
+                  className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium text-foreground hover:bg-muted/80"
+                >
+                  <Plus className="h-3 w-3" /> Add hours
                 </button>
               </div>
             </div>
 
-            <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
-              {Object.keys(byDate)
-                .sort()
-                .map((date) =>
-                  byDate[date].map((ws, i) => (
-                    <div
-                      key={ws.id}
-                      className="grid grid-cols-[104px_1fr_auto] gap-3 px-3 py-2.5 text-sm items-start"
-                    >
-                      <span
-                        className={`font-medium tabular-nums text-xs pt-0.5 ${
-                          i > 0 ? "text-muted-foreground/40" : "text-muted-foreground"
-                        }`}
-                      >
-                        {i === 0 ? fmtDate(date) : "↳ same day"}
-                      </span>
-                      <div>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <p className="font-medium text-foreground leading-snug">
-                            {ws.company_name}
-                          </p>
-                          <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
-                            {TIER_SHORT[tierOf(ws)]}
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {ws.position_applied} · {ws.contact_method}
-                        </p>
-                        {ws.outcome_next_step && (
-                          <p className="text-xs text-muted-foreground/80 mt-0.5">
-                            ↳ {ws.outcome_next_step}
-                            {ws.next_contact_date
-                              ? ` (next: ${fmtDate(ws.next_contact_date)})`
-                              : ""}
-                          </p>
-                        )}
-                        <div className="mt-1 flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => onEdit(ws)}
-                            className="inline-flex items-center gap-1 text-[11px] text-foreground/70 hover:text-foreground underline underline-offset-2"
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  Work Searches ({items.length})
+                </h4>
+                {items.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic px-1">
+                    No work searches this week.
+                  </p>
+                ) : (
+                  <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
+                    {Object.keys(byDate)
+                      .sort()
+                      .map((date) =>
+                        byDate[date].map((ws, i) => (
+                          <div
+                            key={ws.id}
+                            className="grid grid-cols-[104px_1fr_auto] gap-3 px-3 py-2.5 text-sm items-start"
                           >
-                            <Pencil className="h-3 w-3" /> Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onFollowUp(ws)}
-                            className="inline-flex items-center gap-1 text-[11px] text-foreground/70 hover:text-foreground underline underline-offset-2"
-                          >
-                            <Plus className="h-3 w-3" /> Add follow-up
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onDelete(ws)}
-                            disabled={deletingId === ws.id}
-                            className="inline-flex items-center gap-1 text-[11px] text-destructive/80 hover:text-destructive underline underline-offset-2 disabled:opacity-50"
-                          >
-                            <Trash2 className="h-3 w-3" />{" "}
-                            {deletingId === ws.id ? "Deleting…" : "Delete"}
-                          </button>
-                        </div>
-                      </div>
-                      <StatusBadge variant={resultVariant(ws.result)}>
-                        {ws.result}
-                      </StatusBadge>
-                    </div>
-                  ))
+                            <span
+                              className={`font-medium tabular-nums text-xs pt-0.5 ${
+                                i > 0
+                                  ? "text-muted-foreground/40"
+                                  : "text-muted-foreground"
+                              }`}
+                            >
+                              {i === 0 ? fmtDate(date) : "↳ same day"}
+                            </span>
+                            <div>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <p className="font-medium text-foreground leading-snug">
+                                  {ws.company_name}
+                                </p>
+                                <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                  {TIER_SHORT[tierOf(ws)]}
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {ws.position_applied} · {ws.contact_method}
+                              </p>
+                              {ws.outcome_next_step && (
+                                <p className="text-xs text-muted-foreground/80 mt-0.5">
+                                  ↳ {ws.outcome_next_step}
+                                  {ws.next_contact_date
+                                    ? ` (next: ${fmtDate(ws.next_contact_date)})`
+                                    : ""}
+                                </p>
+                              )}
+                              <div className="mt-1 flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => onEdit(ws)}
+                                  className="inline-flex items-center gap-1 text-[11px] text-foreground/70 hover:text-foreground underline underline-offset-2"
+                                >
+                                  <Pencil className="h-3 w-3" /> Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => onFollowUp(ws)}
+                                  className="inline-flex items-center gap-1 text-[11px] text-foreground/70 hover:text-foreground underline underline-offset-2"
+                                >
+                                  <Plus className="h-3 w-3" /> Add follow-up
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => onDelete(ws)}
+                                  disabled={deletingId === ws.id}
+                                  className="inline-flex items-center gap-1 text-[11px] text-destructive/80 hover:text-destructive underline underline-offset-2 disabled:opacity-50"
+                                >
+                                  <Trash2 className="h-3 w-3" />{" "}
+                                  {deletingId === ws.id ? "Deleting…" : "Delete"}
+                                </button>
+                              </div>
+                            </div>
+                            <StatusBadge variant={resultVariant(ws.result)}>
+                              {ws.result}
+                            </StatusBadge>
+                          </div>
+                        ))
+                      )}
+                  </div>
                 )}
+              </div>
+
+              <div>
+                <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  Business Hours ({hours.length}
+                  {hoursMins > 0 ? ` · ${fmtHm(hoursMins)}` : ""})
+                </h4>
+                {hours.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic px-1">
+                    No business hours this week.
+                  </p>
+                ) : (
+                  <div className="divide-y divide-border rounded-lg border border-border overflow-hidden">
+                    {hoursByDate.map((bh, i) => {
+                      const prevDate = i > 0 ? hoursByDate[i - 1].date : null;
+                      const sameDay = prevDate === bh.date;
+                      return (
+                        <div
+                          key={bh.id}
+                          className="grid grid-cols-[104px_1fr_auto] gap-3 px-3 py-2.5 text-sm items-start"
+                        >
+                          <span
+                            className={`font-medium tabular-nums text-xs pt-0.5 ${
+                              sameDay
+                                ? "text-muted-foreground/40"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            {sameDay ? "↳ same day" : fmtDate(bh.date)}
+                          </span>
+                          <div>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <p className="font-medium text-foreground leading-snug">
+                                {bh.entity}
+                              </p>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {bh.activity_description}
+                            </p>
+                            <div className="mt-1 flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => onEditHours(bh)}
+                                className="inline-flex items-center gap-1 text-[11px] text-foreground/70 hover:text-foreground underline underline-offset-2"
+                              >
+                                <Pencil className="h-3 w-3" /> Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => onDeleteHours(bh)}
+                                disabled={deletingId === bh.id}
+                                className="inline-flex items-center gap-1 text-[11px] text-destructive/80 hover:text-destructive underline underline-offset-2 disabled:opacity-50"
+                              >
+                                <Trash2 className="h-3 w-3" />{" "}
+                                {deletingId === bh.id ? "Deleting…" : "Delete"}
+                              </button>
+                            </div>
+                          </div>
+                          <StatusBadge variant="neutral">{fmtHm(entryMins(bh))}</StatusBadge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         );
@@ -2162,13 +2323,13 @@ function AllApplications({
 
 type SubScreen =
   | "dashboard"
-  | "all-applications"
+  | "all-activity"
   | "log-work-search"
   | "log-business-hours";
 
 const SUB_NAV: { id: SubScreen; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
-  { id: "all-applications", label: "All Applications" },
+  { id: "all-activity", label: "All Activity" },
   { id: "log-work-search", label: "Log Work Search" },
   { id: "log-business-hours", label: "Log Business Hours" },
 ];
@@ -2178,26 +2339,34 @@ export function NyuiClient({
   weekStart,
   weekEnd,
   allWorkSearches,
+  allBusinessHours = [],
   applicationQueue = [],
 }: {
   initialData: NyuiWeekData;
   weekStart: string;
   weekEnd: string;
   allWorkSearches: WorkSearch[];
+  allBusinessHours?: BusinessHour[];
   applicationQueue?: ResumeApplication[];
 }) {
   const router = useRouter();
   const [subScreen, setSubScreen] = useState<SubScreen>("dashboard");
   const [wsPrefill, setWsPrefill] = useState<WorkSearchPrefill | null>(null);
   const [wsEditId, setWsEditId] = useState<string | null>(null);
+  const [bhPrefill, setBhPrefill] = useState<BusinessHoursPrefill | null>(null);
+  const [bhEditId, setBhEditId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [, startDelete] = useTransition();
 
-  // Tab navigation always starts a fresh (non-prefilled) work-search log.
+  // Tab navigation always starts a fresh (non-prefilled) form for that tab.
   function goToScreen(screen: SubScreen) {
     if (screen === "log-work-search") {
       setWsPrefill(null);
       setWsEditId(null);
+    }
+    if (screen === "log-business-hours") {
+      setBhPrefill(null);
+      setBhEditId(null);
     }
     setSubScreen(screen);
   }
@@ -2205,7 +2374,13 @@ export function NyuiClient({
   function resetWorkSearchForm() {
     setWsPrefill(null);
     setWsEditId(null);
-    setSubScreen("dashboard");
+    setSubScreen("all-activity");
+  }
+
+  function resetBusinessHoursForm() {
+    setBhPrefill(null);
+    setBhEditId(null);
+    setSubScreen("all-activity");
   }
 
   // "Add follow-up" (Gap 4): pre-fill employer details + link to the parent.
@@ -2223,8 +2398,7 @@ export function NyuiClient({
     setSubScreen("log-work-search");
   }
 
-  // "Edit" from the All Applications history: load the whole row into the same
-  // work-search form; saving updates the entry in place.
+  // "Edit" from All Activity: load the whole row into the same form.
   function handleEdit(ws: WorkSearch) {
     setWsEditId(ws.id);
     setWsPrefill({
@@ -2240,6 +2414,18 @@ export function NyuiClient({
       next_contact_date: ws.next_contact_date ?? "",
     });
     setSubScreen("log-work-search");
+  }
+
+  function handleEditHours(bh: BusinessHour) {
+    setBhEditId(bh.id);
+    setBhPrefill({
+      date: bh.date,
+      entity: bh.entity,
+      activity_description: bh.activity_description,
+      hours: String(bh.hours),
+      minutes: String(bh.minutes),
+    });
+    setSubScreen("log-business-hours");
   }
 
   // "Log application" from a customized resume: prefill the work-search form
@@ -2265,15 +2451,19 @@ export function NyuiClient({
     });
   }
 
-  // "Add to this week": start a fresh log pre-dated into the chosen claim week
-  // (Sunday start); the user can pick the exact day in the form.
+  // "Add application / hours to this week": pre-date into the claim week.
   function handleAddToWeek(weekStart: string) {
     setWsEditId(null);
     setWsPrefill({ date: weekStart });
     setSubScreen("log-work-search");
   }
 
-  // Remove an entire activity (with confirmation), then refresh server data.
+  function handleAddHoursToWeek(weekStart: string) {
+    setBhEditId(null);
+    setBhPrefill({ date: weekStart });
+    setSubScreen("log-business-hours");
+  }
+
   function handleDelete(ws: WorkSearch) {
     const label = `${ws.company_name} — ${fmtDate(ws.date)}`;
     if (!window.confirm(`Delete this work-search entry?\n\n${label}\n\nThis can't be undone.`)) {
@@ -2281,13 +2471,46 @@ export function NyuiClient({
     }
     setDeletingId(ws.id);
     startDelete(async () => {
-      const res = await deleteWorkSearch(ws.id);
-      setDeletingId(null);
-      if (!res.ok) {
-        window.alert(`Could not delete: ${res.error}`);
-        return;
+      try {
+        const res = await deleteWorkSearch(ws.id);
+        setDeletingId(null);
+        if (!res.ok) {
+          window.alert(`Could not delete: ${res.error}`);
+          return;
+        }
+        router.refresh();
+      } catch (err) {
+        setDeletingId(null);
+        if (recoverFromStaleServerAction(err)) return;
+        window.alert(err instanceof Error ? err.message : "Could not delete");
       }
-      router.refresh();
+    });
+  }
+
+  function handleDeleteHours(bh: BusinessHour) {
+    const label = `${bh.entity} — ${fmtDate(bh.date)} · ${fmtHm(entryMins(bh))}`;
+    if (
+      !window.confirm(
+        `Delete this business-hours entry?\n\n${label}\n\n${bh.activity_description}\n\nThis can't be undone.`
+      )
+    ) {
+      return;
+    }
+    setDeletingId(bh.id);
+    startDelete(async () => {
+      try {
+        const res = await deleteBusinessHours(bh.id);
+        setDeletingId(null);
+        if (!res.ok) {
+          window.alert(`Could not delete: ${res.error}`);
+          return;
+        }
+        router.refresh();
+      } catch (err) {
+        setDeletingId(null);
+        if (recoverFromStaleServerAction(err)) return;
+        window.alert(err instanceof Error ? err.message : "Could not delete");
+      }
     });
   }
 
@@ -2336,21 +2559,25 @@ export function NyuiClient({
           onDismissApplication={handleDismissApplication}
         />
       )}
-      {subScreen === "all-applications" && (
-        <AllApplications
+      {subScreen === "all-activity" && (
+        <AllActivity
           workSearches={allWorkSearches}
+          businessHours={allBusinessHours}
           currentWeekStart={weekStart}
           onFollowUp={handleFollowUp}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          onEditHours={handleEditHours}
+          onDeleteHours={handleDeleteHours}
           onAddToWeek={handleAddToWeek}
+          onAddHoursToWeek={handleAddHoursToWeek}
           deletingId={deletingId}
           onNavigate={goToScreen}
         />
       )}
       {subScreen === "log-work-search" && (
         <WorkSearchForm
-          key={wsEditId ?? "new"}
+          key={wsEditId ?? "new-ws"}
           prefill={wsPrefill}
           editId={wsEditId}
           onSuccess={resetWorkSearchForm}
@@ -2359,8 +2586,11 @@ export function NyuiClient({
       )}
       {subScreen === "log-business-hours" && (
         <BusinessHoursForm
-          onSuccess={() => setSubScreen("dashboard")}
-          onBack={() => setSubScreen("dashboard")}
+          key={bhEditId ?? "new-bh"}
+          prefill={bhPrefill}
+          editId={bhEditId}
+          onSuccess={resetBusinessHoursForm}
+          onBack={resetBusinessHoursForm}
         />
       )}
     </section>
