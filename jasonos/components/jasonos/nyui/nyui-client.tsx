@@ -231,6 +231,22 @@ function entryMins(e: BusinessHour) {
   return e.hours * 60 + e.minutes;
 }
 
+function shortEntity(entity: string) {
+  if (entity.includes("Ventures")) return "Ventures";
+  if (entity.includes("Advisors")) return "Advisors";
+  return entity;
+}
+
+function hoursFingerprint(e: {
+  entity: string;
+  activity_category: string | null | undefined;
+  activity_description: string;
+  hours: number;
+  minutes: number;
+}) {
+  return `${e.entity}|${e.activity_category ?? ""}|${e.activity_description}|${e.hours}|${e.minutes}`;
+}
+
 function fmtHm(totalMinutes: number) {
   const h = Math.floor(totalMinutes / 60);
   const m = totalMinutes % 60;
@@ -1786,6 +1802,7 @@ function BusinessHoursForm({
   onBack,
   prefill,
   editId,
+  existingHours = [],
 }: {
   /** Stay on the form after a save so more activities can be added. */
   onContinueAfterSave: (ctx: { date: string; entity: string }) => void;
@@ -1794,6 +1811,8 @@ function BusinessHoursForm({
   onBack: () => void;
   prefill?: BusinessHoursPrefill | null;
   editId?: string | null;
+  /** All saved business-hours rows — filtered in-form by the selected date. */
+  existingHours?: BusinessHour[];
 }) {
   const isEdit = Boolean(editId);
   const router = useRouter();
@@ -1818,6 +1837,44 @@ function BusinessHoursForm({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  /** Just-saved rows shown immediately until router.refresh() catches up. */
+  const [optimisticDay, setOptimisticDay] = useState<BusinessHour[]>([]);
+
+  const serverForDay = existingHours.filter(
+    (h) => h.date === date && (!editId || h.id !== editId)
+  );
+  const serverPrints = new Set(serverForDay.map(hoursFingerprint));
+  const pendingOptimistic = optimisticDay.filter(
+    (o) => o.date === date && !serverPrints.has(hoursFingerprint(o))
+  );
+  const dayBlocks = [...pendingOptimistic, ...serverForDay].sort((a, b) =>
+    b.created_at.localeCompare(a.created_at)
+  );
+  const dayTotalMins = dayBlocks.reduce((sum, h) => sum + entryMins(h), 0);
+
+  function rememberSaved(payloads: {
+    date: string;
+    entity: string;
+    activity_category: string;
+    activity_description: string;
+    hours: number;
+    minutes: number;
+  }[]) {
+    const now = Date.now();
+    setOptimisticDay((prev) => [
+      ...payloads.map((p, i) => ({
+        id: `opt-${now}-${i}`,
+        date: p.date,
+        entity: p.entity,
+        activity_category: p.activity_category,
+        activity_description: p.activity_description,
+        hours: p.hours,
+        minutes: p.minutes,
+        created_at: new Date(now + i).toISOString(),
+      })),
+      ...prev,
+    ]);
+  }
 
   const readyRows = rows
     .map((row) => {
@@ -1925,6 +1982,7 @@ function BusinessHoursForm({
             return;
           }
           // Keep the form open so more activities can be added for this day.
+          rememberSaved([only]);
           setSaveNotice(
             `Saved ${only.activity_category} · ${fmtHm(only.hours * 60 + only.minutes)}. Add more activities below.`
           );
@@ -1939,6 +1997,7 @@ function BusinessHoursForm({
           setServerError(result.error);
           return;
         }
+        rememberSaved(payloads);
         setSaveNotice(
           `Logged ${result.count} activit${result.count === 1 ? "y" : "ies"} · ${fmtHm(totalMinutes)}. Add more below, or tap Done.`
         );
@@ -2030,6 +2089,55 @@ function BusinessHoursForm({
                   </StatusBadge>
                 )}
               </div>
+
+              {dayBlocks.length > 0 ? (
+                <div className="rounded-lg border border-border bg-background px-3 py-2.5 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Already logged · {fmtDate(date)}
+                    </p>
+                    <span className="text-xs font-semibold tabular-nums text-foreground">
+                      {fmtHm(dayTotalMins)}
+                    </span>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {dayBlocks.map((block) => {
+                      const note =
+                        block.activity_description &&
+                        block.activity_description !== block.activity_category
+                          ? block.activity_description
+                          : null;
+                      return (
+                        <li
+                          key={block.id}
+                          className="flex items-start justify-between gap-3 text-sm"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="font-medium text-foreground truncate">
+                                {block.activity_category || block.activity_description}
+                              </span>
+                              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                                {shortEntity(block.entity)}
+                              </span>
+                            </div>
+                            {note && (
+                              <p className="text-xs text-muted-foreground truncate">{note}</p>
+                            )}
+                          </div>
+                          <span className="tabular-nums font-medium text-foreground shrink-0">
+                            {fmtHm(entryMins(block))}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-dashed border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                  Nothing logged yet for {fmtDate(date)}. New blocks will show up here.
+                </div>
+              )}
 
               {errors.rows && (
                 <p className="text-xs text-destructive bg-destructive/10 border border-destructive/30 rounded px-3 py-2">
@@ -2907,6 +3015,7 @@ export function NyuiClient({
           key={bhFormMountKey}
           prefill={bhPrefill}
           editId={bhEditId}
+          existingHours={allBusinessHours}
           onContinueAfterSave={continueBusinessHoursAfterSave}
           onDone={resetBusinessHoursForm}
           onBack={resetBusinessHoursForm}
