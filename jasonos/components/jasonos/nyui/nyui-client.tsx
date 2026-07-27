@@ -1796,26 +1796,36 @@ function BusinessHoursForm({
   const [isPending, startTransition] = useTransition();
   const [date, setDate] = useState(prefill?.date ?? todayStr());
   const [entity, setEntity] = useState(prefill?.entity ?? "");
-  // Edit mode uses a single row; create mode supports a multi-category breakdown.
-  const [rows, setRows] = useState<BreakdownRow[]>(() => [
-    newBreakdownRow({
-      category: prefill?.activity_category ?? "",
-      hours: prefill?.hours ?? "0",
-      minutes: prefill?.minutes ?? "0",
-      note: prefill?.activity_description ?? "",
-    }),
-  ]);
+  // Edit = one row. Create starts with two activity slots so logging
+  // e.g. 1h Emails + 2h Meetings is obvious without hunting for "add".
+  const [rows, setRows] = useState<BreakdownRow[]>(() => {
+    if (isEdit || prefill?.activity_category || prefill?.hours || prefill?.minutes) {
+      return [
+        newBreakdownRow({
+          category: prefill?.activity_category ?? "",
+          hours: prefill?.hours ?? "0",
+          minutes: prefill?.minutes ?? "0",
+          note: prefill?.activity_description ?? "",
+        }),
+      ];
+    }
+    return [newBreakdownRow(), newBreakdownRow()];
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
 
-  const totalMinutes = rows.reduce((sum, row) => {
-    const h = parseInt(row.hours, 10);
-    const m = parseInt(row.minutes, 10);
-    if (isNaN(h) || isNaN(m)) return sum;
-    return sum + h * 60 + m;
-  }, 0);
+  const readyRows = rows
+    .map((row) => {
+      const hours = parseInt(row.hours, 10) || 0;
+      const minutes = parseInt(row.minutes, 10) || 0;
+      if (!row.category || (hours === 0 && minutes === 0)) return null;
+      return { ...row, hours, minutes, mins: hours * 60 + minutes };
+    })
+    .filter((r): r is NonNullable<typeof r> => r !== null);
+
+  const totalMinutes = readyRows.reduce((sum, row) => sum + row.mins, 0);
 
   function updateRow(key: string, patch: Partial<BreakdownRow>) {
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
@@ -1844,7 +1854,7 @@ function BusinessHoursForm({
       return h > 0 || m > 0 || r.category || r.note.trim();
     });
     if (filled.length === 0) {
-      e.rows = "Add time for at least one category.";
+      e.rows = "Add at least one activity with a category and time.";
       return e;
     }
 
@@ -1940,7 +1950,7 @@ function BusinessHoursForm({
         <p className="text-sm text-muted-foreground mt-0.5">
           {isEdit
             ? "Update this hours entry. Category, time, and optional note."
-            : "Break the day into categories (Materials, Emails, Meetings, etc.). Combined weekly hours must stay under 10."}
+            : "Log several activities in one go — e.g. 1h Emails + 2h Meetings. Combined weekly hours must stay under 10."}
         </p>
       </div>
 
@@ -1951,7 +1961,7 @@ function BusinessHoursForm({
             <p className="font-semibold text-foreground">
               {isEdit
                 ? "Hours updated successfully"
-                : `Logged ${savedCount} categor${savedCount === 1 ? "y" : "ies"} · ${fmtHm(totalMinutes)}`}
+                : `Logged ${savedCount} activit${savedCount === 1 ? "y" : "ies"} · ${fmtHm(totalMinutes)}`}
             </p>
             <p className="text-sm text-muted-foreground mt-1">Returning…</p>
           </div>
@@ -1989,19 +1999,22 @@ function BusinessHoursForm({
             </div>
 
             <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium text-foreground">
-                    {isEdit ? "Category & time" : "Hourly breakdown"}
+                    {isEdit ? "Activity" : "Activities"}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {isEdit
                       ? "Pick the category and how long you spent."
-                      : "Add one row per category. Use the quick chips for common durations."}
+                      : "Each row is its own activity with its own time. Leave unused rows blank."}
                   </p>
                 </div>
                 {!isEdit && (
-                  <StatusBadge variant="neutral">{fmtHm(totalMinutes)} total</StatusBadge>
+                  <StatusBadge variant="neutral">
+                    {readyRows.length} activit{readyRows.length === 1 ? "y" : "ies"} ·{" "}
+                    {fmtHm(totalMinutes)}
+                  </StatusBadge>
                 )}
               </div>
 
@@ -2022,7 +2035,7 @@ function BusinessHoursForm({
                     >
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                          {isEdit ? "Entry" : `Category ${index + 1}`}
+                          {isEdit ? "Entry" : `Activity ${index + 1}`}
                         </p>
                         {!isEdit && rows.length > 1 && (
                           <button
@@ -2050,7 +2063,7 @@ function BusinessHoursForm({
                         </select>
                       </Field>
 
-                      <Field label="Time" required error={timeErr}>
+                      <Field label="Time for this activity" required error={timeErr}>
                         <div className="space-y-2">
                           <div className="flex flex-wrap gap-1.5">
                             {DURATION_PRESETS.map((p) => {
@@ -2122,10 +2135,35 @@ function BusinessHoursForm({
                 <button
                   type="button"
                   onClick={addRow}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted px-3 py-2 text-xs font-medium text-foreground hover:bg-muted/80"
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border bg-muted/40 px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted"
                 >
-                  <Plus className="h-3.5 w-3.5" /> Add another category
+                  <Plus className="h-4 w-4" /> Add another activity
                 </button>
+              )}
+
+              {!isEdit && readyRows.length > 0 && (
+                <div className="rounded-lg border border-border bg-background px-3 py-2.5 space-y-1.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Ready to log
+                  </p>
+                  <ul className="space-y-1">
+                    {readyRows.map((row) => (
+                      <li
+                        key={row.key}
+                        className="flex items-center justify-between gap-3 text-sm"
+                      >
+                        <span className="text-foreground truncate">{row.category}</span>
+                        <span className="tabular-nums font-medium text-foreground shrink-0">
+                          {fmtHm(row.mins)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex items-center justify-between border-t border-border pt-1.5 text-sm font-semibold">
+                    <span>Total</span>
+                    <span className="tabular-nums">{fmtHm(totalMinutes)}</span>
+                  </div>
+                </div>
               )}
             </div>
 
@@ -2140,8 +2178,8 @@ function BusinessHoursForm({
                   : "Logging…"
                 : isEdit
                   ? "Save Changes"
-                  : totalMinutes > 0
-                    ? `Log ${fmtHm(totalMinutes)}`
+                  : readyRows.length > 0
+                    ? `Log ${readyRows.length} activit${readyRows.length === 1 ? "y" : "ies"} (${fmtHm(totalMinutes)})`
                     : "Log Business Hours"}
             </button>
           </form>
