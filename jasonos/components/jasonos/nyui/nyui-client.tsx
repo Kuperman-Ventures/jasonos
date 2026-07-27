@@ -35,6 +35,7 @@ import {
   markResumeApplicationLogged,
   type ResumeApplication,
 } from "@/lib/server-actions/resume-applications";
+import { recoverFromStaleServerAction } from "@/lib/client/stale-server-action";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -728,6 +729,7 @@ function ExportModal({
       URL.revokeObjectURL(url);
       onClose();
     } catch (err) {
+      if (recoverFromStaleServerAction(err)) return;
       setError(err instanceof Error ? err.message : "Export failed");
     } finally {
       setLoading(false);
@@ -787,6 +789,7 @@ function ExportModal({
       onClose();
     } catch (err) {
       if (placeholder && !placeholder.closed) placeholder.close();
+      if (recoverFromStaleServerAction(err)) return;
       setError(err instanceof Error ? err.message : "Ledger generation failed");
     } finally {
       setLoading(false);
@@ -1485,33 +1488,38 @@ function WorkSearchForm({
     setErrors({});
     setServerError(null);
     startTransition(async () => {
-      const payload = {
-        date: form.date,
-        company_name: form.company_name.trim(),
-        company_location: form.company_location.trim(),
-        contact_method: form.contact_method,
-        contact_person: form.contact_person.trim() || null,
-        position_applied: form.position_applied.trim(),
-        result: form.result,
-        activity_tier: form.activity_tier || deriveTier(form.contact_method),
-        outcome_next_step: form.outcome_next_step.trim() || null,
-        next_contact_date: form.next_contact_date || null,
-      };
-      const result =
-        isEdit && editId
-          ? await updateWorkSearch({ id: editId, ...payload })
-          : await addWorkSearch({ ...payload, parent_activity_id: parentActivityId });
-      if (!result.ok) {
-        setServerError(result.error);
-        return;
+      try {
+        const payload = {
+          date: form.date,
+          company_name: form.company_name.trim(),
+          company_location: form.company_location.trim(),
+          contact_method: form.contact_method,
+          contact_person: form.contact_person.trim() || null,
+          position_applied: form.position_applied.trim(),
+          result: form.result,
+          activity_tier: form.activity_tier || deriveTier(form.contact_method),
+          outcome_next_step: form.outcome_next_step.trim() || null,
+          next_contact_date: form.next_contact_date || null,
+        };
+        const result =
+          isEdit && editId
+            ? await updateWorkSearch({ id: editId, ...payload })
+            : await addWorkSearch({ ...payload, parent_activity_id: parentActivityId });
+        if (!result.ok) {
+          setServerError(result.error);
+          return;
+        }
+        // If this came from a customized resume, drop it from the "to log" queue.
+        if (!isEdit && customizationId) {
+          await markResumeApplicationLogged(customizationId);
+        }
+        setDone(true);
+        router.refresh();
+        setTimeout(onSuccess, 1000);
+      } catch (err) {
+        if (recoverFromStaleServerAction(err)) return;
+        setServerError(err instanceof Error ? err.message : "Save failed");
       }
-      // If this came from a customized resume, drop it from the "to log" queue.
-      if (!isEdit && customizationId) {
-        await markResumeApplicationLogged(customizationId);
-      }
-      setDone(true);
-      router.refresh();
-      setTimeout(onSuccess, 1000);
     });
   }
 
@@ -1759,20 +1767,25 @@ function BusinessHoursForm({
     setErrors({});
     setServerError(null);
     startTransition(async () => {
-      const result = await addBusinessHours({
-        date: form.date,
-        entity: form.entity,
-        activity_description: form.activity_description.trim(),
-        hours: parseInt(form.hours, 10),
-        minutes: parseInt(form.minutes, 10),
-      });
-      if (!result.ok) {
-        setServerError(result.error);
-        return;
+      try {
+        const result = await addBusinessHours({
+          date: form.date,
+          entity: form.entity,
+          activity_description: form.activity_description.trim(),
+          hours: parseInt(form.hours, 10),
+          minutes: parseInt(form.minutes, 10),
+        });
+        if (!result.ok) {
+          setServerError(result.error);
+          return;
+        }
+        setDone(true);
+        router.refresh();
+        setTimeout(onSuccess, 1000);
+      } catch (err) {
+        if (recoverFromStaleServerAction(err)) return;
+        setServerError(err instanceof Error ? err.message : "Save failed");
       }
-      setDone(true);
-      router.refresh();
-      setTimeout(onSuccess, 1000);
     });
   }
 
