@@ -1781,12 +1781,16 @@ function WorkSearchForm({
 // ─── Business Hours Form ──────────────────────────────────────────────────────
 
 function BusinessHoursForm({
-  onSuccess,
+  onContinueAfterSave,
+  onDone,
   onBack,
   prefill,
   editId,
 }: {
-  onSuccess: () => void;
+  /** Stay on the form after a save so more activities can be added. */
+  onContinueAfterSave: (ctx: { date: string; entity: string }) => void;
+  /** Leave the form and return to All Activity. */
+  onDone: () => void;
   onBack: () => void;
   prefill?: BusinessHoursPrefill | null;
   editId?: string | null;
@@ -1813,8 +1817,7 @@ function BusinessHoursForm({
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
-  const [savedCount, setSavedCount] = useState(0);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
   const readyRows = rows
     .map((row) => {
@@ -1875,6 +1878,12 @@ function BusinessHoursForm({
     return e;
   }
 
+  function resetRowsForMore() {
+    setRows([newBreakdownRow(), newBreakdownRow()]);
+    setErrors({});
+    setServerError(null);
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const errs = validate();
@@ -1915,18 +1924,27 @@ function BusinessHoursForm({
             setServerError(result.error);
             return;
           }
-          setSavedCount(1);
-        } else {
-          const result = await addBusinessHoursBatch(payloads);
-          if (!result.ok) {
-            setServerError(result.error);
-            return;
-          }
-          setSavedCount(result.count);
+          // Keep the form open so more activities can be added for this day.
+          setSaveNotice(
+            `Saved ${only.activity_category} · ${fmtHm(only.hours * 60 + only.minutes)}. Add more activities below.`
+          );
+          resetRowsForMore();
+          router.refresh();
+          onContinueAfterSave({ date, entity });
+          return;
         }
-        setDone(true);
+
+        const result = await addBusinessHoursBatch(payloads);
+        if (!result.ok) {
+          setServerError(result.error);
+          return;
+        }
+        setSaveNotice(
+          `Logged ${result.count} activit${result.count === 1 ? "y" : "ies"} · ${fmtHm(totalMinutes)}. Add more below, or tap Done.`
+        );
+        resetRowsForMore();
         router.refresh();
-        setTimeout(onSuccess, 1000);
+        onContinueAfterSave({ date, entity });
       } catch (err) {
         if (recoverFromStaleServerAction(err)) return;
         setServerError(err instanceof Error ? err.message : "Save failed");
@@ -1949,24 +1967,19 @@ function BusinessHoursForm({
         </h2>
         <p className="text-sm text-muted-foreground mt-0.5">
           {isEdit
-            ? "Update this hours entry. Category, time, and optional note."
+            ? "Update this entry, then you can keep adding more activities for the same day."
             : "Log several activities in one go — e.g. 1h Emails + 2h Meetings. Combined weekly hours must stay under 10."}
         </p>
       </div>
 
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
-        {done ? (
-          <div className="py-8 text-center">
-            <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto mb-3" />
-            <p className="font-semibold text-foreground">
-              {isEdit
-                ? "Hours updated successfully"
-                : `Logged ${savedCount} activit${savedCount === 1 ? "y" : "ies"} · ${fmtHm(totalMinutes)}`}
-            </p>
-            <p className="text-sm text-muted-foreground mt-1">Returning…</p>
-          </div>
-        ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
+            {saveNotice && (
+              <div className="rounded-md bg-green-500/10 border border-green-500/30 px-3 py-2 text-sm text-green-400 flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>{saveNotice}</span>
+              </div>
+            )}
             {serverError && (
               <div className="rounded-md bg-destructive/10 border border-destructive/30 px-3 py-2 text-sm text-destructive">
                 {serverError}
@@ -2167,23 +2180,32 @@ function BusinessHoursForm({
               )}
             </div>
 
-            <button
-              type="submit"
-              disabled={isPending}
-              className="w-full rounded-md bg-foreground py-2.5 text-sm font-semibold text-background hover:bg-foreground/90 disabled:opacity-50 transition-colors"
-            >
-              {isPending
-                ? isEdit
-                  ? "Saving…"
-                  : "Logging…"
-                : isEdit
-                  ? "Save Changes"
-                  : readyRows.length > 0
-                    ? `Log ${readyRows.length} activit${readyRows.length === 1 ? "y" : "ies"} (${fmtHm(totalMinutes)})`
-                    : "Log Business Hours"}
-            </button>
+            <div className="space-y-2">
+              <button
+                type="submit"
+                disabled={isPending}
+                className="w-full rounded-md bg-foreground py-2.5 text-sm font-semibold text-background hover:bg-foreground/90 disabled:opacity-50 transition-colors"
+              >
+                {isPending
+                  ? isEdit
+                    ? "Saving…"
+                    : "Logging…"
+                  : isEdit
+                    ? "Save Changes"
+                    : readyRows.length > 0
+                      ? `Log ${readyRows.length} activit${readyRows.length === 1 ? "y" : "ies"} (${fmtHm(totalMinutes)})`
+                      : "Log Business Hours"}
+              </button>
+              <button
+                type="button"
+                onClick={onDone}
+                disabled={isPending}
+                className="w-full rounded-md border border-border bg-muted px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/80 disabled:opacity-50"
+              >
+                Done — back to All Activity
+              </button>
+            </div>
           </form>
-        )}
       </div>
     </div>
   );
@@ -2633,6 +2655,8 @@ export function NyuiClient({
   const [wsEditId, setWsEditId] = useState<string | null>(null);
   const [bhPrefill, setBhPrefill] = useState<BusinessHoursPrefill | null>(null);
   const [bhEditId, setBhEditId] = useState<string | null>(null);
+  /** Remount Log Business Hours only when opening/leaving — not after Save — so the form stays put. */
+  const [bhFormMountKey, setBhFormMountKey] = useState(0);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [, startDelete] = useTransition();
 
@@ -2645,6 +2669,7 @@ export function NyuiClient({
     if (screen === "log-business-hours") {
       setBhPrefill(null);
       setBhEditId(null);
+      setBhFormMountKey((k) => k + 1);
     }
     setSubScreen(screen);
   }
@@ -2658,7 +2683,15 @@ export function NyuiClient({
   function resetBusinessHoursForm() {
     setBhPrefill(null);
     setBhEditId(null);
+    setBhFormMountKey((k) => k + 1);
     setSubScreen("all-activity");
+  }
+
+  /** After a save, clear edit mode but keep date/entity so more rows can be added. Does not remount. */
+  function continueBusinessHoursAfterSave(ctx: { date: string; entity: string }) {
+    setBhEditId(null);
+    setBhPrefill({ date: ctx.date, entity: ctx.entity });
+    setSubScreen("log-business-hours");
   }
 
   // "Add follow-up" (Gap 4): pre-fill employer details + link to the parent.
@@ -2708,6 +2741,7 @@ export function NyuiClient({
       hours: String(bh.hours),
       minutes: String(bh.minutes),
     });
+    setBhFormMountKey((k) => k + 1);
     setSubScreen("log-business-hours");
   }
 
@@ -2744,6 +2778,7 @@ export function NyuiClient({
   function handleAddHoursToWeek(weekStart: string) {
     setBhEditId(null);
     setBhPrefill({ date: weekStart });
+    setBhFormMountKey((k) => k + 1);
     setSubScreen("log-business-hours");
   }
 
@@ -2869,10 +2904,11 @@ export function NyuiClient({
       )}
       {subScreen === "log-business-hours" && (
         <BusinessHoursForm
-          key={bhEditId ?? "new-bh"}
+          key={bhFormMountKey}
           prefill={bhPrefill}
           editId={bhEditId}
-          onSuccess={resetBusinessHoursForm}
+          onContinueAfterSave={continueBusinessHoursAfterSave}
+          onDone={resetBusinessHoursForm}
           onBack={resetBusinessHoursForm}
         />
       )}
