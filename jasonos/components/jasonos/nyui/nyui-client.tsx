@@ -233,23 +233,55 @@ function fmtLong(dateStr: string) {
   });
 }
 
-// Build the audit-ready, per-claim-week, two-section ledger (Gap 5) as a
-// standalone printable HTML document. Tier A (Employer Contacts) on top,
-// Tier B (Networking) below, within each claim week. Stamped with the Work
-// Search ID (never the SSN).
+/** Minutes logged per known business entity (Ventures / Advisors). */
+function entityMinutes(entries: BusinessHour[]): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const entity of ENTITIES) totals[entity] = 0;
+  for (const e of entries) {
+    totals[e.entity] = (totals[e.entity] ?? 0) + entryMins(e);
+  }
+  return totals;
+}
+
+function summarizeEntityHours(entries: BusinessHour[]): string[] {
+  const totals = entityMinutes(entries);
+  const lines: string[] = [];
+  for (const entity of ENTITIES) {
+    const mins = totals[entity] ?? 0;
+    if (mins > 0) lines.push(`${entity}: ${fmtHm(mins)}`);
+  }
+  const combined = entries.reduce((s, e) => s + entryMins(e), 0);
+  if (combined > 0) lines.push(`Combined total: ${fmtHm(combined)}`);
+  return lines;
+}
+
+// Build the audit-ready, per-claim-week ledger (Gap 5) as a standalone
+// printable HTML document. Tier A (Employer Contacts), Tier B (Networking),
+// then Business Hours (Kuperman Ventures / Kuperman Advisors) when logged.
+// Stamped with the Work Search ID (never the SSN).
 function buildLedgerHtml(
   workSearches: WorkSearch[],
+  businessHours: BusinessHour[],
   startDate: string,
   endDate: string,
   workSearchId: string | null
 ): string {
-  // Group by Sunday-start claim week.
-  const weeks = new Map<string, WorkSearch[]>();
+  // Group by Sunday-start claim week. Include weeks that have either
+  // work-search activity or business-hours entries.
+  const weeks = new Map<string, { workSearches: WorkSearch[]; businessHours: BusinessHour[] }>();
+  const ensureWeek = (key: string) => {
+    let bucket = weeks.get(key);
+    if (!bucket) {
+      bucket = { workSearches: [], businessHours: [] };
+      weeks.set(key, bucket);
+    }
+    return bucket;
+  };
   for (const ws of workSearches) {
-    const key = weekRangeOf(ws.date).start;
-    const list = weeks.get(key);
-    if (list) list.push(ws);
-    else weeks.set(key, [ws]);
+    ensureWeek(weekRangeOf(ws.date).start).workSearches.push(ws);
+  }
+  for (const bh of businessHours) {
+    ensureWeek(weekRangeOf(bh.date).start).businessHours.push(bh);
   }
   const weekKeys = [...weeks.keys()].sort();
 
@@ -288,18 +320,68 @@ function buildLedgerHtml(
           </table>`
     }`;
 
+  const businessHoursHtml = (entries: BusinessHour[]) => {
+    if (entries.length === 0) {
+      return `<h3 class="tier">Business Hours</h3><p class="empty">No business hours logged this week.</p>`;
+    }
+    const sorted = entries.slice().sort((a, b) => a.date.localeCompare(b.date));
+    const totals = entityMinutes(sorted);
+    const summaryRows = ENTITIES.map((entity) => {
+      const mins = totals[entity] ?? 0;
+      return `<tr><td>${escHtml(entity)}</td><td>${escHtml(fmtHm(mins))}</td></tr>`;
+    }).join("");
+    const combined = sorted.reduce((s, e) => s + entryMins(e), 0);
+    const detailRows = sorted
+      .map(
+        (e) => `<tr>
+          <td>${escHtml(e.date)}</td>
+          <td>${escHtml(e.entity)}</td>
+          <td>${escHtml(e.activity_description)}</td>
+          <td>${escHtml(fmtHm(entryMins(e)))}</td>
+        </tr>`
+      )
+      .join("");
+    return `
+      <h3 class="tier">Business Hours <span class="count">(${sorted.length} entr${sorted.length === 1 ? "y" : "ies"} · ${escHtml(fmtHm(combined))})</span></h3>
+      <table>
+        <thead><tr><th>Entity</th><th>Hours This Week</th></tr></thead>
+        <tbody>
+          ${summaryRows}
+          <tr><td><strong>Combined Total</strong></td><td><strong>${escHtml(fmtHm(combined))}</strong></td></tr>
+        </tbody>
+      </table>
+      <table>
+        <thead><tr>
+          <th>Date</th><th>Entity</th><th>Activity Description</th><th>Duration</th>
+        </tr></thead>
+        <tbody>${detailRows}</tbody>
+      </table>`;
+  };
+
+  const rangeTotals = summarizeEntityHours(businessHours);
+  const rangeSummaryHtml =
+    rangeTotals.length > 0
+      ? `<p class="meta"><strong>Business Hours (range):</strong> ${escHtml(rangeTotals.join(" · "))}</p>`
+      : `<p class="meta"><strong>Business Hours (range):</strong> none logged</p>`;
+
   const weeksHtml = weekKeys
     .map((key) => {
       const { start, end } = weekRangeOf(key);
-      const inWeek = weeks.get(key)!.slice().sort((a, b) => a.date.localeCompare(b.date));
+      const bucket = weeks.get(key)!;
+      const inWeek = bucket.workSearches.slice().sort((a, b) => a.date.localeCompare(b.date));
+      const bhWeek = bucket.businessHours;
       const tierA = inWeek.filter((w) => tierOf(w) === "employer_contact");
       const tierB = inWeek.filter((w) => tierOf(w) === "networking");
+      const bhMins = bhWeek.reduce((s, e) => s + entryMins(e), 0);
+      const activityLabel = `${inWeek.length} activit${inWeek.length === 1 ? "y" : "ies"}`;
+      const hoursLabel = bhMins > 0 ? ` · ${fmtHm(bhMins)} business hours` : "";
       return `<section class="week">
         <h2>Claim Week: ${escHtml(fmtLong(start))} – ${escHtml(fmtLong(end))}
-          <span class="count">· ${inWeek.length} activit${inWeek.length === 1 ? "y" : "ies"}</span>
+          <span class="count">· ${escHtml(activityLabel)}${escHtml(hoursLabel)}</span>
         </h2>
         ${sectionHtml("Tier A — Employer Contacts", tierA)}
         ${sectionHtml("Tier B — Networking / Fruitful Activities", tierB)}
+        ${businessHoursHtml(bhWeek)}
       </section>`;
     })
     .join("");
@@ -322,19 +404,27 @@ function buildLedgerHtml(
     <p class="meta"><strong>Work Search ID:</strong> ${escHtml(workSearchId || "—— set NYUI_WORK_SEARCH_ID to stamp ——")}</p>
     <p class="meta"><strong>Range:</strong> ${escHtml(fmtLong(startDate))} – ${escHtml(fmtLong(endDate))}</p>
     <p class="meta"><strong>Generated:</strong> ${escHtml(new Date().toLocaleString())}</p>
-    ${weeksHtml || `<p class="empty">No work-search activities in this range.</p>`}
-    <p class="foot">Claim weeks shown Sunday–Saturday. SSN intentionally omitted; identity is matched by Work Search ID only.</p>
+    ${rangeSummaryHtml}
+    ${weeksHtml || `<p class="empty">No work-search or business-hours activity in this range.</p>`}
+    <p class="foot">Claim weeks shown Sunday–Saturday. Business hours shown when logged against Kuperman Ventures LLC or Kuperman Advisors LLC. SSN intentionally omitted; identity is matched by Work Search ID only.</p>
     </body></html>`;
 }
 
 function writeLedgerToWindow(
   win: Window,
   workSearches: WorkSearch[],
+  businessHours: BusinessHour[],
   startDate: string,
   endDate: string,
   workSearchId: string | null
 ) {
-  const html = buildLedgerHtml(workSearches, startDate, endDate, workSearchId);
+  const html = buildLedgerHtml(
+    workSearches,
+    businessHours,
+    startDate,
+    endDate,
+    workSearchId
+  );
   win.document.open();
   win.document.write(html);
   win.document.close();
@@ -352,11 +442,18 @@ function writeLedgerToWindow(
 /** Fallback when the blank window was closed/blocked after the async fetch. */
 function openPrintableLedger(
   workSearches: WorkSearch[],
+  businessHours: BusinessHour[],
   startDate: string,
   endDate: string,
   workSearchId: string | null
 ) {
-  const html = buildLedgerHtml(workSearches, startDate, endDate, workSearchId);
+  const html = buildLedgerHtml(
+    workSearches,
+    businessHours,
+    startDate,
+    endDate,
+    workSearchId
+  );
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const win = window.open(url, "_blank");
@@ -541,10 +638,57 @@ function ExportModal({
         ...w,
         tier_label: TIER_SHORT[tierOf(w)],
       })) as unknown as Record<string, unknown>[];
-      const bh = result.businessHours as unknown as Record<string, unknown>[];
+      const bhEntries = result.businessHours;
+      const bh = bhEntries as unknown as Record<string, unknown>[];
       const workSearchIdLine = result.workSearchId
         ? `"Work Search ID: ${result.workSearchId}"`
         : `"Work Search ID: (set NYUI_WORK_SEARCH_ID env to stamp)"`;
+      const entityTotals = entityMinutes(bhEntries);
+      const entitySummaryRows = ENTITIES.map((entity) => ({
+        entity,
+        hours_display: fmtHm(entityTotals[entity] ?? 0),
+        total_minutes: entityTotals[entity] ?? 0,
+      }));
+      const combinedMins = bhEntries.reduce((s, e) => s + entryMins(e), 0);
+      entitySummaryRows.push({
+        entity: "Combined Total",
+        hours_display: fmtHm(combinedMins),
+        total_minutes: combinedMins,
+      });
+      const entitySummaryCols = [
+        { key: "entity", label: "Entity" },
+        { key: "hours_display", label: "Hours in Range" },
+        { key: "total_minutes", label: "Total Minutes" },
+      ];
+
+      // Per claim-week entity totals (only weeks that have business hours).
+      const bhByWeek = new Map<string, BusinessHour[]>();
+      for (const e of bhEntries) {
+        const key = weekRangeOf(e.date).start;
+        const list = bhByWeek.get(key);
+        if (list) list.push(e);
+        else bhByWeek.set(key, [e]);
+      }
+      const weeklySummaryRows: Record<string, unknown>[] = [];
+      for (const key of [...bhByWeek.keys()].sort()) {
+        const { start, end } = weekRangeOf(key);
+        const weekEntries = bhByWeek.get(key)!;
+        const weekTotals = entityMinutes(weekEntries);
+        const weekCombined = weekEntries.reduce((s, e) => s + entryMins(e), 0);
+        weeklySummaryRows.push({
+          week: `${start} to ${end}`,
+          ventures: fmtHm(weekTotals["Kuperman Ventures LLC"] ?? 0),
+          advisors: fmtHm(weekTotals["Kuperman Advisors LLC"] ?? 0),
+          combined: fmtHm(weekCombined),
+        });
+      }
+      const weeklySummaryCols = [
+        { key: "week", label: "Claim Week (Sun–Sat)" },
+        { key: "ventures", label: "Kuperman Ventures LLC" },
+        { key: "advisors", label: "Kuperman Advisors LLC" },
+        { key: "combined", label: "Combined" },
+      ];
+
       // UTF-8 BOM helps Excel open the multi-section CSV with correct encoding.
       const report =
         "\uFEFF" +
@@ -559,7 +703,17 @@ function ExportModal({
           buildCSV(wsCols, ws),
           "",
           "",
-          `"=== SECTION 2: BUSINESS HOURS LOG (${bh.length} records) ==="`,
+          `"=== SECTION 2: BUSINESS HOURS BY ENTITY ==="`,
+          buildCSV(entitySummaryCols, entitySummaryRows),
+          "",
+          "",
+          `"=== SECTION 3: BUSINESS HOURS BY CLAIM WEEK ==="`,
+          weeklySummaryRows.length > 0
+            ? buildCSV(weeklySummaryCols, weeklySummaryRows)
+            : `"No business hours logged in this range."`,
+          "",
+          "",
+          `"=== SECTION 4: BUSINESS HOURS DETAIL LOG (${bh.length} records) ==="`,
           buildCSV(bhCols, bh),
         ].join("\n");
 
@@ -610,6 +764,7 @@ function ExportModal({
         writeLedgerToWindow(
           placeholder,
           result.workSearches,
+          result.businessHours,
           startDate,
           endDate,
           result.workSearchId
@@ -617,6 +772,7 @@ function ExportModal({
       } else {
         const mode = openPrintableLedger(
           result.workSearches,
+          result.businessHours,
           startDate,
           endDate,
           result.workSearchId
@@ -644,8 +800,8 @@ function ExportModal({
           <div>
             <h3 className="font-semibold text-foreground">Generate NYS DOL Audit Report</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Dates default to this claim week. CSV (Work Search + Business Hours) or a
-              printable per-claim-week ledger.
+              Dates default to this claim week. Includes work searches plus Kuperman
+              Ventures / Advisors hours when logged.
             </p>
           </div>
           <button
@@ -710,9 +866,10 @@ function ExportModal({
               Cancel
             </button>
             <p className="text-[11px] text-muted-foreground pt-0.5">
-              The printable ledger groups by claim week with Tier A (Employer Contacts) and Tier B
-              (Networking) sections, stamped with your Work Search ID. Use your browser&apos;s
-              &ldquo;Save as PDF&rdquo; to hand it over in a one-week audit.
+              The printable ledger groups by claim week with Tier A (Employer Contacts), Tier B
+              (Networking), and Business Hours (Kuperman Ventures / Advisors) when present,
+              stamped with your Work Search ID. Use your browser&apos;s &ldquo;Save as PDF&rdquo;
+              for a one-week audit.
             </p>
           </div>
         </div>
