@@ -43,7 +43,16 @@ const NAV: NavItem[] = [
       { href: "/email-templates", label: "Email Templates" },
     ],
   },
-  { kind: "link",  href: "/outreach", label: "Outreach" },
+  {
+    kind: "group",
+    label: "Outreach",
+    children: [
+      { href: "/outreach/queue",     label: "Queue" },
+      { href: "/outreach/people",    label: "People" },
+      { href: "/outreach/suggested", label: "Suggested" },
+      { href: "/outreach/firms",     label: "Firms" },
+    ],
+  },
   {
     kind: "group",
     label: "Browning",
