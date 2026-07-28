@@ -95,6 +95,14 @@ function buildRecap(data: WeeklyActivityLog): string {
   lines.push(
     `- Referrals received: ${b.referralsReceived} · Thank-yous sent: ${b.thankYousSent} · Leads produced: ${b.leadsProduced}`
   );
+  if (b.newReferrals.length) {
+    lines.push("");
+    lines.push("### New referrals (introduced to you)");
+    for (const r of b.newReferrals) {
+      const who = r.firm ? `${r.name} (${r.firm})` : r.name;
+      lines.push(`- ${who} — introduced by ${r.referredBy} (${r.referredAt})`);
+    }
+  }
   if (b.nextGate) {
     lines.push(
       `- Next gate: ${b.nextGate.gateCode} — ${b.nextGate.description}${b.nextGate.targetDate ? ` (target ${b.nextGate.targetDate})` : ""}`
@@ -163,8 +171,25 @@ function buildReportHtml(data: WeeklyActivityLog): string {
     : `<p class="muted">No scored conversations with reflections this week.</p>`;
 
   const newContacts = o.newContacts.length
-    ? `<p>${o.newContacts.map((c) => esc(c.name) + (c.firm ? ` (${esc(c.firm)})` : "")).join(" · ")}</p>`
+    ? `<ul class="notes">${o.newContacts
+        .map((c) => {
+          const who = esc(c.name) + (c.firm ? ` <span class="muted">(${esc(c.firm)})</span>` : "");
+          const via = c.referredBy
+            ? ` <span class="muted">— introduced by ${esc(c.referredBy)}</span>`
+            : "";
+          return `<li>${who}${via}</li>`;
+        })
+        .join("")}</ul>`
     : `<p class="muted">None added this week.</p>`;
+
+  const newReferrals = b.newReferrals.length
+    ? `<ul class="notes">${b.newReferrals
+        .map((r) => {
+          const who = esc(r.name) + (r.firm ? ` <span class="muted">(${esc(r.firm)})</span>` : "");
+          return `<li><strong>${who}</strong> — introduced by ${esc(r.referredBy)} <span class="muted">· ${esc(r.referredAt)}</span></li>`;
+        })
+        .join("")}</ul>`
+    : `<p class="muted">No new referrals recorded this week.</p>`;
 
   return `<!doctype html><html><head><meta charset="utf-8" />
     <title>Networking Status Report — ${esc(range)}</title>
@@ -214,6 +239,9 @@ function buildReportHtml(data: WeeklyActivityLog): string {
 
     <h2>New to the network</h2>
     ${newContacts}
+
+    <h2>New referrals</h2>
+    ${newReferrals}
 
     <h2>Browning coaching loop</h2>
     <div class="kpis">
@@ -356,15 +384,28 @@ export function ActivityLogClient({ data }: { data: WeeklyActivityLog }) {
             </ul>
           )}
           {o.newContacts.length ? (
-            <div className="mt-3 flex flex-wrap items-center gap-1.5">
+            <div className="mt-3 space-y-1.5">
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 <UserPlus className="h-3 w-3" /> Added
               </span>
-              {o.newContacts.map((c, i) => (
-                <span key={i} className="rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
-                  {c.name}{c.firm ? ` · ${c.firm}` : ""}
-                </span>
-              ))}
+              <ul className="divide-y divide-border/40 rounded-lg border border-border">
+                {o.newContacts.map((c, i) => (
+                  <li
+                    key={`${c.name}-${i}`}
+                    className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-3 py-1.5 text-sm"
+                  >
+                    <span className="font-medium">{c.name}</span>
+                    {c.firm ? (
+                      <span className="text-xs text-muted-foreground">· {c.firm}</span>
+                    ) : null}
+                    {c.referredBy ? (
+                      <span className="text-[11px] text-emerald-300/90">
+                        · introduced by {c.referredBy}
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
             </div>
           ) : null}
         </div>
@@ -388,6 +429,35 @@ export function ActivityLogClient({ data }: { data: WeeklyActivityLog }) {
             label="Referrals / Thanks / Leads"
             value={`${b.referralsReceived} / ${b.thankYousSent} / ${b.leadsProduced}`}
           />
+        </div>
+
+        <div className="border-t px-4 py-3">
+          <h3 className="mb-2 inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <UserPlus className="h-3 w-3" /> New referrals
+          </h3>
+          {b.newReferrals.length === 0 ? (
+            <p className="text-xs italic text-muted-foreground">
+              No introductions recorded this week.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border/40 rounded-lg border border-border">
+              {b.newReferrals.map((r) => (
+                <li
+                  key={`${r.name}-${r.referredAt}-${r.referredBy}`}
+                  className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-3 py-1.5 text-sm"
+                >
+                  <span className="font-medium">{r.name}</span>
+                  {r.firm ? (
+                    <span className="text-xs text-muted-foreground">· {r.firm}</span>
+                  ) : null}
+                  <span className="text-[11px] text-emerald-300/90">
+                    · introduced by {r.referredBy}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">· {r.referredAt}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {b.nextGate || b.gatesMoved.length ? (

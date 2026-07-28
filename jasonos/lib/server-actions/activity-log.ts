@@ -54,7 +54,13 @@ export interface WeeklyActivityLog {
     outbound: number;
     inbound: number;
     engaged: EngagedTouch[];
-    newContacts: { name: string; firm: string | null; relationship_type: string | null }[];
+    newContacts: {
+      name: string;
+      firm: string | null;
+      relationship_type: string | null;
+      /** Who introduced you to this contact, when known. */
+      referredBy: string | null;
+    }[];
     overdueCount: number;
     dueNext7Count: number;
   };
@@ -65,6 +71,8 @@ export interface WeeklyActivityLog {
     avgWarmth: number | null;
     avgQuality: number | null;
     referralsReceived: number;
+    /** Named people introduced to you this week (from contact referral links). */
+    newReferrals: { name: string; firm: string | null; referredBy: string; referredAt: string }[];
     thankYousSent: number;
     leadsProduced: number;
     coachingNotes: CoachingNote[];
@@ -149,6 +157,7 @@ export async function getWeeklyActivityLog(
       avgWarmth: null,
       avgQuality: null,
       referralsReceived: 0,
+      newReferrals: [],
       thankYousSent: 0,
       leadsProduced: 0,
       coachingNotes: [],
@@ -169,6 +178,7 @@ export async function getWeeklyActivityLog(
     touchesRes,
     prevTouchesRes,
     newContactsRes,
+    referredContactsRes,
     overdueRes,
     dueNextRes,
     convRes,
@@ -189,9 +199,16 @@ export async function getWeeklyActivityLog(
       .lte("touched_at", prevEndISO),
     sb
       .from("contacts")
-      .select("id,name,tags,relationship_type,created_at")
+      .select("id,name,tags,relationship_type,created_at,referred_by_contact_id,referred_at")
       .gte("created_at", startISO)
       .lte("created_at", endISO),
+    // Referrals recorded this week (even if the contact row was created earlier).
+    sb
+      .from("contacts")
+      .select("id,name,tags,relationship_type,referred_by_contact_id,referred_at")
+      .not("referred_by_contact_id", "is", null)
+      .gte("referred_at", weekStart)
+      .lte("referred_at", weekEnd),
     sb
       .from("contacts")
       .select("id", { count: "exact", head: true })
@@ -225,12 +242,21 @@ export async function getWeeklyActivityLog(
 
   const touches = touchesRes.data ?? [];
   const newContacts = newContactsRes.data ?? [];
+  const referredContacts = referredContactsRes.data ?? [];
   const conversations = convRes.data ?? [];
 
-  // Resolve contact names/firms for touched + browning-conversation contacts.
+  // Resolve contact names/firms for touched + browning-conversation + referrer contacts.
   const idSet = new Set<string>();
   for (const t of touches) idSet.add(t.contact_id as string);
   for (const c of conversations) idSet.add(c.contact_id as string);
+  for (const c of newContacts) {
+    const rid = c.referred_by_contact_id as string | null;
+    if (rid) idSet.add(rid);
+  }
+  for (const c of referredContacts) {
+    const rid = c.referred_by_contact_id as string | null;
+    if (rid) idSet.add(rid);
+  }
   const contactMap = new Map<
     string,
     { name: string; firm: string | null; relationship_type: string | null }
@@ -312,6 +338,47 @@ export async function getWeeklyActivityLog(
         (a.gate_code as string).localeCompare(b.gate_code as string)
     )[0];
 
+  const scoredReferrals = conversations.reduce(
+    (s, c) => s + ((c.referrals_received as number | null) ?? 0),
+    0
+  );
+
+  // Named referrals from the contact graph (who was introduced, by whom).
+  // Prefer referred_at-week rows; also include newly created contacts that
+  // already have a referrer even if referred_at is missing.
+  const referralById = new Map<
+    string,
+    { name: string; firm: string | null; referredBy: string; referredAt: string }
+  >();
+  for (const c of referredContacts) {
+    const referrerId = c.referred_by_contact_id as string | null;
+    const referrerName = referrerId ? contactMap.get(referrerId)?.name : null;
+    if (!referrerName) continue;
+    referralById.set(c.id as string, {
+      name: c.name as string,
+      firm: firmFromTags(c.tags as string[] | null),
+      referredBy: referrerName,
+      referredAt: (c.referred_at as string) ?? weekStart,
+    });
+  }
+  for (const c of newContacts) {
+    const id = c.id as string;
+    if (referralById.has(id)) continue;
+    const referrerId = c.referred_by_contact_id as string | null;
+    const referrerName = referrerId ? contactMap.get(referrerId)?.name : null;
+    if (!referrerName) continue;
+    referralById.set(id, {
+      name: c.name as string,
+      firm: firmFromTags(c.tags as string[] | null),
+      referredBy: referrerName,
+      referredAt:
+        ((c.referred_at as string | null) ?? (c.created_at as string).slice(0, 10)),
+    });
+  }
+  const newReferrals = Array.from(referralById.values()).sort((a, b) =>
+    a.referredAt < b.referredAt ? -1 : 1
+  );
+
   return {
     weekStart,
     weekEnd,
@@ -328,11 +395,17 @@ export async function getWeeklyActivityLog(
       outbound,
       inbound,
       engaged,
-      newContacts: newContacts.map((c) => ({
-        name: c.name as string,
-        firm: firmFromTags(c.tags as string[] | null),
-        relationship_type: (c.relationship_type as string | null) ?? null,
-      })),
+      newContacts: newContacts.map((c) => {
+        const referrerId = c.referred_by_contact_id as string | null;
+        return {
+          name: c.name as string,
+          firm: firmFromTags(c.tags as string[] | null),
+          relationship_type: (c.relationship_type as string | null) ?? null,
+          referredBy: referrerId
+            ? contactMap.get(referrerId)?.name ?? null
+            : null,
+        };
+      }),
       overdueCount: overdueRes.count ?? 0,
       dueNext7Count: dueNextRes.count ?? 0,
     },
@@ -342,10 +415,10 @@ export async function getWeeklyActivityLog(
       target: BROWNING_WEEKLY_TARGET,
       avgWarmth: avg(warmths),
       avgQuality: avg(quals),
-      referralsReceived: conversations.reduce(
-        (s, c) => s + ((c.referrals_received as number | null) ?? 0),
-        0
-      ),
+      // Prefer named contact referrals when present — conversation scores alone
+      // often miss introductions logged on the contact card.
+      referralsReceived: Math.max(scoredReferrals, newReferrals.length),
+      newReferrals,
       thankYousSent: conversations.filter((c) => c.thank_you_sent === "yes").length,
       leadsProduced: conversations.filter((c) => c.produced_lead === true).length,
       coachingNotes,
