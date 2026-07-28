@@ -1445,7 +1445,7 @@ export async function getContactCardData(input: {
   try {
     const { data: touches } = await sb
       .from("contact_touches")
-      .select("id,channel,direction,touched_at,brief")
+      .select("id,channel,direction,touched_at,brief,outcome,source")
       .eq("contact_id", contact.id)
       .order("touched_at", { ascending: false })
       .limit(10);
@@ -1457,6 +1457,8 @@ export async function getContactCardData(input: {
           direction: t.direction as string,
           touched_at: t.touched_at as string,
           brief: (t.brief as string) ?? null,
+          outcome: (t.outcome as string | null) ?? null,
+          source: (t.source as string | null) ?? null,
         });
       }
     } else if (recruiterPipelineId) {
@@ -1474,6 +1476,8 @@ export async function getContactCardData(input: {
           direction: t.direction as string,
           touched_at: t.touched_at as string,
           brief: (t.brief as string) ?? null,
+          outcome: null,
+          source: "rr_legacy",
         });
       }
     }

@@ -57,6 +57,9 @@ export interface RecentTouch {
   direction: string;
   touched_at: string;
   brief: string | null;
+  outcome?: string | null;
+  /** Where the engagement came from (gmail / gcal / hubspot / manual / …). */
+  source?: string | null;
 }
 
 export interface OutreachDraftResult {
