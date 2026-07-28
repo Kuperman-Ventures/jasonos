@@ -103,7 +103,7 @@ export interface SyncAllResult {
 export async function syncOutreachFromGmail(opts?: {
   daysBack?: number;
 }): Promise<SyncResult> {
-  const daysBack = Math.max(1, Math.min(30, opts?.daysBack ?? 7));
+  const daysBack = Math.max(1, Math.min(90, opts?.daysBack ?? 7));
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return errorResult("gmail", "Supabase service role is not configured.");
@@ -198,7 +198,7 @@ interface RawGCalEvent {
 export async function syncOutreachFromCalendar(opts?: {
   daysBack?: number;
 }): Promise<SyncResult> {
-  const daysBack = Math.max(1, Math.min(60, opts?.daysBack ?? 30));
+  const daysBack = Math.max(1, Math.min(90, opts?.daysBack ?? 30));
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return errorResult("gcal", "Supabase service role is not configured.");
