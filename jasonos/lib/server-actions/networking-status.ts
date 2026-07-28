@@ -270,6 +270,8 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
       .from("work_searches")
       .select("date,company_name,position_applied,contact_method,result")
       .gte("date", nyuiSince)
+      // Never pull future-dated applications into the weekly report.
+      .lte("date", today)
       .order("date", { ascending: true }),
     sb.from("companies").select("id,name"),
   ]);
@@ -545,9 +547,10 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
   // ── Job applications (NYUI work searches), bucketed into Wed→Tue weeks ─────
   // Only the count + the company/position for each logged application; no
   // business hours, no tier split (per the networking report's scope).
+  // Future-dated apps are excluded — this report is what already happened.
   for (const ws of workSearchRes.data ?? []) {
     const date = (ws.date as string | null) ?? null;
-    if (!date) continue;
+    if (!date || date > today) continue;
     const wk = weekFor(weekStartOf(date));
     wk.nyui.applicationCount += 1;
     wk.nyui.applications.push({
@@ -580,7 +583,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
 
   // Keep the current week (always) plus any historical week with networking OR
   // job-application activity — a week with only job applications still earns
-  // its place in the report.
+  // its place in the report. Never show future weeks.
   const hasActivity = (w: WeekActivity) =>
     w.stats.conversations > 0 ||
     w.stats.newContacts > 0 ||
@@ -589,7 +592,10 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     w.nyui.applicationCount > 0 ||
     w.funnel.reachedOut > 0 ||
     w.funnel.newReferrals > 0;
-  const filtered = ordered.filter((w) => w.isCurrent || hasActivity(w));
+  const filtered = ordered.filter(
+    (w) =>
+      w.weekStart <= currentWeekStart && (w.isCurrent || hasActivity(w))
+  );
 
   // Cumulative coverage: Growth + Cold/Browning only.
   const listSize = people.filter((p) =>
