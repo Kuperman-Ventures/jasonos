@@ -381,43 +381,32 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
   }
 
   /**
-   * Introduction breadcrumb ending at this person.
-   * Always includes the Degree-1 root (e.g. Andy → Michael, or
-   * Barbara → Libby → Will) and stops there — never walks past that root.
+   * Introduction breadcrumb IDs ending at this person (Degree-1 root → … → tip).
+   * Stops at the Degree-1 root — same scope as the names shown in the UI.
    */
-  const referralChainFor = (contactId: string): string[] => {
-    const names: string[] = [];
+  const referralChainIdsFor = (contactId: string): string[] => {
+    const ids: string[] = [];
     const seen = new Set<string>();
     let cur: string | null = contactId;
     while (cur && !seen.has(cur)) {
       seen.add(cur);
-      names.unshift(contactNameById.get(cur) ?? "Unknown");
+      ids.unshift(cur);
       const parent: string | null = referredById.get(cur) ?? null;
       if (!parent) break;
       // Parent is the Degree-1 root — include them, then stop.
       if (contactDegreeById.get(parent) === 1) {
-        names.unshift(contactNameById.get(parent) ?? "Unknown");
+        ids.unshift(parent);
         break;
       }
       cur = parent;
     }
-    return names;
+    return ids;
   };
 
-  /** True if `ancestorId` appears upstream of `descendantId` via referred_by. */
-  const isReferralAncestor = (
-    ancestorId: string,
-    descendantId: string
-  ): boolean => {
-    const seen = new Set<string>();
-    let cur: string | null = referredById.get(descendantId) ?? null;
-    while (cur && !seen.has(cur)) {
-      if (cur === ancestorId) return true;
-      seen.add(cur);
-      cur = referredById.get(cur) ?? null;
-    }
-    return false;
-  };
+  const referralChainFor = (contactId: string): string[] =>
+    referralChainIdsFor(contactId).map(
+      (id) => contactNameById.get(id) ?? "Unknown"
+    );
 
   // Ensure every week bucket exists lazily.
   const weeks = new Map<string, WeekActivity>();
@@ -567,8 +556,16 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
       if (!referrerId || !contactNameById.get(referrerId)) continue;
       eligible.push(id);
     }
+    // Drop anyone who already appears on a longer tip's *displayed*
+    // breadcrumb (e.g. drop Libby when Will is Barbara → Libby → Will).
+    // Do NOT walk past the Degree-1 root — Michael→…→Will ancestry must
+    // not hide Andy → Michael as its own intro this week.
     const tips = eligible.filter(
-      (id) => !eligible.some((other) => other !== id && isReferralAncestor(id, other))
+      (id) =>
+        !eligible.some(
+          (other) =>
+            other !== id && referralChainIdsFor(other).includes(id)
+        )
     );
     for (const id of tips) {
       const c = (contactsRes.data ?? []).find((row) => row.id === id)!;
