@@ -93,14 +93,14 @@ export interface NsReferral {
   referralChain: string[];
 }
 
-/** A named fresh outreach this week — the people behind the funnel count. */
+/** A named fresh outreach this week — the people behind the funnel count.
+ *  Never includes message body / email content — name + channel + date only. */
 export interface NsFreshOutreach {
   contactId: string;
   name: string;
   firm: string | null;
   date: string;
   channel: string;
-  brief: string | null;
   tier: RelevanceTier | null;
   degree: NetworkDegree | null;
   /** True when this fresh outreach also had a call/meeting this week. */
@@ -507,7 +507,6 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
             firm: firmForContact(cid),
             date,
             channel: ch,
-            brief: (t.brief as string | null) ?? null,
             tier: tp?.relevance_tier ?? null,
             degree: tp?.network_degree ?? null,
             ledToMeeting: false,

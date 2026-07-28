@@ -546,11 +546,6 @@ function FreshOutreachPanel({
                   </span>
                 ) : null}
               </div>
-              {r.brief ? (
-                <p className="line-clamp-2 text-[11px] text-muted-foreground">
-                  {r.brief}
-                </p>
-              ) : null}
             </button>
           </li>
         ))}
@@ -814,15 +809,11 @@ function freshOutreachHtml(w: WeekActivity): string {
   const rows = w.freshOutreaches
     .map((r) => {
       const meta = `${escHtml(channelLabel(r.channel))} · ${escHtml(fmtShort(r.date))}`;
-      const brief = r.brief
-        ? `<span class="muted" style="font-size:11px;display:block;margin-top:2px;">${escHtml(r.brief.slice(0, 160))}${r.brief.length > 160 ? "…" : ""}</span>`
-        : "";
       const badge = r.ledToMeeting
         ? ` <span class="li-meta ok">→ meeting</span>`
         : "";
-      return `<li style="flex-direction:column;align-items:flex-start;gap:2px;">
+      return `<li>
         <span class="li-main"><b>${escHtml(r.name)}</b>${r.firm ? ` <span class="muted">&middot; ${escHtml(r.firm)}</span>` : ""} <span class="muted" style="font-size:11px;">· ${meta}</span>${badge}</span>
-        ${brief}
       </li>`;
     })
     .join("");
