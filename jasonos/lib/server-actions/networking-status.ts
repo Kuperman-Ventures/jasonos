@@ -380,9 +380,11 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     );
   }
 
-  /** Walk referred_by links to a breadcrumb: Degree-1 root → … → this person.
-   *  Stops at the first Degree 1 so we show e.g. Barbara → Libby → Will,
-   *  not the longer ancestry behind that Degree 1. */
+  /**
+   * Introduction breadcrumb ending at this person.
+   * Always includes the Degree-1 root (e.g. Andy → Michael, or
+   * Barbara → Libby → Will) and stops there — never walks past that root.
+   */
   const referralChainFor = (contactId: string): string[] => {
     const names: string[] = [];
     const seen = new Set<string>();
@@ -390,10 +392,31 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     while (cur && !seen.has(cur)) {
       seen.add(cur);
       names.unshift(contactNameById.get(cur) ?? "Unknown");
-      if (contactDegreeById.get(cur) === 1) break;
-      cur = referredById.get(cur) ?? null;
+      const parent: string | null = referredById.get(cur) ?? null;
+      if (!parent) break;
+      // Parent is the Degree-1 root — include them, then stop.
+      if (contactDegreeById.get(parent) === 1) {
+        names.unshift(contactNameById.get(parent) ?? "Unknown");
+        break;
+      }
+      cur = parent;
     }
     return names;
+  };
+
+  /** True if `ancestorId` appears upstream of `descendantId` via referred_by. */
+  const isReferralAncestor = (
+    ancestorId: string,
+    descendantId: string
+  ): boolean => {
+    const seen = new Set<string>();
+    let cur: string | null = referredById.get(descendantId) ?? null;
+    while (cur && !seen.has(cur)) {
+      if (cur === ancestorId) return true;
+      seen.add(cur);
+      cur = referredById.get(cur) ?? null;
+    }
+    return false;
   };
 
   // Ensure every week bucket exists lazily.
@@ -531,14 +554,26 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
   }
 
   // Named referral rows for each week (Growth / Cold only).
+  // When the same introduction path has multiple people dated this week
+  // (e.g. Libby and Will), keep only the furthest tip — Will already
+  // shows as Barbara → Libby → Will, so listing Libby again is noise.
   for (const [refWeek, ids] of weeklyReferralIds) {
     const wk = weekFor(refWeek);
+    const eligible: string[] = [];
     for (const id of ids) {
       const c = (contactsRes.data ?? []).find((row) => row.id === id);
       if (!c || !countsOnWeeklyReport(c.intent as string | null)) continue;
       const referrerId = c.referred_by_contact_id as string | null;
-      const referredBy = referrerId ? contactNameById.get(referrerId) : null;
-      if (!referredBy) continue;
+      if (!referrerId || !contactNameById.get(referrerId)) continue;
+      eligible.push(id);
+    }
+    const tips = eligible.filter(
+      (id) => !eligible.some((other) => other !== id && isReferralAncestor(id, other))
+    );
+    for (const id of tips) {
+      const c = (contactsRes.data ?? []).find((row) => row.id === id)!;
+      const referrerId = c.referred_by_contact_id as string;
+      const referredBy = contactNameById.get(referrerId)!;
       const p = peopleById.get(id);
       wk.newReferrals.push({
         id,
@@ -553,9 +588,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
             (c.created_at as string).slice(0, 10)),
         tier: (c.relevance_tier as RelevanceTier | null) ?? null,
         degree: (c.network_degree as NetworkDegree | null) ?? null,
-        referrerDegree: referrerId
-          ? contactDegreeById.get(referrerId) ?? null
-          : null,
+        referrerDegree: contactDegreeById.get(referrerId) ?? null,
         referralChain: referralChainFor(id),
       });
     }
@@ -594,6 +627,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
   for (const wk of weeklyReferralIds.keys()) weekFor(wk);
 
   // Assign per-week funnel counts from the accumulated sets.
+  // newReferrals matches the deduped tip list shown in the UI.
   for (const w of weeks.values()) {
     const s = weeklyFunnel.get(w.weekStart);
     w.funnel = {
@@ -601,7 +635,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
       replied: s?.replied.size ?? 0,
       metHeld: s?.met.size ?? 0,
       freshOutreach: s?.fresh.size ?? 0,
-      newReferrals: weeklyReferralIds.get(w.weekStart)?.size ?? 0,
+      newReferrals: w.newReferrals.length,
     };
   }
 

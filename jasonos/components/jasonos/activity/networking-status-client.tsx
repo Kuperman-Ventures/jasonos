@@ -96,7 +96,7 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
         <div class="card-h">Referral expansion (the goal)</div>
         <div class="card-b">
           <div class="nr-legend"><span><b>${f.newReferrals}</b> new referral${f.newReferrals === 1 ? "" : "s"} this week</span></div>
-          <p class="sub" style="margin-top:8px;">People someone introduced you to — shown as the introduction chain (who → who → them).</p>
+          <p class="sub" style="margin-top:8px;">Furthest new introductions this week, as the chain from someone you know through to them.</p>
           <p class="sub" style="margin-top:4px;">All-time referrals: ${cum.referred} introduced to you &middot; ${cum.referredReached} reached &middot; ${cum.referredMet} met</p>
           <div class="chips" style="margin-top:12px;">
             <span class="chip"><b>${f.freshOutreach}</b> / ${target} fresh outreach</span>
@@ -264,8 +264,8 @@ function FunnelSummary({ data }: { data: NetworkingActivity }) {
             </span>
           </p>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            People someone introduced you to — shown as the introduction chain
-            (who → who → them).
+            Furthest new introductions this week, as the chain from someone you
+            know through to them.
           </p>
         </div>
         <p className="mt-2 text-[11px] text-muted-foreground">
@@ -336,21 +336,10 @@ function referralChainLabel(r: NsReferral): string {
   return chain.join(" → ");
 }
 
-function referralNextAsk(r: NsReferral): string | null {
-  // One hop from someone you already know → ask them for the next intro out.
-  if (r.degree === 2) {
-    return `Next ask: get an introduction from ${r.name}`;
-  }
-  if (r.degree === 3) {
-    return "Outside your known network — keep the chain going";
-  }
-  return null;
-}
-
 function ReferralBreadcrumb({ chain }: { chain: string[] }) {
   if (chain.length === 0) return null;
   return (
-    <p className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[12px] leading-snug text-foreground/90">
+    <p className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[13px] leading-snug text-foreground/90">
       {chain.map((name, i) => {
         const isLast = i === chain.length - 1;
         return (
@@ -360,7 +349,7 @@ function ReferralBreadcrumb({ chain }: { chain: string[] }) {
                 →
               </span>
             ) : null}
-            <span className={isLast ? "font-semibold text-foreground" : "font-medium"}>
+            <span className={isLast ? "font-semibold text-foreground" : undefined}>
               {name}
             </span>
           </span>
@@ -462,32 +451,27 @@ function NewNetworkPanel({
             New referrals — network expansion ({referrals.length})
           </p>
           <p className="mb-2 text-[11px] text-muted-foreground">
-            Introductions TO you, as the chain from someone you know through to
-            them.
+            Furthest new introduction this week, as the chain from someone you
+            know through to them.
           </p>
           <ul className="divide-y divide-emerald-500/20 rounded-lg border border-emerald-500/30 bg-emerald-500/5">
             {referrals.map((r) => {
-              const next = referralNextAsk(r);
               const chain =
                 r.referralChain?.length > 0
                   ? r.referralChain
                   : [r.referredBy, r.name].filter(Boolean);
               return (
-                <li key={r.id} className="space-y-1 px-3 py-2.5 text-sm">
-                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                    <ReferralBreadcrumb chain={chain} />
-                    {r.firm ? (
-                      <span className="text-xs text-muted-foreground">· {r.firm}</span>
-                    ) : null}
-                    <span className="text-[11px] text-muted-foreground">
-                      {fmtShort(r.referredAt)}
-                    </span>
-                  </div>
-                  {next ? (
-                    <p className="text-[11px] font-medium text-amber-300/90">
-                      {next}
-                    </p>
+                <li
+                  key={r.id}
+                  className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-3 py-2.5 text-sm"
+                >
+                  <ReferralBreadcrumb chain={chain} />
+                  {r.firm ? (
+                    <span className="text-xs text-muted-foreground">· {r.firm}</span>
                   ) : null}
+                  <span className="text-[11px] text-muted-foreground">
+                    {fmtShort(r.referredAt)}
+                  </span>
                 </li>
               );
             })}
@@ -699,15 +683,8 @@ function newNetworkHtml(w: WeekActivity): string {
   const referralRows = w.newReferrals
     .map((r) => {
       const chain = escHtml(referralChainLabel(r));
-      const next =
-        r.degree === 2
-          ? `Next ask: get an introduction from ${r.name}`
-          : r.degree === 3
-            ? "Outside your known network — keep the chain going"
-            : "";
-      return `<li style="flex-direction:column;align-items:flex-start;gap:2px;">
+      return `<li>
         <span class="li-main" style="font-size:13px;">${chain}${r.firm ? ` <span class="muted">&middot; ${escHtml(r.firm)}</span>` : ""} <span class="muted" style="font-size:11px;">· ${escHtml(fmtShort(r.referredAt))}</span></span>
-        ${next ? `<span style="font-size:11px;color:#b45309;">${escHtml(next)}</span>` : ""}
       </li>`;
     })
     .join("");
