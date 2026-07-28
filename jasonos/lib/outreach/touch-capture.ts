@@ -6,6 +6,7 @@
 
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { etYmd } from "@/lib/dates";
 import {
   CADENCE_DAYS,
   advanceCadenceStage,
@@ -218,7 +219,9 @@ export async function insertContactTouches(
     (contactRows ?? []).map(async (row) => {
       const newest = latestByContact.get(row.id as string);
       if (!newest) return;
-      const newestDate = newest.split("T")[0];
+      // Stamp the touch's Eastern calendar day (not UTC) so a late-evening ET
+      // touch doesn't record as the next day.
+      const newestDate = etYmd(newest);
       const existingLast = (row.last_touch_date as string | null) ?? null;
       // Only advance if this touch is newer than what's already stamped.
       if (existingLast && existingLast >= newestDate) return;
