@@ -15,6 +15,8 @@ import {
 import type {
   NetworkingActivity,
   NsConversation,
+  NsNewContact,
+  NsReferral,
   NyuiWeekSummary,
   WeekActivity,
 } from "@/lib/server-actions/networking-status";
@@ -74,6 +76,7 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
       .join("");
 
     const nr = newRepeatHtml(current);
+    const networkAdds = newNetworkHtml(current);
     const apps = nyuiHtml(current);
 
     const f = current.funnel;
@@ -159,6 +162,11 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
       ${
         nr
           ? `<section class="card"><div class="card-h">New vs. repeat</div><div class="card-b">${nr}</div></section>`
+          : ""
+      }
+      ${
+        networkAdds
+          ? `<section class="card"><div class="card-h">New to the network</div><div class="card-b">${networkAdds}</div></section>`
           : ""
       }
       ${
@@ -312,7 +320,10 @@ function WeekCard({
   ].filter((c) => c.value > 0);
 
   const quiet =
-    w.conversations.length === 0 && w.newContacts.length === 0 && chips.length === 0;
+    w.conversations.length === 0 &&
+    w.newContacts.length === 0 &&
+    w.newReferrals.length === 0 &&
+    chips.length === 0;
 
   return (
     <section className="overflow-hidden rounded-xl border bg-card">
@@ -357,8 +368,75 @@ function WeekCard({
         </div>
       )}
 
+      <NewNetworkPanel contacts={w.newContacts} referrals={w.newReferrals} />
+
       <NyuiPanel nyui={w.nyui} />
     </section>
+  );
+}
+
+/** Newly added Growth/Cold contacts + named introductions for the week. */
+function NewNetworkPanel({
+  contacts,
+  referrals,
+}: {
+  contacts: NsNewContact[];
+  referrals: NsReferral[];
+}) {
+  if (contacts.length === 0 && referrals.length === 0) return null;
+  return (
+    <div className="space-y-3 border-t px-4 py-3">
+      {contacts.length > 0 ? (
+        <div>
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            New to the network ({contacts.length})
+          </p>
+          <ul className="divide-y divide-border/40 rounded-lg border border-border">
+            {contacts.map((c) => (
+              <li
+                key={c.id}
+                className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-3 py-1.5 text-sm"
+              >
+                <span className="font-medium text-foreground">{c.name}</span>
+                {c.firm ? (
+                  <span className="text-xs text-muted-foreground">· {c.firm}</span>
+                ) : null}
+                {c.referredBy ? (
+                  <span className="text-[11px] text-emerald-300/90">
+                    · introduced by {c.referredBy}
+                  </span>
+                ) : null}
+                <TierDegreeBadge tier={c.tier} degree={c.degree} className="shrink-0" />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {referrals.length > 0 ? (
+        <div>
+          <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            New referrals ({referrals.length})
+          </p>
+          <ul className="divide-y divide-border/40 rounded-lg border border-border">
+            {referrals.map((r) => (
+              <li
+                key={r.id}
+                className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-3 py-1.5 text-sm"
+              >
+                <span className="font-medium text-foreground">{r.name}</span>
+                {r.firm ? (
+                  <span className="text-xs text-muted-foreground">· {r.firm}</span>
+                ) : null}
+                <span className="text-[11px] text-emerald-300/90">
+                  · introduced by {r.referredBy}
+                </span>
+                <span className="text-[11px] text-muted-foreground">· {fmtShort(r.referredAt)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -517,6 +595,34 @@ function heatmapHtml(conversations: NsConversation[]): string {
     })
     .join("");
   return `<div class="heat">${head}${body}</div>`;
+}
+
+/** Printable list of newly added Growth/Cold contacts + named referrals. */
+function newNetworkHtml(w: WeekActivity): string {
+  if (w.newContacts.length === 0 && w.newReferrals.length === 0) return "";
+  const contactRows = w.newContacts
+    .map((c) => {
+      const via = c.referredBy
+        ? ` <span class="muted">— introduced by ${escHtml(c.referredBy)}</span>`
+        : "";
+      const rank = tierDegreeLabel(c.tier, c.degree);
+      return `<li><span class="li-main"><b>${escHtml(c.name)}</b>${c.firm ? ` <span class="muted">&middot; ${escHtml(c.firm)}</span>` : ""}${via}</span>${rank ? `<span class="li-meta">${escHtml(rank)}</span>` : ""}</li>`;
+    })
+    .join("");
+  const referralRows = w.newReferrals
+    .map((r) => {
+      return `<li><span class="li-main"><b>${escHtml(r.name)}</b>${r.firm ? ` <span class="muted">&middot; ${escHtml(r.firm)}</span>` : ""} <span class="muted">— introduced by ${escHtml(r.referredBy)}</span></span><span class="li-date">${escHtml(fmtShort(r.referredAt))}</span></li>`;
+    })
+    .join("");
+  return `${
+    contactRows
+      ? `<div class="sub2">Added this week (${w.newContacts.length})</div><ul class="list">${contactRows}</ul>`
+      : ""
+  }${
+    referralRows
+      ? `<div class="sub2">New referrals (${w.newReferrals.length})</div><ul class="list">${referralRows}</ul>`
+      : ""
+  }`;
 }
 
 // Printable HTML for the new-vs-repeat split and the NYS DOL snapshot, so the

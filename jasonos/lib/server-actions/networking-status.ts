@@ -70,6 +70,16 @@ export interface NsNewContact {
   firm: string | null;
   tier: RelevanceTier | null;
   degree: NetworkDegree | null;
+  /** Who introduced you to this contact, when recorded. */
+  referredBy: string | null;
+}
+
+export interface NsReferral {
+  id: string;
+  name: string;
+  firm: string | null;
+  referredBy: string;
+  referredAt: string;
 }
 
 /** Job applications (NYUI work searches) logged inside this reporting week.
@@ -122,6 +132,8 @@ export interface WeekActivity {
   isCurrent: boolean;
   conversations: NsConversation[];
   newContacts: NsNewContact[];
+  /** Named introductions recorded this week (Growth / Cold only). */
+  newReferrals: NsReferral[];
   stats: {
     conversations: number;
     newContacts: number;
@@ -196,6 +208,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
           isCurrent: true,
           conversations: [],
           newContacts: [],
+          newReferrals: [],
           stats: {
             conversations: 0,
             newContacts: 0,
@@ -339,6 +352,10 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
   // Referral funnel: networking contacts introduced to you by someone else.
   const referredIds = new Set<string>();
   const weeklyReferralIds = new Map<string, Set<string>>();
+  const contactNameById = new Map<string, string>();
+  for (const c of contactsRes.data ?? []) {
+    contactNameById.set(c.id as string, (c.name as string) ?? "Unknown");
+  }
 
   // Ensure every week bucket exists lazily.
   const weeks = new Map<string, WeekActivity>();
@@ -351,6 +368,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
         isCurrent: weekStart === currentWeekStart,
         conversations: [],
         newContacts: [],
+        newReferrals: [],
         stats: {
           conversations: 0,
           newContacts: 0,
@@ -440,6 +458,9 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     if (!created) continue;
     const wk = weekFor(weekStartOf(created));
     const p = peopleById.get(c.id as string);
+    const referrerId =
+      (c as { referred_by_contact_id?: string | null }).referred_by_contact_id ??
+      null;
     wk.newContacts.push({
       id: c.id as string,
       name: (c.name as string) ?? "Unknown",
@@ -449,11 +470,12 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
         firmFromTags(c.tags as string[] | null),
       tier: (c.relevance_tier as RelevanceTier | null) ?? null,
       degree: (c.network_degree as NetworkDegree | null) ?? null,
+      referredBy: referrerId ? contactNameById.get(referrerId) ?? null : null,
     });
     wk.stats.newContacts += 1;
 
     // Referral: introduced to you by another contact.
-    if ((c as { referred_by_contact_id?: string | null }).referred_by_contact_id) {
+    if (referrerId) {
       const rid = c.id as string;
       referredIds.add(rid);
       const refAt =
@@ -467,6 +489,34 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
       }
       set.add(rid);
     }
+  }
+
+  // Named referral rows for each week (Growth / Cold only).
+  for (const [refWeek, ids] of weeklyReferralIds) {
+    const wk = weekFor(refWeek);
+    for (const id of ids) {
+      const c = (contactsRes.data ?? []).find((row) => row.id === id);
+      if (!c || !countsOnWeeklyReport(c.intent as string | null)) continue;
+      const referrerId = c.referred_by_contact_id as string | null;
+      const referredBy = referrerId ? contactNameById.get(referrerId) : null;
+      if (!referredBy) continue;
+      const p = peopleById.get(id);
+      wk.newReferrals.push({
+        id,
+        name: (c.name as string) ?? "Unknown",
+        firm:
+          p?.firm ??
+          companyByContact.get(id) ??
+          firmFromTags(c.tags as string[] | null),
+        referredBy,
+        referredAt:
+          ((c.referred_at as string | null) ??
+            (c.created_at as string).slice(0, 10)),
+      });
+    }
+    wk.newReferrals.sort((a, b) =>
+      a.referredAt < b.referredAt ? -1 : a.referredAt > b.referredAt ? 1 : 0
+    );
   }
 
   // Referrals received, by browning conversation_date week.
