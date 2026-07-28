@@ -13,6 +13,7 @@ import type {
   CadenceStage,
   ContactIntent,
   NetworkDegree,
+  NetworkRole,
   RelationshipType,
   RelevanceTier,
 } from "@/lib/outreach/types";
@@ -42,6 +43,8 @@ export interface OutreachPerson {
   relevance_tier: RelevanceTier | null;
   /** Network degree (migration 0025): 1 know well, 2 intro'd by a 1, 3 by a 2. */
   network_degree: NetworkDegree | null;
+  /** Network role (migration 0045): buyer / buyer_referrer / referrer. */
+  network_role: NetworkRole | null;
   next_touch_date: string | null;
   /**
    * True when the user explicitly set next_touch_date (reschedule / snooze /
@@ -147,6 +150,10 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
     // Either way the People list keeps rendering instead of disappearing.
     const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
        relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
+       network_degree,network_role,next_touch_date,next_touch_is_manual,last_touch_date,last_touch_channel,
+       reply_status_override,reply_status_override_at`;
+    const noRoleColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
+       relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
        network_degree,next_touch_date,next_touch_is_manual,last_touch_date,last_touch_channel,
        reply_status_override,reply_status_override_at`;
     const noManualColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
@@ -167,6 +174,16 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
       .from("contacts")
       .select(fullColumns)
       .order("name", { ascending: true });
+
+    if (result.error && /network_role/i.test(result.error.message)) {
+      console.warn(
+        "[outreach.getOutreachPeople] network_role missing — run migration 0045. Falling back."
+      );
+      result = (await sb
+        .from("contacts")
+        .select(noRoleColumns)
+        .order("name", { ascending: true })) as typeof result;
+    }
 
     if (result.error && /next_touch_is_manual/i.test(result.error.message)) {
       console.warn(
@@ -290,6 +307,10 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
         network_degree:
           ((row as { network_degree?: NetworkDegree | null }).network_degree as
             | NetworkDegree
+            | null) ?? null,
+        network_role:
+          ((row as { network_role?: NetworkRole | null }).network_role as
+            | NetworkRole
             | null) ?? null,
         next_touch_date: (row.next_touch_date as string | null) ?? null,
         next_touch_is_manual: Boolean(

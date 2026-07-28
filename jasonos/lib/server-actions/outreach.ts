@@ -12,6 +12,7 @@ import {
   type CadenceStage,
   type ContactIntent,
   type NetworkDegree,
+  type NetworkRole,
   type RelationshipType,
   type RelevanceTier,
   type TouchObjective,
@@ -307,6 +308,36 @@ export async function setNetworkDegree(
     .update({ network_degree: degree })
     .eq("id", contactId);
   if (error) return { ok: false, error: error.message };
+
+  revalidate();
+  return { ok: true };
+}
+
+// Network role — Buyer / Buyer-Referrer / Referrer (migration 0045). Pass null
+// to clear. Surfaces as a classification in the networking report.
+export async function setNetworkRole(
+  contactId: string,
+  role: NetworkRole | null
+): Promise<ActionResult> {
+  const guard = ensureConfigured();
+  if (guard) return guard;
+  if (!contactId) return { ok: false, error: "contactId is required." };
+
+  const sb = createServiceRoleClient();
+  const { error } = await sb
+    .from("contacts")
+    .update({ network_role: role })
+    .eq("id", contactId);
+  if (error) {
+    if (/network_role/i.test(error.message)) {
+      return {
+        ok: false,
+        error:
+          "network_role column is missing — run migration 0045_contacts_network_role.sql, then try again.",
+      };
+    }
+    return { ok: false, error: error.message };
+  }
 
   revalidate();
   return { ok: true };
@@ -1154,6 +1185,10 @@ export async function getOutreachContactByRecruiterId(
       ((data as { network_degree?: NetworkDegree | null }).network_degree as
         | NetworkDegree
         | null) ?? null,
+    network_role:
+      ((data as { network_role?: NetworkRole | null }).network_role as
+        | NetworkRole
+        | null) ?? null,
     intent:
       ((data as { intent?: ContactIntent | null }).intent as
         | ContactIntent
@@ -1291,6 +1326,10 @@ export async function getContactCardData(input: {
   // schema fallbacks so this works even when migration 0017 hasn't shipped.
   const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,referred_by_contact_id,
      relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
+     network_degree,network_role,next_touch_date,next_touch_is_manual,last_touch_date,last_touch_channel,
+     reply_status_override,reply_status_override_at`;
+  const noRoleColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,referred_by_contact_id,
+     relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
      network_degree,next_touch_date,next_touch_is_manual,last_touch_date,last_touch_channel,
      reply_status_override,reply_status_override_at`;
   const noManualColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,referred_by_contact_id,
@@ -1309,6 +1348,14 @@ export async function getContactCardData(input: {
     .select(fullColumns)
     .eq("id", resolvedContactId)
     .maybeSingle();
+
+  if (contactResult.error && /network_role/i.test(contactResult.error.message)) {
+    contactResult = (await sb
+      .from("contacts")
+      .select(noRoleColumns)
+      .eq("id", resolvedContactId)
+      .maybeSingle()) as typeof contactResult;
+  }
 
   if (contactResult.error && /next_touch_is_manual/i.test(contactResult.error.message)) {
     contactResult = (await sb
@@ -1415,6 +1462,10 @@ export async function getContactCardData(input: {
     network_degree:
       ((row as { network_degree?: NetworkDegree | null }).network_degree as
         | NetworkDegree
+        | null) ?? null,
+    network_role:
+      ((row as { network_role?: NetworkRole | null }).network_role as
+        | NetworkRole
         | null) ?? null,
     intent:
       ((row as { intent?: ContactIntent | null }).intent as

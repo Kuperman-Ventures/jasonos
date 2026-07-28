@@ -70,6 +70,9 @@ import {
   CONTACT_INTENT_LABELS,
   NETWORK_DEGREES,
   NETWORK_DEGREE_LABELS,
+  NETWORK_ROLES,
+  NETWORK_ROLE_HELPERS,
+  NETWORK_ROLE_LABELS,
   PRIMARY_CONTACT_INTENTS,
   RELATIONSHIP_TYPES,
   RELATIONSHIP_TYPE_HELPERS,
@@ -82,6 +85,7 @@ import {
   type CadenceInterval,
   type ContactIntent,
   type NetworkDegree,
+  type NetworkRole,
   type RelationshipType,
   type RelevanceTier,
   type TouchObjective,
@@ -97,6 +101,7 @@ import {
   setCadence,
   setContactIntent,
   setNetworkDegree,
+  setNetworkRole,
   setNextTouchDate,
   setRelationshipType,
   setRelevanceTier,
@@ -202,6 +207,9 @@ export function OutreachModal({
   const [degreeState, setDegreeState] = useState<NetworkDegree | null>(null);
   const [relevancePending, startRelevanceTransition] = useTransition();
   const [degreePending, startDegreeTransition] = useTransition();
+  // -- Network role (Buyer / Buyer-Referrer / Referrer) — shows in the report.
+  const [networkRole, setNetworkRoleState] = useState<NetworkRole | null>(null);
+  const [rolePending, startRoleTransition] = useTransition();
   // Reply-status light — auto from last logged touch, or a manual pin for
   // texts / other channels the system doesn't track.
   const [replyOverride, setReplyOverride] =
@@ -291,6 +299,7 @@ export function OutreachModal({
       setEditingIdentity(false);
       setReferredBy(null);
       setReferrals([]);
+      setNetworkRoleState(null);
 
       const result = await getContactCardData({
         contactId: contactId ?? null,
@@ -312,6 +321,7 @@ export function OutreachModal({
         setVipState(result.contact.vip);
         setRelevanceState(result.contact.relevance_tier);
         setDegreeState(result.contact.network_degree);
+        setNetworkRoleState(result.contact.network_role ?? null);
         setIntent(result.contact.intent ?? null);
         setCadenceState(result.contact.cadence_interval);
         setNextTouchState(result.contact.next_touch_date);
@@ -419,6 +429,7 @@ export function OutreachModal({
           cadence_stage: null,
           relevance_tier: null,
           network_degree: null,
+          network_role: null,
           intent: null,
           next_touch_date: null,
           next_touch_is_manual: false,
@@ -654,6 +665,25 @@ export function OutreachModal({
       }
       if (next === "backrow") {
         toast.success("Moved to Backrow — not in your queue.");
+      }
+      router.refresh();
+    });
+  };
+
+  const handleNetworkRoleChange = (next: NetworkRole | null) => {
+    const prev = networkRole;
+    setNetworkRoleState(next);
+    startRoleTransition(async () => {
+      const targetId = effectiveContactId ?? (await ensureLinked());
+      if (!targetId) {
+        setNetworkRoleState(prev);
+        return;
+      }
+      const result = await setNetworkRole(targetId, next);
+      if (!result.ok) {
+        setNetworkRoleState(prev);
+        toast.error(result.error);
+        return;
       }
       router.refresh();
     });
@@ -992,6 +1022,12 @@ export function OutreachModal({
               />
 
               <IntentControl intent={intent} onChange={handleIntentChange} />
+
+              <NetworkRoleControl
+                role={networkRole}
+                onChange={handleNetworkRoleChange}
+                pending={rolePending}
+              />
 
               {intent === null ? <PickIntentHint /> : null}
               {intent === "backrow" ? <BackrowExplainer /> : null}
@@ -1695,6 +1731,67 @@ function IdentityCard({
 // ---------------------------------------------------------------------------
 // Intent segmented control
 // ---------------------------------------------------------------------------
+
+function NetworkRoleControl({
+  role,
+  onChange,
+  pending,
+}: {
+  role: NetworkRole | null;
+  onChange: (next: NetworkRole | null) => void;
+  pending: boolean;
+}) {
+  return (
+    <section>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Role in my search
+        </h3>
+        {role ? (
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            title="Clear the role"
+            className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground"
+          >
+            Clear
+          </button>
+        ) : null}
+      </div>
+      <div className={cn("grid grid-cols-3 gap-1.5", pending && "opacity-60")}>
+        {NETWORK_ROLES.map((value) => {
+          const active = role === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => onChange(active ? null : value)}
+              title={NETWORK_ROLE_HELPERS[value]}
+              className={cn(
+                "flex flex-col gap-0.5 rounded-md border px-3 py-2 text-left transition-colors",
+                active
+                  ? "border-foreground/60 bg-foreground text-background"
+                  : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <span className="text-sm font-medium">
+                {NETWORK_ROLE_LABELS[value]}
+              </span>
+              <span
+                className={cn(
+                  "text-[10px] font-normal",
+                  active ? "text-background/70" : "text-muted-foreground/70"
+                )}
+              >
+                {NETWORK_ROLE_HELPERS[value]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
 function IntentControl({
   intent,
