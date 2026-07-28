@@ -120,6 +120,14 @@ function avg(nums: number[]): number | null {
   return Math.round((nums.reduce((s, n) => s + n, 0) / nums.length) * 10) / 10;
 }
 
+/**
+ * People who count on the Browning weekly report: Network Growth and
+ * Cold/Browning only. Maintenance, Backrow, and unset intent never appear.
+ */
+function countsOnReport(intent: string | null | undefined): boolean {
+  return intent === "network_growth" || intent === "browning_cold";
+}
+
 export async function getWeeklyActivityLog(
   weekParam?: string
 ): Promise<WeeklyActivityLog> {
@@ -199,13 +207,17 @@ export async function getWeeklyActivityLog(
       .lte("touched_at", prevEndISO),
     sb
       .from("contacts")
-      .select("id,name,tags,relationship_type,created_at,referred_by_contact_id,referred_at")
+      .select(
+        "id,name,tags,relationship_type,created_at,referred_by_contact_id,referred_at,intent"
+      )
       .gte("created_at", startISO)
       .lte("created_at", endISO),
     // Referrals recorded this week (even if the contact row was created earlier).
     sb
       .from("contacts")
-      .select("id,name,tags,relationship_type,referred_by_contact_id,referred_at")
+      .select(
+        "id,name,tags,relationship_type,referred_by_contact_id,referred_at,intent"
+      )
       .not("referred_by_contact_id", "is", null)
       .gte("referred_at", weekStart)
       .lte("referred_at", weekEnd),
@@ -214,13 +226,15 @@ export async function getWeeklyActivityLog(
       .select("id", { count: "exact", head: true })
       .not("next_touch_date", "is", null)
       .lte("next_touch_date", todayYmd)
-      .neq("intent", "backrow"),
+      .neq("intent", "backrow")
+      .neq("intent", "network_maintenance"),
     sb
       .from("contacts")
       .select("id", { count: "exact", head: true })
       .gt("next_touch_date", todayYmd)
       .lte("next_touch_date", addDays(todayYmd, 7))
-      .neq("intent", "backrow"),
+      .neq("intent", "backrow")
+      .neq("intent", "network_maintenance"),
     sb
       .from("browning_conversations")
       .select(
@@ -241,11 +255,16 @@ export async function getWeeklyActivityLog(
   ]);
 
   const touches = touchesRes.data ?? [];
-  const newContacts = newContactsRes.data ?? [];
-  const referredContacts = referredContactsRes.data ?? [];
+  // Growth + Cold/Browning only — never Maintenance / Backrow.
+  const newContacts = (newContactsRes.data ?? []).filter((c) =>
+    countsOnReport(c.intent as string | null)
+  );
+  const referredContacts = (referredContactsRes.data ?? []).filter((c) =>
+    countsOnReport(c.intent as string | null)
+  );
   const conversations = convRes.data ?? [];
 
-  // Resolve contact names/firms for touched + browning-conversation + referrer contacts.
+  // Resolve contact names/firms/intent for touched + browning + referrer contacts.
   const idSet = new Set<string>();
   for (const t of touches) idSet.add(t.contact_id as string);
   for (const c of conversations) idSet.add(c.contact_id as string);
@@ -259,18 +278,24 @@ export async function getWeeklyActivityLog(
   }
   const contactMap = new Map<
     string,
-    { name: string; firm: string | null; relationship_type: string | null }
+    {
+      name: string;
+      firm: string | null;
+      relationship_type: string | null;
+      intent: string | null;
+    }
   >();
   if (idSet.size) {
     const { data: contactRows } = await sb
       .from("contacts")
-      .select("id,name,tags,relationship_type")
+      .select("id,name,tags,relationship_type,intent")
       .in("id", Array.from(idSet));
     for (const r of contactRows ?? []) {
       contactMap.set(r.id as string, {
         name: r.name as string,
         firm: firmFromTags(r.tags as string[] | null),
         relationship_type: (r.relationship_type as string | null) ?? null,
+        intent: (r.intent as string | null) ?? null,
       });
     }
   }
@@ -281,11 +306,12 @@ export async function getWeeklyActivityLog(
   let inbound = 0;
   const engaged: EngagedTouch[] = [];
   for (const t of touches) {
+    const info = contactMap.get(t.contact_id as string);
+    if (!countsOnReport(info?.intent)) continue;
     const ch = (t.channel as string) ?? "other";
     byChannel.set(ch, (byChannel.get(ch) ?? 0) + 1);
     if (t.direction === "inbound") inbound += 1;
     else outbound += 1;
-    const info = contactMap.get(t.contact_id as string);
     engaged.push({
       contactId: t.contact_id as string,
       name: info?.name ?? "Unknown",
@@ -387,7 +413,7 @@ export async function getWeeklyActivityLog(
     nextWeek,
     isCurrentWeek,
     outreach: {
-      touchCount: touches.length,
+      touchCount: engaged.length,
       prevTouchCount: prevTouchesRes.count ?? 0,
       byChannel: Array.from(byChannel.entries())
         .map(([channel, count]) => ({ channel, count }))

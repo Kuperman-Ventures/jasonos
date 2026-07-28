@@ -72,6 +72,14 @@ function buildRecap(data: WeeklyActivityLog): string {
     );
   }
   lines.push(`- New contacts added: ${o.newContacts.length}`);
+  if (o.newContacts.length) {
+    for (const c of o.newContacts) {
+      const who = c.firm ? `${c.name} (${c.firm})` : c.name;
+      lines.push(
+        `  - ${who}${c.referredBy ? ` — introduced by ${c.referredBy}` : ""}`
+      );
+    }
+  }
   lines.push(`- Coverage: ${o.overdueCount} overdue, ${o.dueNext7Count} due in the next 7 days`);
   if (o.engaged.length) {
     lines.push("");
