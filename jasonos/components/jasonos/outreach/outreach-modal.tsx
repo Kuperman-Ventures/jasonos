@@ -52,6 +52,7 @@ import {
   Phone,
   Pencil,
   UserPlus,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
@@ -278,7 +279,10 @@ export function OutreachModal({
       if (cancelled) return;
       setCard({ status: "loading" });
       setAutoLinked(false);
-      setLoadingCtx(true);
+      // External communication context (Gmail / HubSpot / Granola / Fireflies)
+      // is loaded on demand, not on every open — the engagement records
+      // themselves come from the database and render immediately.
+      setLoadingCtx(false);
       setSources(null);
       setContextRecentTouches([]);
       setBrowningPrompt(null);
@@ -294,35 +298,6 @@ export function OutreachModal({
       });
       if (cancelled) return;
       applyFetchResult(result);
-
-      if (result.ok) {
-        await loadContext(result.contact.id);
-      } else {
-        // Either a hard error or no_linked_contact — nothing else to load
-        // until the user takes their first action and back-links.
-        setLoadingCtx(false);
-      }
-    };
-
-    const loadContext = async (id: string) => {
-      try {
-        const ctxResult = await loadOutreachContext({ contactId: id });
-        if (cancelled) return;
-        if (!ctxResult.ok) {
-          toast.error(ctxResult.error);
-          setLoadingCtx(false);
-          return;
-        }
-        setSources(ctxResult.sources);
-        setContextRecentTouches(ctxResult.recentTouches);
-        setLoadingCtx(false);
-      } catch (err) {
-        if (cancelled) return;
-        toast.error(
-          err instanceof Error ? err.message : "Failed to load context"
-        );
-        setLoadingCtx(false);
-      }
     };
 
     const applyFetchResult = (result: ContactCardDataResult) => {
@@ -509,6 +484,29 @@ export function OutreachModal({
 
   const effectiveContactId =
     card.status === "ready" ? card.contact.id : null;
+
+  // Load the live external context (Gmail / HubSpot / Granola / Fireflies) on
+  // demand. This is the only step that reaches out to Google et al.; engagement
+  // records already come from the database, so this runs only when asked.
+  const requestContext = async () => {
+    if (!effectiveContactId || loadingCtx) return;
+    setLoadingCtx(true);
+    try {
+      const ctxResult = await loadOutreachContext({
+        contactId: effectiveContactId,
+      });
+      if (!ctxResult.ok) {
+        toast.error(ctxResult.error);
+        return;
+      }
+      setSources(ctxResult.sources);
+      setContextRecentTouches(ctxResult.recentTouches);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to load context");
+    } finally {
+      setLoadingCtx(false);
+    }
+  };
   // Live next-touch date (optimistic local state, seeded from the loaded
   // contact) so the reschedule control and the Warm hint stay in sync.
   const nextTouchDate = nextTouchState;
@@ -1038,12 +1036,9 @@ export function OutreachModal({
                   loading={loadingCtx}
                   sources={sources}
                   contactId={effectiveContactId}
+                  onLoadContext={requestContext}
                   recentTouches={
-                    contextRecentTouches.length > 0
-                      ? contextRecentTouches
-                      : card.status === "ready"
-                      ? card.recentTouches
-                      : []
+                    card.status === "ready" ? card.recentTouches : []
                   }
                 />
               </div>
@@ -2371,20 +2366,15 @@ function RecentContextSection({
   sources,
   recentTouches,
   contactId,
+  onLoadContext,
 }: {
   loading: boolean;
   sources: DraftSource[] | null;
   recentTouches: RecentTouch[];
   contactId: string | null;
+  onLoadContext: () => void;
 }) {
-  const empty = useMemo(
-    () =>
-      !loading &&
-      sources &&
-      !sources.some((s) => s.found) &&
-      !recentTouches.length,
-    [loading, sources, recentTouches.length]
-  );
+  const noneFound = !!sources && !sources.some((s) => s.found);
 
   return (
     <div className="space-y-2">
@@ -2393,37 +2383,67 @@ function RecentContextSection({
         Engagements
       </h3>
 
-      {loading ? (
-        <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          Loading Gmail / HubSpot / Granola / Fireflies…
-        </div>
-      ) : null}
-
-      {!loading && sources ? (
-        <div className="space-y-2">
-          {recentTouches.length > 0 ? (
-            <EngagementsList
-              key={contactId ?? "none"}
-              contactId={contactId}
-              initial={recentTouches}
-            />
-          ) : null}
-
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            {sources.map((s) => (
-              <SourceCard key={s.source} source={s} />
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {empty ? (
+      {/* Engagement records — always from the database, shown immediately. */}
+      {recentTouches.length > 0 ? (
+        <EngagementsList
+          key={contactId ?? "none"}
+          contactId={contactId}
+          initial={recentTouches}
+        />
+      ) : (
         <p className="text-xs text-muted-foreground">
-          No prior history found across Gmail, HubSpot, Granola, Fireflies, or
-          your prior notes.
+          No engagements logged yet.
         </p>
-      ) : null}
+      )}
+
+      {/* External communication context — loaded on demand (the only step that
+          reaches out to Gmail / HubSpot / Granola / Fireflies). */}
+      <div className="pt-1">
+        {loading ? (
+          <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Loading Gmail / HubSpot / Granola / Fireflies…
+          </div>
+        ) : sources ? (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Context from your tools
+              </span>
+              <button
+                type="button"
+                onClick={onLoadContext}
+                className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+                title="Re-fetch the latest email threads and transcripts"
+              >
+                <RefreshCw className="h-3 w-3" />
+                Refresh
+              </button>
+            </div>
+            {noneFound ? (
+              <p className="text-xs text-muted-foreground">
+                No prior history found across Gmail, HubSpot, Granola, or
+                Fireflies.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {sources.map((s) => (
+                  <SourceCard key={s.source} source={s} />
+                ))}
+              </div>
+            )}
+          </div>
+        ) : contactId ? (
+          <button
+            type="button"
+            onClick={onLoadContext}
+            className="inline-flex items-center gap-1.5 rounded-md border border-dashed px-3 py-1.5 text-xs text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Load latest context (Gmail, HubSpot, Granola, Fireflies)
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }
