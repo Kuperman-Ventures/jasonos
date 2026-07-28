@@ -188,14 +188,30 @@ export async function insertContactTouches(
   const contactIds = Array.from(latestByContact.keys());
   if (!contactIds.length) return result;
 
-  const { data: contactRows, error: readErr } = await client
-    .from("contacts")
-    .select("id, cadence_interval, last_touch_date, cadence_stage")
-    .in("id", contactIds);
-
-  if (readErr) {
-    result.errors.push(`read contacts: ${readErr.message}`);
-    return result;
+  let contactRows: Array<Record<string, unknown>> | null = null;
+  {
+    const read = await client
+      .from("contacts")
+      .select(
+        "id, cadence_interval, last_touch_date, cadence_stage, next_touch_is_manual"
+      )
+      .in("id", contactIds);
+    if (read.error && /next_touch_is_manual/i.test(read.error.message)) {
+      const fallback = await client
+        .from("contacts")
+        .select("id, cadence_interval, last_touch_date, cadence_stage")
+        .in("id", contactIds);
+      if (fallback.error) {
+        result.errors.push(`read contacts: ${fallback.error.message}`);
+        return result;
+      }
+      contactRows = (fallback.data as Array<Record<string, unknown>>) ?? [];
+    } else if (read.error) {
+      result.errors.push(`read contacts: ${read.error.message}`);
+      return result;
+    } else {
+      contactRows = (read.data as Array<Record<string, unknown>>) ?? [];
+    }
   }
 
   await Promise.all(
@@ -222,6 +238,9 @@ export async function insertContactTouches(
       const updatePayload: Record<string, unknown> = {
         last_touch_date: newestDate,
         last_touch_channel: latestTouch?.channel ?? null,
+        // A new logged touch consumes any prior manual next-touch override;
+        // cadence (or none) drives the next date from here.
+        next_touch_is_manual: false,
       };
 
       if (cadence !== "none") {
@@ -248,10 +267,17 @@ export async function insertContactTouches(
         updatePayload.cadence_stage = "initial";
       }
 
-      const { error: updErr } = await client
+      let { error: updErr } = await client
         .from("contacts")
         .update(updatePayload)
         .eq("id", row.id);
+      if (updErr && /next_touch_is_manual/i.test(updErr.message)) {
+        const { next_touch_is_manual: _drop, ...legacyPayload } = updatePayload;
+        ({ error: updErr } = await client
+          .from("contacts")
+          .update(legacyPayload)
+          .eq("id", row.id));
+      }
 
       if (updErr) {
         result.errors.push(`advance ${row.id}: ${updErr.message}`);

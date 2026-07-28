@@ -60,6 +60,11 @@ export type { CadenceInterval } from "@/lib/cadence/types";
 
 export interface CommunicationsContact {
   id: string;
+  /**
+   * Always the jasonos.contacts.id. Differs from `id` for recruiter-linked
+   * rows, where `id` is rr_recruiters.id for legacy action compatibility.
+   */
+  contactId: string;
   name: string;
   title: string | null;
   firm: string | null;
@@ -363,11 +368,12 @@ export async function getCommunicationsData(): Promise<CommunicationsContact[]> 
         contactedToday = synth >= today;
       }
 
-      // Prefer rr_contact_state.next_action_due_date when the recruiter
-      // pipeline owns the schedule (legacy behavior). Otherwise fall back
-      // to jasonos.contacts.next_touch_date — the canonical Phase 1+ field.
+      // contacts.next_touch_date is canonical (cadence-derived OR a manual
+      // override). Prefer it over rr_contact_state so a reschedule on the
+      // contact card drives Schedule/queue bands even when the legacy
+      // pipeline due date is stale.
       const nextActionDueDate =
-        state?.next_action_due_date ?? p.next_touch_date ?? null;
+        p.next_touch_date ?? state?.next_action_due_date ?? null;
 
       const peers: CommPeer[] = (p.firm_normalized
         ? peersByFirm.get(p.firm_normalized) ?? []
@@ -390,8 +396,10 @@ export async function getCommunicationsData(): Promise<CommunicationsContact[]> 
         // server actions (dismissCommunicationContact, scheduleNextTouch,
         // getLastContactContents, getFirmmates) keep working unchanged.
         // Non-recruiter rows expose jasonos.contacts.id — the canonical
-        // identifier for everything else.
+        // identifier for everything else. `contactId` is always the
+        // jasonos.contacts.id for queue lookups.
         id: rpid ?? p.id,
+        contactId: p.id,
         name: p.name,
         title: p.title ?? null,
         firm: p.firm ?? null,
@@ -609,7 +617,7 @@ export async function scheduleContactNextTouch(
   const dueDate = dueDateFromOption(option, customDate);
   await sb
     .from("contacts")
-    .update({ next_touch_date: dueDate })
+    .update({ next_touch_date: dueDate, next_touch_is_manual: true })
     .eq("id", contactId);
   revalidatePath("/communications");
   revalidatePath("/outreach/schedule");

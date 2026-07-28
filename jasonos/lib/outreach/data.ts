@@ -43,6 +43,12 @@ export interface OutreachPerson {
   /** Network degree (migration 0025): 1 know well, 2 intro'd by a 1, 3 by a 2. */
   network_degree: NetworkDegree | null;
   next_touch_date: string | null;
+  /**
+   * True when the user explicitly set next_touch_date (reschedule / snooze /
+   * log override). Cadence edits must not overwrite it; queue bands use this
+   * date over the cadence interval.
+   */
+  next_touch_is_manual: boolean;
   last_touch_date: string | null;
   last_touch_channel: string | null;
   /**
@@ -141,6 +147,10 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
     // Either way the People list keeps rendering instead of disappearing.
     const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
        relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
+       network_degree,next_touch_date,next_touch_is_manual,last_touch_date,last_touch_channel,
+       reply_status_override,reply_status_override_at`;
+    const noManualColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
+       relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
        network_degree,next_touch_date,last_touch_date,last_touch_channel,
        reply_status_override,reply_status_override_at`;
     const noOverrideColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
@@ -157,6 +167,16 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
       .from("contacts")
       .select(fullColumns)
       .order("name", { ascending: true });
+
+    if (result.error && /next_touch_is_manual/i.test(result.error.message)) {
+      console.warn(
+        "[outreach.getOutreachPeople] next_touch_is_manual missing — run migration 0044. Falling back."
+      );
+      result = (await sb
+        .from("contacts")
+        .select(noManualColumns)
+        .order("name", { ascending: true })) as typeof result;
+    }
 
     if (result.error && /reply_status_override/i.test(result.error.message)) {
       console.warn(
@@ -272,6 +292,9 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
             | NetworkDegree
             | null) ?? null,
         next_touch_date: (row.next_touch_date as string | null) ?? null,
+        next_touch_is_manual: Boolean(
+          (row as { next_touch_is_manual?: boolean | null }).next_touch_is_manual
+        ),
         last_touch_date: (row.last_touch_date as string | null) ?? null,
         last_touch_channel: (row.last_touch_channel as string | null) ?? null,
         reply_status_override:

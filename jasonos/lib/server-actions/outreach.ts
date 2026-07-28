@@ -96,6 +96,7 @@ export async function setRelationshipType(
           defaultCadence,
           anchor
         );
+        updatePayload.next_touch_is_manual = false;
       }
     }
   }
@@ -112,13 +113,15 @@ export async function setRelationshipType(
 }
 
 // ---------------------------------------------------------------------------
-// setCadence — canonical cadence write for the contact card AND the Schedule
-// picker. Cadence is now the canonical scheduling concept:
-//   - cadence === "none" → next_touch_date = null (no rhythm scheduled)
-//   - else              → next_touch_date = today + CADENCE_DAYS[cadence]
-// For recruiter-linked contacts (source_ids.recruiter_pipeline_id present),
-// also mirror next_action_due_date in rr_contact_state so the recruiter
-// pipeline view stays in sync.
+// setCadence — cadence interval write for the contact card AND the Schedule
+// picker.
+//   - If the user has manually overridden next_touch_date, keep that date
+//     (cadence only changes the rhythm for AFTER the next logged touch).
+//   - Otherwise cadence drives next_touch_date:
+//       cadence === "none" → next_touch_date = null
+//       else               → next_touch_date = today + CADENCE_DAYS[cadence]
+// For recruiter-linked contacts, also mirror next_action_due_date in
+// rr_contact_state so the recruiter pipeline view stays in sync.
 // ---------------------------------------------------------------------------
 
 export async function setCadence(
@@ -133,15 +136,48 @@ export async function setCadence(
 
   const { data: existing, error: readError } = await sb
     .from("contacts")
-    .select("source_ids")
+    .select("source_ids, next_touch_date, next_touch_is_manual")
     .eq("id", contactId)
     .maybeSingle();
 
-  if (readError) return { ok: false, error: readError.message };
+  if (readError) {
+    // Migration 0044 not applied yet — fall back without the manual flag.
+    if (/next_touch_is_manual/i.test(readError.message)) {
+      const { data: legacy, error: legacyErr } = await sb
+        .from("contacts")
+        .select("source_ids, next_touch_date")
+        .eq("id", contactId)
+        .maybeSingle();
+      if (legacyErr) return { ok: false, error: legacyErr.message };
+      if (!legacy) return { ok: false, error: "Contact not found." };
+      const nextTouchDate =
+        cadence === "none" ? null : nextTouchFromCadence(cadence);
+      const { error } = await sb
+        .from("contacts")
+        .update({ cadence_interval: cadence, next_touch_date: nextTouchDate })
+        .eq("id", contactId);
+      if (error) return { ok: false, error: error.message };
+      await mirrorPipelineDueDate(legacy.source_ids, nextTouchDate);
+      revalidate();
+      return { ok: true };
+    }
+    return { ok: false, error: readError.message };
+  }
   if (!existing) return { ok: false, error: "Contact not found." };
 
-  const nextTouchDate =
-    cadence === "none" ? null : nextTouchFromCadence(cadence);
+  const isManual = Boolean(
+    (existing as { next_touch_is_manual?: boolean | null }).next_touch_is_manual
+  );
+  const priorNextTouch =
+    (existing.next_touch_date as string | null | undefined) ?? null;
+
+  // Manual next-touch wins over cadence for the scheduled date. Cadence still
+  // updates so the next logged touch can re-derive from the new rhythm.
+  const nextTouchDate = isManual
+    ? priorNextTouch
+    : cadence === "none"
+      ? null
+      : nextTouchFromCadence(cadence);
 
   const { error } = await sb
     .from("contacts")
@@ -153,27 +189,32 @@ export async function setCadence(
 
   if (error) return { ok: false, error: error.message };
 
-  // Mirror to rr_contact_state for recruiter-linked contacts so the
-  // recruiter pipeline's next_action_due_date stays in sync with cadence.
-  const sourceIds = existing.source_ids as Record<string, unknown> | null;
-  const rpid =
-    typeof sourceIds?.recruiter_pipeline_id === "string"
-      ? sourceIds.recruiter_pipeline_id
-      : null;
-  if (rpid) {
-    const sbPublic = createPublicServiceRoleClient();
-    await sbPublic.from("rr_contact_state").upsert(
-      {
-        contact_id: rpid,
-        next_action_due_date: nextTouchDate,
-        status_updated_at: new Date().toISOString(),
-      },
-      { onConflict: "contact_id" }
-    );
-  }
+  await mirrorPipelineDueDate(existing.source_ids, nextTouchDate);
 
   revalidate();
   return { ok: true };
+}
+
+/** Mirror contacts.next_touch_date → rr_contact_state for recruiter links. */
+async function mirrorPipelineDueDate(
+  sourceIds: unknown,
+  nextTouchDate: string | null
+): Promise<void> {
+  const ids = sourceIds as Record<string, unknown> | null;
+  const rpid =
+    typeof ids?.recruiter_pipeline_id === "string"
+      ? ids.recruiter_pipeline_id
+      : null;
+  if (!rpid) return;
+  const sbPublic = createPublicServiceRoleClient();
+  await sbPublic.from("rr_contact_state").upsert(
+    {
+      contact_id: rpid,
+      next_action_due_date: nextTouchDate,
+      status_updated_at: new Date().toISOString(),
+    },
+    { onConflict: "contact_id" }
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -626,29 +667,45 @@ export async function logContactTouch(input: {
 
   // Explicit next-touch override wins over the cadence-derived (or cleared)
   // date that insertContactTouches just stamped. Allow clearing with null
-  // when the caller passes the key intentionally.
+  // when the caller passes the key intentionally. Mark manual so cadence
+  // edits don't clobber the user's chosen date.
+  const { data: contact } = await sb
+    .from("contacts")
+    .select("source_ids, next_touch_date")
+    .eq("id", input.contactId)
+    .maybeSingle();
+
+  let effectiveNextTouch =
+    (contact?.next_touch_date as string | null | undefined) ?? null;
+
   if (input.nextTouchDateOverride !== undefined) {
-    const { error: ntErr } = await sb
+    const overridePayload: Record<string, unknown> = {
+      next_touch_date: input.nextTouchDateOverride,
+      next_touch_is_manual: input.nextTouchDateOverride != null,
+    };
+    let { error: ntErr } = await sb
       .from("contacts")
-      .update({ next_touch_date: input.nextTouchDateOverride })
+      .update(overridePayload)
       .eq("id", input.contactId);
+    if (ntErr && /next_touch_is_manual/i.test(ntErr.message)) {
+      ({ error: ntErr } = await sb
+        .from("contacts")
+        .update({ next_touch_date: input.nextTouchDateOverride })
+        .eq("id", input.contactId));
+    }
     if (ntErr) return { ok: false, error: ntErr.message };
+    effectiveNextTouch = input.nextTouchDateOverride;
   }
 
   // Mirror to rr_touches for recruiter contacts so the existing legacy
   // Communications timeline view continues to render manual touches.
-  const { data: contact } = await sb
-    .from("contacts")
-    .select("source_ids")
-    .eq("id", input.contactId)
-    .maybeSingle();
-
   const sourceIds = (contact?.source_ids as Record<string, unknown> | null) ?? {};
   const recruiterId =
     typeof sourceIds.recruiter_pipeline_id === "string"
       ? sourceIds.recruiter_pipeline_id
       : null;
   if (recruiterId) {
+    await mirrorPipelineDueDate(sourceIds, effectiveNextTouch);
     // rr_touches has a narrower channel CHECK (email/linkedin/phone/meeting/
     // event/referral/other) than jasonos.contact_touches. Map the richer
     // channel down so the legacy mirror insert doesn't violate it.
@@ -696,8 +753,9 @@ export async function logContactTouch(input: {
 // WITHOUT logging a touch or changing the cadence interval. This is the
 // "reschedule / push out" action: e.g. a contact is overdue but unreachable
 // until next week, so bump the next touch to next week and it moves straight
-// from Overdue to Scheduled. Mirrors rr_contact_state for recruiter-linked
-// contacts so the legacy pipeline stays in sync.
+// from Overdue to Scheduled — overriding cadence for queue placement.
+// Marks next_touch_is_manual so later cadence edits don't clobber it.
+// Mirrors rr_contact_state for recruiter-linked contacts.
 // ---------------------------------------------------------------------------
 
 export async function setNextTouchDate(
@@ -717,28 +775,24 @@ export async function setNextTouchDate(
   if (readError) return { ok: false, error: readError.message };
   if (!existing) return { ok: false, error: "Contact not found." };
 
-  const { error } = await sb
+  // date set → manual override; cleared → back to cadence-driven (no date).
+  const updatePayload: Record<string, unknown> = {
+    next_touch_date: date,
+    next_touch_is_manual: date != null,
+  };
+  let { error } = await sb
     .from("contacts")
-    .update({ next_touch_date: date })
+    .update(updatePayload)
     .eq("id", contactId);
+  if (error && /next_touch_is_manual/i.test(error.message)) {
+    ({ error } = await sb
+      .from("contacts")
+      .update({ next_touch_date: date })
+      .eq("id", contactId));
+  }
   if (error) return { ok: false, error: error.message };
 
-  const sourceIds = existing.source_ids as Record<string, unknown> | null;
-  const rpid =
-    typeof sourceIds?.recruiter_pipeline_id === "string"
-      ? sourceIds.recruiter_pipeline_id
-      : null;
-  if (rpid) {
-    const sbPublic = createPublicServiceRoleClient();
-    await sbPublic.from("rr_contact_state").upsert(
-      {
-        contact_id: rpid,
-        next_action_due_date: date,
-        status_updated_at: new Date().toISOString(),
-      },
-      { onConflict: "contact_id" }
-    );
-  }
+  await mirrorPipelineDueDate(existing.source_ids, date);
 
   revalidate();
   return { ok: true };
@@ -746,7 +800,8 @@ export async function setNextTouchDate(
 
 // ---------------------------------------------------------------------------
 // snoozeContact — push the next_touch_date forward by N days (or to a specific
-// date). Lightweight: doesn't change the cadence interval.
+// date). Lightweight: doesn't change the cadence interval. Counts as a manual
+// override so cadence won't immediately pull the date back.
 // ---------------------------------------------------------------------------
 
 export async function snoozeContact(
@@ -758,17 +813,33 @@ export async function snoozeContact(
   if (!contactId) return { ok: false, error: "contactId is required." };
 
   const sb = createServiceRoleClient();
+  const { data: existing, error: readError } = await sb
+    .from("contacts")
+    .select("source_ids")
+    .eq("id", contactId)
+    .maybeSingle();
+  if (readError) return { ok: false, error: readError.message };
+  if (!existing) return { ok: false, error: "Contact not found." };
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   today.setDate(today.getDate() + Math.max(1, Math.floor(days)));
   const nextDate = today.toISOString().split("T")[0];
 
-  const { error } = await sb
+  let { error } = await sb
     .from("contacts")
-    .update({ next_touch_date: nextDate })
+    .update({ next_touch_date: nextDate, next_touch_is_manual: true })
     .eq("id", contactId);
+  if (error && /next_touch_is_manual/i.test(error.message)) {
+    ({ error } = await sb
+      .from("contacts")
+      .update({ next_touch_date: nextDate })
+      .eq("id", contactId));
+  }
 
   if (error) return { ok: false, error: error.message };
+
+  await mirrorPipelineDueDate(existing.source_ids, nextDate);
 
   revalidate();
   return { ok: true };
@@ -981,6 +1052,10 @@ export async function getOutreachContactByRecruiterId(
   const sb = createServiceRoleClient();
   const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,is_networking,
      relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
+     network_degree,next_touch_date,next_touch_is_manual,last_touch_date,last_touch_channel,
+     reply_status_override,reply_status_override_at`;
+  const noManualColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,is_networking,
+     relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
      network_degree,next_touch_date,last_touch_date,last_touch_channel,
      reply_status_override,reply_status_override_at`;
   const noOverrideColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,is_networking,
@@ -996,6 +1071,15 @@ export async function getOutreachContactByRecruiterId(
     .filter("source_ids->>recruiter_pipeline_id", "eq", recruiterId)
     .limit(1)
     .maybeSingle();
+
+  if (result.error && /next_touch_is_manual/i.test(result.error.message)) {
+    result = (await sb
+      .from("contacts")
+      .select(noManualColumns)
+      .filter("source_ids->>recruiter_pipeline_id", "eq", recruiterId)
+      .limit(1)
+      .maybeSingle()) as typeof result;
+  }
 
   if (result.error && /reply_status_override/i.test(result.error.message)) {
     result = (await sb
@@ -1075,6 +1159,9 @@ export async function getOutreachContactByRecruiterId(
         | ContactIntent
         | null) ?? null,
     next_touch_date: (data.next_touch_date as string | null) ?? null,
+    next_touch_is_manual: Boolean(
+      (data as { next_touch_is_manual?: boolean | null }).next_touch_is_manual
+    ),
     last_touch_date: (data.last_touch_date as string | null) ?? null,
     last_touch_channel: (data.last_touch_channel as string | null) ?? null,
     reply_status_override:
@@ -1204,6 +1291,10 @@ export async function getContactCardData(input: {
   // schema fallbacks so this works even when migration 0017 hasn't shipped.
   const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,referred_by_contact_id,
      relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
+     network_degree,next_touch_date,next_touch_is_manual,last_touch_date,last_touch_channel,
+     reply_status_override,reply_status_override_at`;
+  const noManualColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,referred_by_contact_id,
+     relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
      network_degree,next_touch_date,last_touch_date,last_touch_channel,
      reply_status_override,reply_status_override_at`;
   const noOverrideColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,referred_by_contact_id,
@@ -1218,6 +1309,14 @@ export async function getContactCardData(input: {
     .select(fullColumns)
     .eq("id", resolvedContactId)
     .maybeSingle();
+
+  if (contactResult.error && /next_touch_is_manual/i.test(contactResult.error.message)) {
+    contactResult = (await sb
+      .from("contacts")
+      .select(noManualColumns)
+      .eq("id", resolvedContactId)
+      .maybeSingle()) as typeof contactResult;
+  }
 
   if (contactResult.error && /reply_status_override/i.test(contactResult.error.message)) {
     contactResult = (await sb
@@ -1322,6 +1421,9 @@ export async function getContactCardData(input: {
         | ContactIntent
         | null) ?? null,
     next_touch_date: (row.next_touch_date as string | null) ?? null,
+    next_touch_is_manual: Boolean(
+      (row as { next_touch_is_manual?: boolean | null }).next_touch_is_manual
+    ),
     last_touch_date: (row.last_touch_date as string | null) ?? null,
     last_touch_channel: (row.last_touch_channel as string | null) ?? null,
     reply_status_override:

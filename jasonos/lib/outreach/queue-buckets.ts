@@ -27,8 +27,11 @@
 //              triage intent paired with a sent/replied/in-conversation
 //              recruiter status.
 //   Warm     → last; cadence is set, the relationship has graduated past
-//              the initial-touch stage, no active cold sequence, and the
-//              next-touch date falls inside the seven-day actionable window.
+//              the initial-touch stage, no active cold sequence, and a
+//              next-touch date is set (manual override or cadence-derived).
+//              Queue urgency bands (Overdue / Due This Week / Scheduled)
+//              are driven by that next-touch date — a manual reschedule
+//              wins over the cadence interval for placement.
 //
 // The client component (three-column-queue-client.tsx) just renders the
 // pre-computed buckets — no classification logic on the client.
@@ -205,8 +208,6 @@ export async function getThreeColumnQueue(): Promise<ThreeColumnQueue> {
   );
 
   const today = startOfToday();
-  const sevenDaysOut = new Date(today);
-  sevenDaysOut.setDate(sevenDaysOut.getDate() + 7);
 
   const cards: QueueCard[] = [];
   const consumedReconnectIds = new Set<string>();
@@ -224,7 +225,7 @@ export async function getThreeColumnQueue(): Promise<ThreeColumnQueue> {
     if (reconnect) consumedReconnectIds.add(reconnect.id);
 
     const signal = touchSignals.get(person.id) ?? null;
-    const card = classify(person, reconnect, signal, rpid, today, sevenDaysOut);
+    const card = classify(person, reconnect, signal, rpid, today);
     if (card) cards.push(card);
   }
 
@@ -270,8 +271,7 @@ function classify(
   reconnect: ReconnectContact | null,
   signal: TouchSignal | null,
   recruiterPipelineId: string | null,
-  today: Date,
-  sevenDaysOut: Date
+  today: Date
 ): QueueCard | null {
   // ---- Backrow short-circuit (migration 0019). Explicit user opt-out:
   // keep the contact in jasonos.contacts but exclude it from every queue
@@ -363,8 +363,10 @@ function classify(
   // No active cold sequence already handled above — but double-check.
   if (isActiveCold) return null;
   if (!person.next_touch_date) return null;
+  // Keep Warm cards with a future next-touch (including manual "next week"
+  // overrides). The queue UI places them into Overdue / Due This Week /
+  // Scheduled from that date — do not hide far-future dates here.
   const ntd = parseDateOnly(person.next_touch_date);
-  if (ntd > sevenDaysOut) return null;
 
   return makeCard(person, reconnect, recruiterPipelineId, {
     column: "network_maintenance",
