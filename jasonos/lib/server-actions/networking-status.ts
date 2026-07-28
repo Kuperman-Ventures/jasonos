@@ -83,8 +83,13 @@ export interface NsReferral {
   tier: RelevanceTier | null;
   /** How far this person is from you (2 = intro from a 1, 3 = intro from a 2). */
   degree: NetworkDegree | null;
-  /** Introducer's degree — used to show the chain toward Degree 3. */
+  /** Introducer's degree — kept for sorting/filters; UI prefers referralChain. */
   referrerDegree: NetworkDegree | null;
+  /**
+   * Introduction path from the root contact you already know through to this
+   * person, e.g. ["Barbara Piermont", "Libby Topel", "Will Duffy"].
+   */
+  referralChain: string[];
 }
 
 /** Job applications (NYUI work searches) logged inside this reporting week.
@@ -361,13 +366,32 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
   const weeklyReferralIds = new Map<string, Set<string>>();
   const contactNameById = new Map<string, string>();
   const contactDegreeById = new Map<string, NetworkDegree | null>();
+  const referredById = new Map<string, string | null>();
   for (const c of contactsRes.data ?? []) {
-    contactNameById.set(c.id as string, (c.name as string) ?? "Unknown");
+    const id = c.id as string;
+    contactNameById.set(id, (c.name as string) ?? "Unknown");
     contactDegreeById.set(
-      c.id as string,
+      id,
       (c.network_degree as NetworkDegree | null) ?? null
     );
+    referredById.set(
+      id,
+      (c.referred_by_contact_id as string | null) ?? null
+    );
   }
+
+  /** Walk referred_by links outward→in: root introducer … → this person. */
+  const referralChainFor = (contactId: string): string[] => {
+    const names: string[] = [];
+    const seen = new Set<string>();
+    let cur: string | null = contactId;
+    while (cur && !seen.has(cur)) {
+      seen.add(cur);
+      names.unshift(contactNameById.get(cur) ?? "Unknown");
+      cur = referredById.get(cur) ?? null;
+    }
+    return names;
+  };
 
   // Ensure every week bucket exists lazily.
   const weeks = new Map<string, WeekActivity>();
@@ -529,6 +553,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
         referrerDegree: referrerId
           ? contactDegreeById.get(referrerId) ?? null
           : null,
+        referralChain: referralChainFor(id),
       });
     }
     wk.newReferrals.sort((a, b) =>
