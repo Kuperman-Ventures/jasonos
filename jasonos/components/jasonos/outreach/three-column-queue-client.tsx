@@ -200,26 +200,31 @@ function endOfWorkWeekYMD(baseYmd: string): string {
 }
 
 /**
- * Status derivation for a queue card. Prefers the Schedule page's
- * urgency (which accounts for synced sent-today touches and recruiter
- * pipeline due dates); falls back to the card's own dates so cards
- * without a Schedule row still land in a band.
+ * Status derivation for a queue card.
+ *
+ * Band placement is driven by the effective next-touch date on the card
+ * (manual override or cadence-derived). Schedule's "sent today" signal still
+ * wins for Engaged Today. Other CommUrgency values are only a fallback when
+ * the card has no next-touch of its own.
  */
 function deriveCardUrgency(
   card: QueueCard,
-  commUrgency: CommUrgency | undefined
+  comm: CommunicationsContact | undefined
 ): QueueUrgencyKey {
-  if (commUrgency) return fromCommUrgency(commUrgency);
-
   const today = todayYMD();
+  if (comm?.urgency === "sent_today") return "engaged_today";
   if (card.last_touch_date && card.last_touch_date.slice(0, 10) === today) {
     return "engaged_today";
   }
-  if (card.next_touch_date) {
-    if (card.next_touch_date < today) return "overdue";
-    if (card.next_touch_date <= endOfWorkWeekYMD(today)) return "due_this_week";
+
+  const nextTouch = card.next_touch_date ?? comm?.nextActionDueDate ?? null;
+  if (nextTouch) {
+    if (nextTouch < today) return "overdue";
+    if (nextTouch <= endOfWorkWeekYMD(today)) return "due_this_week";
     return "scheduled";
   }
+
+  if (comm?.urgency) return fromCommUrgency(comm.urgency);
   return "needs_scheduling";
 }
 
@@ -297,11 +302,14 @@ export function ThreeColumnQueueClient({
     return map;
   }, [reconnectContacts]);
 
-  // Schedule contacts indexed by contact id — supplies the same urgency,
-  // next-touch, last-touch, and strength data the Schedule page grid uses.
+  // Schedule contacts indexed by jasonos.contacts.id — recruiter-linked
+  // Schedule rows use rr_recruiters.id as `id`, so prefer `contactId`.
   const commByContactId = useMemo(() => {
     const map = new Map<string, CommunicationsContact>();
-    for (const c of scheduleContacts) map.set(c.id, c);
+    for (const c of scheduleContacts) {
+      map.set(c.contactId || c.id, c);
+      if (c.contactId && c.contactId !== c.id) map.set(c.id, c);
+    }
     return map;
   }, [scheduleContacts]);
 
@@ -351,14 +359,19 @@ export function ThreeColumnQueueClient({
         linkedin_url: person?.linkedin_url ?? null,
         cadence_interval: person?.cadence_interval ?? "none",
         cadence_stage: person?.cadence_stage ?? null,
-        next_touch_date: cc.nextActionDueDate,
-        last_touch_date: cc.lastTouch?.touched_at ?? null,
+        // Prefer the contact's next_touch_date (manual override or cadence)
+        // over a possibly-stale pipeline due date on the Schedule row.
+        next_touch_date: person?.next_touch_date ?? cc.nextActionDueDate,
+        last_touch_date:
+          person?.last_touch_date ??
+          cc.lastTouch?.touched_at?.slice(0, 10) ??
+          null,
         reply_status_override: person?.reply_status_override ?? null,
         reply_status_override_at: person?.reply_status_override_at ?? null,
         reason: "Scheduled touch",
         sequenceStageLabel: null,
-        contactId: cc.id,
-        recruiterId: null,
+        contactId: cc.contactId || cc.id,
+        recruiterId: cc.source === "recruiter" ? cc.id : null,
       });
     }
     return result;
@@ -396,9 +409,7 @@ export function ThreeColumnQueueClient({
       for (const card of filtered[colKey]) {
         const urgency = deriveCardUrgency(
           card,
-          card.contactId
-            ? commByContactId.get(card.contactId)?.urgency
-            : undefined
+          card.contactId ? commByContactId.get(card.contactId) : undefined
         );
         cells[urgency][colKey].push(card);
       }
@@ -409,10 +420,10 @@ export function ThreeColumnQueueClient({
     const strengthOf = (card: QueueCard) =>
       (card.contactId ? commByContactId.get(card.contactId)?.strength : 0) ?? 0;
     const nextDateOf = (card: QueueCard) =>
+      card.next_touch_date ??
       (card.contactId
         ? commByContactId.get(card.contactId)?.nextActionDueDate
         : null) ??
-      card.next_touch_date ??
       null;
     for (const [bandKey, band] of Object.entries(cells)) {
       for (const list of Object.values(band)) {

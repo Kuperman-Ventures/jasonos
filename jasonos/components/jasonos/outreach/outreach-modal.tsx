@@ -216,6 +216,7 @@ export function OutreachModal({
 
   // -- Next-touch date — editable directly (reschedule without logging a touch)
   const [nextTouchState, setNextTouchState] = useState<string | null>(null);
+  const [nextTouchIsManual, setNextTouchIsManual] = useState(false);
   const [reschedulePending, startRescheduleTransition] = useTransition();
 
   // -- Log-touch state (shared across sub-sections that render the panel)
@@ -340,6 +341,7 @@ export function OutreachModal({
         setIntent(result.contact.intent ?? null);
         setCadenceState(result.contact.cadence_interval);
         setNextTouchState(result.contact.next_touch_date);
+        setNextTouchIsManual(result.contact.next_touch_is_manual);
         setReplyOverride(result.contact.reply_status_override);
         setReplyOverrideAt(result.contact.reply_status_override_at);
         setReferredBy(result.referredBy);
@@ -365,6 +367,7 @@ export function OutreachModal({
         setIntent(null);
         setCadenceState("none");
         setNextTouchState(null);
+        setNextTouchIsManual(false);
         return;
       }
       setCard({ status: "error", message: result.error });
@@ -415,6 +418,7 @@ export function OutreachModal({
       setIntent(refreshed.contact.intent ?? null);
       setCadenceState(refreshed.contact.cadence_interval);
       setNextTouchState(refreshed.contact.next_touch_date);
+      setNextTouchIsManual(refreshed.contact.next_touch_is_manual);
       setReplyOverride(refreshed.contact.reply_status_override);
       setReplyOverrideAt(refreshed.contact.reply_status_override_at);
       setReferredBy(refreshed.referredBy);
@@ -443,6 +447,7 @@ export function OutreachModal({
           network_degree: null,
           intent: null,
           next_touch_date: null,
+          next_touch_is_manual: false,
           last_touch_date: null,
           last_touch_channel: null,
           reply_status_override: null,
@@ -664,24 +669,28 @@ export function OutreachModal({
   const handleCadenceChange = (next: CadenceInterval) => {
     const prev = cadenceInterval;
     const prevNext = nextTouchState;
+    const prevManual = nextTouchIsManual;
     setCadenceState(next);
-    // setCadence re-derives next_touch_date server-side (today + cadence, or
-    // null for "none"); mirror that optimistically so the reschedule control
-    // and hint stay in sync.
-    setNextTouchState(
-      next === "none" ? null : addDaysISO(todayISODate(), CADENCE_DAYS[next])
-    );
+    // Cadence only re-derives next_touch when the date was NOT manually
+    // overridden. A manual next-touch drives queue placement over cadence.
+    if (!nextTouchIsManual) {
+      setNextTouchState(
+        next === "none" ? null : addDaysISO(todayISODate(), CADENCE_DAYS[next])
+      );
+    }
     startCadenceTransition(async () => {
       const targetId = effectiveContactId ?? (await ensureLinked());
       if (!targetId) {
         setCadenceState(prev);
         setNextTouchState(prevNext);
+        setNextTouchIsManual(prevManual);
         return;
       }
       const result = await setCadence(targetId, next);
       if (!result.ok) {
         setCadenceState(prev);
         setNextTouchState(prevNext);
+        setNextTouchIsManual(prevManual);
         toast.error(result.error);
         return;
       }
@@ -695,16 +704,20 @@ export function OutreachModal({
 
   const handleNextTouchChange = (date: string | null) => {
     const prev = nextTouchState;
+    const prevManual = nextTouchIsManual;
     setNextTouchState(date);
+    setNextTouchIsManual(date != null);
     startRescheduleTransition(async () => {
       const targetId = effectiveContactId ?? (await ensureLinked());
       if (!targetId) {
         setNextTouchState(prev);
+        setNextTouchIsManual(prevManual);
         return;
       }
       const result = await setNextTouchDate(targetId, date);
       if (!result.ok) {
         setNextTouchState(prev);
+        setNextTouchIsManual(prevManual);
         toast.error(result.error);
         return;
       }
@@ -2105,10 +2118,21 @@ function nextTouchScheduleStatus(value: string | null, today: string): string {
   );
   if (days < 0)
     return `Overdue by ${Math.abs(days)}d — reschedule to move it out of Overdue.`;
-  if (days === 0) return "Due today.";
-  if (days === 1) return "Scheduled for tomorrow.";
-  if (days <= 7) return `Scheduled in ${days}d — shows in Due This Week.`;
-  return `Scheduled in ${days}d.`;
+  if (days === 0) return "Due today — this date drives the queue over cadence.";
+  if (days === 1)
+    return "Scheduled for tomorrow — this date drives the queue over cadence.";
+  // Match queue banding: through this Friday = Due This Week; later = Scheduled.
+  const end = endOfWorkWeekFrom(today);
+  if (value <= end)
+    return `Scheduled in ${days}d — shows in Due This Week (overrides cadence).`;
+  return `Scheduled in ${days}d — shows in Scheduled (overrides cadence).`;
+}
+
+function endOfWorkWeekFrom(baseYmd: string): string {
+  const d = new Date(`${baseYmd}T00:00:00`);
+  const daysUntilFriday = (5 - d.getDay() + 7) % 7;
+  d.setDate(d.getDate() + daysUntilFriday);
+  return d.toISOString().split("T")[0];
 }
 
 // ---------------------------------------------------------------------------
