@@ -175,6 +175,14 @@ function firmFromTags(tags: string[] | null): string | null {
   return t ? t.slice("firm:".length).replace(/-/g, " ") : null;
 }
 
+/**
+ * Weekly Report only includes Network Growth and Browning/Cold.
+ * Maintenance, Backrow, and unset intent do not belong on the report.
+ */
+function countsOnWeeklyReport(intent: string | null | undefined): boolean {
+  return intent === "network_growth" || intent === "browning_cold";
+}
+
 export async function getNetworkingActivity(): Promise<NetworkingActivity> {
   const today = ymd(new Date());
   const currentWeekStart = weekStartOf(today);
@@ -253,6 +261,15 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     (browningIdsRes.data ?? []).map((r) => r.id as string)
   );
   const peopleById = new Map(people.map((p) => [p.id, p]));
+  // Prefer the contacts-table intent (source of truth for Growth / Cold /
+  // Maintenance) over any derived outreach view.
+  const intentById = new Map<string, string | null>();
+  for (const c of contactsRes.data ?? []) {
+    intentById.set(c.id as string, (c.intent as string | null) ?? null);
+  }
+  for (const p of people) {
+    if (!intentById.has(p.id)) intentById.set(p.id, p.intent ?? null);
+  }
 
   // Company-the-contact-works-at, resolved via contacts.company_id →
   // companies.name. Used as a fallback when the outreach layer's firm (from
@@ -357,19 +374,18 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     const date = (t.touched_at as string).slice(0, 10);
     const ch = (t.channel as string) ?? "";
     const wk = weekFor(weekStartOf(date));
-    // Backrow (archived) and Network Maintenance contacts never appear in the
-    // networking report — for any channel.
-    const tp = peopleById.get(t.contact_id as string);
-    if (tp?.intent === "backrow" || tp?.intent === "network_maintenance")
-      continue;
+    // Only Network Growth and Browning/Cold count — Maintenance, Backrow, and
+    // unset intent never appear on the weekly report.
+    const cid = t.contact_id as string;
+    const tp = peopleById.get(cid);
+    if (!countsOnWeeklyReport(intentById.get(cid) ?? tp?.intent)) continue;
 
-    // Funnel accumulation (all channels; networking contacts only).
-    const fcid = t.contact_id as string;
+    // Funnel accumulation (all channels; Growth / Cold only).
     const dir = (t.direction as string) ?? "outbound";
     const fSets = funnelSetsFor(weekStartOf(date));
     if (dir === "outbound") {
-      fSets.reached.add(fcid);
-      cumReached.add(fcid);
+      fSets.reached.add(cid);
+      cumReached.add(cid);
       // "Fresh" = no prior touch with this contact in the last 30 days.
       const prevTs = prevTsByTouchId.get(t.id as string) ?? null;
       const isFresh =
@@ -377,15 +393,15 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
         new Date(t.touched_at as string).getTime() -
           new Date(prevTs).getTime() >
           freshWindowMs;
-      if (isFresh) fSets.fresh.add(fcid);
+      if (isFresh) fSets.fresh.add(cid);
     }
     if (dir === "inbound") {
-      fSets.replied.add(fcid);
-      cumReplied.add(fcid);
+      fSets.replied.add(cid);
+      cumReplied.add(cid);
     }
     if (CONVERSATION_CHANNELS.has(ch)) {
-      fSets.met.add(fcid);
-      cumMet.add(fcid);
+      fSets.met.add(cid);
+      cumMet.add(cid);
     }
 
     if (ch === "thank_you_note") {
@@ -393,7 +409,6 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
       continue;
     }
     if (CONVERSATION_CHANNELS.has(ch)) {
-      const cid = t.contact_id as string;
       const p = peopleById.get(cid);
       const priorContactCount = priorCountByTouchId.get(t.id as string) ?? 0;
       const isFirstContact = priorContactCount === 0;
@@ -420,8 +435,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
 
   // New contacts added, by created_at week.
   for (const c of contactsRes.data ?? []) {
-    if ((c.intent as string) === "backrow") continue;
-    if ((c.intent as string) === "network_maintenance") continue;
+    if (!countsOnWeeklyReport(c.intent as string | null)) continue;
     const created = c.created_at ? (c.created_at as string).slice(0, 10) : null;
     if (!created) continue;
     const wk = weekFor(weekStartOf(created));
@@ -512,9 +526,9 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     w.funnel.newReferrals > 0;
   const filtered = ordered.filter((w) => w.isCurrent || hasActivity(w));
 
-  // Cumulative coverage across the networking list (operational + backrow out).
-  const listSize = people.filter(
-    (p) => p.intent !== "network_maintenance" && p.intent !== "backrow"
+  // Cumulative coverage: Growth + Cold/Browning only.
+  const listSize = people.filter((p) =>
+    countsOnWeeklyReport(intentById.get(p.id) ?? p.intent)
   ).length;
   let referredReached = 0;
   let referredMet = 0;
