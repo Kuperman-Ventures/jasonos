@@ -26,7 +26,7 @@ export function SyncNowButton({ initial }: SyncNowButtonProps) {
     setRunning(true);
     try {
       const [result, suggested] = await Promise.all([
-        syncOutreachAll({ daysBack: 7 }),
+        syncOutreachAll({ daysBack: 90 }),
         captureEmailCandidates({ days: 30 }),
       ]);
 
@@ -88,8 +88,8 @@ export function SyncNowButton({ initial }: SyncNowButtonProps) {
       disabled={running}
       title={
         lastSynced
-          ? `Last synced ${fmtRelative(lastSynced)} — Gmail, Calendar & suggested contacts`
-          : "Sync Gmail, Calendar & suggested contacts"
+          ? `Last synced ${fmtRelative(lastSynced)} — last 90 days of Gmail, Calendar & suggested contacts`
+          : "Sync last 90 days of Gmail, Calendar & suggested contacts"
       }
     >
       {running ? (
