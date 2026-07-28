@@ -246,11 +246,9 @@ export function OutreachModal({
   } | null>(null);
   const [browningDismissed, setBrowningDismissed] = useState(false);
 
-  // Which body tab is showing. "engage" = classify/schedule/log; "history" =
-  // communication context. Reset to "engage" on each open.
-  const [tab, setTab] = useState<
-    "engage" | "history" | "contact" | "meetings"
-  >("engage");
+  // Which body tab is showing. "engage" = classify/schedule/log + the
+  // communication history at the bottom. Reset to "engage" on each open.
+  const [tab, setTab] = useState<"engage" | "contact" | "meetings">("engage");
 
   // Whether the identity editor (name / firm / email / phone) is open. Toggled
   // from the Edit button in the header, next to the name and company.
@@ -967,9 +965,6 @@ export function OutreachModal({
             <TabBtn active={tab === "engage"} onClick={() => setTab("engage")}>
               Engage
             </TabBtn>
-            <TabBtn active={tab === "history"} onClick={() => setTab("history")}>
-              History
-            </TabBtn>
             <TabBtn active={tab === "meetings"} onClick={() => setTab("meetings")}>
               Meetings
             </TabBtn>
@@ -1033,19 +1028,23 @@ export function OutreachModal({
                 nextTouchOverride={nextTouchOverride}
                 setNextTouchOverride={setNextTouchOverride}
               />
+
+              {/* Communication history — lives at the bottom of Engage rather
+                  than in its own tab, so the full thread reads on one page. */}
+              <div className="border-t pt-4">
+                <RecentContextSection
+                  loading={loadingCtx}
+                  sources={sources}
+                  recentTouches={
+                    contextRecentTouches.length > 0
+                      ? contextRecentTouches
+                      : card.status === "ready"
+                      ? card.recentTouches
+                      : []
+                  }
+                />
+              </div>
             </div>
-          ) : tab === "history" ? (
-            <RecentContextSection
-              loading={loadingCtx}
-              sources={sources}
-              recentTouches={
-                contextRecentTouches.length > 0
-                  ? contextRecentTouches
-                  : card.status === "ready"
-                  ? card.recentTouches
-                  : []
-              }
-            />
           ) : tab === "meetings" ? (
             effectiveContactId ? (
               <MeetingsTab
