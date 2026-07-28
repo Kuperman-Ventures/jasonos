@@ -92,13 +92,11 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
     const goalPct = Math.min(100, Math.round((f.freshOutreach / target) * 100));
     const goalMet = f.freshOutreach >= target;
     const cum = data.cumulative;
-    const d2 = current.newReferrals.filter((r) => r.degree === 2).length;
-    const d3 = current.newReferrals.filter((r) => r.degree === 3).length;
     const goalCard = `<section class="card">
         <div class="card-h">Referral expansion (the goal)</div>
         <div class="card-b">
-          <div class="nr-legend"><span><b>${f.newReferrals}</b> new referral${f.newReferrals === 1 ? "" : "s"} this week</span><span class="muted">${d2} Degree 2 · ${d3} Degree 3</span></div>
-          <p class="sub" style="margin-top:8px;">People someone introduced you to. Degree 2 unlocks the Degree 3 ask — the Browning leap.</p>
+          <div class="nr-legend"><span><b>${f.newReferrals}</b> new referral${f.newReferrals === 1 ? "" : "s"} this week</span></div>
+          <p class="sub" style="margin-top:8px;">People someone introduced you to — shown as the introduction chain (who → who → them).</p>
           <p class="sub" style="margin-top:4px;">All-time referrals: ${cum.referred} introduced to you &middot; ${cum.referredReached} reached &middot; ${cum.referredMet} met</p>
           <div class="chips" style="margin-top:12px;">
             <span class="chip"><b>${f.freshOutreach}</b> / ${target} fresh outreach</span>
@@ -206,7 +204,7 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Wednesday to Tuesday. The point of this report: who introduced you
-            to whom — and the next ask to reach Degree 3.
+            to whom — shown as the introduction chain — and the next ask out.
           </p>
         </div>
         <button
@@ -250,45 +248,25 @@ function FunnelSummary({ data }: { data: NetworkingActivity }) {
   const met = f.freshOutreach >= target;
   const cum = data.cumulative;
 
-  const weekReferrals = current.newReferrals;
-  const degree2Wins = weekReferrals.filter((r) => r.degree === 2).length;
-  const degree3Wins = weekReferrals.filter((r) => r.degree === 3).length;
-
   return (
     <section className="space-y-4 rounded-xl border bg-card p-4">
       {/* Referral expansion — the point of the report */}
       <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
-              <GitBranch className="h-3.5 w-3.5" />
-              This week&rsquo;s referral expansion
-            </p>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">
-              {f.newReferrals}{" "}
-              <span className="text-base font-semibold text-muted-foreground">
-                new referral{f.newReferrals === 1 ? "" : "s"}
-              </span>
-            </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              People someone introduced you to. Degree 2 unlocks the Degree 3
-              ask — that&rsquo;s the Browning leap.
-            </p>
-          </div>
-          <div className="shrink-0 space-y-1 text-right text-[11px]">
-            <p>
-              <span className="font-semibold tabular-nums text-foreground">
-                {degree2Wins}
-              </span>{" "}
-              <span className="text-muted-foreground">Degree 2</span>
-            </p>
-            <p>
-              <span className="font-semibold tabular-nums text-foreground">
-                {degree3Wins}
-              </span>{" "}
-              <span className="text-muted-foreground">Degree 3</span>
-            </p>
-          </div>
+        <div>
+          <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
+            <GitBranch className="h-3.5 w-3.5" />
+            This week&rsquo;s referral expansion
+          </p>
+          <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">
+            {f.newReferrals}{" "}
+            <span className="text-base font-semibold text-muted-foreground">
+              new referral{f.newReferrals === 1 ? "" : "s"}
+            </span>
+          </p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            People someone introduced you to — shown as the introduction chain
+            (who → who → them).
+          </p>
         </div>
         <p className="mt-2 text-[11px] text-muted-foreground">
           All-time:{" "}
@@ -347,22 +325,49 @@ function FunnelStat({
   );
 }
 
-function degreeShort(degree: number | null | undefined): string | null {
-  if (degree === 1) return "Degree 1";
-  if (degree === 2) return "Degree 2";
-  if (degree === 3) return "Degree 3";
-  return null;
+/** Introduction path as a breadcrumb, e.g. Barbara → Libby → Will. */
+function referralChainLabel(r: NsReferral): string {
+  const chain =
+    r.referralChain?.length > 0
+      ? r.referralChain
+      : r.referredBy
+        ? [r.referredBy, r.name]
+        : [r.name];
+  return chain.join(" → ");
 }
 
 function referralNextAsk(r: NsReferral): string | null {
-  // Browning: Degree 2 intros unlock the Degree 3 ask from that person.
+  // One hop from someone you already know → ask them for the next intro out.
   if (r.degree === 2) {
-    return `Next ask: get a Degree 3 intro from ${r.name}`;
+    return `Next ask: get an introduction from ${r.name}`;
   }
   if (r.degree === 3) {
-    return "Degree 3 win — outside your known network";
+    return "Outside your known network — keep the chain going";
   }
   return null;
+}
+
+function ReferralBreadcrumb({ chain }: { chain: string[] }) {
+  if (chain.length === 0) return null;
+  return (
+    <p className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[12px] leading-snug text-foreground/90">
+      {chain.map((name, i) => {
+        const isLast = i === chain.length - 1;
+        return (
+          <span key={`${name}-${i}`} className="inline-flex items-center gap-x-1">
+            {i > 0 ? (
+              <span className="text-muted-foreground" aria-hidden>
+                →
+              </span>
+            ) : null}
+            <span className={isLast ? "font-semibold text-foreground" : "font-medium"}>
+              {name}
+            </span>
+          </span>
+        );
+      })}
+    </p>
+  );
 }
 
 function WeekCard({
@@ -457,42 +462,30 @@ function NewNetworkPanel({
             New referrals — network expansion ({referrals.length})
           </p>
           <p className="mb-2 text-[11px] text-muted-foreground">
-            Introductions TO you. A Degree 2 (via a Degree 1) is the unlock —
-            ask them for a Degree 3.
+            Introductions TO you, as the chain from someone you know through to
+            them.
           </p>
           <ul className="divide-y divide-emerald-500/20 rounded-lg border border-emerald-500/30 bg-emerald-500/5">
             {referrals.map((r) => {
               const next = referralNextAsk(r);
-              const deg = degreeShort(r.degree);
-              const viaDeg = degreeShort(r.referrerDegree);
+              const chain =
+                r.referralChain?.length > 0
+                  ? r.referralChain
+                  : [r.referredBy, r.name].filter(Boolean);
               return (
                 <li key={r.id} className="space-y-1 px-3 py-2.5 text-sm">
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                    <span className="font-semibold text-foreground">{r.name}</span>
+                    <ReferralBreadcrumb chain={chain} />
                     {r.firm ? (
                       <span className="text-xs text-muted-foreground">· {r.firm}</span>
                     ) : null}
-                    {deg ? (
-                      <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
-                        {deg}
-                      </span>
-                    ) : null}
-                    <TierDegreeBadge tier={r.tier} degree={r.degree} className="shrink-0" />
-                  </div>
-                  <p className="text-[12px] text-foreground/90">
-                    Introduced by{" "}
-                    <span className="font-medium">{r.referredBy}</span>
-                    {viaDeg ? (
-                      <span className="text-muted-foreground"> ({viaDeg})</span>
-                    ) : null}
-                    <span className="text-muted-foreground">
-                      {" "}
-                      · {fmtShort(r.referredAt)}
+                    <span className="text-[11px] text-muted-foreground">
+                      {fmtShort(r.referredAt)}
                     </span>
-                  </p>
+                  </div>
                   {next ? (
                     <p className="text-[11px] font-medium text-amber-300/90">
-                      → {next}
+                      {next}
                     </p>
                   ) : null}
                 </li>
@@ -507,8 +500,8 @@ function NewNetworkPanel({
             New referrals
           </p>
           <p className="mt-1 text-[11px] text-muted-foreground">
-            No introductions recorded this week. The goal is expanding through
-            referrals — Degree 1 → Degree 2 → Degree 3.
+            No introductions recorded this week. The goal is growing the chain —
+            someone you know introducing you to someone new.
           </p>
         </div>
       )}
@@ -705,26 +698,16 @@ function newNetworkHtml(w: WeekActivity): string {
   if (w.newReferrals.length === 0 && alsoAdded.length === 0) return "";
   const referralRows = w.newReferrals
     .map((r) => {
-      const deg =
-        r.degree === 2 ? "Degree 2" : r.degree === 3 ? "Degree 3" : r.degree === 1 ? "Degree 1" : "";
-      const viaDeg =
-        r.referrerDegree === 1
-          ? "Degree 1"
-          : r.referrerDegree === 2
-            ? "Degree 2"
-            : r.referrerDegree === 3
-              ? "Degree 3"
-              : "";
+      const chain = escHtml(referralChainLabel(r));
       const next =
         r.degree === 2
-          ? `Next ask: get a Degree 3 intro from ${r.name}`
+          ? `Next ask: get an introduction from ${r.name}`
           : r.degree === 3
-            ? "Degree 3 win — outside your known network"
+            ? "Outside your known network — keep the chain going"
             : "";
       return `<li style="flex-direction:column;align-items:flex-start;gap:2px;">
-        <span class="li-main"><b>${escHtml(r.name)}</b>${r.firm ? ` <span class="muted">&middot; ${escHtml(r.firm)}</span>` : ""}${deg ? ` <span class="li-meta ok">${escHtml(deg)}</span>` : ""}</span>
-        <span class="muted" style="font-size:11px;">Introduced by <b>${escHtml(r.referredBy)}</b>${viaDeg ? ` (${escHtml(viaDeg)})` : ""} · ${escHtml(fmtShort(r.referredAt))}</span>
-        ${next ? `<span style="font-size:11px;color:#b45309;">→ ${escHtml(next)}</span>` : ""}
+        <span class="li-main" style="font-size:13px;">${chain}${r.firm ? ` <span class="muted">&middot; ${escHtml(r.firm)}</span>` : ""} <span class="muted" style="font-size:11px;">· ${escHtml(fmtShort(r.referredAt))}</span></span>
+        ${next ? `<span style="font-size:11px;color:#b45309;">${escHtml(next)}</span>` : ""}
       </li>`;
     })
     .join("");
