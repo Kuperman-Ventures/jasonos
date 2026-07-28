@@ -80,6 +80,11 @@ export interface NsReferral {
   firm: string | null;
   referredBy: string;
   referredAt: string;
+  tier: RelevanceTier | null;
+  /** How far this person is from you (2 = intro from a 1, 3 = intro from a 2). */
+  degree: NetworkDegree | null;
+  /** Introducer's degree — used to show the chain toward Degree 3. */
+  referrerDegree: NetworkDegree | null;
 }
 
 /** Job applications (NYUI work searches) logged inside this reporting week.
@@ -353,8 +358,13 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
   const referredIds = new Set<string>();
   const weeklyReferralIds = new Map<string, Set<string>>();
   const contactNameById = new Map<string, string>();
+  const contactDegreeById = new Map<string, NetworkDegree | null>();
   for (const c of contactsRes.data ?? []) {
     contactNameById.set(c.id as string, (c.name as string) ?? "Unknown");
+    contactDegreeById.set(
+      c.id as string,
+      (c.network_degree as NetworkDegree | null) ?? null
+    );
   }
 
   // Ensure every week bucket exists lazily.
@@ -512,6 +522,11 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
         referredAt:
           ((c.referred_at as string | null) ??
             (c.created_at as string).slice(0, 10)),
+        tier: (c.relevance_tier as RelevanceTier | null) ?? null,
+        degree: (c.network_degree as NetworkDegree | null) ?? null,
+        referrerDegree: referrerId
+          ? contactDegreeById.get(referrerId) ?? null
+          : null,
       });
     }
     wk.newReferrals.sort((a, b) =>
