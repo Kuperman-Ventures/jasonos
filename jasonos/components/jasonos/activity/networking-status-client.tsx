@@ -93,18 +93,16 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
     const goalMet = f.freshOutreach >= target;
     const cum = data.cumulative;
     const goalCard = `<section class="card">
-        <div class="card-h">Referral expansion (the goal)</div>
+        <div class="card-h">The path that matters</div>
         <div class="card-b">
-          <div class="nr-legend"><span><b>${f.newReferrals}</b> new referral${f.newReferrals === 1 ? "" : "s"} this week</span></div>
-          <p class="sub" style="margin-top:8px;">Furthest new introductions this week, as the chain from someone you know through to them.</p>
-          <p class="sub" style="margin-top:4px;">All-time referrals: ${cum.referred} introduced to you &middot; ${cum.referredReached} reached &middot; ${cum.referredMet} met</p>
+          <p class="sub">Fresh outreach → call/meeting → referral</p>
           <div class="chips" style="margin-top:12px;">
             <span class="chip"><b>${f.freshOutreach}</b> / ${target} fresh outreach</span>
-            <span class="chip"><b>${f.reachedOut}</b> reached out</span>
-            <span class="chip"><b>${f.replied}</b> replied</span>
-            <span class="chip"><b>${f.metHeld}</b> met &middot; held</span>
+            <span class="chip"><b>${f.freshToMeeting}</b> → call/meeting</span>
+            <span class="chip"><b>${f.newReferrals}</b> referrals</span>
           </div>
           <div class="bar" style="margin-top:10px;"><div style="width:${goalPct}%;background:${goalMet ? "#10b981" : "#38bdf8"}"></div></div>
+          <p class="sub" style="margin-top:8px;">All-time: ${cum.referred} introduced to you &middot; ${cum.referredMet} met</p>
         </div>
       </section>`;
 
@@ -203,8 +201,8 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
             Expanding the network through referrals
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Wednesday to Tuesday. The point of this report: who introduced you
-            to whom — shown as the introduction chain — and the next ask out.
+            Wednesday to Tuesday. Track the path: fresh outreach → calls and
+            meetings → referrals (who introduced you to whom).
           </p>
         </div>
         <button
@@ -237,87 +235,106 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
   );
 }
 
-// Top-of-report summary: the weekly fresh-outreach goal + the reach → reply →
-// meeting funnel (this week) and all-time coverage of the networking list.
+// Top-of-report summary: the path that matters —
+// Fresh outreach → call/meeting → referral.
 function FunnelSummary({ data }: { data: NetworkingActivity }) {
   const current = data.weeks.find((w) => w.isCurrent) ?? data.weeks[0];
   if (!current) return null;
   const f = current.funnel;
   const target = data.goalTarget || 10;
   const pct = Math.min(100, Math.round((f.freshOutreach / target) * 100));
-  const met = f.freshOutreach >= target;
+  const goalMet = f.freshOutreach >= target;
   const cum = data.cumulative;
 
   return (
     <section className="space-y-4 rounded-xl border bg-card p-4">
-      {/* Referral expansion — the point of the report */}
-      <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
-        <div>
-          <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
-            <GitBranch className="h-3.5 w-3.5" />
-            This week&rsquo;s referral expansion
-          </p>
-          <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">
-            {f.newReferrals}{" "}
-            <span className="text-base font-semibold text-muted-foreground">
-              new referral{f.newReferrals === 1 ? "" : "s"}
-            </span>
-          </p>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Furthest new introductions this week, as the chain from someone you
-            know through to them.
-          </p>
-        </div>
-        <p className="mt-2 text-[11px] text-muted-foreground">
-          All-time:{" "}
-          <span className="font-semibold text-foreground">{cum.referred}</span>{" "}
-          introduced to you ·{" "}
-          <span className="font-semibold text-foreground">
-            {cum.referredReached}
-          </span>{" "}
-          reached ·{" "}
-          <span className="font-semibold text-foreground">{cum.referredMet}</span>{" "}
-          met
+      <div>
+        <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
+          <GitBranch className="h-3.5 w-3.5" />
+          The path that matters
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Fresh outreach → a real call or meeting → a referral. That&rsquo;s
+          what this report tracks.
         </p>
       </div>
 
-      {/* Supporting outreach funnel */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <FunnelStat label="Fresh outreach" value={f.freshOutreach} hint={`${target} goal`} />
-        <FunnelStat label="Reached out" value={f.reachedOut} />
-        <FunnelStat label="Replied" value={f.replied} />
-        <FunnelStat label="Met · held" value={f.metHeld} />
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <PathStat
+          step="1"
+          label="Fresh outreach"
+          value={f.freshOutreach}
+          hint={`${f.freshOutreach}/${target} weekly goal`}
+        />
+        <PathStat
+          step="2"
+          label="→ Calls & meetings"
+          value={f.freshToMeeting}
+          hint={
+            f.metHeld > f.freshToMeeting
+              ? `${f.metHeld} total held · ${f.freshToMeeting} from fresh`
+              : "from fresh outreach"
+          }
+        />
+        <PathStat
+          step="3"
+          label="→ Referrals"
+          value={f.newReferrals}
+          hint="new introductions this week"
+          emphasize
+        />
       </div>
+
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-border">
         <div
-          className={`h-full rounded-full ${met ? "bg-emerald-400" : "bg-sky-400"}`}
+          className={`h-full rounded-full ${goalMet ? "bg-emerald-400" : "bg-sky-400"}`}
           style={{ width: `${pct}%` }}
         />
       </div>
       <p className="text-[11px] text-muted-foreground">
         Fresh outreach {f.freshOutreach}/{target}
-        {met ? " — goal met." : ` — ${target - f.freshOutreach} to go.`} All-time
-        reached {cum.reachedOut} of {cum.listSize} Growth/Cold contacts.
+        {goalMet ? " — goal met." : ` — ${target - f.freshOutreach} to go.`}{" "}
+        All-time: {cum.referred} introduced to you · {cum.referredMet} of those
+        met.
       </p>
     </section>
   );
 }
 
-function FunnelStat({
+function PathStat({
+  step,
   label,
   value,
   hint,
+  emphasize,
 }: {
+  step: string;
   label: string;
   value: number;
   hint?: string;
+  emphasize?: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-muted/20 px-3 py-2">
-      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+    <div
+      className={
+        emphasize
+          ? "rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2.5"
+          : "rounded-lg border border-border bg-muted/20 px-3 py-2.5"
+      }
+    >
+      <p
+        className={
+          emphasize
+            ? "text-[10px] font-semibold uppercase tracking-wider text-emerald-300"
+            : "text-[10px] font-medium uppercase tracking-wider text-muted-foreground"
+        }
+      >
+        <span className="mr-1 tabular-nums opacity-70">{step}</span>
         {label}
       </p>
-      <p className="text-lg font-bold tabular-nums text-foreground">{value}</p>
+      <p className="mt-0.5 text-2xl font-bold tabular-nums text-foreground">
+        {value}
+      </p>
       {hint ? (
         <p className="text-[10px] text-muted-foreground">{hint}</p>
       ) : null}

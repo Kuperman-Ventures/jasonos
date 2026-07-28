@@ -39,6 +39,7 @@ function emptyFunnel(): WeekFunnel {
     replied: 0,
     metHeld: 0,
     freshOutreach: 0,
+    freshToMeeting: 0,
     newReferrals: 0,
   };
 }
@@ -116,9 +117,16 @@ export interface WeekFunnel {
   replied: number;
   /** Distinct networking contacts you had a call/meeting with (held). */
   metHeld: number;
-  /** Goal numerator: distinct networking contacts you made FRESH outreach to —
-   *  people you hadn't contacted in the previous 30 days. */
+  /** Distinct networking contacts you made FRESH outreach to — people you
+   *  hadn't contacted in the previous 30 days. */
   freshOutreach: number;
+  /**
+   * Fresh outreaches that turned into a call/meeting this week — the middle
+   * of the path Fresh → Meeting → Referral. Distinct contacts who had a
+   * held conversation this week that started from a fresh engagement
+   * (no prior touch in 30 days, or a fresh outbound earlier the same week).
+   */
+  freshToMeeting: number;
   /** New people a contact introduced you to this week (referrals recorded). */
   newReferrals: number;
 }
@@ -625,13 +633,30 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
 
   // Assign per-week funnel counts from the accumulated sets.
   // newReferrals matches the deduped tip list shown in the UI.
+  // freshToMeeting = calls/meetings that came from a fresh engagement.
   for (const w of weeks.values()) {
     const s = weeklyFunnel.get(w.weekStart);
+    const fresh = s?.fresh ?? new Set<string>();
+    const met = s?.met ?? new Set<string>();
+    const freshToMeeting = new Set<string>();
+    for (const cid of met) {
+      if (fresh.has(cid)) freshToMeeting.add(cid);
+    }
+    // A call/meeting that itself opens a cold streak also counts, even when
+    // no separate "outbound" was logged the same week.
+    for (const conv of w.conversations) {
+      const prevTs = prevTsByTouchId.get(conv.id) ?? null;
+      const convMs = new Date(`${conv.date}T12:00:00`).getTime();
+      const isFresh =
+        !prevTs || convMs - new Date(prevTs).getTime() > freshWindowMs;
+      if (isFresh) freshToMeeting.add(conv.contactId);
+    }
     w.funnel = {
       reachedOut: s?.reached.size ?? 0,
       replied: s?.replied.size ?? 0,
-      metHeld: s?.met.size ?? 0,
-      freshOutreach: s?.fresh.size ?? 0,
+      metHeld: met.size,
+      freshOutreach: fresh.size,
+      freshToMeeting: freshToMeeting.size,
       newReferrals: w.newReferrals.length,
     };
   }
