@@ -56,6 +56,7 @@ import {
 import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
 import { MeetingsTab } from "@/components/jasonos/outreach/meetings-tab";
+import { EngagementsList } from "@/components/jasonos/outreach/engagements-list";
 import { TierDegreeBadge } from "@/components/jasonos/outreach/tier-degree-badge";
 import { ReplyStatusLight } from "@/components/jasonos/outreach/reply-status-light";
 import type { ReplyStatusOverride } from "@/lib/outreach/reply-status";
@@ -1029,12 +1030,14 @@ export function OutreachModal({
                 setNextTouchOverride={setNextTouchOverride}
               />
 
-              {/* Communication history — lives at the bottom of Engage rather
-                  than in its own tab, so the full thread reads on one page. */}
+              {/* Engagements — the editable interaction history lives at the
+                  bottom of Engage rather than in its own tab, so the full
+                  thread reads on one page. */}
               <div className="border-t pt-4">
                 <RecentContextSection
                   loading={loadingCtx}
                   sources={sources}
+                  contactId={effectiveContactId}
                   recentTouches={
                     contextRecentTouches.length > 0
                       ? contextRecentTouches
@@ -2367,10 +2370,12 @@ function RecentContextSection({
   loading,
   sources,
   recentTouches,
+  contactId,
 }: {
   loading: boolean;
   sources: DraftSource[] | null;
   recentTouches: RecentTouch[];
+  contactId: string | null;
 }) {
   const empty = useMemo(
     () =>
@@ -2385,7 +2390,7 @@ function RecentContextSection({
     <div className="space-y-2">
       <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         <History className="h-3 w-3" />
-        Communication context
+        Engagements
       </h3>
 
       {loading ? (
@@ -2398,34 +2403,11 @@ function RecentContextSection({
       {!loading && sources ? (
         <div className="space-y-2">
           {recentTouches.length > 0 ? (
-            <div className="rounded-md border bg-card/40 p-2.5">
-              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Recent touches
-              </div>
-              <ul className="space-y-1">
-                {recentTouches.slice(0, 5).map((t) => (
-                  <li
-                    key={t.id}
-                    className="flex items-start gap-2 text-[11px] text-muted-foreground"
-                  >
-                    <span
-                      className={cn(
-                        "shrink-0 rounded-sm border px-1 py-0.5 text-[9px] uppercase",
-                        t.direction === "outbound"
-                          ? "border-emerald-500/40 text-emerald-300"
-                          : "border-sky-500/40 text-sky-300"
-                      )}
-                    >
-                      {t.channel}
-                    </span>
-                    <span className="shrink-0 font-mono text-[10px]">
-                      {fmtShortDate(t.touched_at)}
-                    </span>
-                    <span className="truncate">{t.brief ?? "—"}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <EngagementsList
+              key={contactId ?? "none"}
+              contactId={contactId}
+              initial={recentTouches}
+            />
           ) : null}
 
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -2484,13 +2466,4 @@ function SourceCard({ source }: { source: DraftSource }) {
       ) : null}
     </div>
   );
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function fmtShortDate(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }

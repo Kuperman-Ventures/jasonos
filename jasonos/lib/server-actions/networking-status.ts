@@ -1064,14 +1064,17 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
   const outreachRaw: (ReportOutreach & { raw: string })[] = [];
   for (const [cid, list] of outboundByContact) {
     if (!isNetworkingContact(cid)) continue;
-    const first = list.find((t) => inWeek(t.ts));
-    if (!first) continue;
+    // Show the MOST RECENT engagement of the week (list is sorted ascending),
+    // so a later call/meeting supersedes an earlier text/email that week.
+    const inWk = list.filter((t) => inWeek(t.ts));
+    if (!inWk.length) continue;
+    const latest = inWk[inWk.length - 1];
     outreachRaw.push({
       name: nameForContact(cid),
       company: firmForContact(cid),
-      channel: channelLabel(first.ch),
-      date: shortDate(first.ts.slice(0, 10)),
-      raw: first.ts.slice(0, 10),
+      channel: channelLabel(latest.ch),
+      date: shortDate(latest.ts.slice(0, 10)),
+      raw: latest.ts.slice(0, 10),
     });
   }
   outreachRaw.sort((a, b) => (a.raw < b.raw ? -1 : a.raw > b.raw ? 1 : 0));
