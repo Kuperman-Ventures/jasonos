@@ -803,8 +803,23 @@ function channelLabel(c: string | null | undefined): string {
   return CHANNEL_LABEL[c] ?? c.charAt(0).toUpperCase() + c.slice(1);
 }
 
-// "Jul 22" — always in UTC so the date matches the stored day regardless of the
-// server's timezone.
+// The report reads in Jason's timezone (Eastern). Timestamps are stored in UTC,
+// so a late-evening ET touch lands on the next UTC day — deriving the calendar
+// day in ET keeps "reached out yesterday" from showing as today.
+const APP_TZ = "America/New_York";
+
+// A full ISO timestamp → the local (ET) calendar day, "YYYY-MM-DD".
+function tsToLocalYmd(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-CA", { timeZone: APP_TZ });
+}
+
+// Today's local (ET) calendar day, "YYYY-MM-DD".
+function todayLocalYmd(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: APP_TZ });
+}
+
+// "Jul 22" from a date-only "YYYY-MM-DD" (rendered in UTC at noon so the day
+// never shifts).
 function shortDate(ymdStr: string): string {
   return new Date(`${ymdStr}T12:00:00Z`).toLocaleDateString("en-US", {
     month: "short",
@@ -916,11 +931,12 @@ export interface NetworkingReport {
 }
 
 export async function getNetworkingReport(): Promise<NetworkingReport> {
-  const today = ymd(new Date());
+  const today = todayLocalYmd();
   const weekStart = weekStartOf(today);
   const weekEnd = addDaysStr(weekStart, 6);
-  const inWeek = (d: string | null | undefined): boolean =>
-    !!d && d.slice(0, 10) >= weekStart && d.slice(0, 10) <= weekEnd;
+  // Compare an already-normalized "YYYY-MM-DD" (ET) against the week window.
+  const inWeek = (ymdStr: string | null | undefined): boolean =>
+    !!ymdStr && ymdStr >= weekStart && ymdStr <= weekEnd;
 
   const report: NetworkingReport = {
     weekStart,
@@ -1082,16 +1098,17 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
     if (!isNetworkingContact(cid)) continue;
     // Show the MOST RECENT engagement of the week (list is sorted ascending),
     // so a later call/meeting supersedes an earlier text/email that week.
-    const inWk = list.filter((t) => inWeek(t.ts));
+    const inWk = list.filter((t) => inWeek(tsToLocalYmd(t.ts)));
     if (!inWk.length) continue;
     const latest = inWk[inWk.length - 1];
+    const latestYmd = tsToLocalYmd(latest.ts);
     outreachRaw.push({
       name: nameForContact(cid),
       company: firmForContact(cid),
       channel: channelLabel(latest.ch),
-      date: shortDate(latest.ts.slice(0, 10)),
+      date: shortDate(latestYmd),
       role: roleLabelForContact(cid),
-      raw: latest.ts.slice(0, 10),
+      raw: latestYmd,
     });
   }
   outreachRaw.sort((a, b) => (a.raw < b.raw ? -1 : a.raw > b.raw ? 1 : 0));
@@ -1113,7 +1130,7 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
   >();
   for (const m of meetings) {
     const heldAt = (m.held_at as string | null) ?? null;
-    if (!inWeek(heldAt)) continue;
+    if (!inWeek(heldAt ? tsToLocalYmd(heldAt) : null)) continue;
     meetingRecordByContact.set(m.contact_id as string, {
       channel: (m.channel as string) ?? "video",
       notes: (m.debrief_notes as string | null) ?? null,
@@ -1124,7 +1141,7 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
   const metSeen = new Set<string>();
   for (const [cid, list] of convoByContact) {
     if (!isNetworkingContact(cid)) continue;
-    const inWk = list.filter((t) => inWeek(t.ts));
+    const inWk = list.filter((t) => inWeek(tsToLocalYmd(t.ts)));
     if (!inWk.length) continue;
     const latest = inWk[inWk.length - 1];
     const rec = meetingRecordByContact.get(cid);
@@ -1190,12 +1207,16 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
       followUpText = "Not yet contacted";
       sortDays = Number.MAX_SAFE_INTEGER;
     } else {
-      const daysSince = daysBetween(lastOut.ts.slice(0, 10), today);
+      const daysSince = daysBetween(tsToLocalYmd(lastOut.ts), today);
       if (daysSince <= FRESH_WINDOW_DAYS) continue; // contacted recently — no follow-up needed
       followUpText = `Last contacted ${daysSince} days ago`;
       sortDays = daysSince;
     }
-    const refAt = ((c.referredAt ?? c.createdAt ?? today) as string).slice(0, 10);
+    const refAt = c.referredAt
+      ? c.referredAt.slice(0, 10)
+      : c.createdAt
+      ? tsToLocalYmd(c.createdAt)
+      : today;
     referralsRaw.push({
       name: c.name,
       company: firmForContact(id),
@@ -1246,7 +1267,8 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
   //    referrer. Secondary. ──────────────────────────────────────────────────
   const added: ReportAddedContact[] = [];
   for (const [, c] of contactById) {
-    if (c.referredBy || !inWeek(c.createdAt)) continue;
+    if (c.referredBy) continue;
+    if (!inWeek(c.createdAt ? tsToLocalYmd(c.createdAt) : null)) continue;
     if (c.intent === "backrow" || c.intent === "network_maintenance") continue;
     const rk = `${c.tier ?? ""}${c.degree ?? ""}`.trim();
     added.push({ name: c.name, ranking: rk || null });
