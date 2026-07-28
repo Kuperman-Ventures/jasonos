@@ -380,7 +380,9 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     );
   }
 
-  /** Walk referred_by links outward→in: root introducer … → this person. */
+  /** Walk referred_by links to a breadcrumb: Degree-1 root → … → this person.
+   *  Stops at the first Degree 1 so we show e.g. Barbara → Libby → Will,
+   *  not the longer ancestry behind that Degree 1. */
   const referralChainFor = (contactId: string): string[] => {
     const names: string[] = [];
     const seen = new Set<string>();
@@ -388,6 +390,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     while (cur && !seen.has(cur)) {
       seen.add(cur);
       names.unshift(contactNameById.get(cur) ?? "Unknown");
+      if (contactDegreeById.get(cur) === 1) break;
       cur = referredById.get(cur) ?? null;
     }
     return names;
