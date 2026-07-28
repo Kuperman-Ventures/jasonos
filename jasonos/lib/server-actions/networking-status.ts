@@ -31,7 +31,9 @@ function emptyNyui(): NyuiWeekSummary {
 // Weekly fresh-outreach goal: reach out to this many people you haven't been in
 // contact with in the last FRESH_WINDOW_DAYS days.
 const WEEKLY_OUTREACH_GOAL = 10;
-const FRESH_WINDOW_DAYS = 30;
+// Recency window for "have we communicated recently?" — used both for the
+// fresh-outreach goal and for flagging referrals that still need follow-up.
+const FRESH_WINDOW_DAYS = 90;
 
 function emptyFunnel(): WeekFunnel {
   return {
@@ -132,13 +134,13 @@ export interface WeekFunnel {
   /** Distinct networking contacts you had a call/meeting with (held). */
   metHeld: number;
   /** Distinct networking contacts you made FRESH outreach to — people you
-   *  hadn't contacted in the previous 30 days. */
+   *  hadn't contacted in the previous 90 days. */
   freshOutreach: number;
   /**
    * Fresh outreaches that turned into a call/meeting this week — the middle
    * of the path Fresh → Meeting → Referral. Distinct contacts who had a
    * held conversation this week that started from a fresh engagement
-   * (no prior touch in 30 days, or a fresh outbound earlier the same week).
+   * (no prior touch in 90 days, or a fresh outbound earlier the same week).
    */
   freshToMeeting: number;
   /** New people a contact introduced you to this week (referrals recorded). */
@@ -186,7 +188,7 @@ export interface NetworkingActivity {
   generatedAt: string;
   weeks: WeekActivity[];
   cumulative: CumulativeFunnel;
-  /** Weekly fresh-outreach target (people not contacted in the last 30 days). */
+  /** Weekly fresh-outreach target (people not contacted in the last 90 days). */
   goalTarget: number;
 }
 
@@ -345,7 +347,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
   // times prior — so "spoken to repeatedly" is legible.
   const priorCountByTouchId = new Map<string, number>();
   // Also remember the timestamp of the immediately-preceding touch for each
-  // touch, so we can tell "fresh" outreach (no contact in the last 30 days)
+  // touch, so we can tell "fresh" outreach (no contact in the last 90 days)
   // from ongoing back-and-forth.
   const prevTsByTouchId = new Map<string, string | null>();
   const touchesByContact = new Map<string, { id: string; ts: string }[]>();
@@ -485,7 +487,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     if (dir === "outbound") {
       fSets.reached.add(cid);
       cumReached.add(cid);
-      // "Fresh" = no prior touch with this contact in the last 30 days.
+      // "Fresh" = no prior touch with this contact in the last 90 days.
       const prevTs = prevTsByTouchId.get(t.id as string) ?? null;
       const isFresh =
         !prevTs ||
@@ -1137,8 +1139,10 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
     referralsProduced: m.referralsProduced,
   }));
 
-  // ── 3. REFERRALS — new contacts introduced this week: the chain of
-  //    introducers and whether the follow-up has happened yet. ────────────────
+  // ── 3. REFERRALS — introductions that still need follow-up: people who were
+  //    referred to you and whom you have either never contacted, or not
+  //    communicated with in the last FRESH_WINDOW_DAYS (90) days. Most urgent
+  //    first (never-contacted, then longest since contact). ────────────────────
   const chainFor = (referrerId: string | null): string[] => {
     const names: string[] = [];
     const seen = new Set<string>();
@@ -1153,46 +1157,35 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
     return names.reverse();
   };
 
-  const referralsRaw: (ReportReferral & { raw: string })[] = [];
+  const referralsRaw: (ReportReferral & { sortDays: number })[] = [];
   for (const [id, c] of contactById) {
-    if (!c.referredBy || !inWeek(c.referredAt)) continue;
+    if (!c.referredBy) continue;
     if (c.intent === "backrow" || c.intent === "network_maintenance") continue;
-    const refAt = (c.referredAt as string).slice(0, 10);
-    const outs = (outboundByContact.get(id) ?? []).filter(
-      (t) => t.ts.slice(0, 10) >= refAt
-    );
-    let followUpText = "Not yet contacted";
-    let actioned = false;
-    if (outs.length) {
-      actioned = true;
-      const first = outs[0];
-      const gap = daysBetween(refAt, first.ts.slice(0, 10));
-      const verb =
-        first.ch === "email"
-          ? "Emailed"
-          : first.ch === "text"
-          ? "Texted"
-          : first.ch === "linkedin"
-          ? "Messaged"
-          : first.ch === "phone" || first.ch === "call"
-          ? "Called"
-          : "Contacted";
-      const when =
-        gap <= 0 ? "same day" : gap === 1 ? "next day" : `${gap} days later`;
-      followUpText = `${verb} ${when}`;
+    const outs = outboundByContact.get(id) ?? [];
+    const lastOut = outs.length ? outs[outs.length - 1] : null; // sorted ascending
+    let followUpText: string;
+    let sortDays: number;
+    if (!lastOut) {
+      followUpText = "Not yet contacted";
+      sortDays = Number.MAX_SAFE_INTEGER;
+    } else {
+      const daysSince = daysBetween(lastOut.ts.slice(0, 10), today);
+      if (daysSince <= FRESH_WINDOW_DAYS) continue; // contacted recently — no follow-up needed
+      followUpText = `Last contacted ${daysSince} days ago`;
+      sortDays = daysSince;
     }
+    const refAt = ((c.referredAt ?? c.createdAt ?? today) as string).slice(0, 10);
     referralsRaw.push({
       name: c.name,
       company: firmForContact(id),
       chain: chainFor(c.referredBy),
       followUpText,
-      followUpActioned: actioned,
+      followUpActioned: false,
       date: shortDate(refAt),
-      raw: refAt,
+      sortDays,
     });
   }
-  referralsRaw.sort((a, b) => (a.raw < b.raw ? -1 : a.raw > b.raw ? 1 : 0));
-  report.referralsGiven = referralsRaw.length;
+  referralsRaw.sort((a, b) => b.sortDays - a.sortDays);
   report.referrals = referralsRaw.map((r) => ({
     name: r.name,
     company: r.company,
@@ -1255,12 +1248,17 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
   report.metQualifier =
     report.metWith === 0 ? "no calls logged" : `${report.metWith} logged`;
 
+  // The "Referrals given" figure stays a weekly-activity count (introductions
+  // recorded this week), independent of the follow-up list shown below it.
+  let weeklyReferrals = 0;
   const weekByConnector = new Map<string, number>();
   for (const [, c] of contactById) {
     if (!c.referredBy || !inWeek(c.referredAt)) continue;
     if (c.intent === "backrow" || c.intent === "network_maintenance") continue;
+    weeklyReferrals += 1;
     weekByConnector.set(c.referredBy, (weekByConnector.get(c.referredBy) ?? 0) + 1);
   }
+  report.referralsGiven = weeklyReferrals;
   let weekTopCount = 0;
   for (const n of weekByConnector.values()) if (n > weekTopCount) weekTopCount = n;
   if (report.referralsGiven === 0) report.referralsQualifier = "none this week";

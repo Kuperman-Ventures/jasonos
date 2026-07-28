@@ -646,7 +646,7 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
                       ))
                     ) : (
                       <p style={{ ...noneStyle, padding: "14px 0" }}>
-                        No introductions this week.
+                        No referrals need follow-up.
                       </p>
                     )}
                   </div>
