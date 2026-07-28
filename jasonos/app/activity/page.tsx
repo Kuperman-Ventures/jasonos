@@ -1,15 +1,15 @@
 import { Suspense } from "react";
-import { getNetworkingActivity } from "@/lib/server-actions/networking-status";
-import { NetworkingActivityClient } from "@/components/jasonos/activity/networking-status-client";
+import { getNetworkingReport } from "@/lib/server-actions/networking-status";
+import { NetworkingReportView } from "@/components/jasonos/activity/networking-report";
 
 export const metadata = { title: "Networking Activity · JasonOS" };
 export const dynamic = "force-dynamic";
 
 export default async function ActivityPage() {
-  const data = await getNetworkingActivity();
+  const report = await getNetworkingReport();
   return (
     <Suspense>
-      <NetworkingActivityClient data={data} />
+      <NetworkingReportView report={report} />
     </Suspense>
   );
 }

@@ -761,3 +761,516 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     goalTarget: WEEKLY_OUTREACH_GOAL,
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Networking Activity Report — the single-week, print-ready "paper" document.
+//
+// Distinct from getNetworkingActivity above (which powers the multi-week
+// heatmap/funnel view): this returns exactly the slots the report layout needs
+// for the CURRENT Wednesday→Tuesday week. Same underlying data, presentation
+// shaped for the report. It answers, in order:
+//   1. Who did I reach out to this week (against a 10-person goal)?
+//   2. Who did I actually meet or speak with?
+//   3. What referrals came out of those relationships, and did I follow up?
+// Everything else (applications filed, contacts added without an introduction)
+// is secondary.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CHANNEL_LABEL: Record<string, string> = {
+  email: "Email",
+  linkedin: "LinkedIn",
+  phone: "Phone",
+  call: "Call",
+  video: "Video",
+  in_person: "In person",
+  coffee_chat: "Coffee",
+  calendar: "Meeting",
+  text: "Text",
+  thank_you_note: "Thank-you",
+  value_sharing: "Value-share",
+  other: "Other",
+};
+
+function channelLabel(c: string | null | undefined): string {
+  if (!c) return "Other";
+  return CHANNEL_LABEL[c] ?? c.charAt(0).toUpperCase() + c.slice(1);
+}
+
+// "Jul 22" — always in UTC so the date matches the stored day regardless of the
+// server's timezone.
+function shortDate(ymdStr: string): string {
+  return new Date(`${ymdStr}T12:00:00Z`).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+// ISO-8601 week number (the "issue number" in the masthead).
+function isoWeekNumber(ymdStr: string): number {
+  const d = new Date(`${ymdStr}T00:00:00Z`);
+  const day = (d.getUTCDay() + 6) % 7; // Mon=0 … Sun=6
+  d.setUTCDate(d.getUTCDate() - day + 3); // Thursday of this ISO week
+  const firstThursday = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  const ft = (firstThursday.getUTCDay() + 6) % 7;
+  firstThursday.setUTCDate(firstThursday.getUTCDate() - ft + 3);
+  return 1 + Math.round((d.getTime() - firstThursday.getTime()) / (7 * 86_400_000));
+}
+
+function daysBetween(a: string, b: string): number {
+  return Math.round(
+    (new Date(`${b}T00:00:00Z`).getTime() -
+      new Date(`${a}T00:00:00Z`).getTime()) /
+      86_400_000
+  );
+}
+
+// "Wednesday 22 – Tuesday 28 July 2026" — weeks always run Wed→Tue.
+function formatWeekLabel(weekStart: string, weekEnd: string): string {
+  const s = new Date(`${weekStart}T12:00:00Z`);
+  const e = new Date(`${weekEnd}T12:00:00Z`);
+  const sMonth = s.toLocaleDateString("en-US", { month: "long", timeZone: "UTC" });
+  const eMonth = e.toLocaleDateString("en-US", { month: "long", timeZone: "UTC" });
+  const sDay = s.getUTCDate();
+  const eDay = e.getUTCDate();
+  const sYear = s.getUTCFullYear();
+  const eYear = e.getUTCFullYear();
+  if (sMonth === eMonth && sYear === eYear)
+    return `Wednesday ${sDay} \u2013 Tuesday ${eDay} ${eMonth} ${eYear}`;
+  if (sYear === eYear)
+    return `Wednesday ${sDay} ${sMonth} \u2013 Tuesday ${eDay} ${eMonth} ${eYear}`;
+  return `Wednesday ${sDay} ${sMonth} ${sYear} \u2013 Tuesday ${eDay} ${eMonth} ${eYear}`;
+}
+
+export interface ReportOutreach {
+  name: string;
+  company: string | null;
+  channel: string;
+  date: string; // "Jul 22"
+}
+
+export interface ReportMeeting {
+  name: string;
+  company: string | null;
+  medium: string;
+  notes: string | null;
+  referralsProduced: number;
+}
+
+export interface ReportReferral {
+  name: string;
+  company: string | null;
+  /** Chain of introducers, top-of-chain first: ["Barbara", "Libby"] → "via Barbara → Libby". */
+  chain: string[];
+  followUpText: string;
+  followUpActioned: boolean;
+  date: string; // "Jul 26"
+}
+
+export interface ReportAddedContact {
+  name: string;
+  ranking: string | null; // e.g. "A1"
+}
+
+export interface ReportApplication {
+  company: string;
+  role: string;
+  date: string; // "Jul 22"
+}
+
+export interface NetworkingReport {
+  weekStart: string;
+  weekEnd: string;
+  weekLabel: string; // "Wednesday 22 – Tuesday 28 July 2026"
+  issueNumber: number; // ISO week number, shown as "No. 30"
+  goalTarget: number;
+  reachedOut: number;
+  metWith: number;
+  referralsGiven: number;
+  reachedQualifier: string;
+  metQualifier: string;
+  referralsQualifier: string;
+  summary: string; // "Reached 6 · Met 0 · Referred 3"
+  outreach: ReportOutreach[];
+  meetings: ReportMeeting[];
+  addedWithoutIntro: ReportAddedContact[];
+  referrals: ReportReferral[];
+  tally: {
+    allTime: number;
+    ofThoseMet: number;
+    topConnectorName: string | null;
+    topConnectorCount: number;
+  };
+  applications: ReportApplication[];
+}
+
+export async function getNetworkingReport(): Promise<NetworkingReport> {
+  const today = ymd(new Date());
+  const weekStart = weekStartOf(today);
+  const weekEnd = addDaysStr(weekStart, 6);
+  const inWeek = (d: string | null | undefined): boolean =>
+    !!d && d.slice(0, 10) >= weekStart && d.slice(0, 10) <= weekEnd;
+
+  const report: NetworkingReport = {
+    weekStart,
+    weekEnd,
+    weekLabel: formatWeekLabel(weekStart, weekEnd),
+    issueNumber: isoWeekNumber(weekStart),
+    goalTarget: WEEKLY_OUTREACH_GOAL,
+    reachedOut: 0,
+    metWith: 0,
+    referralsGiven: 0,
+    reachedQualifier: `of a ${WEEKLY_OUTREACH_GOAL} goal \u2014 ${WEEKLY_OUTREACH_GOAL} to go`,
+    metQualifier: "no calls logged",
+    referralsQualifier: "none this week",
+    summary: "Reached 0 \u00b7 Met 0 \u00b7 Referred 0",
+    outreach: [],
+    meetings: [],
+    addedWithoutIntro: [],
+    referrals: [],
+    tally: { allTime: 0, ofThoseMet: 0, topConnectorName: null, topConnectorCount: 0 },
+    applications: [],
+  };
+  if (!hasConfig()) return report;
+
+  const sb = createServiceRoleClient();
+  const pub = createPublicServiceRoleClient();
+
+  const [people, touchesRes, contactsRes, meetingsRes, workSearchRes, companiesRes] =
+    await Promise.all([
+      getOutreachPeople(),
+      sb
+        .from("contact_touches")
+        .select("id,contact_id,channel,direction,touched_at,brief,outcome")
+        .order("touched_at", { ascending: false })
+        .limit(12000),
+      sb
+        .from("contacts")
+        .select(
+          "id,name,tags,relevance_tier,network_degree,created_at,intent,company_id,referred_by_contact_id,referred_at"
+        )
+        .limit(20000),
+      sb
+        .from("meetings")
+        .select("id,contact_id,channel,status,held_at,debrief_notes")
+        .eq("status", "held"),
+      pub
+        .from("work_searches")
+        .select("date,company_name,position_applied")
+        .gte("date", weekStart)
+        .lte("date", weekEnd)
+        .order("date", { ascending: true }),
+      sb.from("companies").select("id,name"),
+    ]);
+
+  const touches = touchesRes.data ?? [];
+  const contacts = contactsRes.data ?? [];
+  const meetings = meetingsRes.data ?? [];
+  const peopleById = new Map(people.map((p) => [p.id, p]));
+
+  const companyNameById = new Map(
+    (companiesRes.data ?? []).map((c) => [
+      c.id as string,
+      (c.name as string) ?? null,
+    ])
+  );
+
+  interface ContactInfo {
+    name: string;
+    referredBy: string | null;
+    referredAt: string | null;
+    createdAt: string | null;
+    tier: RelevanceTier | null;
+    degree: NetworkDegree | null;
+    intent: string | null;
+    company: string | null;
+    tags: string[] | null;
+  }
+  const contactById = new Map<string, ContactInfo>();
+  for (const c of contacts) {
+    const companyId = (c.company_id as string | null) ?? null;
+    contactById.set(c.id as string, {
+      name: (c.name as string) ?? "Unknown",
+      referredBy: (c.referred_by_contact_id as string | null) ?? null,
+      referredAt: (c.referred_at as string | null) ?? null,
+      createdAt: (c.created_at as string | null) ?? null,
+      tier: (c.relevance_tier as RelevanceTier | null) ?? null,
+      degree: (c.network_degree as NetworkDegree | null) ?? null,
+      intent: (c.intent as string | null) ?? null,
+      company: companyId ? companyNameById.get(companyId) ?? null : null,
+      tags: (c.tags as string[] | null) ?? null,
+    });
+  }
+
+  const firmForContact = (cid: string): string | null => {
+    const p = peopleById.get(cid);
+    if (p?.firm) return p.firm;
+    const c = contactById.get(cid);
+    return c?.company ?? firmFromTags(c?.tags ?? null);
+  };
+  const nameForContact = (cid: string): string =>
+    peopleById.get(cid)?.name ?? contactById.get(cid)?.name ?? "Unknown";
+  const isNetworkingContact = (cid: string): boolean => {
+    const intent = peopleById.get(cid)?.intent ?? contactById.get(cid)?.intent ?? null;
+    return intent !== "backrow" && intent !== "network_maintenance";
+  };
+
+  // ── Group touches: outbound (for outreach + follow-up) and conversations
+  //    (for "met with"). markMeetingHeld writes a conversation touch, so
+  //    conversation touches are the single source of truth for who was met.
+  const outboundByContact = new Map<string, { ts: string; ch: string }[]>();
+  const convoByContact = new Map<
+    string,
+    { ts: string; ch: string; note: string | null }[]
+  >();
+  for (const t of touches) {
+    const cid = t.contact_id as string;
+    const ts = (t.touched_at as string) ?? "";
+    const ch = (t.channel as string) ?? "";
+    const dir = (t.direction as string) ?? "outbound";
+    if (dir === "outbound") {
+      const list = outboundByContact.get(cid);
+      if (list) list.push({ ts, ch });
+      else outboundByContact.set(cid, [{ ts, ch }]);
+    }
+    if (CONVERSATION_CHANNELS.has(ch)) {
+      const note = (t.outcome as string | null) || (t.brief as string | null) || null;
+      const list = convoByContact.get(cid);
+      const entry = { ts, ch, note };
+      if (list) list.push(entry);
+      else convoByContact.set(cid, [entry]);
+    }
+  }
+  for (const list of outboundByContact.values())
+    list.sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
+  for (const list of convoByContact.values())
+    list.sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
+
+  // Referrals a given contact produced THIS week (contacts they introduced).
+  const referredByCountThisWeek = new Map<string, number>();
+  for (const c of contactById.values()) {
+    if (c.referredBy && inWeek(c.referredAt) && c.intent !== "backrow" && c.intent !== "network_maintenance") {
+      referredByCountThisWeek.set(
+        c.referredBy,
+        (referredByCountThisWeek.get(c.referredBy) ?? 0) + 1
+      );
+    }
+  }
+
+  // ── 1. OUTREACH — networking contacts reached out to this week (earliest
+  //    outbound touch of the week supplies the channel + date). ────────────────
+  const outreachRaw: (ReportOutreach & { raw: string })[] = [];
+  for (const [cid, list] of outboundByContact) {
+    if (!isNetworkingContact(cid)) continue;
+    const first = list.find((t) => inWeek(t.ts));
+    if (!first) continue;
+    outreachRaw.push({
+      name: nameForContact(cid),
+      company: firmForContact(cid),
+      channel: channelLabel(first.ch),
+      date: shortDate(first.ts.slice(0, 10)),
+      raw: first.ts.slice(0, 10),
+    });
+  }
+  outreachRaw.sort((a, b) => (a.raw < b.raw ? -1 : a.raw > b.raw ? 1 : 0));
+  report.reachedOut = outreachRaw.length;
+  report.outreach = outreachRaw.map((o) => ({
+    name: o.name,
+    company: o.company,
+    channel: o.channel,
+    date: o.date,
+  }));
+
+  // ── 2. MEETINGS — who was met/spoken with this week. Built from conversation
+  //    touches (which every held meeting also writes), enriched with the
+  //    meeting record's debrief notes when one exists. ─────────────────────────
+  const meetingRecordByContact = new Map<
+    string,
+    { channel: string; notes: string | null; heldAt: string }
+  >();
+  for (const m of meetings) {
+    const heldAt = (m.held_at as string | null) ?? null;
+    if (!inWeek(heldAt)) continue;
+    meetingRecordByContact.set(m.contact_id as string, {
+      channel: (m.channel as string) ?? "video",
+      notes: (m.debrief_notes as string | null) ?? null,
+      heldAt: heldAt as string,
+    });
+  }
+  const metRaw: (ReportMeeting & { raw: string })[] = [];
+  const metSeen = new Set<string>();
+  for (const [cid, list] of convoByContact) {
+    if (!isNetworkingContact(cid)) continue;
+    const inWk = list.filter((t) => inWeek(t.ts));
+    if (!inWk.length) continue;
+    const latest = inWk[inWk.length - 1];
+    const rec = meetingRecordByContact.get(cid);
+    metSeen.add(cid);
+    metRaw.push({
+      name: nameForContact(cid),
+      company: firmForContact(cid),
+      medium: channelLabel(rec?.channel ?? latest.ch),
+      notes: rec?.notes ?? latest.note,
+      referralsProduced: referredByCountThisWeek.get(cid) ?? 0,
+      raw: latest.ts,
+    });
+  }
+  // Held meetings this week without a conversation touch (older records).
+  for (const [cid, rec] of meetingRecordByContact) {
+    if (metSeen.has(cid) || !isNetworkingContact(cid)) continue;
+    metRaw.push({
+      name: nameForContact(cid),
+      company: firmForContact(cid),
+      medium: channelLabel(rec.channel),
+      notes: rec.notes,
+      referralsProduced: referredByCountThisWeek.get(cid) ?? 0,
+      raw: rec.heldAt,
+    });
+  }
+  metRaw.sort((a, b) => (a.raw < b.raw ? -1 : a.raw > b.raw ? 1 : 0));
+  report.metWith = metRaw.length;
+  report.meetings = metRaw.map((m) => ({
+    name: m.name,
+    company: m.company,
+    medium: m.medium,
+    notes: m.notes,
+    referralsProduced: m.referralsProduced,
+  }));
+
+  // ── 3. REFERRALS — new contacts introduced this week: the chain of
+  //    introducers and whether the follow-up has happened yet. ────────────────
+  const chainFor = (referrerId: string | null): string[] => {
+    const names: string[] = [];
+    const seen = new Set<string>();
+    let cur = referrerId;
+    while (cur && !seen.has(cur) && names.length < 4) {
+      seen.add(cur);
+      const c = contactById.get(cur);
+      if (!c) break;
+      names.push(c.name);
+      cur = c.referredBy;
+    }
+    return names.reverse();
+  };
+
+  const referralsRaw: (ReportReferral & { raw: string })[] = [];
+  for (const [id, c] of contactById) {
+    if (!c.referredBy || !inWeek(c.referredAt)) continue;
+    if (c.intent === "backrow" || c.intent === "network_maintenance") continue;
+    const refAt = (c.referredAt as string).slice(0, 10);
+    const outs = (outboundByContact.get(id) ?? []).filter(
+      (t) => t.ts.slice(0, 10) >= refAt
+    );
+    let followUpText = "Not yet contacted";
+    let actioned = false;
+    if (outs.length) {
+      actioned = true;
+      const first = outs[0];
+      const gap = daysBetween(refAt, first.ts.slice(0, 10));
+      const verb =
+        first.ch === "email"
+          ? "Emailed"
+          : first.ch === "text"
+          ? "Texted"
+          : first.ch === "linkedin"
+          ? "Messaged"
+          : first.ch === "phone" || first.ch === "call"
+          ? "Called"
+          : "Contacted";
+      const when =
+        gap <= 0 ? "same day" : gap === 1 ? "next day" : `${gap} days later`;
+      followUpText = `${verb} ${when}`;
+    }
+    referralsRaw.push({
+      name: c.name,
+      company: firmForContact(id),
+      chain: chainFor(c.referredBy),
+      followUpText,
+      followUpActioned: actioned,
+      date: shortDate(refAt),
+      raw: refAt,
+    });
+  }
+  referralsRaw.sort((a, b) => (a.raw < b.raw ? -1 : a.raw > b.raw ? 1 : 0));
+  report.referralsGiven = referralsRaw.length;
+  report.referrals = referralsRaw.map((r) => ({
+    name: r.name,
+    company: r.company,
+    chain: r.chain,
+    followUpText: r.followUpText,
+    followUpActioned: r.followUpActioned,
+    date: r.date,
+  }));
+
+  // Referral tally (all time) + strongest connector.
+  let allTime = 0;
+  let ofThoseMet = 0;
+  const byConnector = new Map<string, number>();
+  for (const [id, c] of contactById) {
+    if (!c.referredBy) continue;
+    if (c.intent === "backrow" || c.intent === "network_maintenance") continue;
+    allTime += 1;
+    byConnector.set(c.referredBy, (byConnector.get(c.referredBy) ?? 0) + 1);
+    const met =
+      (convoByContact.get(id)?.length ?? 0) > 0 ||
+      meetings.some((m) => (m.contact_id as string) === id && m.held_at);
+    if (met) ofThoseMet += 1;
+  }
+  let topConnectorName: string | null = null;
+  let topConnectorCount = 0;
+  for (const [rid, n] of byConnector) {
+    if (n > topConnectorCount) {
+      topConnectorCount = n;
+      topConnectorName = nameForContact(rid);
+    }
+  }
+  report.tally = { allTime, ofThoseMet, topConnectorName, topConnectorCount };
+
+  // ── 4. ADDED WITHOUT AN INTRODUCTION — contacts created this week with no
+  //    referrer. Secondary. ──────────────────────────────────────────────────
+  const added: ReportAddedContact[] = [];
+  for (const [, c] of contactById) {
+    if (c.referredBy || !inWeek(c.createdAt)) continue;
+    if (c.intent === "backrow" || c.intent === "network_maintenance") continue;
+    const rk = `${c.tier ?? ""}${c.degree ?? ""}`.trim();
+    added.push({ name: c.name, ranking: rk || null });
+  }
+  added.sort((a, b) => a.name.localeCompare(b.name));
+  report.addedWithoutIntro = added;
+
+  // ── 5. APPLICATIONS FILED — NYUI job applications this week. Secondary. ──────
+  report.applications = (workSearchRes.data ?? []).map((ws) => ({
+    company: (ws.company_name as string | null) ?? "\u2014",
+    role: (ws.position_applied as string | null) ?? "\u2014",
+    date: shortDate((ws.date as string).slice(0, 10)),
+  }));
+
+  // ── Three-figure qualifiers + masthead summary. ─────────────────────────────
+  report.reachedQualifier =
+    report.reachedOut >= report.goalTarget
+      ? "goal met"
+      : `of a ${report.goalTarget} goal \u2014 ${
+          report.goalTarget - report.reachedOut
+        } to go`;
+  report.metQualifier =
+    report.metWith === 0 ? "no calls logged" : `${report.metWith} logged`;
+
+  const weekByConnector = new Map<string, number>();
+  for (const [, c] of contactById) {
+    if (!c.referredBy || !inWeek(c.referredAt)) continue;
+    if (c.intent === "backrow" || c.intent === "network_maintenance") continue;
+    weekByConnector.set(c.referredBy, (weekByConnector.get(c.referredBy) ?? 0) + 1);
+  }
+  let weekTopCount = 0;
+  for (const n of weekByConnector.values()) if (n > weekTopCount) weekTopCount = n;
+  if (report.referralsGiven === 0) report.referralsQualifier = "none this week";
+  else if (weekTopCount >= 2)
+    report.referralsQualifier = `${weekTopCount} of them from one person`;
+  else
+    report.referralsQualifier = `${report.referralsGiven} new introduction${
+      report.referralsGiven === 1 ? "" : "s"
+    }`;
+
+  report.summary = `Reached ${report.reachedOut} \u00b7 Met ${report.metWith} \u00b7 Referred ${report.referralsGiven}`;
+  return report;
+}
