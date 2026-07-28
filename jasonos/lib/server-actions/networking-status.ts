@@ -93,6 +93,20 @@ export interface NsReferral {
   referralChain: string[];
 }
 
+/** A named fresh outreach this week — the people behind the funnel count. */
+export interface NsFreshOutreach {
+  contactId: string;
+  name: string;
+  firm: string | null;
+  date: string;
+  channel: string;
+  brief: string | null;
+  tier: RelevanceTier | null;
+  degree: NetworkDegree | null;
+  /** True when this fresh outreach also had a call/meeting this week. */
+  ledToMeeting: boolean;
+}
+
 /** Job applications (NYUI work searches) logged inside this reporting week.
  *  Aligned to the report's Wednesday→Tuesday week, not the official
  *  Sunday–Saturday claim week, so it reads on one timeline with the
@@ -152,6 +166,8 @@ export interface WeekActivity {
   newContacts: NsNewContact[];
   /** Named introductions recorded this week (Growth / Cold only). */
   newReferrals: NsReferral[];
+  /** Named fresh outreaches this week (the people in funnel.freshOutreach). */
+  freshOutreaches: NsFreshOutreach[];
   stats: {
     conversations: number;
     newContacts: number;
@@ -227,6 +243,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
           conversations: [],
           newContacts: [],
           newReferrals: [],
+          freshOutreaches: [],
           stats: {
             conversations: 0,
             newContacts: 0,
@@ -428,6 +445,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
         conversations: [],
         newContacts: [],
         newReferrals: [],
+        freshOutreaches: [],
         stats: {
           conversations: 0,
           newContacts: 0,
@@ -446,6 +464,9 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
   // Always show the current week, even if quiet.
   weekFor(currentWeekStart);
 
+  // Named fresh-outreach rows keyed by week → contact (earliest outbound wins).
+  const freshByWeek = new Map<string, Map<string, NsFreshOutreach>>();
+
   // Conversations + thank-yous from touches.
   for (const t of touches) {
     const date = (t.touched_at as string).slice(0, 10);
@@ -459,7 +480,8 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
 
     // Funnel accumulation (all channels; Growth / Cold only).
     const dir = (t.direction as string) ?? "outbound";
-    const fSets = funnelSetsFor(weekStartOf(date));
+    const weekKey = weekStartOf(date);
+    const fSets = funnelSetsFor(weekKey);
     if (dir === "outbound") {
       fSets.reached.add(cid);
       cumReached.add(cid);
@@ -470,7 +492,28 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
         new Date(t.touched_at as string).getTime() -
           new Date(prevTs).getTime() >
           freshWindowMs;
-      if (isFresh) fSets.fresh.add(cid);
+      if (isFresh) {
+        fSets.fresh.add(cid);
+        let byContact = freshByWeek.get(weekKey);
+        if (!byContact) {
+          byContact = new Map();
+          freshByWeek.set(weekKey, byContact);
+        }
+        const existing = byContact.get(cid);
+        if (!existing || date < existing.date) {
+          byContact.set(cid, {
+            contactId: cid,
+            name: tp?.name ?? contactNameById.get(cid) ?? "Unknown contact",
+            firm: firmForContact(cid),
+            date,
+            channel: ch,
+            brief: (t.brief as string | null) ?? null,
+            tier: tp?.relevance_tier ?? null,
+            degree: tp?.network_degree ?? null,
+            ledToMeeting: false,
+          });
+        }
+      }
     }
     if (dir === "inbound") {
       fSets.replied.add(cid);
@@ -659,6 +702,18 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
       freshToMeeting: freshToMeeting.size,
       newReferrals: w.newReferrals.length,
     };
+
+    const named = freshByWeek.get(w.weekStart);
+    if (named) {
+      w.freshOutreaches = [...named.values()]
+        .map((row) => ({
+          ...row,
+          ledToMeeting: freshToMeeting.has(row.contactId),
+        }))
+        .sort((a, b) =>
+          a.date < b.date ? -1 : a.date > b.date ? 1 : a.name.localeCompare(b.name)
+        );
+    }
   }
 
   const ordered = [...weeks.values()].sort((a, b) =>
