@@ -17,6 +17,7 @@ import {
 import type { CadenceInterval as CadenceIntervalType } from "@/lib/cadence/types";
 import { getOutreachPeople, type OutreachPerson } from "@/lib/outreach/data";
 import { setCadence } from "@/lib/server-actions/outreach";
+import { etYmd } from "@/lib/dates";
 
 // Kupe's known outbound email addresses (v1 hardcode — update if addresses change)
 const MY_EMAILS = ["jason@kupermanadvisors.com", "jskuperman@gmail.com"];
@@ -240,6 +241,7 @@ export async function getCommunicationsData(): Promise<CommunicationsContact[]> 
     //    schedule actions.
     const today = startOfToday();
     const ninetyDaysAgo = addDays(today, -90);
+    const todayEt = etYmd();
 
     const recruiterPromise = recruiterIds.length
       ? sbPublic
@@ -353,7 +355,7 @@ export async function getCommunicationsData(): Promise<CommunicationsContact[]> 
         }));
         contactedToday = contactTouches.some(
           (t) =>
-            t.direction === "outbound" && new Date(t.touched_at) >= today
+            t.direction === "outbound" && etYmd(t.touched_at) === todayEt
         );
       } else if (p.last_touch_date) {
         const synth = new Date(`${p.last_touch_date}T00:00:00`);
@@ -365,7 +367,8 @@ export async function getCommunicationsData(): Promise<CommunicationsContact[]> 
           brief: null,
         };
         recentTouches = [lastTouch];
-        contactedToday = synth >= today;
+        // last_touch_date is already an ET calendar day.
+        contactedToday = p.last_touch_date.slice(0, 10) === todayEt;
       }
 
       // contacts.next_touch_date is canonical (cadence-derived OR a manual

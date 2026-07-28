@@ -13,6 +13,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { etYmd } from "@/lib/dates";
 import { CADENCE_DAYS, type CadenceInterval } from "@/lib/outreach/types";
 import type { TouchChannel, TouchDirection } from "@/lib/outreach/touch-capture";
 
@@ -70,7 +71,7 @@ async function recomputeContactTouchState(
     payload.last_touch_channel = null;
     if (!manual) payload.next_touch_date = null;
   } else {
-    const lastDate = (latest[0].touched_at as string).slice(0, 10);
+    const lastDate = etYmd(latest[0].touched_at as string);
     payload.last_touch_date = lastDate;
     payload.last_touch_channel = (latest[0].channel as string) ?? null;
     if (!manual) {

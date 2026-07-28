@@ -184,9 +184,9 @@ function fromCommUrgency(urgency: CommUrgency): QueueUrgencyKey {
 }
 
 function todayYMD(): string {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString().split("T")[0];
+  // Eastern calendar day, matching how touches are stamped, so "engaged today"
+  // reflects Jason's day regardless of the browser's timezone.
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
 }
 
 // End of the current calendar work week (the coming Friday, inclusive) as a
