@@ -14,6 +14,7 @@ import {
   Briefcase,
   GitBranch,
   UserPlus,
+  Send,
 } from "lucide-react";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import {
@@ -23,11 +24,18 @@ import {
 import type {
   NetworkingActivity,
   NsConversation,
+  NsFreshOutreach,
   NsNewContact,
   NsReferral,
   NyuiWeekSummary,
   WeekActivity,
 } from "@/lib/server-actions/networking-status";
+
+type OpenContact = {
+  contactId: string;
+  name: string;
+  firm: string | null;
+};
 
 function fmt(dateStr: string): string {
   return new Date(`${dateStr}T12:00:00`).toLocaleDateString("en-US", {
@@ -64,9 +72,33 @@ function weekTitle(w: WeekActivity): string {
   return w.isCurrent ? "This week" : `Week of ${fmtShort(w.weekStart)}`;
 }
 
+function channelLabel(ch: string): string {
+  switch (ch) {
+    case "email":
+      return "Email";
+    case "linkedin":
+      return "LinkedIn";
+    case "phone":
+    case "call":
+      return "Call";
+    case "video":
+      return "Video";
+    case "in_person":
+    case "coffee_chat":
+      return "In person";
+    case "calendar":
+      return "Calendar";
+    case "text":
+    case "sms":
+      return "Text";
+    default:
+      return ch || "Outreach";
+  }
+}
+
 export function NetworkingActivityClient({ data }: { data: NetworkingActivity }) {
   const current = data.weeks.find((w) => w.isCurrent) ?? data.weeks[0];
-  const [target, setTarget] = useState<NsConversation | null>(null);
+  const [target, setTarget] = useState<OpenContact | null>(null);
 
   function downloadWeeklyPdf() {
     if (!current) return;
@@ -84,6 +116,7 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
       .join("");
 
     const nr = newRepeatHtml(current);
+    const freshHtml = freshOutreachHtml(current);
     const networkAdds = newNetworkHtml(current);
     const apps = nyuiHtml(current);
 
@@ -161,8 +194,13 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
       </div>
       ${chips ? `<div class="chips">${chips}</div>` : ""}
       ${goalCard}
+      ${
+        freshHtml
+          ? `<section class="card"><div class="card-h">Fresh outreach (${current.freshOutreaches.length})</div><div class="card-b">${freshHtml}</div></section>`
+          : ""
+      }
       <section class="card">
-        <div class="card-h">This Week's Conversation Log</div>
+        <div class="card-h">Calls &amp; meetings</div>
         <div class="card-b">${heatmapHtml(current.conversations)}</div>
       </section>
       ${
@@ -381,15 +419,17 @@ function WeekCard({
   onOpenContact,
 }: {
   w: WeekActivity;
-  onOpenContact: (c: NsConversation) => void;
+  onOpenContact: (c: OpenContact) => void;
 }) {
   const chips: { label: string; value: number }[] = [
+    { label: "fresh", value: w.freshOutreaches.length },
     { label: "thank-yous", value: w.stats.thankYous },
-    { label: "referrals", value: w.stats.referrals },
+    { label: "referrals", value: w.newReferrals.length },
   ].filter((c) => c.value > 0);
 
   const quiet =
     w.conversations.length === 0 &&
+    w.freshOutreaches.length === 0 &&
     w.newContacts.length === 0 &&
     w.newReferrals.length === 0 &&
     chips.length === 0;
@@ -425,22 +465,97 @@ function WeekCard({
         ) : null}
       </div>
 
-      {w.conversations.length === 0 ? (
+      {quiet ? (
         <p className="px-4 py-6 text-center text-xs text-muted-foreground">
-          {quiet
-            ? "No activity logged yet this week."
-            : "No conversations logged this week."}
+          No activity logged yet this week.
         </p>
-      ) : (
-        <div className="p-4">
-          <WeekHeatmap conversations={w.conversations} onOpenContact={onOpenContact} />
+      ) : null}
+
+      <FreshOutreachPanel
+        rows={w.freshOutreaches}
+        onOpenContact={onOpenContact}
+      />
+
+      {w.conversations.length > 0 ? (
+        <div className="border-t px-4 py-3">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Calls &amp; meetings ({w.conversations.length})
+          </p>
+          <WeekHeatmap
+            conversations={w.conversations}
+            onOpenContact={onOpenContact}
+          />
         </div>
-      )}
+      ) : w.freshOutreaches.length > 0 ? (
+        <p className="border-t px-4 py-3 text-xs text-muted-foreground">
+          No calls or meetings logged yet this week — fresh outreach is waiting
+          on a conversation.
+        </p>
+      ) : null}
 
       <NewNetworkPanel contacts={w.newContacts} referrals={w.newReferrals} />
 
       <NyuiPanel nyui={w.nyui} />
     </section>
+  );
+}
+
+function FreshOutreachPanel({
+  rows,
+  onOpenContact,
+}: {
+  rows: NsFreshOutreach[];
+  onOpenContact: (c: OpenContact) => void;
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <div className="border-t px-4 py-3">
+      <p className="mb-1 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-sky-300">
+        <Send className="h-3 w-3" />
+        Fresh outreach ({rows.length})
+      </p>
+      <p className="mb-2 text-[11px] text-muted-foreground">
+        People you hadn&rsquo;t contacted in 30+ days — email, LinkedIn, etc.
+        The start of the path to a meeting and a referral.
+      </p>
+      <ul className="divide-y divide-border/50 rounded-lg border border-border">
+        {rows.map((r) => (
+          <li key={r.contactId}>
+            <button
+              type="button"
+              onClick={() =>
+                onOpenContact({
+                  contactId: r.contactId,
+                  name: r.name,
+                  firm: r.firm,
+                })
+              }
+              className="flex w-full flex-col gap-0.5 px-3 py-2.5 text-left text-sm hover:bg-muted/40"
+            >
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <span className="font-semibold text-foreground">{r.name}</span>
+                {r.firm ? (
+                  <span className="text-xs text-muted-foreground">· {r.firm}</span>
+                ) : null}
+                <span className="text-[11px] text-muted-foreground">
+                  {channelLabel(r.channel)} · {fmtShort(r.date)}
+                </span>
+                {r.ledToMeeting ? (
+                  <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+                    → meeting
+                  </span>
+                ) : null}
+              </div>
+              {r.brief ? (
+                <p className="line-clamp-2 text-[11px] text-muted-foreground">
+                  {r.brief}
+                </p>
+              ) : null}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -693,6 +808,27 @@ function heatmapHtml(conversations: NsConversation[]): string {
   return `<div class="heat">${head}${body}</div>`;
 }
 
+/** Printable named fresh outreaches for the PDF. */
+function freshOutreachHtml(w: WeekActivity): string {
+  if (w.freshOutreaches.length === 0) return "";
+  const rows = w.freshOutreaches
+    .map((r) => {
+      const meta = `${escHtml(channelLabel(r.channel))} · ${escHtml(fmtShort(r.date))}`;
+      const brief = r.brief
+        ? `<span class="muted" style="font-size:11px;display:block;margin-top:2px;">${escHtml(r.brief.slice(0, 160))}${r.brief.length > 160 ? "…" : ""}</span>`
+        : "";
+      const badge = r.ledToMeeting
+        ? ` <span class="li-meta ok">→ meeting</span>`
+        : "";
+      return `<li style="flex-direction:column;align-items:flex-start;gap:2px;">
+        <span class="li-main"><b>${escHtml(r.name)}</b>${r.firm ? ` <span class="muted">&middot; ${escHtml(r.firm)}</span>` : ""} <span class="muted" style="font-size:11px;">· ${meta}</span>${badge}</span>
+        ${brief}
+      </li>`;
+    })
+    .join("");
+  return `<ul class="list">${rows}</ul>`;
+}
+
 /** Printable referral-first network expansion for the PDF. */
 function newNetworkHtml(w: WeekActivity): string {
   const alsoAdded = w.newContacts.filter((c) => !c.referredBy);
@@ -789,7 +925,7 @@ function WeekHeatmap({
   onOpenContact,
 }: {
   conversations: NsConversation[];
-  onOpenContact: (c: NsConversation) => void;
+  onOpenContact: (c: OpenContact) => void;
 }) {
   const { grid, newGrid, rows, cols, max, rowTotals } = buildMatrix(conversations);
   const template = `64px repeat(${cols.length}, minmax(34px, 1fr)) 44px`;
