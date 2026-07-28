@@ -229,6 +229,41 @@ export const CONTACT_INTENT_HELPERS: Record<ContactIntent, string> = {
 };
 
 // ---------------------------------------------------------------------------
+// Network role — how a contact fits the job search. Independent of intent and
+// nullable. Surfaces as a classification in the networking report.
+//   buyer           — may hire you or help toward a role at their company
+//   buyer_referrer  — could hire you AND connect you onward
+//   referrer        — connects you to others; not a hiring path themselves
+// ---------------------------------------------------------------------------
+
+export type NetworkRole = "buyer" | "buyer_referrer" | "referrer";
+
+export const NETWORK_ROLES: NetworkRole[] = [
+  "buyer",
+  "buyer_referrer",
+  "referrer",
+];
+
+export const NETWORK_ROLE_LABELS: Record<NetworkRole, string> = {
+  buyer: "Buyer",
+  buyer_referrer: "Buyer / Referrer",
+  referrer: "Referrer",
+};
+
+// Compact form used for the report's inline role tag.
+export const NETWORK_ROLE_SHORT: Record<NetworkRole, string> = {
+  buyer: "Buyer",
+  buyer_referrer: "Buyer \u00b7 Referrer",
+  referrer: "Referrer",
+};
+
+export const NETWORK_ROLE_HELPERS: Record<NetworkRole, string> = {
+  buyer: "May hire you or help toward a role at their company.",
+  buyer_referrer: "Could hire you and also connect you onward.",
+  referrer: "Connects you to others; not a hiring path themselves.",
+};
+
+// ---------------------------------------------------------------------------
 // Touch objective — tri-state ("did this touch achieve its goal?"). The
 // answer drives whether cadence_stage advances. Borrowed from EncoreOS's
 // LogTouchModal, adapted for CoSA's stage progression.

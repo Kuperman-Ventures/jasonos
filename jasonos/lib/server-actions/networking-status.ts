@@ -11,7 +11,12 @@ import {
   createPublicServiceRoleClient,
 } from "@/lib/supabase/server";
 import { getOutreachPeople } from "@/lib/outreach/data";
-import type { NetworkDegree, RelevanceTier } from "@/lib/outreach/types";
+import { NETWORK_ROLE_SHORT } from "@/lib/outreach/types";
+import type {
+  NetworkDegree,
+  NetworkRole,
+  RelevanceTier,
+} from "@/lib/outreach/types";
 
 // "Real conversation" channels — email/LinkedIn/text land the meeting, they
 // aren't networking conversations, so they never appear as conversations.
@@ -849,6 +854,8 @@ export interface ReportOutreach {
   company: string | null;
   channel: string;
   date: string; // "Jul 22"
+  /** Buyer / Buyer · Referrer / Referrer, if classified. */
+  role: string | null;
 }
 
 export interface ReportMeeting {
@@ -867,6 +874,8 @@ export interface ReportReferral {
   followUpText: string;
   followUpActioned: boolean;
   date: string; // "Jul 26"
+  /** Buyer / Buyer · Referrer / Referrer, if classified. */
+  role: string | null;
 }
 
 export interface ReportAddedContact {
@@ -949,7 +958,7 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
       sb
         .from("contacts")
         .select(
-          "id,name,tags,relevance_tier,network_degree,created_at,intent,company_id,referred_by_contact_id,referred_at"
+          "id,name,tags,relevance_tier,network_degree,network_role,created_at,intent,company_id,referred_by_contact_id,referred_at"
         )
         .limit(20000),
       sb
@@ -984,6 +993,7 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
     createdAt: string | null;
     tier: RelevanceTier | null;
     degree: NetworkDegree | null;
+    role: NetworkRole | null;
     intent: string | null;
     company: string | null;
     tags: string[] | null;
@@ -998,11 +1008,17 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
       createdAt: (c.created_at as string | null) ?? null,
       tier: (c.relevance_tier as RelevanceTier | null) ?? null,
       degree: (c.network_degree as NetworkDegree | null) ?? null,
+      role: (c.network_role as NetworkRole | null) ?? null,
       intent: (c.intent as string | null) ?? null,
       company: companyId ? companyNameById.get(companyId) ?? null : null,
       tags: (c.tags as string[] | null) ?? null,
     });
   }
+
+  const roleLabelForContact = (cid: string): string | null => {
+    const r = contactById.get(cid)?.role ?? null;
+    return r ? NETWORK_ROLE_SHORT[r] : null;
+  };
 
   const firmForContact = (cid: string): string | null => {
     const p = peopleById.get(cid);
@@ -1074,6 +1090,7 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
       company: firmForContact(cid),
       channel: channelLabel(latest.ch),
       date: shortDate(latest.ts.slice(0, 10)),
+      role: roleLabelForContact(cid),
       raw: latest.ts.slice(0, 10),
     });
   }
@@ -1084,6 +1101,7 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
     company: o.company,
     channel: o.channel,
     date: o.date,
+    role: o.role,
   }));
 
   // ── 2. MEETINGS — who was met/spoken with this week. Built from conversation
@@ -1185,6 +1203,7 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
       followUpText,
       followUpActioned: false,
       date: shortDate(refAt),
+      role: roleLabelForContact(id),
       sortDays,
     });
   }
@@ -1196,6 +1215,7 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
     followUpText: r.followUpText,
     followUpActioned: r.followUpActioned,
     date: r.date,
+    role: r.role,
   }));
 
   // Referral tally (all time) + strongest connector.

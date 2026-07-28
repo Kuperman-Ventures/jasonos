@@ -158,7 +158,7 @@ function OutreachList({ rows }: { rows: ReportOutreach[] }) {
           >
             {o.channel} &middot; {o.date}
           </span>
-          {o.company ? (
+          {o.company || o.role ? (
             <span
               style={{
                 fontSize: 14,
@@ -167,6 +167,10 @@ function OutreachList({ rows }: { rows: ReportOutreach[] }) {
               }}
             >
               {o.company}
+              {o.company && o.role ? " \u00b7 " : ""}
+              {o.role ? (
+                <span style={{ color: "var(--color-accent-700)" }}>{o.role}</span>
+              ) : null}
             </span>
           ) : null}
         </div>
@@ -369,11 +373,15 @@ function ReferralRecord({ r }: { r: ReportReferral }) {
       >
         {r.date}
       </div>
-      {r.company ? (
+      {r.company || r.role ? (
         <div
           style={{ gridColumn: 1, fontSize: 15, color: "var(--color-neutral-700)" }}
         >
           {r.company}
+          {r.company && r.role ? " \u00b7 " : ""}
+          {r.role ? (
+            <span style={{ color: "var(--color-accent-700)" }}>{r.role}</span>
+          ) : null}
         </div>
       ) : null}
       {r.chain.length > 0 ? (
