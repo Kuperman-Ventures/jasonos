@@ -584,9 +584,13 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
 @media print {
   @page { size: Letter; margin: 0; }
   html, body { background: #fff !important; }
+  /* Flex ancestors prevent multi-column content from fragmenting across pages
+     (which left a blank first page). Force normal block flow for print so the
+     two columns paginate. */
+  body, main { display: block !important; }
   /* Never print the site's top navigation in the report PDF. */
   .app-top-nav { display: none !important; }
-  .nw-report-desk { padding: 0 !important; background: #fff !important; min-height: 0 !important; }
+  .nw-report-desk { padding: 0 !important; background: #fff !important; min-height: 0 !important; display: block !important; }
   /* Block flow (not flex) paginates cleanly across pages; tighter margins. */
   .nw-report-sheet { box-shadow: none !important; display: block !important; padding: 28px 44px 34px !important; }
   .nw-report-sheet > * + * { margin-top: 16px; }
