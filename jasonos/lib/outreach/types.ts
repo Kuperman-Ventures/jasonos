@@ -190,7 +190,9 @@ export function cadenceStageLabel(value: CadenceStage | null | undefined): strin
 // Three primary buckets:
 //   - network_growth      → actively building/deepening; counts as networking
 //   - network_maintenance → keep warm; tracked but doesn't count as networking
-//   - browning_cold       → cold outreach / Browning program (first-contact seq)
+//   - browning_cold       → Cold outreach (DB key kept for existing rows;
+//                           UI label is "Cold". Browning/Boardy are referral
+//                           sources, not this column's name.)
 // 'backrow' opts the contact OUT of the queue entirely (kept in contacts).
 // NULL means "let queue-buckets derivation rules decide".
 // ---------------------------------------------------------------------------
@@ -217,14 +219,14 @@ export const PRIMARY_CONTACT_INTENTS: Array<
 export const CONTACT_INTENT_LABELS: Record<ContactIntent, string> = {
   network_growth: "Network Growth",
   network_maintenance: "Network Maintenance",
-  browning_cold: "Browning / Cold",
+  browning_cold: "Cold",
   backrow: "Backrow",
 };
 
 export const CONTACT_INTENT_HELPERS: Record<ContactIntent, string> = {
   network_growth: "Actively building or deepening — counts toward networking.",
   network_maintenance: "Keep warm; tracked but doesn't count as networking.",
-  browning_cold: "Cold outreach / Browning program — first-contact sequence.",
+  browning_cold: "Cold outreach — first-contact sequence.",
   backrow: "Removed from queue; still in your contacts list.",
 };
 

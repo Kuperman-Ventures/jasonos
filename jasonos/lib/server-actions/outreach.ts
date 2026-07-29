@@ -559,6 +559,34 @@ export async function setReferredBy(
   return { ok: true };
 }
 
+/** Named referral channels (Browning, Boardy, …) — real contact rows tagged
+ *  `referral_source`, kept in backrow so they never enter the outreach queue.
+ *  Shown as one-click options in the "Referred by" picker. */
+export async function getReferralSources(): Promise<
+  { id: string; name: string }[]
+> {
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.SUPABASE_SERVICE_ROLE_KEY
+  ) {
+    return [];
+  }
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("contacts")
+    .select("id,name")
+    .contains("tags", ["referral_source"])
+    .order("name", { ascending: true });
+  if (error) {
+    console.error("[outreach.getReferralSources]", error);
+    return [];
+  }
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    name: (r.name as string) ?? "Unknown",
+  }));
+}
+
 // searchContacts — lightweight name type-ahead over existing contacts (used by
 // the "Referred by" picker so you can link an existing contact instead of
 // accidentally creating a duplicate). Returns up to 10 matches.

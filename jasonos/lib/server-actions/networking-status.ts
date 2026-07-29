@@ -230,7 +230,7 @@ function firmFromTags(tags: string[] | null): string | null {
 }
 
 /**
- * Weekly Report only includes Network Growth and Browning/Cold.
+ * Weekly Report only includes Network Growth and Cold.
  * Maintenance, Backrow, and unset intent do not belong on the report.
  */
 function countsOnWeeklyReport(intent: string | null | undefined): boolean {
@@ -480,7 +480,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     const date = (t.touched_at as string).slice(0, 10);
     const ch = (t.channel as string) ?? "";
     const wk = weekFor(weekStartOf(date));
-    // Only Network Growth and Browning/Cold count — Maintenance, Backrow, and
+    // Only Network Growth and Cold count — Maintenance, Backrow, and
     // unset intent never appear on the weekly report.
     const cid = t.contact_id as string;
     const tp = peopleById.get(cid);
@@ -743,7 +743,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
       w.weekStart <= currentWeekStart && (w.isCurrent || hasActivity(w))
   );
 
-  // Cumulative coverage: Growth + Cold/Browning only.
+  // Cumulative coverage: Growth + Cold only.
   const listSize = people.filter((p) =>
     countsOnWeeklyReport(intentById.get(p.id) ?? p.intent)
   ).length;

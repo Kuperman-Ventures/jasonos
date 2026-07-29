@@ -544,7 +544,7 @@ function pinnedReason(intent: Exclude<ContactIntent, "backrow">): string {
     case "network_maintenance":
       return "Pinned to Network Maintenance";
     case "browning_cold":
-      return "Pinned to Browning / Cold";
+      return "Pinned to Cold";
   }
 }
 

@@ -122,7 +122,7 @@ function avg(nums: number[]): number | null {
 
 /**
  * People who count on the Browning weekly report: Network Growth and
- * Cold/Browning only. Maintenance, Backrow, and unset intent never appear.
+ * Cold only. Maintenance, Backrow, and unset intent never appear.
  */
 function countsOnReport(intent: string | null | undefined): boolean {
   return intent === "network_growth" || intent === "browning_cold";
@@ -255,7 +255,7 @@ export async function getWeeklyActivityLog(
   ]);
 
   const touches = touchesRes.data ?? [];
-  // Growth + Cold/Browning only — never Maintenance / Backrow.
+  // Growth + Cold only — never Maintenance / Backrow.
   const newContacts = (newContactsRes.data ?? []).filter((c) =>
     countsOnReport(c.intent as string | null)
   );

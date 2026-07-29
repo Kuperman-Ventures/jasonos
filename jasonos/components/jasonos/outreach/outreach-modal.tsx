@@ -93,6 +93,7 @@ import {
 import { loadOutreachContext } from "@/lib/server-actions/outreach-draft";
 import {
   addReferredContact,
+  getReferralSources,
   searchContacts,
   setReferredBy as linkReferredBy,
   ensureContactForRecruiter,
@@ -1252,13 +1253,27 @@ function ReferralsCard({
   const [saving, startSaving] = useTransition();
 
   // "Referred by" picker — type-ahead over existing contacts (no new contact
-  // is created; it just links the two existing people).
+  // is created; it just links the two existing people), plus one-click
+  // channels like Browning / Boardy.
   const [editingRef, setEditingRef] = useState(false);
   const [refQuery, setRefQuery] = useState("");
   const [refResults, setRefResults] = useState<
     { id: string; name: string; firm: string | null }[]
   >([]);
+  const [referralSources, setReferralSources] = useState<
+    { id: string; name: string }[]
+  >([]);
   const [refPending, startRefTransition] = useTransition();
+
+  useEffect(() => {
+    let cancelled = false;
+    getReferralSources().then((rows) => {
+      if (!cancelled) setReferralSources(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -1375,16 +1390,40 @@ function ReferralsCard({
             ) : null}
           </span>
           {editingRef ? (
-            <div className="mt-1.5">
+            <div className="mt-1.5 space-y-1.5">
+              {referralSources.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {referralSources
+                    .filter((s) => s.id !== contactId)
+                    .map((s) => {
+                      const selected = referredBy?.id === s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => selectReferrer(s)}
+                          disabled={refPending || selected}
+                          className={
+                            selected
+                              ? "rounded-md border border-sky-400/40 bg-sky-500/15 px-2 py-1 text-[11px] font-medium text-sky-200"
+                              : "rounded-md border border-border bg-background/60 px-2 py-1 text-[11px] font-medium text-foreground/90 hover:bg-muted"
+                          }
+                        >
+                          {s.name}
+                        </button>
+                      );
+                    })}
+                </div>
+              ) : null}
               <Input
                 value={refQuery}
                 onChange={(e) => setRefQuery(e.target.value)}
                 className="h-8 text-xs"
-                placeholder="Search your contacts by name…"
+                placeholder="Or search your contacts by name…"
                 autoFocus
               />
               {refResults.length > 0 ? (
-                <ul className="mt-1 max-h-44 overflow-auto rounded-md border border-border bg-popover">
+                <ul className="max-h-44 overflow-auto rounded-md border border-border bg-popover">
                   {refResults.map((r) => (
                     <li key={r.id}>
                       <button
@@ -1404,12 +1443,13 @@ function ReferralsCard({
                   ))}
                 </ul>
               ) : refQuery.trim().length >= 2 ? (
-                <p className="mt-1 text-[11px] text-muted-foreground">
+                <p className="text-[11px] text-muted-foreground">
                   No matching contacts.
                 </p>
               ) : (
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Type at least 2 letters to search existing contacts.
+                <p className="text-[11px] text-muted-foreground">
+                  Pick Browning or Boardy above, or type at least 2 letters to
+                  search people.
                 </p>
               )}
             </div>

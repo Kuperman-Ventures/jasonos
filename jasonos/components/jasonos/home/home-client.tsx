@@ -18,11 +18,11 @@ import type { AttentionContact, HomeData, SitePanel } from "@/lib/data/home";
 const COLUMN_LABEL: Record<string, string> = {
   network_growth: "Growth",
   network_maintenance: "Maintenance",
-  browning_cold: "Browning",
+  browning_cold: "Cold",
   // Legacy labels (kept so old payloads still render cleanly).
   warm: "Growth",
   specific: "Growth",
-  cold: "Browning",
+  cold: "Cold",
 };
 
 export function HomeClient({
