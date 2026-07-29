@@ -3,19 +3,14 @@
 // A small on-screen control that generates the weekly-review PDF via the
 // browser's print-to-PDF ("Save as PDF"). The report's print CSS (Letter page
 // size + break-inside rules) makes the page breaks land between sections and
-// never mid-row. Hidden when printing.
+// never mid-row. Hidden when printing (via the toolbar's report-no-print class).
 
 export function ReportPrintButton() {
   return (
     <button
       type="button"
-      className="report-no-print"
       onClick={() => window.print()}
       style={{
-        position: "fixed",
-        top: 16,
-        right: 16,
-        zIndex: 50,
         fontFamily: '"Source Serif 4", Georgia, serif',
         fontSize: 13,
         fontWeight: 600,
@@ -27,6 +22,7 @@ export function ReportPrintButton() {
         padding: "8px 14px",
         cursor: "pointer",
         boxShadow: "0 3px 10px color-mix(in srgb, #2d2b2b 22%, transparent)",
+        whiteSpace: "nowrap",
       }}
     >
       Download PDF

@@ -41,14 +41,10 @@ export function ReportWeekNav({
 }) {
   return (
     <div
-      className="report-no-print"
       style={{
-        position: "fixed",
-        top: 16,
-        left: 16,
-        zIndex: 50,
         display: "flex",
         alignItems: "center",
+        flexWrap: "wrap",
         gap: 8,
       }}
     >

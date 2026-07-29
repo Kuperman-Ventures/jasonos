@@ -594,13 +594,6 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
   h2, h3 { break-after: avoid; }
 }`}</style>
 
-      <ReportWeekNav
-        prevWeekStart={report.prevWeekStart}
-        nextWeekStart={report.nextWeekStart}
-        isCurrentWeek={report.isCurrentWeek}
-      />
-      <ReportPrintButton />
-
       <div
         className="nw-report-desk"
         style={{
@@ -613,6 +606,25 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
         }}
       >
         <div style={{ width: 816 }}>
+          {/* Screen-only toolbar — sits on the desk above the sheet, same
+              width as the report, so the controls line up with the paper. */}
+          <div
+            className="report-no-print"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              marginBottom: 14,
+            }}
+          >
+            <ReportWeekNav
+              prevWeekStart={report.prevWeekStart}
+              nextWeekStart={report.nextWeekStart}
+              isCurrentWeek={report.isCurrentWeek}
+            />
+            <ReportPrintButton />
+          </div>
           <div
             className="nw-report-sheet"
             style={{
