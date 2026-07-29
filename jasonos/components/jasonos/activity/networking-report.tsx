@@ -138,7 +138,7 @@ function OutreachList({ rows }: { rows: ReportOutreach[] }) {
       {rows.map((o, i) => (
         <div
           key={`${o.name}-${i}`}
-          className="brk"
+          className="brk rrow"
           style={{
             padding: "10px 0",
             borderTop: "1px solid var(--color-divider)",
@@ -334,7 +334,7 @@ function UpcomingMeetingsSection({
             return (
               <div
                 key={`${m.name}-${i}`}
-                className="brk"
+                className="brk rrow"
                 style={{
                   padding: "10px 0",
                   borderTop: "1px solid var(--color-divider)",
@@ -386,7 +386,7 @@ function AddedList({ rows }: { rows: ReportAddedContact[] }) {
       {rows.map((a, i) => (
         <div
           key={`${a.name}-${i}`}
-          className="brk"
+          className="brk rrow"
           style={{
             padding: "9px 0",
             borderTop: "1px solid var(--color-divider)",
@@ -413,7 +413,7 @@ function AddedList({ rows }: { rows: ReportAddedContact[] }) {
 function ReferralRecord({ r }: { r: ReportReferral }) {
   return (
     <div
-      className="brk"
+      className="brk rrow"
       style={{
         display: "grid",
         gridTemplateColumns: "1fr 62px",
@@ -510,7 +510,7 @@ function ApplicationsList({ rows }: { rows: ReportApplication[] }) {
       {rows.map((a, i) => (
         <div
           key={`${a.company}-${i}`}
-          className="brk"
+          className="brk rrow"
           style={{
             padding: "9px 0",
             borderTop: "1px solid var(--color-divider)",
@@ -554,7 +554,9 @@ function ApplicationsList({ rows }: { rows: ReportApplication[] }) {
 // blocks between them rather than splitting one.
 function ColBlock({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ breakInside: "avoid", marginBottom: 30 }}>{children}</div>
+    <div className="col-block" style={{ breakInside: "avoid", marginBottom: 30 }}>
+      {children}
+    </div>
   );
 }
 
@@ -585,13 +587,16 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
   /* Never print the site's top navigation in the report PDF. */
   .app-top-nav { display: none !important; }
   .nw-report-desk { padding: 0 !important; background: #fff !important; min-height: 0 !important; }
-  /* Block flow (not flex) paginates cleanly across pages. */
-  .nw-report-sheet { box-shadow: none !important; display: block !important; }
-  .nw-report-sheet > * + * { margin-top: 34px; }
+  /* Block flow (not flex) paginates cleanly across pages; tighter margins. */
+  .nw-report-sheet { box-shadow: none !important; display: block !important; padding: 28px 44px 34px !important; }
+  .nw-report-sheet > * + * { margin-top: 16px; }
   .report-no-print { display: none !important; }
-  /* Multi-column balances on screen but can't paginate — print one column so
-     blocks flow top-to-bottom with breaks only between them. */
-  .report-cols { column-count: 1 !important; }
+  /* Two dense columns that fill each page top-to-bottom, then continue on the
+     next page — a good use of the width without the balance-mode pagination
+     problems. */
+  .report-cols { column-fill: auto; column-gap: 34px !important; }
+  .col-block { margin-bottom: 12px !important; }
+  .rrow { padding-top: 6px !important; padding-bottom: 6px !important; }
   /* Keep small units whole; let breaks fall between them. */
   .brk { break-inside: avoid; }
   h2, h3 { break-after: avoid; }
