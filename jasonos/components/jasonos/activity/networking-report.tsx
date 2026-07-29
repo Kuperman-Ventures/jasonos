@@ -3,6 +3,7 @@ import type {
   NetworkingReport,
   ReportOutreach,
   ReportMeeting,
+  ReportUpcomingMeeting,
   ReportReferral,
   ReportAddedContact,
   ReportApplication,
@@ -307,6 +308,69 @@ function MeetingsSection({
           Gave 2 referrals &rarr; listed opposite
         </div>
       </div>
+    </div>
+  );
+}
+
+function UpcomingMeetingsSection({
+  meetings,
+}: {
+  meetings: ReportUpcomingMeeting[];
+}) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <h3 style={subHeadStyle}>Upcoming meetings</h3>
+      {meetings.length === 0 ? (
+        <p style={noneStyle}>None scheduled.</p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {meetings.map((m, i) => {
+            const detail = [m.company, m.medium, m.time]
+              .filter(Boolean)
+              .join(" \u00b7 ");
+            return (
+              <div
+                key={`${m.name}-${i}`}
+                style={{
+                  padding: "10px 0",
+                  borderTop: "1px solid var(--color-divider)",
+                  borderBottom:
+                    i === meetings.length - 1
+                      ? "1px solid var(--color-divider)"
+                      : undefined,
+                  display: "grid",
+                  gridTemplateColumns: "1fr 100px",
+                  gap: "2px 12px",
+                  alignItems: "baseline",
+                }}
+              >
+                <span style={{ fontSize: 16, fontWeight: 600 }}>{m.name}</span>
+                <span
+                  style={{
+                    fontSize: 13,
+                    color: "var(--color-neutral-600)",
+                    textAlign: "right",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {m.date}
+                </span>
+                {detail ? (
+                  <span
+                    style={{
+                      fontSize: 14,
+                      color: "var(--color-neutral-600)",
+                      gridColumn: 1,
+                    }}
+                  >
+                    {detail}
+                  </span>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -618,6 +682,8 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
                   meetings={report.meetings}
                   threadsOpen={report.reachedOut}
                 />
+
+                <UpcomingMeetingsSection meetings={report.upcomingMeetings} />
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   <h3 style={subHeadStyle}>Added without an introduction</h3>

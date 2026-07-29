@@ -300,6 +300,70 @@ export async function syncOutreachFromCalendar(opts?: {
 }
 
 // ---------------------------------------------------------------------------
+// Upcoming meetings — read-only lookahead used by the networking report.
+// Returns future Google Calendar events whose attendees resolve to a known
+// contact. Does not write touches. Returns [] when Calendar isn't connected.
+// ---------------------------------------------------------------------------
+
+export interface UpcomingCalendarMeeting {
+  contactId: string;
+  startISO: string;
+}
+
+export async function getUpcomingCalendarMeetings(opts?: {
+  daysAhead?: number;
+}): Promise<UpcomingCalendarMeeting[]> {
+  const daysAhead = Math.max(1, Math.min(120, opts?.daysAhead ?? 30));
+  const token = await getGoogleAccessToken();
+  if (!token) return [];
+
+  const lookup = await buildContactLookup();
+  if (!lookup.rows.length) return [];
+
+  const now = Date.now();
+  const params = new URLSearchParams({
+    timeMin: new Date(now).toISOString(),
+    timeMax: new Date(now + daysAhead * 86_400_000).toISOString(),
+    singleEvents: "true",
+    orderBy: "startTime",
+    maxResults: "250",
+  });
+
+  let raw: { items?: RawGCalEvent[] } = {};
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
+      { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }
+    );
+    if (!res.ok) return [];
+    raw = await res.json();
+  } catch {
+    return [];
+  }
+
+  const out: UpcomingCalendarMeeting[] = [];
+  const seen = new Set<string>();
+  for (const ev of raw.items ?? []) {
+    if (ev.status === "cancelled") continue;
+    const startISO = ev.start?.dateTime ?? null;
+    if (!startISO) continue;
+    if (new Date(startISO).getTime() < now) continue; // future only
+    for (const a of ev.attendees ?? []) {
+      if (a.self || !a.email) continue;
+      if (a.responseStatus === "declined") continue;
+      const header = a.displayName ? `${a.displayName} <${a.email}>` : a.email;
+      const contact = lookup.resolve(header);
+      if (!contact) continue;
+      const key = `${contact.id}::${startISO}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ contactId: contact.id, startISO });
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // Orchestrator — run all configured syncs and aggregate results.
 // ---------------------------------------------------------------------------
 
