@@ -1,4 +1,5 @@
 import React from "react";
+import { ReportPrintButton } from "@/components/jasonos/activity/report-print-button";
 import type {
   NetworkingReport,
   ReportOutreach,
@@ -137,6 +138,7 @@ function OutreachList({ rows }: { rows: ReportOutreach[] }) {
       {rows.map((o, i) => (
         <div
           key={`${o.name}-${i}`}
+          className="brk"
           style={{
             padding: "10px 0",
             borderTop: "1px solid var(--color-divider)",
@@ -183,6 +185,7 @@ function OutreachList({ rows }: { rows: ReportOutreach[] }) {
 function MeetingRecord({ m }: { m: ReportMeeting }) {
   return (
     <div
+      className="brk"
       style={{
         display: "flex",
         flexDirection: "column",
@@ -331,6 +334,7 @@ function UpcomingMeetingsSection({
             return (
               <div
                 key={`${m.name}-${i}`}
+                className="brk"
                 style={{
                   padding: "10px 0",
                   borderTop: "1px solid var(--color-divider)",
@@ -382,6 +386,7 @@ function AddedList({ rows }: { rows: ReportAddedContact[] }) {
       {rows.map((a, i) => (
         <div
           key={`${a.name}-${i}`}
+          className="brk"
           style={{
             padding: "9px 0",
             borderTop: "1px solid var(--color-divider)",
@@ -408,6 +413,7 @@ function AddedList({ rows }: { rows: ReportAddedContact[] }) {
 function ReferralRecord({ r }: { r: ReportReferral }) {
   return (
     <div
+      className="brk"
       style={{
         display: "grid",
         gridTemplateColumns: "1fr 62px",
@@ -504,6 +510,7 @@ function ApplicationsList({ rows }: { rows: ReportApplication[] }) {
       {rows.map((a, i) => (
         <div
           key={`${a.company}-${i}`}
+          className="brk"
           style={{
             padding: "9px 0",
             borderTop: "1px solid var(--color-divider)",
@@ -558,10 +565,23 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
         rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap"
       />
-      <style>{`@media print {
-  .nw-report-desk { padding: 0 !important; background: #fff !important; }
+      <style>{`
+.nw-report-sheet, .nw-report-sheet * {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+@media print {
+  @page { size: Letter; margin: 0; }
+  html, body { background: #fff !important; }
+  .nw-report-desk { padding: 0 !important; background: #fff !important; min-height: 0 !important; }
   .nw-report-sheet { box-shadow: none !important; }
+  .report-no-print { display: none !important; }
+  /* Keep small units whole; let breaks fall between them. */
+  .brk { break-inside: avoid; }
+  h2, h3 { break-after: avoid; }
 }`}</style>
+
+      <ReportPrintButton />
 
       <div
         className="nw-report-desk"
@@ -587,7 +607,7 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
             }}
           >
             {/* Masthead */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            <div className="brk" style={{ display: "flex", flexDirection: "column", gap: 0 }}>
               <div
                 style={{
                   borderBottom: "4px solid var(--color-text)",
@@ -637,6 +657,7 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
 
             {/* Three-figure band */}
             <div
+              className="brk"
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(3, 1fr)",
