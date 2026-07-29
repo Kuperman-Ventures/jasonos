@@ -582,6 +582,8 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
 @media print {
   @page { size: Letter; margin: 0; }
   html, body { background: #fff !important; }
+  /* Never print the site's top navigation in the report PDF. */
+  .app-top-nav { display: none !important; }
   .nw-report-desk { padding: 0 !important; background: #fff !important; min-height: 0 !important; }
   .nw-report-sheet { box-shadow: none !important; }
   .report-no-print { display: none !important; }
