@@ -84,7 +84,7 @@ const COLUMNS: ColumnDef[] = [
   },
   {
     key: "browning_cold",
-    title: "Browning / Cold",
+    title: "Cold",
     helper: "cold outreach",
     icon: Snowflake,
     accent: "text-sky-300",
@@ -1008,7 +1008,7 @@ function ReconnectSummaryStrip({
       <span className="font-medium text-amber-300">{network_growth}</span> growth ·{" "}
       <span className="font-medium text-rose-300">{network_maintenance}</span>{" "}
       maintenance ·{" "}
-      <span className="font-medium text-sky-300">{browning_cold}</span> Browning/cold
+      <span className="font-medium text-sky-300">{browning_cold}</span> Cold
     </p>
   );
 }
