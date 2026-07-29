@@ -25,7 +25,14 @@ const COLUMN_LABEL: Record<string, string> = {
   cold: "Browning",
 };
 
-export function HomeClient({ data }: { data: HomeData }) {
+export function HomeClient({
+  data,
+  children,
+}: {
+  data: HomeData;
+  /** Server-rendered slot (e.g. Morning Brief) placed under the header. */
+  children?: React.ReactNode;
+}) {
   const [target, setTarget] = useState<AttentionContact | null>(null);
 
   return (
@@ -39,6 +46,8 @@ export function HomeClient({ data }: { data: HomeData }) {
           </p>
         </div>
       </header>
+
+      {children}
 
       {/* ---- Needs attention ------------------------------------------------ */}
       <div className="grid gap-4 lg:grid-cols-3">
