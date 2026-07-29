@@ -595,10 +595,10 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
   .nw-report-sheet { box-shadow: none !important; display: block !important; padding: 28px 44px 34px !important; }
   .nw-report-sheet > * + * { margin-top: 16px; }
   .report-no-print { display: none !important; }
-  /* Two dense columns that fill each page top-to-bottom, then continue on the
-     next page — a good use of the width without the balance-mode pagination
-     problems. */
-  .report-cols { column-fill: auto; column-gap: 34px !important; }
+  /* Multi-column can't reliably paginate across printed pages from this
+     layout, so print a single column that flows cleanly (no blank page, no
+     split rows). Screen keeps the balanced two columns. */
+  .report-cols { column-count: 1 !important; }
   .col-block { margin-bottom: 12px !important; }
   .rrow { padding-top: 6px !important; padding-bottom: 6px !important; }
   /* Keep small units whole; let breaks fall between them. */
