@@ -1,5 +1,4 @@
 import {
-  AlertTriangle,
   CalendarDays,
   Inbox,
   Newspaper,
