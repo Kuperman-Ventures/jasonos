@@ -11,6 +11,7 @@ import {
   createPublicServiceRoleClient,
 } from "@/lib/supabase/server";
 import { getOutreachPeople } from "@/lib/outreach/data";
+import { getUpcomingCalendarMeetings } from "@/lib/server-actions/outreach-sync";
 import { NETWORK_ROLE_SHORT } from "@/lib/outreach/types";
 import type {
   NetworkDegree,
@@ -818,6 +819,23 @@ function todayLocalYmd(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: APP_TZ });
 }
 
+// A timestamp → { date: "Aug 3", time: "2:00 PM" } in ET, for upcoming meetings.
+function localDateTimeParts(iso: string): { date: string; time: string } {
+  const d = new Date(iso);
+  return {
+    date: d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      timeZone: APP_TZ,
+    }),
+    time: d.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: APP_TZ,
+    }),
+  };
+}
+
 // "Jul 22" from a date-only "YYYY-MM-DD" (rendered in UTC at noon so the day
 // never shifts).
 function shortDate(ymdStr: string): string {
@@ -881,6 +899,14 @@ export interface ReportMeeting {
   referralsProduced: number;
 }
 
+export interface ReportUpcomingMeeting {
+  name: string;
+  company: string | null;
+  medium: string;
+  date: string; // "Aug 3"
+  time: string; // "2:00 PM"
+}
+
 export interface ReportReferral {
   name: string;
   company: string | null;
@@ -919,6 +945,7 @@ export interface NetworkingReport {
   summary: string; // "Reached 6 · Met 0 · Referred 3"
   outreach: ReportOutreach[];
   meetings: ReportMeeting[];
+  upcomingMeetings: ReportUpcomingMeeting[];
   addedWithoutIntro: ReportAddedContact[];
   referrals: ReportReferral[];
   tally: {
@@ -953,6 +980,7 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
     summary: "Reached 0 \u00b7 Met 0 \u00b7 Referred 0",
     outreach: [],
     meetings: [],
+    upcomingMeetings: [],
     addedWithoutIntro: [],
     referrals: [],
     tally: { allTime: 0, ofThoseMet: 0, topConnectorName: null, topConnectorCount: 0 },
@@ -963,8 +991,15 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
   const sb = createServiceRoleClient();
   const pub = createPublicServiceRoleClient();
 
-  const [people, touchesRes, contactsRes, meetingsRes, workSearchRes, companiesRes] =
-    await Promise.all([
+  const [
+    people,
+    touchesRes,
+    contactsRes,
+    meetingsRes,
+    workSearchRes,
+    companiesRes,
+    upcomingCal,
+  ] = await Promise.all([
       getOutreachPeople(),
       sb
         .from("contact_touches")
@@ -979,8 +1014,9 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
         .limit(20000),
       sb
         .from("meetings")
-        .select("id,contact_id,channel,status,held_at,debrief_notes")
-        .eq("status", "held"),
+        .select(
+          "id,contact_id,channel,status,scheduled_at,held_at,debrief_notes"
+        ),
       pub
         .from("work_searches")
         .select("date,company_name,position_applied")
@@ -988,6 +1024,7 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
         .lte("date", weekEnd)
         .order("date", { ascending: true }),
       sb.from("companies").select("id,name"),
+      getUpcomingCalendarMeetings({ daysAhead: 30 }),
     ]);
 
   const touches = touchesRes.data ?? [];
@@ -1176,6 +1213,47 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
     notes: m.notes,
     referralsProduced: m.referralsProduced,
   }));
+
+  // ── UPCOMING MEETINGS — scheduled ahead, from BOTH the in-app meetings table
+  //    and Google Calendar, limited to networking-eligible contacts (same
+  //    criteria as the rest of the report). Deduped per contact per day. ───────
+  const nowMs = Date.now();
+  const upcomingRaw: { contactId: string; ts: string; channel: string }[] = [];
+  for (const m of meetings) {
+    if ((m.status as string) !== "scheduled") continue;
+    const sched = (m.scheduled_at as string | null) ?? null;
+    if (!sched || new Date(sched).getTime() < nowMs) continue;
+    upcomingRaw.push({
+      contactId: m.contact_id as string,
+      ts: sched,
+      channel: (m.channel as string) ?? "calendar",
+    });
+  }
+  for (const u of upcomingCal) {
+    upcomingRaw.push({
+      contactId: u.contactId,
+      ts: u.startISO,
+      channel: "calendar",
+    });
+  }
+  upcomingRaw.sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
+  const upcomingSeen = new Set<string>();
+  const upcoming: ReportUpcomingMeeting[] = [];
+  for (const u of upcomingRaw) {
+    if (!isNetworkingContact(u.contactId)) continue;
+    const dayKey = `${u.contactId}::${tsToLocalYmd(u.ts)}`;
+    if (upcomingSeen.has(dayKey)) continue; // same contact same day → once
+    upcomingSeen.add(dayKey);
+    const { date, time } = localDateTimeParts(u.ts);
+    upcoming.push({
+      name: nameForContact(u.contactId),
+      company: firmForContact(u.contactId),
+      medium: channelLabel(u.channel),
+      date,
+      time,
+    });
+  }
+  report.upcomingMeetings = upcoming;
 
   // ── 3. REFERRALS — introductions that still need follow-up: people who were
   //    referred to you and whom you have either never contacted, or not
