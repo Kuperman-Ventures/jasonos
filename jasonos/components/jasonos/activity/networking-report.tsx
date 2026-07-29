@@ -683,8 +683,6 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
                   threadsOpen={report.reachedOut}
                 />
 
-                <UpcomingMeetingsSection meetings={report.upcomingMeetings} />
-
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   <h3 style={subHeadStyle}>Added without an introduction</h3>
                   <AddedList rows={report.addedWithoutIntro} />
@@ -746,6 +744,8 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
                     ) : null}
                   </div>
                 </div>
+
+                <UpcomingMeetingsSection meetings={report.upcomingMeetings} />
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   <h3 style={subHeadStyle}>Applications filed</h3>
