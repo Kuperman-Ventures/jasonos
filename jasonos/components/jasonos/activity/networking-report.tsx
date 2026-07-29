@@ -585,8 +585,13 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
   /* Never print the site's top navigation in the report PDF. */
   .app-top-nav { display: none !important; }
   .nw-report-desk { padding: 0 !important; background: #fff !important; min-height: 0 !important; }
-  .nw-report-sheet { box-shadow: none !important; }
+  /* Block flow (not flex) paginates cleanly across pages. */
+  .nw-report-sheet { box-shadow: none !important; display: block !important; }
+  .nw-report-sheet > * + * { margin-top: 34px; }
   .report-no-print { display: none !important; }
+  /* Multi-column balances on screen but can't paginate — print one column so
+     blocks flow top-to-bottom with breaks only between them. */
+  .report-cols { column-count: 1 !important; }
   /* Keep small units whole; let breaks fall between them. */
   .brk { break-inside: avoid; }
   h2, h3 { break-after: avoid; }
@@ -695,8 +700,9 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
             </div>
 
             {/* Balanced columns — whole blocks flow between the two columns so
-                their heights come out as even as possible. */}
-            <div style={{ columnCount: 2, columnGap: 44 }}>
+                their heights come out as even as possible. Collapses to a
+                single, cleanly-paginating column when printed to PDF. */}
+            <div className="report-cols" style={{ columnCount: 2, columnGap: 44 }}>
               <ColBlock>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <h2 style={sectionHeadStyle}>Outreach</h2>
