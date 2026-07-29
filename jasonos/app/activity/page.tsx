@@ -5,8 +5,13 @@ import { NetworkingReportView } from "@/components/jasonos/activity/networking-r
 export const metadata = { title: "Networking Activity · JasonOS" };
 export const dynamic = "force-dynamic";
 
-export default async function ActivityPage() {
-  const report = await getNetworkingReport();
+export default async function ActivityPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ week?: string }>;
+}) {
+  const { week } = await searchParams;
+  const report = await getNetworkingReport({ week });
   return (
     <Suspense>
       <NetworkingReportView report={report} />

@@ -1,5 +1,6 @@
 import React from "react";
 import { ReportPrintButton } from "@/components/jasonos/activity/report-print-button";
+import { ReportWeekNav } from "@/components/jasonos/activity/report-week-nav";
 import type {
   NetworkingReport,
   ReportOutreach,
@@ -593,6 +594,11 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
   h2, h3 { break-after: avoid; }
 }`}</style>
 
+      <ReportWeekNav
+        prevWeekStart={report.prevWeekStart}
+        nextWeekStart={report.nextWeekStart}
+        isCurrentWeek={report.isCurrentWeek}
+      />
       <ReportPrintButton />
 
       <div
@@ -769,9 +775,11 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
                 </div>
               </ColBlock>
 
-              <ColBlock>
-                <UpcomingMeetingsSection meetings={report.upcomingMeetings} />
-              </ColBlock>
+              {report.isCurrentWeek ? (
+                <ColBlock>
+                  <UpcomingMeetingsSection meetings={report.upcomingMeetings} />
+                </ColBlock>
+              ) : null}
 
               <ColBlock>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

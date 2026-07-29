@@ -935,6 +935,12 @@ export interface NetworkingReport {
   weekEnd: string;
   weekLabel: string; // "Wednesday 22 – Tuesday 28 July 2026"
   issueNumber: number; // ISO week number, shown as "No. 30"
+  /** True when this is the Wednesday→Tuesday week that contains "today" (ET). */
+  isCurrentWeek: boolean;
+  /** Wednesday of the prior reporting week (for ← navigation). */
+  prevWeekStart: string;
+  /** Wednesday of the next reporting week, or null when already on the current week. */
+  nextWeekStart: string | null;
   goalTarget: number;
   reachedOut: number;
   metWith: number;
@@ -957,10 +963,29 @@ export interface NetworkingReport {
   applications: ReportApplication[];
 }
 
-export async function getNetworkingReport(): Promise<NetworkingReport> {
+/** YYYY-MM-DD only — rejects anything that isn't a plain calendar day. */
+function isYmd(s: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(s);
+}
+
+/**
+ * Single-week networking report. Pass `week` as any date in the desired
+ * Wednesday→Tuesday window (usually the Wednesday); it is normalized and
+ * clamped so you cannot navigate past the current week.
+ */
+export async function getNetworkingReport(opts?: {
+  week?: string | null;
+}): Promise<NetworkingReport> {
   const today = todayLocalYmd();
-  const weekStart = weekStartOf(today);
+  const currentWeekStart = weekStartOf(today);
+  let weekStart = currentWeekStart;
+  if (opts?.week && isYmd(opts.week)) {
+    const requested = weekStartOf(opts.week);
+    // Never show a future reporting week — clamp to the current one.
+    weekStart = requested > currentWeekStart ? currentWeekStart : requested;
+  }
   const weekEnd = addDaysStr(weekStart, 6);
+  const isCurrentWeek = weekStart === currentWeekStart;
   // Compare an already-normalized "YYYY-MM-DD" (ET) against the week window.
   const inWeek = (ymdStr: string | null | undefined): boolean =>
     !!ymdStr && ymdStr >= weekStart && ymdStr <= weekEnd;
@@ -970,6 +995,9 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
     weekEnd,
     weekLabel: formatWeekLabel(weekStart, weekEnd),
     issueNumber: isoWeekNumber(weekStart),
+    isCurrentWeek,
+    prevWeekStart: addDaysStr(weekStart, -7),
+    nextWeekStart: isCurrentWeek ? null : addDaysStr(weekStart, 7),
     goalTarget: WEEKLY_OUTREACH_GOAL,
     reachedOut: 0,
     metWith: 0,
@@ -1214,46 +1242,49 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
     referralsProduced: m.referralsProduced,
   }));
 
-  // ── UPCOMING MEETINGS — scheduled ahead, from BOTH the in-app meetings table
-  //    and Google Calendar, limited to networking-eligible contacts (same
-  //    criteria as the rest of the report). Deduped per contact per day. ───────
-  const nowMs = Date.now();
-  const upcomingRaw: { contactId: string; ts: string; channel: string }[] = [];
-  for (const m of meetings) {
-    if ((m.status as string) !== "scheduled") continue;
-    const sched = (m.scheduled_at as string | null) ?? null;
-    if (!sched || new Date(sched).getTime() < nowMs) continue;
-    upcomingRaw.push({
-      contactId: m.contact_id as string,
-      ts: sched,
-      channel: (m.channel as string) ?? "calendar",
-    });
+  // ── UPCOMING MEETINGS — only on the current week (they're "from now").
+  //    Past weeks omit this list so a historical report stays about that week.
+  if (isCurrentWeek) {
+    const nowMs = Date.now();
+    const upcomingRaw: { contactId: string; ts: string; channel: string }[] = [];
+    for (const m of meetings) {
+      if ((m.status as string) !== "scheduled") continue;
+      const sched = (m.scheduled_at as string | null) ?? null;
+      if (!sched || new Date(sched).getTime() < nowMs) continue;
+      upcomingRaw.push({
+        contactId: m.contact_id as string,
+        ts: sched,
+        channel: (m.channel as string) ?? "calendar",
+      });
+    }
+    for (const u of upcomingCal) {
+      upcomingRaw.push({
+        contactId: u.contactId,
+        ts: u.startISO,
+        channel: "calendar",
+      });
+    }
+    upcomingRaw.sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
+    const upcomingSeen = new Set<string>();
+    const upcoming: ReportUpcomingMeeting[] = [];
+    for (const u of upcomingRaw) {
+      if (!isNetworkingContact(u.contactId)) continue;
+      const dayKey = `${u.contactId}::${tsToLocalYmd(u.ts)}`;
+      if (upcomingSeen.has(dayKey)) continue; // same contact same day → once
+      upcomingSeen.add(dayKey);
+      const { date, time } = localDateTimeParts(u.ts);
+      upcoming.push({
+        name: nameForContact(u.contactId),
+        company: firmForContact(u.contactId),
+        medium: channelLabel(u.channel),
+        date,
+        time,
+      });
+    }
+    report.upcomingMeetings = upcoming;
+  } else {
+    report.upcomingMeetings = [];
   }
-  for (const u of upcomingCal) {
-    upcomingRaw.push({
-      contactId: u.contactId,
-      ts: u.startISO,
-      channel: "calendar",
-    });
-  }
-  upcomingRaw.sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
-  const upcomingSeen = new Set<string>();
-  const upcoming: ReportUpcomingMeeting[] = [];
-  for (const u of upcomingRaw) {
-    if (!isNetworkingContact(u.contactId)) continue;
-    const dayKey = `${u.contactId}::${tsToLocalYmd(u.ts)}`;
-    if (upcomingSeen.has(dayKey)) continue; // same contact same day → once
-    upcomingSeen.add(dayKey);
-    const { date, time } = localDateTimeParts(u.ts);
-    upcoming.push({
-      name: nameForContact(u.contactId),
-      company: firmForContact(u.contactId),
-      medium: channelLabel(u.channel),
-      date,
-      time,
-    });
-  }
-  report.upcomingMeetings = upcoming;
 
   // ── 3. REFERRALS — introductions that still need follow-up: people who were
   //    referred to you and whom you have either never contacted, or not
@@ -1362,12 +1393,16 @@ export async function getNetworkingReport(): Promise<NetworkingReport> {
   }));
 
   // ── Three-figure qualifiers + masthead summary. ─────────────────────────────
-  report.reachedQualifier =
-    report.reachedOut >= report.goalTarget
-      ? "goal met"
-      : `of a ${report.goalTarget} goal \u2014 ${
-          report.goalTarget - report.reachedOut
-        } to go`;
+  if (report.reachedOut >= report.goalTarget) {
+    report.reachedQualifier = "goal met";
+  } else if (isCurrentWeek) {
+    report.reachedQualifier = `of a ${report.goalTarget} goal \u2014 ${
+      report.goalTarget - report.reachedOut
+    } to go`;
+  } else {
+    // Closed week — don't imply there's still time left.
+    report.reachedQualifier = `of a ${report.goalTarget} goal`;
+  }
   report.metQualifier =
     report.metWith === 0 ? "no calls logged" : `${report.metWith} logged`;
 
