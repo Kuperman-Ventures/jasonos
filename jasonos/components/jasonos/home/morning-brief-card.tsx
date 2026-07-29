@@ -13,6 +13,7 @@ import {
   type EmailGroup,
   type ParsedMorningBrief,
 } from "@/lib/data/parse-morning-brief";
+import { MorningBriefAttention } from "@/components/jasonos/home/morning-brief-attention";
 
 // Intercepts Claude's published markdown and lays it out as scannable
 // sections that match the rest of Home — attention first, then calendar,
@@ -88,27 +89,6 @@ function SectionLabel({
       {hint ? (
         <span className="text-[11px] text-muted-foreground">{hint}</span>
       ) : null}
-    </div>
-  );
-}
-
-function AttentionBlock({ items }: { items: string[] }) {
-  if (items.length === 0) return null;
-  return (
-    <div className="rounded-lg border border-amber-400/25 bg-amber-500/10 p-3">
-      <SectionLabel icon={<AlertTriangle className="h-3.5 w-3.5 text-amber-300" />}>
-        Needs your attention
-      </SectionLabel>
-      <ol className="space-y-2">
-        {items.map((item, i) => (
-          <li key={i} className="flex gap-2.5 text-sm leading-snug">
-            <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-[11px] font-semibold tabular-nums text-amber-200">
-              {i + 1}
-            </span>
-            <span className="text-foreground/90">{item}</span>
-          </li>
-        ))}
-      </ol>
     </div>
   );
 }
@@ -283,10 +263,16 @@ function ExtraBlock({ title, bodyMd }: { title: string; bodyMd: string }) {
   );
 }
 
-function StructuredBrief({ parsed }: { parsed: ParsedMorningBrief }) {
+function StructuredBrief({
+  parsed,
+  briefDate,
+}: {
+  parsed: ParsedMorningBrief;
+  briefDate: string;
+}) {
   return (
     <div className="space-y-5 px-4 py-4">
-      <AttentionBlock items={parsed.attention} />
+      <MorningBriefAttention briefDate={briefDate} items={parsed.attention} />
       <CalendarBlock items={parsed.calendar} note={parsed.calendarNote} />
       <EmailBlock intro={parsed.emailIntro} groups={parsed.emailGroups} />
       <NewsletterBlock groups={parsed.newsletters} />
@@ -364,7 +350,7 @@ export async function MorningBriefCard() {
         </p>
       ) : parsed.structured ? (
         <div className="max-h-[640px] overflow-y-auto">
-          <StructuredBrief parsed={parsed} />
+          <StructuredBrief parsed={parsed} briefDate={brief.briefDate} />
         </div>
       ) : (
         <RawMarkdownFallback md={brief.contentMd} />
