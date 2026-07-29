@@ -775,9 +775,11 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
                 </div>
               </ColBlock>
 
-              <ColBlock>
-                <UpcomingMeetingsSection meetings={report.upcomingMeetings} />
-              </ColBlock>
+              {report.isCurrentWeek ? (
+                <ColBlock>
+                  <UpcomingMeetingsSection meetings={report.upcomingMeetings} />
+                </ColBlock>
+              ) : null}
 
               <ColBlock>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
