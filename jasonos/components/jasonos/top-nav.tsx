@@ -161,7 +161,7 @@ export function TopNav() {
   }
 
   return (
-    <header className="sticky top-0 z-40 glass hairline border-b">
+    <header className="app-top-nav sticky top-0 z-40 glass hairline border-b print:hidden">
       <div className="mx-auto flex h-12 max-w-[1800px] items-center gap-6 px-4">
         <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
           <Logo size={24} priority />
