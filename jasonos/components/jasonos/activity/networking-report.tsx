@@ -549,6 +549,15 @@ function ApplicationsList({ rows }: { rows: ReportApplication[] }) {
   );
 }
 
+// A section wrapper for the balanced multi-column flow. break-inside: avoid
+// keeps each block whole, so the browser evens the two columns by moving whole
+// blocks between them rather than splitting one.
+function ColBlock({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ breakInside: "avoid", marginBottom: 30 }}>{children}</div>
+  );
+}
+
 export function NetworkingReportView({ report }: { report: NetworkingReport }) {
   return (
     <>
@@ -683,35 +692,24 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
               />
             </div>
 
-            {/* Two columns */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 44,
-                alignItems: "start",
-              }}
-            >
-              {/* Left column */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 30 }}>
+            {/* Balanced columns — whole blocks flow between the two columns so
+                their heights come out as even as possible. */}
+            <div style={{ columnCount: 2, columnGap: 44 }}>
+              <ColBlock>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <h2 style={sectionHeadStyle}>Outreach</h2>
                   <OutreachList rows={report.outreach} />
                 </div>
+              </ColBlock>
 
+              <ColBlock>
                 <MeetingsSection
                   meetings={report.meetings}
                   threadsOpen={report.reachedOut}
                 />
+              </ColBlock>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <h3 style={subHeadStyle}>Added without an introduction</h3>
-                  <AddedList rows={report.addedWithoutIntro} />
-                </div>
-              </div>
-
-              {/* Right column */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 30 }}>
+              <ColBlock>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   <h2 style={sectionHeadStyle}>Referrals</h2>
 
@@ -765,14 +763,25 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
                     ) : null}
                   </div>
                 </div>
+              </ColBlock>
 
+              <ColBlock>
                 <UpcomingMeetingsSection meetings={report.upcomingMeetings} />
+              </ColBlock>
 
+              <ColBlock>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <h3 style={subHeadStyle}>Added without an introduction</h3>
+                  <AddedList rows={report.addedWithoutIntro} />
+                </div>
+              </ColBlock>
+
+              <ColBlock>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   <h3 style={subHeadStyle}>Applications filed</h3>
                   <ApplicationsList rows={report.applications} />
                 </div>
-              </div>
+              </ColBlock>
             </div>
           </div>
         </div>
