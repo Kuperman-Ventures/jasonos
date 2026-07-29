@@ -198,7 +198,7 @@ function MeetingRecord({ m }: { m: ReportMeeting }) {
       {m.notes ? (
         <div
           style={{
-            fontSize: 15,
+            fontSize: 14,
             color: "var(--color-neutral-700)",
             lineHeight: 1.5,
           }}
@@ -207,7 +207,7 @@ function MeetingRecord({ m }: { m: ReportMeeting }) {
         </div>
       ) : null}
       {m.referralsProduced > 0 ? (
-        <div style={{ fontSize: 15, color: "var(--color-accent-700)" }}>
+        <div style={{ fontSize: 14, color: "var(--color-accent-700)" }}>
           Gave {m.referralsProduced} {plural(m.referralsProduced, "referral", "referrals")}{" "}
           &rarr; listed opposite
         </div>
@@ -245,7 +245,7 @@ function MeetingsSection({
       <h2 style={sectionHeadStyle}>Meetings</h2>
       <p
         style={{
-          fontSize: 17,
+          fontSize: 15,
           fontStyle: "italic",
           color: "var(--color-neutral-800)",
           margin: 0,
@@ -288,14 +288,14 @@ function MeetingsSection({
         </div>
         <div
           style={{
-            fontSize: 15,
+            fontSize: 14,
             color: "var(--color-neutral-700)",
             lineHeight: 1.5,
           }}
         >
           Two lines on what was discussed and what they committed to.
         </div>
-        <div style={{ fontSize: 15, color: "var(--color-accent-700)" }}>
+        <div style={{ fontSize: 14, color: "var(--color-accent-700)" }}>
           Gave 2 referrals &rarr; listed opposite
         </div>
       </div>
@@ -412,10 +412,9 @@ function ReferralRecord({ r }: { r: ReportReferral }) {
     >
       <div
         style={{
-          fontSize: 22,
-          fontFamily: "var(--font-heading)",
+          fontSize: 16,
           fontWeight: 600,
-          lineHeight: 1.15,
+          lineHeight: 1.3,
         }}
       >
         {r.name}
@@ -426,14 +425,14 @@ function ReferralRecord({ r }: { r: ReportReferral }) {
           color: "var(--color-neutral-600)",
           textAlign: "right",
           whiteSpace: "nowrap",
-          paddingTop: 5,
+          paddingTop: 2,
         }}
       >
         {r.date}
       </div>
       {r.company || r.role ? (
         <div
-          style={{ gridColumn: 1, fontSize: 15, color: "var(--color-neutral-700)" }}
+          style={{ gridColumn: 1, fontSize: 14, color: "var(--color-neutral-700)" }}
         >
           {r.company}
           {r.company && r.role ? " \u00b7 " : ""}
@@ -446,9 +445,9 @@ function ReferralRecord({ r }: { r: ReportReferral }) {
         <div
           style={{
             gridColumn: "1 / -1",
-            fontSize: 15,
+            fontSize: 14,
             color: "var(--color-neutral-800)",
-            paddingTop: 5,
+            paddingTop: 3,
           }}
         >
           via{" "}
