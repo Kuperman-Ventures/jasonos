@@ -51,18 +51,6 @@ const sectionHeadStyle: React.CSSProperties = {
   paddingBottom: 6,
 };
 
-const subHeadStyle: React.CSSProperties = {
-  fontSize: 13,
-  margin: 0,
-  lineHeight: 1.12,
-  letterSpacing: "0.14em",
-  textTransform: "uppercase",
-  fontWeight: 600,
-  color: "var(--color-neutral-700)",
-  borderBottom: "1px solid var(--color-divider)",
-  paddingBottom: 5,
-};
-
 const noneStyle: React.CSSProperties = {
   fontSize: 15,
   fontStyle: "italic",
@@ -322,7 +310,7 @@ function UpcomingMeetingsSection({
 }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <h3 style={subHeadStyle}>Upcoming meetings</h3>
+      <h2 style={sectionHeadStyle}>Upcoming meetings</h2>
       {meetings.length === 0 ? (
         <p style={noneStyle}>None scheduled.</p>
       ) : (
@@ -788,14 +776,14 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
 
               <ColBlock>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <h3 style={subHeadStyle}>Added without an introduction</h3>
+                  <h2 style={sectionHeadStyle}>Added without an introduction</h2>
                   <AddedList rows={report.addedWithoutIntro} />
                 </div>
               </ColBlock>
 
               <ColBlock>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  <h3 style={subHeadStyle}>Applications filed</h3>
+                  <h2 style={sectionHeadStyle}>Applications filed</h2>
                   <ApplicationsList rows={report.applications} />
                 </div>
               </ColBlock>
