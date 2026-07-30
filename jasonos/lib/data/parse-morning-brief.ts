@@ -45,13 +45,28 @@ export interface ParsedMorningBrief {
   structured: boolean;
 }
 
+/**
+ * Strip bold/italic/code for structured display, but KEEP markdown links
+ * `[label](https://…)` and bare URLs so the UI can render them as clicks.
+ */
 function stripMdInline(s: string): string {
-  return s
+  const saved: string[] = [];
+  const protect = (raw: string) => {
+    const i = saved.length;
+    saved.push(raw);
+    return `\u0000L${i}\u0000`;
+  };
+  let out = s
+    // Protect markdown links first so bold/italic stripping can't mangle them.
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (m) => protect(m))
+    // Protect bare URLs next.
+    .replace(/https?:\/\/[^\s<>"'`)\]}]+/g, (m) => protect(m))
     .replace(/\*\*(.+?)\*\*/g, "$1")
     .replace(/\*(.+?)\*/g, "$1")
     .replace(/`(.+?)`/g, "$1")
-    .replace(/\\"/g, '"')
-    .trim();
+    .replace(/\\"/g, '"');
+  out = out.replace(/\u0000L(\d+)\u0000/g, (_, i) => saved[Number(i)] ?? "");
+  return out.trim();
 }
 
 function splitSections(md: string): { title: string | null; sections: { heading: string; body: string }[] } {
