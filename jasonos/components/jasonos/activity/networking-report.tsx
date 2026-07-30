@@ -587,6 +587,9 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
      layout, so print a single column that flows cleanly (no blank page, no
      split rows). Screen keeps the balanced two columns. */
   .report-cols { column-count: 1 !important; }
+  /* Top Outreach | Upcoming pair stacks in print. */
+  .report-pair { display: block !important; }
+  .report-pair > * + * { margin-top: 12px; }
   .col-block { margin-bottom: 12px !important; }
   .rrow { padding-top: 6px !important; padding-bottom: 6px !important; }
   /* Keep small units whole; let breaks fall between them. */
@@ -713,17 +716,28 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
               />
             </div>
 
-            {/* Balanced columns — whole blocks flow between the two columns so
-                their heights come out as even as possible. Collapses to a
-                single, cleanly-paginating column when printed to PDF. */}
-            <div className="report-cols" style={{ columnCount: 2, columnGap: 44 }}>
-              <ColBlock>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <h2 style={sectionHeadStyle}>Outreach</h2>
-                  <OutreachList rows={report.outreach} />
-                </div>
-              </ColBlock>
+            {/* Top pair — Outreach and Upcoming Meetings side by side so they
+                share a horizontal band (Upcoming only on the current week). */}
+            <div
+              className="report-pair brk"
+              style={{
+                display: "grid",
+                gridTemplateColumns: report.isCurrentWeek ? "1fr 1fr" : "1fr",
+                gap: 44,
+                alignItems: "start",
+              }}
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <h2 style={sectionHeadStyle}>Outreach</h2>
+                <OutreachList rows={report.outreach} />
+              </div>
+              {report.isCurrentWeek ? (
+                <UpcomingMeetingsSection meetings={report.upcomingMeetings} />
+              ) : null}
+            </div>
 
+            {/* Balanced columns for the rest — collapses to one column in print. */}
+            <div className="report-cols" style={{ columnCount: 2, columnGap: 44 }}>
               <ColBlock>
                 <MeetingsSection
                   meetings={report.meetings}
@@ -786,12 +800,6 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
                   </div>
                 </div>
               </ColBlock>
-
-              {report.isCurrentWeek ? (
-                <ColBlock>
-                  <UpcomingMeetingsSection meetings={report.upcomingMeetings} />
-                </ColBlock>
-              ) : null}
 
               <ColBlock>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>

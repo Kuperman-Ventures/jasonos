@@ -883,6 +883,7 @@ function formatWeekLabel(weekStart: string, weekEnd: string): string {
 }
 
 export interface ReportOutreach {
+  contactId: string;
   name: string;
   company: string | null;
   channel: string;
@@ -892,6 +893,7 @@ export interface ReportOutreach {
 }
 
 export interface ReportMeeting {
+  contactId: string;
   name: string;
   company: string | null;
   medium: string;
@@ -900,6 +902,7 @@ export interface ReportMeeting {
 }
 
 export interface ReportUpcomingMeeting {
+  contactId: string;
   name: string;
   company: string | null;
   medium: string;
@@ -908,10 +911,13 @@ export interface ReportUpcomingMeeting {
 }
 
 export interface ReportReferral {
+  contactId: string;
   name: string;
   company: string | null;
   /** Chain of introducers, top-of-chain first: ["Barbara", "Libby"] → "via Barbara → Libby". */
   chain: string[];
+  /** Parallel to chain — contact ids for each introducer name (for dashboard links). */
+  chainIds: string[];
   followUpText: string;
   followUpActioned: boolean;
   date: string; // "Jul 26"
@@ -920,6 +926,7 @@ export interface ReportReferral {
 }
 
 export interface ReportAddedContact {
+  contactId: string;
   name: string;
   ranking: string | null; // e.g. "A1"
 }
@@ -958,6 +965,7 @@ export interface NetworkingReport {
     allTime: number;
     ofThoseMet: number;
     topConnectorName: string | null;
+    topConnectorId: string | null;
     topConnectorCount: number;
   };
   applications: ReportApplication[];
@@ -1011,7 +1019,13 @@ export async function getNetworkingReport(opts?: {
     upcomingMeetings: [],
     addedWithoutIntro: [],
     referrals: [],
-    tally: { allTime: 0, ofThoseMet: 0, topConnectorName: null, topConnectorCount: 0 },
+    tally: {
+      allTime: 0,
+      ofThoseMet: 0,
+      topConnectorName: null,
+      topConnectorId: null,
+      topConnectorCount: 0,
+    },
     applications: [],
   };
   if (!hasConfig()) return report;
@@ -1168,6 +1182,7 @@ export async function getNetworkingReport(opts?: {
     const latest = inWk[inWk.length - 1];
     const latestYmd = tsToLocalYmd(latest.ts);
     outreachRaw.push({
+      contactId: cid,
       name: nameForContact(cid),
       company: firmForContact(cid),
       channel: channelLabel(latest.ch),
@@ -1179,6 +1194,7 @@ export async function getNetworkingReport(opts?: {
   outreachRaw.sort((a, b) => (a.raw < b.raw ? -1 : a.raw > b.raw ? 1 : 0));
   report.reachedOut = outreachRaw.length;
   report.outreach = outreachRaw.map((o) => ({
+    contactId: o.contactId,
     name: o.name,
     company: o.company,
     channel: o.channel,
@@ -1212,6 +1228,7 @@ export async function getNetworkingReport(opts?: {
     const rec = meetingRecordByContact.get(cid);
     metSeen.add(cid);
     metRaw.push({
+      contactId: cid,
       name: nameForContact(cid),
       company: firmForContact(cid),
       medium: channelLabel(rec?.channel ?? latest.ch),
@@ -1224,6 +1241,7 @@ export async function getNetworkingReport(opts?: {
   for (const [cid, rec] of meetingRecordByContact) {
     if (metSeen.has(cid) || !isNetworkingContact(cid)) continue;
     metRaw.push({
+      contactId: cid,
       name: nameForContact(cid),
       company: firmForContact(cid),
       medium: channelLabel(rec.channel),
@@ -1235,6 +1253,7 @@ export async function getNetworkingReport(opts?: {
   metRaw.sort((a, b) => (a.raw < b.raw ? -1 : a.raw > b.raw ? 1 : 0));
   report.metWith = metRaw.length;
   report.meetings = metRaw.map((m) => ({
+    contactId: m.contactId,
     name: m.name,
     company: m.company,
     medium: m.medium,
@@ -1274,6 +1293,7 @@ export async function getNetworkingReport(opts?: {
       upcomingSeen.add(dayKey);
       const { date, time } = localDateTimeParts(u.ts);
       upcoming.push({
+        contactId: u.contactId,
         name: nameForContact(u.contactId),
         company: firmForContact(u.contactId),
         medium: channelLabel(u.channel),
@@ -1290,18 +1310,22 @@ export async function getNetworkingReport(opts?: {
   //    referred to you and whom you have either never contacted, or not
   //    communicated with in the last FRESH_WINDOW_DAYS (90) days. Most urgent
   //    first (never-contacted, then longest since contact). ────────────────────
-  const chainFor = (referrerId: string | null): string[] => {
+  const chainFor = (
+    referrerId: string | null
+  ): { names: string[]; ids: string[] } => {
     const names: string[] = [];
+    const ids: string[] = [];
     const seen = new Set<string>();
     let cur = referrerId;
     while (cur && !seen.has(cur) && names.length < 4) {
       seen.add(cur);
       const c = contactById.get(cur);
       if (!c) break;
+      ids.push(cur);
       names.push(c.name);
       cur = c.referredBy;
     }
-    return names.reverse();
+    return { names: names.reverse(), ids: ids.reverse() };
   };
 
   const referralsRaw: (ReportReferral & { sortDays: number })[] = [];
@@ -1326,10 +1350,13 @@ export async function getNetworkingReport(opts?: {
       : c.createdAt
       ? tsToLocalYmd(c.createdAt)
       : today;
+    const chain = chainFor(c.referredBy);
     referralsRaw.push({
+      contactId: id,
       name: c.name,
       company: firmForContact(id),
-      chain: chainFor(c.referredBy),
+      chain: chain.names,
+      chainIds: chain.ids,
       followUpText,
       followUpActioned: false,
       date: shortDate(refAt),
@@ -1339,9 +1366,11 @@ export async function getNetworkingReport(opts?: {
   }
   referralsRaw.sort((a, b) => b.sortDays - a.sortDays);
   report.referrals = referralsRaw.map((r) => ({
+    contactId: r.contactId,
     name: r.name,
     company: r.company,
     chain: r.chain,
+    chainIds: r.chainIds,
     followUpText: r.followUpText,
     followUpActioned: r.followUpActioned,
     date: r.date,
@@ -1363,24 +1392,32 @@ export async function getNetworkingReport(opts?: {
     if (met) ofThoseMet += 1;
   }
   let topConnectorName: string | null = null;
+  let topConnectorId: string | null = null;
   let topConnectorCount = 0;
   for (const [rid, n] of byConnector) {
     if (n > topConnectorCount) {
       topConnectorCount = n;
+      topConnectorId = rid;
       topConnectorName = nameForContact(rid);
     }
   }
-  report.tally = { allTime, ofThoseMet, topConnectorName, topConnectorCount };
+  report.tally = {
+    allTime,
+    ofThoseMet,
+    topConnectorName,
+    topConnectorId,
+    topConnectorCount,
+  };
 
   // ── 4. ADDED WITHOUT AN INTRODUCTION — contacts created this week with no
   //    referrer. Secondary. ──────────────────────────────────────────────────
   const added: ReportAddedContact[] = [];
-  for (const [, c] of contactById) {
+  for (const [id, c] of contactById) {
     if (c.referredBy) continue;
     if (!inWeek(c.createdAt ? tsToLocalYmd(c.createdAt) : null)) continue;
     if (c.intent === "backrow" || c.intent === "network_maintenance") continue;
     const rk = `${c.tier ?? ""}${c.degree ?? ""}`.trim();
-    added.push({ name: c.name, ranking: rk || null });
+    added.push({ contactId: id, name: c.name, ranking: rk || null });
   }
   added.sort((a, b) => a.name.localeCompare(b.name));
   report.addedWithoutIntro = added;
