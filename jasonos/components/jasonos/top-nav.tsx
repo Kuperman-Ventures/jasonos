@@ -47,6 +47,7 @@ const NAV: NavItem[] = [
     kind: "group",
     label: "Outreach",
     children: [
+      { href: "/outreach/dashboard", label: "Dashboard" },
       { href: "/outreach/queue",     label: "Queue" },
       { href: "/outreach/people",    label: "People" },
       { href: "/outreach/suggested", label: "Suggested" },
