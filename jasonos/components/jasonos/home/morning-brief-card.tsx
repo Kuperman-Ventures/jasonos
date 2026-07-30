@@ -121,10 +121,16 @@ function CalendarBlock({
         </ul>
       ) : null}
       {note ? (
-        <p className="mt-2 rounded-md border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-[12px] leading-snug text-amber-100/90">
-          <span className="font-semibold text-amber-200">Conflict · </span>
-          {note.replace(/^conflict:\s*/i, "")}
-        </p>
+        /conflict/i.test(note) ? (
+          <p className="mt-2 rounded-md border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-[12px] leading-snug text-amber-100/90">
+            <span className="font-semibold text-amber-200">Conflict · </span>
+            {note.replace(/^conflict:\s*/i, "")}
+          </p>
+        ) : (
+          <p className="mt-2 text-[12px] leading-snug text-muted-foreground">
+            {note}
+          </p>
+        )
       ) : null}
     </div>
   );
