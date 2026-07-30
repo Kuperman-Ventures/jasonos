@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AlertTriangle, Check } from "lucide-react";
+import { BriefText } from "@/components/jasonos/home/brief-text";
 
 // Checkable "Needs your attention" list. Click the number to mark done
 // (strike-through); click again to undo. Remembered in this browser for the
@@ -109,7 +110,7 @@ export function MorningBriefAttention({
                     : "text-foreground/90"
                 }
               >
-                {item}
+                <BriefText text={item} />
               </span>
             </li>
           );

@@ -13,6 +13,7 @@ import {
   type ParsedMorningBrief,
 } from "@/lib/data/parse-morning-brief";
 import { MorningBriefAttention } from "@/components/jasonos/home/morning-brief-attention";
+import { BriefText } from "@/components/jasonos/home/brief-text";
 
 // Intercepts Claude's published markdown and lays it out as scannable
 // sections that match the rest of Home — attention first, then calendar,
@@ -115,7 +116,9 @@ function CalendarBlock({
               <span className="shrink-0 text-[12px] font-medium tabular-nums text-sky-200/90">
                 {ev.time || "—"}
               </span>
-              <span className="min-w-0 leading-snug text-foreground/90">{ev.text}</span>
+              <span className="min-w-0 leading-snug text-foreground/90">
+                <BriefText text={ev.text} />
+              </span>
             </li>
           ))}
         </ul>
@@ -124,11 +127,11 @@ function CalendarBlock({
         /conflict/i.test(note) ? (
           <p className="mt-2 rounded-md border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-[12px] leading-snug text-amber-100/90">
             <span className="font-semibold text-amber-200">Conflict · </span>
-            {note.replace(/^conflict:\s*/i, "")}
+            <BriefText text={note.replace(/^conflict:\s*/i, "")} />
           </p>
         ) : (
           <p className="mt-2 text-[12px] leading-snug text-muted-foreground">
-            {note}
+            <BriefText text={note} />
           </p>
         )
       ) : null}
@@ -158,7 +161,7 @@ function EmailGroupCard({ group }: { group: EmailGroup }) {
                   key={i}
                   className="mb-1.5 text-[13px] leading-relaxed text-foreground/85 last:mb-0"
                 >
-                  {para}
+                  <BriefText text={para} />
                 </p>
               ))
             : null}
@@ -170,7 +173,7 @@ function EmailGroupCard({ group }: { group: EmailGroup }) {
                   className="flex gap-2 text-[13px] leading-snug text-foreground/85"
                 >
                   <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-muted-foreground/70" />
-                  <span>{b}</span>
+                  <BriefText text={b} />
                 </li>
               ))}
             </ul>
@@ -230,7 +233,7 @@ function NewsletterBlock({
                   className="flex gap-2 text-[12px] leading-snug text-foreground/80"
                 >
                   <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-emerald-400/70" />
-                  <span>{item}</span>
+                  <BriefText text={item} />
                 </li>
               ))}
             </ul>
@@ -286,7 +289,7 @@ function StructuredBrief({
       ))}
       {parsed.footer ? (
         <p className="border-t pt-3 text-[11px] leading-relaxed text-muted-foreground">
-          {parsed.footer}
+          <BriefText text={parsed.footer} />
         </p>
       ) : null}
     </div>
