@@ -16,7 +16,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
-  CAMPAIGN_RULES,
   EMAIL_TEMPLATES,
   type EmailTemplate,
 } from "@/lib/email-templates/templates";
@@ -161,8 +160,6 @@ export function EmailTemplatesClient() {
           onStartOver={reset}
         />
       ) : null}
-
-      {step === "pick" ? <CampaignRules /> : null}
     </div>
   );
 }
@@ -538,18 +535,5 @@ function MetaRow({ label, value }: { label: string; value: string }) {
       </p>
       <p className="text-sm text-foreground">{value}</p>
     </div>
-  );
-}
-
-function CampaignRules() {
-  return (
-    <section className="rounded-xl border bg-card/40 p-5">
-      <h2 className="text-sm font-semibold tracking-tight">Campaign rules</h2>
-      <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
-        {CAMPAIGN_RULES.map((r) => (
-          <li key={r}>{r}</li>
-        ))}
-      </ul>
-    </section>
   );
 }
