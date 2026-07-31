@@ -5,11 +5,15 @@ import { MorningBriefCard } from "@/components/jasonos/home/morning-brief-card";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function Dashboard() {
-  const data = await getHomeData();
+export default async function Dashboard({
+  searchParams,
+}: {
+  searchParams: Promise<{ brief?: string }>;
+}) {
+  const [data, { brief }] = await Promise.all([getHomeData(), searchParams]);
   return (
     <HomeClient data={data}>
-      <MorningBriefCard />
+      <MorningBriefCard selectedDate={brief} />
     </HomeClient>
   );
 }
