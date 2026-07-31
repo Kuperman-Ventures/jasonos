@@ -20,9 +20,11 @@ export type EmailTemplate = {
   bodyTemplate: string;
   fields: TemplateField[];
   warning?: string;
+  /** True for user-saved templates (from the Email Builder). */
+  custom?: boolean;
 };
 
-const NAME_FIELD: TemplateField = {
+export const NAME_FIELD: TemplateField = {
   key: "name",
   label: "First name",
   placeholder: "Alex",
@@ -212,4 +214,24 @@ export const CAMPAIGN_RULES = [
 
 export function getEmailTemplate(id: string): EmailTemplate | undefined {
   return EMAIL_TEMPLATES.find((t) => t.id === id);
+}
+
+/** Shape a saved custom-template DB row into an EmailTemplate for the picker. */
+export function customTemplateToEmailTemplate(row: {
+  id: string;
+  title: string;
+  blurb: string | null;
+  subject_template: string | null;
+  body_template: string;
+}): EmailTemplate {
+  return {
+    id: row.id,
+    optionNumber: 0,
+    title: row.title,
+    blurb: row.blurb ?? "",
+    subjectTemplate: row.subject_template ?? "",
+    bodyTemplate: row.body_template,
+    fields: [NAME_FIELD],
+    custom: true,
+  };
 }
