@@ -117,7 +117,7 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-6">
+    <div className="mx-auto max-w-5xl space-y-8 px-4 py-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Dashboard</h1>
@@ -199,8 +199,8 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
       <div
         className={
           report.isCurrentWeek
-            ? "grid gap-4 lg:grid-cols-2"
-            : "grid gap-4"
+            ? "grid gap-5 lg:grid-cols-2"
+            : "grid gap-5"
         }
       >
         <Section
@@ -274,7 +274,7 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
         ) : null}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-5 lg:grid-cols-2">
         <Section
           icon={<MessageSquare className="h-4 w-4" />}
           title="Meetings"
@@ -411,7 +411,7 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
         </Section>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-5 md:grid-cols-2">
         <Section
           icon={<UserPlus className="h-4 w-4" />}
           title="Added without an introduction"
