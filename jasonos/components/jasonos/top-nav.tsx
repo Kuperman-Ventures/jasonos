@@ -35,6 +35,7 @@ const NAV: NavItem[] = [
       { href: "/nyui",           label: "NYUI" },
     ],
   },
+  { kind: "link",  href: "/job-alerts", label: "Job Alerts" },
   {
     kind: "group",
     label: "Custom Communications",
