@@ -13,6 +13,7 @@ import {
   type GmailThread,
   type GmailThreadFull,
 } from "@/lib/integrations/gmail";
+import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import { searchGranolaForContact } from "@/lib/integrations/granola";
 import { searchFirefliesForContact } from "@/lib/integrations/fireflies";
 import { callClaude } from "@/lib/ai/models";
@@ -271,7 +272,7 @@ export async function gatherGmailHistory(ctx: ContactContext): Promise<GmailHist
     found: true,
     summary: summarizeThreads(threads, fullThread),
     threadId: mostRecent.id,
-    threadUrl: `https://mail.google.com/mail/u/0/#inbox/${mostRecent.id}`,
+    threadUrl: gmailThreadUrl(mostRecent.id),
     lastReplyFromContact: detectLastReply(fullThread, ctx.primaryEmail),
     threadCount: threads.length,
     fullMostRecentBody: lastMessage?.plaintextBody?.slice(0, 4000),

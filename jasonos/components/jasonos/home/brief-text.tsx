@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
+import { normalizeGmailUrl } from "@/lib/integrations/gmail-links";
 
 // Renders brief prose with clickable links. Supports markdown links
 // `[label](https://…)` and bare `https://…` URLs. Used across Morning Brief
-// structured sections (email, newsletters, calendar, attention).
+// structured sections (email, newsletters, calendar, attention). Gmail links
+// are normalized so they open the specific thread in the right mailbox.
 
 type Piece =
   | { type: "text"; value: string }
@@ -25,10 +27,14 @@ function tokenize(input: string): Piece[] {
       pieces.push({ type: "text", value: input.slice(i, start) });
     }
     if (match[1] && match[2]) {
-      pieces.push({ type: "link", label: match[1], href: match[2] });
+      pieces.push({
+        type: "link",
+        label: match[1],
+        href: normalizeGmailUrl(match[2]),
+      });
     } else if (match[3]) {
-      const href = match[3].replace(/[.,;:!?]+$/, "");
-      pieces.push({ type: "link", label: href, href });
+      const raw = match[3].replace(/[.,;:!?]+$/, "");
+      pieces.push({ type: "link", label: raw, href: normalizeGmailUrl(raw) });
     }
     i = start + match[0].length;
   }
