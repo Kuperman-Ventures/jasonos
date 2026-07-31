@@ -22,6 +22,7 @@ import {
 } from "@/lib/data/parse-morning-brief";
 import { MorningBriefAttention } from "@/components/jasonos/home/morning-brief-attention";
 import { BriefText } from "@/components/jasonos/home/brief-text";
+import { MorningBriefCollapse } from "@/components/jasonos/home/morning-brief-collapse";
 
 // Intercepts Claude's published markdown and lays it out as scannable
 // sections that match the rest of Home — attention first, then calendar,
@@ -415,25 +416,27 @@ export async function MorningBriefCard({
   const parsed = brief ? parseMorningBrief(brief.contentMd) : null;
   const staleDays = brief?.isStale ? daysBetween(brief.briefDate, etToday()) : 0;
 
-  return (
-    <section className="overflow-hidden rounded-xl border bg-card">
-      <div className="flex items-center gap-2 border-b px-4 py-2.5">
-        <Newspaper className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold tracking-tight">Morning Brief</h2>
-        {brief ? (
-          brief.isStale ? (
-            <span className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-amber-400/30 bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-200">
-              <AlertTriangle className="h-3 w-3" />
-              {formatAsOf(brief.briefDate)}
-            </span>
-          ) : (
-            <span className="ml-auto text-[11px] text-muted-foreground">
-              {formatTodayLabel(brief.briefDate)}
-            </span>
-          )
-        ) : null}
-      </div>
+  const header = (
+    <>
+      <Newspaper className="h-4 w-4 text-muted-foreground" />
+      <h2 className="text-sm font-semibold tracking-tight">Morning Brief</h2>
+      {brief ? (
+        brief.isStale ? (
+          <span className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-amber-400/30 bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-200">
+            <AlertTriangle className="h-3 w-3" />
+            {formatAsOf(brief.briefDate)}
+          </span>
+        ) : (
+          <span className="ml-auto text-[11px] text-muted-foreground">
+            {formatTodayLabel(brief.briefDate)}
+          </span>
+        )
+      ) : null}
+    </>
+  );
 
+  return (
+    <MorningBriefCollapse header={header}>
       {brief?.isStale ? (
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-amber-400/20 bg-amber-500/10 px-4 py-2 text-[12px] leading-snug text-amber-100/90">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-300" />
@@ -467,6 +470,6 @@ export async function MorningBriefCard({
       {brief && (brief.prevDate || brief.nextDate || brief.isStale) ? (
         <DayNav brief={brief} />
       ) : null}
-    </section>
+    </MorningBriefCollapse>
   );
 }
