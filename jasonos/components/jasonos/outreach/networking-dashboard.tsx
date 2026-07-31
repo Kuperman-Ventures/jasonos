@@ -54,14 +54,18 @@ function Section({
 }) {
   return (
     <section className="overflow-hidden rounded-xl border bg-card">
-      <div className="flex items-center gap-2 border-b px-4 py-2.5">
-        <span className="text-muted-foreground">{icon}</span>
-        <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
+      <div className="flex items-center gap-2.5 border-b-2 border-border px-4 py-3.5">
+        <span className="text-foreground/70 [&_svg]:h-5 [&_svg]:w-5">{icon}</span>
+        <h2 className="text-base font-semibold tracking-tight sm:text-lg">
+          {title}
+        </h2>
         {hint ? (
-          <span className="ml-auto text-[11px] text-muted-foreground">{hint}</span>
+          <span className="ml-auto rounded-md bg-muted/60 px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+            {hint}
+          </span>
         ) : null}
       </div>
-      <div className="p-4">{children}</div>
+      <div className="p-4 pt-5">{children}</div>
     </section>
   );
 }
