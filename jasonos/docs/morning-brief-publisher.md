@@ -20,6 +20,20 @@ Add something like this to the Claude publisher prompt:
 > Prefer the article/source URL for newsletters and a Gmail thread permalink
 > for actionable inbox items. Skip tracking/unsubscribe links.
 
+**Gmail links open the specific thread.** JasonOS normalizes any
+`mail.google.com` link at render time so it opens the exact conversation in the
+right mailbox:
+
+- the `u/0` account *index* is rewritten to `u/<account-email>` (set via
+  `GMAIL_ACCOUNT_EMAIL` / `NEXT_PUBLIC_GMAIL_ACCOUNT_EMAIL`), which fixes
+  "opens Gmail but not the email" when several Google accounts are signed in, and
+- single-view hashes like `#inbox/<id>` are promoted to `#all/<id>` so archived
+  or labeled threads still resolve.
+
+Publisher tip: always include the Gmail **thread id** in the hash
+(`#all/<THREAD_ID>` or `#inbox/<THREAD_ID>`). A bare `mail.google.com/…#inbox`
+with no id can't be deep-linked to a specific message.
+
 Suggested section shape (unchanged):
 
 ```md

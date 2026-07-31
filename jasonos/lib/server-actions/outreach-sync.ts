@@ -6,6 +6,7 @@ import {
   getGmailThread,
   isGmailConnected,
 } from "@/lib/integrations/gmail";
+import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import { getGoogleAccessToken } from "@/lib/integrations/google-calendar";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
@@ -155,7 +156,7 @@ export async function syncOutreachFromGmail(opts?: {
           external_id: m.id,
           brief: oneLine(m.plaintextBody) || m.snippet || "Email sent",
           subject: m.subject ?? null,
-          thread_url: `https://mail.google.com/mail/u/0/#all/${t.id}`,
+          thread_url: gmailThreadUrl(t.id),
         });
       }
     }

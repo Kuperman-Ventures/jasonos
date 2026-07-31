@@ -11,6 +11,7 @@ import {
   getGmailThread,
   isGmailConnected,
 } from "@/lib/integrations/gmail";
+import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import {
   getHubSpotContactActivities,
 } from "@/lib/integrations/hubspot";
@@ -836,7 +837,7 @@ export async function syncSentToday(): Promise<SyncSentTodayResult> {
           subject: m.subject ?? null,
           source: "gmail",
           external_id: m.id,
-          thread_url: `https://mail.google.com/mail/u/0/#all/${t.id}`,
+          thread_url: gmailThreadUrl(t.id),
         });
       }
     }
@@ -1017,7 +1018,7 @@ async function fetchGmailLatest(email: string | null): Promise<LastContactConten
       body: (last.plaintextBody || last.snippet || "").slice(0, 3000),
       sentAt: last.date ? new Date(last.date).toISOString() : new Date().toISOString(),
       direction,
-      threadUrl: `https://mail.google.com/mail/u/0/#all/${threads[0].id}`,
+      threadUrl: gmailThreadUrl(threads[0].id),
     };
   } catch {
     return null;
