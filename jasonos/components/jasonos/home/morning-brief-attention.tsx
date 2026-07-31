@@ -47,6 +47,9 @@ export function MorningBriefAttention({
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    // Intentional: read localStorage only after mount so the server and first
+    // client render match (avoids hydration mismatch), then hydrate the checks.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDone(loadDone(briefDate));
     setReady(true);
   }, [briefDate]);
