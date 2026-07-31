@@ -169,6 +169,7 @@ Rules:
 - Calibrate warmth, familiarity, and how much reintroduction is needed to the inputs.
 - Length: ${lengthGuide}
 - If closeness/recall is low, briefly re-establish who Jason is; if high, skip that.
+- Jason's usual objective is to land a short meeting. When "Book a meeting" is a goal, close with a specific, low-friction ask: a 20-30 minute call in the next couple of weeks, offering to work around their schedule.
 - End with the concrete ask when one is provided; otherwise keep it low-pressure.
 - Do not invent facts, shared history, or numbers that aren't given.`;
 

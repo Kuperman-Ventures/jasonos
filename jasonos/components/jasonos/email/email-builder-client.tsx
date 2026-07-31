@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
+  BookmarkPlus,
   Check,
   Copy,
   Loader2,
@@ -18,7 +19,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { ContactPicker } from "@/components/jasonos/email/contact-picker";
-import type { EmailTemplateContactHit } from "@/lib/server-actions/email-templates";
+import {
+  saveCustomEmailTemplate,
+  type EmailTemplateContactHit,
+} from "@/lib/server-actions/email-templates";
 import { buildMailtoUrl } from "@/lib/email-templates/render";
 import {
   DEFAULT_ANSWERS,
@@ -49,11 +53,33 @@ export function EmailBuilderClient() {
   const [answers, setAnswers] = useState<BuilderAnswers>(DEFAULT_ANSWERS);
   const [draft, setDraft] = useState<BuilderDraft | null>(null);
   const [pending, startTransition] = useTransition();
+  // "remember" and "tone" follow the closeness slider until the user drags
+  // them directly. Distant contact → warmer tone + more reintroduction; close
+  // contact → they remember you, can be more direct.
+  const [linked, setLinked] = useState({ remember: true, tone: true });
 
   const set = <K extends keyof BuilderAnswers>(
     key: K,
     value: BuilderAnswers[K]
   ) => setAnswers((prev) => ({ ...prev, [key]: value }));
+
+  const setCloseness = (n: number) =>
+    setAnswers((prev) => ({
+      ...prev,
+      closeness: n,
+      remember: linked.remember ? n : prev.remember,
+      tone: linked.tone ? n : prev.tone,
+    }));
+
+  const setRemember = (n: number) => {
+    setLinked((l) => ({ ...l, remember: false }));
+    set("remember", n);
+  };
+
+  const setTone = (n: number) => {
+    setLinked((l) => ({ ...l, tone: false }));
+    set("tone", n);
+  };
 
   const toggleGoal = (key: string) =>
     setAnswers((prev) => ({
@@ -127,6 +153,7 @@ export function EmailBuilderClient() {
     setRecipient(null);
     setAnswers(DEFAULT_ANSWERS);
     setDraft(null);
+    setLinked({ remember: true, tone: true });
   };
 
   return (
@@ -154,6 +181,9 @@ export function EmailBuilderClient() {
           recipient={recipient}
           answers={answers}
           set={set}
+          setCloseness={setCloseness}
+          setRemember={setRemember}
+          setTone={setTone}
           toggleGoal={toggleGoal}
           onBack={reset}
           onGenerate={generate}
@@ -281,6 +311,9 @@ function QuestionsStep({
   recipient,
   answers,
   set,
+  setCloseness,
+  setRemember,
+  setTone,
   toggleGoal,
   onBack,
   onGenerate,
@@ -289,6 +322,9 @@ function QuestionsStep({
   recipient: EmailTemplateContactHit;
   answers: BuilderAnswers;
   set: <K extends keyof BuilderAnswers>(key: K, value: BuilderAnswers[K]) => void;
+  setCloseness: (n: number) => void;
+  setRemember: (n: number) => void;
+  setTone: (n: number) => void;
   toggleGoal: (key: string) => void;
   onBack: () => void;
   onGenerate: () => void;
@@ -323,19 +359,19 @@ function QuestionsStep({
           label="How close are you?"
           value={answers.closeness}
           ends={CLOSENESS_ENDS}
-          onChange={(n) => set("closeness", n)}
+          onChange={setCloseness}
         />
         <ScaleSlider
           label="Will they remember you?"
           value={answers.remember}
           ends={REMEMBER_ENDS}
-          onChange={(n) => set("remember", n)}
+          onChange={setRemember}
         />
         <ScaleSlider
           label="Tone"
           value={answers.tone}
           ends={TONE_ENDS}
-          onChange={(n) => set("tone", n)}
+          onChange={setTone}
         />
         <div className="space-y-2">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -478,6 +514,35 @@ function PreviewStep({
   onStartOver: () => void;
   pending: boolean;
 }) {
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [saveTitle, setSaveTitle] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const saveTemplate = async () => {
+    const title = saveTitle.trim();
+    if (!title) {
+      toast.error("Give the template a name.");
+      return;
+    }
+    setSaving(true);
+    const res = await saveCustomEmailTemplate({
+      title,
+      subject: draft.subject,
+      body: draft.body,
+      recipientName: recipient.name,
+    });
+    setSaving(false);
+    if (res.ok) {
+      setSaved(true);
+      setSaveOpen(false);
+      setSaveTitle("");
+      toast.success("Saved. It's in the Templates tab now.");
+    } else {
+      toast.error(res.error);
+    }
+  };
+
   return (
     <section className="space-y-4 rounded-xl border bg-card p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -515,6 +580,19 @@ function PreviewStep({
             )}
             Regenerate
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setSaveOpen((o) => !o)}
+          >
+            {saved ? (
+              <Check className="mr-1.5 h-3.5 w-3.5 text-emerald-400" />
+            ) : (
+              <BookmarkPlus className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            {saved ? "Saved" : "Save as template"}
+          </Button>
           <Button type="button" variant="outline" size="sm" onClick={onCopy}>
             <Copy className="mr-1.5 h-3.5 w-3.5" />
             Copy
@@ -525,6 +603,35 @@ function PreviewStep({
           </Button>
         </div>
       </div>
+
+      {saveOpen ? (
+        <div className="flex flex-wrap items-end gap-2 rounded-lg border border-orange-300/30 bg-orange-500/5 p-3">
+          <label className="min-w-[220px] flex-1 space-y-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Template name
+            </span>
+            <Input
+              value={saveTitle}
+              onChange={(e) => setSaveTitle(e.target.value)}
+              placeholder="Warm reconnect - ask for a meeting"
+              className="h-9 text-sm"
+              autoFocus
+            />
+          </label>
+          <Button type="button" size="sm" onClick={saveTemplate} disabled={saving}>
+            {saving ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <BookmarkPlus className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            Save
+          </Button>
+          <p className="w-full text-[11px] text-muted-foreground">
+            {recipient.name.split(/\s+/)[0]}&rsquo;s name is swapped for a
+            placeholder so you can reuse this with anyone.
+          </p>
+        </div>
+      ) : null}
 
       <div className="space-y-3 rounded-lg border bg-background/50 p-4">
         <div>

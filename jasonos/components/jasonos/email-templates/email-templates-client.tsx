@@ -10,6 +10,8 @@ import {
   Mail,
   Search,
   AlertTriangle,
+  Sparkles,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +28,8 @@ import {
   renderTemplate,
 } from "@/lib/email-templates/render";
 import {
+  deleteCustomEmailTemplate,
+  getCustomEmailTemplates,
   searchContactsForEmailTemplate,
   type EmailTemplateContactHit,
 } from "@/lib/server-actions/email-templates";
@@ -39,6 +43,29 @@ export function EmailTemplatesClient() {
     null
   );
   const [values, setValues] = useState<Record<string, string>>({});
+  const [custom, setCustom] = useState<EmailTemplate[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getCustomEmailTemplates().then((rows) => {
+      if (!cancelled) setCustom(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const removeCustom = async (id: string) => {
+    const prev = custom;
+    setCustom((c) => c.filter((t) => t.id !== id));
+    const res = await deleteCustomEmailTemplate(id);
+    if (!res.ok) {
+      setCustom(prev);
+      toast.error(res.error);
+    } else {
+      toast.success("Template deleted.");
+    }
+  };
 
   const subject = useMemo(
     () => (template ? renderTemplate(template.subjectTemplate, values) : ""),
@@ -126,7 +153,11 @@ export function EmailTemplatesClient() {
       <StepRail step={step} />
 
       {step === "pick" ? (
-        <TemplatePicker onSelect={selectTemplate} />
+        <TemplatePicker
+          custom={custom}
+          onSelect={selectTemplate}
+          onDeleteCustom={removeCustom}
+        />
       ) : null}
 
       {step === "recipient" && template ? (
@@ -205,40 +236,96 @@ function StepRail({ step }: { step: Step }) {
 }
 
 function TemplatePicker({
+  custom,
   onSelect,
+  onDeleteCustom,
 }: {
+  custom: EmailTemplate[];
   onSelect: (t: EmailTemplate) => void;
+  onDeleteCustom: (id: string) => void;
 }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      {EMAIL_TEMPLATES.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          onClick={() => onSelect(t)}
-          className="rounded-xl border bg-card p-4 text-left transition-colors hover:border-foreground/30 hover:bg-muted/30"
-        >
-          <div className="flex items-baseline gap-2">
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-orange-300">
-              Option {String(t.optionNumber).padStart(2, "0")}
-            </span>
-            {t.fields.length > 1 ? (
-              <span className="text-[10px] text-muted-foreground">
-                {t.fields.length - 1} custom field
-                {t.fields.length - 1 === 1 ? "" : "s"}
-              </span>
-            ) : null}
+    <div className="space-y-5">
+      {custom.length > 0 ? (
+        <div>
+          <div className="mb-2 flex items-center gap-1.5 text-muted-foreground">
+            <Sparkles className="h-3.5 w-3.5 text-orange-300" />
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/80">
+              Your saved templates
+            </h3>
           </div>
-          <h3 className="mt-1 text-sm font-semibold tracking-tight">
-            {t.title}
-          </h3>
-          <p className="mt-1 text-xs text-muted-foreground">{t.blurb}</p>
-          <p className="mt-3 truncate text-[11px] text-muted-foreground">
-            Subject:{" "}
-            <span className="text-foreground/80">{t.subjectTemplate}</span>
-          </p>
-        </button>
-      ))}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {custom.map((t) => (
+              <div
+                key={t.id}
+                className="group relative rounded-xl border bg-card p-4 transition-colors hover:border-foreground/30 hover:bg-muted/30"
+              >
+                <button
+                  type="button"
+                  onClick={() => onSelect(t)}
+                  className="block w-full text-left"
+                >
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-orange-300">
+                    Custom
+                  </span>
+                  <h3 className="mt-1 pr-7 text-sm font-semibold tracking-tight">
+                    {t.title}
+                  </h3>
+                  <p className="mt-1 text-xs text-muted-foreground">{t.blurb}</p>
+                  {t.subjectTemplate ? (
+                    <p className="mt-3 truncate text-[11px] text-muted-foreground">
+                      Subject:{" "}
+                      <span className="text-foreground/80">
+                        {t.subjectTemplate}
+                      </span>
+                    </p>
+                  ) : null}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDeleteCustom(t.id)}
+                  aria-label="Delete template"
+                  title="Delete template"
+                  className="absolute right-2.5 top-2.5 rounded-md p-1 text-muted-foreground/60 opacity-0 transition-opacity hover:bg-muted hover:text-rose-300 group-hover:opacity-100"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {EMAIL_TEMPLATES.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => onSelect(t)}
+            className="rounded-xl border bg-card p-4 text-left transition-colors hover:border-foreground/30 hover:bg-muted/30"
+          >
+            <div className="flex items-baseline gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-orange-300">
+                Option {String(t.optionNumber).padStart(2, "0")}
+              </span>
+              {t.fields.length > 1 ? (
+                <span className="text-[10px] text-muted-foreground">
+                  {t.fields.length - 1} custom field
+                  {t.fields.length - 1 === 1 ? "" : "s"}
+                </span>
+              ) : null}
+            </div>
+            <h3 className="mt-1 text-sm font-semibold tracking-tight">
+              {t.title}
+            </h3>
+            <p className="mt-1 text-xs text-muted-foreground">{t.blurb}</p>
+            <p className="mt-3 truncate text-[11px] text-muted-foreground">
+              Subject:{" "}
+              <span className="text-foreground/80">{t.subjectTemplate}</span>
+            </p>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

@@ -31,7 +31,8 @@ export const DEFAULT_ANSWERS: BuilderAnswers = {
   tone: 3,
   lastSpoke: "years",
   length: "medium",
-  goals: [],
+  // Jason's default objective is almost always to land a short meeting.
+  goals: ["meeting"],
   relationship: "",
   detail: "",
   ask: "",
