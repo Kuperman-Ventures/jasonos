@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import {
   addCandidateAsContact,
   captureEmailCandidates,
@@ -37,6 +38,12 @@ export function SuggestedClient({
   const [twoWayOnly, setTwoWayOnly] = useState(false);
   // Optimistically hide rows the user has actioned.
   const [actioned, setActioned] = useState<Set<string>>(() => new Set());
+  // After Add, open the contact card so intent / cadence / etc. can be set now.
+  const [setup, setSetup] = useState<{
+    contactId: string;
+    name: string;
+    firm: string | null;
+  } | null>(null);
 
   const visible = useMemo(
     () =>
@@ -84,7 +91,13 @@ export function SuggestedClient({
       toast.error(result.error);
       return;
     }
-    toast.success(`Added ${c.name || c.email} to People`);
+    const displayName = c.name || c.email;
+    toast.success(`Added ${displayName} — set them up`);
+    setSetup({
+      contactId: result.contactId,
+      name: displayName,
+      firm: c.company,
+    });
     router.refresh();
   };
 
@@ -186,6 +199,19 @@ export function SuggestedClient({
           </ul>
         )}
       </div>
+
+      <OutreachModal
+        open={!!setup}
+        onOpenChange={(o) => {
+          if (!o) setSetup(null);
+        }}
+        contactId={setup?.contactId}
+        initialDisplay={
+          setup
+            ? { name: setup.name, title: null, firm: setup.firm }
+            : undefined
+        }
+      />
     </div>
   );
 }
