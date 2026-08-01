@@ -5,6 +5,8 @@
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { isFromMe } from "@/lib/outreach/email-matching";
+import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
+import { pickJobListingUrl } from "@/lib/integrations/job-listing-urls";
 import { emptyResult, envConfigured, type IntegrationResult } from "./_base";
 
 export interface GmailReply {
@@ -34,6 +36,17 @@ export interface GmailThreadMessage {
   date?: string;
   snippet?: string;
   plaintextBody?: string;
+  htmlBody?: string;
+}
+
+export interface ResolvedJobAlertLink {
+  /** Id from the brief URL (message or thread). */
+  sourceId: string;
+  threadId: string | null;
+  /** Permalink that opens the conversation in the right mailbox. */
+  gmailUrl: string | null;
+  /** Best job-listing URL extracted from the alert email, when found. */
+  jobUrl: string | null;
 }
 
 export interface GmailThreadFull {
@@ -378,6 +391,73 @@ export async function getGmailThread(threadId: string): Promise<GmailThreadFull 
   }
 }
 
+/**
+ * Resolve a Gmail permalink id (thread *or* message) to a stable thread URL
+ * plus, when possible, the actual job-listing URL inside the alert email.
+ * Brief publishers often paste a message id into `#all/<id>`; that opens the
+ * inbox instead of the conversation — we canonicalize to the thread id.
+ */
+export async function resolveJobAlertFromGmail(
+  sourceId: string
+): Promise<ResolvedJobAlertLink> {
+  const empty: ResolvedJobAlertLink = {
+    sourceId,
+    threadId: null,
+    gmailUrl: null,
+    jobUrl: null,
+  };
+  const id = sourceId.trim();
+  if (!id) return empty;
+
+  let thread = await getGmailThread(id);
+  if (!thread) {
+    const access = await getAccessToken();
+    if (!access) return empty;
+    try {
+      const msg = await gmailFetch<GmailMsgResp>(
+        `/users/me/messages/${id}?format=full`,
+        access
+      );
+      if (msg.threadId) {
+        thread = await getGmailThread(msg.threadId);
+        if (!thread) {
+          // Message exists but thread fetch failed — still use message body.
+          const mapped = mapGmailMessage(msg);
+          const jobUrl = pickJobListingUrl(
+            mapped.plaintextBody,
+            mapped.htmlBody,
+            mapped.snippet
+          );
+          return {
+            sourceId: id,
+            threadId: msg.threadId,
+            gmailUrl: gmailThreadUrl(msg.threadId),
+            jobUrl,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("[gmail] message resolve failed:", id, err);
+      return empty;
+    }
+  }
+
+  if (!thread) return empty;
+
+  const bodies = thread.messages.flatMap((m) => [
+    m.plaintextBody,
+    m.htmlBody,
+    m.snippet,
+  ]);
+  const jobUrl = pickJobListingUrl(...bodies);
+  return {
+    sourceId: id,
+    threadId: thread.id,
+    gmailUrl: gmailThreadUrl(thread.id),
+    jobUrl,
+  };
+}
+
 function mapGmailMessage(message: GmailMsgResp): GmailThreadMessage {
   const headers = message.payload?.headers ?? [];
   const get = (name: string) =>
@@ -391,18 +471,31 @@ function mapGmailMessage(message: GmailMsgResp): GmailThreadMessage {
     subject: get("Subject"),
     date: get("Date"),
     snippet: message.snippet,
-    plaintextBody: extractPlainText(message.payload),
+    plaintextBody: extractMimePart(message.payload, "text/plain"),
+    htmlBody: extractMimePart(message.payload, "text/html"),
   };
 }
 
-function extractPlainText(payload: GmailPayload | undefined): string {
+function extractMimePart(
+  payload: GmailPayload | undefined,
+  mimeType: string
+): string {
   if (!payload) return "";
-  if (payload.mimeType === "text/plain" && payload.body?.data) {
+  if (payload.mimeType === mimeType && payload.body?.data) {
     return decodeBase64Url(payload.body.data);
   }
   for (const part of payload.parts ?? []) {
-    const text = extractPlainText(part);
+    const text = extractMimePart(part, mimeType);
     if (text) return text;
+  }
+  // Some alerts are a single HTML part with no multipart wrapper.
+  if (
+    mimeType === "text/html" &&
+    payload.mimeType?.startsWith("text/") &&
+    payload.body?.data &&
+    !payload.parts?.length
+  ) {
+    return decodeBase64Url(payload.body.data);
   }
   return "";
 }

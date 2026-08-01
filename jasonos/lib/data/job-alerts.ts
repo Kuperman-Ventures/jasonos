@@ -8,6 +8,7 @@ import {
   createServiceRoleClient,
 } from "@/lib/supabase/server";
 import { normalizeGmailUrl } from "@/lib/integrations/gmail-links";
+import { resolveOpportunityDeepLinks } from "@/lib/data/job-alert-link-resolve";
 import { listJobAlertKeywords } from "@/lib/server-actions/job-alert-keywords";
 
 export interface JobOpportunity {
@@ -15,9 +16,13 @@ export interface JobOpportunity {
   briefDate: string; // YYYY-MM-DD first seen
   /** Role line without the URL, e.g. "Chief Marketing Officer — Ladders: up to $450K". */
   title: string;
-  /** Deep link to the Gmail alert / posting, when present. */
+  /** Best click-through: job listing when resolved, else Gmail conversation. */
   url: string | null;
-  /** Keyword capsules that match this opportunity. */
+  /** Direct posting URL when extracted from the alert email. */
+  jobUrl: string | null;
+  /** Canonical Gmail conversation permalink (fallback). */
+  gmailUrl: string | null;
+  /** Keywords that match this opportunity (used for sort; not shown in UI). */
   matchedKeywords: string[];
 }
 
@@ -236,7 +241,13 @@ export async function getJobAlerts(): Promise<JobAlertsData> {
   }
 
   const seen = new Set<string>();
-  const opportunities: JobOpportunity[] = [];
+  const harvestedRows: {
+    id: string;
+    briefDate: string;
+    title: string;
+    rawUrl: string | null;
+    matchedKeywords: string[];
+  }[] = [];
   let lastScanDate: string | null = null;
 
   for (const brief of briefs) {
@@ -250,17 +261,34 @@ export async function getJobAlerts(): Promise<JobAlertsData> {
         if (!key || seen.has(key)) continue;
         seen.add(key);
         foundInBrief = true;
-        opportunities.push({
+        harvestedRows.push({
           id: `${brief.brief_date}:${key.slice(0, 80)}`,
           briefDate: brief.brief_date,
           title: h.title,
-          url: h.url,
+          rawUrl: h.url,
           matchedKeywords: matchKeywords(h.title, keywordStrings),
         });
       }
     }
     if (foundInBrief && !lastScanDate) lastScanDate = brief.brief_date;
   }
+
+  const deepLinks = await resolveOpportunityDeepLinks(
+    harvestedRows.map((r) => r.rawUrl)
+  );
+
+  const opportunities: JobOpportunity[] = harvestedRows.map((r) => {
+    const deep = r.rawUrl ? deepLinks.get(r.rawUrl) : undefined;
+    return {
+      id: r.id,
+      briefDate: r.briefDate,
+      title: r.title,
+      url: deep?.url ?? r.rawUrl,
+      jobUrl: deep?.jobUrl ?? null,
+      gmailUrl: deep?.gmailUrl ?? (r.rawUrl ? normalizeGmailUrl(r.rawUrl) : null),
+      matchedKeywords: r.matchedKeywords,
+    };
+  });
 
   // Matched keywords float to the top; then newest brief date.
   opportunities.sort((a, b) => {

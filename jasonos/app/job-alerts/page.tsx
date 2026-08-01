@@ -1,4 +1,4 @@
-import { Briefcase, ExternalLink, Target } from "lucide-react";
+import { Briefcase, ExternalLink } from "lucide-react";
 import {
   getJobAlerts,
   type JobOpportunity,
@@ -19,10 +19,30 @@ function formatDate(ymd: string): string {
   });
 }
 
+function hostLabel(url: string | null): string | null {
+  if (!url) return null;
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    if (host.includes("mail.google.com")) return "Gmail alert";
+    if (host.includes("linkedin.com")) return "LinkedIn";
+    if (host.includes("indeed.com")) return "Indeed";
+    if (host.includes("theladders.com")) return "Ladders";
+    if (host.includes("greenhouse")) return "Greenhouse";
+    if (host.includes("lever.co")) return "Lever";
+    if (host.includes("ashbyhq.com")) return "Ashby";
+    if (host.includes("workday")) return "Workday";
+    return host;
+  } catch {
+    return null;
+  }
+}
+
 function OpportunityRow({ job }: { job: JobOpportunity }) {
-  const titleNode = job.url ? (
+  const href = job.url;
+  const source = hostLabel(href);
+  const titleNode = href ? (
     <a
-      href={job.url}
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
       className="inline-flex items-start gap-1.5 font-medium text-sky-300 underline decoration-sky-400/40 underline-offset-2 hover:text-sky-200"
@@ -35,21 +55,11 @@ function OpportunityRow({ job }: { job: JobOpportunity }) {
   );
 
   return (
-    <li className="flex flex-col gap-1.5 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+    <li className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
       <div className="min-w-0 flex-1">
         <p className="text-sm leading-snug">{titleNode}</p>
-        {job.matchedKeywords.length > 0 ? (
-          <div className="mt-1.5 flex flex-wrap gap-1">
-            {job.matchedKeywords.map((t) => (
-              <span
-                key={t}
-                className="inline-flex items-center gap-1 rounded-md border border-emerald-400/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-200"
-              >
-                <Target className="h-2.5 w-2.5" />
-                {t}
-              </span>
-            ))}
-          </div>
+        {source ? (
+          <p className="mt-1 text-[11px] text-muted-foreground">{source}</p>
         ) : null}
       </div>
       <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
@@ -64,6 +74,7 @@ export default async function JobAlertsPage() {
   const matchedCount = data.opportunities.filter(
     (o) => o.matchedKeywords.length > 0
   ).length;
+  const listingCount = data.opportunities.filter((o) => o.jobUrl).length;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
@@ -74,9 +85,9 @@ export default async function JobAlertsPage() {
         <div className="min-w-0">
           <h1 className="text-lg font-semibold tracking-tight">Job Alerts</h1>
           <p className="text-xs text-muted-foreground">
-            Individual opportunities harvested from your morning brief&rsquo;s
-            Job Alerts section. Click through to open the posting or Gmail
-            alert.
+            Individual opportunities from your morning brief. Links open the
+            job listing when we can extract it from the alert email; otherwise
+            the Gmail conversation.
             {data.lastScanDate
               ? ` Last harvest ${formatDate(data.lastScanDate)}.`
               : ""}
@@ -102,7 +113,8 @@ export default async function JobAlertsPage() {
               </div>
               <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground">
                 {data.opportunities.length}
-                {matchedCount > 0 ? ` · ${matchedCount} match keywords` : ""}
+                {matchedCount > 0 ? ` · ${matchedCount} keyword matches` : ""}
+                {listingCount > 0 ? ` · ${listingCount} direct listings` : ""}
               </span>
             </div>
             <p className="border-b px-4 py-1.5 text-[11px] text-muted-foreground">
