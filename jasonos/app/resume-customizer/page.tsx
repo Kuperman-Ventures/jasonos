@@ -14,7 +14,7 @@ import { listCoverLetters } from "@/lib/server-actions/cover-letter";
 import { ResumeCustomizerClient } from "@/components/jasonos/resume-customizer/resume-customizer-client";
 import { CoverLetterClient } from "@/components/jasonos/resume-customizer/cover-letter-client";
 
-export const metadata: Metadata = { title: "Custom Communications · JasonOS" };
+export const metadata: Metadata = { title: "Custom Comms · JasonOS" };
 export const dynamic = "force-dynamic";
 
 export default async function CustomCommunicationsPage() {
@@ -29,7 +29,7 @@ export default async function CustomCommunicationsPage() {
       <header>
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-orange-300">
           <Wand2 className="h-4 w-4" />
-          Custom Communications
+          Custom Comms
         </div>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">
           Tailor your resume and cover letter to any job

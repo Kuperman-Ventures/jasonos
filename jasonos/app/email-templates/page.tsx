@@ -11,7 +11,7 @@ export default function EmailPage() {
       <header>
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-orange-300">
           <Mail className="h-4 w-4" />
-          Custom Communications
+          Custom Comms
         </div>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">Email</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
