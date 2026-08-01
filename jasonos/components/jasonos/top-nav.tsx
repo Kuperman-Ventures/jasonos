@@ -80,7 +80,7 @@ const NAV: NavItem[] = [
       { href: "/projects", label: "Projects" },
       { href: "/todos", label: "To-Dos" },
       {
-        href: "/projects/marketing-professor-roadmap.html",
+        href: "/projects/professor-roadmap",
         label: "Professor Roadmap",
       },
     ],

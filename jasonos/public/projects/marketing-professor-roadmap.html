@@ -1691,6 +1691,16 @@ table.data tr:last-child td{border-bottom:0}table.data tbody tr:hover td{backgro
   }
 
   function boot() {
+    // When opened as a top-level page, bounce into the JasonOS-wrapped route
+    // so the main nav is present. Skip when embedded in the app iframe.
+    if (window.self === window.top && !location.protocol.startsWith("file")) {
+      const target = "/projects/professor-roadmap";
+      if (location.pathname !== target) {
+        location.replace(target + (location.hash || ""));
+        return;
+      }
+    }
+
     // Prefer system theme on first load only for comfort; still in-memory
     if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
       state.theme = "dark";
