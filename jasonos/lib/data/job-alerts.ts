@@ -1,36 +1,34 @@
-// Job Alerts — pulls the "Job search" bucket out of each morning brief's
-// "Email by Group" section and turns the accumulated lines into a running list
-// of job opportunities. Opportunities are matched against the role titles that
-// have accumulated in NYUI (work_searches.position_applied) so the roles Jason
-// is actually pursuing float to the top.
+// Job Alerts — harvests individual opportunities from the morning brief's
+// "## Job Alerts…" section (markdown-linked role bullets), and matches them
+// against editable keyword capsules on the Job Alerts page.
 
 import "server-only";
 import {
   createPublicServiceRoleClient,
   createServiceRoleClient,
 } from "@/lib/supabase/server";
-import { parseMorningBrief } from "@/lib/data/parse-morning-brief";
-import { getAllWorkSearches } from "@/lib/server-actions/nyui";
 import { normalizeGmailUrl } from "@/lib/integrations/gmail-links";
+import { listJobAlertKeywords } from "@/lib/server-actions/job-alert-keywords";
 
-export interface JobAlert {
+export interface JobOpportunity {
   id: string;
-  briefDate: string; // YYYY-MM-DD the opportunity was first seen
-  text: string; // the opportunity line (role / company summary), links stripped
-  url: string | null; // first deep link on the line, if any
-  matchedTitles: string[]; // NYUI tracked role titles that appear in the line
+  briefDate: string; // YYYY-MM-DD first seen
+  /** Role line without the URL, e.g. "Chief Marketing Officer — Ladders: up to $450K". */
+  title: string;
+  /** Deep link to the Gmail alert / posting, when present. */
+  url: string | null;
+  /** Keyword capsules that match this opportunity. */
+  matchedKeywords: string[];
 }
 
 export interface JobAlertsData {
-  matched: JobAlert[]; // opportunities that hit a tracked NYUI role title
-  other: JobAlert[]; // remaining job-search lines
-  trackedTitles: string[]; // distinct NYUI role titles, most-tracked first
-  lastScanDate: string | null; // newest brief date that had a job-search bucket
-  scannedBriefs: number; // how many briefs we read
-  configured: boolean; // false when Supabase env isn't set
+  opportunities: JobOpportunity[];
+  keywords: { id: string; keyword: string }[];
+  lastScanDate: string | null;
+  scannedBriefs: number;
+  configured: boolean;
 }
 
-const URL_RE = /\bhttps?:\/\/[^\s<>"'`)\]}]+/;
 const STOPWORDS = new Set([
   "the",
   "a",
@@ -79,7 +77,6 @@ async function fetchRecentBriefs(sb: { from: (t: string) => any }): Promise<
   return (res.data ?? []) as BriefRow[];
 }
 
-/** Recent briefs from whichever schema has them (public first, then jasonos). */
 async function loadBriefs(): Promise<BriefRow[]> {
   try {
     const rows = await fetchRecentBriefs(createPublicServiceRoleClient());
@@ -95,158 +92,188 @@ async function loadBriefs(): Promise<BriefRow[]> {
   }
 }
 
-function isJobSearchBucket(title: string): boolean {
-  const t = title.toLowerCase();
-  return t.includes("job") || t.includes("career") || t.includes("recruit");
-}
-
-/** Placeholder lines that aren't real opportunities. */
-function isNoise(line: string): boolean {
-  const t = line.toLowerCase().trim();
-  if (t.length < 4) return true;
-  return /^(nothing|none|no (new|actionable)|quiet|n\/a|see |all |mostly )/.test(
-    t
-  );
-}
-
-function stripUrls(line: string): string {
-  return line
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, "$1")
-    .replace(/https?:\/\/[^\s<>"'`)\]}]+/g, "")
-    .replace(/\(\s*\)/g, "")
-    .replace(/\s{2,}/g, " ")
-    .replace(/\s+([.,;:])/g, "$1")
-    .trim();
-}
-
-function extractUrl(line: string): string | null {
-  const md = line.match(/\[[^\]]+\]\((https?:\/\/[^)\s]+)\)/);
-  if (md) return normalizeGmailUrl(md[1]);
-  const bare = line.match(URL_RE);
-  return bare ? normalizeGmailUrl(bare[0].replace(/[.,;:!?]+$/, "")) : null;
-}
-
 function normKey(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
-/** Significant (non-stopword) tokens from a role title, for fuzzy matching. */
 function titleTokens(title: string): string[] {
   return normKey(title)
     .split(" ")
     .filter((w) => w.length > 2 && !STOPWORDS.has(w));
 }
 
-/** Distinct NYUI role titles, ordered by how often they've been logged. */
-async function trackedRoleTitles(): Promise<string[]> {
-  const searches = await getAllWorkSearches();
-  const counts = new Map<string, { title: string; n: number }>();
-  for (const s of searches) {
-    const raw = (s.position_applied ?? "").trim();
-    if (!raw) continue;
-    const key = normKey(raw);
-    if (!key) continue;
-    const existing = counts.get(key);
-    if (existing) existing.n += 1;
-    else counts.set(key, { title: raw, n: 1 });
-  }
-  return [...counts.values()]
-    .sort((a, b) => b.n - a.n || a.title.localeCompare(b.title))
-    .map((c) => c.title);
-}
-
-/**
- * A line matches a tracked title when the full title appears in it, or when at
- * least two of the title's significant tokens do (so "Chief of Staff" still
- * matches "Interim Chief of Staff, Acme"). Returns the matched original titles.
- */
-function matchTitles(line: string, tracked: string[]): string[] {
+function matchKeywords(line: string, keywords: string[]): string[] {
   const hay = normKey(line);
   if (!hay) return [];
   const hits: string[] = [];
-  for (const title of tracked) {
-    const key = normKey(title);
+  for (const kw of keywords) {
+    const key = normKey(kw);
     if (!key) continue;
     if (hay.includes(key)) {
-      hits.push(title);
+      hits.push(kw);
       continue;
     }
-    const tokens = titleTokens(title);
+    const tokens = titleTokens(kw);
     if (tokens.length >= 2) {
       const present = tokens.filter((tok) =>
         new RegExp(`\\b${tok}\\b`).test(hay)
       );
-      if (present.length >= Math.min(2, tokens.length)) hits.push(title);
+      if (present.length >= Math.min(2, tokens.length)) hits.push(kw);
     }
   }
   return hits;
 }
 
+function isJobAlertsHeading(heading: string): boolean {
+  const k = normKey(heading);
+  if (k.includes("job alert")) return true;
+  if (k.includes("300") && (k.includes("role") || k.includes("job"))) return true;
+  if (k.startsWith("qualifying") && k.includes("role")) return true;
+  return false;
+}
+
+/** Split raw markdown into ## sections (heading + body). */
+function splitH2Sections(
+  md: string
+): { heading: string; body: string }[] {
+  const lines = md.replace(/\r\n/g, "\n").split("\n");
+  const sections: { heading: string; body: string[] }[] = [];
+  let current: { heading: string; body: string[] } | null = null;
+  for (const line of lines) {
+    const h2 = line.match(/^##\s+(.+)$/);
+    if (h2) {
+      if (current) {
+        sections.push({
+          heading: current.heading,
+          body: current.body,
+        });
+      }
+      current = { heading: h2[1].trim(), body: [] };
+      continue;
+    }
+    if (current) current.body.push(line);
+  }
+  if (current) {
+    sections.push({ heading: current.heading, body: current.body });
+  }
+  return sections.map((s) => ({
+    heading: s.heading,
+    body: s.body.join("\n").trim(),
+  }));
+}
+
+interface Harvested {
+  title: string;
+  url: string | null;
+}
+
+/**
+ * Pull individual opportunities from a section body.
+ * Preferred shape: `- [Role — Company: $comp](https://…)`
+ * Also accepts bare URL bullets and bold role lines with a trailing URL.
+ */
+function harvestOpportunities(body: string): Harvested[] {
+  const out: Harvested[] = [];
+  for (const raw of body.split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    // Skip prose notes that aren't opportunities.
+    if (!/^[-*]\s+/.test(line) && !/^\d+\.\s+/.test(line)) continue;
+    const item = line.replace(/^[-*]\s+/, "").replace(/^\d+\.\s+/, "").trim();
+    if (!item) continue;
+    if (/^(most of|note:|see |pulled from|everything else)/i.test(item))
+      continue;
+
+    const md = item.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)(.*)$/);
+    if (md) {
+      const title = `${md[1]}${md[3] ?? ""}`.replace(/\s+/g, " ").trim();
+      if (title.length < 4) continue;
+      out.push({
+        title,
+        url: normalizeGmailUrl(md[2]),
+      });
+      continue;
+    }
+
+    const bare = item.match(/^(.*?)\s*(https?:\/\/[^\s<>"'`)\]}]+)\s*$/);
+    if (bare && bare[1].trim().length >= 4) {
+      out.push({
+        title: bare[1].trim().replace(/\*\*/g, ""),
+        url: normalizeGmailUrl(bare[2].replace(/[.,;:!?]+$/, "")),
+      });
+      continue;
+    }
+
+    // Role-looking line with a salary cue but no URL — still list it.
+    if (/\$\s*\d|\bup to\b|\bk\/year\b|\b\d{3},\d{3}\b/i.test(item)) {
+      const title = item
+        .replace(/\*\*/g, "")
+        .replace(/https?:\/\/\S+/g, "")
+        .trim();
+      if (title.length >= 8) out.push({ title, url: null });
+    }
+  }
+  return out;
+}
+
 export async function getJobAlerts(): Promise<JobAlertsData> {
   const empty: JobAlertsData = {
-    matched: [],
-    other: [],
-    trackedTitles: [],
+    opportunities: [],
+    keywords: [],
     lastScanDate: null,
     scannedBriefs: 0,
     configured: hasConfig(),
   };
   if (!hasConfig()) return empty;
 
-  const [briefs, trackedTitles] = await Promise.all([
+  const [briefs, keywords] = await Promise.all([
     loadBriefs(),
-    trackedRoleTitles(),
+    listJobAlertKeywords(),
   ]);
-  if (briefs.length === 0) return { ...empty, trackedTitles };
+  const keywordStrings = keywords.map((k) => k.keyword);
+  if (briefs.length === 0) {
+    return { ...empty, keywords, scannedBriefs: 0 };
+  }
 
   const seen = new Set<string>();
-  const matched: JobAlert[] = [];
-  const other: JobAlert[] = [];
+  const opportunities: JobOpportunity[] = [];
   let lastScanDate: string | null = null;
 
   for (const brief of briefs) {
-    const parsed = parseMorningBrief(brief.content_md);
-    const bucket = parsed.emailGroups.find((g) => isJobSearchBucket(g.title));
-    if (!bucket) continue;
-
-    // Each bullet is one opportunity; fall back to body lines when the
-    // publisher wrote prose instead of a list.
-    const lines =
-      bucket.bullets.length > 0
-        ? bucket.bullets
-        : bucket.body
-          ? bucket.body.split(/\n+/)
-          : [];
-
-    let bucketHadContent = false;
-    for (const raw of lines) {
-      const line = raw.trim();
-      if (!line || isNoise(line)) continue;
-      bucketHadContent = true;
-
-      const text = stripUrls(line) || line;
-      const key = normKey(text);
-      if (!key || seen.has(key)) continue;
-      seen.add(key);
-
-      const alert: JobAlert = {
-        id: `${brief.brief_date}:${key.slice(0, 60)}`,
-        briefDate: brief.brief_date,
-        text,
-        url: extractUrl(line),
-        matchedTitles: matchTitles(text, trackedTitles),
-      };
-      if (alert.matchedTitles.length > 0) matched.push(alert);
-      else other.push(alert);
+    const sections = splitH2Sections(brief.content_md);
+    let foundInBrief = false;
+    for (const sec of sections) {
+      if (!isJobAlertsHeading(sec.heading)) continue;
+      const harvested = harvestOpportunities(sec.body);
+      for (const h of harvested) {
+        const key = normKey(h.title);
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        foundInBrief = true;
+        opportunities.push({
+          id: `${brief.brief_date}:${key.slice(0, 80)}`,
+          briefDate: brief.brief_date,
+          title: h.title,
+          url: h.url,
+          matchedKeywords: matchKeywords(h.title, keywordStrings),
+        });
+      }
     }
-
-    if (bucketHadContent && !lastScanDate) lastScanDate = brief.brief_date;
+    if (foundInBrief && !lastScanDate) lastScanDate = brief.brief_date;
   }
 
+  // Matched keywords float to the top; then newest brief date.
+  opportunities.sort((a, b) => {
+    const am = a.matchedKeywords.length > 0 ? 0 : 1;
+    const bm = b.matchedKeywords.length > 0 ? 0 : 1;
+    if (am !== bm) return am - bm;
+    if (a.briefDate !== b.briefDate) return a.briefDate < b.briefDate ? 1 : -1;
+    return a.title.localeCompare(b.title);
+  });
+
   return {
-    matched,
-    other,
-    trackedTitles,
+    opportunities,
+    keywords,
     lastScanDate,
     scannedBriefs: briefs.length,
     configured: true,

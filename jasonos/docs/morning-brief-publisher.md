@@ -45,4 +45,12 @@ Suggested section shape (unchanged):
 ## Newsletter Digest
 **AI and Marketing**
 - [AI Visibility Pulse](https://example.com/article) — relevant to Peec.ai today
+
+## Job Alerts: $300K+ Roles
+- [Chief Marketing Officer — Ladders: up to $450K/year](https://mail.google.com/mail/u/0/#inbox/THREAD_ID)
+- [VP Marketing — Source: compensation](https://…)
 ```
+
+The **Job Alerts** H2 (any heading containing `Job Alerts` or `$300K+`) feeds the
+Job Alerts page. Prefer one markdown-linked opportunity per bullet so each role
+is clickable from JasonOS.
