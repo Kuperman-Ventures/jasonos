@@ -79,6 +79,10 @@ const NAV: NavItem[] = [
     children: [
       { href: "/projects", label: "Projects" },
       { href: "/todos", label: "To-Dos" },
+      {
+        href: "/projects/marketing-professor-roadmap.html",
+        label: "Professor Roadmap",
+      },
     ],
   },
 
