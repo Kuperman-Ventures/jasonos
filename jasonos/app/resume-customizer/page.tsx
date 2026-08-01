@@ -14,7 +14,7 @@ import { listCoverLetters } from "@/lib/server-actions/cover-letter";
 import { ResumeCustomizerClient } from "@/components/jasonos/resume-customizer/resume-customizer-client";
 import { CoverLetterClient } from "@/components/jasonos/resume-customizer/cover-letter-client";
 
-export const metadata: Metadata = { title: "Custom Communications · JasonOS" };
+export const metadata: Metadata = { title: "Custom Comms · JasonOS" };
 export const dynamic = "force-dynamic";
 
 export default async function CustomCommunicationsPage() {

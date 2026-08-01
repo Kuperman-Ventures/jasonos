@@ -142,8 +142,8 @@ export function AddToBrowningDialog({ open, onOpenChange }: Props) {
                 </div>
               ) : filteredResults.length === 0 ? (
                 <div className="p-3 text-xs text-muted-foreground">
-                  No contacts match. Use Add Contact in the top nav to create
-                  a new contact, then return here to tag them.
+                  No contacts match. Use Add contact on Outreach → Queue to
+                  create a new contact, then return here to tag them.
                 </div>
               ) : (
                 <ul className="divide-y divide-border">

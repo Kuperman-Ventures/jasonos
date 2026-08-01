@@ -61,7 +61,7 @@ export function ContactPicker({
           </div>
         ) : results.length === 0 ? (
           <p className="p-4 text-xs text-muted-foreground">
-            No matches. Add the person with Add contact in the top nav, then
+            No matches. Add the person from Outreach → Queue (Add contact), then
             come back.
           </p>
         ) : (
