@@ -47,10 +47,15 @@ Suggested section shape (unchanged):
 - [AI Visibility Pulse](https://example.com/article) — relevant to Peec.ai today
 
 ## Job Alerts: $300K+ Roles
-- [Chief Marketing Officer — Ladders: up to $450K/year](https://mail.google.com/mail/u/0/#inbox/THREAD_ID)
-- [VP Marketing — Source: compensation](https://…)
+- [Chief Marketing Officer — Ladders: up to $450K/year](https://www.linkedin.com/jobs/view/123456)
+- [VP Marketing — Indeed: up to $325K/year](https://www.indeed.com/viewjob?jk=…)
 ```
 
 The **Job Alerts** H2 (any heading containing `Job Alerts` or `$300K+`) feeds the
-Job Alerts page. Prefer one markdown-linked opportunity per bullet so each role
-is clickable from JasonOS.
+Job Alerts page. Prefer one markdown-linked opportunity per bullet.
+
+**Link preference (deepest wins):** use the **job listing URL** (LinkedIn /
+Indeed / Greenhouse / Lever / etc.) when the alert contains one. Fall back to a
+Gmail thread permalink (`#all/<THREAD_ID>`, not a message id) only when no
+posting URL is available. JasonOS will also try to extract the listing from the
+Gmail alert when only a mail link is published.
