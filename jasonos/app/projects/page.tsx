@@ -55,7 +55,7 @@ export default async function ProjectsPage() {
           Personal tools
         </div>
         <Link
-          href="/projects/marketing-professor-roadmap.html"
+          href="/projects/professor-roadmap"
           className="group flex items-start justify-between gap-3 rounded-xl border bg-card p-4 transition-colors hover:bg-muted/40"
         >
           <div className="flex items-start gap-3">
