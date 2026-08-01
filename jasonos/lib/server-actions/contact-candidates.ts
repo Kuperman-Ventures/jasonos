@@ -27,6 +27,9 @@ export interface ContactCandidate {
 }
 
 type ActionResult = { ok: true } | { ok: false; error: string };
+type AddCandidateResult =
+  | { ok: true; contactId: string }
+  | { ok: false; error: string };
 
 function hasConfig() {
   return Boolean(
@@ -321,7 +324,9 @@ export async function getNewCandidateCount(): Promise<number> {
 // Mutations
 // ---------------------------------------------------------------------------
 
-export async function addCandidateAsContact(id: string): Promise<ActionResult> {
+export async function addCandidateAsContact(
+  id: string
+): Promise<AddCandidateResult> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   if (!id) return { ok: false, error: "id is required." };
 
@@ -333,18 +338,29 @@ export async function addCandidateAsContact(id: string): Promise<ActionResult> {
     .maybeSingle();
   if (readErr) return { ok: false, error: readErr.message };
   if (!cand) return { ok: false, error: "Candidate not found." };
-  if (cand.status === "added") return { ok: true };
 
   const email = cand.email as string;
   const canon = canonicalEmail(email);
+  const lookup = await buildContactLookup();
+  const header = (cand.name as string | null)
+    ? `${cand.name} <${email}>`
+    : email;
+
+  // Already added earlier — still return the contact so the caller can open
+  // the modal for setup.
+  if (cand.status === "added") {
+    const existing = lookup.resolve(header);
+    if (existing) return { ok: true, contactId: existing.id };
+    return { ok: false, error: "Contact was marked added but could not be found." };
+  }
 
   // Dedupe by email OR name. If a matching contact already exists, enrich it
   // with this email (so future scans match by email) instead of creating a
   // duplicate. Only create a new contact when there's no match at all.
-  const lookup = await buildContactLookup();
-  const header = (cand.name as string | null) ? `${cand.name} <${email}>` : email;
+  let contactId: string;
   const existingContact = lookup.resolve(header);
   if (existingContact) {
+    contactId = existingContact.id;
     const hasEmail = existingContact.emails.some(
       (e) => canonicalEmail(e) === canon
     );
@@ -358,12 +374,17 @@ export async function addCandidateAsContact(id: string): Promise<ActionResult> {
   } else {
     const name =
       normalizePersonName(cand.name as string | null) || nameFromEmail(email);
-    const { error: insErr } = await sb.from("contacts").insert({
-      name,
-      emails: [email],
-      tags: ["source:email"],
-    });
+    const { data: inserted, error: insErr } = await sb
+      .from("contacts")
+      .insert({
+        name,
+        emails: [email],
+        tags: ["source:email"],
+      })
+      .select("id")
+      .single();
     if (insErr) return { ok: false, error: insErr.message };
+    contactId = inserted.id as string;
   }
 
   const { error: updErr } = await sb
@@ -375,7 +396,7 @@ export async function addCandidateAsContact(id: string): Promise<ActionResult> {
   revalidatePath("/outreach/suggested");
   revalidatePath("/outreach/people");
   revalidatePath("/outreach/queue");
-  return { ok: true };
+  return { ok: true, contactId };
 }
 
 export async function dismissCandidate(id: string): Promise<ActionResult> {
