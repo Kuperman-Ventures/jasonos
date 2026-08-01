@@ -1,0 +1,1754 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Marketing Professor Roadmap</title>
+<meta name="description" content="Personal operating system for mapping the path to becoming a college professor of marketing, with Seton Hall as the primary target." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --bg:#f4f5f7;--bg-elevated:#fff;--bg-subtle:#eef0f3;--bg-hover:#e8ebef;
+  --border:#d8dde5;--border-strong:#c2c9d4;--text:#15202b;--text-secondary:#4a5568;--text-muted:#6b7280;
+  --accent:#0f5c6e;--accent-hover:#0c4a59;--accent-soft:rgba(15,92,110,.10);--accent-contrast:#fff;
+  --success:#1f7a4d;--success-soft:rgba(31,122,77,.12);--warning:#9a6700;--warning-soft:rgba(154,103,0,.12);
+  --danger:#b42318;--danger-soft:rgba(180,35,24,.10);--info:#175cd3;--info-soft:rgba(23,92,211,.10);
+  --shadow-sm:0 1px 2px rgba(16,24,40,.04);--shadow-md:0 4px 12px rgba(16,24,40,.06);
+  --radius:8px;--radius-sm:6px;--sidebar-w:232px;--header-h:56px;
+  --font:"IBM Plex Sans","Segoe UI",sans-serif;--font-mono:"IBM Plex Mono",ui-monospace,monospace;
+  --focus:0 0 0 2px var(--bg-elevated),0 0 0 4px var(--accent);
+}
+[data-theme="dark"]{
+  --bg:#0f1419;--bg-elevated:#171d25;--bg-subtle:#1e2630;--bg-hover:#253040;
+  --border:#2a3441;--border-strong:#3a4656;--text:#e8edf4;--text-secondary:#b4becb;--text-muted:#8793a3;
+  --accent:#3d9fb0;--accent-hover:#57b4c4;--accent-soft:rgba(61,159,176,.16);--accent-contrast:#0a1216;
+  --success:#3dd68c;--success-soft:rgba(61,214,140,.14);--warning:#f0b429;--warning-soft:rgba(240,180,41,.14);
+  --danger:#f97066;--danger-soft:rgba(249,112,102,.14);--info:#84adff;--info-soft:rgba(132,173,255,.14);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.25);--shadow-md:0 4px 16px rgba(0,0,0,.35);
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:var(--font);font-size:13px;line-height:1.45;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased;overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+:focus-visible{outline:none;box-shadow:var(--focus)}
+.num{font-variant-numeric:tabular-nums;font-family:var(--font-mono)}
+.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;height:100vh;height:100dvh}
+.sidebar{background:var(--bg-elevated);border-right:1px solid var(--border);display:flex;flex-direction:column;min-height:0;z-index:40}
+.sidebar-brand{display:flex;align-items:center;gap:10px;padding:14px;border-bottom:1px solid var(--border);min-height:var(--header-h)}
+.brand-mark{width:28px;height:28px;flex-shrink:0}
+.brand-title{font-size:12.5px;font-weight:600;letter-spacing:-.01em}
+.brand-sub{font-size:10.5px;color:var(--text-muted);margin-top:1px}
+.nav{padding:10px 8px;overflow-y:auto;flex:1;min-height:0}
+.nav-section-label{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);padding:8px 8px 4px}
+.nav-btn{width:100%;display:flex;align-items:center;gap:8px;border:0;background:transparent;color:var(--text-secondary);padding:7px 8px;border-radius:var(--radius-sm);cursor:pointer;text-align:left;transition:background .12s,color .12s}
+.nav-btn:hover{background:var(--bg-hover);color:var(--text)}
+.nav-btn.active{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.nav-btn svg{width:15px;height:15px;flex-shrink:0}
+.nav-meta{margin-left:auto;font-size:10px;color:var(--text-muted);font-variant-numeric:tabular-nums}
+.sidebar-foot{border-top:1px solid var(--border);padding:10px 12px;font-size:11px;color:var(--text-muted)}
+.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.topbar{height:var(--header-h);flex-shrink:0;display:flex;align-items:center;gap:12px;padding:0 16px;background:var(--bg-elevated);border-bottom:1px solid var(--border)}
+.menu-toggle{display:none;border:1px solid var(--border);background:var(--bg-elevated);border-radius:var(--radius-sm);width:32px;height:32px;align-items:center;justify-content:center;cursor:pointer}
+.page-heading{min-width:0;flex:1}
+.page-title{font-size:14px;font-weight:650;letter-spacing:-.015em}
+.page-crumb{font-size:11px;color:var(--text-muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.school-select{display:flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--bg);border-radius:var(--radius-sm);padding:4px 8px;height:32px}
+.school-select label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted)}
+.school-select select{border:0;background:transparent;font-weight:550;max-width:140px;cursor:pointer}
+.content{flex:1;overflow-y:auto;padding:16px;min-height:0}
+.content-inner{max-width:1180px;margin:0 auto}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-elevated);color:var(--text);cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s,transform .08s}
+.btn:hover{background:var(--bg-hover)}.btn:active{transform:translateY(.5px)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-contrast)}
+.btn-primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.btn-ghost{background:transparent}.btn-sm{height:28px;padding:0 8px;font-size:12px}.btn-icon{width:32px;padding:0}.btn svg{width:14px;height:14px}
+.input,.select,.textarea{width:100%;border:1px solid var(--border);background:var(--bg-elevated);border-radius:var(--radius-sm);padding:7px 9px}
+.input:focus,.select:focus,.textarea:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+.textarea{min-height:72px;resize:vertical}
+.label{display:block;font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px}
+.field{margin-bottom:10px}
+.field-row{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}
+.grid{display:grid;gap:12px}.grid-2{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:repeat(3,1fr)}.grid-4{grid-template-columns:repeat(4,1fr)}
+.span-2{grid-column:span 2}.span-3{grid-column:span 3}
+.card{background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm)}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border)}
+.card-title{font-size:12.5px;font-weight:650;letter-spacing:-.01em}
+.card-b{padding:12px}.card-muted{color:var(--text-secondary);font-size:12px}
+.stat{padding:12px}.stat-label{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted)}
+.stat-value{margin-top:4px;font-size:20px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat-sub{margin-top:2px;font-size:11px;color:var(--text-muted)}
+.pill{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 7px;border-radius:999px;font-size:10.5px;font-weight:600;background:var(--bg-subtle);color:var(--text-secondary);white-space:nowrap}
+.pill-accent{background:var(--accent-soft);color:var(--accent)}.pill-success{background:var(--success-soft);color:var(--success)}
+.pill-warning{background:var(--warning-soft);color:var(--warning)}.pill-danger{background:var(--danger-soft);color:var(--danger)}.pill-info{background:var(--info-soft);color:var(--info)}
+.progress{height:6px;background:var(--bg-subtle);border-radius:999px;overflow:hidden}
+.progress>span{display:block;height:100%;background:var(--accent);border-radius:999px;transition:width .25s}
+.progress-row{display:grid;grid-template-columns:110px 1fr 36px;gap:8px;align-items:center;margin-bottom:8px;font-size:12px}
+.progress-row .pct{text-align:right;color:var(--text-muted);font-variant-numeric:tabular-nums;font-family:var(--font-mono);font-size:11px}
+.list{display:flex;flex-direction:column;gap:8px}
+.list-item{display:flex;align-items:flex-start;gap:8px;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg)}
+.list-item:hover{border-color:var(--border-strong)}
+.check{width:15px;height:15px;margin-top:1px;accent-color:var(--accent);cursor:pointer}
+.list-body{flex:1;min-width:0}.list-title{font-weight:550}.list-meta{font-size:11px;color:var(--text-muted);margin-top:2px}
+table.data{width:100%;border-collapse:collapse;font-size:12px}
+table.data th,table.data td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+table.data th{font-size:10.5px;font-weight:650;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);background:var(--bg-subtle)}
+table.data tr:last-child td{border-bottom:0}table.data tbody tr:hover td{background:var(--bg-hover)}
+.editable{border:1px solid transparent;background:transparent;border-radius:4px;padding:2px 4px;width:100%}
+.editable:hover{border-color:var(--border);background:var(--bg)}
+.editable:focus{border-color:var(--accent);background:var(--bg-elevated);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+.accordion{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--bg-elevated)}
+.acc-item+.acc-item{border-top:1px solid var(--border)}
+.acc-trigger{width:100%;display:flex;align-items:center;gap:10px;padding:11px 12px;background:transparent;border:0;cursor:pointer;text-align:left}
+.acc-trigger:hover{background:var(--bg-hover)}
+.acc-chevron{width:14px;height:14px;transition:transform .15s;color:var(--text-muted);flex-shrink:0}
+.acc-item.open .acc-chevron{transform:rotate(90deg)}
+.acc-panel{display:none;padding:0 12px 12px}.acc-item.open .acc-panel{display:block;border-top:1px solid var(--border);padding-top:12px}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.toolbar .spacer{flex:1}
+.search{position:relative;min-width:200px;flex:1;max-width:320px}
+.search input{padding-left:28px;height:32px}
+.search svg{position:absolute;left:8px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--text-muted);pointer-events:none}
+.empty{text-align:center;padding:28px 16px;color:var(--text-muted);border:1px dashed var(--border-strong);border-radius:var(--radius);background:var(--bg)}
+.empty strong{display:block;color:var(--text-secondary);margin-bottom:4px}
+.timeline{position:relative;padding-left:18px}
+.timeline::before{content:"";position:absolute;left:5px;top:4px;bottom:4px;width:2px;background:var(--border)}
+.tl-item{position:relative;padding:0 0 14px 12px}.tl-item:last-child{padding-bottom:0}
+.tl-dot{position:absolute;left:-15px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--bg-elevated);border:2px solid var(--border-strong)}
+.tl-item.done .tl-dot{border-color:var(--success);background:var(--success)}
+.tl-item.active .tl-dot{border-color:var(--accent);background:var(--accent)}
+.tl-phase{font-weight:650;font-size:12.5px}.tl-meta{font-size:11px;color:var(--text-muted);margin-top:2px}
+.tl-milestones{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.gap-row{display:grid;grid-template-columns:1.1fr 1.2fr 1fr 90px 1.2fr;gap:8px;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);align-items:start}
+.gap-row .mini-label{font-size:10px;font-weight:650;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);margin-bottom:3px}
+.note-card.pinned{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent-soft)}
+.tags{display:flex;flex-wrap:wrap;gap:4px}
+.tag{font-size:10.5px;padding:2px 6px;border-radius:4px;background:var(--bg-subtle);color:var(--text-secondary);border:1px solid var(--border)}
+.modal-backdrop{position:fixed;inset:0;background:rgba(10,16,24,.45);display:none;align-items:center;justify-content:center;z-index:100;padding:16px}
+.modal-backdrop.open{display:flex}
+.modal{width:min(480px,100%);background:var(--bg-elevated);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-md);max-height:min(90vh,720px);overflow:auto}
+.modal-h{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border)}
+.modal-b{padding:14px}.modal-f{display:flex;justify-content:flex-end;gap:8px;padding:12px 14px;border-top:1px solid var(--border)}
+.toast{position:fixed;right:16px;bottom:16px;background:var(--text);color:var(--bg-elevated);padding:10px 12px;border-radius:var(--radius-sm);font-size:12px;box-shadow:var(--shadow-md);opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s;z-index:120;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+.drawer-backdrop{display:none;position:fixed;inset:0;background:rgba(10,16,24,.4);z-index:35}
+.drawer-backdrop.open{display:block}
+.section-intro{margin-bottom:12px;color:var(--text-secondary);max-width:720px}
+.kv{display:grid;gap:8px}.kv-row{display:grid;grid-template-columns:140px 1fr;gap:8px;font-size:12px}.kv-row dt{color:var(--text-muted);font-weight:550}
+.prose-list{margin:0;padding-left:16px}.prose-list li{margin-bottom:4px}
+.decision-options{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+.option-card{border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;background:var(--bg);font-size:12px}
+.option-card strong{display:block;margin-bottom:4px}
+.filter-chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--border);background:var(--bg-elevated);border-radius:999px;padding:4px 9px;font-size:11px;cursor:pointer;color:var(--text-secondary)}
+.chip.active{background:var(--accent-soft);border-color:transparent;color:var(--accent);font-weight:600}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+@media (max-width:1100px){.grid-4{grid-template-columns:repeat(2,1fr)}.gap-row{grid-template-columns:1fr 1fr}}
+@media (max-width:900px){
+  :root{--sidebar-w:64px}
+  .brand-text,.nav-btn span,.nav-meta,.sidebar-foot,.nav-section-label{display:none}
+  .nav-btn{justify-content:center;padding:9px}.sidebar-brand{justify-content:center;padding:14px 8px}
+  .grid-3,.grid-2{grid-template-columns:1fr}.span-2,.span-3{grid-column:span 1}
+  .decision-options{grid-template-columns:1fr}.school-select label{display:none}
+}
+@media (max-width:700px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:fixed;left:0;top:0;bottom:0;width:min(280px,86vw);transform:translateX(-105%);transition:transform .2s;box-shadow:var(--shadow-md)}
+  .sidebar.open{transform:translateX(0)}
+  .brand-text,.nav-btn span,.nav-meta,.sidebar-foot,.nav-section-label{display:block}
+  .nav-btn{justify-content:flex-start}.sidebar-brand{justify-content:flex-start;padding:14px}
+  .menu-toggle{display:inline-flex}.top-actions .hide-sm{display:none}
+  .gap-row{grid-template-columns:1fr}table.data{display:block;overflow-x:auto}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+  <aside class="sidebar" id="sidebar" aria-label="Primary">
+    <div class="sidebar-brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="7" fill="currentColor" style="color:var(--accent)"/>
+        <path d="M8 21V11h3.2l2.4 6.4L16 11H19v10h-2.2v-6.2L14.2 21h-2.4l-2.6-6.2V21H8zm13.2 0v-2.1h2.9V13H21V11h7.2v2h-2.9v5.9h2.9V21h-7z" fill="var(--accent-contrast)"/>
+      </svg>
+      <div class="brand-text">
+        <div class="brand-title">Professor Roadmap</div>
+        <div class="brand-sub">Career OS · Personal</div>
+      </div>
+    </div>
+    <nav class="nav" id="nav" aria-label="Sections"></nav>
+    <div class="sidebar-foot">In-memory only · Export to save</div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <button class="menu-toggle" id="menuToggle" aria-label="Open navigation" type="button">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <div class="page-heading">
+        <div class="page-title" id="pageTitle">Overview</div>
+        <div class="page-crumb" id="pageCrumb">Marketing Professor Roadmap · Seton Hall focus</div>
+      </div>
+      <div class="top-actions">
+        <div class="school-select">
+          <label for="targetSchool">Target School</label>
+          <select id="targetSchool" aria-label="Target school"></select>
+        </div>
+        <button class="btn btn-icon" id="themeToggle" type="button" aria-label="Toggle theme" title="Toggle theme">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        </button>
+        <button class="btn hide-sm" id="importBtn" type="button">Import</button>
+        <button class="btn hide-sm" id="exportBtn" type="button">Export</button>
+        <button class="btn btn-primary" id="quickAddBtn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          Quick add
+        </button>
+        <input type="file" id="importFile" accept="application/json,.json" class="sr-only" />
+      </div>
+    </header>
+    <main class="content" id="content" tabindex="-1">
+      <div class="content-inner" id="view"></div>
+    </main>
+  </div>
+</div>
+<div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal">
+    <div class="modal-h">
+      <strong id="modalTitle">Quick add</strong>
+      <button class="btn btn-sm btn-ghost" id="modalClose" type="button" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-b" id="modalBody"></div>
+    <div class="modal-f" id="modalFoot"></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+(function () {
+  "use strict";
+
+  const SECTIONS = [
+    { id: "overview", label: "Overview", icon: "grid" },
+    { id: "decisions", label: "Decision Map", icon: "fork" },
+    { id: "setonhall", label: "Seton Hall", icon: "school" },
+    { id: "degree", label: "Degree Path", icon: "grad" },
+    { id: "teaching", label: "Teaching Experience", icon: "teach" },
+    { id: "materials", label: "Application Materials", icon: "file" },
+    { id: "documents", label: "Documents", icon: "folder" },
+    { id: "research", label: "Research & Links", icon: "link" },
+    { id: "contacts", label: "Contacts & Outreach", icon: "people" },
+    { id: "timeline", label: "Timeline", icon: "cal" },
+    { id: "gaps", label: "Gap Analysis", icon: "gap" },
+    { id: "notes", label: "Notes", icon: "note" },
+  ];
+
+  const ICONS = {
+    grid: '<path d="M4 4h7v7H4V4zm9 0h7v7h-7V4zM4 13h7v7H4v-7zm9 0h7v7h-7v-7z"/>',
+    fork: '<path d="M7 4v7a3 3 0 003 3h4a3 3 0 003-3V4M12 14v6M7 4a2 2 0 110-.01M17 4a2 2 0 110-.01"/>',
+    school: '<path d="M3 10l9-5 9 5-9 5-9-5zm2 3.5V18l7 3.5L19 18v-4.5"/>',
+    grad: '<path d="M3 10l9-4 9 4-9 4-9-4zm3 4v3c0 1.5 2.5 3 6 3s6-1.5 6-3v-3"/>',
+    teach: '<path d="M4 19V5h10v14H4zm12-8h4v8h-4M8 9h2M8 12h4M8 15h3"/>',
+    file: '<path d="M7 3h7l4 4v14H7V3zm7 0v4h4"/>',
+    folder: '<path d="M3 7h6l2 2h10v10H3V7z"/>',
+    link: '<path d="M10 13a5 5 0 007.07 0l2.12-2.12a5 5 0 00-7.07-7.07L10.5 5.5M14 11a5 5 0 00-7.07 0L4.8 13.12a5 5 0 007.07 7.07L13.5 18.5"/>',
+    people: '<path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zm13 10v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>',
+    cal: '<path d="M7 3v2M17 3v2M4 8h16M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"/>',
+    gap: '<path d="M4 12h6m4 0h6M8 8v8m8-8v8"/>',
+    note: '<path d="M6 3h9l4 4v14H6V3zm9 0v4h4M8 11h8M8 15h6"/>',
+  };
+
+  function uid(prefix) {
+    return prefix + "_" + Math.random().toString(36).slice(2, 9);
+  }
+
+  function createInitialState() {
+    return {
+      meta: { app: "marketing-professor-roadmap", version: 1, exportedAt: null },
+      theme: "light",
+      targetSchoolId: "seton-hall",
+      schools: [
+        { id: "seton-hall", name: "Seton Hall University", short: "Seton Hall", primary: true },
+        { id: "backup-regional", name: "Backup: regional NJ/NY schools", short: "Regional backup", primary: false },
+      ],
+      overview: {
+        pathStatus: "Exploring adjunct-first path",
+        keyNextDecision: "Confirm whether a master's is sufficient for Seton Hall Stillman adjunct eligibility, or if a doctorate track should be planned in parallel.",
+        readiness: { credentials: 35, teaching: 20, materials: 25, networking: 15, research: 40, positioning: 55 },
+        quickNote: "Priority this week: map Stillman School adjunct hiring norms and identify 2–3 faculty/admin entry points.",
+      },
+      nextActions: [
+        { id: "a1", text: "Research Stillman School of Business adjunct requirements / hiring process", done: false, due: "2026-08-08" },
+        { id: "a2", text: "Draft practitioner-teacher positioning statement for Seton Hall", done: false, due: "2026-08-12" },
+        { id: "a3", text: "Inventory existing thought leadership that can support a teaching portfolio", done: false, due: "2026-08-15" },
+        { id: "a4", text: "Identify warm intro paths into marketing department", done: false, due: "2026-08-20" },
+      ],
+      decisions: [
+        {
+          id: "d1",
+          title: "Adjunct / teaching-first vs doctorate / tenure-track",
+          why: "Sets the near-term investment of time, credentials, and identity. Teaching-first can create entry and proof; tenure-track requires multi-year academic credential commitment.",
+          options: [
+            { name: "Adjunct / teaching-first", pros: "Faster entry; leverages executive experience; lower upfront cost; validates fit before doctorate investment.", cons: "May limit full-time faculty options; status and pay vary; still may need graduate credential." },
+            { name: "Doctorate / tenure-track", pros: "Opens full academic career path; stronger long-term standing.", cons: "3–5+ years; high opportunity cost; research expectations may not match practitioner strengths." },
+          ],
+          leaning: "Adjunct / teaching-first",
+          status: "exploring",
+          notes: "Current lean is clear: enter via teaching, keep doctorate as a later option if the work fits.",
+          nextAction: "Validate Stillman adjunct credential floor (MBA/MS vs terminal degree).",
+        },
+        {
+          id: "d2",
+          title: "Master's only vs doctorate later",
+          why: "Determines whether current or near-term graduate credentials are enough to teach, or whether a DBA/PhD becomes a blocking dependency.",
+          options: [
+            { name: "Master's sufficient for adjunct entry", pros: "Faster path; industry experience may substitute; preserves optionality.", cons: "School-specific; may restrict advanced courses or full-time roles." },
+            { name: "Plan DBA/PhD later", pros: "Supports long-term faculty ambitions; DBA aligns with practitioner identity.", cons: "Significant time/cost; premature if teaching fit is unproven." },
+          ],
+          leaning: "Master's for entry; revisit DBA after first teaching cycles",
+          status: "exploring",
+          notes: "Open question: is current credential stack enough, or is an MBA/MS needed first?",
+          nextAction: "Confirm current highest degree on file and Stillman policy language.",
+        },
+        {
+          id: "d3",
+          title: "Practitioner-teacher vs research-focused identity",
+          why: "Drives CV format, course design, networking narrative, and whether research output becomes a priority.",
+          options: [
+            { name: "Practitioner-teacher", pros: "Authentic; differentiates vs pure academics; strong for applied marketing courses.", cons: "Weaker for research universities / tenure track." },
+            { name: "Research-focused", pros: "Aligns with traditional faculty path.", cons: "Requires publishing agenda and methodological depth not currently central." },
+          ],
+          leaning: "Practitioner-teacher",
+          status: "decided",
+          notes: "Lead with demand gen, GTM, marketing ops, and executive decision-making applied to classrooms.",
+          nextAction: "Write 1-paragraph positioning statement and use it across outreach.",
+        },
+        {
+          id: "d4",
+          title: "Seton Hall-first vs broader regional strategy",
+          why: "Focus creates traction; diversification reduces single-school risk.",
+          options: [
+            { name: "Seton Hall-first", pros: "Clear target; deeper research and networking; better tailored materials.", cons: "Concentration risk if timing/fit is off." },
+            { name: "Broader NJ/NY regional", pros: "More openings; learning across schools.", cons: "Dilutes focus; slower relationship depth at Seton Hall." },
+          ],
+          leaning: "Seton Hall-first with a short backup list",
+          status: "exploring",
+          notes: "Keep 2–3 backup schools visible but do not expand outreach until Seton Hall path is clearer.",
+          nextAction: "List 2 backup schools with marketing programs and adjunct postings.",
+        },
+        {
+          id: "d5",
+          title: "Near-term teaching exposure vs long-term credential investment",
+          why: "Tradeoff between building classroom proof now vs spending cycles on degree programs.",
+          options: [
+            { name: "Teaching exposure first", pros: "Guest lectures, workshops, mentoring create evidence; informs whether doctorate is worth it.", cons: "May hit credential ceiling sooner." },
+            { name: "Credential investment first", pros: "Removes eligibility blockers early.", cons: "Risk of over-investing before validating desire to teach." },
+          ],
+          leaning: "Teaching exposure first",
+          status: "exploring",
+          notes: "Pursue guest lectures / workshops while researching credential rules in parallel.",
+          nextAction: "Book or propose one guest lecture / workshop opportunity in next 60 days.",
+        },
+      ],
+      setonHall: {
+        summary: "Seton Hall University (South Orange, NJ) — Stillman School of Business as the primary target for marketing teaching. Strong regional brand, practitioner-friendly professional programs, and geographic fit.",
+        whyFit: [
+          "Proximity and regional network make relationship-building practical",
+          "Business school likely values applied marketing leadership experience",
+          "Courses in digital marketing, strategy, analytics, and GTM map cleanly to executive background",
+          "Adjunct / teaching-oriented entry is a realistic first wedge vs immediate tenure-track",
+        ],
+        targetRoles: ["Adjunct Instructor, Marketing", "Part-time Lecturer", "Guest lecturer / executive educator", "Later: full-time teaching faculty (if credentials + fit align)"],
+        courses: [
+          { id: "c1", name: "Digital Marketing", fit: "High", notes: "Demand gen, paid/owned/earned, funnel metrics" },
+          { id: "c2", name: "Marketing Strategy", fit: "High", notes: "Positioning, segmentation, growth strategy" },
+          { id: "c3", name: "Marketing Analytics", fit: "High", notes: "Attribution, marketing ops, measurement" },
+          { id: "c4", name: "B2B Marketing", fit: "High", notes: "SaaS GTM, ABM, pipeline influence" },
+          { id: "c5", name: "Demand Generation", fit: "High", notes: "Campaign systems, conversion, revenue marketing" },
+          { id: "c6", name: "Go-to-Market Strategy", fit: "High", notes: "Launch, ICP, sales-marketing alignment" },
+        ],
+        values: [
+          "Teaching quality and student outcomes",
+          "Relevant industry experience and applied frameworks",
+          "Reliability and professional communication",
+          "Contribution to program reputation / practitioner credibility",
+          "Likely less emphasis on pure research for adjunct roles",
+        ],
+        requirements: [
+          "Graduate degree often expected for business school adjuncts — validate exact Stillman policy",
+          "Demonstrable professional expertise in subject area",
+          "Teaching materials: syllabus, teaching statement, CV in academic format",
+          "References who can speak to communication / mentoring / expertise",
+        ],
+        openQuestions: [
+          { id: "q1", text: "What is the minimum degree for marketing adjunct appointments?", status: "open" },
+          { id: "q2", text: "Who owns adjunct hiring for marketing (chair vs program director)?", status: "open" },
+          { id: "q3", text: "Are there recurring openings or mostly need-based hiring?", status: "open" },
+          { id: "q4", text: "Does Stillman value executive education / guest teaching as a pathway?", status: "open" },
+        ],
+        resources: [
+          { id: "r1", label: "Stillman School of Business", url: "https://www.shu.edu/business/", notes: "Primary school page" },
+          { id: "r2", label: "Seton Hall careers / jobs", url: "https://jobs.shu.edu/", notes: "Watch for adjunct postings" },
+          { id: "r3", label: "Marketing department faculty directory", url: "https://www.shu.edu/", notes: "Locate current marketing faculty pages" },
+        ],
+        strategyNotes: "Lead with practitioner-teacher positioning. Ask for informational conversations before cold-applying. Offer a concrete course concept (e.g., B2B Demand Generation) rather than a generic 'I'd like to teach' ask.",
+        fit: {
+          strengths: [
+            "Deep B2B SaaS marketing leadership (demand gen, GTM, marketing ops)",
+            "Executive-level decision frameworks students rarely get from textbooks",
+            "Founder / operator perspective on modern go-to-market systems",
+            "Strong communication and mentoring instincts from leadership roles",
+          ],
+          gaps: [
+            "Limited formal classroom teaching experience",
+            "Academic CV / teaching portfolio not yet packaged",
+            "Credential floor for Stillman adjuncts not yet validated",
+            "Few Seton Hall-specific relationships",
+          ],
+          validate: [
+            "Adjunct degree requirements and hiring cadence",
+            "Which courses have the highest need / adjunct coverage",
+            "Whether guest lectures can create an internal champion",
+          ],
+          positioning: "Senior B2B SaaS marketing executive and founder who teaches applied demand generation, GTM strategy, and marketing operations — bridging modern practice with classroom frameworks for Stillman students.",
+        },
+      },
+      degree: {
+        currentCredentials: "Executive / professional experience primary; formal graduate credential status to confirm and document. Career arc: architecture → digital advertising (agency) → fractional CMO / AI consulting.",
+        underConsideration: [
+          { id: "deg1", path: "Status quo (current credentials)", purpose: "Test adjunct eligibility without new degree spend", time: "0", cost: "—", relevance: "Unknown until validated", requiredNow: "Validate", notes: "First checkpoint: Stillman policy" },
+          { id: "deg2", path: "MBA / MS Marketing (if needed)", purpose: "Unlock adjunct eligibility if master's is the floor", time: "1–2 yrs PT", cost: "High", relevance: "High for teaching-first", requiredNow: "Maybe", notes: "Only if current credentials are insufficient" },
+          { id: "deg3", path: "DBA (later)", purpose: "Practitioner doctorate for long-term faculty optionality", time: "3–4 yrs PT", cost: "Very high", relevance: "High for full-time teaching later", requiredNow: "No", notes: "Revisit after teaching proof" },
+          { id: "deg4", path: "PhD Marketing (later)", purpose: "Research / tenure-track path", time: "4–6 yrs", cost: "Very high", relevance: "Lower for practitioner-teacher identity", requiredNow: "No", notes: "Least aligned with current leaning" },
+        ],
+        mastersEnough: "Unknown — treat as the critical open question for Seton Hall adjunct entry.",
+        doctorateLater: "Keep DBA as the more natural long-term option if full-time teaching becomes the goal. Do not commit now.",
+        decisionStatus: "exploring",
+      },
+      teaching: {
+        items: [
+          { id: "t1", category: "Guest lectures", title: "Identify 1–2 marketing courses for guest lecture offer", status: "not_started", done: false },
+          { id: "t2", category: "Workshops", title: "Design a 90-minute workshop: Modern B2B Demand Generation", status: "in_progress", done: false },
+          { id: "t3", category: "Mentoring", title: "Document mentoring / coaching examples suitable for teaching portfolio", status: "in_progress", done: false },
+          { id: "t4", category: "Executive education", title: "Explore exec-ed / professional education pathways at Seton Hall", status: "not_started", done: false },
+          { id: "t5", category: "Adjunct applications", title: "Prepare first adjunct application package", status: "not_started", done: false },
+          { id: "t6", category: "Sample courses", title: "Outline syllabus: Marketing Analytics for Decision Makers", status: "not_started", done: false },
+          { id: "t7", category: "Teaching philosophy", title: "Draft teaching philosophy (practitioner-teacher)", status: "not_started", done: false },
+          { id: "t8", category: "Syllabus development", title: "Draft sample syllabus for Digital Marketing or B2B Marketing", status: "not_started", done: false },
+        ],
+        courseIdeas: [
+          "Digital Marketing Systems & Measurement",
+          "B2B Go-to-Market Strategy",
+          "Demand Generation & Revenue Marketing",
+          "Marketing Operations & Analytics",
+          "Growth Strategy for Technology Companies",
+        ],
+      },
+      materials: [
+        { id: "m1", name: "Academic CV", status: "not_started", priority: "high", due: "2026-08-22", notes: "Convert executive resume into academic format; emphasize teaching-relevant leadership.", link: "" },
+        { id: "m2", name: "Teaching statement", status: "not_started", priority: "high", due: "2026-08-29", notes: "Practitioner-teacher philosophy; applied learning; case/project methods.", link: "" },
+        { id: "m3", name: "Cover letter (adjunct)", status: "not_started", priority: "high", due: "", notes: "School-specific; cite course fit and Stillman student outcomes.", link: "" },
+        { id: "m4", name: "Sample syllabus", status: "not_started", priority: "high", due: "2026-09-05", notes: "Pick one flagship course concept first.", link: "" },
+        { id: "m5", name: "Transcripts", status: "not_started", priority: "medium", due: "", notes: "Order official/unofficial copies once credential path is clear.", link: "" },
+        { id: "m6", name: "References", status: "not_started", priority: "medium", due: "2026-09-12", notes: "Identify 3 people who can speak to expertise + mentoring.", link: "" },
+        { id: "m7", name: "Bio (academic / short)", status: "in_progress", priority: "medium", due: "", notes: "120-word and 50-word versions.", link: "" },
+        { id: "m8", name: "Course proposals", status: "not_started", priority: "medium", due: "", notes: "1–2 page proposal for B2B Demand Generation elective.", link: "" },
+        { id: "m9", name: "Teaching evaluations", status: "n_a", priority: "low", due: "", notes: "None yet — substitute workshop feedback later.", link: "" },
+        { id: "m10", name: "Writing samples / thought leadership", status: "in_progress", priority: "medium", due: "", notes: "Select 2–3 artifacts showing frameworks and clarity.", link: "" },
+      ],
+      documents: [
+        { id: "doc1", title: "Executive resume (current)", category: "Core application files", description: "Source material for academic CV conversion", url: "", tags: ["cv", "source"], updated: "2026-07-20", needsUpload: true },
+        { id: "doc2", title: "Academic CV (draft)", category: "Core application files", description: "Placeholder until draft exists", url: "", tags: ["cv", "draft"], updated: "", needsUpload: true },
+        { id: "doc3", title: "Teaching statement (draft)", category: "Core application files", description: "Practitioner-teacher narrative", url: "", tags: ["teaching"], updated: "", needsUpload: true },
+        { id: "doc4", title: "Seton Hall outreach brief", category: "School-specific files", description: "One-pager with fit, courses, ask", url: "", tags: ["seton-hall"], updated: "", needsUpload: true },
+        { id: "doc5", title: "Stillman adjunct policy notes", category: "Credential research", description: "Capture degree / experience requirements once found", url: "", tags: ["research", "credentials"], updated: "", needsUpload: true },
+        { id: "doc6", title: "Workshop outline: B2B Demand Gen", category: "Teaching artifacts", description: "90-minute session structure", url: "", tags: ["workshop"], updated: "2026-08-01", needsUpload: true },
+        { id: "doc7", title: "Personal decision journal", category: "Personal notes", description: "Working notes on path tradeoffs", url: "", tags: ["notes"], updated: "2026-08-01", needsUpload: false },
+      ],
+      research: [
+        { id: "l1", title: "Stillman School of Business", url: "https://www.shu.edu/business/", type: "University pages", tags: ["seton-hall", "school"], status: "important", notes: "Primary institutional context" },
+        { id: "l2", title: "Seton Hall job postings", url: "https://jobs.shu.edu/", type: "Job postings", tags: ["jobs", "adjunct"], status: "follow_up", notes: "Check weekly for marketing adjunct roles" },
+        { id: "l3", title: "Marketing faculty pages (to collect)", url: "", type: "Faculty pages", tags: ["faculty"], status: "open_question", notes: "Build a shortlist of 5 relevant faculty" },
+        { id: "l4", title: "Adjunct hiring norms in AACSB schools", url: "", type: "Adjunct hiring info", tags: ["adjunct", "research"], status: "reviewed", notes: "Often master's + significant professional experience; confirm locally" },
+        { id: "l5", title: "DBA vs PhD for practitioner faculty", url: "", type: "Degree program pages", tags: ["dba", "phd"], status: "follow_up", notes: "DBA more aligned if doctorate later" },
+        { id: "l6", title: "Teaching portfolio examples (business schools)", url: "", type: "Teaching resources", tags: ["portfolio"], status: "important", notes: "Collect 2–3 models for CV + syllabus packaging" },
+      ],
+      contacts: [
+        { id: "p1", name: "Marketing Department Chair (TBD)", role: "Department Chair", institution: "Seton Hall / Stillman", why: "Primary decision-maker or influencer for adjunct staffing", status: "identify", lastOutreach: "", nextStep: "Find current chair name and email from faculty directory", notes: "Do not cold-pitch until positioning brief is ready" },
+        { id: "p2", name: "Marketing Program Coordinator (TBD)", role: "Program Coordinator / Admin", institution: "Seton Hall / Stillman", why: "Often knows hiring logistics and course coverage gaps", status: "identify", lastOutreach: "", nextStep: "Locate coordinator via school site", notes: "" },
+        { id: "p3", name: "Faculty contact — Digital / Strategy (TBD)", role: "Faculty", institution: "Seton Hall / Stillman", why: "Potential champion; course overlap; guest lecture path", status: "identify", lastOutreach: "", nextStep: "Shortlist faculty whose courses align with B2B/digital", notes: "" },
+        { id: "p4", name: "Warm intro / alumni connector (TBD)", role: "Professional contact", institution: "Network", why: "Warm path into Stillman reduces cold outreach friction", status: "research", lastOutreach: "", nextStep: "Scan LinkedIn for Seton Hall / Stillman alumni in network", notes: "Prioritize mutual connections" },
+      ],
+      timeline: [
+        { id: "ph1", phase: "Exploration", status: "active", target: "2026-08", milestones: [
+          { id: "ms1", text: "Define adjunct-first strategy hypothesis", done: true },
+          { id: "ms2", text: "Map Stillman structure and open questions", done: false },
+          { id: "ms3", text: "Confirm credential floor for adjunct teaching", done: false },
+        ]},
+        { id: "ph2", phase: "Credential decision", status: "upcoming", target: "2026-09", milestones: [
+          { id: "ms4", text: "Document current degrees/transcripts", done: false },
+          { id: "ms5", text: "Decide master's gap plan (if any)", done: false },
+          { id: "ms6", text: "Park DBA/PhD as later option with criteria", done: false },
+        ]},
+        { id: "ph3", phase: "Teaching experience building", status: "upcoming", target: "2026-10", milestones: [
+          { id: "ms7", text: "Deliver or schedule first guest lecture / workshop", done: false },
+          { id: "ms8", text: "Draft sample syllabus", done: false },
+          { id: "ms9", text: "Capture mentoring evidence for portfolio", done: false },
+        ]},
+        { id: "ph4", phase: "Material preparation", status: "upcoming", target: "2026-11", milestones: [
+          { id: "ms10", text: "Academic CV v1", done: false },
+          { id: "ms11", text: "Teaching statement v1", done: false },
+          { id: "ms12", text: "Reference list confirmed", done: false },
+        ]},
+        { id: "ph5", phase: "Outreach", status: "upcoming", target: "2026-11", milestones: [
+          { id: "ms13", text: "Identify chair / coordinator / 3 faculty", done: false },
+          { id: "ms14", text: "Send first informational outreach", done: false },
+          { id: "ms15", text: "Request coffee / Zoom with internal champion", done: false },
+        ]},
+        { id: "ph6", phase: "Applications", status: "upcoming", target: "2026-12", milestones: [
+          { id: "ms16", text: "Submit adjunct application when opening appears (or inquire)", done: false },
+          { id: "ms17", text: "Tailor package to specific course need", done: false },
+        ]},
+        { id: "ph7", phase: "Interviews / next steps", status: "upcoming", target: "2027-01", milestones: [
+          { id: "ms18", text: "Prep teaching demo / sample class", done: false },
+          { id: "ms19", text: "Decide whether to expand to backup schools", done: false },
+        ]},
+      ],
+      gaps: [
+        { id: "g1", area: "Graduate credential", have: "Executive experience; formal degree stack to confirm", want: "Credential meeting Stillman adjunct minimum", missing: "Policy confirmation + possible master's gap", priority: "high", action: "Validate requirements; document transcripts" },
+        { id: "g2", area: "Teaching experience", have: "Leadership mentoring, workshops (emerging)", want: "Classroom / guest lecture proof", missing: "Formal teaching reps", priority: "high", action: "Secure guest lecture or workshop delivery" },
+        { id: "g3", area: "Teaching materials", have: "Domain expertise and frameworks", want: "Syllabus + teaching statement + course proposal", missing: "Packaged artifacts", priority: "high", action: "Draft syllabus + teaching statement" },
+        { id: "g4", area: "Academic-style CV", have: "Strong executive resume", want: "Academic CV emphasizing teaching-relevant experience", missing: "Format conversion", priority: "high", action: "Rebuild CV for academic readers" },
+        { id: "g5", area: "School-specific networking", have: "Broad professional network", want: "Warm path into Stillman marketing", missing: "Named contacts + intro plan", priority: "high", action: "Identify chair/faculty + LinkedIn warm intros" },
+        { id: "g6", area: "Published thought leadership", have: "Executive communication / frameworks", want: "2–3 citable artifacts for portfolio", missing: "Curated selection / polish", priority: "medium", action: "Select and package writing samples" },
+        { id: "g7", area: "Research credibility", have: "Applied expertise, not academic research agenda", want: "Enough credibility for teaching-oriented roles", missing: "May not need traditional research for adjunct", priority: "low", action: "Position applied expertise; skip PhD research framing for now" },
+        { id: "g8", area: "References", have: "Executive peers and colleagues", want: "3 references for teaching/expertise/mentoring", missing: "Ask list + briefing", priority: "medium", action: "Select and pre-brief references" },
+        { id: "g9", area: "Course fit", have: "Clear course map (digital, strategy, analytics, B2B, demand gen, GTM)", want: "Match to Stillman catalog / staffing needs", missing: "Catalog mapping", priority: "medium", action: "Compare course list to Stillman offerings" },
+      ],
+      notes: [
+        { id: "n1", title: "Working thesis", body: "Best near-term path is adjunct/teaching-first at Seton Hall Stillman, positioned as a practitioner-teacher in applied B2B marketing, demand generation, and GTM. Doctorate is a later option, not a day-one dependency.", tags: ["strategy"], section: "overview", pinned: true, updated: "2026-08-01" },
+        { id: "n2", title: "Credential open question", body: "Do not assume an MBA is or isn't required. Confirm Stillman language and recent adjunct profiles. If a master's is required and missing, that becomes the critical path before heavy application work.", tags: ["credentials", "seton-hall"], section: "degree", pinned: true, updated: "2026-08-01" },
+        { id: "n3", title: "Outreach tone", body: "Executive-to-academic outreach should be concise, specific, and generous: propose a guest session topic, show course fit, ask for advice on adjunct pathways — not a hard ask for a job in the first touch.", tags: ["outreach"], section: "contacts", pinned: false, updated: "2026-08-01" },
+        { id: "n4", title: "Course wedge idea", body: "A differentiated elective: B2B Demand Generation & Revenue Marketing — covers ICP, funnel architecture, attribution, marketing ops, and sales alignment. Strong white space vs generic principles of marketing.", tags: ["teaching", "courses"], section: "teaching", pinned: false, updated: "2026-08-01" },
+      ],
+      ui: {
+        researchFilter: "all",
+        researchQuery: "",
+        notesQuery: "",
+        notesTag: "all",
+        docsCategory: "all",
+        openDecisionId: "d1",
+      },
+    };
+  }
+
+  let state = createInitialState();
+  let currentSection = "overview";
+
+  const $ = (sel, el = document) => el.querySelector(sel);
+  const $$ = (sel, el = document) => Array.from(el.querySelectorAll(sel));
+
+  function toast(msg) {
+    const el = $("#toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => el.classList.remove("show"), 2200);
+  }
+
+  function escapeHtml(str) {
+    return String(str ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function statusPill(status) {
+    const map = {
+      not_started: ["pill", "Not started"],
+      exploring: ["pill pill-info", "Exploring"],
+      decided: ["pill pill-success", "Decided"],
+      in_progress: ["pill pill-warning", "In progress"],
+      done: ["pill pill-success", "Done"],
+      complete: ["pill pill-success", "Complete"],
+      n_a: ["pill", "N/A"],
+      identify: ["pill pill-warning", "Identify"],
+      research: ["pill pill-info", "Research"],
+      contacted: ["pill pill-accent", "Contacted"],
+      meeting: ["pill pill-accent", "Meeting set"],
+      nurturing: ["pill pill-info", "Nurturing"],
+      closed: ["pill", "Closed"],
+      open: ["pill pill-warning", "Open"],
+      answered: ["pill pill-success", "Answered"],
+      reviewed: ["pill", "Reviewed"],
+      important: ["pill pill-danger", "Important"],
+      follow_up: ["pill pill-warning", "Follow up"],
+      open_question: ["pill pill-info", "Open question"],
+      active: ["pill pill-accent", "Active"],
+      upcoming: ["pill", "Upcoming"],
+      high: ["pill pill-danger", "High"],
+      medium: ["pill pill-warning", "Medium"],
+      low: ["pill", "Low"],
+      High: ["pill pill-success", "High"],
+    };
+    const [cls, label] = map[status] || ["pill", String(status)];
+    return `<span class="${cls}">${escapeHtml(label)}</span>`;
+  }
+
+  function iconSvg(name) {
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[name] || ""}</svg>`;
+  }
+
+  function schoolName() {
+    const s = state.schools.find((x) => x.id === state.targetSchoolId);
+    return s ? s.name : "Target school";
+  }
+
+  function schoolShort() {
+    const s = state.schools.find((x) => x.id === state.targetSchoolId);
+    return s ? s.short : "Target";
+  }
+
+  function avgReadiness() {
+    const vals = Object.values(state.overview.readiness);
+    return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+  }
+
+  function openGaps() {
+    return state.gaps.filter((g) => g.priority === "high");
+  }
+
+  function teachingProgress() {
+    const items = state.teaching.items;
+    const done = items.filter((i) => i.done || i.status === "done").length;
+    return { done, total: items.length, pct: items.length ? Math.round((done / items.length) * 100) : 0 };
+  }
+
+  function todayISO() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function renderNav() {
+    const nav = $("#nav");
+    const groups = [
+      { label: "Command", ids: ["overview", "decisions", "gaps"] },
+      { label: "Target", ids: ["setonhall", "degree", "teaching"] },
+      { label: "Execution", ids: ["materials", "documents", "research", "contacts", "timeline"] },
+      { label: "Capture", ids: ["notes"] },
+    ];
+    nav.innerHTML = groups.map((g) => {
+      const items = g.ids.map((id) => {
+        const s = SECTIONS.find((x) => x.id === id);
+        const active = currentSection === id ? " active" : "";
+        let meta = "";
+        if (id === "gaps") meta = `<span class="nav-meta">${openGaps().length}</span>`;
+        if (id === "contacts") meta = `<span class="nav-meta">${state.contacts.length}</span>`;
+        if (id === "notes") meta = `<span class="nav-meta">${state.notes.length}</span>`;
+        return `<button class="nav-btn${active}" data-section="${id}" type="button">${iconSvg(s.icon)}<span>${s.label}</span>${meta}</button>`;
+      }).join("");
+      return `<div class="nav-section-label">${g.label}</div>${items}`;
+    }).join("");
+  }
+
+  function setTheme(theme) {
+    state.theme = theme;
+    document.documentElement.setAttribute("data-theme", theme);
+    $("#themeToggle").setAttribute("aria-label", theme === "dark" ? "Switch to light mode" : "Switch to dark mode");
+  }
+
+  function populateSchoolSelect() {
+    const sel = $("#targetSchool");
+    sel.innerHTML = state.schools.map((s) =>
+      `<option value="${s.id}" ${s.id === state.targetSchoolId ? "selected" : ""}>${escapeHtml(s.short)}</option>`
+    ).join("");
+  }
+
+  function navigate(section, pushHash = true) {
+    if (!SECTIONS.find((s) => s.id === section)) section = "overview";
+    currentSection = section;
+    if (pushHash) location.hash = section;
+    renderNav();
+    const sec = SECTIONS.find((s) => s.id === section);
+    $("#pageTitle").textContent = sec.label;
+    $("#pageCrumb").textContent = `Marketing Professor Roadmap · ${schoolShort()} · ${sec.label}`;
+    renderView();
+    $("#content").scrollTop = 0;
+    closeDrawer();
+  }
+
+  function closeDrawer() {
+    $("#sidebar").classList.remove("open");
+    const bd = $("#drawerBackdrop");
+    bd.classList.remove("open");
+    bd.hidden = true;
+  }
+
+  function openDrawer() {
+    $("#sidebar").classList.add("open");
+    const bd = $("#drawerBackdrop");
+    bd.hidden = false;
+    bd.classList.add("open");
+  }
+
+  function viewOverview() {
+    const r = state.overview.readiness;
+    const actions = state.nextActions.slice(0, 3);
+    const gaps = openGaps().slice(0, 4);
+    const mats = state.materials.filter((m) => m.status !== "done" && m.status !== "n_a" && m.priority === "high").slice(0, 4);
+    const activePhase = state.timeline.find((p) => p.status === "active") || state.timeline[0];
+    return `
+      <div class="grid grid-4" style="margin-bottom:12px">
+        <div class="card stat"><div class="stat-label">Readiness</div><div class="stat-value num">${avgReadiness()}%</div><div class="stat-sub">Average across categories</div></div>
+        <div class="card stat"><div class="stat-label">Target</div><div class="stat-value" style="font-size:16px;margin-top:8px">${escapeHtml(schoolShort())}</div><div class="stat-sub">Primary institution</div></div>
+        <div class="card stat"><div class="stat-label">Path status</div><div style="margin-top:6px"><input class="editable" data-bind="overview.pathStatus" value="${escapeHtml(state.overview.pathStatus)}" aria-label="Path status" /></div><div class="stat-sub">Editable</div></div>
+        <div class="card stat"><div class="stat-label">Open high gaps</div><div class="stat-value num">${openGaps().length}</div><div class="stat-sub">Need attention</div></div>
+      </div>
+      <div class="grid grid-3">
+        <div class="card span-2">
+          <div class="card-h"><div class="card-title">Key next decision</div>${statusPill("exploring")}</div>
+          <div class="card-b"><textarea class="textarea" data-bind="overview.keyNextDecision" aria-label="Key next decision">${escapeHtml(state.overview.keyNextDecision)}</textarea></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div class="card-title">Timeline snapshot</div></div>
+          <div class="card-b">
+            <div class="list-title">${escapeHtml(activePhase.phase)}</div>
+            <div class="list-meta">Target ${escapeHtml(activePhase.target)} · ${statusPill(activePhase.status)}</div>
+            <div class="tl-milestones" style="margin-top:10px">
+              ${activePhase.milestones.map((m) => `
+                <label class="list-item" style="padding:6px 8px">
+                  <input class="check" type="checkbox" data-milestone="${activePhase.id}:${m.id}" ${m.done ? "checked" : ""} />
+                  <span class="list-body ${m.done ? "card-muted" : ""}">${escapeHtml(m.text)}</span>
+                </label>`).join("")}
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div class="card-title">Next 3 actions</div><button class="btn btn-sm" data-action="add-action" type="button">Add</button></div>
+          <div class="card-b list">
+            ${actions.map((a) => `
+              <label class="list-item">
+                <input class="check" type="checkbox" data-action-check="${a.id}" ${a.done ? "checked" : ""} />
+                <span class="list-body"><div class="list-title ${a.done ? "card-muted" : ""}">${escapeHtml(a.text)}</div><div class="list-meta">Due ${escapeHtml(a.due || "—")}</div></span>
+              </label>`).join("")}
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div class="card-title">Open gaps</div><button class="btn btn-sm btn-ghost" data-nav="gaps" type="button">View all</button></div>
+          <div class="card-b list">
+            ${gaps.map((g) => `<div class="list-item"><div class="list-body"><div class="list-title">${escapeHtml(g.area)} ${statusPill(g.priority)}</div><div class="list-meta">${escapeHtml(g.missing)}</div></div></div>`).join("")}
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div class="card-title">Materials to prepare</div><button class="btn btn-sm btn-ghost" data-nav="materials" type="button">Open</button></div>
+          <div class="card-b list">
+            ${mats.map((m) => `<div class="list-item"><div class="list-body"><div class="list-title">${escapeHtml(m.name)}</div><div class="list-meta">${statusPill(m.status)} · due ${escapeHtml(m.due || "TBD")}</div></div></div>`).join("")}
+          </div>
+        </div>
+        <div class="card span-2">
+          <div class="card-h"><div class="card-title">Readiness by category</div></div>
+          <div class="card-b">
+            ${Object.entries(r).map(([k, v]) => `
+              <div class="progress-row"><div>${escapeHtml(k)}</div><div class="progress"><span style="width:${v}%"></span></div><div class="pct">${v}%</div></div>
+              <input type="range" min="0" max="100" value="${v}" data-readiness="${k}" aria-label="${k} readiness" style="width:100%;margin:-4px 0 10px" />
+            `).join("")}
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div class="card-title">Quick notes</div></div>
+          <div class="card-b"><textarea class="textarea" data-bind="overview.quickNote" aria-label="Quick note">${escapeHtml(state.overview.quickNote)}</textarea></div>
+        </div>
+      </div>`;
+  }
+
+  function viewDecisions() {
+    return `
+      <p class="section-intro">Major forks in this career transition. Update status, leaning, and next actions as you learn more.</p>
+      <div class="toolbar">
+        <button class="btn btn-primary btn-sm" data-action="add-decision" type="button">Add decision</button>
+        <div class="spacer"></div>
+        <span class="card-muted">${state.decisions.filter((d) => d.status === "decided").length} decided · ${state.decisions.filter((d) => d.status === "exploring").length} exploring</span>
+      </div>
+      <div class="accordion">
+        ${state.decisions.map((d) => {
+          const open = state.ui.openDecisionId === d.id ? " open" : "";
+          return `
+          <div class="acc-item${open}" data-acc="${d.id}">
+            <button class="acc-trigger" data-acc-toggle="${d.id}" type="button" aria-expanded="${open ? "true" : "false"}">
+              <svg class="acc-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+              <div style="flex:1;min-width:0">
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><strong>${escapeHtml(d.title)}</strong>${statusPill(d.status)}</div>
+                <div class="list-meta">Leaning: ${escapeHtml(d.leaning)}</div>
+              </div>
+            </button>
+            <div class="acc-panel">
+              <div class="field"><label class="label">Why it matters</label><textarea class="textarea" data-dec="${d.id}" data-field="why">${escapeHtml(d.why)}</textarea></div>
+              <div class="decision-options">
+                ${d.options.map((o) => `<div class="option-card"><strong>${escapeHtml(o.name)}</strong><div><span class="pill pill-success">Pros</span> ${escapeHtml(o.pros)}</div><div style="margin-top:6px"><span class="pill pill-danger">Cons</span> ${escapeHtml(o.cons)}</div></div>`).join("")}
+              </div>
+              <div class="field-row">
+                <div class="field"><label class="label">Current leaning</label><input class="input" data-dec="${d.id}" data-field="leaning" value="${escapeHtml(d.leaning)}" /></div>
+                <div class="field"><label class="label">Status</label>
+                  <select class="select" data-dec="${d.id}" data-field="status">
+                    ${["not_started", "exploring", "decided"].map((s) => `<option value="${s}" ${d.status === s ? "selected" : ""}>${s.replace("_", " ")}</option>`).join("")}
+                  </select>
+                </div>
+              </div>
+              <div class="field"><label class="label">Notes</label><textarea class="textarea" data-dec="${d.id}" data-field="notes">${escapeHtml(d.notes)}</textarea></div>
+              <div class="field"><label class="label">Next action</label><input class="input" data-dec="${d.id}" data-field="nextAction" value="${escapeHtml(d.nextAction)}" /></div>
+            </div>
+          </div>`;
+        }).join("")}
+      </div>`;
+  }
+
+  function viewSetonHall() {
+    const sh = state.setonHall;
+    return `
+      <p class="section-intro">School-specific planning workspace for ${escapeHtml(schoolName())}. Keep this current as you learn more about Stillman.</p>
+      <div class="grid grid-3">
+        <div class="card span-2">
+          <div class="card-h"><div class="card-title">Institution summary</div></div>
+          <div class="card-b"><textarea class="textarea" data-sh="summary">${escapeHtml(sh.summary)}</textarea></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div class="card-title">Target role types</div></div>
+          <div class="card-b"><ul class="prose-list">${sh.targetRoles.map((r) => `<li>${escapeHtml(r)}</li>`).join("")}</ul></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div class="card-title">Why it is a fit</div></div>
+          <div class="card-b"><ul class="prose-list">${sh.whyFit.map((r) => `<li>${escapeHtml(r)}</li>`).join("")}</ul></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div class="card-title">What the institution likely values</div></div>
+          <div class="card-b"><ul class="prose-list">${sh.values.map((r) => `<li>${escapeHtml(r)}</li>`).join("")}</ul></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div class="card-title">Requirements / assumptions</div></div>
+          <div class="card-b"><ul class="prose-list">${sh.requirements.map((r) => `<li>${escapeHtml(r)}</li>`).join("")}</ul></div>
+        </div>
+        <div class="card span-3">
+          <div class="card-h"><div class="card-title">Courses you could plausibly teach</div></div>
+          <div class="card-b" style="overflow-x:auto">
+            <table class="data"><thead><tr><th>Course</th><th>Fit</th><th>Notes</th></tr></thead>
+            <tbody>${sh.courses.map((c) => `<tr><td><strong>${escapeHtml(c.name)}</strong></td><td>${statusPill(c.fit)}</td><td><input class="editable" data-course-notes="${c.id}" value="${escapeHtml(c.notes)}" /></td></tr>`).join("")}</tbody></table>
+          </div>
+        </div>
+        <div class="card span-2">
+          <div class="card-h"><div class="card-title">Seton Hall Fit</div></div>
+          <div class="card-b grid grid-2">
+            <div><div class="label">Strengths</div><ul class="prose-list">${sh.fit.strengths.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul></div>
+            <div><div class="label">Likely gaps</div><ul class="prose-list">${sh.fit.gaps.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul></div>
+            <div><div class="label">Need to validate</div><ul class="prose-list">${sh.fit.validate.map((x) => `<li>${escapeHtml(x)}</li>`).join("")}</ul></div>
+            <div><div class="label">Positioning statement</div><textarea class="textarea" data-sh-fit="positioning">${escapeHtml(sh.fit.positioning)}</textarea></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div class="card-title">Open questions</div></div>
+          <div class="card-b list">
+            ${sh.openQuestions.map((q) => `
+              <div class="list-item">
+                <div class="list-body">
+                  <div class="list-title">${escapeHtml(q.text)}</div>
+                  <div class="list-meta" style="margin-top:6px">
+                    <select class="select" data-sh-q="${q.id}" style="height:28px;padding:2px 6px;width:auto">
+                      <option value="open" ${q.status === "open" ? "selected" : ""}>Open</option>
+                      <option value="answered" ${q.status === "answered" ? "selected" : ""}>Answered</option>
+                    </select>
+                  </div>
+                </div>
+              </div>`).join("")}
+          </div>
+        </div>
+        <div class="card span-2">
+          <div class="card-h"><div class="card-title">Application strategy notes</div></div>
+          <div class="card-b"><textarea class="textarea" data-sh="strategyNotes" style="min-height:110px">${escapeHtml(sh.strategyNotes)}</textarea></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div class="card-title">Resources & links</div></div>
+          <div class="card-b list">
+            ${sh.resources.map((r) => `
+              <div class="list-item"><div class="list-body">
+                <div class="list-title">${r.url ? `<a href="${escapeHtml(r.url)}" target="_blank" rel="noopener">${escapeHtml(r.label)}</a>` : escapeHtml(r.label)}</div>
+                <div class="list-meta">${escapeHtml(r.notes)}</div>
+              </div></div>`).join("")}
+          </div>
+        </div>
+        <div class="card span-3">
+          <div class="card-h"><div class="card-title">Networking targets & outreach tracker</div><button class="btn btn-sm btn-ghost" data-nav="contacts" type="button">Open CRM</button></div>
+          <div class="card-b list">
+            ${state.contacts.filter((c) => c.institution.includes("Seton") || c.institution.includes("Stillman")).map((c) => `
+              <div class="list-item"><div class="list-body">
+                <div class="list-title">${escapeHtml(c.name)} ${statusPill(c.status)}</div>
+                <div class="list-meta">${escapeHtml(c.role)} · Next: ${escapeHtml(c.nextStep)}</div>
+              </div></div>`).join("")}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function viewDegree() {
+    const d = state.degree;
+    return `
+      <p class="section-intro">Credential planning for adjunct entry now and optional doctorate later. Decision status: ${statusPill(d.decisionStatus)}</p>
+      <div class="grid grid-2" style="margin-bottom:12px">
+        <div class="card">
+          <div class="card-h"><div class="card-title">Current academic credentials</div>
+            <select class="select" data-degree-status style="width:auto;height:28px;padding:2px 6px">
+              ${["not_started", "exploring", "decided"].map((s) => `<option value="${s}" ${d.decisionStatus === s ? "selected" : ""}>${s.replace("_", " ")}</option>`).join("")}
+            </select>
+          </div>
+          <div class="card-b"><textarea class="textarea" data-degree="currentCredentials">${escapeHtml(d.currentCredentials)}</textarea></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><div class="card-title">Key credential questions</div></div>
+          <div class="card-b">
+            <div class="field"><label class="label">Is a master's enough for adjunct path?</label><textarea class="textarea" data-degree="mastersEnough">${escapeHtml(d.mastersEnough)}</textarea></div>
+            <div class="field" style="margin-bottom:0"><label class="label">DBA or PhD later?</label><textarea class="textarea" data-degree="doctorateLater">${escapeHtml(d.doctorateLater)}</textarea></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="card-title">Path comparison</div></div>
+        <div class="card-b" style="overflow-x:auto;padding:0">
+          <table class="data">
+            <thead><tr><th>Path</th><th>Purpose</th><th>Time</th><th>Cost</th><th>Relevance</th><th>Required now?</th><th>Notes</th></tr></thead>
+            <tbody>
+              ${d.underConsideration.map((row) => `
+                <tr>
+                  <td><strong>${escapeHtml(row.path)}</strong></td>
+                  <td>${escapeHtml(row.purpose)}</td>
+                  <td class="num">${escapeHtml(row.time)}</td>
+                  <td>${escapeHtml(row.cost)}</td>
+                  <td>${escapeHtml(row.relevance)}</td>
+                  <td>${escapeHtml(row.requiredNow)}</td>
+                  <td><input class="editable" data-deg-notes="${row.id}" value="${escapeHtml(row.notes)}" /></td>
+                </tr>`).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
+  function viewTeaching() {
+    const tp = teachingProgress();
+    const byCat = {};
+    state.teaching.items.forEach((i) => {
+      (byCat[i.category] = byCat[i.category] || []).push(i);
+    });
+    return `
+      <p class="section-intro">Build teaching credibility before and alongside applications. Track exposure, materials, and philosophy work.</p>
+      <div class="grid grid-3" style="margin-bottom:12px">
+        <div class="card stat"><div class="stat-label">Checklist progress</div><div class="stat-value num">${tp.pct}%</div><div class="stat-sub">${tp.done} of ${tp.total} complete</div>
+          <div class="progress" style="margin-top:10px"><span style="width:${tp.pct}%"></span></div>
+        </div>
+        <div class="card span-2">
+          <div class="card-h"><div class="card-title">Sample course ideas</div><button class="btn btn-sm" data-action="add-course-idea" type="button">Add idea</button></div>
+          <div class="card-b"><div class="tags">${state.teaching.courseIdeas.map((c) => `<span class="tag">${escapeHtml(c)}</span>`).join("")}</div></div>
+        </div>
+      </div>
+      <div class="toolbar"><button class="btn btn-primary btn-sm" data-action="add-teaching" type="button">Add teaching item</button></div>
+      <div class="grid grid-2">
+        ${Object.entries(byCat).map(([cat, items]) => `
+          <div class="card">
+            <div class="card-h"><div class="card-title">${escapeHtml(cat)}</div><span class="pill">${items.filter((i) => i.done).length}/${items.length}</span></div>
+            <div class="card-b list">
+              ${items.map((i) => `
+                <label class="list-item">
+                  <input class="check" type="checkbox" data-teach-check="${i.id}" ${i.done ? "checked" : ""} />
+                  <span class="list-body">
+                    <div class="list-title ${i.done ? "card-muted" : ""}">${escapeHtml(i.title)}</div>
+                    <div class="list-meta">
+                      <select class="select" data-teach-status="${i.id}" style="width:auto;height:26px;padding:1px 6px;margin-top:4px">
+                        ${["not_started", "in_progress", "done"].map((s) => `<option value="${s}" ${i.status === s ? "selected" : ""}>${s.replace("_", " ")}</option>`).join("")}
+                      </select>
+                    </div>
+                  </span>
+                </label>`).join("")}
+            </div>
+          </div>`).join("")}
+      </div>`;
+  }
+
+  function viewMaterials() {
+    return `
+      <p class="section-intro">Track every artifact you may need for adjunct or faculty applications.</p>
+      <div class="toolbar"><button class="btn btn-primary btn-sm" data-action="add-material" type="button">Add material</button></div>
+      <div class="card"><div class="card-b" style="overflow-x:auto;padding:0">
+        <table class="data">
+          <thead><tr><th>Material</th><th>Status</th><th>Priority</th><th>Due</th><th>Notes</th><th>Link / file</th></tr></thead>
+          <tbody>
+            ${state.materials.map((m) => `
+              <tr>
+                <td><strong>${escapeHtml(m.name)}</strong></td>
+                <td><select class="select" data-mat="${m.id}" data-field="status" style="min-width:120px">
+                  ${["not_started", "in_progress", "done", "n_a"].map((s) => `<option value="${s}" ${m.status === s ? "selected" : ""}>${s.replace("_", " ")}</option>`).join("")}
+                </select></td>
+                <td><select class="select" data-mat="${m.id}" data-field="priority" style="min-width:90px">
+                  ${["high", "medium", "low"].map((s) => `<option value="${s}" ${m.priority === s ? "selected" : ""}>${s}</option>`).join("")}
+                </select></td>
+                <td><input class="input" type="date" data-mat="${m.id}" data-field="due" value="${escapeHtml(m.due)}" style="min-width:130px" /></td>
+                <td><input class="editable" data-mat="${m.id}" data-field="notes" value="${escapeHtml(m.notes)}" /></td>
+                <td><input class="editable" data-mat="${m.id}" data-field="link" placeholder="URL or file note" value="${escapeHtml(m.link)}" /></td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </div></div>`;
+  }
+
+  function viewDocuments() {
+    const cats = ["all", ...Array.from(new Set(state.documents.map((d) => d.category)))];
+    const filter = state.ui.docsCategory;
+    const docs = state.documents.filter((d) => filter === "all" || d.category === filter);
+    return `
+      <p class="section-intro">Document vault with placeholders. Because this is a static app, store URLs and descriptions here; export JSON to keep a backup.</p>
+      <div class="toolbar">
+        <div class="filter-chips">
+          ${cats.map((c) => `<button class="chip ${filter === c ? "active" : ""}" data-docs-cat="${escapeHtml(c)}" type="button">${escapeHtml(c === "all" ? "All" : c)}</button>`).join("")}
+        </div>
+        <div class="spacer"></div>
+        <button class="btn btn-primary btn-sm" data-action="add-document" type="button">Add document</button>
+      </div>
+      ${docs.length === 0 ? `<div class="empty"><strong>No documents in this category</strong>Add a placeholder to track what you still need.</div>` : `
+      <div class="grid grid-3">
+        ${docs.map((d) => `
+          <div class="card">
+            <div class="card-h">
+              <div class="card-title">${escapeHtml(d.title)}</div>
+              ${d.needsUpload ? `<span class="pill pill-warning">Needs upload</span>` : `<span class="pill pill-success">Linked</span>`}
+            </div>
+            <div class="card-b">
+              <div class="list-meta" style="margin-bottom:8px">${escapeHtml(d.category)}</div>
+              <p class="card-muted" style="margin:0 0 8px">${escapeHtml(d.description)}</p>
+              <div class="field"><label class="label">URL</label><input class="input" data-doc="${d.id}" data-field="url" value="${escapeHtml(d.url)}" placeholder="https://..." /></div>
+              <div class="field"><label class="label">Last updated</label><input class="input" type="date" data-doc="${d.id}" data-field="updated" value="${escapeHtml(d.updated)}" /></div>
+              <div class="tags">${d.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("")}</div>
+              <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:12px">
+                <input class="check" type="checkbox" data-doc-upload="${d.id}" ${d.needsUpload ? "checked" : ""} /> Needs upload
+              </label>
+            </div>
+          </div>`).join("")}
+      </div>`}`;
+  }
+
+  function viewResearch() {
+    const q = (state.ui.researchQuery || "").toLowerCase();
+    const f = state.ui.researchFilter;
+    const items = state.research.filter((r) => {
+      const hay = (r.title + " " + r.notes + " " + r.type + " " + r.tags.join(" ")).toLowerCase();
+      const matchQ = !q || hay.includes(q);
+      const matchF = f === "all" || r.status === f;
+      return matchQ && matchF;
+    });
+    const statuses = ["all", "reviewed", "important", "follow_up", "open_question"];
+    return `
+      <p class="section-intro">Collect university pages, faculty profiles, job postings, and research notes in one place.</p>
+      <div class="toolbar">
+        <div class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>
+          <input class="input" id="researchQuery" value="${escapeHtml(state.ui.researchQuery)}" placeholder="Search links..." />
+        </div>
+        <div class="filter-chips">
+          ${statuses.map((s) => `<button class="chip ${f === s ? "active" : ""}" data-research-filter="${s}" type="button">${escapeHtml(s.replace("_", " "))}</button>`).join("")}
+        </div>
+        <div class="spacer"></div>
+        <button class="btn btn-primary btn-sm" data-action="add-link" type="button">Add link</button>
+      </div>
+      ${items.length === 0 ? `<div class="empty"><strong>No matching links</strong>Try clearing filters or add a new research item.</div>` : `
+      <div class="grid grid-2">
+        ${items.map((r) => `
+          <div class="card">
+            <div class="card-h">
+              <div class="card-title">${r.url ? `<a href="${escapeHtml(r.url)}" target="_blank" rel="noopener">${escapeHtml(r.title)}</a>` : escapeHtml(r.title)}</div>
+              ${statusPill(r.status)}
+            </div>
+            <div class="card-b">
+              <div class="list-meta" style="margin-bottom:8px">${escapeHtml(r.type)}</div>
+              <textarea class="textarea" data-link-notes="${r.id}">${escapeHtml(r.notes)}</textarea>
+              <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+                <select class="select" data-link-status="${r.id}" style="width:auto;min-width:140px">
+                  ${["reviewed", "important", "follow_up", "open_question"].map((s) => `<option value="${s}" ${r.status === s ? "selected" : ""}>${s.replace("_", " ")}</option>`).join("")}
+                </select>
+                <div class="tags">${r.tags.map((t) => `<span class="tag">${escapeHtml(t)}</span>`).join("")}</div>
+              </div>
+            </div>
+          </div>`).join("")}
+      </div>`}`;
+  }
+
+  function viewContacts() {
+    return `
+      <p class="section-intro">Lightweight CRM for department chairs, faculty, coordinators, and warm introductions.</p>
+      <div class="toolbar"><button class="btn btn-primary btn-sm" data-action="add-contact" type="button">Add contact</button><div class="spacer"></div><span class="card-muted">${state.contacts.length} contacts</span></div>
+      <div class="card"><div class="card-b" style="overflow-x:auto;padding:0">
+        <table class="data">
+          <thead><tr><th>Name</th><th>Role</th><th>Institution</th><th>Why they matter</th><th>Status</th><th>Last outreach</th><th>Next step</th><th>Notes</th></tr></thead>
+          <tbody>
+            ${state.contacts.map((c) => `
+              <tr>
+                <td><input class="editable" data-contact="${c.id}" data-field="name" value="${escapeHtml(c.name)}" /></td>
+                <td><input class="editable" data-contact="${c.id}" data-field="role" value="${escapeHtml(c.role)}" /></td>
+                <td><input class="editable" data-contact="${c.id}" data-field="institution" value="${escapeHtml(c.institution)}" /></td>
+                <td><input class="editable" data-contact="${c.id}" data-field="why" value="${escapeHtml(c.why)}" /></td>
+                <td><select class="select" data-contact="${c.id}" data-field="status" style="min-width:110px">
+                  ${["identify", "research", "contacted", "meeting", "nurturing", "closed"].map((s) => `<option value="${s}" ${c.status === s ? "selected" : ""}>${s}</option>`).join("")}
+                </select></td>
+                <td><input class="input" type="date" data-contact="${c.id}" data-field="lastOutreach" value="${escapeHtml(c.lastOutreach)}" style="min-width:130px" /></td>
+                <td><input class="editable" data-contact="${c.id}" data-field="nextStep" value="${escapeHtml(c.nextStep)}" /></td>
+                <td><input class="editable" data-contact="${c.id}" data-field="notes" value="${escapeHtml(c.notes)}" /></td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </div></div>`;
+  }
+
+  function viewTimeline() {
+    return `
+      <p class="section-intro">Phased roadmap from exploration through applications. Check off milestones as you advance.</p>
+      <div class="card"><div class="card-b">
+        <div class="timeline">
+          ${state.timeline.map((p) => `
+            <div class="tl-item ${p.status === "active" ? "active" : ""} ${p.status === "done" ? "done" : ""}">
+              <div class="tl-dot"></div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <div class="tl-phase">${escapeHtml(p.phase)}</div>
+                ${statusPill(p.status)}
+                <select class="select" data-phase-status="${p.id}" style="width:auto;height:26px;padding:1px 6px">
+                  ${["upcoming", "active", "done"].map((s) => `<option value="${s}" ${p.status === s ? "selected" : ""}>${s}</option>`).join("")}
+                </select>
+              </div>
+              <div class="tl-meta">Target: <input class="editable" data-phase-target="${p.id}" value="${escapeHtml(p.target)}" style="width:100px;display:inline-block" /></div>
+              <div class="tl-milestones">
+                ${p.milestones.map((m) => `
+                  <label class="list-item" style="padding:6px 8px">
+                    <input class="check" type="checkbox" data-milestone="${p.id}:${m.id}" ${m.done ? "checked" : ""} />
+                    <span class="list-body ${m.done ? "card-muted" : ""}">${escapeHtml(m.text)}</span>
+                  </label>`).join("")}
+              </div>
+            </div>`).join("")}
+        </div>
+      </div></div>`;
+  }
+
+  function viewGaps() {
+    return `
+      <p class="section-intro">Where you are vs what Seton Hall (or similar schools) may want — and how to close each gap.</p>
+      <div class="toolbar"><button class="btn btn-primary btn-sm" data-action="add-gap" type="button">Add gap</button><div class="spacer"></div><span class="card-muted">${openGaps().length} high priority</span></div>
+      <div class="matrix-gap" style="display:grid;gap:8px">
+        ${state.gaps.map((g) => `
+          <div class="gap-row">
+            <div><div class="mini-label">Area</div><strong>${escapeHtml(g.area)}</strong></div>
+            <div><div class="mini-label">Already have</div><textarea class="textarea" data-gap="${g.id}" data-field="have" style="min-height:56px">${escapeHtml(g.have)}</textarea></div>
+            <div><div class="mini-label">Missing</div><textarea class="textarea" data-gap="${g.id}" data-field="missing" style="min-height:56px">${escapeHtml(g.missing)}</textarea></div>
+            <div><div class="mini-label">Priority</div>
+              <select class="select" data-gap="${g.id}" data-field="priority">
+                ${["high", "medium", "low"].map((s) => `<option value="${s}" ${g.priority === s ? "selected" : ""}>${s}</option>`).join("")}
+              </select>
+            </div>
+            <div><div class="mini-label">Action to close</div><textarea class="textarea" data-gap="${g.id}" data-field="action" style="min-height:56px">${escapeHtml(g.action)}</textarea>
+              <div class="list-meta" style="margin-top:6px">Want: ${escapeHtml(g.want)}</div>
+            </div>
+          </div>`).join("")}
+      </div>`;
+  }
+
+  function viewNotes() {
+    const q = (state.ui.notesQuery || "").toLowerCase();
+    const tag = state.ui.notesTag;
+    const allTags = Array.from(new Set(state.notes.flatMap((n) => n.tags)));
+    let notes = state.notes.filter((n) => {
+      const hay = (n.title + " " + n.body + " " + n.tags.join(" ")).toLowerCase();
+      return (!q || hay.includes(q)) && (tag === "all" || n.tags.includes(tag));
+    });
+    notes = [...notes].sort((a, b) => (b.pinned - a.pinned) || b.updated.localeCompare(a.updated));
+    return `
+      <p class="section-intro">Flexible notes workspace. Pin what matters; tag and link notes to sections.</p>
+      <div class="toolbar">
+        <div class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>
+          <input class="input" id="notesQuery" value="${escapeHtml(state.ui.notesQuery)}" placeholder="Search notes..." />
+        </div>
+        <div class="filter-chips">
+          <button class="chip ${tag === "all" ? "active" : ""}" data-notes-tag="all" type="button">All</button>
+          ${allTags.map((t) => `<button class="chip ${tag === t ? "active" : ""}" data-notes-tag="${escapeHtml(t)}" type="button">${escapeHtml(t)}</button>`).join("")}
+        </div>
+        <div class="spacer"></div>
+        <button class="btn btn-primary btn-sm" data-action="add-note" type="button">Add note</button>
+      </div>
+      ${notes.length === 0 ? `<div class="empty"><strong>No notes match</strong>Clear filters or capture a new note.</div>` : `
+      <div class="grid grid-2">
+        ${notes.map((n) => `
+          <div class="card note-card ${n.pinned ? "pinned" : ""}">
+            <div class="card-h">
+              <div class="card-title"><input class="editable" data-note="${n.id}" data-field="title" value="${escapeHtml(n.title)}" /></div>
+              <div style="display:flex;gap:6px">
+                <button class="btn btn-sm btn-ghost" data-pin-note="${n.id}" type="button" aria-label="Pin note">${n.pinned ? "Pinned" : "Pin"}</button>
+              </div>
+            </div>
+            <div class="card-b">
+              <textarea class="textarea" data-note="${n.id}" data-field="body" style="min-height:100px">${escapeHtml(n.body)}</textarea>
+              <div class="field-row" style="margin-top:8px">
+                <div class="field" style="margin:0"><label class="label">Linked section</label>
+                  <select class="select" data-note="${n.id}" data-field="section">
+                    ${SECTIONS.map((s) => `<option value="${s.id}" ${n.section === s.id ? "selected" : ""}>${s.label}</option>`).join("")}
+                  </select>
+                </div>
+                <div class="field" style="margin:0"><label class="label">Tags (comma-separated)</label>
+                  <input class="input" data-note-tags="${n.id}" value="${escapeHtml(n.tags.join(", "))}" />
+                </div>
+              </div>
+              <div class="list-meta" style="margin-top:8px">Updated ${escapeHtml(n.updated || "—")}</div>
+            </div>
+          </div>`).join("")}
+      </div>`}`;
+  }
+
+  function renderView() {
+    const map = {
+      overview: viewOverview,
+      decisions: viewDecisions,
+      setonhall: viewSetonHall,
+      degree: viewDegree,
+      teaching: viewTeaching,
+      materials: viewMaterials,
+      documents: viewDocuments,
+      research: viewResearch,
+      contacts: viewContacts,
+      timeline: viewTimeline,
+      gaps: viewGaps,
+      notes: viewNotes,
+    };
+    $("#view").innerHTML = (map[currentSection] || viewOverview)();
+  }
+
+  function setByPath(path, value) {
+    const parts = path.split(".");
+    let obj = state;
+    for (let i = 0; i < parts.length - 1; i++) obj = obj[parts[i]];
+    obj[parts[parts.length - 1]] = value;
+  }
+
+  function findDecision(id) { return state.decisions.find((d) => d.id === id); }
+  function findMaterial(id) { return state.materials.find((m) => m.id === id); }
+  function findContact(id) { return state.contacts.find((c) => c.id === id); }
+  function findDoc(id) { return state.documents.find((d) => d.id === id); }
+  function findNote(id) { return state.notes.find((n) => n.id === id); }
+  function findGap(id) { return state.gaps.find((g) => g.id === id); }
+
+  function openModal(title, bodyHtml, onSave) {
+    $("#modalTitle").textContent = title;
+    $("#modalBody").innerHTML = bodyHtml;
+    $("#modalFoot").innerHTML = `
+      <button class="btn" type="button" id="modalCancel">Cancel</button>
+      <button class="btn btn-primary" type="button" id="modalSave">Save</button>`;
+    $("#modal").classList.add("open");
+    const close = () => $("#modal").classList.remove("open");
+    $("#modalCancel").onclick = close;
+    $("#modalClose").onclick = close;
+    $("#modalSave").onclick = () => { onSave(); close(); };
+    const first = $("#modalBody").querySelector("input,textarea,select");
+    if (first) first.focus();
+  }
+
+  function quickAddForSection() {
+    const section = currentSection;
+    if (section === "contacts") return addContactModal();
+    if (section === "notes") return addNoteModal();
+    if (section === "documents") return addDocumentModal();
+    if (section === "decisions") return addDecisionModal();
+    if (section === "research") return addLinkModal();
+    if (section === "materials") return addMaterialModal();
+    if (section === "teaching") return addTeachingModal();
+    if (section === "gaps") return addGapModal();
+    return addNoteModal();
+  }
+
+  function addNoteModal() {
+    openModal("Add note", `
+      <div class="field"><label class="label">Title</label><input class="input" id="qaTitle" /></div>
+      <div class="field"><label class="label">Body</label><textarea class="textarea" id="qaBody"></textarea></div>
+      <div class="field"><label class="label">Tags</label><input class="input" id="qaTags" placeholder="strategy, seton-hall" /></div>
+      <div class="field"><label class="label">Linked section</label>
+        <select class="select" id="qaSection">${SECTIONS.map((s) => `<option value="${s.id}" ${s.id === currentSection ? "selected" : ""}>${s.label}</option>`).join("")}</select>
+      </div>`, () => {
+      const title = $("#qaTitle").value.trim() || "Untitled note";
+      state.notes.unshift({
+        id: uid("n"), title,
+        body: $("#qaBody").value.trim(),
+        tags: $("#qaTags").value.split(",").map((t) => t.trim()).filter(Boolean),
+        section: $("#qaSection").value,
+        pinned: false, updated: todayISO(),
+      });
+      navigate("notes", false); toast("Note added");
+    });
+  }
+
+  function addContactModal() {
+    openModal("Add contact", `
+      <div class="field"><label class="label">Name</label><input class="input" id="qaName" /></div>
+      <div class="field-row">
+        <div class="field"><label class="label">Role</label><input class="input" id="qaRole" /></div>
+        <div class="field"><label class="label">Institution</label><input class="input" id="qaInst" value="Seton Hall / Stillman" /></div>
+      </div>
+      <div class="field"><label class="label">Why they matter</label><input class="input" id="qaWhy" /></div>
+      <div class="field"><label class="label">Next step</label><input class="input" id="qaNext" /></div>`, () => {
+      state.contacts.unshift({
+        id: uid("p"),
+        name: $("#qaName").value.trim() || "New contact",
+        role: $("#qaRole").value.trim() || "Faculty",
+        institution: $("#qaInst").value.trim() || "Seton Hall / Stillman",
+        why: $("#qaWhy").value.trim(),
+        status: "identify", lastOutreach: "", nextStep: $("#qaNext").value.trim(), notes: "",
+      });
+      navigate("contacts", false); toast("Contact added");
+    });
+  }
+
+  function addDocumentModal() {
+    openModal("Add document", `
+      <div class="field"><label class="label">Title</label><input class="input" id="qaTitle" /></div>
+      <div class="field"><label class="label">Category</label>
+        <select class="select" id="qaCat">
+          ${["Core application files","School-specific files","Personal notes","Credential research","Teaching artifacts"].map((c) => `<option>${c}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field"><label class="label">Description</label><input class="input" id="qaDesc" /></div>
+      <div class="field"><label class="label">URL</label><input class="input" id="qaUrl" placeholder="https://..." /></div>`, () => {
+      state.documents.unshift({
+        id: uid("doc"),
+        title: $("#qaTitle").value.trim() || "Untitled document",
+        category: $("#qaCat").value,
+        description: $("#qaDesc").value.trim(),
+        url: $("#qaUrl").value.trim(),
+        tags: ["new"], updated: todayISO(),
+        needsUpload: !$("#qaUrl").value.trim(),
+      });
+      navigate("documents", false); toast("Document added");
+    });
+  }
+
+  function addDecisionModal() {
+    openModal("Add decision", `
+      <div class="field"><label class="label">Decision title</label><input class="input" id="qaTitle" /></div>
+      <div class="field"><label class="label">Why it matters</label><textarea class="textarea" id="qaWhy"></textarea></div>
+      <div class="field"><label class="label">Option A</label><input class="input" id="qaOptA" /></div>
+      <div class="field"><label class="label">Option B</label><input class="input" id="qaOptB" /></div>`, () => {
+      const a = $("#qaOptA").value.trim() || "Option A";
+      const b = $("#qaOptB").value.trim() || "Option B";
+      state.decisions.push({
+        id: uid("d"),
+        title: $("#qaTitle").value.trim() || "New decision",
+        why: $("#qaWhy").value.trim(),
+        options: [
+          { name: a, pros: "TBD", cons: "TBD" },
+          { name: b, pros: "TBD", cons: "TBD" },
+        ],
+        leaning: "Undecided", status: "not_started", notes: "", nextAction: "",
+      });
+      state.ui.openDecisionId = state.decisions[state.decisions.length - 1].id;
+      navigate("decisions", false); toast("Decision added");
+    });
+  }
+
+  function addLinkModal() {
+    openModal("Add research link", `
+      <div class="field"><label class="label">Title</label><input class="input" id="qaTitle" /></div>
+      <div class="field"><label class="label">URL</label><input class="input" id="qaUrl" /></div>
+      <div class="field"><label class="label">Type</label>
+        <select class="select" id="qaType">
+          ${["University pages","Faculty pages","Job postings","Degree program pages","Adjunct hiring info","Teaching resources","Notes from calls"].map((t) => `<option>${t}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field"><label class="label">Notes</label><textarea class="textarea" id="qaNotes"></textarea></div>`, () => {
+      state.research.unshift({
+        id: uid("l"),
+        title: $("#qaTitle").value.trim() || "Untitled link",
+        url: $("#qaUrl").value.trim(),
+        type: $("#qaType").value,
+        tags: ["new"], status: "follow_up",
+        notes: $("#qaNotes").value.trim(),
+      });
+      navigate("research", false); toast("Link added");
+    });
+  }
+
+  function addMaterialModal() {
+    openModal("Add application material", `
+      <div class="field"><label class="label">Material name</label><input class="input" id="qaTitle" /></div>
+      <div class="field-row">
+        <div class="field"><label class="label">Priority</label>
+          <select class="select" id="qaPri"><option>high</option><option>medium</option><option>low</option></select>
+        </div>
+        <div class="field"><label class="label">Due</label><input class="input" type="date" id="qaDue" /></div>
+      </div>`, () => {
+      state.materials.push({
+        id: uid("m"),
+        name: $("#qaTitle").value.trim() || "New material",
+        status: "not_started",
+        priority: $("#qaPri").value,
+        due: $("#qaDue").value,
+        notes: "", link: "",
+      });
+      navigate("materials", false); toast("Material added");
+    });
+  }
+
+  function addTeachingModal() {
+    openModal("Add teaching item", `
+      <div class="field"><label class="label">Title</label><input class="input" id="qaTitle" /></div>
+      <div class="field"><label class="label">Category</label>
+        <select class="select" id="qaCat">
+          ${["Guest lectures","Workshops","Mentoring","Executive education","Adjunct applications","Sample courses","Teaching philosophy","Syllabus development"].map((c) => `<option>${c}</option>`).join("")}
+        </select>
+      </div>`, () => {
+      state.teaching.items.push({
+        id: uid("t"),
+        category: $("#qaCat").value,
+        title: $("#qaTitle").value.trim() || "New teaching item",
+        status: "not_started", done: false,
+      });
+      navigate("teaching", false); toast("Teaching item added");
+    });
+  }
+
+  function addGapModal() {
+    openModal("Add gap", `
+      <div class="field"><label class="label">Area</label><input class="input" id="qaArea" /></div>
+      <div class="field"><label class="label">Already have</label><input class="input" id="qaHave" /></div>
+      <div class="field"><label class="label">Missing</label><input class="input" id="qaMissing" /></div>
+      <div class="field"><label class="label">Action</label><input class="input" id="qaAction" /></div>`, () => {
+      state.gaps.push({
+        id: uid("g"),
+        area: $("#qaArea").value.trim() || "New gap",
+        have: $("#qaHave").value.trim(),
+        want: "TBD",
+        missing: $("#qaMissing").value.trim(),
+        priority: "medium",
+        action: $("#qaAction").value.trim(),
+      });
+      navigate("gaps", false); toast("Gap added");
+    });
+  }
+
+  function addActionModal() {
+    openModal("Add next action", `
+      <div class="field"><label class="label">Action</label><input class="input" id="qaText" /></div>
+      <div class="field"><label class="label">Due</label><input class="input" type="date" id="qaDue" /></div>`, () => {
+      state.nextActions.unshift({
+        id: uid("a"),
+        text: $("#qaText").value.trim() || "New action",
+        done: false,
+        due: $("#qaDue").value,
+      });
+      navigate("overview", false); toast("Action added");
+    });
+  }
+
+  function exportState() {
+    const payload = { ...state, meta: { ...state.meta, exportedAt: new Date().toISOString() } };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `marketing-professor-roadmap-${todayISO()}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast("Exported JSON");
+  }
+
+  function importState(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!data || data.meta?.app !== "marketing-professor-roadmap") {
+          throw new Error("Unrecognized file");
+        }
+        state = data;
+        if (!state.ui) state.ui = createInitialState().ui;
+        setTheme(state.theme || "light");
+        populateSchoolSelect();
+        navigate(currentSection, false);
+        toast("Import complete");
+      } catch (e) {
+        toast("Import failed — check JSON file");
+        console.error(e);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function bindViewEvents() {
+    const view = $("#view");
+
+    view.addEventListener("click", (e) => {
+      const nav = e.target.closest("[data-nav]");
+      if (nav) { navigate(nav.getAttribute("data-nav")); return; }
+
+      const acc = e.target.closest("[data-acc-toggle]");
+      if (acc) {
+        const id = acc.getAttribute("data-acc-toggle");
+        state.ui.openDecisionId = state.ui.openDecisionId === id ? null : id;
+        renderView();
+        return;
+      }
+
+      const action = e.target.closest("[data-action]");
+      if (action) {
+        const a = action.getAttribute("data-action");
+        if (a === "add-action") addActionModal();
+        if (a === "add-decision") addDecisionModal();
+        if (a === "add-contact") addContactModal();
+        if (a === "add-document") addDocumentModal();
+        if (a === "add-link") addLinkModal();
+        if (a === "add-material") addMaterialModal();
+        if (a === "add-teaching") addTeachingModal();
+        if (a === "add-gap") addGapModal();
+        if (a === "add-note") addNoteModal();
+        if (a === "add-course-idea") {
+          openModal("Add course idea", `<div class="field"><label class="label">Course idea</label><input class="input" id="qaIdea" /></div>`, () => {
+            const v = $("#qaIdea").value.trim();
+            if (v) { state.teaching.courseIdeas.push(v); renderView(); toast("Course idea added"); }
+          });
+        }
+        return;
+      }
+
+      const pin = e.target.closest("[data-pin-note]");
+      if (pin) {
+        const n = findNote(pin.getAttribute("data-pin-note"));
+        if (n) { n.pinned = !n.pinned; n.updated = todayISO(); renderView(); }
+        return;
+      }
+
+      const chipDoc = e.target.closest("[data-docs-cat]");
+      if (chipDoc) { state.ui.docsCategory = chipDoc.getAttribute("data-docs-cat"); renderView(); return; }
+      const chipRes = e.target.closest("[data-research-filter]");
+      if (chipRes) { state.ui.researchFilter = chipRes.getAttribute("data-research-filter"); renderView(); return; }
+      const chipNote = e.target.closest("[data-notes-tag]");
+      if (chipNote) { state.ui.notesTag = chipNote.getAttribute("data-notes-tag"); renderView(); return; }
+    });
+
+    view.addEventListener("change", (e) => {
+      const t = e.target;
+
+      if (t.matches("[data-action-check]")) {
+        const a = state.nextActions.find((x) => x.id === t.getAttribute("data-action-check"));
+        if (a) a.done = t.checked;
+        return;
+      }
+      if (t.matches("[data-milestone]")) {
+        const [pid, mid] = t.getAttribute("data-milestone").split(":");
+        const phase = state.timeline.find((p) => p.id === pid);
+        const m = phase?.milestones.find((x) => x.id === mid);
+        if (m) m.done = t.checked;
+        return;
+      }
+      if (t.matches("[data-readiness]")) {
+        state.overview.readiness[t.getAttribute("data-readiness")] = Number(t.value);
+        renderView();
+        return;
+      }
+      if (t.matches("[data-dec]")) {
+        const d = findDecision(t.getAttribute("data-dec"));
+        if (d) d[t.getAttribute("data-field")] = t.value;
+        if (t.getAttribute("data-field") === "status" || t.getAttribute("data-field") === "leaning") renderNav();
+        return;
+      }
+      if (t.matches("[data-sh-q]")) {
+        const q = state.setonHall.openQuestions.find((x) => x.id === t.getAttribute("data-sh-q"));
+        if (q) q.status = t.value;
+        return;
+      }
+      if (t.matches("[data-degree-status]")) { state.degree.decisionStatus = t.value; return; }
+      if (t.matches("[data-teach-check]")) {
+        const item = state.teaching.items.find((x) => x.id === t.getAttribute("data-teach-check"));
+        if (item) { item.done = t.checked; if (t.checked) item.status = "done"; renderView(); }
+        return;
+      }
+      if (t.matches("[data-teach-status]")) {
+        const item = state.teaching.items.find((x) => x.id === t.getAttribute("data-teach-status"));
+        if (item) { item.status = t.value; item.done = t.value === "done"; renderView(); }
+        return;
+      }
+      if (t.matches("[data-mat]")) {
+        const m = findMaterial(t.getAttribute("data-mat"));
+        if (m) m[t.getAttribute("data-field")] = t.value;
+        return;
+      }
+      if (t.matches("[data-doc]")) {
+        const d = findDoc(t.getAttribute("data-doc"));
+        if (d) {
+          d[t.getAttribute("data-field")] = t.value;
+          if (t.getAttribute("data-field") === "url" && t.value.trim()) d.needsUpload = false;
+        }
+        return;
+      }
+      if (t.matches("[data-doc-upload]")) {
+        const d = findDoc(t.getAttribute("data-doc-upload"));
+        if (d) d.needsUpload = t.checked;
+        return;
+      }
+      if (t.matches("[data-link-status]")) {
+        const r = state.research.find((x) => x.id === t.getAttribute("data-link-status"));
+        if (r) r.status = t.value;
+        return;
+      }
+      if (t.matches("[data-contact]")) {
+        const c = findContact(t.getAttribute("data-contact"));
+        if (c) c[t.getAttribute("data-field")] = t.value;
+        return;
+      }
+      if (t.matches("[data-phase-status]")) {
+        const p = state.timeline.find((x) => x.id === t.getAttribute("data-phase-status"));
+        if (p) { p.status = t.value; renderView(); }
+        return;
+      }
+      if (t.matches("[data-gap]")) {
+        const g = findGap(t.getAttribute("data-gap"));
+        if (g) { g[t.getAttribute("data-field")] = t.value; if (t.getAttribute("data-field") === "priority") renderNav(); }
+        return;
+      }
+      if (t.matches("[data-note]") && t.tagName === "SELECT") {
+        const n = findNote(t.getAttribute("data-note"));
+        if (n) { n[t.getAttribute("data-field")] = t.value; n.updated = todayISO(); }
+        return;
+      }
+    });
+
+    view.addEventListener("input", (e) => {
+      const t = e.target;
+      if (t.matches("[data-bind]")) { setByPath(t.getAttribute("data-bind"), t.value); return; }
+      if (t.matches("[data-dec]")) {
+        const d = findDecision(t.getAttribute("data-dec"));
+        if (d) d[t.getAttribute("data-field")] = t.value;
+        return;
+      }
+      if (t.matches("[data-sh]")) { state.setonHall[t.getAttribute("data-sh")] = t.value; return; }
+      if (t.matches("[data-sh-fit]")) { state.setonHall.fit[t.getAttribute("data-sh-fit")] = t.value; return; }
+      if (t.matches("[data-course-notes]")) {
+        const c = state.setonHall.courses.find((x) => x.id === t.getAttribute("data-course-notes"));
+        if (c) c.notes = t.value;
+        return;
+      }
+      if (t.matches("[data-degree]")) { state.degree[t.getAttribute("data-degree")] = t.value; return; }
+      if (t.matches("[data-deg-notes]")) {
+        const row = state.degree.underConsideration.find((x) => x.id === t.getAttribute("data-deg-notes"));
+        if (row) row.notes = t.value;
+        return;
+      }
+      if (t.matches("[data-mat]")) {
+        const m = findMaterial(t.getAttribute("data-mat"));
+        if (m) m[t.getAttribute("data-field")] = t.value;
+        return;
+      }
+      if (t.matches("[data-doc]")) {
+        const d = findDoc(t.getAttribute("data-doc"));
+        if (d) d[t.getAttribute("data-field")] = t.value;
+        return;
+      }
+      if (t.matches("[data-link-notes]")) {
+        const r = state.research.find((x) => x.id === t.getAttribute("data-link-notes"));
+        if (r) r.notes = t.value;
+        return;
+      }
+      if (t.matches("[data-contact]")) {
+        const c = findContact(t.getAttribute("data-contact"));
+        if (c) c[t.getAttribute("data-field")] = t.value;
+        return;
+      }
+      if (t.matches("[data-phase-target]")) {
+        const p = state.timeline.find((x) => x.id === t.getAttribute("data-phase-target"));
+        if (p) p.target = t.value;
+        return;
+      }
+      if (t.matches("[data-gap]")) {
+        const g = findGap(t.getAttribute("data-gap"));
+        if (g) g[t.getAttribute("data-field")] = t.value;
+        return;
+      }
+      if (t.matches("[data-note]")) {
+        const n = findNote(t.getAttribute("data-note"));
+        if (n) { n[t.getAttribute("data-field")] = t.value; n.updated = todayISO(); }
+        return;
+      }
+      if (t.matches("[data-note-tags]")) {
+        const n = findNote(t.getAttribute("data-note-tags"));
+        if (n) { n.tags = t.value.split(",").map((x) => x.trim()).filter(Boolean); n.updated = todayISO(); }
+        return;
+      }
+      if (t.id === "researchQuery") {
+        state.ui.researchQuery = t.value;
+        clearTimeout(bindViewEvents._rq);
+        bindViewEvents._rq = setTimeout(() => renderView(), 180);
+        return;
+      }
+      if (t.id === "notesQuery") {
+        state.ui.notesQuery = t.value;
+        clearTimeout(bindViewEvents._nq);
+        bindViewEvents._nq = setTimeout(() => renderView(), 180);
+      }
+    });
+  }
+
+  function boot() {
+    // Prefer system theme on first load only for comfort; still in-memory
+    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+      state.theme = "dark";
+    }
+    setTheme(state.theme);
+    populateSchoolSelect();
+    renderNav();
+    bindViewEvents();
+
+    $("#nav").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-section]");
+      if (btn) navigate(btn.getAttribute("data-section"));
+    });
+
+    $("#themeToggle").addEventListener("click", () => setTheme(state.theme === "dark" ? "light" : "dark"));
+    $("#exportBtn").addEventListener("click", exportState);
+    $("#importBtn").addEventListener("click", () => $("#importFile").click());
+    $("#importFile").addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) importState(file);
+      e.target.value = "";
+    });
+    $("#quickAddBtn").addEventListener("click", quickAddForSection);
+    $("#targetSchool").addEventListener("change", (e) => {
+      state.targetSchoolId = e.target.value;
+      $("#pageCrumb").textContent = `Marketing Professor Roadmap · ${schoolShort()} · ${SECTIONS.find((s) => s.id === currentSection).label}`;
+      if (currentSection === "overview" || currentSection === "setonhall") renderView();
+    });
+    $("#menuToggle").addEventListener("click", openDrawer);
+    $("#drawerBackdrop").addEventListener("click", closeDrawer);
+    $("#modal").addEventListener("click", (e) => { if (e.target.id === "modal") $("#modal").classList.remove("open"); });
+
+    window.addEventListener("hashchange", () => {
+      const h = location.hash.replace("#", "") || "overview";
+      if (h !== currentSection) navigate(h, false);
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        $("#modal").classList.remove("open");
+        closeDrawer();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        quickAddForSection();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "e") {
+        e.preventDefault();
+        exportState();
+      }
+    });
+
+    const initial = location.hash.replace("#", "") || "overview";
+    navigate(initial, false);
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>
