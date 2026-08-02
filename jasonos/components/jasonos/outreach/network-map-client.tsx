@@ -186,7 +186,7 @@ function layoutConcentric(
     for (const p of parents) {
       const kids = (childrenOf.get(p.id) ?? [])
         .map((id) => byId.get(id))
-        .filter((n): n is SimNode => Boolean(n) && !exclude.has(n.id))
+        .filter((n): n is SimNode => n != null && !exclude.has(n.id))
         .sort(byName);
       if (!kids.length) continue;
 
