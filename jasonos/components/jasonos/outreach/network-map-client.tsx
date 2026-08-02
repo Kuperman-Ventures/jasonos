@@ -32,14 +32,20 @@ type SimNode = NetworkMapNode & {
 
 type ViewTransform = { x: number; y: number; k: number };
 
+// Theme tokens are oklch() values — use var(...) directly, never hsl(var(...)).
 const DEGREE_COLOR: Record<string, string> = {
-  you: "hsl(var(--foreground))",
-  "1": "hsl(142 60% 42%)",
-  "2": "hsl(210 80% 55%)",
-  "3": "hsl(32 90% 50%)",
-  channel: "hsl(280 35% 52%)",
-  "?": "hsl(var(--muted-foreground))",
+  you: "var(--foreground)",
+  "1": "#2f9d5d",
+  "2": "#3b82f6",
+  "3": "#e09b24",
+  channel: "#8b6bb5",
+  "?": "var(--muted-foreground)",
 };
+
+const NODE_W = 132;
+const NODE_H = 44;
+const YOU_W = 72;
+const YOU_H = 36;
 
 function degreeKey(n: NetworkMapNode): string {
   if (n.isYou) return "you";
@@ -59,14 +65,15 @@ function displayName(n: NetworkMapNode | string): string {
   return `${parts[0]} ${parts[parts.length - 1]}`;
 }
 
+function fitLabel(text: string, maxChars: number): string {
+  const t = text.trim();
+  if (t.length <= maxChars) return t;
+  return `${t.slice(0, Math.max(1, maxChars - 1))}…`;
+}
+
 function nodeSize(n: NetworkMapNode): { w: number; h: number } {
-  if (n.isYou) return { w: 72, h: 36 };
-  const label = displayName(n);
-  const sub = n.isChannel ? "Channel" : n.firm?.trim() ?? "";
-  const textW = Math.max(label.length, sub.length) * 6.6;
-  const w = Math.min(168, Math.max(n.isChannel ? 96 : 88, textW + 20));
-  const h = sub || n.isChannel ? 40 : 30;
-  return { w, h };
+  if (n.isYou) return { w: YOU_W, h: YOU_H };
+  return { w: NODE_W, h: NODE_H };
 }
 
 /** Edge endpoint padding so lines stop at the card border, not the center. */
@@ -559,11 +566,11 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                 markerHeight="6"
                 orient="auto-start-reverse"
               >
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(210 80% 55% / 0.85)" />
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6" fillOpacity="0.85" />
               </marker>
               <radialGradient id="youGlow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="hsl(var(--foreground) / 0.25)" />
-                <stop offset="100%" stopColor="hsl(var(--foreground) / 0)" />
+                <stop offset="0%" stopColor="var(--foreground)" stopOpacity="0.22" />
+                <stop offset="100%" stopColor="var(--foreground)" stopOpacity="0" />
               </radialGradient>
             </defs>
 
@@ -578,7 +585,7 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                   cy={size.h / 2}
                   r={Math.min(size.w, size.h) * f}
                   fill="none"
-                  stroke="hsl(var(--border))"
+                  stroke="var(--border)"
                   strokeDasharray="3 6"
                   opacity={0.45}
                 >
@@ -609,9 +616,7 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                     x2={x2}
                     y2={y2}
                     stroke={
-                      isReferral
-                        ? "hsl(210 80% 55%)"
-                        : "hsl(var(--muted-foreground))"
+                      isReferral ? "#3b82f6" : "var(--muted-foreground)"
                     }
                     strokeWidth={isReferral ? 1.6 : 1}
                     strokeDasharray={isReferral ? undefined : "4 4"}
@@ -626,10 +631,16 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                 const color = DEGREE_COLOR[key] ?? DEGREE_COLOR["?"];
                 const active = !dimmed || highlight.has(n.id);
                 const { w, h } = nodeSize(n);
-                const label = n.isYou ? "You" : displayName(n);
-                const sub = n.isChannel
-                  ? "Channel"
-                  : n.firm?.trim() ?? "";
+                const label = fitLabel(
+                  n.isYou ? "You" : displayName(n),
+                  n.isYou ? 8 : 18
+                );
+                const sub = n.isYou
+                  ? ""
+                  : fitLabel(
+                      n.isChannel ? "Channel" : n.firm?.trim() || "—",
+                      20
+                    );
                 const selected = selectedId === n.id;
                 return (
                   <g
@@ -661,22 +672,17 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                       ry={8}
                       fill={
                         n.isYou
-                          ? "hsl(var(--background))"
+                          ? "var(--background)"
                           : n.isChannel
-                            ? "hsl(280 35% 52% / 0.12)"
-                            : "hsl(var(--card))"
+                            ? "color-mix(in oklch, #8b6bb5 16%, var(--card))"
+                            : "var(--card)"
                       }
                       stroke={
-                        selected
-                          ? "hsl(var(--foreground))"
-                          : n.isYou
-                            ? "hsl(var(--foreground))"
-                            : color
+                        selected || n.isYou ? "var(--foreground)" : color
                       }
                       strokeWidth={selected || n.isYou || n.isChannel ? 2 : 1.5}
                       strokeDasharray={n.isChannel ? "4 2" : undefined}
                     />
-                    {/* degree / channel accent bar */}
                     {!n.isYou ? (
                       <rect
                         x={-w / 2}
@@ -690,32 +696,41 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                     ) : null}
                     <text
                       textAnchor="middle"
-                      y={sub && !n.isYou ? -4 : 1}
+                      x={0}
+                      y={n.isYou ? 1 : -5}
                       dominantBaseline="middle"
-                      fill="hsl(var(--foreground))"
+                      fill="var(--foreground)"
                       fontSize={n.isYou ? 12 : 11}
                       fontWeight={650}
-                      className="pointer-events-none"
+                      style={{ pointerEvents: "none" }}
                     >
                       {label}
                     </text>
-                    {sub && !n.isYou ? (
+                    {!n.isYou ? (
                       <text
                         textAnchor="middle"
-                        y={10}
+                        x={0}
+                        y={11}
                         dominantBaseline="middle"
                         fill={
                           n.isChannel
                             ? DEGREE_COLOR.channel
-                            : "hsl(var(--muted-foreground))"
+                            : "var(--muted-foreground)"
                         }
                         fontSize={9}
                         fontWeight={n.isChannel ? 600 : 400}
-                        className="pointer-events-none"
+                        style={{ pointerEvents: "none" }}
                       >
-                        {sub.length > 22 ? `${sub.slice(0, 20)}…` : sub}
+                        {sub}
                       </text>
                     ) : null}
+                    <title>
+                      {n.isYou
+                        ? "You"
+                        : `${displayName(n)}${n.firm ? ` · ${n.firm}` : ""}${
+                            n.isChannel ? " · Referral channel" : ""
+                          }`}
+                    </title>
                   </g>
                 );
               })}
