@@ -75,6 +75,36 @@ function isReferralSourceTag(tags: string[] | null | undefined): boolean {
 }
 
 /**
+ * Contacts often store firm as a `firm:<slug-or-name>` tag when there is no
+ * linked companies row yet. Match Outreach modal resolution: company name
+ * wins; fall back to the firm tag for display.
+ */
+function firmFromTags(tags: string[] | null | undefined): string | null {
+  const tag = tags?.find((t) => t.startsWith("firm:"));
+  if (!tag) return null;
+  const raw = tag.slice("firm:".length).trim();
+  if (!raw) return null;
+  // Slug-style tags are lowercase-hyphenated; unslugify for display.
+  // Human-entered tags may already include spaces / punctuation — keep them.
+  if (/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(raw)) {
+    return raw.replace(/-/g, " ");
+  }
+  return raw;
+}
+
+function resolveFirmName(
+  companyId: string | null | undefined,
+  companyNameById: Map<string, string | null>,
+  tags: string[] | null | undefined
+): string | null {
+  if (companyId) {
+    const fromCompany = companyNameById.get(companyId);
+    if (fromCompany?.trim()) return fromCompany.trim();
+  }
+  return firmFromTags(tags);
+}
+
+/**
  * Build the referral web for Outreach → Network Map.
  * Includes everyone who is a referrer or a referral, plus a synthetic "You"
  * hub linked to degree-1 roots. Named channels like Boardy appear as nodes
@@ -98,6 +128,9 @@ export async function getNetworkMapData(): Promise<NetworkMapData> {
   if (contactsRes.error) {
     console.error("[network-map] contacts query failed", contactsRes.error);
     return EMPTY;
+  }
+  if (companiesRes.error) {
+    console.error("[network-map] companies query failed", companiesRes.error);
   }
 
   const companyNameById = new Map(
@@ -169,16 +202,13 @@ export async function getNetworkMapData(): Promise<NetworkMapData> {
   for (const id of involved) {
     const r = byId.get(id);
     if (!r) continue;
-    const companyId = r.company_id;
     const channel = isReferralSourceTag(r.tags);
     nodes.push({
       id: r.id,
       name: (r.name ?? "Unknown").trim() || "Unknown",
       firm: channel
         ? "Referral channel"
-        : companyId
-          ? companyNameById.get(companyId) ?? null
-          : null,
+        : resolveFirmName(r.company_id, companyNameById, r.tags),
       title: channel ? "Introduced via this channel" : r.title,
       degree: r.network_degree,
       role: r.network_role,
