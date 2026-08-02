@@ -971,7 +971,7 @@ table.data tr:last-child td{border-bottom:0}table.data tbody tr:hover td{backgro
     const secondaryOpen = state.ui.overviewSecondaryOpen;
     return `
       <p class="section-intro">Situational home: see the full journey above, then work only the step in front of you.</p>
-      ${renderMacroTrack()}
+      ${renderMacroTrack({ clickable: true })}
       ${renderMicroZone()}
       <div class="secondary-panel ${secondaryOpen ? "open" : ""}">
         <button class="secondary-panel-toggle" type="button" data-toggle-secondary aria-expanded="${secondaryOpen ? "true" : "false"}">
