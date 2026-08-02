@@ -23,6 +23,7 @@ import {
   Crosshair,
   RotateCcw,
 } from "lucide-react";
+import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 
 type SimNode = NetworkMapNode & {
   x: number;
@@ -139,21 +140,28 @@ function edgePad(
   return { px: ux * t, py: uy * t };
 }
 
+type ChainHop = { id: string; name: string; isYou: boolean };
+
 function chainFor(
   nodeId: string,
   edges: NetworkMapEdge[],
   nodesById: Map<string, NetworkMapNode>
-): string[] {
+): ChainHop[] {
   const parent = new Map<string, string>();
   for (const e of edges) {
     if (e.kind === "referral") parent.set(e.target, e.source);
   }
-  const chain: string[] = [];
+  const chain: ChainHop[] = [];
   const seen = new Set<string>();
   let cur: string | null = nodeId;
   while (cur && !seen.has(cur)) {
     seen.add(cur);
-    chain.unshift(nodesById.get(cur)?.name ?? "Unknown");
+    const node = nodesById.get(cur);
+    chain.unshift({
+      id: cur,
+      name: node?.name ?? "Unknown",
+      isYou: Boolean(node?.isYou),
+    });
     cur = parent.get(cur) ?? null;
   }
   return chain;
@@ -292,6 +300,12 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
   const [size, setSize] = useState({ w: 960, h: 640 });
   const [simNodes, setSimNodes] = useState<SimNode[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [modalTarget, setModalTarget] = useState<{
+    id: string;
+    name: string;
+    title: string | null;
+    firm: string | null;
+  } | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [degreeFilter, setDegreeFilter] = useState<"all" | "1" | "2" | "3">("all");
@@ -429,6 +443,19 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
   const selectedChain = selected
     ? chainFor(selected.id, data.edges, nodesById)
     : [];
+
+  const openContactModal = useCallback(
+    (node: Pick<NetworkMapNode, "id" | "name" | "title" | "firm" | "isYou">) => {
+      if (node.isYou) return;
+      setModalTarget({
+        id: node.id,
+        name: node.name,
+        title: node.title,
+        firm: node.firm,
+      });
+    },
+    []
+  );
 
   /** Focused node + full referral subtree (2nds and 3rds) + ancestry. */
   const highlight = useMemo(() => {
@@ -939,7 +966,13 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                 <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                   Selected
                 </div>
-                <div className="mt-1 text-sm font-semibold">{selected.name}</div>
+                <button
+                  type="button"
+                  onClick={() => openContactModal(selected)}
+                  className="mt-1 text-left text-sm font-semibold text-foreground underline-offset-2 hover:underline"
+                >
+                  {selected.name}
+                </button>
                 {selected.firm ? (
                   <div className="text-xs text-muted-foreground">{selected.firm}</div>
                 ) : null}
@@ -975,17 +1008,34 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                     Introduction path
                   </div>
                   <ol className="mt-2 space-y-1.5">
-                    {selectedChain.map((name, i) => (
-                      <li key={`${name}-${i}`} className="flex items-center gap-2 text-xs">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-medium">
-                          {i + 1}
-                        </span>
-                        <span>{name}</span>
-                        {i < selectedChain.length - 1 ? (
-                          <span className="text-muted-foreground">→</span>
-                        ) : null}
-                      </li>
-                    ))}
+                    {selectedChain.map((hop, i) => {
+                      const hopNode = nodesById.get(hop.id);
+                      const canOpen = hopNode && !hopNode.isYou;
+                      return (
+                        <li
+                          key={`${hop.id}-${i}`}
+                          className="flex items-center gap-2 text-xs"
+                        >
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-medium">
+                            {i + 1}
+                          </span>
+                          {canOpen ? (
+                            <button
+                              type="button"
+                              onClick={() => openContactModal(hopNode)}
+                              className="text-left font-medium text-foreground underline-offset-2 hover:underline"
+                            >
+                              {hop.name}
+                            </button>
+                          ) : (
+                            <span>{hop.name}</span>
+                          )}
+                          {i < selectedChain.length - 1 ? (
+                            <span className="text-muted-foreground">→</span>
+                          ) : null}
+                        </li>
+                      );
+                    })}
                   </ol>
                 </div>
               ) : (
@@ -993,12 +1043,13 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                   No upstream referral recorded for this person.
                 </p>
               )}
-              <a
-                href="/outreach/people"
+              <button
+                type="button"
+                onClick={() => openContactModal(selected)}
                 className="inline-flex text-xs text-foreground underline-offset-2 hover:underline"
               >
-                Open People
-              </a>
+                Open contact
+              </button>
             </>
           ) : (
             <div className="space-y-2 text-xs text-muted-foreground">
@@ -1014,6 +1065,21 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
           )}
         </div>
       </aside>
+
+      {modalTarget ? (
+        <OutreachModal
+          open={Boolean(modalTarget)}
+          onOpenChange={(open) => {
+            if (!open) setModalTarget(null);
+          }}
+          contactId={modalTarget.id}
+          initialDisplay={{
+            name: modalTarget.name,
+            title: modalTarget.title,
+            firm: modalTarget.firm,
+          }}
+        />
+      ) : null}
     </div>
   );
 }
