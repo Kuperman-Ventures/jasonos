@@ -137,6 +137,50 @@ table.data tr:last-child td{border-bottom:0}table.data tbody tr:hover td{backgro
 .drawer-backdrop{display:none;position:fixed;inset:0;background:rgba(10,16,24,.4);z-index:35}
 .drawer-backdrop.open{display:block}
 .section-intro{margin-bottom:12px;color:var(--text-secondary);max-width:720px}
+/* Macro progress track — omnipresent, visually quiet */
+.macro-track{background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px 14px;margin-bottom:14px;box-shadow:var(--shadow-sm)}
+.macro-track-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px}
+.macro-track-label{font-size:10px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)}
+.macro-track-meta{font-size:11px;color:var(--text-muted)}
+.macro-steps{display:flex;gap:0;align-items:stretch;overflow-x:auto;padding-bottom:2px}
+.macro-step{flex:1 1 0;min-width:88px;position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;padding:0 4px;background:transparent;border:0;cursor:default;color:var(--text-muted)}
+.macro-step.clickable{cursor:pointer}
+.macro-step.clickable:hover .macro-step-name{color:var(--text)}
+.macro-step-rail{display:flex;align-items:center;width:100%;margin-bottom:6px}
+.macro-step-rail::before,.macro-step-rail::after{content:"";flex:1;height:2px;background:var(--border)}
+.macro-step:first-child .macro-step-rail::before,.macro-step:last-child .macro-step-rail::after{background:transparent}
+.macro-step-dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--border-strong);background:var(--bg-elevated);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;z-index:1}
+.macro-step.completed .macro-step-dot{border-color:var(--success);background:var(--success);color:#fff}
+.macro-step.completed .macro-step-rail::before,.macro-step.completed .macro-step-rail::after{background:var(--success)}
+.macro-step.active .macro-step-dot{border-color:var(--info);background:var(--info);color:#fff;box-shadow:0 0 0 3px var(--info-soft)}
+.macro-step.active .macro-step-rail::before{background:var(--success)}
+.macro-step.active .macro-step-name{color:var(--text);font-weight:700}
+.macro-step-name{font-size:11px;line-height:1.25;color:var(--text-secondary);max-width:100%}
+.macro-step-status{font-size:10px;margin-top:3px;font-weight:600;letter-spacing:.02em}
+.macro-step.completed .macro-step-status{color:var(--success)}
+.macro-step.active .macro-step-status{color:var(--info)}
+.macro-step.pending .macro-step-status{color:var(--text-muted)}
+/* Micro action zone — last / current / next */
+.micro-zone{display:flex;flex-direction:column;gap:10px;margin-bottom:16px}
+.micro-card{border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-elevated);padding:12px 14px}
+.micro-card.anchor,.micro-card.foresight{background:var(--bg-subtle);border-color:var(--border);opacity:.92;box-shadow:none}
+.micro-card.focus{border-color:var(--info);box-shadow:0 0 0 1px var(--info-soft),var(--shadow-md);background:var(--bg-elevated);padding:16px}
+.micro-kicker{font-size:11px;font-weight:700;letter-spacing:.02em;margin-bottom:6px}
+.micro-card.anchor .micro-kicker{color:var(--success)}
+.micro-card.focus .micro-kicker{color:var(--info)}
+.micro-card.foresight .micro-kicker{color:var(--text-muted)}
+.micro-title{font-size:14px;font-weight:650;letter-spacing:-.015em;color:var(--text)}
+.micro-card.anchor .micro-title,.micro-card.foresight .micro-title{font-size:13px;font-weight:550;color:var(--text-secondary)}
+.micro-meta{font-size:11px;color:var(--text-muted);margin-top:3px}
+.micro-body{margin-top:12px}
+.micro-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.micro-checklist{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.micro-empty{font-size:12px;color:var(--text-muted);font-style:italic}
+.secondary-panel{margin-top:4px}
+.secondary-panel-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px dashed var(--border-strong);background:transparent;border-radius:var(--radius);padding:8px 12px;cursor:pointer;color:var(--text-secondary);font-size:12px;font-weight:550}
+.secondary-panel-toggle:hover{background:var(--bg-hover);color:var(--text)}
+.secondary-panel-body{display:none;margin-top:12px}
+.secondary-panel.open .secondary-panel-body{display:block}
 .kv{display:grid;gap:8px}.kv-row{display:grid;grid-template-columns:140px 1fr;gap:8px;font-size:12px}.kv-row dt{color:var(--text-muted);font-weight:550}
 .prose-list{margin:0;padding-left:16px}.prose-list li{margin-bottom:4px}
 .decision-options{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
@@ -153,6 +197,7 @@ table.data tr:last-child td{border-bottom:0}table.data tbody tr:hover td{backgro
   .nav-btn{justify-content:center;padding:9px}.sidebar-brand{justify-content:center;padding:14px 8px}
   .grid-3,.grid-2{grid-template-columns:1fr}.span-2,.span-3{grid-column:span 1}
   .decision-options{grid-template-columns:1fr}.school-select label{display:none}
+  .macro-step{min-width:72px}
 }
 @media (max-width:700px){
   .app{grid-template-columns:1fr}
@@ -162,6 +207,8 @@ table.data tr:last-child td{border-bottom:0}table.data tbody tr:hover td{backgro
   .nav-btn{justify-content:flex-start}.sidebar-brand{justify-content:flex-start;padding:14px}
   .menu-toggle{display:inline-flex}.top-actions .hide-sm{display:none}
   .gap-row{grid-template-columns:1fr}table.data{display:block;overflow-x:auto}
+  .macro-step-name{font-size:10px}
+  .micro-card.focus{padding:14px}
 }
 </style>
 </head>
@@ -538,9 +585,22 @@ table.data tr:last-child td{border-bottom:0}table.data tbody tr:hover td{backgro
         notesTag: "all",
         docsCategory: "all",
         openDecisionId: "d1",
+        overviewSecondaryOpen: false,
+        timelineExpandedPhaseId: null,
       },
     };
   }
+
+  /** Map timeline phases → related workspace sections (existing IDs only). */
+  const PHASE_WORKSPACE = {
+    ph1: ["setonhall", "decisions", "research"],
+    ph2: ["degree", "documents", "gaps"],
+    ph3: ["teaching", "materials"],
+    ph4: ["materials", "documents"],
+    ph5: ["contacts", "research"],
+    ph6: ["materials", "contacts", "setonhall"],
+    ph7: ["teaching", "materials", "notes"],
+  };
 
   let state = createInitialState();
   let currentSection = "overview";
@@ -564,14 +624,225 @@ table.data tr:last-child td{border-bottom:0}table.data tbody tr:hover td{backgro
       .replace(/"/g, "&quot;");
   }
 
+  function flatMilestones() {
+    const steps = [];
+    state.timeline.forEach((phase) => {
+      phase.milestones.forEach((m) => {
+        steps.push({
+          phaseId: phase.id,
+          phaseName: phase.phase,
+          phaseTarget: phase.target,
+          milestone: m,
+        });
+      });
+    });
+    return steps;
+  }
+
+  /** Derive last / current / next from existing timeline milestones only. */
+  function journeyContext() {
+    const steps = flatMilestones();
+    const firstOpen = steps.findIndex((s) => !s.milestone.done);
+    const allDone = steps.length > 0 && firstOpen === -1;
+    const currentIndex = allDone ? steps.length - 1 : firstOpen;
+    const current = currentIndex >= 0 ? steps[currentIndex] : null;
+    const prev = currentIndex > 0 ? steps[currentIndex - 1] : null;
+    const next = !allDone && currentIndex >= 0 ? steps[currentIndex + 1] || null : null;
+    const doneCount = steps.filter((s) => s.milestone.done).length;
+    return { steps, prev, current, next, currentIndex, allDone, doneCount };
+  }
+
+  /** Keep phase status in sync with milestone completion (Completed / Current / Pending). */
+  function syncTimelineFromMilestones() {
+    let activated = false;
+    state.timeline.forEach((phase) => {
+      const total = phase.milestones.length;
+      const done = phase.milestones.filter((m) => m.done).length;
+      if (total > 0 && done === total) {
+        phase.status = "done";
+        return;
+      }
+      if (!activated) {
+        phase.status = "active";
+        activated = true;
+      } else {
+        phase.status = "upcoming";
+      }
+    });
+  }
+
+  function phaseVisualStatus(phase) {
+    if (phase.status === "done") return "completed";
+    if (phase.status === "active") return "active";
+    return "pending";
+  }
+
+  function phaseStatusLabel(visual) {
+    if (visual === "completed") return "Completed";
+    if (visual === "active") return "Current";
+    return "Pending";
+  }
+
+  function renderMacroTrack(opts = {}) {
+    const { highlightPhaseId = null, clickable = false } = opts;
+    const ctx = journeyContext();
+    const pct = ctx.steps.length
+      ? Math.round((ctx.doneCount / ctx.steps.length) * 100)
+      : 0;
+    return `
+      <section class="macro-track" aria-label="Overall journey progress">
+        <div class="macro-track-head">
+          <div class="macro-track-label">Overall journey</div>
+          <div class="macro-track-meta num">${ctx.doneCount} of ${ctx.steps.length} milestones · ${pct}%</div>
+        </div>
+        <div class="macro-steps" role="list">
+          ${state.timeline.map((phase) => {
+            const visual = phaseVisualStatus(phase);
+            const doneInPhase = phase.milestones.filter((m) => m.done).length;
+            const isHere = highlightPhaseId
+              ? phase.id === highlightPhaseId
+              : visual === "active";
+            const tag = clickable ? "button" : "div";
+            const clickAttrs = clickable
+              ? `type="button" data-expand-phase="${phase.id}"`
+              : `role="listitem"`;
+            return `
+              <${tag} class="macro-step ${visual}${clickable ? " clickable" : ""}" ${clickAttrs} title="${escapeHtml(phase.phase)}">
+                <div class="macro-step-rail">
+                  <span class="macro-step-dot" aria-hidden="true">${visual === "completed" ? "✓" : visual === "active" ? "●" : ""}</span>
+                </div>
+                <div class="macro-step-name">${escapeHtml(phase.phase)}</div>
+                <div class="macro-step-status">${phaseStatusLabel(visual)}${isHere ? " · You are here" : ""}</div>
+                <div class="macro-track-meta" style="margin-top:2px">${doneInPhase}/${phase.milestones.length} · ${escapeHtml(phase.target)}</div>
+              </${tag}>`;
+          }).join("")}
+        </div>
+      </section>`;
+  }
+
+  function relatedSectionButtons(phaseId) {
+    const ids = PHASE_WORKSPACE[phaseId] || [];
+    return ids
+      .map((id) => {
+        const s = SECTIONS.find((x) => x.id === id);
+        if (!s) return "";
+        return `<button class="btn btn-sm" type="button" data-nav="${s.id}">${escapeHtml(s.label)}</button>`;
+      })
+      .join("");
+  }
+
+  function renderMicroZone() {
+    const ctx = journeyContext();
+    const openActions = state.nextActions.filter((a) => !a.done).slice(0, 4);
+    const anchor = ctx.prev && ctx.prev.milestone.done ? ctx.prev : null;
+
+    let focusHtml;
+    if (!ctx.current) {
+      focusHtml = `
+        <article class="micro-card focus" aria-label="Current action required">
+          <div class="micro-kicker">Current Action Required</div>
+          <div class="micro-empty">No milestones on the timeline yet.</div>
+        </article>`;
+    } else if (ctx.allDone) {
+      focusHtml = `
+        <article class="micro-card focus" aria-label="Current action required">
+          <div class="micro-kicker">Current Action Required</div>
+          <div class="micro-title">All roadmap milestones are complete</div>
+          <div class="micro-meta">Phase: ${escapeHtml(ctx.current.phaseName)} · Target ${escapeHtml(ctx.current.phaseTarget)}</div>
+          <div class="micro-body card-muted">Use the section workspaces below to keep materials, outreach, and notes current — or add new milestones on Timeline.</div>
+          <div class="micro-actions">
+            <button class="btn btn-primary btn-sm" type="button" data-nav="timeline">Review Timeline</button>
+            <button class="btn btn-sm" type="button" data-nav="notes">Open Notes</button>
+          </div>
+        </article>`;
+    } else {
+      const cur = ctx.current;
+      const siblings = state.timeline
+        .find((p) => p.id === cur.phaseId)
+        ?.milestones.filter((m) => !m.done && m.id !== cur.milestone.id)
+        .slice(0, 3) || [];
+      focusHtml = `
+        <article class="micro-card focus" aria-label="Current action required">
+          <div class="micro-kicker">Current Action Required: ${escapeHtml(cur.milestone.text)}</div>
+          <div class="micro-title">${escapeHtml(cur.milestone.text)}</div>
+          <div class="micro-meta">
+            Phase: ${escapeHtml(cur.phaseName)} · Target ${escapeHtml(cur.phaseTarget)} · Status: <strong>In Progress</strong>
+          </div>
+          <div class="micro-body">
+            <label class="list-item" style="background:var(--bg);border-color:var(--info)">
+              <input class="check" type="checkbox" data-milestone="${cur.phaseId}:${cur.milestone.id}" ${cur.milestone.done ? "checked" : ""} />
+              <span class="list-body">
+                <div class="list-title">Mark this milestone complete</div>
+                <div class="list-meta">Completing advances you to the next step in the journey.</div>
+              </span>
+            </label>
+            <div class="field" style="margin-top:12px;margin-bottom:0">
+              <label class="label">Key next decision (context)</label>
+              <textarea class="textarea" data-bind="overview.keyNextDecision" aria-label="Key next decision">${escapeHtml(state.overview.keyNextDecision)}</textarea>
+            </div>
+            ${openActions.length ? `
+              <div class="micro-checklist">
+                <div class="label" style="margin:8px 0 0">Related open actions</div>
+                ${openActions.map((a) => `
+                  <label class="list-item" style="padding:6px 8px">
+                    <input class="check" type="checkbox" data-action-check="${a.id}" ${a.done ? "checked" : ""} />
+                    <span class="list-body"><div class="list-title">${escapeHtml(a.text)}</div><div class="list-meta">Due ${escapeHtml(a.due || "—")}</div></span>
+                  </label>`).join("")}
+              </div>` : ""}
+            ${siblings.length ? `
+              <div class="list-meta" style="margin-top:10px">Still in this phase after this step: ${siblings.map((m) => escapeHtml(m.text)).join(" · ")}</div>` : ""}
+          </div>
+          <div class="micro-actions">
+            ${relatedSectionButtons(cur.phaseId)}
+            <button class="btn btn-sm btn-ghost" type="button" data-nav="timeline">Full Timeline</button>
+          </div>
+        </article>`;
+    }
+
+    const anchorHtml = anchor
+      ? `
+        <article class="micro-card anchor" aria-label="Previously completed">
+          <div class="micro-kicker">Previously Completed: ${escapeHtml(anchor.milestone.text)}</div>
+          <div class="micro-title">${escapeHtml(anchor.milestone.text)}</div>
+          <div class="micro-meta">Phase: ${escapeHtml(anchor.phaseName)} · Status: Completed</div>
+        </article>`
+      : `
+        <article class="micro-card anchor" aria-label="Previously completed">
+          <div class="micro-kicker">Previously Completed</div>
+          <div class="micro-empty">No prior milestone yet — you are at the start of the journey.</div>
+        </article>`;
+
+    const foresightHtml = ctx.next
+      ? `
+        <article class="micro-card foresight" aria-label="Up next">
+          <div class="micro-kicker">Up Next: ${escapeHtml(ctx.next.milestone.text)}</div>
+          <div class="micro-title">${escapeHtml(ctx.next.milestone.text)}</div>
+          <div class="micro-meta">Phase: ${escapeHtml(ctx.next.phaseName)} · Status: Pending · Unlocks after the current step</div>
+        </article>`
+      : `
+        <article class="micro-card foresight" aria-label="Up next">
+          <div class="micro-kicker">Up Next</div>
+          <div class="micro-empty">${ctx.allDone ? "Nothing queued — journey milestones are complete." : "This is the final open milestone."}</div>
+        </article>`;
+
+    return `
+      <section class="micro-zone" aria-label="Immediate workflow">
+        ${anchorHtml}
+        ${focusHtml}
+        ${foresightHtml}
+      </section>`;
+  }
+
   function statusPill(status) {
     const map = {
       not_started: ["pill", "Not started"],
       exploring: ["pill pill-info", "Exploring"],
       decided: ["pill pill-success", "Decided"],
-      in_progress: ["pill pill-warning", "In progress"],
-      done: ["pill pill-success", "Done"],
-      complete: ["pill pill-success", "Complete"],
+      in_progress: ["pill pill-warning", "In Progress"],
+      upcoming: ["pill", "Pending"],
+      active: ["pill pill-info", "Current"],
+      done: ["pill pill-success", "Completed"],
+      complete: ["pill pill-success", "Completed"],
       n_a: ["pill", "N/A"],
       identify: ["pill pill-warning", "Identify"],
       research: ["pill pill-info", "Research"],
@@ -585,8 +856,6 @@ table.data tr:last-child td{border-bottom:0}table.data tbody tr:hover td{backgro
       important: ["pill pill-danger", "Important"],
       follow_up: ["pill pill-warning", "Follow up"],
       open_question: ["pill pill-info", "Open question"],
-      active: ["pill pill-accent", "Active"],
-      upcoming: ["pill", "Upcoming"],
       high: ["pill pill-danger", "High"],
       medium: ["pill pill-warning", "Medium"],
       low: ["pill", "Low"],
@@ -645,6 +914,10 @@ table.data tr:last-child td{border-bottom:0}table.data tbody tr:hover td{backgro
         if (id === "gaps") meta = `<span class="nav-meta">${openGaps().length}</span>`;
         if (id === "contacts") meta = `<span class="nav-meta">${state.contacts.length}</span>`;
         if (id === "notes") meta = `<span class="nav-meta">${state.notes.length}</span>`;
+        if (id === "timeline" || id === "overview") {
+          const ctx = journeyContext();
+          meta = `<span class="nav-meta">${ctx.doneCount}/${ctx.steps.length}</span>`;
+        }
         return `<button class="nav-btn${active}" data-section="${id}" type="button">${iconSvg(s.icon)}<span>${s.label}</span>${meta}</button>`;
       }).join("");
       return `<div class="nav-section-label">${g.label}</div>${items}`;
@@ -693,70 +966,52 @@ table.data tr:last-child td{border-bottom:0}table.data tbody tr:hover td{backgro
 
   function viewOverview() {
     const r = state.overview.readiness;
-    const actions = state.nextActions.slice(0, 3);
     const gaps = openGaps().slice(0, 4);
     const mats = state.materials.filter((m) => m.status !== "done" && m.status !== "n_a" && m.priority === "high").slice(0, 4);
-    const activePhase = state.timeline.find((p) => p.status === "active") || state.timeline[0];
+    const secondaryOpen = state.ui.overviewSecondaryOpen;
     return `
-      <div class="grid grid-4" style="margin-bottom:12px">
-        <div class="card stat"><div class="stat-label">Readiness</div><div class="stat-value num">${avgReadiness()}%</div><div class="stat-sub">Average across categories</div></div>
-        <div class="card stat"><div class="stat-label">Target</div><div class="stat-value" style="font-size:16px;margin-top:8px">${escapeHtml(schoolShort())}</div><div class="stat-sub">Primary institution</div></div>
-        <div class="card stat"><div class="stat-label">Path status</div><div style="margin-top:6px"><input class="editable" data-bind="overview.pathStatus" value="${escapeHtml(state.overview.pathStatus)}" aria-label="Path status" /></div><div class="stat-sub">Editable</div></div>
-        <div class="card stat"><div class="stat-label">Open high gaps</div><div class="stat-value num">${openGaps().length}</div><div class="stat-sub">Need attention</div></div>
-      </div>
-      <div class="grid grid-3">
-        <div class="card span-2">
-          <div class="card-h"><div class="card-title">Key next decision</div>${statusPill("exploring")}</div>
-          <div class="card-b"><textarea class="textarea" data-bind="overview.keyNextDecision" aria-label="Key next decision">${escapeHtml(state.overview.keyNextDecision)}</textarea></div>
-        </div>
-        <div class="card">
-          <div class="card-h"><div class="card-title">Timeline snapshot</div></div>
-          <div class="card-b">
-            <div class="list-title">${escapeHtml(activePhase.phase)}</div>
-            <div class="list-meta">Target ${escapeHtml(activePhase.target)} · ${statusPill(activePhase.status)}</div>
-            <div class="tl-milestones" style="margin-top:10px">
-              ${activePhase.milestones.map((m) => `
-                <label class="list-item" style="padding:6px 8px">
-                  <input class="check" type="checkbox" data-milestone="${activePhase.id}:${m.id}" ${m.done ? "checked" : ""} />
-                  <span class="list-body ${m.done ? "card-muted" : ""}">${escapeHtml(m.text)}</span>
-                </label>`).join("")}
+      <p class="section-intro">Situational home: see the full journey above, then work only the step in front of you.</p>
+      ${renderMacroTrack({ clickable: true })}
+      ${renderMicroZone()}
+      <div class="secondary-panel ${secondaryOpen ? "open" : ""}">
+        <button class="secondary-panel-toggle" type="button" data-toggle-secondary aria-expanded="${secondaryOpen ? "true" : "false"}">
+          <span>Supporting context (readiness, gaps, materials)</span>
+          <span class="card-muted">${secondaryOpen ? "Hide" : "Show"}</span>
+        </button>
+        <div class="secondary-panel-body">
+          <div class="grid grid-4" style="margin-bottom:12px">
+            <div class="card stat"><div class="stat-label">Readiness</div><div class="stat-value num">${avgReadiness()}%</div><div class="stat-sub">Average across categories</div></div>
+            <div class="card stat"><div class="stat-label">Target</div><div class="stat-value" style="font-size:16px;margin-top:8px">${escapeHtml(schoolShort())}</div><div class="stat-sub">Primary institution</div></div>
+            <div class="card stat"><div class="stat-label">Path status</div><div style="margin-top:6px"><input class="editable" data-bind="overview.pathStatus" value="${escapeHtml(state.overview.pathStatus)}" aria-label="Path status" /></div><div class="stat-sub">Editable</div></div>
+            <div class="card stat"><div class="stat-label">Open high gaps</div><div class="stat-value num">${openGaps().length}</div><div class="stat-sub">Need attention</div></div>
+          </div>
+          <div class="grid grid-3">
+            <div class="card">
+              <div class="card-h"><div class="card-title">Open gaps</div><button class="btn btn-sm btn-ghost" data-nav="gaps" type="button">View all</button></div>
+              <div class="card-b list">
+                ${gaps.map((g) => `<div class="list-item"><div class="list-body"><div class="list-title">${escapeHtml(g.area)} ${statusPill(g.priority)}</div><div class="list-meta">${escapeHtml(g.missing)}</div></div></div>`).join("")}
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-h"><div class="card-title">Materials to prepare</div><button class="btn btn-sm btn-ghost" data-nav="materials" type="button">Open</button></div>
+              <div class="card-b list">
+                ${mats.map((m) => `<div class="list-item"><div class="list-body"><div class="list-title">${escapeHtml(m.name)}</div><div class="list-meta">${statusPill(m.status)} · due ${escapeHtml(m.due || "TBD")}</div></div></div>`).join("")}
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-h"><div class="card-title">Quick notes</div></div>
+              <div class="card-b"><textarea class="textarea" data-bind="overview.quickNote" aria-label="Quick note">${escapeHtml(state.overview.quickNote)}</textarea></div>
+            </div>
+            <div class="card span-3">
+              <div class="card-h"><div class="card-title">Readiness by category</div></div>
+              <div class="card-b">
+                ${Object.entries(r).map(([k, v]) => `
+                  <div class="progress-row"><div>${escapeHtml(k)}</div><div class="progress"><span style="width:${v}%"></span></div><div class="pct">${v}%</div></div>
+                  <input type="range" min="0" max="100" value="${v}" data-readiness="${k}" aria-label="${k} readiness" style="width:100%;margin:-4px 0 10px" />
+                `).join("")}
+              </div>
             </div>
           </div>
-        </div>
-        <div class="card">
-          <div class="card-h"><div class="card-title">Next 3 actions</div><button class="btn btn-sm" data-action="add-action" type="button">Add</button></div>
-          <div class="card-b list">
-            ${actions.map((a) => `
-              <label class="list-item">
-                <input class="check" type="checkbox" data-action-check="${a.id}" ${a.done ? "checked" : ""} />
-                <span class="list-body"><div class="list-title ${a.done ? "card-muted" : ""}">${escapeHtml(a.text)}</div><div class="list-meta">Due ${escapeHtml(a.due || "—")}</div></span>
-              </label>`).join("")}
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-h"><div class="card-title">Open gaps</div><button class="btn btn-sm btn-ghost" data-nav="gaps" type="button">View all</button></div>
-          <div class="card-b list">
-            ${gaps.map((g) => `<div class="list-item"><div class="list-body"><div class="list-title">${escapeHtml(g.area)} ${statusPill(g.priority)}</div><div class="list-meta">${escapeHtml(g.missing)}</div></div></div>`).join("")}
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-h"><div class="card-title">Materials to prepare</div><button class="btn btn-sm btn-ghost" data-nav="materials" type="button">Open</button></div>
-          <div class="card-b list">
-            ${mats.map((m) => `<div class="list-item"><div class="list-body"><div class="list-title">${escapeHtml(m.name)}</div><div class="list-meta">${statusPill(m.status)} · due ${escapeHtml(m.due || "TBD")}</div></div></div>`).join("")}
-          </div>
-        </div>
-        <div class="card span-2">
-          <div class="card-h"><div class="card-title">Readiness by category</div></div>
-          <div class="card-b">
-            ${Object.entries(r).map(([k, v]) => `
-              <div class="progress-row"><div>${escapeHtml(k)}</div><div class="progress"><span style="width:${v}%"></span></div><div class="pct">${v}%</div></div>
-              <input type="range" min="0" max="100" value="${v}" data-readiness="${k}" aria-label="${k} readiness" style="width:100%;margin:-4px 0 10px" />
-            `).join("")}
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-h"><div class="card-title">Quick notes</div></div>
-          <div class="card-b"><textarea class="textarea" data-bind="overview.quickNote" aria-label="Quick note">${escapeHtml(state.overview.quickNote)}</textarea></div>
         </div>
       </div>`;
   }
@@ -1103,29 +1358,68 @@ table.data tr:last-child td{border-bottom:0}table.data tbody tr:hover td{backgro
   }
 
   function viewTimeline() {
+    const ctx = journeyContext();
+    const expandedId =
+      state.ui.timelineExpandedPhaseId ||
+      state.timeline.find((p) => p.status === "active")?.id ||
+      state.timeline[0]?.id;
     return `
-      <p class="section-intro">Phased roadmap from exploration through applications. Check off milestones as you advance.</p>
-      <div class="card"><div class="card-b">
-        <div class="timeline">
-          ${state.timeline.map((p) => `
-            <div class="tl-item ${p.status === "active" ? "active" : ""} ${p.status === "done" ? "done" : ""}">
-              <div class="tl-dot"></div>
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                <div class="tl-phase">${escapeHtml(p.phase)}</div>
-                ${statusPill(p.status)}
-                <select class="select" data-phase-status="${p.id}" style="width:auto;height:26px;padding:1px 6px">
-                  ${["upcoming", "active", "done"].map((s) => `<option value="${s}" ${p.status === s ? "selected" : ""}>${s}</option>`).join("")}
-                </select>
+      <p class="section-intro">Full journey track stays quiet. Expand a phase only when you need detail beyond the current action.</p>
+      ${renderMacroTrack({ highlightPhaseId: expandedId, clickable: true })}
+      ${renderMicroZone()}
+      <div class="card"><div class="card-b" style="padding-top:10px">
+        <div class="label" style="margin-bottom:8px">All phases (progressive disclosure)</div>
+        <div class="accordion">
+          ${state.timeline.map((p) => {
+            const visual = phaseVisualStatus(p);
+            const open = p.id === expandedId ? " open" : "";
+            const doneCount = p.milestones.filter((m) => m.done).length;
+            return `
+            <div class="acc-item${open}" data-acc="${p.id}">
+              <button class="acc-trigger" data-expand-phase="${p.id}" type="button" aria-expanded="${open ? "true" : "false"}">
+                <svg class="acc-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                    <strong>${escapeHtml(p.phase)}</strong>
+                    ${statusPill(p.status)}
+                    ${visual === "active" ? `<span class="pill pill-info">You are here</span>` : ""}
+                  </div>
+                  <div class="list-meta">${doneCount}/${p.milestones.length} milestones · Target ${escapeHtml(p.target)}</div>
+                </div>
+              </button>
+              <div class="acc-panel">
+                <div class="field-row">
+                  <div class="field" style="margin:0"><label class="label">Target month</label>
+                    <input class="input" data-phase-target="${p.id}" value="${escapeHtml(p.target)}" />
+                  </div>
+                  <div class="field" style="margin:0"><label class="label">Phase status</label>
+                    <select class="select" data-phase-status="${p.id}">
+                      <option value="upcoming" ${p.status === "upcoming" ? "selected" : ""}>Pending</option>
+                      <option value="active" ${p.status === "active" ? "selected" : ""}>Current</option>
+                      <option value="done" ${p.status === "done" ? "selected" : ""}>Completed</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="tl-milestones" style="margin-top:10px">
+                  ${p.milestones.map((m) => {
+                    const isCurrent =
+                      ctx.current &&
+                      !ctx.allDone &&
+                      ctx.current.phaseId === p.id &&
+                      ctx.current.milestone.id === m.id;
+                    return `
+                    <label class="list-item" style="padding:6px 8px;${isCurrent ? "border-color:var(--info);background:var(--info-soft)" : ""}">
+                      <input class="check" type="checkbox" data-milestone="${p.id}:${m.id}" ${m.done ? "checked" : ""} />
+                      <span class="list-body ${m.done ? "card-muted" : ""}">
+                        <div class="list-title">${escapeHtml(m.text)}${isCurrent ? " · Current Action Required" : m.done ? " · Completed" : " · Pending"}</div>
+                      </span>
+                    </label>`;
+                  }).join("")}
+                </div>
+                <div class="micro-actions" style="margin-top:10px">${relatedSectionButtons(p.id)}</div>
               </div>
-              <div class="tl-meta">Target: <input class="editable" data-phase-target="${p.id}" value="${escapeHtml(p.target)}" style="width:100px;display:inline-block" /></div>
-              <div class="tl-milestones">
-                ${p.milestones.map((m) => `
-                  <label class="list-item" style="padding:6px 8px">
-                    <input class="check" type="checkbox" data-milestone="${p.id}:${m.id}" ${m.done ? "checked" : ""} />
-                    <span class="list-body ${m.done ? "card-muted" : ""}">${escapeHtml(m.text)}</span>
-                  </label>`).join("")}
-              </div>
-            </div>`).join("")}
+            </div>`;
+          }).join("")}
         </div>
       </div></div>`;
   }
@@ -1464,7 +1758,8 @@ table.data tr:last-child td{border-bottom:0}table.data tbody tr:hover td{backgro
           throw new Error("Unrecognized file");
         }
         state = data;
-        if (!state.ui) state.ui = createInitialState().ui;
+        state.ui = { ...createInitialState().ui, ...(state.ui || {}) };
+        syncTimelineFromMilestones();
         setTheme(state.theme || "light");
         populateSchoolSelect();
         navigate(currentSection, false);
@@ -1483,6 +1778,25 @@ table.data tr:last-child td{border-bottom:0}table.data tbody tr:hover td{backgro
     view.addEventListener("click", (e) => {
       const nav = e.target.closest("[data-nav]");
       if (nav) { navigate(nav.getAttribute("data-nav")); return; }
+
+      const secondary = e.target.closest("[data-toggle-secondary]");
+      if (secondary) {
+        state.ui.overviewSecondaryOpen = !state.ui.overviewSecondaryOpen;
+        renderView();
+        return;
+      }
+
+      const expandPhase = e.target.closest("[data-expand-phase]");
+      if (expandPhase) {
+        const id = expandPhase.getAttribute("data-expand-phase");
+        state.ui.timelineExpandedPhaseId =
+          state.ui.timelineExpandedPhaseId === id && currentSection === "timeline"
+            ? null
+            : id;
+        if (currentSection !== "timeline") navigate("timeline");
+        else renderView();
+        return;
+      }
 
       const acc = e.target.closest("[data-acc-toggle]");
       if (acc) {
@@ -1534,13 +1848,29 @@ table.data tr:last-child td{border-bottom:0}table.data tbody tr:hover td{backgro
       if (t.matches("[data-action-check]")) {
         const a = state.nextActions.find((x) => x.id === t.getAttribute("data-action-check"));
         if (a) a.done = t.checked;
+        if (currentSection === "overview" || currentSection === "timeline") renderView();
         return;
       }
       if (t.matches("[data-milestone]")) {
         const [pid, mid] = t.getAttribute("data-milestone").split(":");
         const phase = state.timeline.find((p) => p.id === pid);
         const m = phase?.milestones.find((x) => x.id === mid);
-        if (m) m.done = t.checked;
+        if (!m) return;
+        const wasDone = m.done;
+        m.done = t.checked;
+        syncTimelineFromMilestones();
+        const active = state.timeline.find((p) => p.status === "active");
+        if (active) state.ui.timelineExpandedPhaseId = active.id;
+        renderView();
+        renderNav();
+        if (m.done && !wasDone) {
+          const ctx = journeyContext();
+          if (ctx.allDone) toast("All journey milestones completed");
+          else if (ctx.current) toast(`Current action: ${ctx.current.milestone.text}`);
+          else toast("Milestone completed");
+        } else if (!m.done && wasDone) {
+          toast("Milestone reopened — journey updated");
+        }
         return;
       }
       if (t.matches("[data-readiness]")) {
@@ -1707,6 +2037,7 @@ table.data tr:last-child td{border-bottom:0}table.data tbody tr:hover td{backgro
     }
     setTheme(state.theme);
     populateSchoolSelect();
+    syncTimelineFromMilestones();
     renderNav();
     bindViewEvents();
 
