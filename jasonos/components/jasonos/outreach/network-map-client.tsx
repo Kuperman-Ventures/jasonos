@@ -728,7 +728,10 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
           <LegendDot color={DEGREE_COLOR["1"]} label="1 — know well" />
           <LegendDot color={DEGREE_COLOR["2"]} label="2 — intro’d by a 1" />
           <LegendDot color={DEGREE_COLOR["3"]} label="3 — intro’d by a 2" />
-          <LegendDot color={DEGREE_COLOR.channel} label="Channel (e.g. Boardy)" />
+          <LegendDot
+            color={DEGREE_COLOR.channel}
+            label="Channel (Boardy, Connective, …)"
+          />
           <span className="rounded-md border bg-background/90 px-2 py-1 text-muted-foreground">
             Solid arrow = referred · Dashed = you know / via channel
           </span>

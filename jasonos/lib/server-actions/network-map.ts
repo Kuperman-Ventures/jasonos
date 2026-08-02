@@ -140,11 +140,10 @@ export async function getNetworkMapData(): Promise<NetworkMapData> {
     });
   }
 
-  // Always keep named channels that have introduced someone (Boardy, etc.).
+  // Always keep named referral channels on the map (Boardy, Browning,
+  // The Connective, …) so they show even before anyone is linked to them.
   for (const r of rows) {
-    if (!isReferralSourceTag(r.tags)) continue;
-    const hasOutbound = referralEdges.some((e) => e.source === r.id);
-    if (hasOutbound) involved.add(r.id);
+    if (isReferralSourceTag(r.tags)) involved.add(r.id);
   }
 
   const outbound = new Map<string, number>();
