@@ -49,6 +49,7 @@ const NAV: NavItem[] = [
       { href: "/outreach/dashboard", label: "Dashboard" },
       { href: "/outreach/queue", label: "Queue" },
       { href: "/outreach/people", label: "People" },
+      { href: "/outreach/network-map", label: "Network Map" },
       { href: "/outreach/suggested", label: "Suggested" },
       { href: "/outreach/firms", label: "Firms" },
     ],
