@@ -21,6 +21,7 @@ import {
   ZoomOut,
   Maximize2,
   Crosshair,
+  RotateCcw,
 } from "lucide-react";
 
 type SimNode = NetworkMapNode & {
@@ -31,6 +32,49 @@ type SimNode = NetworkMapNode & {
 };
 
 type ViewTransform = { x: number; y: number; k: number };
+
+/** Normalized canvas coords (0–1) so positions survive resize + reloads. */
+type PinnedPos = { nx: number; ny: number };
+type PinnedMap = Record<string, PinnedPos>;
+
+const POSITIONS_KEY = "jasonos.network-map.positions.v1";
+
+function loadPinnedPositions(): PinnedMap {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(POSITIONS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as PinnedMap;
+    if (!parsed || typeof parsed !== "object") return {};
+    const out: PinnedMap = {};
+    for (const [id, pos] of Object.entries(parsed)) {
+      if (
+        pos &&
+        typeof pos.nx === "number" &&
+        typeof pos.ny === "number" &&
+        Number.isFinite(pos.nx) &&
+        Number.isFinite(pos.ny)
+      ) {
+        out[id] = {
+          nx: Math.min(1, Math.max(0, pos.nx)),
+          ny: Math.min(1, Math.max(0, pos.ny)),
+        };
+      }
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function savePinnedPositions(map: PinnedMap) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(POSITIONS_KEY, JSON.stringify(map));
+  } catch {
+    // ignore quota / private-mode failures
+  }
+}
 
 // Theme tokens are oklch() values — use var(...) directly, never hsl(var(...)).
 const DEGREE_COLOR: Record<string, string> = {
@@ -252,6 +296,10 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
   const [query, setQuery] = useState("");
   const [degreeFilter, setDegreeFilter] = useState<"all" | "1" | "2" | "3">("all");
   const [transform, setTransform] = useState<ViewTransform>({ x: 0, y: 0, k: 1 });
+  const [pinned, setPinned] = useState<PinnedMap>({});
+  const [pinnedReady, setPinnedReady] = useState(false);
+  /** Bump to force a fresh concentric layout (e.g. Reset layout). */
+  const [layoutEpoch, setLayoutEpoch] = useState(0);
   const dragRef = useRef<{
     mode: "pan" | "node";
     id?: string;
@@ -259,7 +307,20 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
     sy: number;
     ox: number;
     oy: number;
+    moved?: boolean;
   } | null>(null);
+  const simNodesRef = useRef<SimNode[]>([]);
+  const pinnedRef = useRef<PinnedMap>({});
+  simNodesRef.current = simNodes;
+  pinnedRef.current = pinned;
+
+  // Load saved drop positions after mount (client-only).
+  useEffect(() => {
+    const loaded = loadPinnedPositions();
+    setPinned(loaded);
+    pinnedRef.current = loaded;
+    setPinnedReady(true);
+  }, []);
 
   const nodesById = useMemo(
     () => new Map(data.nodes.map((n) => [n.id, n])),
@@ -329,6 +390,7 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
   }, []);
 
   useEffect(() => {
+    if (!pinnedReady) return;
     const nodes: SimNode[] = data.nodes
       .filter((n) => visibleIds.has(n.id))
       .map((n) => ({
@@ -339,8 +401,29 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
         vy: 0,
       }));
     layoutConcentric(nodes, visibleEdges, size.w, size.h);
+
+    // Re-apply any manually dropped positions (survives reload + resize).
+    // Read from ref so saving one drag doesn't reshuffle unpinned nodes.
+    const savedMap = pinnedRef.current;
+    for (const n of nodes) {
+      if (n.isYou) continue;
+      const saved = savedMap[n.id];
+      if (!saved) continue;
+      n.x = Math.min(size.w - 40, Math.max(40, saved.nx * size.w));
+      n.y = Math.min(size.h - 40, Math.max(40, saved.ny * size.h));
+      n.vx = 0;
+      n.vy = 0;
+    }
     setSimNodes(nodes);
-  }, [data.nodes, visibleEdges, visibleIds, size.w, size.h]);
+  }, [
+    data.nodes,
+    visibleEdges,
+    visibleIds,
+    size.w,
+    size.h,
+    pinnedReady,
+    layoutEpoch,
+  ]);
 
   const selected = selectedId ? nodesById.get(selectedId) ?? null : null;
   const selectedChain = selected
@@ -411,6 +494,7 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
         sy: e.clientY,
         ox: 0,
         oy: 0,
+        moved: false,
       };
       setSelectedId(nodeId);
     } else {
@@ -437,18 +521,49 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
     } else if (d.id) {
       const dx = (e.clientX - d.sx) / transform.k;
       const dy = (e.clientY - d.sy) / transform.k;
+      if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) d.moved = true;
       d.sx = e.clientX;
       d.sy = e.clientY;
       setSimNodes((prev) =>
-        prev.map((n) =>
-          n.id === d.id ? { ...n, x: n.x + dx, y: n.y + dy, vx: 0, vy: 0 } : n
-        )
+        prev.map((n) => {
+          if (n.id !== d.id) return n;
+          return {
+            ...n,
+            x: Math.min(size.w - 40, Math.max(40, n.x + dx)),
+            y: Math.min(size.h - 40, Math.max(40, n.y + dy)),
+            vx: 0,
+            vy: 0,
+          };
+        })
       );
     }
   }
 
   function onPointerUp() {
+    const d = dragRef.current;
     dragRef.current = null;
+    if (!d || d.mode !== "node" || !d.id || !d.moved) return;
+    const node = simNodesRef.current.find((n) => n.id === d.id);
+    if (!node || node.isYou) return;
+    const next: PinnedMap = {
+      ...pinnedRef.current,
+      [node.id]: {
+        nx: node.x / size.w,
+        ny: node.y / size.h,
+      },
+    };
+    pinnedRef.current = next;
+    setPinned(next);
+    savePinnedPositions(next);
+  }
+
+  function resetPinnedLayout() {
+    pinnedRef.current = {};
+    setPinned({});
+    savePinnedPositions({});
+    setSelectedId(null);
+    setTransform({ x: 0, y: 0, k: 1 });
+    setLayoutEpoch((n) => n + 1);
   }
 
   const pos = useMemo(() => {
@@ -543,6 +658,15 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
             >
               <Crosshair className="h-3.5 w-3.5" />
               Clear
+            </button>
+            <button
+              type="button"
+              className="inline-flex h-8 items-center gap-1 rounded-md border bg-background px-2 text-xs hover:bg-muted"
+              onClick={resetPinnedLayout}
+              title="Clear saved positions and restore ring layout"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              Reset layout
             </button>
           </div>
         </div>
@@ -883,8 +1007,8 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                 their 2nds and the 3rds those 2nds introduced.
               </p>
               <p>
-                Inner ring = people you know / channels · middle = their intros ·
-                outer = second-hop intros. Drag to pan, scroll to zoom.
+                Drag any name box to reposition it — the drop sticks across
+                sessions. Use Reset layout to restore the rings.
               </p>
             </div>
           )}
