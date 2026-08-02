@@ -396,24 +396,35 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
         ids.add(n.id);
         continue;
       }
-      // Channels (Boardy, etc.) appear on All; when filtering by degree/tier
-      // they are pulled back in below if they sit on a visible referral edge.
+      // Channels have no A/B/C tier — hide them while a tier filter is on.
+      if (tierFilter !== "all" && n.isChannel) continue;
       const degOk =
         degreeFilter === "all" || String(n.degree) === degreeFilter;
+      // Tier filter is strict: only contacts with that relevance tier.
       const tierOk = tierFilter === "all" || n.tier === tierFilter;
       if (degOk && tierOk && matchQuery(n)) ids.add(n.id);
     }
-    // Keep endpoints of edges that touch a visible non-you node so chains stay intact
-    for (const e of data.edges) {
-      if (e.kind !== "referral") continue;
-      if (ids.has(e.source) || ids.has(e.target)) {
-        ids.add(e.source);
-        ids.add(e.target);
+    // When NOT filtering by tier, keep referral-chain neighbors so intro
+    // paths stay readable. Tier A/B/C must show only that tier.
+    if (tierFilter === "all") {
+      for (const e of data.edges) {
+        if (e.kind !== "referral") continue;
+        if (ids.has(e.source) || ids.has(e.target)) {
+          ids.add(e.source);
+          ids.add(e.target);
+        }
       }
     }
     ids.add("__you__");
     return ids;
   }, [data, degreeFilter, tierFilter, matchQuery]);
+
+  // Drop selection if the selected person is hidden by the current filters.
+  useEffect(() => {
+    if (selectedId && selectedId !== "__you__" && !visibleIds.has(selectedId)) {
+      setSelectedId(null);
+    }
+  }, [selectedId, visibleIds]);
 
   const visibleEdges = useMemo(
     () =>
@@ -1051,6 +1062,18 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
           <div>2s · {data.stats.degree2}</div>
           <div>3s · {data.stats.degree3}</div>
         </div>
+        {tierFilter !== "all" || degreeFilter !== "all" ? (
+          <div className="border-b px-4 py-2 text-xs text-muted-foreground">
+            Showing{" "}
+            <span className="font-semibold text-foreground">
+              {[...visibleIds].filter((id) => id !== "__you__").length}
+            </span>
+            {" · "}
+            {tierFilter !== "all" ? `Tier ${tierFilter}` : "All tiers"}
+            {degreeFilter !== "all" ? ` · Deg ${degreeFilter}` : ""}
+            {tierFilter !== "all" ? " only" : ""}
+          </div>
+        ) : null}
 
         <div className="space-y-3 p-4">
           {selected && !selected.isYou ? (
@@ -1151,8 +1174,8 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                 their 2nds and the 3rds those 2nds introduced.
               </p>
               <p>
-                Filter by degree (1/2/3) or relevance tier (A/B/C). Referral
-                chains stay attached so you can see who introduced whom.
+                Deg filters keep intro-chain neighbors for context. Tier A / B /
+                C shows only that relevance tier — nothing else.
               </p>
               <p>
                 Drag any name box anywhere you want — it follows the cursor
