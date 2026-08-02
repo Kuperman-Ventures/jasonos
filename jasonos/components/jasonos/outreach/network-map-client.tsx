@@ -37,29 +37,35 @@ const DEGREE_COLOR: Record<string, string> = {
   "1": "hsl(142 60% 42%)",
   "2": "hsl(210 80% 55%)",
   "3": "hsl(32 90% 50%)",
+  channel: "hsl(280 35% 52%)",
   "?": "hsl(var(--muted-foreground))",
 };
 
 function degreeKey(n: NetworkMapNode): string {
   if (n.isYou) return "you";
+  if (n.isChannel) return "channel";
   if (n.degree === 1 || n.degree === 2 || n.degree === 3) return String(n.degree);
   return "?";
 }
 
-/** Prefer "First Last" when a longer name is present. */
-function displayName(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
+/** Prefer "First Last" when a longer name is present. Keep channel names intact. */
+function displayName(n: NetworkMapNode | string): string {
+  if (typeof n !== "string") {
+    if (n.isChannel || n.isYou) return n.name;
+    return displayName(n.name);
+  }
+  const parts = n.trim().split(/\s+/).filter(Boolean);
   if (parts.length <= 2) return parts.join(" ") || "Unknown";
   return `${parts[0]} ${parts[parts.length - 1]}`;
 }
 
 function nodeSize(n: NetworkMapNode): { w: number; h: number } {
   if (n.isYou) return { w: 72, h: 36 };
-  const label = displayName(n.name);
-  const firm = n.firm?.trim() ?? "";
-  const textW = Math.max(label.length, firm.length) * 6.6;
-  const w = Math.min(168, Math.max(88, textW + 20));
-  const h = firm ? 40 : 30;
+  const label = displayName(n);
+  const sub = n.isChannel ? "Channel" : n.firm?.trim() ?? "";
+  const textW = Math.max(label.length, sub.length) * 6.6;
+  const w = Math.min(168, Math.max(n.isChannel ? 96 : 88, textW + 20));
+  const h = sub || n.isChannel ? 40 : 30;
   return { w, h };
 }
 
@@ -128,6 +134,7 @@ function runForce(
   }
   const ringRadius: Record<string, number> = {
     "1": Math.min(width, height) * 0.26,
+    channel: Math.min(width, height) * 0.26,
     "?": Math.min(width, height) * 0.26,
     "2": Math.min(width, height) * 0.42,
     "3": Math.min(width, height) * 0.56,
@@ -269,6 +276,8 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
         ids.add(n.id);
         continue;
       }
+      // Channels (Boardy, etc.) appear on All; when filtering by degree they
+      // are pulled back in below if they sit on a visible referral edge.
       const degOk =
         degreeFilter === "all" || String(n.degree) === degreeFilter;
       if (degOk && matchQuery(n)) ids.add(n.id);
@@ -617,8 +626,10 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                 const color = DEGREE_COLOR[key] ?? DEGREE_COLOR["?"];
                 const active = !dimmed || highlight.has(n.id);
                 const { w, h } = nodeSize(n);
-                const label = n.isYou ? "You" : displayName(n.name);
-                const firm = n.firm?.trim() ?? "";
+                const label = n.isYou ? "You" : displayName(n);
+                const sub = n.isChannel
+                  ? "Channel"
+                  : n.firm?.trim() ?? "";
                 const selected = selectedId === n.id;
                 return (
                   <g
@@ -651,7 +662,9 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                       fill={
                         n.isYou
                           ? "hsl(var(--background))"
-                          : "hsl(var(--card))"
+                          : n.isChannel
+                            ? "hsl(280 35% 52% / 0.12)"
+                            : "hsl(var(--card))"
                       }
                       stroke={
                         selected
@@ -660,9 +673,10 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                             ? "hsl(var(--foreground))"
                             : color
                       }
-                      strokeWidth={selected || n.isYou ? 2 : 1.5}
+                      strokeWidth={selected || n.isYou || n.isChannel ? 2 : 1.5}
+                      strokeDasharray={n.isChannel ? "4 2" : undefined}
                     />
-                    {/* degree accent bar */}
+                    {/* degree / channel accent bar */}
                     {!n.isYou ? (
                       <rect
                         x={-w / 2}
@@ -676,7 +690,7 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                     ) : null}
                     <text
                       textAnchor="middle"
-                      y={firm && !n.isYou ? -4 : 1}
+                      y={sub && !n.isYou ? -4 : 1}
                       dominantBaseline="middle"
                       fill="hsl(var(--foreground))"
                       fontSize={n.isYou ? 12 : 11}
@@ -685,16 +699,21 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                     >
                       {label}
                     </text>
-                    {firm && !n.isYou ? (
+                    {sub && !n.isYou ? (
                       <text
                         textAnchor="middle"
                         y={10}
                         dominantBaseline="middle"
-                        fill="hsl(var(--muted-foreground))"
+                        fill={
+                          n.isChannel
+                            ? DEGREE_COLOR.channel
+                            : "hsl(var(--muted-foreground))"
+                        }
                         fontSize={9}
+                        fontWeight={n.isChannel ? 600 : 400}
                         className="pointer-events-none"
                       >
-                        {firm.length > 22 ? `${firm.slice(0, 20)}…` : firm}
+                        {sub.length > 22 ? `${sub.slice(0, 20)}…` : sub}
                       </text>
                     ) : null}
                   </g>
@@ -709,8 +728,9 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
           <LegendDot color={DEGREE_COLOR["1"]} label="1 — know well" />
           <LegendDot color={DEGREE_COLOR["2"]} label="2 — intro’d by a 1" />
           <LegendDot color={DEGREE_COLOR["3"]} label="3 — intro’d by a 2" />
+          <LegendDot color={DEGREE_COLOR.channel} label="Channel (e.g. Boardy)" />
           <span className="rounded-md border bg-background/90 px-2 py-1 text-muted-foreground">
-            Solid arrow = referred · Dashed = you know
+            Solid arrow = referred · Dashed = you know / via channel
           </span>
         </div>
       </div>
@@ -750,10 +770,12 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                 ) : null}
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {selected.degree ? (
+                {selected.isChannel ? (
+                  <Pill>Referral channel</Pill>
+                ) : selected.degree ? (
                   <Pill>Degree {selected.degree}</Pill>
                 ) : (
-                  <Pill>Source / channel</Pill>
+                  <Pill>Source</Pill>
                 )}
                 {selected.tier ? <Pill>Tier {selected.tier}</Pill> : null}
                 {selected.role ? (
@@ -763,6 +785,12 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                   <Pill>{selected.referralCount} referred out</Pill>
                 ) : null}
               </div>
+              {selected.isChannel ? (
+                <p className="text-xs text-muted-foreground">
+                  People pointed at this node were introduced through{" "}
+                  {selected.name}.
+                </p>
+              ) : null}
               {selectedChain.length > 1 ? (
                 <div>
                   <div className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">

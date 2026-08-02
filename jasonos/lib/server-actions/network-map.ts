@@ -17,6 +17,11 @@ export interface NetworkMapNode {
   tier: RelevanceTier | null;
   /** True for the synthetic center node representing you. */
   isYou?: boolean;
+  /**
+   * Named referral channel (Boardy, Browning, …) — contact rows tagged
+   * `referral_source`. Shown as their own node when they introduced someone.
+   */
+  isChannel?: boolean;
   /** How many people this contact has referred outward. */
   referralCount: number;
 }
@@ -41,6 +46,7 @@ export interface NetworkMapData {
     degree2: number;
     degree3: number;
     chains: number;
+    channels: number;
   };
 }
 
@@ -60,13 +66,19 @@ const EMPTY: NetworkMapData = {
     degree2: 0,
     degree3: 0,
     chains: 0,
+    channels: 0,
   },
 };
+
+function isReferralSourceTag(tags: string[] | null | undefined): boolean {
+  return Boolean(tags?.includes("referral_source"));
+}
 
 /**
  * Build the referral web for Outreach → Network Map.
  * Includes everyone who is a referrer or a referral, plus a synthetic "You"
- * hub linked to degree-1 roots so the 1→2→3 structure is visible.
+ * hub linked to degree-1 roots. Named channels like Boardy appear as nodes
+ * whenever someone was referred through them.
  */
 export async function getNetworkMapData(): Promise<NetworkMapData> {
   if (!hasServiceRole()) return EMPTY;
@@ -76,7 +88,7 @@ export async function getNetworkMapData(): Promise<NetworkMapData> {
     sb
       .from("contacts")
       .select(
-        "id,name,title,network_degree,network_role,relevance_tier,referred_by_contact_id,referred_at,company_id"
+        "id,name,title,network_degree,network_role,relevance_tier,referred_by_contact_id,referred_at,company_id,tags"
       )
       .order("name", { ascending: true })
       .limit(20000),
@@ -105,6 +117,7 @@ export async function getNetworkMapData(): Promise<NetworkMapData> {
     referred_by_contact_id: string | null;
     referred_at: string | null;
     company_id: string | null;
+    tags: string[] | null;
   };
 
   const rows = (contactsRes.data ?? []) as unknown as Row[];
@@ -125,6 +138,13 @@ export async function getNetworkMapData(): Promise<NetworkMapData> {
       referredAt: r.referred_at,
       kind: "referral",
     });
+  }
+
+  // Always keep named channels that have introduced someone (Boardy, etc.).
+  for (const r of rows) {
+    if (!isReferralSourceTag(r.tags)) continue;
+    const hasOutbound = referralEdges.some((e) => e.source === r.id);
+    if (hasOutbound) involved.add(r.id);
   }
 
   const outbound = new Map<string, number>();
@@ -151,29 +171,30 @@ export async function getNetworkMapData(): Promise<NetworkMapData> {
     const r = byId.get(id);
     if (!r) continue;
     const companyId = r.company_id;
+    const channel = isReferralSourceTag(r.tags);
     nodes.push({
       id: r.id,
       name: (r.name ?? "Unknown").trim() || "Unknown",
-      firm: companyId ? companyNameById.get(companyId) ?? null : null,
-      title: r.title,
+      firm: channel
+        ? "Referral channel"
+        : companyId
+          ? companyNameById.get(companyId) ?? null
+          : null,
+      title: channel ? "Introduced via this channel" : r.title,
       degree: r.network_degree,
       role: r.network_role,
       tier: r.relevance_tier,
+      isChannel: channel,
       referralCount: outbound.get(r.id) ?? 0,
     });
   }
 
-  // Soft "knows" edges from You → degree-1 people, plus channel roots
-  // (e.g. Boardy) that introduce people but have no degree.
+  // Soft edges from You → degree-1 people and active referral channels
+  // (Boardy / Browning when they have referred someone).
   const knowsTargets = new Set<string>();
   for (const n of nodes) {
     if (n.isYou) continue;
-    const row = byId.get(n.id);
-    const isChannelRoot =
-      n.degree == null &&
-      (outbound.get(n.id) ?? 0) > 0 &&
-      !row?.referred_by_contact_id;
-    if (n.degree === 1 || isChannelRoot) {
+    if (n.degree === 1 || n.isChannel) {
       knowsTargets.add(n.id);
     }
   }
@@ -187,13 +208,14 @@ export async function getNetworkMapData(): Promise<NetworkMapData> {
   }));
 
   const edges = [...knowsEdges, ...referralEdges];
-  const people = nodes.filter((n) => !n.isYou);
+  const people = nodes.filter((n) => !n.isYou && !n.isChannel);
+  const channels = nodes.filter((n) => n.isChannel);
 
   return {
     nodes,
     edges,
     stats: {
-      people: people.length,
+      people: people.length + channels.length,
       referrals: referralEdges.length,
       degree1: people.filter((n) => n.degree === 1).length,
       degree2: people.filter((n) => n.degree === 2).length,
@@ -201,6 +223,7 @@ export async function getNetworkMapData(): Promise<NetworkMapData> {
       chains: people.filter(
         (n) => n.degree === 3 || (n.degree === 2 && n.referralCount > 0)
       ).length,
+      channels: channels.length,
     },
   };
 }
