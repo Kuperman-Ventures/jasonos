@@ -56,10 +56,9 @@ function loadPinnedPositions(): PinnedMap {
         Number.isFinite(pos.nx) &&
         Number.isFinite(pos.ny)
       ) {
-        out[id] = {
-          nx: Math.min(1, Math.max(0, pos.nx)),
-          ny: Math.min(1, Math.max(0, pos.ny)),
-        };
+        // Allow positions outside 0–1 so users can park boxes past the
+        // initial canvas edges (pan/zoom to find them later).
+        out[id] = { nx: pos.nx, ny: pos.ny };
       }
     }
     return out;
@@ -295,8 +294,28 @@ function layoutConcentric(
   });
 }
 
+/** Map screen pointer → world coords inside the pan/zoom group. */
+function clientToWorld(
+  svg: SVGSVGElement,
+  clientX: number,
+  clientY: number,
+  transform: ViewTransform
+): { x: number; y: number } {
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return { x: 0, y: 0 };
+  const pt = svg.createSVGPoint();
+  pt.x = clientX;
+  pt.y = clientY;
+  const svgPt = pt.matrixTransform(ctm.inverse());
+  return {
+    x: (svgPt.x - transform.x) / transform.k,
+    y: (svgPt.y - transform.y) / transform.k,
+  };
+}
+
 export function NetworkMapClient({ data }: { data: NetworkMapData }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
   const [size, setSize] = useState({ w: 960, h: 640 });
   const [simNodes, setSimNodes] = useState<SimNode[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -310,6 +329,8 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
   const [query, setQuery] = useState("");
   const [degreeFilter, setDegreeFilter] = useState<"all" | "1" | "2" | "3">("all");
   const [transform, setTransform] = useState<ViewTransform>({ x: 0, y: 0, k: 1 });
+  const transformRef = useRef(transform);
+  transformRef.current = transform;
   const [pinned, setPinned] = useState<PinnedMap>({});
   const [pinnedReady, setPinnedReady] = useState(false);
   /** Bump to force a fresh concentric layout (e.g. Reset layout). */
@@ -319,14 +340,21 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
     id?: string;
     sx: number;
     sy: number;
+    /** Pointer offset from node center (world space), or pan origin. */
     ox: number;
     oy: number;
+    startX?: number;
+    startY?: number;
     moved?: boolean;
   } | null>(null);
   const simNodesRef = useRef<SimNode[]>([]);
   const pinnedRef = useRef<PinnedMap>({});
+  const sizeRef = useRef(size);
+  /** Suppress the click that follows a completed node drag. */
+  const suppressClickRef = useRef(false);
   simNodesRef.current = simNodes;
   pinnedRef.current = pinned;
+  sizeRef.current = size;
 
   // Load saved drop positions after mount (client-only).
   useEffect(() => {
@@ -394,9 +422,11 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
     const ro = new ResizeObserver((entries) => {
       const cr = entries[0]?.contentRect;
       if (!cr) return;
+      // Use the real container size so viewBox units match screen pixels
+      // (fake mins made drag lag/fight the cursor).
       setSize({
-        w: Math.max(640, Math.floor(cr.width)),
-        h: Math.max(480, Math.floor(cr.height)),
+        w: Math.max(1, Math.floor(cr.width)),
+        h: Math.max(1, Math.floor(cr.height)),
       });
     });
     ro.observe(el);
@@ -418,13 +448,14 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
 
     // Re-apply any manually dropped positions (survives reload + resize).
     // Read from ref so saving one drag doesn't reshuffle unpinned nodes.
+    // No edge clamp — users can place boxes anywhere, including past edges.
     const savedMap = pinnedRef.current;
     for (const n of nodes) {
       if (n.isYou) continue;
       const saved = savedMap[n.id];
       if (!saved) continue;
-      n.x = Math.min(size.w - 40, Math.max(40, saved.nx * size.w));
-      n.y = Math.min(size.h - 40, Math.max(40, saved.ny * size.h));
+      n.x = saved.nx * size.w;
+      n.y = saved.ny * size.h;
       n.vx = 0;
       n.vy = 0;
     }
@@ -513,24 +544,36 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
   function onPointerDown(e: React.PointerEvent) {
     const target = e.target as Element;
     const nodeId = target.closest("[data-node-id]")?.getAttribute("data-node-id");
-    if (nodeId && nodeId !== "__you__") {
+    const svg = svgRef.current;
+    if (nodeId && nodeId !== "__you__" && svg) {
+      const node = simNodesRef.current.find((n) => n.id === nodeId);
+      if (!node) return;
+      const world = clientToWorld(
+        svg,
+        e.clientX,
+        e.clientY,
+        transformRef.current
+      );
       dragRef.current = {
         mode: "node",
         id: nodeId,
         sx: e.clientX,
         sy: e.clientY,
-        ox: 0,
-        oy: 0,
+        ox: world.x - node.x,
+        oy: world.y - node.y,
+        startX: node.x,
+        startY: node.y,
         moved: false,
       };
       setSelectedId(nodeId);
+      e.preventDefault();
     } else {
       dragRef.current = {
         mode: "pan",
         sx: e.clientX,
         sy: e.clientY,
-        ox: transform.x,
-        oy: transform.y,
+        ox: transformRef.current.x,
+        oy: transformRef.current.y,
       };
     }
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -546,37 +589,46 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
         y: d.oy + (e.clientY - d.sy),
       }));
     } else if (d.id) {
-      const dx = (e.clientX - d.sx) / transform.k;
-      const dy = (e.clientY - d.sy) / transform.k;
-      if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) d.moved = true;
-      d.sx = e.clientX;
-      d.sy = e.clientY;
+      const svg = svgRef.current;
+      if (!svg) return;
+      const world = clientToWorld(
+        svg,
+        e.clientX,
+        e.clientY,
+        transformRef.current
+      );
+      const x = world.x - d.ox;
+      const y = world.y - d.oy;
+      if (
+        d.startX != null &&
+        d.startY != null &&
+        Math.hypot(x - d.startX, y - d.startY) > 2
+      ) {
+        d.moved = true;
+      }
       setSimNodes((prev) =>
         prev.map((n) => {
           if (n.id !== d.id) return n;
-          return {
-            ...n,
-            x: Math.min(size.w - 40, Math.max(40, n.x + dx)),
-            y: Math.min(size.h - 40, Math.max(40, n.y + dy)),
-            vx: 0,
-            vy: 0,
-          };
+          return { ...n, x, y, vx: 0, vy: 0 };
         })
       );
     }
   }
 
-  function onPointerUp() {
+  function endPointerDrag() {
     const d = dragRef.current;
     dragRef.current = null;
     if (!d || d.mode !== "node" || !d.id || !d.moved) return;
+    suppressClickRef.current = true;
     const node = simNodesRef.current.find((n) => n.id === d.id);
     if (!node || node.isYou) return;
+    const { w, h } = sizeRef.current;
+    if (w < 1 || h < 1) return;
     const next: PinnedMap = {
       ...pinnedRef.current,
       [node.id]: {
-        nx: node.x / size.w,
-        ny: node.y / size.h,
+        nx: node.x / w,
+        ny: node.y / h,
       },
     };
     pinnedRef.current = next;
@@ -704,9 +756,11 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
           onWheel={onWheel}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
+          onPointerUp={endPointerDrag}
+          onPointerCancel={endPointerDrag}
         >
           <svg
+            ref={svgRef}
             width="100%"
             height="100%"
             viewBox={`0 0 ${size.w} ${size.h}`}
@@ -834,12 +888,18 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                     key={n.id}
                     data-node-id={n.id}
                     transform={`translate(${n.x} ${n.y})`}
-                    className="cursor-pointer"
+                    className={
+                      n.isYou ? "cursor-default" : "cursor-grab active:cursor-grabbing"
+                    }
                     opacity={active ? 1 : 0.18}
                     onMouseEnter={() => setHoverId(n.id)}
                     onMouseLeave={() => setHoverId(null)}
                     onClick={(ev) => {
                       ev.stopPropagation();
+                      if (suppressClickRef.current) {
+                        suppressClickRef.current = false;
+                        return;
+                      }
                       setSelectedId(n.id);
                     }}
                   >
@@ -1058,8 +1118,9 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                 their 2nds and the 3rds those 2nds introduced.
               </p>
               <p>
-                Drag any name box to reposition it — the drop sticks across
-                sessions. Use Reset layout to restore the rings.
+                Drag any name box anywhere you want — it follows the cursor
+                and sticks across sessions. Pan/zoom if you push past the
+                edges. Use Reset layout to restore the rings.
               </p>
             </div>
           )}
