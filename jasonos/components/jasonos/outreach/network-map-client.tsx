@@ -46,11 +46,40 @@ function degreeKey(n: NetworkMapNode): string {
   return "?";
 }
 
-function initials(name: string): string {
+/** Prefer "First Last" when a longer name is present. */
+function displayName(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  if (parts.length <= 2) return parts.join(" ") || "Unknown";
+  return `${parts[0]} ${parts[parts.length - 1]}`;
+}
+
+function nodeSize(n: NetworkMapNode): { w: number; h: number } {
+  if (n.isYou) return { w: 72, h: 36 };
+  const label = displayName(n.name);
+  const firm = n.firm?.trim() ?? "";
+  const textW = Math.max(label.length, firm.length) * 6.6;
+  const w = Math.min(168, Math.max(88, textW + 20));
+  const h = firm ? 40 : 30;
+  return { w, h };
+}
+
+/** Edge endpoint padding so lines stop at the card border, not the center. */
+function edgePad(
+  n: NetworkMapNode,
+  dx: number,
+  dy: number
+): { px: number; py: number } {
+  const { w, h } = nodeSize(n);
+  const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+  const ux = dx / dist;
+  const uy = dy / dist;
+  // Intersect ray with axis-aligned rect half-extents
+  const hx = w / 2 + 2;
+  const hy = h / 2 + 2;
+  const tx = Math.abs(ux) < 1e-6 ? Infinity : hx / Math.abs(ux);
+  const ty = Math.abs(uy) < 1e-6 ? Infinity : hy / Math.abs(uy);
+  const t = Math.min(tx, ty);
+  return { px: ux * t, py: uy * t };
 }
 
 function chainFor(
@@ -98,10 +127,10 @@ function runForce(
     byDeg.set(k, arr);
   }
   const ringRadius: Record<string, number> = {
-    "1": Math.min(width, height) * 0.22,
-    "?": Math.min(width, height) * 0.22,
-    "2": Math.min(width, height) * 0.38,
-    "3": Math.min(width, height) * 0.52,
+    "1": Math.min(width, height) * 0.26,
+    "?": Math.min(width, height) * 0.26,
+    "2": Math.min(width, height) * 0.42,
+    "3": Math.min(width, height) * 0.56,
   };
   for (const [k, arr] of byDeg) {
     const r = ringRadius[k] ?? 180;
@@ -126,7 +155,7 @@ function runForce(
         let dy = b.y - a.y;
         let dist2 = dx * dx + dy * dy || 0.01;
         const dist = Math.sqrt(dist2);
-        const force = (1400 * alpha) / dist2;
+        const force = (2200 * alpha) / dist2;
         const fx = (dx / dist) * force;
         const fy = (dy / dist) * force;
         if (!a.isYou) {
@@ -147,7 +176,7 @@ function runForce(
       if (si == null || ti == null) continue;
       const a = nodes[si];
       const b = nodes[ti];
-      const ideal = e.kind === "knows" ? 150 : 110;
+      const ideal = e.kind === "knows" ? 190 : 150;
       let dx = b.x - a.x;
       let dy = b.y - a.y;
       const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
@@ -190,7 +219,7 @@ function runForce(
       n.vy *= 0.85;
       n.x += n.vx;
       n.y += n.vy;
-      n.x = Math.max(40, Math.min(width - 40, n.x));
+      n.x = Math.max(60, Math.min(width - 60, n.x));
       n.y = Math.max(40, Math.min(height - 40, n.y));
     }
   }
@@ -533,7 +562,7 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
               transform={`translate(${transform.x} ${transform.y}) scale(${transform.k})`}
             >
               {/* soft ring guides */}
-              {[0.22, 0.38, 0.52].map((f, i) => (
+              {[0.26, 0.42, 0.56].map((f, i) => (
                 <circle
                   key={f}
                   cx={size.w / 2}
@@ -555,16 +584,14 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                 const active =
                   !dimmed || (highlight.has(e.source) && highlight.has(e.target));
                 const isReferral = e.kind === "referral";
-                // Shorten line so arrowheads don't sit under nodes
                 const dx = b.x - a.x;
                 const dy = b.y - a.y;
-                const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-                const padS = a.isYou ? 28 : 22;
-                const padT = b.isYou ? 28 : 22;
-                const x1 = a.x + (dx / dist) * padS;
-                const y1 = a.y + (dy / dist) * padS;
-                const x2 = b.x - (dx / dist) * padT;
-                const y2 = b.y - (dy / dist) * padT;
+                const from = edgePad(a, dx, dy);
+                const to = edgePad(b, -dx, -dy);
+                const x1 = a.x + from.px;
+                const y1 = a.y + from.py;
+                const x2 = b.x + to.px;
+                const y2 = b.y + to.py;
                 return (
                   <line
                     key={e.id}
@@ -589,7 +616,10 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                 const key = degreeKey(n);
                 const color = DEGREE_COLOR[key] ?? DEGREE_COLOR["?"];
                 const active = !dimmed || highlight.has(n.id);
-                const r = n.isYou ? 26 : 18;
+                const { w, h } = nodeSize(n);
+                const label = n.isYou ? "You" : displayName(n.name);
+                const firm = n.firm?.trim() ?? "";
+                const selected = selectedId === n.id;
                 return (
                   <g
                     key={n.id}
@@ -605,50 +635,66 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                     }}
                   >
                     {n.isYou ? (
-                      <circle r={48} fill="url(#youGlow)" />
+                      <ellipse
+                        rx={w * 0.9}
+                        ry={h * 1.15}
+                        fill="url(#youGlow)"
+                      />
                     ) : null}
-                    <circle
-                      r={r}
-                      fill={n.isYou ? "hsl(var(--background))" : color}
+                    <rect
+                      x={-w / 2}
+                      y={-h / 2}
+                      width={w}
+                      height={h}
+                      rx={8}
+                      ry={8}
+                      fill={
+                        n.isYou
+                          ? "hsl(var(--background))"
+                          : "hsl(var(--card))"
+                      }
                       stroke={
-                        selectedId === n.id
+                        selected
                           ? "hsl(var(--foreground))"
                           : n.isYou
                             ? "hsl(var(--foreground))"
                             : color
                       }
-                      strokeWidth={selectedId === n.id || n.isYou ? 2.5 : 1.5}
-                      fillOpacity={n.isYou ? 1 : 0.18}
+                      strokeWidth={selected || n.isYou ? 2 : 1.5}
                     />
+                    {/* degree accent bar */}
+                    {!n.isYou ? (
+                      <rect
+                        x={-w / 2}
+                        y={-h / 2}
+                        width={4}
+                        height={h}
+                        rx={2}
+                        fill={color}
+                        className="pointer-events-none"
+                      />
+                    ) : null}
                     <text
                       textAnchor="middle"
-                      dominantBaseline="central"
-                      fill={n.isYou ? "hsl(var(--foreground))" : color}
-                      fontSize={n.isYou ? 11 : 9}
+                      y={firm && !n.isYou ? -4 : 1}
+                      dominantBaseline="middle"
+                      fill="hsl(var(--foreground))"
+                      fontSize={n.isYou ? 12 : 11}
                       fontWeight={650}
                       className="pointer-events-none"
                     >
-                      {n.isYou ? "YOU" : initials(n.name)}
+                      {label}
                     </text>
-                    <text
-                      y={r + 12}
-                      textAnchor="middle"
-                      fill="hsl(var(--foreground))"
-                      fontSize={10}
-                      fontWeight={550}
-                      className="pointer-events-none"
-                    >
-                      {n.name.length > 22 ? `${n.name.slice(0, 20)}…` : n.name}
-                    </text>
-                    {n.firm ? (
+                    {firm && !n.isYou ? (
                       <text
-                        y={r + 24}
                         textAnchor="middle"
+                        y={10}
+                        dominantBaseline="middle"
                         fill="hsl(var(--muted-foreground))"
                         fontSize={9}
                         className="pointer-events-none"
                       >
-                        {n.firm.length > 24 ? `${n.firm.slice(0, 22)}…` : n.firm}
+                        {firm.length > 22 ? `${firm.slice(0, 20)}…` : firm}
                       </text>
                     ) : null}
                   </g>
