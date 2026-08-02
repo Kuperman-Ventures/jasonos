@@ -115,128 +115,132 @@ function chainFor(
   return chain;
 }
 
-function runForce(
+/**
+ * Strict concentric layout:
+ *   Ring 1 — people you know well + referral channels
+ *   Ring 2 — their referrals, clustered under each parent
+ *   Ring 3 — second-hop referrals, clustered under their parent
+ */
+function layoutConcentric(
   nodes: SimNode[],
   edges: NetworkMapEdge[],
   width: number,
-  height: number,
-  ticks = 220
+  height: number
 ) {
   const cx = width / 2;
   const cy = height / 2;
-  const you = nodes.find((n) => n.isYou);
-  if (you) {
-    you.x = cx;
-    you.y = cy;
+  const minDim = Math.min(width, height);
+  const R1 = minDim * 0.28;
+  const R2 = minDim * 0.5;
+  const R3 = minDim * 0.72;
+
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const childrenOf = new Map<string, string[]>();
+  const parentOf = new Map<string, string>();
+  for (const e of edges) {
+    if (e.kind !== "referral") continue;
+    if (!byId.has(e.source) || !byId.has(e.target)) continue;
+    parentOf.set(e.target, e.source);
+    const arr = childrenOf.get(e.source) ?? [];
+    arr.push(e.target);
+    childrenOf.set(e.source, arr);
   }
 
-  // Seed by degree rings so the layout starts readable.
-  const byDeg = new Map<string, SimNode[]>();
-  for (const n of nodes) {
-    if (n.isYou) continue;
-    const k = degreeKey(n);
-    const arr = byDeg.get(k) ?? [];
-    arr.push(n);
-    byDeg.set(k, arr);
-  }
-  const ringRadius: Record<string, number> = {
-    "1": Math.min(width, height) * 0.26,
-    channel: Math.min(width, height) * 0.26,
-    "?": Math.min(width, height) * 0.26,
-    "2": Math.min(width, height) * 0.42,
-    "3": Math.min(width, height) * 0.56,
+  const place = (n: SimNode, angle: number, radius: number) => {
+    n.x = cx + Math.cos(angle) * radius;
+    n.y = cy + Math.sin(angle) * radius;
+    n.vx = 0;
+    n.vy = 0;
   };
-  for (const [k, arr] of byDeg) {
-    const r = ringRadius[k] ?? 180;
-    arr.forEach((n, i) => {
-      const a = (i / Math.max(arr.length, 1)) * Math.PI * 2 - Math.PI / 2;
-      n.x = cx + Math.cos(a) * r;
-      n.y = cy + Math.sin(a) * r;
+
+  const you = nodes.find((n) => n.isYou);
+  if (you) place(you, 0, 0);
+
+  const others = nodes.filter((n) => !n.isYou);
+  const byName = (a: SimNode, b: SimNode) => a.name.localeCompare(b.name);
+
+  // Ring 1 roots: degree-1, channels, or anyone with no referrer in this graph.
+  const ring1 = others
+    .filter(
+      (n) => n.isChannel || n.degree === 1 || !parentOf.has(n.id)
+    )
+    .sort(byName);
+  const ring1Ids = new Set(ring1.map((n) => n.id));
+  const angles = new Map<string, number>();
+
+  ring1.forEach((n, i) => {
+    const angle =
+      (i / Math.max(ring1.length, 1)) * Math.PI * 2 - Math.PI / 2;
+    angles.set(n.id, angle);
+    place(n, angle, R1);
+  });
+
+  const placeChildrenOnRing = (
+    parents: SimNode[],
+    radius: number,
+    exclude: Set<string>
+  ): SimNode[] => {
+    const placed: SimNode[] = [];
+    const parentSlot = (2 * Math.PI) / Math.max(parents.length, 1);
+
+    for (const p of parents) {
+      const kids = (childrenOf.get(p.id) ?? [])
+        .map((id) => byId.get(id))
+        .filter((n): n is SimNode => Boolean(n) && !exclude.has(n.id))
+        .sort(byName);
+      if (!kids.length) continue;
+
+      const parentAngle = angles.get(p.id) ?? 0;
+      const spread = Math.min(
+        parentSlot * 0.9,
+        Math.max(0.22, kids.length * 0.16)
+      );
+
+      kids.forEach((n, i) => {
+        const t = kids.length === 1 ? 0.5 : i / (kids.length - 1);
+        const angle = parentAngle - spread / 2 + t * spread;
+        angles.set(n.id, angle);
+        place(n, angle, radius);
+        placed.push(n);
+        exclude.add(n.id);
+      });
+    }
+    return placed;
+  };
+
+  const claimed = new Set(ring1Ids);
+  const ring2 = placeChildrenOnRing(ring1, R2, claimed);
+
+  // Any remaining degree-2 (or unplaced with a missing parent) → even on ring 2.
+  const leftovers2 = others
+    .filter((n) => !claimed.has(n.id) && n.degree !== 3)
+    .sort(byName);
+  if (leftovers2.length) {
+    const start = ring2.length;
+    leftovers2.forEach((n, i) => {
+      const angle =
+        ((start + i) / Math.max(start + leftovers2.length, 1)) *
+          Math.PI *
+          2 -
+        Math.PI / 2;
+      angles.set(n.id, angle);
+      place(n, angle, R2);
+      claimed.add(n.id);
+      ring2.push(n);
     });
   }
 
-  const idx = new Map(nodes.map((n, i) => [n.id, i]));
+  const ring2Parents = ring2.length ? ring2 : ring1;
+  placeChildrenOnRing(ring2Parents, R3, claimed);
 
-  for (let t = 0; t < ticks; t++) {
-    const alpha = 1 - t / ticks;
-
-    // Repulsion
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        const a = nodes[i];
-        const b = nodes[j];
-        let dx = b.x - a.x;
-        let dy = b.y - a.y;
-        let dist2 = dx * dx + dy * dy || 0.01;
-        const dist = Math.sqrt(dist2);
-        const force = (2200 * alpha) / dist2;
-        const fx = (dx / dist) * force;
-        const fy = (dy / dist) * force;
-        if (!a.isYou) {
-          a.vx -= fx;
-          a.vy -= fy;
-        }
-        if (!b.isYou) {
-          b.vx += fx;
-          b.vy += fy;
-        }
-      }
-    }
-
-    // Springs along edges
-    for (const e of edges) {
-      const si = idx.get(e.source);
-      const ti = idx.get(e.target);
-      if (si == null || ti == null) continue;
-      const a = nodes[si];
-      const b = nodes[ti];
-      const ideal = e.kind === "knows" ? 190 : 150;
-      let dx = b.x - a.x;
-      let dy = b.y - a.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
-      const diff = dist - ideal;
-      const force = diff * 0.045 * alpha;
-      const fx = (dx / dist) * force;
-      const fy = (dy / dist) * force;
-      if (!a.isYou) {
-        a.vx += fx;
-        a.vy += fy;
-      }
-      if (!b.isYou) {
-        b.vx -= fx;
-        b.vy -= fy;
-      }
-    }
-
-    // Pull toward degree rings
-    for (const n of nodes) {
-      if (n.isYou) continue;
-      const r = ringRadius[degreeKey(n)] ?? 180;
-      const dx = n.x - cx;
-      const dy = n.y - cy;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
-      const pull = (dist - r) * 0.02 * alpha;
-      n.vx -= (dx / dist) * pull;
-      n.vy -= (dy / dist) * pull;
-    }
-
-    // Integrate
-    for (const n of nodes) {
-      if (n.isYou) {
-        n.x = cx;
-        n.y = cy;
-        n.vx = 0;
-        n.vy = 0;
-        continue;
-      }
-      n.vx *= 0.85;
-      n.vy *= 0.85;
-      n.x += n.vx;
-      n.y += n.vy;
-      n.x = Math.max(60, Math.min(width - 60, n.x));
-      n.y = Math.max(40, Math.min(height - 40, n.y));
-    }
-  }
+  // Final leftovers (true degree-3 orphans) → even on ring 3.
+  const leftovers3 = others.filter((n) => !claimed.has(n.id)).sort(byName);
+  leftovers3.forEach((n, i) => {
+    const angle =
+      (i / Math.max(leftovers3.length, 1)) * Math.PI * 2 - Math.PI / 2;
+    place(n, angle, R3);
+    claimed.add(n.id);
+  });
 }
 
 export function NetworkMapClient({ data }: { data: NetworkMapData }) {
@@ -334,7 +338,7 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
         vx: 0,
         vy: 0,
       }));
-    runForce(nodes, visibleEdges, size.w, size.h);
+    layoutConcentric(nodes, visibleEdges, size.w, size.h);
     setSimNodes(nodes);
   }, [data.nodes, visibleEdges, visibleIds, size.w, size.h]);
 
@@ -343,18 +347,12 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
     ? chainFor(selected.id, data.edges, nodesById)
     : [];
 
+  /** Focused node + full referral subtree (2nds and 3rds) + ancestry. */
   const highlight = useMemo(() => {
     const set = new Set<string>();
     const focus = selectedId || hoverId;
     if (!focus) return set;
-    set.add(focus);
-    for (const e of data.edges) {
-      if (e.source === focus || e.target === focus) {
-        set.add(e.source);
-        set.add(e.target);
-      }
-    }
-    // Full referral ancestry + descendants
+
     const parent = new Map<string, string>();
     const children = new Map<string, string[]>();
     for (const e of data.edges) {
@@ -364,21 +362,30 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
       arr.push(e.target);
       children.set(e.source, arr);
     }
+
+    set.add(focus);
+
+    // Walk up to the root introducer / channel.
     let cur: string | undefined = focus;
     while (cur) {
       set.add(cur);
       cur = parent.get(cur);
     }
+
+    // Walk down through every referral hop (1 → 2 → 3 …).
     const stack = [focus];
     while (stack.length) {
       const id = stack.pop()!;
-      for (const c of children.get(id) ?? []) {
-        if (!set.has(c)) {
-          set.add(c);
-          stack.push(c);
-        }
+      for (const childId of children.get(id) ?? []) {
+        if (set.has(childId)) continue;
+        set.add(childId);
+        stack.push(childId);
       }
     }
+
+    // Keep the You hub lit so the dashed "knows / via channel" edge stays visible.
+    if (set.size > 0) set.add("__you__");
+
     return set;
   }, [selectedId, hoverId, data.edges]);
 
@@ -577,19 +584,23 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
             <g
               transform={`translate(${transform.x} ${transform.y}) scale(${transform.k})`}
             >
-              {/* soft ring guides */}
-              {[0.26, 0.42, 0.56].map((f, i) => (
+              {/* Concentric degree rings */}
+              {[
+                { f: 0.28, label: "1 — know well / channels" },
+                { f: 0.5, label: "2 — intro’d by a 1" },
+                { f: 0.72, label: "3 — intro’d by a 2" },
+              ].map((ring) => (
                 <circle
-                  key={f}
+                  key={ring.f}
                   cx={size.w / 2}
                   cy={size.h / 2}
-                  r={Math.min(size.w, size.h) * f}
+                  r={Math.min(size.w, size.h) * ring.f}
                   fill="none"
                   stroke="var(--border)"
                   strokeDasharray="3 6"
-                  opacity={0.45}
+                  opacity={0.55}
                 >
-                  <title>{`Degree ${i + 1} ring`}</title>
+                  <title>{ring.label}</title>
                 </circle>
               ))}
 
@@ -597,8 +608,21 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                 const a = pos.get(e.source);
                 const b = pos.get(e.target);
                 if (!a || !b) return null;
-                const active =
-                  !dimmed || (highlight.has(e.source) && highlight.has(e.target));
+                const inSubtree =
+                  highlight.has(e.source) && highlight.has(e.target);
+                // When focused, only light referral edges inside the subtree
+                // (plus the You→focus knows edge). Dim everything else hard.
+                const active = !dimmed
+                  ? true
+                  : e.kind === "referral"
+                    ? inSubtree
+                    : inSubtree &&
+                      (e.source === selectedId ||
+                        e.target === selectedId ||
+                        e.source === hoverId ||
+                        e.target === hoverId ||
+                        e.source === "__you__" ||
+                        e.target === "__you__");
                 const isReferral = e.kind === "referral";
                 const dx = b.x - a.x;
                 const dy = b.y - a.y;
@@ -618,10 +642,22 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                     stroke={
                       isReferral ? "#3b82f6" : "var(--muted-foreground)"
                     }
-                    strokeWidth={isReferral ? 1.6 : 1}
+                    strokeWidth={
+                      active && dimmed && isReferral ? 2.2 : isReferral ? 1.6 : 1
+                    }
                     strokeDasharray={isReferral ? undefined : "4 4"}
-                    strokeOpacity={active ? (isReferral ? 0.85 : 0.35) : 0.08}
-                    markerEnd={isReferral && active ? "url(#arrow-referral)" : undefined}
+                    strokeOpacity={
+                      active
+                        ? isReferral
+                          ? dimmed
+                            ? 1
+                            : 0.85
+                          : 0.4
+                        : 0.06
+                    }
+                    markerEnd={
+                      isReferral && active ? "url(#arrow-referral)" : undefined
+                    }
                   />
                 );
               })}
@@ -843,12 +879,12 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
           ) : (
             <div className="space-y-2 text-xs text-muted-foreground">
               <p>
-                Click a person to see their introduction path. Drag the canvas to
-                pan, scroll to zoom, drag a node to reposition.
+                Click a 1st-degree person to light up everyone they introduced —
+                their 2nds and the 3rds those 2nds introduced.
               </p>
               <p>
-                Rings are approximate degree bands: inner = people you know well,
-                middle = their intros, outer = second-hop intros.
+                Inner ring = people you know / channels · middle = their intros ·
+                outer = second-hop intros. Drag to pan, scroll to zoom.
               </p>
             </div>
           )}
