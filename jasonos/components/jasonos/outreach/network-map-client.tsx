@@ -14,7 +14,12 @@ import type {
   NetworkMapEdge,
   NetworkMapNode,
 } from "@/lib/server-actions/network-map";
-import { NETWORK_ROLE_SHORT } from "@/lib/outreach/types";
+import {
+  NETWORK_ROLE_SHORT,
+  RELEVANCE_TIERS,
+  RELEVANCE_TIER_LABELS,
+  type RelevanceTier,
+} from "@/lib/outreach/types";
 import {
   Search,
   ZoomIn,
@@ -328,6 +333,7 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [degreeFilter, setDegreeFilter] = useState<"all" | "1" | "2" | "3">("all");
+  const [tierFilter, setTierFilter] = useState<"all" | RelevanceTier>("all");
   const [transform, setTransform] = useState<ViewTransform>({ x: 0, y: 0, k: 1 });
   const transformRef = useRef(transform);
   transformRef.current = transform;
@@ -390,11 +396,12 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
         ids.add(n.id);
         continue;
       }
-      // Channels (Boardy, etc.) appear on All; when filtering by degree they
-      // are pulled back in below if they sit on a visible referral edge.
+      // Channels (Boardy, etc.) appear on All; when filtering by degree/tier
+      // they are pulled back in below if they sit on a visible referral edge.
       const degOk =
         degreeFilter === "all" || String(n.degree) === degreeFilter;
-      if (degOk && matchQuery(n)) ids.add(n.id);
+      const tierOk = tierFilter === "all" || n.tier === tierFilter;
+      if (degOk && tierOk && matchQuery(n)) ids.add(n.id);
     }
     // Keep endpoints of edges that touch a visible non-you node so chains stay intact
     for (const e of data.edges) {
@@ -406,7 +413,7 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
     }
     ids.add("__you__");
     return ids;
-  }, [data, degreeFilter, matchQuery]);
+  }, [data, degreeFilter, tierFilter, matchQuery]);
 
   const visibleEdges = useMemo(
     () =>
@@ -681,7 +688,10 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
               className="h-8 w-full rounded-md border bg-background pl-7 pr-2 text-sm outline-none focus:border-foreground/40"
             />
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Deg
+            </span>
             {(["all", "1", "2", "3"] as const).map((d) => (
               <button
                 key={d}
@@ -693,8 +703,31 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                     ? "bg-foreground text-background"
                     : "bg-muted/60 text-muted-foreground hover:text-foreground"
                 )}
+                aria-pressed={degreeFilter === d}
               >
-                {d === "all" ? "All" : `Deg ${d}`}
+                {d === "all" ? "All" : d}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Tier
+            </span>
+            {(["all", ...RELEVANCE_TIERS] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTierFilter(t)}
+                title={t === "all" ? "All relevance tiers" : RELEVANCE_TIER_LABELS[t]}
+                className={cn(
+                  "h-7 rounded-md px-2 text-xs transition-colors",
+                  tierFilter === t
+                    ? "bg-foreground text-background"
+                    : "bg-muted/60 text-muted-foreground hover:text-foreground"
+                )}
+                aria-pressed={tierFilter === t}
+              >
+                {t === "all" ? "All" : t}
               </button>
             ))}
           </div>
@@ -1116,6 +1149,10 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
               <p>
                 Click a 1st-degree person to light up everyone they introduced —
                 their 2nds and the 3rds those 2nds introduced.
+              </p>
+              <p>
+                Filter by degree (1/2/3) or relevance tier (A/B/C). Referral
+                chains stay attached so you can see who introduced whom.
               </p>
               <p>
                 Drag any name box anywhere you want — it follows the cursor
