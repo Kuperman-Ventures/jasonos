@@ -196,6 +196,63 @@ interface RawGCalEvent {
   status?: string;
 }
 
+interface GCalListPage {
+  items?: RawGCalEvent[];
+  nextPageToken?: string;
+}
+
+/**
+ * Fetch every primary-calendar event in [timeMin, timeMax], following
+ * nextPageToken. Sync used to request a single page of 250 with
+ * orderBy=startTime — on a busy 90-day window that returns the *oldest*
+ * 250 events and silently drops recent meetings (e.g. today's calls).
+ */
+async function fetchPrimaryCalendarEvents(opts: {
+  token: string;
+  timeMin: string;
+  timeMax: string;
+}): Promise<{ events: RawGCalEvent[]; error?: string }> {
+  const events: RawGCalEvent[] = [];
+  let pageToken: string | undefined;
+  // Hard cap: 250/page × 20 = 5,000 events. Far above a normal 90-day load.
+  for (let page = 0; page < 20; page++) {
+    const params = new URLSearchParams({
+      timeMin: opts.timeMin,
+      timeMax: opts.timeMax,
+      singleEvents: "true",
+      orderBy: "startTime",
+      maxResults: "250",
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+
+    let raw: GCalListPage;
+    try {
+      const res = await fetch(
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
+        { headers: { Authorization: `Bearer ${opts.token}` }, cache: "no-store" }
+      );
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        return {
+          events,
+          error: `GCal ${res.status} :: ${txt.slice(0, 200)}`,
+        };
+      }
+      raw = (await res.json()) as GCalListPage;
+    } catch (err) {
+      return {
+        events,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+
+    if (raw.items?.length) events.push(...raw.items);
+    pageToken = raw.nextPageToken;
+    if (!pageToken) break;
+  }
+  return { events };
+}
+
 export async function syncOutreachFromCalendar(opts?: {
   daysBack?: number;
 }): Promise<SyncResult> {
@@ -216,44 +273,31 @@ export async function syncOutreachFromCalendar(opts?: {
   const timeMin = new Date(Date.now() - daysBack * 86_400_000).toISOString();
   const timeMax = new Date().toISOString();
 
-  const params = new URLSearchParams({
+  const { events, error } = await fetchPrimaryCalendarEvents({
+    token,
     timeMin,
     timeMax,
-    singleEvents: "true",
-    orderBy: "startTime",
-    maxResults: "250",
   });
-
-  let raw: { items?: RawGCalEvent[] } = {};
-  try {
-    const res = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
-      { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }
-    );
-    if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      const msg = `GCal ${res.status} :: ${txt.slice(0, 200)}`;
-      await recordSyncState("gcal", { error: msg });
-      return errorResult("gcal", msg);
-    }
-    raw = await res.json();
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    await recordSyncState("gcal", { error: msg });
-    return errorResult("gcal", msg);
+  if (error && events.length === 0) {
+    await recordSyncState("gcal", { error });
+    return errorResult("gcal", error);
+  }
+  if (error) {
+    // Partial page load — still process what we have, but surface the error.
+    console.warn("[outreach-sync.gcal] partial calendar fetch:", error);
   }
 
-  const events = raw.items ?? [];
   const touches: ContactTouchInput[] = [];
   const enrich: EnrichMap = new Map();
   let skipped = 0;
+  const now = Date.now();
 
   for (const ev of events) {
     if (ev.status === "cancelled") continue;
     const startISO = ev.start?.dateTime ?? null;
     if (!startISO) continue;
-    // Skip future events; we only capture meetings that have occurred.
-    if (new Date(startISO).getTime() > Date.now()) continue;
+    // Capture once the meeting has started (in-progress counts as met).
+    if (new Date(startISO).getTime() > now) continue;
 
     const attendees = ev.attendees ?? [];
     const otherAttendees = attendees.filter((a) => !a.self && a.email);
@@ -294,7 +338,10 @@ export async function syncOutreachFromCalendar(opts?: {
     duplicates: insertResult.duplicates,
     cadenceUpdates: insertResult.cadenceUpdates,
     skipped,
+    pagesFetched: true,
+    eventCount: events.length,
     errors: insertResult.errors,
+    ...(error ? { fetchWarning: error } : {}),
   });
   revalidatePaths();
   return okResult("gcal", insertResult, touches.length, skipped);
@@ -322,29 +369,15 @@ export async function getUpcomingCalendarMeetings(opts?: {
   if (!lookup.rows.length) return [];
 
   const now = Date.now();
-  const params = new URLSearchParams({
+  const { events } = await fetchPrimaryCalendarEvents({
+    token,
     timeMin: new Date(now).toISOString(),
     timeMax: new Date(now + daysAhead * 86_400_000).toISOString(),
-    singleEvents: "true",
-    orderBy: "startTime",
-    maxResults: "250",
   });
-
-  let raw: { items?: RawGCalEvent[] } = {};
-  try {
-    const res = await fetch(
-      `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
-      { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }
-    );
-    if (!res.ok) return [];
-    raw = await res.json();
-  } catch {
-    return [];
-  }
 
   const out: UpcomingCalendarMeeting[] = [];
   const seen = new Set<string>();
-  for (const ev of raw.items ?? []) {
+  for (const ev of events) {
     if (ev.status === "cancelled") continue;
     const startISO = ev.start?.dateTime ?? null;
     if (!startISO) continue;

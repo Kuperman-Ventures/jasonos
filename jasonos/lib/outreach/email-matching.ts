@@ -30,7 +30,14 @@ export function extractDisplayName(value: string): string {
 }
 
 export function normalizeName(name: string): string {
-  return name.toLowerCase().replace(/\s+/g, " ").trim();
+  // Strip apostrophes/punctuation so "Rena O'Brien" matches "Rena OBrien"
+  // (common calendar vs CRM spelling drift).
+  return name
+    .toLowerCase()
+    .replace(/['’ʼ]/g, "")
+    .replace(/[.,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export function isFromMe(fromHeader: string): boolean {
