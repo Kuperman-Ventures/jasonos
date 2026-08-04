@@ -171,10 +171,13 @@ export async function insertContactTouches(
   // ---- Step 2: figure out which contacts had a NEW touch (latest per
   // contact) so we advance their cadence.
   // We rely on the inserted rows; for duplicates we don't re-advance.
+  // Upcoming calendar meetings are stored for the Meetings tab but must NOT
+  // stamp last_touch_date / advance cadence until they have occurred.
 
-  // Build map: contact_id -> latest touched_at among rows we just inserted
+  const nowMs = Date.now();
   const latestByContact = new Map<string, string>();
   for (const t of touches) {
+    if (new Date(t.touched_at).getTime() > nowMs) continue;
     const prev = latestByContact.get(t.contact_id);
     if (!prev || prev < t.touched_at) {
       latestByContact.set(t.contact_id, t.touched_at);

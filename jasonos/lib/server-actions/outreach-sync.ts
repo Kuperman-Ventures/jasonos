@@ -180,9 +180,10 @@ export async function syncOutreachFromGmail(opts?: {
 }
 
 // ---------------------------------------------------------------------------
-// Calendar sync — captures meetings from the last `daysBack` days where any
-// attendee resolves to a contact. Uses the primary calendar via the existing
-// Google OAuth token.
+// Calendar sync — captures meetings from the last `daysBack` days and the
+// next `daysForward` days where any attendee resolves to a contact. Uses the
+// primary calendar via the existing Google OAuth token. Upcoming meetings are
+// stored for the contact Meetings tab but do not advance cadence until past.
 // ---------------------------------------------------------------------------
 
 interface RawGCalEvent {
@@ -197,8 +198,11 @@ interface RawGCalEvent {
 
 export async function syncOutreachFromCalendar(opts?: {
   daysBack?: number;
+  /** How far ahead to pull upcoming meetings onto contact Meeting tabs. */
+  daysForward?: number;
 }): Promise<SyncResult> {
   const daysBack = Math.max(1, Math.min(60, opts?.daysBack ?? 30));
+  const daysForward = Math.max(0, Math.min(60, opts?.daysForward ?? 30));
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return errorResult("gcal", "Supabase service role is not configured.");
@@ -212,8 +216,9 @@ export async function syncOutreachFromCalendar(opts?: {
     return okResult("gcal", emptyInsertResult(), 0, 0);
   }
 
-  const timeMin = new Date(Date.now() - daysBack * 86_400_000).toISOString();
-  const timeMax = new Date().toISOString();
+  const now = Date.now();
+  const timeMin = new Date(now - daysBack * 86_400_000).toISOString();
+  const timeMax = new Date(now + daysForward * 86_400_000).toISOString();
 
   const params = new URLSearchParams({
     timeMin,
@@ -249,10 +254,13 @@ export async function syncOutreachFromCalendar(opts?: {
 
   for (const ev of events) {
     if (ev.status === "cancelled") continue;
-    const startISO = ev.start?.dateTime ?? null;
+    // Timed events preferred; all-day events use date-only (store as local midnight).
+    const startISO = ev.start?.dateTime
+      ? new Date(ev.start.dateTime).toISOString()
+      : ev.start?.date
+        ? new Date(`${ev.start.date}T12:00:00`).toISOString()
+        : null;
     if (!startISO) continue;
-    // Skip future events; we only capture meetings that have occurred.
-    if (new Date(startISO).getTime() > Date.now()) continue;
 
     const attendees = ev.attendees ?? [];
     const otherAttendees = attendees.filter((a) => !a.self && a.email);
@@ -264,7 +272,7 @@ export async function syncOutreachFromCalendar(opts?: {
       const header = a.displayName ? `${a.displayName} <${a.email}>` : a.email!;
       const contact = lookup.resolve(header);
       if (!contact) continue;
-      // Skip declined attendees — they didn't actually meet.
+      // Skip declined attendees — they didn't actually meet / won't attend.
       if (a.responseStatus === "declined") continue;
 
       matchedAny = true;
@@ -273,7 +281,7 @@ export async function syncOutreachFromCalendar(opts?: {
         contact_id: contact.id,
         channel: "calendar",
         direction: "outbound", // calendar meetings are mutual; we tag outbound for cadence advancement
-        touched_at: new Date(startISO).toISOString(),
+        touched_at: startISO,
         source: "gcal",
         // Multiple contacts can share one event → make external_id unique per (event, contact)
         external_id: `${ev.id}::${contact.id}`,
@@ -305,6 +313,7 @@ export async function syncOutreachFromCalendar(opts?: {
 
 export async function syncOutreachAll(opts?: {
   daysBack?: number;
+  daysForward?: number;
 }): Promise<SyncAllResult> {
   const ranAt = new Date().toISOString();
   const [gmail, gcal] = await Promise.allSettled([

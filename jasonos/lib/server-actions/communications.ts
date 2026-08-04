@@ -100,6 +100,10 @@ function toCommChannel(raw: string | null | undefined): CommChannel {
     phone: "phone",
     meeting: "meeting",
     zoom: "meeting",
+    calendar: "meeting",
+    video: "meeting",
+    in_person: "meeting",
+    coffee_chat: "meeting",
     call: "phone",
   };
   return map[raw?.toLowerCase() ?? ""] ?? "other";

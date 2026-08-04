@@ -30,7 +30,7 @@ export function SyncNowButton({ initial }: SyncNowButtonProps) {
   const handleSync = async () => {
     setRunning(true);
     try {
-      const result = await syncOutreachAll({ daysBack: 7 });
+      const result = await syncOutreachAll({ daysBack: 30, daysForward: 30 });
       const messages: string[] = [];
       if (result.gmail) {
         messages.push(
@@ -114,8 +114,9 @@ export function SyncNowButton({ initial }: SyncNowButtonProps) {
               Outreach capture
             </DialogTitle>
             <DialogDescription>
-              Pulls Gmail sent + Calendar meetings from the last 7 days, then
-              auto-advances cadence on any contact you reached.
+              Pulls Gmail sent (last 30 days) + Calendar meetings (past 30 days
+              and upcoming 30 days). Past meetings advance cadence; upcoming
+              ones land on each contact&apos;s Meetings tab.
             </DialogDescription>
           </DialogHeader>
 

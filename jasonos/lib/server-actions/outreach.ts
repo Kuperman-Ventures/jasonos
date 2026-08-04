@@ -956,14 +956,16 @@ export async function getContactCardData(input: {
   };
 
   // 5. Recent touches — primary source jasonos.contact_touches.
+  // Pull enough rows so History stays useful while Meetings can still surface
+  // calendar/video/in-person rows that would otherwise fall off a tiny limit.
   const recentTouches: RecentTouch[] = [];
   try {
     const { data: touches } = await sb
       .from("contact_touches")
-      .select("id,channel,direction,touched_at,brief")
+      .select("id,channel,direction,touched_at,brief,subject,thread_url,source")
       .eq("contact_id", contact.id)
       .order("touched_at", { ascending: false })
-      .limit(10);
+      .limit(40);
     if (touches?.length) {
       for (const t of touches) {
         recentTouches.push({
@@ -972,16 +974,19 @@ export async function getContactCardData(input: {
           direction: t.direction as string,
           touched_at: t.touched_at as string,
           brief: (t.brief as string) ?? null,
+          subject: (t.subject as string) ?? null,
+          thread_url: (t.thread_url as string) ?? null,
+          source: (t.source as string) ?? null,
         });
       }
     } else if (recruiterPipelineId) {
       // Fallback: rr_touches via the recruiter link (legacy path).
       const { data: legacy } = await sb
         .from("rr_touches")
-        .select("id,channel,direction,touched_at,brief")
+        .select("id,channel,direction,touched_at,brief,subject,thread_url,source")
         .eq("contact_id", recruiterPipelineId)
         .order("touched_at", { ascending: false })
-        .limit(10);
+        .limit(40);
       for (const t of legacy ?? []) {
         recentTouches.push({
           id: t.id as string,
@@ -989,6 +994,9 @@ export async function getContactCardData(input: {
           direction: t.direction as string,
           touched_at: t.touched_at as string,
           brief: (t.brief as string) ?? null,
+          subject: (t.subject as string) ?? null,
+          thread_url: (t.thread_url as string) ?? null,
+          source: (t.source as string) ?? null,
         });
       }
     }

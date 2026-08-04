@@ -49,6 +49,7 @@ import {
   Sparkles,
   Flame,
   Archive,
+  Video,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
@@ -96,6 +97,7 @@ import {
 import type { OutreachPerson } from "@/lib/outreach/data";
 import {
   LOG_TOUCH_CHANNELS,
+  isMeetingTouchChannel,
   type LogTouchChannel,
   type RecentTouch,
 } from "@/lib/outreach/draft-types";
@@ -232,9 +234,10 @@ export function OutreachModal({
   } | null>(null);
   const [browningDismissed, setBrowningDismissed] = useState(false);
 
-  // Which body tab is showing. "engage" = classify/schedule/log; "history" =
-  // communication context. Reset to "engage" on each open.
-  const [tab, setTab] = useState<"engage" | "history">("engage");
+  // Which body tab is showing. "engage" = classify/schedule/log; "meetings" =
+  // calendar + logged meetings; "history" = communication context.
+  // Reset to "engage" on each open.
+  const [tab, setTab] = useState<"engage" | "meetings" | "history">("engage");
 
   // ------------------------------------------------------------------
   // Fetch on open
@@ -350,6 +353,19 @@ export function OutreachModal({
       cancelled = true;
     };
   }, [open, contactId, recruiterId]);
+
+  const allTouches = useMemo(() => {
+    if (contextRecentTouches.length > 0) return contextRecentTouches;
+    if (card.status === "ready") return card.recentTouches;
+    return [];
+  }, [card, contextRecentTouches]);
+
+  const meetingTouches = useMemo(() => {
+    return allTouches
+      .filter((t) => isMeetingTouchChannel(t.channel))
+      .slice()
+      .sort((a, b) => b.touched_at.localeCompare(a.touched_at));
+  }, [allTouches]);
 
   // ------------------------------------------------------------------
   // Auto-link helper for pipeline-only cards. Idempotent on the server.
@@ -824,6 +840,17 @@ export function OutreachModal({
             <TabBtn active={tab === "engage"} onClick={() => setTab("engage")}>
               Engage
             </TabBtn>
+            <TabBtn
+              active={tab === "meetings"}
+              onClick={() => setTab("meetings")}
+            >
+              Meetings
+              {meetingTouches.length > 0 ? (
+                <span className="ml-1.5 rounded-sm border border-muted-foreground/30 px-1 py-px text-[9px] font-medium tabular-nums text-muted-foreground">
+                  {meetingTouches.length}
+                </span>
+              ) : null}
+            </TabBtn>
             <TabBtn active={tab === "history"} onClick={() => setTab("history")}>
               History
             </TabBtn>
@@ -888,17 +915,13 @@ export function OutreachModal({
                 setNextTouchOverride={setNextTouchOverride}
               />
             </div>
+          ) : tab === "meetings" ? (
+            <MeetingsSection meetings={meetingTouches} loading={loadingCtx} />
           ) : (
             <RecentContextSection
               loading={loadingCtx}
               sources={sources}
-              recentTouches={
-                contextRecentTouches.length > 0
-                  ? contextRecentTouches
-                  : card.status === "ready"
-                  ? card.recentTouches
-                  : []
-              }
+              recentTouches={allTouches}
             />
           )}
         </div>
@@ -1679,8 +1702,170 @@ function LogTouchPanel({
 }
 
 // ---------------------------------------------------------------------------
+// Meetings tab — calendar sync + manually logged meetings
+// ---------------------------------------------------------------------------
+
+const MEETING_CHANNEL_LABELS: Record<string, string> = {
+  calendar: "Calendar",
+  video: "Video",
+  in_person: "In person",
+  coffee_chat: "Coffee",
+};
+
+function MeetingsSection({
+  meetings,
+  loading,
+}: {
+  meetings: RecentTouch[];
+  loading: boolean;
+}) {
+  const now = Date.now();
+  const upcoming = meetings.filter(
+    (m) => new Date(m.touched_at).getTime() >= now
+  );
+  const past = meetings.filter((m) => new Date(m.touched_at).getTime() < now);
+
+  if (loading && meetings.length === 0) {
+    return (
+      <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Loading meetings…
+      </div>
+    );
+  }
+
+  if (!meetings.length) {
+    return (
+      <div className="space-y-2">
+        <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <Video className="h-3 w-3" />
+          Meetings
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          No meetings yet. After Calendar sync, any Google Calendar event that
+          includes this contact&apos;s email will show up here.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {upcoming.length > 0 ? (
+        <MeetingGroup title="Upcoming" items={upcoming} upcoming />
+      ) : null}
+      {past.length > 0 ? (
+        <MeetingGroup title="Past" items={past} />
+      ) : null}
+    </div>
+  );
+}
+
+function MeetingGroup({
+  title,
+  items,
+  upcoming = false,
+}: {
+  title: string;
+  items: RecentTouch[];
+  upcoming?: boolean;
+}) {
+  return (
+    <div className="space-y-2">
+      <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <Video className="h-3 w-3" />
+        {title}
+        <span className="tabular-nums text-muted-foreground/70">
+          · {items.length}
+        </span>
+      </h3>
+      <ul className="space-y-1.5">
+        {items.map((m) => {
+          const label =
+            MEETING_CHANNEL_LABELS[m.channel] ?? m.channel.replace("_", " ");
+          const titleText = m.subject ?? m.brief ?? "Meeting";
+          return (
+            <li
+              key={m.id}
+              className={cn(
+                "rounded-md border bg-card/40 px-3 py-2",
+                upcoming && "border-sky-500/30"
+              )}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium text-foreground">
+                    {titleText}
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                    <span
+                      className={cn(
+                        "rounded-sm border px-1 py-0.5 text-[9px] uppercase",
+                        upcoming
+                          ? "border-sky-500/40 text-sky-300"
+                          : "border-muted-foreground/30"
+                      )}
+                    >
+                      {label}
+                    </span>
+                    <span className="font-mono text-[10px]">
+                      {fmtMeetingWhen(m.touched_at)}
+                    </span>
+                    {m.source === "gcal" ? (
+                      <span className="text-[9px] uppercase text-muted-foreground/60">
+                        synced
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                {m.thread_url ? (
+                  <a
+                    href={m.thread_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+                    title="Open in Google Calendar"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Calendar
+                  </a>
+                ) : null}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function fmtMeetingWhen(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Communication Context (recent touches + source cards)
 // ---------------------------------------------------------------------------
+
+const HISTORY_CHANNEL_LABELS: Record<string, string> = {
+  calendar: "meeting",
+  video: "video",
+  in_person: "in person",
+  coffee_chat: "coffee",
+  linkedin: "linkedin",
+  email: "email",
+  phone: "phone",
+  text: "text",
+  call: "call",
+};
 
 function RecentContextSection({
   loading,
@@ -1735,7 +1920,7 @@ function RecentContextSection({
                           : "border-sky-500/40 text-sky-300"
                       )}
                     >
-                      {t.channel}
+                      {HISTORY_CHANNEL_LABELS[t.channel] ?? t.channel}
                     </span>
                     <span className="shrink-0 font-mono text-[10px]">
                       {fmtShortDate(t.touched_at)}

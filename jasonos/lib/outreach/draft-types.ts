@@ -57,6 +57,21 @@ export interface RecentTouch {
   direction: string;
   touched_at: string;
   brief: string | null;
+  subject?: string | null;
+  thread_url?: string | null;
+  source?: string | null;
+}
+
+/** Channels that belong on the contact Meetings tab. */
+export const MEETING_TOUCH_CHANNELS = [
+  "calendar",
+  "video",
+  "in_person",
+  "coffee_chat",
+] as const;
+
+export function isMeetingTouchChannel(channel: string): boolean {
+  return (MEETING_TOUCH_CHANNELS as readonly string[]).includes(channel);
 }
 
 export interface OutreachDraftResult {

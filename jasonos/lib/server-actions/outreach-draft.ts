@@ -488,10 +488,10 @@ async function getRecentTouches(ctx: ContactContext): Promise<RecentTouch[]> {
   // the canonical jasonos.contacts.id.
   const { data, error } = await sb
     .from("contact_touches")
-    .select("id,channel,direction,touched_at,brief")
+    .select("id,channel,direction,touched_at,brief,subject,thread_url,source")
     .eq("contact_id", ctx.id)
     .order("touched_at", { ascending: false })
-    .limit(10);
+    .limit(40);
 
   if (error) {
     console.error("[outreach.getRecentTouches.contact_touches]", error);
@@ -502,6 +502,9 @@ async function getRecentTouches(ctx: ContactContext): Promise<RecentTouch[]> {
       direction: row.direction as string,
       touched_at: row.touched_at as string,
       brief: (row.brief as string) ?? null,
+      subject: (row.subject as string) ?? null,
+      thread_url: (row.thread_url as string) ?? null,
+      source: (row.source as string) ?? null,
     }));
   }
 
@@ -512,10 +515,10 @@ async function getRecentTouches(ctx: ContactContext): Promise<RecentTouch[]> {
 
   const { data: legacy } = await sb
     .from("rr_touches")
-    .select("id,channel,direction,touched_at,brief")
+    .select("id,channel,direction,touched_at,brief,subject,thread_url,source")
     .eq("contact_id", recruiterId)
     .order("touched_at", { ascending: false })
-    .limit(10);
+    .limit(40);
 
   return (legacy ?? []).map((row): RecentTouch => ({
     id: row.id as string,
@@ -523,6 +526,9 @@ async function getRecentTouches(ctx: ContactContext): Promise<RecentTouch[]> {
     direction: row.direction as string,
     touched_at: row.touched_at as string,
     brief: (row.brief as string) ?? null,
+    subject: (row.subject as string) ?? null,
+    thread_url: (row.thread_url as string) ?? null,
+    source: (row.source as string) ?? null,
   }));
 }
 
