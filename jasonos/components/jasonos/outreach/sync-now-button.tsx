@@ -26,7 +26,7 @@ export function SyncNowButton({ initial }: SyncNowButtonProps) {
     setRunning(true);
     try {
       const [result, suggested] = await Promise.all([
-        syncOutreachAll({ daysBack: 90 }),
+        syncOutreachAll({ daysBack: 90, daysForward: 30 }),
         captureEmailCandidates({ days: 30 }),
       ]);
 

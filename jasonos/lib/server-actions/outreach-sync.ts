@@ -23,6 +23,10 @@ import {
   type ContactTouchInput,
   type InsertTouchesResult,
 } from "@/lib/outreach/touch-capture";
+import {
+  upsertMeetingsFromCalendar,
+  type CalendarMeetingUpsert,
+} from "@/lib/outreach/meeting-capture";
 
 // ---------------------------------------------------------------------------
 // Email write-back — when a sync matches a contact (typically by NAME, e.g. a
@@ -181,9 +185,10 @@ export async function syncOutreachFromGmail(opts?: {
 }
 
 // ---------------------------------------------------------------------------
-// Calendar sync — captures meetings from the last `daysBack` days where any
-// attendee resolves to a contact. Uses the primary calendar via the existing
-// Google OAuth token.
+// Calendar sync — captures meetings from the last `daysBack` days (and
+// upcoming `daysForward` days) where any attendee resolves to a contact.
+// Past events also become contact_touches (cadence). All matched events are
+// upserted into jasonos.meetings so they appear on the contact Meetings tab.
 // ---------------------------------------------------------------------------
 
 interface RawGCalEvent {
@@ -255,8 +260,11 @@ async function fetchPrimaryCalendarEvents(opts: {
 
 export async function syncOutreachFromCalendar(opts?: {
   daysBack?: number;
+  /** How far ahead to load upcoming meetings onto contact Meetings tabs. */
+  daysForward?: number;
 }): Promise<SyncResult> {
   const daysBack = Math.max(1, Math.min(90, opts?.daysBack ?? 30));
+  const daysForward = Math.max(0, Math.min(90, opts?.daysForward ?? 30));
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return errorResult("gcal", "Supabase service role is not configured.");
@@ -270,8 +278,9 @@ export async function syncOutreachFromCalendar(opts?: {
     return okResult("gcal", emptyInsertResult(), 0, 0);
   }
 
-  const timeMin = new Date(Date.now() - daysBack * 86_400_000).toISOString();
-  const timeMax = new Date().toISOString();
+  const now = Date.now();
+  const timeMin = new Date(now - daysBack * 86_400_000).toISOString();
+  const timeMax = new Date(now + daysForward * 86_400_000).toISOString();
 
   const { events, error } = await fetchPrimaryCalendarEvents({
     token,
@@ -288,63 +297,95 @@ export async function syncOutreachFromCalendar(opts?: {
   }
 
   const touches: ContactTouchInput[] = [];
+  const meetingRows: CalendarMeetingUpsert[] = [];
   const enrich: EnrichMap = new Map();
   let skipped = 0;
-  const now = Date.now();
 
   for (const ev of events) {
+    if (!ev.id) continue;
     if (ev.status === "cancelled") continue;
-    const startISO = ev.start?.dateTime ?? null;
+    // Timed events preferred; all-day events use noon local so they still link.
+    const startISO = ev.start?.dateTime
+      ? new Date(ev.start.dateTime).toISOString()
+      : ev.start?.date
+        ? new Date(`${ev.start.date}T12:00:00`).toISOString()
+        : null;
     if (!startISO) continue;
-    // Capture once the meeting has started (in-progress counts as met).
-    if (new Date(startISO).getTime() > now) continue;
 
+    const isPastOrStarted = new Date(startISO).getTime() <= now;
     const attendees = ev.attendees ?? [];
     const otherAttendees = attendees.filter((a) => !a.self && a.email);
     if (!otherAttendees.length) continue;
 
-    // Build a header-style string we can pass through the lookup resolver.
     let matchedAny = false;
     for (const a of otherAttendees) {
       const header = a.displayName ? `${a.displayName} <${a.email}>` : a.email!;
       const contact = lookup.resolve(header);
       if (!contact) continue;
-      // Skip declined attendees — they didn't actually meet.
+      // Skip declined attendees — they didn't / won't meet.
       if (a.responseStatus === "declined") continue;
 
       matchedAny = true;
       if (a.email) recordEnrich(enrich, contact, a.email);
-      touches.push({
-        contact_id: contact.id,
-        channel: "calendar",
-        direction: "outbound", // calendar meetings are mutual; we tag outbound for cadence advancement
-        touched_at: new Date(startISO).toISOString(),
-        source: "gcal",
-        // Multiple contacts can share one event → make external_id unique per (event, contact)
-        external_id: `${ev.id}::${contact.id}`,
-        brief: ev.summary ?? "Meeting",
-        subject: ev.summary ?? null,
-        thread_url: ev.htmlLink ?? null,
+
+      const title = ev.summary?.trim() || "Meeting";
+      meetingRows.push({
+        contactId: contact.id,
+        gcalEventId: ev.id,
+        scheduledAt: startISO,
+        title,
+        calendarUrl: ev.htmlLink ?? null,
+        status: isPastOrStarted ? "held" : "scheduled",
       });
+
+      // Cadence touches only for meetings that have started.
+      if (isPastOrStarted) {
+        touches.push({
+          contact_id: contact.id,
+          channel: "calendar",
+          direction: "outbound",
+          touched_at: startISO,
+          source: "gcal",
+          external_id: `${ev.id}::${contact.id}`,
+          brief: title,
+          subject: ev.summary ?? null,
+          thread_url: ev.htmlLink ?? null,
+        });
+      }
     }
     if (!matchedAny) skipped += 1;
   }
 
   const insertResult = await insertContactTouches(touches);
+  const meetingResult = await upsertMeetingsFromCalendar(meetingRows);
   await applyEmailEnrichments(enrich);
   await recordSyncState("gcal", {
-    matched: touches.length,
+    matched: meetingRows.length,
     inserted: insertResult.inserted,
     duplicates: insertResult.duplicates,
     cadenceUpdates: insertResult.cadenceUpdates,
+    meetingsInserted: meetingResult.inserted,
+    meetingsUpdated: meetingResult.updated,
     skipped,
     pagesFetched: true,
     eventCount: events.length,
-    errors: insertResult.errors,
+    errors: [...insertResult.errors, ...meetingResult.errors],
     ...(error ? { fetchWarning: error } : {}),
   });
   revalidatePaths();
-  return okResult("gcal", insertResult, touches.length, skipped);
+
+  if (meetingResult.errors.length && !insertResult.inserted && !meetingResult.inserted) {
+    const msg = meetingResult.errors.join("; ");
+    // Missing migration is the common cause — surface it rather than a silent zero.
+    if (/gcal_event_id|column/i.test(msg)) {
+      return errorResult(
+        "gcal",
+        `Meetings tab sync needs migration 0052_meetings_gcal_link.sql applied (${msg})`
+      );
+    }
+  }
+
+  return okResult("gcal", insertResult, meetingRows.length, skipped);
 }
 
 // ---------------------------------------------------------------------------
@@ -403,6 +444,7 @@ export async function getUpcomingCalendarMeetings(opts?: {
 
 export async function syncOutreachAll(opts?: {
   daysBack?: number;
+  daysForward?: number;
 }): Promise<SyncAllResult> {
   const ranAt = new Date().toISOString();
   const [gmail, gcal] = await Promise.allSettled([
