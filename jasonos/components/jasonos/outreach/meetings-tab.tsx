@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  ExternalLink,
   Loader2,
   Pencil,
   Search,
@@ -148,7 +149,8 @@ export function MeetingsTab({
 
       {meetings.length === 0 && !scheduling ? (
         <p className="py-4 text-center text-xs text-muted-foreground">
-          No meetings yet. Schedule one to prep and debrief it here.
+          No meetings yet. Schedule one here, or run Outreach Sync — calendar
+          events with this contact&apos;s email will show up automatically.
         </p>
       ) : null}
 
@@ -282,25 +284,49 @@ function MeetingRow({
   return (
     <section className="rounded-lg border bg-card/40 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{fmtDateTime(meeting.scheduledAt)}</span>
-          <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-            {channelLabel(meeting.channel)}
-          </span>
-          <span
-            className={cn(
-              "rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider",
-              held
-                ? "bg-emerald-500/15 text-emerald-300"
-                : meeting.status === "cancelled"
-                ? "bg-muted text-muted-foreground"
-                : "bg-sky-500/15 text-sky-300"
-            )}
-          >
-            {meeting.status}
-          </span>
+        <div className="min-w-0 space-y-1">
+          {meeting.title || meeting.prepGoal ? (
+            <div className="truncate text-sm font-medium text-foreground">
+              {meeting.title || meeting.prepGoal}
+            </div>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium">{fmtDateTime(meeting.scheduledAt)}</span>
+            <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
+              {channelLabel(meeting.channel)}
+            </span>
+            <span
+              className={cn(
+                "rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider",
+                held
+                  ? "bg-emerald-500/15 text-emerald-300"
+                  : meeting.status === "cancelled"
+                  ? "bg-muted text-muted-foreground"
+                  : "bg-sky-500/15 text-sky-300"
+              )}
+            >
+              {meeting.status}
+            </span>
+            {meeting.gcalEventId ? (
+              <span className="text-[9px] uppercase tracking-wider text-muted-foreground/70">
+                synced
+              </span>
+            ) : null}
+          </div>
         </div>
         <div className="flex items-center gap-2">
+          {meeting.calendarUrl ? (
+            <a
+              href={meeting.calendarUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+              title="Open in Google Calendar"
+            >
+              <ExternalLink className="h-3 w-3" />
+              Calendar
+            </a>
+          ) : null}
           {!held ? (
             <>
               <button

@@ -35,6 +35,10 @@ export interface Meeting {
   prepResearch: string | null;
   prepResearchAt: string | null;
   introWishlist: IntroWish[];
+  /** Google Calendar event id when this row was created/updated by calendar sync. */
+  gcalEventId: string | null;
+  calendarUrl: string | null;
+  title: string | null;
 }
 
 type Result<T> = ({ ok: true } & T) | { ok: false; error: string };
@@ -73,6 +77,9 @@ function rowToMeeting(row: Record<string, unknown>): Meeting {
           })
           .filter((w) => w.name || w.company)
       : [],
+    gcalEventId: (row.gcal_event_id as string | null) ?? null,
+    calendarUrl: (row.calendar_url as string | null) ?? null,
+    title: (row.title as string | null) ?? null,
   };
 }
 
