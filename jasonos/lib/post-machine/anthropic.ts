@@ -56,7 +56,6 @@ async function callViaAnthropicSdk(input: {
     model: getAnthropicModel(),
     max_tokens: input.maxTokens,
     // Sonnet 5 adaptive thinking is on by default and steals from max_tokens.
-    // Disable it for deterministic JSON generation budgets.
     thinking: { type: "disabled" },
     system: input.system,
     messages: [{ role: "user", content: input.user }],
@@ -71,7 +70,7 @@ async function callViaGateway(input: {
   maxTokens: number;
 }): Promise<string> {
   const modelId = getAnthropicModel().replace(/^anthropic\//, "");
-  const { text } = await generateText({
+  const { text, finishReason } = await generateText({
     model: gateway(`anthropic/${modelId}`),
     maxOutputTokens: input.maxTokens,
     system: input.system,
@@ -82,23 +81,29 @@ async function callViaGateway(input: {
       },
     },
   });
-  return text.trim();
+
+  const out = text.trim();
+  if (!out) {
+    throw new Error("Claude returned an empty response.");
+  }
+  if (finishReason === "length") {
+    throw new Error(
+      "Claude hit the output length limit before finishing. Try again, or shorten the LinkedIn length target."
+    );
+  }
+  return out;
 }
 
-export async function callClaudeJson<T>(input: {
+async function callClaudeRaw(input: {
   system: string;
   user: string;
-  maxTokens?: number;
-}): Promise<T> {
-  // Blog drafts need headroom; Sonnet 5's tokenizer is ~30% denser.
-  const maxTokens = input.maxTokens ?? 8192;
+  maxTokens: number;
+}): Promise<string> {
   const hasDirectKey = Boolean(process.env.ANTHROPIC_API_KEY?.trim());
-
   try {
-    const text = hasDirectKey
-      ? await callViaAnthropicSdk({ ...input, maxTokens })
-      : await callViaGateway({ ...input, maxTokens });
-    return parseJson<T>(text);
+    return hasDirectKey
+      ? await callViaAnthropicSdk(input)
+      : await callViaGateway(input);
   } catch (err) {
     const message = cleanErrorMessage(err);
     if (!hasDirectKey) {
@@ -108,4 +113,31 @@ export async function callClaudeJson<T>(input: {
     }
     throw new Error(message);
   }
+}
+
+/** Structured JSON responses (hooks). Keep payloads small. */
+export async function callClaudeJson<T>(input: {
+  system: string;
+  user: string;
+  maxTokens?: number;
+}): Promise<T> {
+  const text = await callClaudeRaw({
+    system: input.system,
+    user: input.user,
+    maxTokens: input.maxTokens ?? 2048,
+  });
+  return parseJson<T>(text);
+}
+
+/** Plain-text responses (LinkedIn / blog drafts). */
+export async function callClaudeText(input: {
+  system: string;
+  user: string;
+  maxTokens?: number;
+}): Promise<string> {
+  return callClaudeRaw({
+    system: input.system,
+    user: input.user,
+    maxTokens: input.maxTokens ?? 4096,
+  });
 }

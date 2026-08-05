@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { callClaudeJson } from "@/lib/post-machine/anthropic";
+import { callClaudeText } from "@/lib/post-machine/anthropic";
 import {
-  buildGenerateUserPrompt,
+  buildBlogUserPrompt,
+  buildLinkedInUserPrompt,
   buildSystemPrompt,
 } from "@/lib/post-machine/promptTemplates";
 import {
@@ -12,8 +13,6 @@ import {
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
-
-type GenerateResponse = { linkedin: string; blog: string };
 
 export async function POST(req: Request) {
   try {
@@ -35,19 +34,25 @@ export async function POST(req: Request) {
     }
 
     const config = normalizeConfig(body.config);
-    const data = await callClaudeJson<GenerateResponse>({
-      system: buildSystemPrompt(config),
-      user: buildGenerateUserPrompt({
-        idea,
-        hookText,
-        hookAngle,
-        config,
-      }),
-      maxTokens: 8192,
-    });
+    const system = buildSystemPrompt(config);
+    const shared = { idea, hookText, hookAngle, config };
 
-    const linkedin = data.linkedin?.trim() ?? "";
-    const blog = data.blog?.trim() ?? "";
+    // Two plain-text calls in parallel — no giant JSON blob that can truncate mid-parse.
+    const [linkedinRaw, blogRaw] = await Promise.all([
+      callClaudeText({
+        system,
+        user: buildLinkedInUserPrompt(shared),
+        maxTokens: 1200,
+      }),
+      callClaudeText({
+        system,
+        user: buildBlogUserPrompt(shared),
+        maxTokens: 4500,
+      }),
+    ]);
+
+    const linkedin = linkedinRaw.trim();
+    const blog = blogRaw.trim();
     if (!linkedin || !blog) {
       return NextResponse.json(
         { error: "Model returned incomplete linkedin/blog output." },
