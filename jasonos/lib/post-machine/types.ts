@@ -24,6 +24,62 @@ export type Hook = {
 
 export type InputMode = "idea" | "research";
 
+export type PostMachineStep =
+  | "idea"
+  | "research"
+  | "config"
+  | "hooks"
+  | "output";
+
+/** Full client state snapshot persisted for save/resume. */
+export type PostMachineProjectState = {
+  idea: string;
+  topic: string;
+  guidance: string;
+  findings: ResearchFindings | null;
+  config: ConfiguratorState;
+  hooks: Hook[];
+  selectedHook: Hook | null;
+  linkedin: string;
+  blog: string;
+};
+
+export type PostMachineProjectListItem = {
+  id: string;
+  title: string;
+  step: PostMachineStep;
+  inputMode: InputMode;
+  ideaPreview: string;
+  topic: string;
+  updatedAt: string;
+};
+
+export type PostMachineProject = PostMachineProjectListItem & {
+  state: PostMachineProjectState;
+};
+
+export function suggestProjectTitle(input: {
+  title?: string;
+  topic?: string;
+  idea?: string;
+}): string {
+  const explicit = input.title?.trim();
+  if (explicit) return explicit.slice(0, 80);
+
+  const topic = input.topic?.trim();
+  if (topic) return topic.slice(0, 80);
+
+  const ideaLine =
+    input.idea
+      ?.split("\n")
+      .map((l) => l.trim())
+      .find((l) => l && !l.startsWith("RESEARCH BRIEF")) ?? "";
+  if (ideaLine) return ideaLine.replace(/^["“]+|["”]+$/g, "").slice(0, 80);
+
+  return "Untitled post";
+}
+
+
 export type ResearchSource = {
   title: string | null;
   url: string;
