@@ -43,7 +43,7 @@ export async function POST(req: Request) {
         hookAngle,
         config,
       }),
-      maxTokens: 4500,
+      maxTokens: 8192,
     });
 
     const linkedin = data.linkedin?.trim() ?? "";
