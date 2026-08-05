@@ -6,6 +6,7 @@ import "server-only";
 import { generateObject } from "ai";
 import { z } from "zod";
 import { heavyModel } from "@/lib/ai/models";
+import { NO_AI_SLOP_WRITING_RULES } from "@/lib/ai/no-ai-slop";
 import { RESUME_CUSTOMIZER_SYSTEM_PROMPT } from "@/lib/resume-customizer/prompt";
 
 export const resumeChangeSchema = z.object({
@@ -96,7 +97,9 @@ You are returning STRUCTURED data (not a document). Rules for the structured out
 - STRATEGY — PRIORITIZED SUBSTITUTION (most important): This is a fixed-length document. You are not adding content; you are UPGRADING it in place. Rank the resume's existing wording by how relevant it is to THIS job description, then spend your edits replacing the LEAST job-relevant existing words/phrases with the MOST job-relevant ones (missing keywords, required skills, the role's terminology). Every edit is a swap: keep what already aligns, and trade out generic or off-target wording for language that maps directly to the JD's priorities. Focus first on the highest-impact bullets (summary, most recent role, core-competency lines).
 - LENGTH / PAGE COUNT (hard constraint): The system automatically rejects any "after" that would wrap the paragraph onto an ADDITIONAL line, because that grows the page count. Each paragraph has a little trailing slack on its last line, you may use it, but do not exceed the paragraph's current number of lines. The safe way to guarantee this is to make each "after" the SAME LENGTH OR SHORTER than its "before": drop filler ("responsible for", "successfully", "in order to", redundant adjectives) to make room for the keyword you're swapping in. Never propose additions with an empty "before".
 - NO AI WRITING TELLS (hard rule): NEVER use em-dashes (—) or en-dashes (–) anywhere in "after" text — use commas, periods, or hyphens instead. Use straight quotes (' and ") only, never curly quotes. No ellipsis characters. Avoid clichéd AI filler words (e.g. "delve", "leverage" as filler, "seamless", "robust", "moreover", "furthermore", "in today's landscape"). Write plainly, like a human executive wrote it.
-- Provide up to 20 topKeywords.`;
+- Provide up to 20 topKeywords.
+
+${NO_AI_SLOP_WRITING_RULES}`;
 
   const prompt = `TARGET JOB DESCRIPTION:
 ${input.jobDescription}
