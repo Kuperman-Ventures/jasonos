@@ -12,11 +12,9 @@
 // driven by data — logging a touch, advancing a sequence, or replying — and
 // flow through the existing modal + server actions.
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   AlertCircle,
-  ArrowRight,
   Calendar,
   ChevronDown,
   ChevronUp,
@@ -30,7 +28,6 @@ import {
   Snowflake,
   Sparkles,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -53,7 +50,6 @@ import type { FirstContactState } from "@/lib/first-contact/types";
 
 interface ThreeColumnQueueClientProps {
   buckets: ThreeColumnQueue;
-  triageCount: number;
   scheduleContacts: CommunicationsContact[];
 }
 
@@ -264,7 +260,6 @@ function personToCard(p: OutreachPerson): QueueCard {
 
 export function ThreeColumnQueueClient({
   buckets,
-  triageCount,
   scheduleContacts,
 }: ThreeColumnQueueClientProps) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -620,16 +615,6 @@ export function ThreeColumnQueueClient({
           <Button variant="outline" onClick={() => setAddContactOpen(true)}>
             <Plus className="h-4 w-4" />
             Add contact
-          </Button>
-          <Button variant="default" render={<Link href="/runner/triage" />}>
-            Triage queue
-            <Badge variant="secondary" className="ml-1 h-5">
-              {triageCount}
-            </Badge>
-          </Button>
-          <Button variant="outline" render={<Link href="/reconnect/contacts" />}>
-            Full pipeline
-            <ArrowRight className="h-4 w-4" />
           </Button>
         </div>
       </header>
