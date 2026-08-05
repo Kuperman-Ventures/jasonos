@@ -1,6 +1,6 @@
 "use client";
 
-import type { ResearchFindings as Findings } from "@/lib/post-machine/types";
+import type { ResearchFindings as Findings } from "@/lib/post-master/types";
 
 type ResearchFindingsProps = {
   findings: Findings;

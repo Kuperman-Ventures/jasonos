@@ -7,13 +7,13 @@ import {
   normalizeConfig,
   suggestProjectTitle,
   type InputMode,
-  type PostMachineProject,
-  type PostMachineProjectListItem,
-  type PostMachineProjectState,
-  type PostMachineStep,
-} from "@/lib/post-machine/types";
+  type PostMasterProject,
+  type PostMasterProjectListItem,
+  type PostMasterProjectState,
+  type PostMasterStep,
+} from "@/lib/post-master/types";
 
-const STEPS: PostMachineStep[] = [
+const STEPS: PostMasterStep[] = [
   "idea",
   "research",
   "config",
@@ -28,9 +28,9 @@ function ensureConfigured(): boolean {
   );
 }
 
-function asStep(value: unknown): PostMachineStep {
-  return STEPS.includes(value as PostMachineStep)
-    ? (value as PostMachineStep)
+function asStep(value: unknown): PostMasterStep {
+  return STEPS.includes(value as PostMasterStep)
+    ? (value as PostMasterStep)
     : "idea";
 }
 
@@ -39,8 +39,8 @@ function asInputMode(value: unknown): InputMode {
 }
 
 function normalizeState(
-  raw: Partial<PostMachineProjectState> | null | undefined
-): PostMachineProjectState {
+  raw: Partial<PostMasterProjectState> | null | undefined
+): PostMasterProjectState {
   return {
     idea: raw?.idea ?? "",
     topic: raw?.topic ?? "",
@@ -54,7 +54,7 @@ function normalizeState(
   };
 }
 
-function ideaPreviewFromState(state: PostMachineProjectState): string {
+function ideaPreviewFromState(state: PostMasterProjectState): string {
   if (state.topic.trim()) return state.topic.trim().slice(0, 160);
   const line =
     state.idea
@@ -64,20 +64,20 @@ function ideaPreviewFromState(state: PostMachineProjectState): string {
   return line.slice(0, 160);
 }
 
-export async function listPostMachineProjects(): Promise<
-  PostMachineProjectListItem[]
+export async function listPostMasterProjects(): Promise<
+  PostMasterProjectListItem[]
 > {
   if (!ensureConfigured()) return [];
   try {
     const sb = createServiceRoleClient();
     const { data, error } = await sb
-      .from("post_machine_projects")
+      .from("post_master_projects")
       .select(
         "id,title,step,input_mode,idea_preview,topic,updated_at"
       )
       .order("updated_at", { ascending: false });
     if (error) {
-      console.error("[post-machine.list]", error);
+      console.error("[post-master.list]", error);
       return [];
     }
     return (data ?? []).map((row) => ({
@@ -90,26 +90,26 @@ export async function listPostMachineProjects(): Promise<
       updatedAt: row.updated_at as string,
     }));
   } catch (err) {
-    console.error("[post-machine.list]", err);
+    console.error("[post-master.list]", err);
     return [];
   }
 }
 
-export async function getPostMachineProject(
+export async function getPostMasterProject(
   id: string
-): Promise<PostMachineProject | null> {
+): Promise<PostMasterProject | null> {
   if (!ensureConfigured() || !id.trim()) return null;
   try {
     const sb = createServiceRoleClient();
     const { data, error } = await sb
-      .from("post_machine_projects")
+      .from("post_master_projects")
       .select(
         "id,title,step,input_mode,idea_preview,topic,state,updated_at"
       )
       .eq("id", id)
       .maybeSingle();
     if (error) {
-      console.error("[post-machine.get]", error);
+      console.error("[post-master.get]", error);
       return null;
     }
     if (!data) return null;
@@ -121,20 +121,20 @@ export async function getPostMachineProject(
       ideaPreview: (data.idea_preview as string) || "",
       topic: (data.topic as string) || "",
       updatedAt: data.updated_at as string,
-      state: normalizeState(data.state as Partial<PostMachineProjectState>),
+      state: normalizeState(data.state as Partial<PostMasterProjectState>),
     };
   } catch (err) {
-    console.error("[post-machine.get]", err);
+    console.error("[post-master.get]", err);
     return null;
   }
 }
 
-export async function savePostMachineProject(input: {
+export async function savePostMasterProject(input: {
   id?: string | null;
   title?: string;
-  step: PostMachineStep;
+  step: PostMasterStep;
   inputMode: InputMode;
-  state: PostMachineProjectState;
+  state: PostMasterProjectState;
 }): Promise<{ ok: true; id: string; title: string } | { ok: false; error: string }> {
   if (!ensureConfigured()) {
     return {
@@ -163,38 +163,38 @@ export async function savePostMachineProject(input: {
     const sb = createServiceRoleClient();
     if (input.id) {
       const { data, error } = await sb
-        .from("post_machine_projects")
+        .from("post_master_projects")
         .update(row)
         .eq("id", input.id)
         .select("id,title")
         .single();
       if (error) {
-        console.error("[post-machine.save.update]", error);
+        console.error("[post-master.save.update]", error);
         return { ok: false, error: error.message };
       }
-      revalidatePath("/post-machine");
+      revalidatePath("/post-master");
       return { ok: true, id: data.id as string, title: data.title as string };
     }
 
     const { data, error } = await sb
-      .from("post_machine_projects")
+      .from("post_master_projects")
       .insert(row)
       .select("id,title")
       .single();
     if (error) {
-      console.error("[post-machine.save.insert]", error);
+      console.error("[post-master.save.insert]", error);
       return { ok: false, error: error.message };
     }
-    revalidatePath("/post-machine");
+    revalidatePath("/post-master");
     return { ok: true, id: data.id as string, title: data.title as string };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Save failed.";
-    console.error("[post-machine.save]", err);
+    console.error("[post-master.save]", err);
     return { ok: false, error: message };
   }
 }
 
-export async function deletePostMachineProject(
+export async function deletePostMasterProject(
   id: string
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!ensureConfigured()) {
@@ -205,18 +205,18 @@ export async function deletePostMachineProject(
   try {
     const sb = createServiceRoleClient();
     const { error } = await sb
-      .from("post_machine_projects")
+      .from("post_master_projects")
       .delete()
       .eq("id", id);
     if (error) {
-      console.error("[post-machine.delete]", error);
+      console.error("[post-master.delete]", error);
       return { ok: false, error: error.message };
     }
-    revalidatePath("/post-machine");
+    revalidatePath("/post-master");
     return { ok: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Delete failed.";
-    console.error("[post-machine.delete]", err);
+    console.error("[post-master.delete]", err);
     return { ok: false, error: message };
   }
 }

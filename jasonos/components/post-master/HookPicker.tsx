@@ -1,6 +1,6 @@
 "use client";
 
-import type { Hook } from "@/lib/post-machine/types";
+import type { Hook } from "@/lib/post-master/types";
 
 type HookPickerProps = {
   hooks: Hook[];

@@ -3,8 +3,8 @@ import "server-only";
 import { gateway } from "@ai-sdk/gateway";
 import { anthropic } from "@ai-sdk/anthropic";
 import { generateText } from "ai";
-import { getAnthropicModel } from "@/lib/post-machine/anthropic";
-import type { ResearchFindings, ResearchSource } from "@/lib/post-machine/types";
+import { getAnthropicModel } from "@/lib/post-master/anthropic";
+import type { ResearchFindings, ResearchSource } from "@/lib/post-master/types";
 
 type RawResearch = {
   whitespace?: {
@@ -120,7 +120,7 @@ function cleanErrorMessage(err: unknown): string {
  * 2) structure those notes into JSON via plain generateText (no generateObject /
  *    structured-output schema path — that was throwing pattern-match failures)
  */
-export async function runPostMachineResearch(input: {
+export async function runPostMasterResearch(input: {
   topic: string;
   guidance: string;
 }): Promise<ResearchFindings> {
@@ -141,7 +141,7 @@ export async function runPostMachineResearch(input: {
         web_search: anthropic.tools.webSearch_20250305({ maxUses: 6 }),
       },
       maxOutputTokens: 2500,
-      system: `You are a research analyst for Jason Kuperman's Post Machine (NarrativeOS).
+      system: `You are a research analyst for Jason Kuperman's Post Master (NarrativeOS).
 Use the web_search tool. Report ONLY what you actually find via search — never invent sources, quotes, or debates.
 
 Gather notes on:
@@ -184,7 +184,7 @@ Search the web, then write research notes with URLs.`,
     const structured = await generateText({
       model,
       maxOutputTokens: 3000,
-      system: `Convert research notes into Post Machine findings JSON.
+      system: `Convert research notes into Post Master findings JSON.
 Only use facts, claims, and URLs present in the notes or source list.
 Prefer 2–3 whitespace items and 2–3 contradictions when the notes support them.
 Every source URL must be a full http(s) URL from the notes/source list — never invent URLs.

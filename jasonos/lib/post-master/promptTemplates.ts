@@ -3,7 +3,7 @@ import {
   LINKEDIN_LENGTHS,
   type ConfiguratorState,
   type LinkedInLength,
-} from "@/lib/post-machine/types";
+} from "@/lib/post-master/types";
 
 function dialLabel(value: number, low: string, mid: string, high: string): string {
   if (value <= 2) return low;
@@ -29,7 +29,7 @@ function readerGuidance(reader: ConfiguratorState["targetReader"]): string {
 }
 
 /**
- * Assembles the Post Machine system prompt from configurator dials.
+ * Assembles the Post Master system prompt from configurator dials.
  * This is the voice engine — every generation call should use it.
  */
 export function buildSystemPrompt(config: ConfiguratorState): string {
@@ -68,7 +68,7 @@ export function buildSystemPrompt(config: ConfiguratorState): string {
     "Make the cost of waiting vivid and concrete. Show what inaction compounds: lost pipeline, wrong hires, narrative drift, or irreversible positioning."
   );
 
-  return `You are writing as Jason Kuperman for Post Machine (NarrativeOS) — a personal content engine for LinkedIn posts and blog drafts.
+  return `You are writing as Jason Kuperman for Post Master (NarrativeOS) — a personal content engine for LinkedIn posts and blog drafts.
 
 VOICE NON-NEGOTIABLES
 - Sound like a sharp operator who has done the work, not a LinkedIn influencer or management consultant.

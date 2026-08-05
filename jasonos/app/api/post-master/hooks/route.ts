@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
-import { callClaudeJson } from "@/lib/post-machine/anthropic";
+import { callClaudeJson } from "@/lib/post-master/anthropic";
 import {
   buildHooksUserPrompt,
   buildSystemPrompt,
-} from "@/lib/post-machine/promptTemplates";
+} from "@/lib/post-master/promptTemplates";
 import {
   normalizeConfig,
   type ConfiguratorState,
   type Hook,
-} from "@/lib/post-machine/types";
+} from "@/lib/post-master/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ hooks });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Hook generation failed.";
-    console.error("[post-machine.hooks]", err);
+    console.error("[post-master.hooks]", err);
     const status = message.includes("ANTHROPIC_API_KEY") ? 503 : 500;
     return NextResponse.json({ error: message }, { status });
   }

@@ -18,9 +18,9 @@ export const config: VercelConfig = {
     // BNA engine can take its time once we feed it real state.
     "app/api/bna/route.ts": { maxDuration: 300 },
     "app/api/tell-claude/route.ts": { maxDuration: 60 },
-    "app/api/post-machine/hooks/route.ts": { maxDuration: 60 },
-    "app/api/post-machine/generate/route.ts": { maxDuration: 120 },
-    "app/api/post-machine/research/route.ts": { maxDuration: 120 },
+    "app/api/post-master/hooks/route.ts": { maxDuration: 60 },
+    "app/api/post-master/generate/route.ts": { maxDuration: 120 },
+    "app/api/post-master/research/route.ts": { maxDuration: 120 },
 
 
     // Product Health probes 9 targets in parallel with a 10s timeout each;

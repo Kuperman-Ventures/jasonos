@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
-import { callClaudeText } from "@/lib/post-machine/anthropic";
+import { callClaudeText } from "@/lib/post-master/anthropic";
 import {
   buildBlogUserPrompt,
   buildLinkedInUserPrompt,
   buildSystemPrompt,
-} from "@/lib/post-machine/promptTemplates";
+} from "@/lib/post-master/promptTemplates";
 import {
   normalizeConfig,
   type ConfiguratorState,
   type Hook,
-} from "@/lib/post-machine/types";
+} from "@/lib/post-master/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ linkedin, blog });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Generation failed.";
-    console.error("[post-machine.generate]", err);
+    console.error("[post-master.generate]", err);
     const status = message.includes("ANTHROPIC_API_KEY") ? 503 : 500;
     return NextResponse.json({ error: message }, { status });
   }
