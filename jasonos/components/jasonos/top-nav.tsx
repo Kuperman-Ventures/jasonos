@@ -72,6 +72,7 @@ const NAV: NavItem[] = [
     children: [
       { href: "/resume-customizer", label: "Resume & Cover Letter" },
       { href: "/email-templates", label: "Email" },
+      { href: "/post-machine", label: "Post Machine" },
     ],
   },
   {
