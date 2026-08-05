@@ -73,6 +73,11 @@ async function callViaGateway(input: {
   return text.trim();
 }
 
+function cleanErrorMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message : "Generation failed.";
+  return raw.replace(/\u001b\[[0-9;]*m/g, "").replace(/\s+/g, " ").trim();
+}
+
 export async function callClaudeJson<T>(input: {
   system: string;
   user: string;
@@ -87,13 +92,12 @@ export async function callClaudeJson<T>(input: {
       : await callViaGateway({ ...input, maxTokens });
     return parseJson<T>(text);
   } catch (err) {
-    // If direct key path fails for auth reasons and gateway might work, surface clearly.
+    const message = cleanErrorMessage(err);
     if (!hasDirectKey) {
-      const message = err instanceof Error ? err.message : "Generation failed.";
       throw new Error(
         `${message} Set ANTHROPIC_API_KEY in .env.local for direct Anthropic access, or ensure AI Gateway is configured.`
       );
     }
-    throw err;
+    throw new Error(message);
   }
 }
