@@ -352,3 +352,140 @@
   max-width: 40rem;
   line-height: 1.5;
 }
+
+.post-machine .pm-mode-toggle {
+  display: inline-flex;
+  gap: 0.35rem;
+  margin-bottom: 1.4rem;
+  padding: 0.25rem;
+  border: 1px solid var(--pm-border);
+  background: rgba(11, 14, 20, 0.45);
+}
+
+.post-machine .pm-mode-btn {
+  border: 0;
+  background: transparent;
+  color: var(--pm-muted);
+  font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.65rem 0.9rem;
+  cursor: pointer;
+}
+
+.post-machine .pm-mode-btn[data-active="true"] {
+  background: rgba(201, 162, 39, 0.16);
+  color: var(--pm-gold-soft);
+}
+
+.post-machine .pm-mode-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.post-machine .pm-input {
+  width: 100%;
+  background: rgba(11, 14, 20, 0.65);
+  border: 1px solid var(--pm-border);
+  border-radius: 2px;
+  color: var(--pm-ink);
+  font: inherit;
+  padding: 0.9rem 1rem;
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.post-machine .pm-input:focus {
+  border-color: var(--pm-border-strong);
+  box-shadow: 0 0 0 1px rgba(201, 162, 39, 0.25);
+}
+
+.post-machine .pm-research-meta {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--pm-border);
+}
+
+.post-machine .pm-research-meta-value {
+  margin-top: 0.35rem;
+  color: var(--pm-ink);
+  line-height: 1.5;
+}
+
+.post-machine .pm-research-grid {
+  display: grid;
+  gap: 1.25rem;
+}
+
+@media (min-width: 900px) {
+  .post-machine .pm-research-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.post-machine .pm-research-heading {
+  font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pm-gold);
+  margin-bottom: 0.75rem;
+}
+
+.post-machine .pm-research-card {
+  background: rgba(11, 14, 20, 0.45);
+  border: 1px solid var(--pm-border);
+  border-radius: 2px;
+  padding: 1rem 1.1rem;
+  margin-bottom: 0.75rem;
+}
+
+.post-machine .pm-research-card h4 {
+  font-family: var(--font-pm-display), Fraunces, Georgia, serif;
+  font-size: 1.15rem;
+  margin-bottom: 0.45rem;
+}
+
+.post-machine .pm-research-card p {
+  color: var(--pm-ink);
+  line-height: 1.55;
+  margin: 0.35rem 0;
+}
+
+.post-machine .pm-side-label {
+  display: inline-block;
+  min-width: 1.1rem;
+  color: var(--pm-gold);
+  margin-right: 0.35rem;
+  font-size: 0.72rem;
+}
+
+.post-machine .pm-source-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.65rem 0 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.post-machine .pm-source-list a {
+  color: var(--pm-gold-soft);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-word;
+}
+
+.post-machine .pm-source-list a:hover {
+  color: var(--pm-gold);
+}
+
+.post-machine .pm-muted-copy {
+  color: var(--pm-muted);
+  font-size: 0.92rem;
+}
+

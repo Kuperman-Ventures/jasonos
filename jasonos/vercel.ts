@@ -20,6 +20,8 @@ export const config: VercelConfig = {
     "app/api/tell-claude/route.ts": { maxDuration: 60 },
     "app/api/post-machine/hooks/route.ts": { maxDuration: 60 },
     "app/api/post-machine/generate/route.ts": { maxDuration: 120 },
+    "app/api/post-machine/research/route.ts": { maxDuration: 120 },
+
 
     // Product Health probes 9 targets in parallel with a 10s timeout each;
     // give the function some slack so a single slow site doesn't trip the

@@ -22,6 +22,38 @@ export type Hook = {
   text: string;
 };
 
+export type InputMode = "idea" | "research";
+
+export type ResearchSource = {
+  title: string | null;
+  url: string;
+};
+
+export type ResearchFindings = {
+  topic: string;
+  guidance: string;
+  whitespace: {
+    title: string;
+    summary: string;
+    sources: ResearchSource[];
+  }[];
+  contradictions: {
+    topic: string;
+    sideA: string;
+    sideB: string;
+    sources: ResearchSource[];
+  }[];
+  /** Flat source list for the review UI. */
+  sources: ResearchSource[];
+  /**
+   * Shaped brief that plugs into /api/post-machine/hooks as `idea`
+   * without changing that endpoint's contract.
+   */
+  ideaText: string;
+  searched: boolean;
+};
+
+
 export const DEFAULT_CONFIG: ConfiguratorState = {
   directness: 4,
   contrarian: 3,
