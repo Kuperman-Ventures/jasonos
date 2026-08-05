@@ -1,3 +1,4 @@
+import { NO_AI_SLOP_WRITING_RULES } from "@/lib/ai/no-ai-slop";
 import {
   LINKEDIN_LENGTHS,
   type ConfiguratorState,
@@ -76,6 +77,8 @@ VOICE NON-NEGOTIABLES
 - Short paragraphs. One idea per beat. White space is a feature.
 - Never invent named case studies as fact. If you need a number and don't have one, use a clearly bracketed placeholder like [X]% or $[Y]M ARR.
 - First person is fine when it strengthens the architect/operator stance; otherwise keep it tight and universal.
+
+${NO_AI_SLOP_WRITING_RULES}
 
 CONFIGURATOR (this run)
 - Directness / anti-fluff (${config.directness}/5): ${directness}

@@ -2,6 +2,8 @@
 // across Claude-facing features. Keep this tight: every prompt importing it
 // pays the token cost.
 
+import { NO_AI_SLOP_WRITING_RULES } from "@/lib/ai/no-ai-slop";
+
 export const JASON_IDENTITY = `
 USER PROFILE - Jason Kuperman ("Kupe"):
 
@@ -40,6 +42,8 @@ VOICE - non-negotiable:
 - Sentences are short; one idea per sentence when possible
 - Concrete asks: specific time block, deliverable, question - never "let's connect"
 - For Refactor Sprint: disqualification frame, cost-of-waiting argument
+
+${NO_AI_SLOP_WRITING_RULES}
 
 OUTPUT GUIDANCE WHEN ANSWERING JASON:
 - Be terse, specific, action-oriented
