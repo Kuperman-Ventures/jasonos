@@ -1,0 +1,354 @@
+/* Post Machine — editorial dark (scoped to the route shell) */
+.post-machine {
+  --pm-bg: #0b0e14;
+  --pm-bg-elevated: #121722;
+  --pm-bg-soft: #181e2b;
+  --pm-border: rgba(201, 162, 39, 0.18);
+  --pm-border-strong: rgba(201, 162, 39, 0.4);
+  --pm-gold: #c9a227;
+  --pm-gold-soft: #e0c56a;
+  --pm-ink: #e8e6df;
+  --pm-muted: #9a9588;
+  --pm-danger: #d47b6a;
+
+  min-height: calc(100vh - 3rem);
+  background:
+    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(201, 162, 39, 0.08), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 90% 0%, rgba(80, 110, 160, 0.12), transparent 50%),
+    var(--pm-bg);
+  color: var(--pm-ink);
+  font-family: var(--font-pm-sans), "IBM Plex Sans", ui-sans-serif, sans-serif;
+}
+
+.post-machine .pm-display {
+  font-family: var(--font-pm-display), Fraunces, Georgia, serif;
+  font-optical-sizing: auto;
+  letter-spacing: -0.02em;
+}
+
+.post-machine .pm-mono {
+  font-family: var(--font-pm-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.post-machine .pm-shell {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 2.75rem 1.75rem 4rem;
+}
+
+.post-machine .pm-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--pm-gold);
+}
+
+.post-machine .pm-title {
+  margin-top: 0.85rem;
+  font-size: clamp(2.4rem, 4vw, 3.4rem);
+  font-weight: 500;
+  line-height: 1.05;
+  color: var(--pm-ink);
+}
+
+.post-machine .pm-lede {
+  margin-top: 0.85rem;
+  max-width: 36rem;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--pm-muted);
+}
+
+.post-machine .pm-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+  margin: 2rem 0 2.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--pm-border);
+}
+
+.post-machine .pm-step {
+  font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--pm-muted);
+}
+
+.post-machine .pm-step[data-active="true"] {
+  color: var(--pm-gold-soft);
+}
+
+.post-machine .pm-step[data-done="true"] {
+  color: rgba(232, 230, 223, 0.55);
+}
+
+.post-machine .pm-panel {
+  background: linear-gradient(180deg, var(--pm-bg-elevated), var(--pm-bg-soft));
+  border: 1px solid var(--pm-border);
+  border-radius: 2px;
+  padding: 1.75rem;
+}
+
+.post-machine .pm-label {
+  display: block;
+  font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--pm-gold);
+  margin-bottom: 0.65rem;
+}
+
+.post-machine .pm-textarea,
+.post-machine .pm-select {
+  width: 100%;
+  background: rgba(11, 14, 20, 0.65);
+  border: 1px solid var(--pm-border);
+  border-radius: 2px;
+  color: var(--pm-ink);
+  font: inherit;
+  padding: 0.9rem 1rem;
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.post-machine .pm-textarea {
+  min-height: 180px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.post-machine .pm-textarea:focus,
+.post-machine .pm-select:focus {
+  border-color: var(--pm-border-strong);
+  box-shadow: 0 0 0 1px rgba(201, 162, 39, 0.25);
+}
+
+.post-machine .pm-select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--pm-gold) 50%),
+    linear-gradient(135deg, var(--pm-gold) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 3px),
+    calc(100% - 12px) calc(50% - 3px);
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 2.25rem;
+}
+
+.post-machine .pm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid var(--pm-gold);
+  background: var(--pm-gold);
+  color: #0b0e14;
+  font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.8rem 1.25rem;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, opacity 160ms ease;
+}
+
+.post-machine .pm-btn:hover:not(:disabled) {
+  background: var(--pm-gold-soft);
+  border-color: var(--pm-gold-soft);
+}
+
+.post-machine .pm-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.post-machine .pm-btn-ghost {
+  background: transparent;
+  color: var(--pm-gold-soft);
+}
+
+.post-machine .pm-btn-ghost:hover:not(:disabled) {
+  background: rgba(201, 162, 39, 0.1);
+  color: var(--pm-gold-soft);
+}
+
+.post-machine .pm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.post-machine .pm-error {
+  margin-top: 1rem;
+  color: var(--pm-danger);
+  font-size: 0.92rem;
+}
+
+.post-machine .pm-dial {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.post-machine .pm-dial-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: baseline;
+}
+
+.post-machine .pm-dial-name {
+  font-size: 0.95rem;
+  color: var(--pm-ink);
+}
+
+.post-machine .pm-dial-value {
+  font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
+  font-size: 0.78rem;
+  color: var(--pm-gold);
+}
+
+.post-machine .pm-range {
+  width: 100%;
+  accent-color: var(--pm-gold);
+  cursor: pointer;
+}
+
+.post-machine .pm-grid-dials {
+  display: grid;
+  gap: 1.35rem;
+}
+
+.post-machine .pm-grid-selects {
+  display: grid;
+  gap: 1.1rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--pm-border);
+}
+
+@media (min-width: 800px) {
+  .post-machine .pm-grid-dials {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .post-machine .pm-grid-selects {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .post-machine .pm-output-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.post-machine .pm-hook-list {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.post-machine .pm-hook-card {
+  text-align: left;
+  width: 100%;
+  background: rgba(11, 14, 20, 0.45);
+  border: 1px solid var(--pm-border);
+  border-radius: 2px;
+  padding: 1.2rem 1.25rem;
+  color: inherit;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.post-machine .pm-hook-card:hover {
+  border-color: var(--pm-border-strong);
+  background: rgba(201, 162, 39, 0.06);
+  transform: translateY(-1px);
+}
+
+.post-machine .pm-hook-card[data-selected="true"] {
+  border-color: var(--pm-gold);
+  background: rgba(201, 162, 39, 0.1);
+}
+
+.post-machine .pm-hook-angle {
+  font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pm-gold);
+  margin-bottom: 0.55rem;
+}
+
+.post-machine .pm-hook-text {
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--pm-ink);
+}
+
+.post-machine .pm-output-grid {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.post-machine .pm-output-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 280px;
+  background: rgba(11, 14, 20, 0.45);
+  border: 1px solid var(--pm-border);
+  border-radius: 2px;
+  padding: 1.15rem;
+}
+
+.post-machine .pm-output-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.post-machine .pm-output-title {
+  font-family: var(--font-pm-display), Fraunces, Georgia, serif;
+  font-size: 1.35rem;
+}
+
+.post-machine .pm-counts {
+  font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--pm-muted);
+}
+
+.post-machine .pm-output-body {
+  flex: 1;
+  white-space: pre-wrap;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--pm-ink);
+  overflow: auto;
+  max-height: 28rem;
+}
+
+.post-machine .pm-section-title {
+  font-family: var(--font-pm-display), Fraunces, Georgia, serif;
+  font-size: 1.65rem;
+  margin-bottom: 0.35rem;
+}
+
+.post-machine .pm-section-sub {
+  color: var(--pm-muted);
+  margin-bottom: 1.35rem;
+  max-width: 40rem;
+  line-height: 1.5;
+}
