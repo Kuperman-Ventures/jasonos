@@ -5,24 +5,32 @@ import { ConfiguratorDashboard } from "@/components/post-machine/ConfiguratorDas
 import { HookPicker } from "@/components/post-machine/HookPicker";
 import { InputPanel } from "@/components/post-machine/InputPanel";
 import { OutputPanel } from "@/components/post-machine/OutputPanel";
+import { ResearchFindingsPanel } from "@/components/post-machine/ResearchFindings";
 import {
   DEFAULT_CONFIG,
   type ConfiguratorState,
   type Hook,
+  type InputMode,
+  type ResearchFindings,
 } from "@/lib/post-machine/types";
 
-type Step = "idea" | "config" | "hooks" | "output";
+type Step = "idea" | "research" | "config" | "hooks" | "output";
 
 const STEPS: { id: Step; label: string }[] = [
   { id: "idea", label: "01 Idea" },
-  { id: "config", label: "02 Voice" },
-  { id: "hooks", label: "03 Hooks" },
-  { id: "output", label: "04 Output" },
+  { id: "research", label: "02 Research" },
+  { id: "config", label: "03 Voice" },
+  { id: "hooks", label: "04 Hooks" },
+  { id: "output", label: "05 Output" },
 ];
 
 export function PostMachineApp() {
   const [step, setStep] = useState<Step>("idea");
+  const [inputMode, setInputMode] = useState<InputMode>("idea");
   const [idea, setIdea] = useState("");
+  const [topic, setTopic] = useState("");
+  const [guidance, setGuidance] = useState("");
+  const [findings, setFindings] = useState<ResearchFindings | null>(null);
   const [config, setConfig] = useState<ConfiguratorState>(DEFAULT_CONFIG);
   const [hooks, setHooks] = useState<Hook[]>([]);
   const [selectedHook, setSelectedHook] = useState<Hook | null>(null);
@@ -31,7 +39,41 @@ export function PostMachineApp() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const stepIndex = STEPS.findIndex((s) => s.id === step);
+  const visibleSteps =
+    inputMode === "research" || step === "research"
+      ? STEPS
+      : STEPS.filter((s) => s.id !== "research");
+  const stepIndex = visibleSteps.findIndex((s) => s.id === step);
+
+  async function runResearch() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/post-machine/research", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic, guidance }),
+      });
+      const data = (await res.json()) as {
+        findings?: ResearchFindings;
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(data.error || "Research failed.");
+      }
+      if (!data.findings) {
+        throw new Error("Research returned no findings.");
+      }
+      setFindings(data.findings);
+      // Feed the shaped brief into the same idea field hooks/generate already use.
+      setIdea(data.findings.ideaText);
+      setStep("research");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Research failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function generateHooks() {
     setLoading(true);
@@ -86,7 +128,11 @@ export function PostMachineApp() {
 
   function startOver() {
     setStep("idea");
+    setInputMode("idea");
     setIdea("");
+    setTopic("");
+    setGuidance("");
+    setFindings(null);
     setConfig(DEFAULT_CONFIG);
     setHooks([]);
     setSelectedHook(null);
@@ -106,13 +152,13 @@ export function PostMachineApp() {
         </div>
         <h1 className="pm-title pm-display">Post Machine</h1>
         <p className="pm-lede">
-          Rough idea in. LinkedIn post and blog draft out — in your voice, with
-          the dials set before anything generates.
+          Rough idea or researched topic in. LinkedIn post and blog draft out —
+          in your voice, with the dials set before anything generates.
         </p>
       </header>
 
       <nav className="pm-steps" aria-label="Post Machine steps">
-        {STEPS.map((s, i) => (
+        {visibleSteps.map((s, i) => (
           <span
             key={s.id}
             className="pm-step"
@@ -126,8 +172,35 @@ export function PostMachineApp() {
 
       {step === "idea" ? (
         <InputPanel
-          value={idea}
-          onChange={setIdea}
+          mode={inputMode}
+          onModeChange={(mode) => {
+            setInputMode(mode);
+            setError(null);
+          }}
+          idea={idea}
+          onIdeaChange={setIdea}
+          topic={topic}
+          onTopicChange={setTopic}
+          guidance={guidance}
+          onGuidanceChange={setGuidance}
+          onContinueIdea={() => {
+            setError(null);
+            setFindings(null);
+            setStep("config");
+          }}
+          onRunResearch={runResearch}
+          loading={loading}
+          error={error}
+        />
+      ) : null}
+
+      {step === "research" && findings ? (
+        <ResearchFindingsPanel
+          findings={findings}
+          onBack={() => {
+            setError(null);
+            setStep("idea");
+          }}
           onContinue={() => {
             setError(null);
             setStep("config");
@@ -141,7 +214,7 @@ export function PostMachineApp() {
           onChange={setConfig}
           onBack={() => {
             setError(null);
-            setStep("idea");
+            setStep(findings ? "research" : "idea");
           }}
           onGenerateHooks={generateHooks}
           loading={loading}
