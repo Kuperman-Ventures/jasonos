@@ -1,9 +1,9 @@
 "use client";
 
-import type { PostMachineProjectListItem } from "@/lib/post-machine/types";
+import type { PostMasterProjectListItem } from "@/lib/post-master/types";
 
 type ProjectLibraryProps = {
-  projects: PostMachineProjectListItem[];
+  projects: PostMasterProjectListItem[];
   activeId: string | null;
   loadingId: string | null;
   onOpen: (id: string) => void;

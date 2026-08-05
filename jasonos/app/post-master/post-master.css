@@ -1,5 +1,5 @@
-/* Post Machine — editorial dark (scoped to the route shell) */
-.post-machine {
+/* Post Master — editorial dark (scoped to the route shell) */
+.post-master {
   --pm-bg: #0b0e14;
   --pm-bg-elevated: #121722;
   --pm-bg-soft: #181e2b;
@@ -20,24 +20,24 @@
   font-family: var(--font-pm-sans), "IBM Plex Sans", ui-sans-serif, sans-serif;
 }
 
-.post-machine .pm-display {
+.post-master .pm-display {
   font-family: var(--font-pm-display), Fraunces, Georgia, serif;
   font-optical-sizing: auto;
   letter-spacing: -0.02em;
 }
 
-.post-machine .pm-mono {
+.post-master .pm-mono {
   font-family: var(--font-pm-mono), "JetBrains Mono", ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
 }
 
-.post-machine .pm-shell {
+.post-master .pm-shell {
   max-width: 1120px;
   margin: 0 auto;
   padding: 2.75rem 1.75rem 4rem;
 }
 
-.post-machine .pm-eyebrow {
+.post-master .pm-eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -49,7 +49,7 @@
   color: var(--pm-gold);
 }
 
-.post-machine .pm-title {
+.post-master .pm-title {
   margin-top: 0.85rem;
   font-size: clamp(2.4rem, 4vw, 3.4rem);
   font-weight: 500;
@@ -57,7 +57,7 @@
   color: var(--pm-ink);
 }
 
-.post-machine .pm-lede {
+.post-master .pm-lede {
   margin-top: 0.85rem;
   max-width: 36rem;
   font-size: 1.05rem;
@@ -65,7 +65,7 @@
   color: var(--pm-muted);
 }
 
-.post-machine .pm-steps {
+.post-master .pm-steps {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem 1.25rem;
@@ -74,7 +74,7 @@
   border-bottom: 1px solid var(--pm-border);
 }
 
-.post-machine .pm-step {
+.post-master .pm-step {
   font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
   font-size: 0.72rem;
   letter-spacing: 0.08em;
@@ -82,22 +82,22 @@
   color: var(--pm-muted);
 }
 
-.post-machine .pm-step[data-active="true"] {
+.post-master .pm-step[data-active="true"] {
   color: var(--pm-gold-soft);
 }
 
-.post-machine .pm-step[data-done="true"] {
+.post-master .pm-step[data-done="true"] {
   color: rgba(232, 230, 223, 0.55);
 }
 
-.post-machine .pm-panel {
+.post-master .pm-panel {
   background: linear-gradient(180deg, var(--pm-bg-elevated), var(--pm-bg-soft));
   border: 1px solid var(--pm-border);
   border-radius: 2px;
   padding: 1.75rem;
 }
 
-.post-machine .pm-label {
+.post-master .pm-label {
   display: block;
   font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
   font-size: 0.72rem;
@@ -107,8 +107,8 @@
   margin-bottom: 0.65rem;
 }
 
-.post-machine .pm-textarea,
-.post-machine .pm-select {
+.post-master .pm-textarea,
+.post-master .pm-select {
   width: 100%;
   background: rgba(11, 14, 20, 0.65);
   border: 1px solid var(--pm-border);
@@ -120,19 +120,19 @@
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
-.post-machine .pm-textarea {
+.post-master .pm-textarea {
   min-height: 180px;
   resize: vertical;
   line-height: 1.55;
 }
 
-.post-machine .pm-textarea:focus,
-.post-machine .pm-select:focus {
+.post-master .pm-textarea:focus,
+.post-master .pm-select:focus {
   border-color: var(--pm-border-strong);
   box-shadow: 0 0 0 1px rgba(201, 162, 39, 0.25);
 }
 
-.post-machine .pm-select {
+.post-master .pm-select {
   appearance: none;
   background-image: linear-gradient(45deg, transparent 50%, var(--pm-gold) 50%),
     linear-gradient(135deg, var(--pm-gold) 50%, transparent 50%);
@@ -144,7 +144,7 @@
   padding-right: 2.25rem;
 }
 
-.post-machine .pm-btn {
+.post-master .pm-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -163,74 +163,74 @@
   transition: background 160ms ease, color 160ms ease, opacity 160ms ease;
 }
 
-.post-machine .pm-btn:hover:not(:disabled) {
+.post-master .pm-btn:hover:not(:disabled) {
   background: var(--pm-gold-soft);
   border-color: var(--pm-gold-soft);
 }
 
-.post-machine .pm-btn:disabled {
+.post-master .pm-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
 
-.post-machine .pm-btn-ghost {
+.post-master .pm-btn-ghost {
   background: transparent;
   color: var(--pm-gold-soft);
 }
 
-.post-machine .pm-btn-ghost:hover:not(:disabled) {
+.post-master .pm-btn-ghost:hover:not(:disabled) {
   background: rgba(201, 162, 39, 0.1);
   color: var(--pm-gold-soft);
 }
 
-.post-machine .pm-actions {
+.post-master .pm-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
   margin-top: 1.25rem;
 }
 
-.post-machine .pm-error {
+.post-master .pm-error {
   margin-top: 1rem;
   color: var(--pm-danger);
   font-size: 0.92rem;
 }
 
-.post-machine .pm-dial {
+.post-master .pm-dial {
   display: grid;
   gap: 0.45rem;
 }
 
-.post-machine .pm-dial-head {
+.post-master .pm-dial-head {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
   align-items: baseline;
 }
 
-.post-machine .pm-dial-name {
+.post-master .pm-dial-name {
   font-size: 0.95rem;
   color: var(--pm-ink);
 }
 
-.post-machine .pm-dial-value {
+.post-master .pm-dial-value {
   font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
   font-size: 0.78rem;
   color: var(--pm-gold);
 }
 
-.post-machine .pm-range {
+.post-master .pm-range {
   width: 100%;
   accent-color: var(--pm-gold);
   cursor: pointer;
 }
 
-.post-machine .pm-grid-dials {
+.post-master .pm-grid-dials {
   display: grid;
   gap: 1.35rem;
 }
 
-.post-machine .pm-grid-selects {
+.post-master .pm-grid-selects {
   display: grid;
   gap: 1.1rem;
   margin-top: 1.5rem;
@@ -239,25 +239,25 @@
 }
 
 @media (min-width: 800px) {
-  .post-machine .pm-grid-dials {
+  .post-master .pm-grid-dials {
     grid-template-columns: 1fr 1fr;
   }
 
-  .post-machine .pm-grid-selects {
+  .post-master .pm-grid-selects {
     grid-template-columns: 1fr 1fr;
   }
 
-  .post-machine .pm-output-grid {
+  .post-master .pm-output-grid {
     grid-template-columns: 1fr 1fr;
   }
 }
 
-.post-machine .pm-hook-list {
+.post-master .pm-hook-list {
   display: grid;
   gap: 0.9rem;
 }
 
-.post-machine .pm-hook-card {
+.post-master .pm-hook-card {
   text-align: left;
   width: 100%;
   background: rgba(11, 14, 20, 0.45);
@@ -269,18 +269,18 @@
   transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
 }
 
-.post-machine .pm-hook-card:hover {
+.post-master .pm-hook-card:hover {
   border-color: var(--pm-border-strong);
   background: rgba(201, 162, 39, 0.06);
   transform: translateY(-1px);
 }
 
-.post-machine .pm-hook-card[data-selected="true"] {
+.post-master .pm-hook-card[data-selected="true"] {
   border-color: var(--pm-gold);
   background: rgba(201, 162, 39, 0.1);
 }
 
-.post-machine .pm-hook-angle {
+.post-master .pm-hook-angle {
   font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
   font-size: 0.68rem;
   letter-spacing: 0.12em;
@@ -289,18 +289,18 @@
   margin-bottom: 0.55rem;
 }
 
-.post-machine .pm-hook-text {
+.post-master .pm-hook-text {
   font-size: 1.05rem;
   line-height: 1.5;
   color: var(--pm-ink);
 }
 
-.post-machine .pm-output-grid {
+.post-master .pm-output-grid {
   display: grid;
   gap: 1.1rem;
 }
 
-.post-machine .pm-output-col {
+.post-master .pm-output-col {
   display: flex;
   flex-direction: column;
   min-height: 280px;
@@ -310,7 +310,7 @@
   padding: 1.15rem;
 }
 
-.post-machine .pm-output-head {
+.post-master .pm-output-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -318,19 +318,19 @@
   margin-bottom: 0.85rem;
 }
 
-.post-machine .pm-output-title {
+.post-master .pm-output-title {
   font-family: var(--font-pm-display), Fraunces, Georgia, serif;
   font-size: 1.35rem;
 }
 
-.post-machine .pm-counts {
+.post-master .pm-counts {
   font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
   font-size: 0.68rem;
   letter-spacing: 0.06em;
   color: var(--pm-muted);
 }
 
-.post-machine .pm-output-body {
+.post-master .pm-output-body {
   flex: 1;
   white-space: pre-wrap;
   font-size: 0.95rem;
@@ -340,20 +340,20 @@
   max-height: 28rem;
 }
 
-.post-machine .pm-section-title {
+.post-master .pm-section-title {
   font-family: var(--font-pm-display), Fraunces, Georgia, serif;
   font-size: 1.65rem;
   margin-bottom: 0.35rem;
 }
 
-.post-machine .pm-section-sub {
+.post-master .pm-section-sub {
   color: var(--pm-muted);
   margin-bottom: 1.35rem;
   max-width: 40rem;
   line-height: 1.5;
 }
 
-.post-machine .pm-mode-toggle {
+.post-master .pm-mode-toggle {
   display: inline-flex;
   gap: 0.35rem;
   margin-bottom: 1.4rem;
@@ -362,7 +362,7 @@
   background: rgba(11, 14, 20, 0.45);
 }
 
-.post-machine .pm-mode-btn {
+.post-master .pm-mode-btn {
   border: 0;
   background: transparent;
   color: var(--pm-muted);
@@ -375,17 +375,17 @@
   cursor: pointer;
 }
 
-.post-machine .pm-mode-btn[data-active="true"] {
+.post-master .pm-mode-btn[data-active="true"] {
   background: rgba(201, 162, 39, 0.16);
   color: var(--pm-gold-soft);
 }
 
-.post-machine .pm-mode-btn:disabled {
+.post-master .pm-mode-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
 
-.post-machine .pm-input {
+.post-master .pm-input {
   width: 100%;
   background: rgba(11, 14, 20, 0.65);
   border: 1px solid var(--pm-border);
@@ -397,12 +397,12 @@
   transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
-.post-machine .pm-input:focus {
+.post-master .pm-input:focus {
   border-color: var(--pm-border-strong);
   box-shadow: 0 0 0 1px rgba(201, 162, 39, 0.25);
 }
 
-.post-machine .pm-research-meta {
+.post-master .pm-research-meta {
   display: grid;
   gap: 1rem;
   margin-bottom: 1.5rem;
@@ -410,24 +410,24 @@
   border-bottom: 1px solid var(--pm-border);
 }
 
-.post-machine .pm-research-meta-value {
+.post-master .pm-research-meta-value {
   margin-top: 0.35rem;
   color: var(--pm-ink);
   line-height: 1.5;
 }
 
-.post-machine .pm-research-grid {
+.post-master .pm-research-grid {
   display: grid;
   gap: 1.25rem;
 }
 
 @media (min-width: 900px) {
-  .post-machine .pm-research-grid {
+  .post-master .pm-research-grid {
     grid-template-columns: 1fr 1fr;
   }
 }
 
-.post-machine .pm-research-heading {
+.post-master .pm-research-heading {
   font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
   font-size: 0.72rem;
   letter-spacing: 0.12em;
@@ -436,7 +436,7 @@
   margin-bottom: 0.75rem;
 }
 
-.post-machine .pm-research-card {
+.post-master .pm-research-card {
   background: rgba(11, 14, 20, 0.45);
   border: 1px solid var(--pm-border);
   border-radius: 2px;
@@ -444,19 +444,19 @@
   margin-bottom: 0.75rem;
 }
 
-.post-machine .pm-research-card h4 {
+.post-master .pm-research-card h4 {
   font-family: var(--font-pm-display), Fraunces, Georgia, serif;
   font-size: 1.15rem;
   margin-bottom: 0.45rem;
 }
 
-.post-machine .pm-research-card p {
+.post-master .pm-research-card p {
   color: var(--pm-ink);
   line-height: 1.55;
   margin: 0.35rem 0;
 }
 
-.post-machine .pm-side-label {
+.post-master .pm-side-label {
   display: inline-block;
   min-width: 1.1rem;
   color: var(--pm-gold);
@@ -464,7 +464,7 @@
   font-size: 0.72rem;
 }
 
-.post-machine .pm-source-list {
+.post-master .pm-source-list {
   list-style: none;
   padding: 0;
   margin: 0.65rem 0 0;
@@ -472,7 +472,7 @@
   gap: 0.35rem;
 }
 
-.post-machine .pm-source-list a {
+.post-master .pm-source-list a {
   color: var(--pm-gold-soft);
   font-size: 0.85rem;
   text-decoration: underline;
@@ -480,16 +480,16 @@
   word-break: break-word;
 }
 
-.post-machine .pm-source-list a:hover {
+.post-master .pm-source-list a:hover {
   color: var(--pm-gold);
 }
 
-.post-machine .pm-muted-copy {
+.post-master .pm-muted-copy {
   color: var(--pm-muted);
   font-size: 0.92rem;
 }
 
-.post-machine .pm-project-bar {
+.post-master .pm-project-bar {
   display: grid;
   gap: 1rem;
   margin: 1.75rem 0 1.5rem;
@@ -499,17 +499,17 @@
 }
 
 @media (min-width: 840px) {
-  .post-machine .pm-project-bar {
+  .post-master .pm-project-bar {
     grid-template-columns: 1fr auto;
     align-items: end;
   }
 }
 
-.post-machine .pm-project-title-wrap .pm-label {
+.post-master .pm-project-title-wrap .pm-label {
   margin-bottom: 0.4rem;
 }
 
-.post-machine .pm-project-meta {
+.post-master .pm-project-meta {
   margin-top: 0.45rem;
   font-size: 0.68rem;
   letter-spacing: 0.08em;
@@ -517,13 +517,13 @@
   color: var(--pm-muted);
 }
 
-.post-machine .pm-project-actions {
+.post-master .pm-project-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
 }
 
-.post-machine .pm-library-head {
+.post-master .pm-library-head {
   display: flex;
   justify-content: space-between;
   gap: 1rem;
@@ -531,7 +531,7 @@
   margin-bottom: 1.25rem;
 }
 
-.post-machine .pm-library-list {
+.post-master .pm-library-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -539,7 +539,7 @@
   gap: 0.75rem;
 }
 
-.post-machine .pm-library-item {
+.post-master .pm-library-item {
   display: grid;
   gap: 0.85rem;
   padding: 1rem 1.1rem;
@@ -548,31 +548,31 @@
 }
 
 @media (min-width: 800px) {
-  .post-machine .pm-library-item {
+  .post-master .pm-library-item {
     grid-template-columns: 1fr auto;
     align-items: center;
   }
 }
 
-.post-machine .pm-library-item[data-active="true"] {
+.post-master .pm-library-item[data-active="true"] {
   border-color: var(--pm-border-strong);
   background: rgba(201, 162, 39, 0.08);
 }
 
-.post-machine .pm-library-item h3 {
+.post-master .pm-library-item h3 {
   font-family: var(--font-pm-display), Fraunces, Georgia, serif;
   font-size: 1.2rem;
   margin-bottom: 0.3rem;
 }
 
-.post-machine .pm-library-preview {
+.post-master .pm-library-preview {
   color: var(--pm-muted);
   font-size: 0.92rem;
   line-height: 1.45;
   margin: 0;
 }
 
-.post-machine .pm-library-meta {
+.post-master .pm-library-meta {
   margin-top: 0.45rem;
   font-size: 0.68rem;
   letter-spacing: 0.08em;
@@ -580,7 +580,7 @@
   color: var(--pm-gold);
 }
 
-.post-machine .pm-library-item-actions {
+.post-master .pm-library-item-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;

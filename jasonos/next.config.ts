@@ -7,6 +7,26 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(import.meta.dirname),
   },
+  // Post Machine → Post Master rename
+  async redirects() {
+    return [
+      {
+        source: "/post-machine",
+        destination: "/post-master",
+        permanent: true,
+      },
+      {
+        source: "/post-machine/:path*",
+        destination: "/post-master/:path*",
+        permanent: true,
+      },
+      {
+        source: "/api/post-machine/:path*",
+        destination: "/api/post-master/:path*",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

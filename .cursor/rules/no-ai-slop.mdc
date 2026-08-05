@@ -5,9 +5,9 @@ alwaysApply: true
 
 # No AI Slop (JasonOS writing)
 
-When drafting or editing any prose Jason will send or publish — emails, cover letters, Post Machine LinkedIn/blog drafts, outreach messages, Tell Claude drafts, resume wording — follow the **no-ai-slop** skill.
+When drafting or editing any prose Jason will send or publish — emails, cover letters, Post Master LinkedIn/blog drafts, outreach messages, Tell Claude drafts, resume wording — follow the **no-ai-slop** skill.
 
 - Skill path: [`.cursor/skills/no-ai-slop/SKILL.md`](.cursor/skills/no-ai-slop/SKILL.md) (from https://github.com/petergyang/no-ai-slop)
-- Runtime prompts already inject shared rules via [`jasonos/lib/ai/no-ai-slop.ts`](jasonos/lib/ai/no-ai-slop.ts) into Jason identity / Post Machine / resume generators.
+- Runtime prompts already inject shared rules via [`jasonos/lib/ai/no-ai-slop.ts`](jasonos/lib/ai/no-ai-slop.ts) into Jason identity / Post Master / resume generators.
 
 Preserve Jason's blunt operator voice. Cut binary contrasts, faux-insight setups, throat-clearing, importance puffery, banned buzzwords, dramatic mic-drop endings, and em-dash crutches. Prefer concrete facts and active voice. Never invent sources or stats.

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { Fraunces, IBM_Plex_Sans, JetBrains_Mono } from "next/font/google";
-import "./post-machine.css";
+import "./post-master.css";
 
 export const metadata: Metadata = {
-  title: "Post Machine · JasonOS",
+  title: "Post Master · JasonOS",
   description:
     "Turn a rough idea into a LinkedIn post and blog draft in your own voice.",
 };
@@ -28,14 +28,14 @@ const jetbrainsMono = JetBrains_Mono({
   display: "swap",
 });
 
-export default function PostMachineLayout({
+export default function PostMasterLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
     <div
-      className={`post-machine ${fraunces.variable} ${ibmPlexSans.variable} ${jetbrainsMono.variable}`}
+      className={`post-master ${fraunces.variable} ${ibmPlexSans.variable} ${jetbrainsMono.variable}`}
     >
       {children}
     </div>

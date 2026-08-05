@@ -24,7 +24,7 @@ export type Hook = {
 
 export type InputMode = "idea" | "research";
 
-export type PostMachineStep =
+export type PostMasterStep =
   | "idea"
   | "research"
   | "config"
@@ -32,7 +32,7 @@ export type PostMachineStep =
   | "output";
 
 /** Full client state snapshot persisted for save/resume. */
-export type PostMachineProjectState = {
+export type PostMasterProjectState = {
   idea: string;
   topic: string;
   guidance: string;
@@ -44,18 +44,18 @@ export type PostMachineProjectState = {
   blog: string;
 };
 
-export type PostMachineProjectListItem = {
+export type PostMasterProjectListItem = {
   id: string;
   title: string;
-  step: PostMachineStep;
+  step: PostMasterStep;
   inputMode: InputMode;
   ideaPreview: string;
   topic: string;
   updatedAt: string;
 };
 
-export type PostMachineProject = PostMachineProjectListItem & {
-  state: PostMachineProjectState;
+export type PostMasterProject = PostMasterProjectListItem & {
+  state: PostMasterProjectState;
 };
 
 export function suggestProjectTitle(input: {
@@ -102,7 +102,7 @@ export type ResearchFindings = {
   /** Flat source list for the review UI. */
   sources: ResearchSource[];
   /**
-   * Shaped brief that plugs into /api/post-machine/hooks as `idea`
+   * Shaped brief that plugs into /api/post-master/hooks as `idea`
    * without changing that endpoint's contract.
    */
   ideaText: string;

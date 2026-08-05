@@ -6,7 +6,7 @@ import {
   type ConfiguratorState,
   type LinkedInLength,
   type TargetReader,
-} from "@/lib/post-machine/types";
+} from "@/lib/post-master/types";
 
 type ConfiguratorDashboardProps = {
   config: ConfiguratorState;

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { runPostMachineResearch } from "@/lib/post-machine/research";
+import { runPostMasterResearch } from "@/lib/post-master/research";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -17,11 +17,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Topic is required." }, { status: 400 });
     }
 
-    const findings = await runPostMachineResearch({ topic, guidance });
+    const findings = await runPostMasterResearch({ topic, guidance });
     return NextResponse.json({ findings });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Research failed.";
-    console.error("[post-machine.research]", err);
+    console.error("[post-master.research]", err);
     const status =
       message.includes("AI Gateway") || message.includes("ANTHROPIC_API_KEY")
         ? 503

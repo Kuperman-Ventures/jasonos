@@ -1,6 +1,6 @@
 "use client";
 
-import type { InputMode } from "@/lib/post-machine/types";
+import type { InputMode } from "@/lib/post-master/types";
 
 type InputPanelProps = {
   mode: InputMode;

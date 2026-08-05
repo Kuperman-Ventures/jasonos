@@ -1,32 +1,32 @@
 "use client";
 
 import { useState } from "react";
-import { ConfiguratorDashboard } from "@/components/post-machine/ConfiguratorDashboard";
-import { HookPicker } from "@/components/post-machine/HookPicker";
-import { InputPanel } from "@/components/post-machine/InputPanel";
-import { OutputPanel } from "@/components/post-machine/OutputPanel";
-import { ProjectBar } from "@/components/post-machine/ProjectBar";
-import { ProjectLibrary } from "@/components/post-machine/ProjectLibrary";
-import { ResearchFindingsPanel } from "@/components/post-machine/ResearchFindings";
+import { ConfiguratorDashboard } from "@/components/post-master/ConfiguratorDashboard";
+import { HookPicker } from "@/components/post-master/HookPicker";
+import { InputPanel } from "@/components/post-master/InputPanel";
+import { OutputPanel } from "@/components/post-master/OutputPanel";
+import { ProjectBar } from "@/components/post-master/ProjectBar";
+import { ProjectLibrary } from "@/components/post-master/ProjectLibrary";
+import { ResearchFindingsPanel } from "@/components/post-master/ResearchFindings";
 import {
-  deletePostMachineProject,
-  getPostMachineProject,
-  listPostMachineProjects,
-  savePostMachineProject,
-} from "@/lib/server-actions/post-machine";
+  deletePostMasterProject,
+  getPostMasterProject,
+  listPostMasterProjects,
+  savePostMasterProject,
+} from "@/lib/server-actions/post-master";
 import {
   DEFAULT_CONFIG,
   suggestProjectTitle,
   type ConfiguratorState,
   type Hook,
   type InputMode,
-  type PostMachineProjectListItem,
-  type PostMachineProjectState,
-  type PostMachineStep,
+  type PostMasterProjectListItem,
+  type PostMasterProjectState,
+  type PostMasterStep,
   type ResearchFindings,
-} from "@/lib/post-machine/types";
+} from "@/lib/post-master/types";
 
-const STEPS: { id: PostMachineStep; label: string }[] = [
+const STEPS: { id: PostMasterStep; label: string }[] = [
   { id: "idea", label: "01 Idea" },
   { id: "research", label: "02 Research" },
   { id: "config", label: "03 Voice" },
@@ -34,12 +34,12 @@ const STEPS: { id: PostMachineStep; label: string }[] = [
   { id: "output", label: "05 Output" },
 ];
 
-type PostMachineAppProps = {
-  initialProjects: PostMachineProjectListItem[];
+type PostMasterAppProps = {
+  initialProjects: PostMasterProjectListItem[];
 };
 
-export function PostMachineApp({ initialProjects }: PostMachineAppProps) {
-  const [step, setStep] = useState<PostMachineStep>("idea");
+export function PostMasterApp({ initialProjects }: PostMasterAppProps) {
+  const [step, setStep] = useState<PostMasterStep>("idea");
   const [inputMode, setInputMode] = useState<InputMode>("idea");
   const [idea, setIdea] = useState("");
   const [topic, setTopic] = useState("");
@@ -57,7 +57,7 @@ export function PostMachineApp({ initialProjects }: PostMachineAppProps) {
   const [title, setTitle] = useState("");
   const [titleTouched, setTitleTouched] = useState(false);
   const [projects, setProjects] =
-    useState<PostMachineProjectListItem[]>(initialProjects);
+    useState<PostMasterProjectListItem[]>(initialProjects);
   const [showLibrary, setShowLibrary] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -69,7 +69,7 @@ export function PostMachineApp({ initialProjects }: PostMachineAppProps) {
       : STEPS.filter((s) => s.id !== "research");
   const stepIndex = visibleSteps.findIndex((s) => s.id === step);
 
-  function currentSnapshot(): PostMachineProjectState {
+  function currentSnapshot(): PostMasterProjectState {
     return {
       idea,
       topic,
@@ -94,9 +94,9 @@ export function PostMachineApp({ initialProjects }: PostMachineAppProps) {
   function applyProject(project: {
     id: string;
     title: string;
-    step: PostMachineStep;
+    step: PostMasterStep;
     inputMode: InputMode;
-    state: PostMachineProjectState;
+    state: PostMasterProjectState;
   }) {
     setProjectId(project.id);
     setTitle(project.title);
@@ -118,7 +118,7 @@ export function PostMachineApp({ initialProjects }: PostMachineAppProps) {
   }
 
   async function refreshProjects() {
-    const list = await listPostMachineProjects();
+    const list = await listPostMasterProjects();
     setProjects(list);
   }
 
@@ -127,7 +127,7 @@ export function PostMachineApp({ initialProjects }: PostMachineAppProps) {
     setSaveMessage(null);
     setError(null);
     try {
-      const result = await savePostMachineProject({
+      const result = await savePostMasterProject({
         id: projectId,
         title: displayTitle,
         step,
@@ -154,7 +154,7 @@ export function PostMachineApp({ initialProjects }: PostMachineAppProps) {
     setLoadingProjectId(id);
     setError(null);
     try {
-      const project = await getPostMachineProject(id);
+      const project = await getPostMasterProject(id);
       if (!project) {
         throw new Error("Could not load that project.");
       }
@@ -171,7 +171,7 @@ export function PostMachineApp({ initialProjects }: PostMachineAppProps) {
     setLoadingProjectId(id);
     setError(null);
     try {
-      const result = await deletePostMachineProject(id);
+      const result = await deletePostMasterProject(id);
       if (!result.ok) throw new Error(result.error);
       if (projectId === id) {
         startOver();
@@ -188,7 +188,7 @@ export function PostMachineApp({ initialProjects }: PostMachineAppProps) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/post-machine/research", {
+      const res = await fetch("/api/post-master/research", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic, guidance }),
@@ -217,7 +217,7 @@ export function PostMachineApp({ initialProjects }: PostMachineAppProps) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/post-machine/hooks", {
+      const res = await fetch("/api/post-master/hooks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idea, config }),
@@ -241,7 +241,7 @@ export function PostMachineApp({ initialProjects }: PostMachineAppProps) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/post-machine/generate", {
+      const res = await fetch("/api/post-master/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idea, hook: selectedHook, config }),
@@ -293,7 +293,7 @@ export function PostMachineApp({ initialProjects }: PostMachineAppProps) {
           <span aria-hidden>·</span>
           <span>Custom Comms</span>
         </div>
-        <h1 className="pm-title pm-display">Post Machine</h1>
+        <h1 className="pm-title pm-display">Post Master</h1>
         <p className="pm-lede">
           Rough idea or researched topic in. LinkedIn post and blog draft out —
           in your voice. Save anytime and pick the project back up later.
@@ -332,7 +332,7 @@ export function PostMachineApp({ initialProjects }: PostMachineAppProps) {
         />
       ) : (
         <>
-          <nav className="pm-steps" aria-label="Post Machine steps">
+          <nav className="pm-steps" aria-label="Post Master steps">
             {visibleSteps.map((s, i) => (
               <span
                 key={s.id}
