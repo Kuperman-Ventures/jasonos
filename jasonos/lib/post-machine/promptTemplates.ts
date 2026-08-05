@@ -118,13 +118,11 @@ Return ONLY valid JSON (no markdown fences) in this exact shape:
 }`;
 }
 
-export function buildGenerateUserPrompt(input: {
+function sharedIdeaBlock(input: {
   idea: string;
   hookText: string;
   hookAngle: string;
-  config: ConfiguratorState;
 }): string {
-  const words = lengthWords(input.config.linkedinLength);
   return `Core idea / rough notes:
 
 ---
@@ -132,17 +130,37 @@ ${input.idea.trim()}
 ---
 
 Chosen opening hook (${input.hookAngle}):
-"${input.hookText.trim()}"
-
-Write two pieces from this hook and idea:
-
-1) linkedin — a full LinkedIn post that opens with (or tightly adapts) the chosen hook. Target ~${words} words. Mobile-readable paragraphs. No title. No hashtags unless one is genuinely useful (default: none).
-
-2) blog — a longer draft developing the same core idea further: 600–900 words. Include a clear title as the first line (plain text, no markdown heading markers required). Structure with short sections. Same voice as the LinkedIn post, more room to argue the mechanism and implications.
-
-Return ONLY valid JSON (no markdown fences) in this exact shape:
-{
-  "linkedin": "...",
-  "blog": "..."
-}`;
+"${input.hookText.trim()}"`;
 }
+
+/** Plain-text LinkedIn draft — no JSON wrapper (avoids truncation parse failures). */
+export function buildLinkedInUserPrompt(input: {
+  idea: string;
+  hookText: string;
+  hookAngle: string;
+  config: ConfiguratorState;
+}): string {
+  const words = lengthWords(input.config.linkedinLength);
+  return `${sharedIdeaBlock(input)}
+
+Write a full LinkedIn post that opens with (or tightly adapts) the chosen hook.
+Target ~${words} words. Mobile-readable paragraphs. No title. No hashtags unless one is genuinely useful (default: none).
+
+Return ONLY the post text — no JSON, no markdown fences, no commentary before or after.`;
+}
+
+/** Plain-text blog draft — no JSON wrapper (avoids truncation parse failures). */
+export function buildBlogUserPrompt(input: {
+  idea: string;
+  hookText: string;
+  hookAngle: string;
+}): string {
+  return `${sharedIdeaBlock(input)}
+
+Write a longer blog draft developing the same core idea further: 600–900 words.
+Include a clear title as the first line (plain text, no markdown heading markers).
+Structure with short sections. Same voice as a sharp LinkedIn post, with more room to argue the mechanism and implications.
+
+Return ONLY the blog draft — no JSON, no markdown fences, no commentary before or after.`;
+}
+
