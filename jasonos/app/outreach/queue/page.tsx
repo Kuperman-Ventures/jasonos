@@ -1,5 +1,4 @@
 import { getThreeColumnQueue } from "@/lib/outreach/queue-buckets";
-import { getUntriagedReconnectCount } from "@/lib/server-actions/triage";
 import { getWarmthReminders } from "@/lib/outreach/data";
 import { getCommunicationsData } from "@/lib/server-actions/communications";
 import { ThreeColumnQueueClient } from "@/components/jasonos/outreach/three-column-queue-client";
@@ -9,9 +8,8 @@ export const metadata = { title: "Outreach · Queue" };
 export const dynamic = "force-dynamic";
 
 export default async function OutreachQueuePage() {
-  const [buckets, triageCount, warmthReminders, scheduleContacts] = await Promise.all([
+  const [buckets, warmthReminders, scheduleContacts] = await Promise.all([
     getThreeColumnQueue(),
-    getUntriagedReconnectCount(),
     getWarmthReminders(12),
     getCommunicationsData(),
   ]);
@@ -25,7 +23,6 @@ export default async function OutreachQueuePage() {
       ) : null}
       <ThreeColumnQueueClient
         buckets={buckets}
-        triageCount={triageCount}
         scheduleContacts={scheduleContacts}
       />
     </>

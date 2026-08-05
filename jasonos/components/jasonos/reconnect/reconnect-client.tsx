@@ -1,11 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowRight, CheckCircle2, Plus, Radar, Search } from "lucide-react";
+import { CheckCircle2, Plus, Radar, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { AskDispatchButton } from "@/components/dispatch/AskDispatchButton";
 import type { Intent } from "@/lib/triage/types";
@@ -46,12 +44,10 @@ const INTENT_FILTER_LABELS: Record<Intent, string> = {
 
 export function ReconnectClient({
   data,
-  triageCount,
   typeCounts,
   initialIntentFilter = null,
 }: {
   data: ReconnectDashboardData;
-  triageCount: number;
   typeCounts: ReconnectTypeCounts;
   initialIntentFilter?: IntentFilter;
 }) {
@@ -244,12 +240,6 @@ export function ReconnectClient({
             <Plus className="h-4 w-4" />
             Add contact
           </Button>
-          <Button variant="default" render={<Link href="/runner/triage" />}>
-            Triage queue
-            <Badge variant="secondary" className="ml-1 h-5">
-              {triageCount}
-            </Badge>
-          </Button>
           <AskDispatchButton
             requestType="pipeline_analysis"
             sourcePage="/outreach/queue"
@@ -260,10 +250,6 @@ export function ReconnectClient({
             }}
             label="Ask Dispatch"
           />
-          <Button variant="outline" render={<Link href="/reconnect/contacts" />}>
-            Full pipeline
-            <ArrowRight className="h-4 w-4" />
-          </Button>
         </div>
       </header>
 
