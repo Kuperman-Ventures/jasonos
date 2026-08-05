@@ -1,9 +1,14 @@
 // Home dashboard data — intentionally minimal.
 //   Top: overdue + due-soon + cadence drift / needs-scheduling across the
 //   three outreach columns. Below: pre-launch site traffic.
+//
+// Overdue / Due this week use the same people set and Eastern "today" as the
+// Outreach Queue bands so the three surfaces stay consistent overnight.
 
 import "server-only";
-import { getOutreachPeople, getWarmthReminders } from "@/lib/outreach/data";
+import { daysBetweenYmd, etEndOfWorkWeekYmd, etToday } from "@/lib/dates";
+import { getWarmthReminders } from "@/lib/outreach/data";
+import { getThreeColumnQueue, type QueueCard } from "@/lib/outreach/queue-buckets";
 import { getSiteTraffic, type SiteTraffic } from "@/lib/integrations/vercel-analytics";
 import type {
   ContactIntent,
@@ -40,150 +45,134 @@ export interface HomeData {
   sites: SitePanel[];
 }
 
-/** Local calendar YYYY-MM-DD — avoids UTC day-shift from toISOString(). */
-function todayYmd(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-/** Coming Friday (inclusive), local calendar. Weekend → next Friday. */
-function endOfWorkWeekYmd(today: string): string {
-  const [y, m, d] = today.split("-").map(Number);
-  const dt = new Date(y, m - 1, d);
-  const daysUntilFriday = (5 - dt.getDay() + 7) % 7;
-  dt.setDate(dt.getDate() + daysUntilFriday);
-  const yy = dt.getFullYear();
-  const mm = String(dt.getMonth() + 1).padStart(2, "0");
-  const dd = String(dt.getDate()).padStart(2, "0");
-  return `${yy}-${mm}-${dd}`;
-}
-
-const QUEUE_INTENTS: ContactIntent[] = [
-  "network_growth",
-  "network_maintenance",
-  "browning_cold",
-];
-
-function toAttention(
-  p: {
-    id: string;
-    name: string;
-    firm: string | null;
-    title: string | null;
-    relevance_tier: RelevanceTier | null;
-    network_degree: NetworkDegree | null;
-    intent: ContactIntent | null;
-    next_touch_date: string | null;
-    last_touch_date: string | null;
-  },
+function cardToAttention(
+  c: QueueCard,
   daysOverdue: number,
   note?: string
-): AttentionContact {
+): AttentionContact | null {
+  // Home attention cards open OutreachModal by contact id — skip orphan
+  // recruiter rows that have no jasonos.contacts mapping yet.
+  if (!c.contactId) return null;
   return {
-    id: p.id,
-    name: p.name,
-    firm: p.firm,
-    title: p.title,
-    tier: p.relevance_tier,
-    degree: p.network_degree,
-    column: (p.intent as ContactIntent) ?? "network_maintenance",
-    nextTouch: p.next_touch_date ?? null,
-    lastTouch: p.last_touch_date ?? null,
+    id: c.contactId,
+    name: c.name,
+    firm: c.firm,
+    title: c.title,
+    tier: c.relevance_tier,
+    degree: c.network_degree,
+    column: c.column,
+    nextTouch: c.next_touch_date ?? null,
+    lastTouch: c.last_touch_date ?? null,
     daysOverdue,
     note,
   };
 }
 
-export async function getHomeData(): Promise<HomeData> {
-  const today = todayYmd();
-  const weekEnd = endOfWorkWeekYmd(today);
+function isEngagedToday(lastTouch: string | null, today: string): boolean {
+  return Boolean(lastTouch && lastTouch.slice(0, 10) === today);
+}
 
-  const [people, drift, gtmtools, heavenly, encoreos] = await Promise.all([
-    getOutreachPeople(),
+export async function getHomeData(): Promise<HomeData> {
+  const today = etToday();
+  const weekEnd = etEndOfWorkWeekYmd(today);
+
+  const [queue, drift, gtmtools, heavenly, encoreos] = await Promise.all([
+    getThreeColumnQueue(),
     getWarmthReminders(40),
     getSiteTraffic({ projectId: process.env.VERCEL_PROJECT_GTMTOOLS, sinceDays: 30 }),
     getSiteTraffic({ projectId: process.env.VERCEL_PROJECT_HEAVENLY, sinceDays: 30 }),
     getSiteTraffic({ projectId: process.env.VERCEL_PROJECT_ENCOREOS, sinceDays: 30 }),
   ]);
 
-  const inQueue = people.filter(
-    (p) =>
-      p.intent !== null &&
-      p.intent !== "backrow" &&
-      QUEUE_INTENTS.includes(p.intent)
-  );
+  // Same membership as the queue columns (pinned intent OR derived).
+  const cards = [
+    ...queue.network_growth,
+    ...queue.network_maintenance,
+    ...queue.browning_cold,
+  ];
 
-  // Red bucket: scheduled next-touch strictly in the past.
-  const overdue: AttentionContact[] = inQueue
-    .filter((p) => p.next_touch_date != null && p.next_touch_date < today)
-    .map((p) => toAttention(p, daysBetween(p.next_touch_date!, today)))
+  // Red bucket: past next-touch, and not already engaged today (matches Queue
+  // Overdue band — Engaged Today wins there).
+  const overdue: AttentionContact[] = cards
+    .filter(
+      (c) =>
+        c.next_touch_date != null &&
+        c.next_touch_date < today &&
+        !isEngagedToday(c.last_touch_date, today)
+    )
+    .map((c) =>
+      cardToAttention(c, daysBetweenYmd(c.next_touch_date!, today))
+    )
+    .filter((c): c is AttentionContact => Boolean(c))
     .sort((a, b) => b.daysOverdue - a.daysOverdue);
 
-  // Due soon: today through Friday — matches the queue's "Due this week" band
-  // so a contact that lands on the queue after a log also surfaces here.
-  const dueSoon: AttentionContact[] = inQueue
+  // Due soon: today through Friday — same band as the queue.
+  const dueSoon: AttentionContact[] = cards
     .filter(
-      (p) =>
-        p.next_touch_date != null &&
-        p.next_touch_date >= today &&
-        p.next_touch_date <= weekEnd
+      (c) =>
+        c.next_touch_date != null &&
+        c.next_touch_date >= today &&
+        c.next_touch_date <= weekEnd &&
+        !isEngagedToday(c.last_touch_date, today)
     )
-    .map((p) =>
-      toAttention(
-        p,
+    .map((c) =>
+      cardToAttention(
+        c,
         0,
-        p.next_touch_date === today ? "Due today" : `Due ${p.next_touch_date}`
+        c.next_touch_date === today ? "Due today" : `Due ${c.next_touch_date}`
       )
     )
+    .filter((c): c is AttentionContact => Boolean(c))
     .sort((a, b) => (a.nextTouch ?? "").localeCompare(b.nextTouch ?? ""));
 
   const overdueIds = new Set(overdue.map((c) => c.id));
   const dueSoonIds = new Set(dueSoon.map((c) => c.id));
+  const queueContactIds = new Set(
+    cards.map((c) => c.contactId).filter((id): id is string => Boolean(id))
+  );
 
-  // Cadence drift from the warmth engine (no future next-touch, cadence lapsed).
+  // Cadence drift from the warmth engine (no next-touch, cadence lapsed).
+  // Restricted to people who actually appear on the queue columns.
   const driftFromWarmth: AttentionContact[] = drift
     .filter(
       (r) =>
         !r.person.next_touch_date &&
+        queueContactIds.has(r.person.id) &&
         !overdueIds.has(r.person.id) &&
-        !dueSoonIds.has(r.person.id)
+        !dueSoonIds.has(r.person.id) &&
+        !isEngagedToday(r.person.last_touch_date, today)
     )
-    .map((r) =>
-      toAttention(
-        {
-          id: r.person.id,
-          name: r.person.name,
-          firm: r.person.firm,
-          title: r.person.title,
-          relevance_tier: r.person.relevance_tier,
-          network_degree: r.person.network_degree,
-          intent: r.person.intent,
-          next_touch_date: null,
-          last_touch_date: r.person.last_touch_date,
-        },
-        r.daysOverdue,
-        r.suggestedAction
-      )
-    );
+    .map((r) => ({
+      id: r.person.id,
+      name: r.person.name,
+      firm: r.person.firm,
+      title: r.person.title,
+      tier: r.person.relevance_tier,
+      degree: r.person.network_degree,
+      column: (r.person.intent as ContactIntent) ?? "network_maintenance",
+      nextTouch: null,
+      lastTouch: r.person.last_touch_date,
+      daysOverdue: r.daysOverdue,
+      note: r.suggestedAction,
+    }));
 
-  // Needs scheduling: classified into a queue column but no next-touch date.
-  // These show in the queue's bottom band and used to be invisible on Home
-  // (warmth reminders skip cadence = none).
+  // Needs scheduling: on a queue column but no next-touch date (and not
+  // already covered by warmth cadence-lapse).
   const driftIds = new Set(driftFromWarmth.map((c) => c.id));
-  const needsScheduling: AttentionContact[] = inQueue
+  const needsScheduling: AttentionContact[] = cards
     .filter(
-      (p) =>
-        !p.next_touch_date &&
-        !driftIds.has(p.id) &&
-        !overdueIds.has(p.id) &&
-        !dueSoonIds.has(p.id)
+      (c) =>
+        !c.next_touch_date &&
+        c.contactId != null &&
+        !driftIds.has(c.contactId) &&
+        !overdueIds.has(c.contactId) &&
+        !dueSoonIds.has(c.contactId) &&
+        !isEngagedToday(c.last_touch_date, today)
     )
-    .map((p) =>
-      toAttention(p, 0, "Set a next-touch date to put them on the calendar")
+    .map((c) =>
+      cardToAttention(c, 0, "Set a next-touch date to put them on the calendar")
     )
+    .filter((c): c is AttentionContact => Boolean(c))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const driftContacts = [...driftFromWarmth, ...needsScheduling];
@@ -195,10 +184,4 @@ export async function getHomeData(): Promise<HomeData> {
   ];
 
   return { overdue, dueSoon, drift: driftContacts, sites };
-}
-
-function daysBetween(fromYmd: string, toYmd: string): number {
-  const a = new Date(`${fromYmd}T00:00:00`).getTime();
-  const b = new Date(`${toYmd}T00:00:00`).getTime();
-  return Math.max(0, Math.round((b - a) / 86_400_000));
 }

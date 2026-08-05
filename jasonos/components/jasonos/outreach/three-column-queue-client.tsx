@@ -34,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { etEndOfWorkWeekYmd, etToday } from "@/lib/dates";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import { ContactCreateModal } from "@/components/jasonos/outreach/contact-create-modal";
 import { TierDegreeBadge } from "@/components/jasonos/outreach/tier-degree-badge";
@@ -183,21 +184,7 @@ function fromCommUrgency(urgency: CommUrgency): QueueUrgencyKey {
   }
 }
 
-function todayYMD(): string {
-  // Eastern calendar day, matching how touches are stamped, so "engaged today"
-  // reflects Jason's day regardless of the browser's timezone.
-  return new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
-}
-
-// End of the current calendar work week (the coming Friday, inclusive) as a
-// YYYY-MM-DD string. "This week" runs through this Friday; later rolls to next
-// week ("Scheduled"). On a weekend, points to next Friday.
-function endOfWorkWeekYMD(baseYmd: string): string {
-  const d = new Date(`${baseYmd}T00:00:00Z`);
-  const daysUntilFriday = (5 - d.getUTCDay() + 7) % 7; // Fri = 5
-  d.setUTCDate(d.getUTCDate() + daysUntilFriday);
-  return d.toISOString().split("T")[0];
-}
+// Eastern "today" + Friday week-end shared with Home / Drift via lib/dates.
 
 /**
  * Status derivation for a queue card.
@@ -211,7 +198,7 @@ function deriveCardUrgency(
   card: QueueCard,
   comm: CommunicationsContact | undefined
 ): QueueUrgencyKey {
-  const today = todayYMD();
+  const today = etToday();
   if (comm?.urgency === "sent_today") return "engaged_today";
   if (card.last_touch_date && card.last_touch_date.slice(0, 10) === today) {
     return "engaged_today";
@@ -220,7 +207,7 @@ function deriveCardUrgency(
   const nextTouch = card.next_touch_date ?? comm?.nextActionDueDate ?? null;
   if (nextTouch) {
     if (nextTouch < today) return "overdue";
-    if (nextTouch <= endOfWorkWeekYMD(today)) return "due_this_week";
+    if (nextTouch <= etEndOfWorkWeekYmd(today)) return "due_this_week";
     return "scheduled";
   }
 
