@@ -7,6 +7,7 @@ import {
   createPublicServiceRoleClient,
   createServiceRoleClient,
 } from "@/lib/supabase/server";
+import { daysBetweenYmd, etToday } from "@/lib/dates";
 import { CADENCE_DAYS } from "@/lib/outreach/types";
 import type {
   CadenceInterval,
@@ -440,9 +441,8 @@ function suggestedActionFor(
 
 export async function getWarmthReminders(limit = 20): Promise<WarmthReminder[]> {
   const people = await getOutreachPeople();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayStr = today.toISOString().split("T")[0];
+  // Eastern calendar day — must match Home + Queue, not UTC (overnight skew).
+  const todayStr = etToday();
 
   const reminders: WarmthReminder[] = [];
 
@@ -450,11 +450,10 @@ export async function getWarmthReminders(limit = 20): Promise<WarmthReminder[]> 
     // Backrow contacts are out of the queue — never nag about them.
     if (person.intent === "backrow") continue;
     if (!person.cadence_interval || person.cadence_interval === "none") continue;
-    // An explicit next-touch date is authoritative: if it's today or in the
-    // future, this contact is SCHEDULED, not drifting. (Manually pushing a
-    // touch out to, say, October must remove them from cadence drift.) Only
-    // contacts with no scheduled next touch, or a past-due one, can drift.
-    if (person.next_touch_date && person.next_touch_date >= todayStr) continue;
+    // Cadence drift is only for people with NO next-touch date. A past
+    // next-touch belongs in Overdue (Home + Queue band), not Drift — otherwise
+    // the same contact shows in two places with two different meanings.
+    if (person.next_touch_date) continue;
     const cadenceDays = CADENCE_DAYS[person.cadence_interval as Exclude<CadenceInterval, "none">];
     if (!cadenceDays) continue;
 
@@ -462,9 +461,7 @@ export async function getWarmthReminders(limit = 20): Promise<WarmthReminder[]> 
     if (!person.last_touch_date) {
       daysSinceTouch = Infinity;
     } else {
-      const [y, m, d] = person.last_touch_date.split("-").map(Number);
-      const last = new Date(y, m - 1, d);
-      daysSinceTouch = Math.floor((today.getTime() - last.getTime()) / 86_400_000);
+      daysSinceTouch = daysBetweenYmd(person.last_touch_date, todayStr);
     }
 
     const urgency = urgencyFromOverdue(daysSinceTouch, cadenceDays);

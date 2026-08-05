@@ -75,7 +75,7 @@ export function HomeClient({
           tone="amber"
           icon={<Clock className="h-4 w-4" />}
           title="Cadence drift"
-          subtitle="No next touch · cadence lapsed or needs scheduling"
+          subtitle="No next-touch date · cadence lapsed or needs scheduling"
           contacts={data.drift}
           emptyText="No drift — everyone active is scheduled."
           onOpen={setTarget}

@@ -58,7 +58,7 @@ export function WarmthWidget({ reminders, initialLimit = 4 }: WarmthWidgetProps)
               Cadence drift
             </h2>
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              {reminders.length} contact{reminders.length === 1 ? "" : "s"} behind
+              No next-touch · {reminders.length} behind cadence
               {critical > 0 ? ` · ${critical} critical` : ""}
               {high > 0 ? ` · ${high} high` : ""}
             </span>
