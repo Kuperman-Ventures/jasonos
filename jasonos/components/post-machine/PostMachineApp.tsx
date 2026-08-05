@@ -5,18 +5,28 @@ import { ConfiguratorDashboard } from "@/components/post-machine/ConfiguratorDas
 import { HookPicker } from "@/components/post-machine/HookPicker";
 import { InputPanel } from "@/components/post-machine/InputPanel";
 import { OutputPanel } from "@/components/post-machine/OutputPanel";
+import { ProjectBar } from "@/components/post-machine/ProjectBar";
+import { ProjectLibrary } from "@/components/post-machine/ProjectLibrary";
 import { ResearchFindingsPanel } from "@/components/post-machine/ResearchFindings";
 import {
+  deletePostMachineProject,
+  getPostMachineProject,
+  listPostMachineProjects,
+  savePostMachineProject,
+} from "@/lib/server-actions/post-machine";
+import {
   DEFAULT_CONFIG,
+  suggestProjectTitle,
   type ConfiguratorState,
   type Hook,
   type InputMode,
+  type PostMachineProjectListItem,
+  type PostMachineProjectState,
+  type PostMachineStep,
   type ResearchFindings,
 } from "@/lib/post-machine/types";
 
-type Step = "idea" | "research" | "config" | "hooks" | "output";
-
-const STEPS: { id: Step; label: string }[] = [
+const STEPS: { id: PostMachineStep; label: string }[] = [
   { id: "idea", label: "01 Idea" },
   { id: "research", label: "02 Research" },
   { id: "config", label: "03 Voice" },
@@ -24,8 +34,12 @@ const STEPS: { id: Step; label: string }[] = [
   { id: "output", label: "05 Output" },
 ];
 
-export function PostMachineApp() {
-  const [step, setStep] = useState<Step>("idea");
+type PostMachineAppProps = {
+  initialProjects: PostMachineProjectListItem[];
+};
+
+export function PostMachineApp({ initialProjects }: PostMachineAppProps) {
+  const [step, setStep] = useState<PostMachineStep>("idea");
   const [inputMode, setInputMode] = useState<InputMode>("idea");
   const [idea, setIdea] = useState("");
   const [topic, setTopic] = useState("");
@@ -39,11 +53,136 @@ export function PostMachineApp() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [titleTouched, setTitleTouched] = useState(false);
+  const [projects, setProjects] =
+    useState<PostMachineProjectListItem[]>(initialProjects);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [loadingProjectId, setLoadingProjectId] = useState<string | null>(null);
+
   const visibleSteps =
     inputMode === "research" || step === "research"
       ? STEPS
       : STEPS.filter((s) => s.id !== "research");
   const stepIndex = visibleSteps.findIndex((s) => s.id === step);
+
+  function currentSnapshot(): PostMachineProjectState {
+    return {
+      idea,
+      topic,
+      guidance,
+      findings,
+      config,
+      hooks,
+      selectedHook,
+      linkedin,
+      blog,
+    };
+  }
+
+  const displayTitle = titleTouched
+    ? title
+    : suggestProjectTitle({ title, topic, idea });
+
+  const canSave = Boolean(
+    idea.trim() || topic.trim() || linkedin.trim() || blog.trim() || findings
+  );
+
+  function applyProject(project: {
+    id: string;
+    title: string;
+    step: PostMachineStep;
+    inputMode: InputMode;
+    state: PostMachineProjectState;
+  }) {
+    setProjectId(project.id);
+    setTitle(project.title);
+    setTitleTouched(true);
+    setStep(project.step);
+    setInputMode(project.inputMode);
+    setIdea(project.state.idea);
+    setTopic(project.state.topic);
+    setGuidance(project.state.guidance);
+    setFindings(project.state.findings);
+    setConfig(project.state.config ?? DEFAULT_CONFIG);
+    setHooks(project.state.hooks ?? []);
+    setSelectedHook(project.state.selectedHook);
+    setLinkedin(project.state.linkedin);
+    setBlog(project.state.blog);
+    setError(null);
+    setSaveMessage("Resumed");
+    setShowLibrary(false);
+  }
+
+  async function refreshProjects() {
+    const list = await listPostMachineProjects();
+    setProjects(list);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    setSaveMessage(null);
+    setError(null);
+    try {
+      const result = await savePostMachineProject({
+        id: projectId,
+        title: displayTitle,
+        step,
+        inputMode,
+        state: currentSnapshot(),
+      });
+      if (!result.ok) {
+        throw new Error(result.error);
+      }
+      setProjectId(result.id);
+      setTitle(result.title);
+      setTitleTouched(true);
+      setSaveMessage("Saved");
+      await refreshProjects();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed.");
+      setSaveMessage(null);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleOpen(id: string) {
+    setLoadingProjectId(id);
+    setError(null);
+    try {
+      const project = await getPostMachineProject(id);
+      if (!project) {
+        throw new Error("Could not load that project.");
+      }
+      applyProject(project);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not open project.");
+    } finally {
+      setLoadingProjectId(null);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!window.confirm("Delete this saved project?")) return;
+    setLoadingProjectId(id);
+    setError(null);
+    try {
+      const result = await deletePostMachineProject(id);
+      if (!result.ok) throw new Error(result.error);
+      if (projectId === id) {
+        startOver();
+      }
+      await refreshProjects();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Delete failed.");
+    } finally {
+      setLoadingProjectId(null);
+    }
+  }
 
   async function runResearch() {
     setLoading(true);
@@ -65,7 +204,6 @@ export function PostMachineApp() {
         throw new Error("Research returned no findings.");
       }
       setFindings(data.findings);
-      // Feed the shaped brief into the same idea field hooks/generate already use.
       setIdea(data.findings.ideaText);
       setStep("research");
     } catch (err) {
@@ -140,6 +278,11 @@ export function PostMachineApp() {
     setBlog("");
     setError(null);
     setLoading(false);
+    setProjectId(null);
+    setTitle("");
+    setTitleTouched(false);
+    setSaveMessage(null);
+    setShowLibrary(false);
   }
 
   return (
@@ -153,101 +296,135 @@ export function PostMachineApp() {
         <h1 className="pm-title pm-display">Post Machine</h1>
         <p className="pm-lede">
           Rough idea or researched topic in. LinkedIn post and blog draft out —
-          in your voice, with the dials set before anything generates.
+          in your voice. Save anytime and pick the project back up later.
         </p>
       </header>
 
-      <nav className="pm-steps" aria-label="Post Machine steps">
-        {visibleSteps.map((s, i) => (
-          <span
-            key={s.id}
-            className="pm-step"
-            data-active={s.id === step}
-            data-done={i < stepIndex}
-          >
-            {s.label}
-          </span>
-        ))}
-      </nav>
+      <ProjectBar
+        title={displayTitle}
+        onTitleChange={(value) => {
+          setTitle(value);
+          setTitleTouched(true);
+        }}
+        projectId={projectId}
+        saving={saving}
+        saveMessage={saveMessage}
+        onSave={handleSave}
+        onOpenLibrary={() => {
+          setShowLibrary(true);
+          setError(null);
+          void refreshProjects();
+        }}
+        onNew={startOver}
+        canSave={canSave}
+      />
 
-      {step === "idea" ? (
-        <InputPanel
-          mode={inputMode}
-          onModeChange={(mode) => {
-            setInputMode(mode);
-            setError(null);
-          }}
-          idea={idea}
-          onIdeaChange={setIdea}
-          topic={topic}
-          onTopicChange={setTopic}
-          guidance={guidance}
-          onGuidanceChange={setGuidance}
-          onContinueIdea={() => {
-            setError(null);
-            setFindings(null);
-            setStep("config");
-          }}
-          onRunResearch={runResearch}
-          loading={loading}
-          error={error}
-        />
-      ) : null}
+      {error && showLibrary ? <p className="pm-error">{error}</p> : null}
 
-      {step === "research" && findings ? (
-        <ResearchFindingsPanel
-          findings={findings}
-          onBack={() => {
-            setError(null);
-            setStep("idea");
-          }}
-          onContinue={() => {
-            setError(null);
-            setStep("config");
-          }}
+      {showLibrary ? (
+        <ProjectLibrary
+          projects={projects}
+          activeId={projectId}
+          loadingId={loadingProjectId}
+          onOpen={handleOpen}
+          onDelete={handleDelete}
+          onClose={() => setShowLibrary(false)}
         />
-      ) : null}
+      ) : (
+        <>
+          <nav className="pm-steps" aria-label="Post Machine steps">
+            {visibleSteps.map((s, i) => (
+              <span
+                key={s.id}
+                className="pm-step"
+                data-active={s.id === step}
+                data-done={i < stepIndex}
+              >
+                {s.label}
+              </span>
+            ))}
+          </nav>
 
-      {step === "config" ? (
-        <ConfiguratorDashboard
-          config={config}
-          onChange={setConfig}
-          onBack={() => {
-            setError(null);
-            setStep(findings ? "research" : "idea");
-          }}
-          onGenerateHooks={generateHooks}
-          loading={loading}
-          error={error}
-        />
-      ) : null}
+          {step === "idea" ? (
+            <InputPanel
+              mode={inputMode}
+              onModeChange={(mode) => {
+                setInputMode(mode);
+                setError(null);
+              }}
+              idea={idea}
+              onIdeaChange={setIdea}
+              topic={topic}
+              onTopicChange={setTopic}
+              guidance={guidance}
+              onGuidanceChange={setGuidance}
+              onContinueIdea={() => {
+                setError(null);
+                setFindings(null);
+                setStep("config");
+              }}
+              onRunResearch={runResearch}
+              loading={loading}
+              error={error}
+            />
+          ) : null}
 
-      {step === "hooks" ? (
-        <HookPicker
-          hooks={hooks}
-          selectedId={selectedHook?.id ?? null}
-          onSelect={setSelectedHook}
-          onBack={() => {
-            setError(null);
-            setStep("config");
-          }}
-          onContinue={generateOutput}
-          loading={loading}
-          error={error}
-        />
-      ) : null}
+          {step === "research" && findings ? (
+            <ResearchFindingsPanel
+              findings={findings}
+              onBack={() => {
+                setError(null);
+                setStep("idea");
+              }}
+              onContinue={() => {
+                setError(null);
+                setStep("config");
+              }}
+            />
+          ) : null}
 
-      {step === "output" ? (
-        <OutputPanel
-          linkedin={linkedin}
-          blog={blog}
-          onBack={() => {
-            setError(null);
-            setStep("hooks");
-          }}
-          onStartOver={startOver}
-        />
-      ) : null}
+          {step === "config" ? (
+            <ConfiguratorDashboard
+              config={config}
+              onChange={setConfig}
+              onBack={() => {
+                setError(null);
+                setStep(findings ? "research" : "idea");
+              }}
+              onGenerateHooks={generateHooks}
+              loading={loading}
+              error={error}
+            />
+          ) : null}
+
+          {step === "hooks" ? (
+            <HookPicker
+              hooks={hooks}
+              selectedId={selectedHook?.id ?? null}
+              onSelect={setSelectedHook}
+              onBack={() => {
+                setError(null);
+                setStep("config");
+              }}
+              onContinue={generateOutput}
+              loading={loading}
+              error={error}
+            />
+          ) : null}
+
+          {step === "output" ? (
+            <OutputPanel
+              linkedin={linkedin}
+              blog={blog}
+              onBack={() => {
+                setError(null);
+                setStep("hooks");
+              }}
+              onStartOver={startOver}
+            />
+          ) : null}
+        </>
+      )}
     </div>
   );
 }
