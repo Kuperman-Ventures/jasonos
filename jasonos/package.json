@@ -12,6 +12,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.71",
     "@ai-sdk/gateway": "^3.0.104",
+    "@anthropic-ai/sdk": "^0.115.0",
     "@base-ui/react": "^1.4.1",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.104.0",
