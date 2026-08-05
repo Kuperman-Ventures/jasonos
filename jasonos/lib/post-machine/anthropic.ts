@@ -36,6 +36,11 @@ function parseJson<T>(raw: string): T {
   }
 }
 
+function cleanErrorMessage(err: unknown): string {
+  const raw = err instanceof Error ? err.message : "Generation failed.";
+  return raw.replace(/\u001b\[[0-9;]*m/g, "").replace(/\s+/g, " ").trim();
+}
+
 async function callViaAnthropicSdk(input: {
   system: string;
   user: string;
@@ -50,6 +55,9 @@ async function callViaAnthropicSdk(input: {
   const message = await client.messages.create({
     model: getAnthropicModel(),
     max_tokens: input.maxTokens,
+    // Sonnet 5 adaptive thinking is on by default and steals from max_tokens.
+    // Disable it for deterministic JSON generation budgets.
+    thinking: { type: "disabled" },
     system: input.system,
     messages: [{ role: "user", content: input.user }],
   });
@@ -62,20 +70,19 @@ async function callViaGateway(input: {
   user: string;
   maxTokens: number;
 }): Promise<string> {
-  // Prefer direct Anthropic when configured; otherwise reuse JasonOS AI Gateway.
   const modelId = getAnthropicModel().replace(/^anthropic\//, "");
   const { text } = await generateText({
     model: gateway(`anthropic/${modelId}`),
     maxOutputTokens: input.maxTokens,
     system: input.system,
     prompt: input.user,
+    providerOptions: {
+      anthropic: {
+        thinking: { type: "disabled" },
+      },
+    },
   });
   return text.trim();
-}
-
-function cleanErrorMessage(err: unknown): string {
-  const raw = err instanceof Error ? err.message : "Generation failed.";
-  return raw.replace(/\u001b\[[0-9;]*m/g, "").replace(/\s+/g, " ").trim();
 }
 
 export async function callClaudeJson<T>(input: {
@@ -83,7 +90,8 @@ export async function callClaudeJson<T>(input: {
   user: string;
   maxTokens?: number;
 }): Promise<T> {
-  const maxTokens = input.maxTokens ?? 4096;
+  // Blog drafts need headroom; Sonnet 5's tokenizer is ~30% denser.
+  const maxTokens = input.maxTokens ?? 8192;
   const hasDirectKey = Boolean(process.env.ANTHROPIC_API_KEY?.trim());
 
   try {
