@@ -161,6 +161,47 @@ export async function testServiceConnection(
     return fetchHubSpot(key);
   }
 
+  if (serviceName === "beeper") {
+    const base =
+      stringCredential(credentials.base_url)?.replace(/\/$/, "") ||
+      process.env.BEEPER_DESKTOP_BASE_URL?.trim().replace(/\/$/, "") ||
+      "http://127.0.0.1:23373";
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2_500);
+      const res = await fetch(`${base}/v1/info`, {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${key}`,
+        },
+        cache: "no-store",
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timer));
+      if (!res.ok) {
+        return {
+          success: false,
+          message: `Beeper responded ${res.status}. Check the token and that Desktop API is enabled.`,
+          health_status: "down",
+        };
+      }
+      return {
+        success: true,
+        message:
+          "Beeper Desktop reachable. Leave it open when you hit Sync; otherwise Sync reports “No Beeper data synced”.",
+        health_status: "healthy",
+        metadata: { base_url: base },
+      };
+    } catch {
+      return {
+        success: true,
+        message:
+          "Token saved. Beeper Desktop isn’t reachable from this server right now (closed, or needs a tunnel URL on Vercel). Sync will soft-skip with “No Beeper data synced” until it’s open and reachable.",
+        health_status: "degraded",
+        metadata: { base_url: base },
+      };
+    }
+  }
+
   if (serviceName === "instantly") {
     return basicBearerCheck("https://api.instantly.ai/api/v2/accounts", key, "Instantly", {
       paused_warning: "Instantly automation is currently PAUSED if campaigns report paused status.",

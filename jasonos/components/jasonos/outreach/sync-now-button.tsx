@@ -49,6 +49,16 @@ export function SyncNowButton({ initial }: SyncNowButtonProps) {
             : `Calendar failed: ${result.gcal.error ?? "unknown"}`
         );
       }
+      if (result.beeper) {
+        if (result.beeper.unavailable) {
+          // Soft skip — Beeper Desktop closed, unreachable, or not configured.
+          messages.push(result.beeper.error ?? "No Beeper data synced");
+        } else if (result.beeper.ok) {
+          messages.push(`Beeper +${result.beeper.inserted}`);
+        } else {
+          messages.push(`Beeper failed: ${result.beeper.error ?? "unknown"}`);
+        }
+      }
       // Gmail-not-connected is an expected soft state, not a failure.
       const suggestedFatal =
         !suggested.ok && !/not connected/i.test(suggested.error);
@@ -58,8 +68,18 @@ export function SyncNowButton({ initial }: SyncNowButtonProps) {
         messages.push(`Suggested failed: ${suggested.error}`);
       }
 
-      const allOk = result.ok && !suggestedFatal;
-      if (allOk) {
+      const beeperFatal = Boolean(
+        result.beeper && !result.beeper.ok && !result.beeper.unavailable
+      );
+      const allOk = result.ok && !suggestedFatal && !beeperFatal;
+      // Beeper soft-skip alone shouldn't flip a successful Gmail/Calendar sync
+      // into an error toast — surface it in the success line instead.
+      const softOnlyMiss =
+        Boolean(result.beeper?.unavailable) &&
+        !beeperFatal &&
+        !suggestedFatal &&
+        ((result.gmail?.ok ?? false) || (result.gcal?.ok ?? false));
+      if (allOk || softOnlyMiss) {
         toast.success(messages.join(" · ") || "Sync complete");
       } else {
         toast.error(messages.join(" · ") || "Sync failed");
@@ -88,8 +108,8 @@ export function SyncNowButton({ initial }: SyncNowButtonProps) {
       disabled={running}
       title={
         lastSynced
-          ? `Last synced ${fmtRelative(lastSynced)} — last 90 days of Gmail, Calendar & suggested contacts`
-          : "Sync last 90 days of Gmail, Calendar & suggested contacts"
+          ? `Last synced ${fmtRelative(lastSynced)} — Gmail, Calendar, Beeper (when open) & suggested contacts`
+          : "Sync Gmail, Calendar, Beeper (when Desktop is open) & suggested contacts"
       }
     >
       {running ? (

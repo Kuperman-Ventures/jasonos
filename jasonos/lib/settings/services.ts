@@ -178,6 +178,25 @@ export const SERVICE_DEFINITIONS: ServiceDefinition[] = [
     fields: [{ name: "api_key", label: "API Key", type: "password", required: true }],
   },
   {
+    name: "beeper",
+    label: "Beeper",
+    connectionType: "api_key",
+    description:
+      "Text/IM sync into Outreach (SMS, iMessage, WhatsApp, etc.). Requires Beeper Desktop open. On Vercel, set BEEPER_DESKTOP_BASE_URL to a Cloudflare/Tailscale tunnel; otherwise Sync soft-skips with “No Beeper data synced”.",
+    features: ["Text touches", "Outreach Sync", "1:1 chats"],
+    configurable: true,
+    disconnectable: true,
+    envVars: ["BEEPER_ACCESS_TOKEN"],
+    fields: [
+      { name: "api_key", label: "Desktop API access token", type: "password", required: true },
+      {
+        name: "base_url",
+        label: "Desktop base URL (tunnel)",
+        placeholder: "http://127.0.0.1:23373 or https://….trycloudflare.com",
+      },
+    ],
+  },
+  {
     name: "dispatch",
     label: "Dispatch",
     connectionType: "webhook",

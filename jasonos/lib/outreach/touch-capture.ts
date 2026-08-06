@@ -31,7 +31,13 @@ export type TouchChannel =
 
 export type TouchDirection = "outbound" | "inbound";
 
-export type TouchSource = "gmail" | "gcal" | "hubspot" | "manual" | "rr_legacy";
+export type TouchSource =
+  | "gmail"
+  | "gcal"
+  | "hubspot"
+  | "manual"
+  | "rr_legacy"
+  | "beeper";
 
 export interface ContactTouchInput {
   contact_id: string;
