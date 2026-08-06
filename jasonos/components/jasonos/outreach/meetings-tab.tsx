@@ -334,7 +334,7 @@ function MeetingRow({
                 onClick={() => setMode(mode === "prep" ? "view" : "prep")}
                 className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
               >
-                <Pencil className="h-3 w-3" /> Edit prep
+                <Pencil className="h-3 w-3" /> Meeting Prep
               </button>
               <Button size="sm" onClick={() => setMode("debrief")}>
                 <CheckCircle2 className="h-3 w-3" /> Log debrief
