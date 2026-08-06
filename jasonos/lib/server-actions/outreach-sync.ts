@@ -27,6 +27,12 @@ import {
   upsertMeetingsFromCalendar,
   type CalendarMeetingUpsert,
 } from "@/lib/outreach/meeting-capture";
+import {
+  BEEPER_UNAVAILABLE_MESSAGE,
+  BeeperUnavailableError,
+  fetchBeeperTouchCandidates,
+  isBeeperConfigured,
+} from "@/lib/integrations/beeper";
 
 // ---------------------------------------------------------------------------
 // Email write-back — when a sync matches a contact (typically by NAME, e.g. a
@@ -81,7 +87,7 @@ async function applyEmailEnrichments(enrich: EnrichMap): Promise<void> {
   }
 }
 
-export type SyncResultSource = "gmail" | "gcal";
+export type SyncResultSource = "gmail" | "gcal" | "beeper";
 
 export interface SyncResult {
   ok: boolean;
@@ -92,6 +98,8 @@ export interface SyncResult {
   cadenceUpdates: number;
   skipped: number;
   error?: string;
+  /** Soft skip — Beeper Desktop closed / unreachable / not configured. */
+  unavailable?: boolean;
 }
 
 export interface SyncAllResult {
@@ -99,6 +107,7 @@ export interface SyncAllResult {
   ranAt: string;
   gmail: SyncResult | null;
   gcal: SyncResult | null;
+  beeper: SyncResult | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -439,6 +448,109 @@ export async function getUpcomingCalendarMeetings(opts?: {
 }
 
 // ---------------------------------------------------------------------------
+// Beeper sync — 1:1 chats when Desktop API is reachable.
+// Soft-skips (unavailable) when Beeper isn't open / token missing / tunnel down.
+// ---------------------------------------------------------------------------
+
+export async function syncOutreachFromBeeper(opts?: {
+  daysBack?: number;
+}): Promise<SyncResult> {
+  const daysBack = Math.max(1, Math.min(90, opts?.daysBack ?? 30));
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return errorResult("beeper", "Supabase service role is not configured.");
+  }
+  if (!isBeeperConfigured()) {
+    return unavailableBeeperResult();
+  }
+
+  try {
+    const candidates = await fetchBeeperTouchCandidates({
+      daysBack,
+      includeInbound: true,
+    });
+    const lookup = await buildContactLookup();
+    if (!lookup.rows.length) {
+      await recordSyncState("beeper", {
+        ok: true,
+        matched: 0,
+        inserted: 0,
+        note: "No contacts to match.",
+      });
+      return okResult("beeper", emptyInsertResult(), 0, candidates.length);
+    }
+
+    const touches: ContactTouchInput[] = [];
+    let skipped = 0;
+
+    for (const c of candidates) {
+      const contact = lookup.resolvePeer({
+        name: c.peer.name ?? c.chatTitle,
+        phone: c.peer.phone,
+        email: c.peer.email,
+      });
+      if (!contact) {
+        skipped += 1;
+        continue;
+      }
+
+      const network = c.network ? ` via ${c.network}` : "";
+      const preview = oneLine(c.text);
+      touches.push({
+        contact_id: contact.id,
+        channel: "text",
+        direction: c.direction,
+        touched_at: c.timestamp,
+        source: "beeper",
+        external_id: `beeper:${c.chatId}:${c.messageId}`,
+        brief: preview
+          ? `${c.direction === "outbound" ? "Sent" : "Received"} text${network}: ${preview}`
+          : `${c.direction === "outbound" ? "Sent" : "Received"} message${network}`,
+        subject: c.chatTitle || c.peer.name || "Beeper chat",
+        thread_url: null,
+        objective_achieved: "neutral",
+      });
+    }
+
+    const insert = await insertContactTouches(touches);
+    await recordSyncState("beeper", {
+      ok: true,
+      matched: touches.length,
+      inserted: insert.inserted,
+      duplicates: insert.duplicates,
+      cadenceUpdates: insert.cadenceUpdates,
+      skipped,
+      daysBack,
+    });
+    revalidatePaths();
+    return okResult("beeper", insert, touches.length, skipped);
+  } catch (err) {
+    if (err instanceof BeeperUnavailableError) {
+      return unavailableBeeperResult();
+    }
+    console.error("[outreach-sync.beeper]", err);
+    return errorResult(
+      "beeper",
+      err instanceof Error ? err.message : "Beeper sync failed."
+    );
+  }
+}
+
+function unavailableBeeperResult(): SyncResult {
+  return {
+    ok: true,
+    source: "beeper",
+    matched: 0,
+    inserted: 0,
+    duplicates: 0,
+    cadenceUpdates: 0,
+    skipped: 0,
+    unavailable: true,
+    error: BEEPER_UNAVAILABLE_MESSAGE,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Orchestrator — run all configured syncs and aggregate results.
 // ---------------------------------------------------------------------------
 
@@ -447,18 +559,23 @@ export async function syncOutreachAll(opts?: {
   daysForward?: number;
 }): Promise<SyncAllResult> {
   const ranAt = new Date().toISOString();
-  const [gmail, gcal] = await Promise.allSettled([
+  const [gmail, gcal, beeper] = await Promise.allSettled([
     syncOutreachFromGmail(opts),
     syncOutreachFromCalendar(opts),
+    syncOutreachFromBeeper(opts),
   ]);
 
   return {
     ok:
       (gmail.status === "fulfilled" && gmail.value.ok) ||
-      (gcal.status === "fulfilled" && gcal.value.ok),
+      (gcal.status === "fulfilled" && gcal.value.ok) ||
+      (beeper.status === "fulfilled" &&
+        beeper.value.ok &&
+        !beeper.value.unavailable),
     ranAt,
     gmail: settled(gmail),
     gcal: settled(gcal),
+    beeper: settled(beeper),
   };
 }
 

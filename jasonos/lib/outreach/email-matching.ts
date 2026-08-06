@@ -59,21 +59,39 @@ export interface ContactLookupRow {
   id: string;
   name: string;
   emails: string[];
+  phone: string | null;
 }
 
 export interface ContactLookup {
   rows: ContactLookupRow[];
   byEmail: Map<string, ContactLookupRow>;
   byName: Map<string, ContactLookupRow>;
+  byPhone: Map<string, ContactLookupRow>;
   /** Resolve a "Name <email>" header to a contact row, or undefined. */
   resolve(header: string): ContactLookupRow | undefined;
+  /** Resolve a Beeper/chat peer by phone, email, or display name. */
+  resolvePeer(peer: {
+    name?: string | null;
+    phone?: string | null;
+    email?: string | null;
+  }): ContactLookupRow | undefined;
+}
+
+/** Digits-only phone key; US numbers collapse to last 10 digits. */
+export function normalizePhone(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const digits = raw.replace(/\D+/g, "");
+  if (!digits) return null;
+  if (digits.length === 11 && digits.startsWith("1")) return digits.slice(1);
+  if (digits.length > 10) return digits.slice(-10);
+  return digits;
 }
 
 export async function buildContactLookup(): Promise<ContactLookup> {
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("contacts")
-    .select("id,name,emails");
+    .select("id,name,emails,phone");
 
   if (error) {
     console.error("[outreach.buildContactLookup]", error);
@@ -84,10 +102,12 @@ export async function buildContactLookup(): Promise<ContactLookup> {
     id: row.id as string,
     name: row.name as string,
     emails: (row.emails as string[] | null) ?? [],
+    phone: (row.phone as string | null) ?? null,
   }));
 
   const byEmail = new Map<string, ContactLookupRow>();
   const byName = new Map<string, ContactLookupRow>();
+  const byPhone = new Map<string, ContactLookupRow>();
 
   for (const row of rows) {
     for (const email of row.emails) {
@@ -95,12 +115,15 @@ export async function buildContactLookup(): Promise<ContactLookup> {
       byEmail.set(canonicalEmail(email), row);
     }
     byName.set(normalizeName(row.name), row);
+    const phoneKey = normalizePhone(row.phone);
+    if (phoneKey) byPhone.set(phoneKey, row);
   }
 
   return {
     rows,
     byEmail,
     byName,
+    byPhone,
     resolve(header: string) {
       const email = extractEmail(header);
       if (!email) return undefined;
@@ -128,6 +151,25 @@ export async function buildContactLookup(): Promise<ContactLookup> {
 
       return undefined;
     },
+    resolvePeer(peer) {
+      const phoneKey = normalizePhone(peer.phone);
+      if (phoneKey) {
+        const hit = byPhone.get(phoneKey);
+        if (hit) return hit;
+      }
+      if (peer.email) {
+        const email = extractEmail(peer.email);
+        if (email && !isMyOwnAddress(email)) {
+          const hit = byEmail.get(canonicalEmail(email));
+          if (hit) return hit;
+        }
+      }
+      if (peer.name) {
+        const hit = byName.get(normalizeName(peer.name));
+        if (hit) return hit;
+      }
+      return undefined;
+    },
   };
 }
 
@@ -136,6 +178,8 @@ function emptyLookup(): ContactLookup {
     rows: [],
     byEmail: new Map(),
     byName: new Map(),
+    byPhone: new Map(),
     resolve: () => undefined,
+    resolvePeer: () => undefined,
   };
 }
