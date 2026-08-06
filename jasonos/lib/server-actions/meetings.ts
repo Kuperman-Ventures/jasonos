@@ -296,11 +296,11 @@ export async function runMeetingResearch(
       sourceLines;
   } catch (err) {
     console.error("[meetings.runMeetingResearch]", err);
-    return {
-      ok: false,
-      error:
-        "Couldn't run the web search. The AI web-search tool may not be enabled on this environment yet.",
-    };
+    const message =
+      err instanceof Error && err.message.trim()
+        ? err.message.trim()
+        : "Couldn't run the web search.";
+    return { ok: false, error: message };
   }
 
   const nowIso = new Date().toISOString();

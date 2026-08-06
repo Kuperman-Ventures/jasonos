@@ -1,8 +1,7 @@
 import "server-only";
 
 import { gateway } from "@ai-sdk/gateway";
-import { anthropic } from "@ai-sdk/anthropic";
-import { generateText } from "ai";
+import { generateText, stepCountIs } from "ai";
 import { getAnthropicModel } from "@/lib/post-master/anthropic";
 import type { ResearchFindings, ResearchSource } from "@/lib/post-master/types";
 
@@ -116,9 +115,12 @@ function cleanErrorMessage(err: unknown): string {
 
 /**
  * Two-step research:
- * 1) web_search notes (tool use — prose is fine)
+ * 1) Perplexity web search via AI Gateway (notes — prose is fine)
  * 2) structure those notes into JSON via plain generateText (no generateObject /
  *    structured-output schema path — that was throwing pattern-match failures)
+ *
+ * Uses gateway.tools.perplexitySearch instead of Anthropic's native web_search
+ * so research works without enabling web search in the Anthropic Console.
  */
 export async function runPostMasterResearch(input: {
   topic: string;
@@ -138,11 +140,17 @@ export async function runPostMasterResearch(input: {
     const search = await generateText({
       model,
       tools: {
-        web_search: anthropic.tools.webSearch_20250305({ maxUses: 6 }),
+        perplexity_search: gateway.tools.perplexitySearch({
+          maxResults: 10,
+          searchRecencyFilter: "month",
+          searchLanguageFilter: ["en"],
+          country: "US",
+        }),
       },
+      stopWhen: stepCountIs(8),
       maxOutputTokens: 2500,
       system: `You are a research analyst for Jason Kuperman's Post Master (NarrativeOS).
-Use the web_search tool. Report ONLY what you actually find via search — never invent sources, quotes, or debates.
+Use the perplexity_search tool. Report ONLY what you actually find via search — never invent sources, quotes, or debates.
 
 Gather notes on:
 1) 2–3 areas of genuine whitespace or under-discussed angles (not the most obvious LinkedIn takes)
@@ -160,12 +168,28 @@ Search the web, then write research notes with URLs.`,
       },
     });
 
-    const toolSources: ResearchSource[] = (search.sources ?? [])
-      .map((s) => {
-        const anyS = s as { url?: string; title?: string };
-        return { title: anyS.title ?? null, url: anyS.url ?? "" };
-      })
-      .filter((s) => /^https?:\/\//i.test(s.url));
+    const toolSources: ResearchSource[] = [];
+    const seenToolUrls = new Set<string>();
+    const pushSource = (title: string | null, url: string) => {
+      if (!url || !/^https?:\/\//i.test(url) || seenToolUrls.has(url)) return;
+      seenToolUrls.add(url);
+      toolSources.push({ title, url });
+    };
+    for (const s of search.sources ?? []) {
+      const anyS = s as { url?: string; title?: string };
+      pushSource(anyS.title ?? null, anyS.url ?? "");
+    }
+    for (const step of search.steps ?? []) {
+      for (const tr of step.toolResults ?? []) {
+        const output = tr.output as
+          | { results?: Array<{ title?: string; url?: string }> }
+          | undefined;
+        if (!output?.results) continue;
+        for (const r of output.results) {
+          pushSource(r.title ?? null, r.url ?? "");
+        }
+      }
+    }
 
     const notes = search.text.trim();
     if (!notes && toolSources.length === 0) {
