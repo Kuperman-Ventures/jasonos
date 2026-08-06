@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { Search } from "lucide-react";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
   SCOREBOARD_STATUSES,
@@ -21,6 +23,19 @@ function fmtDate(dateStr: string) {
   });
 }
 
+function matchesSearch(row: ScoreboardApplication, q: string) {
+  return [
+    row.company_name,
+    row.position_applied,
+    row.contact_method,
+    row.result,
+    SCOREBOARD_STATUS_LABELS[row.scoreboard_status],
+    fmtDate(row.date),
+  ]
+    .filter(Boolean)
+    .some((field) => String(field).toLowerCase().includes(q));
+}
+
 export function ScoreboardClient({
   applications,
 }: {
@@ -28,6 +43,7 @@ export function ScoreboardClient({
 }) {
   const [rows, setRows] = useState(applications);
   const [filter, setFilter] = useState<ScoreboardStatus | "all">("all");
+  const [query, setQuery] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
@@ -39,13 +55,16 @@ export function ScoreboardClient({
     return map;
   }, [rows]);
 
-  const visible = useMemo(
-    () =>
-      filter === "all"
-        ? rows
-        : rows.filter((row) => row.scoreboard_status === filter),
-    [rows, filter]
-  );
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return rows.filter((row) => {
+      if (filter !== "all" && row.scoreboard_status !== filter) return false;
+      if (q && !matchesSearch(row, q)) return false;
+      return true;
+    });
+  }, [rows, filter, query]);
+
+  const hasActiveSearch = query.trim().length > 0;
 
   const onSelect = (id: string, status: ScoreboardStatus) => {
     const prev = rows.find((r) => r.id === id)?.scoreboard_status;
@@ -98,24 +117,61 @@ export function ScoreboardClient({
       />
 
       <section className="space-y-3">
-        <div>
-          <h2 className="text-sm font-semibold tracking-tight">
-            Submitted Applications
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            From NYUI
-            {filter === "all"
-              ? ` · ${rows.length} total`
-              : ` · ${visible.length} of ${rows.length} · ${SCOREBOARD_STATUS_LABELS[filter]}`}
-          </p>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold tracking-tight">
+              Submitted Applications
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              From NYUI
+              {hasActiveSearch || filter !== "all"
+                ? ` · ${visible.length} of ${rows.length}`
+                : ` · ${rows.length} total`}
+              {filter !== "all"
+                ? ` · ${SCOREBOARD_STATUS_LABELS[filter]}`
+                : null}
+              {hasActiveSearch ? ` · “${query.trim()}”` : null}
+            </p>
+          </div>
+
+          <div className="relative w-full max-w-xs">
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search company or role…"
+              className="h-9 pl-8"
+              aria-label="Search applications"
+            />
+          </div>
         </div>
 
         <div className="overflow-hidden rounded-xl border border-border bg-card">
           {visible.length === 0 ? (
             <div className="px-4 py-12 text-center text-sm text-muted-foreground">
-              {rows.length === 0
-                ? "No submitted applications logged in NYUI yet."
-                : "Nothing in this status."}
+              {rows.length === 0 ? (
+                "No submitted applications logged in NYUI yet."
+              ) : hasActiveSearch ? (
+                <div className="space-y-2">
+                  <p>
+                    No applications match &ldquo;{query.trim()}&rdquo;
+                    {filter !== "all"
+                      ? ` in ${SCOREBOARD_STATUS_LABELS[filter]}`
+                      : null}
+                    .
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    className="text-xs text-foreground underline underline-offset-2"
+                  >
+                    Clear search
+                  </button>
+                </div>
+              ) : (
+                "Nothing in this status."
+              )}
             </div>
           ) : (
             <ul className="divide-y divide-border">
