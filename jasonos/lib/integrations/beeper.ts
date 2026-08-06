@@ -47,12 +47,20 @@ interface BeeperChat {
 
 interface BeeperMessage {
   id: string;
-  chatID: string;
+  chatID?: string;
+  chatId?: string;
   timestamp: string;
   text?: string;
   isSender?: boolean;
   isDeleted?: boolean;
   type?: string;
+}
+
+interface CursorPage<T> {
+  items?: T[];
+  data?: T[];
+  hasMore?: boolean;
+  oldestCursor?: string | null;
 }
 
 async function resolveBaseUrl(): Promise<string> {
@@ -93,10 +101,12 @@ async function beeperFetch(
 ): Promise<Response> {
   const token = accessToken();
   if (!token) {
-    throw new BeeperUnavailableError("Beeper access token is not configured.");
+    throw new BeeperUnavailableError(
+      "Beeper access token is not configured (set BEEPER_ACCESS_TOKEN)."
+    );
   }
 
-  const timeoutMs = init?.timeoutMs ?? 4_000;
+  const timeoutMs = init?.timeoutMs ?? 8_000;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const root = await resolveBaseUrl();
@@ -131,13 +141,38 @@ export class BeeperUnavailableError extends Error {
   }
 }
 
+export class BeeperApiError extends Error {
+  status: number;
+  constructor(status: number, detail: string) {
+    super(`Beeper API ${status}: ${detail}`);
+    this.name = "BeeperApiError";
+    this.status = status;
+  }
+}
+
+async function readErrorDetail(res: Response): Promise<string> {
+  try {
+    const text = await res.text();
+    return text.replace(/\s+/g, " ").trim().slice(0, 240) || res.statusText;
+  } catch {
+    return res.statusText || "unknown error";
+  }
+}
+
 /** Probe Desktop API. Throws BeeperUnavailableError when closed / unreachable. */
-export async function probeBeeperDesktop(): Promise<{ ok: true }> {
-  const res = await beeperFetch("/v1/info", { timeoutMs: 2_500 });
+export async function probeBeeperDesktop(): Promise<{ ok: true; baseUrl: string }> {
+  const baseUrl = await resolveBaseUrl();
+  const res = await beeperFetch("/v1/info", { timeoutMs: 5_000 });
+  if (res.status === 401 || res.status === 403) {
+    throw new BeeperApiError(
+      res.status,
+      "Beeper token rejected. Recreate the Approved connection token."
+    );
+  }
   if (!res.ok) {
     throw new BeeperUnavailableError(BEEPER_UNAVAILABLE_MESSAGE);
   }
-  return { ok: true };
+  return { ok: true, baseUrl };
 }
 
 function peerFromChat(chat: BeeperChat): BeeperPeer {
@@ -151,111 +186,132 @@ function peerFromChat(chat: BeeperChat): BeeperPeer {
   };
 }
 
-async function searchMessages(params: {
-  dateAfter: string;
-  sender: "me" | "others";
-  limit: number;
-}): Promise<BeeperMessage[]> {
-  const qs = new URLSearchParams({
-    chatType: "single",
-    dateAfter: params.dateAfter,
-    sender: params.sender,
-    limit: String(params.limit),
-    includeMuted: "true",
-  });
-  const res = await beeperFetch(`/v1/messages/search?${qs}`, {
-    timeoutMs: 10_000,
-  });
-  if (!res.ok) {
-    // 4xx from a live server is a real API problem; connection issues throw above.
-    if (res.status >= 500) {
-      throw new BeeperUnavailableError(BEEPER_UNAVAILABLE_MESSAGE);
-    }
-    return [];
-  }
-  const body = (await res.json()) as {
-    items?: BeeperMessage[];
-    data?: BeeperMessage[];
-  };
+function pageItems<T>(body: CursorPage<T>): T[] {
   return body.items ?? body.data ?? [];
 }
 
-async function retrieveChat(chatId: string): Promise<BeeperChat | null> {
-  const res = await beeperFetch(`/v1/chats/${encodeURIComponent(chatId)}`, {
-    timeoutMs: 6_000,
+async function searchRecentSingleChats(opts: {
+  dateAfter: string;
+  limit: number;
+}): Promise<BeeperChat[]> {
+  const qs = new URLSearchParams({
+    type: "single",
+    lastActivityAfter: opts.dateAfter,
+    limit: String(opts.limit),
+    includeMuted: "true",
   });
-  if (!res.ok) return null;
-  return (await res.json()) as BeeperChat;
+  const res = await beeperFetch(`/v1/chats/search?${qs}`, { timeoutMs: 12_000 });
+  if (res.status === 401 || res.status === 403) {
+    throw new BeeperApiError(res.status, await readErrorDetail(res));
+  }
+  if (!res.ok) {
+    // Fallback: list chats without activity filter.
+    const listRes = await beeperFetch(
+      `/v1/chats?${new URLSearchParams({
+        type: "single",
+        limit: String(opts.limit),
+      })}`,
+      { timeoutMs: 12_000 }
+    );
+    if (!listRes.ok) {
+      throw new BeeperApiError(listRes.status, await readErrorDetail(listRes));
+    }
+    const listBody = (await listRes.json()) as CursorPage<BeeperChat>;
+    return pageItems(listBody).filter((c) => !c.type || c.type === "single");
+  }
+  const body = (await res.json()) as CursorPage<BeeperChat>;
+  return pageItems(body).filter((c) => !c.type || c.type === "single");
+}
+
+async function listChatMessages(
+  chatId: string,
+  limit: number
+): Promise<BeeperMessage[]> {
+  const qs = new URLSearchParams({ limit: String(limit) });
+  const res = await beeperFetch(
+    `/v1/chats/${encodeURIComponent(chatId)}/messages?${qs}`,
+    { timeoutMs: 12_000 }
+  );
+  if (!res.ok) {
+    // Per-chat failures shouldn't abort the whole sync.
+    console.warn(
+      "[beeper.listChatMessages]",
+      chatId,
+      res.status,
+      await readErrorDetail(res)
+    );
+    return [];
+  }
+  const body = (await res.json()) as CursorPage<BeeperMessage>;
+  return pageItems(body);
 }
 
 /**
- * Pull recent 1:1 outbound (+ optional inbound) messages for touch capture.
- * Soft-fails via BeeperUnavailableError when Desktop isn't reachable.
+ * Pull recent 1:1 messages for touch capture.
+ *
+ * Strategy: find recently active DM chats, then list messages per chat.
+ * (Global messages/search with sender filters proved brittle and returned
+ * empty results even when Desktop was reachable.)
  */
 export async function fetchBeeperTouchCandidates(opts?: {
   daysBack?: number;
-  maxMessages?: number;
+  maxChats?: number;
+  maxMessagesPerChat?: number;
   includeInbound?: boolean;
 }): Promise<BeeperTouchCandidate[]> {
   const daysBack = Math.max(1, Math.min(90, opts?.daysBack ?? 30));
-  const maxMessages = Math.max(1, Math.min(200, opts?.maxMessages ?? 100));
+  const maxChats = Math.max(1, Math.min(80, opts?.maxChats ?? 40));
+  const maxMessagesPerChat = Math.max(
+    1,
+    Math.min(40, opts?.maxMessagesPerChat ?? 20)
+  );
   const includeInbound = opts?.includeInbound ?? true;
 
   await probeBeeperDesktop();
 
-  const after = new Date(Date.now() - daysBack * 86_400_000).toISOString();
-  const perQuery = Math.ceil(maxMessages / (includeInbound ? 2 : 1));
+  const afterMs = Date.now() - daysBack * 86_400_000;
+  const after = new Date(afterMs).toISOString();
 
-  const outbound = await searchMessages({
+  const chats = await searchRecentSingleChats({
     dateAfter: after,
-    sender: "me",
-    limit: perQuery,
+    limit: maxChats,
   });
-  const inbound = includeInbound
-    ? await searchMessages({
-        dateAfter: after,
-        sender: "others",
-        limit: perQuery,
-      })
-    : [];
-
-  const messages = [...outbound, ...inbound]
-    .filter((m) => !m.isDeleted)
-    .sort(
-      (a, b) =>
-        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    )
-    .slice(0, maxMessages);
-
-  if (!messages.length) return [];
-
-  const chatIds = Array.from(new Set(messages.map((m) => m.chatID)));
-  const chatById = new Map<string, BeeperChat>();
-  await Promise.all(
-    chatIds.map(async (id) => {
-      const chat = await retrieveChat(id);
-      if (chat) chatById.set(id, chat);
-    })
-  );
+  if (!chats.length) return [];
 
   const out: BeeperTouchCandidate[] = [];
-  for (const m of messages) {
-    const chat = chatById.get(m.chatID);
-    if (!chat) continue;
-    if (chat.type && chat.type !== "single") continue;
-    const peer = peerFromChat(chat);
-    const outboundMsg = Boolean(m.isSender);
-    out.push({
-      messageId: m.id,
-      chatId: m.chatID,
-      timestamp: m.timestamp,
-      text: m.text?.trim() || null,
-      network: chat.network ?? null,
-      chatTitle: chat.title ?? null,
-      peer,
-      direction: outboundMsg ? "outbound" : "inbound",
-    });
-  }
 
+  // Bound concurrency so we don't stampede Desktop API through the tunnel.
+  const queue = [...chats];
+  const workers = Array.from({ length: Math.min(4, queue.length) }, async () => {
+    while (queue.length) {
+      const chat = queue.shift();
+      if (!chat) return;
+      const peer = peerFromChat(chat);
+      const messages = await listChatMessages(chat.id, maxMessagesPerChat);
+      for (const m of messages) {
+        if (m.isDeleted) continue;
+        const ts = new Date(m.timestamp).getTime();
+        if (!Number.isFinite(ts) || ts < afterMs) continue;
+        const outbound = Boolean(m.isSender);
+        if (!outbound && !includeInbound) continue;
+        out.push({
+          messageId: m.id,
+          chatId: chat.id,
+          timestamp: m.timestamp,
+          text: m.text?.trim() || null,
+          network: chat.network ?? null,
+          chatTitle: chat.title ?? null,
+          peer,
+          direction: outbound ? "outbound" : "inbound",
+        });
+      }
+    }
+  });
+  await Promise.all(workers);
+
+  out.sort(
+    (a, b) =>
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
   return out;
 }
