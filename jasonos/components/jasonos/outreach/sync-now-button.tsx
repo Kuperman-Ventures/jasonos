@@ -54,7 +54,14 @@ export function SyncNowButton({ initial }: SyncNowButtonProps) {
           // Soft skip — Beeper Desktop closed, unreachable, or not configured.
           messages.push(result.beeper.error ?? "No Beeper data synced");
         } else if (result.beeper.ok) {
-          messages.push(`Beeper +${result.beeper.inserted}`);
+          if (result.beeper.inserted > 0) {
+            messages.push(`Beeper +${result.beeper.inserted}`);
+          } else if (result.beeper.error) {
+            // Reachable but nothing useful imported — surface why.
+            messages.push(result.beeper.error);
+          } else {
+            messages.push(`Beeper +0`);
+          }
         } else {
           messages.push(`Beeper failed: ${result.beeper.error ?? "unknown"}`);
         }

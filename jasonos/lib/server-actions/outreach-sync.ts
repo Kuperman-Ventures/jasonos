@@ -29,6 +29,7 @@ import {
 } from "@/lib/outreach/meeting-capture";
 import {
   BEEPER_UNAVAILABLE_MESSAGE,
+  BeeperApiError,
   BeeperUnavailableError,
   fetchBeeperTouchCandidates,
   isBeeperConfigured,
@@ -461,7 +462,9 @@ export async function syncOutreachFromBeeper(opts?: {
     return errorResult("beeper", "Supabase service role is not configured.");
   }
   if (!isBeeperConfigured()) {
-    return unavailableBeeperResult();
+    return unavailableBeeperResult(
+      "Beeper not configured (missing BEEPER_ACCESS_TOKEN)."
+    );
   }
 
   try {
@@ -475,9 +478,18 @@ export async function syncOutreachFromBeeper(opts?: {
         ok: true,
         matched: 0,
         inserted: 0,
+        candidates: candidates.length,
+        skipped: candidates.length,
+        daysBack,
         note: "No contacts to match.",
       });
-      return okResult("beeper", emptyInsertResult(), 0, candidates.length);
+      return {
+        ...okResult("beeper", emptyInsertResult(), 0, candidates.length),
+        error:
+          candidates.length > 0
+            ? `Beeper found ${candidates.length} messages but no contacts to match`
+            : "Beeper reachable — no recent 1:1 chats found",
+      };
     }
 
     const touches: ContactTouchInput[] = [];
@@ -520,13 +532,37 @@ export async function syncOutreachFromBeeper(opts?: {
       duplicates: insert.duplicates,
       cadenceUpdates: insert.cadenceUpdates,
       skipped,
+      candidates: candidates.length,
       daysBack,
     });
     revalidatePaths();
-    return okResult("beeper", insert, touches.length, skipped);
+
+    const result = okResult("beeper", insert, touches.length, skipped);
+    if (candidates.length === 0) {
+      return {
+        ...result,
+        error: "Beeper reachable — no recent 1:1 chats found",
+      };
+    }
+    if (touches.length === 0 && skipped > 0) {
+      return {
+        ...result,
+        error: `Beeper found ${candidates.length} messages; none matched contacts (${skipped} unmatched)`,
+      };
+    }
+    return result;
   } catch (err) {
     if (err instanceof BeeperUnavailableError) {
-      return unavailableBeeperResult();
+      return unavailableBeeperResult(err.message || BEEPER_UNAVAILABLE_MESSAGE);
+    }
+    if (err instanceof BeeperApiError) {
+      console.error("[outreach-sync.beeper.api]", err);
+      await recordSyncState("beeper", {
+        ok: false,
+        error: err.message,
+        daysBack,
+      }).catch(() => undefined);
+      return errorResult("beeper", err.message);
     }
     console.error("[outreach-sync.beeper]", err);
     return errorResult(
@@ -536,7 +572,13 @@ export async function syncOutreachFromBeeper(opts?: {
   }
 }
 
-function unavailableBeeperResult(): SyncResult {
+function unavailableBeeperResult(message = BEEPER_UNAVAILABLE_MESSAGE): SyncResult {
+  // Persist soft-skip so we can see the last attempt even when Funnel is down.
+  void recordSyncState("beeper", {
+    ok: true,
+    unavailable: true,
+    error: message,
+  });
   return {
     ok: true,
     source: "beeper",
@@ -546,7 +588,9 @@ function unavailableBeeperResult(): SyncResult {
     cadenceUpdates: 0,
     skipped: 0,
     unavailable: true,
-    error: BEEPER_UNAVAILABLE_MESSAGE,
+    error: message.includes("No Beeper")
+      ? BEEPER_UNAVAILABLE_MESSAGE
+      : message,
   };
 }
 
