@@ -7,8 +7,7 @@
 
 import { revalidatePath } from "next/cache";
 import { gateway } from "@ai-sdk/gateway";
-import { anthropic } from "@ai-sdk/anthropic";
-import { generateText } from "ai";
+import { generateText, stepCountIs } from "ai";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
 export interface ResumeApplication {
@@ -61,9 +60,8 @@ export async function getResumeApplicationQueue(): Promise<ResumeApplication[]> 
   });
 }
 
-// Best-effort: web-search for a company's official website URL via Anthropic's
-// web_search tool through the AI gateway. (Just the company site, not a
-// specific job posting.)
+// Best-effort: web-search for a company's official website URL via AI Gateway
+// Perplexity search. (Just the company site, not a specific job posting.)
 export async function findCompanyUrl(input: {
   company: string;
 }): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
@@ -72,10 +70,17 @@ export async function findCompanyUrl(input: {
   try {
     const result = await generateText({
       model: gateway("anthropic/claude-sonnet-4-6"),
-      tools: { web_search: anthropic.tools.webSearch_20250305({ maxUses: 3 }) },
+      tools: {
+        perplexity_search: gateway.tools.perplexitySearch({
+          maxResults: 5,
+          searchLanguageFilter: ["en"],
+          country: "US",
+        }),
+      },
+      stopWhen: stepCountIs(4),
       maxOutputTokens: 300,
       system:
-        "Find the official website URL of the given company (its homepage, e.g. https://company.com). Respond with ONLY the single best URL and nothing else. If you truly cannot find one, respond with exactly NONE.",
+        "Find the official website URL of the given company (its homepage, e.g. https://company.com). Use perplexity_search. Respond with ONLY the single best URL and nothing else. If you truly cannot find one, respond with exactly NONE.",
       prompt: `Company: ${company}\nReturn the company's official website URL.`,
     });
     const text = (result.text ?? "").trim();
@@ -83,17 +88,32 @@ export async function findCompanyUrl(input: {
     const fromSource = (result.sources ?? [])
       .map((s) => (s as { url?: string }).url)
       .find(Boolean);
-    const url = (fromText || fromSource || "").replace(/[.,;]+$/, "");
+    let fromTool: string | undefined;
+    for (const step of result.steps ?? []) {
+      for (const tr of step.toolResults ?? []) {
+        const output = tr.output as
+          | { results?: Array<{ url?: string }> }
+          | undefined;
+        const hit = output?.results?.find((r) => r.url)?.url;
+        if (hit) {
+          fromTool = hit;
+          break;
+        }
+      }
+      if (fromTool) break;
+    }
+    const url = (fromText || fromSource || fromTool || "").replace(/[.,;]+$/, "");
     if (!url || /^NONE$/i.test(text)) {
       return { ok: false, error: "Couldn't find a posting URL." };
     }
     return { ok: true, url };
   } catch (err) {
     console.error("[resume-applications.findJobPostingUrl]", err);
-    return {
-      ok: false,
-      error: "Web search isn't available here yet — paste the URL manually.",
-    };
+    const message =
+      err instanceof Error && err.message.trim()
+        ? err.message.trim()
+        : "Web search failed — paste the URL manually.";
+    return { ok: false, error: message };
   }
 }
 
