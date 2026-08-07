@@ -8,8 +8,9 @@ import type { ActionCard, BestNextActionItem } from "../types";
 
 const BnaItemSchema = z.object({
   card_id: z.string(),
-  // Anthropic structured output rejects min/max on integers — clamp in runBna.
-  rank: z.number().int(),
+  // Plain number — z.number().int() makes the AI SDK emit integer min/max
+  // (JS safe-integer bounds), which Anthropic structured output rejects.
+  rank: z.number(),
   why_now: z.string(),
   suggested_time_block: z.string().optional(),
 });
