@@ -22,9 +22,10 @@ export const resumeChangeSchema = z.object({
 export const resumeAnalysisSchema = z.object({
   company: z.string().describe("The hiring company named in the job description; 'the company' if unclear."),
   roleTitle: z.string().describe("The role/title from the job description, if present."),
-  // Anthropic structured output rejects minimum/maximum on integer types
-  // (AI Gateway was more permissive). Clamp in sanitizeAnalysis instead.
-  matchScore: z.number().int(),
+  // Use plain number — NOT z.number().int(). The AI SDK emits integer +
+  // JS-safe min/max bounds for .int(), and Anthropic rejects any
+  // minimum/maximum on integer schema fields. Clamp/round in sanitizeAnalysis.
+  matchScore: z.number(),
   assessment: z.enum(["strong_customization", "significant_rewrite"]),
   topKeywords: z
     .array(z.object({ keyword: z.string(), present: z.boolean() }))
