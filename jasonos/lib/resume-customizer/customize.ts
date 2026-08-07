@@ -5,7 +5,7 @@
 import "server-only";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { heavyModel } from "@/lib/ai/models";
+import { hasDirectAnthropicKey, heavyModel } from "@/lib/ai/models";
 import { NO_AI_SLOP_WRITING_RULES } from "@/lib/ai/no-ai-slop";
 import { RESUME_CUSTOMIZER_SYSTEM_PROMPT } from "@/lib/resume-customizer/prompt";
 
@@ -110,13 +110,31 @@ ${input.resumeText}
 RESUME PARAGRAPHS (use the exact text as "before"):
 ${numbered}`;
 
-  const { object } = await generateObject({
-    model: heavyModel,
-    schema: resumeAnalysisSchema,
-    system,
-    prompt,
-    maxOutputTokens: 8000,
-  });
+  try {
+    const { object } = await generateObject({
+      model: heavyModel(),
+      schema: resumeAnalysisSchema,
+      system,
+      prompt,
+      maxOutputTokens: 8000,
+      providerOptions: hasDirectAnthropicKey()
+        ? { anthropic: { thinking: { type: "disabled" } } }
+        : undefined,
+    });
+    return sanitizeAnalysis(object);
+  } catch (err) {
+    throw new Error(cleanAiError(err));
+  }
+}
 
-  return sanitizeAnalysis(object);
+function cleanAiError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : "unknown error";
+  const message = raw.replace(/\u001b\[[0-9;]*m/g, "").replace(/\s+/g, " ").trim();
+  if (
+    !hasDirectAnthropicKey() &&
+    /credit balance|top-up|insufficient funds/i.test(message)
+  ) {
+    return `${message} Set ANTHROPIC_API_KEY on Vercel to call Anthropic directly, or top up AI Gateway credits.`;
+  }
+  return message;
 }

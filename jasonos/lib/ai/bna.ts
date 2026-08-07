@@ -36,7 +36,7 @@ export interface BnaInputs {
 
 export async function runBna(inputs: BnaInputs): Promise<BestNextActionItem[]> {
   const { object } = await generateObject({
-    model: heavyModel,
+    model: heavyModel(),
     schema: BnaResponseSchema,
     system: SYSTEM,
     prompt: JSON.stringify(inputs, null, 2),

@@ -74,7 +74,7 @@ async function computeWhatNow(): Promise<WhatNowAdvice> {
   let text: string;
   try {
     const result = await generateText({
-      model: heavyModel,
+      model: heavyModel(),
       system: systemPrompt,
       prompt: userPrompt,
       maxOutputTokens: 800,

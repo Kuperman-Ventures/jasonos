@@ -7,7 +7,7 @@
 import "server-only";
 import { generateObject } from "ai";
 import { z } from "zod";
-import { heavyModel } from "@/lib/ai/models";
+import { hasDirectAnthropicKey, heavyModel } from "@/lib/ai/models";
 import { JASON_IDENTITY } from "@/lib/ai/jason-identity";
 import { stripAiTells } from "@/lib/resume-customizer/customize";
 
@@ -95,11 +95,14 @@ ${
 }`;
 
   const { object } = await generateObject({
-    model: heavyModel,
+    model: heavyModel(),
     schema: coverLetterSchema,
     system: SYSTEM,
     prompt,
     maxOutputTokens: 3000,
+    providerOptions: hasDirectAnthropicKey()
+      ? { anthropic: { thinking: { type: "disabled" } } }
+      : undefined,
   });
 
   return {

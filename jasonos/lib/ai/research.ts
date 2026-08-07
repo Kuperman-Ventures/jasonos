@@ -72,7 +72,7 @@ export async function researchPersonNews(input: {
 
   try {
     const result = await generateText({
-      model: heavyModel,
+      model: heavyModel(),
       tools: {
         perplexity_search: gateway.tools.perplexitySearch({
           maxResults: 8,
