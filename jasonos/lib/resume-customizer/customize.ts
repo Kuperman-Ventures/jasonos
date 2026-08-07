@@ -22,7 +22,9 @@ export const resumeChangeSchema = z.object({
 export const resumeAnalysisSchema = z.object({
   company: z.string().describe("The hiring company named in the job description; 'the company' if unclear."),
   roleTitle: z.string().describe("The role/title from the job description, if present."),
-  matchScore: z.number().int().min(1).max(100),
+  // Anthropic structured output rejects minimum/maximum on integer types
+  // (AI Gateway was more permissive). Clamp in sanitizeAnalysis instead.
+  matchScore: z.number().int(),
   assessment: z.enum(["strong_customization", "significant_rewrite"]),
   topKeywords: z
     .array(z.object({ keyword: z.string(), present: z.boolean() }))
@@ -61,12 +63,18 @@ export function stripAiTells(s: string): string {
     .trim();
 }
 
+function clampMatchScore(n: number): number {
+  if (!Number.isFinite(n)) return 50;
+  return Math.min(100, Math.max(1, Math.round(n)));
+}
+
 function sanitizeAnalysis(a: ResumeAnalysis): ResumeAnalysis {
   return {
     ...a,
     company: stripAiTells(a.company),
     roleTitle: stripAiTells(a.roleTitle),
     summary: stripAiTells(a.summary),
+    matchScore: clampMatchScore(a.matchScore),
     // NOTE: `before` is left untouched — it must match the resume verbatim so
     // the edit can be located. Only `after` (what gets written) is sanitized.
     changes: a.changes.map((c) => ({

@@ -8,13 +8,14 @@ import type { ActionCard, BestNextActionItem } from "../types";
 
 const BnaItemSchema = z.object({
   card_id: z.string(),
-  rank: z.number().int().min(1).max(7),
-  why_now: z.string().min(8).max(280),
+  // Anthropic structured output rejects min/max on integers — clamp in runBna.
+  rank: z.number().int(),
+  why_now: z.string(),
   suggested_time_block: z.string().optional(),
 });
 
 export const BnaResponseSchema = z.object({
-  items: z.array(BnaItemSchema).min(3).max(7),
+  items: z.array(BnaItemSchema),
 });
 
 const SYSTEM = `You are Jason's chief of staff. You see every open card across four
@@ -41,5 +42,14 @@ export async function runBna(inputs: BnaInputs): Promise<BestNextActionItem[]> {
     system: SYSTEM,
     prompt: JSON.stringify(inputs, null, 2),
   });
-  return object.items;
+  return object.items
+    .map((item, i) => ({
+      ...item,
+      rank: Number.isFinite(item.rank)
+        ? Math.min(7, Math.max(1, Math.round(item.rank)))
+        : i + 1,
+      why_now: item.why_now.trim().slice(0, 280),
+    }))
+    .filter((item) => item.why_now.length >= 8)
+    .slice(0, 7);
 }
