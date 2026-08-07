@@ -39,7 +39,7 @@ export async function tellClaude(opts: {
     enriched.intent_signals.includes("comparison");
 
   return streamText({
-    model: isStrategicQuestion ? heavyModel : fastModel,
+    model: isStrategicQuestion ? heavyModel() : fastModel(),
     system: SYSTEM_PREFIX,
     prompt: buildUserPrompt(opts.instruction, enriched),
   });
