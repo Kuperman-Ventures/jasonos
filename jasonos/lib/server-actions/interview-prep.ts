@@ -7,8 +7,6 @@ import {
   type InterviewPrep,
 } from "@/lib/interview-prep/analyze";
 
-export type { InterviewPrep };
-
 const BUCKET = "resumes";
 
 export interface InterviewTarget {
