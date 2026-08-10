@@ -124,7 +124,7 @@ function makeFallbackAdvice(args: {
     rationale,
     actions: [
       { rank: 1, label: "Open triage queue", href: "/runner/triage" },
-      { rank: 2, label: "Outreach queue", href: "/outreach/queue" },
+      { rank: 2, label: "Networking queue", href: "/outreach/queue" },
       { rank: 3, label: "Today's pins", href: "/today" },
     ],
     generated_at: new Date().toISOString(),

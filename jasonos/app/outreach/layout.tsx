@@ -3,7 +3,7 @@ import { OutreachTabs } from "@/components/jasonos/outreach/outreach-tabs";
 import { getOutreachSyncState } from "@/lib/outreach/data";
 import { getNewCandidateCount } from "@/lib/server-actions/contact-candidates";
 
-export const metadata = { title: "Outreach · JasonOS" };
+export const metadata = { title: "Networking · JasonOS" };
 export const dynamic = "force-dynamic";
 
 export default async function OutreachLayout({
