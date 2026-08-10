@@ -14,7 +14,7 @@ import { ChevronDown } from "lucide-react";
 
 // ─── Nav structure ─────────────────────────────────────────────────────────
 // Clusters (with hairline dividers between them):
-//   Daily → Networking → Tools → System
+//   Daily → Networking / Job Search → Tools → System
 
 type NavLinkItem = { kind: "link"; href: string; label: string };
 type NavGroupItem = {
@@ -38,13 +38,11 @@ const NAV: NavItem[] = [
       { href: "/nyui", label: "NYUI" },
     ],
   },
-  { kind: "link", href: "/job-alerts", label: "Job Alerts" },
-
   { kind: "divider" },
 
   {
     kind: "group",
-    label: "Outreach",
+    label: "Networking",
     children: [
       { href: "/outreach/dashboard", label: "Dashboard" },
       { href: "/outreach/queue", label: "Queue" },
@@ -56,8 +54,10 @@ const NAV: NavItem[] = [
   },
   {
     kind: "group",
-    label: "Browning",
+    label: "Job Search",
     children: [
+      { href: "/job-alerts", label: "Job Alerts" },
+      { href: "/interview-prep", label: "Interview Prep" },
       { href: "/browning", label: "Browning" },
       { href: "/activity", label: "Weekly Report" },
     ],
