@@ -234,7 +234,7 @@ function PrepSection({
   tone,
   children,
 }: {
-  icon: typeof CheckCircle2;
+  icon: typeof Target;
   title: string;
   subtitle: string;
   tone: "sky" | "amber" | "emerald";
