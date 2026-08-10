@@ -4,15 +4,21 @@ import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  Bookmark,
+  BookmarkCheck,
   Loader2,
   MessageSquareQuote,
   Sparkles,
   Target,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
+  deleteSavedInterviewPrep,
   generateInterviewPrep,
+  getSavedInterviewPrep,
+  saveInterviewPrep,
   type InterviewTarget,
 } from "@/lib/server-actions/interview-prep";
 import type { InterviewPrep } from "@/lib/interview-prep/types";
@@ -35,20 +41,64 @@ function targetLabel(t: InterviewTarget): string {
 
 export function InterviewPrepClient({
   targets: initialTargets,
+  initialSaved = null,
 }: {
   targets: InterviewTarget[];
+  initialSaved?: {
+    customizationId: string;
+    updatedAt: string;
+    prep: InterviewPrep;
+  } | null;
 }) {
+  const [targets, setTargets] = useState(initialTargets);
   const [selectedId, setSelectedId] = useState<string | null>(
     initialTargets[0]?.id ?? null
   );
-  const [prep, setPrep] = useState<InterviewPrep | null>(null);
-  const [prepForId, setPrepForId] = useState<string | null>(null);
+  const [prep, setPrep] = useState<InterviewPrep | null>(
+    initialSaved?.prep ?? null
+  );
+  const [prepForId, setPrepForId] = useState<string | null>(
+    initialSaved?.customizationId ?? null
+  );
+  const [savedAt, setSavedAt] = useState<string | null>(
+    initialSaved?.updatedAt ?? null
+  );
+  const [dirty, setDirty] = useState(false);
+  const [loadingSaved, setLoadingSaved] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [isSaving, startSave] = useTransition();
+  const [isDeleting, startDelete] = useTransition();
 
   const selected = useMemo(
-    () => initialTargets.find((t) => t.id === selectedId) ?? null,
-    [initialTargets, selectedId]
+    () => targets.find((t) => t.id === selectedId) ?? null,
+    [targets, selectedId]
   );
+
+  function clearPrepState() {
+    setPrep(null);
+    setPrepForId(null);
+    setSavedAt(null);
+    setDirty(false);
+  }
+
+  function loadSavedFor(id: string) {
+    setLoadingSaved(true);
+    clearPrepState();
+    startTransition(async () => {
+      const result = await getSavedInterviewPrep({ customizationId: id });
+      setLoadingSaved(false);
+      if (!result.ok) return;
+      setPrep(result.saved.prep);
+      setPrepForId(id);
+      setSavedAt(result.saved.updatedAt);
+      setDirty(false);
+    });
+  }
+
+  function selectTarget(id: string) {
+    setSelectedId(id);
+    loadSavedFor(id);
+  }
 
   function runPrep() {
     if (!selectedId) {
@@ -63,11 +113,73 @@ export function InterviewPrepClient({
       }
       setPrep(result.prep);
       setPrepForId(selectedId);
-      toast.success("Interview prep ready.");
+      setDirty(true);
+      toast.success(
+        selected?.hasSavedPrep
+          ? "New prep ready — save to replace the stored one."
+          : "Interview prep ready — save it to keep it."
+      );
+    });
+  }
+
+  function handleSave() {
+    if (!selectedId || !prep || prepForId !== selectedId) {
+      toast.error("Generate a prep first.");
+      return;
+    }
+    startSave(async () => {
+      const result = await saveInterviewPrep({
+        customizationId: selectedId,
+        prep,
+      });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setSavedAt(result.saved.updatedAt);
+      setDirty(false);
+      setTargets((prev) =>
+        prev.map((t) =>
+          t.id === selectedId
+            ? {
+                ...t,
+                hasSavedPrep: true,
+                savedPrepUpdatedAt: result.saved.updatedAt,
+              }
+            : t
+        )
+      );
+      toast.success("Prep saved.");
+    });
+  }
+
+  function handleDeleteSaved() {
+    if (!selectedId) return;
+    startDelete(async () => {
+      const result = await deleteSavedInterviewPrep({
+        customizationId: selectedId,
+      });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setSavedAt(null);
+      setDirty(Boolean(prep && prepForId === selectedId));
+      setTargets((prev) =>
+        prev.map((t) =>
+          t.id === selectedId
+            ? { ...t, hasSavedPrep: false, savedPrepUpdatedAt: null }
+            : t
+        )
+      );
+      toast.success("Saved prep deleted.");
     });
   }
 
   const showingPrep = prep && prepForId === selectedId ? prep : null;
+  const isSavedClean = Boolean(showingPrep && savedAt && !dirty);
+  const canSave = Boolean(showingPrep && dirty);
+  const busy = isPending || isSaving || isDeleting || loadingSaved;
 
   return (
     <div className="mx-auto grid max-w-[1200px] gap-6 px-4 py-6 lg:grid-cols-[minmax(260px,320px)_minmax(0,1fr)]">
@@ -77,24 +189,24 @@ export function InterviewPrepClient({
           <p className="mt-1 text-xs text-muted-foreground">
             Pick a job you already ran through Resume Customizer. We read that JD
             and the tailored resume, then surface likely questions, gaps, and
-            points to highlight.
+            points to highlight. Save a prep to reopen it later.
           </p>
         </header>
 
-        {initialTargets.length === 0 ? (
+        {targets.length === 0 ? (
           <div className="rounded-xl border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
             No customized roles with job descriptions yet. Customize a resume for
             a JD first, then come back here.
           </div>
         ) : (
           <ul className="max-h-[min(70vh,640px)] space-y-1 overflow-y-auto rounded-xl border bg-card/40 p-1.5">
-            {initialTargets.map((t) => {
+            {targets.map((t) => {
               const active = t.id === selectedId;
               return (
                 <li key={t.id}>
                   <button
                     type="button"
-                    onClick={() => setSelectedId(t.id)}
+                    onClick={() => selectTarget(t.id)}
                     className={cn(
                       "w-full rounded-lg px-3 py-2.5 text-left transition-colors",
                       active
@@ -102,8 +214,13 @@ export function InterviewPrepClient({
                         : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                     )}
                   >
-                    <div className="text-sm font-medium leading-snug text-foreground">
-                      {targetLabel(t)}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="text-sm font-medium leading-snug text-foreground">
+                        {targetLabel(t)}
+                      </div>
+                      {t.hasSavedPrep ? (
+                        <BookmarkCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-300" />
+                      ) : null}
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
                       <span>{formatDate(t.createdAt)}</span>
@@ -111,6 +228,7 @@ export function InterviewPrepClient({
                       {t.matchScore != null ? (
                         <span className="tabular-nums">{t.matchScore}% match</span>
                       ) : null}
+                      {t.hasSavedPrep ? <span>Saved</span> : null}
                     </div>
                   </button>
                 </li>
@@ -119,28 +237,70 @@ export function InterviewPrepClient({
           </ul>
         )}
 
-        <Button
-          onClick={runPrep}
-          disabled={!selected || isPending}
-          className="w-full gap-1.5"
-        >
-          {isPending ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Scanning JD + resume…
-            </>
-          ) : (
-            <>
-              <Sparkles className="h-4 w-4" />
-              Generate prep
-            </>
-          )}
-        </Button>
+        <div className="flex flex-col gap-2">
+          <Button
+            onClick={runPrep}
+            disabled={!selected || busy}
+            className="w-full gap-1.5"
+          >
+            {isPending && !loadingSaved ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Scanning JD + resume…
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" />
+                {selected?.hasSavedPrep ? "Regenerate prep" : "Generate prep"}
+              </>
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleSave}
+            disabled={!canSave || busy}
+            className="w-full gap-1.5"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Saving…
+              </>
+            ) : isSavedClean ? (
+              <>
+                <BookmarkCheck className="h-4 w-4" />
+                Saved
+              </>
+            ) : (
+              <>
+                <Bookmark className="h-4 w-4" />
+                Save prep
+              </>
+            )}
+          </Button>
+          {selected?.hasSavedPrep ? (
+            <Button
+              variant="ghost"
+              onClick={handleDeleteSaved}
+              disabled={busy}
+              className="w-full gap-1.5 text-muted-foreground"
+            >
+              {isDeleting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+              Delete saved prep
+            </Button>
+          ) : null}
+        </div>
       </aside>
 
       <section className="min-w-0 space-y-4">
         {!selected ? (
           <EmptyState message="Select a customized role to get started." />
+        ) : loadingSaved ? (
+          <EmptyState message="Loading saved prep…" />
         ) : isPending && !showingPrep ? (
           <EmptyState message="Reading the job description and tailored resume…" />
         ) : !showingPrep ? (
@@ -148,7 +308,16 @@ export function InterviewPrepClient({
             message={`Ready for ${targetLabel(selected)}. Hit Generate prep when you want the brief.`}
           />
         ) : (
-          <PrepResults prep={showingPrep} />
+          <PrepResults
+            prep={showingPrep}
+            status={
+              dirty
+                ? "Unsaved draft — hit Save prep to keep this version."
+                : savedAt
+                  ? `Saved ${formatDate(savedAt)}`
+                  : null
+            }
+          />
         )}
       </section>
     </div>
@@ -163,13 +332,24 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
-function PrepResults({ prep }: { prep: InterviewPrep }) {
+function PrepResults({
+  prep,
+  status,
+}: {
+  prep: InterviewPrep;
+  status: string | null;
+}) {
   const title = [prep.company, prep.roleTitle].filter(Boolean).join(" · ");
 
   return (
     <div className="space-y-5">
       <header className="space-y-2 border-b pb-4">
-        <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+          {status ? (
+            <p className="text-[11px] text-muted-foreground">{status}</p>
+          ) : null}
+        </div>
         <p className="text-sm leading-relaxed text-muted-foreground">{prep.framing}</p>
       </header>
 
