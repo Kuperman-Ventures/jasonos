@@ -14,7 +14,7 @@ import { ChevronDown } from "lucide-react";
 
 // ─── Nav structure ─────────────────────────────────────────────────────────
 // Clusters (with hairline dividers between them):
-//   Daily → Networking → Tools → System
+//   Daily → Networking / Job Search → Tools → System
 
 type NavLinkItem = { kind: "link"; href: string; label: string };
 type NavGroupItem = {

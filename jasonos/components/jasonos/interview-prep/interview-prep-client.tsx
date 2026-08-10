@@ -4,7 +4,6 @@ import { useMemo, useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 import {
   AlertTriangle,
-  CheckCircle2,
   Loader2,
   MessageSquareQuote,
   Sparkles,
@@ -16,7 +15,7 @@ import {
   generateInterviewPrep,
   type InterviewTarget,
 } from "@/lib/server-actions/interview-prep";
-import type { InterviewPrep } from "@/lib/interview-prep/analyze";
+import type { InterviewPrep } from "@/lib/interview-prep/types";
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
