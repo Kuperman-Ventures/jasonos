@@ -529,3 +529,36 @@ export async function deleteCustomization(
   revalidatePath("/resume-customizer");
   return { ok: true };
 }
+
+function normalizeCustomizationFilename(raw: string): string | null {
+  const cleaned = raw
+    .replace(/[\\/]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned) return null;
+  const withExt = /\.docx$/i.test(cleaned) ? cleaned : `${cleaned}.docx`;
+  return withExt.slice(0, 180);
+}
+
+/** Rename a tailored resume in the recent list (display/download name only). */
+export async function renameCustomization(input: {
+  id: string;
+  filename: string;
+}): Promise<{ ok: true; filename: string } | ActionError> {
+  const filename = normalizeCustomizationFilename(input.filename);
+  if (!filename) return { ok: false, error: "Enter a resume name." };
+
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("resume_customizations")
+    .update({ filename })
+    .eq("id", input.id)
+    .select("filename")
+    .single();
+  if (error || !data) {
+    return { ok: false, error: error?.message ?? "Could not rename resume." };
+  }
+  revalidatePath("/resume-customizer");
+  revalidatePath("/interview-prep");
+  return { ok: true, filename: data.filename as string };
+}

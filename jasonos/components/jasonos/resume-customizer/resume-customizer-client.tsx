@@ -23,6 +23,9 @@ import {
   RefreshCw,
   RotateCcw,
   Plus,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 
 // Shared reset signal so "Reset" clears both the resume customizer and the
@@ -40,6 +43,7 @@ import {
   listCustomizations,
   getCustomizationDownload,
   deleteCustomization,
+  renameCustomization,
   type ResumeRow,
   type CustomizationRow,
   type CustomizeResult,
@@ -115,6 +119,8 @@ export function ResumeCustomizerClient({
   const [customizing, startCustomize] = useTransition();
   const [busy, startBusy] = useTransition();
   const [regenerating, startRegenerate] = useTransition();
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
 
   const jdFileRef = useRef<HTMLInputElement>(null);
   const coreFileRef = useRef<HTMLInputElement>(null);
@@ -237,6 +243,37 @@ export function ResumeCustomizerClient({
       const res = await deleteCustomization(id);
       if (res.ok) await refresh();
       else toast.error(res.error);
+    });
+  }
+
+  function startRename(c: CustomizationRow) {
+    setRenamingId(c.id);
+    setRenameDraft(c.filename.replace(/\.docx$/i, ""));
+  }
+
+  function cancelRename() {
+    setRenamingId(null);
+    setRenameDraft("");
+  }
+
+  function commitRename(id: string) {
+    const next = renameDraft.trim();
+    if (!next) {
+      toast.error("Enter a resume name.");
+      return;
+    }
+    startBusy(async () => {
+      const res = await renameCustomization({ id, filename: next });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      setCustomizations((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, filename: res.filename } : c))
+      );
+      setRenamingId(null);
+      setRenameDraft("");
+      toast.success(`Renamed to ${res.filename}`);
     });
   }
 
@@ -374,14 +411,36 @@ export function ResumeCustomizerClient({
             <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
           </summary>
           <ul className="mt-3 divide-y divide-border/60">
-            {customizations.map((c) => (
+            {customizations.map((c) => {
+              const editing = renamingId === c.id;
+              return (
               <li
                 key={c.id}
                 className="flex items-center gap-3 py-2 text-sm"
               >
                 <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{c.filename}</p>
+                  {editing ? (
+                    <input
+                      value={renameDraft}
+                      onChange={(e) => setRenameDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          commitRename(c.id);
+                        } else if (e.key === "Escape") {
+                          e.preventDefault();
+                          cancelRename();
+                        }
+                      }}
+                      autoFocus
+                      disabled={busy}
+                      className="h-8 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
+                      aria-label="Resume name"
+                    />
+                  ) : (
+                    <p className="truncate font-medium">{c.filename}</p>
+                  )}
                   <p className="text-[11px] text-muted-foreground">
                     {c.company ?? "—"}
                     {typeof c.match_score === "number" &&
@@ -389,26 +448,61 @@ export function ResumeCustomizerClient({
                     · {new Date(c.created_at).toLocaleDateString()}
                   </p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  disabled={busy}
-                  onClick={() => handleDownloadPast(c.id)}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  Download
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  disabled={busy}
-                  onClick={() => handleDeletePast(c.id)}
-                  aria-label="Delete"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                {editing ? (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      disabled={busy}
+                      onClick={() => commitRename(c.id)}
+                      aria-label="Save name"
+                    >
+                      <Check className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      disabled={busy}
+                      onClick={cancelRename}
+                      aria-label="Cancel rename"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      disabled={busy}
+                      onClick={() => startRename(c)}
+                      aria-label="Rename"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      disabled={busy}
+                      onClick={() => handleDownloadPast(c.id)}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Download
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      disabled={busy}
+                      onClick={() => handleDeletePast(c.id)}
+                      aria-label="Delete"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                )}
               </li>
-            ))}
+              );
+            })}
           </ul>
         </details>
       )}
