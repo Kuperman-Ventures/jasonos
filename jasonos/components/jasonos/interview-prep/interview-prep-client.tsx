@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Bookmark,
   BookmarkCheck,
+  Download,
   Loader2,
   MessageSquareQuote,
   Sparkles,
@@ -37,6 +38,115 @@ function targetLabel(t: InterviewTarget): string {
   const company = t.company?.trim() || "Unknown company";
   const role = t.roleTitle?.trim();
   return role ? `${company} · ${role}` : company;
+}
+
+function esc(v: string): string {
+  return v
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function prepTitle(prep: InterviewPrep): string {
+  return [prep.company, prep.roleTitle].filter(Boolean).join(" · ");
+}
+
+function itemsHtml(
+  items: { title: string; why: string; actionLabel: string; action: string }[]
+): string {
+  return items
+    .map(
+      (item) => `<li class="item">
+      <p class="q">${esc(item.title)}</p>
+      <p class="why">${esc(item.why)}</p>
+      <p class="angle"><span class="label">${esc(item.actionLabel)}:</span> ${esc(item.action)}</p>
+    </li>`
+    )
+    .join("");
+}
+
+/** Opens a print-ready brief so Jason can Save as PDF from the browser dialog. */
+function downloadInterviewPrepPdf(prep: InterviewPrep) {
+  const title = prepTitle(prep) || "Interview Prep";
+  const today = new Date().toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  const background = itemsHtml(
+    prep.backgroundQuestions.map((q) => ({
+      title: q.question,
+      why: q.why,
+      actionLabel: "Lean on",
+      action: q.angle,
+    }))
+  );
+  const gaps = itemsHtml(
+    prep.gapQuestions.map((q) => ({
+      title: q.question,
+      why: q.why,
+      actionLabel: "Handle it",
+      action: q.angle,
+    }))
+  );
+  const highlights = itemsHtml(
+    prep.highlights.map((h) => ({
+      title: h.point,
+      why: h.why,
+      actionLabel: "On resume",
+      action: h.whereOnResume,
+    }))
+  );
+
+  const html = `<!doctype html><html><head><meta charset="utf-8"/>
+    <title>${esc(title)} — Interview Prep</title>
+    <style>
+      *{box-sizing:border-box}
+      body{font-family:Georgia,'Times New Roman',serif;color:#111;background:#fff;margin:0;padding:36px;max-width:800px;font-size:12px;line-height:1.45}
+      .head{border-bottom:1.5px solid #111;padding-bottom:10px;margin-bottom:14px}
+      .eyebrow{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#555;margin:0 0 4px}
+      h1{font-size:20px;line-height:1.25;margin:0 0 4px;font-weight:700}
+      .meta{font-size:10.5px;color:#555;margin:0}
+      .framing{margin:0 0 18px;font-size:12.5px}
+      h2{font-size:13px;margin:18px 0 4px;padding-top:8px;border-top:1px solid #ddd}
+      .sub{font-size:10.5px;color:#555;margin:0 0 8px}
+      ol{margin:0;padding-left:18px}
+      .item{margin:0 0 10px;page-break-inside:avoid}
+      .q{margin:0 0 3px;font-weight:700}
+      .why,.angle{margin:0 0 2px;color:#333}
+      .label{color:#555}
+      @media print{
+        body{padding:12mm}
+        h2{page-break-after:avoid}
+      }
+    </style></head><body>
+    <div class="head">
+      <p class="eyebrow">Interview Prep</p>
+      <h1>${esc(title)}</h1>
+      <p class="meta">Jason Kuperman · ${esc(today)}</p>
+    </div>
+    ${prep.framing ? `<p class="framing">${esc(prep.framing)}</p>` : ""}
+    <h2>Questions about your background</h2>
+    <p class="sub">Likely digs into experience that maps to this role.</p>
+    <ol>${background}</ol>
+    <h2>Gaps they may probe</h2>
+    <p class="sub">Where the JD asks for something that looks thin or missing on the resume.</p>
+    <ol>${gaps}</ol>
+    <h2>Bring these up</h2>
+    <p class="sub">Resume points worth highlighting for this company and seat.</p>
+    <ol>${highlights}</ol>
+    <script>window.onload=function(){window.print();}</script>
+    </body></html>`;
+
+  const w = window.open("", "_blank");
+  if (!w) {
+    toast.error("Pop-up blocked — allow pop-ups to download the PDF.");
+    return;
+  }
+  w.document.write(html);
+  w.document.close();
 }
 
 export function InterviewPrepClient({
@@ -339,16 +449,27 @@ function PrepResults({
   prep: InterviewPrep;
   status: string | null;
 }) {
-  const title = [prep.company, prep.roleTitle].filter(Boolean).join(" · ");
+  const title = prepTitle(prep);
 
   return (
     <div className="space-y-5">
       <header className="space-y-2 border-b pb-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-base font-semibold tracking-tight">{title}</h2>
-          {status ? (
-            <p className="text-[11px] text-muted-foreground">{status}</p>
-          ) : null}
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+            {status ? (
+              <p className="text-[11px] text-muted-foreground">{status}</p>
+            ) : null}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 shrink-0"
+            onClick={() => downloadInterviewPrepPdf(prep)}
+          >
+            <Download className="h-3.5 w-3.5" />
+            Download PDF
+          </Button>
         </div>
         <p className="text-sm leading-relaxed text-muted-foreground">{prep.framing}</p>
       </header>
