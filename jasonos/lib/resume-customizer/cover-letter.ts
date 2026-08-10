@@ -38,8 +38,6 @@ export const coverLetterSchema = z.object({
     ),
   highlights: z
     .array(z.string())
-    .min(3)
-    .max(4)
     .describe(
       "Exactly 4 career highlight bullets. Each MUST be a single line (~15-20 words, no semicolons or sub-clauses): one concrete, truthful accomplishment from Jason's background mapped to this role's priorities."
     ),
@@ -109,7 +107,12 @@ ${
     salutation: clean(object.salutation),
     opening: clean(object.opening),
     background: clean(object.background),
-    highlights: object.highlights.slice(0, 4).map(clean).filter(Boolean),
+    // Anthropic structured output rejects array minItems other than 0/1, so we
+    // ask for 4 in the prompt/description and clamp here instead of in Zod.
+    highlights: object.highlights
+      .map(clean)
+      .filter(Boolean)
+      .slice(0, 4),
     closing: clean(object.closing),
   };
 }
