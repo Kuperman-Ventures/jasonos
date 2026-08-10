@@ -34,10 +34,25 @@ function formatDate(iso: string): string {
   });
 }
 
+function displayFilename(filename: string): string {
+  return filename.replace(/\.docx$/i, "").trim() || filename;
+}
+
 function targetLabel(t: InterviewTarget): string {
+  const named = t.filename?.trim() ? displayFilename(t.filename) : "";
+  if (named) return named;
   const company = t.company?.trim() || "Unknown company";
   const role = t.roleTitle?.trim();
   return role ? `${company} · ${role}` : company;
+}
+
+function targetMeta(t: InterviewTarget): string | null {
+  const company = t.company?.trim();
+  const role = t.roleTitle?.trim();
+  if (company && role) return `${company} · ${role}`;
+  if (company) return company;
+  if (role) return role;
+  return null;
 }
 
 function esc(v: string): string {
@@ -325,7 +340,7 @@ export function InterviewPrepClient({
                     )}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="text-sm font-medium leading-snug text-foreground">
+                      <div className="min-w-0 text-sm font-medium leading-snug text-foreground">
                         {targetLabel(t)}
                       </div>
                       {t.hasSavedPrep ? (
@@ -333,6 +348,7 @@ export function InterviewPrepClient({
                       ) : null}
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                      {targetMeta(t) ? <span>{targetMeta(t)}</span> : null}
                       <span>{formatDate(t.createdAt)}</span>
                       {t.version != null ? <span>v{t.version}</span> : null}
                       {t.matchScore != null ? (
