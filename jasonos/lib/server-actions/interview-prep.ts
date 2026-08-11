@@ -7,7 +7,8 @@ import {
   analyzeInterviewPrep,
   type InterviewPrep,
 } from "@/lib/interview-prep/analyze";
-import { interviewPrepSchema } from "@/lib/interview-prep/types";
+import { researchCompanyForInterview } from "@/lib/interview-prep/research";
+import { coerceInterviewPrep } from "@/lib/interview-prep/types";
 
 const BUCKET = "resumes";
 
@@ -60,8 +61,7 @@ function summaryFromReport(report: unknown): string | null {
 }
 
 function parsePrep(raw: unknown): InterviewPrep | null {
-  const parsed = interviewPrepSchema.safeParse(raw);
-  return parsed.success ? parsed.data : null;
+  return coerceInterviewPrep(raw);
 }
 
 async function downloadBuffer(path: string): Promise<Buffer> {
@@ -261,12 +261,21 @@ export async function generateInterviewPrep(input: {
   }
 
   try {
+    const companyHint = (row.company as string | null) ?? null;
+    const roleHint = roleFromReport(row.report);
+    const research = await researchCompanyForInterview({
+      company: companyHint || "the company",
+      roleTitle: roleHint,
+    });
+
     const prep = await analyzeInterviewPrep({
       jobDescription,
       resumeText,
-      companyHint: (row.company as string | null) ?? null,
-      roleHint: roleFromReport(row.report),
+      companyHint,
+      roleHint,
       analysisSummary: summaryFromReport(row.report),
+      companyResearchText: research.text,
+      sources: research.sources,
     });
     return { ok: true, prep };
   } catch (e) {
