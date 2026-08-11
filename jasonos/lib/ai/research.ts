@@ -102,21 +102,24 @@ export function collectResearchSources(result: {
   return out;
 }
 
-const OUTPUT_RULES = `OUTPUT RULES (hard):
-- Return ONLY the final brief the user should read.
-- Never narrate that you are searching.
-- Never include <tool_call>, <tool_response>, JSON tool payloads, or raw tool output.
-- Never paste "No results found for …" lines from the tool.
-- If nothing useful was found, reply with 2-4 short sentences saying so and what to check manually (LinkedIn, company site, Crunchbase). Do not list every failed query.`;
-
 export async function researchPersonNews(input: {
   name: string;
   firm: string | null;
 }): Promise<ResearchResult> {
   const who = input.firm ? `${input.name} (${input.firm})` : input.name;
-  const system = `You are a research assistant preparing a networking-meeting brief. Use the perplexity_search tool to find developments from the LAST 30 DAYS about the person and their company. Report ONLY items you actually found via search, each as a short bullet with a source name and approximate date. Keep it to 3–6 tight bullets. If search returns nothing relevant, say clearly that you found no notable recent news. Never invent or infer news that you did not find via search.
+  const system = `You are a research assistant preparing a networking-meeting brief. Use the perplexity_search tool to find developments from the LAST 30 DAYS about the person and their company. Report ONLY items you actually found via search. Never invent or infer news that you did not find via search.
 
-${OUTPUT_RULES}`;
+OUTPUT FORMAT (hard — follow exactly):
+- Optional: one short lead sentence (plain prose, no bullet).
+- Then 3-6 lines that EACH start with "- " (markdown bullets).
+- Each bullet: the finding, then " — " and a source name with approximate date when possible.
+- If nothing useful was found: one or two plain sentences saying so. No bullets. No list of failed queries.
+
+OUTPUT RULES (hard):
+- Return ONLY the final brief.
+- Never narrate that you are searching.
+- Never include <tool_call>, <tool_response>, JSON tool payloads, or raw tool output.
+- Never paste "No results found for …" lines from the tool.`;
   const prompt = `Find news, announcements, funding, product launches, role changes, press, interviews, or notable public activity from roughly the last 30 days about ${who}${
     input.firm ? ` and the company ${input.firm}` : ""
   }. Summarize as short bullets, each with a source and date.`;
