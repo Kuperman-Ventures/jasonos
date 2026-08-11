@@ -36,6 +36,7 @@ import {
 } from "@/lib/server-actions/meetings";
 import { addReferredContact } from "@/lib/server-actions/outreach";
 import type { TouchObjective } from "@/lib/outreach/types";
+import { cleanResearchBrief } from "@/lib/ai/research-clean";
 
 const CHANNELS: { value: MeetingChannel; label: string }[] = [
   { value: "video", label: "Video" },
@@ -444,7 +445,7 @@ function PrepReadout({ meeting }: { meeting: Meeting }) {
           {researchOpen ? (
             <div className="mt-1 rounded-md border bg-background/40 p-2.5">
               <p className="whitespace-pre-wrap leading-relaxed text-foreground/90">
-                {meeting.prepResearch}
+                {cleanResearchBrief(meeting.prepResearch ?? "")}
               </p>
               {meeting.prepResearchAt ? (
                 <p className="mt-2 text-[10px] text-muted-foreground">
@@ -582,7 +583,7 @@ function PrepForm({
         {research ? (
           <div className="rounded-md border bg-background/40 p-2.5 text-xs">
             <p className="whitespace-pre-wrap leading-relaxed text-foreground/90">
-              {research}
+              {cleanResearchBrief(research)}
             </p>
             {researchAt ? (
               <p className="mt-2 text-[10px] text-muted-foreground">

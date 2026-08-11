@@ -7,6 +7,8 @@ import "server-only";
 import { gateway } from "@ai-sdk/gateway";
 import { generateText, stepCountIs } from "ai";
 import { heavyModel } from "@/lib/ai/models";
+import { collectResearchSources } from "@/lib/ai/research";
+import { cleanResearchBrief } from "@/lib/ai/research-clean";
 
 export interface CompanyResearchResult {
   text: string;
@@ -19,40 +21,37 @@ function cleanErrorMessage(err: unknown): string {
   return raw.replace(/\u001b\[[0-9;]*m/g, "").replace(/\s+/g, " ").trim();
 }
 
-function collectSources(result: {
-  sources?: unknown[];
+function toolOutputsLookEmpty(result: {
   steps?: Array<{ toolResults?: Array<{ output?: unknown }> }>;
-}): { title: string | null; url: string }[] {
-  const out: { title: string | null; url: string }[] = [];
-  const seen = new Set<string>();
-
-  const push = (title: string | null, url: string) => {
-    if (!url || !/^https?:\/\//i.test(url) || seen.has(url)) return;
-    seen.add(url);
-    out.push({ title, url });
-  };
-
-  for (const s of result.sources ?? []) {
-    const anyS = s as { url?: string; title?: string };
-    push(anyS.title ?? null, anyS.url ?? "");
-  }
-
+}): boolean {
+  const outputs: string[] = [];
   for (const step of result.steps ?? []) {
     for (const tr of step.toolResults ?? []) {
-      const output = tr.output as
-        | { results?: Array<{ title?: string; url?: string }> }
-        | { error?: string; message?: string }
-        | undefined;
-      if (!output || !("results" in output) || !Array.isArray(output.results)) {
+      const output = tr.output;
+      if (output == null) continue;
+      if (typeof output === "string") {
+        outputs.push(output);
         continue;
       }
-      for (const r of output.results) {
-        push(r.title ?? null, r.url ?? "");
+      if (typeof output === "object") {
+        const o = output as {
+          content?: string;
+          message?: string;
+          error?: string;
+          results?: unknown[];
+        };
+        if (Array.isArray(o.results) && o.results.length > 0) return false;
+        if (typeof o.content === "string") outputs.push(o.content);
+        if (typeof o.message === "string") outputs.push(o.message);
+        if (typeof o.error === "string") outputs.push(o.error);
+        outputs.push(JSON.stringify(output));
       }
     }
   }
-
-  return out;
+  if (outputs.length === 0) return false;
+  return outputs.every((o) =>
+    /no results found|returned no results|0 results|nothing found/i.test(o)
+  );
 }
 
 /**
@@ -82,7 +81,14 @@ Focus on interview-usable intel:
 - culture / mission signals only if sourced
 - anything that would help a candidate ask sharp questions or connect their background to the company's current priorities
 
-Format as tight bullets (6-10 max), each with a source name and approximate date when possible. Never invent news. If search is thin, say so plainly.`;
+Format as tight bullets (6-10 max), each with a source name and approximate date when possible. Never invent news. If search is thin, say so plainly.
+
+OUTPUT RULES (hard):
+- Return ONLY the final brief the user should read.
+- Never narrate that you are searching.
+- Never include <tool_call>, <tool_response>, JSON tool payloads, or raw tool output.
+- Never paste "No results found for …" lines from the tool.
+- If nothing useful was found, reply with 2-4 short sentences saying so. Do not list every failed query.`;
 
   const prompt = `Research ${company}${
     role ? ` for a candidate interviewing for ${role}` : " for a job interview"
@@ -110,14 +116,30 @@ Format as tight bullets (6-10 max), each with a source name and approximate date
       },
     });
 
-    const sources = collectSources(result);
-    const text = result.text.trim();
+    const sources = collectResearchSources(result);
+    const cleaned = cleanResearchBrief(result.text);
+    const emptyTools = toolOutputsLookEmpty(result);
+
+    if (
+      sources.length === 0 &&
+      (emptyTools || !cleaned || /no results found for/i.test(cleaned))
+    ) {
+      return {
+        text: [
+          `No notable recent public coverage found for ${company}.`,
+          "Rely on the job description for company context, and spot-check the company site / LinkedIn / Crunchbase before the interview.",
+        ].join(" "),
+        sources: [],
+        searched: false,
+      };
+    }
+
     return {
       text:
-        text ||
+        cleaned ||
         "Search completed but produced no summary. See sources below if listed.",
       sources,
-      searched: sources.length > 0 || Boolean(text),
+      searched: sources.length > 0 || Boolean(cleaned),
     };
   } catch (err) {
     return {

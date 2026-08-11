@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { insertContactTouches, type TouchChannel } from "@/lib/outreach/touch-capture";
 import type { TouchObjective } from "@/lib/outreach/types";
-import { researchPersonNews } from "@/lib/ai/research";
+import { researchPersonNews, cleanResearchBrief } from "@/lib/ai/research";
 
 export interface IntroWish {
   name: string;
@@ -289,10 +289,11 @@ export async function runMeetingResearch(
           .map((s) => `- ${s.title ? `${s.title} — ` : ""}${s.url}`)
           .join("\n")
       : "";
+    const body = cleanResearchBrief(res.text);
     brief =
       (res.searched
-        ? res.text
-        : `${res.text}\n\n(Note: live web search returned no sources — treat the above as unverified.)`) +
+        ? body
+        : `${body}\n\n(Note: live web search returned no sources — treat the above as unverified.)`) +
       sourceLines;
   } catch (err) {
     console.error("[meetings.runMeetingResearch]", err);
