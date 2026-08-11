@@ -34,6 +34,7 @@ import {
   TONE_ENDS,
   SLIDER_MIN,
   SLIDER_MAX,
+  fieldsForGoals,
   type BuilderAnswers,
   type Length,
 } from "@/lib/email-builder/model";
@@ -82,12 +83,41 @@ export function EmailBuilderClient() {
   };
 
   const toggleGoal = (key: string) =>
-    setAnswers((prev) => ({
-      ...prev,
-      goals: prev.goals.includes(key)
+    setAnswers((prev) => {
+      const nextGoals = prev.goals.includes(key)
         ? prev.goals.filter((g) => g !== key)
-        : [...prev.goals, key],
-    }));
+        : [...prev.goals, key];
+      // Cold first touch implies never met; warm reconnect implies a long gap
+      // when last-spoke was still on the default "recent" end of the scale.
+      let lastSpoke = prev.lastSpoke;
+      let remember = prev.remember;
+      let closeness = prev.closeness;
+      if (nextGoals.includes("cold") && !prev.goals.includes("cold")) {
+        lastSpoke = "never";
+        remember = 1;
+        closeness = 1;
+      } else if (
+        nextGoals.includes("reconnect") &&
+        !prev.goals.includes("reconnect") &&
+        (lastSpoke === "recent" || lastSpoke === "weeks")
+      ) {
+        lastSpoke = "years";
+      } else if (
+        nextGoals.includes("catchup") &&
+        !prev.goals.includes("catchup") &&
+        !nextGoals.includes("reconnect") &&
+        lastSpoke === "years"
+      ) {
+        lastSpoke = "weeks";
+      }
+      return {
+        ...prev,
+        goals: nextGoals,
+        lastSpoke,
+        remember: linked.remember ? closeness : remember,
+        closeness,
+      };
+    });
 
   const selectRecipient = (c: EmailTemplateContactHit) => {
     if (!c.email) {
@@ -109,6 +139,10 @@ export function EmailBuilderClient() {
 
   const generate = () => {
     if (!recipient) return;
+    if (answers.goals.length === 0) {
+      toast.error("Pick at least one goal so the draft knows what kind of email this is.");
+      return;
+    }
     startTransition(async () => {
       const res = await generateBuilderEmail({
         recipient: asRecipient(recipient),
@@ -167,9 +201,9 @@ export function EmailBuilderClient() {
               Who is this email to?
             </h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Pick someone from your contact list. Their email becomes the
-              recipient in Mail. The builder helps when a template won&rsquo;t
-              fit.
+              Pick someone from your contact list. Next you&rsquo;ll choose what
+              kind of email this is (catch-up, pitch, thanks, etc.) so the draft
+              matches — not a generic reconnect.
             </p>
           </div>
           <ContactPicker onSelect={selectRecipient} />
@@ -285,16 +319,19 @@ function Chip({
   active,
   onClick,
   children,
+  title,
 }: {
   active: boolean;
   onClick: () => void;
   children: React.ReactNode;
+  title?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
+      title={title}
       className={cn(
         "rounded-full border px-3 py-1 text-xs transition-colors",
         active
@@ -330,6 +367,9 @@ function QuestionsStep({
   onGenerate: () => void;
   pending: boolean;
 }) {
+  const fields = fieldsForGoals(answers.goals);
+  const canGenerate = answers.goals.length > 0;
+
   return (
     <section className="space-y-6 rounded-xl border bg-card p-5">
       <div>
@@ -341,9 +381,7 @@ function QuestionsStep({
           <ArrowLeft className="h-3 w-3" />
           Change contact
         </button>
-        <h2 className="text-sm font-semibold tracking-tight">
-          Tell me about the relationship
-        </h2>
+        <h2 className="text-sm font-semibold tracking-tight">{fields.heading}</h2>
         <p className="mt-0.5 text-xs text-muted-foreground">
           Writing to{" "}
           <span className="text-foreground">
@@ -352,50 +390,14 @@ function QuestionsStep({
             {recipient.email ? ` · ${recipient.email}` : ""}
           </span>
         </p>
-      </div>
-
-      <div className="grid gap-6 sm:grid-cols-2">
-        <ScaleSlider
-          label="How close are you?"
-          value={answers.closeness}
-          ends={CLOSENESS_ENDS}
-          onChange={setCloseness}
-        />
-        <ScaleSlider
-          label="Will they remember you?"
-          value={answers.remember}
-          ends={REMEMBER_ENDS}
-          onChange={setRemember}
-        />
-        <ScaleSlider
-          label="Tone"
-          value={answers.tone}
-          ends={TONE_ENDS}
-          onChange={setTone}
-        />
-        <div className="space-y-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            When did you last speak?
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            {LAST_SPOKE_OPTIONS.map((o) => (
-              <Chip
-                key={o.key}
-                active={answers.lastSpoke === o.key}
-                onClick={() => set("lastSpoke", o.key)}
-              >
-                {o.label}
-              </Chip>
-            ))}
-          </div>
-        </div>
+        <p className="mt-1 text-xs text-muted-foreground">{fields.subheading}</p>
       </div>
 
       <div className="space-y-2">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          What are you hoping to get out of it?{" "}
+          What kind of email is this?{" "}
           <span className="font-normal normal-case text-muted-foreground/70">
-            (pick any)
+            (pick any — this drives the draft)
           </span>
         </span>
         <div className="flex flex-wrap gap-1.5">
@@ -404,11 +406,60 @@ function QuestionsStep({
               key={o.key}
               active={answers.goals.includes(o.key)}
               onClick={() => toggleGoal(o.key)}
+              title={o.hint}
             >
               {o.label}
             </Chip>
           ))}
         </div>
+        {!canGenerate ? (
+          <p className="text-[11px] text-amber-200/90">
+            Pick at least one so the draft isn&rsquo;t a generic reconnect.
+          </p>
+        ) : null}
+      </div>
+
+      <div className="grid gap-6 sm:grid-cols-2">
+        {fields.showCloseness ? (
+          <ScaleSlider
+            label="How close are you?"
+            value={answers.closeness}
+            ends={CLOSENESS_ENDS}
+            onChange={setCloseness}
+          />
+        ) : null}
+        {fields.showRemember ? (
+          <ScaleSlider
+            label="Will they remember you?"
+            value={answers.remember}
+            ends={REMEMBER_ENDS}
+            onChange={setRemember}
+          />
+        ) : null}
+        <ScaleSlider
+          label="Tone"
+          value={answers.tone}
+          ends={TONE_ENDS}
+          onChange={setTone}
+        />
+        {fields.showLastSpoke ? (
+          <div className="space-y-2">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              When did you last speak?
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {LAST_SPOKE_OPTIONS.map((o) => (
+                <Chip
+                  key={o.key}
+                  active={answers.lastSpoke === o.key}
+                  onClick={() => set("lastSpoke", o.key)}
+                >
+                  {o.label}
+                </Chip>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="space-y-2">
@@ -429,53 +480,60 @@ function QuestionsStep({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block space-y-1">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            How do you know them?{" "}
-            <span className="font-normal normal-case text-muted-foreground/70">
-              (optional)
+        {fields.relationship.show ? (
+          <label className="block space-y-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {fields.relationship.label}{" "}
+              <span className="font-normal normal-case text-muted-foreground/70">
+                (optional)
+              </span>
             </span>
-          </span>
-          <Textarea
-            value={answers.relationship}
-            onChange={(e) => set("relationship", e.target.value)}
-            placeholder="Former colleague at Omnicom; we ran the APAC pitch together."
-            className="min-h-[72px] text-sm"
-          />
-        </label>
-        <label className="block space-y-1">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Anything specific to reference?{" "}
-            <span className="font-normal normal-case text-muted-foreground/70">
-              (optional)
+            <Textarea
+              value={answers.relationship}
+              onChange={(e) => set("relationship", e.target.value)}
+              placeholder={fields.relationship.placeholder}
+              className="min-h-[72px] text-sm"
+            />
+          </label>
+        ) : null}
+        {fields.detail.show ? (
+          <label className="block space-y-1">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {fields.detail.label}{" "}
+              <span className="font-normal normal-case text-muted-foreground/70">
+                (optional but recommended)
+              </span>
             </span>
-          </span>
-          <Textarea
-            value={answers.detail}
-            onChange={(e) => set("detail", e.target.value)}
-            placeholder="Saw they just raised a Series B; shared memory of the 2014 offsite."
-            className="min-h-[72px] text-sm"
-          />
-        </label>
+            <Textarea
+              value={answers.detail}
+              onChange={(e) => set("detail", e.target.value)}
+              placeholder={fields.detail.placeholder}
+              className="min-h-[72px] text-sm"
+            />
+          </label>
+        ) : null}
       </div>
 
-      <label className="block space-y-1">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Is there a concrete ask?{" "}
-          <span className="font-normal normal-case text-muted-foreground/70">
-            (optional)
+      {fields.ask.show ? (
+        <label className="block space-y-1">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {fields.ask.label}
           </span>
-        </span>
-        <Input
-          value={answers.ask}
-          onChange={(e) => set("ask", e.target.value)}
-          placeholder="15 minutes next week to get your read on the RMN market."
-          className="h-9 text-sm"
-        />
-      </label>
+          <Input
+            value={answers.ask}
+            onChange={(e) => set("ask", e.target.value)}
+            placeholder={fields.ask.placeholder}
+            className="h-9 text-sm"
+          />
+        </label>
+      ) : null}
 
       <div className="flex justify-end gap-2 pt-1">
-        <Button type="button" onClick={onGenerate} disabled={pending}>
+        <Button
+          type="button"
+          onClick={onGenerate}
+          disabled={pending || !canGenerate}
+        >
           {pending ? (
             <>
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />

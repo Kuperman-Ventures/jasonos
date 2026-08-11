@@ -15,6 +15,7 @@ import {
   describeAnswers,
   GOAL_OPTIONS,
   LAST_SPOKE_OPTIONS,
+  goalGuidanceForPrompt,
   type BuilderAnswers,
 } from "@/lib/email-builder/model";
 
@@ -38,69 +39,161 @@ function hasGoal(answers: BuilderAnswers, key: string): boolean {
   return answers.goals.includes(key);
 }
 
-function goalLabels(answers: BuilderAnswers): string[] {
-  return answers.goals.map(
-    (g) => GOAL_OPTIONS.find((o) => o.key === g)?.label ?? g
-  );
+function primaryGoal(a: BuilderAnswers): string | null {
+  // Prefer stance goals over ask add-ons when picking opener/subject.
+  const stance = [
+    "cold",
+    "followup",
+    "thanks",
+    "congrats",
+    "pitch",
+    "catchup",
+    "reconnect",
+  ];
+  for (const key of stance) {
+    if (hasGoal(a, key)) return key;
+  }
+  return a.goals[0] ?? null;
 }
 
 function fallbackSubject(recipient: BuilderRecipient, a: BuilderAnswers): string {
-  if (a.lastSpoke === "never") return "A quick note";
-  if (a.closeness <= 2 || a.remember <= 2) return "A voice from the past";
-  if (hasGoal(a, "sprint")) return "A GTM idea for " + (recipient.firm || "your team");
-  return "Long overdue";
+  const firm = recipient.firm || "your team";
+  switch (primaryGoal(a)) {
+    case "cold":
+      return "Quick note";
+    case "followup":
+      return "Following up";
+    case "thanks":
+      return "Thank you";
+    case "congrats":
+      return "Congrats";
+    case "pitch":
+      return `An idea for ${firm}`;
+    case "catchup":
+      return "Quick check-in";
+    case "advice":
+      return "Quick ask";
+    case "intro":
+      return "An intro ask";
+    case "job":
+    case "referral":
+      return "A quick ask";
+    case "meeting":
+      return "Worth 20 minutes?";
+    case "reconnect":
+      return "Long overdue";
+    default:
+      return a.lastSpoke === "never" ? "A quick note" : "Quick note";
+  }
+}
+
+function fallbackAsk(a: BuilderAnswers): string {
+  if (a.ask.trim()) return a.ask.trim();
+  if (hasGoal(a, "meeting")) {
+    return "If you've got 20-30 minutes in the next few weeks, I'd take it. Happy to work around your schedule.";
+  }
+  if (hasGoal(a, "advice")) {
+    return "I'd value your read on a couple of things. Open to a short call?";
+  }
+  if (hasGoal(a, "intro")) {
+    return "If anyone in your orbit comes to mind, an intro would mean a lot.";
+  }
+  if (hasGoal(a, "job") || hasGoal(a, "referral")) {
+    return "I'm exploring CMO/CGO seats at growth-stage B2B. If you hear of anything, keep me in mind.";
+  }
+  if (hasGoal(a, "pitch")) {
+    return "Happy to send a one-pager or hop on a short call if useful.";
+  }
+  if (hasGoal(a, "catchup")) {
+    return "Would be good to catch up when you have a window.";
+  }
+  if (hasGoal(a, "reconnect")) {
+    return "No agenda beyond reconnecting. Would genuinely enjoy hearing what you're up to.";
+  }
+  return "";
 }
 
 function fallbackBody(recipient: BuilderRecipient, a: BuilderAnswers): string {
   const first = firstNameFromFullName(recipient.name) || "there";
+  const goal = primaryGoal(a);
+  const detail = a.detail.trim();
+  const context = a.relationship.trim();
+  const ask = fallbackAsk(a);
 
-  const opener =
-    a.lastSpoke === "never"
-      ? "We haven't met - I'll keep this short."
-      : a.remember <= 2
+  let opener = "Wanted to send a quick note.";
+  if (goal === "cold" || a.lastSpoke === "never") {
+    opener = "We haven't met - I'll keep this short.";
+  } else if (goal === "followup") {
+    opener = "Quick follow-up from our conversation.";
+  } else if (goal === "thanks") {
+    opener = detail
+      ? `Thank you for ${detail.replace(/\.$/, "")}.`
+      : "Thank you - genuinely appreciated.";
+  } else if (goal === "congrats") {
+    opener = detail
+      ? `Congrats on ${detail.replace(/\.$/, "")}.`
+      : "Congrats - well earned.";
+  } else if (goal === "catchup") {
+    opener = "Wanted to check in.";
+  } else if (goal === "pitch") {
+    opener = detail
+      ? `I have an idea that may be useful: ${detail}`
+      : "I have a GTM idea that may be useful for your team.";
+  } else if (goal === "reconnect") {
+    opener =
+      a.remember <= 2
         ? "This is a name from a while back. Hope it's a welcome one."
         : "It's been too long. You've been on my mind lately.";
+  }
 
-  const context = a.relationship.trim()
-    ? a.relationship.trim()
-    : "We crossed paths earlier in my career and I lost track of too many people I liked working with.";
+  const parts: string[] = [`Hi ${first},`, "", opener];
 
-  const bio =
-    "Quick version: I spent eight years at OUTFRONT running marketing and product experience through their digital transformation, left last fall, and now do fractional CMO work while figuring out what's next.";
+  if (goal !== "thanks" && goal !== "congrats") {
+    if (context) {
+      parts.push("", context);
+    } else if (goal === "reconnect" && a.closeness <= 3) {
+      parts.push(
+        "",
+        "We crossed paths earlier in my career and I lost track of too many people I liked working with."
+      );
+    }
 
-  const detail = a.detail.trim()
-    ? a.detail.trim()
-    : "";
+    if (
+      goal === "reconnect" &&
+      a.length !== "short" &&
+      a.remember <= 3 &&
+      a.closeness <= 3
+    ) {
+      parts.push(
+        "",
+        "Quick version: I spent eight years at OUTFRONT running marketing and product experience through their digital transformation, left last fall, and now do fractional CMO work while figuring out what's next."
+      );
+    }
 
-  const goals = goalLabels(a);
-  const ask = a.ask.trim()
-    ? a.ask.trim()
-    : hasGoal(a, "meeting") || hasGoal(a, "catchup")
-      ? "If you've got 30 minutes in the next few weeks, I'd take it. Coffee, phone, whatever's easy."
-      : hasGoal(a, "advice")
-        ? "I'd value your read on a couple of things. Open to a short call?"
-        : hasGoal(a, "intro")
-          ? "If anyone in your orbit comes to mind, an intro would mean a lot."
-          : hasGoal(a, "job")
-            ? "I'm exploring CMO/CGO seats at growth-stage B2B. If you hear of anything, keep me in mind."
-            : "No agenda beyond catching up. Would genuinely enjoy hearing what you're up to.";
+    if (detail && goal !== "pitch" && goal !== "thanks" && goal !== "congrats") {
+      parts.push("", detail);
+    }
+  } else if (detail && goal === "thanks") {
+    // already folded into opener when present
+  } else if (detail && goal === "congrats") {
+    // already folded into opener when present
+  }
 
-  const parts = [
-    `Hi ${first},`,
-    "",
-    opener,
-    "",
-    a.closeness <= 3 ? context : "",
-    a.length === "short" ? "" : bio,
-    detail,
-    "",
-    ask,
-    "",
-    "- Jason",
-  ].filter((line, i, arr) => !(line === "" && arr[i - 1] === ""));
+  if (ask && goal !== "thanks" && goal !== "congrats") {
+    parts.push("", ask);
+  } else if (ask && (hasGoal(a, "meeting") || hasGoal(a, "referral"))) {
+    parts.push("", ask);
+  }
 
-  void goals;
-  return stripEmDashes(parts.join("\n").replace(/\n{3,}/g, "\n\n").trim());
+  parts.push("", "- Jason");
+
+  return stripEmDashes(
+    parts
+      .filter((line, i, arr) => !(line === "" && arr[i - 1] === ""))
+      .join("\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim()
+  );
 }
 
 function buildFallback(
@@ -157,6 +250,10 @@ export async function generateBuilderEmail(input: {
     LAST_SPOKE_OPTIONS.find((o) => o.key === answers.lastSpoke)?.label ??
     answers.lastSpoke;
 
+  const goalLabels = answers.goals
+    .map((g) => GOAL_OPTIONS.find((o) => o.key === g)?.label ?? g)
+    .join(", ");
+
   const system = `${JASON_CORE_VOICE}
 
 You are drafting a single outbound email FROM Jason. Return STRICT JSON only:
@@ -166,20 +263,26 @@ Rules:
 - Sound like Jason wrote it. Use his direct, anti-fluff voice.
 - Greet by first name. Sign off "- Jason".
 - No "I hope this finds you well", "circling back", "just wanted to", "touching base". No exclamation points. No em dashes.
-- Calibrate warmth, familiarity, and how much reintroduction is needed to the inputs.
+- HONOR THE SELECTED GOALS STRICTLY. The email's purpose is exactly those goals. Do not default to a warm-reconnect / "it's been too long" email unless "Warm reconnect" is selected.
+- Warm reconnect ≠ Catch-up. Catch-up is a current check-in with someone Jason spoke to more recently. Reconnect is for a long gap. Never use reconnect framing for catch-up, follow-up, thanks, congrats, cold, or pitch unless reconnect is also selected.
+- Cover the free-text "points this email must touch on" and concrete ask when provided. Prefer those over generic career bio.
+- Only include a Jason reintro / bio when Warm reconnect or Cold first touch needs it (low recall / never met). Skip bio dumps for catch-up, follow-up, thanks, and congrats.
+- Calibrate warmth and familiarity to the inputs.
 - Length: ${lengthGuide}
-- If closeness/recall is low, briefly re-establish who Jason is; if high, skip that.
-- Jason's usual objective is to land a short meeting. When "Book a meeting" is a goal, close with a specific, low-friction ask: a 20-30 minute call in the next couple of weeks, offering to work around their schedule.
-- End with the concrete ask when one is provided; otherwise keep it low-pressure.
-- Do not invent facts, shared history, or numbers that aren't given.`;
+- When "Book a meeting" is selected, close with a specific low-friction ask (20-30 minutes, next couple of weeks). If it is NOT selected, do not invent a meeting ask.
+- Do not invent facts, shared history, or numbers that aren't given.
+
+Goal-specific instructions:
+${goalGuidanceForPrompt(answers.goals)}`;
 
   const prompt = `Recipient: ${recipientLine || recipient.name}
 Last contact: ${lastSpoke}
+Selected goals: ${goalLabels || "(none)"}
 
 Inputs for the draft:
 ${describeAnswers(answers)}
 
-Write the email now as JSON.`;
+Write the email now as JSON. Match the selected goals. Do not write a reconnect email unless Warm reconnect is one of the goals.`;
 
   try {
     const { text } = await generateText({
