@@ -6,9 +6,8 @@
 // reply in Jason's voice via callClaude + JASON_CORE_VOICE.
 //
 // Read-only by design: this never creates or sends anything in Gmail. Drafts
-// are returned as text; the UI offers Copy + a deep-link into the thread so
-// Jason writes/sends from Gmail himself. The never-send rule is structural —
-// there is no compose/send scope here.
+// are returned as text; the UI offers Copy + an Apple Mail message:// link so
+// Jason opens the real message in Mail, replies there, and pastes the draft.
 
 import "server-only";
 
@@ -19,7 +18,7 @@ import {
   type GmailThreadFull,
   type GmailThreadMessage,
 } from "@/lib/integrations/gmail";
-import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
+import { appleMailMessageUrl } from "@/lib/integrations/apple-mail-links";
 import { isFromMe } from "@/lib/outreach/email-matching";
 import { callClaude } from "@/lib/ai/models";
 import { JASON_CORE_VOICE } from "@/lib/ai/jason-identity";
@@ -32,7 +31,8 @@ export interface BoardingItem {
   email: string;
   subject: string;
   receivedAt: string;
-  gmailUrl: string;
+  /** Apple Mail message:// URL for the inbound message, when Message-ID known. */
+  appleMailUrl: string | null;
   /** One-line "elevator door closing" reason this needs Jason. */
   elevator: string;
   urgency: Urgency;
@@ -44,7 +44,8 @@ export interface HoldingItem {
   threadId: string;
   name: string;
   subject: string;
-  gmailUrl: string;
+  /** Apple Mail message:// URL for the last message, when Message-ID known. */
+  appleMailUrl: string | null;
   ageDays: number;
   note: string;
 }
@@ -270,6 +271,7 @@ export async function computeInboxDispatch(): Promise<InboxDispatch> {
       subject: string;
       receivedAt: string;
       body: string;
+      appleMailUrl: string | null;
     }[] = [];
     const holding: HoldingItem[] = [];
 
@@ -277,7 +279,7 @@ export async function computeInboxDispatch(): Promise<InboxDispatch> {
       const last = lastMessage(t);
       if (!last) continue;
       const subject = last.subject ?? "(no subject)";
-      const gmailUrl = gmailThreadUrl(t.id);
+      const appleMailUrl = appleMailMessageUrl(last.rfc822MessageId);
 
       if (isFromMe(last.from ?? "")) {
         // Ball is in their court — a possible nudge, not a reply.
@@ -288,7 +290,7 @@ export async function computeInboxDispatch(): Promise<InboxDispatch> {
             threadId: t.id,
             name: other.name || other.email || "your contact",
             subject,
-            gmailUrl,
+            appleMailUrl,
             ageDays: daysSince(last.date),
             note: "You sent the last message — waiting on their reply.",
           });
@@ -306,6 +308,7 @@ export async function computeInboxDispatch(): Promise<InboxDispatch> {
         subject,
         receivedAt: last.date ? new Date(last.date).toISOString() : new Date().toISOString(),
         body: cleanBody(last),
+        appleMailUrl,
       });
     }
 
@@ -323,7 +326,7 @@ export async function computeInboxDispatch(): Promise<InboxDispatch> {
         email: b.email,
         subject: b.subject,
         receivedAt: b.receivedAt,
-        gmailUrl: gmailThreadUrl(b.threadId),
+        appleMailUrl: b.appleMailUrl,
         elevator: d?.elevator || `${b.name} is waiting on your reply.`,
         urgency: d?.urgency ?? "normal",
         draft: d?.draft ?? "",
