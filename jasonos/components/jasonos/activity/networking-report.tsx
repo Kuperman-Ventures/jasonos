@@ -121,7 +121,12 @@ function Figure({
 
 function OutreachList({ rows }: { rows: ReportOutreach[] }) {
   if (rows.length === 0)
-    return <p style={noneStyle}>No outreach logged this week.</p>;
+    return (
+      <p style={noneStyle}>
+        No fresh outreach this week. Only people you hadn&rsquo;t contacted in
+        90+ days count here — ongoing follow-ups stay off this list.
+      </p>
+    );
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
       {rows.map((o, i) => (
@@ -728,7 +733,7 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
               }}
             >
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <h2 style={sectionHeadStyle}>Outreach</h2>
+                <h2 style={sectionHeadStyle}>Fresh outreach</h2>
                 <OutreachList rows={report.outreach} />
               </div>
               {report.isCurrentWeek ? (

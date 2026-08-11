@@ -777,7 +777,9 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
 // heatmap/funnel view): this returns exactly the slots the report layout needs
 // for the CURRENT Wednesday→Tuesday week. Same underlying data, presentation
 // shaped for the report. It answers, in order:
-//   1. Who did I reach out to this week (against a 10-person goal)?
+//   1. Who did I freshly reach out to this week (against a 10-person goal)?
+//      Fresh = no prior touch with that person in the last 90 days. Ongoing
+//      follow-ups and recent check-ins do NOT count.
 //   2. Who did I actually meet or speak with?
 //   3. What referrals came out of those relationships, and did I follow up?
 // Everything else (applications filed, contacts added without an introduction)
@@ -1010,7 +1012,7 @@ export async function getNetworkingReport(opts?: {
     reachedOut: 0,
     metWith: 0,
     referralsGiven: 0,
-    reachedQualifier: `of a ${WEEKLY_OUTREACH_GOAL} goal \u2014 ${WEEKLY_OUTREACH_GOAL} to go`,
+    reachedQualifier: `of a ${WEEKLY_OUTREACH_GOAL} goal \u2014 fresh contacts only`,
     metQualifier: "no calls logged",
     referralsQualifier: "none this week",
     summary: "Reached 0 \u00b7 Met 0 \u00b7 Referred 0",
@@ -1136,11 +1138,19 @@ export async function getNetworkingReport(opts?: {
     string,
     { ts: string; ch: string; note: string | null }[]
   >();
+  // Every touch timestamp per contact (oldest→newest) so we can tell fresh
+  // outreach (no prior contact in FRESH_WINDOW_DAYS) from ongoing follow-ups.
+  const allTouchTsByContact = new Map<string, string[]>();
   for (const t of touches) {
     const cid = t.contact_id as string;
     const ts = (t.touched_at as string) ?? "";
     const ch = (t.channel as string) ?? "";
     const dir = (t.direction as string) ?? "outbound";
+    if (ts) {
+      const all = allTouchTsByContact.get(cid);
+      if (all) all.push(ts);
+      else allTouchTsByContact.set(cid, [ts]);
+    }
     if (dir === "outbound") {
       const list = outboundByContact.get(cid);
       if (list) list.push({ ts, ch });
@@ -1158,6 +1168,24 @@ export async function getNetworkingReport(opts?: {
     list.sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
   for (const list of convoByContact.values())
     list.sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
+  for (const list of allTouchTsByContact.values())
+    list.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+
+  const freshWindowMs = FRESH_WINDOW_DAYS * 86_400_000;
+
+  /** True when this outbound has no prior touch with the contact in 90 days. */
+  const isFreshOutbound = (cid: string, outboundTs: string): boolean => {
+    const list = allTouchTsByContact.get(cid) ?? [];
+    let prev: string | null = null;
+    for (const ts of list) {
+      if (ts >= outboundTs) break;
+      prev = ts;
+    }
+    if (!prev) return true;
+    return (
+      new Date(outboundTs).getTime() - new Date(prev).getTime() > freshWindowMs
+    );
+  };
 
   // Referrals a given contact produced THIS week (contacts they introduced).
   const referredByCountThisWeek = new Map<string, number>();
@@ -1170,15 +1198,17 @@ export async function getNetworkingReport(opts?: {
     }
   }
 
-  // ── 1. OUTREACH — networking contacts reached out to this week (earliest
-  //    outbound touch of the week supplies the channel + date). ────────────────
+  // ── 1. OUTREACH — net-new / fresh only. Someone counts when you sent an
+  //    outbound this week AND you hadn't touched them in the prior 90 days.
+  //    Ongoing follow-ups and recent check-ins stay off this list. ─────────────
   const outreachRaw: (ReportOutreach & { raw: string })[] = [];
   for (const [cid, list] of outboundByContact) {
     if (!isNetworkingContact(cid)) continue;
-    // Show the MOST RECENT engagement of the week (list is sorted ascending),
-    // so a later call/meeting supersedes an earlier text/email that week.
     const inWk = list.filter((t) => inWeek(tsToLocalYmd(t.ts)));
     if (!inWk.length) continue;
+    if (!inWk.some((t) => isFreshOutbound(cid, t.ts))) continue;
+    // Show the MOST RECENT engagement of the week (list is sorted ascending),
+    // so a later call/meeting supersedes an earlier text/email that week.
     const latest = inWk[inWk.length - 1];
     const latestYmd = tsToLocalYmd(latest.ts);
     outreachRaw.push({
@@ -1431,14 +1461,14 @@ export async function getNetworkingReport(opts?: {
 
   // ── Three-figure qualifiers + masthead summary. ─────────────────────────────
   if (report.reachedOut >= report.goalTarget) {
-    report.reachedQualifier = "goal met";
+    report.reachedQualifier = "goal met \u2014 fresh contacts";
   } else if (isCurrentWeek) {
     report.reachedQualifier = `of a ${report.goalTarget} goal \u2014 ${
       report.goalTarget - report.reachedOut
-    } to go`;
+    } fresh to go`;
   } else {
     // Closed week — don't imply there's still time left.
-    report.reachedQualifier = `of a ${report.goalTarget} goal`;
+    report.reachedQualifier = `of a ${report.goalTarget} goal \u2014 fresh only`;
   }
   report.metQualifier =
     report.metWith === 0 ? "no calls logged" : `${report.metWith} logged`;
