@@ -35,6 +35,8 @@ export interface CustomizationRow {
   filename: string;
   match_score: number | null;
   created_at: string;
+  /** True when a usable job description was saved with this customization. */
+  has_job_description: boolean;
 }
 
 export interface CustomizeResult {
@@ -487,11 +489,25 @@ export async function listCustomizations(): Promise<CustomizationRow[]> {
   const supabase = createServiceRoleClient();
   const { data, error } = await supabase
     .from("resume_customizations")
-    .select("id,company,filename,match_score,created_at")
+    .select("id,company,filename,match_score,created_at,job_description")
     .order("created_at", { ascending: false })
     .limit(25);
   if (error) throw new Error(error.message);
-  return (data ?? []) as CustomizationRow[];
+  return ((data ?? []) as Array<{
+    id: string;
+    company: string | null;
+    filename: string;
+    match_score: number | null;
+    created_at: string;
+    job_description: string | null;
+  }>).map((row) => ({
+    id: row.id,
+    company: row.company,
+    filename: row.filename,
+    match_score: row.match_score,
+    created_at: row.created_at,
+    has_job_description: (row.job_description?.trim().length ?? 0) >= 20,
+  }));
 }
 
 export async function getCustomizationDownload(
@@ -510,6 +526,38 @@ export async function getCustomizationDownload(
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Download failed." };
   }
+}
+
+/** Download the saved job description as a .txt next to the tailored resume. */
+export async function getCustomizationJdDownload(
+  id: string
+): Promise<{ ok: true; filename: string; text: string } | ActionError> {
+  const supabase = createServiceRoleClient();
+  const { data: row, error } = await supabase
+    .from("resume_customizations")
+    .select("company,filename,job_description")
+    .eq("id", id)
+    .single();
+  if (error || !row) return { ok: false, error: "Customization not found." };
+  const jd = ((row.job_description as string | null) ?? "").trim();
+  if (jd.length < 20) {
+    return {
+      ok: false,
+      error:
+        "No job description was saved for this one — older runs before JD storage can't be recovered.",
+    };
+  }
+  const company = ((row.company as string | null) ?? "").trim();
+  const resumeName = ((row.filename as string | null) ?? "Resume").replace(
+    /\.docx$/i,
+    ""
+  );
+  const base = safeCompanyBase(company || resumeName || "Job");
+  return {
+    ok: true,
+    filename: `${base} - Job Description.txt`,
+    text: jd,
+  };
 }
 
 export async function deleteCustomization(
