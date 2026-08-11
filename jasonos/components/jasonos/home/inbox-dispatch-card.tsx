@@ -28,6 +28,8 @@ const EMPTY_DISPATCH: InboxDispatch = {
   noiseTotal: 0,
 };
 
+const STORAGE_KEY = "jasonos.inbox-dispatch.collapsed";
+
 const URGENCY: Record<
   Urgency,
   { label: string; cls: string; icon?: React.ReactNode }
@@ -66,6 +68,7 @@ export function InboxDispatchCard() {
   const [data, setData] = useState<InboxDispatch | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   // Manual refresh (Refresh button) — event handler, safe to setState.
   const load = useCallback(async (refresh = false) => {
@@ -104,29 +107,79 @@ export function InboxDispatchCard() {
     };
   }, []);
 
+  // Read collapsed preference after mount (matches Morning Brief).
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (window.localStorage.getItem(STORAGE_KEY) === "1") setCollapsed(true);
+    } catch {
+      // ignore private-mode / quota errors
+    }
+  }, []);
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
   const boardingCount = data?.boarding.length ?? 0;
 
   return (
     <section className="overflow-hidden rounded-xl border bg-card">
       <div className="flex items-center gap-2 border-b px-4 py-2.5">
-        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-amber-500/15 text-amber-300">
-          <Inbox className="h-3.5 w-3.5" />
-        </span>
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold tracking-tight">Inbox Dispatch</h2>
-          <p className="text-[11px] text-muted-foreground">
-            {loading
-              ? "Scanning your inbox…"
-              : data?.configured
-                ? summarize(data)
-                : "Connect Gmail to see who needs a reply"}
-          </p>
-        </div>
         <button
           type="button"
-          onClick={() => load(true)}
+          onClick={toggleCollapsed}
+          aria-expanded={!collapsed}
+          aria-label={
+            collapsed ? "Expand Inbox Dispatch" : "Collapse Inbox Dispatch"
+          }
+          className="flex min-w-0 flex-1 items-center gap-2 text-left transition-colors hover:opacity-90"
+        >
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-amber-500/15 text-amber-300">
+            <Inbox className="h-3.5 w-3.5" />
+          </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold tracking-tight">
+                Inbox Dispatch
+              </h2>
+              {!loading && data?.configured && boardingCount > 0 ? (
+                <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-amber-200">
+                  {boardingCount}
+                </span>
+              ) : null}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {loading
+                ? "Scanning your inbox…"
+                : data?.configured
+                  ? summarize(data)
+                  : "Connect Gmail to see who needs a reply"}
+            </p>
+          </div>
+          <ChevronDown
+            className={cn(
+              "ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+              collapsed && "-rotate-90"
+            )}
+          />
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            void load(true);
+          }}
           disabled={refreshing || loading}
-          className="ml-auto flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+          className="flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
           title="Re-run triage now"
         >
           <RefreshCw className={cn("h-3 w-3", refreshing && "animate-spin")} />
@@ -134,81 +187,85 @@ export function InboxDispatchCard() {
         </button>
       </div>
 
-      {loading ? (
-        <LoadingRows />
-      ) : !data?.configured ? (
-        <NotConnected />
-      ) : (
-        <div className="divide-y divide-border">
-          {/* BOARDING */}
-          {boardingCount === 0 ? (
-            <p className="px-4 py-8 text-center text-xs text-muted-foreground">
-              Inbox clear — nobody is waiting on a reply. Rare and beautiful.
-            </p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {data.boarding.map((item) => (
-                <BoardingRow key={item.threadId} item={item} />
-              ))}
-            </ul>
-          )}
-
-          {/* HOLDING */}
-          {data.holding.length > 0 ? (
-            <div className="px-4 py-3">
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Waiting on them
+      {!collapsed ? (
+        loading ? (
+          <LoadingRows />
+        ) : !data?.configured ? (
+          <NotConnected />
+        ) : (
+          <div className="divide-y divide-border">
+            {/* BOARDING */}
+            {boardingCount === 0 ? (
+              <p className="px-4 py-8 text-center text-xs text-muted-foreground">
+                Inbox clear — nobody is waiting on a reply. Rare and beautiful.
               </p>
-              <ul className="space-y-1">
-                {data.holding.map((h) => (
-                  <li
-                    key={h.threadId}
-                    className="flex items-center gap-2 text-[12px]"
-                  >
-                    <span className="truncate text-foreground/80">
-                      <span className="font-medium">{h.name}</span>
-                      <span className="ml-1.5 text-muted-foreground">{h.subject}</span>
-                    </span>
-                    <a
-                      href={h.gmailUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="ml-auto shrink-0 text-muted-foreground hover:text-foreground"
-                      title="Open thread"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                    <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
-                      {h.ageDays}d
-                    </span>
-                  </li>
+            ) : (
+              <ul className="divide-y divide-border">
+                {data.boarding.map((item) => (
+                  <BoardingRow key={item.threadId} item={item} />
                 ))}
               </ul>
-            </div>
-          ) : null}
+            )}
 
-          {/* NOISE */}
-          {data.noiseTotal > 0 ? (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-[11px] text-muted-foreground">
-              <span className="font-medium text-foreground/70">
-                {data.noiseTotal} cleared as noise
-              </span>
-              {data.noise.map((g) => (
-                <span key={g.label} className="tabular-nums">
-                  {g.count}
-                  {g.approx ? "+" : ""} {g.label.toLowerCase()}
+            {/* HOLDING */}
+            {data.holding.length > 0 ? (
+              <div className="px-4 py-3">
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Waiting on them
+                </p>
+                <ul className="space-y-1">
+                  {data.holding.map((h) => (
+                    <li
+                      key={h.threadId}
+                      className="flex items-center gap-2 text-[12px]"
+                    >
+                      <span className="truncate text-foreground/80">
+                        <span className="font-medium">{h.name}</span>
+                        <span className="ml-1.5 text-muted-foreground">
+                          {h.subject}
+                        </span>
+                      </span>
+                      <a
+                        href={h.gmailUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="ml-auto shrink-0 text-muted-foreground hover:text-foreground"
+                        title="Open thread"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                      <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+                        {h.ageDays}d
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {/* NOISE */}
+            {data.noiseTotal > 0 ? (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-[11px] text-muted-foreground">
+                <span className="font-medium text-foreground/70">
+                  {data.noiseTotal} cleared as noise
                 </span>
-              ))}
-            </div>
-          ) : null}
+                {data.noise.map((g) => (
+                  <span key={g.label} className="tabular-nums">
+                    {g.count}
+                    {g.approx ? "+" : ""} {g.label.toLowerCase()}
+                  </span>
+                ))}
+              </div>
+            ) : null}
 
-          {data.error ? (
-            <p className="px-4 py-2 text-[11px] text-amber-300/80">
-              Partial result: {data.error}
-            </p>
-          ) : null}
-        </div>
-      )}
+            {data.error ? (
+              <p className="px-4 py-2 text-[11px] text-amber-300/80">
+                Partial result: {data.error}
+              </p>
+            ) : null}
+          </div>
+        )
+      ) : null}
     </section>
   );
 }
