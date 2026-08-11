@@ -12,6 +12,8 @@ import {
   PlugZap,
   Mail,
   X,
+  Bookmark,
+  BookmarkCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -33,6 +35,21 @@ const EMPTY_DISPATCH: InboxDispatch = {
 
 const COLLAPSE_KEY = "jasonos.inbox-dispatch.collapsed";
 const DISMISS_KEY = "jasonos.inbox-dispatch.dismissed";
+const SAVE_KEY = "jasonos.inbox-dispatch.saved";
+
+type SavedBoarding = {
+  kind: "boarding";
+  savedAt: string;
+  item: BoardingItem;
+};
+
+type SavedHolding = {
+  kind: "holding";
+  savedAt: string;
+  item: HoldingItem;
+};
+
+type SavedEntry = SavedBoarding | SavedHolding;
 
 const URGENCY: Record<
   Urgency,
@@ -88,6 +105,60 @@ function writeDismissed(ids: Set<string>) {
   }
 }
 
+function isBoardingItem(v: unknown): v is BoardingItem {
+  if (!v || typeof v !== "object") return false;
+  const o = v as Record<string, unknown>;
+  return (
+    typeof o.threadId === "string" &&
+    typeof o.name === "string" &&
+    typeof o.subject === "string" &&
+    typeof o.draft === "string"
+  );
+}
+
+function isHoldingItem(v: unknown): v is HoldingItem {
+  if (!v || typeof v !== "object") return false;
+  const o = v as Record<string, unknown>;
+  return (
+    typeof o.threadId === "string" &&
+    typeof o.name === "string" &&
+    typeof o.subject === "string" &&
+    typeof o.ageDays === "number"
+  );
+}
+
+function readSaved(): SavedEntry[] {
+  try {
+    const raw = window.localStorage.getItem(SAVE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    const out: SavedEntry[] = [];
+    for (const row of parsed) {
+      if (!row || typeof row !== "object") continue;
+      const r = row as Record<string, unknown>;
+      const savedAt =
+        typeof r.savedAt === "string" ? r.savedAt : new Date().toISOString();
+      if (r.kind === "boarding" && isBoardingItem(r.item)) {
+        out.push({ kind: "boarding", savedAt, item: r.item });
+      } else if (r.kind === "holding" && isHoldingItem(r.item)) {
+        out.push({ kind: "holding", savedAt, item: r.item });
+      }
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
+
+function writeSaved(entries: SavedEntry[]) {
+  try {
+    window.localStorage.setItem(SAVE_KEY, JSON.stringify(entries));
+  } catch {
+    // ignore
+  }
+}
+
 /** Copy draft (if any), then open the real message in Apple Mail. */
 async function openInAppleMail(opts: {
   appleMailUrl: string | null;
@@ -109,8 +180,34 @@ async function openInAppleMail(opts: {
   } else {
     toast.message("Opening in Apple Mail…");
   }
-  // Navigate so Mail.app handles message:// (window.open is flaky for custom schemes).
   window.location.href = opts.appleMailUrl;
+}
+
+/**
+ * When today's triage still includes a saved thread, refresh the snapshot
+ * (newer draft / urgency) but keep savedAt.
+ */
+function mergeSavedWithLive(
+  saved: SavedEntry[],
+  data: InboxDispatch | null
+): SavedEntry[] {
+  if (!data) return saved;
+  const boardingById = new Map(data.boarding.map((b) => [b.threadId, b]));
+  const holdingById = new Map(data.holding.map((h) => [h.threadId, h]));
+  let changed = false;
+  const next = saved.map((entry) => {
+    if (entry.kind === "boarding") {
+      const live = boardingById.get(entry.item.threadId);
+      if (!live) return entry;
+      changed = true;
+      return { ...entry, item: live };
+    }
+    const live = holdingById.get(entry.item.threadId);
+    if (!live) return entry;
+    changed = true;
+    return { ...entry, item: live };
+  });
+  return changed ? next : saved;
 }
 
 export function InboxDispatchCard() {
@@ -119,8 +216,8 @@ export function InboxDispatchCard() {
   const [refreshing, setRefreshing] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [saved, setSaved] = useState<SavedEntry[]>([]);
 
-  // Manual refresh (Refresh button) — event handler, safe to setState.
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
     try {
@@ -137,7 +234,6 @@ export function InboxDispatchCard() {
     }
   }, []);
 
-  // Initial fetch on mount.
   useEffect(() => {
     let active = true;
     (async () => {
@@ -156,16 +252,26 @@ export function InboxDispatchCard() {
     };
   }, []);
 
-  // Read collapsed + dismissed preferences after mount (avoid hydration mismatch).
   useEffect(() => {
     try {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       if (window.localStorage.getItem(COLLAPSE_KEY) === "1") setCollapsed(true);
       setDismissed(readDismissed());
+      setSaved(readSaved());
     } catch {
       // ignore
     }
   }, []);
+
+  // Refresh saved snapshots when live triage still has those threads.
+  useEffect(() => {
+    if (!data) return;
+    setSaved((prev) => {
+      const merged = mergeSavedWithLive(prev, data);
+      if (merged !== prev) writeSaved(merged);
+      return merged;
+    });
+  }, [data]);
 
   const toggleCollapsed = () => {
     setCollapsed((prev) => {
@@ -179,6 +285,11 @@ export function InboxDispatchCard() {
     });
   };
 
+  const savedIds = useMemo(
+    () => new Set(saved.map((e) => e.item.threadId)),
+    [saved]
+  );
+
   const dismiss = (threadId: string) => {
     setDismissed((prev) => {
       const next = new Set(prev);
@@ -186,18 +297,87 @@ export function InboxDispatchCard() {
       writeDismissed(next);
       return next;
     });
+    // Dismiss also clears a save — you're done with it.
+    setSaved((prev) => {
+      const next = prev.filter((e) => e.item.threadId !== threadId);
+      writeSaved(next);
+      return next;
+    });
   };
 
+  const saveBoarding = (item: BoardingItem) => {
+    setSaved((prev) => {
+      if (prev.some((e) => e.item.threadId === item.threadId)) return prev;
+      const next: SavedEntry[] = [
+        { kind: "boarding", savedAt: new Date().toISOString(), item },
+        ...prev,
+      ];
+      writeSaved(next);
+      return next;
+    });
+    // If it was dismissed earlier, revive it into Saved.
+    setDismissed((prev) => {
+      if (!prev.has(item.threadId)) return prev;
+      const next = new Set(prev);
+      next.delete(item.threadId);
+      writeDismissed(next);
+      return next;
+    });
+    toast.success("Saved — it’ll stay in Dispatch until you dismiss it.");
+  };
+
+  const saveHolding = (item: HoldingItem) => {
+    setSaved((prev) => {
+      if (prev.some((e) => e.item.threadId === item.threadId)) return prev;
+      const next: SavedEntry[] = [
+        { kind: "holding", savedAt: new Date().toISOString(), item },
+        ...prev,
+      ];
+      writeSaved(next);
+      return next;
+    });
+    setDismissed((prev) => {
+      if (!prev.has(item.threadId)) return prev;
+      const next = new Set(prev);
+      next.delete(item.threadId);
+      writeDismissed(next);
+      return next;
+    });
+    toast.success("Saved — it’ll stay in Dispatch until you dismiss it.");
+  };
+
+  const unsave = (threadId: string) => {
+    setSaved((prev) => {
+      const next = prev.filter((e) => e.item.threadId !== threadId);
+      writeSaved(next);
+      return next;
+    });
+    toast.message("Removed from Saved.");
+  };
+
+  // Today's lists: hide dismissed + anything already parked in Saved (no dupes).
   const boarding = useMemo(
-    () => (data?.boarding ?? []).filter((b) => !dismissed.has(b.threadId)),
-    [data?.boarding, dismissed]
+    () =>
+      (data?.boarding ?? []).filter(
+        (b) => !dismissed.has(b.threadId) && !savedIds.has(b.threadId)
+      ),
+    [data?.boarding, dismissed, savedIds]
   );
   const holding = useMemo(
-    () => (data?.holding ?? []).filter((h) => !dismissed.has(h.threadId)),
-    [data?.holding, dismissed]
+    () =>
+      (data?.holding ?? []).filter(
+        (h) => !dismissed.has(h.threadId) && !savedIds.has(h.threadId)
+      ),
+    [data?.holding, dismissed, savedIds]
+  );
+
+  const visibleSaved = useMemo(
+    () => saved.filter((e) => !dismissed.has(e.item.threadId)),
+    [saved, dismissed]
   );
 
   const boardingCount = boarding.length;
+  const headerCount = boardingCount + visibleSaved.filter((e) => e.kind === "boarding").length;
 
   return (
     <section className="overflow-hidden rounded-xl border bg-card">
@@ -219,9 +399,9 @@ export function InboxDispatchCard() {
               <h2 className="text-sm font-semibold tracking-tight">
                 Inbox Dispatch
               </h2>
-              {!loading && data?.configured && boardingCount > 0 ? (
+              {!loading && data?.configured && headerCount > 0 ? (
                 <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-amber-200">
-                  {boardingCount}
+                  {headerCount}
                 </span>
               ) : null}
             </div>
@@ -229,7 +409,12 @@ export function InboxDispatchCard() {
               {loading
                 ? "Scanning your inbox…"
                 : data?.configured
-                  ? summarize(boardingCount, holding.length, data.noiseTotal)
+                  ? summarize(
+                      boardingCount,
+                      holding.length,
+                      data.noiseTotal,
+                      visibleSaved.length
+                    )
                   : "Connect Gmail to see who needs a reply"}
             </p>
           </div>
@@ -269,9 +454,47 @@ export function InboxDispatchCard() {
           <NotConnected />
         ) : (
           <div className="divide-y divide-border">
-            {boardingCount === 0 ? (
+            {visibleSaved.length > 0 ? (
+              <div>
+                <p className="flex items-center gap-1.5 px-4 pt-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  <BookmarkCheck className="h-3 w-3 text-amber-300" />
+                  Saved for later ({visibleSaved.length})
+                </p>
+                <ul className="divide-y divide-border">
+                  {visibleSaved.map((entry) =>
+                    entry.kind === "boarding" ? (
+                      <BoardingRow
+                        key={`saved-${entry.item.threadId}`}
+                        item={entry.item}
+                        saved
+                        onDismiss={() => dismiss(entry.item.threadId)}
+                        onSave={() => unsave(entry.item.threadId)}
+                      />
+                    ) : (
+                      <li
+                        key={`saved-h-${entry.item.threadId}`}
+                        className="px-4 py-2"
+                      >
+                        <HoldingRow
+                          item={entry.item}
+                          saved
+                          onDismiss={() => dismiss(entry.item.threadId)}
+                          onSave={() => unsave(entry.item.threadId)}
+                        />
+                      </li>
+                    )
+                  )}
+                </ul>
+              </div>
+            ) : null}
+
+            {boardingCount === 0 && visibleSaved.length === 0 ? (
               <p className="px-4 py-8 text-center text-xs text-muted-foreground">
                 Inbox clear — nobody is waiting on a reply. Rare and beautiful.
+              </p>
+            ) : boardingCount === 0 ? (
+              <p className="px-4 py-3 text-center text-[11px] text-muted-foreground">
+                Nothing new today — your saved items are above.
               </p>
             ) : (
               <ul className="divide-y divide-border">
@@ -280,6 +503,7 @@ export function InboxDispatchCard() {
                     key={item.threadId}
                     item={item}
                     onDismiss={() => dismiss(item.threadId)}
+                    onSave={() => saveBoarding(item)}
                   />
                 ))}
               </ul>
@@ -296,6 +520,7 @@ export function InboxDispatchCard() {
                       key={h.threadId}
                       item={h}
                       onDismiss={() => dismiss(h.threadId)}
+                      onSave={() => saveHolding(h)}
                     />
                   ))}
                 </ul>
@@ -331,10 +556,12 @@ export function InboxDispatchCard() {
 function summarize(
   boardingCount: number,
   holdingCount: number,
-  noiseTotal: number
+  noiseTotal: number,
+  savedCount: number
 ): string {
   const parts: string[] = [];
   parts.push(`${boardingCount} need you`);
+  if (savedCount) parts.push(`${savedCount} saved`);
   if (holdingCount) parts.push(`${holdingCount} waiting`);
   if (noiseTotal) parts.push(`${noiseTotal} noise`);
   return parts.join(" · ");
@@ -343,13 +570,17 @@ function summarize(
 function BoardingRow({
   item,
   onDismiss,
+  onSave,
+  saved = false,
 }: {
   item: BoardingItem;
   onDismiss: () => void;
+  onSave: () => void;
+  saved?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const u = URGENCY[item.urgency];
+  const u = URGENCY[item.urgency] ?? URGENCY.normal;
 
   const copy = async () => {
     if (!item.draft) return;
@@ -358,7 +589,7 @@ function BoardingRow({
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      /* clipboard blocked — user can select manually */
+      /* clipboard blocked */
     }
   };
 
@@ -367,11 +598,13 @@ function BoardingRow({
       <span
         className={cn(
           "absolute inset-y-0 left-0 w-[3px]",
-          item.urgency === "now"
-            ? "bg-red-400"
-            : item.urgency === "paid"
-              ? "bg-emerald-400"
-              : "bg-amber-400/80"
+          saved
+            ? "bg-sky-400/80"
+            : item.urgency === "now"
+              ? "bg-red-400"
+              : item.urgency === "paid"
+                ? "bg-emerald-400"
+                : "bg-amber-400/80"
         )}
       />
       <div className="flex items-start gap-1 pl-5">
@@ -383,15 +616,22 @@ function BoardingRow({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span className="truncate text-sm font-medium">{item.name}</span>
-              <span
-                className={cn(
-                  "flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide",
-                  u.cls
-                )}
-              >
-                {u.icon}
-                {u.label}
-              </span>
+              {saved ? (
+                <span className="flex shrink-0 items-center gap-1 rounded-full border border-sky-400/40 bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-sky-200">
+                  <BookmarkCheck className="h-3 w-3" />
+                  Saved
+                </span>
+              ) : (
+                <span
+                  className={cn(
+                    "flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+                    u.cls
+                  )}
+                >
+                  {u.icon}
+                  {u.label}
+                </span>
+              )}
               <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground">
                 {shortWhen(item.receivedAt)}
               </span>
@@ -409,6 +649,21 @@ function BoardingRow({
               open && "rotate-180"
             )}
           />
+        </button>
+        <button
+          type="button"
+          onClick={onSave}
+          className="mt-2.5 shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+          title={saved ? "Remove from Saved" : "Save for later"}
+          aria-label={
+            saved ? `Unsave ${item.name}` : `Save ${item.name} for later`
+          }
+        >
+          {saved ? (
+            <BookmarkCheck className="h-3.5 w-3.5 text-sky-300" />
+          ) : (
+            <Bookmark className="h-3.5 w-3.5" />
+          )}
         </button>
         <button
           type="button"
@@ -467,6 +722,18 @@ function BoardingRow({
             </button>
             <button
               type="button"
+              onClick={onSave}
+              className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {saved ? (
+                <BookmarkCheck className="h-3.5 w-3.5" />
+              ) : (
+                <Bookmark className="h-3.5 w-3.5" />
+              )}
+              {saved ? "Unsave" : "Save"}
+            </button>
+            <button
+              type="button"
               onClick={onDismiss}
               className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
             >
@@ -483,15 +750,24 @@ function BoardingRow({
 function HoldingRow({
   item,
   onDismiss,
+  onSave,
+  saved = false,
 }: {
   item: HoldingItem;
   onDismiss: () => void;
+  onSave: () => void;
+  saved?: boolean;
 }) {
   return (
     <li className="flex items-center gap-2 text-[12px]">
       <span className="min-w-0 flex-1 truncate text-foreground/80">
         <span className="font-medium">{item.name}</span>
         <span className="ml-1.5 text-muted-foreground">{item.subject}</span>
+        {saved ? (
+          <span className="ml-1.5 text-[10px] uppercase tracking-wide text-sky-300">
+            saved
+          </span>
+        ) : null}
       </span>
       <button
         type="button"
@@ -508,6 +784,21 @@ function HoldingRow({
         aria-label={`Open ${item.name} in Apple Mail`}
       >
         <Mail className="h-3 w-3" />
+      </button>
+      <button
+        type="button"
+        onClick={onSave}
+        className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+        title={saved ? "Remove from Saved" : "Save for later"}
+        aria-label={
+          saved ? `Unsave ${item.name}` : `Save ${item.name} for later`
+        }
+      >
+        {saved ? (
+          <BookmarkCheck className="h-3 w-3 text-sky-300" />
+        ) : (
+          <Bookmark className="h-3 w-3" />
+        )}
       </button>
       <button
         type="button"
