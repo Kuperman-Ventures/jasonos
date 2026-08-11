@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
@@ -19,10 +19,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { ContactPicker } from "@/components/jasonos/email/contact-picker";
+import { PhraseMemoryField } from "@/components/jasonos/email/phrase-memory-field";
 import {
   saveCustomEmailTemplate,
   type EmailTemplateContactHit,
 } from "@/lib/server-actions/email-templates";
+import { listBuilderPhrases } from "@/lib/server-actions/email-builder-phrases";
+import type { BuilderPhrase } from "@/lib/email-builder/phrases";
 import { buildMailtoUrl } from "@/lib/email-templates/render";
 import {
   DEFAULT_ANSWERS,
@@ -54,10 +57,22 @@ export function EmailBuilderClient() {
   const [answers, setAnswers] = useState<BuilderAnswers>(DEFAULT_ANSWERS);
   const [draft, setDraft] = useState<BuilderDraft | null>(null);
   const [pending, startTransition] = useTransition();
+  const [phrases, setPhrases] = useState<BuilderPhrase[]>([]);
   // "remember" and "tone" follow the closeness slider until the user drags
   // them directly. Distant contact → warmer tone + more reintroduction; close
   // contact → they remember you, can be more direct.
   const [linked, setLinked] = useState({ remember: true, tone: true });
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const rows = await listBuilderPhrases();
+      if (active) setPhrases(rows);
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const set = <K extends keyof BuilderAnswers>(
     key: K,
@@ -221,6 +236,8 @@ export function EmailBuilderClient() {
           setRemember={setRemember}
           setTone={setTone}
           toggleGoal={toggleGoal}
+          phrases={phrases}
+          onPhrasesChange={setPhrases}
           onBack={reset}
           onGenerate={generate}
           pending={pending}
@@ -354,6 +371,8 @@ function QuestionsStep({
   setRemember,
   setTone,
   toggleGoal,
+  phrases,
+  onPhrasesChange,
   onBack,
   onGenerate,
   pending,
@@ -365,6 +384,8 @@ function QuestionsStep({
   setRemember: (n: number) => void;
   setTone: (n: number) => void;
   toggleGoal: (key: string) => void;
+  phrases: BuilderPhrase[];
+  onPhrasesChange: (next: BuilderPhrase[]) => void;
   onBack: () => void;
   onGenerate: () => void;
   pending: boolean;
@@ -483,51 +504,43 @@ function QuestionsStep({
 
       <div className="grid gap-4 sm:grid-cols-2">
         {fields.relationship.show ? (
-          <label className="block space-y-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              {fields.relationship.label}{" "}
-              <span className="font-normal normal-case text-muted-foreground/70">
-                (optional)
-              </span>
-            </span>
-            <Textarea
-              value={answers.relationship}
-              onChange={(e) => set("relationship", e.target.value)}
-              placeholder={fields.relationship.placeholder}
-              className="min-h-[72px] text-sm"
-            />
-          </label>
+          <PhraseMemoryField
+            field="relationship"
+            label={fields.relationship.label}
+            hint="(optional)"
+            value={answers.relationship}
+            onChange={(v) => set("relationship", v)}
+            placeholder={fields.relationship.placeholder}
+            multiline
+            phrases={phrases}
+            onPhrasesChange={onPhrasesChange}
+          />
         ) : null}
         {fields.detail.show ? (
-          <label className="block space-y-1">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              {fields.detail.label}{" "}
-              <span className="font-normal normal-case text-muted-foreground/70">
-                (optional but recommended)
-              </span>
-            </span>
-            <Textarea
-              value={answers.detail}
-              onChange={(e) => set("detail", e.target.value)}
-              placeholder={fields.detail.placeholder}
-              className="min-h-[72px] text-sm"
-            />
-          </label>
+          <PhraseMemoryField
+            field="detail"
+            label={fields.detail.label}
+            hint="(optional but recommended)"
+            value={answers.detail}
+            onChange={(v) => set("detail", v)}
+            placeholder={fields.detail.placeholder}
+            multiline
+            phrases={phrases}
+            onPhrasesChange={onPhrasesChange}
+          />
         ) : null}
       </div>
 
       {fields.ask.show ? (
-        <label className="block space-y-1">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            {fields.ask.label}
-          </span>
-          <Input
-            value={answers.ask}
-            onChange={(e) => set("ask", e.target.value)}
-            placeholder={fields.ask.placeholder}
-            className="h-9 text-sm"
-          />
-        </label>
+        <PhraseMemoryField
+          field="ask"
+          label={fields.ask.label}
+          value={answers.ask}
+          onChange={(v) => set("ask", v)}
+          placeholder={fields.ask.placeholder}
+          phrases={phrases}
+          onPhrasesChange={onPhrasesChange}
+        />
       ) : null}
 
       <div className="flex justify-end gap-2 pt-1">
