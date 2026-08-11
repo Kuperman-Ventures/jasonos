@@ -205,11 +205,14 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
       >
         <Section
           icon={<Inbox className="h-4 w-4" />}
-          title="Outreach"
+          title="Fresh outreach"
           hint={`${report.outreach.length}`}
         >
           {report.outreach.length === 0 ? (
-            <Empty>No outreach logged this week.</Empty>
+            <Empty>
+              No fresh outreach this week. Only people you hadn&rsquo;t contacted
+              in 90+ days count — ongoing follow-ups stay off this list.
+            </Empty>
           ) : (
             <ul className="divide-y divide-border">
               {report.outreach.map((o) => (
