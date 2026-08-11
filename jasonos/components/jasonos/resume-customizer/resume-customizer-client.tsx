@@ -42,6 +42,7 @@ import {
   applyEditAnyway,
   listCustomizations,
   getCustomizationDownload,
+  getCustomizationJdDownload,
   deleteCustomization,
   renameCustomization,
   type ResumeRow,
@@ -66,6 +67,19 @@ function downloadBase64Docx(base64: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+function downloadTextFile(text: string, filename: string) {
+  const url = URL.createObjectURL(
+    new Blob([text], { type: "text/plain;charset=utf-8" })
+  );
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 // Let the Cover Letter Customizer (a sibling component) auto-select a resume
 // the moment it's customized here, without a full page reload.
 function announceCustomization(res: CustomizeResult) {
@@ -78,6 +92,7 @@ function announceCustomization(res: CustomizeResult) {
         filename: res.filename,
         match_score: res.analysis.matchScore,
         created_at: new Date().toISOString(),
+        has_job_description: true,
       },
     })
   );
@@ -235,6 +250,18 @@ export function ResumeCustomizerClient({
       const res = await getCustomizationDownload(id);
       if (res.ok) downloadBase64Docx(res.docxBase64, res.filename);
       else toast.error(res.error);
+    });
+  }
+
+  function handleDownloadJd(id: string) {
+    startBusy(async () => {
+      const res = await getCustomizationJdDownload(id);
+      if (res.ok) {
+        downloadTextFile(res.text, res.filename);
+        toast.success(`Downloaded ${res.filename}`);
+      } else {
+        toast.error(res.error);
+      }
     });
   }
 
@@ -487,7 +514,21 @@ export function ResumeCustomizerClient({
                       onClick={() => handleDownloadPast(c.id)}
                     >
                       <Download className="h-3.5 w-3.5" />
-                      Download
+                      Resume
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      disabled={busy || !c.has_job_description}
+                      onClick={() => handleDownloadJd(c.id)}
+                      title={
+                        c.has_job_description
+                          ? "Download the saved job description"
+                          : "No job description was saved for this one"
+                      }
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      JD
                     </Button>
                     <Button
                       variant="ghost"
