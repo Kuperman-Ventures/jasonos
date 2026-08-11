@@ -11,6 +11,9 @@ import "server-only";
 import { gateway } from "@ai-sdk/gateway";
 import { generateText, stepCountIs } from "ai";
 import { heavyModel } from "@/lib/ai/models";
+import { cleanResearchBrief } from "@/lib/ai/research-clean";
+
+export { cleanResearchBrief } from "@/lib/ai/research-clean";
 
 export interface ResearchResult {
   text: string;
@@ -23,7 +26,47 @@ function cleanErrorMessage(err: unknown): string {
   return raw.replace(/\u001b\[[0-9;]*m/g, "").replace(/\s+/g, " ").trim();
 }
 
-function collectSources(result: {
+/**
+ * Models sometimes echo tool_call / tool_response XML and "I'll search…"
+ * narration into result.text. Strip that so the UI only shows the brief.
+ */
+// cleanResearchBrief lives in research-clean.ts (client-safe).
+
+function toolOutputsLookEmpty(result: {
+  steps?: Array<{ toolResults?: Array<{ output?: unknown }> }>;
+}): boolean {
+  const outputs: string[] = [];
+  for (const step of result.steps ?? []) {
+    for (const tr of step.toolResults ?? []) {
+      const output = tr.output;
+      if (output == null) continue;
+      if (typeof output === "string") {
+        outputs.push(output);
+        continue;
+      }
+      if (typeof output === "object") {
+        const o = output as {
+          content?: string;
+          message?: string;
+          error?: string;
+          results?: unknown[];
+        };
+        if (Array.isArray(o.results) && o.results.length > 0) return false;
+        if (typeof o.content === "string") outputs.push(o.content);
+        if (typeof o.message === "string") outputs.push(o.message);
+        if (typeof o.error === "string") outputs.push(o.error);
+        // Serialize remaining object shapes for the empty-check regex.
+        outputs.push(JSON.stringify(output));
+      }
+    }
+  }
+  if (outputs.length === 0) return false;
+  return outputs.every((o) =>
+    /no results found|returned no results|0 results|nothing found/i.test(o)
+  );
+}
+
+export function collectResearchSources(result: {
   sources?: unknown[];
   steps?: Array<{ toolResults?: Array<{ output?: unknown }> }>;
 }): { title: string | null; url: string }[] {
@@ -59,13 +102,21 @@ function collectSources(result: {
   return out;
 }
 
+const OUTPUT_RULES = `OUTPUT RULES (hard):
+- Return ONLY the final brief the user should read.
+- Never narrate that you are searching.
+- Never include <tool_call>, <tool_response>, JSON tool payloads, or raw tool output.
+- Never paste "No results found for …" lines from the tool.
+- If nothing useful was found, reply with 2-4 short sentences saying so and what to check manually (LinkedIn, company site, Crunchbase). Do not list every failed query.`;
+
 export async function researchPersonNews(input: {
   name: string;
   firm: string | null;
 }): Promise<ResearchResult> {
   const who = input.firm ? `${input.name} (${input.firm})` : input.name;
-  const system =
-    "You are a research assistant preparing a networking-meeting brief. Use the perplexity_search tool to find developments from the LAST 30 DAYS about the person and their company. Report ONLY items you actually found via search, each as a short bullet with a source name and approximate date. Keep it to 3–6 tight bullets. If search returns nothing relevant, say clearly that you found no notable recent news. Never invent or infer news that you did not find via search.";
+  const system = `You are a research assistant preparing a networking-meeting brief. Use the perplexity_search tool to find developments from the LAST 30 DAYS about the person and their company. Report ONLY items you actually found via search, each as a short bullet with a source name and approximate date. Keep it to 3–6 tight bullets. If search returns nothing relevant, say clearly that you found no notable recent news. Never invent or infer news that you did not find via search.
+
+${OUTPUT_RULES}`;
   const prompt = `Find news, announcements, funding, product launches, role changes, press, interviews, or notable public activity from roughly the last 30 days about ${who}${
     input.firm ? ` and the company ${input.firm}` : ""
   }. Summarize as short bullets, each with a source and date.`;
@@ -93,9 +144,22 @@ export async function researchPersonNews(input: {
       },
     });
 
-    const sources = collectSources(result);
-    const text = result.text.trim();
-    if (!text && sources.length === 0) {
+    const sources = collectResearchSources(result);
+    const cleaned = cleanResearchBrief(result.text);
+    const emptyTools = toolOutputsLookEmpty(result);
+
+    if (sources.length === 0 && (emptyTools || !cleaned || /no results found for/i.test(cleaned))) {
+      return {
+        text: [
+          `No notable recent public news found for ${who}.`,
+          "Before the meeting, check LinkedIn activity, the company site, and Crunchbase/PitchBook directly — open web search did not surface usable coverage.",
+        ].join("\n\n"),
+        sources: [],
+        searched: false,
+      };
+    }
+
+    if (!cleaned && sources.length === 0) {
       throw new Error(
         "Web search returned no usable findings. Try again in a moment."
       );
@@ -103,7 +167,7 @@ export async function researchPersonNews(input: {
 
     return {
       text:
-        text ||
+        cleaned ||
         "Search completed but produced no summary. See sources below if listed.",
       sources,
       searched: sources.length > 0,
