@@ -6,7 +6,9 @@ import {
   AlertTriangle,
   Bookmark,
   BookmarkCheck,
+  Building2,
   Download,
+  ExternalLink,
   Loader2,
   MessageSquareQuote,
   Sparkles,
@@ -90,6 +92,15 @@ function downloadInterviewPrepPdf(prep: InterviewPrep) {
     day: "numeric",
   });
 
+  const intelPoints = (prep.companyIntel?.points ?? [])
+    .map(
+      (p) => `<li class="item">
+      <p class="q">${esc(p.fact)}</p>
+      <p class="angle"><span class="label">Use it:</span> ${esc(p.howToUse)}</p>
+    </li>`
+    )
+    .join("");
+
   const background = itemsHtml(
     prep.backgroundQuestions.map((q) => ({
       title: q.question,
@@ -114,6 +125,12 @@ function downloadInterviewPrepPdf(prep: InterviewPrep) {
       action: h.whereOnResume,
     }))
   );
+  const sources = (prep.sources ?? [])
+    .map((s) => {
+      const label = s.title?.trim() || s.url;
+      return `<li><a href="${esc(s.url)}">${esc(label)}</a></li>`;
+    })
+    .join("");
 
   const html = `<!doctype html><html><head><meta charset="utf-8"/>
     <title>${esc(title)} — Interview Prep</title>
@@ -127,11 +144,12 @@ function downloadInterviewPrepPdf(prep: InterviewPrep) {
       .framing{margin:0 0 18px;font-size:12.5px}
       h2{font-size:13px;margin:18px 0 4px;padding-top:8px;border-top:1px solid #ddd}
       .sub{font-size:10.5px;color:#555;margin:0 0 8px}
-      ol{margin:0;padding-left:18px}
+      ol,ul.plain{margin:0;padding-left:18px}
       .item{margin:0 0 10px;page-break-inside:avoid}
       .q{margin:0 0 3px;font-weight:700}
       .why,.angle{margin:0 0 2px;color:#333}
       .label{color:#555}
+      a{color:#111}
       @media print{
         body{padding:12mm}
         h2{page-break-after:avoid}
@@ -143,6 +161,14 @@ function downloadInterviewPrepPdf(prep: InterviewPrep) {
       <p class="meta">Jason Kuperman · ${esc(today)}</p>
     </div>
     ${prep.framing ? `<p class="framing">${esc(prep.framing)}</p>` : ""}
+    ${
+      prep.companyIntel?.overview || intelPoints
+        ? `<h2>Company intel</h2>
+    <p class="sub">From web research + the job description — use these in the conversation.</p>
+    ${prep.companyIntel?.overview ? `<p class="framing">${esc(prep.companyIntel.overview)}</p>` : ""}
+    ${intelPoints ? `<ol>${intelPoints}</ol>` : ""}`
+        : ""
+    }
     <h2>Questions about your background</h2>
     <p class="sub">Likely digs into experience that maps to this role.</p>
     <ol>${background}</ol>
@@ -152,6 +178,11 @@ function downloadInterviewPrepPdf(prep: InterviewPrep) {
     <h2>Bring these up</h2>
     <p class="sub">Resume points worth highlighting for this company and seat.</p>
     <ol>${highlights}</ol>
+    ${
+      sources
+        ? `<h2>Sources</h2><ul class="plain">${sources}</ul>`
+        : ""
+    }
     <script>window.onload=function(){window.print();}</script>
     </body></html>`;
 
@@ -312,9 +343,9 @@ export function InterviewPrepClient({
         <header>
           <h1 className="text-lg font-semibold tracking-tight">Interview Prep</h1>
           <p className="mt-1 text-xs text-muted-foreground">
-            Pick a job you already ran through Resume Customizer. We read that JD
-            and the tailored resume, then surface likely questions, gaps, and
-            points to highlight. Save a prep to reopen it later.
+            Pick a job from Resume Customizer. We web-search the company, read
+            the JD and tailored resume, then build a brief: company intel,
+            likely questions, gaps, and points to highlight.
           </p>
         </header>
 
@@ -372,7 +403,7 @@ export function InterviewPrepClient({
             {isPending && !loadingSaved ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Scanning JD + resume…
+                Researching company + building prep…
               </>
             ) : (
               <>
@@ -428,7 +459,7 @@ export function InterviewPrepClient({
         ) : loadingSaved ? (
           <EmptyState message="Loading saved prep…" />
         ) : isPending && !showingPrep ? (
-          <EmptyState message="Reading the job description and tailored resume…" />
+          <EmptyState message="Web-searching the company, then reading the JD and tailored resume…" />
         ) : !showingPrep ? (
           <EmptyState
             message={`Ready for ${targetLabel(selected)}. Hit Generate prep when you want the brief.`}
@@ -466,13 +497,20 @@ function PrepResults({
   status: string | null;
 }) {
   const title = prepTitle(prep);
+  const intel = prep.companyIntel;
+  const hasIntel =
+    Boolean(intel?.overview?.trim()) || (intel?.points?.length ?? 0) > 0;
+  const sources = prep.sources ?? [];
 
   return (
-    <div className="space-y-5">
-      <header className="space-y-2 border-b pb-4">
+    <div className="space-y-6">
+      <header className="space-y-3 border-b pb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-1">
-            <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              Interview brief
+            </p>
+            <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
             {status ? (
               <p className="text-[11px] text-muted-foreground">{status}</p>
             ) : null}
@@ -487,8 +525,64 @@ function PrepResults({
             Download PDF
           </Button>
         </div>
-        <p className="text-sm leading-relaxed text-muted-foreground">{prep.framing}</p>
+        {prep.framing ? (
+          <div className="rounded-xl border bg-card/40 px-3.5 py-3">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Open with
+            </p>
+            <p className="mt-1 text-sm leading-relaxed">{prep.framing}</p>
+          </div>
+        ) : null}
       </header>
+
+      {hasIntel ? (
+        <PrepSection
+          icon={Building2}
+          title="Company intel"
+          subtitle="From web research + the JD. Use these in the conversation."
+          tone="sky"
+        >
+          {intel?.overview?.trim() ? (
+            <li className="rounded-xl border bg-card/50 px-3.5 py-3">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Snapshot
+              </p>
+              <p className="mt-1.5 text-sm leading-relaxed">{intel.overview}</p>
+            </li>
+          ) : null}
+          {(intel?.points ?? []).map((p, i) => (
+            <PrepItem
+              key={`intel-${i}`}
+              index={i + 1}
+              title={p.fact}
+              actionLabel="Use it"
+              action={p.howToUse}
+            />
+          ))}
+          {sources.length > 0 ? (
+            <li className="rounded-xl border border-dashed bg-transparent px-3.5 py-3">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Sources
+              </p>
+              <ul className="mt-2 space-y-1.5">
+                {sources.map((s) => (
+                  <li key={s.url}>
+                    <a
+                      href={s.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-start gap-1.5 text-xs text-sky-300 underline decoration-sky-400/40 underline-offset-2 hover:text-sky-200"
+                    >
+                      <span>{s.title?.trim() || s.url}</span>
+                      <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 opacity-70" />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ) : null}
+        </PrepSection>
+      ) : null}
 
       <PrepSection
         icon={MessageSquareQuote}
@@ -499,6 +593,7 @@ function PrepResults({
         {prep.backgroundQuestions.map((q, i) => (
           <PrepItem
             key={`bg-${i}`}
+            index={i + 1}
             title={q.question}
             why={q.why}
             actionLabel="Lean on"
@@ -516,6 +611,7 @@ function PrepResults({
         {prep.gapQuestions.map((q, i) => (
           <PrepItem
             key={`gap-${i}`}
+            index={i + 1}
             title={q.question}
             why={q.why}
             actionLabel="Handle it"
@@ -533,6 +629,7 @@ function PrepResults({
         {prep.highlights.map((h, i) => (
           <PrepItem
             key={`hi-${i}`}
+            index={i + 1}
             title={h.point}
             why={h.why}
             actionLabel="On resume"
@@ -573,30 +670,46 @@ function PrepSection({
           <p className="text-[11px] text-muted-foreground">{subtitle}</p>
         </div>
       </div>
-      <ul className="space-y-2">{children}</ul>
+      <ol className="space-y-2">{children}</ol>
     </div>
   );
 }
 
 function PrepItem({
+  index,
   title,
   why,
   actionLabel,
   action,
 }: {
+  index?: number;
   title: string;
-  why: string;
+  why?: string;
   actionLabel: string;
   action: string;
 }) {
   return (
     <li className="rounded-xl border bg-card/50 px-3.5 py-3">
-      <p className="text-sm font-medium leading-snug">{title}</p>
-      <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{why}</p>
-      <p className="mt-2 text-xs leading-relaxed">
-        <span className="text-muted-foreground">{actionLabel}: </span>
-        <span className="text-foreground/90">{action}</span>
-      </p>
+      <div className="flex items-start gap-2.5">
+        {typeof index === "number" ? (
+          <span className="mt-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-muted px-1 text-[11px] font-medium tabular-nums text-muted-foreground">
+            {index}
+          </span>
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium leading-snug">{title}</p>
+          {why ? (
+            <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+              <span className="text-muted-foreground/80">Why: </span>
+              {why}
+            </p>
+          ) : null}
+          <p className="mt-2 text-xs leading-relaxed">
+            <span className="text-muted-foreground">{actionLabel}: </span>
+            <span className="text-foreground/90">{action}</span>
+          </p>
+        </div>
+      </div>
     </li>
   );
 }

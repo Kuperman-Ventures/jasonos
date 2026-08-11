@@ -1,12 +1,50 @@
 import { z } from "zod";
 
-export const interviewPrepSchema = z.object({
+export const interviewPrepSourceSchema = z.object({
+  title: z.string().nullable(),
+  url: z.string(),
+});
+
+/** Schema sent to the model — sources are attached after web search, not invented. */
+export const interviewPrepGeneratedSchema = z.object({
   company: z
     .string()
     .describe("Hiring company from the job description; 'the company' if unclear."),
   roleTitle: z
     .string()
     .describe("Role/title from the job description, if present."),
+  framing: z
+    .string()
+    .describe(
+      "2-4 sentence interview framing: who Jason is for this seat and the story arc to open with. No fluff."
+    ),
+  companyIntel: z
+    .object({
+      overview: z
+        .string()
+        .describe(
+          "Short company brief (3-5 sentences) grounded ONLY in the provided research notes + JD. If research is thin, say what is known from the JD alone."
+        ),
+      points: z
+        .array(
+          z.object({
+            fact: z
+              .string()
+              .describe(
+                "Concrete company / market / news finding usable in the interview."
+              ),
+            howToUse: z
+              .string()
+              .describe(
+                "How Jason should use it: a question to ask, a story to connect, or a risk to acknowledge."
+              ),
+          })
+        )
+        .describe(
+          "4-6 interview-usable company points derived from the research notes."
+        ),
+    })
+    .describe("Company research shaped for interview use."),
   backgroundQuestions: z
     .array(
       z.object({
@@ -60,11 +98,47 @@ export const interviewPrepSchema = z.object({
     .describe(
       "5-8 things Jason should proactively highlight based on company/role priorities."
     ),
-  framing: z
-    .string()
-    .describe(
-      "2-4 sentence interview framing: who Jason is for this seat and the story arc to open with. No fluff."
-    ),
+});
+
+export const interviewPrepSchema = interviewPrepGeneratedSchema.extend({
+  sources: z.array(interviewPrepSourceSchema),
 });
 
 export type InterviewPrep = z.infer<typeof interviewPrepSchema>;
+
+/** Looser parse for older saved preps that predate companyIntel/sources. */
+export function coerceInterviewPrep(raw: unknown): InterviewPrep | null {
+  if (!raw || typeof raw !== "object") return null;
+  const parsed = interviewPrepSchema.safeParse(raw);
+  if (parsed.success) return parsed.data;
+
+  const r = raw as Record<string, unknown>;
+  const companyIntelRaw =
+    r.companyIntel && typeof r.companyIntel === "object"
+      ? (r.companyIntel as Record<string, unknown>)
+      : null;
+
+  const base = {
+    company: typeof r.company === "string" ? r.company : "the company",
+    roleTitle: typeof r.roleTitle === "string" ? r.roleTitle : "",
+    framing: typeof r.framing === "string" ? r.framing : "",
+    companyIntel: {
+      overview:
+        typeof companyIntelRaw?.overview === "string"
+          ? companyIntelRaw.overview
+          : "",
+      points: Array.isArray(companyIntelRaw?.points)
+        ? companyIntelRaw.points
+        : [],
+    },
+    backgroundQuestions: Array.isArray(r.backgroundQuestions)
+      ? r.backgroundQuestions
+      : [],
+    gapQuestions: Array.isArray(r.gapQuestions) ? r.gapQuestions : [],
+    highlights: Array.isArray(r.highlights) ? r.highlights : [],
+    sources: Array.isArray(r.sources) ? r.sources : [],
+  };
+
+  const retry = interviewPrepSchema.safeParse(base);
+  return retry.success ? retry.data : null;
+}
