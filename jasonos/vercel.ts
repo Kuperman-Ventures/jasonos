@@ -27,6 +27,9 @@ export const config: VercelConfig = {
     // give the function some slack so a single slow site doesn't trip the
     // function timeout.
     "app/api/monitoring/health-check/route.ts": { maxDuration: 60 },
+
+    // Inbox Dispatch reads Gmail + drafts replies via Claude; give it slack.
+    "app/api/inbox-dispatch/route.ts": { maxDuration: 60 },
   },
   crons: [
     // Daily 8am ET BNA run.
@@ -37,5 +40,8 @@ export const config: VercelConfig = {
       path: "/api/monitoring/health-check?source=cron",
       schedule: "*/2 * * * *",
     },
+    // Inbox Dispatch — weekday 7am ET (11:00 UTC during EDT). Warms the day's
+    // reply triage so it's ready when Jason opens Home.
+    { path: "/api/inbox-dispatch?source=cron", schedule: "0 11 * * 1-5" },
   ],
 };
