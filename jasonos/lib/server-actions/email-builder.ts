@@ -19,6 +19,8 @@ import {
   buildFallbackDraft,
   looksLikePastedNotes,
 } from "@/lib/email-builder/fallback";
+import { resolveAnswerTags } from "@/lib/server-actions/email-builder-phrases";
+import { labelForTag } from "@/lib/email-builder/phrases";
 
 export interface BuilderRecipient {
   name: string;
@@ -59,6 +61,24 @@ export async function generateBuilderEmail(input: {
 }): Promise<GenerateBuilderResult> {
   const { recipient, answers } = input;
   const fallback = buildFallbackDraft(recipient, answers);
+  const answerTags = await resolveAnswerTags(answers);
+
+  const structuredBits: string[] = [];
+  if (answerTags.relationship.length) {
+    structuredBits.push(
+      `Relationship tags: ${answerTags.relationship.map(labelForTag).join(", ")}.`
+    );
+  }
+  if (answerTags.detail.length) {
+    structuredBits.push(
+      `Topic tags: ${answerTags.detail.map(labelForTag).join(", ")}.`
+    );
+  }
+  if (answerTags.ask.length) {
+    structuredBits.push(
+      `Ask tags: ${answerTags.ask.map(labelForTag).join(", ")}.`
+    );
+  }
 
   const lengthGuide =
     answers.length === "short"
@@ -112,6 +132,11 @@ Selected goals: ${goalLabels || "(none)"}
 
 Context notes (rewrite into prose — do not paste verbatim):
 ${describeAnswers(answers)}
+${
+  structuredBits.length
+    ? `\nConfirmed structured tags (use as meaning, not as labels in the email):\n${structuredBits.map((b) => `- ${b}`).join("\n")}`
+    : ""
+}
 
 Write the email now as JSON. Match the selected goals. Natural sentences only.`;
 
