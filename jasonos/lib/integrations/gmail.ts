@@ -37,6 +37,8 @@ export interface GmailThreadMessage {
   snippet?: string;
   plaintextBody?: string;
   htmlBody?: string;
+  /** RFC 822 Message-ID header (for Apple Mail message:// links). */
+  rfc822MessageId?: string;
 }
 
 export interface ResolvedJobAlertLink {
@@ -473,6 +475,7 @@ function mapGmailMessage(message: GmailMsgResp): GmailThreadMessage {
     snippet: message.snippet,
     plaintextBody: extractMimePart(message.payload, "text/plain"),
     htmlBody: extractMimePart(message.payload, "text/html"),
+    rfc822MessageId: get("Message-ID") ?? get("Message-Id") ?? undefined,
   };
 }
 

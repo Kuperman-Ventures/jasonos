@@ -1,21 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Inbox,
   RefreshCw,
   Copy,
   Check,
-  ExternalLink,
   ChevronDown,
   Clock3,
   CircleDollarSign,
   PlugZap,
+  Mail,
+  X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type {
   InboxDispatch,
   BoardingItem,
+  HoldingItem,
   Urgency,
 } from "@/lib/integrations/inbox-triage";
 
@@ -28,7 +31,8 @@ const EMPTY_DISPATCH: InboxDispatch = {
   noiseTotal: 0,
 };
 
-const STORAGE_KEY = "jasonos.inbox-dispatch.collapsed";
+const COLLAPSE_KEY = "jasonos.inbox-dispatch.collapsed";
+const DISMISS_KEY = "jasonos.inbox-dispatch.dismissed";
 
 const URGENCY: Record<
   Urgency,
@@ -64,11 +68,57 @@ function shortWhen(iso: string): string {
   return new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function readDismissed(): Set<string> {
+  try {
+    const raw = window.localStorage.getItem(DISMISS_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((x): x is string => typeof x === "string"));
+  } catch {
+    return new Set();
+  }
+}
+
+function writeDismissed(ids: Set<string>) {
+  try {
+    window.localStorage.setItem(DISMISS_KEY, JSON.stringify([...ids]));
+  } catch {
+    // ignore private-mode / quota errors
+  }
+}
+
+/** Copy draft (if any), then open the real message in Apple Mail. */
+async function openInAppleMail(opts: {
+  appleMailUrl: string | null;
+  draft?: string;
+}): Promise<void> {
+  if (!opts.appleMailUrl) {
+    toast.error(
+      "No Apple Mail link for this message. Is the account synced in Mail?"
+    );
+    return;
+  }
+  if (opts.draft?.trim()) {
+    try {
+      await navigator.clipboard.writeText(opts.draft);
+      toast.success("Draft copied — open Mail, hit Reply, then paste.");
+    } catch {
+      toast.message("Opening Mail — copy the draft manually if needed.");
+    }
+  } else {
+    toast.message("Opening in Apple Mail…");
+  }
+  // Navigate so Mail.app handles message:// (window.open is flaky for custom schemes).
+  window.location.href = opts.appleMailUrl;
+}
+
 export function InboxDispatchCard() {
   const [data, setData] = useState<InboxDispatch | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
   // Manual refresh (Refresh button) — event handler, safe to setState.
   const load = useCallback(async (refresh = false) => {
@@ -87,8 +137,7 @@ export function InboxDispatchCard() {
     }
   }, []);
 
-  // Initial fetch on mount. State is only set after the awaited fetch (never
-  // synchronously in the effect body) and guarded so a fast unmount is a no-op.
+  // Initial fetch on mount.
   useEffect(() => {
     let active = true;
     (async () => {
@@ -107,13 +156,14 @@ export function InboxDispatchCard() {
     };
   }, []);
 
-  // Read collapsed preference after mount (matches Morning Brief).
+  // Read collapsed + dismissed preferences after mount (avoid hydration mismatch).
   useEffect(() => {
     try {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (window.localStorage.getItem(STORAGE_KEY) === "1") setCollapsed(true);
+      if (window.localStorage.getItem(COLLAPSE_KEY) === "1") setCollapsed(true);
+      setDismissed(readDismissed());
     } catch {
-      // ignore private-mode / quota errors
+      // ignore
     }
   }, []);
 
@@ -121,7 +171,7 @@ export function InboxDispatchCard() {
     setCollapsed((prev) => {
       const next = !prev;
       try {
-        window.localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
+        window.localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
       } catch {
         // ignore
       }
@@ -129,7 +179,25 @@ export function InboxDispatchCard() {
     });
   };
 
-  const boardingCount = data?.boarding.length ?? 0;
+  const dismiss = (threadId: string) => {
+    setDismissed((prev) => {
+      const next = new Set(prev);
+      next.add(threadId);
+      writeDismissed(next);
+      return next;
+    });
+  };
+
+  const boarding = useMemo(
+    () => (data?.boarding ?? []).filter((b) => !dismissed.has(b.threadId)),
+    [data?.boarding, dismissed]
+  );
+  const holding = useMemo(
+    () => (data?.holding ?? []).filter((h) => !dismissed.has(h.threadId)),
+    [data?.holding, dismissed]
+  );
+
+  const boardingCount = boarding.length;
 
   return (
     <section className="overflow-hidden rounded-xl border bg-card">
@@ -161,7 +229,7 @@ export function InboxDispatchCard() {
               {loading
                 ? "Scanning your inbox…"
                 : data?.configured
-                  ? summarize(data)
+                  ? summarize(boardingCount, holding.length, data.noiseTotal)
                   : "Connect Gmail to see who needs a reply"}
             </p>
           </div>
@@ -176,7 +244,6 @@ export function InboxDispatchCard() {
           <RefreshCw className={cn("h-3 w-3", refreshing && "animate-spin")} />
           Refresh
         </button>
-        {/* Chevron after Refresh so it lines up with Morning Brief above. */}
         <button
           type="button"
           onClick={toggleCollapsed}
@@ -202,56 +269,39 @@ export function InboxDispatchCard() {
           <NotConnected />
         ) : (
           <div className="divide-y divide-border">
-            {/* BOARDING */}
             {boardingCount === 0 ? (
               <p className="px-4 py-8 text-center text-xs text-muted-foreground">
                 Inbox clear — nobody is waiting on a reply. Rare and beautiful.
               </p>
             ) : (
               <ul className="divide-y divide-border">
-                {data.boarding.map((item) => (
-                  <BoardingRow key={item.threadId} item={item} />
+                {boarding.map((item) => (
+                  <BoardingRow
+                    key={item.threadId}
+                    item={item}
+                    onDismiss={() => dismiss(item.threadId)}
+                  />
                 ))}
               </ul>
             )}
 
-            {/* HOLDING */}
-            {data.holding.length > 0 ? (
+            {holding.length > 0 ? (
               <div className="px-4 py-3">
                 <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                   Waiting on them
                 </p>
                 <ul className="space-y-1">
-                  {data.holding.map((h) => (
-                    <li
+                  {holding.map((h) => (
+                    <HoldingRow
                       key={h.threadId}
-                      className="flex items-center gap-2 text-[12px]"
-                    >
-                      <span className="truncate text-foreground/80">
-                        <span className="font-medium">{h.name}</span>
-                        <span className="ml-1.5 text-muted-foreground">
-                          {h.subject}
-                        </span>
-                      </span>
-                      <a
-                        href={h.gmailUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="ml-auto shrink-0 text-muted-foreground hover:text-foreground"
-                        title="Open thread"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                      <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
-                        {h.ageDays}d
-                      </span>
-                    </li>
+                      item={h}
+                      onDismiss={() => dismiss(h.threadId)}
+                    />
                   ))}
                 </ul>
               </div>
             ) : null}
 
-            {/* NOISE */}
             {data.noiseTotal > 0 ? (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-[11px] text-muted-foreground">
                 <span className="font-medium text-foreground/70">
@@ -278,15 +328,25 @@ export function InboxDispatchCard() {
   );
 }
 
-function summarize(d: InboxDispatch): string {
+function summarize(
+  boardingCount: number,
+  holdingCount: number,
+  noiseTotal: number
+): string {
   const parts: string[] = [];
-  parts.push(`${d.boarding.length} need you`);
-  if (d.holding.length) parts.push(`${d.holding.length} waiting`);
-  if (d.noiseTotal) parts.push(`${d.noiseTotal} noise`);
+  parts.push(`${boardingCount} need you`);
+  if (holdingCount) parts.push(`${holdingCount} waiting`);
+  if (noiseTotal) parts.push(`${noiseTotal} noise`);
   return parts.join(" · ");
 }
 
-function BoardingRow({ item }: { item: BoardingItem }) {
+function BoardingRow({
+  item,
+  onDismiss,
+}: {
+  item: BoardingItem;
+  onDismiss: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const u = URGENCY[item.urgency];
@@ -314,39 +374,52 @@ function BoardingRow({ item }: { item: BoardingItem }) {
               : "bg-amber-400/80"
         )}
       />
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-start gap-3 px-4 py-2.5 pl-5 text-left transition-colors hover:bg-muted/40"
-      >
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-medium">{item.name}</span>
-            <span
-              className={cn(
-                "flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide",
-                u.cls
-              )}
-            >
-              {u.icon}
-              {u.label}
-            </span>
-            <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground">
-              {shortWhen(item.receivedAt)}
-            </span>
+      <div className="flex items-start gap-1 pl-5">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="flex min-w-0 flex-1 items-start gap-3 px-4 py-2.5 pl-0 text-left transition-colors hover:bg-muted/40"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="truncate text-sm font-medium">{item.name}</span>
+              <span
+                className={cn(
+                  "flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+                  u.cls
+                )}
+              >
+                {u.icon}
+                {u.label}
+              </span>
+              <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                {shortWhen(item.receivedAt)}
+              </span>
+            </div>
+            <p className="truncate text-[12px] text-muted-foreground">
+              {item.subject}
+            </p>
+            <p className="mt-1 border-l-2 border-amber-500/25 pl-2 text-[12.5px] leading-snug text-foreground/90">
+              {item.elevator}
+            </p>
           </div>
-          <p className="truncate text-[12px] text-muted-foreground">{item.subject}</p>
-          <p className="mt-1 border-l-2 border-amber-500/25 pl-2 text-[12.5px] leading-snug text-foreground/90">
-            {item.elevator}
-          </p>
-        </div>
-        <ChevronDown
-          className={cn(
-            "mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-            open && "rotate-180"
-          )}
-        />
-      </button>
+          <ChevronDown
+            className={cn(
+              "mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+              open && "rotate-180"
+            )}
+          />
+        </button>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="mr-3 mt-2.5 shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
+          title="Dismiss"
+          aria-label={`Dismiss ${item.name}`}
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
 
       {open ? (
         <div className="px-4 pb-3 pl-5">
@@ -356,7 +429,7 @@ function BoardingRow({ item }: { item: BoardingItem }) {
             </pre>
           ) : (
             <p className="rounded-lg border bg-background/60 p-3 text-[12px] italic text-muted-foreground">
-              No draft generated — open the thread to reply.
+              No draft generated — open in Apple Mail to reply.
             </p>
           )}
           <div className="mt-2 flex flex-wrap gap-2">
@@ -366,21 +439,88 @@ function BoardingRow({ item }: { item: BoardingItem }) {
               disabled={!item.draft}
               className="flex items-center gap-1.5 rounded-md bg-amber-500/90 px-2.5 py-1.5 text-[12px] font-medium text-amber-950 transition hover:bg-amber-400 disabled:opacity-40"
             >
-              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? (
+                <Check className="h-3.5 w-3.5" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
               {copied ? "Copied" : "Copy draft"}
             </button>
-            <a
-              href={item.gmailUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={() =>
+                void openInAppleMail({
+                  appleMailUrl: item.appleMailUrl,
+                  draft: item.draft,
+                })
+              }
+              disabled={!item.appleMailUrl}
+              className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+              title={
+                item.appleMailUrl
+                  ? "Open this message in Apple Mail (draft copied)"
+                  : "Message-ID unavailable for Apple Mail"
+              }
+            >
+              <Mail className="h-3.5 w-3.5" />
+              Open in Apple Mail
+            </button>
+            <button
+              type="button"
+              onClick={onDismiss}
               className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
             >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Open thread
-            </a>
+              <X className="h-3.5 w-3.5" />
+              Dismiss
+            </button>
           </div>
         </div>
       ) : null}
+    </li>
+  );
+}
+
+function HoldingRow({
+  item,
+  onDismiss,
+}: {
+  item: HoldingItem;
+  onDismiss: () => void;
+}) {
+  return (
+    <li className="flex items-center gap-2 text-[12px]">
+      <span className="min-w-0 flex-1 truncate text-foreground/80">
+        <span className="font-medium">{item.name}</span>
+        <span className="ml-1.5 text-muted-foreground">{item.subject}</span>
+      </span>
+      <button
+        type="button"
+        onClick={() =>
+          void openInAppleMail({ appleMailUrl: item.appleMailUrl })
+        }
+        disabled={!item.appleMailUrl}
+        className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+        title={
+          item.appleMailUrl
+            ? "Open in Apple Mail"
+            : "Message-ID unavailable for Apple Mail"
+        }
+        aria-label={`Open ${item.name} in Apple Mail`}
+      >
+        <Mail className="h-3 w-3" />
+      </button>
+      <button
+        type="button"
+        onClick={onDismiss}
+        className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+        title="Dismiss"
+        aria-label={`Dismiss ${item.name}`}
+      >
+        <X className="h-3 w-3" />
+      </button>
+      <span className="shrink-0 tabular-nums text-[11px] text-muted-foreground">
+        {item.ageDays}d
+      </span>
     </li>
   );
 }
@@ -404,7 +544,7 @@ function NotConnected() {
       <p className="text-xs font-medium">Gmail not connected</p>
       <p className="max-w-xs text-[11px] text-muted-foreground">
         Connect Google in Settings and this fills with the threads actually
-        waiting on you — each with a draft in your voice, ready to copy.
+        waiting on you — each with a draft in your voice, ready for Apple Mail.
       </p>
     </div>
   );
