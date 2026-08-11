@@ -36,7 +36,7 @@ import {
 } from "@/lib/server-actions/meetings";
 import { addReferredContact } from "@/lib/server-actions/outreach";
 import type { TouchObjective } from "@/lib/outreach/types";
-import { cleanResearchBrief } from "@/lib/ai/research-clean";
+import { ResearchBriefView } from "@/components/jasonos/research-brief";
 
 const CHANNELS: { value: MeetingChannel; label: string }[] = [
   { value: "video", label: "Video" },
@@ -443,15 +443,12 @@ function PrepReadout({ meeting }: { meeting: Meeting }) {
             Recent news (AI web search)
           </button>
           {researchOpen ? (
-            <div className="mt-1 rounded-md border bg-background/40 p-2.5">
-              <p className="whitespace-pre-wrap leading-relaxed text-foreground/90">
-                {cleanResearchBrief(meeting.prepResearch ?? "")}
-              </p>
-              {meeting.prepResearchAt ? (
-                <p className="mt-2 text-[10px] text-muted-foreground">
-                  Searched {new Date(meeting.prepResearchAt).toLocaleString()}
-                </p>
-              ) : null}
+            <div className="mt-1.5">
+              <ResearchBriefView
+                raw={meeting.prepResearch ?? ""}
+                searchedAt={meeting.prepResearchAt}
+                compact
+              />
             </div>
           ) : null}
         </div>
@@ -581,20 +578,15 @@ function PrepForm({
           </Button>
         </div>
         {research ? (
-          <div className="rounded-md border bg-background/40 p-2.5 text-xs">
-            <p className="whitespace-pre-wrap leading-relaxed text-foreground/90">
-              {cleanResearchBrief(research)}
-            </p>
-            {researchAt ? (
-              <p className="mt-2 text-[10px] text-muted-foreground">
-                Searched {new Date(researchAt).toLocaleString()}
-              </p>
-            ) : null}
-          </div>
+          <ResearchBriefView
+            raw={research}
+            searchedAt={researchAt}
+            compact
+          />
         ) : (
           <p className="text-[11px] text-muted-foreground">
-            Pulls news from the last ~30 days about {""}
-            this person and their company.
+            Pulls news from the last ~30 days about this person and their
+            company, then shows findings as a readable brief.
           </p>
         )}
       </div>

@@ -9,7 +9,11 @@ import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { insertContactTouches, type TouchChannel } from "@/lib/outreach/touch-capture";
 import type { TouchObjective } from "@/lib/outreach/types";
-import { researchPersonNews, cleanResearchBrief } from "@/lib/ai/research";
+import { researchPersonNews } from "@/lib/ai/research";
+import {
+  buildResearchBriefModel,
+  serializeResearchBrief,
+} from "@/lib/ai/research-brief";
 
 export interface IntroWish {
   name: string;
@@ -282,19 +286,24 @@ export async function runMeetingResearch(
   let brief: string;
   try {
     const res = await researchPersonNews({ name, firm });
-    const sourceLines = res.sources.length
-      ? "\n\nSources:\n" +
-        res.sources
-          .slice(0, 8)
-          .map((s) => `- ${s.title ? `${s.title} — ` : ""}${s.url}`)
-          .join("\n")
-      : "";
-    const body = cleanResearchBrief(res.text);
-    brief =
-      (res.searched
-        ? body
-        : `${body}\n\n(Note: live web search returned no sources — treat the above as unverified.)`) +
-      sourceLines;
+    const who = firm ? `${name} (${firm})` : name;
+    const model = buildResearchBriefModel({
+      text: res.text,
+      sources: res.sources,
+      searched: res.searched,
+      emptyFallback: `No notable recent public news found for ${who}. Before the meeting, check LinkedIn activity, the company site, and Crunchbase/PitchBook directly.`,
+    });
+    brief = serializeResearchBrief(
+      !res.searched && !model.empty
+        ? {
+            ...model,
+            notes: [
+              ...model.notes,
+              "Live web search returned no sources — treat the above as unverified.",
+            ],
+          }
+        : model
+    );
   } catch (err) {
     console.error("[meetings.runMeetingResearch]", err);
     const message =
