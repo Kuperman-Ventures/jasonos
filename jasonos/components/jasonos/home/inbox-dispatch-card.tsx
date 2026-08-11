@@ -165,25 +165,33 @@ export function InboxDispatchCard() {
                   : "Connect Gmail to see who needs a reply"}
             </p>
           </div>
-          <ChevronDown
-            className={cn(
-              "ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-              collapsed && "-rotate-90"
-            )}
-          />
         </button>
         <button
           type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            void load(true);
-          }}
+          onClick={() => void load(true)}
           disabled={refreshing || loading}
           className="flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
           title="Re-run triage now"
         >
           <RefreshCw className={cn("h-3 w-3", refreshing && "animate-spin")} />
           Refresh
+        </button>
+        {/* Chevron after Refresh so it lines up with Morning Brief above. */}
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          aria-expanded={!collapsed}
+          aria-label={
+            collapsed ? "Expand Inbox Dispatch" : "Collapse Inbox Dispatch"
+          }
+          className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 transition-transform",
+              collapsed && "-rotate-90"
+            )}
+          />
         </button>
       </div>
 
