@@ -153,7 +153,9 @@ export function EmailBuilderClient() {
       if (!res.ok) {
         toast.warning(res.error);
       } else if (res.source === "fallback") {
-        toast.info("Drafting model unavailable - starter draft ready to edit.");
+        toast.info(
+          "Drafting model unavailable - used a local starter (your notes were rewritten into sentences, not pasted)."
+        );
       } else {
         toast.success("Draft ready. Edit and send from Mail.");
       }
