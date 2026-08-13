@@ -14,6 +14,7 @@ import {
   type CadenceStage,
   type TouchObjective,
 } from "@/lib/outreach/types";
+import { appendSyncLog } from "@/lib/outreach/sync-log";
 
 export type TouchChannel =
   | "email"
@@ -300,7 +301,8 @@ export async function insertContactTouches(
 }
 
 /**
- * Record a sync run's result into jasonos.outreach_sync_state.
+ * Record a sync run's result into jasonos.outreach_sync_state (latest per
+ * source) and append a row to jasonos.sync_log (full history).
  */
 export async function recordSyncState(
   source: TouchSource,
@@ -322,4 +324,5 @@ export async function recordSyncState(
       () => undefined,
       (err) => console.error("[outreach.recordSyncState]", err)
     );
+  await appendSyncLog(source, payload);
 }

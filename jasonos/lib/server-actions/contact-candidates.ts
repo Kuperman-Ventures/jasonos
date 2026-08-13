@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { appendSyncLog } from "@/lib/outreach/sync-log";
 import { listRecentCounterparties } from "@/lib/integrations/gmail";
 import {
   buildContactLookup,
@@ -155,6 +156,31 @@ export async function captureEmailCandidates(opts?: {
   | { ok: true; scanned: number; created: number; updated: number; skipped: number }
   | { ok: false; error: string }
 > {
+  const result = await captureEmailCandidatesInner(opts);
+  if (result.ok || result.error !== "Not configured") {
+    await appendSyncLog(
+      "suggested",
+      result.ok
+        ? {
+            ok: true,
+            scanned: result.scanned,
+            created: result.created,
+            updated: result.updated,
+            skipped: result.skipped,
+          }
+        : { ok: false, error: result.error }
+    );
+  }
+  return result;
+}
+
+async function captureEmailCandidatesInner(opts?: {
+  days?: number;
+  max?: number;
+}): Promise<
+  | { ok: true; scanned: number; created: number; updated: number; skipped: number }
+  | { ok: false; error: string }
+> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
 
   const days = opts?.days ?? 30;
@@ -276,6 +302,7 @@ export async function captureEmailCandidates(opts?: {
   await Promise.all(updates);
 
   revalidatePath("/outreach/suggested");
+  revalidatePath("/settings/sync-log");
   return { ok: true, scanned: scan.data.length, created, updated, skipped };
 }
 

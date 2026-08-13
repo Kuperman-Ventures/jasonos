@@ -56,13 +56,13 @@ const NAV: NavItem[] = [
     kind: "group",
     label: "Job Search",
     children: [
+      { href: "/scoreboard", label: "Scoreboard" },
       { href: "/job-alerts", label: "Job Alerts" },
       { href: "/interview-prep", label: "Interview Prep" },
       { href: "/browning", label: "Browning" },
       { href: "/activity", label: "Weekly Report" },
     ],
   },
-  { kind: "link", href: "/scoreboard", label: "Scoreboard" },
 
   { kind: "divider" },
 
@@ -96,6 +96,7 @@ const NAV: NavItem[] = [
     children: [
       { href: "/settings", label: "General" },
       { href: "/ai-usage", label: "AI Usage" },
+      { href: "/settings/sync-log", label: "Sync Log" },
     ],
   },
 ];
