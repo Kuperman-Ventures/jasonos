@@ -124,7 +124,13 @@ export async function syncOutreachFromGmail(opts?: {
     return errorResult("gmail", "Supabase service role is not configured.");
   }
   const gmailReady = await isGmailConnected();
-  if (!gmailReady) return errorResult("gmail", "Gmail is not connected.");
+  if (!gmailReady) {
+    await recordSyncState("gmail", {
+      ok: false,
+      error: "Gmail is not connected.",
+    });
+    return errorResult("gmail", "Gmail is not connected.");
+  }
 
   const lookup = await buildContactLookup();
   if (!lookup.rows.length) {
@@ -280,7 +286,13 @@ export async function syncOutreachFromCalendar(opts?: {
     return errorResult("gcal", "Supabase service role is not configured.");
   }
   const token = await getGoogleAccessToken();
-  if (!token) return errorResult("gcal", "Google Calendar is not connected.");
+  if (!token) {
+    await recordSyncState("gcal", {
+      ok: false,
+      error: "Google Calendar is not connected.",
+    });
+    return errorResult("gcal", "Google Calendar is not connected.");
+  }
 
   const lookup = await buildContactLookup();
   if (!lookup.rows.length) {
@@ -565,10 +577,9 @@ export async function syncOutreachFromBeeper(opts?: {
       return errorResult("beeper", err.message);
     }
     console.error("[outreach-sync.beeper]", err);
-    return errorResult(
-      "beeper",
-      err instanceof Error ? err.message : "Beeper sync failed."
-    );
+    const msg = err instanceof Error ? err.message : "Beeper sync failed.";
+    await recordSyncState("beeper", { ok: false, error: msg });
+    return errorResult("beeper", msg);
   }
 }
 
@@ -679,4 +690,5 @@ function revalidatePaths() {
   revalidatePath("/outreach/queue");
   revalidatePath("/outreach/schedule");
   revalidatePath("/outreach/people");
+  revalidatePath("/settings/sync-log");
 }
