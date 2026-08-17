@@ -72,5 +72,7 @@ TrailboundShell
 
 ## Verification
 
-- Manual: empty (clean start), demo, onboarding resume, reload persistence, export/import preview
-- Typecheck/lint: N/A for the HTML SPA; JasonOS wrapper page is a thin React route
+- `node --check` on extracted SPA script: pass
+- `tsc --noEmit` (JasonOS wrapper / nav): pass
+- Playwright iframe smoke: Today primary action, Journey nav, 9 readiness cards, complete-action toast, localStorage persists after reload
+- Manual still useful on preview: clean start, demo reload, onboarding resume, import preview cancel
