@@ -1,5 +1,6 @@
 // Job Alerts — harvests individual opportunities from the morning brief's
-// "## Job Alerts…" section (markdown-linked role bullets), and matches them
+// "## Job Alerts…" section (markdown-linked role bullets), with a fallback for
+// roles Claude nests under Email by Group → **Job search**. Matches them
 // against editable keyword capsules on the Job Alerts page.
 
 import "server-only";
@@ -137,6 +138,61 @@ function isJobAlertsHeading(heading: string): boolean {
   return false;
 }
 
+function isEmailByGroupHeading(heading: string): boolean {
+  return normKey(heading).includes("email by group");
+}
+
+/**
+ * Claude often nests $300k+ roles under Email by Group → **Job search**
+ * instead of a dedicated ## Job Alerts H2. Split that section on bold
+ * category headers and keep only the job-search chunks.
+ */
+function jobSearchChunksFromEmailGroup(body: string): string[] {
+  const lines = body.replace(/\r\n/g, "\n").split("\n");
+  const chunks: string[] = [];
+  let current: string[] | null = null;
+  let inJobSearch = false;
+
+  for (const line of lines) {
+    const boldHeader = line.match(/^\*\*([^*]+)\*\*/);
+    if (boldHeader) {
+      if (current && inJobSearch) chunks.push(current.join("\n"));
+      current = [line];
+      inJobSearch = /job search/i.test(boldHeader[1]);
+      continue;
+    }
+    if (current) current.push(line);
+  }
+  if (current && inJobSearch) chunks.push(current.join("\n"));
+  return chunks;
+}
+
+/** Prefer the "qualifying / $300k+" portion of a Job search chunk when present. */
+function focusQualifyingRoleBlock(chunk: string): string {
+  const cue =
+    /(?:qualifying roles?|clear(?:s|ed)? (?:your |the )?\$?\s*300|at\/?above|at or above|\$\s*300\s*k?\+|meets the bar|roles? (?:≥|>=)\s*\$?\s*300|\$\s*300\s*k?\+ (?:filter|scan|bar|roles?))[^\n]*\n([\s\S]*)/i;
+  const m = chunk.match(cue);
+  if (!m) return chunk;
+  return m[1].split(
+    /\n(?=(?:Everything else|Other unread|Just below|Explicitly below|Most of the|"?\d+ roles))/i
+  )[0];
+}
+
+function isLikelyRoleOpportunity(title: string): boolean {
+  const t = title.toLowerCase();
+  if (
+    /messaged you|connection|profile view|waiting on a connect|budget alert|digest|newsletter/i.test(
+      t
+    )
+  ) {
+    return false;
+  }
+  if (/\$\s*\d|\b\d{3},\d{3}\b|\bk\/y|\bup to\b/i.test(title)) return true;
+  return /\b(chief|cmo|ceo|cto|cfo|svp|evp|vp|head of|director|managing partner|founder|founding)\b/i.test(
+    title
+  );
+}
+
 /** Split raw markdown into ## sections (heading + body). */
 function splitH2Sections(
   md: string
@@ -254,8 +310,21 @@ export async function getJobAlerts(): Promise<JobAlertsData> {
     const sections = splitH2Sections(brief.content_md);
     let foundInBrief = false;
     for (const sec of sections) {
-      if (!isJobAlertsHeading(sec.heading)) continue;
-      const harvested = harvestOpportunities(sec.body);
+      let harvested: Harvested[] = [];
+      if (isJobAlertsHeading(sec.heading)) {
+        harvested = harvestOpportunities(sec.body);
+      } else if (isEmailByGroupHeading(sec.heading)) {
+        for (const chunk of jobSearchChunksFromEmailGroup(sec.body)) {
+          harvested.push(
+            ...harvestOpportunities(focusQualifyingRoleBlock(chunk)).filter(
+              (h) => isLikelyRoleOpportunity(h.title)
+            )
+          );
+        }
+      } else {
+        continue;
+      }
+
       for (const h of harvested) {
         const key = normKey(h.title);
         if (!key || seen.has(key)) continue;

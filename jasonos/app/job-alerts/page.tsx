@@ -118,14 +118,15 @@ export default async function JobAlertsPage() {
               </span>
             </div>
             <p className="border-b px-4 py-1.5 text-[11px] text-muted-foreground">
-              Roles Claude pulled from job-alert emails (usually $300K+). Ones
-              that hit your keywords float to the top.
+              Roles from the morning brief Job Alerts section (or Job search
+              under Email by Group), usually $300K+. Keyword matches float to
+              the top.
             </p>
             {data.opportunities.length === 0 ? (
               <p className="px-4 py-8 text-center text-xs text-muted-foreground">
                 No individual opportunities in recent morning briefs yet. When
-                Claude includes a &ldquo;Job Alerts&rdquo; section with linked
-                roles, they&rsquo;ll show up here.
+                Claude lists linked $300K+ roles in Job Alerts (or under Email
+                by Group → Job search), they&rsquo;ll show up here.
               </p>
             ) : (
               <ul className="divide-y divide-border">
