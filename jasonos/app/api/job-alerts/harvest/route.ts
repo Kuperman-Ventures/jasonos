@@ -1,8 +1,7 @@
-// GET /api/job-alerts/harvest
-// Scans the Gmail Job Alerts folder, extracts listing URLs, upserts rows.
+// GET /api/job-alerts/harvest  — cron (`?source=cron`) or `?refresh=1`
+// POST /api/job-alerts/harvest — Sync job alerts button on the page
 //
-// - ?source=cron: weekday Vercel cron (gated by CRON_SECRET when set).
-// - ?refresh=1: manual rescan from the Job Alerts page.
+// Scans the Gmail Job Alerts folder, extracts listing URLs, upserts rows.
 
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
@@ -12,13 +11,14 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-export async function GET(req: Request) {
+async function runHarvest(req: Request) {
   const url = new URL(req.url);
   const isCron = url.searchParams.get("source") === "cron";
   const refresh = url.searchParams.get("refresh") === "1";
-  if (!isCron && !refresh) {
+  const isPost = req.method === "POST";
+  if (!isCron && !refresh && !isPost) {
     return NextResponse.json(
-      { error: "pass ?refresh=1 or ?source=cron" },
+      { error: "pass ?refresh=1, POST, or ?source=cron" },
       { status: 400 }
     );
   }
@@ -36,4 +36,12 @@ export async function GET(req: Request) {
   return NextResponse.json(result, {
     headers: { "Cache-Control": "no-store" },
   });
+}
+
+export async function GET(req: Request) {
+  return runHarvest(req);
+}
+
+export async function POST(req: Request) {
+  return runHarvest(req);
 }
