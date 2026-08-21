@@ -21,6 +21,7 @@ import {
 import { MorningBriefAttention } from "@/components/jasonos/home/morning-brief-attention";
 import { BriefText } from "@/components/jasonos/home/brief-text";
 import { MorningBriefCollapse } from "@/components/jasonos/home/morning-brief-collapse";
+import { NewsletterDigest } from "@/components/jasonos/home/newsletter-digest";
 
 // Intercepts Claude's published markdown and lays it out as scannable
 // sections that match the rest of Home — attention first, then calendar,
@@ -144,35 +145,13 @@ function NewsletterBlock({
 }: {
   groups: ParsedMorningBrief["newsletters"];
 }) {
-  if (groups.length === 0) return null;
+  if (!groups.some((g) => g.stories.length > 0)) return null;
   return (
     <div>
       <SectionLabel icon={<Sparkles className="h-3.5 w-3.5" />}>
         Newsletter digest
       </SectionLabel>
-      <div className="grid gap-3 md:grid-cols-3">
-        {groups.map((g, i) => (
-          <div
-            key={`${g.title}-${i}`}
-            className="rounded-lg border bg-background/40 p-3"
-          >
-            <h4 className="mb-2 text-[12px] font-semibold tracking-tight">
-              {g.title}
-            </h4>
-            <ul className="space-y-1.5">
-              {g.items.map((item, j) => (
-                <li
-                  key={j}
-                  className="flex gap-2 text-[12px] leading-snug text-foreground/80"
-                >
-                  <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-emerald-400/70" />
-                  <BriefText text={item} />
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
+      <NewsletterDigest groups={groups} />
     </div>
   );
 }
