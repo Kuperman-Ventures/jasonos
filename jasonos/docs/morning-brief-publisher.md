@@ -34,7 +34,25 @@ Publisher tip: always include the Gmail **thread id** in the hash
 (`#all/<THREAD_ID>` or `#inbox/<THREAD_ID>`). A bare `mail.google.com/…#inbox`
 with no id can't be deep-linked to a specific message.
 
-Suggested section shape (unchanged):
+## Newsletter Digest buckets
+
+Home always shows three newsletter columns, in this order:
+
+1. Marketing and advertising
+2. AI in general
+3. AI in marketing and advertising
+
+Use those exact `###` headings. Each bullet is **one story**: markdown link,
+em-dash, then the full summary. Home shows a short teaser on the card; click
+opens the full summary.
+
+Older publisher headings still map:
+
+- `Marketing and Media News` / `Marketing & Media News` → Marketing and advertising
+- `AI and Business` → AI in general
+- `AI and Marketing` / `AI & Marketing` → AI in marketing and advertising
+
+Suggested section shape:
 
 ```md
 ## Email by Group
@@ -43,8 +61,15 @@ Suggested section shape (unchanged):
 - HubSpot delete request ([open](https://mail.google.com/…))
 
 ## Newsletter Digest
-**AI and Marketing**
-- [AI Visibility Pulse](https://example.com/article) — relevant to Peec.ai today
+
+### Marketing and advertising
+- [Holdco H1 earnings compared](https://example.com/article) — Publicis and Omnicom pulling away; WPP slowed its decline.
+
+### AI in general
+- [Anthropic revenue on track to exceed $65B](https://example.com/article) — 7x its pace at the end of last year.
+
+### AI in marketing and advertising
+- [AI Visibility Pulse](https://example.com/article) — relevant to Peec.ai today. Category eligibility inside the model now outranks SEO rank.
 
 ## Job Alerts: $300K+ Roles
 - [Chief Marketing Officer — Ladders: up to $450K/year](https://www.linkedin.com/jobs/view/123456)

@@ -85,6 +85,10 @@ const NAV: NavItem[] = [
         href: "/projects/professor-roadmap",
         label: "Professor Roadmap",
       },
+      {
+        href: "/projects/trailbound-at",
+        label: "Trailbound AT",
+      },
     ],
   },
 
