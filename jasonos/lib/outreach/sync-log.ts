@@ -16,6 +16,7 @@ export const SYNC_LOG_SOURCE_LABELS: Record<string, string> = {
   beeper: "Beeper",
   hubspot: "HubSpot",
   suggested: "Suggested",
+  "job-alerts": "Job Alerts",
 };
 
 export interface SyncLogEntry {

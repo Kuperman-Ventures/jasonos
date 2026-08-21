@@ -4,18 +4,32 @@ import {
   type JobOpportunity,
 } from "@/lib/data/job-alerts";
 import { KeywordCapsules } from "@/components/jasonos/job-alerts/keyword-capsules";
+import { ScanNowButton } from "@/components/jasonos/job-alerts/scan-now-button";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const metadata = { title: "Job Alerts · JasonOS" };
 
 function formatDate(ymd: string): string {
-  const d = new Date(`${ymd}T12:00:00Z`);
+  const d = new Date(/T/.test(ymd) ? ymd : `${ymd}T12:00:00Z`);
   return d.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
-    timeZone: "UTC",
+    timeZone: "America/New_York",
+  });
+}
+
+function formatScanTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return formatDate(iso);
+  return d.toLocaleString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/New_York",
   });
 }
 
@@ -40,6 +54,7 @@ function hostLabel(url: string | null): string | null {
 function OpportunityRow({ job }: { job: JobOpportunity }) {
   const href = job.url;
   const source = hostLabel(href);
+  const meta = [job.company, job.compensation, source].filter(Boolean).join(" · ");
   const titleNode = href ? (
     <a
       href={href}
@@ -58,8 +73,8 @@ function OpportunityRow({ job }: { job: JobOpportunity }) {
     <li className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
       <div className="min-w-0 flex-1">
         <p className="text-sm leading-snug">{titleNode}</p>
-        {source ? (
-          <p className="mt-1 text-[11px] text-muted-foreground">{source}</p>
+        {meta ? (
+          <p className="mt-1 text-[11px] text-muted-foreground">{meta}</p>
         ) : null}
       </div>
       <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
@@ -75,6 +90,7 @@ export default async function JobAlertsPage() {
     (o) => o.matchedKeywords.length > 0
   ).length;
   const listingCount = data.opportunities.filter((o) => o.jobUrl).length;
+  const folder = data.folderName ?? "Job Alerts";
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
@@ -82,15 +98,20 @@ export default async function JobAlertsPage() {
         <div className="mt-0.5 rounded-lg border bg-card p-2 text-amber-300">
           <Briefcase className="h-5 w-5" />
         </div>
-        <div className="min-w-0">
-          <h1 className="text-lg font-semibold tracking-tight">Job Alerts</h1>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-lg font-semibold tracking-tight">Job Alerts</h1>
+            <div className="ml-auto">
+              <ScanNowButton />
+            </div>
+          </div>
           <p className="text-xs text-muted-foreground">
-            Individual opportunities from your morning brief. Links open the
-            job listing when we can extract it from the alert email; otherwise
-            the Gmail conversation.
+            Listings pulled from your Gmail folder “{folder}”. Links open the
+            job posting when we can extract it; otherwise the Gmail
+            conversation.
             {data.lastScanDate
-              ? ` Last harvest ${formatDate(data.lastScanDate)}.`
-              : ""}
+              ? ` Last scan ${formatScanTime(data.lastScanDate)}.`
+              : " No scan yet — hit Scan now or wait for the weekday cron."}
           </p>
         </div>
       </header>
@@ -101,6 +122,18 @@ export default async function JobAlertsPage() {
         </div>
       ) : (
         <>
+          {data.harvestError ? (
+            <p className="rounded-lg border border-amber-400/30 bg-amber-500/10 px-4 py-2 text-[12px] text-amber-100/90">
+              {data.harvestError}
+            </p>
+          ) : null}
+          {!data.gmailConnected ? (
+            <p className="rounded-lg border px-4 py-2 text-[12px] text-muted-foreground">
+              Connect personal Gmail in Settings so the harvest can read the
+              folder.
+            </p>
+          ) : null}
+
           <KeywordCapsules initial={data.keywords} />
 
           <section className="overflow-hidden rounded-xl border bg-card">
@@ -118,14 +151,13 @@ export default async function JobAlertsPage() {
               </span>
             </div>
             <p className="border-b px-4 py-1.5 text-[11px] text-muted-foreground">
-              Roles Claude pulled from job-alert emails (usually $300K+). Ones
-              that hit your keywords float to the top.
+              New emails in that folder are scanned on a weekday schedule.
+              Keyword matches float to the top.
             </p>
             {data.opportunities.length === 0 ? (
               <p className="px-4 py-8 text-center text-xs text-muted-foreground">
-                No individual opportunities in recent morning briefs yet. When
-                Claude includes a &ldquo;Job Alerts&rdquo; section with linked
-                roles, they&rsquo;ll show up here.
+                No listings harvested yet. Hit Scan now to read the Gmail
+                folder, or wait for the next scheduled run.
               </p>
             ) : (
               <ul className="divide-y divide-border">

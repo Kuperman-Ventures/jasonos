@@ -47,6 +47,16 @@ export interface GmailThreadMessage {
   htmlBody?: string;
   /** RFC 822 Message-ID header (for Apple Mail message:// links). */
   rfc822MessageId?: string;
+  /** Epoch ms from Gmail internalDate, when fetched. */
+  internalDate?: number;
+  labelIds?: string[];
+}
+
+export interface GmailLabel {
+  id: string;
+  name: string;
+  type?: string;
+  messagesTotal?: number;
 }
 
 export interface ResolvedJobAlertLink {
@@ -412,6 +422,71 @@ export async function listRecentCounterparties(opts?: {
   }
 }
 
+export async function listGmailLabels(
+  accessToken?: string
+): Promise<GmailLabel[]> {
+  const access = await getAccessToken(accessToken);
+  if (!access) return [];
+  try {
+    const res = await gmailFetch<{ labels?: GmailLabel[] }>(
+      "/users/me/labels",
+      access
+    );
+    return res.labels ?? [];
+  } catch (err) {
+    console.error("[gmail] list labels failed:", err);
+    return [];
+  }
+}
+
+export async function listGmailMessages({
+  query,
+  labelIds,
+  max = 100,
+  accessToken,
+}: {
+  query?: string;
+  labelIds?: string[];
+  max?: number;
+  accessToken?: string;
+}): Promise<{ id: string; threadId: string }[]> {
+  const access = await getAccessToken(accessToken);
+  if (!access) return [];
+  const out: { id: string; threadId: string }[] = [];
+  let pageToken: string | undefined;
+  const q = query ? `&q=${encodeURIComponent(query)}` : "";
+  const labels = (labelIds ?? [])
+    .map((id) => `&labelIds=${encodeURIComponent(id)}`)
+    .join("");
+  try {
+    while (out.length < max) {
+      const pageSize = Math.min(100, max - out.length);
+      let path = `/users/me/messages?maxResults=${pageSize}${q}${labels}`;
+      if (pageToken) path += `&pageToken=${encodeURIComponent(pageToken)}`;
+      const list = await gmailFetch<GmailListResp>(path, access);
+      if (list.messages?.length) out.push(...list.messages);
+      pageToken = list.nextPageToken;
+      if (!pageToken) break;
+    }
+    return out;
+  } catch (err) {
+    console.error("[gmail] message list failed:", err);
+    return out;
+  }
+}
+
+export async function getGmailMessagesFull(
+  ids: string[],
+  accessToken?: string
+): Promise<GmailThreadMessage[]> {
+  const access = await getAccessToken(accessToken);
+  if (!access || ids.length === 0) return [];
+  const detailed = await mapWithConcurrency(ids, 4, (id) =>
+    gmailFetch<GmailMsgResp>(`/users/me/messages/${id}?format=full`, access)
+  );
+  return detailed.map(mapGmailMessage);
+}
+
 export async function searchGmailThreads({
   query,
   pageSize = 5,
@@ -540,6 +615,7 @@ function mapGmailMessage(message: GmailMsgResp): GmailThreadMessage {
   const headers = message.payload?.headers ?? [];
   const get = (name: string) =>
     headers.find((header) => header.name.toLowerCase() === name.toLowerCase())?.value;
+  const internalDate = message.internalDate ? Number(message.internalDate) : undefined;
 
   return {
     id: message.id,
@@ -553,6 +629,8 @@ function mapGmailMessage(message: GmailMsgResp): GmailThreadMessage {
     plaintextBody: extractMimePart(message.payload, "text/plain"),
     htmlBody: extractMimePart(message.payload, "text/html"),
     rfc822MessageId: get("Message-ID") ?? get("Message-Id") ?? undefined,
+    internalDate: Number.isFinite(internalDate) ? internalDate : undefined,
+    labelIds: message.labelIds,
   };
 }
 

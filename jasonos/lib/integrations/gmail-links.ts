@@ -32,8 +32,8 @@ export function gmailAccount(): string {
  * A permalink that opens a specific Gmail conversation in the right mailbox.
  * `#all/` resolves the thread wherever it lives (inbox, archive, or a label).
  */
-export function gmailThreadUrl(threadId: string): string {
-  const account = encodeURIComponent(gmailAccount());
+export function gmailThreadUrl(threadId: string, accountEmail?: string): string {
+  const account = encodeURIComponent(accountEmail || gmailAccount());
   return `https://mail.google.com/mail/u/${account}/#all/${threadId}`;
 }
 
