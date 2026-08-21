@@ -5,9 +5,11 @@
 // Claude's formatting drifts day to day:
 //   - Bold group headers may be alone on a line, OR followed by body text
 //     on the same line: **Job search — noise.** LinkedIn alerts…
-//   - Newsletter topics may live under ## Newsletter Digest (bold headers)
-//     OR nested inside Email by Group as italic headers (*AI and Marketing*).
-
+//   - Newsletter topics may live under ## Newsletter Digest as ### headings,
+//     **bold** headers, or italic headers (*AI and Marketing*), OR nested
+//     inside Email by Group. The Home UI always remaps them into three
+//     buckets: Marketing and advertising, AI in general, AI in marketing
+//     and advertising.
 export interface CalendarItem {
   time: string;
   text: string;
@@ -21,9 +23,33 @@ export interface EmailGroup {
   bullets: string[];
 }
 
-export interface NewsletterGroup {
+export const NEWSLETTER_GROUP_IDS = [
+  "marketing",
+  "ai-general",
+  "ai-marketing",
+] as const;
+
+export type NewsletterGroupId = (typeof NEWSLETTER_GROUP_IDS)[number];
+
+export const NEWSLETTER_GROUP_TITLES: Record<NewsletterGroupId, string> = {
+  marketing: "Marketing and advertising",
+  "ai-general": "AI in general",
+  "ai-marketing": "AI in marketing and advertising",
+};
+
+export interface NewsletterStory {
   title: string;
-  items: string[];
+  /** First sentence / truncated summary for the digest card. */
+  teaser: string;
+  /** Full published summary (markdown links kept). */
+  summary: string;
+  url: string | null;
+}
+
+export interface NewsletterGroup {
+  id: NewsletterGroupId;
+  title: string;
+  stories: NewsletterStory[];
 }
 
 export interface ExtraSection {
@@ -165,6 +191,148 @@ function matchItalicHeader(line: string): string | null {
   return title || null;
 }
 
+/** ### / #### topic header (today's Claude newsletter format). */
+function matchAtxTopicHeader(line: string): string | null {
+  const m = line.trim().match(/^#{3,6}\s+(.+)$/);
+  if (!m) return null;
+  const title = stripMdInline(m[1]).replace(/\.$/, "").trim();
+  return title || null;
+}
+
+function emptyNewsletterBuckets(): Record<NewsletterGroupId, NewsletterGroup> {
+  return {
+    marketing: {
+      id: "marketing",
+      title: NEWSLETTER_GROUP_TITLES.marketing,
+      stories: [],
+    },
+    "ai-general": {
+      id: "ai-general",
+      title: NEWSLETTER_GROUP_TITLES["ai-general"],
+      stories: [],
+    },
+    "ai-marketing": {
+      id: "ai-marketing",
+      title: NEWSLETTER_GROUP_TITLES["ai-marketing"],
+      stories: [],
+    },
+  };
+}
+
+function bucketsToGroups(
+  buckets: Record<NewsletterGroupId, NewsletterGroup>
+): NewsletterGroup[] {
+  const groups = NEWSLETTER_GROUP_IDS.map((id) => buckets[id]);
+  if (groups.every((g) => g.stories.length === 0)) return [];
+  return groups;
+}
+
+/** Map Claude's drifting topic titles onto the three Home buckets. */
+export function classifyNewsletterHeading(heading: string): NewsletterGroupId {
+  const n = heading
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const hasAi =
+    /\bai\b/.test(n) ||
+    n.includes("artificial intelligence") ||
+    n.includes("generative");
+  const hasMarketing =
+    /\b(market(?:ing|s)?|advertis(?:e|ing|ement|ements)?|brands?|cmo|martech|adtech|media)\b/.test(
+      n
+    );
+  // "AI and Marketing" / "AI in marketing and advertising"
+  if (hasAi && hasMarketing) return "ai-marketing";
+  // "AI and Business" / "AI in general" / leftover AI headings
+  if (hasAi) return "ai-general";
+  return "marketing";
+}
+
+function mdToPlain(s: string): string {
+  return s
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, "$1")
+    .replace(/https?:\/\/[^\s<>"'`)\]}]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function makeNewsletterTeaser(text: string, max = 140): string {
+  const t = mdToPlain(text);
+  if (!t) return "";
+  const sentence = t.split(/(?<=[.!?])\s+/)[0] ?? t;
+  if (sentence.length <= max) return sentence;
+  return `${sentence.slice(0, max - 1).trimEnd()}…`;
+}
+
+function firstMarkdownUrl(line: string): { label: string; url: string } | null {
+  const m = line.match(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/);
+  if (!m) return null;
+  return { label: m[1].trim(), url: m[2].trim() };
+}
+
+export function parseNewsletterStory(raw: string): NewsletterStory | null {
+  const line = raw.replace(/^[-*+]\s+/, "").replace(/^\d+\.\s+/, "").trim();
+  if (!line) return null;
+  if (/^[-*_]{3,}$/.test(line)) return null;
+
+  const mdAtStart = line.match(
+    /^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)(?:\s*[—–\-·:|]+\s*(.*))?$/s
+  );
+  if (mdAtStart) {
+    const title = mdAtStart[1].trim();
+    const url = mdAtStart[2].trim();
+    const rest = (mdAtStart[3] ?? "").trim();
+    const summary = rest || title;
+    return {
+      title,
+      url,
+      summary,
+      teaser: makeNewsletterTeaser(summary),
+    };
+  }
+
+  const dash = line.match(/^(.+?)\s+[—–]\s+(.+)$/);
+  const link = firstMarkdownUrl(line);
+  if (dash) {
+    const title = mdToPlain(dash[1]) || dash[1].trim();
+    const summary = dash[2].trim();
+    return {
+      title,
+      url: link?.url ?? null,
+      summary,
+      teaser: makeNewsletterTeaser(summary),
+    };
+  }
+
+  if (link) {
+    const summary = line;
+    return {
+      title: link.label,
+      url: link.url,
+      summary,
+      teaser: makeNewsletterTeaser(mdToPlain(line)),
+    };
+  }
+
+  const plain = mdToPlain(line);
+  if (!plain) return null;
+  const bare = line.match(/https?:\/\/[^\s<>"'`)\]}]+/);
+  return {
+    title: makeNewsletterTeaser(plain, 80) || plain,
+    url: bare?.[0] ?? null,
+    summary: line,
+    teaser: makeNewsletterTeaser(plain),
+  };
+}
+
+function storiesFromBody(body: string): NewsletterStory[] {
+  return topicItems(body)
+    .map(parseNewsletterStory)
+    .filter((s): s is NewsletterStory => s !== null);
+}
+
 /**
  * Split a section body on bold headers. Headers may stand alone or be followed
  * by body text on the same line (today's Claude format).
@@ -219,11 +387,14 @@ function splitTopicGroups(body: string): {
   let current: { header: string; body: string[] } | null = null;
 
   for (const raw of lines) {
-    const bold = matchBoldHeader(raw);
-    const italic = !bold ? matchItalicHeader(raw) : null;
-    if (bold || italic) {
+    const atx = matchAtxTopicHeader(raw);
+    const bold = !atx ? matchBoldHeader(raw) : null;
+    const italic = !atx && !bold ? matchItalicHeader(raw) : null;
+    if (atx || bold || italic) {
       if (current) topics.push({ header: current.header, body: current.body });
-      if (bold) {
+      if (atx) {
+        current = { header: atx, body: [] };
+      } else if (bold) {
         current = { header: bold.header, body: [] };
         if (bold.rest.trim()) current.body.push(bold.rest.trim());
       } else {
@@ -275,9 +446,23 @@ function topicItems(body: string): string[] {
   for (const raw of body.split("\n")) {
     const line = raw.trim();
     if (!line) continue;
-    if (/^[-*]\s+/.test(line) && !matchItalicHeader(line)) {
+    if (/^[-*_]{3,}$/.test(line)) continue;
+    if (matchAtxTopicHeader(line) || matchItalicHeader(line)) continue;
+    if (/^[-*]\s+/.test(line)) {
       items.push(stripMdInline(line.replace(/^[-*]\s+/, "")));
-    } else {
+      continue;
+    }
+    const numbered = line.match(/^\d+\.\s+(.+)$/);
+    if (numbered) {
+      items.push(stripMdInline(numbered[1]));
+      continue;
+    }
+    // Skip intro chrome ("Digest below.") unless it looks like a story.
+    if (
+      /https?:\/\//.test(line) ||
+      /\[[^\]]+\]\(https?:/.test(line) ||
+      /[—–]/.test(line)
+    ) {
       items.push(stripMdInline(line));
     }
   }
@@ -304,14 +489,10 @@ function parseEmailGroups(body: string): {
     // Newsletter / FYI buckets often nest topic digests (*Topic* + bullets)
     // instead of a separate ## Newsletter Digest section.
     if (isNewsletterBucket(title)) {
-      const { preface, topics } = splitTopicGroups(g.body);
-      if (topics.length > 0) {
-        for (const t of topics) {
-          nestedNewsletters.push({
-            title: t.header,
-            items: topicItems(t.body),
-          });
-        }
+      const nested = parseNewsletters(g.body);
+      if (nested.length > 0) {
+        mergeNewsletterGroups(nestedNewsletters, nested);
+        const { preface } = splitTopicGroups(g.body);
         const summary = bulletsAndParas(preface);
         groups.push({
           title,
@@ -334,20 +515,55 @@ function parseEmailGroups(body: string): {
   return { intro, groups, nestedNewsletters };
 }
 
-function parseNewsletters(body: string): NewsletterGroup[] {
-  const { topics } = splitTopicGroups(body);
-  // Fall back to bold-only split if no topic headers matched.
-  if (topics.length === 0) {
-    const { groups } = splitBoldGroups(body);
-    return groups.map((g) => ({
-      title: g.header,
-      items: topicItems(g.body),
-    }));
+function mergeNewsletterGroups(
+  into: NewsletterGroup[],
+  from: NewsletterGroup[]
+): void {
+  if (into.length === 0) {
+    into.push(...from.map((g) => ({ ...g, stories: [...g.stories] })));
+    return;
   }
-  return topics.map((t) => ({
-    title: t.header,
-    items: topicItems(t.body),
-  }));
+  const byId = new Map(into.map((g) => [g.id, g]));
+  for (const g of from) {
+    const dest = byId.get(g.id);
+    if (dest) dest.stories.push(...g.stories);
+    else into.push({ ...g, stories: [...g.stories] });
+  }
+}
+
+function parseNewsletters(body: string): NewsletterGroup[] {
+  const buckets = emptyNewsletterBuckets();
+  const { preface, topics } = splitTopicGroups(body);
+
+  const addUnder = (id: NewsletterGroupId, stories: NewsletterStory[]) => {
+    buckets[id].stories.push(...stories);
+  };
+
+  if (topics.length === 0) {
+    const stories = storiesFromBody(body);
+    for (const story of stories) {
+      addUnder(
+        classifyNewsletterHeading(`${story.title} ${story.summary}`),
+        [story]
+      );
+    }
+    return bucketsToGroups(buckets);
+  }
+
+  if (preface.trim()) {
+    for (const story of storiesFromBody(preface)) {
+      addUnder(
+        classifyNewsletterHeading(`${story.title} ${story.summary}`),
+        [story]
+      );
+    }
+  }
+
+  for (const t of topics) {
+    addUnder(classifyNewsletterHeading(t.header), storiesFromBody(t.body));
+  }
+
+  return bucketsToGroups(buckets);
 }
 
 export function parseMorningBrief(md: string): ParsedMorningBrief {
