@@ -7,23 +7,9 @@ import { normalizeGmailUrl } from "@/lib/integrations/gmail-links";
 import { listJobAlertKeywords } from "@/lib/server-actions/job-alert-keywords";
 import { getJobAlertHarvestState, type JobAlertHarvestResult } from "@/lib/data/job-alert-harvest";
 import { isGmailConnected } from "@/lib/integrations/gmail";
+import type { JobOpportunity } from "@/lib/data/job-alerts-types";
 
-export interface JobOpportunity {
-  id: string;
-  briefDate: string; // YYYY-MM-DD first seen
-  /** Role line without the URL, e.g. "Chief Marketing Officer — Ladders: up to $450K". */
-  title: string;
-  company: string | null;
-  compensation: string | null;
-  /** Best click-through: job listing when resolved, else Gmail conversation. */
-  url: string | null;
-  /** Direct posting URL when extracted from the alert email. */
-  jobUrl: string | null;
-  /** Canonical Gmail conversation permalink (fallback). */
-  gmailUrl: string | null;
-  /** Keywords that match this opportunity (used for sort; not shown in UI). */
-  matchedKeywords: string[];
-}
+export type { JobOpportunity } from "@/lib/data/job-alerts-types";
 
 export interface JobAlertsData {
   opportunities: JobOpportunity[];
@@ -148,8 +134,9 @@ export async function getJobAlerts(): Promise<JobAlertsData> {
     .select(
       "id,title,company,compensation,job_url,gmail_url,received_at,first_seen_at"
     )
+    .is("deleted_at", null)
     .order("received_at", { ascending: false })
-    .limit(250);
+    .limit(2000);
 
   if (error) {
     console.warn("[job-alerts] load failed:", error.message);

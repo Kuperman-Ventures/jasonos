@@ -1,5 +1,7 @@
 // Harvest job listings from a Gmail folder (label) into jasonos.job_opportunities.
 // Independent of the morning-brief publisher. Re-runs skip already-seen messages.
+// Sync never deletes rows. Listings stay until Jason removes them (soft-delete).
+// Soft-deleted fingerprints are not resurrected on a later scan.
 
 import "server-only";
 
@@ -404,11 +406,16 @@ export async function harvestJobAlertsFromGmail(): Promise<JobAlertHarvestResult
             },
             { onConflict: "fingerprint" }
           )
-          .select("id,first_seen_at,last_seen_at")
+          .select("id,first_seen_at,last_seen_at,deleted_at")
           .maybeSingle();
 
         if (error) {
           console.warn("[job-alert-harvest] upsert failed:", error.message);
+          skipped += 1;
+          continue;
+        }
+        if (data?.deleted_at) {
+          // Jason removed this listing. Leave it hidden.
           skipped += 1;
           continue;
         }
