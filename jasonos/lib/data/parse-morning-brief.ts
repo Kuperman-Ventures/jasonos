@@ -261,7 +261,8 @@ function mdToPlain(s: string): string {
 export function makeNewsletterTeaser(text: string, max = 140): string {
   const t = mdToPlain(text);
   if (!t) return "";
-  const sentence = t.split(/(?<=[.!?])\s+/)[0] ?? t;
+  const end = t.search(/[.!?]\s/);
+  const sentence = end === -1 ? t : t.slice(0, end + 1);
   if (sentence.length <= max) return sentence;
   return `${sentence.slice(0, max - 1).trimEnd()}…`;
 }
@@ -278,7 +279,7 @@ export function parseNewsletterStory(raw: string): NewsletterStory | null {
   if (/^[-*_]{3,}$/.test(line)) return null;
 
   const mdAtStart = line.match(
-    /^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)(?:\s*[—–\-·:|]+\s*(.*))?$/s
+    /^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)(?:\s*[—–\-·:|]+\s*(.*))?$/
   );
   if (mdAtStart) {
     const title = mdAtStart[1].trim();
@@ -373,6 +374,20 @@ function splitBoldGroups(body: string): {
   };
 }
 
+/** True for column titles (Marketing and Media News), not inline bold leads. */
+function isNewsletterTopicHeader(header: string): boolean {
+  const n = header
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!n || n.length > 80) return false;
+  return /\b(market(?:ing|s)?|media|advertis(?:e|ing)?|ai\b|artificial intelligence|business|general|digest|news)\b/.test(
+    n
+  );
+}
+
 /**
  * Split on bold OR italic topic headers (newsletter digest styles).
  * Lines before the first topic become `preface`.
@@ -386,10 +401,21 @@ function splitTopicGroups(body: string): {
   const topics: { header: string; body: string[] }[] = [];
   let current: { header: string; body: string[] } | null = null;
 
+  const pushBody = (line: string) => {
+    if (current) current.body.push(line);
+    else if (line.trim()) preface.push(line);
+  };
+
   for (const raw of lines) {
     const atx = matchAtxTopicHeader(raw);
     const bold = !atx ? matchBoldHeader(raw) : null;
     const italic = !atx && !bold ? matchItalicHeader(raw) : null;
+    if (bold && bold.rest.trim() && !isNewsletterTopicHeader(bold.header)) {
+      // Same-line bold lead-in, not a column title
+      // (e.g. **Crunchbase / prospecting:** no clean ICP fits…).
+      pushBody(`- ${bold.header} — ${bold.rest.trim()}`);
+      continue;
+    }
     if (atx || bold || italic) {
       if (current) topics.push({ header: current.header, body: current.body });
       if (atx) {
@@ -402,8 +428,7 @@ function splitTopicGroups(body: string): {
       }
       continue;
     }
-    if (current) current.body.push(raw);
-    else if (raw.trim()) preface.push(raw);
+    pushBody(raw);
   }
   if (current) topics.push({ header: current.header, body: current.body });
 

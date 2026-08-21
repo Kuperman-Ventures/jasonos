@@ -116,6 +116,25 @@ assert("bold marketing count", bold.newsletters[0]?.stories.length === 1);
 assert("bold ai-general count", bold.newsletters[1]?.stories.length === 1);
 assert("bold ai-marketing count", bold.newsletters[2]?.stories.length === 1);
 
+const leftover = parseMorningBrief(`# Morning Brief
+
+## Newsletter Digest
+
+### AI and Business
+
+- [Anthropic revenue](https://example.com/anth) — On track to exceed $65B.
+
+**Crunchbase / prospecting:** no clean ICP fits in today's rounds. Tabs belongs on a watchlist.
+`);
+
+assert("leftover bold is not a 4th column", leftover.newsletters.length === 3);
+assert(
+  "leftover bold stays in last AI group",
+  leftover.newsletters[1]?.stories.some((s) =>
+    s.title.toLowerCase().includes("crunchbase")
+  )
+);
+
 if (failed) {
   console.error(`\n${failed} failed`);
   process.exit(1);
