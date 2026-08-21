@@ -4,7 +4,6 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  Inbox,
   Newspaper,
   Sparkles,
 } from "lucide-react";
@@ -17,7 +16,6 @@ import {
 import { etToday } from "@/lib/dates";
 import {
   parseMorningBrief,
-  type EmailGroup,
   type ParsedMorningBrief,
 } from "@/lib/data/parse-morning-brief";
 import { MorningBriefAttention } from "@/components/jasonos/home/morning-brief-attention";
@@ -26,8 +24,8 @@ import { MorningBriefCollapse } from "@/components/jasonos/home/morning-brief-co
 
 // Intercepts Claude's published markdown and lays it out as scannable
 // sections that match the rest of Home — attention first, then calendar,
-// email groups, newsletter digest. Falls back to raw markdown if the brief
-// has no ## structure we recognize.
+// newsletter digest. Falls back to raw markdown if the brief has no ##
+// structure we recognize.
 
 function formatAsOf(ymd: string): string {
   const d = new Date(`${ymd}T12:00:00Z`);
@@ -69,34 +67,6 @@ const TODAY_HREF = "/";
 
 function briefHref(date: string): string {
   return `/?brief=${date}`;
-}
-
-function signalTone(meta: string | null): "hot" | "cool" | "mute" | "ok" {
-  if (!meta) return "ok";
-  const m = meta.toLowerCase();
-  if (m.includes("high signal") || m.includes("action")) return "hot";
-  if (m.includes("none") || m.includes("noise")) return "mute";
-  if (m.includes("unread") || m.includes("bulk")) return "cool";
-  return "ok";
-}
-
-function SignalBadge({ meta }: { meta: string }) {
-  const tone = signalTone(meta);
-  const cls =
-    tone === "hot"
-      ? "border-amber-400/40 bg-amber-500/15 text-amber-200"
-      : tone === "mute"
-        ? "border-border bg-muted/40 text-muted-foreground"
-        : tone === "cool"
-          ? "border-sky-400/30 bg-sky-500/10 text-sky-200"
-          : "border-border bg-background/60 text-muted-foreground";
-  return (
-    <span
-      className={`shrink-0 rounded-md border px-1.5 py-0.5 text-[10px] font-medium leading-none ${cls}`}
-    >
-      {meta}
-    </span>
-  );
 }
 
 function SectionLabel({
@@ -165,73 +135,6 @@ function CalendarBlock({
           </p>
         )
       ) : null}
-    </div>
-  );
-}
-
-function EmailGroupCard({ group }: { group: EmailGroup }) {
-  const empty =
-    !group.body &&
-    group.bullets.length === 0 &&
-    (group.meta?.toLowerCase().includes("none") ?? false);
-
-  return (
-    <div className="rounded-lg border bg-background/40 p-3">
-      <div className="mb-1.5 flex flex-wrap items-center gap-2">
-        <h4 className="text-sm font-semibold tracking-tight">{group.title}</h4>
-        {group.meta ? <SignalBadge meta={group.meta} /> : null}
-      </div>
-      {empty ? (
-        <p className="text-[12px] italic text-muted-foreground">Nothing in this bucket.</p>
-      ) : (
-        <>
-          {group.body
-            ? group.body.split(/\n\n+/).map((para, i) => (
-                <p
-                  key={i}
-                  className="mb-1.5 text-[13px] leading-relaxed text-foreground/85 last:mb-0"
-                >
-                  <BriefText text={para} />
-                </p>
-              ))
-            : null}
-          {group.bullets.length > 0 ? (
-            <ul className="mt-1 space-y-1">
-              {group.bullets.map((b, i) => (
-                <li
-                  key={i}
-                  className="flex gap-2 text-[13px] leading-snug text-foreground/85"
-                >
-                  <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-muted-foreground/70" />
-                  <BriefText text={b} />
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </>
-      )}
-    </div>
-  );
-}
-
-function EmailBlock({
-  intro,
-  groups,
-}: {
-  intro: string | null;
-  groups: EmailGroup[];
-}) {
-  if (groups.length === 0 && !intro) return null;
-  return (
-    <div>
-      <SectionLabel icon={<Inbox className="h-3.5 w-3.5" />} hint={intro}>
-        Email by group
-      </SectionLabel>
-      <div className="grid gap-2 md:grid-cols-2">
-        {groups.map((g, i) => (
-          <EmailGroupCard key={`${g.title}-${i}`} group={g} />
-        ))}
-      </div>
     </div>
   );
 }
@@ -312,7 +215,6 @@ function StructuredBrief({
     <div className="space-y-5 px-4 py-4">
       <MorningBriefAttention briefDate={briefDate} items={parsed.attention} />
       <CalendarBlock items={parsed.calendar} note={parsed.calendarNote} />
-      <EmailBlock intro={parsed.emailIntro} groups={parsed.emailGroups} />
       <NewsletterBlock groups={parsed.newsletters} />
       {parsed.extras.map((ex, i) => (
         <ExtraBlock key={`${ex.title}-${i}`} title={ex.title} bodyMd={ex.bodyMd} />
