@@ -111,7 +111,7 @@ export default async function JobAlertsPage() {
             conversation.
             {data.lastScanDate
               ? ` Last scan ${formatScanTime(data.lastScanDate)}.`
-              : " No scan yet — hit Scan now or wait for the weekday cron."}
+              : " No scan yet — hit Sync job alerts."}
           </p>
         </div>
       </header>
@@ -155,10 +155,13 @@ export default async function JobAlertsPage() {
               Keyword matches float to the top.
             </p>
             {data.opportunities.length === 0 ? (
-              <p className="px-4 py-8 text-center text-xs text-muted-foreground">
-                No listings harvested yet. Hit Scan now to read the Gmail
-                folder, or wait for the next scheduled run.
-              </p>
+              <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">
+                <p className="text-xs text-muted-foreground">
+                  No listings harvested yet. Sync now to read the Gmail folder,
+                  or wait for the next scheduled run.
+                </p>
+                <ScanNowButton prominent />
+              </div>
             ) : (
               <ul className="divide-y divide-border">
                 {data.opportunities.map((job) => (

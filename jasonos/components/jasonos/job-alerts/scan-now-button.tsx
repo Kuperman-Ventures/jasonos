@@ -1,59 +1,68 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
-export function ScanNowButton() {
+export function ScanNowButton({
+  prominent = false,
+}: {
+  /** Larger empty-state control. Header uses the compact outline button. */
+  prominent?: boolean;
+}) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
 
-  const scan = () => {
+  const scan = async () => {
+    if (busy) return;
     setBusy(true);
-    startTransition(async () => {
-      try {
-        const res = await fetch("/api/job-alerts/harvest?refresh=1", {
-          cache: "no-store",
-        });
-        const json = (await res.json()) as {
-          ok?: boolean;
-          inserted?: number;
-          duplicates?: number;
-          scanned?: number;
-          error?: string;
-          labelName?: string | null;
-        };
-        if (!res.ok || json.ok === false) {
-          toast.error(json.error || "Scan failed");
-          return;
-        }
-        const folder = json.labelName ? ` from ${json.labelName}` : "";
-        toast.success(
-          `Scanned ${json.scanned ?? 0} emails${folder} · ${json.inserted ?? 0} new`
-        );
+    try {
+      const res = await fetch("/api/job-alerts/harvest", {
+        method: "POST",
+        cache: "no-store",
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        inserted?: number;
+        duplicates?: number;
+        scanned?: number;
+        error?: string;
+        labelName?: string | null;
+      };
+      if (!res.ok || json.ok === false) {
+        toast.error(json.error || "Job alert sync failed");
         router.refresh();
-      } catch {
-        toast.error("Scan failed");
-      } finally {
-        setBusy(false);
+        return;
       }
-    });
+      const folder = json.labelName ? ` from ${json.labelName}` : "";
+      toast.success(
+        `Synced ${json.scanned ?? 0} emails${folder} · ${json.inserted ?? 0} new`
+      );
+      router.refresh();
+    } catch {
+      toast.error("Job alert sync failed");
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const spinning = busy || pending;
-
   return (
-    <button
+    <Button
       type="button"
-      onClick={scan}
-      disabled={spinning}
-      className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground disabled:opacity-50"
+      variant={prominent ? "default" : "outline"}
+      size={prominent ? "default" : "sm"}
+      className={prominent ? "h-9 gap-1.5" : "h-8 gap-1.5"}
+      onClick={() => void scan()}
+      disabled={busy}
     >
-      <RefreshCw className={cn("h-3 w-3", spinning && "animate-spin")} />
-      Scan now
-    </button>
+      {busy ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <RefreshCw className="h-3.5 w-3.5" />
+      )}
+      {busy ? "Syncing…" : "Sync job alerts"}
+    </Button>
   );
 }
