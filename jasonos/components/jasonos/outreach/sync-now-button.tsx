@@ -71,7 +71,11 @@ export function SyncNowButton({ initial }: SyncNowButtonProps) {
       const suggestedFatal =
         !suggested.ok && !/not connected/i.test(suggested.error);
       if (suggested.ok) {
-        messages.push(`Suggested +${suggested.created}`);
+        const staged =
+          (result.gmail?.candidatesStaged ?? 0) +
+          (result.gcal?.candidatesStaged ?? 0) +
+          suggested.created;
+        messages.push(`Suggested +${staged}`);
       } else if (suggestedFatal) {
         messages.push(`Suggested failed: ${suggested.error}`);
       }

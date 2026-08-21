@@ -11,6 +11,8 @@ import {
   getGoogleAccessToken,
   listGoogleAccessTokens,
 } from "@/lib/integrations/google-tokens";
+import { isMyOwnAddress } from "@/lib/outreach/email-matching";
+import { isCalendarProxyAddress } from "@/lib/outreach/mail-noise";
 
 export { type GCalEvent };
 
@@ -51,6 +53,8 @@ export interface CalendarApiEvent {
     organizer?: boolean;
     responseStatus?: string;
   }[];
+  organizer?: { email?: string; displayName?: string; self?: boolean };
+  attendeesOmitted?: boolean;
   htmlLink?: string;
   status?: string;
   hangoutLink?: string;
@@ -74,6 +78,37 @@ function calendarErrorMessage(calendarId: string, status: number, body: string):
 
 function eventDedupeKey(ev: CalendarApiEvent): string | null {
   return ev.iCalUID || ev.id || null;
+}
+
+/** Other people on an event: organizer + guests, minus Jason, rooms, and declined. */
+export function calendarEventGuests(
+  ev: CalendarApiEvent
+): { email: string; name?: string }[] {
+  const seen = new Set<string>();
+  const out: { email: string; name?: string }[] = [];
+  const add = (
+    email?: string,
+    name?: string,
+    opts?: { self?: boolean; declined?: boolean }
+  ) => {
+    if (!email || opts?.self || opts?.declined) return;
+    const lower = email.toLowerCase();
+    if (seen.has(lower)) return;
+    if (isMyOwnAddress(email) || isCalendarProxyAddress(email)) return;
+    seen.add(lower);
+    out.push({ email: lower, name: name?.trim() || undefined });
+  };
+
+  add(ev.organizer?.email, ev.organizer?.displayName, {
+    self: ev.organizer?.self,
+  });
+  for (const a of ev.attendees ?? []) {
+    add(a.email, a.displayName, {
+      self: a.self,
+      declined: a.responseStatus === "declined",
+    });
+  }
+  return out;
 }
 
 export function mergeCalendarEvents(lists: CalendarApiEvent[][]): CalendarApiEvent[] {

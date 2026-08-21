@@ -8,12 +8,18 @@ import {
 } from "@/lib/integrations/gmail";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import {
+  calendarEventGuests,
   fetchAllPersonalCalendarEvents,
+  fetchCalendarEvents,
 } from "@/lib/integrations/google-calendar";
 import {
   GOOGLE_GMAIL,
   listGoogleAccessTokens,
 } from "@/lib/integrations/google-tokens";
+import {
+  upsertCandidateSightings,
+  type CandidateSighting,
+} from "@/lib/outreach/candidate-capture";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
   buildContactLookup,
@@ -107,6 +113,8 @@ export interface SyncResult {
   error?: string;
   /** Soft skip — Beeper Desktop closed / unreachable / not configured. */
   unavailable?: boolean;
+  /** Unknown people staged onto Suggested this run. */
+  candidatesStaged?: number;
 }
 
 export interface SyncAllResult {
@@ -120,6 +128,18 @@ export interface SyncAllResult {
 // ---------------------------------------------------------------------------
 // Gmail sync — captures outbound emails from the last `daysBack` days.
 // ---------------------------------------------------------------------------
+
+function splitRecipientHeaders(...headers: (string | undefined)[]): string[] {
+  const out: string[] = [];
+  for (const header of headers) {
+    if (!header) continue;
+    for (const part of header.split(",")) {
+      const trimmed = part.trim();
+      if (trimmed) out.push(trimmed);
+    }
+  }
+  return out;
+}
 
 export async function syncOutreachFromGmail(opts?: {
   daysBack?: number;
@@ -142,19 +162,21 @@ export async function syncOutreachFromGmail(opts?: {
   }
 
   const lookup = await buildContactLookup();
-  if (!lookup.rows.length) {
-    await log({ written: 0, matched: 0, skipped: 0 });
-    return okResult("gmail", emptyInsertResult(), 0, 0);
-  }
-
   const afterEpoch = Math.floor((Date.now() - daysBack * 86_400_000) / 1000);
-  const touches: ContactTouchInput[] = [];
   const enrich: EnrichMap = new Map();
-  let skipped = 0;
   const mailboxTokens = await listGoogleAccessTokens();
+  const combined = emptyInsertResult();
+  let matchedTotal = 0;
+  let skippedTotal = 0;
+  let stagedTotal = 0;
+  const mailboxErrors: string[] = [];
 
-  try {
-    for (const { provider, token } of mailboxTokens) {
+  for (const { provider, token, accountEmail } of mailboxTokens) {
+    const touches: ContactTouchInput[] = [];
+    const sightings: CandidateSighting[] = [];
+    let skipped = 0;
+
+    try {
       const threads = await searchGmailThreads({
         query: `in:sent after:${afterEpoch}`,
         pageSize: 100,
@@ -168,50 +190,93 @@ export async function syncOutreachFromGmail(opts?: {
         for (const m of full.messages) {
           if (!m.from || !isFromMe(m.from)) continue;
           if (!m.date) continue;
-          if (new Date(m.date).getTime() < Date.now() - daysBack * 86_400_000) continue;
-          if (!m.to) continue;
-          if (isMyOwnAddress(m.to)) continue;
-
-          const contact = lookup.resolve(m.to);
-          if (!contact) {
-            skipped += 1;
+          if (new Date(m.date).getTime() < Date.now() - daysBack * 86_400_000) {
             continue;
           }
-          recordEnrich(enrich, contact, m.to);
+          const recipients = splitRecipientHeaders(m.to, m.cc);
+          if (!recipients.length) continue;
 
-          touches.push({
-            contact_id: contact.id,
-            channel: "email",
-            direction: "outbound",
-            touched_at: new Date(m.date).toISOString(),
-            source: "gmail",
-            // Advisors ids stay bare so existing rows still dedupe. Gmail gets a prefix.
-            external_id: provider === GOOGLE_GMAIL ? `gmail:${m.id}` : m.id,
-            brief: oneLine(m.plaintextBody) || m.snippet || "Email sent",
-            subject: m.subject ?? null,
-            thread_url: gmailThreadUrl(t.id),
-          });
+          const touchedAt = new Date(m.date).toISOString();
+          let firstMatched = true;
+          for (const raw of recipients) {
+            const email = extractEmail(raw);
+            if (!email || isMyOwnAddress(email)) continue;
+            const contact = lookup.resolve(raw);
+            if (!contact) {
+              skipped += 1;
+              sightings.push({
+                email,
+                name: raw.replace(/<[^>]+>/, "").replace(/["']/g, "").trim() || null,
+                dateIso: touchedAt,
+                subject: m.subject ?? null,
+                direction: "outbound",
+              });
+              continue;
+            }
+            recordEnrich(enrich, contact, email);
+            const id =
+              provider === GOOGLE_GMAIL
+                ? firstMatched
+                  ? `gmail:${m.id}`
+                  : `gmail:${m.id}::${contact.id}`
+                : firstMatched
+                  ? m.id
+                  : `${m.id}::${contact.id}`;
+            firstMatched = false;
+            touches.push({
+              contact_id: contact.id,
+              channel: "email",
+              direction: "outbound",
+              touched_at: touchedAt,
+              source: "gmail",
+              // Advisors ids stay bare so existing rows still dedupe. Gmail gets a prefix.
+              external_id: id,
+              brief: oneLine(m.plaintextBody) || m.snippet || "Email sent",
+              subject: m.subject ?? null,
+              thread_url: gmailThreadUrl(t.id),
+            });
+          }
         }
       }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      mailboxErrors.push(`${accountEmail}: ${msg}`);
+      await log({ accountEmail, ok: false, error: msg });
+      continue;
     }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    await log({ error: msg });
-    return errorResult("gmail", msg);
+
+    const insertResult = await insertContactTouches(touches);
+    const staged = await upsertCandidateSightings(sightings, lookup);
+    combined.inserted += insertResult.inserted;
+    combined.duplicates += insertResult.duplicates;
+    combined.cadenceUpdates += insertResult.cadenceUpdates;
+    combined.errors.push(...insertResult.errors);
+    matchedTotal += touches.length;
+    skippedTotal += skipped;
+    stagedTotal += staged.created;
+    await log({
+      accountEmail,
+      matched: touches.length,
+      inserted: insertResult.inserted,
+      duplicates: insertResult.duplicates,
+      cadenceUpdates: insertResult.cadenceUpdates,
+      skipped,
+      candidatesStaged: staged.created,
+      unmatchedNames: staged.newNames,
+      errors: insertResult.errors,
+    });
   }
 
-  const insertResult = await insertContactTouches(touches);
   await applyEmailEnrichments(enrich);
-  await log({
-    matched: touches.length,
-    inserted: insertResult.inserted,
-    duplicates: insertResult.duplicates,
-    cadenceUpdates: insertResult.cadenceUpdates,
-    skipped,
-    errors: insertResult.errors,
-  });
   revalidatePaths();
-  return okResult("gmail", insertResult, touches.length, skipped);
+
+  if (!mailboxTokens.length) {
+    return errorResult("gmail", "Gmail is not connected.");
+  }
+  if (mailboxErrors.length && !combined.inserted && !matchedTotal) {
+    return errorResult("gmail", mailboxErrors.join(" · "));
+  }
+  return okResult("gmail", combined, matchedTotal, skippedTotal, stagedTotal);
 }
 
 // ---------------------------------------------------------------------------
@@ -236,122 +301,160 @@ export async function syncOutreachFromCalendar(opts?: {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return errorResult("gcal", "Supabase service role is not configured.");
   }
-  const lookup = await buildContactLookup();
-  if (!lookup.rows.length) {
-    await log({ matched: 0 });
-    return okResult("gcal", emptyInsertResult(), 0, 0);
+
+  const mailboxTokens = await listGoogleAccessTokens();
+  if (!mailboxTokens.length) {
+    await log({ error: "Google Calendar is not connected." });
+    return errorResult("gcal", "Google Calendar is not connected.");
   }
 
+  const lookup = await buildContactLookup();
   const now = Date.now();
   const timeMin = new Date(now - daysBack * 86_400_000).toISOString();
   const timeMax = new Date(now + daysForward * 86_400_000).toISOString();
-
-  const { events, error, warnings } = await fetchAllPersonalCalendarEvents({
-    timeMin,
-    timeMax,
-  });
-  const fetchWarning = [error, ...warnings].filter(Boolean).join(" · ") || undefined;
-  if (error && events.length === 0) {
-    await log({ error });
-    return errorResult("gcal", error);
-  }
-  if (fetchWarning) {
-    console.warn("[outreach-sync.gcal] calendar fetch:", fetchWarning);
-  }
-
-  const touches: ContactTouchInput[] = [];
-  const meetingRows: CalendarMeetingUpsert[] = [];
   const enrich: EnrichMap = new Map();
-  let skipped = 0;
+  const combined = emptyInsertResult();
+  let matchedTotal = 0;
+  let skippedTotal = 0;
+  let stagedTotal = 0;
+  const mailboxErrors: string[] = [];
+  let migrationError: string | null = null;
 
-  for (const ev of events) {
-    if (!ev.id) continue;
-    const eventId = ev.id;
-    if (ev.status === "cancelled") continue;
-    // Timed events preferred; all-day events use noon local so they still link.
-    const startISO = ev.start?.dateTime
-      ? new Date(ev.start.dateTime).toISOString()
-      : ev.start?.date
-        ? new Date(`${ev.start.date}T12:00:00`).toISOString()
-        : null;
-    if (!startISO) continue;
+  for (const { token, accountEmail } of mailboxTokens) {
+    const fetched = await fetchCalendarEvents({
+      token,
+      calendarId: "primary",
+      timeMin,
+      timeMax,
+    });
+    if (fetched.error && !fetched.events.length) {
+      mailboxErrors.push(`${accountEmail}: ${fetched.error}`);
+      await log({ accountEmail, ok: false, error: fetched.error });
+      continue;
+    }
+    if (fetched.error) {
+      console.warn("[outreach-sync.gcal]", accountEmail, fetched.error);
+    }
 
-    const isPastOrStarted = new Date(startISO).getTime() <= now;
-    const attendees = ev.attendees ?? [];
-    const otherAttendees = attendees.filter(
-      (a) => a.email && !a.self && !isMyOwnAddress(a.email)
-    );
-    if (!otherAttendees.length) continue;
+    const touches: ContactTouchInput[] = [];
+    const meetingRows: CalendarMeetingUpsert[] = [];
+    const sightings: CandidateSighting[] = [];
+    let skipped = 0;
 
-    let matchedAny = false;
-    for (const a of otherAttendees) {
-      const header = a.displayName ? `${a.displayName} <${a.email}>` : a.email!;
-      const contact = lookup.resolve(header);
-      if (!contact) continue;
-      // Skip declined attendees — they didn't / won't meet.
-      if (a.responseStatus === "declined") continue;
+    for (const ev of fetched.events) {
+      if (!ev.id || ev.status === "cancelled") continue;
+      const eventId = ev.id;
+      // Timed events preferred; all-day events use noon local so they still link.
+      const startISO = ev.start?.dateTime
+        ? new Date(ev.start.dateTime).toISOString()
+        : ev.start?.date
+          ? new Date(`${ev.start.date}T12:00:00`).toISOString()
+          : null;
+      if (!startISO) continue;
 
-      matchedAny = true;
-      if (a.email) recordEnrich(enrich, contact, a.email);
+      const isPastOrStarted = new Date(startISO).getTime() <= now;
+      const guests = calendarEventGuests(ev);
+      if (!guests.length) continue;
 
-      const title = ev.summary?.trim() || "Meeting";
-      meetingRows.push({
-        contactId: contact.id,
-        gcalEventId: eventId,
-        scheduledAt: startISO,
-        title,
-        calendarUrl: ev.htmlLink ?? null,
-        status: isPastOrStarted ? "held" : "scheduled",
-      });
+      let matchedAny = false;
+      for (const guest of guests) {
+        const header = guest.name
+          ? `${guest.name} <${guest.email}>`
+          : guest.email;
+        const contact = lookup.resolve(header);
+        if (!contact) {
+          sightings.push({
+            email: guest.email,
+            name: guest.name ?? null,
+            dateIso: startISO,
+            subject: ev.summary?.trim() || "Meeting",
+            direction: "inbound",
+          });
+          continue;
+        }
 
-      // Cadence touches only for meetings that have started.
-      if (isPastOrStarted) {
-        touches.push({
-          contact_id: contact.id,
-          channel: "calendar",
-          direction: "outbound",
-          touched_at: startISO,
-          source: "gcal",
-          external_id: `${eventId}::${contact.id}`,
-          brief: title,
-          subject: ev.summary ?? null,
-          thread_url: ev.htmlLink ?? null,
+        matchedAny = true;
+        recordEnrich(enrich, contact, guest.email);
+        const title = ev.summary?.trim() || "Meeting";
+        meetingRows.push({
+          contactId: contact.id,
+          gcalEventId: eventId,
+          scheduledAt: startISO,
+          title,
+          calendarUrl: ev.htmlLink ?? null,
+          status: isPastOrStarted ? "held" : "scheduled",
         });
+
+        if (isPastOrStarted) {
+          touches.push({
+            contact_id: contact.id,
+            channel: "calendar",
+            direction: "outbound",
+            touched_at: startISO,
+            source: "gcal",
+            external_id: `${eventId}::${contact.id}`,
+            brief: title,
+            subject: ev.summary ?? null,
+            thread_url: ev.htmlLink ?? null,
+          });
+        }
+      }
+      if (!matchedAny) skipped += 1;
+    }
+
+    const insertResult = await insertContactTouches(touches);
+    const meetingResult = await upsertMeetingsFromCalendar(meetingRows);
+    const staged = await upsertCandidateSightings(sightings, lookup);
+    combined.inserted += insertResult.inserted;
+    combined.duplicates += insertResult.duplicates;
+    combined.cadenceUpdates += insertResult.cadenceUpdates;
+    combined.errors.push(...insertResult.errors, ...meetingResult.errors);
+    matchedTotal += meetingRows.length;
+    skippedTotal += skipped;
+    stagedTotal += staged.created;
+
+    if (
+      meetingResult.errors.length &&
+      !insertResult.inserted &&
+      !meetingResult.inserted
+    ) {
+      const msg = meetingResult.errors.join("; ");
+      if (/gcal_event_id|column/i.test(msg)) {
+        migrationError = msg;
       }
     }
-    if (!matchedAny) skipped += 1;
+
+    await log({
+      accountEmail,
+      matched: meetingRows.length,
+      inserted: insertResult.inserted,
+      duplicates: insertResult.duplicates,
+      cadenceUpdates: insertResult.cadenceUpdates,
+      meetingsInserted: meetingResult.inserted,
+      meetingsUpdated: meetingResult.updated,
+      skipped,
+      candidatesStaged: staged.created,
+      unmatchedNames: staged.newNames,
+      pagesFetched: true,
+      eventCount: fetched.events.length,
+      errors: [...insertResult.errors, ...meetingResult.errors],
+      ...(fetched.error ? { fetchWarning: fetched.error } : {}),
+    });
   }
 
-  const insertResult = await insertContactTouches(touches);
-  const meetingResult = await upsertMeetingsFromCalendar(meetingRows);
   await applyEmailEnrichments(enrich);
-  await log({
-    matched: meetingRows.length,
-    inserted: insertResult.inserted,
-    duplicates: insertResult.duplicates,
-    cadenceUpdates: insertResult.cadenceUpdates,
-    meetingsInserted: meetingResult.inserted,
-    meetingsUpdated: meetingResult.updated,
-    skipped,
-    pagesFetched: true,
-    eventCount: events.length,
-    errors: [...insertResult.errors, ...meetingResult.errors],
-    ...(fetchWarning ? { fetchWarning } : {}),
-  });
   revalidatePaths();
 
-  if (meetingResult.errors.length && !insertResult.inserted && !meetingResult.inserted) {
-    const msg = meetingResult.errors.join("; ");
-    // Missing migration is the common cause — surface it rather than a silent zero.
-    if (/gcal_event_id|column/i.test(msg)) {
-      return errorResult(
-        "gcal",
-        `Meetings tab sync needs migration 0052_meetings_gcal_link.sql applied (${msg})`
-      );
-    }
+  if (migrationError) {
+    return errorResult(
+      "gcal",
+      `Meetings tab sync needs migration 0052_meetings_gcal_link.sql applied (${migrationError})`
+    );
   }
-
-  return okResult("gcal", insertResult, meetingRows.length, skipped);
+  if (mailboxErrors.length && !matchedTotal && !combined.inserted) {
+    return errorResult("gcal", mailboxErrors.join(" · "));
+  }
+  return okResult("gcal", combined, matchedTotal, skippedTotal, stagedTotal);
 }
 
 // ---------------------------------------------------------------------------
@@ -385,10 +488,8 @@ export async function getUpcomingCalendarMeetings(opts?: {
     const startISO = ev.start?.dateTime ?? null;
     if (!startISO) continue;
     if (new Date(startISO).getTime() < now) continue; // future only
-    for (const a of ev.attendees ?? []) {
-      if (!a.email || a.self || isMyOwnAddress(a.email)) continue;
-      if (a.responseStatus === "declined") continue;
-      const header = a.displayName ? `${a.displayName} <${a.email}>` : a.email;
+    for (const a of calendarEventGuests(ev)) {
+      const header = a.name ? `${a.name} <${a.email}>` : a.email;
       const contact = lookup.resolve(header);
       if (!contact) continue;
       const key = `${contact.id}::${startISO}`;
@@ -598,7 +699,8 @@ function okResult(
   source: SyncResultSource,
   insert: InsertTouchesResult,
   matched: number,
-  skipped: number
+  skipped: number,
+  candidatesStaged = 0
 ): SyncResult {
   return {
     ok: true,
@@ -608,6 +710,7 @@ function okResult(
     duplicates: insert.duplicates,
     cadenceUpdates: insert.cadenceUpdates,
     skipped,
+    candidatesStaged,
     error: insert.errors.length ? insert.errors.join("; ") : undefined,
   };
 }
@@ -642,5 +745,6 @@ function revalidatePaths() {
   revalidatePath("/outreach/queue");
   revalidatePath("/outreach/schedule");
   revalidatePath("/outreach/people");
+  revalidatePath("/outreach/suggested");
   revalidatePath("/settings/sync-log");
 }

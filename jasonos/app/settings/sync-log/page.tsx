@@ -2,7 +2,7 @@ import { ChevronDown, RefreshCw } from "lucide-react";
 import {
   getSyncLog,
   groupSyncLog,
-  SYNC_LOG_SOURCE_LABELS,
+  syncLogSourceTitle,
   type SyncLogInstance,
 } from "@/lib/outreach/sync-log";
 import { APP_TZ } from "@/lib/dates";
@@ -23,9 +23,9 @@ function fmtWhen(iso: string) {
 }
 
 function sourceList(instance: SyncLogInstance) {
-  return instance.entries
-    .map((row) => SYNC_LOG_SOURCE_LABELS[row.source] ?? row.source)
-    .join(" · ");
+  return [...new Set(instance.entries.map((row) => syncLogSourceTitle(row.source, row.result)))].join(
+    " · "
+  );
 }
 
 export default async function SyncLogPage() {
@@ -41,8 +41,8 @@ export default async function SyncLogPage() {
         <div className="min-w-0">
           <h1 className="text-lg font-semibold tracking-tight">Sync Log</h1>
           <p className="text-xs text-muted-foreground">
-            Each Sync click is one row. Expand it to see Gmail, Calendar,
-            Beeper, and Suggested from that run.
+            Each Sync click is one row. Expand it to see each mailbox,
+            Calendar, Beeper, and Suggested from that run.
           </p>
         </div>
       </header>
@@ -112,7 +112,7 @@ export default async function SyncLogPage() {
                               aria-hidden
                             />
                             <span className="font-medium">
-                              {SYNC_LOG_SOURCE_LABELS[row.source] ?? row.source}
+                              {syncLogSourceTitle(row.source, row.result)}
                             </span>
                           </p>
                           <p className="mt-1 pl-3.5 text-[12px] text-muted-foreground">

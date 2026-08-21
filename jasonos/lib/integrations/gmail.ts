@@ -3,6 +3,7 @@
 // (provider='google'). Falls back to empty + configured:false if no token.
 
 import "server-only";
+import { emptyResult, type IntegrationResult } from "./_base";
 import { isFromMe } from "@/lib/outreach/email-matching";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import { pickJobListingUrl } from "@/lib/integrations/job-listing-urls";
@@ -10,7 +11,10 @@ import {
   getGoogleAccessToken,
   listGoogleAccessTokens,
 } from "@/lib/integrations/google-tokens";
-import { emptyResult, type IntegrationResult } from "./_base";
+import {
+  isCalendarInviteSubject,
+  isCalendarProxyAddress,
+} from "@/lib/outreach/mail-noise";
 
 export interface GmailReply {
   id: string;
@@ -35,6 +39,7 @@ export interface GmailThreadMessage {
   threadId: string;
   from?: string;
   to?: string;
+  cc?: string;
   subject?: string;
   date?: string;
   snippet?: string;
@@ -121,6 +126,7 @@ async function mapWithConcurrency<T, R>(
 
 interface GmailListResp {
   messages?: { id: string; threadId: string }[];
+  nextPageToken?: string;
 }
 interface GmailThreadsListResp {
   threads?: GmailThread[];
@@ -228,9 +234,55 @@ export interface EmailCounterparty {
   dateIso: string;
   /** Message carried bulk/list headers (newsletter, marketing, automated). */
   bulk: boolean;
+  accountEmail: string;
 }
 
-/** Split a To/Cc header ("A <a@x>, b@y") into individual address tokens. */
+async function listMessageIds(
+  access: string,
+  query: string,
+  max: number
+): Promise<{ id: string; threadId: string }[]> {
+  const out: { id: string; threadId: string }[] = [];
+  let pageToken: string | undefined;
+  const q = encodeURIComponent(query);
+  while (out.length < max) {
+    const pageSize = Math.min(100, max - out.length);
+    let path = `/users/me/messages?maxResults=${pageSize}&q=${q}`;
+    if (pageToken) path += `&pageToken=${encodeURIComponent(pageToken)}`;
+    const list = await gmailFetch<GmailListResp>(path, access);
+    if (list.messages?.length) out.push(...list.messages);
+    pageToken = list.nextPageToken;
+    if (!pageToken) break;
+  }
+  return out;
+}
+
+function pickInboundPerson(
+  fromHeader: string,
+  replyToHeader: string | undefined,
+  senderHeader: string | undefined,
+  subject: string | undefined
+): { email: string; name?: string } | null {
+  const from = parseFrom(fromHeader);
+  const replyTo = parseFrom(replyToHeader);
+  const sender = parseFrom(senderHeader);
+  const invite =
+    isCalendarProxyAddress(from.email) || isCalendarInviteSubject(subject);
+
+  const candidates = invite
+    ? [replyTo, sender, from]
+    : [from, replyTo, sender];
+
+  for (const person of candidates) {
+    if (!person.email) continue;
+    if (isCalendarProxyAddress(person.email)) continue;
+    return {
+      email: person.email.toLowerCase(),
+      name: person.name || from.name,
+    };
+  }
+  return null;
+}
 function splitAddresses(value: string | undefined): string[] {
   if (!value) return [];
   return value
@@ -241,24 +293,23 @@ function splitAddresses(value: string | undefined): string[] {
 
 /**
  * Scan recent mail (both directions) and return the counterparties — the
- * non-me addresses on each message — with direction, subject, timestamp, and
- * a `bulk` flag derived from list/precedence headers. Feeds the Suggested
- * Contacts capture flow. Uses the same read scope as getOvernightReplies.
+ * non-me addresses on each message. Calendar invites use Reply-To so the
+ * organizer, not calendar-notification@google.com, is the person.
  */
 async function listCounterpartiesForToken(
   access: string,
   afterEpoch: number,
-  max: number
+  max: number,
+  accountEmail: string
 ): Promise<EmailCounterparty[]> {
-  const q = encodeURIComponent(`-in:chats after:${afterEpoch}`);
-  const list = await gmailFetch<GmailListResp>(
-    `/users/me/messages?maxResults=${max}&q=${q}`,
-    access
+  const messages = await listMessageIds(
+    access,
+    `-in:chats after:${afterEpoch}`,
+    max
   );
-  const messages = list.messages ?? [];
   const detailed = await mapWithConcurrency(messages, 5, (m) =>
     gmailFetch<GmailMsgResp>(
-      `/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=List-Unsubscribe&metadataHeaders=Precedence`,
+      `/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=Reply-To&metadataHeaders=Sender&metadataHeaders=List-Unsubscribe&metadataHeaders=Precedence`,
       access
     )
   );
@@ -272,9 +323,13 @@ async function listCounterpartiesForToken(
     const subject = get("Subject") ?? undefined;
     const ts = d.internalDate ? Number(d.internalDate) : Date.now();
     const dateIso = new Date(ts).toISOString();
+    const invite =
+      isCalendarProxyAddress(parseFrom(fromHeader).email) ||
+      isCalendarInviteSubject(subject);
     const bulk =
-      Boolean(get("List-Unsubscribe")) ||
-      /\b(bulk|list|auto_reply|junk)\b/i.test(get("Precedence") ?? "");
+      !invite &&
+      (Boolean(get("List-Unsubscribe")) ||
+        /\b(bulk|list|auto_reply|junk)\b/i.test(get("Precedence") ?? ""));
 
     if (isFromMe(fromHeader)) {
       for (const raw of [
@@ -290,18 +345,25 @@ async function listCounterpartiesForToken(
           subject,
           dateIso,
           bulk,
+          accountEmail,
         });
       }
     } else {
-      const p = parseFrom(fromHeader);
-      if (p.email) {
+      const person = pickInboundPerson(
+        fromHeader,
+        get("Reply-To"),
+        get("Sender"),
+        subject
+      );
+      if (person?.email) {
         out.push({
-          email: p.email.toLowerCase(),
-          name: p.name,
+          email: person.email,
+          name: person.name,
           direction: "inbound",
           subject,
           dateIso,
           bulk,
+          accountEmail,
         });
       }
     }
@@ -321,12 +383,19 @@ export async function listRecentCounterparties(opts?: {
       ? new Date(opts.sinceIso)
       : new Date(Date.now() - 30 * 86_400_000);
     const afterEpoch = Math.floor(since.getTime() / 1000);
-    const max = opts?.max ?? 80;
+    const max = opts?.max ?? 250;
     const out: EmailCounterparty[] = [];
     const errors: string[] = [];
     for (const { token, accountEmail } of tokens) {
       try {
-        out.push(...(await listCounterpartiesForToken(token, afterEpoch, max)));
+        out.push(
+          ...(await listCounterpartiesForToken(
+            token,
+            afterEpoch,
+            max,
+            accountEmail
+          ))
+        );
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.error(`[gmail] counterparty scan failed (${accountEmail}):`, err);
@@ -477,6 +546,7 @@ function mapGmailMessage(message: GmailMsgResp): GmailThreadMessage {
     threadId: message.threadId,
     from: get("From"),
     to: get("To"),
+    cc: get("Cc"),
     subject: get("Subject"),
     date: get("Date"),
     snippet: message.snippet,

@@ -86,6 +86,26 @@ function isOk(payload: Record<string, unknown>): boolean {
   return true;
 }
 
+function namesClip(payload: Record<string, unknown>, limit = 4): string | null {
+  const raw = payload.unmatchedNames;
+  if (!Array.isArray(raw) || !raw.length) return null;
+  const names = raw
+    .filter((n): n is string => typeof n === "string" && n.trim().length > 0)
+    .map((n) => n.trim());
+  if (!names.length) return null;
+  const shown = names.slice(0, limit);
+  const extra = names.length - shown.length;
+  return extra > 0 ? `${shown.join(", ")}, +${extra} more` : shown.join(", ");
+}
+
+function suggestedClip(payload: Record<string, unknown>): string | null {
+  const staged = num(payload, "candidatesStaged") || num(payload, "created");
+  const names = namesClip(payload);
+  if (staged <= 0 && !names) return null;
+  const count = staged || (Array.isArray(payload.unmatchedNames) ? payload.unmatchedNames.length : 0);
+  return names ? `+${count} to Suggested (${names})` : `+${count} to Suggested`;
+}
+
 /** One-line description of a sync payload for the log list. */
 export function formatSyncSummary(
   source: string,
@@ -104,7 +124,13 @@ export function formatSyncSummary(
     const updated = num(payload, "updated");
     const scanned = num(payload, "scanned");
     const skipped = num(payload, "skipped");
-    const parts = [`+${created} new`];
+    const names = namesClip(payload);
+    const parts: string[] = [];
+    if (created || names) {
+      parts.push(names ? `+${created} new (${names})` : `+${created} new`);
+    } else {
+      parts.push("+0 new");
+    }
     if (updated) parts.push(`${updated} updated`);
     if (scanned) parts.push(`${scanned} scanned`);
     if (skipped) parts.push(`${skipped} skipped`);
@@ -121,8 +147,19 @@ export function formatSyncSummary(
   if (cadence) parts.push(`advanced ${cadence}`);
   if (meetingsInserted) parts.push(`+${meetingsInserted} meetings`);
   else if (meetingsUpdated) parts.push(`${meetingsUpdated} meetings updated`);
+  const staged = suggestedClip(payload);
+  if (staged) parts.push(staged);
   if (error) parts.push(error);
   return parts.join(" · ");
+}
+
+export function syncLogSourceTitle(
+  source: string,
+  result: Record<string, unknown>
+): string {
+  const base = SYNC_LOG_SOURCE_LABELS[source] ?? source;
+  const email = str(result, "accountEmail");
+  return email ? `${base} · ${email}` : base;
 }
 
 function sortInstanceEntries(entries: SyncLogEntry[]): SyncLogEntry[] {
