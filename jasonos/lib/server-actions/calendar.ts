@@ -75,7 +75,7 @@ async function getOwnerUserId(): Promise<string | null> {
 export interface CalendarWeekData {
   weekEvents: GCalEvent[];          // CoSA-tagged events (cosaTag=cosa-event)
   untaggedCosaEvents: GCalEvent[];  // CoSA calendar events without cosaTag
-  personalEvents: GCalEvent[];      // Primary calendar events
+  personalEvents: GCalEvent[];      // Personal calendars (Advisors + Gmail)
   calendarTags: Record<string, CalendarTag>;
   googleConnected: boolean;
 }
