@@ -152,6 +152,7 @@ interface Agg {
 export async function captureEmailCandidates(opts?: {
   days?: number;
   max?: number;
+  runId?: string;
 }): Promise<
   | { ok: true; scanned: number; created: number; updated: number; skipped: number }
   | { ok: false; error: string }
@@ -168,7 +169,8 @@ export async function captureEmailCandidates(opts?: {
             updated: result.updated,
             skipped: result.skipped,
           }
-        : { ok: false, error: result.error }
+        : { ok: false, error: result.error },
+      opts?.runId
     );
   }
   return result;

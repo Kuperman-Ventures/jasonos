@@ -32,7 +32,22 @@ export interface SyncLogEntry {
   summary: string;
   error: string | null;
   result: Record<string, unknown>;
+  run_id: string | null;
 }
+
+export interface SyncLogInstance {
+  id: string;
+  ran_at: string;
+  sources: string[];
+  ok: boolean;
+  hasUnavailable: boolean;
+  hasError: boolean;
+  inserted: number;
+  entries: SyncLogEntry[];
+}
+
+const SOURCE_ORDER = ["gmail", "gcal", "beeper", "suggested", "hubspot"];
+const CLUSTER_MS = 90_000;
 
 function hasServiceRole() {
   return Boolean(
@@ -110,13 +125,87 @@ export function formatSyncSummary(
   return parts.join(" · ");
 }
 
+function sortInstanceEntries(entries: SyncLogEntry[]): SyncLogEntry[] {
+  return [...entries].sort((a, b) => {
+    const ai = SOURCE_ORDER.indexOf(a.source);
+    const bi = SOURCE_ORDER.indexOf(b.source);
+    const ao = ai === -1 ? 99 : ai;
+    const bo = bi === -1 ? 99 : bi;
+    if (ao !== bo) return ao - bo;
+    return a.ran_at.localeCompare(b.ran_at);
+  });
+}
+
+function toInstance(id: string, entries: SyncLogEntry[]): SyncLogInstance {
+  const sorted = sortInstanceEntries(entries);
+  const newest = sorted.reduce(
+    (max, row) => (row.ran_at > max ? row.ran_at : max),
+    sorted[0]?.ran_at ?? ""
+  );
+  const hasError = sorted.some((row) => !row.ok && !row.unavailable);
+  const hasUnavailable = sorted.some((row) => row.unavailable);
+  return {
+    id,
+    ran_at: newest,
+    sources: [...new Set(sorted.map((row) => row.source))],
+    ok: !hasError,
+    hasUnavailable,
+    hasError,
+    inserted: sorted.reduce((sum, row) => sum + row.inserted, 0),
+    entries: sorted,
+  };
+}
+
+/**
+ * One Sync click → one instance. Rows that share a run_id stay together.
+ * Older rows without a run_id cluster if they ran within 90 seconds.
+ */
+export function groupSyncLog(rows: SyncLogEntry[]): SyncLogInstance[] {
+  const byRunId = new Map<string, SyncLogEntry[]>();
+  const ungrouped: SyncLogEntry[] = [];
+  for (const row of rows) {
+    if (row.run_id) {
+      const list = byRunId.get(row.run_id) ?? [];
+      list.push(row);
+      byRunId.set(row.run_id, list);
+    } else {
+      ungrouped.push(row);
+    }
+  }
+
+  const instances: SyncLogInstance[] = [];
+  for (const [runId, entries] of byRunId) {
+    instances.push(toInstance(runId, entries));
+  }
+
+  const clusters: SyncLogEntry[][] = [];
+  for (const row of ungrouped) {
+    const prev = clusters[clusters.length - 1];
+    const last = prev?.[prev.length - 1];
+    if (
+      last &&
+      Math.abs(Date.parse(last.ran_at) - Date.parse(row.ran_at)) <= CLUSTER_MS
+    ) {
+      prev.push(row);
+    } else {
+      clusters.push([row]);
+    }
+  }
+  for (const cluster of clusters) {
+    instances.push(toInstance(cluster[0].id, cluster));
+  }
+
+  return instances.sort((a, b) => b.ran_at.localeCompare(a.ran_at));
+}
+
 /**
  * Append one sync run to jasonos.sync_log. Never throws — a log miss
  * should not fail the sync itself.
  */
 export async function appendSyncLog(
   source: string,
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
+  runId?: string | null
 ): Promise<void> {
   if (!hasServiceRole()) return;
   try {
@@ -135,6 +224,7 @@ export async function appendSyncLog(
       summary: formatSyncSummary(source, payload),
       error: str(payload, "error"),
       result: payload,
+      run_id: runId ?? null,
     });
     if (error && !/relation .+ does not exist/i.test(error.message)) {
       console.error("[sync-log.append]", error);
@@ -153,7 +243,7 @@ export async function getSyncLog(limit = 500): Promise<SyncLogEntry[]> {
     const { data, error } = await client
       .from("sync_log")
       .select(
-        "id,ran_at,source,ok,unavailable,inserted,matched,duplicates,cadence_updates,skipped,summary,error,result"
+        "id,ran_at,source,ok,unavailable,inserted,matched,duplicates,cadence_updates,skipped,summary,error,result,run_id"
       )
       .order("ran_at", { ascending: false })
       .limit(Math.max(1, Math.min(2000, limit)));
@@ -182,6 +272,7 @@ export async function getSyncLog(limit = 500): Promise<SyncLogEntry[]> {
         summary,
         error: (row.error as string | null) ?? null,
         result,
+        run_id: (row.run_id as string | null) ?? null,
       };
     });
   } catch (err) {

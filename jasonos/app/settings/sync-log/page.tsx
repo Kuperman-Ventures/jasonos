@@ -1,5 +1,10 @@
-import { RefreshCw } from "lucide-react";
-import { getSyncLog, SYNC_LOG_SOURCE_LABELS } from "@/lib/outreach/sync-log";
+import { ChevronDown, RefreshCw } from "lucide-react";
+import {
+  getSyncLog,
+  groupSyncLog,
+  SYNC_LOG_SOURCE_LABELS,
+  type SyncLogInstance,
+} from "@/lib/outreach/sync-log";
 import { APP_TZ } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 
@@ -17,8 +22,15 @@ function fmtWhen(iso: string) {
   });
 }
 
+function sourceList(instance: SyncLogInstance) {
+  return instance.entries
+    .map((row) => SYNC_LOG_SOURCE_LABELS[row.source] ?? row.source)
+    .join(" · ");
+}
+
 export default async function SyncLogPage() {
   const rows = await getSyncLog();
+  const instances = groupSyncLog(rows);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
@@ -29,8 +41,8 @@ export default async function SyncLogPage() {
         <div className="min-w-0">
           <h1 className="text-lg font-semibold tracking-tight">Sync Log</h1>
           <p className="text-xs text-muted-foreground">
-            Every Gmail, Calendar, Beeper, and Suggested contacts sync, newest
-            first. Hit Sync on any Networking page to add a run.
+            Each Sync click is one row. Expand it to see Gmail, Calendar,
+            Beeper, and Suggested from that run.
           </p>
         </div>
       </header>
@@ -39,45 +51,78 @@ export default async function SyncLogPage() {
         <div className="flex items-center gap-2 border-b px-4 py-2.5">
           <h2 className="text-sm font-semibold tracking-tight">All syncs</h2>
           <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground">
-            {rows.length}
+            {instances.length}
           </span>
         </div>
-        {rows.length === 0 ? (
+        {instances.length === 0 ? (
           <p className="px-4 py-8 text-center text-xs text-muted-foreground">
             No syncs recorded yet. Hit Sync on Networking and they&apos;ll show
             up here.
           </p>
         ) : (
-          <ul className="divide-y divide-border">
-            {rows.map((row) => (
-              <li
-                key={row.id}
-                className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-2 text-sm leading-snug">
+          <ul>
+            {instances.map((instance, index) => (
+              <li key={instance.id} className="border-b border-border last:border-b-0">
+                <details open={index === 0} className="group">
+                  <summary className="flex cursor-pointer list-none items-start gap-3 px-4 py-3 [&::-webkit-details-marker]:hidden">
+                    <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
                     <span
                       className={cn(
-                        "h-1.5 w-1.5 shrink-0 rounded-full",
-                        row.unavailable
-                          ? "bg-amber-400"
-                          : row.ok
-                            ? "bg-emerald-400"
-                            : "bg-red-400"
+                        "mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full",
+                        instance.hasError
+                          ? "bg-red-400"
+                          : instance.hasUnavailable
+                            ? "bg-amber-400"
+                            : "bg-emerald-400"
                       )}
                       aria-hidden
                     />
-                    <span className="font-medium">
-                      {SYNC_LOG_SOURCE_LABELS[row.source] ?? row.source}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium leading-snug">
+                        {fmtWhen(instance.ran_at)}
+                      </p>
+                      <p className="mt-0.5 text-[12px] text-muted-foreground">
+                        {sourceList(instance)}
+                        {instance.inserted > 0
+                          ? ` · +${instance.inserted} new`
+                          : ""}
+                      </p>
+                    </div>
+                    <span className="shrink-0 pt-0.5 text-[11px] tabular-nums text-muted-foreground">
+                      {instance.entries.length}
                     </span>
-                  </p>
-                  <p className="mt-1 pl-3.5 text-[12px] text-muted-foreground">
-                    {row.summary}
-                  </p>
-                </div>
-                <span className="shrink-0 pl-3.5 text-[11px] tabular-nums text-muted-foreground sm:pl-0 sm:pt-0.5">
-                  {fmtWhen(row.ran_at)}
-                </span>
+                  </summary>
+                  <ul className="divide-y divide-border border-t bg-background/40">
+                    {instance.entries.map((row) => (
+                      <li
+                        key={row.id}
+                        className="flex flex-col gap-1 px-4 py-2.5 pl-14 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="flex items-center gap-2 text-sm leading-snug">
+                            <span
+                              className={cn(
+                                "h-1.5 w-1.5 shrink-0 rounded-full",
+                                row.unavailable
+                                  ? "bg-amber-400"
+                                  : row.ok
+                                    ? "bg-emerald-400"
+                                    : "bg-red-400"
+                              )}
+                              aria-hidden
+                            />
+                            <span className="font-medium">
+                              {SYNC_LOG_SOURCE_LABELS[row.source] ?? row.source}
+                            </span>
+                          </p>
+                          <p className="mt-1 pl-3.5 text-[12px] text-muted-foreground">
+                            {row.summary}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
               </li>
             ))}
           </ul>

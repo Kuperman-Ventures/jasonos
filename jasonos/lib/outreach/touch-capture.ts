@@ -306,7 +306,8 @@ export async function insertContactTouches(
  */
 export async function recordSyncState(
   source: TouchSource,
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
+  runId?: string | null
 ): Promise<void> {
   const client = createServiceRoleClient();
   await client
@@ -324,5 +325,5 @@ export async function recordSyncState(
       () => undefined,
       (err) => console.error("[outreach.recordSyncState]", err)
     );
-  await appendSyncLog(source, payload);
+  await appendSyncLog(source, payload, runId);
 }

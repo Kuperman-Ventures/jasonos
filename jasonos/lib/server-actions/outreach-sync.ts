@@ -123,15 +123,18 @@ export interface SyncAllResult {
 
 export async function syncOutreachFromGmail(opts?: {
   daysBack?: number;
+  runId?: string;
 }): Promise<SyncResult> {
   const daysBack = Math.max(1, Math.min(90, opts?.daysBack ?? 7));
+  const log = (payload: Record<string, unknown>) =>
+    recordSyncState("gmail", payload, opts?.runId);
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return errorResult("gmail", "Supabase service role is not configured.");
   }
   const gmailReady = await isGmailConnected();
   if (!gmailReady) {
-    await recordSyncState("gmail", {
+    await log({
       ok: false,
       error: "Gmail is not connected.",
     });
@@ -140,7 +143,7 @@ export async function syncOutreachFromGmail(opts?: {
 
   const lookup = await buildContactLookup();
   if (!lookup.rows.length) {
-    await recordSyncState("gmail", { written: 0, matched: 0, skipped: 0 });
+    await log({ written: 0, matched: 0, skipped: 0 });
     return okResult("gmail", emptyInsertResult(), 0, 0);
   }
 
@@ -193,13 +196,13 @@ export async function syncOutreachFromGmail(opts?: {
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    await recordSyncState("gmail", { error: msg });
+    await log({ error: msg });
     return errorResult("gmail", msg);
   }
 
   const insertResult = await insertContactTouches(touches);
   await applyEmailEnrichments(enrich);
-  await recordSyncState("gmail", {
+  await log({
     matched: touches.length,
     inserted: insertResult.inserted,
     duplicates: insertResult.duplicates,
@@ -223,16 +226,19 @@ export async function syncOutreachFromCalendar(opts?: {
   daysBack?: number;
   /** How far ahead to load upcoming meetings onto contact Meetings tabs. */
   daysForward?: number;
+  runId?: string;
 }): Promise<SyncResult> {
   const daysBack = Math.max(1, Math.min(90, opts?.daysBack ?? 30));
   const daysForward = Math.max(0, Math.min(90, opts?.daysForward ?? 30));
+  const log = (payload: Record<string, unknown>) =>
+    recordSyncState("gcal", payload, opts?.runId);
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return errorResult("gcal", "Supabase service role is not configured.");
   }
   const lookup = await buildContactLookup();
   if (!lookup.rows.length) {
-    await recordSyncState("gcal", { matched: 0 });
+    await log({ matched: 0 });
     return okResult("gcal", emptyInsertResult(), 0, 0);
   }
 
@@ -246,7 +252,7 @@ export async function syncOutreachFromCalendar(opts?: {
   });
   const fetchWarning = [error, ...warnings].filter(Boolean).join(" · ") || undefined;
   if (error && events.length === 0) {
-    await recordSyncState("gcal", { error });
+    await log({ error });
     return errorResult("gcal", error);
   }
   if (fetchWarning) {
@@ -319,7 +325,7 @@ export async function syncOutreachFromCalendar(opts?: {
   const insertResult = await insertContactTouches(touches);
   const meetingResult = await upsertMeetingsFromCalendar(meetingRows);
   await applyEmailEnrichments(enrich);
-  await recordSyncState("gcal", {
+  await log({
     matched: meetingRows.length,
     inserted: insertResult.inserted,
     duplicates: insertResult.duplicates,
@@ -401,15 +407,19 @@ export async function getUpcomingCalendarMeetings(opts?: {
 
 export async function syncOutreachFromBeeper(opts?: {
   daysBack?: number;
+  runId?: string;
 }): Promise<SyncResult> {
   const daysBack = Math.max(1, Math.min(90, opts?.daysBack ?? 30));
+  const log = (payload: Record<string, unknown>) =>
+    recordSyncState("beeper", payload, opts?.runId);
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return errorResult("beeper", "Supabase service role is not configured.");
   }
   if (!isBeeperConfigured()) {
     return unavailableBeeperResult(
-      "Beeper not configured (missing BEEPER_ACCESS_TOKEN)."
+      "Beeper not configured (missing BEEPER_ACCESS_TOKEN).",
+      opts?.runId
     );
   }
 
@@ -420,7 +430,7 @@ export async function syncOutreachFromBeeper(opts?: {
     });
     const lookup = await buildContactLookup();
     if (!lookup.rows.length) {
-      await recordSyncState("beeper", {
+      await log({
         ok: true,
         matched: 0,
         inserted: 0,
@@ -471,7 +481,7 @@ export async function syncOutreachFromBeeper(opts?: {
     }
 
     const insert = await insertContactTouches(touches);
-    await recordSyncState("beeper", {
+    await log({
       ok: true,
       matched: touches.length,
       inserted: insert.inserted,
@@ -499,11 +509,11 @@ export async function syncOutreachFromBeeper(opts?: {
     return result;
   } catch (err) {
     if (err instanceof BeeperUnavailableError) {
-      return unavailableBeeperResult(err.message || BEEPER_UNAVAILABLE_MESSAGE);
+      return unavailableBeeperResult(err.message || BEEPER_UNAVAILABLE_MESSAGE, opts?.runId);
     }
     if (err instanceof BeeperApiError) {
       console.error("[outreach-sync.beeper.api]", err);
-      await recordSyncState("beeper", {
+      await log({
         ok: false,
         error: err.message,
         daysBack,
@@ -512,18 +522,25 @@ export async function syncOutreachFromBeeper(opts?: {
     }
     console.error("[outreach-sync.beeper]", err);
     const msg = err instanceof Error ? err.message : "Beeper sync failed.";
-    await recordSyncState("beeper", { ok: false, error: msg });
+    await log({ ok: false, error: msg });
     return errorResult("beeper", msg);
   }
 }
 
-function unavailableBeeperResult(message = BEEPER_UNAVAILABLE_MESSAGE): SyncResult {
+function unavailableBeeperResult(
+  message = BEEPER_UNAVAILABLE_MESSAGE,
+  runId?: string
+): SyncResult {
   // Persist soft-skip so we can see the last attempt even when Funnel is down.
-  void recordSyncState("beeper", {
-    ok: true,
-    unavailable: true,
-    error: message,
-  });
+  void recordSyncState(
+    "beeper",
+    {
+      ok: true,
+      unavailable: true,
+      error: message,
+    },
+    runId
+  );
   return {
     ok: true,
     source: "beeper",
@@ -546,6 +563,7 @@ function unavailableBeeperResult(message = BEEPER_UNAVAILABLE_MESSAGE): SyncResu
 export async function syncOutreachAll(opts?: {
   daysBack?: number;
   daysForward?: number;
+  runId?: string;
 }): Promise<SyncAllResult> {
   const ranAt = new Date().toISOString();
   const [gmail, gcal, beeper] = await Promise.allSettled([
