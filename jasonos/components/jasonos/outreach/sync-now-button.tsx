@@ -25,9 +25,10 @@ export function SyncNowButton({ initial }: SyncNowButtonProps) {
     if (running) return;
     setRunning(true);
     try {
+      const runId = crypto.randomUUID();
       const [result, suggested] = await Promise.all([
-        syncOutreachAll({ daysBack: 90, daysForward: 30 }),
-        captureEmailCandidates({ days: 30 }),
+        syncOutreachAll({ daysBack: 90, daysForward: 30, runId }),
+        captureEmailCandidates({ days: 30, runId }),
       ]);
 
       const messages: string[] = [];
