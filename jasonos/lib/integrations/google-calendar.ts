@@ -24,6 +24,159 @@ const CAL_BASE = "https://www.googleapis.com/calendar/v3";
 const COSA_CALENDAR_ID =
   "c_f733c89ebd8fa8294dfb9b29147e64acc78eae845b47ea1271ddb7844e191716@group.calendar.google.com";
 
+/**
+ * Personal calendars Sync and the week view treat as Jason's schedule.
+ * `primary` is the OAuth'd Google account (jason@kupermanadvisors.com).
+ * `jskuperman@gmail.com` is that Gmail calendar — it has to be shared with
+ * the OAuth'd account (See all event details) or Google returns 404 and we skip it.
+ */
+export const PERSONAL_CALENDAR_IDS = ["primary", "jskuperman@gmail.com"] as const;
+
+export interface CalendarApiEvent {
+  id?: string;
+  iCalUID?: string;
+  summary?: string;
+  start?: { dateTime?: string; date?: string };
+  end?: { dateTime?: string; date?: string };
+  attendees?: {
+    email?: string;
+    displayName?: string;
+    self?: boolean;
+    organizer?: boolean;
+    responseStatus?: string;
+  }[];
+  htmlLink?: string;
+  status?: string;
+  hangoutLink?: string;
+  conferenceData?: { entryPoints?: { uri?: string; entryPointType?: string }[] };
+  location?: string;
+  description?: string;
+  extendedProperties?: { private?: Record<string, string> };
+}
+
+interface CalendarListPage {
+  items?: CalendarApiEvent[];
+  nextPageToken?: string;
+}
+
+function calendarErrorMessage(calendarId: string, status: number, body: string): string {
+  if ((status === 404 || status === 403) && calendarId !== "primary") {
+    return `${calendarId} is not shared with jason@kupermanadvisors.com. In Google Calendar on Gmail, share that calendar and allow See all event details.`;
+  }
+  return `GCal ${status} :: ${body.slice(0, 200)}`;
+}
+
+function eventDedupeKey(ev: CalendarApiEvent): string | null {
+  return ev.iCalUID || ev.id || null;
+}
+
+export function mergeCalendarEvents(lists: CalendarApiEvent[][]): CalendarApiEvent[] {
+  const seen = new Set<string>();
+  const out: CalendarApiEvent[] = [];
+  for (const list of lists) {
+    for (const ev of list) {
+      const key = eventDedupeKey(ev);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(ev);
+    }
+  }
+  return out;
+}
+
+/** Page through one calendar. Hard cap 250/page × 20 = 5,000 events. */
+export async function fetchCalendarEvents(opts: {
+  token: string;
+  calendarId: string;
+  timeMin: string;
+  timeMax: string;
+  maxPages?: number;
+}): Promise<{ calendarId: string; events: CalendarApiEvent[]; error?: string }> {
+  const events: CalendarApiEvent[] = [];
+  const maxPages = opts.maxPages ?? 20;
+  let pageToken: string | undefined;
+  for (let page = 0; page < maxPages; page++) {
+    const params = new URLSearchParams({
+      timeMin: opts.timeMin,
+      timeMax: opts.timeMax,
+      singleEvents: "true",
+      orderBy: "startTime",
+      maxResults: "250",
+    });
+    if (pageToken) params.set("pageToken", pageToken);
+
+    let raw: CalendarListPage;
+    try {
+      const res = await fetch(
+        `${CAL_BASE}/calendars/${encodeURIComponent(opts.calendarId)}/events?${params}`,
+        { headers: { Authorization: `Bearer ${opts.token}` }, cache: "no-store" }
+      );
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        return {
+          calendarId: opts.calendarId,
+          events,
+          error: calendarErrorMessage(opts.calendarId, res.status, txt),
+        };
+      }
+      raw = (await res.json()) as CalendarListPage;
+    } catch (err) {
+      return {
+        calendarId: opts.calendarId,
+        events,
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+
+    if (raw.items?.length) events.push(...raw.items);
+    pageToken = raw.nextPageToken;
+    if (!pageToken) break;
+  }
+  return { calendarId: opts.calendarId, events };
+}
+
+/**
+ * Primary Google calendar plus any extra personal calendars (Gmail).
+ * A missing extra calendar is a warning, not a hard fail — primary still syncs.
+ */
+export async function fetchAllPersonalCalendarEvents(opts: {
+  token: string;
+  timeMin: string;
+  timeMax: string;
+}): Promise<{ events: CalendarApiEvent[]; error?: string; warnings: string[] }> {
+  const results = await Promise.all(
+    PERSONAL_CALENDAR_IDS.map((calendarId) =>
+      fetchCalendarEvents({
+        token: opts.token,
+        calendarId,
+        timeMin: opts.timeMin,
+        timeMax: opts.timeMax,
+      })
+    )
+  );
+
+  const warnings: string[] = [];
+  const lists: CalendarApiEvent[][] = [];
+  let primaryError: string | undefined;
+
+  for (const r of results) {
+    lists.push(r.events);
+    if (!r.error) continue;
+    if (r.calendarId === "primary") {
+      primaryError = r.error;
+    } else {
+      warnings.push(r.error);
+    }
+  }
+
+  const events = mergeCalendarEvents(lists);
+  if (primaryError && events.length === 0) {
+    return { events, error: primaryError, warnings };
+  }
+  if (primaryError) warnings.unshift(primaryError);
+  return { events, warnings };
+}
+
 const TRACK_COLOR_IDS: Record<string, string> = {
   advisors:    "10",
   jobSearch:   "9",
@@ -90,19 +243,6 @@ export async function getGoogleAccessToken(): Promise<string | null> {
 
 // ─── Morning Brief: today's calendar ─────────────────────────────────────────
 
-interface RawGCalEvent {
-  id: string;
-  summary?: string;
-  start?: { dateTime?: string; date?: string };
-  end?: { dateTime?: string; date?: string };
-  attendees?: { email: string; displayName?: string; organizer?: boolean; self?: boolean }[];
-  hangoutLink?: string;
-  conferenceData?: { entryPoints?: { uri?: string; entryPointType?: string }[] };
-  location?: string;
-  description?: string;
-  extendedProperties?: { private?: Record<string, string> };
-}
-
 export async function getTodaysCalendar(opts?: {
   tz?: string;
   calendarId?: string;
@@ -112,35 +252,33 @@ export async function getTodaysCalendar(opts?: {
 
   try {
     const tz = opts?.tz ?? "America/New_York";
-    const calendarId = opts?.calendarId ?? "primary";
     const now = new Date();
     const fmt = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" });
     const ymd = fmt.format(now);
     const dayStart = new Date(`${ymd}T00:00:00`);
     const dayEnd = new Date(`${ymd}T23:59:59`);
-    const params = new URLSearchParams({
-      timeMin: dayStart.toISOString(),
-      timeMax: dayEnd.toISOString(),
-      singleEvents: "true",
-      orderBy: "startTime",
-      maxResults: "50",
-    });
-    const res = await fetch(
-      `${CAL_BASE}/calendars/${encodeURIComponent(calendarId)}/events?${params}`,
-      { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }
-    );
-    if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      throw new Error(`GCal ${res.status} :: ${txt.slice(0, 200)}`);
+    const fetched = opts?.calendarId
+      ? await fetchCalendarEvents({
+          token,
+          calendarId: opts.calendarId,
+          timeMin: dayStart.toISOString(),
+          timeMax: dayEnd.toISOString(),
+        })
+      : await fetchAllPersonalCalendarEvents({
+          token,
+          timeMin: dayStart.toISOString(),
+          timeMax: dayEnd.toISOString(),
+        });
+    if (fetched.error && fetched.events.length === 0) {
+      throw new Error(fetched.error);
     }
-    const j = (await res.json()) as { items?: RawGCalEvent[] };
-    const events: CalendarEvent[] = (j.items ?? []).map((e) => ({
-      id: e.id,
+    const events: CalendarEvent[] = fetched.events.map((e) => ({
+      id: e.id ?? "",
       title: e.summary ?? "(untitled)",
       startsAt: e.start?.dateTime ?? `${e.start?.date}T00:00:00`,
       endsAt: e.end?.dateTime ?? `${e.end?.date}T23:59:59`,
       attendees: (e.attendees ?? []).map((a) => ({
-        email: a.email,
+        email: a.email ?? "",
         name: a.displayName,
         isOrganizer: a.organizer,
         isMe: a.self,
@@ -183,10 +321,13 @@ export async function fetchAllCosaCalendarEvents(token: string, timeMin: string,
 }
 
 export async function fetchPersonalCalendarEvents(token: string, timeMin: string, timeMax: string): Promise<GCalEvent[]> {
-  const params = new URLSearchParams({ timeMin, timeMax, singleEvents: "true", maxResults: "250", orderBy: "startTime" });
-  const data = (await gcalFetch("primary", `?${params}`, "GET", token)) as { items?: GCalEvent[] } | null;
-  const items = data?.items ?? [];
-  return items.filter((ev) => ev.start?.dateTime != null && ev.extendedProperties?.private?.cosaTag !== "cosa-event");
+  const { events } = await fetchAllPersonalCalendarEvents({ token, timeMin, timeMax });
+  return events.filter(
+    (ev) =>
+      Boolean(ev.id) &&
+      ev.start?.dateTime != null &&
+      ev.extendedProperties?.private?.cosaTag !== "cosa-event"
+  ) as GCalEvent[];
 }
 
 export async function createGCalEvent(input: { token: string; name: string; track: string; subTrack?: string | null; templateId?: string | null; startISO: string; endISO: string; userTz: string }): Promise<GCalEvent | null> {

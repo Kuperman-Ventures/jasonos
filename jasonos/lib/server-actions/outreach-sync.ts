@@ -7,7 +7,10 @@ import {
   isGmailConnected,
 } from "@/lib/integrations/gmail";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
-import { getGoogleAccessToken } from "@/lib/integrations/google-calendar";
+import {
+  fetchAllPersonalCalendarEvents,
+  getGoogleAccessToken,
+} from "@/lib/integrations/google-calendar";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
   buildContactLookup,
@@ -205,74 +208,8 @@ export async function syncOutreachFromGmail(opts?: {
 // upcoming `daysForward` days) where any attendee resolves to a contact.
 // Past events also become contact_touches (cadence). All matched events are
 // upserted into jasonos.meetings so they appear on the contact Meetings tab.
+// Reads jason@kupermanadvisors.com (primary) and jskuperman@gmail.com.
 // ---------------------------------------------------------------------------
-
-interface RawGCalEvent {
-  id: string;
-  summary?: string;
-  start?: { dateTime?: string; date?: string };
-  end?: { dateTime?: string; date?: string };
-  attendees?: { email?: string; displayName?: string; self?: boolean; responseStatus?: string }[];
-  htmlLink?: string;
-  status?: string;
-}
-
-interface GCalListPage {
-  items?: RawGCalEvent[];
-  nextPageToken?: string;
-}
-
-/**
- * Fetch every primary-calendar event in [timeMin, timeMax], following
- * nextPageToken. Sync used to request a single page of 250 with
- * orderBy=startTime — on a busy 90-day window that returns the *oldest*
- * 250 events and silently drops recent meetings (e.g. today's calls).
- */
-async function fetchPrimaryCalendarEvents(opts: {
-  token: string;
-  timeMin: string;
-  timeMax: string;
-}): Promise<{ events: RawGCalEvent[]; error?: string }> {
-  const events: RawGCalEvent[] = [];
-  let pageToken: string | undefined;
-  // Hard cap: 250/page × 20 = 5,000 events. Far above a normal 90-day load.
-  for (let page = 0; page < 20; page++) {
-    const params = new URLSearchParams({
-      timeMin: opts.timeMin,
-      timeMax: opts.timeMax,
-      singleEvents: "true",
-      orderBy: "startTime",
-      maxResults: "250",
-    });
-    if (pageToken) params.set("pageToken", pageToken);
-
-    let raw: GCalListPage;
-    try {
-      const res = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
-        { headers: { Authorization: `Bearer ${opts.token}` }, cache: "no-store" }
-      );
-      if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        return {
-          events,
-          error: `GCal ${res.status} :: ${txt.slice(0, 200)}`,
-        };
-      }
-      raw = (await res.json()) as GCalListPage;
-    } catch (err) {
-      return {
-        events,
-        error: err instanceof Error ? err.message : String(err),
-      };
-    }
-
-    if (raw.items?.length) events.push(...raw.items);
-    pageToken = raw.nextPageToken;
-    if (!pageToken) break;
-  }
-  return { events };
-}
 
 export async function syncOutreachFromCalendar(opts?: {
   daysBack?: number;
@@ -304,18 +241,18 @@ export async function syncOutreachFromCalendar(opts?: {
   const timeMin = new Date(now - daysBack * 86_400_000).toISOString();
   const timeMax = new Date(now + daysForward * 86_400_000).toISOString();
 
-  const { events, error } = await fetchPrimaryCalendarEvents({
+  const { events, error, warnings } = await fetchAllPersonalCalendarEvents({
     token,
     timeMin,
     timeMax,
   });
+  const fetchWarning = [error, ...warnings].filter(Boolean).join(" · ") || undefined;
   if (error && events.length === 0) {
     await recordSyncState("gcal", { error });
     return errorResult("gcal", error);
   }
-  if (error) {
-    // Partial page load — still process what we have, but surface the error.
-    console.warn("[outreach-sync.gcal] partial calendar fetch:", error);
+  if (fetchWarning) {
+    console.warn("[outreach-sync.gcal] calendar fetch:", fetchWarning);
   }
 
   const touches: ContactTouchInput[] = [];
@@ -325,6 +262,7 @@ export async function syncOutreachFromCalendar(opts?: {
 
   for (const ev of events) {
     if (!ev.id) continue;
+    const eventId = ev.id;
     if (ev.status === "cancelled") continue;
     // Timed events preferred; all-day events use noon local so they still link.
     const startISO = ev.start?.dateTime
@@ -336,7 +274,9 @@ export async function syncOutreachFromCalendar(opts?: {
 
     const isPastOrStarted = new Date(startISO).getTime() <= now;
     const attendees = ev.attendees ?? [];
-    const otherAttendees = attendees.filter((a) => !a.self && a.email);
+    const otherAttendees = attendees.filter(
+      (a) => a.email && !a.self && !isMyOwnAddress(a.email)
+    );
     if (!otherAttendees.length) continue;
 
     let matchedAny = false;
@@ -353,7 +293,7 @@ export async function syncOutreachFromCalendar(opts?: {
       const title = ev.summary?.trim() || "Meeting";
       meetingRows.push({
         contactId: contact.id,
-        gcalEventId: ev.id,
+        gcalEventId: eventId,
         scheduledAt: startISO,
         title,
         calendarUrl: ev.htmlLink ?? null,
@@ -368,7 +308,7 @@ export async function syncOutreachFromCalendar(opts?: {
           direction: "outbound",
           touched_at: startISO,
           source: "gcal",
-          external_id: `${ev.id}::${contact.id}`,
+          external_id: `${eventId}::${contact.id}`,
           brief: title,
           subject: ev.summary ?? null,
           thread_url: ev.htmlLink ?? null,
@@ -392,7 +332,7 @@ export async function syncOutreachFromCalendar(opts?: {
     pagesFetched: true,
     eventCount: events.length,
     errors: [...insertResult.errors, ...meetingResult.errors],
-    ...(error ? { fetchWarning: error } : {}),
+    ...(fetchWarning ? { fetchWarning } : {}),
   });
   revalidatePaths();
 
@@ -432,7 +372,7 @@ export async function getUpcomingCalendarMeetings(opts?: {
   if (!lookup.rows.length) return [];
 
   const now = Date.now();
-  const { events } = await fetchPrimaryCalendarEvents({
+  const { events } = await fetchAllPersonalCalendarEvents({
     token,
     timeMin: new Date(now).toISOString(),
     timeMax: new Date(now + daysAhead * 86_400_000).toISOString(),
@@ -446,7 +386,7 @@ export async function getUpcomingCalendarMeetings(opts?: {
     if (!startISO) continue;
     if (new Date(startISO).getTime() < now) continue; // future only
     for (const a of ev.attendees ?? []) {
-      if (a.self || !a.email) continue;
+      if (!a.email || a.self || isMyOwnAddress(a.email)) continue;
       if (a.responseStatus === "declined") continue;
       const header = a.displayName ? `${a.displayName} <${a.email}>` : a.email;
       const contact = lookup.resolve(header);
