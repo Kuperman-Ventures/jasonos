@@ -98,3 +98,77 @@ export function pickJobListingUrl(...blobs: (string | null | undefined)[]): stri
   if (!best || best.score < 55) return null;
   return best.url;
 }
+
+export interface JobCard {
+  url: string;
+  title: string | null;
+  compensation: string | null;
+}
+
+const WEAK_TITLE_RE =
+  /^(view|apply|see (all )?jobs?|read more|click here|linkedin|indeed|ladders|job alert|open)$/i;
+
+function decodeHtml(s: string): string {
+  return s
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function extractCompensation(text: string): string | null {
+  const m = text.match(
+    /\$\s*[\d,.]+(?:\s*[kK])?(?:\s*(?:[-–—]|to)\s*\$?\s*[\d,.]+(?:\s*[kK])?)?|\bup to\s+\$\s*[\d,.]+(?:\s*[kK])?/i
+  );
+  if (!m) return null;
+  return m[0].replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Pull every real job-listing card out of an alert email (LinkedIn/Indeed
+ * digests often pack several roles into one message). Search/home URLs are
+ * skipped so we don't treat "see all jobs" as a posting.
+ */
+export function extractJobCards(...blobs: (string | null | undefined)[]): JobCard[] {
+  const byUrl = new Map<string, JobCard>();
+
+  const consider = (rawUrl: string, rawTitle: string | null, nearby: string) => {
+    const url = cleanUrl(rawUrl);
+    const score = scoreUrl(url);
+    if (score < 80) return;
+    const title = rawTitle ? decodeHtml(rawTitle) : null;
+    const usableTitle =
+      title && title.length >= 4 && !WEAK_TITLE_RE.test(title) && !/^https?:/i.test(title)
+        ? title.slice(0, 180)
+        : null;
+    const compensation = extractCompensation(nearby) ?? extractCompensation(title ?? "");
+    const prev = byUrl.get(url);
+    if (!prev) {
+      byUrl.set(url, { url, title: usableTitle, compensation });
+      return;
+    }
+    if (!prev.title && usableTitle) prev.title = usableTitle;
+    if (!prev.compensation && compensation) prev.compensation = compensation;
+  };
+
+  for (const blob of blobs) {
+    if (!blob) continue;
+    for (const m of blob.matchAll(
+      /<a[^>]+href=["'](https?:\/\/[^"'>\s]+)["'][^>]*>([\s\S]*?)<\/a>/gi
+    )) {
+      const nearby = blob.slice(m.index ?? 0, (m.index ?? 0) + m[0].length + 240);
+      consider(m[1], m[2], nearby);
+    }
+    for (const url of extractUrls(blob)) {
+      if (byUrl.has(cleanUrl(url))) continue;
+      consider(url, null, blob.slice(0, 400));
+    }
+  }
+
+  return [...byUrl.values()];
+}

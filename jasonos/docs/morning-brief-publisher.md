@@ -51,8 +51,10 @@ Suggested section shape (unchanged):
 - [VP Marketing — Indeed: up to $325K/year](https://www.indeed.com/viewjob?jk=…)
 ```
 
-The **Job Alerts** H2 (any heading containing `Job Alerts` or `$300K+`) feeds the
-Job Alerts page. Prefer one markdown-linked opportunity per bullet.
+The **Job Alerts** page no longer reads this section. It harvests listings
+directly from a Gmail folder on a weekday cron (see
+`/api/job-alerts/harvest`). You can still include a Job Alerts H2 in the
+brief for the home-page summary; it is optional.
 
 **Link preference (deepest wins):** use the **job listing URL** (LinkedIn /
 Indeed / Greenhouse / Lever / etc.) when the alert contains one. Fall back to a

@@ -1,21 +1,20 @@
-// Job Alerts — harvests individual opportunities from the morning brief's
-// "## Job Alerts…" section (markdown-linked role bullets), and matches them
-// against editable keyword capsules on the Job Alerts page.
+// Job Alerts — listings harvested from a Gmail folder (cron + Scan now),
+// matched against editable keyword capsules on the Job Alerts page.
 
 import "server-only";
-import {
-  createPublicServiceRoleClient,
-  createServiceRoleClient,
-} from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/server";
 import { normalizeGmailUrl } from "@/lib/integrations/gmail-links";
-import { resolveOpportunityDeepLinks } from "@/lib/data/job-alert-link-resolve";
 import { listJobAlertKeywords } from "@/lib/server-actions/job-alert-keywords";
+import { getJobAlertHarvestState } from "@/lib/data/job-alert-harvest";
+import { isGmailConnected } from "@/lib/integrations/gmail";
 
 export interface JobOpportunity {
   id: string;
   briefDate: string; // YYYY-MM-DD first seen
   /** Role line without the URL, e.g. "Chief Marketing Officer — Ladders: up to $450K". */
   title: string;
+  company: string | null;
+  compensation: string | null;
   /** Best click-through: job listing when resolved, else Gmail conversation. */
   url: string | null;
   /** Direct posting URL when extracted from the alert email. */
@@ -32,6 +31,9 @@ export interface JobAlertsData {
   lastScanDate: string | null;
   scannedBriefs: number;
   configured: boolean;
+  gmailConnected: boolean;
+  folderName: string | null;
+  harvestError: string | null;
 }
 
 const STOPWORDS = new Set([
@@ -67,36 +69,6 @@ function hasConfig(): boolean {
   );
 }
 
-type BriefRow = { brief_date: string; content_md: string };
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchRecentBriefs(sb: { from: (t: string) => any }): Promise<
-  BriefRow[]
-> {
-  const res = await sb
-    .from("morning_briefs")
-    .select("brief_date,content_md")
-    .order("brief_date", { ascending: false })
-    .limit(45);
-  if (res.error) throw res.error;
-  return (res.data ?? []) as BriefRow[];
-}
-
-async function loadBriefs(): Promise<BriefRow[]> {
-  try {
-    const rows = await fetchRecentBriefs(createPublicServiceRoleClient());
-    if (rows.length) return rows;
-  } catch (err) {
-    console.warn("[job-alerts] public.morning_briefs unavailable:", err);
-  }
-  try {
-    return await fetchRecentBriefs(createServiceRoleClient());
-  } catch (err) {
-    console.warn("[job-alerts] jasonos.morning_briefs unavailable:", err);
-    return [];
-  }
-}
-
 function normKey(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
@@ -129,97 +101,22 @@ function matchKeywords(line: string, keywords: string[]): string[] {
   return hits;
 }
 
-function isJobAlertsHeading(heading: string): boolean {
-  const k = normKey(heading);
-  if (k.includes("job alert")) return true;
-  if (k.includes("300") && (k.includes("role") || k.includes("job"))) return true;
-  if (k.startsWith("qualifying") && k.includes("role")) return true;
-  return false;
+function dayFromIso(iso: string): string {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return iso.slice(0, 10);
+  return new Date(t).toISOString().slice(0, 10);
 }
 
-/** Split raw markdown into ## sections (heading + body). */
-function splitH2Sections(
-  md: string
-): { heading: string; body: string }[] {
-  const lines = md.replace(/\r\n/g, "\n").split("\n");
-  const sections: { heading: string; body: string[] }[] = [];
-  let current: { heading: string; body: string[] } | null = null;
-  for (const line of lines) {
-    const h2 = line.match(/^##\s+(.+)$/);
-    if (h2) {
-      if (current) {
-        sections.push({
-          heading: current.heading,
-          body: current.body,
-        });
-      }
-      current = { heading: h2[1].trim(), body: [] };
-      continue;
-    }
-    if (current) current.body.push(line);
-  }
-  if (current) {
-    sections.push({ heading: current.heading, body: current.body });
-  }
-  return sections.map((s) => ({
-    heading: s.heading,
-    body: s.body.join("\n").trim(),
-  }));
-}
-
-interface Harvested {
+type OpportunityRow = {
+  id: string;
   title: string;
-  url: string | null;
-}
-
-/**
- * Pull individual opportunities from a section body.
- * Preferred shape: `- [Role — Company: $comp](https://…)`
- * Also accepts bare URL bullets and bold role lines with a trailing URL.
- */
-function harvestOpportunities(body: string): Harvested[] {
-  const out: Harvested[] = [];
-  for (const raw of body.split("\n")) {
-    const line = raw.trim();
-    if (!line) continue;
-    // Skip prose notes that aren't opportunities.
-    if (!/^[-*]\s+/.test(line) && !/^\d+\.\s+/.test(line)) continue;
-    const item = line.replace(/^[-*]\s+/, "").replace(/^\d+\.\s+/, "").trim();
-    if (!item) continue;
-    if (/^(most of|note:|see |pulled from|everything else)/i.test(item))
-      continue;
-
-    const md = item.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)(.*)$/);
-    if (md) {
-      const title = `${md[1]}${md[3] ?? ""}`.replace(/\s+/g, " ").trim();
-      if (title.length < 4) continue;
-      out.push({
-        title,
-        url: normalizeGmailUrl(md[2]),
-      });
-      continue;
-    }
-
-    const bare = item.match(/^(.*?)\s*(https?:\/\/[^\s<>"'`)\]}]+)\s*$/);
-    if (bare && bare[1].trim().length >= 4) {
-      out.push({
-        title: bare[1].trim().replace(/\*\*/g, ""),
-        url: normalizeGmailUrl(bare[2].replace(/[.,;:!?]+$/, "")),
-      });
-      continue;
-    }
-
-    // Role-looking line with a salary cue but no URL — still list it.
-    if (/\$\s*\d|\bup to\b|\bk\/year\b|\b\d{3},\d{3}\b/i.test(item)) {
-      const title = item
-        .replace(/\*\*/g, "")
-        .replace(/https?:\/\/\S+/g, "")
-        .trim();
-      if (title.length >= 8) out.push({ title, url: null });
-    }
-  }
-  return out;
-}
+  company: string | null;
+  compensation: string | null;
+  job_url: string | null;
+  gmail_url: string | null;
+  received_at: string;
+  first_seen_at: string;
+};
 
 export async function getJobAlerts(): Promise<JobAlertsData> {
   const empty: JobAlertsData = {
@@ -228,69 +125,61 @@ export async function getJobAlerts(): Promise<JobAlertsData> {
     lastScanDate: null,
     scannedBriefs: 0,
     configured: hasConfig(),
+    gmailConnected: false,
+    folderName: null,
+    harvestError: null,
   };
   if (!hasConfig()) return empty;
 
-  const [briefs, keywords] = await Promise.all([
-    loadBriefs(),
+  const [keywords, harvest, gmailConnected] = await Promise.all([
     listJobAlertKeywords(),
+    getJobAlertHarvestState(),
+    isGmailConnected(),
   ]);
   const keywordStrings = keywords.map((k) => k.keyword);
-  if (briefs.length === 0) {
-    return { ...empty, keywords, scannedBriefs: 0 };
+
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("job_opportunities")
+    .select(
+      "id,title,company,compensation,job_url,gmail_url,received_at,first_seen_at"
+    )
+    .order("received_at", { ascending: false })
+    .limit(250);
+
+  if (error) {
+    console.warn("[job-alerts] load failed:", error.message);
+    return {
+      ...empty,
+      keywords,
+      gmailConnected,
+      folderName: harvest.labelName,
+      harvestError: harvest.error ?? error.message,
+      lastScanDate: harvest.lastRunAt,
+    };
   }
 
-  const seen = new Set<string>();
-  const harvestedRows: {
-    id: string;
-    briefDate: string;
-    title: string;
-    rawUrl: string | null;
-    matchedKeywords: string[];
-  }[] = [];
-  let lastScanDate: string | null = null;
-
-  for (const brief of briefs) {
-    const sections = splitH2Sections(brief.content_md);
-    let foundInBrief = false;
-    for (const sec of sections) {
-      if (!isJobAlertsHeading(sec.heading)) continue;
-      const harvested = harvestOpportunities(sec.body);
-      for (const h of harvested) {
-        const key = normKey(h.title);
-        if (!key || seen.has(key)) continue;
-        seen.add(key);
-        foundInBrief = true;
-        harvestedRows.push({
-          id: `${brief.brief_date}:${key.slice(0, 80)}`,
-          briefDate: brief.brief_date,
-          title: h.title,
-          rawUrl: h.url,
-          matchedKeywords: matchKeywords(h.title, keywordStrings),
-        });
-      }
+  const opportunities: JobOpportunity[] = ((data ?? []) as OpportunityRow[]).map(
+    (row) => {
+      const jobUrl = row.job_url;
+      const gmailUrl = row.gmail_url ? normalizeGmailUrl(row.gmail_url) : null;
+      const hay = [row.title, row.company, row.compensation]
+        .filter(Boolean)
+        .join(" ");
+      return {
+        id: row.id,
+        briefDate: dayFromIso(row.received_at || row.first_seen_at),
+        title: row.title,
+        company: row.company,
+        compensation: row.compensation,
+        url: jobUrl || gmailUrl,
+        jobUrl,
+        gmailUrl,
+        matchedKeywords: matchKeywords(hay, keywordStrings),
+      };
     }
-    if (foundInBrief && !lastScanDate) lastScanDate = brief.brief_date;
-  }
-
-  const deepLinks = await resolveOpportunityDeepLinks(
-    harvestedRows.map((r) => r.rawUrl)
   );
 
-  const opportunities: JobOpportunity[] = harvestedRows.map((r) => {
-    const deep = r.rawUrl ? deepLinks.get(r.rawUrl) : undefined;
-    return {
-      id: r.id,
-      briefDate: r.briefDate,
-      title: r.title,
-      url: deep?.url ?? r.rawUrl,
-      jobUrl: deep?.jobUrl ?? null,
-      gmailUrl: deep?.gmailUrl ?? (r.rawUrl ? normalizeGmailUrl(r.rawUrl) : null),
-      matchedKeywords: r.matchedKeywords,
-    };
-  });
-
-  // Matched keywords float to the top; then newest brief date.
   opportunities.sort((a, b) => {
     const am = a.matchedKeywords.length > 0 ? 0 : 1;
     const bm = b.matchedKeywords.length > 0 ? 0 : 1;
@@ -302,8 +191,11 @@ export async function getJobAlerts(): Promise<JobAlertsData> {
   return {
     opportunities,
     keywords,
-    lastScanDate,
-    scannedBriefs: briefs.length,
+    lastScanDate: harvest.lastRunAt,
+    scannedBriefs: harvest.lastResult?.scanned ?? 0,
     configured: true,
+    gmailConnected,
+    folderName: harvest.labelName,
+    harvestError: harvest.error,
   };
 }

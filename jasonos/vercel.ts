@@ -30,6 +30,8 @@ export const config: VercelConfig = {
 
     // Inbox Dispatch reads Gmail + drafts replies via Claude; give it slack.
     "app/api/inbox-dispatch/route.ts": { maxDuration: 60 },
+    // Job Alerts harvest opens Gmail threads from a labeled folder.
+    "app/api/job-alerts/harvest/route.ts": { maxDuration: 60 },
   },
   crons: [
     // Daily 8am ET BNA run.
@@ -43,5 +45,11 @@ export const config: VercelConfig = {
     // Inbox Dispatch — weekday 7am ET (11:00 UTC during EDT). Warms the day's
     // reply triage so it's ready when Jason opens Home.
     { path: "/api/inbox-dispatch?source=cron", schedule: "0 11 * * 1-5" },
+    // Job Alerts — weekday 7:15am / noon / 5pm ET (EDT). Scans the Gmail
+    // Job Alerts folder for new listing emails.
+    {
+      path: "/api/job-alerts/harvest?source=cron",
+      schedule: "15 11,16,21 * * 1-5",
+    },
   ],
 };
