@@ -5,7 +5,7 @@ import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { normalizeGmailUrl } from "@/lib/integrations/gmail-links";
 import { listJobAlertKeywords } from "@/lib/server-actions/job-alert-keywords";
-import { getJobAlertHarvestState } from "@/lib/data/job-alert-harvest";
+import { getJobAlertHarvestState, type JobAlertHarvestResult } from "@/lib/data/job-alert-harvest";
 import { isGmailConnected } from "@/lib/integrations/gmail";
 
 export interface JobOpportunity {
@@ -34,6 +34,8 @@ export interface JobAlertsData {
   gmailConnected: boolean;
   folderName: string | null;
   harvestError: string | null;
+  accountEmail: string | null;
+  lastResult: JobAlertHarvestResult | null;
 }
 
 const STOPWORDS = new Set([
@@ -128,6 +130,8 @@ export async function getJobAlerts(): Promise<JobAlertsData> {
     gmailConnected: false,
     folderName: null,
     harvestError: null,
+    accountEmail: null,
+    lastResult: null,
   };
   if (!hasConfig()) return empty;
 
@@ -156,6 +160,8 @@ export async function getJobAlerts(): Promise<JobAlertsData> {
       folderName: harvest.labelName,
       harvestError: harvest.error ?? error.message,
       lastScanDate: harvest.lastRunAt,
+      accountEmail: harvest.accountEmail,
+      lastResult: harvest.lastResult,
     };
   }
 
@@ -197,5 +203,7 @@ export async function getJobAlerts(): Promise<JobAlertsData> {
     gmailConnected,
     folderName: harvest.labelName,
     harvestError: harvest.error,
+    accountEmail: harvest.accountEmail,
+    lastResult: harvest.lastResult,
   };
 }

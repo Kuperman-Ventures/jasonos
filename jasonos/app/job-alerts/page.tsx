@@ -1,6 +1,7 @@
-import { Briefcase, ExternalLink } from "lucide-react";
+import { AlertTriangle, Briefcase, CheckCircle2, ExternalLink } from "lucide-react";
 import {
   getJobAlerts,
+  type JobAlertsData,
   type JobOpportunity,
 } from "@/lib/data/job-alerts";
 import { KeywordCapsules } from "@/components/jasonos/job-alerts/keyword-capsules";
@@ -31,6 +32,65 @@ function formatScanTime(iso: string): string {
     minute: "2-digit",
     timeZone: "America/New_York",
   });
+}
+
+function LastSyncStatus({ data }: { data: JobAlertsData }) {
+  if (!data.lastScanDate && !data.lastResult) return null;
+  const result = data.lastResult;
+  const failed = Boolean(data.harvestError) || result?.ok === false;
+  const listed = result?.listed ?? 0;
+  const scanned = result?.scanned ?? data.scannedBriefs;
+  const inserted = result?.inserted ?? 0;
+  const lookback = result?.lookbackDays ?? 14;
+  const folder = data.folderName ?? result?.labelName ?? "Job Alerts";
+  const mailbox = data.accountEmail ?? result?.accountEmail;
+  const mailboxes = result?.mailboxes?.length ? result.mailboxes : null;
+
+  return (
+    <div
+      className={
+        failed
+          ? "rounded-lg border border-amber-400/30 bg-amber-500/10 px-4 py-3"
+          : "rounded-lg border bg-card px-4 py-3"
+      }
+    >
+      <div className="flex items-start gap-2">
+        {failed ? (
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+        ) : (
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+        )}
+        <div className="min-w-0 text-[12px] leading-relaxed">
+          <p className="font-medium text-foreground">
+            {failed ? "Last sync failed" : "Last sync succeeded"}
+            {data.lastScanDate ? ` · ${formatScanTime(data.lastScanDate)}` : ""}
+          </p>
+          {failed && data.harvestError ? (
+            <p className="mt-1 text-amber-100/90">{data.harvestError}</p>
+          ) : (
+            <>
+              <p className="mt-1 text-muted-foreground">
+                Read “{folder}”
+                {mailbox ? ` on ${mailbox}` : ""}. {listed} email
+                {listed === 1 ? "" : "s"} in the last {lookback} days · {scanned}{" "}
+                scanned · {inserted} new listing{inserted === 1 ? "" : "s"}.
+              </p>
+              {mailboxes && mailboxes.length > 1 ? (
+                <ul className="mt-1.5 space-y-0.5 text-muted-foreground">
+                  {mailboxes.map((box) => (
+                    <li key={`${box.accountEmail}-${box.labelName}`}>
+                      {box.accountEmail}: “{box.labelName}” · {box.listed} email
+                      {box.listed === 1 ? "" : "s"} · {box.inserted} new
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function hostLabel(url: string | null): string | null {
@@ -90,7 +150,6 @@ export default async function JobAlertsPage() {
     (o) => o.matchedKeywords.length > 0
   ).length;
   const listingCount = data.opportunities.filter((o) => o.jobUrl).length;
-  const folder = data.folderName ?? "Job Alerts";
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
@@ -106,12 +165,9 @@ export default async function JobAlertsPage() {
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            Listings pulled from your Gmail folder “{folder}”. Links open the
+            Listings pulled from your Gmail Job Alerts folder. Links open the
             job posting when we can extract it; otherwise the Gmail
             conversation.
-            {data.lastScanDate
-              ? ` Last scan ${formatScanTime(data.lastScanDate)}.`
-              : " No scan yet — hit Sync job alerts."}
           </p>
         </div>
       </header>
@@ -122,11 +178,7 @@ export default async function JobAlertsPage() {
         </div>
       ) : (
         <>
-          {data.harvestError ? (
-            <p className="rounded-lg border border-amber-400/30 bg-amber-500/10 px-4 py-2 text-[12px] text-amber-100/90">
-              {data.harvestError}
-            </p>
-          ) : null}
+          <LastSyncStatus data={data} />
           {!data.gmailConnected ? (
             <p className="rounded-lg border px-4 py-2 text-[12px] text-muted-foreground">
               Connect personal Gmail in Settings so the harvest can read the
@@ -157,8 +209,9 @@ export default async function JobAlertsPage() {
             {data.opportunities.length === 0 ? (
               <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">
                 <p className="text-xs text-muted-foreground">
-                  No listings harvested yet. Sync now to read the Gmail folder,
-                  or wait for the next scheduled run.
+                  {data.lastResult?.ok
+                    ? "Sync ran. That folder had no matching emails in the lookback window. If alerts live in a different Gmail account or folder, tell me the exact name."
+                    : "No listings harvested yet. Sync now to read the Gmail folder."}
                 </p>
                 <ScanNowButton prominent />
               </div>

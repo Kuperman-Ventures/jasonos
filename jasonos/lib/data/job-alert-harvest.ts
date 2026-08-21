@@ -25,9 +25,18 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { appendSyncLog } from "@/lib/outreach/sync-log";
 
 const LOOKBACK_DAYS = 14;
+const FALLBACK_LOOKBACK_DAYS = 90;
 const MAX_LIST = 250;
 const MAX_FETCH_PER_RUN = 50;
 const STATE_ID = "default";
+
+export interface JobAlertMailboxResult {
+  accountEmail: string;
+  labelName: string;
+  listed: number;
+  scanned: number;
+  inserted: number;
+}
 
 export interface JobAlertHarvestResult {
   ok: boolean;
@@ -41,6 +50,8 @@ export interface JobAlertHarvestResult {
   inserted: number;
   duplicates: number;
   skipped: number;
+  lookbackDays: number;
+  mailboxes: JobAlertMailboxResult[];
   error?: string;
 }
 
@@ -136,6 +147,8 @@ function emptyResult(
     inserted: 0,
     duplicates: 0,
     skipped: 0,
+    lookbackDays: LOOKBACK_DAYS,
+    mailboxes: [],
     ...extra,
   };
 }
@@ -228,6 +241,28 @@ function listingsFromMessage(msg: GmailThreadMessage): {
   ];
 }
 
+async function listFolderMessages(
+  labelId: string,
+  accessToken: string
+): Promise<{ listed: { id: string; threadId: string }[]; lookbackDays: number }> {
+  const recent = await listGmailMessages({
+    labelIds: [labelId],
+    query: `newer_than:${LOOKBACK_DAYS}d`,
+    max: MAX_LIST,
+    accessToken,
+  });
+  if (recent.length > 0) {
+    return { listed: recent, lookbackDays: LOOKBACK_DAYS };
+  }
+  const wider = await listGmailMessages({
+    labelIds: [labelId],
+    query: `newer_than:${FALLBACK_LOOKBACK_DAYS}d`,
+    max: MAX_LIST,
+    accessToken,
+  });
+  return { listed: wider, lookbackDays: FALLBACK_LOOKBACK_DAYS };
+}
+
 export async function harvestJobAlertsFromGmail(): Promise<JobAlertHarvestResult> {
   if (!hasConfig()) {
     return emptyResult(false, { error: "Supabase is not configured." });
@@ -252,20 +287,14 @@ export async function harvestJobAlertsFromGmail(): Promise<JobAlertHarvestResult
   ];
 
   const wanted = wantedLabelName();
-  let mailbox: GoogleAccessToken | null = null;
-  let label: GmailLabel | null = null;
-
+  const targets: { mailbox: GoogleAccessToken; label: GmailLabel }[] = [];
   for (const token of ordered) {
     const labels = await listGmailLabels(token.token);
     const hit = pickJobAlertsLabel(labels, wanted);
-    if (hit) {
-      mailbox = token;
-      label = hit;
-      break;
-    }
+    if (hit) targets.push({ mailbox: token, label: hit });
   }
 
-  if (!mailbox || !label) {
+  if (targets.length === 0) {
     const hint = wanted
       ? `No Gmail folder named “${wanted}”. Set GMAIL_JOB_ALERTS_LABEL to the exact folder name.`
       : "No Gmail folder matching “Job Alerts”. Set GMAIL_JOB_ALERTS_LABEL to the exact folder name.";
@@ -286,131 +315,158 @@ export async function harvestJobAlertsFromGmail(): Promise<JobAlertHarvestResult
     return result;
   }
 
-  const listed = await listGmailMessages({
-    labelIds: [label.id],
-    query: `newer_than:${LOOKBACK_DAYS}d`,
-    max: MAX_LIST,
-    accessToken: mailbox.token,
-  });
-
   const sb = createServiceRoleClient();
-  const ids = listed.map((m) => m.id);
-  const seen = new Set<string>();
-  if (ids.length) {
-    const { data: seenRows } = await sb
-      .from("job_alert_seen_messages")
-      .select("message_id")
-      .in("message_id", ids);
-    for (const row of seenRows ?? []) {
-      if (row.message_id) seen.add(row.message_id as string);
-    }
-  }
-
-  const unseen = listed.filter((m) => !seen.has(m.id)).slice(0, MAX_FETCH_PER_RUN);
-  const messages = await getGmailMessagesFull(
-    unseen.map((m) => m.id),
-    mailbox.token
-  );
-
   let inserted = 0;
   let duplicates = 0;
   let skipped = 0;
-  const seenRows: {
-    message_id: string;
-    thread_id: string;
-    account_email: string;
-    received_at: string | null;
-    listings_found: number;
-  }[] = [];
+  let listedTotal = 0;
+  let unseenTotal = 0;
+  let scannedTotal = 0;
+  let lookbackDays = LOOKBACK_DAYS;
+  const mailboxes: JobAlertMailboxResult[] = [];
+  const primary = targets[0]!;
 
-  for (const msg of messages) {
-    const receivedAt = msg.internalDate
-      ? new Date(msg.internalDate).toISOString()
-      : msg.date
-        ? new Date(msg.date).toISOString()
-        : new Date().toISOString();
-    const sender = parseSender(msg.from);
-    const listings = listingsFromMessage(msg);
-    let found = 0;
+  for (const { mailbox, label } of targets) {
+    const { listed, lookbackDays: usedLookback } = await listFolderMessages(
+      label.id,
+      mailbox.token
+    );
+    lookbackDays = Math.max(lookbackDays, usedLookback);
+    listedTotal += listed.length;
 
-    for (const listing of listings) {
-      const titleKey = normKey(listing.title);
-      if (!titleKey) {
-        skipped += 1;
-        continue;
+    const ids = listed.map((m) => m.id);
+    const seen = new Set<string>();
+    if (ids.length) {
+      const { data: seenRows } = await sb
+        .from("job_alert_seen_messages")
+        .select("message_id")
+        .in("message_id", ids);
+      for (const row of seenRows ?? []) {
+        if (row.message_id) seen.add(row.message_id as string);
       }
-      const fp = fingerprint(listing.jobUrl, msg.threadId, titleKey);
-      const { data, error } = await sb
-        .from("job_opportunities")
-        .upsert(
-          {
-            fingerprint: fp,
-            gmail_thread_id: msg.threadId,
-            gmail_message_id: msg.id,
-            account_email: mailbox.accountEmail,
-            source_label: label.name,
-            from_email: sender.email || null,
-            from_name: sender.name || null,
-            subject: msg.subject ?? null,
-            title: listing.title,
-            company: listing.company,
-            compensation: listing.compensation,
-            job_url: listing.jobUrl,
-            gmail_url: gmailThreadUrl(msg.threadId, mailbox.accountEmail),
-            snippet: (msg.snippet ?? "").slice(0, 280) || null,
-            received_at: receivedAt,
-            last_seen_at: new Date().toISOString(),
-          },
-          { onConflict: "fingerprint" }
-        )
-        .select("id,first_seen_at,last_seen_at")
-        .maybeSingle();
-
-      if (error) {
-        console.warn("[job-alert-harvest] upsert failed:", error.message);
-        skipped += 1;
-        continue;
-      }
-      found += 1;
-      const first = data?.first_seen_at as string | undefined;
-      const last = data?.last_seen_at as string | undefined;
-      if (first && last && first !== last) duplicates += 1;
-      else inserted += 1;
     }
 
-    seenRows.push({
-      message_id: msg.id,
-      thread_id: msg.threadId,
-      account_email: mailbox.accountEmail,
-      received_at: receivedAt,
-      listings_found: found,
+    const remainingBudget = Math.max(0, MAX_FETCH_PER_RUN - scannedTotal);
+    const unseen = listed.filter((m) => !seen.has(m.id)).slice(0, remainingBudget);
+    unseenTotal += listed.length - seen.size;
+    const messages = await getGmailMessagesFull(
+      unseen.map((m) => m.id),
+      mailbox.token
+    );
+    scannedTotal += messages.length;
+
+    const seenRows: {
+      message_id: string;
+      thread_id: string;
+      account_email: string;
+      received_at: string | null;
+      listings_found: number;
+    }[] = [];
+    let mailboxInserted = 0;
+
+    for (const msg of messages) {
+      const receivedAt = msg.internalDate
+        ? new Date(msg.internalDate).toISOString()
+        : msg.date
+          ? new Date(msg.date).toISOString()
+          : new Date().toISOString();
+      const sender = parseSender(msg.from);
+      const listings = listingsFromMessage(msg);
+      let found = 0;
+
+      for (const listing of listings) {
+        const titleKey = normKey(listing.title);
+        if (!titleKey) {
+          skipped += 1;
+          continue;
+        }
+        const fp = fingerprint(listing.jobUrl, msg.threadId, titleKey);
+        const { data, error } = await sb
+          .from("job_opportunities")
+          .upsert(
+            {
+              fingerprint: fp,
+              gmail_thread_id: msg.threadId,
+              gmail_message_id: msg.id,
+              account_email: mailbox.accountEmail,
+              source_label: label.name,
+              from_email: sender.email || null,
+              from_name: sender.name || null,
+              subject: msg.subject ?? null,
+              title: listing.title,
+              company: listing.company,
+              compensation: listing.compensation,
+              job_url: listing.jobUrl,
+              gmail_url: gmailThreadUrl(msg.threadId, mailbox.accountEmail),
+              snippet: (msg.snippet ?? "").slice(0, 280) || null,
+              received_at: receivedAt,
+              last_seen_at: new Date().toISOString(),
+            },
+            { onConflict: "fingerprint" }
+          )
+          .select("id,first_seen_at,last_seen_at")
+          .maybeSingle();
+
+        if (error) {
+          console.warn("[job-alert-harvest] upsert failed:", error.message);
+          skipped += 1;
+          continue;
+        }
+        found += 1;
+        const first = data?.first_seen_at as string | undefined;
+        const last = data?.last_seen_at as string | undefined;
+        if (first && last && first !== last) duplicates += 1;
+        else {
+          inserted += 1;
+          mailboxInserted += 1;
+        }
+      }
+
+      seenRows.push({
+        message_id: msg.id,
+        thread_id: msg.threadId,
+        account_email: mailbox.accountEmail,
+        received_at: receivedAt,
+        listings_found: found,
+      });
+    }
+
+    if (seenRows.length) {
+      await sb.from("job_alert_seen_messages").upsert(seenRows, {
+        onConflict: "message_id",
+      });
+    }
+
+    mailboxes.push({
+      accountEmail: mailbox.accountEmail,
+      labelName: label.name,
+      listed: listed.length,
+      scanned: messages.length,
+      inserted: mailboxInserted,
     });
   }
 
-  if (seenRows.length) {
-    await sb.from("job_alert_seen_messages").upsert(seenRows, {
-      onConflict: "message_id",
-    });
-  }
-
+  const richest = [...mailboxes].sort((a, b) => b.listed - a.listed)[0] ?? null;
   const result: JobAlertHarvestResult = {
     ok: true,
     configured: true,
-    labelName: label.name,
-    labelId: label.id,
-    accountEmail: mailbox.accountEmail,
-    listed: listed.length,
-    unseen: listed.length - seen.size,
-    scanned: messages.length,
+    labelName: richest?.labelName ?? primary.label.name,
+    labelId: primary.label.id,
+    accountEmail: richest?.accountEmail ?? primary.mailbox.accountEmail,
+    listed: listedTotal,
+    unseen: unseenTotal,
+    scanned: scannedTotal,
     inserted,
     duplicates,
     skipped,
+    lookbackDays,
+    mailboxes,
   };
 
   await persistState({
-    label_name: label.name,
-    label_id: label.id,
-    account_email: mailbox.accountEmail,
+    label_name: result.labelName,
+    label_id: result.labelId,
+    account_email: result.accountEmail,
     last_result: result,
     error: null,
   });
@@ -419,8 +475,11 @@ export async function harvestJobAlertsFromGmail(): Promise<JobAlertHarvestResult
     inserted,
     duplicates,
     skipped,
-    scanned: messages.length,
-    label: label.name,
+    scanned: scannedTotal,
+    listed: listedTotal,
+    label: result.labelName,
+    account: result.accountEmail,
+    mailboxes,
   });
   return result;
 }
