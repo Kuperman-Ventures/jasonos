@@ -13,6 +13,10 @@ import {
 } from "@/lib/integrations/gmail";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import {
+  GOOGLE_GMAIL,
+  listGoogleAccessTokens,
+} from "@/lib/integrations/google-tokens";
+import {
   getHubSpotContactActivities,
 } from "@/lib/integrations/hubspot";
 import type { CadenceInterval as CadenceIntervalType } from "@/lib/cadence/types";
@@ -805,40 +809,44 @@ export async function syncSentToday(): Promise<SyncSentTodayResult> {
   // --- Gmail ---
   const gmailRows: TouchUpsert[] = [];
   try {
-    const threads = await searchGmailThreads({
-      query: `in:sent after:${todayEpoch}`,
-      pageSize: 50,
-    });
+    const mailboxTokens = await listGoogleAccessTokens();
+    for (const { provider, token } of mailboxTokens) {
+      const threads = await searchGmailThreads({
+        query: `in:sent after:${todayEpoch}`,
+        pageSize: 50,
+        accessToken: token,
+      });
 
-    for (const t of threads) {
-      const full = await getGmailThread(t.id);
-      if (!full) continue;
+      for (const t of threads) {
+        const full = await getGmailThread(t.id, token);
+        if (!full) continue;
 
-      for (const m of full.messages) {
-        // Only my outbound messages sent today (fixed: must have from header AND be from me)
-        if (!m.from || !isFromMe(m.from)) continue;
-        if (!m.date || new Date(m.date).getTime() < today.getTime()) continue;
-        // Skip emails sent to myself (job alerts, auto-forwards, etc.)
-        if (m.to && isMyOwnAddress(m.to)) continue;
+        for (const m of full.messages) {
+          // Only my outbound messages sent today (fixed: must have from header AND be from me)
+          if (!m.from || !isFromMe(m.from)) continue;
+          if (!m.date || new Date(m.date).getTime() < today.getTime()) continue;
+          // Skip emails sent to myself (job alerts, auto-forwards, etc.)
+          if (m.to && isMyOwnAddress(m.to)) continue;
 
-        const recruiter = findRecruiter(m.to ?? "");
-        if (!recruiter) {
-          skippedUnmatched++;
-          skippedDetails.push({ to: m.to ?? "(no to header)", subject: m.subject ?? undefined });
-          continue;
+          const recruiter = findRecruiter(m.to ?? "");
+          if (!recruiter) {
+            skippedUnmatched++;
+            skippedDetails.push({ to: m.to ?? "(no to header)", subject: m.subject ?? undefined });
+            continue;
+          }
+
+          gmailRows.push({
+            contact_id: recruiter.recruiterId,
+            channel: "email",
+            direction: "outbound",
+            touched_at: new Date(m.date).toISOString(),
+            brief: oneLineSnippet(m.plaintextBody) || m.snippet || "Email sent",
+            subject: m.subject ?? null,
+            source: "gmail",
+            external_id: provider === GOOGLE_GMAIL ? `gmail:${m.id}` : m.id,
+            thread_url: gmailThreadUrl(t.id),
+          });
         }
-
-        gmailRows.push({
-          contact_id: recruiter.recruiterId,
-          channel: "email",
-          direction: "outbound",
-          touched_at: new Date(m.date).toISOString(),
-          brief: oneLineSnippet(m.plaintextBody) || m.snippet || "Email sent",
-          subject: m.subject ?? null,
-          source: "gmail",
-          external_id: m.id,
-          thread_url: gmailThreadUrl(t.id),
-        });
       }
     }
   } catch (err) {
@@ -1000,26 +1008,35 @@ async function getRecruiterCommsContext(
 async function fetchGmailLatest(email: string | null): Promise<LastContactContents | null> {
   if (!email) return null;
   try {
-    const threads = await searchGmailThreads({
-      query: `from:${email} OR to:${email}`,
-      pageSize: 1,
-    });
-    if (!threads.length) return null;
-    const full = await getGmailThread(threads[0].id);
-    if (!full?.messages?.length) return null;
+    const mailboxTokens = await listGoogleAccessTokens();
+    let best: LastContactContents | null = null;
+    let bestTs = 0;
+    for (const { token } of mailboxTokens) {
+      const threads = await searchGmailThreads({
+        query: `from:${email} OR to:${email}`,
+        pageSize: 1,
+        accessToken: token,
+      });
+      if (!threads.length) continue;
+      const full = await getGmailThread(threads[0].id, token);
+      if (!full?.messages?.length) continue;
 
-    const last = full.messages[full.messages.length - 1];
-    const direction: "inbound" | "outbound" =
-      last.from && isFromMe(last.from) ? "outbound" : "inbound";
-
-    return {
-      source: "gmail",
-      subject: last.subject ?? null,
-      body: (last.plaintextBody || last.snippet || "").slice(0, 3000),
-      sentAt: last.date ? new Date(last.date).toISOString() : new Date().toISOString(),
-      direction,
-      threadUrl: gmailThreadUrl(threads[0].id),
-    };
+      const last = full.messages[full.messages.length - 1];
+      const ts = last.date ? new Date(last.date).getTime() : 0;
+      if (ts < bestTs) continue;
+      bestTs = ts;
+      const direction: "inbound" | "outbound" =
+        last.from && isFromMe(last.from) ? "outbound" : "inbound";
+      best = {
+        source: "gmail",
+        subject: last.subject ?? null,
+        body: (last.plaintextBody || last.snippet || "").slice(0, 3000),
+        sentAt: last.date ? new Date(last.date).toISOString() : new Date().toISOString(),
+        direction,
+        threadUrl: gmailThreadUrl(threads[0].id),
+      };
+    }
+    return best;
   } catch {
     return null;
   }

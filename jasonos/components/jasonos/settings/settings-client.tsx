@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
   Database,
   KeyRound,
+  Mail,
   PlugZap,
   Radio,
   RefreshCw,
@@ -126,6 +128,29 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
   const [models, setModels] = useState(initialSettings.models);
   const [isChecking, startChecking] = useTransition();
   const [isSavingPrefs, startSavingPrefs] = useTransition();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  useEffect(() => {
+    const connected = searchParams.get("google_gmail_connected") === "1";
+    const advisors = searchParams.get("google_connected") === "1";
+    const error = searchParams.get("google_error");
+    if (!connected && !advisors && !error) return;
+    if (connected) {
+      toast.success("Personal Gmail connected", {
+        description: "Hit Sync on Networking. Calendar and sent mail on jskuperman@gmail.com will come through.",
+      });
+    } else if (advisors) {
+      toast.success("Advisors Google connected");
+    } else if (error) {
+      toast.error("Google connect failed", { description: error });
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete("google_gmail_connected");
+    url.searchParams.delete("google_connected");
+    url.searchParams.delete("google_error");
+    router.replace(url.pathname + url.search, { scroll: false });
+  }, [searchParams, router]);
 
   const summary = useMemo<{
     total: number;
@@ -213,6 +238,8 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
         isChecking={isChecking}
         onCheckAll={refreshAll}
       />
+
+      <GoogleAccountsCard accounts={settings.googleAccounts} />
 
       <LiveDataPreview billing={billing} onRefresh={() => window.location.reload()} />
 
@@ -311,6 +338,92 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
           <Button variant="destructive" disabled>Clear account data</Button>
         </div>
       </section>
+    </div>
+  );
+}
+
+function GoogleAccountsCard({
+  accounts,
+}: {
+  accounts: SettingsPayload["googleAccounts"];
+}) {
+  return (
+    <section className="rounded-xl border bg-card p-4">
+      <div className="flex items-start gap-3">
+        <div className="grid h-10 w-10 place-items-center rounded-lg border bg-background/60">
+          <Mail className="h-4 w-4 text-sky-300" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-semibold tracking-tight">Google accounts</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Sync reads Sent mail and calendar from each connected account. Advisors
+            is already connected. Personal Gmail is a separate Google login — sharing
+            the calendar is not enough for email.
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <GoogleAccountRow
+          label="Advisors"
+          email="jason@kupermanadvisors.com"
+          connected={accounts.advisorsConnected}
+          connectedEmail={accounts.advisorsEmail}
+          href="/api/auth/google"
+          connectLabel="Connect Advisors Google"
+        />
+        <GoogleAccountRow
+          label="Personal Gmail"
+          email="jskuperman@gmail.com"
+          connected={accounts.gmailConnected}
+          connectedEmail={accounts.gmailEmail}
+          href="/api/auth/google?account=gmail"
+          connectLabel="Connect personal Gmail"
+        />
+      </div>
+    </section>
+  );
+}
+
+function GoogleAccountRow({
+  label,
+  email,
+  connected,
+  connectedEmail,
+  href,
+  connectLabel,
+}: {
+  label: string;
+  email: string;
+  connected: boolean;
+  connectedEmail: string | null;
+  href: string;
+  connectLabel: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-lg border bg-background/40 px-3 py-3">
+      <div className="min-w-0">
+        <div className="text-sm font-medium">{label}</div>
+        <div className="mt-0.5 truncate text-xs text-muted-foreground">
+          {connected ? connectedEmail ?? email : email}
+        </div>
+      </div>
+      {connected ? (
+        <div className="flex shrink-0 items-center gap-2">
+          <Badge variant="outline" className="border-emerald-400/40 bg-emerald-400/10 text-emerald-200">
+            connected
+          </Badge>
+          <a href={href} className="text-[11px] text-muted-foreground hover:text-foreground">
+            Reconnect
+          </a>
+        </div>
+      ) : (
+        <a
+          href={href}
+          className="shrink-0 rounded-md border px-3 py-1.5 text-[11px] font-medium hover:bg-muted"
+        >
+          {connectLabel}
+        </a>
+      )}
     </div>
   );
 }

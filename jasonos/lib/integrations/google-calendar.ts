@@ -2,9 +2,15 @@
 // Uses the Google OAuth tokens stored in jasonos.user_integrations.
 
 import "server-only";
-import { createServiceRoleClient } from "@/lib/supabase/server";
-import { emptyResult, envConfigured, type IntegrationResult } from "./_base";
+import { emptyResult, type IntegrationResult } from "./_base";
 import type { GCalEvent } from "@/lib/calendar/health-model";
+import {
+  GMAIL_ACCOUNT_EMAIL,
+  GOOGLE_ADVISORS,
+  GOOGLE_GMAIL,
+  getGoogleAccessToken,
+  listGoogleAccessTokens,
+} from "@/lib/integrations/google-tokens";
 
 export { type GCalEvent };
 
@@ -26,11 +32,11 @@ const COSA_CALENDAR_ID =
 
 /**
  * Personal calendars Sync and the week view treat as Jason's schedule.
- * `primary` is the OAuth'd Google account (jason@kupermanadvisors.com).
- * `jskuperman@gmail.com` is that Gmail calendar — it has to be shared with
- * the OAuth'd account (See all event details) or Google returns 404 and we skip it.
+ * Advisors primary comes from the Advisors Google token.
+ * Gmail primary comes from the personal Gmail token when connected;
+ * otherwise we still try the shared calendar id on the Advisors token.
  */
-export const PERSONAL_CALENDAR_IDS = ["primary", "jskuperman@gmail.com"] as const;
+export const PERSONAL_CALENDAR_IDS = ["primary", GMAIL_ACCOUNT_EMAIL] as const;
 
 export interface CalendarApiEvent {
   id?: string;
@@ -61,7 +67,7 @@ interface CalendarListPage {
 
 function calendarErrorMessage(calendarId: string, status: number, body: string): string {
   if ((status === 404 || status === 403) && calendarId !== "primary") {
-    return `${calendarId} is not shared with jason@kupermanadvisors.com. In Google Calendar on Gmail, share that calendar and allow See all event details.`;
+    return `${calendarId} is not readable from Advisors Google. Connect personal Gmail in Settings, or share that calendar with jason@kupermanadvisors.com (See all event details).`;
   }
   return `GCal ${status} :: ${body.slice(0, 200)}`;
 }
@@ -136,25 +142,61 @@ export async function fetchCalendarEvents(opts: {
 }
 
 /**
- * Primary Google calendar plus any extra personal calendars (Gmail).
- * A missing extra calendar is a warning, not a hard fail — primary still syncs.
+ * Advisors primary + personal Gmail primary (own token), with a share fallback
+ * on the Advisors token when personal Gmail is not connected.
+ * A missing extra calendar is a warning, not a hard fail — other calendars still sync.
  */
 export async function fetchAllPersonalCalendarEvents(opts: {
-  token: string;
+  token?: string;
   timeMin: string;
   timeMax: string;
 }): Promise<{ events: CalendarApiEvent[]; error?: string; warnings: string[] }> {
-  const results = await Promise.all(
-    PERSONAL_CALENDAR_IDS.map((calendarId) =>
+  const tokens = await listGoogleAccessTokens();
+  const advisors =
+    tokens.find((t) => t.provider === GOOGLE_ADVISORS)?.token ?? opts.token ?? null;
+  const gmail = tokens.find((t) => t.provider === GOOGLE_GMAIL)?.token ?? null;
+
+  if (!advisors && !gmail) {
+    return { events: [], error: "Google Calendar is not connected.", warnings: [] };
+  }
+
+  const fetches: Promise<{
+    calendarId: string;
+    events: CalendarApiEvent[];
+    error?: string;
+  }>[] = [];
+
+  if (advisors) {
+    fetches.push(
       fetchCalendarEvents({
-        token: opts.token,
-        calendarId,
+        token: advisors,
+        calendarId: "primary",
         timeMin: opts.timeMin,
         timeMax: opts.timeMax,
       })
-    )
-  );
+    );
+  }
+  if (gmail) {
+    fetches.push(
+      fetchCalendarEvents({
+        token: gmail,
+        calendarId: "primary",
+        timeMin: opts.timeMin,
+        timeMax: opts.timeMax,
+      }).then((r) => ({ ...r, calendarId: GMAIL_ACCOUNT_EMAIL }))
+    );
+  } else if (advisors) {
+    fetches.push(
+      fetchCalendarEvents({
+        token: advisors,
+        calendarId: GMAIL_ACCOUNT_EMAIL,
+        timeMin: opts.timeMin,
+        timeMax: opts.timeMax,
+      })
+    );
+  }
 
+  const results = await Promise.all(fetches);
   const warnings: string[] = [];
   const lists: CalendarApiEvent[][] = [];
   let primaryError: string | undefined;
@@ -164,6 +206,10 @@ export async function fetchAllPersonalCalendarEvents(opts: {
     if (!r.error) continue;
     if (r.calendarId === "primary") {
       primaryError = r.error;
+    } else if (r.calendarId === GMAIL_ACCOUNT_EMAIL && !gmail) {
+      warnings.push(
+        `${GMAIL_ACCOUNT_EMAIL} is not connected. In Settings, click Connect personal Gmail and sign in as that account.`
+      );
     } else {
       warnings.push(r.error);
     }
@@ -186,60 +232,7 @@ const TRACK_COLOR_IDS: Record<string, string> = {
   cosaAdmin:   "7",
 };
 
-// ─── Token retrieval (with refresh) ──────────────────────────────────────────
-
-async function loadAccessToken(): Promise<string | null> {
-  if (!envConfigured("NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY")) {
-    return null;
-  }
-  try {
-    const sb = createServiceRoleClient();
-    const { data } = await sb
-      .from("user_integrations")
-      .select("access_token, refresh_token, expires_at")
-      .eq("provider", "google")
-      .maybeSingle();
-    if (!data) return null;
-    // Use existing token if not expiring in the next 60 seconds
-    if (
-      data.access_token &&
-      data.expires_at &&
-      Date.parse(data.expires_at) - Date.now() > 60_000
-    )
-      return data.access_token;
-    // Attempt refresh
-    if (data.refresh_token) {
-      const cid = process.env.GOOGLE_CLIENT_ID;
-      const cs = process.env.GOOGLE_CLIENT_SECRET;
-      if (!cid || !cs) return data.access_token;
-      const res = await fetch("https://oauth2.googleapis.com/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          client_id: cid,
-          client_secret: cs,
-          refresh_token: data.refresh_token,
-          grant_type: "refresh_token",
-        }),
-      });
-      if (!res.ok) return data.access_token;
-      const j = (await res.json()) as { access_token?: string; expires_in?: number };
-      if (j.access_token) {
-        const expiresAt = new Date(Date.now() + (j.expires_in ?? 3600) * 1000).toISOString();
-        await sb.from("user_integrations").update({ access_token: j.access_token, expires_at: expiresAt }).eq("provider", "google");
-        return j.access_token;
-      }
-      return data.access_token;
-    }
-    return data.access_token;
-  } catch {
-    return null;
-  }
-}
-
-export async function getGoogleAccessToken(): Promise<string | null> {
-  return loadAccessToken();
-}
+export { getGoogleAccessToken };
 
 // ─── Morning Brief: today's calendar ─────────────────────────────────────────
 
@@ -247,7 +240,8 @@ export async function getTodaysCalendar(opts?: {
   tz?: string;
   calendarId?: string;
 }): Promise<IntegrationResult<CalendarEvent[]>> {
-  const token = await loadAccessToken();
+  const tokens = await listGoogleAccessTokens();
+  const token = tokens[0]?.token ?? null;
   if (!token) return emptyResult([], false);
 
   try {
@@ -265,7 +259,6 @@ export async function getTodaysCalendar(opts?: {
           timeMax: dayEnd.toISOString(),
         })
       : await fetchAllPersonalCalendarEvents({
-          token,
           timeMin: dayStart.toISOString(),
           timeMax: dayEnd.toISOString(),
         });

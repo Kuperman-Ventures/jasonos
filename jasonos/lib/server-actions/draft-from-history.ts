@@ -13,6 +13,7 @@ import {
   type GmailThread,
   type GmailThreadFull,
 } from "@/lib/integrations/gmail";
+import { listGoogleAccessTokens } from "@/lib/integrations/google-tokens";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import { searchGranolaForContact } from "@/lib/integrations/granola";
 import { searchFirefliesForContact } from "@/lib/integrations/fireflies";
@@ -256,16 +257,23 @@ async function getRecruiterPipelineIdFromCard(contactId: string) {
 export async function gatherGmailHistory(ctx: ContactContext): Promise<GmailHistory> {
   if (!ctx.primaryEmail) return { found: false };
 
-  const threads = dedupeThreads(
-    await searchGmailThreads({
+  const mailboxTokens = await listGoogleAccessTokens();
+  const collected: { thread: GmailThread; token: string }[] = [];
+  for (const { token } of mailboxTokens) {
+    const threads = await searchGmailThreads({
       query: `from:${ctx.primaryEmail} OR to:${ctx.primaryEmail}`,
       pageSize: 5,
-    })
-  );
+      accessToken: token,
+    });
+    for (const thread of threads) collected.push({ thread, token });
+  }
+  const threads = dedupeThreads(collected.map((row) => row.thread));
   if (!threads.length) return { found: false };
 
   const mostRecent = threads[0];
-  const fullThread = await getGmailThread(mostRecent.id);
+  const tokenForThread =
+    collected.find((row) => row.thread.id === mostRecent.id)?.token;
+  const fullThread = await getGmailThread(mostRecent.id, tokenForThread);
   const lastMessage = fullThread?.messages?.[fullThread.messages.length - 1];
 
   return {
