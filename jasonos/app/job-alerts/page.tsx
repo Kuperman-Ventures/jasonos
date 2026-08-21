@@ -1,10 +1,7 @@
-import { AlertTriangle, Briefcase, CheckCircle2, ExternalLink } from "lucide-react";
-import {
-  getJobAlerts,
-  type JobAlertsData,
-  type JobOpportunity,
-} from "@/lib/data/job-alerts";
+import { AlertTriangle, Briefcase, CheckCircle2 } from "lucide-react";
+import { getJobAlerts, type JobAlertsData } from "@/lib/data/job-alerts";
 import { KeywordCapsules } from "@/components/jasonos/job-alerts/keyword-capsules";
+import { OpportunityList } from "@/components/jasonos/job-alerts/opportunity-list";
 import { ScanNowButton } from "@/components/jasonos/job-alerts/scan-now-button";
 
 export const dynamic = "force-dynamic";
@@ -93,57 +90,6 @@ function LastSyncStatus({ data }: { data: JobAlertsData }) {
   );
 }
 
-function hostLabel(url: string | null): string | null {
-  if (!url) return null;
-  try {
-    const host = new URL(url).hostname.replace(/^www\./, "");
-    if (host.includes("mail.google.com")) return "Gmail alert";
-    if (host.includes("linkedin.com")) return "LinkedIn";
-    if (host.includes("indeed.com")) return "Indeed";
-    if (host.includes("theladders.com")) return "Ladders";
-    if (host.includes("greenhouse")) return "Greenhouse";
-    if (host.includes("lever.co")) return "Lever";
-    if (host.includes("ashbyhq.com")) return "Ashby";
-    if (host.includes("workday")) return "Workday";
-    return host;
-  } catch {
-    return null;
-  }
-}
-
-function OpportunityRow({ job }: { job: JobOpportunity }) {
-  const href = job.url;
-  const source = hostLabel(href);
-  const meta = [job.company, job.compensation, source].filter(Boolean).join(" · ");
-  const titleNode = href ? (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="inline-flex items-start gap-1.5 font-medium text-sky-300 underline decoration-sky-400/40 underline-offset-2 hover:text-sky-200"
-    >
-      <span>{job.title}</span>
-      <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-70" />
-    </a>
-  ) : (
-    <span className="font-medium text-foreground/90">{job.title}</span>
-  );
-
-  return (
-    <li className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-      <div className="min-w-0 flex-1">
-        <p className="text-sm leading-snug">{titleNode}</p>
-        {meta ? (
-          <p className="mt-1 text-[11px] text-muted-foreground">{meta}</p>
-        ) : null}
-      </div>
-      <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-        {formatDate(job.briefDate)}
-      </span>
-    </li>
-  );
-}
-
 export default async function JobAlertsPage() {
   const data = await getJobAlerts();
   const matchedCount = data.opportunities.filter(
@@ -165,9 +111,9 @@ export default async function JobAlertsPage() {
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            Listings pulled from your Gmail Job Alerts folder. Links open the
-            job posting when we can extract it; otherwise the Gmail
-            conversation.
+            Listings pulled from your Gmail Job Alerts folder. Sync adds new
+            ones; nothing drops off unless you delete it. Links open the job
+            posting when we can extract it; otherwise the Gmail conversation.
           </p>
         </div>
       </header>
@@ -204,7 +150,8 @@ export default async function JobAlertsPage() {
             </div>
             <p className="border-b px-4 py-1.5 text-[11px] text-muted-foreground">
               New emails in that folder are scanned on a weekday schedule.
-              Keyword matches float to the top.
+              Keyword matches float to the top. Trash a listing to hide it;
+              the next sync will not put it back.
             </p>
             {data.opportunities.length === 0 ? (
               <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">
@@ -216,11 +163,7 @@ export default async function JobAlertsPage() {
                 <ScanNowButton prominent />
               </div>
             ) : (
-              <ul className="divide-y divide-border">
-                {data.opportunities.map((job) => (
-                  <OpportunityRow key={job.id} job={job} />
-                ))}
-              </ul>
+              <OpportunityList jobs={data.opportunities} />
             )}
           </section>
         </>
