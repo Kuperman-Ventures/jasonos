@@ -7,8 +7,12 @@ import { listRecentCounterparties } from "@/lib/integrations/gmail";
 import {
   buildContactLookup,
   canonicalEmail,
-  isMyOwnAddress,
 } from "@/lib/outreach/email-matching";
+import {
+  nameFromEmail,
+  normalizePersonName,
+  upsertCandidateSightings,
+} from "@/lib/outreach/candidate-capture";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,115 +43,9 @@ function hasConfig() {
 }
 
 // ---------------------------------------------------------------------------
-// Noise filtering — keep real people, drop automated / role / bulk senders.
-// ---------------------------------------------------------------------------
-
-const AUTOMATED_LOCAL_RE =
-  /^(no-?reply|noreply|do-?not-?reply|donotreply|mailer-daemon|postmaster|bounce[s]?|notif(y|ication|ications)?|automated|auto-?confirm|calendar-notification|invitation|invites?|team|updates?|newsletter|mailer|email|via)([._+-]|$)/i;
-
-const AUTOMATED_DOMAIN_RE =
-  /(^|\.)(bounce|bounces|mailer|notifications?|reply|em|sendgrid|mailchimp|mcsv|substack|mailgun|amazonses|sparkpostmail|sendinblue|hubspotemail|mktomail)\./i;
-
-function isNoiseEmail(email: string): boolean {
-  const [local, domain] = email.split("@");
-  if (!local || !domain) return true;
-  if (AUTOMATED_LOCAL_RE.test(local)) return true;
-  if (AUTOMATED_DOMAIN_RE.test(domain)) return true;
-  return false;
-}
-
-function companyFromEmail(email: string): string | null {
-  const domain = email.split("@")[1] ?? "";
-  const base = domain.split(".").slice(0, -1).join(".");
-  const free = new Set([
-    "gmail",
-    "yahoo",
-    "hotmail",
-    "outlook",
-    "icloud",
-    "aol",
-    "me",
-    "proton",
-    "protonmail",
-    "msn",
-    "live",
-  ]);
-  if (!base || free.has(base.toLowerCase())) return null;
-  return base
-    .split(/[.-]/)
-    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
-    .join(" ");
-}
-
-function nameFromEmail(email: string): string {
-  const local = email.split("@")[0] ?? email;
-  return local
-    .replace(/[._\-+]+/g, " ")
-    .replace(/\d+/g, "")
-    .trim()
-    .split(/\s+/)
-    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
-    .join(" ")
-    .trim();
-}
-
-// Capitalize the first letter of each alphabetic run so hyphenated and
-// apostrophed names read correctly ("o'brien" -> "O'Brien").
-function titleCaseToken(w: string): string {
-  return w.replace(
-    /[a-zA-Z]+/g,
-    (m) => m[0].toUpperCase() + m.slice(1).toLowerCase()
-  );
-}
-
-// Normalize a display name captured from an email header into a consistent
-// "First Last" order with sane casing. Best-effort — ambiguous names are left
-// alone:
-//   "Smith, John"     -> "John Smith"
-//   "JOHN SMITH"      -> "John Smith"
-//   "john smith"      -> "John Smith"
-//   "McDonald, Fiona" -> "Fiona McDonald"  (deliberate internal caps kept)
-function normalizePersonName(raw: string | null | undefined): string {
-  let s = (raw ?? "").trim().replace(/\s+/g, " ");
-  // Strip surrounding quotes some mail clients wrap display names in.
-  s = s.replace(/^['"]+|['"]+$/g, "").trim();
-  if (!s) return "";
-  // Drop an email address if it leaked into the display name.
-  if (/\S+@\S+\.\S+/.test(s)) {
-    s = s.replace(/\S+@\S+\.\S+/g, "").trim();
-    if (!s) return "";
-  }
-  // "Last, First [Middle]" -> "First [Middle] Last" (a single comma only).
-  const commaParts = s.split(",").map((p) => p.trim()).filter(Boolean);
-  if (commaParts.length === 2) {
-    s = `${commaParts[1]} ${commaParts[0]}`;
-  }
-  // Title-case ALL-CAPS or all-lowercase tokens; keep deliberate mixed casing.
-  return s
-    .split(" ")
-    .map((w) => {
-      if (!w) return w;
-      const isAllUpper = w === w.toUpperCase();
-      const isAllLower = w === w.toLowerCase();
-      return isAllUpper || isAllLower ? titleCaseToken(w) : w;
-    })
-    .join(" ")
-    .trim();
-}
-
-// ---------------------------------------------------------------------------
 // captureEmailCandidates — scan recent mail, stage unknown counterparties.
+// Err toward Suggested. Jason Accepts or Dismisses. Only robots are skipped.
 // ---------------------------------------------------------------------------
-
-interface Agg {
-  email: string;
-  name: string | null;
-  company: string | null;
-  inbound: number;
-  outbound: number;
-  lastSeen: string;
-  lastSubject: string | null;
-}
 
 export async function captureEmailCandidates(opts?: {
   days?: number;
@@ -158,154 +56,143 @@ export async function captureEmailCandidates(opts?: {
   | { ok: false; error: string }
 > {
   const result = await captureEmailCandidatesInner(opts);
-  if (result.ok || result.error !== "Not configured") {
+  if (result.ok) {
+    if (result.accounts.length) {
+      for (const account of result.accounts) {
+        await appendSyncLog(
+          "suggested",
+          {
+            ok: true,
+            accountEmail: account.accountEmail,
+            scanned: account.scanned,
+            created: account.created,
+            updated: account.updated,
+            skipped: account.skipped,
+            unmatchedNames: account.newNames,
+          },
+          opts?.runId
+        );
+      }
+    } else {
+      await appendSyncLog(
+        "suggested",
+        {
+          ok: true,
+          scanned: result.scanned,
+          created: result.created,
+          updated: result.updated,
+          skipped: result.skipped,
+        },
+        opts?.runId
+      );
+    }
+  } else if (result.error !== "Not configured") {
     await appendSyncLog(
       "suggested",
-      result.ok
-        ? {
-            ok: true,
-            scanned: result.scanned,
-            created: result.created,
-            updated: result.updated,
-            skipped: result.skipped,
-          }
-        : { ok: false, error: result.error },
+      { ok: false, error: result.error },
       opts?.runId
     );
   }
-  return result;
+  return result.ok
+    ? {
+        ok: true,
+        scanned: result.scanned,
+        created: result.created,
+        updated: result.updated,
+        skipped: result.skipped,
+      }
+    : result;
 }
 
 async function captureEmailCandidatesInner(opts?: {
   days?: number;
   max?: number;
 }): Promise<
-  | { ok: true; scanned: number; created: number; updated: number; skipped: number }
+  | {
+      ok: true;
+      scanned: number;
+      created: number;
+      updated: number;
+      skipped: number;
+      accounts: {
+        accountEmail: string;
+        scanned: number;
+        created: number;
+        updated: number;
+        skipped: number;
+        newNames: string[];
+      }[];
+    }
   | { ok: false; error: string }
 > {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
 
   const days = opts?.days ?? 30;
   const sinceIso = new Date(Date.now() - days * 86_400_000).toISOString();
-  const scan = await listRecentCounterparties({ sinceIso, max: opts?.max ?? 60 });
+  const scan = await listRecentCounterparties({
+    sinceIso,
+    max: opts?.max ?? 250,
+  });
   if (!scan.configured) {
     return { ok: false, error: "Gmail is not connected." };
   }
   if (scan.error) return { ok: false, error: scan.error };
 
   const lookup = await buildContactLookup();
-
-  // Aggregate scan rows per canonical email.
-  const agg = new Map<string, Agg>();
-  let skipped = 0;
+  const byAccount = new Map<string, typeof scan.data>();
   for (const cp of scan.data) {
-    if (!cp.email || isMyOwnAddress(cp.email)) continue;
-    if (cp.bulk || isNoiseEmail(cp.email)) {
-      skipped += 1;
-      continue;
-    }
-    const canon = canonicalEmail(cp.email);
-    // Already a known contact → not a candidate. Match by email AND name
-    // (resolve() tries email, then display name, then a name guessed from the
-    // local-part) so imported contacts without an email on file still dedupe.
-    const header = cp.name ? `${cp.name} <${cp.email}>` : cp.email;
-    if (lookup.resolve(header)) continue;
-
-    const prev = agg.get(canon);
-    if (prev) {
-      if (cp.direction === "inbound") prev.inbound += 1;
-      else prev.outbound += 1;
-      if (cp.dateIso > prev.lastSeen) {
-        prev.lastSeen = cp.dateIso;
-        prev.lastSubject = cp.subject ?? prev.lastSubject;
-      }
-      if (!prev.name && cp.name) prev.name = normalizePersonName(cp.name);
-    } else {
-      agg.set(canon, {
-        email: canon,
-        name: cp.name ? normalizePersonName(cp.name) : null,
-        company: companyFromEmail(canon),
-        inbound: cp.direction === "inbound" ? 1 : 0,
-        outbound: cp.direction === "outbound" ? 1 : 0,
-        lastSeen: cp.dateIso,
-        lastSubject: cp.subject ?? null,
-      });
-    }
+    const key = cp.accountEmail || "unknown";
+    const list = byAccount.get(key) ?? [];
+    list.push(cp);
+    byAccount.set(key, list);
   }
 
-  if (!agg.size) {
-    return { ok: true, scanned: scan.data.length, created: 0, updated: 0, skipped };
-  }
+  const accounts: {
+    accountEmail: string;
+    scanned: number;
+    created: number;
+    updated: number;
+    skipped: number;
+    newNames: string[];
+  }[] = [];
+  let created = 0;
+  let updated = 0;
+  let skipped = 0;
 
-  const sb = createServiceRoleClient();
-  const emails = Array.from(agg.keys());
-  const { data: existingRows, error: readErr } = await sb
-    .from("contact_candidates")
-    .select("id,email,status,name,first_seen")
-    .in("email", emails);
-  if (readErr) return { ok: false, error: readErr.message };
-
-  const existingByEmail = new Map<string, { id: string; status: string; name: string | null }>();
-  for (const r of existingRows ?? []) {
-    existingByEmail.set(r.email as string, {
-      id: r.id as string,
-      status: r.status as string,
-      name: (r.name as string | null) ?? null,
+  for (const [accountEmail, cps] of byAccount) {
+    const staged = await upsertCandidateSightings(
+      cps.map((cp) => ({
+        email: cp.email,
+        name: cp.name ?? null,
+        dateIso: cp.dateIso,
+        subject: cp.subject ?? null,
+        direction: cp.direction,
+      })),
+      lookup
+    );
+    created += staged.created;
+    updated += staged.updated;
+    skipped += staged.skipped;
+    accounts.push({
+      accountEmail,
+      scanned: cps.length,
+      created: staged.created,
+      updated: staged.updated,
+      skipped: staged.skipped,
+      newNames: staged.newNames,
     });
   }
 
-  const toInsert: Record<string, unknown>[] = [];
-  const updates: Promise<unknown>[] = [];
-  let created = 0;
-  let updated = 0;
-
-  for (const a of agg.values()) {
-    const existing = existingByEmail.get(a.email);
-    if (existing) {
-      // Respect prior decisions — never resurrect an added/dismissed row.
-      if (existing.status !== "new") continue;
-      updated += 1;
-      updates.push(
-        (async () => {
-          await sb
-            .from("contact_candidates")
-            .update({
-              name: existing.name ?? a.name,
-              company: a.company,
-              inbound_count: a.inbound,
-              outbound_count: a.outbound,
-              last_seen: a.lastSeen,
-              last_subject: a.lastSubject,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", existing.id);
-        })()
-      );
-    } else {
-      created += 1;
-      toInsert.push({
-        email: a.email,
-        name: a.name ?? nameFromEmail(a.email),
-        company: a.company,
-        inbound_count: a.inbound,
-        outbound_count: a.outbound,
-        first_seen: a.lastSeen,
-        last_seen: a.lastSeen,
-        last_subject: a.lastSubject,
-        status: "new",
-      });
-    }
-  }
-
-  if (toInsert.length) {
-    const { error: insErr } = await sb.from("contact_candidates").insert(toInsert);
-    if (insErr) return { ok: false, error: insErr.message };
-  }
-  await Promise.all(updates);
-
   revalidatePath("/outreach/suggested");
   revalidatePath("/settings/sync-log");
-  return { ok: true, scanned: scan.data.length, created, updated, skipped };
+  return {
+    ok: true,
+    scanned: scan.data.length,
+    created,
+    updated,
+    skipped,
+    accounts,
+  };
 }
 
 // ---------------------------------------------------------------------------

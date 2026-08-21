@@ -1,9 +1,9 @@
 "use client";
 
-// Suggested Contacts — a review inbox of people seen in email (sent/received)
+// Suggested Contacts — a review inbox of people seen in email or calendar
 // who aren't in the People list yet. Add (creates an unclassified contact that
 // flows into "Needs to be Classified & Scheduled") or Dismiss (permanent
-// ignore). Fed by captureEmailCandidates (Gmail scan) with noise filtering.
+// ignore). Fed by Sync plus Scan email. Only obvious robots are filtered.
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -73,7 +73,7 @@ export function SuggestedClient({
       }
       toast.success(
         `Scanned ${result.scanned} messages · ${result.created} new, ${result.updated} updated`,
-        { description: `${result.skipped} automated/bulk senders skipped.` }
+        { description: `${result.skipped} robots skipped.` }
       );
       router.refresh();
     });
@@ -124,10 +124,10 @@ export function SuggestedClient({
             Suggested contacts
           </h1>
           <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
-            People you&rsquo;ve emailed or who&rsquo;ve emailed you that aren&rsquo;t
-            in your People list yet. Add the ones worth tracking; dismiss the
-            rest (they won&rsquo;t come back). Automated and bulk senders are
-            filtered out automatically.
+            People from email and calendar invites who aren&rsquo;t in People
+            yet. Add the ones you want in the system; dismiss the rest (they
+            won&rsquo;t come back). This list is meant to be a bit noisy.
+            Robots are filtered; everything else waits for you.
           </p>
         </div>
         <Button onClick={handleScan} disabled={scanning || !gmailConnected}>
