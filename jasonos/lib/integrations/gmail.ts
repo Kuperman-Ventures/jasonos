@@ -3,11 +3,14 @@
 // (provider='google'). Falls back to empty + configured:false if no token.
 
 import "server-only";
-import { createServiceRoleClient } from "@/lib/supabase/server";
 import { isFromMe } from "@/lib/outreach/email-matching";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import { pickJobListingUrl } from "@/lib/integrations/job-listing-urls";
-import { emptyResult, envConfigured, type IntegrationResult } from "./_base";
+import {
+  getGoogleAccessToken,
+  listGoogleAccessTokens,
+} from "@/lib/integrations/google-tokens";
+import { emptyResult, type IntegrationResult } from "./_base";
 
 export interface GmailReply {
   id: string;
@@ -58,69 +61,17 @@ export interface GmailThreadFull {
 
 const GMAIL_BASE = "https://gmail.googleapis.com/gmail/v1";
 
-interface GoogleTokenRow {
-  access_token: string | null;
-  refresh_token: string | null;
-  expires_at: string | null;
-}
-
-async function loadGoogleToken(): Promise<GoogleTokenRow | null> {
-  if (!envConfigured("NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY")) {
-    return null;
-  }
-  try {
-    const sb = createServiceRoleClient();
-    const { data, error } = await sb
-      .from("user_integrations")
-      .select("access_token, refresh_token, expires_at")
-      .eq("provider", "google")
-      .limit(1)
-      .maybeSingle();
-    if (error || !data) return null;
-    return data as GoogleTokenRow;
-  } catch {
-    return null;
-  }
-}
-
-async function refreshAccessToken(refreshToken: string): Promise<string | null> {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  if (!clientId || !clientSecret) return null;
-  const res = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: refreshToken,
-      grant_type: "refresh_token",
-    }),
-  });
-  if (!res.ok) return null;
-  const j = (await res.json()) as { access_token?: string };
-  return j.access_token ?? null;
-}
-
-/** Returns true when a valid (or refreshable) Google token is stored. */
+/** True when Advisors Google or personal Gmail has a usable token. */
 export async function isGmailConnected(): Promise<boolean> {
-  const row = await loadGoogleToken();
-  if (!row) return false;
-  // Has a live access token
-  if (row.access_token && row.expires_at && Date.parse(row.expires_at) - Date.now() > 60_000) return true;
-  // Has a refresh token we can use
-  if (row.refresh_token) return true;
-  return false;
+  return (await listGoogleAccessTokens()).length > 0;
 }
 
-async function getAccessToken(): Promise<string | null> {
-  const row = await loadGoogleToken();
-  if (!row) return null;
-  if (row.access_token && row.expires_at && Date.parse(row.expires_at) - Date.now() > 60_000) {
-    return row.access_token;
-  }
-  if (row.refresh_token) return refreshAccessToken(row.refresh_token);
-  return row.access_token ?? null;
+async function getAccessToken(explicit?: string): Promise<string | null> {
+  if (explicit) return explicit;
+  const advisors = await getGoogleAccessToken();
+  if (advisors) return advisors;
+  const tokens = await listGoogleAccessTokens();
+  return tokens[0]?.token ?? null;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -202,45 +153,66 @@ function parseFrom(value: string | undefined): { email: string; name?: string } 
   return { email: value.trim() };
 }
 
+async function fetchOvernightRepliesForToken(
+  access: string,
+  afterEpoch: number,
+  max: number
+): Promise<GmailReply[]> {
+  const q = encodeURIComponent(`is:inbox after:${afterEpoch} -from:me`);
+  const list = await gmailFetch<GmailListResp>(
+    `/users/me/messages?maxResults=${max}&q=${q}`,
+    access
+  );
+  const messages = list.messages ?? [];
+  const detailed = await mapWithConcurrency(messages, 5, (m) =>
+    gmailFetch<GmailMsgResp>(
+      `/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`,
+      access
+    )
+  );
+  return detailed.map((d) => {
+    const headers = d.payload?.headers ?? [];
+    const get = (n: string) => headers.find((h) => h.name === n)?.value;
+    const from = parseFrom(get("From"));
+    const ts = d.internalDate ? Number(d.internalDate) : Date.now();
+    return {
+      id: d.id,
+      threadId: d.threadId,
+      fromEmail: from.email,
+      fromName: from.name,
+      subject: get("Subject") ?? "(no subject)",
+      snippet: d.snippet ?? "",
+      receivedAt: new Date(ts).toISOString(),
+      labelIds: d.labelIds,
+    };
+  });
+}
+
 export async function getOvernightReplies(opts?: {
   sinceIso?: string;
   max?: number;
 }): Promise<IntegrationResult<GmailReply[]>> {
-  const access = await getAccessToken();
-  if (!access) return emptyResult([], false);
+  const tokens = await listGoogleAccessTokens();
+  if (!tokens.length) return emptyResult([], false);
 
   try {
     const since = opts?.sinceIso ? new Date(opts.sinceIso) : new Date(Date.now() - 14 * 3600_000);
     const afterEpoch = Math.floor(since.getTime() / 1000);
     const max = opts?.max ?? 25;
-    const q = encodeURIComponent(`is:inbox after:${afterEpoch} -from:me`);
-    const list = await gmailFetch<GmailListResp>(
-      `/users/me/messages?maxResults=${max}&q=${q}`,
-      access
-    );
-    const messages = list.messages ?? [];
-    const detailed = await mapWithConcurrency(messages, 5, (m) =>
-      gmailFetch<GmailMsgResp>(
-        `/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`,
-        access
-      )
-    );
-    const replies: GmailReply[] = detailed.map((d) => {
-      const headers = d.payload?.headers ?? [];
-      const get = (n: string) => headers.find((h) => h.name === n)?.value;
-      const from = parseFrom(get("From"));
-      const ts = d.internalDate ? Number(d.internalDate) : Date.now();
-      return {
-        id: d.id,
-        threadId: d.threadId,
-        fromEmail: from.email,
-        fromName: from.name,
-        subject: get("Subject") ?? "(no subject)",
-        snippet: d.snippet ?? "",
-        receivedAt: new Date(ts).toISOString(),
-        labelIds: d.labelIds,
-      };
-    });
+    const replies: GmailReply[] = [];
+    const errors: string[] = [];
+    for (const { token, accountEmail } of tokens) {
+      try {
+        replies.push(...(await fetchOvernightRepliesForToken(token, afterEpoch, max)));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`[gmail] overnight fetch failed (${accountEmail}):`, err);
+        errors.push(`${accountEmail}: ${msg}`);
+      }
+    }
+    if (!replies.length && errors.length) {
+      return emptyResult([], true, errors.join(" · "));
+    }
     return emptyResult(replies, true);
   } catch (err) {
     console.error("[gmail] overnight fetch failed:", err);
@@ -273,12 +245,76 @@ function splitAddresses(value: string | undefined): string[] {
  * a `bulk` flag derived from list/precedence headers. Feeds the Suggested
  * Contacts capture flow. Uses the same read scope as getOvernightReplies.
  */
+async function listCounterpartiesForToken(
+  access: string,
+  afterEpoch: number,
+  max: number
+): Promise<EmailCounterparty[]> {
+  const q = encodeURIComponent(`-in:chats after:${afterEpoch}`);
+  const list = await gmailFetch<GmailListResp>(
+    `/users/me/messages?maxResults=${max}&q=${q}`,
+    access
+  );
+  const messages = list.messages ?? [];
+  const detailed = await mapWithConcurrency(messages, 5, (m) =>
+    gmailFetch<GmailMsgResp>(
+      `/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=List-Unsubscribe&metadataHeaders=Precedence`,
+      access
+    )
+  );
+
+  const out: EmailCounterparty[] = [];
+  for (const d of detailed) {
+    const headers = d.payload?.headers ?? [];
+    const get = (n: string) =>
+      headers.find((h) => h.name.toLowerCase() === n.toLowerCase())?.value;
+    const fromHeader = get("From") ?? "";
+    const subject = get("Subject") ?? undefined;
+    const ts = d.internalDate ? Number(d.internalDate) : Date.now();
+    const dateIso = new Date(ts).toISOString();
+    const bulk =
+      Boolean(get("List-Unsubscribe")) ||
+      /\b(bulk|list|auto_reply|junk)\b/i.test(get("Precedence") ?? "");
+
+    if (isFromMe(fromHeader)) {
+      for (const raw of [
+        ...splitAddresses(get("To")),
+        ...splitAddresses(get("Cc")),
+      ]) {
+        const p = parseFrom(raw);
+        if (!p.email) continue;
+        out.push({
+          email: p.email.toLowerCase(),
+          name: p.name,
+          direction: "outbound",
+          subject,
+          dateIso,
+          bulk,
+        });
+      }
+    } else {
+      const p = parseFrom(fromHeader);
+      if (p.email) {
+        out.push({
+          email: p.email.toLowerCase(),
+          name: p.name,
+          direction: "inbound",
+          subject,
+          dateIso,
+          bulk,
+        });
+      }
+    }
+  }
+  return out;
+}
+
 export async function listRecentCounterparties(opts?: {
   sinceIso?: string;
   max?: number;
 }): Promise<IntegrationResult<EmailCounterparty[]>> {
-  const access = await getAccessToken();
-  if (!access) return emptyResult([], false);
+  const tokens = await listGoogleAccessTokens();
+  if (!tokens.length) return emptyResult([], false);
 
   try {
     const since = opts?.sinceIso
@@ -286,63 +322,19 @@ export async function listRecentCounterparties(opts?: {
       : new Date(Date.now() - 30 * 86_400_000);
     const afterEpoch = Math.floor(since.getTime() / 1000);
     const max = opts?.max ?? 80;
-    const q = encodeURIComponent(`-in:chats after:${afterEpoch}`);
-    const list = await gmailFetch<GmailListResp>(
-      `/users/me/messages?maxResults=${max}&q=${q}`,
-      access
-    );
-    const messages = list.messages ?? [];
-    const detailed = await mapWithConcurrency(messages, 5, (m) =>
-      gmailFetch<GmailMsgResp>(
-        `/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=List-Unsubscribe&metadataHeaders=Precedence`,
-        access
-      )
-    );
-
     const out: EmailCounterparty[] = [];
-    for (const d of detailed) {
-      const headers = d.payload?.headers ?? [];
-      const get = (n: string) =>
-        headers.find((h) => h.name.toLowerCase() === n.toLowerCase())?.value;
-      const fromHeader = get("From") ?? "";
-      const subject = get("Subject") ?? undefined;
-      const ts = d.internalDate ? Number(d.internalDate) : Date.now();
-      const dateIso = new Date(ts).toISOString();
-      const bulk =
-        Boolean(get("List-Unsubscribe")) ||
-        /\b(bulk|list|auto_reply|junk)\b/i.test(get("Precedence") ?? "");
-
-      if (isFromMe(fromHeader)) {
-        // Outbound — counterparties are the recipients.
-        for (const raw of [
-          ...splitAddresses(get("To")),
-          ...splitAddresses(get("Cc")),
-        ]) {
-          const p = parseFrom(raw);
-          if (!p.email) continue;
-          out.push({
-            email: p.email.toLowerCase(),
-            name: p.name,
-            direction: "outbound",
-            subject,
-            dateIso,
-            bulk,
-          });
-        }
-      } else {
-        // Inbound — counterparty is the sender.
-        const p = parseFrom(fromHeader);
-        if (p.email) {
-          out.push({
-            email: p.email.toLowerCase(),
-            name: p.name,
-            direction: "inbound",
-            subject,
-            dateIso,
-            bulk,
-          });
-        }
+    const errors: string[] = [];
+    for (const { token, accountEmail } of tokens) {
+      try {
+        out.push(...(await listCounterpartiesForToken(token, afterEpoch, max)));
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`[gmail] counterparty scan failed (${accountEmail}):`, err);
+        errors.push(`${accountEmail}: ${msg}`);
       }
+    }
+    if (!out.length && errors.length) {
+      return emptyResult([], true, errors.join(" · "));
     }
     return emptyResult(out, true);
   } catch (err) {
@@ -354,11 +346,13 @@ export async function listRecentCounterparties(opts?: {
 export async function searchGmailThreads({
   query,
   pageSize = 5,
+  accessToken,
 }: {
   query: string;
   pageSize?: number;
+  accessToken?: string;
 }): Promise<GmailThread[]> {
-  const access = await getAccessToken();
+  const access = await getAccessToken(accessToken);
   if (!access) return [];
 
   try {
@@ -374,8 +368,11 @@ export async function searchGmailThreads({
   }
 }
 
-export async function getGmailThread(threadId: string): Promise<GmailThreadFull | null> {
-  const access = await getAccessToken();
+export async function getGmailThread(
+  threadId: string,
+  accessToken?: string
+): Promise<GmailThreadFull | null> {
+  const access = await getAccessToken(accessToken);
   if (!access) return null;
 
   try {
@@ -413,15 +410,25 @@ export async function resolveJobAlertFromGmail(
 
   let thread = await getGmailThread(id);
   if (!thread) {
-    const access = await getAccessToken();
-    if (!access) return empty;
+    const tokens = await listGoogleAccessTokens();
+    if (!tokens.length) return empty;
     try {
-      const msg = await gmailFetch<GmailMsgResp>(
-        `/users/me/messages/${id}?format=full`,
-        access
-      );
-      if (msg.threadId) {
-        thread = await getGmailThread(msg.threadId);
+      let msg: GmailMsgResp | null = null;
+      let tokenUsed: string | undefined;
+      for (const { token } of tokens) {
+        try {
+          msg = await gmailFetch<GmailMsgResp>(
+            `/users/me/messages/${id}?format=full`,
+            token
+          );
+          tokenUsed = token;
+          break;
+        } catch {
+          // Message id is mailbox-local — try the other account.
+        }
+      }
+      if (msg?.threadId) {
+        thread = await getGmailThread(msg.threadId, tokenUsed);
         if (!thread) {
           // Message exists but thread fetch failed — still use message body.
           const mapped = mapGmailMessage(msg);

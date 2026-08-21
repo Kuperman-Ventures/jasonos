@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createPublicClient, createPublicServiceRoleClient } from "@/lib/supabase/server";
+import { getGoogleConnectionStatus, type GoogleConnectionStatus } from "@/lib/integrations/google-tokens";
 import {
   DEFAULT_ALERT_THRESHOLDS,
   DEFAULT_MODEL_PREFERENCES,
@@ -37,6 +38,7 @@ export interface SettingsPayload {
     pendingCount: number;
     lastCompletedAt: string | null;
   };
+  googleAccounts: GoogleConnectionStatus;
 }
 
 function publicSupabaseConfigured() {
@@ -67,7 +69,7 @@ export async function getSettingsPayload(): Promise<SettingsPayload> {
 
   await seedConnections(user.id);
 
-  const [{ data: connectionRows }, { data: prefs }, dispatch] = await Promise.all([
+  const [{ data: connectionRows }, { data: prefs }, dispatch, googleAccounts] = await Promise.all([
     supabase
       .from("service_connections")
       .select(
@@ -80,6 +82,7 @@ export async function getSettingsPayload(): Promise<SettingsPayload> {
       .eq("user_id", user.id)
       .maybeSingle(),
     getDispatchSummary(user.id),
+    getGoogleConnectionStatus(),
   ]);
 
   const rowsByName = new Map(
@@ -116,6 +119,7 @@ export async function getSettingsPayload(): Promise<SettingsPayload> {
     authRequired: false,
     supabaseConfigured: true,
     dispatch,
+    googleAccounts,
   };
 }
 
@@ -197,6 +201,12 @@ function fallbackPayload(authRequired: boolean): SettingsPayload {
     authRequired,
     supabaseConfigured: publicSupabaseConfigured(),
     dispatch: { pendingCount: 0, lastCompletedAt: null },
+    googleAccounts: {
+      advisorsConnected: false,
+      gmailConnected: false,
+      advisorsEmail: null,
+      gmailEmail: null,
+    },
   };
 }
 

@@ -142,12 +142,20 @@ export function SuggestedClient({
             Gmail isn&rsquo;t connected — connect it to scan for suggested
             contacts.
           </div>
-          <a
-            href="/api/auth/google"
-            className="shrink-0 rounded-md border border-amber-400/40 bg-amber-500/20 px-3 py-1 text-[11px] font-medium text-amber-100 hover:bg-amber-500/30"
-          >
-            Connect Gmail →
-          </a>
+          <div className="flex shrink-0 gap-2">
+            <a
+              href="/api/auth/google"
+              className="rounded-md border border-amber-400/40 bg-amber-500/20 px-3 py-1 text-[11px] font-medium text-amber-100 hover:bg-amber-500/30"
+            >
+              Connect Advisors Google →
+            </a>
+            <a
+              href="/api/auth/google?account=gmail"
+              className="rounded-md border border-amber-400/40 bg-amber-500/20 px-3 py-1 text-[11px] font-medium text-amber-100 hover:bg-amber-500/30"
+            >
+              Connect personal Gmail →
+            </a>
+          </div>
         </div>
       ) : null}
 

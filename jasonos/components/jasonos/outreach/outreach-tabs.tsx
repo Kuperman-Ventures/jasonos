@@ -28,9 +28,11 @@ const TABS = [
 export function OutreachTabs({
   syncState,
   suggestedCount = 0,
+  gmailPersonalConnected = true,
 }: {
   syncState: OutreachSyncSnapshot[];
   suggestedCount?: number;
+  gmailPersonalConnected?: boolean;
 }) {
   const pathname = usePathname() ?? "";
 
@@ -65,6 +67,14 @@ export function OutreachTabs({
         })}
       </div>
       <div className="flex items-center gap-2 py-1.5">
+        {!gmailPersonalConnected ? (
+          <a
+            href="/api/auth/google?account=gmail"
+            className="hidden sm:inline-flex rounded-md border border-amber-400/40 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-100 hover:bg-amber-500/20"
+          >
+            Connect personal Gmail
+          </a>
+        ) : null}
         <SyncNowButton initial={syncState} />
       </div>
     </nav>

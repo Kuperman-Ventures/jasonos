@@ -9,8 +9,11 @@ import {
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import {
   fetchAllPersonalCalendarEvents,
-  getGoogleAccessToken,
 } from "@/lib/integrations/google-calendar";
+import {
+  GOOGLE_GMAIL,
+  listGoogleAccessTokens,
+} from "@/lib/integrations/google-tokens";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
   buildContactLookup,
@@ -145,42 +148,47 @@ export async function syncOutreachFromGmail(opts?: {
   const touches: ContactTouchInput[] = [];
   const enrich: EnrichMap = new Map();
   let skipped = 0;
+  const mailboxTokens = await listGoogleAccessTokens();
 
   try {
-    const threads = await searchGmailThreads({
-      query: `in:sent after:${afterEpoch}`,
-      pageSize: 100,
-    });
+    for (const { provider, token } of mailboxTokens) {
+      const threads = await searchGmailThreads({
+        query: `in:sent after:${afterEpoch}`,
+        pageSize: 100,
+        accessToken: token,
+      });
 
-    for (const t of threads) {
-      const full = await getGmailThread(t.id);
-      if (!full) continue;
+      for (const t of threads) {
+        const full = await getGmailThread(t.id, token);
+        if (!full) continue;
 
-      for (const m of full.messages) {
-        if (!m.from || !isFromMe(m.from)) continue;
-        if (!m.date) continue;
-        if (new Date(m.date).getTime() < Date.now() - daysBack * 86_400_000) continue;
-        if (!m.to) continue;
-        if (isMyOwnAddress(m.to)) continue;
+        for (const m of full.messages) {
+          if (!m.from || !isFromMe(m.from)) continue;
+          if (!m.date) continue;
+          if (new Date(m.date).getTime() < Date.now() - daysBack * 86_400_000) continue;
+          if (!m.to) continue;
+          if (isMyOwnAddress(m.to)) continue;
 
-        const contact = lookup.resolve(m.to);
-        if (!contact) {
-          skipped += 1;
-          continue;
+          const contact = lookup.resolve(m.to);
+          if (!contact) {
+            skipped += 1;
+            continue;
+          }
+          recordEnrich(enrich, contact, m.to);
+
+          touches.push({
+            contact_id: contact.id,
+            channel: "email",
+            direction: "outbound",
+            touched_at: new Date(m.date).toISOString(),
+            source: "gmail",
+            // Advisors ids stay bare so existing rows still dedupe. Gmail gets a prefix.
+            external_id: provider === GOOGLE_GMAIL ? `gmail:${m.id}` : m.id,
+            brief: oneLine(m.plaintextBody) || m.snippet || "Email sent",
+            subject: m.subject ?? null,
+            thread_url: gmailThreadUrl(t.id),
+          });
         }
-        recordEnrich(enrich, contact, m.to);
-
-        touches.push({
-          contact_id: contact.id,
-          channel: "email",
-          direction: "outbound",
-          touched_at: new Date(m.date).toISOString(),
-          source: "gmail",
-          external_id: m.id,
-          brief: oneLine(m.plaintextBody) || m.snippet || "Email sent",
-          subject: m.subject ?? null,
-          thread_url: gmailThreadUrl(t.id),
-        });
       }
     }
   } catch (err) {
@@ -208,7 +216,7 @@ export async function syncOutreachFromGmail(opts?: {
 // upcoming `daysForward` days) where any attendee resolves to a contact.
 // Past events also become contact_touches (cadence). All matched events are
 // upserted into jasonos.meetings so they appear on the contact Meetings tab.
-// Reads jason@kupermanadvisors.com (primary) and jskuperman@gmail.com.
+// Reads Advisors Google primary and, when connected, personal Gmail primary.
 // ---------------------------------------------------------------------------
 
 export async function syncOutreachFromCalendar(opts?: {
@@ -222,15 +230,6 @@ export async function syncOutreachFromCalendar(opts?: {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return errorResult("gcal", "Supabase service role is not configured.");
   }
-  const token = await getGoogleAccessToken();
-  if (!token) {
-    await recordSyncState("gcal", {
-      ok: false,
-      error: "Google Calendar is not connected.",
-    });
-    return errorResult("gcal", "Google Calendar is not connected.");
-  }
-
   const lookup = await buildContactLookup();
   if (!lookup.rows.length) {
     await recordSyncState("gcal", { matched: 0 });
@@ -242,7 +241,6 @@ export async function syncOutreachFromCalendar(opts?: {
   const timeMax = new Date(now + daysForward * 86_400_000).toISOString();
 
   const { events, error, warnings } = await fetchAllPersonalCalendarEvents({
-    token,
     timeMin,
     timeMax,
   });
@@ -365,15 +363,11 @@ export async function getUpcomingCalendarMeetings(opts?: {
   daysAhead?: number;
 }): Promise<UpcomingCalendarMeeting[]> {
   const daysAhead = Math.max(1, Math.min(120, opts?.daysAhead ?? 30));
-  const token = await getGoogleAccessToken();
-  if (!token) return [];
-
   const lookup = await buildContactLookup();
   if (!lookup.rows.length) return [];
 
   const now = Date.now();
   const { events } = await fetchAllPersonalCalendarEvents({
-    token,
     timeMin: new Date(now).toISOString(),
     timeMax: new Date(now + daysAhead * 86_400_000).toISOString(),
   });

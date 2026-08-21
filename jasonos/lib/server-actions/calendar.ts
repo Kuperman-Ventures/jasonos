@@ -232,10 +232,6 @@ export async function fetchCalendarWeek(
   mondayStr: string
 ): Promise<CalendarWeekData> {
   const token = await getGoogleAccessToken();
-  if (!token) {
-    const tags = await loadCalendarTags();
-    return { weekEvents: [], untaggedCosaEvents: [], personalEvents: [], calendarTags: tags, googleConnected: false };
-  }
 
   const anchor = new Date(`${mondayStr}T12:00:00`);
   const sunday = new Date(anchor);
@@ -246,10 +242,22 @@ export async function fetchCalendarWeek(
   const timeMax = new Date(`${sundayStr}T23:59:59.999`).toISOString();
 
   const [allCosa, personal, tags] = await Promise.all([
-    fetchAllCosaCalendarEvents(token, timeMin, timeMax),
-    fetchPersonalCalendarEvents(token, timeMin, timeMax),
+    token
+      ? fetchAllCosaCalendarEvents(token, timeMin, timeMax)
+      : Promise.resolve([] as GCalEvent[]),
+    fetchPersonalCalendarEvents(token ?? "", timeMin, timeMax),
     loadCalendarTags(),
   ]);
+
+  if (!token && personal.length === 0) {
+    return {
+      weekEvents: [],
+      untaggedCosaEvents: [],
+      personalEvents: [],
+      calendarTags: tags,
+      googleConnected: false,
+    };
+  }
 
   const weekEvents = allCosa.filter(
     (ev) => ev.extendedProperties?.private?.cosaTag === "cosa-event"
