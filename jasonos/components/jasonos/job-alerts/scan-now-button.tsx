@@ -23,23 +23,26 @@ export function ScanNowButton({
         method: "POST",
         cache: "no-store",
       });
-      const json = (await res.json()) as {
-        ok?: boolean;
-        inserted?: number;
-        duplicates?: number;
-        scanned?: number;
-        error?: string;
-        labelName?: string | null;
-      };
-      if (!res.ok || json.ok === false) {
-        toast.error(json.error || "Job alert sync failed");
-        router.refresh();
-        return;
-      }
-      const folder = json.labelName ? ` from ${json.labelName}` : "";
-      toast.success(
-        `Synced ${json.scanned ?? 0} emails${folder} · ${json.inserted ?? 0} new`
-      );
+        const json = (await res.json()) as {
+          ok?: boolean;
+          inserted?: number;
+          duplicates?: number;
+          scanned?: number;
+          listed?: number;
+          error?: string;
+          labelName?: string | null;
+          accountEmail?: string | null;
+        };
+        if (!res.ok || json.ok === false) {
+          toast.error(json.error || "Job alert sync failed");
+          router.refresh();
+          return;
+        }
+        const folder = json.labelName ? ` “${json.labelName}”` : "";
+        const mailbox = json.accountEmail ? ` on ${json.accountEmail}` : "";
+        toast.success(
+          `Sync succeeded${folder}${mailbox}. ${json.listed ?? 0} emails in folder · ${json.scanned ?? 0} scanned · ${json.inserted ?? 0} new`
+        );
       router.refresh();
     } catch {
       toast.error("Job alert sync failed");
