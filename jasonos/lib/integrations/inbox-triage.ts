@@ -1,8 +1,8 @@
 // Inbox Dispatch — reply-triage engine for the JasonOS home page.
 //
 // Reuses the read-only Gmail adapter (searchGmailThreads / getGmailThread) to
-// find the threads that genuinely need a reply FROM Jason, separates them from
-// the machine noise (GitHub bots, job alerts, newsletters), and drafts each
+// find the threads that genuinely need a reply FROM Jason (person-to-person
+// mail in Gmail Primary — not newsletters, ads, or promotions), and drafts each
 // reply in Jason's voice via callClaude + JASON_CORE_VOICE.
 //
 // Read-only by design: this never creates or sends anything in Gmail. Drafts
@@ -20,6 +20,7 @@ import {
 } from "@/lib/integrations/gmail";
 import { appleMailMessageUrl } from "@/lib/integrations/apple-mail-links";
 import { isFromMe } from "@/lib/outreach/email-matching";
+import { isNoiseEmail } from "@/lib/outreach/mail-noise";
 import { callClaude } from "@/lib/ai/models";
 import { JASON_CORE_VOICE } from "@/lib/ai/jason-identity";
 
@@ -67,7 +68,7 @@ export interface InboxDispatch {
   noiseTotal: number;
 }
 
-const MAX_THREAD_FETCHES = 14; // bound latency + Gmail rate limits
+const MAX_THREAD_FETCHES = 18; // bound latency + Gmail rate limits
 const MAX_BOARDING = 6;
 const MAX_HOLDING = 5;
 
@@ -104,6 +105,7 @@ function classifyNoise(email: string, name: string, subject: string): string | n
   const e = email.toLowerCase();
   const s = subject.toLowerCase();
   const n = name.toLowerCase();
+  const local = e.split("@")[0] ?? "";
 
   if (
     e.includes("notifications@github.com") ||
@@ -126,12 +128,18 @@ function classifyNoise(email: string, name: string, subject: string): string | n
     return "Job alerts";
   }
   if (
+    isNoiseEmail(e) ||
     e.includes("tldrnewsletter.com") ||
     e.includes("substack.com") ||
     e.includes("newsletters-noreply") ||
     e.includes("messages-noreply@linkedin.com") ||
     e.includes("news@") ||
-    /newsletter|digest|weekly|brief #/.test(s)
+    /^(news|newsletter|digest|marketing|promo|promotions|offers|deals|updates|notifications)([._+-]|$)/i.test(
+      local
+    ) ||
+    /\b(newsletter|digest)\b/.test(n) ||
+    /\b(newsletter|daily digest|weekly digest|brief #)\b/.test(s) ||
+    /\b(% off|limited time|flash sale|don't miss)\b/.test(s)
   ) {
     return "Newsletters & digests";
   }
@@ -239,6 +247,14 @@ async function countNoise(): Promise<{ groups: NoiseGroup[]; total: number }> {
       label: "Newsletters & digests",
       q: "in:inbox newer_than:3d (from:tldrnewsletter.com OR from:substack.com OR from:newsletters-noreply@linkedin.com)",
     },
+    {
+      label: "Promotions & ads",
+      q: "in:inbox newer_than:3d category:promotions",
+    },
+    {
+      label: "Social",
+      q: "in:inbox newer_than:3d category:social",
+    },
   ];
   const results = await Promise.all(
     queries.map(async (item) => {
@@ -256,7 +272,10 @@ export async function computeInboxDispatch(): Promise<InboxDispatch> {
 
   try {
     const candidates = await searchGmailThreads({
-      query: "in:inbox -from:me newer_than:14d",
+      // Gmail Primary = person-to-person. Drop Promotions / Social / Updates / Forums
+      // so newsletters and ads never occupy the fetch budget.
+      query:
+        "in:inbox category:primary -category:promotions -category:social -category:updates -category:forums -from:me newer_than:14d",
       pageSize: MAX_THREAD_FETCHES,
     });
 
@@ -286,14 +305,16 @@ export async function computeInboxDispatch(): Promise<InboxDispatch> {
         if (holding.length < MAX_HOLDING) {
           const firstOther = t.messages.find((m) => !isFromMe(m.from ?? ""));
           const other = parseSender(firstOther?.from ?? last.to);
-          holding.push({
-            threadId: t.id,
-            name: other.name || other.email || "your contact",
-            subject,
-            appleMailUrl,
-            ageDays: daysSince(last.date),
-            note: "You sent the last message — waiting on their reply.",
-          });
+          if (!classifyNoise(other.email, other.name, subject)) {
+            holding.push({
+              threadId: t.id,
+              name: other.name || other.email || "your contact",
+              subject,
+              appleMailUrl,
+              ageDays: daysSince(last.date),
+              note: "You sent the last message — waiting on their reply.",
+            });
+          }
         }
         continue;
       }
