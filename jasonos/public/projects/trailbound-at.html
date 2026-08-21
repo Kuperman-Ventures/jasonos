@@ -1,0 +1,1707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Trailbound AT</title>
+<meta name="description" content="Adaptive Appalachian Trail readiness planner. See the whole mountain. Work the next blaze." />
+<meta name="theme-color" content="#1a3c2e" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet" />
+<style>
+:root{
+  --bg:#f3f0e8;--bg-elevated:#fffcf6;--bg-subtle:#e8e3d6;--bg-hover:#ddd6c6;
+  --border:#d4cdbc;--border-strong:#bdb59f;--text:#243028;--text-secondary:#4a564e;--text-muted:#6b746c;
+  --forest:#1a3c2e;--forest-hover:#143026;--forest-soft:rgba(26,60,46,.12);--forest-contrast:#f7f4ec;
+  --sky:#3d7ea6;--sky-soft:rgba(61,126,166,.14);--amber:#b8860b;--amber-soft:rgba(184,134,11,.16);
+  --success:#2f6b4f;--success-soft:rgba(47,107,79,.12);--warning:#9a6700;--warning-soft:rgba(154,103,0,.14);
+  --danger:#8f3a2a;--danger-soft:rgba(143,58,42,.12);
+  --shadow-sm:0 1px 2px rgba(36,48,40,.05);--shadow-md:0 6px 18px rgba(36,48,40,.08);
+  --radius:10px;--radius-sm:7px;--sidebar-w:240px;--header-h:56px;--bottom-nav-h:60px;
+  --font:"Source Sans 3","Segoe UI",sans-serif;--font-display:"Source Serif 4",Georgia,serif;
+  --focus:0 0 0 2px var(--bg-elevated),0 0 0 4px var(--sky);
+  --topo:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Cpath fill='none' stroke='%231a3c2e' stroke-opacity='0.05' stroke-width='1' d='M10 90c20-30 40-30 60 0s40 30 60 0 40-30 60 0M10 40c20-20 40-20 60 0s40 20 60 0 40-20 60 0M10 140c20-20 40-20 60 0s40 20 60 0 40-20 60 0'/%3E%3C/svg%3E");
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:var(--font);font-size:14px;line-height:1.45;color:var(--text);background:var(--bg) var(--topo);-webkit-font-smoothing:antialiased;overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--sky);text-decoration:none}a:hover{text-decoration:underline}
+:focus-visible{outline:none;box-shadow:var(--focus)}
+.num{font-variant-numeric:tabular-nums}
+.app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;height:100vh;height:100dvh}
+.sidebar{background:var(--bg-elevated);border-right:1px solid var(--border);display:flex;flex-direction:column;min-height:0;z-index:40}
+.sidebar-brand{display:flex;align-items:center;gap:10px;padding:14px;border-bottom:1px solid var(--border);min-height:var(--header-h)}
+.brand-mark{width:30px;height:30px;flex-shrink:0}
+.brand-title{font-family:var(--font-display);font-size:15px;font-weight:700;letter-spacing:-.02em;color:var(--forest)}
+.brand-sub{font-size:11px;color:var(--text-muted);margin-top:1px}
+.nav{padding:8px;overflow-y:auto;flex:1;min-height:0}
+.nav-section-label{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text-muted);padding:10px 8px 4px}
+.nav-btn{width:100%;display:flex;align-items:center;gap:8px;border:0;background:transparent;color:var(--text-secondary);padding:8px;border-radius:var(--radius-sm);cursor:pointer;text-align:left;transition:background .12s,color .12s}
+.nav-btn:hover{background:var(--bg-hover);color:var(--text)}
+.nav-btn.active{background:var(--forest-soft);color:var(--forest);font-weight:650}
+.nav-btn svg{width:15px;height:15px;flex-shrink:0}
+.sidebar-foot{border-top:1px solid var(--border);padding:10px 12px;font-size:11px;color:var(--text-muted)}
+.save-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--success);margin-right:6px;vertical-align:middle}
+.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.topbar{height:var(--header-h);flex-shrink:0;display:flex;align-items:center;gap:12px;padding:0 16px;background:var(--bg-elevated);border-bottom:1px solid var(--border)}
+.menu-toggle{display:none;border:1px solid var(--border);background:var(--bg-elevated);border-radius:var(--radius-sm);width:32px;height:32px;align-items:center;justify-content:center;cursor:pointer}
+.page-heading{min-width:0;flex:1}
+.page-title{font-size:15px;font-weight:700;letter-spacing:-.015em;font-family:var(--font-display);color:var(--forest)}
+.page-crumb{font-size:11px;color:var(--text-muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.content{flex:1;overflow-y:auto;padding:16px;min-height:0;padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+.content-inner{max-width:1120px;margin:0 auto}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:34px;padding:0 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-elevated);color:var(--text);cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s,transform .08s}
+.btn:hover{background:var(--bg-hover)}.btn:active{transform:translateY(.5px)}
+.btn-primary{background:var(--forest);border-color:var(--forest);color:var(--forest-contrast)}
+.btn-primary:hover{background:var(--forest-hover);border-color:var(--forest-hover)}
+.btn-ghost{background:transparent}.btn-sm{height:28px;padding:0 8px;font-size:12px}.btn-icon{width:34px;padding:0}
+.btn-sky{background:var(--sky);border-color:var(--sky);color:#fff}.btn-sky:hover{filter:brightness(.95)}
+.input,.select,.textarea{width:100%;border:1px solid var(--border);background:var(--bg-elevated);border-radius:var(--radius-sm);padding:8px 10px}
+.input:focus,.select:focus,.textarea:focus{border-color:var(--sky);outline:none;box-shadow:0 0 0 3px var(--sky-soft)}
+.textarea{min-height:80px;resize:vertical}
+.label{display:block;font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:4px;letter-spacing:.02em}
+.field{margin-bottom:12px}
+.field-row{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))}
+.hint{font-size:12px;color:var(--text-muted);margin-top:4px}
+.grid{display:grid;gap:12px}.grid-2{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:repeat(3,1fr)}
+.card{background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm)}
+.card-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px;border-bottom:1px solid var(--border)}
+.card-title{font-size:13px;font-weight:700;letter-spacing:-.01em}
+.card-b{padding:14px}.card-muted{color:var(--text-secondary);font-size:13px}
+.pill{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:650;background:var(--bg-subtle);color:var(--text-secondary);white-space:nowrap}
+.pill-forest{background:var(--forest-soft);color:var(--forest)}.pill-sky{background:var(--sky-soft);color:var(--sky)}
+.pill-amber{background:var(--amber-soft);color:var(--warning)}.pill-success{background:var(--success-soft);color:var(--success)}
+.pill-danger{background:var(--danger-soft);color:var(--danger)}
+.disclaimer{border:1px solid var(--border);background:var(--bg-subtle);border-radius:var(--radius-sm);padding:10px 12px;font-size:12px;color:var(--text-secondary);margin-bottom:14px}
+.disclaimer strong{color:var(--text)}
+.northstar{padding:16px 18px;border-radius:var(--radius);background:linear-gradient(145deg,var(--forest) 0%,#244a3a 100%);color:var(--forest-contrast);box-shadow:var(--shadow-md);margin-bottom:14px;position:relative;overflow:hidden}
+.northstar::after{content:"";position:absolute;inset:0;background:var(--topo);opacity:.55;pointer-events:none}
+.northstar > *{position:relative;z-index:1}
+.ns-kicker{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.8}
+.ns-title{font-family:var(--font-display);font-size:22px;font-weight:700;margin-top:4px;letter-spacing:-.02em}
+.ns-why{margin-top:6px;font-size:13px;opacity:.9;max-width:52ch}
+.ns-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.ns-meta .pill{background:rgba(255,255,255,.12);color:#fff}
+.focus-card{border:2px solid var(--sky);box-shadow:0 0 0 3px var(--sky-soft),var(--shadow-md)}
+.focus-kicker{font-size:11px;font-weight:700;color:var(--sky);letter-spacing:.04em;text-transform:uppercase}
+.focus-title{font-size:17px;font-weight:700;margin-top:4px;letter-spacing:-.015em}
+.focus-reason{margin-top:8px;font-size:13px;color:var(--text-secondary)}
+.focus-dod{margin-top:10px;padding:10px;background:var(--bg-subtle);border-radius:var(--radius-sm);font-size:12px}
+.focus-dod strong{display:block;margin-bottom:4px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted)}
+.lane-strip{display:grid;grid-template-columns:repeat(9,1fr);gap:6px}
+.lane-cell{text-align:center;padding:8px 4px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);cursor:pointer}
+.lane-cell:hover{border-color:var(--border-strong);background:var(--bg-hover)}
+.lane-name{font-size:10px;font-weight:650;color:var(--text-muted);line-height:1.2;min-height:2.4em}
+.lane-stage{font-family:var(--font-display);font-size:18px;font-weight:700;color:var(--forest);margin-top:4px}
+.lane-conf{font-size:10px;color:var(--text-muted);margin-top:2px}
+.phase-map{display:flex;gap:0;overflow-x:auto;padding-bottom:4px}
+.phase-blaze{flex:0 0 auto;min-width:92px;text-align:center;padding:0 4px;background:transparent;border:0;cursor:pointer;color:var(--text-muted)}
+.phase-rail{display:flex;align-items:center;width:100%;margin-bottom:6px}
+.phase-rail::before,.phase-rail::after{content:"";flex:1;height:2px;background:var(--border)}
+.phase-blaze:first-child .phase-rail::before,.phase-blaze:last-child .phase-rail::after{background:transparent}
+.blaze-dot{width:18px;height:18px;border-radius:3px;transform:rotate(45deg);border:2px solid var(--border-strong);background:var(--bg-elevated);flex-shrink:0}
+.phase-blaze.active .blaze-dot{border-color:var(--sky);background:var(--sky)}
+.phase-blaze.completed .blaze-dot{border-color:var(--success);background:var(--success)}
+.phase-blaze.completed .phase-rail::before,.phase-blaze.completed .phase-rail::after{background:var(--success)}
+.phase-blaze.active .phase-rail::before{background:var(--success)}
+.phase-name{font-size:11px;line-height:1.25;color:var(--text-secondary)}
+.phase-blaze.active .phase-name{color:var(--text);font-weight:700}
+.list{display:flex;flex-direction:column;gap:8px}
+.list-item{display:flex;align-items:flex-start;gap:10px;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg)}
+.list-item:hover{border-color:var(--border-strong)}
+.check{width:16px;height:16px;margin-top:2px;accent-color:var(--forest);cursor:pointer}
+.list-body{flex:1;min-width:0}.list-title{font-weight:600}.list-meta{font-size:12px;color:var(--text-muted);margin-top:3px}
+.accordion{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--bg-elevated)}
+.acc-item+.acc-item{border-top:1px solid var(--border)}
+.acc-trigger{width:100%;display:flex;align-items:center;gap:10px;padding:12px 14px;background:transparent;border:0;cursor:pointer;text-align:left}
+.acc-trigger:hover{background:var(--bg-hover)}
+.acc-chevron{width:14px;height:14px;transition:transform .15s;color:var(--text-muted);flex-shrink:0}
+.acc-item.open .acc-chevron{transform:rotate(90deg)}
+.acc-panel{display:none;padding:0 14px 14px}.acc-item.open .acc-panel{display:block;border-top:1px solid var(--border);padding-top:12px}
+.strategy-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.strategy-card{border:1px solid var(--border);border-radius:var(--radius);padding:12px;background:var(--bg);cursor:pointer;text-align:left}
+.strategy-card:hover{border-color:var(--border-strong)}
+.strategy-card.selected{border-color:var(--forest);box-shadow:0 0 0 2px var(--forest-soft)}
+.strategy-card h3{margin:0 0 6px;font-size:14px;font-family:var(--font-display)}
+.strategy-card p{margin:0;font-size:12px;color:var(--text-secondary)}
+.wizard{max-width:640px;margin:0 auto}
+.wizard-steps{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.wizard-step{height:6px;flex:1;min-width:36px;border-radius:999px;background:var(--border)}
+.wizard-step.done,.wizard-step.current{background:var(--forest)}
+.gate-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);margin-bottom:8px}
+.gate-critical{border-left:3px solid var(--amber)}
+.table{width:100%;border-collapse:collapse;font-size:13px}
+.table th,.table td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+.table th{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);background:var(--bg-subtle)}
+.modal-backdrop{position:fixed;inset:0;background:rgba(20,30,24,.45);display:none;align-items:center;justify-content:center;z-index:100;padding:16px}
+.modal-backdrop.open{display:flex}
+.modal{width:min(520px,100%);background:var(--bg-elevated);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-md);max-height:min(90vh,760px);overflow:auto}
+.modal-h{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border)}
+.modal-b{padding:14px}.modal-f{display:flex;justify-content:flex-end;gap:8px;padding:12px 14px;border-top:1px solid var(--border)}
+.toast{position:fixed;right:16px;bottom:calc(16px + var(--bottom-nav-h));background:var(--forest);color:var(--forest-contrast);padding:10px 12px;border-radius:var(--radius-sm);font-size:13px;box-shadow:var(--shadow-md);opacity:0;transform:translateY(8px);transition:opacity .2s,transform .2s;z-index:120;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+.drawer-backdrop{display:none;position:fixed;inset:0;background:rgba(20,30,24,.4);z-index:35}
+.drawer-backdrop.open{display:block}
+.bottom-nav{display:none;position:fixed;left:0;right:0;bottom:0;height:calc(var(--bottom-nav-h) + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:var(--bg-elevated);border-top:1px solid var(--border);z-index:50;grid-template-columns:repeat(5,1fr)}
+.bottom-nav button{border:0;background:transparent;color:var(--text-muted);font-size:10px;font-weight:650;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;padding:6px}
+.bottom-nav button.active{color:var(--forest)}
+.bottom-nav svg{width:18px;height:18px}
+.empty{text-align:center;padding:28px 16px;color:var(--text-muted);border:1px dashed var(--border-strong);border-radius:var(--radius);background:var(--bg)}
+.stage-dots{display:flex;gap:3px;justify-content:center;margin-top:4px}
+.stage-dot{width:8px;height:8px;border-radius:2px;background:var(--border);transform:rotate(45deg)}
+.stage-dot.on{background:var(--forest)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+.kv{display:grid;gap:8px}.kv-row{display:grid;grid-template-columns:140px 1fr;gap:8px;font-size:13px}.kv-row dt{color:var(--text-muted);font-weight:600}
+.section-intro{margin-bottom:12px;color:var(--text-secondary);max-width:62ch}
+.stack{display:flex;flex-direction:column;gap:12px}
+.actions-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+@media (max-width:1000px){.grid-3,.grid-2,.strategy-grid{grid-template-columns:1fr}.lane-strip{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:800px){
+  :root{--sidebar-w:64px}
+  .brand-text,.nav-btn span,.sidebar-foot,.nav-section-label{display:none}
+  .nav-btn{justify-content:center;padding:10px}.sidebar-brand{justify-content:center;padding:14px 8px}
+  .top-actions .hide-sm{display:none}
+}
+@media (max-width:700px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:fixed;left:0;top:0;bottom:0;width:min(290px,88vw);transform:translateX(-105%);transition:transform .2s;box-shadow:var(--shadow-md)}
+  .sidebar.open{transform:translateX(0)}
+  .brand-text,.nav-btn span,.sidebar-foot,.nav-section-label{display:block}
+  .nav-btn{justify-content:flex-start}.sidebar-brand{justify-content:flex-start;padding:14px}
+  .menu-toggle{display:inline-flex}
+  .bottom-nav{display:grid}
+  .content{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+  .toast{bottom:calc(72px + env(safe-area-inset-bottom))}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+  <aside class="sidebar" id="sidebar" aria-label="Primary">
+    <div class="sidebar-brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="8" fill="#1a3c2e"/>
+        <path d="M8 22l8-14 8 14H8zm8-9.5L11.8 20h8.4L16 12.5z" fill="#f7f4ec"/>
+        <circle cx="16" cy="18" r="1.4" fill="#3d7ea6"/>
+      </svg>
+      <div class="brand-text">
+        <div class="brand-title">Trailbound AT</div>
+        <div class="brand-sub">See the whole mountain</div>
+      </div>
+    </div>
+    <nav class="nav" id="nav" aria-label="Sections"></nav>
+    <div class="sidebar-foot"><span class="save-dot" aria-hidden="true"></span><span id="saveStatus">Saved locally</span></div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <button class="menu-toggle" id="menuToggle" aria-label="Open navigation" type="button">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <div class="page-heading">
+        <div class="page-title" id="pageTitle">Today</div>
+        <div class="page-crumb" id="pageCrumb">Trailbound AT · Adaptive readiness</div>
+      </div>
+      <div class="top-actions">
+        <span class="pill pill-forest hide-sm" id="strategyPill">Strategy: undecided</span>
+        <button class="btn hide-sm" id="importBtn" type="button">Import</button>
+        <button class="btn hide-sm" id="exportBtn" type="button">Export</button>
+        <button class="btn btn-primary" id="quickAddBtn" type="button">Log evidence</button>
+        <input type="file" id="importFile" accept="application/json,.json" class="sr-only" />
+      </div>
+    </header>
+    <main class="content" id="content" tabindex="-1">
+      <div class="content-inner" id="view"></div>
+    </main>
+  </div>
+</div>
+<nav class="bottom-nav" id="bottomNav" aria-label="Mobile">
+  <button type="button" data-section="today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 10l8-6 8 6v10H4V10z"/></svg>Today</button>
+  <button type="button" data-section="journey"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19l6-14 4 8 2-4 4 10"/></svg>Journey</button>
+  <button type="button" data-section="activity"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Log</button>
+  <button type="button" data-section="weekly"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h14"/></svg>Review</button>
+  <button type="button" data-section="settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>More</button>
+</nav>
+<div class="modal-backdrop" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal">
+    <div class="modal-h"><strong id="modalTitle">Dialog</strong><button class="btn btn-sm btn-ghost" id="modalClose" type="button" aria-label="Close">✕</button></div>
+    <div class="modal-b" id="modalBody"></div>
+    <div class="modal-f" id="modalFoot"></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+
+(function () {
+  "use strict";
+
+  const STORAGE_KEY = "trailbound-at-v1";
+  const APP_ID = "trailbound-at";
+  const SCHEMA_VERSION = 1;
+  const MEDICAL_NOTE = "Trailbound organizes preparation; it does not provide medical clearance. If you have symptoms, a significant condition or injury, or uncertainty about strenuous exercise, review the plan with a qualified clinician before increasing training.";
+
+  const LANE_META = [
+    { key: "health", label: "Health & recovery", short: "Health", critical: true },
+    { key: "fitness", label: "Aerobic base & strength", short: "Fitness", critical: true },
+    { key: "durability", label: "Hiking durability", short: "Durability", critical: true },
+    { key: "skills", label: "Backcountry skills & safety", short: "Skills", critical: true },
+    { key: "gear", label: "Gear system", short: "Gear", critical: false },
+    { key: "field-validation", label: "Field validation", short: "Field", critical: true },
+    { key: "finance", label: "Money & resupply", short: "Money", critical: false },
+    { key: "life", label: "Work, home & relationships", short: "Life", critical: true },
+    { key: "route-logistics", label: "Route, rules & launch logistics", short: "Route", critical: true },
+  ];
+
+  const STAGE_LABELS = ["Unknown", "Baseline", "Foundation", "Demonstrated", "Launch ready"];
+  const STRATEGY_LABELS = {
+    undecided: "Undecided / preserve options",
+    "thru-nobo": "Thru-hike northbound",
+    "thru-sobo": "Thru-hike southbound",
+    "flip-flop": "Flip-flop / alternative thru",
+    section: "Section completion",
+  };
+
+  const NAV = [
+    { group: "Command", items: [
+      { id: "today", label: "Today", icon: "today" },
+      { id: "journey", label: "Journey", icon: "journey" },
+      { id: "readiness", label: "Readiness", icon: "lanes" },
+      { id: "decisions", label: "Decisions", icon: "decide" },
+      { id: "risks", label: "Risks & assumptions", icon: "risk" },
+    ]},
+    { group: "Prepare", items: [
+      { id: "training", label: "Training & recovery", icon: "train" },
+      { id: "skills", label: "Skills", icon: "skills" },
+      { id: "gear", label: "Gear", icon: "gear" },
+      { id: "field-tests", label: "Field tests", icon: "field" },
+      { id: "route", label: "Route & logistics", icon: "route" },
+      { id: "budget", label: "Budget", icon: "budget" },
+      { id: "life", label: "Life plan", icon: "life" },
+    ]},
+    { group: "Evidence", items: [
+      { id: "activity", label: "Activity log", icon: "log" },
+      { id: "trips", label: "Trip reports", icon: "trip" },
+      { id: "documents", label: "Documents", icon: "doc" },
+      { id: "sources", label: "Research & sources", icon: "source" },
+    ]},
+    { group: "Review", items: [
+      { id: "weekly", label: "Weekly review", icon: "review" },
+      { id: "forecast", label: "Forecast history", icon: "forecast" },
+      { id: "changelog", label: "Change log", icon: "change" },
+      { id: "settings", label: "Settings / import / export", icon: "settings" },
+      { id: "onboarding", label: "Baseline wizard", icon: "wizard" },
+    ]},
+  ];
+
+  const ICONS = {
+    today: '<path d="M4 10l8-6 8 6v10H4V10z"/>',
+    journey: '<path d="M4 19l6-14 4 8 2-4 4 10"/>',
+    lanes: '<path d="M4 6h16M4 12h16M4 18h10"/>',
+    decide: '<path d="M7 4v7a3 3 0 003 3h4a3 3 0 003-3V4M12 14v6"/>',
+    risk: '<path d="M12 3l9 16H3L12 3zm0 6v4m0 3h.01"/>',
+    train: '<path d="M13 4a3 3 0 11-2 5.8L8 16H5l2-5.2A3 3 0 0113 4zM4 20h16"/>',
+    skills: '<path d="M12 3l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6z"/>',
+    gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    field: '<path d="M4 20h16M6 16l3-8 3 5 2-3 4 6"/>',
+    route: '<path d="M4 19c4-2 4-10 8-10s4 8 8 10"/>',
+    budget: '<path d="M12 3v18M7 7h7a3 3 0 010 6H9a3 3 0 000 6h8"/>',
+    life: '<path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8z"/>',
+    log: '<path d="M12 5v14M5 12h14"/>',
+    trip: '<path d="M3 17l6-10 4 6 2-3 6 7H3z"/>',
+    doc: '<path d="M7 3h7l4 4v14H7V3zm7 0v4h4"/>',
+    source: '<path d="M10 13a5 5 0 007.07 0l2.12-2.12a5 5 0 00-7.07-7.07L10.5 5.5M14 11a5 5 0 00-7.07 0L4.8 13.12a5 5 0 007.07 7.07L13.5 18.5"/>',
+    review: '<path d="M4 6h16M4 12h10M4 18h14"/>',
+    forecast: '<path d="M4 18l5-6 4 3 7-9"/>',
+    change: '<path d="M4 7h10l2 2h4v10H4V7z"/>',
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2"/>',
+    wizard: '<path d="M12 2l1.5 5.5L19 9l-5.5 1.5L12 16l-1.5-5.5L5 9l5.5-1.5L12 2z"/>',
+  };
+
+  function uid(prefix) {
+    return prefix + "_" + Math.random().toString(36).slice(2, 10);
+  }
+  function nowISO() { return new Date().toISOString(); }
+  function todayISO() { return new Date().toISOString().slice(0, 10); }
+  function $(sel, root) { return (root || document).querySelector(sel); }
+  function escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function toast(msg) {
+    const el = $("#toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => el.classList.remove("show"), 2400);
+  }
+
+  function phaseSeed() {
+    const phases = [
+      { id: "p0", order: 0, title: "Orient & safety boundaries", purpose: "Understand the goal, current reality, and what requires professional input.", exitGate: "Baseline complete enough for safe foundation activities; unresolved health concerns have an explicit next step." },
+      { id: "p1", order: 1, title: "Explore the undertaking", purpose: "Understand what completion demands before buying or booking.", exitGate: "Understands major strategy choices and wants structured preparation." },
+      { id: "p2", order: 2, title: "Build sustainable foundation", purpose: "Create consistent movement and project habits without chasing peak fitness.", exitGate: "Sustainable consistency demonstrated; recovery acceptable under agreed boundaries." },
+      { id: "p3", order: 3, title: "Learn core backpacking systems", purpose: "Build knowledge before optimizing equipment.", exitGate: "Provisional system exists; user can explain how each critical system works and fails." },
+      { id: "p4", order: 4, title: "Validate with progressive field tests", purpose: "Replace assumptions with real evidence.", exitGate: "System works on a multi-night trip; no unresolved critical failure." },
+      { id: "p5", order: 5, title: "Develop hiking durability", purpose: "Safely increase specificity and learn sustainable pace.", exitGate: "Representative weekends tolerated within health boundaries." },
+      { id: "p6", order: 6, title: "Extended shakedown", purpose: "Simulate operational reality before committing to a launch.", exitGate: "Explicit go/repeat/pivot decision supported by field evidence." },
+      { id: "p7", order: 7, title: "Lock completion strategy", purpose: "Turn demonstrated readiness into a feasible life plan.", exitGate: "Strategy feasible across readiness, time, money, and household/work." },
+      { id: "p8", order: 8, title: "Final prep & launch readiness", purpose: "Close critical gaps and verify current external requirements.", exitGate: "Critical lanes at stage 4, requirements reverified, informed go/delay/pivot." },
+      { id: "p9", order: 9, title: "On-trail adaptation", purpose: "Keep the system useful after launch without becoming a distraction.", exitGate: "Completion, withdrawal, or replan recorded." },
+      { id: "p10", order: 10, title: "Completion & integration", purpose: "Recover, archive lessons, and choose what comes next.", exitGate: "Archive complete; next role decided if desired." },
+    ];
+    const milestoneDefs = {
+      p0: [
+        ["Write personal definition of success and reasons", "health", "information"],
+        ["Complete health, activity, experience, schedule, and money baseline", "health", "information"],
+        ["Record known limitations, uncertainties, and red flags", "health", "health"],
+        ["If indicated, review activity boundaries with a qualified clinician", "health", "health"],
+        ["Identify emergency contact and one planning ally", "life", "life"],
+        ["Create a not-yet-known research queue", "route-logistics", "information"],
+      ],
+      p1: [
+        ["Compare thru-hike, section, and flip-flop strategies", "route-logistics", "decision"],
+        ["Learn major regions, seasons, access, and hazards", "route-logistics", "information"],
+        ["Review LNT, food storage, water, weather, wildlife, emergency basics", "skills", "information"],
+        ["Take an easy local hike and record findings", "field-validation", "field_test"],
+        ["Draft assumptions register", "route-logistics", "information"],
+        ["Hold first household/work impact conversation", "life", "life"],
+      ],
+      p2: [
+        ["Establish repeatable weekly walking/hiking pattern", "fitness", "consistency"],
+        ["Establish strength and mobility routine", "fitness", "consistency"],
+        ["Identify nearby routes by distance, elevation, surface, travel time", "fitness", "information"],
+        ["Track load, symptoms, sleep, and recovery weekly", "health", "consistency"],
+        ["Complete four consistent weeks (interruptions visible, not reset)", "fitness", "consistency"],
+        ["Create training fallback menu", "fitness", "information"],
+        ["Begin dedicated savings plan with ranges", "finance", "life"],
+      ],
+      p3: [
+        ["Learn shelter, sleep, pack, clothing, water, food, navigation, hygiene, first aid, repair, communication", "skills", "information"],
+        ["Build gear inventory with owned/borrow/rent/test/buy/replace/retire", "gear", "information"],
+        ["Create base-weight estimate; separate comfort from safety essentials", "gear", "information"],
+        ["Practice pack fitting and loading", "gear", "field_test"],
+        ["Practice water treatment (primary + backup)", "skills", "field_test"],
+        ["Practice compliant food storage", "skills", "field_test"],
+        ["Complete relevant first-aid learning step", "skills", "information"],
+        ["Create packing lists for day, overnight, shoulder, cold/wet", "gear", "information"],
+      ],
+      p4: [
+        ["Fully loaded day hike", "field-validation", "field_test"],
+        ["Back-to-back hiking days", "durability", "field_test"],
+        ["One-night shakedown with easy bailout", "field-validation", "field_test"],
+        ["Two- or three-night trip", "field-validation", "field_test"],
+        ["Test realistic adverse condition (rain or cool weather)", "skills", "field_test"],
+        ["Log keep/change/remove/add/learn findings", "field-validation", "information"],
+        ["Resolve high-severity gear or skill failures", "gear", "field_test"],
+      ],
+      p5: [
+        ["Gradually increase time, elevation, terrain, pack load (not all at once)", "durability", "consistency"],
+        ["Recurring back-to-back hiking weekends", "durability", "consistency"],
+        ["Test fueling, hydration, blister prevention, foot care, recovery", "health", "field_test"],
+        ["Identify early warning signs and stop/modify rules", "health", "health"],
+        ["Representative long weekend on rugged terrain", "durability", "field_test"],
+        ["Establish sustainable pace range", "durability", "information"],
+        ["Run a recovery week and confirm rest is supported", "health", "consistency"],
+      ],
+      p6: [
+        ["Plan and complete 5–10 day shakedown", "field-validation", "field_test"],
+        ["Perform at least one resupply", "finance", "field_test"],
+        ["Test communications and safe itinerary adjustment", "skills", "field_test"],
+        ["Track distance, elevation, weight, conditions, symptoms, mood, sleep, spending, recovery", "field-validation", "consistency"],
+        ["Structured retrospective within 72 hours", "field-validation", "information"],
+        ["Update gear, pace, budget, risk, and strategy assumptions", "route-logistics", "decision"],
+        ["Decide: advance, repeat with changes, pause, or section path", "route-logistics", "decision"],
+      ],
+      p7: [
+        ["Select thru, flip-flop, or section strategy and direction", "route-logistics", "decision"],
+        ["Establish start window from readiness + season + schedule", "route-logistics", "decision"],
+        ["Confirm work leave, income, insurance, home, caregiving, mail, bills, pets, vehicle, relationships", "life", "life"],
+        ["Build low/expected/high budgets with contingency", "finance", "life"],
+        ["Define resupply philosophy and key logistics", "finance", "information"],
+        ["Define off-trail support roles and communication cadence", "life", "life"],
+        ["Create withdrawal, evacuation, and return-home contingencies", "skills", "life"],
+      ],
+      p8: [
+        ["Recheck official alerts, closures, mileage, permits, fees, local rules", "route-logistics", "compliance"],
+        ["Register with ATCamp if appropriate; subscribe to alerts", "route-logistics", "compliance"],
+        ["Obtain applicable permits (ATCamp is not a permit)", "route-logistics", "compliance"],
+        ["Confirm transportation to start and contingency transport", "route-logistics", "life"],
+        ["Finalize gear only after last shakedown changes", "gear", "decision"],
+        ["Confirm medications, care plan, insurance, emergency contacts, documents", "health", "health"],
+        ["Back up plans; give support person emergency information sheet", "life", "life"],
+        ["Final readiness review across all nine lanes", "route-logistics", "decision"],
+        ["Record go / delay / pivot decision and rationale", "route-logistics", "decision"],
+      ],
+      p9: [
+        ["Low-friction daily log routine", "field-validation", "consistency"],
+        ["Weekly on-trail review", "health", "consistency"],
+        ["Record zeros, route changes, injuries, strategy changes neutrally", "route-logistics", "information"],
+        ["Surface current official alerts and recheck-due items", "route-logistics", "compliance"],
+      ],
+      p10: [
+        ["Confirm completed sections and unresolved gaps", "route-logistics", "information"],
+        ["Plan immediate recovery and return-home logistics", "life", "life"],
+        ["Archive gear and financial lessons", "finance", "information"],
+        ["Capture story, photos, gratitude, acknowledgements", "life", "information"],
+        ["Apply for ATC 2,000-miler if eligible and desired", "route-logistics", "compliance"],
+        ["Decide stewardship, volunteering, or future hiking role", "life", "decision"],
+      ],
+    };
+
+    return phases.map((p) => {
+      const ms = (milestoneDefs[p.id] || []).map(([title, lane, gateType], i) => ({
+        id: p.id + "_m" + (i + 1),
+        phaseId: p.id,
+        laneKeys: [lane],
+        title,
+        outcome: title,
+        status: "not-started",
+        definitionOfDone: ["Evidence recorded or explicit skip with reason"],
+        prerequisiteIds: [],
+        evidenceIds: [],
+        riskLevel: gateType === "health" || gateType === "field_test" ? "high" : "medium",
+        gateType,
+      }));
+      return {
+        ...p,
+        status: p.id === "p0" ? "active" : "locked",
+        entryGateIds: [],
+        exitGateIds: [p.id + "_exit"],
+        milestones: ms,
+        gates: [{
+          id: p.id + "_exit",
+          type: "decision",
+          title: "Exit: " + p.title,
+          critical: true,
+          state: "not-started",
+          criteria: [p.exitGate],
+          evidenceIds: [],
+        }],
+      };
+    });
+  }
+
+  function sourceSeed() {
+    const now = todayISO();
+    const recheck = "2026-12-01";
+    return [
+      { id: "src1", title: "A.T. Basics", url: "https://appalachiantrail.org/experience/hike-the-trail/at-basics/", publisher: "Appalachian Trail Conservancy", topic: "trail-facts", verifiedAt: now, recheckBy: recheck, notes: "Official 2026 length: 2,197.9 miles; mileage can change annually." },
+      { id: "src2", title: "Register Your Hike / ATCamp", url: "https://appalachiantrail.org/experience/hike-the-trail/at-basics/register-your-hike/", publisher: "Appalachian Trail Conservancy", topic: "permit", verifiedAt: now, recheckBy: recheck, notes: "ATCamp is voluntary registration, not a permit or shelter reservation." },
+      { id: "src3", title: "Appalachian National Scenic Trail — Plan Your Visit", url: "https://www.nps.gov/appa/planyourvisit/", publisher: "National Park Service", topic: "trail-facts", verifiedAt: now, recheckBy: recheck, notes: "" },
+      { id: "src4", title: "Fees and permits", url: "https://www.nps.gov/appa/planyourvisit/fees.htm", publisher: "National Park Service", topic: "permit", verifiedAt: now, recheckBy: recheck, notes: "No single Trail-wide permit; requirements vary by land unit." },
+      { id: "src5", title: "Trail updates", url: "https://appalachiantrail.org/trail-updates/", publisher: "Appalachian Trail Conservancy", topic: "closure", verifiedAt: now, recheckBy: recheck, notes: "Recheck near departure." },
+      { id: "src6", title: "2,000-Miler application", url: "https://appalachiantrail.org/experience/hike-the-trail/thru-hiking/2000-milers/2000-miler-application/", publisher: "Appalachian Trail Conservancy", topic: "other", verifiedAt: now, recheckBy: recheck, notes: "Thru within 12 months or sections over more than 12 months both recognized." },
+    ];
+  }
+
+  function decisionSeed() {
+    return [
+      {
+        id: "d_strategy",
+        question: "Completion strategy",
+        options: [
+          { id: "thru-nobo", name: "Traditional thru-hike (NOBO)", tradeoffs: "Needs ~6 months away; ATC average thru ~6 months. High continuity, high life disruption." },
+          { id: "thru-sobo", name: "Traditional thru-hike (SOBO)", tradeoffs: "Similar time-away; different season and crowding pattern." },
+          { id: "flip-flop", name: "Flip-flop / alternative thru", tradeoffs: "Fits season and crowding; more logistics complexity." },
+          { id: "section", name: "Section completion", tradeoffs: "First-class success path. Fits leave and seasons; longer calendar span." },
+          { id: "undecided", name: "Undecided / preserve options", tradeoffs: "Continue shared prep; do not force early." },
+        ],
+        deadlineOrTrigger: "After Phase 1 exploration + household conversation",
+        evidenceNeeded: ["Time-away options", "Budget ranges", "Early field enjoyment"],
+        currentChoice: "undecided",
+        reversibility: "High until leave/permits/bookings lock",
+        rationale: "",
+        reviewDate: "",
+        status: "open",
+      },
+      {
+        id: "d_direction",
+        question: "Direction preference",
+        options: [
+          { id: "nobo", name: "Northbound", tradeoffs: "Classic spring start pattern; crowding in early season south." },
+          { id: "sobo", name: "Southbound", tradeoffs: "Different weather and logistics." },
+          { id: "undecided", name: "Undecided", tradeoffs: "Keep open while gathering evidence." },
+        ],
+        deadlineOrTrigger: "When strategy narrows",
+        evidenceNeeded: ["Season preferences", "Leave calendar"],
+        currentChoice: "undecided",
+        reversibility: "High early",
+        rationale: "",
+        reviewDate: "",
+        status: "open",
+      },
+      {
+        id: "d_companionship",
+        question: "Solo, partner, or group",
+        options: [
+          { id: "solo", name: "Solo", tradeoffs: "Flexibility; higher self-reliance bar." },
+          { id: "partner", name: "Partner", tradeoffs: "Shared logistics; pace negotiation." },
+          { id: "group", name: "Group", tradeoffs: "Social support; scheduling constraints." },
+          { id: "undecided", name: "Undecided", tradeoffs: "Decide after early field tests." },
+        ],
+        deadlineOrTrigger: "Before extended shakedown",
+        evidenceNeeded: ["Comfort with remoteness", "Communication plan"],
+        currentChoice: "undecided",
+        reversibility: "Medium",
+        rationale: "",
+        reviewDate: "",
+        status: "open",
+      },
+      {
+        id: "d_shelter",
+        question: "Shelter preference",
+        options: [
+          { id: "tent", name: "Tent-primary", tradeoffs: "Flexibility; more weight/setup." },
+          { id: "shelter", name: "Shelter-primary", tradeoffs: "Lighter; crowding and mice risk." },
+          { id: "mixed", name: "Mixed", tradeoffs: "Adapt by section." },
+          { id: "undecided", name: "Undecided", tradeoffs: "Test on shakedowns." },
+        ],
+        deadlineOrTrigger: "After overnight field tests",
+        evidenceNeeded: ["Overnight comfort", "Weight budget"],
+        currentChoice: "undecided",
+        reversibility: "High until gear purchase",
+        rationale: "",
+        reviewDate: "",
+        status: "open",
+      },
+      {
+        id: "d_launch",
+        question: "Launch go / delay / pivot",
+        options: [
+          { id: "go", name: "Go", tradeoffs: "Critical lanes launch-ready; requirements current." },
+          { id: "delay", name: "Delay", tradeoffs: "Valid outcome; preserve safety and readiness." },
+          { id: "pivot", name: "Pivot (e.g. section path)", tradeoffs: "Adaptation, not failure." },
+        ],
+        deadlineOrTrigger: "Phase 8 final readiness review",
+        evidenceNeeded: ["All critical lane stage 4", "Rechecked sources", "Life/finance confirmation"],
+        currentChoice: "",
+        reversibility: "Decision can be revisited if delayed",
+        rationale: "",
+        reviewDate: "",
+        status: "locked",
+      },
+    ];
+  }
+
+  function emptyLanes() {
+    const t = nowISO();
+    return LANE_META.map((l) => ({
+      key: l.key,
+      stage: 0,
+      confidence: "low",
+      evidenceIds: [],
+      blockerIds: [],
+      nextTest: "",
+      assessedAt: t,
+    }));
+  }
+
+  function createCleanState() {
+    const phases = phaseSeed();
+    return {
+      meta: { app: APP_ID, version: SCHEMA_VERSION, profile: "clean", exportedAt: null, createdAt: nowISO(), updatedAt: nowISO() },
+      onboarding: { completed: false, step: 0, answers: {} },
+      goal: {
+        id: "goal_main",
+        title: "Complete the Appalachian Trail",
+        why: "",
+        successDefinition: "",
+        activeStrategy: "undecided",
+        earliestAllowedStart: "",
+        desiredWindow: null,
+        maxTimeAwayDays: null,
+        nonNegotiables: [],
+        createdAt: nowISO(),
+        updatedAt: nowISO(),
+      },
+      strategyHistory: [],
+      lanes: emptyLanes(),
+      phases,
+      actions: [],
+      evidence: [],
+      sources: sourceSeed(),
+      decisions: decisionSeed(),
+      risks: [
+        { id: "risk1", title: "Health uncertainty before increasing load", likelihood: "unknown", impact: "high", mitigation: "Keep professional-review gate visible; prefer low-risk research until boundaries agreed.", status: "open" },
+        { id: "risk2", title: "False precision on launch date", likelihood: "medium", impact: "medium", mitigation: "Forecast only from gates and capacity; ranges not fake deadlines.", status: "open" },
+      ],
+      assumptions: [
+        { id: "as1", text: "Official 2026 A.T. length is 2,197.9 miles and may change annually.", status: "accepted" },
+        { id: "as2", text: "Average thru-hike takes around six months (ATC).", status: "accepted" },
+        { id: "as3", text: "Section hiking is a first-class completion path.", status: "accepted" },
+      ],
+      capacity: { weekdayMinutes: 45, weekendMinutes: 180, maxWeekMinutes: 360, blockedDates: [], energy: "medium" },
+      budget: {
+        categories: [
+          { id: "b1", name: "Gear", plannedLow: 0, plannedHigh: 0, spent: 0, notes: "" },
+          { id: "b2", name: "Food & resupply", plannedLow: 0, plannedHigh: 0, spent: 0, notes: "" },
+          { id: "b3", name: "Travel & shuttles", plannedLow: 0, plannedHigh: 0, spent: 0, notes: "" },
+          { id: "b4", name: "Permits & fees", plannedLow: 0, plannedHigh: 0, spent: 0, notes: "" },
+          { id: "b5", name: "Lodging / zeros", plannedLow: 0, plannedHigh: 0, spent: 0, notes: "" },
+          { id: "b6", name: "Contingency reserve", plannedLow: 0, plannedHigh: 0, spent: 0, notes: "" },
+        ],
+      },
+      gear: {
+        categories: ["Shelter", "Sleep", "Pack", "Clothing", "Water", "Food system", "Navigation", "Hygiene", "First aid", "Repair", "Communication"],
+        items: [],
+      },
+      trips: [],
+      training: { sessions: [], weeklyPattern: "" },
+      skillsChecklist: [
+        { id: "sk1", name: "Leave No Trace basics", status: "not-started" },
+        { id: "sk2", name: "Water treatment primary + backup", status: "not-started" },
+        { id: "sk3", name: "Food storage compliance", status: "not-started" },
+        { id: "sk4", name: "Navigation (map/compass/app)", status: "not-started" },
+        { id: "sk5", name: "Weather decision-making", status: "not-started" },
+        { id: "sk6", name: "Wildlife awareness", status: "not-started" },
+        { id: "sk7", name: "First aid currency", status: "not-started" },
+        { id: "sk8", name: "Emergency communication plan", status: "not-started" },
+      ],
+      lifePlan: { leaveOptions: "", caregiving: "", householdNotes: "", supportPeople: [] },
+      contacts: [],
+      weeklyCheckIns: [],
+      forecasts: [{
+        id: "fc0",
+        createdAt: nowISO(),
+        earliestWindow: null,
+        confidence: "insufficient-data",
+        assumptions: ["Baseline not complete"],
+        drivers: ["Need onboarding fields"],
+        changeExplanation: "Initial state — not enough information for a launch window.",
+      }],
+      changelog: [{ id: "cl0", at: nowISO(), text: "Clean profile created." }],
+      documents: [],
+      settings: { backupReminderDays: 14, lastBackupReminder: null },
+      ui: { openPhaseId: "p0", openDecisionId: null, journeyMode: "whole" },
+    };
+  }
+
+  function createDemoState() {
+    const s = createCleanState();
+    s.meta.profile = "demo";
+    s.onboarding = {
+      completed: true,
+      step: 6,
+      answers: {
+        dreamMeaning: "Finish the whole Trail, whether in one push or sections.",
+        format: "explore-both",
+        why: "Long-held pull toward a long walk and a clear personal challenge.",
+        successIfChanges: "Still succeeding if I finish in sections with intact health and relationships.",
+        directionSeason: "Prefer spring start if thru; otherwise flexible.",
+        ageBand: "prefer-not",
+        healthNotes: "",
+        clinicianAdvised: "not-yet",
+        redFlags: "none noted",
+        accessibility: "",
+        sleepConfidence: "medium",
+        weeklyMinutes: "120",
+        longestRecent: "8 mile day hike",
+        backToBack: "none recently",
+        strengthRoutine: "2x/week basic",
+        backpackingNights: "2 nights in last two years",
+        experienceNotes: "Some rain hiking; limited cold; treat water with filter only so far.",
+        gearWeight: "base unknown; daypack comfortable",
+        weekdayHours: "0.75",
+        weekendHours: "3",
+        maxWeekHours: "6",
+        blocked: "Thu evenings caregiving",
+        leaveOptions: "Possibly 3 weeks consecutive; 6 months unclear",
+        budgetRange: "Still mapping",
+        peopleAffected: "Partner + one dependent",
+        companionship: "undecided",
+        riskComfort: "Moderate weather OK; want sat communicator for remoteness",
+        satComm: "lean-yes",
+        bailout: "Daily check-in expectation with partner",
+      },
+    };
+    s.goal.why = s.onboarding.answers.why;
+    s.goal.successDefinition = s.onboarding.answers.successIfChanges;
+    s.goal.activeStrategy = "undecided";
+    s.goal.maxTimeAwayDays = 21;
+    s.lanes = emptyLanes().map((lane) => {
+      const map = {
+        health: 1, fitness: 1, durability: 0, skills: 1, gear: 1,
+        "field-validation": 1, finance: 1, life: 1, "route-logistics": 1,
+      };
+      return { ...lane, stage: map[lane.key] || 0, confidence: lane.key === "durability" ? "low" : "medium", nextTest: lane.key === "fitness" ? "Repeatable weekday walk streak" : lane.nextTest };
+    });
+    // unlock p0/p1
+    s.phases.forEach((p) => {
+      if (p.id === "p0") {
+        p.status = "active";
+        p.milestones.forEach((m, i) => { if (i < 2) m.status = "complete"; });
+      } else if (p.id === "p1") {
+        p.status = "available";
+      }
+    });
+    s.actions = [
+      { id: "act_primary", milestoneId: "p0_m3", title: "Write down known limitations, uncertainties, and any red flags", reason: "This comes next because your baseline is started but safety boundaries are still incomplete — that unlocks safe foundation training.", status: "next", estimatedMinutes: 25, energy: "low", definitionOfDone: ["List written in Risks & assumptions", "If material uncertainty, clinician-review gate created"], prerequisiteIds: [], completedAt: null },
+      { id: "act_s1", milestoneId: "p1_m1", title: "Skim ATC A.T. Basics and note 3 strategy implications", reason: "Information that unlocks the completion-strategy decision.", status: "next", estimatedMinutes: 30, energy: "low", definitionOfDone: ["3 notes saved under Sources"], prerequisiteIds: [], completedAt: null },
+      { id: "act_s2", milestoneId: "p1_m4", title: "Schedule an easy local hike this weekend", reason: "Smallest useful field test once orientation starts.", status: "next", estimatedMinutes: 20, energy: "medium", definitionOfDone: ["Date/time on calendar", "Bailout plan noted"], prerequisiteIds: [], completedAt: null },
+      { id: "act_s3", milestoneId: "p0_m5", title: "Name emergency contact + one planning ally", reason: "Life/support scaffolding before training load rises.", status: "next", estimatedMinutes: 15, energy: "low", definitionOfDone: ["Both people recorded under Life plan"], prerequisiteIds: [], completedAt: null },
+      { id: "act_low", milestoneId: "p1_m2", title: "Add Trail Updates to Research & sources and set recheck date", reason: "Low-energy win that keeps official info current.", status: "next", estimatedMinutes: 10, energy: "low", definitionOfDone: ["Source row present with recheckBy"], prerequisiteIds: [], completedAt: null },
+    ];
+    s.evidence = [
+      { id: "ev1", type: "note", title: "Baseline started", occurredAt: todayISO(), summary: "Demo profile completed onboarding snapshot.", relatedIds: ["goal_main"] },
+      { id: "ev2", type: "activity", title: "Local 4-mile walk", occurredAt: todayISO(), summary: "Easy pace, no unusual symptoms, enjoyed being outside.", relatedIds: ["p1_m4", "fitness"] },
+    ];
+    s.forecasts.push({
+      id: "fc_demo",
+      createdAt: nowISO(),
+      earliestWindow: { start: "2028-03-01", end: "2028-05-31" },
+      confidence: "low",
+      assumptions: ["Health stays stable", "Leave options improve beyond 3 weeks or section path chosen", "Foundation consistency achievable"],
+      drivers: ["Life capacity", "Field validation not yet started", "Strategy still undecided"],
+      changeExplanation: "Demo forecast after baseline — range only, not a deadline.",
+    });
+    s.changelog.push({ id: "cl_demo", at: nowISO(), text: "Loaded demo profile with partial Phase 0 progress and first 14-day style actions." });
+    s.lifePlan.supportPeople = [
+      { id: "c1", name: "Partner", role: "Emergency contact / planning ally", notes: "" },
+    ];
+    s.gear.items = [
+      { id: "g1", name: "Daypack", category: "Pack", state: "owned", notes: "" },
+      { id: "g2", name: "Trail runners", category: "Clothing", state: "owned", notes: "Test on longer days" },
+      { id: "g3", name: "Water filter", category: "Water", state: "owned", notes: "Need chemical backup" },
+      { id: "g4", name: "Shelter", category: "Shelter", state: "test", notes: "Undecided" },
+    ];
+    return s;
+  }
+
+  let state = null;
+  let currentSection = "today";
+  let saveTimer = null;
+
+  function markSaved() {
+    const el = $("#saveStatus");
+    if (!el) return;
+    const t = new Date();
+    el.textContent = "Saved locally · " + t.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function persist() {
+    state.meta.updatedAt = nowISO();
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      markSaved();
+    } catch (e) {
+      toast("Could not save locally — export a backup");
+      console.error(e);
+    }
+  }
+
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(persist, 200);
+  }
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (!data || data.meta?.app !== APP_ID) return null;
+      return data;
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  }
+
+  function lanesOnTrackCount() {
+    return state.lanes.filter((l) => l.stage >= 2).length;
+  }
+
+  function criticalBlockers() {
+    const blockers = [];
+    const health = state.lanes.find((l) => l.key === "health");
+    if (health && health.stage < 1) blockers.push({ title: "Health baseline incomplete", detail: "Finish baseline or record clinician-boundary next step." });
+    state.phases.forEach((p) => {
+      p.gates.filter((g) => g.critical && (g.state === "blocked" || g.state === "expired" || g.state === "overridden")).forEach((g) => {
+        blockers.push({ title: g.title, detail: "Gate state: " + g.state + (g.overrideReason ? " — " + g.overrideReason : "") });
+      });
+    });
+    const expired = state.sources.filter((s) => s.recheckBy && s.recheckBy < todayISO());
+    expired.forEach((s) => blockers.push({ title: "Recheck due: " + s.title, detail: "Source expired for reverification." }));
+    return blockers;
+  }
+
+  function activePlan() {
+    const active = state.actions.filter((a) => a.status === "next" || a.status === "doing");
+    const primary = active.find((a) => a.energy !== "low") || active[0] || null;
+    const supporting = active.filter((a) => a !== primary && a.energy !== "low").slice(0, 3);
+    const low = active.find((a) => a.energy === "low" && a !== primary) || null;
+    return { primary, supporting, low };
+  }
+
+  function ensureFirstPlan() {
+    if (state.actions.length) return;
+    state.actions = [
+      { id: uid("act"), milestoneId: "p0_m1", title: "Write your definition of success and why this matters", reason: "This comes next because North Star clarity guides every later tradeoff.", status: "next", estimatedMinutes: 20, energy: "low", definitionOfDone: ["Why + success definition saved on Today / Goal"], prerequisiteIds: [], completedAt: null },
+      { id: uid("act"), milestoneId: "p0_m2", title: "Continue baseline wizard (health through capacity)", reason: "Baseline unlocks safe foundation activities and an honest forecast.", status: "next", estimatedMinutes: 25, energy: "medium", definitionOfDone: ["Onboarding steps saved; unknowns allowed"], prerequisiteIds: [], completedAt: null },
+      { id: uid("act"), milestoneId: "p0_m6", title: "Add 2 unknowns to your research queue", reason: "Captures information blockers without forcing early purchases.", status: "next", estimatedMinutes: 15, energy: "low", definitionOfDone: ["Two research items listed"], prerequisiteIds: [], completedAt: null },
+      { id: uid("act"), milestoneId: "p1_m3", title: "Read LNT + water treatment basics from official sources", reason: "Low-risk skills orientation that unlocks later field tests.", status: "next", estimatedMinutes: 30, energy: "low", definitionOfDone: ["Short notes in Skills"], prerequisiteIds: [], completedAt: null },
+    ];
+    state.changelog.unshift({ id: uid("cl"), at: nowISO(), text: "Generated first rolling plan from baseline." });
+  }
+
+  function completeOnboarding() {
+    state.onboarding.completed = true;
+    const a = state.onboarding.answers || {};
+    state.goal.why = a.why || state.goal.why;
+    state.goal.successDefinition = a.successIfChanges || state.goal.successDefinition;
+    if (a.format === "thru") state.goal.activeStrategy = "thru-nobo";
+    else if (a.format === "section") state.goal.activeStrategy = "section";
+    else state.goal.activeStrategy = "undecided";
+
+    // Stage lanes lightly from answers without inventing health status
+    state.lanes.forEach((lane) => {
+      if (lane.stage === 0) {
+        lane.stage = 1;
+        lane.confidence = "low";
+        lane.assessedAt = nowISO();
+      }
+    });
+    if (a.clinicianAdvised !== "yes" && (a.healthNotes || a.redFlags)) {
+      const p0 = state.phases.find((p) => p.id === "p0");
+      if (p0) {
+        p0.gates.push({
+          id: uid("gate"),
+          type: "health",
+          title: "Agree on safe activity boundaries with a qualified clinician",
+          critical: true,
+          state: "gathering",
+          criteria: ["Record agreed boundaries — not private medical records", "Do not claim medical clearance unless explicitly recorded"],
+          evidenceIds: [],
+        });
+      }
+      state.lanes.find((l) => l.key === "health").blockerIds = ["clinician-boundaries"];
+    }
+    ensureFirstPlan();
+    state.forecasts.unshift({
+      id: uid("fc"),
+      createdAt: nowISO(),
+      earliestWindow: null,
+      confidence: "insufficient-data",
+      assumptions: ["Strategy may stay undecided", "Health boundaries may need clinician input", "Capacity answers are provisional"],
+      drivers: ["Incomplete field validation", "Leave options unclear", "Gear system unproven"],
+      changeExplanation: "Baseline complete enough for a first plan; still not enough for a launch window.",
+    });
+    state.changelog.unshift({ id: uid("cl"), at: nowISO(), text: "Onboarding completed — baseline + first plan generated." });
+    scheduleSave();
+  }
+
+  function iconSvg(name) {
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${ICONS[name] || ICONS.today}</svg>`;
+  }
+
+  function renderNav() {
+    const nav = $("#nav");
+    let html = "";
+    NAV.forEach((g) => {
+      html += `<div class="nav-section-label">${escapeHtml(g.group)}</div>`;
+      g.items.forEach((item) => {
+        const active = item.id === currentSection ? "active" : "";
+        html += `<button type="button" class="nav-btn ${active}" data-section="${item.id}">${iconSvg(item.icon)}<span>${escapeHtml(item.label)}</span></button>`;
+      });
+    });
+    nav.innerHTML = html;
+    $("#bottomNav").querySelectorAll("button").forEach((b) => {
+      b.classList.toggle("active", b.getAttribute("data-section") === currentSection);
+    });
+    $("#strategyPill").textContent = "Strategy: " + (STRATEGY_LABELS[state.goal.activeStrategy] || state.goal.activeStrategy);
+  }
+
+  function openDrawer() {
+    $("#sidebar").classList.add("open");
+    $("#drawerBackdrop").hidden = false;
+    $("#drawerBackdrop").classList.add("open");
+  }
+  function closeDrawer() {
+    $("#sidebar").classList.remove("open");
+    $("#drawerBackdrop").classList.remove("open");
+    $("#drawerBackdrop").hidden = true;
+  }
+
+  function openModal(title, bodyHtml, onConfirm, confirmLabel) {
+    $("#modalTitle").textContent = title;
+    $("#modalBody").innerHTML = bodyHtml;
+    $("#modalFoot").innerHTML = `
+      <button class="btn" type="button" id="modalCancel">Cancel</button>
+      <button class="btn btn-primary" type="button" id="modalOk">${escapeHtml(confirmLabel || "Save")}</button>`;
+    $("#modal").classList.add("open");
+    $("#modalCancel").onclick = () => $("#modal").classList.remove("open");
+    $("#modalClose").onclick = () => $("#modal").classList.remove("open");
+    $("#modalOk").onclick = () => {
+      if (onConfirm) onConfirm();
+      $("#modal").classList.remove("open");
+      scheduleSave();
+      renderView();
+      renderNav();
+    };
+  }
+
+  function stageDots(stage) {
+    let h = '<div class="stage-dots" aria-hidden="true">';
+    for (let i = 0; i < 5; i++) h += `<span class="stage-dot ${i <= stage ? "on" : ""}"></span>`;
+    return h + "</div>";
+  }
+
+  function renderToday() {
+    const plan = activePlan();
+    const blockers = criticalBlockers();
+    const latestFc = state.forecasts[0];
+    const statusWords = state.onboarding.completed
+      ? (blockers.length ? "Needs attention on safety or recheck items" : "On track for foundation work")
+      : "Baseline not finished — start or resume the wizard";
+    const forecastText = latestFc.confidence === "insufficient-data"
+      ? "Not enough information yet for a launch window"
+      : `Earliest plausible launch window: ${latestFc.earliestWindow ? latestFc.earliestWindow.start.slice(0, 7) + " to " + latestFc.earliestWindow.end.slice(0, 7) : "range pending"} — confidence ${latestFc.confidence}`;
+
+    let actionsHtml = "";
+    if (plan.primary) {
+      actionsHtml += `
+        <div class="card focus-card card-b">
+          <div class="focus-kicker">Primary next action</div>
+          <div class="focus-title">${escapeHtml(plan.primary.title)}</div>
+          <div class="focus-reason">${escapeHtml(plan.primary.reason)}</div>
+          <div class="focus-dod"><strong>Definition of done</strong>${(plan.primary.definitionOfDone || []).map((d) => escapeHtml(d)).join(" · ") || "Record evidence"}</div>
+          <div class="actions-row">
+            <button class="btn btn-primary" data-complete-action="${plan.primary.id}" type="button">Mark done</button>
+            <button class="btn" data-defer-action="${plan.primary.id}" type="button">Defer</button>
+            <span class="pill">${plan.primary.estimatedMinutes || "?"} min · ${escapeHtml(plan.primary.energy)} energy</span>
+          </div>
+        </div>`;
+    } else {
+      actionsHtml += `<div class="empty"><strong>No primary action yet</strong>Complete onboarding or generate a plan from Settings.</div>`;
+    }
+    if (plan.supporting.length) {
+      actionsHtml += `<div class="card"><div class="card-h"><div class="card-title">Supporting actions</div></div><div class="card-b list">`;
+      plan.supporting.forEach((a) => {
+        actionsHtml += `<div class="list-item"><input class="check" type="checkbox" data-complete-action="${a.id}" aria-label="Complete" /><div class="list-body"><div class="list-title">${escapeHtml(a.title)}</div><div class="list-meta">${escapeHtml(a.reason)}</div></div></div>`;
+      });
+      actionsHtml += `</div></div>`;
+    }
+    if (plan.low) {
+      actionsHtml += `<div class="card card-b"><span class="pill pill-sky">Low-energy win</span><div style="margin-top:8px;font-weight:650">${escapeHtml(plan.low.title)}</div><div class="list-meta">${escapeHtml(plan.low.reason)}</div><div class="actions-row"><button class="btn btn-sm" data-complete-action="${plan.low.id}" type="button">Done</button></div></div>`;
+    }
+
+    const laneHtml = state.lanes.map((l) => {
+      const meta = LANE_META.find((m) => m.key === l.key);
+      return `<button type="button" class="lane-cell" data-nav="readiness" title="${escapeHtml(meta.label)}"><div class="lane-name">${escapeHtml(meta.short)}</div><div class="lane-stage">${l.stage}</div>${stageDots(l.stage)}<div class="lane-conf">${escapeHtml(l.confidence)}</div></button>`;
+    }).join("");
+
+    return `
+      <div class="disclaimer"><strong>Health note.</strong> ${escapeHtml(MEDICAL_NOTE)}</div>
+      <div class="northstar">
+        <div class="ns-kicker">North Star</div>
+        <div class="ns-title">${escapeHtml(state.goal.title)}</div>
+        <div class="ns-why">${escapeHtml(state.goal.why || "Add your why in onboarding or Settings.")}</div>
+        <div class="ns-meta">
+          <span class="pill">${escapeHtml(STRATEGY_LABELS[state.goal.activeStrategy])}</span>
+          <span class="pill">${lanesOnTrackCount()} of 9 lanes at foundation+</span>
+          <span class="pill">${escapeHtml(statusWords)}</span>
+        </div>
+      </div>
+      <div class="grid grid-2" style="margin-bottom:12px">
+        <div class="card card-b"><div class="label">Forecast</div><div style="font-weight:650">${escapeHtml(forecastText)}</div><div class="hint">${escapeHtml((latestFc.drivers || []).slice(0, 3).join(" · "))}</div></div>
+        <div class="card card-b"><div class="label">Capacity this week</div><div style="font-weight:650" class="num">${state.capacity.maxWeekMinutes} min budget</div><div class="hint">Weekday ~${state.capacity.weekdayMinutes} · Weekend ~${state.capacity.weekendMinutes} · Energy: ${escapeHtml(state.capacity.energy)}</div></div>
+      </div>
+      <div class="stack">${actionsHtml}</div>
+      ${blockers.length ? `<div class="card" style="margin-top:12px"><div class="card-h"><div class="card-title">Blockers needing attention</div></div><div class="card-b">${blockers.map((b) => `<div class="gate-row gate-critical"><div><strong>${escapeHtml(b.title)}</strong><div class="hint">${escapeHtml(b.detail)}</div></div><span class="pill pill-amber">Attention</span></div>`).join("")}</div></div>` : ""}
+      <div class="card" style="margin-top:12px"><div class="card-h"><div class="card-title">Readiness lanes</div><button class="btn btn-sm" data-nav="readiness" type="button">Open</button></div><div class="card-b"><div class="lane-strip">${laneHtml}</div><p class="hint" style="margin-top:10px">No blended score. Launch requires every critical gate to pass.</p></div></div>
+      <div class="grid grid-2" style="margin-top:12px">
+        <div class="card"><div class="card-h"><div class="card-title">Recent evidence</div></div><div class="card-b list">${state.evidence.slice(0, 4).map((e) => `<div class="list-item"><div class="list-body"><div class="list-title">${escapeHtml(e.title)}</div><div class="list-meta">${escapeHtml(e.type)} · ${escapeHtml(e.occurredAt)}</div></div></div>`).join("") || "<div class='empty'>No evidence yet</div>"}</div></div>
+        <div class="card"><div class="card-h"><div class="card-title">What changed</div></div><div class="card-b list">${state.changelog.slice(0, 4).map((c) => `<div class="list-item"><div class="list-body"><div class="list-title">${escapeHtml(c.text)}</div><div class="list-meta">${escapeHtml(c.at.slice(0, 16).replace("T", " "))}</div></div></div>`).join("")}</div></div>
+      </div>
+      ${!state.onboarding.completed ? `<div style="margin-top:14px"><button class="btn btn-sky" data-nav="onboarding" type="button">Resume baseline wizard</button></div>` : ""}
+    `;
+  }
+
+  function renderJourney() {
+    const mode = state.ui.journeyMode || "whole";
+    const phases = state.phases;
+    const map = phases.map((p) => {
+      const cls = p.status === "completed" ? "completed" : p.status === "active" ? "active" : "";
+      return `<button type="button" class="phase-blaze ${cls}" data-open-phase="${p.id}"><div class="phase-rail"><span class="blaze-dot"></span></div><div class="phase-name">P${p.order}. ${escapeHtml(p.title)}</div></button>`;
+    }).join("");
+    const openId = state.ui.openPhaseId || phases.find((p) => p.status === "active")?.id || "p0";
+    const open = phases.find((p) => p.id === openId) || phases[0];
+    const ms = open.milestones.map((m) => `
+      <div class="list-item">
+        <input class="check" type="checkbox" data-milestone="${open.id}:${m.id}" ${m.status === "complete" ? "checked" : ""} aria-label="Complete milestone" />
+        <div class="list-body">
+          <div class="list-title">${escapeHtml(m.title)}</div>
+          <div class="list-meta">${escapeHtml(m.laneKeys.join(", "))} · ${escapeHtml(m.gateType || "")} · risk ${escapeHtml(m.riskLevel)}</div>
+        </div>
+        <span class="pill">${escapeHtml(m.status)}</span>
+      </div>`).join("");
+    return `
+      <p class="section-intro">Phases are gate-based. A calendar date never bypasses a critical gate.</p>
+      <div class="toolbar" style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="btn btn-sm ${mode === "whole" ? "btn-primary" : ""}" data-journey-mode="whole" type="button">Whole journey</button>
+        <button class="btn btn-sm ${mode === "90" ? "btn-primary" : ""}" data-journey-mode="90" type="button">Next 90 days focus</button>
+      </div>
+      <div class="card card-b" style="margin-bottom:12px"><div class="phase-map">${map}</div></div>
+      <div class="card">
+        <div class="card-h"><div class="card-title">Phase ${open.order}: ${escapeHtml(open.title)}</div><span class="pill pill-forest">${escapeHtml(open.status)}</span></div>
+        <div class="card-b">
+          <p class="card-muted">${escapeHtml(open.purpose)}</p>
+          <div class="focus-dod" style="margin:10px 0"><strong>Exit gate</strong>${escapeHtml(open.exitGate)}</div>
+          <div class="list">${ms}</div>
+          <div style="margin-top:12px" class="list">${open.gates.map((g) => `<div class="gate-row ${g.critical ? "gate-critical" : ""}"><div><strong>${escapeHtml(g.title)}</strong><div class="hint">${escapeHtml((g.criteria || []).join(" "))}</div>${g.overrideReason ? `<div class="hint">Override: ${escapeHtml(g.overrideReason)}</div>` : ""}</div><span class="pill">${escapeHtml(g.state)}</span></div>`).join("")}</div>
+        </div>
+      </div>
+      ${mode === "90" ? `<p class="hint" style="margin-top:10px">90-day focus highlights Phase 0–2 work. Later phases stay visible on Whole journey.</p>` : ""}
+    `;
+  }
+
+  function renderReadiness() {
+    return `
+      <p class="section-intro">Stages 0–4 with confidence. Critical lanes are never averaged into a fake overall score.</p>
+      <div class="stack">${state.lanes.map((l) => {
+        const meta = LANE_META.find((m) => m.key === l.key);
+        return `<div class="card card-b">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:start">
+            <div>
+              <div style="font-weight:700">${escapeHtml(meta.label)} ${meta.critical ? '<span class="pill pill-amber">Critical</span>' : ""}</div>
+              <div class="hint">Stage ${l.stage}: ${STAGE_LABELS[l.stage]} · Confidence ${escapeHtml(l.confidence)}</div>
+            </div>
+            <div style="min-width:120px">
+              <label class="label" for="stage-${l.key}">Stage</label>
+              <select class="select" id="stage-${l.key}" data-lane-stage="${l.key}">
+                ${[0,1,2,3,4].map((n) => `<option value="${n}" ${l.stage === n ? "selected" : ""}>${n} — ${STAGE_LABELS[n]}</option>`).join("")}
+              </select>
+            </div>
+          </div>
+          <div class="field-row" style="margin-top:10px">
+            <div class="field"><label class="label">Confidence</label>
+              <select class="select" data-lane-conf="${l.key}">
+                ${["low","medium","high"].map((c) => `<option ${l.confidence === c ? "selected" : ""}>${c}</option>`).join("")}
+              </select>
+            </div>
+            <div class="field"><label class="label">Next test</label>
+              <input class="input" data-lane-next="${l.key}" value="${escapeHtml(l.nextTest || "")}" placeholder="What would raise confidence?" />
+            </div>
+          </div>
+        </div>`;
+      }).join("")}</div>
+    `;
+  }
+
+  function renderDecisions() {
+    return `
+      <p class="section-intro">Decision journal. Changing strategy is adaptation — history is preserved.</p>
+      <div class="accordion">${state.decisions.map((d) => {
+        const open = state.ui.openDecisionId === d.id ? "open" : "";
+        return `<div class="acc-item ${open}">
+          <button type="button" class="acc-trigger" data-acc-toggle="${d.id}">
+            <svg class="acc-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+            <div style="flex:1"><strong>${escapeHtml(d.question)}</strong><div class="hint">Choice: ${escapeHtml(d.currentChoice || "none")} · ${escapeHtml(d.status)}</div></div>
+          </button>
+          <div class="acc-panel">
+            <div class="strategy-grid">${d.options.map((o) => `
+              <button type="button" class="strategy-card ${d.currentChoice === o.id || d.currentChoice === o.name ? "selected" : ""}" data-decide="${d.id}" data-choice="${escapeHtml(o.id)}">
+                <h3>${escapeHtml(o.name)}</h3>
+                <p>${escapeHtml(o.tradeoffs)}</p>
+              </button>`).join("")}</div>
+            <div class="field-row" style="margin-top:10px">
+              <div class="field"><label class="label">Rationale</label><textarea class="textarea" data-dec-field="${d.id}" data-field="rationale">${escapeHtml(d.rationale || "")}</textarea></div>
+              <div class="field"><label class="label">Review date</label><input class="input" type="date" data-dec-field="${d.id}" data-field="reviewDate" value="${escapeHtml(d.reviewDate || "")}" /></div>
+            </div>
+            <div class="hint">Trigger: ${escapeHtml(d.deadlineOrTrigger || "")} · Reversibility: ${escapeHtml(d.reversibility || "")}</div>
+          </div>
+        </div>`;
+      }).join("")}</div>
+    `;
+  }
+
+  function renderOnboarding() {
+    const step = state.onboarding.step || 0;
+    const a = state.onboarding.answers || {};
+    const steps = ["Dream", "Health", "Activity", "Capacity", "Risk", "Result"];
+    const stepBar = steps.map((label, i) => `<div class="wizard-step ${i < step ? "done" : ""} ${i === step ? "current" : ""}" title="${label}"></div>`).join("");
+    let body = "";
+    if (step === 0) {
+      body = `
+        <div class="field"><label class="label">What does “walk the Appalachian Trail” mean to you?</label><textarea class="textarea" data-ob="dreamMeaning">${escapeHtml(a.dreamMeaning || "")}</textarea><div class="hint">You can answer “I don't know yet.”</div></div>
+        <div class="field"><label class="label">Thru-hike, sections, or explore both?</label>
+          <select class="select" data-ob="format"><option value="">I don't know yet</option>
+            <option value="thru" ${a.format==="thru"?"selected":""}>Thru-hike</option>
+            <option value="section" ${a.format==="section"?"selected":""}>Complete in sections</option>
+            <option value="explore-both" ${a.format==="explore-both"?"selected":""}>Explore both</option>
+          </select></div>
+        <div class="field"><label class="label">Why does this matter?</label><textarea class="textarea" data-ob="why">${escapeHtml(a.why || "")}</textarea></div>
+        <div class="field"><label class="label">What would make it successful even if the format changes?</label><textarea class="textarea" data-ob="successIfChanges">${escapeHtml(a.successIfChanges || "")}</textarea></div>
+        <div class="field"><label class="label">Preferred direction or season, if any</label><input class="input" data-ob="directionSeason" value="${escapeHtml(a.directionSeason || "")}" /></div>`;
+    } else if (step === 1) {
+      body = `
+        <div class="disclaimer"><strong>Health note.</strong> ${escapeHtml(MEDICAL_NOTE)}</div>
+        <div class="field-row">
+          <div class="field"><label class="label">Age band (optional)</label><select class="select" data-ob="ageBand"><option value="">I don't know yet</option><option value="prefer-not" ${a.ageBand==="prefer-not"?"selected":""}>Prefer not to say</option><option value="18-29">18–29</option><option value="30-39">30–39</option><option value="40-49">40–49</option><option value="50-59">50–59</option><option value="60+">60+</option></select></div>
+          <div class="field"><label class="label">Clinician advised on strenuous backpacking?</label><select class="select" data-ob="clinicianAdvised"><option value="not-yet" ${a.clinicianAdvised==="not-yet"?"selected":""}>Not yet</option><option value="yes" ${a.clinicianAdvised==="yes"?"selected":""}>Yes</option><option value="no-need" ${a.clinicianAdvised==="no-need"?"selected":""}>No need apparent</option></select></div>
+        </div>
+        <div class="field"><label class="label">Conditions, injuries, pain, mobility, medications, allergies, surgeries (optional)</label><textarea class="textarea" data-ob="healthNotes" placeholder="Stored locally. Leave blank if unknown.">${escapeHtml(a.healthNotes || "")}</textarea></div>
+        <div class="field"><label class="label">Red-flag symptoms or reasons to seek advice before increasing activity</label><textarea class="textarea" data-ob="redFlags">${escapeHtml(a.redFlags || "")}</textarea></div>
+        <div class="field"><label class="label">Accessibility needs</label><input class="input" data-ob="accessibility" value="${escapeHtml(a.accessibility || "")}" /></div>
+        <div class="field"><label class="label">Sleep and recovery confidence</label><select class="select" data-ob="sleepConfidence"><option value="">I don't know yet</option>${["low","medium","high"].map(v=>`<option ${a.sleepConfidence===v?"selected":""}>${v}</option>`).join("")}</select></div>`;
+    } else if (step === 2) {
+      body = `
+        <div class="field-row">
+          <div class="field"><label class="label">Typical weekly walking/hiking minutes</label><input class="input" data-ob="weeklyMinutes" value="${escapeHtml(a.weeklyMinutes || "")}" /></div>
+          <div class="field"><label class="label">Longest recent walk/hike</label><input class="input" data-ob="longestRecent" value="${escapeHtml(a.longestRecent || "")}" /></div>
+        </div>
+        <div class="field"><label class="label">Longest recent back-to-back days</label><input class="input" data-ob="backToBack" value="${escapeHtml(a.backToBack || "")}" /></div>
+        <div class="field"><label class="label">Strength and mobility routine</label><input class="input" data-ob="strengthRoutine" value="${escapeHtml(a.strengthRoutine || "")}" /></div>
+        <div class="field"><label class="label">Backpacking nights in last two years</label><input class="input" data-ob="backpackingNights" value="${escapeHtml(a.backpackingNights || "")}" /></div>
+        <div class="field"><label class="label">Experience with rain, cold, heat, navigation, water, food storage, first aid, solo</label><textarea class="textarea" data-ob="experienceNotes">${escapeHtml(a.experienceNotes || "")}</textarea></div>
+        <div class="field"><label class="label">Current gear and approximate carried weight</label><input class="input" data-ob="gearWeight" value="${escapeHtml(a.gearWeight || "")}" /></div>`;
+    } else if (step === 3) {
+      body = `
+        <div class="field-row">
+          <div class="field"><label class="label">Weekday available hours</label><input class="input" data-ob="weekdayHours" value="${escapeHtml(a.weekdayHours || "")}" /></div>
+          <div class="field"><label class="label">Weekend available hours</label><input class="input" data-ob="weekendHours" value="${escapeHtml(a.weekendHours || "")}" /></div>
+          <div class="field"><label class="label">Max training hours in a normal week</label><input class="input" data-ob="maxWeekHours" value="${escapeHtml(a.maxWeekHours || "")}" /></div>
+        </div>
+        <div class="field"><label class="label">Recurring blocked dates / caregiving</label><textarea class="textarea" data-ob="blocked">${escapeHtml(a.blocked || "")}</textarea></div>
+        <div class="field"><label class="label">Work leave options / longest plausible absence</label><textarea class="textarea" data-ob="leaveOptions">${escapeHtml(a.leaveOptions || "")}</textarea></div>
+        <div class="field"><label class="label">Budget range and major purchasing constraints</label><textarea class="textarea" data-ob="budgetRange">${escapeHtml(a.budgetRange || "")}</textarea></div>
+        <div class="field"><label class="label">People affected by the plan</label><input class="input" data-ob="peopleAffected" value="${escapeHtml(a.peopleAffected || "")}" /></div>`;
+    } else if (step === 4) {
+      body = `
+        <div class="field"><label class="label">Solo, partner, group, or undecided</label><select class="select" data-ob="companionship"><option value="">I don't know yet</option>${["solo","partner","group","undecided"].map(v=>`<option ${a.companionship===v?"selected":""}>${v}</option>`).join("")}</select></div>
+        <div class="field"><label class="label">Comfort with weather, wildlife, remoteness, hitching, shelters, tenting</label><textarea class="textarea" data-ob="riskComfort">${escapeHtml(a.riskComfort || "")}</textarea></div>
+        <div class="field"><label class="label">Satellite communicator preference</label><select class="select" data-ob="satComm"><option value="">I don't know yet</option><option value="lean-yes" ${a.satComm==="lean-yes"?"selected":""}>Lean yes</option><option value="lean-no" ${a.satComm==="lean-no"?"selected":""}>Lean no</option><option value="undecided" ${a.satComm==="undecided"?"selected":""}>Undecided</option></select></div>
+        <div class="field"><label class="label">Bailout and communication expectations</label><textarea class="textarea" data-ob="bailout">${escapeHtml(a.bailout || "")}</textarea></div>`;
+    } else {
+      const knowns = [a.format, a.why, a.weeklyMinutes].filter(Boolean).length;
+      body = `
+        <div class="card card-b">
+          <div class="card-title" style="font-family:var(--font-display);font-size:18px;margin-bottom:8px">Baseline snapshot</div>
+          <p class="card-muted">${escapeHtml(a.dreamMeaning || "Dream still forming — that is fine.")}</p>
+          <dl class="kv" style="margin-top:12px">
+            <div class="kv-row"><dt>Success if format changes</dt><dd>${escapeHtml(a.successIfChanges || "Not set")}</dd></div>
+            <div class="kv-row"><dt>Strategy lean</dt><dd>${escapeHtml(a.format || "undecided")}</dd></div>
+            <div class="kv-row"><dt>Known answers captured</dt><dd>${knowns}+ fields (unknowns allowed)</dd></div>
+          </dl>
+          <p class="hint" style="margin-top:10px">Finishing creates lane baselines, strategy options, and a first 14-day style plan. No launch date unless evidence supports it.</p>
+        </div>
+        <div class="strategy-grid" style="margin-top:12px">
+          <div class="strategy-card"><h3>Thru-hike</h3><p>Best when you can sustain multi-month hiking and roughly six months away.</p></div>
+          <div class="strategy-card"><h3>Section completion</h3><p>First-class path. Optimize around leave, seasons, and continuity.</p></div>
+          <div class="strategy-card"><h3>Flip-flop</h3><p>Fit season, crowding, and logistics with multiple termini.</p></div>
+          <div class="strategy-card selected"><h3>Preserve options</h3><p>Keep shared prep moving without forcing the branch.</p></div>
+        </div>`;
+    }
+    return `
+      <div class="wizard">
+        <h2 style="font-family:var(--font-display);color:var(--forest);margin:0 0 6px">Baseline wizard</h2>
+        <p class="section-intro">Save-as-you-go. Every question supports “I don't know yet.” Sensitive health fields stay local.</p>
+        <div class="wizard-steps">${stepBar}</div>
+        <div class="card card-b">${body}</div>
+        <div class="actions-row">
+          <button class="btn" type="button" data-ob-nav="prev" ${step===0?"disabled":""}>Back</button>
+          ${step < 5 ? `<button class="btn btn-primary" type="button" data-ob-nav="next">Save & continue</button>` : `<button class="btn btn-primary" type="button" data-ob-nav="finish">Finish baseline</button>`}
+          <button class="btn btn-ghost" type="button" data-nav="today">Save & exit</button>
+        </div>
+      </div>`;
+  }
+
+  function renderGenericList(title, intro, rows) {
+    return `<p class="section-intro">${escapeHtml(intro)}</p><div class="card"><div class="card-h"><div class="card-title">${escapeHtml(title)}</div></div><div class="card-b list">${rows || "<div class='empty'>Nothing here yet</div>"}</div></div>`;
+  }
+
+  function renderSources() {
+    const rows = state.sources.map((s) => {
+      const due = s.recheckBy && s.recheckBy < todayISO();
+      return `<div class="list-item"><div class="list-body"><div class="list-title"><a href="${escapeHtml(s.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(s.title)}</a></div><div class="list-meta">${escapeHtml(s.publisher)} · ${escapeHtml(s.topic)} · verified ${escapeHtml(s.verifiedAt)} · recheck ${escapeHtml(s.recheckBy)}</div><div class="hint">${escapeHtml(s.notes || "")}</div></div>${due ? '<span class="pill pill-amber">Recheck due</span>' : '<span class="pill pill-success">Current</span>'}</div>`;
+    }).join("");
+    return renderGenericList("Official sources", "Editable SourceRecords with verifiedAt and recheckBy. Do not treat permit rules as permanently correct.", rows);
+  }
+
+  function renderSettings() {
+    return `
+      <div class="stack">
+        <div class="card card-b">
+          <div class="card-title">Data</div>
+          <p class="hint">Autosaves to this browser. Export versioned JSON for backups.</p>
+          <div class="actions-row">
+            <button class="btn btn-primary" id="settingsExport" type="button">Export JSON</button>
+            <button class="btn" id="settingsImport" type="button">Import JSON</button>
+            <button class="btn" id="loadDemo" type="button">Load demo profile</button>
+            <button class="btn" id="cleanStart" type="button">Clean start</button>
+          </div>
+        </div>
+        <div class="card card-b">
+          <div class="card-title">Goal</div>
+          <div class="field"><label class="label">Title</label><input class="input" data-goal="title" value="${escapeHtml(state.goal.title)}" /></div>
+          <div class="field"><label class="label">Why</label><textarea class="textarea" data-goal="why">${escapeHtml(state.goal.why)}</textarea></div>
+          <div class="field"><label class="label">Success definition</label><textarea class="textarea" data-goal="successDefinition">${escapeHtml(state.goal.successDefinition)}</textarea></div>
+          <div class="field"><label class="label">Active strategy</label>
+            <select class="select" data-goal="activeStrategy">${Object.keys(STRATEGY_LABELS).map((k) => `<option value="${k}" ${state.goal.activeStrategy===k?"selected":""}>${escapeHtml(STRATEGY_LABELS[k])}</option>`).join("")}</select>
+          </div>
+        </div>
+        <div class="disclaimer">${escapeHtml(MEDICAL_NOTE)}</div>
+      </div>`;
+  }
+
+  function renderView() {
+    const titles = {
+      today: "Today", journey: "Journey", readiness: "Readiness", decisions: "Decisions", risks: "Risks & assumptions",
+      training: "Training & recovery", skills: "Skills", gear: "Gear", "field-tests": "Field tests", route: "Route & logistics",
+      budget: "Budget", life: "Life plan", activity: "Activity log", trips: "Trip reports", documents: "Documents",
+      sources: "Research & sources", weekly: "Weekly review", forecast: "Forecast history", changelog: "Change log",
+      settings: "Settings", onboarding: "Baseline wizard",
+    };
+    $("#pageTitle").textContent = titles[currentSection] || "Trailbound AT";
+    $("#pageCrumb").textContent = "Trailbound AT · " + (titles[currentSection] || "");
+    let html = "";
+    switch (currentSection) {
+      case "today": html = renderToday(); break;
+      case "journey": html = renderJourney(); break;
+      case "readiness": html = renderReadiness(); break;
+      case "decisions": html = renderDecisions(); break;
+      case "onboarding": html = renderOnboarding(); break;
+      case "sources": html = renderSources(); break;
+      case "settings": html = renderSettings(); break;
+      case "risks":
+        html = renderGenericList("Risks & assumptions", "Assumptions stay visible. Forecast changes get explanations, not shame.",
+          state.risks.map((r) => `<div class="list-item"><div class="list-body"><div class="list-title">${escapeHtml(r.title)}</div><div class="list-meta">${escapeHtml(r.mitigation)}</div></div><span class="pill">${escapeHtml(r.status)}</span></div>`).join("") +
+          state.assumptions.map((a) => `<div class="list-item"><div class="list-body"><div class="list-title">${escapeHtml(a.text)}</div></div><span class="pill">${escapeHtml(a.status)}</span></div>`).join(""));
+        break;
+      case "training":
+        html = `<p class="section-intro">Load and recovery count together. Weekly pattern: ${escapeHtml(state.training.weeklyPattern || "not set")}.</p>
+          <div class="card card-b"><div class="field"><label class="label">Weekly pattern notes</label><textarea class="textarea" data-training-pattern>${escapeHtml(state.training.weeklyPattern || "")}</textarea></div>
+          <button class="btn btn-sm" data-add-session type="button">Log training session</button></div>
+          <div class="card" style="margin-top:12px"><div class="card-h"><div class="card-title">Sessions</div></div><div class="card-b list">${state.training.sessions.slice().reverse().slice(0,20).map(s=>`<div class="list-item"><div class="list-body"><div class="list-title">${escapeHtml(s.title)}</div><div class="list-meta">${escapeHtml(s.date)} · ${s.minutes} min · recovery ${s.recovery}/5</div></div></div>`).join("") || "<div class='empty'>No sessions yet</div>"}</div></div>`;
+        break;
+      case "skills":
+        html = renderGenericList("Skills", "Learn before optimizing gear. Mark practiced vs demonstrated outdoors in notes later.",
+          state.skillsChecklist.map((sk) => `<div class="list-item"><div class="list-body"><div class="list-title">${escapeHtml(sk.name)}</div></div><select class="select" style="max-width:140px" data-skill="${sk.id}"><option ${sk.status==="not-started"?"selected":""}>not-started</option><option ${sk.status==="learned"?"selected":""}>learned</option><option ${sk.status==="practiced"?"selected":""}>practiced</option><option ${sk.status==="demonstrated"?"selected":""}>demonstrated</option></select></div>`).join(""));
+        break;
+      case "gear":
+        html = `<p class="section-intro">Inventory states: owned, borrow, rent, test, buy, replace, retire.</p>
+          <div class="actions-row" style="margin-bottom:10px"><button class="btn btn-sm" data-add-gear type="button">Add gear item</button></div>
+          <div class="card card-b"><table class="table"><thead><tr><th>Item</th><th>Category</th><th>State</th><th>Notes</th></tr></thead><tbody>
+          ${state.gear.items.map(g=>`<tr><td>${escapeHtml(g.name)}</td><td>${escapeHtml(g.category)}</td><td>${escapeHtml(g.state)}</td><td>${escapeHtml(g.notes||"")}</td></tr>`).join("") || `<tr><td colspan="4">No gear yet</td></tr>`}
+          </tbody></table></div>`;
+        break;
+      case "field-tests":
+        html = renderGenericList("Field tests", "Progressive exposure: day hike → back-to-back → overnight → multi-night → extended shakedown.",
+          state.phases.filter(p=>["p4","p5","p6"].includes(p.id)).flatMap(p=>p.milestones.map(m=>`<div class="list-item"><div class="list-body"><div class="list-title">${escapeHtml(m.title)}</div><div class="list-meta">${escapeHtml(p.title)}</div></div><span class="pill">${escapeHtml(m.status)}</span></div>`)).join(""));
+        break;
+      case "route":
+        html = `<p class="section-intro">There is no single Trail-wide permit. Recheck closures, fees, and access near departure. Official 2026 length: <strong>2,197.9 miles</strong> (can change annually).</p>` + renderSources();
+        break;
+      case "budget":
+        html = `<p class="section-intro">Use ranges. False precision is a planning smell.</p><div class="card card-b"><table class="table"><thead><tr><th>Category</th><th>Low</th><th>High</th><th>Spent</th></tr></thead><tbody>
+          ${state.budget.categories.map(c=>`<tr><td>${escapeHtml(c.name)}</td><td><input class="input" type="number" data-budget="${c.id}" data-bfield="plannedLow" value="${c.plannedLow}" /></td><td><input class="input" type="number" data-budget="${c.id}" data-bfield="plannedHigh" value="${c.plannedHigh}" /></td><td><input class="input" type="number" data-budget="${c.id}" data-bfield="spent" value="${c.spent}" /></td></tr>`).join("")}
+          </tbody></table></div>`;
+        break;
+      case "life":
+        html = `<div class="card card-b stack">
+          <div class="field"><label class="label">Leave options</label><textarea class="textarea" data-life="leaveOptions">${escapeHtml(state.lifePlan.leaveOptions||"")}</textarea></div>
+          <div class="field"><label class="label">Caregiving / blocked commitments</label><textarea class="textarea" data-life="caregiving">${escapeHtml(state.lifePlan.caregiving||"")}</textarea></div>
+          <div class="field"><label class="label">Household notes</label><textarea class="textarea" data-life="householdNotes">${escapeHtml(state.lifePlan.householdNotes||"")}</textarea></div>
+          <div class="card-title">Support people</div>
+          ${state.lifePlan.supportPeople.map(p=>`<div class="list-item"><div class="list-body"><div class="list-title">${escapeHtml(p.name)}</div><div class="list-meta">${escapeHtml(p.role)}</div></div></div>`).join("") || "<div class='hint'>None yet</div>"}
+          <button class="btn btn-sm" data-add-support type="button">Add support person</button>
+        </div>`;
+        break;
+      case "activity":
+        html = `<div class="actions-row" style="margin-bottom:10px"><button class="btn btn-primary" data-log-activity type="button">Log activity</button></div>` +
+          renderGenericList("Activity log", "Evidence beats checkboxes. Include symptoms and recovery context when relevant.",
+            state.evidence.filter(e=>e.type==="activity"||e.type==="note").map(e=>`<div class="list-item"><div class="list-body"><div class="list-title">${escapeHtml(e.title)}</div><div class="list-meta">${escapeHtml(e.occurredAt)} · ${escapeHtml(e.summary||"")}</div></div></div>`).join(""));
+        break;
+      case "trips":
+        html = `<div class="actions-row" style="margin-bottom:10px"><button class="btn btn-sm" data-add-trip type="button">Add trip report</button></div>` +
+          renderGenericList("Trip reports", "Keep / change / remove / add / learn.",
+            state.trips.map(t=>`<div class="list-item"><div class="list-body"><div class="list-title">${escapeHtml(t.title)}</div><div class="list-meta">${escapeHtml(t.date)} · ${escapeHtml(t.nights||"0")} nights · ${escapeHtml(t.retrospective||"")}</div></div></div>`).join(""));
+        break;
+      case "documents":
+        html = renderGenericList("Documents", "Names only in v1 — files stay on your device. Export JSON includes titles.",
+          state.documents.map(d=>`<div class="list-item"><div class="list-body"><div class="list-title">${escapeHtml(d.title)}</div><div class="list-meta">${escapeHtml(d.kind||"")}</div></div></div>`).join("") || null);
+        break;
+      case "weekly":
+        html = `<p class="section-intro">Generate the next rolling plan only after reviewing proposed changes.</p>
+          <div class="card card-b">
+            <div class="field"><label class="label">1. What did you complete?</label><textarea class="textarea" id="wr1"></textarea></div>
+            <div class="field"><label class="label">2. What evidence did you learn from?</label><textarea class="textarea" id="wr2"></textarea></div>
+            <div class="field"><label class="label">3. How did body and recovery respond?</label><textarea class="textarea" id="wr3"></textarea></div>
+            <div class="field"><label class="label">4. What changed in time, money, or support?</label><textarea class="textarea" id="wr4"></textarea></div>
+            <div class="field"><label class="label">5. Stop / start / continue / simplify</label><textarea class="textarea" id="wr5"></textarea></div>
+            <div class="field"><label class="label">6. Keep forecast or re-plan?</label><select class="select" id="wr6"><option>keep</option><option>re-plan</option></select></div>
+            <div class="field-row">
+              <div class="field"><label class="label">Completed minutes</label><input class="input" type="number" id="wrMins" value="0" /></div>
+              <div class="field"><label class="label">Recovery 1–5</label><input class="input" type="number" min="1" max="5" id="wrRec" value="3" /></div>
+            </div>
+            <button class="btn btn-primary" data-save-weekly type="button">Save weekly review</button>
+          </div>
+          <div class="card" style="margin-top:12px"><div class="card-h"><div class="card-title">Past check-ins</div></div><div class="card-b list">${state.weeklyCheckIns.slice().reverse().slice(0,8).map(w=>`<div class="list-item"><div class="list-body"><div class="list-title">Week of ${escapeHtml(w.weekOf)}</div><div class="list-meta">${w.completedMinutes} min · recovery ${w.recovery} · ${(w.proposedPlanChanges||[]).join("; ")}</div></div></div>`).join("") || "<div class='empty'>None yet</div>"}</div></div>`;
+        break;
+      case "forecast":
+        html = renderGenericList("Forecast history", "Every change gets an explanation. Insufficient data never invents a date.",
+          state.forecasts.map(f=>`<div class="list-item"><div class="list-body"><div class="list-title">${escapeHtml(f.confidence)}${f.earliestWindow ? " · " + escapeHtml(f.earliestWindow.start.slice(0,7)) + "→" + escapeHtml(f.earliestWindow.end.slice(0,7)) : " · no window"}</div><div class="list-meta">${escapeHtml(f.changeExplanation)}</div><div class="hint">Drivers: ${escapeHtml((f.drivers||[]).join("; "))}</div></div></div>`).join(""));
+        break;
+      case "changelog":
+        html = renderGenericList("Change log", "Re-planning is normal.",
+          state.changelog.map(c=>`<div class="list-item"><div class="list-body"><div class="list-title">${escapeHtml(c.text)}</div><div class="list-meta">${escapeHtml(c.at)}</div></div></div>`).join(""));
+        break;
+      default:
+        html = `<div class="empty"><strong>${escapeHtml(titles[currentSection] || "Section")}</strong>Coming in a later slice.</div>`;
+    }
+    $("#view").innerHTML = html;
+  }
+
+  function navigate(section, pushHash) {
+    currentSection = section;
+    if (pushHash !== false) location.hash = section;
+    closeDrawer();
+    renderNav();
+    renderView();
+    $("#content").focus({ preventScroll: true });
+  }
+
+  function completeAction(id) {
+    const a = state.actions.find((x) => x.id === id);
+    if (!a) return;
+    a.status = "done";
+    a.completedAt = nowISO();
+    if (a.milestoneId) {
+      state.phases.forEach((p) => {
+        const m = p.milestones.find((x) => x.id === a.milestoneId);
+        if (m) m.status = "complete";
+      });
+    }
+    state.changelog.unshift({ id: uid("cl"), at: nowISO(), text: "Completed action: " + a.title });
+    // do not auto-add more work merely because something finished early
+    scheduleSave();
+    renderView();
+    toast("Action completed — capacity not auto-filled");
+  }
+
+  function deferAction(id) {
+    openModal("Defer action", `
+      <div class="field"><label class="label">Why defer?</label><textarea class="textarea" id="deferWhy" placeholder="Reason stays in the change log"></textarea></div>`, () => {
+      const a = state.actions.find((x) => x.id === id);
+      if (!a) return;
+      const why = ($("#deferWhy").value || "").trim() || "No reason given";
+      a.status = "deferred";
+      state.changelog.unshift({ id: uid("cl"), at: nowISO(), text: `Deferred: ${a.title} — ${why}` });
+      toast("Deferred with reason");
+    }, "Defer");
+  }
+
+  function exportState() {
+    const payload = { ...state, meta: { ...state.meta, exportedAt: nowISO() } };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `trailbound-at-${todayISO()}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    state.settings.lastBackupReminder = todayISO();
+    scheduleSave();
+    toast("Exported versioned JSON");
+  }
+
+  function importState(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!data || data.meta?.app !== APP_ID) throw new Error("Unrecognized file");
+        const summary = `Profile: ${data.meta?.profile || "?"} · version ${data.meta?.version} · actions ${(data.actions||[]).length} · evidence ${(data.evidence||[]).length}`;
+        openModal("Import preview", `
+          <p>Import will replace current local data after confirmation.</p>
+          <div class="focus-dod"><strong>Incoming archive</strong>${escapeHtml(summary)}</div>
+          <p class="hint">A failed import leaves existing data unchanged. Continue only if this looks right.</p>`, () => {
+          state = data;
+          if (!state.ui) state.ui = { openPhaseId: "p0", openDecisionId: null, journeyMode: "whole" };
+          persist();
+          navigate(currentSection, false);
+          toast("Import complete");
+        }, "Replace local data");
+      } catch (e) {
+        toast("Import failed — existing data unchanged");
+        console.error(e);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function bindGlobal() {
+    $("#nav").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-section]");
+      if (btn) navigate(btn.getAttribute("data-section"));
+    });
+    $("#bottomNav").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-section]");
+      if (btn) navigate(btn.getAttribute("data-section"));
+    });
+    $("#menuToggle").addEventListener("click", openDrawer);
+    $("#drawerBackdrop").addEventListener("click", closeDrawer);
+    $("#exportBtn").addEventListener("click", exportState);
+    $("#importBtn").addEventListener("click", () => $("#importFile").click());
+    $("#importFile").addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) importState(file);
+      e.target.value = "";
+    });
+    $("#quickAddBtn").addEventListener("click", () => {
+      openModal("Log evidence", `
+        <div class="field"><label class="label">Title</label><input class="input" id="evTitle" /></div>
+        <div class="field"><label class="label">Type</label><select class="select" id="evType"><option>activity</option><option>note</option><option>trip-report</option><option>document</option><option>conversation</option><option>external-source</option></select></div>
+        <div class="field"><label class="label">Summary</label><textarea class="textarea" id="evSum"></textarea></div>`, () => {
+        state.evidence.unshift({
+          id: uid("ev"),
+          type: $("#evType").value,
+          title: $("#evTitle").value.trim() || "Evidence",
+          occurredAt: todayISO(),
+          summary: $("#evSum").value.trim(),
+          relatedIds: [],
+        });
+        toast("Evidence saved");
+      });
+    });
+    $("#modal").addEventListener("click", (e) => { if (e.target.id === "modal") $("#modal").classList.remove("open"); });
+
+    $("#view").addEventListener("click", (e) => {
+      const nav = e.target.closest("[data-nav]");
+      if (nav) { navigate(nav.getAttribute("data-nav")); return; }
+      const complete = e.target.closest("[data-complete-action]");
+      if (complete) { completeAction(complete.getAttribute("data-complete-action")); return; }
+      const defer = e.target.closest("[data-defer-action]");
+      if (defer) { deferAction(defer.getAttribute("data-defer-action")); return; }
+      const openPhase = e.target.closest("[data-open-phase]");
+      if (openPhase) { state.ui.openPhaseId = openPhase.getAttribute("data-open-phase"); scheduleSave(); renderView(); return; }
+      const jm = e.target.closest("[data-journey-mode]");
+      if (jm) { state.ui.journeyMode = jm.getAttribute("data-journey-mode"); scheduleSave(); renderView(); return; }
+      const acc = e.target.closest("[data-acc-toggle]");
+      if (acc) { state.ui.openDecisionId = state.ui.openDecisionId === acc.getAttribute("data-acc-toggle") ? null : acc.getAttribute("data-acc-toggle"); renderView(); return; }
+      const decide = e.target.closest("[data-decide]");
+      if (decide) {
+        const d = state.decisions.find((x) => x.id === decide.getAttribute("data-decide"));
+        const choice = decide.getAttribute("data-choice");
+        if (d) {
+          const prev = d.currentChoice;
+          d.currentChoice = choice;
+          d.status = "decided";
+          if (d.id === "d_strategy") {
+            state.strategyHistory.push({ at: nowISO(), from: state.goal.activeStrategy, to: choice, reason: "Decision journal" });
+            if (STRATEGY_LABELS[choice]) state.goal.activeStrategy = choice;
+            state.changelog.unshift({ id: uid("cl"), at: nowISO(), text: `Strategy decision: ${prev || "none"} → ${choice}` });
+          }
+          scheduleSave(); renderView(); renderNav(); toast("Decision recorded");
+        }
+        return;
+      }
+      const obNav = e.target.closest("[data-ob-nav]");
+      if (obNav) {
+        const dir = obNav.getAttribute("data-ob-nav");
+        if (dir === "next") state.onboarding.step = Math.min(5, (state.onboarding.step || 0) + 1);
+        if (dir === "prev") state.onboarding.step = Math.max(0, (state.onboarding.step || 0) - 1);
+        if (dir === "finish") { completeOnboarding(); navigate("today"); toast("Baseline complete"); return; }
+        scheduleSave(); renderView(); return;
+      }
+      if (e.target.closest("#settingsExport")) { exportState(); return; }
+      if (e.target.closest("#settingsImport")) { $("#importFile").click(); return; }
+      if (e.target.closest("#loadDemo")) {
+        openModal("Load demo profile", "<p>Replace current local data with the seeded demo?</p>", () => {
+          state = createDemoState(); persist(); navigate("today", false); toast("Demo loaded");
+        }, "Load demo");
+        return;
+      }
+      if (e.target.closest("#cleanStart")) {
+        openModal("Clean start", "<p>Erase local Trailbound data and start empty? Export first if you need a backup.</p>", () => {
+          state = createCleanState(); persist(); navigate("onboarding", false); toast("Clean profile ready");
+        }, "Erase & restart");
+        return;
+      }
+      if (e.target.closest("[data-add-session]")) {
+        openModal("Log training session", `
+          <div class="field"><label class="label">Title</label><input class="input" id="tsTitle" value="Walk / hike" /></div>
+          <div class="field"><label class="label">Minutes</label><input class="input" type="number" id="tsMins" value="45" /></div>
+          <div class="field"><label class="label">Recovery 1–5</label><input class="input" type="number" min="1" max="5" id="tsRec" value="3" /></div>`, () => {
+          state.training.sessions.push({ id: uid("ts"), title: $("#tsTitle").value.trim() || "Session", date: todayISO(), minutes: Number($("#tsMins").value)||0, recovery: Number($("#tsRec").value)||3 });
+          state.evidence.unshift({ id: uid("ev"), type: "activity", title: $("#tsTitle").value.trim() || "Session", occurredAt: todayISO(), summary: `Training · recovery ${$("#tsRec").value}/5`, relatedIds: ["fitness"] });
+          toast("Session logged");
+        });
+        return;
+      }
+      if (e.target.closest("[data-add-gear]")) {
+        openModal("Add gear", `
+          <div class="field"><label class="label">Item</label><input class="input" id="gName" /></div>
+          <div class="field"><label class="label">Category</label><select class="select" id="gCat">${state.gear.categories.map(c=>`<option>${escapeHtml(c)}</option>`).join("")}</select></div>
+          <div class="field"><label class="label">State</label><select class="select" id="gState"><option>owned</option><option>borrow</option><option>rent</option><option>test</option><option>buy</option><option>replace</option><option>retire</option></select></div>`, () => {
+          state.gear.items.push({ id: uid("g"), name: $("#gName").value.trim()||"Item", category: $("#gCat").value, state: $("#gState").value, notes: "" });
+          toast("Gear added");
+        });
+        return;
+      }
+      if (e.target.closest("[data-add-support]")) {
+        openModal("Add support person", `
+          <div class="field"><label class="label">Name</label><input class="input" id="spName" /></div>
+          <div class="field"><label class="label">Role</label><input class="input" id="spRole" placeholder="Emergency contact / planning ally" /></div>`, () => {
+          state.lifePlan.supportPeople.push({ id: uid("sp"), name: $("#spName").value.trim()||"Person", role: $("#spRole").value.trim()||"", notes: "" });
+          toast("Support person added");
+        });
+        return;
+      }
+      if (e.target.closest("[data-add-trip]")) {
+        openModal("Trip report", `
+          <div class="field"><label class="label">Title</label><input class="input" id="trTitle" /></div>
+          <div class="field"><label class="label">Nights</label><input class="input" type="number" id="trNights" value="1" /></div>
+          <div class="field"><label class="label">Keep / change / remove / add / learn</label><textarea class="textarea" id="trRetro"></textarea></div>`, () => {
+          state.trips.unshift({ id: uid("tr"), title: $("#trTitle").value.trim()||"Trip", date: todayISO(), nights: Number($("#trNights").value)||0, retrospective: $("#trRetro").value.trim() });
+          state.evidence.unshift({ id: uid("ev"), type: "trip-report", title: $("#trTitle").value.trim()||"Trip", occurredAt: todayISO(), summary: $("#trRetro").value.trim(), relatedIds: ["field-validation"] });
+          toast("Trip report saved");
+        });
+        return;
+      }
+      if (e.target.closest("[data-log-activity]")) { $("#quickAddBtn").click(); return; }
+      if (e.target.closest("[data-save-weekly]")) {
+        const changes = [$("#wr1").value, $("#wr5").value, $("#wr6").value].filter(Boolean);
+        state.weeklyCheckIns.push({
+          id: uid("wr"),
+          weekOf: todayISO(),
+          plannedMinutes: state.capacity.maxWeekMinutes,
+          completedMinutes: Number($("#wrMins").value)||0,
+          recovery: Number($("#wrRec").value)||3,
+          symptomsChanged: false,
+          notes: [$("#wr2").value, $("#wr3").value, $("#wr4").value].filter(Boolean).join(" | "),
+          proposedPlanChanges: changes,
+        });
+        state.changelog.unshift({ id: uid("cl"), at: nowISO(), text: "Weekly review saved (" + $("#wr6").value + ")" });
+        if ($("#wr6").value === "re-plan") ensureFirstPlan();
+        scheduleSave(); renderView(); toast("Weekly review saved");
+        return;
+      }
+    });
+
+    $("#view").addEventListener("change", (e) => {
+      const t = e.target;
+      if (t.matches("[data-milestone]")) {
+        const [pid, mid] = t.getAttribute("data-milestone").split(":");
+        const phase = state.phases.find((p) => p.id === pid);
+        const m = phase?.milestones.find((x) => x.id === mid);
+        if (!m) return;
+        if (t.checked && m.riskLevel === "critical") {
+          // critical path uses override modal
+          t.checked = false;
+          openModal("Critical milestone", `
+            <p>${escapeHtml(m.title)}</p>
+            <p class="hint">Critical items need a typed reason if you complete without full gate evidence. Overrides are never labeled as passes.</p>
+            <div class="field"><label class="label">Reason</label><textarea class="textarea" id="ovReason"></textarea></div>`, () => {
+            const reason = ($("#ovReason").value || "").trim();
+            if (!reason) { toast("Reason required"); return; }
+            m.status = "complete";
+            const gate = phase.gates[0];
+            if (gate) { gate.state = "overridden"; gate.overrideReason = reason; }
+            state.changelog.unshift({ id: uid("cl"), at: nowISO(), text: `Override on ${m.title}: ${reason}` });
+            scheduleSave(); renderView(); toast("Override recorded — not marked as pass");
+          }, "Override with reason");
+          return;
+        }
+        m.status = t.checked ? "complete" : "not-started";
+        scheduleSave(); renderView();
+        return;
+      }
+      if (t.matches("[data-lane-stage]")) {
+        const lane = state.lanes.find((l) => l.key === t.getAttribute("data-lane-stage"));
+        if (lane) { lane.stage = Number(t.value); lane.assessedAt = nowISO(); scheduleSave(); renderNav(); }
+        return;
+      }
+      if (t.matches("[data-lane-conf]")) {
+        const lane = state.lanes.find((l) => l.key === t.getAttribute("data-lane-conf"));
+        if (lane) { lane.confidence = t.value; scheduleSave(); }
+        return;
+      }
+      if (t.matches("[data-skill]")) {
+        const sk = state.skillsChecklist.find((x) => x.id === t.getAttribute("data-skill"));
+        if (sk) { sk.status = t.value; scheduleSave(); }
+        return;
+      }
+      if (t.matches("[data-goal]")) {
+        const field = t.getAttribute("data-goal");
+        if (field === "activeStrategy") {
+          state.strategyHistory.push({ at: nowISO(), from: state.goal.activeStrategy, to: t.value, reason: "Settings" });
+          state.changelog.unshift({ id: uid("cl"), at: nowISO(), text: `Strategy switched to ${t.value}` });
+        }
+        state.goal[field] = t.value;
+        state.goal.updatedAt = nowISO();
+        scheduleSave(); renderNav();
+        return;
+      }
+    });
+
+    $("#view").addEventListener("input", (e) => {
+      const t = e.target;
+      if (t.matches("[data-ob]")) {
+        state.onboarding.answers = state.onboarding.answers || {};
+        state.onboarding.answers[t.getAttribute("data-ob")] = t.value;
+        // capacity sync
+        const a = state.onboarding.answers;
+        if (a.weekdayHours) state.capacity.weekdayMinutes = Math.round(parseFloat(a.weekdayHours) * 60) || state.capacity.weekdayMinutes;
+        if (a.weekendHours) state.capacity.weekendMinutes = Math.round(parseFloat(a.weekendHours) * 60) || state.capacity.weekendMinutes;
+        if (a.maxWeekHours) state.capacity.maxWeekMinutes = Math.round(parseFloat(a.maxWeekHours) * 60) || state.capacity.maxWeekMinutes;
+        scheduleSave();
+        return;
+      }
+      if (t.matches("[data-lane-next]")) {
+        const lane = state.lanes.find((l) => l.key === t.getAttribute("data-lane-next"));
+        if (lane) { lane.nextTest = t.value; scheduleSave(); }
+        return;
+      }
+      if (t.matches("[data-dec-field]")) {
+        const d = state.decisions.find((x) => x.id === t.getAttribute("data-dec-field"));
+        if (d) { d[t.getAttribute("data-field")] = t.value; scheduleSave(); }
+        return;
+      }
+      if (t.matches("[data-goal]")) { state.goal[t.getAttribute("data-goal")] = t.value; scheduleSave(); return; }
+      if (t.matches("[data-life]")) { state.lifePlan[t.getAttribute("data-life")] = t.value; scheduleSave(); return; }
+      if (t.matches("[data-training-pattern]")) { state.training.weeklyPattern = t.value; scheduleSave(); return; }
+      if (t.matches("[data-budget]")) {
+        const c = state.budget.categories.find((x) => x.id === t.getAttribute("data-budget"));
+        if (c) { c[t.getAttribute("data-bfield")] = Number(t.value) || 0; scheduleSave(); }
+      }
+    });
+
+    window.addEventListener("hashchange", () => {
+      const h = location.hash.replace("#", "") || "today";
+      if (h !== currentSection) navigate(h, false);
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { $("#modal").classList.remove("open"); closeDrawer(); }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "e") { e.preventDefault(); exportState(); }
+    });
+  }
+
+  function boot() {
+    if (window.self === window.top && !location.protocol.startsWith("file")) {
+      const target = "/projects/trailbound-at";
+      if (location.pathname !== target && !location.pathname.endsWith("/projects/trailbound-at")) {
+        // when served as static html under /projects/trailbound-at.html
+        if (location.pathname.indexOf("trailbound-at.html") !== -1) {
+          location.replace(target + (location.hash || ""));
+          return;
+        }
+      }
+    }
+    state = loadState() || createDemoState();
+    if (!state.actions) state.actions = [];
+    bindGlobal();
+    const initial = location.hash.replace("#", "") || (state.onboarding?.completed ? "today" : "onboarding");
+    navigate(initial, false);
+    markSaved();
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>

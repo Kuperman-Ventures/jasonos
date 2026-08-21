@@ -1,7 +1,7 @@
 import { EmptyState } from "@/components/jasonos/empty-state";
 import { TrackPill } from "@/components/jasonos/track-pill";
 import { Button } from "@/components/ui/button";
-import { ArrowUpRight, GraduationCap, Sparkles, Target } from "lucide-react";
+import { ArrowUpRight, GraduationCap, Mountain, Sparkles, Target } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -54,26 +54,48 @@ export default async function ProjectsPage() {
         <div className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
           Personal tools
         </div>
-        <Link
-          href="/projects/professor-roadmap"
-          className="group flex items-start justify-between gap-3 rounded-xl border bg-card p-4 transition-colors hover:bg-muted/40"
-        >
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg border bg-background">
-              <GraduationCap className="h-4 w-4 text-foreground/80" />
+        <div className="space-y-2">
+          <Link
+            href="/projects/professor-roadmap"
+            className="group flex items-start justify-between gap-3 rounded-xl border bg-card p-4 transition-colors hover:bg-muted/40"
+          >
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg border bg-background">
+                <GraduationCap className="h-4 w-4 text-foreground/80" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold tracking-tight">
+                  Marketing Professor Roadmap
+                </h2>
+                <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
+                  Personal OS for the Seton Hall adjunct-first path — decisions,
+                  materials, outreach, gaps, and timeline in one dashboard.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-sm font-semibold tracking-tight">
-                Marketing Professor Roadmap
-              </h2>
-              <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
-                Personal OS for the Seton Hall adjunct-first path — decisions,
-                materials, outreach, gaps, and timeline in one dashboard.
-              </p>
+            <ArrowUpRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+          </Link>
+          <Link
+            href="/projects/trailbound-at"
+            className="group flex items-start justify-between gap-3 rounded-xl border bg-card p-4 transition-colors hover:bg-muted/40"
+          >
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg border bg-background">
+                <Mountain className="h-4 w-4 text-foreground/80" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold tracking-tight">
+                  Trailbound AT
+                </h2>
+                <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
+                  Adaptive Appalachian Trail readiness planner — lanes, gates,
+                  evidence, and the next blaze without a fake countdown.
+                </p>
+              </div>
             </div>
-          </div>
-          <ArrowUpRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-        </Link>
+            <ArrowUpRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+          </Link>
+        </div>
       </section>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
