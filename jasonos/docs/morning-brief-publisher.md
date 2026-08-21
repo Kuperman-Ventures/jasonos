@@ -54,6 +54,13 @@ Suggested section shape (unchanged):
 The **Job Alerts** H2 (any heading containing `Job Alerts` or `$300K+`) feeds the
 Job Alerts page. Prefer one markdown-linked opportunity per bullet.
 
+**Required shape:** always publish a dedicated `## Job Alerts…` section — do
+**not** only list $300k+ roles inside `## Email by Group` under **Job search**.
+JasonOS can fall back to harvesting that Job search block, but the dedicated
+H2 is what keeps the Job Alerts page current and easy to scan. If there are no
+qualifying roles that day, still include the H2 with a one-line “none today”
+note so the page’s last-harvest date advances.
+
 **Link preference (deepest wins):** use the **job listing URL** (LinkedIn /
 Indeed / Greenhouse / Lever / etc.) when the alert contains one. Fall back to a
 Gmail thread permalink (`#all/<THREAD_ID>`, not a message id) only when no
