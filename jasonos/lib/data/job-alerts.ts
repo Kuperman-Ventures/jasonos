@@ -10,20 +10,25 @@ import {
 } from "@/lib/supabase/server";
 import { normalizeGmailUrl } from "@/lib/integrations/gmail-links";
 import { resolveOpportunityDeepLinks } from "@/lib/data/job-alert-link-resolve";
+import { parseOpportunityLine } from "@/lib/data/parse-job-opportunity";
 import { listJobAlertKeywords } from "@/lib/server-actions/job-alert-keywords";
 
 export interface JobOpportunity {
   id: string;
   briefDate: string; // YYYY-MM-DD first seen
-  /** Role line without the URL, e.g. "Chief Marketing Officer — Ladders: up to $450K". */
-  title: string;
+  /** Role title for display (parsed from the brief line). */
+  roleTitle: string;
+  company: string | null;
+  salary: string | null;
+  /** Full harvested line from the brief (link text + trailing prose). */
+  rawTitle: string;
   /** Best click-through: job listing when resolved, else Gmail conversation. */
   url: string | null;
   /** Direct posting URL when extracted from the alert email. */
   jobUrl: string | null;
   /** Canonical Gmail conversation permalink (fallback). */
   gmailUrl: string | null;
-  /** Keywords that match this opportunity (used for sort; not shown in UI). */
+  /** Keywords that match this opportunity (for capsule highlighting only). */
   matchedKeywords: string[];
 }
 
@@ -348,10 +353,14 @@ export async function getJobAlerts(): Promise<JobAlertsData> {
 
   const opportunities: JobOpportunity[] = harvestedRows.map((r) => {
     const deep = r.rawUrl ? deepLinks.get(r.rawUrl) : undefined;
+    const parsed = parseOpportunityLine(r.title);
     return {
       id: r.id,
       briefDate: r.briefDate,
-      title: r.title,
+      roleTitle: parsed.roleTitle,
+      company: parsed.company,
+      salary: parsed.salary,
+      rawTitle: parsed.rawTitle,
       url: deep?.url ?? r.rawUrl,
       jobUrl: deep?.jobUrl ?? null,
       gmailUrl: deep?.gmailUrl ?? (r.rawUrl ? normalizeGmailUrl(r.rawUrl) : null),
@@ -359,13 +368,13 @@ export async function getJobAlerts(): Promise<JobAlertsData> {
     };
   });
 
-  // Matched keywords float to the top; then newest brief date.
+  // Newest brief first; then roles with salary/company from the scan; not keyword rank.
   opportunities.sort((a, b) => {
-    const am = a.matchedKeywords.length > 0 ? 0 : 1;
-    const bm = b.matchedKeywords.length > 0 ? 0 : 1;
-    if (am !== bm) return am - bm;
     if (a.briefDate !== b.briefDate) return a.briefDate < b.briefDate ? 1 : -1;
-    return a.title.localeCompare(b.title);
+    const aRich = (a.salary ? 0 : 1) + (a.company ? 0 : 1);
+    const bRich = (b.salary ? 0 : 1) + (b.company ? 0 : 1);
+    if (aRich !== bRich) return aRich - bRich;
+    return a.roleTitle.localeCompare(b.roleTitle);
   });
 
   return {

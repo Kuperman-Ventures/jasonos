@@ -40,6 +40,7 @@ function hostLabel(url: string | null): string | null {
 function OpportunityRow({ job }: { job: JobOpportunity }) {
   const href = job.url;
   const source = hostLabel(href);
+  const headline = job.roleTitle || job.rawTitle;
   const titleNode = href ? (
     <a
       href={href}
@@ -47,19 +48,32 @@ function OpportunityRow({ job }: { job: JobOpportunity }) {
       rel="noopener noreferrer"
       className="inline-flex items-start gap-1.5 font-medium text-sky-300 underline decoration-sky-400/40 underline-offset-2 hover:text-sky-200"
     >
-      <span>{job.title}</span>
+      <span>{headline}</span>
       <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-70" />
     </a>
   ) : (
-    <span className="font-medium text-foreground/90">{job.title}</span>
+    <span className="font-medium text-foreground/90">{headline}</span>
   );
 
   return (
     <li className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 space-y-1">
         <p className="text-sm leading-snug">{titleNode}</p>
+        {(job.company || job.salary) && (
+          <p className="text-xs leading-snug text-foreground/80">
+            {job.company ? (
+              <span className="font-medium text-foreground/90">{job.company}</span>
+            ) : null}
+            {job.company && job.salary ? (
+              <span className="text-muted-foreground"> · </span>
+            ) : null}
+            {job.salary ? (
+              <span className="tabular-nums text-amber-200/90">{job.salary}</span>
+            ) : null}
+          </p>
+        )}
         {source ? (
-          <p className="mt-1 text-[11px] text-muted-foreground">{source}</p>
+          <p className="text-[11px] text-muted-foreground">{source}</p>
         ) : null}
       </div>
       <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
@@ -71,10 +85,8 @@ function OpportunityRow({ job }: { job: JobOpportunity }) {
 
 export default async function JobAlertsPage() {
   const data = await getJobAlerts();
-  const matchedCount = data.opportunities.filter(
-    (o) => o.matchedKeywords.length > 0
-  ).length;
   const listingCount = data.opportunities.filter((o) => o.jobUrl).length;
+  const withSalaryCount = data.opportunities.filter((o) => o.salary).length;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
@@ -113,14 +125,14 @@ export default async function JobAlertsPage() {
               </div>
               <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground">
                 {data.opportunities.length}
-                {matchedCount > 0 ? ` · ${matchedCount} keyword matches` : ""}
+                {withSalaryCount > 0 ? ` · ${withSalaryCount} with comp` : ""}
                 {listingCount > 0 ? ` · ${listingCount} direct listings` : ""}
               </span>
             </div>
             <p className="border-b px-4 py-1.5 text-[11px] text-muted-foreground">
               Roles from the morning brief Job Alerts section (or Job search
-              under Email by Group), usually $300K+. Keyword matches float to
-              the top.
+              under Email by Group), usually $300K+. Title, company, and salary
+              come from what Claude pulled from the alert emails.
             </p>
             {data.opportunities.length === 0 ? (
               <p className="px-4 py-8 text-center text-xs text-muted-foreground">
