@@ -11,6 +11,7 @@ import {
   isDigestOnlyTitle,
   parseOpportunityLine,
 } from "@/lib/data/parse-job-opportunity";
+import { dedupeOpportunities } from "@/lib/data/job-opportunity-dedup";
 import { isGmailConnected } from "@/lib/integrations/gmail";
 import type { JobOpportunity } from "@/lib/data/job-alerts-types";
 
@@ -159,36 +160,38 @@ export async function getJobAlerts(): Promise<JobAlertsData> {
     };
   }
 
-  const opportunities: JobOpportunity[] = ((data ?? []) as OpportunityRow[])
-    .map((row) => {
-      const links = resolveOpportunityLinks(
-        row.job_url,
-        row.gmail_url,
-        row.gmail_thread_id,
-        row.account_email
-      );
-      const cleanedTitle = cleanJobAlertTitle(row.title);
-      const parsed = parseOpportunityLine(cleanedTitle);
-      const title = parsed.roleTitle || cleanedTitle || row.title;
-      const company = row.company ?? parsed.company ?? null;
-      const compensation = row.compensation ?? parsed.salary ?? null;
-      const hay = [title, company, compensation].filter(Boolean).join(" ");
-      return {
-        id: row.id,
-        briefDate: dayFromIso(row.received_at || row.first_seen_at),
-        title,
-        company,
-        compensation,
-        url: links.url,
-        jobUrl: links.jobUrl,
-        gmailUrl: links.gmailUrl,
-        matchedKeywords: matchKeywords(hay, keywordStrings),
-      };
-    })
-    .filter((row) => {
-      if (row.jobUrl) return true;
-      return !isDigestOnlyTitle(row.title);
-    });
+  const opportunities = dedupeOpportunities(
+    ((data ?? []) as OpportunityRow[])
+      .map((row) => {
+        const links = resolveOpportunityLinks(
+          row.job_url,
+          row.gmail_url,
+          row.gmail_thread_id,
+          row.account_email
+        );
+        const cleanedTitle = cleanJobAlertTitle(row.title);
+        const parsed = parseOpportunityLine(cleanedTitle);
+        const title = parsed.roleTitle || cleanedTitle || row.title;
+        const company = row.company ?? parsed.company ?? null;
+        const compensation = row.compensation ?? parsed.salary ?? null;
+        const hay = [title, company, compensation].filter(Boolean).join(" ");
+        return {
+          id: row.id,
+          briefDate: dayFromIso(row.received_at || row.first_seen_at),
+          title,
+          company,
+          compensation,
+          url: links.url,
+          jobUrl: links.jobUrl,
+          gmailUrl: links.gmailUrl,
+          matchedKeywords: matchKeywords(hay, keywordStrings),
+        };
+      })
+      .filter((row) => {
+        if (row.jobUrl) return true;
+        return !isDigestOnlyTitle(row.title);
+      })
+  );
 
   opportunities.sort((a, b) => {
     if (a.briefDate !== b.briefDate) return a.briefDate < b.briefDate ? 1 : -1;

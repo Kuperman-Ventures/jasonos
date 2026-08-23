@@ -21,6 +21,10 @@ import {
 } from "@/lib/integrations/job-listing-urls";
 import { cleanJobAlertTitle } from "@/lib/data/parse-job-opportunity";
 import {
+  dedupeListingDrafts,
+  opportunityFingerprint,
+} from "@/lib/data/job-opportunity-dedup";
+import {
   GOOGLE_GMAIL,
   listGoogleAccessTokens,
   type GoogleAccessToken,
@@ -103,9 +107,13 @@ function cleanSubject(subject: string): string {
     .trim();
 }
 
-function fingerprint(jobUrl: string | null, threadId: string, titleKey: string): string {
-  if (jobUrl) return `url:${jobUrl.toLowerCase()}`;
-  return `thread:${threadId}:${titleKey}`;
+function fingerprint(
+  jobUrl: string | null,
+  threadId: string,
+  title: string,
+  company: string | null
+): string {
+  return opportunityFingerprint(jobUrl, threadId, title, company);
 }
 
 function scoreLabel(name: string, wanted?: string): number {
@@ -221,35 +229,33 @@ function listingsFromMessage(msg: GmailThreadMessage): {
   const cards = extractJobCards(msg.htmlBody, msg.plaintextBody, msg.snippet);
   const subject = cleanJobAlertTitle(cleanSubject(msg.subject ?? ""));
   const subjectComp = extractCompensation(subject);
-  if (cards.length) {
-    return cards.map((c) => {
-      const cardTitle = c.title ? cleanJobAlertTitle(c.title) : null;
-      const title = (cardTitle || subject || "Job listing").slice(0, 180);
-      const company =
-        companyFromTitle(title) ?? (subject ? companyFromTitle(subject) : null);
-      return {
-        title,
-        jobUrl: sanitizeJobListingUrl(c.url),
-        compensation: c.compensation ?? subjectComp,
-        company,
-      };
-    });
-  }
-
-  const jobUrl = sanitizeJobListingUrl(
-    pickJobListingUrl(msg.htmlBody, msg.plaintextBody, msg.snippet)
+  return dedupeListingDrafts(
+    cards.length
+      ? cards.map((c) => {
+          const cardTitle = c.title ? cleanJobAlertTitle(c.title) : null;
+          const title = (cardTitle || subject || "Job listing").slice(0, 180);
+          const company =
+            companyFromTitle(title) ?? (subject ? companyFromTitle(subject) : null);
+          return {
+            title,
+            jobUrl: sanitizeJobListingUrl(c.url),
+            compensation: c.compensation ?? subjectComp,
+            company,
+          };
+        })
+      : [
+          {
+            title: subject || "Job alert",
+            jobUrl: sanitizeJobListingUrl(
+              pickJobListingUrl(msg.htmlBody, msg.plaintextBody, msg.snippet)
+            ),
+            compensation:
+              subjectComp ??
+              extractCompensation(msg.plaintextBody ?? msg.snippet ?? ""),
+            company: companyFromTitle(subject || ""),
+          },
+        ]
   );
-  const title = subject || "Job alert";
-  return [
-    {
-      title,
-      jobUrl,
-      compensation:
-        subjectComp ??
-        extractCompensation(msg.plaintextBody ?? msg.snippet ?? ""),
-      company: companyFromTitle(title),
-    },
-  ];
 }
 
 async function listFolderMessages(
@@ -391,7 +397,12 @@ export async function harvestJobAlertsFromGmail(): Promise<JobAlertHarvestResult
           skipped += 1;
           continue;
         }
-        const fp = fingerprint(listing.jobUrl, msg.threadId, titleKey);
+        const fp = fingerprint(
+          listing.jobUrl,
+          msg.threadId,
+          listing.title,
+          listing.company
+        );
         const { data, error } = await sb
           .from("job_opportunities")
           .upsert(
