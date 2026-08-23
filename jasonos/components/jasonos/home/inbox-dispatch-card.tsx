@@ -568,15 +568,6 @@ export function InboxDispatchCard() {
         </button>
       </div>
 
-      {!loading && data?.configured ? (
-        <SavedSection
-          count={visibleSaved.length}
-          entries={visibleSaved}
-          onDismiss={dismiss}
-          onUnsave={unsave}
-        />
-      ) : null}
-
       {!collapsed ? (
         loading ? (
           <LoadingRows />
@@ -584,6 +575,13 @@ export function InboxDispatchCard() {
           <NotConnected />
         ) : (
           <div className="divide-y divide-border">
+            <SavedSection
+              count={visibleSaved.length}
+              entries={visibleSaved}
+              onDismiss={dismiss}
+              onUnsave={unsave}
+            />
+
             {boardingCount === 0 && visibleSaved.length === 0 ? (
               <p className="px-4 py-8 text-center text-xs text-muted-foreground">
                 Inbox clear — nobody is waiting on a reply. Rare and beautiful.
