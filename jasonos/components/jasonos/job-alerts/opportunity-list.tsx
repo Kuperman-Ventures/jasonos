@@ -45,8 +45,14 @@ function OpportunityRow({
   onDelete: (id: string, title: string) => void;
 }) {
   const href = job.url;
-  const source = hostLabel(href);
-  const meta = [job.company, job.compensation, source].filter(Boolean).join(" · ");
+  const linkSource = job.jobUrl
+    ? hostLabel(job.jobUrl)
+    : job.gmailUrl
+      ? "Gmail alert"
+      : null;
+  const meta = [job.company, job.compensation, linkSource]
+    .filter(Boolean)
+    .join(" · ");
   const titleNode = href ? (
     <a
       href={href}
