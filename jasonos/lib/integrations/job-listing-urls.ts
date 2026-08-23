@@ -85,6 +85,58 @@ function cleanUrl(raw: string): string {
 }
 
 /**
+ * Stable id for a job posting URL so the same role from different email
+ * tracking links (or linkedin /comm/ vs /jobs/view/) collapses to one row.
+ */
+export function canonicalJobListingKey(
+  url: string | null | undefined
+): string | null {
+  if (!url?.trim()) return null;
+  const cleaned = cleanUrl(url.trim());
+  try {
+    const parsed = new URL(cleaned);
+    const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+    const path = parsed.pathname;
+
+    const linkedIn = path.match(/\/jobs\/view\/(\d+)/i);
+    if (linkedIn) return `linkedin:${linkedIn[1]}`;
+
+    if (host.includes("indeed.com")) {
+      const jk = parsed.searchParams.get("jk");
+      if (jk) return `indeed:jk:${jk}`;
+      const pathJk = path.match(/\/viewjob\/([A-Za-z0-9]+)/i);
+      if (pathJk) return `indeed:path:${pathJk[1]}`;
+    }
+
+    if (host.includes("theladders.com")) {
+      const ladders = path.match(/\/job\/([^/]+)/i);
+      if (ladders) return `ladders:${ladders[1]}`;
+    }
+
+    if (host.includes("greenhouse.io")) {
+      const gh = path.match(/\/jobs\/(\d+)/i);
+      if (gh) return `greenhouse:${host}:${gh[1]}`;
+    }
+
+    if (host.includes("lever.co")) {
+      return `lever:${host}${path.replace(/\/$/, "").toLowerCase()}`;
+    }
+
+    if (host.includes("ashbyhq.com")) {
+      return `ashby:${host}${path.replace(/\/$/, "").toLowerCase()}`;
+    }
+
+    if (host.includes("myworkdayjobs.com") || host.includes("workday.com")) {
+      return `workday:${host}${path.replace(/\/$/, "").toLowerCase()}`;
+    }
+
+    return `url:${host}${path.replace(/\/$/, "").toLowerCase()}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Pick the highest-scoring job-listing URL from a blob of email text/HTML.
  * Returns null when nothing looks like a real posting.
  */
@@ -162,21 +214,22 @@ export function extractCompensation(text: string): string | null {
  * skipped so we don't treat "see all jobs" as a posting.
  */
 export function extractJobCards(...blobs: (string | null | undefined)[]): JobCard[] {
-  const byUrl = new Map<string, JobCard>();
+  const byKey = new Map<string, JobCard>();
 
   const consider = (rawUrl: string, rawTitle: string | null, nearby: string) => {
     const url = cleanUrl(rawUrl);
     const score = scoreUrl(url);
     if (score < 80) return;
+    const key = canonicalJobListingKey(url) ?? url;
     const title = rawTitle ? decodeHtml(rawTitle) : null;
     const usableTitle =
       title && title.length >= 4 && !WEAK_TITLE_RE.test(title) && !/^https?:/i.test(title)
         ? title.slice(0, 180)
         : null;
     const compensation = extractCompensation(nearby) ?? extractCompensation(title ?? "");
-    const prev = byUrl.get(url);
+    const prev = byKey.get(key);
     if (!prev) {
-      byUrl.set(url, { url, title: usableTitle, compensation });
+      byKey.set(key, { url, title: usableTitle, compensation });
       return;
     }
     if (!prev.title && usableTitle) prev.title = usableTitle;
@@ -192,10 +245,12 @@ export function extractJobCards(...blobs: (string | null | undefined)[]): JobCar
       consider(m[1], m[2], nearby);
     }
     for (const url of extractUrls(blob)) {
-      if (byUrl.has(cleanUrl(url))) continue;
+      const cleaned = cleanUrl(url);
+      const key = canonicalJobListingKey(cleaned) ?? cleaned;
+      if (byKey.has(key)) continue;
       consider(url, null, blob.slice(0, 400));
     }
   }
 
-  return [...byUrl.values()];
+  return [...byKey.values()];
 }
