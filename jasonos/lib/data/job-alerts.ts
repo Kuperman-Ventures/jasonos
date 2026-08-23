@@ -3,9 +3,10 @@
 
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { normalizeGmailUrl } from "@/lib/integrations/gmail-links";
 import { listJobAlertKeywords } from "@/lib/server-actions/job-alert-keywords";
 import { getJobAlertHarvestState, type JobAlertHarvestResult } from "@/lib/data/job-alert-harvest";
+import { resolveOpportunityLinks } from "@/lib/data/job-opportunity-links";
+import { parseOpportunityLine } from "@/lib/data/parse-job-opportunity";
 import { isGmailConnected } from "@/lib/integrations/gmail";
 import type { JobOpportunity } from "@/lib/data/job-alerts-types";
 
@@ -102,6 +103,8 @@ type OpportunityRow = {
   compensation: string | null;
   job_url: string | null;
   gmail_url: string | null;
+  gmail_thread_id: string | null;
+  account_email: string | null;
   received_at: string;
   first_seen_at: string;
 };
@@ -132,7 +135,7 @@ export async function getJobAlerts(): Promise<JobAlertsData> {
   const { data, error } = await sb
     .from("job_opportunities")
     .select(
-      "id,title,company,compensation,job_url,gmail_url,received_at,first_seen_at"
+      "id,title,company,compensation,job_url,gmail_url,gmail_thread_id,account_email,received_at,first_seen_at"
     )
     .is("deleted_at", null)
     .order("received_at", { ascending: false })
@@ -154,30 +157,39 @@ export async function getJobAlerts(): Promise<JobAlertsData> {
 
   const opportunities: JobOpportunity[] = ((data ?? []) as OpportunityRow[]).map(
     (row) => {
-      const jobUrl = row.job_url;
-      const gmailUrl = row.gmail_url ? normalizeGmailUrl(row.gmail_url) : null;
-      const hay = [row.title, row.company, row.compensation]
-        .filter(Boolean)
-        .join(" ");
+      const links = resolveOpportunityLinks(
+        row.job_url,
+        row.gmail_url,
+        row.gmail_thread_id,
+        row.account_email
+      );
+      const parsed =
+        row.company || row.compensation
+          ? null
+          : parseOpportunityLine(row.title);
+      const title = parsed?.roleTitle ?? row.title;
+      const company = row.company ?? parsed?.company ?? null;
+      const compensation = row.compensation ?? parsed?.salary ?? null;
+      const hay = [title, company, compensation].filter(Boolean).join(" ");
       return {
         id: row.id,
         briefDate: dayFromIso(row.received_at || row.first_seen_at),
-        title: row.title,
-        company: row.company,
-        compensation: row.compensation,
-        url: jobUrl || gmailUrl,
-        jobUrl,
-        gmailUrl,
+        title,
+        company,
+        compensation,
+        url: links.url,
+        jobUrl: links.jobUrl,
+        gmailUrl: links.gmailUrl,
         matchedKeywords: matchKeywords(hay, keywordStrings),
       };
     }
   );
 
   opportunities.sort((a, b) => {
-    const am = a.matchedKeywords.length > 0 ? 0 : 1;
-    const bm = b.matchedKeywords.length > 0 ? 0 : 1;
-    if (am !== bm) return am - bm;
     if (a.briefDate !== b.briefDate) return a.briefDate < b.briefDate ? 1 : -1;
+    const aRich = (a.compensation ? 0 : 1) + (a.company ? 0 : 1);
+    const bRich = (b.compensation ? 0 : 1) + (b.company ? 0 : 1);
+    if (aRich !== bRich) return aRich - bRich;
     return a.title.localeCompare(b.title);
   });
 

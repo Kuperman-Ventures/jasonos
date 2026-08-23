@@ -92,10 +92,9 @@ function LastSyncStatus({ data }: { data: JobAlertsData }) {
 
 export default async function JobAlertsPage() {
   const data = await getJobAlerts();
-  const matchedCount = data.opportunities.filter(
-    (o) => o.matchedKeywords.length > 0
-  ).length;
+  const withCompCount = data.opportunities.filter((o) => o.compensation).length;
   const listingCount = data.opportunities.filter((o) => o.jobUrl).length;
+  const linkCount = data.opportunities.filter((o) => o.url).length;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
@@ -132,8 +131,6 @@ export default async function JobAlertsPage() {
             </p>
           ) : null}
 
-          <KeywordCapsules initial={data.keywords} />
-
           <section className="overflow-hidden rounded-xl border bg-card">
             <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
               <div className="flex items-center gap-1.5 text-muted-foreground">
@@ -144,14 +141,18 @@ export default async function JobAlertsPage() {
               </div>
               <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium tabular-nums text-muted-foreground">
                 {data.opportunities.length}
-                {matchedCount > 0 ? ` · ${matchedCount} keyword matches` : ""}
-                {listingCount > 0 ? ` · ${listingCount} direct listings` : ""}
+                {withCompCount > 0 ? ` · ${withCompCount} with comp` : ""}
+                {listingCount > 0 ? ` · ${listingCount} job links` : ""}
+                {linkCount > 0 && linkCount !== listingCount
+                  ? ` · ${linkCount - listingCount} Gmail`
+                  : ""}
               </span>
             </div>
             <p className="border-b px-4 py-1.5 text-[11px] text-muted-foreground">
-              New emails in that folder are scanned on a weekday schedule.
-              Keyword matches float to the top. Trash a listing to hide it;
-              the next sync will not put it back.
+              Role, company, and salary from the alert email when we can read
+              them. Links open the job posting or the Gmail alert — not shown
+              when we don&apos;t have a real destination. Trash removes a row;
+              sync won&apos;t bring it back.
             </p>
             {data.opportunities.length === 0 ? (
               <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">

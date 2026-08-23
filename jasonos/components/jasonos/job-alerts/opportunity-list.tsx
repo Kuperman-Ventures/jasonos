@@ -45,8 +45,11 @@ function OpportunityRow({
   onDelete: (id: string, title: string) => void;
 }) {
   const href = job.url;
-  const source = hostLabel(href);
-  const meta = [job.company, job.compensation, source].filter(Boolean).join(" · ");
+  const linkSource = job.jobUrl
+    ? hostLabel(job.jobUrl)
+    : job.gmailUrl
+      ? "Gmail alert"
+      : null;
   const titleNode = href ? (
     <a
       href={href}
@@ -63,10 +66,25 @@ function OpportunityRow({
 
   return (
     <li className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 space-y-1">
         <p className="text-sm leading-snug">{titleNode}</p>
-        {meta ? (
-          <p className="mt-1 text-[11px] text-muted-foreground">{meta}</p>
+        {(job.company || job.compensation) && (
+          <p className="text-xs leading-snug text-foreground/80">
+            {job.company ? (
+              <span className="font-medium text-foreground/90">{job.company}</span>
+            ) : null}
+            {job.company && job.compensation ? (
+              <span className="text-muted-foreground"> · </span>
+            ) : null}
+            {job.compensation ? (
+              <span className="tabular-nums text-amber-200/90">
+                {job.compensation}
+              </span>
+            ) : null}
+          </p>
+        )}
+        {linkSource ? (
+          <p className="text-[11px] text-muted-foreground">{linkSource}</p>
         ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-2">
