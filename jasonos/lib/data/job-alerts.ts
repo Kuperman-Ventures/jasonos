@@ -6,7 +6,11 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { listJobAlertKeywords } from "@/lib/server-actions/job-alert-keywords";
 import { getJobAlertHarvestState, type JobAlertHarvestResult } from "@/lib/data/job-alert-harvest";
 import { resolveOpportunityLinks } from "@/lib/data/job-opportunity-links";
-import { parseOpportunityLine } from "@/lib/data/parse-job-opportunity";
+import {
+  cleanJobAlertTitle,
+  isDigestOnlyTitle,
+  parseOpportunityLine,
+} from "@/lib/data/parse-job-opportunity";
 import { isGmailConnected } from "@/lib/integrations/gmail";
 import type { JobOpportunity } from "@/lib/data/job-alerts-types";
 
@@ -155,21 +159,19 @@ export async function getJobAlerts(): Promise<JobAlertsData> {
     };
   }
 
-  const opportunities: JobOpportunity[] = ((data ?? []) as OpportunityRow[]).map(
-    (row) => {
+  const opportunities: JobOpportunity[] = ((data ?? []) as OpportunityRow[])
+    .map((row) => {
       const links = resolveOpportunityLinks(
         row.job_url,
         row.gmail_url,
         row.gmail_thread_id,
         row.account_email
       );
-      const parsed =
-        row.company || row.compensation
-          ? null
-          : parseOpportunityLine(row.title);
-      const title = parsed?.roleTitle ?? row.title;
-      const company = row.company ?? parsed?.company ?? null;
-      const compensation = row.compensation ?? parsed?.salary ?? null;
+      const cleanedTitle = cleanJobAlertTitle(row.title);
+      const parsed = parseOpportunityLine(cleanedTitle);
+      const title = parsed.roleTitle || cleanedTitle || row.title;
+      const company = row.company ?? parsed.company ?? null;
+      const compensation = row.compensation ?? parsed.salary ?? null;
       const hay = [title, company, compensation].filter(Boolean).join(" ");
       return {
         id: row.id,
@@ -182,8 +184,11 @@ export async function getJobAlerts(): Promise<JobAlertsData> {
         gmailUrl: links.gmailUrl,
         matchedKeywords: matchKeywords(hay, keywordStrings),
       };
-    }
-  );
+    })
+    .filter((row) => {
+      if (row.jobUrl) return true;
+      return !isDigestOnlyTitle(row.title);
+    });
 
   opportunities.sort((a, b) => {
     if (a.briefDate !== b.briefDate) return a.briefDate < b.briefDate ? 1 : -1;

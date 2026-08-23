@@ -167,6 +167,8 @@ export default async function JobAlertsPage() {
               <OpportunityList jobs={data.opportunities} />
             )}
           </section>
+
+          <KeywordCapsules initial={data.keywords} />
         </>
       )}
     </div>
