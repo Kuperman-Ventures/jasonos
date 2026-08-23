@@ -12,11 +12,12 @@ import {
   type GmailLabel,
   type GmailThreadMessage,
 } from "@/lib/integrations/gmail";
-import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
+import { sanitizeGmailThreadUrl } from "@/lib/integrations/gmail-links";
 import {
   extractCompensation,
   extractJobCards,
   pickJobListingUrl,
+  sanitizeJobListingUrl,
 } from "@/lib/integrations/job-listing-urls";
 import {
   GOOGLE_GMAIL,
@@ -224,14 +225,16 @@ function listingsFromMessage(msg: GmailThreadMessage): {
       const title = (c.title || subject || "Job listing").slice(0, 180);
       return {
         title,
-        jobUrl: c.url,
+        jobUrl: sanitizeJobListingUrl(c.url),
         compensation: c.compensation ?? subjectComp,
         company: companyFromTitle(title),
       };
     });
   }
 
-  const jobUrl = pickJobListingUrl(msg.htmlBody, msg.plaintextBody, msg.snippet);
+  const jobUrl = sanitizeJobListingUrl(
+    pickJobListingUrl(msg.htmlBody, msg.plaintextBody, msg.snippet)
+  );
   const title = subject || "Job alert";
   return [
     {
@@ -399,7 +402,11 @@ export async function harvestJobAlertsFromGmail(): Promise<JobAlertHarvestResult
               company: listing.company,
               compensation: listing.compensation,
               job_url: listing.jobUrl,
-              gmail_url: gmailThreadUrl(msg.threadId, mailbox.accountEmail),
+              gmail_url: sanitizeGmailThreadUrl(
+                null,
+                msg.threadId,
+                mailbox.accountEmail
+              ),
               snippet: (msg.snippet ?? "").slice(0, 280) || null,
               received_at: receivedAt,
               last_seen_at: new Date().toISOString(),
