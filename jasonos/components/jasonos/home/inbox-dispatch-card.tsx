@@ -41,7 +41,6 @@ const EMPTY_DISPATCH: InboxDispatch = {
 const COLLAPSE_KEY = "jasonos.inbox-dispatch.collapsed";
 const DISMISS_KEY = "jasonos.inbox-dispatch.dismissed";
 const SAVE_KEY = "jasonos.inbox-dispatch.saved";
-const PREFS_MIGRATED_KEY = "jasonos.inbox-dispatch.prefs-migrated";
 
 const URGENCY: Record<
   Urgency,
@@ -156,7 +155,9 @@ async function persistPrefs(saved: SavedEntry[], dismissed: Set<string>) {
   const res = await setInboxDispatchPrefs(saved, [...dismissed]);
   if (!res.ok) {
     console.warn("[inbox-dispatch] prefs save failed:", res.error);
+    toast.error(`Could not save Inbox Dispatch prefs: ${res.error}`);
   }
+  return res;
 }
 
 /** Copy draft (if any), then open the real message in Apple Mail. */
@@ -245,6 +246,35 @@ function SavedList({
   );
 }
 
+function SavedSection({
+  count,
+  entries,
+  onDismiss,
+  onUnsave,
+}: {
+  count: number;
+  entries: SavedEntry[];
+  onDismiss: (threadId: string) => void;
+  onUnsave: (threadId: string) => void;
+}) {
+  return (
+    <div className="border-b border-border">
+      <p className="flex items-center gap-1.5 px-4 pt-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <BookmarkCheck className="h-3 w-3 text-sky-300" />
+        Saved for later ({count})
+      </p>
+      {entries.length > 0 ? (
+        <SavedList entries={entries} onDismiss={onDismiss} onUnsave={onUnsave} />
+      ) : (
+        <p className="px-4 pb-3 text-[11px] leading-relaxed text-muted-foreground">
+          Bookmark a thread from today&apos;s list to park it here. Saved emails
+          stay until you dismiss them — they sync across sessions.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function InboxDispatchCard() {
   const [data, setData] = useState<InboxDispatch | null>(null);
   const [loading, setLoading] = useState(true);
@@ -312,29 +342,18 @@ export function InboxDispatchCard() {
 
       if (!active) return;
 
-      const migrated = (() => {
-        try {
-          return window.localStorage.getItem(PREFS_MIGRATED_KEY) === "1";
-        } catch {
-          return false;
-        }
-      })();
-
       let nextSaved = serverSaved;
       let nextDismissed = new Set(serverDismissed);
 
-      if (
-        !migrated &&
-        serverSaved.length === 0 &&
-        (localSaved.length > 0 || localDismissed.size > 0)
-      ) {
+      // Upload browser saves when the server copy is still empty (retry after failed saves).
+      if (serverSaved.length === 0 && localSaved.length > 0) {
         nextSaved = localSaved;
-        nextDismissed = localDismissed;
-        void persistPrefs(nextSaved, nextDismissed);
-        try {
-          window.localStorage.setItem(PREFS_MIGRATED_KEY, "1");
-        } catch {
-          // ignore
+        if (localDismissed.size > 0) nextDismissed = localDismissed;
+        const res = await persistPrefs(nextSaved, nextDismissed);
+        if (res.ok) {
+          toast.success(
+            `Restored ${nextSaved.length} saved email${nextSaved.length === 1 ? "" : "s"} from this browser.`
+          );
         }
       } else if (serverSaved.length > 0) {
         writeSaved(serverSaved);
@@ -549,18 +568,13 @@ export function InboxDispatchCard() {
         </button>
       </div>
 
-      {collapsed && !loading && data?.configured && visibleSaved.length > 0 ? (
-        <div>
-          <p className="flex items-center gap-1.5 px-4 pt-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            <BookmarkCheck className="h-3 w-3 text-sky-300" />
-            Saved for later ({visibleSaved.length})
-          </p>
-          <SavedList
-            entries={visibleSaved}
-            onDismiss={dismiss}
-            onUnsave={unsave}
-          />
-        </div>
+      {!loading && data?.configured ? (
+        <SavedSection
+          count={visibleSaved.length}
+          entries={visibleSaved}
+          onDismiss={dismiss}
+          onUnsave={unsave}
+        />
       ) : null}
 
       {!collapsed ? (
@@ -570,20 +584,6 @@ export function InboxDispatchCard() {
           <NotConnected />
         ) : (
           <div className="divide-y divide-border">
-            {visibleSaved.length > 0 ? (
-              <div>
-                <p className="flex items-center gap-1.5 px-4 pt-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  <BookmarkCheck className="h-3 w-3 text-amber-300" />
-                  Saved for later ({visibleSaved.length})
-                </p>
-                <SavedList
-                  entries={visibleSaved}
-                  onDismiss={dismiss}
-                  onUnsave={unsave}
-                />
-              </div>
-            ) : null}
-
             {boardingCount === 0 && visibleSaved.length === 0 ? (
               <p className="px-4 py-8 text-center text-xs text-muted-foreground">
                 Inbox clear — nobody is waiting on a reply. Rare and beautiful.
