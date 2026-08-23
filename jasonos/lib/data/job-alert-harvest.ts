@@ -19,7 +19,7 @@ import {
   pickJobListingUrl,
   sanitizeJobListingUrl,
 } from "@/lib/integrations/job-listing-urls";
-import { cleanJobAlertTitle } from "@/lib/data/parse-job-opportunity";
+import { cleanJobAlertTitle, normalizeOpportunityFields } from "@/lib/data/parse-job-opportunity";
 import {
   dedupeListingDrafts,
   opportunityFingerprint,
@@ -233,27 +233,38 @@ function listingsFromMessage(msg: GmailThreadMessage): {
     cards.length
       ? cards.map((c) => {
           const cardTitle = c.title ? cleanJobAlertTitle(c.title) : null;
-          const title = (cardTitle || subject || "Job listing").slice(0, 180);
-          const company =
-            companyFromTitle(title) ?? (subject ? companyFromTitle(subject) : null);
+          const rawTitle = (cardTitle || subject || "Job listing").slice(0, 180);
+          const normalized = normalizeOpportunityFields(
+            rawTitle,
+            companyFromTitle(rawTitle) ??
+              (subject ? companyFromTitle(subject) : null),
+            c.compensation ?? subjectComp
+          );
           return {
-            title,
+            title: normalized.title.slice(0, 180),
             jobUrl: sanitizeJobListingUrl(c.url),
-            compensation: c.compensation ?? subjectComp,
-            company,
+            compensation: normalized.compensation,
+            company: normalized.company,
           };
         })
       : [
-          {
-            title: subject || "Job alert",
-            jobUrl: sanitizeJobListingUrl(
-              pickJobListingUrl(msg.htmlBody, msg.plaintextBody, msg.snippet)
-            ),
-            compensation:
+          (() => {
+            const rawTitle = subject || "Job alert";
+            const normalized = normalizeOpportunityFields(
+              rawTitle,
+              companyFromTitle(rawTitle),
               subjectComp ??
-              extractCompensation(msg.plaintextBody ?? msg.snippet ?? ""),
-            company: companyFromTitle(subject || ""),
-          },
+                extractCompensation(msg.plaintextBody ?? msg.snippet ?? "")
+            );
+            return {
+              title: normalized.title.slice(0, 180),
+              jobUrl: sanitizeJobListingUrl(
+                pickJobListingUrl(msg.htmlBody, msg.plaintextBody, msg.snippet)
+              ),
+              compensation: normalized.compensation,
+              company: normalized.company,
+            };
+          })(),
         ]
   );
 }

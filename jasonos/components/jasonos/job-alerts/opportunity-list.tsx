@@ -17,24 +17,6 @@ function formatDate(ymd: string): string {
   });
 }
 
-function hostLabel(url: string | null): string | null {
-  if (!url) return null;
-  try {
-    const host = new URL(url).hostname.replace(/^www\./, "");
-    if (host.includes("mail.google.com")) return "Gmail alert";
-    if (host.includes("linkedin.com")) return "LinkedIn";
-    if (host.includes("indeed.com")) return "Indeed";
-    if (host.includes("theladders.com")) return "Ladders";
-    if (host.includes("greenhouse")) return "Greenhouse";
-    if (host.includes("lever.co")) return "Lever";
-    if (host.includes("ashbyhq.com")) return "Ashby";
-    if (host.includes("workday")) return "Workday";
-    return host;
-  } catch {
-    return null;
-  }
-}
-
 function OpportunityRow({
   job,
   pending,
@@ -45,20 +27,17 @@ function OpportunityRow({
   onDelete: (id: string, title: string) => void;
 }) {
   const href = job.url;
-  const linkSource = job.jobUrl
-    ? hostLabel(job.jobUrl)
-    : job.gmailUrl
-      ? "Gmail alert"
-      : null;
+  const label = [job.company, job.title].filter(Boolean).join(" — ") || job.title;
+
   const titleNode = href ? (
     <a
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-start gap-1.5 font-medium text-sky-300 underline decoration-sky-400/40 underline-offset-2 hover:text-sky-200"
+      className="font-medium text-sky-300 underline decoration-sky-400/40 underline-offset-2 hover:text-sky-200"
     >
-      <span>{job.title}</span>
-      <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-70" />
+      {job.title}
+      <ExternalLink className="ml-1 inline h-3.5 w-3.5 opacity-70" />
     </a>
   ) : (
     <span className="font-medium text-foreground/90">{job.title}</span>
@@ -66,25 +45,17 @@ function OpportunityRow({
 
   return (
     <li className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-      <div className="min-w-0 flex-1 space-y-1">
-        <p className="text-sm leading-snug">{titleNode}</p>
-        {(job.company || job.compensation) && (
-          <p className="text-xs leading-snug text-foreground/80">
-            {job.company ? (
-              <span className="font-medium text-foreground/90">{job.company}</span>
-            ) : null}
-            {job.company && job.compensation ? (
-              <span className="text-muted-foreground"> · </span>
-            ) : null}
-            {job.compensation ? (
-              <span className="tabular-nums text-amber-200/90">
-                {job.compensation}
-              </span>
-            ) : null}
+      <div className="min-w-0 flex-1 space-y-0.5">
+        {job.company ? (
+          <p className="text-sm font-semibold leading-snug text-foreground">
+            {job.company}
           </p>
-        )}
-        {linkSource ? (
-          <p className="text-[11px] text-muted-foreground">{linkSource}</p>
+        ) : null}
+        <p className="text-sm leading-snug text-foreground/90">{titleNode}</p>
+        {job.compensation ? (
+          <p className="text-xs tabular-nums text-amber-200/90">
+            {job.compensation}
+          </p>
         ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-2">
@@ -94,9 +65,9 @@ function OpportunityRow({
         <button
           type="button"
           title="Delete listing"
-          aria-label={`Delete ${job.title}`}
+          aria-label={`Delete ${label}`}
           disabled={pending}
-          onClick={() => onDelete(job.id, job.title)}
+          onClick={() => onDelete(job.id, label)}
           className="rounded p-1 text-muted-foreground hover:bg-rose-500/15 hover:text-rose-300 disabled:opacity-40"
         >
           <Trash2 className="h-3.5 w-3.5" />
