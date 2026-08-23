@@ -99,6 +99,29 @@ export function pickJobListingUrl(...blobs: (string | null | undefined)[]): stri
   return best.url;
 }
 
+/** True when the URL is http(s) and looks like a real job posting (not a tracker). */
+export function isValidJobListingUrl(url: string | null | undefined): boolean {
+  if (!url?.trim()) return false;
+  const cleaned = cleanUrl(url.trim());
+  try {
+    const parsed = new URL(cleaned);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+  } catch {
+    return false;
+  }
+  if (/linkedin\.com\/jobs\/search/i.test(cleaned)) return false;
+  const score = scoreUrl(cleaned);
+  // Match extractJobCards: skip search/home links that are not a single posting.
+  return score >= 80;
+}
+
+/** Drop junk URLs before storing or rendering a listing link. */
+export function sanitizeJobListingUrl(url: string | null | undefined): string | null {
+  if (!url?.trim()) return null;
+  const cleaned = cleanUrl(url.trim());
+  return isValidJobListingUrl(cleaned) ? cleaned : null;
+}
+
 export interface JobCard {
   url: string;
   title: string | null;

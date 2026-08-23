@@ -39,6 +39,40 @@ export function gmailThreadUrl(threadId: string, accountEmail?: string): string 
 
 const GMAIL_HOST_RE = /^https?:\/\/mail\.google\.com\/mail\//i;
 
+const GMAIL_THREAD_HASH_RE =
+  /#(?:all|inbox|imp|starred|sent|label\/[^/]+)\/([A-Za-z0-9_-]{4,})$/;
+
+/** True when the URL is a Gmail permalink with a concrete thread/message id. */
+export function isValidGmailThreadUrl(url: string | null | undefined): boolean {
+  if (!url?.trim()) return false;
+  if (!GMAIL_HOST_RE.test(url)) return false;
+  try {
+    const parsed = new URL(url.trim());
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+  } catch {
+    return false;
+  }
+  return GMAIL_THREAD_HASH_RE.test(url.trim());
+}
+
+/**
+ * Build or normalize a Gmail conversation link. Returns null when there is no
+ * usable thread id (avoids links that open Gmail but not a specific email).
+ */
+export function sanitizeGmailThreadUrl(
+  url: string | null | undefined,
+  threadId?: string | null,
+  accountEmail?: string | null
+): string | null {
+  if (threadId && /^[A-Za-z0-9_-]{4,}$/.test(threadId)) {
+    const built = gmailThreadUrl(threadId, accountEmail ?? undefined);
+    return isValidGmailThreadUrl(built) ? built : null;
+  }
+  if (!url?.trim()) return null;
+  const normalized = normalizeGmailUrl(url.trim());
+  return isValidGmailThreadUrl(normalized) ? normalized : null;
+}
+
 /**
  * Repair a Gmail URL so it opens the specific thread in the correct account:
  *   - rewrite the `u/<index-or-email>` segment to the configured account, and
