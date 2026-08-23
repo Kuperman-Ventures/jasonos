@@ -7,9 +7,8 @@ import { listJobAlertKeywords } from "@/lib/server-actions/job-alert-keywords";
 import { getJobAlertHarvestState, type JobAlertHarvestResult } from "@/lib/data/job-alert-harvest";
 import { resolveOpportunityLinks } from "@/lib/data/job-opportunity-links";
 import {
-  cleanJobAlertTitle,
   isDigestOnlyTitle,
-  parseOpportunityLine,
+  normalizeOpportunityFields,
 } from "@/lib/data/parse-job-opportunity";
 import { dedupeOpportunities } from "@/lib/data/job-opportunity-dedup";
 import { isGmailConnected } from "@/lib/integrations/gmail";
@@ -169,11 +168,14 @@ export async function getJobAlerts(): Promise<JobAlertsData> {
           row.gmail_thread_id,
           row.account_email
         );
-        const cleanedTitle = cleanJobAlertTitle(row.title);
-        const parsed = parseOpportunityLine(cleanedTitle);
-        const title = parsed.roleTitle || cleanedTitle || row.title;
-        const company = row.company ?? parsed.company ?? null;
-        const compensation = row.compensation ?? parsed.salary ?? null;
+        const normalized = normalizeOpportunityFields(
+          row.title,
+          row.company,
+          row.compensation
+        );
+        const title = normalized.title;
+        const company = normalized.company;
+        const compensation = normalized.compensation;
         const hay = [title, company, compensation].filter(Boolean).join(" ");
         return {
           id: row.id,
