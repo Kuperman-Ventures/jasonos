@@ -69,7 +69,11 @@ function cleanUrl(raw: string): string {
       return parsed.searchParams.get("q")!;
     }
     if (parsed.hostname.endsWith("linkedin.com")) {
-      // Drop tracking noise; keep the job path.
+      // Email alerts use /comm/jobs/view/ — normalize to the public job URL.
+      parsed.pathname = parsed.pathname.replace(
+        /^\/comm\/jobs\/view\//i,
+        "/jobs/view/"
+      );
       parsed.search = "";
       parsed.hash = "";
       return parsed.toString();

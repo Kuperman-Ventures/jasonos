@@ -19,6 +19,7 @@ import {
   pickJobListingUrl,
   sanitizeJobListingUrl,
 } from "@/lib/integrations/job-listing-urls";
+import { cleanJobAlertTitle } from "@/lib/data/parse-job-opportunity";
 import {
   GOOGLE_GMAIL,
   listGoogleAccessTokens,
@@ -218,16 +219,19 @@ function listingsFromMessage(msg: GmailThreadMessage): {
   company: string | null;
 }[] {
   const cards = extractJobCards(msg.htmlBody, msg.plaintextBody, msg.snippet);
-  const subject = cleanSubject(msg.subject ?? "");
+  const subject = cleanJobAlertTitle(cleanSubject(msg.subject ?? ""));
   const subjectComp = extractCompensation(subject);
   if (cards.length) {
     return cards.map((c) => {
-      const title = (c.title || subject || "Job listing").slice(0, 180);
+      const cardTitle = c.title ? cleanJobAlertTitle(c.title) : null;
+      const title = (cardTitle || subject || "Job listing").slice(0, 180);
+      const company =
+        companyFromTitle(title) ?? (subject ? companyFromTitle(subject) : null);
       return {
         title,
         jobUrl: sanitizeJobListingUrl(c.url),
         compensation: c.compensation ?? subjectComp,
-        company: companyFromTitle(title),
+        company,
       };
     });
   }
@@ -240,7 +244,9 @@ function listingsFromMessage(msg: GmailThreadMessage): {
     {
       title,
       jobUrl,
-      compensation: subjectComp ?? extractCompensation(msg.plaintextBody ?? msg.snippet ?? ""),
+      compensation:
+        subjectComp ??
+        extractCompensation(msg.plaintextBody ?? msg.snippet ?? ""),
       company: companyFromTitle(title),
     },
   ];
