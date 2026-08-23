@@ -1,7 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createPublicServiceRoleClient } from "@/lib/supabase/server";
+import {
+  createPublicClient,
+  createPublicServiceRoleClient,
+  createServiceRoleClient,
+} from "@/lib/supabase/server";
 import type { BoardingItem, HoldingItem, Urgency } from "@/lib/integrations/inbox-triage";
 
 export type SavedBoarding = {
@@ -24,6 +28,44 @@ function hasConfig(): boolean {
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
   );
+}
+
+async function prefsUserId(
+  db: ReturnType<typeof createPublicServiceRoleClient>
+): Promise<string | null> {
+  const configured = process.env.JASONOS_OWNER_USER_ID?.trim();
+  if (configured) return configured;
+
+  try {
+    const sb = await createPublicClient();
+    const { data, error } = await sb.auth.getUser();
+    if (!error && data.user?.id) return data.user.id;
+  } catch {
+    // no auth context
+  }
+
+  const { data } = await db
+    .from("user_preferences")
+    .select("user_id")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const fromPrefs = (data as { user_id?: string } | null)?.user_id ?? null;
+  if (fromPrefs) return fromPrefs;
+
+  try {
+    const jasonosDb = createServiceRoleClient();
+    const { data } = await jasonosDb
+      .from("user_integrations")
+      .select("user_id")
+      .eq("provider", "google")
+      .not("user_id", "is", null)
+      .limit(1)
+      .maybeSingle();
+    return (data as { user_id?: string } | null)?.user_id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 function isUrgency(v: unknown): v is Urgency {
@@ -108,12 +150,20 @@ export async function getInboxDispatchPrefs(): Promise<{
   if (!hasConfig()) return { saved: [], dismissed: [] };
 
   const db = createPublicServiceRoleClient();
-  const { data, error } = await db
-    .from("user_preferences")
-    .select("inbox_dispatch_saved,inbox_dispatch_dismissed")
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const userId = await prefsUserId(db);
+
+  const { data, error } = userId
+    ? await db
+        .from("user_preferences")
+        .select("inbox_dispatch_saved,inbox_dispatch_dismissed")
+        .eq("user_id", userId)
+        .maybeSingle()
+    : await db
+        .from("user_preferences")
+        .select("inbox_dispatch_saved,inbox_dispatch_dismissed")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
   if (error || !data) return { saved: [], dismissed: [] };
 
@@ -134,6 +184,11 @@ export async function setInboxDispatchPrefs(
   if (!hasConfig()) return { ok: false, error: "Supabase is not configured." };
 
   const db = createPublicServiceRoleClient();
+  const userId = await prefsUserId(db);
+  if (!userId) {
+    return { ok: false, error: "No user_preferences row — cannot save." };
+  }
+
   const now = new Date().toISOString();
   const payload = {
     inbox_dispatch_saved: saved,
@@ -143,18 +198,20 @@ export async function setInboxDispatchPrefs(
 
   const { data: existing } = await db
     .from("user_preferences")
-    .select("id")
-    .limit(1)
+    .select("user_id")
+    .eq("user_id", userId)
     .maybeSingle();
 
-  if (existing?.id) {
+  if (existing?.user_id) {
     const { error } = await db
       .from("user_preferences")
       .update(payload)
-      .eq("id", (existing as { id: string }).id);
+      .eq("user_id", userId);
     if (error) return { ok: false, error: error.message };
   } else {
-    const { error } = await db.from("user_preferences").insert([payload]);
+    const { error } = await db
+      .from("user_preferences")
+      .insert([{ ...payload, user_id: userId }]);
     if (error) return { ok: false, error: error.message };
   }
 
