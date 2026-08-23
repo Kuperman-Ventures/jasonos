@@ -17,6 +17,11 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+  getInboxDispatchPrefs,
+  setInboxDispatchPrefs,
+  type SavedEntry,
+} from "@/lib/server-actions/inbox-dispatch-prefs";
 import type {
   InboxDispatch,
   BoardingItem,
@@ -36,20 +41,7 @@ const EMPTY_DISPATCH: InboxDispatch = {
 const COLLAPSE_KEY = "jasonos.inbox-dispatch.collapsed";
 const DISMISS_KEY = "jasonos.inbox-dispatch.dismissed";
 const SAVE_KEY = "jasonos.inbox-dispatch.saved";
-
-type SavedBoarding = {
-  kind: "boarding";
-  savedAt: string;
-  item: BoardingItem;
-};
-
-type SavedHolding = {
-  kind: "holding";
-  savedAt: string;
-  item: HoldingItem;
-};
-
-type SavedEntry = SavedBoarding | SavedHolding;
+const PREFS_MIGRATED_KEY = "jasonos.inbox-dispatch.prefs-migrated";
 
 const URGENCY: Record<
   Urgency,
@@ -111,8 +103,7 @@ function isBoardingItem(v: unknown): v is BoardingItem {
   return (
     typeof o.threadId === "string" &&
     typeof o.name === "string" &&
-    typeof o.subject === "string" &&
-    typeof o.draft === "string"
+    typeof o.subject === "string"
   );
 }
 
@@ -123,7 +114,7 @@ function isHoldingItem(v: unknown): v is HoldingItem {
     typeof o.threadId === "string" &&
     typeof o.name === "string" &&
     typeof o.subject === "string" &&
-    typeof o.ageDays === "number"
+    (typeof o.ageDays === "number" || o.ageDays === undefined)
   );
 }
 
@@ -156,6 +147,15 @@ function writeSaved(entries: SavedEntry[]) {
     window.localStorage.setItem(SAVE_KEY, JSON.stringify(entries));
   } catch {
     // ignore
+  }
+}
+
+async function persistPrefs(saved: SavedEntry[], dismissed: Set<string>) {
+  writeSaved(saved);
+  writeDismissed(dismissed);
+  const res = await setInboxDispatchPrefs(saved, [...dismissed]);
+  if (!res.ok) {
+    console.warn("[inbox-dispatch] prefs save failed:", res.error);
   }
 }
 
@@ -210,6 +210,41 @@ function mergeSavedWithLive(
   return changed ? next : saved;
 }
 
+function SavedList({
+  entries,
+  onDismiss,
+  onUnsave,
+}: {
+  entries: SavedEntry[];
+  onDismiss: (threadId: string) => void;
+  onUnsave: (threadId: string) => void;
+}) {
+  return (
+    <ul className="divide-y divide-border">
+      {entries.map((entry) =>
+        entry.kind === "boarding" ? (
+          <BoardingRow
+            key={`saved-${entry.item.threadId}`}
+            item={entry.item}
+            saved
+            onDismiss={() => onDismiss(entry.item.threadId)}
+            onSave={() => onUnsave(entry.item.threadId)}
+          />
+        ) : (
+          <li key={`saved-h-${entry.item.threadId}`} className="px-4 py-2">
+            <HoldingRow
+              item={entry.item}
+              saved
+              onDismiss={() => onDismiss(entry.item.threadId)}
+              onSave={() => onUnsave(entry.item.threadId)}
+            />
+          </li>
+        )
+      )}
+    </ul>
+  );
+}
+
 export function InboxDispatchCard() {
   const [data, setData] = useState<InboxDispatch | null>(null);
   const [loading, setLoading] = useState(true);
@@ -217,6 +252,7 @@ export function InboxDispatchCard() {
   const [collapsed, setCollapsed] = useState(false);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [saved, setSaved] = useState<SavedEntry[]>([]);
+  const [prefsReady, setPrefsReady] = useState(false);
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
@@ -253,25 +289,83 @@ export function InboxDispatchCard() {
   }, []);
 
   useEffect(() => {
-    try {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (window.localStorage.getItem(COLLAPSE_KEY) === "1") setCollapsed(true);
-      setDismissed(readDismissed());
-      setSaved(readSaved());
-    } catch {
-      // ignore
-    }
+    let active = true;
+    (async () => {
+      try {
+        if (window.localStorage.getItem(COLLAPSE_KEY) === "1") setCollapsed(true);
+      } catch {
+        // ignore
+      }
+
+      const localSaved = readSaved();
+      const localDismissed = readDismissed();
+      let serverSaved: SavedEntry[] = [];
+      let serverDismissed: string[] = [];
+
+      try {
+        const prefs = await getInboxDispatchPrefs();
+        serverSaved = prefs.saved;
+        serverDismissed = prefs.dismissed;
+      } catch {
+        // fall back to local only
+      }
+
+      if (!active) return;
+
+      const migrated = (() => {
+        try {
+          return window.localStorage.getItem(PREFS_MIGRATED_KEY) === "1";
+        } catch {
+          return false;
+        }
+      })();
+
+      let nextSaved = serverSaved;
+      let nextDismissed = new Set(serverDismissed);
+
+      if (
+        !migrated &&
+        serverSaved.length === 0 &&
+        (localSaved.length > 0 || localDismissed.size > 0)
+      ) {
+        nextSaved = localSaved;
+        nextDismissed = localDismissed;
+        void persistPrefs(nextSaved, nextDismissed);
+        try {
+          window.localStorage.setItem(PREFS_MIGRATED_KEY, "1");
+        } catch {
+          // ignore
+        }
+      } else if (serverSaved.length > 0) {
+        writeSaved(serverSaved);
+        writeDismissed(nextDismissed);
+      }
+
+      setSaved(nextSaved);
+      setDismissed(nextDismissed);
+      setPrefsReady(true);
+    })();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Refresh saved snapshots when live triage still has those threads.
   useEffect(() => {
-    if (!data) return;
+    if (!data || !prefsReady) return;
     setSaved((prev) => {
       const merged = mergeSavedWithLive(prev, data);
-      if (merged !== prev) writeSaved(merged);
+      if (merged !== prev) {
+        writeSaved(merged);
+        setDismissed((d) => {
+          void persistPrefs(merged, d);
+          return d;
+        });
+      }
       return merged;
     });
-  }, [data]);
+  }, [data, prefsReady]);
 
   const toggleCollapsed = () => {
     setCollapsed((prev) => {
@@ -291,17 +385,17 @@ export function InboxDispatchCard() {
   );
 
   const dismiss = (threadId: string) => {
-    setDismissed((prev) => {
-      const next = new Set(prev);
-      next.add(threadId);
-      writeDismissed(next);
-      return next;
-    });
-    // Dismiss also clears a save — you're done with it.
-    setSaved((prev) => {
-      const next = prev.filter((e) => e.item.threadId !== threadId);
-      writeSaved(next);
-      return next;
+    setSaved((prevSaved) => {
+      const nextSaved = prevSaved.filter((e) => e.item.threadId !== threadId);
+      setDismissed((prevD) => {
+        const nextD = new Set(prevD);
+        nextD.add(threadId);
+        writeDismissed(nextD);
+        writeSaved(nextSaved);
+        void persistPrefs(nextSaved, nextD);
+        return nextD;
+      });
+      return nextSaved;
     });
   };
 
@@ -313,14 +407,13 @@ export function InboxDispatchCard() {
         ...prev,
       ];
       writeSaved(next);
-      return next;
-    });
-    // If it was dismissed earlier, revive it into Saved.
-    setDismissed((prev) => {
-      if (!prev.has(item.threadId)) return prev;
-      const next = new Set(prev);
-      next.delete(item.threadId);
-      writeDismissed(next);
+      setDismissed((d) => {
+        const revived = new Set(d);
+        revived.delete(item.threadId);
+        writeDismissed(revived);
+        void persistPrefs(next, revived);
+        return revived;
+      });
       return next;
     });
     toast.success("Saved — it’ll stay in Dispatch until you dismiss it.");
@@ -334,13 +427,13 @@ export function InboxDispatchCard() {
         ...prev,
       ];
       writeSaved(next);
-      return next;
-    });
-    setDismissed((prev) => {
-      if (!prev.has(item.threadId)) return prev;
-      const next = new Set(prev);
-      next.delete(item.threadId);
-      writeDismissed(next);
+      setDismissed((d) => {
+        const revived = new Set(d);
+        revived.delete(item.threadId);
+        writeDismissed(revived);
+        void persistPrefs(next, revived);
+        return revived;
+      });
       return next;
     });
     toast.success("Saved — it’ll stay in Dispatch until you dismiss it.");
@@ -350,6 +443,10 @@ export function InboxDispatchCard() {
     setSaved((prev) => {
       const next = prev.filter((e) => e.item.threadId !== threadId);
       writeSaved(next);
+      setDismissed((d) => {
+        void persistPrefs(next, d);
+        return d;
+      });
       return next;
     });
     toast.message("Removed from Saved.");
@@ -377,7 +474,7 @@ export function InboxDispatchCard() {
   );
 
   const boardingCount = boarding.length;
-  const headerCount = boardingCount + visibleSaved.filter((e) => e.kind === "boarding").length;
+  const headerCount = boardingCount + visibleSaved.length;
 
   return (
     <section className="overflow-hidden rounded-xl border bg-card">
@@ -402,6 +499,11 @@ export function InboxDispatchCard() {
               {!loading && data?.configured && headerCount > 0 ? (
                 <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-amber-200">
                   {headerCount}
+                </span>
+              ) : null}
+              {!loading && visibleSaved.length > 0 ? (
+                <span className="rounded-full border border-sky-400/40 bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-sky-200">
+                  {visibleSaved.length} saved
                 </span>
               ) : null}
             </div>
@@ -447,6 +549,20 @@ export function InboxDispatchCard() {
         </button>
       </div>
 
+      {collapsed && !loading && data?.configured && visibleSaved.length > 0 ? (
+        <div>
+          <p className="flex items-center gap-1.5 px-4 pt-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <BookmarkCheck className="h-3 w-3 text-sky-300" />
+            Saved for later ({visibleSaved.length})
+          </p>
+          <SavedList
+            entries={visibleSaved}
+            onDismiss={dismiss}
+            onUnsave={unsave}
+          />
+        </div>
+      ) : null}
+
       {!collapsed ? (
         loading ? (
           <LoadingRows />
@@ -460,31 +576,11 @@ export function InboxDispatchCard() {
                   <BookmarkCheck className="h-3 w-3 text-amber-300" />
                   Saved for later ({visibleSaved.length})
                 </p>
-                <ul className="divide-y divide-border">
-                  {visibleSaved.map((entry) =>
-                    entry.kind === "boarding" ? (
-                      <BoardingRow
-                        key={`saved-${entry.item.threadId}`}
-                        item={entry.item}
-                        saved
-                        onDismiss={() => dismiss(entry.item.threadId)}
-                        onSave={() => unsave(entry.item.threadId)}
-                      />
-                    ) : (
-                      <li
-                        key={`saved-h-${entry.item.threadId}`}
-                        className="px-4 py-2"
-                      >
-                        <HoldingRow
-                          item={entry.item}
-                          saved
-                          onDismiss={() => dismiss(entry.item.threadId)}
-                          onSave={() => unsave(entry.item.threadId)}
-                        />
-                      </li>
-                    )
-                  )}
-                </ul>
+                <SavedList
+                  entries={visibleSaved}
+                  onDismiss={dismiss}
+                  onUnsave={unsave}
+                />
               </div>
             ) : null}
 
