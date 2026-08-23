@@ -70,6 +70,28 @@ function briefHref(date: string): string {
   return `/?brief=${date}`;
 }
 
+/** Home no longer renders inbox-by-group buckets (Inbox Dispatch + Job Alerts). */
+function isEmailByGroupHeading(heading: string): boolean {
+  const key = heading.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return key.includes("email") && key.includes("group");
+}
+
+function stripEmailByGroupSections(md: string): string {
+  const lines = md.replace(/\r\n/g, "\n").split("\n");
+  const out: string[] = [];
+  let skipping = false;
+  for (const line of lines) {
+    const h2 = line.match(/^##\s+(.+)$/);
+    if (h2) {
+      skipping = isEmailByGroupHeading(h2[1]);
+      if (!skipping) out.push(line);
+      continue;
+    }
+    if (!skipping) out.push(line);
+  }
+  return out.join("\n").trim();
+}
+
 function SectionLabel({
   icon,
   children,
@@ -195,9 +217,11 @@ function StructuredBrief({
       <MorningBriefAttention briefDate={briefDate} items={parsed.attention} />
       <CalendarBlock items={parsed.calendar} note={parsed.calendarNote} />
       <NewsletterBlock groups={parsed.newsletters} />
-      {parsed.extras.map((ex, i) => (
-        <ExtraBlock key={`${ex.title}-${i}`} title={ex.title} bodyMd={ex.bodyMd} />
-      ))}
+      {parsed.extras
+        .filter((ex) => !isEmailByGroupHeading(ex.title))
+        .map((ex, i) => (
+          <ExtraBlock key={`${ex.title}-${i}`} title={ex.title} bodyMd={ex.bodyMd} />
+        ))}
       {parsed.footer ? (
         <p className="border-t pt-3 text-[11px] leading-relaxed text-muted-foreground">
           <BriefText text={parsed.footer} />
@@ -208,6 +232,14 @@ function StructuredBrief({
 }
 
 function RawMarkdownFallback({ md }: { md: string }) {
+  const body = stripEmailByGroupSections(md);
+  if (!body) {
+    return (
+      <p className="px-4 py-8 text-center text-xs text-muted-foreground">
+        No brief content to show.
+      </p>
+    );
+  }
   return (
     <div className="max-h-[520px] overflow-y-auto px-4 py-3 text-sm leading-relaxed text-foreground/90">
       <ReactMarkdown
@@ -235,7 +267,7 @@ function RawMarkdownFallback({ md }: { md: string }) {
           ),
         }}
       >
-        {md}
+        {body}
       </ReactMarkdown>
     </div>
   );

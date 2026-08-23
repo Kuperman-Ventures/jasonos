@@ -6,7 +6,7 @@ Claude (or a scheduled job) writes one row per weekday into
 ## Links in summaries
 
 JasonOS will render markdown links and bare URLs as clickable opens-in-new-tab
-links in Email by Group, Newsletter digest, Calendar, and Needs your attention.
+links in Newsletter digest, Calendar, and Needs your attention.
 
 **Today’s published briefs contain no URLs** — the publisher must include them.
 
@@ -52,14 +52,14 @@ Older publisher headings still map:
 - `AI and Business` → AI in general
 - `AI and Marketing` / `AI & Marketing` → AI in marketing and advertising
 
+**Do not publish `## Email by Group`.** Home dropped that section (Aug 2026).
+Person-to-person mail is **Inbox Dispatch** on Home. Job listings are the
+**Job Alerts** page (Gmail folder harvest). If Claude still emits Email by
+Group, JasonOS ignores it on Home.
+
 Suggested section shape:
 
 ```md
-## Email by Group
-**Job search — ~10 unread.** …
-**Admin / finance — 2 unread.**
-- HubSpot delete request ([open](https://mail.google.com/…))
-
 ## Newsletter Digest
 
 ### Marketing and advertising
