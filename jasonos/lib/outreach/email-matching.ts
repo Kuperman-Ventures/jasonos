@@ -4,11 +4,13 @@
 
 import "server-only";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { OUTLOOK_WRAP_EMAIL } from "@/lib/integrations/unwrap-forwarded-mail";
 
 /** Known outbound email addresses (v1 hardcode — keep in sync if these change). */
 export const MY_EMAILS = [
   "jason@kupermanadvisors.com",
   "jskuperman@gmail.com",
+  OUTLOOK_WRAP_EMAIL,
 ];
 
 /** Extract the bare email from a header like `"Name" <email@x.com>`. */

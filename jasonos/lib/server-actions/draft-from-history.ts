@@ -15,6 +15,7 @@ import {
 } from "@/lib/integrations/gmail";
 import { listGoogleAccessTokens } from "@/lib/integrations/google-tokens";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
+import { OUTLOOK_WRAP_EMAIL } from "@/lib/integrations/unwrap-forwarded-mail";
 import { searchGranolaForContact } from "@/lib/integrations/granola";
 import { searchFirefliesForContact } from "@/lib/integrations/fireflies";
 import { callClaude } from "@/lib/ai/models";
@@ -261,7 +262,7 @@ export async function gatherGmailHistory(ctx: ContactContext): Promise<GmailHist
   const collected: { thread: GmailThread; token: string }[] = [];
   for (const { token } of mailboxTokens) {
     const threads = await searchGmailThreads({
-      query: `from:${ctx.primaryEmail} OR to:${ctx.primaryEmail}`,
+      query: `from:${ctx.primaryEmail} OR to:${ctx.primaryEmail} OR (from:${OUTLOOK_WRAP_EMAIL} ${ctx.primaryEmail})`,
       pageSize: 5,
       accessToken: token,
     });

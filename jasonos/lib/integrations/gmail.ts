@@ -4,8 +4,12 @@
 
 import "server-only";
 import { emptyResult, type IntegrationResult } from "./_base";
-import { isFromMe } from "@/lib/outreach/email-matching";
+import { isFromMe, isMyOwnAddress } from "@/lib/outreach/email-matching";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
+import {
+  looksLikeOutlookWrap,
+  unwrapOutlookForward,
+} from "@/lib/integrations/unwrap-forwarded-mail";
 import { pickJobListingUrl } from "@/lib/integrations/job-listing-urls";
 import {
   getGoogleAccessToken,
@@ -182,26 +186,34 @@ async function fetchOvernightRepliesForToken(
   const messages = list.messages ?? [];
   const detailed = await mapWithConcurrency(messages, 5, (m) =>
     gmailFetch<GmailMsgResp>(
-      `/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`,
+      `/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=Reply-To`,
       access
     )
   );
-  return detailed.map((d) => {
-    const headers = d.payload?.headers ?? [];
-    const get = (n: string) => headers.find((h) => h.name === n)?.value;
-    const from = parseFrom(get("From"));
+  const hydrated = await hydrateOutlookWraps(detailed, access);
+  const replies: GmailReply[] = [];
+  for (const d of hydrated) {
+    const mapped = mapGmailMessage(d);
+    if (!mapped.from || isFromMe(mapped.from)) continue;
+    const from = parseFrom(mapped.from);
+    if (!from.email || isMyOwnAddress(from.email)) continue;
     const ts = d.internalDate ? Number(d.internalDate) : Date.now();
-    return {
+    const snippet = (mapped.plaintextBody || mapped.snippet || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 200);
+    replies.push({
       id: d.id,
       threadId: d.threadId,
       fromEmail: from.email,
       fromName: from.name,
-      subject: get("Subject") ?? "(no subject)",
-      snippet: d.snippet ?? "",
+      subject: mapped.subject ?? "(no subject)",
+      snippet,
       receivedAt: new Date(ts).toISOString(),
       labelIds: d.labelIds,
-    };
-  });
+    });
+  }
+  return replies;
 }
 
 export async function getOvernightReplies(opts?: {
@@ -323,14 +335,16 @@ async function listCounterpartiesForToken(
       access
     )
   );
+  const hydrated = await hydrateOutlookWraps(detailed, access);
 
   const out: EmailCounterparty[] = [];
-  for (const d of detailed) {
+  for (const d of hydrated) {
     const headers = d.payload?.headers ?? [];
     const get = (n: string) =>
       headers.find((h) => h.name.toLowerCase() === n.toLowerCase())?.value;
-    const fromHeader = get("From") ?? "";
-    const subject = get("Subject") ?? undefined;
+    const mapped = mapGmailMessage(d);
+    const fromHeader = mapped.from ?? "";
+    const subject = mapped.subject ?? undefined;
     const ts = d.internalDate ? Number(d.internalDate) : Date.now();
     const dateIso = new Date(ts).toISOString();
     const invite =
@@ -343,11 +357,12 @@ async function listCounterpartiesForToken(
 
     if (isFromMe(fromHeader)) {
       for (const raw of [
-        ...splitAddresses(get("To")),
-        ...splitAddresses(get("Cc")),
+        ...splitAddresses(mapped.to),
+        ...splitAddresses(mapped.cc),
       ]) {
         const p = parseFrom(raw);
         if (!p.email) continue;
+        if (isMyOwnAddress(p.email)) continue;
         out.push({
           email: p.email.toLowerCase(),
           name: p.name,
@@ -361,11 +376,11 @@ async function listCounterpartiesForToken(
     } else {
       const person = pickInboundPerson(
         fromHeader,
-        get("Reply-To"),
-        get("Sender"),
+        mapped.from === get("From") ? get("Reply-To") : undefined,
+        mapped.from === get("From") ? get("Sender") : undefined,
         subject
       );
-      if (person?.email) {
+      if (person?.email && !isMyOwnAddress(person.email)) {
         out.push({
           email: person.email,
           name: person.name,
@@ -611,13 +626,46 @@ export async function resolveJobAlertFromGmail(
   };
 }
 
+function headerValue(message: GmailMsgResp, name: string): string | undefined {
+  return message.payload?.headers?.find(
+    (header) => header.name.toLowerCase() === name.toLowerCase()
+  )?.value;
+}
+
+/** Fetch full MIME for Outlook wraps so unwrap can read the original headers. */
+async function hydrateOutlookWraps(
+  messages: GmailMsgResp[],
+  access: string
+): Promise<GmailMsgResp[]> {
+  const out = messages.slice();
+  const wrapIdx: number[] = [];
+  for (let i = 0; i < out.length; i++) {
+    if (
+      looksLikeOutlookWrap({
+        from: headerValue(out[i], "From"),
+        replyTo: headerValue(out[i], "Reply-To"),
+        subject: headerValue(out[i], "Subject"),
+      })
+    ) {
+      wrapIdx.push(i);
+    }
+  }
+  if (!wrapIdx.length) return out;
+  const fulls = await mapWithConcurrency(wrapIdx, 4, (i) =>
+    gmailFetch<GmailMsgResp>(
+      `/users/me/messages/${out[i].id}?format=full`,
+      access
+    )
+  );
+  for (let k = 0; k < wrapIdx.length; k++) out[wrapIdx[k]] = fulls[k];
+  return out;
+}
+
 function mapGmailMessage(message: GmailMsgResp): GmailThreadMessage {
-  const headers = message.payload?.headers ?? [];
-  const get = (name: string) =>
-    headers.find((header) => header.name.toLowerCase() === name.toLowerCase())?.value;
+  const get = (name: string) => headerValue(message, name);
   const internalDate = message.internalDate ? Number(message.internalDate) : undefined;
 
-  return {
+  const mapped: GmailThreadMessage = {
     id: message.id,
     threadId: message.threadId,
     from: get("From"),
@@ -631,6 +679,26 @@ function mapGmailMessage(message: GmailMsgResp): GmailThreadMessage {
     rfc822MessageId: get("Message-ID") ?? get("Message-Id") ?? undefined,
     internalDate: Number.isFinite(internalDate) ? internalDate : undefined,
     labelIds: message.labelIds,
+  };
+
+  const unwrapped = unwrapOutlookForward({
+    from: mapped.from,
+    replyTo: get("Reply-To"),
+    to: mapped.to,
+    cc: mapped.cc,
+    subject: mapped.subject,
+    plaintextBody: mapped.plaintextBody,
+    htmlBody: mapped.htmlBody,
+  });
+  if (!unwrapped) return mapped;
+
+  return {
+    ...mapped,
+    from: unwrapped.from,
+    to: unwrapped.to ?? mapped.to,
+    cc: unwrapped.cc ?? mapped.cc,
+    subject: unwrapped.subject ?? mapped.subject,
+    plaintextBody: unwrapped.body || mapped.plaintextBody,
   };
 }
 

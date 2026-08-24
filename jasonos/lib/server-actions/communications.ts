@@ -12,6 +12,7 @@ import {
   isGmailConnected,
 } from "@/lib/integrations/gmail";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
+import { OUTLOOK_WRAP_EMAIL } from "@/lib/integrations/unwrap-forwarded-mail";
 import {
   GOOGLE_GMAIL,
   listGoogleAccessTokens,
@@ -23,21 +24,11 @@ import type { CadenceInterval as CadenceIntervalType } from "@/lib/cadence/types
 import { getOutreachPeople, type OutreachPerson } from "@/lib/outreach/data";
 import { setCadence } from "@/lib/server-actions/outreach";
 import { etYmd } from "@/lib/dates";
-
-// Kupe's known outbound email addresses (v1 hardcode — update if addresses change)
-const MY_EMAILS = ["jason@kupermanadvisors.com", "jskuperman@gmail.com"];
-
-/** Strip +tags so jason+jobalerts@… canonicalises to jason@… */
-function canonicalEmail(raw: string): string {
-  const e = extractEmail(raw);
-  return e.replace(/\+[^@]*@/, "@");
-}
-
-/** Returns true if the To: header resolves to one of the user's own addresses. */
-function isMyOwnAddress(toHeader: string): boolean {
-  const canon = canonicalEmail(toHeader);
-  return MY_EMAILS.some((me) => canonicalEmail(me) === canon);
-}
+import {
+  extractEmail,
+  isFromMe,
+  isMyOwnAddress,
+} from "@/lib/outreach/email-matching";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -707,17 +698,6 @@ async function getActiveTriagedRecruitersWithEmail(): Promise<TriagedRecruiter[]
   }));
 }
 
-function isFromMe(fromHeader: string): boolean {
-  const lower = fromHeader.toLowerCase();
-  return MY_EMAILS.some((e) => lower.includes(e));
-}
-
-function extractEmail(value: string): string {
-  const m = value.match(/<([^>]+)>/);
-  return (m?.[1] ?? value).trim().toLowerCase();
-}
-
-/** Returns the display name part of a "Name <email>" header, lower-cased. */
 function extractDisplayName(value: string): string {
   const m = value.match(/^([^<]+)<[^>]+>/);
   return (m?.[1] ?? "").trim().replace(/^"|"$/g, "").toLowerCase();
@@ -811,11 +791,19 @@ export async function syncSentToday(): Promise<SyncSentTodayResult> {
   try {
     const mailboxTokens = await listGoogleAccessTokens();
     for (const { provider, token } of mailboxTokens) {
-      const threads = await searchGmailThreads({
+      const sent = await searchGmailThreads({
         query: `in:sent after:${todayEpoch}`,
         pageSize: 50,
         accessToken: token,
       });
+      const wraps = await searchGmailThreads({
+        query: `from:${OUTLOOK_WRAP_EMAIL} after:${todayEpoch}`,
+        pageSize: 50,
+        accessToken: token,
+      });
+      const threads = [
+        ...new Map([...sent, ...wraps].map((t) => [t.id, t])).values(),
+      ];
 
       for (const t of threads) {
         const full = await getGmailThread(t.id, token);
@@ -1013,7 +1001,7 @@ async function fetchGmailLatest(email: string | null): Promise<LastContactConten
     let bestTs = 0;
     for (const { token } of mailboxTokens) {
       const threads = await searchGmailThreads({
-        query: `from:${email} OR to:${email}`,
+        query: `from:${email} OR to:${email} OR (from:${OUTLOOK_WRAP_EMAIL} ${email})`,
         pageSize: 1,
         accessToken: token,
       });

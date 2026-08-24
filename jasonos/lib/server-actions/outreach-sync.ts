@@ -7,6 +7,7 @@ import {
   isGmailConnected,
 } from "@/lib/integrations/gmail";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
+import { OUTLOOK_WRAP_EMAIL } from "@/lib/integrations/unwrap-forwarded-mail";
 import {
   calendarEventGuests,
   fetchAllPersonalCalendarEvents,
@@ -177,39 +178,50 @@ export async function syncOutreachFromGmail(opts?: {
     let skipped = 0;
 
     try {
-      const threads = await searchGmailThreads({
+      const sent = await searchGmailThreads({
         query: `in:sent after:${afterEpoch}`,
         pageSize: 100,
         accessToken: token,
       });
+      const wraps = await searchGmailThreads({
+        query: `from:${OUTLOOK_WRAP_EMAIL} after:${afterEpoch}`,
+        pageSize: 100,
+        accessToken: token,
+      });
+      const threads = dedupeThreadsById([...sent, ...wraps]);
 
       for (const t of threads) {
         const full = await getGmailThread(t.id, token);
         if (!full) continue;
 
         for (const m of full.messages) {
-          if (!m.from || !isFromMe(m.from)) continue;
-          if (!m.date) continue;
+          if (!m.from || !m.date) continue;
           if (new Date(m.date).getTime() < Date.now() - daysBack * 86_400_000) {
             continue;
           }
-          const recipients = splitRecipientHeaders(m.to, m.cc);
-          if (!recipients.length) continue;
 
           const touchedAt = new Date(m.date).toISOString();
+          const outbound = isFromMe(m.from);
+          const counterparties = outbound
+            ? splitRecipientHeaders(m.to, m.cc)
+            : [m.from];
+          if (!counterparties.length) continue;
+
           let firstMatched = true;
-          for (const raw of recipients) {
+          for (const raw of counterparties) {
             const email = extractEmail(raw);
             if (!email || isMyOwnAddress(email)) continue;
             const contact = lookup.resolve(raw);
+            const direction = outbound ? "outbound" : "inbound";
             if (!contact) {
               skipped += 1;
               sightings.push({
                 email,
-                name: raw.replace(/<[^>]+>/, "").replace(/["']/g, "").trim() || null,
+                name:
+                  raw.replace(/<[^>]+>/, "").replace(/["']/g, "").trim() || null,
                 dateIso: touchedAt,
                 subject: m.subject ?? null,
-                direction: "outbound",
+                direction,
               });
               continue;
             }
@@ -226,12 +238,15 @@ export async function syncOutreachFromGmail(opts?: {
             touches.push({
               contact_id: contact.id,
               channel: "email",
-              direction: "outbound",
+              direction,
               touched_at: touchedAt,
               source: "gmail",
               // Advisors ids stay bare so existing rows still dedupe. Gmail gets a prefix.
               external_id: id,
-              brief: oneLine(m.plaintextBody) || m.snippet || "Email sent",
+              brief:
+                oneLine(m.plaintextBody) ||
+                m.snippet ||
+                (outbound ? "Email sent" : "Email received"),
               subject: m.subject ?? null,
               thread_url: gmailThreadUrl(t.id),
             });
@@ -738,6 +753,10 @@ function settled<T extends SyncResult>(
 function oneLine(value: string | null | undefined): string {
   if (!value) return "";
   return value.replace(/\s+/g, " ").trim().slice(0, 200);
+}
+
+function dedupeThreadsById<T extends { id: string }>(threads: T[]): T[] {
+  return [...new Map(threads.map((t) => [t.id, t])).values()];
 }
 
 function revalidatePaths() {

@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "node --experimental-strip-types --test lib/integrations/unwrap-forwarded-mail.test.ts",
     "seed:reconnect": "node scripts/seed-reconnect.mjs"
   },
   "dependencies": {

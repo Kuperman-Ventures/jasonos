@@ -19,7 +19,7 @@ import {
   type GmailThreadMessage,
 } from "@/lib/integrations/gmail";
 import { appleMailMessageUrl } from "@/lib/integrations/apple-mail-links";
-import { isFromMe } from "@/lib/outreach/email-matching";
+import { isFromMe, isMyOwnAddress } from "@/lib/outreach/email-matching";
 import { isNoiseEmail } from "@/lib/outreach/mail-noise";
 import { callClaude } from "@/lib/ai/models";
 import { JASON_CORE_VOICE } from "@/lib/ai/jason-identity";
@@ -305,7 +305,11 @@ export async function computeInboxDispatch(): Promise<InboxDispatch> {
         if (holding.length < MAX_HOLDING) {
           const firstOther = t.messages.find((m) => !isFromMe(m.from ?? ""));
           const other = parseSender(firstOther?.from ?? last.to);
-          if (!classifyNoise(other.email, other.name, subject)) {
+          if (
+            other.email &&
+            !isMyOwnAddress(other.email) &&
+            !classifyNoise(other.email, other.name, subject)
+          ) {
             holding.push({
               threadId: t.id,
               name: other.name || other.email || "your contact",
@@ -320,6 +324,7 @@ export async function computeInboxDispatch(): Promise<InboxDispatch> {
       }
 
       const sender = parseSender(last.from);
+      if (!sender.email || isMyOwnAddress(sender.email)) continue;
       if (classifyNoise(sender.email, sender.name, subject)) continue; // machine/list
 
       boardingRaw.push({
