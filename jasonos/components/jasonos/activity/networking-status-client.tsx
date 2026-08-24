@@ -72,6 +72,17 @@ function weekTitle(w: WeekActivity): string {
   return w.isCurrent ? "This week" : `Week of ${fmtShort(w.weekStart)}`;
 }
 
+const FRESH_OUTREACH_DEFINITION =
+  "First contact this week, or first contact in 90+ days. Follow-ups with people already in motion don't count.";
+
+function BrowningBadge() {
+  return (
+    <span className="ml-1 shrink-0 rounded-full border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-sky-300">
+      Browning
+    </span>
+  );
+}
+
 function channelLabel(ch: string): string {
   switch (ch) {
     case "email":
@@ -183,6 +194,7 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
         .li-meta.warn{color:#b45309;border-color:#fde68a;background:#fffbeb;}
         .li-meta.bad{color:#b91c1c;border-color:#fecaca;background:#fef2f2;}
         .li-meta.neutral{color:#64748b;border-color:#e2e8f0;}
+        .browning{margin-left:5px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#0369a1;vertical-align:middle;}
         .empty{color:#94a3b8;font-size:12px;font-style:italic;margin:0;}
         .foot{margin-top:28px;border-top:1px solid #e2e8f0;padding-top:10px;color:#94a3b8;font-size:10px;}
         @media print{body{padding:9mm;}}
@@ -196,7 +208,7 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
       ${goalCard}
       ${
         freshHtml
-          ? `<section class="card"><div class="card-h">Fresh outreach (${current.freshOutreaches.length})</div><div class="card-b">${freshHtml}</div></section>`
+          ? `<section class="card"><div class="card-h">Fresh outreach (${current.freshOutreaches.length})</div><div class="card-b"><p class="sub" style="margin-bottom:10px;">${escHtml(FRESH_OUTREACH_DEFINITION)}</p>${freshHtml}</div></section>`
           : ""
       }
       <section class="card">
@@ -380,18 +392,39 @@ function PathStat({
   );
 }
 
-/** Introduction path as a breadcrumb, e.g. Barbara → Libby → Will. */
-function referralChainLabel(r: NsReferral): string {
-  const chain =
-    r.referralChain?.length > 0
-      ? r.referralChain
-      : r.referredBy
-        ? [r.referredBy, r.name]
-        : [r.name];
-  return chain.join(" → ");
+function referralChainParts(r: NsReferral): { names: string[]; browning: boolean[] } {
+  if (r.referralChain?.length > 0) {
+    return {
+      names: r.referralChain,
+      browning: r.chainBrowning ?? r.referralChain.map(() => false),
+    };
+  }
+  const names = r.referredBy ? [r.referredBy, r.name] : [r.name];
+  const browning = names.map((_, i) => i === names.length - 1 && r.browning);
+  return { names, browning };
 }
 
-function ReferralBreadcrumb({ chain }: { chain: string[] }) {
+/** Introduction path as a breadcrumb, e.g. Barbara → Libby → Will. */
+function referralChainHtml(r: NsReferral): string {
+  const { names, browning } = referralChainParts(r);
+  return names
+    .map((name, i) => {
+      const weight = i === names.length - 1 ? "font-weight:700;" : "";
+      const mark = browning[i]
+        ? ' <span class="browning">Browning</span>'
+        : "";
+      return `<span style="${weight}">${escHtml(name)}${mark}</span>`;
+    })
+    .join(" → ");
+}
+
+function ReferralBreadcrumb({
+  chain,
+  browning,
+}: {
+  chain: string[];
+  browning?: boolean[];
+}) {
   if (chain.length === 0) return null;
   return (
     <p className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-[13px] leading-snug text-foreground/90">
@@ -404,8 +437,15 @@ function ReferralBreadcrumb({ chain }: { chain: string[] }) {
                 →
               </span>
             ) : null}
-            <span className={isLast ? "font-semibold text-foreground" : undefined}>
+            <span
+              className={
+                isLast
+                  ? "inline-flex items-baseline font-semibold text-foreground"
+                  : "inline-flex items-baseline"
+              }
+            >
               {name}
+              {browning?.[i] ? <BrowningBadge /> : null}
             </span>
           </span>
         );
@@ -515,8 +555,7 @@ function FreshOutreachPanel({
         Fresh outreach ({rows.length})
       </p>
       <p className="mb-2 text-[11px] text-muted-foreground">
-        People you hadn&rsquo;t contacted in 30+ days — email, LinkedIn, etc.
-        The start of the path to a meeting and a referral.
+        {FRESH_OUTREACH_DEFINITION}
       </p>
       <ul className="divide-y divide-border/50 rounded-lg border border-border">
         {rows.map((r) => (
@@ -533,7 +572,10 @@ function FreshOutreachPanel({
               className="flex w-full flex-col gap-0.5 px-3 py-2.5 text-left text-sm hover:bg-muted/40"
             >
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                <span className="font-semibold text-foreground">{r.name}</span>
+                <span className="inline-flex items-baseline font-semibold text-foreground">
+                  {r.name}
+                  {r.browning ? <BrowningBadge /> : null}
+                </span>
                 {r.firm ? (
                   <span className="text-xs text-muted-foreground">· {r.firm}</span>
                 ) : null}
@@ -583,16 +625,13 @@ function NewNetworkPanel({
           </p>
           <ul className="divide-y divide-emerald-500/20 rounded-lg border border-emerald-500/30 bg-emerald-500/5">
             {referrals.map((r) => {
-              const chain =
-                r.referralChain?.length > 0
-                  ? r.referralChain
-                  : [r.referredBy, r.name].filter(Boolean);
+              const { names, browning } = referralChainParts(r);
               return (
                 <li
                   key={r.id}
                   className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-3 py-2.5 text-sm"
                 >
-                  <ReferralBreadcrumb chain={chain} />
+                  <ReferralBreadcrumb chain={names} browning={browning} />
                   {r.firm ? (
                     <span className="text-xs text-muted-foreground">· {r.firm}</span>
                   ) : null}
@@ -632,7 +671,10 @@ function NewNetworkPanel({
                 key={c.id}
                 className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-3 py-1.5 text-sm"
               >
-                <span className="font-medium text-foreground">{c.name}</span>
+                <span className="inline-flex items-baseline font-medium text-foreground">
+                  {c.name}
+                  {c.browning ? <BrowningBadge /> : null}
+                </span>
                 {c.firm ? (
                   <span className="text-xs text-muted-foreground">· {c.firm}</span>
                 ) : null}
@@ -812,8 +854,11 @@ function freshOutreachHtml(w: WeekActivity): string {
       const badge = r.ledToMeeting
         ? ` <span class="li-meta ok">→ meeting</span>`
         : "";
+      const browning = r.browning
+        ? ' <span class="browning">Browning</span>'
+        : "";
       return `<li>
-        <span class="li-main"><b>${escHtml(r.name)}</b>${r.firm ? ` <span class="muted">&middot; ${escHtml(r.firm)}</span>` : ""} <span class="muted" style="font-size:11px;">· ${meta}</span>${badge}</span>
+        <span class="li-main"><b>${escHtml(r.name)}</b>${browning}${r.firm ? ` <span class="muted">&middot; ${escHtml(r.firm)}</span>` : ""} <span class="muted" style="font-size:11px;">· ${meta}</span>${badge}</span>
       </li>`;
     })
     .join("");
@@ -826,7 +871,7 @@ function newNetworkHtml(w: WeekActivity): string {
   if (w.newReferrals.length === 0 && alsoAdded.length === 0) return "";
   const referralRows = w.newReferrals
     .map((r) => {
-      const chain = escHtml(referralChainLabel(r));
+      const chain = referralChainHtml(r);
       return `<li>
         <span class="li-main" style="font-size:13px;">${chain}${r.firm ? ` <span class="muted">&middot; ${escHtml(r.firm)}</span>` : ""} <span class="muted" style="font-size:11px;">· ${escHtml(fmtShort(r.referredAt))}</span></span>
       </li>`;
@@ -835,7 +880,10 @@ function newNetworkHtml(w: WeekActivity): string {
   const alsoRows = alsoAdded
     .map((c) => {
       const rank = tierDegreeLabel(c.tier, c.degree);
-      return `<li><span class="li-main"><b>${escHtml(c.name)}</b>${c.firm ? ` <span class="muted">&middot; ${escHtml(c.firm)}</span>` : ""}</span>${rank ? `<span class="li-meta">${escHtml(rank)}</span>` : ""}</li>`;
+      const browning = c.browning
+        ? ' <span class="browning">Browning</span>'
+        : "";
+      return `<li><span class="li-main"><b>${escHtml(c.name)}</b>${browning}${c.firm ? ` <span class="muted">&middot; ${escHtml(c.firm)}</span>` : ""}</span>${rank ? `<span class="li-meta">${escHtml(rank)}</span>` : ""}</li>`;
     })
     .join("");
   return `${
@@ -862,7 +910,7 @@ function newRepeatHtml(w: WeekActivity): string {
     .filter((c) => c.isFirstContact && !seen.has(c.contactId) && seen.add(c.contactId))
     .map((c) => {
       const rank = tierDegreeLabel(c.tier, c.degree);
-      return `<li><span class="li-main"><b>${escHtml(c.name)}</b>${c.firm ? ` <span class="muted">&middot; ${escHtml(c.firm)}</span>` : ""}</span>${rank ? `<span class="li-meta">${escHtml(rank)}</span>` : ""}</li>`;
+      return `<li><span class="li-main"><b>${escHtml(c.name)}</b>${c.browning ? ' <span class="browning">Browning</span>' : ""}${c.firm ? ` <span class="muted">&middot; ${escHtml(c.firm)}</span>` : ""}</span>${rank ? `<span class="li-meta">${escHtml(rank)}</span>` : ""}</li>`;
     })
     .join("");
   return `<div class="nr-legend">
@@ -1038,11 +1086,7 @@ function WeekHeatmap({
                     isFirstContact={c.isFirstContact}
                     priorContactCount={c.priorContactCount}
                   />
-                  {c.browning ? (
-                    <span className="shrink-0 rounded-full border border-border bg-muted px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-muted-foreground">
-                      Browning
-                    </span>
-                  ) : null}
+                  {c.browning ? <BrowningBadge /> : null}
                 </button>
               </li>
             ))}
@@ -1104,7 +1148,10 @@ function NewRepeatSummary({ conversations }: { conversations: NsConversation[] }
                 className="flex items-baseline justify-between gap-2 px-3 py-1.5 text-xs"
               >
                 <span className="min-w-0">
-                  <span className="font-medium text-foreground">{c.name}</span>
+                  <span className="inline-flex items-baseline font-medium text-foreground">
+                    {c.name}
+                    {c.browning ? <BrowningBadge /> : null}
+                  </span>
                   {c.firm ? (
                     <span className="text-muted-foreground"> · {c.firm}</span>
                   ) : null}

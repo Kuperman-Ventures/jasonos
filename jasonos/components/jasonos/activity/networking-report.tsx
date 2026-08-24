@@ -59,6 +59,26 @@ const noneStyle: React.CSSProperties = {
   margin: 0,
 };
 
+const FRESH_OUTREACH_DEFINITION =
+  "First contact this week, or first contact in 90+ days. Follow-ups with people already in motion don't count.";
+
+function BrowningMark() {
+  return (
+    <span
+      style={{
+        marginLeft: 8,
+        fontSize: 11,
+        fontWeight: 600,
+        letterSpacing: "0.1em",
+        textTransform: "uppercase",
+        color: "var(--color-accent-700)",
+      }}
+    >
+      Browning
+    </span>
+  );
+}
+
 function plural(n: number, one: string, many: string): string {
   return n === 1 ? one : many;
 }
@@ -123,8 +143,7 @@ function OutreachList({ rows }: { rows: ReportOutreach[] }) {
   if (rows.length === 0)
     return (
       <p style={noneStyle}>
-        No fresh outreach this week. Only people you hadn&rsquo;t contacted in
-        90+ days count here — ongoing follow-ups stay off this list.
+        No fresh outreach this week. {FRESH_OUTREACH_DEFINITION}
       </p>
     );
   return (
@@ -144,7 +163,10 @@ function OutreachList({ rows }: { rows: ReportOutreach[] }) {
             alignItems: "baseline",
           }}
         >
-          <span style={{ fontSize: 16, fontWeight: 600 }}>{o.name}</span>
+          <span style={{ fontSize: 16, fontWeight: 600 }}>
+            {o.name}
+            {o.browning ? <BrowningMark /> : null}
+          </span>
           <span
             style={{
               fontSize: 13,
@@ -190,6 +212,7 @@ function MeetingRecord({ m }: { m: ReportMeeting }) {
     >
       <div style={{ fontSize: 16, fontWeight: 600 }}>
         {m.name}
+        {m.browning ? <BrowningMark /> : null}
         {m.company ? ` \u00b7 ${m.company}` : ""}{" "}
         <span
           style={{
@@ -342,7 +365,10 @@ function UpcomingMeetingsSection({
                   alignItems: "baseline",
                 }}
               >
-                <span style={{ fontSize: 16, fontWeight: 600 }}>{m.name}</span>
+                <span style={{ fontSize: 16, fontWeight: 600 }}>
+                  {m.name}
+                  {m.browning ? <BrowningMark /> : null}
+                </span>
                 <span
                   style={{
                     fontSize: 13,
@@ -392,7 +418,10 @@ function AddedList({ rows }: { rows: ReportAddedContact[] }) {
             gap: 12,
           }}
         >
-          <span style={{ fontSize: 16 }}>{a.name}</span>
+          <span style={{ fontSize: 16 }}>
+            {a.name}
+            {a.browning ? <BrowningMark /> : null}
+          </span>
           {a.ranking ? (
             <span style={{ fontSize: 13, color: "var(--color-neutral-600)" }}>
               {a.ranking}
@@ -424,6 +453,7 @@ function ReferralRecord({ r }: { r: ReportReferral }) {
         }}
       >
         {r.name}
+        {r.browning ? <BrowningMark /> : null}
       </div>
       <div
         style={{
@@ -460,7 +490,10 @@ function ReferralRecord({ r }: { r: ReportReferral }) {
           {r.chain.map((n, i) => (
             <React.Fragment key={i}>
               {i > 0 ? " \u2192 " : ""}
-              <span style={{ color: "var(--color-text)" }}>{n}</span>
+              <span style={{ color: "var(--color-text)" }}>
+                {n}
+                {r.chainBrowning[i] ? <BrowningMark /> : null}
+              </span>
             </React.Fragment>
           ))}
         </div>
@@ -733,7 +766,18 @@ export function NetworkingReportView({ report }: { report: NetworkingReport }) {
               }}
             >
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <h2 style={sectionHeadStyle}>Fresh outreach</h2>
+                <div>
+                  <h2 style={sectionHeadStyle}>Fresh outreach</h2>
+                  <p
+                    style={{
+                      fontSize: 13,
+                      color: "var(--color-neutral-700)",
+                      margin: "8px 0 0",
+                    }}
+                  >
+                    {FRESH_OUTREACH_DEFINITION}
+                  </p>
+                </div>
                 <OutreachList rows={report.outreach} />
               </div>
               {report.isCurrentWeek ? (

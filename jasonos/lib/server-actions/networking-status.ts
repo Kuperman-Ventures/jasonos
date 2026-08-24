@@ -41,6 +41,22 @@ const WEEKLY_OUTREACH_GOAL = 10;
 // fresh-outreach goal and for flagging referrals that still need follow-up.
 const FRESH_WINDOW_DAYS = 90;
 
+const BROWNING_SOURCE_NAME = "browning";
+const REFERRAL_SOURCE_TAG = "referral_source";
+
+/** The named "Browning" referral-source contact, if one exists. */
+function findBrowningSourceId(
+  rows: Iterable<{ id: string; name: string; tags: string[] | null }>
+): string | null {
+  let fallback: string | null = null;
+  for (const r of rows) {
+    if (r.name.trim().toLowerCase() !== BROWNING_SOURCE_NAME) continue;
+    if ((r.tags ?? []).includes(REFERRAL_SOURCE_TAG)) return r.id;
+    if (!fallback) fallback = r.id;
+  }
+  return fallback;
+}
+
 function emptyFunnel(): WeekFunnel {
   return {
     reachedOut: 0,
@@ -81,6 +97,8 @@ export interface NsNewContact {
   degree: NetworkDegree | null;
   /** Who introduced you to this contact, when recorded. */
   referredBy: string | null;
+  /** True when Browning (the referral source) introduced this person. */
+  browning: boolean;
 }
 
 export interface NsReferral {
@@ -99,6 +117,10 @@ export interface NsReferral {
    * person, e.g. ["Barbara Piermont", "Libby Topel", "Will Duffy"].
    */
   referralChain: string[];
+  /** True when Browning (the referral source) introduced this person. */
+  browning: boolean;
+  /** Parallel to referralChain — true when that person is a Browning contact. */
+  chainBrowning: boolean[];
 }
 
 /** A named fresh outreach this week — the people behind the funnel count.
@@ -113,6 +135,8 @@ export interface NsFreshOutreach {
   degree: NetworkDegree | null;
   /** True when this fresh outreach also had a call/meeting this week. */
   ledToMeeting: boolean;
+  /** True when Browning (the referral source) introduced this person. */
+  browning: boolean;
 }
 
 /** Job applications (NYUI work searches) logged inside this reporting week.
@@ -285,7 +309,6 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
   const [
     people,
     touchesRes,
-    browningIdsRes,
     contactsRes,
     referralsRes,
     workSearchRes,
@@ -297,7 +320,6 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
       .select("id,contact_id,channel,direction,touched_at,brief,outcome")
       .order("touched_at", { ascending: false })
       .limit(8000),
-    sb.from("contacts").select("id").eq("browning_source", true),
     sb
       .from("contacts")
       .select("id,name,tags,relevance_tier,network_degree,created_at,intent,company_id,is_networking,referred_by_contact_id,referred_at")
@@ -315,9 +337,6 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
   ]);
 
   const touches = touchesRes.data ?? [];
-  const browningIds = new Set(
-    (browningIdsRes.data ?? []).map((r) => r.id as string)
-  );
   const peopleById = new Map(people.map((p) => [p.id, p]));
   // Prefer the contacts-table intent (source of truth for Growth / Cold /
   // Maintenance) over any derived outreach view.
@@ -413,6 +432,16 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     );
   }
 
+  const browningSourceId = findBrowningSourceId(
+    (contactsRes.data ?? []).map((c) => ({
+      id: c.id as string,
+      name: (c.name as string) ?? "",
+      tags: (c.tags as string[] | null) ?? null,
+    }))
+  );
+  const isBrowningContact = (cid: string): boolean =>
+    !!browningSourceId && referredById.get(cid) === browningSourceId;
+
   /**
    * Introduction breadcrumb IDs ending at this person (Degree-1 root → … → tip).
    * Stops at the Degree-1 root — same scope as the names shown in the UI.
@@ -435,11 +464,6 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     }
     return ids;
   };
-
-  const referralChainFor = (contactId: string): string[] =>
-    referralChainIdsFor(contactId).map(
-      (id) => contactNameById.get(id) ?? "Unknown"
-    );
 
   // Ensure every week bucket exists lazily.
   const weeks = new Map<string, WeekActivity>();
@@ -518,6 +542,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
             tier: tp?.relevance_tier ?? null,
             degree: tp?.network_degree ?? null,
             ledToMeeting: false,
+            browning: isBrowningContact(cid),
           });
         }
       }
@@ -548,7 +573,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
         channel: ch,
         brief: (t.brief as string | null) ?? null,
         outcome: (t.outcome as string | null) ?? null,
-        browning: browningIds.has(cid),
+        browning: isBrowningContact(cid),
         tier: p?.relevance_tier ?? null,
         degree: p?.network_degree ?? null,
         isFirstContact,
@@ -580,6 +605,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
       tier: (c.relevance_tier as RelevanceTier | null) ?? null,
       degree: (c.network_degree as NetworkDegree | null) ?? null,
       referredBy: referrerId ? contactNameById.get(referrerId) ?? null : null,
+      browning: isBrowningContact(c.id as string),
     });
     wk.stats.newContacts += 1;
 
@@ -630,6 +656,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
       const referrerId = c.referred_by_contact_id as string;
       const referredBy = contactNameById.get(referrerId)!;
       const p = peopleById.get(id);
+      const chainIds = referralChainIdsFor(id);
       wk.newReferrals.push({
         id,
         name: (c.name as string) ?? "Unknown",
@@ -644,7 +671,11 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
         tier: (c.relevance_tier as RelevanceTier | null) ?? null,
         degree: (c.network_degree as NetworkDegree | null) ?? null,
         referrerDegree: contactDegreeById.get(referrerId) ?? null,
-        referralChain: referralChainFor(id),
+        referralChain: chainIds.map(
+          (cid) => contactNameById.get(cid) ?? "Unknown"
+        ),
+        browning: isBrowningContact(id),
+        chainBrowning: chainIds.map((cid) => isBrowningContact(cid)),
       });
     }
     wk.newReferrals.sort((a, b) =>
@@ -892,6 +923,8 @@ export interface ReportOutreach {
   date: string; // "Jul 22"
   /** Buyer / Buyer · Referrer / Referrer, if classified. */
   role: string | null;
+  /** True when Browning (the referral source) introduced this person. */
+  browning: boolean;
 }
 
 export interface ReportMeeting {
@@ -901,6 +934,8 @@ export interface ReportMeeting {
   medium: string;
   notes: string | null;
   referralsProduced: number;
+  /** True when Browning (the referral source) introduced this person. */
+  browning: boolean;
 }
 
 export interface ReportUpcomingMeeting {
@@ -910,6 +945,8 @@ export interface ReportUpcomingMeeting {
   medium: string;
   date: string; // "Aug 3"
   time: string; // "2:00 PM"
+  /** True when Browning (the referral source) introduced this person. */
+  browning: boolean;
 }
 
 export interface ReportReferral {
@@ -925,12 +962,18 @@ export interface ReportReferral {
   date: string; // "Jul 26"
   /** Buyer / Buyer · Referrer / Referrer, if classified. */
   role: string | null;
+  /** True when Browning (the referral source) introduced this person. */
+  browning: boolean;
+  /** Parallel to chain — true when that introducer is a Browning contact. */
+  chainBrowning: boolean[];
 }
 
 export interface ReportAddedContact {
   contactId: string;
   name: string;
   ranking: string | null; // e.g. "A1"
+  /** True when Browning (the referral source) introduced this person. */
+  browning: boolean;
 }
 
 export interface ReportApplication {
@@ -1112,6 +1155,16 @@ export async function getNetworkingReport(opts?: {
     });
   }
 
+  const browningSourceId = findBrowningSourceId(
+    [...contactById.entries()].map(([id, c]) => ({
+      id,
+      name: c.name,
+      tags: c.tags,
+    }))
+  );
+  const isBrowningContact = (cid: string): boolean =>
+    !!browningSourceId && contactById.get(cid)?.referredBy === browningSourceId;
+
   const roleLabelForContact = (cid: string): string | null => {
     const r = contactById.get(cid)?.role ?? null;
     return r ? NETWORK_ROLE_SHORT[r] : null;
@@ -1218,6 +1271,7 @@ export async function getNetworkingReport(opts?: {
       channel: channelLabel(latest.ch),
       date: shortDate(latestYmd),
       role: roleLabelForContact(cid),
+      browning: isBrowningContact(cid),
       raw: latestYmd,
     });
   }
@@ -1230,6 +1284,7 @@ export async function getNetworkingReport(opts?: {
     channel: o.channel,
     date: o.date,
     role: o.role,
+    browning: o.browning,
   }));
 
   // ── 2. MEETINGS — who was met/spoken with this week. Built from conversation
@@ -1264,6 +1319,7 @@ export async function getNetworkingReport(opts?: {
       medium: channelLabel(rec?.channel ?? latest.ch),
       notes: rec?.notes ?? latest.note,
       referralsProduced: referredByCountThisWeek.get(cid) ?? 0,
+      browning: isBrowningContact(cid),
       raw: latest.ts,
     });
   }
@@ -1277,6 +1333,7 @@ export async function getNetworkingReport(opts?: {
       medium: channelLabel(rec.channel),
       notes: rec.notes,
       referralsProduced: referredByCountThisWeek.get(cid) ?? 0,
+      browning: isBrowningContact(cid),
       raw: rec.heldAt,
     });
   }
@@ -1289,6 +1346,7 @@ export async function getNetworkingReport(opts?: {
     medium: m.medium,
     notes: m.notes,
     referralsProduced: m.referralsProduced,
+    browning: m.browning,
   }));
 
   // ── UPCOMING MEETINGS — only on the current week (they're "from now").
@@ -1329,6 +1387,7 @@ export async function getNetworkingReport(opts?: {
         medium: channelLabel(u.channel),
         date,
         time,
+        browning: isBrowningContact(u.contactId),
       });
     }
     report.upcomingMeetings = upcoming;
@@ -1391,6 +1450,8 @@ export async function getNetworkingReport(opts?: {
       followUpActioned: false,
       date: shortDate(refAt),
       role: roleLabelForContact(id),
+      browning: isBrowningContact(id),
+      chainBrowning: chain.ids.map((chainId) => isBrowningContact(chainId)),
       sortDays,
     });
   }
@@ -1405,6 +1466,8 @@ export async function getNetworkingReport(opts?: {
     followUpActioned: r.followUpActioned,
     date: r.date,
     role: r.role,
+    browning: r.browning,
+    chainBrowning: r.chainBrowning,
   }));
 
   // Referral tally (all time) + strongest connector.
@@ -1447,7 +1510,12 @@ export async function getNetworkingReport(opts?: {
     if (!inWeek(c.createdAt ? tsToLocalYmd(c.createdAt) : null)) continue;
     if (c.intent === "backrow" || c.intent === "network_maintenance") continue;
     const rk = `${c.tier ?? ""}${c.degree ?? ""}`.trim();
-    added.push({ contactId: id, name: c.name, ranking: rk || null });
+    added.push({
+      contactId: id,
+      name: c.name,
+      ranking: rk || null,
+      browning: isBrowningContact(id),
+    });
   }
   added.sort((a, b) => a.name.localeCompare(b.name));
   report.addedWithoutIntro = added;

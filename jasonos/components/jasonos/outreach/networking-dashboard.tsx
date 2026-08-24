@@ -21,23 +21,39 @@ function weekHref(weekStart: string): string {
   return `/outreach/dashboard?week=${weekStart}`;
 }
 
+const FRESH_OUTREACH_DEFINITION =
+  "First contact this week, or first contact in 90+ days. Follow-ups with people already in motion don't count.";
+
+function BrowningMark() {
+  return (
+    <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wider text-sky-400/90">
+      Browning
+    </span>
+  );
+}
+
 function ContactName({
   id,
   name,
   onOpen,
+  browning,
 }: {
   id: string;
   name: string;
   onOpen: (id: string, name: string) => void;
+  browning?: boolean;
 }) {
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(id, name)}
-      className="font-medium text-sky-300 underline decoration-sky-400/30 underline-offset-2 hover:text-sky-200 hover:decoration-sky-300"
-    >
-      {name}
-    </button>
+    <span className="inline-flex flex-wrap items-baseline">
+      <button
+        type="button"
+        onClick={() => onOpen(id, name)}
+        className="font-medium text-sky-300 underline decoration-sky-400/30 underline-offset-2 hover:text-sky-200 hover:decoration-sky-300"
+      >
+        {name}
+      </button>
+      {browning ? <BrowningMark /> : null}
+    </span>
   );
 }
 
@@ -208,11 +224,11 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
           title="Fresh outreach"
           hint={`${report.outreach.length}`}
         >
+          <p className="mb-3 text-[12px] text-muted-foreground">
+            {FRESH_OUTREACH_DEFINITION}
+          </p>
           {report.outreach.length === 0 ? (
-            <Empty>
-              No fresh outreach this week. Only people you hadn&rsquo;t contacted
-              in 90+ days count — ongoing follow-ups stay off this list.
-            </Empty>
+            <Empty>No fresh outreach this week.</Empty>
           ) : (
             <ul className="divide-y divide-border">
               {report.outreach.map((o) => (
@@ -221,7 +237,12 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
                   className="flex items-baseline justify-between gap-3 py-2.5 text-sm first:pt-0 last:pb-0"
                 >
                   <div className="min-w-0">
-                    <ContactName id={o.contactId} name={o.name} onOpen={open} />
+                    <ContactName
+                      id={o.contactId}
+                      name={o.name}
+                      onOpen={open}
+                      browning={o.browning}
+                    />
                     {(o.company || o.role) && (
                       <p className="truncate text-[12px] text-muted-foreground">
                         {o.company}
@@ -261,6 +282,7 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
                         id={m.contactId}
                         name={m.name}
                         onOpen={open}
+                        browning={m.browning}
                       />
                       <p className="truncate text-[12px] text-muted-foreground">
                         {[m.company, m.medium, m.time].filter(Boolean).join(" · ")}
@@ -299,7 +321,12 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
                   className="rounded-lg border-l-2 border-sky-400/40 pl-3"
                 >
                   <div className="text-sm">
-                    <ContactName id={m.contactId} name={m.name} onOpen={open} />
+                    <ContactName
+                      id={m.contactId}
+                      name={m.name}
+                      onOpen={open}
+                      browning={m.browning}
+                    />
                     {m.company ? (
                       <span className="text-muted-foreground">
                         {" "}
@@ -342,7 +369,12 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
                   className="flex items-baseline justify-between gap-3 py-2.5 text-sm first:pt-0 last:pb-0"
                 >
                   <div className="min-w-0">
-                    <ContactName id={r.contactId} name={r.name} onOpen={open} />
+                    <ContactName
+                      id={r.contactId}
+                      name={r.name}
+                      onOpen={open}
+                      browning={r.browning}
+                    />
                     {r.company || r.role ? (
                       <p className="truncate text-[12px] text-muted-foreground">
                         {r.company}
@@ -363,9 +395,13 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
                                 id={r.chainIds[i]}
                                 name={n}
                                 onOpen={open}
+                                browning={r.chainBrowning[i]}
                               />
                             ) : (
-                              n
+                              <span>
+                                {n}
+                                {r.chainBrowning[i] ? <BrowningMark /> : null}
+                              </span>
                             )}
                           </span>
                         ))}
@@ -429,7 +465,7 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
                   key={a.contactId}
                   className="flex items-baseline justify-between gap-3 py-2 text-sm first:pt-0 last:pb-0"
                 >
-                  <ContactName id={a.contactId} name={a.name} onOpen={open} />
+                  <ContactName id={a.contactId} name={a.name} onOpen={open} browning={a.browning} />
                   {a.ranking ? (
                     <span className="text-[11px] text-muted-foreground">
                       {a.ranking}
