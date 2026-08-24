@@ -352,6 +352,12 @@ function firstMarkdownUrl(line: string): { label: string; url: string } | null {
   return { label: m.label, url: m.url };
 }
 
+/** Best outbound link for a digest story — title link first, then any link in the summary. */
+export function newsletterStoryUrl(story: NewsletterStory): string | null {
+  if (story.url) return story.url;
+  return firstMarkdownUrl(story.summary)?.url ?? null;
+}
+
 export function parseNewsletterStory(raw: string): NewsletterStory | null {
   const line = raw.replace(/^[-*+]\s+/, "").replace(/^\d+\.\s+/, "").trim();
   if (!line) return null;
@@ -547,21 +553,39 @@ function bulletsAndParas(body: string): { bullets: string[]; body: string } {
 
 function topicItems(body: string): string[] {
   const items: string[] = [];
+  let current: string | null = null;
+
+  const flush = () => {
+    if (current) {
+      items.push(stripMdInline(current));
+      current = null;
+    }
+  };
+
   for (const raw of body.split("\n")) {
     const line = raw.trim();
     if (!line) continue;
     if (/^[-*_]{3,}$/.test(line)) continue;
-    if (matchAtxTopicHeader(line) || matchItalicHeader(line)) continue;
+    if (matchAtxTopicHeader(line) || matchItalicHeader(line)) {
+      flush();
+      continue;
+    }
     if (/^[-*]\s+/.test(line)) {
-      items.push(stripMdInline(line.replace(/^[-*]\s+/, "")));
+      flush();
+      current = line.replace(/^[-*]\s+/, "");
       continue;
     }
     const numbered = line.match(/^\d+\.\s+(.+)$/);
     if (numbered) {
-      items.push(stripMdInline(numbered[1]));
+      flush();
+      current = numbered[1];
       continue;
     }
-    // Skip intro chrome ("Digest below.") unless it looks like a story.
+    if (current) {
+      current = `${current} ${line}`;
+      continue;
+    }
+    // Standalone story line (no leading bullet).
     if (
       /https?:\/\//.test(line) ||
       /\[[^\]]+\]\(https?:/.test(line) ||
@@ -570,6 +594,7 @@ function topicItems(body: string): string[] {
       items.push(stripMdInline(line));
     }
   }
+  flush();
   return items;
 }
 
