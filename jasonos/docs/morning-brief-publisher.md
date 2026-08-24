@@ -43,8 +43,10 @@ Home always shows three newsletter columns, in this order:
 3. AI in marketing and advertising
 
 Use those exact `###` headings. Each bullet is **one story**: markdown link,
-em-dash, then the full summary. Home shows a short teaser on the card; click
-opens the full summary.
+em-dash, then a **multi-sentence summary** (roughly 2–4 sentences — the card
+shows only the first sentence as a teaser; click opens the full summary in a
+modal). Always put the **article URL on the title link**, not buried only in
+the summary body, so Home can offer “Open article in browser.”
 
 Older publisher headings still map:
 

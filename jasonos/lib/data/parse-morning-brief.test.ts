@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseMorningBrief } from "./parse-morning-brief.ts";
+import { parseMorningBrief, parseNewsletterStory, newsletterStoryUrl } from "./parse-morning-brief.ts";
 
 const EID =
   "https://www.google.com/calendar/event?eid=abc123 calendar@example.com&ctz=America/New_York";
@@ -78,5 +78,32 @@ describe("parseMorningBrief calendar", () => {
       calendarMd(`- **10:00 AM–12:00 PM** — [Follow-up Notes](${EID})`)
     );
     assert.equal(parsed.calendar[0]?.time, "10:00 AM–12:00 PM");
+  });
+});
+
+describe("parseMorningBrief newsletter", () => {
+  it("joins continuation lines into one story summary", () => {
+    const parsed = parseMorningBrief(`# Morning Brief
+
+## Newsletter Digest
+
+### AI in general
+
+- [Ford rehired grey beards](https://example.com/ford) — Ford cut roles, then rehired veterans.
+  IKEA retrained 8,500 staff instead of cutting. One line to steal: nothing kills adoption faster than an outsider who is too good at their job.
+`);
+    const story = parsed.newsletters[1]?.stories[0];
+    assert.ok(story);
+    assert.match(story!.summary, /IKEA retrained/);
+    assert.ok(story!.summary.length > story!.teaser.length + 20);
+  });
+
+  it("newsletterStoryUrl falls back to a link inside the summary", () => {
+    const story = parseNewsletterStory(
+      "[Hugging Face sale](https://example.com/hf) — last valued at $4.5B. Also see [IPO dud](https://example.com/ipo)."
+    );
+    assert.ok(story);
+    assert.equal(story!.url, "https://example.com/hf");
+    assert.equal(newsletterStoryUrl(story!), "https://example.com/hf");
   });
 });
