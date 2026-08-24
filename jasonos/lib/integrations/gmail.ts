@@ -8,6 +8,7 @@ import { isFromMe, isMyOwnAddress } from "@/lib/outreach/email-matching";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import {
   looksLikeOutlookWrap,
+  parseForwardedMailDate,
   unwrapOutlookForward,
 } from "@/lib/integrations/unwrap-forwarded-mail";
 import { pickJobListingUrl } from "@/lib/integrations/job-listing-urls";
@@ -197,7 +198,7 @@ async function fetchOvernightRepliesForToken(
     if (!mapped.from || isFromMe(mapped.from)) continue;
     const from = parseFrom(mapped.from);
     if (!from.email || isMyOwnAddress(from.email)) continue;
-    const ts = d.internalDate ? Number(d.internalDate) : Date.now();
+    const ts = messageCommunicationTimeMs(mapped);
     const snippet = (mapped.plaintextBody || mapped.snippet || "")
       .replace(/\s+/g, " ")
       .trim()
@@ -345,8 +346,7 @@ async function listCounterpartiesForToken(
     const mapped = mapGmailMessage(d);
     const fromHeader = mapped.from ?? "";
     const subject = mapped.subject ?? undefined;
-    const ts = d.internalDate ? Number(d.internalDate) : Date.now();
-    const dateIso = new Date(ts).toISOString();
+    const dateIso = messageCommunicationIso(mapped);
     const invite =
       isCalendarProxyAddress(parseFrom(fromHeader).email) ||
       isCalendarInviteSubject(subject);
@@ -661,6 +661,20 @@ async function hydrateOutlookWraps(
   return out;
 }
 
+/** Prefer RFC Date / unwrapped original Sent over Gmail internalDate (sync time). */
+export function messageCommunicationTimeMs(msg: GmailThreadMessage): number {
+  if (msg.date) {
+    const fromHeader = new Date(msg.date).getTime();
+    if (Number.isFinite(fromHeader)) return fromHeader;
+  }
+  if (msg.internalDate) return msg.internalDate;
+  return Date.now();
+}
+
+export function messageCommunicationIso(msg: GmailThreadMessage): string {
+  return new Date(messageCommunicationTimeMs(msg)).toISOString();
+}
+
 function mapGmailMessage(message: GmailMsgResp): GmailThreadMessage {
   const get = (name: string) => headerValue(message, name);
   const internalDate = message.internalDate ? Number(message.internalDate) : undefined;
@@ -692,12 +706,17 @@ function mapGmailMessage(message: GmailMsgResp): GmailThreadMessage {
   });
   if (!unwrapped) return mapped;
 
+  const originalDate = parseForwardedMailDate(unwrapped.date);
+  const communicationDate = originalDate?.toISOString() ?? mapped.date;
+
   return {
     ...mapped,
     from: unwrapped.from,
     to: unwrapped.to ?? mapped.to,
     cc: unwrapped.cc ?? mapped.cc,
     subject: unwrapped.subject ?? mapped.subject,
+    date: communicationDate,
+    internalDate: originalDate?.getTime() ?? mapped.internalDate,
     plaintextBody: unwrapped.body || mapped.plaintextBody,
   };
 }

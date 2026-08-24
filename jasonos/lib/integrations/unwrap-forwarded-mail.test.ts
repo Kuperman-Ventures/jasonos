@@ -4,6 +4,7 @@ import {
   htmlToPlaintext,
   looksLikeOutlookWrap,
   parseForwardedContent,
+  parseForwardedMailDate,
   stripForwardPrefixes,
   unwrapOutlookForward,
 } from "./unwrap-forwarded-mail.ts";
@@ -47,6 +48,25 @@ describe("stripForwardPrefixes", () => {
   });
 });
 
+describe("parseForwardedMailDate", () => {
+  it("parses Outlook Sent headers", () => {
+    const parsed = parseForwardedMailDate("Monday, August 18, 2026 3:42 PM");
+    assert.ok(parsed);
+    assert.equal(parsed.toISOString(), "2026-08-18T15:42:00.000Z");
+  });
+
+  it("parses Gmail Date headers with 'at'", () => {
+    const parsed = parseForwardedMailDate("Mon, Aug 18, 2026 at 3:42 PM");
+    assert.ok(parsed);
+    assert.equal(parsed.toISOString(), "2026-08-18T15:42:00.000Z");
+  });
+
+  it("returns null for garbage", () => {
+    assert.equal(parseForwardedMailDate(""), null);
+    assert.equal(parseForwardedMailDate("soonish"), null);
+  });
+});
+
 describe("Outlook plaintext forward", () => {
   const body = `Jason — fyi
 
@@ -81,6 +101,10 @@ Jane
     assert.match(parsed.body, /Are you free Thursday at 2pm\?/);
     assert.doesNotMatch(parsed.body, /Jason — fyi/);
     assert.doesNotMatch(parsed.body, /^From:/m);
+    assert.equal(parsed.date, "Monday, August 18, 2026 3:42 PM");
+    const sentAt = parseForwardedMailDate(parsed.date);
+    assert.ok(sentAt);
+    assert.equal(sentAt.toISOString(), "2026-08-18T15:42:00.000Z");
   });
 });
 
@@ -174,6 +198,10 @@ On Fri, Aug 15, Sam wrote:
     assert.equal(parsed.to, `Jason Kuperman <${OUTLOOK}>`);
     assert.match(parsed.body, /Sam here — numbers attached/);
     assert.match(parsed.body, /prior quote that should remain/);
+    assert.equal(parsed.date, "Mon, Aug 18, 2026 at 3:42 PM");
+    const sentAt = parseForwardedMailDate(parsed.date);
+    assert.ok(sentAt);
+    assert.equal(sentAt.toISOString(), "2026-08-18T15:42:00.000Z");
   });
 });
 

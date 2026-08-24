@@ -103,6 +103,24 @@ export function stripForwardPrefixes(subject: string): string {
   return subject.replace(/^\s*((fwd?|fw|re)\s*:\s*)+/i, "").trim();
 }
 
+/**
+ * Parse Sent/Date from an unwrapped forward header block. Outlook and Gmail use
+ * different formats; normalizes " at " (Gmail) before falling back to Date.parse.
+ */
+export function parseForwardedMailDate(
+  raw: string | undefined | null
+): Date | null {
+  const trimmed = raw?.trim();
+  if (!trimmed) return null;
+
+  const candidates = [trimmed, trimmed.replace(/\s+at\s+/i, " ")];
+  for (const value of candidates) {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  return null;
+}
+
 export function htmlToPlaintext(html: string): string {
   return decodeEntities(
     html
