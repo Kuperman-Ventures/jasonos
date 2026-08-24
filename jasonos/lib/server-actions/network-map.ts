@@ -179,6 +179,11 @@ export async function getNetworkMapData(): Promise<NetworkMapData> {
     if (isReferralSourceTag(r.tags)) involved.add(r.id);
   }
 
+  /** Contacts introduced via someone else — no direct You → person edge. */
+  const referredBySomeone = new Set(
+    referralEdges.map((e) => e.target)
+  );
+
   const outbound = new Map<string, number>();
   for (const e of referralEdges) {
     outbound.set(e.source, (outbound.get(e.source) ?? 0) + 1);
@@ -218,11 +223,12 @@ export async function getNetworkMapData(): Promise<NetworkMapData> {
     });
   }
 
-  // Soft edges from You → degree-1 people and active referral channels
-  // (Boardy / Browning when they have referred someone).
+  // Soft edges from You → degree-1 people and referral channels. Skip anyone
+  // with referred_by_contact_id — they connect only through the referral chain.
   const knowsTargets = new Set<string>();
   for (const n of nodes) {
     if (n.isYou) continue;
+    if (referredBySomeone.has(n.id)) continue;
     if (n.degree === 1 || n.isChannel) {
       knowsTargets.add(n.id);
     }

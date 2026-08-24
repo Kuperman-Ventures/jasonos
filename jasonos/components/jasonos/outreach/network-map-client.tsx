@@ -215,11 +215,9 @@ function layoutConcentric(
   const others = nodes.filter((n) => !n.isYou);
   const byName = (a: SimNode, b: SimNode) => a.name.localeCompare(b.name);
 
-  // Ring 1 roots: degree-1, channels, or anyone with no referrer in this graph.
+  // Ring 1 roots: channels and people not introduced via someone on this map.
   const ring1 = others
-    .filter(
-      (n) => n.isChannel || n.degree === 1 || !parentOf.has(n.id)
-    )
+    .filter((n) => n.isChannel || !parentOf.has(n.id))
     .sort(byName);
   const ring1Ids = new Set(ring1.map((n) => n.id));
   const angles = new Map<string, number>();

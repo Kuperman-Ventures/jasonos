@@ -47,6 +47,7 @@ function revalidate() {
   revalidatePath("/outreach/schedule");
   revalidatePath("/outreach/people");
   revalidatePath("/outreach/firms");
+  revalidatePath("/outreach/network-map");
   // Keep legacy paths working until they redirect.
   revalidatePath("/reconnect");
   revalidatePath("/reconnect/contacts");
@@ -543,6 +544,18 @@ export async function setReferredBy(
     return { ok: false, error: "A contact can't refer themselves." };
 
   const sb = createServiceRoleClient();
+
+  let networkDegree: NetworkDegree | undefined;
+  if (referrerContactId) {
+    const { data: referrer } = await sb
+      .from("contacts")
+      .select("network_degree")
+      .eq("id", referrerContactId)
+      .maybeSingle();
+    const refDeg = (referrer?.network_degree as number | null) ?? null;
+    networkDegree = refDeg ? (Math.min(refDeg + 1, 3) as NetworkDegree) : 2;
+  }
+
   const { error } = await sb
     .from("contacts")
     .update({
@@ -550,6 +563,7 @@ export async function setReferredBy(
       referred_at: referrerContactId
         ? new Date().toISOString().split("T")[0]
         : null,
+      ...(networkDegree !== undefined ? { network_degree: networkDegree } : {}),
     })
     .eq("id", contactId);
   if (error) return { ok: false, error: error.message };
