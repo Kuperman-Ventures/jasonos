@@ -559,7 +559,7 @@ export async function setReferredBy(
   return { ok: true };
 }
 
-/** Named referral channels (Browning, Boardy, The Connective, …) — real
+/** Named referral channels (Browning, Boardy, The Connective, Job Application, …) — real
  *  contact rows tagged `referral_source`, kept in backrow so they never enter
  *  the outreach queue. Shown as one-click options in the "Referred by" picker. */
 export async function getReferralSources(): Promise<

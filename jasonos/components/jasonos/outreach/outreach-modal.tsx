@@ -1448,7 +1448,7 @@ function ReferralsCard({
                 </p>
               ) : (
                 <p className="text-[11px] text-muted-foreground">
-                  Pick Browning, Boardy, or The Connective above, or type at least 2 letters to
+                  Pick Browning, Boardy, The Connective, Job Application, or type at least 2 letters to
                   search people.
                 </p>
               )}

@@ -10,6 +10,9 @@ import type {
   ReportAddedContact,
   ReportApplication,
 } from "@/lib/server-actions/networking-status";
+import {
+  ReferralSourceMarks,
+} from "@/components/jasonos/referral-source-marks";
 
 // Networking Activity Report — the single-week, print-ready "paper" document.
 // A faithful, data-wired build of the reference layout (networking-report.html):
@@ -61,23 +64,6 @@ const noneStyle: React.CSSProperties = {
 
 const FRESH_OUTREACH_DEFINITION =
   "First contact this week, or first contact in 90+ days. Follow-ups with people already in motion don't count.";
-
-function BrowningMark() {
-  return (
-    <span
-      style={{
-        marginLeft: 8,
-        fontSize: 11,
-        fontWeight: 600,
-        letterSpacing: "0.1em",
-        textTransform: "uppercase",
-        color: "var(--color-accent-700)",
-      }}
-    >
-      Browning
-    </span>
-  );
-}
 
 function plural(n: number, one: string, many: string): string {
   return n === 1 ? one : many;
@@ -165,7 +151,11 @@ function OutreachList({ rows }: { rows: ReportOutreach[] }) {
         >
           <span style={{ fontSize: 16, fontWeight: 600 }}>
             {o.name}
-            {o.browning ? <BrowningMark /> : null}
+            <ReferralSourceMarks
+              browning={o.browning}
+              jobApplication={o.jobApplication}
+              variant="print"
+            />
           </span>
           <span
             style={{
@@ -212,7 +202,11 @@ function MeetingRecord({ m }: { m: ReportMeeting }) {
     >
       <div style={{ fontSize: 16, fontWeight: 600 }}>
         {m.name}
-        {m.browning ? <BrowningMark /> : null}
+        <ReferralSourceMarks
+          browning={m.browning}
+          jobApplication={m.jobApplication}
+          variant="print"
+        />
         {m.company ? ` \u00b7 ${m.company}` : ""}{" "}
         <span
           style={{
@@ -367,7 +361,11 @@ function UpcomingMeetingsSection({
               >
                 <span style={{ fontSize: 16, fontWeight: 600 }}>
                   {m.name}
-                  {m.browning ? <BrowningMark /> : null}
+                  <ReferralSourceMarks
+          browning={m.browning}
+          jobApplication={m.jobApplication}
+          variant="print"
+        />
                 </span>
                 <span
                   style={{
@@ -420,7 +418,11 @@ function AddedList({ rows }: { rows: ReportAddedContact[] }) {
         >
           <span style={{ fontSize: 16 }}>
             {a.name}
-            {a.browning ? <BrowningMark /> : null}
+            <ReferralSourceMarks
+              browning={a.browning}
+              jobApplication={a.jobApplication}
+              variant="print"
+            />
           </span>
           {a.ranking ? (
             <span style={{ fontSize: 13, color: "var(--color-neutral-600)" }}>
@@ -453,7 +455,11 @@ function ReferralRecord({ r }: { r: ReportReferral }) {
         }}
       >
         {r.name}
-        {r.browning ? <BrowningMark /> : null}
+        <ReferralSourceMarks
+          browning={r.browning}
+          jobApplication={r.jobApplication}
+          variant="print"
+        />
       </div>
       <div
         style={{
@@ -492,7 +498,11 @@ function ReferralRecord({ r }: { r: ReportReferral }) {
               {i > 0 ? " \u2192 " : ""}
               <span style={{ color: "var(--color-text)" }}>
                 {n}
-                {r.chainBrowning[i] ? <BrowningMark /> : null}
+                <ReferralSourceMarks
+                  browning={r.chainBrowning[i]}
+                  jobApplication={r.chainJobApplication[i]}
+                  variant="print"
+                />
               </span>
             </React.Fragment>
           ))}

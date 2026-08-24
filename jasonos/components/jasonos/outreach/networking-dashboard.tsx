@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import type { NetworkingReport } from "@/lib/server-actions/networking-status";
+import { ReferralSourceMarks } from "@/components/jasonos/referral-source-marks";
 
 // Site-styled twin of the Browning Weekly Report paper. Same getNetworkingReport
 // payload — every person name opens the contact card.
@@ -24,24 +25,18 @@ function weekHref(weekStart: string): string {
 const FRESH_OUTREACH_DEFINITION =
   "First contact this week, or first contact in 90+ days. Follow-ups with people already in motion don't count.";
 
-function BrowningMark() {
-  return (
-    <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wider text-sky-400/90">
-      Browning
-    </span>
-  );
-}
-
 function ContactName({
   id,
   name,
   onOpen,
   browning,
+  jobApplication,
 }: {
   id: string;
   name: string;
   onOpen: (id: string, name: string) => void;
   browning?: boolean;
+  jobApplication?: boolean;
 }) {
   return (
     <span className="inline-flex flex-wrap items-baseline">
@@ -52,7 +47,7 @@ function ContactName({
       >
         {name}
       </button>
-      {browning ? <BrowningMark /> : null}
+      <ReferralSourceMarks browning={browning} jobApplication={jobApplication} />
     </span>
   );
 }
@@ -242,6 +237,7 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
                       name={o.name}
                       onOpen={open}
                       browning={o.browning}
+                      jobApplication={o.jobApplication}
                     />
                     {(o.company || o.role) && (
                       <p className="truncate text-[12px] text-muted-foreground">
@@ -283,6 +279,7 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
                         name={m.name}
                         onOpen={open}
                         browning={m.browning}
+                        jobApplication={m.jobApplication}
                       />
                       <p className="truncate text-[12px] text-muted-foreground">
                         {[m.company, m.medium, m.time].filter(Boolean).join(" · ")}
@@ -326,6 +323,7 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
                       name={m.name}
                       onOpen={open}
                       browning={m.browning}
+                      jobApplication={m.jobApplication}
                     />
                     {m.company ? (
                       <span className="text-muted-foreground">
@@ -374,6 +372,7 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
                       name={r.name}
                       onOpen={open}
                       browning={r.browning}
+                      jobApplication={r.jobApplication}
                     />
                     {r.company || r.role ? (
                       <p className="truncate text-[12px] text-muted-foreground">
@@ -396,11 +395,15 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
                                 name={n}
                                 onOpen={open}
                                 browning={r.chainBrowning[i]}
+                                jobApplication={r.chainJobApplication[i]}
                               />
                             ) : (
                               <span>
                                 {n}
-                                {r.chainBrowning[i] ? <BrowningMark /> : null}
+                                <ReferralSourceMarks
+                                  browning={r.chainBrowning[i]}
+                                  jobApplication={r.chainJobApplication[i]}
+                                />
                               </span>
                             )}
                           </span>
@@ -465,7 +468,13 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
                   key={a.contactId}
                   className="flex items-baseline justify-between gap-3 py-2 text-sm first:pt-0 last:pb-0"
                 >
-                  <ContactName id={a.contactId} name={a.name} onOpen={open} browning={a.browning} />
+                  <ContactName
+                    id={a.contactId}
+                    name={a.name}
+                    onOpen={open}
+                    browning={a.browning}
+                    jobApplication={a.jobApplication}
+                  />
                   {a.ranking ? (
                     <span className="text-[11px] text-muted-foreground">
                       {a.ranking}

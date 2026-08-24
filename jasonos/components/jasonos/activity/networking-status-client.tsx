@@ -30,6 +30,9 @@ import type {
   NyuiWeekSummary,
   WeekActivity,
 } from "@/lib/server-actions/networking-status";
+import {
+  ReferralSourceBadges,
+} from "@/components/jasonos/referral-source-marks";
 
 type OpenContact = {
   contactId: string;
@@ -75,12 +78,14 @@ function weekTitle(w: WeekActivity): string {
 const FRESH_OUTREACH_DEFINITION =
   "First contact this week, or first contact in 90+ days. Follow-ups with people already in motion don't count.";
 
-function BrowningBadge() {
-  return (
-    <span className="ml-1 shrink-0 rounded-full border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-sky-300">
-      Browning
-    </span>
-  );
+function sourceMarksHtml(flags: {
+  browning?: boolean;
+  jobApplication?: boolean;
+}): string {
+  let html = "";
+  if (flags.browning) html += ' <span class="browning">Browning</span>';
+  if (flags.jobApplication) html += ' <span class="job-app">Job app</span>';
+  return html;
 }
 
 function channelLabel(ch: string): string {
@@ -195,6 +200,7 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
         .li-meta.bad{color:#b91c1c;border-color:#fecaca;background:#fef2f2;}
         .li-meta.neutral{color:#64748b;border-color:#e2e8f0;}
         .browning{margin-left:5px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#0369a1;vertical-align:middle;}
+        .job-app{margin-left:5px;font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6d28d9;vertical-align:middle;}
         .empty{color:#94a3b8;font-size:12px;font-style:italic;margin:0;}
         .foot{margin-top:28px;border-top:1px solid #e2e8f0;padding-top:10px;color:#94a3b8;font-size:10px;}
         @media print{body{padding:9mm;}}
@@ -392,27 +398,37 @@ function PathStat({
   );
 }
 
-function referralChainParts(r: NsReferral): { names: string[]; browning: boolean[] } {
+function referralChainParts(r: NsReferral): {
+  names: string[];
+  browning: boolean[];
+  jobApplication: boolean[];
+} {
   if (r.referralChain?.length > 0) {
     return {
       names: r.referralChain,
       browning: r.chainBrowning ?? r.referralChain.map(() => false),
+      jobApplication:
+        r.chainJobApplication ?? r.referralChain.map(() => false),
     };
   }
   const names = r.referredBy ? [r.referredBy, r.name] : [r.name];
   const browning = names.map((_, i) => i === names.length - 1 && r.browning);
-  return { names, browning };
+  const jobApplication = names.map(
+    (_, i) => i === names.length - 1 && r.jobApplication
+  );
+  return { names, browning, jobApplication };
 }
 
 /** Introduction path as a breadcrumb, e.g. Barbara → Libby → Will. */
 function referralChainHtml(r: NsReferral): string {
-  const { names, browning } = referralChainParts(r);
+  const { names, browning, jobApplication } = referralChainParts(r);
   return names
     .map((name, i) => {
       const weight = i === names.length - 1 ? "font-weight:700;" : "";
-      const mark = browning[i]
-        ? ' <span class="browning">Browning</span>'
-        : "";
+      const mark = sourceMarksHtml({
+        browning: browning[i],
+        jobApplication: jobApplication[i],
+      });
       return `<span style="${weight}">${escHtml(name)}${mark}</span>`;
     })
     .join(" → ");
@@ -421,9 +437,11 @@ function referralChainHtml(r: NsReferral): string {
 function ReferralBreadcrumb({
   chain,
   browning,
+  jobApplication,
 }: {
   chain: string[];
   browning?: boolean[];
+  jobApplication?: boolean[];
 }) {
   if (chain.length === 0) return null;
   return (
@@ -445,7 +463,10 @@ function ReferralBreadcrumb({
               }
             >
               {name}
-              {browning?.[i] ? <BrowningBadge /> : null}
+              <ReferralSourceBadges
+                browning={browning?.[i]}
+                jobApplication={jobApplication?.[i]}
+              />
             </span>
           </span>
         );
@@ -574,7 +595,10 @@ function FreshOutreachPanel({
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                 <span className="inline-flex items-baseline font-semibold text-foreground">
                   {r.name}
-                  {r.browning ? <BrowningBadge /> : null}
+                  <ReferralSourceBadges
+                    browning={r.browning}
+                    jobApplication={r.jobApplication}
+                  />
                 </span>
                 {r.firm ? (
                   <span className="text-xs text-muted-foreground">· {r.firm}</span>
@@ -625,13 +649,17 @@ function NewNetworkPanel({
           </p>
           <ul className="divide-y divide-emerald-500/20 rounded-lg border border-emerald-500/30 bg-emerald-500/5">
             {referrals.map((r) => {
-              const { names, browning } = referralChainParts(r);
+              const { names, browning, jobApplication } = referralChainParts(r);
               return (
                 <li
                   key={r.id}
                   className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-3 py-2.5 text-sm"
                 >
-                  <ReferralBreadcrumb chain={names} browning={browning} />
+                  <ReferralBreadcrumb
+                    chain={names}
+                    browning={browning}
+                    jobApplication={jobApplication}
+                  />
                   {r.firm ? (
                     <span className="text-xs text-muted-foreground">· {r.firm}</span>
                   ) : null}
@@ -673,7 +701,10 @@ function NewNetworkPanel({
               >
                 <span className="inline-flex items-baseline font-medium text-foreground">
                   {c.name}
-                  {c.browning ? <BrowningBadge /> : null}
+                  <ReferralSourceBadges
+                    browning={c.browning}
+                    jobApplication={c.jobApplication}
+                  />
                 </span>
                 {c.firm ? (
                   <span className="text-xs text-muted-foreground">· {c.firm}</span>
@@ -854,11 +885,12 @@ function freshOutreachHtml(w: WeekActivity): string {
       const badge = r.ledToMeeting
         ? ` <span class="li-meta ok">→ meeting</span>`
         : "";
-      const browning = r.browning
-        ? ' <span class="browning">Browning</span>'
-        : "";
+      const marks = sourceMarksHtml({
+        browning: r.browning,
+        jobApplication: r.jobApplication,
+      });
       return `<li>
-        <span class="li-main"><b>${escHtml(r.name)}</b>${browning}${r.firm ? ` <span class="muted">&middot; ${escHtml(r.firm)}</span>` : ""} <span class="muted" style="font-size:11px;">· ${meta}</span>${badge}</span>
+        <span class="li-main"><b>${escHtml(r.name)}</b>${marks}${r.firm ? ` <span class="muted">&middot; ${escHtml(r.firm)}</span>` : ""} <span class="muted" style="font-size:11px;">· ${meta}</span>${badge}</span>
       </li>`;
     })
     .join("");
@@ -880,10 +912,11 @@ function newNetworkHtml(w: WeekActivity): string {
   const alsoRows = alsoAdded
     .map((c) => {
       const rank = tierDegreeLabel(c.tier, c.degree);
-      const browning = c.browning
-        ? ' <span class="browning">Browning</span>'
-        : "";
-      return `<li><span class="li-main"><b>${escHtml(c.name)}</b>${browning}${c.firm ? ` <span class="muted">&middot; ${escHtml(c.firm)}</span>` : ""}</span>${rank ? `<span class="li-meta">${escHtml(rank)}</span>` : ""}</li>`;
+      const marks = sourceMarksHtml({
+        browning: c.browning,
+        jobApplication: c.jobApplication,
+      });
+      return `<li><span class="li-main"><b>${escHtml(c.name)}</b>${marks}${c.firm ? ` <span class="muted">&middot; ${escHtml(c.firm)}</span>` : ""}</span>${rank ? `<span class="li-meta">${escHtml(rank)}</span>` : ""}</li>`;
     })
     .join("");
   return `${
@@ -910,7 +943,7 @@ function newRepeatHtml(w: WeekActivity): string {
     .filter((c) => c.isFirstContact && !seen.has(c.contactId) && seen.add(c.contactId))
     .map((c) => {
       const rank = tierDegreeLabel(c.tier, c.degree);
-      return `<li><span class="li-main"><b>${escHtml(c.name)}</b>${c.browning ? ' <span class="browning">Browning</span>' : ""}${c.firm ? ` <span class="muted">&middot; ${escHtml(c.firm)}</span>` : ""}</span>${rank ? `<span class="li-meta">${escHtml(rank)}</span>` : ""}</li>`;
+      return `<li><span class="li-main"><b>${escHtml(c.name)}</b>${sourceMarksHtml({ browning: c.browning, jobApplication: c.jobApplication })}${c.firm ? ` <span class="muted">&middot; ${escHtml(c.firm)}</span>` : ""}</span>${rank ? `<span class="li-meta">${escHtml(rank)}</span>` : ""}</li>`;
     })
     .join("");
   return `<div class="nr-legend">
@@ -1086,7 +1119,10 @@ function WeekHeatmap({
                     isFirstContact={c.isFirstContact}
                     priorContactCount={c.priorContactCount}
                   />
-                  {c.browning ? <BrowningBadge /> : null}
+                  <ReferralSourceBadges
+                    browning={c.browning}
+                    jobApplication={c.jobApplication}
+                  />
                 </button>
               </li>
             ))}
@@ -1150,7 +1186,10 @@ function NewRepeatSummary({ conversations }: { conversations: NsConversation[] }
                 <span className="min-w-0">
                   <span className="inline-flex items-baseline font-medium text-foreground">
                     {c.name}
-                    {c.browning ? <BrowningBadge /> : null}
+                    <ReferralSourceBadges
+                    browning={c.browning}
+                    jobApplication={c.jobApplication}
+                  />
                   </span>
                   {c.firm ? (
                     <span className="text-muted-foreground"> · {c.firm}</span>
