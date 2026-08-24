@@ -1,3 +1,10 @@
+import {
+  hrefFromMarkdownUrl,
+  matchMdLink,
+  mdLinkRe,
+  rewriteMarkdownHrefs,
+} from "./brief-links";
+
 // Intercept Claude's published morning-brief markdown and turn it into a
 // structured layout model. Known ## sections get dedicated UI; anything else
 // falls through as an "extra" block so future headings still show up.
@@ -10,8 +17,12 @@
 //     inside Email by Group. The Home UI always remaps them into three
 //     buckets: Marketing and advertising, AI in general, AI in marketing
 //     and advertising.
+//   - Calendar bullets may bold only the time (`**10:00 AM** — Title`) or
+//     bold time + title (`**10:00 AM — [Title](calendar-url)** — notes`).
 export interface CalendarItem {
   time: string;
+  /** Event name, often a markdown link to the Google Calendar event. */
+  title: string | null;
   text: string;
 }
 
@@ -82,9 +93,10 @@ function stripMdInline(s: string): string {
     saved.push(raw);
     return `\u0000L${i}\u0000`;
   };
-  let out = s
+  let out = rewriteMarkdownHrefs(s)
     // Protect markdown links first so bold/italic stripping can't mangle them.
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (m) => protect(m))
+    // URLs may contain spaces (Google Calendar `eid`).
+    .replace(mdLinkRe(), (m) => protect(m))
     // Protect bare URLs next.
     .replace(/https?:\/\/[^\s<>"'`)\]}]+/g, (m) => protect(m))
     .replace(/\*\*(.+?)\*\*/g, "$1")
@@ -130,20 +142,87 @@ function normalizeKey(heading: string): string {
   return heading.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
+const TIME_RE =
+  /^(all\s*day|\d{1,2}:\d{2}(?:\s*[AP]M)?(?:\s*[–—-]\s*\d{1,2}:\d{2}(?:\s*[AP]M)?)?)\s*/i;
+
+function stripLeadingDash(s: string): string {
+  return s.replace(/^[—–-]\s*/, "").trim();
+}
+
+function splitTimePrefix(
+  s: string
+): { time: string; rest: string } | null {
+  const m = s.trim().match(TIME_RE);
+  if (!m) return null;
+  return {
+    time: m[1].replace(/\s+/g, " ").trim(),
+    rest: s.trim().slice(m[0].length),
+  };
+}
+
+/** Leading `[Title](url)` becomes the event title; the rest is notes. */
+function splitTitleAndText(s: string): { title: string | null; text: string } {
+  const cleaned = stripLeadingDash(s);
+  if (!cleaned) return { title: null, text: "" };
+  const md = matchMdLink(cleaned);
+  if (md && md.index === 0) {
+    const title = `[${md.label}](${md.url})`;
+    const after = stripLeadingDash(cleaned.slice(md.length));
+    return { title: stripMdInline(title), text: stripMdInline(after) };
+  }
+  return { title: null, text: stripMdInline(cleaned) };
+}
+
+function parseCalendarItem(raw: string): CalendarItem {
+  const line = raw.trim();
+  const bold = line.match(/^\*\*(.+?)\*\*\s*(.*)$/);
+  const head = bold ? bold[1].trim() : "";
+  const tail = bold ? (bold[2] ?? "").trim() : line;
+
+  const fromHead = head ? splitTimePrefix(head) : null;
+  const fromLine = fromHead ? null : splitTimePrefix(tail);
+
+  if (fromHead) {
+    const tailClean = stripLeadingDash(tail);
+    const restClean = stripLeadingDash(fromHead.rest);
+    if (restClean) {
+      const titled = splitTitleAndText(restClean);
+      if (titled.title) {
+        return {
+          time: fromHead.time,
+          title: titled.title,
+          text: [titled.text, stripMdInline(tailClean)].filter(Boolean).join(" — "),
+        };
+      }
+      if (tailClean) {
+        return {
+          time: fromHead.time,
+          title: titled.text || null,
+          text: stripMdInline(tailClean),
+        };
+      }
+      return { time: fromHead.time, title: null, text: titled.text };
+    }
+    return { time: fromHead.time, ...splitTitleAndText(tailClean) };
+  }
+
+  if (fromLine) {
+    const titled = splitTitleAndText(fromLine.rest);
+    return { time: fromLine.time, title: titled.title, text: titled.text };
+  }
+
+  const titled = splitTitleAndText(line.replace(/^\*\*|\*\*$/g, ""));
+  return { time: "", title: titled.title, text: titled.text || stripMdInline(line) };
+}
+
 function parseCalendar(body: string): { items: CalendarItem[]; note: string | null } {
   const items: CalendarItem[] = [];
   const noteLines: string[] = [];
   for (const raw of body.split("\n")) {
     const line = raw.trim();
     if (!line) continue;
-    // - **10:00–11:00 AM** — event text
-    const m = line.match(/^[-*]\s+\*\*(.+?)\*\*\s*[—–-]\s*(.+)$/);
-    if (m) {
-      items.push({ time: stripMdInline(m[1]), text: stripMdInline(m[2]) });
-      continue;
-    }
     if (line.startsWith("-") || line.startsWith("*")) {
-      items.push({ time: "", text: stripMdInline(line.replace(/^[-*]\s+/, "")) });
+      items.push(parseCalendarItem(line.replace(/^[-*]\s+/, "")));
       continue;
     }
     noteLines.push(stripMdInline(line));
@@ -251,8 +330,8 @@ export function classifyNewsletterHeading(heading: string): NewsletterGroupId {
 }
 
 function mdToPlain(s: string): string {
-  return s
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, "$1")
+  return rewriteMarkdownHrefs(s)
+    .replace(mdLinkRe(), "$1")
     .replace(/https?:\/\/[^\s<>"'`)\]}]+/g, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -268,9 +347,9 @@ export function makeNewsletterTeaser(text: string, max = 140): string {
 }
 
 function firstMarkdownUrl(line: string): { label: string; url: string } | null {
-  const m = line.match(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/);
+  const m = matchMdLink(line);
   if (!m) return null;
-  return { label: m[1].trim(), url: m[2].trim() };
+  return { label: m.label, url: m.url };
 }
 
 export function parseNewsletterStory(raw: string): NewsletterStory | null {
@@ -279,11 +358,11 @@ export function parseNewsletterStory(raw: string): NewsletterStory | null {
   if (/^[-*_]{3,}$/.test(line)) return null;
 
   const mdAtStart = line.match(
-    /^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)(?:\s*[—–\-·:|]+\s*(.*))?$/
+    /^\[([^\]]+)\]\((https?:\/\/[^)]+)\)(?:\s*[—–\-·:|]+\s*(.*))?$/
   );
   if (mdAtStart) {
     const title = mdAtStart[1].trim();
-    const url = mdAtStart[2].trim();
+    const url = hrefFromMarkdownUrl(mdAtStart[2]);
     const rest = (mdAtStart[3] ?? "").trim();
     const summary = rest || title;
     return {

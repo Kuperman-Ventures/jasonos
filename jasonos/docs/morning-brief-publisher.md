@@ -55,6 +55,25 @@ Older publisher headings still map:
 Suggested section shape:
 
 ```md
+## Calendar Today
+- **10:00–11:00 AM** — [Jason K](https://www.google.com/calendar/event?eid=…) — with jerry@. Job search.
+- **3:00–3:45 PM** — [Richard/Jason Catch Up](https://www.google.com/calendar/event?eid=…) — Zoom. Network/BD catch-up.
+```
+
+Bold **only the time**. Put the event title in a markdown link, then an em-dash, then the notes. Home shows time | title | notes as three distinct pieces.
+
+Google Calendar `eid` values contain a space (`eventId calendarId`). Leave that space in the markdown URL — JasonOS encodes it. Do **not** paste the raw calendar URL as visible text.
+
+Also accepted (older publisher shapes):
+
+- Time and title both inside the bold: `**10:00–11:00 AM — [Title](url)** — notes`
+- Unbolded: `8:00–10:00 AM — [Title](url) — notes`
+
+Housekeeping / duplicate-event notes go as a paragraph under the bullets, not as another bullet.
+
+Suggested section shape for email + digest:
+
+```md
 ## Email by Group
 **Job search — ~10 unread.** …
 **Admin / finance — 2 unread.**
