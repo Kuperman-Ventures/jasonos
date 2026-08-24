@@ -103,35 +103,41 @@ function CalendarBlock({
 }) {
   if (items.length === 0 && !note) return null;
   return (
-    <div>
+    <div className="min-w-0">
       <SectionLabel icon={<CalendarDays className="h-3.5 w-3.5" />}>
         Calendar today
       </SectionLabel>
       {items.length > 0 ? (
-        <ul className="divide-y divide-border rounded-lg border bg-background/40">
+        <ul className="min-w-0 divide-y divide-border overflow-hidden rounded-lg border bg-background/40">
           {items.map((ev, i) => (
-            <li
-              key={i}
-              className="grid grid-cols-[7.5rem_1fr] gap-3 px-3 py-2.5 text-sm sm:grid-cols-[8.5rem_1fr]"
-            >
-              <span className="shrink-0 text-[12px] font-medium tabular-nums text-sky-200/90">
+            <li key={i} className="flex min-w-0 items-start gap-3 px-3 py-2.5">
+              <span className="w-[7.25rem] shrink-0 pt-0.5 text-[12px] font-medium tabular-nums leading-snug text-sky-200/90 sm:w-[8.5rem]">
                 {ev.time || "—"}
               </span>
-              <span className="min-w-0 leading-snug text-foreground/90">
-                <BriefText text={ev.text} />
-              </span>
+              <div className="min-w-0 flex-1 space-y-0.5 [overflow-wrap:anywhere]">
+                {ev.title ? (
+                  <div className="text-[13px] font-medium leading-snug text-foreground">
+                    <BriefText text={ev.title} />
+                  </div>
+                ) : null}
+                {ev.text ? (
+                  <div className="text-[13px] leading-snug text-foreground/85">
+                    <BriefText text={ev.text} />
+                  </div>
+                ) : null}
+              </div>
             </li>
           ))}
         </ul>
       ) : null}
       {note ? (
         /conflict/i.test(note) ? (
-          <p className="mt-2 rounded-md border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-[12px] leading-snug text-amber-100/90">
+          <p className="mt-2 min-w-0 rounded-md border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-[12px] leading-snug text-amber-100/90 [overflow-wrap:anywhere]">
             <span className="font-semibold text-amber-200">Conflict · </span>
             <BriefText text={note.replace(/^conflict:\s*/i, "")} />
           </p>
         ) : (
-          <p className="mt-2 text-[12px] leading-snug text-muted-foreground">
+          <p className="mt-2 min-w-0 text-[12px] leading-snug text-muted-foreground [overflow-wrap:anywhere]">
             <BriefText text={note} />
           </p>
         )
@@ -191,7 +197,7 @@ function StructuredBrief({
   briefDate: string;
 }) {
   return (
-    <div className="space-y-5 px-4 py-4">
+    <div className="space-y-5 px-4 py-4 min-w-0">
       <MorningBriefAttention briefDate={briefDate} items={parsed.attention} />
       <CalendarBlock items={parsed.calendar} note={parsed.calendarNote} />
       <NewsletterBlock groups={parsed.newsletters} />
@@ -341,7 +347,7 @@ export async function MorningBriefCard({
           No brief yet
         </p>
       ) : parsed.structured ? (
-        <div className="max-h-[640px] overflow-y-auto">
+        <div className="max-h-[640px] min-w-0 overflow-x-hidden overflow-y-auto">
           <StructuredBrief parsed={parsed} briefDate={brief.briefDate} />
         </div>
       ) : (
