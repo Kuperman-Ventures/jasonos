@@ -7,8 +7,10 @@ import { listRecentCounterparties } from "@/lib/integrations/gmail";
 import {
   buildContactLookup,
   canonicalEmail,
+  isAlreadyAContact,
 } from "@/lib/outreach/email-matching";
 import {
+  markCandidatesAddedIfExactEmailKnown,
   nameFromEmail,
   normalizePersonName,
   upsertCandidateSightings,
@@ -201,6 +203,11 @@ async function captureEmailCandidatesInner(opts?: {
 
 export async function getContactCandidates(): Promise<ContactCandidate[]> {
   if (!hasConfig()) return [];
+  // Exact email already on a People row → not a suggestion. Mark those leftover
+  // rows added before we read, so they leave the inbox instead of lingering.
+  const lookup = await buildContactLookup();
+  await markCandidatesAddedIfExactEmailKnown(lookup);
+
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("contact_candidates")
@@ -210,13 +217,10 @@ export async function getContactCandidates(): Promise<ContactCandidate[]> {
     console.error("[contact-candidates.getContactCandidates]", error);
     return [];
   }
-  // Hide any suggestion that now matches a contact in the DB (by email or
-  // name) — covers people added manually after they were first suggested.
-  const lookup = await buildContactLookup();
-  const rows = ((data ?? []) as ContactCandidate[]).filter((r) => {
-    const header = r.name ? `${r.name} <${r.email}>` : r.email;
-    return !lookup.resolve(header);
-  });
+  // Name match still hides spreadsheet contacts with no address on file yet.
+  const rows = ((data ?? []) as ContactCandidate[]).filter(
+    (r) => !isAlreadyAContact({ email: r.email, name: r.name }, lookup)
+  );
   // Rank: two-way exchanges first, then total volume, then most recent.
   return rows.sort((a, b) => {
     const twoWayA = a.inbound_count > 0 && a.outbound_count > 0 ? 1 : 0;

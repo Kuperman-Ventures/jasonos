@@ -4,6 +4,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
   buildContactLookup,
   canonicalEmail,
+  isAlreadyAContact,
   isMyOwnAddress,
   type ContactLookup,
 } from "@/lib/outreach/email-matching";
@@ -84,7 +85,9 @@ function displayName(name: string | null, email: string): string {
 
 /**
  * Stage unknown people onto Suggested. Dismissed / already-added stay put.
- * Only obvious robots are skipped — Jason reviews the rest.
+ * Anyone whose exact email is already on a People row is skipped (and any
+ * leftover Suggested row for that address is marked added).
+ * Only obvious robots are skipped otherwise — Jason reviews the rest.
  */
 export async function upsertCandidateSightings(
   sightings: CandidateSighting[],
@@ -97,7 +100,6 @@ export async function upsertCandidateSightings(
     scanned: sightings.length,
     newNames: [],
   };
-  if (!sightings.length) return result;
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
     !process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -106,6 +108,9 @@ export async function upsertCandidateSightings(
   }
 
   const contacts = lookup ?? (await buildContactLookup());
+  await markCandidatesAddedIfExactEmailKnown(contacts);
+  if (!sightings.length) return result;
+
   const agg = new Map<string, Agg>();
 
   for (const cp of sightings) {
@@ -115,8 +120,7 @@ export async function upsertCandidateSightings(
       continue;
     }
     const canon = canonicalEmail(cp.email);
-    const header = cp.name ? `${cp.name} <${cp.email}>` : cp.email;
-    if (contacts.resolve(header)) continue;
+    if (isAlreadyAContact({ email: cp.email, name: cp.name }, contacts)) continue;
 
     const prev = agg.get(canon);
     if (prev) {
@@ -218,4 +222,39 @@ export async function upsertCandidateSightings(
   }
   await Promise.all(updates);
   return result;
+}
+
+/** Turn leftover Suggested rows into added when that exact email is now in People. */
+export async function markCandidatesAddedIfExactEmailKnown(
+  lookup?: ContactLookup
+): Promise<number> {
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.SUPABASE_SERVICE_ROLE_KEY
+  ) {
+    return 0;
+  }
+  const contacts = lookup ?? (await buildContactLookup());
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("contact_candidates")
+    .select("id,email")
+    .eq("status", "new");
+  if (error) {
+    console.error("[candidate-capture] read new candidates failed", error);
+    return 0;
+  }
+  const ids = (data ?? [])
+    .filter((r) => contacts.resolveEmail(String(r.email ?? "")))
+    .map((r) => r.id as string);
+  if (!ids.length) return 0;
+  const { error: updErr } = await sb
+    .from("contact_candidates")
+    .update({ status: "added", updated_at: new Date().toISOString() })
+    .in("id", ids);
+  if (updErr) {
+    console.error("[candidate-capture] mark known emails failed", updErr);
+    return 0;
+  }
+  return ids.length;
 }
