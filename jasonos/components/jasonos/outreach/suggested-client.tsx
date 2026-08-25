@@ -1,9 +1,8 @@
 "use client";
 
-// Suggested Contacts — a review inbox of people seen in email or calendar
-// who aren't in the People list yet. Add (creates an unclassified contact that
-// flows into "Needs to be Classified & Scheduled") or Dismiss (permanent
-// ignore). Fed by Sync plus Scan email. Only obvious robots are filtered.
+// Suggested Contacts — people seen in email or calendar whose exact email
+// isn't in People yet. Name matches offer Merge (attach this address to the
+// existing row) or Add as new. Dismiss is a permanent ignore.
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -11,6 +10,7 @@ import { toast } from "sonner";
 import {
   ArrowLeftRight,
   Building2,
+  GitMerge,
   Mail,
   RefreshCw,
   UserPlus,
@@ -79,9 +79,21 @@ export function SuggestedClient({
     });
   };
 
-  const onAdd = async (c: ContactCandidate) => {
+  const matches = useMemo(
+    () => visible.filter((c) => c.nameMatch),
+    [visible]
+  );
+  const fresh = useMemo(
+    () => visible.filter((c) => !c.nameMatch),
+    [visible]
+  );
+
+  const onAdd = async (
+    c: ContactCandidate,
+    opts?: { mergeIntoContactId?: string }
+  ) => {
     setActioned((prev) => new Set(prev).add(c.id));
-    const result = await addCandidateAsContact(c.id);
+    const result = await addCandidateAsContact(c.id, opts);
     if (!result.ok) {
       setActioned((prev) => {
         const next = new Set(prev);
@@ -91,8 +103,12 @@ export function SuggestedClient({
       toast.error(result.error);
       return;
     }
-    const displayName = c.name || c.email;
-    toast.success(`Added ${displayName} — set them up`);
+    const displayName = c.nameMatch?.name || c.name || c.email;
+    toast.success(
+      opts?.mergeIntoContactId
+        ? `Merged ${c.email} onto ${displayName}`
+        : `Added ${displayName} — set them up`
+    );
     setSetup({
       contactId: result.contactId,
       name: displayName,
@@ -124,10 +140,10 @@ export function SuggestedClient({
             Suggested contacts
           </h1>
           <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
-            People from email and calendar invites who aren&rsquo;t in People
-            yet. Add the ones you want in the system; dismiss the rest (they
-            won&rsquo;t come back). This list is meant to be a bit noisy.
-            Robots are filtered; everything else waits for you.
+            People from email and calendar invites who aren&rsquo;t already in
+            People by email. If the name is already in the system, merge to
+            attach this address. Otherwise add or dismiss. Dismissed people
+            don&rsquo;t come back.
           </p>
         </div>
         <Button onClick={handleScan} disabled={scanning || !gmailConnected}>
@@ -196,7 +212,28 @@ export function SuggestedClient({
           </div>
         ) : (
           <ul className="divide-y">
-            {visible.map((c) => (
+            {matches.length ? (
+              <li className="bg-muted/40 px-4 py-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                Name already in People — merge or add as new
+              </li>
+            ) : null}
+            {matches.map((c) => (
+              <CandidateRow
+                key={c.id}
+                candidate={c}
+                onAdd={() => onAdd(c)}
+                onMerge={() =>
+                  onAdd(c, { mergeIntoContactId: c.nameMatch!.id })
+                }
+                onDismiss={() => onDismiss(c)}
+              />
+            ))}
+            {matches.length && fresh.length ? (
+              <li className="bg-muted/40 px-4 py-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                New people
+              </li>
+            ) : null}
+            {fresh.map((c) => (
               <CandidateRow
                 key={c.id}
                 candidate={c}
@@ -227,14 +264,17 @@ export function SuggestedClient({
 function CandidateRow({
   candidate,
   onAdd,
+  onMerge,
   onDismiss,
 }: {
   candidate: ContactCandidate;
   onAdd: () => void;
+  onMerge?: () => void;
   onDismiss: () => void;
 }) {
   const [pending, setPending] = useState(false);
   const twoWay = candidate.inbound_count > 0 && candidate.outbound_count > 0;
+  const match = candidate.nameMatch;
 
   const run = (fn: () => void) => {
     setPending(true);
@@ -270,6 +310,15 @@ function CandidateRow({
             {candidate.outbound_count} sent · {candidate.inbound_count} received
           </span>
         </div>
+        {match ? (
+          <div className="mt-1 text-[11px] text-sky-200/90">
+            {match.kind === "close"
+              ? `Looks like ${match.name} in People`
+              : `Already in People as ${match.name}`}
+            {" — "}
+            merge to attach this email, or add as a new person.
+          </div>
+        ) : null}
         {candidate.last_subject ? (
           <div className="mt-0.5 truncate text-[11px] italic text-muted-foreground/70">
             “{candidate.last_subject}”
@@ -278,6 +327,16 @@ function CandidateRow({
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
+        {onMerge ? (
+          <Button
+            size="sm"
+            disabled={pending}
+            onClick={() => run(onMerge)}
+          >
+            <GitMerge className="h-3.5 w-3.5" />
+            Merge
+          </Button>
+        ) : null}
         <Button
           size="sm"
           variant="outline"
@@ -285,7 +344,7 @@ function CandidateRow({
           onClick={() => run(onAdd)}
         >
           <UserPlus className="h-3.5 w-3.5" />
-          Add
+          {onMerge ? "Add as new" : "Add"}
         </Button>
         <Button
           size="icon-sm"

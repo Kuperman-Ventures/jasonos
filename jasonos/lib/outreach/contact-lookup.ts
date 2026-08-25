@@ -197,14 +197,93 @@ export function createContactLookup(rows: ContactLookupRow[]): ContactLookup {
   };
 }
 
-/** True when this person should not appear in Suggested Contacts. */
+/** Hide from Suggested only when this exact email is already on a People row. */
 export function isAlreadyAContact(
   candidate: { email: string; name?: string | null },
   lookup: ContactLookup
 ): boolean {
-  if (lookup.resolveEmail(candidate.email)) return true;
-  const header = candidate.name
-    ? `${candidate.name} <${candidate.email}>`
-    : candidate.email;
-  return Boolean(lookup.resolve(header));
+  return Boolean(lookup.resolveEmail(candidate.email));
+}
+
+export interface SuggestedNameMatch {
+  id: string;
+  name: string;
+  /** Exact normalized name vs close spelling (Dellaire / Dallaire). */
+  kind: "exact" | "close";
+}
+
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const prev = new Array<number>(b.length + 1);
+  const curr = new Array<number>(b.length + 1);
+  for (let j = 0; j <= b.length; j += 1) prev[j] = j;
+  for (let i = 1; i <= a.length; i += 1) {
+    curr[0] = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(
+        (curr[j - 1] ?? 0) + 1,
+        (prev[j] ?? 0) + 1,
+        (prev[j - 1] ?? 0) + cost
+      );
+    }
+    for (let j = 0; j <= b.length; j += 1) prev[j] = curr[j] ?? 0;
+  }
+  return prev[b.length] ?? 0;
+}
+
+/** First+last close enough to offer a merge, not auto-collapse. */
+export function namesLookLikeSamePerson(a: string, b: string): boolean {
+  const na = normalizeName(a);
+  const nb = normalizeName(b);
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  const ta = na.split(" ").filter(Boolean);
+  const tb = nb.split(" ").filter(Boolean);
+  if (ta.length < 2 || tb.length < 2) return false;
+  const firstA = ta[0] ?? "";
+  const firstB = tb[0] ?? "";
+  const lastA = ta[ta.length - 1] ?? "";
+  const lastB = tb[tb.length - 1] ?? "";
+  if (levenshtein(firstA, firstB) > 2) return false;
+  const lastDist = levenshtein(lastA, lastB);
+  if (lastA === lastB) return true;
+  // Tight on last-name typos so "Chris Hall" ≠ "Chris Hill".
+  return lastDist <= 1 && Math.min(lastA.length, lastB.length) >= 6;
+}
+
+/**
+ * Name-only match for Suggested → Merge. Skips when the email is already
+ * on file (those rows are hidden, not merged).
+ */
+export function findNameMatch(
+  candidate: { email: string; name?: string | null },
+  lookup: ContactLookup
+): SuggestedNameMatch | null {
+  if (lookup.resolveEmail(candidate.email)) return null;
+
+  const names: string[] = [];
+  if (candidate.name?.trim()) names.push(candidate.name.trim());
+  const local = extractEmail(candidate.email).split("@")[0] ?? "";
+  const guessed = local
+    .replace(/[._\-+]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (guessed) names.push(guessed);
+
+  for (const n of names) {
+    const hit = lookup.byName.get(normalizeName(n));
+    if (hit) return { id: hit.id, name: hit.name, kind: "exact" };
+  }
+
+  if (candidate.name?.trim()) {
+    for (const row of lookup.rows) {
+      if (namesLookLikeSamePerson(candidate.name, row.name)) {
+        return { id: row.id, name: row.name, kind: "close" };
+      }
+    }
+  }
+  return null;
 }
