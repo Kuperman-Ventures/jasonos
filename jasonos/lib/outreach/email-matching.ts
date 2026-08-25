@@ -18,14 +18,20 @@ export {
   emptyLookup,
   extractDisplayName,
   extractEmail,
+  findNameMatch,
   hasExactEmailMatch,
   isAlreadyAContact,
   isFromMe,
   isMyOwnAddress,
+  namesLookLikeSamePerson,
   normalizeName,
   normalizePhone,
 } from "@/lib/outreach/contact-lookup";
-export type { ContactLookup, ContactLookupRow } from "@/lib/outreach/contact-lookup";
+export type {
+  ContactLookup,
+  ContactLookupRow,
+  SuggestedNameMatch,
+} from "@/lib/outreach/contact-lookup";
 
 export async function buildContactLookup(): Promise<ContactLookup> {
   const sb = createServiceRoleClient();

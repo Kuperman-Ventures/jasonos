@@ -7,7 +7,9 @@ import { listRecentCounterparties } from "@/lib/integrations/gmail";
 import {
   buildContactLookup,
   canonicalEmail,
+  findNameMatch,
   isAlreadyAContact,
+  type SuggestedNameMatch,
 } from "@/lib/outreach/email-matching";
 import {
   markCandidatesAddedIfExactEmailKnown,
@@ -31,6 +33,8 @@ export interface ContactCandidate {
   inbound_count: number;
   outbound_count: number;
   status: "new" | "added" | "dismissed";
+  /** Same person already in People under this name — offer Merge. */
+  nameMatch: SuggestedNameMatch | null;
 }
 
 type ActionResult = { ok: true } | { ok: false; error: string };
@@ -217,12 +221,19 @@ export async function getContactCandidates(): Promise<ContactCandidate[]> {
     console.error("[contact-candidates.getContactCandidates]", error);
     return [];
   }
-  // Name match still hides spreadsheet contacts with no address on file yet.
-  const rows = ((data ?? []) as ContactCandidate[]).filter(
-    (r) => !isAlreadyAContact({ email: r.email, name: r.name }, lookup)
-  );
-  // Rank: two-way exchanges first, then total volume, then most recent.
+  // Exact email already in People → hide. Name-only matches stay, with a
+  // merge target so Jason can attach this address instead of duplicating.
+  const rows = ((data ?? []) as Omit<ContactCandidate, "nameMatch">[])
+    .filter((r) => !isAlreadyAContact({ email: r.email, name: r.name }, lookup))
+    .map((r) => ({
+      ...r,
+      nameMatch: findNameMatch({ email: r.email, name: r.name }, lookup),
+    }));
+  // Rank: merge candidates first, then two-way, then volume, then recent.
   return rows.sort((a, b) => {
+    const matchA = a.nameMatch ? 1 : 0;
+    const matchB = b.nameMatch ? 1 : 0;
+    if (matchA !== matchB) return matchB - matchA;
     const twoWayA = a.inbound_count > 0 && a.outbound_count > 0 ? 1 : 0;
     const twoWayB = b.inbound_count > 0 && b.outbound_count > 0 ? 1 : 0;
     if (twoWayA !== twoWayB) return twoWayB - twoWayA;
@@ -235,8 +246,8 @@ export async function getContactCandidates(): Promise<ContactCandidate[]> {
 
 export async function getNewCandidateCount(): Promise<number> {
   if (!hasConfig()) return 0;
-  // Count the same filtered set the Suggested list shows (excludes any that
-  // already match a contact) so the tab badge never overcounts.
+  // Count the same filtered set the Suggested list shows (excludes exact
+  // email matches; name matches stay and count toward the badge).
   return (await getContactCandidates()).length;
 }
 
@@ -245,7 +256,8 @@ export async function getNewCandidateCount(): Promise<number> {
 // ---------------------------------------------------------------------------
 
 export async function addCandidateAsContact(
-  id: string
+  id: string,
+  opts?: { mergeIntoContactId?: string }
 ): Promise<AddCandidateResult> {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   if (!id) return { ok: false, error: "id is required." };
@@ -269,16 +281,26 @@ export async function addCandidateAsContact(
   // Already added earlier — still return the contact so the caller can open
   // the modal for setup.
   if (cand.status === "added") {
-    const existing = lookup.resolve(header);
+    const existing =
+      lookup.resolveEmail(email) ??
+      (opts?.mergeIntoContactId
+        ? lookup.rows.find((r) => r.id === opts.mergeIntoContactId)
+        : undefined) ??
+      lookup.resolve(header);
     if (existing) return { ok: true, contactId: existing.id };
     return { ok: false, error: "Contact was marked added but could not be found." };
   }
 
-  // Dedupe by email OR name. If a matching contact already exists, enrich it
-  // with this email (so future scans match by email) instead of creating a
-  // duplicate. Only create a new contact when there's no match at all.
   let contactId: string;
-  const existingContact = lookup.resolve(header);
+  const byEmail = lookup.resolveEmail(email);
+  const mergeTarget = opts?.mergeIntoContactId
+    ? lookup.rows.find((r) => r.id === opts.mergeIntoContactId)
+    : undefined;
+  if (opts?.mergeIntoContactId && !mergeTarget) {
+    return { ok: false, error: "That People row is gone. Add as new instead." };
+  }
+  const existingContact = byEmail ?? mergeTarget;
+
   if (existingContact) {
     contactId = existingContact.id;
     const hasEmail = existingContact.emails.some(

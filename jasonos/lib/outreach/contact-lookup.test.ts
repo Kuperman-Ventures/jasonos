@@ -3,8 +3,10 @@ import { describe, it } from "node:test";
 import {
   canonicalEmail,
   createContactLookup,
+  findNameMatch,
   hasExactEmailMatch,
   isAlreadyAContact,
+  namesLookLikeSamePerson,
   type ContactLookupRow,
 } from "./contact-lookup.ts";
 
@@ -103,10 +105,65 @@ describe("Suggested Contacts exact-email exclusion", () => {
     );
   });
 
+  it("still suggests an exact name when only the name matches", () => {
+    const jane = contact({ id: "jane", name: "Jane Doe", emails: [] });
+    const namesOnly = createContactLookup([jane]);
+    assert.equal(
+      isAlreadyAContact({ email: "jane@acme.com", name: "Jane Doe" }, namesOnly),
+      false
+    );
+  });
+
   it("canonicalEmail lowercases and strips plus-tags", () => {
     assert.equal(
       canonicalEmail("Jane+board@Acme.com"),
       "jane@acme.com"
+    );
+  });
+});
+
+describe("findNameMatch for Suggested merge", () => {
+  const jane = contact({ id: "jane", name: "Jane Doe", emails: [] });
+  const lookup = createContactLookup([ross, sethTypo, jane]);
+
+  it("offers merge on an exact name with a new email", () => {
+    const match = findNameMatch(
+      { email: "jane@acme.com", name: "Jane Doe" },
+      lookup
+    );
+    assert.deepEqual(match, { id: "jane", name: "Jane Doe", kind: "exact" });
+  });
+
+  it("offers merge on a one-letter last-name typo", () => {
+    const match = findNameMatch(
+      { email: "seth.dallaire@walmart.com", name: "Seth Dallaire" },
+      lookup
+    );
+    assert.deepEqual(match, {
+      id: "seth",
+      name: "Seth Dellaire",
+      kind: "close",
+    });
+  });
+
+  it("does not offer merge when the email is already on the contact", () => {
+    assert.equal(
+      findNameMatch(
+        { email: "ross.holtzer@outfront.com", name: "Ross Holtzer" },
+        lookup
+      ),
+      null
+    );
+  });
+
+  it("does not treat Hall / Hill as the same last name", () => {
+    assert.equal(namesLookLikeSamePerson("Chris Hall", "Chris Hill"), false);
+    const chris = createContactLookup([
+      contact({ id: "hall", name: "Chris Hall", emails: [] }),
+    ]);
+    assert.equal(
+      findNameMatch({ email: "chris@hill.co", name: "Chris Hill" }, chris),
+      null
     );
   });
 });

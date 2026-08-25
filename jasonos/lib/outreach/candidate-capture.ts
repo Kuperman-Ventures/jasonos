@@ -4,7 +4,6 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
   buildContactLookup,
   canonicalEmail,
-  isAlreadyAContact,
   isMyOwnAddress,
   type ContactLookup,
 } from "@/lib/outreach/email-matching";
@@ -120,7 +119,9 @@ export async function upsertCandidateSightings(
       continue;
     }
     const canon = canonicalEmail(cp.email);
-    if (isAlreadyAContact({ email: cp.email, name: cp.name }, contacts)) continue;
+    // Exact email already in People → never suggest. Name matches still
+    // stage so Jason can merge the new address onto the existing row.
+    if (contacts.resolveEmail(cp.email)) continue;
 
     const prev = agg.get(canon);
     if (prev) {
