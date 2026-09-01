@@ -106,4 +106,61 @@ describe("parseMorningBrief newsletter", () => {
     assert.equal(story!.url, "https://example.com/hf");
     assert.equal(newsletterStoryUrl(story!), "https://example.com/hf");
   });
+
+  it("does not treat a Gmail permalink as an article link", () => {
+    const story = parseNewsletterStory(
+      "[The Hugging Face attack was worse than we thought](https://mail.google.com/mail/u/0/#all/1a05a6d4906b5048) — A 91-page METR/Redwood report."
+    );
+    assert.ok(story);
+    assert.equal(story!.title, "The Hugging Face attack was worse than we thought");
+    assert.equal(story!.url, null);
+    assert.equal(newsletterStoryUrl(story!), null);
+    assert.match(story!.summary, /91-page/);
+  });
+
+  it("does not treat a Marketing Brew issue page as the article", () => {
+    const story = parseNewsletterStory(
+      "[Mentions vs. citations in AI answers](https://www.marketingbrew.com/issues/come-get-your-honey) — Directly relevant to this morning's Heavenly AEO/GEO call."
+    );
+    assert.ok(story);
+    assert.equal(story!.title, "Mentions vs. citations in AI answers");
+    assert.equal(story!.url, null);
+    assert.equal(newsletterStoryUrl(story!), null);
+  });
+
+  it("drops an article URL reused on two different headlines", () => {
+    const parsed = parseMorningBrief(`# Morning Brief
+
+## Newsletter Digest
+
+### Marketing and Media News
+
+- [Nielsen takes DoubleVerify private](https://www.linkedin.com/pulse/nielsen-ai-slop-rebirth-marketing-rigour-trinityp3-nr8ac) — Measurement collapse.
+- [Allianz banked AI savings](https://www.linkedin.com/pulse/nielsen-ai-slop-rebirth-marketing-rigour-trinityp3-nr8ac) — Reallocated to brand.
+
+### AI and Business
+
+- [FTC sues Amazon](https://www.axios.com/2026/08/31/ftc-amazon) — Overcharges.
+`);
+    const stories = parsed.newsletters.flatMap((g) => g.stories);
+    const nielsen = stories.find((s) => s.title.includes("Nielsen"));
+    const allianz = stories.find((s) => s.title.includes("Allianz"));
+    const ftc = stories.find((s) => s.title.includes("FTC"));
+    assert.equal(nielsen?.url, null);
+    assert.equal(allianz?.url, null);
+    assert.equal(ftc?.url, "https://www.axios.com/2026/08/31/ftc-amazon");
+  });
+
+  it("unlinks a mismatched issue URL in Needs your attention", () => {
+    const parsed = parseMorningBrief(`# Morning Brief
+
+## Needs Your Attention
+
+1. The [mentions-vs-citations piece](https://www.marketingbrew.com/issues/come-get-your-honey) and the [AI Overviews expansion](https://9to5google.com/2026/08/31/google-search-ai-overviews-bigger/) are live ammunition.
+`);
+    const item = parsed.attention[0] ?? "";
+    assert.match(item, /mentions-vs-citations piece/);
+    assert.equal(item.includes("come-get-your-honey"), false);
+    assert.match(item, /9to5google.com/);
+  });
 });

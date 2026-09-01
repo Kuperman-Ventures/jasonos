@@ -22,6 +22,8 @@ import { MorningBriefAttention } from "@/components/jasonos/home/morning-brief-a
 import { BriefText } from "@/components/jasonos/home/brief-text";
 import { MorningBriefCollapse } from "@/components/jasonos/home/morning-brief-collapse";
 import { NewsletterDigest } from "@/components/jasonos/home/newsletter-digest";
+import { isAllowedBriefHref } from "@/lib/data/brief-outbound";
+import { normalizeGmailUrl } from "@/lib/integrations/gmail-links";
 
 // Intercepts Claude's published markdown and lays it out as scannable
 // sections that match the rest of Home — attention first, then calendar,
@@ -162,6 +164,31 @@ function NewsletterBlock({
   );
 }
 
+const briefMarkdownLinkClass =
+  "font-medium text-sky-300 underline decoration-sky-400/40 underline-offset-2 hover:text-sky-200";
+
+function BriefMarkdownLink({
+  href,
+  children,
+}: {
+  href?: string;
+  children: React.ReactNode;
+}) {
+  if (!href || !isAllowedBriefHref(href)) {
+    return <span>{children}</span>;
+  }
+  return (
+    <a
+      href={normalizeGmailUrl(href)}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={briefMarkdownLinkClass}
+    >
+      {children}
+    </a>
+  );
+}
+
 function ExtraBlock({ title, bodyMd }: { title: string; bodyMd: string }) {
   return (
     <div>
@@ -179,6 +206,9 @@ function ExtraBlock({ title, bodyMd }: { title: string; bodyMd: string }) {
             ),
             strong: ({ children }) => (
               <strong className="font-semibold text-foreground">{children}</strong>
+            ),
+            a: ({ href, children }) => (
+              <BriefMarkdownLink href={href}>{children}</BriefMarkdownLink>
             ),
           }}
         >
@@ -238,6 +268,9 @@ function RawMarkdownFallback({ md }: { md: string }) {
           ),
           strong: ({ children }) => (
             <strong className="font-semibold text-foreground">{children}</strong>
+          ),
+          a: ({ href, children }) => (
+            <BriefMarkdownLink href={href}>{children}</BriefMarkdownLink>
           ),
         }}
       >

@@ -148,7 +148,7 @@ export function NewsletterDigest({ groups }: { groups: NewsletterGroup[] }) {
                   {summaryIsLonger ? "Full summary" : "Summary"}
                 </p>
                 <div className="text-[13px] leading-relaxed text-foreground/90 [overflow-wrap:anywhere]">
-                  <BriefText text={selected.story.summary} />
+                  <BriefText text={selected.story.summary} allow={["article"]} />
                 </div>
               </div>
 

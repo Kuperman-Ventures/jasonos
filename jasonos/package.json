@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --test lib/integrations/unwrap-forwarded-mail.test.ts lib/data/brief-links.test.ts lib/outreach/contact-lookup.test.ts && npx tsx --test lib/data/parse-morning-brief.test.ts",
+    "test": "node --experimental-strip-types --test lib/integrations/unwrap-forwarded-mail.test.ts lib/data/brief-links.test.ts lib/outreach/contact-lookup.test.ts && npx tsx --test lib/data/parse-morning-brief.test.ts lib/data/brief-outbound.test.ts",
     "seed:reconnect": "node scripts/seed-reconnect.mjs"
   },
   "dependencies": {

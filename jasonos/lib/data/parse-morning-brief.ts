@@ -4,6 +4,11 @@ import {
   mdLinkRe,
   rewriteMarkdownHrefs,
 } from "./brief-links";
+import {
+  sanitizeNewsletterGroups,
+  unlinkDisallowedHrefs,
+  usableArticleUrl,
+} from "./brief-outbound";
 
 // Intercept Claude's published morning-brief markdown and turn it into a
 // structured layout model. Known ## sections get dedicated UI; anything else
@@ -238,14 +243,14 @@ function parseAttention(body: string): { items: string[]; footer: string | null 
     if (!line) continue;
     const m = line.match(/^\d+\.\s+(.+)$/);
     if (m) {
-      items.push(stripMdInline(m[1]));
+      items.push(unlinkDisallowedHrefs(stripMdInline(m[1])));
       continue;
     }
     if (line.startsWith("-") || line.startsWith("*")) {
-      items.push(stripMdInline(line.replace(/^[-*]\s+/, "")));
+      items.push(unlinkDisallowedHrefs(stripMdInline(line.replace(/^[-*]\s+/, ""))));
       continue;
     }
-    footerLines.push(stripMdInline(line));
+    footerLines.push(unlinkDisallowedHrefs(stripMdInline(line)));
   }
   return { items, footer: footerLines.length ? footerLines.join(" ") : null };
 }
@@ -352,10 +357,10 @@ function firstMarkdownUrl(line: string): { label: string; url: string } | null {
   return { label: m.label, url: m.url };
 }
 
-/** Best outbound link for a digest story — title link first, then any link in the summary. */
+/** Best outbound link for a digest story — title link first, then any link in the summary.
+ *  Gmail, Google error/redirect, and newsletter-issue landings are not articles. */
 export function newsletterStoryUrl(story: NewsletterStory): string | null {
-  if (story.url) return story.url;
-  return firstMarkdownUrl(story.summary)?.url ?? null;
+  return usableArticleUrl(story.url) ?? usableArticleUrl(firstMarkdownUrl(story.summary)?.url);
 }
 
 export function parseNewsletterStory(raw: string): NewsletterStory | null {
@@ -368,7 +373,7 @@ export function parseNewsletterStory(raw: string): NewsletterStory | null {
   );
   if (mdAtStart) {
     const title = mdAtStart[1].trim();
-    const url = hrefFromMarkdownUrl(mdAtStart[2]);
+    const url = usableArticleUrl(hrefFromMarkdownUrl(mdAtStart[2]));
     const rest = (mdAtStart[3] ?? "").trim();
     const summary = rest || title;
     return {
@@ -386,7 +391,7 @@ export function parseNewsletterStory(raw: string): NewsletterStory | null {
     const summary = dash[2].trim();
     return {
       title,
-      url: link?.url ?? null,
+      url: usableArticleUrl(link?.url),
       summary,
       teaser: makeNewsletterTeaser(summary),
     };
@@ -396,7 +401,7 @@ export function parseNewsletterStory(raw: string): NewsletterStory | null {
     const summary = line;
     return {
       title: link.label,
-      url: link.url,
+      url: usableArticleUrl(link.url),
       summary,
       teaser: makeNewsletterTeaser(mdToPlain(line)),
     };
@@ -407,7 +412,7 @@ export function parseNewsletterStory(raw: string): NewsletterStory | null {
   const bare = line.match(/https?:\/\/[^\s<>"'`)\]}]+/);
   return {
     title: makeNewsletterTeaser(plain, 80) || plain,
-    url: bare?.[0] ?? null,
+    url: usableArticleUrl(bare?.[0]),
     summary: line,
     teaser: makeNewsletterTeaser(plain),
   };
@@ -627,18 +632,25 @@ function parseEmailGroups(body: string): {
           title,
           meta,
           body:
-            summary.body ||
-            (nestedNewsletters.length
-              ? "See newsletter digest below."
-              : ""),
-          bullets: summary.bullets,
+            unlinkDisallowedHrefs(
+              summary.body ||
+                (nestedNewsletters.length
+                  ? "See newsletter digest below."
+                  : "")
+            ),
+          bullets: summary.bullets.map((b) => unlinkDisallowedHrefs(b)),
         });
         continue;
       }
     }
 
     const { bullets, body: paraBody } = bulletsAndParas(g.body);
-    groups.push({ title, meta, body: paraBody, bullets });
+    groups.push({
+      title,
+      meta,
+      body: unlinkDisallowedHrefs(paraBody),
+      bullets: bullets.map((b) => unlinkDisallowedHrefs(b)),
+    });
   }
 
   return { intro, groups, nestedNewsletters };
@@ -676,7 +688,7 @@ function parseNewsletters(body: string): NewsletterGroup[] {
         [story]
       );
     }
-    return bucketsToGroups(buckets);
+    return sanitizeNewsletterGroups(bucketsToGroups(buckets));
   }
 
   if (preface.trim()) {
@@ -692,7 +704,7 @@ function parseNewsletters(body: string): NewsletterGroup[] {
     addUnder(classifyNewsletterHeading(t.header), storiesFromBody(t.body));
   }
 
-  return bucketsToGroups(buckets);
+  return sanitizeNewsletterGroups(bucketsToGroups(buckets));
 }
 
 export function parseMorningBrief(md: string): ParsedMorningBrief {
@@ -761,7 +773,10 @@ export function parseMorningBrief(md: string): ParsedMorningBrief {
       if (att.footer) parsed.footer = att.footer;
       continue;
     }
-    parsed.extras.push({ title: sec.heading, bodyMd: sec.body });
+    parsed.extras.push({
+      title: sec.heading,
+      bodyMd: unlinkDisallowedHrefs(sec.body),
+    });
   }
 
   // If Email was parsed after Newsletter Digest and left nested topics unused

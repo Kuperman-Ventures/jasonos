@@ -19,6 +19,19 @@ Add something like this to the Claude publisher prompt:
 > `HubSpot delete request ([open in Gmail](https://mail.google.com/mail/u/0/#all/THREAD_ID)).`
 > Prefer the article/source URL for newsletters and a Gmail thread permalink
 > for actionable inbox items. Skip tracking/unsubscribe links.
+>
+> Newsletter digest items must link to the **article page that matches the
+> title**. Do not use a newsletter-issue landing page (`/issues/…`), a Gmail
+> permalink, a Google redirect (`google.com/url`, news.google.com), or one URL
+> reused across two different headlines. If you do not have the matching
+> article URL, leave the title unlinked — JasonOS will show the title and
+> summary with no "Open article" control.
+
+**JasonOS will not invent a link.** Digest "Open article" only fires when the
+URL looks like a real article page. Gmail, calendar, and Zoom links still
+work in Email / Calendar / Needs your attention. Newsletter-issue pages,
+Google error/redirect URLs, and Gmail pasted onto a digest story are shown
+as plain text.
 
 **Gmail links open the specific thread.** JasonOS normalizes any
 `mail.google.com` link at render time so it opens the exact conversation in the
@@ -46,7 +59,8 @@ Use those exact `###` headings. Each bullet is **one story**: markdown link,
 em-dash, then a **multi-sentence summary** (roughly 2–4 sentences — the card
 shows only the first sentence as a teaser; click opens the full summary in a
 modal). Always put the **article URL on the title link**, not buried only in
-the summary body, so Home can offer “Open article in browser.”
+the summary body, so Home can offer “Open article in browser.” If the matching
+article URL is not in the source email, omit the markdown link entirely.
 
 Older publisher headings still map:
 
