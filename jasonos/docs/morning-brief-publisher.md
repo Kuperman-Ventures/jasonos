@@ -8,7 +8,8 @@ Claude (or a scheduled job) writes one row per weekday into
 JasonOS will render markdown links and bare URLs as clickable opens-in-new-tab
 links in Email by Group, Newsletter digest, Calendar, and Needs your attention.
 
-**Today’s published briefs contain no URLs** — the publisher must include them.
+**Today’s published briefs must include URLs** — JasonOS will render them, and
+will drop any destination it cannot match to the article or email.
 
 Add something like this to the Claude publisher prompt:
 
