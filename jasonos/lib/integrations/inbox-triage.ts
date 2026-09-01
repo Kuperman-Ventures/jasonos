@@ -34,11 +34,17 @@ export interface BoardingItem {
   receivedAt: string;
   /** Apple Mail message:// URL for the inbound message, when Message-ID known. */
   appleMailUrl: string | null;
+  /** Gmail thread URL from the morning publisher (live engine leaves this unset). */
+  gmailUrl?: string;
   /** One-line "elevator door closing" reason this needs Jason. */
   elevator: string;
   urgency: Urgency;
   /** Draft reply in Jason's voice. Empty string if drafting was unavailable. */
   draft: string;
+  /** True when the morning publisher already saved a reply draft in Gmail. */
+  draftSaved?: boolean;
+  /** Direct Gmail draft URL when `draftSaved`. */
+  draftUrl?: string;
 }
 
 export interface HoldingItem {
@@ -47,6 +53,8 @@ export interface HoldingItem {
   subject: string;
   /** Apple Mail message:// URL for the last message, when Message-ID known. */
   appleMailUrl: string | null;
+  /** Gmail thread URL from the morning publisher (live engine leaves this unset). */
+  gmailUrl?: string;
   ageDays: number;
   note: string;
 }

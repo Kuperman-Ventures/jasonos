@@ -14,6 +14,7 @@ import {
   X,
   Bookmark,
   BookmarkCheck,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -534,7 +535,10 @@ export function InboxDispatchCard() {
                       boardingCount,
                       holding.length,
                       data.noiseTotal,
-                      visibleSaved.length
+                      visibleSaved.length,
+                      data.source === "published" && data.isStale
+                        ? data.dispatchDate
+                        : undefined
                     )
                   : "Connect Gmail to see who needs a reply"}
             </p>
@@ -647,17 +651,30 @@ export function InboxDispatchCard() {
   );
 }
 
+/** "2026-09-01" → "Sep 1". Parsed at UTC noon so the label can't slip a day. */
+function ymdLabel(ymd: string): string {
+  const t = Date.parse(`${ymd}T12:00:00Z`);
+  if (Number.isNaN(t)) return ymd;
+  return new Date(t).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 function summarize(
   boardingCount: number,
   holdingCount: number,
   noiseTotal: number,
-  savedCount: number
+  savedCount: number,
+  staleDate?: string
 ): string {
   const parts: string[] = [];
   parts.push(`${boardingCount} need you`);
   if (savedCount) parts.push(`${savedCount} saved`);
   if (holdingCount) parts.push(`${holdingCount} waiting`);
   if (noiseTotal) parts.push(`${noiseTotal} noise`);
+  if (staleDate) parts.push(`from ${ymdLabel(staleDate)}`);
   return parts.join(" · ");
 }
 
@@ -772,13 +789,19 @@ function BoardingRow({
 
       {open ? (
         <div className="px-4 pb-3 pl-5">
+          {item.draftSaved ? (
+            <p className="mb-1.5 flex items-center gap-1.5 text-[11px] text-emerald-300/90">
+              <Check className="h-3 w-3 shrink-0" />
+              Already saved as a Gmail draft — review and send it from Gmail.
+            </p>
+          ) : null}
           {item.draft ? (
             <pre className="whitespace-pre-wrap rounded-lg border bg-background/60 p-3 font-sans text-[13px] leading-relaxed text-foreground/90">
               {item.draft}
             </pre>
           ) : (
             <p className="rounded-lg border bg-background/60 p-3 text-[12px] italic text-muted-foreground">
-              No draft generated — open in Apple Mail to reply.
+              No draft generated — open the thread to reply.
             </p>
           )}
           <div className="mt-2 flex flex-wrap gap-2">
@@ -795,25 +818,43 @@ function BoardingRow({
               )}
               {copied ? "Copied" : "Copy draft"}
             </button>
-            <button
-              type="button"
-              onClick={() =>
-                void openInAppleMail({
-                  appleMailUrl: item.appleMailUrl,
-                  draft: item.draft,
-                })
-              }
-              disabled={!item.appleMailUrl}
-              className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
-              title={
-                item.appleMailUrl
-                  ? "Open this message in Apple Mail (draft copied)"
-                  : "Message-ID unavailable for Apple Mail"
-              }
-            >
-              <Mail className="h-3.5 w-3.5" />
-              Open in Apple Mail
-            </button>
+            {item.draftSaved && (item.draftUrl || item.gmailUrl) ? (
+              <a
+                href={item.draftUrl || item.gmailUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-md border border-emerald-400/40 bg-emerald-500/10 px-2.5 py-1.5 text-[12px] font-medium text-emerald-200 transition-colors hover:bg-emerald-500/20"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Open draft in Gmail
+              </a>
+            ) : null}
+            {item.appleMailUrl ? (
+              <button
+                type="button"
+                onClick={() =>
+                  void openInAppleMail({
+                    appleMailUrl: item.appleMailUrl,
+                    draft: item.draft,
+                  })
+                }
+                className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
+                title="Open this message in Apple Mail (draft copied)"
+              >
+                <Mail className="h-3.5 w-3.5" />
+                Open in Apple Mail
+              </button>
+            ) : item.gmailUrl && !item.draftSaved ? (
+              <a
+                href={item.gmailUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Open in Gmail
+              </a>
+            ) : null}
             <button
               type="button"
               onClick={onSave}
@@ -863,22 +904,30 @@ function HoldingRow({
           </span>
         ) : null}
       </span>
-      <button
-        type="button"
-        onClick={() =>
-          void openInAppleMail({ appleMailUrl: item.appleMailUrl })
-        }
-        disabled={!item.appleMailUrl}
-        className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
-        title={
-          item.appleMailUrl
-            ? "Open in Apple Mail"
-            : "Message-ID unavailable for Apple Mail"
-        }
-        aria-label={`Open ${item.name} in Apple Mail`}
-      >
-        <Mail className="h-3 w-3" />
-      </button>
+      {item.appleMailUrl ? (
+        <button
+          type="button"
+          onClick={() =>
+            void openInAppleMail({ appleMailUrl: item.appleMailUrl })
+          }
+          className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+          title="Open in Apple Mail"
+          aria-label={`Open ${item.name} in Apple Mail`}
+        >
+          <Mail className="h-3 w-3" />
+        </button>
+      ) : item.gmailUrl ? (
+        <a
+          href={item.gmailUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+          title="Open in Gmail"
+          aria-label={`Open ${item.name} in Gmail`}
+        >
+          <ExternalLink className="h-3 w-3" />
+        </a>
+      ) : null}
       <button
         type="button"
         onClick={onSave}

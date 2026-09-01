@@ -46,6 +46,22 @@ function str(v: unknown, fallback = ""): string {
   return typeof v === "string" ? v : fallback;
 }
 
+/** Publisher hrefs must be https Gmail URLs — never trust arbitrary JSON links. */
+function gmailHref(v: unknown): string | undefined {
+  const s = str(v);
+  if (!s) return undefined;
+  try {
+    const u = new URL(s);
+    if (u.protocol !== "https:") return undefined;
+    if (u.hostname !== "mail.google.com" && !u.hostname.endsWith(".google.com")) {
+      return undefined;
+    }
+    return s;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Coerce an external publisher's JSON into the InboxDispatch shape the card
  * renders. Anything unrecognized is dropped rather than trusted — a malformed
@@ -72,9 +88,12 @@ function normalizePayload(raw: unknown): Omit<InboxDispatch, "source"> | null {
             subject: str(i.subject, "(no subject)"),
             receivedAt: str(i.receivedAt),
             appleMailUrl: str(i.appleMailUrl) || null,
+            gmailUrl: gmailHref(i.gmailUrl),
             elevator: str(i.elevator),
             urgency,
             draft: str(i.draft),
+            draftSaved: i.draftSaved === true,
+            draftUrl: gmailHref(i.draftUrl),
           },
         ];
       })
@@ -92,6 +111,7 @@ function normalizePayload(raw: unknown): Omit<InboxDispatch, "source"> | null {
             name: str(i.name, "your contact"),
             subject: str(i.subject, "(no subject)"),
             appleMailUrl: str(i.appleMailUrl) || null,
+            gmailUrl: gmailHref(i.gmailUrl),
             ageDays: typeof i.ageDays === "number" ? i.ageDays : 0,
             note: str(i.note),
           },
