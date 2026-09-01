@@ -38,6 +38,14 @@ export interface BoardingItem {
   urgency: Urgency;
   /** Draft reply in Jason's voice. Empty string if drafting was unavailable. */
   draft: string;
+  /**
+   * True when a real Gmail reply draft is already saved for this thread. Only
+   * the publisher sets this — the in-app engine below is read-only and has no
+   * compose scope, so a live dispatch always leaves it undefined.
+   */
+  draftSaved?: boolean;
+  /** Deep link to that saved draft, when the publisher supplies one. */
+  draftUrl?: string;
 }
 
 export interface HoldingItem {
@@ -64,6 +72,17 @@ export interface InboxDispatch {
   holding: HoldingItem[];
   noise: NoiseGroup[];
   noiseTotal: number;
+  /**
+   * "published" — the morning triage agent's run, read from
+   * public.inbox_dispatches. It searches wider than the live engine and saves
+   * real Gmail drafts, so it's preferred whenever a row exists.
+   * "live" — computed in-process by computeInboxDispatch() below.
+   */
+  source?: "published" | "live";
+  /** ET date (YYYY-MM-DD) of a published dispatch. */
+  dispatchDate?: string;
+  /** True when the published dispatch on screen isn't for today's ET date. */
+  isStale?: boolean;
 }
 
 const MAX_THREAD_FETCHES = 14; // bound latency + Gmail rate limits

@@ -270,11 +270,27 @@ export function InboxDispatchCard() {
   );
 }
 
+/** "2026-09-01" → "Sep 1". Parsed at UTC noon so the label can't slip a day. */
+function ymdLabel(ymd: string): string {
+  const t = Date.parse(`${ymd}T12:00:00Z`);
+  if (Number.isNaN(t)) return ymd;
+  return new Date(t).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 function summarize(d: InboxDispatch): string {
   const parts: string[] = [];
   parts.push(`${d.boarding.length} need you`);
   if (d.holding.length) parts.push(`${d.holding.length} waiting`);
   if (d.noiseTotal) parts.push(`${d.noiseTotal} noise`);
+  // A published dispatch is the morning agent's run. Say so when it's not
+  // today's, so a stale board never reads as this morning's triage.
+  if (d.source === "published" && d.isStale && d.dispatchDate) {
+    parts.push(`from ${ymdLabel(d.dispatchDate)}`);
+  }
   return parts.join(" · ");
 }
 
@@ -342,6 +358,12 @@ function BoardingRow({ item }: { item: BoardingItem }) {
 
       {open ? (
         <div className="px-4 pb-3 pl-5">
+          {item.draftSaved ? (
+            <p className="mb-1.5 flex items-center gap-1.5 text-[11px] text-emerald-300/90">
+              <Check className="h-3 w-3 shrink-0" />
+              Already saved as a Gmail draft — review and send it from Gmail.
+            </p>
+          ) : null}
           {item.draft ? (
             <pre className="whitespace-pre-wrap rounded-lg border bg-background/60 p-3 font-sans text-[13px] leading-relaxed text-foreground/90">
               {item.draft}
@@ -361,6 +383,17 @@ function BoardingRow({ item }: { item: BoardingItem }) {
               {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
               {copied ? "Copied" : "Copy draft"}
             </button>
+            {item.draftSaved ? (
+              <a
+                href={item.draftUrl || item.gmailUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 rounded-md border border-emerald-400/40 bg-emerald-500/10 px-2.5 py-1.5 text-[12px] font-medium text-emerald-200 transition-colors hover:bg-emerald-500/20"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Open draft in Gmail
+              </a>
+            ) : null}
             <a
               href={item.gmailUrl}
               target="_blank"

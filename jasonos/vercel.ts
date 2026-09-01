@@ -40,8 +40,9 @@ export const config: VercelConfig = {
       path: "/api/monitoring/health-check?source=cron",
       schedule: "*/2 * * * *",
     },
-    // Inbox Dispatch — weekday 7am ET (11:00 UTC during EDT). Warms the day's
-    // reply triage so it's ready when Jason opens Home.
-    { path: "/api/inbox-dispatch?source=cron", schedule: "0 11 * * 1-5" },
+    // No Inbox Dispatch cron: the weekday morning triage agent runs locally at
+    // 7am ET and publishes the day's dispatch into public.inbox_dispatches.
+    // /api/inbox-dispatch reads that row; warming it here would only recompute
+    // a narrower answer over the same mailbox.
   ],
 };
