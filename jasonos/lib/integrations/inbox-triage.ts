@@ -66,6 +66,16 @@ export interface InboxDispatch {
   holding: HoldingItem[];
   noise: NoiseGroup[];
   noiseTotal: number;
+  /**
+   * "published" — read from public.inbox_dispatches (the morning triage agent's
+   * run). "live" — computed in-process by computeInboxDispatch(). Undefined on
+   * legacy/live payloads that predate the field.
+   */
+  source?: "published" | "live";
+  /** ET date (YYYY-MM-DD) of a published dispatch. */
+  dispatchDate?: string;
+  /** True when the published dispatch on screen isn't for today's ET date. */
+  isStale?: boolean;
 }
 
 const MAX_THREAD_FETCHES = 18; // bound latency + Gmail rate limits
