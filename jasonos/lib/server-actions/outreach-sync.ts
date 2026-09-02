@@ -565,6 +565,7 @@ export async function syncOutreachFromBeeper(opts?: {
     }
 
     const touches: ContactTouchInput[] = [];
+    const sightings: CandidateSighting[] = [];
     let skipped = 0;
 
     for (const c of candidates) {
@@ -575,6 +576,15 @@ export async function syncOutreachFromBeeper(opts?: {
       });
       if (!contact) {
         skipped += 1;
+        if (c.peer.email && !isMyOwnAddress(c.peer.email)) {
+          sightings.push({
+            email: c.peer.email,
+            name: c.peer.name ?? c.chatTitle,
+            dateIso: c.timestamp,
+            subject: c.chatTitle || c.network || "Beeper",
+            direction: c.direction,
+          });
+        }
         continue;
       }
 
@@ -597,6 +607,7 @@ export async function syncOutreachFromBeeper(opts?: {
     }
 
     const insert = await insertContactTouches(touches);
+    const staged = await upsertCandidateSightings(sightings, lookup);
     await log({
       ok: true,
       matched: touches.length,
@@ -605,11 +616,19 @@ export async function syncOutreachFromBeeper(opts?: {
       cadenceUpdates: insert.cadenceUpdates,
       skipped,
       candidates: candidates.length,
+      candidatesStaged: staged.created,
+      unmatchedNames: staged.newNames,
       daysBack,
     });
     revalidatePaths();
 
-    const result = okResult("beeper", insert, touches.length, skipped);
+    const result = okResult(
+      "beeper",
+      insert,
+      touches.length,
+      skipped,
+      staged.created
+    );
     if (candidates.length === 0) {
       return {
         ...result,

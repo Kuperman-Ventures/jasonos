@@ -1,4 +1,4 @@
-// POST /api/outreach/scan-suggested — Suggested "Scan email" button.
+// POST /api/outreach/scan-suggested — Suggested "Scan" button.
 // Lives on an API route so Vercel will give it 5 minutes. The same work as a
 // server action was getting killed at ~15s, before the 90-day inbox pass
 // finished.

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  beeperScanLine,
   combineSuggestedScanResult,
   humanScanError,
 } from "./suggested-scan.ts";
@@ -26,7 +27,39 @@ describe("combineSuggestedScanResult", () => {
       created: 10,
       updated: 8,
       skipped: 12,
+      beeper: undefined,
     });
+  });
+
+  it("still succeeds when Beeper Desktop is closed", () => {
+    const result = combineSuggestedScanResult({
+      gmail: { ok: true, candidatesStaged: 0 },
+      gcal: { ok: true, candidatesStaged: 0 },
+      capture: captureOk,
+      beeper: { ok: true, unavailable: true, error: "No Beeper data synced" },
+    });
+    assert.equal(result.ok, true);
+    if (result.ok) {
+      assert.equal(beeperScanLine(result.beeper), "No Beeper data synced");
+    }
+  });
+
+  it("names a Beeper hit in the toast line", () => {
+    assert.equal(
+      beeperScanLine({ ok: true, inserted: 4 }),
+      "Beeper +4"
+    );
+  });
+
+  it("counts Beeper-staged people with an email as new suggested", () => {
+    const result = combineSuggestedScanResult({
+      gmail: { ok: true, candidatesStaged: 0 },
+      gcal: { ok: true, candidatesStaged: 0 },
+      capture: { ...captureOk, created: 0 },
+      beeper: { ok: true, inserted: 1, candidatesStaged: 2 },
+    });
+    assert.equal(result.ok, true);
+    if (result.ok) assert.equal(result.created, 2);
   });
 
   it("still succeeds when only the full Gmail walk found people", () => {
@@ -41,6 +74,7 @@ describe("combineSuggestedScanResult", () => {
       created: 4,
       updated: 0,
       skipped: 0,
+      beeper: undefined,
     });
   });
 

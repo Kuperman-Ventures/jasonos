@@ -24,7 +24,10 @@ import {
   dismissCandidate,
   type ContactCandidate,
 } from "@/lib/server-actions/contact-candidates";
-import type { SuggestedScanResult } from "@/lib/outreach/suggested-scan";
+import {
+  beeperScanLine,
+  type SuggestedScanResult,
+} from "@/lib/outreach/suggested-scan";
 
 export function SuggestedClient({
   candidates,
@@ -78,10 +81,17 @@ export function SuggestedClient({
           );
           return;
         }
+        const beeperLine = beeperScanLine(result.beeper);
         toast.success(
           `Scanned ${result.scanned} messages · ${result.created} new, ${result.updated} updated`,
           {
-            description: `Last 90 days of email plus calendar guests. ${result.skipped} robots skipped.`,
+            description: [
+              "Last 90 days of email, calendar, and Beeper.",
+              beeperLine,
+              `${result.skipped} robots skipped.`,
+            ]
+              .filter(Boolean)
+              .join(" "),
           }
         );
         router.refresh();
@@ -154,19 +164,19 @@ export function SuggestedClient({
             Suggested contacts
           </h1>
           <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
-            People from email and calendar invites who aren&rsquo;t already in
-            People by email. If the name is already in the system, merge to
-            attach this address. Otherwise add or dismiss. Dismissed people
-            don&rsquo;t come back.
+            People from email, calendar invites, and Beeper chats who aren&rsquo;t
+            already in People by email. If the name is already in the system,
+            merge to attach this address. Otherwise add or dismiss. Dismissed
+            people don&rsquo;t come back.
           </p>
         </div>
         <Button
           onClick={handleScan}
           disabled={scanning || !gmailConnected}
-          title="Same depth as Sync: last 90 days of email, plus calendar guests"
+          title="Same as Sync: last 90 days of email, calendar, and Beeper (when Desktop is open)"
         >
           <RefreshCw className={cn("h-4 w-4", scanning && "animate-spin")} />
-          {scanning ? "Scanning…" : "Scan email"}
+          {scanning ? "Scanning…" : "Scan"}
         </Button>
       </header>
 
@@ -225,7 +235,7 @@ export function SuggestedClient({
         {visible.length === 0 ? (
           <div className="px-4 py-12 text-center text-sm text-muted-foreground">
             {gmailConnected
-              ? "No suggested contacts. Hit “Scan email” to look for new people."
+              ? "No suggested contacts. Hit “Scan” to look for new people."
               : "Connect Gmail, then scan to see suggestions."}
           </div>
         ) : (

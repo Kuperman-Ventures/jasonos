@@ -23,6 +23,15 @@ export type SuggestedCapturePart =
     }
   | { ok: false; error: string };
 
+export type SuggestedBeeperPart = {
+  ok: boolean;
+  unavailable?: boolean;
+  inserted?: number;
+  matched?: number;
+  candidatesStaged?: number;
+  error?: string;
+};
+
 export type SuggestedScanResult =
   | {
       ok: true;
@@ -30,6 +39,7 @@ export type SuggestedScanResult =
       created: number;
       updated: number;
       skipped: number;
+      beeper?: SuggestedBeeperPart;
     }
   | { ok: false; error: string };
 
@@ -49,21 +59,52 @@ export function capturePartFromUnknown(err: unknown): SuggestedCapturePart {
   return { ok: false, error: humanScanError(err) };
 }
 
+export function beeperScanLine(beeper?: SuggestedBeeperPart): string | null {
+  if (!beeper) return null;
+  if (beeper.unavailable) return beeper.error || "Beeper closed — skipped";
+  if (beeper.ok) {
+    const n = beeper.inserted ?? beeper.matched ?? 0;
+    return n > 0 ? `Beeper +${n}` : "Beeper checked";
+  }
+  return beeper.error ? `Beeper: ${beeper.error}` : null;
+}
+
 export function combineSuggestedScanResult(input: {
   gmail: SuggestedScanPart;
   gcal: SuggestedScanPart;
   capture: SuggestedCapturePart;
+  beeper?: SuggestedBeeperPart;
 }): SuggestedScanResult {
   const gmailStaged = input.gmail.ok ? (input.gmail.candidatesStaged ?? 0) : 0;
   const gcalStaged = input.gcal.ok ? (input.gcal.candidatesStaged ?? 0) : 0;
+  const beeperStaged =
+    input.beeper?.ok && !input.beeper.unavailable
+      ? (input.beeper.candidatesStaged ?? 0)
+      : 0;
   const captureCreated = input.capture.ok ? input.capture.created : 0;
-  const created = gmailStaged + gcalStaged + captureCreated;
+  const created = gmailStaged + gcalStaged + beeperStaged + captureCreated;
   const scanned = input.capture.ok ? input.capture.scanned : 0;
   const updated = input.capture.ok ? input.capture.updated : 0;
   const skipped = input.capture.ok ? input.capture.skipped : 0;
+  const beeperOk = Boolean(
+    input.beeper && (input.beeper.ok || input.beeper.unavailable)
+  );
 
-  if (input.capture.ok || created > 0 || input.gmail.ok || input.gcal.ok) {
-    return { ok: true, scanned, created, updated, skipped };
+  if (
+    input.capture.ok ||
+    created > 0 ||
+    input.gmail.ok ||
+    input.gcal.ok ||
+    beeperOk
+  ) {
+    return {
+      ok: true,
+      scanned,
+      created,
+      updated,
+      skipped,
+      beeper: input.beeper,
+    };
   }
 
   return {
@@ -72,6 +113,7 @@ export function combineSuggestedScanResult(input: {
       input.capture.error ||
       input.gmail.error ||
       input.gcal.error ||
+      input.beeper?.error ||
       "Scan failed",
   };
 }
