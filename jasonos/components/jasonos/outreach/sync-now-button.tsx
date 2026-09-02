@@ -10,7 +10,6 @@ import { captureEmailCandidates } from "@/lib/server-actions/contact-candidates"
 import {
   SUGGESTED_SCAN_DAYS_BACK,
   SUGGESTED_SCAN_DAYS_FORWARD,
-  SUGGESTED_SCAN_MESSAGE_MAX,
 } from "@/lib/outreach/suggested-scan";
 import { cn } from "@/lib/utils";
 import type { OutreachSyncSnapshot } from "@/lib/outreach/data";
@@ -39,7 +38,7 @@ export function SyncNowButton({ initial }: SyncNowButtonProps) {
         }),
         captureEmailCandidates({
           days: SUGGESTED_SCAN_DAYS_BACK,
-          max: SUGGESTED_SCAN_MESSAGE_MAX,
+          max: 250,
           runId,
         }),
       ]);
