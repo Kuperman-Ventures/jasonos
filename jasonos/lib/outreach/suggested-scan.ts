@@ -33,6 +33,22 @@ export type SuggestedScanResult =
     }
   | { ok: false; error: string };
 
+export function humanScanError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  if (/timeout|timed out|aborted|FUNCTION_INVOCATION/i.test(msg)) {
+    return "Scan ran too long and was cut off. Try again.";
+  }
+  return msg.trim() || "Scan failed";
+}
+
+export function scanPartFromUnknown(err: unknown): SuggestedScanPart {
+  return { ok: false, error: humanScanError(err) };
+}
+
+export function capturePartFromUnknown(err: unknown): SuggestedCapturePart {
+  return { ok: false, error: humanScanError(err) };
+}
+
 export function combineSuggestedScanResult(input: {
   gmail: SuggestedScanPart;
   gcal: SuggestedScanPart;

@@ -21,7 +21,10 @@ import {
   SUGGESTED_SCAN_DAYS_BACK,
   SUGGESTED_SCAN_DAYS_FORWARD,
   SUGGESTED_SCAN_MESSAGE_MAX,
+  capturePartFromUnknown,
   combineSuggestedScanResult,
+  humanScanError,
+  scanPartFromUnknown,
 } from "@/lib/outreach/suggested-scan";
 import {
   syncOutreachFromCalendar,
@@ -131,33 +134,42 @@ export async function scanSuggestedContacts(): Promise<
   | { ok: false; error: string }
 > {
   const runId = crypto.randomUUID();
-  const [gmail, gcal, capture] = await Promise.all([
-    syncOutreachFromGmail({ daysBack: SUGGESTED_SCAN_DAYS_BACK, runId }),
-    syncOutreachFromCalendar({
+  try {
+    // One job at a time. The first live Scan email ran Gmail + Calendar + a
+    // 2,000-message inbox pass in parallel; Vercel killed the request after
+    // ~15s, before the inbox pass could log. Calendar first (fast), then the
+    // 90-day inbox pass, then the Gmail thread walk.
+    const gcal = await syncOutreachFromCalendar({
       daysBack: SUGGESTED_SCAN_DAYS_BACK,
       daysForward: SUGGESTED_SCAN_DAYS_FORWARD,
       runId,
-    }),
-    captureEmailCandidates({
+    }).catch(scanPartFromUnknown);
+    const capture = await captureEmailCandidates({
       days: SUGGESTED_SCAN_DAYS_BACK,
       max: SUGGESTED_SCAN_MESSAGE_MAX,
       runId,
-    }),
-  ]);
+    }).catch(capturePartFromUnknown);
+    const gmail = await syncOutreachFromGmail({
+      daysBack: SUGGESTED_SCAN_DAYS_BACK,
+      runId,
+    }).catch(scanPartFromUnknown);
 
-  return combineSuggestedScanResult({
-    gmail: {
-      ok: gmail.ok,
-      candidatesStaged: gmail.candidatesStaged,
-      error: gmail.error,
-    },
-    gcal: {
-      ok: gcal.ok,
-      candidatesStaged: gcal.candidatesStaged,
-      error: gcal.error,
-    },
-    capture,
-  });
+    return combineSuggestedScanResult({
+      gmail: {
+        ok: gmail.ok,
+        candidatesStaged: gmail.candidatesStaged,
+        error: gmail.error,
+      },
+      gcal: {
+        ok: gcal.ok,
+        candidatesStaged: gcal.candidatesStaged,
+        error: gcal.error,
+      },
+      capture,
+    });
+  } catch (err) {
+    return { ok: false, error: humanScanError(err) };
+  }
 }
 
 async function captureEmailCandidatesInner(opts?: {

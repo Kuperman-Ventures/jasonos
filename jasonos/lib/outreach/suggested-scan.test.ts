@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { combineSuggestedScanResult } from "./suggested-scan.ts";
+import {
+  combineSuggestedScanResult,
+  humanScanError,
+} from "./suggested-scan.ts";
 
 const captureOk = {
   ok: true as const,
@@ -39,6 +42,13 @@ describe("combineSuggestedScanResult", () => {
       updated: 0,
       skipped: 0,
     });
+  });
+
+  it("turns a timeout into a readable line", () => {
+    assert.equal(
+      humanScanError(new Error("FUNCTION_INVOCATION_TIMEOUT")),
+      "Scan ran too long and was cut off. Try again."
+    );
   });
 
   it("surfaces a real failure when nothing ran", () => {

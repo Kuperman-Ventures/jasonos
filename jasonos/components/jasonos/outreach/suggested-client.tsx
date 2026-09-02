@@ -22,9 +22,9 @@ import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import {
   addCandidateAsContact,
   dismissCandidate,
-  scanSuggestedContacts,
   type ContactCandidate,
 } from "@/lib/server-actions/contact-candidates";
+import type { SuggestedScanResult } from "@/lib/outreach/suggested-scan";
 
 export function SuggestedClient({
   candidates,
@@ -66,18 +66,30 @@ export function SuggestedClient({
 
   const handleScan = () => {
     startScan(async () => {
-      const result = await scanSuggestedContacts();
-      if (!result.ok) {
-        toast.error(result.error);
-        return;
-      }
-      toast.success(
-        `Scanned ${result.scanned} messages · ${result.created} new, ${result.updated} updated`,
-        {
-          description: `Last 90 days of email plus calendar guests. ${result.skipped} robots skipped.`,
+      try {
+        const res = await fetch("/api/outreach/scan-suggested", {
+          method: "POST",
+          cache: "no-store",
+        });
+        const result = (await res.json()) as SuggestedScanResult;
+        if (!res.ok || !result.ok) {
+          toast.error(
+            !result.ok ? result.error : `Scan failed (${res.status})`
+          );
+          return;
         }
-      );
-      router.refresh();
+        toast.success(
+          `Scanned ${result.scanned} messages · ${result.created} new, ${result.updated} updated`,
+          {
+            description: `Last 90 days of email plus calendar guests. ${result.skipped} robots skipped.`,
+          }
+        );
+        router.refresh();
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Scan failed. Try again."
+        );
+      }
     });
   };
 
