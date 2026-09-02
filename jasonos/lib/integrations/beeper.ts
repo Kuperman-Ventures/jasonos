@@ -469,7 +469,7 @@ export async function focusBeeperChatForContact(contact: {
   const phone =
     toE164Phone(peer?.phone) ||
     toE164Phone(contact.phone) ||
-    toE164Phone(phoneFromUserId(match));
+    (match ? toE164Phone(phoneFromUserId(match)) : null);
   const networkHint = match?.network || (phone ? "iMessage" : undefined);
   const link = match
     ? resolveBeeperLink({
