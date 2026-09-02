@@ -39,6 +39,37 @@ export function extractDisplayName(value: string): string {
   return (m?.[1] ?? "").trim().replace(/^"|"$/g, "").toLowerCase();
 }
 
+/** Synthetic address for Beeper peers who have a name/phone but no email. */
+export const BEEPER_PLACEHOLDER_DOMAIN = "beeper.invalid";
+
+export function isBeeperPlaceholderEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return extractEmail(email).endsWith(`@${BEEPER_PLACEHOLDER_DOMAIN}`);
+}
+
+/** Stable Suggested key for a Beeper 1:1 peer. Real email wins, then phone, then name. */
+export function beeperSightingEmail(peer: {
+  email?: string | null;
+  phone?: string | null;
+  name?: string | null;
+  chatTitle?: string | null;
+  chatId?: string | null;
+}): string | null {
+  if (peer.email) {
+    const email = extractEmail(peer.email);
+    if (email.includes("@") && !isMyOwnAddress(email)) return canonicalEmail(email);
+  }
+  const phone = normalizePhone(peer.phone);
+  if (phone) return `${phone}@${BEEPER_PLACEHOLDER_DOMAIN}`;
+  const name = normalizeName(peer.name || peer.chatTitle || "");
+  if (name.length >= 3) {
+    return `${name.replace(/\s+/g, ".")}@${BEEPER_PLACEHOLDER_DOMAIN}`;
+  }
+  const chat = (peer.chatId ?? "").replace(/[^a-zA-Z0-9]/g, "").slice(-24);
+  if (chat) return `chat.${chat}@${BEEPER_PLACEHOLDER_DOMAIN}`;
+  return null;
+}
+
 export function normalizeName(name: string): string {
   // Strip apostrophes/punctuation so "Rena O'Brien" matches "Rena OBrien"
   // (common calendar vs CRM spelling drift).

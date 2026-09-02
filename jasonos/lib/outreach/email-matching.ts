@@ -12,7 +12,9 @@ import {
 } from "@/lib/outreach/contact-lookup";
 
 export {
+  BEEPER_PLACEHOLDER_DOMAIN,
   MY_EMAILS,
+  beeperSightingEmail,
   canonicalEmail,
   createContactLookup,
   emptyLookup,
@@ -21,6 +23,7 @@ export {
   findNameMatch,
   hasExactEmailMatch,
   isAlreadyAContact,
+  isBeeperPlaceholderEmail,
   isFromMe,
   isMyOwnAddress,
   namesLookLikeSamePerson,

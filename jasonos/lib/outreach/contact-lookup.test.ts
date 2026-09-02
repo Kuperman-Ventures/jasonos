@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  beeperSightingEmail,
   canonicalEmail,
   createContactLookup,
   findNameMatch,
   hasExactEmailMatch,
   isAlreadyAContact,
+  isBeeperPlaceholderEmail,
   namesLookLikeSamePerson,
   type ContactLookupRow,
 } from "./contact-lookup.ts";
@@ -154,6 +156,19 @@ describe("findNameMatch for Suggested merge", () => {
       ),
       null
     );
+  });
+
+  it("builds a Beeper Suggested key from a name when there is no email", () => {
+    assert.equal(
+      beeperSightingEmail({ name: "David Newcom", chatId: "abc" }),
+      "david.newcom@beeper.invalid"
+    );
+    assert.equal(
+      beeperSightingEmail({ name: "Jeffrey Wu", phone: "555-111-2222" }),
+      "5551112222@beeper.invalid"
+    );
+    assert.equal(isBeeperPlaceholderEmail("david.newcom@beeper.invalid"), true);
+    assert.equal(isBeeperPlaceholderEmail("jeff@wu.com"), false);
   });
 
   it("does not treat Hall / Hill as the same last name", () => {

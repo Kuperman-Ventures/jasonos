@@ -260,7 +260,7 @@ export async function fetchBeeperTouchCandidates(opts?: {
   includeInbound?: boolean;
 }): Promise<BeeperTouchCandidate[]> {
   const daysBack = Math.max(1, Math.min(90, opts?.daysBack ?? 30));
-  const maxChats = Math.max(1, Math.min(80, opts?.maxChats ?? 40));
+  const maxChats = Math.max(1, Math.min(80, opts?.maxChats ?? 80));
   const maxMessagesPerChat = Math.max(
     1,
     Math.min(40, opts?.maxMessagesPerChat ?? 20)

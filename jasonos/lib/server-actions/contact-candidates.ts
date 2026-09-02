@@ -9,6 +9,8 @@ import {
   canonicalEmail,
   findNameMatch,
   isAlreadyAContact,
+  isBeeperPlaceholderEmail,
+  normalizePhone,
   type SuggestedNameMatch,
 } from "@/lib/outreach/email-matching";
 import {
@@ -344,7 +346,8 @@ export async function addCandidateAsContact(
   if (!cand) return { ok: false, error: "Candidate not found." };
 
   const email = cand.email as string;
-  const canon = canonicalEmail(email);
+  const placeholder = isBeeperPlaceholderEmail(email);
+  const canon = placeholder ? "" : canonicalEmail(email);
   const lookup = await buildContactLookup();
   const header = (cand.name as string | null)
     ? `${cand.name} <${email}>`
@@ -364,7 +367,7 @@ export async function addCandidateAsContact(
   }
 
   let contactId: string;
-  const byEmail = lookup.resolveEmail(email);
+  const byEmail = placeholder ? undefined : lookup.resolveEmail(email);
   const mergeTarget = opts?.mergeIntoContactId
     ? lookup.rows.find((r) => r.id === opts.mergeIntoContactId)
     : undefined;
@@ -375,25 +378,32 @@ export async function addCandidateAsContact(
 
   if (existingContact) {
     contactId = existingContact.id;
-    const hasEmail = existingContact.emails.some(
-      (e) => canonicalEmail(e) === canon
-    );
-    if (!hasEmail) {
-      const { error: enrichErr } = await sb
-        .from("contacts")
-        .update({ emails: [...existingContact.emails, email] })
-        .eq("id", existingContact.id);
-      if (enrichErr) return { ok: false, error: enrichErr.message };
+    if (!placeholder && canon) {
+      const hasEmail = existingContact.emails.some(
+        (e) => canonicalEmail(e) === canon
+      );
+      if (!hasEmail) {
+        const { error: enrichErr } = await sb
+          .from("contacts")
+          .update({ emails: [...existingContact.emails, email] })
+          .eq("id", existingContact.id);
+        if (enrichErr) return { ok: false, error: enrichErr.message };
+      }
     }
   } else {
     const name =
-      normalizePersonName(cand.name as string | null) || nameFromEmail(email);
+      normalizePersonName(cand.name as string | null) ||
+      (placeholder ? "" : nameFromEmail(email));
+    if (!name) return { ok: false, error: "Need a name to add this person." };
+    const local = email.split("@")[0] ?? "";
+    const phone = placeholder ? normalizePhone(local) : null;
     const { data: inserted, error: insErr } = await sb
       .from("contacts")
       .insert({
         name,
-        emails: [email],
-        tags: ["source:email"],
+        emails: placeholder ? [] : [email],
+        ...(phone ? { phone } : {}),
+        tags: placeholder ? ["source:beeper"] : ["source:email"],
       })
       .select("id")
       .single();

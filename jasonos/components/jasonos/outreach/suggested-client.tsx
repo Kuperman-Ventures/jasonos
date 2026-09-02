@@ -28,6 +28,7 @@ import {
   beeperScanLine,
   type SuggestedScanResult,
 } from "@/lib/outreach/suggested-scan";
+import { isBeeperPlaceholderEmail } from "@/lib/outreach/contact-lookup";
 
 export function SuggestedClient({
   candidates,
@@ -326,7 +327,9 @@ function CandidateRow({
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <Mail className="h-3 w-3" />
-            {candidate.email}
+            {isBeeperPlaceholderEmail(candidate.email)
+              ? "Beeper"
+              : candidate.email}
           </span>
           {candidate.company ? (
             <span className="inline-flex items-center gap-1">
@@ -344,7 +347,9 @@ function CandidateRow({
               ? `Looks like ${match.name} in People`
               : `Already in People as ${match.name}`}
             {" — "}
-            merge to attach this email, or add as a new person.
+            {isBeeperPlaceholderEmail(candidate.email)
+              ? "merge onto that row, or add as a new person."
+              : "merge to attach this email, or add as a new person."}
           </div>
         ) : null}
         {candidate.last_subject ? (

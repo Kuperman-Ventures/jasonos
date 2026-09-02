@@ -23,6 +23,7 @@ import {
 } from "@/lib/outreach/candidate-capture";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
+  beeperSightingEmail,
   buildContactLookup,
   canonicalEmail,
   extractEmail,
@@ -542,6 +543,7 @@ export async function syncOutreachFromBeeper(opts?: {
   try {
     const candidates = await fetchBeeperTouchCandidates({
       daysBack,
+      maxChats: 80,
       includeInbound: true,
     });
     const lookup = await buildContactLookup();
@@ -576,12 +578,20 @@ export async function syncOutreachFromBeeper(opts?: {
       });
       if (!contact) {
         skipped += 1;
-        if (c.peer.email && !isMyOwnAddress(c.peer.email)) {
+        const stagedEmail = beeperSightingEmail({
+          email: c.peer.email,
+          phone: c.peer.phone,
+          name: c.peer.name,
+          chatTitle: c.chatTitle,
+          chatId: c.chatId,
+        });
+        if (stagedEmail) {
+          const network = c.network ? `Beeper · ${c.network}` : "Beeper";
           sightings.push({
-            email: c.peer.email,
+            email: stagedEmail,
             name: c.peer.name ?? c.chatTitle,
             dateIso: c.timestamp,
-            subject: c.chatTitle || c.network || "Beeper",
+            subject: c.chatTitle || network,
             direction: c.direction,
           });
         }
