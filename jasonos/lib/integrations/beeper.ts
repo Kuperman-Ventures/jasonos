@@ -6,6 +6,7 @@ import {
   normalizePhone,
   preferPersonName,
 } from "@/lib/outreach/contact-lookup";
+import { beeperChatDeepLink } from "@/lib/integrations/beeper-links";
 
 // Beeper Desktop API — local/tunneled chat sync for JasonOS outreach.
 //
@@ -49,6 +50,7 @@ interface BeeperChat {
   title?: string;
   network?: string;
   type?: string;
+  accountID?: string;
   participants?: { items?: BeeperUser[] };
 }
 
@@ -370,10 +372,14 @@ async function searchChatsForContact(contact: {
 }
 
 export type FocusBeeperResult =
-  | { ok: true; opened: "chat" | "app"; chatTitle?: string }
+  | { ok: true; opened: "chat" | "app"; chatTitle?: string; href: string }
   | { ok: false; error: string };
 
-/** Open Beeper Desktop on this contact's 1:1 chat, or just bring the app forward. */
+/**
+ * Find this contact's 1:1 chat via the Desktop API (search only).
+ * Opening happens on the Mac in front of the browser via a beeper:// link —
+ * /v1/focus would only raise Beeper on the tunneled machine.
+ */
 export async function focusBeeperChatForContact(contact: {
   name?: string | null;
   phone?: string | null;
@@ -381,29 +387,17 @@ export async function focusBeeperChatForContact(contact: {
   await probeBeeperDesktop();
   const chats = await searchChatsForContact(contact);
   const match = chats.find((chat) => chatMatchesContact(chat, contact));
-
-  const body = match
-    ? { chatID: match.id }
-    : {};
-  const res = await beeperFetch("/v1/focus", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    timeoutMs: 8_000,
+  const href = beeperChatDeepLink({
+    chatId: match?.id,
+    accountId: match?.accountID,
   });
-  if (res.status === 401 || res.status === 403) {
-    throw new BeeperApiError(res.status, await readErrorDetail(res));
-  }
-  if (!res.ok) {
-    const detail = await readErrorDetail(res);
-    return { ok: false, error: `Could not open Beeper (${detail})` };
-  }
   if (match) {
     return {
       ok: true,
       opened: "chat",
       chatTitle: match.title || contact.name || undefined,
+      href,
     };
   }
-  return { ok: true, opened: "app" };
+  return { ok: true, opened: "app", href };
 }

@@ -81,14 +81,15 @@ export function HomeClient({
         toast.error(result.error);
         return;
       }
+      window.location.href = result.href;
       if (result.opened === "chat") {
         toast.success(
           result.chatTitle
-            ? `Opened ${result.chatTitle} in Beeper`
-            : "Opened the chat in Beeper"
+            ? `Opening ${result.chatTitle} in Beeper on this Mac`
+            : "Opening the chat in Beeper on this Mac"
         );
       } else {
-        toast.success("Opened Beeper. Find them in the chat list.");
+        toast.success("Opening Beeper on this Mac. Find them in the chat list.");
       }
     } finally {
       setTextingId(null);
