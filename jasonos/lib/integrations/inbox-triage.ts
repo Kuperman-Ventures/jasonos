@@ -38,6 +38,8 @@ export interface BoardingItem {
   gmailUrl?: string;
   /** One-line "elevator door closing" reason this needs Jason. */
   elevator: string;
+  /** Last inbound message, quotes/signatures stripped. Empty if unknown. */
+  original: string;
   urgency: Urgency;
   /** Draft reply in Jason's voice. Empty string if drafting was unavailable. */
   draft: string;
@@ -173,10 +175,25 @@ function classifyNoise(email: string, name: string, subject: string): string | n
 }
 
 /** Strip quoted history and signatures to give Claude a clean last message. */
-function cleanBody(msg: GmailThreadMessage): string {
+export function inboundPlaintext(
+  msg: GmailThreadMessage,
+  maxLen = 2500
+): string {
   const raw = msg.plaintextBody || msg.snippet || "";
   const cut = raw.split(/\n\s*On .*wrote:\s*$/m)[0] ?? raw;
-  return cut.replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim().slice(0, 900);
+  return cut.replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim().slice(0, maxLen);
+}
+
+/** Newest inbound plaintext on a thread, for the Home card's Original block. */
+export function lastInboundPlaintext(thread: GmailThreadFull): string {
+  for (let i = thread.messages.length - 1; i >= 0; i--) {
+    const msg = thread.messages[i];
+    if (isFromMe(msg.from ?? "")) continue;
+    const text = inboundPlaintext(msg);
+    if (text) return text;
+  }
+  const last = thread.messages[thread.messages.length - 1];
+  return last ? inboundPlaintext(last) : "";
 }
 
 function daysSince(dateStr: string | undefined): number {
@@ -351,14 +368,22 @@ export async function computeInboxDispatch(): Promise<InboxDispatch> {
         email: sender.email,
         subject,
         receivedAt: last.date ? new Date(last.date).toISOString() : new Date().toISOString(),
-        body: cleanBody(last),
+        body: inboundPlaintext(last),
         appleMailUrl,
       });
     }
 
     const top = boardingRaw.slice(0, MAX_BOARDING);
     const [drafts, noise] = await Promise.all([
-      draftReplies(top.map((b) => ({ id: b.threadId, name: b.name, email: b.email, subject: b.subject, body: b.body }))),
+      draftReplies(
+        top.map((b) => ({
+          id: b.threadId,
+          name: b.name,
+          email: b.email,
+          subject: b.subject,
+          body: b.body.slice(0, 900),
+        }))
+      ),
       countNoise(),
     ]);
 
@@ -372,6 +397,7 @@ export async function computeInboxDispatch(): Promise<InboxDispatch> {
         receivedAt: b.receivedAt,
         appleMailUrl: b.appleMailUrl,
         elevator: d?.elevator || `${b.name} is waiting on your reply.`,
+        original: b.body,
         urgency: d?.urgency ?? "normal",
         draft: d?.draft ?? "",
       };

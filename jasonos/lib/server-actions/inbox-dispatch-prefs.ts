@@ -94,6 +94,7 @@ function normalizeBoardingItem(raw: unknown): BoardingItem | null {
       typeof o.elevator === "string" && o.elevator.trim()
         ? o.elevator
         : o.subject,
+    original: typeof o.original === "string" ? o.original : "",
     urgency: isUrgency(o.urgency) ? o.urgency : "normal",
     draft: typeof o.draft === "string" ? o.draft : "",
   };

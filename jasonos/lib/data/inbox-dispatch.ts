@@ -17,13 +17,15 @@ import {
   createServiceRoleClient,
 } from "@/lib/supabase/server";
 import { etToday } from "@/lib/dates";
-import type {
-  InboxDispatch,
-  BoardingItem,
-  HoldingItem,
-  NoiseGroup,
-  Urgency,
+import {
+  lastInboundPlaintext,
+  type InboxDispatch,
+  type BoardingItem,
+  type HoldingItem,
+  type NoiseGroup,
+  type Urgency,
 } from "@/lib/integrations/inbox-triage";
+import { getGmailThread } from "@/lib/integrations/gmail";
 
 type DispatchRow = {
   dispatch_date: string;
@@ -90,6 +92,7 @@ function normalizePayload(raw: unknown): Omit<InboxDispatch, "source"> | null {
             appleMailUrl: str(i.appleMailUrl) || null,
             gmailUrl: gmailHref(i.gmailUrl),
             elevator: str(i.elevator),
+            original: str(i.original) || str(i.body) || str(i.snippet) || str(i.inbound),
             urgency,
             draft: str(i.draft),
             draftSaved: i.draftSaved === true,
@@ -187,6 +190,37 @@ async function fetchFrom(sb: Sb, today: string): Promise<InboxDispatch | null> {
   };
 }
 
+async function fillMissingOriginals(items: BoardingItem[]): Promise<BoardingItem[]> {
+  const missing = items.filter((item) => !item.original.trim());
+  if (missing.length === 0) return items;
+
+  const fetched = await Promise.all(
+    missing.map(async (item) => {
+      try {
+        const thread = await getGmailThread(item.threadId);
+        if (!thread) return [item.threadId, ""] as const;
+        return [item.threadId, lastInboundPlaintext(thread)] as const;
+      } catch (err) {
+        console.warn("[inbox-dispatch] original fetch failed:", item.threadId, err);
+        return [item.threadId, ""] as const;
+      }
+    })
+  );
+  const byId = new Map(fetched);
+  return items.map((item) => {
+    if (item.original.trim()) return item;
+    const original = byId.get(item.threadId) ?? "";
+    return original ? { ...item, original } : item;
+  });
+}
+
+async function withOriginals(dispatch: InboxDispatch): Promise<InboxDispatch> {
+  return {
+    ...dispatch,
+    boarding: await fillMissingOriginals(dispatch.boarding),
+  };
+}
+
 /**
  * The published dispatch for the home card, or null when the publisher hasn't
  * written one (or the table/config is missing) — in which case the caller
@@ -200,13 +234,14 @@ export async function getPublishedInboxDispatch(): Promise<InboxDispatch | null>
   // schema. A missing table on either side is just "nothing published yet".
   try {
     const dispatch = await fetchFrom(createPublicServiceRoleClient(), today);
-    if (dispatch) return dispatch;
+    if (dispatch) return withOriginals(dispatch);
   } catch (err) {
     console.warn("[inbox-dispatch] public.inbox_dispatches unavailable:", err);
   }
 
   try {
-    return await fetchFrom(createServiceRoleClient(), today);
+    const dispatch = await fetchFrom(createServiceRoleClient(), today);
+    return dispatch ? withOriginals(dispatch) : null;
   } catch (err) {
     console.warn("[inbox-dispatch] jasonos.inbox_dispatches unavailable:", err);
     return null;
