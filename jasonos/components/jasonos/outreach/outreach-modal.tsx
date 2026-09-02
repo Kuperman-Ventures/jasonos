@@ -53,6 +53,7 @@ import {
   Pencil,
   UserPlus,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
@@ -90,6 +91,7 @@ import {
   type RelevanceTier,
   type TouchObjective,
 } from "@/lib/outreach/types";
+import { deleteContact } from "@/lib/server-actions/contacts";
 import { loadOutreachContext } from "@/lib/server-actions/outreach-draft";
 import {
   addReferredContact,
@@ -1116,6 +1118,14 @@ export function OutreachModal({
                 onAdded={(c) => setReferrals((prev) => [c, ...prev])}
                 onReferredByChange={setReferredBy}
               />
+              <DeleteContactBlock
+                contactId={effectiveContactId}
+                contactName={header.name}
+                onDeleted={() => {
+                  onOpenChange(false);
+                  router.refresh();
+                }}
+              />
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">
@@ -1529,6 +1539,56 @@ function ReferralsCard({
         </button>
       )}
     </section>
+  );
+}
+
+function DeleteContactBlock({
+  contactId,
+  contactName,
+  onDeleted,
+}: {
+  contactId: string;
+  contactName: string;
+  onDeleted: () => void;
+}) {
+  const [pending, startPending] = useTransition();
+
+  const run = () => {
+    const who = contactName.trim() || "this contact";
+    if (
+      !window.confirm(
+        `Delete ${who}? This removes them from People, the queue, meetings, and logged touches. This cannot be undone.\n\nUse Backrow on Engage if you only want them out of the queue.`
+      )
+    ) {
+      return;
+    }
+    startPending(async () => {
+      const result = await deleteContact(contactId);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success(`Deleted ${who}`);
+      onDeleted();
+    });
+  };
+
+  return (
+    <div className="border-t pt-4">
+      <button
+        type="button"
+        disabled={pending}
+        onClick={run}
+        className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
+      >
+        <Trash2 className="h-3 w-3" />
+        {pending ? "Deleting…" : "Delete contact"}
+      </button>
+      <p className="mt-1 text-[10px] text-muted-foreground/70">
+        Permanent. Backrow on Engage keeps them in People and only drops them
+        from the queue.
+      </p>
+    </div>
   );
 }
 
