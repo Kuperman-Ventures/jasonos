@@ -88,8 +88,18 @@ export function HomeClient({
             ? `Opening ${result.chatTitle} in Beeper on this Mac`
             : "Opening the chat in Beeper on this Mac"
         );
+      } else if (result.gap === "missing_recipient") {
+        toast.message(
+          result.chatTitle
+            ? `Opened Beeper. ${result.chatTitle} has no phone on file — search for them.`
+            : "Opened Beeper. This contact has no phone on file — search for them."
+        );
       } else {
-        toast.success("Opening Beeper on this Mac. Find them in the chat list.");
+        toast.message(
+          result.chatTitle
+            ? `Opened Beeper. Find ${result.chatTitle} in the chat list.`
+            : "Opened Beeper. Find them in the chat list."
+        );
       }
     } finally {
       setTextingId(null);

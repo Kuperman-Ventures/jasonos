@@ -1,13 +1,24 @@
-// Home → Text must open Beeper on THIS Mac.
+// Beeper deep links (from Desktop "Copy chat deep link"):
+//   beeper://select-thread/bridge-whatsapp/!id:beeper.local?accountID=whatsapp
 //
-// Chat IDs from the tunneled Desktop API are often install-local
-// (`!room:ba_….local-whatsapp.localhost`, account `local-whatsapp_ba_…`).
-// Putting those in beeper://select-thread/ works on the machine that
-// produced them and toasts "invalid deep link" everywhere else.
+// Platform path is always bridge-{network}. accountID is the short network
+// key (whatsapp), never a machine-local id like local-whatsapp_ba_….
 //
-// Portable path: beeper://compose/{platform}/{phone-or-handle}
-// with no machine-specific accountID. Each Mac resolves its own account.
-// Cloud Matrix rooms (`!id:beeper.local`) can still use select-thread.
+// Chat ids from the tunneled Desktop API are often install-local
+// (`!room:ba_….local-whatsapp.localhost`). Those only work on that Mac —
+// do not put them in select-thread for the laptop.
+//
+// When we have a phone/handle, compose with the real bridge platform:
+//   beeper://compose/bridge-whatsapp/+15551234567?accountID=whatsapp
+// Invented platforms like local-whatsapp toast "invalid deep link".
+
+export type BeeperLinkResult = {
+  href: string;
+  /** True when the URL should open a specific chat/compose target. */
+  targetsChat: boolean;
+  /** Why we could not jump to a specific chat, if any. */
+  gap?: "missing_recipient" | "missing_platform" | "local_chat_only";
+};
 
 export function beeperChatDeepLink(opts: {
   chatId?: string | null;
@@ -16,80 +27,108 @@ export function beeperChatDeepLink(opts: {
   phone?: string | null;
   username?: string | null;
 }): string {
-  const chatId = opts.chatId?.trim() || null;
-  const phone = toE164(opts.phone);
-  const resolved =
-    resolvePlatform(opts.accountId, opts.network, chatId) ??
-    (phone ? { platform: "local-imessage", queryAccount: null } : null);
-  const recipient = phone || handleForCompose(opts.username);
-
-  if (recipient && resolved) {
-    return `beeper://compose/${resolved.platform}/${pathSegment(recipient)}`;
-  }
-
-  if (chatId && resolved && isPortableChatId(chatId) && resolved.queryAccount) {
-    return `beeper://select-thread/${resolved.platform}/${chatId}?accountID=${resolved.queryAccount}`;
-  }
-
-  return "beeper://focus";
+  return resolveBeeperLink(opts).href;
 }
 
-function resolvePlatform(
+export function resolveBeeperLink(opts: {
+  chatId?: string | null;
+  accountId?: string | null;
+  network?: string | null;
+  phone?: string | null;
+  username?: string | null;
+}): BeeperLinkResult {
+  const chatId = opts.chatId?.trim() || null;
+  const phone = toE164(opts.phone);
+  const handle = handleForCompose(opts.username);
+  const recipient = phone || handle;
+  const networkKey = networkKeyFrom(opts.accountId, opts.network, chatId);
+
+  // Prefer compose with a portable recipient — works on any Mac that has
+  // that network connected. Never use local-* platform names.
+  if (recipient && networkKey) {
+    return {
+      href: `beeper://compose/bridge-${networkKey}/${pathSegment(recipient)}?accountID=${networkKey}`,
+      targetsChat: true,
+    };
+  }
+
+  // Cloud Matrix rooms can use Copy-chat select-thread across devices.
+  if (chatId && networkKey && isPortableChatId(chatId)) {
+    return {
+      href: `beeper://select-thread/bridge-${networkKey}/${chatId}?accountID=${networkKey}`,
+      targetsChat: true,
+    };
+  }
+
+  if (!recipient) {
+    return {
+      href: "beeper://focus",
+      targetsChat: false,
+      gap: "missing_recipient",
+    };
+  }
+
+  // Phone on file but no network hint — try iMessage/SMS compose.
+  return {
+    href: `beeper://compose/bridge-imessage/${pathSegment(recipient)}?accountID=imessage`,
+    targetsChat: true,
+  };
+}
+
+/** Phone-only Text when Beeper search is unavailable. */
+export function beeperTextFallbackLink(phone?: string | null): string {
+  return resolveBeeperTextFallback(phone).href;
+}
+
+export function resolveBeeperTextFallback(
+  phone?: string | null
+): BeeperLinkResult {
+  return resolveBeeperLink({ phone, network: "iMessage" });
+}
+
+function networkKeyFrom(
   accountId?: string | null,
   network?: string | null,
   chatId?: string | null
-): { platform: string; queryAccount: string | null } | null {
+): string | null {
+  const fromAccount = keyFromAccountId(accountId);
+  if (fromAccount) return fromAccount;
+
+  const fromNetwork = canonicalNetwork(network ?? "");
+  if (fromNetwork) return fromNetwork;
+
+  return keyFromChatId(chatId);
+}
+
+function keyFromAccountId(accountId?: string | null): string | null {
   const raw = (accountId ?? "").trim();
-  const localBridge = localBridgeId(raw);
-  if (localBridge) {
-    return { platform: localBridge, queryAccount: null };
-  }
+  if (!raw) return null;
 
-  const key =
-    (raw.startsWith("bridge-")
-      ? canonicalNetwork(raw.slice("bridge-".length))
-      : canonicalNetwork(raw)) ?? canonicalNetwork(network ?? "");
-
-  if (isLocalChatId(chatId) && key) {
-    return { platform: localPlatformFor(key), queryAccount: null };
-  }
-
+  // bridge-whatsapp → whatsapp
   if (raw.startsWith("bridge-")) {
-    const account = raw.slice("bridge-".length);
-    return account ? { platform: raw, queryAccount: account } : null;
+    return canonicalNetwork(raw.slice("bridge-".length));
   }
 
-  if (raw && !raw.includes("_") && !/^local-/i.test(raw)) {
-    const cloudKey = canonicalNetwork(raw) ?? raw.toLowerCase();
-    return { platform: `bridge-${cloudKey}`, queryAccount: cloudKey };
+  // local-whatsapp_ba_… → whatsapp
+  const local = raw.match(/^local-([a-z0-9]+)/i);
+  if (local) {
+    return canonicalNetwork(local[1]);
   }
 
-  if (key) {
-    return { platform: `bridge-${key}`, queryAccount: key };
+  // Bare short ids: whatsapp, telegram, hungryserv, …
+  if (!raw.includes("_") && !raw.includes(":")) {
+    return canonicalNetwork(raw) ?? raw.toLowerCase();
   }
 
+  return canonicalNetwork(raw);
+}
+
+function keyFromChatId(chatId?: string | null): string | null {
+  if (!chatId) return null;
+  // !room:ba_x.local-whatsapp.localhost → whatsapp
+  const local = chatId.match(/\.local-([a-z0-9]+)\.localhost$/i);
+  if (local) return canonicalNetwork(local[1]);
   return null;
-}
-
-function localPlatformFor(key: string): string {
-  const map: Record<string, string> = {
-    whatsapp: "local-whatsapp",
-    instagramgo: "local-instagram",
-    imessage: "local-imessage",
-    telegram: "local-telegram",
-    signal: "local-signal",
-    linkedin: "local-linkedin",
-    discordgo: "local-discord",
-    facebookgo: "local-facebook",
-    twitter: "local-twitter",
-    hungryserv: "local-hungryserv",
-  };
-  return map[key] ?? `local-${key}`;
-}
-
-function localBridgeId(accountId: string): string | null {
-  const match = accountId.match(/^(local-[a-z0-9]+)/i);
-  return match ? match[1].toLowerCase() : null;
 }
 
 function canonicalNetwork(raw: string): string | null {
@@ -154,12 +193,4 @@ function handleForCompose(username?: string | null): string | null {
 
 function pathSegment(value: string): string {
   return encodeURIComponent(value).replace(/%2B/g, "+");
-}
-
-/** iMessage/SMS on Beeper Desktop v4 when we only have a phone number. */
-export function beeperTextFallbackLink(phone?: string | null): string {
-  return beeperChatDeepLink({
-    phone,
-    accountId: "local-imessage",
-  });
 }

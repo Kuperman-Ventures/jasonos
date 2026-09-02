@@ -6,7 +6,7 @@ import {
   isBeeperConfigured,
   type FocusBeeperResult,
 } from "@/lib/integrations/beeper";
-import { beeperTextFallbackLink } from "@/lib/integrations/beeper-links";
+import { resolveBeeperTextFallback } from "@/lib/integrations/beeper-links";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
 export async function openBeeperText(
@@ -30,44 +30,37 @@ export async function openBeeperText(
   const phone = (data.phone as string | null) ?? null;
 
   if (!isBeeperConfigured()) {
-    const href = beeperTextFallbackLink(phone);
-    if (href === "beeper://focus" && !phone) {
+    const link = resolveBeeperTextFallback(phone);
+    if (!link.targetsChat && !phone) {
       return {
         ok: false,
-        error: "No phone on file for this contact, and Beeper is not configured.",
+        error:
+          "No phone on file for this contact, so Beeper cannot open their chat from here.",
       };
     }
     return {
       ok: true,
-      opened: href.startsWith("beeper://compose/") ? "chat" : "app",
+      opened: link.targetsChat ? "chat" : "app",
       chatTitle: name || undefined,
-      href,
+      href: link.href,
+      gap: link.gap,
     };
   }
 
   try {
     return await focusBeeperChatForContact({ name, phone });
   } catch (err) {
-    if (err instanceof BeeperApiError) {
-      const href = beeperTextFallbackLink(phone);
-      if (href !== "beeper://focus") {
-        return {
-          ok: true,
-          opened: "chat",
-          chatTitle: name || undefined,
-          href,
-        };
-      }
-      return { ok: false, error: err.message };
-    }
-    const href = beeperTextFallbackLink(phone);
-    if (href !== "beeper://focus") {
+    const link = resolveBeeperTextFallback(phone);
+    if (link.targetsChat) {
       return {
         ok: true,
         opened: "chat",
         chatTitle: name || undefined,
-        href,
+        href: link.href,
       };
+    }
+    if (err instanceof BeeperApiError) {
+      return { ok: false, error: err.message };
     }
     return {
       ok: false,

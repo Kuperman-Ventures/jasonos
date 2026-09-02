@@ -7,8 +7,8 @@ import {
   preferPersonName,
 } from "@/lib/outreach/contact-lookup";
 import {
-  beeperChatDeepLink,
-  beeperTextFallbackLink,
+  resolveBeeperLink,
+  type BeeperLinkResult,
 } from "@/lib/integrations/beeper-links";
 
 // Beeper Desktop API — local/tunneled chat sync for JasonOS outreach.
@@ -375,7 +375,14 @@ async function searchChatsForContact(contact: {
 }
 
 export type FocusBeeperResult =
-  | { ok: true; opened: "chat" | "app"; chatTitle?: string; href: string }
+  | {
+      ok: true;
+      opened: "chat" | "app";
+      chatTitle?: string;
+      href: string;
+      /** Why we only opened the app, when we could not jump to a chat. */
+      gap?: BeeperLinkResult["gap"];
+    }
   | { ok: false; error: string };
 
 async function retrieveChat(chatId: string): Promise<BeeperChat | null> {
@@ -437,26 +444,25 @@ export async function focusBeeperChatForContact(contact: {
   }
 
   const peer = match ? peerFromChat(match) : null;
-  const href = match
-    ? beeperChatDeepLink({
+  const link = match
+    ? resolveBeeperLink({
         chatId: match.id,
         accountId: accountIdForDeepLink(match),
         network: match.network,
         phone: peer?.phone || contact.phone || phoneFromUserId(match),
         username: peer?.username,
       })
-    : beeperTextFallbackLink(contact.phone);
+    : resolveBeeperLink({
+        phone: contact.phone,
+        network: contact.phone ? "iMessage" : null,
+      });
 
-  const opened =
-    href.startsWith("beeper://compose/") ||
-    href.startsWith("beeper://select-thread/")
-      ? "chat"
-      : "app";
   return {
     ok: true,
-    opened,
+    opened: link.targetsChat ? "chat" : "app",
     chatTitle: match?.title || contact.name || undefined,
-    href,
+    href: link.href,
+    gap: link.gap,
   };
 }
 
