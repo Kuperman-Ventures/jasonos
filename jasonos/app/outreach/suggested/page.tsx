@@ -5,6 +5,8 @@ import { SuggestedClient } from "@/components/jasonos/outreach/suggested-client"
 
 export const metadata = { title: "Outreach · Suggested" };
 export const dynamic = "force-dynamic";
+/** Deep Scan email walks 90 days of Gmail + calendar. */
+export const maxDuration = 60;
 
 export default async function OutreachSuggestedPage() {
   const [candidates, gmailConnected] = await Promise.all([

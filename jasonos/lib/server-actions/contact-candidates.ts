@@ -17,6 +17,18 @@ import {
   normalizePersonName,
   upsertCandidateSightings,
 } from "@/lib/outreach/candidate-capture";
+import {
+  SUGGESTED_SCAN_DAYS_BACK,
+  SUGGESTED_SCAN_DAYS_FORWARD,
+  SUGGESTED_SCAN_MESSAGE_MAX,
+  combineSuggestedScanResult,
+} from "@/lib/outreach/suggested-scan";
+import {
+  syncOutreachFromCalendar,
+  syncOutreachFromGmail,
+} from "@/lib/server-actions/outreach-sync";
+
+export const maxDuration = 60;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -108,6 +120,46 @@ export async function captureEmailCandidates(opts?: {
         skipped: result.skipped,
       }
     : result;
+}
+
+// ---------------------------------------------------------------------------
+// scanSuggestedContacts — same depth as regular Sync for finding people:
+// 90-day Gmail thread walk, calendar guests, plus a 90-day metadata pass.
+// Beeper is IM, so Scan email skips it.
+// ---------------------------------------------------------------------------
+
+export async function scanSuggestedContacts(): Promise<
+  | { ok: true; scanned: number; created: number; updated: number; skipped: number }
+  | { ok: false; error: string }
+> {
+  const runId = crypto.randomUUID();
+  const [gmail, gcal, capture] = await Promise.all([
+    syncOutreachFromGmail({ daysBack: SUGGESTED_SCAN_DAYS_BACK, runId }),
+    syncOutreachFromCalendar({
+      daysBack: SUGGESTED_SCAN_DAYS_BACK,
+      daysForward: SUGGESTED_SCAN_DAYS_FORWARD,
+      runId,
+    }),
+    captureEmailCandidates({
+      days: SUGGESTED_SCAN_DAYS_BACK,
+      max: SUGGESTED_SCAN_MESSAGE_MAX,
+      runId,
+    }),
+  ]);
+
+  return combineSuggestedScanResult({
+    gmail: {
+      ok: gmail.ok,
+      candidatesStaged: gmail.candidatesStaged,
+      error: gmail.error,
+    },
+    gcal: {
+      ok: gcal.ok,
+      candidatesStaged: gcal.candidatesStaged,
+      error: gcal.error,
+    },
+    capture,
+  });
 }
 
 async function captureEmailCandidatesInner(opts?: {

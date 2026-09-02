@@ -21,8 +21,8 @@ import { cn } from "@/lib/utils";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import {
   addCandidateAsContact,
-  captureEmailCandidates,
   dismissCandidate,
+  scanSuggestedContacts,
   type ContactCandidate,
 } from "@/lib/server-actions/contact-candidates";
 
@@ -66,14 +66,16 @@ export function SuggestedClient({
 
   const handleScan = () => {
     startScan(async () => {
-      const result = await captureEmailCandidates({ days: 30 });
+      const result = await scanSuggestedContacts();
       if (!result.ok) {
         toast.error(result.error);
         return;
       }
       toast.success(
         `Scanned ${result.scanned} messages · ${result.created} new, ${result.updated} updated`,
-        { description: `${result.skipped} robots skipped.` }
+        {
+          description: `Last 90 days of email plus calendar guests. ${result.skipped} robots skipped.`,
+        }
       );
       router.refresh();
     });
@@ -146,7 +148,11 @@ export function SuggestedClient({
             don&rsquo;t come back.
           </p>
         </div>
-        <Button onClick={handleScan} disabled={scanning || !gmailConnected}>
+        <Button
+          onClick={handleScan}
+          disabled={scanning || !gmailConnected}
+          title="Same depth as Sync: last 90 days of email, plus calendar guests"
+        >
           <RefreshCw className={cn("h-4 w-4", scanning && "animate-spin")} />
           {scanning ? "Scanning…" : "Scan email"}
         </Button>
