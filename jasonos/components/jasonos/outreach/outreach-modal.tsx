@@ -152,6 +152,8 @@ export interface OutreachModalProps {
    *  uses `contact.first_contact` to render the First-Contact Sequence widget
    *  and the local-state callbacks let the parent mirror server mutations. */
   recruiterPipeline?: RecruiterPipelineProps;
+  /** Tab to show when the modal opens. Home "Log contact" uses engage. */
+  initialTab?: "engage" | "contact" | "meetings";
 }
 
 // ---------------------------------------------------------------------------
@@ -181,6 +183,7 @@ export function OutreachModal({
   contactId,
   recruiterId,
   initialDisplay,
+  initialTab = "engage",
 }: OutreachModalProps) {
   const router = useRouter();
   const [card, setCard] = useState<CardState>({ status: "loading" });
@@ -298,7 +301,7 @@ export function OutreachModal({
       setContextRecentTouches([]);
       setBrowningPrompt(null);
       setBrowningDismissed(false);
-      setTab("engage");
+      setTab(initialTab);
       setEditingIdentity(false);
       setReferredBy(null);
       setReferrals([]);
@@ -372,7 +375,7 @@ export function OutreachModal({
     return () => {
       cancelled = true;
     };
-  }, [open, contactId, recruiterId]);
+  }, [open, contactId, recruiterId, initialTab]);
 
   // ------------------------------------------------------------------
   // Auto-link helper for pipeline-only cards. Idempotent on the server.
