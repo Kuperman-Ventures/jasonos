@@ -4,6 +4,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
   buildContactLookup,
   canonicalEmail,
+  isBeeperPlaceholderEmail,
   isMyOwnAddress,
   type ContactLookup,
 } from "@/lib/outreach/email-matching";
@@ -114,7 +115,8 @@ export async function upsertCandidateSightings(
 
   for (const cp of sightings) {
     if (!cp.email || isMyOwnAddress(cp.email)) continue;
-    if (isNoiseEmail(cp.email)) {
+    const placeholder = isBeeperPlaceholderEmail(cp.email);
+    if (!placeholder && isNoiseEmail(cp.email)) {
       result.skipped += 1;
       continue;
     }
@@ -136,7 +138,7 @@ export async function upsertCandidateSightings(
       agg.set(canon, {
         email: canon,
         name: cp.name ? normalizePersonName(cp.name) : null,
-        company: companyFromEmail(canon),
+        company: placeholder ? null : companyFromEmail(canon),
         inbound: cp.direction === "inbound" ? 1 : 0,
         outbound: cp.direction === "outbound" ? 1 : 0,
         lastSeen: cp.dateIso,
