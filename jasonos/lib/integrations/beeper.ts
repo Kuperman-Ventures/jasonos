@@ -6,6 +6,7 @@ import {
   normalizePhone,
   preferPersonName,
 } from "@/lib/outreach/contact-lookup";
+import { pickPreferredTextChat } from "@/lib/integrations/beeper-text-pref";
 
 // Beeper Desktop API — local/tunneled chat sync for JasonOS outreach.
 //
@@ -357,7 +358,7 @@ async function searchChatsForContact(contact: {
   const query = preferPersonName(contact.name) || contact.phone || "";
   const qs = new URLSearchParams({
     type: "single",
-    limit: "40",
+    limit: "80",
     includeMuted: "true",
   });
   if (query) qs.set("query", query);
@@ -385,7 +386,9 @@ export async function focusBeeperChatForContact(contact: {
 }): Promise<FocusBeeperResult> {
   await probeBeeperDesktop();
   const chats = await searchChatsForContact(contact);
-  const match = chats.find((chat) => chatMatchesContact(chat, contact));
+  const match = pickPreferredTextChat(
+    chats.filter((chat) => chatMatchesContact(chat, contact))
+  );
 
   const body = match ? { chatID: match.id } : {};
   const res = await beeperFetch("/v1/focus", {
