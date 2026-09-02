@@ -28,8 +28,6 @@ import {
   syncOutreachFromGmail,
 } from "@/lib/server-actions/outreach-sync";
 
-export const maxDuration = 60;
-
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
