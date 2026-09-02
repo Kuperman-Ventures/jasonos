@@ -125,11 +125,12 @@ export function HomeClient({
             Nothing overdue. Clear.
           </p>
         ) : (
-          <ul className="divide-y divide-border">
+          {/* Queue-style window: ~10 rows visible, the rest scroll inside. */}
+          <ul className="max-h-[calc(10*4.125rem)] divide-y divide-border overflow-y-auto overscroll-contain">
             {data.overdue.map((c) => (
               <li
                 key={c.id}
-                className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3"
+                className="flex min-h-[4.125rem] flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3"
               >
                 <div className="flex min-w-0 flex-1 items-center gap-3">
                   <TierDegreeBadge tier={c.tier} degree={c.degree} />
