@@ -1,39 +1,99 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import {
   AlertCircle,
-  Clock,
-  CalendarClock,
   BarChart3,
   ExternalLink,
   ArrowUpRight,
   PlugZap,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import { TierDegreeBadge } from "@/components/jasonos/outreach/tier-degree-badge";
 import { Logo } from "@/components/jasonos/logo";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { generateOutreachDraft } from "@/lib/server-actions/outreach-draft";
+import { openBeeperText } from "@/lib/server-actions/beeper-compose";
 import type { AttentionContact, HomeData, SitePanel } from "@/lib/data/home";
 
 const COLUMN_LABEL: Record<string, string> = {
   network_growth: "Growth",
   network_maintenance: "Maintenance",
   browning_cold: "Cold",
-  // Legacy labels (kept so old payloads still render cleanly).
   warm: "Growth",
   specific: "Growth",
   cold: "Cold",
 };
+
+type ModalMode = { contact: AttentionContact; tab: "engage" | "contact" };
 
 export function HomeClient({
   data,
   children,
 }: {
   data: HomeData;
-  /** Server-rendered slot (e.g. Morning Brief) placed under the header. */
   children?: React.ReactNode;
 }) {
-  const [target, setTarget] = useState<AttentionContact | null>(null);
+  const [target, setTarget] = useState<ModalMode | null>(null);
+  const [draftFor, setDraftFor] = useState<AttentionContact | null>(null);
+  const [draftText, setDraftText] = useState<string | null>(null);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const [drafting, startDraft] = useTransition();
+  const [textingId, setTextingId] = useState<string | null>(null);
+
+  const openContact = (contact: AttentionContact) => {
+    setTarget({ contact, tab: "contact" });
+  };
+
+  const logContact = (contact: AttentionContact) => {
+    setTarget({ contact, tab: "engage" });
+  };
+
+  const draftEmail = (contact: AttentionContact) => {
+    setDraftFor(contact);
+    setDraftText(null);
+    setDraftError(null);
+    startDraft(async () => {
+      const result = await generateOutreachDraft({ contactId: contact.id });
+      if (!result.ok) {
+        setDraftError(result.error);
+        return;
+      }
+      setDraftText(result.draft);
+    });
+  };
+
+  const writeText = async (contact: AttentionContact) => {
+    if (textingId) return;
+    setTextingId(contact.id);
+    try {
+      const result = await openBeeperText(contact.id);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      if (result.opened === "chat") {
+        toast.success(
+          result.chatTitle
+            ? `Opened ${result.chatTitle} in Beeper`
+            : "Opened the chat in Beeper"
+        );
+      } else {
+        toast.success("Opened Beeper. Find them in the chat list.");
+      }
+    } finally {
+      setTextingId(null);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-6">
@@ -42,48 +102,100 @@ export function HomeClient({
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Home</h1>
           <p className="text-xs text-muted-foreground">
-            What needs attention across outreach and sites.
+            Overdue outreach and site traffic.
           </p>
         </div>
       </header>
 
       {children}
 
-      {/* ---- Needs attention ------------------------------------------------ */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        <AttentionCard
-          tone="red"
-          icon={<AlertCircle className="h-4 w-4" />}
-          title="Overdue"
-          subtitle="Past their next-touch date"
-          contacts={data.overdue}
-          emptyText="Nothing overdue. Clear."
-          onOpen={setTarget}
-          mode="overdue"
-        />
-        <AttentionCard
-          tone="sky"
-          icon={<CalendarClock className="h-4 w-4" />}
-          title="Due this week"
-          subtitle="Today through Friday — same band as the queue"
-          contacts={data.dueSoon}
-          emptyText="Nothing due this week."
-          onOpen={setTarget}
-          mode="dueSoon"
-        />
-        <AttentionCard
-          tone="amber"
-          icon={<Clock className="h-4 w-4" />}
-          title="Cadence drift"
-          subtitle="No next-touch date · cadence lapsed or needs scheduling"
-          contacts={data.drift}
-          emptyText="No drift — everyone active is scheduled."
-          onOpen={setTarget}
-          mode="drift"
-        />
-      </div>
+      <section className="overflow-hidden rounded-xl border bg-card">
+        <div className="flex items-center gap-2 bg-red-700/70 px-4 py-2.5 text-white">
+          <AlertCircle className="h-4 w-4" />
+          <h2 className="text-sm font-semibold tracking-tight">Overdue</h2>
+          <span className="ml-auto rounded-full bg-black/20 px-2 py-0.5 text-[11px] font-medium tabular-nums">
+            {data.overdue.length}
+          </span>
+        </div>
+        <p className="border-b px-4 py-1.5 text-[11px] text-muted-foreground">
+          Past their next-touch date. Open, draft, text, or log from here.
+        </p>
+        {data.overdue.length === 0 ? (
+          <p className="px-4 py-8 text-center text-xs text-muted-foreground">
+            Nothing overdue. Clear.
+          </p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {data.overdue.map((c) => (
+              <li
+                key={c.id}
+                className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3"
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <TierDegreeBadge tier={c.tier} degree={c.degree} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">
+                      {c.name}
+                      {c.firm ? (
+                        <span className="ml-1.5 text-[11px] text-muted-foreground">
+                          · {c.firm}
+                        </span>
+                      ) : null}
+                    </p>
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      <span className="rounded-sm border border-border px-1 py-0.5 text-[9px] uppercase tracking-wider">
+                        {COLUMN_LABEL[c.column] ?? c.column}
+                      </span>
+                      <span className="ml-1.5 text-red-300">
+                        {c.daysOverdue}d overdue
+                      </span>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openContact(c)}
+                  >
+                    Open
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => draftEmail(c)}
+                    disabled={drafting && draftFor?.id === c.id}
+                  >
+                    {drafting && draftFor?.id === c.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : null}
+                    Draft email
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void writeText(c)}
+                    disabled={textingId === c.id}
+                  >
+                    {textingId === c.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : null}
+                    Text
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => logContact(c)}
+                  >
+                    Log
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
-      {/* ---- Pre-launch site traffic ------------------------------------- */}
       <section>
         <div className="mb-2 flex items-center gap-2">
           <BarChart3 className="h-4 w-4 text-muted-foreground" />
@@ -102,110 +214,81 @@ export function HomeClient({
         onOpenChange={(o) => {
           if (!o) setTarget(null);
         }}
-        contactId={target?.id}
+        contactId={target?.contact.id}
+        initialTab={target?.tab}
         initialDisplay={
           target
-            ? { name: target.name, title: target.title, firm: target.firm }
+            ? {
+                name: target.contact.name,
+                title: target.contact.title,
+                firm: target.contact.firm,
+              }
             : undefined
         }
       />
+
+      <Dialog
+        open={!!draftFor}
+        onOpenChange={(o) => {
+          if (!o) {
+            setDraftFor(null);
+            setDraftText(null);
+            setDraftError(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              Draft for {draftFor?.name ?? "this contact"}
+            </DialogTitle>
+            <DialogDescription>
+              {draftFor?.email
+                ? `Opens mail to ${draftFor.email}.`
+                : "No email on file. Copy the draft and send it wherever you write."}
+            </DialogDescription>
+          </DialogHeader>
+          {drafting && !draftText && !draftError ? (
+            <p className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Writing a draft…
+            </p>
+          ) : draftError ? (
+            <p className="py-4 text-sm text-red-300">{draftError}</p>
+          ) : draftText ? (
+            <div className="space-y-3">
+              <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg border bg-background/60 p-3 text-sm">
+                {draftText}
+              </pre>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(draftText);
+                    toast.success("Draft copied");
+                  }}
+                >
+                  Copy
+                </Button>
+                {draftFor?.email ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    render={
+                      <a
+                        href={`mailto:${draftFor.email}?body=${encodeURIComponent(draftText)}`}
+                      />
+                    }
+                  >
+                    Open in email
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
-  );
-}
-
-function AttentionCard({
-  tone,
-  icon,
-  title,
-  subtitle,
-  contacts,
-  emptyText,
-  onOpen,
-  mode,
-}: {
-  tone: "red" | "amber" | "sky";
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
-  contacts: AttentionContact[];
-  emptyText: string;
-  onOpen: (c: AttentionContact) => void;
-  mode: "overdue" | "dueSoon" | "drift";
-}) {
-  const headerBg =
-    tone === "red"
-      ? "bg-red-700/70"
-      : tone === "sky"
-        ? "bg-sky-700/70"
-        : "bg-amber-600/60";
-  const accent =
-    tone === "red"
-      ? "text-red-300"
-      : tone === "sky"
-        ? "text-sky-300"
-        : "text-amber-300";
-
-  return (
-    <section className="overflow-hidden rounded-xl border bg-card">
-      <div className={`flex items-center gap-2 px-4 py-2.5 text-white ${headerBg}`}>
-        {icon}
-        <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
-        <span className="ml-auto rounded-full bg-black/20 px-2 py-0.5 text-[11px] font-medium tabular-nums">
-          {contacts.length}
-        </span>
-      </div>
-      <p className="border-b px-4 py-1.5 text-[11px] text-muted-foreground">
-        {subtitle}
-      </p>
-      {contacts.length === 0 ? (
-        <p className="px-4 py-8 text-center text-xs text-muted-foreground">
-          {emptyText}
-        </p>
-      ) : (
-        <ul className="max-h-[420px] divide-y divide-border overflow-y-auto">
-          {contacts.map((c) => (
-            <li key={c.id}>
-              <button
-                type="button"
-                onClick={() => onOpen(c)}
-                className="flex w-full items-center gap-3 px-4 py-2 text-left text-sm transition-colors hover:bg-muted/40"
-              >
-                <TierDegreeBadge tier={c.tier} degree={c.degree} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">
-                    {c.name}
-                    {c.firm ? (
-                      <span className="ml-1.5 text-[11px] text-muted-foreground">
-                        · {c.firm}
-                      </span>
-                    ) : null}
-                  </p>
-                  <p className="truncate text-[11px] text-muted-foreground">
-                    <span className="rounded-sm border border-border px-1 py-0.5 text-[9px] uppercase tracking-wider">
-                      {COLUMN_LABEL[c.column] ?? c.column}
-                    </span>
-                    {(mode === "drift" || mode === "dueSoon") && c.note ? (
-                      <span className="ml-1.5">{c.note}</span>
-                    ) : null}
-                  </p>
-                </div>
-                <span className={`shrink-0 text-[11px] font-medium ${accent}`}>
-                  {mode === "overdue"
-                    ? `${c.daysOverdue}d overdue`
-                    : mode === "dueSoon"
-                      ? c.note === "Due today"
-                        ? "Today"
-                        : c.nextTouch ?? ""
-                      : c.note?.startsWith("Set a next")
-                        ? "Needs date"
-                        : `${c.daysOverdue}d drift`}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
   );
 }
 

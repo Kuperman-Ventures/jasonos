@@ -87,6 +87,7 @@ export interface QueueCard {
   relevance_tier: RelevanceTier | null;
   network_degree: NetworkDegree | null;
   primary_email: string | null;
+  phone: string | null;
   linkedin_url: string | null;
 
   // ---- Cadence / dates ----
@@ -454,6 +455,7 @@ function makeCard(
     relevance_tier: person.relevance_tier,
     network_degree: person.network_degree,
     primary_email: person.primary_email,
+    phone: person.phone,
     linkedin_url: person.linkedin_url ?? reconnect?.linkedin_url ?? null,
     cadence_interval: person.cadence_interval,
     cadence_stage: person.cadence_stage,
@@ -497,6 +499,7 @@ function makeCardFromReconnect(
     relevance_tier: null,
     network_degree: null,
     primary_email: null,
+    phone: null,
     linkedin_url: r.linkedin_url ?? null,
     cadence_interval: "none",
     cadence_stage: null,

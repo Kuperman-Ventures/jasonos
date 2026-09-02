@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   looksLikePersonName,
+  normalizeName,
   normalizePhone,
   preferPersonName,
 } from "@/lib/outreach/contact-lookup";
@@ -329,4 +330,80 @@ export async function fetchBeeperTouchCandidates(opts?: {
       new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   );
   return out;
+}
+
+function chatMatchesContact(
+  chat: BeeperChat,
+  contact: { name?: string | null; phone?: string | null }
+): boolean {
+  const peer = peerFromChat(chat);
+  const wantPhone = normalizePhone(contact.phone);
+  if (wantPhone && normalizePhone(peer.phone) === wantPhone) return true;
+  const wantName = normalizeName(contact.name ?? "");
+  if (!wantName) return false;
+  const labels = [peer.name, chat.title]
+    .filter((value): value is string => Boolean(value))
+    .map((value) => normalizeName(value));
+  return labels.some(
+    (label) => label === wantName || label.includes(wantName) || wantName.includes(label)
+  );
+}
+
+async function searchChatsForContact(contact: {
+  name?: string | null;
+  phone?: string | null;
+}): Promise<BeeperChat[]> {
+  const query = preferPersonName(contact.name) || contact.phone || "";
+  const qs = new URLSearchParams({
+    type: "single",
+    limit: "40",
+    includeMuted: "true",
+  });
+  if (query) qs.set("query", query);
+  const res = await beeperFetch(`/v1/chats/search?${qs}`, { timeoutMs: 10_000 });
+  if (res.status === 401 || res.status === 403) {
+    throw new BeeperApiError(res.status, await readErrorDetail(res));
+  }
+  if (!res.ok) return [];
+  const body = (await res.json()) as CursorPage<BeeperChat>;
+  return pageItems(body).filter((c) => !c.type || c.type === "single");
+}
+
+export type FocusBeeperResult =
+  | { ok: true; opened: "chat" | "app"; chatTitle?: string }
+  | { ok: false; error: string };
+
+/** Open Beeper Desktop on this contact's 1:1 chat, or just bring the app forward. */
+export async function focusBeeperChatForContact(contact: {
+  name?: string | null;
+  phone?: string | null;
+}): Promise<FocusBeeperResult> {
+  await probeBeeperDesktop();
+  const chats = await searchChatsForContact(contact);
+  const match = chats.find((chat) => chatMatchesContact(chat, contact));
+
+  const body = match
+    ? { chatID: match.id }
+    : {};
+  const res = await beeperFetch("/v1/focus", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    timeoutMs: 8_000,
+  });
+  if (res.status === 401 || res.status === 403) {
+    throw new BeeperApiError(res.status, await readErrorDetail(res));
+  }
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    return { ok: false, error: `Could not open Beeper (${detail})` };
+  }
+  if (match) {
+    return {
+      ok: true,
+      opened: "chat",
+      chatTitle: match.title || contact.name || undefined,
+    };
+  }
+  return { ok: true, opened: "app" };
 }
