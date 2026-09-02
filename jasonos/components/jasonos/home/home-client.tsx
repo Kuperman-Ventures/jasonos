@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/dialog";
 import { generateOutreachDraft } from "@/lib/server-actions/outreach-draft";
 import { openBeeperText } from "@/lib/server-actions/beeper-compose";
-import { openBeeperChatOnThisMac } from "@/lib/beeper/open-on-this-mac";
 import type { AttentionContact, HomeData, SitePanel } from "@/lib/data/home";
 
 const COLUMN_LABEL: Record<string, string> = {
@@ -82,60 +81,14 @@ export function HomeClient({
         toast.error(result.error);
         return;
       }
-
-      // Prefer this Mac's Desktop API. Invented beeper://compose links toast
-      // "invalid deep link". Tunneled /v1/focus raises Beeper on the office Mac.
-      if (result.phone && result.localApi) {
-        const local = await openBeeperChatOnThisMac({
-          baseUrl: result.localApi.baseUrl,
-          accessToken: result.localApi.accessToken,
-          phone: result.phone,
-          contactName: result.chatTitle || contact.name,
-          networkHint: result.networkHint,
-        });
-        if (local.ok) {
-          toast.success(
-            local.chatTitle
-              ? `Opened ${local.chatTitle} in Beeper on this Mac`
-              : "Opened the chat in Beeper on this Mac"
-          );
-          return;
-        }
-        // CORS / Beeper closed / token from another Mac — fall through.
-        // Use a proven link only (focus / portable select-thread), never compose.
-        window.location.href = result.href;
-        toast.message(
-          local.reason === "unreachable" || local.reason === "cors"
-            ? `Couldn't reach Beeper on this Mac${result.chatTitle ? ` for ${result.chatTitle}` : ""}. Is Beeper Desktop open here?`
-            : local.reason === "auth"
-              ? "Beeper on this Mac rejected the API token. Opened Beeper — search for them in the chat list."
-              : result.chatTitle
-                ? `Opened Beeper. Find ${result.chatTitle} in the chat list.`
-                : "Opened Beeper. Find them in the chat list."
-        );
-        return;
-      }
-
-      // Only beeper://focus or portable select-thread — never invent compose.
-      window.location.href = result.href;
       if (result.opened === "chat") {
         toast.success(
           result.chatTitle
-            ? `Opening ${result.chatTitle} in Beeper on this Mac`
-            : "Opening the chat in Beeper on this Mac"
-        );
-      } else if (result.gap === "missing_recipient") {
-        toast.message(
-          result.chatTitle
-            ? `Opened Beeper. ${result.chatTitle} has no phone on file — search for them.`
-            : "Opened Beeper. This contact has no phone on file — search for them."
+            ? `Opened ${result.chatTitle} in Beeper`
+            : "Opened the chat in Beeper"
         );
       } else {
-        toast.message(
-          result.chatTitle
-            ? `Opened Beeper. Find ${result.chatTitle} in the chat list.`
-            : "Opened Beeper. Find them in the chat list."
-        );
+        toast.success("Opened Beeper. Find them in the chat list.");
       }
     } finally {
       setTextingId(null);
