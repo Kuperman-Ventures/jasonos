@@ -778,7 +778,10 @@ function BoardingRow({
             <p className="truncate text-[12px] text-muted-foreground">
               {item.subject}
             </p>
-            <p className="mt-1 border-l-2 border-amber-500/25 pl-2 text-[12.5px] leading-snug text-foreground/90">
+            <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Summary
+            </p>
+            <p className="mt-0.5 border-l-2 border-amber-500/25 pl-2 text-[12.5px] leading-snug text-foreground/90">
               {item.elevator}
             </p>
           </div>
@@ -816,23 +819,43 @@ function BoardingRow({
       </div>
 
       {open ? (
-        <div className="px-4 pb-3 pl-5">
+        <div className="space-y-3 px-4 pb-3 pl-5">
+          <div>
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Original
+            </p>
+            {(item.original ?? "").trim() ? (
+              <pre className="max-h-44 overflow-y-auto whitespace-pre-wrap rounded-lg border bg-muted/20 p-3 font-sans text-[12.5px] leading-relaxed text-foreground/80">
+                {item.original}
+              </pre>
+            ) : (
+              <p className="rounded-lg border bg-muted/20 p-3 text-[12px] italic text-muted-foreground">
+                Original message isn&apos;t in this board. Open Apple Mail to
+                read it.
+              </p>
+            )}
+          </div>
           {item.draft ? (
-            <p className="mb-1.5 flex items-center gap-1.5 text-[11px] text-emerald-300/90">
+            <p className="flex items-center gap-1.5 text-[11px] text-emerald-300/90">
               <Check className="h-3 w-3 shrink-0" />
               Draft ready — review and send it from Apple Mail.
             </p>
           ) : null}
-          {item.draft ? (
-            <pre className="whitespace-pre-wrap rounded-lg border bg-background/60 p-3 font-sans text-[13px] leading-relaxed text-foreground/90">
-              {item.draft}
-            </pre>
-          ) : (
-            <p className="rounded-lg border bg-background/60 p-3 text-[12px] italic text-muted-foreground">
-              No draft generated — open the thread to reply.
+          <div>
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Your reply
             </p>
-          )}
-          <div className="mt-2 flex flex-wrap gap-2">
+            {item.draft ? (
+              <pre className="whitespace-pre-wrap rounded-lg border bg-background/60 p-3 font-sans text-[13px] leading-relaxed text-foreground/90">
+                {item.draft}
+              </pre>
+            ) : (
+              <p className="rounded-lg border bg-background/60 p-3 text-[12px] italic text-muted-foreground">
+                No draft generated — open the thread to reply.
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={copy}
