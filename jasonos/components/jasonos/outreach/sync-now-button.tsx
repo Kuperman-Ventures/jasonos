@@ -56,11 +56,17 @@ export function SyncNowButton({ initial }: SyncNowButtonProps) {
         );
       }
       if (result.gcal) {
-        messages.push(
-          result.gcal.ok
-            ? `Calendar +${result.gcal.inserted}`
-            : `Calendar failed: ${result.gcal.error ?? "unknown"}`
-        );
+        if (result.gcal.ok) {
+          messages.push(`Calendar +${result.gcal.inserted}`);
+          if (result.gcal.warnings?.length) {
+            messages.push(result.gcal.warnings.join(" · "));
+          }
+        } else {
+          messages.push(`Calendar failed: ${result.gcal.error ?? "unknown"}`);
+        }
+      }
+      if (result.gmail?.warnings?.length) {
+        messages.push(result.gmail.warnings.join(" · "));
       }
       if (result.beeper) {
         if (result.beeper.unavailable) {
@@ -96,6 +102,9 @@ export function SyncNowButton({ initial }: SyncNowButtonProps) {
         result.beeper && !result.beeper.ok && !result.beeper.unavailable
       );
       const allOk = result.ok && !suggestedFatal && !beeperFatal;
+      const mailboxWarning = Boolean(
+        result.gcal?.warnings?.length || result.gmail?.warnings?.length
+      );
       // Beeper soft-skip alone shouldn't flip a successful Gmail/Calendar sync
       // into an error toast — surface it in the success line instead.
       const softOnlyMiss =
@@ -103,7 +112,9 @@ export function SyncNowButton({ initial }: SyncNowButtonProps) {
         !beeperFatal &&
         !suggestedFatal &&
         ((result.gmail?.ok ?? false) || (result.gcal?.ok ?? false));
-      if (allOk || softOnlyMiss) {
+      if ((allOk || softOnlyMiss) && mailboxWarning) {
+        toast.warning(messages.join(" · ") || "Sync finished with a warning");
+      } else if (allOk || softOnlyMiss) {
         toast.success(messages.join(" · ") || "Sync complete");
       } else {
         toast.error(messages.join(" · ") || "Sync failed");

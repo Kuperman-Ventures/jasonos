@@ -204,6 +204,8 @@ function fallbackPayload(authRequired: boolean): SettingsPayload {
     googleAccounts: {
       advisorsConnected: false,
       gmailConnected: false,
+      advisorsNeedsReconnect: false,
+      gmailNeedsReconnect: false,
       advisorsEmail: null,
       gmailEmail: null,
     },
