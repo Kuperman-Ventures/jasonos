@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  beeperCandidateIdentity,
   beeperSightingEmail,
   canonicalEmail,
   createContactLookup,
@@ -8,6 +9,7 @@ import {
   hasExactEmailMatch,
   isAlreadyAContact,
   isBeeperPlaceholderEmail,
+  looksLikePersonName,
   namesLookLikeSamePerson,
   type ContactLookupRow,
 } from "./contact-lookup.ts";
@@ -158,15 +160,37 @@ describe("findNameMatch for Suggested merge", () => {
     );
   });
 
-  it("builds a Beeper Suggested key from a name when there is no email", () => {
-    assert.equal(
-      beeperSightingEmail({ name: "David Newcom", chatId: "abc" }),
-      "david.newcom@beeper.invalid"
+  it("treats the Beeper name as the record, with phone as extra", () => {
+    assert.equal(looksLikePersonName("David Newcom"), true);
+    assert.equal(looksLikePersonName("Lenora"), true);
+    assert.equal(looksLikePersonName("+1 862-400-1167"), false);
+    assert.equal(looksLikePersonName("86197"), false);
+    assert.equal(looksLikePersonName("keannabo1inalal"), false);
+
+    assert.deepEqual(beeperCandidateIdentity({ name: "David Newcom" }), {
+      email: "david.newcom@beeper.invalid",
+      name: "David Newcom",
+      phone: null,
+      realEmail: null,
+    });
+    assert.deepEqual(
+      beeperCandidateIdentity({
+        name: "Jeffrey Wu",
+        phone: "555-111-2222",
+        email: "jeff@wu.com",
+      }),
+      {
+        email: "jeff@wu.com",
+        name: "Jeffrey Wu",
+        phone: "5551112222",
+        realEmail: "jeff@wu.com",
+      }
     );
     assert.equal(
-      beeperSightingEmail({ name: "Jeffrey Wu", phone: "555-111-2222" }),
-      "5551112222@beeper.invalid"
+      beeperCandidateIdentity({ phone: "+1 862-400-1167", chatTitle: "+1 862-400-1167" }),
+      null
     );
+    assert.equal(beeperSightingEmail({ name: "David Newcom" }), "david.newcom@beeper.invalid");
     assert.equal(isBeeperPlaceholderEmail("david.newcom@beeper.invalid"), true);
     assert.equal(isBeeperPlaceholderEmail("jeff@wu.com"), false);
   });

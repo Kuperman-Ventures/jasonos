@@ -12,6 +12,7 @@ import {
   Building2,
   GitMerge,
   Mail,
+  Phone,
   RefreshCw,
   UserPlus,
   X,
@@ -166,9 +167,9 @@ export function SuggestedClient({
           </h1>
           <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
             People from email, calendar invites, and Beeper chats who aren&rsquo;t
-            already in People by email. If the name is already in the system,
-            merge to attach this address. Otherwise add or dismiss. Dismissed
-            people don&rsquo;t come back.
+            already in People. Beeper rows are the person&rsquo;s name; phone or
+            email is extra when we have it. Merge if they&rsquo;re already in
+            People. Dismissed people don&rsquo;t come back.
           </p>
         </div>
         <Button
@@ -304,6 +305,12 @@ function CandidateRow({
   const [pending, setPending] = useState(false);
   const twoWay = candidate.inbound_count > 0 && candidate.outbound_count > 0;
   const match = candidate.nameMatch;
+  const beeper = isBeeperPlaceholderEmail(candidate.email);
+  const showEmail = Boolean(candidate.email) && !beeper;
+  const showSubject =
+    Boolean(candidate.last_subject) &&
+    candidate.last_subject !== candidate.name &&
+    !/^beeper\b/i.test(candidate.last_subject ?? "");
 
   const run = (fn: () => void) => {
     setPending(true);
@@ -315,7 +322,7 @@ function CandidateRow({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="truncate text-sm font-medium">
-            {candidate.name || candidate.email}
+            {candidate.name || (beeper ? "Beeper chat" : candidate.email)}
           </span>
           {twoWay ? (
             <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-emerald-300">
@@ -325,12 +332,21 @@ function CandidateRow({
           ) : null}
         </div>
         <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
-          <span className="inline-flex items-center gap-1">
-            <Mail className="h-3 w-3" />
-            {isBeeperPlaceholderEmail(candidate.email)
-              ? "Beeper"
-              : candidate.email}
-          </span>
+          {beeper ? (
+            <span>Beeper</span>
+          ) : null}
+          {showEmail ? (
+            <span className="inline-flex items-center gap-1">
+              <Mail className="h-3 w-3" />
+              {candidate.email}
+            </span>
+          ) : null}
+          {candidate.phone ? (
+            <span className="inline-flex items-center gap-1">
+              <Phone className="h-3 w-3" />
+              {candidate.phone}
+            </span>
+          ) : null}
           {candidate.company ? (
             <span className="inline-flex items-center gap-1">
               <Building2 className="h-3 w-3" />
@@ -347,12 +363,12 @@ function CandidateRow({
               ? `Looks like ${match.name} in People`
               : `Already in People as ${match.name}`}
             {" — "}
-            {isBeeperPlaceholderEmail(candidate.email)
+            {beeper
               ? "merge onto that row, or add as a new person."
               : "merge to attach this email, or add as a new person."}
           </div>
         ) : null}
-        {candidate.last_subject ? (
+        {showSubject ? (
           <div className="mt-0.5 truncate text-[11px] italic text-muted-foreground/70">
             “{candidate.last_subject}”
           </div>

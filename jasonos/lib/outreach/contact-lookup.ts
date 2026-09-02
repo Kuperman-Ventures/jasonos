@@ -47,7 +47,64 @@ export function isBeeperPlaceholderEmail(email: string | null | undefined): bool
   return extractEmail(email).endsWith(`@${BEEPER_PLACEHOLDER_DOMAIN}`);
 }
 
-/** Stable Suggested key for a Beeper 1:1 peer. Real email wins, then phone, then name. */
+/** First name, or first + last. Rejects phones, handles, and bare IDs. */
+export function looksLikePersonName(raw: string | null | undefined): boolean {
+  const name = (raw ?? "").trim();
+  if (!name) return false;
+  if (/^\+?[\d\s().-]{7,}$/.test(name)) return false;
+  const tokens = name.split(/\s+/).filter(Boolean);
+  if (!tokens.length || tokens.length > 5) return false;
+  const letterTokens = tokens.filter((t) => /[a-zA-Z]{2,}/.test(t));
+  if (!letterTokens.length) return false;
+  if (tokens.length === 1 && /\d/.test(tokens[0] ?? "")) return false;
+  return true;
+}
+
+export type BeeperCandidateIdentity = {
+  /** Unique Suggested key. Real email if we have one, else a name-based placeholder. */
+  email: string;
+  name: string;
+  phone: string | null;
+  realEmail: string | null;
+};
+
+/** Name is the record. Phone/email are extras. No name → skip. */
+export function beeperCandidateIdentity(peer: {
+  email?: string | null;
+  phone?: string | null;
+  name?: string | null;
+  chatTitle?: string | null;
+}): BeeperCandidateIdentity | null {
+  const fromName = looksLikePersonName(peer.name) ? peer.name!.trim() : "";
+  const fromTitle = looksLikePersonName(peer.chatTitle)
+    ? peer.chatTitle!.trim()
+    : "";
+  const name = fromName || fromTitle;
+  if (!name) return null;
+
+  let realEmail: string | null = null;
+  if (peer.email) {
+    const email = extractEmail(peer.email);
+    if (
+      email.includes("@") &&
+      !isMyOwnAddress(email) &&
+      !isBeeperPlaceholderEmail(email)
+    ) {
+      realEmail = canonicalEmail(email);
+    }
+  }
+
+  return {
+    email:
+      realEmail ??
+      `${normalizeName(name).replace(/\s+/g, ".")}@${BEEPER_PLACEHOLDER_DOMAIN}`,
+    name,
+    phone: normalizePhone(peer.phone),
+    realEmail,
+  };
+}
+
+/** @deprecated use beeperCandidateIdentity — kept for existing imports/tests. */
 export function beeperSightingEmail(peer: {
   email?: string | null;
   phone?: string | null;
@@ -55,19 +112,7 @@ export function beeperSightingEmail(peer: {
   chatTitle?: string | null;
   chatId?: string | null;
 }): string | null {
-  if (peer.email) {
-    const email = extractEmail(peer.email);
-    if (email.includes("@") && !isMyOwnAddress(email)) return canonicalEmail(email);
-  }
-  const phone = normalizePhone(peer.phone);
-  if (phone) return `${phone}@${BEEPER_PLACEHOLDER_DOMAIN}`;
-  const name = normalizeName(peer.name || peer.chatTitle || "");
-  if (name.length >= 3) {
-    return `${name.replace(/\s+/g, ".")}@${BEEPER_PLACEHOLDER_DOMAIN}`;
-  }
-  const chat = (peer.chatId ?? "").replace(/[^a-zA-Z0-9]/g, "").slice(-24);
-  if (chat) return `chat.${chat}@${BEEPER_PLACEHOLDER_DOMAIN}`;
-  return null;
+  return beeperCandidateIdentity(peer)?.email ?? null;
 }
 
 export function normalizeName(name: string): string {

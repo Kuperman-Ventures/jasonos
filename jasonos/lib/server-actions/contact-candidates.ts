@@ -10,6 +10,7 @@ import {
   findNameMatch,
   isAlreadyAContact,
   isBeeperPlaceholderEmail,
+  looksLikePersonName,
   normalizePhone,
   type SuggestedNameMatch,
 } from "@/lib/outreach/email-matching";
@@ -42,6 +43,7 @@ export interface ContactCandidate {
   id: string;
   email: string;
   name: string | null;
+  phone: string | null;
   company: string | null;
   first_seen: string;
   last_seen: string;
@@ -298,7 +300,17 @@ export async function getContactCandidates(): Promise<ContactCandidate[]> {
   // Exact email already in People → hide. Name-only matches stay, with a
   // merge target so Jason can attach this address instead of duplicating.
   const rows = ((data ?? []) as Omit<ContactCandidate, "nameMatch">[])
-    .filter((r) => !isAlreadyAContact({ email: r.email, name: r.name }, lookup))
+    .filter((r) => {
+      if (isAlreadyAContact({ email: r.email, name: r.name }, lookup))
+        return false;
+      if (
+        isBeeperPlaceholderEmail(r.email) &&
+        !looksLikePersonName(r.name)
+      ) {
+        return false;
+      }
+      return true;
+    })
     .map((r) => ({
       ...r,
       nameMatch: findNameMatch({ email: r.email, name: r.name }, lookup),
@@ -395,8 +407,9 @@ export async function addCandidateAsContact(
       normalizePersonName(cand.name as string | null) ||
       (placeholder ? "" : nameFromEmail(email));
     if (!name) return { ok: false, error: "Need a name to add this person." };
-    const local = email.split("@")[0] ?? "";
-    const phone = placeholder ? normalizePhone(local) : null;
+    const phone =
+      normalizePhone((cand.phone as string | null) ?? "") ??
+      (placeholder ? normalizePhone(email.split("@")[0] ?? "") : null);
     const { data: inserted, error: insErr } = await sb
       .from("contacts")
       .insert({
