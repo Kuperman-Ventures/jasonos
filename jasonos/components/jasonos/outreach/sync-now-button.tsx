@@ -7,6 +7,11 @@ import { RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { syncOutreachAll } from "@/lib/server-actions/outreach-sync";
 import { captureEmailCandidates } from "@/lib/server-actions/contact-candidates";
+import {
+  SUGGESTED_SCAN_DAYS_BACK,
+  SUGGESTED_SCAN_DAYS_FORWARD,
+  SUGGESTED_SCAN_MESSAGE_MAX,
+} from "@/lib/outreach/suggested-scan";
 import { cn } from "@/lib/utils";
 import type { OutreachSyncSnapshot } from "@/lib/outreach/data";
 
@@ -27,8 +32,16 @@ export function SyncNowButton({ initial }: SyncNowButtonProps) {
     try {
       const runId = crypto.randomUUID();
       const [result, suggested] = await Promise.all([
-        syncOutreachAll({ daysBack: 90, daysForward: 30, runId }),
-        captureEmailCandidates({ days: 30, runId }),
+        syncOutreachAll({
+          daysBack: SUGGESTED_SCAN_DAYS_BACK,
+          daysForward: SUGGESTED_SCAN_DAYS_FORWARD,
+          runId,
+        }),
+        captureEmailCandidates({
+          days: SUGGESTED_SCAN_DAYS_BACK,
+          max: SUGGESTED_SCAN_MESSAGE_MAX,
+          runId,
+        }),
       ]);
 
       const messages: string[] = [];
