@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Logo } from "@/components/jasonos/logo";
 import { ChevronDown } from "lucide-react";
+import { SyncNowButton } from "@/components/jasonos/outreach/sync-now-button";
 
 // ─── Nav structure ─────────────────────────────────────────────────────────
 // Clusters (with hairline dividers between them):
@@ -231,6 +232,9 @@ export function TopNav() {
             );
           })}
         </nav>
+        <div className="shrink-0">
+          <SyncNowButton />
+        </div>
       </div>
     </header>
   );

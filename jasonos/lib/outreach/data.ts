@@ -497,9 +497,8 @@ export async function getWarmthReminders(limit = 20): Promise<WarmthReminder[]> 
 }
 
 // ---------------------------------------------------------------------------
-// getOutreachSyncState — read jasonos.outreach_sync_state for the tab nav
-// "last synced" indicator. Returns empty array if the Phase 4 migration
-// hasn't been applied yet (table missing → falls back gracefully).
+// getOutreachSyncState — last-synced snapshot for the Sync tooltip.
+// Returns empty array if the Phase 4 migration hasn't been applied yet.
 // ---------------------------------------------------------------------------
 
 export async function getOutreachSyncState(): Promise<OutreachSyncSnapshot[]> {

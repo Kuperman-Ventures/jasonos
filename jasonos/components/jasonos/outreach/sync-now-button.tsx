@@ -16,10 +16,10 @@ import type { OutreachSyncSnapshot } from "@/lib/outreach/data";
 
 export interface SyncNowButtonProps {
   /** Initial sync state from server (used for the button tooltip). */
-  initial: OutreachSyncSnapshot[];
+  initial?: OutreachSyncSnapshot[];
 }
 
-export function SyncNowButton({ initial }: SyncNowButtonProps) {
+export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
   const router = useRouter();
   const [running, setRunning] = useState(false);
 

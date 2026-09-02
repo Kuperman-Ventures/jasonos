@@ -11,8 +11,6 @@ import {
   LayoutDashboard,
   Share2,
 } from "lucide-react";
-import { SyncNowButton } from "@/components/jasonos/outreach/sync-now-button";
-import type { OutreachSyncSnapshot } from "@/lib/outreach/data";
 
 // The Schedule tab was retired once its buckets moved into the Queue page;
 // the /outreach/schedule route still exists for direct links.
@@ -26,11 +24,9 @@ const TABS = [
 ] as const;
 
 export function OutreachTabs({
-  syncState,
   suggestedCount = 0,
   gmailPersonalConnected = true,
 }: {
-  syncState: OutreachSyncSnapshot[];
   suggestedCount?: number;
   gmailPersonalConnected?: boolean;
 }) {
@@ -66,17 +62,16 @@ export function OutreachTabs({
           );
         })}
       </div>
-      <div className="flex items-center gap-2 py-1.5">
-        {!gmailPersonalConnected ? (
+      {!gmailPersonalConnected ? (
+        <div className="flex items-center gap-2 py-1.5">
           <a
             href="/api/auth/google?account=gmail"
             className="hidden sm:inline-flex rounded-md border border-amber-400/40 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-100 hover:bg-amber-500/20"
           >
             Connect personal Gmail
           </a>
-        ) : null}
-        <SyncNowButton initial={syncState} />
-      </div>
+        </div>
+      ) : null}
     </nav>
   );
 }

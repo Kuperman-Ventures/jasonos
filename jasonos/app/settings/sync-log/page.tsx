@@ -56,7 +56,7 @@ export default async function SyncLogPage() {
         </div>
         {instances.length === 0 ? (
           <p className="px-4 py-8 text-center text-xs text-muted-foreground">
-            No syncs recorded yet. Hit Sync on Networking and they&apos;ll show
+            No syncs recorded yet. Hit Sync in the top bar and they&apos;ll show
             up here.
           </p>
         ) : (

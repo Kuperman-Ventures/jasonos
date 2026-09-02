@@ -138,7 +138,7 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
     if (!connected && !advisors && !error) return;
     if (connected) {
       toast.success("Personal Gmail connected", {
-        description: "Hit Sync on Networking. Calendar and sent mail on jskuperman@gmail.com will come through.",
+        description: "Hit Sync in the top bar. Calendar and sent mail on jskuperman@gmail.com will come through.",
       });
     } else if (advisors) {
       toast.success("Advisors Google connected");
