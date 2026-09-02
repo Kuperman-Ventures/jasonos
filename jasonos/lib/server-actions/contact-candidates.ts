@@ -27,6 +27,7 @@ import {
   scanPartFromUnknown,
 } from "@/lib/outreach/suggested-scan";
 import {
+  syncOutreachFromBeeper,
   syncOutreachFromCalendar,
   syncOutreachFromGmail,
 } from "@/lib/server-actions/outreach-sync";
@@ -124,9 +125,8 @@ export async function captureEmailCandidates(opts?: {
 }
 
 // ---------------------------------------------------------------------------
-// scanSuggestedContacts — same depth as regular Sync for finding people:
-// 90-day Gmail thread walk, calendar guests, plus a 90-day metadata pass.
-// Beeper is IM, so Scan email skips it.
+// scanSuggestedContacts — same depth as regular Sync: calendar, Beeper
+// (all 1:1 networks when Desktop is open), 90-day inbox pass, Gmail walk.
 // ---------------------------------------------------------------------------
 
 export async function scanSuggestedContacts(): Promise<
@@ -135,13 +135,14 @@ export async function scanSuggestedContacts(): Promise<
 > {
   const runId = crypto.randomUUID();
   try {
-    // One job at a time. The first live Scan email ran Gmail + Calendar + a
-    // 2,000-message inbox pass in parallel; Vercel killed the request after
-    // ~15s, before the inbox pass could log. Calendar first (fast), then the
-    // 90-day inbox pass, then the Gmail thread walk.
+    // One job at a time so the 90-day inbox pass is not starved.
     const gcal = await syncOutreachFromCalendar({
       daysBack: SUGGESTED_SCAN_DAYS_BACK,
       daysForward: SUGGESTED_SCAN_DAYS_FORWARD,
+      runId,
+    }).catch(scanPartFromUnknown);
+    const beeper = await syncOutreachFromBeeper({
+      daysBack: SUGGESTED_SCAN_DAYS_BACK,
       runId,
     }).catch(scanPartFromUnknown);
     const capture = await captureEmailCandidates({
@@ -166,6 +167,15 @@ export async function scanSuggestedContacts(): Promise<
         error: gcal.error,
       },
       capture,
+      beeper: {
+        ok: beeper.ok,
+        unavailable: "unavailable" in beeper ? beeper.unavailable : undefined,
+        inserted: "inserted" in beeper ? beeper.inserted : undefined,
+        matched: "matched" in beeper ? beeper.matched : undefined,
+        candidatesStaged:
+          "candidatesStaged" in beeper ? beeper.candidatesStaged : undefined,
+        error: beeper.error,
+      },
     });
   } catch (err) {
     return { ok: false, error: humanScanError(err) };

@@ -32,7 +32,7 @@ export const config: VercelConfig = {
     "app/api/inbox-dispatch/route.ts": { maxDuration: 60 },
     // Job Alerts harvest opens Gmail threads from a labeled folder.
     "app/api/job-alerts/harvest/route.ts": { maxDuration: 60 },
-    // Suggested Scan email: 90-day Gmail + calendar. Needs a long window.
+    // Suggested Scan: 90-day Gmail + calendar + Beeper. Needs a long window.
     "app/api/outreach/scan-suggested/route.ts": { maxDuration: 300 },
   },
   crons: [
