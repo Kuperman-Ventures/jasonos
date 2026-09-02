@@ -4,6 +4,7 @@
 import {
   looksLikePersonName,
   normalizeName,
+  preferPersonName,
   type ContactLookup,
   type ContactLookupRow,
 } from "./contact-lookup";
@@ -55,6 +56,40 @@ export function contactsNamedInTitle(
     if (re.test(hay)) hits.push(row);
   }
   return hits;
+}
+
+/**
+ * Beeper DMs often put a phone in `name` and the person in `chatTitle`.
+ * Try phone/email, then each label, then a first+last phrase inside the label.
+ */
+export function resolveBeeperPeer(
+  lookup: ContactLookup,
+  peer: {
+    name?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    chatTitle?: string | null;
+  }
+): ContactLookupRow | undefined {
+  const preferredName = preferPersonName(peer.name, peer.chatTitle);
+  const byIdentity = lookup.resolvePeer({
+    name: preferredName,
+    phone: peer.phone,
+    email: peer.email,
+  });
+  if (byIdentity) return byIdentity;
+
+  const labels = [peer.name, peer.chatTitle, preferredName].filter(
+    (value, index, all): value is string =>
+      Boolean(value) && all.indexOf(value) === index
+  );
+  for (const label of labels) {
+    const exact = lookup.resolvePeer({ name: label });
+    if (exact) return exact;
+    const named = contactsNamedInTitle(label, lookup);
+    if (named.length === 1) return named[0];
+  }
+  return undefined;
 }
 
 export function matchCalendarEventToContacts(opts: {

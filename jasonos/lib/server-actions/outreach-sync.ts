@@ -9,14 +9,17 @@ import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import { OUTLOOK_WRAP_EMAIL } from "@/lib/integrations/unwrap-forwarded-mail";
 import {
   calendarEventGuests,
+  fetchAccountCalendarEvents,
   fetchAllPersonalCalendarEvents,
-  fetchCalendarEvents,
 } from "@/lib/integrations/google-calendar";
 import {
   GOOGLE_GMAIL,
   listGoogleAccountAccess,
 } from "@/lib/integrations/google-tokens";
-import { matchCalendarEventToContacts } from "@/lib/outreach/calendar-matching";
+import {
+  matchCalendarEventToContacts,
+  resolveBeeperPeer,
+} from "@/lib/outreach/calendar-matching";
 import {
   upsertCandidateSightings,
   type CandidateSighting,
@@ -29,6 +32,7 @@ import {
   extractEmail,
   isFromMe,
   isMyOwnAddress,
+  normalizePhone,
   type ContactLookupRow,
 } from "@/lib/outreach/email-matching";
 import {
@@ -84,6 +88,25 @@ function mergeEmails(existing: string[], adds: string[]): string[] {
     out.push(e);
   }
   return out;
+}
+
+async function applyPhoneEnrichments(
+  phones: Map<string, string>
+): Promise<void> {
+  if (!phones.size) return;
+  const sb = createServiceRoleClient();
+  for (const [contactId, phone] of phones) {
+    if (!normalizePhone(phone)) continue;
+    await sb
+      .from("contacts")
+      .update({ phone })
+      .eq("id", contactId)
+      .is("phone", null)
+      .then(
+        () => undefined,
+        (err) => console.error("[outreach-sync.phoneEnrich]", err)
+      );
+  }
 }
 
 async function applyEmailEnrichments(enrich: EnrichMap): Promise<void> {
@@ -357,9 +380,8 @@ export async function syncOutreachFromCalendar(opts?: {
       await log({ accountEmail, ok: false, error: msg });
       continue;
     }
-    const fetched = await fetchCalendarEvents({
+    const fetched = await fetchAccountCalendarEvents({
       token,
-      calendarId: "primary",
       timeMin,
       timeMax,
     });
@@ -475,6 +497,7 @@ export async function syncOutreachFromCalendar(opts?: {
       unmatchedNames: staged.newNames,
       pagesFetched: true,
       eventCount: fetched.events.length,
+      calendarIds: fetched.calendarIds,
       errors: [...insertResult.errors, ...meetingResult.errors],
       ...(fetched.error ? { fetchWarning: fetched.error } : {}),
     });
@@ -574,7 +597,7 @@ export async function syncOutreachFromBeeper(opts?: {
   try {
     const candidates = await fetchBeeperTouchCandidates({
       daysBack,
-      maxChats: 80,
+      maxChats: 120,
       includeInbound: true,
     });
     const lookup = await buildContactLookup();
@@ -599,13 +622,15 @@ export async function syncOutreachFromBeeper(opts?: {
 
     const touches: ContactTouchInput[] = [];
     const sightings: CandidateSighting[] = [];
+    const phones = new Map<string, string>();
     let skipped = 0;
 
     for (const c of candidates) {
-      const contact = lookup.resolvePeer({
-        name: c.peer.name ?? c.chatTitle,
+      const contact = resolveBeeperPeer(lookup, {
+        name: c.peer.name,
         phone: c.peer.phone,
         email: c.peer.email,
+        chatTitle: c.chatTitle,
       });
       if (!contact) {
         skipped += 1;
@@ -628,6 +653,10 @@ export async function syncOutreachFromBeeper(opts?: {
         continue;
       }
 
+      if (!contact.phone && c.peer.phone && normalizePhone(c.peer.phone)) {
+        phones.set(contact.id, c.peer.phone);
+      }
+
       const network = c.network ? ` via ${c.network}` : "";
       const preview = oneLine(c.text);
       touches.push({
@@ -647,6 +676,7 @@ export async function syncOutreachFromBeeper(opts?: {
     }
 
     const insert = await insertContactTouches(touches);
+    await applyPhoneEnrichments(phones);
     const staged = await upsertCandidateSightings(sightings, lookup);
     await log({
       ok: true,

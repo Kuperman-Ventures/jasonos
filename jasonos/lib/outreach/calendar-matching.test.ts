@@ -3,10 +3,12 @@ import { describe, it } from "node:test";
 import {
   contactsNamedInTitle,
   matchCalendarEventToContacts,
+  resolveBeeperPeer,
   resolveCalendarGuest,
 } from "./calendar-matching";
 import {
   createContactLookup,
+  preferPersonName,
   type ContactLookupRow,
 } from "./contact-lookup";
 
@@ -69,6 +71,41 @@ describe("contactsNamedInTitle", () => {
 
   it("does not match a first name alone", () => {
     assert.deepEqual(contactsNamedInTitle("David / team standup", lookup), []);
+  });
+});
+
+describe("resolveBeeperPeer", () => {
+  const dara = contact({
+    id: "dara",
+    name: "Dara Akbarian",
+    emails: [],
+    phone: null,
+  });
+  const daraLookup = createContactLookup([david, jane, dara]);
+
+  it("matches the chat title when Beeper puts a phone in the peer name", () => {
+    assert.equal(
+      resolveBeeperPeer(daraLookup, {
+        name: "+1 917-555-0100",
+        phone: "+1 917-555-0100",
+        chatTitle: "Dara Akbarian",
+      })?.id,
+      "dara"
+    );
+  });
+
+  it("matches a first + last name inside a longer chat title", () => {
+    assert.equal(
+      resolveBeeperPeer(daraLookup, {
+        name: null,
+        chatTitle: "Dara Akbarian · iMessage",
+      })?.id,
+      "dara"
+    );
+  });
+
+  it("prefers a person name over a phone label", () => {
+    assert.equal(preferPersonName("+1 917-555-0100", "Dara Akbarian"), "Dara Akbarian");
   });
 });
 
