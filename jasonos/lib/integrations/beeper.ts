@@ -6,10 +6,6 @@ import {
   normalizePhone,
   preferPersonName,
 } from "@/lib/outreach/contact-lookup";
-import {
-  resolveBeeperLink,
-  type BeeperLinkResult,
-} from "@/lib/integrations/beeper-links";
 
 // Beeper Desktop API — local/tunneled chat sync for JasonOS outreach.
 //
@@ -105,19 +101,6 @@ function accessToken(): string | null {
 
 export function isBeeperConfigured(): boolean {
   return Boolean(accessToken());
-}
-
-/** Creds for opening a chat on the Mac in front of the browser (localhost). */
-export function beeperLocalOpenConfig(): {
-  baseUrl: string;
-  accessToken: string;
-} | null {
-  const token = accessToken();
-  if (!token) return null;
-  return {
-    baseUrl: "http://127.0.0.1:23373",
-    accessToken: token,
-  };
 }
 
 async function beeperFetch(
@@ -388,132 +371,42 @@ async function searchChatsForContact(contact: {
 }
 
 export type FocusBeeperResult =
-  | {
-      ok: true;
-      opened: "chat" | "app";
-      chatTitle?: string;
-      /** Proven deep link only: select-thread for cloud rooms, else focus. */
-      href: string;
-      /** E.164 phone when available — client opens via this Mac's Desktop API. */
-      phone?: string;
-      networkHint?: string;
-      /**
-       * Token + localhost URL so the browser can call THIS Mac's Beeper.
-       * Tunneled server calls hit the office Mac; localhost hits the laptop.
-       */
-      localApi?: { baseUrl: string; accessToken: string };
-      /** Why we only opened the app, when we could not jump to a chat. */
-      gap?: BeeperLinkResult["gap"];
-    }
+  | { ok: true; opened: "chat" | "app"; chatTitle?: string }
   | { ok: false; error: string };
 
-async function retrieveChat(chatId: string): Promise<BeeperChat | null> {
-  const res = await beeperFetch(`/v1/chats/${encodeURIComponent(chatId)}`, {
-    timeoutMs: 8_000,
-  });
-  if (!res.ok) return null;
-  return (await res.json()) as BeeperChat;
-}
-
-function accountIdForDeepLink(chat: BeeperChat): string | undefined {
-  const fromApi = chat.accountID?.trim();
-  if (fromApi) return fromApi;
-  const network = (chat.network ?? "").toLowerCase();
-  if (!network) return undefined;
-  if (network.includes("whatsapp")) return "whatsapp";
-  if (network.includes("instagram")) return "instagramgo";
-  if (network.includes("imessage") || network === "sms") return "imessage";
-  if (network.includes("telegram")) return "telegram";
-  if (network.includes("signal")) return "signal";
-  if (network.includes("linkedin")) return "linkedin";
-  if (network.includes("discord")) return "discordgo";
-  if (network.includes("facebook") || network.includes("messenger")) {
-    return "facebookgo";
-  }
-  if (network.includes("twitter") || network === "x") return "twitter";
-  if (network === "beeper") return "hungryserv";
-  return undefined;
-}
-
 /**
- * Resolve enough info for Home → Text to open Beeper on THIS Mac.
- *
- * Search may use the tunneled office Desktop API (network hint / portable
- * cloud room ids only). Opening must not call /v1/focus on the tunnel —
- * that raises Beeper on the office Mac. Invented beeper://compose links
- * toast "invalid deep link". The browser opens via localhost Desktop API.
+ * Open the matched 1:1 on the tunneled Beeper Desktop (office Mac).
+ * Home → Text must call this. Do not swap it for beeper:// deep links or
+ * browser calls to localhost — those broke Desktop and never worked on the laptop.
  */
 export async function focusBeeperChatForContact(contact: {
   name?: string | null;
   phone?: string | null;
 }): Promise<FocusBeeperResult> {
-  let match: BeeperChat | undefined;
-  try {
-    await probeBeeperDesktop();
-    const chats = await searchChatsForContact(contact);
-    match = chats.find((chat) => chatMatchesContact(chat, contact));
-    if (match) {
-      const full = await retrieveChat(match.id);
-      if (full) match = { ...match, ...full };
-    }
-  } catch (err) {
-    if (
-      !(err instanceof BeeperUnavailableError) &&
-      !(err instanceof BeeperApiError)
-    ) {
-      throw err;
-    }
+  await probeBeeperDesktop();
+  const chats = await searchChatsForContact(contact);
+  const match = chats.find((chat) => chatMatchesContact(chat, contact));
+
+  const body = match ? { chatID: match.id } : {};
+  const res = await beeperFetch("/v1/focus", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    timeoutMs: 8_000,
+  });
+  if (res.status === 401 || res.status === 403) {
+    throw new BeeperApiError(res.status, await readErrorDetail(res));
   }
-
-  const peer = match ? peerFromChat(match) : null;
-  const phone =
-    toE164Phone(peer?.phone) ||
-    toE164Phone(contact.phone) ||
-    (match ? toE164Phone(phoneFromUserId(match)) : null);
-  const networkHint = match?.network || (phone ? "iMessage" : undefined);
-  const link = match
-    ? resolveBeeperLink({
-        chatId: match.id,
-        accountId: accountIdForDeepLink(match),
-        network: match.network,
-        phone,
-        username: peer?.username,
-      })
-    : resolveBeeperLink({
-        phone,
-        network: phone ? "iMessage" : null,
-      });
-
-  return {
-    ok: true,
-    opened: link.targetsChat ? "chat" : "app",
-    chatTitle: match?.title || contact.name || undefined,
-    href: link.href,
-    phone: phone || undefined,
-    networkHint,
-    localApi: beeperLocalOpenConfig() || undefined,
-    gap: link.gap,
-  };
-}
-
-function toE164Phone(phone?: string | null): string | null {
-  if (!phone) return null;
-  const digits = phone.replace(/\D+/g, "");
-  if (!digits) return null;
-  const national =
-    digits.length === 11 && digits.startsWith("1")
-      ? digits.slice(1)
-      : digits.length > 10
-        ? digits.slice(-10)
-        : digits;
-  if (national.length === 10) return `+1${national}`;
-  if (national.length < 8) return null;
-  return `+${national}`;
-}
-
-function phoneFromUserId(chat: BeeperChat): string | null {
-  const others = (chat.participants?.items ?? []).filter((p) => !p.isSelf);
-  const id = others[0]?.id ?? "";
-  const match = id.match(/@(\+?\d{10,15}):/);
-  return match?.[1] ?? null;
+  if (!res.ok) {
+    const detail = await readErrorDetail(res);
+    return { ok: false, error: `Could not open Beeper (${detail})` };
+  }
+  if (match) {
+    return {
+      ok: true,
+      opened: "chat",
+      chatTitle: match.title || contact.name || undefined,
+    };
+  }
+  return { ok: true, opened: "app" };
 }
