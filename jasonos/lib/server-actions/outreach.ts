@@ -1126,17 +1126,17 @@ export async function getOutreachContactByRecruiterId(
   const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,is_networking,
      relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
      network_degree,next_touch_date,next_touch_is_manual,last_touch_date,last_touch_channel,
-     reply_status_override,reply_status_override_at`;
+     reply_status_override,reply_status_override_at,created_at`;
   const noManualColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,is_networking,
      relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
      network_degree,next_touch_date,last_touch_date,last_touch_channel,
-     reply_status_override,reply_status_override_at`;
+     reply_status_override,reply_status_override_at,created_at`;
   const noOverrideColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,is_networking,
      relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
-     network_degree,next_touch_date,last_touch_date,last_touch_channel`;
+     network_degree,next_touch_date,last_touch_date,last_touch_channel,created_at`;
   const noIntentColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,is_networking,
      relationship_type,cadence_interval,cadence_stage,relevance_tier,
-     network_degree,next_touch_date,last_touch_date,last_touch_channel`;
+     network_degree,next_touch_date,last_touch_date,last_touch_channel,created_at`;
 
   let result = await sb
     .from("contacts")
@@ -1251,6 +1251,7 @@ export async function getOutreachContactByRecruiterId(
         | null
         | undefined) ?? null,
     tags: (data.tags as string[] | null) ?? [],
+    created_at: (data.created_at as string | null) ?? null,
     strategic_score: strategicScore,
     firm_focus_rank: firmFocusRank,
   };
@@ -1369,21 +1370,21 @@ export async function getContactCardData(input: {
   const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,referred_by_contact_id,
      relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
      network_degree,network_role,next_touch_date,next_touch_is_manual,last_touch_date,last_touch_channel,
-     reply_status_override,reply_status_override_at`;
+     reply_status_override,reply_status_override_at,created_at`;
   const noRoleColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,referred_by_contact_id,
      relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
      network_degree,next_touch_date,next_touch_is_manual,last_touch_date,last_touch_channel,
-     reply_status_override,reply_status_override_at`;
+     reply_status_override,reply_status_override_at,created_at`;
   const noManualColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,referred_by_contact_id,
      relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
      network_degree,next_touch_date,last_touch_date,last_touch_channel,
-     reply_status_override,reply_status_override_at`;
+     reply_status_override,reply_status_override_at,created_at`;
   const noOverrideColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,referred_by_contact_id,
      relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
-     network_degree,next_touch_date,last_touch_date,last_touch_channel`;
+     network_degree,next_touch_date,last_touch_date,last_touch_channel,created_at`;
   const noIntentColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,referred_by_contact_id,
      relationship_type,cadence_interval,cadence_stage,relevance_tier,
-     network_degree,next_touch_date,last_touch_date,last_touch_channel`;
+     network_degree,next_touch_date,last_touch_date,last_touch_channel,created_at`;
 
   let contactResult = await sb
     .from("contacts")
@@ -1529,6 +1530,7 @@ export async function getContactCardData(input: {
         | null
         | undefined) ?? null,
     tags: (row.tags as string[] | null) ?? [],
+    created_at: (row.created_at as string | null) ?? null,
     strategic_score: strategicScore,
     firm_focus_rank: firmFocusRank,
   };

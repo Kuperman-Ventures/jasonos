@@ -439,6 +439,7 @@ export function OutreachModal({
           reply_status_override: null,
           reply_status_override_at: null,
           tags: [],
+          created_at: null,
           strategic_score: null,
           firm_focus_rank: null,
         },

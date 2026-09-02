@@ -46,36 +46,13 @@ import {
   setRelevanceTier,
 } from "@/lib/server-actions/outreach";
 import type { OutreachPerson } from "@/lib/outreach/data";
+import {
+  PEOPLE_SORT_OPTIONS,
+  comparePeople,
+  type PeopleSortKey,
+} from "@/lib/outreach/people-sort";
 
 type RelFilter = RelationshipType | "unclassified";
-
-type SortKey = "relevance" | "closeness" | "name";
-
-const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: "relevance", label: "Relevance (A→C)" },
-  { value: "closeness", label: "Closeness (1→3)" },
-  { value: "name", label: "Name (A→Z)" },
-];
-
-// Nulls sort last so classified contacts lead.
-function tierRank(t: RelevanceTier | null): number {
-  return t === "A" ? 0 : t === "B" ? 1 : t === "C" ? 2 : 9;
-}
-function degreeRank(d: NetworkDegree | null): number {
-  return d ?? 9;
-}
-function comparePeople(a: OutreachPerson, b: OutreachPerson, sort: SortKey): number {
-  if (sort === "name") return a.name.localeCompare(b.name);
-  const at = tierRank(a.relevance_tier);
-  const bt = tierRank(b.relevance_tier);
-  const ad = degreeRank(a.network_degree);
-  const bd = degreeRank(b.network_degree);
-  if (sort === "relevance") {
-    return at - bt || ad - bd || a.name.localeCompare(b.name);
-  }
-  // closeness
-  return ad - bd || at - bt || a.name.localeCompare(b.name);
-}
 
 const FILTERS: { value: RelFilter; label: string }[] = [
   { value: "unclassified", label: "Unclassified" },
@@ -96,7 +73,7 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
   const [activeFilters, setActiveFilters] = useState<Set<RelFilter>>(
     () => new Set()
   );
-  const [sort, setSort] = useState<SortKey>("relevance");
+  const [sort, setSort] = useState<PeopleSortKey>("relevance");
   const [modalTarget, setModalTarget] = useState<OutreachPerson | null>(null);
 
   const clearFirmFilter = () => {
@@ -226,10 +203,10 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
             <span className="hidden sm:inline">Sort</span>
             <select
               value={sort}
-              onChange={(e) => setSort(e.target.value as SortKey)}
+              onChange={(e) => setSort(e.target.value as PeopleSortKey)}
               className="h-9 rounded-md border border-border bg-background px-2 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              {SORT_OPTIONS.map((o) => (
+              {PEOPLE_SORT_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
                 </option>
