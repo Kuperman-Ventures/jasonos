@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { beeperChatDeepLink, beeperTextFallbackLink } from "./beeper-links.ts";
+import {
+  beeperChatDeepLink,
+  beeperTextFallbackLink,
+  resolveBeeperLink,
+} from "./beeper-links.ts";
 
 describe("beeperChatDeepLink", () => {
   it("opens the app when there is no portable recipient or cloud thread", () => {
@@ -9,9 +13,13 @@ describe("beeperChatDeepLink", () => {
       beeperChatDeepLink({ chatId: "!abc:beeper.com" }),
       "beeper://focus"
     );
+    assert.equal(
+      resolveBeeperLink({ chatId: "!abc:beeper.com" }).gap,
+      "missing_recipient"
+    );
   });
 
-  it("does not deep-link a laptop with another Mac's local chat id", () => {
+  it("does not deep-link a laptop with another Mac's local chat id alone", () => {
     assert.equal(
       beeperChatDeepLink({
         chatId:
@@ -22,7 +30,7 @@ describe("beeperChatDeepLink", () => {
     );
   });
 
-  it("composes via phone so any Mac can open the WhatsApp thread", () => {
+  it("composes via phone with bridge-whatsapp (not local-whatsapp)", () => {
     assert.equal(
       beeperChatDeepLink({
         chatId:
@@ -31,39 +39,42 @@ describe("beeperChatDeepLink", () => {
         network: "WhatsApp",
         phone: "+1 555-111-2222",
       }),
-      "beeper://compose/local-whatsapp/+15551112222"
+      "beeper://compose/bridge-whatsapp/+15551112222?accountID=whatsapp"
     );
   });
 
-  it("does not send a local-whatsapp_ba_ accountID in the URL", () => {
+  it("maps local-whatsapp_ba_ accounts to short accountID=whatsapp", () => {
     const href = beeperChatDeepLink({
       accountId: "local-whatsapp_ba_EvYDBBsZbRQAy3UOSWqG0LuTVkc",
       phone: "9175550100",
     });
-    assert.equal(href, "beeper://compose/local-whatsapp/+19175550100");
-    assert.equal(href.includes("accountID"), false);
+    assert.equal(
+      href,
+      "beeper://compose/bridge-whatsapp/+19175550100?accountID=whatsapp"
+    );
+    assert.equal(href.includes("local-"), false);
     assert.equal(href.includes("ba_"), false);
   });
 
-  it("uses local-imessage compose when Text only has a phone", () => {
+  it("uses bridge-imessage compose when Text only has a phone", () => {
     assert.equal(
       beeperChatDeepLink({ phone: "(917) 555-0100" }),
-      "beeper://compose/local-imessage/+19175550100"
+      "beeper://compose/bridge-imessage/+19175550100?accountID=imessage"
     );
     assert.equal(
       beeperTextFallbackLink("(917) 555-0100"),
-      "beeper://compose/local-imessage/+19175550100"
+      "beeper://compose/bridge-imessage/+19175550100?accountID=imessage"
     );
   });
 
-  it("composes Instagram by handle when there is no phone", () => {
+  it("composes Instagram by handle with bridge-instagramgo", () => {
     assert.equal(
       beeperChatDeepLink({
         accountId: "local-instagram_ba_eRfQ",
         network: "Instagram",
         username: "@mattwondra",
       }),
-      "beeper://compose/local-instagram/mattwondra"
+      "beeper://compose/bridge-instagramgo/mattwondra?accountID=instagramgo"
     );
   });
 
@@ -94,18 +105,20 @@ describe("beeperChatDeepLink", () => {
         accountId: "whatsapp",
         phone: "+15551112222",
       }),
-      "beeper://compose/bridge-whatsapp/+15551112222"
+      "beeper://compose/bridge-whatsapp/+15551112222?accountID=whatsapp"
     );
   });
 
-  it("treats localhost chat ids as local even if accountID is a cloud name", () => {
+  it("never emits local-whatsapp as a platform path", () => {
+    const href = beeperChatDeepLink({
+      chatId: "!room:ba_x.local-whatsapp.localhost",
+      accountId: "whatsapp",
+      phone: "+15551112222",
+    });
     assert.equal(
-      beeperChatDeepLink({
-        chatId: "!room:ba_x.local-whatsapp.localhost",
-        accountId: "whatsapp",
-        phone: "+15551112222",
-      }),
-      "beeper://compose/local-whatsapp/+15551112222"
+      href,
+      "beeper://compose/bridge-whatsapp/+15551112222?accountID=whatsapp"
     );
+    assert.equal(/local-whatsapp/.test(href), false);
   });
 });
