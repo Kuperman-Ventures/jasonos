@@ -63,6 +63,8 @@ export interface OutreachPerson {
   /** When the manual reply-status override was last set. */
   reply_status_override_at: string | null;
   tags: string[];
+  /** When the People row was created. Used by “Most recently added”. */
+  created_at: string | null;
   /** Pulled from rr_recruiters when source_ids.recruiter_pipeline_id matches. */
   strategic_score: number | null;
   /** Optional firm focus rank from the recruiter pipeline (1 = anchor, etc.). */
@@ -152,24 +154,24 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
     const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
        relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
        network_degree,network_role,next_touch_date,next_touch_is_manual,last_touch_date,last_touch_channel,
-       reply_status_override,reply_status_override_at`;
+       reply_status_override,reply_status_override_at,created_at`;
     const noRoleColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
        relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
        network_degree,next_touch_date,next_touch_is_manual,last_touch_date,last_touch_channel,
-       reply_status_override,reply_status_override_at`;
+       reply_status_override,reply_status_override_at,created_at`;
     const noManualColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
        relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
        network_degree,next_touch_date,last_touch_date,last_touch_channel,
-       reply_status_override,reply_status_override_at`;
+       reply_status_override,reply_status_override_at,created_at`;
     const noOverrideColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
        relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
-       network_degree,next_touch_date,last_touch_date,last_touch_channel`;
+       network_degree,next_touch_date,last_touch_date,last_touch_channel,created_at`;
     const noIntentColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
        relationship_type,cadence_interval,cadence_stage,relevance_tier,
-       network_degree,next_touch_date,last_touch_date,last_touch_channel`;
+       network_degree,next_touch_date,last_touch_date,last_touch_channel,created_at`;
     const noStageColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
        relationship_type,cadence_interval,relevance_tier,network_degree,
-       next_touch_date,last_touch_date,last_touch_channel`;
+       next_touch_date,last_touch_date,last_touch_channel,created_at`;
 
     let result = await sb
       .from("contacts")
@@ -328,6 +330,7 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
             | string
             | null
             | undefined) ?? null,
+        created_at: (row.created_at as string | null) ?? null,
         tags,
         strategic_score: enrichment?.strategic_score ?? null,
         firm_focus_rank: enrichment?.firm_focus_rank ?? null,
