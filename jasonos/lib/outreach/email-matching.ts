@@ -14,8 +14,10 @@ import {
 export {
   BEEPER_PLACEHOLDER_DOMAIN,
   MY_EMAILS,
+  beeperCandidateIdentity,
   beeperSightingEmail,
   canonicalEmail,
+  looksLikePersonName,
   createContactLookup,
   emptyLookup,
   extractDisplayName,

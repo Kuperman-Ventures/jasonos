@@ -13,6 +13,7 @@ import { companyFromEmail, isNoiseEmail } from "@/lib/outreach/mail-noise";
 export interface CandidateSighting {
   email: string;
   name?: string | null;
+  phone?: string | null;
   dateIso: string;
   subject?: string | null;
   direction: "inbound" | "outbound";
@@ -29,6 +30,7 @@ export interface CandidateUpsertResult {
 interface Agg {
   email: string;
   name: string | null;
+  phone: string | null;
   company: string | null;
   inbound: number;
   outbound: number;
@@ -134,10 +136,12 @@ export async function upsertCandidateSightings(
         prev.lastSubject = cp.subject ?? prev.lastSubject;
       }
       if (!prev.name && cp.name) prev.name = normalizePersonName(cp.name);
+      if (!prev.phone && cp.phone) prev.phone = cp.phone;
     } else {
       agg.set(canon, {
         email: canon,
         name: cp.name ? normalizePersonName(cp.name) : null,
+        phone: cp.phone ?? null,
         company: placeholder ? null : companyFromEmail(canon),
         inbound: cp.direction === "inbound" ? 1 : 0,
         outbound: cp.direction === "outbound" ? 1 : 0,
@@ -153,7 +157,7 @@ export async function upsertCandidateSightings(
   const emails = Array.from(agg.keys());
   const { data: existingRows, error: readErr } = await sb
     .from("contact_candidates")
-    .select("id,email,status,name,first_seen")
+    .select("id,email,status,name,phone,first_seen")
     .in("email", emails);
   if (readErr) {
     console.error("[candidate-capture] read failed", readErr);
@@ -162,13 +166,14 @@ export async function upsertCandidateSightings(
 
   const existingByEmail = new Map<
     string,
-    { id: string; status: string; name: string | null }
+    { id: string; status: string; name: string | null; phone: string | null }
   >();
   for (const r of existingRows ?? []) {
     existingByEmail.set(r.email as string, {
       id: r.id as string,
       status: r.status as string,
       name: (r.name as string | null) ?? null,
+      phone: (r.phone as string | null) ?? null,
     });
   }
 
@@ -186,6 +191,7 @@ export async function upsertCandidateSightings(
             .from("contact_candidates")
             .update({
               name: existing.name ?? a.name,
+              phone: existing.phone ?? a.phone,
               company: a.company,
               inbound_count: a.inbound,
               outbound_count: a.outbound,
@@ -202,6 +208,7 @@ export async function upsertCandidateSightings(
       toInsert.push({
         email: a.email,
         name: a.name ?? nameFromEmail(a.email),
+        phone: a.phone,
         company: a.company,
         inbound_count: a.inbound,
         outbound_count: a.outbound,
