@@ -375,10 +375,39 @@ export type FocusBeeperResult =
   | { ok: true; opened: "chat" | "app"; chatTitle?: string; href: string }
   | { ok: false; error: string };
 
+async function retrieveChat(chatId: string): Promise<BeeperChat | null> {
+  const res = await beeperFetch(`/v1/chats/${encodeURIComponent(chatId)}`, {
+    timeoutMs: 8_000,
+  });
+  if (!res.ok) return null;
+  return (await res.json()) as BeeperChat;
+}
+
+function accountIdForDeepLink(chat: BeeperChat): string | undefined {
+  const fromApi = chat.accountID?.trim();
+  if (fromApi) return fromApi;
+  const network = (chat.network ?? "").toLowerCase();
+  if (!network) return undefined;
+  if (network.includes("whatsapp")) return "whatsapp";
+  if (network.includes("instagram")) return "instagramgo";
+  if (network.includes("imessage") || network === "sms") return "imessage";
+  if (network.includes("telegram")) return "telegram";
+  if (network.includes("signal")) return "signal";
+  if (network.includes("linkedin")) return "linkedin";
+  if (network.includes("discord")) return "discordgo";
+  if (network.includes("facebook") || network.includes("messenger")) {
+    return "facebookgo";
+  }
+  if (network.includes("twitter") || network === "x") return "twitter";
+  if (network === "beeper") return "hungryserv";
+  return undefined;
+}
+
 /**
  * Find this contact's 1:1 chat via the Desktop API (search only).
- * Opening happens on the Mac in front of the browser via a beeper:// link —
- * /v1/focus would only raise Beeper on the tunneled machine.
+ * Opening happens on the Mac in front of the browser via Beeper's real
+ * select-thread deep link — /v1/focus would only raise Beeper on the
+ * tunneled machine, and invented beeper://chat/ URLs toast "invalid deep link".
  */
 export async function focusBeeperChatForContact(contact: {
   name?: string | null;
@@ -386,15 +415,19 @@ export async function focusBeeperChatForContact(contact: {
 }): Promise<FocusBeeperResult> {
   await probeBeeperDesktop();
   const chats = await searchChatsForContact(contact);
-  const match = chats.find((chat) => chatMatchesContact(chat, contact));
+  let match = chats.find((chat) => chatMatchesContact(chat, contact));
+  if (match) {
+    const full = await retrieveChat(match.id);
+    if (full) match = { ...match, ...full };
+  }
   const href = beeperChatDeepLink({
     chatId: match?.id,
-    accountId: match?.accountID,
+    accountId: match ? accountIdForDeepLink(match) : undefined,
   });
   if (match) {
     return {
       ok: true,
-      opened: "chat",
+      opened: href.startsWith("beeper://select-thread/") ? "chat" : "app",
       chatTitle: match.title || contact.name || undefined,
       href,
     };

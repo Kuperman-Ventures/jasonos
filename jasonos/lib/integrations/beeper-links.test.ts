@@ -3,24 +3,31 @@ import { describe, it } from "node:test";
 import { beeperChatDeepLink } from "./beeper-links.ts";
 
 describe("beeperChatDeepLink", () => {
-  it("opens the app when there is no chat", () => {
+  it("opens the app when chat or account is missing", () => {
     assert.equal(beeperChatDeepLink({}), "beeper://focus");
-  });
-
-  it("uses a chat path when account is unknown", () => {
     assert.equal(
       beeperChatDeepLink({ chatId: "!abc:beeper.com" }),
-      "beeper://chat/!abc%3Abeeper.com"
+      "beeper://focus"
     );
   });
 
-  it("builds select-thread with a WhatsApp account", () => {
+  it("matches Beeper's Copy chat deep link for WhatsApp", () => {
     assert.equal(
       beeperChatDeepLink({
         chatId: "!xyz:beeper.local",
         accountId: "whatsapp",
       }),
-      "beeper://select-thread/bridge-whatsapp/!xyz%3Abeeper.local?accountID=whatsapp"
+      "beeper://select-thread/bridge-whatsapp/!xyz:beeper.local?accountID=whatsapp"
+    );
+  });
+
+  it("does not double-prefix bridge- accounts", () => {
+    assert.equal(
+      beeperChatDeepLink({
+        chatId: "!xyz:beeper.local",
+        accountId: "bridge-whatsapp",
+      }),
+      "beeper://select-thread/bridge-whatsapp/!xyz:beeper.local?accountID=whatsapp"
     );
   });
 });
