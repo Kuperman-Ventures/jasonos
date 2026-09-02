@@ -131,6 +131,89 @@ export function mergeCalendarEvents(lists: CalendarApiEvent[][]): CalendarApiEve
   return out;
 }
 
+interface CalendarListEntry {
+  id?: string;
+  summary?: string;
+  selected?: boolean;
+  accessRole?: string;
+  primary?: boolean;
+}
+
+function isHolidayOrBirthdayCalendar(cal: CalendarListEntry): boolean {
+  const id = (cal.id ?? "").toLowerCase();
+  const summary = (cal.summary ?? "").toLowerCase();
+  if (id.includes("#holiday@") || id.includes("#contacts@")) return true;
+  if (id.includes("group.v.calendar.google.com") && /holiday|birthday/.test(summary)) {
+    return true;
+  }
+  if (/^holidays in /.test(summary)) return true;
+  return false;
+}
+
+/** Calendars this account actually uses. Primary first. Cap keeps Sync under time. */
+export async function listReadableCalendarIds(
+  token: string,
+  maxCalendars = 10
+): Promise<{ calendarIds: string[]; error?: string }> {
+  try {
+    const res = await fetch(
+      `${CAL_BASE}/users/me/calendarList?minAccessRole=reader&maxResults=250`,
+      { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" }
+    );
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      return {
+        calendarIds: ["primary"],
+        error: calendarErrorMessage("calendarList", res.status, txt),
+      };
+    }
+    const body = (await res.json()) as { items?: CalendarListEntry[] };
+    const selected = (body.items ?? []).filter((cal) => {
+      if (!cal.id) return false;
+      if (cal.selected === false) return false;
+      if (cal.accessRole === "freeBusyReader") return false;
+      if (isHolidayOrBirthdayCalendar(cal)) return false;
+      return true;
+    });
+    selected.sort((a, b) => Number(Boolean(b.primary)) - Number(Boolean(a.primary)));
+    const ids = selected.map((cal) => cal.id!).slice(0, maxCalendars);
+    if (!ids.includes("primary")) ids.unshift("primary");
+    return { calendarIds: ids.slice(0, maxCalendars) };
+  } catch (err) {
+    return {
+      calendarIds: ["primary"],
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+export async function fetchAccountCalendarEvents(opts: {
+  token: string;
+  timeMin: string;
+  timeMax: string;
+}): Promise<{ events: CalendarApiEvent[]; calendarIds: string[]; error?: string }> {
+  const listed = await listReadableCalendarIds(opts.token);
+  const lists: CalendarApiEvent[][] = [];
+  const errors: string[] = [];
+  for (const calendarId of listed.calendarIds) {
+    const fetched = await fetchCalendarEvents({
+      token: opts.token,
+      calendarId,
+      timeMin: opts.timeMin,
+      timeMax: opts.timeMax,
+    });
+    lists.push(fetched.events);
+    if (fetched.error && !fetched.events.length) {
+      errors.push(`${calendarId}: ${fetched.error}`);
+    }
+  }
+  return {
+    events: mergeCalendarEvents(lists),
+    calendarIds: listed.calendarIds,
+    error: errors[0] ?? listed.error,
+  };
+}
+
 /** Page through one calendar. Hard cap 250/page × 20 = 5,000 events. */
 export async function fetchCalendarEvents(opts: {
   token: string;
@@ -209,19 +292,17 @@ export async function fetchAllPersonalCalendarEvents(opts: {
 
   if (advisors) {
     fetches.push(
-      fetchCalendarEvents({
+      fetchAccountCalendarEvents({
         token: advisors,
-        calendarId: "primary",
         timeMin: opts.timeMin,
         timeMax: opts.timeMax,
-      })
+      }).then((r) => ({ ...r, calendarId: "primary" }))
     );
   }
   if (gmail) {
     fetches.push(
-      fetchCalendarEvents({
+      fetchAccountCalendarEvents({
         token: gmail,
-        calendarId: "primary",
         timeMin: opts.timeMin,
         timeMax: opts.timeMax,
       }).then((r) => ({ ...r, calendarId: GMAIL_ACCOUNT_EMAIL }))

@@ -1,5 +1,11 @@
 import "server-only";
 
+import {
+  looksLikePersonName,
+  normalizePhone,
+  preferPersonName,
+} from "@/lib/outreach/contact-lookup";
+
 // Beeper Desktop API — local/tunneled chat sync for JasonOS outreach.
 //
 // Beeper runs on Jason's machine (default http://127.0.0.1:23373). JasonOS on
@@ -178,9 +184,18 @@ export async function probeBeeperDesktop(): Promise<{ ok: true; baseUrl: string 
 function peerFromChat(chat: BeeperChat): BeeperPeer {
   const others = (chat.participants?.items ?? []).filter((p) => !p.isSelf);
   const primary = others[0];
+  const fullName = primary?.fullName?.trim() || null;
+  const title = chat.title?.trim() || null;
+  const named = preferPersonName(fullName, title);
+  const labeledPhone =
+    primary?.phoneNumber?.trim() ||
+    (fullName && !looksLikePersonName(fullName) && normalizePhone(fullName)
+      ? fullName
+      : null) ||
+    (title && !looksLikePersonName(title) && normalizePhone(title) ? title : null);
   return {
-    name: primary?.fullName?.trim() || chat.title?.trim() || null,
-    phone: primary?.phoneNumber?.trim() || null,
+    name: named,
+    phone: labeledPhone,
     email: primary?.email?.trim() || null,
     username: primary?.username?.trim() || null,
   };
@@ -260,7 +275,7 @@ export async function fetchBeeperTouchCandidates(opts?: {
   includeInbound?: boolean;
 }): Promise<BeeperTouchCandidate[]> {
   const daysBack = Math.max(1, Math.min(90, opts?.daysBack ?? 30));
-  const maxChats = Math.max(1, Math.min(80, opts?.maxChats ?? 80));
+  const maxChats = Math.max(1, Math.min(200, opts?.maxChats ?? 120));
   const maxMessagesPerChat = Math.max(
     1,
     Math.min(40, opts?.maxMessagesPerChat ?? 20)

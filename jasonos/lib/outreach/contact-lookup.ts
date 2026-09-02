@@ -47,6 +47,16 @@ export function isBeeperPlaceholderEmail(email: string | null | undefined): bool
   return extractEmail(email).endsWith(`@${BEEPER_PLACEHOLDER_DOMAIN}`);
 }
 
+/** Prefer a real person name over a phone or handle when Beeper sends both. */
+export function preferPersonName(
+  ...candidates: Array<string | null | undefined>
+): string | null {
+  const trimmed = candidates
+    .map((value) => (value ?? "").trim())
+    .filter(Boolean);
+  return trimmed.find((value) => looksLikePersonName(value)) ?? trimmed[0] ?? null;
+}
+
 /** First name, or first + last. Rejects phones, handles, and bare IDs. */
 export function looksLikePersonName(raw: string | null | undefined): boolean {
   const name = (raw ?? "").trim();
