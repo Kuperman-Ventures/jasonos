@@ -120,12 +120,12 @@ export function HomeClient({
         <p className="border-b px-4 py-1.5 text-[11px] text-muted-foreground">
           Past their next-touch date. Open, draft, text, or log from here.
         </p>
+        {/* Queue-style window: ~10 rows visible, the rest scroll inside. */}
         {data.overdue.length === 0 ? (
           <p className="px-4 py-8 text-center text-xs text-muted-foreground">
             Nothing overdue. Clear.
           </p>
         ) : (
-          {/* Queue-style window: ~10 rows visible, the rest scroll inside. */}
           <ul className="max-h-[calc(10*4.125rem)] divide-y divide-border overflow-y-auto overscroll-contain">
             {data.overdue.map((c) => (
               <li
