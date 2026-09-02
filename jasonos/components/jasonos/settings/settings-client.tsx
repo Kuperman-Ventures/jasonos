@@ -358,7 +358,8 @@ function GoogleAccountsCard({
           <p className="mt-1 text-xs text-muted-foreground">
             Sync reads Sent mail and calendar from each connected account. Advisors
             is already connected. Personal Gmail is a separate Google login — sharing
-            the calendar is not enough for email.
+            the calendar is not enough. If a row says reconnect, sign in again or
+            meetings on that calendar will not show up.
           </p>
         </div>
       </div>
@@ -367,6 +368,7 @@ function GoogleAccountsCard({
           label="Advisors"
           email="jason@kupermanadvisors.com"
           connected={accounts.advisorsConnected}
+          needsReconnect={accounts.advisorsNeedsReconnect}
           connectedEmail={accounts.advisorsEmail}
           href="/api/auth/google"
           connectLabel="Connect Advisors Google"
@@ -375,6 +377,7 @@ function GoogleAccountsCard({
           label="Personal Gmail"
           email="jskuperman@gmail.com"
           connected={accounts.gmailConnected}
+          needsReconnect={accounts.gmailNeedsReconnect}
           connectedEmail={accounts.gmailEmail}
           href="/api/auth/google?account=gmail"
           connectLabel="Connect personal Gmail"
@@ -388,6 +391,7 @@ function GoogleAccountRow({
   label,
   email,
   connected,
+  needsReconnect,
   connectedEmail,
   href,
   connectLabel,
@@ -395,6 +399,7 @@ function GoogleAccountRow({
   label: string;
   email: string;
   connected: boolean;
+  needsReconnect?: boolean;
   connectedEmail: string | null;
   href: string;
   connectLabel: string;
@@ -404,15 +409,32 @@ function GoogleAccountRow({
       <div className="min-w-0">
         <div className="text-sm font-medium">{label}</div>
         <div className="mt-0.5 truncate text-xs text-muted-foreground">
-          {connected ? connectedEmail ?? email : email}
+          {needsReconnect
+            ? "Sign-in expired. Calendar and mail on this account will not sync."
+            : connected
+              ? connectedEmail ?? email
+              : email}
         </div>
       </div>
       {connected ? (
         <div className="flex shrink-0 items-center gap-2">
-          <Badge variant="outline" className="border-emerald-400/40 bg-emerald-400/10 text-emerald-200">
-            connected
-          </Badge>
-          <a href={href} className="text-[11px] text-muted-foreground hover:text-foreground">
+          {needsReconnect ? (
+            <Badge variant="outline" className="border-amber-400/40 bg-amber-400/10 text-amber-200">
+              reconnect
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="border-emerald-400/40 bg-emerald-400/10 text-emerald-200">
+              connected
+            </Badge>
+          )}
+          <a
+            href={href}
+            className={
+              needsReconnect
+                ? "rounded-md border px-3 py-1.5 text-[11px] font-medium hover:bg-muted"
+                : "text-[11px] text-muted-foreground hover:text-foreground"
+            }
+          >
             Reconnect
           </a>
         </div>

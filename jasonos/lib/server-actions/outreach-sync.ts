@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import {
   searchGmailThreads,
   getGmailThread,
-  isGmailConnected,
 } from "@/lib/integrations/gmail";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import { OUTLOOK_WRAP_EMAIL } from "@/lib/integrations/unwrap-forwarded-mail";
@@ -15,8 +14,9 @@ import {
 } from "@/lib/integrations/google-calendar";
 import {
   GOOGLE_GMAIL,
-  listGoogleAccessTokens,
+  listGoogleAccountAccess,
 } from "@/lib/integrations/google-tokens";
+import { matchCalendarEventToContacts } from "@/lib/outreach/calendar-matching";
 import {
   upsertCandidateSightings,
   type CandidateSighting,
@@ -117,6 +117,8 @@ export interface SyncResult {
   unavailable?: boolean;
   /** Unknown people staged onto Suggested this run. */
   candidatesStaged?: number;
+  /** One mailbox failed while others still synced. */
+  warnings?: string[];
 }
 
 export interface SyncAllResult {
@@ -154,8 +156,8 @@ export async function syncOutreachFromGmail(opts?: {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return errorResult("gmail", "Supabase service role is not configured.");
   }
-  const gmailReady = await isGmailConnected();
-  if (!gmailReady) {
+  const mailboxTokens = await listGoogleAccountAccess();
+  if (!mailboxTokens.length) {
     await log({
       ok: false,
       error: "Gmail is not connected.",
@@ -166,14 +168,19 @@ export async function syncOutreachFromGmail(opts?: {
   const lookup = await buildContactLookup();
   const afterEpoch = Math.floor((Date.now() - daysBack * 86_400_000) / 1000);
   const enrich: EnrichMap = new Map();
-  const mailboxTokens = await listGoogleAccessTokens();
   const combined = emptyInsertResult();
   let matchedTotal = 0;
   let skippedTotal = 0;
   let stagedTotal = 0;
   const mailboxErrors: string[] = [];
 
-  for (const { provider, token, accountEmail } of mailboxTokens) {
+  for (const { provider, token, accountEmail, error } of mailboxTokens) {
+    if (!token) {
+      const msg = error ?? `${accountEmail}: sign-in expired. Reconnect in Settings.`;
+      mailboxErrors.push(msg);
+      await log({ accountEmail, ok: false, error: msg });
+      continue;
+    }
     const touches: ContactTouchInput[] = [];
     const sightings: CandidateSighting[] = [];
     let skipped = 0;
@@ -292,7 +299,14 @@ export async function syncOutreachFromGmail(opts?: {
   if (mailboxErrors.length && !combined.inserted && !matchedTotal) {
     return errorResult("gmail", mailboxErrors.join(" · "));
   }
-  return okResult("gmail", combined, matchedTotal, skippedTotal, stagedTotal);
+  return okResult(
+    "gmail",
+    combined,
+    matchedTotal,
+    skippedTotal,
+    stagedTotal,
+    mailboxErrors
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -318,7 +332,7 @@ export async function syncOutreachFromCalendar(opts?: {
     return errorResult("gcal", "Supabase service role is not configured.");
   }
 
-  const mailboxTokens = await listGoogleAccessTokens();
+  const mailboxTokens = await listGoogleAccountAccess();
   if (!mailboxTokens.length) {
     await log({ error: "Google Calendar is not connected." });
     return errorResult("gcal", "Google Calendar is not connected.");
@@ -336,7 +350,13 @@ export async function syncOutreachFromCalendar(opts?: {
   const mailboxErrors: string[] = [];
   let migrationError: string | null = null;
 
-  for (const { token, accountEmail } of mailboxTokens) {
+  for (const { token, accountEmail, error } of mailboxTokens) {
+    if (!token) {
+      const msg = error ?? `${accountEmail}: sign-in expired. Reconnect in Settings.`;
+      mailboxErrors.push(msg);
+      await log({ accountEmail, ok: false, error: msg });
+      continue;
+    }
     const fetched = await fetchCalendarEvents({
       token,
       calendarId: "primary",
@@ -370,30 +390,33 @@ export async function syncOutreachFromCalendar(opts?: {
 
       const isPastOrStarted = new Date(startISO).getTime() <= now;
       const guests = calendarEventGuests(ev);
-      if (!guests.length) continue;
+      const { matches, unmatchedGuests } = matchCalendarEventToContacts({
+        title: ev.summary,
+        guests,
+        lookup,
+      });
+      if (!matches.length && !unmatchedGuests.length) continue;
 
-      let matchedAny = false;
-      for (const guest of guests) {
-        const header = guest.name
-          ? `${guest.name} <${guest.email}>`
-          : guest.email;
-        const contact = lookup.resolve(header);
-        if (!contact) {
-          sightings.push({
-            email: guest.email,
-            name: guest.name ?? null,
-            dateIso: startISO,
-            subject: ev.summary?.trim() || "Meeting",
-            direction: "inbound",
-          });
-          continue;
-        }
+      for (const guest of unmatchedGuests) {
+        if (!guest.email || !guest.email.includes("@")) continue;
+        sightings.push({
+          email: guest.email,
+          name: guest.name ?? null,
+          dateIso: startISO,
+          subject: ev.summary?.trim() || "Meeting",
+          direction: "inbound",
+        });
+      }
+      if (!matches.length) {
+        skipped += 1;
+        continue;
+      }
 
-        matchedAny = true;
-        recordEnrich(enrich, contact, guest.email);
+      for (const match of matches) {
+        if (match.email) recordEnrich(enrich, match.contact, match.email);
         const title = ev.summary?.trim() || "Meeting";
         meetingRows.push({
-          contactId: contact.id,
+          contactId: match.contact.id,
           gcalEventId: eventId,
           scheduledAt: startISO,
           title,
@@ -403,19 +426,18 @@ export async function syncOutreachFromCalendar(opts?: {
 
         if (isPastOrStarted) {
           touches.push({
-            contact_id: contact.id,
+            contact_id: match.contact.id,
             channel: "calendar",
             direction: "outbound",
             touched_at: startISO,
             source: "gcal",
-            external_id: `${eventId}::${contact.id}`,
+            external_id: `${eventId}::${match.contact.id}`,
             brief: title,
             subject: ev.summary ?? null,
             thread_url: ev.htmlLink ?? null,
           });
         }
       }
-      if (!matchedAny) skipped += 1;
     }
 
     const insertResult = await insertContactTouches(touches);
@@ -470,7 +492,14 @@ export async function syncOutreachFromCalendar(opts?: {
   if (mailboxErrors.length && !matchedTotal && !combined.inserted) {
     return errorResult("gcal", mailboxErrors.join(" · "));
   }
-  return okResult("gcal", combined, matchedTotal, skippedTotal, stagedTotal);
+  return okResult(
+    "gcal",
+    combined,
+    matchedTotal,
+    skippedTotal,
+    stagedTotal,
+    mailboxErrors
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -504,14 +533,16 @@ export async function getUpcomingCalendarMeetings(opts?: {
     const startISO = ev.start?.dateTime ?? null;
     if (!startISO) continue;
     if (new Date(startISO).getTime() < now) continue; // future only
-    for (const a of calendarEventGuests(ev)) {
-      const header = a.name ? `${a.name} <${a.email}>` : a.email;
-      const contact = lookup.resolve(header);
-      if (!contact) continue;
-      const key = `${contact.id}::${startISO}`;
+    const { matches } = matchCalendarEventToContacts({
+      title: ev.summary,
+      guests: calendarEventGuests(ev),
+      lookup,
+    });
+    for (const match of matches) {
+      const key = `${match.contact.id}::${startISO}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      out.push({ contactId: contact.id, startISO });
+      out.push({ contactId: match.contact.id, startISO });
     }
   }
   return out;
@@ -743,7 +774,8 @@ function okResult(
   insert: InsertTouchesResult,
   matched: number,
   skipped: number,
-  candidatesStaged = 0
+  candidatesStaged = 0,
+  warnings: string[] = []
 ): SyncResult {
   return {
     ok: true,
@@ -754,7 +786,10 @@ function okResult(
     cadenceUpdates: insert.cadenceUpdates,
     skipped,
     candidatesStaged,
-    error: insert.errors.length ? insert.errors.join("; ") : undefined,
+    error:
+      warnings[0] ??
+      (insert.errors.length ? insert.errors.join("; ") : undefined),
+    warnings: warnings.length ? warnings : undefined,
   };
 }
 

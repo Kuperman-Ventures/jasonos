@@ -11,7 +11,7 @@ import {
   getGoogleAccessToken,
   listGoogleAccessTokens,
 } from "@/lib/integrations/google-tokens";
-import { isMyOwnAddress } from "@/lib/outreach/email-matching";
+import { isMyOwnAddress, normalizeName } from "@/lib/outreach/email-matching";
 import { isCalendarProxyAddress } from "@/lib/outreach/mail-noise";
 
 export { type GCalEvent };
@@ -70,6 +70,9 @@ interface CalendarListPage {
 }
 
 function calendarErrorMessage(calendarId: string, status: number, body: string): string {
+  if (status === 401) {
+    return "sign-in expired. Reconnect this Google account in Settings.";
+  }
   if ((status === 404 || status === 403) && calendarId !== "primary") {
     return `${calendarId} is not readable from Advisors Google. Connect personal Gmail in Settings, or share that calendar with jason@kupermanadvisors.com (See all event details).`;
   }
@@ -91,12 +94,15 @@ export function calendarEventGuests(
     name?: string,
     opts?: { self?: boolean; declined?: boolean }
   ) => {
-    if (!email || opts?.self || opts?.declined) return;
-    const lower = email.toLowerCase();
-    if (seen.has(lower)) return;
-    if (isMyOwnAddress(email) || isCalendarProxyAddress(email)) return;
-    seen.add(lower);
-    out.push({ email: lower, name: name?.trim() || undefined });
+    if (opts?.self || opts?.declined) return;
+    const trimmedName = name?.trim() || undefined;
+    const lower = email?.trim().toLowerCase() ?? "";
+    if (lower && (isMyOwnAddress(email!) || isCalendarProxyAddress(email!))) return;
+    if (!lower && !trimmedName) return;
+    const key = lower || `name:${normalizeName(trimmedName!)}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ email: lower, name: trimmedName });
   };
 
   add(ev.organizer?.email, ev.organizer?.displayName, {
