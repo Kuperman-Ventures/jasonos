@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { buildMailtoUrl } from "@/lib/email-templates/render";
 import {
   getInboxDispatchPrefs,
   setInboxDispatchPrefs,
@@ -183,6 +184,33 @@ async function openInAppleMail(opts: {
     toast.message("Opening in Apple Mail…");
   }
   window.location.href = opts.appleMailUrl;
+}
+
+function replySubject(subject: string): string {
+  const s = subject.trim() || "(no subject)";
+  if (/^re:\s/i.test(s)) return s;
+  return `Re: ${s}`;
+}
+
+/**
+ * Same path as Custom Communications: mailto: so Apple Mail (the Mac's
+ * default handler) opens with To, subject, and body filled in.
+ */
+function openDraftInAppleMail(item: BoardingItem): void {
+  if (!item.email.trim()) {
+    toast.error("No email address for this person.");
+    return;
+  }
+  if (!item.draft.trim()) {
+    toast.error("No draft to open.");
+    return;
+  }
+  window.location.href = buildMailtoUrl({
+    to: item.email,
+    subject: replySubject(item.subject),
+    body: item.draft,
+  });
+  toast.success("Opening Mail… finish the send there.");
 }
 
 /**
@@ -789,10 +817,10 @@ function BoardingRow({
 
       {open ? (
         <div className="px-4 pb-3 pl-5">
-          {item.draftSaved ? (
+          {item.draft ? (
             <p className="mb-1.5 flex items-center gap-1.5 text-[11px] text-emerald-300/90">
               <Check className="h-3 w-3 shrink-0" />
-              Already saved as a Gmail draft — review and send it from Gmail.
+              Draft ready — review and send it from Apple Mail.
             </p>
           ) : null}
           {item.draft ? (
@@ -818,18 +846,17 @@ function BoardingRow({
               )}
               {copied ? "Copied" : "Copy draft"}
             </button>
-            {item.draftSaved && (item.draftUrl || item.gmailUrl) ? (
-              <a
-                href={item.draftUrl || item.gmailUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+            {item.draft.trim() && item.email.trim() ? (
+              <button
+                type="button"
+                onClick={() => openDraftInAppleMail(item)}
                 className="flex items-center gap-1.5 rounded-md border border-emerald-400/40 bg-emerald-500/10 px-2.5 py-1.5 text-[12px] font-medium text-emerald-200 transition-colors hover:bg-emerald-500/20"
+                title="Open Apple Mail with To, subject, and this draft filled in"
               >
-                <ExternalLink className="h-3.5 w-3.5" />
-                Open draft in Gmail
-              </a>
-            ) : null}
-            {item.appleMailUrl ? (
+                <Mail className="h-3.5 w-3.5" />
+                Open in Apple Mail
+              </button>
+            ) : item.appleMailUrl ? (
               <button
                 type="button"
                 onClick={() =>
@@ -844,16 +871,6 @@ function BoardingRow({
                 <Mail className="h-3.5 w-3.5" />
                 Open in Apple Mail
               </button>
-            ) : item.gmailUrl && !item.draftSaved ? (
-              <a
-                href={item.gmailUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <ExternalLink className="h-3.5 w-3.5" />
-                Open in Gmail
-              </a>
             ) : null}
             <button
               type="button"
