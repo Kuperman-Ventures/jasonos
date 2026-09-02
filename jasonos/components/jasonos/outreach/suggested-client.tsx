@@ -4,7 +4,7 @@
 // isn't in People yet. Name matches offer Merge (attach this address to the
 // existing row) or Add as new. Dismiss is a permanent ignore.
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -13,7 +13,6 @@ import {
   GitMerge,
   Mail,
   Phone,
-  RefreshCw,
   UserPlus,
   X,
 } from "lucide-react";
@@ -25,10 +24,6 @@ import {
   dismissCandidate,
   type ContactCandidate,
 } from "@/lib/server-actions/contact-candidates";
-import {
-  beeperScanLine,
-  type SuggestedScanResult,
-} from "@/lib/outreach/suggested-scan";
 import { isBeeperPlaceholderEmail } from "@/lib/outreach/contact-lookup";
 
 export function SuggestedClient({
@@ -39,7 +34,6 @@ export function SuggestedClient({
   gmailConnected: boolean;
 }) {
   const router = useRouter();
-  const [scanning, startScan] = useTransition();
   const [twoWayOnly, setTwoWayOnly] = useState(false);
   // Optimistically hide rows the user has actioned.
   const [actioned, setActioned] = useState<Set<string>>(() => new Set());
@@ -68,42 +62,6 @@ export function SuggestedClient({
       ).length,
     [candidates, actioned]
   );
-
-  const handleScan = () => {
-    startScan(async () => {
-      try {
-        const res = await fetch("/api/outreach/scan-suggested", {
-          method: "POST",
-          cache: "no-store",
-        });
-        const result = (await res.json()) as SuggestedScanResult;
-        if (!res.ok || !result.ok) {
-          toast.error(
-            !result.ok ? result.error : `Scan failed (${res.status})`
-          );
-          return;
-        }
-        const beeperLine = beeperScanLine(result.beeper);
-        toast.success(
-          `Scanned ${result.scanned} messages · ${result.created} new, ${result.updated} updated`,
-          {
-            description: [
-              "Last 90 days of email, calendar, and Beeper.",
-              beeperLine,
-              `${result.skipped} robots skipped.`,
-            ]
-              .filter(Boolean)
-              .join(" "),
-          }
-        );
-        router.refresh();
-      } catch (err) {
-        toast.error(
-          err instanceof Error ? err.message : "Scan failed. Try again."
-        );
-      }
-    });
-  };
 
   const matches = useMemo(
     () => visible.filter((c) => c.nameMatch),
@@ -169,23 +127,16 @@ export function SuggestedClient({
             People from email, calendar invites, and Beeper chats who aren&rsquo;t
             already in People. Beeper rows are the person&rsquo;s name; phone or
             email is extra when we have it. Merge if they&rsquo;re already in
-            People. Dismissed people don&rsquo;t come back.
+            People. Dismissed people don&rsquo;t come back. Use Sync in the top
+            bar to look for new people.
           </p>
         </div>
-        <Button
-          onClick={handleScan}
-          disabled={scanning || !gmailConnected}
-          title="Same as Sync: last 90 days of email, calendar, and Beeper (when Desktop is open)"
-        >
-          <RefreshCw className={cn("h-4 w-4", scanning && "animate-spin")} />
-          {scanning ? "Scanning…" : "Scan"}
-        </Button>
       </header>
 
       {!gmailConnected ? (
         <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
           <div className="text-xs text-amber-200">
-            Gmail isn&rsquo;t connected — connect it to scan for suggested
+            Gmail isn&rsquo;t connected — connect it so Sync can find suggested
             contacts.
           </div>
           <div className="flex shrink-0 gap-2">
@@ -237,8 +188,8 @@ export function SuggestedClient({
         {visible.length === 0 ? (
           <div className="px-4 py-12 text-center text-sm text-muted-foreground">
             {gmailConnected
-              ? "No suggested contacts. Hit “Scan” to look for new people."
-              : "Connect Gmail, then scan to see suggestions."}
+              ? "No suggested contacts. Hit Sync in the top bar to look for new people."
+              : "Connect Gmail, then hit Sync in the top bar to see suggestions."}
           </div>
         ) : (
           <ul className="divide-y">

@@ -1,5 +1,4 @@
-// Shared window for Suggested "Scan email" and the Sync button's
-// people-finding pass. Matches the regular Sync lookback: 90 days of mail
+// Shared window for the top-nav Sync people-finding pass: 90 days of mail
 // plus calendar guests 90 days back / 30 days forward.
 
 export const SUGGESTED_SCAN_DAYS_BACK = 90;

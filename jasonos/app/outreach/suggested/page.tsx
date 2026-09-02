@@ -5,7 +5,7 @@ import { SuggestedClient } from "@/components/jasonos/outreach/suggested-client"
 
 export const metadata = { title: "Outreach · Suggested" };
 export const dynamic = "force-dynamic";
-/** Deep Scan email walks 90 days of Gmail + calendar. */
+/** Suggested list is filled by the top-nav Sync (90 days of Gmail + calendar + Beeper). */
 export const maxDuration = 300;
 
 export default async function OutreachSuggestedPage() {
