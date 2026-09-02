@@ -6,7 +6,10 @@ import {
   normalizePhone,
   preferPersonName,
 } from "@/lib/outreach/contact-lookup";
-import { beeperChatDeepLink } from "@/lib/integrations/beeper-links";
+import {
+  beeperChatDeepLink,
+  beeperTextFallbackLink,
+} from "@/lib/integrations/beeper-links";
 
 // Beeper Desktop API — local/tunneled chat sync for JasonOS outreach.
 //
@@ -404,33 +407,62 @@ function accountIdForDeepLink(chat: BeeperChat): string | undefined {
 }
 
 /**
- * Find this contact's 1:1 chat via the Desktop API (search only).
- * Opening happens on the Mac in front of the browser via Beeper's real
- * select-thread deep link — /v1/focus would only raise Beeper on the
- * tunneled machine, and invented beeper://chat/ URLs toast "invalid deep link".
+ * Find this contact's 1:1 chat via the Desktop API (search only) so we know
+ * the network. Opening happens on the Mac in front of the browser.
+ *
+ * Do not /v1/focus (that raises Beeper on the tunneled machine). Do not put
+ * that machine's local chat/account ids in beeper://select-thread/ — the
+ * laptop toasts "invalid deep link". Prefer compose with a phone/handle.
  */
 export async function focusBeeperChatForContact(contact: {
   name?: string | null;
   phone?: string | null;
 }): Promise<FocusBeeperResult> {
-  await probeBeeperDesktop();
-  const chats = await searchChatsForContact(contact);
-  let match = chats.find((chat) => chatMatchesContact(chat, contact));
-  if (match) {
-    const full = await retrieveChat(match.id);
-    if (full) match = { ...match, ...full };
+  let match: BeeperChat | undefined;
+  try {
+    await probeBeeperDesktop();
+    const chats = await searchChatsForContact(contact);
+    match = chats.find((chat) => chatMatchesContact(chat, contact));
+    if (match) {
+      const full = await retrieveChat(match.id);
+      if (full) match = { ...match, ...full };
+    }
+  } catch (err) {
+    if (
+      !(err instanceof BeeperUnavailableError) &&
+      !(err instanceof BeeperApiError)
+    ) {
+      throw err;
+    }
   }
-  const href = beeperChatDeepLink({
-    chatId: match?.id,
-    accountId: match ? accountIdForDeepLink(match) : undefined,
-  });
-  if (match) {
-    return {
-      ok: true,
-      opened: href.startsWith("beeper://select-thread/") ? "chat" : "app",
-      chatTitle: match.title || contact.name || undefined,
-      href,
-    };
-  }
-  return { ok: true, opened: "app", href };
+
+  const peer = match ? peerFromChat(match) : null;
+  const href = match
+    ? beeperChatDeepLink({
+        chatId: match.id,
+        accountId: accountIdForDeepLink(match),
+        network: match.network,
+        phone: peer?.phone || contact.phone || phoneFromUserId(match),
+        username: peer?.username,
+      })
+    : beeperTextFallbackLink(contact.phone);
+
+  const opened =
+    href.startsWith("beeper://compose/") ||
+    href.startsWith("beeper://select-thread/")
+      ? "chat"
+      : "app";
+  return {
+    ok: true,
+    opened,
+    chatTitle: match?.title || contact.name || undefined,
+    href,
+  };
+}
+
+function phoneFromUserId(chat: BeeperChat): string | null {
+  const others = (chat.participants?.items ?? []).filter((p) => !p.isSelf);
+  const id = others[0]?.id ?? "";
+  const match = id.match(/@(\+?\d{10,15}):/);
+  return match?.[1] ?? null;
 }
