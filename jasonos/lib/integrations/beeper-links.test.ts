@@ -2,79 +2,43 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   beeperChatDeepLink,
-  beeperTextFallbackLink,
+  beeperFocusLink,
   resolveBeeperLink,
+  toE164,
 } from "./beeper-links.ts";
 
 describe("beeperChatDeepLink", () => {
-  it("opens the app when there is no portable recipient or cloud thread", () => {
-    assert.equal(beeperChatDeepLink({}), "beeper://focus");
+  it("only emits focus when there is no portable cloud thread", () => {
+    assert.equal(beeperChatDeepLink({}), beeperFocusLink());
     assert.equal(
-      beeperChatDeepLink({ chatId: "!abc:beeper.com" }),
-      "beeper://focus"
+      beeperChatDeepLink({ phone: "+15551112222", network: "WhatsApp" }),
+      beeperFocusLink()
     );
     assert.equal(
-      resolveBeeperLink({ chatId: "!abc:beeper.com" }).gap,
-      "missing_recipient"
-    );
-  });
-
-  it("does not deep-link a laptop with another Mac's local chat id alone", () => {
-    assert.equal(
-      beeperChatDeepLink({
-        chatId:
-          "!KPFTtZYWuERwib8T702N9IfqiCc:ba_EvYDBBsZbRQAy3UOSWqG0LuTVkc.local-whatsapp.localhost",
-        accountId: "local-whatsapp_ba_EvYDBBsZbRQAy3UOSWqG0LuTVkc",
-      }),
-      "beeper://focus"
+      resolveBeeperLink({ phone: "+15551112222", network: "WhatsApp" }).targetsChat,
+      false
     );
   });
 
-  it("composes via phone with bridge-whatsapp (not local-whatsapp)", () => {
-    assert.equal(
-      beeperChatDeepLink({
-        chatId:
-          "!KPFTtZYWuERwib8T702N9IfqiCc:ba_office.local-whatsapp.localhost",
-        accountId: "local-whatsapp_ba_office",
-        network: "WhatsApp",
-        phone: "+1 555-111-2222",
-      }),
-      "beeper://compose/bridge-whatsapp/+15551112222?accountID=whatsapp"
-    );
-  });
-
-  it("maps local-whatsapp_ba_ accounts to short accountID=whatsapp", () => {
+  it("never invents compose URLs (those toast invalid deep link)", () => {
     const href = beeperChatDeepLink({
-      accountId: "local-whatsapp_ba_EvYDBBsZbRQAy3UOSWqG0LuTVkc",
-      phone: "9175550100",
+      accountId: "local-whatsapp_ba_office",
+      network: "WhatsApp",
+      phone: "+1 555-111-2222",
     });
-    assert.equal(
-      href,
-      "beeper://compose/bridge-whatsapp/+19175550100?accountID=whatsapp"
-    );
-    assert.equal(href.includes("local-"), false);
-    assert.equal(href.includes("ba_"), false);
+    assert.equal(href.startsWith("beeper://compose/"), false);
+    assert.equal(href, "beeper://focus");
   });
 
-  it("uses bridge-imessage compose when Text only has a phone", () => {
-    assert.equal(
-      beeperChatDeepLink({ phone: "(917) 555-0100" }),
-      "beeper://compose/bridge-imessage/+19175550100?accountID=imessage"
-    );
-    assert.equal(
-      beeperTextFallbackLink("(917) 555-0100"),
-      "beeper://compose/bridge-imessage/+19175550100?accountID=imessage"
-    );
-  });
-
-  it("composes Instagram by handle with bridge-instagramgo", () => {
+  it("does not put another Mac's local chat id in select-thread", () => {
     assert.equal(
       beeperChatDeepLink({
-        accountId: "local-instagram_ba_eRfQ",
-        network: "Instagram",
-        username: "@mattwondra",
+        chatId:
+          "!room:ba_EvYDBBsZbRQAy3UOSWqG0LuTVkc.local-whatsapp.localhost",
+        accountId: "local-whatsapp_ba_EvYDBBsZbRQAy3UOSWqG0LuTVkc",
+        phone: "+15551112222",
       }),
-      "beeper://compose/bridge-instagramgo/mattwondra?accountID=instagramgo"
+      "beeper://focus"
     );
   });
 
@@ -86,39 +50,17 @@ describe("beeperChatDeepLink", () => {
       }),
       "beeper://select-thread/bridge-whatsapp/!xyz:beeper.local?accountID=whatsapp"
     );
-  });
-
-  it("does not double-prefix bridge- accounts", () => {
     assert.equal(
-      beeperChatDeepLink({
+      resolveBeeperLink({
         chatId: "!xyz:beeper.local",
         accountId: "bridge-whatsapp",
-      }),
+      }).href,
       "beeper://select-thread/bridge-whatsapp/!xyz:beeper.local?accountID=whatsapp"
     );
   });
 
-  it("prefers compose over select-thread when a phone is available", () => {
-    assert.equal(
-      beeperChatDeepLink({
-        chatId: "!xyz:beeper.local",
-        accountId: "whatsapp",
-        phone: "+15551112222",
-      }),
-      "beeper://compose/bridge-whatsapp/+15551112222?accountID=whatsapp"
-    );
-  });
-
-  it("never emits local-whatsapp as a platform path", () => {
-    const href = beeperChatDeepLink({
-      chatId: "!room:ba_x.local-whatsapp.localhost",
-      accountId: "whatsapp",
-      phone: "+15551112222",
-    });
-    assert.equal(
-      href,
-      "beeper://compose/bridge-whatsapp/+15551112222?accountID=whatsapp"
-    );
-    assert.equal(/local-whatsapp/.test(href), false);
+  it("normalizes US phones to E.164", () => {
+    assert.equal(toE164("(917) 555-0100"), "+19175550100");
+    assert.equal(toE164("+1 917-555-0100"), "+19175550100");
   });
 });

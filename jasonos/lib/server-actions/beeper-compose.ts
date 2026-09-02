@@ -2,11 +2,15 @@
 
 import {
   BeeperApiError,
+  beeperLocalOpenConfig,
   focusBeeperChatForContact,
   isBeeperConfigured,
   type FocusBeeperResult,
 } from "@/lib/integrations/beeper";
-import { resolveBeeperTextFallback } from "@/lib/integrations/beeper-links";
+import {
+  resolveBeeperTextFallback,
+  toE164,
+} from "@/lib/integrations/beeper-links";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
 export async function openBeeperText(
@@ -27,22 +31,26 @@ export async function openBeeperText(
   if (!data) return { ok: false, error: "Contact not found." };
 
   const name = data.name as string | null;
-  const phone = (data.phone as string | null) ?? null;
+  const phone = toE164((data.phone as string | null) ?? null);
+  const localApi = beeperLocalOpenConfig() || undefined;
 
   if (!isBeeperConfigured()) {
-    const link = resolveBeeperTextFallback(phone);
-    if (!link.targetsChat && !phone) {
+    if (!phone) {
       return {
         ok: false,
         error:
           "No phone on file for this contact, so Beeper cannot open their chat from here.",
       };
     }
+    const link = resolveBeeperTextFallback(phone);
     return {
       ok: true,
-      opened: link.targetsChat ? "chat" : "app",
+      opened: "app",
       chatTitle: name || undefined,
       href: link.href,
+      phone,
+      networkHint: "iMessage",
+      localApi,
       gap: link.gap,
     };
   }
@@ -50,13 +58,17 @@ export async function openBeeperText(
   try {
     return await focusBeeperChatForContact({ name, phone });
   } catch (err) {
-    const link = resolveBeeperTextFallback(phone);
-    if (link.targetsChat) {
+    if (phone) {
+      const link = resolveBeeperTextFallback(phone);
       return {
         ok: true,
-        opened: "chat",
+        opened: "app",
         chatTitle: name || undefined,
         href: link.href,
+        phone,
+        networkHint: "iMessage",
+        localApi,
+        gap: link.gap,
       };
     }
     if (err instanceof BeeperApiError) {

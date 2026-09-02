@@ -107,6 +107,19 @@ export function isBeeperConfigured(): boolean {
   return Boolean(accessToken());
 }
 
+/** Creds for opening a chat on the Mac in front of the browser (localhost). */
+export function beeperLocalOpenConfig(): {
+  baseUrl: string;
+  accessToken: string;
+} | null {
+  const token = accessToken();
+  if (!token) return null;
+  return {
+    baseUrl: "http://127.0.0.1:23373",
+    accessToken: token,
+  };
+}
+
 async function beeperFetch(
   path: string,
   init?: RequestInit & { timeoutMs?: number }
@@ -379,7 +392,16 @@ export type FocusBeeperResult =
       ok: true;
       opened: "chat" | "app";
       chatTitle?: string;
+      /** Proven deep link only: select-thread for cloud rooms, else focus. */
       href: string;
+      /** E.164 phone when available — client opens via this Mac's Desktop API. */
+      phone?: string;
+      networkHint?: string;
+      /**
+       * Token + localhost URL so the browser can call THIS Mac's Beeper.
+       * Tunneled server calls hit the office Mac; localhost hits the laptop.
+       */
+      localApi?: { baseUrl: string; accessToken: string };
       /** Why we only opened the app, when we could not jump to a chat. */
       gap?: BeeperLinkResult["gap"];
     }
@@ -414,12 +436,12 @@ function accountIdForDeepLink(chat: BeeperChat): string | undefined {
 }
 
 /**
- * Find this contact's 1:1 chat via the Desktop API (search only) so we know
- * the network. Opening happens on the Mac in front of the browser.
+ * Resolve enough info for Home → Text to open Beeper on THIS Mac.
  *
- * Do not /v1/focus (that raises Beeper on the tunneled machine). Do not put
- * that machine's local chat/account ids in beeper://select-thread/ — the
- * laptop toasts "invalid deep link". Prefer compose with a phone/handle.
+ * Search may use the tunneled office Desktop API (network hint / portable
+ * cloud room ids only). Opening must not call /v1/focus on the tunnel —
+ * that raises Beeper on the office Mac. Invented beeper://compose links
+ * toast "invalid deep link". The browser opens via localhost Desktop API.
  */
 export async function focusBeeperChatForContact(contact: {
   name?: string | null;
@@ -444,17 +466,22 @@ export async function focusBeeperChatForContact(contact: {
   }
 
   const peer = match ? peerFromChat(match) : null;
+  const phone =
+    toE164Phone(peer?.phone) ||
+    toE164Phone(contact.phone) ||
+    (match ? toE164Phone(phoneFromUserId(match)) : null);
+  const networkHint = match?.network || (phone ? "iMessage" : undefined);
   const link = match
     ? resolveBeeperLink({
         chatId: match.id,
         accountId: accountIdForDeepLink(match),
         network: match.network,
-        phone: peer?.phone || contact.phone || phoneFromUserId(match),
+        phone,
         username: peer?.username,
       })
     : resolveBeeperLink({
-        phone: contact.phone,
-        network: contact.phone ? "iMessage" : null,
+        phone,
+        network: phone ? "iMessage" : null,
       });
 
   return {
@@ -462,8 +489,26 @@ export async function focusBeeperChatForContact(contact: {
     opened: link.targetsChat ? "chat" : "app",
     chatTitle: match?.title || contact.name || undefined,
     href: link.href,
+    phone: phone || undefined,
+    networkHint,
+    localApi: beeperLocalOpenConfig() || undefined,
     gap: link.gap,
   };
+}
+
+function toE164Phone(phone?: string | null): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D+/g, "");
+  if (!digits) return null;
+  const national =
+    digits.length === 11 && digits.startsWith("1")
+      ? digits.slice(1)
+      : digits.length > 10
+        ? digits.slice(-10)
+        : digits;
+  if (national.length === 10) return `+1${national}`;
+  if (national.length < 8) return null;
+  return `+${national}`;
 }
 
 function phoneFromUserId(chat: BeeperChat): string | null {
