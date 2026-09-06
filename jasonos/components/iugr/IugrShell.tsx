@@ -17,7 +17,6 @@ import { ChapterPlaceholder } from "@/components/iugr/ChapterPlaceholder";
 import { ClosingChapter } from "@/components/iugr/ClosingChapter";
 import { CopyMachineChapter } from "@/components/iugr/CopyMachineChapter";
 import { ThreeDoorsChapter } from "@/components/iugr/ThreeDoorsChapter";
-import { AssumptionArcadeChapter } from "@/components/iugr/AssumptionArcadeChapter";
 import { EvidenceScannerChapter } from "@/components/iugr/EvidenceScannerChapter";
 import { FieldNoteLibrary } from "@/components/iugr/FieldNoteLibrary";
 import { GuideSettings } from "@/components/iugr/GuideSettings";
@@ -30,10 +29,6 @@ import {
   DEFAULT_SCENARIO_ASSUMPTIONS,
   type ScenarioAssumptions,
 } from "@/lib/iugr/scenarioEngine";
-import type {
-  ClaimClassId,
-  EvidenceClaimId,
-} from "@/lib/iugr/evidenceClaims";
 
 let memoryPrefs: IugrPreferences | null = null;
 const listeners = new Set<() => void>();
@@ -69,6 +64,68 @@ function updatePrefs(updater: (prev: IugrPreferences) => IugrPreferences) {
   emit();
 }
 
+function CopyMachineVisit({
+  visit,
+  prefs,
+  copiedTowns,
+  copyHasInteracted,
+  copyReachedNine,
+  assumptions,
+  onAssumptionsChange,
+  onCopiedTownsChange,
+  onContinue,
+  onBack,
+}: {
+  visit: "first" | "return";
+  prefs: IugrPreferences;
+  copiedTowns: number;
+  copyHasInteracted: boolean;
+  copyReachedNine: boolean;
+  assumptions: ScenarioAssumptions;
+  onAssumptionsChange: (next: ScenarioAssumptions) => void;
+  onCopiedTownsChange: (
+    next: number,
+    meta: { interacted: boolean; reachedNine: boolean },
+  ) => void;
+  onContinue: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <div
+      className="iugr-wash iugr-wash-copy"
+      data-wash="copy"
+      data-copies={copiedTowns}
+      style={{
+        ["--copy-wash" as string]:
+          copiedTowns <= 0
+            ? "rgba(139,134,217,0.10)"
+            : copiedTowns === 1
+              ? "rgba(232,131,111,0.10)"
+              : copiedTowns === 9
+                ? "rgba(232,131,111,0.13)"
+                : "rgba(232,131,111,0.16)",
+      }}
+    >
+      <CopyMachineChapter
+        visit={visit}
+        consciousnessPremise={prefs.consciousnessPremise}
+        readerFigureIndex={prefs.readerFigureIndex}
+        copiedTowns={copiedTowns}
+        hasInteracted={copyHasInteracted}
+        reachedNine={copyReachedNine}
+        onCopiedTownsChange={onCopiedTownsChange}
+        assumptions={visit === "return" ? assumptions : undefined}
+        onAssumptionsChange={
+          visit === "return" ? onAssumptionsChange : undefined
+        }
+        onContinue={onContinue}
+        onBack={onBack}
+        reducedMotion={prefs.reducedMotion}
+      />
+    </div>
+  );
+}
+
 export function IugrShell() {
   const prefs = useSyncExternalStore(
     subscribe,
@@ -85,12 +142,6 @@ export function IugrShell() {
   const [activeDoorId, setActiveDoorId] = useState<DoorId | null>(null);
   const [arcadeAssumptions, setArcadeAssumptions] = useState<ScenarioAssumptions>(
     DEFAULT_SCENARIO_ASSUMPTIONS,
-  );
-  const [classifiedClaims, setClassifiedClaims] = useState<
-    Partial<Record<EvidenceClaimId, ClaimClassId>>
-  >({});
-  const [activeClaimId, setActiveClaimId] = useState<EvidenceClaimId | null>(
-    null,
   );
 
   useEffect(() => {
@@ -120,7 +171,6 @@ export function IugrShell() {
         copiesAreConscious,
         consciousnessPremise: copiesAreConscious,
       }));
-      // Prefill arcade consciousness dial from Beat 2 answer.
       const arcadeStance =
         copiesAreConscious === "unsure" ? "unknown" : copiesAreConscious;
       setArcadeAssumptions((prev) => ({
@@ -151,8 +201,6 @@ export function IugrShell() {
     setExploredDoors([]);
     setActiveDoorId(null);
     setArcadeAssumptions(DEFAULT_SCENARIO_ASSUMPTIONS);
-    setClassifiedClaims({});
-    setActiveClaimId(null);
     setSourcesOpen(false);
     updatePrefs((prev) => ({
       ...prev,
@@ -203,33 +251,18 @@ export function IugrShell() {
           ) : null}
 
           {chapterId === "copy-machine" ? (
-            <div
-              className="iugr-wash iugr-wash-copy"
-              data-wash="copy"
-              data-copies={copiedTowns}
-              style={{
-                ["--copy-wash" as string]:
-                  copiedTowns <= 0
-                    ? "rgba(139,134,217,0.10)"
-                    : copiedTowns === 1
-                      ? "rgba(232,131,111,0.10)"
-                      : copiedTowns === 9
-                        ? "rgba(232,131,111,0.13)"
-                        : "rgba(232,131,111,0.16)",
-              }}
-            >
-              <CopyMachineChapter
-                consciousnessPremise={prefs.consciousnessPremise}
-                readerFigureIndex={prefs.readerFigureIndex}
-                copiedTowns={copiedTowns}
-                hasInteracted={copyHasInteracted}
-                reachedNine={copyReachedNine}
-                onCopiedTownsChange={handleCopiedTownsChange}
-                onContinue={() => setChapterId("three-doors")}
-                onBack={() => setChapterId("original-town")}
-                reducedMotion={prefs.reducedMotion}
-              />
-            </div>
+            <CopyMachineVisit
+              visit="first"
+              prefs={prefs}
+              copiedTowns={copiedTowns}
+              copyHasInteracted={copyHasInteracted}
+              copyReachedNine={copyReachedNine}
+              assumptions={arcadeAssumptions}
+              onAssumptionsChange={setArcadeAssumptions}
+              onCopiedTownsChange={handleCopiedTownsChange}
+              onContinue={() => setChapterId("three-doors")}
+              onBack={() => setChapterId("original-town")}
+            />
           ) : null}
 
           {chapterId === "three-doors" ? (
@@ -241,7 +274,7 @@ export function IugrShell() {
                 setExploredDoors((prev) => markDoorExplored(prev, id));
                 setActiveDoorId(null);
               }}
-              onContinue={() => setChapterId("assumption-arcade")}
+              onContinue={() => setChapterId("back-to-machine")}
               onBack={() => {
                 setActiveDoorId(null);
                 setChapterId("copy-machine");
@@ -250,31 +283,25 @@ export function IugrShell() {
             />
           ) : null}
 
-          {chapterId === "assumption-arcade" ? (
-            <AssumptionArcadeChapter
+          {chapterId === "back-to-machine" ? (
+            <CopyMachineVisit
+              visit="return"
+              prefs={prefs}
+              copiedTowns={copiedTowns}
+              copyHasInteracted={copyHasInteracted}
+              copyReachedNine={copyReachedNine}
               assumptions={arcadeAssumptions}
               onAssumptionsChange={setArcadeAssumptions}
+              onCopiedTownsChange={handleCopiedTownsChange}
               onContinue={() => setChapterId("evidence-scanner")}
               onBack={() => setChapterId("three-doors")}
-              reducedMotion={prefs.reducedMotion}
             />
           ) : null}
 
           {chapterId === "evidence-scanner" ? (
             <EvidenceScannerChapter
-              classifiedClaims={classifiedClaims}
-              activeClaimId={activeClaimId}
-              onOpenClaim={(id) => setActiveClaimId(id)}
-              onClassifyClaim={(id, choice) => {
-                setClassifiedClaims((prev) => ({ ...prev, [id]: choice }));
-              }}
-              onCloseClaim={() => setActiveClaimId(null)}
               onContinue={() => setChapterId("closing")}
-              onBack={() => {
-                setActiveClaimId(null);
-                setChapterId("assumption-arcade");
-              }}
-              reducedMotion={prefs.reducedMotion}
+              onBack={() => setChapterId("back-to-machine")}
             />
           ) : null}
 
@@ -290,7 +317,7 @@ export function IugrShell() {
           chapterId !== "original-town" &&
           chapterId !== "copy-machine" &&
           chapterId !== "three-doors" &&
-          chapterId !== "assumption-arcade" &&
+          chapterId !== "back-to-machine" &&
           chapterId !== "evidence-scanner" &&
           chapterId !== "closing" ? (
             <ChapterPlaceholder

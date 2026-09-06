@@ -1,33 +1,21 @@
 /**
- * Assumption Arcade scenario engine.
+ * Copy Machine return-visit scenario engine (three dials).
  *
- * Qualitative-only evaluation of a made-up town scenario.
- * Never emits probabilities, odds, confidence scores, or claims about
- * whether the reader (or our universe) is simulated.
+ * Qualitative-only. Never emits probabilities, odds, confidence scores,
+ * percentages, or claims that the reader is or is not simulated.
  */
 
 import { ARCADE_SCRIPT } from "./script";
 
 export type CivilizationReach = "rarely" | "sometimes" | "often";
 export type ConsciousnessStance = "no" | "unknown" | "yes";
-export type ComputeScale = "tiny" | "huge" | "absurdly-huge";
 export type HistoryInterest = "almost-never" | "sometimes" | "constantly";
-export type SimulationDetail = "sketches" | "local-detail" | "full-worlds";
 
 export type ScenarioAssumptions = {
   civilizations: CivilizationReach;
-  consciousness: ConsciousnessStance;
-  compute: ComputeScale;
   history: HistoryInterest;
-  detail: SimulationDetail;
+  consciousness: ConsciousnessStance;
 };
-
-export type ScenarioCategory =
-  | "copies-stay-rare"
-  | "mixed-or-uncertain"
-  | "copies-could-outnumber"
-  | "observer-count-breaks"
-  | "too-uncertain-to-count";
 
 export type ScenarioReadingId =
   | "copies-stay-rare"
@@ -35,182 +23,167 @@ export type ScenarioReadingId =
   | "count-breaks"
   | "copies-win";
 
+/** Kept as an alias of the reading for existing CSS hooks. */
+export type ScenarioCategory = ScenarioReadingId;
+
 export type ScenarioEvaluation = {
   category: ScenarioCategory;
   readingId: ScenarioReadingId;
   label: string;
   explanation: string;
-  /** Plain-language notes naming which assumptions did the work. */
+  /** Plain-language notes naming which dial settings drove the reading. */
   whatDidTheWork: string[];
-  /** Longer optional reasoning for the disclosure panel. */
-  reasoning: string[];
 };
 
 export const DEFAULT_SCENARIO_ASSUMPTIONS: ScenarioAssumptions = {
   civilizations: "sometimes",
-  consciousness: "unknown",
-  compute: "huge",
   history: "sometimes",
-  detail: "local-detail",
+  consciousness: "unknown",
 };
 
-function readingForCategory(category: ScenarioCategory): ScenarioReadingId {
-  if (category === "observer-count-breaks") return "count-breaks";
-  if (category === "copies-could-outnumber") return "copies-win";
-  if (
-    category === "too-uncertain-to-count" ||
-    category === "mixed-or-uncertain"
-  ) {
+export const CIVILIZATION_VALUES: CivilizationReach[] = [
+  "rarely",
+  "sometimes",
+  "often",
+];
+
+export const HISTORY_VALUES: HistoryInterest[] = [
+  "almost-never",
+  "sometimes",
+  "constantly",
+];
+
+export const CONSCIOUSNESS_VALUES: ConsciousnessStance[] = [
+  "no",
+  "unknown",
+  "yes",
+];
+
+const REACH_LABEL: Record<CivilizationReach, string> = {
+  rarely: "Rarely",
+  sometimes: "Sometimes",
+  often: "Often",
+};
+
+const BUILD_LABEL: Record<HistoryInterest, string> = {
+  "almost-never": "Almost never",
+  sometimes: "Sometimes",
+  constantly: "Constantly",
+};
+
+const MIND_LABEL: Record<ConsciousnessStance, string> = {
+  no: "No",
+  unknown: "Unknown",
+  yes: "Yes",
+};
+
+function resolveReadingId(a: ScenarioAssumptions): ScenarioReadingId {
+  const mind = a.consciousness;
+  const reach = a.civilizations;
+  const build = a.history;
+
+  if (mind === "no") return "count-breaks";
+
+  if (mind === "unknown") {
+    if (reach === "rarely" || build === "almost-never") {
+      return "copies-stay-rare";
+    }
     return "will-not-settle";
   }
-  return "copies-stay-rare";
-}
 
-export const SCENARIO_CATEGORY_LABELS: Record<ScenarioCategory, string> = {
-  "copies-stay-rare": ARCADE_SCRIPT.readings["copies-stay-rare"].label,
-  "mixed-or-uncertain": ARCADE_SCRIPT.readings["will-not-settle"].label,
-  "copies-could-outnumber": ARCADE_SCRIPT.readings["copies-win"].label,
-  "observer-count-breaks": ARCADE_SCRIPT.readings["count-breaks"].label,
-  "too-uncertain-to-count": ARCADE_SCRIPT.readings["will-not-settle"].label,
-};
-
-const EXPLANATIONS: Record<ScenarioReadingId, string> = {
-  "copies-stay-rare": ARCADE_SCRIPT.readings["copies-stay-rare"].body,
-  "will-not-settle": ARCADE_SCRIPT.readings["will-not-settle"].body,
-  "count-breaks": ARCADE_SCRIPT.readings["count-breaks"].body,
-  "copies-win": ARCADE_SCRIPT.readings["copies-win"].body,
-};
-
-function isClearlyLowScale(a: ScenarioAssumptions): boolean {
-  return (
-    a.civilizations === "rarely" ||
-    a.history === "almost-never" ||
-    a.compute === "tiny"
-  );
-}
-
-function isHighScaleForOutnumber(a: ScenarioAssumptions): boolean {
-  return (
-    a.consciousness === "yes" &&
-    a.civilizations === "often" &&
-    (a.compute === "huge" || a.compute === "absurdly-huge") &&
-    a.history === "constantly" &&
-    (a.detail === "local-detail" || a.detail === "full-worlds")
-  );
+  // mind === "yes"
+  if (reach === "often" && build === "constantly") return "copies-win";
+  if (reach === "rarely" || build === "almost-never") return "copies-stay-rare";
+  return "will-not-settle";
 }
 
 function workNotes(
   a: ScenarioAssumptions,
-  category: ScenarioCategory,
+  readingId: ScenarioReadingId,
 ): string[] {
   const notes: string[] = [];
 
-  if (category === "observer-count-breaks") {
-    notes.push("Copied mind set to “No.”");
+  if (readingId === "count-breaks") {
+    notes.push(`Copied mind set to “${MIND_LABEL[a.consciousness]}.”`);
     return notes;
   }
 
+  if (readingId === "copies-win") {
+    notes.push(`Civilizations get that far “${REACH_LABEL[a.civilizations]}.”`);
+    notes.push(`They choose to build these “${BUILD_LABEL[a.history]}.”`);
+    notes.push(`Copied mind set to “${MIND_LABEL[a.consciousness]}.”`);
+    return notes;
+  }
+
+  if (readingId === "copies-stay-rare") {
+    if (a.civilizations === "rarely") {
+      notes.push(`Civilizations get that far only “${REACH_LABEL.rarely}.”`);
+    }
+    if (a.history === "almost-never") {
+      notes.push(
+        `They choose to build these “${BUILD_LABEL["almost-never"]}.”`,
+      );
+    }
+    if (a.consciousness === "unknown") {
+      notes.push(`Copied mind left as “${MIND_LABEL.unknown}.”`);
+    } else if (a.consciousness === "yes") {
+      notes.push(`Copied mind set to “${MIND_LABEL.yes}.”`);
+    }
+    if (notes.length === 0) {
+      notes.push("An upstream dial keeps copies rare in this setting.");
+    }
+    return notes;
+  }
+
+  // will-not-settle
   if (a.consciousness === "unknown") {
-    notes.push("Copied mind left as “Unknown.”");
+    notes.push(`Copied mind left as “${MIND_LABEL.unknown}.”`);
   }
-  if (a.civilizations === "rarely") {
-    notes.push("Civilisations get that far only “Rarely.”");
+  if (a.civilizations === "sometimes") {
+    notes.push(`Civilizations get that far only “${REACH_LABEL.sometimes}.”`);
   }
-  if (a.history === "almost-never") {
-    notes.push("They choose to build these “Almost never.”");
+  if (a.history === "sometimes") {
+    notes.push(`They choose to build these “${BUILD_LABEL.sometimes}.”`);
   }
-  if (a.compute === "tiny") {
-    notes.push("Available computing power set to “Tiny.”");
-  }
-  if (category === "copies-could-outnumber") {
-    notes.push("Civilisations get that far “Often.”");
-    notes.push("Copied mind set to “Yes.”");
+  if (a.consciousness === "yes" && notes.length === 0) {
     notes.push(
-      a.compute === "absurdly-huge"
-        ? "Computing power set to “Absurdly huge.”"
-        : "Computing power set to “Huge.”",
+      "The dials do not all lean hard enough for copies to win, and nothing upstream shuts the tap off.",
     );
-    notes.push("They choose to build these “Constantly.”");
-  }
-  if (category === "mixed-or-uncertain" && notes.length === 0) {
-    if (a.civilizations === "sometimes") {
-      notes.push("Civilisations get that far only “Sometimes.”");
-    }
-    if (a.history === "sometimes") {
-      notes.push("Interest in building set to “Sometimes.”");
-    }
   }
   if (notes.length === 0) {
-    notes.push("Several settings pull in different directions.");
+    notes.push("Several settings leave the count unsettled.");
   }
   return notes;
 }
 
-function reasoningLines(
-  a: ScenarioAssumptions,
-  readingId: ScenarioReadingId,
-): string[] {
-  const lines: string[] = [];
-
-  if (readingId === "count-breaks") {
-    lines.push(
-      "If a copied mind is not a mind, there is nothing inside the copies to count.",
-    );
-  } else if (readingId === "will-not-settle") {
-    lines.push(
-      "An open mind question leaves everything downstream unsettled.",
-    );
-  } else if (readingId === "copies-stay-rare") {
-    lines.push(
-      "At least one bottleneck keeps large numbers of conscious copies from lining up in this setting.",
-    );
-  } else {
-    lines.push(
-      "All three dials lean hard enough that copies of you outnumber originals in this setting.",
-    );
-  }
-
-  lines.push(
-    `Current dials: civilizations=${a.civilizations}, consciousness=${a.consciousness}, history=${a.history}.`,
-  );
-  return lines;
-}
-
 /**
- * Evaluate a qualitative scenario. Never returns a probability or personal odds.
+ * Evaluate a qualitative three-dial scenario.
+ * Never returns a probability, percentage, or personal odds.
  */
 export function evaluateScenario(
   assumptions: ScenarioAssumptions,
 ): ScenarioEvaluation {
-  let category: ScenarioCategory;
-
-  if (assumptions.consciousness === "no") {
-    category = "observer-count-breaks";
-  } else if (assumptions.consciousness === "unknown") {
-    category = isClearlyLowScale(assumptions)
-      ? "copies-stay-rare"
-      : "too-uncertain-to-count";
-  } else if (isClearlyLowScale(assumptions)) {
-    category = "copies-stay-rare";
-  } else if (isHighScaleForOutnumber(assumptions)) {
-    category = "copies-could-outnumber";
-  } else if (
-    assumptions.detail === "sketches" &&
-    assumptions.history === "sometimes"
-  ) {
-    category = "too-uncertain-to-count";
-  } else {
-    category = "mixed-or-uncertain";
-  }
-
-  const readingId = readingForCategory(category);
+  const readingId = resolveReadingId(assumptions);
+  const reading = ARCADE_SCRIPT.readings[readingId];
 
   return {
-    category,
+    category: readingId,
     readingId,
-    label: ARCADE_SCRIPT.readings[readingId].label,
-    explanation: EXPLANATIONS[readingId],
-    whatDidTheWork: workNotes(assumptions, category),
-    reasoning: reasoningLines(assumptions, readingId),
+    label: reading.label,
+    explanation: reading.body,
+    whatDidTheWork: workNotes(assumptions, readingId),
   };
+}
+
+/** All 27 dial combinations for exhaustive tests. */
+export function allScenarioCombinations(): ScenarioAssumptions[] {
+  const out: ScenarioAssumptions[] = [];
+  for (const civilizations of CIVILIZATION_VALUES) {
+    for (const history of HISTORY_VALUES) {
+      for (const consciousness of CONSCIOUSNESS_VALUES) {
+        out.push({ civilizations, history, consciousness });
+      }
+    }
+  }
+  return out;
 }

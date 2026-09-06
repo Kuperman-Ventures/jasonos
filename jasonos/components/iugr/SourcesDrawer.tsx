@@ -65,10 +65,7 @@ export function SourcesDrawer({ open, onOpenChange }: SourcesDrawerProps) {
             <li key={entry.id} className="iugr-sources-item">
               <h3 className="iugr-sources-name">{entry.name}</h3>
               <p className="iugr-sources-citation">{entry.citation}</p>
-              <p className="iugr-sources-note">
-                <span className="iugr-claim-why-kicker">Guide note. </span>
-                {entry.guideNote}
-              </p>
+              <p className="iugr-sources-note">{entry.guideNote}</p>
               {entry.href ? (
                 <a
                   className="iugr-sources-link"

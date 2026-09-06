@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent,
@@ -26,6 +27,16 @@ import {
   washAccentForCopies,
 } from "@/lib/iugr/copyMachine";
 import {
+  MACHINE_DIALS,
+  MACHINE_RETURN,
+  type MachineDialDef,
+} from "@/lib/iugr/machineDials";
+import {
+  evaluateScenario,
+  type ScenarioAssumptions,
+} from "@/lib/iugr/scenarioEngine";
+import { ARCADE_SCRIPT, TRANSITION_5 } from "@/lib/iugr/script";
+import {
   COPY_SNAP_POINTS,
   formatWholeNumber,
   nearestSnapPoint,
@@ -33,8 +44,11 @@ import {
 } from "@/lib/iugr/scenarioMath";
 import type { ConsciousnessPremise } from "@/lib/iugr/types";
 import { CopyField } from "@/components/iugr/CopyField";
+import { TransitionBlock } from "@/components/iugr/TransitionBlock";
 
 type CopyMachineChapterProps = {
+  /** First visit after Original Town, or return visit after Three Doors. */
+  visit: "first" | "return";
   consciousnessPremise: ConsciousnessPremise | null;
   readerFigureIndex: number | null;
   copiedTowns: number;
@@ -44,6 +58,8 @@ type CopyMachineChapterProps = {
     next: number,
     meta: { interacted: boolean; reachedNine: boolean },
   ) => void;
+  assumptions?: ScenarioAssumptions;
+  onAssumptionsChange?: (next: ScenarioAssumptions) => void;
   onContinue: () => void;
   onBack: () => void;
   reducedMotion: boolean;
@@ -593,23 +609,138 @@ function SilentScreen({
   );
 }
 
+
+function MachineDial({
+  dial,
+  value,
+  onChange,
+}: {
+  dial: MachineDialDef;
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const headingId = useId();
+  return (
+    <fieldset className="iugr-machine-dial" aria-labelledby={headingId}>
+      <legend className="sr-only">{dial.title}</legend>
+      <h3 className="iugr-machine-dial-title" id={headingId}>
+        {dial.title}
+      </h3>
+      <div
+        className="iugr-machine-dial-segments"
+        role="radiogroup"
+        aria-labelledby={headingId}
+      >
+        {dial.options.map((option) => {
+          const selected = value === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              className={`iugr-machine-dial-segment${selected ? " is-selected" : ""}`}
+              onClick={() => onChange(option.id)}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
+function ReturnChallenge({
+  readingId,
+  foundUnsettled,
+  foundCopiesWin,
+}: {
+  readingId: string;
+  foundUnsettled: boolean;
+  foundCopiesWin: boolean;
+}) {
+  if (!foundUnsettled) {
+    return (
+      <div className="iugr-copy-challenge is-open" role="status">
+        <ChallengeIcon kind="open" />
+        <div className="iugr-copy-challenge-copy">
+          <span className="iugr-copy-challenge-label">
+            {MACHINE_RETURN.challengeUnsettled[0]}
+          </span>
+          <span className="iugr-copy-challenge-text">
+            {MACHINE_RETURN.challengeUnsettled[1]}
+          </span>
+        </div>
+      </div>
+    );
+  }
+  if (!foundCopiesWin) {
+    const complete = readingId === "copies-win";
+    return (
+      <div
+        className={`iugr-copy-challenge ${complete ? "is-complete" : "is-open"}`}
+        role="status"
+      >
+        <ChallengeIcon kind={complete ? "check" : "open"} />
+        <div className="iugr-copy-challenge-copy">
+          <span className="iugr-copy-challenge-label">
+            {complete ? "CHALLENGE COMPLETE" : MACHINE_RETURN.challengeCopiesWin[0]}
+          </span>
+          <span className="iugr-copy-challenge-text">
+            {MACHINE_RETURN.challengeCopiesWin[1]}
+          </span>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="iugr-copy-challenge is-complete" role="status">
+      <ChallengeIcon kind="check" />
+      <div className="iugr-copy-challenge-copy">
+        <span className="iugr-copy-challenge-label">CHALLENGE COMPLETE</span>
+        <span className="iugr-copy-challenge-text">
+          {MACHINE_RETURN.challengeCopiesWin[1]}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function CopyMachineChapter({
+  visit,
   consciousnessPremise,
   readerFigureIndex,
   copiedTowns,
   hasInteracted,
   reachedNine,
   onCopiedTownsChange,
+  assumptions,
+  onAssumptionsChange,
   onContinue,
   onBack,
   reducedMotion,
 }: CopyMachineChapterProps) {
   const liveId = useId();
   const [silentOpen, setSilentOpen] = useState(false);
+  const [foundUnsettled, setFoundUnsettled] = useState(false);
+  const [foundCopiesWin, setFoundCopiesWin] = useState(false);
+  const isReturn = visit === "return";
   const wash = washAccentForCopies(copiedTowns);
   const snap = nearestSnapPoint(copiedTowns) as CopySnapPoint;
   const answerNo = consciousnessPremise === "no";
-  const canContinue = reachedNine || copiedTowns >= 9 || answerNo;
+  const canContinueFirst = reachedNine || copiedTowns >= 9 || answerNo;
+
+  const evaluation = useMemo(
+    () => (assumptions ? evaluateScenario(assumptions) : null),
+    [assumptions],
+  );
+
+  // Challenge progress from the live reading (and sticky once found).
+  const liveUnsettled =
+    foundUnsettled || evaluation?.readingId === "will-not-settle";
+  const liveCopiesWin =
+    foundCopiesWin || evaluation?.readingId === "copies-win";
 
   const maybeOpenSilent = useCallback((next: number) => {
     if (next < 999) return;
@@ -633,6 +764,7 @@ export function CopyMachineChapter({
     },
     [hasInteracted, maybeOpenSilent, onCopiedTownsChange, reachedNine],
   );
+
   const bodyPrimary = answerNo
     ? COPY_BODY_NO
     : COPY_BODY[snap] ?? COPY_BODY[0];
@@ -643,19 +775,44 @@ export function CopyMachineChapter({
 
   const liveText = `${formatWholeNumber(copiedTowns)} copied towns. ${bodyPrimary}`;
 
+  const setDial = (id: keyof ScenarioAssumptions, next: string) => {
+    if (!assumptions || !onAssumptionsChange) return;
+    const updated = { ...assumptions, [id]: next } as ScenarioAssumptions;
+    onAssumptionsChange(updated);
+    const reading = evaluateScenario(updated).readingId;
+    if (reading === "will-not-settle") setFoundUnsettled(true);
+    if (reading === "copies-win") {
+      setFoundUnsettled(true);
+      setFoundCopiesWin(true);
+    }
+  };
+
   return (
     <section
       className="iugr-panel iugr-copy-machine"
       aria-labelledby="iugr-copy-title"
       style={{ ["--copy-wash" as string]: wash }}
       data-copies={copiedTowns}
+      data-visit={visit}
     >
-      <div className="iugr-label">{COPY_MACHINE.chapterLabel}</div>
+      <div className="iugr-label">
+        {isReturn ? MACHINE_RETURN.chapterLabel : COPY_MACHINE.chapterLabel}
+      </div>
       <h1 id="iugr-copy-title" className="iugr-headline iugr-headline-sm">
-        {COPY_MACHINE.title}
+        {isReturn ? MACHINE_RETURN.title : COPY_MACHINE.title}
       </h1>
 
-      <ChallengeStrip copiedTowns={copiedTowns} unavailable={answerNo} />
+      {isReturn ? <p className="iugr-lead">{MACHINE_RETURN.welcome}</p> : null}
+
+      {isReturn && evaluation ? (
+        <ReturnChallenge
+          readingId={evaluation.readingId}
+          foundUnsettled={Boolean(liveUnsettled)}
+          foundCopiesWin={Boolean(liveCopiesWin)}
+        />
+      ) : (
+        <ChallengeStrip copiedTowns={copiedTowns} unavailable={answerNo} />
+      )}
 
       <ApparatusControl
         copiedTowns={copiedTowns}
@@ -684,6 +841,19 @@ export function CopyMachineChapter({
         ))}
       </div>
 
+      {isReturn && assumptions && onAssumptionsChange ? (
+        <div className="iugr-machine-dials" aria-label={MACHINE_RETURN.dialsAria}>
+          {MACHINE_DIALS.map((dial) => (
+            <MachineDial
+              key={dial.id}
+              dial={dial}
+              value={assumptions[dial.id]}
+              onChange={(next) => setDial(dial.id, next)}
+            />
+          ))}
+        </div>
+      ) : null}
+
       <div className="iugr-copy-field-row" aria-label={COPY_MACHINE.clusterAria}>
         <CopyField
           copiedTowns={copiedTowns}
@@ -699,26 +869,70 @@ export function CopyMachineChapter({
         reducedMotion={reducedMotion}
       />
 
-      <div className="iugr-copy-body">
-        <p>{bodyPrimary}</p>
-        {bodySecond ? <p>{bodySecond}</p> : null}
-      </div>
+      {!isReturn ? (
+        <div className="iugr-copy-body">
+          <p>{bodyPrimary}</p>
+          {bodySecond ? <p>{bodySecond}</p> : null}
+        </div>
+      ) : null}
+
+      {isReturn && evaluation ? (
+        <aside
+          className={[
+            "iugr-machine-reading",
+            `is-${evaluation.readingId}`,
+            reducedMotion ? "is-static" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          aria-label={MACHINE_RETURN.outcomeAria}
+        >
+          <h2 className="iugr-machine-reading-title">
+            {MACHINE_RETURN.outcomeTitle}
+          </h2>
+          <p className="iugr-machine-reading-label">{evaluation.label}</p>
+          <p className="iugr-machine-reading-body" aria-live="polite">
+            {evaluation.explanation}
+          </p>
+          <div className="iugr-machine-work">
+            <h3>{MACHINE_RETURN.whatDidTheWorkTitle}</h3>
+            <ul>
+              {evaluation.whatDidTheWork.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          </div>
+          <p className="iugr-machine-try">{MACHINE_RETURN.tryAnother}</p>
+        </aside>
+      ) : null}
+
+      {isReturn ? (
+        <div className="iugr-machine-closing-note">
+          {ARCADE_SCRIPT.closingNote.map((paragraph) => (
+            <p key={paragraph}>{paragraph}</p>
+          ))}
+        </div>
+      ) : null}
 
       <p id={liveId} className="sr-only" aria-live="polite" aria-atomic="true">
-        {liveText}
+        {isReturn && evaluation
+          ? `${evaluation.label} ${evaluation.explanation}`
+          : liveText}
       </p>
+
+      {isReturn ? <TransitionBlock paragraphs={TRANSITION_5} /> : null}
 
       <div className="iugr-actions iugr-copy-nav">
         <button type="button" className="iugr-btn iugr-btn-ghost" onClick={onBack}>
-          {COPY_MACHINE.previousLabel}
+          {isReturn ? MACHINE_RETURN.previousLabel : COPY_MACHINE.previousLabel}
         </button>
         <button
           type="button"
           className="iugr-btn iugr-btn-primary iugr-copy-continue"
           onClick={onContinue}
-          disabled={!canContinue}
+          disabled={isReturn ? false : !canContinueFirst}
         >
-          {CONTINUE_LABEL}
+          {isReturn ? MACHINE_RETURN.continueLabel : CONTINUE_LABEL}
         </button>
       </div>
 
