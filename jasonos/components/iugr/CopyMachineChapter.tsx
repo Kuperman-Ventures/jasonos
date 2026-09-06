@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { COPY_MACHINE } from "@/lib/iugr/copy";
 import {
   COPY_SNAP_POINTS,
@@ -29,100 +29,186 @@ type CopyMachineChapterProps = {
   reducedMotion: boolean;
 };
 
-function CopyToken({
-  index,
-  printing,
-  reducedMotion,
+/** Compact town glyph for the population map — no per-token “COPY” label. */
+function TownMark({
+  variant,
+  size = 28,
 }: {
-  index: number;
-  printing: boolean;
-  reducedMotion: boolean;
+  variant: "original" | "copy";
+  size?: number;
 }) {
+  const fill = variant === "original" ? "var(--iugr-original-fill)" : "var(--iugr-copy-fill)";
+  const roof = variant === "original" ? "var(--iugr-original-roof)" : "var(--iugr-copy-accent)";
+  const accent = variant === "original" ? "var(--iugr-accent)" : "var(--iugr-copy-accent)";
   return (
-    <div
-      className={[
-        "iugr-copy-token",
-        printing && !reducedMotion ? "is-printing" : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      style={{ ["--token-i" as string]: index }}
+    <svg
+      className={`iugr-field-mark iugr-field-mark-${variant}`}
+      viewBox="0 0 40 34"
+      width={size}
+      height={size * 0.85}
       aria-hidden
     >
-      <svg viewBox="0 0 48 40" width="48" height="40" role="presentation">
-        <rect x="4" y="10" width="40" height="24" rx="6" fill="var(--iugr-copy-fill)" />
-        <rect
-          x="10"
-          y="16"
-          width="8"
-          height="10"
-          rx="1.5"
-          fill="var(--iugr-cream-muted)"
-          opacity="0.35"
-        />
-        <rect
-          x="20"
-          y="16"
-          width="8"
-          height="10"
-          rx="1.5"
-          fill="var(--iugr-cream-muted)"
-          opacity="0.35"
-        />
-        <rect
-          x="30"
-          y="16"
-          width="8"
-          height="10"
-          rx="1.5"
-          fill="var(--iugr-cream-muted)"
-          opacity="0.35"
-        />
-        <circle cx="24" cy="8" r="3" fill="var(--iugr-copy-accent)" />
-      </svg>
-      <span>Copy</span>
-    </div>
+      <rect x="4" y="12" width="32" height="18" rx="5" fill={fill} />
+      <rect x="9" y="5" width="10" height="11" rx="1.5" fill={roof} />
+      <rect x="21" y="3" width="12" height="13" rx="1.5" fill={roof} />
+      <circle cx="20" cy="20" r="3" fill={accent} />
+    </svg>
   );
 }
 
-function AggregatedCopies({ count }: { count: number }) {
+/**
+ * Data-aware population map for copied-town scale.
+ * Caps visible tokens; uses one SVG grid/field at high counts (no tall COPY grids).
+ */
+function CopyField({
+  copiedTowns,
+  reducedMotion,
+}: {
+  copiedTowns: number;
+  reducedMotion: boolean;
+}) {
+  const totalTowns = 1 + copiedTowns;
+  const summary = `Town population map: 1 Original Town and ${formatWholeNumber(copiedTowns)} copied towns, for ${formatWholeNumber(totalTowns)} towns total.`;
+
+  let mode: "empty" | "pair" | "ten" | "hundred" | "thousand" = "empty";
+  if (copiedTowns === 0) mode = "empty";
+  else if (copiedTowns === 1) mode = "pair";
+  else if (copiedTowns <= 9) mode = "ten";
+  else if (copiedTowns <= 99) mode = "hundred";
+  else mode = "thousand";
+
+  const sampleCap = mode === "thousand" ? 36 : mode === "hundred" ? 99 : copiedTowns;
+  const shownCopies = Math.min(copiedTowns, sampleCap);
+  const remainder = Math.max(0, copiedTowns - shownCopies);
+
   return (
-    <div className="iugr-copy-aggregate" aria-hidden>
-      <svg viewBox="0 0 120 88" width="120" height="88" role="presentation">
-        <rect
-          x="8"
-          y="18"
-          width="72"
-          height="52"
-          rx="10"
-          fill="var(--iugr-copy-fill)"
-          opacity="0.45"
-        />
-        <rect
-          x="20"
-          y="12"
-          width="72"
-          height="52"
-          rx="10"
-          fill="var(--iugr-copy-fill)"
-          opacity="0.7"
-        />
-        <rect x="32" y="6" width="72" height="52" rx="10" fill="var(--iugr-copy-fill)" />
-        <text
-          x="68"
-          y="38"
-          textAnchor="middle"
-          fill="var(--iugr-ink)"
-          fontSize="16"
-          fontWeight="700"
-          fontFamily="var(--iugr-font), system-ui, sans-serif"
-        >
-          ×{formatWholeNumber(count)}
-        </text>
-      </svg>
-      <span className="iugr-copy-aggregate-label">
-        {formatWholeNumber(count)} copied towns
-      </span>
+    <div
+      className={[
+        "iugr-copy-field",
+        `is-${mode}`,
+        reducedMotion ? "is-static" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <p className="sr-only">{summary}</p>
+
+      <div className="iugr-copy-field-legend" aria-hidden>
+        <span className="iugr-copy-field-legend-item">
+          <span className="iugr-copy-field-swatch iugr-copy-field-swatch-original" />
+          Original Town
+        </span>
+        <span className="iugr-copy-field-legend-item">
+          <span className="iugr-copy-field-swatch iugr-copy-field-swatch-copy" />
+          Copied towns
+        </span>
+      </div>
+
+      <div className="iugr-copy-field-body" aria-hidden>
+        {mode === "empty" ? (
+          <div className="iugr-copy-field-empty">
+            <TownMark variant="original" size={36} />
+            <span className="iugr-copy-field-empty-label">No copied towns yet</span>
+          </div>
+        ) : null}
+
+        {mode === "pair" ? (
+          <div className="iugr-copy-field-pair">
+            <div className="iugr-copy-field-pair-item">
+              <TownMark variant="original" size={40} />
+              <span>Original Town</span>
+            </div>
+            <div className="iugr-copy-field-pair-item">
+              <TownMark variant="copy" size={40} />
+              <span>Copied town</span>
+            </div>
+          </div>
+        ) : null}
+
+        {mode === "ten" ? (
+          <div className="iugr-copy-field-ten">
+            <TownMark variant="original" size={30} />
+            {Array.from({ length: shownCopies }, (_, i) => (
+              <span key={i} className="iugr-copy-field-dot" />
+            ))}
+            {Array.from({ length: Math.max(0, 9 - shownCopies) }, (_, i) => (
+              <span key={`e-${i}`} className="iugr-copy-field-dot is-empty" />
+            ))}
+          </div>
+        ) : null}
+
+        {mode === "hundred" ? (
+          <svg className="iugr-copy-field-grid" viewBox="0 0 100 100" aria-hidden>
+            <rect
+              x="1"
+              y="1"
+              width="8"
+              height="8"
+              rx="1.5"
+              fill="var(--iugr-accent)"
+            />
+            {Array.from({ length: shownCopies }, (_, i) => {
+              const slot = i + 1;
+              const col = slot % 10;
+              const row = Math.floor(slot / 10);
+              return (
+                <rect
+                  key={slot}
+                  x={1 + col * 10}
+                  y={1 + row * 10}
+                  width="8"
+                  height="8"
+                  rx="1.5"
+                  fill="var(--iugr-copy-fill)"
+                  opacity={0.55 + (i % 5) * 0.08}
+                />
+              );
+            })}
+          </svg>
+        ) : null}
+
+        {mode === "thousand" ? (
+          <div className="iugr-copy-field-thousand">
+            <svg className="iugr-copy-field-orbit" viewBox="0 0 200 72" aria-hidden>
+              <circle cx="22" cy="36" r="10" fill="var(--iugr-accent)" />
+              {Array.from({ length: shownCopies }, (_, i) => {
+                const col = i % 12;
+                const row = Math.floor(i / 12);
+                return (
+                  <circle
+                    key={i}
+                    cx={48 + col * 12}
+                    cy={14 + row * 14}
+                    r="3.2"
+                    fill="var(--iugr-copy-fill)"
+                    opacity={0.45 + (i % 7) * 0.07}
+                  />
+                );
+              })}
+            </svg>
+            <span className="iugr-copy-field-badge">
+              {formatWholeNumber(copiedTowns)} copied towns
+            </span>
+          </div>
+        ) : null}
+      </div>
+
+      {mode !== "empty" && mode !== "thousand" ? (
+        <p className="iugr-copy-field-caption" aria-hidden>
+          {mode === "pair"
+            ? "1 Original Town · 1 copied town"
+            : remainder > 0
+              ? `1 Original Town · ${formatWholeNumber(shownCopies)} shown · +${formatWholeNumber(remainder)} more copied towns`
+              : `1 Original Town · ${formatWholeNumber(copiedTowns)} copied towns`}
+        </p>
+      ) : null}
+
+      {mode === "empty" ? (
+        <p className="iugr-copy-field-caption" aria-hidden>
+          1 Original Town · 0 copied towns
+        </p>
+      ) : null}
+
     </div>
   );
 }
@@ -142,22 +228,11 @@ export function CopyMachineChapter({
   const [mathOpen, setMathOpen] = useState(false);
   const [whyOpen, setWhyOpen] = useState(false);
   const [defineOpen, setDefineOpen] = useState(false);
-  const [printingIndex, setPrintingIndex] = useState<number | null>(null);
-  const prevCopies = useRef(copiedTowns);
 
   const census = useMemo(() => computeTownScenario(copiedTowns), [copiedTowns]);
   const narration = useMemo(() => narrationForCopies(copiedTowns), [copiedTowns]);
   const snap = nearestSnapPoint(copiedTowns);
 
-  useEffect(() => {
-    if (copiedTowns > prevCopies.current && !reducedMotion) {
-      setPrintingIndex(copiedTowns);
-      const t = window.setTimeout(() => setPrintingIndex(null), 520);
-      prevCopies.current = copiedTowns;
-      return () => window.clearTimeout(t);
-    }
-    prevCopies.current = copiedTowns;
-  }, [copiedTowns, reducedMotion]);
 
   const setCopies = (raw: number, fromUser: boolean) => {
     const next = Math.max(0, Math.min(999, Math.round(raw)));
@@ -177,8 +252,6 @@ export function CopyMachineChapter({
     setCopies(copiedTowns + delta, true);
   };
 
-  const visibleTokens = Math.min(copiedTowns, 9);
-  const overflow = Math.max(0, copiedTowns - 9);
 
   const caveat =
     consciousnessPremise === "unsure"
@@ -369,25 +442,7 @@ export function CopyMachineChapter({
         </div>
 
         <div className="iugr-copy-cluster" aria-label={COPY_MACHINE.clusterAria}>
-          {copiedTowns === 0 ? (
-            <p className="iugr-copy-cluster-empty">No copies yet. Pull the count up.</p>
-          ) : null}
-          {visibleTokens > 0 ? (
-            <div className="iugr-copy-token-grid">
-              {Array.from({ length: visibleTokens }, (_, i) => (
-                <CopyToken
-                  key={i}
-                  index={i}
-                  printing={
-                    printingIndex === i + 1 ||
-                    (printingIndex === copiedTowns && i === visibleTokens - 1)
-                  }
-                  reducedMotion={reducedMotion}
-                />
-              ))}
-            </div>
-          ) : null}
-          {overflow > 0 ? <AggregatedCopies count={copiedTowns} /> : null}
+          <CopyField copiedTowns={copiedTowns} reducedMotion={reducedMotion} />
         </div>
       </div>
 
