@@ -3,8 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
-import { TopNav } from "@/components/jasonos/top-nav";
-import { TellClaudePalette } from "@/components/jasonos/tell-claude-palette";
+import { JasonOsChrome } from "@/components/jasonos/jasonos-chrome";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -33,9 +32,8 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <TooltipProvider delay={150}>
-          <TopNav />
+          <JasonOsChrome />
           <main className="flex-1">{children}</main>
-          <TellClaudePalette />
           <Toaster richColors position="bottom-right" />
         </TooltipProvider>
       </body>

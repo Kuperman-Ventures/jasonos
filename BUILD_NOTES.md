@@ -72,12 +72,13 @@
 
 **Do** follow the **Post Master pattern**: native App Router route, scoped layout/CSS/fonts, client components for interaction, no new framework.
 
-### Recommended URL (vanity-ready)
+## Hosting decision (updated for Group 1)
 
-- Primary route: **`/iugr`** → `jasonos/app/iugr/`  
-- First entry deep link later: `/iugr/are-you-an-original` (or hash/step state under `/iugr` until multi-route is needed)  
-- Register in TopNav Projects group + Projects “Personal tools” list as **IUGR**  
-- Future vanity domain can rewrite to `/iugr` without moving code
+IUGR is a **standalone full-screen experience** at `/iugr`.
+JasonOS TopNav and Tell Claude are hidden on IUGR routes via
+[`jasonos/components/jasonos/jasonos-chrome.tsx`](jasonos/components/jasonos/jasonos-chrome.tsx).
+Discovery links still exist under Projects (nav + personal tools list).
+No Supabase. No new packages. Framer Motion not installed.
 
 ### Group 1 — IUGR foundation
 
