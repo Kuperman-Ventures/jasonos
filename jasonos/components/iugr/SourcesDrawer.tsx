@@ -83,10 +83,14 @@ export function SourcesDrawer({ open, onOpenChange }: SourcesDrawerProps) {
           ))}
         </ul>
 
-        <div className="iugr-sources-evidence-note" role="note">
-          <h3>{SOURCES.evidenceNoteTitle}</h3>
-          <p>{SOURCES.evidenceNote}</p>
-        </div>
+        {SOURCES.evidenceNote ? (
+          <div className="iugr-sources-evidence-note" role="note">
+            {SOURCES.evidenceNoteTitle ? (
+              <h3>{SOURCES.evidenceNoteTitle}</h3>
+            ) : null}
+            <p>{SOURCES.evidenceNote}</p>
+          </div>
+        ) : null}
       </div>
     </div>
   );

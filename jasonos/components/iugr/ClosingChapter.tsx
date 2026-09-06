@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { CLOSING } from "@/lib/iugr/sources";
+import { CLOSING_SCRIPT } from "@/lib/iugr/script";
 
 export type ClosingChapterProps = {
   onExploreCopyMachine: () => void;
@@ -46,22 +47,21 @@ export function ClosingChapter({
   return (
     <section
       className="iugr-panel iugr-closing"
+      data-wash="coral"
       aria-labelledby={titleId}
     >
       <div className="iugr-label">{CLOSING.chapterLabel}</div>
       <h1 id={titleId} className="iugr-headline iugr-headline-sm">
-        {CLOSING.title}
+        Closing
       </h1>
 
-      {CLOSING.body.map((paragraph) => (
+      <p className="iugr-body">{CLOSING_SCRIPT.lead}</p>
+      <p className="iugr-body">{CLOSING_SCRIPT.keepIntro}</p>
+      {CLOSING_SCRIPT.keepLines.map((paragraph) => (
         <p key={paragraph} className="iugr-body">
           {paragraph}
         </p>
       ))}
-
-      <p className="iugr-closing-guide" role="note">
-        {CLOSING.guideLine}
-      </p>
 
       <div className="iugr-closing-actions">
         <button
@@ -69,14 +69,14 @@ export function ClosingChapter({
           className="iugr-btn iugr-btn-primary"
           onClick={onExploreCopyMachine}
         >
-          {CLOSING.exploreCopyLabel}
+          {CLOSING_SCRIPT.actions.runAgain}
         </button>
         <button
           type="button"
           className="iugr-btn iugr-btn-ghost"
           onClick={onOpenSources}
         >
-          {CLOSING.openSourcesLabel}
+          {CLOSING_SCRIPT.actions.sources}
         </button>
         <button
           type="button"
@@ -88,7 +88,7 @@ export function ClosingChapter({
             else setShareNote(null);
           }}
         >
-          {CLOSING.shareLabel}
+          {CLOSING_SCRIPT.actions.send}
         </button>
       </div>
 

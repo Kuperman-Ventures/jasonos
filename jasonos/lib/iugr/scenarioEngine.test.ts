@@ -14,7 +14,8 @@ describe("IUGR Assumption Arcade scenario engine", () => {
   it("defaults to too-uncertain-to-count when consciousness is unknown", () => {
     const result = evaluateScenario(DEFAULT_SCENARIO_ASSUMPTIONS);
     assert.equal(result.category, "too-uncertain-to-count");
-    assert.match(result.explanation, /unknown/i);
+    assert.equal(result.readingId, "will-not-settle");
+    assert.match(result.explanation, /will not settle/i);
     assert.doesNotMatch(
       `${result.label} ${result.explanation}`,
       /\d+\s*%|probability|odds|you are (likely|probably)|you are simulated/i,
@@ -32,7 +33,8 @@ describe("IUGR Assumption Arcade scenario engine", () => {
       }),
     );
     assert.equal(result.category, "observer-count-breaks");
-    assert.match(result.explanation, /inner experience/i);
+    assert.equal(result.readingId, "count-breaks");
+    assert.match(result.explanation, /does not work at all/i);
   });
 
   it("keeps copies rare for clearly low-scale configurations", () => {
@@ -68,7 +70,8 @@ describe("IUGR Assumption Arcade scenario engine", () => {
       detail: "full-worlds",
     });
     assert.equal(strong.category, "copies-could-outnumber");
-    assert.match(strong.explanation, /could outnumber/);
+    assert.equal(strong.readingId, "copies-win");
+    assert.match(strong.explanation, /outnumber originals/);
     assert.doesNotMatch(
       strong.explanation,
       /are more likely|you are likely|we are probably/i,

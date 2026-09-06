@@ -1,18 +1,16 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef } from "react";
 import {
-  CLAIM_CLASS_LABELS,
-  CLAIM_CLASS_ORDER,
   EVIDENCE_CLAIMS,
   EVIDENCE_CLAIM_IDS,
   EVIDENCE_SCANNER,
-  allClaimsClassified,
-  isCorrectClassification,
   type ClaimClassId,
   type EvidenceClaim,
   type EvidenceClaimId,
 } from "@/lib/iugr/evidenceClaims";
+import { SCANNER_SCRIPT, TRANSITION_6 } from "@/lib/iugr/script";
+import { TransitionBlock } from "@/components/iugr/TransitionBlock";
 
 export type EvidenceScannerChapterProps = {
   classifiedClaims: Readonly<Partial<Record<EvidenceClaimId, ClaimClassId>>>;
@@ -59,24 +57,17 @@ function ClaimCard({
   );
 }
 
-function ClaimClassifyDetail({
+function ClaimDetail({
   claim,
-  priorChoice,
-  onClassify,
   onReturn,
   reducedMotion,
 }: {
   claim: EvidenceClaim;
-  priorChoice: ClaimClassId | undefined;
-  onClassify: (choice: ClaimClassId) => void;
   onReturn: () => void;
   reducedMotion: boolean;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const titleId = useId();
-  const [choice, setChoice] = useState<ClaimClassId | null>(priorChoice ?? null);
-  const revealed = choice != null;
-  const correct = choice ? isCorrectClassification(claim.id, choice) : false;
 
   useEffect(() => {
     headingRef.current?.focus();
@@ -88,7 +79,6 @@ function ClaimClassifyDetail({
       aria-labelledby={titleId}
       aria-label={EVIDENCE_SCANNER.detailAria}
     >
-      <p className="iugr-claim-detail-label">{EVIDENCE_SCANNER.classifyPrompt}</p>
       <h2
         id={titleId}
         ref={headingRef}
@@ -98,67 +88,19 @@ function ClaimClassifyDetail({
         {claim.claim}
       </h2>
 
-      <div
-        className="iugr-classify-options"
-        role="group"
-        aria-label={EVIDENCE_SCANNER.classifyPrompt}
-      >
-        {CLAIM_CLASS_ORDER.map((id) => {
-          const selected = choice === id;
-          const isCorrectOption = claim.correctClass === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              className={[
-                "iugr-classify-option",
-                selected ? "is-selected" : "",
-                revealed && isCorrectOption ? "is-correct" : "",
-                revealed && selected && !correct ? "is-incorrect" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              aria-pressed={selected}
-              disabled={revealed}
-              onClick={() => {
-                setChoice(id);
-                onClassify(id);
-              }}
-            >
-              {CLAIM_CLASS_LABELS[id]}
-            </button>
-          );
-        })}
-      </div>
-
-      {revealed && choice ? (
-        <div
-          className={`iugr-classify-feedback${correct ? " is-correct" : " is-incorrect"}`}
-          aria-live="polite"
-        >
-          <p className="iugr-classify-feedback-status">
-            {correct
-              ? EVIDENCE_SCANNER.correctLabel
-              : EVIDENCE_SCANNER.warmCorrection}
+      <div className="iugr-claim-detail-body">
+        {claim.paragraphs.map((paragraph) => (
+          <p key={paragraph} className="iugr-claim-detail-scan">
+            {paragraph}
           </p>
-          {!correct ? (
-            <p className="iugr-classify-feedback-answer">
-              <span className="iugr-claim-why-kicker">
-                {EVIDENCE_SCANNER.correctLabel}:{" "}
-              </span>
-              {CLAIM_CLASS_LABELS[claim.correctClass]}
-            </p>
-          ) : null}
-          <p className="iugr-claim-detail-scan">{claim.explanation}</p>
-        </div>
-      ) : null}
+        ))}
+      </div>
 
       <div className="iugr-actions">
         <button
           type="button"
           className="iugr-btn iugr-btn-primary"
           onClick={onReturn}
-          disabled={!revealed}
         >
           {EVIDENCE_SCANNER.returnToList}
         </button>
@@ -177,8 +119,7 @@ export function EvidenceScannerChapter({
   onBack,
   reducedMotion,
 }: EvidenceScannerChapterProps) {
-  const complete = allClaimsClassified(classifiedClaims);
-  const classifiedCount = EVIDENCE_CLAIM_IDS.filter(
+  const openedCount = EVIDENCE_CLAIM_IDS.filter(
     (id) => classifiedClaims[id] != null,
   ).length;
   const claimButtonRefs = useRef<
@@ -193,6 +134,11 @@ export function EvidenceScannerChapter({
     }
   }, [activeClaimId]);
 
+  const handleOpen = (id: EvidenceClaimId) => {
+    onOpenClaim(id);
+    onClassifyClaim(id, "interesting-not-proof");
+  };
+
   const handleReturn = (id: EvidenceClaimId) => {
     returnFocusId.current = id;
     onCloseClaim();
@@ -205,16 +151,15 @@ export function EvidenceScannerChapter({
     return (
       <section
         className="iugr-panel iugr-evidence-scanner"
+        data-wash="coral"
         aria-labelledby="iugr-scanner-title"
       >
         <div className="iugr-label">{EVIDENCE_SCANNER.chapterLabel}</div>
         <h1 id="iugr-scanner-title" className="sr-only">
-          {EVIDENCE_SCANNER.title}: classify claim
+          {EVIDENCE_SCANNER.title}: claim
         </h1>
-        <ClaimClassifyDetail
+        <ClaimDetail
           claim={claim}
-          priorChoice={classifiedClaims[activeClaimId]}
-          onClassify={(choice) => onClassifyClaim(activeClaimId, choice)}
           onReturn={() => handleReturn(activeClaimId)}
           reducedMotion={reducedMotion}
         />
@@ -225,6 +170,7 @@ export function EvidenceScannerChapter({
   return (
     <section
       className="iugr-panel iugr-evidence-scanner"
+      data-wash="coral"
       aria-labelledby="iugr-scanner-title"
     >
       <div className="iugr-label">{EVIDENCE_SCANNER.chapterLabel}</div>
@@ -232,12 +178,14 @@ export function EvidenceScannerChapter({
         {EVIDENCE_SCANNER.title}
       </h1>
 
-      <p className="iugr-lead">{EVIDENCE_SCANNER.welcome}</p>
-      <p className="iugr-body">{EVIDENCE_SCANNER.bridgeFromArcade}</p>
-      <p className="iugr-body">{EVIDENCE_SCANNER.instruction}</p>
+      {SCANNER_SCRIPT.intro.map((paragraph) => (
+        <p key={paragraph} className="iugr-lead">
+          {paragraph}
+        </p>
+      ))}
 
       <p className="iugr-claims-progress" aria-live="polite">
-        {EVIDENCE_SCANNER.progressLabel}: {classifiedCount} /{" "}
+        {EVIDENCE_SCANNER.progressLabel}: {openedCount} /{" "}
         {EVIDENCE_CLAIM_IDS.length}
       </p>
 
@@ -251,7 +199,7 @@ export function EvidenceScannerChapter({
             key={claim.id}
             claim={claim}
             classified={classifiedClaims[claim.id] != null}
-            onOpen={() => onOpenClaim(claim.id)}
+            onOpen={() => handleOpen(claim.id)}
             buttonRef={(node) => {
               claimButtonRefs.current[claim.id] = node;
             }}
@@ -259,23 +207,24 @@ export function EvidenceScannerChapter({
         ))}
       </div>
 
-      {complete ? (
-        <div
-          className="iugr-scanner-synthesis"
-          aria-labelledby="iugr-scanner-synthesis-title"
+      <div
+        className="iugr-scanner-synthesis"
+        aria-labelledby="iugr-scanner-synthesis-title"
+      >
+        <h2
+          id="iugr-scanner-synthesis-title"
+          className="iugr-scanner-synthesis-title"
         >
-          <h2
-            id="iugr-scanner-synthesis-title"
-            className="iugr-scanner-synthesis-title"
-          >
-            {EVIDENCE_SCANNER.synthesisTitle}
-          </h2>
-          <p className="iugr-body">{EVIDENCE_SCANNER.synthesisBody}</p>
-          <p className="iugr-note" role="note">
-            {EVIDENCE_SCANNER.synthesisNote}
+          {EVIDENCE_SCANNER.synthesisTitle}
+        </h2>
+        {SCANNER_SCRIPT.summary.map((paragraph) => (
+          <p key={paragraph} className="iugr-body">
+            {paragraph}
           </p>
-        </div>
-      ) : null}
+        ))}
+      </div>
+
+      <TransitionBlock paragraphs={TRANSITION_6} />
 
       <div className="iugr-actions iugr-scanner-nav">
         <button

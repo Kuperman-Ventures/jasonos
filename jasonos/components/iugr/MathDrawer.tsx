@@ -92,7 +92,9 @@ export function MathDrawer({ open, onClose, census }: MathDrawerProps) {
           </ul>
         </div>
 
-        <p className="iugr-math-limit">{COPY_MACHINE.mathClose}</p>
+        {COPY_MACHINE.mathClose ? (
+          <p className="iugr-math-limit">{COPY_MACHINE.mathClose}</p>
+        ) : null}
       </div>
     </div>
   );

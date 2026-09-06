@@ -24,7 +24,6 @@ import { GuideSettings } from "@/components/iugr/GuideSettings";
 import { OpeningStage } from "@/components/iugr/OpeningStage";
 import { OriginalTownChapter } from "@/components/iugr/OriginalTownChapter";
 import { SourcesDrawer } from "@/components/iugr/SourcesDrawer";
-import { TheCatchChapter } from "@/components/iugr/TheCatchChapter";
 import type { DoorId } from "@/lib/iugr/threeDoors";
 import { markDoorExplored } from "@/lib/iugr/threeDoors";
 import {
@@ -35,7 +34,6 @@ import type {
   ClaimClassId,
   EvidenceClaimId,
 } from "@/lib/iugr/evidenceClaims";
-import type { CatchCaveatId } from "@/lib/iugr/theCatch";
 
 let memoryPrefs: IugrPreferences | null = null;
 const listeners = new Set<() => void>();
@@ -94,9 +92,6 @@ export function IugrShell() {
   const [activeClaimId, setActiveClaimId] = useState<EvidenceClaimId | null>(
     null,
   );
-  const [inspectedCaveatIds, setInspectedCaveatIds] = useState<CatchCaveatId[]>(
-    [],
-  );
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -125,6 +120,13 @@ export function IugrShell() {
         copiesAreConscious,
         consciousnessPremise: copiesAreConscious,
       }));
+      // Prefill arcade consciousness dial from Beat 2 answer.
+      const arcadeStance =
+        copiesAreConscious === "unsure" ? "unknown" : copiesAreConscious;
+      setArcadeAssumptions((prev) => ({
+        ...prev,
+        consciousness: arcadeStance,
+      }));
     },
     [],
   );
@@ -151,7 +153,6 @@ export function IugrShell() {
     setArcadeAssumptions(DEFAULT_SCENARIO_ASSUMPTIONS);
     setClassifiedClaims({});
     setActiveClaimId(null);
-    setInspectedCaveatIds([]);
     setSourcesOpen(false);
     updatePrefs((prev) => ({
       ...prev,
@@ -202,16 +203,18 @@ export function IugrShell() {
           ) : null}
 
           {chapterId === "copy-machine" ? (
-            <CopyMachineChapter
-              consciousnessPremise={prefs.consciousnessPremise}
-              copiedTowns={copiedTowns}
-              hasInteracted={copyHasInteracted}
-              reachedNine={copyReachedNine}
-              onCopiedTownsChange={handleCopiedTownsChange}
-              onContinue={() => setChapterId("three-doors")}
-              onBack={() => setChapterId("original-town")}
-              reducedMotion={prefs.reducedMotion}
-            />
+            <div className="iugr-wash" data-wash="violet">
+              <CopyMachineChapter
+                consciousnessPremise={prefs.consciousnessPremise}
+                copiedTowns={copiedTowns}
+                hasInteracted={copyHasInteracted}
+                reachedNine={copyReachedNine}
+                onCopiedTownsChange={handleCopiedTownsChange}
+                onContinue={() => setChapterId("three-doors")}
+                onBack={() => setChapterId("original-town")}
+                reducedMotion={prefs.reducedMotion}
+              />
+            </div>
           ) : null}
 
           {chapterId === "three-doors" ? (
@@ -251,7 +254,7 @@ export function IugrShell() {
                 setClassifiedClaims((prev) => ({ ...prev, [id]: choice }));
               }}
               onCloseClaim={() => setActiveClaimId(null)}
-              onContinue={() => setChapterId("the-catch")}
+              onContinue={() => setChapterId("closing")}
               onBack={() => {
                 setActiveClaimId(null);
                 setChapterId("assumption-arcade");
@@ -260,25 +263,11 @@ export function IugrShell() {
             />
           ) : null}
 
-          {chapterId === "the-catch" ? (
-            <TheCatchChapter
-              inspectedCaveatIds={inspectedCaveatIds}
-              onInspectCaveat={(id) => {
-                setInspectedCaveatIds((prev) =>
-                  prev.includes(id) ? prev : [...prev, id],
-                );
-              }}
-              onContinue={() => setChapterId("closing")}
-              onBack={() => setChapterId("evidence-scanner")}
-              reducedMotion={prefs.reducedMotion}
-            />
-          ) : null}
-
           {chapterId === "closing" ? (
             <ClosingChapter
               onExploreCopyMachine={() => setChapterId("copy-machine")}
               onOpenSources={() => setSourcesOpen(true)}
-              onBack={() => setChapterId("the-catch")}
+              onBack={() => setChapterId("evidence-scanner")}
             />
           ) : null}
 
@@ -288,7 +277,6 @@ export function IugrShell() {
           chapterId !== "three-doors" &&
           chapterId !== "assumption-arcade" &&
           chapterId !== "evidence-scanner" &&
-          chapterId !== "the-catch" &&
           chapterId !== "closing" ? (
             <ChapterPlaceholder
               chapterId={chapterId}

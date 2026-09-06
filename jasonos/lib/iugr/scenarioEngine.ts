@@ -6,6 +6,8 @@
  * whether the reader (or our universe) is simulated.
  */
 
+import { ARCADE_SCRIPT } from "./script";
+
 export type CivilizationReach = "rarely" | "sometimes" | "often";
 export type ConsciousnessStance = "no" | "unknown" | "yes";
 export type ComputeScale = "tiny" | "huge" | "absurdly-huge";
@@ -27,8 +29,15 @@ export type ScenarioCategory =
   | "observer-count-breaks"
   | "too-uncertain-to-count";
 
+export type ScenarioReadingId =
+  | "copies-stay-rare"
+  | "will-not-settle"
+  | "count-breaks"
+  | "copies-win";
+
 export type ScenarioEvaluation = {
   category: ScenarioCategory;
+  readingId: ScenarioReadingId;
   label: string;
   explanation: string;
   /** Plain-language notes naming which assumptions did the work. */
@@ -45,27 +54,31 @@ export const DEFAULT_SCENARIO_ASSUMPTIONS: ScenarioAssumptions = {
   detail: "local-detail",
 };
 
+function readingForCategory(category: ScenarioCategory): ScenarioReadingId {
+  if (category === "observer-count-breaks") return "count-breaks";
+  if (category === "copies-could-outnumber") return "copies-win";
+  if (
+    category === "too-uncertain-to-count" ||
+    category === "mixed-or-uncertain"
+  ) {
+    return "will-not-settle";
+  }
+  return "copies-stay-rare";
+}
+
 export const SCENARIO_CATEGORY_LABELS: Record<ScenarioCategory, string> = {
-  "copies-stay-rare": "Copies probably stay rare in this scenario.",
-  "mixed-or-uncertain":
-    "Original and copied observers could be similarly common, or the scenario is too uncertain to count cleanly.",
-  "copies-could-outnumber":
-    "Copied observers could outnumber original observers in this scenario.",
-  "observer-count-breaks": "The observer count may not work in this scenario.",
-  "too-uncertain-to-count": "This scenario is too uncertain to count cleanly.",
+  "copies-stay-rare": ARCADE_SCRIPT.readings["copies-stay-rare"].label,
+  "mixed-or-uncertain": ARCADE_SCRIPT.readings["will-not-settle"].label,
+  "copies-could-outnumber": ARCADE_SCRIPT.readings["copies-win"].label,
+  "observer-count-breaks": ARCADE_SCRIPT.readings["count-breaks"].label,
+  "too-uncertain-to-count": ARCADE_SCRIPT.readings["will-not-settle"].label,
 };
 
-const EXPLANATIONS: Record<ScenarioCategory, string> = {
-  "copies-stay-rare":
-    "Under these assumptions, the conditions needed for huge numbers of conscious copies do not line up. Copied observers would probably stay rare in this scenario.",
-  "observer-count-breaks":
-    "You selected that simulated minds do not have inner experience. If that is true, copied residents may not belong in the observer count at all, so the central counting step cannot get started.",
-  "too-uncertain-to-count":
-    "You marked a key premise as unknown. That is honest: without knowing whether simulations can contain conscious minds, the counting argument cannot produce a clean conclusion.",
-  "mixed-or-uncertain":
-    "Some conditions support many copies, while others limit them. In this scenario, original and copied observers might be similarly common, or the unknowns may prevent a clean count.",
-  "copies-could-outnumber":
-    "Under this particular high-scale scenario, conscious copied observers could outnumber original observers. That is the condition that gives the simulation argument its force, not proof that this condition exists in reality.",
+const EXPLANATIONS: Record<ScenarioReadingId, string> = {
+  "copies-stay-rare": ARCADE_SCRIPT.readings["copies-stay-rare"].body,
+  "will-not-settle": ARCADE_SCRIPT.readings["will-not-settle"].body,
+  "count-breaks": ARCADE_SCRIPT.readings["count-breaks"].body,
+  "copies-win": ARCADE_SCRIPT.readings["copies-win"].body,
 };
 
 function isClearlyLowScale(a: ScenarioAssumptions): boolean {
@@ -93,51 +106,38 @@ function workNotes(
   const notes: string[] = [];
 
   if (category === "observer-count-breaks") {
-    notes.push("Conscious simulated minds set to “No.”");
+    notes.push("Copied mind set to “No.”");
     return notes;
   }
 
   if (a.consciousness === "unknown") {
-    notes.push("Conscious simulated minds left as “Unknown.”");
+    notes.push("Copied mind left as “Unknown.”");
   }
   if (a.civilizations === "rarely") {
-    notes.push("Civilizations reach the far future only “Rarely.”");
+    notes.push("Civilisations get that far only “Rarely.”");
   }
   if (a.history === "almost-never") {
-    notes.push("Future people make history copies “Almost never.”");
+    notes.push("They choose to build these “Almost never.”");
   }
   if (a.compute === "tiny") {
     notes.push("Available computing power set to “Tiny.”");
   }
   if (category === "copies-could-outnumber") {
-    notes.push("Civilizations reach the far future “Often.”");
-    notes.push("Conscious simulated minds set to “Yes.”");
+    notes.push("Civilisations get that far “Often.”");
+    notes.push("Copied mind set to “Yes.”");
     notes.push(
       a.compute === "absurdly-huge"
         ? "Computing power set to “Absurdly huge.”"
         : "Computing power set to “Huge.”",
     );
-    notes.push("Future people make history copies “Constantly.”");
-    notes.push(
-      a.detail === "full-worlds"
-        ? "Simulation detail set to “Full worlds.”"
-        : "Simulation detail set to “Local detail.”",
-    );
+    notes.push("They choose to build these “Constantly.”");
   }
   if (category === "mixed-or-uncertain" && notes.length === 0) {
     if (a.civilizations === "sometimes") {
-      notes.push("Civilizations reach the far future only “Sometimes.”");
+      notes.push("Civilisations get that far only “Sometimes.”");
     }
     if (a.history === "sometimes") {
-      notes.push("Interest in history copies set to “Sometimes.”");
-    }
-    if (a.detail === "sketches") {
-      notes.push("Simulation detail set to “Sketches.”");
-    }
-    if (a.consciousness === "yes") {
-      notes.push(
-        "Conscious simulated minds set to “Yes,” but scale settings stay mixed.",
-      );
+      notes.push("Interest in building set to “Sometimes.”");
     }
   }
   if (notes.length === 0) {
@@ -148,36 +148,30 @@ function workNotes(
 
 function reasoningLines(
   a: ScenarioAssumptions,
-  category: ScenarioCategory,
+  readingId: ScenarioReadingId,
 ): string[] {
-  const lines: string[] = [
-    "This console only rearranges assumptions. It never measures our universe.",
-  ];
+  const lines: string[] = [];
 
-  if (category === "observer-count-breaks") {
+  if (readingId === "count-breaks") {
     lines.push(
-      "If copied minds lack inner experience, they may not belong in an observer count, so the Copy Machine’s arithmetic cannot carry the philosophical argument.",
+      "If a copied mind is not a mind, there is nothing inside the copies to count.",
     );
-  } else if (category === "too-uncertain-to-count") {
+  } else if (readingId === "will-not-settle") {
     lines.push(
-      "An unknown about consciousness leaves the counting step without a clear population to count.",
+      "An open mind question leaves everything downstream unsettled.",
     );
-  } else if (category === "copies-stay-rare") {
+  } else if (readingId === "copies-stay-rare") {
     lines.push(
-      "At least one bottleneck (reach, motivation, or compute) keeps large numbers of conscious copies from lining up in this scenario.",
-    );
-  } else if (category === "copies-could-outnumber") {
-    lines.push(
-      "Only when reach, consciousness, compute, motivation, and detail all lean high does the “copies could outnumber originals” branch open, and even then it remains a conditional scenario, not a finding.",
+      "At least one bottleneck keeps large numbers of conscious copies from lining up in this setting.",
     );
   } else {
     lines.push(
-      "Mixed settings can support either modest copy counts or unresolved uncertainty; the console refuses to invent a single clean tally.",
+      "All three dials lean hard enough that copies of you outnumber originals in this setting.",
     );
   }
 
   lines.push(
-    `Current levers: civilizations=${a.civilizations}, consciousness=${a.consciousness}, compute=${a.compute}, history=${a.history}, detail=${a.detail}.`,
+    `Current dials: civilizations=${a.civilizations}, consciousness=${a.consciousness}, history=${a.history}.`,
   );
   return lines;
 }
@@ -209,11 +203,14 @@ export function evaluateScenario(
     category = "mixed-or-uncertain";
   }
 
+  const readingId = readingForCategory(category);
+
   return {
     category,
-    label: SCENARIO_CATEGORY_LABELS[category],
-    explanation: EXPLANATIONS[category],
+    readingId,
+    label: ARCADE_SCRIPT.readings[readingId].label,
+    explanation: EXPLANATIONS[readingId],
     whatDidTheWork: workNotes(assumptions, category),
-    reasoning: reasoningLines(assumptions, category),
+    reasoning: reasoningLines(assumptions, readingId),
   };
 }

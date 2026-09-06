@@ -42,11 +42,9 @@ export function stageAside(guideId: GuideId): string {
 export const OPENING = {
   entryLabel: "ENTRY 01",
   title: "ARE YOU AN ORIGINAL?",
-  subtitle:
-    "A guided thought experiment about copies, consciousness, and the simulation argument.",
-  townRevealTitle: "This is Original Town.",
-  townRevealBody:
-    "It has 100 residents, one bakery, and no idea it is about to become a math problem.",
+  subtitle: "",
+  townRevealTitle: "",
+  townRevealBody: "",
   continueLabel: "Continue",
   beginLabel: "Begin the entry",
 } as const;
@@ -62,10 +60,11 @@ export const ORIGINAL_TOWN = {
   choiceYes: "Yes, it would be a person",
   choiceUnsure: "I am not sure",
   choiceNo: "No, and I want to know why that matters",
-  ackYes: "Then the town just doubled its people. Hold that thought.",
+  ackYes:
+    "Then there are two hundred people here now, and two of them are you. Hold on to that.",
   ackUnsure:
-    "Fair. Nobody has settled this one. We will carry the question with us.",
-  ackNo: "Then the copies are scenery. Watch what that does to the count.",
+    "Fair. Nobody has settled this one, including the people who do it for a living. We will carry the question with us.",
+  ackNo: "Then the second town is scenery. Watch what that does to the count.",
   continueLabel: "Start the machine",
   previousLabel: "Previous",
   statusBefore: "Every resident is in the original town.",
@@ -131,9 +130,8 @@ export const COPY_MACHINE = {
   mathWorked1: "9 copied towns × 100 people = 900 copied residents",
   mathWorked2: "100 original residents + 900 copied residents = 1,000 total residents",
   mathWorked3: "900 / 1,000 = 90%",
-  mathClose:
-    "This says nothing by itself about whether our universe has copies. It only shows why the number of copies matters if the assumptions are true.",
-  continueLabel: "Meet the Three Doors",
+  mathClose: "",
+  continueLabel: "Open the three doors",
   previousLabel: "Previous",
   machineAria: "Copy Machine controls",
   clusterAria: "Town tokens for this scenario",
@@ -144,12 +142,9 @@ export const COPY_MACHINE = {
 export const THREE_DOORS = {
   chapterLabel: "Chapter · Three Doors",
   title: "Three Doors",
-  transitionFromMachine:
-    "The machine has shown one small thing: if conscious copies become numerous, they can dominate the count.",
-  transitionBridge:
-    "But that only matters if reality gets through a very particular set of doors.",
-  guideWelcome:
-    "Welcome to the Three Doors. The argument does not tell us which door is real. It says at least one of them probably is.",
+  transitionFromMachine: "",
+  transitionBridge: "",
+  guideWelcome: "",
   hubPrompt: "Open any door. Visit all three to see how the argument fits together.",
   hubProgress: "Doors explored",
   statusUnexplored: "Unexplored",
@@ -158,18 +153,13 @@ export const THREE_DOORS = {
   returnToHub: "Return to the doors",
   lookCloser: "Look closer",
   fieldNoteLabel: "Field note",
-  completionTitle: "That is the three-door argument:",
-  completionOne:
-    "Almost nobody gets the ability to make vast conscious simulations.",
-  completionTwo:
-    "Those who do get the ability almost never make many of them.",
-  completionThree:
-    "Or, if they do make many, copied observers could become more common than original ones.",
-  completionClose:
-    "The argument does not tell us which door is true. It says the answer to the big question depends on which assumptions survive inspection.",
-  bostromNote:
-    "Philosopher Nick Bostrom made this three-part version of the simulation argument widely known.",
-  continueLabel: "Inspect the Assumptions",
+  completionTitle: "That is the argument.",
+  completionOne: "",
+  completionTwo: "",
+  completionThree: "",
+  completionClose: "",
+  bostromNote: "",
+  continueLabel: "Back to the machine",
   previousLabel: "Previous",
   hubAria: "Three Doors transit hub",
   detailAria: "Door detail",

@@ -12,8 +12,8 @@ export const GUIDES: Record<GuideId, GuideDefinition> = {
     avatarDescription:
       "Abstract field-guide sigil: a soft star nested in an open book shape with a thin orbit line.",
     theme: {
-      accent: "var(--iugr-accent)",
-      glow: "var(--iugr-glow-accent)",
+      accent: "var(--violet)",
+      glow: "var(--iugr-glow-violet)",
       panel: "var(--iugr-panel)",
     },
   },
@@ -27,7 +27,7 @@ export const GUIDES: Record<GuideId, GuideDefinition> = {
     avatarDescription:
       "Soft explorer sigil: a crescent path circling a small planet.",
     theme: {
-      accent: "var(--iugr-violet)",
+      accent: "var(--violet)",
       glow: "var(--iugr-glow-violet)",
       panel: "var(--iugr-panel)",
     },
@@ -42,8 +42,8 @@ export const GUIDES: Record<GuideId, GuideDefinition> = {
     avatarDescription:
       "Skeptic sigil: a magnifying circle resting over a careful question mark.",
     theme: {
-      accent: "var(--iugr-coral)",
-      glow: "var(--iugr-glow-coral)",
+      accent: "var(--violet)",
+      glow: "var(--iugr-glow-violet)",
       panel: "var(--iugr-panel)",
     },
   },

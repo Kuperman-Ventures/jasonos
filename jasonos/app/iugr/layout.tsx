@@ -1,5 +1,31 @@
 import type { Metadata } from "next";
+import {
+  IBM_Plex_Sans,
+  JetBrains_Mono,
+  Space_Grotesk,
+} from "next/font/google";
 import "./iugr.css";
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["500", "700"],
+  variable: "--font-iugr-display",
+  display: "swap",
+});
+
+const ibmPlexSans = IBM_Plex_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-iugr-body",
+  display: "swap",
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-iugr-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Are You an Original? · IUGR",
@@ -12,5 +38,11 @@ export default function IugrLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return (
+    <div
+      className={`${spaceGrotesk.variable} ${ibmPlexSans.variable} ${jetbrainsMono.variable}`}
+    >
+      {children}
+    </div>
+  );
 }

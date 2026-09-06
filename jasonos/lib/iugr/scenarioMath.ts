@@ -1,5 +1,5 @@
 /**
- * Illustrative accounting for the IUGR Original Town copy sandbox.
+ * Illustrative accounting for the IUGR Original Town copy machine.
  * These numbers describe a made-up town scenario — not a measurement of our universe.
  */
 
