@@ -162,17 +162,21 @@ export function OriginalTownChapter({
   const questionId = useId();
   const reactionId = useId();
   const selected = readerFigureIndex != null;
-  const [reactionReady, setReactionReady] = useState(false);
+  const [settledAnswer, setSettledAnswer] = useState<ConsciousnessPremise | null>(
+    null,
+  );
 
   useEffect(() => {
-    if (!copiesAreConscious) {
-      setReactionReady(false);
-      return;
-    }
+    if (!copiesAreConscious) return;
     const wait = reactionSettleMs(reducedMotion, copiesAreConscious);
-    const timer = window.setTimeout(() => setReactionReady(true), wait);
+    const timer = window.setTimeout(() => {
+      setSettledAnswer(copiesAreConscious);
+    }, wait);
     return () => window.clearTimeout(timer);
   }, [copiesAreConscious, reducedMotion]);
+
+  const reactionReady =
+    copiesAreConscious != null && settledAnswer === copiesAreConscious;
 
   const census =
     copiesAreConscious === "yes"
