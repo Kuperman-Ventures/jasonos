@@ -861,9 +861,11 @@ p.iugr-town-copy {
   position: relative;
   z-index: 0;
   order: 2;
-  opacity: 0.45;
+  opacity: 1;
   pointer-events: none;
   animation: iugr-copy-fade-in 350ms ease-out both;
+  /* Copied town is coral throughout; avoid parent opacity that muddies fills. */
+  --iugr-cream: #e8836f;
 }
 
 .iugr-town-stack.is-static .iugr-town-copy-layer {
@@ -892,7 +894,7 @@ p.iugr-town-copy {
     opacity: 0;
   }
   to {
-    opacity: 0.45;
+    opacity: 1;
   }
 }
 
@@ -933,7 +935,7 @@ p.iugr-town-copy {
       transform: translate(16px, 16px) rotate(2deg);
     }
     to {
-      opacity: 0.45;
+      opacity: 1;
       transform: translate(24px, 24px) rotate(2deg);
     }
   }
