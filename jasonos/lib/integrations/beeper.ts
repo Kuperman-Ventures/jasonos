@@ -159,6 +159,9 @@ export class BeeperApiError extends Error {
   }
 }
 
+const TOKEN_EXPIRED_HINT =
+  "Beeper token expired. In Beeper Desktop → Settings → Integrations → Approved connections, create a new token, then paste it in JasonOS Settings → Beeper (or update BEEPER_ACCESS_TOKEN) and hit Test Connection.";
+
 async function readErrorDetail(res: Response): Promise<string> {
   try {
     const text = await res.text();
@@ -168,16 +171,18 @@ async function readErrorDetail(res: Response): Promise<string> {
   }
 }
 
+async function throwIfAuthFailed(res: Response): Promise<void> {
+  if (res.status !== 401 && res.status !== 403) return;
+  // Consume body so callers don't re-read it; always give the actionable hint.
+  await readErrorDetail(res);
+  throw new BeeperApiError(res.status, TOKEN_EXPIRED_HINT);
+}
+
 /** Probe Desktop API. Throws BeeperUnavailableError when closed / unreachable. */
 export async function probeBeeperDesktop(): Promise<{ ok: true; baseUrl: string }> {
   const baseUrl = await resolveBaseUrl();
   const res = await beeperFetch("/v1/info", { timeoutMs: 5_000 });
-  if (res.status === 401 || res.status === 403) {
-    throw new BeeperApiError(
-      res.status,
-      "Beeper token rejected. Recreate the Approved connection token."
-    );
-  }
+  await throwIfAuthFailed(res);
   if (!res.ok) {
     throw new BeeperUnavailableError(BEEPER_UNAVAILABLE_MESSAGE);
   }
@@ -219,9 +224,7 @@ async function searchRecentSingleChats(opts: {
     includeMuted: "true",
   });
   const res = await beeperFetch(`/v1/chats/search?${qs}`, { timeoutMs: 12_000 });
-  if (res.status === 401 || res.status === 403) {
-    throw new BeeperApiError(res.status, await readErrorDetail(res));
-  }
+  await throwIfAuthFailed(res);
   if (!res.ok) {
     // Fallback: list chats without activity filter.
     const listRes = await beeperFetch(
@@ -231,6 +234,7 @@ async function searchRecentSingleChats(opts: {
       })}`,
       { timeoutMs: 12_000 }
     );
+    await throwIfAuthFailed(listRes);
     if (!listRes.ok) {
       throw new BeeperApiError(listRes.status, await readErrorDetail(listRes));
     }
@@ -363,9 +367,7 @@ async function searchChatsForContact(contact: {
   });
   if (query) qs.set("query", query);
   const res = await beeperFetch(`/v1/chats/search?${qs}`, { timeoutMs: 10_000 });
-  if (res.status === 401 || res.status === 403) {
-    throw new BeeperApiError(res.status, await readErrorDetail(res));
-  }
+  await throwIfAuthFailed(res);
   if (!res.ok) return [];
   const body = (await res.json()) as CursorPage<BeeperChat>;
   return pageItems(body).filter((c) => !c.type || c.type === "single");
