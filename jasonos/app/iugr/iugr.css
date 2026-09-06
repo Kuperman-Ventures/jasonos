@@ -2052,3 +2052,291 @@ body:has(.iugr-root) main.flex-1 {
     min-height: 12.5rem;
   }
 }
+
+
+/* ── Group 5: Assumption Arcade ─────────────────────────────────────── */
+
+.iugr-assumption-arcade {
+  display: grid;
+  gap: 0.95rem;
+  width: 100%;
+  max-width: min(100%, 58rem);
+  margin-inline: auto;
+  min-width: 0;
+}
+
+.iugr-arcade-controls-label {
+  margin: 0.15rem 0 0;
+  font-size: var(--iugr-text-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--iugr-accent);
+  font-weight: 650;
+}
+
+.iugr-arcade-console {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  padding: 0.85rem;
+  border-radius: var(--iugr-radius-lg);
+  border: 1px solid var(--iugr-border-strong);
+  background:
+    linear-gradient(165deg, rgba(198, 227, 85, 0.05), rgba(7, 11, 22, 0.55));
+}
+
+@media (min-width: 900px) {
+  .iugr-arcade-console {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.95fr);
+    align-items: start;
+    gap: 1.15rem;
+    padding: 1rem 1.1rem;
+  }
+}
+
+.iugr-arcade-controls {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.iugr-arcade-control {
+  margin: 0;
+  padding: 0.7rem 0.75rem 0.75rem;
+  border: 1px solid var(--iugr-border);
+  border-radius: var(--iugr-radius-md);
+  background: rgba(7, 11, 22, 0.35);
+  min-width: 0;
+}
+
+.iugr-arcade-control-title {
+  padding: 0;
+  font-size: 0.98rem;
+  font-weight: 650;
+  color: var(--iugr-cream);
+}
+
+.iugr-arcade-control-explain {
+  margin: 0.35rem 0 0.55rem;
+  color: var(--iugr-cream-muted);
+  font-size: var(--iugr-text-sm);
+  line-height: 1.45;
+}
+
+.iugr-arcade-segments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.iugr-arcade-segment {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.5rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: var(--iugr-radius-sm);
+  border: 1px solid var(--iugr-border);
+  background: rgba(7, 11, 22, 0.45);
+  color: var(--iugr-cream);
+  font-size: var(--iugr-text-sm);
+  cursor: pointer;
+}
+
+.iugr-arcade-segment:hover,
+.iugr-arcade-segment:focus-visible {
+  outline: none;
+  border-color: var(--iugr-accent);
+  box-shadow: var(--iugr-glow-accent);
+}
+
+.iugr-arcade-segment.is-selected {
+  border-color: var(--iugr-accent);
+  background: color-mix(in srgb, var(--iugr-accent) 16%, rgba(7, 11, 22, 0.7));
+  font-weight: 650;
+}
+
+.iugr-arcade-segment-mark {
+  color: var(--iugr-accent);
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.iugr-arcade-aside {
+  margin: 0.5rem 0 0;
+  font-size: var(--iugr-text-xs);
+  color: var(--iugr-cream-muted);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.iugr-arcade-why {
+  margin-top: 0.45rem;
+  border-top: 1px dashed var(--iugr-border);
+  padding-top: 0.25rem;
+}
+
+.iugr-arcade-why summary,
+.iugr-arcade-reasoning summary,
+.iugr-arcade-whycant summary {
+  cursor: pointer;
+  color: var(--iugr-violet);
+  font-size: var(--iugr-text-sm);
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.iugr-arcade-why p,
+.iugr-arcade-reasoning li,
+.iugr-arcade-whycant p,
+.iugr-arcade-whycant li,
+.iugr-arcade-work li {
+  color: var(--iugr-cream-muted);
+  font-size: var(--iugr-text-sm);
+  line-height: 1.45;
+}
+
+.iugr-arcade-outcome {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.85rem 0.9rem;
+  border-radius: var(--iugr-radius-md);
+  border: 1px solid var(--iugr-border-strong);
+  background: rgba(13, 20, 36, 0.85);
+  position: sticky;
+  top: 0.75rem;
+}
+
+.iugr-arcade-outcome-title {
+  margin: 0;
+  font-size: var(--iugr-text-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--iugr-cream-muted);
+}
+
+.iugr-arcade-outcome-status {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.55rem;
+  align-items: start;
+}
+
+.iugr-arcade-status-mark {
+  width: 0.85rem;
+  height: 0.85rem;
+  margin-top: 0.35rem;
+  border-radius: 999px;
+  border: 2px solid var(--iugr-border-strong);
+  background: transparent;
+}
+
+.iugr-arcade-status-mark.is-copies-stay-rare,
+.iugr-arcade-outcome.is-copies-stay-rare {
+  border-color: color-mix(in srgb, var(--iugr-accent) 55%, var(--iugr-border));
+}
+.iugr-arcade-status-mark.is-copies-stay-rare {
+  background: var(--iugr-accent);
+}
+
+.iugr-arcade-status-mark.is-copies-could-outnumber {
+  background: var(--iugr-copy-fill);
+  border-color: var(--iugr-copy-accent);
+}
+.iugr-arcade-outcome.is-copies-could-outnumber {
+  border-color: color-mix(in srgb, var(--iugr-copy-accent) 50%, var(--iugr-border));
+}
+
+.iugr-arcade-status-mark.is-observer-count-breaks {
+  background: var(--iugr-coral);
+  border-color: var(--iugr-coral);
+}
+.iugr-arcade-outcome.is-observer-count-breaks {
+  border-color: color-mix(in srgb, var(--iugr-coral) 55%, var(--iugr-border));
+}
+
+.iugr-arcade-status-mark.is-too-uncertain-to-count,
+.iugr-arcade-status-mark.is-mixed-or-uncertain {
+  background: var(--iugr-violet);
+  border-color: var(--iugr-violet);
+}
+.iugr-arcade-outcome.is-too-uncertain-to-count,
+.iugr-arcade-outcome.is-mixed-or-uncertain {
+  border-color: color-mix(in srgb, var(--iugr-violet) 50%, var(--iugr-border));
+}
+
+.iugr-arcade-outcome-label {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--iugr-cream);
+  line-height: 1.35;
+}
+
+.iugr-arcade-motif {
+  width: min(100%, 16rem);
+  height: auto;
+  display: block;
+}
+
+.iugr-arcade-outcome-explain,
+.iugr-arcade-disclaimer,
+.iugr-arcade-try {
+  margin: 0;
+  font-size: var(--iugr-text-sm);
+  line-height: 1.5;
+  color: var(--iugr-cream-muted);
+}
+
+.iugr-arcade-disclaimer {
+  padding: 0.55rem 0.65rem;
+  border-left: 2px solid var(--iugr-accent);
+  color: var(--iugr-cream);
+}
+
+.iugr-arcade-work h3 {
+  margin: 0 0 0.3rem;
+  font-size: var(--iugr-text-sm);
+  color: var(--iugr-cream);
+}
+
+.iugr-arcade-work ul,
+.iugr-arcade-reasoning ul,
+.iugr-arcade-whycant ul {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.iugr-arcade-whycant {
+  padding: 0.55rem 0.75rem 0.7rem;
+  border-radius: var(--iugr-radius-md);
+  border: 1px solid rgba(139, 124, 201, 0.35);
+  background: rgba(139, 124, 201, 0.08);
+}
+
+.iugr-arcade-nav {
+  flex-wrap: wrap;
+}
+
+.iugr-high-contrast .iugr-arcade-segment.is-selected,
+.iugr-high-contrast .iugr-arcade-control,
+.iugr-high-contrast .iugr-arcade-outcome {
+  border-width: 2px;
+}
+
+@media (max-width: 899px) {
+  .iugr-arcade-outcome {
+    position: static;
+  }
+}
+
+@media (max-width: 374px) {
+  .iugr-arcade-segment {
+    font-size: 0.82rem;
+    padding-inline: 0.55rem;
+  }
+}

@@ -71,9 +71,8 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
     placeholder: {
       headline: "Assumption Arcade",
       body: [
-        "Every large claim rests on quieter ones. Here we will poke the hinges.",
-        "If an assumption wobbles, the whole ride feels different — and that is the lesson.",
-        "Cabinet lights stay off until later work lands.",
+        "A sandbox for poking the quiet assumptions behind the copy-counting argument.",
+        "Controls rearrange scenarios. They do not measure our universe.",
       ],
     },
   },
