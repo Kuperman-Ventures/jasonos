@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import type { ChapterId, IugrPreferences } from "@/lib/iugr/types";
+import type {
+  ChapterId,
+  ConsciousnessPremise,
+  IugrPreferences,
+} from "@/lib/iugr/types";
 import {
   DEFAULT_PREFERENCES,
   readPreferences,
@@ -12,6 +16,8 @@ import { EntryChrome } from "@/components/iugr/EntryChrome";
 import { ChapterPlaceholder } from "@/components/iugr/ChapterPlaceholder";
 import { FieldNoteLibrary } from "@/components/iugr/FieldNoteLibrary";
 import { GuideSettings } from "@/components/iugr/GuideSettings";
+import { OpeningStage } from "@/components/iugr/OpeningStage";
+import { OriginalTownChapter } from "@/components/iugr/OriginalTownChapter";
 
 let memoryPrefs: IugrPreferences | null = null;
 const listeners = new Set<() => void>();
@@ -56,7 +62,6 @@ export function IugrShell() {
   const [chapterId, setChapterId] = useState<ChapterId>("opening");
   const [guideOpen, setGuideOpen] = useState(false);
 
-  // Keep reduced-motion in sync if the OS preference changes mid-session.
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     const onChange = () => {
@@ -80,6 +85,18 @@ export function IugrShell() {
     [],
   );
 
+  const setConsciousnessPremise = useCallback(
+    (consciousnessPremise: ConsciousnessPremise) => {
+      updatePrefs((prev) => ({ ...prev, consciousnessPremise }));
+    },
+    [],
+  );
+
+  const restart = useCallback(() => {
+    setChapterId("opening");
+    updatePrefs((prev) => ({ ...prev, consciousnessPremise: null }));
+  }, []);
+
   return (
     <div
       className={`iugr-root${prefs.highContrast ? " iugr-high-contrast" : ""}`}
@@ -93,7 +110,7 @@ export function IugrShell() {
           highContrast={prefs.highContrast}
           onNavigate={setChapterId}
           onOpenGuideSettings={() => setGuideOpen(true)}
-          onRestart={() => setChapterId("opening")}
+          onRestart={restart}
           onToggleReducedMotion={() =>
             updatePrefs((p) => ({ ...p, reducedMotion: !p.reducedMotion }))
           }
@@ -103,11 +120,27 @@ export function IugrShell() {
         />
 
         <div className="iugr-main">
-          <ChapterPlaceholder
-            chapterId={chapterId}
-            guideId={prefs.guideId}
-            onNavigate={setChapterId}
-          />
+          {chapterId === "opening" ? (
+            <OpeningStage onBegin={() => setChapterId("original-town")} />
+          ) : null}
+
+          {chapterId === "original-town" ? (
+            <OriginalTownChapter
+              consciousnessPremise={prefs.consciousnessPremise}
+              onSelectPremise={setConsciousnessPremise}
+              onOpenGuideSettings={() => setGuideOpen(true)}
+              onContinue={() => setChapterId("copy-machine")}
+              onPrevious={() => setChapterId("opening")}
+            />
+          ) : null}
+
+          {chapterId !== "opening" && chapterId !== "original-town" ? (
+            <ChapterPlaceholder
+              chapterId={chapterId}
+              guideId={prefs.guideId}
+              onNavigate={setChapterId}
+            />
+          ) : null}
         </div>
 
         <FieldNoteLibrary />
