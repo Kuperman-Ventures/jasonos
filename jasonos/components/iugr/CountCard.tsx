@@ -6,6 +6,8 @@ type CountCardProps = {
   residentsLabel: string;
   copiesLabel: string;
   statusLine: string;
+  /** When true, draw a strike through the copies value. */
+  strikeCopies?: boolean;
 };
 
 export function CountCard({
@@ -16,6 +18,7 @@ export function CountCard({
   residentsLabel,
   copiesLabel,
   statusLine,
+  strikeCopies = false,
 }: CountCardProps) {
   return (
     <div className="iugr-count-card" aria-label="Scenario counts">
@@ -30,7 +33,9 @@ export function CountCard({
         </div>
         <div>
           <dt>{copiesLabel}</dt>
-          <dd>{copies}</dd>
+          <dd className={strikeCopies ? "is-struck" : undefined}>
+            <span>{copies}</span>
+          </dd>
         </div>
       </dl>
       <p className="iugr-count-status">{statusLine}</p>
