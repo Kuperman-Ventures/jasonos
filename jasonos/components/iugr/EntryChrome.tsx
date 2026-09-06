@@ -13,6 +13,7 @@ type EntryChromeProps = {
   highContrast: boolean;
   onNavigate: (id: ChapterId) => void;
   onOpenGuideSettings: () => void;
+  onOpenSources: () => void;
   onRestart: () => void;
   onToggleReducedMotion: () => void;
   onToggleHighContrast: () => void;
@@ -24,6 +25,7 @@ export function EntryChrome({
   highContrast,
   onNavigate,
   onOpenGuideSettings,
+  onOpenSources,
   onRestart,
   onToggleReducedMotion,
   onToggleHighContrast,
@@ -135,7 +137,10 @@ export function EntryChrome({
             <button
               type="button"
               role="menuitem"
-              onClick={() => setMenuOpen(false)}
+              onClick={() => {
+                setMenuOpen(false);
+                onOpenSources();
+              }}
             >
               {OVERFLOW.sources}
             </button>

@@ -29,7 +29,7 @@ export const GUIDE_SETTINGS = {
 } as const;
 
 export const OVERFLOW = {
-  sources: "Sources (coming soon)",
+  sources: "Sources",
   restart: "Restart entry",
   reducedMotion: "Reduce motion",
   highContrast: "High contrast (preview)",

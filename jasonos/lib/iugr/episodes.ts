@@ -79,13 +79,13 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
   "evidence-scanner": {
     id: "evidence-scanner",
     order: 6,
-    title: "Evidence Scanner",
+    title: "Scan the Claims",
     shortLabel: "Evidence",
     placeholder: {
-      headline: "Evidence Scanner",
+      headline: "Scan the Claims",
       body: [
-        "What would count as evidence, and what would not?",
-        "The scanner exists to keep us honest: an argument is not the same thing as an observation.",
+        "Classify popular claims as evidence, assumption, or interesting-but-not-proof.",
+        "The scanner keeps us honest: an argument is not the same thing as an observation.",
       ],
     },
   },
@@ -97,7 +97,7 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
     placeholder: {
       headline: "The Catch",
       body: [
-        "Every neat story has a snag. This chapter names the snags without panic or swagger.",
+        "Inspect the caveats that keep the simulation argument clever rather than conclusive.",
         "You leave clearer about what the argument can and cannot do.",
       ],
     },
@@ -105,18 +105,17 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
   closing: {
     id: "closing",
     order: 8,
-    title: "Closing",
+    title: "Closing Field Note",
     shortLabel: "Close",
     placeholder: {
-      headline: "Field note complete",
+      headline: "Field Note: Reality Remains Inconveniently Real",
       body: [
         "You have walked a philosophical argument, not a lab result.",
         "Take what was useful. Leave the rest on the shelf for another day.",
-        "Other entries wait in The IUGR Library — patiently, and slightly smug.",
       ],
     },
   },
-};
+}
 
 export const CHAPTER_SEQUENCE: ChapterId[] = [
   "opening",

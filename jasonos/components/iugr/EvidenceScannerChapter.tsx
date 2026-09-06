@@ -1,51 +1,38 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
+  CLAIM_CLASS_LABELS,
+  CLAIM_CLASS_ORDER,
   EVIDENCE_CLAIMS,
   EVIDENCE_CLAIM_IDS,
   EVIDENCE_SCANNER,
-  allClaimsScanned,
+  allClaimsClassified,
+  isCorrectClassification,
+  type ClaimClassId,
   type EvidenceClaim,
   type EvidenceClaimId,
 } from "@/lib/iugr/evidenceClaims";
 
 export type EvidenceScannerChapterProps = {
-  scannedClaimIds: readonly EvidenceClaimId[];
+  classifiedClaims: Readonly<Partial<Record<EvidenceClaimId, ClaimClassId>>>;
   activeClaimId: EvidenceClaimId | null;
   onOpenClaim: (id: EvidenceClaimId) => void;
-  onCloseClaim: (id: EvidenceClaimId) => void;
+  onClassifyClaim: (id: EvidenceClaimId, choice: ClaimClassId) => void;
+  onCloseClaim: () => void;
   onContinue: () => void;
   onBack: () => void;
   reducedMotion: boolean;
 };
 
-type ClaimStatus = "unscanned" | "open" | "scanned";
-
-function getClaimStatus(
-  id: EvidenceClaimId,
-  scanned: readonly EvidenceClaimId[],
-  active: EvidenceClaimId | null,
-): ClaimStatus {
-  if (active === id) return "open";
-  if (scanned.includes(id)) return "scanned";
-  return "unscanned";
-}
-
-function statusLabel(status: ClaimStatus): string {
-  if (status === "open") return EVIDENCE_SCANNER.openBadge;
-  if (status === "scanned") return EVIDENCE_SCANNER.scannedBadge;
-  return EVIDENCE_SCANNER.scanButton;
-}
-
 function ClaimCard({
   claim,
-  status,
+  classified,
   onOpen,
   buttonRef,
 }: {
   claim: EvidenceClaim;
-  status: ClaimStatus;
+  classified: boolean;
   onOpen: () => void;
   buttonRef?: (node: HTMLButtonElement | null) => void;
 }) {
@@ -53,30 +40,38 @@ function ClaimCard({
     <button
       type="button"
       ref={buttonRef}
-      className={`iugr-claim-card is-${status} iugr-claim-verdict-${claim.verdictId}`}
+      className={`iugr-claim-card${classified ? " is-scanned" : ""}`}
       onClick={onOpen}
-      aria-label={`${claim.claim} ${statusLabel(status)}.`}
-      data-status={status}
+      aria-label={`${claim.claim} ${classified ? EVIDENCE_SCANNER.doneBadge : EVIDENCE_SCANNER.openBadge}.`}
     >
       <span className="iugr-claim-card-copy">
         <span className="iugr-claim-card-text">{claim.claim}</span>
-        <span className="iugr-claim-card-status">{statusLabel(status)}</span>
+        <span className="iugr-claim-card-status">
+          {classified ? EVIDENCE_SCANNER.doneBadge : EVIDENCE_SCANNER.openBadge}
+        </span>
       </span>
     </button>
   );
 }
 
-function ClaimDetail({
+function ClaimClassifyDetail({
   claim,
+  priorChoice,
+  onClassify,
   onReturn,
   reducedMotion,
 }: {
   claim: EvidenceClaim;
+  priorChoice: ClaimClassId | undefined;
+  onClassify: (choice: ClaimClassId) => void;
   onReturn: () => void;
   reducedMotion: boolean;
 }) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   const titleId = useId();
+  const [choice, setChoice] = useState<ClaimClassId | null>(priorChoice ?? null);
+  const revealed = choice != null;
+  const correct = choice ? isCorrectClassification(claim.id, choice) : false;
 
   useEffect(() => {
     headingRef.current?.focus();
@@ -88,7 +83,7 @@ function ClaimDetail({
       aria-labelledby={titleId}
       aria-label={EVIDENCE_SCANNER.detailAria}
     >
-      <p className="iugr-claim-detail-label">{EVIDENCE_SCANNER.verdictLabel}</p>
+      <p className="iugr-claim-detail-label">{EVIDENCE_SCANNER.classifyPrompt}</p>
       <h2
         id={titleId}
         ref={headingRef}
@@ -98,25 +93,67 @@ function ClaimDetail({
         {claim.claim}
       </h2>
 
-      <p className={`iugr-claim-verdict iugr-claim-verdict--${claim.verdictId}`}>
-        <strong>{claim.verdictLabel}</strong>
-      </p>
+      <div
+        className="iugr-classify-options"
+        role="group"
+        aria-label={EVIDENCE_SCANNER.classifyPrompt}
+      >
+        {CLAIM_CLASS_ORDER.map((id) => {
+          const selected = choice === id;
+          const isCorrectOption = claim.correctClass === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              className={[
+                "iugr-classify-option",
+                selected ? "is-selected" : "",
+                revealed && isCorrectOption ? "is-correct" : "",
+                revealed && selected && !correct ? "is-incorrect" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              aria-pressed={selected}
+              disabled={revealed}
+              onClick={() => {
+                setChoice(id);
+                onClassify(id);
+              }}
+            >
+              {CLAIM_CLASS_LABELS[id]}
+            </button>
+          );
+        })}
+      </div>
 
-      <p className="iugr-claim-detail-scan">{claim.scan}</p>
-
-      <details className="iugr-claim-why">
-        <summary>{EVIDENCE_SCANNER.lookCloser}</summary>
-        <p>
-          <span className="iugr-claim-why-kicker">{EVIDENCE_SCANNER.whyLabel}. </span>
-          {claim.why}
-        </p>
-      </details>
+      {revealed && choice ? (
+        <div
+          className={`iugr-classify-feedback${correct ? " is-correct" : " is-incorrect"}`}
+          aria-live="polite"
+        >
+          <p className="iugr-classify-feedback-status">
+            {correct
+              ? EVIDENCE_SCANNER.correctLabel
+              : EVIDENCE_SCANNER.warmCorrection}
+          </p>
+          {!correct ? (
+            <p className="iugr-classify-feedback-answer">
+              <span className="iugr-claim-why-kicker">
+                {EVIDENCE_SCANNER.correctLabel}:{" "}
+              </span>
+              {CLAIM_CLASS_LABELS[claim.correctClass]}
+            </p>
+          ) : null}
+          <p className="iugr-claim-detail-scan">{claim.explanation}</p>
+        </div>
+      ) : null}
 
       <div className="iugr-actions">
         <button
           type="button"
           className="iugr-btn iugr-btn-primary"
           onClick={onReturn}
+          disabled={!revealed}
         >
           {EVIDENCE_SCANNER.returnToList}
         </button>
@@ -126,15 +163,19 @@ function ClaimDetail({
 }
 
 export function EvidenceScannerChapter({
-  scannedClaimIds,
+  classifiedClaims,
   activeClaimId,
   onOpenClaim,
+  onClassifyClaim,
   onCloseClaim,
   onContinue,
   onBack,
   reducedMotion,
 }: EvidenceScannerChapterProps) {
-  const complete = allClaimsScanned(scannedClaimIds);
+  const complete = allClaimsClassified(classifiedClaims);
+  const classifiedCount = EVIDENCE_CLAIM_IDS.filter(
+    (id) => classifiedClaims[id] != null,
+  ).length;
   const claimButtonRefs = useRef<
     Partial<Record<EvidenceClaimId, HTMLButtonElement | null>>
   >({});
@@ -149,7 +190,7 @@ export function EvidenceScannerChapter({
 
   const handleReturn = (id: EvidenceClaimId) => {
     returnFocusId.current = id;
-    onCloseClaim(id);
+    onCloseClaim();
   };
 
   if (activeClaimId) {
@@ -163,10 +204,12 @@ export function EvidenceScannerChapter({
       >
         <div className="iugr-label">{EVIDENCE_SCANNER.chapterLabel}</div>
         <h1 id="iugr-scanner-title" className="sr-only">
-          {EVIDENCE_SCANNER.title}: scan result
+          {EVIDENCE_SCANNER.title}: classify claim
         </h1>
-        <ClaimDetail
+        <ClaimClassifyDetail
           claim={claim}
+          priorChoice={classifiedClaims[activeClaimId]}
+          onClassify={(choice) => onClassifyClaim(activeClaimId, choice)}
           onReturn={() => handleReturn(activeClaimId)}
           reducedMotion={reducedMotion}
         />
@@ -189,7 +232,7 @@ export function EvidenceScannerChapter({
       <p className="iugr-body">{EVIDENCE_SCANNER.instruction}</p>
 
       <p className="iugr-claims-progress" aria-live="polite">
-        {EVIDENCE_SCANNER.progressLabel}: {scannedClaimIds.length} /{" "}
+        {EVIDENCE_SCANNER.progressLabel}: {classifiedCount} /{" "}
         {EVIDENCE_CLAIM_IDS.length}
       </p>
 
@@ -198,24 +241,17 @@ export function EvidenceScannerChapter({
         role="group"
         aria-label={EVIDENCE_SCANNER.listAria}
       >
-        {EVIDENCE_CLAIMS.map((claim) => {
-          const status = getClaimStatus(
-            claim.id,
-            scannedClaimIds,
-            activeClaimId,
-          );
-          return (
-            <ClaimCard
-              key={claim.id}
-              claim={claim}
-              status={status}
-              onOpen={() => onOpenClaim(claim.id)}
-              buttonRef={(node) => {
-                claimButtonRefs.current[claim.id] = node;
-              }}
-            />
-          );
-        })}
+        {EVIDENCE_CLAIMS.map((claim) => (
+          <ClaimCard
+            key={claim.id}
+            claim={claim}
+            classified={classifiedClaims[claim.id] != null}
+            onOpen={() => onOpenClaim(claim.id)}
+            buttonRef={(node) => {
+              claimButtonRefs.current[claim.id] = node;
+            }}
+          />
+        ))}
       </div>
 
       {complete ? (

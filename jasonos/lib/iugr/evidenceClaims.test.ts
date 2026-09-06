@@ -2,30 +2,40 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   EVIDENCE_CLAIM_IDS,
-  allClaimsScanned,
-  markClaimScanned,
+  allClaimsClassified,
+  isCorrectClassification,
 } from "./evidenceClaims.ts";
+import { CATCH_CAVEAT_IDS } from "./theCatch.ts";
 
-describe("evidenceClaims helpers", () => {
-  it("starts incomplete with no scans", () => {
-    assert.equal(allClaimsScanned([]), false);
+describe("evidenceClaims classification helpers", () => {
+  it("starts incomplete with no classifications", () => {
+    assert.equal(allClaimsClassified({}), false);
   });
 
-  it("marks a claim scanned without duplicates", () => {
-    const once = markClaimScanned([], "glitches");
-    assert.deepEqual(once, ["glitches"]);
-    assert.deepEqual(markClaimScanned(once, "glitches"), ["glitches"]);
+  it("knows the correct class for speed-of-light claim", () => {
+    assert.equal(
+      isCorrectClassification("light-speed", "interesting-not-proof"),
+      true,
+    );
+    assert.equal(isCorrectClassification("light-speed", "evidence"), false);
   });
 
-  it("completes only when every claim is scanned", () => {
-    let scanned = markClaimScanned([], "glitches");
-    assert.equal(allClaimsScanned(scanned), false);
-
+  it("completes only when every claim is classified", () => {
+    const classified: Partial<
+      Record<(typeof EVIDENCE_CLAIM_IDS)[number], "assumption">
+    > = {};
     for (const id of EVIDENCE_CLAIM_IDS) {
-      scanned = markClaimScanned(scanned, id);
+      classified[id] = "assumption";
     }
+    assert.equal(allClaimsClassified(classified), true);
+    assert.equal(EVIDENCE_CLAIM_IDS.length, 7);
+  });
+});
 
-    assert.equal(scanned.length, EVIDENCE_CLAIM_IDS.length);
-    assert.equal(allClaimsScanned(scanned), true);
+describe("theCatch caveats", () => {
+  it("includes the core caveat set plus the next question", () => {
+    assert.ok(CATCH_CAVEAT_IDS.includes("consciousness"));
+    assert.ok(CATCH_CAVEAT_IDS.includes("next-question"));
+    assert.equal(CATCH_CAVEAT_IDS.length, 7);
   });
 });

@@ -14,6 +14,7 @@ import {
 } from "@/lib/iugr/preferences";
 import { EntryChrome } from "@/components/iugr/EntryChrome";
 import { ChapterPlaceholder } from "@/components/iugr/ChapterPlaceholder";
+import { ClosingChapter } from "@/components/iugr/ClosingChapter";
 import { CopyMachineChapter } from "@/components/iugr/CopyMachineChapter";
 import { ThreeDoorsChapter } from "@/components/iugr/ThreeDoorsChapter";
 import { AssumptionArcadeChapter } from "@/components/iugr/AssumptionArcadeChapter";
@@ -22,6 +23,7 @@ import { FieldNoteLibrary } from "@/components/iugr/FieldNoteLibrary";
 import { GuideSettings } from "@/components/iugr/GuideSettings";
 import { OpeningStage } from "@/components/iugr/OpeningStage";
 import { OriginalTownChapter } from "@/components/iugr/OriginalTownChapter";
+import { SourcesDrawer } from "@/components/iugr/SourcesDrawer";
 import { TheCatchChapter } from "@/components/iugr/TheCatchChapter";
 import type { DoorId } from "@/lib/iugr/threeDoors";
 import { markDoorExplored } from "@/lib/iugr/threeDoors";
@@ -29,10 +31,11 @@ import {
   DEFAULT_SCENARIO_ASSUMPTIONS,
   type ScenarioAssumptions,
 } from "@/lib/iugr/scenarioEngine";
-import {
-  markClaimScanned,
-  type EvidenceClaimId,
+import type {
+  ClaimClassId,
+  EvidenceClaimId,
 } from "@/lib/iugr/evidenceClaims";
+import type { CatchCaveatId } from "@/lib/iugr/theCatch";
 
 let memoryPrefs: IugrPreferences | null = null;
 const listeners = new Set<() => void>();
@@ -76,6 +79,7 @@ export function IugrShell() {
   );
   const [chapterId, setChapterId] = useState<ChapterId>("opening");
   const [guideOpen, setGuideOpen] = useState(false);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
   const [copiedTowns, setCopiedTowns] = useState(0);
   const [copyHasInteracted, setCopyHasInteracted] = useState(false);
   const [copyReachedNine, setCopyReachedNine] = useState(false);
@@ -84,9 +88,14 @@ export function IugrShell() {
   const [arcadeAssumptions, setArcadeAssumptions] = useState<ScenarioAssumptions>(
     DEFAULT_SCENARIO_ASSUMPTIONS,
   );
-  const [scannedClaimIds, setScannedClaimIds] = useState<EvidenceClaimId[]>([]);
+  const [classifiedClaims, setClassifiedClaims] = useState<
+    Partial<Record<EvidenceClaimId, ClaimClassId>>
+  >({});
   const [activeClaimId, setActiveClaimId] = useState<EvidenceClaimId | null>(
     null,
+  );
+  const [inspectedCaveatIds, setInspectedCaveatIds] = useState<CatchCaveatId[]>(
+    [],
   );
 
   useEffect(() => {
@@ -139,8 +148,10 @@ export function IugrShell() {
     setExploredDoors([]);
     setActiveDoorId(null);
     setArcadeAssumptions(DEFAULT_SCENARIO_ASSUMPTIONS);
-    setScannedClaimIds([]);
+    setClassifiedClaims({});
     setActiveClaimId(null);
+    setInspectedCaveatIds([]);
+    setSourcesOpen(false);
     updatePrefs((prev) => ({ ...prev, consciousnessPremise: null }));
   }, []);
 
@@ -157,6 +168,7 @@ export function IugrShell() {
           highContrast={prefs.highContrast}
           onNavigate={setChapterId}
           onOpenGuideSettings={() => setGuideOpen(true)}
+          onOpenSources={() => setSourcesOpen(true)}
           onRestart={restart}
           onToggleReducedMotion={() =>
             updatePrefs((p) => ({ ...p, reducedMotion: !p.reducedMotion }))
@@ -224,13 +236,13 @@ export function IugrShell() {
 
           {chapterId === "evidence-scanner" ? (
             <EvidenceScannerChapter
-              scannedClaimIds={scannedClaimIds}
+              classifiedClaims={classifiedClaims}
               activeClaimId={activeClaimId}
               onOpenClaim={(id) => setActiveClaimId(id)}
-              onCloseClaim={(id) => {
-                setScannedClaimIds((prev) => markClaimScanned(prev, id));
-                setActiveClaimId(null);
+              onClassifyClaim={(id, choice) => {
+                setClassifiedClaims((prev) => ({ ...prev, [id]: choice }));
               }}
+              onCloseClaim={() => setActiveClaimId(null)}
               onContinue={() => setChapterId("the-catch")}
               onBack={() => {
                 setActiveClaimId(null);
@@ -242,8 +254,23 @@ export function IugrShell() {
 
           {chapterId === "the-catch" ? (
             <TheCatchChapter
+              inspectedCaveatIds={inspectedCaveatIds}
+              onInspectCaveat={(id) => {
+                setInspectedCaveatIds((prev) =>
+                  prev.includes(id) ? prev : [...prev, id],
+                );
+              }}
               onContinue={() => setChapterId("closing")}
               onBack={() => setChapterId("evidence-scanner")}
+              reducedMotion={prefs.reducedMotion}
+            />
+          ) : null}
+
+          {chapterId === "closing" ? (
+            <ClosingChapter
+              onExploreCopyMachine={() => setChapterId("copy-machine")}
+              onOpenSources={() => setSourcesOpen(true)}
+              onBack={() => setChapterId("the-catch")}
             />
           ) : null}
 
@@ -253,7 +280,8 @@ export function IugrShell() {
           chapterId !== "three-doors" &&
           chapterId !== "assumption-arcade" &&
           chapterId !== "evidence-scanner" &&
-          chapterId !== "the-catch" ? (
+          chapterId !== "the-catch" &&
+          chapterId !== "closing" ? (
             <ChapterPlaceholder
               chapterId={chapterId}
               guideId={prefs.guideId}
@@ -273,6 +301,8 @@ export function IugrShell() {
         onSelectGuide={setGuideId}
         onDetailLevelChange={setDetailLevel}
       />
+
+      <SourcesDrawer open={sourcesOpen} onOpenChange={setSourcesOpen} />
     </div>
   );
 }
