@@ -131,12 +131,11 @@ export const COPY_MACHINE = {
   mathWorked2: "100 original residents + 900 copied residents = 1,000 total residents",
   mathWorked3: "900 / 1,000 = 90%",
   mathClose: "",
-  continueLabel: "Open the three doors",
+  continueLabel: "Meet the Three Doors",
   previousLabel: "Previous",
   machineAria: "Copy Machine controls",
   clusterAria: "Town tokens for this scenario",
-  countTransitionNote:
-    "The important part is not that copies are strange. It is that a large number of conscious copies changes the count.",
+  countTransitionNote: "",
 } as const;
 
 export const THREE_DOORS = {
