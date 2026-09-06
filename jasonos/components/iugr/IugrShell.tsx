@@ -114,13 +114,6 @@ export function IugrShell() {
     updatePrefs((prev) => ({ ...prev, guideId }));
   }, []);
 
-  const setDetailLevel = useCallback(
-    (detailLevel: IugrPreferences["detailLevel"]) => {
-      updatePrefs((prev) => ({ ...prev, detailLevel }));
-    },
-    [],
-  );
-
   const setConsciousnessPremise = useCallback(
     (consciousnessPremise: ConsciousnessPremise) => {
       updatePrefs((prev) => ({ ...prev, consciousnessPremise }));
@@ -297,9 +290,7 @@ export function IugrShell() {
         open={guideOpen}
         onOpenChange={setGuideOpen}
         guideId={prefs.guideId}
-        detailLevel={prefs.detailLevel}
         onSelectGuide={setGuideId}
-        onDetailLevelChange={setDetailLevel}
       />
 
       <SourcesDrawer open={sourcesOpen} onOpenChange={setSourcesOpen} />

@@ -41,7 +41,6 @@ export function OriginalTownChapter({
       />
 
       <div className="iugr-guide-lines">
-        <p>{ORIGINAL_TOWN.guideLine1}</p>
         <p>{ORIGINAL_TOWN.guideLine2}</p>
       </div>
 

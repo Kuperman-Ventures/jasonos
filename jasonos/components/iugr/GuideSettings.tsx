@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import type { DetailLevel, GuideId } from "@/lib/iugr/types";
+import type { GuideId } from "@/lib/iugr/types";
 import { GUIDE_ORDER, getGuide } from "@/lib/iugr/guides";
 import { GUIDE_SETTINGS } from "@/lib/iugr/copy";
 import { GuideSigil } from "@/components/iugr/GuideSigil";
@@ -10,18 +10,14 @@ type GuideSettingsProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   guideId: GuideId;
-  detailLevel: DetailLevel;
   onSelectGuide: (id: GuideId) => void;
-  onDetailLevelChange: (level: DetailLevel) => void;
 };
 
 export function GuideSettings({
   open,
   onOpenChange,
   guideId,
-  detailLevel,
   onSelectGuide,
-  onDetailLevelChange,
 }: GuideSettingsProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -101,30 +97,6 @@ export function GuideSettings({
           {lockedNote}
         </p>
       ) : null}
-
-      <div style={{ marginTop: "1.15rem" }}>
-        <div className="iugr-label" style={{ display: "inline-flex" }}>
-          {GUIDE_SETTINGS.detailLabel}
-        </div>
-        <div
-          className="iugr-segmented"
-          role="radiogroup"
-          aria-label={GUIDE_SETTINGS.detailLabel}
-        >
-          {GUIDE_SETTINGS.detailOptions.map((option) => (
-            <button
-              key={option.id}
-              type="button"
-              role="radio"
-              aria-checked={detailLevel === option.id}
-              data-selected={detailLevel === option.id}
-              onClick={() => onDetailLevelChange(option.id)}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      </div>
 
       <p className="iugr-note">{GUIDE_SETTINGS.voicesNote}</p>
 

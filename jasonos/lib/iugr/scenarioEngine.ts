@@ -48,7 +48,7 @@ export const DEFAULT_SCENARIO_ASSUMPTIONS: ScenarioAssumptions = {
 export const SCENARIO_CATEGORY_LABELS: Record<ScenarioCategory, string> = {
   "copies-stay-rare": "Copies probably stay rare in this scenario.",
   "mixed-or-uncertain":
-    "Original and copied observers could be similarly common—or the scenario is too uncertain to count cleanly.",
+    "Original and copied observers could be similarly common, or the scenario is too uncertain to count cleanly.",
   "copies-could-outnumber":
     "Copied observers could outnumber original observers in this scenario.",
   "observer-count-breaks": "The observer count may not work in this scenario.",
@@ -59,13 +59,13 @@ const EXPLANATIONS: Record<ScenarioCategory, string> = {
   "copies-stay-rare":
     "Under these assumptions, the conditions needed for huge numbers of conscious copies do not line up. Copied observers would probably stay rare in this scenario.",
   "observer-count-breaks":
-    "You selected that simulated minds do not have inner experience. If that is true, copied residents may not belong in the observer count at all—so the central counting step cannot get started.",
+    "You selected that simulated minds do not have inner experience. If that is true, copied residents may not belong in the observer count at all, so the central counting step cannot get started.",
   "too-uncertain-to-count":
     "You marked a key premise as unknown. That is honest: without knowing whether simulations can contain conscious minds, the counting argument cannot produce a clean conclusion.",
   "mixed-or-uncertain":
-    "Some conditions support many copies, while others limit them. In this scenario, original and copied observers might be similarly common—or the unknowns may prevent a clean count.",
+    "Some conditions support many copies, while others limit them. In this scenario, original and copied observers might be similarly common, or the unknowns may prevent a clean count.",
   "copies-could-outnumber":
-    "Under this particular high-scale scenario, conscious copied observers could outnumber original observers. That is the condition that gives the simulation argument its force—not proof that this condition exists in reality.",
+    "Under this particular high-scale scenario, conscious copied observers could outnumber original observers. That is the condition that gives the simulation argument its force, not proof that this condition exists in reality.",
 };
 
 function isClearlyLowScale(a: ScenarioAssumptions): boolean {
@@ -156,7 +156,7 @@ function reasoningLines(
 
   if (category === "observer-count-breaks") {
     lines.push(
-      "If copied minds lack inner experience, they may not belong in an observer count—so the Copy Machine’s arithmetic cannot carry the philosophical argument.",
+      "If copied minds lack inner experience, they may not belong in an observer count, so the Copy Machine’s arithmetic cannot carry the philosophical argument.",
     );
   } else if (category === "too-uncertain-to-count") {
     lines.push(
@@ -168,7 +168,7 @@ function reasoningLines(
     );
   } else if (category === "copies-could-outnumber") {
     lines.push(
-      "Only when reach, consciousness, compute, motivation, and detail all lean high does the “copies could outnumber originals” branch open—and even then it remains a conditional scenario, not a finding.",
+      "Only when reach, consciousness, compute, motivation, and detail all lean high does the “copies could outnumber originals” branch open, and even then it remains a conditional scenario, not a finding.",
     );
   } else {
     lines.push(

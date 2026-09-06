@@ -85,7 +85,7 @@ export const EVIDENCE_CLAIMS: EvidenceClaim[] = [
     claim: "Many conscious historical simulations exist.",
     correctClass: "assumption",
     explanation:
-      "This is the large premise that would make the counting argument powerful—if it were true.",
+      "This is the large premise that would make the counting argument powerful if it were true.",
   },
 ];
 
@@ -115,7 +115,7 @@ export const EVIDENCE_SCANNER = {
   bridgeFromArcade:
     "You have now met the assumptions. Next, let’s inspect some things people often mistake for evidence.",
   instruction:
-    "Classify each claim. There is no timer and no score—only a clearer sense of evidence versus assumption.",
+    "Classify each claim. There is no timer and no score. Only a clearer sense of evidence versus assumption.",
   progressLabel: "Claims classified",
   classifyPrompt: "How would you classify this claim?",
   correctLabel: "Correct classification",
@@ -130,8 +130,7 @@ export const EVIDENCE_SCANNER = {
   synthesisBody:
     "A strange idea can be interesting without becoming evidence.",
   synthesisNote:
-    "The simulation argument gets its force from assumptions about copies and consciousness—not from having caught reality buffering.",
-  continueHint: "Classify every claim to continue.",
+    "The simulation argument gets its force from assumptions about copies and consciousness, not from having caught reality buffering.",
   continueLabel: "Meet the Catch",
   previousLabel: "Previous",
   listAria: "Claims to classify",

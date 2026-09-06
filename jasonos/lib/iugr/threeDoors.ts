@@ -34,14 +34,14 @@ export const THREE_DOORS_DATA: Record<DoorId, DoorDefinition> = {
     label: "DOOR 1",
     title: "The Road Ends Early",
     concept:
-      "Maybe civilizations rarely survive long enough—or develop enough capability—to make enormous numbers of detailed conscious simulations.",
+      "Maybe civilizations rarely survive long enough, or develop enough capability, to make enormous numbers of detailed conscious simulations.",
     support:
       "They might collapse, stop advancing, choose another path, or find that the needed technology is much harder than expected.",
     aside: "Civilization is a remarkably difficult group project.",
     takeaway:
       "If almost nobody gets that far, there may be few or no ancestor-style simulations to count.",
     fieldNote:
-      "This door covers extinction, stagnation, and “too hard” futures. It does not claim any of those outcomes are guaranteed—only that if they are common, the later counting argument never starts.",
+      "This door covers extinction, stagnation, and “too hard” futures. It does not claim any of those outcomes are guaranteed. Only that if they are common, the later counting argument never starts.",
     accentVar: "--iugr-door-1",
   },
   "archive-closed": {
@@ -58,7 +58,7 @@ export const THREE_DOORS_DATA: Record<DoorId, DoorDefinition> = {
     takeaway:
       "If future people rarely run these simulations, copied observers may remain rare.",
     fieldNote:
-      "Capability is not the same as appetite. A closed archive can be a choice, a law, a cost, or a shrug—not a prison.",
+      "Capability is not the same as appetite. A closed archive can be a choice, a law, a cost, or a shrug. Not a prison.",
     accentVar: "--iugr-door-2",
   },
   "copy-warehouse": {
@@ -77,7 +77,7 @@ export const THREE_DOORS_DATA: Record<DoorId, DoorDefinition> = {
     caveat:
       "This door depends on big unanswered assumptions: that conscious simulated minds are possible, that the simulations are affordable, and that future people would choose to make many.",
     fieldNote:
-      "Door 3 is not a prediction. It is the branch of the argument where the Original Town counting story would matter—if those assumptions hold.",
+      "Door 3 is not a prediction. It is the branch of the argument where the Original Town counting story would matter if those assumptions hold.",
     accentVar: "--iugr-door-3",
   },
 };

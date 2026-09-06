@@ -1,6 +1,5 @@
 import type {
   ConsciousnessPremise,
-  DetailLevel,
   GuideId,
   IugrPreferences,
 } from "./types";
@@ -10,7 +9,6 @@ const STORAGE_KEY = "iugr:preferences:v1";
 
 export const DEFAULT_PREFERENCES: IugrPreferences = {
   guideId: DEFAULT_GUIDE_ID,
-  detailLevel: "balanced",
   reducedMotion: false,
   highContrast: false,
   consciousnessPremise: null,
@@ -18,10 +16,6 @@ export const DEFAULT_PREFERENCES: IugrPreferences = {
 
 function isGuideId(value: unknown): value is GuideId {
   return value === "guide" || value === "mira" || value === "dr-maybe";
-}
-
-function isDetailLevel(value: unknown): value is DetailLevel {
-  return value === "story" || value === "balanced" || value === "machinery";
 }
 
 function isConsciousnessPremise(
@@ -42,9 +36,6 @@ export function readPreferences(): IugrPreferences {
         isGuideId(parsed.guideId) && parsed.guideId === "guide"
           ? parsed.guideId
           : DEFAULT_GUIDE_ID,
-      detailLevel: isDetailLevel(parsed.detailLevel)
-        ? parsed.detailLevel
-        : DEFAULT_PREFERENCES.detailLevel,
       reducedMotion:
         typeof parsed.reducedMotion === "boolean"
           ? parsed.reducedMotion

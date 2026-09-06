@@ -2,8 +2,6 @@ export type GuideId = "guide" | "mira" | "dr-maybe";
 
 export type GuideStatus = "available" | "coming-soon";
 
-export type DetailLevel = "story" | "balanced" | "machinery";
-
 export type ChapterId =
   | "opening"
   | "original-town"
@@ -66,7 +64,6 @@ export type ConsciousnessPremise = "yes" | "unsure" | "no";
 
 export type IugrPreferences = {
   guideId: GuideId;
-  detailLevel: DetailLevel;
   reducedMotion: boolean;
   highContrast: boolean;
   /** Persisted for later chapters that count copies. null = not yet chosen. */

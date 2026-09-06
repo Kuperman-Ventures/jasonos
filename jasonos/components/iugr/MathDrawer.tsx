@@ -43,7 +43,6 @@ export function MathDrawer({ open, onClose, census }: MathDrawerProps) {
         </div>
 
         <p className="iugr-math-plain">{COPY_MACHINE.mathPlain}</p>
-        <p className="iugr-math-disclaimer">{COPY_MACHINE.mathFormulaNote}</p>
 
         <div className="iugr-math-block" aria-live="polite">
           <p className="iugr-label">{COPY_MACHINE.mathCurrentLabel}</p>

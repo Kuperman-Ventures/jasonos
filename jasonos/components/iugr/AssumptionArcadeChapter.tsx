@@ -191,8 +191,6 @@ export function AssumptionArcadeChapter({
       <p className="iugr-body">{ASSUMPTION_ARCADE.welcomeAside}</p>
       <p className="iugr-body">{ASSUMPTION_ARCADE.bridgeFromDoors}</p>
 
-      <p className="iugr-arcade-controls-label">{ASSUMPTION_ARCADE.controlsLabel}</p>
-
       <div
         className="iugr-arcade-console"
         aria-label={ASSUMPTION_ARCADE.consoleAria}
@@ -244,10 +242,6 @@ export function AssumptionArcadeChapter({
             {evaluation.explanation}
           </p>
 
-          <p className="iugr-arcade-disclaimer" role="note">
-            {ASSUMPTION_ARCADE.disclaimer}
-          </p>
-
           <div className="iugr-arcade-work">
             <h3>{ASSUMPTION_ARCADE.whatDidTheWorkTitle}</h3>
             <ul>
@@ -269,16 +263,6 @@ export function AssumptionArcadeChapter({
           <p className="iugr-arcade-try">{ASSUMPTION_ARCADE.tryAnother}</p>
         </aside>
       </div>
-
-      <details className="iugr-arcade-whycant">
-        <summary>{ASSUMPTION_ARCADE.whyCantTitle}</summary>
-        <p>{ASSUMPTION_ARCADE.whyCantBody}</p>
-        <ul>
-          {ASSUMPTION_ARCADE.whyCantBullets.map((bullet) => (
-            <li key={bullet}>{bullet}</li>
-          ))}
-        </ul>
-      </details>
 
       <p className="iugr-body">{ASSUMPTION_ARCADE.bridgeNext}</p>
 

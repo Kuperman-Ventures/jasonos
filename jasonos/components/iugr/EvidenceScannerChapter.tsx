@@ -44,6 +44,11 @@ function ClaimCard({
       onClick={onOpen}
       aria-label={`${claim.claim} ${classified ? EVIDENCE_SCANNER.doneBadge : EVIDENCE_SCANNER.openBadge}.`}
     >
+      {classified ? (
+        <span className="iugr-card-done" aria-hidden>
+          <span className="iugr-card-done-check">✓</span>
+        </span>
+      ) : null}
       <span className="iugr-claim-card-copy">
         <span className="iugr-claim-card-text">{claim.claim}</span>
         <span className="iugr-claim-card-status">
@@ -280,19 +285,13 @@ export function EvidenceScannerChapter({
         >
           {EVIDENCE_SCANNER.previousLabel}
         </button>
-        {complete ? (
-          <button
-            type="button"
-            className="iugr-btn iugr-btn-primary"
-            onClick={onContinue}
-          >
-            {EVIDENCE_SCANNER.continueLabel}
-          </button>
-        ) : (
-          <p className="iugr-scanner-continue-hint">
-            {EVIDENCE_SCANNER.continueHint}
-          </p>
-        )}
+        <button
+          type="button"
+          className="iugr-btn iugr-btn-primary"
+          onClick={onContinue}
+        >
+          {EVIDENCE_SCANNER.continueLabel}
+        </button>
       </div>
     </section>
   );

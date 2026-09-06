@@ -61,27 +61,14 @@ export const ASSUMPTION_ARCADE = {
   title: "Assumption Arcade",
   welcome: "Welcome to the Assumption Arcade.",
   welcomeAside:
-    "No arcade tokens required—only opinions about the distant future, consciousness, and rather a lot of imaginary computing power.",
+    "No arcade tokens required. Only opinions about the distant future, consciousness, and rather a lot of imaginary computing power.",
   bridgeFromDoors:
-    "The Copy Machine showed what happens if copies become numerous. The Three Doors showed why that might never happen. Now you can adjust the assumptions—not to solve reality, but to see which assumptions do the work.",
-  controlsLabel: "Scenario controls — not measurements of our universe.",
+    "The Copy Machine showed what happens if copies become numerous. The Three Doors showed why that might never happen. Now you can adjust the assumptions. Not to solve reality, but to see which assumptions do the work.",
   outcomeTitle: "Scenario Field Note",
-  disclaimer:
-    "This does not measure our universe. It shows what follows if these assumptions were true.",
   whatDidTheWorkTitle: "What did the work?",
   showReasoning: "Show the reasoning",
   hideReasoning: "Hide the reasoning",
-  tryAnother: "Try a different scenario — change any control above.",
-  whyCantTitle: "Why can’t this console answer the big question?",
-  whyCantBody:
-    "Because we do not know the real values for these settings. This console shows how assumptions affect an argument; it does not measure our universe.",
-  whyCantBullets: [
-    "We do not know whether simulated minds can be conscious.",
-    "We do not know whether advanced civilizations exist or survive.",
-    "We do not know what they would choose to simulate.",
-    "We do not know the cost of running detailed worlds.",
-    "We do not know exactly which observers should belong in the count.",
-  ] as const,
+  tryAnother: "Try a different scenario. Change any control above.",
   bridgeNext:
     "You have now met the assumptions. Next, let’s inspect some things people often mistake for evidence.",
   continueLabel: "Scan the Claims",
@@ -109,7 +96,7 @@ export const ARCADE_CONTROLS: ArcadeControlDef[] = [
     id: "consciousness",
     title: "Can a simulated mind have an inner life?",
     explanation:
-      "Would a very advanced simulation create someone who truly experiences thoughts and feelings—or only something that behaves as if it does?",
+      "Would a very advanced simulation create someone who truly experiences thoughts and feelings, or only something that behaves as if it does?",
     whyItMatters:
       "The copy-counting argument works only if copied beings count as conscious observers.",
     aside: "Convincing behavior and actual experience are annoyingly hard to separate.",

@@ -145,7 +145,10 @@
   border-bottom: 1px solid var(--iugr-border);
 }
 
-.iugr-chrome-center { justify-self: center; }
+.iugr-chrome-center {
+  justify-self: center;
+  min-width: 0;
+}
 
 .iugr-chrome-right {
   justify-self: end;
@@ -168,17 +171,11 @@
   font-size: var(--iugr-text-xs);
   letter-spacing: 0.03em;
   cursor: pointer;
-  max-width: min(100%, 18rem);
+  max-width: 100%;
 }
 
 .iugr-pill-text {
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.iugr-pill-text-short {
-  display: none;
 }
 
 .iugr-pill:hover,
@@ -661,28 +658,37 @@
 
 @media (max-width: 719px) {
   .iugr-chrome {
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
   }
   .iugr-mark-sub { display: none; }
   .iugr-pill {
-    padding: 0.28rem 0.55rem;
-    font-size: 0.7rem;
-    letter-spacing: 0.02em;
-    gap: 0.3rem;
+    padding: 0.22rem 0.45rem;
+    font-size: 0.64rem;
+    letter-spacing: 0.015em;
+    gap: 0.25rem;
+    min-height: 36px;
   }
 }
 
-/* Keep a readable status label down to 320px; never collapse to a bare dot. */
-@media (max-width: 380px) {
+/* Keep the full label visible down to 320px. Shrink type and padding. Never hide the text. */
+@media (max-width: 420px) {
   .iugr-pill {
-    padding: 0.26rem 0.5rem;
-    font-size: 0.68rem;
+    padding: 0.16rem 0.34rem;
+    font-size: 0.56rem;
+    letter-spacing: 0.01em;
+    gap: 0.2rem;
+    min-height: 32px;
   }
-  .iugr-pill-text-full {
-    display: none;
+  .iugr-pill-text {
+    line-height: 1.15;
   }
-  .iugr-pill-text-short {
-    display: inline;
+}
+
+@media (max-width: 340px) {
+  .iugr-pill {
+    padding: 0.12rem 0.28rem;
+    font-size: 0.5rem;
+    min-height: 28px;
   }
 }
 
@@ -1862,13 +1868,12 @@ body:has(.iugr-root) main.flex-1 {
 }
 
 .iugr-door-card.is-explored {
-  border-style: solid;
-  border-color: color-mix(in srgb, var(--iugr-door-accent, var(--iugr-accent)) 70%, var(--iugr-border-strong));
-}
-
-.iugr-door-card.is-explored::after {
-  content: "";
-  position: absolute;
+  border-style: double;
+  border-width: 3px;
+  border-color: var(--iugr-accent);
+  box-shadow: inset 5px 0 0 var(--iugr-accent);
+  padding-left: 1.15rem;
+  padding-right: 2.4rem;
 }
 
 .iugr-door-card {
@@ -2451,6 +2456,7 @@ body:has(.iugr-root) main.flex-1 {
 }
 
 .iugr-claim-card {
+  position: relative;
   display: grid;
   gap: 0.45rem;
   min-width: 0;
@@ -2473,7 +2479,33 @@ body:has(.iugr-root) main.flex-1 {
 }
 
 .iugr-claim-card.is-scanned {
-  border-color: color-mix(in srgb, var(--iugr-accent) 65%, var(--iugr-border-strong));
+  border-style: double;
+  border-width: 3px;
+  border-color: var(--iugr-accent);
+  box-shadow: inset 5px 0 0 var(--iugr-accent);
+  padding-left: 1.2rem;
+  padding-right: 2.5rem;
+}
+
+.iugr-card-done {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 999px;
+  border: 2px solid var(--iugr-accent);
+  background: var(--iugr-ink);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 0 2px var(--iugr-ink);
+}
+
+.iugr-card-done-check {
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--iugr-accent);
 }
 
 .iugr-claim-card-copy {

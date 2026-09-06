@@ -9,10 +9,10 @@ export const SERIES = {
 } as const;
 
 export const EPISTEMIC = {
-  pill: "Thought experiment · not proof",
+  pill: "A thought experiment",
   dialogTitle: "About this entry",
   dialogBody:
-    "This entry explains a philosophical argument. It does not present evidence that our universe is simulated.",
+    "This entry walks through a philosophical argument step by step. It is an argument, not evidence about our universe.",
 } as const;
 
 export const GUIDE_SETTINGS = {
@@ -20,12 +20,6 @@ export const GUIDE_SETTINGS = {
   subheading: "Different guides, same inconveniently large questions.",
   voicesNote:
     "Guide voices alter the route’s commentary, not the underlying claims.",
-  detailLabel: "Detail level",
-  detailOptions: [
-    { id: "story" as const, label: "Story first" },
-    { id: "balanced" as const, label: "Balanced" },
-    { id: "machinery" as const, label: "Show me the machinery" },
-  ],
 } as const;
 
 export const OVERFLOW = {
@@ -39,7 +33,7 @@ export function stageAside(guideId: GuideId): string {
   return guideLine(guideId, {
     guide:
       "Stay with the argument. Curiosity is allowed. Certainty is on a short leash.",
-    mira: "Pack light. Ask loud questions. Leave the footnotes for later — for now.",
+    mira: "Pack light. Ask loud questions. Leave the footnotes for later. For now.",
     "dr-maybe":
       "Interesting claim. Let us see what it needs before we believe it.",
   });
@@ -58,10 +52,8 @@ export const OPENING = {
 } as const;
 
 export const ORIGINAL_TOWN = {
-  guideLine1:
-    "Original Town is not supposed to be Earth. It is a smaller, friendlier place to test a very large idea.",
   guideLine2:
-    "For the next few minutes, these residents stand in for people who have memories, choices, feelings, and—when necessary—sandwich preferences.",
+    "For the next few minutes, these residents stand in for people who have memories, choices, feelings, and - when necessary - sandwich preferences.",
   statusLine:
     "In this starting scenario, every resident is in the original town.",
   countWorlds: "Worlds",
@@ -71,10 +63,10 @@ export const ORIGINAL_TOWN = {
   machineLabel: "Copy Machine · dormant",
   machineHint: "Unavailable for now. It is waiting its turn.",
   consciousnessQuestion:
-    "If a machine made a perfect copy of this town—including every person’s memories, thoughts, and sandwich preferences—would the copied people count as people?",
+    "If a machine made a perfect copy of this town - including every person’s memories, thoughts, and sandwich preferences - would the copied people count as people?",
   choiceYes: "Yes, for this thought experiment",
   choiceUnsure: "I’m not sure",
-  choiceNo: "No—tell me why that matters",
+  choiceNo: "No. Tell me why that matters",
   ackYes:
     "All right. In the next section, we will count those copies as conscious residents.",
   ackUnsure:
@@ -91,7 +83,7 @@ export const ORIGINAL_TOWN = {
   fieldNotePlain:
     "In ordinary language: could a mind work in a different kind of material, if its thinking and experience were organized the right way?",
   fieldNoteCaveat:
-    "This is an unresolved question — not settled science. We treat it carefully.",
+    "This is an unresolved question, not settled science. We treat it carefully.",
   previousLabel: "Previous",
 } as const;
 
@@ -100,8 +92,6 @@ export const COPY_MACHINE = {
   title: "The Copy Machine",
   guideIntro:
     "The machine does one thing extremely well: it turns an innocent question into an increasingly large accounting problem.",
-  disclaimer:
-    "This sandbox is a made-up town experiment. It is not a probability estimate for our universe.",
   sliderLabel: "Copied towns",
   snapHints: "Try 0, 1, 9, 99, or 999",
   resetLabel: "Reset",
@@ -115,9 +105,6 @@ export const COPY_MACHINE = {
   fractionTitle: "Share of residents in copied towns",
   legendOriginal: "Original",
   legendCopied: "Copied",
-  whyAssumption: "Why this assumption matters",
-  whyAssumptionBody:
-    "The counting story only carries philosophical weight if the copied residents have real inner experience. If they are only convincing puppets, they may not belong in this observer count at all.",
   caveatYes: null,
   caveatUnsure:
     "This counting exercise assumes the copies have inner experience. You marked that as uncertain.",
@@ -126,7 +113,7 @@ export const COPY_MACHINE = {
   anthropicReveal:
     "This is the counting intuition behind a philosophical idea sometimes called anthropic reasoning.",
   anthropicDefinition:
-    "It means using the kind of observer you are—someone with experiences like yours—as part of a counting argument.",
+    "It means using the kind of observer you are - someone with experiences like yours - as part of a counting argument.",
   showMath: "Show me the math",
   hideMath: "Hide the math",
   mathPlain:
@@ -134,8 +121,6 @@ export const COPY_MACHINE = {
   mathCurrentLabel: "Current arithmetic",
   mathGeneralLabel: "General formula for this example",
   mathSimplifiedLabel: "Because every town has 100 people, this simplifies to",
-  mathFormulaNote:
-    "Illustrative math for this town scenario—not a measurement of our universe.",
   mathWorkedTitle: "Worked example · 9 copies",
   mathWorked1: "9 copied towns × 100 people = 900 copied residents",
   mathWorked2: "100 original residents + 900 copied residents = 1,000 total residents",
