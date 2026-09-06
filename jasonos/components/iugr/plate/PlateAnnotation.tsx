@@ -1,3 +1,7 @@
+"use client";
+
+import { useLayoutEffect, useRef, useState } from "react";
+
 export type PlateAnnotationPoint = {
   x: number;
   y: number;
@@ -5,35 +9,76 @@ export type PlateAnnotationPoint = {
 
 export type PlateAnnotationProps = {
   text: string;
-  anchor: PlateAnnotationPoint;
-  label: PlateAnnotationPoint;
+  /**
+   * Opt-in leader-line form. Without this, the annotation renders as a
+   * plate caption (below the frame, no leader).
+   */
+  pointer?: {
+    anchor: PlateAnnotationPoint;
+    label: PlateAnnotationPoint;
+  };
   className?: string;
 };
 
-const MAX_LEADER_PCT = 25;
+const MAX_LEADER_PX = 40;
+const MAX_POINTER_WORDS = 3;
 const EDGE_PAD_PCT = 6;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+function wordCount(text: string): number {
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+}
+
 /**
- * Field-guide labelling convention: short hairline leader, cream anchor
- * dot, real text. Coordinates are percentages of the positioned parent
- * (0–100). Leaders are capped at 25% of the plate width so they stay local.
+ * Field-guide labelling.
+ * Default: caption — below the plate, full width, left aligned, no leader.
+ * Opt-in pointer: short local leader (≤40px), mono uppercase label of three
+ * words or fewer. Returns null when the pointer label is too long.
  */
 export function PlateAnnotation({
   text,
-  anchor,
-  label,
+  pointer,
   className,
 }: PlateAnnotationProps) {
-  const dx = label.x - anchor.x;
-  const dy = label.y - anchor.y;
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [maxLeaderPct, setMaxLeaderPct] = useState(12);
+
+  useLayoutEffect(() => {
+    if (!pointer || !rootRef.current) return;
+    const width = rootRef.current.clientWidth;
+    if (width > 0) {
+      setMaxLeaderPct((MAX_LEADER_PX / width) * 100);
+    }
+  }, [pointer]);
+
+  if (!pointer) {
+    return (
+      <p
+        className={["iugr-plate-annotation", "is-caption", className]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        {text}
+      </p>
+    );
+  }
+
+  if (wordCount(text) > MAX_POINTER_WORDS) {
+    return null;
+  }
+
+  const dx = pointer.label.x - pointer.anchor.x;
+  const dy = pointer.label.y - pointer.anchor.y;
   const distance = Math.hypot(dx, dy);
-  const scale = distance > MAX_LEADER_PCT ? MAX_LEADER_PCT / distance : 1;
-  const endX = anchor.x + dx * scale;
-  const endY = anchor.y + dy * scale;
+  const scale = distance > maxLeaderPct ? maxLeaderPct / distance : 1;
+  const endX = pointer.anchor.x + dx * scale;
+  const endY = pointer.anchor.y + dy * scale;
   const textX = clamp(endX, EDGE_PAD_PCT, 100 - EDGE_PAD_PCT);
   const textY = clamp(endY, EDGE_PAD_PCT, 100 - EDGE_PAD_PCT);
   const align =
@@ -41,7 +86,10 @@ export function PlateAnnotation({
 
   return (
     <div
-      className={["iugr-plate-annotation", className].filter(Boolean).join(" ")}
+      ref={rootRef}
+      className={["iugr-plate-annotation", "is-pointer", className]
+        .filter(Boolean)
+        .join(" ")}
     >
       <svg
         className="iugr-plate-annotation-lead"
@@ -50,13 +98,13 @@ export function PlateAnnotation({
         aria-hidden
       >
         <line
-          x1={anchor.x}
-          y1={anchor.y}
+          x1={pointer.anchor.x}
+          y1={pointer.anchor.y}
           x2={endX}
           y2={endY}
           vectorEffect="non-scaling-stroke"
         />
-        <circle cx={anchor.x} cy={anchor.y} r="1.1" />
+        <circle cx={pointer.anchor.x} cy={pointer.anchor.y} r="1.1" />
       </svg>
       <p
         className="iugr-plate-annotation-text"

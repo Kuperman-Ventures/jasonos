@@ -81,6 +81,10 @@ export const ORIGINAL_TOWN = {
   tapHint: "Tap a figure to choose yourself.",
   plateLabel: "Original Town",
   copyPlateLabel: "Copied Town",
+  plateCaption:
+    "Original Town. Each figure stands for 10 people. 100 residents.",
+  copyPlateCaption:
+    "Copied town. 100 residents. One of them is also you.",
   reactionYesAnnounce:
     "A second town appears. The copies look as real as the first, including you.",
   reactionUnsureAnnounce:
