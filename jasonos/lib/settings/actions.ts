@@ -177,6 +177,14 @@ export async function testServiceConnection(
         cache: "no-store",
         signal: controller.signal,
       }).finally(() => clearTimeout(timer));
+      if (res.status === 401 || res.status === 403) {
+        return {
+          success: false,
+          message:
+            "Beeper token expired. In Beeper Desktop → Settings → Integrations → Approved connections, create a new token, paste it here, then Test Connection.",
+          health_status: "down",
+        };
+      }
       if (!res.ok) {
         return {
           success: false,
