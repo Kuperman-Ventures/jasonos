@@ -23,11 +23,16 @@ export function EpistemicStatus() {
         className="iugr-pill"
         aria-haspopup="dialog"
         aria-expanded={open}
+        aria-label={EPISTEMIC.pill}
         onClick={() => setOpen(true)}
       >
         <span className="iugr-pill-dot" aria-hidden />
-        <span className="iugr-pill-text">{EPISTEMIC.pill}</span>
-        <span className="sr-only">About the status of this entry</span>
+        <span className="iugr-pill-text iugr-pill-text-full" aria-hidden>
+          {EPISTEMIC.pill}
+        </span>
+        <span className="iugr-pill-text iugr-pill-text-short" aria-hidden>
+          Not proof
+        </span>
       </button>
 
       <dialog

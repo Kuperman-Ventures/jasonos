@@ -158,16 +158,27 @@
 .iugr-pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.35rem;
   min-height: 44px;
-  padding: 0.35rem 0.85rem;
+  padding: 0.3rem 0.75rem;
   border-radius: var(--iugr-radius-pill);
   border: 1px solid var(--iugr-border-strong);
   background: var(--iugr-paper-soft);
   color: var(--iugr-cream);
   font-size: var(--iugr-text-xs);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   cursor: pointer;
+  max-width: min(100%, 18rem);
+}
+
+.iugr-pill-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.iugr-pill-text-short {
+  display: none;
 }
 
 .iugr-pill:hover,
@@ -653,8 +664,26 @@
     grid-template-columns: auto 1fr auto;
   }
   .iugr-mark-sub { display: none; }
-  .iugr-pill-text { display: none; }
-  .iugr-pill { padding-inline: 0.7rem; }
+  .iugr-pill {
+    padding: 0.28rem 0.55rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.02em;
+    gap: 0.3rem;
+  }
+}
+
+/* Keep a readable status label down to 320px; never collapse to a bare dot. */
+@media (max-width: 380px) {
+  .iugr-pill {
+    padding: 0.26rem 0.5rem;
+    font-size: 0.68rem;
+  }
+  .iugr-pill-text-full {
+    display: none;
+  }
+  .iugr-pill-text-short {
+    display: inline;
+  }
 }
 
 /* When IUGR is active, collapse the JasonOS main chrome spacing. */
@@ -1051,7 +1080,7 @@ body:has(.iugr-root) main.flex-1 {
 
 @media (min-width: 900px) {
   .iugr-copy-stage {
-    grid-template-columns: minmax(0, 0.7fr) minmax(0, 1.3fr) minmax(0, 0.9fr);
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.6fr);
     align-items: start;
   }
 }
@@ -1173,11 +1202,12 @@ body:has(.iugr-root) main.flex-1 {
   gap: 0.5rem;
 }
 
-.iugr-copy-cluster {
+.iugr-copy-field-row {
   display: grid;
-  align-content: start;
   min-width: 0;
-  padding: 0.55rem 0.65rem 0.6rem;
+  width: 100%;
+  margin: 0.35rem 0 0.6rem;
+  padding: 0.7rem 0.8rem 0.75rem;
   border-radius: var(--iugr-radius-lg);
   border: 1px solid var(--iugr-border);
   background: rgba(7, 11, 22, 0.35);
@@ -1292,16 +1322,27 @@ body:has(.iugr-root) main.flex-1 {
 .iugr-copy-field-thousand {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.5rem;
+  gap: 0.65rem;
   align-items: center;
   min-width: 0;
+  width: 100%;
+  min-height: 5rem; /* 80px */
+  max-height: 8.125rem; /* 130px */
+  height: clamp(5rem, 16vw, 8.125rem);
+}
+
+.iugr-copy-field.is-thousand .iugr-copy-field-body {
+  min-height: 5rem;
+  max-height: 8.125rem;
+  height: clamp(5rem, 16vw, 8.125rem);
 }
 
 .iugr-copy-field-orbit {
   width: 100%;
-  max-width: 14rem;
-  height: auto;
-  max-height: 4.5rem;
+  max-width: none;
+  height: 100%;
+  min-height: 5rem;
+  max-height: 8.125rem;
   display: block;
 }
 
@@ -1337,14 +1378,17 @@ body:has(.iugr-root) main.flex-1 {
 
 @media (max-width: 374px) {
   .iugr-copy-field-body {
-    max-height: 7.1rem;
+    max-height: 8.125rem;
   }
   .iugr-copy-field-thousand {
-    grid-template-columns: 1fr;
-    justify-items: start;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.45rem;
   }
   .iugr-copy-field-badge {
-    justify-self: start;
+    justify-self: end;
+    white-space: normal;
+    text-align: right;
+    max-width: 6.5rem;
   }
 }
 
@@ -1497,6 +1541,36 @@ body:has(.iugr-root) main.flex-1 {
   aspect-ratio: 1;
   border-radius: 2px;
   border: 1px solid transparent;
+}
+
+.iugr-fraction-bar {
+  display: flex;
+  width: 100%;
+  height: 0.9rem;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--iugr-border);
+  background: rgba(7, 11, 22, 0.45);
+}
+
+.iugr-fraction-bar-original {
+  height: 100%;
+  background: var(--iugr-accent);
+  min-width: 2px;
+}
+
+.iugr-fraction-bar-copy {
+  height: 100%;
+  background: var(--iugr-copy-fill);
+  min-width: 0;
+}
+
+.iugr-fraction-bar-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--iugr-cream-muted);
+  font-size: var(--iugr-text-sm);
 }
 
 .iugr-fraction-thousand-bar {
@@ -2114,6 +2188,8 @@ body:has(.iugr-root) main.flex-1 {
   font-size: 0.98rem;
   font-weight: 650;
   color: var(--iugr-cream);
+
+  margin: 0;
 }
 
 .iugr-arcade-control-explain {
