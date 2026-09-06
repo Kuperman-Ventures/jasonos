@@ -68,15 +68,19 @@ export const ORIGINAL_TOWN = {
   ackNo: "Then the copies are scenery. Watch what that does to the count.",
   continueLabel: "Start the machine",
   previousLabel: "Previous",
-  statusLine:
-    "In this starting scenario, every resident is in the original town.",
+  statusBefore: "Every resident is in the original town.",
+  statusYes: "Two towns, two hundred residents. Two of them are you.",
+  statusUnsure:
+    "A second town exists. Whether its residents are people is unsettled.",
+  statusNo: "A second town exists. Its residents are not counted as people.",
   countWorlds: "Worlds",
   countResidents: "Residents",
   countCopies: "Copies",
   figureNote:
     "Each figure stands for 10 people. Ten figures, one hundred residents.",
+  tapHint: "Tap a figure to choose yourself.",
   plateLabel: "Original Town",
-  copyPlateLabel: "Copied town",
+  copyPlateLabel: "Copied Town",
   reactionYesAnnounce:
     "A second town appears. The copies look as real as the first, including you.",
   reactionUnsureAnnounce:

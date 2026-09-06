@@ -10,9 +10,16 @@ export type ResidentFigureProps = {
   tickLabel?: string;
   dashed?: boolean;
   muted?: boolean;
+  /** Show the faint selectable resting ring. Defaults to true when not reader/muted. */
+  selectable?: boolean;
   className?: string;
 };
 
+/**
+ * Field-guide resident mark.
+ * Full variant: head, short neck, tapered body. Stroke only unless the
+ * reader fill is active. Chartreuse is reserved for the reader.
+ */
 export function ResidentFigure({
   variant,
   isReader,
@@ -20,11 +27,14 @@ export function ResidentFigure({
   tickLabel,
   dashed = false,
   muted = false,
+  selectable,
   className,
 }: ResidentFigureProps) {
   const idle = idleMotionForIndex(index);
   const mark = isReader ? (tickLabel ?? "YOU") : null;
   const tone = muted ? "muted" : isReader ? "reader" : "resident";
+  const showSelectable =
+    selectable ?? (!isReader && !muted && variant === "full");
 
   return (
     <span
@@ -33,6 +43,7 @@ export function ResidentFigure({
         .join(" ")}
       data-variant={variant}
       data-reader={isReader ? "true" : "false"}
+      data-selectable={showSelectable ? "true" : "false"}
       style={{
         ["--iugr-idle-duration" as string]: `${idle.durationMs}ms`,
         ["--iugr-idle-delay" as string]: `${idle.delayMs}ms`,
@@ -40,16 +51,26 @@ export function ResidentFigure({
     >
       <svg
         className="iugr-resident-svg"
-        viewBox={variant === "token" ? "0 0 16 22" : "0 0 20 36"}
+        viewBox={variant === "token" ? "0 0 16 22" : "0 0 20 38"}
         aria-hidden
       >
         {isReader ? (
           <ellipse
             className="iugr-resident-ring"
             cx={variant === "token" ? 8 : 10}
-            cy={variant === "token" ? 8 : 18}
-            rx={variant === "token" ? 7 : 8.5}
-            ry={variant === "token" ? 9 : 16.5}
+            cy={variant === "token" ? 9 : 19}
+            rx={variant === "token" ? 7 : 8.2}
+            ry={variant === "token" ? 9.5 : 17.5}
+          />
+        ) : null}
+
+        {showSelectable ? (
+          <ellipse
+            className="iugr-resident-selectable"
+            cx="10"
+            cy="19"
+            rx="8.2"
+            ry="17.5"
           />
         ) : null}
 
@@ -73,16 +94,32 @@ export function ResidentFigure({
           </g>
         ) : (
           <g className="iugr-resident-idle">
-            <path
-              className="iugr-resident-stroke iugr-resident-fill"
-              d="M4.5 14.5 C4.5 11.2 7 9 10 9 C13 9 15.5 11.2 15.5 14.5 L15.5 31 C15.5 32.4 14.2 33.5 10 33.5 C5.8 33.5 4.5 32.4 4.5 31 Z"
-              strokeDasharray={dashed ? "3 2.5" : undefined}
-            />
+            {/* Head */}
             <circle
               className="iugr-resident-stroke iugr-resident-fill"
               cx="10"
-              cy="6.2"
-              r="4.1"
+              cy="5"
+              r="3.4"
+              strokeDasharray={dashed ? "3 2.5" : undefined}
+            />
+            {/* Short neck — 2 unit gap from chin (y=8.4) to shoulders (y=10.4) */}
+            <line
+              className="iugr-resident-stroke"
+              x1="10"
+              y1="8.4"
+              x2="10"
+              y2="10.4"
+              strokeDasharray={dashed ? "3 2.5" : undefined}
+            />
+            {/* Tapered body: narrow at shoulders, wider at the base */}
+            <path
+              className="iugr-resident-stroke iugr-resident-fill"
+              d="M7.4 10.4
+                 C6.6 12.2 5.8 17.5 5.2 26.5
+                 C5 29.8 6.8 33.2 10 33.2
+                 C13.2 33.2 15 29.8 14.8 26.5
+                 C14.2 17.5 13.4 12.2 12.6 10.4
+                 Z"
               strokeDasharray={dashed ? "3 2.5" : undefined}
             />
           </g>

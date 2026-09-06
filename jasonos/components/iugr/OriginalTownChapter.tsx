@@ -36,13 +36,16 @@ function reactionText(answer: ConsciousnessPremise): string {
   return ORIGINAL_TOWN.reactionNoAnnounce;
 }
 
+function censusStatus(answer: ConsciousnessPremise | null): string {
+  if (answer === "yes") return ORIGINAL_TOWN.statusYes;
+  if (answer === "unsure") return ORIGINAL_TOWN.statusUnsure;
+  if (answer === "no") return ORIGINAL_TOWN.statusNo;
+  return ORIGINAL_TOWN.statusBefore;
+}
+
 function TownSketch({ dashed = false }: { dashed?: boolean }) {
   return (
-    <svg
-      className="iugr-town-sketch"
-      viewBox="0 0 280 78"
-      aria-hidden
-    >
+    <svg className="iugr-town-sketch" viewBox="0 0 280 78" aria-hidden>
       <path
         className="iugr-town-sketch-stroke"
         d="M18 62 H262"
@@ -121,6 +124,7 @@ function TownResidents({
             index={index}
             dashed={dashed}
             muted={muted}
+            selectable={interactive && !isReader}
             tickLabel={isReader ? readerTick : undefined}
           />
         );
@@ -138,6 +142,7 @@ function TownResidents({
             key={index}
             type="button"
             className="iugr-town-resident-btn"
+            data-selected={isReader ? "true" : "false"}
             aria-label={`Resident ${index + 1} of ${RESIDENT_COUNT}. Select as yourself.`}
             aria-pressed={isReader}
             onClick={() => onSelect?.(index)}
@@ -184,7 +189,7 @@ export function OriginalTownChapter({
       : copiesAreConscious === "unsure"
         ? { worlds: 2, residents: 100, copies: 100 }
         : copiesAreConscious === "no"
-          ? { worlds: 2, residents: 100, copies: 0 }
+          ? { worlds: 2, residents: 100, copies: 100 }
           : { worlds: 1, residents: 100, copies: 0 };
 
   const responseLine =
@@ -225,6 +230,30 @@ export function OriginalTownChapter({
           .filter(Boolean)
           .join(" ")}
       >
+        <div className="iugr-town-original-layer">
+          <Plate figureNumber={1} label={ORIGINAL_TOWN.plateLabel}>
+            <TownSketch />
+            <TownResidents
+              readerFigureIndex={readerFigureIndex}
+              interactive
+              onSelect={onSelectReaderFigure}
+            />
+            {!selected ? (
+              <PlateAnnotation
+                text={ORIGINAL_TOWN.tapHint}
+                anchor={{ x: 50, y: 60 }}
+                label={{ x: 50, y: 76 }}
+              />
+            ) : (
+              <PlateAnnotation
+                text={ORIGINAL_TOWN.figureNote}
+                anchor={{ x: 78, y: 56 }}
+                label={{ x: 78, y: 72 }}
+              />
+            )}
+          </Plate>
+        </div>
+
         {copiesAreConscious ? (
           <div className="iugr-town-copy-layer" aria-hidden>
             <Plate figureNumber={2} label={ORIGINAL_TOWN.copyPlateLabel}>
@@ -244,22 +273,6 @@ export function OriginalTownChapter({
             </Plate>
           </div>
         ) : null}
-
-        <div className="iugr-town-original-layer">
-          <Plate figureNumber={1} label={ORIGINAL_TOWN.plateLabel}>
-            <TownSketch />
-            <TownResidents
-              readerFigureIndex={readerFigureIndex}
-              interactive
-              onSelect={onSelectReaderFigure}
-            />
-            <PlateAnnotation
-              text={ORIGINAL_TOWN.figureNote}
-              anchor={{ x: 50, y: 58 }}
-              label={{ x: 8, y: 92 }}
-            />
-          </Plate>
-        </div>
       </div>
 
       <CountCard
@@ -269,7 +282,8 @@ export function OriginalTownChapter({
         worldsLabel={ORIGINAL_TOWN.countWorlds}
         residentsLabel={ORIGINAL_TOWN.countResidents}
         copiesLabel={ORIGINAL_TOWN.countCopies}
-        statusLine={ORIGINAL_TOWN.statusLine}
+        statusLine={censusStatus(copiesAreConscious)}
+        strikeCopies={copiesAreConscious === "no"}
       />
 
       {selected ? (
@@ -321,7 +335,11 @@ export function OriginalTownChapter({
       ) : null}
 
       <div className="iugr-actions">
-        <button type="button" className="iugr-btn iugr-btn-ghost" onClick={onPrevious}>
+        <button
+          type="button"
+          className="iugr-btn iugr-btn-ghost"
+          onClick={onPrevious}
+        >
           {ORIGINAL_TOWN.previousLabel}
         </button>
       </div>
