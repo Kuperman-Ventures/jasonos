@@ -61,9 +61,14 @@ export type FutureEntryTeaser = {
   statusLabel: string;
 };
 
+/** User stance on whether perfect copies count as conscious people. */
+export type ConsciousnessPremise = "yes" | "unsure" | "no";
+
 export type IugrPreferences = {
   guideId: GuideId;
   detailLevel: DetailLevel;
   reducedMotion: boolean;
   highContrast: boolean;
+  /** Persisted for later chapters that count copies. null = not yet chosen. */
+  consciousnessPremise: ConsciousnessPremise | null;
 };
