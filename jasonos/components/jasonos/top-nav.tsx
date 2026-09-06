@@ -90,6 +90,10 @@ const NAV: NavItem[] = [
         href: "/projects/trailbound-at",
         label: "Trailbound AT",
       },
+      {
+        href: "/iugr",
+        label: "IUGR",
+      },
     ],
   },
 

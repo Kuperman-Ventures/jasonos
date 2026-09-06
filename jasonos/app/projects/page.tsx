@@ -1,7 +1,7 @@
 import { EmptyState } from "@/components/jasonos/empty-state";
 import { TrackPill } from "@/components/jasonos/track-pill";
 import { Button } from "@/components/ui/button";
-import { ArrowUpRight, GraduationCap, Mountain, Sparkles, Target } from "lucide-react";
+import { ArrowUpRight, GraduationCap, Mountain, Sparkles, Target, Telescope } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -90,6 +90,27 @@ export default async function ProjectsPage() {
                 <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
                   Adaptive Appalachian Trail readiness planner — lanes, gates,
                   evidence, and the next blaze without a fake countdown.
+                </p>
+              </div>
+            </div>
+            <ArrowUpRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+          </Link>
+          <Link
+            href="/iugr"
+            className="group flex items-start justify-between gap-3 rounded-xl border bg-card p-4 transition-colors hover:bg-muted/40"
+          >
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg border bg-background">
+                <Telescope className="h-4 w-4 text-foreground/80" />
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold tracking-tight">
+                  IUGR · Are You an Original?
+                </h2>
+                <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
+                  The Improbably Useful Guide to Reality — a guided thought
+                  experiment about copies, consciousness, and the simulation
+                  argument. Opens as its own full-screen experience.
                 </p>
               </div>
             </div>

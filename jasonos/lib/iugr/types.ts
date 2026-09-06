@@ -1,0 +1,69 @@
+export type GuideId = "guide" | "mira" | "dr-maybe";
+
+export type GuideStatus = "available" | "coming-soon";
+
+export type DetailLevel = "story" | "balanced" | "machinery";
+
+export type ChapterId =
+  | "opening"
+  | "original-town"
+  | "copy-machine"
+  | "three-doors"
+  | "assumption-arcade"
+  | "evidence-scanner"
+  | "the-catch"
+  | "closing";
+
+export type GuideTheme = {
+  accent: string;
+  glow: string;
+  panel: string;
+};
+
+export type GuideDefinition = {
+  id: GuideId;
+  name: string;
+  tagline: string;
+  status: GuideStatus;
+  unavailableMessage: string;
+  avatarDescription: string;
+  theme: GuideTheme;
+};
+
+export type ChapterDefinition = {
+  id: ChapterId;
+  order: number;
+  title: string;
+  shortLabel: string;
+  placeholder: {
+    kicker?: string;
+    headline: string;
+    body: string[];
+    ctaLabel?: string;
+  };
+};
+
+export type EpisodeDefinition = {
+  id: string;
+  entryNumber: number;
+  title: string;
+  subtitle: string;
+  seriesName: string;
+  seriesShortName: string;
+  pronunciation: string;
+  estimatedMinutes: { min: number; max: number };
+  chapterIds: ChapterId[];
+};
+
+export type FutureEntryTeaser = {
+  id: string;
+  title: string;
+  statusLabel: string;
+};
+
+export type IugrPreferences = {
+  guideId: GuideId;
+  detailLevel: DetailLevel;
+  reducedMotion: boolean;
+  highContrast: boolean;
+};
