@@ -177,7 +177,7 @@ export function IugrShell() {
           ) : null}
         </div>
 
-        <FieldNoteLibrary />
+        {chapterId === "opening" ? <FieldNoteLibrary /> : null}
       </div>
 
       <GuideSettings

@@ -1006,7 +1006,7 @@ body:has(.iugr-root) main.flex-1 {
 
 .iugr-copy-machine {
   display: grid;
-  gap: 1rem;
+  gap: 1.15rem;
   width: 100%;
   max-width: min(100%, 52rem);
   margin-inline: auto;
@@ -1046,6 +1046,7 @@ body:has(.iugr-root) main.flex-1 {
   display: grid;
   gap: 1rem;
   min-width: 0;
+  margin-bottom: 0.25rem;
 }
 
 @media (min-width: 900px) {
@@ -1241,27 +1242,24 @@ body:has(.iugr-root) main.flex-1 {
   color: var(--iugr-cream-muted);
 }
 
-.iugr-copy-narration {
-  display: grid;
-  gap: 0.4rem;
-  padding: 0.85rem 1rem;
-  border-radius: var(--iugr-radius-md);
-  border: 1px solid var(--iugr-border);
-  background: var(--iugr-paper-soft);
+/* Desktop-only conceptual transition after ≥9 copies; hidden on mobile. */
+.iugr-copy-margin-note {
+  display: none;
 }
 
-.iugr-copy-narration-primary {
-  margin: 0;
-  color: var(--iugr-cream);
-  font-weight: 650;
-  line-height: 1.45;
-}
-
-.iugr-copy-narration-secondary {
-  margin: 0;
-  color: var(--iugr-cream-muted);
-  font-size: var(--iugr-text-sm);
-  line-height: 1.5;
+@media (min-width: 768px) {
+  .iugr-copy-margin-note {
+    display: block;
+    margin: 0.15rem 0 0;
+    padding: 0.15rem 0.1rem 0.35rem;
+    max-width: 38rem;
+    color: var(--iugr-cream-muted);
+    font-size: var(--iugr-text-sm);
+    line-height: 1.5;
+    font-style: italic;
+    border: 0;
+    background: transparent;
+  }
 }
 
 .iugr-copy-panels {
