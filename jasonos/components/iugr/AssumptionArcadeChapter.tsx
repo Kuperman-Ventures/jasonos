@@ -115,19 +115,20 @@ function AssumptionControl({
   value: string;
   onChange: (next: string) => void;
 }) {
-  const legendId = useId();
+  const headingId = useId();
 
   return (
-    <fieldset className="iugr-arcade-control">
-      <legend className="iugr-arcade-control-title" id={legendId}>
+    <fieldset className="iugr-arcade-control" aria-labelledby={headingId}>
+      <legend className="sr-only">{control.title}</legend>
+      <h3 className="iugr-arcade-control-title" id={headingId}>
         {control.title}
-      </legend>
+      </h3>
       <p className="iugr-arcade-control-explain">{control.explanation}</p>
 
       <div
         className="iugr-arcade-segments"
         role="radiogroup"
-        aria-labelledby={legendId}
+        aria-labelledby={headingId}
       >
         {control.options.map((option) => {
           const selected = value === option.id;
@@ -137,13 +138,14 @@ function AssumptionControl({
               type="button"
               role="radio"
               aria-checked={selected}
+              aria-label={option.label}
               className={`iugr-arcade-segment${selected ? " is-selected" : ""}`}
               onClick={() => onChange(option.id)}
             >
               <span className="iugr-arcade-segment-mark" aria-hidden>
                 {selected ? "●" : "○"}
               </span>
-              <span>{option.label}</span>
+              <span aria-hidden>{option.label}</span>
             </button>
           );
         })}

@@ -77,7 +77,7 @@ function CopyField({
   else if (copiedTowns <= 99) mode = "hundred";
   else mode = "thousand";
 
-  const sampleCap = mode === "thousand" ? 36 : mode === "hundred" ? 99 : copiedTowns;
+  const sampleCap = mode === "thousand" ? 120 : mode === "hundred" ? 99 : copiedTowns;
   const shownCopies = Math.min(copiedTowns, sampleCap);
   const remainder = Math.max(0, copiedTowns - shownCopies);
 
@@ -169,19 +169,24 @@ function CopyField({
 
         {mode === "thousand" ? (
           <div className="iugr-copy-field-thousand">
-            <svg className="iugr-copy-field-orbit" viewBox="0 0 200 72" aria-hidden>
-              <circle cx="22" cy="36" r="10" fill="var(--iugr-accent)" />
+            <svg
+              className="iugr-copy-field-orbit"
+              viewBox="0 0 320 100"
+              preserveAspectRatio="none"
+              aria-hidden
+            >
+              <circle cx="18" cy="50" r="9" fill="var(--iugr-accent)" />
               {Array.from({ length: shownCopies }, (_, i) => {
-                const col = i % 12;
-                const row = Math.floor(i / 12);
+                const col = i % 24;
+                const row = Math.floor(i / 24);
                 return (
                   <circle
                     key={i}
-                    cx={48 + col * 12}
-                    cy={14 + row * 14}
-                    r="3.2"
+                    cx={40 + col * 11.5}
+                    cy={12 + row * 15}
+                    r="2.6"
                     fill="var(--iugr-copy-fill)"
-                    opacity={0.45 + (i % 7) * 0.07}
+                    opacity={0.42 + (i % 7) * 0.07}
                   />
                 );
               })}
@@ -226,7 +231,6 @@ export function CopyMachineChapter({
   const sliderId = useId();
   const liveId = useId();
   const [mathOpen, setMathOpen] = useState(false);
-  const [whyOpen, setWhyOpen] = useState(false);
   const [defineOpen, setDefineOpen] = useState(false);
 
   const census = useMemo(() => computeTownScenario(copiedTowns), [copiedTowns]);
@@ -441,9 +445,10 @@ export function CopyMachineChapter({
           </div>
         </div>
 
-        <div className="iugr-copy-cluster" aria-label={COPY_MACHINE.clusterAria}>
-          <CopyField copiedTowns={copiedTowns} reducedMotion={reducedMotion} />
-        </div>
+      </div>
+
+      <div className="iugr-copy-field-row" aria-label={COPY_MACHINE.clusterAria}>
+        <CopyField copiedTowns={copiedTowns} reducedMotion={reducedMotion} />
       </div>
 
       <p id={liveId} className="sr-only" aria-live="polite" aria-atomic="true">
@@ -490,14 +495,6 @@ export function CopyMachineChapter({
         <FractionViz census={census} />
       </div>
 
-      <details
-        className="iugr-copy-why"
-        open={whyOpen}
-        onToggle={(e) => setWhyOpen((e.target as HTMLDetailsElement).open)}
-      >
-        <summary>{COPY_MACHINE.whyAssumption}</summary>
-        <p>{COPY_MACHINE.whyAssumptionBody}</p>
-      </details>
 
       {reachedNine ? (
         <div className="iugr-copy-anthropic">
