@@ -10,6 +10,11 @@ export type ResidentFigureProps = {
   tickLabel?: string;
   dashed?: boolean;
   muted?: boolean;
+  /**
+   * Use the copy-town coral palette for the reader mark (matched pair
+   * with the original chartreuse reader).
+   */
+  copyPalette?: boolean;
   /** Show the faint selectable resting ring. Defaults to true when not reader/muted. */
   selectable?: boolean;
   className?: string;
@@ -18,7 +23,8 @@ export type ResidentFigureProps = {
 /**
  * Field-guide resident mark.
  * Full variant: head, short neck, tapered body. Stroke only unless the
- * reader fill is active. Chartreuse is reserved for the reader.
+ * reader fill is active. Chartreuse is reserved for the original reader;
+ * coral is reserved for the copied reader.
  */
 export function ResidentFigure({
   variant,
@@ -27,18 +33,30 @@ export function ResidentFigure({
   tickLabel,
   dashed = false,
   muted = false,
+  copyPalette = false,
   selectable,
   className,
 }: ResidentFigureProps) {
   const idle = idleMotionForIndex(index);
   const mark = isReader ? (tickLabel ?? "YOU") : null;
-  const tone = muted ? "muted" : isReader ? "reader" : "resident";
+  const roleClass = isReader
+    ? copyPalette
+      ? "is-copy-reader"
+      : "is-reader"
+    : muted
+      ? "is-muted"
+      : "is-resident";
   const showSelectable =
     selectable ?? (!isReader && !muted && variant === "full");
 
   return (
     <span
-      className={["iugr-resident-figure", `is-${tone}`, className]
+      className={[
+        "iugr-resident-figure",
+        roleClass,
+        muted && isReader ? "is-muted" : "",
+        className,
+      ]
         .filter(Boolean)
         .join(" ")}
       data-variant={variant}

@@ -103,6 +103,7 @@ function TownResidents({
   interactive,
   dashed,
   muted,
+  copyPalette,
   readerTick,
   onSelect,
 }: {
@@ -110,6 +111,7 @@ function TownResidents({
   interactive: boolean;
   dashed?: boolean;
   muted?: boolean;
+  copyPalette?: boolean;
   readerTick?: string;
   onSelect?: (index: number) => void;
 }) {
@@ -124,6 +126,7 @@ function TownResidents({
             index={index}
             dashed={dashed}
             muted={muted}
+            copyPalette={copyPalette}
             selectable={interactive && !isReader}
             tickLabel={isReader ? readerTick : undefined}
           />
@@ -231,45 +234,39 @@ export function OriginalTownChapter({
           .join(" ")}
       >
         <div className="iugr-town-original-layer">
-          <Plate figureNumber={1} label={ORIGINAL_TOWN.plateLabel}>
+          <Plate
+            figureNumber={1}
+            caption={ORIGINAL_TOWN.plateCaption}
+            captionExtra={
+              !selected ? (
+                <PlateAnnotation text={ORIGINAL_TOWN.tapHint} />
+              ) : null
+            }
+          >
             <TownSketch />
             <TownResidents
               readerFigureIndex={readerFigureIndex}
               interactive
               onSelect={onSelectReaderFigure}
             />
-            {!selected ? (
-              <PlateAnnotation
-                text={ORIGINAL_TOWN.tapHint}
-                anchor={{ x: 50, y: 60 }}
-                label={{ x: 50, y: 76 }}
-              />
-            ) : (
-              <PlateAnnotation
-                text={ORIGINAL_TOWN.figureNote}
-                anchor={{ x: 78, y: 56 }}
-                label={{ x: 78, y: 72 }}
-              />
-            )}
           </Plate>
         </div>
 
         {copiesAreConscious ? (
           <div className="iugr-town-copy-layer" aria-hidden>
-            <Plate figureNumber={2} label={ORIGINAL_TOWN.copyPlateLabel}>
+            <Plate
+              figureNumber={2}
+              caption={ORIGINAL_TOWN.copyPlateCaption}
+            >
               <TownSketch dashed={copiesAreConscious !== "yes"} />
               <TownResidents
                 readerFigureIndex={readerFigureIndex}
                 interactive={false}
                 dashed={copiesAreConscious === "unsure"}
                 muted={copiesAreConscious === "no"}
+                copyPalette
                 readerTick={copiesAreConscious === "unsure" ? "?" : "YOU"}
               />
-              <p
-                className={`iugr-town-copy-count${copiesAreConscious === "no" ? " is-struck" : ""}`}
-              >
-                <span>100</span>
-              </p>
             </Plate>
           </div>
         ) : null}
