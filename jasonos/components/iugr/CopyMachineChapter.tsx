@@ -1,22 +1,42 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { COPY_MACHINE } from "@/lib/iugr/copy";
 import {
+  APPARATUS,
+  CHALLENGE,
+  CONTINUE_LABEL,
+  COPY_BODY,
+  COPY_BODY_NO,
+  COPY_BODY_UNSURE_SECOND,
+  COUNT_ROW,
+  SILENT_SCREEN,
+  copiesPeopleCount,
+  dialNeedleAngle,
+  formatCopiedShareLabel,
+  leverCyForCount,
+  nearestSnapFromLeverCy,
+  washAccentForCopies,
+} from "@/lib/iugr/copyMachine";
+import {
   COPY_SNAP_POINTS,
-  computeTownScenario,
   formatWholeNumber,
-  narrationForCopies,
   nearestSnapPoint,
-  PEOPLE_PER_TOWN,
   type CopySnapPoint,
 } from "@/lib/iugr/scenarioMath";
 import type { ConsciousnessPremise } from "@/lib/iugr/types";
-import { FractionViz } from "@/components/iugr/FractionViz";
-import { MathDrawer } from "@/components/iugr/MathDrawer";
+import { CopyField } from "@/components/iugr/CopyField";
 
 type CopyMachineChapterProps = {
   consciousnessPremise: ConsciousnessPremise | null;
+  readerFigureIndex: number | null;
   copiedTowns: number;
   hasInteracted: boolean;
   reachedNine: boolean;
@@ -29,197 +49,553 @@ type CopyMachineChapterProps = {
   reducedMotion: boolean;
 };
 
-/** Compact town glyph for the population map — no per-token “COPY” label. */
-function TownMark({
-  variant,
-  size = 28,
+const SESSION_SILENT_KEY = "iugr-copy-silent-seen";
+
+function useCountUp(target: number, reducedMotion: boolean): number {
+  const [display, setDisplay] = useState(target);
+  const displayRef = useRef(target);
+
+  useEffect(() => {
+    const from = displayRef.current;
+    if (reducedMotion || from === target) {
+      const id = requestAnimationFrame(() => {
+        displayRef.current = target;
+        setDisplay(target);
+      });
+      return () => cancelAnimationFrame(id);
+    }
+    const start = performance.now();
+    const duration = Math.min(400, Math.max(150, Math.abs(target - from) * 40));
+    let frame = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - (1 - t) * (1 - t);
+      const next = Math.round(from + (target - from) * eased);
+      displayRef.current = next;
+      setDisplay(next);
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [target, reducedMotion]);
+
+  return display;
+}
+
+function ChallengeStrip({
+  copiedTowns,
+  unavailable,
 }: {
-  variant: "original" | "copy";
-  size?: number;
+  copiedTowns: number;
+  unavailable: boolean;
 }) {
-  const fill = variant === "original" ? "var(--iugr-original-fill)" : "var(--iugr-copy-fill)";
-  const roof = variant === "original" ? "var(--iugr-original-roof)" : "var(--iugr-copy-accent)";
-  const accent = variant === "original" ? "var(--iugr-accent)" : "var(--iugr-copy-accent)";
+  if (unavailable) {
+    return (
+      <div className="iugr-copy-challenge is-unavailable" role="status">
+        <ChallengeIcon kind="unavailable" />
+        <div className="iugr-copy-challenge-copy">
+          <span className="iugr-copy-challenge-label">
+            {CHALLENGE.unavailableLabel}
+          </span>
+          <span className="iugr-copy-challenge-text">
+            {CHALLENGE.unavailableText}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  if (copiedTowns >= 9) {
+    return (
+      <div className="iugr-copy-challenge is-complete" role="status">
+        <ChallengeIcon kind="check" />
+        <div className="iugr-copy-challenge-copy">
+          <span className="iugr-copy-challenge-label">
+            {CHALLENGE.completeLabel}
+          </span>
+          <span className="iugr-copy-challenge-text">
+            {CHALLENGE.completeText}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  if (copiedTowns === 1) {
+    return (
+      <div className="iugr-copy-challenge is-even" role="status">
+        <ChallengeIcon kind="clock" />
+        <div className="iugr-copy-challenge-copy">
+          <span className="iugr-copy-challenge-label">
+            {CHALLENGE.evenLabel}
+          </span>
+          <span className="iugr-copy-challenge-text">{CHALLENGE.evenText}</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="iugr-copy-challenge is-open" role="status">
+      <ChallengeIcon kind="open" />
+      <div className="iugr-copy-challenge-copy">
+        <span className="iugr-copy-challenge-label">{CHALLENGE.openLabel}</span>
+        <span className="iugr-copy-challenge-text">{CHALLENGE.openText}</span>
+      </div>
+    </div>
+  );
+}
+
+function ChallengeIcon({
+  kind,
+}: {
+  kind: "open" | "clock" | "check" | "unavailable";
+}) {
   return (
     <svg
-      className={`iugr-field-mark iugr-field-mark-${variant}`}
-      viewBox="0 0 40 34"
-      width={size}
-      height={size * 0.85}
+      className="iugr-copy-challenge-icon"
+      viewBox="0 0 20 20"
+      width="18"
+      height="18"
       aria-hidden
     >
-      <rect x="4" y="12" width="32" height="18" rx="5" fill={fill} />
-      <rect x="9" y="5" width="10" height="11" rx="1.5" fill={roof} />
-      <rect x="21" y="3" width="12" height="13" rx="1.5" fill={roof} />
-      <circle cx="20" cy="20" r="3" fill={accent} />
+      {kind === "open" ? (
+        <circle
+          cx="10"
+          cy="10"
+          r="7"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+        />
+      ) : null}
+      {kind === "clock" ? (
+        <>
+          <circle
+            cx="10"
+            cy="10"
+            r="7"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+          />
+          <path
+            d="M10 6.5 V10 L13 12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+          />
+        </>
+      ) : null}
+      {kind === "check" ? (
+        <path
+          d="M4.5 10.5 L8.2 14 L15.5 6.5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ) : null}
+      {kind === "unavailable" ? (
+        <>
+          <circle
+            cx="10"
+            cy="10"
+            r="7"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+          />
+          <path
+            d="M7 7 L13 13 M13 7 L7 13"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+          />
+        </>
+      ) : null}
     </svg>
   );
 }
 
-/**
- * Data-aware population map for copied-town scale.
- * Caps visible tokens; uses one SVG grid/field at high counts (no tall COPY grids).
- */
-function CopyField({
+function ApparatusControl({
   copiedTowns,
+  hasMovedLever,
+  reducedMotion,
+  onSetCopies,
+  liveId,
+}: {
+  copiedTowns: number;
+  hasMovedLever: boolean;
+  reducedMotion: boolean;
+  onSetCopies: (next: number, fromUser: boolean) => void;
+  liveId: string;
+}) {
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const dragging = useRef(false);
+  const knobCy = leverCyForCount(copiedTowns);
+  const angleDeg = dialNeedleAngle(copiedTowns);
+  const angleRad = (angleDeg * Math.PI) / 180;
+  const needleX =
+    APPARATUS.dialCx + Math.cos(angleRad) * APPARATUS.dialNeedleLength;
+  const needleY =
+    APPARATUS.dialCy + Math.sin(angleRad) * APPARATUS.dialNeedleLength;
+
+  const clientToSvgY = useCallback((clientY: number) => {
+    const svg = svgRef.current;
+    if (!svg) return knobCy;
+    const rect = svg.getBoundingClientRect();
+    const y = ((clientY - rect.top) / rect.height) * 118;
+    return y;
+  }, [knobCy]);
+
+  const applyFromClientY = useCallback(
+    (clientY: number) => {
+      const cy = clientToSvgY(clientY);
+      onSetCopies(nearestSnapFromLeverCy(cy), true);
+    },
+    [clientToSvgY, onSetCopies],
+  );
+
+  useEffect(() => {
+    if (!dragging.current) return;
+    const onMove = (e: PointerEvent) => {
+      if (!dragging.current) return;
+      applyFromClientY(e.clientY);
+    };
+    const onUp = () => {
+      dragging.current = false;
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  });
+
+  const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+    const snap = nearestSnapPoint(copiedTowns) as CopySnapPoint;
+    const idx = COPY_SNAP_POINTS.indexOf(snap);
+    if (e.key === "ArrowUp" || e.key === "ArrowRight") {
+      e.preventDefault();
+      const next = COPY_SNAP_POINTS[Math.min(COPY_SNAP_POINTS.length - 1, idx + 1)];
+      onSetCopies(next, true);
+    } else if (e.key === "ArrowDown" || e.key === "ArrowLeft") {
+      e.preventDefault();
+      const next = COPY_SNAP_POINTS[Math.max(0, idx - 1)];
+      onSetCopies(next, true);
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      onSetCopies(0, true);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      onSetCopies(999, true);
+    }
+  };
+
+  return (
+    <div className="iugr-copy-apparatus-wrap" role="group" aria-label={COPY_MACHINE.machineAria}>
+      <svg
+        ref={svgRef}
+        className="iugr-copy-apparatus"
+        viewBox={APPARATUS.viewBox}
+        width="100%"
+        aria-hidden
+      >
+        <g
+          fill="none"
+          stroke="#F2EDE3"
+          strokeWidth="1.4"
+          vectorEffect="non-scaling-stroke"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity="0.85"
+        >
+          <rect x="52" y="16" width="150" height="72" rx="5" />
+          <circle cx="79" cy="42" r="11" />
+          <line x1="102" y1="34" x2="186" y2="34" />
+          <line x1="102" y1="42" x2="186" y2="42" />
+          <line x1="102" y1="50" x2="186" y2="50" />
+          <path d="M84 88 L96 102 L158 102 L170 88" />
+          <line x1="228" y1="20" x2="228" y2="84" />
+          <line x1="222" y1="20" x2="234" y2="20" />
+        </g>
+
+        <line
+          className="iugr-copy-dial-needle"
+          x1={APPARATUS.dialCx}
+          y1={APPARATUS.dialCy}
+          x2={needleX}
+          y2={needleY}
+          stroke="#C8F04A"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+        />
+
+        {!hasMovedLever ? (
+          <g className="iugr-copy-annotations" aria-hidden>
+            <circle
+              cx="242"
+              cy="78"
+              r="1.6"
+              fill="rgba(242,237,227,0.38)"
+            />
+            <line
+              x1="242"
+              y1="78"
+              x2="268"
+              y2="66"
+              stroke="rgba(242,237,227,0.38)"
+              strokeWidth="1"
+            />
+            <text
+              x="272"
+              y="64"
+              className="iugr-copy-anno-text"
+            >
+              PULL
+            </text>
+            <circle
+              cx="127"
+              cy="102"
+              r="1.6"
+              fill="rgba(242,237,227,0.38)"
+            />
+            <line
+              x1="127"
+              y1="102"
+              x2="127"
+              y2="112"
+              stroke="rgba(242,237,227,0.38)"
+              strokeWidth="1"
+            />
+            <text
+              x="133"
+              y="115"
+              className="iugr-copy-anno-text"
+            >
+              OUTPUT
+            </text>
+          </g>
+        ) : null}
+      </svg>
+
+      {/* Lever knob as real control, positioned over the SVG track */}
+      <button
+        type="button"
+        className={[
+          "iugr-copy-lever-knob",
+          reducedMotion ? "is-static" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        style={{ ["--lever-cy" as string]: `${knobCy}` }}
+        aria-label={`Copied towns: ${formatWholeNumber(copiedTowns)}. Use arrow keys to change.`}
+        aria-valuemin={0}
+        aria-valuemax={999}
+        aria-valuenow={copiedTowns}
+        aria-valuetext={`${formatWholeNumber(copiedTowns)} copied towns`}
+        aria-describedby={liveId}
+        role="slider"
+        onKeyDown={onKeyDown}
+        onPointerDown={(e) => {
+          e.preventDefault();
+          dragging.current = true;
+          (e.currentTarget as HTMLButtonElement).setPointerCapture(e.pointerId);
+          applyFromClientY(e.clientY);
+        }}
+        onPointerMove={(e) => {
+          if (!dragging.current) return;
+          applyFromClientY(e.clientY);
+        }}
+        onPointerUp={() => {
+          dragging.current = false;
+        }}
+      />
+    </div>
+  );
+}
+
+function CountRow({
+  copiedTowns,
+  consciousnessPremise,
   reducedMotion,
 }: {
   copiedTowns: number;
+  consciousnessPremise: ConsciousnessPremise | null;
   reducedMotion: boolean;
 }) {
-  const totalTowns = 1 + copiedTowns;
-  const summary = `Town population map: 1 Original Town and ${formatWholeNumber(copiedTowns)} copied towns, for ${formatWholeNumber(totalTowns)} towns total.`;
+  const originals = 100;
+  const copiesTarget = copiesPeopleCount(copiedTowns);
+  const displayCopies = useCountUp(copiesTarget, reducedMotion);
+  const shareLabel = formatCopiedShareLabel(copiedTowns);
+  const muted = copiedTowns === 0;
+  const strike = consciousnessPremise === "no";
+  const unsureTick = consciousnessPremise === "unsure";
+  const originalShare = copiedTowns === 0 ? 100 : 100 / (1 + copiedTowns);
+  const copyShare = 100 - originalShare;
 
-  let mode: "empty" | "pair" | "ten" | "hundred" | "thousand" = "empty";
-  if (copiedTowns === 0) mode = "empty";
-  else if (copiedTowns === 1) mode = "pair";
-  else if (copiedTowns <= 9) mode = "ten";
-  else if (copiedTowns <= 99) mode = "hundred";
-  else mode = "thousand";
+  return (
+    <div className="iugr-copy-count-row">
+      <div className="iugr-copy-count-groups">
+        <div className="iugr-copy-count-group is-original">
+          <span className="iugr-copy-count-label">{COUNT_ROW.originals}</span>
+          <span className="iugr-copy-count-value is-chartreuse">
+            {formatWholeNumber(originals)}
+          </span>
+        </div>
+        <div className="iugr-copy-count-group">
+          <span className="iugr-copy-count-label">{COUNT_ROW.copies}</span>
+          <span
+            className={[
+              "iugr-copy-count-value",
+              muted ? "is-muted" : "is-coral",
+              strike ? "is-struck" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
+            {formatWholeNumber(displayCopies)}
+            {unsureTick ? (
+              <sup className="iugr-copy-count-tick" aria-hidden>
+                ?
+              </sup>
+            ) : null}
+          </span>
+        </div>
+        <div className="iugr-copy-count-group is-share">
+          <span className="iugr-copy-count-label">{COUNT_ROW.copiedShare}</span>
+          <span
+            className={[
+              "iugr-copy-count-value",
+              muted ? "is-muted" : "is-coral",
+              strike ? "is-struck" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
+            {shareLabel}
+            {unsureTick ? (
+              <sup className="iugr-copy-count-tick" aria-hidden>
+                ?
+              </sup>
+            ) : null}
+          </span>
+        </div>
+      </div>
+      <div className="iugr-copy-proportion" aria-hidden>
+        <span
+          className="iugr-copy-proportion-original"
+          style={{ width: `${originalShare}%` }}
+        />
+        <span
+          className="iugr-copy-proportion-copy"
+          style={{ width: `${copyShare}%` }}
+        />
+      </div>
+    </div>
+  );
+}
 
-  const sampleCap = mode === "thousand" ? 120 : mode === "hundred" ? 99 : copiedTowns;
-  const shownCopies = Math.min(copiedTowns, sampleCap);
-  const remainder = Math.max(0, copiedTowns - shownCopies);
+function SilentScreen({
+  onDismiss,
+  reducedMotion,
+}: {
+  onDismiss: () => void;
+  reducedMotion: boolean;
+}) {
+  useEffect(() => {
+    const onKey = () => onDismiss();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onDismiss]);
+
+  const cols = 34;
+  const rows = 22;
+  const cell = 8.6;
+  const origin = 8;
+  const readerCol = 16; // column 17, 0-indexed
+  const readerRow = 10; // row 11, 0-indexed
+  const readerCx = origin + readerCol * cell;
+  const readerCy = origin + readerRow * cell;
 
   return (
     <div
       className={[
-        "iugr-copy-field",
-        `is-${mode}`,
+        "iugr-copy-silent",
         reducedMotion ? "is-static" : "",
       ]
         .filter(Boolean)
         .join(" ")}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Silent screen"
+      onClick={onDismiss}
+      onKeyDown={(e) => {
+        e.preventDefault();
+        onDismiss();
+      }}
+      tabIndex={0}
     >
-      <p className="sr-only">{summary}</p>
-
-      <div className="iugr-copy-field-legend" aria-hidden>
-        <span className="iugr-copy-field-legend-item">
-          <span className="iugr-copy-field-swatch iugr-copy-field-swatch-original" />
-          Original Town
-        </span>
-        <span className="iugr-copy-field-legend-item">
-          <span className="iugr-copy-field-swatch iugr-copy-field-swatch-copy" />
-          Copied towns
-        </span>
+      <div className="iugr-copy-silent-inner">
+        <svg
+          className="iugr-copy-silent-field"
+          viewBox="0 0 300 190"
+          width="100%"
+          aria-hidden
+        >
+          {Array.from({ length: cols * rows }, (_, i) => {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const cx = origin + col * cell;
+            const cy = origin + row * cell;
+            if (col === readerCol && row === readerRow) return null;
+            return (
+              <circle
+                key={i}
+                cx={cx}
+                cy={cy}
+                r="2.4"
+                fill="rgba(232,131,111,0.42)"
+              />
+            );
+          })}
+          <circle
+            cx={readerCx}
+            cy={readerCy}
+            r="14"
+            fill="none"
+            stroke="rgba(200,240,74,0.28)"
+            strokeWidth="1"
+          />
+          <circle
+            cx={readerCx}
+            cy={readerCy}
+            r="8"
+            fill="none"
+            stroke="#C8F04A"
+            strokeWidth="1.2"
+          />
+          <circle cx={readerCx} cy={readerCy} r="3.4" fill="#C8F04A" />
+        </svg>
+        <div className="iugr-copy-silent-lines">
+          <p className="iugr-copy-silent-line1">{SILENT_SCREEN.line1}</p>
+          <p className="iugr-copy-silent-line2">{SILENT_SCREEN.line2}</p>
+        </div>
       </div>
-
-      <div className="iugr-copy-field-body" aria-hidden>
-        {mode === "empty" ? (
-          <div className="iugr-copy-field-empty">
-            <TownMark variant="original" size={36} />
-            <span className="iugr-copy-field-empty-label">No copied towns yet</span>
-          </div>
-        ) : null}
-
-        {mode === "pair" ? (
-          <div className="iugr-copy-field-pair">
-            <div className="iugr-copy-field-pair-item">
-              <TownMark variant="original" size={40} />
-              <span>Original Town</span>
-            </div>
-            <div className="iugr-copy-field-pair-item">
-              <TownMark variant="copy" size={40} />
-              <span>Copied town</span>
-            </div>
-          </div>
-        ) : null}
-
-        {mode === "ten" ? (
-          <div className="iugr-copy-field-ten">
-            <TownMark variant="original" size={30} />
-            {Array.from({ length: shownCopies }, (_, i) => (
-              <span key={i} className="iugr-copy-field-dot" />
-            ))}
-            {Array.from({ length: Math.max(0, 9 - shownCopies) }, (_, i) => (
-              <span key={`e-${i}`} className="iugr-copy-field-dot is-empty" />
-            ))}
-          </div>
-        ) : null}
-
-        {mode === "hundred" ? (
-          <svg className="iugr-copy-field-grid" viewBox="0 0 100 100" aria-hidden>
-            <rect
-              x="1"
-              y="1"
-              width="8"
-              height="8"
-              rx="1.5"
-              fill="var(--iugr-accent)"
-            />
-            {Array.from({ length: shownCopies }, (_, i) => {
-              const slot = i + 1;
-              const col = slot % 10;
-              const row = Math.floor(slot / 10);
-              return (
-                <rect
-                  key={slot}
-                  x={1 + col * 10}
-                  y={1 + row * 10}
-                  width="8"
-                  height="8"
-                  rx="1.5"
-                  fill="var(--iugr-copy-fill)"
-                  opacity={0.55 + (i % 5) * 0.08}
-                />
-              );
-            })}
-          </svg>
-        ) : null}
-
-        {mode === "thousand" ? (
-          <div className="iugr-copy-field-thousand">
-            <svg
-              className="iugr-copy-field-orbit"
-              viewBox="0 0 320 100"
-              preserveAspectRatio="none"
-              aria-hidden
-            >
-              <circle cx="18" cy="50" r="9" fill="var(--iugr-accent)" />
-              {Array.from({ length: shownCopies }, (_, i) => {
-                const col = i % 24;
-                const row = Math.floor(i / 24);
-                return (
-                  <circle
-                    key={i}
-                    cx={40 + col * 11.5}
-                    cy={12 + row * 15}
-                    r="2.6"
-                    fill="var(--iugr-copy-fill)"
-                    opacity={0.42 + (i % 7) * 0.07}
-                  />
-                );
-              })}
-            </svg>
-            <span className="iugr-copy-field-badge">
-              {formatWholeNumber(copiedTowns)} copied towns
-            </span>
-          </div>
-        ) : null}
-      </div>
-
-      {mode !== "empty" && mode !== "thousand" ? (
-        <p className="iugr-copy-field-caption" aria-hidden>
-          {mode === "pair"
-            ? "1 Original Town · 1 copied town"
-            : remainder > 0
-              ? `1 Original Town · ${formatWholeNumber(shownCopies)} shown · +${formatWholeNumber(remainder)} more copied towns`
-              : `1 Original Town · ${formatWholeNumber(copiedTowns)} copied towns`}
-        </p>
-      ) : null}
-
-      {mode === "empty" ? (
-        <p className="iugr-copy-field-caption" aria-hidden>
-          1 Original Town · 0 copied towns
-        </p>
-      ) : null}
-
+      <p className="iugr-copy-silent-tap">{SILENT_SCREEN.tap}</p>
     </div>
   );
 }
 
 export function CopyMachineChapter({
   consciousnessPremise,
+  readerFigureIndex,
   copiedTowns,
   hasInteracted,
   reachedNine,
@@ -228,300 +604,130 @@ export function CopyMachineChapter({
   onBack,
   reducedMotion,
 }: CopyMachineChapterProps) {
-  const sliderId = useId();
   const liveId = useId();
-  const [mathOpen, setMathOpen] = useState(false);
-  const [defineOpen, setDefineOpen] = useState(false);
+  const [silentOpen, setSilentOpen] = useState(false);
+  const wash = washAccentForCopies(copiedTowns);
+  const snap = nearestSnapPoint(copiedTowns) as CopySnapPoint;
+  const answerNo = consciousnessPremise === "no";
+  const canContinue = reachedNine || copiedTowns >= 9 || answerNo;
 
-  const census = useMemo(() => computeTownScenario(copiedTowns), [copiedTowns]);
-  const narration = useMemo(() => narrationForCopies(copiedTowns), [copiedTowns]);
-  const snap = nearestSnapPoint(copiedTowns);
-
-
-  const setCopies = (raw: number, fromUser: boolean) => {
-    const next = Math.max(0, Math.min(999, Math.round(raw)));
-    onCopiedTownsChange(next, {
-      interacted: fromUser || hasInteracted,
-      reachedNine: reachedNine || next >= 9,
-    });
-  };
-
-  const nudge = (delta: number) => {
-    const idx = COPY_SNAP_POINTS.indexOf(snap as CopySnapPoint);
-    if (idx >= 0) {
-      const nextIdx = Math.max(0, Math.min(COPY_SNAP_POINTS.length - 1, idx + delta));
-      setCopies(COPY_SNAP_POINTS[nextIdx], true);
-      return;
+  const maybeOpenSilent = useCallback((next: number) => {
+    if (next < 999) return;
+    try {
+      if (sessionStorage.getItem(SESSION_SILENT_KEY) === "1") return;
+      sessionStorage.setItem(SESSION_SILENT_KEY, "1");
+    } catch {
+      /* ignore */
     }
-    setCopies(copiedTowns + delta, true);
-  };
+    setSilentOpen(true);
+  }, []);
 
+  const setCopies = useCallback(
+    (raw: number, fromUser: boolean) => {
+      const next = Math.max(0, Math.min(999, Math.round(raw)));
+      onCopiedTownsChange(next, {
+        interacted: fromUser || hasInteracted,
+        reachedNine: reachedNine || next >= 9,
+      });
+      if (fromUser) maybeOpenSilent(next);
+    },
+    [hasInteracted, maybeOpenSilent, onCopiedTownsChange, reachedNine],
+  );
+  const bodyPrimary = answerNo
+    ? COPY_BODY_NO
+    : COPY_BODY[snap] ?? COPY_BODY[0];
+  const bodySecond =
+    !answerNo && consciousnessPremise === "unsure"
+      ? COPY_BODY_UNSURE_SECOND
+      : null;
 
-  const caveat =
-    consciousnessPremise === "unsure"
-      ? COPY_MACHINE.caveatUnsure
-      : consciousnessPremise === "no"
-        ? COPY_MACHINE.caveatNo
-        : null;
-
-  const liveText = `${formatWholeNumber(census.copiedTowns)} copied towns. ${narration.headline}${
-    narration.detail ? ` ${narration.detail}` : ""
-  }`;
-
-  const dialAngle = -90 + (copiedTowns / 999) * 270;
-  const dialRad = (dialAngle * Math.PI) / 180;
+  const liveText = `${formatWholeNumber(copiedTowns)} copied towns. ${bodyPrimary}`;
 
   return (
     <section
       className="iugr-panel iugr-copy-machine"
       aria-labelledby="iugr-copy-title"
+      style={{ ["--copy-wash" as string]: wash }}
+      data-copies={copiedTowns}
     >
       <div className="iugr-label">{COPY_MACHINE.chapterLabel}</div>
       <h1 id="iugr-copy-title" className="iugr-headline iugr-headline-sm">
         {COPY_MACHINE.title}
       </h1>
-      <p className="iugr-lead">{COPY_MACHINE.guideIntro}</p>
 
-      {caveat ? (
-        <p className="iugr-copy-caveat" role="note">
-          {caveat}
-        </p>
-      ) : null}
+      <ChallengeStrip copiedTowns={copiedTowns} unavailable={answerNo} />
 
-      <div className="iugr-copy-stage">
-        <div className="iugr-copy-original-bubble" aria-label="Original Town">
-          <svg viewBox="0 0 88 72" width="88" height="72" role="presentation" aria-hidden>
-            <ellipse cx="44" cy="58" rx="34" ry="8" fill="var(--iugr-cream)" opacity="0.08" />
-            <rect x="18" y="28" width="52" height="28" rx="6" fill="var(--iugr-original-fill)" />
-            <rect x="26" y="18" width="14" height="16" rx="2" fill="var(--iugr-original-roof)" />
-            <rect x="44" y="14" width="18" height="20" rx="2" fill="var(--iugr-original-roof)" />
-            <circle cx="44" cy="42" r="5" fill="var(--iugr-accent)" />
-          </svg>
-          <span className="iugr-copy-original-badge">Original</span>
-          <span className="iugr-copy-original-meta">{PEOPLE_PER_TOWN} residents</span>
-        </div>
+      <ApparatusControl
+        copiedTowns={copiedTowns}
+        hasMovedLever={hasInteracted}
+        reducedMotion={reducedMotion}
+        onSetCopies={setCopies}
+        liveId={liveId}
+      />
 
-        <div className="iugr-copy-machine-art" role="group" aria-label={COPY_MACHINE.machineAria}>
-          <svg
-            className="iugr-copy-machine-svg"
-            viewBox="0 0 220 160"
-            role="img"
-            aria-label="Oversized Copy Machine with lever and dial"
+      <div className="iugr-copy-snaps" role="group" aria-label="Quick copy counts">
+        {COPY_SNAP_POINTS.map((p) => (
+          <button
+            key={p}
+            type="button"
+            className={[
+              "iugr-copy-snap",
+              copiedTowns === p ? "is-selected" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            onClick={() => setCopies(p, true)}
+            aria-pressed={copiedTowns === p}
           >
-            <rect x="30" y="48" width="160" height="90" rx="18" fill="var(--iugr-machine-body)" />
-            <rect x="48" y="64" width="88" height="40" rx="8" fill="var(--iugr-machine-screen)" />
-            <text
-              x="92"
-              y="90"
-              textAnchor="middle"
-              fill="var(--iugr-cream)"
-              fontSize="18"
-              fontWeight="700"
-              fontFamily="var(--iugr-font), system-ui, sans-serif"
-            >
-              {formatWholeNumber(copiedTowns)}
-            </text>
-            <circle
-              cx="168"
-              cy="84"
-              r="22"
-              fill="var(--iugr-machine-dial)"
-              stroke="var(--iugr-border-strong)"
-              strokeWidth="2"
-            />
-            <line
-              x1="168"
-              y1="84"
-              x2={168 + Math.cos(dialRad) * 14}
-              y2={84 + Math.sin(dialRad) * 14}
-              stroke="var(--iugr-accent)"
-              strokeWidth="3"
-              strokeLinecap="round"
-            />
-            <rect
-              x="188"
-              y={copiedTowns === 0 ? 70 : 40}
-              width="14"
-              height="56"
-              rx="7"
-              fill="var(--iugr-coral)"
-              className="iugr-copy-lever"
-            />
-            <circle
-              cx="195"
-              cy={copiedTowns === 0 ? 70 : 40}
-              r="10"
-              fill="var(--iugr-coral)"
-              opacity="0.85"
-            />
-          </svg>
-
-          <div className="iugr-copy-controls">
-            <label className="iugr-copy-slider-label" htmlFor={sliderId}>
-              {COPY_MACHINE.sliderLabel}
-            </label>
-            <div className="iugr-copy-slider-row">
-              <button
-                type="button"
-                className="iugr-btn iugr-btn-ghost iugr-copy-step"
-                onClick={() => nudge(-1)}
-                aria-label="Fewer copied towns"
-                disabled={copiedTowns <= 0}
-              >
-                −
-              </button>
-              <input
-                id={sliderId}
-                className="iugr-copy-slider"
-                type="range"
-                min={0}
-                max={999}
-                step={1}
-                value={copiedTowns}
-                onChange={(e) => setCopies(Number(e.target.value), true)}
-                list={`${sliderId}-snaps`}
-                aria-valuemin={0}
-                aria-valuemax={999}
-                aria-valuenow={copiedTowns}
-                aria-valuetext={`${formatWholeNumber(copiedTowns)} copied towns`}
-                aria-describedby={liveId}
-              />
-              <button
-                type="button"
-                className="iugr-btn iugr-btn-ghost iugr-copy-step"
-                onClick={() => nudge(1)}
-                aria-label="More copied towns"
-                disabled={copiedTowns >= 999}
-              >
-                +
-              </button>
-            </div>
-            <datalist id={`${sliderId}-snaps`}>
-              {COPY_SNAP_POINTS.map((p) => (
-                <option key={p} value={p} />
-              ))}
-            </datalist>
-
-            <div className="iugr-copy-snaps" role="group" aria-label="Quick copy counts">
-              {COPY_SNAP_POINTS.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  className={[
-                    "iugr-copy-snap",
-                    copiedTowns === p ? "is-active" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  onClick={() => setCopies(p, true)}
-                  aria-pressed={copiedTowns === p}
-                >
-                  {formatWholeNumber(p)}
-                </button>
-              ))}
-            </div>
-
-            <p className="iugr-copy-snap-hint">{COPY_MACHINE.snapHints}</p>
-
-            <div className="iugr-copy-control-actions">
-              <button
-                type="button"
-                className="iugr-btn iugr-btn-ghost"
-                onClick={() =>
-                  onCopiedTownsChange(0, { interacted: hasInteracted, reachedNine })
-                }
-              >
-                {COPY_MACHINE.resetLabel}
-              </button>
-              <button
-                type="button"
-                className="iugr-btn iugr-btn-ghost"
-                onClick={() => setMathOpen(true)}
-              >
-                {COPY_MACHINE.showMath}
-              </button>
-            </div>
-          </div>
-        </div>
-
+            {formatWholeNumber(p)}
+          </button>
+        ))}
       </div>
 
       <div className="iugr-copy-field-row" aria-label={COPY_MACHINE.clusterAria}>
-        <CopyField copiedTowns={copiedTowns} reducedMotion={reducedMotion} />
+        <CopyField
+          copiedTowns={copiedTowns}
+          readerFigureIndex={readerFigureIndex}
+          consciousnessPremise={consciousnessPremise}
+          reducedMotion={reducedMotion}
+        />
+      </div>
+
+      <CountRow
+        copiedTowns={copiedTowns}
+        consciousnessPremise={consciousnessPremise}
+        reducedMotion={reducedMotion}
+      />
+
+      <div className="iugr-copy-body">
+        <p>{bodyPrimary}</p>
+        {bodySecond ? <p>{bodySecond}</p> : null}
       </div>
 
       <p id={liveId} className="sr-only" aria-live="polite" aria-atomic="true">
         {liveText}
       </p>
 
-      {copiedTowns >= 9 ? (
-        <p className="iugr-copy-margin-note">
-          {COPY_MACHINE.countTransitionNote}
-        </p>
-      ) : null}
-
-      <div className="iugr-copy-panels">
-        <section className="iugr-census" aria-label={COPY_MACHINE.censusTitle}>
-          <h2>{COPY_MACHINE.censusTitle}</h2>
-          <dl className="iugr-census-grid">
-            <div>
-              <dt>{COPY_MACHINE.originalTowns}</dt>
-              <dd>{census.originalTowns}</dd>
-            </div>
-            <div>
-              <dt>{COPY_MACHINE.copiedTowns}</dt>
-              <dd>{formatWholeNumber(census.copiedTowns)}</dd>
-            </div>
-            <div>
-              <dt>{COPY_MACHINE.totalTowns}</dt>
-              <dd>{formatWholeNumber(census.totalTowns)}</dd>
-            </div>
-            <div>
-              <dt>{COPY_MACHINE.originalResidents}</dt>
-              <dd>{formatWholeNumber(census.originalResidents)}</dd>
-            </div>
-            <div>
-              <dt>{COPY_MACHINE.copiedResidents}</dt>
-              <dd>{formatWholeNumber(census.copiedResidents)}</dd>
-            </div>
-            <div>
-              <dt>{COPY_MACHINE.totalResidents}</dt>
-              <dd>{formatWholeNumber(census.totalResidents)}</dd>
-            </div>
-          </dl>
-        </section>
-
-        <FractionViz census={census} />
-      </div>
-
-
-      {reachedNine ? (
-        <div className="iugr-copy-anthropic">
-          <p>{COPY_MACHINE.anthropicReveal}</p>
-          <details
-            open={defineOpen}
-            onToggle={(e) => setDefineOpen((e.target as HTMLDetailsElement).open)}
-          >
-            <summary>What does that mean?</summary>
-            <p>{COPY_MACHINE.anthropicDefinition}</p>
-          </details>
-        </div>
-      ) : null}
-
       <div className="iugr-actions iugr-copy-nav">
         <button type="button" className="iugr-btn iugr-btn-ghost" onClick={onBack}>
           {COPY_MACHINE.previousLabel}
         </button>
-        {hasInteracted ? (
-          <button type="button" className="iugr-btn iugr-btn-primary" onClick={onContinue}>
-            {COPY_MACHINE.continueLabel}
-          </button>
-        ) : (
-          <p className="iugr-copy-continue-hint">Try the Copy Machine once to continue.</p>
-        )}
+        <button
+          type="button"
+          className="iugr-btn iugr-btn-primary iugr-copy-continue"
+          onClick={onContinue}
+          disabled={!canContinue}
+        >
+          {CONTINUE_LABEL}
+        </button>
       </div>
 
-      <MathDrawer open={mathOpen} onClose={() => setMathOpen(false)} census={census} />
+      {silentOpen ? (
+        <SilentScreen
+          reducedMotion={reducedMotion}
+          onDismiss={() => setSilentOpen(false)}
+        />
+      ) : null}
     </section>
   );
 }

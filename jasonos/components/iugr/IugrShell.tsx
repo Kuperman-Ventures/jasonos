@@ -203,9 +203,24 @@ export function IugrShell() {
           ) : null}
 
           {chapterId === "copy-machine" ? (
-            <div className="iugr-wash" data-wash="violet">
+            <div
+              className="iugr-wash iugr-wash-copy"
+              data-wash="copy"
+              data-copies={copiedTowns}
+              style={{
+                ["--copy-wash" as string]:
+                  copiedTowns <= 0
+                    ? "rgba(139,134,217,0.10)"
+                    : copiedTowns === 1
+                      ? "rgba(232,131,111,0.10)"
+                      : copiedTowns === 9
+                        ? "rgba(232,131,111,0.13)"
+                        : "rgba(232,131,111,0.16)",
+              }}
+            >
               <CopyMachineChapter
                 consciousnessPremise={prefs.consciousnessPremise}
+                readerFigureIndex={prefs.readerFigureIndex}
                 copiedTowns={copiedTowns}
                 hasInteracted={copyHasInteracted}
                 reachedNine={copyReachedNine}
