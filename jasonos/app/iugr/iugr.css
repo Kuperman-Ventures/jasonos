@@ -1,19 +1,38 @@
-/* IUGR — Cosmic Field Guide × Soft Anime × Minimal Interactive Editorial */
+/* IUGR — Cosmic Field Guide · tokens from lib/iugr/tokens.ts */
 
 .iugr-root {
-  --iugr-ink: #070b16;
-  --iugr-cream: #f3ead7;
-  --iugr-cream-muted: #cbbfa8;
-  --iugr-paper-soft: rgba(243, 234, 215, 0.08);
-  --iugr-accent: #c6e355;
-  --iugr-accent-ink: #141c0a;
-  --iugr-coral: #e0897a;
-  --iugr-violet: #8b7cc9;
-  --iugr-border: rgba(243, 234, 215, 0.14);
-  --iugr-border-strong: rgba(243, 234, 215, 0.28);
+  /* Canonical system tokens */
+  --ink: #0b1020;
+  --ink-deep: #080c18;
+  --cream: #f2ede3;
+  --chartreuse: #c8f04a;
+  --coral: #e8836f;
+  --violet: #8b86d9;
+  --text-body: rgba(242, 237, 227, 0.74);
+  --text-strong: rgba(242, 237, 227, 0.82);
+  --label: rgba(242, 237, 227, 0.45);
+  --label-plate: rgba(242, 237, 227, 0.42);
+  --border-control: rgba(242, 237, 227, 0.22);
+  --border-plate: rgba(242, 237, 227, 0.2);
+  --hairline: rgba(242, 237, 227, 0.12);
+  --border-chrome: rgba(242, 237, 227, 0.08);
+  --wash-violet: rgba(139, 134, 217, 0.1);
+  --wash-coral: rgba(232, 131, 111, 0.12);
+
+  /* Compatibility aliases used by existing chapter CSS */
+  --iugr-ink: var(--ink);
+  --iugr-cream: var(--cream);
+  --iugr-cream-muted: var(--text-body);
+  --iugr-paper-soft: rgba(242, 237, 227, 0.08);
+  --iugr-accent: var(--chartreuse);
+  --iugr-accent-ink: var(--ink-deep);
+  --iugr-coral: var(--coral);
+  --iugr-violet: var(--violet);
+  --iugr-border: var(--hairline);
+  --iugr-border-strong: var(--border-control);
   --iugr-panel-solid: #151e33;
-  --iugr-glow-accent: 0 0 28px rgba(198, 227, 85, 0.22);
-  --iugr-glow-violet: 0 0 28px rgba(139, 124, 201, 0.24);
+  --iugr-glow-accent: 0 0 28px rgba(200, 240, 74, 0.22);
+  --iugr-glow-violet: 0 0 28px rgba(139, 134, 217, 0.24);
   --iugr-radius-sm: 0.5rem;
   --iugr-radius-md: 0.85rem;
   --iugr-radius-lg: 1.25rem;
@@ -23,17 +42,25 @@
   --iugr-text-md: 1rem;
   --iugr-text-hero: clamp(1.9rem, 5.5vw, 3rem);
   --iugr-motion-fast: 140ms;
-  --iugr-font: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --iugr-font-display: var(--font-iugr-display), "Space Grotesk", sans-serif;
+  --iugr-font-body: var(--font-iugr-body), "IBM Plex Sans", sans-serif;
+  --iugr-font-mono: var(--font-iugr-mono), "JetBrains Mono", ui-monospace, monospace;
+  --iugr-font: var(--iugr-font-body);
   --iugr-max: 42rem;
   --iugr-shell-max: 72rem;
-  --text-strong: rgba(242, 237, 227, 0.82);
-  --iugr-wash-violet: rgba(139, 134, 217, 0.1);
-  --iugr-wash-coral: rgba(232, 131, 111, 0.12);
+  --iugr-wash-violet: var(--wash-violet);
+  --iugr-wash-coral: var(--wash-coral);
+  /* Neutralize per-door accent colours — cream stroke system only */
+  --iugr-door-1: var(--cream);
+  --iugr-door-2: var(--cream);
+  --iugr-door-3: var(--cream);
 
   min-height: 100dvh;
-  color: var(--iugr-cream);
-  background: var(--iugr-ink);
-  font-family: var(--iugr-font);
+  color: var(--text-strong);
+  background: var(--ink);
+  font-family: var(--iugr-font-body);
+  font-size: 15px;
+  line-height: 1.5;
   position: relative;
   isolation: isolate;
 }
@@ -276,33 +303,38 @@
 .iugr-label {
   display: inline-flex;
   padding: 0.2rem 0.55rem;
-  border: 1px solid var(--iugr-border-strong);
+  border: 1px solid var(--border-control);
   border-radius: var(--iugr-radius-sm);
-  font-size: var(--iugr-text-xs);
-  letter-spacing: 0.14em;
+  font-family: var(--iugr-font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.20em;
   text-transform: uppercase;
-  color: var(--iugr-accent);
+  color: var(--chartreuse);
 }
 
 .iugr-headline {
   margin: 0.85rem 0 0;
-  font-size: var(--iugr-text-hero);
-  font-weight: 650;
-  letter-spacing: 0.02em;
-  line-height: 1.08;
+  font-family: var(--iugr-font-display);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.06;
+  color: var(--cream);
 }
 
 .iugr-body {
   margin: 1rem 0 0;
   display: grid;
   gap: 0.75rem;
-  font-size: var(--iugr-text-md);
-  line-height: 1.65;
+  font-family: var(--iugr-font-body);
+  font-size: 15px;
+  line-height: 1.5;
 }
 
 .iugr-body p {
   margin: 0;
-  color: var(--iugr-cream-muted);
+  color: var(--text-body);
 }
 
 .iugr-aside {
@@ -351,7 +383,9 @@
   box-shadow: var(--iugr-glow-accent);
 }
 
-.iugr-btn-primary:hover:not(:disabled) { background: #d4ef6c; }
+.iugr-btn-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--chartreuse) 88%, white);
+}
 
 .iugr-btn-ghost {
   background: transparent;
@@ -984,41 +1018,42 @@ p.iugr-town-copy {
   grid-column: 1;
   grid-row: 1;
   position: relative;
-  border: 1px solid color-mix(in srgb, var(--iugr-cream) 20%, transparent);
-  border-radius: 4px;
+  border: 1px solid var(--border-plate);
+  border-radius: 3px;
+  background: rgba(242, 237, 227, 0.015);
   min-height: 100%;
   pointer-events: none;
 }
 
 .iugr-plate-tick {
   position: absolute;
-  width: 6px;
-  height: 6px;
-  border-color: color-mix(in srgb, var(--iugr-cream) 40%, transparent);
+  width: 9px;
+  height: 9px;
+  border-color: rgba(242, 237, 227, 0.5);
   border-style: solid;
 }
 
 .iugr-plate-tick-tl {
-  top: 2px;
-  left: 2px;
+  top: -1px;
+  left: -1px;
   border-width: 1px 0 0 1px;
 }
 
 .iugr-plate-tick-tr {
-  top: 2px;
-  right: 2px;
+  top: -1px;
+  right: -1px;
   border-width: 1px 1px 0 0;
 }
 
 .iugr-plate-tick-bl {
-  bottom: 2px;
-  left: 2px;
+  bottom: -1px;
+  left: -1px;
   border-width: 0 0 1px 1px;
 }
 
 .iugr-plate-tick-br {
-  bottom: 2px;
-  right: 2px;
+  bottom: -1px;
+  right: -1px;
   border-width: 0 1px 1px 0;
 }
 
@@ -1029,7 +1064,7 @@ p.iugr-town-copy {
   z-index: 1;
   display: grid;
   gap: 0.35rem;
-  padding: 1.15rem 0.7rem 1.35rem;
+  padding: 14px;
   min-width: 0;
   overflow: visible;
 }
@@ -1041,32 +1076,35 @@ p.iugr-town-copy {
   display: grid;
   gap: 0.25rem;
   margin: 0.5rem 0 0;
-  min-height: 2.85rem;
+  min-height: 2.4rem;
   max-width: 100%;
 }
 
 .iugr-plate-caption-line {
   margin: 0;
   max-width: 100%;
-  font-size: 0.68rem;
+  font-size: 9px;
   line-height: 1.4;
-  color: color-mix(in srgb, var(--iugr-cream) 55%, transparent);
+  color: color-mix(in srgb, var(--cream) 55%, transparent);
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
 .iugr-plate-caption-id {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.62rem;
-  letter-spacing: 0.14em;
+  font-family: var(--iugr-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  font-variant-caps: all-small-caps;
-  color: color-mix(in srgb, var(--iugr-cream) 55%, transparent);
+  color: color-mix(in srgb, var(--cream) 55%, transparent);
 }
 
 .iugr-plate-caption-sep,
 .iugr-plate-caption-body {
-  color: color-mix(in srgb, var(--iugr-cream) 55%, transparent);
+  font-family: var(--iugr-font-body);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--cream) 55%, transparent);
 }
 
 .iugr-plate-annotation.is-caption {
@@ -1144,8 +1182,8 @@ p.iugr-town-copy {
 
 .iugr-town-sketch-stroke {
   fill: none;
-  stroke: var(--iugr-cream);
-  stroke-width: 1.25px;
+  stroke: var(--cream);
+  stroke-width: 1.4px;
   stroke-linejoin: round;
   stroke-linecap: round;
   vector-effect: non-scaling-stroke;
@@ -1419,17 +1457,25 @@ p.iugr-town-copy {
 }
 
 .iugr-count-grid dt {
-  font-size: var(--iugr-text-xs);
-  letter-spacing: 0.08em;
+  font-family: var(--iugr-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--iugr-cream-muted);
+  color: var(--label);
 }
 
 .iugr-count-grid dd {
   margin: 0.25rem 0 0;
-  font-size: 1.35rem;
-  font-weight: 700;
-  color: var(--iugr-accent);
+  font-family: var(--iugr-font-mono);
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text-strong);
+}
+
+.iugr-count-grid dd:last-of-type,
+.iugr-count-grid > div:last-child dd {
+  color: var(--coral);
 }
 
 .iugr-count-status {
@@ -1610,12 +1656,12 @@ p.iugr-town-copy {
 /* ── Group 3: Copy Machine ──────────────────────────────────────────── */
 
 .iugr-root {
-  --iugr-original-fill: #c6e355;
-  --iugr-original-roof: #8b7cc9;
-  --iugr-copy-fill: #5b6ea8;
-  --iugr-copy-accent: #e0897a;
+  --iugr-original-fill: var(--cream);
+  --iugr-original-roof: var(--cream);
+  --iugr-copy-fill: var(--coral);
+  --iugr-copy-accent: var(--coral);
   --iugr-machine-body: #1a2438;
-  --iugr-machine-screen: #0c1424;
+  --iugr-machine-screen: var(--ink-deep);
   --iugr-machine-dial: #24304a;
 }
 
@@ -3041,28 +3087,51 @@ p.iugr-town-copy {
   gap: 0.45rem;
   min-width: 0;
   min-height: 6.5rem;
-  padding: 0.9rem 1rem;
-  border-radius: var(--iugr-radius-lg);
-  border: 1px solid var(--iugr-border-strong);
-  background:
-    linear-gradient(165deg, rgba(198, 227, 85, 0.06), rgba(7, 11, 22, 0.72));
-  color: var(--iugr-cream);
+  padding: 14px;
+  border-radius: 3px;
+  border: 1px solid var(--border-plate);
+  background: rgba(242, 237, 227, 0.015);
+  color: var(--text-strong);
   text-align: left;
   cursor: pointer;
+}
+
+.iugr-claim-card::before,
+.iugr-claim-card::after {
+  content: "";
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-color: rgba(242, 237, 227, 0.5);
+  border-style: solid;
+  pointer-events: none;
+}
+
+.iugr-claim-card::before {
+  top: -1px;
+  left: -1px;
+  border-width: 1px 0 0 1px;
+  box-shadow: 100% 0 0 0 transparent; /* placeholder for second tick via extra elems */
+}
+
+.iugr-claim-card::after {
+  top: -1px;
+  right: -1px;
+  border-width: 1px 1px 0 0;
 }
 
 .iugr-claim-card:hover,
 .iugr-claim-card:focus-visible {
   outline: none;
-  border-color: var(--iugr-accent);
-  box-shadow: var(--iugr-glow-accent);
+  border-color: var(--border-control);
+  box-shadow: none;
 }
 
 .iugr-claim-card.is-scanned {
-  border-style: double;
-  border-width: 3px;
-  border-color: var(--iugr-accent);
-  box-shadow: inset 5px 0 0 var(--iugr-accent);
+  border-style: solid;
+  border-width: 1px;
+  border-color: var(--violet);
+  box-shadow: inset 3px 0 0 var(--violet);
   padding-left: 1.2rem;
   padding-right: 2.5rem;
 }
@@ -3692,26 +3761,30 @@ p.iugr-town-copy {
   color: var(--text-strong);
 }
 
-.iugr-panel[data-wash="violet"] {
-  background:
-    linear-gradient(var(--iugr-wash-violet), var(--iugr-wash-violet)),
-    linear-gradient(165deg, rgba(26, 36, 56, 0.92), rgba(13, 20, 36, 0.88));
-}
-
-.iugr-panel[data-wash="coral"] {
-  background:
-    linear-gradient(var(--iugr-wash-coral), var(--iugr-wash-coral)),
-    linear-gradient(165deg, rgba(26, 36, 56, 0.92), rgba(13, 20, 36, 0.88));
-}
-
+.iugr-panel[data-wash="violet"],
 .iugr-opening[data-wash="violet"],
 .iugr-wash[data-wash="violet"] {
-  background-color: var(--iugr-wash-violet);
+  background-image: radial-gradient(
+    120% 60% at 50% 0%,
+    var(--wash-violet),
+    transparent 60%
+  );
 }
 
+.iugr-panel[data-wash="coral"],
 .iugr-opening[data-wash="coral"],
 .iugr-wash[data-wash="coral"] {
-  background-color: var(--iugr-wash-coral);
+  background-image: radial-gradient(
+    120% 60% at 50% 0%,
+    var(--wash-coral),
+    transparent 60%
+  );
+}
+
+.iugr-panel[data-wash="violet"],
+.iugr-panel[data-wash="coral"] {
+  background-color: transparent;
+  background-repeat: no-repeat;
 }
 
 .iugr-opening-body {

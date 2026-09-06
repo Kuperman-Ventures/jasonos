@@ -14,6 +14,7 @@ import {
   type DoorDefinition,
   type DoorId,
 } from "@/lib/iugr/threeDoors";
+import { Plate } from "@/components/iugr/plate/Plate";
 import { TransitionBlock } from "@/components/iugr/TransitionBlock";
 
 export type ThreeDoorsChapterProps = {
@@ -45,31 +46,24 @@ function statusLabel(status: DoorStatus): string {
 }
 
 function DoorIllustration({ door }: { door: DoorDefinition }) {
+  const stroke = {
+    fill: "none",
+    stroke: "var(--cream)",
+    strokeWidth: 1.4,
+    vectorEffect: "non-scaling-stroke" as const,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+
   if (door.id === "road-ends") {
     return (
       <svg className="iugr-door-illust" viewBox="0 0 160 120" aria-hidden>
-        <defs>
-          <linearGradient id="iugr-road-fade" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="var(--iugr-accent)" stopOpacity="0.95" />
-            <stop offset="65%" stopColor="var(--iugr-accent)" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="var(--iugr-accent)" stopOpacity="0" />
-          </linearGradient>
-        </defs>
         <path
           d="M14 90 C46 86 58 72 80 62 C100 53 118 46 146 38"
-          fill="none"
-          stroke="url(#iugr-road-fade)"
-          strokeWidth="6"
-          strokeLinecap="round"
+          {...stroke}
         />
-        <circle cx="146" cy="38" r="11" fill="var(--iugr-accent)" opacity="0.22" />
-        <circle cx="146" cy="38" r="4.5" fill="var(--iugr-cream)" opacity="0.4" />
-        <path
-          d="M80 62 L74 53 M80 62 L88 55"
-          stroke="var(--iugr-coral)"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-        />
+        <circle cx="146" cy="38" r="8" {...stroke} />
+        <path d="M80 62 L74 53 M80 62 L88 55" {...stroke} />
       </svg>
     );
   }
@@ -77,65 +71,29 @@ function DoorIllustration({ door }: { door: DoorDefinition }) {
   if (door.id === "archive-closed") {
     return (
       <svg className="iugr-door-illust" viewBox="0 0 160 120" aria-hidden>
-        <rect
-          x="22"
-          y="16"
-          width="116"
-          height="80"
-          rx="9"
-          fill="var(--iugr-panel-solid)"
-          stroke="var(--iugr-violet)"
-          strokeWidth="2"
-        />
-        <rect x="32" y="28" width="30" height="52" rx="2" fill="var(--iugr-violet)" opacity="0.38" />
-        <rect x="66" y="28" width="30" height="52" rx="2" fill="var(--iugr-violet)" opacity="0.26" />
-        <rect x="100" y="28" width="30" height="52" rx="2" fill="var(--iugr-violet)" opacity="0.18" />
-        <rect x="50" y="48" width="60" height="24" rx="4" fill="var(--iugr-cream)" opacity="0.94" />
-        <text
-          x="80"
-          y="64"
-          textAnchor="middle"
-          fill="#070b16"
-          fontSize="10"
-          fontWeight="700"
-          fontFamily="var(--iugr-font), system-ui, sans-serif"
-        >
-          CLOSED
-        </text>
-        <rect x="120" y="74" width="14" height="10" rx="2" fill="var(--iugr-accent)" opacity="0.55" />
+        <rect x="22" y="16" width="116" height="80" rx="4" {...stroke} />
+        <rect x="32" y="28" width="30" height="52" rx="1" {...stroke} />
+        <rect x="66" y="28" width="30" height="52" rx="1" {...stroke} />
+        <rect x="100" y="28" width="30" height="52" rx="1" {...stroke} />
+        <rect x="50" y="48" width="60" height="24" rx="2" {...stroke} />
+        <path d="M62 60 H98" {...stroke} />
       </svg>
     );
   }
 
   return (
     <svg className="iugr-door-illust" viewBox="0 0 160 120" aria-hidden>
-      <rect
-        x="16"
-        y="20"
-        width="128"
-        height="74"
-        rx="11"
-        fill="var(--iugr-panel-solid)"
-        stroke="var(--iugr-coral)"
-        strokeWidth="2"
-      />
+      <rect x="16" y="20" width="128" height="74" rx="4" {...stroke} />
       {[0, 1, 2, 3, 4, 5].map((i) => (
         <circle
           key={i}
           cx={38 + i * 17}
           cy={48 + (i % 2) * 9}
-          r="6.5"
-          fill="var(--iugr-accent)"
-          opacity={0.32 + i * 0.08}
+          r="5"
+          {...stroke}
         />
       ))}
-      <path
-        d="M32 82 H128"
-        stroke="var(--iugr-cream-muted)"
-        strokeWidth="2"
-        strokeDasharray="4 4"
-        opacity="0.55"
-      />
+      <path d="M32 82 H128" {...stroke} strokeDasharray="4 3" />
     </svg>
   );
 }
@@ -155,8 +113,7 @@ function DoorCard({
     <button
       type="button"
       ref={buttonRef}
-      className={`iugr-door-card is-${status} iugr-door-tone-${door.number}`}
-      style={{ ["--iugr-door-accent" as string]: `var(${door.accentVar})` }}
+      className={`iugr-door-card is-${status}`}
       onClick={onOpen}
       aria-label={`${door.label}: ${door.title}. ${statusLabel(status)}.`}
       data-status={status}
@@ -167,7 +124,12 @@ function DoorCard({
         </span>
       ) : null}
       <span className="iugr-door-card-art" aria-hidden>
-        <DoorIllustration door={door} />
+        <Plate
+          figureNumber={door.number}
+          caption={`${door.title}.`}
+        >
+          <DoorIllustration door={door} />
+        </Plate>
       </span>
       <span className="iugr-door-card-copy">
         <span className="iugr-door-card-label">{door.label}</span>
@@ -206,7 +168,9 @@ function DoorDetail({
       </h2>
 
       <div className="iugr-door-detail-visual" aria-hidden>
-        <DoorIllustration door={door} />
+        <Plate figureNumber={door.number} caption={`${door.title}.`}>
+          <DoorIllustration door={door} />
+        </Plate>
       </div>
 
       <blockquote className="iugr-door-quote">

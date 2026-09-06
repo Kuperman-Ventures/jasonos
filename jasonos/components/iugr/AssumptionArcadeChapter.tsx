@@ -12,6 +12,7 @@ import {
   type ScenarioCategory,
 } from "@/lib/iugr/scenarioEngine";
 import { ARCADE_SCRIPT, TRANSITION_5 } from "@/lib/iugr/script";
+import { Plate } from "@/components/iugr/plate/Plate";
 import { TransitionBlock } from "@/components/iugr/TransitionBlock";
 
 export type AssumptionArcadeChapterProps = {
@@ -23,88 +24,69 @@ export type AssumptionArcadeChapterProps = {
 };
 
 function ScenarioMotif({ category }: { category: ScenarioCategory }) {
+  const stroke = {
+    fill: "none",
+    stroke: "var(--cream)",
+    strokeWidth: 1.4,
+    vectorEffect: "non-scaling-stroke" as const,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+
   return (
-    <svg
-      className="iugr-arcade-motif"
-      viewBox="0 0 160 72"
-      aria-hidden
-      focusable="false"
-    >
-      <rect
-        x="8"
-        y="12"
-        width="144"
-        height="48"
-        rx="12"
-        fill="var(--iugr-panel-solid)"
-        stroke="var(--iugr-border-strong)"
-        strokeWidth="1.5"
-      />
-      {category === "observer-count-breaks" ? (
-        <>
-          <circle cx="40" cy="36" r="10" fill="var(--iugr-coral)" opacity="0.85" />
-          <path
-            d="M70 36 H128"
-            stroke="var(--iugr-cream-muted)"
-            strokeWidth="2"
-            strokeDasharray="4 4"
-          />
-          <path
-            d="M118 28 L130 36 L118 44"
-            fill="none"
-            stroke="var(--iugr-coral)"
-            strokeWidth="2"
-          />
-        </>
-      ) : null}
-      {category === "copies-stay-rare" ? (
-        <>
-          <circle cx="48" cy="36" r="11" fill="var(--iugr-accent)" />
-          <circle cx="86" cy="30" r="4" fill="var(--iugr-copy-fill)" opacity="0.7" />
-          <circle cx="104" cy="42" r="3.5" fill="var(--iugr-copy-fill)" opacity="0.55" />
-        </>
-      ) : null}
-      {category === "copies-could-outnumber" ? (
-        <>
-          <circle cx="36" cy="36" r="8" fill="var(--iugr-accent)" />
-          {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+    <Plate figureNumber={5} caption="Scenario field.">
+      <svg
+        className="iugr-arcade-motif"
+        viewBox="0 0 160 72"
+        aria-hidden
+        focusable="false"
+      >
+        <rect x="8" y="12" width="144" height="48" rx="4" {...stroke} />
+        {category === "observer-count-breaks" ? (
+          <>
+            <circle cx="40" cy="36" r="10" {...stroke} />
+            <path d="M70 36 H128" {...stroke} strokeDasharray="4 3" />
+            <path d="M118 28 L130 36 L118 44" {...stroke} />
+          </>
+        ) : null}
+        {category === "copies-stay-rare" ? (
+          <>
+            <circle cx="48" cy="36" r="11" {...stroke} />
+            <circle cx="86" cy="30" r="4" {...stroke} />
+            <circle cx="104" cy="42" r="3.5" {...stroke} />
+          </>
+        ) : null}
+        {category === "copies-could-outnumber" ? (
+          <>
+            <circle cx="36" cy="36" r="8" {...stroke} />
+            {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <circle
+                key={i}
+                cx={64 + (i % 5) * 14}
+                cy={24 + Math.floor(i / 5) * 18}
+                r="4"
+                {...stroke}
+              />
+            ))}
+          </>
+        ) : null}
+        {category === "too-uncertain-to-count" ||
+        category === "mixed-or-uncertain" ? (
+          <>
             <circle
-              key={i}
-              cx={64 + (i % 5) * 14}
-              cy={24 + Math.floor(i / 5) * 18}
-              r="4"
-              fill="var(--iugr-copy-fill)"
-              opacity={0.45 + (i % 3) * 0.15}
+              cx="52"
+              cy="36"
+              r="10"
+              {...stroke}
+              strokeDasharray="3 3"
             />
-          ))}
-        </>
-      ) : null}
-      {category === "too-uncertain-to-count" ||
-      category === "mixed-or-uncertain" ? (
-        <>
-          <circle
-            cx="52"
-            cy="36"
-            r="10"
-            fill="none"
-            stroke="var(--iugr-violet)"
-            strokeWidth="2"
-            strokeDasharray="3 3"
-          />
-          <circle cx="92" cy="28" r="5" fill="var(--iugr-violet)" opacity="0.45" />
-          <circle cx="112" cy="44" r="5" fill="var(--iugr-copy-fill)" opacity="0.45" />
-          <text
-            x="128"
-            y="40"
-            fill="var(--iugr-cream-muted)"
-            fontSize="16"
-            fontFamily="var(--iugr-font), system-ui, sans-serif"
-          >
-            ?
-          </text>
-        </>
-      ) : null}
-    </svg>
+            <circle cx="92" cy="28" r="5" {...stroke} />
+            <circle cx="112" cy="44" r="5" {...stroke} />
+            <path d="M128 32 L136 40 L128 48" {...stroke} />
+          </>
+        ) : null}
+      </svg>
+    </Plate>
   );
 }
 
