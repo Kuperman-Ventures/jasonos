@@ -17,16 +17,22 @@ import { ChapterPlaceholder } from "@/components/iugr/ChapterPlaceholder";
 import { CopyMachineChapter } from "@/components/iugr/CopyMachineChapter";
 import { ThreeDoorsChapter } from "@/components/iugr/ThreeDoorsChapter";
 import { AssumptionArcadeChapter } from "@/components/iugr/AssumptionArcadeChapter";
+import { EvidenceScannerChapter } from "@/components/iugr/EvidenceScannerChapter";
 import { FieldNoteLibrary } from "@/components/iugr/FieldNoteLibrary";
 import { GuideSettings } from "@/components/iugr/GuideSettings";
 import { OpeningStage } from "@/components/iugr/OpeningStage";
 import { OriginalTownChapter } from "@/components/iugr/OriginalTownChapter";
+import { TheCatchChapter } from "@/components/iugr/TheCatchChapter";
 import type { DoorId } from "@/lib/iugr/threeDoors";
 import { markDoorExplored } from "@/lib/iugr/threeDoors";
 import {
   DEFAULT_SCENARIO_ASSUMPTIONS,
   type ScenarioAssumptions,
 } from "@/lib/iugr/scenarioEngine";
+import {
+  markClaimScanned,
+  type EvidenceClaimId,
+} from "@/lib/iugr/evidenceClaims";
 
 let memoryPrefs: IugrPreferences | null = null;
 const listeners = new Set<() => void>();
@@ -77,6 +83,10 @@ export function IugrShell() {
   const [activeDoorId, setActiveDoorId] = useState<DoorId | null>(null);
   const [arcadeAssumptions, setArcadeAssumptions] = useState<ScenarioAssumptions>(
     DEFAULT_SCENARIO_ASSUMPTIONS,
+  );
+  const [scannedClaimIds, setScannedClaimIds] = useState<EvidenceClaimId[]>([]);
+  const [activeClaimId, setActiveClaimId] = useState<EvidenceClaimId | null>(
+    null,
   );
 
   useEffect(() => {
@@ -129,6 +139,8 @@ export function IugrShell() {
     setExploredDoors([]);
     setActiveDoorId(null);
     setArcadeAssumptions(DEFAULT_SCENARIO_ASSUMPTIONS);
+    setScannedClaimIds([]);
+    setActiveClaimId(null);
     updatePrefs((prev) => ({ ...prev, consciousnessPremise: null }));
   }, []);
 
@@ -210,11 +222,38 @@ export function IugrShell() {
             />
           ) : null}
 
+          {chapterId === "evidence-scanner" ? (
+            <EvidenceScannerChapter
+              scannedClaimIds={scannedClaimIds}
+              activeClaimId={activeClaimId}
+              onOpenClaim={(id) => setActiveClaimId(id)}
+              onCloseClaim={(id) => {
+                setScannedClaimIds((prev) => markClaimScanned(prev, id));
+                setActiveClaimId(null);
+              }}
+              onContinue={() => setChapterId("the-catch")}
+              onBack={() => {
+                setActiveClaimId(null);
+                setChapterId("assumption-arcade");
+              }}
+              reducedMotion={prefs.reducedMotion}
+            />
+          ) : null}
+
+          {chapterId === "the-catch" ? (
+            <TheCatchChapter
+              onContinue={() => setChapterId("closing")}
+              onBack={() => setChapterId("evidence-scanner")}
+            />
+          ) : null}
+
           {chapterId !== "opening" &&
           chapterId !== "original-town" &&
           chapterId !== "copy-machine" &&
           chapterId !== "three-doors" &&
-          chapterId !== "assumption-arcade" ? (
+          chapterId !== "assumption-arcade" &&
+          chapterId !== "evidence-scanner" &&
+          chapterId !== "the-catch" ? (
             <ChapterPlaceholder
               chapterId={chapterId}
               guideId={prefs.guideId}
