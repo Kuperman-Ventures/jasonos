@@ -82,7 +82,7 @@ export const EVIDENCE_SCANNER = {
   returnToList: "Back to claims",
   openBadge: "Open",
   doneBadge: "Opened",
-  synthesisTitle: "Scanner summary",
+  synthesisTitle: "",
   synthesisBody: SCANNER_SCRIPT.summary[0],
   synthesisNote: SCANNER_SCRIPT.summary[1],
   continueLabel: SCANNER_SCRIPT.continueLabel,

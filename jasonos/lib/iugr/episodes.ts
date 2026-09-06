@@ -57,11 +57,11 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
       ],
     },
   },
-  "assumption-arcade": {
-    id: "assumption-arcade",
+  "back-to-machine": {
+    id: "back-to-machine",
     order: 5,
     title: "Back To The Machine",
-    shortLabel: "Arcade",
+    shortLabel: "Back",
     placeholder: {
       headline: "Back To The Machine",
       body: [
@@ -100,7 +100,7 @@ export const CHAPTER_SEQUENCE: ChapterId[] = [
   "original-town",
   "copy-machine",
   "three-doors",
-  "assumption-arcade",
+  "back-to-machine",
   "evidence-scanner",
   "closing",
 ];

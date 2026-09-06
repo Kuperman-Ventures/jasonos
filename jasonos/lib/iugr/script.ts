@@ -80,10 +80,10 @@ export const THREE_DOORS_SCRIPT = {
       plainTranslation:
         "In plain terms: almost nobody gets far enough to build the machine.",
       body: [
-        "Civilisations are fragile in boring ways and in interesting ones. They run out of things. They turn on themselves. Something else does it for them. If almost every civilisation stops before it can run vast numbers of detailed minds, there are almost no copies to count.",
+        "Civilizations are fragile in boring ways and in interesting ones. They run out of things. They turn on themselves. Something else does it for them. If almost every civilization stops before it can run vast numbers of detailed minds, there are almost no copies to count.",
       ],
       sciFiAnchors: [
-        "You have seen this door. Battlestar Galactica runs the same civilisation into the ground over and over. The Three-Body Problem has advanced civilisations removed by other advanced civilisations, on principle, before they get anywhere.",
+        "You have seen this door. Battlestar Galactica runs the same civilization into the ground over and over. The Three-Body Problem has advanced civilizations removed by other advanced civilizations, on principle, before they get anywhere.",
       ],
       takeaway: "If the road ends early, the count never starts.",
     },
@@ -93,10 +93,10 @@ export const THREE_DOORS_SCRIPT = {
         "Any posthuman civilization is extremely unlikely to run a significant number of simulations of their evolutionary history.",
       plainTranslation: "In plain terms: they get there, and they choose not to.",
       body: [
-        "Being able to do a thing is not the same as wanting to. A civilisation that could simulate its own past in detail might find it ruinously expensive, or grotesque, or illegal, or simply less interesting than whatever else is on offer by then.",
+        "Being able to do a thing is not the same as wanting to. A civilization that could simulate its own past in detail might find it ruinously expensive, or grotesque, or illegal, or simply less interesting than whatever else is on offer by then.",
       ],
       sciFiAnchors: [
-        "Star Trek gives its most capable civilisation a standing rule against interfering with less advanced ones. In Her, the intelligences we build become more interesting than us and leave.",
+        "Star Trek gives its most capable civilization a standing rule against interfering with less advanced ones. In Her, the intelligences we build become more interesting than us and leave.",
       ],
       takeaway: "If the archive stays closed, copied observers stay rare.",
     },
@@ -129,7 +129,7 @@ export const ARCADE_SCRIPT = {
   ],
   dials: {
     civilizations: {
-      title: "Do civilisations get that far?",
+      title: "Do civilizations get that far?",
       options: [
         { id: "rarely" as const, label: "Rarely" },
         { id: "sometimes" as const, label: "Sometimes" },
@@ -223,7 +223,7 @@ export const SCANNER_SCRIPT = {
       claim:
         "Elon Musk says the odds we are in base reality are one in billions.",
       paragraphs: [
-        "He did say it, at a conference in 2016, and it travelled further than the argument did.",
+        "He did say it, at a conference in 2016, and it traveled further than the argument did.",
         "A number from a confident person is not a reading from an instrument. Bostrom, who wrote the thing, spreads his own confidence roughly evenly across all three doors.",
       ],
     },
@@ -248,7 +248,7 @@ export const CLOSING_SCRIPT = {
   keepIntro: "Three lines worth keeping:",
   keepLines: [
     "The simulation argument is not a claim that we are simulated. It is a claim that one of three things has to be true.",
-    "Either almost no civilisation gets that far. Or they get there and almost never build these. Or copies outnumber originals, and you are probably one.",
+    "Either almost no civilization gets that far. Or they get there and almost never build these. Or copies outnumber originals, and you are probably one.",
     "Bostrom splits his own confidence roughly evenly across the three. That is a better answer than picking one, and a better line than any of them.",
   ],
   actions: {

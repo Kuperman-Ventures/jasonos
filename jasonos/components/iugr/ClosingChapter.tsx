@@ -10,21 +10,12 @@ export type ClosingChapterProps = {
   onBack: () => void;
 };
 
-async function shareOrCopy(): Promise<"shared" | "copied" | "failed"> {
-  const url = typeof window !== "undefined" ? window.location.href : "";
-  try {
-    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-      await navigator.share({
-        title: CLOSING.shareTitle,
-        text: CLOSING.shareText,
-        url,
-      });
-      return "shared";
-    }
-  } catch {
-    // Fall through to clipboard; share cancel should not look like success.
-  }
-
+/** Copy only the general entry URL — never reader-specific state. */
+async function copyEntryUrl(): Promise<"copied" | "failed"> {
+  const url =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/iugr`
+      : "https://jasonos.vercel.app/iugr";
   try {
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(url);
@@ -82,10 +73,9 @@ export function ClosingChapter({
           type="button"
           className="iugr-btn iugr-btn-ghost"
           onClick={async () => {
-            const result = await shareOrCopy();
+            const result = await copyEntryUrl();
             if (result === "copied") setShareNote(CLOSING.shareCopied);
-            else if (result === "failed") setShareNote(CLOSING.shareFailed);
-            else setShareNote(null);
+            else setShareNote(CLOSING.shareFailed);
           }}
         >
           {CLOSING_SCRIPT.actions.send}

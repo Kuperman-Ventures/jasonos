@@ -43,7 +43,7 @@ export const SOURCES = {
       name: "Robin Hanson",
       citation: "On ancestor simulations",
       guideNote:
-        "Why a civilisation that could run these might not. Door 2's reasoning",
+        "Why a civilization that could run these might not. Door 2's reasoning",
       href: "https://www.overcomingbias.com/p/am-i-a-simhtml",
     },
   ] satisfies SourceEntry[],

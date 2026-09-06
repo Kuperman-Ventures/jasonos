@@ -7,7 +7,7 @@ export type ChapterId =
   | "original-town"
   | "copy-machine"
   | "three-doors"
-  | "assumption-arcade"
+  | "back-to-machine"
   | "evidence-scanner"
   | "closing";
 
