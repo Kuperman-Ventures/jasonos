@@ -114,9 +114,17 @@ export function IugrShell() {
     updatePrefs((prev) => ({ ...prev, guideId }));
   }, []);
 
-  const setConsciousnessPremise = useCallback(
-    (consciousnessPremise: ConsciousnessPremise) => {
-      updatePrefs((prev) => ({ ...prev, consciousnessPremise }));
+  const setReaderFigureIndex = useCallback((readerFigureIndex: number) => {
+    updatePrefs((prev) => ({ ...prev, readerFigureIndex }));
+  }, []);
+
+  const setCopiesAreConscious = useCallback(
+    (copiesAreConscious: ConsciousnessPremise) => {
+      updatePrefs((prev) => ({
+        ...prev,
+        copiesAreConscious,
+        consciousnessPremise: copiesAreConscious,
+      }));
     },
     [],
   );
@@ -145,7 +153,12 @@ export function IugrShell() {
     setActiveClaimId(null);
     setInspectedCaveatIds([]);
     setSourcesOpen(false);
-    updatePrefs((prev) => ({ ...prev, consciousnessPremise: null }));
+    updatePrefs((prev) => ({
+      ...prev,
+      consciousnessPremise: null,
+      copiesAreConscious: null,
+      readerFigureIndex: null,
+    }));
   }, []);
 
   return (
@@ -178,9 +191,11 @@ export function IugrShell() {
 
           {chapterId === "original-town" ? (
             <OriginalTownChapter
-              consciousnessPremise={prefs.consciousnessPremise}
-              onSelectPremise={setConsciousnessPremise}
-              onOpenGuideSettings={() => setGuideOpen(true)}
+              readerFigureIndex={prefs.readerFigureIndex}
+              copiesAreConscious={prefs.copiesAreConscious}
+              onSelectReaderFigure={setReaderFigureIndex}
+              onSelectCopiesAreConscious={setCopiesAreConscious}
+              reducedMotion={prefs.reducedMotion}
               onContinue={() => setChapterId("copy-machine")}
               onPrevious={() => setChapterId("opening")}
             />

@@ -12,6 +12,8 @@ export const DEFAULT_PREFERENCES: IugrPreferences = {
   reducedMotion: false,
   highContrast: false,
   consciousnessPremise: null,
+  readerFigureIndex: null,
+  copiesAreConscious: null,
 };
 
 function isGuideId(value: unknown): value is GuideId {
@@ -22,6 +24,10 @@ function isConsciousnessPremise(
   value: unknown,
 ): value is ConsciousnessPremise {
   return value === "yes" || value === "unsure" || value === "no";
+}
+
+function isReaderFigureIndex(value: unknown): value is number {
+  return Number.isInteger(value) && Number(value) >= 0 && Number(value) <= 9;
 }
 
 export function readPreferences(): IugrPreferences {
@@ -46,7 +52,17 @@ export function readPreferences(): IugrPreferences {
           : DEFAULT_PREFERENCES.highContrast,
       consciousnessPremise: isConsciousnessPremise(parsed.consciousnessPremise)
         ? parsed.consciousnessPremise
+        : isConsciousnessPremise(parsed.copiesAreConscious)
+          ? parsed.copiesAreConscious
+          : null,
+      readerFigureIndex: isReaderFigureIndex(parsed.readerFigureIndex)
+        ? parsed.readerFigureIndex
         : null,
+      copiesAreConscious: isConsciousnessPremise(parsed.copiesAreConscious)
+        ? parsed.copiesAreConscious
+        : isConsciousnessPremise(parsed.consciousnessPremise)
+          ? parsed.consciousnessPremise
+          : null,
     };
   } catch {
     return DEFAULT_PREFERENCES;
