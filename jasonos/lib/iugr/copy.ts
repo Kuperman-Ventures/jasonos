@@ -149,3 +149,38 @@ export const COPY_MACHINE = {
   countTransitionNote:
     "The important part is not that copies are strange. It is that a large number of conscious copies changes the count.",
 } as const;
+
+export const THREE_DOORS = {
+  chapterLabel: "Chapter · Three Doors",
+  title: "Three Doors",
+  transitionFromMachine:
+    "The machine has shown one small thing: if conscious copies become numerous, they can dominate the count.",
+  transitionBridge:
+    "But that only matters if reality gets through a very particular set of doors.",
+  guideWelcome:
+    "Welcome to the Three Doors. The argument does not tell us which door is real. It says at least one of them probably is.",
+  hubPrompt: "Open any door. Visit all three to see how the argument fits together.",
+  hubProgress: "Doors explored",
+  statusUnexplored: "Unexplored",
+  statusOpen: "Currently open",
+  statusExplored: "Explored",
+  returnToHub: "Return to the doors",
+  lookCloser: "Look closer",
+  fieldNoteLabel: "Field note",
+  completionTitle: "That is the three-door argument:",
+  completionOne:
+    "Almost nobody gets the ability to make vast conscious simulations.",
+  completionTwo:
+    "Those who do get the ability almost never make many of them.",
+  completionThree:
+    "Or, if they do make many, copied observers could become more common than original ones.",
+  completionClose:
+    "The argument does not tell us which door is true. It says the answer to the big question depends on which assumptions survive inspection.",
+  bostromNote:
+    "Philosopher Nick Bostrom made this three-part version of the simulation argument widely known.",
+  continueLabel: "Inspect the Assumptions",
+  previousLabel: "Previous",
+  hubAria: "Three Doors transit hub",
+  detailAria: "Door detail",
+} as const;
+

@@ -1609,3 +1609,339 @@ body:has(.iugr-root) main.flex-1 {
   border-color: #b8a8f0;
 }
 
+
+
+/* ── Group 4: Three Doors ───────────────────────────────────────────── */
+
+.iugr-root {
+  --iugr-door-1: #c6e355;
+  --iugr-door-2: #8b7cc9;
+  --iugr-door-3: #e0897a;
+}
+
+.iugr-three-doors {
+  display: grid;
+  gap: 0.95rem;
+  width: 100%;
+  max-width: min(100%, 52rem);
+  margin-inline: auto;
+  min-width: 0;
+}
+
+.iugr-doors-prompt,
+.iugr-doors-progress,
+.iugr-doors-continue-hint {
+  margin: 0;
+  color: var(--iugr-cream-muted);
+  font-size: var(--iugr-text-sm);
+  line-height: 1.45;
+}
+
+.iugr-doors-progress {
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: var(--iugr-text-xs);
+}
+
+.iugr-doors-hub {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .iugr-doors-hub {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    align-items: stretch;
+  }
+}
+
+.iugr-door-card {
+  display: grid;
+  gap: 0.55rem;
+  min-width: 0;
+  min-height: 11.5rem;
+  padding: 0.85rem;
+  border-radius: var(--iugr-radius-lg);
+  border: 1px solid var(--iugr-border-strong);
+  background:
+    linear-gradient(165deg, color-mix(in srgb, var(--iugr-door-accent, var(--iugr-accent)) 16%, transparent), rgba(7, 11, 22, 0.72));
+  color: var(--iugr-cream);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(243, 234, 215, 0.04);
+}
+
+.iugr-door-card:hover,
+.iugr-door-card:focus-visible {
+  outline: none;
+  border-color: var(--iugr-door-accent, var(--iugr-accent));
+  box-shadow: var(--iugr-glow-accent);
+}
+
+.iugr-door-card.is-explored {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--iugr-door-accent, var(--iugr-accent)) 70%, var(--iugr-border-strong));
+}
+
+.iugr-door-card.is-explored::after {
+  content: "";
+  position: absolute;
+}
+
+.iugr-door-card {
+  position: relative;
+}
+
+.iugr-door-card-art {
+  display: grid;
+  place-items: center;
+  min-height: 5.5rem;
+}
+
+.iugr-door-illust {
+  width: min(100%, 11rem);
+  height: auto;
+  display: block;
+}
+
+.iugr-door-card-copy {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.iugr-door-card-label {
+  font-size: var(--iugr-text-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--iugr-door-accent, var(--iugr-accent));
+  font-weight: 700;
+}
+
+.iugr-door-card-title {
+  font-size: 1.05rem;
+  font-weight: 650;
+  line-height: 1.25;
+  color: var(--iugr-cream);
+}
+
+.iugr-door-card-status {
+  font-size: var(--iugr-text-xs);
+  color: var(--iugr-cream-muted);
+  letter-spacing: 0.04em;
+}
+
+.iugr-door-card.is-explored .iugr-door-card-status {
+  color: var(--iugr-accent);
+}
+
+.iugr-door-detail {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.iugr-door-detail.is-enter {
+  animation: iugr-door-enter 280ms ease-out;
+}
+
+.iugr-root[data-reduced-motion="true"] .iugr-door-detail.is-enter,
+.iugr-door-detail.is-static {
+  animation: none;
+}
+
+@keyframes iugr-door-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iugr-door-detail.is-enter {
+    animation: none;
+  }
+}
+
+.iugr-door-detail-label {
+  margin: 0;
+  font-size: var(--iugr-text-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--iugr-accent);
+  font-weight: 700;
+}
+
+.iugr-door-detail-title {
+  margin: 0;
+  font-size: clamp(1.35rem, 3.4vw, 1.85rem);
+  line-height: 1.2;
+  color: var(--iugr-cream);
+}
+
+.iugr-door-detail-title:focus {
+  outline: none;
+}
+
+.iugr-door-detail-title:focus-visible {
+  outline: 2px solid var(--iugr-accent);
+  outline-offset: 3px;
+}
+
+.iugr-door-detail-visual {
+  display: grid;
+  place-items: center;
+  padding: 0.5rem 0;
+}
+
+.iugr-door-detail-concept,
+.iugr-door-detail-support,
+.iugr-door-aside,
+.iugr-door-takeaway,
+.iugr-door-caveat {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.iugr-door-detail-concept {
+  color: var(--iugr-cream);
+  font-size: 1.05rem;
+  font-weight: 550;
+}
+
+.iugr-door-detail-support,
+.iugr-door-takeaway {
+  color: var(--iugr-cream-muted);
+  font-size: var(--iugr-text-sm);
+}
+
+.iugr-door-aside {
+  padding: 0.65rem 0.8rem;
+  border-left: 2px solid var(--iugr-violet);
+  color: var(--iugr-cream-muted);
+  font-size: var(--iugr-text-sm);
+  font-style: italic;
+}
+
+.iugr-door-caveat {
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--iugr-radius-md);
+  border: 1px solid rgba(224, 137, 122, 0.4);
+  background: rgba(224, 137, 122, 0.1);
+  color: var(--iugr-cream);
+  font-size: var(--iugr-text-sm);
+}
+
+.iugr-door-fieldnote {
+  border-radius: var(--iugr-radius-md);
+  border: 1px solid var(--iugr-border);
+  padding: 0.45rem 0.8rem 0.65rem;
+  background: rgba(139, 124, 201, 0.08);
+}
+
+.iugr-door-fieldnote summary {
+  cursor: pointer;
+  color: var(--iugr-violet);
+  font-size: var(--iugr-text-sm);
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.iugr-door-fieldnote p {
+  margin: 0.35rem 0 0.15rem;
+  color: var(--iugr-cream-muted);
+  font-size: var(--iugr-text-sm);
+  line-height: 1.5;
+}
+
+.iugr-door-fieldnote-kicker {
+  color: var(--iugr-violet);
+  font-weight: 650;
+}
+
+.iugr-doors-synthesis {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.95rem 1rem;
+  border-radius: var(--iugr-radius-lg);
+  border: 1px solid rgba(198, 227, 85, 0.28);
+  background: rgba(198, 227, 85, 0.08);
+  min-width: 0;
+}
+
+.iugr-doors-synthesis-title {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--iugr-cream);
+}
+
+.iugr-doors-synthesis-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--iugr-cream);
+  font-size: var(--iugr-text-sm);
+  line-height: 1.5;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.iugr-doors-synthesis-close {
+  margin: 0;
+  color: var(--iugr-cream-muted);
+  font-size: var(--iugr-text-sm);
+  line-height: 1.5;
+}
+
+.iugr-doors-nav {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.iugr-high-contrast .iugr-door-card,
+.iugr-high-contrast .iugr-door-caveat,
+.iugr-high-contrast .iugr-doors-synthesis {
+  border-width: 2px;
+}
+
+.iugr-body {
+  margin: 0;
+  color: var(--iugr-cream-muted);
+  line-height: 1.55;
+  font-size: var(--iugr-text-md);
+}
+
+@media (max-width: 374px) {
+  .iugr-door-card {
+    min-height: 10.5rem;
+    padding: 0.75rem;
+  }
+  .iugr-door-card-title {
+    font-size: 0.98rem;
+  }
+}
+
+
+.iugr-door-card.is-open {
+  border-color: var(--iugr-door-accent, var(--iugr-accent));
+  box-shadow: var(--iugr-glow-accent);
+}
+
+.iugr-door-tone-1 { --iugr-door-accent: var(--iugr-door-1); }
+.iugr-door-tone-2 { --iugr-door-accent: var(--iugr-door-2); }
+.iugr-door-tone-3 { --iugr-door-accent: var(--iugr-door-3); }
+
+.iugr-doors-hub {
+  /* ensure stacked doors stay large on phones */
+}
+
+@media (max-width: 767px) {
+  .iugr-door-card {
+    min-height: 12.5rem;
+  }
+}

@@ -60,7 +60,6 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
       body: [
         "Three futures. One argument. You choose which door to open first.",
         "This remains a philosophical thought experiment — not a verdict about the universe.",
-        "The doors themselves are still under construction.",
       ],
     },
   },
