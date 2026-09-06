@@ -14,6 +14,7 @@ import {
 } from "@/lib/iugr/preferences";
 import { EntryChrome } from "@/components/iugr/EntryChrome";
 import { ChapterPlaceholder } from "@/components/iugr/ChapterPlaceholder";
+import { CopyMachineChapter } from "@/components/iugr/CopyMachineChapter";
 import { FieldNoteLibrary } from "@/components/iugr/FieldNoteLibrary";
 import { GuideSettings } from "@/components/iugr/GuideSettings";
 import { OpeningStage } from "@/components/iugr/OpeningStage";
@@ -61,6 +62,9 @@ export function IugrShell() {
   );
   const [chapterId, setChapterId] = useState<ChapterId>("opening");
   const [guideOpen, setGuideOpen] = useState(false);
+  const [copiedTowns, setCopiedTowns] = useState(0);
+  const [copyHasInteracted, setCopyHasInteracted] = useState(false);
+  const [copyReachedNine, setCopyReachedNine] = useState(false);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -92,8 +96,23 @@ export function IugrShell() {
     [],
   );
 
+  const handleCopiedTownsChange = useCallback(
+    (
+      next: number,
+      meta: { interacted: boolean; reachedNine: boolean },
+    ) => {
+      setCopiedTowns(next);
+      setCopyHasInteracted(meta.interacted);
+      setCopyReachedNine(meta.reachedNine);
+    },
+    [],
+  );
+
   const restart = useCallback(() => {
     setChapterId("opening");
+    setCopiedTowns(0);
+    setCopyHasInteracted(false);
+    setCopyReachedNine(false);
     updatePrefs((prev) => ({ ...prev, consciousnessPremise: null }));
   }, []);
 
@@ -134,7 +153,22 @@ export function IugrShell() {
             />
           ) : null}
 
-          {chapterId !== "opening" && chapterId !== "original-town" ? (
+          {chapterId === "copy-machine" ? (
+            <CopyMachineChapter
+              consciousnessPremise={prefs.consciousnessPremise}
+              copiedTowns={copiedTowns}
+              hasInteracted={copyHasInteracted}
+              reachedNine={copyReachedNine}
+              onCopiedTownsChange={handleCopiedTownsChange}
+              onContinue={() => setChapterId("three-doors")}
+              onBack={() => setChapterId("original-town")}
+              reducedMotion={prefs.reducedMotion}
+            />
+          ) : null}
+
+          {chapterId !== "opening" &&
+          chapterId !== "original-town" &&
+          chapterId !== "copy-machine" ? (
             <ChapterPlaceholder
               chapterId={chapterId}
               guideId={prefs.guideId}

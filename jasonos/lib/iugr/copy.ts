@@ -94,3 +94,56 @@ export const ORIGINAL_TOWN = {
     "This is an unresolved question — not settled science. We treat it carefully.",
   previousLabel: "Previous",
 } as const;
+
+export const COPY_MACHINE = {
+  chapterLabel: "Chapter · Copy Machine",
+  title: "The Copy Machine",
+  guideIntro:
+    "The machine does one thing extremely well: it turns an innocent question into an increasingly large accounting problem.",
+  disclaimer:
+    "This sandbox is a made-up town experiment. It is not a probability estimate for our universe.",
+  sliderLabel: "Copied towns",
+  snapHints: "Try 0, 1, 9, 99, or 999",
+  resetLabel: "Reset",
+  censusTitle: "Town Census",
+  originalTowns: "Original towns",
+  copiedTowns: "Copied towns",
+  totalTowns: "Total towns",
+  originalResidents: "Original residents",
+  copiedResidents: "Residents in copied towns",
+  totalResidents: "Total represented residents",
+  fractionTitle: "Share of residents in copied towns",
+  legendOriginal: "Original",
+  legendCopied: "Copied",
+  whyAssumption: "Why this assumption matters",
+  whyAssumptionBody:
+    "The counting story only carries philosophical weight if the copied residents have real inner experience. If they are only convincing puppets, they may not belong in this observer count at all.",
+  caveatYes: null,
+  caveatUnsure:
+    "This counting exercise assumes the copies have inner experience. You marked that as uncertain.",
+  caveatNo:
+    "If copied residents are not conscious, they may not belong in this observer count. The visual still shows copies, but the philosophical conclusion does not automatically follow.",
+  anthropicReveal:
+    "This is the counting intuition behind a philosophical idea sometimes called anthropic reasoning.",
+  anthropicDefinition:
+    "It means using the kind of observer you are—someone with experiences like yours—as part of a counting argument.",
+  showMath: "Show me the math",
+  hideMath: "Hide the math",
+  mathPlain:
+    "Copied residents divided by all residents gives the share of residents living in copied towns.",
+  mathCurrentLabel: "Current arithmetic",
+  mathGeneralLabel: "General formula for this example",
+  mathSimplifiedLabel: "Because every town has 100 people, this simplifies to",
+  mathFormulaNote:
+    "Illustrative math for this town scenario—not a measurement of our universe.",
+  mathWorkedTitle: "Worked example · 9 copies",
+  mathWorked1: "9 copied towns × 100 people = 900 copied residents",
+  mathWorked2: "100 original residents + 900 copied residents = 1,000 total residents",
+  mathWorked3: "900 / 1,000 = 90%",
+  mathClose:
+    "This says nothing by itself about whether our universe has copies. It only shows why the number of copies matters if the assumptions are true.",
+  continueLabel: "Meet the Three Doors",
+  previousLabel: "Previous",
+  machineAria: "Copy Machine controls",
+  clusterAria: "Town tokens for this scenario",
+} as const;
