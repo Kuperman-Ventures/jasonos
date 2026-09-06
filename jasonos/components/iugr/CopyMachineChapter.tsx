@@ -395,12 +395,11 @@ export function CopyMachineChapter({
         {liveText}
       </p>
 
-      <div className="iugr-copy-narration">
-        <p className="iugr-copy-narration-primary">{narration.headline}</p>
-        {narration.detail ? (
-          <p className="iugr-copy-narration-secondary">{narration.detail}</p>
-        ) : null}
-      </div>
+      {copiedTowns >= 9 ? (
+        <p className="iugr-copy-margin-note">
+          {COPY_MACHINE.countTransitionNote}
+        </p>
+      ) : null}
 
       <div className="iugr-copy-panels">
         <section className="iugr-census" aria-label={COPY_MACHINE.censusTitle}>

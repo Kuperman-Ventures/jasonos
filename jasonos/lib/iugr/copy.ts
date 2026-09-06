@@ -146,4 +146,6 @@ export const COPY_MACHINE = {
   previousLabel: "Previous",
   machineAria: "Copy Machine controls",
   clusterAria: "Town tokens for this scenario",
+  countTransitionNote:
+    "The important part is not that copies are strange. It is that a large number of conscious copies changes the count.",
 } as const;
