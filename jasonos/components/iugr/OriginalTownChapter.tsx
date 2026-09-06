@@ -3,11 +3,16 @@
 import { useEffect, useId, useState } from "react";
 import type { ConsciousnessPremise } from "@/lib/iugr/types";
 import { ORIGINAL_TOWN } from "@/lib/iugr/copy";
+import {
+  ORIGINAL_TOWN_SCRIPT,
+  TRANSITION_2,
+} from "@/lib/iugr/script";
 import { reactionSettleMs } from "@/lib/iugr/motion";
 import { CountCard } from "@/components/iugr/CountCard";
 import { Plate } from "@/components/iugr/plate/Plate";
 import { PlateAnnotation } from "@/components/iugr/plate/PlateAnnotation";
 import { ResidentFigure } from "@/components/iugr/plate/ResidentFigure";
+import { TransitionBlock } from "@/components/iugr/TransitionBlock";
 
 const RESIDENT_COUNT = 10;
 
@@ -25,9 +30,9 @@ const ANSWERS: {
   id: ConsciousnessPremise;
   label: string;
 }[] = [
-  { id: "yes", label: ORIGINAL_TOWN.choiceYes },
-  { id: "unsure", label: ORIGINAL_TOWN.choiceUnsure },
-  { id: "no", label: ORIGINAL_TOWN.choiceNo },
+  { id: "yes", label: ORIGINAL_TOWN_SCRIPT.choiceYes },
+  { id: "unsure", label: ORIGINAL_TOWN_SCRIPT.choiceUnsure },
+  { id: "no", label: ORIGINAL_TOWN_SCRIPT.choiceNo },
 ];
 
 function reactionText(answer: ConsciousnessPremise): string {
@@ -197,16 +202,17 @@ export function OriginalTownChapter({
 
   const responseLine =
     copiesAreConscious === "yes"
-      ? ORIGINAL_TOWN.ackYes
+      ? ORIGINAL_TOWN_SCRIPT.reactionYes
       : copiesAreConscious === "unsure"
-        ? ORIGINAL_TOWN.ackUnsure
+        ? ORIGINAL_TOWN_SCRIPT.reactionUnsure
         : copiesAreConscious === "no"
-          ? ORIGINAL_TOWN.ackNo
+          ? ORIGINAL_TOWN_SCRIPT.reactionNo
           : null;
 
   return (
     <section
       className={`iugr-panel iugr-town-chapter${reducedMotion ? " is-static" : " is-enter"}`}
+      data-wash="violet"
       aria-labelledby="iugr-town-title"
     >
       <div className="iugr-label">Chapter · Original Town</div>
@@ -216,11 +222,12 @@ export function OriginalTownChapter({
 
       {!selected ? (
         <div className="iugr-town-copy">
-          <p>{ORIGINAL_TOWN.beforeSelect1}</p>
-          <p>{ORIGINAL_TOWN.beforeSelect2}</p>
+          {ORIGINAL_TOWN_SCRIPT.beforeSelect.map((paragraph) => (
+            <p key={paragraph}>{paragraph}</p>
+          ))}
         </div>
       ) : (
-        <p className="iugr-town-copy">{ORIGINAL_TOWN.afterSelect}</p>
+        <p className="iugr-town-copy">{ORIGINAL_TOWN_SCRIPT.afterSelect}</p>
       )}
 
       <div
@@ -286,8 +293,9 @@ export function OriginalTownChapter({
       {selected ? (
         <div className="iugr-town-question">
           <div id={questionId} className="iugr-town-question-text">
-            <p>{ORIGINAL_TOWN.question1}</p>
-            <p>{ORIGINAL_TOWN.question2}</p>
+            {ORIGINAL_TOWN_SCRIPT.question.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
           </div>
 
           <div
@@ -321,12 +329,16 @@ export function OriginalTownChapter({
       {reactionReady && responseLine ? (
         <div className="iugr-town-response">
           <p>{responseLine}</p>
+          <p className="iugr-town-field-note" role="note">
+            {ORIGINAL_TOWN_SCRIPT.fieldNote}
+          </p>
+          <TransitionBlock paragraphs={TRANSITION_2} />
           <button
             type="button"
             className="iugr-btn iugr-btn-primary"
             onClick={onContinue}
           >
-            {ORIGINAL_TOWN.continueLabel}
+            {ORIGINAL_TOWN_SCRIPT.continueLabel}
           </button>
         </div>
       ) : null}

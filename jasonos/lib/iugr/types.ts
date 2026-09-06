@@ -9,7 +9,6 @@ export type ChapterId =
   | "three-doors"
   | "assumption-arcade"
   | "evidence-scanner"
-  | "the-catch"
   | "closing";
 
 export type GuideTheme = {

@@ -1,7 +1,9 @@
 /**
- * Three Doors chapter — Bostrom-style simulation-argument trilemma as a
+ * Three Doors chapter — Bostrom simulation-argument trilemma as a
  * thought-experiment hub. Content is illustrative philosophy, not evidence.
  */
+
+import { THREE_DOORS_SCRIPT } from "./script";
 
 export type DoorId = "road-ends" | "archive-closed" | "copy-warehouse";
 
@@ -10,13 +12,16 @@ export type DoorDefinition = {
   number: 1 | 2 | 3;
   label: string;
   title: string;
-  concept: string;
-  support: string;
-  aside: string;
+  /** Bostrom's proposition in his words. */
+  bostromQuote: string;
+  /** Plain-language translation under the quote. */
+  plainTranslation: string;
+  /** Supporting body paragraphs. */
+  body: readonly string[];
+  /** Sci-fi / culture anchors. */
+  sciFiAnchors: readonly string[];
   takeaway: string;
-  /** Extra optional disclosure; may include proper-name attribution. */
-  fieldNote: string;
-  /** Door 3 only — explicit unmet assumptions. */
+  /** Door 3 only — explicit unmet assumptions (inline in body for Door 3). */
   caveat?: string;
   accentVar: "--iugr-door-1" | "--iugr-door-2" | "--iugr-door-3";
 };
@@ -27,57 +32,43 @@ export const THREE_DOOR_IDS: DoorId[] = [
   "copy-warehouse",
 ];
 
+const SCRIPT_DOORS = THREE_DOORS_SCRIPT.doors;
+
 export const THREE_DOORS_DATA: Record<DoorId, DoorDefinition> = {
   "road-ends": {
     id: "road-ends",
     number: 1,
     label: "DOOR 1",
-    title: "The Road Ends Early",
-    concept:
-      "Maybe civilizations rarely survive long enough, or develop enough capability, to make enormous numbers of detailed conscious simulations.",
-    support:
-      "They might collapse, stop advancing, choose another path, or find that the needed technology is much harder than expected.",
-    aside: "Civilization is a remarkably difficult group project.",
-    takeaway:
-      "If almost nobody gets that far, there may be few or no ancestor-style simulations to count.",
-    fieldNote:
-      "This door covers extinction, stagnation, and “too hard” futures. It does not claim any of those outcomes are guaranteed. Only that if they are common, the later counting argument never starts.",
+    title: SCRIPT_DOORS["road-ends"].title,
+    bostromQuote: SCRIPT_DOORS["road-ends"].bostromQuote,
+    plainTranslation: SCRIPT_DOORS["road-ends"].plainTranslation,
+    body: SCRIPT_DOORS["road-ends"].body,
+    sciFiAnchors: SCRIPT_DOORS["road-ends"].sciFiAnchors,
+    takeaway: SCRIPT_DOORS["road-ends"].takeaway,
     accentVar: "--iugr-door-1",
   },
   "archive-closed": {
     id: "archive-closed",
     number: 2,
     label: "DOOR 2",
-    title: "The Archive Is Closed",
-    concept:
-      "Maybe advanced civilizations exist and could make simulations, but they do not create huge numbers of detailed historical worlds like ours.",
-    support:
-      "They might find it too expensive, ethically uncomfortable, illegal, unnecessary, or less interesting than whatever people do in the far future.",
-    aside:
-      "Having a very large computer does not automatically create a very large desire to reenact 2026.",
-    takeaway:
-      "If future people rarely run these simulations, copied observers may remain rare.",
-    fieldNote:
-      "Capability is not the same as appetite. A closed archive can be a choice, a law, a cost, or a shrug. Not a prison.",
+    title: SCRIPT_DOORS["archive-closed"].title,
+    bostromQuote: SCRIPT_DOORS["archive-closed"].bostromQuote,
+    plainTranslation: SCRIPT_DOORS["archive-closed"].plainTranslation,
+    body: SCRIPT_DOORS["archive-closed"].body,
+    sciFiAnchors: SCRIPT_DOORS["archive-closed"].sciFiAnchors,
+    takeaway: SCRIPT_DOORS["archive-closed"].takeaway,
     accentVar: "--iugr-door-2",
   },
   "copy-warehouse": {
     id: "copy-warehouse",
     number: 3,
     label: "DOOR 3",
-    title: "The Copy Warehouse",
-    concept:
-      "Maybe advanced civilizations can make conscious simulations and choose to make enormous numbers of them.",
-    support:
-      "If that happened, there could be many more copied observers than original observers. That is where the counting idea from Original Town becomes important.",
-    aside:
-      "At this scale, even an ordinary town can become an alarming amount of paperwork.",
-    takeaway:
-      "Only under those assumptions could copied observers outnumber originals.",
-    caveat:
-      "This door depends on big unanswered assumptions: that conscious simulated minds are possible, that the simulations are affordable, and that future people would choose to make many.",
-    fieldNote:
-      "Door 3 is not a prediction. It is the branch of the argument where the Original Town counting story would matter if those assumptions hold.",
+    title: SCRIPT_DOORS["copy-warehouse"].title,
+    bostromQuote: SCRIPT_DOORS["copy-warehouse"].bostromQuote,
+    plainTranslation: SCRIPT_DOORS["copy-warehouse"].plainTranslation,
+    body: SCRIPT_DOORS["copy-warehouse"].body,
+    sciFiAnchors: SCRIPT_DOORS["copy-warehouse"].sciFiAnchors,
+    takeaway: SCRIPT_DOORS["copy-warehouse"].takeaway,
     accentVar: "--iugr-door-3",
   },
 };

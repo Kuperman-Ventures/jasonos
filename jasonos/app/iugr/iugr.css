@@ -26,6 +26,9 @@
   --iugr-font: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --iugr-max: 42rem;
   --iugr-shell-max: 72rem;
+  --text-strong: rgba(242, 237, 227, 0.82);
+  --iugr-wash-violet: rgba(139, 134, 217, 0.1);
+  --iugr-wash-coral: rgba(232, 131, 111, 0.12);
 
   min-height: 100dvh;
   color: var(--iugr-cream);
@@ -3669,5 +3672,102 @@ p.iugr-town-copy {
 .iugr-high-contrast .iugr-sources-item,
 .iugr-high-contrast .iugr-closing-guide {
   border-width: 2px;
+}
+
+/* ── Transition blocks + chapter wash ───────────────────────────────── */
+
+.iugr-transition {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding-left: 12px;
+  border-left: 2px solid rgba(139, 134, 217, 0.5);
+}
+
+.iugr-transition p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-strong);
+}
+
+.iugr-panel[data-wash="violet"] {
+  background:
+    linear-gradient(var(--iugr-wash-violet), var(--iugr-wash-violet)),
+    linear-gradient(165deg, rgba(26, 36, 56, 0.92), rgba(13, 20, 36, 0.88));
+}
+
+.iugr-panel[data-wash="coral"] {
+  background:
+    linear-gradient(var(--iugr-wash-coral), var(--iugr-wash-coral)),
+    linear-gradient(165deg, rgba(26, 36, 56, 0.92), rgba(13, 20, 36, 0.88));
+}
+
+.iugr-opening[data-wash="violet"],
+.iugr-wash[data-wash="violet"] {
+  background-color: var(--iugr-wash-violet);
+}
+
+.iugr-opening[data-wash="coral"],
+.iugr-wash[data-wash="coral"] {
+  background-color: var(--iugr-wash-coral);
+}
+
+.iugr-opening-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin: 0.85rem 0 1.1rem;
+}
+
+.iugr-opening-body p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-strong);
+}
+
+.iugr-town-field-note {
+  margin: 0.75rem 0 0;
+  font-size: var(--iugr-text-sm);
+  line-height: 1.45;
+  color: var(--iugr-cream-muted);
+}
+
+.iugr-door-quote {
+  margin: 0 0 0.75rem;
+  padding: 0;
+  border: 0;
+}
+
+.iugr-door-quote p {
+  margin: 0;
+  font-size: var(--iugr-text-md);
+  line-height: 1.45;
+  color: var(--text-strong);
+  font-style: italic;
+}
+
+.iugr-arcade-closing-note {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin: 1.25rem 0 0;
+}
+
+.iugr-arcade-closing-note p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-strong);
+}
+
+.iugr-doors-continue {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  flex: 1;
 }
 

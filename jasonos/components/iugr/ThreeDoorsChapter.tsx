@@ -3,12 +3,18 @@
 import { useEffect, useId, useRef } from "react";
 import { THREE_DOORS } from "@/lib/iugr/copy";
 import {
+  THREE_DOORS_SCRIPT,
+  TRANSITION_3,
+  TRANSITION_4,
+} from "@/lib/iugr/script";
+import {
   THREE_DOOR_IDS,
   THREE_DOORS_DATA,
   allDoorsExplored,
   type DoorDefinition,
   type DoorId,
 } from "@/lib/iugr/threeDoors";
+import { TransitionBlock } from "@/components/iugr/TransitionBlock";
 
 export type ThreeDoorsChapterProps = {
   exploredDoors: readonly DoorId[];
@@ -203,27 +209,24 @@ function DoorDetail({
         <DoorIllustration door={door} />
       </div>
 
-      <p className="iugr-door-detail-concept">{door.concept}</p>
-      <p className="iugr-door-detail-support">{door.support}</p>
-      <p className="iugr-door-aside">{door.aside}</p>
-
-      {door.caveat ? (
-        <p className="iugr-door-caveat" role="note">
-          {door.caveat}
+      <blockquote className="iugr-door-quote">
+        <p>&ldquo;{door.bostromQuote}&rdquo;</p>
+      </blockquote>
+      <p className="iugr-door-detail-concept">{door.plainTranslation}</p>
+      {door.body.map((paragraph) => (
+        <p key={paragraph} className="iugr-door-detail-support">
+          {paragraph}
         </p>
-      ) : null}
+      ))}
+      {door.sciFiAnchors.map((paragraph) => (
+        <p key={paragraph} className="iugr-door-aside">
+          {paragraph}
+        </p>
+      ))}
 
       <p className="iugr-door-takeaway">
-        <strong>Takeaway.</strong> {door.takeaway}
+        <strong>{door.takeaway}</strong>
       </p>
-
-      <details className="iugr-door-fieldnote">
-        <summary>{THREE_DOORS.lookCloser}</summary>
-        <p>
-          <span className="iugr-door-fieldnote-kicker">{THREE_DOORS.fieldNoteLabel}. </span>
-          {door.fieldNote}
-        </p>
-      </details>
 
       <div className="iugr-actions">
         <button type="button" className="iugr-btn iugr-btn-primary" onClick={onReturn}>
@@ -262,7 +265,11 @@ export function ThreeDoorsChapter({
   if (activeDoorId) {
     const door = THREE_DOORS_DATA[activeDoorId];
     return (
-      <section className="iugr-panel iugr-three-doors" aria-labelledby="iugr-doors-title">
+      <section
+        className="iugr-panel iugr-three-doors"
+        data-wash="violet"
+        aria-labelledby="iugr-doors-title"
+      >
         <div className="iugr-label">{THREE_DOORS.chapterLabel}</div>
         <h1 id="iugr-doors-title" className="sr-only">
           {THREE_DOORS.title}: {door.title}
@@ -277,15 +284,23 @@ export function ThreeDoorsChapter({
   }
 
   return (
-    <section className="iugr-panel iugr-three-doors" aria-labelledby="iugr-doors-title">
+    <section
+      className="iugr-panel iugr-three-doors"
+      data-wash="violet"
+      aria-labelledby="iugr-doors-title"
+    >
       <div className="iugr-label">{THREE_DOORS.chapterLabel}</div>
       <h1 id="iugr-doors-title" className="iugr-headline iugr-headline-sm">
         {THREE_DOORS.title}
       </h1>
 
-      <p className="iugr-lead">{THREE_DOORS.transitionFromMachine}</p>
-      <p className="iugr-body">{THREE_DOORS.transitionBridge}</p>
-      <p className="iugr-lead">{THREE_DOORS.guideWelcome}</p>
+      <TransitionBlock paragraphs={TRANSITION_3} />
+
+      {THREE_DOORS_SCRIPT.intro.map((paragraph) => (
+        <p key={paragraph} className="iugr-lead">
+          {paragraph}
+        </p>
+      ))}
 
       {!complete ? <p className="iugr-doors-prompt">{THREE_DOORS.hubPrompt}</p> : null}
 
@@ -313,22 +328,14 @@ export function ThreeDoorsChapter({
 
       {complete ? (
         <div className="iugr-doors-synthesis" aria-labelledby="iugr-doors-synthesis-title">
-          <h2 id="iugr-doors-synthesis-title" className="iugr-doors-synthesis-title">
-            {THREE_DOORS.completionTitle}
+          <h2 id="iugr-doors-synthesis-title" className="sr-only">
+            Synthesis
           </h2>
-          <ol className="iugr-doors-synthesis-list">
-            <li>{THREE_DOORS.completionOne}</li>
-            <li>{THREE_DOORS.completionTwo}</li>
-            <li>{THREE_DOORS.completionThree}</li>
-          </ol>
-          <p className="iugr-doors-synthesis-close">{THREE_DOORS.completionClose}</p>
-          <details className="iugr-door-fieldnote">
-            <summary>{THREE_DOORS.lookCloser}</summary>
-            <p>
-              <span className="iugr-door-fieldnote-kicker">{THREE_DOORS.fieldNoteLabel}. </span>
-              {THREE_DOORS.bostromNote}
+          {THREE_DOORS_SCRIPT.synthesis.map((paragraph) => (
+            <p key={paragraph} className="iugr-doors-synthesis-close">
+              {paragraph}
             </p>
-          </details>
+          ))}
         </div>
       ) : null}
 
@@ -337,9 +344,12 @@ export function ThreeDoorsChapter({
           {THREE_DOORS.previousLabel}
         </button>
         {complete ? (
-          <button type="button" className="iugr-btn iugr-btn-primary" onClick={onContinue}>
-            {THREE_DOORS.continueLabel}
-          </button>
+          <div className="iugr-doors-continue">
+            <TransitionBlock paragraphs={TRANSITION_4} />
+            <button type="button" className="iugr-btn iugr-btn-primary" onClick={onContinue}>
+              {THREE_DOORS_SCRIPT.continueLabel}
+            </button>
+          </div>
         ) : (
           <p className="iugr-doors-continue-hint">Explore all three doors to continue.</p>
         )}

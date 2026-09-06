@@ -15,9 +15,8 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
       kicker: "ENTRY 01",
       headline: "ARE YOU AN ORIGINAL?",
       body: [
-        "A guided thought experiment about copies, consciousness, and the simulation argument.",
-        "Useful for navigating reality. Some assembly of reality may have occurred before purchase.",
-        "This is a thought experiment. It is not proof that your phone is lying to you. Your phone has enough other problems.",
+        "You have met this idea before. It turns up in films, usually bent out of shape.",
+        "Eight minutes. There is a lever involved.",
       ],
       ctaLabel: "Begin the entry",
     },
@@ -30,9 +29,7 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
     placeholder: {
       headline: "Original Town",
       body: [
-        "A quiet settlement where everyone seems to be the first of their kind.",
-        "Later you will walk its streets and notice how oddly heavy the word “original” becomes.",
-        "For now this is a pin on the map. The full visit arrives in a later build.",
+        "This is Original Town. One hundred residents, one bakery, and no reason to expect trouble.",
       ],
     },
   },
@@ -44,9 +41,7 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
     placeholder: {
       headline: "The Copy Machine",
       body: [
-        "A careful machine that can make another you, or something that looks that way.",
-        "The point is not sci-fi spectacle. It is to feel how strange “the original” becomes under pressure.",
-        "Interactive copy play waits in a later chapter build.",
+        "One lever. It does exactly one thing, and the thing it does is arithmetic.",
       ],
     },
   },
@@ -58,64 +53,47 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
     placeholder: {
       headline: "Three Doors",
       body: [
-        "Three futures. One argument. You choose which door to open first.",
-        "This remains a philosophical thought experiment, not a verdict about the universe.",
+        "At least one of the three is true. Not all of them. At least one.",
       ],
     },
   },
   "assumption-arcade": {
     id: "assumption-arcade",
     order: 5,
-    title: "Assumption Arcade",
+    title: "Back To The Machine",
     shortLabel: "Arcade",
     placeholder: {
-      headline: "Assumption Arcade",
+      headline: "Back To The Machine",
       body: [
-        "A sandbox for poking the quiet assumptions behind the copy-counting argument.",
-        "Controls rearrange scenarios. They do not measure our universe.",
+        "Same machine. Same town. Three new dials, one for each door.",
       ],
     },
   },
   "evidence-scanner": {
     id: "evidence-scanner",
     order: 6,
-    title: "Scan the Claims",
-    shortLabel: "Evidence",
+    title: "What People Say At Parties",
+    shortLabel: "Claims",
     placeholder: {
-      headline: "Scan the Claims",
+      headline: "What People Say At Parties",
       body: [
-        "Classify popular claims as evidence, assumption, or interesting-but-not-proof.",
-        "The scanner keeps us honest: an argument is not the same thing as an observation.",
-      ],
-    },
-  },
-  "the-catch": {
-    id: "the-catch",
-    order: 7,
-    title: "The Catch",
-    shortLabel: "Catch",
-    placeholder: {
-      headline: "The Catch",
-      body: [
-        "Inspect the caveats that keep the simulation argument clever rather than conclusive.",
-        "You leave clearer about what the argument can and cannot do.",
+        "Five things people say when this comes up. None of them are stupid. None of them settle anything either.",
       ],
     },
   },
   closing: {
     id: "closing",
-    order: 8,
-    title: "Closing Field Note",
+    order: 7,
+    title: "Closing",
     shortLabel: "Close",
     placeholder: {
-      headline: "Field Note: Reality Remains Inconveniently Real",
+      headline: "Closing",
       body: [
-        "You have walked a philosophical argument, not a lab result.",
-        "Take what was useful. Leave the rest on the shelf for another day.",
+        "You have walked an argument, not a result.",
       ],
     },
   },
-}
+};
 
 export const CHAPTER_SEQUENCE: ChapterId[] = [
   "opening",
@@ -124,7 +102,6 @@ export const CHAPTER_SEQUENCE: ChapterId[] = [
   "three-doors",
   "assumption-arcade",
   "evidence-scanner",
-  "the-catch",
   "closing",
 ];
 

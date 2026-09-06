@@ -11,6 +11,8 @@ import {
   type ScenarioAssumptions,
   type ScenarioCategory,
 } from "@/lib/iugr/scenarioEngine";
+import { ARCADE_SCRIPT, TRANSITION_5 } from "@/lib/iugr/script";
+import { TransitionBlock } from "@/components/iugr/TransitionBlock";
 
 export type AssumptionArcadeChapterProps = {
   assumptions: ScenarioAssumptions;
@@ -123,7 +125,9 @@ function AssumptionControl({
       <h3 className="iugr-arcade-control-title" id={headingId}>
         {control.title}
       </h3>
-      <p className="iugr-arcade-control-explain">{control.explanation}</p>
+      {control.explanation ? (
+        <p className="iugr-arcade-control-explain">{control.explanation}</p>
+      ) : null}
 
       <div
         className="iugr-arcade-segments"
@@ -151,12 +155,14 @@ function AssumptionControl({
         })}
       </div>
 
-      <p className="iugr-arcade-aside">{control.aside}</p>
+      {control.aside ? <p className="iugr-arcade-aside">{control.aside}</p> : null}
 
-      <details className="iugr-arcade-why">
-        <summary>Why it matters</summary>
-        <p>{control.whyItMatters}</p>
-      </details>
+      {control.whyItMatters ? (
+        <details className="iugr-arcade-why">
+          <summary>Why it matters</summary>
+          <p>{control.whyItMatters}</p>
+        </details>
+      ) : null}
     </fieldset>
   );
 }
@@ -181,6 +187,7 @@ export function AssumptionArcadeChapter({
   return (
     <section
       className="iugr-panel iugr-assumption-arcade"
+      data-wash="coral"
       aria-labelledby="iugr-arcade-title"
     >
       <div className="iugr-label">{ASSUMPTION_ARCADE.chapterLabel}</div>
@@ -188,8 +195,6 @@ export function AssumptionArcadeChapter({
         {ASSUMPTION_ARCADE.title}
       </h1>
       <p className="iugr-lead">{ASSUMPTION_ARCADE.welcome}</p>
-      <p className="iugr-body">{ASSUMPTION_ARCADE.welcomeAside}</p>
-      <p className="iugr-body">{ASSUMPTION_ARCADE.bridgeFromDoors}</p>
 
       <div
         className="iugr-arcade-console"
@@ -251,20 +256,17 @@ export function AssumptionArcadeChapter({
             </ul>
           </div>
 
-          <details className="iugr-arcade-reasoning">
-            <summary>{ASSUMPTION_ARCADE.showReasoning}</summary>
-            <ul>
-              {evaluation.reasoning.map((line) => (
-                <li key={line}>{line}</li>
-              ))}
-            </ul>
-          </details>
-
           <p className="iugr-arcade-try">{ASSUMPTION_ARCADE.tryAnother}</p>
         </aside>
       </div>
 
-      <p className="iugr-body">{ASSUMPTION_ARCADE.bridgeNext}</p>
+      <div className="iugr-arcade-closing-note">
+        {ARCADE_SCRIPT.closingNote.map((paragraph) => (
+          <p key={paragraph}>{paragraph}</p>
+        ))}
+      </div>
+
+      <TransitionBlock paragraphs={TRANSITION_5} />
 
       <div className="iugr-actions iugr-arcade-nav">
         <button type="button" className="iugr-btn iugr-btn-ghost" onClick={onBack}>
