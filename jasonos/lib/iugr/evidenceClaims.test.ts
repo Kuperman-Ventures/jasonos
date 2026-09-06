@@ -4,7 +4,7 @@ import {
   EVIDENCE_CLAIM_IDS,
   allClaimsScanned,
   markClaimScanned,
-} from "./evidenceClaims";
+} from "./evidenceClaims.ts";
 
 describe("evidenceClaims helpers", () => {
   it("starts incomplete with no scans", () => {
