@@ -67,7 +67,7 @@ export const CLOSING = {
   shareCopied: "Link copied. Dispatch it responsibly.",
   shareFailed: "Could not copy the link. You can share this page URL manually.",
   previousLabel: "Previous",
-  shareTitle: "Are You an Original? — IUGR",
+  shareTitle: "Are You an Original? - IUGR",
   shareText:
     "A guided thought experiment about copies, consciousness, and the simulation argument.",
 } as const;

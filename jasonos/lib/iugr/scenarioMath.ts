@@ -78,7 +78,7 @@ export function narrationForCopies(copiedTownsInput: number): ScenarioNarration 
     return {
       headline: "Every resident in this scenario is in Original Town.",
       detail:
-        "No copies yet. The accounting problem has not started — it is merely warming up.",
+        "No copies yet. The accounting problem has not started. It is merely warming up.",
     };
   }
 

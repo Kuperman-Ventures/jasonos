@@ -1,6 +1,5 @@
 import type {
   ConsciousnessPremise,
-  DetailLevel,
   GuideId,
   IugrPreferences,
 } from "./types";
@@ -10,24 +9,25 @@ const STORAGE_KEY = "iugr:preferences:v1";
 
 export const DEFAULT_PREFERENCES: IugrPreferences = {
   guideId: DEFAULT_GUIDE_ID,
-  detailLevel: "balanced",
   reducedMotion: false,
   highContrast: false,
   consciousnessPremise: null,
+  readerFigureIndex: null,
+  copiesAreConscious: null,
 };
 
 function isGuideId(value: unknown): value is GuideId {
   return value === "guide" || value === "mira" || value === "dr-maybe";
 }
 
-function isDetailLevel(value: unknown): value is DetailLevel {
-  return value === "story" || value === "balanced" || value === "machinery";
-}
-
 function isConsciousnessPremise(
   value: unknown,
 ): value is ConsciousnessPremise {
   return value === "yes" || value === "unsure" || value === "no";
+}
+
+function isReaderFigureIndex(value: unknown): value is number {
+  return Number.isInteger(value) && Number(value) >= 0 && Number(value) <= 9;
 }
 
 export function readPreferences(): IugrPreferences {
@@ -42,9 +42,6 @@ export function readPreferences(): IugrPreferences {
         isGuideId(parsed.guideId) && parsed.guideId === "guide"
           ? parsed.guideId
           : DEFAULT_GUIDE_ID,
-      detailLevel: isDetailLevel(parsed.detailLevel)
-        ? parsed.detailLevel
-        : DEFAULT_PREFERENCES.detailLevel,
       reducedMotion:
         typeof parsed.reducedMotion === "boolean"
           ? parsed.reducedMotion
@@ -55,7 +52,17 @@ export function readPreferences(): IugrPreferences {
           : DEFAULT_PREFERENCES.highContrast,
       consciousnessPremise: isConsciousnessPremise(parsed.consciousnessPremise)
         ? parsed.consciousnessPremise
+        : isConsciousnessPremise(parsed.copiesAreConscious)
+          ? parsed.copiesAreConscious
+          : null,
+      readerFigureIndex: isReaderFigureIndex(parsed.readerFigureIndex)
+        ? parsed.readerFigureIndex
         : null,
+      copiesAreConscious: isConsciousnessPremise(parsed.copiesAreConscious)
+        ? parsed.copiesAreConscious
+        : isConsciousnessPremise(parsed.consciousnessPremise)
+          ? parsed.consciousnessPremise
+          : null,
     };
   } catch {
     return DEFAULT_PREFERENCES;

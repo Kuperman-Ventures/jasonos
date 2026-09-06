@@ -155,6 +155,11 @@ function DoorCard({
       aria-label={`${door.label}: ${door.title}. ${statusLabel(status)}.`}
       data-status={status}
     >
+      {status === "explored" ? (
+        <span className="iugr-card-done" aria-hidden>
+          <span className="iugr-card-done-check">✓</span>
+        </span>
+      ) : null}
       <span className="iugr-door-card-art" aria-hidden>
         <DoorIllustration door={door} />
       </span>

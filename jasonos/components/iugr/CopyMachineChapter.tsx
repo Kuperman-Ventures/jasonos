@@ -281,7 +281,6 @@ export function CopyMachineChapter({
         {COPY_MACHINE.title}
       </h1>
       <p className="iugr-lead">{COPY_MACHINE.guideIntro}</p>
-      <p className="iugr-copy-disclaimer">{COPY_MACHINE.disclaimer}</p>
 
       {caveat ? (
         <p className="iugr-copy-caveat" role="note">

@@ -32,7 +32,7 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
       body: [
         "A quiet settlement where everyone seems to be the first of their kind.",
         "Later you will walk its streets and notice how oddly heavy the word “original” becomes.",
-        "For now this is a pin on the map — the full visit arrives in a later build.",
+        "For now this is a pin on the map. The full visit arrives in a later build.",
       ],
     },
   },
@@ -44,7 +44,7 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
     placeholder: {
       headline: "The Copy Machine",
       body: [
-        "A careful machine that can make another you — or something that looks that way.",
+        "A careful machine that can make another you, or something that looks that way.",
         "The point is not sci-fi spectacle. It is to feel how strange “the original” becomes under pressure.",
         "Interactive copy play waits in a later chapter build.",
       ],
@@ -59,7 +59,7 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
       headline: "Three Doors",
       body: [
         "Three futures. One argument. You choose which door to open first.",
-        "This remains a philosophical thought experiment — not a verdict about the universe.",
+        "This remains a philosophical thought experiment, not a verdict about the universe.",
       ],
     },
   },
