@@ -15,10 +15,13 @@ import {
 import { EntryChrome } from "@/components/iugr/EntryChrome";
 import { ChapterPlaceholder } from "@/components/iugr/ChapterPlaceholder";
 import { CopyMachineChapter } from "@/components/iugr/CopyMachineChapter";
+import { ThreeDoorsChapter } from "@/components/iugr/ThreeDoorsChapter";
 import { FieldNoteLibrary } from "@/components/iugr/FieldNoteLibrary";
 import { GuideSettings } from "@/components/iugr/GuideSettings";
 import { OpeningStage } from "@/components/iugr/OpeningStage";
 import { OriginalTownChapter } from "@/components/iugr/OriginalTownChapter";
+import type { DoorId } from "@/lib/iugr/threeDoors";
+import { markDoorExplored } from "@/lib/iugr/threeDoors";
 
 let memoryPrefs: IugrPreferences | null = null;
 const listeners = new Set<() => void>();
@@ -65,6 +68,8 @@ export function IugrShell() {
   const [copiedTowns, setCopiedTowns] = useState(0);
   const [copyHasInteracted, setCopyHasInteracted] = useState(false);
   const [copyReachedNine, setCopyReachedNine] = useState(false);
+  const [exploredDoors, setExploredDoors] = useState<DoorId[]>([]);
+  const [activeDoorId, setActiveDoorId] = useState<DoorId | null>(null);
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -113,6 +118,8 @@ export function IugrShell() {
     setCopiedTowns(0);
     setCopyHasInteracted(false);
     setCopyReachedNine(false);
+    setExploredDoors([]);
+    setActiveDoorId(null);
     updatePrefs((prev) => ({ ...prev, consciousnessPremise: null }));
   }, []);
 
@@ -166,9 +173,28 @@ export function IugrShell() {
             />
           ) : null}
 
+          {chapterId === "three-doors" ? (
+            <ThreeDoorsChapter
+              exploredDoors={exploredDoors}
+              activeDoorId={activeDoorId}
+              onOpenDoor={(id) => setActiveDoorId(id)}
+              onCloseDoor={(id) => {
+                setExploredDoors((prev) => markDoorExplored(prev, id));
+                setActiveDoorId(null);
+              }}
+              onContinue={() => setChapterId("assumption-arcade")}
+              onBack={() => {
+                setActiveDoorId(null);
+                setChapterId("copy-machine");
+              }}
+              reducedMotion={prefs.reducedMotion}
+            />
+          ) : null}
+
           {chapterId !== "opening" &&
           chapterId !== "original-town" &&
-          chapterId !== "copy-machine" ? (
+          chapterId !== "copy-machine" &&
+          chapterId !== "three-doors" ? (
             <ChapterPlaceholder
               chapterId={chapterId}
               guideId={prefs.guideId}
