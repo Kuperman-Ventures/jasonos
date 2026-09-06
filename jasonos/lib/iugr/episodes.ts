@@ -86,7 +86,6 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
       body: [
         "What would count as evidence, and what would not?",
         "The scanner exists to keep us honest: an argument is not the same thing as an observation.",
-        "Calibration pending.",
       ],
     },
   },
