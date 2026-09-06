@@ -19,8 +19,9 @@ const RESIDENT_COUNT = 10;
 type OriginalTownChapterProps = {
   readerFigureIndex: number | null;
   copiesAreConscious: ConsciousnessPremise | null;
-  onSelectReaderFigure: (index: number) => void;
+  onSelectReaderFigure: (index: number | null) => void;
   onSelectCopiesAreConscious: (value: ConsciousnessPremise) => void;
+  onClearCopiesAreConscious?: () => void;
   reducedMotion: boolean;
   onContinue: () => void;
   onPrevious: () => void;
@@ -151,7 +152,11 @@ function TownResidents({
             type="button"
             className="iugr-town-resident-btn"
             data-selected={isReader ? "true" : "false"}
-            aria-label={`Resident ${index + 1} of ${RESIDENT_COUNT}. Select as yourself.`}
+            aria-label={
+              isReader
+                ? `Resident ${index + 1} of ${RESIDENT_COUNT}. Selected as yourself. Tap to deselect.`
+                : `Resident ${index + 1} of ${RESIDENT_COUNT}. Select as yourself.`
+            }
             aria-pressed={isReader}
             onClick={() => onSelect?.(index)}
           >
@@ -168,6 +173,7 @@ export function OriginalTownChapter({
   copiesAreConscious,
   onSelectReaderFigure,
   onSelectCopiesAreConscious,
+  onClearCopiesAreConscious,
   reducedMotion,
   onContinue,
   onPrevious,
@@ -188,6 +194,15 @@ export function OriginalTownChapter({
     return () => window.clearTimeout(timer);
   }, [copiesAreConscious, reducedMotion]);
 
+  const handleResidentTap = (index: number) => {
+    if (readerFigureIndex === index) {
+      onSelectReaderFigure(null);
+      onClearCopiesAreConscious?.();
+      setSettledAnswer(null);
+      return;
+    }
+    onSelectReaderFigure(index);
+  };
   const reactionReady =
     copiesAreConscious != null && settledAnswer === copiesAreConscious;
 
@@ -254,7 +269,7 @@ export function OriginalTownChapter({
             <TownResidents
               readerFigureIndex={readerFigureIndex}
               interactive
-              onSelect={onSelectReaderFigure}
+              onSelect={handleResidentTap}
             />
           </Plate>
         </div>

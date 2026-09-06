@@ -160,8 +160,20 @@ export function IugrShell() {
     updatePrefs((prev) => ({ ...prev, guideId }));
   }, []);
 
-  const setReaderFigureIndex = useCallback((readerFigureIndex: number) => {
+  const setReaderFigureIndex = useCallback((readerFigureIndex: number | null) => {
     updatePrefs((prev) => ({ ...prev, readerFigureIndex }));
+  }, []);
+
+  const clearCopiesAreConscious = useCallback(() => {
+    updatePrefs((prev) => ({
+      ...prev,
+      copiesAreConscious: null,
+      consciousnessPremise: null,
+    }));
+    setArcadeAssumptions((prev) => ({
+      ...prev,
+      consciousness: "unknown",
+    }));
   }, []);
 
   const setCopiesAreConscious = useCallback(
@@ -244,6 +256,7 @@ export function IugrShell() {
               copiesAreConscious={prefs.copiesAreConscious}
               onSelectReaderFigure={setReaderFigureIndex}
               onSelectCopiesAreConscious={setCopiesAreConscious}
+              onClearCopiesAreConscious={clearCopiesAreConscious}
               reducedMotion={prefs.reducedMotion}
               onContinue={() => setChapterId("copy-machine")}
               onPrevious={() => setChapterId("opening")}
