@@ -200,7 +200,7 @@ export function pullBodyLines(
     ? (copies as 0 | 1 | 9 | 99 | 999)
     : 0;
   const main = COPY_BODY[snap];
-  if (premise === "unsure") return [main, COPY_BODY_UNSURE];
+  if (premise === "unsure") return [main, COPY_BODY_UNSURE_SECOND];
   return [main];
 }
 
