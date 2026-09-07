@@ -9,9 +9,9 @@ type OpeningStageProps = {
 };
 
 /**
- * Manual, user-paced opening. No autoplay text.
- * Title furniture, approved opening body, Transition 1, then enter the town.
- * Library shelf lives in the chapter menu, not here.
+ * Manual, user-paced opening. Authored order is label → title → body →
+ * illustration → transition → button. Desktop may place the plate beside
+ * the copy; mobile never inverts that reading order.
  */
 export function OpeningStage({ onBegin }: OpeningStageProps) {
   return (
@@ -21,8 +21,6 @@ export function OpeningStage({ onBegin }: OpeningStageProps) {
       aria-labelledby="iugr-opening-title"
     >
       <div className="iugr-opening-stage">
-        <TownBubble className="iugr-town-bubble" />
-
         <div className="iugr-opening-copy">
           <div className="iugr-label">{OPENING_SCRIPT.entryLabel}</div>
           <h1 id="iugr-opening-title" className="iugr-headline">
@@ -34,7 +32,11 @@ export function OpeningStage({ onBegin }: OpeningStageProps) {
               <p key={paragraph}>{paragraph}</p>
             ))}
           </div>
+        </div>
 
+        <TownBubble className="iugr-town-bubble" />
+
+        <div className="iugr-opening-footer">
           <TransitionBlock paragraphs={TRANSITION_1} />
 
           <div className="iugr-actions">

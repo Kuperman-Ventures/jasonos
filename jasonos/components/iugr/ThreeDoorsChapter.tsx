@@ -167,12 +167,6 @@ function DoorDetail({
         {door.title}
       </h2>
 
-      <div className="iugr-door-detail-visual" aria-hidden>
-        <Plate figureNumber={door.number} caption={`${door.title}.`}>
-          <DoorIllustration door={door} />
-        </Plate>
-      </div>
-
       <blockquote className="iugr-door-quote">
         <p>&ldquo;{door.bostromQuote}&rdquo;</p>
       </blockquote>
@@ -191,6 +185,12 @@ function DoorDetail({
       <p className="iugr-door-takeaway">
         <strong>{door.takeaway}</strong>
       </p>
+
+      <div className="iugr-door-detail-visual" aria-hidden>
+        <Plate figureNumber={door.number} caption={`${door.title}.`}>
+          <DoorIllustration door={door} />
+        </Plate>
+      </div>
 
       <div className="iugr-actions">
         <button type="button" className="iugr-btn iugr-btn-primary" onClick={onReturn}>
@@ -258,13 +258,13 @@ export function ThreeDoorsChapter({
         {THREE_DOORS.title}
       </h1>
 
-      <TransitionBlock paragraphs={TRANSITION_3} />
-
       {THREE_DOORS_SCRIPT.intro.map((paragraph) => (
         <p key={paragraph} className="iugr-lead">
           {paragraph}
         </p>
       ))}
+
+      <TransitionBlock paragraphs={TRANSITION_3} />
 
       {!complete ? <p className="iugr-doors-prompt">{THREE_DOORS.hubPrompt}</p> : null}
 

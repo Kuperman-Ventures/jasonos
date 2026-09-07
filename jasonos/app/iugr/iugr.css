@@ -143,11 +143,22 @@
   min-height: 100dvh;
   max-width: var(--iugr-shell-max);
   margin: 0 auto;
+  /* Mobile-first: 20px page gutters. */
   padding:
     max(0.75rem, env(safe-area-inset-top))
-    max(1rem, env(safe-area-inset-right))
+    max(20px, env(safe-area-inset-right))
     max(1.25rem, env(safe-area-inset-bottom))
-    max(1rem, env(safe-area-inset-left));
+    max(20px, env(safe-area-inset-left));
+}
+
+@media (min-width: 768px) {
+  .iugr-shell {
+    padding:
+      max(0.75rem, env(safe-area-inset-top))
+      max(1rem, env(safe-area-inset-right))
+      max(1.25rem, env(safe-area-inset-bottom))
+      max(1rem, env(safe-area-inset-left));
+  }
 }
 
 .iugr-mark {
@@ -175,12 +186,18 @@
 }
 
 .iugr-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 0.5rem;
+  padding-top: 0.15rem;
   padding-bottom: 0.85rem;
   border-bottom: 1px solid var(--iugr-border);
+  background: color-mix(in srgb, var(--ink) 92%, transparent);
+  backdrop-filter: blur(10px);
 }
 
 .iugr-chrome-center {
@@ -330,7 +347,13 @@
   font-family: var(--iugr-font-body);
   font-size: 17px;
   line-height: 1.6;
-  max-width: 34em;
+  max-width: none;
+}
+
+@media (min-width: 768px) {
+  .iugr-body {
+    max-width: 34em;
+  }
 }
 
 .iugr-body p {
@@ -366,6 +389,33 @@
   font-size: var(--iugr-text-sm);
   font-weight: 600;
   cursor: pointer;
+}
+
+/* Thumbs, not cursors — primary actions fill the column on mobile. */
+@media (max-width: 767px) {
+  .iugr-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .iugr-btn-primary,
+  .iugr-closing-actions .iugr-btn-primary,
+  .iugr-copy-nav .iugr-btn-primary {
+    width: 100%;
+    min-height: 52px;
+  }
+
+  .iugr-btn-ghost,
+  .iugr-closing-actions .iugr-btn-ghost,
+  .iugr-copy-nav .iugr-btn-ghost {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .iugr-copy-nav {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
 }
 
 .iugr-btn:focus-visible {
@@ -756,23 +806,43 @@ body:has(.iugr-root) main.flex-1 {
   margin: 0 auto;
 }
 
+/* Mobile-first authored order: copy → visual → footer (transition + CTA).
+   Desktop places the plate beside the copy without changing DOM order. */
 .iugr-opening-stage {
   display: grid;
   gap: 1.25rem;
-  align-items: center;
+  align-items: start;
+  grid-template-areas:
+    "copy"
+    "visual"
+    "footer";
 }
 
-@media (min-width: 720px) {
+.iugr-opening-copy { grid-area: copy; }
+.iugr-town-bubble { grid-area: visual; }
+.iugr-opening-footer { grid-area: footer; }
+
+@media (min-width: 768px) {
   .iugr-opening-stage {
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    grid-template-areas:
+      "visual copy"
+      "footer footer";
     gap: 1.75rem;
+    align-items: center;
   }
 }
 
 .iugr-town-bubble {
   display: grid;
   place-items: center;
-  min-height: 180px;
+  min-height: 120px;
+}
+
+@media (min-width: 768px) {
+  .iugr-town-bubble {
+    min-height: 180px;
+  }
 }
 
 .iugr-town-bubble-svg {
@@ -2184,7 +2254,13 @@ p.iugr-town-copy {
   font-size: 15px;
   line-height: 1.5;
   color: var(--text-body);
-  max-width: 34em;
+  max-width: none;
+}
+
+@media (min-width: 768px) {
+  .iugr-copy-body {
+    max-width: 34em;
+  }
 }
 
 .iugr-copy-nav {
@@ -2199,8 +2275,8 @@ p.iugr-town-copy {
 
 .iugr-copy-continue {
   width: 100%;
-  min-height: 48px;
-  height: 48px;
+  min-height: 52px;
+  height: auto;
   border-radius: 4px;
   background: #c8f04a;
   color: #0b1020;
@@ -2715,8 +2791,15 @@ p.iugr-town-copy {
 .iugr-body {
   margin: 0;
   color: var(--iugr-cream-muted);
-  line-height: 1.55;
-  font-size: var(--iugr-text-md);
+  line-height: 1.6;
+  font-size: 17px;
+  max-width: none;
+}
+
+@media (min-width: 768px) {
+  .iugr-body {
+    max-width: 34em;
+  }
 }
 
 @media (max-width: 374px) {
@@ -2903,8 +2986,14 @@ p.iugr-town-copy {
   border-radius: var(--iugr-radius-md);
   border: 1px solid var(--iugr-border-strong);
   background: rgba(13, 20, 36, 0.85);
-  position: sticky;
-  top: 0.75rem;
+  position: static;
+}
+
+@media (min-width: 900px) {
+  .iugr-arcade-outcome {
+    position: sticky;
+    top: 0.75rem;
+  }
 }
 
 .iugr-arcade-outcome-title {
@@ -3960,7 +4049,13 @@ p.iugr-town-copy {
   font-size: 15px;
   line-height: 1.5;
   color: var(--text-body);
-  max-width: 34em;
+  max-width: none;
+}
+
+@media (min-width: 768px) {
+  .iugr-machine-closing-note p {
+    max-width: 34em;
+  }
 }
 
 .iugr-claims-open {
@@ -3996,7 +4091,13 @@ p.iugr-town-copy {
   font-size: 15px;
   line-height: 1.5;
   color: var(--text-body);
-  max-width: 34em;
+  max-width: none;
+}
+
+@media (min-width: 768px) {
+  .iugr-claim-open-body p {
+    max-width: 34em;
+  }
 }
 
 .iugr-claim-open-body p:first-child {
@@ -4058,6 +4159,60 @@ p.iugr-town-copy {
   max-width: 22rem;
 }
 
+@media (max-width: 767px) {
+  .iugr-question-town-preview {
+    max-width: none;
+  }
+
+  .iugr-question-town-preview .iugr-plate-body {
+    padding: 0.35rem 0.4rem 0.2rem;
+    max-height: 112px;
+    overflow: hidden;
+  }
+
+  .iugr-question-town-preview .iugr-town-residents {
+    gap: 0;
+    padding: 0;
+    transform: scale(0.4);
+    transform-origin: top left;
+    width: 250%;
+  }
+
+  .iugr-question-town-preview .iugr-town-resident-slot {
+    aspect-ratio: 1 / 1;
+    padding: 0;
+    min-height: 0;
+  }
+
+  .iugr-question-town-preview .iugr-resident-svg {
+    width: min(100%, 14px);
+  }
+
+  .iugr-question-town-preview .iugr-resident-tick {
+    font-size: 11px;
+    top: auto;
+    bottom: -0.15rem;
+  }
+
+  .iugr-question-town-preview .iugr-plate-caption {
+    min-height: 0;
+    margin-top: 0.3rem;
+  }
+
+  /* Keep the 100-figure grid on Original Town reachable without burying the pick prompt. */
+  .iugr-town-chapter .iugr-town-sketch {
+    max-height: 52px;
+  }
+
+  .iugr-town-chapter:not(.iugr-question-chapter) .iugr-town-residents {
+    gap: 0.08rem 0.06rem;
+  }
+
+  .iugr-town-chapter:not(.iugr-question-chapter) .iugr-resident-svg {
+    width: min(100%, 16px);
+  }
+}
+
 .iugr-question-result {
   display: grid;
   gap: 1rem;
@@ -4070,7 +4225,16 @@ p.iugr-town-copy {
 .iugr-opening-body {
   font-size: 17px;
   line-height: 1.6;
-  max-width: 34em;
+  max-width: none;
+}
+
+@media (min-width: 768px) {
+  .iugr-town-copy,
+  .iugr-town-question-text,
+  .iugr-copy-body,
+  .iugr-opening-body {
+    max-width: 34em;
+  }
 }
 
 .iugr-town-copy p,
@@ -4079,4 +4243,74 @@ p.iugr-town-copy {
 .iugr-opening-body p {
   margin: 0 0 0.75rem;
   color: var(--text-body);
+}
+
+
+/* ── IUGR mobile-first foundation ───────────────────────────────────── */
+
+/* Dev-only Next.js mark must not overlap content during mobile review. */
+body:has(.iugr-root) nextjs-portal {
+  display: none !important;
+}
+
+@media (max-width: 767px) {
+  .iugr-main {
+    max-width: none;
+    padding: 1rem 0 1.5rem;
+  }
+
+  .iugr-panel {
+    border-radius: var(--iugr-radius-md);
+    padding: 1rem 0 1.25rem;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .iugr-headline {
+    font-size: clamp(1.7rem, 8vw, 2.1rem);
+  }
+
+  .iugr-town-bubble-svg {
+    width: min(100%, 200px);
+  }
+
+  /* Interactive targets ≥44px, except the 100-figure town grid. */
+  .iugr-icon-btn,
+  .iugr-pill,
+  .iugr-choice,
+  .iugr-copy-snap,
+  .iugr-orbit-dot,
+  .iugr-machine-dial-segment,
+  .iugr-door-card,
+  .iugr-claim-card summary,
+  .iugr-chapter-nav-list button {
+    min-height: 44px;
+  }
+
+  .iugr-orbit-dot {
+    width: 12px;
+    height: 12px;
+    min-height: 0;
+    /* orbit dots stay compact; hit via chrome menu on mobile */
+  }
+
+  .iugr-choice-stack {
+    gap: 0.55rem;
+  }
+
+  .iugr-choice {
+    width: 100%;
+    text-align: left;
+    padding: 0.85rem 1rem;
+  }
+
+  /* Single column — never let desktop multi-column invert reading order. */
+  .iugr-doors-grid,
+  .iugr-claims-grid,
+  .iugr-closing-actions,
+  .iugr-machine-dials,
+  .iugr-copy-count-groups {
+    grid-template-columns: 1fr !important;
+  }
 }
