@@ -156,6 +156,10 @@ export function IugrShell() {
     return () => media.removeEventListener("change", onChange);
   }, []);
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [chapterId]);
+
   const setGuideId = useCallback((guideId: IugrPreferences["guideId"]) => {
     updatePrefs((prev) => ({ ...prev, guideId }));
   }, []);

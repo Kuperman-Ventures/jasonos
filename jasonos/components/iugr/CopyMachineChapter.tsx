@@ -803,6 +803,13 @@ export function CopyMachineChapter({
 
       {isReturn ? <p className="iugr-lead">{MACHINE_RETURN.welcome}</p> : null}
 
+      {!isReturn ? (
+        <div className="iugr-copy-body">
+          <p>{bodyPrimary}</p>
+          {bodySecond ? <p>{bodySecond}</p> : null}
+        </div>
+      ) : null}
+
       {isReturn && evaluation ? (
         <ReturnChallenge
           readingId={evaluation.readingId}
@@ -852,13 +859,6 @@ export function CopyMachineChapter({
           reducedMotion={reducedMotion}
         />
       </div>
-
-      {!isReturn ? (
-        <div className="iugr-copy-body">
-          <p>{bodyPrimary}</p>
-          {bodySecond ? <p>{bodySecond}</p> : null}
-        </div>
-      ) : null}
 
       <div className="iugr-copy-snaps" role="group" aria-label="Quick copy counts">
         {COPY_SNAP_POINTS.map((p) => (

@@ -114,22 +114,21 @@ export function TheQuestionChapter({
         The Question
       </h1>
 
-      <div className="iugr-question-town-preview">
-        <Plate figureNumber={1} caption={ORIGINAL_TOWN.plateCaption}>
-          <TownSketch />
-          <TownResidents
-            readerFigureIndex={readerFigureIndex}
-            interactive={false}
-            compact
-          />
-        </Plate>
-      </div>
-
       <div className="iugr-town-question">
         <div id={questionId} className="iugr-town-question-text">
           {THE_QUESTION_SCRIPT.question.map((paragraph) => (
             <p key={paragraph}>{paragraph}</p>
           ))}
+        </div>
+
+        <div className="iugr-question-town-preview" aria-label="Your place in Original Town">
+          <Plate figureNumber={1} caption={ORIGINAL_TOWN.plateCaption}>
+            <TownResidents
+              readerFigureIndex={readerFigureIndex}
+              interactive={false}
+              compact
+            />
+          </Plate>
         </div>
 
         <div
