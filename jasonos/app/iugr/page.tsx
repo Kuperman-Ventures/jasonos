@@ -1,5 +1,5 @@
-import { IugrShell } from "@/components/iugr/IugrShell";
+import { IugrDeckShell } from "@/components/iugr/deck/IugrDeckShell";
 
 export default function IugrPage() {
-  return <IugrShell />;
+  return <IugrDeckShell />;
 }
