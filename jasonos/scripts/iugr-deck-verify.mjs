@@ -1,10 +1,22 @@
 /**
  * IUGR deck verify matrix at 375×667 against a live URL.
+ * Requires Playwright, e.g.:
+ *   npm install -D playwright && npx playwright install chromium
  * Usage: node scripts/iugr-deck-verify.mjs [url]
  */
-import { chromium, devices } from "playwright";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+
+let chromium;
+let devices;
+try {
+  ({ chromium, devices } = await import("playwright"));
+} catch {
+  console.error(
+    "Missing playwright. Run: npm install -D playwright && npx playwright install chromium",
+  );
+  process.exit(2);
+}
 
 const URL = process.argv[2] || "https://jasonos.vercel.app/iugr";
 const OUT = "/tmp/iugr-verify";
@@ -374,13 +386,28 @@ try {
       const ov = await overflowReport(page);
       if (ov.issues.length) clipFails.push({ id, issues: ov.issues });
 
+      const storageIndex = await page.evaluate(() => {
+        try {
+          return JSON.parse(localStorage.getItem("iugr-deck-v2") || "{}").index;
+        } catch {
+          return -1;
+        }
+      });
+
       const right = page.locator(".zone-right");
       if (await right.isDisabled()) {
-        const choose = page.locator(".iugr-deck-choose-btn:not(:disabled)");
+        // Last card disables right zone; closing actions share choose-btn class.
+        if (storageIndex >= 69) {
+          pass("reached end of deck", id);
+          break;
+        }
+        const chooseInteractive = page.locator(
+          ".iugr-deck-choose .iugr-deck-choose-btn:not(:disabled)",
+        );
         const lever = page.locator(".iugr-deck-lever-arm:not(:disabled)");
         const pick = page.locator(".iugr-town-resident-btn");
-        if (await choose.count()) {
-          await choose.first().click();
+        if (await chooseInteractive.count()) {
+          await chooseInteractive.first().click();
           await page.waitForTimeout(120);
           if (id === "doors-choose") {
             const text = await page.locator(".iugr-deck-body").innerText();
@@ -412,7 +439,7 @@ try {
         }
       }
 
-      const storageIndex = await page.evaluate(() => {
+      const storageIndexAfter = await page.evaluate(() => {
         try {
           return JSON.parse(localStorage.getItem("iugr-deck-v2") || "{}").index;
         } catch {
@@ -420,7 +447,7 @@ try {
         }
       });
 
-      if ((await right.isDisabled()) && storageIndex >= 69) {
+      if ((await right.isDisabled()) && storageIndexAfter >= 69) {
         pass("reached end of deck", id);
         break;
       }
