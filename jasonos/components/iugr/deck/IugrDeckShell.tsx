@@ -8,6 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import Link from "next/link";
 import { X } from "lucide-react";
 import { CopyMachineStage } from "@/components/iugr/deck/CopyMachineStage";
 import {
@@ -42,16 +43,16 @@ const ADVANCE_SETTLE_MS = 600;
 const PULL_ANIM_MS = 280;
 
 let memoryPrefs: IugrPreferences | null = null;
-const listeners = new Set<() => void>();
+const prefListeners = new Set<() => void>();
 
-function emit() {
-  for (const listener of listeners) listener();
+function emitPrefs() {
+  for (const listener of prefListeners) listener();
 }
 
-function subscribe(listener: () => void) {
-  listeners.add(listener);
+function subscribePrefs(listener: () => void) {
+  prefListeners.add(listener);
   return () => {
-    listeners.delete(listener);
+    prefListeners.delete(listener);
   };
 }
 
@@ -73,7 +74,63 @@ function updatePrefs(updater: (prev: IugrPreferences) => IugrPreferences) {
   const next = updater(getPrefsSnapshot());
   memoryPrefs = next;
   writePreferences(next);
-  emit();
+  emitPrefs();
+}
+
+/** Client-only flag without setState-in-effect. */
+function subscribeNever() {
+  return () => {};
+}
+function getClientTrue() {
+  return true;
+}
+function getServerFalse() {
+  return false;
+}
+
+type DeckSession = {
+  index: number;
+  hintSeen: boolean;
+  copiedTowns: number;
+};
+
+let memorySession: DeckSession | null = null;
+const sessionListeners = new Set<() => void>();
+
+function emitSession() {
+  for (const listener of sessionListeners) listener();
+}
+
+function subscribeSession(listener: () => void) {
+  sessionListeners.add(listener);
+  return () => {
+    sessionListeners.delete(listener);
+  };
+}
+
+function readSession(): DeckSession {
+  if (memorySession) return memorySession;
+  const index = readDeckCardIndex(DECK.length);
+  memorySession = {
+    index,
+    hintSeen: readHintSeen(),
+    copiedTowns: readCopiedTowns(),
+  };
+  return memorySession;
+}
+
+function getServerSession(): DeckSession {
+  return { index: 0, hintSeen: true, copiedTowns: 0 };
+}
+
+function patchSession(patch: Partial<DeckSession>) {
+  const prev = readSession();
+  const next = { ...prev, ...patch };
+  memorySession = next;
+  if (patch.index != null) writeDeckCardIndex(patch.index);
+  if (patch.hintSeen === true) writeHintSeen();
+  if (patch.copiedTowns != null) writeCopiedTowns(patch.copiedTowns);
+  emitSession();
 }
 
 function DeckCountRow({
@@ -185,19 +242,26 @@ function CardLines({
 
 export function IugrDeckShell() {
   const prefs = useSyncExternalStore(
-    subscribe,
+    subscribePrefs,
     getPrefsSnapshot,
     getServerPrefsSnapshot,
   );
-  const [hydrated, setHydrated] = useState(false);
-  const [index, setIndex] = useState(0);
-  const [prevIndex, setPrevIndex] = useState(0);
+  const session = useSyncExternalStore(
+    subscribeSession,
+    readSession,
+    getServerSession,
+  );
+  const isClient = useSyncExternalStore(
+    subscribeNever,
+    getClientTrue,
+    getServerFalse,
+  );
+
+  const index = session.index;
+  const [prevIndex, setPrevIndex] = useState(index);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [hintSeen, setHintSeen] = useState(true);
-  const [copiedTowns, setCopiedTowns] = useState(0);
-  const [displayCopies, setDisplayCopies] = useState(0);
+  const [pullCopies, setPullCopies] = useState<number | null>(null);
   const [pullPending, setPullPending] = useState(false);
-  const [liveAnnounce, setLiveAnnounce] = useState("");
   const [leverAnnounce, setLeverAnnounce] = useState("");
 
   const cardRef = useRef<HTMLDivElement>(null);
@@ -210,6 +274,11 @@ export function IugrDeckShell() {
   const waitingPull =
     card.interaction?.type === "pull" && !pullPending;
   const rightBlocked = waitingPull || pullPending;
+  const liveAnnounce = isClient
+    ? card.lines.map((l) => l.text).join(" ")
+    : "";
+  const displayCopies =
+    pullCopies ?? card.stage?.copies ?? session.copiedTowns;
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -224,28 +293,8 @@ export function IugrDeckShell() {
   }, []);
 
   useEffect(() => {
-    const idx = readDeckCardIndex(DECK.length);
-    const towns = readCopiedTowns();
-    setIndex(idx);
-    setPrevIndex(idx);
-    setCopiedTowns(towns);
-    const staged = DECK[idx]?.stage?.copies;
-    setDisplayCopies(staged ?? towns);
-    setHintSeen(readHintSeen());
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    writeDeckCardIndex(index);
-  }, [index, hydrated]);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    const announcement = card.lines.map((l) => l.text).join(" ");
-    setLiveAnnounce(announcement);
     cardRef.current?.focus({ preventScroll: true });
-  }, [card.id, card.lines, hydrated]);
+  }, [card.id]);
 
   useEffect(() => {
     return () => {
@@ -254,19 +303,17 @@ export function IugrDeckShell() {
   }, []);
 
   const markHint = useCallback(() => {
-    if (hintSeen) return;
-    setHintSeen(true);
-    writeHintSeen();
-  }, [hintSeen]);
+    if (session.hintSeen) return;
+    patchSession({ hintSeen: true });
+  }, [session.hintSeen]);
 
   const goTo = useCallback(
     (next: number) => {
       const clamped = Math.max(0, Math.min(DECK.length - 1, next));
       setPrevIndex(index);
-      setIndex(clamped);
       setPullPending(false);
-      const staged = DECK[clamped]?.stage?.copies;
-      if (staged != null) setDisplayCopies(staged);
+      setPullCopies(null);
+      patchSession({ index: clamped });
       markHint();
     },
     [index, markHint],
@@ -287,9 +334,8 @@ export function IugrDeckShell() {
     if (card.interaction?.type !== "pull" || pullPending) return;
     const to = card.interaction.to;
     setPullPending(true);
-    setDisplayCopies(to);
-    setCopiedTowns(to);
-    writeCopiedTowns(to);
+    setPullCopies(to);
+    patchSession({ copiedTowns: to });
     setLeverAnnounce(`Copied towns: ${formatWholeNumber(to)}`);
     markHint();
     if (advanceTimer.current) clearTimeout(advanceTimer.current);
@@ -297,9 +343,11 @@ export function IugrDeckShell() {
       ? ADVANCE_SETTLE_MS
       : Math.max(ADVANCE_SETTLE_MS, PULL_ANIM_MS + 320);
     advanceTimer.current = setTimeout(() => {
+      const nextIndex = Math.min(DECK.length - 1, index + 1);
       setPrevIndex(index);
-      setIndex((i) => Math.min(DECK.length - 1, i + 1));
       setPullPending(false);
+      setPullCopies(null);
+      patchSession({ index: nextIndex, copiedTowns: to });
     }, delay);
   }, [card.interaction, index, markHint, prefs.reducedMotion, pullPending]);
 
@@ -356,7 +404,6 @@ export function IugrDeckShell() {
         role="application"
         aria-label={`${SERIES.shortName} card deck`}
       >
-        {/* z-index 2 — tap zones */}
         <button
           type="button"
           className="iugr-deck-zone zone-left"
@@ -378,7 +425,6 @@ export function IugrDeckShell() {
           style={rightBlocked ? { pointerEvents: "none" } : undefined}
         />
 
-        {/* z-index 3 — card content, pointer-events none */}
         <div
           ref={cardRef}
           className="iugr-deck-card"
@@ -435,14 +481,13 @@ export function IugrDeckShell() {
             </div>
           </div>
 
-          {!hintSeen && hydrated ? (
+          {!session.hintSeen && isClient ? (
             <p className="iugr-deck-hint" aria-hidden>
               Tap right to continue, left to go back
             </p>
           ) : null}
         </div>
 
-        {/* z-index 4 — chrome + interactive opt-in */}
         {showChrome ? (
           <header className="iugr-deck-chrome">
             <button
@@ -468,7 +513,6 @@ export function IugrDeckShell() {
             </div>
           </header>
         ) : null}
-
       </div>
 
       <div id={liveId} className="sr-only" aria-live="polite" aria-atomic="true">
@@ -525,9 +569,9 @@ export function IugrDeckShell() {
                 ))}
               </ul>
             </div>
-            <a className="iugr-deck-menu-home" href="/">
+            <Link className="iugr-deck-menu-home" href="/">
               Back to JasonOS
-            </a>
+            </Link>
             <button
               type="button"
               className="iugr-deck-menu-item is-ghost"
