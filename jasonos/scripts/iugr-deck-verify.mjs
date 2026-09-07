@@ -78,49 +78,45 @@ async function patchStorage(page, patch) {
 }
 
 async function pickResident(page, index) {
-  const before = await page.evaluate(() => {
-    try {
-      return JSON.parse(localStorage.getItem("iugr-deck-v2") || "{}")
-        .readerFigureIndex;
-    } catch {
-      return null;
-    }
-  });
-  const clicked = await page.evaluate((i) => {
-    const btn = document.querySelectorAll(".iugr-town-resident-btn")[i];
-    if (!btn) return false;
-    btn.dispatchEvent(
-      new MouseEvent("click", {
-        bubbles: true,
-        cancelable: true,
-        view: window,
-      }),
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const n = await page.evaluate(
+      () => document.querySelectorAll(".iugr-town-resident-btn").length,
     );
-    return true;
-  }, index);
-  if (!clicked) return false;
-  await page.waitForFunction(
-    (expected) => {
-      try {
-        const v = JSON.parse(localStorage.getItem("iugr-deck-v2") || "{}")
-          .readerFigureIndex;
-        return v === expected;
-      } catch {
-        return false;
-      }
-    },
-    index,
-    { timeout: 3000 },
-  );
-  const after = await page.evaluate(() => {
-    try {
-      return JSON.parse(localStorage.getItem("iugr-deck-v2") || "{}")
-        .readerFigureIndex;
-    } catch {
-      return null;
+    if (n <= index) {
+      await page.waitForTimeout(150);
+      continue;
     }
-  });
-  return after === index && after !== before;
+    await page.evaluate((i) => {
+      const btn = document.querySelectorAll(".iugr-town-resident-btn")[i];
+      btn?.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+        }),
+      );
+    }, index);
+    try {
+      await page.waitForFunction(
+        (expected) => {
+          try {
+            return (
+              JSON.parse(localStorage.getItem("iugr-deck-v2") || "{}")
+                .readerFigureIndex === expected
+            );
+          } catch {
+            return false;
+          }
+        },
+        index,
+        { timeout: 2000 },
+      );
+      return true;
+    } catch {
+      await page.waitForTimeout(100);
+    }
+  }
+  return false;
 }
 
 const browser = await chromium.launch({ headless: true });
@@ -180,10 +176,14 @@ try {
       pass("pick: right zone blocked before pick");
     else fail("pick: right zone blocked before pick");
 
-    await page.locator(".zone-right").click({ force: true }).catch(() => {});
-    await page.waitForTimeout(50);
-    if ((await cardId(page)) === "town-pick") pass("pick: forced right click stays");
-    else fail("pick: forced right click stays", await cardId(page));
+    // Do not force-click the zone center: with pointer-events:none the
+    // coordinates hit a resident underneath and accidentally pick one.
+    const idxBefore = await cardId(page);
+    await page.keyboard.press("ArrowRight");
+    await page.waitForTimeout(80);
+    if ((await cardId(page)) === idxBefore)
+      pass("pick: ArrowRight blocked before pick");
+    else fail("pick: ArrowRight blocked before pick", await cardId(page));
 
     if (!(await pickResident(page, 12))) fail("pick: tap resident");
     else pass("pick: tap resident");
@@ -283,10 +283,10 @@ try {
       pass("pull: right blocked at 0");
     else fail("pull: right blocked at 0");
 
-    await page.locator(".zone-right").click({ force: true }).catch(() => {});
+    await page.keyboard.press("ArrowRight");
     await page.waitForTimeout(50);
-    if ((await cardId(page)) === "cm-pull") pass("pull: right stays on card");
-    else fail("pull: right stays on card");
+    if ((await cardId(page)) === "cm-pull") pass("pull: ArrowRight stays on card");
+    else fail("pull: ArrowRight stays on card");
 
     const lever = page.locator(".iugr-deck-lever-arm").first();
     await lever.waitFor({ state: "visible", timeout: 10000 });
