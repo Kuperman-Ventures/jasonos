@@ -529,11 +529,11 @@ const THREE_DOORS_CARDS: Card[] = [
     id: "door1-fiction",
     section: "three-doors",
     kind: "stage",
+    // Mid-body lines already landed on prior cards; restating them here
+    // overflows 375×667. Keep the thesis + fiction + takeaway.
     lines: [
       { tone: "body", text: DOOR1_PROP },
       { tone: "body", text: DOOR1_PLAIN },
-      { tone: "body", text: DOOR1_BODY_A },
-      { tone: "body", text: DOOR1_BODY_B },
       { tone: "lead", text: DOOR1_FICTION },
       { tone: "coral", text: DOOR1_TAKE },
     ],
@@ -591,8 +591,6 @@ const THREE_DOORS_CARDS: Card[] = [
     lines: [
       { tone: "body", text: DOOR2_PROP },
       { tone: "body", text: DOOR2_PLAIN },
-      { tone: "body", text: DOOR2_BODY_A },
-      { tone: "body", text: DOOR2_BODY_B },
       { tone: "lead", text: DOOR2_FICTION },
       { tone: "coral", text: DOOR2_TAKE },
     ],
@@ -650,8 +648,6 @@ const THREE_DOORS_CARDS: Card[] = [
     lines: [
       { tone: "body", text: DOOR3_PROP },
       { tone: "body", text: DOOR3_PLAIN },
-      { tone: "body", text: DOOR3_BODY_A },
-      { tone: "body", text: DOOR3_BODY_B },
       { tone: "lead", text: DOOR3_FICTION },
       { tone: "coral", text: DOOR3_TAKE },
     ],
