@@ -23,9 +23,7 @@ Screen furniture: ENTRY 01 / ARE YOU AN ORIGINAL?
 
 > You have met this idea before. It turns up in films, usually bent out of shape.
 >
-> The real thing is smaller and stranger. A philosopher called Nick Bostrom wrote it down in 2003, and we are going to walk his reasoning, step by step. It never claims reality is fake. It does something more awkward than that.
->
-> Eight minutes. There is a lever involved.
+> The real thing is smaller and stranger. A philosopher called Nick Bostrom wrote it down in 2003, and we are going to walk his reasoning, step by step.
 
 Button: **Take me to the town**
 
