@@ -26,13 +26,14 @@ export type StageState = {
   showCounts?: boolean;
   showLever?: boolean;
   silent?: boolean;
+  challengePips?: number;
   doors?: "intro" | "door1" | "door2" | "door3" | "synthesis";
   dials?: boolean;
+  /** Shell injects scenarioEngine reading when true. */
   reading?: boolean;
   /** Claim index 0–4 when showing claim stage. */
   claims?: number;
   closingActions?: boolean;
-  challengePips?: number;
 };
 
 export type Interaction =
@@ -64,7 +65,30 @@ export type DeckSection = {
   firstCardId: string;
 };
 
-// ─── Opening ───────────────────────────────────────────────────────────────
+/** Consequence lines for The Question choose — shell shows the matching one. */
+export const QUESTION_REACTIONS: Record<string, string> = {
+  yes: "Then there are two hundred people here now, and two of them are you. Hold on to that.",
+  unsure:
+    "Fair. Nobody has settled this one, including the people who do it for a living. We will carry the question with us.",
+  no: "Then the second town is scenery. Watch what that does to the count.",
+};
+
+/** Body copy per lever stop — shell swaps these on the pull card. */
+export const PULL_BODY: Record<number, string> = {
+  0: "One lever. It does exactly one thing, and the thing it does is arithmetic.",
+  1: "One copy and it is already even. You did not have to work very hard for that.",
+  9: "Nine copies. Pick a resident at random and nine times out of ten you land in a copy.",
+  99: "Ninety-nine copies. Ninety-nine times out of a hundred you land in a copy.",
+  999: "The lever stops here. The arithmetic does not.",
+};
+
+export const PULL_BODY_UNSURE =
+  "You left the mind question open. The count runs, but it does not settle anything.";
+
+export const PULL_BODY_NO =
+  "You said copies are not people. The machine still makes them. It just has nothing to count.";
+
+// ─── Opening (5) ───────────────────────────────────────────────────────────
 
 const OPENING_CARDS: Card[] = [
   {
@@ -98,7 +122,7 @@ const OPENING_CARDS: Card[] = [
       },
       {
         tone: "lead",
-        text: "The real thing is smaller and stranger. A philosopher called Nick Bostrom wrote it down in 2003, and we are going to walk his reasoning, step by step.",
+        text: "The real thing is smaller and stranger. A philosopher called Nick Bostrom wrote it down in 2003, and we are going to walk his reasoning, step by step. It never claims reality is fake. It does something more awkward than that.",
       },
     ],
   },
@@ -113,30 +137,7 @@ const OPENING_CARDS: Card[] = [
       },
       {
         tone: "body",
-        text: "The real thing is smaller and stranger. A philosopher called Nick Bostrom wrote it down in 2003, and we are going to walk his reasoning, step by step.",
-      },
-      {
-        tone: "lead",
-        text: "It never claims reality is fake. It does something more awkward than that.",
-      },
-    ],
-  },
-  {
-    id: "open-4",
-    section: "opening",
-    kind: "text",
-    lines: [
-      {
-        tone: "body",
-        text: "You have met this idea before. It turns up in films, usually bent out of shape.",
-      },
-      {
-        tone: "body",
-        text: "The real thing is smaller and stranger. A philosopher called Nick Bostrom wrote it down in 2003, and we are going to walk his reasoning, step by step.",
-      },
-      {
-        tone: "body",
-        text: "It never claims reality is fake. It does something more awkward than that.",
+        text: "The real thing is smaller and stranger. A philosopher called Nick Bostrom wrote it down in 2003, and we are going to walk his reasoning, step by step. It never claims reality is fake. It does something more awkward than that.",
       },
       {
         tone: "lead",
@@ -157,7 +158,7 @@ const OPENING_CARDS: Card[] = [
   },
 ];
 
-// ─── Original Town ─────────────────────────────────────────────────────────
+// ─── Original Town (5) ─────────────────────────────────────────────────────
 
 const ORIGINAL_TOWN_CARDS: Card[] = [
   {
@@ -220,7 +221,7 @@ const ORIGINAL_TOWN_CARDS: Card[] = [
   },
 ];
 
-// ─── The Question ──────────────────────────────────────────────────────────
+// ─── The Question (5) ──────────────────────────────────────────────────────
 
 const THE_QUESTION_CARDS: Card[] = [
   {
@@ -265,7 +266,12 @@ const THE_QUESTION_CARDS: Card[] = [
       },
       { tone: "lead", text: "Would the copy of you be a person?" },
     ],
-    stage: { show: true, town: true, townCompact: true, secondTown: true },
+    stage: {
+      show: true,
+      town: true,
+      townCompact: true,
+      secondTown: true,
+    },
     interaction: {
       type: "choose",
       stateKey: "copiesAreConscious",
@@ -300,9 +306,16 @@ const THE_QUESTION_CARDS: Card[] = [
   },
 ];
 
-// ─── Copy Machine ──────────────────────────────────────────────────────────
+// ─── Copy Machine (7) ──────────────────────────────────────────────────────
 
 const CM_CHALLENGE = "Pull the lever until the copies outnumber the originals.";
+const CM_STAGE0: StageState = {
+  show: true,
+  copies: 0,
+  showCounts: true,
+  showLever: true,
+  challengePips: 0,
+};
 
 const COPY_MACHINE_CARDS: Card[] = [
   {
@@ -312,21 +325,6 @@ const COPY_MACHINE_CARDS: Card[] = [
     lines: [{ tone: "lead", text: "The Copy Machine" }],
   },
   {
-    id: "cm-challenge",
-    section: "copy-machine",
-    kind: "stage",
-    lines: [
-      { tone: "body", text: "CHALLENGE" },
-      { tone: "lead", text: CM_CHALLENGE },
-    ],
-    stage: {
-      show: true,
-      copies: 0,
-      showCounts: true,
-      showLever: true,
-    },
-  },
-  {
     id: "cm-pull",
     section: "copy-machine",
     kind: "stage",
@@ -334,12 +332,7 @@ const COPY_MACHINE_CARDS: Card[] = [
       { tone: "body", text: "CHALLENGE" },
       { tone: "lead", text: CM_CHALLENGE },
     ],
-    stage: {
-      show: true,
-      copies: 0,
-      showCounts: true,
-      showLever: true,
-    },
+    stage: { ...CM_STAGE0 },
     interaction: { type: "pull", stops: [0, 1, 9, 99, 999] },
   },
   {
@@ -376,6 +369,7 @@ const COPY_MACHINE_CARDS: Card[] = [
       copies: 999,
       showCounts: true,
       showLever: true,
+      challengePips: 3,
     },
   },
   {
@@ -425,7 +419,7 @@ const COPY_MACHINE_CARDS: Card[] = [
   },
 ];
 
-// ─── Three Doors ───────────────────────────────────────────────────────────
+// ─── Three Doors (22) ──────────────────────────────────────────────────────
 
 const DOOR1_PROP =
   "The human species is very likely to go extinct before reaching a 'posthuman' stage.";
@@ -437,8 +431,7 @@ const DOOR1_BODY_B =
   "If almost every civilization stops before it can run vast numbers of detailed minds, there are almost no copies to count.";
 const DOOR1_FICTION =
   "You have seen this door. Battlestar Galactica runs the same civilization into the ground over and over. The Three-Body Problem has advanced civilizations removed by other advanced civilizations, on principle, before they get anywhere.";
-const DOOR1_TAKE =
-  "If the road ends early, the count never starts.";
+const DOOR1_TAKE = "If the road ends early, the count never starts.";
 
 const DOOR2_PROP =
   "Any posthuman civilization is extremely unlikely to run a significant number of simulations of their evolutionary history.";
@@ -472,7 +465,7 @@ const THREE_DOORS_CARDS: Card[] = [
     lines: [{ tone: "lead", text: "Three Doors" }],
   },
   {
-    id: "doors-intro-1",
+    id: "doors-intro",
     section: "three-doors",
     kind: "stage",
     lines: [
@@ -480,27 +473,15 @@ const THREE_DOORS_CARDS: Card[] = [
         tone: "lead",
         text: "Nick Bostrom, 2003. He did not claim we are simulated. He claimed this, and it is harder to get out of than it looks.",
       },
-    ],
-    stage: { show: true, doors: "intro" },
-  },
-  {
-    id: "doors-intro-2",
-    section: "three-doors",
-    kind: "stage",
-    lines: [
       {
         tone: "body",
-        text: "Nick Bostrom, 2003. He did not claim we are simulated. He claimed this, and it is harder to get out of than it looks.",
-      },
-      {
-        tone: "lead",
         text: "At least one of the three is true. Not all of them. At least one.",
       },
     ],
     stage: { show: true, doors: "intro" },
   },
 
-  // Door 1 run
+  // Door 1 — prop, plain, body (split), fiction, takeaway
   {
     id: "door1-prop",
     section: "three-doors",
@@ -554,25 +535,12 @@ const THREE_DOORS_CARDS: Card[] = [
       { tone: "body", text: DOOR1_BODY_A },
       { tone: "body", text: DOOR1_BODY_B },
       { tone: "lead", text: DOOR1_FICTION },
-    ],
-    stage: { show: true, doors: "door1" },
-  },
-  {
-    id: "door1-take",
-    section: "three-doors",
-    kind: "stage",
-    lines: [
-      { tone: "body", text: DOOR1_PROP },
-      { tone: "body", text: DOOR1_PLAIN },
-      { tone: "body", text: DOOR1_BODY_A },
-      { tone: "body", text: DOOR1_BODY_B },
-      { tone: "body", text: DOOR1_FICTION },
       { tone: "coral", text: DOOR1_TAKE },
     ],
     stage: { show: true, doors: "door1" },
   },
 
-  // Door 2 run
+  // Door 2
   {
     id: "door2-prop",
     section: "three-doors",
@@ -626,25 +594,12 @@ const THREE_DOORS_CARDS: Card[] = [
       { tone: "body", text: DOOR2_BODY_A },
       { tone: "body", text: DOOR2_BODY_B },
       { tone: "lead", text: DOOR2_FICTION },
-    ],
-    stage: { show: true, doors: "door2" },
-  },
-  {
-    id: "door2-take",
-    section: "three-doors",
-    kind: "stage",
-    lines: [
-      { tone: "body", text: DOOR2_PROP },
-      { tone: "body", text: DOOR2_PLAIN },
-      { tone: "body", text: DOOR2_BODY_A },
-      { tone: "body", text: DOOR2_BODY_B },
-      { tone: "body", text: DOOR2_FICTION },
       { tone: "coral", text: DOOR2_TAKE },
     ],
     stage: { show: true, doors: "door2" },
   },
 
-  // Door 3 run
+  // Door 3
   {
     id: "door3-prop",
     section: "three-doors",
@@ -698,25 +653,11 @@ const THREE_DOORS_CARDS: Card[] = [
       { tone: "body", text: DOOR3_BODY_A },
       { tone: "body", text: DOOR3_BODY_B },
       { tone: "lead", text: DOOR3_FICTION },
-    ],
-    stage: { show: true, doors: "door3" },
-  },
-  {
-    id: "door3-take",
-    section: "three-doors",
-    kind: "stage",
-    lines: [
-      { tone: "body", text: DOOR3_PROP },
-      { tone: "body", text: DOOR3_PLAIN },
-      { tone: "body", text: DOOR3_BODY_A },
-      { tone: "body", text: DOOR3_BODY_B },
-      { tone: "body", text: DOOR3_FICTION },
       { tone: "coral", text: DOOR3_TAKE },
     ],
     stage: { show: true, doors: "door3" },
   },
 
-  // Synthesis
   {
     id: "doors-synth-1",
     section: "three-doors",
@@ -762,13 +703,7 @@ const THREE_DOORS_CARDS: Card[] = [
     },
   },
   {
-    id: "doors-trans-1",
-    section: "three-doors",
-    kind: "text",
-    lines: [{ tone: "lead", text: "So which door?" }],
-  },
-  {
-    id: "doors-trans-2",
+    id: "doors-trans",
     section: "three-doors",
     kind: "text",
     lines: [
@@ -781,7 +716,7 @@ const THREE_DOORS_CARDS: Card[] = [
   },
 ];
 
-// ─── Back To The Machine ───────────────────────────────────────────────────
+// ─── Back To The Machine (9) ───────────────────────────────────────────────
 
 const BACK_TO_MACHINE_CARDS: Card[] = [
   {
@@ -800,16 +735,14 @@ const BACK_TO_MACHINE_CARDS: Card[] = [
         text: "Same machine. Same town. Three new dials, one for each door.",
       },
     ],
-    stage: { show: true, dials: true, copies: 0, showCounts: true },
+    stage: { show: true, dials: true },
   },
   {
     id: "btm-dial-civilizations",
     section: "back-to-machine",
     kind: "stage",
-    lines: [
-      { tone: "lead", text: "Do civilizations get that far?" },
-    ],
-    stage: { show: true, dials: true, copies: 0, showCounts: true },
+    lines: [{ tone: "lead", text: "Do civilizations get that far?" }],
+    stage: { show: true, dials: true },
     interaction: {
       type: "choose",
       stateKey: "civilizations",
@@ -824,10 +757,8 @@ const BACK_TO_MACHINE_CARDS: Card[] = [
     id: "btm-dial-history",
     section: "back-to-machine",
     kind: "stage",
-    lines: [
-      { tone: "lead", text: "Do they choose to build these?" },
-    ],
-    stage: { show: true, dials: true, copies: 0, showCounts: true },
+    lines: [{ tone: "lead", text: "Do they choose to build these?" }],
+    stage: { show: true, dials: true },
     interaction: {
       type: "choose",
       stateKey: "history",
@@ -842,10 +773,8 @@ const BACK_TO_MACHINE_CARDS: Card[] = [
     id: "btm-dial-consciousness",
     section: "back-to-machine",
     kind: "stage",
-    lines: [
-      { tone: "lead", text: "Can a copied mind have an inner life?" },
-    ],
-    stage: { show: true, dials: true, copies: 0, showCounts: true },
+    lines: [{ tone: "lead", text: "Can a copied mind have an inner life?" }],
+    stage: { show: true, dials: true },
     interaction: {
       type: "choose",
       stateKey: "consciousness",
@@ -864,7 +793,7 @@ const BACK_TO_MACHINE_CARDS: Card[] = [
     stage: { show: false, reading: true },
   },
   {
-    id: "btm-note-1",
+    id: "btm-note",
     section: "back-to-machine",
     kind: "text",
     lines: [
@@ -872,25 +801,14 @@ const BACK_TO_MACHINE_CARDS: Card[] = [
         tone: "lead",
         text: 'Notice what just happened. You did not change a single fact about the universe. You changed three guesses, and the answer moved from "almost none" to "almost all".',
       },
-    ],
-  },
-  {
-    id: "btm-note-2",
-    section: "back-to-machine",
-    kind: "text",
-    lines: [
       {
         tone: "body",
-        text: 'Notice what just happened. You did not change a single fact about the universe. You changed three guesses, and the answer moved from "almost none" to "almost all".',
-      },
-      {
-        tone: "lead",
         text: "That is why this is an argument and not a measurement.",
       },
     ],
   },
   {
-    id: "btm-trans-1",
+    id: "btm-trans",
     section: "back-to-machine",
     kind: "text",
     lines: [
@@ -898,26 +816,15 @@ const BACK_TO_MACHINE_CARDS: Card[] = [
         tone: "lead",
         text: "Which is a fair question. If three guesses move the answer that far, what would actually settle it?",
       },
-    ],
-  },
-  {
-    id: "btm-trans-2",
-    section: "back-to-machine",
-    kind: "text",
-    lines: [
       {
         tone: "body",
-        text: "Which is a fair question. If three guesses move the answer that far, what would actually settle it?",
-      },
-      {
-        tone: "lead",
         text: "Short version: not the things people usually offer.",
       },
     ],
   },
 ];
 
-// ─── Claims ────────────────────────────────────────────────────────────────
+// ─── Claims (15) ───────────────────────────────────────────────────────────
 
 const CLAIM_MATRIX = "The Matrix is basically this.";
 const CLAIM_GRAPHICS =
@@ -936,7 +843,7 @@ const CLAIMS_CARDS: Card[] = [
     lines: [{ tone: "lead", text: "What People Say At Parties" }],
   },
   {
-    id: "claims-intro-1",
+    id: "claims-intro",
     section: "claims",
     kind: "text",
     lines: [
@@ -944,25 +851,14 @@ const CLAIMS_CARDS: Card[] = [
         tone: "lead",
         text: "Five things people say when this comes up. None of them are stupid. None of them settle anything either.",
       },
-    ],
-  },
-  {
-    id: "claims-intro-2",
-    section: "claims",
-    kind: "text",
-    lines: [
       {
         tone: "body",
-        text: "Five things people say when this comes up. None of them are stupid. None of them settle anything either.",
-      },
-      {
-        tone: "lead",
         text: "Open whichever ones you have said yourself. Nothing to sort, nothing to complete.",
       },
     ],
   },
 
-  // Claim 0 — Matrix
+  // Each claim: claim card, then verdict + explanation (packed / split only when needed)
   {
     id: "claim-0",
     section: "claims",
@@ -972,48 +868,6 @@ const CLAIMS_CARDS: Card[] = [
   },
   {
     id: "claim-0-verdict",
-    section: "claims",
-    kind: "stage",
-    lines: [
-      { tone: "body", text: CLAIM_MATRIX },
-      { tone: "coral", text: "Close, and wrong in a useful way." },
-    ],
-    stage: { show: true, claims: 0 },
-  },
-  {
-    id: "claim-0-a",
-    section: "claims",
-    kind: "stage",
-    lines: [
-      { tone: "body", text: CLAIM_MATRIX },
-      { tone: "coral", text: "Close, and wrong in a useful way." },
-      {
-        tone: "lead",
-        text: "In The Matrix your brain is real. It is in a tank, and it is being fed a false world. You are being lied to.",
-      },
-    ],
-    stage: { show: true, claims: 0 },
-  },
-  {
-    id: "claim-0-b",
-    section: "claims",
-    kind: "stage",
-    lines: [
-      { tone: "body", text: CLAIM_MATRIX },
-      { tone: "coral", text: "Close, and wrong in a useful way." },
-      {
-        tone: "body",
-        text: "In The Matrix your brain is real. It is in a tank, and it is being fed a false world. You are being lied to.",
-      },
-      {
-        tone: "lead",
-        text: "The argument is about people who are computed all the way down. No tank, no brain, nothing underneath.",
-      },
-    ],
-    stage: { show: true, claims: 0 },
-  },
-  {
-    id: "claim-0-c",
     section: "claims",
     kind: "stage",
     lines: [
@@ -1035,7 +889,6 @@ const CLAIMS_CARDS: Card[] = [
     stage: { show: true, claims: 0 },
   },
 
-  // Claim 1 — Graphics
   {
     id: "claim-1",
     section: "claims",
@@ -1058,7 +911,6 @@ const CLAIMS_CARDS: Card[] = [
     stage: { show: true, claims: 1 },
   },
 
-  // Claim 2 — Quantum
   {
     id: "claim-2",
     section: "claims",
@@ -1081,7 +933,6 @@ const CLAIMS_CARDS: Card[] = [
     stage: { show: true, claims: 2 },
   },
 
-  // Claim 3 — Musk
   {
     id: "claim-3",
     section: "claims",
@@ -1099,19 +950,6 @@ const CLAIMS_CARDS: Card[] = [
         tone: "coral",
         text: "He did say it, at a conference in 2016, and it traveled further than the argument did.",
       },
-    ],
-    stage: { show: true, claims: 3 },
-  },
-  {
-    id: "claim-3-a",
-    section: "claims",
-    kind: "stage",
-    lines: [
-      { tone: "body", text: CLAIM_MUSK },
-      {
-        tone: "coral",
-        text: "He did say it, at a conference in 2016, and it traveled further than the argument did.",
-      },
       {
         tone: "lead",
         text: "A number from a confident person is not a reading from an instrument. Bostrom, who wrote the thing, spreads his own confidence roughly evenly across all three doors.",
@@ -1120,7 +958,6 @@ const CLAIMS_CARDS: Card[] = [
     stage: { show: true, claims: 3 },
   },
 
-  // Claim 4 — Nothing matters
   {
     id: "claim-4",
     section: "claims",
@@ -1143,9 +980,8 @@ const CLAIMS_CARDS: Card[] = [
     stage: { show: true, claims: 4 },
   },
 
-  // Summary
   {
-    id: "claims-summary-1",
+    id: "claims-summary",
     section: "claims",
     kind: "text",
     lines: [
@@ -1153,19 +989,8 @@ const CLAIMS_CARDS: Card[] = [
         tone: "lead",
         text: "None of those five measure anything. Some are analogies, one is an argument, one is a famous person being confident.",
       },
-    ],
-  },
-  {
-    id: "claims-summary-2",
-    section: "claims",
-    kind: "text",
-    lines: [
       {
         tone: "body",
-        text: "None of those five measure anything. Some are analogies, one is an argument, one is a famous person being confident.",
-      },
-      {
-        tone: "lead",
         text: "Keeping argument and evidence in separate pockets is the difference between being the interesting person at the party and being the tiring one.",
       },
     ],
@@ -1183,7 +1008,7 @@ const CLAIMS_CARDS: Card[] = [
   },
 ];
 
-// ─── Closing ───────────────────────────────────────────────────────────────
+// ─── Closing (5) ───────────────────────────────────────────────────────────
 
 const KEEP_1 =
   "The simulation argument is not a claim that we are simulated. It is a claim that one of three things has to be true.";
@@ -1194,32 +1019,17 @@ const KEEP_3 =
 
 const CLOSING_CARDS: Card[] = [
   {
-    id: "close-section",
-    section: "closing",
-    kind: "section",
-    lines: [{ tone: "lead", text: "Closing" }],
-  },
-  {
     id: "close-1",
     section: "closing",
     kind: "text",
     lines: [
       { tone: "lead", text: "You have walked an argument, not a result." },
       { tone: "body", text: "Three lines worth keeping:" },
-    ],
-  },
-  {
-    id: "close-2",
-    section: "closing",
-    kind: "text",
-    lines: [
-      { tone: "body", text: "You have walked an argument, not a result." },
-      { tone: "body", text: "Three lines worth keeping:" },
       { tone: "lead", text: KEEP_1 },
     ],
   },
   {
-    id: "close-3",
+    id: "close-2",
     section: "closing",
     kind: "text",
     lines: [
@@ -1230,7 +1040,7 @@ const CLOSING_CARDS: Card[] = [
     ],
   },
   {
-    id: "close-4",
+    id: "close-3",
     section: "closing",
     kind: "text",
     lines: [
@@ -1255,28 +1065,6 @@ const CLOSING_CARDS: Card[] = [
 ];
 
 // ─── Deck exports ──────────────────────────────────────────────────────────
-
-/** Copy Machine body lines keyed by lever stop. */
-export const PULL_BODY: Record<number, string> = {
-  0: "One lever. It does exactly one thing, and the thing it does is arithmetic.",
-  1: "One copy and it is already even. You did not have to work very hard for that.",
-  9: "Nine copies. Pick a resident at random and nine times out of ten you land in a copy.",
-  99: "Ninety-nine copies. Ninety-nine times out of a hundred you land in a copy.",
-  999: "The lever stops here. The arithmetic does not.",
-};
-
-export const PULL_BODY_UNSURE =
-  "You left the mind question open. The count runs, but it does not settle anything.";
-
-export const PULL_BODY_NO =
-  "You said copies are not people. The machine still makes them. It just has nothing to count.";
-
-export const QUESTION_REACTIONS: Record<string, string> = {
-  yes: "Then there are two hundred people here now, and two of them are you. Hold on to that.",
-  unsure:
-    "Fair. Nobody has settled this one, including the people who do it for a living. We will carry the question with us.",
-  no: "Then the second town is scenery. Watch what that does to the count.",
-};
 
 export const DECK: Card[] = [
   ...OPENING_CARDS,
@@ -1328,7 +1116,7 @@ export const DECK_SECTIONS: DeckSection[] = [
   {
     id: "closing",
     title: "Closing",
-    firstCardId: "close-section",
+    firstCardId: "close-1",
   },
 ];
 

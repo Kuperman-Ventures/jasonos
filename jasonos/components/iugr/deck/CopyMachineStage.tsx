@@ -7,10 +7,10 @@ import {
   dialNeedleAngle,
   formatCopiedShareLabel,
 } from "@/lib/iugr/copyMachine";
+import { COPY_BODY, COPY_BODY_NO, COPY_BODY_UNSURE_SECOND } from "@/lib/iugr/copyMachine";
 import { formatWholeNumber } from "@/lib/iugr/scenarioMath";
 import { useCountUp } from "@/lib/iugr/useCountUp";
 import type { ConsciousnessPremise } from "@/lib/iugr/types";
-import { PULL_BODY, PULL_BODY_NO, PULL_BODY_UNSURE } from "@/lib/iugr/deck";
 
 /** Rest ≈14°, pull ≈86° from vertical-up (CSS rotate, clockwise positive). */
 const ARM_REST_DEG = -14;
@@ -195,9 +195,12 @@ export function pullBodyLines(
   copies: number,
   premise: ConsciousnessPremise | null,
 ): string[] {
-  if (premise === "no") return [PULL_BODY_NO];
-  const main = PULL_BODY[copies] ?? PULL_BODY[0]!;
-  if (premise === "unsure") return [main, PULL_BODY_UNSURE];
+  if (premise === "no") return [COPY_BODY_NO];
+  const snap = [0, 1, 9, 99, 999].includes(copies)
+    ? (copies as 0 | 1 | 9 | 99 | 999)
+    : 0;
+  const main = COPY_BODY[snap];
+  if (premise === "unsure") return [main, COPY_BODY_UNSURE];
   return [main];
 }
 

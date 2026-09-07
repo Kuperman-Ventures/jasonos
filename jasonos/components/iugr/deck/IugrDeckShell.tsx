@@ -507,6 +507,8 @@ export function IugrDeckShell() {
             {stage?.show &&
             !stage.town &&
             !stage.closingActions &&
+            !stage.reading &&
+            !stage.dials &&
             (stage.showLever || stage.copies != null || stage.silent) ? (
               <div className="iugr-deck-stage">
                 <CopyMachineStage
