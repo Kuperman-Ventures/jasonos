@@ -10,52 +10,60 @@ import {
 } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
-import { CopyMachineStage } from "@/components/iugr/deck/CopyMachineStage";
+import { ChooseButtons } from "@/components/iugr/deck/ChooseButtons";
+import {
+  CopyMachineStage,
+  pullBodyLines,
+} from "@/components/iugr/deck/CopyMachineStage";
+import { TownStage } from "@/components/iugr/deck/TownStage";
+import { SourcesDrawer } from "@/components/iugr/SourcesDrawer";
 import {
   DECK,
   DECK_SECTIONS,
+  QUESTION_REACTIONS,
   type Card,
   type CardLine,
+  type SectionId,
   sectionStartIndex,
 } from "@/lib/iugr/deck";
 import {
-  readCopiedTowns,
-  readDeckCardIndex,
-  readHintSeen,
-  writeCopiedTowns,
-  writeDeckCardIndex,
-  writeHintSeen,
+  DEFAULT_PERSISTED,
+  readPersisted,
+  writePersisted,
+  type DeckPersisted,
 } from "@/lib/iugr/deckStorage";
-import { COUNT_ROW, formatCopiedShareLabel } from "@/lib/iugr/copyMachine";
 import { FUTURE_ENTRIES } from "@/lib/iugr/episodes";
 import { SERIES } from "@/lib/iugr/copy";
+import { CLOSING_SCRIPT } from "@/lib/iugr/script";
+import {
+  evaluateScenario,
+  type CivilizationReach,
+  type ConsciousnessStance,
+  type HistoryInterest,
+} from "@/lib/iugr/scenarioEngine";
 import {
   DEFAULT_PREFERENCES,
   readPreferences,
   systemPrefersReducedMotion,
   writePreferences,
 } from "@/lib/iugr/preferences";
-import type { IugrPreferences } from "@/lib/iugr/types";
+import type { ConsciousnessPremise, IugrPreferences } from "@/lib/iugr/types";
 import { formatWholeNumber } from "@/lib/iugr/scenarioMath";
-import { useCountUp } from "@/lib/iugr/useCountUp";
+import { CLOSING } from "@/lib/iugr/sources";
 
-const ADVANCE_SETTLE_MS = 600;
-const PULL_ANIM_MS = 280;
+const PULL_UNLOCK_AT = 9;
 
 let memoryPrefs: IugrPreferences | null = null;
 const prefListeners = new Set<() => void>();
-
 function emitPrefs() {
-  for (const listener of prefListeners) listener();
+  for (const l of prefListeners) l();
 }
-
-function subscribePrefs(listener: () => void) {
-  prefListeners.add(listener);
+function subscribePrefs(l: () => void) {
+  prefListeners.add(l);
   return () => {
-    prefListeners.delete(listener);
+    prefListeners.delete(l);
   };
 }
-
 function getPrefsSnapshot(): IugrPreferences {
   if (memoryPrefs) return memoryPrefs;
   const stored = readPreferences();
@@ -65,136 +73,57 @@ function getPrefsSnapshot(): IugrPreferences {
   };
   return memoryPrefs;
 }
-
-function getServerPrefsSnapshot(): IugrPreferences {
+function getServerPrefs(): IugrPreferences {
   return DEFAULT_PREFERENCES;
 }
 
-function updatePrefs(updater: (prev: IugrPreferences) => IugrPreferences) {
-  const next = updater(getPrefsSnapshot());
-  memoryPrefs = next;
-  writePreferences(next);
+function updatePrefs(u: (p: IugrPreferences) => IugrPreferences) {
+  memoryPrefs = u(getPrefsSnapshot());
+  writePreferences(memoryPrefs);
   emitPrefs();
 }
 
-/** Client-only flag without setState-in-effect. */
-function subscribeNever() {
-  return () => {};
-}
-function getClientTrue() {
-  return true;
-}
-function getServerFalse() {
-  return false;
-}
-
-type DeckSession = {
-  index: number;
-  hintSeen: boolean;
-  copiedTowns: number;
-};
-
-let memorySession: DeckSession | null = null;
+let memorySession: DeckPersisted | null = null;
 const sessionListeners = new Set<() => void>();
-
 function emitSession() {
-  for (const listener of sessionListeners) listener();
+  for (const l of sessionListeners) l();
 }
-
-function subscribeSession(listener: () => void) {
-  sessionListeners.add(listener);
+function subscribeSession(l: () => void) {
+  sessionListeners.add(l);
   return () => {
-    sessionListeners.delete(listener);
+    sessionListeners.delete(l);
   };
 }
-
-function readSession(): DeckSession {
+function readSession(): DeckPersisted {
   if (memorySession) return memorySession;
-  const index = readDeckCardIndex(DECK.length);
-  memorySession = {
-    index,
-    hintSeen: readHintSeen(),
-    copiedTowns: readCopiedTowns(),
-  };
+  memorySession = readPersisted(DECK.length);
   return memorySession;
 }
 
-function getServerSession(): DeckSession {
-  return { index: 0, hintSeen: true, copiedTowns: 0 };
+const SERVER_SESSION: DeckPersisted = {
+  ...DEFAULT_PERSISTED,
+  hintSeen: true,
+};
+
+function getServerSession(): DeckPersisted {
+  return SERVER_SESSION;
 }
 
-function patchSession(patch: Partial<DeckSession>) {
-  const prev = readSession();
-  const next = { ...prev, ...patch };
+function patchSession(patch: Partial<DeckPersisted>) {
+  const next = { ...readSession(), ...patch };
   memorySession = next;
-  if (patch.index != null) writeDeckCardIndex(patch.index);
-  if (patch.hintSeen === true) writeHintSeen();
-  if (patch.copiedTowns != null) writeCopiedTowns(patch.copiedTowns);
+  writePersisted(next);
   emitSession();
 }
 
-function DeckCountRow({
-  copies,
-  reducedMotion,
-}: {
-  copies: number;
-  reducedMotion: boolean;
-}) {
-  const originals = 100;
-  const displayCopies = useCountUp(copies * 100, reducedMotion);
-  const shareLabel = formatCopiedShareLabel(copies);
-  const muted = copies === 0;
-  const originalShare = copies === 0 ? 100 : 100 / (1 + copies);
-  const copyShare = 100 - originalShare;
-
-  return (
-    <div className="iugr-deck-count-row">
-      <div className="iugr-deck-count-groups">
-        <div className="iugr-deck-count-group">
-          <span className="iugr-deck-count-label">{COUNT_ROW.originals}</span>
-          <span className="iugr-deck-count-value is-chartreuse">
-            {formatWholeNumber(originals)}
-          </span>
-        </div>
-        <div className="iugr-deck-count-group">
-          <span className="iugr-deck-count-label">{COUNT_ROW.copies}</span>
-          <span
-            className={[
-              "iugr-deck-count-value",
-              muted ? "is-muted" : "is-coral",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-          >
-            {formatWholeNumber(displayCopies)}
-          </span>
-        </div>
-        <div className="iugr-deck-count-group">
-          <span className="iugr-deck-count-label">{COUNT_ROW.copiedShare}</span>
-          <span
-            className={[
-              "iugr-deck-count-value",
-              muted ? "is-muted" : "is-coral",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-          >
-            {shareLabel}
-          </span>
-        </div>
-      </div>
-      <div className="iugr-deck-proportion" aria-hidden>
-        <span
-          className="iugr-deck-proportion-original"
-          style={{ width: `${originalShare}%` }}
-        />
-        <span
-          className="iugr-deck-proportion-copy"
-          style={{ width: `${copyShare}%` }}
-        />
-      </div>
-    </div>
-  );
+function subscribeNever() {
+  return () => {};
+}
+function clientTrue() {
+  return true;
+}
+function serverFalse() {
+  return false;
 }
 
 function CardLines({
@@ -219,14 +148,20 @@ function CardLines({
     >
       {lines.map((line, i) => {
         const prev = prevLines[i];
-        const isNew = !prev || prev.text !== line.text || prev.tone !== line.tone;
+        const isNew =
+          !prev || prev.text !== line.text || prev.tone !== line.tone;
         return (
           <p
             key={i}
             className={[
               "iugr-deck-line",
               `is-${line.tone}`,
-              kind === "section" ? "is-section-title" : "",
+              kind === "section" && line.tone === "lead"
+                ? "is-section-title"
+                : "",
+              kind === "section" && i === 0 && line.tone === "body"
+                ? "is-kicker"
+                : "",
               isNew && !reducedMotion ? "is-enter" : "",
             ]
               .filter(Boolean)
@@ -240,11 +175,25 @@ function CardLines({
   );
 }
 
+function premiseFromChoice(id: string): ConsciousnessPremise | null {
+  if (id === "yes" || id === "unsure" || id === "no") return id;
+  return null;
+}
+
+function mindFromPremise(
+  p: ConsciousnessPremise | null,
+): ConsciousnessStance | null {
+  if (p === "yes") return "yes";
+  if (p === "no") return "no";
+  if (p === "unsure") return "unknown";
+  return null;
+}
+
 export function IugrDeckShell() {
   const prefs = useSyncExternalStore(
     subscribePrefs,
     getPrefsSnapshot,
-    getServerPrefsSnapshot,
+    getServerPrefs,
   );
   const session = useSyncExternalStore(
     subscribeSession,
@@ -253,32 +202,59 @@ export function IugrDeckShell() {
   );
   const isClient = useSyncExternalStore(
     subscribeNever,
-    getClientTrue,
-    getServerFalse,
+    clientTrue,
+    serverFalse,
   );
 
   const index = session.index;
   const [prevIndex, setPrevIndex] = useState(index);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [pullCopies, setPullCopies] = useState<number | null>(null);
-  const [pullPending, setPullPending] = useState(false);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [shareMsg, setShareMsg] = useState<string | null>(null);
   const [leverAnnounce, setLeverAnnounce] = useState("");
+  const [choiceAnnounce, setChoiceAnnounce] = useState("");
+
+  /** Live copy count on the pull card (session.copiedTowns is source of truth). */
+  const copies = session.copiedTowns;
 
   const cardRef = useRef<HTMLDivElement>(null);
-  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const liveId = useId();
   const leverLiveId = useId();
 
   const card = DECK[index] ?? DECK[0]!;
   const prevCard = DECK[prevIndex] ?? card;
-  const waitingPull =
-    card.interaction?.type === "pull" && !pullPending;
-  const rightBlocked = waitingPull || pullPending;
+  const interaction = card.interaction;
+
+  const pickDone =
+    interaction?.type === "pick" && session.readerFigureIndex != null;
+  const chooseValue =
+    interaction?.type === "choose"
+      ? (session[interaction.stateKey as keyof DeckPersisted] as
+          | string
+          | null
+          | undefined)
+      : null;
+  const chooseDone =
+    interaction?.type === "choose" &&
+    chooseValue != null &&
+    chooseValue !== "";
+  const pullDone =
+    interaction?.type === "pull" && copies >= PULL_UNLOCK_AT;
+  const pullMaxed =
+    interaction?.type === "pull" &&
+    copies >= (interaction.stops[interaction.stops.length - 1] ?? 999);
+
+  const waitingInteraction = Boolean(
+    interaction &&
+      ((interaction.type === "pick" && !pickDone) ||
+        (interaction.type === "choose" && !chooseDone) ||
+        (interaction.type === "pull" && !pullDone)),
+  );
+  const rightBlocked = waitingInteraction;
+
   const liveAnnounce = isClient
     ? card.lines.map((l) => l.text).join(" ")
     : "";
-  const displayCopies =
-    pullCopies ?? card.stage?.copies ?? session.copiedTowns;
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -296,12 +272,6 @@ export function IugrDeckShell() {
     cardRef.current?.focus({ preventScroll: true });
   }, [card.id]);
 
-  useEffect(() => {
-    return () => {
-      if (advanceTimer.current) clearTimeout(advanceTimer.current);
-    };
-  }, []);
-
   const markHint = useCallback(() => {
     if (session.hintSeen) return;
     patchSession({ hintSeen: true });
@@ -311,8 +281,6 @@ export function IugrDeckShell() {
     (next: number) => {
       const clamped = Math.max(0, Math.min(DECK.length - 1, next));
       setPrevIndex(index);
-      setPullPending(false);
-      setPullCopies(null);
       patchSession({ index: clamped });
       markHint();
     },
@@ -331,33 +299,69 @@ export function IugrDeckShell() {
   }, [goTo, index]);
 
   const onPull = useCallback(() => {
-    if (card.interaction?.type !== "pull" || pullPending) return;
-    const to = card.interaction.to;
-    setPullPending(true);
-    setPullCopies(to);
-    patchSession({ copiedTowns: to });
-    setLeverAnnounce(`Copied towns: ${formatWholeNumber(to)}`);
+    if (interaction?.type !== "pull") return;
+    const stops = interaction.stops;
+    const idx = stops.indexOf(copies as (typeof stops)[number]);
+    const at = idx >= 0 ? idx : 0;
+    if (at >= stops.length - 1) return;
+    const next = stops[at + 1]!;
+    patchSession({ copiedTowns: next });
+    setLeverAnnounce(`Copied towns: ${formatWholeNumber(next)}`);
     markHint();
-    if (advanceTimer.current) clearTimeout(advanceTimer.current);
-    const delay = prefs.reducedMotion
-      ? ADVANCE_SETTLE_MS
-      : Math.max(ADVANCE_SETTLE_MS, PULL_ANIM_MS + 320);
-    advanceTimer.current = setTimeout(() => {
-      const nextIndex = Math.min(DECK.length - 1, index + 1);
-      setPrevIndex(index);
-      setPullPending(false);
-      setPullCopies(null);
-      patchSession({ index: nextIndex, copiedTowns: to });
-    }, delay);
-  }, [card.interaction, index, markHint, prefs.reducedMotion, pullPending]);
+  }, [copies, interaction, markHint]);
+
+  const onPick = useCallback(
+    (figureIndex: number) => {
+      if (interaction?.type !== "pick") return;
+      const next =
+        session.readerFigureIndex === figureIndex ? null : figureIndex;
+      patchSession({ readerFigureIndex: next });
+      setChoiceAnnounce(
+        next == null
+          ? "Selection cleared."
+          : `You selected resident ${next + 1}.`,
+      );
+      markHint();
+    },
+    [interaction, markHint, session.readerFigureIndex],
+  );
+
+  const onChoose = useCallback(
+    (optionId: string) => {
+      if (interaction?.type !== "choose") return;
+      const key = interaction.stateKey;
+      const patch: Partial<DeckPersisted> = {};
+      if (key === "copiesAreConscious") {
+        const premise = premiseFromChoice(optionId);
+        patch.copiesAreConscious = premise;
+        if (session.consciousness == null) {
+          patch.consciousness = mindFromPremise(premise);
+        }
+      } else if (key === "chosenDoor") {
+        patch.chosenDoor = optionId;
+      } else if (key === "civilizations") {
+        patch.civilizations = optionId as CivilizationReach;
+      } else if (key === "history") {
+        patch.history = optionId as HistoryInterest;
+      } else if (key === "consciousness") {
+        patch.consciousness = optionId as ConsciousnessStance;
+      }
+      patchSession(patch);
+      const label =
+        interaction.options.find((o) => o.id === optionId)?.label ?? optionId;
+      setChoiceAnnounce(`Selected: ${label}`);
+      markHint();
+    },
+    [interaction, markHint, session.consciousness],
+  );
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (menuOpen) return;
+      if (menuOpen || sourcesOpen) return;
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.key === "ArrowRight" || e.key === " ") {
-        if (waitingPull) return;
+        if (waitingInteraction) return;
         e.preventDefault();
         goNext();
       } else if (e.key === "ArrowLeft") {
@@ -367,14 +371,47 @@ export function IugrDeckShell() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [goBack, goNext, menuOpen, waitingPull]);
+  }, [goBack, goNext, menuOpen, sourcesOpen, waitingInteraction]);
 
   const stage = card.stage;
-  const showStage = Boolean(stage?.show);
   const silent = Boolean(stage?.silent);
-  const showCounts = Boolean(stage?.showCounts) && !silent;
   const showChrome = !silent;
   const progress = DECK.length <= 1 ? 1 : index / (DECK.length - 1);
+
+  const displayCopies =
+    interaction?.type === "pull"
+      ? copies
+      : (stage?.copies ?? copies);
+
+  const pullLines =
+    interaction?.type === "pull"
+      ? pullBodyLines(copies, session.copiesAreConscious)
+      : [];
+
+  const chooseConsequence =
+    interaction?.type === "choose" &&
+    interaction.stateKey === "copiesAreConscious" &&
+    chooseDone &&
+    typeof chooseValue === "string"
+      ? QUESTION_REACTIONS[chooseValue] ?? null
+      : interaction?.type === "choose" &&
+          interaction.stateKey === "chosenDoor" &&
+          chooseDone
+        ? "Recorded. There is no wrong answer."
+        : null;
+
+  const reading =
+    stage?.reading
+      ? evaluateScenario({
+          civilizations: session.civilizations ?? "sometimes",
+          history: session.history ?? "sometimes",
+          consciousness:
+            session.consciousness ??
+            mindFromPremise(session.copiesAreConscious) ??
+            "unknown",
+        })
+      : null;
+
   const wash =
     displayCopies <= 0
       ? "rgba(139,134,217,0.10)"
@@ -383,6 +420,27 @@ export function IugrDeckShell() {
         : displayCopies === 9
           ? "rgba(232,131,111,0.13)"
           : "rgba(232,131,111,0.16)";
+
+  const runAgain = () => {
+    patchSession({
+      ...DEFAULT_PERSISTED,
+      hintSeen: true,
+      index: sectionStartIndex("copy-machine"),
+    });
+  };
+
+  const sendEntry = async () => {
+    const url =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/iugr`
+        : "https://jasonos.vercel.app/iugr";
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareMsg(CLOSING.shareCopied);
+    } catch {
+      setShareMsg(CLOSING.shareFailed);
+    }
+  };
 
   return (
     <div
@@ -431,27 +489,108 @@ export function IugrDeckShell() {
           tabIndex={-1}
           data-kind={card.kind}
           data-card-id={card.id}
+          data-section={card.section}
         >
           {showChrome ? (
             <div className="iugr-deck-chrome-spacer" aria-hidden />
           ) : null}
 
           <div className="iugr-deck-body">
-            {showStage && stage ? (
+            {stage?.show && stage.town ? (
+              <div className="iugr-deck-stage">
+                <TownStage
+                  readerFigureIndex={session.readerFigureIndex}
+                  interactive={interaction?.type === "pick" && !pickDone}
+                  compact={Boolean(stage.townCompact)}
+                  secondTown={
+                    Boolean(stage.secondTown) &&
+                    session.copiesAreConscious != null
+                  }
+                  premise={session.copiesAreConscious}
+                  onPick={onPick}
+                />
+              </div>
+            ) : null}
+
+            {stage?.show &&
+            !stage.town &&
+            !stage.closingActions &&
+            !stage.reading &&
+            !stage.dials &&
+            (stage.showLever || stage.copies != null || stage.silent) ? (
               <div className="iugr-deck-stage">
                 <CopyMachineStage
                   copies={displayCopies}
+                  showCounts={Boolean(stage.showCounts)}
                   showLever={Boolean(stage.showLever)}
                   silent={silent}
-                  leverArmed={waitingPull}
+                  leverArmed={
+                    interaction?.type === "pull" && !pullMaxed
+                  }
+                  leverDone={pullMaxed}
+                  challengePips={stage.challengePips ?? 0}
+                  premise={session.copiesAreConscious}
                   reducedMotion={prefs.reducedMotion}
                   onPull={onPull}
                   leverLiveId={leverLiveId}
+                  showChallenge={interaction?.type === "pull"}
                 />
               </div>
-            ) : card.kind === "section" ? null : (
+            ) : null}
+
+            {stage?.reading && reading ? (
+              <div className="iugr-deck-stage is-reading">
+                <p className="iugr-deck-line is-lead">{reading.label}</p>
+                <p className="iugr-deck-line is-body">{reading.explanation}</p>
+              </div>
+            ) : null}
+
+            {stage?.closingActions ? (
+              <div className="iugr-deck-stage is-actions">
+                <div className="iugr-deck-choose-stack">
+                  <button
+                    type="button"
+                    className="iugr-deck-choose-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      runAgain();
+                    }}
+                  >
+                    {CLOSING_SCRIPT.actions.runAgain}
+                  </button>
+                  <button
+                    type="button"
+                    className="iugr-deck-choose-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSourcesOpen(true);
+                    }}
+                  >
+                    {CLOSING_SCRIPT.actions.sources}
+                  </button>
+                  <button
+                    type="button"
+                    className="iugr-deck-choose-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void sendEntry();
+                    }}
+                  >
+                    {CLOSING_SCRIPT.actions.send}
+                  </button>
+                </div>
+                {shareMsg ? (
+                  <p className="iugr-deck-consequence">{shareMsg}</p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {!stage?.show &&
+            !stage?.reading &&
+            !stage?.closingActions &&
+            card.kind !== "section" ? (
               <div className="iugr-deck-stage is-empty" aria-hidden />
-            )}
+            ) : null}
 
             <div
               className={[
@@ -461,31 +600,55 @@ export function IugrDeckShell() {
                 .filter(Boolean)
                 .join(" ")}
             >
-              {showCounts ? (
-                <DeckCountRow
-                  copies={displayCopies}
-                  reducedMotion={prefs.reducedMotion}
-                />
-              ) : null}
-
-              {waitingPull ? (
+              {interaction?.type === "pull" && waitingInteraction ? (
                 <span className="iugr-deck-lever-pill">Tap the lever</span>
               ) : null}
 
-              <CardLines
-                lines={card.lines}
-                prevLines={prevCard.id === card.id ? [] : prevCard.lines}
-                kind={card.kind}
-                reducedMotion={prefs.reducedMotion}
-              />
+              {interaction?.type === "pull" ? (
+                <div className="iugr-deck-lines">
+                  {pullLines.map((text, i) => (
+                    <p
+                      key={`${copies}-${i}`}
+                      className={[
+                        "iugr-deck-line",
+                        i === 0 ? "is-lead" : "is-body",
+                        !prefs.reducedMotion ? "is-enter" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                    >
+                      {text}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <CardLines
+                  lines={card.lines}
+                  prevLines={prevCard.id === card.id ? [] : prevCard.lines}
+                  kind={card.kind}
+                  reducedMotion={prefs.reducedMotion}
+                />
+              )}
+
+              {interaction?.type === "choose" ? (
+                <ChooseButtons
+                  options={interaction.options}
+                  selectedId={
+                    typeof chooseValue === "string" ? chooseValue : null
+                  }
+                  disabled={false}
+                  onChoose={onChoose}
+                  consequence={chooseConsequence}
+                />
+              ) : null}
+
+              {!session.hintSeen && isClient ? (
+                <p className="iugr-deck-hint">
+                  Tap right to continue, left to go back
+                </p>
+              ) : null}
             </div>
           </div>
-
-          {!session.hintSeen && isClient ? (
-            <p className="iugr-deck-hint" aria-hidden>
-              Tap right to continue, left to go back
-            </p>
-          ) : null}
         </div>
 
         {showChrome ? (
@@ -526,6 +689,9 @@ export function IugrDeckShell() {
       >
         {leverAnnounce}
       </div>
+      <div className="sr-only" aria-live="polite" aria-atomic="true">
+        {choiceAnnounce}
+      </div>
 
       {menuOpen ? (
         <div className="iugr-deck-menu" role="dialog" aria-label="Sections">
@@ -549,7 +715,7 @@ export function IugrDeckShell() {
                   className="iugr-deck-menu-item"
                   onClick={() => {
                     setMenuOpen(false);
-                    goTo(sectionStartIndex(section.id));
+                    goTo(sectionStartIndex(section.id as SectionId));
                   }}
                 >
                   {section.title}
@@ -587,6 +753,8 @@ export function IugrDeckShell() {
           </div>
         </div>
       ) : null}
+
+      <SourcesDrawer open={sourcesOpen} onOpenChange={setSourcesOpen} />
     </div>
   );
 }

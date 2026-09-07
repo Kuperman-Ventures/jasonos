@@ -1,23 +1,38 @@
 "use client";
 
+import { useState } from "react";
 import {
   APPARATUS,
+  COUNT_ROW,
   dialNeedleAngle,
-  leverCyForCount,
+  formatCopiedShareLabel,
 } from "@/lib/iugr/copyMachine";
+import { COPY_BODY, COPY_BODY_NO, COPY_BODY_UNSURE_SECOND } from "@/lib/iugr/copyMachine";
 import { formatWholeNumber } from "@/lib/iugr/scenarioMath";
+import { useCountUp } from "@/lib/iugr/useCountUp";
+import type { ConsciousnessPremise } from "@/lib/iugr/types";
 
-type CopyMachineStageProps = {
+/** Rest ≈14°, pull ≈86° from vertical-up (CSS rotate, clockwise positive). */
+const ARM_REST_DEG = -14;
+const ARM_PULL_DEG = 86;
+const PULL_MS = 280;
+const RETURN_MS = 320;
+
+type Props = {
   copies: number;
+  showCounts: boolean;
   showLever: boolean;
   silent: boolean;
   leverArmed: boolean;
+  leverDone: boolean;
+  challengePips: number;
+  premise: ConsciousnessPremise | null;
   reducedMotion: boolean;
   onPull: () => void;
   leverLiveId: string;
+  showChallenge?: boolean;
 };
 
-/** Dot field: one chartreuse town + coral copies. Grows with count. */
 function DotField({ copies }: { copies: number }) {
   const total = Math.min(1000, 1 + Math.max(0, copies));
   const isDense = total > 100;
@@ -27,13 +42,13 @@ function DotField({ copies }: { copies: number }) {
   const origin = 8;
   const r = isDense ? 2.2 : total <= 10 ? 5.5 : 4;
   const readerR = isDense ? 2.8 : total <= 10 ? 6.5 : 5;
-  const viewW = origin * 2 + (cols - 1) * cell;
+  const viewW = origin * 2 + Math.max(0, cols - 1) * cell;
   const viewH = origin * 2 + Math.max(0, rows - 1) * cell;
 
   return (
     <svg
       className="iugr-deck-dot-field"
-      viewBox={`0 0 ${viewW} ${Math.max(viewH, origin * 2)}`}
+      viewBox={`0 0 ${Math.max(viewW, 40)} ${Math.max(viewH, 24)}`}
       width="100%"
       aria-hidden
     >
@@ -61,21 +76,155 @@ function DotField({ copies }: { copies: number }) {
   );
 }
 
+function CountRow({
+  copies,
+  reducedMotion,
+  premise,
+}: {
+  copies: number;
+  reducedMotion: boolean;
+  premise: ConsciousnessPremise | null;
+}) {
+  const displayCopies = useCountUp(copies * 100, reducedMotion);
+  const shareLabel = formatCopiedShareLabel(copies);
+  const muted = copies === 0;
+  const strike = premise === "no";
+  const originalShare = copies === 0 ? 100 : 100 / (1 + copies);
+  const copyShare = 100 - originalShare;
+
+  return (
+    <div className="iugr-deck-count-row">
+      <div className="iugr-deck-count-groups">
+        <div className="iugr-deck-count-group">
+          <span className="iugr-deck-count-label">{COUNT_ROW.originals}</span>
+          <span className="iugr-deck-count-value is-chartreuse">100</span>
+        </div>
+        <div className="iugr-deck-count-group">
+          <span className="iugr-deck-count-label">{COUNT_ROW.copies}</span>
+          <span
+            className={[
+              "iugr-deck-count-value",
+              muted ? "is-muted" : "is-coral",
+              strike ? "is-struck" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
+            {formatWholeNumber(displayCopies)}
+          </span>
+        </div>
+        <div className="iugr-deck-count-group">
+          <span className="iugr-deck-count-label">{COUNT_ROW.copiedShare}</span>
+          <span
+            className={[
+              "iugr-deck-count-value",
+              muted ? "is-muted" : "is-coral",
+              strike ? "is-struck" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
+            {shareLabel}
+          </span>
+        </div>
+      </div>
+      <div className="iugr-deck-proportion" aria-hidden>
+        <span
+          className="iugr-deck-proportion-original"
+          style={{ width: `${originalShare}%` }}
+        />
+        <span
+          className="iugr-deck-proportion-copy"
+          style={{ width: `${copyShare}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ChallengeStrip({ copies }: { copies: number }) {
+  if (copies >= 9) {
+    return (
+      <div className="iugr-deck-challenge is-done">
+        <span className="iugr-deck-challenge-label">CHALLENGE COMPLETE</span>
+        <span className="iugr-deck-challenge-text">
+          Copies of you now outnumber the originals.
+        </span>
+        <span className="iugr-deck-pips" aria-hidden>
+          {[0, 1, 2, 3].map((i) => (
+            <span key={i} className="iugr-deck-pip is-on" />
+          ))}
+        </span>
+      </div>
+    );
+  }
+  if (copies === 1) {
+    return (
+      <div className="iugr-deck-challenge">
+        <span className="iugr-deck-challenge-label">
+          CHALLENGE - EVEN, NOT YET A MAJORITY
+        </span>
+        <span className="iugr-deck-challenge-text">
+          Pull the lever until the copies outnumber the originals.
+        </span>
+        <span className="iugr-deck-pips" aria-hidden>
+          <span className="iugr-deck-pip is-on" />
+          <span className="iugr-deck-pip" />
+          <span className="iugr-deck-pip" />
+          <span className="iugr-deck-pip" />
+        </span>
+      </div>
+    );
+  }
+  return (
+    <div className="iugr-deck-challenge">
+      <span className="iugr-deck-challenge-label">CHALLENGE</span>
+      <span className="iugr-deck-challenge-text">
+        Pull the lever until the copies outnumber the originals.
+      </span>
+      <span className="iugr-deck-pips" aria-hidden>
+        {[0, 1, 2, 3].map((i) => (
+          <span key={i} className="iugr-deck-pip" />
+        ))}
+      </span>
+    </div>
+  );
+}
+
+export function pullBodyLines(
+  copies: number,
+  premise: ConsciousnessPremise | null,
+): string[] {
+  if (premise === "no") return [COPY_BODY_NO];
+  const snap = [0, 1, 9, 99, 999].includes(copies)
+    ? (copies as 0 | 1 | 9 | 99 | 999)
+    : 0;
+  const main = COPY_BODY[snap];
+  if (premise === "unsure") return [main, COPY_BODY_UNSURE_SECOND];
+  return [main];
+}
+
 /**
- * Copy Machine stage: machine drawing + real lever button + dot field.
- * Lever is a real <button> on the opted-in pointer layer — never an SVG shape.
- * Count row lives in the text area (shell), not here.
+ * Machine + rotating slot-machine arm + dot field.
+ * Arm rotates about the pivot; it does not translate. Springs back to rest.
  */
 export function CopyMachineStage({
   copies,
+  showCounts,
   showLever,
   silent,
   leverArmed,
+  leverDone,
+  challengePips,
+  premise,
   reducedMotion,
   onPull,
   leverLiveId,
-}: CopyMachineStageProps) {
-  const knobCy = leverCyForCount(copies);
+  showChallenge = false,
+}: Props) {
+  const [armDeg, setArmDeg] = useState(ARM_REST_DEG);
+  const [pulling, setPulling] = useState(false);
+
   const angleDeg = dialNeedleAngle(copies);
   const angleRad = (angleDeg * Math.PI) / 180;
   const needleX =
@@ -83,10 +232,20 @@ export function CopyMachineStage({
   const needleY =
     APPARATUS.dialCy + Math.sin(angleRad) * APPARATUS.dialNeedleLength;
 
-  const trackTop = 12;
-  const trackBottom = 120;
-  const knobTop =
-    trackTop + ((knobCy - 26) / (78 - 26)) * (trackBottom - trackTop);
+  const firePull = () => {
+    if (!leverArmed || leverDone || pulling) return;
+    setPulling(true);
+    setArmDeg(ARM_PULL_DEG);
+    const down = reducedMotion ? 0 : PULL_MS;
+    const back = reducedMotion ? 0 : RETURN_MS;
+    window.setTimeout(() => {
+      onPull();
+      window.setTimeout(() => {
+        setArmDeg(ARM_REST_DEG);
+        setPulling(false);
+      }, back);
+    }, down);
+  };
 
   return (
     <div
@@ -97,6 +256,8 @@ export function CopyMachineStage({
         .filter(Boolean)
         .join(" ")}
     >
+      {!silent && showChallenge ? <ChallengeStrip copies={copies} /> : null}
+
       <div className="iugr-deck-machine-row">
         <div className="iugr-deck-machine-wrap" aria-hidden>
           <svg
@@ -121,11 +282,6 @@ export function CopyMachineStage({
               <path d="M84 88 L96 102 L158 102 L170 88" />
             </g>
             <line
-              className={
-                reducedMotion
-                  ? "iugr-deck-dial-needle is-static"
-                  : "iugr-deck-dial-needle"
-              }
               x1={APPARATUS.dialCx}
               y1={APPARATUS.dialCy}
               x2={needleX}
@@ -142,50 +298,53 @@ export function CopyMachineStage({
           <button
             type="button"
             className={[
-              "iugr-deck-lever",
-              leverArmed ? "is-armed" : "is-idle",
+              "iugr-deck-lever-arm",
+              leverArmed && !leverDone ? "is-armed" : "is-idle",
+              leverDone ? "is-done" : "",
               reducedMotion ? "is-static" : "",
             ]
               .filter(Boolean)
               .join(" ")}
-            disabled={!leverArmed}
-            aria-label={`Lever. Copied towns: ${formatWholeNumber(copies)}.${
-              leverArmed ? " Tap to pull to the next stop." : ""
+            disabled={leverDone || !leverArmed}
+            style={
+              leverDone || !leverArmed
+                ? { pointerEvents: "none" }
+                : undefined
+            }
+            aria-label={`Copy machine lever. Copied towns: ${formatWholeNumber(copies)}.${
+              leverArmed && !leverDone ? " Tap to pull." : ""
             }`}
             aria-describedby={leverLiveId}
             onClick={(e) => {
               e.stopPropagation();
-              if (!leverArmed) return;
-              onPull();
+              firePull();
             }}
           >
-            <span className="iugr-deck-lever-track" aria-hidden />
-            {[0, 1, 9, 99, 999].map((stop) => {
-              const cy = leverCyForCount(stop);
-              const top =
-                trackTop +
-                ((cy - 26) / (78 - 26)) * (trackBottom - trackTop);
-              return (
-                <span
-                  key={stop}
-                  className="iugr-deck-lever-stop"
-                  style={{ top: `${top}px` }}
-                  data-stop={stop}
-                  aria-hidden
-                />
-              );
-            })}
             <span
-              className={[
-                "iugr-deck-lever-knob",
-                leverArmed ? "is-armed" : "",
-                reducedMotion ? "is-static" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              style={{ top: `${knobTop}px` }}
+              className="iugr-deck-arm"
+              style={{
+                transform: `rotate(${armDeg}deg)`,
+                transition: reducedMotion
+                  ? "none"
+                  : `transform ${pulling && armDeg === ARM_PULL_DEG ? PULL_MS : RETURN_MS}ms ease`,
+              }}
               aria-hidden
-            />
+            >
+              <span className="iugr-deck-arm-shaft" />
+              <span
+                className={[
+                  "iugr-deck-arm-ball",
+                  leverArmed && !leverDone && !reducedMotion
+                    ? "is-pulse"
+                    : "",
+                  leverArmed && !leverDone && reducedMotion
+                    ? "is-pulse-static"
+                    : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+              />
+            </span>
           </button>
         ) : null}
       </div>
@@ -193,6 +352,19 @@ export function CopyMachineStage({
       <div className="iugr-deck-field-wrap">
         <DotField copies={copies} />
       </div>
+
+      {showCounts && !silent ? (
+        <CountRow
+          copies={copies}
+          reducedMotion={reducedMotion}
+          premise={premise}
+        />
+      ) : null}
+
+      {/* challengePips reserved for authored stage; strip derives from copies */}
+      <span className="sr-only" aria-hidden>
+        {challengePips}
+      </span>
     </div>
   );
 }
