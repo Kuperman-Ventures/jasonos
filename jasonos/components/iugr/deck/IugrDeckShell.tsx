@@ -76,6 +76,7 @@ function getPrefsSnapshot(): IugrPreferences {
 function getServerPrefs(): IugrPreferences {
   return DEFAULT_PREFERENCES;
 }
+
 function updatePrefs(u: (p: IugrPreferences) => IugrPreferences) {
   memoryPrefs = u(getPrefsSnapshot());
   writePreferences(memoryPrefs);
@@ -98,9 +99,16 @@ function readSession(): DeckPersisted {
   memorySession = readPersisted(DECK.length);
   return memorySession;
 }
+
+const SERVER_SESSION: DeckPersisted = {
+  ...DEFAULT_PERSISTED,
+  hintSeen: true,
+};
+
 function getServerSession(): DeckPersisted {
-  return { ...DEFAULT_PERSISTED, hintSeen: true };
+  return SERVER_SESSION;
 }
+
 function patchSession(patch: Partial<DeckPersisted>) {
   const next = { ...readSession(), ...patch };
   memorySession = next;
