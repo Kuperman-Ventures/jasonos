@@ -182,7 +182,7 @@ export const SERVICE_DEFINITIONS: ServiceDefinition[] = [
     label: "Beeper",
     connectionType: "api_key",
     description:
-      "Text/IM sync into Outreach (SMS, iMessage, WhatsApp, etc.). Requires Beeper Desktop open. On Vercel, set BEEPER_DESKTOP_BASE_URL to a Cloudflare/Tailscale tunnel; otherwise Sync soft-skips with “No Beeper data synced”.",
+      "Text/IM sync into Outreach (SMS, iMessage, WhatsApp, etc.). Paste a Desktop API token here — Sync uses the Settings token first, then BEEPER_ACCESS_TOKEN. Requires Beeper Desktop open; on Vercel set a tunnel URL.",
     features: ["Text touches", "Outreach Sync", "1:1 chats"],
     configurable: true,
     disconnectable: true,
