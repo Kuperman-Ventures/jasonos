@@ -408,10 +408,6 @@ function ApparatusControl({
           .join(" ")}
         style={{ ["--lever-cy" as string]: `${knobCy}` }}
         aria-label={`Copied towns: ${formatWholeNumber(copiedTowns)}. Tap to advance one stop, or use arrow keys.`}
-        aria-valuemin={0}
-        aria-valuemax={999}
-        aria-valuenow={copiedTowns}
-        aria-valuetext={`${formatWholeNumber(copiedTowns)} copied towns`}
         aria-describedby={liveId}
         onKeyDown={onKeyDown}
         onPointerDown={(e) => {
