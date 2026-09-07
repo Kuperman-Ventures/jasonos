@@ -16,7 +16,7 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
       headline: "ARE YOU AN ORIGINAL?",
       body: [
         "You have met this idea before. It turns up in films, usually bent out of shape.",
-        "Eight minutes. There is a lever involved.",
+        "The real thing is smaller and stranger. A philosopher called Nick Bostrom wrote it down in 2003, and we are going to walk his reasoning, step by step.",
       ],
       ctaLabel: "Take me to the town",
     },
