@@ -18,7 +18,7 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
         "You have met this idea before. It turns up in films, usually bent out of shape.",
         "Eight minutes. There is a lever involved.",
       ],
-      ctaLabel: "Begin the entry",
+      ctaLabel: "Take me to the town",
     },
   },
   "original-town": {
@@ -33,9 +33,21 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
       ],
     },
   },
+  "the-question": {
+    id: "the-question",
+    order: 3,
+    title: "The Question",
+    shortLabel: "Question",
+    placeholder: {
+      headline: "The Question",
+      body: [
+        "Suppose a machine could copy this town exactly. Would the copy of you be a person?",
+      ],
+    },
+  },
   "copy-machine": {
     id: "copy-machine",
-    order: 3,
+    order: 4,
     title: "Copy Machine",
     shortLabel: "Copy",
     placeholder: {
@@ -47,7 +59,7 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
   },
   "three-doors": {
     id: "three-doors",
-    order: 4,
+    order: 5,
     title: "Three Doors",
     shortLabel: "Doors",
     placeholder: {
@@ -59,7 +71,7 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
   },
   "back-to-machine": {
     id: "back-to-machine",
-    order: 5,
+    order: 6,
     title: "Back To The Machine",
     shortLabel: "Back",
     placeholder: {
@@ -71,7 +83,7 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
   },
   "evidence-scanner": {
     id: "evidence-scanner",
-    order: 6,
+    order: 7,
     title: "What People Say At Parties",
     shortLabel: "Claims",
     placeholder: {
@@ -83,7 +95,7 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
   },
   closing: {
     id: "closing",
-    order: 7,
+    order: 8,
     title: "Closing",
     shortLabel: "Close",
     placeholder: {
@@ -98,6 +110,7 @@ export const CHAPTERS: Record<ChapterId, ChapterDefinition> = {
 export const CHAPTER_SEQUENCE: ChapterId[] = [
   "opening",
   "original-town",
+  "the-question",
   "copy-machine",
   "three-doors",
   "back-to-machine",

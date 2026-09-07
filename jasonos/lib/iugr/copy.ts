@@ -46,7 +46,7 @@ export const OPENING = {
   townRevealTitle: "",
   townRevealBody: "",
   continueLabel: "Continue",
-  beginLabel: "Begin the entry",
+  beginLabel: "Take me to the town",
 } as const;
 
 export const ORIGINAL_TOWN = {
@@ -54,18 +54,7 @@ export const ORIGINAL_TOWN = {
     "This is Original Town. One hundred residents, one bakery, and no reason to expect trouble.",
   beforeSelect2: "Pick someone. That one is you for the rest of the entry.",
   afterSelect: "Good. You live here now.",
-  question1:
-    "Suppose a machine could copy this town exactly. Every building, every resident, every memory. Including yours.",
-  question2: "Would the copy of you be a person?",
-  choiceYes: "Yes, it would be a person",
-  choiceUnsure: "I am not sure",
-  choiceNo: "No, and I want to know why that matters",
-  ackYes:
-    "Then there are two hundred people here now, and two of them are you. Hold on to that.",
-  ackUnsure:
-    "Fair. Nobody has settled this one, including the people who do it for a living. We will carry the question with us.",
-  ackNo: "Then the second town is scenery. Watch what that does to the count.",
-  continueLabel: "Start the machine",
+  nextLabel: "Next",
   previousLabel: "Previous",
   statusBefore: "Every resident is in the original town.",
   statusYes: "Two towns, two hundred residents. Two of them are you.",
@@ -75,15 +64,11 @@ export const ORIGINAL_TOWN = {
   countWorlds: "Worlds",
   countResidents: "Residents",
   countCopies: "Copies",
-  figureNote:
-    "Each figure stands for 10 people. Ten figures, one hundred residents.",
   tapHint: "Tap a figure to choose yourself.",
   plateLabel: "Original Town",
   copyPlateLabel: "Copied Town",
-  plateCaption:
-    "Original Town. Each figure stands for 10 people. 100 residents.",
-  copyPlateCaption:
-    "Copied town. 100 residents. One of them is also you.",
+  plateCaption: "Original Town · 100 residents",
+  copyPlateCaption: "Copied town · 100 residents · one of them is also you",
   reactionYesAnnounce:
     "A second town appears. The copies look as real as the first, including you.",
   reactionUnsureAnnounce:

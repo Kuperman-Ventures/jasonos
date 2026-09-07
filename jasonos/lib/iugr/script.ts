@@ -41,7 +41,7 @@ export const OPENING_SCRIPT = {
   entryLabel: "ENTRY 01",
   title: "ARE YOU AN ORIGINAL?",
   body: OPENING_BODY,
-  beginLabel: "Begin the entry",
+  beginLabel: "Take me to the town",
 } as const;
 
 export const ORIGINAL_TOWN_SCRIPT = {
@@ -50,6 +50,11 @@ export const ORIGINAL_TOWN_SCRIPT = {
     "Pick someone. That one is you for the rest of the entry.",
   ],
   afterSelect: "Good. You live here now.",
+  nextLabel: "Next",
+  previousLabel: "Previous",
+} as const;
+
+export const THE_QUESTION_SCRIPT = {
   question: [
     "Suppose a machine could copy this town exactly. Every building, every resident, every memory. Including yours.",
     "Would the copy of you be a person?",
@@ -65,6 +70,7 @@ export const ORIGINAL_TOWN_SCRIPT = {
   fieldNote:
     'FIELD NOTE. Black Mirror\'s "White Christmas" spends a whole episode on this exact question, and does not enjoy the answer it finds.',
   continueLabel: "Start the machine",
+  previousLabel: "Previous",
 } as const;
 
 export const THREE_DOORS_SCRIPT = {

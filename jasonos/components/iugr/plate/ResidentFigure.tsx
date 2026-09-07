@@ -17,6 +17,8 @@ export type ResidentFigureProps = {
   copyPalette?: boolean;
   /** Show the faint selectable resting ring. Defaults to true when not reader/muted. */
   selectable?: boolean;
+  /** Height scale relative to 1 — keep within about ±8%. */
+  heightScale?: number;
   className?: string;
 };
 
@@ -35,6 +37,7 @@ export function ResidentFigure({
   muted = false,
   copyPalette = false,
   selectable,
+  heightScale = 1,
   className,
 }: ResidentFigureProps) {
   const idle = idleMotionForIndex(index);
@@ -65,6 +68,7 @@ export function ResidentFigure({
       style={{
         ["--iugr-idle-duration" as string]: `${idle.durationMs}ms`,
         ["--iugr-idle-delay" as string]: `${idle.delayMs}ms`,
+        ["--figure-scale" as string]: String(heightScale),
       }}
     >
       <svg

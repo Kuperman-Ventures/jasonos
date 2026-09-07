@@ -60,8 +60,7 @@ export function Plate({
               ) : null}
               {figureNumber != null && caption ? (
                 <span className="iugr-plate-caption-sep" aria-hidden>
-                  {" "}
-                  -{" "}
+                  {"\u2002"}
                 </span>
               ) : null}
               {caption ? (

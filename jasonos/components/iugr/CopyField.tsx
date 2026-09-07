@@ -139,25 +139,25 @@ function ModeA({
   outlineOnly: boolean;
   reducedMotion: boolean;
 }) {
+  const mappedReader =
+    readerFigureIndex != null ? readerFigureIndex % 10 : null;
   return (
-    <Plate figureNumber={3} caption={PLATE_CAPTIONS.apparatus}>
-      <ApparatusGlyph />
-      <div className="iugr-copy-plate-hairline" aria-hidden />
+    <Plate figureNumber={4} caption="Copied towns">
       <TownRow
         variant="original"
-        readerFigureIndex={readerFigureIndex}
+        readerFigureIndex={mappedReader}
         reducedMotion={reducedMotion}
       />
       {copiedTowns >= 1 ? (
         <>
           <div className="iugr-copy-town-divider" aria-hidden>
             <span className="iugr-copy-town-divider-rule" />
-            <span className="iugr-copy-town-divider-label">COPIED TOWN 01</span>
+            <span className="iugr-copy-town-divider-label">Copied town 01</span>
             <span className="iugr-copy-town-divider-rule" />
           </div>
           <TownRow
             variant="copy"
-            readerFigureIndex={readerFigureIndex}
+            readerFigureIndex={mappedReader}
             outlineOnly={outlineOnly}
             stagger
             reducedMotion={reducedMotion}
@@ -176,7 +176,7 @@ function ModeB({
   reducedMotion: boolean;
 }) {
   return (
-    <Plate figureNumber={4} caption={PLATE_CAPTIONS.count}>
+    <Plate figureNumber={5} caption={PLATE_CAPTIONS.count}>
       <div className="iugr-copy-count-mode">
         <div className="iugr-copy-count-original">
           <MachineResident
@@ -240,7 +240,7 @@ function ModeC({
   const readerCy = origin + 0 * cell;
 
   return (
-    <Plate figureNumber={5} caption={caption}>
+    <Plate figureNumber={6} caption={caption}>
       <svg
         className="iugr-copy-field-dots"
         viewBox={`0 0 328 ${viewH}`}
@@ -294,36 +294,6 @@ function ModeC({
         })}
       </svg>
     </Plate>
-  );
-}
-
-function ApparatusGlyph() {
-  return (
-    <svg
-      className="iugr-copy-apparatus-inline"
-      viewBox="0 0 300 118"
-      width="100%"
-      aria-hidden
-    >
-      <g
-        fill="none"
-        stroke="#F2EDE3"
-        strokeWidth="1.4"
-        vectorEffect="non-scaling-stroke"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        opacity="0.85"
-      >
-        <rect x="52" y="16" width="150" height="72" rx="5" />
-        <circle cx="79" cy="42" r="11" />
-        <line x1="102" y1="34" x2="186" y2="34" />
-        <line x1="102" y1="42" x2="186" y2="42" />
-        <line x1="102" y1="50" x2="186" y2="50" />
-        <path d="M84 88 L96 102 L158 102 L170 88" />
-        <line x1="228" y1="20" x2="228" y2="84" />
-        <line x1="222" y1="20" x2="234" y2="20" />
-      </g>
-    </svg>
   );
 }
 

@@ -19,7 +19,7 @@ Two rules held throughout: no screen apologizes for the subject, and no chapter 
 
 ## Beat 1 - Opening
 
-Screen furniture: ENTRY 01 / ARE YOU AN ORIGINAL? / the IUGR library shelf, which appears here and nowhere else.
+Screen furniture: ENTRY 01 / ARE YOU AN ORIGINAL?
 
 > You have met this idea before. It turns up in films, usually bent out of shape.
 >
@@ -27,7 +27,7 @@ Screen furniture: ENTRY 01 / ARE YOU AN ORIGINAL? / the IUGR library shelf, whic
 >
 > Eight minutes. There is a lever involved.
 
-Button: **Begin the entry**
+Button: **Take me to the town**
 
 Raises: what does it actually say?
 
@@ -41,7 +41,7 @@ Shown as the entry opens, before the town resolves.
 
 ---
 
-## Beat 2 - Original Town
+## Beat 2a - Original Town
 
 Before the reader picks:
 
@@ -52,6 +52,18 @@ Before the reader picks:
 After the reader picks:
 
 > Good. You live here now.
+
+Button: **Next**
+
+One hundred selectable figures. Census strip. Nothing else on this screen.
+
+Raises: who am I in this town?
+
+---
+
+## Beat 2b - The Question
+
+Small original town at the top with the reader's figure marked.
 
 The question:
 
@@ -67,7 +79,7 @@ Three answers:
 >
 > No, and I want to know why that matters
 
-The second town arrives, then one line depending on the answer:
+The second town arrives directly below the answers, then one line depending on the answer:
 
 > **Yes.** Then there are two hundred people here now, and two of them are you. Hold on to that.
 >
@@ -96,7 +108,7 @@ Button: **Start the machine**
 Challenge strip:
 
 > CHALLENGE
-> Make copies of yourself the majority.
+> Pull the lever until the copies outnumber the originals.
 
 At one copy the strip does not complete:
 
@@ -105,7 +117,7 @@ At one copy the strip does not complete:
 From nine copies onward:
 
 > CHALLENGE COMPLETE
-> Copies of you are now the majority.
+> Copies of you now outnumber the originals.
 
 One line of body copy per lever position:
 

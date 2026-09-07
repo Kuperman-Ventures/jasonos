@@ -34,8 +34,8 @@ export const IUGR_WASH = {
 
 export const IUGR_TYPE = {
   chapterLabel: {
-    size: "10px",
-    tracking: "0.20em",
+    size: "11px",
+    tracking: "0.18em",
     weight: 500,
   },
   h1: {
@@ -45,17 +45,18 @@ export const IUGR_TYPE = {
     tracking: "-0.015em",
   },
   body: {
-    size: "15px",
-    lineHeight: 1.5,
+    size: "17px",
+    lineHeight: 1.6,
     weight: 400,
+    maxWidth: "34em",
   },
   plateLabel: {
-    size: "9px",
-    tracking: "0.18em",
+    size: "11px",
+    tracking: "0.16em",
   },
   dataLabel: {
-    size: "9px",
-    tracking: "0.16em",
+    size: "11px",
+    tracking: "0.14em",
   },
   dataValue: {
     size: "30px",
@@ -63,12 +64,17 @@ export const IUGR_TYPE = {
     lineHeight: 1,
   },
   caption: {
-    size: "9px",
-    tracking: "0.12em",
+    size: "11px",
+    tracking: "0.10em",
+  },
+  captionBody: {
+    size: "15px",
+    tracking: "0",
   },
   controlChip: {
-    size: "13px",
+    size: "14px",
   },
+  labelOpacity: 0.62,
 } as const;
 
 export const IUGR_PLATE = {
@@ -76,9 +82,9 @@ export const IUGR_PLATE = {
   radius: "3px",
   background: "rgba(242,237,227,0.015)",
   padding: "14px",
-  tickSize: "9px",
+  tickSize: "11px",
   tickColor: "rgba(242,237,227,0.5)",
   tickOffset: "-1px",
-  captionOpacity: 0.55,
+  captionOpacity: 0.62,
   strokeWidth: 1.4,
 } as const;
