@@ -10,8 +10,8 @@
   --violet: #8b86d9;
   --text-body: rgba(242, 237, 227, 0.74);
   --text-strong: rgba(242, 237, 227, 0.82);
-  --label: rgba(242, 237, 227, 0.45);
-  --label-plate: rgba(242, 237, 227, 0.42);
+  --label: rgba(242, 237, 227, 0.62);
+  --label-plate: rgba(242, 237, 227, 0.62);
   --border-control: rgba(242, 237, 227, 0.22);
   --border-plate: rgba(242, 237, 227, 0.2);
   --hairline: rgba(242, 237, 227, 0.12);
@@ -59,8 +59,8 @@
   color: var(--text-strong);
   background: var(--ink);
   font-family: var(--iugr-font-body);
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: 17px;
+  line-height: 1.6;
   position: relative;
   isolation: isolate;
 }
@@ -168,7 +168,7 @@
 }
 
 .iugr-mark-sub {
-  font-size: 0.62rem;
+  font-size: 11px;
   color: var(--iugr-cream-muted);
   max-width: 11rem;
   line-height: 1.25;
@@ -306,9 +306,9 @@
   border: 1px solid var(--border-control);
   border-radius: var(--iugr-radius-sm);
   font-family: var(--iugr-font-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
-  letter-spacing: 0.20em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--chartreuse);
 }
@@ -328,8 +328,9 @@
   display: grid;
   gap: 0.75rem;
   font-family: var(--iugr-font-body);
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: 17px;
+  line-height: 1.6;
+  max-width: 34em;
 }
 
 .iugr-body p {
@@ -708,18 +709,18 @@
   .iugr-mark-sub { display: none; }
   .iugr-pill {
     padding: 0.22rem 0.45rem;
-    font-size: 0.64rem;
+    font-size: 11px;
     letter-spacing: 0.015em;
     gap: 0.25rem;
     min-height: 36px;
   }
 }
 
-/* Keep the full label visible down to 320px. Shrink type and padding. Never hide the text. */
+/* Keep the full label visible down to 320px. Never drop below 11px. */
 @media (max-width: 420px) {
   .iugr-pill {
     padding: 0.16rem 0.34rem;
-    font-size: 0.56rem;
+    font-size: 11px;
     letter-spacing: 0.01em;
     gap: 0.2rem;
     min-height: 32px;
@@ -732,7 +733,7 @@
 @media (max-width: 340px) {
   .iugr-pill {
     padding: 0.12rem 0.28rem;
-    font-size: 0.5rem;
+    font-size: 11px;
     min-height: 28px;
   }
 }
@@ -1083,28 +1084,35 @@ p.iugr-town-copy {
 .iugr-plate-caption-line {
   margin: 0;
   max-width: 100%;
-  font-size: 9px;
+  font-size: 15px;
   line-height: 1.4;
-  color: color-mix(in srgb, var(--cream) 55%, transparent);
+  color: color-mix(in srgb, var(--cream) 62%, transparent);
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
 .iugr-plate-caption-id {
   font-family: var(--iugr-font-mono);
-  font-size: 9px;
-  letter-spacing: 0.18em;
+  font-size: 11px;
+  letter-spacing: 0.10em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--cream) 55%, transparent);
+  color: color-mix(in srgb, var(--cream) 62%, transparent);
 }
 
-.iugr-plate-caption-sep,
+.iugr-plate-caption-sep {
+  font-family: var(--iugr-font-body);
+  font-size: 15px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: color-mix(in srgb, var(--cream) 62%, transparent);
+}
+
 .iugr-plate-caption-body {
   font-family: var(--iugr-font-body);
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--cream) 55%, transparent);
+  font-size: 15px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: color-mix(in srgb, var(--cream) 62%, transparent);
 }
 
 .iugr-plate-annotation.is-caption {
@@ -1112,9 +1120,9 @@ p.iugr-town-copy {
   inset: auto;
   margin: 0;
   max-width: 100%;
-  font-size: 0.68rem;
+  font-size: 11px;
   line-height: 1.4;
-  color: color-mix(in srgb, var(--iugr-cream) 55%, transparent);
+  color: color-mix(in srgb, var(--iugr-cream) 62%, transparent);
   overflow: visible;
   overflow-wrap: anywhere;
   word-break: break-word;
@@ -1151,7 +1159,7 @@ p.iugr-town-copy {
   max-width: min(40%, 7rem);
   padding: 0;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.58rem;
+  font-size: 11px;
   line-height: 1.3;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1191,22 +1199,30 @@ p.iugr-town-copy {
 
 .iugr-town-residents {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.45rem 0.2rem;
-  justify-items: center;
-  padding: 0.35rem 0 0.55rem;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 0.15rem 0.1rem;
+  justify-items: stretch;
+  align-items: end;
+  width: 100%;
+  padding: 0.35rem 0 0.45rem;
+}
+
+.iugr-town-residents.is-compact {
+  gap: 0.1rem 0.05rem;
+  padding: 0.2rem 0 0.3rem;
 }
 
 .iugr-town-resident-btn,
 .iugr-town-resident-slot {
   display: grid;
-  place-items: center;
+  place-items: end center;
   width: 100%;
-  min-width: 44px;
-  min-height: 52px;
-  padding: 0.2rem 0 0.85rem;
+  aspect-ratio: 1 / 1.15;
+  min-width: 0;
+  min-height: 0;
+  padding: 0.1rem 0 0.55rem;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: 2px;
   background: transparent;
   color: inherit;
   cursor: pointer;
@@ -1214,6 +1230,12 @@ p.iugr-town-copy {
     transform 220ms ease-out,
     border-color 220ms ease-out,
     box-shadow 220ms ease-out;
+}
+
+.iugr-town-residents.is-compact .iugr-town-resident-btn,
+.iugr-town-residents.is-compact .iugr-town-resident-slot {
+  aspect-ratio: 1 / 1.05;
+  padding-bottom: 0.2rem;
 }
 
 .iugr-town-resident-slot {
@@ -1253,15 +1275,18 @@ p.iugr-town-copy {
 }
 
 .iugr-resident-svg {
-  width: 22px;
-  height: 42px;
+  width: min(100%, 22px);
+  height: auto;
+  max-height: 100%;
   overflow: visible;
   display: block;
+  transform: scaleY(var(--figure-scale, 1));
+  transform-origin: center bottom;
 }
 
 .iugr-resident-figure[data-variant="token"] .iugr-resident-svg {
-  width: 16px;
-  height: 22px;
+  width: min(100%, 14px);
+  height: auto;
 }
 
 .iugr-resident-stroke {
@@ -1363,7 +1388,7 @@ p.iugr-town-copy {
   top: calc(100% - 0.15rem);
   left: 50%;
   transform: translateX(-50%);
-  font-size: 0.55rem;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--iugr-accent);
@@ -1458,8 +1483,8 @@ p.iugr-town-copy {
 
 .iugr-count-grid dt {
   font-family: var(--iugr-font-mono);
-  font-size: 9px;
-  letter-spacing: 0.16em;
+  font-size: 11px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--label);
 }
@@ -1647,7 +1672,7 @@ p.iugr-town-copy {
     min-height: 3.6rem;
   }
   .iugr-resident-tick {
-    font-size: 0.5rem;
+    font-size: 11px;
   }
 }
 
@@ -1722,7 +1747,7 @@ p.iugr-town-copy {
 
 .iugr-copy-challenge-label {
   font-family: var(--iugr-font-mono);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: inherit;
@@ -1735,22 +1760,35 @@ p.iugr-town-copy {
   color: var(--text-body);
 }
 
+.iugr-copy-machine-strip {
+  width: 100%;
+}
+
 .iugr-copy-apparatus-wrap {
   position: relative;
   width: 100%;
   max-width: 420px;
   margin-inline: auto;
+  max-height: 120px;
 }
 
 .iugr-copy-apparatus {
   display: block;
   width: 100%;
   height: auto;
+  max-height: 120px;
+}
+
+@media (min-width: 720px) {
+  .iugr-copy-apparatus-wrap,
+  .iugr-copy-apparatus {
+    max-height: 160px;
+  }
 }
 
 .iugr-copy-anno-text {
   font-family: var(--iugr-font-mono);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.1em;
   fill: rgba(242, 237, 227, 0.62);
   text-transform: uppercase;
@@ -1760,17 +1798,17 @@ p.iugr-town-copy {
   position: absolute;
   left: calc(228 / 300 * 100%);
   top: calc(var(--lever-cy, 78) / 118 * 100%);
-  width: 44px;
-  height: 44px;
+  width: 56px;
+  height: 56px;
   transform: translate(-50%, -50%);
   border: 0;
   border-radius: 999px;
   background: transparent;
-  cursor: grab;
+  cursor: pointer;
   padding: 0;
   z-index: 2;
   touch-action: none;
-  transition: top 280ms ease;
+  transition: top 240ms ease;
 }
 
 .iugr-copy-lever-knob::before {
@@ -1815,7 +1853,7 @@ p.iugr-town-copy {
   background: transparent;
   color: rgba(242, 237, 227, 0.75);
   font-family: var(--iugr-font-mono);
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
   padding: 0;
 }
@@ -1900,7 +1938,7 @@ p.iugr-town-copy {
 .iugr-machine-resident-tick {
   margin-top: 2px;
   font-family: var(--iugr-font-mono);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: currentColor;
@@ -1949,7 +1987,7 @@ p.iugr-town-copy {
 .iugr-copy-town-divider-label {
   flex: 0 0 auto;
   font-family: var(--iugr-font-mono);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--coral);
@@ -1977,7 +2015,7 @@ p.iugr-town-copy {
 
 .iugr-copy-count-original-label {
   font-family: var(--iugr-font-mono);
-  font-size: 8.5px;
+  font-size: 11px;
   letter-spacing: 0.14em;
   text-align: center;
   color: var(--chartreuse);
@@ -2021,7 +2059,7 @@ p.iugr-town-copy {
 
 .iugr-copy-count-card-label {
   font-family: var(--iugr-font-mono);
-  font-size: 7.5px;
+  font-size: 11px;
   letter-spacing: 0.1em;
   color: rgba(232, 131, 111, 0.85);
   text-transform: uppercase;
@@ -2031,7 +2069,7 @@ p.iugr-town-copy {
   margin: 12px 0 0;
   text-align: center;
   font-family: var(--iugr-font-mono);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--label);
@@ -2045,7 +2083,7 @@ p.iugr-town-copy {
 
 .iugr-copy-field-your-town {
   font-family: var(--iugr-font-mono);
-  font-size: 8.5px;
+  font-size: 11px;
   letter-spacing: 0.12em;
   fill: #c8f04a;
   text-transform: uppercase;
@@ -2077,7 +2115,7 @@ p.iugr-town-copy {
 
 .iugr-copy-count-label {
   font-family: var(--iugr-font-mono);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--label);
@@ -2235,7 +2273,7 @@ p.iugr-town-copy {
 .iugr-copy-silent-tap {
   margin: 0;
   font-family: var(--iugr-font-mono);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: rgba(242, 237, 227, 0.3);
@@ -3866,7 +3904,7 @@ p.iugr-town-copy {
 .iugr-machine-reading-title {
   margin: 0;
   font-family: var(--iugr-font-mono);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--label);
@@ -3891,7 +3929,7 @@ p.iugr-town-copy {
 .iugr-machine-work h3 {
   margin: 0 0 0.35rem;
   font-family: var(--iugr-font-mono);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--label);
@@ -3964,4 +4002,81 @@ p.iugr-town-copy {
 .iugr-claim-open-body p:first-child {
   font-weight: 500;
   color: var(--text-strong);
+}
+
+
+/* Other entries shelf in chapter drawer */
+.iugr-other-entries {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--iugr-border);
+}
+
+.iugr-other-entries-heading {
+  margin: 0 0 0.65rem;
+  font-family: var(--iugr-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--chartreuse);
+}
+
+.iugr-other-entries-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.iugr-other-entries-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-height: 44px;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--iugr-radius-sm);
+  border: 1px solid var(--iugr-border);
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.iugr-other-entries-title {
+  font-size: 14px;
+  color: var(--cream);
+}
+
+.iugr-other-entries-status {
+  font-family: var(--iugr-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--label);
+}
+
+.iugr-question-town-preview {
+  max-width: 22rem;
+}
+
+.iugr-question-result {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.iugr-town-copy,
+.iugr-town-question-text,
+.iugr-copy-body,
+.iugr-opening-body {
+  font-size: 17px;
+  line-height: 1.6;
+  max-width: 34em;
+}
+
+.iugr-town-copy p,
+.iugr-town-question-text p,
+.iugr-copy-body p,
+.iugr-opening-body p {
+  margin: 0 0 0.75rem;
+  color: var(--text-body);
 }

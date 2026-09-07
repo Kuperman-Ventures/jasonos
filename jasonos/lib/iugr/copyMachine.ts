@@ -30,27 +30,27 @@ export const COPY_BODY: Record<CopySnapPoint, string> = {
 };
 
 export const COPY_BODY_UNSURE_SECOND =
-  "You left this one open. The count runs, but it does not settle anything.";
+  "You left the mind question open. The count runs, but it does not settle anything.";
 
 export const COPY_BODY_NO =
   "You said copies are not people. The machine still makes them. It just has nothing to count.";
 
 export const CHALLENGE = {
   openLabel: "CHALLENGE",
-  openText: "Make copies of yourself the majority.",
+  openText: "Pull the lever until the copies outnumber the originals.",
   evenLabel: "CHALLENGE - EVEN, NOT YET A MAJORITY",
-  evenText: "Make copies of yourself the majority.",
+  evenText: "Pull the lever until the copies outnumber the originals.",
   completeLabel: "CHALLENGE COMPLETE",
-  completeText: "Copies of you are now the majority.",
+  completeText: "Copies of you now outnumber the originals.",
   unavailableLabel: "CHALLENGE UNAVAILABLE UNDER YOUR ANSWER",
   unavailableText: "Change your answer in Original Town, or carry on.",
 } as const;
 
 export const PLATE_CAPTIONS = {
-  apparatus: "THE APPARATUS",
-  count: "THE COUNT",
-  field100: "1 DOT = 1 TOWN - 100 TOWNS",
-  field1000: "1 DOT = 1 TOWN - 1,000 TOWNS",
+  apparatus: "The apparatus",
+  count: "The count",
+  field100: "1 dot = 1 town · 100 towns",
+  field1000: "1 dot = 1 town · 1,000 towns",
 } as const;
 
 export const COUNT_ROW = {
@@ -78,6 +78,15 @@ export function washAccentForCopies(copiedTowns: number): string {
 export function snapIndex(copiedTowns: number): number {
   const idx = COPY_SNAP_POINTS.indexOf(copiedTowns as CopySnapPoint);
   return idx >= 0 ? idx : 0;
+}
+
+/** Advance one detent; wraps 999 → 0. */
+export function nextSnapPoint(copiedTowns: number): CopySnapPoint {
+  const snap = COPY_SNAP_POINTS.includes(copiedTowns as CopySnapPoint)
+    ? (copiedTowns as CopySnapPoint)
+    : nearestSnap(copiedTowns);
+  const idx = COPY_SNAP_POINTS.indexOf(snap);
+  return COPY_SNAP_POINTS[(idx + 1) % COPY_SNAP_POINTS.length]!;
 }
 
 export function leverCyForCount(copiedTowns: number): number {

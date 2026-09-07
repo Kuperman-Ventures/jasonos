@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Menu, MoreHorizontal, Orbit, Settings2, X } from "lucide-react";
 import type { ChapterId } from "@/lib/iugr/types";
-import { CHAPTER_SEQUENCE, getChapter } from "@/lib/iugr/episodes";
+import { CHAPTER_SEQUENCE, FUTURE_ENTRIES, getChapter } from "@/lib/iugr/episodes";
 import { OVERFLOW, SERIES } from "@/lib/iugr/copy";
 import { EpistemicStatus } from "@/components/iugr/EpistemicStatus";
 
@@ -224,6 +224,20 @@ export function EntryChrome({
                 );
               })}
             </ul>
+
+            <div className="iugr-other-entries">
+              <h3 className="iugr-other-entries-heading">Other entries</h3>
+              <ul className="iugr-other-entries-list">
+                {FUTURE_ENTRIES.map((entry) => (
+                  <li key={entry.id} className="iugr-other-entries-item">
+                    <span className="iugr-other-entries-title">{entry.title}</span>
+                    <span className="iugr-other-entries-status">
+                      {entry.statusLabel}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
       ) : null}

@@ -18,12 +18,14 @@ import {
   COPY_BODY_NO,
   COPY_BODY_UNSURE_SECOND,
   COUNT_ROW,
+  PLATE_CAPTIONS,
   SILENT_SCREEN,
   copiesPeopleCount,
   dialNeedleAngle,
   formatCopiedShareLabel,
   leverCyForCount,
   nearestSnapFromLeverCy,
+  nextSnapPoint,
   washAccentForCopies,
 } from "@/lib/iugr/copyMachine";
 import {
@@ -44,6 +46,7 @@ import {
 } from "@/lib/iugr/scenarioMath";
 import type { ConsciousnessPremise } from "@/lib/iugr/types";
 import { CopyField } from "@/components/iugr/CopyField";
+import { Plate } from "@/components/iugr/plate/Plate";
 import { TransitionBlock } from "@/components/iugr/TransitionBlock";
 
 type CopyMachineChapterProps = {
@@ -252,6 +255,8 @@ function ApparatusControl({
 }) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const dragging = useRef(false);
+  const dragMoved = useRef(false);
+  const pointerStartY = useRef(0);
   const knobCy = leverCyForCount(copiedTowns);
   const angleDeg = dialNeedleAngle(copiedTowns);
   const angleRad = (angleDeg * Math.PI) / 180;
@@ -276,14 +281,24 @@ function ApparatusControl({
     [clientToSvgY, onSetCopies],
   );
 
+  const advanceOne = useCallback(() => {
+    onSetCopies(nextSnapPoint(copiedTowns), true);
+  }, [copiedTowns, onSetCopies]);
+
   useEffect(() => {
     if (!dragging.current) return;
     const onMove = (e: PointerEvent) => {
       if (!dragging.current) return;
-      applyFromClientY(e.clientY);
+      if (Math.abs(e.clientY - pointerStartY.current) > 6) {
+        dragMoved.current = true;
+        applyFromClientY(e.clientY);
+      }
     };
     const onUp = () => {
+      // Button onPointerUp handles tap-vs-drag; this only clears stale drags.
+      if (!dragging.current) return;
       dragging.current = false;
+      dragMoved.current = false;
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -310,6 +325,9 @@ function ApparatusControl({
     } else if (e.key === "End") {
       e.preventDefault();
       onSetCopies(999, true);
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      advanceOne();
     }
   };
 
@@ -376,32 +394,10 @@ function ApparatusControl({
             >
               PULL
             </text>
-            <circle
-              cx="127"
-              cy="102"
-              r="1.6"
-              fill="rgba(242,237,227,0.38)"
-            />
-            <line
-              x1="127"
-              y1="102"
-              x2="127"
-              y2="112"
-              stroke="rgba(242,237,227,0.38)"
-              strokeWidth="1"
-            />
-            <text
-              x="133"
-              y="115"
-              className="iugr-copy-anno-text"
-            >
-              OUTPUT
-            </text>
           </g>
         ) : null}
       </svg>
 
-      {/* Lever knob as real control, positioned over the SVG track */}
       <button
         type="button"
         className={[
@@ -411,26 +407,33 @@ function ApparatusControl({
           .filter(Boolean)
           .join(" ")}
         style={{ ["--lever-cy" as string]: `${knobCy}` }}
-        aria-label={`Copied towns: ${formatWholeNumber(copiedTowns)}. Use arrow keys to change.`}
+        aria-label={`Copied towns: ${formatWholeNumber(copiedTowns)}. Tap to advance one stop, or use arrow keys.`}
         aria-valuemin={0}
         aria-valuemax={999}
         aria-valuenow={copiedTowns}
         aria-valuetext={`${formatWholeNumber(copiedTowns)} copied towns`}
         aria-describedby={liveId}
-        role="slider"
         onKeyDown={onKeyDown}
         onPointerDown={(e) => {
           e.preventDefault();
           dragging.current = true;
+          dragMoved.current = false;
+          pointerStartY.current = e.clientY;
           (e.currentTarget as HTMLButtonElement).setPointerCapture(e.pointerId);
-          applyFromClientY(e.clientY);
         }}
         onPointerMove={(e) => {
           if (!dragging.current) return;
-          applyFromClientY(e.clientY);
+          if (Math.abs(e.clientY - pointerStartY.current) > 6) {
+            dragMoved.current = true;
+            applyFromClientY(e.clientY);
+          }
         }}
         onPointerUp={() => {
+          if (dragging.current && !dragMoved.current) {
+            advanceOne();
+          }
           dragging.current = false;
+          dragMoved.current = false;
         }}
       />
     </div>
@@ -814,32 +817,23 @@ export function CopyMachineChapter({
         <ChallengeStrip copiedTowns={copiedTowns} unavailable={answerNo} />
       )}
 
-      <ApparatusControl
-        copiedTowns={copiedTowns}
-        hasMovedLever={hasInteracted}
-        reducedMotion={reducedMotion}
-        onSetCopies={setCopies}
-        liveId={liveId}
-      />
-
-      <div className="iugr-copy-snaps" role="group" aria-label="Quick copy counts">
-        {COPY_SNAP_POINTS.map((p) => (
-          <button
-            key={p}
-            type="button"
-            className={[
-              "iugr-copy-snap",
-              copiedTowns === p ? "is-selected" : "",
-            ]
-              .filter(Boolean)
-              .join(" ")}
-            onClick={() => setCopies(p, true)}
-            aria-pressed={copiedTowns === p}
-          >
-            {formatWholeNumber(p)}
-          </button>
-        ))}
+      <div className="iugr-copy-machine-strip">
+        <Plate figureNumber={3} caption={PLATE_CAPTIONS.apparatus}>
+          <ApparatusControl
+            copiedTowns={copiedTowns}
+            hasMovedLever={hasInteracted}
+            reducedMotion={reducedMotion}
+            onSetCopies={setCopies}
+            liveId={liveId}
+          />
+        </Plate>
       </div>
+
+      <CountRow
+        copiedTowns={copiedTowns}
+        consciousnessPremise={consciousnessPremise}
+        reducedMotion={reducedMotion}
+      />
 
       {isReturn && assumptions && onAssumptionsChange ? (
         <div className="iugr-machine-dials" aria-label={MACHINE_RETURN.dialsAria}>
@@ -863,18 +857,31 @@ export function CopyMachineChapter({
         />
       </div>
 
-      <CountRow
-        copiedTowns={copiedTowns}
-        consciousnessPremise={consciousnessPremise}
-        reducedMotion={reducedMotion}
-      />
-
       {!isReturn ? (
         <div className="iugr-copy-body">
           <p>{bodyPrimary}</p>
           {bodySecond ? <p>{bodySecond}</p> : null}
         </div>
       ) : null}
+
+      <div className="iugr-copy-snaps" role="group" aria-label="Quick copy counts">
+        {COPY_SNAP_POINTS.map((p) => (
+          <button
+            key={p}
+            type="button"
+            className={[
+              "iugr-copy-snap",
+              copiedTowns === p ? "is-selected" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            onClick={() => setCopies(p, true)}
+            aria-pressed={copiedTowns === p}
+          >
+            {formatWholeNumber(p)}
+          </button>
+        ))}
+      </div>
 
       {isReturn && evaluation ? (
         <aside

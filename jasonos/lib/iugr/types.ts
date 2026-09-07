@@ -5,6 +5,7 @@ export type GuideStatus = "available" | "coming-soon";
 export type ChapterId =
   | "opening"
   | "original-town"
+  | "the-question"
   | "copy-machine"
   | "three-doors"
   | "back-to-machine"
@@ -67,7 +68,7 @@ export type IugrPreferences = {
   highContrast: boolean;
   /** Persisted for later chapters that count copies. null = not yet chosen. */
   consciousnessPremise: ConsciousnessPremise | null;
-  /** Which of the ten town figures the reader chose. null = not yet chosen. */
+  /** Which of the 100 town figures the reader chose. null = not yet chosen. */
   readerFigureIndex: number | null;
   /** Same stance as consciousnessPremise, stored under the entry-state name. */
   copiesAreConscious: ConsciousnessPremise | null;

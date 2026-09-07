@@ -18,10 +18,10 @@ import { ClosingChapter } from "@/components/iugr/ClosingChapter";
 import { CopyMachineChapter } from "@/components/iugr/CopyMachineChapter";
 import { ThreeDoorsChapter } from "@/components/iugr/ThreeDoorsChapter";
 import { EvidenceScannerChapter } from "@/components/iugr/EvidenceScannerChapter";
-import { FieldNoteLibrary } from "@/components/iugr/FieldNoteLibrary";
 import { GuideSettings } from "@/components/iugr/GuideSettings";
 import { OpeningStage } from "@/components/iugr/OpeningStage";
 import { OriginalTownChapter } from "@/components/iugr/OriginalTownChapter";
+import { TheQuestionChapter } from "@/components/iugr/TheQuestionChapter";
 import { SourcesDrawer } from "@/components/iugr/SourcesDrawer";
 import type { DoorId } from "@/lib/iugr/threeDoors";
 import { markDoorExplored } from "@/lib/iugr/threeDoors";
@@ -253,13 +253,22 @@ export function IugrShell() {
           {chapterId === "original-town" ? (
             <OriginalTownChapter
               readerFigureIndex={prefs.readerFigureIndex}
-              copiesAreConscious={prefs.copiesAreConscious}
               onSelectReaderFigure={setReaderFigureIndex}
-              onSelectCopiesAreConscious={setCopiesAreConscious}
               onClearCopiesAreConscious={clearCopiesAreConscious}
               reducedMotion={prefs.reducedMotion}
-              onContinue={() => setChapterId("copy-machine")}
+              onContinue={() => setChapterId("the-question")}
               onPrevious={() => setChapterId("opening")}
+            />
+          ) : null}
+
+          {chapterId === "the-question" ? (
+            <TheQuestionChapter
+              readerFigureIndex={prefs.readerFigureIndex}
+              copiesAreConscious={prefs.copiesAreConscious}
+              onSelectCopiesAreConscious={setCopiesAreConscious}
+              reducedMotion={prefs.reducedMotion}
+              onContinue={() => setChapterId("copy-machine")}
+              onPrevious={() => setChapterId("original-town")}
             />
           ) : null}
 
@@ -274,7 +283,7 @@ export function IugrShell() {
               onAssumptionsChange={setArcadeAssumptions}
               onCopiedTownsChange={handleCopiedTownsChange}
               onContinue={() => setChapterId("three-doors")}
-              onBack={() => setChapterId("original-town")}
+              onBack={() => setChapterId("the-question")}
             />
           ) : null}
 
@@ -328,6 +337,7 @@ export function IugrShell() {
 
           {chapterId !== "opening" &&
           chapterId !== "original-town" &&
+          chapterId !== "the-question" &&
           chapterId !== "copy-machine" &&
           chapterId !== "three-doors" &&
           chapterId !== "back-to-machine" &&
@@ -340,8 +350,6 @@ export function IugrShell() {
             />
           ) : null}
         </div>
-
-        {chapterId === "opening" ? <FieldNoteLibrary /> : null}
       </div>
 
       <GuideSettings

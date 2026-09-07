@@ -27,7 +27,7 @@ function isConsciousnessPremise(
 }
 
 function isReaderFigureIndex(value: unknown): value is number {
-  return Number.isInteger(value) && Number(value) >= 0 && Number(value) <= 9;
+  return Number.isInteger(value) && Number(value) >= 0 && Number(value) <= 99;
 }
 
 export function readPreferences(): IugrPreferences {

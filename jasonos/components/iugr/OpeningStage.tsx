@@ -10,7 +10,8 @@ type OpeningStageProps = {
 
 /**
  * Manual, user-paced opening. No autoplay text.
- * Title furniture, approved opening body, Transition 1, then Begin.
+ * Title furniture, approved opening body, Transition 1, then enter the town.
+ * Library shelf lives in the chapter menu, not here.
  */
 export function OpeningStage({ onBegin }: OpeningStageProps) {
   return (
