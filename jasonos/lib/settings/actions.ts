@@ -124,7 +124,7 @@ export async function testServiceConnection(
   }
 
   const key = stringCredential(credentials.api_key) ?? process.env[service.envVars?.[0] ?? ""];
-  if (!key) {
+  if (!key && serviceName !== "beeper") {
     return { success: false, message: "API key is required.", health_status: "down" };
   }
 
@@ -162,6 +162,31 @@ export async function testServiceConnection(
   }
 
   if (serviceName === "beeper") {
+    let beeperKey = stringCredential(credentials.api_key);
+    if (!beeperKey) {
+      try {
+        const publicDb = createPublicServiceRoleClient();
+        const { data } = await publicDb
+          .from("service_connections")
+          .select("config")
+          .eq("service_name", "beeper")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const cfg = (data?.config ?? {}) as { access_token?: string };
+        beeperKey = cfg.access_token?.trim() || null;
+      } catch {
+        // ignore
+      }
+    }
+    beeperKey = beeperKey || process.env.BEEPER_ACCESS_TOKEN?.trim() || null;
+    if (!beeperKey) {
+      return {
+        success: false,
+        message: "Paste a Desktop API access token (or set BEEPER_ACCESS_TOKEN).",
+        health_status: "down",
+      };
+    }
     const base =
       stringCredential(credentials.base_url)?.replace(/\/$/, "") ||
       process.env.BEEPER_DESKTOP_BASE_URL?.trim().replace(/\/$/, "") ||
@@ -172,7 +197,7 @@ export async function testServiceConnection(
       const res = await fetch(`${base}/v1/info`, {
         headers: {
           Accept: "application/json",
-          Authorization: `Bearer ${key}`,
+          Authorization: `Bearer ${beeperKey}`,
         },
         cache: "no-store",
         signal: controller.signal,
@@ -268,7 +293,23 @@ export async function saveServiceConnection(input: z.infer<typeof SaveConnection
   const credentials = input.credentials ?? {};
   const test = await testServiceConnection(service.name, credentials);
   const key = stringCredential(credentials.api_key);
-  const safeConfig = sanitizeConfig(credentials, service.name);
+  let safeConfig = sanitizeConfig(credentials, service.name);
+
+  // Beeper: keep the previous access_token when the password field is blank
+  // (e.g. user only updates the tunnel URL).
+  if (service.name === "beeper" && !key) {
+    const { data: existing } = await supabase
+      .from("service_connections")
+      .select("config")
+      .eq("user_id", userId)
+      .eq("service_name", "beeper")
+      .maybeSingle();
+    const prev = (existing?.config ?? {}) as { access_token?: string; base_url?: string };
+    safeConfig = {
+      ...prev,
+      ...safeConfig,
+    };
+  }
 
   const { error } = await supabase.from("service_connections").upsert(
     {
@@ -358,6 +399,16 @@ function sanitizeConfig(credentials: Record<string, string | number | boolean>, 
       enabled: credentials.enabled === true || credentials.enabled === "true",
       polling_interval_minutes: Number(credentials.polling_interval_minutes ?? 2),
     };
+  }
+  if (serviceName === "beeper") {
+    const out: Record<string, string> = {};
+    const base = stringCredential(credentials.base_url)?.replace(/\/$/, "");
+    if (base) out.base_url = base;
+    // Persist the Desktop API token so Sync uses what Settings saved
+    // (not only BEEPER_ACCESS_TOKEN on Vercel).
+    const token = stringCredential(credentials.api_key);
+    if (token) out.access_token = token;
+    return out;
   }
   const rest = { ...credentials };
   delete rest.api_key;

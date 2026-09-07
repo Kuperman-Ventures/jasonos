@@ -587,9 +587,9 @@ export async function syncOutreachFromBeeper(opts?: {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return errorResult("beeper", "Supabase service role is not configured.");
   }
-  if (!isBeeperConfigured()) {
+  if (!await isBeeperConfigured()) {
     return unavailableBeeperResult(
-      "Beeper not configured (missing BEEPER_ACCESS_TOKEN).",
+      "Beeper not configured. Paste a token in Settings → Beeper (or set BEEPER_ACCESS_TOKEN).",
       opts?.runId
     );
   }

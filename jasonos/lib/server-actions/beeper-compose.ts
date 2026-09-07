@@ -13,10 +13,10 @@ export async function openBeeperText(
   contactId: string
 ): Promise<FocusBeeperResult> {
   if (!contactId) return { ok: false, error: "Missing contact." };
-  if (!isBeeperConfigured()) {
+  if (!(await isBeeperConfigured())) {
     return {
       ok: false,
-      error: "Beeper is not configured. Set BEEPER_ACCESS_TOKEN.",
+      error: "Beeper is not configured. Paste a token in Settings → Beeper.",
     };
   }
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {

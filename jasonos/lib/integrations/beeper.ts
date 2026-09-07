@@ -72,46 +72,59 @@ interface CursorPage<T> {
   oldestCursor?: string | null;
 }
 
-async function resolveBaseUrl(): Promise<string> {
-  const fromEnv = process.env.BEEPER_DESKTOP_BASE_URL?.trim();
-  if (fromEnv) return fromEnv.replace(/\/$/, "");
+type BeeperConnectionConfig = {
+  base_url?: string;
+  access_token?: string;
+};
 
-  // Optional tunnel URL saved in Settings → Beeper (non-secret config).
+async function loadBeeperConnectionConfig(): Promise<BeeperConnectionConfig> {
   try {
-    const { createServiceRoleClient } = await import("@/lib/supabase/server");
-    const sb = createServiceRoleClient();
+    const { createPublicServiceRoleClient } = await import("@/lib/supabase/server");
+    const sb = createPublicServiceRoleClient();
     const { data } = await sb
       .from("service_connections")
       .select("config")
       .eq("service_name", "beeper")
+      .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    const cfg = (data?.config ?? {}) as { base_url?: string };
-    const fromSettings = cfg.base_url?.trim();
-    if (fromSettings) return fromSettings.replace(/\/$/, "");
+    return ((data?.config ?? {}) as BeeperConnectionConfig) ?? {};
   } catch {
-    // Settings table may be unavailable; fall through to localhost default.
+    return {};
   }
+}
+
+async function resolveBaseUrl(): Promise<string> {
+  const fromEnv = process.env.BEEPER_DESKTOP_BASE_URL?.trim();
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
+
+  const cfg = await loadBeeperConnectionConfig();
+  const fromSettings = cfg.base_url?.trim();
+  if (fromSettings) return fromSettings.replace(/\/$/, "");
 
   return "http://127.0.0.1:23373";
 }
 
-function accessToken(): string | null {
+/** Prefer Settings → Beeper token; fall back to Vercel env. */
+async function resolveAccessToken(): Promise<string | null> {
+  const cfg = await loadBeeperConnectionConfig();
+  const fromSettings = cfg.access_token?.trim();
+  if (fromSettings) return fromSettings;
   return process.env.BEEPER_ACCESS_TOKEN?.trim() || null;
 }
 
-export function isBeeperConfigured(): boolean {
-  return Boolean(accessToken());
+export async function isBeeperConfigured(): Promise<boolean> {
+  return Boolean(await resolveAccessToken());
 }
 
 async function beeperFetch(
   path: string,
   init?: RequestInit & { timeoutMs?: number }
 ): Promise<Response> {
-  const token = accessToken();
+  const token = await resolveAccessToken();
   if (!token) {
     throw new BeeperUnavailableError(
-      "Beeper access token is not configured (set BEEPER_ACCESS_TOKEN)."
+      "Beeper access token is not configured. Paste a new token in Settings → Beeper (or set BEEPER_ACCESS_TOKEN)."
     );
   }
 
