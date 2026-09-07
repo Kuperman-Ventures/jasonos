@@ -152,12 +152,18 @@ export async function testServiceConnection(
   }
 
   if (serviceName === "lemon_squeezy") {
+    if (!key) {
+      return { success: false, message: "API key is required.", health_status: "down" };
+    }
     const storeId = stringCredential(credentials.store_id) ?? process.env.LEMON_SQUEEZY_STORE_ID;
     const path = storeId ? `/stores/${storeId}` : "/stores";
     return fetchJsonApi("https://api.lemonsqueezy.com/v1", path, key, "Lemon Squeezy");
   }
 
   if (serviceName === "hubspot") {
+    if (!key) {
+      return { success: false, message: "API key is required.", health_status: "down" };
+    }
     return fetchHubSpot(key);
   }
 
@@ -174,12 +180,12 @@ export async function testServiceConnection(
           .limit(1)
           .maybeSingle();
         const cfg = (data?.config ?? {}) as { access_token?: string };
-        beeperKey = cfg.access_token?.trim() || null;
+        beeperKey = cfg.access_token?.trim() || undefined;
       } catch {
         // ignore
       }
     }
-    beeperKey = beeperKey || process.env.BEEPER_ACCESS_TOKEN?.trim() || null;
+    beeperKey = beeperKey || process.env.BEEPER_ACCESS_TOKEN?.trim() || undefined;
     if (!beeperKey) {
       return {
         success: false,
@@ -236,6 +242,9 @@ export async function testServiceConnection(
   }
 
   if (serviceName === "instantly") {
+    if (!key) {
+      return { success: false, message: "API key is required.", health_status: "down" };
+    }
     return basicBearerCheck("https://api.instantly.ai/api/v2/accounts", key, "Instantly", {
       paused_warning: "Instantly automation is currently PAUSED if campaigns report paused status.",
     });
