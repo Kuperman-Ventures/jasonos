@@ -2828,7 +2828,28 @@ p.iugr-town-copy {
 
 @media (max-width: 767px) {
   .iugr-door-card {
-    min-height: 12.5rem;
+    min-height: 0;
+    padding: 0.7rem;
+    gap: 0.4rem;
+  }
+
+  .iugr-door-card-art {
+    max-height: 96px;
+    overflow: hidden;
+  }
+
+  .iugr-door-card-art .iugr-plate-body {
+    padding-block: 0.35rem;
+  }
+
+  .iugr-three-doors .iugr-transition {
+    gap: 6px;
+    margin-bottom: 0.75rem;
+  }
+
+  .iugr-three-doors .iugr-transition p {
+    font-size: 14px;
+    line-height: 1.4;
   }
 }
 
@@ -4303,6 +4324,7 @@ body:has(.iugr-root) nextjs-portal {
     width: 100%;
     text-align: left;
     padding: 0.85rem 1rem;
+    min-height: 52px;
   }
 
   /* Single column — never let desktop multi-column invert reading order. */

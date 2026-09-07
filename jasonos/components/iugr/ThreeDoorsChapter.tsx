@@ -258,13 +258,7 @@ export function ThreeDoorsChapter({
         {THREE_DOORS.title}
       </h1>
 
-      {THREE_DOORS_SCRIPT.intro.map((paragraph) => (
-        <p key={paragraph} className="iugr-lead">
-          {paragraph}
-        </p>
-      ))}
-
-      <TransitionBlock paragraphs={TRANSITION_3} />
+      <p className="iugr-lead">{THREE_DOORS_SCRIPT.intro[0]}</p>
 
       {!complete ? <p className="iugr-doors-prompt">{THREE_DOORS.hubPrompt}</p> : null}
 
@@ -289,6 +283,13 @@ export function ThreeDoorsChapter({
           );
         })}
       </div>
+
+      {!complete ? (
+        <>
+          <p className="iugr-lead">{THREE_DOORS_SCRIPT.intro[1]}</p>
+          <TransitionBlock paragraphs={TRANSITION_3} />
+        </>
+      ) : null}
 
       {complete ? (
         <div className="iugr-doors-synthesis" aria-labelledby="iugr-doors-synthesis-title">
