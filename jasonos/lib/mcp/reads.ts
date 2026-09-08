@@ -16,6 +16,10 @@ function clip(value: unknown, max = 500): string | null {
   return value.length > max ? `${value.slice(0, max)}…` : value;
 }
 
+// MCP queries both public and jasonos schemas with the same PostgREST shape.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyDb = { from: (table: string) => any };
+
 async function firstOk<T>(jobs: Array<() => Promise<T | null>>): Promise<T | null> {
   for (const job of jobs) {
     try {
@@ -53,7 +57,7 @@ export async function getMorningBrief(input: { date?: string } = {}) {
   const wanted = /^\d{4}-\d{2}-\d{2}$/.test(input.date ?? "") ? input.date : undefined;
   const cols = "id,brief_date,content_md,created_at";
 
-  const load = async (db: ReturnType<typeof publicDb>) => {
+  const load = async (db: AnyDb) => {
     if (wanted) {
       const { data, error } = await db.from("morning_briefs").select(cols).eq("brief_date", wanted).maybeSingle();
       if (error) throw error;
@@ -83,33 +87,38 @@ export async function getMorningBrief(input: { date?: string } = {}) {
   };
 }
 
-function slimInboxItems(items: unknown, kind: "boarding" | "holding" | "noise") {
+function slimInboxItems(items: unknown, kind: "boarding" | "holding" | "noise"): Record<string, unknown>[] {
   if (!Array.isArray(items)) return [];
-  return items.slice(0, kind === "noise" ? 20 : 30).flatMap((item) => {
-    if (!item || typeof item !== "object") return [];
+  const out: Record<string, unknown>[] = [];
+  for (const item of items.slice(0, kind === "noise" ? 20 : 30)) {
+    if (!item || typeof item !== "object") continue;
     const i = item as Record<string, unknown>;
     if (kind === "noise") {
-      return [{ label: i.label ?? i.name ?? i.sender, count: i.count ?? i.n ?? null, subject: clip(i.subject, 160) }];
+      out.push({
+        label: i.label ?? i.name ?? i.sender ?? null,
+        count: i.count ?? i.n ?? null,
+        subject: clip(i.subject, 160),
+      });
+      continue;
     }
-    return [
-      {
-        name: i.name ?? null,
-        email: i.email ?? null,
-        subject: i.subject ?? null,
-        urgency: i.urgency ?? null,
-        received_at: i.receivedAt ?? i.received_at ?? null,
-        elevator: clip(i.elevator, 400),
-        original: clip(i.original ?? i.body ?? i.snippet, 500),
-        draft: clip(i.draft, 600),
-        draft_saved: i.draftSaved === true,
-      },
-    ];
-  });
+    out.push({
+      name: i.name ?? null,
+      email: i.email ?? null,
+      subject: i.subject ?? null,
+      urgency: i.urgency ?? null,
+      received_at: i.receivedAt ?? i.received_at ?? null,
+      elevator: clip(i.elevator, 400),
+      original: clip(i.original ?? i.body ?? i.snippet, 500),
+      draft: clip(i.draft, 600),
+      draft_saved: i.draftSaved === true,
+    });
+  }
+  return out;
 }
 
 export async function getInboxDispatch() {
   const today = etDate();
-  const load = async (db: ReturnType<typeof publicDb>) => {
+  const load = async (db: AnyDb) => {
     const todayRes = await db
       .from("inbox_dispatches")
       .select("dispatch_date,payload,created_at")
