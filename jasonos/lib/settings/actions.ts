@@ -124,7 +124,7 @@ export async function testServiceConnection(
   }
 
   const key = stringCredential(credentials.api_key) ?? process.env[service.envVars?.[0] ?? ""];
-  if (!key && serviceName !== "beeper") {
+  if (!key && serviceName !== "beeper" && serviceName !== "jasonos_mcp") {
     return { success: false, message: "API key is required.", health_status: "down" };
   }
 
@@ -267,6 +267,40 @@ export async function testServiceConnection(
     };
   }
 
+  if (serviceName === "jasonos_mcp") {
+    let token = stringCredential(credentials.api_key);
+    if (!token) {
+      try {
+        const publicDb = createPublicServiceRoleClient();
+        const { data } = await publicDb
+          .from("service_connections")
+          .select("config")
+          .eq("service_name", "jasonos_mcp")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const cfg = (data?.config ?? {}) as { access_token?: string };
+        token = cfg.access_token?.trim() || undefined;
+      } catch {
+        // ignore
+      }
+    }
+    token = token || process.env.JASONOS_MCP_TOKEN?.trim() || undefined;
+    if (!token) {
+      return {
+        success: false,
+        message: "Paste or generate an MCP token (or set JASONOS_MCP_TOKEN).",
+        health_status: "down",
+      };
+    }
+    return {
+      success: true,
+      message:
+        "Token is set. Point Claude Desktop at https://jasonos.vercel.app/api/mcp with Authorization: Bearer <this token>.",
+      health_status: "healthy",
+    };
+  }
+
   return { success: true, message: "Connection metadata saved.", health_status: "unknown" };
 }
 
@@ -304,14 +338,14 @@ export async function saveServiceConnection(input: z.infer<typeof SaveConnection
   const key = stringCredential(credentials.api_key);
   let safeConfig = sanitizeConfig(credentials, service.name);
 
-  // Beeper: keep the previous access_token when the password field is blank
-  // (e.g. user only updates the tunnel URL).
-  if (service.name === "beeper" && !key) {
+  // Beeper / JasonOS MCP: keep the previous access_token when the password
+  // field is blank (e.g. user only hits Test, or re-saves without retyping).
+  if ((service.name === "beeper" || service.name === "jasonos_mcp") && !key) {
     const { data: existing } = await supabase
       .from("service_connections")
       .select("config")
       .eq("user_id", userId)
-      .eq("service_name", "beeper")
+      .eq("service_name", service.name)
       .maybeSingle();
     const prev = (existing?.config ?? {}) as { access_token?: string; base_url?: string };
     safeConfig = {
@@ -415,6 +449,12 @@ function sanitizeConfig(credentials: Record<string, string | number | boolean>, 
     if (base) out.base_url = base;
     // Persist the Desktop API token so Sync uses what Settings saved
     // (not only BEEPER_ACCESS_TOKEN on Vercel).
+    const token = stringCredential(credentials.api_key);
+    if (token) out.access_token = token;
+    return out;
+  }
+  if (serviceName === "jasonos_mcp") {
+    const out: Record<string, string> = {};
     const token = stringCredential(credentials.api_key);
     if (token) out.access_token = token;
     return out;

@@ -15,6 +15,7 @@ import {
   ShieldCheck,
   Wifi,
   XCircle,
+  Copy,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -687,8 +688,9 @@ function ServiceCard({
 
       {definition.name === "jasonos_mcp" ? (
         <p className="mt-2 text-xs text-muted-foreground">
-          Token lives in Vercel as JASONOS_MCP_TOKEN. Claude Desktop config is in
-          the repo doc: jasonos/docs/claude-desktop-mcp.md.
+          Cursor reads this from <code className="text-[11px]">.cursor/mcp.json</code>.
+          Save a token here, put the same value in <code className="text-[11px]">JASONOS_MCP_TOKEN</code>,
+          then enable <strong>jasonos</strong> under Cursor Settings → Tools &amp; MCP.
         </p>
       ) : null}
 
@@ -749,10 +751,47 @@ function ServiceCard({
                       setCredentials((current) => ({ ...current, [field.name]: event.target.value }))
                     }
                   />
+                  {definition.name === "jasonos_mcp" && field.name === "api_key" ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="mt-2"
+                      onClick={() => {
+                        const bytes = new Uint8Array(32);
+                        crypto.getRandomValues(bytes);
+                        const token = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+                        setCredentials((current) => ({ ...current, api_key: token }));
+                        toast.message("Token generated. Save it, then paste the same value as JASONOS_MCP_TOKEN for Cursor.");
+                      }}
+                    >
+                      Generate token
+                    </Button>
+                  ) : null}
                 </label>
               )
             ))}
           </div>
+          {definition.name === "jasonos_mcp" ? (
+            <div className="mt-3 space-y-2 rounded-md border bg-background/60 p-3 text-xs">
+              <p className="font-medium text-foreground">Cursor config (already in the repo)</p>
+              <p className="text-muted-foreground">
+                Endpoint: https://jasonos.vercel.app/api/mcp
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  await navigator.clipboard.writeText("https://jasonos.vercel.app/api/mcp");
+                  toast.success("Copied MCP URL");
+                }}
+              >
+                <Copy className="mr-1.5 h-3.5 w-3.5" />
+                Copy URL
+              </Button>
+            </div>
+          ) : null}
           <div className="mt-3 flex flex-wrap gap-2">
             <Button size="sm" onClick={() => save(false)} disabled={isPending}>
               Save

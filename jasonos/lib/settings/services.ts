@@ -199,13 +199,22 @@ export const SERVICE_DEFINITIONS: ServiceDefinition[] = [
   {
     name: "jasonos_mcp",
     label: "Claude Desktop (JasonOS MCP)",
-    connectionType: "env_var",
+    connectionType: "api_key",
     description:
-      "Lets Claude Desktop (and Cursor) read and update JasonOS: today, action cards, to-dos, contacts, scoreboard. Set JASONOS_MCP_TOKEN in Vercel, then follow jasonos/docs/claude-desktop-mcp.md.",
+      "Shared secret so Claude Desktop and Cursor can read and update JasonOS (today, action cards, to-dos, contacts, scoreboard). Paste or generate a token here — the MCP endpoint uses the Settings token first, then JASONOS_MCP_TOKEN.",
     features: ["Today", "Action queue", "To-dos", "Contacts"],
-    configurable: false,
-    disconnectable: false,
+    configurable: true,
+    disconnectable: true,
     envVars: ["JASONOS_MCP_TOKEN"],
+    fields: [
+      {
+        name: "api_key",
+        label: "MCP access token",
+        type: "password",
+        required: true,
+        placeholder: "Generate or paste a long secret",
+      },
+    ],
   },
   {
     name: "dispatch",

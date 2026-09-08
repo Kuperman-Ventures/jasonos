@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "jasonos": {
+      "url": "https://jasonos.vercel.app/api/mcp",
+      "headers": {
+        "Authorization": "Bearer ${env:JASONOS_MCP_TOKEN}"
+      }
+    }
+  }
+}

@@ -62,8 +62,9 @@ clicking it shows a "needs configuration" toast.
 JasonOS can expose itself as an MCP server so Claude Desktop (and Cursor) can
 read today / action cards / to-dos / contacts and write a few of those back.
 
-Setup: [Claude Desktop MCP](docs/claude-desktop-mcp.md). Live URL after deploy:
-`https://jasonos.vercel.app/api/mcp` (requires `JASONOS_MCP_TOKEN`).
+Setup: [Claude Desktop MCP](docs/claude-desktop-mcp.md). Cursor discovers the
+server from the repo file `.cursor/mcp.json` once `JASONOS_MCP_TOKEN` is set.
+Live URL after deploy: `https://jasonos.vercel.app/api/mcp`.
 
 ## Supabase setup
 

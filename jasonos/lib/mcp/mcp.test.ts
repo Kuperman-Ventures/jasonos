@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { McpServer } from "@modelcontextprotocol/server";
-import { tokensEqual, verifyMcpBearer } from "./auth.ts";
+import {
+  authorizeMcpRequest,
+  extractBearer,
+  pickMcpToken,
+  tokensEqual,
+} from "./auth.ts";
 import { registerJasonosTools } from "./register.ts";
 import { errorResult, jsonResult, sanitizeSearch } from "./result.ts";
 
@@ -19,29 +24,70 @@ describe("MCP token compare", () => {
   });
 });
 
-describe("verifyMcpBearer", () => {
-  it("returns undefined when the env token is missing", () => {
+describe("pickMcpToken", () => {
+  it("prefers Settings over env", () => {
+    assert.equal(pickMcpToken(" settings-token ", "env-token"), "settings-token");
+  });
+
+  it("falls back to env", () => {
+    assert.equal(pickMcpToken("  ", "env-token"), "env-token");
+  });
+});
+
+describe("extractBearer", () => {
+  it("reads a Bearer header", () => {
+    assert.equal(extractBearer("Bearer abc"), "abc");
+  });
+
+  it("returns undefined without a token", () => {
+    assert.equal(extractBearer("Basic abc"), undefined);
+    assert.equal(extractBearer(null), undefined);
+  });
+});
+
+describe("authorizeMcpRequest", () => {
+  it("returns 503 when no token is configured", async () => {
     const previous = process.env.JASONOS_MCP_TOKEN;
     delete process.env.JASONOS_MCP_TOKEN;
     try {
-      const req = new Request("https://jasonos.vercel.app/api/mcp");
-      assert.equal(verifyMcpBearer(req, "anything"), undefined);
+      const res = await authorizeMcpRequest(new Request("https://jasonos.vercel.app/api/mcp"));
+      assert.ok(res);
+      assert.equal(res.status, 503);
+      assert.equal(res.headers.get("www-authenticate"), null);
     } finally {
       if (previous === undefined) delete process.env.JASONOS_MCP_TOKEN;
       else process.env.JASONOS_MCP_TOKEN = previous;
     }
   });
 
-  it("returns auth info for the matching bearer token", () => {
+  it("returns 401 without advertising OAuth", async () => {
     const previous = process.env.JASONOS_MCP_TOKEN;
     process.env.JASONOS_MCP_TOKEN = "test-token-value";
     try {
-      const req = new Request("https://jasonos.vercel.app/api/mcp");
-      const info = verifyMcpBearer(req, "test-token-value");
-      assert.ok(info);
-      assert.equal(info.clientId, "jasonos-mcp");
-      assert.equal(info.token, "test-token-value");
-      assert.ok(info.expiresAt && info.expiresAt > Date.now() / 1000);
+      const res = await authorizeMcpRequest(
+        new Request("https://jasonos.vercel.app/api/mcp", {
+          headers: { Authorization: "Bearer wrong" },
+        })
+      );
+      assert.ok(res);
+      assert.equal(res.status, 401);
+      assert.equal(res.headers.get("www-authenticate"), null);
+    } finally {
+      if (previous === undefined) delete process.env.JASONOS_MCP_TOKEN;
+      else process.env.JASONOS_MCP_TOKEN = previous;
+    }
+  });
+
+  it("allows a matching bearer token", async () => {
+    const previous = process.env.JASONOS_MCP_TOKEN;
+    process.env.JASONOS_MCP_TOKEN = "test-token-value";
+    try {
+      const res = await authorizeMcpRequest(
+        new Request("https://jasonos.vercel.app/api/mcp", {
+          headers: { Authorization: "Bearer test-token-value" },
+        })
+      );
+      assert.equal(res, null);
     } finally {
       if (previous === undefined) delete process.env.JASONOS_MCP_TOKEN;
       else process.env.JASONOS_MCP_TOKEN = previous;
