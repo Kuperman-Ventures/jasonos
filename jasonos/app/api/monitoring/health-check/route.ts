@@ -137,6 +137,32 @@ async function alertIfTwoConsecutiveFailures(failed: ProbeResult[]) {
   }
 }
 
+async function resolveRecoveredInternalTools(results: ProbeResult[]) {
+  const recovered = results.filter((r) => r.ok);
+  if (
+    !recovered.length ||
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.SUPABASE_SERVICE_ROLE_KEY
+  ) {
+    return;
+  }
+  try {
+    const sb = createServiceRoleClient();
+    const now = new Date().toISOString();
+    for (const r of recovered) {
+      const target = MONITORING_TARGETS.find((t) => t.id === r.target_id);
+      if (!target || target.kind !== "internal_tool") continue;
+      await sb
+        .from("alerts")
+        .update({ state: "resolved", resolved_at: now })
+        .eq("source", `Product Health · ${target.label}`)
+        .eq("state", "open");
+    }
+  } catch (err) {
+    console.warn("[health-check] recover resolve failed:", err);
+  }
+}
+
 export async function GET(req: Request) {
   if (!isAuthorizedCron(req)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
@@ -146,6 +172,7 @@ export async function GET(req: Request) {
   const persistResult = await persist(results);
   const failed = results.filter((r) => !r.ok);
   await alertIfTwoConsecutiveFailures(failed);
+  await resolveRecoveredInternalTools(results);
   return NextResponse.json({
     ok: true,
     durationMs: Date.now() - startedAt,

@@ -9,6 +9,7 @@ import { getTodaysCalendar } from "@/lib/integrations/google-calendar";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { getReconnectDashboardData } from "@/lib/reconnect/data";
 import { computePriorityFunnel } from "@/lib/reconnect/priority";
+import { uniqueIssueCount } from "@/lib/mcp/result";
 
 // ---------- Hero strip ---------------------------------------------------
 
@@ -309,7 +310,7 @@ async function getDashboardCounts() {
         .eq("state", "open"),
       sb
         .from("alerts")
-        .select("id", { count: "exact", head: true })
+        .select("source,title")
         .eq("category", "error")
         .eq("severity", "critical")
         .eq("state", "open"),
@@ -318,7 +319,7 @@ async function getDashboardCounts() {
     return {
       activeReconnectCards: reconnect.count ?? 0,
       openPersonalTodos: personalTodos.count ?? 0,
-      openCriticalAlerts: criticalAlerts.count ?? 0,
+      openCriticalAlerts: uniqueIssueCount(criticalAlerts.data),
     };
   } catch (error) {
     console.error("[dashboard] Supabase count query failed", error);

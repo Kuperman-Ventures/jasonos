@@ -340,17 +340,25 @@ export async function listAlerts(input: { limit?: number } = {}) {
   const sb = jasonosDb();
   const { data, error } = await sb
     .from("alerts")
-    .select("id,severity,category,title,body,state,created_at")
+    .select("id,source,severity,category,title,body,state,created_at")
     .eq("state", "open")
     .order("created_at", { ascending: false })
-    .limit(limit);
+    .limit(200);
   if (error) throw new Error(error.message);
-  return {
-    alerts: (data ?? []).map((row) => ({
+
+  const seen = new Set<string>();
+  const alerts = [];
+  for (const row of data ?? []) {
+    const key = `${row.source ?? ""}\t${row.title ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    alerts.push({
       ...row,
       body: clip(row.body, 400),
-    })),
-  };
+    });
+    if (alerts.length >= limit) break;
+  }
+  return { alerts };
 }
 
 export async function listProjects() {

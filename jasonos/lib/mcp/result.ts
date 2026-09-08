@@ -30,6 +30,14 @@ export async function runTool<T>(fn: () => Promise<T>) {
   }
 }
 
+/** One open issue, not one row. Product Health used to insert a new alert on every cron. */
+export function uniqueIssueCount(
+  rows: Array<{ source?: string | null; title?: string | null }> | null | undefined
+): number {
+  if (!rows?.length) return 0;
+  return new Set(rows.map((row) => `${row.source ?? ""}\t${row.title ?? ""}`)).size;
+}
+
 /** Strip PostgREST filter metacharacters from a free-text search. */
 export function sanitizeSearch(raw: string): string {
   return raw

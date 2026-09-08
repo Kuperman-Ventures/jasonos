@@ -15,6 +15,23 @@ export interface NotifyInput {
 }
 
 export async function notify(input: NotifyInput): Promise<void> {
+  try {
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      const sb = createServiceRoleClient();
+      const { data: existing } = await sb
+        .from("alerts")
+        .select("id")
+        .eq("source", input.source)
+        .eq("title", input.title)
+        .eq("state", "open")
+        .limit(1)
+        .maybeSingle();
+      if (existing) return;
+    }
+  } catch {
+    // Fall through and still try Slack / insert.
+  }
+
   const slack = process.env.SLACK_WEBHOOK_URL;
   if (slack) {
     try {
@@ -32,7 +49,7 @@ export async function notify(input: NotifyInput): Promise<void> {
     }
   }
 
-  // Always also persist as an alert so the Action Queue can pick it up.
+  // Always persist as an alert so the Action Queue can pick it up.
   try {
     const sb = createServiceRoleClient();
     await sb.from("alerts").insert({

@@ -1,6 +1,10 @@
 import type { Track } from "../types";
 import { jasonosDb, publicDb } from "./db";
-import { sanitizeSearch } from "./result";
+import { sanitizeSearch, uniqueIssueCount } from "./result";
+
+/** Live public.today_task_instances columns. sub_track lives on timer_sessions, not here. */
+export const TODAY_TASK_COLUMNS =
+  "id,name_snapshot,track_snapshot,estimate_minutes_snapshot,kpi_mapping_snapshot,queue_order,scheduled_for_date,calendar_event_id,template_id_snapshot";
 
 const TRACKS = ["venture", "advisors", "job_search", "personal"] as const;
 const CARD_STATES = ["open", "actioned", "dismissed", "snoozed", "archived"] as const;
@@ -41,11 +45,7 @@ export async function getStatus() {
   const [cards, todos, alerts, today] = await Promise.all([
     sb.from("cards").select("id", { count: "exact", head: true }).eq("state", "open"),
     sb.from("todos").select("id", { count: "exact", head: true }).eq("state", "open"),
-    sb
-      .from("alerts")
-      .select("id", { count: "exact", head: true })
-      .eq("state", "open")
-      .eq("severity", "critical"),
+    sb.from("alerts").select("source,title").eq("state", "open").eq("severity", "critical"),
     publicDb()
       .from("today_task_instances")
       .select("id", { count: "exact", head: true })
@@ -58,7 +58,7 @@ export async function getStatus() {
     timezone: "America/New_York",
     open_cards: cards.count ?? 0,
     open_todos: todos.count ?? 0,
-    critical_alerts: alerts.count ?? 0,
+    critical_alerts: uniqueIssueCount(alerts.data),
     today_tasks: today.error ? null : (today.count ?? 0),
     app: "https://jasonos.vercel.app",
   };
@@ -69,9 +69,7 @@ export async function getToday() {
   const date = etDate();
   const { data: taskRows, error: taskError } = await db
     .from("today_task_instances")
-    .select(
-      "id,name_snapshot,track_snapshot,sub_track,estimate_minutes_snapshot,kpi_mapping_snapshot,queue_order,scheduled_for_date,calendar_event_id"
-    )
+    .select(TODAY_TASK_COLUMNS)
     .eq("scheduled_for_date", date)
     .order("queue_order", { ascending: true });
 
@@ -81,11 +79,12 @@ export async function getToday() {
     id: row.id,
     name: row.name_snapshot ?? "(untitled)",
     track: row.track_snapshot,
-    sub_track: row.sub_track,
     estimate_minutes: row.estimate_minutes_snapshot,
     kpi_mapping: row.kpi_mapping_snapshot,
     queue_order: row.queue_order,
     calendar_event_id: row.calendar_event_id,
+    template_id: row.template_id_snapshot ?? null,
+    sub_track: null as string | null,
   }));
 
   let sessions: Record<string, unknown> = {};
@@ -93,7 +92,7 @@ export async function getToday() {
     const { data: sessionRows, error: sessionError } = await db
       .from("timer_sessions")
       .select(
-        "id,task_instance_id,timer_state,estimate_seconds,elapsed_seconds,pause_count,started_at,completion_type,completed_at"
+        "id,task_instance_id,timer_state,estimate_seconds,elapsed_seconds,pause_count,started_at,completion_type,completed_at,sub_track"
       )
       .in(
         "task_instance_id",
@@ -112,8 +111,14 @@ export async function getToday() {
         started_at: row.started_at,
         completion_type: row.completion_type,
         completed_at: row.completed_at,
+        sub_track: row.sub_track ?? null,
       };
     }
+  }
+
+  for (const task of tasks) {
+    const session = sessions[task.id] as { sub_track?: string | null } | undefined;
+    task.sub_track = session?.sub_track ?? null;
   }
 
   return { date, tasks, sessions };

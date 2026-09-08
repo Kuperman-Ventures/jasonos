@@ -20,7 +20,8 @@ import {
 } from "./oauth.ts";
 import { registerJasonosTools } from "./register.ts";
 import { listJasonosAreas } from "./reads.ts";
-import { errorResult, jsonResult, sanitizeSearch } from "./result.ts";
+import { errorResult, jsonResult, sanitizeSearch, uniqueIssueCount } from "./result.ts";
+import { TODAY_TASK_COLUMNS } from "./operations.ts";
 
 describe("MCP token compare", () => {
   it("accepts matching tokens", () => {
@@ -235,5 +236,27 @@ describe("JasonOS area map", () => {
     assert.ok(tools.includes("get_inbox_dispatch"));
     assert.ok(tools.includes("get_job_alerts"));
     assert.ok(tools.includes("get_morning_brief"));
+  });
+});
+
+describe("critical alert counting", () => {
+  it("counts unique source+title pairs, not log rows", () => {
+    assert.equal(
+      uniqueIssueCount([
+        { source: "Product Health · RS · /admin", title: "down" },
+        { source: "Product Health · RS · /admin", title: "down" },
+        { source: "Product Health · RS · /console", title: "down" },
+      ]),
+      2
+    );
+    assert.equal(uniqueIssueCount([]), 0);
+    assert.equal(uniqueIssueCount(null), 0);
+  });
+});
+
+describe("Today task columns", () => {
+  it("does not select sub_track on today_task_instances", () => {
+    assert.equal(TODAY_TASK_COLUMNS.includes("sub_track"), false);
+    assert.match(TODAY_TASK_COLUMNS, /name_snapshot/);
   });
 });
