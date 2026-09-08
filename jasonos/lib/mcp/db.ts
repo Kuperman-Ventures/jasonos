@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 
 /**
  * MCP-safe Supabase clients. Do not import `lib/supabase/server.ts` from the
@@ -19,7 +19,7 @@ export function requireSupabaseConfig(): void {
   }
 }
 
-export function jasonosDb(): SupabaseClient {
+export function jasonosDb() {
   requireSupabaseConfig();
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -28,7 +28,7 @@ export function jasonosDb(): SupabaseClient {
   );
 }
 
-export function publicDb(): SupabaseClient {
+export function publicDb() {
   requireSupabaseConfig();
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
