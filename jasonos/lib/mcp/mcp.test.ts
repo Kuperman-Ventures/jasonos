@@ -88,11 +88,10 @@ describe("authorizeMcpRequest", () => {
       );
       assert.ok(res);
       assert.equal(res.status, 401);
-      // Node's Headers API redacts WWW-Authenticate Bearer param *names* to
-      // FAKESECRET_* when you read them. The metadata URL itself stays in the
-      // value, which is what we can assert here. The unredacted helper is below.
+      // Node redacts a lone Bearer resource_metadata param. Pairing it with
+      // error="invalid_token" keeps the real name on the wire.
       const advertise = res.headers.get("www-authenticate") ?? "";
-      assert.match(advertise, /oauth-protected-resource\/api\/mcp/);
+      assert.match(advertise, /resource_metadata="https:\/\/jasonos\.vercel\.app\/\.well-known\/oauth-protected-resource\/api\/mcp"/);
       const body = (await res.json()) as { resource_metadata?: string };
       assert.equal(body.resource_metadata, JASONOS_PRM_URL);
     } finally {
@@ -139,7 +138,7 @@ describe("OAuth login helpers", () => {
   it("keeps Cursor's root probe URL out of the Cowork metadata", () => {
     assert.equal(
       wwwAuthenticate(),
-      `Bearer FAKESECRET_g3h4i5j6k7l8m9n0o1p2="${JASONOS_PRM_URL}"`
+      `Bearer error="invalid_token", resource_metadata="${JASONOS_PRM_URL}"`
     );
     assert.equal(JASONOS_PRM_URL, "https://jasonos.vercel.app/.well-known/oauth-protected-resource/api/mcp");
     assert.equal(protectedResourceMetadata().resource, "https://jasonos.vercel.app/api/mcp");

@@ -60,7 +60,7 @@ export function protectedResourceMetadata() {
 }
 
 export function wwwAuthenticate() {
-  return `Bearer FAKESECRET_g3h4i5j6k7l8m9n0o1p2="${JASONOS_PRM_URL}"`;
+  return `Bearer error="invalid_token", resource_metadata="${JASONOS_PRM_URL}"`;
 }
 
 function b64urlJson(value: object) {
