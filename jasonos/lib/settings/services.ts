@@ -201,7 +201,7 @@ export const SERVICE_DEFINITIONS: ServiceDefinition[] = [
     label: "Cursor & Claude",
     connectionType: "api_key",
     description:
-      "Lets Cursor and Claude see your today list, action cards, to-dos, and contacts. Generate a password here and save it. Cursor pastes it. Claude Cowork asks for it in the browser.",
+      "Lets Cursor and Claude see all of JasonOS: today, outreach, inbox, jobs, contacts, projects, briefs. Generate a password here and save it. Cursor pastes it. Claude Cowork asks for it in the browser. In Claude, allow every JasonOS tool.",
     features: ["Today", "Action queue", "To-dos", "Contacts"],
     configurable: true,
     disconnectable: true,

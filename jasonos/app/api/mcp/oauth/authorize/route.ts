@@ -46,7 +46,7 @@ function loginForm(params: URLSearchParams, error?: string) {
     .join("");
   return `
     <h1>Allow Claude to see JasonOS</h1>
-    <p>Paste the JasonOS password from Settings → Cursor &amp; Claude. This is the same password Cursor uses.</p>
+    <p>Paste the JasonOS password from Settings → Cursor &amp; Claude. This lets Claude read all of JasonOS: today, outreach, inbox, jobs, contacts, projects, briefs. Same password Cursor uses.</p>
     ${error ? `<p class="err">${escapeHtml(error)}</p>` : ""}
     <form method="post">
       ${hidden}

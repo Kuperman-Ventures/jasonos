@@ -8,12 +8,6 @@ import {
   tokensEqual,
 } from "./auth.ts";
 import {
-  authorizeMcpRequest,
-  extractBearer,
-  pickMcpToken,
-  tokensEqual,
-} from "./auth.ts";
-import {
   JASONOS_PRM_URL,
   authorizationServerMetadata,
   buildAuthorizeRedirect,
@@ -25,6 +19,7 @@ import {
   wwwAuthenticate,
 } from "./oauth.ts";
 import { registerJasonosTools } from "./register.ts";
+import { listJasonosAreas } from "./reads.ts";
 import { errorResult, jsonResult, sanitizeSearch } from "./result.ts";
 
 describe("MCP token compare", () => {
@@ -228,5 +223,17 @@ describe("registerJasonosTools", () => {
   it("registers tools on a server without throwing", () => {
     const server = new McpServer({ name: "jasonos-test", version: "0.0.0" });
     registerJasonosTools(server);
+  });
+});
+
+describe("JasonOS area map", () => {
+  it("points Claude at tools for the main dashboard areas", () => {
+    const map = listJasonosAreas();
+    const tools = map.areas.flatMap((area) => area.tools);
+    assert.ok(tools.includes("get_today"));
+    assert.ok(tools.includes("get_outreach_queue"));
+    assert.ok(tools.includes("get_inbox_dispatch"));
+    assert.ok(tools.includes("get_job_alerts"));
+    assert.ok(tools.includes("get_morning_brief"));
   });
 });

@@ -3,7 +3,7 @@ description: Live JasonOS today list, action cards, to-dos, contacts, and scoreb
 alwaysApply: false
 ---
 
-When Jason asks what is on his plate, what cards are open, or about contacts, use the **jasonos** tools if they are available.
+When Jason asks what is on his plate, what cards are open, about outreach, inbox, jobs, or contacts, use the **jasonos** tools if they are available. Start with list_jasonos_areas or get_status.
 
 If those tools are missing, tell him in plain language:
 

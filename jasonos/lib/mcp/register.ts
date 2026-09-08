@@ -14,11 +14,29 @@ import {
   searchContacts,
   updateCard,
 } from "./operations";
-import { runTool } from "./result";
+import {
+  getConnectionStatus,
+  getContact,
+  getInboxDispatch,
+  getJobAlerts,
+  getMorningBrief,
+  getOutreachQueue,
+  listAlerts,
+  listInterviewPreps,
+  listJasonosAreas,
+  listMeetings,
+  listOutreachPeople,
+  listPostMasterProjects,
+  listProjects,
+  listSuggestedContacts,
+} from "./reads";
+import { jsonResult, runTool } from "./result";
 
 export const JASONOS_MCP_INSTRUCTIONS = `JasonOS is Jason Kuperman's personal command center. Four tracks: venture, advisors, job_search, personal.
 
-Start with get_status, then get_today or list_action_cards. Use search_contacts before drafting outreach. Writes (add_todo, complete_todo, add_action_card, update_card, pin_card) change live JasonOS data — say what you changed.
+You have full read access. Start with list_jasonos_areas or get_status. Then pick the tool for the area Jason asked about (today, outreach, inbox, jobs, projects, brief). Use search_contacts or get_contact before drafting outreach.
+
+Writes (add_todo, complete_todo, add_action_card, update_card, pin_card) change live JasonOS data — say what you changed.
 
 Do not dump full JSON back to Jason. Summarize in plain English.`;
 
@@ -188,5 +206,180 @@ export function registerJasonosTools(server: McpServer) {
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async () => runTool(getScoreboard)
+  );
+
+  server.registerTool(
+    "list_jasonos_areas",
+    {
+      title: "JasonOS map",
+      description: "What Claude can see in JasonOS and which tool to use for each area.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => jsonResult(listJasonosAreas())
+  );
+
+  server.registerTool(
+    "get_morning_brief",
+    {
+      title: "Morning brief",
+      description: "Today's published morning brief, or the most recent one if today is not ready.",
+      inputSchema: z.object({
+        date: z.string().describe("YYYY-MM-DD").optional(),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => runTool(() => getMorningBrief(args))
+  );
+
+  server.registerTool(
+    "get_inbox_dispatch",
+    {
+      title: "Inbox dispatch",
+      description: "Boarding, holding, and noise from the published inbox triage. Truncated bodies, no Gmail dump.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => runTool(getInboxDispatch)
+  );
+
+  server.registerTool(
+    "get_outreach_queue",
+    {
+      title: "Outreach due",
+      description: "Contacts whose next touch is due or overdue (America/New_York date).",
+      inputSchema: z.object({
+        limit: z.number().int().min(1).max(80).optional(),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => runTool(() => getOutreachQueue(args))
+  );
+
+  server.registerTool(
+    "list_outreach_people",
+    {
+      title: "Outreach people",
+      description: "JasonOS people list. Filter by name/title search or intent.",
+      inputSchema: z.object({
+        query: z.string().max(80).optional(),
+        intent: z.string().max(80).optional(),
+        limit: z.number().int().min(1).max(60).optional(),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => runTool(() => listOutreachPeople(args))
+  );
+
+  server.registerTool(
+    "get_contact",
+    {
+      title: "Get contact",
+      description: "One contact plus recent touches. Pass id or name.",
+      inputSchema: z.object({
+        id: z.string().uuid().optional(),
+        name: z.string().max(80).optional(),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => runTool(() => getContact(args))
+  );
+
+  server.registerTool(
+    "list_suggested_contacts",
+    {
+      title: "Suggested contacts",
+      description: "New contact candidates waiting to be added or dismissed.",
+      inputSchema: z.object({
+        limit: z.number().int().min(1).max(50).optional(),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => runTool(() => listSuggestedContacts(args))
+  );
+
+  server.registerTool(
+    "list_meetings",
+    {
+      title: "Meetings",
+      description: "Recent and upcoming JasonOS meeting records.",
+      inputSchema: z.object({
+        limit: z.number().int().min(1).max(50).optional(),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => runTool(() => listMeetings(args))
+  );
+
+  server.registerTool(
+    "get_job_alerts",
+    {
+      title: "Job alerts",
+      description: "Harvested job listings, keyword capsules, and last scan time.",
+      inputSchema: z.object({
+        limit: z.number().int().min(1).max(60).optional(),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => runTool(() => getJobAlerts(args))
+  );
+
+  server.registerTool(
+    "list_interview_preps",
+    {
+      title: "Interview preps",
+      description: "Saved interview prep records (company and role).",
+      inputSchema: z.object({
+        limit: z.number().int().min(1).max(40).optional(),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => runTool(() => listInterviewPreps(args))
+  );
+
+  server.registerTool(
+    "list_alerts",
+    {
+      title: "Alerts",
+      description: "Open JasonOS alerts.",
+      inputSchema: z.object({
+        limit: z.number().int().min(1).max(60).optional(),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => runTool(() => listAlerts(args))
+  );
+
+  server.registerTool(
+    "list_projects",
+    {
+      title: "Projects",
+      description: "Active JasonOS projects and how many open to-dos each has.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => runTool(listProjects)
+  );
+
+  server.registerTool(
+    "list_post_master_projects",
+    {
+      title: "Post Master",
+      description: "Post Master drafts: title, step, topic. Not the full draft body.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => runTool(listPostMasterProjects)
+  );
+
+  server.registerTool(
+    "get_connection_status",
+    {
+      title: "Connection status",
+      description: "Which JasonOS integrations are connected. Never returns passwords or tokens.",
+      inputSchema: z.object({}),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async () => runTool(getConnectionStatus)
   );
 }

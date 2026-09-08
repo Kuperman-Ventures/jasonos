@@ -97,12 +97,15 @@ If nothing shows up, Claude Desktop often cannot find `npx`. In Terminal run `wh
 ## What you can ask once it works
 
 - What’s on my plate today?
+- What’s in the morning brief / inbox boarding list?
+- Who is overdue for outreach?
+- What job alerts came in?
 - What action cards are open?
 - Add a to-do to follow up with [name]
 - Find [person] in my contacts
 - How does the job scoreboard look?
 
-Those questions change live JasonOS data when they add or complete items.
+If Claude shows a permissions list for JasonOS tools, turn them all on. Then start a new chat.
 
 ## If it still fails
 
