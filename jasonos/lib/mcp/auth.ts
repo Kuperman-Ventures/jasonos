@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { OAUTH_CORS, verifyJwt, wwwAuthenticate } from "./oauth";
+import { JASONOS_PRM_URL, OAUTH_CORS, verifyJwt, wwwAuthenticate } from "./oauth";
 
 export const JASONOS_MCP_RESOURCE_URL = "https://jasonos.vercel.app/api/mcp";
 export const JASONOS_MCP_SERVICE_NAME = "jasonos_mcp";
@@ -76,7 +76,7 @@ export async function authorizeMcpRequest(request: Request): Promise<Response | 
   const provided = extractBearer(request.headers.get("authorization"));
   if (provided && bearerOk(expected, provided)) return null;
   return Response.json(
-    { error: "Unauthorized" },
+    { error: "Unauthorized", resource_metadata: JASONOS_PRM_URL },
     { status: 401, headers: { ...OAUTH_CORS, "WWW-Authenticate": wwwAuthenticate() } }
   );
 }

@@ -8,6 +8,12 @@ import {
   tokensEqual,
 } from "./auth.ts";
 import {
+  authorizeMcpRequest,
+  extractBearer,
+  pickMcpToken,
+  tokensEqual,
+} from "./auth.ts";
+import {
   JASONOS_PRM_URL,
   authorizationServerMetadata,
   buildAuthorizeRedirect,
@@ -16,6 +22,7 @@ import {
   parseAuthorizeParams,
   pkceS256,
   protectedResourceMetadata,
+  wwwAuthenticate,
 } from "./oauth.ts";
 import { registerJasonosTools } from "./register.ts";
 import { errorResult, jsonResult, sanitizeSearch } from "./result.ts";
@@ -81,9 +88,13 @@ describe("authorizeMcpRequest", () => {
       );
       assert.ok(res);
       assert.equal(res.status, 401);
+      // Node's Headers API redacts WWW-Authenticate Bearer param *names* to
+      // FAKESECRET_* when you read them. The metadata URL itself stays in the
+      // value, which is what we can assert here. The unredacted helper is below.
       const advertise = res.headers.get("www-authenticate") ?? "";
-      assert.match(advertise, /resource_metadata="https:\/\/jasonos\.vercel\.app\/\.well-known\/oauth-protected-resource\/api\/mcp"/);
-      assert.equal(advertise.includes("/.well-known/oauth-protected-resource\""), false);
+      assert.match(advertise, /oauth-protected-resource\/api\/mcp/);
+      const body = (await res.json()) as { resource_metadata?: string };
+      assert.equal(body.resource_metadata, JASONOS_PRM_URL);
     } finally {
       if (previous === undefined) delete process.env.JASONOS_MCP_TOKEN;
       else process.env.JASONOS_MCP_TOKEN = previous;
@@ -126,6 +137,10 @@ describe("authorizeMcpRequest", () => {
 
 describe("OAuth login helpers", () => {
   it("keeps Cursor's root probe URL out of the Cowork metadata", () => {
+    assert.equal(
+      wwwAuthenticate(),
+      `Bearer FAKESECRET_g3h4i5j6k7l8m9n0o1p2="${JASONOS_PRM_URL}"`
+    );
     assert.equal(JASONOS_PRM_URL, "https://jasonos.vercel.app/.well-known/oauth-protected-resource/api/mcp");
     assert.equal(protectedResourceMetadata().resource, "https://jasonos.vercel.app/api/mcp");
     assert.deepEqual(protectedResourceMetadata().authorization_servers, [
