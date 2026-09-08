@@ -685,6 +685,13 @@ function ServiceCard({
         <p className="mt-2 text-xs text-muted-foreground">Managed via Cursor MCP.</p>
       ) : null}
 
+      {definition.name === "jasonos_mcp" ? (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Token lives in Vercel as JASONOS_MCP_TOKEN. Claude Desktop config is in
+          the repo doc: jasonos/docs/claude-desktop-mcp.md.
+        </p>
+      ) : null}
+
       {definition.name === "dispatch" ? (
         <p className="mt-2 text-xs text-muted-foreground">
           {dispatchSummary.pendingCount} pending · last completed{" "}

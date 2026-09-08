@@ -57,6 +57,14 @@ The dashboard only renders live values or explicit empty states. The Tell Claude
 command palette (`⌘K`) needs `AI_GATEWAY_API_KEY` to respond; without it,
 clicking it shows a "needs configuration" toast.
 
+## Claude Desktop MCP
+
+JasonOS can expose itself as an MCP server so Claude Desktop (and Cursor) can
+read today / action cards / to-dos / contacts and write a few of those back.
+
+Setup: [Claude Desktop MCP](docs/claude-desktop-mcp.md). Live URL after deploy:
+`https://jasonos.vercel.app/api/mcp` (requires `JASONOS_MCP_TOKEN`).
+
 ## Supabase setup
 
 1. Open the Supabase project that already hosts CoSA.

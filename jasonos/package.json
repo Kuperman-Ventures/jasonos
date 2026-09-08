@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --test lib/integrations/unwrap-forwarded-mail.test.ts lib/integrations/beeper-text-pref.test.ts lib/data/brief-links.test.ts lib/outreach/contact-lookup.test.ts lib/outreach/people-sort.test.ts lib/outreach/suggested-scan.test.ts && npx tsx --test lib/iugr/scenarioMath.test.ts lib/iugr/scenarioEngine.test.ts lib/iugr/evidenceClaims.test.ts lib/iugr/motion.test.ts lib/data/parse-morning-brief.test.ts lib/data/brief-outbound.test.ts lib/outreach/calendar-matching.test.ts",
+    "test": "node --experimental-strip-types --test lib/integrations/unwrap-forwarded-mail.test.ts lib/integrations/beeper-text-pref.test.ts lib/data/brief-links.test.ts lib/outreach/contact-lookup.test.ts lib/outreach/people-sort.test.ts lib/outreach/suggested-scan.test.ts && npx tsx --test lib/iugr/scenarioMath.test.ts lib/iugr/scenarioEngine.test.ts lib/iugr/evidenceClaims.test.ts lib/iugr/motion.test.ts lib/data/parse-morning-brief.test.ts lib/data/brief-outbound.test.ts lib/outreach/calendar-matching.test.ts lib/mcp/mcp.test.ts",
+    "mcp": "tsx mcp/stdio.ts",
     "seed:reconnect": "node scripts/seed-reconnect.mjs"
   },
   "dependencies": {
@@ -15,6 +16,7 @@
     "@ai-sdk/gateway": "^3.0.104",
     "@anthropic-ai/sdk": "^0.115.0",
     "@base-ui/react": "^1.4.1",
+    "@modelcontextprotocol/server": "^2.0.0",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.104.0",
     "@types/papaparse": "^5.5.2",
@@ -27,6 +29,7 @@
     "date-fns": "^4.1.0",
     "lucide-react": "^1.8.0",
     "mammoth": "^1.12.0",
+    "mcp-handler": "^2.1.1",
     "next": "16.2.4",
     "next-themes": "^0.4.6",
     "papaparse": "^5.5.3",
@@ -53,6 +56,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
     "tailwindcss": "^4",
+    "tsx": "^4.23.13",
     "typescript": "^5"
   }
 }

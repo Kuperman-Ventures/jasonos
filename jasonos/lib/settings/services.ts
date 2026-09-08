@@ -197,6 +197,17 @@ export const SERVICE_DEFINITIONS: ServiceDefinition[] = [
     ],
   },
   {
+    name: "jasonos_mcp",
+    label: "Claude Desktop (JasonOS MCP)",
+    connectionType: "env_var",
+    description:
+      "Lets Claude Desktop (and Cursor) read and update JasonOS: today, action cards, to-dos, contacts, scoreboard. Set JASONOS_MCP_TOKEN in Vercel, then follow jasonos/docs/claude-desktop-mcp.md.",
+    features: ["Today", "Action queue", "To-dos", "Contacts"],
+    configurable: false,
+    disconnectable: false,
+    envVars: ["JASONOS_MCP_TOKEN"],
+  },
+  {
     name: "dispatch",
     label: "Dispatch",
     connectionType: "webhook",
