@@ -57,14 +57,11 @@ The dashboard only renders live values or explicit empty states. The Tell Claude
 command palette (`⌘K`) needs `AI_GATEWAY_API_KEY` to respond; without it,
 clicking it shows a "needs configuration" toast.
 
-## Claude Desktop MCP
+## Cursor & Claude
 
-JasonOS can expose itself as an MCP server so Claude Desktop (and Cursor) can
-read today / action cards / to-dos / contacts and write a few of those back.
-
-Setup: [Claude Desktop MCP](docs/claude-desktop-mcp.md). Cursor discovers the
-server from the repo file `.cursor/mcp.json` once `JASONOS_MCP_TOKEN` is set.
-Live URL after deploy: `https://jasonos.vercel.app/api/mcp`.
+Cursor and Claude can see your live JasonOS list once you make a password in
+Settings and paste it into Cursor. Walkthrough:
+[Let Cursor and Claude see JasonOS](docs/claude-desktop-mcp.md).
 
 ## Supabase setup
 

@@ -62,7 +62,7 @@ export async function authorizeMcpRequest(request: Request): Promise<Response | 
     return Response.json(
       {
         error:
-          "JasonOS MCP is not configured. Save a token in Settings → Claude Desktop (JasonOS MCP), or set JASONOS_MCP_TOKEN.",
+          "JasonOS is not open to Cursor yet. Open Settings, find Cursor & Claude, Generate password, Save.",
       },
       { status: 503 }
     );

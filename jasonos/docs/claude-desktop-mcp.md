@@ -1,48 +1,55 @@
-# Connect Cursor and Claude Desktop to JasonOS
+# Let Cursor and Claude see JasonOS
 
-JasonOS already *uses* MCP inbound (Gmail, Calendar, EncoreOS via Cursor). This is the other direction: **Cursor / Claude Desktop talks to JasonOS**.
+You want to type “what’s on my plate today?” in Cursor or Claude and get the real JasonOS list, not a guess.
 
-After this is live, you can ask Cursor things like "what's on my plate today?" or "add a to-do to follow up with X" and it reads/writes the same database the dashboard uses.
+You make one password in JasonOS. You paste that same password into Cursor (and Claude Desktop if you use it). Then they are allowed in.
 
-## Cursor (this is how Cursor finds it)
+Do the steps in order. Skip Claude Desktop if you only care about Cursor.
 
-Cursor does not guess the connection from Settings copy. It loads a file named `mcp.json`.
+## 1. Make the password in JasonOS
 
-That file is now in the repo: [`.cursor/mcp.json`](../../.cursor/mcp.json). It points at:
+1. Open JasonOS → **Settings**.
+2. Find the card named **Cursor & Claude**.
+3. Click **Configure**.
+4. Click **Generate password**.
+5. Click **Copy password**. It is now on your clipboard.
+6. Click **Save**.
 
-`https://jasonos.vercel.app/api/mcp`
+Keep that password handy. You will paste it in the next section.
 
-### Make Cursor actually load it
+## 2. Give the password to Cursor
 
-1. In JasonOS **Settings → Claude Desktop (JasonOS MCP)**, Generate token → Save.
-2. Put that **same** value in your environment as `JASONOS_MCP_TOKEN` (shell profile, or Vercel env for Cloud Agents). Cursor interpolates `${env:JASONOS_MCP_TOKEN}` from `.cursor/mcp.json`. It will not pick the token out of the JasonOS Settings database by itself.
-3. In Cursor: **Settings → Tools & MCP** (Customize → MCP). Enable **jasonos**.
-4. Start a new chat. Ask: **What's open on JasonOS today?**
+1. In Cursor, open **Settings**.
+2. Open **MCP** (it may sit under Tools & MCP).
+3. Add a new MCP server.
+4. Paste the block below. Replace `YOUR_PASSWORD` with the password you copied.
 
-If it still shows as disconnected:
+```json
+{
+  "mcpServers": {
+    "jasonos": {
+      "url": "https://jasonos.vercel.app/api/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_PASSWORD"
+      }
+    }
+  }
+}
+```
 
-- Output panel (Cmd+Shift+U) → **MCP Logs**.
-- Confirm the token in Cursor's environment matches the one you saved. Empty `${env:JASONOS_MCP_TOKEN}` looks like "can't find the connection."
-- Production must be serving `/api/mcp`. Preview URLs are Vercel-SSO locked; Cursor cannot use them.
-- Do not add the server as an OAuth custom connector. This endpoint uses a bearer token. Cursor should send the `Authorization` header from `mcp.json` and skip OAuth.
+5. Save. You should see a server named **jasonos**. Turn it on if it is off.
+6. Start a **new** Cursor chat (old chats will not pick this up).
+7. Type: `What's on my plate in JasonOS today?`
 
-## Token (Settings first, Vercel as fallback)
+If jasonos shows an error, the password in that paste does not match what you saved in JasonOS. Generate a new password, Save, paste again.
 
-1. JasonOS Settings → Claude Desktop (JasonOS MCP) → Generate token → Save.
-   Or: `openssl rand -hex 32`
-2. Optional fallback: add `JASONOS_MCP_TOKEN` in **Vercel → jasonos project → Environment Variables** (Production + Preview) with the same value. The HTTP server uses the Settings token first, then this env var.
-3. Cursor still needs `JASONOS_MCP_TOKEN` in **its** environment so `mcp.json` can fill the header.
+## 3. Give the password to Claude Desktop (optional)
 
-Do not put the token in git.
+Only if you also use the Claude Desktop app.
 
-## Claude Desktop
-
-Desktop's config file only launches local processes. A small proxy (`mcp-remote`) forwards to the live URL.
-
-1. Open Claude Desktop → **Settings → Developer → Edit Config**:
-   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
-2. Merge this into `mcpServers` (keep any servers you already have):
+1. Open Claude Desktop.
+2. Go to **Settings → Developer → Edit Config**. A file opens.
+3. Paste the block below next to any servers already in the file. Replace `YOUR_PASSWORD` with the same password.
 
 ```json
 {
@@ -57,68 +64,40 @@ Desktop's config file only launches local processes. A small proxy (`mcp-remote`
         "Authorization:${JASONOS_MCP_AUTH}"
       ],
       "env": {
-        "JASONOS_MCP_AUTH": "Bearer PASTE_THE_TOKEN_HERE"
+        "JASONOS_MCP_AUTH": "Bearer YOUR_PASSWORD"
       }
     }
   }
 }
 ```
 
-3. Fully quit and reopen Claude Desktop.
-4. If tools don't appear: Developer → MCP logs. The usual miss is PATH. Set `"command"` to `which npx` (often `/opt/homebrew/bin/npx`).
+4. Save the file.
+5. Quit Claude Desktop all the way (**Claude → Quit Claude**), then open it again.
+6. Start a new chat. Type: `What's on my plate in JasonOS today?`
 
-### Claude.ai / Cowork custom connector
+If nothing shows up, Claude Desktop often cannot find `npx`. In Terminal run `which npx`, then in the file above change `"command": "npx"` to that full path (often `/opt/homebrew/bin/npx`).
 
-That UI is built for OAuth. This server uses a static bearer token, so **Cursor `mcp.json` and Desktop + mcp-remote** are the clients that work today.
+## What you can ask once it works
 
-## Local stdio (repo on this Mac)
+- What’s on my plate today?
+- What action cards are open?
+- Add a to-do to follow up with [name]
+- Find [person] in my contacts
+- How does the job scoreboard look?
 
-From the `jasonos/` folder, `npm run mcp` starts a stdio server that reads `.env.local` (needs `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`). It does **not** need `JASONOS_MCP_TOKEN`.
+Those questions change live JasonOS data when they add or complete items.
 
-Claude Desktop config:
+## If it still fails
 
-```json
-{
-  "mcpServers": {
-    "jasonos": {
-      "command": "/opt/homebrew/bin/npx",
-      "args": ["tsx", "mcp/stdio.ts"],
-      "cwd": "/ABSOLUTE/PATH/TO/repo/jasonos"
-    }
-  }
-}
-```
+- Use the live site, [jasonos.vercel.app](https://jasonos.vercel.app), not a preview link.
+- Always start a new chat after you change the password.
+- The password in JasonOS Settings and the password you pasted must match exactly.
+- Claude on the web (claude.ai) cannot use this yet. Cursor and Claude Desktop can.
 
-Point `command` at your real `npx`. `cwd` must be the Next.js app folder (`jasonos/`), not the repo root.
+Treat the password like any other password. If it leaks, generate a new one in Settings, Save, and paste it into Cursor and Claude again.
 
-## What the tools can do
+## Files (for later)
 
-Read:
-
-- `get_status` — open cards, to-dos, today's task count
-- `get_today` — today's queue + timer state
-- `list_action_cards` — action queue
-- `get_must_dos` — latest Best Next Action ranking
-- `list_todos`
-- `search_contacts`
-- `get_scoreboard` — job applications
-
-Write (changes live data):
-
-- `add_todo` / `complete_todo`
-- `add_action_card`
-- `update_card` (actioned / dismissed / snoozed / archived)
-- `pin_card`
-
-Writes are tagged (`tags: mcp` on to-dos; `linked_object_ids.source = claude_desktop_mcp` on cards).
-
-## Security
-
-The HTTP endpoint is on the public internet. Anyone with the token can read and change JasonOS. Treat it like a password. Rotate it in Settings (and update `JASONOS_MCP_TOKEN`) if it leaks.
-
-## Code
-
-- Cursor discovery file: [`.cursor/mcp.json`](../../.cursor/mcp.json)
-- HTTP route: [`jasonos/app/api/mcp/route.ts`](../app/api/mcp/route.ts)
-- Tools: [`jasonos/lib/mcp/register.ts`](../lib/mcp/register.ts)
-- Local stdio: [`jasonos/mcp/stdio.ts`](../mcp/stdio.ts)
+- This guide: [jasonos/docs/claude-desktop-mcp.md](claude-desktop-mcp.md)
+- Cursor project file: [`.cursor/mcp.json`](../../.cursor/mcp.json)
+- Server code: [`jasonos/app/api/mcp/route.ts`](../app/api/mcp/route.ts)

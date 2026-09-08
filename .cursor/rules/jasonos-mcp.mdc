@@ -1,17 +1,14 @@
 ---
-description: Live JasonOS data (today, action cards, to-dos, contacts, scoreboard) via the jasonos MCP server
+description: Live JasonOS today list, action cards, to-dos, contacts, and scoreboard
 alwaysApply: false
 ---
 
-# JasonOS MCP
+When Jason asks what is on his plate, what cards are open, or about contacts, use the **jasonos** tools if they are available.
 
-When the user asks about live JasonOS state — today's queue, action cards, to-dos, contacts, must-dos, job scoreboard — use the **jasonos** MCP tools (`get_status`, `get_today`, `list_action_cards`, `list_todos`, `search_contacts`, `get_scoreboard`, and the write tools).
+If those tools are missing, tell him in plain language:
 
-Do not scrape the dashboard or guess from code when those tools are available.
+1. Open JasonOS Settings → Cursor & Claude → Generate password → Copy → Save.
+2. In Cursor: Settings → MCP → add the jasonos server and paste that same password.
+3. Start a new chat.
 
-If jasonos MCP tools are not in this session:
-
-1. The server is declared in [`.cursor/mcp.json`](.cursor/mcp.json).
-2. Cursor only loads it when `JASONOS_MCP_TOKEN` is set in the environment (same secret saved in JasonOS Settings → Claude Desktop / JasonOS MCP).
-3. On desktop Cursor: **Settings → Tools & MCP** (or Customize → MCP) → enable **jasonos**.
-4. Tell Jason those two steps. Do not invent live dashboard numbers.
+Do not invent live dashboard numbers. Full walkthrough: [jasonos/docs/claude-desktop-mcp.md](jasonos/docs/claude-desktop-mcp.md).

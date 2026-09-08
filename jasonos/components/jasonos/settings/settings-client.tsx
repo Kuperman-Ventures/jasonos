@@ -586,6 +586,7 @@ function ServiceCard({
     return {} as Record<string, string>;
   });
   const [isPending, startTransition] = useTransition();
+  const [mcpPassword, setMcpPassword] = useState("");
   const Icon = CONNECTION_ICONS[definition.connectionType];
 
   const test = () => {
@@ -687,11 +688,11 @@ function ServiceCard({
       ) : null}
 
       {definition.name === "jasonos_mcp" ? (
-        <p className="mt-2 text-xs text-muted-foreground">
-          Cursor reads this from <code className="text-[11px]">.cursor/mcp.json</code>.
-          Save a token here, put the same value in <code className="text-[11px]">JASONOS_MCP_TOKEN</code>,
-          then enable <strong>jasonos</strong> under Cursor Settings → Tools &amp; MCP.
-        </p>
+        <ol className="mt-2 list-decimal space-y-1 pl-4 text-xs text-muted-foreground">
+          <li>Click Configure, then Generate password, then Copy password, then Save.</li>
+          <li>In Cursor, open Settings → MCP, add a server, and paste that same password where the guide says YOUR_PASSWORD.</li>
+          <li>Start a new Cursor chat and ask: What is on my plate in JasonOS today?</li>
+        </ol>
       ) : null}
 
       {definition.name === "dispatch" ? (
@@ -752,45 +753,51 @@ function ServiceCard({
                     }
                   />
                   {definition.name === "jasonos_mcp" && field.name === "api_key" ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="mt-2"
-                      onClick={() => {
-                        const bytes = new Uint8Array(32);
-                        crypto.getRandomValues(bytes);
-                        const token = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-                        setCredentials((current) => ({ ...current, api_key: token }));
-                        toast.message("Token generated. Save it, then paste the same value as JASONOS_MCP_TOKEN for Cursor.");
-                      }}
-                    >
-                      Generate token
-                    </Button>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const bytes = new Uint8Array(32);
+                          crypto.getRandomValues(bytes);
+                          const token = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+                          setCredentials((current) => ({ ...current, api_key: token }));
+                          setMcpPassword(token);
+                          toast.message("Password created. Copy it, then click Save.");
+                        }}
+                      >
+                        Generate password
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={!mcpPassword}
+                        onClick={async () => {
+                          await navigator.clipboard.writeText(mcpPassword);
+                          toast.success("Password copied. Paste it into Cursor next.");
+                        }}
+                      >
+                        <Copy className="mr-1.5 h-3.5 w-3.5" />
+                        Copy password
+                      </Button>
+                    </div>
+                  ) : null}
+                  {definition.name === "jasonos_mcp" && mcpPassword ? (
+                    <p className="mt-2 break-all rounded-md border bg-background px-2 py-1 font-mono text-[11px] text-foreground">
+                      {mcpPassword}
+                    </p>
                   ) : null}
                 </label>
               )
             ))}
           </div>
           {definition.name === "jasonos_mcp" ? (
-            <div className="mt-3 space-y-2 rounded-md border bg-background/60 p-3 text-xs">
-              <p className="font-medium text-foreground">Cursor config (already in the repo)</p>
-              <p className="text-muted-foreground">
-                Endpoint: https://jasonos.vercel.app/api/mcp
-              </p>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={async () => {
-                  await navigator.clipboard.writeText("https://jasonos.vercel.app/api/mcp");
-                  toast.success("Copied MCP URL");
-                }}
-              >
-                <Copy className="mr-1.5 h-3.5 w-3.5" />
-                Copy URL
-              </Button>
-            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              After Save, open Cursor → Settings → MCP, add the jasonos server, and paste
+              this password where the paste-block says YOUR_PASSWORD.
+            </p>
           ) : null}
           <div className="mt-3 flex flex-wrap gap-2">
             <Button size="sm" onClick={() => save(false)} disabled={isPending}>

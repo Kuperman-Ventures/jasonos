@@ -198,10 +198,10 @@ export const SERVICE_DEFINITIONS: ServiceDefinition[] = [
   },
   {
     name: "jasonos_mcp",
-    label: "Claude Desktop (JasonOS MCP)",
+    label: "Cursor & Claude",
     connectionType: "api_key",
     description:
-      "Shared secret so Claude Desktop and Cursor can read and update JasonOS (today, action cards, to-dos, contacts, scoreboard). Paste or generate a token here — the MCP endpoint uses the Settings token first, then JASONOS_MCP_TOKEN.",
+      "Lets Cursor and Claude see your today list, action cards, to-dos, and contacts. Generate a password here, save it, then paste that same password into Cursor.",
     features: ["Today", "Action queue", "To-dos", "Contacts"],
     configurable: true,
     disconnectable: true,
@@ -209,10 +209,10 @@ export const SERVICE_DEFINITIONS: ServiceDefinition[] = [
     fields: [
       {
         name: "api_key",
-        label: "MCP access token",
+        label: "Password",
         type: "password",
         required: true,
-        placeholder: "Generate or paste a long secret",
+        placeholder: "Click Generate password",
       },
     ],
   },

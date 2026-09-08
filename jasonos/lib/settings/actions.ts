@@ -289,14 +289,14 @@ export async function testServiceConnection(
     if (!token) {
       return {
         success: false,
-        message: "Paste or generate an MCP token (or set JASONOS_MCP_TOKEN).",
+        message: "No password yet. Click Configure, Generate password, then Save.",
         health_status: "down",
       };
     }
     return {
       success: true,
       message:
-        "Token is set. Point Claude Desktop at https://jasonos.vercel.app/api/mcp with Authorization: Bearer <this token>.",
+        message: "Password saved. Paste that same password into Cursor (Settings → MCP).",
       health_status: "healthy",
     };
   }
