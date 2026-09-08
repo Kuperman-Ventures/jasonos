@@ -9,6 +9,7 @@ If those tools are missing, tell him in plain language:
 
 1. Open JasonOS Settings → Cursor & Claude → Generate password → Copy → Save.
 2. In Cursor: Settings → MCP → add the jasonos server and paste that same password.
-3. Start a new chat.
+3. In Claude Cowork: Settings → Connectors → Add custom connector named JasonOS, URL https://jasonos.vercel.app/api/mcp, then paste the same password on the JasonOS login page.
+4. Start a new chat.
 
 Do not invent live dashboard numbers. Full walkthrough: [jasonos/docs/claude-desktop-mcp.md](jasonos/docs/claude-desktop-mcp.md).

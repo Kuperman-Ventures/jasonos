@@ -295,7 +295,8 @@ export async function testServiceConnection(
     }
     return {
       success: true,
-      message: "Password saved. Paste that same password into Cursor (Settings → MCP).",
+      message:
+        "Password saved. Paste it into Cursor MCP, or into Claude when the login page asks.",
       health_status: "healthy",
     };
   }

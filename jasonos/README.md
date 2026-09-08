@@ -59,8 +59,7 @@ clicking it shows a "needs configuration" toast.
 
 ## Cursor & Claude
 
-Cursor and Claude can see your live JasonOS list once you make a password in
-Settings and paste it into Cursor. Walkthrough:
+Cursor pastes a password. Claude Cowork opens a JasonOS login page and asks for the same password. Walkthrough:
 [Let Cursor and Claude see JasonOS](docs/claude-desktop-mcp.md).
 
 ## Supabase setup

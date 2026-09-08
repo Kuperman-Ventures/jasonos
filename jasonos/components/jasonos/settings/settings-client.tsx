@@ -690,8 +690,12 @@ function ServiceCard({
       {definition.name === "jasonos_mcp" ? (
         <ol className="mt-2 list-decimal space-y-1 pl-4 text-xs text-muted-foreground">
           <li>Click Configure, then Generate password, then Copy password, then Save.</li>
-          <li>In Cursor, open Settings → MCP, add a server, and paste that same password where the guide says YOUR_PASSWORD.</li>
-          <li>Start a new Cursor chat and ask: What is on my plate in JasonOS today?</li>
+          <li>Cursor: Settings → MCP, add jasonos, paste that password where the guide says YOUR_PASSWORD.</li>
+          <li>
+            Claude Cowork: Settings → Connectors → Add custom connector. Name it JasonOS. URL:{" "}
+            https://jasonos.vercel.app/api/mcp. When the browser asks, paste the same password.
+          </li>
+          <li>Start a new chat and ask: What is on my plate in JasonOS today?</li>
         </ol>
       ) : null}
 
@@ -776,7 +780,7 @@ function ServiceCard({
                         disabled={!mcpPassword}
                         onClick={async () => {
                           await navigator.clipboard.writeText(mcpPassword);
-                          toast.success("Password copied. Paste it into Cursor next.");
+                          toast.success("Password copied. Cursor pastes it. Claude asks for it in the browser.");
                         }}
                       >
                         <Copy className="mr-1.5 h-3.5 w-3.5" />
@@ -795,8 +799,8 @@ function ServiceCard({
           </div>
           {definition.name === "jasonos_mcp" ? (
             <p className="mt-3 text-xs text-muted-foreground">
-              After Save, open Cursor → Settings → MCP, add the jasonos server, and paste
-              this password where the paste-block says YOUR_PASSWORD.
+              After Save, paste this password into Cursor MCP, or into the Claude
+              login page when Cowork asks.
             </p>
           ) : null}
           <div className="mt-3 flex flex-wrap gap-2">

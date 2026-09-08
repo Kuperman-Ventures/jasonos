@@ -1,6 +1,7 @@
 import { createMcpHandler } from "mcp-handler";
 import { JASONOS_MCP_INSTRUCTIONS, registerJasonosTools } from "@/lib/mcp/register";
 import { authorizeMcpRequest } from "@/lib/mcp/auth";
+import { oauthOptions } from "@/lib/mcp/oauth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -20,6 +21,10 @@ async function guard(request: Request) {
   const denied = await authorizeMcpRequest(request);
   if (denied) return denied;
   return mcpHandler(request);
+}
+
+export function OPTIONS() {
+  return oauthOptions();
 }
 
 export { guard as GET, guard as POST, guard as DELETE };

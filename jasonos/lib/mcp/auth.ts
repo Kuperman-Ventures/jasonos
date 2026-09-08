@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { OAUTH_CORS, verifyJwt, wwwAuthenticate } from "./oauth";
 
 export const JASONOS_MCP_RESOURCE_URL = "https://jasonos.vercel.app/api/mcp";
 export const JASONOS_MCP_SERVICE_NAME = "jasonos_mcp";
@@ -50,11 +51,16 @@ export async function mcpTokenConfigured(): Promise<boolean> {
   return Boolean(await resolveMcpToken());
 }
 
+function bearerOk(expected: string, provided: string) {
+  if (tokensEqual(expected, provided)) return true;
+  const jwt = verifyJwt(provided, expected);
+  return jwt?.typ === "access";
+}
+
 /**
- * Static bearer check with no OAuth discovery.
- * Cursor ignores configured Authorization headers when a server advertises
- * RFC 9728 protected-resource metadata (WWW-Authenticate + well-known).
- * Return 401/503 with a JSON body only.
+ * Accepts the Settings password or a Cowork/Claude login token.
+ * Unauthenticated 401s point Cowork at the login metadata (path-specific,
+ * so Cursor's root well-known probe still 404s and keeps using its header).
  */
 export async function authorizeMcpRequest(request: Request): Promise<Response | null> {
   const expected = await resolveMcpToken();
@@ -62,14 +68,15 @@ export async function authorizeMcpRequest(request: Request): Promise<Response | 
     return Response.json(
       {
         error:
-          "JasonOS is not open to Cursor yet. Open Settings, find Cursor & Claude, Generate password, Save.",
+          "JasonOS is not open yet. Open Settings, find Cursor & Claude, Generate password, Save.",
       },
       { status: 503 }
     );
   }
   const provided = extractBearer(request.headers.get("authorization"));
-  if (!provided || !tokensEqual(expected, provided)) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  return null;
+  if (provided && bearerOk(expected, provided)) return null;
+  return Response.json(
+    { error: "Unauthorized" },
+    { status: 401, headers: { ...OAUTH_CORS, "WWW-Authenticate": wwwAuthenticate() } }
+  );
 }

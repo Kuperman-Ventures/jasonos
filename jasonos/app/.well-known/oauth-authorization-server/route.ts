@@ -6,3 +6,7 @@ export function GET() {
 export function POST() {
   return new Response(null, { status: 404 });
 }
+
+export function OPTIONS() {
+  return new Response(null, { status: 404 });
+}

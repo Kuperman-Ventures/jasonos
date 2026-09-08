@@ -7,6 +7,16 @@ import {
   pickMcpToken,
   tokensEqual,
 } from "./auth.ts";
+import {
+  JASONOS_PRM_URL,
+  authorizationServerMetadata,
+  buildAuthorizeRedirect,
+  exchangeOAuthToken,
+  issueAccessToken,
+  parseAuthorizeParams,
+  pkceS256,
+  protectedResourceMetadata,
+} from "./oauth.ts";
 import { registerJasonosTools } from "./register.ts";
 import { errorResult, jsonResult, sanitizeSearch } from "./result.ts";
 
@@ -60,7 +70,7 @@ describe("authorizeMcpRequest", () => {
     }
   });
 
-  it("returns 401 without advertising OAuth", async () => {
+  it("returns 401 that points Cowork at path-specific login metadata", async () => {
     const previous = process.env.JASONOS_MCP_TOKEN;
     process.env.JASONOS_MCP_TOKEN = "test-token-value";
     try {
@@ -71,7 +81,9 @@ describe("authorizeMcpRequest", () => {
       );
       assert.ok(res);
       assert.equal(res.status, 401);
-      assert.equal(res.headers.get("www-authenticate"), null);
+      const advertise = res.headers.get("www-authenticate") ?? "";
+      assert.match(advertise, /resource_metadata="https:\/\/jasonos\.vercel\.app\/\.well-known\/oauth-protected-resource\/api\/mcp"/);
+      assert.equal(advertise.includes("/.well-known/oauth-protected-resource\""), false);
     } finally {
       if (previous === undefined) delete process.env.JASONOS_MCP_TOKEN;
       else process.env.JASONOS_MCP_TOKEN = previous;
@@ -92,6 +104,90 @@ describe("authorizeMcpRequest", () => {
       if (previous === undefined) delete process.env.JASONOS_MCP_TOKEN;
       else process.env.JASONOS_MCP_TOKEN = previous;
     }
+  });
+
+  it("allows a Cowork login token signed with the Settings password", async () => {
+    const previous = process.env.JASONOS_MCP_TOKEN;
+    process.env.JASONOS_MCP_TOKEN = "test-token-value";
+    try {
+      const { access_token } = issueAccessToken("test-token-value");
+      const res = await authorizeMcpRequest(
+        new Request("https://jasonos.vercel.app/api/mcp", {
+          headers: { Authorization: `Bearer ${access_token}` },
+        })
+      );
+      assert.equal(res, null);
+    } finally {
+      if (previous === undefined) delete process.env.JASONOS_MCP_TOKEN;
+      else process.env.JASONOS_MCP_TOKEN = previous;
+    }
+  });
+});
+
+describe("OAuth login helpers", () => {
+  it("keeps Cursor's root probe URL out of the Cowork metadata", () => {
+    assert.equal(JASONOS_PRM_URL, "https://jasonos.vercel.app/.well-known/oauth-protected-resource/api/mcp");
+    assert.equal(protectedResourceMetadata().resource, "https://jasonos.vercel.app/api/mcp");
+    assert.deepEqual(protectedResourceMetadata().authorization_servers, [
+      "https://jasonos.vercel.app/api/mcp/oauth",
+    ]);
+    assert.equal(
+      authorizationServerMetadata().authorization_endpoint,
+      "https://jasonos.vercel.app/api/mcp/oauth/authorize"
+    );
+  });
+
+  it("rejects a bad return address instead of redirecting there", () => {
+    const parsed = parseAuthorizeParams(
+      new URLSearchParams({
+        client_id: "claude",
+        redirect_uri: "http://evil.example/callback",
+        code_challenge: "a".repeat(43),
+        code_challenge_method: "S256",
+        response_type: "code",
+      })
+    );
+    assert.equal(parsed.ok, false);
+  });
+
+  it("issues a code and exchanges it with PKCE", () => {
+    const secret = "settings-password";
+    const verifier = `v${"a".repeat(42)}`;
+    const parsed = parseAuthorizeParams(
+      new URLSearchParams({
+        client_id: "claude",
+        redirect_uri: "https://claude.ai/api/mcp/auth_callback",
+        code_challenge: pkceS256(verifier),
+        code_challenge_method: "S256",
+        response_type: "code",
+        state: "abc",
+        resource: "https://jasonos.vercel.app/api/mcp",
+      })
+    );
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    const issued = buildAuthorizeRedirect(secret, parsed.value);
+    assert.equal(issued.ok, true);
+    if (!issued.ok) return;
+    const code = new URL(issued.redirect).searchParams.get("code") ?? "";
+    const ok = exchangeOAuthToken(secret, (key) => {
+      if (key === "grant_type") return "authorization_code";
+      if (key === "code") return code;
+      if (key === "code_verifier") return verifier;
+      if (key === "redirect_uri") return parsed.value.redirectUri;
+      return "";
+    });
+    assert.equal(ok.status, 200);
+    assert.equal(typeof ok.body.access_token, "string");
+
+    const bad = exchangeOAuthToken(secret, (key) => {
+      if (key === "grant_type") return "authorization_code";
+      if (key === "code") return code;
+      if (key === "code_verifier") return "wrong-verifier-wrong-verifier-wrong";
+      if (key === "redirect_uri") return parsed.value.redirectUri;
+      return "";
+    });
+    assert.equal(bad.status, 400);
   });
 });
 
