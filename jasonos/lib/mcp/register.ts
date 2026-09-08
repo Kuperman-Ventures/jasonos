@@ -34,7 +34,7 @@ import { jsonResult, runTool } from "./result";
 
 export const JASONOS_MCP_INSTRUCTIONS = `JasonOS is Jason Kuperman's personal command center. Four tracks: venture, advisors, job_search, personal.
 
-You have full read access. Start with list_jasonos_areas or get_status. Then pick the tool for the area Jason asked about (today, outreach, inbox, jobs, projects, brief). Use search_contacts or get_contact before drafting outreach.
+You have full read access. Start with list_jasonos_areas or get_status. get_status.alerts lists the issues behind critical_alerts; get_alerts / list_alerts return the same records. Then pick the tool for the area Jason asked about (today, outreach, inbox, jobs, projects, brief). Use search_contacts or get_contact before drafting outreach.
 
 Writes (add_todo, complete_todo, add_action_card, update_card, pin_card) change live JasonOS data — say what you changed.
 
@@ -47,7 +47,8 @@ export function registerJasonosTools(server: McpServer) {
     "get_status",
     {
       title: "JasonOS status",
-      description: "Open cards, open to-dos, today's task count, and critical alerts.",
+      description:
+        "Open cards, open to-dos, today's task count, and critical alerts. critical_alerts is the count; alerts[] is the actual issues. Use get_alerts or list_alerts for the full open-alert list.",
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
@@ -201,7 +202,8 @@ export function registerJasonosTools(server: McpServer) {
     "get_scoreboard",
     {
       title: "Job scoreboard",
-      description: "Job-application pipeline counts and the most recent applications.",
+      description:
+        "Job-application pipeline. One row per real application (NYUI follow-ups are linked, not counted twice). Status and result stay in sync.",
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
@@ -338,10 +340,25 @@ export function registerJasonosTools(server: McpServer) {
   );
 
   server.registerTool(
+    "get_alerts",
+    {
+      title: "Alerts",
+      description:
+        "Open JasonOS alert records behind get_status.critical_alerts. Same data as list_alerts.",
+      inputSchema: z.object({
+        limit: z.number().int().min(1).max(60).optional(),
+      }),
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args) => runTool(() => listAlerts(args))
+  );
+
+  server.registerTool(
     "list_alerts",
     {
       title: "Alerts",
-      description: "Open JasonOS alerts.",
+      description:
+        "Open JasonOS alert records. Use this (or get_alerts) to see what get_status.critical_alerts refers to.",
       inputSchema: z.object({
         limit: z.number().int().min(1).max(60).optional(),
       }),

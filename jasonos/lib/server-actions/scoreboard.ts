@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { createPublicServiceRoleClient } from "@/lib/supabase/server";
 import {
-  SCOREBOARD_STATUSES,
+  canonicalApplicationRows,
+  isApplicationWorkSearch,
+  isScoreboardStatus,
+  resolvedScoreboardStatus,
+  resultFromScoreboardStatus,
   shouldAgeSubmittedToNoReply,
   type ScoreboardApplication,
   type ScoreboardStatus,
@@ -13,29 +17,6 @@ function hasConfig() {
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
   );
-}
-
-function isScoreboardStatus(value: unknown): value is ScoreboardStatus {
-  return (
-    typeof value === "string" &&
-    (SCOREBOARD_STATUSES as string[]).includes(value)
-  );
-}
-
-function defaultStatusFromResult(result: string | null | undefined): ScoreboardStatus {
-  switch (result) {
-    case "Offer Received":
-      return "offer";
-    case "Rejected":
-      return "rejected";
-    case "Interview Scheduled":
-      return "next_steps";
-    case "Pending":
-      return "no_reply";
-    case "Application Submitted":
-    default:
-      return "submitted";
-  }
 }
 
 type WorkSearchRow = {
@@ -48,25 +29,8 @@ type WorkSearchRow = {
   scoreboard_status: string | null;
   scoreboard_status_set_at: string | null;
   activity_tier: string | null;
+  parent_activity_id: string | null;
 };
-
-function isApplicationRow(row: WorkSearchRow): boolean {
-  if (isScoreboardStatus(row.scoreboard_status)) return true;
-  if (row.activity_tier === "networking") return false;
-  if (
-    row.contact_method === "Online Portal" ||
-    row.contact_method === "Direct Email"
-  ) {
-    return true;
-  }
-  return [
-    "Application Submitted",
-    "Rejected",
-    "Offer Received",
-    "Interview Scheduled",
-    "Pending",
-  ].includes(row.result);
-}
 
 /**
  * Persist submitted → no_reply for blues that have sat untouched for 30+ days
@@ -79,9 +43,7 @@ async function ageStaleSubmitted(
   const now = new Date();
   const staleIds = rows
     .filter((row) => {
-      const status = isScoreboardStatus(row.scoreboard_status)
-        ? row.scoreboard_status
-        : defaultStatusFromResult(row.result);
+      const status = resolvedScoreboardStatus(row);
       return shouldAgeSubmittedToNoReply({
         date: row.date,
         scoreboard_status: status,
@@ -90,22 +52,22 @@ async function ageStaleSubmitted(
     })
     .map((row) => row.id);
 
-  if (!staleIds.length) return new Set();
+  if (staleIds.length) {
+    const { error } = await db
+      .from("work_searches")
+      .update({
+        scoreboard_status: "no_reply",
+        result: resultFromScoreboardStatus("no_reply"),
+        // Keep prior set_at if present so we don't pretend this was a manual click.
+        // Only stamp if null so the aging rule itself is recorded once.
+        scoreboard_status_set_at: now.toISOString(),
+      })
+      .in("id", staleIds)
+      .eq("scoreboard_status", "submitted");
 
-  const { error } = await db
-    .from("work_searches")
-    .update({
-      scoreboard_status: "no_reply",
-      // Keep prior set_at if present so we don't pretend this was a manual click.
-      // Only stamp if null so the aging rule itself is recorded once.
-      scoreboard_status_set_at: now.toISOString(),
-    })
-    .in("id", staleIds)
-    .eq("scoreboard_status", "submitted");
-
-  // Also catch rows that never had scoreboard_status written but default to submitted.
-  if (error) {
-    console.error("[scoreboard.ageStaleSubmitted]", error);
+    if (error) {
+      console.error("[scoreboard.ageStaleSubmitted]", error);
+    }
   }
 
   // Rows with null status that age: update those too.
@@ -116,7 +78,7 @@ async function ageStaleSubmitted(
         shouldAgeSubmittedToNoReply(
           {
             date: row.date,
-            scoreboard_status: defaultStatusFromResult(row.result),
+            scoreboard_status: resolvedScoreboardStatus(row),
             scoreboard_status_set_at: row.scoreboard_status_set_at,
           },
           now
@@ -129,6 +91,7 @@ async function ageStaleSubmitted(
       .from("work_searches")
       .update({
         scoreboard_status: "no_reply",
+        result: resultFromScoreboardStatus("no_reply"),
         scoreboard_status_set_at: now.toISOString(),
       })
       .in("id", nullStale)
@@ -155,7 +118,7 @@ export async function getScoreboardApplications(): Promise<ScoreboardApplication
   let result = await db
     .from("work_searches")
     .select(
-      "id,date,company_name,position_applied,contact_method,result,scoreboard_status,scoreboard_status_set_at,activity_tier"
+      "id,date,company_name,position_applied,contact_method,result,scoreboard_status,scoreboard_status_set_at,activity_tier,parent_activity_id"
     )
     .order("date", { ascending: false })
     .order("created_at", { ascending: false });
@@ -165,7 +128,7 @@ export async function getScoreboardApplications(): Promise<ScoreboardApplication
     result = (await db
       .from("work_searches")
       .select(
-        "id,date,company_name,position_applied,contact_method,result,scoreboard_status,activity_tier"
+        "id,date,company_name,position_applied,contact_method,result,scoreboard_status,activity_tier,parent_activity_id"
       )
       .order("date", { ascending: false })
       .order("created_at", { ascending: false })) as typeof result;
@@ -178,19 +141,17 @@ export async function getScoreboardApplications(): Promise<ScoreboardApplication
 
   const rows = ((result.data ?? []) as WorkSearchRow[]).map((row) => ({
     ...row,
+    parent_activity_id: row.parent_activity_id ?? null,
     scoreboard_status_set_at:
       (row as { scoreboard_status_set_at?: string | null })
         .scoreboard_status_set_at ?? null,
   }));
 
-  const apps = rows.filter(isApplicationRow);
+  const apps = canonicalApplicationRows(rows.filter(isApplicationWorkSearch));
   const agedIds = await ageStaleSubmitted(db, apps);
 
   return apps.map((row) => {
-    let status: ScoreboardStatus = isScoreboardStatus(row.scoreboard_status)
-      ? row.scoreboard_status
-      : defaultStatusFromResult(row.result);
-
+    let status: ScoreboardStatus = resolvedScoreboardStatus(row);
     if (agedIds.has(row.id)) status = "no_reply";
 
     return {
@@ -199,7 +160,9 @@ export async function getScoreboardApplications(): Promise<ScoreboardApplication
       company_name: row.company_name,
       position_applied: row.position_applied,
       contact_method: row.contact_method,
-      result: row.result,
+      result: agedIds.has(row.id)
+        ? resultFromScoreboardStatus("no_reply")
+        : resultFromScoreboardStatus(status),
       scoreboard_status: status,
       scoreboard_status_set_at: row.scoreboard_status_set_at,
     };
@@ -223,20 +186,25 @@ export async function setScoreboardStatus(
     .from("work_searches")
     .update({
       scoreboard_status: status,
+      result: resultFromScoreboardStatus(status),
       scoreboard_status_set_at: now,
     })
     .eq("id", id);
 
-  // If set_at column isn't live yet, still save the status.
+  // If set_at column isn't live yet, still save the status + result.
   if (error && /scoreboard_status_set_at/i.test(error.message)) {
     ({ error } = await db
       .from("work_searches")
-      .update({ scoreboard_status: status })
+      .update({
+        scoreboard_status: status,
+        result: resultFromScoreboardStatus(status),
+      })
       .eq("id", id));
   }
 
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/scoreboard");
+  revalidatePath("/nyui");
   return { ok: true };
 }

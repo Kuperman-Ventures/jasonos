@@ -1,5 +1,5 @@
 import { jasonosDb, publicDb } from "./db";
-import { sanitizeSearch } from "./result";
+import { sanitizeSearch, uniqueAlerts } from "./result";
 
 function etDate(date = new Date()): string {
   return date.toLocaleDateString("en-CA", { timeZone: "America/New_York" });
@@ -45,7 +45,7 @@ export function listJasonosAreas() {
       { area: "outreach", tools: ["get_outreach_queue", "list_outreach_people", "get_contact", "list_suggested_contacts"] },
       { area: "meetings", tools: ["list_meetings"] },
       { area: "jobs", tools: ["get_scoreboard", "get_job_alerts", "list_interview_preps"] },
-      { area: "alerts", tools: ["list_alerts"] },
+      { area: "alerts", tools: ["get_status", "get_alerts", "list_alerts"] },
       { area: "post_master", tools: ["list_post_master_projects"] },
       { area: "connections", tools: ["get_connection_status"] },
     ],
@@ -346,18 +346,10 @@ export async function listAlerts(input: { limit?: number } = {}) {
     .limit(200);
   if (error) throw new Error(error.message);
 
-  const seen = new Set<string>();
-  const alerts = [];
-  for (const row of data ?? []) {
-    const key = `${row.source ?? ""}\t${row.title ?? ""}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    alerts.push({
-      ...row,
-      body: clip(row.body, 400),
-    });
-    if (alerts.length >= limit) break;
-  }
+  const alerts = uniqueAlerts(data).slice(0, limit).map((row) => ({
+    ...row,
+    body: clip(row.body, 400),
+  }));
   return { alerts };
 }
 

@@ -104,6 +104,7 @@ If nothing shows up, Claude Desktop often cannot find `npx`. In Terminal run `wh
 - Add a to-do to follow up with [name]
 - Find [person] in my contacts
 - How does the job scoreboard look?
+- What are the critical alerts?
 
 If Claude shows a permissions list for JasonOS tools, turn them all on. Then start a new chat.
 

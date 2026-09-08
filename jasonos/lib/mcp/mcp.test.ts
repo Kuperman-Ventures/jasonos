@@ -20,7 +20,7 @@ import {
 } from "./oauth.ts";
 import { registerJasonosTools } from "./register.ts";
 import { listJasonosAreas } from "./reads.ts";
-import { errorResult, jsonResult, sanitizeSearch, uniqueIssueCount } from "./result.ts";
+import { errorResult, jsonResult, sanitizeSearch, uniqueAlerts, uniqueIssueCount } from "./result.ts";
 import { TODAY_TASK_COLUMNS } from "./operations.ts";
 
 describe("MCP token compare", () => {
@@ -236,6 +236,8 @@ describe("JasonOS area map", () => {
     assert.ok(tools.includes("get_inbox_dispatch"));
     assert.ok(tools.includes("get_job_alerts"));
     assert.ok(tools.includes("get_morning_brief"));
+    assert.ok(tools.includes("get_alerts"));
+    assert.ok(tools.includes("list_alerts"));
   });
 });
 
@@ -251,6 +253,17 @@ describe("critical alert counting", () => {
     );
     assert.equal(uniqueIssueCount([]), 0);
     assert.equal(uniqueIssueCount(null), 0);
+  });
+
+  it("returns the unique alert records themselves", () => {
+    const alerts = uniqueAlerts([
+      { source: "Product Health · RS · /admin", title: "down", id: "1" },
+      { source: "Product Health · RS · /admin", title: "down", id: "2" },
+      { source: "Product Health · RS · /console", title: "down", id: "3" },
+    ]);
+    assert.equal(alerts.length, 2);
+    assert.equal(alerts[0]?.id, "1");
+    assert.equal(alerts[1]?.id, "3");
   });
 });
 

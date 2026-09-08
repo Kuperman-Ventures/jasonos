@@ -1,6 +1,11 @@
 import type { Track } from "../types";
+import {
+  canonicalApplicationRows,
+  isApplicationWorkSearch,
+  resolvedScoreboardStatus,
+} from "../scoreboard/types";
 import { jasonosDb, publicDb } from "./db";
-import { sanitizeSearch, uniqueIssueCount } from "./result";
+import { sanitizeSearch, uniqueAlerts } from "./result";
 
 /** Live public.today_task_instances columns. sub_track lives on timer_sessions, not here. */
 export const TODAY_TASK_COLUMNS =
@@ -45,12 +50,25 @@ export async function getStatus() {
   const [cards, todos, alerts, today] = await Promise.all([
     sb.from("cards").select("id", { count: "exact", head: true }).eq("state", "open"),
     sb.from("todos").select("id", { count: "exact", head: true }).eq("state", "open"),
-    sb.from("alerts").select("source,title").eq("state", "open").eq("severity", "critical"),
+    sb
+      .from("alerts")
+      .select("id,source,title,body,created_at")
+      .eq("state", "open")
+      .eq("severity", "critical")
+      .order("created_at", { ascending: false })
+      .limit(200),
     publicDb()
       .from("today_task_instances")
       .select("id", { count: "exact", head: true })
       .eq("scheduled_for_date", date),
   ]);
+
+  const openAlerts = uniqueAlerts(alerts.data).map((row) => ({
+    id: row.id,
+    source: row.source,
+    title: row.title,
+    created_at: row.created_at,
+  }));
 
   return {
     ok: true,
@@ -58,7 +76,8 @@ export async function getStatus() {
     timezone: "America/New_York",
     open_cards: cards.count ?? 0,
     open_todos: todos.count ?? 0,
-    critical_alerts: uniqueIssueCount(alerts.data),
+    critical_alerts: openAlerts.length,
+    alerts: openAlerts,
     today_tasks: today.error ? null : (today.count ?? 0),
     app: "https://jasonos.vercel.app",
   };
@@ -360,23 +379,20 @@ export async function getScoreboard() {
   const { data, error } = await db
     .from("work_searches")
     .select(
-      "id,date,company_name,position_applied,contact_method,result,scoreboard_status,activity_tier"
+      "id,date,company_name,position_applied,contact_method,result,scoreboard_status,activity_tier,parent_activity_id"
     )
     .order("date", { ascending: false })
-    .limit(80);
+    .limit(200);
 
   if (error) throw new Error(error.message);
 
-  const rows = data ?? [];
-  const applications = rows.filter((row) => {
-    if (row.scoreboard_status) return true;
-    if (row.activity_tier === "networking") return false;
-    return row.contact_method === "Online Portal" || row.contact_method === "Direct Email";
-  });
+  const applications = canonicalApplicationRows(
+    (data ?? []).filter(isApplicationWorkSearch)
+  ).slice(0, 80);
 
   const counts: Record<string, number> = {};
   for (const row of applications) {
-    const status = row.scoreboard_status || "submitted";
+    const status = resolvedScoreboardStatus(row);
     counts[status] = (counts[status] ?? 0) + 1;
   }
 
@@ -387,7 +403,7 @@ export async function getScoreboard() {
       date: row.date,
       company: row.company_name,
       role: row.position_applied,
-      status: row.scoreboard_status || "submitted",
+      status: resolvedScoreboardStatus(row),
       result: row.result,
     })),
   };

@@ -2,6 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { createPublicServiceRoleClient } from "@/lib/supabase/server";
+import {
+  applicationKey,
+  defaultStatusFromResult,
+  isApplicationWorkSearch,
+} from "@/lib/scoreboard/types";
 
 function hasConfig() {
   return Boolean(
@@ -139,6 +144,38 @@ export async function getExportData(startDate: string, endDate: string): Promise
 
 // ─── Writes ───────────────────────────────────────────────────────────────────
 
+async function findExistingApplicationRoot(
+  db: ReturnType<typeof createPublicServiceRoleClient>,
+  company: string,
+  role: string
+): Promise<string | null> {
+  const companyName = company.trim();
+  const position = role.trim();
+  if (!companyName || !position) return null;
+
+  const { data, error } = await db
+    .from("work_searches")
+    .select(
+      "id,date,company_name,position_applied,parent_activity_id,scoreboard_status,activity_tier,contact_method,result"
+    )
+    .ilike("company_name", companyName)
+    .ilike("position_applied", position)
+    .order("date", { ascending: true })
+    .limit(20);
+
+  if (error || !data?.length) return null;
+
+  const key = applicationKey(companyName, position);
+  const matches = data.filter(
+    (row) =>
+      applicationKey(row.company_name ?? "", row.position_applied ?? "") ===
+        key && isApplicationWorkSearch(row)
+  );
+  const earliest = matches[0];
+  if (!earliest) return null;
+  return earliest.parent_activity_id ?? earliest.id;
+}
+
 export async function addWorkSearch(data: {
   date: string;
   company_name: string;
@@ -156,24 +193,55 @@ export async function addWorkSearch(data: {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
 
   const db = createPublicServiceRoleClient();
+  const looksLikeApplication = isApplicationWorkSearch({
+    activity_tier: data.activity_tier,
+    contact_method: data.contact_method,
+    result: data.result,
+  });
+  const parentId =
+    data.parent_activity_id ??
+    (looksLikeApplication
+      ? await findExistingApplicationRoot(
+          db,
+          data.company_name,
+          data.position_applied
+        )
+      : null);
+
   const { error } = await db.from("work_searches").insert([
     {
       date: data.date,
       company_name: data.company_name,
       company_location: data.company_location,
-      contact_method: data.contact_method,
       contact_person: data.contact_person,
+      contact_method: data.contact_method,
       position_applied: data.position_applied,
       result: data.result,
       activity_tier: data.activity_tier ?? null,
       outcome_next_step: data.outcome_next_step ?? null,
       next_contact_date: data.next_contact_date ?? null,
-      parent_activity_id: data.parent_activity_id ?? null,
+      parent_activity_id: parentId,
+      scoreboard_status: defaultStatusFromResult(data.result),
     },
   ]);
   if (error) return { ok: false, error: error.message };
 
+  if (parentId && looksLikeApplication) {
+    const { error: rootError } = await db
+      .from("work_searches")
+      .update({
+        scoreboard_status: defaultStatusFromResult(data.result),
+        result: data.result,
+        scoreboard_status_set_at: new Date().toISOString(),
+      })
+      .eq("id", parentId);
+    if (rootError) {
+      console.error("[nyui.addWorkSearch.promoteRoot]", rootError);
+    }
+  }
+
   revalidatePath("/nyui");
+  revalidatePath("/scoreboard");
   return { ok: true };
 }
 
@@ -206,11 +274,13 @@ export async function updateWorkSearch(data: {
       activity_tier: data.activity_tier ?? null,
       outcome_next_step: data.outcome_next_step ?? null,
       next_contact_date: data.next_contact_date ?? null,
+      scoreboard_status: defaultStatusFromResult(data.result),
     })
     .eq("id", data.id);
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/nyui");
+  revalidatePath("/scoreboard");
   return { ok: true };
 }
 
@@ -226,6 +296,7 @@ export async function deleteWorkSearch(
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/nyui");
+  revalidatePath("/scoreboard");
   return { ok: true };
 }
 

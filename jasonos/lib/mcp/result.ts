@@ -31,11 +31,25 @@ export async function runTool<T>(fn: () => Promise<T>) {
 }
 
 /** One open issue, not one row. Product Health used to insert a new alert on every cron. */
+export function uniqueAlerts<
+  T extends { source?: string | null; title?: string | null },
+>(rows: T[] | null | undefined): T[] {
+  if (!rows?.length) return [];
+  const seen = new Set<string>();
+  const alerts: T[] = [];
+  for (const row of rows) {
+    const key = `${row.source ?? ""}\t${row.title ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    alerts.push(row);
+  }
+  return alerts;
+}
+
 export function uniqueIssueCount(
   rows: Array<{ source?: string | null; title?: string | null }> | null | undefined
 ): number {
-  if (!rows?.length) return 0;
-  return new Set(rows.map((row) => `${row.source ?? ""}\t${row.title ?? ""}`)).size;
+  return uniqueAlerts(rows).length;
 }
 
 /** Strip PostgREST filter metacharacters from a free-text search. */

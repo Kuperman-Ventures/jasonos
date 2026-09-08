@@ -10,6 +10,7 @@ import {
   SCOREBOARD_STATUS_DOT,
   SCOREBOARD_STATUS_LABELS,
   SCOREBOARD_SUBMITTED_STALE_DAYS,
+  resultFromScoreboardStatus,
   type ScoreboardApplication,
   type ScoreboardStatus,
 } from "@/lib/scoreboard/types";
@@ -67,14 +68,15 @@ export function ScoreboardClient({
   const hasActiveSearch = query.trim().length > 0;
 
   const onSelect = (id: string, status: ScoreboardStatus) => {
-    const prev = rows.find((r) => r.id === id)?.scoreboard_status;
-    if (prev === status) return;
+    const prev = rows.find((r) => r.id === id);
+    if (!prev || prev.scoreboard_status === status) return;
 
     setRows((current) =>
       current.map((row) =>
         row.id === id
           ? {
               ...row,
+              result: resultFromScoreboardStatus(status),
               scoreboard_status: status,
               scoreboard_status_set_at: new Date().toISOString(),
             }
@@ -87,11 +89,7 @@ export function ScoreboardClient({
       setPendingId(null);
       if (!result.ok) {
         setRows((current) =>
-          current.map((row) =>
-            row.id === id && prev
-              ? { ...row, scoreboard_status: prev }
-              : row
-          )
+          current.map((row) => (row.id === id ? prev : row))
         );
         toast.error(result.error ?? "Couldn't update status");
         return;
