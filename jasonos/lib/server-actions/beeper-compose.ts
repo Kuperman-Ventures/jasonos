@@ -7,6 +7,7 @@ import {
   isBeeperConfigured,
   type FocusBeeperResult,
 } from "@/lib/integrations/beeper";
+import { normalizePhone } from "@/lib/outreach/contact-lookup";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
 export async function openBeeperText(
@@ -33,10 +34,24 @@ export async function openBeeperText(
   if (!data) return { ok: false, error: "Contact not found." };
 
   try {
-    return await focusBeeperChatForContact({
+    const result = await focusBeeperChatForContact({
       name: data.name as string | null,
       phone: (data.phone as string | null) ?? null,
     });
+    if (
+      result.ok &&
+      result.opened === "chat" &&
+      result.phone &&
+      !data.phone &&
+      normalizePhone(result.phone)
+    ) {
+      await sb
+        .from("contacts")
+        .update({ phone: result.phone })
+        .eq("id", contactId)
+        .is("phone", null);
+    }
+    return result;
   } catch (err) {
     if (err instanceof BeeperUnavailableError) {
       return {
