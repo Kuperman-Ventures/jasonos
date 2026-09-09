@@ -726,10 +726,11 @@ export async function syncOutreachFromBeeper(opts?: {
       appendBeeperTouch(contact, c, touches, phones);
     }
 
-    // Recent chats often title iMessage as a phone number, and only the 200
-    // most-recent 1:1s are in the first pass. For overdue people still
-    // unmatched, search Beeper by the number on the People card (then name).
-    // Extra lookups must not abort the recent-chat results if Desktop times out.
+    // Recent chats often title iMessage as a phone number. Beeper Merge Chats
+    // also hides the original 1:1s behind a LinkedIn+iMessage inbox thread
+    // typed as `group`. For overdue people still unmatched, search by phone
+    // and name across those person chats and keep recent-chat results if
+    // Desktop times out.
     const matchedIds = new Set(touches.map((t) => t.contact_id));
     const dueUnmatched = await loadDueContactsForBeeperNameLookup(
       lookup,

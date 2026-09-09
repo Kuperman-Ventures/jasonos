@@ -4,7 +4,9 @@ import {
   beeperPhoneSearchQueries,
   chatLabelsMatchContact,
   hasFullPersonName,
+  isPersonBeeperChat,
   isPhoneOnlyChat,
+  mergePeerFromParticipants,
   pickBeeperChatForContact,
 } from "./beeper-match";
 
@@ -125,5 +127,102 @@ describe("pickBeeperChatForContact", () => {
 
   it("returns undefined when search found nothing", () => {
     assert.equal(pickBeeperChatForContact([], jamie), undefined);
+  });
+
+  it("prefers a merged LinkedIn+iMessage inbox chat over a leftover iMessage shell", () => {
+    const jeff = { name: "Jeff Wernecke", phone: "+1 917-617-0561" };
+    const imessageShell = {
+      id: "im-jeff-shell",
+      type: "single",
+      network: "iMessage",
+      title: "+1 917-617-0561",
+      peerName: "+1 917-617-0561",
+      peerPhone: "+1 917-617-0561",
+    };
+    const mergedInbox = {
+      id: "merged-jeff",
+      type: "group",
+      network: "Beeper",
+      title: "Jeff Wernecke",
+      peerName: "Jeff Wernecke",
+      peerPhone: "+1 917-617-0561",
+      participants: {
+        total: 3,
+        items: [
+          { isSelf: true, fullName: "Jason" },
+          { fullName: "Jeff Wernecke", phoneNumber: null },
+          { fullName: "+1 917-617-0561", phoneNumber: "+1 917-617-0561" },
+        ],
+      },
+    };
+    assert.equal(
+      pickBeeperChatForContact([imessageShell, mergedInbox], jeff)?.id,
+      "merged-jeff"
+    );
+  });
+});
+
+describe("isPersonBeeperChat", () => {
+  it("keeps ordinary 1:1s", () => {
+    assert.equal(isPersonBeeperChat(imessagePhone), true);
+  });
+
+  it("treats a LinkedIn+iMessage merge as one person", () => {
+    assert.equal(
+      isPersonBeeperChat({
+        type: "group",
+        title: "Jeff Wernecke",
+        participants: {
+          total: 3,
+          items: [
+            { isSelf: true },
+            { fullName: "Jeff Wernecke" },
+            { phoneNumber: "+1 917-617-0561" },
+          ],
+        },
+      }),
+      true
+    );
+  });
+
+  it("does not treat a real group of different people as a 1:1", () => {
+    assert.equal(
+      isPersonBeeperChat({
+        type: "group",
+        title: "Jeff Wernecke birthday",
+        participants: {
+          total: 4,
+          items: [
+            { isSelf: true },
+            { fullName: "Jeff Wernecke" },
+            { fullName: "Sam Lee" },
+            { fullName: "Pat Kim" },
+          ],
+        },
+      }),
+      false
+    );
+  });
+});
+
+describe("mergePeerFromParticipants", () => {
+  it("takes the LinkedIn name and the iMessage phone from a merge", () => {
+    assert.deepEqual(
+      mergePeerFromParticipants({
+        title: "Jeff Wernecke",
+        participants: {
+          items: [
+            { isSelf: true, fullName: "Jason Kuperman" },
+            { fullName: "Jeff Wernecke", email: "jeff.wernecke@aclion.com" },
+            { phoneNumber: "+1 917-617-0561" },
+          ],
+        },
+      }),
+      {
+        name: "Jeff Wernecke",
+        phone: "+1 917-617-0561",
+        email: "jeff.wernecke@aclion.com",
+      }
+    );
   });
 });

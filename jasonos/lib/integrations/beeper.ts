@@ -2,12 +2,14 @@ import "server-only";
 
 import {
   looksLikePersonName,
-  normalizePhone,
   preferPersonName,
 } from "@/lib/outreach/contact-lookup";
 import {
   beeperPhoneSearchQueries,
+  isPersonBeeperChat,
+  mergePeerFromParticipants,
   pickBeeperChatForContact,
+  rankBeeperChatsForContact,
   type BeeperMatchChat,
 } from "@/lib/outreach/beeper-match";
 
@@ -54,7 +56,8 @@ interface BeeperChat {
   network?: string;
   type?: string;
   accountID?: string;
-  participants?: { items?: BeeperUser[] };
+  lastActivity?: string;
+  participants?: { total?: number; items?: BeeperUser[] };
 }
 
 interface BeeperMessage {
@@ -206,22 +209,20 @@ export async function probeBeeperDesktop(): Promise<{ ok: true; baseUrl: string 
 }
 
 function peerFromChat(chat: BeeperChat): BeeperPeer {
+  const merged = mergePeerFromParticipants({
+    title: chat.title,
+    participants: chat.participants,
+  });
   const others = (chat.participants?.items ?? []).filter((p) => !p.isSelf);
-  const primary = others[0];
-  const fullName = primary?.fullName?.trim() || null;
-  const title = chat.title?.trim() || null;
-  const named = preferPersonName(fullName, title);
-  const labeledPhone =
-    primary?.phoneNumber?.trim() ||
-    (fullName && !looksLikePersonName(fullName) && normalizePhone(fullName)
-      ? fullName
-      : null) ||
-    (title && !looksLikePersonName(title) && normalizePhone(title) ? title : null);
+  const username =
+    others.find((p) => looksLikePersonName(p.fullName))?.username?.trim() ||
+    others[0]?.username?.trim() ||
+    null;
   return {
-    name: named,
-    phone: labeledPhone,
-    email: primary?.email?.trim() || null,
-    username: primary?.username?.trim() || null,
+    name: merged.name,
+    phone: merged.phone,
+    email: merged.email,
+    username,
   };
 }
 
@@ -229,21 +230,25 @@ function pageItems<T>(body: CursorPage<T>): T[] {
   return body.items ?? body.data ?? [];
 }
 
-function isSingleChat(chat: BeeperChat): boolean {
-  return !chat.type || chat.type === "single";
-}
-
 function withMatchFields(chat: BeeperChat): BeeperChat & BeeperMatchChat {
   const peer = peerFromChat(chat);
-  return { ...chat, peerName: peer.name, peerPhone: peer.phone };
+  return {
+    ...chat,
+    peerName: peer.name,
+    peerPhone: peer.phone,
+  };
 }
 
 async function searchChatsPage(qs: URLSearchParams): Promise<BeeperChat[]> {
   const res = await beeperFetch(`/v1/chats/search?${qs}`, { timeoutMs: 12_000 });
   await throwIfAuthFailed(res);
+  if (!res.ok && qs.get("type") === "any") {
+    qs.set("type", "single");
+    return searchChatsPage(qs);
+  }
   if (!res.ok) return [];
   const body = (await res.json()) as CursorPage<BeeperChat>;
-  return pageItems(body).filter(isSingleChat);
+  return pageItems(body).filter(isPersonBeeperChat);
 }
 
 async function unifiedSearchChats(query: string): Promise<BeeperChat[]> {
@@ -256,7 +261,7 @@ async function unifiedSearchChats(query: string): Promise<BeeperChat[]> {
     chats?: BeeperChat[];
   };
   const chats = body.results?.chats ?? body.chats ?? [];
-  return chats.filter(isSingleChat);
+  return chats.filter(isPersonBeeperChat);
 }
 
 function mergeChats(groups: BeeperChat[][]): BeeperChat[] {
@@ -273,19 +278,30 @@ async function searchRecentSingleChats(opts: {
   dateAfter: string;
   limit: number;
 }): Promise<BeeperChat[]> {
-  const qs = new URLSearchParams({
-    type: "single",
+  const base = {
     lastActivityAfter: opts.dateAfter,
     limit: String(opts.limit),
     includeMuted: "true",
-  });
-  const chats = await searchChatsPage(qs);
+  };
+  const [singles, groups] = await Promise.all([
+    searchChatsPage(
+      new URLSearchParams({ ...base, type: "single" })
+    ),
+    searchChatsPage(
+      new URLSearchParams({
+        ...base,
+        type: "group",
+        limit: String(Math.min(80, opts.limit)),
+      })
+    ),
+  ]);
+  const chats = mergeChats([singles, groups]);
   if (chats.length) return chats;
 
   // Fallback: list chats without activity filter.
   const listRes = await beeperFetch(
     `/v1/chats?${new URLSearchParams({
-      type: "single",
+      type: "any",
       limit: String(opts.limit),
     })}`,
     { timeoutMs: 12_000 }
@@ -295,30 +311,50 @@ async function searchRecentSingleChats(opts: {
     throw new BeeperApiError(listRes.status, await readErrorDetail(listRes));
   }
   const listBody = (await listRes.json()) as CursorPage<BeeperChat>;
-  return pageItems(listBody).filter(isSingleChat);
+  return pageItems(listBody).filter(isPersonBeeperChat);
 }
 
 async function listChatMessages(
   chatId: string,
-  limit: number
+  limit: number,
+  afterMs?: number
 ): Promise<BeeperMessage[]> {
-  const qs = new URLSearchParams({ limit: String(limit) });
-  const res = await beeperFetch(
-    `/v1/chats/${encodeURIComponent(chatId)}/messages?${qs}`,
-    { timeoutMs: 12_000 }
-  );
-  if (!res.ok) {
-    // Per-chat failures shouldn't abort the whole sync.
-    console.warn(
-      "[beeper.listChatMessages]",
-      chatId,
-      res.status,
-      await readErrorDetail(res)
+  const out: BeeperMessage[] = [];
+  let cursor: string | null = null;
+  const pageSize = Math.max(1, Math.min(40, limit));
+
+  for (let page = 0; page < 4 && out.length < limit; page += 1) {
+    const qs = new URLSearchParams({ limit: String(pageSize) });
+    if (cursor) {
+      qs.set("cursor", cursor);
+      qs.set("direction", "before");
+    }
+    const res = await beeperFetch(
+      `/v1/chats/${encodeURIComponent(chatId)}/messages?${qs}`,
+      { timeoutMs: 12_000 }
     );
-    return [];
+    if (!res.ok) {
+      console.warn(
+        "[beeper.listChatMessages]",
+        chatId,
+        res.status,
+        await readErrorDetail(res)
+      );
+      break;
+    }
+    const body = (await res.json()) as CursorPage<BeeperMessage>;
+    const items = pageItems(body);
+    if (!items.length) break;
+    out.push(...items);
+    const oldest = items[items.length - 1];
+    const oldestMs = oldest?.timestamp
+      ? new Date(oldest.timestamp).getTime()
+      : NaN;
+    if (afterMs && Number.isFinite(oldestMs) && oldestMs < afterMs) break;
+    if (!body.hasMore || !body.oldestCursor) break;
+    cursor = body.oldestCursor;
   }
-  const body = (await res.json()) as CursorPage<BeeperMessage>;
-  return pageItems(body);
+  return out;
 }
 
 function candidatesFromChat(
@@ -389,7 +425,7 @@ export async function fetchBeeperTouchCandidates(opts?: {
     while (queue.length) {
       const chat = queue.shift();
       if (!chat) return;
-      const messages = await listChatMessages(chat.id, maxMessagesPerChat);
+      const messages = await listChatMessages(chat.id, maxMessagesPerChat, afterMs);
       out.push(...candidatesFromChat(chat, messages, afterMs, includeInbound));
     }
   });
@@ -407,7 +443,7 @@ function contactSearchParams(
   scope?: "titles" | "participants"
 ): URLSearchParams {
   const qs = new URLSearchParams({
-    type: "single",
+    type: "any",
     limit: "80",
     includeMuted: "true",
     query,
@@ -424,10 +460,6 @@ async function searchChatsForContact(contact: {
   const phone = contact.phone?.trim() || null;
   const groups: BeeperChat[][] = [];
 
-  // Phone first. Overdue people often have a number on the card while iMessage
-  // titles the 1:1 as that number, and the thread is too old to be in the
-  // recent-chat pull. Skip the slower name search when the number already
-  // uniquely identifies the chat.
   if (phone) {
     const phoneHits = await Promise.all(
       beeperPhoneSearchQueries(phone).map((query) =>
@@ -435,12 +467,6 @@ async function searchChatsForContact(contact: {
       )
     );
     groups.push(...phoneHits);
-    const phoneMerged = mergeChats(groups);
-    if (
-      pickBeeperChatForContact(phoneMerged.map(withMatchFields), contact)
-    ) {
-      return phoneMerged;
-    }
   }
 
   if (name) {
@@ -473,10 +499,10 @@ async function findBeeperChatForContact(contact: {
 }
 
 /**
- * Search a known person by phone (then name) the same way Home → Text does,
- * and pull recent messages from that 1:1. Used when the recent-chat pass
- * never saw the thread — typical for an overdue text whose iMessage title
- * is just the number.
+ * Search a known person by phone and name, including Beeper's merged inbox
+ * chats (LinkedIn + iMessage as one conversation). Pull recent messages from
+ * the first ranked 1:1 that actually has a timeline — leftover iMessage
+ * shells after a merge often match the number but return no messages.
  */
 export async function fetchBeeperTouchCandidatesForContact(
   contact: { name?: string | null; phone?: string | null },
@@ -498,15 +524,32 @@ export async function fetchBeeperTouchCandidatesForContact(
   const includeInbound = opts?.includeInbound ?? true;
   const afterMs = Date.now() - daysBack * 86_400_000;
 
-  const chat = await findBeeperChatForContact(contact);
-  if (!chat) return null;
-  const peer = peerFromChat(chat);
-  const messages = await listChatMessages(chat.id, maxMessagesPerChat);
-  return {
-    chatId: chat.id,
-    phone: peer.phone,
-    candidates: candidatesFromChat(chat, messages, afterMs, includeInbound),
-  };
+  const chats = await searchChatsForContact(contact);
+  const ranked = rankBeeperChatsForContact(
+    chats.map(withMatchFields),
+    contact
+  );
+  for (const chat of ranked.slice(0, 6)) {
+    const messages = await listChatMessages(
+      chat.id,
+      maxMessagesPerChat,
+      afterMs
+    );
+    const candidates = candidatesFromChat(
+      chat,
+      messages,
+      afterMs,
+      includeInbound
+    );
+    if (!candidates.length) continue;
+    const peer = peerFromChat(chat);
+    return {
+      chatId: chat.id,
+      phone: peer.phone,
+      candidates,
+    };
+  }
+  return null;
 }
 
 /**
