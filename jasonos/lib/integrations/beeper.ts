@@ -6,6 +6,7 @@ import {
   preferPersonName,
 } from "@/lib/outreach/contact-lookup";
 import {
+  beeperPhoneSearchQueries,
   pickBeeperChatForContact,
   type BeeperMatchChat,
 } from "@/lib/outreach/beeper-match";
@@ -362,7 +363,7 @@ export async function fetchBeeperTouchCandidates(opts?: {
   includeInbound?: boolean;
 }): Promise<BeeperTouchCandidate[]> {
   const daysBack = Math.max(1, Math.min(90, opts?.daysBack ?? 30));
-  const maxChats = Math.max(1, Math.min(200, opts?.maxChats ?? 120));
+  const maxChats = Math.max(1, Math.min(250, opts?.maxChats ?? 200));
   const maxMessagesPerChat = Math.max(
     1,
     Math.min(40, opts?.maxMessagesPerChat ?? 20)
@@ -423,6 +424,25 @@ async function searchChatsForContact(contact: {
   const phone = contact.phone?.trim() || null;
   const groups: BeeperChat[][] = [];
 
+  // Phone first. Overdue people often have a number on the card while iMessage
+  // titles the 1:1 as that number, and the thread is too old to be in the
+  // recent-chat pull. Skip the slower name search when the number already
+  // uniquely identifies the chat.
+  if (phone) {
+    const phoneHits = await Promise.all(
+      beeperPhoneSearchQueries(phone).map((query) =>
+        searchChatsPage(contactSearchParams(query))
+      )
+    );
+    groups.push(...phoneHits);
+    const phoneMerged = mergeChats(groups);
+    if (
+      pickBeeperChatForContact(phoneMerged.map(withMatchFields), contact)
+    ) {
+      return phoneMerged;
+    }
+  }
+
   if (name) {
     const [titles, participants, unified] = await Promise.all([
       searchChatsPage(contactSearchParams(name, "titles")),
@@ -430,14 +450,6 @@ async function searchChatsForContact(contact: {
       unifiedSearchChats(name),
     ]);
     groups.push(titles, participants, unified);
-  }
-
-  if (phone) {
-    groups.push(await searchChatsPage(contactSearchParams(phone)));
-    const digits = normalizePhone(phone);
-    if (digits && digits !== phone) {
-      groups.push(await searchChatsPage(contactSearchParams(digits)));
-    }
   }
 
   return mergeChats(groups);
@@ -461,9 +473,10 @@ async function findBeeperChatForContact(contact: {
 }
 
 /**
- * Name-search a known person (same path as Home → Text) and pull recent
- * messages from that 1:1. Used when the recent-chat pass only saw a phone
- * number and could not attach it.
+ * Search a known person by phone (then name) the same way Home → Text does,
+ * and pull recent messages from that 1:1. Used when the recent-chat pass
+ * never saw the thread — typical for an overdue text whose iMessage title
+ * is just the number.
  */
 export async function fetchBeeperTouchCandidatesForContact(
   contact: { name?: string | null; phone?: string | null },
