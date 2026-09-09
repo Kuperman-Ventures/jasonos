@@ -2,11 +2,13 @@ import "server-only";
 
 import {
   looksLikePersonName,
-  normalizeName,
   normalizePhone,
   preferPersonName,
 } from "@/lib/outreach/contact-lookup";
-import { pickPreferredTextChat } from "@/lib/integrations/beeper-text-pref";
+import {
+  pickBeeperChatForContact,
+  type BeeperMatchChat,
+} from "@/lib/outreach/beeper-match";
 
 // Beeper Desktop API — local/tunneled chat sync for JasonOS outreach.
 //
@@ -226,6 +228,46 @@ function pageItems<T>(body: CursorPage<T>): T[] {
   return body.items ?? body.data ?? [];
 }
 
+function isSingleChat(chat: BeeperChat): boolean {
+  return !chat.type || chat.type === "single";
+}
+
+function withMatchFields(chat: BeeperChat): BeeperChat & BeeperMatchChat {
+  const peer = peerFromChat(chat);
+  return { ...chat, peerName: peer.name, peerPhone: peer.phone };
+}
+
+async function searchChatsPage(qs: URLSearchParams): Promise<BeeperChat[]> {
+  const res = await beeperFetch(`/v1/chats/search?${qs}`, { timeoutMs: 12_000 });
+  await throwIfAuthFailed(res);
+  if (!res.ok) return [];
+  const body = (await res.json()) as CursorPage<BeeperChat>;
+  return pageItems(body).filter(isSingleChat);
+}
+
+async function unifiedSearchChats(query: string): Promise<BeeperChat[]> {
+  const qs = new URLSearchParams({ query });
+  const res = await beeperFetch(`/v1/search?${qs}`, { timeoutMs: 10_000 });
+  await throwIfAuthFailed(res);
+  if (!res.ok) return [];
+  const body = (await res.json()) as {
+    results?: { chats?: BeeperChat[] };
+    chats?: BeeperChat[];
+  };
+  const chats = body.results?.chats ?? body.chats ?? [];
+  return chats.filter(isSingleChat);
+}
+
+function mergeChats(groups: BeeperChat[][]): BeeperChat[] {
+  const byId = new Map<string, BeeperChat>();
+  for (const group of groups) {
+    for (const chat of group) {
+      if (chat.id && !byId.has(chat.id)) byId.set(chat.id, chat);
+    }
+  }
+  return [...byId.values()];
+}
+
 async function searchRecentSingleChats(opts: {
   dateAfter: string;
   limit: number;
@@ -236,26 +278,23 @@ async function searchRecentSingleChats(opts: {
     limit: String(opts.limit),
     includeMuted: "true",
   });
-  const res = await beeperFetch(`/v1/chats/search?${qs}`, { timeoutMs: 12_000 });
-  await throwIfAuthFailed(res);
-  if (!res.ok) {
-    // Fallback: list chats without activity filter.
-    const listRes = await beeperFetch(
-      `/v1/chats?${new URLSearchParams({
-        type: "single",
-        limit: String(opts.limit),
-      })}`,
-      { timeoutMs: 12_000 }
-    );
-    await throwIfAuthFailed(listRes);
-    if (!listRes.ok) {
-      throw new BeeperApiError(listRes.status, await readErrorDetail(listRes));
-    }
-    const listBody = (await listRes.json()) as CursorPage<BeeperChat>;
-    return pageItems(listBody).filter((c) => !c.type || c.type === "single");
+  const chats = await searchChatsPage(qs);
+  if (chats.length) return chats;
+
+  // Fallback: list chats without activity filter.
+  const listRes = await beeperFetch(
+    `/v1/chats?${new URLSearchParams({
+      type: "single",
+      limit: String(opts.limit),
+    })}`,
+    { timeoutMs: 12_000 }
+  );
+  await throwIfAuthFailed(listRes);
+  if (!listRes.ok) {
+    throw new BeeperApiError(listRes.status, await readErrorDetail(listRes));
   }
-  const body = (await res.json()) as CursorPage<BeeperChat>;
-  return pageItems(body).filter((c) => !c.type || c.type === "single");
+  const listBody = (await listRes.json()) as CursorPage<BeeperChat>;
+  return pageItems(listBody).filter(isSingleChat);
 }
 
 async function listChatMessages(
@@ -279,6 +318,34 @@ async function listChatMessages(
   }
   const body = (await res.json()) as CursorPage<BeeperMessage>;
   return pageItems(body);
+}
+
+function candidatesFromChat(
+  chat: BeeperChat,
+  messages: BeeperMessage[],
+  afterMs: number,
+  includeInbound: boolean
+): BeeperTouchCandidate[] {
+  const peer = peerFromChat(chat);
+  const out: BeeperTouchCandidate[] = [];
+  for (const m of messages) {
+    if (m.isDeleted) continue;
+    const ts = new Date(m.timestamp).getTime();
+    if (!Number.isFinite(ts) || ts < afterMs) continue;
+    const outbound = Boolean(m.isSender);
+    if (!outbound && !includeInbound) continue;
+    out.push({
+      messageId: m.id,
+      chatId: chat.id,
+      timestamp: m.timestamp,
+      text: m.text?.trim() || null,
+      network: chat.network ?? null,
+      chatTitle: chat.title ?? null,
+      peer,
+      direction: outbound ? "outbound" : "inbound",
+    });
+  }
+  return out;
 }
 
 /**
@@ -321,25 +388,8 @@ export async function fetchBeeperTouchCandidates(opts?: {
     while (queue.length) {
       const chat = queue.shift();
       if (!chat) return;
-      const peer = peerFromChat(chat);
       const messages = await listChatMessages(chat.id, maxMessagesPerChat);
-      for (const m of messages) {
-        if (m.isDeleted) continue;
-        const ts = new Date(m.timestamp).getTime();
-        if (!Number.isFinite(ts) || ts < afterMs) continue;
-        const outbound = Boolean(m.isSender);
-        if (!outbound && !includeInbound) continue;
-        out.push({
-          messageId: m.id,
-          chatId: chat.id,
-          timestamp: m.timestamp,
-          text: m.text?.trim() || null,
-          network: chat.network ?? null,
-          chatTitle: chat.title ?? null,
-          peer,
-          direction: outbound ? "outbound" : "inbound",
-        });
-      }
+      out.push(...candidatesFromChat(chat, messages, afterMs, includeInbound));
     }
   });
   await Promise.all(workers);
@@ -351,44 +401,100 @@ export async function fetchBeeperTouchCandidates(opts?: {
   return out;
 }
 
-function chatMatchesContact(
-  chat: BeeperChat,
-  contact: { name?: string | null; phone?: string | null }
-): boolean {
-  const peer = peerFromChat(chat);
-  const wantPhone = normalizePhone(contact.phone);
-  if (wantPhone && normalizePhone(peer.phone) === wantPhone) return true;
-  const wantName = normalizeName(contact.name ?? "");
-  if (!wantName) return false;
-  const labels = [peer.name, chat.title]
-    .filter((value): value is string => Boolean(value))
-    .map((value) => normalizeName(value));
-  return labels.some(
-    (label) => label === wantName || label.includes(wantName) || wantName.includes(label)
-  );
+function contactSearchParams(
+  query: string,
+  scope?: "titles" | "participants"
+): URLSearchParams {
+  const qs = new URLSearchParams({
+    type: "single",
+    limit: "80",
+    includeMuted: "true",
+    query,
+  });
+  if (scope) qs.set("scope", scope);
+  return qs;
 }
 
 async function searchChatsForContact(contact: {
   name?: string | null;
   phone?: string | null;
 }): Promise<BeeperChat[]> {
-  const query = preferPersonName(contact.name) || contact.phone || "";
-  const qs = new URLSearchParams({
-    type: "single",
-    limit: "80",
-    includeMuted: "true",
-  });
-  if (query) qs.set("query", query);
-  const res = await beeperFetch(`/v1/chats/search?${qs}`, { timeoutMs: 10_000 });
-  await throwIfAuthFailed(res);
-  if (!res.ok) return [];
-  const body = (await res.json()) as CursorPage<BeeperChat>;
-  return pageItems(body).filter((c) => !c.type || c.type === "single");
+  const name = preferPersonName(contact.name);
+  const phone = contact.phone?.trim() || null;
+  const groups: BeeperChat[][] = [];
+
+  if (name) {
+    const [titles, participants, unified] = await Promise.all([
+      searchChatsPage(contactSearchParams(name, "titles")),
+      searchChatsPage(contactSearchParams(name, "participants")),
+      unifiedSearchChats(name),
+    ]);
+    groups.push(titles, participants, unified);
+  }
+
+  if (phone) {
+    groups.push(await searchChatsPage(contactSearchParams(phone)));
+    const digits = normalizePhone(phone);
+    if (digits && digits !== phone) {
+      groups.push(await searchChatsPage(contactSearchParams(digits)));
+    }
+  }
+
+  return mergeChats(groups);
 }
 
 export type FocusBeeperResult =
-  | { ok: true; opened: "chat" | "app"; chatTitle?: string }
+  | {
+      ok: true;
+      opened: "chat" | "app";
+      chatTitle?: string;
+      phone?: string | null;
+    }
   | { ok: false; error: string };
+
+async function findBeeperChatForContact(contact: {
+  name?: string | null;
+  phone?: string | null;
+}): Promise<BeeperChat | undefined> {
+  const chats = await searchChatsForContact(contact);
+  return pickBeeperChatForContact(chats.map(withMatchFields), contact);
+}
+
+/**
+ * Name-search a known person (same path as Home → Text) and pull recent
+ * messages from that 1:1. Used when the recent-chat pass only saw a phone
+ * number and could not attach it.
+ */
+export async function fetchBeeperTouchCandidatesForContact(
+  contact: { name?: string | null; phone?: string | null },
+  opts?: {
+    daysBack?: number;
+    maxMessagesPerChat?: number;
+    includeInbound?: boolean;
+  }
+): Promise<{
+  chatId: string;
+  phone: string | null;
+  candidates: BeeperTouchCandidate[];
+} | null> {
+  const daysBack = Math.max(1, Math.min(90, opts?.daysBack ?? 30));
+  const maxMessagesPerChat = Math.max(
+    1,
+    Math.min(40, opts?.maxMessagesPerChat ?? 20)
+  );
+  const includeInbound = opts?.includeInbound ?? true;
+  const afterMs = Date.now() - daysBack * 86_400_000;
+
+  const chat = await findBeeperChatForContact(contact);
+  if (!chat) return null;
+  const peer = peerFromChat(chat);
+  const messages = await listChatMessages(chat.id, maxMessagesPerChat);
+  return {
+    chatId: chat.id,
+    phone: peer.phone,
+    candidates: candidatesFromChat(chat, messages, afterMs, includeInbound),
+  };
+}
 
 /**
  * Open the matched 1:1 on the tunneled Beeper Desktop (office Mac).
@@ -400,10 +506,8 @@ export async function focusBeeperChatForContact(contact: {
   phone?: string | null;
 }): Promise<FocusBeeperResult> {
   await probeBeeperDesktop();
-  const chats = await searchChatsForContact(contact);
-  const match = pickPreferredTextChat(
-    chats.filter((chat) => chatMatchesContact(chat, contact))
-  );
+  const match = await findBeeperChatForContact(contact);
+  const peer = match ? peerFromChat(match) : null;
 
   const body = match ? { chatID: match.id } : {};
   const res = await beeperFetch("/v1/focus", {
@@ -424,6 +528,7 @@ export async function focusBeeperChatForContact(contact: {
       ok: true,
       opened: "chat",
       chatTitle: match.title || contact.name || undefined,
+      phone: peer?.phone ?? null,
     };
   }
   return { ok: true, opened: "app" };

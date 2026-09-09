@@ -50,8 +50,11 @@ import {
   BeeperApiError,
   BeeperUnavailableError,
   fetchBeeperTouchCandidates,
+  fetchBeeperTouchCandidatesForContact,
   isBeeperConfigured,
 } from "@/lib/integrations/beeper";
+import { hasFullPersonName } from "@/lib/outreach/beeper-match";
+import { etToday } from "@/lib/dates";
 
 // ---------------------------------------------------------------------------
 // Email write-back — when a sync matches a contact (typically by NAME, e.g. a
@@ -107,6 +110,64 @@ async function applyPhoneEnrichments(
         (err) => console.error("[outreach-sync.phoneEnrich]", err)
       );
   }
+}
+
+function appendBeeperTouch(
+  contact: ContactLookupRow,
+  c: {
+    messageId: string;
+    chatId: string;
+    timestamp: string;
+    text: string | null;
+    network: string | null;
+    chatTitle: string | null;
+    peer: { name: string | null; phone: string | null };
+    direction: "outbound" | "inbound";
+  },
+  touches: ContactTouchInput[],
+  phones: Map<string, string>
+): void {
+  if (!contact.phone && c.peer.phone && normalizePhone(c.peer.phone)) {
+    phones.set(contact.id, c.peer.phone);
+  }
+  const network = c.network ? ` via ${c.network}` : "";
+  const preview = oneLine(c.text);
+  touches.push({
+    contact_id: contact.id,
+    channel: "text",
+    direction: c.direction,
+    touched_at: c.timestamp,
+    source: "beeper",
+    external_id: `beeper:${c.chatId}:${c.messageId}`,
+    brief: preview
+      ? `${c.direction === "outbound" ? "Sent" : "Received"} text${network}: ${preview}`
+      : `${c.direction === "outbound" ? "Sent" : "Received"} message${network}`,
+    subject: c.chatTitle || c.peer.name || "Beeper chat",
+    thread_url: null,
+    objective_achieved: "neutral",
+  });
+}
+
+async function loadDueContactsForBeeperNameLookup(
+  lookup: { rows: ContactLookupRow[] },
+  alreadyMatched: Set<string>
+): Promise<ContactLookupRow[]> {
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("contacts")
+    .select("id")
+    .lte("next_touch_date", etToday())
+    .limit(40);
+  if (error || !data?.length) return [];
+  const byId = new Map(lookup.rows.map((row) => [row.id, row]));
+  const out: ContactLookupRow[] = [];
+  for (const row of data) {
+    if (alreadyMatched.has(row.id)) continue;
+    const contact = byId.get(row.id);
+    if (!contact || !hasFullPersonName(contact.name)) continue;
+    out.push(contact);
+  }
+  return out;
 }
 
 async function applyEmailEnrichments(enrich: EnrichMap): Promise<void> {
@@ -623,6 +684,7 @@ export async function syncOutreachFromBeeper(opts?: {
     const touches: ContactTouchInput[] = [];
     const sightings: CandidateSighting[] = [];
     const phones = new Map<string, string>();
+    const attachedChats = new Set<string>();
     let skipped = 0;
 
     for (const c of candidates) {
@@ -653,27 +715,44 @@ export async function syncOutreachFromBeeper(opts?: {
         continue;
       }
 
-      if (!contact.phone && c.peer.phone && normalizePhone(c.peer.phone)) {
-        phones.set(contact.id, c.peer.phone);
-      }
-
-      const network = c.network ? ` via ${c.network}` : "";
-      const preview = oneLine(c.text);
-      touches.push({
-        contact_id: contact.id,
-        channel: "text",
-        direction: c.direction,
-        touched_at: c.timestamp,
-        source: "beeper",
-        external_id: `beeper:${c.chatId}:${c.messageId}`,
-        brief: preview
-          ? `${c.direction === "outbound" ? "Sent" : "Received"} text${network}: ${preview}`
-          : `${c.direction === "outbound" ? "Sent" : "Received"} message${network}`,
-        subject: c.chatTitle || c.peer.name || "Beeper chat",
-        thread_url: null,
-        objective_achieved: "neutral",
-      });
+      attachedChats.add(c.chatId);
+      appendBeeperTouch(contact, c, touches, phones);
     }
+
+    // Recent chats often title iMessage as a phone number. The Dara fix only
+    // helps when Beeper also has the person's name on the chat. For overdue
+    // people still unmatched, search Beeper by People name the same way Text
+    // does, then attach that thread and write the phone onto the card.
+    const matchedIds = new Set(touches.map((t) => t.contact_id));
+    const dueUnmatched = await loadDueContactsForBeeperNameLookup(
+      lookup,
+      matchedIds
+    );
+    let namedLookups = 0;
+    let namedMatched = 0;
+    const dueQueue = [...dueUnmatched];
+    await Promise.all(
+      Array.from({ length: Math.min(3, dueQueue.length) }, async () => {
+        while (dueQueue.length) {
+          const contact = dueQueue.shift();
+          if (!contact) return;
+          namedLookups += 1;
+          const found = await fetchBeeperTouchCandidatesForContact(contact, {
+            daysBack,
+            includeInbound: true,
+          });
+          if (!found || attachedChats.has(found.chatId)) continue;
+          attachedChats.add(found.chatId);
+          namedMatched += 1;
+          if (found.phone && !contact.phone && normalizePhone(found.phone)) {
+            phones.set(contact.id, found.phone);
+          }
+          for (const c of found.candidates) {
+            appendBeeperTouch(contact, c, touches, phones);
+          }
+        }
+      })
+    );
 
     const insert = await insertContactTouches(touches);
     await applyPhoneEnrichments(phones);
@@ -688,6 +767,8 @@ export async function syncOutreachFromBeeper(opts?: {
       candidates: candidates.length,
       candidatesStaged: staged.created,
       unmatchedNames: staged.newNames,
+      namedLookups,
+      namedMatched,
       daysBack,
     });
     revalidatePaths();

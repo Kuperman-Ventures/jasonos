@@ -107,6 +107,17 @@ describe("resolveBeeperPeer", () => {
   it("prefers a person name over a phone label", () => {
     assert.equal(preferPersonName("+1 917-555-0100", "Dara Akbarian"), "Dara Akbarian");
   });
+
+  it("cannot attach an iMessage that only has a phone number and no name", () => {
+    assert.equal(
+      resolveBeeperPeer(daraLookup, {
+        name: "+1 864-270-7048",
+        phone: "+1 864-270-7048",
+        chatTitle: "+1 864-270-7048",
+      }),
+      undefined
+    );
+  });
 });
 
 describe("matchCalendarEventToContacts", () => {
