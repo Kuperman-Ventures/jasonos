@@ -1,11 +1,13 @@
 import "server-only";
 
+import { beeperTextNetworkRank } from "@/lib/integrations/beeper-text-pref";
 import {
   looksLikePersonName,
   preferPersonName,
 } from "@/lib/outreach/contact-lookup";
 import {
   beeperPhoneSearchQueries,
+  contactMatchesBeeperUser,
   isPersonBeeperChat,
   mergePeerFromParticipants,
   pickBeeperChatForContact,
@@ -78,10 +80,19 @@ interface CursorPage<T> {
   oldestCursor?: string | null;
 }
 
+interface BeeperAccount {
+  accountID: string;
+  network?: string;
+}
+
 type BeeperConnectionConfig = {
   base_url?: string;
   access_token?: string;
 };
+
+let cachedAccounts:
+  | { at: number; accounts: BeeperAccount[] }
+  | null = null;
 
 async function loadBeeperConnectionConfig(): Promise<BeeperConnectionConfig> {
   try {
@@ -481,6 +492,116 @@ async function searchChatsForContact(contact: {
   return mergeChats(groups);
 }
 
+async function listBeeperAccounts(): Promise<BeeperAccount[]> {
+  if (cachedAccounts && Date.now() - cachedAccounts.at < 60_000) {
+    return cachedAccounts.accounts;
+  }
+  const res = await beeperFetch("/v1/accounts", { timeoutMs: 10_000 });
+  await throwIfAuthFailed(res);
+  if (!res.ok) return cachedAccounts?.accounts ?? [];
+  const body = (await res.json()) as BeeperAccount[] | { items?: BeeperAccount[] };
+  const accounts = Array.isArray(body) ? body : body.items ?? [];
+  cachedAccounts = { at: Date.now(), accounts };
+  return accounts;
+}
+
+async function searchAccountContacts(
+  accountID: string,
+  query: string
+): Promise<BeeperUser[]> {
+  const qs = new URLSearchParams({ query });
+  const res = await beeperFetch(
+    `/v1/accounts/${encodeURIComponent(accountID)}/contacts?${qs}`,
+    { timeoutMs: 10_000 }
+  );
+  if (!res.ok) return [];
+  const body = (await res.json()) as CursorPage<BeeperUser>;
+  return pageItems(body);
+}
+
+async function startDirectChat(
+  accountID: string,
+  user: BeeperUser
+): Promise<BeeperChat | null> {
+  if (!user.id) return null;
+  const res = await beeperFetch("/v1/chats/start", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      accountID,
+      user: {
+        id: user.id,
+        fullName: user.fullName,
+        phoneNumber: user.phoneNumber,
+        email: user.email,
+        username: user.username,
+      },
+    }),
+    timeoutMs: 12_000,
+  });
+  if (!res.ok) return null;
+  const chat = (await res.json()) as BeeperChat;
+  return chat?.id ? chat : null;
+}
+
+/**
+ * Beeper Merge Chats (v4.2+) keeps LinkedIn + iMessage on one merged contact.
+ * Chat search often still misses that inbox thread; contacts + chats/start
+ * is how Desktop resolves it.
+ */
+async function resolveChatsViaMergedContacts(contact: {
+  name?: string | null;
+  phone?: string | null;
+}): Promise<BeeperChat[]> {
+  const accounts = await listBeeperAccounts();
+  if (!accounts.length) return [];
+  const queries = [
+    ...beeperPhoneSearchQueries(contact.phone),
+    preferPersonName(contact.name),
+  ].filter((value): value is string => Boolean(value));
+  if (!queries.length) return [];
+
+  const rankedAccounts = [...accounts].sort(
+    (a, b) =>
+      beeperTextNetworkRank(a) - beeperTextNetworkRank(b)
+  );
+  const chats: BeeperChat[] = [];
+
+  for (const account of rankedAccounts.slice(0, 6)) {
+    for (const query of queries.slice(0, 3)) {
+      const users = await searchAccountContacts(account.accountID, query);
+      const user = users.find((candidate) =>
+        contactMatchesBeeperUser(candidate, contact)
+      );
+      if (!user) continue;
+      const chat = await startDirectChat(account.accountID, user);
+      if (chat && isPersonBeeperChat(chat)) chats.push(chat);
+      if (chats.length >= 3) return mergeChats([chats]);
+    }
+  }
+  return mergeChats([chats]);
+}
+
+async function searchMessagesInChat(
+  chatId: string,
+  afterIso: string,
+  limit: number
+): Promise<BeeperMessage[]> {
+  const qs = new URLSearchParams({
+    dateAfter: afterIso,
+    limit: String(Math.max(1, Math.min(40, limit))),
+    includeMuted: "true",
+    excludeLowPriority: "false",
+  });
+  qs.set("chatIDs", chatId);
+  const res = await beeperFetch(`/v1/messages/search?${qs}`, {
+    timeoutMs: 15_000,
+  });
+  if (!res.ok) return [];
+  const body = (await res.json()) as CursorPage<BeeperMessage>;
+  return pageItems(body);
+}
+
 export type FocusBeeperResult =
   | {
       ok: true;
@@ -524,32 +645,45 @@ export async function fetchBeeperTouchCandidatesForContact(
   const includeInbound = opts?.includeInbound ?? true;
   const afterMs = Date.now() - daysBack * 86_400_000;
 
-  const chats = await searchChatsForContact(contact);
-  const ranked = rankBeeperChatsForContact(
-    chats.map(withMatchFields),
-    contact
-  );
-  for (const chat of ranked.slice(0, 6)) {
-    const messages = await listChatMessages(
-      chat.id,
-      maxMessagesPerChat,
-      afterMs
+  const afterIso = new Date(afterMs).toISOString();
+  const tryChats = async (pool: BeeperChat[]) => {
+    const ranked = rankBeeperChatsForContact(
+      pool.map(withMatchFields),
+      contact
     );
-    const candidates = candidatesFromChat(
-      chat,
-      messages,
-      afterMs,
-      includeInbound
-    );
-    if (!candidates.length) continue;
-    const peer = peerFromChat(chat);
-    return {
-      chatId: chat.id,
-      phone: peer.phone,
-      candidates,
-    };
-  }
-  return null;
+    for (const chat of ranked.slice(0, 6)) {
+      let messages = await searchMessagesInChat(
+        chat.id,
+        afterIso,
+        maxMessagesPerChat
+      );
+      if (!messages.length) {
+        messages = await listChatMessages(
+          chat.id,
+          maxMessagesPerChat,
+          afterMs
+        );
+      }
+      const candidates = candidatesFromChat(
+        chat,
+        messages,
+        afterMs,
+        includeInbound
+      );
+      if (!candidates.length) continue;
+      const peer = peerFromChat(chat);
+      return {
+        chatId: chat.id,
+        phone: peer.phone,
+        candidates,
+      };
+    }
+    return null;
+  };
+
+  const fromSearch = await tryChats(await searchChatsForContact(contact));
+  if (fromSearch) return fromSearch;
+  return tryChats(await resolveChatsViaMergedContacts(contact));
 }
 
 /**

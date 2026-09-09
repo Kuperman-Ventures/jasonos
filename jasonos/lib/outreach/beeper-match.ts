@@ -32,6 +32,38 @@ export type BeeperMatchContact = {
   phone?: string | null;
 };
 
+export type BeeperMatchUser = {
+  fullName?: string | null;
+  phoneNumber?: string | null;
+  email?: string | null;
+  isSelf?: boolean;
+};
+
+/** Merged Beeper contacts carry LinkedIn name + iMessage phone on one user. */
+export function contactMatchesBeeperUser(
+  user: BeeperMatchUser,
+  contact: BeeperMatchContact
+): boolean {
+  if (user.isSelf) return false;
+  const wantPhone = normalizePhone(contact.phone);
+  const userPhone = normalizePhone(user.phoneNumber);
+  if (wantPhone && userPhone === wantPhone) return true;
+  const wantName = normalizeName(contact.name ?? "");
+  const userName = normalizeName(user.fullName ?? "");
+  if (
+    wantName &&
+    userName &&
+    hasFullPersonName(contact.name) &&
+    hasFullPersonName(user.fullName) &&
+    (userName === wantName ||
+      userName.includes(wantName) ||
+      wantName.includes(userName))
+  ) {
+    return true;
+  }
+  return false;
+}
+
 /** First + last (or more). "Jamie" alone is too weak to claim a phone-titled chat. */
 export function hasFullPersonName(name: string | null | undefined): boolean {
   if (!looksLikePersonName(name)) return false;

@@ -159,21 +159,61 @@ async function loadDueContactsForBeeperNameLookup(
     .lte("next_touch_date", etToday())
     .order("next_touch_date", { ascending: true })
     .limit(80);
-  if (error || !data?.length) return [];
   const byId = new Map(lookup.rows.map((row) => [row.id, row]));
   const withPhone: ContactLookupRow[] = [];
   const nameOnly: ContactLookupRow[] = [];
-  for (const row of data) {
-    if (alreadyMatched.has(row.id)) continue;
+  const seen = new Set<string>();
+  for (const row of data ?? []) {
+    if (alreadyMatched.has(row.id) || seen.has(row.id)) continue;
     const contact = byId.get(row.id);
     if (!contact) continue;
     const hasPhone = Boolean(normalizePhone(contact.phone));
     if (!hasPhone && !hasFullPersonName(contact.name)) continue;
+    seen.add(contact.id);
     if (hasPhone) withPhone.push(contact);
     else nameOnly.push(contact);
   }
-  // Phone-on-file first: those 1:1s are titled with the number, so search
-  // is cheap and is the path that missed Jeff Wernecke.
+
+  // Manual log of a text takes someone off the overdue list. Keep searching
+  // People-card numbers that still have zero Beeper history (Jeff after the
+  // 20:24 manual log).
+  const { data: phoneRows } = await sb
+    .from("contacts")
+    .select("id, phone")
+    .not("phone", "is", null)
+    .order("updated_at", { ascending: false })
+    .limit(250);
+  const phoneIds = (phoneRows ?? [])
+    .filter(
+      (row) =>
+        normalizePhone(row.phone as string | null) &&
+        !alreadyMatched.has(row.id) &&
+        !seen.has(row.id)
+    )
+    .map((row) => row.id as string)
+    .slice(0, 80);
+  if (phoneIds.length) {
+    const { data: beeperTouched } = await sb
+      .from("contact_touches")
+      .select("contact_id")
+      .eq("source", "beeper")
+      .in("contact_id", phoneIds);
+    const hasBeeper = new Set(
+      (beeperTouched ?? []).map((row) => row.contact_id as string)
+    );
+    let backfill = 0;
+    for (const id of phoneIds) {
+      if (hasBeeper.has(id)) continue;
+      const contact = byId.get(id);
+      if (!contact) continue;
+      seen.add(id);
+      withPhone.push(contact);
+      backfill += 1;
+      if (backfill >= 15) break;
+    }
+  }
+
+  if (error && !withPhone.length && !nameOnly.length) return [];
   return [...withPhone, ...nameOnly];
 }
 
@@ -727,10 +767,9 @@ export async function syncOutreachFromBeeper(opts?: {
     }
 
     // Recent chats often title iMessage as a phone number. Beeper Merge Chats
-    // also hides the original 1:1s behind a LinkedIn+iMessage inbox thread
-    // typed as `group`. For overdue people still unmatched, search by phone
-    // and name across those person chats and keep recent-chat results if
-    // Desktop times out.
+    // hide those 1:1s behind a LinkedIn+iMessage inbox thread. Also keep
+    // searching People-card numbers that still have no Beeper history, even
+    // after a manual text takes them off overdue.
     const matchedIds = new Set(touches.map((t) => t.contact_id));
     const dueUnmatched = await loadDueContactsForBeeperNameLookup(
       lookup,
@@ -751,8 +790,12 @@ export async function syncOutreachFromBeeper(opts?: {
               daysBack,
               includeInbound: true,
             });
-            if (!found || attachedChats.has(found.chatId)) {
-              if (!found) namedMisses.push(contact.name);
+            if (!found) {
+              namedMisses.push(contact.name);
+              continue;
+            }
+            if (attachedChats.has(found.chatId)) {
+              namedMisses.push(`${contact.name} (chat already attached)`);
               continue;
             }
             attachedChats.add(found.chatId);
