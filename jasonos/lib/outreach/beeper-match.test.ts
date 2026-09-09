@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   beeperPhoneSearchQueries,
   chatLabelsMatchContact,
+  contactMatchesBeeperUser,
   hasFullPersonName,
   isPersonBeeperChat,
   isPhoneOnlyChat,
@@ -223,6 +224,34 @@ describe("mergePeerFromParticipants", () => {
         phone: "+1 917-617-0561",
         email: "jeff.wernecke@aclion.com",
       }
+    );
+  });
+});
+
+describe("contactMatchesBeeperUser", () => {
+  const jeff = { name: "Jeff Wernecke", phone: "+1 917-617-0561" };
+
+  it("matches a merged contact by phone", () => {
+    assert.equal(
+      contactMatchesBeeperUser(
+        { fullName: "Jeff Wernecke", phoneNumber: "+19176170561" },
+        jeff
+      ),
+      true
+    );
+  });
+
+  it("matches a merged contact by full name", () => {
+    assert.equal(
+      contactMatchesBeeperUser({ fullName: "Jeff Wernecke" }, jeff),
+      true
+    );
+  });
+
+  it("does not match a different Jeff", () => {
+    assert.equal(
+      contactMatchesBeeperUser({ fullName: "Jeff Cohen" }, jeff),
+      false
     );
   });
 });
