@@ -31,6 +31,33 @@ export function hasFullPersonName(name: string | null | undefined): boolean {
   return (name ?? "").trim().split(/\s+/).filter(Boolean).length >= 2;
 }
 
+/**
+ * Queries Beeper chat search actually hits for a People-card phone.
+ * iMessage titles look like "+1 917-617-0561"; searching only digits often
+ * misses that thread.
+ */
+export function beeperPhoneSearchQueries(
+  phone: string | null | undefined
+): string[] {
+  const raw = (phone ?? "").trim();
+  const digits = normalizePhone(raw);
+  const out: string[] = [];
+  const add = (value: string | null | undefined) => {
+    const next = (value ?? "").trim();
+    if (next && !out.includes(next)) out.push(next);
+  };
+  add(raw);
+  if (!digits) return out;
+  add(digits);
+  if (digits.length === 10) {
+    const dashed = `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+    add(dashed);
+    add(`+1 ${dashed}`);
+    add(`+1${digits}`);
+  }
+  return out;
+}
+
 export function isPhoneOnlyChat(chat: BeeperMatchChat): boolean {
   const labels = [chat.peerName, chat.title];
   if (labels.some((value) => looksLikePersonName(value))) return false;

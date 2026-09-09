@@ -157,17 +157,24 @@ async function loadDueContactsForBeeperNameLookup(
     .from("contacts")
     .select("id")
     .lte("next_touch_date", etToday())
-    .limit(40);
+    .order("next_touch_date", { ascending: true })
+    .limit(80);
   if (error || !data?.length) return [];
   const byId = new Map(lookup.rows.map((row) => [row.id, row]));
-  const out: ContactLookupRow[] = [];
+  const withPhone: ContactLookupRow[] = [];
+  const nameOnly: ContactLookupRow[] = [];
   for (const row of data) {
     if (alreadyMatched.has(row.id)) continue;
     const contact = byId.get(row.id);
-    if (!contact || !hasFullPersonName(contact.name)) continue;
-    out.push(contact);
+    if (!contact) continue;
+    const hasPhone = Boolean(normalizePhone(contact.phone));
+    if (!hasPhone && !hasFullPersonName(contact.name)) continue;
+    if (hasPhone) withPhone.push(contact);
+    else nameOnly.push(contact);
   }
-  return out;
+  // Phone-on-file first: those 1:1s are titled with the number, so search
+  // is cheap and is the path that missed Jeff Wernecke.
+  return [...withPhone, ...nameOnly];
 }
 
 async function applyEmailEnrichments(enrich: EnrichMap): Promise<void> {
@@ -658,7 +665,7 @@ export async function syncOutreachFromBeeper(opts?: {
   try {
     const candidates = await fetchBeeperTouchCandidates({
       daysBack,
-      maxChats: 120,
+      maxChats: 200,
       includeInbound: true,
     });
     const lookup = await buildContactLookup();
@@ -719,10 +726,10 @@ export async function syncOutreachFromBeeper(opts?: {
       appendBeeperTouch(contact, c, touches, phones);
     }
 
-    // Recent chats often title iMessage as a phone number. The Dara fix only
-    // helps when Beeper also has the person's name on the chat. For overdue
-    // people still unmatched, search Beeper by People name the same way Text
-    // does, then attach that thread and write the phone onto the card.
+    // Recent chats often title iMessage as a phone number, and only the 200
+    // most-recent 1:1s are in the first pass. For overdue people still
+    // unmatched, search Beeper by the number on the People card (then name).
+    // Extra lookups must not abort the recent-chat results if Desktop times out.
     const matchedIds = new Set(touches.map((t) => t.contact_id));
     const dueUnmatched = await loadDueContactsForBeeperNameLookup(
       lookup,
@@ -730,25 +737,38 @@ export async function syncOutreachFromBeeper(opts?: {
     );
     let namedLookups = 0;
     let namedMatched = 0;
+    const namedMisses: string[] = [];
     const dueQueue = [...dueUnmatched];
     await Promise.all(
-      Array.from({ length: Math.min(3, dueQueue.length) }, async () => {
+      Array.from({ length: Math.min(2, dueQueue.length) }, async () => {
         while (dueQueue.length) {
           const contact = dueQueue.shift();
           if (!contact) return;
           namedLookups += 1;
-          const found = await fetchBeeperTouchCandidatesForContact(contact, {
-            daysBack,
-            includeInbound: true,
-          });
-          if (!found || attachedChats.has(found.chatId)) continue;
-          attachedChats.add(found.chatId);
-          namedMatched += 1;
-          if (found.phone && !contact.phone && normalizePhone(found.phone)) {
-            phones.set(contact.id, found.phone);
-          }
-          for (const c of found.candidates) {
-            appendBeeperTouch(contact, c, touches, phones);
+          try {
+            const found = await fetchBeeperTouchCandidatesForContact(contact, {
+              daysBack,
+              includeInbound: true,
+            });
+            if (!found || attachedChats.has(found.chatId)) {
+              if (!found) namedMisses.push(contact.name);
+              continue;
+            }
+            attachedChats.add(found.chatId);
+            namedMatched += 1;
+            if (found.phone && !contact.phone && normalizePhone(found.phone)) {
+              phones.set(contact.id, found.phone);
+            }
+            for (const c of found.candidates) {
+              appendBeeperTouch(contact, c, touches, phones);
+            }
+          } catch (err) {
+            namedMisses.push(contact.name);
+            if (err instanceof BeeperUnavailableError) {
+              dueQueue.length = 0;
+              return;
+            }
+            console.warn("[outreach-sync.beeper.namedLookup]", contact.name, err);
           }
         }
       })
@@ -769,6 +789,7 @@ export async function syncOutreachFromBeeper(opts?: {
       unmatchedNames: staged.newNames,
       namedLookups,
       namedMatched,
+      namedMisses,
       daysBack,
     });
     revalidatePaths();

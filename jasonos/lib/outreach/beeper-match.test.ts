@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  beeperPhoneSearchQueries,
   chatLabelsMatchContact,
   hasFullPersonName,
   isPhoneOnlyChat,
@@ -43,6 +44,23 @@ describe("hasFullPersonName", () => {
   });
 });
 
+describe("beeperPhoneSearchQueries", () => {
+  it("includes the iMessage title form for a People-card number", () => {
+    const queries = beeperPhoneSearchQueries("+1 917-617-0561");
+    assert.deepEqual(queries, [
+      "+1 917-617-0561",
+      "9176170561",
+      "917-617-0561",
+      "+19176170561",
+    ]);
+  });
+
+  it("skips empty phones", () => {
+    assert.deepEqual(beeperPhoneSearchQueries(null), []);
+    assert.deepEqual(beeperPhoneSearchQueries("   "), []);
+  });
+});
+
 describe("isPhoneOnlyChat", () => {
   it("detects iMessage threads titled with a number", () => {
     assert.equal(isPhoneOnlyChat(imessagePhone), true);
@@ -62,6 +80,19 @@ describe("chatLabelsMatchContact", () => {
 
   it("matches Jamie once the phone is on the People card", () => {
     assert.equal(chatLabelsMatchContact(imessagePhone, jamieWithPhone), true);
+  });
+
+  it("matches Jeff when the People card has the same number as the iMessage title", () => {
+    const jeff = { name: "Jeff Wernecke", phone: "+1 917-617-0561" };
+    const imessageJeff = {
+      id: "im-jeff",
+      network: "iMessage",
+      title: "+1 917-617-0561",
+      peerName: "+1 917-617-0561",
+      peerPhone: "+1 917-617-0561",
+    };
+    assert.equal(chatLabelsMatchContact(imessageJeff, jeff), true);
+    assert.equal(pickBeeperChatForContact([imessageJeff], jeff)?.id, "im-jeff");
   });
 });
 
