@@ -22,6 +22,11 @@ import { registerJasonosTools } from "./register.ts";
 import { listJasonosAreas } from "./reads.ts";
 import { errorResult, jsonResult, sanitizeSearch, uniqueAlerts, uniqueIssueCount } from "./result.ts";
 import { TODAY_TASK_COLUMNS } from "./operations.ts";
+import {
+  normalizeBriefMarkdown,
+  parseInboxPayload,
+  resolvePublishDate,
+} from "./publish.ts";
 
 describe("MCP token compare", () => {
   it("accepts matching tokens", () => {
@@ -236,8 +241,40 @@ describe("JasonOS area map", () => {
     assert.ok(tools.includes("get_inbox_dispatch"));
     assert.ok(tools.includes("get_job_alerts"));
     assert.ok(tools.includes("get_morning_brief"));
+    assert.ok(tools.includes("publish_morning_brief"));
+    assert.ok(tools.includes("publish_inbox_dispatch"));
     assert.ok(tools.includes("get_alerts"));
     assert.ok(tools.includes("list_alerts"));
+  });
+});
+
+describe("publisher date and payload helpers", () => {
+  it("defaults a missing date to today Eastern", () => {
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    assert.equal(resolvePublishDate(), today);
+    assert.equal(resolvePublishDate("  "), today);
+  });
+
+  it("accepts today and rejects a far-future date", () => {
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    assert.equal(resolvePublishDate(today), today);
+    assert.throws(() => resolvePublishDate("2099-01-01"), /future/);
+    assert.throws(() => resolvePublishDate("not-a-date"), /YYYY-MM-DD/);
+  });
+
+  it("rejects brief markdown that is too short", () => {
+    assert.throws(() => normalizeBriefMarkdown("too short"), /too short/);
+    const ok = "A".repeat(80);
+    assert.equal(normalizeBriefMarkdown(`  ${ok}  `), ok);
+  });
+
+  it("parses inbox JSON and requires a list section", () => {
+    const payload = parseInboxPayload(
+      JSON.stringify({ boarding: [{ threadId: "1" }], holding: [], noise: [] })
+    );
+    assert.equal(Array.isArray(payload.boarding), true);
+    assert.throws(() => parseInboxPayload("{"), /not valid JSON/);
+    assert.throws(() => parseInboxPayload({ configured: true }), /boarding, holding, or noise/);
   });
 });
 

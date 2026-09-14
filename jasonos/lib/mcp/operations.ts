@@ -47,7 +47,7 @@ function slimCard(row: Record<string, unknown>) {
 export async function getStatus() {
   const sb = jasonosDb();
   const date = etDate();
-  const [cards, todos, alerts, today] = await Promise.all([
+  const [cards, todos, alerts, today, latestBrief] = await Promise.all([
     sb.from("cards").select("id", { count: "exact", head: true }).eq("state", "open"),
     sb.from("todos").select("id", { count: "exact", head: true }).eq("state", "open"),
     sb
@@ -61,6 +61,12 @@ export async function getStatus() {
       .from("today_task_instances")
       .select("id", { count: "exact", head: true })
       .eq("scheduled_for_date", date),
+    publicDb()
+      .from("morning_briefs")
+      .select("brief_date,created_at")
+      .order("brief_date", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   const openAlerts = uniqueAlerts(alerts.data).map((row) => ({
@@ -79,6 +85,10 @@ export async function getStatus() {
     critical_alerts: openAlerts.length,
     alerts: openAlerts,
     today_tasks: today.error ? null : (today.count ?? 0),
+    last_morning_brief_date: latestBrief.error ? null : (latestBrief.data?.brief_date ?? null),
+    morning_brief_is_stale: latestBrief.error
+      ? null
+      : !latestBrief.data || latestBrief.data.brief_date !== date,
     app: "https://jasonos.vercel.app",
   };
 }

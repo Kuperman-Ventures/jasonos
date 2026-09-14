@@ -94,10 +94,35 @@ Only if you also use the Claude Desktop app.
 
 If nothing shows up, Claude Desktop often cannot find `npx`. In Terminal run `which npx`, then in the file above change `"command": "npx"` to that full path (often `/opt/homebrew/bin/npx`).
 
+## 5. Morning brief publisher (scheduled Claude)
+
+The weekday brief and inbox dispatch used to be written with Anthropic's
+official Supabase connector (`execute_sql`). That connector is often absent
+from scheduled runs, so Home froze on the last successful day.
+
+Use the JasonOS connector instead:
+
+1. Make sure JasonOS is connected (steps 1 and 3 above).
+2. In the scheduled task, attach **JasonOS**. Allow every tool.
+3. First search in the run: `jasonos` or `publish_morning_brief`.
+4. Call `publish_morning_brief` with the markdown. Call
+   `publish_inbox_dispatch` with the boarding/holding/noise JSON.
+5. If the tools still do not appear, POST to
+   `https://jasonos.vercel.app/api/morning-brief/publish` and
+   `/api/inbox-dispatch/publish` with `Authorization: Bearer` plus the
+   same Settings password.
+
+You do not need the official Supabase connector for this. You still need
+Gmail and Calendar attached so Claude can *read* overnight mail and today's
+events.
+
+Full publisher shape: [morning-brief-publisher.md](morning-brief-publisher.md).
+
 ## What you can ask once it works
 
 - What’s on my plate today?
 - What’s in the morning brief / inbox boarding list?
+- Publish today's morning brief (uses `publish_morning_brief`)
 - Who is overdue for outreach?
 - What job alerts came in?
 - What action cards are open?
