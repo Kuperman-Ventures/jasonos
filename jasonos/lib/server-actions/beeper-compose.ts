@@ -9,7 +9,11 @@ import {
   isBeeperConfigured,
 } from "@/lib/integrations/beeper";
 import { etToday } from "@/lib/dates";
-import { normalizePhone } from "@/lib/outreach/contact-lookup";
+import {
+  isUsablePhone,
+  looksLikeEmail,
+  normalizePhone,
+} from "@/lib/outreach/contact-lookup";
 import {
   insertContactTouches,
   type ContactTouchInput,
@@ -54,7 +58,7 @@ async function loadContact(contactId: string) {
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("contacts")
-    .select("id, name, phone, last_touch_date, next_touch_date")
+    .select("id, name, phone, emails, last_touch_date, next_touch_date")
     .eq("id", contactId)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -62,23 +66,36 @@ async function loadContact(contactId: string) {
     id: string;
     name: string | null;
     phone: string | null;
+    emails: string[] | null;
     last_touch_date: string | null;
     next_touch_date: string | null;
   } | null;
 }
 
+/**
+ * Write a real phone from Beeper onto the contact. Also replaces an email
+ * that was mistakenly stored in `phone` (common CRM import mess), moving
+ * that address into `emails` so future matching still works.
+ */
 async function enrichPhoneIfMissing(
   contactId: string,
   existingPhone: string | null,
-  foundPhone: string | null | undefined
+  foundPhone: string | null | undefined,
+  existingEmails: string[] | null = null
 ) {
-  if (existingPhone || !foundPhone || !normalizePhone(foundPhone)) return;
+  if (!foundPhone || !normalizePhone(foundPhone)) return;
+  if (isUsablePhone(existingPhone)) return;
   const sb = createServiceRoleClient();
-  await sb
-    .from("contacts")
-    .update({ phone: foundPhone })
-    .eq("id", contactId)
-    .is("phone", null);
+  const patch: { phone: string; emails?: string[] } = { phone: foundPhone };
+  if (looksLikeEmail(existingPhone)) {
+    const emails = [...(existingEmails ?? [])];
+    const email = existingPhone!.trim();
+    if (!emails.some((e) => e.toLowerCase() === email.toLowerCase())) {
+      emails.push(email);
+    }
+    patch.emails = emails;
+  }
+  await sb.from("contacts").update(patch).eq("id", contactId);
 }
 
 function touchesFromBeeperCandidates(
@@ -115,9 +132,10 @@ async function pullAndInsertBeeperTouches(contact: {
   id: string;
   name: string | null;
   phone: string | null;
+  emails?: string[] | null;
 }): Promise<{ inserted: number; phone: string | null }> {
   const found = await fetchBeeperTouchCandidatesForContact(
-    { name: contact.name, phone: contact.phone },
+    { name: contact.name, phone: contact.phone, emails: contact.emails },
     { daysBack: 21, includeInbound: true, maxMessagesPerChat: 30 }
   );
   if (!found?.candidates.length) {
@@ -176,12 +194,13 @@ export async function openBeeperText(
     const result = await focusBeeperChatForContact({
       name: contact.name,
       phone: contact.phone,
+      emails: contact.emails,
     });
     if (!result.ok) return result;
 
     const phoneFromFocus =
       result.opened === "chat" ? (result.phone ?? null) : null;
-    await enrichPhoneIfMissing(contactId, contact.phone, phoneFromFocus);
+    await enrichPhoneIfMissing(contactId, contact.phone, phoneFromFocus, contact.emails);
 
     let touchesLogged = 0;
     try {
@@ -194,7 +213,8 @@ export async function openBeeperText(
       await enrichPhoneIfMissing(
         contactId,
         phoneFromFocus ?? contact.phone,
-        pulled.phone
+        pulled.phone,
+        contact.emails
       );
     } catch (err) {
       // Opening the chat still succeeded — don't fail the whole Text action
@@ -259,7 +279,7 @@ export async function confirmBeeperTextSent(
   if (await isBeeperConfigured()) {
     try {
       const pulled = await pullAndInsertBeeperTouches(contact);
-      await enrichPhoneIfMissing(contactId, contact.phone, pulled.phone);
+      await enrichPhoneIfMissing(contactId, contact.phone, pulled.phone, contact.emails);
       if (pulled.inserted > 0) {
         const clearedOverdue = await contactClearedOverdue(contactId);
         revalidateOutreachPaths();

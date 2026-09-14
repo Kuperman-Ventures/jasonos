@@ -9,8 +9,11 @@ import {
   hasExactEmailMatch,
   isAlreadyAContact,
   isBeeperPlaceholderEmail,
+  isUsablePhone,
+  looksLikeEmail,
   looksLikePersonName,
   namesLookLikeSamePerson,
+  normalizePhone,
   type ContactLookupRow,
 } from "./contact-lookup.ts";
 
@@ -203,6 +206,32 @@ describe("findNameMatch for Suggested merge", () => {
     assert.equal(
       findNameMatch({ email: "chris@hill.co", name: "Chris Hill" }, chris),
       null
+    );
+  });
+});
+
+describe("email stuck in the phone field", () => {
+  it("does not treat an email as a phone number", () => {
+    assert.equal(looksLikeEmail("donmckinney2002@yahoo.com"), true);
+    assert.equal(normalizePhone("donmckinney2002@yahoo.com"), null);
+    assert.equal(isUsablePhone("donmckinney2002@yahoo.com"), false);
+    assert.equal(normalizePhone("2002"), null);
+  });
+
+  it("still resolves Beeper peers by that email via the phone field", () => {
+    const don = contact({
+      id: "don",
+      name: "Don McKinney",
+      phone: "donmckinney2002@yahoo.com",
+      emails: [],
+    });
+    const lookup = createContactLookup([don]);
+    assert.equal(
+      lookup.resolvePeer({
+        name: "Don McKinney",
+        email: "donmckinney2002@yahoo.com",
+      })?.id,
+      "don"
     );
   });
 });
