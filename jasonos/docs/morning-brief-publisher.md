@@ -1,7 +1,47 @@
-# Morning Brief publisher (Claude → Supabase)
+# Morning Brief publisher (Claude → JasonOS)
 
 Claude (or a scheduled job) writes one row per weekday into
 `public.morning_briefs`. JasonOS Home reads that row and lays it out.
+
+## How to publish (do not use official Supabase MCP)
+
+The weekday publisher used to `execute_sql` through Anthropic's official
+Supabase connector. That connector is often missing from scheduled Claude
+runs, so the brief never lands. Publish through JasonOS instead.
+
+1. Attach the **JasonOS** custom connector to the scheduled task
+   (Settings → Connectors → JasonOS, URL `https://jasonos.vercel.app/api/mcp`).
+   Allow every JasonOS tool.
+2. First tool search in the run: `jasonos` or `publish_morning_brief`.
+3. Write the markdown, then call `publish_morning_brief` with `content_md`
+   (and `date` only if you are backfilling). Call `publish_inbox_dispatch`
+   with `payload_json` for the boarding / holding / noise object.
+4. If those tools still do not appear, POST the same JSON with the JasonOS
+   Bearer password:
+
+```http
+POST https://jasonos.vercel.app/api/morning-brief/publish
+Authorization: Bearer YOUR_JASONOS_PASSWORD
+Content-Type: application/json
+
+{ "content_md": "## Calendar Today\n- **9:00–9:30 AM** — …", "date": "2026-09-14" }
+```
+
+```http
+POST https://jasonos.vercel.app/api/inbox-dispatch/publish
+Authorization: Bearer YOUR_JASONOS_PASSWORD
+Content-Type: application/json
+
+{ "payload": { "boarding": [], "holding": [], "noise": [] }, "date": "2026-09-14" }
+```
+
+Do not insert into `morning_briefs` via `execute_sql`. JasonOS already has
+the service-role write. Reconnecting official Supabase MCP is optional.
+
+Scheduled Claude runs are known to hide MCP tools until a human messages the
+session. Searching for a short tool name first, or POSTing to the URLs above,
+is the workaround. Gmail and Calendar still have to be attached for the
+*pull* half of the job.
 
 ## Links in summaries
 

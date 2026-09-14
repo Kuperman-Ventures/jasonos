@@ -5,6 +5,8 @@ alwaysApply: false
 
 When Jason asks what is on his plate, what cards are open, about outreach, inbox, jobs, or contacts, use the **jasonos** tools if they are available. Start with list_jasonos_areas or get_status.
 
+The weekday morning brief publisher should call `publish_morning_brief` / `publish_inbox_dispatch` on this same server, not a separate Supabase connector.
+
 If those tools are missing, tell him in plain language:
 
 1. Open JasonOS Settings → Cursor & Claude → Generate password → Copy → Save.

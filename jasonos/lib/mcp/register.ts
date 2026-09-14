@@ -30,13 +30,18 @@ import {
   listProjects,
   listSuggestedContacts,
 } from "./reads";
+import { publishInboxDispatch, publishMorningBrief } from "./publish";
 import { jsonResult, runTool } from "./result";
 
 export const JASONOS_MCP_INSTRUCTIONS = `JasonOS is Jason Kuperman's personal command center. Four tracks: venture, advisors, job_search, personal.
 
 You have full read access. Start with list_jasonos_areas or get_status. get_status.alerts lists the issues behind critical_alerts; get_alerts / list_alerts return the same records. Then pick the tool for the area Jason asked about (today, outreach, inbox, jobs, projects, brief). Use search_contacts or get_contact before drafting outreach.
 
-Writes (add_todo, complete_todo, add_action_card, update_card, pin_card) change live JasonOS data — say what you changed.
+Writes (add_todo, complete_todo, add_action_card, update_card, pin_card, publish_morning_brief, publish_inbox_dispatch) change live JasonOS data — say what you changed.
+
+To publish today's morning brief or inbox dispatch, use publish_morning_brief / publish_inbox_dispatch. Do not use a separate Supabase execute_sql connector.
+
+If these tools are missing from a scheduled run, search for "jasonos" or "publish_morning_brief" first. As a fallback, POST the same payload to https://jasonos.vercel.app/api/morning-brief/publish or /api/inbox-dispatch/publish with the JasonOS Bearer password.
 
 Do not dump full JSON back to Jason. Summarize in plain English.`;
 
@@ -235,6 +240,21 @@ export function registerJasonosTools(server: McpServer) {
   );
 
   server.registerTool(
+    "publish_morning_brief",
+    {
+      title: "Publish morning brief",
+      description:
+        "Write today's (or a given Eastern date's) morning brief markdown into JasonOS Home. Replaces that day's row if it already exists. Use this instead of Supabase execute_sql.",
+      inputSchema: z.object({
+        content_md: z.string().min(80).max(80_000),
+        date: z.string().describe("YYYY-MM-DD America/New_York. Defaults to today.").optional(),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(() => publishMorningBrief(args))
+  );
+
+  server.registerTool(
     "get_inbox_dispatch",
     {
       title: "Inbox dispatch",
@@ -243,6 +263,21 @@ export function registerJasonosTools(server: McpServer) {
       annotations: { readOnlyHint: true, openWorldHint: false },
     },
     async () => runTool(getInboxDispatch)
+  );
+
+  server.registerTool(
+    "publish_inbox_dispatch",
+    {
+      title: "Publish inbox dispatch",
+      description:
+        "Write today's (or a given Eastern date's) inbox dispatch JSON into JasonOS Home. payload_json must be the InboxDispatch object (boarding, holding, noise). Replaces that day's row if it already exists. Use this instead of Supabase execute_sql.",
+      inputSchema: z.object({
+        payload_json: z.string().min(2).max(400_000),
+        date: z.string().describe("YYYY-MM-DD America/New_York. Defaults to today.").optional(),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(() => publishInboxDispatch(args))
   );
 
   server.registerTool(

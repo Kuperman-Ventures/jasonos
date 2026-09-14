@@ -35,13 +35,13 @@ async function firstOk<T>(jobs: Array<() => Promise<T | null>>): Promise<T | nul
 export function listJasonosAreas() {
   return {
     ok: true,
-    note: "Claude has full JasonOS read access. Use these tools instead of guessing.",
+    note: "Claude has full JasonOS read access, plus publish_morning_brief / publish_inbox_dispatch for the weekday publisher. Use these tools instead of a separate Supabase execute_sql connector.",
     areas: [
       { area: "today", tools: ["get_today", "get_status"] },
       { area: "must_dos_and_cards", tools: ["get_must_dos", "list_action_cards"] },
       { area: "todos_and_projects", tools: ["list_todos", "list_projects"] },
-      { area: "morning_brief", tools: ["get_morning_brief"] },
-      { area: "inbox", tools: ["get_inbox_dispatch"] },
+      { area: "morning_brief", tools: ["get_morning_brief", "publish_morning_brief"] },
+      { area: "inbox", tools: ["get_inbox_dispatch", "publish_inbox_dispatch"] },
       { area: "outreach", tools: ["get_outreach_queue", "list_outreach_people", "get_contact", "list_suggested_contacts"] },
       { area: "meetings", tools: ["list_meetings"] },
       { area: "jobs", tools: ["get_scoreboard", "get_job_alerts", "list_interview_preps"] },
