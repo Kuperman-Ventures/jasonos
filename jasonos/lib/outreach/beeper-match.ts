@@ -3,6 +3,9 @@
 // person's name (iMessage does this constantly).
 
 import {
+  canonicalEmail,
+  extractEmail,
+  looksLikeEmail,
   looksLikePersonName,
   normalizeName,
   normalizePhone,
@@ -30,6 +33,8 @@ export type BeeperMatchChat = {
 export type BeeperMatchContact = {
   name?: string | null;
   phone?: string | null;
+  /** Optional emails — including an address mistakenly stored in `phone`. */
+  emails?: string[] | null;
 };
 
 export type BeeperMatchUser = {
@@ -38,6 +43,20 @@ export type BeeperMatchUser = {
   email?: string | null;
   isSelf?: boolean;
 };
+
+function contactEmailsForMatch(contact: BeeperMatchContact): string[] {
+  const out: string[] = [];
+  const add = (value: string | null | undefined) => {
+    if (!value) return;
+    const email = extractEmail(value);
+    if (!email.includes("@")) return;
+    const key = canonicalEmail(email);
+    if (!out.some((e) => canonicalEmail(e) === key)) out.push(email);
+  };
+  for (const email of contact.emails ?? []) add(email);
+  if (looksLikeEmail(contact.phone)) add(contact.phone);
+  return out;
+}
 
 /** Merged Beeper contacts carry LinkedIn name + iMessage phone on one user. */
 export function contactMatchesBeeperUser(
@@ -48,6 +67,14 @@ export function contactMatchesBeeperUser(
   const wantPhone = normalizePhone(contact.phone);
   const userPhone = normalizePhone(user.phoneNumber);
   if (wantPhone && userPhone === wantPhone) return true;
+
+  const userEmail = user.email ? canonicalEmail(user.email) : "";
+  if (userEmail.includes("@")) {
+    for (const email of contactEmailsForMatch(contact)) {
+      if (canonicalEmail(email) === userEmail) return true;
+    }
+  }
+
   const wantName = normalizeName(contact.name ?? "");
   const userName = normalizeName(user.fullName ?? "");
   if (
@@ -74,25 +101,38 @@ export function hasFullPersonName(name: string | null | undefined): boolean {
  * Queries Beeper chat search actually hits for a People-card phone.
  * iMessage titles look like "+1 917-617-0561"; searching only digits often
  * misses that thread.
+ *
+ * Beeper literal search requires every word to match. A People-card value like
+ * "917 624 4972" is three words and misses titles such as "+1 917-624-4972".
+ * Skip spaced digit runs and emails pasted into the phone field.
  */
 export function beeperPhoneSearchQueries(
   phone: string | null | undefined
 ): string[] {
   const raw = (phone ?? "").trim();
+  if (!raw || looksLikeEmail(raw)) return [];
   const digits = normalizePhone(raw);
   const out: string[] = [];
   const add = (value: string | null | undefined) => {
     const next = (value ?? "").trim();
     if (next && !out.includes(next)) out.push(next);
   };
-  add(raw);
+  const rawWords = raw.split(/\s+/).filter(Boolean);
+  const spacedBareDigits =
+    rawWords.length >= 2 &&
+    rawWords.every((word) => /^\d[\d\-()]*$/.test(word));
+  if (!spacedBareDigits) add(raw);
   if (!digits) return out;
   add(digits);
   if (digits.length === 10) {
-    const dashed = `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+    const a = digits.slice(0, 3);
+    const b = digits.slice(3, 6);
+    const c = digits.slice(6);
+    const dashed = `${a}-${b}-${c}`;
     add(dashed);
     add(`+1 ${dashed}`);
     add(`+1${digits}`);
+    add(`(${a}) ${b}-${c}`);
   }
   return out;
 }

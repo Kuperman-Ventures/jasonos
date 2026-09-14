@@ -2,6 +2,8 @@ import "server-only";
 
 import { beeperTextNetworkRank } from "@/lib/integrations/beeper-text-pref";
 import {
+  isUsablePhone,
+  looksLikeEmail,
   looksLikePersonName,
   preferPersonName,
 } from "@/lib/outreach/contact-lookup";
@@ -13,6 +15,7 @@ import {
   pickBeeperChatForContact,
   rankBeeperChatsForContact,
   type BeeperMatchChat,
+  type BeeperMatchContact,
 } from "@/lib/outreach/beeper-match";
 
 // Beeper Desktop API — local/tunneled chat sync for JasonOS outreach.
@@ -451,30 +454,62 @@ export async function fetchBeeperTouchCandidates(opts?: {
 
 function contactSearchParams(
   query: string,
-  scope?: "titles" | "participants"
+  opts?: {
+    scope?: "titles" | "participants";
+    type?: "single" | "group" | "any";
+  }
 ): URLSearchParams {
   const qs = new URLSearchParams({
-    type: "any",
+    // Prefer explicit single+group over type=any — some Desktop builds 400
+    // on "any" and our fallback only retried "single", missing merged chats.
+    type: opts?.type ?? "single",
     limit: "80",
     includeMuted: "true",
     query,
   });
-  if (scope) qs.set("scope", scope);
+  if (opts?.scope) qs.set("scope", opts.scope);
   return qs;
+}
+
+async function searchChatsPageBothTypes(
+  query: string,
+  scope?: "titles" | "participants"
+): Promise<BeeperChat[]> {
+  const [singles, groups] = await Promise.all([
+    searchChatsPage(contactSearchParams(query, { scope, type: "single" })),
+    searchChatsPage(contactSearchParams(query, { scope, type: "group" })),
+  ]);
+  return mergeChats([singles, groups]);
+}
+
+function asBeeperMatchContact(contact: {
+  name?: string | null;
+  phone?: string | null;
+  emails?: string[] | null;
+}): BeeperMatchContact {
+  const emails = [...(contact.emails ?? [])];
+  if (looksLikeEmail(contact.phone)) emails.push(contact.phone!.trim());
+  return {
+    name: contact.name,
+    phone: isUsablePhone(contact.phone) ? contact.phone : null,
+    emails,
+  };
 }
 
 async function searchChatsForContact(contact: {
   name?: string | null;
   phone?: string | null;
+  emails?: string[] | null;
 }): Promise<BeeperChat[]> {
-  const name = preferPersonName(contact.name);
-  const phone = contact.phone?.trim() || null;
+  const matchContact = asBeeperMatchContact(contact);
+  const name = preferPersonName(matchContact.name);
+  const phone = matchContact.phone?.trim() || null;
   const groups: BeeperChat[][] = [];
 
   if (phone) {
     const phoneHits = await Promise.all(
       beeperPhoneSearchQueries(phone).map((query) =>
-        searchChatsPage(contactSearchParams(query))
+        searchChatsPageBothTypes(query)
       )
     );
     groups.push(...phoneHits);
@@ -482,11 +517,18 @@ async function searchChatsForContact(contact: {
 
   if (name) {
     const [titles, participants, unified] = await Promise.all([
-      searchChatsPage(contactSearchParams(name, "titles")),
-      searchChatsPage(contactSearchParams(name, "participants")),
+      searchChatsPageBothTypes(name, "titles"),
+      searchChatsPageBothTypes(name, "participants"),
       unifiedSearchChats(name),
     ]);
     groups.push(titles, participants, unified);
+  }
+
+  // Email can resolve LinkedIn / merged Beeper contacts when phone was junk.
+  for (const email of matchContact.emails ?? []) {
+    const q = email.trim();
+    if (!q) continue;
+    groups.push(await searchChatsPageBothTypes(q, "participants"));
   }
 
   return mergeChats(groups);
@@ -552,12 +594,15 @@ async function startDirectChat(
 async function resolveChatsViaMergedContacts(contact: {
   name?: string | null;
   phone?: string | null;
+  emails?: string[] | null;
 }): Promise<BeeperChat[]> {
   const accounts = await listBeeperAccounts();
   if (!accounts.length) return [];
+  const matchContact = asBeeperMatchContact(contact);
   const queries = [
-    ...beeperPhoneSearchQueries(contact.phone),
-    preferPersonName(contact.name),
+    ...beeperPhoneSearchQueries(matchContact.phone),
+    ...(matchContact.emails ?? []),
+    preferPersonName(matchContact.name),
   ].filter((value): value is string => Boolean(value));
   if (!queries.length) return [];
 
@@ -571,7 +616,7 @@ async function resolveChatsViaMergedContacts(contact: {
     for (const query of queries.slice(0, 3)) {
       const users = await searchAccountContacts(account.accountID, query);
       const user = users.find((candidate) =>
-        contactMatchesBeeperUser(candidate, contact)
+        contactMatchesBeeperUser(candidate, matchContact)
       );
       if (!user) continue;
       const chat = await startDirectChat(account.accountID, user);
@@ -614,9 +659,11 @@ export type FocusBeeperResult =
 async function findBeeperChatForContact(contact: {
   name?: string | null;
   phone?: string | null;
+  emails?: string[] | null;
 }): Promise<BeeperChat | undefined> {
+  const matchContact = asBeeperMatchContact(contact);
   const chats = await searchChatsForContact(contact);
-  return pickBeeperChatForContact(chats.map(withMatchFields), contact);
+  return pickBeeperChatForContact(chats.map(withMatchFields), matchContact);
 }
 
 /**
@@ -626,7 +673,7 @@ async function findBeeperChatForContact(contact: {
  * shells after a merge often match the number but return no messages.
  */
 export async function fetchBeeperTouchCandidatesForContact(
-  contact: { name?: string | null; phone?: string | null },
+  contact: { name?: string | null; phone?: string | null; emails?: string[] | null },
   opts?: {
     daysBack?: number;
     maxMessagesPerChat?: number;
@@ -644,12 +691,13 @@ export async function fetchBeeperTouchCandidatesForContact(
   );
   const includeInbound = opts?.includeInbound ?? true;
   const afterMs = Date.now() - daysBack * 86_400_000;
+  const matchContact = asBeeperMatchContact(contact);
 
   const afterIso = new Date(afterMs).toISOString();
   const tryChats = async (pool: BeeperChat[]) => {
     const ranked = rankBeeperChatsForContact(
       pool.map(withMatchFields),
-      contact
+      matchContact
     );
     for (const chat of ranked.slice(0, 6)) {
       let messages = await searchMessagesInChat(
@@ -694,6 +742,7 @@ export async function fetchBeeperTouchCandidatesForContact(
 export async function focusBeeperChatForContact(contact: {
   name?: string | null;
   phone?: string | null;
+  emails?: string[] | null;
 }): Promise<FocusBeeperResult> {
   await probeBeeperDesktop();
   const match = await findBeeperChatForContact(contact);

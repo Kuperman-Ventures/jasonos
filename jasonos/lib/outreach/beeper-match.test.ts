@@ -55,12 +55,22 @@ describe("beeperPhoneSearchQueries", () => {
       "9176170561",
       "917-617-0561",
       "+19176170561",
+      "(917) 617-0561",
     ]);
   });
 
-  it("skips empty phones", () => {
+  it("skips empty phones, emails, and spaced digit AND-traps", () => {
     assert.deepEqual(beeperPhoneSearchQueries(null), []);
     assert.deepEqual(beeperPhoneSearchQueries("   "), []);
+    assert.deepEqual(
+      beeperPhoneSearchQueries("donmckinney2002@yahoo.com"),
+      []
+    );
+    const spaced = beeperPhoneSearchQueries("917 624 4972");
+    assert.equal(spaced.includes("917 624 4972"), false);
+    assert.equal(spaced.includes("9176244972"), true);
+    assert.equal(spaced.includes("917-624-4972"), true);
+    assert.equal(spaced.includes("+1 917-624-4972"), true);
   });
 });
 
@@ -252,6 +262,23 @@ describe("contactMatchesBeeperUser", () => {
     assert.equal(
       contactMatchesBeeperUser({ fullName: "Jeff Cohen" }, jeff),
       false
+    );
+  });
+
+  it("matches when the People card email lives in the phone field", () => {
+    assert.equal(
+      contactMatchesBeeperUser(
+        {
+          fullName: "Don McKinney",
+          email: "donmckinney2002@yahoo.com",
+        },
+        {
+          name: "Don McKinney",
+          phone: "donmckinney2002@yahoo.com",
+          emails: [],
+        }
+      ),
+      true
     );
   });
 });

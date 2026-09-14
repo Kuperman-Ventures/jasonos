@@ -24,6 +24,10 @@ import {
   upsertCandidateSightings,
   type CandidateSighting,
 } from "@/lib/outreach/candidate-capture";
+import {
+  isUsablePhone,
+  looksLikeEmail,
+} from "@/lib/outreach/contact-lookup";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
   beeperCandidateIdentity,
@@ -94,21 +98,34 @@ function mergeEmails(existing: string[], adds: string[]): string[] {
 }
 
 async function applyPhoneEnrichments(
-  phones: Map<string, string>
+  phones: Map<string, string>,
+  contactsById?: Map<string, ContactLookupRow>
 ): Promise<void> {
   if (!phones.size) return;
   const sb = createServiceRoleClient();
   for (const [contactId, phone] of phones) {
     if (!normalizePhone(phone)) continue;
-    await sb
-      .from("contacts")
-      .update({ phone })
-      .eq("id", contactId)
-      .is("phone", null)
-      .then(
-        () => undefined,
-        (err) => console.error("[outreach-sync.phoneEnrich]", err)
-      );
+    const existing = contactsById?.get(contactId);
+    // Skip when the People card already has a real number.
+    if (existing && isUsablePhone(existing.phone)) continue;
+    const patch: { phone: string; emails?: string[] } = { phone };
+    if (existing && looksLikeEmail(existing.phone)) {
+      const emails = [...(existing.emails ?? [])];
+      const email = existing.phone!.trim();
+      if (!emails.some((e) => e.toLowerCase() === email.toLowerCase())) {
+        emails.push(email);
+      }
+      patch.emails = emails;
+    }
+    const q = sb.from("contacts").update(patch).eq("id", contactId);
+    // Only fill null phones, OR replace email-as-phone junk.
+    const filtered = existing && looksLikeEmail(existing.phone)
+      ? q
+      : q.is("phone", null);
+    await filtered.then(
+      () => undefined,
+      (err) => console.error("[outreach-sync.phoneEnrich]", err)
+    );
   }
 }
 
@@ -127,7 +144,7 @@ function appendBeeperTouch(
   touches: ContactTouchInput[],
   phones: Map<string, string>
 ): void {
-  if (!contact.phone && c.peer.phone && normalizePhone(c.peer.phone)) {
+  if (!isUsablePhone(contact.phone) && c.peer.phone && normalizePhone(c.peer.phone)) {
     phones.set(contact.id, c.peer.phone);
   }
   const network = c.network ? ` via ${c.network}` : "";
@@ -800,7 +817,7 @@ export async function syncOutreachFromBeeper(opts?: {
             }
             attachedChats.add(found.chatId);
             namedMatched += 1;
-            if (found.phone && !contact.phone && normalizePhone(found.phone)) {
+            if (found.phone && !isUsablePhone(contact.phone) && normalizePhone(found.phone)) {
               phones.set(contact.id, found.phone);
             }
             for (const c of found.candidates) {
@@ -819,7 +836,10 @@ export async function syncOutreachFromBeeper(opts?: {
     );
 
     const insert = await insertContactTouches(touches);
-    await applyPhoneEnrichments(phones);
+    await applyPhoneEnrichments(
+      phones,
+      new Map(lookup.rows.map((row) => [row.id, row]))
+    );
     const staged = await upsertCandidateSightings(sightings, lookup);
     await log({
       ok: true,

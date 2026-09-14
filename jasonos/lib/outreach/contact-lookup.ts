@@ -173,14 +173,32 @@ export interface ContactLookup {
   }): ContactLookupRow | undefined;
 }
 
-/** Digits-only phone key; US numbers collapse to last 10 digits. */
+/** True when a People-card "phone" is actually an email (common CRM import mess). */
+export function looksLikeEmail(raw: string | null | undefined): boolean {
+  if (!raw) return false;
+  const value = raw.trim();
+  if (!value.includes("@")) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+/**
+ * Digits-only phone key; US numbers collapse to last 10 digits.
+ * Rejects emails and short digit crumbs (e.g. "2002" from don@…2002@yahoo.com)
+ * so Beeper matching doesn't treat junk as a real number.
+ */
 export function normalizePhone(raw: string | null | undefined): string | null {
   if (!raw) return null;
+  if (looksLikeEmail(raw)) return null;
   const digits = raw.replace(/\D+/g, "");
-  if (!digits) return null;
+  if (digits.length < 7) return null;
   if (digits.length === 11 && digits.startsWith("1")) return digits.slice(1);
   if (digits.length > 10) return digits.slice(-10);
   return digits;
+}
+
+/** Phone field is usable for Beeper / SMS matching (not blank, not an email). */
+export function isUsablePhone(raw: string | null | undefined): boolean {
+  return Boolean(normalizePhone(raw));
 }
 
 function asEmailList(emails: unknown): string[] {
@@ -218,6 +236,10 @@ export function createContactLookup(rows: ContactLookupRow[]): ContactLookup {
   for (const row of normalized) {
     for (const email of row.emails) {
       byEmail.set(canonicalEmail(email), row);
+    }
+    // Rescue emails that were pasted into the phone field (Don McKinney).
+    if (looksLikeEmail(row.phone)) {
+      byEmail.set(canonicalEmail(row.phone!), row);
     }
     byName.set(normalizeName(row.name), row);
     const phoneKey = normalizePhone(row.phone);
