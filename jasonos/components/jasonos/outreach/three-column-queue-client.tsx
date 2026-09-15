@@ -31,8 +31,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { etEndOfWorkWeekYmd, etToday } from "@/lib/dates";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
+import {
+  deriveQueueUrgency,
+  unionScheduleIntoQueueColumns,
+  type QueueUrgencyKey,
+} from "@/lib/outreach/queue-urgency";
 import { ContactCreateModal } from "@/components/jasonos/outreach/contact-create-modal";
 import { TierDegreeBadge } from "@/components/jasonos/outreach/tier-degree-badge";
 import { ReplyStatusLight } from "@/components/jasonos/outreach/reply-status-light";
@@ -42,7 +46,6 @@ import type { QueueCard, QueueColumnKey, ThreeColumnQueue } from "@/lib/outreach
 import type {
   CommChannel,
   CommunicationsContact,
-  CommUrgency,
 } from "@/lib/server-actions/communications";
 import type { ReconnectContact, RecruiterStatus } from "@/lib/reconnect/types";
 import type { Intent } from "@/lib/triage/types";
@@ -95,13 +98,6 @@ const COLUMNS: ColumnDef[] = [
 // lands at the intersection of its status band and its Warm/Specific/Cold
 // column.
 // ---------------------------------------------------------------------------
-
-type QueueUrgencyKey =
-  | "engaged_today"
-  | "overdue"
-  | "due_this_week"
-  | "scheduled"
-  | "needs_scheduling";
 
 interface BandDef {
   key: QueueUrgencyKey;
@@ -164,52 +160,6 @@ const NEEDS_ATTENTION_BAND: BandDef = {
   headerBg: "bg-muted/60",
   defaultCollapsed: false,
 };
-
-function fromCommUrgency(urgency: CommUrgency): QueueUrgencyKey {
-  switch (urgency) {
-    case "sent_today":
-      return "engaged_today";
-    case "due_today":
-      return "overdue";
-    case "this_week":
-      return "due_this_week";
-    case "scheduled":
-      return "scheduled";
-    case "needs_scheduling":
-      return "needs_scheduling";
-  }
-}
-
-// Eastern "today" + Friday week-end shared with Home / Drift via lib/dates.
-
-/**
- * Status derivation for a queue card.
- *
- * Band placement is driven by the effective next-touch date on the card
- * (manual override or cadence-derived). Schedule's "sent today" signal still
- * wins for Engaged Today. Other CommUrgency values are only a fallback when
- * the card has no next-touch of its own.
- */
-function deriveCardUrgency(
-  card: QueueCard,
-  comm: CommunicationsContact | undefined
-): QueueUrgencyKey {
-  const today = etToday();
-  if (comm?.urgency === "sent_today") return "engaged_today";
-  if (card.last_touch_date && card.last_touch_date.slice(0, 10) === today) {
-    return "engaged_today";
-  }
-
-  const nextTouch = card.next_touch_date ?? comm?.nextActionDueDate ?? null;
-  if (nextTouch) {
-    if (nextTouch < today) return "overdue";
-    if (nextTouch <= etEndOfWorkWeekYmd(today)) return "due_this_week";
-    return "scheduled";
-  }
-
-  if (comm?.urgency) return fromCommUrgency(comm.urgency);
-  return "needs_scheduling";
-}
 
 type BandCells = Record<QueueUrgencyKey, Record<QueueColumnKey, QueueCard[]>>;
 
@@ -296,70 +246,21 @@ export function ThreeColumnQueueClient({
     return map;
   }, [scheduleContacts]);
 
-  // Union population: every queue card, PLUS every Schedule contact that has
-  // no queue card yet (so the grid shows the exact same contact set as the
-  // Schedule page). A contact with an explicit intent is already carded by
-  // getThreeColumnQueue; anything left here is unclassified but has a
-  // next-touch date, so we surface it in the SPECIFIC column (in its correct
-  // urgency zone) without stamping an intent — it stays honestly unclassified.
-  const columns = useMemo(() => {
-    const seen = new Set<string>();
-    const result: Record<QueueColumnKey, QueueCard[]> = {
-      network_growth: [...buckets.network_growth],
-      network_maintenance: [...buckets.network_maintenance],
-      browning_cold: [...buckets.browning_cold],
-    };
-    for (const colKey of [
-      "network_growth",
-      "network_maintenance",
-      "browning_cold",
-    ] as const) {
-      for (const card of result[colKey]) {
-        if (card.contactId) seen.add(card.contactId);
-      }
-    }
-    for (const cc of scheduleContacts) {
-      if (seen.has(cc.id)) continue;
-      const person = peopleById.get(cc.id);
-      // Respect a pinned intent if somehow present; otherwise (unclassified
-      // but scheduled) park the contact in Specific.
-      const column: QueueColumnKey =
-        person?.intent === "network_maintenance" ||
-        person?.intent === "browning_cold"
-          ? person.intent
-          : "network_growth";
-      result[column].push({
-        key: `sched-${cc.id}`,
-        column,
-        name: cc.name,
-        title: cc.title,
-        firm: cc.firm,
-        vip: person?.vip ?? false,
-        relationship_type: person?.relationship_type ?? null,
-        relevance_tier: person?.relevance_tier ?? null,
-        network_degree: person?.network_degree ?? null,
-        primary_email: person?.primary_email ?? null,
-        phone: person?.phone ?? null,
-        linkedin_url: person?.linkedin_url ?? null,
-        cadence_interval: person?.cadence_interval ?? "none",
-        cadence_stage: person?.cadence_stage ?? null,
-        // Prefer the contact's next_touch_date (manual override or cadence)
-        // over a possibly-stale pipeline due date on the Schedule row.
-        next_touch_date: person?.next_touch_date ?? cc.nextActionDueDate,
-        last_touch_date:
-          person?.last_touch_date ??
-          cc.lastTouch?.touched_at?.slice(0, 10) ??
-          null,
-        reply_status_override: person?.reply_status_override ?? null,
-        reply_status_override_at: person?.reply_status_override_at ?? null,
-        reason: "Scheduled touch",
-        sequenceStageLabel: null,
-        contactId: cc.contactId || cc.id,
-        recruiterId: cc.source === "recruiter" ? cc.id : null,
-      });
-    }
-    return result;
-  }, [buckets, scheduleContacts, peopleById]);
+  // Same union Home uses: classified queue cards plus Schedule contacts
+  // that never made a column (next-touch set, no intent / still initial).
+  const columns = useMemo(
+    () =>
+      unionScheduleIntoQueueColumns(
+        {
+          network_growth: buckets.network_growth,
+          network_maintenance: buckets.network_maintenance,
+          browning_cold: buckets.browning_cold,
+        },
+        scheduleContacts,
+        peopleById
+      ),
+    [buckets, scheduleContacts, peopleById]
+  );
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -391,7 +292,7 @@ export function ThreeColumnQueueClient({
       "browning_cold",
     ] as const) {
       for (const card of filtered[colKey]) {
-        const urgency = deriveCardUrgency(
+        const urgency = deriveQueueUrgency(
           card,
           card.contactId ? commByContactId.get(card.contactId) : undefined
         );
