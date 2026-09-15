@@ -9,11 +9,7 @@ import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { insertContactTouches, type TouchChannel } from "@/lib/outreach/touch-capture";
 import type { TouchObjective } from "@/lib/outreach/types";
-import { researchPersonNews } from "@/lib/ai/research";
-import {
-  buildResearchBriefModel,
-  serializeResearchBrief,
-} from "@/lib/ai/research-brief";
+import { getContactResearch, runContactResearch } from "@/lib/outreach/person-research";
 
 export interface IntroWish {
   name: string;
@@ -114,6 +110,7 @@ export async function createMeeting(input: {
   if (!input.scheduledAt) return { ok: false, error: "A date/time is required." };
 
   const sb = createServiceRoleClient();
+  const existingResearch = await getContactResearch(input.contactId);
   const { data, error } = await sb
     .from("meetings")
     .insert({
@@ -123,6 +120,8 @@ export async function createMeeting(input: {
       status: "scheduled",
       prep_goal: input.prepGoal?.trim() || null,
       prep_notes: input.prepNotes?.trim() || null,
+      prep_research: existingResearch.brief,
+      prep_research_at: existingResearch.researchedAt,
     })
     .select("*")
     .single();
@@ -240,8 +239,7 @@ export async function markMeetingHeld(
   return { ok: true, meeting: rowToMeeting(data) };
 }
 
-// Run an AI web-search brief for a meeting's contact (recent news about the
-// person + their company) and store it on the meeting.
+// Run the contact-level person/company web search and copy it onto this meeting.
 export async function runMeetingResearch(
   id: string
 ): Promise<Result<{ meeting: Meeting }>> {
@@ -257,66 +255,17 @@ export async function runMeetingResearch(
   if (mErr) return { ok: false, error: mErr.message };
   if (!mtg) return { ok: false, error: "Meeting not found." };
 
-  const { data: contact } = await sb
-    .from("contacts")
-    .select("name,tags,company_id")
-    .eq("id", mtg.contact_id as string)
-    .maybeSingle();
-  const name = (contact?.name as string) ?? "";
-  if (!name) return { ok: false, error: "Contact has no name to research." };
+  const researched = await runContactResearch(mtg.contact_id as string);
+  if (!researched.ok) return researched;
 
-  // Resolve firm: company_id → companies.name, else firm:<slug> tag.
-  let firm: string | null = null;
-  const companyId = (contact?.company_id as string | null) ?? null;
-  if (companyId) {
-    const { data: co } = await sb
-      .from("companies")
-      .select("name")
-      .eq("id", companyId)
-      .maybeSingle();
-    firm = (co?.name as string | null) ?? null;
-  }
-  if (!firm) {
-    const tag = ((contact?.tags as string[] | null) ?? []).find((t) =>
-      t.startsWith("firm:")
-    );
-    if (tag) firm = tag.slice("firm:".length).replace(/-/g, " ");
-  }
-
-  let brief: string;
-  try {
-    const res = await researchPersonNews({ name, firm });
-    const who = firm ? `${name} (${firm})` : name;
-    const model = buildResearchBriefModel({
-      text: res.text,
-      sources: res.sources,
-      searched: res.searched,
-      emptyFallback: `No notable recent public news found for ${who}. Before the meeting, check LinkedIn activity, the company site, and Crunchbase/PitchBook directly.`,
-    });
-    brief = serializeResearchBrief(
-      !res.searched && !model.empty
-        ? {
-            ...model,
-            notes: [
-              ...model.notes,
-              "Live web search returned no sources — treat the above as unverified.",
-            ],
-          }
-        : model
-    );
-  } catch (err) {
-    console.error("[meetings.runMeetingResearch]", err);
-    const message =
-      err instanceof Error && err.message.trim()
-        ? err.message.trim()
-        : "Couldn't run the web search.";
-    return { ok: false, error: message };
-  }
-
-  const nowIso = new Date().toISOString();
+  const nowIso = researched.research.researchedAt ?? new Date().toISOString();
   const { data, error } = await sb
     .from("meetings")
-    .update({ prep_research: brief, prep_research_at: nowIso, updated_at: nowIso })
+    .update({
+      prep_research: researched.research.brief,
+      prep_research_at: nowIso,
+      updated_at: nowIso,
+    })
     .eq("id", id)
     .select("*")
     .single();

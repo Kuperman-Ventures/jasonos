@@ -1,8 +1,7 @@
 "use client";
 
-// Meeting tab for the contact card: schedule a meeting, prep for it, then
-// debrief afterwards (outcome + referrals). Marking a meeting held logs a
-// conversation touch so it flows into the networking report.
+// Meeting tab for the contact card: person/company research (no meeting
+// required), schedule a meeting, prep for it, then debrief afterwards.
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -10,8 +9,6 @@ import { toast } from "sonner";
 import {
   CalendarPlus,
   CheckCircle2,
-  ChevronDown,
-  ChevronRight,
   ExternalLink,
   Loader2,
   Pencil,
@@ -28,12 +25,15 @@ import {
   deleteMeeting,
   getMeetingsForContact,
   markMeetingHeld,
-  runMeetingResearch,
   updateMeetingPrep,
   type IntroWish,
   type Meeting,
   type MeetingChannel,
 } from "@/lib/server-actions/meetings";
+import {
+  getContactResearch,
+  runContactResearch,
+} from "@/lib/server-actions/contact-research";
 import { addReferredContact } from "@/lib/server-actions/outreach";
 import type { TouchObjective } from "@/lib/outreach/types";
 import { ResearchBriefView } from "@/components/jasonos/research-brief";
@@ -94,12 +94,20 @@ export function MeetingsTab({
 }) {
   const router = useRouter();
   const [meetings, setMeetings] = useState<Meeting[] | null>(null);
+  const [research, setResearch] = useState<string | null>(null);
+  const [researchAt, setResearchAt] = useState<string | null>(null);
   const [scheduling, setScheduling] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    getMeetingsForContact(contactId).then((m) => {
-      if (!cancelled) setMeetings(m);
+    Promise.all([
+      getMeetingsForContact(contactId),
+      getContactResearch(contactId),
+    ]).then(([m, r]) => {
+      if (cancelled) return;
+      setMeetings(m);
+      setResearch(r.brief);
+      setResearchAt(r.researchedAt);
     });
     return () => {
       cancelled = true;
@@ -137,11 +145,36 @@ export function MeetingsTab({
         ) : null}
       </div>
 
+      <ContactResearchPanel
+        contactId={contactId}
+        research={research}
+        researchAt={researchAt}
+        onUpdated={(next) => {
+          setResearch(next.brief);
+          setResearchAt(next.researchedAt);
+          setMeetings((prev) =>
+            (prev ?? []).map((m) =>
+              m.status === "scheduled"
+                ? {
+                    ...m,
+                    prepResearch: next.brief,
+                    prepResearchAt: next.researchedAt,
+                  }
+                : m
+            )
+          );
+        }}
+      />
+
       {scheduling ? (
         <ScheduleForm
           onCancel={() => setScheduling(false)}
           onCreated={(m) => {
-            upsertLocal(m);
+            upsertLocal({
+              ...m,
+              prepResearch: m.prepResearch ?? research,
+              prepResearchAt: m.prepResearchAt ?? researchAt,
+            });
             setScheduling(false);
           }}
           contactId={contactId}
@@ -150,8 +183,9 @@ export function MeetingsTab({
 
       {meetings.length === 0 && !scheduling ? (
         <p className="py-4 text-center text-xs text-muted-foreground">
-          No meetings yet. Schedule one here, or run Outreach Sync — calendar
-          events with this contact&apos;s email will show up automatically.
+          No meetings yet. You can still run the person/company research above.
+          Schedule one here, or run Outreach Sync — calendar events with this
+          contact&apos;s email will show up automatically.
         </p>
       ) : null}
 
@@ -262,6 +296,61 @@ function ScheduleForm({
           Schedule
         </Button>
       </div>
+    </section>
+  );
+}
+
+function ContactResearchPanel({
+  contactId,
+  research,
+  researchAt,
+  onUpdated,
+}: {
+  contactId: string;
+  research: string | null;
+  researchAt: string | null;
+  onUpdated: (next: { brief: string | null; researchedAt: string | null }) => void;
+}) {
+  const [researching, startResearch] = useTransition();
+
+  const runResearch = () => {
+    startResearch(async () => {
+      const res = await runContactResearch(contactId);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      onUpdated(res.research);
+      toast.success("Research updated.");
+    });
+  };
+
+  return (
+    <section className="space-y-2 rounded-lg border bg-card/40 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className={fieldLabel}>Recent news (AI web search)</span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={runResearch}
+          disabled={researching}
+        >
+          {researching ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : (
+            <Search className="h-3 w-3" />
+          )}
+          {research ? "Refresh" : "Run web search"}
+        </Button>
+      </div>
+      {research ? (
+        <ResearchBriefView raw={research} searchedAt={researchAt} compact />
+      ) : (
+        <p className="text-[11px] text-muted-foreground">
+          Pulls news from the last ~30 days about this person and their company.
+          Works with or without a meeting on the calendar.
+        </p>
+      )}
     </section>
   );
 }
@@ -387,7 +476,6 @@ function MeetingRow({
             onChange(m);
             setMode("view");
           }}
-          onUpdated={(m) => onChange(m)}
         />
       ) : null}
 
@@ -411,13 +499,11 @@ function MeetingRow({
 // of you during the call. Research is collapsible (it can be long); intros and
 // notes stay visible.
 function PrepReadout({ meeting }: { meeting: Meeting }) {
-  const [researchOpen, setResearchOpen] = useState(true);
   const intros = meeting.introWishlist.filter((w) => w.name || w.company);
-  const hasResearch = Boolean(meeting.prepResearch);
   const hasNotes = Boolean(meeting.prepNotes);
   const hasGoal = Boolean(meeting.prepGoal);
 
-  if (!hasResearch && !hasNotes && !hasGoal && intros.length === 0) return null;
+  if (!hasNotes && !hasGoal && intros.length === 0) return null;
 
   return (
     <div className="mt-2 space-y-2.5 border-t pt-2 text-xs">
@@ -426,32 +512,6 @@ function PrepReadout({ meeting }: { meeting: Meeting }) {
           <span className="font-medium text-foreground/80">Goal:</span>{" "}
           {meeting.prepGoal}
         </p>
-      ) : null}
-
-      {hasResearch ? (
-        <div>
-          <button
-            type="button"
-            onClick={() => setResearchOpen((o) => !o)}
-            className="flex w-full items-center gap-1 text-left text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
-          >
-            {researchOpen ? (
-              <ChevronDown className="h-3 w-3" />
-            ) : (
-              <ChevronRight className="h-3 w-3" />
-            )}
-            Recent news (AI web search)
-          </button>
-          {researchOpen ? (
-            <div className="mt-1.5">
-              <ResearchBriefView
-                raw={meeting.prepResearch ?? ""}
-                searchedAt={meeting.prepResearchAt}
-                compact
-              />
-            </div>
-          ) : null}
-        </div>
       ) : null}
 
       {intros.length > 0 ? (
@@ -492,12 +552,10 @@ function PrepForm({
   meeting,
   onCancel,
   onSaved,
-  onUpdated,
 }: {
   meeting: Meeting;
   onCancel: () => void;
   onSaved: (m: Meeting) => void;
-  onUpdated: (m: Meeting) => void;
 }) {
   const [when, setWhen] = useState(toLocalInput(meeting.scheduledAt));
   const [notes, setNotes] = useState(meeting.prepNotes ?? "");
@@ -507,29 +565,10 @@ function PrepForm({
     while (seed.length < 3) seed.push({ name: "", company: "" });
     return seed;
   });
-  const [research, setResearch] = useState<string | null>(meeting.prepResearch);
-  const [researchAt, setResearchAt] = useState<string | null>(
-    meeting.prepResearchAt
-  );
-  const [researching, startResearch] = useTransition();
   const [saving, startSaving] = useTransition();
 
   const setIntro = (i: number, field: keyof IntroWish, value: string) =>
     setIntros((prev) => prev.map((w, idx) => (idx === i ? { ...w, [field]: value } : w)));
-
-  const runResearch = () => {
-    startResearch(async () => {
-      const res = await runMeetingResearch(meeting.id);
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      setResearch(res.meeting.prepResearch);
-      setResearchAt(res.meeting.prepResearchAt);
-      onUpdated(res.meeting);
-      toast.success("Research updated.");
-    });
-  };
 
   const save = () => {
     startSaving(async () => {
@@ -558,38 +597,6 @@ function PrepForm({
           className="h-8 w-full text-xs"
         />
       </label>
-
-      {/* AI web-search brief */}
-      <div>
-        <div className="mb-1 flex items-center justify-between gap-2">
-          <span className={fieldLabel}>Recent news (AI web search)</span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={runResearch}
-            disabled={researching}
-          >
-            {researching ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <Search className="h-3 w-3" />
-            )}
-            {research ? "Refresh" : "Run web search"}
-          </Button>
-        </div>
-        {research ? (
-          <ResearchBriefView
-            raw={research}
-            searchedAt={researchAt}
-            compact
-          />
-        ) : (
-          <p className="text-[11px] text-muted-foreground">
-            Pulls news from the last ~30 days about this person and their
-            company, then shows findings as a readable brief.
-          </p>
-        )}
-      </div>
 
       {/* Intro wishlist */}
       <div>

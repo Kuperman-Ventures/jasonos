@@ -1,7 +1,8 @@
 import "server-only";
 
-// Meeting-prep research: a web-grounded brief on a person and their company,
-// focused on the last 30 days.
+// Person/company research: a web-grounded brief on a person and their company,
+// focused on the last 30 days. Used for meeting prep and for research with
+// no meeting on the calendar.
 //
 // Uses Vercel AI Gateway's Perplexity search tool (works with any model, no
 // Anthropic Console "web search" toggle required). Anthropic's native
@@ -107,7 +108,7 @@ export async function researchPersonNews(input: {
   firm: string | null;
 }): Promise<ResearchResult> {
   const who = input.firm ? `${input.name} (${input.firm})` : input.name;
-  const system = `You are a research assistant preparing a networking-meeting brief. Use the perplexity_search tool to find developments from the LAST 30 DAYS about the person and their company. Report ONLY items you actually found via search. Never invent or infer news that you did not find via search.
+  const system = `You are a research assistant preparing a networking brief. Use the perplexity_search tool to find developments from the LAST 30 DAYS about the person and their company. Report ONLY items you actually found via search. Never invent or infer news that you did not find via search.
 
 OUTPUT FORMAT (hard — follow exactly):
 - Optional: one short lead sentence (plain prose, no bullet).
@@ -155,7 +156,7 @@ OUTPUT RULES (hard):
       return {
         text: [
           `No notable recent public news found for ${who}.`,
-          "Before the meeting, check LinkedIn activity, the company site, and Crunchbase/PitchBook directly — open web search did not surface usable coverage.",
+          "Check LinkedIn activity, the company site, and Crunchbase/PitchBook directly — open web search did not surface usable coverage.",
         ].join("\n\n"),
         sources: [],
         searched: false,
