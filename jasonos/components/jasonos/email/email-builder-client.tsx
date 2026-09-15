@@ -509,7 +509,7 @@ function QuestionsStep({
           <PhraseMemoryField
             field="relationship"
             label={fields.relationship.label}
-            hint="(optional)"
+            hint="notes only. the draft rewrites these"
             value={answers.relationship}
             onChange={(v) => set("relationship", v)}
             placeholder={fields.relationship.placeholder}
@@ -522,7 +522,7 @@ function QuestionsStep({
           <PhraseMemoryField
             field="detail"
             label={fields.detail.label}
-            hint="(optional but recommended)"
+            hint="notes only. the draft rewrites these"
             value={answers.detail}
             onChange={(v) => set("detail", v)}
             placeholder={fields.detail.placeholder}
@@ -537,6 +537,7 @@ function QuestionsStep({
         <PhraseMemoryField
           field="ask"
           label={fields.ask.label}
+          hint="notes only. the draft rewrites these"
           value={answers.ask}
           onChange={(v) => set("ask", v)}
           placeholder={fields.ask.placeholder}

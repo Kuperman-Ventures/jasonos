@@ -19,6 +19,7 @@ import {
   buildFallbackDraft,
   looksLikePastedNotes,
 } from "@/lib/email-builder/fallback";
+import { polishBuilderDraft } from "@/lib/email-builder/polish";
 import { resolveAnswerTags } from "@/lib/server-actions/email-builder-phrases";
 import { labelForTag } from "@/lib/email-builder/phrases";
 
@@ -60,7 +61,9 @@ export async function generateBuilderEmail(input: {
   answers: BuilderAnswers;
 }): Promise<GenerateBuilderResult> {
   const { recipient, answers } = input;
-  const fallback = buildFallbackDraft(recipient, answers);
+  const fallback = polishBuilderDraft(
+    buildFallbackDraft(recipient, answers)
+  );
   const answerTags = await resolveAnswerTags(answers);
 
   const structuredBits: string[] = [];
@@ -112,7 +115,10 @@ Rules:
 - Sound like Jason wrote it. Use his direct, anti-fluff voice.
 - Greet by first name. Sign off "- Jason".
 - No "I hope this finds you well", "circling back", "just wanted to", "touching base". No exclamation points. No em dashes.
-- Questionnaire answers are CONTEXT ONLY. Rewrite them into natural email prose. NEVER paste the user's notes as their own lines or paragraphs (e.g. do not output a bare line "Outfront" or "They have a new job"). Weave facts into sentences Jason would actually send.
+- Questionnaire SOURCE NOTES are facts, not draft copy. Rewrite them into new sentences. NEVER paste a note after "because", "and", or similar (that leaves a capital We/They mid-sentence).
+- Bad: "You came to mind because We worked together at Chiat/Day and have been in touch from time to time since then."
+- Good: "We overlapped at Chiat/Day and stayed in touch, including the OUTFRONT years."
+- If a note starts with "We" or "They", that capital is leftover from the form. Mid-sentence it must be "we" / "they".
 - If the user wrote in third person ("they have a new job"), rewrite in second person / Jason's voice ("saw you landed in a new role").
 - HONOR THE SELECTED GOALS STRICTLY. The email's purpose is exactly those goals. Do not default to a warm-reconnect / "it's been too long" email unless "Warm reconnect" is selected.
 - Warm reconnect ≠ Catch-up. Catch-up is a current check-in with someone Jason spoke to more recently. Reconnect is for a long gap. Never use reconnect framing for catch-up, follow-up, thanks, congrats, cold, or pitch unless reconnect is also selected.
@@ -130,7 +136,7 @@ ${goalGuidanceForPrompt(answers.goals)}`;
 Last contact: ${lastSpoke}
 Selected goals: ${goalLabels || "(none)"}
 
-Context notes (rewrite into prose — do not paste verbatim):
+Context notes are SOURCE MATERIAL. Paraphrase. Do not paste verbatim:
 ${describeAnswers(answers)}
 ${
   structuredBits.length
@@ -140,30 +146,47 @@ ${
 
 Write the email now as JSON. Match the selected goals. Natural sentences only.`;
 
-  try {
+  const providerOptions = hasDirectAnthropicKey()
+    ? {
+        anthropic: {
+          thinking: { type: "disabled" as const },
+        },
+      }
+    : undefined;
+
+  const runDraft = async (userContent: string) => {
     const { text } = await generateText({
       model: heavyModel(),
       maxOutputTokens: 900,
       system,
-      messages: [{ role: "user", content: prompt }],
-      providerOptions: hasDirectAnthropicKey()
-        ? {
-            anthropic: {
-              thinking: { type: "disabled" },
-            },
-          }
-        : undefined,
+      messages: [{ role: "user", content: userContent }],
+      providerOptions,
     });
-    const parsed = safeParseDraft(text);
-    if (!parsed || looksLikePastedNotes(parsed.body, answers)) {
+    return safeParseDraft(text);
+  };
+
+  try {
+    let parsed = await runDraft(prompt);
+    if (parsed && looksLikePastedNotes(parsed.body, answers)) {
+      const retry = await runDraft(
+        `${prompt}
+
+Rewrite. The previous body copied SOURCE NOTES too closely (including leftover capitals like "because We"). Use the facts, write new sentences, JSON only.
+
+Previous body:
+${parsed.body}`
+      );
+      if (retry) parsed = retry;
+    }
+    if (!parsed) {
       return { ok: true, draft: fallback, source: "fallback" };
     }
     return {
       ok: true,
-      draft: {
+      draft: polishBuilderDraft({
         subject: stripEmDashes(parsed.subject) || fallback.subject,
         body: stripEmDashes(parsed.body),
-      },
+      }),
       source: "ai",
     };
   } catch (err) {

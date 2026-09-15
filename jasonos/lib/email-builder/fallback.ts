@@ -285,22 +285,4 @@ export function buildFallbackDraft(
 }
 
 /** True when the draft pasted questionnaire notes as bare paragraphs. */
-export function looksLikePastedNotes(
-  body: string,
-  answers: BuilderAnswers
-): boolean {
-  const lines = body
-    .split(/\n+/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-  const notes = [answers.relationship, answers.detail, answers.ask]
-    .map(note)
-    .filter((n) => n.length >= 3);
-
-  for (const n of notes) {
-    if (lines.some((line) => line.toLowerCase() === n.toLowerCase())) {
-      return true;
-    }
-  }
-  return false;
-}
+export { looksLikePastedNotes } from "./polish";
