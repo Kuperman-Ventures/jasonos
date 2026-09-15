@@ -1,7 +1,5 @@
-import "server-only";
-
 // Read the person/company research brief stored on the contact (or the newest
-// meeting copy). Kept free of AI SDK imports so opening the Meetings tab
+// meeting copy). Kept free of AI SDK imports so opening a contact card
 // cannot fail just because the research generator module failed to load.
 
 import { createServiceRoleClient } from "@/lib/supabase/server";

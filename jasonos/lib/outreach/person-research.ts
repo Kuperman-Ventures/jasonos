@@ -1,8 +1,3 @@
-import "server-only";
-
-// Person + company web-search brief, stored on the contact so it can run
-// without a scheduled meeting. Meeting prep copies the same brief.
-
 import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
