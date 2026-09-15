@@ -363,11 +363,20 @@ export function describeAnswers(a: BuilderAnswers): string {
     `Length: ${labelFor(a.length, LENGTH_OPTIONS)}.`,
   ];
 
-  if (a.relationship.trim())
-    lines.push(`How I know them / context: ${a.relationship.trim()}.`);
-  if (a.detail.trim())
-    lines.push(`Points this email must touch on: ${a.detail.trim()}.`);
-  if (a.ask.trim()) lines.push(`Concrete ask: ${a.ask.trim()}.`);
+  if (a.relationship.trim() || a.detail.trim() || a.ask.trim()) {
+    lines.push(
+      "SOURCE NOTES (private form answers. Extract the facts. Write NEW sentences in Jason's voice. Never paste the note after 'because' / 'and', and never keep a mid-sentence capital We/They from the form):"
+    );
+    if (a.relationship.trim()) {
+      lines.push(`- relationship: ${JSON.stringify(a.relationship.trim())}`);
+    }
+    if (a.detail.trim()) {
+      lines.push(`- points to cover: ${JSON.stringify(a.detail.trim())}`);
+    }
+    if (a.ask.trim()) {
+      lines.push(`- ask: ${JSON.stringify(a.ask.trim())}`);
+    }
+  }
 
   return lines.map((l) => `- ${l}`).join("\n");
 }
