@@ -1,12 +1,9 @@
 // Ordered Beeper open attempts for Home → Text.
 //
 // Beeper toasts "invalid deep link" when the URL shape is wrong for that
-// install. Office Desktop chat IDs (`!room:….localhost`) and invented
-// platforms (`local-whatsapp`) fail on the laptop. Raw `beeper://{chatID}`
-// is not a real scheme.
-//
-// Callers try the next candidate when the previous attempt fails. HTTP
-// `/v1/focus` can detect HTTP errors; the browser cascade uses blur/timeout.
+// install. That toast still brings Beeper forward, so we cannot treat
+// "app opened" as success. For a phone: two Beeper compose URLs, then
+// native iMessage. Sending in Messages still lands in Beeper / the log.
 
 export type BeeperLinkKind =
   | "compose"
@@ -32,7 +29,8 @@ export type BeeperOpenInput = {
   username?: string | null;
 };
 
-const MAX_HREFS = 10;
+/** Beeper toasts still bring the app forward, so we only get two shots. */
+const MAX_BEEPER_HREFS = 2;
 
 export function isLocalChatId(chatId?: string | null): boolean {
   if (!chatId) return false;
@@ -103,129 +101,120 @@ export function toE164(phone?: string | null): string | null {
   return `+${national}`;
 }
 
+export function isNativeMessagesHref(href: string): boolean {
+  return href.startsWith("sms:") || href.startsWith("imessage:");
+}
+
 export function buildBeeperHrefCascade(
   input: BeeperOpenInput
 ): BeeperHrefCandidate[] {
-  const out: BeeperHrefCandidate[] = [];
   const seen = new Set<string>();
-  const add = (candidate: BeeperHrefCandidate) => {
+  const beeper: BeeperHrefCandidate[] = [];
+  const native: BeeperHrefCandidate[] = [];
+  const add = (
+    list: BeeperHrefCandidate[],
+    candidate: BeeperHrefCandidate,
+    cap?: number
+  ) => {
     if (seen.has(candidate.href)) return;
     if (hrefLooksUnsafe(candidate.href)) return;
+    if (cap != null && list.length >= cap) return;
     seen.add(candidate.href);
-    out.push(candidate);
+    list.push(candidate);
   };
 
   const e164 = toE164(input.phone);
-  const national = e164?.startsWith("+1") ? e164.slice(2) : null;
   const handle = handleForCompose(input.username);
   const matchedKey = networkKeyFrom(
     input.accountId,
     input.network,
     input.chatId
   );
-  const networkKeys = unique(
-    [matchedKey, e164 ? "imessage" : null].filter(
-      (value): value is string => Boolean(value)
-    )
-  );
 
-  // Level 1 — compose by phone on the matched network, then iMessage.
-  // Copy-chat uses bridge-{network} + short accountID, never local-*.
-  for (const key of networkKeys) {
-    if (!e164) break;
-    add(
-      composeCandidate(
-        `bridge-${key}`,
-        e164,
-        key,
-        `compose bridge-${key} ${e164}`
-      )
-    );
-    add(composeCandidate(key, e164, key, `compose ${key} ${e164}`));
-    add(
-      composeCandidate(
-        `bridge-${key}`,
-        e164,
-        null,
-        `compose bridge-${key} ${e164} (no account)`
-      )
-    );
-    add({
-      href: `beeper://compose/bridge-${key}/user/${pathSegment(e164)}?accountID=${key}`,
-      kind: "compose",
-      portable: true,
-      label: `compose bridge-${key} user ${e164}`,
-    });
-  }
-
-  // Level 2 — same chat, national digits (iMessage titles are often 10-digit).
-  if (e164 && national && national !== e164) {
-    const key = networkKeys[0] ?? "imessage";
-    add(
-      composeCandidate(
-        `bridge-${key}`,
-        national,
-        key,
-        `compose bridge-${key} ${national}`
-      )
-    );
-  }
-
-  // Level 3 — LinkedIn / IG handle when there is no usable phone compose.
-  if (handle) {
-    const key = matchedKey ?? "linkedin";
-    add(
-      composeCandidate(
-        `bridge-${key}`,
-        handle,
-        key,
-        `compose bridge-${key} ${handle}`
-      )
-    );
-    add(composeCandidate(key, handle, key, `compose ${key} ${handle}`));
-  }
-
-  // Level 4 — Copy-chat select-thread, cloud Matrix rooms only.
-  if (isPortableChatId(input.chatId) && matchedKey) {
-    add({
-      href: `beeper://select-thread/bridge-${matchedKey}/${input.chatId}?accountID=${matchedKey}`,
-      kind: "select-thread",
-      portable: true,
-      label: `select-thread bridge-${matchedKey}`,
-    });
-    add({
-      href: `beeper://select-thread/${matchedKey}/${input.chatId}?accountID=${matchedKey}`,
-      kind: "select-thread",
-      portable: true,
-      label: `select-thread ${matchedKey}`,
-    });
-  }
-
-  // Level 5 — native Messages if Beeper protocol handling is dead.
+  // Two Beeper shots, then Messages. Beeper's invalid-link toast still
+  // brings the app forward, so a long list never reaches iMessage.
   if (e164) {
-    add({
-      href: `sms:${e164}`,
-      kind: "native-sms",
-      portable: true,
-      label: "Messages SMS",
-    });
-    add({
+    const firstKey = matchedKey ?? "imessage";
+    add(
+      beeper,
+      composeCandidate(
+        `bridge-${firstKey}`,
+        e164,
+        firstKey,
+        `compose bridge-${firstKey} ${e164}`
+      ),
+      MAX_BEEPER_HREFS
+    );
+    const second =
+      firstKey === "imessage"
+        ? composeCandidate(
+            "imessage",
+            e164,
+            "imessage",
+            `compose imessage ${e164}`
+          )
+        : composeCandidate(
+            "bridge-imessage",
+            e164,
+            "imessage",
+            `compose bridge-imessage ${e164}`
+          );
+    add(beeper, second, MAX_BEEPER_HREFS);
+    add(native, {
       href: `imessage:${e164}`,
       kind: "native-imessage",
       portable: true,
       label: "Messages iMessage",
     });
+    add(native, {
+      href: `sms:${e164}`,
+      kind: "native-sms",
+      portable: true,
+      label: "Messages SMS",
+    });
+    return [...beeper, ...native];
   }
 
-  // Level 6 — just bring Beeper forward.
-  add({
+  if (handle) {
+    const key = matchedKey ?? "linkedin";
+    add(
+      beeper,
+      composeCandidate(
+        `bridge-${key}`,
+        handle,
+        key,
+        `compose bridge-${key} ${handle}`
+      ),
+      MAX_BEEPER_HREFS
+    );
+    add(
+      beeper,
+      composeCandidate(key, handle, key, `compose ${key} ${handle}`),
+      MAX_BEEPER_HREFS
+    );
+  }
+
+  if (isPortableChatId(input.chatId) && matchedKey) {
+    add(
+      beeper,
+      {
+        href: `beeper://select-thread/bridge-${matchedKey}/${input.chatId}?accountID=${matchedKey}`,
+        kind: "select-thread",
+        portable: true,
+        label: `select-thread bridge-${matchedKey}`,
+      },
+      MAX_BEEPER_HREFS
+    );
+  }
+
+  add(beeper, {
     href: "beeper://focus",
     kind: "focus-app",
     portable: true,
     label: "open Beeper",
   });
 
-  return out.slice(0, MAX_HREFS);
+  return beeper;
 }
 
 export function beeperHrefStrings(input: BeeperOpenInput): string[] {
@@ -327,12 +316,4 @@ function handleForCompose(username?: string | null): string | null {
 
 function pathSegment(value: string): string {
   return encodeURIComponent(value).replace(/%2B/g, "+");
-}
-
-function unique<T>(items: T[]): T[] {
-  const out: T[] = [];
-  for (const item of items) {
-    if (!out.includes(item)) out.push(item);
-  }
-  return out;
 }

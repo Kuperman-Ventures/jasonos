@@ -1,12 +1,15 @@
 "use client";
 
-import { walkBeeperHrefCascade } from "@/lib/integrations/beeper-links";
+import {
+  isNativeMessagesHref,
+  walkBeeperHrefCascade,
+} from "@/lib/integrations/beeper-links";
 
-const PROTOCOL_WAIT_MS = 700;
+const BEEPER_TRY_MS = 500;
 
 /**
- * Open Beeper (or Messages) on this Mac. Tries each URL; if the first format
- * does not bring an app forward, wait and try the next one.
+ * Two Beeper URLs, then Messages. Beeper's "invalid deep link" toast still
+ * focuses the app, so we never treat a beeper:// click as a stop.
  */
 export async function openBeeperLinksInBrowser(
   hrefs: readonly string[]
@@ -16,38 +19,24 @@ export async function openBeeperLinksInBrowser(
 }
 
 async function tryHrefInBrowser(href: string): Promise<boolean> {
-  if (href.startsWith("sms:") || href.startsWith("imessage:")) {
+  if (isNativeMessagesHref(href)) {
     window.location.href = href;
     return true;
   }
-  return tryCustomProtocol(href);
+  fireProtocol(href);
+  await sleep(BEEPER_TRY_MS);
+  return false;
 }
 
-function tryCustomProtocol(href: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    let settled = false;
-    const done = (opened: boolean) => {
-      if (settled) return;
-      settled = true;
-      window.removeEventListener("blur", onBlur);
-      document.removeEventListener("visibilitychange", onVis);
-      resolve(opened);
-    };
-    const onBlur = () => done(true);
-    const onVis = () => {
-      if (document.hidden) done(true);
-    };
+function fireProtocol(href: string) {
+  const anchor = document.createElement("a");
+  anchor.href = href;
+  anchor.style.display = "none";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+}
 
-    window.addEventListener("blur", onBlur);
-    document.addEventListener("visibilitychange", onVis);
-
-    const anchor = document.createElement("a");
-    anchor.href = href;
-    anchor.style.display = "none";
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-
-    window.setTimeout(() => done(false), PROTOCOL_WAIT_MS);
-  });
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }

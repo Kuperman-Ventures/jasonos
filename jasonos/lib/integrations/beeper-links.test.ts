@@ -53,28 +53,32 @@ describe("beeperFocusChatIds", () => {
 });
 
 describe("buildBeeperHrefCascade", () => {
-  it("starts with bridge-imessage compose for a phone-only Text", () => {
+  it("gives a phone two Beeper tries, then iMessage", () => {
     const hrefs = beeperHrefStrings({ phone: "(917) 555-0100" });
-    assert.equal(
-      hrefs[0],
-      "beeper://compose/bridge-imessage/+19175550100?accountID=imessage"
-    );
-    assert.ok(hrefs.includes("beeper://compose/imessage/+19175550100?accountID=imessage"));
-    assert.ok(hrefs.includes("sms:+19175550100"));
-    assert.ok(hrefs.includes("beeper://focus"));
+    assert.deepEqual(hrefs, [
+      "beeper://compose/bridge-imessage/+19175550100?accountID=imessage",
+      "beeper://compose/imessage/+19175550100?accountID=imessage",
+      "imessage:+19175550100",
+      "sms:+19175550100",
+    ]);
+    const beeper = hrefs.filter((href) => href.startsWith("beeper://"));
+    assert.equal(beeper.length, 2);
+    assert.equal(hrefs[2], "imessage:+19175550100");
   });
 
-  it("composes WhatsApp by phone instead of the office localhost chat id", () => {
+  it("composes WhatsApp once, then iMessage Beeper, then Messages", () => {
     const hrefs = beeperHrefStrings({
       chatId: OFFICE_WHATSAPP_CHAT,
       accountId: OFFICE_ACCOUNT,
       network: "WhatsApp",
       phone: "+1 555-111-2222",
     });
-    assert.equal(
-      hrefs[0],
-      "beeper://compose/bridge-whatsapp/+15551112222?accountID=whatsapp"
-    );
+    assert.deepEqual(hrefs, [
+      "beeper://compose/bridge-whatsapp/+15551112222?accountID=whatsapp",
+      "beeper://compose/bridge-imessage/+15551112222?accountID=imessage",
+      "imessage:+15551112222",
+      "sms:+15551112222",
+    ]);
     assert.equal(
       hrefs.some((href) => href.includes("local-")),
       false
@@ -89,18 +93,6 @@ describe("buildBeeperHrefCascade", () => {
     );
   });
 
-  it("retries a /user/ compose path after the short compose URLs", () => {
-    const hrefs = beeperHrefStrings({
-      phone: "9175550100",
-      network: "iMessage",
-    });
-    assert.ok(
-      hrefs.includes(
-        "beeper://compose/bridge-imessage/user/+19175550100?accountID=imessage"
-      )
-    );
-  });
-
   it("composes Instagram by handle with bridge-instagramgo", () => {
     const hrefs = beeperHrefStrings({
       accountId: "local-instagram_ba_eRfQ",
@@ -111,9 +103,13 @@ describe("buildBeeperHrefCascade", () => {
       hrefs[0],
       "beeper://compose/bridge-instagramgo/mattwondra?accountID=instagramgo"
     );
+    assert.equal(
+      hrefs.some((href) => href.startsWith("imessage:")),
+      false
+    );
   });
 
-  it("uses Copy-chat select-thread only for portable cloud rooms", () => {
+  it("uses Copy-chat select-thread only when there is no phone", () => {
     const portable = beeperHrefStrings({
       chatId: "!xyz:beeper.local",
       accountId: "whatsapp",
@@ -147,7 +143,7 @@ describe("buildBeeperHrefCascade", () => {
     );
   });
 
-  it("caps the list so Text does not fire a dozen Beeper toasts", () => {
+  it("does not keep firing Beeper URLs after the second try", () => {
     const cascade = buildBeeperHrefCascade({
       phone: "9175550100",
       network: "WhatsApp",
@@ -155,23 +151,35 @@ describe("buildBeeperHrefCascade", () => {
       chatId: "!xyz:beeper.local",
       accountId: "whatsapp",
     });
-    assert.ok(cascade.length <= 10);
+    const beeper = cascade.filter((c) => c.href.startsWith("beeper://"));
+    assert.equal(beeper.length, 2);
     assert.equal(cascade[0].kind, "compose");
+    assert.equal(cascade[2].kind, "native-imessage");
   });
 });
 
 describe("walkBeeperHrefCascade", () => {
-  it("returns the first href whose attempt succeeds", async () => {
+  it("keeps going past Beeper 'success' until Messages opens", async () => {
     const tried: string[] = [];
     const href = await walkBeeperHrefCascade(
-      ["beeper://compose/a", "beeper://compose/b", "sms:+1"],
+      [
+        "beeper://compose/a",
+        "beeper://compose/b",
+        "imessage:+19175550100",
+        "sms:+19175550100",
+      ],
       async (candidate) => {
         tried.push(candidate);
-        return candidate.endsWith("/b");
+        // Beeper toast still focuses the app — that is not a stop.
+        return candidate.startsWith("imessage:");
       }
     );
-    assert.equal(href, "beeper://compose/b");
-    assert.deepEqual(tried, ["beeper://compose/a", "beeper://compose/b"]);
+    assert.equal(href, "imessage:+19175550100");
+    assert.deepEqual(tried, [
+      "beeper://compose/a",
+      "beeper://compose/b",
+      "imessage:+19175550100",
+    ]);
   });
 
   it("returns null when every format fails", async () => {
