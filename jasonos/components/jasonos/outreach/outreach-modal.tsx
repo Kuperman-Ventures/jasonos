@@ -154,6 +154,8 @@ export interface OutreachModalProps {
   recruiterPipeline?: RecruiterPipelineProps;
   /** Tab to show when the modal opens. Home "Log contact" uses engage. */
   initialTab?: "engage" | "contact" | "meetings";
+  /** Open the Contact info editor immediately (name / email / phone). */
+  initialIdentityEditing?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -184,6 +186,7 @@ export function OutreachModal({
   recruiterId,
   initialDisplay,
   initialTab = "engage",
+  initialIdentityEditing = false,
 }: OutreachModalProps) {
   const router = useRouter();
   const [card, setCard] = useState<CardState>({ status: "loading" });
@@ -302,7 +305,7 @@ export function OutreachModal({
       setBrowningPrompt(null);
       setBrowningDismissed(false);
       setTab(initialTab);
-      setEditingIdentity(false);
+      setEditingIdentity(initialIdentityEditing);
       setReferredBy(null);
       setReferrals([]);
       setNetworkRoleState(null);
@@ -375,7 +378,7 @@ export function OutreachModal({
     return () => {
       cancelled = true;
     };
-  }, [open, contactId, recruiterId, initialTab]);
+  }, [open, contactId, recruiterId, initialTab, initialIdentityEditing]);
 
   // ------------------------------------------------------------------
   // Auto-link helper for pipeline-only cards. Idempotent on the server.
@@ -1793,6 +1796,7 @@ function IdentityCard({
             onChange={(e) => setEmail(e.target.value)}
             className="h-8 text-xs"
             placeholder="name@company.com"
+            autoFocus={!initialEmail}
           />
         </label>
         <label className="flex flex-col gap-1">

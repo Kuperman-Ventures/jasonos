@@ -3,14 +3,16 @@
 import { useEffect, useState } from "react";
 import { Loader2, Mail, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import {
   searchContactsForEmailTemplate,
   type EmailTemplateContactHit,
 } from "@/lib/server-actions/email-templates";
 
-// Type-ahead contact picker shared by the Email Builder (and available for the
-// Templates flow). Searches JasonOS contacts and surfaces whether an email is
-// on file.
+// Type-ahead contact picker shared by Email Templates and the Email Builder.
+// Searches JasonOS contacts and surfaces whether an email is on file.
+// "Needs email" opens that person's Contact info editor so you can add one
+// without leaving the compose flow.
 export function ContactPicker({
   onSelect,
   autoFocus = true,
@@ -21,6 +23,9 @@ export function ContactPicker({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<EmailTemplateContactHit[]>([]);
   const [searching, setSearching] = useState(false);
+  const [editContact, setEditContact] = useState<EmailTemplateContactHit | null>(
+    null
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -39,6 +44,10 @@ export function ContactPicker({
       clearTimeout(handle);
     };
   }, [query]);
+
+  const openContactCard = (c: EmailTemplateContactHit) => {
+    setEditContact(c);
+  };
 
   return (
     <div className="space-y-3">
@@ -67,11 +76,11 @@ export function ContactPicker({
         ) : (
           <ul className="divide-y divide-border">
             {results.map((r) => (
-              <li key={r.id}>
+              <li key={r.id} className="flex items-stretch">
                 <button
                   type="button"
-                  onClick={() => onSelect(r)}
-                  className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted/40"
+                  onClick={() => (r.email ? onSelect(r) : openContactCard(r))}
+                  className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted/40"
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">
@@ -87,19 +96,51 @@ export function ContactPicker({
                       {r.title ? ` · ${r.title}` : ""}
                     </p>
                   </div>
-                  {!r.email ? (
-                    <span className="shrink-0 text-[10px] uppercase tracking-wider text-amber-300">
-                      Needs email
-                    </span>
-                  ) : (
+                  {r.email ? (
                     <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  )}
+                  ) : null}
                 </button>
+                {!r.email ? (
+                  <button
+                    type="button"
+                    onClick={() => openContactCard(r)}
+                    title="Open their contact card and add an email"
+                    className="shrink-0 px-3 py-2.5 text-[10px] uppercase tracking-wider text-amber-300 underline decoration-amber-300/60 underline-offset-2 transition-colors hover:bg-amber-300/10 hover:text-amber-200"
+                  >
+                    Needs email
+                  </button>
+                ) : null}
               </li>
             ))}
           </ul>
         )}
       </div>
+
+      <OutreachModal
+        open={!!editContact}
+        onOpenChange={(open) => {
+          if (open) return;
+          const id = editContact?.id;
+          setEditContact(null);
+          void searchContactsForEmailTemplate(query, 24).then((rows) => {
+            setResults(rows);
+            const updated = id ? rows.find((r) => r.id === id) : undefined;
+            if (updated?.email) onSelect(updated);
+          });
+        }}
+        contactId={editContact?.id}
+        initialDisplay={
+          editContact
+            ? {
+                name: editContact.name,
+                title: editContact.title,
+                firm: editContact.firm,
+              }
+            : undefined
+        }
+        initialTab="contact"
+        initialIdentityEditing
+      />
     </div>
   );
 }
