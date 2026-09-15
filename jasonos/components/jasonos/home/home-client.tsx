@@ -117,9 +117,13 @@ export function HomeClient({
         return;
       }
 
+      const openedMessages = Boolean(
+        openedHref &&
+          (openedHref.startsWith("imessage:") || openedHref.startsWith("sms:"))
+      );
       const openedChat =
+        openedMessages ||
         openedHref?.startsWith("beeper://") ||
-        openedHere ||
         (result.ok && result.opened === "chat");
       const chatTitle = result.ok ? result.chatTitle : undefined;
       const clearedOverdue = result.ok ? result.clearedOverdue : false;
@@ -132,6 +136,23 @@ export function HomeClient({
             : "Logged Beeper text · overdue cleared"
         );
         router.refresh();
+        return;
+      }
+      if (openedMessages) {
+        toast.success(
+          chatTitle ? `Opened ${chatTitle} in Messages` : "Opened Messages",
+          {
+            description:
+              "Send in iMessage. Beeper will pick it up; then click I sent it.",
+            action: {
+              label: "I sent it",
+              onClick: () => {
+                void markTextSent(contact);
+              },
+            },
+            duration: 20_000,
+          }
+        );
         return;
       }
       if (openedChat) {
