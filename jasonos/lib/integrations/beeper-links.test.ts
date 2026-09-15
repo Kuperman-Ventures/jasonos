@@ -5,6 +5,7 @@ import {
   beeperHrefStrings,
   buildBeeperHrefCascade,
   isFocusableChatId,
+  nativeMessagesHref,
   networkKeyFrom,
   toE164,
   walkBeeperHrefCascade,
@@ -18,6 +19,13 @@ describe("toE164", () => {
   it("normalizes US numbers to +1", () => {
     assert.equal(toE164("(917) 555-0100"), "+19175550100");
     assert.equal(toE164("+1 917-555-0100"), "+19175550100");
+  });
+});
+
+describe("nativeMessagesHref", () => {
+  it("returns sms: so the browser can open Messages on click", () => {
+    assert.equal(nativeMessagesHref("(917) 555-0100"), "sms:+19175550100");
+    assert.equal(nativeMessagesHref(null), null);
   });
 });
 

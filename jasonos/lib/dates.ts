@@ -36,3 +36,15 @@ export function daysBetweenYmd(fromYmd: string, toYmd: string): number {
   if (!Number.isFinite(a) || !Number.isFinite(b)) return 0;
   return Math.max(0, Math.round((b - a) / 86_400_000));
 }
+
+/**
+ * Gmail `after:` needs YYYY/MM/DD. A unix timestamp is ignored or misread,
+ * so Sent mail from this week never matches.
+ */
+export function gmailAfterSlashDate(
+  daysBack: number,
+  now: Date = new Date()
+): string {
+  const ms = now.getTime() - Math.max(1, daysBack) * 86_400_000;
+  return etYmd(ms).replace(/-/g, "/");
+}

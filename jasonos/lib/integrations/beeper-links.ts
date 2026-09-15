@@ -221,6 +221,13 @@ export function beeperHrefStrings(input: BeeperOpenInput): string[] {
   return buildBeeperHrefCascade(input).map((candidate) => candidate.href);
 }
 
+/** Messages.app URL for this Mac. `sms:` is what browsers actually launch. */
+export function nativeMessagesHref(phone?: string | null): string | null {
+  const e164 = toE164(phone);
+  if (!e164) return null;
+  return `sms:${e164}`;
+}
+
 /** Try each href until `attempt` returns true. */
 export async function walkBeeperHrefCascade(
   hrefs: readonly string[],

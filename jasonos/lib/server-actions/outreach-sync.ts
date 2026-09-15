@@ -58,7 +58,7 @@ import {
   isBeeperConfigured,
 } from "@/lib/integrations/beeper";
 import { hasFullPersonName } from "@/lib/outreach/beeper-match";
-import { etToday } from "@/lib/dates";
+import { etEndOfWorkWeekYmd, gmailAfterSlashDate } from "@/lib/dates";
 
 // ---------------------------------------------------------------------------
 // Email write-back — when a sync matches a contact (typically by NAME, e.g. a
@@ -173,7 +173,9 @@ async function loadDueContactsForBeeperNameLookup(
   const { data, error } = await sb
     .from("contacts")
     .select("id")
-    .lte("next_touch_date", etToday())
+    // Due this week, not only already past due. Extra Beeper lookup used
+    // to skip people like Jeremy (next touch Thursday while today is Tuesday).
+    .lte("next_touch_date", etEndOfWorkWeekYmd())
     .order("next_touch_date", { ascending: true })
     .limit(80);
   const byId = new Map(lookup.rows.map((row) => [row.id, row]));
@@ -314,13 +316,14 @@ export async function syncOutreachFromGmail(opts?: {
   }
 
   const lookup = await buildContactLookup();
-  const afterEpoch = Math.floor((Date.now() - daysBack * 86_400_000) / 1000);
+  const afterDate = gmailAfterSlashDate(daysBack);
   const enrich: EnrichMap = new Map();
   const combined = emptyInsertResult();
   let matchedTotal = 0;
   let skippedTotal = 0;
   let stagedTotal = 0;
   const mailboxErrors: string[] = [];
+  const mailboxReports: Array<Record<string, unknown>> = [];
 
   for (const { provider, token, accountEmail, error } of mailboxTokens) {
     if (!token) {
@@ -335,12 +338,12 @@ export async function syncOutreachFromGmail(opts?: {
 
     try {
       const sent = await searchGmailThreads({
-        query: `in:sent after:${afterEpoch}`,
+        query: `in:sent after:${afterDate}`,
         pageSize: 100,
         accessToken: token,
       });
       const wraps = await searchGmailThreads({
-        query: `from:${OUTLOOK_WRAP_EMAIL} after:${afterEpoch}`,
+        query: `from:${OUTLOOK_WRAP_EMAIL} after:${afterDate}`,
         pageSize: 100,
         accessToken: token,
       });
@@ -425,7 +428,7 @@ export async function syncOutreachFromGmail(opts?: {
     matchedTotal += touches.length;
     skippedTotal += skipped;
     stagedTotal += staged.created;
-    await log({
+    mailboxReports.push({
       accountEmail,
       matched: touches.length,
       inserted: insertResult.inserted,
@@ -445,9 +448,15 @@ export async function syncOutreachFromGmail(opts?: {
     return errorResult("gmail", "Gmail is not connected.");
   }
   if (mailboxErrors.length && !combined.inserted && !matchedTotal) {
+    await log({
+      ok: false,
+      afterDate,
+      mailboxes: mailboxReports,
+      errors: mailboxErrors,
+    });
     return errorResult("gmail", mailboxErrors.join(" · "));
   }
-  return okResult(
+  const result = okResult(
     "gmail",
     combined,
     matchedTotal,
@@ -455,6 +464,19 @@ export async function syncOutreachFromGmail(opts?: {
     stagedTotal,
     mailboxErrors
   );
+  await log({
+    ok: result.ok,
+    afterDate,
+    matched: matchedTotal,
+    inserted: combined.inserted,
+    duplicates: combined.duplicates,
+    cadenceUpdates: combined.cadenceUpdates,
+    skipped: skippedTotal,
+    candidatesStaged: stagedTotal,
+    mailboxes: mailboxReports,
+    errors: mailboxErrors,
+  });
+  return result;
 }
 
 // ---------------------------------------------------------------------------
