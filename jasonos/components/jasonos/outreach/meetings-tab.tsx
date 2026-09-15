@@ -33,9 +33,6 @@ import {
 import {
   getContactResearch,
 } from "@/lib/server-actions/get-contact-research";
-import {
-  runContactResearch,
-} from "@/lib/server-actions/contact-research";
 import { addReferredContact } from "@/lib/server-actions/outreach";
 import type { TouchObjective } from "@/lib/outreach/types";
 import { ResearchBriefView } from "@/components/jasonos/research-brief";
@@ -325,6 +322,9 @@ function ContactResearchPanel({
 
   const runResearch = () => {
     startResearch(async () => {
+      const { runContactResearch } = await import(
+        "@/lib/server-actions/contact-research"
+      );
       const res = await runContactResearch(contactId);
       if (!res.ok) {
         toast.error(res.error);

@@ -1306,6 +1306,24 @@ export async function getContactCardData(input: {
   contactId?: string | null;
   recruiterId?: string | null;
 }): Promise<ContactCardDataResult> {
+  try {
+    return await loadContactCardData(input);
+  } catch (err) {
+    console.error("[outreach.getContactCardData]", err);
+    return {
+      ok: false,
+      error:
+        err instanceof Error && err.message.trim()
+          ? err.message.trim()
+          : "Couldn't load this contact.",
+    };
+  }
+}
+
+async function loadContactCardData(input: {
+  contactId?: string | null;
+  recruiterId?: string | null;
+}): Promise<ContactCardDataResult> {
   const guard = ensureConfigured();
   if (guard && !guard.ok) return { ok: false, error: guard.error };
 
