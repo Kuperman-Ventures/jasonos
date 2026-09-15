@@ -5,17 +5,14 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { researchPersonNews } from "@/lib/ai/research";
 import {
   buildResearchBriefModel,
   serializeResearchBrief,
 } from "@/lib/ai/research-brief";
 import { resolveContactFirm } from "@/lib/outreach/contact-firm";
+import type { ContactResearch } from "@/lib/outreach/contact-research-store";
 
-export type ContactResearch = {
-  brief: string | null;
-  researchedAt: string | null;
-};
+export type { ContactResearch };
 
 type Result<T> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -63,6 +60,7 @@ async function loadNameAndFirm(
 }
 
 async function buildBrief(name: string, firm: string | null): Promise<string> {
+  const { researchPersonNews } = await import("@/lib/ai/research");
   const res = await researchPersonNews({ name, firm });
   const who = firm ? `${name} (${firm})` : name;
   const model = buildResearchBriefModel({
@@ -82,45 +80,6 @@ async function buildBrief(name: string, firm: string | null): Promise<string> {
         }
       : model
   );
-}
-
-export async function getContactResearch(
-  contactId: string
-): Promise<ContactResearch> {
-  if (!hasConfig() || !contactId) return { brief: null, researchedAt: null };
-  const sb = createServiceRoleClient();
-  const { data: contact, error } = await sb
-    .from("contacts")
-    .select("research_brief, research_at")
-    .eq("id", contactId)
-    .maybeSingle();
-  if (error) {
-    console.error("[person-research.getContactResearch]", error);
-    return { brief: null, researchedAt: null };
-  }
-  if (contact?.research_brief) {
-    return {
-      brief: contact.research_brief as string,
-      researchedAt: (contact.research_at as string | null) ?? null,
-    };
-  }
-
-  // Fall back to the newest meeting brief so existing prep still shows here.
-  const { data: mtg } = await sb
-    .from("meetings")
-    .select("prep_research, prep_research_at")
-    .eq("contact_id", contactId)
-    .not("prep_research", "is", null)
-    .order("prep_research_at", { ascending: false, nullsFirst: false })
-    .limit(1)
-    .maybeSingle();
-  if (mtg?.prep_research) {
-    return {
-      brief: mtg.prep_research as string,
-      researchedAt: (mtg.prep_research_at as string | null) ?? null,
-    };
-  }
-  return { brief: null, researchedAt: null };
 }
 
 export async function runContactResearch(
