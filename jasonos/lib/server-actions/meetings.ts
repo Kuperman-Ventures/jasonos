@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { insertContactTouches, type TouchChannel } from "@/lib/outreach/touch-capture";
 import type { TouchObjective } from "@/lib/outreach/types";
-import { getContactResearch, runContactResearch } from "@/lib/outreach/person-research";
+import { getContactResearch } from "@/lib/outreach/contact-research-store";
 
 export interface IntroWish {
   name: string;
@@ -255,6 +255,7 @@ export async function runMeetingResearch(
   if (mErr) return { ok: false, error: mErr.message };
   if (!mtg) return { ok: false, error: "Meeting not found." };
 
+  const { runContactResearch } = await import("@/lib/outreach/person-research");
   const researched = await runContactResearch(mtg.contact_id as string);
   if (!researched.ok) return researched;
 

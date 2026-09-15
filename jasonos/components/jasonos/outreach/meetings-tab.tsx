@@ -32,6 +32,8 @@ import {
 } from "@/lib/server-actions/meetings";
 import {
   getContactResearch,
+} from "@/lib/server-actions/get-contact-research";
+import {
   runContactResearch,
 } from "@/lib/server-actions/contact-research";
 import { addReferredContact } from "@/lib/server-actions/outreach";
@@ -100,15 +102,23 @@ export function MeetingsTab({
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      getMeetingsForContact(contactId),
-      getContactResearch(contactId),
-    ]).then(([m, r]) => {
-      if (cancelled) return;
-      setMeetings(m);
-      setResearch(r.brief);
-      setResearchAt(r.researchedAt);
-    });
+    getMeetingsForContact(contactId)
+      .then((m) => {
+        if (!cancelled) setMeetings(m);
+      })
+      .catch((err) => {
+        console.error("[MeetingsTab] meetings", err);
+        if (!cancelled) setMeetings([]);
+      });
+    getContactResearch(contactId)
+      .then((r) => {
+        if (cancelled) return;
+        setResearch(r.brief);
+        setResearchAt(r.researchedAt);
+      })
+      .catch((err) => {
+        console.error("[MeetingsTab] research", err);
+      });
     return () => {
       cancelled = true;
     };
