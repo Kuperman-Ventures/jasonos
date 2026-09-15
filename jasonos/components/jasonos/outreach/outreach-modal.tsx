@@ -57,7 +57,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
-import { MeetingsTab } from "@/components/jasonos/outreach/meetings-tab";
+import dynamic from "next/dynamic";
 import { EngagementsList } from "@/components/jasonos/outreach/engagements-list";
 import { TierDegreeBadge } from "@/components/jasonos/outreach/tier-degree-badge";
 import { ReplyStatusLight } from "@/components/jasonos/outreach/reply-status-light";
@@ -128,6 +128,20 @@ import { getBrowningPostTouchPrompt } from "@/lib/server-actions/browning";
 import { ScoreConversationDialog } from "@/components/jasonos/browning/score-conversation-dialog";
 import { toBrowningChannel } from "@/lib/browning/format";
 import type { BrowningChannel } from "@/lib/browning/types";
+
+const MeetingsTab = dynamic(
+  () =>
+    import("@/components/jasonos/outreach/meetings-tab").then(
+      (m) => m.MeetingsTab
+    ),
+  {
+    loading: () => (
+      <div className="flex items-center gap-2 py-6 text-xs text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading meetings…
+      </div>
+    ),
+  }
+);
 
 // ---------------------------------------------------------------------------
 // Props
