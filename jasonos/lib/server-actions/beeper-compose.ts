@@ -8,6 +8,7 @@ import {
   focusBeeperChatForContact,
   isBeeperConfigured,
 } from "@/lib/integrations/beeper";
+import { beeperHrefStrings } from "@/lib/integrations/beeper-links";
 import { etToday } from "@/lib/dates";
 import {
   isUsablePhone,
@@ -26,12 +27,14 @@ export type OpenBeeperTextResult =
       opened: "chat" | "app";
       chatTitle?: string;
       phone?: string | null;
+      /** Ordered beeper:// / sms: URLs for this Mac. Browser retries if one fails. */
+      hrefs: string[];
       /** New Beeper messages written into contact_touches for this person. */
       touchesLogged: number;
       /** True when last_touch_date is today after this call. */
       clearedOverdue: boolean;
     }
-  | { ok: false; error: string };
+  | { ok: false; error: string; hrefs?: string[] };
 
 export type ConfirmBeeperTextResult =
   | {
@@ -159,22 +162,23 @@ async function contactClearedOverdue(contactId: string): Promise<boolean> {
   return Boolean(last && last.slice(0, 10) === today);
 }
 
+function phoneHrefs(phone?: string | null): string[] {
+  return beeperHrefStrings({ phone, network: "iMessage" });
+}
+
 /**
  * Open the person's Beeper chat, then pull recent messages for that chat into
  * contact_touches. Opening alone never cleared overdue; Sync had to run and
  * match them. Text now does the per-person pull so a send → Text-again (or a
  * Text after an already-sent message) advances last_touch / next_touch.
+ *
+ * Always returns portable compose links so the browser can retry formats on
+ * this Mac when tunneled `/v1/focus` cannot open the thread.
  */
 export async function openBeeperText(
   contactId: string
 ): Promise<OpenBeeperTextResult> {
   if (!contactId) return { ok: false, error: "Missing contact." };
-  if (!(await isBeeperConfigured())) {
-    return {
-      ok: false,
-      error: "Beeper is not configured. Paste a token in Settings → Beeper.",
-    };
-  }
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return { ok: false, error: "Not configured." };
   }
@@ -190,17 +194,44 @@ export async function openBeeperText(
   }
   if (!contact) return { ok: false, error: "Contact not found." };
 
+  const fallbackHrefs = phoneHrefs(contact.phone);
+
+  if (!(await isBeeperConfigured())) {
+    if (fallbackHrefs.length) {
+      return {
+        ok: true,
+        opened: "app",
+        phone: contact.phone,
+        hrefs: fallbackHrefs,
+        touchesLogged: 0,
+        clearedOverdue: false,
+      };
+    }
+    return {
+      ok: false,
+      error: "Beeper is not configured. Paste a token in Settings → Beeper.",
+    };
+  }
+
   try {
     const result = await focusBeeperChatForContact({
       name: contact.name,
       phone: contact.phone,
       emails: contact.emails,
     });
-    if (!result.ok) return result;
+    if (!result.ok) {
+      return fallbackHrefs.length
+        ? { ...result, hrefs: fallbackHrefs }
+        : result;
+    }
 
-    const phoneFromFocus =
-      result.opened === "chat" ? (result.phone ?? null) : null;
-    await enrichPhoneIfMissing(contactId, contact.phone, phoneFromFocus, contact.emails);
+    const phoneFromFocus = result.phone ?? null;
+    await enrichPhoneIfMissing(
+      contactId,
+      contact.phone,
+      phoneFromFocus,
+      contact.emails
+    );
 
     let touchesLogged = 0;
     try {
@@ -208,6 +239,7 @@ export async function openBeeperText(
         id: contact.id,
         name: contact.name,
         phone: phoneFromFocus ?? contact.phone,
+        emails: contact.emails,
       });
       touchesLogged = pulled.inserted;
       await enrichPhoneIfMissing(
@@ -230,11 +262,22 @@ export async function openBeeperText(
       opened: result.opened,
       chatTitle: result.chatTitle,
       phone: phoneFromFocus ?? contact.phone,
+      hrefs: result.hrefs.length ? result.hrefs : fallbackHrefs,
       touchesLogged,
       clearedOverdue,
     };
   } catch (err) {
     if (err instanceof BeeperUnavailableError) {
+      if (fallbackHrefs.length) {
+        return {
+          ok: true,
+          opened: "app",
+          phone: contact.phone,
+          hrefs: fallbackHrefs,
+          touchesLogged: 0,
+          clearedOverdue: false,
+        };
+      }
       return {
         ok: false,
         error:
@@ -242,11 +285,14 @@ export async function openBeeperText(
       };
     }
     if (err instanceof BeeperApiError) {
-      return { ok: false, error: err.message };
+      return fallbackHrefs.length
+        ? { ok: false, error: err.message, hrefs: fallbackHrefs }
+        : { ok: false, error: err.message };
     }
     return {
       ok: false,
       error: err instanceof Error ? err.message : "Could not open Beeper.",
+      hrefs: fallbackHrefs.length ? fallbackHrefs : undefined,
     };
   }
 }

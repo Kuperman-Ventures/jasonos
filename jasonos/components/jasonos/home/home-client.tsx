@@ -26,6 +26,8 @@ import {
   confirmBeeperTextSent,
   openBeeperText,
 } from "@/lib/server-actions/beeper-compose";
+import { openBeeperLinksInBrowser } from "@/lib/client/open-beeper-hrefs";
+import { beeperHrefStrings } from "@/lib/integrations/beeper-links";
 import type { AttentionContact, HomeData, SitePanel } from "@/lib/data/home";
 import { useRouter } from "next/navigation";
 
@@ -102,23 +104,40 @@ export function HomeClient({
     setTextingId(contact.id);
     try {
       const result = await openBeeperText(contact.id);
-      if (!result.ok) {
+      const hrefs = result.hrefs?.length
+        ? result.hrefs
+        : beeperHrefStrings({ phone: contact.phone, network: "iMessage" });
+      const openedHref = hrefs.length
+        ? await openBeeperLinksInBrowser(hrefs)
+        : null;
+      const openedHere = Boolean(openedHref);
+
+      if (!result.ok && !openedHere) {
         toast.error(result.error);
         return;
       }
-      if (result.clearedOverdue || result.touchesLogged > 0) {
+
+      const openedChat =
+        openedHref?.startsWith("beeper://") ||
+        openedHere ||
+        (result.ok && result.opened === "chat");
+      const chatTitle = result.ok ? result.chatTitle : undefined;
+      const clearedOverdue = result.ok ? result.clearedOverdue : false;
+      const touchesLogged = result.ok ? result.touchesLogged : 0;
+
+      if (clearedOverdue || touchesLogged > 0) {
         toast.success(
-          result.opened === "chat" && result.chatTitle
-            ? `Opened ${result.chatTitle} · logged Beeper text · overdue cleared`
+          openedChat && chatTitle
+            ? `Opened ${chatTitle} · logged Beeper text · overdue cleared`
             : "Logged Beeper text · overdue cleared"
         );
         router.refresh();
         return;
       }
-      if (result.opened === "chat") {
+      if (openedChat) {
         toast.success(
-          result.chatTitle
-            ? `Opened ${result.chatTitle} in Beeper`
+          chatTitle
+            ? `Opened ${chatTitle} in Beeper`
             : "Opened the chat in Beeper",
           {
             description: "After you send, click I sent it to clear overdue.",
@@ -131,18 +150,18 @@ export function HomeClient({
             duration: 20_000,
           }
         );
-      } else {
-        toast.success("Opened Beeper. Find them in the chat list.", {
-          description: "After you send, click I sent it to clear overdue.",
-          action: {
-            label: "I sent it",
-            onClick: () => {
-              void markTextSent(contact);
-            },
-          },
-          duration: 20_000,
-        });
+        return;
       }
+      toast.success("Opened Beeper. Find them in the chat list.", {
+        description: "After you send, click I sent it to clear overdue.",
+        action: {
+          label: "I sent it",
+          onClick: () => {
+            void markTextSent(contact);
+          },
+        },
+        duration: 20_000,
+      });
     } finally {
       setTextingId(null);
     }

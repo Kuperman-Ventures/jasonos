@@ -1,5 +1,10 @@
 import "server-only";
 
+import {
+  beeperFocusChatIds,
+  beeperHrefStrings,
+  toE164,
+} from "@/lib/integrations/beeper-links";
 import { beeperTextNetworkRank } from "@/lib/integrations/beeper-text-pref";
 import {
   isUsablePhone,
@@ -61,6 +66,7 @@ interface BeeperChat {
   network?: string;
   type?: string;
   accountID?: string;
+  localChatID?: string | null;
   lastActivity?: string;
   participants?: { total?: number; items?: BeeperUser[] };
 }
@@ -563,9 +569,14 @@ async function searchAccountContacts(
 
 async function startDirectChat(
   accountID: string,
-  user: BeeperUser
+  user: Pick<
+    BeeperUser,
+    "id" | "fullName" | "phoneNumber" | "email" | "username"
+  >
 ): Promise<BeeperChat | null> {
-  if (!user.id) return null;
+  if (!user.id && !user.phoneNumber && !user.email && !user.username) {
+    return null;
+  }
   const res = await beeperFetch("/v1/chats/start", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -584,6 +595,62 @@ async function startDirectChat(
   if (!res.ok) return null;
   const chat = (await res.json()) as BeeperChat;
   return chat?.id ? chat : null;
+}
+
+async function retrieveChat(chatId: string): Promise<BeeperChat | null> {
+  const res = await beeperFetch(
+    `/v1/chats/${encodeURIComponent(chatId)}`,
+    { timeoutMs: 8_000 }
+  );
+  if (!res.ok) return null;
+  const chat = (await res.json()) as BeeperChat;
+  return chat?.id ? chat : null;
+}
+
+/** Resolve an existing 1:1 on this Desktop from the People-card phone. */
+async function startChatFromPhone(contact: {
+  name?: string | null;
+  phone?: string | null;
+}): Promise<BeeperChat | null> {
+  const phoneNumber = toE164(contact.phone);
+  if (!phoneNumber) return null;
+  const accounts = await listBeeperAccounts();
+  const ranked = [...accounts].sort(
+    (a, b) => beeperTextNetworkRank(a) - beeperTextNetworkRank(b)
+  );
+  for (const account of ranked.slice(0, 4)) {
+    const chat = await startDirectChat(account.accountID, {
+      phoneNumber,
+      fullName: contact.name ?? undefined,
+    });
+    if (chat?.id) return chat;
+  }
+  return null;
+}
+
+async function postFocus(body: {
+  chatID?: string;
+}): Promise<{ ok: boolean; status: number; detail: string }> {
+  const res = await beeperFetch("/v1/focus", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    timeoutMs: 8_000,
+  });
+  if (res.status === 401 || res.status === 403) {
+    throw new BeeperApiError(res.status, await readErrorDetail(res));
+  }
+  const detail = res.ok ? "" : await readErrorDetail(res);
+  if (!res.ok) return { ok: false, status: res.status, detail };
+  try {
+    const json = (await res.json()) as { success?: boolean };
+    if (json && json.success === false) {
+      return { ok: false, status: res.status, detail: "focus returned success:false" };
+    }
+  } catch {
+    /* empty / non-JSON body still counts as HTTP ok */
+  }
+  return { ok: true, status: res.status, detail: "" };
 }
 
 /**
@@ -653,6 +720,8 @@ export type FocusBeeperResult =
       opened: "chat" | "app";
       chatTitle?: string;
       phone?: string | null;
+      /** Well-formed beeper:// / sms: URLs for this Mac, already ordered. */
+      hrefs: string[];
     }
   | { ok: false; error: string };
 
@@ -662,8 +731,30 @@ async function findBeeperChatForContact(contact: {
   emails?: string[] | null;
 }): Promise<BeeperChat | undefined> {
   const matchContact = asBeeperMatchContact(contact);
-  const chats = await searchChatsForContact(contact);
-  return pickBeeperChatForContact(chats.map(withMatchFields), matchContact);
+  const fromSearch = pickBeeperChatForContact(
+    (await searchChatsForContact(contact)).map(withMatchFields),
+    matchContact
+  );
+  if (fromSearch) return fromSearch;
+  return pickBeeperChatForContact(
+    (await resolveChatsViaMergedContacts(contact)).map(withMatchFields),
+    matchContact
+  );
+}
+
+function hrefsForContact(
+  contact: { name?: string | null; phone?: string | null },
+  match?: BeeperChat | null,
+  peer?: BeeperPeer | null
+): string[] {
+  return beeperHrefStrings({
+    chatId: match?.id,
+    localChatId: match?.localChatID,
+    accountId: match?.accountID,
+    network: match?.network,
+    phone: peer?.phone ?? contact.phone,
+    username: peer?.username,
+  });
 }
 
 /**
@@ -735,9 +826,10 @@ export async function fetchBeeperTouchCandidatesForContact(
 }
 
 /**
- * Open the matched 1:1 on the tunneled Beeper Desktop (office Mac).
- * Home → Text must call this. Do not swap it for beeper:// deep links or
- * browser calls to localhost — those broke Desktop and never worked on the laptop.
+ * Open the person's chat. Tries several `/v1/focus` chatID shapes on the
+ * tunneled Desktop, skipping office-only `*.localhost` ids that make Beeper
+ * toast "invalid deep link". Always returns portable compose links so the
+ * browser can retry formats on this Mac if HTTP focus did not land a chat.
  */
 export async function focusBeeperChatForContact(contact: {
   name?: string | null;
@@ -745,30 +837,78 @@ export async function focusBeeperChatForContact(contact: {
   emails?: string[] | null;
 }): Promise<FocusBeeperResult> {
   await probeBeeperDesktop();
-  const match = await findBeeperChatForContact(contact);
-  const peer = match ? peerFromChat(match) : null;
+  let match = await findBeeperChatForContact(contact);
 
-  const body = match ? { chatID: match.id } : {};
-  const res = await beeperFetch("/v1/focus", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    timeoutMs: 8_000,
+  if (match?.id && !match.localChatID) {
+    const detailed = await retrieveChat(match.id);
+    if (detailed) match = { ...match, ...detailed, id: detailed.id || match.id };
+  }
+
+  let focusIds = beeperFocusChatIds({
+    chatId: match?.id,
+    localChatId: match?.localChatID,
   });
-  if (res.status === 401 || res.status === 403) {
-    throw new BeeperApiError(res.status, await readErrorDetail(res));
+  if (!focusIds.length) {
+    const started = await startChatFromPhone(contact);
+    if (started) {
+      match = match
+        ? {
+            ...match,
+            ...started,
+            id: started.id || match.id,
+            localChatID: started.localChatID ?? match.localChatID,
+            title: match.title || started.title,
+          }
+        : started;
+      focusIds = beeperFocusChatIds({
+        chatId: match.id,
+        localChatId: match.localChatID,
+      });
+    }
   }
-  if (!res.ok) {
-    const detail = await readErrorDetail(res);
-    return { ok: false, error: `Could not open Beeper (${detail})` };
+
+  const peer = match ? peerFromChat(match) : null;
+  const hrefs = hrefsForContact(contact, match, peer);
+
+  let opened: "chat" | "app" = "app";
+  let lastDetail = "";
+  for (const chatID of focusIds) {
+    const res = await postFocus({ chatID });
+    if (res.ok) {
+      opened = "chat";
+      break;
+    }
+    lastDetail = res.detail;
   }
-  if (match) {
+
+  if (opened !== "chat") {
+    const res = await postFocus({});
+    if (!res.ok) lastDetail = res.detail || lastDetail;
+  }
+
+  if (opened !== "chat" && !hrefs.length) {
+    return {
+      ok: false,
+      error: lastDetail
+        ? `Could not open Beeper (${lastDetail})`
+        : "Could not open Beeper.",
+    };
+  }
+
+  if (opened === "chat" && match) {
     return {
       ok: true,
       opened: "chat",
       chatTitle: match.title || contact.name || undefined,
       phone: peer?.phone ?? null,
+      hrefs,
     };
   }
-  return { ok: true, opened: "app" };
+  return {
+    ok: true,
+    opened: "app",
+    chatTitle: match?.title || contact.name || undefined,
+    phone: peer?.phone ?? contact.phone ?? null,
+    hrefs,
+  };
 }
