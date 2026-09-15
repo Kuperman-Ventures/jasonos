@@ -60,6 +60,21 @@ export async function upsertMeetingsFromCalendar(
     return result;
   }
 
+  const { data: contactResearchRows } = await sb
+    .from("contacts")
+    .select("id, research_brief, research_at")
+    .in("id", contactIds);
+  const researchByContact = new Map<
+    string,
+    { brief: string | null; researchedAt: string | null }
+  >();
+  for (const row of contactResearchRows ?? []) {
+    researchByContact.set(row.id as string, {
+      brief: (row.research_brief as string | null) ?? null,
+      researchedAt: (row.research_at as string | null) ?? null,
+    });
+  }
+
   const existingByKey = new Map<string, Record<string, unknown>>();
   for (const row of existingRows ?? []) {
     const cid = row.contact_id as string;
@@ -74,6 +89,7 @@ export async function upsertMeetingsFromCalendar(
     const key = `${row.contactId}::${row.gcalEventId}`;
     const existing = existingByKey.get(key);
     if (!existing) {
+      const research = researchByContact.get(row.contactId);
       toInsert.push({
         contact_id: row.contactId,
         scheduled_at: row.scheduledAt,
@@ -84,6 +100,8 @@ export async function upsertMeetingsFromCalendar(
         gcal_event_id: row.gcalEventId,
         prep_goal: row.title,
         held_at: row.status === "held" ? row.scheduledAt : null,
+        prep_research: research?.brief ?? null,
+        prep_research_at: research?.researchedAt ?? null,
         updated_at: nowIso,
       });
       continue;
