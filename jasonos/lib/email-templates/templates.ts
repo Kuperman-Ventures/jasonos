@@ -9,6 +9,12 @@ export type TemplateField = {
   required: boolean;
   /** Prefill from the selected contact's first name. */
   fromContactFirstName?: boolean;
+  /**
+   * How this value is dropped into the template.
+   * sentence = its own paragraph; clause = mid-sentence fragment;
+   * phrase = short subject/place token. Name fields skip recast.
+   */
+  slot?: "sentence" | "clause" | "phrase";
 };
 
 export type EmailTemplate = {
@@ -102,15 +108,16 @@ Jason`,
         key: "era",
         label: "Shared era (for the subject)",
         placeholder: "agency / Omnicom / Shanghai",
-        hint: "Short phrase that goes in the subject line.",
         required: true,
+        slot: "phrase",
       },
       {
         key: "memory",
         label: "Specific memory / project / place",
         placeholder: "that Shanghai launch week",
-        hint: "Must be real - if you can't fill this honestly, use Option 01 instead.",
+        hint: "Must be real - if you can't fill this honestly, use Option 01 instead. A short phrase, not a full sentence.",
         required: true,
+        slot: "clause",
       },
     ],
     warning:
@@ -128,7 +135,9 @@ Hope this finds you well. It's been a while.
 
 I left OUTFRONT last fall after eight years there, and I've been using the time to do two things: build a fractional CMO practice for growth-stage companies, and reconnect with people I lost track of somewhere in the last decade.
 
-You came to mind because {{reason}}. I'd love to hear what you're working on and catch up properly.
+{{reason}}
+
+I'd love to hear what you're working on and catch up properly.
 
 Would a short call work sometime in the next couple weeks?
 
@@ -139,8 +148,11 @@ Jason`,
       {
         key: "reason",
         label: "Why they came to mind",
-        placeholder: "shared project / something you admired / mutual connection",
+        placeholder:
+          "overlapped at Chiat/Day; stayed in touch through the OUTFRONT years",
+        hint: "Notes are fine. Preview turns them into a sentence in your voice. It will not paste them after 'because'.",
         required: true,
+        slot: "sentence",
       },
     ],
   },
@@ -193,12 +205,14 @@ Jason`,
         label: "Shared era (for the subject)",
         placeholder: "TBWA / Omnicom / Shanghai",
         required: true,
+        slot: "phrase",
       },
       {
         key: "sharedContext",
         label: "Company / project you shared",
         placeholder: "TBWA / that Omnicom pitch",
         required: true,
+        slot: "phrase",
       },
     ],
   },

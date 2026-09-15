@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   ArrowLeft,
   Check,
   Copy,
+  Loader2,
   Mail,
   AlertTriangle,
   Sparkles,
@@ -23,6 +24,7 @@ import {
 import {
   buildMailtoUrl,
   firstNameFromFullName,
+  fitTemplateValues,
   missingRequiredFields,
   renderTemplate,
 } from "@/lib/email-templates/render";
@@ -31,6 +33,7 @@ import {
   getCustomEmailTemplates,
   type EmailTemplateContactHit,
 } from "@/lib/server-actions/email-templates";
+import { recastTemplateValues } from "@/lib/server-actions/email-template-recast";
 
 type Step = "pick" | "recipient" | "fill" | "preview";
 
@@ -41,7 +44,11 @@ export function EmailTemplatesClient() {
     null
   );
   const [values, setValues] = useState<Record<string, string>>({});
+  const [previewValues, setPreviewValues] = useState<Record<string, string> | null>(
+    null
+  );
   const [custom, setCustom] = useState<EmailTemplate[]>([]);
+  const [recasting, startRecast] = useTransition();
 
   useEffect(() => {
     let cancelled = false;
@@ -65,19 +72,27 @@ export function EmailTemplatesClient() {
     }
   };
 
+  const renderValues =
+    template && step === "preview" && previewValues
+      ? previewValues
+      : template
+        ? fitTemplateValues(template, values)
+        : values;
+
   const subject = useMemo(
-    () => (template ? renderTemplate(template.subjectTemplate, values) : ""),
-    [template, values]
+    () => (template ? renderTemplate(template.subjectTemplate, renderValues) : ""),
+    [template, renderValues]
   );
   const body = useMemo(
-    () => (template ? renderTemplate(template.bodyTemplate, values) : ""),
-    [template, values]
+    () => (template ? renderTemplate(template.bodyTemplate, renderValues) : ""),
+    [template, renderValues]
   );
 
   const selectTemplate = (t: EmailTemplate) => {
     setTemplate(t);
     setRecipient(null);
     setValues({});
+    setPreviewValues(null);
     setStep("recipient");
   };
 
@@ -107,7 +122,14 @@ export function EmailTemplatesClient() {
       toast.error(`Still need: ${missing.join(", ")}`);
       return;
     }
-    setStep("preview");
+    startRecast(async () => {
+      const recast = await recastTemplateValues({
+        templateId: template.id,
+        values,
+      });
+      setPreviewValues(recast.values);
+      setStep("preview");
+    });
   };
 
   const openInMail = () => {
@@ -144,6 +166,7 @@ export function EmailTemplatesClient() {
     setTemplate(null);
     setRecipient(null);
     setValues({});
+    setPreviewValues(null);
   };
 
   return (
@@ -174,6 +197,7 @@ export function EmailTemplatesClient() {
           onChange={(key, v) => setValues((prev) => ({ ...prev, [key]: v }))}
           onBack={() => setStep("recipient")}
           onNext={goPreview}
+          recasting={recasting}
         />
       ) : null}
 
@@ -183,7 +207,10 @@ export function EmailTemplatesClient() {
           recipient={recipient}
           subject={subject}
           body={body}
-          onBack={() => setStep("fill")}
+          onBack={() => {
+            setPreviewValues(null);
+            setStep("fill");
+          }}
           onOpenMail={openInMail}
           onCopy={copyDraft}
           onStartOver={reset}
@@ -378,6 +405,7 @@ function FillStep({
   onChange,
   onBack,
   onNext,
+  recasting,
 }: {
   template: EmailTemplate;
   recipient: EmailTemplateContactHit;
@@ -385,6 +413,7 @@ function FillStep({
   onChange: (key: string, value: string) => void;
   onBack: () => void;
   onNext: () => void;
+  recasting: boolean;
 }) {
   return (
     <section className="space-y-4 rounded-xl border bg-card p-5">
@@ -448,8 +477,11 @@ function FillStep({
       </div>
 
       <div className="flex justify-end gap-2 pt-1">
-        <Button type="button" onClick={onNext}>
-          Preview draft
+        <Button type="button" onClick={onNext} disabled={recasting}>
+          {recasting ? (
+            <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+          ) : null}
+          {recasting ? "Shaping your notes…" : "Preview draft"}
         </Button>
       </div>
     </section>
