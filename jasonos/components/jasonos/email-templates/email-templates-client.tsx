@@ -6,9 +6,7 @@ import {
   ArrowLeft,
   Check,
   Copy,
-  Loader2,
   Mail,
-  Search,
   AlertTriangle,
   Sparkles,
   Trash2,
@@ -17,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { ContactPicker } from "@/components/jasonos/email/contact-picker";
 import {
   EMAIL_TEMPLATES,
   type EmailTemplate,
@@ -30,7 +29,6 @@ import {
 import {
   deleteCustomEmailTemplate,
   getCustomEmailTemplates,
-  searchContactsForEmailTemplate,
   type EmailTemplateContactHit,
 } from "@/lib/server-actions/email-templates";
 
@@ -339,28 +337,6 @@ function RecipientStep({
   onBack: () => void;
   onSelect: (c: EmailTemplateContactHit) => void;
 }) {
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<EmailTemplateContactHit[]>([]);
-  const [searching, setSearching] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    const handle = setTimeout(() => {
-      setSearching(true);
-      searchContactsForEmailTemplate(query, 24)
-        .then((r) => {
-          if (!cancelled) setResults(r);
-        })
-        .finally(() => {
-          if (!cancelled) setSearching(false);
-        });
-    }, 180);
-    return () => {
-      cancelled = true;
-      clearTimeout(handle);
-    };
-  }, [query]);
-
   return (
     <section className="space-y-4 rounded-xl border bg-card p-5">
       <div className="flex items-start justify-between gap-3">
@@ -383,69 +359,14 @@ function RecipientStep({
               {template.title}
             </span>
             . Pick someone from your contact list - their email will be the
-            recipient in Mail.
+            recipient in Mail. If they have no email, click{" "}
+            <span className="text-amber-300">Needs email</span> and add it on
+            their card.
           </p>
         </div>
       </div>
 
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="h-9 pl-8 text-sm"
-          placeholder="Search contacts by name…"
-          autoFocus
-        />
-      </div>
-
-      <div className="max-h-80 overflow-y-auto rounded-md border bg-background/40">
-        {searching && results.length === 0 ? (
-          <div className="flex items-center gap-2 p-4 text-xs text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Searching…
-          </div>
-        ) : results.length === 0 ? (
-          <p className="p-4 text-xs text-muted-foreground">
-            No matches. Add the person from Outreach → Queue (Add contact),
-            then come back.
-          </p>
-        ) : (
-          <ul className="divide-y divide-border">
-            {results.map((r) => (
-              <li key={r.id}>
-                <button
-                  type="button"
-                  onClick={() => onSelect(r)}
-                  className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm transition-colors hover:bg-muted/40"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">
-                      {r.name}
-                      {r.firm ? (
-                        <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">
-                          · {r.firm}
-                        </span>
-                      ) : null}
-                    </p>
-                    <p className="truncate text-[11px] text-muted-foreground">
-                      {r.email ?? "No email on file"}
-                      {r.title ? ` · ${r.title}` : ""}
-                    </p>
-                  </div>
-                  {!r.email ? (
-                    <span className="shrink-0 text-[10px] uppercase tracking-wider text-amber-300">
-                      Needs email
-                    </span>
-                  ) : (
-                    <Mail className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  )}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <ContactPicker onSelect={onSelect} />
     </section>
   );
 }

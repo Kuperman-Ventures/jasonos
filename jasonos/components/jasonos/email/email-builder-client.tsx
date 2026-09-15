@@ -220,7 +220,9 @@ export function EmailBuilderClient() {
             <p className="mt-0.5 text-xs text-muted-foreground">
               Pick someone from your contact list. Next you&rsquo;ll choose what
               kind of email this is (catch-up, pitch, thanks, etc.) so the draft
-              matches — not a generic reconnect.
+              matches — not a generic reconnect. If they have no email, click{" "}
+              <span className="text-amber-300">Needs email</span> and add it on
+              their card.
             </p>
           </div>
           <ContactPicker onSelect={selectRecipient} />
