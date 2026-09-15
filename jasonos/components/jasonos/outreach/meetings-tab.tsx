@@ -30,9 +30,6 @@ import {
   type Meeting,
   type MeetingChannel,
 } from "@/lib/server-actions/meetings";
-import {
-  getContactResearch,
-} from "@/lib/server-actions/get-contact-research";
 import { addReferredContact } from "@/lib/server-actions/outreach";
 import type { TouchObjective } from "@/lib/outreach/types";
 import { ResearchBriefView } from "@/components/jasonos/research-brief";
@@ -107,11 +104,12 @@ export function MeetingsTab({
         console.error("[MeetingsTab] meetings", err);
         if (!cancelled) setMeetings([]);
       });
-    getContactResearch(contactId)
-      .then((r) => {
+    fetch(`/api/contact-research?contactId=${encodeURIComponent(contactId)}`)
+      .then((res) => res.json())
+      .then((r: { brief?: string | null; researchedAt?: string | null }) => {
         if (cancelled) return;
-        setResearch(r.brief);
-        setResearchAt(r.researchedAt);
+        setResearch(r.brief ?? null);
+        setResearchAt(r.researchedAt ?? null);
       })
       .catch((err) => {
         console.error("[MeetingsTab] research", err);
@@ -322,15 +320,19 @@ function ContactResearchPanel({
 
   const runResearch = () => {
     startResearch(async () => {
-      const { runContactResearch } = await import(
-        "@/lib/server-actions/contact-research"
-      );
-      const res = await runContactResearch(contactId);
-      if (!res.ok) {
-        toast.error(res.error);
+      const res = await fetch("/api/contact-research", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId }),
+      });
+      const data = (await res.json()) as
+        | { ok: true; research: { brief: string | null; researchedAt: string | null } }
+        | { ok: false; error: string };
+      if (!data.ok) {
+        toast.error(data.error);
         return;
       }
-      onUpdated(res.research);
+      onUpdated(data.research);
       toast.success("Research updated.");
     });
   };
