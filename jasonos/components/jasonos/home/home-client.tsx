@@ -26,8 +26,7 @@ import {
   confirmBeeperTextSent,
   openBeeperText,
 } from "@/lib/server-actions/beeper-compose";
-import { openBeeperLinksInBrowser } from "@/lib/client/open-beeper-hrefs";
-import { beeperHrefStrings } from "@/lib/integrations/beeper-links";
+import { nativeMessagesHref } from "@/lib/integrations/beeper-links";
 import type { AttentionContact, HomeData, SitePanel } from "@/lib/data/home";
 import { useRouter } from "next/navigation";
 
@@ -99,93 +98,70 @@ export function HomeClient({
     router.refresh();
   };
 
-  const writeText = async (contact: AttentionContact) => {
+  const writeText = (contact: AttentionContact) => {
     if (textingId) return;
-    setTextingId(contact.id);
-    try {
-      const result = await openBeeperText(contact.id);
-      const hrefs = result.hrefs?.length
-        ? result.hrefs
-        : beeperHrefStrings({ phone: contact.phone, network: "iMessage" });
-      const openedHref = hrefs.length
-        ? await openBeeperLinksInBrowser(hrefs)
-        : null;
-      const openedHere = Boolean(openedHref);
-
-      if (!result.ok && !openedHere) {
-        toast.error(result.error);
-        return;
-      }
-
-      const openedMessages = Boolean(
-        openedHref &&
-          (openedHref.startsWith("imessage:") || openedHref.startsWith("sms:"))
+    const messagesHref = nativeMessagesHref(contact.phone);
+    if (messagesHref) {
+      // Must run in the click itself. After await, Chrome/Safari drop the
+      // user gesture and imessage:/sms: do nothing.
+      window.location.href = messagesHref;
+    } else {
+      toast.error(
+        `No phone on ${contact.name}'s card. Add one, then Text opens Messages.`
       );
-      const openedChat =
-        openedMessages ||
-        openedHref?.startsWith("beeper://") ||
-        (result.ok && result.opened === "chat");
-      const chatTitle = result.ok ? result.chatTitle : undefined;
-      const clearedOverdue = result.ok ? result.clearedOverdue : false;
-      const touchesLogged = result.ok ? result.touchesLogged : 0;
-
-      if (clearedOverdue || touchesLogged > 0) {
-        toast.success(
-          openedChat && chatTitle
-            ? `Opened ${chatTitle} · logged Beeper text · overdue cleared`
-            : "Logged Beeper text · overdue cleared"
-        );
-        router.refresh();
-        return;
-      }
-      if (openedMessages) {
-        toast.success(
-          chatTitle ? `Opened ${chatTitle} in Messages` : "Opened Messages",
-          {
-            description:
-              "Send in iMessage. Beeper will pick it up; then click I sent it.",
-            action: {
-              label: "I sent it",
-              onClick: () => {
-                void markTextSent(contact);
-              },
-            },
-            duration: 20_000,
-          }
-        );
-        return;
-      }
-      if (openedChat) {
-        toast.success(
-          chatTitle
-            ? `Opened ${chatTitle} in Beeper`
-            : "Opened the chat in Beeper",
-          {
-            description: "After you send, click I sent it to clear overdue.",
-            action: {
-              label: "I sent it",
-              onClick: () => {
-                void markTextSent(contact);
-              },
-            },
-            duration: 20_000,
-          }
-        );
-        return;
-      }
-      toast.success("Opened Beeper. Find them in the chat list.", {
-        description: "After you send, click I sent it to clear overdue.",
-        action: {
-          label: "I sent it",
-          onClick: () => {
-            void markTextSent(contact);
-          },
-        },
-        duration: 20_000,
-      });
-    } finally {
-      setTextingId(null);
     }
+    setTextingId(contact.id);
+    void (async () => {
+      try {
+        const result = await openBeeperText(contact.id);
+        if (!result.ok) {
+          if (!messagesHref) toast.error(result.error);
+          return;
+        }
+        const clearedOverdue = result.clearedOverdue;
+        const touchesLogged = result.touchesLogged;
+        const chatTitle = result.chatTitle;
+
+        if (clearedOverdue || touchesLogged > 0) {
+          toast.success(
+            chatTitle
+              ? `Opened ${chatTitle} · logged Beeper text · overdue cleared`
+              : "Logged Beeper text · overdue cleared"
+          );
+          router.refresh();
+          return;
+        }
+        if (messagesHref) {
+          toast.success(
+            chatTitle ? `Opened ${chatTitle} in Messages` : "Opened Messages",
+            {
+              description:
+                "Send in iMessage. Beeper will pick it up; then click I sent it.",
+              action: {
+                label: "I sent it",
+                onClick: () => {
+                  void markTextSent(contact);
+                },
+              },
+              duration: 20_000,
+            }
+          );
+          return;
+        }
+        toast.success("Opened Beeper. Find them in the chat list.", {
+          description: "After you send, click I sent it to clear overdue.",
+          action: {
+            label: "I sent it",
+            onClick: () => {
+              void markTextSent(contact);
+            },
+          },
+          duration: 20_000,
+        });
+      } finally {
+        setTextingId(null);
+      }
+    })();
   };
 
   return (
