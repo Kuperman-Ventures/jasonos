@@ -1,6 +1,11 @@
 import { extractUrls } from "@/lib/integrations/job-listing-urls";
 
-export type CompanyUrlSource = "job_description" | "web_search" | "existing";
+export type CompanyUrlSource =
+  | "job_description"
+  | "firecrawl"
+  | "directory"
+  | "web_search"
+  | "existing";
 
 export interface CompanyUrlContext {
   company?: string | null;
@@ -9,6 +14,11 @@ export interface CompanyUrlContext {
 export interface RankedCompanyUrl {
   url: string;
   score: number;
+}
+
+export interface CompanyDirectoryRow {
+  name: string;
+  domain: string;
 }
 
 const ATS_HOST_RE =
@@ -35,14 +45,36 @@ const COMPANY_STOPWORDS = new Set([
   "plc",
 ]);
 
-function normKey(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+/** Fold accents so "Condé Nast" matches condenast.com. */
+export function foldCompanyName(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 }
 
-function companyTokens(s: string | null | undefined): string[] {
+function normKey(s: string): string {
+  return foldCompanyName(s)
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+export function companyMatchKey(s: string | null | undefined): string {
   return normKey(s ?? "")
     .split(" ")
-    .filter((w) => w.length > 1 && !COMPANY_STOPWORDS.has(w));
+    .filter((w) => w.length > 1 && !COMPANY_STOPWORDS.has(w))
+    .join(" ");
+}
+
+export function companyTokens(s: string | null | undefined): string[] {
+  return companyMatchKey(s).split(" ").filter(Boolean);
+}
+
+export function companyNamesMatch(a: string, b: string): boolean {
+  const na = companyMatchKey(a);
+  const nb = companyMatchKey(b);
+  if (!na || !nb) return false;
+  return na === nb || na.includes(nb) || nb.includes(na);
 }
 
 function extractBareWwwUrls(text: string): string[] {
@@ -87,6 +119,20 @@ export function companyHomepageFromUrl(url: string): string | null {
   return `https://${hadWww ? "www." : ""}${host}/`;
 }
 
+export function guessedCompanyHomepages(company: string): string[] {
+  const tokens = companyTokens(company);
+  if (!tokens.length) return [];
+  const stems = [tokens.join(""), tokens.join("-")];
+  if (tokens.length > 1) stems.push(tokens[0]);
+  const tlds = ["com", "net", "org", "io"];
+  const out: string[] = [];
+  for (const stem of stems) {
+    if (stem.length < 3) continue;
+    for (const tld of tlds) out.push(`https://${stem}.${tld}/`);
+  }
+  return out;
+}
+
 export function rankCompanyUrl(url: string, ctx: CompanyUrlContext = {}): number {
   const homepage = companyHomepageFromUrl(url);
   if (!homepage) return -1;
@@ -101,6 +147,7 @@ export function rankCompanyUrl(url: string, ctx: CompanyUrlContext = {}): number
   const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
   const compactHost = host.replace(/[^a-z0-9]/g, "");
   const tokens = companyTokens(ctx.company);
+  const joined = tokens.join("");
   const hits = tokens.filter((tok) => compactHost.includes(tok.replace(/[^a-z0-9]/g, "")));
 
   let score = 15;
@@ -109,8 +156,10 @@ export function rankCompanyUrl(url: string, ctx: CompanyUrlContext = {}): number
     else score += hits.length * 28;
     if (hits.length === tokens.length) score += 18;
   }
-  // Homepages beat /about /careers /news paths if a raw URL slipped through.
   if (parsed.pathname === "/") score += 20;
+  if (host.endsWith(".com")) score += 8;
+  const extra = compactHost.length - joined.length;
+  if (joined && extra > 0) score -= Math.min(20, extra);
   return score;
 }
 
@@ -136,4 +185,20 @@ export function pickCompanyUrlFromText(
   ctx: CompanyUrlContext = {}
 ): string | null {
   return pickBestCompanyUrl(collectUrlCandidates(text), ctx)?.url ?? null;
+}
+
+/** Prefer an exact directory name match, then the best-ranked domain. */
+export function pickDirectoryDomain(
+  rows: CompanyDirectoryRow[],
+  company: string
+): string | null {
+  if (!rows.length) return null;
+  const wanted = companyMatchKey(company);
+  const exact = rows.filter((row) => companyMatchKey(row.name) === wanted);
+  const close = rows.filter((row) => companyNamesMatch(company, row.name));
+  const pool = exact.length ? exact : close.length ? close : rows;
+  return pickBestCompanyUrl(
+    pool.map((row) => `https://${row.domain.replace(/^https?:\/\//, "")}/`),
+    { company }
+  )?.url ?? null;
 }

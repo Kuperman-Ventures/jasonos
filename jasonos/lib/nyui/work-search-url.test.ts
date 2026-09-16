@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   companyHomepageFromUrl,
+  guessedCompanyHomepages,
   pickBestCompanyUrl,
   pickCompanyUrlFromText,
+  pickDirectoryDomain,
   rankCompanyUrl,
 } from "./work-search-url.ts";
 
@@ -47,6 +49,21 @@ describe("rankCompanyUrl", () => {
     assert.ok(home >= 25);
     assert.ok(miss < 25);
   });
+
+  it("matches Condé Nast to condenast.com despite the accent", () => {
+    const home = rankCompanyUrl("https://www.condenast.com/", {
+      company: "Condé Nast",
+    });
+    const store = rankCompanyUrl("https://condenaststore.com/", {
+      company: "Condé Nast",
+    });
+    const traveler = rankCompanyUrl("https://www.cntraveler.com/", {
+      company: "Condé Nast",
+    });
+    assert.ok(home >= 70);
+    assert.ok(home > store);
+    assert.ok(home > traveler);
+  });
 });
 
 describe("pickCompanyUrlFromText", () => {
@@ -83,5 +100,41 @@ describe("pickBestCompanyUrl", () => {
       { company: "Acme" }
     );
     assert.equal(best?.url, "https://acme.com/");
+  });
+
+  it("picks Condé Nast's corporate site out of Firecrawl-style results", () => {
+    const best = pickBestCompanyUrl(
+      [
+        "https://www.condenast.com/",
+        "https://en.wikipedia.org/wiki/Condé_Nast",
+        "https://www.cntraveler.com/",
+        "https://www.instagram.com/condenast/",
+        "https://condenaststore.com/",
+      ],
+      { company: "Condé Nast" }
+    );
+    assert.equal(best?.url, "https://www.condenast.com/");
+  });
+});
+
+describe("guessedCompanyHomepages", () => {
+  it("guesses condenast.com from Condé Nast", () => {
+    assert.ok(guessedCompanyHomepages("Condé Nast").includes("https://condenast.com/"));
+  });
+});
+
+describe("pickDirectoryDomain", () => {
+  it("prefers the exact Condé Nast domain over storefronts", () => {
+    assert.equal(
+      pickDirectoryDomain(
+        [
+          { name: "Condé Nast", domain: "condenast.com" },
+          { name: "Conde Nast", domain: "condenaststore.com" },
+          { name: "Condé Nast Japan", domain: "condenast.jp" },
+        ],
+        "Condé Nast"
+      ),
+      "https://condenast.com/"
+    );
   });
 });

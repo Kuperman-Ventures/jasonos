@@ -6,9 +6,8 @@
 // and marks a customization logged once it's added to NYUI.
 
 import { revalidatePath } from "next/cache";
-import { gateway } from "@ai-sdk/gateway";
-import { generateText, stepCountIs } from "ai";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { lookupCompanyHomepage } from "@/lib/nyui/company-homepage-lookup";
 import {
   pickBestCompanyUrl,
   pickCompanyUrlFromText,
@@ -85,63 +84,6 @@ export async function getResumeApplicationQueue(): Promise<ResumeApplication[]> 
   });
 }
 
-function collectSearchUrls(result: {
-  text?: string;
-  sources?: unknown[];
-  steps?: Array<{ toolResults?: Array<{ output?: unknown }> }>;
-}): string[] {
-  const urls = new Set<string>();
-  const push = (raw: string | null | undefined) => {
-    const url = raw?.trim();
-    if (url && /^https?:\/\//i.test(url)) urls.add(url.replace(/[.,;]+$/, ""));
-  };
-  const fromText = (result.text ?? "").match(/https?:\/\/[^\s)>\]"']+/g) ?? [];
-  for (const url of fromText) push(url);
-  for (const s of result.sources ?? []) {
-    push((s as { url?: string }).url);
-  }
-  for (const step of result.steps ?? []) {
-    for (const tr of step.toolResults ?? []) {
-      const output = tr.output as { results?: Array<{ url?: string }> } | undefined;
-      for (const hit of output?.results ?? []) push(hit.url);
-    }
-  }
-  return [...urls];
-}
-
-async function searchWebForCompanyUrl(
-  company: string,
-  jobDescription?: string | null
-): Promise<string[]> {
-  const excerpt = (jobDescription ?? "").replace(/\s+/g, " ").trim().slice(0, 1200);
-  const result = await generateText({
-    model: gateway("anthropic/claude-sonnet-4-6"),
-    tools: {
-      perplexity_search: gateway.tools.perplexitySearch({
-        maxResults: 8,
-        searchLanguageFilter: ["en"],
-        country: "US",
-      }),
-    },
-    stopWhen: stepCountIs(5),
-    maxOutputTokens: 250,
-    system: `Find the company's official website homepage (example: https://acme.com/).
-Use perplexity_search. Search for "{company} official website".
-Return ONLY that homepage URL.
-Never return job postings, Greenhouse, Lever, Ashby, Workday, LinkedIn, Indeed, Wikipedia, Crunchbase, or news articles.
-If the excerpt already contains the company site, use that.
-If you cannot find the official site, respond with exactly NONE.`,
-    prompt: [
-      `Company: ${company}`,
-      excerpt ? `Text that may already include the site:\n${excerpt}` : "",
-      `Return the official homepage URL for ${company}.`,
-    ]
-      .filter(Boolean)
-      .join("\n"),
-  });
-  return collectSearchUrls(result);
-}
-
 export async function findCompanyUrl(input: {
   company: string;
   customizationId?: string;
@@ -169,16 +111,16 @@ export async function findCompanyUrl(input: {
   const ctx: CompanyUrlContext = { company };
   const fromJd = companyUrlFromCustomization(jobDescription, report, ctx);
   const known = pickBestCompanyUrl([fromJd], ctx);
-  if (known && known.score >= 50) {
+  if (known && known.score >= 70) {
     return { ok: true, url: known.url, source: "job_description" };
   }
 
   try {
-    const searched = await searchWebForCompanyUrl(company, jobDescription);
-    const ranked = pickBestCompanyUrl([known?.url, ...searched], ctx);
+    const lookedUp = await lookupCompanyHomepage(company);
+    const ranked = pickBestCompanyUrl([known?.url, lookedUp], ctx);
     if (ranked) {
       const source: CompanyUrlSource =
-        known && ranked.url === known.url ? "job_description" : "web_search";
+        known && ranked.url === known.url ? "job_description" : "firecrawl";
       return { ok: true, url: ranked.url, source };
     }
   } catch (err) {
@@ -187,7 +129,7 @@ export async function findCompanyUrl(input: {
     const message =
       err instanceof Error && err.message.trim()
         ? err.message.trim()
-        : "Web search failed — paste the company URL manually.";
+        : "Couldn't look up the company website. Paste the URL.";
     return { ok: false, error: message };
   }
 
