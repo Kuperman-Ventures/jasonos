@@ -16,7 +16,10 @@ import { listGoogleAccessTokens } from "@/lib/integrations/google-tokens";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import {
   GMAIL_HISTORY_LIMITS,
+  buildDraftGmailHistorySummary,
   buildGmailHistorySummary,
+  companyDomainsFromEmails,
+  gmailQueryForCompanyDomains,
   gmailQueryForContactEmails,
   lastMessageTimeMs,
   sortMessagesChronologically,
@@ -84,6 +87,8 @@ export interface GmailHistory {
   threadUrl?: string;
   lastReplyFromContact?: boolean;
   threadCount?: number;
+  personThreadCount?: number;
+  companyThreadCount?: number;
   fullMostRecentBody?: string;
 }
 
@@ -113,7 +118,7 @@ export async function generateDraftFromHistory(input: {
   try {
     const [hubspot, gmail, granola, fireflies] = await Promise.allSettled([
       withTimeout(gatherHubSpotHistory(ctx), 5_000, { found: false } satisfies HubSpotHistory),
-      withTimeout(gatherGmailHistory(ctx, { depth: "draft" }), 25_000, {
+      withTimeout(gatherGmailHistory(ctx, { depth: "draft" }), 30_000, {
         found: false,
       } satisfies GmailHistory),
       withTimeout(gatherGranolaHistory(ctx), 5_000, { found: false } satisfies SearchHistory),
@@ -268,76 +273,146 @@ export async function gatherGmailHistory(
   ctx: ContactContext,
   options?: { depth?: GmailHistoryDepth }
 ): Promise<GmailHistory> {
-  // preview (default): one recent thread, last 3 messages — for cards / enrichment.
-  // draft: up to 10 full threads, opener + newest tail in each — for Draft email.
+  // preview (default): one recent thread with this person.
+  // draft: this person in full, plus other people at the same company domain.
   const emails = uniqueContactEmails({
     primaryEmail: ctx.primaryEmail,
     emails: ctx.emails,
   });
-  const query = gmailQueryForContactEmails(emails);
-  if (!query) return { found: false };
+  const personQuery = gmailQueryForContactEmails(emails);
+  if (!personQuery) return { found: false };
 
   const depth: GmailHistoryDepth = options?.depth ?? "preview";
   const limits = GMAIL_HISTORY_LIMITS[depth];
-
   const mailboxTokens = await listGoogleAccessTokens();
+
+  const personCollected = await collectThreads(
+    personQuery,
+    limits.searchSize,
+    mailboxTokens
+  );
+  const personThreads = dedupeThreads(personCollected.map((row) => row.thread));
+  const personIds = new Set(personThreads.map((thread) => thread.id));
+
+  const domains =
+    depth === "draft" && limits.domainSearchSize > 0
+      ? companyDomainsFromEmails(emails)
+      : [];
+  const companyQuery =
+    domains.length > 0
+      ? gmailQueryForCompanyDomains(domains, emails)
+      : null;
+  const companyCollected = companyQuery
+    ? await collectThreads(companyQuery, limits.domainSearchSize, mailboxTokens)
+    : [];
+  const companyThreads = dedupeThreads(
+    companyCollected.map((row) => row.thread)
+  ).filter((thread) => !personIds.has(thread.id));
+
+  if (!personThreads.length && !companyThreads.length) return { found: false };
+
+  const personFull = await fetchFullThreads(
+    personThreads.slice(0, limits.fullThreads),
+    personCollected
+  );
+  const companyFull = await fetchFullThreads(
+    companyThreads.slice(0, limits.domainFullThreads),
+    companyCollected
+  );
+
+  const leftoverFor = (
+    listed: { id: string; snippet?: string }[],
+    opened: { id: string }[]
+  ) => {
+    const openedIds = new Set(opened.map((thread) => thread.id));
+    return listed
+      .filter((thread) => !openedIds.has(thread.id))
+      .map((thread) => ({ id: thread.id, snippet: thread.snippet }));
+  };
+
+  const summary =
+    depth === "draft"
+      ? buildDraftGmailHistorySummary({
+          person: {
+            searchedCount: personThreads.length,
+            fullThreads: personFull,
+            leftover: leftoverFor(personThreads, personFull),
+          },
+          company: {
+            domains,
+            searchedCount: companyThreads.length,
+            fullThreads: companyFull,
+            leftover: leftoverFor(companyThreads, companyFull),
+          },
+          messagesPerThread: limits.messagesPerThread,
+          bodyChars: limits.bodyChars,
+          personMaxChars: limits.maxSummaryChars,
+          companyMaxChars: limits.domainMaxSummaryChars,
+        })
+      : personFull.length
+        ? buildGmailHistorySummary({
+            searchedCount: personThreads.length,
+            fullThreads: personFull,
+            leftover: leftoverFor(personThreads, personFull),
+            messagesPerThread: limits.messagesPerThread,
+            bodyChars: limits.bodyChars,
+            maxSummaryChars: limits.maxSummaryChars,
+          })
+        : `Found ${personThreads.length} Gmail thread(s), but could not open the message bodies.`;
+
+  const newestPerson = [...personFull].sort(
+    (a, b) => lastMessageTimeMs(b) - lastMessageTimeMs(a)
+  )[0];
+  const lastMessage = newestPerson
+    ? sortMessagesChronologically(newestPerson.messages).at(-1)
+    : undefined;
+
+  return {
+    found: true,
+    summary,
+    threadId: newestPerson?.id,
+    threadUrl: newestPerson ? gmailThreadUrl(newestPerson.id) : undefined,
+    lastReplyFromContact: newestPerson
+      ? detectLastReply(
+          { messages: sortMessagesChronologically(newestPerson.messages) },
+          emails
+        )
+      : false,
+    threadCount: personThreads.length,
+    personThreadCount: personThreads.length,
+    companyThreadCount: companyThreads.length,
+    fullMostRecentBody: lastMessage?.plaintextBody?.slice(0, 4000),
+  };
+}
+
+async function collectThreads(
+  query: string,
+  pageSize: number,
+  mailboxTokens: { token: string }[]
+): Promise<{ thread: GmailThread; token: string }[]> {
   const collected: { thread: GmailThread; token: string }[] = [];
   for (const { token } of mailboxTokens) {
     const threads = await searchGmailThreads({
       query,
-      pageSize: limits.searchSize,
+      pageSize,
       accessToken: token,
     });
     for (const thread of threads) collected.push({ thread, token });
   }
-  const threads = dedupeThreads(collected.map((row) => row.thread));
-  if (!threads.length) return { found: false };
+  return collected;
+}
 
-  const toFetch = threads.slice(0, limits.fullThreads);
-  const fullThreads = (
-    await mapPool(toFetch, 3, async (thread) => {
-      const token = collected.find((row) => row.thread.id === thread.id)?.token;
-      return getGmailThread(thread.id, token);
-    })
-  ).filter((thread): thread is NonNullable<typeof thread> => Boolean(thread));
-
-  if (!fullThreads.length) {
-    return {
-      found: true,
-      summary: `Found ${threads.length} Gmail thread(s), but could not open the message bodies.`,
-      threadCount: threads.length,
-    };
-  }
-
-  const newestFirst = [...fullThreads].sort(
-    (a, b) => lastMessageTimeMs(b) - lastMessageTimeMs(a)
+async function fetchFullThreads(
+  threads: GmailThread[],
+  collected: { thread: GmailThread; token: string }[]
+) {
+  const full = await mapPool(threads, 3, async (thread) => {
+    const token = collected.find((row) => row.thread.id === thread.id)?.token;
+    return getGmailThread(thread.id, token);
+  });
+  return full.filter((thread): thread is NonNullable<typeof thread> =>
+    Boolean(thread)
   );
-  const mostRecent = newestFirst[0];
-  const lastMessage = sortMessagesChronologically(mostRecent.messages).at(-1);
-  const openedIds = new Set(fullThreads.map((thread) => thread.id));
-  const leftover = threads
-    .filter((thread) => !openedIds.has(thread.id))
-    .map((thread) => ({ id: thread.id, snippet: thread.snippet }));
-
-  return {
-    found: true,
-    summary: buildGmailHistorySummary({
-      searchedCount: threads.length,
-      fullThreads,
-      leftover,
-      messagesPerThread: limits.messagesPerThread,
-      bodyChars: limits.bodyChars,
-      maxSummaryChars: limits.maxSummaryChars,
-    }),
-    threadId: mostRecent.id,
-    threadUrl: gmailThreadUrl(mostRecent.id),
-    lastReplyFromContact: detectLastReply(
-      { messages: sortMessagesChronologically(mostRecent.messages) },
-      emails
-    ),
-    threadCount: threads.length,
-    fullMostRecentBody: lastMessage?.plaintextBody?.slice(0, 4000),
-  };
 }
 
 export async function gatherHubSpotHistory(ctx: ContactContext): Promise<HubSpotHistory> {

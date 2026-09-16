@@ -201,7 +201,7 @@ export async function generateOutreachDraft(input: {
   const [hubspot, gmail, granola, fireflies, recentTouches] =
     await Promise.allSettled([
       withTimeout(gatherHubSpotHistory(stubCtx), 5_000, { found: false }),
-      withTimeout(gatherGmailHistory(stubCtx, { depth: "draft" }), 25_000, {
+      withTimeout(gatherGmailHistory(stubCtx, { depth: "draft" }), 30_000, {
         found: false,
       }),
       withTimeout(gatherGranolaHistory(stubCtx), 5_000, { found: false }),
@@ -296,9 +296,10 @@ function autoSelectMode(input: {
   recentTouches: RecentTouch[];
 }): OutreachDraftMode {
   const { contact, gmail, recentTouches } = input;
-  const hasAnyHistory = gmail.found || recentTouches.length > 0;
+  const personThreads = gmail.personThreadCount ?? gmail.threadCount ?? 0;
+  const hasPersonHistory = personThreads > 0 || recentTouches.length > 0;
 
-  if (!hasAnyHistory) return "first_outreach";
+  if (!hasPersonHistory) return "first_outreach";
 
   // If the latest Gmail message is from the contact, we owe them a reply.
   if (gmail.found && gmail.lastReplyFromContact) {
@@ -326,7 +327,8 @@ function decideChannel(
   gmail: GmailHistory,
   contact: OutreachContact
 ): OutreachDraftChannel {
-  if (gmail.found && (gmail.threadCount ?? 0) > 0) return "email_reply";
+  const personThreads = gmail.personThreadCount ?? gmail.threadCount ?? 0;
+  if (personThreads > 0) return "email_reply";
   if (contact.linkedinUrl) return "linkedin";
   return "email_new";
 }
@@ -355,9 +357,10 @@ async function synthesizeDraft(params: {
 
 const MODE_INSTRUCTIONS: Record<OutreachDraftMode, string> = {
   first_outreach: `MODE: first_outreach
-- This is a COLD reach. There is no prior history.
+- There is no prior thread with THIS recipient.
 - Open with explicit acknowledgement: "Direct reach — [specific reason / mutual]"
 - One concrete reason you're reaching out (signal, mutual, role, content of theirs).
+- If HISTORY has a "Same company" section, you may use one firm-level fact (a colleague you already spoke with, a live search, a recent ask at that firm). Do not pretend this recipient sent those emails.
 - End with one specific micro-ask (15-min intro? answer one question?).`,
   cadence_touchpoint: `MODE: cadence_touchpoint
 - This is a WARM rhythm check-in. You already have a relationship.
@@ -386,6 +389,8 @@ ${MODE_INSTRUCTIONS[mode]}
 OUTPUT RULES:
 - 60-150 words, no exceptions
 - HISTORY FROM SOURCES is the factual basis. Use specific topics, asks, and open loops from those emails. Do not invent history that is not in the sources. Do not paste prior emails.
+- "With this person" emails ARE correspondence with the recipient. That is the live thread.
+- "Same company" emails are other people at the firm. Use as background (who you've already talked to, live searches, recent asks). Do not write as if the recipient said those things, and do not address those other people.
 - If there's an existing email thread, the draft is a REPLY (don't restate prior content)
 - If LinkedIn-only relationship, draft is a LinkedIn DM (no signature line, max 1200 chars)
 - Never use these phrases: "I hope this finds you well", "circling back", "just wanted to", "touching base", "let's connect", "reaching out to see"

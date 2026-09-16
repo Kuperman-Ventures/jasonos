@@ -331,7 +331,7 @@ export function HomeClient({
           {drafting && !draftText && !draftError ? (
             <p className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Reading past emails and writing a draft…
+              Reading emails with them and their company…
             </p>
           ) : draftError ? (
             <p className="py-4 text-sm text-red-300">{draftError}</p>
