@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  buildDraftGmailHistorySummary,
   buildGmailHistorySummary,
+  companyDomainsFromEmails,
+  gmailQueryForCompanyDomains,
   gmailQueryForContactEmails,
   selectThreadMessages,
   stripQuotedReply,
@@ -131,5 +134,119 @@ describe("buildGmailHistorySummary", () => {
       summary.indexOf("Catching up") < summary.indexOf("Old thread"),
       "newest thread should appear before older thread"
     );
+  });
+});
+
+describe("companyDomainsFromEmails", () => {
+  it("keeps a work domain and skips Gmail, Outlook, and Jason's domain", () => {
+    assert.deepEqual(
+      companyDomainsFromEmails([
+        "sam@kornferry.com",
+        "sam.alt@kornferry.com",
+        "sam@gmail.com",
+        "jason@kupermanadvisors.com",
+        "notes@outlook.com",
+      ]),
+      ["kornferry.com"]
+    );
+  });
+
+  it("skips google.com platform mail", () => {
+    assert.deepEqual(companyDomainsFromEmails(["hiring@google.com"]), []);
+  });
+});
+
+describe("gmailQueryForCompanyDomains", () => {
+  it("searches the domain and excludes the recipient", () => {
+    const query = gmailQueryForCompanyDomains(
+      ["kornferry.com"],
+      ["sam@kornferry.com"]
+    );
+    assert.match(query ?? "", /from:@kornferry.com OR to:@kornferry.com/);
+    assert.match(query ?? "", /-from:sam@kornferry.com -to:sam@kornferry.com/);
+    assert.doesNotMatch(query ?? "", /from:sam@kornferry.com OR to:sam@kornferry.com/);
+  });
+
+  it("returns null when there are no company domains", () => {
+    assert.equal(gmailQueryForCompanyDomains([]), null);
+  });
+});
+
+describe("buildDraftGmailHistorySummary", () => {
+  it("keeps person mail first and labels company threads as background", () => {
+    const person: DraftMailThread = {
+      id: "person",
+      messages: [
+        {
+          date: "Wed, 2 Sep 2026 09:00:00 -0400",
+          from: "Sam <sam@kornferry.com>",
+          subject: "Re: Catching up",
+          plaintextBody: "Next Thursday works.",
+        },
+      ],
+    };
+    const colleague: DraftMailThread = {
+      id: "colleague",
+      messages: [
+        {
+          date: "Mon, 1 Sep 2026 12:00:00 -0400",
+          from: "Alex <alex@kornferry.com>",
+          subject: "CMO search update",
+          plaintextBody: "The board wants a CGO more than a CMO.",
+        },
+      ],
+    };
+
+    const summary = buildDraftGmailHistorySummary({
+      person: {
+        searchedCount: 1,
+        fullThreads: [person],
+        leftover: [],
+      },
+      company: {
+        domains: ["kornferry.com"],
+        searchedCount: 2,
+        fullThreads: [colleague],
+        leftover: [{ id: "older", snippet: "Intro last year" }],
+      },
+      messagesPerThread: 12,
+      bodyChars: 2500,
+      personMaxChars: 16_000,
+      companyMaxChars: 8_000,
+    });
+
+    assert.match(summary, /With this person/);
+    assert.match(summary, /Next Thursday works/);
+    assert.match(summary, /Same company \(kornferry.com\)/);
+    assert.match(summary, /other people at the firm/);
+    assert.match(summary, /The board wants a CGO more than a CMO/);
+    assert.match(summary, /Intro last year/);
+    assert.ok(summary.indexOf("With this person") < summary.indexOf("Same company"));
+  });
+
+  it("omits the company section when there is no firm mail", () => {
+    const summary = buildDraftGmailHistorySummary({
+      person: {
+        searchedCount: 1,
+        fullThreads: [
+          {
+            id: "p",
+            messages: [{ plaintextBody: "Hi Sam", subject: "Hello" }],
+          },
+        ],
+        leftover: [],
+      },
+      company: {
+        domains: ["kornferry.com"],
+        searchedCount: 0,
+        fullThreads: [],
+        leftover: [],
+      },
+      messagesPerThread: 12,
+      bodyChars: 2500,
+      personMaxChars: 16_000,
+      companyMaxChars: 8_000,
+    });
+    assert.doesNotMatch(summary, /Same company/);
   });
 });

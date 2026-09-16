@@ -11,16 +11,22 @@ export const GMAIL_HISTORY_LIMITS = {
   preview: {
     searchSize: 5,
     fullThreads: 1,
+    domainSearchSize: 0,
+    domainFullThreads: 0,
     messagesPerThread: 3,
     bodyChars: 1200,
     maxSummaryChars: 6_000,
+    domainMaxSummaryChars: 0,
   },
   draft: {
     searchSize: 20,
     fullThreads: 10,
+    domainSearchSize: 15,
+    domainFullThreads: 6,
     messagesPerThread: 12,
     bodyChars: 2_500,
-    maxSummaryChars: 20_000,
+    maxSummaryChars: 16_000,
+    domainMaxSummaryChars: 8_000,
   },
 } as const;
 
@@ -68,6 +74,98 @@ export function gmailQueryForContactEmails(emails: string[]): string | null {
   });
   const any = emails.map(quoteGmailTerm).join(" OR ");
   return `(${terms.join(" OR ")}) OR (from:${OUTLOOK_WRAP_EMAIL} (${any}))`;
+}
+
+/**
+ * Company domains worth searching as firm background. Skip Gmail/Yahoo/etc.,
+ * Jason's own domains, and a few platforms whose @domain mail is mostly noise.
+ */
+const SKIP_EMAIL_DOMAINS = new Set([
+  "gmail.com",
+  "googlemail.com",
+  "yahoo.com",
+  "yahoo.co.uk",
+  "hotmail.com",
+  "outlook.com",
+  "outlook.co.uk",
+  "live.com",
+  "msn.com",
+  "icloud.com",
+  "me.com",
+  "mac.com",
+  "aol.com",
+  "proton.me",
+  "protonmail.com",
+  "pm.me",
+  "hey.com",
+  "fastmail.com",
+  "zoho.com",
+  "gmx.com",
+  "gmx.net",
+  "yandex.com",
+  "mail.com",
+  "kupermanadvisors.com",
+  "google.com",
+  "googlegroups.com",
+  "linkedin.com",
+  "facebook.com",
+  "twitter.com",
+  "x.com",
+  "github.com",
+  "apple.com",
+  "amazon.com",
+  "paypal.com",
+  "beeper.invalid",
+]);
+
+export function emailDomain(email: string): string | null {
+  const at = email.trim().toLowerCase().lastIndexOf("@");
+  if (at < 0) return null;
+  const domain = email.trim().toLowerCase().slice(at + 1);
+  return domain.includes(".") ? domain : null;
+}
+
+export function isSearchableCompanyDomain(domain: string): boolean {
+  const d = domain.trim().toLowerCase();
+  if (!d.includes(".")) return false;
+  if (SKIP_EMAIL_DOMAINS.has(d)) return false;
+  const labels = d.split(".");
+  // mail.google.com, smtp.gmail.com, etc.
+  if (labels.some((_, i) => SKIP_EMAIL_DOMAINS.has(labels.slice(i).join(".")))) {
+    return false;
+  }
+  return true;
+}
+
+export function companyDomainsFromEmails(emails: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const email of emails) {
+    const domain = emailDomain(email);
+    if (!domain || !isSearchableCompanyDomain(domain) || seen.has(domain)) continue;
+    seen.add(domain);
+    out.push(domain);
+  }
+  return out;
+}
+
+/** Other people at the same company — excludes the recipient's own addresses. */
+export function gmailQueryForCompanyDomains(
+  domains: string[],
+  excludeEmails: string[] = []
+): string | null {
+  if (!domains.length) return null;
+  const domainTerms = domains.map((domain) => {
+    const q = quoteGmailTerm(`@${domain}`);
+    return `from:${q} OR to:${q}`;
+  });
+  const wrapHaystack = domains.map((domain) => quoteGmailTerm(domain)).join(" OR ");
+  let query = `(${domainTerms.join(" OR ")}) OR (from:${OUTLOOK_WRAP_EMAIL} (${wrapHaystack}))`;
+  for (const email of excludeEmails) {
+    const q = quoteGmailTerm(email);
+    query += ` -from:${q} -to:${q}`;
+  }
+  return query;
 }
 
 function quoteGmailTerm(value: string): string {
@@ -172,12 +270,15 @@ export function buildGmailHistorySummary(input: {
   messagesPerThread: number;
   bodyChars: number;
   maxSummaryChars: number;
+  title?: string;
 }): string {
   const newestFirst = [...input.fullThreads].sort(
     (a, b) => lastMessageTimeMs(b) - lastMessageTimeMs(a)
   );
 
-  const header = `Found ${input.searchedCount} Gmail thread(s). Opened ${newestFirst.length} in full, newest first.`;
+  const header =
+    input.title ??
+    `Found ${input.searchedCount} Gmail thread(s). Opened ${newestFirst.length} in full, newest first.`;
   const parts: string[] = [header];
   let used = header.length;
 
@@ -213,4 +314,52 @@ export function buildGmailHistorySummary(input: {
   }
 
   return parts.join("\n\n").trim();
+}
+
+export function buildDraftGmailHistorySummary(input: {
+  person: {
+    searchedCount: number;
+    fullThreads: DraftMailThread[];
+    leftover: DraftMailThreadMeta[];
+  };
+  company: {
+    domains: string[];
+    searchedCount: number;
+    fullThreads: DraftMailThread[];
+    leftover: DraftMailThreadMeta[];
+  };
+  messagesPerThread: number;
+  bodyChars: number;
+  personMaxChars: number;
+  companyMaxChars: number;
+}): string {
+  const personTitle = input.person.searchedCount
+    ? `With this person: found ${input.person.searchedCount} Gmail thread(s). Opened ${input.person.fullThreads.length} in full, newest first.`
+    : "With this person: no Gmail threads found.";
+  const person = buildGmailHistorySummary({
+    searchedCount: input.person.searchedCount,
+    fullThreads: input.person.fullThreads,
+    leftover: input.person.leftover,
+    messagesPerThread: input.messagesPerThread,
+    bodyChars: input.bodyChars,
+    maxSummaryChars: input.personMaxChars,
+    title: personTitle,
+  });
+
+  if (!input.company.domains.length || input.company.searchedCount === 0) {
+    return person;
+  }
+
+  const domainList = input.company.domains.join(", ");
+  const company = buildGmailHistorySummary({
+    searchedCount: input.company.searchedCount,
+    fullThreads: input.company.fullThreads,
+    leftover: input.company.leftover,
+    messagesPerThread: Math.min(input.messagesPerThread, 8),
+    bodyChars: Math.min(input.bodyChars, 1_500),
+    maxSummaryChars: input.companyMaxChars,
+    title: `Same company (${domainList}): found ${input.company.searchedCount} thread(s) with other people at the firm. Opened ${input.company.fullThreads.length} in full. Background only. Do not treat these as emails from the recipient.`,
+  });
+
+  return `${person}\n\n---\n\n${company}`;
 }
