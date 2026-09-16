@@ -39,6 +39,7 @@ import {
   type ModelPreferences,
 } from "@/lib/settings/services";
 import type { SettingsPayload, ServiceConnection } from "@/lib/settings/data";
+import { googleMailboxHealth } from "@/lib/settings/google-status";
 
 const CONNECTION_ICONS = {
   env_var: ShieldCheck,
@@ -160,7 +161,9 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
   }>(() => {
     const connected = settings.services.filter((service) => service.status === "connected").length;
     const down = settings.services.filter((service) => service.health_status === "down").length;
-    const degraded = settings.services.filter((service) => service.health_status === "degraded").length;
+    const degraded = settings.services.filter(
+      (service) => service.health_status === "degraded" || service.status === "expired"
+    ).length;
     return {
       total: settings.services.length,
       connected,
@@ -227,7 +230,8 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
 
       {settings.authRequired ? (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-100">
-          Sign in to persist Settings changes. Live environment status is shown as a preview.
+          Sign in to persist Settings changes. Google account status below is live —
+          you can reconnect Gmail without signing in first.
         </div>
       ) : null}
 
@@ -348,8 +352,26 @@ function GoogleAccountsCard({
 }: {
   accounts: SettingsPayload["googleAccounts"];
 }) {
+  const advisorsHealth = googleMailboxHealth({
+    connected: accounts.advisorsConnected,
+    needsReconnect: accounts.advisorsNeedsReconnect,
+  });
+  const gmailHealth = googleMailboxHealth({
+    connected: accounts.gmailConnected,
+    needsReconnect: accounts.gmailNeedsReconnect,
+  });
+  const expiredLabels = [
+    advisorsHealth === "expired" ? "Advisors Google" : null,
+    gmailHealth === "expired" ? "Personal Gmail" : null,
+  ].filter((label): label is string => Boolean(label));
+  const missingLabels = [
+    advisorsHealth === "not_connected" ? "Advisors Google" : null,
+    gmailHealth === "not_connected" ? "Personal Gmail" : null,
+  ].filter((label): label is string => Boolean(label));
+  const connectedCount = [advisorsHealth, gmailHealth].filter((health) => health === "connected").length;
+
   return (
-    <section className="rounded-xl border bg-card p-4">
+    <section id="google-accounts" className="rounded-xl border bg-card p-4">
       <div className="flex items-start gap-3">
         <div className="grid h-10 w-10 place-items-center rounded-lg border bg-background/60">
           <Mail className="h-4 w-4 text-sky-300" />
@@ -358,28 +380,65 @@ function GoogleAccountsCard({
           <h2 className="text-sm font-semibold tracking-tight">Google accounts</h2>
           <p className="mt-1 text-xs text-muted-foreground">
             Sync reads Sent mail and calendar from each connected account. Advisors
-            is already connected. Personal Gmail is a separate Google login — sharing
-            the calendar is not enough. If a row says reconnect, sign in again or
-            meetings on that calendar will not show up.
+            and Personal Gmail are separate Google logins — sharing a calendar is
+            not enough. Status below is live, including when Settings is in preview.
+          </p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {connectedCount} of 2 connected
+            {expiredLabels.length ? ` · ${expiredLabels.length} sign-in expired` : ""}
+            {missingLabels.length ? ` · ${missingLabels.length} not connected` : ""}
           </p>
         </div>
       </div>
+
+      {expiredLabels.length ? (
+        <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <div>
+              <p className="font-medium">
+                {expiredLabels.join(" and ")} sign-in expired
+              </p>
+              <p className="mt-1 text-xs text-amber-100/80">
+                Sync cannot read mail or meetings on{" "}
+                {[
+                  gmailHealth === "expired" ? "jskuperman@gmail.com" : null,
+                  advisorsHealth === "expired" ? "jason@kupermanadvisors.com" : null,
+                ]
+                  .filter((value): value is string => Boolean(value))
+                  .join(" or ")}{" "}
+                until you reconnect below.
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : missingLabels.length === 2 ? (
+        <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm text-amber-100">
+          Neither Google account is connected. Sync cannot read mail or calendar
+          until you connect them below.
+        </div>
+      ) : null}
+
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <GoogleAccountRow
+          id="advisors-google"
           label="Advisors"
           email="jason@kupermanadvisors.com"
           connected={accounts.advisorsConnected}
           needsReconnect={accounts.advisorsNeedsReconnect}
           connectedEmail={accounts.advisorsEmail}
+          error={accounts.advisorsError}
           href="/api/auth/google"
           connectLabel="Connect Advisors Google"
         />
         <GoogleAccountRow
+          id="personal-gmail"
           label="Personal Gmail"
           email="jskuperman@gmail.com"
           connected={accounts.gmailConnected}
           needsReconnect={accounts.gmailNeedsReconnect}
           connectedEmail={accounts.gmailEmail}
+          error={accounts.gmailError}
           href="/api/auth/google?account=gmail"
           connectLabel="Connect personal Gmail"
         />
@@ -389,64 +448,84 @@ function GoogleAccountsCard({
 }
 
 function GoogleAccountRow({
+  id,
   label,
   email,
   connected,
   needsReconnect,
   connectedEmail,
+  error,
   href,
   connectLabel,
 }: {
+  id: string;
   label: string;
   email: string;
   connected: boolean;
   needsReconnect?: boolean;
   connectedEmail: string | null;
+  error?: string | null;
   href: string;
   connectLabel: string;
 }) {
+  const health = googleMailboxHealth({
+    connected,
+    needsReconnect: Boolean(needsReconnect),
+  });
+  const reconnectLabel = label === "Personal Gmail" ? "Reconnect personal Gmail" : "Reconnect Advisors Google";
+
   return (
-    <div className="flex items-center justify-between gap-3 rounded-lg border bg-background/40 px-3 py-3">
+    <div
+      id={id}
+      className={cn(
+        "flex flex-col gap-3 rounded-lg border bg-background/40 px-3 py-3 sm:flex-row sm:items-center sm:justify-between",
+        health === "expired" && "border-amber-500/50 bg-amber-500/10",
+        health === "not_connected" && "border-border",
+        health === "connected" && "border-emerald-500/20"
+      )}
+    >
       <div className="min-w-0">
-        <div className="text-sm font-medium">{label}</div>
-        <div className="mt-0.5 truncate text-xs text-muted-foreground">
-          {needsReconnect
-            ? "Sign-in expired. Calendar and mail on this account will not sync."
-            : connected
-              ? connectedEmail ?? email
-              : email}
-        </div>
-      </div>
-      {connected ? (
-        <div className="flex shrink-0 items-center gap-2">
-          {needsReconnect ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="text-sm font-medium">{label}</div>
+          {health === "expired" ? (
             <Badge variant="outline" className="border-amber-400/40 bg-amber-400/10 text-amber-200">
-              reconnect
+              sign-in expired
             </Badge>
-          ) : (
+          ) : health === "connected" ? (
             <Badge variant="outline" className="border-emerald-400/40 bg-emerald-400/10 text-emerald-200">
               connected
             </Badge>
+          ) : (
+            <Badge variant="outline" className="border-border text-muted-foreground">
+              not connected
+            </Badge>
           )}
-          <a
-            href={href}
-            className={
-              needsReconnect
-                ? "rounded-md border px-3 py-1.5 text-[11px] font-medium hover:bg-muted"
-                : "text-[11px] text-muted-foreground hover:text-foreground"
-            }
-          >
-            Reconnect
-          </a>
         </div>
-      ) : (
-        <a
-          href={href}
-          className="shrink-0 rounded-md border px-3 py-1.5 text-[11px] font-medium hover:bg-muted"
-        >
-          {connectLabel}
-        </a>
-      )}
+        <div className="mt-1 truncate text-xs text-foreground/80">
+          {connectedEmail ?? email}
+        </div>
+        <p className={cn("mt-1 text-xs", health === "expired" ? "text-amber-100" : "text-muted-foreground")}>
+          {health === "expired"
+            ? error ??
+              "Sign-in expired. Calendar and sent mail on this account will not sync until you reconnect."
+            : health === "connected"
+              ? "Sign-in is valid. Sync can read sent mail and calendar on this account."
+              : "Not connected. Sync cannot read this mailbox or calendar."}
+        </p>
+      </div>
+      <a
+        href={href}
+        className={cn(
+          "shrink-0 rounded-md px-3 py-1.5 text-center text-[11px] font-medium",
+          health === "expired"
+            ? "bg-amber-300 text-black hover:bg-amber-200"
+            : health === "connected"
+              ? "text-muted-foreground hover:text-foreground hover:underline"
+              : "border hover:bg-muted"
+        )}
+      >
+        {health === "not_connected" ? connectLabel : health === "expired" ? reconnectLabel : "Reconnect"}
+      </a>
     </div>
   );
 }
@@ -682,6 +761,33 @@ function ServiceCard({
           : "not yet"}
         {connection.api_key_masked ? ` · Key ${connection.api_key_masked}` : ""}
       </div>
+
+      {connection.error_message ||
+      (connection.health_status &&
+        connection.health_status !== "healthy" &&
+        connection.health_details) ? (
+        <p
+          className={cn(
+            "mt-2 text-xs",
+            connection.status === "expired" || connection.health_status === "down"
+              ? "text-amber-200"
+              : "text-muted-foreground"
+          )}
+        >
+          {connection.error_message ?? connection.health_details}
+        </p>
+      ) : null}
+
+      {definition.name === "gmail" || definition.name === "google_calendar" ? (
+        connection.status === "expired" || connection.status === "not_configured" ? (
+          <a
+            href="#google-accounts"
+            className="mt-2 inline-block text-xs font-medium text-amber-200 hover:underline"
+          >
+            Fix this in Google accounts
+          </a>
+        ) : null
+      ) : null}
 
       {definition.connectionType === "mcp" ? (
         <p className="mt-2 text-xs text-muted-foreground">Managed via Cursor MCP.</p>

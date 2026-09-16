@@ -2,6 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 import { createPublicClient, createPublicServiceRoleClient } from "@/lib/supabase/server";
+import { getGoogleConnectionStatus } from "@/lib/integrations/google-tokens";
 import {
   DEFAULT_ALERT_THRESHOLDS,
   DEFAULT_MODEL_PREFERENCES,
@@ -12,6 +13,7 @@ import {
   type HealthStatus,
   type ServiceStatus,
 } from "./services";
+import { summarizeGoogleMailboxes } from "./google-status";
 
 const CredentialsSchema = z.record(z.string(), z.union([z.string(), z.number(), z.boolean()]));
 const ServiceNameSchema = z.enum(SERVICE_DEFINITIONS.map((service) => service.name) as [string, ...string[]]);
@@ -50,6 +52,7 @@ export interface ConnectionTestResult {
   message: string;
   account_name?: string;
   health_status: HealthStatus;
+  status?: ServiceStatus;
   metadata?: Record<string, unknown>;
 }
 
@@ -87,6 +90,30 @@ export async function testServiceConnection(
   const service = getServiceDefinition(serviceName);
   if (!service) {
     return { success: false, message: "Unknown service", health_status: "down" };
+  }
+
+  if (serviceName === "gmail" || serviceName === "google_calendar") {
+    const google = await getGoogleConnectionStatus();
+    const summary = summarizeGoogleMailboxes([
+      {
+        label: "Advisors Google",
+        connected: google.advisorsConnected,
+        needsReconnect: google.advisorsNeedsReconnect,
+        error: google.advisorsError,
+      },
+      {
+        label: "Personal Gmail",
+        connected: google.gmailConnected,
+        needsReconnect: google.gmailNeedsReconnect,
+        error: google.gmailError,
+      },
+    ]);
+    return {
+      success: summary.success,
+      message: summary.error_message ?? summary.health_details,
+      health_status: summary.health_status,
+      status: summary.status,
+    };
   }
 
   if (service.connectionType === "mcp") {
@@ -394,7 +421,7 @@ export async function healthCheckAll() {
         {
           user_id: userId,
           service_name: service.name,
-          status: result.success ? "connected" : envStatus(service),
+          status: result.status ?? (result.success ? "connected" : envStatus(service)),
           connection_type: service.connectionType,
           last_health_check: now,
           health_status: result.health_status,

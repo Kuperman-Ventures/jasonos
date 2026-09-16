@@ -1,7 +1,12 @@
 import "server-only";
 
 import { createPublicClient, createPublicServiceRoleClient } from "@/lib/supabase/server";
-import { getGoogleConnectionStatus, type GoogleConnectionStatus } from "@/lib/integrations/google-tokens";
+import {
+  EMPTY_GOOGLE_CONNECTION_STATUS,
+  getGoogleConnectionStatus,
+  type GoogleConnectionStatus,
+} from "@/lib/integrations/google-tokens";
+import { overlayGoogleOauthOntoServices } from "./google-status";
 import {
   DEFAULT_ALERT_THRESHOLDS,
   DEFAULT_MODEL_PREFERENCES,
@@ -55,21 +60,24 @@ function normalizeModels(value: unknown): ModelPreferences {
 
 export async function getSettingsPayload(): Promise<SettingsPayload> {
   const configured = publicSupabaseConfigured();
+  const googleAccounts = await getGoogleConnectionStatus().catch(() => ({
+    ...EMPTY_GOOGLE_CONNECTION_STATUS,
+  }));
 
   if (!configured) {
-    return fallbackPayload(false);
+    return attachGoogleStatus(fallbackPayload(false), googleAccounts);
   }
 
   const supabase = await createPublicClient();
   const { data: userData } = await supabase.auth.getUser();
   const user = userData.user;
   if (!user) {
-    return fallbackPayload(true);
+    return attachGoogleStatus(fallbackPayload(true), googleAccounts);
   }
 
   await seedConnections(user.id);
 
-  const [{ data: connectionRows }, { data: prefs }, dispatch, googleAccounts] = await Promise.all([
+  const [{ data: connectionRows }, { data: prefs }, dispatch] = await Promise.all([
     supabase
       .from("service_connections")
       .select(
@@ -82,7 +90,6 @@ export async function getSettingsPayload(): Promise<SettingsPayload> {
       .eq("user_id", user.id)
       .maybeSingle(),
     getDispatchSummary(user.id),
-    getGoogleConnectionStatus(),
   ]);
 
   const rowsByName = new Map(
@@ -107,19 +114,33 @@ export async function getSettingsPayload(): Promise<SettingsPayload> {
     } satisfies ServiceConnection;
   });
 
+  return attachGoogleStatus(
+    {
+      services,
+      thresholds: normalizeThresholds((prefs as PreferencesRow | null)?.alert_thresholds),
+      models: normalizeModels((prefs as PreferencesRow | null)?.model_preferences),
+      lastChecked: services
+        .map((service) => service.last_health_check)
+        .filter((value): value is string => !!value)
+        .sort()
+        .at(-1) ?? null,
+      authRequired: false,
+      supabaseConfigured: true,
+      dispatch,
+      googleAccounts,
+    },
+    googleAccounts
+  );
+}
+
+function attachGoogleStatus(
+  payload: SettingsPayload,
+  googleAccounts: GoogleConnectionStatus
+): SettingsPayload {
   return {
-    services,
-    thresholds: normalizeThresholds((prefs as PreferencesRow | null)?.alert_thresholds),
-    models: normalizeModels((prefs as PreferencesRow | null)?.model_preferences),
-    lastChecked: services
-      .map((service) => service.last_health_check)
-      .filter((value): value is string => !!value)
-      .sort()
-      .at(-1) ?? null,
-    authRequired: false,
-    supabaseConfigured: true,
-    dispatch,
+    ...payload,
     googleAccounts,
+    services: overlayGoogleOauthOntoServices(payload.services, googleAccounts),
   };
 }
 
@@ -201,14 +222,7 @@ function fallbackPayload(authRequired: boolean): SettingsPayload {
     authRequired,
     supabaseConfigured: publicSupabaseConfigured(),
     dispatch: { pendingCount: 0, lastCompletedAt: null },
-    googleAccounts: {
-      advisorsConnected: false,
-      gmailConnected: false,
-      advisorsNeedsReconnect: false,
-      gmailNeedsReconnect: false,
-      advisorsEmail: null,
-      gmailEmail: null,
-    },
+    googleAccounts: { ...EMPTY_GOOGLE_CONNECTION_STATUS },
   };
 }
 

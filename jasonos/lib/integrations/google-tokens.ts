@@ -32,7 +32,20 @@ export interface GoogleConnectionStatus {
   gmailNeedsReconnect: boolean;
   advisorsEmail: string | null;
   gmailEmail: string | null;
+  advisorsError: string | null;
+  gmailError: string | null;
 }
+
+export const EMPTY_GOOGLE_CONNECTION_STATUS: GoogleConnectionStatus = {
+  advisorsConnected: false,
+  gmailConnected: false,
+  advisorsNeedsReconnect: false,
+  gmailNeedsReconnect: false,
+  advisorsEmail: null,
+  gmailEmail: null,
+  advisorsError: null,
+  gmailError: null,
+};
 
 export function googleSignInExpiredMessage(accountEmail: string): string {
   if (accountEmail === GMAIL_ACCOUNT_EMAIL) {
@@ -82,26 +95,38 @@ function accountEmailFor(provider: GoogleProvider): string {
 type LoadedToken = {
   configured: boolean;
   token: string | null;
+  email: string | null;
   error?: string;
 };
+
+function emptyLoadedToken(): LoadedToken {
+  return { configured: false, token: null, email: null };
+}
 
 async function loadAccessTokenDetailed(
   provider: GoogleProvider
 ): Promise<LoadedToken> {
   if (!envConfigured("NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY")) {
-    return { configured: false, token: null };
+    return emptyLoadedToken();
   }
   try {
     const sb = createServiceRoleClient();
     const { data } = await sb
       .from("user_integrations")
-      .select("access_token, refresh_token, expires_at")
+      .select("access_token, refresh_token, expires_at, metadata")
       .eq("provider", provider)
       .maybeSingle();
-    if (!data) return { configured: false, token: null };
+    if (!data) return emptyLoadedToken();
+
+    const email =
+      emailFromMetadata(data.metadata) ?? accountEmailFor(provider);
+    const withEmail = (loaded: Omit<LoadedToken, "email">): LoadedToken => ({
+      ...loaded,
+      email,
+    });
 
     if (data.access_token && tokenStillValid(data.expires_at)) {
-      return { configured: true, token: data.access_token };
+      return withEmail({ configured: true, token: data.access_token });
     }
 
     if (data.refresh_token) {
@@ -117,33 +142,33 @@ async function loadAccessTokenDetailed(
             expires_at: expiresAt,
           })
           .eq("provider", provider);
-        return { configured: true, token: refreshed.access_token };
+        return withEmail({ configured: true, token: refreshed.access_token });
       }
       if (data.access_token && tokenStillValid(data.expires_at)) {
-        return { configured: true, token: data.access_token };
+        return withEmail({ configured: true, token: data.access_token });
       }
       console.warn(
         "[google-tokens] refresh failed",
         provider,
         refreshed.error ?? "unknown"
       );
-      return {
+      return withEmail({
         configured: true,
         token: null,
         error: googleSignInExpiredMessage(accountEmailFor(provider)),
-      };
+      });
     }
 
     if (data.access_token && tokenStillValid(data.expires_at)) {
-      return { configured: true, token: data.access_token };
+      return withEmail({ configured: true, token: data.access_token });
     }
-    return {
+    return withEmail({
       configured: Boolean(data.access_token || data.refresh_token),
       token: null,
       error: googleSignInExpiredMessage(accountEmailFor(provider)),
-    };
+    });
   } catch {
-    return { configured: false, token: null };
+    return emptyLoadedToken();
   }
 }
 
@@ -200,45 +225,25 @@ function emailFromMetadata(metadata: unknown): string | null {
 }
 
 export async function getGoogleConnectionStatus(): Promise<GoogleConnectionStatus> {
-  const empty: GoogleConnectionStatus = {
-    advisorsConnected: false,
-    gmailConnected: false,
-    advisorsNeedsReconnect: false,
-    gmailNeedsReconnect: false,
-    advisorsEmail: null,
-    gmailEmail: null,
-  };
   if (!envConfigured("NEXT_PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY")) {
-    return empty;
+    return { ...EMPTY_GOOGLE_CONNECTION_STATUS };
   }
   try {
-    const sb = createServiceRoleClient();
-    const { data } = await sb
-      .from("user_integrations")
-      .select("provider, metadata, refresh_token, access_token")
-      .in("provider", [...GOOGLE_PROVIDERS]);
-    const rows = data ?? [];
-    const advisors = rows.find((row) => row.provider === GOOGLE_ADVISORS);
-    const gmail = rows.find((row) => row.provider === GOOGLE_GMAIL);
-    const connected = (row: (typeof rows)[number] | undefined) =>
-      Boolean(row?.refresh_token || row?.access_token);
-    const [advisorsToken, gmailToken] = await Promise.all([
-      loadAccessToken(GOOGLE_ADVISORS),
-      loadAccessToken(GOOGLE_GMAIL),
+    const [advisors, gmail] = await Promise.all([
+      loadAccessTokenDetailed(GOOGLE_ADVISORS),
+      loadAccessTokenDetailed(GOOGLE_GMAIL),
     ]);
     return {
-      advisorsConnected: connected(advisors),
-      gmailConnected: connected(gmail),
-      advisorsNeedsReconnect: connected(advisors) && !advisorsToken,
-      gmailNeedsReconnect: connected(gmail) && !gmailToken,
-      advisorsEmail:
-        emailFromMetadata(advisors?.metadata) ??
-        (advisors ? ADVISORS_ACCOUNT_EMAIL : null),
-      gmailEmail:
-        emailFromMetadata(gmail?.metadata) ??
-        (gmail ? GMAIL_ACCOUNT_EMAIL : null),
+      advisorsConnected: advisors.configured,
+      gmailConnected: gmail.configured,
+      advisorsNeedsReconnect: advisors.configured && !advisors.token,
+      gmailNeedsReconnect: gmail.configured && !gmail.token,
+      advisorsEmail: advisors.email,
+      gmailEmail: gmail.email,
+      advisorsError: advisors.error ?? null,
+      gmailError: gmail.error ?? null,
     };
   } catch {
-    return empty;
+    return { ...EMPTY_GOOGLE_CONNECTION_STATUS };
   }
 }

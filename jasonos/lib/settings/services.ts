@@ -120,8 +120,9 @@ export const SERVICE_DEFINITIONS: ServiceDefinition[] = [
   {
     name: "gmail",
     label: "Gmail",
-    connectionType: "mcp",
-    description: "Email triage, inbox scanning, and outreach tracking via Cursor MCP.",
+    connectionType: "oauth",
+    description:
+      "Sent-mail sync and outreach tracking via Google OAuth. Connect Advisors and Personal Gmail in Google accounts above. If sign-in expired, reconnect there or Sync will skip that mailbox.",
     features: ["Email triage", "Replies", "Outreach"],
     configurable: false,
     disconnectable: false,
@@ -129,8 +130,9 @@ export const SERVICE_DEFINITIONS: ServiceDefinition[] = [
   {
     name: "google_calendar",
     label: "Google Calendar",
-    connectionType: "mcp",
-    description: "Meeting prep, relationship velocity, and calendar sync via Cursor MCP.",
+    connectionType: "oauth",
+    description:
+      "Meeting prep and calendar sync via Google OAuth. Connect each account in Google accounts above — sharing a calendar is not enough.",
     features: ["Meeting prep", "Calendar", "Velocity"],
     configurable: false,
     disconnectable: false,
