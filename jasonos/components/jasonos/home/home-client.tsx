@@ -21,7 +21,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { generateOutreachDraft } from "@/lib/server-actions/outreach-draft";
 import {
   confirmBeeperTextSent,
   openBeeperText,
@@ -68,12 +67,23 @@ export function HomeClient({
     setDraftText(null);
     setDraftError(null);
     startDraft(async () => {
-      const result = await generateOutreachDraft({ contactId: contact.id });
-      if (!result.ok) {
-        setDraftError(result.error);
-        return;
+      try {
+        const res = await fetch("/api/outreach/draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contactId: contact.id }),
+        });
+        const result = (await res.json()) as
+          | { ok: true; draft: string }
+          | { ok: false; error?: string };
+        if (!result.ok) {
+          setDraftError(result.error ?? "Couldn't write the draft.");
+          return;
+        }
+        setDraftText(result.draft);
+      } catch {
+        setDraftError("Couldn't reach the draft writer.");
       }
-      setDraftText(result.draft);
     });
   };
 
@@ -321,7 +331,7 @@ export function HomeClient({
           {drafting && !draftText && !draftError ? (
             <p className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Writing a draft…
+              Reading past emails and writing a draft…
             </p>
           ) : draftError ? (
             <p className="py-4 text-sm text-red-300">{draftError}</p>

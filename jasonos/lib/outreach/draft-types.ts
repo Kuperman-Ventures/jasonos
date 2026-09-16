@@ -44,6 +44,7 @@ export interface OutreachContact {
   title: string | null;
   firm: string | null;
   primaryEmail: string | null;
+  emails: string[];
   linkedinUrl: string | null;
   relationshipType: RelationshipType | null;
   cadenceInterval: CadenceInterval;

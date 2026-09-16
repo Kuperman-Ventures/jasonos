@@ -37,6 +37,8 @@ export const config: VercelConfig = {
     "app/api/job-alerts/harvest/route.ts": { maxDuration: 60 },
     // Suggested Scan: 90-day Gmail + calendar + Beeper. Needs a long window.
     "app/api/outreach/scan-suggested/route.ts": { maxDuration: 300 },
+    // Home Overdue "Draft email" reads multiple Gmail threads then calls Claude.
+    "app/api/outreach/draft/route.ts": { maxDuration: 60 },
   },
   crons: [
     // Daily 8am ET BNA run.

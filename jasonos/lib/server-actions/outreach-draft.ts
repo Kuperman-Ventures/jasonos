@@ -161,7 +161,11 @@ function stubContextFor(contact: OutreachContact): ContactContext {
   return {
     id: contact.id,
     name: contact.name,
-    emails: contact.primaryEmail ? [contact.primaryEmail] : [],
+    emails: contact.emails.length
+      ? contact.emails
+      : contact.primaryEmail
+        ? [contact.primaryEmail]
+        : [],
     linkedin_url: contact.linkedinUrl,
     title: contact.title,
     intent: null,
@@ -197,7 +201,9 @@ export async function generateOutreachDraft(input: {
   const [hubspot, gmail, granola, fireflies, recentTouches] =
     await Promise.allSettled([
       withTimeout(gatherHubSpotHistory(stubCtx), 5_000, { found: false }),
-      withTimeout(gatherGmailHistory(stubCtx), 5_000, { found: false }),
+      withTimeout(gatherGmailHistory(stubCtx, { depth: "draft" }), 25_000, {
+        found: false,
+      }),
       withTimeout(gatherGranolaHistory(stubCtx), 5_000, { found: false }),
       withTimeout(gatherFirefliesHistory(stubCtx), 5_000, { found: false }),
       withTimeout(getRecentTouches(stubCtx), 3_000, [] as RecentTouch[]),
@@ -257,6 +263,7 @@ export async function generateOutreachDraft(input: {
       mode,
       channel,
       sources,
+      recentTouches: touchesResult,
     });
     if (!draft || !draft.body.trim()) {
       return { ok: false, error: "AI synthesis returned an empty draft." };
@@ -333,6 +340,7 @@ async function synthesizeDraft(params: {
   mode: OutreachDraftMode;
   channel: OutreachDraftChannel;
   sources: DraftSource[];
+  recentTouches: RecentTouch[];
 }): Promise<{ body: string; rationale: string } | null> {
   const systemPrompt = buildSystemPrompt(params.mode);
   const userPrompt = buildUserPrompt(params);
@@ -353,13 +361,14 @@ const MODE_INSTRUCTIONS: Record<OutreachDraftMode, string> = {
 - End with one specific micro-ask (15-min intro? answer one question?).`,
   cadence_touchpoint: `MODE: cadence_touchpoint
 - This is a WARM rhythm check-in. You already have a relationship.
-- Do NOT restate prior context. Assume they remember you.
-- Lead with a recent signal (their news, your news, something specific you saw / heard).
+- Do NOT recap the whole history. Pick up the live thread with one specific fact from the latest emails.
+- Lead with a recent signal from HISTORY (their last topic, an open ask, something they said) — not a generic hello.
 - Optional: one specific update from your side worth sharing.
 - Close with a low-friction ask (coffee, 15 min, quick answer) OR just "wanted to stay on your radar".`,
   follow_up_no_reply: `MODE: follow_up_no_reply
 - There's an open thread. They haven't replied (or you owe them).
 - Be short. Do NOT apologize, do NOT use filler.
+- Ground the next step in the actual last emails: what was asked, what is still open.
 - Either: (a) move the ball forward with a new piece of info, OR
         (b) restate the ask in a way that's easier to say yes to (give them an out).
 - 60-90 words max.`,
@@ -376,6 +385,7 @@ ${MODE_INSTRUCTIONS[mode]}
 
 OUTPUT RULES:
 - 60-150 words, no exceptions
+- HISTORY FROM SOURCES is the factual basis. Use specific topics, asks, and open loops from those emails. Do not invent history that is not in the sources. Do not paste prior emails.
 - If there's an existing email thread, the draft is a REPLY (don't restate prior content)
 - If LinkedIn-only relationship, draft is a LinkedIn DM (no signature line, max 1200 chars)
 - Never use these phrases: "I hope this finds you well", "circling back", "just wanted to", "touching base", "let's connect", "reaching out to see"
@@ -388,6 +398,7 @@ function buildUserPrompt(params: {
   mode: OutreachDraftMode;
   channel: OutreachDraftChannel;
   sources: DraftSource[];
+  recentTouches: RecentTouch[];
 }): string {
   const lines: string[] = [];
   lines.push(`CONTACT: ${params.contact.name}`);
@@ -413,6 +424,16 @@ function buildUserPrompt(params: {
       lines.push(source.summary);
       lines.push("");
     }
+  }
+  if (params.recentTouches.length) {
+    anyHistory = true;
+    lines.push("[jasonos_touches]");
+    for (const touch of params.recentTouches.slice(0, 10)) {
+      const day = touch.touched_at.slice(0, 10);
+      const brief = touch.brief ? `: ${touch.brief}` : "";
+      lines.push(`- ${day} ${touch.channel} ${touch.direction}${brief}`);
+    }
+    lines.push("");
   }
   if (!anyHistory) lines.push("(No prior history found from any source.)");
   lines.push("---");
@@ -472,6 +493,7 @@ async function loadOutreachContactRow(
     name: data.name as string,
     title: (data.title as string) ?? null,
     firm,
+    emails,
     primaryEmail: emails[0] ?? null,
     linkedinUrl: (data.linkedin_url as string) ?? null,
     relationshipType: (data.relationship_type as RelationshipType | null) ?? null,
