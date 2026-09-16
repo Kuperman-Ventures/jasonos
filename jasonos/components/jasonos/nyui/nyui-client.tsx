@@ -998,7 +998,7 @@ function NYUIDashboard({
   // The item currently auto-finding its URL before opening the prefilled form.
   const [findingId, setFindingId] = useState<string | null>(null);
 
-  // Clicking "Add as work search" auto-searches for the posting URL (when we
+  // Clicking "Add as work search" auto-searches for the company website (when we
   // don't already have one), then opens the log form prefilled with company,
   // role, AND the URL — just like the other fields.
   async function handleAddApplication(app: ResumeApplication) {
@@ -1007,7 +1007,10 @@ function NYUIDashboard({
       return;
     }
     setFindingId(app.customizationId);
-    const res = await findCompanyUrl({ company: app.company ?? "" });
+    const res = await findCompanyUrl({
+      company: app.company ?? "",
+      customizationId: app.customizationId,
+    });
     setFindingId(null);
     onLogApplication({ ...app, url: res.ok ? res.url : null });
   }
@@ -1118,7 +1121,7 @@ function NYUIDashboard({
                     onClick={() => handleAddApplication(app)}
                     disabled={finding}
                     className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border bg-muted px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 disabled:opacity-60"
-                    title="Finds the posting URL, then opens the prefilled work-search form"
+                    title="Finds the company website, then opens the prefilled work-search form"
                   >
                     {finding ? (
                       <>

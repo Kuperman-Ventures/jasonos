@@ -30,9 +30,10 @@ const RULES: Rule[] = [
   { re: /jobs\.[a-z0-9.-]+\//i, score: 55 },
 ];
 
-function scoreUrl(url: string): number {
+/** Higher is a more specific job posting. -1 = skip (tracker / mail). 0 = generic https. */
+export function scoreJobListingUrl(url: string): number {
   if (SKIP_HOST_RE.test(url)) return -1;
-  let best = -1;
+  let best = 0;
   for (const rule of RULES) {
     if (rule.re.test(url)) best = Math.max(best, rule.score);
   }
@@ -145,7 +146,7 @@ export function pickJobListingUrl(...blobs: (string | null | undefined)[]): stri
   for (const blob of blobs) {
     if (!blob) continue;
     for (const url of extractUrls(blob)) {
-      const score = scoreUrl(url);
+      const score = scoreJobListingUrl(url);
       if (score < 0) continue;
       if (!best || score > best.score) best = { url, score };
     }
@@ -166,7 +167,7 @@ export function isValidJobListingUrl(url: string | null | undefined): boolean {
     return false;
   }
   if (/linkedin\.com\/jobs\/search/i.test(cleaned)) return false;
-  const score = scoreUrl(cleaned);
+  const score = scoreJobListingUrl(cleaned);
   // Match extractJobCards: skip search/home links that are not a single posting.
   return score >= 80;
 }
@@ -218,7 +219,7 @@ export function extractJobCards(...blobs: (string | null | undefined)[]): JobCar
 
   const consider = (rawUrl: string, rawTitle: string | null, nearby: string) => {
     const url = cleanUrl(rawUrl);
-    const score = scoreUrl(url);
+    const score = scoreJobListingUrl(url);
     if (score < 80) return;
     const key = canonicalJobListingKey(url) ?? url;
     const title = rawTitle ? decodeHtml(rawTitle) : null;
