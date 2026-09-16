@@ -11,11 +11,18 @@ import {
   getGmailThread,
   searchGmailThreads,
   type GmailThread,
-  type GmailThreadFull,
 } from "@/lib/integrations/gmail";
 import { listGoogleAccessTokens } from "@/lib/integrations/google-tokens";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
-import { OUTLOOK_WRAP_EMAIL } from "@/lib/integrations/unwrap-forwarded-mail";
+import {
+  GMAIL_HISTORY_LIMITS,
+  buildGmailHistorySummary,
+  gmailQueryForContactEmails,
+  lastMessageTimeMs,
+  sortMessagesChronologically,
+  uniqueContactEmails,
+  type GmailHistoryDepth,
+} from "@/lib/outreach/gmail-draft-context";
 import { searchGranolaForContact } from "@/lib/integrations/granola";
 import { searchFirefliesForContact } from "@/lib/integrations/fireflies";
 import { callClaude } from "@/lib/ai/models";
@@ -106,7 +113,9 @@ export async function generateDraftFromHistory(input: {
   try {
     const [hubspot, gmail, granola, fireflies] = await Promise.allSettled([
       withTimeout(gatherHubSpotHistory(ctx), 5_000, { found: false } satisfies HubSpotHistory),
-      withTimeout(gatherGmailHistory(ctx), 5_000, { found: false } satisfies GmailHistory),
+      withTimeout(gatherGmailHistory(ctx, { depth: "draft" }), 25_000, {
+        found: false,
+      } satisfies GmailHistory),
       withTimeout(gatherGranolaHistory(ctx), 5_000, { found: false } satisfies SearchHistory),
       withTimeout(gatherFirefliesHistory(ctx), 5_000, { found: false } satisfies SearchHistory),
     ]);
@@ -255,15 +264,28 @@ async function getRecruiterPipelineIdFromCard(contactId: string) {
   return linked ? getString(linked.recruiter_pipeline_id) : null;
 }
 
-export async function gatherGmailHistory(ctx: ContactContext): Promise<GmailHistory> {
-  if (!ctx.primaryEmail) return { found: false };
+export async function gatherGmailHistory(
+  ctx: ContactContext,
+  options?: { depth?: GmailHistoryDepth }
+): Promise<GmailHistory> {
+  // preview (default): one recent thread, last 3 messages — for cards / enrichment.
+  // draft: up to 10 full threads, opener + newest tail in each — for Draft email.
+  const emails = uniqueContactEmails({
+    primaryEmail: ctx.primaryEmail,
+    emails: ctx.emails,
+  });
+  const query = gmailQueryForContactEmails(emails);
+  if (!query) return { found: false };
+
+  const depth: GmailHistoryDepth = options?.depth ?? "preview";
+  const limits = GMAIL_HISTORY_LIMITS[depth];
 
   const mailboxTokens = await listGoogleAccessTokens();
   const collected: { thread: GmailThread; token: string }[] = [];
   for (const { token } of mailboxTokens) {
     const threads = await searchGmailThreads({
-      query: `from:${ctx.primaryEmail} OR to:${ctx.primaryEmail} OR (from:${OUTLOOK_WRAP_EMAIL} ${ctx.primaryEmail})`,
-      pageSize: 5,
+      query,
+      pageSize: limits.searchSize,
       accessToken: token,
     });
     for (const thread of threads) collected.push({ thread, token });
@@ -271,18 +293,48 @@ export async function gatherGmailHistory(ctx: ContactContext): Promise<GmailHist
   const threads = dedupeThreads(collected.map((row) => row.thread));
   if (!threads.length) return { found: false };
 
-  const mostRecent = threads[0];
-  const tokenForThread =
-    collected.find((row) => row.thread.id === mostRecent.id)?.token;
-  const fullThread = await getGmailThread(mostRecent.id, tokenForThread);
-  const lastMessage = fullThread?.messages?.[fullThread.messages.length - 1];
+  const toFetch = threads.slice(0, limits.fullThreads);
+  const fullThreads = (
+    await mapPool(toFetch, 3, async (thread) => {
+      const token = collected.find((row) => row.thread.id === thread.id)?.token;
+      return getGmailThread(thread.id, token);
+    })
+  ).filter((thread): thread is NonNullable<typeof thread> => Boolean(thread));
+
+  if (!fullThreads.length) {
+    return {
+      found: true,
+      summary: `Found ${threads.length} Gmail thread(s), but could not open the message bodies.`,
+      threadCount: threads.length,
+    };
+  }
+
+  const newestFirst = [...fullThreads].sort(
+    (a, b) => lastMessageTimeMs(b) - lastMessageTimeMs(a)
+  );
+  const mostRecent = newestFirst[0];
+  const lastMessage = sortMessagesChronologically(mostRecent.messages).at(-1);
+  const openedIds = new Set(fullThreads.map((thread) => thread.id));
+  const leftover = threads
+    .filter((thread) => !openedIds.has(thread.id))
+    .map((thread) => ({ id: thread.id, snippet: thread.snippet }));
 
   return {
     found: true,
-    summary: summarizeThreads(threads, fullThread),
+    summary: buildGmailHistorySummary({
+      searchedCount: threads.length,
+      fullThreads,
+      leftover,
+      messagesPerThread: limits.messagesPerThread,
+      bodyChars: limits.bodyChars,
+      maxSummaryChars: limits.maxSummaryChars,
+    }),
     threadId: mostRecent.id,
     threadUrl: gmailThreadUrl(mostRecent.id),
-    lastReplyFromContact: detectLastReply(fullThread, ctx.primaryEmail),
+    lastReplyFromContact: detectLastReply(
+      { messages: sortMessagesChronologically(mostRecent.messages) },
+      emails
+    ),
     threadCount: threads.length,
     fullMostRecentBody: lastMessage?.plaintextBody?.slice(0, 4000),
   };
@@ -461,24 +513,6 @@ function resolveSource<T extends { found?: boolean; summary?: string; url?: stri
   };
 }
 
-function summarizeThreads(threads: GmailThread[], fullThread: GmailThreadFull | null) {
-  const latest = fullThread?.messages?.slice(-3) ?? [];
-  const messageSummary = latest
-    .map((message) =>
-      [
-        message.date ? `Date: ${message.date}` : null,
-        message.from ? `From: ${message.from}` : null,
-        message.subject ? `Subject: ${message.subject}` : null,
-        (message.plaintextBody || message.snippet || "").slice(0, 1200),
-      ]
-        .filter(Boolean)
-        .join("\n")
-    )
-    .join("\n\n");
-
-  return [`Found ${threads.length} Gmail thread(s).`, messageSummary].filter(Boolean).join("\n\n");
-}
-
 function summarizeHubSpotActivities(activities: HubSpotActivity[]) {
   if (!activities.length) return "HubSpot contact found, but no recent activities were returned.";
   return activities
@@ -495,9 +529,32 @@ function summarizeHubSpotActivities(activities: HubSpotActivity[]) {
     .join("\n");
 }
 
-function detectLastReply(thread: GmailThreadFull | null, email: string) {
+function detectLastReply(
+  thread: { messages: { from?: string }[] } | null,
+  emails: string[]
+) {
   const last = thread?.messages?.[thread.messages.length - 1];
-  return Boolean(last?.from?.toLowerCase().includes(email.toLowerCase()));
+  const from = last?.from?.toLowerCase() ?? "";
+  return emails.some((email) => from.includes(email.toLowerCase()));
+}
+
+function mapPool<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  if (!items.length) return Promise.resolve([]);
+  const results = new Array<R>(items.length);
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < items.length) {
+      const index = cursor++;
+      results[index] = await fn(items[index]);
+    }
+  };
+  return Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, worker)
+  ).then(() => results);
 }
 
 function dedupeThreads(threads: GmailThread[]) {
