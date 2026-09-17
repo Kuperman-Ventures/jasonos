@@ -199,6 +199,26 @@ export const SERVICE_DEFINITIONS: ServiceDefinition[] = [
     ],
   },
   {
+    name: "firecrawl",
+    label: "Firecrawl",
+    connectionType: "api_key",
+    description:
+      "Web search for company homepage lookup when logging customized resumes as NYUI work searches. Paste the API key here — Settings is used first, then FIRECRAWL_API_KEY on Vercel. Get a key at firecrawl.dev.",
+    features: ["Company URLs", "NYUI work search", "Web search"],
+    configurable: true,
+    disconnectable: true,
+    envVars: ["FIRECRAWL_API_KEY"],
+    fields: [
+      {
+        name: "api_key",
+        label: "API Key",
+        type: "password",
+        required: true,
+        placeholder: "fc-…",
+      },
+    ],
+  },
+  {
     name: "jasonos_mcp",
     label: "Cursor & Claude",
     connectionType: "api_key",

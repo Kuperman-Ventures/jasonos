@@ -151,7 +151,12 @@ export async function testServiceConnection(
   }
 
   const key = stringCredential(credentials.api_key) ?? process.env[service.envVars?.[0] ?? ""];
-  if (!key && serviceName !== "beeper" && serviceName !== "jasonos_mcp") {
+  if (
+    !key &&
+    serviceName !== "beeper" &&
+    serviceName !== "jasonos_mcp" &&
+    serviceName !== "firecrawl"
+  ) {
     return { success: false, message: "API key is required.", health_status: "down" };
   }
 
@@ -268,6 +273,61 @@ export async function testServiceConnection(
     }
   }
 
+  if (serviceName === "firecrawl") {
+    let firecrawlKey = stringCredential(credentials.api_key);
+    if (!firecrawlKey) {
+      try {
+        const publicDb = createPublicServiceRoleClient();
+        const { data } = await publicDb
+          .from("service_connections")
+          .select("config")
+          .eq("service_name", "firecrawl")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const cfg = (data?.config ?? {}) as { access_token?: string };
+        firecrawlKey = cfg.access_token?.trim() || undefined;
+      } catch {
+        // ignore
+      }
+    }
+    firecrawlKey = firecrawlKey || process.env.FIRECRAWL_API_KEY?.trim() || undefined;
+    if (!firecrawlKey) {
+      return {
+        success: false,
+        message: "Paste a Firecrawl API key (or set FIRECRAWL_API_KEY on Vercel).",
+        health_status: "down",
+      };
+    }
+    try {
+      const { firecrawlSearch } = await import("@/lib/integrations/firecrawl");
+      const hits = await firecrawlSearch("Condé Nast official website", {
+        limit: 3,
+        apiKey: firecrawlKey,
+      });
+      const top = hits[0]?.url ?? null;
+      return {
+        success: true,
+        message: top
+          ? `Firecrawl search works. Sample hit: ${top}`
+          : "Firecrawl API key verified (search returned no web hits).",
+        health_status: "healthy",
+        metadata: { sample_url: top },
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Firecrawl verification failed.";
+      if (/401|403|unauthorized|forbidden/i.test(message)) {
+        return {
+          success: false,
+          message:
+            "Firecrawl rejected the API key. Check the key at firecrawl.dev, paste it here, then Test Connection.",
+          health_status: "down",
+        };
+      }
+      return failed(error, "Firecrawl verification failed.");
+    }
+  }
+
   if (serviceName === "instantly") {
     if (!key) {
       return { success: false, message: "API key is required.", health_status: "down" };
@@ -365,9 +425,14 @@ export async function saveServiceConnection(input: z.infer<typeof SaveConnection
   const key = stringCredential(credentials.api_key);
   let safeConfig = sanitizeConfig(credentials, service.name);
 
-  // Beeper / JasonOS MCP: keep the previous access_token when the password
-  // field is blank (e.g. user only hits Test, or re-saves without retyping).
-  if ((service.name === "beeper" || service.name === "jasonos_mcp") && !key) {
+  // Beeper / JasonOS MCP / Firecrawl: keep the previous access_token when the
+  // password field is blank (e.g. user only hits Test, or re-saves without retyping).
+  if (
+    (service.name === "beeper" ||
+      service.name === "jasonos_mcp" ||
+      service.name === "firecrawl") &&
+    !key
+  ) {
     const { data: existing } = await supabase
       .from("service_connections")
       .select("config")
@@ -480,7 +545,7 @@ function sanitizeConfig(credentials: Record<string, string | number | boolean>, 
     if (token) out.access_token = token;
     return out;
   }
-  if (serviceName === "jasonos_mcp") {
+  if (serviceName === "jasonos_mcp" || serviceName === "firecrawl") {
     const out: Record<string, string> = {};
     const token = stringCredential(credentials.api_key);
     if (token) out.access_token = token;

@@ -22,7 +22,32 @@ const DEFAULT_EXCLUDE = [
   "reddit.com",
 ];
 
-function firecrawlKey(): string | null {
+type FirecrawlConnectionConfig = {
+  access_token?: string;
+};
+
+async function loadFirecrawlConnectionConfig(): Promise<FirecrawlConnectionConfig> {
+  try {
+    const { createPublicServiceRoleClient } = await import("@/lib/supabase/server");
+    const sb = createPublicServiceRoleClient();
+    const { data } = await sb
+      .from("service_connections")
+      .select("config")
+      .eq("service_name", "firecrawl")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return ((data?.config ?? {}) as FirecrawlConnectionConfig) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/** Prefer Settings → Firecrawl key; fall back to Vercel env. */
+export async function resolveFirecrawlApiKey(): Promise<string | null> {
+  const cfg = await loadFirecrawlConnectionConfig();
+  const fromSettings = cfg.access_token?.trim();
+  if (fromSettings) return fromSettings;
   return process.env.FIRECRAWL_API_KEY?.trim() || null;
 }
 
@@ -62,12 +87,14 @@ function asHits(payload: unknown): FirecrawlSearchHit[] {
 
 export async function firecrawlSearch(
   query: string,
-  opts?: { limit?: number; excludeDomains?: string[] }
+  opts?: { limit?: number; excludeDomains?: string[]; apiKey?: string | null }
 ): Promise<FirecrawlSearchHit[]> {
   const q = query.trim();
   if (!q) return [];
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  const key = firecrawlKey();
+  const key =
+    (typeof opts?.apiKey === "string" && opts.apiKey.trim()) ||
+    (await resolveFirecrawlApiKey());
   if (key) headers.Authorization = `Bearer ${key}`;
 
   const controller = new AbortController();
