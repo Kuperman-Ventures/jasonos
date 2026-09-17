@@ -19,6 +19,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { DatePickerField } from "@/components/ui/date-picker";
 import {
   addWorkSearch,
   updateWorkSearch,
@@ -1689,7 +1690,11 @@ function WorkSearchForm({
             )}
 
             <Field label="Date" required error={errors.date}>
-              <input type="date" className={inputCls} value={form.date} onChange={set("date")} />
+              <DatePickerField
+                value={form.date}
+                onChange={(next) => setForm((f) => ({ ...f, date: next }))}
+                placeholder="Pick the activity date"
+              />
             </Field>
 
             <Field label="Company / Organization Name" required error={errors.company_name}>
@@ -1795,11 +1800,11 @@ function WorkSearchForm({
             </Field>
 
             <Field label="Next Contact Date" hint="optional">
-              <input
-                type="date"
-                className={inputCls}
+              <DatePickerField
                 value={form.next_contact_date}
-                onChange={set("next_contact_date")}
+                onChange={(next) => setForm((f) => ({ ...f, next_contact_date: next }))}
+                placeholder="Pick a follow-up date"
+                allowClear
               />
             </Field>
 
