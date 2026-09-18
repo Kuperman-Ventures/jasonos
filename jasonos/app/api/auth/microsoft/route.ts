@@ -41,8 +41,7 @@ export async function GET(req: Request) {
     response_mode: "query",
     scope: MICROSOFT_OAUTH_SCOPES,
     state,
-    // Microsoft rejects combined values (AADSTS90023). consent is required
-    // so the first sign-in returns a refresh token.
+    // One prompt value only. Microsoft returns AADSTS90023 for "select_account consent".
     prompt: "consent",
     login_hint: OUTLOOK_ACCOUNT_EMAIL,
   });
