@@ -7,6 +7,8 @@ import {
 } from "@/lib/integrations/gmail";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import { OUTLOOK_WRAP_EMAIL } from "@/lib/integrations/unwrap-forwarded-mail";
+import { listOutlookMessages } from "@/lib/integrations/outlook";
+import { getOutlookAccountAccess } from "@/lib/integrations/outlook-tokens";
 import {
   calendarEventGuests,
   fetchAccountCalendarEvents,
@@ -252,7 +254,7 @@ async function applyEmailEnrichments(enrich: EnrichMap): Promise<void> {
   }
 }
 
-export type SyncResultSource = "gmail" | "gcal" | "beeper";
+export type SyncResultSource = "gmail" | "gcal" | "beeper" | "outlook";
 
 export interface SyncResult {
   ok: boolean;
@@ -277,6 +279,7 @@ export interface SyncAllResult {
   gmail: SyncResult | null;
   gcal: SyncResult | null;
   beeper: SyncResult | null;
+  outlook: SyncResult | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -950,6 +953,162 @@ function unavailableBeeperResult(
 }
 
 // ---------------------------------------------------------------------------
+// Outlook.com sync — Microsoft Graph mail from Sent, Inbox, Archive, and
+// other non-junk folders. Not connected is a soft skip. Expired sign-in is
+// a real failure so Settings can show reconnect.
+// ---------------------------------------------------------------------------
+
+const OUTLOOK_NOT_CONNECTED = "Outlook not connected — skipped";
+
+export async function syncOutreachFromOutlook(opts?: {
+  daysBack?: number;
+  runId?: string;
+}): Promise<SyncResult> {
+  const daysBack = Math.max(1, Math.min(90, opts?.daysBack ?? 7));
+  const log = (payload: Record<string, unknown>) =>
+    recordSyncState("outlook", payload, opts?.runId);
+
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return errorResult("outlook", "Supabase service role is not configured.");
+  }
+
+  const account = await getOutlookAccountAccess();
+  if (!account.configured) {
+    return unavailableOutlookResult(OUTLOOK_NOT_CONNECTED, opts?.runId);
+  }
+  if (!account.token) {
+    const msg = account.error ?? `${account.accountEmail}: sign-in expired. Reconnect Outlook in Settings.`;
+    await log({ ok: false, accountEmail: account.accountEmail, error: msg });
+    return errorResult("outlook", msg);
+  }
+
+  const lookup = await buildContactLookup();
+  const sinceIso = new Date(Date.now() - daysBack * 86_400_000).toISOString();
+  const enrich: EnrichMap = new Map();
+  const touches: ContactTouchInput[] = [];
+  const sightings: CandidateSighting[] = [];
+  let skipped = 0;
+
+  let fetched;
+  try {
+    fetched = await listOutlookMessages(account.token, sinceIso);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    await log({ ok: false, accountEmail: account.accountEmail, error: msg });
+    return errorResult("outlook", msg);
+  }
+
+  for (const m of fetched.messages) {
+    if (!m.from || !m.date) continue;
+    const touchedAt = new Date(m.date).toISOString();
+    const outbound = isFromMe(m.from);
+    const counterparties = outbound
+      ? splitRecipientHeaders(m.to, m.cc)
+      : [m.from];
+    if (!counterparties.length) continue;
+
+    let firstMatched = true;
+    for (const raw of counterparties) {
+      const email = extractEmail(raw);
+      if (!email || isMyOwnAddress(email)) continue;
+      const contact = lookup.resolve(raw);
+      const direction = outbound ? "outbound" : "inbound";
+      if (!contact) {
+        skipped += 1;
+        sightings.push({
+          email,
+          name: raw.replace(/<[^>]+>/, "").replace(/["']/g, "").trim() || null,
+          dateIso: touchedAt,
+          subject: m.subject ?? null,
+          direction,
+        });
+        continue;
+      }
+      recordEnrich(enrich, contact, email);
+      touches.push({
+        contact_id: contact.id,
+        channel: "email",
+        direction,
+        touched_at: touchedAt,
+        source: "outlook",
+        external_id: firstMatched
+          ? `outlook:${m.id}`
+          : `outlook:${m.id}::${contact.id}`,
+        brief:
+          oneLine(m.snippet) || (outbound ? "Email sent" : "Email received"),
+        subject: m.subject ?? null,
+        thread_url: m.webLink,
+      });
+      firstMatched = false;
+    }
+  }
+
+  const insertResult = await insertContactTouches(touches);
+  const staged = await upsertCandidateSightings(sightings, lookup);
+  await applyEmailEnrichments(enrich);
+  revalidatePaths();
+
+  const warnings = fetched.warnings;
+  if (warnings.length && !insertResult.inserted && touches.length === 0 && fetched.messages.length === 0) {
+    await log({
+      ok: false,
+      accountEmail: account.accountEmail,
+      errors: warnings,
+    });
+    return errorResult("outlook", warnings.join(" · "));
+  }
+
+  const result = okResult(
+    "outlook",
+    insertResult,
+    touches.length,
+    skipped,
+    staged.created,
+    warnings
+  );
+  await log({
+    ok: result.ok,
+    accountEmail: account.accountEmail,
+    matched: touches.length,
+    inserted: insertResult.inserted,
+    duplicates: insertResult.duplicates,
+    cadenceUpdates: insertResult.cadenceUpdates,
+    skipped,
+    candidatesStaged: staged.created,
+    unmatchedNames: staged.newNames,
+    messageCount: fetched.messages.length,
+    errors: [...insertResult.errors, ...warnings],
+  });
+  return result;
+}
+
+function unavailableOutlookResult(
+  message = OUTLOOK_NOT_CONNECTED,
+  runId?: string
+): SyncResult {
+  void recordSyncState(
+    "outlook",
+    {
+      ok: true,
+      unavailable: true,
+      error: message,
+    },
+    runId
+  );
+  return {
+    ok: true,
+    source: "outlook",
+    matched: 0,
+    inserted: 0,
+    duplicates: 0,
+    cadenceUpdates: 0,
+    skipped: 0,
+    unavailable: true,
+    error: message,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Orchestrator — run all configured syncs and aggregate results.
 // ---------------------------------------------------------------------------
 
@@ -959,10 +1118,11 @@ export async function syncOutreachAll(opts?: {
   runId?: string;
 }): Promise<SyncAllResult> {
   const ranAt = new Date().toISOString();
-  const [gmail, gcal, beeper] = await Promise.allSettled([
+  const [gmail, gcal, beeper, outlook] = await Promise.allSettled([
     syncOutreachFromGmail(opts),
     syncOutreachFromCalendar(opts),
     syncOutreachFromBeeper(opts),
+    syncOutreachFromOutlook(opts),
   ]);
 
   return {
@@ -971,11 +1131,15 @@ export async function syncOutreachAll(opts?: {
       (gcal.status === "fulfilled" && gcal.value.ok) ||
       (beeper.status === "fulfilled" &&
         beeper.value.ok &&
-        !beeper.value.unavailable),
+        !beeper.value.unavailable) ||
+      (outlook.status === "fulfilled" &&
+        outlook.value.ok &&
+        !outlook.value.unavailable),
     ranAt,
     gmail: settled(gmail),
     gcal: settled(gcal),
     beeper: settled(beeper),
+    outlook: settled(outlook),
   };
 }
 

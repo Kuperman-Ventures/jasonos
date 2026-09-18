@@ -38,7 +38,8 @@ export type TouchSource =
   | "hubspot"
   | "manual"
   | "rr_legacy"
-  | "beeper";
+  | "beeper"
+  | "outlook";
 
 export interface ContactTouchInput {
   contact_id: string;

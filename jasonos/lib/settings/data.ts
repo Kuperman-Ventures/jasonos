@@ -6,6 +6,11 @@ import {
   getGoogleConnectionStatus,
   type GoogleConnectionStatus,
 } from "@/lib/integrations/google-tokens";
+import {
+  emptyOutlookConnectionStatus,
+  getOutlookConnectionStatus,
+  type OutlookConnectionStatus,
+} from "@/lib/integrations/outlook-tokens";
 import { overlayGoogleOauthOntoServices } from "./google-status";
 import {
   DEFAULT_ALERT_THRESHOLDS,
@@ -44,6 +49,7 @@ export interface SettingsPayload {
     lastCompletedAt: string | null;
   };
   googleAccounts: GoogleConnectionStatus;
+  outlookAccount: OutlookConnectionStatus;
 }
 
 function publicSupabaseConfigured() {
@@ -60,19 +66,22 @@ function normalizeModels(value: unknown): ModelPreferences {
 
 export async function getSettingsPayload(): Promise<SettingsPayload> {
   const configured = publicSupabaseConfigured();
-  const googleAccounts = await getGoogleConnectionStatus().catch(() => ({
-    ...EMPTY_GOOGLE_CONNECTION_STATUS,
-  }));
+  const [googleAccounts, outlookAccount] = await Promise.all([
+    getGoogleConnectionStatus().catch(() => ({
+      ...EMPTY_GOOGLE_CONNECTION_STATUS,
+    })),
+    getOutlookConnectionStatus().catch(() => emptyOutlookConnectionStatus()),
+  ]);
 
   if (!configured) {
-    return attachGoogleStatus(fallbackPayload(false), googleAccounts);
+    return attachMailboxStatus(fallbackPayload(false), googleAccounts, outlookAccount);
   }
 
   const supabase = await createPublicClient();
   const { data: userData } = await supabase.auth.getUser();
   const user = userData.user;
   if (!user) {
-    return attachGoogleStatus(fallbackPayload(true), googleAccounts);
+    return attachMailboxStatus(fallbackPayload(true), googleAccounts, outlookAccount);
   }
 
   await seedConnections(user.id);
@@ -114,7 +123,7 @@ export async function getSettingsPayload(): Promise<SettingsPayload> {
     } satisfies ServiceConnection;
   });
 
-  return attachGoogleStatus(
+  return attachMailboxStatus(
     {
       services,
       thresholds: normalizeThresholds((prefs as PreferencesRow | null)?.alert_thresholds),
@@ -128,18 +137,22 @@ export async function getSettingsPayload(): Promise<SettingsPayload> {
       supabaseConfigured: true,
       dispatch,
       googleAccounts,
+      outlookAccount,
     },
-    googleAccounts
+    googleAccounts,
+    outlookAccount
   );
 }
 
-function attachGoogleStatus(
+function attachMailboxStatus(
   payload: SettingsPayload,
-  googleAccounts: GoogleConnectionStatus
+  googleAccounts: GoogleConnectionStatus,
+  outlookAccount: OutlookConnectionStatus
 ): SettingsPayload {
   return {
     ...payload,
     googleAccounts,
+    outlookAccount,
     services: overlayGoogleOauthOntoServices(payload.services, googleAccounts),
   };
 }
@@ -223,6 +236,7 @@ function fallbackPayload(authRequired: boolean): SettingsPayload {
     supabaseConfigured: publicSupabaseConfigured(),
     dispatch: { pendingCount: 0, lastCompletedAt: null },
     googleAccounts: { ...EMPTY_GOOGLE_CONNECTION_STATUS },
+    outlookAccount: emptyOutlookConnectionStatus(),
   };
 }
 

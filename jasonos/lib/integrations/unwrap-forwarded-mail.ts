@@ -1,6 +1,7 @@
 // Unwrap Outlook → Gmail forwards so pipelines see the original correspondent,
 // not jason.kuperman@outlook.com emailing Jason's connected Gmail.
-// Gmail-side only. No Microsoft Graph.
+// Native Outlook mail is a separate Microsoft Graph sync (lib/integrations/outlook.ts).
+// Keep this path: forwarded copies can still land in Gmail.
 
 export const OUTLOOK_WRAP_EMAIL = "jason.kuperman@outlook.com";
 

@@ -68,6 +68,18 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
       if (result.gmail?.warnings?.length) {
         messages.push(result.gmail.warnings.join(" · "));
       }
+      if (result.outlook) {
+        if (result.outlook.unavailable) {
+          messages.push(result.outlook.error ?? "Outlook not connected — skipped");
+        } else if (result.outlook.ok) {
+          messages.push(`Outlook +${result.outlook.inserted}`);
+          if (result.outlook.warnings?.length) {
+            messages.push(result.outlook.warnings.join(" · "));
+          }
+        } else {
+          messages.push(`Outlook failed: ${result.outlook.error ?? "unknown"}`);
+        }
+      }
       if (result.beeper) {
         if (result.beeper.unavailable) {
           // Soft skip — Beeper Desktop closed, unreachable, or not configured.
@@ -92,6 +104,9 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
         const staged =
           (result.gmail?.candidatesStaged ?? 0) +
           (result.gcal?.candidatesStaged ?? 0) +
+          (result.outlook?.ok && !result.outlook.unavailable
+            ? (result.outlook.candidatesStaged ?? 0)
+            : 0) +
           suggested.created;
         messages.push(`Suggested +${staged}`);
       } else if (suggestedFatal) {
@@ -101,17 +116,27 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
       const beeperFatal = Boolean(
         result.beeper && !result.beeper.ok && !result.beeper.unavailable
       );
-      const allOk = result.ok && !suggestedFatal && !beeperFatal;
-      const mailboxWarning = Boolean(
-        result.gcal?.warnings?.length || result.gmail?.warnings?.length
+      const outlookFatal = Boolean(
+        result.outlook && !result.outlook.ok && !result.outlook.unavailable
       );
-      // Beeper soft-skip alone shouldn't flip a successful Gmail/Calendar sync
-      // into an error toast — surface it in the success line instead.
+      const allOk = result.ok && !suggestedFatal && !beeperFatal && !outlookFatal;
+      const mailboxWarning = Boolean(
+        result.gcal?.warnings?.length ||
+          result.gmail?.warnings?.length ||
+          result.outlook?.warnings?.length
+      );
+      const anyMailboxOk =
+        (result.gmail?.ok ?? false) ||
+        (result.gcal?.ok ?? false) ||
+        Boolean(result.outlook?.ok && !result.outlook.unavailable);
+      // Beeper or Outlook soft-skip alone shouldn't flip a successful mailbox
+      // sync into an error toast — surface it in the success line instead.
       const softOnlyMiss =
-        Boolean(result.beeper?.unavailable) &&
+        (Boolean(result.beeper?.unavailable) || Boolean(result.outlook?.unavailable)) &&
         !beeperFatal &&
+        !outlookFatal &&
         !suggestedFatal &&
-        ((result.gmail?.ok ?? false) || (result.gcal?.ok ?? false));
+        anyMailboxOk;
       if ((allOk || softOnlyMiss) && mailboxWarning) {
         toast.warning(messages.join(" · ") || "Sync finished with a warning");
       } else if (allOk || softOnlyMiss) {
@@ -143,8 +168,8 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
       disabled={running}
       title={
         lastSynced
-          ? `Last synced ${fmtRelative(lastSynced)} — Gmail, Calendar, Beeper (when open) & suggested contacts`
-          : "Sync Gmail, Calendar, Beeper (when Desktop is open) & suggested contacts"
+          ? `Last synced ${fmtRelative(lastSynced)} — Gmail, Outlook, Calendar, Beeper (when open) & suggested contacts`
+          : "Sync Gmail, Outlook, Calendar, Beeper (when Desktop is open) & suggested contacts"
       }
     >
       {running ? (

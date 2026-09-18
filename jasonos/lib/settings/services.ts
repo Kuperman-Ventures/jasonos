@@ -122,7 +122,7 @@ export const SERVICE_DEFINITIONS: ServiceDefinition[] = [
     label: "Gmail",
     connectionType: "oauth",
     description:
-      "Sent-mail sync and outreach tracking via Google OAuth. Connect Advisors and Personal Gmail in Google accounts above. If sign-in expired, reconnect there or Sync will skip that mailbox.",
+      "Sent-mail sync and outreach tracking via Google OAuth. Connect Advisors and Personal Gmail in Mail accounts above. Outlook.com is a separate connect on that same card. If sign-in expired, reconnect there or Sync will skip that mailbox.",
     features: ["Email triage", "Replies", "Outreach"],
     configurable: false,
     disconnectable: false,
@@ -132,7 +132,7 @@ export const SERVICE_DEFINITIONS: ServiceDefinition[] = [
     label: "Google Calendar",
     connectionType: "oauth",
     description:
-      "Meeting prep and calendar sync via Google OAuth. Connect each account in Google accounts above — sharing a calendar is not enough.",
+      "Meeting prep and calendar sync via Google OAuth. Connect each account in Mail accounts above — sharing a calendar is not enough.",
     features: ["Meeting prep", "Calendar", "Velocity"],
     configurable: false,
     disconnectable: false,

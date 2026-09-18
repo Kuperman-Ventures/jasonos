@@ -137,7 +137,9 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
     const connected = searchParams.get("google_gmail_connected") === "1";
     const advisors = searchParams.get("google_connected") === "1";
     const error = searchParams.get("google_error");
-    if (!connected && !advisors && !error) return;
+    const outlookConnected = searchParams.get("outlook_connected") === "1";
+    const outlookError = searchParams.get("outlook_error");
+    if (!connected && !advisors && !error && !outlookConnected && !outlookError) return;
     if (connected) {
       toast.success("Personal Gmail connected", {
         description: "Hit Sync in the top bar. Calendar and sent mail on jskuperman@gmail.com will come through.",
@@ -147,10 +149,20 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
     } else if (error) {
       toast.error("Google connect failed", { description: error });
     }
+    if (outlookConnected) {
+      toast.success("Outlook connected", {
+        description:
+          "Hit Sync in the top bar. Sent and inbox mail on jason.kuperman@outlook.com will come through.",
+      });
+    } else if (outlookError) {
+      toast.error("Outlook connect failed", { description: outlookError });
+    }
     const url = new URL(window.location.href);
     url.searchParams.delete("google_gmail_connected");
     url.searchParams.delete("google_connected");
     url.searchParams.delete("google_error");
+    url.searchParams.delete("outlook_connected");
+    url.searchParams.delete("outlook_error");
     router.replace(url.pathname + url.search, { scroll: false });
   }, [searchParams, router]);
 
@@ -230,8 +242,8 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
 
       {settings.authRequired ? (
         <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-100">
-          Sign in to persist Settings changes. Google account status below is live —
-          you can reconnect Gmail without signing in first.
+          Sign in to persist Settings changes. Mail account status below is live —
+          you can reconnect Gmail or Outlook without signing in first.
         </div>
       ) : null}
 
@@ -244,7 +256,10 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
         onCheckAll={refreshAll}
       />
 
-      <GoogleAccountsCard accounts={settings.googleAccounts} />
+      <MailAccountsCard
+        accounts={settings.googleAccounts}
+        outlook={settings.outlookAccount}
+      />
 
       <LiveDataPreview billing={billing} onRefresh={() => window.location.reload()} />
 
@@ -347,10 +362,12 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
   );
 }
 
-function GoogleAccountsCard({
+function MailAccountsCard({
   accounts,
+  outlook,
 }: {
   accounts: SettingsPayload["googleAccounts"];
+  outlook: SettingsPayload["outlookAccount"];
 }) {
   const advisorsHealth = googleMailboxHealth({
     connected: accounts.advisorsConnected,
@@ -360,15 +377,28 @@ function GoogleAccountsCard({
     connected: accounts.gmailConnected,
     needsReconnect: accounts.gmailNeedsReconnect,
   });
+  const outlookHealth = googleMailboxHealth({
+    connected: outlook.connected,
+    needsReconnect: outlook.needsReconnect,
+  });
   const expiredLabels = [
     advisorsHealth === "expired" ? "Advisors Google" : null,
     gmailHealth === "expired" ? "Personal Gmail" : null,
+    outlookHealth === "expired" ? "Outlook" : null,
   ].filter((label): label is string => Boolean(label));
   const missingLabels = [
     advisorsHealth === "not_connected" ? "Advisors Google" : null,
     gmailHealth === "not_connected" ? "Personal Gmail" : null,
+    outlookHealth === "not_connected" ? "Outlook" : null,
   ].filter((label): label is string => Boolean(label));
-  const connectedCount = [advisorsHealth, gmailHealth].filter((health) => health === "connected").length;
+  const connectedCount = [advisorsHealth, gmailHealth, outlookHealth].filter(
+    (health) => health === "connected"
+  ).length;
+  const expiredEmails = [
+    gmailHealth === "expired" ? "jskuperman@gmail.com" : null,
+    advisorsHealth === "expired" ? "jason@kupermanadvisors.com" : null,
+    outlookHealth === "expired" ? "jason.kuperman@outlook.com" : null,
+  ].filter((value): value is string => Boolean(value));
 
   return (
     <section id="google-accounts" className="rounded-xl border bg-card p-4">
@@ -377,14 +407,15 @@ function GoogleAccountsCard({
           <Mail className="h-4 w-4 text-sky-300" />
         </div>
         <div className="min-w-0 flex-1">
-          <h2 className="text-sm font-semibold tracking-tight">Google accounts</h2>
+          <h2 className="text-sm font-semibold tracking-tight">Mail accounts</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Sync reads Sent mail and calendar from each connected account. Advisors
-            and Personal Gmail are separate Google logins — sharing a calendar is
-            not enough. Status below is live, including when Settings is in preview.
+            Sync reads mail from each connected account. Advisors and Personal Gmail
+            are separate Google logins — sharing a calendar is not enough. Outlook.com
+            uses Microsoft and is separate from those Gmail forwards. Status below is
+            live, including when Settings is in preview.
           </p>
           <p className="mt-2 text-xs text-muted-foreground">
-            {connectedCount} of 2 connected
+            {connectedCount} of 3 connected
             {expiredLabels.length ? ` · ${expiredLabels.length} sign-in expired` : ""}
             {missingLabels.length ? ` · ${missingLabels.length} not connected` : ""}
           </p>
@@ -400,27 +431,20 @@ function GoogleAccountsCard({
                 {expiredLabels.join(" and ")} sign-in expired
               </p>
               <p className="mt-1 text-xs text-amber-100/80">
-                Sync cannot read mail or meetings on{" "}
-                {[
-                  gmailHealth === "expired" ? "jskuperman@gmail.com" : null,
-                  advisorsHealth === "expired" ? "jason@kupermanadvisors.com" : null,
-                ]
-                  .filter((value): value is string => Boolean(value))
-                  .join(" or ")}{" "}
-                until you reconnect below.
+                Sync cannot read {expiredEmails.join(" or ")} until you reconnect below.
               </p>
             </div>
           </div>
         </div>
-      ) : missingLabels.length === 2 ? (
+      ) : advisorsHealth === "not_connected" && gmailHealth === "not_connected" ? (
         <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm text-amber-100">
-          Neither Google account is connected. Sync cannot read mail or calendar
-          until you connect them below.
+          Neither Google account is connected. Sync cannot read Gmail or Google
+          Calendar until you connect them below.
         </div>
       ) : null}
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <GoogleAccountRow
+      <div className="mt-4 grid gap-3 lg:grid-cols-3">
+        <MailAccountRow
           id="advisors-google"
           label="Advisors"
           email="jason@kupermanadvisors.com"
@@ -430,8 +454,9 @@ function GoogleAccountsCard({
           error={accounts.advisorsError}
           href="/api/auth/google"
           connectLabel="Connect Advisors Google"
+          reconnectLabel="Reconnect Advisors Google"
         />
-        <GoogleAccountRow
+        <MailAccountRow
           id="personal-gmail"
           label="Personal Gmail"
           email="jskuperman@gmail.com"
@@ -441,13 +466,33 @@ function GoogleAccountsCard({
           error={accounts.gmailError}
           href="/api/auth/google?account=gmail"
           connectLabel="Connect personal Gmail"
+          reconnectLabel="Reconnect personal Gmail"
+        />
+        <MailAccountRow
+          id="outlook"
+          label="Outlook"
+          email="jason.kuperman@outlook.com"
+          connected={outlook.connected}
+          needsReconnect={outlook.needsReconnect}
+          connectedEmail={outlook.email}
+          error={outlook.error}
+          href="/api/auth/microsoft"
+          connectLabel="Connect Outlook"
+          reconnectLabel="Reconnect Outlook"
+          connectDisabled={!outlook.oauthConfigured && !outlook.connected}
+          connectedDetail="Sign-in is valid. Sync can read sent, inbox, and other folders on this account."
+          missingDetail={
+            outlook.oauthConfigured
+              ? "Not connected. Sync skips Outlook until you connect this mailbox."
+              : "Add MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET on Vercel, then connect this mailbox."
+          }
         />
       </div>
     </section>
   );
 }
 
-function GoogleAccountRow({
+function MailAccountRow({
   id,
   label,
   email,
@@ -457,6 +502,10 @@ function GoogleAccountRow({
   error,
   href,
   connectLabel,
+  reconnectLabel,
+  connectDisabled = false,
+  connectedDetail = "Sign-in is valid. Sync can read sent mail and calendar on this account.",
+  missingDetail = "Not connected. Sync cannot read this mailbox or calendar.",
 }: {
   id: string;
   label: string;
@@ -467,12 +516,15 @@ function GoogleAccountRow({
   error?: string | null;
   href: string;
   connectLabel: string;
+  reconnectLabel: string;
+  connectDisabled?: boolean;
+  connectedDetail?: string;
+  missingDetail?: string;
 }) {
   const health = googleMailboxHealth({
     connected,
     needsReconnect: Boolean(needsReconnect),
   });
-  const reconnectLabel = label === "Personal Gmail" ? "Reconnect personal Gmail" : "Reconnect Advisors Google";
 
   return (
     <div
@@ -507,25 +559,31 @@ function GoogleAccountRow({
         <p className={cn("mt-1 text-xs", health === "expired" ? "text-amber-100" : "text-muted-foreground")}>
           {health === "expired"
             ? error ??
-              "Sign-in expired. Calendar and sent mail on this account will not sync until you reconnect."
+              "Sign-in expired. Mail on this account will not sync until you reconnect."
             : health === "connected"
-              ? "Sign-in is valid. Sync can read sent mail and calendar on this account."
-              : "Not connected. Sync cannot read this mailbox or calendar."}
+              ? connectedDetail
+              : missingDetail}
         </p>
       </div>
-      <a
-        href={href}
-        className={cn(
-          "shrink-0 rounded-md px-3 py-1.5 text-center text-[11px] font-medium",
-          health === "expired"
-            ? "bg-amber-300 text-black hover:bg-amber-200"
-            : health === "connected"
-              ? "text-muted-foreground hover:text-foreground hover:underline"
-              : "border hover:bg-muted"
-        )}
-      >
-        {health === "not_connected" ? connectLabel : health === "expired" ? reconnectLabel : "Reconnect"}
-      </a>
+      {health === "not_connected" && connectDisabled ? (
+        <span className="shrink-0 text-center text-[11px] font-medium text-muted-foreground">
+          Needs Azure app
+        </span>
+      ) : (
+        <a
+          href={href}
+          className={cn(
+            "shrink-0 rounded-md px-3 py-1.5 text-center text-[11px] font-medium",
+            health === "expired"
+              ? "bg-amber-300 text-black hover:bg-amber-200"
+              : health === "connected"
+                ? "text-muted-foreground hover:text-foreground hover:underline"
+                : "border hover:bg-muted"
+          )}
+        >
+          {health === "not_connected" ? connectLabel : health === "expired" ? reconnectLabel : "Reconnect"}
+        </a>
+      )}
     </div>
   );
 }
@@ -784,7 +842,7 @@ function ServiceCard({
             href="#google-accounts"
             className="mt-2 inline-block text-xs font-medium text-amber-200 hover:underline"
           >
-            Fix this in Google accounts
+            Fix this in Mail accounts
           </a>
         ) : null
       ) : null}

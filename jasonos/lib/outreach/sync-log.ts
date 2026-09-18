@@ -6,6 +6,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 export type SyncLogSource =
   | "gmail"
   | "gcal"
+  | "outlook"
   | "beeper"
   | "hubspot"
   | "suggested";
@@ -13,6 +14,7 @@ export type SyncLogSource =
 export const SYNC_LOG_SOURCE_LABELS: Record<string, string> = {
   gmail: "Gmail",
   gcal: "Calendar",
+  outlook: "Outlook",
   beeper: "Beeper",
   hubspot: "HubSpot",
   suggested: "Suggested",
@@ -47,7 +49,7 @@ export interface SyncLogInstance {
   entries: SyncLogEntry[];
 }
 
-const SOURCE_ORDER = ["gmail", "gcal", "beeper", "suggested", "hubspot"];
+const SOURCE_ORDER = ["gmail", "outlook", "gcal", "beeper", "suggested", "hubspot"];
 const CLUSTER_MS = 90_000;
 
 function hasServiceRole() {
