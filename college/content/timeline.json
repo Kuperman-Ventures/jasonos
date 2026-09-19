@@ -1,0 +1,154 @@
+[
+  {
+    "phase": "Junior Fall",
+    "window": "Sept – Dec 2026",
+    "items": [
+      {
+        "id": "p1-1",
+        "text": "Take the PSAT/NMSQT in October to get a baseline score and check National Merit eligibility."
+      },
+      {
+        "id": "p1-2",
+        "text": "Confirm senior-year course selections reflect the strongest schedule Kyle can handle well, not just the most APs available."
+      },
+      {
+        "id": "p1-3",
+        "text": "Start a running log of activities, jobs, and leadership roles with dates, hours, and specific contributions - build it now instead of reconstructing it next fall."
+      },
+      {
+        "id": "p1-4",
+        "text": "Have a direct family conversation about what you're willing to spend, so “reach,” “match,” and “safety” include a financial-safety category from the start."
+      },
+      {
+        "id": "p1-5",
+        "text": "Set up a free profile on a couple of college search tools to explore options - this is research, not applying."
+      }
+    ]
+  },
+  {
+    "phase": "Junior Winter/Spring",
+    "window": "Jan – May 2027",
+    "items": [
+      {
+        "id": "p2-1",
+        "text": "Decide between the SAT and ACT and register for a spring test date."
+      },
+      {
+        "id": "p2-2",
+        "text": "Visit a mix of campus types - large state school, small college, urban, suburban - before the college list gets built, so preferences come from real visits, not assumptions."
+      },
+      {
+        "id": "p2-3",
+        "text": "Run the Net Price Calculator on 3-5 schools spanning different selectivity and cost, to see real numbers instead of sticker price."
+      },
+      {
+        "id": "p2-4",
+        "text": "Narrow academic and career interests enough to shape the college list, without forcing Kyle to commit to a major."
+      },
+      {
+        "id": "p2-5",
+        "text": "Identify two junior-year teachers in core subjects who know Kyle's work well, as likely recommendation-letter writers."
+      }
+    ]
+  },
+  {
+    "phase": "End of Junior Year",
+    "window": "May – Jun 2027",
+    "items": [
+      {
+        "id": "p3-1",
+        "text": "Formally request recommendation letters before the school year ends - teachers get flooded with requests every fall."
+      },
+      {
+        "id": "p3-2",
+        "text": "Draft a first-pass college list sorted into reach, target, likely, and financial-safety tiers, with the criteria for each tier written down."
+      },
+      {
+        "id": "p3-3",
+        "text": "Take a second SAT/ACT sitting if the plan calls for one, and decide whether testing is finished."
+      },
+      {
+        "id": "p3-4",
+        "text": "Put together the resume or “brag sheet” the counselor and recommenders will use to write about Kyle."
+      },
+      {
+        "id": "p3-5",
+        "text": "Start brainstorming Common App personal essay topics - ideas only, not a draft yet."
+      }
+    ]
+  },
+  {
+    "phase": "Summer Before Senior Year",
+    "window": "Jun – Aug 2027",
+    "items": [
+      {
+        "id": "p4-1",
+        "text": "Finalize the college list at roughly 8-12 schools spread across the reach/target/likely/safety tiers."
+      },
+      {
+        "id": "p4-2",
+        "text": "Visit the remaining priority campuses and note specific details worth using later in “why this school” essays."
+      },
+      {
+        "id": "p4-3",
+        "text": "Write a full draft of the Common App personal essay before senior year starts."
+      },
+      {
+        "id": "p4-4",
+        "text": "Open the Common App account (submissions can't go in before August 1) and start filling in the activities section."
+      },
+      {
+        "id": "p4-5",
+        "text": "Draft supplemental “why us” essays for any schools with early deadlines."
+      }
+    ]
+  },
+  {
+    "phase": "Senior Fall",
+    "window": "Aug – Nov 2027",
+    "items": [
+      {
+        "id": "p5-1",
+        "text": "Take a final SAT/ACT sitting in August or September if another score jump is realistic."
+      },
+      {
+        "id": "p5-2",
+        "text": "Submit Early Action or Early Decision applications - most deadlines fall on November 1 or November 15."
+      },
+      {
+        "id": "p5-3",
+        "text": "Confirm every recommender and the school counselor have actually submitted their materials."
+      },
+      {
+        "id": "p5-4",
+        "text": "Submit Regular Decision applications on a rolling basis through the fall rather than all at once in December."
+      },
+      {
+        "id": "p5-5",
+        "text": "File the FAFSA as soon as it opens - the 2028-29 form (Kyle's cycle, for fall 2028 enrollment), expected to open around October 1, 2027. File within the first couple of weeks: some state grants and college aid are first-come, first-served, so waiting until winter costs real money."
+      }
+    ]
+  },
+  {
+    "phase": "Senior Winter",
+    "window": "Dec 2027 – Mar 2028",
+    "items": [
+      {
+        "id": "p6-1",
+        "text": "Confirm every college on the list has received and processed the FAFSA, and respond quickly to any verification requests - don't just file it and assume it's done."
+      },
+      {
+        "id": "p6-2",
+        "text": "Complete the CSS Profile for any private colleges that require it."
+      },
+      {
+        "id": "p6-3",
+        "text": "Track and meet merit scholarship deadlines, which often land earlier than the admission deadline itself."
+      },
+      {
+        "id": "p6-4",
+        "text": "Compare financial aid offers using actual net cost once decisions arrive, not the headline sticker price."
+      }
+    ]
+  }
+]

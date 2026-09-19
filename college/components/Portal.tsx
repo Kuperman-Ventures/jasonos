@@ -1,0 +1,358 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
+import { AppQuestionsTab } from "./AppQuestionsTab";
+import { CollegesTab } from "./CollegesTab";
+import { ConsultantsTab } from "./ConsultantsTab";
+import { FaqTab } from "./FaqTab";
+import { NotesTab } from "./NotesTab";
+import { TabNav } from "./TabNav";
+import { ThemeToggle } from "./ThemeToggle";
+import { TimelineTab } from "./TimelineTab";
+import {
+  appCore,
+  consultantCriteria,
+  consultantFirms,
+  consultantQuestions,
+  demographicBlocks,
+  essayPromptList,
+  faqCategories,
+  phases,
+  seedSchools,
+  seedScores,
+  selectivityGuide,
+  supplementCards,
+  writingBlocks,
+} from "@/lib/content";
+import { currentPhaseIndex, phaseStatuses } from "@/lib/phases";
+import type { Owner, School, Scores, TabId } from "@/lib/types";
+import { isChoice, isPlan, TABS } from "@/lib/types";
+
+function todayLabel() {
+  return new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+}
+
+function readStart(): { tab: TabId; schoolId: string | null } {
+  if (typeof window === "undefined") return { tab: "colleges", schoolId: null };
+  const params = new URLSearchParams(window.location.search);
+  const school = params.get("school");
+  if (school) return { tab: "colleges", schoolId: school };
+  const requested = params.get("tab");
+  const tab = requested && TABS.some((item) => item.id === requested) ? (requested as TabId) : "colleges";
+  return { tab, schoolId: null };
+}
+
+export function Portal() {
+  const start = readStart();
+  const [tab, setTab] = useState<TabId>(start.tab);
+  const [schoolId, setSchoolId] = useState<string | null>(start.schoolId);
+  const [checklist, setChecklist] = useState<Record<string, boolean>>({});
+  const [scores, setScores] = useState<Scores>(seedScores);
+  const [notes, setNotes] = useState("");
+  const [schools, setSchools] = useState<School[]>(() => seedSchools());
+  const [persisted, setPersisted] = useState(false);
+  const [saveState, setSaveState] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const notesTimer = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const [stateRes, schoolRes] = await Promise.all([fetch("/api/state"), fetch("/api/schools")]);
+        const state = (await stateRes.json()) as {
+          checklist?: Record<string, boolean>;
+          scores?: Scores;
+          notes?: string;
+          persisted?: boolean;
+        };
+        const schoolBody = (await schoolRes.json()) as { schools?: School[]; persisted?: boolean };
+        if (cancelled) return;
+        if (state.checklist) setChecklist(state.checklist);
+        if (state.scores) setScores({ ...seedScores, ...state.scores });
+        if (typeof state.notes === "string") setNotes(state.notes);
+        if (schoolBody.schools?.length) setSchools(schoolBody.schools);
+        setPersisted(Boolean(state.persisted && schoolBody.persisted));
+      } catch {
+        if (!cancelled) setSaveState("Not saved");
+      } finally {
+        if (!cancelled) setLoaded(true);
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const replaceUrl = useCallback((nextTab: TabId, nextSchool: string | null) => {
+    const params = new URLSearchParams();
+    if (nextTab !== "colleges") params.set("tab", nextTab);
+    if (nextSchool) params.set("school", nextSchool);
+    const query = params.toString();
+    window.history.replaceState(null, "", query ? `/?${query}` : "/");
+  }, []);
+
+  const statuses = useMemo(() => phaseStatuses(phases, checklist), [checklist]);
+  const phaseIndex = currentPhaseIndex(statuses);
+  const pill = `${phases[phaseIndex]?.phase ?? "Timeline"} · Phase ${phaseIndex + 1} of ${phases.length}`;
+
+  async function patchState(body: { checklist?: Record<string, boolean>; scores?: Scores; notes?: string }) {
+    if (!persisted) {
+      setSaveState("Not saved");
+      return;
+    }
+    setSaveState("Saving...");
+    const response = await fetch("/api/state", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setSaveState(response.ok ? "Saved" : "Not saved");
+    if (response.ok && body.notes !== undefined) {
+      window.setTimeout(() => setSaveState(""), 1500);
+    }
+  }
+
+  function toggleItem(id: string, checked: boolean) {
+    const next = { ...checklist, [id]: checked };
+    setChecklist(next);
+    void patchState({ checklist: next });
+  }
+
+  function changeScore(firmId: string, criterionId: string, value: number) {
+    const next = { ...scores, [firmId]: { ...scores[firmId], [criterionId]: value } };
+    setScores(next);
+    void patchState({ scores: next });
+  }
+
+  function changeNotes(value: string) {
+    setNotes(value);
+    setSaveState("Saving...");
+    window.clearTimeout(notesTimer.current);
+    notesTimer.current = window.setTimeout(() => {
+      void patchState({ notes: value });
+    }, 700);
+  }
+
+  function replaceSchool(school: School) {
+    setSchools((current) => current.map((item) => (item.id === school.id ? school : item)));
+  }
+
+  async function patchSchool(id: string, patch: Partial<School>) {
+    setSchools((current) => current.map((school) => (school.id === id ? { ...school, ...patch } : school)));
+    if (!persisted) {
+      setSaveState("Not saved");
+      return;
+    }
+    const response = await fetch(`/api/schools/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    if (!response.ok) {
+      setSaveState("Not saved");
+      return;
+    }
+    const body = (await response.json()) as { school: School };
+    replaceSchool(body.school);
+    setSaveState("Saved");
+  }
+
+  async function createSchool(name: string) {
+    if (!persisted) {
+      const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "school";
+      setSchools((current) => [
+        ...current,
+        {
+          ...seedSchools()[0],
+          id,
+          name,
+          location: "",
+          campusSize: "",
+          mechanicalEngineering: "",
+          materials: "",
+          materialsOffering: "",
+          admissionsContext: "",
+          satContext: "",
+          selectivity: "",
+          notes: "",
+          listOrder: current.length + 1,
+          choice: "unsure",
+          plan: "",
+          visited: false,
+          visitDate: null,
+          visitNotes: "",
+          deadline: null,
+          deadlineLabel: "",
+          steps: [],
+        },
+      ]);
+      setSaveState("Not saved");
+      return;
+    }
+    const response = await fetch("/api/schools", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (!response.ok) {
+      setSaveState("Not saved");
+      return;
+    }
+    const body = (await response.json()) as { school: School };
+    setSchools((current) => [...current, body.school]);
+  }
+
+  async function deleteSchool(id: string) {
+    setSchools((current) => current.filter((school) => school.id !== id));
+    setSchoolId(null);
+    replaceUrl("colleges", null);
+    if (!persisted) {
+      setSaveState("Not saved");
+      return;
+    }
+    await fetch(`/api/schools/${id}`, { method: "DELETE" });
+  }
+
+  async function addStep(id: string, label: string, owner: Owner) {
+    if (!persisted) {
+      setSchools((current) =>
+        current.map((school) =>
+          school.id === id
+            ? {
+                ...school,
+                steps: [
+                  ...school.steps,
+                  { id: crypto.randomUUID(), label, owner, done: false, sortOrder: school.steps.length },
+                ],
+              }
+            : school,
+        ),
+      );
+      setSaveState("Not saved");
+      return;
+    }
+    const response = await fetch(`/api/schools/${id}/steps`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ label, owner }),
+    });
+    if (!response.ok) return;
+    const body = (await response.json()) as { school: School };
+    replaceSchool(body.school);
+  }
+
+  async function patchStep(id: string, stepId: string, patch: { done?: boolean; owner?: Owner; label?: string }) {
+    setSchools((current) =>
+      current.map((school) =>
+        school.id === id
+          ? { ...school, steps: school.steps.map((step) => (step.id === stepId ? { ...step, ...patch } : step)) }
+          : school,
+      ),
+    );
+    if (!persisted) {
+      setSaveState("Not saved");
+      return;
+    }
+    const response = await fetch(`/api/schools/${id}/steps`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stepId, ...patch }),
+    });
+    if (!response.ok) return;
+    const body = (await response.json()) as { school: School };
+    replaceSchool(body.school);
+  }
+
+  async function removeStep(id: string, stepId: string) {
+    setSchools((current) =>
+      current.map((school) =>
+        school.id === id ? { ...school, steps: school.steps.filter((step) => step.id !== stepId) } : school,
+      ),
+    );
+    if (!persisted) return;
+    const response = await fetch(`/api/schools/${id}/steps?stepId=${encodeURIComponent(stepId)}`, { method: "DELETE" });
+    if (!response.ok) return;
+    const body = (await response.json()) as { school: School };
+    replaceSchool(body.school);
+  }
+
+  return (
+    <div className={tab === "colleges" && !schoolId ? "wrap wide" : "wrap"}>
+      <header className="mast">
+        <div className="mast-brand">
+          <Image src="/logo.png" alt="" width={64} height={48} className="site-logo" priority />
+          <div>
+            <p className="eyebrow">College Search · Working Plan</p>
+            <h1>Kyle&apos;s College Search</h1>
+            <p className="sub">Junior year · Columbia High School, Maplewood, NJ</p>
+          </div>
+        </div>
+        <div className="mast-actions">
+          <ThemeToggle />
+          <div className="status-pill mono">{pill}</div>
+        </div>
+      </header>
+      <TabNav
+        tab={tab}
+        onChange={(next) => {
+          setTab(next);
+          if (next !== "colleges") setSchoolId(null);
+          replaceUrl(next, next === "colleges" ? schoolId : null);
+        }}
+      />
+      {tab === "colleges" ? (
+        <CollegesTab
+          schools={schools}
+          guide={selectivityGuide}
+          selectedId={schoolId}
+          onOpen={(id) => {
+            setSchoolId(id);
+            replaceUrl("colleges", id);
+          }}
+          onClose={() => {
+            setSchoolId(null);
+            replaceUrl("colleges", null);
+          }}
+          onPatch={(id, patch) => {
+            if (patch.choice && !isChoice(patch.choice)) return;
+            if (patch.plan && !isPlan(patch.plan) && patch.plan !== "") return;
+            void patchSchool(id, patch);
+          }}
+          onCreate={(value) => void createSchool(value)}
+          onDelete={(id) => void deleteSchool(id)}
+          onAddStep={(id, label, owner) => void addStep(id, label, owner)}
+          onPatchStep={(id, stepId, patch) => void patchStep(id, stepId, patch)}
+          onDeleteStep={(id, stepId) => void removeStep(id, stepId)}
+        />
+      ) : null}
+      {tab === "timeline" ? <TimelineTab phases={phases} checklist={checklist} onToggle={toggleItem} /> : null}
+      {tab === "faq" ? <FaqTab categories={faqCategories} /> : null}
+      {tab === "questions" ? (
+        <AppQuestionsTab
+          core={appCore}
+          prompts={essayPromptList}
+          writing={writingBlocks}
+          demographics={demographicBlocks}
+          supplements={supplementCards}
+        />
+      ) : null}
+      {tab === "consultants" ? (
+        <ConsultantsTab
+          firms={consultantFirms}
+          criteria={consultantCriteria}
+          questions={consultantQuestions}
+          scores={scores}
+          onScore={changeScore}
+        />
+      ) : null}
+      {tab === "notes" ? <NotesTab notes={notes} saveState={saveState} onChange={changeNotes} /> : null}
+      <div className="save-state">{loaded ? saveState : "Loading..."}</div>
+      <footer>
+        Built for Kyle&apos;s college search · last opened <span className="mono">{todayLabel()}</span>
+      </footer>
+    </div>
+  );
+}
