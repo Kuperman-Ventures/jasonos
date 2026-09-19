@@ -104,9 +104,6 @@ export function CollegesTab({
       <div className="panel-toolbar">
         <div>
           <h2 className="section-title">College list</h2>
-          <p className="section-sub">
-            Rank how the family feels about each one, mark a visit, and open a school for the research notes.
-          </p>
         </div>
       </div>
       <form
@@ -143,7 +140,7 @@ export function CollegesTab({
           ))}
         </select>
         <select className="field" value={selectivity} onChange={(event) => setSelectivity(event.target.value)}>
-          <option value="">All selectivity</option>
+          <option value="">All preliminary selectivity</option>
           {selectivityOptions.map((item) => (
             <option key={item} value={item}>
               {item}
@@ -164,7 +161,7 @@ export function CollegesTab({
           <option value="list">Sheet order</option>
           <option value="choice">Choice</option>
           <option value="name">School name</option>
-          <option value="selectivity">Selectivity</option>
+          <option value="selectivity">Preliminary Selectivity</option>
           <option value="visited">Visited</option>
           <option value="date">Next date</option>
         </select>
@@ -186,7 +183,7 @@ export function CollegesTab({
               </th>
               <th>
                 <button type="button" className={sort === "selectivity" ? "active" : ""} onClick={() => toggleSort("selectivity")}>
-                  Selectivity{sort === "selectivity" ? (sortDir === 1 ? " ↑" : " ↓") : ""}
+                  Preliminary Selectivity{sort === "selectivity" ? (sortDir === 1 ? " ↑" : " ↓") : ""}
                 </button>
               </th>
               <th>Location</th>
@@ -270,7 +267,7 @@ export function CollegesTab({
       <div className="guide">
         <div className={guideOpen ? "faq-item open" : "faq-item"}>
           <button type="button" className="faq-q" onClick={() => setGuideOpen((open) => !open)}>
-            <span>What the selectivity words mean</span>
+            <span>Preliminary Selectivity</span>
             <span className="chev mono">›</span>
           </button>
           <div className="faq-a">

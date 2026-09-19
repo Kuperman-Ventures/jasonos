@@ -57,7 +57,7 @@ export function CollegeRecord({
             {school.location}
           </p>
         </div>
-        <span className="tag tag-outline">{school.selectivity || "No selectivity yet"}</span>
+        <span className="tag tag-outline">{school.selectivity || "No preliminary selectivity yet"}</span>
       </div>
       {school.deadline ? (
         <div className="readouts">
