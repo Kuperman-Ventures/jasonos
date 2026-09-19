@@ -18,6 +18,7 @@ export function ConsultantsTab({
 }) {
   const totals = firms.map((firm) => ({ id: firm.id, total: weightedTotal(scores[firm.id], criteria) }));
   const max = Math.max(...totals.map((item) => item.total));
+  const leaderId = totals.filter((item) => item.total === max).length === 1 ? totals.find((item) => item.total === max)?.id : null;
 
   return (
     <section>
@@ -25,7 +26,7 @@ export function ConsultantsTab({
         <h2 className="section-title" style={{ margin: 0 }}>
           Consultant Evaluation
         </h2>
-        <button type="button" className="print-btn no-print" onClick={() => window.print()}>
+        <button type="button" className="btn btn-secondary no-print" onClick={() => window.print()}>
           Save as PDF
         </button>
       </div>
@@ -38,7 +39,7 @@ export function ConsultantsTab({
         {firms.map((firm) => {
           const total = weightedTotal(scores[firm.id], criteria);
           return (
-            <div key={firm.id} className={total === max ? "firm-card leader" : "firm-card"}>
+            <div key={firm.id} className="firm-card">
               <h3>{firm.name}</h3>
               <a href={firm.url} target="_blank" rel="noopener noreferrer">
                 {firm.url.replace("https://", "")}
@@ -61,7 +62,7 @@ export function ConsultantsTab({
               </div>
               <div className="firm-score">
                 <span className="label">Weighted Score</span>
-                <span className="val mono">{total.toFixed(2)}</span>
+                <span className={firm.id === leaderId ? "val accent" : "val"}>{total.toFixed(2)}</span>
               </div>
             </div>
           );
@@ -108,7 +109,7 @@ export function ConsultantsTab({
               <td>Weighted Total</td>
               <td className="mono">100%</td>
               {firms.map((firm) => (
-                <td key={firm.id} className="score mono">
+                <td key={firm.id} className={firm.id === leaderId ? "score accent" : "score"}>
                   {weightedTotal(scores[firm.id], criteria).toFixed(2)}
                 </td>
               ))}

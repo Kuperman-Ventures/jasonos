@@ -1,35 +1,31 @@
 import type { Metadata } from "next";
-import { Fraunces, IBM_Plex_Sans, JetBrains_Mono } from "next/font/google";
+import { Archivo, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 
-const fraunces = Fraunces({
+const archivo = Archivo({
+  weight: "variable",
+  style: ["normal", "italic"],
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-fraunces",
+  axes: ["wdth"],
+  variable: "--font-archivo",
 });
 
-const plex = IBM_Plex_Sans({
+const plexMono = IBM_Plex_Mono({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   display: "swap",
-  variable: "--font-plex",
-});
-
-const mono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  display: "swap",
-  variable: "--font-mono",
+  variable: "--font-plex-mono",
 });
 
 export const metadata: Metadata = {
-  title: "Kyle's College Search",
-  description: "Family college list and application prep for Kyle.",
+  title: "The Track",
+  description: "Kyle's college search and application plan.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${fraunces.variable} ${plex.variable} ${mono.variable}`}>
+    <html lang="en" className={`${archivo.variable} ${plexMono.variable}`}>
       <body>
         <script
           dangerouslySetInnerHTML={{

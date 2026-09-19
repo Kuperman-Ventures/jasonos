@@ -14,7 +14,7 @@ function currentTheme() {
 }
 
 export function ThemeToggle() {
-  const theme = useSyncExternalStore(subscribe, currentTheme, () => "dark");
+  const theme = useSyncExternalStore(subscribe, currentTheme, () => "light");
 
   function toggle() {
     const next = theme === "light" ? "dark" : "light";
@@ -24,7 +24,7 @@ export function ThemeToggle() {
   }
 
   return (
-    <button type="button" className="print-btn no-print" onClick={toggle}>
+    <button type="button" className="btn btn-ghost no-print" onClick={toggle}>
       {theme === "light" ? "Dark" : "Light"}
     </button>
   );

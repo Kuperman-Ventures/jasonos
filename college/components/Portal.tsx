@@ -283,16 +283,16 @@ export function Portal() {
     <div className={tab === "colleges" && !schoolId ? "wrap wide" : "wrap"}>
       <header className="mast">
         <div className="mast-brand">
-          <Image src="/logo.png" alt="" width={64} height={48} className="site-logo" priority />
-          <div>
-            <p className="eyebrow">College Search · Working Plan</p>
-            <h1>Kyle&apos;s College Search</h1>
-            <p className="sub">Junior year · Columbia High School, Maplewood, NJ</p>
+          <div className="lockup">
+            <Image src="/logo.png" alt="" width={62} height={46} className="site-logo" priority />
+            <p className="lockup-name">The Track</p>
           </div>
+          <p className="dateline">Junior year · Columbia High School, Maplewood, NJ</p>
+          <h1>Kyle&apos;s College Search</h1>
         </div>
         <div className="mast-actions">
           <ThemeToggle />
-          <div className="status-pill mono">{pill}</div>
+          <p className="phase-datum">{pill}</p>
         </div>
       </header>
       <TabNav

@@ -14,6 +14,12 @@ import {
   type SelectivityGuide,
 } from "@/lib/types";
 
+function selectivityTag(value: string) {
+  const tone = selectivityTone(value);
+  if (tone === "target") return "tag tag-neutral";
+  return "tag tag-outline";
+}
+
 export function CollegesTab({
   schools,
   guide,
@@ -98,9 +104,8 @@ export function CollegesTab({
       <div className="panel-toolbar">
         <div>
           <h2 className="section-title">College list</h2>
-          <p className="section-sub" style={{ marginBottom: 0 }}>
-            {visible.length} of {schools.length} schools. Rank how the family feels about each one, mark a visit, and
-            open a school for the research notes.
+          <p className="section-sub">
+            Rank how the family feels about each one, mark a visit, and open a school for the research notes.
           </p>
         </div>
       </div>
@@ -114,10 +119,19 @@ export function CollegesTab({
         }}
       >
         <input className="field" value={name} placeholder="Add a school" onChange={(event) => setName(event.target.value)} />
-        <button type="submit" className="print-btn">
+        <button type="submit" className="btn btn-primary">
           Add
         </button>
       </form>
+      <div className="readouts">
+        <div className="readout">
+          <p className="readout-label">Showing</p>
+          <p className="readout-figure">
+            <span className="accent">{visible.length}</span>
+          </p>
+          <p className="readout-delta">of {schools.length} schools</p>
+        </div>
+      </div>
       <div className="filters">
         <input className="field" value={query} placeholder="Search" onChange={(event) => setQuery(event.target.value)} />
         <select className="field" value={choice} onChange={(event) => setChoice(event.target.value as Choice | "")}>
@@ -216,7 +230,7 @@ export function CollegesTab({
                     </select>
                   </td>
                   <td>
-                    <span className={`pill ${selectivityTone(school.selectivity)}`}>{school.selectivity}</span>
+                    {school.selectivity ? <span className={selectivityTag(school.selectivity)}>{school.selectivity}</span> : "—"}
                   </td>
                   <td>{school.location}</td>
                   <td onClick={(event) => event.stopPropagation()}>
@@ -228,7 +242,7 @@ export function CollegesTab({
                     />
                   </td>
                   <td>
-                    {date.date ? formatDate(date.date) : "—"}
+                    <div className="datum">{date.date ? formatDate(date.date) : "—"}</div>
                     {date.label ? <div className="muted">{date.label}</div> : null}
                   </td>
                   <td>{school.materials || "—"}</td>
@@ -245,7 +259,7 @@ export function CollegesTab({
           <div key={school.id} className="school-card" onClick={() => onOpen(school.id)}>
             <h3>{school.name}</h3>
             <div className="card-meta">
-              <span className={`pill ${selectivityTone(school.selectivity)}`}>{school.selectivity}</span>
+              {school.selectivity ? <span className={selectivityTag(school.selectivity)}>{school.selectivity}</span> : null}
               <span>{school.location}</span>
               <span>{school.visited ? "Visited" : "Not visited"}</span>
             </div>

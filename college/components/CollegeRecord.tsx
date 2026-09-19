@@ -8,7 +8,6 @@ import {
   STEP_PRESETS,
   formatDate,
   ownerLabel,
-  selectivityTone,
   type Owner,
   type School,
   type SelectivityGuide,
@@ -58,8 +57,18 @@ export function CollegeRecord({
             {school.location}
           </p>
         </div>
-        <span className={`pill ${selectivityTone(school.selectivity)}`}>{school.selectivity || "No selectivity yet"}</span>
+        <span className="tag tag-outline">{school.selectivity || "No selectivity yet"}</span>
       </div>
+      {school.deadline ? (
+        <div className="readouts">
+          <div className="readout">
+            <p className="readout-label">{school.deadlineLabel || "Key date"}</p>
+            <p className="readout-figure">
+              <span className="accent">{formatDate(school.deadline)}</span>
+            </p>
+          </div>
+        </div>
+      ) : null}
       {meaning ? <p className="section-sub">{meaning}</p> : null}
 
       <div className="fact-grid">
@@ -159,7 +168,7 @@ export function CollegeRecord({
                 </option>
               ))}
             </select>
-            <button type="button" className="print-btn" onClick={() => onDeleteStep(step.id)}>
+            <button type="button" className="btn btn-ghost" onClick={() => onDeleteStep(step.id)}>
               Remove
             </button>
           </div>
@@ -186,7 +195,7 @@ export function CollegeRecord({
           </select>
           <button
             type="button"
-            className="print-btn"
+            className="btn btn-primary"
             onClick={() => {
               if (!stepLabel.trim()) return;
               onAddStep(stepLabel.trim(), stepOwner);
@@ -200,7 +209,7 @@ export function CollegeRecord({
 
       <button
         type="button"
-        className="print-btn danger no-print"
+        className="btn btn-ghost no-print"
         onClick={() => {
           if (window.confirm(`Remove ${school.name} from the list?`)) onDelete();
         }}
