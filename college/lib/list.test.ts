@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { compareSchools, nextDate, nextOpenStep } from "./list";
-import { fromSeed, type School, type SchoolSeed } from "./types";
+import { compareSchools, nextAction, nextDate, nextOpenStep } from "./list";
+import { fromSeed, selectivityTierFromContext, type School, type SchoolSeed } from "./types";
 
 const file = JSON.parse(
   fs.readFileSync(new URL("../content/schools.json", import.meta.url), "utf8"),
@@ -43,9 +43,34 @@ test("next open step skips finished steps", () => {
   assert.equal(nextOpenStep(school), "Interview");
 });
 
-test("choice sort puts top choice ahead of the sheet order", () => {
+test("interest sort puts top choice ahead of the sheet order", () => {
   const [first, second] = file.schools.slice(0, 2).map(fromSeed);
-  const ranked = { ...second, choice: "top" as const };
-  const sorted = [first, ranked].sort((a, b) => compareSchools(a, b, "choice"));
+  const ranked = { ...second, interestLevel: "top" as const };
+  const sorted = [first, ranked].sort((a, b) => compareSchools(a, b, "interest"));
   assert.equal(sorted[0].id, second.id);
+});
+
+test("selectivity tier only uses the admissions lines that fit", () => {
+  const tiers = file.schools.map((school) => selectivityTierFromContext(school.admissionsContext));
+  assert.equal(tiers.filter((tier) => tier === "extremely_selective").length, 9);
+  assert.equal(tiers.filter((tier) => tier === "very_selective").length, 3);
+  assert.equal(tiers.filter((tier) => tier === "competitive").length, 11);
+  assert.equal(tiers.filter((tier) => tier === "less_competitive").length, 0);
+  assert.equal(tiers.filter((tier) => tier === "").length, 20);
+  assert.equal(fromSeed(file.schools[0]).selectivityTier, "extremely_selective");
+  assert.equal(selectivityTierFromContext("Broad access"), "");
+  assert.equal(selectivityTierFromContext("Selective"), "");
+});
+
+test("next action is the earliest unfinished deadline", () => {
+  const school: School = {
+    ...fromSeed(file.schools[0]),
+    deadlines: [
+      { id: "late", title: "Regular", dueDate: "2028-01-01", completed: false, sortOrder: 1 },
+      { id: "early", title: "Early Action", dueDate: "2027-11-01", completed: false, sortOrder: 0 },
+      { id: "done", title: "Visit", dueDate: "2026-10-01", completed: true, sortOrder: 2 },
+    ],
+    steps: [{ id: "s", label: "Essay", owner: "kyle", done: false, sortOrder: 0 }],
+  };
+  assert.deepEqual(nextAction(school), { title: "Early Action", dueDate: "2027-11-01" });
 });

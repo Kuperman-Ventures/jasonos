@@ -809,6 +809,69 @@ footer {
   color: var(--text-muted);
   font-size: 16px;
 }
+.school-id { display: flex; align-items: flex-start; gap: var(--space-2); }
+.school-mark {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+}
+table.schools tbody tr.selected td { background: var(--color-surface); }
+.drawer-root { position: fixed; inset: 0; z-index: 40; }
+.drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: rgba(22, 24, 27, 0.45);
+  cursor: pointer;
+}
+.drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: min(760px, 100%);
+  overflow: auto;
+  background: var(--color-bg);
+  color: var(--color-text);
+  padding: var(--space-6) var(--space-6) var(--space-8);
+  box-shadow: var(--shadow-lg);
+  z-index: 1;
+}
+.drawer-section { margin-top: var(--space-8); }
+.drawer-section h3 { font-size: 22px; line-height: 1.2; margin: 0 0 var(--space-4); }
+.drawer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+.stack-field { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.child-table { width: 100%; border-collapse: collapse; margin-bottom: var(--space-4); }
+.child-table th, .child-table td {
+  text-align: left;
+  padding: var(--space-2) var(--space-2) var(--space-2) 0;
+  border-bottom: 1px solid var(--color-divider);
+  vertical-align: middle;
+  font-size: 15px;
+}
+.child-table th {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  font-weight: 500;
+}
+.child-table tr.done td { color: var(--text-muted); }
+.child-table .field { min-height: 36px; width: 100%; }
 .back-link {
   background: none;
   border: none;
@@ -877,6 +940,7 @@ footer {
   header.mast h1, .section-title, .detail-head h2 { font-size: 32px; }
   .readout-figure { font-size: 40px; }
   .fact-grid { grid-template-columns: 1fr; }
+  .drawer-grid { grid-template-columns: 1fr; }
   .table-wrap.schools-wrap { display: none; }
   .school-cards { display: block; }
   .track-item {

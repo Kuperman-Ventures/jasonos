@@ -19,14 +19,23 @@ import {
   essayPromptList,
   faqCategories,
   phases,
-  seedSchools,
   seedScores,
   supplementCards,
   writingBlocks,
 } from "@/lib/content";
 import { currentPhaseIndex, phaseStatuses } from "@/lib/phases";
-import type { Owner, School, Scores, TabId } from "@/lib/types";
-import { isChoice, isPlan, TABS } from "@/lib/types";
+import { useSchoolPipeline } from "@/lib/use-school-pipeline";
+import type { ContactPatch, DeadlinePatch, Owner, School, Scores, TabId } from "@/lib/types";
+import {
+  fromSeed,
+  isAdmissionTrack,
+  isApplicationStatus,
+  isChoice,
+  isInterestLevel,
+  isPlan,
+  isSelectivityTier,
+  TABS,
+} from "@/lib/types";
 
 function todayLabel() {
   return new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
@@ -49,7 +58,9 @@ export function Portal() {
   const [checklist, setChecklist] = useState<Record<string, boolean>>({});
   const [scores, setScores] = useState<Scores>(seedScores);
   const [notes, setNotes] = useState("");
-  const [schools, setSchools] = useState<School[]>(() => seedSchools());
+  const pipeline = useSchoolPipeline();
+  const schools = pipeline.schools;
+  const setSchools = pipeline.setSchools;
   const [persisted, setPersisted] = useState(false);
   const [saveState, setSaveState] = useState("");
   const [loaded, setLoaded] = useState(false);
@@ -59,20 +70,18 @@ export function Portal() {
     let cancelled = false;
     async function load() {
       try {
-        const [stateRes, schoolRes] = await Promise.all([fetch("/api/state"), fetch("/api/schools")]);
+        const stateRes = await fetch("/api/state");
         const state = (await stateRes.json()) as {
           checklist?: Record<string, boolean>;
           scores?: Scores;
           notes?: string;
           persisted?: boolean;
         };
-        const schoolBody = (await schoolRes.json()) as { schools?: School[]; persisted?: boolean };
         if (cancelled) return;
         if (state.checklist) setChecklist(state.checklist);
         if (state.scores) setScores({ ...seedScores, ...state.scores });
         if (typeof state.notes === "string") setNotes(state.notes);
-        if (schoolBody.schools?.length) setSchools(schoolBody.schools);
-        setPersisted(Boolean(state.persisted && schoolBody.persisted));
+        setPersisted(Boolean(state.persisted));
       } catch {
         if (!cancelled) setSaveState("Not saved");
       } finally {
@@ -141,7 +150,7 @@ export function Portal() {
 
   async function patchSchool(id: string, patch: Partial<School>) {
     setSchools((current) => current.map((school) => (school.id === id ? { ...school, ...patch } : school)));
-    if (!persisted) {
+    if (!pipeline.persisted) {
       setSaveState("Not saved");
       return;
     }
@@ -160,12 +169,11 @@ export function Portal() {
   }
 
   async function createSchool(name: string) {
-    if (!persisted) {
+    if (!pipeline.persisted) {
       const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "school";
       setSchools((current) => [
         ...current,
-        {
-          ...seedSchools()[0],
+        fromSeed({
           id,
           name,
           location: "",
@@ -178,15 +186,7 @@ export function Portal() {
           selectivity: "",
           notes: "",
           listOrder: current.length + 1,
-          choice: "unsure",
-          plan: "",
-          visited: false,
-          visitDate: null,
-          visitNotes: "",
-          deadline: null,
-          deadlineLabel: "",
-          steps: [],
-        },
+        }),
       ]);
       setSaveState("Not saved");
       return;
@@ -208,7 +208,7 @@ export function Portal() {
     setSchools((current) => current.filter((school) => school.id !== id));
     setSchoolId(null);
     replaceUrl("colleges", null);
-    if (!persisted) {
+    if (!pipeline.persisted) {
       setSaveState("Not saved");
       return;
     }
@@ -216,7 +216,7 @@ export function Portal() {
   }
 
   async function addStep(id: string, label: string, owner: Owner) {
-    if (!persisted) {
+    if (!pipeline.persisted) {
       setSchools((current) =>
         current.map((school) =>
           school.id === id
@@ -251,7 +251,7 @@ export function Portal() {
           : school,
       ),
     );
-    if (!persisted) {
+    if (!pipeline.persisted) {
       setSaveState("Not saved");
       return;
     }
@@ -271,15 +271,150 @@ export function Portal() {
         school.id === id ? { ...school, steps: school.steps.filter((step) => step.id !== stepId) } : school,
       ),
     );
-    if (!persisted) return;
+    if (!pipeline.persisted) return;
     const response = await fetch(`/api/schools/${id}/steps?stepId=${encodeURIComponent(stepId)}`, { method: "DELETE" });
     if (!response.ok) return;
     const body = (await response.json()) as { school: School };
     replaceSchool(body.school);
   }
 
+  async function addDeadline(id: string, title: string, dueDate: string | null) {
+    if (!pipeline.persisted) {
+      setSchools((current) =>
+        current.map((school) =>
+          school.id === id
+            ? {
+                ...school,
+                deadlines: [
+                  ...school.deadlines,
+                  { id: crypto.randomUUID(), title, dueDate, completed: false, sortOrder: school.deadlines.length },
+                ],
+              }
+            : school,
+        ),
+      );
+      setSaveState("Not saved");
+      return;
+    }
+    const response = await fetch(`/api/schools/${id}/deadlines`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, dueDate }),
+    });
+    if (!response.ok) return;
+    const body = (await response.json()) as { school: School };
+    replaceSchool(body.school);
+  }
+
+  async function patchDeadline(id: string, deadlineId: string, patch: DeadlinePatch) {
+    setSchools((current) =>
+      current.map((school) =>
+        school.id === id
+          ? { ...school, deadlines: school.deadlines.map((item) => (item.id === deadlineId ? { ...item, ...patch } : item)) }
+          : school,
+      ),
+    );
+    if (!pipeline.persisted) {
+      setSaveState("Not saved");
+      return;
+    }
+    const response = await fetch(`/api/schools/${id}/deadlines`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ deadlineId, ...patch }),
+    });
+    if (!response.ok) return;
+    const body = (await response.json()) as { school: School };
+    replaceSchool(body.school);
+  }
+
+  async function removeDeadline(id: string, deadlineId: string) {
+    setSchools((current) =>
+      current.map((school) =>
+        school.id === id ? { ...school, deadlines: school.deadlines.filter((item) => item.id !== deadlineId) } : school,
+      ),
+    );
+    if (!pipeline.persisted) return;
+    const response = await fetch(`/api/schools/${id}/deadlines?deadlineId=${encodeURIComponent(deadlineId)}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) return;
+    const body = (await response.json()) as { school: School };
+    replaceSchool(body.school);
+  }
+
+  async function addContact(id: string, contact: ContactPatch) {
+    const name = contact.name?.trim() ?? "";
+    if (!name) return;
+    if (!pipeline.persisted) {
+      setSchools((current) =>
+        current.map((school) =>
+          school.id === id
+            ? {
+                ...school,
+                contacts: [
+                  ...school.contacts,
+                  {
+                    id: crypto.randomUUID(),
+                    name,
+                    role: contact.role?.trim() ?? "",
+                    email: contact.email?.trim() ?? "",
+                    phone: contact.phone?.trim() ?? "",
+                  },
+                ],
+              }
+            : school,
+        ),
+      );
+      setSaveState("Not saved");
+      return;
+    }
+    const response = await fetch(`/api/schools/${id}/contacts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(contact),
+    });
+    if (!response.ok) return;
+    const body = (await response.json()) as { school: School };
+    replaceSchool(body.school);
+  }
+
+  async function patchContact(id: string, contactId: string, patch: ContactPatch) {
+    setSchools((current) =>
+      current.map((school) =>
+        school.id === id
+          ? { ...school, contacts: school.contacts.map((item) => (item.id === contactId ? { ...item, ...patch } : item)) }
+          : school,
+      ),
+    );
+    if (!pipeline.persisted) return;
+    const response = await fetch(`/api/schools/${id}/contacts`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contactId, ...patch }),
+    });
+    if (!response.ok) return;
+    const body = (await response.json()) as { school: School };
+    replaceSchool(body.school);
+  }
+
+  async function removeContact(id: string, contactId: string) {
+    setSchools((current) =>
+      current.map((school) =>
+        school.id === id ? { ...school, contacts: school.contacts.filter((item) => item.id !== contactId) } : school,
+      ),
+    );
+    if (!pipeline.persisted) return;
+    const response = await fetch(`/api/schools/${id}/contacts?contactId=${encodeURIComponent(contactId)}`, {
+      method: "DELETE",
+    });
+    if (!response.ok) return;
+    const body = (await response.json()) as { school: School };
+    replaceSchool(body.school);
+  }
+
   return (
-    <div className={tab === "colleges" && !schoolId ? "wrap wide" : "wrap"}>
+    <div className={tab === "colleges" ? "wrap wide" : "wrap"}>
       <header className="mast">
         <div className="mast-brand">
           <div className="lockup">
@@ -315,8 +450,12 @@ export function Portal() {
             replaceUrl("colleges", null);
           }}
           onPatch={(id, patch) => {
-            if (patch.choice && !isChoice(patch.choice)) return;
-            if (patch.plan && !isPlan(patch.plan) && patch.plan !== "") return;
+            if (patch.choice !== undefined && !isChoice(patch.choice)) return;
+            if (patch.plan !== undefined && !isPlan(patch.plan)) return;
+            if (patch.selectivityTier !== undefined && !isSelectivityTier(patch.selectivityTier)) return;
+            if (patch.interestLevel !== undefined && !isInterestLevel(patch.interestLevel)) return;
+            if (patch.applicationStatus !== undefined && !isApplicationStatus(patch.applicationStatus)) return;
+            if (patch.admissionTrack !== undefined && !isAdmissionTrack(patch.admissionTrack)) return;
             void patchSchool(id, patch);
           }}
           onCreate={(value) => void createSchool(value)}
@@ -324,6 +463,12 @@ export function Portal() {
           onAddStep={(id, label, owner) => void addStep(id, label, owner)}
           onPatchStep={(id, stepId, patch) => void patchStep(id, stepId, patch)}
           onDeleteStep={(id, stepId) => void removeStep(id, stepId)}
+          onAddDeadline={(id, title, dueDate) => void addDeadline(id, title, dueDate)}
+          onPatchDeadline={(id, deadlineId, patch) => void patchDeadline(id, deadlineId, patch)}
+          onDeleteDeadline={(id, deadlineId) => void removeDeadline(id, deadlineId)}
+          onAddContact={(id, contact) => void addContact(id, contact)}
+          onPatchContact={(id, contactId, patch) => void patchContact(id, contactId, patch)}
+          onDeleteContact={(id, contactId) => void removeContact(id, contactId)}
         />
       ) : null}
       {tab === "timeline" ? <TimelineTab phases={phases} checklist={checklist} onToggle={toggleItem} /> : null}
@@ -347,7 +492,7 @@ export function Portal() {
         />
       ) : null}
       {tab === "notes" ? <NotesTab notes={notes} saveState={saveState} onChange={changeNotes} /> : null}
-      <div className="save-state">{loaded ? saveState : "Loading..."}</div>
+      <div className="save-state">{loaded && pipeline.loaded ? saveState : "Loading..."}</div>
       <footer>
         Built for Kyle&apos;s college search · last opened <span className="mono">{todayLabel()}</span>
       </footer>

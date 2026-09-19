@@ -1,7 +1,31 @@
 import { createClient } from "@supabase/supabase-js";
 import { seedSchools } from "./content";
-import type { Choice, Owner, Plan, School, SchoolSeed, Step } from "./types";
-import { fromSeed, isChoice, isOwner, isPlan } from "./types";
+import type {
+  AdmissionTrack,
+  ApplicationStatus,
+  Choice,
+  ContactPatch,
+  Deadline,
+  DeadlinePatch,
+  InterestLevel,
+  Owner,
+  Plan,
+  School,
+  SchoolContact,
+  SchoolSeed,
+  SelectivityTier,
+  Step,
+} from "./types";
+import {
+  fromSeed,
+  isAdmissionTrack,
+  isApplicationStatus,
+  isChoice,
+  isInterestLevel,
+  isOwner,
+  isPlan,
+  isSelectivityTier,
+} from "./types";
 import schoolsFile from "@/content/schools.json";
 
 type SchoolRow = {
@@ -24,7 +48,21 @@ type SchoolRow = {
   visit_notes: string;
   deadline: string | null;
   deadline_label: string;
+  selectivity_tier: string;
+  interest_level: string;
+  application_status: string;
+  admission_track: string;
+  test_policy: string;
+  middle_50: string;
+  application_platform: string;
+  required_essays: string;
+  teacher_recs: string;
+  cost_of_attendance: string;
+  net_price_estimate: string;
+  merit_aid_notes: string;
   school_steps?: StepRow[] | null;
+  deadlines?: DeadlineRow[] | null;
+  contacts?: ContactRow[] | null;
 };
 
 type StepRow = {
@@ -33,6 +71,22 @@ type StepRow = {
   owner: string;
   done: boolean;
   sort_order: number;
+};
+
+type DeadlineRow = {
+  id: string;
+  title: string;
+  due_date: string | null;
+  completed: boolean;
+  sort_order: number;
+};
+
+type ContactRow = {
+  id: string;
+  name: string;
+  role: string;
+  email: string;
+  phone: string;
 };
 
 export function supabaseConfigured(): boolean {
@@ -59,8 +113,30 @@ function mapStep(row: StepRow): Step {
   };
 }
 
+function mapDeadline(row: DeadlineRow): Deadline {
+  return {
+    id: row.id,
+    title: row.title,
+    dueDate: row.due_date,
+    completed: row.completed,
+    sortOrder: row.sort_order,
+  };
+}
+
+function mapContact(row: ContactRow): SchoolContact {
+  return {
+    id: row.id,
+    name: row.name,
+    role: row.role,
+    email: row.email,
+    phone: row.phone,
+  };
+}
+
 export function mapSchool(row: SchoolRow): School {
   const steps = (row.school_steps ?? []).map(mapStep).sort((a, b) => a.sortOrder - b.sortOrder);
+  const deadlines = (row.deadlines ?? []).map(mapDeadline).sort((a, b) => a.sortOrder - b.sortOrder || (a.dueDate ?? "").localeCompare(b.dueDate ?? ""));
+  const contacts = (row.contacts ?? []).map(mapContact).sort((a, b) => a.name.localeCompare(b.name));
   return {
     id: row.id,
     name: row.name,
@@ -81,12 +157,26 @@ export function mapSchool(row: SchoolRow): School {
     visitNotes: row.visit_notes,
     deadline: row.deadline,
     deadlineLabel: row.deadline_label,
+    selectivityTier: isSelectivityTier(row.selectivity_tier) ? row.selectivity_tier : "",
+    interestLevel: isInterestLevel(row.interest_level) ? row.interest_level : "",
+    applicationStatus: isApplicationStatus(row.application_status) ? row.application_status : "",
+    admissionTrack: isAdmissionTrack(row.admission_track) ? row.admission_track : "",
+    testPolicy: row.test_policy ?? "",
+    middle50: row.middle_50 ?? "",
+    applicationPlatform: row.application_platform ?? "",
+    requiredEssays: row.required_essays ?? "",
+    teacherRecs: row.teacher_recs ?? "",
+    costOfAttendance: row.cost_of_attendance ?? "",
+    netPriceEstimate: row.net_price_estimate ?? "",
+    meritAidNotes: row.merit_aid_notes ?? "",
     steps,
+    deadlines,
+    contacts,
   };
 }
 
 const SCHOOL_COLUMNS =
-  "id, name, location, campus_size, mechanical_engineering, materials, materials_offering, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, deadline, deadline_label, school_steps(id, label, owner, done, sort_order)";
+  "id, name, location, campus_size, mechanical_engineering, materials, materials_offering, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, deadline, deadline_label, selectivity_tier, interest_level, application_status, admission_track, test_policy, middle_50, application_platform, required_essays, teacher_recs, cost_of_attendance, net_price_estimate, merit_aid_notes, school_steps(id, label, owner, done, sort_order), deadlines(id, title, due_date, completed, sort_order), contacts(id, name, role, email, phone)";
 
 export async function listSchools(): Promise<School[]> {
   if (!supabaseConfigured()) return seedSchools();
@@ -115,7 +205,7 @@ export async function createSchool(name: string): Promise<School> {
   const trimmed = name.trim();
   if (!trimmed) throw new Error("School name is required");
   if (!supabaseConfigured()) {
-    const seed = fromSeed({
+    return fromSeed({
       id: slugify(trimmed) || "school",
       name: trimmed,
       location: "",
@@ -129,7 +219,6 @@ export async function createSchool(name: string): Promise<School> {
       notes: "",
       listOrder: 999,
     });
-    return seed;
   }
   const db = collegeDb();
   const { data: existing } = await db.from("schools").select("id, list_order");
@@ -164,6 +253,14 @@ const PATCH_COLUMNS: Record<string, string> = {
   notes: "notes",
   visitNotes: "visit_notes",
   deadlineLabel: "deadline_label",
+  testPolicy: "test_policy",
+  middle50: "middle_50",
+  applicationPlatform: "application_platform",
+  requiredEssays: "required_essays",
+  teacherRecs: "teacher_recs",
+  costOfAttendance: "cost_of_attendance",
+  netPriceEstimate: "net_price_estimate",
+  meritAidNotes: "merit_aid_notes",
 };
 
 export function schoolPatchToRow(patch: Record<string, unknown>): Record<string, unknown> {
@@ -173,6 +270,18 @@ export function schoolPatchToRow(patch: Record<string, unknown>): Record<string,
   }
   if (typeof patch.choice === "string" && isChoice(patch.choice)) row.choice = patch.choice as Choice;
   if (typeof patch.plan === "string" && isPlan(patch.plan)) row.plan = patch.plan as Plan;
+  if (typeof patch.selectivityTier === "string" && isSelectivityTier(patch.selectivityTier)) {
+    row.selectivity_tier = patch.selectivityTier as SelectivityTier;
+  }
+  if (typeof patch.interestLevel === "string" && isInterestLevel(patch.interestLevel)) {
+    row.interest_level = patch.interestLevel as InterestLevel;
+  }
+  if (typeof patch.applicationStatus === "string" && isApplicationStatus(patch.applicationStatus)) {
+    row.application_status = patch.applicationStatus as ApplicationStatus;
+  }
+  if (typeof patch.admissionTrack === "string" && isAdmissionTrack(patch.admissionTrack)) {
+    row.admission_track = patch.admissionTrack as AdmissionTrack;
+  }
   if (typeof patch.visited === "boolean") row.visited = patch.visited;
   if (patch.visitDate === null || typeof patch.visitDate === "string") {
     if ("visitDate" in patch) row.visit_date = patch.visitDate || null;
@@ -241,6 +350,80 @@ export async function deleteStep(schoolId: string, stepId: string): Promise<Scho
   if (!supabaseConfigured()) throw new Error("Supabase is not configured");
   const db = collegeDb();
   const { error } = await db.from("school_steps").delete().eq("id", stepId).eq("school_id", schoolId);
+  if (error) throw error;
+  return getSchool(schoolId);
+}
+
+export async function addDeadline(schoolId: string, title: string, dueDate: string | null): Promise<School> {
+  if (!supabaseConfigured()) throw new Error("Supabase is not configured");
+  const db = collegeDb();
+  const { data: current } = await db.from("deadlines").select("sort_order").eq("school_id", schoolId);
+  const sortOrder = Math.max(-1, ...(current ?? []).map((row) => Number(row.sort_order) || 0)) + 1;
+  const { error } = await db.from("deadlines").insert({
+    school_id: schoolId,
+    title: title.trim(),
+    due_date: dueDate || null,
+    sort_order: sortOrder,
+  });
+  if (error) throw error;
+  return getSchool(schoolId);
+}
+
+export async function updateDeadline(schoolId: string, deadlineId: string, patch: DeadlinePatch): Promise<School> {
+  if (!supabaseConfigured()) throw new Error("Supabase is not configured");
+  const db = collegeDb();
+  const row: Record<string, unknown> = {};
+  if (typeof patch.title === "string" && patch.title.trim()) row.title = patch.title.trim();
+  if (typeof patch.completed === "boolean") row.completed = patch.completed;
+  if (patch.dueDate === null || typeof patch.dueDate === "string") {
+    if ("dueDate" in patch) row.due_date = patch.dueDate || null;
+  }
+  const { error } = await db.from("deadlines").update(row).eq("id", deadlineId).eq("school_id", schoolId);
+  if (error) throw error;
+  return getSchool(schoolId);
+}
+
+export async function deleteDeadline(schoolId: string, deadlineId: string): Promise<School> {
+  if (!supabaseConfigured()) throw new Error("Supabase is not configured");
+  const db = collegeDb();
+  const { error } = await db.from("deadlines").delete().eq("id", deadlineId).eq("school_id", schoolId);
+  if (error) throw error;
+  return getSchool(schoolId);
+}
+
+export async function addContact(schoolId: string, contact: ContactPatch): Promise<School> {
+  if (!supabaseConfigured()) throw new Error("Supabase is not configured");
+  const name = contact.name?.trim() ?? "";
+  if (!name) throw new Error("Contact name is required");
+  const db = collegeDb();
+  const { error } = await db.from("contacts").insert({
+    school_id: schoolId,
+    name,
+    role: contact.role?.trim() ?? "",
+    email: contact.email?.trim() ?? "",
+    phone: contact.phone?.trim() ?? "",
+  });
+  if (error) throw error;
+  return getSchool(schoolId);
+}
+
+export async function updateContact(schoolId: string, contactId: string, patch: ContactPatch): Promise<School> {
+  if (!supabaseConfigured()) throw new Error("Supabase is not configured");
+  const db = collegeDb();
+  const row: Record<string, unknown> = {};
+  if (typeof patch.name === "string") row.name = patch.name.trim();
+  if (typeof patch.role === "string") row.role = patch.role.trim();
+  if (typeof patch.email === "string") row.email = patch.email.trim();
+  if (typeof patch.phone === "string") row.phone = patch.phone.trim();
+  const { error } = await db.from("contacts").update(row).eq("id", contactId).eq("school_id", schoolId);
+  if (error) throw error;
+  return getSchool(schoolId);
+}
+
+export async function deleteContact(schoolId: string, contactId: string): Promise<School> {
+  if (!supabaseConfigured()) throw new Error("Supabase is not configured");
+  const db = collegeDb();
+  const { error } = await db.from("contacts").delete().eq("id", contactId).eq("school_id", schoolId);
   if (error) throw error;
   return getSchool(schoolId);
 }

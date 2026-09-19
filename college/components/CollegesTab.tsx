@@ -2,13 +2,21 @@
 
 import { useMemo, useState } from "react";
 import { CollegeRecord } from "./CollegeRecord";
-import { compareSchools, nextDate, nextOpenStep, planShort, type SortKey } from "@/lib/list";
+import { compareSchools, nextAction, primaryDeadline, type SortKey } from "@/lib/list";
 import {
-  CHOICES,
+  INTEREST_LEVELS,
+  SELECTIVITY_TIERS,
   formatDate,
-  type Choice,
+  schoolMark,
+  statusLabel,
+  tierLabel,
+  trackLabel,
+  type ContactPatch,
+  type DeadlinePatch,
+  type InterestLevel,
   type Owner,
   type School,
+  type SelectivityTier,
 } from "@/lib/types";
 
 export function CollegesTab({
@@ -22,6 +30,12 @@ export function CollegesTab({
   onAddStep,
   onPatchStep,
   onDeleteStep,
+  onAddDeadline,
+  onPatchDeadline,
+  onDeleteDeadline,
+  onAddContact,
+  onPatchContact,
+  onDeleteContact,
 }: {
   schools: School[];
   selectedId: string | null;
@@ -33,49 +47,33 @@ export function CollegesTab({
   onAddStep: (id: string, label: string, owner: Owner) => void;
   onPatchStep: (id: string, stepId: string, patch: { done?: boolean; owner?: Owner; label?: string }) => void;
   onDeleteStep: (id: string, stepId: string) => void;
+  onAddDeadline: (id: string, title: string, dueDate: string | null) => void;
+  onPatchDeadline: (id: string, deadlineId: string, patch: DeadlinePatch) => void;
+  onDeleteDeadline: (id: string, deadlineId: string) => void;
+  onAddContact: (id: string, contact: ContactPatch) => void;
+  onPatchContact: (id: string, contactId: string, patch: ContactPatch) => void;
+  onDeleteContact: (id: string, contactId: string) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [choice, setChoice] = useState<Choice | "">("");
-  const [context, setContext] = useState("");
-  const [materials, setMaterials] = useState("");
-  const [visited, setVisited] = useState("");
+  const [tier, setTier] = useState<SelectivityTier | "any">("any");
+  const [interest, setInterest] = useState<InterestLevel | "any">("any");
   const [sort, setSort] = useState<SortKey>("list");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
   const [name, setName] = useState("");
 
-  const contextOptions = useMemo(() => {
-    return [...new Set(schools.map((school) => school.admissionsContext).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-  }, [schools]);
-
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     const filtered = schools.filter((school) => {
-      if (choice && school.choice !== choice) return false;
-      if (context && school.admissionsContext !== context) return false;
-      if (materials && school.materials !== materials) return false;
-      if (visited === "yes" && !school.visited) return false;
-      if (visited === "no" && school.visited) return false;
+      if (tier !== "any" && school.selectivityTier !== tier) return false;
+      if (interest !== "any" && school.interestLevel !== interest) return false;
       if (!q) return true;
       return [school.name, school.location, school.notes, school.admissionsContext].join(" ").toLowerCase().includes(q);
     });
     const sorted = [...filtered].sort((a, b) => compareSchools(a, b, sort));
     return sortDir === 1 ? sorted : sorted.reverse();
-  }, [schools, query, choice, context, materials, visited, sort, sortDir]);
+  }, [schools, query, tier, interest, sort, sortDir]);
 
-  const selected = schools.find((school) => school.id === selectedId);
-  if (selected) {
-    return (
-      <CollegeRecord
-        school={selected}
-        onBack={onClose}
-        onPatch={(patch) => onPatch(selected.id, patch)}
-        onDelete={() => onDelete(selected.id)}
-        onAddStep={(label, owner) => onAddStep(selected.id, label, owner)}
-        onPatchStep={(stepId, patch) => onPatchStep(selected.id, stepId, patch)}
-        onDeleteStep={(stepId) => onDeleteStep(selected.id, stepId)}
-      />
-    );
-  }
+  const selected = schools.find((school) => school.id === selectedId) ?? null;
 
   function toggleSort(next: SortKey) {
     if (sort === next) setSortDir((dir) => (dir === 1 ? -1 : 1));
@@ -83,6 +81,11 @@ export function CollegesTab({
       setSort(next);
       setSortDir(1);
     }
+  }
+
+  function arrow(key: SortKey) {
+    if (sort !== key) return "";
+    return sortDir === 1 ? " ↑" : " ↓";
   }
 
   return (
@@ -117,39 +120,37 @@ export function CollegesTab({
       </div>
       <div className="filters">
         <input className="field" value={query} placeholder="Search" onChange={(event) => setQuery(event.target.value)} />
-        <select className="field" value={choice} onChange={(event) => setChoice(event.target.value as Choice | "")}>
-          <option value="">All choices</option>
-          {CHOICES.map((item) => (
-            <option key={item.id} value={item.id}>
+        <select className="field" value={tier} aria-label="Filter by selectivity" onChange={(event) => setTier(event.target.value as SelectivityTier | "any")}>
+          <option value="any">All selectivity</option>
+          {SELECTIVITY_TIERS.map((item) => (
+            <option key={item.id || "unset"} value={item.id}>
               {item.label}
             </option>
           ))}
         </select>
-        <select className="field" value={context} onChange={(event) => setContext(event.target.value)}>
-          <option value="">All admissions context</option>
-          {contextOptions.map((item) => (
-            <option key={item} value={item}>
-              {item}
+        <select className="field" value={interest} aria-label="Filter by interest" onChange={(event) => setInterest(event.target.value as InterestLevel | "any")}>
+          <option value="any">All interest</option>
+          {INTEREST_LEVELS.map((item) => (
+            <option key={item.id || "unset"} value={item.id}>
+              {item.label}
             </option>
           ))}
         </select>
-        <select className="field" value={materials} onChange={(event) => setMaterials(event.target.value)}>
-          <option value="">Materials: any</option>
-          <option value="Yes">Materials: yes</option>
-          <option value="No">Materials: no</option>
-        </select>
-        <select className="field" value={visited} onChange={(event) => setVisited(event.target.value)}>
-          <option value="">Visited: any</option>
-          <option value="yes">Visited</option>
-          <option value="no">Not visited</option>
-        </select>
-        <select className="field" value={sort} onChange={(event) => { setSort(event.target.value as SortKey); setSortDir(1); }}>
+        <select
+          className="field"
+          value={sort}
+          aria-label="Sort schools"
+          onChange={(event) => {
+            setSort(event.target.value as SortKey);
+            setSortDir(1);
+          }}
+        >
           <option value="list">Sheet order</option>
-          <option value="choice">Choice</option>
           <option value="name">School name</option>
-          <option value="selectivity">Admissions Context</option>
-          <option value="visited">Visited</option>
-          <option value="date">Next date</option>
+          <option value="selectivity">Selectivity</option>
+          <option value="interest">Interest</option>
+          <option value="status">Application status</option>
+          <option value="action">Next action</option>
         </select>
       </div>
 
@@ -159,75 +160,71 @@ export function CollegesTab({
             <tr>
               <th>
                 <button type="button" className={sort === "name" ? "active" : ""} onClick={() => toggleSort("name")}>
-                  School{sort === "name" ? (sortDir === 1 ? " ↑" : " ↓") : ""}
+                  School{arrow("name")}
                 </button>
               </th>
               <th>
-                <button type="button" className={sort === "choice" ? "active" : ""} onClick={() => toggleSort("choice")}>
-                  Choice{sort === "choice" ? (sortDir === 1 ? " ↑" : " ↓") : ""}
+                <button type="button" className={sort === "status" ? "active" : ""} onClick={() => toggleSort("status")}>
+                  Status{arrow("status")}
                 </button>
               </th>
+              <th>Track and deadline</th>
               <th>
                 <button type="button" className={sort === "selectivity" ? "active" : ""} onClick={() => toggleSort("selectivity")}>
-                  Admissions Context{sort === "selectivity" ? (sortDir === 1 ? " ↑" : " ↓") : ""}
-                </button>
-              </th>
-              <th>Location</th>
-              <th>
-                <button type="button" className={sort === "visited" ? "active" : ""} onClick={() => toggleSort("visited")}>
-                  Visited{sort === "visited" ? (sortDir === 1 ? " ↑" : " ↓") : ""}
+                  Selectivity{arrow("selectivity")}
                 </button>
               </th>
               <th>
-                <button type="button" className={sort === "date" ? "active" : ""} onClick={() => toggleSort("date")}>
-                  Next date{sort === "date" ? (sortDir === 1 ? " ↑" : " ↓") : ""}
+                <button type="button" className={sort === "interest" ? "active" : ""} onClick={() => toggleSort("interest")}>
+                  Interest{arrow("interest")}
                 </button>
               </th>
-              <th>Materials</th>
-              <th>Next step</th>
+              <th>
+                <button type="button" className={sort === "action" ? "active" : ""} onClick={() => toggleSort("action")}>
+                  Next action{arrow("action")}
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody>
             {visible.map((school) => {
-              const date = nextDate(school);
-              const step = nextOpenStep(school);
-              const plan = planShort(school.plan);
+              const deadline = primaryDeadline(school);
+              const action = nextAction(school);
+              const track = trackLabel(school.admissionTrack);
               return (
-                <tr key={school.id} onClick={() => onOpen(school.id)}>
+                <tr key={school.id} className={school.id === selectedId ? "selected" : undefined} onClick={() => onOpen(school.id)}>
                   <td className="school-name">
-                    {school.name}
-                    {plan ? <small>{plan}</small> : null}
+                    <div className="school-id">
+                      <span className="school-mark" title="Initials, not the school logo">
+                        {schoolMark(school.name)}
+                      </span>
+                      <span>{school.name}</span>
+                    </div>
                   </td>
+                  <td>{statusLabel(school.applicationStatus)}</td>
+                  <td>
+                    <div>{track || "Not chosen"}</div>
+                    <div className="muted">{deadline.date ? formatDate(deadline.date) : "No date"}</div>
+                  </td>
+                  <td>{tierLabel(school.selectivityTier)}</td>
                   <td onClick={(event) => event.stopPropagation()}>
                     <select
                       className="field compact"
-                      value={school.choice}
-                      aria-label={`Choice for ${school.name}`}
-                      onChange={(event) => onPatch(school.id, { choice: event.target.value as School["choice"] })}
+                      value={school.interestLevel}
+                      aria-label={`Interest for ${school.name}`}
+                      onChange={(event) => onPatch(school.id, { interestLevel: event.target.value as School["interestLevel"] })}
                     >
-                      {CHOICES.map((item) => (
-                        <option key={item.id} value={item.id}>
+                      {INTEREST_LEVELS.map((item) => (
+                        <option key={item.id || "unset"} value={item.id}>
                           {item.label}
                         </option>
                       ))}
                     </select>
                   </td>
-                  <td>{school.admissionsContext || "—"}</td>
-                  <td>{school.location}</td>
-                  <td onClick={(event) => event.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      checked={school.visited}
-                      aria-label={`Visited ${school.name}`}
-                      onChange={(event) => onPatch(school.id, { visited: event.target.checked })}
-                    />
-                  </td>
                   <td>
-                    <div className="datum">{date.date ? formatDate(date.date) : "—"}</div>
-                    {date.label ? <div className="muted">{date.label}</div> : null}
+                    <div>{action.title || "—"}</div>
+                    {action.dueDate ? <div className="muted">{formatDate(action.dueDate)}</div> : null}
                   </td>
-                  <td>{school.materials || "—"}</td>
-                  <td>{step || "—"}</td>
                 </tr>
               );
             })}
@@ -236,17 +233,56 @@ export function CollegesTab({
       </div>
 
       <div className="school-cards">
-        {visible.map((school) => (
-          <div key={school.id} className="school-card" onClick={() => onOpen(school.id)}>
-            <h3>{school.name}</h3>
-            <div className="card-meta">
-              <span>{school.admissionsContext}</span>
-              <span>{school.location}</span>
-              <span>{school.visited ? "Visited" : "Not visited"}</span>
+        {visible.map((school) => {
+          const action = nextAction(school);
+          const deadline = primaryDeadline(school);
+          return (
+            <div key={school.id} className="school-card" onClick={() => onOpen(school.id)}>
+              <h3>{school.name}</h3>
+              <div className="card-meta">
+                <span>{statusLabel(school.applicationStatus)}</span>
+                <span>{tierLabel(school.selectivityTier)}</span>
+                <span>{trackLabel(school.admissionTrack) || "Track not chosen"}</span>
+                <span>{deadline.date ? formatDate(deadline.date) : "No deadline"}</span>
+                <span>{action.title || "No next action"}</span>
+              </div>
+              <div onClick={(event) => event.stopPropagation()}>
+                <select
+                  className="field compact"
+                  value={school.interestLevel}
+                  aria-label={`Interest for ${school.name}`}
+                  onChange={(event) => onPatch(school.id, { interestLevel: event.target.value as School["interestLevel"] })}
+                >
+                  {INTEREST_LEVELS.map((item) => (
+                    <option key={item.id || "unset"} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
+
+      {selected ? (
+        <CollegeRecord
+          key={selected.id}
+          school={selected}
+          onBack={onClose}
+          onPatch={(patch) => onPatch(selected.id, patch)}
+          onDelete={() => onDelete(selected.id)}
+          onAddStep={(label, owner) => onAddStep(selected.id, label, owner)}
+          onPatchStep={(stepId, patch) => onPatchStep(selected.id, stepId, patch)}
+          onDeleteStep={(stepId) => onDeleteStep(selected.id, stepId)}
+          onAddDeadline={(title, dueDate) => onAddDeadline(selected.id, title, dueDate)}
+          onPatchDeadline={(deadlineId, patch) => onPatchDeadline(selected.id, deadlineId, patch)}
+          onDeleteDeadline={(deadlineId) => onDeleteDeadline(selected.id, deadlineId)}
+          onAddContact={(contact) => onAddContact(selected.id, contact)}
+          onPatchContact={(contactId, patch) => onPatchContact(selected.id, contactId, patch)}
+          onDeleteContact={(contactId) => onDeleteContact(selected.id, contactId)}
+        />
+      ) : null}
     </section>
   );
 }
