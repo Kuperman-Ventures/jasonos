@@ -2,12 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { CollegeRecord } from "./CollegeRecord";
+import { SchoolMark } from "./SchoolMark";
 import { compareSchools, nextAction, primaryDeadline, type SortKey } from "@/lib/list";
 import {
   INTEREST_LEVELS,
   SELECTIVITY_TIERS,
   formatDate,
-  schoolMark,
   statusLabel,
   tierLabel,
   trackLabel,
@@ -199,9 +199,7 @@ export function CollegesTab({
                 <tr key={school.id} className={school.id === selectedId ? "selected" : undefined} onClick={() => onOpen(school.id)}>
                   <td className="school-name">
                     <div className="school-id">
-                      <span className="school-mark" title="Initials, not the school logo">
-                        {schoolMark(school.name)}
-                      </span>
+                      <SchoolMark name={school.name} website={school.website} />
                       <span>{school.name}</span>
                     </div>
                   </td>
@@ -242,7 +240,10 @@ export function CollegesTab({
           const deadline = primaryDeadline(school);
           return (
             <div key={school.id} className="school-card" onClick={() => onOpen(school.id)}>
-              <h3>{school.name}</h3>
+              <h3 className="school-id">
+                <SchoolMark name={school.name} website={school.website} />
+                <span>{school.name}</span>
+              </h3>
               <div className="card-meta">
                 <span>{statusLabel(school.applicationStatus)}</span>
                 <span>{tierLabel(school.selectivityTier)}</span>

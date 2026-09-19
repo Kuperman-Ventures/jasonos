@@ -15,6 +15,7 @@ import {
   type School,
 } from "@/lib/types";
 import { sourceLines } from "@/lib/school-research";
+import { SchoolMark } from "./SchoolMark";
 
 function BlurInput({
   value,
@@ -122,9 +123,12 @@ export function CollegeRecord({
           Close
         </button>
         <div className="detail-head">
-          <div>
-            <h2>{school.name}</h2>
-            <p className="section-sub">{school.location}</p>
+          <div className="school-id">
+            <SchoolMark name={school.name} website={school.website} />
+            <div>
+              <h2>{school.name}</h2>
+              <p className="section-sub">{school.location}</p>
+            </div>
           </div>
         </div>
 

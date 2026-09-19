@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { seedSchools } from "./content";
 import type { FoundFacts } from "./school-research";
 import { formatSources } from "./school-research";
+import { knownWebsite } from "./school-websites";
 import type {
   AdmissionTrack,
   ApplicationStatus,
@@ -63,6 +64,7 @@ type SchoolRow = {
   net_price_estimate: string;
   merit_aid_notes: string;
   research_sources?: string | null;
+  website?: string | null;
   school_steps?: StepRow[] | null;
   deadlines?: DeadlineRow[] | null;
   contacts?: ContactRow[] | null;
@@ -173,6 +175,7 @@ export function mapSchool(row: SchoolRow): School {
     netPriceEstimate: row.net_price_estimate ?? "",
     meritAidNotes: row.merit_aid_notes ?? "",
     researchSources: row.research_sources ?? "",
+    website: row.website || knownWebsite(row.id),
     steps,
     deadlines,
     contacts,
@@ -180,7 +183,7 @@ export function mapSchool(row: SchoolRow): School {
 }
 
 const SCHOOL_COLUMNS =
-  "id, name, location, campus_size, mechanical_engineering, materials, materials_offering, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, deadline, deadline_label, selectivity_tier, interest_level, application_status, admission_track, test_policy, middle_50, application_platform, required_essays, teacher_recs, cost_of_attendance, net_price_estimate, merit_aid_notes, research_sources, school_steps(id, label, owner, done, sort_order), deadlines(id, title, due_date, completed, sort_order), contacts(id, name, role, email, phone)";
+  "id, name, location, campus_size, mechanical_engineering, materials, materials_offering, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, deadline, deadline_label, selectivity_tier, interest_level, application_status, admission_track, test_policy, middle_50, application_platform, required_essays, teacher_recs, cost_of_attendance, net_price_estimate, merit_aid_notes, research_sources, website, school_steps(id, label, owner, done, sort_order), deadlines(id, title, due_date, completed, sort_order), contacts(id, name, role, email, phone)";
 
 export async function listSchools(): Promise<School[]> {
   if (!supabaseConfigured()) return seedSchools();
@@ -266,6 +269,7 @@ const PATCH_COLUMNS: Record<string, string> = {
   netPriceEstimate: "net_price_estimate",
   meritAidNotes: "merit_aid_notes",
   researchSources: "research_sources",
+  website: "website",
 };
 
 export function schoolPatchToRow(patch: Record<string, unknown>): Record<string, unknown> {
@@ -327,6 +331,7 @@ export async function applySchoolFacts(id: string, facts: FoundFacts): Promise<S
     ["teacherRecs", "teacherRecs"],
     ["costOfAttendance", "costOfAttendance"],
     ["meritAidNotes", "meritAidNotes"],
+    ["website", "website"],
   ];
   for (const [key, patchKey] of fields) {
     const value = facts[key];

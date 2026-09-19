@@ -1,3 +1,5 @@
+import { knownWebsite } from "./school-websites";
+
 export type Choice = "top" | "middle" | "low" | "backup" | "unsure";
 export type Plan = "" | "ed" | "ea" | "rd" | "rolling";
 export type Owner = "kyle" | "jason" | "wife";
@@ -74,6 +76,7 @@ export type School = {
   netPriceEstimate: string;
   meritAidNotes: string;
   researchSources: string;
+  website: string;
   steps: Step[];
   deadlines: Deadline[];
   contacts: SchoolContact[];
@@ -328,6 +331,18 @@ export function isAdmissionTrack(value: string): value is AdmissionTrack {
   return ADMISSION_TRACKS.some((item) => item.id === value);
 }
 
+export function schoolFaviconUrl(website: string): string {
+  const trimmed = website.trim();
+  if (!trimmed) return "";
+  try {
+    const host = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`).hostname;
+    if (!host) return "";
+    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`;
+  } catch {
+    return "";
+  }
+}
+
 export function schoolMark(name: string): string {
   const paren = name.match(/\(([^)]+)\)/);
   const source = (paren?.[1] ?? name).trim();
@@ -374,6 +389,7 @@ export function fromSeed(seed: SchoolSeed): School {
     netPriceEstimate: "",
     meritAidNotes: "",
     researchSources: "",
+    website: knownWebsite(seed.id),
     steps: [],
     deadlines: [],
     contacts: [],

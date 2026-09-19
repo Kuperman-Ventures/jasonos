@@ -8,6 +8,8 @@ import {
   pickScorecardMatch,
   type ScorecardRow,
 } from "./school-research";
+import { knownWebsite } from "./school-websites";
+import { schoolFaviconUrl } from "./types";
 
 const mit: ScorecardRow = {
   id: 166683,
@@ -44,8 +46,21 @@ test("scorecard facts use published numbers and do not set a selectivity tier", 
   assert.equal(facts.middle50, facts.satContext);
   assert.equal(facts.testPolicy, "Test required");
   assert.match(facts.costOfAttendance, /\$82,730/);
+  assert.equal(facts.website, "https://web.mit.edu/");
   assert.equal(facts.sources[0]?.url, "https://web.mit.edu/");
   assert.match(facts.sources[1]?.url ?? "", /166683/);
+});
+
+test("scorecard match prefers Purdue's main campus over Fort Wayne", () => {
+  const rows: ScorecardRow[] = [
+    { id: 1, "school.name": "Purdue University Fort Wayne" },
+    { id: 2, "school.name": "Purdue University-Main Campus" },
+  ];
+  assert.equal(pickScorecardMatch("Purdue University", rows)?.id, 2);
+  assert.equal(
+    pickScorecardMatch("Purdue University", [{ id: 9, "school.name": "Purdue University Fort Wayne" }]),
+    null,
+  );
 });
 
 test("public schools outside New Jersey show the out-of-state sticker", () => {
@@ -105,4 +120,12 @@ test("summary says what was filled and what stays blank", () => {
   assert.match(summary, /College Scorecard filled/);
   assert.match(summary, /Web search did not run/);
   assert.match(summary, /Interest, selectivity tier, and net price stay blank/);
+});
+
+test("school icons use the official site, not a branch campus", () => {
+  assert.equal(knownWebsite("purdue-university"), "https://www.purdue.edu/");
+  assert.equal(knownWebsite("mit"), "https://web.mit.edu/");
+  assert.match(schoolFaviconUrl("https://web.mit.edu/"), /domain=web\.mit\.edu/);
+  assert.match(schoolFaviconUrl("https://twin-cities.umn.edu/"), /domain=twin-cities\.umn\.edu/);
+  assert.equal(schoolFaviconUrl(""), "");
 });

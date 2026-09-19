@@ -820,8 +820,15 @@ footer {
   font-size: 11px;
   letter-spacing: 0.04em;
   color: var(--text-muted);
-  background: var(--color-surface);
+  background: #fff;
+  border: 1px solid var(--color-divider);
   border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.school-mark img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
 }
 table.schools tbody tr.selected td { background: var(--color-surface); }
 .drawer-root { position: fixed; inset: 0; z-index: 40; }

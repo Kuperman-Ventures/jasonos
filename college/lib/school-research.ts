@@ -17,6 +17,7 @@ export type FoundFacts = {
   teacherRecs: string;
   costOfAttendance: string;
   meritAidNotes: string;
+  website: string;
   deadlines: DeadlineFact[];
   sources: SourceLink[];
 };
@@ -77,6 +78,7 @@ export function emptyFacts(): FoundFacts {
     teacherRecs: "",
     costOfAttendance: "",
     meritAidNotes: "",
+    website: "",
     deadlines: [],
     sources: [],
   };
@@ -101,6 +103,10 @@ export function scoreSchoolName(query: string, name: string): number {
   }
   if (name.toLowerCase().includes("technical college") && !query.toLowerCase().includes("technical")) {
     score -= 6;
+  }
+  const branchWords = ["fort", "wayne", "regional", "global", "worldwide"];
+  if (have.some((word) => branchWords.includes(word)) && !wanted.some((word) => branchWords.includes(word))) {
+    score -= 15;
   }
   const compactQuery = query.toLowerCase().replace(/[^a-z0-9]+/g, "");
   const compactName = name.toLowerCase().replace(/[^a-z0-9]+/g, "");
@@ -213,6 +219,7 @@ export function mapScorecard(row: ScorecardRow): FoundFacts {
   facts.testPolicy = testPolicyLabel(row["latest.admissions.test_requirements"]);
   facts.costOfAttendance = stickerPrice(row);
   const site = httpsUrl(row["school.school_url"]);
+  facts.website = site;
   if (site) facts.sources.push({ title: row["school.name"], url: site });
   facts.sources.push({
     title: "College Scorecard",
