@@ -21,7 +21,6 @@ import {
   phases,
   seedSchools,
   seedScores,
-  selectivityGuide,
   supplementCards,
   writingBlocks,
 } from "@/lib/content";
@@ -306,7 +305,6 @@ export function Portal() {
       {tab === "colleges" ? (
         <CollegesTab
           schools={schools}
-          guide={selectivityGuide}
           selectedId={schoolId}
           onOpen={(id) => {
             setSchoolId(id);

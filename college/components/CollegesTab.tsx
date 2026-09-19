@@ -6,23 +6,13 @@ import { compareSchools, nextDate, nextOpenStep, planShort, type SortKey } from 
 import {
   CHOICES,
   formatDate,
-  selectivityRank,
-  selectivityTone,
   type Choice,
   type Owner,
   type School,
-  type SelectivityGuide,
 } from "@/lib/types";
-
-function selectivityTag(value: string) {
-  const tone = selectivityTone(value);
-  if (tone === "target") return "tag tag-neutral";
-  return "tag tag-outline";
-}
 
 export function CollegesTab({
   schools,
-  guide,
   selectedId,
   onOpen,
   onClose,
@@ -34,7 +24,6 @@ export function CollegesTab({
   onDeleteStep,
 }: {
   schools: School[];
-  guide: SelectivityGuide[];
   selectedId: string | null;
   onOpen: (id: string) => void;
   onClose: () => void;
@@ -47,40 +36,37 @@ export function CollegesTab({
 }) {
   const [query, setQuery] = useState("");
   const [choice, setChoice] = useState<Choice | "">("");
-  const [selectivity, setSelectivity] = useState("");
+  const [context, setContext] = useState("");
   const [materials, setMaterials] = useState("");
   const [visited, setVisited] = useState("");
   const [sort, setSort] = useState<SortKey>("list");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
   const [name, setName] = useState("");
-  const [guideOpen, setGuideOpen] = useState(false);
 
-  const selectivityOptions = useMemo(() => {
-    const values = [...new Set(schools.map((school) => school.selectivity).filter(Boolean))];
-    return values.sort((a, b) => selectivityRank(a) - selectivityRank(b));
+  const contextOptions = useMemo(() => {
+    return [...new Set(schools.map((school) => school.admissionsContext).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   }, [schools]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     const filtered = schools.filter((school) => {
       if (choice && school.choice !== choice) return false;
-      if (selectivity && school.selectivity !== selectivity) return false;
+      if (context && school.admissionsContext !== context) return false;
       if (materials && school.materials !== materials) return false;
       if (visited === "yes" && !school.visited) return false;
       if (visited === "no" && school.visited) return false;
       if (!q) return true;
-      return [school.name, school.location, school.notes, school.selectivity].join(" ").toLowerCase().includes(q);
+      return [school.name, school.location, school.notes, school.admissionsContext].join(" ").toLowerCase().includes(q);
     });
     const sorted = [...filtered].sort((a, b) => compareSchools(a, b, sort));
     return sortDir === 1 ? sorted : sorted.reverse();
-  }, [schools, query, choice, selectivity, materials, visited, sort, sortDir]);
+  }, [schools, query, choice, context, materials, visited, sort, sortDir]);
 
   const selected = schools.find((school) => school.id === selectedId);
   if (selected) {
     return (
       <CollegeRecord
         school={selected}
-        guide={guide}
         onBack={onClose}
         onPatch={(patch) => onPatch(selected.id, patch)}
         onDelete={() => onDelete(selected.id)}
@@ -139,9 +125,9 @@ export function CollegesTab({
             </option>
           ))}
         </select>
-        <select className="field" value={selectivity} onChange={(event) => setSelectivity(event.target.value)}>
-          <option value="">All preliminary selectivity</option>
-          {selectivityOptions.map((item) => (
+        <select className="field" value={context} onChange={(event) => setContext(event.target.value)}>
+          <option value="">All admissions context</option>
+          {contextOptions.map((item) => (
             <option key={item} value={item}>
               {item}
             </option>
@@ -161,7 +147,7 @@ export function CollegesTab({
           <option value="list">Sheet order</option>
           <option value="choice">Choice</option>
           <option value="name">School name</option>
-          <option value="selectivity">Preliminary Selectivity</option>
+          <option value="selectivity">Admissions Context</option>
           <option value="visited">Visited</option>
           <option value="date">Next date</option>
         </select>
@@ -183,7 +169,7 @@ export function CollegesTab({
               </th>
               <th>
                 <button type="button" className={sort === "selectivity" ? "active" : ""} onClick={() => toggleSort("selectivity")}>
-                  Preliminary Selectivity{sort === "selectivity" ? (sortDir === 1 ? " ↑" : " ↓") : ""}
+                  Admissions Context{sort === "selectivity" ? (sortDir === 1 ? " ↑" : " ↓") : ""}
                 </button>
               </th>
               <th>Location</th>
@@ -226,9 +212,7 @@ export function CollegesTab({
                       ))}
                     </select>
                   </td>
-                  <td>
-                    {school.selectivity ? <span className={selectivityTag(school.selectivity)}>{school.selectivity}</span> : "—"}
-                  </td>
+                  <td>{school.admissionsContext || "—"}</td>
                   <td>{school.location}</td>
                   <td onClick={(event) => event.stopPropagation()}>
                     <input
@@ -256,29 +240,12 @@ export function CollegesTab({
           <div key={school.id} className="school-card" onClick={() => onOpen(school.id)}>
             <h3>{school.name}</h3>
             <div className="card-meta">
-              {school.selectivity ? <span className={selectivityTag(school.selectivity)}>{school.selectivity}</span> : null}
+              <span>{school.admissionsContext}</span>
               <span>{school.location}</span>
               <span>{school.visited ? "Visited" : "Not visited"}</span>
             </div>
           </div>
         ))}
-      </div>
-
-      <div className="guide">
-        <div className={guideOpen ? "faq-item open" : "faq-item"}>
-          <button type="button" className="faq-q" onClick={() => setGuideOpen((open) => !open)}>
-            <span>Preliminary Selectivity</span>
-            <span className="chev mono">›</span>
-          </button>
-          <div className="faq-a">
-            {guide.map((item) => (
-              <p key={item.term}>
-                <b>{item.term}. </b>
-                {item.meaning}
-              </p>
-            ))}
-          </div>
-        </div>
       </div>
     </section>
   );

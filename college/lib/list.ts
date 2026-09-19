@@ -1,5 +1,5 @@
 import type { Plan, School } from "./types";
-import { choiceRank, planLabel, selectivityRank } from "./types";
+import { choiceRank, planLabel } from "./types";
 
 export type SortKey = "list" | "choice" | "name" | "selectivity" | "visited" | "date";
 
@@ -33,8 +33,8 @@ export function compareSchools(a: School, b: School, sort: SortKey): number {
     return byChoice || a.listOrder - b.listOrder;
   }
   if (sort === "selectivity") {
-    const bySelectivity = selectivityRank(a.selectivity) - selectivityRank(b.selectivity);
-    return bySelectivity || a.listOrder - b.listOrder;
+    const byContext = a.admissionsContext.localeCompare(b.admissionsContext);
+    return byContext || a.listOrder - b.listOrder;
   }
   if (sort === "visited") {
     if (a.visited !== b.visited) return a.visited ? -1 : 1;

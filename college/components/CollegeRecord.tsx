@@ -10,12 +10,10 @@ import {
   ownerLabel,
   type Owner,
   type School,
-  type SelectivityGuide,
 } from "@/lib/types";
 
 export function CollegeRecord({
   school,
-  guide,
   onBack,
   onPatch,
   onDelete,
@@ -24,7 +22,6 @@ export function CollegeRecord({
   onDeleteStep,
 }: {
   school: School;
-  guide: SelectivityGuide[];
   onBack: () => void;
   onPatch: (patch: Partial<School>) => void;
   onDelete: () => void;
@@ -34,7 +31,6 @@ export function CollegeRecord({
 }) {
   const [stepLabel, setStepLabel] = useState("");
   const [stepOwner, setStepOwner] = useState<Owner>("kyle");
-  const meaning = guide.find((item) => item.term === school.selectivity)?.meaning;
   const facts: [string, string][] = [
     ["Location", school.location],
     ["Campus / Size", school.campusSize],
@@ -57,7 +53,6 @@ export function CollegeRecord({
             {school.location}
           </p>
         </div>
-        <span className="tag tag-outline">{school.selectivity || "No preliminary selectivity yet"}</span>
       </div>
       {school.deadline ? (
         <div className="readouts">
@@ -69,7 +64,6 @@ export function CollegeRecord({
           </div>
         </div>
       ) : null}
-      {meaning ? <p className="section-sub">{meaning}</p> : null}
 
       <div className="fact-grid">
         {facts.map(([label, value]) => (

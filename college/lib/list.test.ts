@@ -14,10 +14,11 @@ test("spreadsheet seed has every school and the selectivity guide", () => {
   for (const school of file.schools) {
     assert.ok(school.name);
     assert.ok(school.location);
-    assert.ok(school.selectivity);
+    assert.ok(school.admissionsContext);
     assert.ok(school.notes);
   }
   assert.equal(file.schools[0].id, "mit");
+  assert.equal(file.schools[0].admissionsContext, "Extremely selective");
   assert.equal(file.schools.find((school) => school.id === "rutgers-university-new-brunswick")?.notes.includes("R-HEX"), true);
 });
 
