@@ -14,6 +14,7 @@ import {
   type Owner,
   type School,
 } from "@/lib/types";
+import { sourceLines } from "@/lib/school-research";
 
 function BlurInput({
   value,
@@ -521,6 +522,21 @@ export function CollegeRecord({
             }}
           />
         </section>
+
+        {school.researchSources ? (
+          <section className="drawer-section">
+            <h3>Where this came from</h3>
+            <ul className="source-list">
+              {sourceLines(school.researchSources).map((source) => (
+                <li key={source.url}>
+                  <a href={source.url} target="_blank" rel="noreferrer">
+                    {source.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         <button
           type="button"

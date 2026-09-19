@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { seedSchools } from "./content";
+import type { FoundFacts } from "./school-research";
+import { formatSources } from "./school-research";
 import type {
   AdmissionTrack,
   ApplicationStatus,
@@ -60,6 +62,7 @@ type SchoolRow = {
   cost_of_attendance: string;
   net_price_estimate: string;
   merit_aid_notes: string;
+  research_sources?: string | null;
   school_steps?: StepRow[] | null;
   deadlines?: DeadlineRow[] | null;
   contacts?: ContactRow[] | null;
@@ -169,6 +172,7 @@ export function mapSchool(row: SchoolRow): School {
     costOfAttendance: row.cost_of_attendance ?? "",
     netPriceEstimate: row.net_price_estimate ?? "",
     meritAidNotes: row.merit_aid_notes ?? "",
+    researchSources: row.research_sources ?? "",
     steps,
     deadlines,
     contacts,
@@ -176,7 +180,7 @@ export function mapSchool(row: SchoolRow): School {
 }
 
 const SCHOOL_COLUMNS =
-  "id, name, location, campus_size, mechanical_engineering, materials, materials_offering, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, deadline, deadline_label, selectivity_tier, interest_level, application_status, admission_track, test_policy, middle_50, application_platform, required_essays, teacher_recs, cost_of_attendance, net_price_estimate, merit_aid_notes, school_steps(id, label, owner, done, sort_order), deadlines(id, title, due_date, completed, sort_order), contacts(id, name, role, email, phone)";
+  "id, name, location, campus_size, mechanical_engineering, materials, materials_offering, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, deadline, deadline_label, selectivity_tier, interest_level, application_status, admission_track, test_policy, middle_50, application_platform, required_essays, teacher_recs, cost_of_attendance, net_price_estimate, merit_aid_notes, research_sources, school_steps(id, label, owner, done, sort_order), deadlines(id, title, due_date, completed, sort_order), contacts(id, name, role, email, phone)";
 
 export async function listSchools(): Promise<School[]> {
   if (!supabaseConfigured()) return seedSchools();
@@ -261,6 +265,7 @@ const PATCH_COLUMNS: Record<string, string> = {
   costOfAttendance: "cost_of_attendance",
   netPriceEstimate: "net_price_estimate",
   meritAidNotes: "merit_aid_notes",
+  researchSources: "research_sources",
 };
 
 export function schoolPatchToRow(patch: Record<string, unknown>): Record<string, unknown> {
@@ -303,6 +308,37 @@ export async function updateSchool(id: string, patch: Record<string, unknown>): 
     .single();
   if (error) throw error;
   return mapSchool(data as SchoolRow);
+}
+
+export async function applySchoolFacts(id: string, facts: FoundFacts): Promise<School> {
+  const patch: Record<string, string> = {};
+  const fields: [keyof FoundFacts, string][] = [
+    ["location", "location"],
+    ["campusSize", "campusSize"],
+    ["mechanicalEngineering", "mechanicalEngineering"],
+    ["materials", "materials"],
+    ["materialsOffering", "materialsOffering"],
+    ["admissionsContext", "admissionsContext"],
+    ["satContext", "satContext"],
+    ["testPolicy", "testPolicy"],
+    ["middle50", "middle50"],
+    ["applicationPlatform", "applicationPlatform"],
+    ["requiredEssays", "requiredEssays"],
+    ["teacherRecs", "teacherRecs"],
+    ["costOfAttendance", "costOfAttendance"],
+    ["meritAidNotes", "meritAidNotes"],
+  ];
+  for (const [key, patchKey] of fields) {
+    const value = facts[key];
+    if (typeof value === "string" && value) patch[patchKey] = value;
+  }
+  const sources = formatSources(facts.sources);
+  if (sources) patch.researchSources = sources;
+  let school = await updateSchool(id, patch);
+  for (const deadline of facts.deadlines) {
+    school = await addDeadline(id, deadline.title, deadline.dueDate);
+  }
+  return school;
 }
 
 export async function deleteSchool(id: string): Promise<void> {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import { AppQuestionsTab } from "./AppQuestionsTab";
 import { CollegesTab } from "./CollegesTab";
@@ -41,6 +41,25 @@ function todayLabel() {
   return new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 }
 
+const schoolListeners = new Set<() => void>();
+
+function emitSchool() {
+  schoolListeners.forEach((listener) => listener());
+}
+
+function subscribeSchool(listener: () => void) {
+  schoolListeners.add(listener);
+  window.addEventListener("popstate", listener);
+  return () => {
+    schoolListeners.delete(listener);
+    window.removeEventListener("popstate", listener);
+  };
+}
+
+function schoolFromLocation() {
+  return new URLSearchParams(window.location.search).get("school");
+}
+
 function readStart(): { tab: TabId; schoolId: string | null } {
   if (typeof window === "undefined") return { tab: "colleges", schoolId: null };
   const params = new URLSearchParams(window.location.search);
@@ -54,7 +73,7 @@ function readStart(): { tab: TabId; schoolId: string | null } {
 export function Portal() {
   const start = readStart();
   const [tab, setTab] = useState<TabId>(start.tab);
-  const [schoolId, setSchoolId] = useState<string | null>(start.schoolId);
+  const schoolId = useSyncExternalStore(subscribeSchool, schoolFromLocation, () => null);
   const [checklist, setChecklist] = useState<Record<string, boolean>>({});
   const [scores, setScores] = useState<Scores>(seedScores);
   const [notes, setNotes] = useState("");
@@ -100,6 +119,7 @@ export function Portal() {
     if (nextSchool) params.set("school", nextSchool);
     const query = params.toString();
     window.history.replaceState(null, "", query ? `/?${query}` : "/");
+    emitSchool();
   }, []);
 
   const statuses = useMemo(() => phaseStatuses(phases, checklist), [checklist]);
@@ -191,6 +211,7 @@ export function Portal() {
       setSaveState("Not saved");
       return;
     }
+    setSaveState("Looking up this school...");
     const response = await fetch("/api/schools", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -200,13 +221,14 @@ export function Portal() {
       setSaveState("Not saved");
       return;
     }
-    const body = (await response.json()) as { school: School };
+    const body = (await response.json()) as { school: School; research?: { summary?: string } };
     setSchools((current) => [...current, body.school]);
+    replaceUrl("colleges", body.school.id);
+    setSaveState(body.research?.summary || "Saved");
   }
 
   async function deleteSchool(id: string) {
     setSchools((current) => current.filter((school) => school.id !== id));
-    setSchoolId(null);
     replaceUrl("colleges", null);
     if (!pipeline.persisted) {
       setSaveState("Not saved");
@@ -433,7 +455,6 @@ export function Portal() {
         tab={tab}
         onChange={(next) => {
           setTab(next);
-          if (next !== "colleges") setSchoolId(null);
           replaceUrl(next, next === "colleges" ? schoolId : null);
         }}
       />
@@ -442,11 +463,9 @@ export function Portal() {
           schools={schools}
           selectedId={schoolId}
           onOpen={(id) => {
-            setSchoolId(id);
             replaceUrl("colleges", id);
           }}
           onClose={() => {
-            setSchoolId(null);
             replaceUrl("colleges", null);
           }}
           onPatch={(id, patch) => {
@@ -458,7 +477,7 @@ export function Portal() {
             if (patch.admissionTrack !== undefined && !isAdmissionTrack(patch.admissionTrack)) return;
             void patchSchool(id, patch);
           }}
-          onCreate={(value) => void createSchool(value)}
+          onCreate={(value) => createSchool(value)}
           onDelete={(id) => void deleteSchool(id)}
           onAddStep={(id, label, owner) => void addStep(id, label, owner)}
           onPatchStep={(id, stepId, patch) => void patchStep(id, stepId, patch)}

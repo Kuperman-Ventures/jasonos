@@ -73,6 +73,7 @@ export type School = {
   costOfAttendance: string;
   netPriceEstimate: string;
   meritAidNotes: string;
+  researchSources: string;
   steps: Step[];
   deadlines: Deadline[];
   contacts: SchoolContact[];
@@ -372,6 +373,7 @@ export function fromSeed(seed: SchoolSeed): School {
     costOfAttendance: "",
     netPriceEstimate: "",
     meritAidNotes: "",
+    researchSources: "",
     steps: [],
     deadlines: [],
     contacts: [],

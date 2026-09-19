@@ -42,7 +42,7 @@ export function CollegesTab({
   onOpen: (id: string) => void;
   onClose: () => void;
   onPatch: (id: string, patch: Partial<School>) => void;
-  onCreate: (name: string) => void;
+  onCreate: (name: string) => Promise<void>;
   onDelete: (id: string) => void;
   onAddStep: (id: string, label: string, owner: Owner) => void;
   onPatchStep: (id: string, stepId: string, patch: { done?: boolean; owner?: Owner; label?: string }) => void;
@@ -60,6 +60,7 @@ export function CollegesTab({
   const [sort, setSort] = useState<SortKey>("list");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
   const [name, setName] = useState("");
+  const [adding, setAdding] = useState(false);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -99,14 +100,17 @@ export function CollegesTab({
         className="add-row"
         onSubmit={(event) => {
           event.preventDefault();
-          if (!name.trim()) return;
-          onCreate(name.trim());
-          setName("");
+          if (!name.trim() || adding) return;
+          const nextName = name.trim();
+          setAdding(true);
+          void onCreate(nextName)
+            .then(() => setName(""))
+            .finally(() => setAdding(false));
         }}
       >
-        <input className="field" value={name} placeholder="Add a school" onChange={(event) => setName(event.target.value)} />
-        <button type="submit" className="btn btn-primary">
-          Add
+        <input className="field" value={name} placeholder="Add a school" disabled={adding} onChange={(event) => setName(event.target.value)} />
+        <button type="submit" className="btn btn-primary" disabled={adding}>
+          {adding ? "Looking up" : "Add"}
         </button>
       </form>
       <div className="readouts">
