@@ -1319,77 +1319,164 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   text-transform: uppercase;
   color: var(--text-subtle);
 }
-.dash-timeline-wrap {
+
+/* ---------- process roadmap (Gantt) ---------- */
+.timeline-roadmap { margin-bottom: var(--space-8); }
+.roadmap-head { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-4); }
+.roadmap-frame {
   position: relative;
-  padding-top: 2px;
+  padding: var(--space-6) var(--space-4) var(--space-3);
+  background: var(--color-surface);
+  overflow: hidden;
 }
-.dash-timeline-wrap::before {
+.roadmap-here {
+  position: absolute;
+  top: var(--space-3);
+  bottom: 52px;
+  width: 0;
+  border-left: 2px dashed var(--color-neutral-500);
+  z-index: 2;
+  pointer-events: none;
+  transform: translateX(-1px);
+}
+.roadmap-here-tag {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, 0);
+  white-space: nowrap;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-muted);
+  background: var(--color-bg);
+  border: 1px solid var(--color-divider);
+  padding: 3px 8px;
+}
+.roadmap-tracks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 220px;
+  padding-top: var(--space-6);
+  padding-bottom: var(--space-4);
+}
+.roadmap-row { position: relative; height: 36px; }
+.roadmap-lane { position: relative; height: 100%; margin: 0 2%; }
+.roadmap-bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 22px 0 12px;
+  color: #fff;
+  background: var(--color-brand);
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
+  box-shadow: none;
+}
+.roadmap-bar.is-done { background: var(--done-500); }
+.roadmap-bar-label {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.roadmap-bar-pct {
+  flex: none;
+  font-size: 10px;
+  opacity: 0.85;
+}
+.roadmap-milestone-row {
+  position: relative;
+  height: 96px;
+  margin: 0 2% var(--space-2);
+}
+.roadmap-milestone {
+  position: absolute;
+  top: 0;
+  width: 118px;
+  height: 118px;
+  transform: translateX(-50%);
+  border: 3px solid var(--color-brand);
+  border-radius: 50%;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 10px;
+  z-index: 1;
+}
+.roadmap-milestone span {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--color-brand);
+}
+.roadmap-milestone em {
+  margin-top: 4px;
+  font-style: normal;
+  font-size: 10px;
+  color: var(--text-subtle);
+}
+.roadmap-milestone.is-done {
+  border-color: var(--done-500);
+}
+.roadmap-milestone.is-done span { color: var(--done-500); }
+.roadmap-axis {
+  position: relative;
+  margin: 0 2% 0;
+  padding-top: var(--space-2);
+}
+.roadmap-axis-line {
+  height: 2px;
+  background: var(--color-text);
+  position: relative;
+}
+.roadmap-axis-line::after {
   content: "";
   position: absolute;
-  left: 8px;
-  right: 8px;
-  top: 18px;
-  height: 2px;
-  background: var(--neutral-300);
-  pointer-events: none;
+  right: -1px;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 8px solid var(--color-text);
+  transform: translateY(-50%);
 }
-.dash-timeline {
+.roadmap-seasons {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: var(--space-2);
-  position: relative;
-  z-index: 1;
+  display: flex;
+  justify-content: space-between;
 }
-.dash-phase {
-  position: relative;
+.roadmap-seasons li {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  min-height: 148px;
-  padding: var(--space-3);
-  background: var(--color-surface);
-  border-left: 3px solid transparent;
+  align-items: center;
+  gap: 4px;
+  width: 0;
 }
-.dash-phase.state-done { border-left-color: var(--done-500); }
-.dash-phase.is-now {
-  border-left-color: var(--accent-500);
-  background: var(--accent-100);
-  box-shadow: inset 0 0 0 1px var(--color-accent-200);
+.roadmap-season-tick {
+  width: 1px;
+  height: 8px;
+  background: var(--color-text);
 }
-.dash-now-tag {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-on-accent);
-  background: var(--accent-500);
-  padding: 2px 6px;
+.roadmap-season-label {
+  font-size: 11px;
+  color: var(--color-text);
+  white-space: nowrap;
 }
-.dash-phase-top { display: flex; flex-direction: column; gap: 2px; padding-right: 40px; }
-.dash-phase-num { font-size: 11px; color: var(--text-accent); }
-.dash-phase-name { font-size: 15px; font-weight: 600; line-height: 1.25; }
-.dash-phase-window { font-size: 11px; color: var(--text-subtle); }
-.dash-phase-meter {
-  height: 6px;
-  background: var(--neutral-300);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  margin-top: auto;
-}
-.dash-phase-meter > span {
-  display: block;
-  height: 100%;
-  background: var(--done-500);
-}
-.dash-phase.is-now .dash-phase-meter > span { background: var(--accent-500); }
-.dash-phase-stat { font-size: 11px; color: var(--text-subtle); }
+
 .dash-grid {
   display: grid;
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
@@ -1478,12 +1565,17 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
 }
 
 @media (max-width: 1100px) {
-  .dash-timeline { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .dash-timeline-wrap::before { display: none; }
   .dash-grid { grid-template-columns: 1fr; }
+  .roadmap-bar-label { font-size: 11px; }
+  .roadmap-milestone { width: 96px; height: 96px; }
+  .roadmap-milestone span { font-size: 10px; }
 }
 @media (max-width: 720px) {
-  .dash-timeline { grid-template-columns: 1fr 1fr; }
+  .roadmap-frame { padding: var(--space-4) var(--space-2) var(--space-2); }
+  .roadmap-bar-pct { display: none; }
+  .roadmap-season-label { font-size: 9px; }
+  .roadmap-milestone-row { height: 72px; }
+  .roadmap-milestone { width: 72px; height: 72px; padding: 6px; }
 }
 
 @media print {

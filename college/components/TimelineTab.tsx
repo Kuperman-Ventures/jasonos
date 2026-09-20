@@ -1,5 +1,6 @@
 "use client";
 
+import { ProcessRoadmap } from "./ProcessRoadmap";
 import { phaseStatuses } from "@/lib/phases";
 import type { Phase } from "@/lib/types";
 
@@ -27,6 +28,14 @@ export function TimelineTab({
           Save as PDF
         </button>
       </header>
+
+      <div className="timeline-roadmap">
+        <ProcessRoadmap
+          checklist={checklist}
+          subtitle="Same runway as the Dashboard. Check items below to move the bars."
+        />
+      </div>
+
       <ol className="track">
         {phases.map((phase, index) => {
           const status = statuses[index];

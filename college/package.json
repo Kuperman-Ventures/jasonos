@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start --port 3210",
     "lint": "eslint",
-    "test": "tsx --test lib/scores.test.ts lib/list.test.ts lib/school-research.test.ts lib/auth.test.ts lib/dashboard.test.ts"
+    "test": "tsx --test lib/scores.test.ts lib/list.test.ts lib/school-research.test.ts lib/auth.test.ts lib/dashboard.test.ts lib/roadmap.test.ts"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.196",

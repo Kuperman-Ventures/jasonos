@@ -1,16 +1,15 @@
 "use client";
 
 import { useMemo } from "react";
+import { ProcessRoadmap } from "./ProcessRoadmap";
 import {
   US_MAP_VIEWBOX,
   US_STATE_PATHS,
-  dashboardPhaseCards,
   schoolsByState,
   selectivityBreakdown,
   stateFillStrength,
 } from "@/lib/dashboard";
-import type { PhaseStatus } from "@/lib/phases";
-import type { Phase, School, SelectivityTier } from "@/lib/types";
+import type { School, SelectivityTier } from "@/lib/types";
 
 const TIER_CLASS: Record<SelectivityTier, string> = {
   "": "tier-unset",
@@ -22,21 +21,16 @@ const TIER_CLASS: Record<SelectivityTier, string> = {
 
 export function DashboardTab({
   schools,
-  phases,
-  statuses,
-  phaseIndex,
+  checklist,
   dateline,
 }: {
   schools: School[];
-  phases: Phase[];
-  statuses: PhaseStatus[];
-  phaseIndex: number;
+  checklist: Record<string, boolean>;
   dateline: string;
 }) {
   const selectivity = useMemo(() => selectivityBreakdown(schools), [schools]);
   const withSchools = useMemo(() => selectivity.filter((slice) => slice.count > 0), [selectivity]);
   const byState = useMemo(() => schoolsByState(schools), [schools]);
-  const cards = useMemo(() => dashboardPhaseCards(phases, statuses), [phases, statuses]);
   const maxState = Math.max(1, ...byState.map((item) => item.count));
   const countByState = useMemo(() => new Map(byState.map((item) => [item.state, item.count])), [byState]);
   const mappedStates = Object.keys(US_STATE_PATHS).sort();
@@ -56,43 +50,7 @@ export function DashboardTab({
       </header>
 
       <div className="dash-block">
-        <h3 className="dash-title">Process at a glance</h3>
-        <p className="section-sub">
-          The whole path in one read. Current phase is marked; bars show checklist progress in each phase.
-        </p>
-        <div className="dash-timeline-wrap">
-          <ol className="dash-timeline">
-            {cards.map((card, index) => {
-              const isNow = index === phaseIndex;
-              return (
-                <li
-                  key={card.phase}
-                  className={`dash-phase state-${card.status}${isNow ? " is-now" : ""}`}
-                >
-                  {isNow ? <span className="dash-now-tag">Now</span> : null}
-                  <div className="dash-phase-top">
-                    <span className="dash-phase-num mono">{String(index + 1).padStart(2, "0")}</span>
-                    <span className="dash-phase-name">{card.phase}</span>
-                  </div>
-                  <span className="dash-phase-window mono">{card.window}</span>
-                  <div
-                    className="dash-phase-meter"
-                    role="progressbar"
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={card.percent}
-                    aria-label={`${card.phase} checklist ${card.done} of ${card.total}`}
-                  >
-                    <span style={{ width: `${card.percent}%` }} />
-                  </div>
-                  <span className="dash-phase-stat mono">
-                    {card.done}/{card.total} · {card.percent}%
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-        </div>
+        <ProcessRoadmap checklist={checklist} />
       </div>
 
       <div className="dash-block">

@@ -473,9 +473,7 @@ export function Portal({
         {tab === "dashboard" ? (
           <DashboardTab
             schools={schools}
-            phases={phases}
-            statuses={statuses}
-            phaseIndex={phaseIndex}
+            checklist={checklist}
             dateline={phaseLabel}
           />
         ) : null}
