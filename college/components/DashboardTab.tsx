@@ -163,12 +163,12 @@ export function DashboardTab({
                         ? { fillOpacity: strength }
                         : undefined
                     }
-                  >
-                    <title>
-                      {state}
-                      {count ? `: ${count} ${count === 1 ? "school" : "schools"}` : ": none on the list"}
-                    </title>
-                  </path>
+                    title={
+                      count
+                        ? `${state}: ${count} ${count === 1 ? "school" : "schools"}`
+                        : `${state}: none on the list`
+                    }
+                  />
                 );
               })}
             </svg>
