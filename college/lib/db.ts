@@ -502,7 +502,7 @@ export async function deleteContact(schoolId: string, contactId: string): Promis
   return getSchool(schoolId);
 }
 
-async function getSchool(id: string): Promise<School> {
+export async function getSchool(id: string): Promise<School> {
   const db = collegeDb();
   const { data, error } = await db.from("schools").select(SCHOOL_COLUMNS).eq("id", id).single();
   if (error) throw error;

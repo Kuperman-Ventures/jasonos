@@ -119,6 +119,17 @@ export function schoolOnListPhase(
   return school.listPhase === phaseId;
 }
 
+/** Only Kyle can advance Exploration → Consideration or Consideration → Applications. */
+export function canAdvanceListPhase(memberId: string): boolean {
+  // Local seed mode has no real login — treat it like Kyle so the funnel stays testable.
+  if (memberId === "local") return true;
+  return memberId === "kyle";
+}
+
+export function isForwardListPhaseMove(from: ListPhaseId, to: ListPhaseId): boolean {
+  return LIST_PHASES.findIndex((phase) => phase.id === to) > LIST_PHASES.findIndex((phase) => phase.id === from);
+}
+
 /** Move a school to any funnel phase (forward or back). Keeps participation history. */
 export function moveSchoolPhasePatch(
   school: {

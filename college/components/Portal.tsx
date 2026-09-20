@@ -25,7 +25,7 @@ import {
 } from "@/lib/content";
 import { currentPhaseIndex, phaseStatuses } from "@/lib/phases";
 import { useSchoolPipeline } from "@/lib/use-school-pipeline";
-import { defaultListPrefs, mergeListPrefs, type MemberListPrefs } from "@/lib/list-phases";
+import { defaultListPrefs, mergeListPrefs, canAdvanceListPhase, isForwardListPhaseMove, type MemberListPrefs } from "@/lib/list-phases";
 import type { PersistedIngestSource, PersistedProjectStep } from "@/lib/ingest";
 import {
   DEFAULT_PROJECT_SECTION,
@@ -603,6 +603,7 @@ export function Portal({
             selectedId={schoolId}
             dateline={phaseLabel}
             listPrefs={listPrefs}
+            memberId={member.id}
             onListPrefsChange={saveListPrefs}
             onOpen={(id) => {
               replaceUrl("colleges", id);
@@ -618,6 +619,16 @@ export function Portal({
               if (patch.applicationStatus !== undefined && !isApplicationStatus(patch.applicationStatus)) return;
               if (patch.admissionTrack !== undefined && !isAdmissionTrack(patch.admissionTrack)) return;
               if (patch.listPhase !== undefined && !isListPhaseId(patch.listPhase)) return;
+              if (patch.listPhase !== undefined) {
+                const current = schools.find((school) => school.id === id);
+                if (
+                  current &&
+                  isForwardListPhaseMove(current.listPhase, patch.listPhase) &&
+                  !canAdvanceListPhase(member.id)
+                ) {
+                  return;
+                }
+              }
               void patchSchool(id, patch);
             }}
             onCreate={(value) => createSchool(value)}

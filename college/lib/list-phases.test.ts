@@ -10,6 +10,8 @@ import {
   previousListPhaseId,
   retreatSchoolPatch,
   schoolOnListPhase,
+  canAdvanceListPhase,
+  isForwardListPhaseMove,
   selectivityGauges,
 } from "./list-phases";
 
@@ -165,4 +167,18 @@ test("exploration keeps consideration schools; applications clears consideration
   assert.equal(schoolOnListPhase(applying, "exploration"), false);
   assert.equal(schoolOnListPhase(applying, "consideration"), false);
   assert.equal(schoolOnListPhase(applying, "applications"), true);
+});
+
+test("only Kyle (or local seed) can advance list phases", () => {
+  assert.equal(canAdvanceListPhase("kyle"), true);
+  assert.equal(canAdvanceListPhase("local"), true);
+  assert.equal(canAdvanceListPhase("jason"), false);
+  assert.equal(canAdvanceListPhase("kat"), false);
+
+  assert.equal(isForwardListPhaseMove("exploration", "consideration"), true);
+  assert.equal(isForwardListPhaseMove("consideration", "applications"), true);
+  assert.equal(isForwardListPhaseMove("exploration", "applications"), true);
+  assert.equal(isForwardListPhaseMove("consideration", "exploration"), false);
+  assert.equal(isForwardListPhaseMove("applications", "consideration"), false);
+  assert.equal(isForwardListPhaseMove("exploration", "exploration"), false);
 });

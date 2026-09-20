@@ -45,6 +45,7 @@ function BlurInput({
 
 export function CollegeRecord({
   school,
+  canAdvancePhase,
   onBack,
   onPatch,
   onDelete,
@@ -63,6 +64,7 @@ export function CollegeRecord({
   onDeleteContact,
 }: {
   school: School;
+  canAdvancePhase: boolean;
   onBack: () => void;
   onPatch: (patch: Partial<School>) => void;
   onDelete: () => void;
@@ -167,10 +169,15 @@ export function CollegeRecord({
                 Move back to {previousPhaseLabel}
               </button>
             ) : null}
-            {!school.archived && nextPhaseLabel ? (
+            {!school.archived && nextPhaseLabel && canAdvancePhase ? (
               <button type="button" className="btn btn-primary" onClick={onAdvance}>
                 Move to {nextPhaseLabel}
               </button>
+            ) : null}
+            {!school.archived && nextPhaseLabel && !canAdvancePhase ? (
+              <p className="section-sub phase-advance-lock">
+                Only Kyle can move schools into {nextPhaseLabel}.
+              </p>
             ) : null}
             {school.archived ? (
               <button type="button" className="btn btn-primary" onClick={onRestore}>

@@ -9,6 +9,7 @@ import {
   LIST_PHASES,
   advanceSchoolPatch,
   archiveSchoolPatch,
+  canAdvanceListPhase,
   currentListPhaseId,
   listPhaseById,
   normalizeColumns,
@@ -42,6 +43,7 @@ export function CollegesTab({
   selectedId,
   dateline,
   listPrefs,
+  memberId,
   onListPrefsChange,
   onOpen,
   onClose,
@@ -62,6 +64,7 @@ export function CollegesTab({
   selectedId: string | null;
   dateline: string;
   listPrefs: MemberListPrefs;
+  memberId: string;
   onListPrefsChange: (prefs: MemberListPrefs) => void;
   onOpen: (id: string) => void;
   onClose: () => void;
@@ -78,6 +81,7 @@ export function CollegesTab({
   onPatchContact: (id: string, contactId: string, patch: ContactPatch) => void;
   onDeleteContact: (id: string, contactId: string) => void;
 }) {
+  const canAdvance = canAdvanceListPhase(memberId);
   const [phaseId, setPhaseId] = useState<ListPhaseId>("exploration");
   const [query, setQuery] = useState("");
   const [tier, setTier] = useState<SelectivityTier | "any">("any");
@@ -188,6 +192,7 @@ export function CollegesTab({
   }
 
   function advanceSchool(school: School) {
+    if (!canAdvance) return;
     const patch = advanceSchoolPatch(school);
     if (!patch) return;
     onPatch(school.id, patch);
@@ -591,6 +596,7 @@ export function CollegesTab({
         <CollegeRecord
           key={selected.id}
           school={selected}
+          canAdvancePhase={canAdvance}
           onBack={onClose}
           onPatch={(patch) => onPatch(selected.id, patch)}
           onDelete={() => onDelete(selected.id)}
