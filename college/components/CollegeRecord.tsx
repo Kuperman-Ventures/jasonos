@@ -189,7 +189,7 @@ export function CollegeRecord({
           </button>
           <span className="school-modal-phase">
             {school.archived ? "Archived" : phaseLabel}
-            {participated ? ` · ${participated}` : ""}
+            {school.phasesParticipated.length > 1 ? ` · ${participated}` : ""}
           </span>
         </header>
 
