@@ -166,6 +166,7 @@ function TaskRow({
 
 function TaskList({
   bucket,
+  emphasis,
   viewer,
   openIds,
   subtasks,
@@ -180,6 +181,7 @@ function TaskList({
   onCancelDraft,
 }: {
   bucket: OwnerTodoBucket;
+  emphasis: "focus" | "other";
   viewer: Owner;
   openIds: Set<string>;
   subtasks: TodoSubtaskMap;
@@ -195,9 +197,10 @@ function TaskList({
 }) {
   const todos = [...bucket.open, ...bucket.done];
   const stats = openListStats(todos);
+  const listClass = emphasis === "focus" ? "list list-focus" : "list list-other";
   if (!todos.length) {
     return (
-      <div className="list">
+      <div className={listClass}>
         <div className="list-head">
           <h1>{bucket.label}</h1>
           <span className="list-count">{stats.label}</span>
@@ -208,7 +211,7 @@ function TaskList({
   }
 
   return (
-    <div className="list">
+    <div className={listClass}>
       <div className="list-head">
         <h1>{bucket.label}</h1>
         <span className="list-count">{stats.label}</span>
@@ -341,10 +344,12 @@ export function TodosPanel({
 
   return (
     <div className="pm-panel todos-panel">
-      <TaskList bucket={grouped.mine} {...shared} />
-      {grouped.others.map((bucket) => (
-        <TaskList key={bucket.owner} bucket={bucket} {...shared} />
-      ))}
+      <TaskList bucket={grouped.mine} emphasis="focus" {...shared} />
+      <div className="todos-others">
+        {grouped.others.map((bucket) => (
+          <TaskList key={bucket.owner} bucket={bucket} emphasis="other" {...shared} />
+        ))}
+      </div>
     </div>
   );
 }

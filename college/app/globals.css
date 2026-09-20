@@ -1991,8 +1991,22 @@ table.schools .muted,
 
 /* ---------- expandable to-do rows (option 1e) ---------- */
 .todos-panel .list {
-  max-width: 760px;
+  width: 100%;
+  max-width: none;
   margin-bottom: var(--space-8);
+}
+.todos-panel .list-focus {
+  width: 100%;
+}
+.todos-panel .todos-others {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+.todos-panel .todos-others .list {
+  margin-bottom: 0;
+  min-width: 0;
 }
 .todos-panel .list-head {
   display: flex;
@@ -2149,6 +2163,13 @@ table.schools .muted,
 }
 .todos-panel .todo-from-badge {
   flex: none;
+}
+
+@media (max-width: 800px) {
+  .todos-panel .todos-others {
+    grid-template-columns: 1fr;
+    gap: var(--space-8);
+  }
 }
 
 @media (max-width: 560px) {
