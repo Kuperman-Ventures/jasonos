@@ -1,43 +1,88 @@
 import { NextResponse } from "next/server";
 import { isSession, requireCollegeSession } from "@/lib/auth";
 import { fetchUrlText, suggestStepsFromText } from "@/lib/ingest";
+import { extractPdfText, isPdfFile } from "@/lib/pdf";
+
+export const runtime = "nodejs";
+
+async function parseMultipart(request: Request): Promise<{
+  text: string;
+  kind: "paste" | "url" | "file";
+  title: string;
+}> {
+  const form = await request.formData();
+  const titleField = form.get("title");
+  const title = typeof titleField === "string" ? titleField.trim() : "";
+  const file = form.get("file") ?? form.get("pdf");
+
+  if (!(file instanceof File) || !file.size) {
+    throw new Error("Choose a PDF file to upload.");
+  }
+  if (!isPdfFile(file)) {
+    throw new Error("Upload a PDF file (.pdf).");
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const { text, pageCount } = await extractPdfText(bytes);
+  return {
+    text,
+    kind: "file",
+    title: title || file.name.replace(/\.pdf$/i, "") || `PDF (${pageCount} pages)`,
+  };
+}
+
+async function parseJson(request: Request): Promise<{
+  text: string;
+  kind: "paste" | "url" | "file";
+  title: string;
+}> {
+  const body = (await request.json()) as {
+    text?: string;
+    url?: string;
+    title?: string;
+    kind?: "paste" | "url" | "file";
+  };
+
+  let text = typeof body.text === "string" ? body.text.trim() : "";
+  let kind = body.kind ?? "paste";
+  let title = typeof body.title === "string" ? body.title.trim() : "";
+
+  if (!text && typeof body.url === "string" && body.url.trim()) {
+    kind = "url";
+    const url = body.url.trim();
+    title = title || url;
+    text = await fetchUrlText(url);
+  }
+
+  if (!text) {
+    throw new Error("Paste some text, upload a PDF, or provide a URL.");
+  }
+
+  return { text, kind, title };
+}
 
 export async function POST(request: Request) {
   const session = await requireCollegeSession();
   if (!isSession(session)) return session;
 
   try {
-    const body = (await request.json()) as {
-      text?: string;
-      url?: string;
-      title?: string;
-      kind?: "paste" | "url" | "file";
-    };
+    const contentType = request.headers.get("content-type") ?? "";
+    const input = contentType.includes("multipart/form-data")
+      ? await parseMultipart(request)
+      : await parseJson(request);
 
-    let text = typeof body.text === "string" ? body.text.trim() : "";
-    let kind = body.kind ?? "paste";
-    let title = typeof body.title === "string" ? body.title.trim() : "";
+    const { suggestions, method } = await suggestStepsFromText(input.text);
+    const defaultTitle =
+      input.kind === "url" ? "URL ingest" : input.kind === "file" ? "PDF ingest" : "Pasted notes";
 
-    if (!text && typeof body.url === "string" && body.url.trim()) {
-      kind = "url";
-      const url = body.url.trim();
-      title = title || url;
-      text = await fetchUrlText(url);
-    }
-
-    if (!text) {
-      return NextResponse.json({ error: "Paste some text, or provide a URL." }, { status: 400 });
-    }
-
-    const { suggestions, method } = await suggestStepsFromText(text);
     return NextResponse.json({
       suggestions,
       method,
       source: {
         id: crypto.randomUUID(),
-        title: title || (kind === "url" ? "URL ingest" : "Pasted notes"),
-        kind,
-        text,
+        title: input.title || defaultTitle,
+        kind: input.kind,
+        text: input.text,
         createdAt: new Date().toISOString(),
       },
     });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   checklistParents,
   type IngestSourceDraft,
@@ -24,14 +24,29 @@ export function IngestPanel({
   onConfirm: (steps: PersistedProjectStep[], source: PersistedIngestSource) => Promise<void>;
 }) {
   const parents = useMemo(() => checklistParents(phases), [phases]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [url, setUrl] = useState("");
+  const [pdfName, setPdfName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [method, setMethod] = useState<"ai" | "heuristic" | "">("");
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
   const [source, setSource] = useState<IngestSourceDraft | null>(null);
+
+  async function applyParseResponse(response: Response) {
+    const body = (await response.json()) as {
+      error?: string;
+      suggestions?: SuggestedStep[];
+      method?: "ai" | "heuristic";
+      source?: IngestSourceDraft;
+    };
+    if (!response.ok) throw new Error(body.error || "Parse failed");
+    setDrafts(body.suggestions ?? []);
+    setSource(body.source ?? null);
+    setMethod(body.method ?? "");
+  }
 
   async function runParse(kind: "paste" | "url") {
     setBusy(true);
@@ -46,18 +61,31 @@ export function IngestPanel({
             : { text, title: title || "Pasted notes", kind: "paste" },
         ),
       });
-      const body = (await response.json()) as {
-        error?: string;
-        suggestions?: SuggestedStep[];
-        method?: "ai" | "heuristic";
-        source?: IngestSourceDraft;
-      };
-      if (!response.ok) throw new Error(body.error || "Parse failed");
-      setDrafts(body.suggestions ?? []);
-      setSource(body.source ?? null);
-      setMethod(body.method ?? "");
+      await applyParseResponse(response);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Parse failed");
+      setDrafts([]);
+      setSource(null);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function runPdf(file: File) {
+    setBusy(true);
+    setError("");
+    setPdfName(file.name);
+    try {
+      const form = new FormData();
+      form.set("file", file);
+      form.set("title", title || file.name.replace(/\.pdf$/i, ""));
+      const response = await fetch("/api/ingest", {
+        method: "POST",
+        body: form,
+      });
+      await applyParseResponse(response);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "PDF parse failed");
       setDrafts([]);
       setSource(null);
     } finally {
@@ -108,7 +136,9 @@ export function IngestPanel({
       setText("");
       setUrl("");
       setTitle("");
+      setPdfName("");
       setMethod("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save tasks");
     } finally {
@@ -124,7 +154,7 @@ export function IngestPanel({
           <input
             className="field"
             value={title}
-            placeholder="Webinar notes, article title, Granola paste…"
+            placeholder="Webinar slides, article title, Granola paste…"
             onChange={(event) => setTitle(event.target.value)}
           />
         </label>
@@ -133,7 +163,7 @@ export function IngestPanel({
           <span className="label">Paste text</span>
           <textarea
             className="field ingest-textarea"
-            rows={10}
+            rows={8}
             value={text}
             placeholder="Paste article text, webinar notes, or a Granola transcript export here."
             onChange={(event) => setText(event.target.value)}
@@ -150,6 +180,34 @@ export function IngestPanel({
             {busy ? "Reading…" : "Suggest tasks from paste"}
           </button>
         </div>
+
+        <div className="ingest-or">or upload webinar slides (PDF)</div>
+
+        <label className="stack-field">
+          <span className="label">PDF file</span>
+          <div className="ingest-file-row">
+            <input
+              ref={fileInputRef}
+              className="field grow ingest-file"
+              type="file"
+              accept="application/pdf,.pdf"
+              disabled={busy}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void runPdf(file);
+              }}
+            />
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={busy}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {busy ? "Scanning…" : "Choose PDF"}
+            </button>
+          </div>
+          {pdfName ? <p className="ingest-file-name">{pdfName}</p> : null}
+        </label>
 
         <div className="ingest-or">or pull from a URL</div>
 
@@ -174,8 +232,8 @@ export function IngestPanel({
         </label>
 
         <p className="section-sub">
-          PDFs: paste the text for now. Live Granola pull comes later — paste the note body the same
-          way.
+          PDF text is pulled from the file (works for slide decks with selectable text). Image-only
+          scans and live Granola pull come later — paste those for now.
         </p>
       </div>
 

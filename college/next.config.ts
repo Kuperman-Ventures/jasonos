@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(import.meta.dirname),
   },
+  serverExternalPackages: ["unpdf"],
   images: {
     remotePatterns: [
       {
