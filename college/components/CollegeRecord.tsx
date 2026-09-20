@@ -23,6 +23,16 @@ import { sourceLines } from "@/lib/school-research";
 import { fetchSchoolPhotoUrl, websiteHostLabel, websiteHref } from "@/lib/school-photo";
 import { SchoolMark } from "./SchoolMark";
 
+type SchoolModalTab = "snapshot" | "settings" | "requirements" | "financials" | "projects";
+
+const SCHOOL_MODAL_TABS: { id: SchoolModalTab; label: string }[] = [
+  { id: "snapshot", label: "Snapshot" },
+  { id: "settings", label: "Settings" },
+  { id: "requirements", label: "Requirements" },
+  { id: "financials", label: "Financials" },
+  { id: "projects", label: "Project management" },
+];
+
 function BlurInput({
   value,
   onCommit,
@@ -141,6 +151,7 @@ export function CollegeRecord({
   onPatchContact: (contactId: string, patch: ContactPatch) => void;
   onDeleteContact: (contactId: string) => void;
 }) {
+  const [tab, setTab] = useState<SchoolModalTab>("snapshot");
   const [stepLabel, setStepLabel] = useState("");
   const [stepOwner, setStepOwner] = useState<Owner>("kyle");
   const [deadlineTitle, setDeadlineTitle] = useState("");
@@ -174,6 +185,7 @@ export function CollegeRecord({
     let cancelled = false;
     setPhotoUrl(null);
     setPhotoFailed(false);
+    setTab("snapshot");
     void fetchSchoolPhotoUrl(school.id, school.name).then((url) => {
       if (!cancelled) setPhotoUrl(url);
     });
@@ -206,7 +218,6 @@ export function CollegeRecord({
   const siteHref = websiteHref(school.website);
   const siteLabel = websiteHostLabel(school.website) || "School website";
   const showPhoto = Boolean(photoUrl) && !photoFailed;
-
   const nextOpenDeadline = deadlines.find((item) => !item.completed && item.dueDate) ?? null;
 
   const overviewFacts: { label: string; value: string; emphasize?: "accent" | "mono" | "default" }[] = [
@@ -270,606 +281,706 @@ export function CollegeRecord({
           </div>
         </div>
 
-        <section className="school-overview">
-          <div className="school-overview-head">
-            <h3>At a glance</h3>
-            <p className="section-sub">
-              Snapshot facts for this school. Editing lives further down so this view stays readable.
-            </p>
-          </div>
-          <div className="fact-grid school-overview-facts">
-            {overviewFacts.map((fact) => (
-              <Fact key={fact.label} label={fact.label} value={fact.value} emphasize={fact.emphasize} />
-            ))}
-          </div>
-          {school.admissionsContext || school.satContext || school.requiredEssays || school.meritAidNotes ? (
-            <div className="school-overview-prose">
-              {school.admissionsContext ? (
-                <div className="fact fact-wide">
-                  <div className="label">Admissions context</div>
-                  <p>{school.admissionsContext}</p>
-                </div>
-              ) : null}
-              {school.satContext ? (
-                <div className="fact fact-wide">
-                  <div className="label">SAT context</div>
-                  <p>{school.satContext}</p>
-                </div>
-              ) : null}
-              {school.requiredEssays ? (
-                <div className="fact fact-wide">
-                  <div className="label">Required essays</div>
-                  <p>{school.requiredEssays}</p>
-                </div>
-              ) : null}
-              {school.meritAidNotes ? (
-                <div className="fact fact-wide">
-                  <div className="label">Merit aid</div>
-                  <p>{school.meritAidNotes}</p>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-          <div className="school-overview-status">
-            <Fact
-              label="Interest"
-              value={INTEREST_LEVELS.find((item) => item.id === school.interestLevel)?.label ?? ""}
-              emphasize="accent"
-            />
-            <Fact label="Application status" value={statusLabel(school.applicationStatus)} emphasize="accent" />
-            <Fact label="Admission track" value={trackLabel(school.admissionTrack)} />
-            <Fact
-              label="Next deadline"
-              value={
-                nextOpenDeadline
-                  ? `${nextOpenDeadline.title} · ${formatDate(nextOpenDeadline.dueDate)}`
-                  : ""
-              }
-              emphasize="mono"
-            />
-          </div>
-        </section>
+        <div className="school-modal-tabs" role="tablist" aria-label="School detail sections">
+          {SCHOOL_MODAL_TABS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === item.id}
+              className={tab === item.id ? "active" : undefined}
+              onClick={() => setTab(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
 
-        <section className="school-modal-section school-edit-block">
-          <h3>List phase</h3>
-          <p className="section-sub">
-            {school.archived ? "Archived" : phaseLabel}
-            {participated ? ` · been in: ${participated}` : ""}
-          </p>
-          <div className="phase-actions">
-            {!school.archived && previousPhaseLabel ? (
-              <button type="button" className="btn btn-secondary" onClick={onRetreat}>
-                Move back to {previousPhaseLabel}
-              </button>
-            ) : null}
-            {!school.archived && nextPhaseLabel && canAdvancePhase ? (
-              <button type="button" className="btn btn-primary" onClick={onAdvance}>
-                Move to {nextPhaseLabel}
-              </button>
-            ) : null}
-            {!school.archived && nextPhaseLabel && !canAdvancePhase ? (
-              <p className="section-sub phase-advance-lock">
-                Only Kyle can move schools into {nextPhaseLabel}.
+        <div className="school-modal-panel" role="tabpanel">
+          {tab === "snapshot" ? (
+            <section className="school-overview">
+              <div className="school-overview-head">
+                <h3>School snapshot</h3>
+                <p className="section-sub">
+                  Key facts at a glance. Use the other tabs to edit settings, requirements, money, or school-level
+                  project work.
+                </p>
+              </div>
+              <div className="fact-grid school-overview-facts">
+                {overviewFacts.map((fact) => (
+                  <Fact key={fact.label} label={fact.label} value={fact.value} emphasize={fact.emphasize} />
+                ))}
+              </div>
+              {school.admissionsContext || school.satContext || school.requiredEssays || school.meritAidNotes ? (
+                <div className="school-overview-prose">
+                  {school.admissionsContext ? (
+                    <div className="fact fact-wide">
+                      <div className="label">Admissions context</div>
+                      <p className="fact-value">{school.admissionsContext}</p>
+                    </div>
+                  ) : null}
+                  {school.satContext ? (
+                    <div className="fact fact-wide">
+                      <div className="label">SAT context</div>
+                      <p className="fact-value fact-tone-mono">{school.satContext}</p>
+                    </div>
+                  ) : null}
+                  {school.requiredEssays ? (
+                    <div className="fact fact-wide">
+                      <div className="label">Required essays</div>
+                      <p className="fact-value">{school.requiredEssays}</p>
+                    </div>
+                  ) : null}
+                  {school.meritAidNotes ? (
+                    <div className="fact fact-wide">
+                      <div className="label">Merit aid</div>
+                      <p className="fact-value">{school.meritAidNotes}</p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+              <div className="school-overview-status">
+                <Fact
+                  label="Interest"
+                  value={INTEREST_LEVELS.find((item) => item.id === school.interestLevel)?.label ?? ""}
+                  emphasize="accent"
+                />
+                <Fact label="Application status" value={statusLabel(school.applicationStatus)} emphasize="accent" />
+                <Fact label="Admission track" value={trackLabel(school.admissionTrack)} />
+                <Fact
+                  label="Next deadline"
+                  value={
+                    nextOpenDeadline
+                      ? `${nextOpenDeadline.title} · ${formatDate(nextOpenDeadline.dueDate)}`
+                      : ""
+                  }
+                  emphasize="mono"
+                />
+              </div>
+            </section>
+          ) : null}
+
+          {tab === "settings" ? (
+            <section className="school-modal-section">
+              <div className="school-overview-head">
+                <h3>Settings</h3>
+                <p className="section-sub">Adjust list phase, identity, programs, and how this school sits on the list.</p>
+              </div>
+
+              <h4 className="school-edit-label">List phase</h4>
+              <p className="section-sub">
+                {school.archived ? "Archived" : phaseLabel}
+                {participated ? ` · been in: ${participated}` : ""}
               </p>
-            ) : null}
-            {school.archived ? (
-              <button type="button" className="btn btn-primary" onClick={onRestore}>
-                Restore to list
-              </button>
-            ) : (
+              <div className="phase-actions">
+                {!school.archived && previousPhaseLabel ? (
+                  <button type="button" className="btn btn-secondary" onClick={onRetreat}>
+                    Move back to {previousPhaseLabel}
+                  </button>
+                ) : null}
+                {!school.archived && nextPhaseLabel && canAdvancePhase ? (
+                  <button type="button" className="btn btn-primary" onClick={onAdvance}>
+                    Move to {nextPhaseLabel}
+                  </button>
+                ) : null}
+                {!school.archived && nextPhaseLabel && !canAdvancePhase ? (
+                  <p className="section-sub phase-advance-lock">
+                    Only Kyle can move schools into {nextPhaseLabel}.
+                  </p>
+                ) : null}
+                {school.archived ? (
+                  <button type="button" className="btn btn-primary" onClick={onRestore}>
+                    Restore to list
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `Archive ${school.name}? It stays on file with the phases it was in.`,
+                        )
+                      ) {
+                        onArchive();
+                      }
+                    }}
+                  >
+                    Archive from list
+                  </button>
+                )}
+              </div>
+
+              <h4 className="school-edit-label">School profile</h4>
+              <div className="school-edit-grid">
+                <label className="stack-field">
+                  <span className="label">Location</span>
+                  <BlurInput
+                    value={school.location}
+                    ariaLabel="Location"
+                    placeholder="Not entered"
+                    onCommit={(value) => onPatch({ location: value })}
+                  />
+                </label>
+                <label className="stack-field">
+                  <span className="label">Campus / size</span>
+                  <BlurInput
+                    value={school.campusSize}
+                    ariaLabel="Campus size"
+                    placeholder="Not entered"
+                    onCommit={(value) => onPatch({ campusSize: value })}
+                  />
+                </label>
+                <label className="stack-field">
+                  <span className="label">Website</span>
+                  <BlurInput
+                    value={school.website}
+                    ariaLabel="School website"
+                    placeholder="https://"
+                    onCommit={(value) => onPatch({ website: value })}
+                  />
+                </label>
+                <label className="stack-field">
+                  <span className="label">Selectivity tier</span>
+                  <select
+                    className="field"
+                    value={school.selectivityTier}
+                    onChange={(event) => onPatch({ selectivityTier: event.target.value as School["selectivityTier"] })}
+                  >
+                    {SELECTIVITY_TIERS.map((item) => (
+                      <option key={item.id || "unset"} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="stack-field">
+                  <span className="label">Interest</span>
+                  <select
+                    className="field"
+                    value={school.interestLevel}
+                    onChange={(event) => onPatch({ interestLevel: event.target.value as School["interestLevel"] })}
+                  >
+                    {INTEREST_LEVELS.map((item) => (
+                      <option key={item.id || "unset"} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="stack-field">
+                  <span className="label">Application status</span>
+                  <select
+                    className="field"
+                    value={school.applicationStatus}
+                    onChange={(event) =>
+                      onPatch({ applicationStatus: event.target.value as School["applicationStatus"] })
+                    }
+                  >
+                    {APPLICATION_STATUSES.map((item) => (
+                      <option key={item.id || "unset"} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="stack-field">
+                  <span className="label">Admission track</span>
+                  <select
+                    className="field"
+                    value={school.admissionTrack}
+                    onChange={(event) => onPatch({ admissionTrack: event.target.value as School["admissionTrack"] })}
+                  >
+                    {ADMISSION_TRACKS.map((item) => (
+                      <option key={item.id || "unset"} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="stack-field">
+                  <span className="label">Mechanical Engineering</span>
+                  <BlurInput
+                    value={school.mechanicalEngineering}
+                    ariaLabel="Mechanical Engineering"
+                    placeholder="Yes / No"
+                    onCommit={(value) => onPatch({ mechanicalEngineering: value })}
+                  />
+                </label>
+                <label className="stack-field">
+                  <span className="label">Material Sciences</span>
+                  <BlurInput
+                    value={school.materials}
+                    ariaLabel="Material Sciences"
+                    placeholder="Yes / No"
+                    onCommit={(value) => onPatch({ materials: value })}
+                  />
+                </label>
+                <label className="stack-field">
+                  <span className="label">Material sciences offering</span>
+                  <BlurInput
+                    value={school.materialsOffering}
+                    ariaLabel="Material sciences offering"
+                    placeholder="Not entered"
+                    onCommit={(value) => onPatch({ materialsOffering: value })}
+                  />
+                </label>
+              </div>
+
+              <h4 className="school-edit-label">Notes for Kyle</h4>
+              <textarea
+                className="field"
+                defaultValue={school.notes}
+                key={school.notes}
+                onBlur={(event) => {
+                  if (event.target.value !== school.notes) onPatch({ notes: event.target.value });
+                }}
+              />
+
+              {school.researchSources ? (
+                <>
+                  <h4 className="school-edit-label">Where this came from</h4>
+                  <ul className="source-list">
+                    {sourceLines(school.researchSources).map((source) => (
+                      <li key={source.url}>
+                        <a href={source.url} target="_blank" rel="noreferrer">
+                          {source.title}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
+
               <button
                 type="button"
-                className="btn btn-ghost"
+                className="btn btn-ghost no-print"
+                style={{ marginTop: 28 }}
                 onClick={() => {
-                  if (
-                    window.confirm(
-                      `Archive ${school.name}? It stays on file with the phases it was in.`,
-                    )
-                  ) {
-                    onArchive();
-                  }
+                  if (window.confirm(`Remove ${school.name} from the list?`)) onDelete();
                 }}
               >
-                Archive from list
+                Remove school
               </button>
-            )}
-          </div>
-        </section>
-
-        <section className="school-modal-section school-edit-block">
-          <div className="school-overview-head">
-            <h3>Update record</h3>
-            <p className="section-sub">Change fields here. The snapshot above updates after you save.</p>
-          </div>
-          <h4 className="school-edit-label">Admissions and academics</h4>
-          <div className="school-edit-grid">
-            <label className="stack-field">
-              <span className="label">Selectivity tier</span>
-              <select
-                className="field"
-                value={school.selectivityTier}
-                onChange={(event) => onPatch({ selectivityTier: event.target.value as School["selectivityTier"] })}
-              >
-                {SELECTIVITY_TIERS.map((item) => (
-                  <option key={item.id || "unset"} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="stack-field">
-              <span className="label">Application status</span>
-              <select
-                className="field"
-                value={school.applicationStatus}
-                onChange={(event) => onPatch({ applicationStatus: event.target.value as School["applicationStatus"] })}
-              >
-                {APPLICATION_STATUSES.map((item) => (
-                  <option key={item.id || "unset"} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="stack-field">
-              <span className="label">Admission track</span>
-              <select
-                className="field"
-                value={school.admissionTrack}
-                onChange={(event) => onPatch({ admissionTrack: event.target.value as School["admissionTrack"] })}
-              >
-                {ADMISSION_TRACKS.map((item) => (
-                  <option key={item.id || "unset"} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="stack-field">
-              <span className="label">Interest</span>
-              <select
-                className="field"
-                value={school.interestLevel}
-                onChange={(event) => onPatch({ interestLevel: event.target.value as School["interestLevel"] })}
-              >
-                {INTEREST_LEVELS.map((item) => (
-                  <option key={item.id || "unset"} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="stack-field">
-              <span className="label">Test policy</span>
-              <BlurInput
-                value={school.testPolicy}
-                ariaLabel="Test policy"
-                placeholder="Not entered"
-                onCommit={(value) => onPatch({ testPolicy: value })}
-              />
-            </label>
-            <label className="stack-field">
-              <span className="label">Middle 50%</span>
-              <BlurInput
-                value={school.middle50}
-                ariaLabel="Middle 50 percent"
-                placeholder="Not entered"
-                onCommit={(value) => onPatch({ middle50: value })}
-              />
-            </label>
-            <label className="stack-field">
-              <span className="label">Application platform</span>
-              <BlurInput
-                value={school.applicationPlatform}
-                ariaLabel="Application platform"
-                placeholder="Not entered"
-                onCommit={(value) => onPatch({ applicationPlatform: value })}
-              />
-            </label>
-            <label className="stack-field">
-              <span className="label">Teacher recommendations</span>
-              <BlurInput
-                value={school.teacherRecs}
-                ariaLabel="Teacher recommendation count"
-                placeholder="Not entered"
-                onCommit={(value) => onPatch({ teacherRecs: value })}
-              />
-            </label>
-            <label className="stack-field">
-              <span className="label">Location</span>
-              <BlurInput
-                value={school.location}
-                ariaLabel="Location"
-                placeholder="Not entered"
-                onCommit={(value) => onPatch({ location: value })}
-              />
-            </label>
-            <label className="stack-field">
-              <span className="label">Campus / size</span>
-              <BlurInput
-                value={school.campusSize}
-                ariaLabel="Campus size"
-                placeholder="Not entered"
-                onCommit={(value) => onPatch({ campusSize: value })}
-              />
-            </label>
-            <label className="stack-field">
-              <span className="label">Mechanical Engineering</span>
-              <BlurInput
-                value={school.mechanicalEngineering}
-                ariaLabel="Mechanical Engineering"
-                placeholder="Yes / No"
-                onCommit={(value) => onPatch({ mechanicalEngineering: value })}
-              />
-            </label>
-            <label className="stack-field">
-              <span className="label">Material Sciences</span>
-              <BlurInput
-                value={school.materials}
-                ariaLabel="Material Sciences"
-                placeholder="Yes / No"
-                onCommit={(value) => onPatch({ materials: value })}
-              />
-            </label>
-            <label className="stack-field">
-              <span className="label">Material sciences offering</span>
-              <BlurInput
-                value={school.materialsOffering}
-                ariaLabel="Material sciences offering"
-                placeholder="Not entered"
-                onCommit={(value) => onPatch({ materialsOffering: value })}
-              />
-            </label>
-            <label className="stack-field">
-              <span className="label">Website</span>
-              <BlurInput
-                value={school.website}
-                ariaLabel="School website"
-                placeholder="https://"
-                onCommit={(value) => onPatch({ website: value })}
-              />
-            </label>
-          </div>
-          <label className="stack-field school-edit-full">
-            <span className="label">Required essays</span>
-            <textarea
-              className="field"
-              defaultValue={school.requiredEssays}
-              key={school.requiredEssays}
-              placeholder="Not entered"
-              onBlur={(event) => {
-                if (event.target.value !== school.requiredEssays) onPatch({ requiredEssays: event.target.value });
-              }}
-            />
-          </label>
-          <label className="stack-field school-edit-full">
-            <span className="label">Admissions context</span>
-            <textarea
-              className="field"
-              defaultValue={school.admissionsContext}
-              key={school.admissionsContext}
-              placeholder="Not entered"
-              onBlur={(event) => {
-                if (event.target.value !== school.admissionsContext) {
-                  onPatch({ admissionsContext: event.target.value });
-                }
-              }}
-            />
-          </label>
-          <label className="stack-field school-edit-full">
-            <span className="label">SAT context</span>
-            <textarea
-              className="field"
-              defaultValue={school.satContext}
-              key={school.satContext}
-              placeholder="Not entered"
-              onBlur={(event) => {
-                if (event.target.value !== school.satContext) onPatch({ satContext: event.target.value });
-              }}
-            />
-          </label>
-
-          <h4 className="school-edit-label">Financials</h4>
-          <div className="school-edit-grid">
-            <label className="stack-field">
-              <span className="label">Sticker price</span>
-              <BlurInput
-                value={school.costOfAttendance}
-                ariaLabel="Cost of attendance"
-                placeholder="Not entered"
-                onCommit={(value) => onPatch({ costOfAttendance: value })}
-              />
-            </label>
-            <label className="stack-field">
-              <span className="label">Net price estimate</span>
-              <BlurInput
-                value={school.netPriceEstimate}
-                ariaLabel="Net price estimate"
-                placeholder="Not entered"
-                onCommit={(value) => onPatch({ netPriceEstimate: value })}
-              />
-            </label>
-          </div>
-          <label className="stack-field school-edit-full">
-            <span className="label">Merit aid notes</span>
-            <textarea
-              className="field"
-              defaultValue={school.meritAidNotes}
-              key={school.meritAidNotes}
-              placeholder="Not entered"
-              onBlur={(event) => {
-                if (event.target.value !== school.meritAidNotes) onPatch({ meritAidNotes: event.target.value });
-              }}
-            />
-          </label>
-        </section>
-
-        <section className="school-modal-section school-edit-block">
-          <h3>Engagement and contacts</h3>
-          {school.contacts.length === 0 ? <p className="muted">No contacts yet.</p> : null}
-          {school.contacts.length > 0 ? (
-            <table className="child-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Role</th>
-                  <th>Email</th>
-                  <th>Phone</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {school.contacts.map((contact) => (
-                  <tr key={contact.id}>
-                    <td>
-                      <BlurInput
-                        value={contact.name}
-                        ariaLabel={`Name for ${contact.name || "contact"}`}
-                        onCommit={(value) => onPatchContact(contact.id, { name: value })}
-                      />
-                    </td>
-                    <td>
-                      <BlurInput
-                        value={contact.role}
-                        ariaLabel="Contact role"
-                        placeholder="Regional rep"
-                        onCommit={(value) => onPatchContact(contact.id, { role: value })}
-                      />
-                    </td>
-                    <td>
-                      <BlurInput
-                        value={contact.email}
-                        ariaLabel="Contact email"
-                        onCommit={(value) => onPatchContact(contact.id, { email: value })}
-                      />
-                    </td>
-                    <td>
-                      <BlurInput
-                        value={contact.phone}
-                        ariaLabel="Contact phone"
-                        onCommit={(value) => onPatchContact(contact.id, { phone: value })}
-                      />
-                    </td>
-                    <td>
-                      <button type="button" className="btn btn-ghost" onClick={() => onDeleteContact(contact.id)}>
-                        Remove
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            </section>
           ) : null}
-          <form
-            className="add-row"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!contactName.trim()) return;
-              onAddContact({
-                name: contactName.trim(),
-                role: contactRole.trim(),
-                email: contactEmail.trim(),
-                phone: contactPhone.trim(),
-              });
-              setContactName("");
-              setContactRole("");
-              setContactEmail("");
-              setContactPhone("");
-            }}
-          >
-            <input className="field" value={contactName} placeholder="Name" onChange={(event) => setContactName(event.target.value)} />
-            <input className="field" value={contactRole} placeholder="Role" onChange={(event) => setContactRole(event.target.value)} />
-            <input className="field" value={contactEmail} placeholder="Email" onChange={(event) => setContactEmail(event.target.value)} />
-            <input className="field" value={contactPhone} placeholder="Phone" onChange={(event) => setContactPhone(event.target.value)} />
-            <button type="submit" className="btn btn-primary">
-              Add contact
-            </button>
-          </form>
 
-          <div className="filters">
-            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input type="checkbox" checked={school.visited} onChange={(event) => onPatch({ visited: event.target.checked })} />
-              Visited
-            </label>
-            <label className="stack-field">
-              <span className="label">Visit date</span>
-              <input
-                className="field"
-                type="date"
-                value={school.visitDate ?? ""}
-                onChange={(event) => onPatch({ visitDate: event.target.value || null })}
-              />
-            </label>
-          </div>
-          <label className="stack-field">
-            <span className="label">Visit notes</span>
-            <textarea
-              className="field"
-              defaultValue={school.visitNotes}
-              key={school.visitNotes}
-              onBlur={(event) => {
-                if (event.target.value !== school.visitNotes) onPatch({ visitNotes: event.target.value });
-              }}
-            />
-          </label>
-
-          <h4 className="school-edit-label">Touchpoints</h4>
-          {school.steps.length === 0 ? <p className="muted">No touchpoints yet.</p> : null}
-          {school.steps.map((step) => (
-            <div key={step.id} className={step.done ? "step-row done" : "step-row"}>
-              <input type="checkbox" checked={step.done} onChange={(event) => onPatchStep(step.id, { done: event.target.checked })} />
-              <label>{step.label}</label>
-              <select className="field compact" value={step.owner} onChange={(event) => onPatchStep(step.id, { owner: event.target.value as Owner })}>
-                {OWNERS.map((owner) => (
-                  <option key={owner.id} value={owner.id}>
-                    {owner.label}
-                  </option>
-                ))}
-              </select>
-              <button type="button" className="btn btn-ghost" onClick={() => onDeleteStep(step.id)}>
-                Remove
-              </button>
-            </div>
-          ))}
-          <div className="add-row">
-            <input
-              className="field"
-              list="step-presets"
-              value={stepLabel}
-              placeholder="Add a visit, call, or interview"
-              onChange={(event) => setStepLabel(event.target.value)}
-            />
-            <datalist id="step-presets">
-              {STEP_PRESETS.map((preset) => (
-                <option key={preset} value={preset} />
-              ))}
-            </datalist>
-            <select className="field" value={stepOwner} onChange={(event) => setStepOwner(event.target.value as Owner)}>
-              {OWNERS.map((owner) => (
-                <option key={owner.id} value={owner.id}>
-                  {ownerLabel(owner.id)}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => {
-                if (!stepLabel.trim()) return;
-                onAddStep(stepLabel.trim(), stepOwner);
-                setStepLabel("");
-              }}
-            >
-              Add
-            </button>
-          </div>
-        </section>
-
-        <section className="school-modal-section school-edit-block">
-          <h3>Deadlines</h3>
-          {deadlines.length === 0 ? <p className="muted">No deadlines yet.</p> : null}
-          {deadlines.length > 0 ? (
-            <table className="child-table">
-              <thead>
-                <tr>
-                  <th>Done</th>
-                  <th>Milestone</th>
-                  <th>Due</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {deadlines.map((deadline) => (
-                  <tr key={deadline.id} className={deadline.completed ? "done" : undefined}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={deadline.completed}
-                        aria-label={`Completed ${deadline.title}`}
-                        onChange={(event) => onPatchDeadline(deadline.id, { completed: event.target.checked })}
-                      />
-                    </td>
-                    <td>
-                      <BlurInput
-                        value={deadline.title}
-                        ariaLabel="Deadline title"
-                        onCommit={(value) => onPatchDeadline(deadline.id, { title: value })}
-                      />
-                    </td>
-                    <td>
-                      <input
-                        className="field"
-                        type="date"
-                        aria-label="Due date"
-                        value={deadline.dueDate ?? ""}
-                        onChange={(event) => onPatchDeadline(deadline.id, { dueDate: event.target.value || null })}
-                      />
-                    </td>
-                    <td>
-                      <button type="button" className="btn btn-ghost" onClick={() => onDeleteDeadline(deadline.id)}>
-                        Remove
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {tab === "requirements" ? (
+            <section className="school-modal-section">
+              <div className="school-overview-head">
+                <h3>Requirements</h3>
+                <p className="section-sub">
+                  Testing, essays, recs, and other pieces this school&apos;s application expects.
+                </p>
+              </div>
+              <div className="school-edit-grid">
+                <label className="stack-field">
+                  <span className="label">Test policy</span>
+                  <BlurInput
+                    value={school.testPolicy}
+                    ariaLabel="Test policy"
+                    placeholder="Not entered"
+                    onCommit={(value) => onPatch({ testPolicy: value })}
+                  />
+                </label>
+                <label className="stack-field">
+                  <span className="label">Middle 50%</span>
+                  <BlurInput
+                    value={school.middle50}
+                    ariaLabel="Middle 50 percent"
+                    placeholder="Not entered"
+                    onCommit={(value) => onPatch({ middle50: value })}
+                  />
+                </label>
+                <label className="stack-field">
+                  <span className="label">Application platform</span>
+                  <BlurInput
+                    value={school.applicationPlatform}
+                    ariaLabel="Application platform"
+                    placeholder="Not entered"
+                    onCommit={(value) => onPatch({ applicationPlatform: value })}
+                  />
+                </label>
+                <label className="stack-field">
+                  <span className="label">Teacher recommendations</span>
+                  <BlurInput
+                    value={school.teacherRecs}
+                    ariaLabel="Teacher recommendation count"
+                    placeholder="Not entered"
+                    onCommit={(value) => onPatch({ teacherRecs: value })}
+                  />
+                </label>
+              </div>
+              <label className="stack-field school-edit-full">
+                <span className="label">SAT context</span>
+                <textarea
+                  className="field"
+                  defaultValue={school.satContext}
+                  key={school.satContext}
+                  placeholder="Not entered"
+                  onBlur={(event) => {
+                    if (event.target.value !== school.satContext) onPatch({ satContext: event.target.value });
+                  }}
+                />
+              </label>
+              <label className="stack-field school-edit-full">
+                <span className="label">Required essays</span>
+                <textarea
+                  className="field"
+                  defaultValue={school.requiredEssays}
+                  key={school.requiredEssays}
+                  placeholder="Not entered"
+                  onBlur={(event) => {
+                    if (event.target.value !== school.requiredEssays) onPatch({ requiredEssays: event.target.value });
+                  }}
+                />
+              </label>
+              <label className="stack-field school-edit-full">
+                <span className="label">Admissions context</span>
+                <textarea
+                  className="field"
+                  defaultValue={school.admissionsContext}
+                  key={school.admissionsContext}
+                  placeholder="Not entered"
+                  onBlur={(event) => {
+                    if (event.target.value !== school.admissionsContext) {
+                      onPatch({ admissionsContext: event.target.value });
+                    }
+                  }}
+                />
+              </label>
+            </section>
           ) : null}
-          <form
-            className="add-row"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!deadlineTitle.trim()) return;
-              onAddDeadline(deadlineTitle.trim(), deadlineDate || null);
-              setDeadlineTitle("");
-              setDeadlineDate("");
-            }}
-          >
-            <input className="field" value={deadlineTitle} placeholder="Milestone" onChange={(event) => setDeadlineTitle(event.target.value)} />
-            <input className="field" type="date" value={deadlineDate} aria-label="New deadline date" onChange={(event) => setDeadlineDate(event.target.value)} />
-            <button type="submit" className="btn btn-primary">
-              Add deadline
-            </button>
-          </form>
-        </section>
 
-        <section className="school-modal-section school-edit-block">
-          <h3>Notes for Kyle</h3>
-          <textarea
-            className="field"
-            defaultValue={school.notes}
-            key={school.notes}
-            onBlur={(event) => {
-              if (event.target.value !== school.notes) onPatch({ notes: event.target.value });
-            }}
-          />
-        </section>
+          {tab === "financials" ? (
+            <section className="school-modal-section">
+              <div className="school-overview-head">
+                <h3>Financials</h3>
+                <p className="section-sub">Sticker price, net price, and merit aid notes for this school.</p>
+              </div>
+              <div className="school-edit-grid">
+                <label className="stack-field">
+                  <span className="label">Sticker price</span>
+                  <BlurInput
+                    value={school.costOfAttendance}
+                    ariaLabel="Cost of attendance"
+                    placeholder="Not entered"
+                    onCommit={(value) => onPatch({ costOfAttendance: value })}
+                  />
+                </label>
+                <label className="stack-field">
+                  <span className="label">Net price estimate</span>
+                  <BlurInput
+                    value={school.netPriceEstimate}
+                    ariaLabel="Net price estimate"
+                    placeholder="Not entered"
+                    onCommit={(value) => onPatch({ netPriceEstimate: value })}
+                  />
+                </label>
+              </div>
+              <label className="stack-field school-edit-full">
+                <span className="label">Merit aid notes</span>
+                <textarea
+                  className="field"
+                  defaultValue={school.meritAidNotes}
+                  key={school.meritAidNotes}
+                  placeholder="Not entered"
+                  onBlur={(event) => {
+                    if (event.target.value !== school.meritAidNotes) onPatch({ meritAidNotes: event.target.value });
+                  }}
+                />
+              </label>
+            </section>
+          ) : null}
 
-        {school.researchSources ? (
-          <section className="school-modal-section">
-            <h3>Where this came from</h3>
-            <ul className="source-list">
-              {sourceLines(school.researchSources).map((source) => (
-                <li key={source.url}>
-                  <a href={source.url} target="_blank" rel="noreferrer">
-                    {source.title}
-                  </a>
-                </li>
+          {tab === "projects" ? (
+            <section className="school-modal-section">
+              <div className="school-overview-head">
+                <h3>Project management</h3>
+                <p className="section-sub">
+                  Contacts, visits, touchpoints, and deadlines for this school — separate from the household to-do lists.
+                </p>
+              </div>
+
+              <h4 className="school-edit-label">Contacts</h4>
+              {school.contacts.length === 0 ? <p className="muted">No contacts yet.</p> : null}
+              {school.contacts.length > 0 ? (
+                <table className="child-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Role</th>
+                      <th>Email</th>
+                      <th>Phone</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {school.contacts.map((contact) => (
+                      <tr key={contact.id}>
+                        <td>
+                          <BlurInput
+                            value={contact.name}
+                            ariaLabel={`Name for ${contact.name || "contact"}`}
+                            onCommit={(value) => onPatchContact(contact.id, { name: value })}
+                          />
+                        </td>
+                        <td>
+                          <BlurInput
+                            value={contact.role}
+                            ariaLabel="Contact role"
+                            placeholder="Regional rep"
+                            onCommit={(value) => onPatchContact(contact.id, { role: value })}
+                          />
+                        </td>
+                        <td>
+                          <BlurInput
+                            value={contact.email}
+                            ariaLabel="Contact email"
+                            onCommit={(value) => onPatchContact(contact.id, { email: value })}
+                          />
+                        </td>
+                        <td>
+                          <BlurInput
+                            value={contact.phone}
+                            ariaLabel="Contact phone"
+                            onCommit={(value) => onPatchContact(contact.id, { phone: value })}
+                          />
+                        </td>
+                        <td>
+                          <button type="button" className="btn btn-ghost" onClick={() => onDeleteContact(contact.id)}>
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : null}
+              <form
+                className="add-row"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!contactName.trim()) return;
+                  onAddContact({
+                    name: contactName.trim(),
+                    role: contactRole.trim(),
+                    email: contactEmail.trim(),
+                    phone: contactPhone.trim(),
+                  });
+                  setContactName("");
+                  setContactRole("");
+                  setContactEmail("");
+                  setContactPhone("");
+                }}
+              >
+                <input
+                  className="field"
+                  value={contactName}
+                  placeholder="Name"
+                  onChange={(event) => setContactName(event.target.value)}
+                />
+                <input
+                  className="field"
+                  value={contactRole}
+                  placeholder="Role"
+                  onChange={(event) => setContactRole(event.target.value)}
+                />
+                <input
+                  className="field"
+                  value={contactEmail}
+                  placeholder="Email"
+                  onChange={(event) => setContactEmail(event.target.value)}
+                />
+                <input
+                  className="field"
+                  value={contactPhone}
+                  placeholder="Phone"
+                  onChange={(event) => setContactPhone(event.target.value)}
+                />
+                <button type="submit" className="btn btn-primary">
+                  Add contact
+                </button>
+              </form>
+
+              <h4 className="school-edit-label">Visit</h4>
+              <div className="filters">
+                <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    checked={school.visited}
+                    onChange={(event) => onPatch({ visited: event.target.checked })}
+                  />
+                  Visited
+                </label>
+                <label className="stack-field">
+                  <span className="label">Visit date</span>
+                  <input
+                    className="field"
+                    type="date"
+                    value={school.visitDate ?? ""}
+                    onChange={(event) => onPatch({ visitDate: event.target.value || null })}
+                  />
+                </label>
+              </div>
+              <label className="stack-field">
+                <span className="label">Visit notes</span>
+                <textarea
+                  className="field"
+                  defaultValue={school.visitNotes}
+                  key={school.visitNotes}
+                  onBlur={(event) => {
+                    if (event.target.value !== school.visitNotes) onPatch({ visitNotes: event.target.value });
+                  }}
+                />
+              </label>
+
+              <h4 className="school-edit-label">Touchpoints</h4>
+              {school.steps.length === 0 ? <p className="muted">No touchpoints yet.</p> : null}
+              {school.steps.map((step) => (
+                <div key={step.id} className={step.done ? "step-row done" : "step-row"}>
+                  <input
+                    type="checkbox"
+                    checked={step.done}
+                    onChange={(event) => onPatchStep(step.id, { done: event.target.checked })}
+                  />
+                  <label>{step.label}</label>
+                  <select
+                    className="field compact"
+                    value={step.owner}
+                    onChange={(event) => onPatchStep(step.id, { owner: event.target.value as Owner })}
+                  >
+                    {OWNERS.map((owner) => (
+                      <option key={owner.id} value={owner.id}>
+                        {owner.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button type="button" className="btn btn-ghost" onClick={() => onDeleteStep(step.id)}>
+                    Remove
+                  </button>
+                </div>
               ))}
-            </ul>
-          </section>
-        ) : null}
+              <div className="add-row">
+                <input
+                  className="field"
+                  list="step-presets"
+                  value={stepLabel}
+                  placeholder="Add a visit, call, or interview"
+                  onChange={(event) => setStepLabel(event.target.value)}
+                />
+                <datalist id="step-presets">
+                  {STEP_PRESETS.map((preset) => (
+                    <option key={preset} value={preset} />
+                  ))}
+                </datalist>
+                <select
+                  className="field"
+                  value={stepOwner}
+                  onChange={(event) => setStepOwner(event.target.value as Owner)}
+                >
+                  {OWNERS.map((owner) => (
+                    <option key={owner.id} value={owner.id}>
+                      {ownerLabel(owner.id)}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    if (!stepLabel.trim()) return;
+                    onAddStep(stepLabel.trim(), stepOwner);
+                    setStepLabel("");
+                  }}
+                >
+                  Add
+                </button>
+              </div>
 
-        <button
-          type="button"
-          className="btn btn-ghost no-print"
-          style={{ marginTop: 28 }}
-          onClick={() => {
-            if (window.confirm(`Remove ${school.name} from the list?`)) onDelete();
-          }}
-        >
-          Remove school
-        </button>
+              <h4 className="school-edit-label">Deadlines</h4>
+              {deadlines.length === 0 ? <p className="muted">No deadlines yet.</p> : null}
+              {deadlines.length > 0 ? (
+                <table className="child-table">
+                  <thead>
+                    <tr>
+                      <th>Done</th>
+                      <th>Milestone</th>
+                      <th>Due</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {deadlines.map((deadline) => (
+                      <tr key={deadline.id} className={deadline.completed ? "done" : undefined}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={deadline.completed}
+                            aria-label={`Completed ${deadline.title}`}
+                            onChange={(event) => onPatchDeadline(deadline.id, { completed: event.target.checked })}
+                          />
+                        </td>
+                        <td>
+                          <BlurInput
+                            value={deadline.title}
+                            ariaLabel="Deadline title"
+                            onCommit={(value) => onPatchDeadline(deadline.id, { title: value })}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            className="field"
+                            type="date"
+                            aria-label="Due date"
+                            value={deadline.dueDate ?? ""}
+                            onChange={(event) => onPatchDeadline(deadline.id, { dueDate: event.target.value || null })}
+                          />
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            onClick={() => onDeleteDeadline(deadline.id)}
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : null}
+              <form
+                className="add-row"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!deadlineTitle.trim()) return;
+                  onAddDeadline(deadlineTitle.trim(), deadlineDate || null);
+                  setDeadlineTitle("");
+                  setDeadlineDate("");
+                }}
+              >
+                <input
+                  className="field"
+                  value={deadlineTitle}
+                  placeholder="Milestone"
+                  onChange={(event) => setDeadlineTitle(event.target.value)}
+                />
+                <input
+                  className="field"
+                  type="date"
+                  value={deadlineDate}
+                  aria-label="New deadline date"
+                  onChange={(event) => setDeadlineDate(event.target.value)}
+                />
+                <button type="submit" className="btn btn-primary">
+                  Add deadline
+                </button>
+              </form>
+            </section>
+          ) : null}
+        </div>
       </div>
     </div>
   );
