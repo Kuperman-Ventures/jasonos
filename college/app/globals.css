@@ -1816,6 +1816,150 @@ table.schools .muted,
   border-top: 1px solid var(--color-divider);
 }
 
+
+/* ---------- project to-dos ---------- */
+.todos-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
+}
+.todos-summary .readout {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--color-divider);
+}
+.todos-summary .readout:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+.todos-summary .label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+.todos-summary .figure {
+  font-family: var(--font-mono);
+  font-size: 40px;
+  line-height: 1;
+  font-weight: 500;
+  color: var(--accent-500);
+  font-variant-numeric: tabular-nums;
+}
+.todos-summary .unit {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-subtle);
+}
+.todo-bucket {
+  margin-bottom: var(--space-6);
+  padding: var(--space-4);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.todo-bucket.focus {
+  border-color: var(--accent-500);
+  box-shadow: inset 3px 0 0 var(--accent-500);
+}
+.todo-bucket-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.todo-bucket-head h3 {
+  margin: 0;
+  font-size: 20px;
+}
+.todo-count {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+.todo-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.todo-row {
+  margin: 0;
+}
+.todo-check {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  min-height: 44px;
+  cursor: pointer;
+}
+.todo-check input {
+  margin-top: 4px;
+  flex: none;
+}
+.todo-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.todo-label {
+  font-size: 15px;
+  color: var(--color-text);
+  line-height: 1.35;
+}
+.todo-row.done .todo-label {
+  color: var(--text-subtle);
+  text-decoration: line-through;
+}
+.todo-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.todo-when {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+.todo-parent {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+.todo-empty {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-subtle);
+}
+.todo-done-block {
+  margin-top: var(--space-3);
+}
+.todo-done-block summary {
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-subtle);
+  margin-bottom: var(--space-2);
+}
+.todos-others-title { margin-top: var(--space-2); }
+.todos-others {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4);
+}
+
 /* ---------- college list funnel ---------- */
 .list-phase-bar {
   display: grid;

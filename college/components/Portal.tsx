@@ -579,6 +579,7 @@ export function Portal({
           <ProjectManagementTab
             section={projectSection}
             onSectionChange={goProjectSection}
+            memberId={member.id}
             phases={phases}
             checklist={checklist}
             onToggle={toggleItem}

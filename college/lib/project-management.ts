@@ -1,6 +1,6 @@
 /** Project Management section — parent nav with submenus. */
 
-export type ProjectSectionId = "timeline" | "board" | "calendar";
+export type ProjectSectionId = "timeline" | "todos" | "ingest" | "board" | "calendar";
 
 export type ProjectSection = {
   id: ProjectSectionId;
@@ -17,6 +17,18 @@ export const PROJECT_SECTIONS: ProjectSection[] = [
     label: "Timeline",
     blurb: "Process ledger and phase checklist for the college runway.",
     status: "ready",
+  },
+  {
+    id: "todos",
+    label: "To-dos",
+    blurb: "Your assigned steps first, with the rest of the household still visible.",
+    status: "ready",
+  },
+  {
+    id: "ingest",
+    label: "Ingest",
+    blurb: "Paste articles, URLs, PDFs, or notes — task parsing comes next.",
+    status: "soon",
   },
   {
     id: "board",

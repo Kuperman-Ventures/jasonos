@@ -1,6 +1,7 @@
 "use client";
 
 import { TimelinePanel } from "./TimelinePanel";
+import { TodosPanel } from "./TodosPanel";
 import {
   PROJECT_SECTIONS,
   projectSectionById,
@@ -11,6 +12,7 @@ import type { Phase } from "@/lib/types";
 export function ProjectManagementTab({
   section,
   onSectionChange,
+  memberId,
   phases,
   checklist,
   onToggle,
@@ -18,6 +20,7 @@ export function ProjectManagementTab({
 }: {
   section: ProjectSectionId;
   onSectionChange: (section: ProjectSectionId) => void;
+  memberId: string;
   phases: Phase[];
   checklist: Record<string, boolean>;
   onToggle: (id: string, checked: boolean) => void;
@@ -60,15 +63,26 @@ export function ProjectManagementTab({
 
       {active.status === "ready" && active.id === "timeline" ? (
         <TimelinePanel phases={phases} checklist={checklist} onToggle={onToggle} />
-      ) : (
+      ) : null}
+
+      {active.status === "ready" && active.id === "todos" ? (
+        <TodosPanel
+          memberId={memberId}
+          phases={phases}
+          checklist={checklist}
+          onToggle={onToggle}
+        />
+      ) : null}
+
+      {active.status === "soon" ? (
         <div className="pm-soon">
           <h3 className="dash-title">{active.label}</h3>
           <p className="section-sub">
-            This submenu is reserved for the next project-management build. Timeline stays available
-            above in the meantime.
+            This submenu is reserved for the next project-management build. Timeline and To-dos stay
+            available above in the meantime.
           </p>
         </div>
-      )}
+      ) : null}
     </section>
   );
 }
