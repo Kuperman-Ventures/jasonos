@@ -1160,6 +1160,45 @@ table.schools .muted,
   font-weight: 600;
 }
 .rail-link[aria-current="page"] .count { color: var(--text-accent); }
+.rail-item { display: flex; flex-direction: column; }
+.rail-subnav {
+  display: flex;
+  flex-direction: column;
+  padding: 0 0 var(--space-1) calc(var(--space-3) + 6px);
+  gap: 1px;
+}
+.rail-sublink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-height: 30px;
+  padding: 2px var(--space-2);
+  border: 0;
+  background: none;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+.rail-sublink:hover:not(:disabled) { background: var(--hover-fill); color: var(--color-text); }
+.rail-sublink.active {
+  color: var(--text-accent);
+  font-weight: 600;
+}
+.rail-sublink:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.rail-sublink .soon {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
 .rail-foot {
   margin-top: auto;
   padding: var(--space-2) var(--space-3) 0;
@@ -1719,6 +1758,62 @@ table.schools .muted,
   .firm-card, .school-card, .step-row { box-shadow: none !important; break-inside: avoid; }
   .table-wrap { overflow: visible !important; }
   table.rubric, table.schools { min-width: 0 !important; }
+}
+
+
+/* ---------- project management ---------- */
+.pm-subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.pm-subnav button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.pm-subnav button:hover:not(:disabled) { border-color: var(--color-accent-400); }
+.pm-subnav button.active {
+  border-color: var(--accent-500);
+  box-shadow: inset 0 -2px 0 var(--accent-500);
+  font-weight: 600;
+}
+.pm-subnav button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.pm-subnav-soon {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+.pm-blurb {
+  margin: 0 0 var(--space-6);
+  font-size: 15px;
+  color: var(--text-muted);
+  max-width: 62ch;
+}
+.pm-panel-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--space-3);
+}
+.pm-soon {
+  padding: var(--space-6) 0;
+  border-top: 1px solid var(--color-divider);
 }
 
 /* ---------- college list funnel ---------- */

@@ -8,8 +8,8 @@ import { DashboardTab } from "./DashboardTab";
 import { FaqTab } from "./FaqTab";
 import { LeftRail } from "./LeftRail";
 import { NotesTab } from "./NotesTab";
+import { ProjectManagementTab } from "./ProjectManagementTab";
 import { TestingTab, testingItems } from "./TestingTab";
-import { TimelineTab } from "./TimelineTab";
 import {
   appCore,
   consultantCriteria,
@@ -26,6 +26,11 @@ import {
 import { currentPhaseIndex, phaseStatuses } from "@/lib/phases";
 import { useSchoolPipeline } from "@/lib/use-school-pipeline";
 import { defaultListPrefs, mergeListPrefs, type MemberListPrefs } from "@/lib/list-phases";
+import {
+  DEFAULT_PROJECT_SECTION,
+  resolveProjectSection,
+  type ProjectSectionId,
+} from "@/lib/project-management";
 import type { ContactPatch, DeadlinePatch, Owner, School, Scores, TabId } from "@/lib/types";
 import {
   fromSeed,
@@ -36,7 +41,7 @@ import {
   isListPhaseId,
   isPlan,
   isSelectivityTier,
-  TABS,
+  normalizeTabId,
 } from "@/lib/types";
 
 const schoolListeners = new Set<() => void>();
@@ -58,14 +63,16 @@ function schoolFromLocation() {
   return new URLSearchParams(window.location.search).get("school");
 }
 
-function readStart(): { tab: TabId; schoolId: string | null } {
-  if (typeof window === "undefined") return { tab: "dashboard", schoolId: null };
+function readStart(): { tab: TabId; schoolId: string | null; projectSection: ProjectSectionId } {
+  if (typeof window === "undefined") {
+    return { tab: "dashboard", schoolId: null, projectSection: DEFAULT_PROJECT_SECTION };
+  }
   const params = new URLSearchParams(window.location.search);
   const school = params.get("school");
-  if (school) return { tab: "colleges", schoolId: school };
-  const requested = params.get("tab");
-  const tab = requested && TABS.some((item) => item.id === requested) ? (requested as TabId) : "dashboard";
-  return { tab, schoolId: null };
+  const projectSection = resolveProjectSection(params.get("pm"));
+  if (school) return { tab: "colleges", schoolId: school, projectSection };
+  const tab = normalizeTabId(params.get("tab")) ?? "dashboard";
+  return { tab, schoolId: null, projectSection };
 }
 
 export function Portal({
@@ -75,6 +82,7 @@ export function Portal({
 }) {
   // Always start on dashboard so SSR and the first client paint match. URL sync happens after mount.
   const [tab, setTab] = useState<TabId>("dashboard");
+  const [projectSection, setProjectSection] = useState<ProjectSectionId>(DEFAULT_PROJECT_SECTION);
   const schoolId = useSyncExternalStore(subscribeSchool, schoolFromLocation, () => null);
   const [checklist, setChecklist] = useState<Record<string, boolean>>({});
   const [scores, setScores] = useState<Scores>(seedScores);
@@ -94,7 +102,9 @@ export function Portal({
   useEffect(() => {
     if (urlBootstrapped.current) return;
     urlBootstrapped.current = true;
-    setTab(readStart().tab);
+    const start = readStart();
+    setTab(start.tab);
+    setProjectSection(start.projectSection);
   }, []);
 
   useEffect(() => {
@@ -150,14 +160,31 @@ export function Portal({
     }, 350);
   }
 
-  const replaceUrl = useCallback((nextTab: TabId, nextSchool: string | null) => {
-    const params = new URLSearchParams();
-    if (nextTab !== "colleges") params.set("tab", nextTab);
-    if (nextSchool) params.set("school", nextSchool);
-    const query = params.toString();
-    window.history.replaceState(null, "", query ? `/?${query}` : "/");
-    emitSchool();
-  }, []);
+  const replaceUrl = useCallback(
+    (nextTab: TabId, nextSchool: string | null, nextProjectSection: ProjectSectionId = projectSection) => {
+      const params = new URLSearchParams();
+      if (nextTab !== "colleges") params.set("tab", nextTab);
+      if (nextTab === "projects") {
+        params.set("pm", nextProjectSection);
+      }
+      if (nextSchool) params.set("school", nextSchool);
+      const query = params.toString();
+      window.history.replaceState(null, "", query ? `/?${query}` : "/");
+      emitSchool();
+    },
+    [projectSection],
+  );
+
+  function goTab(next: TabId) {
+    setTab(next);
+    replaceUrl(next, next === "colleges" ? schoolId : null);
+  }
+
+  function goProjectSection(next: ProjectSectionId) {
+    setProjectSection(next);
+    setTab("projects");
+    replaceUrl("projects", null, next);
+  }
 
   const statuses = useMemo(() => phaseStatuses(phases, checklist), [checklist]);
   const phaseIndex = currentPhaseIndex(statuses);
@@ -479,13 +506,12 @@ export function Portal({
     <div className="shell">
       <LeftRail
         tab={tab}
-        onChange={(next) => {
-          setTab(next);
-          replaceUrl(next, next === "colleges" ? schoolId : null);
-        }}
+        onChange={goTab}
+        projectSection={projectSection}
+        onProjectSectionChange={goProjectSection}
         member={member}
         schoolCount={schools.length}
-        timelineCount={phases.length}
+        projectCount={phases.length}
         questionCount={essayPromptList.length}
         consultantCount={consultantFirms.length}
         faqCount={faqCount}
@@ -549,8 +575,15 @@ export function Portal({
             onDeleteContact={(id, contactId) => void removeContact(id, contactId)}
           />
         ) : null}
-        {tab === "timeline" ? (
-          <TimelineTab phases={phases} checklist={checklist} onToggle={toggleItem} dateline={phaseLabel} />
+        {tab === "projects" ? (
+          <ProjectManagementTab
+            section={projectSection}
+            onSectionChange={goProjectSection}
+            phases={phases}
+            checklist={checklist}
+            onToggle={toggleItem}
+            dateline={phaseLabel}
+          />
         ) : null}
         {tab === "faq" ? <FaqTab categories={faqCategories} dateline={phaseLabel} /> : null}
         {tab === "questions" ? (

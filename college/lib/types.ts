@@ -6,6 +6,7 @@ export type Owner = "kyle" | "jason" | "kat";
 export type TabId =
   | "dashboard"
   | "colleges"
+  | "projects"
   | "timeline"
   | "faq"
   | "questions"
@@ -202,7 +203,7 @@ export const STEP_PRESETS = [
 export const TABS: { id: TabId; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
   { id: "colleges", label: "Colleges" },
-  { id: "timeline", label: "Timeline" },
+  { id: "projects", label: "Project Management" },
   { id: "questions", label: "App Questions" },
   { id: "consultants", label: "Consultants" },
   { id: "notes", label: "Notes" },
@@ -210,6 +211,12 @@ export const TABS: { id: TabId; label: string }[] = [
   { id: "testing", label: "Testing" },
 ];
 
+/** Normalize legacy tab ids (e.g. timeline → projects). */
+export function normalizeTabId(value: string | null): TabId | null {
+  if (!value) return null;
+  if (value === "timeline") return "projects";
+  return TABS.some((item) => item.id === value) ? (value as TabId) : null;
+}
 const CHOICE_RANK: Record<Choice, number> = {
   top: 0,
   middle: 1,

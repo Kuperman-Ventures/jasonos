@@ -2,6 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import Image from "next/image";
+import {
+  PROJECT_SECTIONS,
+  type ProjectSectionId,
+} from "@/lib/project-management";
 import type { PhaseStatus } from "@/lib/phases";
 import type { Phase, TabId } from "@/lib/types";
 import { ThemeToggle } from "./ThemeToggle";
@@ -9,7 +13,7 @@ import { ThemeToggle } from "./ThemeToggle";
 const PRIMARY: { id: TabId; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
   { id: "colleges", label: "Colleges" },
-  { id: "timeline", label: "Timeline" },
+  { id: "projects", label: "Project Management" },
   { id: "questions", label: "App Questions" },
   { id: "consultants", label: "Consultants" },
   { id: "notes", label: "Notes" },
@@ -30,9 +34,11 @@ function roleLabel(role: string): string {
 export function LeftRail({
   tab,
   onChange,
+  projectSection,
+  onProjectSectionChange,
   member,
   schoolCount,
-  timelineCount,
+  projectCount,
   questionCount,
   consultantCount,
   faqCount,
@@ -45,9 +51,11 @@ export function LeftRail({
 }: {
   tab: TabId;
   onChange: (tab: TabId) => void;
+  projectSection: ProjectSectionId;
+  onProjectSectionChange: (section: ProjectSectionId) => void;
   member: { displayName: string; role: string };
   schoolCount: number;
-  timelineCount: number;
+  projectCount: number;
   questionCount: number;
   consultantCount: number;
   faqCount: number;
@@ -63,12 +71,13 @@ export function LeftRail({
   const next = phases[phaseIndex + 1];
   const counts: Partial<Record<TabId, number>> = {
     colleges: schoolCount,
-    timeline: timelineCount,
+    projects: projectCount,
     questions: questionCount,
     consultants: consultantCount,
     faq: faqCount,
     testing: testingCount,
   };
+  const projectsOpen = tab === "projects";
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -110,19 +119,43 @@ export function LeftRail({
 
         <nav className="rail-nav" aria-label="Sections">
           {PRIMARY.map((item) => (
-            <a
-              key={item.id}
-              className="rail-link"
-              href={`/?tab=${item.id}`}
-              aria-current={tab === item.id ? "page" : undefined}
-              onClick={(event) => {
-                event.preventDefault();
-                select(item.id);
-              }}
-            >
-              <span>{item.label}</span>
-              {counts[item.id] !== undefined ? <span className="count">{counts[item.id]}</span> : null}
-            </a>
+            <div key={item.id} className="rail-item">
+              <a
+                className="rail-link"
+                href={item.id === "projects" ? "/?tab=projects&pm=timeline" : `/?tab=${item.id}`}
+                aria-current={tab === item.id ? "page" : undefined}
+                onClick={(event) => {
+                  event.preventDefault();
+                  select(item.id);
+                }}
+              >
+                <span>{item.label}</span>
+                {counts[item.id] !== undefined ? <span className="count">{counts[item.id]}</span> : null}
+              </a>
+              {item.id === "projects" && projectsOpen ? (
+                <nav className="rail-subnav" aria-label="Project Management sections">
+                  {PROJECT_SECTIONS.map((section) => (
+                    <button
+                      key={section.id}
+                      type="button"
+                      className={
+                        projectSection === section.id ? "rail-sublink active" : "rail-sublink"
+                      }
+                      aria-current={projectSection === section.id ? "page" : undefined}
+                      disabled={section.status === "soon"}
+                      onClick={() => {
+                        if (section.status !== "ready") return;
+                        onProjectSectionChange(section.id);
+                        onOpenChange(false);
+                      }}
+                    >
+                      <span>{section.label}</span>
+                      {section.status === "soon" ? <span className="soon">Soon</span> : null}
+                    </button>
+                  ))}
+                </nav>
+              ) : null}
+            </div>
           ))}
         </nav>
 
