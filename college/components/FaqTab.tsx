@@ -3,13 +3,18 @@
 import { useState } from "react";
 import type { FaqCategory } from "@/lib/types";
 
-export function FaqTab({ categories }: { categories: FaqCategory[] }) {
+export function FaqTab({ categories, dateline }: { categories: FaqCategory[]; dateline: string }) {
   const [openPhase, setOpenPhase] = useState<Record<number, boolean>>({});
   const [openQuestion, setOpenQuestion] = useState<Record<string, boolean>>({});
 
   return (
     <section>
-      <h2 className="section-title">Frequently Asked Questions</h2>
+      <header className="page-head">
+        <div>
+          <div className="dateline">{dateline}</div>
+          <h2>Frequently Asked Questions</h2>
+        </div>
+      </header>
       <p className="section-sub">
         The questions families most commonly ask during the college search and application process, organized by
         phase. Tap a question to expand the answer.

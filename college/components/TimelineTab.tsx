@@ -7,21 +7,26 @@ export function TimelineTab({
   phases,
   checklist,
   onToggle,
+  dateline,
 }: {
   phases: Phase[];
   checklist: Record<string, boolean>;
   onToggle: (id: string, checked: boolean) => void;
+  dateline: string;
 }) {
   const statuses = phaseStatuses(phases, checklist);
 
   return (
     <section>
-      <div className="panel-toolbar no-print">
-        <h2 className="section-title">Timeline</h2>
-        <button type="button" className="btn btn-secondary" onClick={() => window.print()}>
+      <header className="page-head">
+        <div>
+          <div className="dateline">{dateline}</div>
+          <h2>Timeline</h2>
+        </div>
+        <button type="button" className="btn btn-secondary no-print" onClick={() => window.print()}>
           Save as PDF
         </button>
-      </div>
+      </header>
       <ol className="track">
         {phases.map((phase, index) => {
           const status = statuses[index];

@@ -1,14 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import Image from "next/image";
 import { AppQuestionsTab } from "./AppQuestionsTab";
 import { CollegesTab } from "./CollegesTab";
 import { ConsultantsTab } from "./ConsultantsTab";
 import { FaqTab } from "./FaqTab";
+import { LeftRail } from "./LeftRail";
 import { NotesTab } from "./NotesTab";
-import { TabNav } from "./TabNav";
-import { ThemeToggle } from "./ThemeToggle";
+import { TestingTab, testingItems } from "./TestingTab";
 import { TimelineTab } from "./TimelineTab";
 import {
   appCore,
@@ -36,10 +35,6 @@ import {
   isSelectivityTier,
   TABS,
 } from "@/lib/types";
-
-function todayLabel() {
-  return new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-}
 
 const schoolListeners = new Set<() => void>();
 
@@ -87,6 +82,7 @@ export function Portal({
   const [persisted, setPersisted] = useState(false);
   const [saveState, setSaveState] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [railOpen, setRailOpen] = useState(false);
   const notesTimer = useRef<number | undefined>(undefined);
 
   useEffect(() => {
@@ -128,7 +124,10 @@ export function Portal({
 
   const statuses = useMemo(() => phaseStatuses(phases, checklist), [checklist]);
   const phaseIndex = currentPhaseIndex(statuses);
-  const pill = `${phases[phaseIndex]?.phase ?? "Timeline"} · Phase ${phaseIndex + 1} of ${phases.length}`;
+  const current = phases[phaseIndex];
+  const phaseLabel = current ? `Phase ${phaseIndex + 1} · ${current.phase}` : "";
+  const faqCount = faqCategories.reduce((sum, category) => sum + category.items.length, 0);
+  const testingCount = testingItems(phases).length;
 
   async function patchState(body: { checklist?: Record<string, boolean>; scores?: Scores; notes?: string }) {
     if (!persisted) {
@@ -440,94 +439,101 @@ export function Portal({
   }
 
   return (
-    <div className={tab === "colleges" ? "wrap wide" : "wrap"}>
-      <header className="mast">
-        <div className="mast-brand">
-          <div className="lockup">
-            <Image src="/logo.png" alt="" width={62} height={46} className="site-logo" priority />
-            <p className="lockup-name">The Track</p>
-          </div>
-          <p className="dateline">Junior year · Columbia High School, Maplewood, NJ</p>
-          <h1>Kyle&apos;s College Search</h1>
-        </div>
-        <div className="mast-actions">
-          <p className="signed-in mono">
-            {member.displayName}
-            {member.role === "super_admin" ? " · Admin" : ""}
-          </p>
-          <form action="/auth/signout" method="post">
-            <button type="submit" className="btn btn-ghost compact">
-              Sign out
-            </button>
-          </form>
-          <ThemeToggle />
-          <p className="phase-datum">{pill}</p>
-        </div>
-      </header>
-      <TabNav
+    <div className="shell">
+      <LeftRail
         tab={tab}
         onChange={(next) => {
           setTab(next);
           replaceUrl(next, next === "colleges" ? schoolId : null);
         }}
+        member={member}
+        schoolCount={schools.length}
+        timelineCount={phases.length}
+        questionCount={essayPromptList.length}
+        consultantCount={consultantFirms.length}
+        faqCount={faqCount}
+        testingCount={testingCount}
+        phases={phases}
+        statuses={statuses}
+        phaseIndex={phaseIndex}
+        open={railOpen}
+        onOpenChange={setRailOpen}
       />
-      {tab === "colleges" ? (
-        <CollegesTab
-          schools={schools}
-          selectedId={schoolId}
-          onOpen={(id) => {
-            replaceUrl("colleges", id);
-          }}
-          onClose={() => {
-            replaceUrl("colleges", null);
-          }}
-          onPatch={(id, patch) => {
-            if (patch.choice !== undefined && !isChoice(patch.choice)) return;
-            if (patch.plan !== undefined && !isPlan(patch.plan)) return;
-            if (patch.selectivityTier !== undefined && !isSelectivityTier(patch.selectivityTier)) return;
-            if (patch.interestLevel !== undefined && !isInterestLevel(patch.interestLevel)) return;
-            if (patch.applicationStatus !== undefined && !isApplicationStatus(patch.applicationStatus)) return;
-            if (patch.admissionTrack !== undefined && !isAdmissionTrack(patch.admissionTrack)) return;
-            void patchSchool(id, patch);
-          }}
-          onCreate={(value) => createSchool(value)}
-          onDelete={(id) => void deleteSchool(id)}
-          onAddStep={(id, label, owner) => void addStep(id, label, owner)}
-          onPatchStep={(id, stepId, patch) => void patchStep(id, stepId, patch)}
-          onDeleteStep={(id, stepId) => void removeStep(id, stepId)}
-          onAddDeadline={(id, title, dueDate) => void addDeadline(id, title, dueDate)}
-          onPatchDeadline={(id, deadlineId, patch) => void patchDeadline(id, deadlineId, patch)}
-          onDeleteDeadline={(id, deadlineId) => void removeDeadline(id, deadlineId)}
-          onAddContact={(id, contact) => void addContact(id, contact)}
-          onPatchContact={(id, contactId, patch) => void patchContact(id, contactId, patch)}
-          onDeleteContact={(id, contactId) => void removeContact(id, contactId)}
-        />
-      ) : null}
-      {tab === "timeline" ? <TimelineTab phases={phases} checklist={checklist} onToggle={toggleItem} /> : null}
-      {tab === "faq" ? <FaqTab categories={faqCategories} /> : null}
-      {tab === "questions" ? (
-        <AppQuestionsTab
-          core={appCore}
-          prompts={essayPromptList}
-          writing={writingBlocks}
-          demographics={demographicBlocks}
-          supplements={supplementCards}
-        />
-      ) : null}
-      {tab === "consultants" ? (
-        <ConsultantsTab
-          firms={consultantFirms}
-          criteria={consultantCriteria}
-          questions={consultantQuestions}
-          scores={scores}
-          onScore={changeScore}
-        />
-      ) : null}
-      {tab === "notes" ? <NotesTab notes={notes} saveState={saveState} onChange={changeNotes} /> : null}
-      <div className="save-state">{loaded && pipeline.loaded ? saveState : "Loading..."}</div>
-      <footer>
-        Built for Kyle&apos;s college search · last opened <span className="mono">{todayLabel()}</span>
-      </footer>
+      <main className="main">
+        <button
+          className="rail-toggle"
+          type="button"
+          aria-expanded={railOpen}
+          aria-controls="app-rail"
+          onClick={() => setRailOpen((value) => !value)}
+        >
+          Menu
+        </button>
+        {tab === "colleges" ? (
+          <CollegesTab
+            schools={schools}
+            selectedId={schoolId}
+            dateline={phaseLabel}
+            onOpen={(id) => {
+              replaceUrl("colleges", id);
+            }}
+            onClose={() => {
+              replaceUrl("colleges", null);
+            }}
+            onPatch={(id, patch) => {
+              if (patch.choice !== undefined && !isChoice(patch.choice)) return;
+              if (patch.plan !== undefined && !isPlan(patch.plan)) return;
+              if (patch.selectivityTier !== undefined && !isSelectivityTier(patch.selectivityTier)) return;
+              if (patch.interestLevel !== undefined && !isInterestLevel(patch.interestLevel)) return;
+              if (patch.applicationStatus !== undefined && !isApplicationStatus(patch.applicationStatus)) return;
+              if (patch.admissionTrack !== undefined && !isAdmissionTrack(patch.admissionTrack)) return;
+              void patchSchool(id, patch);
+            }}
+            onCreate={(value) => createSchool(value)}
+            onDelete={(id) => void deleteSchool(id)}
+            onAddStep={(id, label, owner) => void addStep(id, label, owner)}
+            onPatchStep={(id, stepId, patch) => void patchStep(id, stepId, patch)}
+            onDeleteStep={(id, stepId) => void removeStep(id, stepId)}
+            onAddDeadline={(id, title, dueDate) => void addDeadline(id, title, dueDate)}
+            onPatchDeadline={(id, deadlineId, patch) => void patchDeadline(id, deadlineId, patch)}
+            onDeleteDeadline={(id, deadlineId) => void removeDeadline(id, deadlineId)}
+            onAddContact={(id, contact) => void addContact(id, contact)}
+            onPatchContact={(id, contactId, patch) => void patchContact(id, contactId, patch)}
+            onDeleteContact={(id, contactId) => void removeContact(id, contactId)}
+          />
+        ) : null}
+        {tab === "timeline" ? (
+          <TimelineTab phases={phases} checklist={checklist} onToggle={toggleItem} dateline={phaseLabel} />
+        ) : null}
+        {tab === "faq" ? <FaqTab categories={faqCategories} dateline={phaseLabel} /> : null}
+        {tab === "questions" ? (
+          <AppQuestionsTab
+            core={appCore}
+            prompts={essayPromptList}
+            writing={writingBlocks}
+            demographics={demographicBlocks}
+            supplements={supplementCards}
+            dateline={phaseLabel}
+          />
+        ) : null}
+        {tab === "consultants" ? (
+          <ConsultantsTab
+            firms={consultantFirms}
+            criteria={consultantCriteria}
+            questions={consultantQuestions}
+            scores={scores}
+            onScore={changeScore}
+            dateline={phaseLabel}
+          />
+        ) : null}
+        {tab === "notes" ? (
+          <NotesTab notes={notes} saveState={saveState} onChange={changeNotes} dateline={phaseLabel} />
+        ) : null}
+        {tab === "testing" ? (
+          <TestingTab phases={phases} checklist={checklist} onToggle={toggleItem} dateline={phaseLabel} />
+        ) : null}
+        <div className="save-state">{loaded && pipeline.loaded ? saveState : "Loading..."}</div>
+      </main>
     </div>
   );
 }

@@ -4,14 +4,21 @@ export function NotesTab({
   notes,
   saveState,
   onChange,
+  dateline,
 }: {
   notes: string;
   saveState: string;
   onChange: (value: string) => void;
+  dateline: string;
 }) {
   return (
     <section>
-      <h2 className="section-title">Notes</h2>
+      <header className="page-head">
+        <div>
+          <div className="dateline">{dateline}</div>
+          <h2>Notes</h2>
+        </div>
+      </header>
       <p className="section-sub">
         Family notes, open questions, and decisions as you make them. Shared with anyone who has this page open.
       </p>

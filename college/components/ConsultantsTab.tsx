@@ -9,12 +9,14 @@ export function ConsultantsTab({
   questions,
   scores,
   onScore,
+  dateline,
 }: {
   firms: Firm[];
   criteria: Criterion[];
   questions: string[];
   scores: Scores;
   onScore: (firmId: string, criterionId: string, value: number) => void;
+  dateline: string;
 }) {
   const totals = firms.map((firm) => ({ id: firm.id, total: weightedTotal(scores[firm.id], criteria) }));
   const max = Math.max(...totals.map((item) => item.total));
@@ -22,14 +24,15 @@ export function ConsultantsTab({
 
   return (
     <section>
-      <div className="panel-toolbar">
-        <h2 className="section-title" style={{ margin: 0 }}>
-          Consultant Evaluation
-        </h2>
+      <header className="page-head">
+        <div>
+          <div className="dateline">{dateline}</div>
+          <h2>Consultant Evaluation</h2>
+        </div>
         <button type="button" className="btn btn-secondary no-print" onClick={() => window.print()}>
           Save as PDF
         </button>
-      </div>
+      </header>
       <p className="section-sub">
         Firms you&apos;re considering, scored against one rubric. Scores below are a first-pass read from each
         firm&apos;s own website and public listings only — nobody has been called yet. Treat every number as a

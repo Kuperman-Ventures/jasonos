@@ -3,7 +3,7 @@ import { knownWebsite } from "./school-websites";
 export type Choice = "top" | "middle" | "low" | "backup" | "unsure";
 export type Plan = "" | "ed" | "ea" | "rd" | "rolling";
 export type Owner = "kyle" | "jason" | "kat";
-export type TabId = "colleges" | "timeline" | "faq" | "questions" | "consultants" | "notes";
+export type TabId = "colleges" | "timeline" | "faq" | "questions" | "consultants" | "notes" | "testing";
 
 export type SelectivityTier = "" | "extremely_selective" | "very_selective" | "competitive" | "less_competitive";
 export type InterestLevel = "" | "top" | "high" | "moderate" | "safety";
@@ -189,10 +189,11 @@ export const STEP_PRESETS = [
 export const TABS: { id: TabId; label: string }[] = [
   { id: "colleges", label: "Colleges" },
   { id: "timeline", label: "Timeline" },
-  { id: "faq", label: "FAQ" },
   { id: "questions", label: "App Questions" },
   { id: "consultants", label: "Consultants" },
   { id: "notes", label: "Notes" },
+  { id: "faq", label: "FAQ" },
+  { id: "testing", label: "Testing" },
 ];
 
 const CHOICE_RANK: Record<Choice, number> = {

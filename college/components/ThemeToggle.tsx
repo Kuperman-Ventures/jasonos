@@ -13,7 +13,7 @@ function currentTheme() {
   return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
 }
 
-export function ThemeToggle() {
+export function ThemeToggle({ className }: { className?: string }) {
   const theme = useSyncExternalStore(subscribe, currentTheme, () => "light");
 
   function toggle() {
@@ -24,7 +24,7 @@ export function ThemeToggle() {
   }
 
   return (
-    <button type="button" className="btn btn-ghost no-print" onClick={toggle}>
+    <button type="button" className={className ?? "btn btn-ghost no-print"} onClick={toggle}>
       {theme === "light" ? "Dark" : "Light"}
     </button>
   );

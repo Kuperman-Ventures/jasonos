@@ -22,6 +22,7 @@ import {
 export function CollegesTab({
   schools,
   selectedId,
+  dateline,
   onOpen,
   onClose,
   onPatch,
@@ -39,6 +40,7 @@ export function CollegesTab({
 }: {
   schools: School[];
   selectedId: string | null;
+  dateline: string;
   onOpen: (id: string) => void;
   onClose: () => void;
   onPatch: (id: string, patch: Partial<School>) => void;
@@ -91,13 +93,20 @@ export function CollegesTab({
 
   return (
     <section>
-      <div className="panel-toolbar">
+      <header className="page-head">
         <div>
-          <h2 className="section-title">College list</h2>
+          <div className="dateline">{dateline}</div>
+          <h2>College list</h2>
         </div>
-      </div>
+        <div className="readout">
+          <span className="label">Showing</span>
+          <span className="figure">{visible.length}</span>
+          <span className="unit">of {schools.length} schools</span>
+        </div>
+      </header>
+
       <form
-        className="add-row"
+        className="toolbar"
         onSubmit={(event) => {
           event.preventDefault();
           if (!name.trim() || adding) return;
@@ -108,23 +117,14 @@ export function CollegesTab({
             .finally(() => setAdding(false));
         }}
       >
-        <input className="field" value={name} placeholder="Add a school" disabled={adding} onChange={(event) => setName(event.target.value)} />
-        <button type="submit" className="btn btn-primary" disabled={adding}>
-          {adding ? "Looking up" : "Add"}
-        </button>
-      </form>
-      <div className="readouts">
-        <div className="readout">
-          <p className="readout-label">Showing</p>
-          <p className="readout-figure">
-            <span className="accent">{visible.length}</span>
-          </p>
-          <p className="readout-delta">of {schools.length} schools</p>
-        </div>
-      </div>
-      <div className="filters">
-        <input className="field" value={query} placeholder="Search" onChange={(event) => setQuery(event.target.value)} />
-        <select className="field" value={tier} aria-label="Filter by selectivity" onChange={(event) => setTier(event.target.value as SelectivityTier | "any")}>
+        <input
+          className="input grow"
+          type="search"
+          value={query}
+          placeholder="Search schools"
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        <select className="select" value={tier} aria-label="Filter by selectivity" onChange={(event) => setTier(event.target.value as SelectivityTier | "any")}>
           <option value="any">All selectivity</option>
           {SELECTIVITY_TIERS.map((item) => (
             <option key={item.id || "unset"} value={item.id}>
@@ -132,7 +132,7 @@ export function CollegesTab({
             </option>
           ))}
         </select>
-        <select className="field" value={interest} aria-label="Filter by interest" onChange={(event) => setInterest(event.target.value as InterestLevel | "any")}>
+        <select className="select" value={interest} aria-label="Filter by interest" onChange={(event) => setInterest(event.target.value as InterestLevel | "any")}>
           <option value="any">All interest</option>
           {INTEREST_LEVELS.map((item) => (
             <option key={item.id || "unset"} value={item.id}>
@@ -141,7 +141,7 @@ export function CollegesTab({
           ))}
         </select>
         <select
-          className="field"
+          className="select"
           value={sort}
           aria-label="Sort schools"
           onChange={(event) => {
@@ -156,7 +156,11 @@ export function CollegesTab({
           <option value="status">Application status</option>
           <option value="action">Next action</option>
         </select>
-      </div>
+        <input className="input" value={name} placeholder="Add a school" disabled={adding} onChange={(event) => setName(event.target.value)} />
+        <button type="submit" className="btn btn-primary" disabled={adding}>
+          {adding ? "Looking up" : "Add"}
+        </button>
+      </form>
 
       <div className="table-wrap schools-wrap">
         <table className="schools">
