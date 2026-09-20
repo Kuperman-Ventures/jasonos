@@ -33,6 +33,7 @@ function TrackRow({
   const length = spanLength(track.start, track.end);
   const name = accessibleTrackName(track, state);
   const span = formatSpan(track);
+  const detail = `${name} · ${span}`;
 
   return (
     <>
@@ -45,20 +46,17 @@ function TrackRow({
             : { gridRow: row }
         }
         data-state={state === "future" ? "future" : undefined}
-        title={name}
+        title={detail}
       >
         {track.label}
-      </div>
-      <div className="span" style={{ gridRow: row }}>
-        {span}
       </div>
       {track.kind === "milestone" ? (
         <button
           type="button"
           className="pin"
           style={{ gridRow: row, gridColumn: gridColumnStart(start) }}
-          title={name}
-          aria-label={name}
+          title={detail}
+          aria-label={detail}
         />
       ) : (
         <button
@@ -69,8 +67,8 @@ function TrackRow({
             gridRow: row,
             gridColumn: `${gridColumnStart(start)} / span ${length}`,
           }}
-          title={name}
-          aria-label={name}
+          title={detail}
+          aria-label={detail}
         />
       )}
     </>
@@ -109,6 +107,8 @@ export function ProcessRoadmap({
     if (track.id === "money") ordered.push(...milestones);
   }
 
+  const lastTrackRow = 2 + ordered.length;
+
   return (
     <section className="roadmap" aria-label={title}>
       {showTitle ? (
@@ -142,7 +142,7 @@ export function ProcessRoadmap({
             </div>
           ))}
 
-          <div className="head-pad" style={{ gridRow: 2, gridColumn: "1 / 3" }} />
+          <div className="head-pad" style={{ gridRow: 2, gridColumn: 1 }} />
           {cells.map((cell) => (
             <div
               key={`${cell.year}-${cell.month}`}
@@ -158,7 +158,10 @@ export function ProcessRoadmap({
           <div className="gridlines" aria-hidden="true" />
           <div
             className="now"
-            style={{ gridColumn: gridColumnStart(nowIndex) }}
+            style={{
+              gridColumn: gridColumnStart(nowIndex),
+              gridRow: `1 / ${lastTrackRow + 1}`,
+            }}
             aria-hidden="true"
           >
             <span className="now-line" style={{ left: lineLeft }} />

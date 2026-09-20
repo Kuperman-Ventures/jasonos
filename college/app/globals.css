@@ -76,7 +76,7 @@
   --row-h: 34px;
   --bar-h: 16px;
   --label-w: 250px;
-  --span-w: 96px;
+  --span-w: 0px;
   --month-min: 34px;
 
   color-scheme: light;
@@ -1395,10 +1395,10 @@ table.schools .muted,
 }
 .gantt {
   display: grid;
-  grid-template-columns: var(--label-w) var(--span-w) repeat(17, minmax(var(--month-min), 1fr));
+  grid-template-columns: var(--label-w) repeat(17, minmax(var(--month-min), 1fr));
   grid-auto-flow: row;
   align-items: center;
-  min-width: calc(var(--label-w) + var(--span-w) + 17 * var(--month-min));
+  min-width: calc(var(--label-w) + 17 * var(--month-min));
   position: relative;
 }
 .gantt .yr {
@@ -1439,7 +1439,7 @@ table.schools .muted,
   padding-bottom: 8px;
 }
 .gantt .gridlines {
-  grid-column: 3 / -1;
+  grid-column: 2 / -1;
   grid-row: 3 / -1;
   align-self: stretch;
   pointer-events: none;
@@ -1451,7 +1451,6 @@ table.schools .muted,
   background-size: calc(100% / var(--months) * var(--months)) 100%;
 }
 .gantt .now {
-  grid-row: 2 / -1;
   align-self: stretch;
   justify-self: stretch;
   width: auto;
@@ -1460,6 +1459,7 @@ table.schools .muted,
   pointer-events: none;
   position: relative;
   z-index: 0;
+  min-height: 100%;
 }
 .gantt .now-line {
   position: absolute;
@@ -1529,19 +1529,6 @@ table.schools .muted,
   text-overflow: ellipsis;
 }
 .gantt .name[data-state="future"] { color: var(--text-subtle); }
-.gantt .span {
-  grid-column: 2;
-  height: var(--row-h);
-  display: flex;
-  align-items: center;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text);
-  padding-right: var(--space-3);
-  letter-spacing: -0.01em;
-}
 .gantt .rule {
   grid-column: 1 / -1;
   height: var(--row-h);
@@ -1610,10 +1597,8 @@ table.schools .muted,
 @media (max-width: 900px) {
   :root {
     --label-w: 180px;
-    --span-w: 0px;
     --month-min: 26px;
   }
-  .gantt .span { display: none; }
   .gantt .now-badge-label { font-size: 8px; }
   .gantt .now-badge-date { font-size: 11px; }
   .gantt .now-badge { padding: 4px 6px 5px; }

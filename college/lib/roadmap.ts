@@ -135,9 +135,9 @@ export function spanLength(start: { year: number; month: number }, end: { year: 
   return Math.max(1, monthIndex(end.year, end.month) - monthIndex(start.year, start.month) + 1);
 }
 
-/** CSS grid column for month index S: months start at column 3 → `3 + S`. */
+/** CSS grid column for month index S: months start at column 2 → `2 + S`. */
 export function gridColumnStart(startIndex: number): number {
-  return 3 + startIndex;
+  return 2 + startIndex;
 }
 
 export function formatSpan(track: RoadmapTrack): string {

@@ -32,9 +32,9 @@ test("spanLength is inclusive", () => {
 });
 
 test("grid columns match the dense ledger math", () => {
-  assert.equal(gridColumnStart(0), 3);
-  assert.equal(gridColumnStart(2), 5); // Nov 2026 → NOW column
-  assert.equal(gridColumnStart(10), 13); // Jul 2027 essays pin
+  assert.equal(gridColumnStart(0), 2);
+  assert.equal(gridColumnStart(2), 4); // Nov 2026 → NOW column
+  assert.equal(gridColumnStart(10), 12); // Jul 2027 essays pin
 });
 
 test("month window is 17 cells with year bands", () => {
