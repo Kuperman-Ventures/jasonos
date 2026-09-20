@@ -8,7 +8,6 @@ import {
 } from "@/lib/project-management";
 import type { PhaseStatus } from "@/lib/phases";
 import type { Phase, TabId } from "@/lib/types";
-import { ThemeToggle } from "./ThemeToggle";
 
 const PRIMARY: { id: TabId; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
@@ -220,7 +219,6 @@ export function LeftRail({
             <strong>
               {member.displayName} · {roleLabel(member.role)}
             </strong>
-            <ThemeToggle className="rail-theme" />
             <form action="/auth/signout" method="post">
               <button type="submit">Sign out</button>
             </form>

@@ -82,119 +82,6 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --color-neutral-100: #2d2b2b;
-    --color-neutral-200: #444141;
-    --color-neutral-300: #605d5d;
-    --color-neutral-400: #7d7979;
-    --color-neutral-500: #9b9797;
-    --color-neutral-600: #bab6b6;
-    --color-neutral-700: #d7d3d3;
-    --color-neutral-800: #eae7e7;
-    --color-neutral-900: #f8f4f4;
-
-    --color-text: #f0eeec;
-    --text-muted: #c3c8cf;
-    --text-subtle: #9aa0a8;
-    --text-accent: #fab48e;
-    --color-bg: #16181b;
-    --color-surface: #1f2228;
-    --color-divider: rgba(240, 238, 236, 0.16);
-    --color-brand: #7ba4ee;
-    --color-accent-pressed: var(--color-accent-400);
-    --link-hover: var(--color-accent-200);
-
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
-    --shadow-lg: 0 18px 40px rgba(0, 0, 0, 0.55);
-    --accent-100: rgba(232, 85, 4, 0.14);
-    --neutral-300: #3a3f47;
-    --done-500: #4cb8d8;
-    --hover-fill: rgba(240, 238, 236, 0.06);
-    --color-hairline: rgba(240, 238, 236, 0.08);
-    --bar: #4a7fd4;
-    --bar-future: #39455c;
-    --milestone: #ff4d9d;
-    --milestone-ink: #ff87bd;
-    color-scheme: dark;
-  }
-}
-
-:root[data-theme="dark"] {
-  --color-neutral-100: #2d2b2b;
-  --color-neutral-200: #444141;
-  --color-neutral-300: #605d5d;
-  --color-neutral-400: #7d7979;
-  --color-neutral-500: #9b9797;
-  --color-neutral-600: #bab6b6;
-  --color-neutral-700: #d7d3d3;
-  --color-neutral-800: #eae7e7;
-  --color-neutral-900: #f8f4f4;
-
-  --color-text: #f0eeec;
-  --text-muted: #c3c8cf;
-  --text-subtle: #9aa0a8;
-  --text-accent: #fab48e;
-  --color-bg: #16181b;
-  --color-surface: #1f2228;
-  --color-divider: rgba(240, 238, 236, 0.16);
-  --color-brand: #7ba4ee;
-  --color-accent-pressed: var(--color-accent-400);
-  --link-hover: var(--color-accent-200);
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 18px 40px rgba(0, 0, 0, 0.55);
-  --accent-100: rgba(232, 85, 4, 0.14);
-  --neutral-300: #3a3f47;
-  --done-500: #4cb8d8;
-  --hover-fill: rgba(240, 238, 236, 0.06);
-  --color-hairline: rgba(240, 238, 236, 0.08);
-  --bar: #4a7fd4;
-  --bar-future: #39455c;
-  --milestone: #ff4d9d;
-  --milestone-ink: #ff87bd;
-  color-scheme: dark;
-}
-
-:root[data-theme="light"] {
-  --color-neutral-100: #f8f4f4;
-  --color-neutral-200: #eae7e7;
-  --color-neutral-300: #d7d3d3;
-  --color-neutral-400: #bab6b6;
-  --color-neutral-500: #9b9797;
-  --color-neutral-600: #7d7979;
-  --color-neutral-700: #605d5d;
-  --color-neutral-800: #444141;
-  --color-neutral-900: #2d2b2b;
-
-  --color-text: #201e1d;
-  --text-muted: #444141;
-  --text-subtle: #605d5d;
-  --text-accent: #9e3603;
-  --color-bg: #f3f2f2;
-  --color-surface: #eae9e9;
-  --color-divider: rgba(32, 30, 29, 0.16);
-  --color-brand: #1b4ca8;
-  --color-accent-pressed: var(--color-accent-600);
-  --link-hover: var(--color-accent-600);
-
-  --shadow-sm: 0 1px 2px rgba(32, 30, 29, 0.08);
-  --shadow-md: 0 8px 24px rgba(32, 30, 29, 0.1);
-  --shadow-lg: 0 18px 40px rgba(32, 30, 29, 0.14);
-  --accent-100: var(--color-accent-100);
-  --neutral-300: var(--color-neutral-300);
-  --done-500: var(--color-cyan);
-  --hover-fill: rgba(32, 30, 29, 0.05);
-  --color-hairline: rgba(32, 30, 29, 0.08);
-  --bar: #1b4aa0;
-  --bar-future: #b8c7e0;
-  --milestone: #d6006c;
-  --milestone-ink: #a6034f;
-  color-scheme: light;
-}
-
 * { box-sizing: border-box; }
 
 ::selection {
@@ -1244,8 +1131,7 @@ table.schools .muted,
   color: var(--text-subtle);
 }
 .rail-account strong { font-weight: 500; color: var(--text-muted); }
-.rail-account button,
-.rail-theme {
+.rail-account button {
   align-self: flex-start;
   background: none;
   border: 0;
@@ -1256,8 +1142,7 @@ table.schools .muted,
   cursor: pointer;
   text-decoration: underline;
 }
-.rail-account button:hover,
-.rail-theme:hover { color: var(--accent-500); }
+.rail-account button:hover { color: var(--accent-500); }
 
 .main { padding: var(--space-6) var(--space-8) var(--space-8); min-width: 0; }
 .page-head {
@@ -1741,7 +1626,7 @@ table.schools .muted,
 }
 
 @media print {
-  :root, :root[data-theme="dark"], :root[data-theme="light"] {
+  :root {
     --color-text: #201e1d;
     --text-muted: #444141;
     --text-subtle: #605d5d;
@@ -2371,6 +2256,92 @@ table.schools .muted,
 }
 
 /* ---------- college list funnel ---------- */
+/* Each list phase remaps Track tokens — same palette, different mix. No light/dark. */
+.colleges-list {
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-8)) calc(-1 * var(--space-8));
+  padding: var(--space-6) var(--space-8) var(--space-8);
+  min-height: calc(100% + var(--space-6) + var(--space-8));
+  background: var(--color-bg);
+  color: var(--color-text);
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+/* Exploration — warm orange wash */
+.colleges-list[data-list-phase="exploration"] {
+  --color-bg: #feeee4;
+  --color-surface: #f8f4f4;
+  --color-divider: rgba(158, 54, 3, 0.18);
+  --color-hairline: rgba(158, 54, 3, 0.1);
+  --color-text: #201e1d;
+  --text-muted: #461a05;
+  --text-subtle: #742703;
+  --text-accent: #9e3603;
+  --link-hover: #c74503;
+  --color-accent: #e85504;
+  --color-accent-pressed: #c74503;
+  --accent-100: #fdd6c0;
+  --accent-500: #e85504;
+  --accent-600: #c74503;
+  --hover-fill: rgba(232, 85, 4, 0.08);
+  --neutral-300: #fab48e;
+  --color-neutral-300: #fab48e;
+  --done-500: #0088b0;
+  --shadow-sm: 0 1px 2px rgba(70, 26, 5, 0.08);
+  --shadow-md: 0 8px 24px rgba(70, 26, 5, 0.1);
+  --shadow-lg: 0 18px 40px rgba(70, 26, 5, 0.14);
+}
+
+/* Consideration — brand-blue cool */
+.colleges-list[data-list-phase="consideration"] {
+  --color-bg: #eae7e7;
+  --color-surface: #f8f4f4;
+  --color-divider: rgba(27, 76, 168, 0.2);
+  --color-hairline: rgba(27, 76, 168, 0.1);
+  --color-text: #2d2b2b;
+  --text-muted: #444141;
+  --text-subtle: #605d5d;
+  --text-accent: #1b4ca8;
+  --link-hover: #1b4aa0;
+  --color-brand: #1b4ca8;
+  --color-accent: #1b4ca8;
+  --color-accent-pressed: #1b4aa0;
+  --color-on-accent: #f8f4f4;
+  --accent-100: #f8f4f4;
+  --accent-500: #1b4ca8;
+  --accent-600: #1b4aa0;
+  --hover-fill: rgba(27, 76, 168, 0.08);
+  --neutral-300: #d7d3d3;
+  --color-neutral-300: #d7d3d3;
+  --done-500: #0088b0;
+  --bar: #1b4aa0;
+  --bar-future: #bab6b6;
+}
+
+/* Applications — cyan decisive */
+.colleges-list[data-list-phase="applications"] {
+  --color-bg: #eae9e9;
+  --color-surface: #f8f4f4;
+  --color-divider: rgba(0, 136, 176, 0.22);
+  --color-hairline: rgba(0, 136, 176, 0.12);
+  --color-text: #201e1d;
+  --text-muted: #2d2b2b;
+  --text-subtle: #444141;
+  --text-accent: #0088b0;
+  --link-hover: #0088b0;
+  --color-accent: #0088b0;
+  --color-accent-pressed: #0088b0;
+  --color-on-accent: #f8f4f4;
+  --accent-100: #f8f4f4;
+  --accent-500: #0088b0;
+  --accent-600: #0088b0;
+  --hover-fill: rgba(0, 136, 176, 0.1);
+  --neutral-300: #d7d3d3;
+  --color-neutral-300: #bab6b6;
+  --done-500: #0088b0;
+  --bar: #0088b0;
+  --bar-future: #bab6b6;
+}
+
 .list-phase-bar {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

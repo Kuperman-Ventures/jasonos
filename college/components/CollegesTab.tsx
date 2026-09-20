@@ -284,7 +284,7 @@ export function CollegesTab({
   const gaugeFill = Math.min(countGauge.percent, 160);
 
   return (
-    <section>
+    <section className="colleges-list" data-list-phase={phaseId}>
       <header className="page-head">
         <div>
           <div className="dateline">{dateline}</div>
