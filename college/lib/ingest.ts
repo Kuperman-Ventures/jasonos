@@ -3,6 +3,8 @@
 import { phases } from "@/lib/content";
 import { isOwner, type Owner, type Phase } from "@/lib/types";
 
+export type IngestRoute = "todo" | "note" | "drop";
+
 export type SuggestedStep = {
   id: string;
   label: string;
@@ -11,7 +13,8 @@ export type SuggestedStep = {
   dueDate: string | null;
   startDate: string | null;
   endDate: string | null;
-  include: boolean;
+  /** Where this row goes on confirm. Trash removes the row; Drop keeps it visible but discarded. */
+  route: IngestRoute;
 };
 
 export type IngestSourceDraft = {
@@ -41,6 +44,7 @@ export type PersistedIngestSource = {
   excerpt: string;
   createdAt: string;
   stepCount: number;
+  noteCount: number;
 };
 
 export const INBOX_PARENT_ID = "inbox";
@@ -115,7 +119,7 @@ export function heuristicSuggestions(text: string, phaseList: Phase[] = phases):
     dueDate: null,
     startDate: null,
     endDate: null,
-    include: true,
+    route: "todo",
   }));
 }
 
@@ -157,11 +161,35 @@ function parseSuggestionJson(raw: string): SuggestedStep[] {
             : null,
         endDate:
           typeof row.endDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(row.endDate) ? row.endDate : null,
-        include: true,
+        route: "todo",
       }));
   } catch {
     return [];
   }
+}
+
+/** Append-ready block for Notes tab from ingest rows routed as notes. */
+export function formatIngestNotesBlock(input: {
+  title: string;
+  createdAt: string;
+  notes: string[];
+}): string {
+  const lines = input.notes.map((note) => note.trim()).filter(Boolean);
+  if (!lines.length) return "";
+  const when = new Date(input.createdAt).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  const title = input.title.trim() || "Ingest";
+  return [`From Ingest · ${title} · ${when}`, ...lines.map((line) => `• ${line}`)].join("\n");
+}
+
+export function appendIngestNotes(existing: string, block: string): string {
+  const next = block.trim();
+  if (!next) return existing;
+  const current = existing.trim();
+  return current ? `${current}\n\n${next}` : next;
 }
 
 export async function suggestStepsFromText(
@@ -263,6 +291,7 @@ export function normalizeIngestSources(raw: unknown): PersistedIngestSource[] {
       createdAt:
         typeof item.createdAt === "string" ? item.createdAt : new Date().toISOString(),
       stepCount: Number(item.stepCount) || 0,
+      noteCount: Number(item.noteCount) || 0,
     });
   }
   return out;

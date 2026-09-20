@@ -2039,27 +2039,64 @@ table.schools .muted,
 }
 .ingest-draft {
   display: grid;
-  grid-template-columns: auto minmax(0, 1.6fr) minmax(110px, 0.6fr) minmax(160px, 1.1fr) repeat(3, minmax(120px, 0.55fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-2);
-  align-items: center;
+  align-items: start;
   padding: var(--space-3);
   border: 1px solid var(--color-divider);
   border-radius: var(--radius-md);
   background: var(--color-surface);
 }
+.ingest-draft[data-route="todo"] {
+  grid-template-columns: auto minmax(0, 1.4fr) minmax(100px, 0.55fr) minmax(150px, 1fr) repeat(3, minmax(110px, 0.5fr)) auto;
+  align-items: center;
+}
+.ingest-draft[data-route="note"],
+.ingest-draft[data-route="drop"] {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+}
 .ingest-draft.muted-row {
   opacity: 0.55;
 }
-.ingest-include {
+.ingest-route {
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.ingest-route button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.ingest-route button.active {
+  border-color: var(--accent-500);
+  color: var(--color-text);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--accent-500);
+}
+.ingest-label {
+  min-width: 0;
+}
+.ingest-note-hint {
+  margin: 0;
   font-family: var(--font-mono);
   font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--text-subtle);
   white-space: nowrap;
+}
+.ingest-trash {
+  justify-self: end;
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
 }
 .ingest-history {
   margin-top: var(--space-8);
@@ -2090,14 +2127,19 @@ table.schools .muted,
 }
 
 @media (max-width: 1100px) {
-  .ingest-draft {
+  .ingest-draft[data-route="todo"],
+  .ingest-draft[data-route="note"],
+  .ingest-draft[data-route="drop"] {
     grid-template-columns: 1fr 1fr;
   }
-  .ingest-draft .field:nth-child(2) {
+  .ingest-draft .ingest-route,
+  .ingest-draft .ingest-label,
+  .ingest-draft .ingest-note-hint {
     grid-column: 1 / -1;
   }
-  .ingest-draft .field:nth-child(4) {
+  .ingest-draft .ingest-trash {
     grid-column: 1 / -1;
+    justify-self: start;
   }
 }
 

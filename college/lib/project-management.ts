@@ -27,7 +27,7 @@ export const PROJECT_SECTIONS: ProjectSection[] = [
   {
     id: "ingest",
     label: "Ingest",
-    blurb: "Paste notes, upload a PDF (including image-only slides via OCR), or fetch a URL — then confirm into To-dos.",
+    blurb: "Paste notes, upload a PDF (OCR for image slides), or fetch a URL — route each suggestion to To-do, Note, or Drop.",
     status: "ready",
   },
   {

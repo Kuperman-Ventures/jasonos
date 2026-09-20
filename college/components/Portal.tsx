@@ -230,13 +230,22 @@ export function Portal({
     void patchState({ checklist: next });
   }
 
-  async function confirmIngest(steps: PersistedProjectStep[], source: PersistedIngestSource) {
-    const nextSources = [...ingestSources.filter((row) => row.id !== source.id), source];
-    setProjectSteps(steps);
+  async function confirmIngest(payload: {
+    steps: PersistedProjectStep[];
+    source: PersistedIngestSource;
+    notes: string;
+  }) {
+    const nextSources = [...ingestSources.filter((row) => row.id !== payload.source.id), payload.source];
+    setProjectSteps(payload.steps);
     setIngestSources(nextSources);
-    const ok = await patchState({ projectSteps: steps, ingestSources: nextSources });
+    setNotes(payload.notes);
+    const ok = await patchState({
+      projectSteps: payload.steps,
+      ingestSources: nextSources,
+      notes: payload.notes,
+    });
     if (!ok) {
-      throw new Error("Could not save ingested tasks");
+      throw new Error("Could not save ingest");
     }
   }
 
@@ -608,6 +617,7 @@ export function Portal({
             checklist={checklist}
             projectSteps={projectSteps}
             ingestSources={ingestSources}
+            notes={notes}
             onToggle={toggleItem}
             onConfirmIngest={confirmIngest}
             dateline={phaseLabel}

@@ -2,7 +2,10 @@
 
 import { useMemo, useRef, useState } from "react";
 import {
+  appendIngestNotes,
   checklistParents,
+  formatIngestNotesBlock,
+  type IngestRoute,
   type IngestSourceDraft,
   type PersistedIngestSource,
   type PersistedProjectStep,
@@ -12,16 +15,30 @@ import { OWNERS, type Owner, type Phase } from "@/lib/types";
 
 type DraftRow = SuggestedStep;
 
+export type IngestConfirmPayload = {
+  steps: PersistedProjectStep[];
+  source: PersistedIngestSource;
+  notes: string;
+};
+
+const ROUTES: { id: IngestRoute; label: string }[] = [
+  { id: "todo", label: "To-do" },
+  { id: "note", label: "Note" },
+  { id: "drop", label: "Drop" },
+];
+
 export function IngestPanel({
   phases,
   projectSteps,
   ingestSources,
+  notes,
   onConfirm,
 }: {
   phases: Phase[];
   projectSteps: PersistedProjectStep[];
   ingestSources: PersistedIngestSource[];
-  onConfirm: (steps: PersistedProjectStep[], source: PersistedIngestSource) => Promise<void>;
+  notes: string;
+  onConfirm: (payload: IngestConfirmPayload) => Promise<void>;
 }) {
   const parents = useMemo(() => checklistParents(phases), [phases]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -52,7 +69,12 @@ export function IngestPanel({
       throw new Error(messageFromFailedResponse(raw, response.status));
     }
     if (!response.ok) throw new Error(body.error || "Parse failed");
-    setDrafts(body.suggestions ?? []);
+    setDrafts(
+      (body.suggestions ?? []).map((row) => ({
+        ...row,
+        route: row.route ?? "todo",
+      })),
+    );
     setSource(body.source ?? null);
     setMethod(body.method ?? "");
   }
@@ -129,11 +151,17 @@ export function IngestPanel({
     setDrafts((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   }
 
+  function trashDraft(id: string) {
+    setDrafts((current) => current.filter((row) => row.id !== id));
+  }
+
   async function confirm() {
     if (!source) return;
-    const selected = drafts.filter((row) => row.include && row.label.trim());
-    if (!selected.length) {
-      setError("Keep at least one task checked, or edit the list first.");
+    const labeled = drafts.filter((row) => row.label.trim());
+    const todoRows = labeled.filter((row) => row.route === "todo");
+    const noteRows = labeled.filter((row) => row.route === "note");
+    if (!todoRows.length && !noteRows.length) {
+      setError("Route at least one row to To-do or Note, or trash the rest and try again.");
       return;
     }
     setBusy(true);
@@ -142,7 +170,7 @@ export function IngestPanel({
       const createdAt = new Date().toISOString();
       const steps: PersistedProjectStep[] = [
         ...projectSteps,
-        ...selected.map((row, index) => ({
+        ...todoRows.map((row, index) => ({
           id: `ing-${source.id.slice(0, 8)}-${index + 1}-${Math.random().toString(36).slice(2, 7)}`,
           label: row.label.trim(),
           owner: row.owner,
@@ -154,15 +182,22 @@ export function IngestPanel({
           createdAt,
         })),
       ];
+      const notesBlock = formatIngestNotesBlock({
+        title: source.title,
+        createdAt: source.createdAt,
+        notes: noteRows.map((row) => row.label),
+      });
+      const nextNotes = appendIngestNotes(notes, notesBlock);
       const nextSource: PersistedIngestSource = {
         id: source.id,
         title: source.title,
         kind: source.kind,
         excerpt: source.text.slice(0, 280),
         createdAt: source.createdAt,
-        stepCount: selected.length,
+        stepCount: todoRows.length,
+        noteCount: noteRows.length,
       };
-      await onConfirm(steps, nextSource);
+      await onConfirm({ steps, source: nextSource, notes: nextNotes });
       setDrafts([]);
       setSource(null);
       setText("");
@@ -174,11 +209,14 @@ export function IngestPanel({
       setStatus("");
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save tasks");
+      setError(err instanceof Error ? err.message : "Could not save");
     } finally {
       setBusy(false);
     }
   }
+
+  const todoCount = drafts.filter((row) => row.route === "todo" && row.label.trim()).length;
+  const noteCount = drafts.filter((row) => row.route === "note" && row.label.trim()).length;
 
   return (
     <div className="pm-panel ingest-panel">
@@ -268,8 +306,8 @@ export function IngestPanel({
 
         <p className="section-sub">
           PDFs are read in your browser. Selectable-text decks are fast; image-only webinar slides run
-          OCR page by page (first run downloads the OCR engine). Only the text is sent for task
-          suggestions. Live Granola pull still comes later — paste those notes for now.
+          OCR page by page (first run downloads the OCR engine). Only the text is sent for
+          suggestions. Route each row to To-do, Note, or Drop — trash removes OCR junk.
         </p>
       </div>
 
@@ -279,82 +317,123 @@ export function IngestPanel({
         <div className="ingest-review">
           <header className="ingest-review-head">
             <div>
-              <h3 className="dash-title">Review suggested tasks</h3>
+              <h3 className="dash-title">Review suggestions</h3>
               <p className="section-sub">
                 {method === "ai" ? "Parsed with AI." : "Parsed with local heuristics."}
                 {pdfMethod === "ocr" ? " PDF text came from OCR." : ""}{" "}
-                Edit, assign, date, then confirm to send them into To-dos.
+                Send To-dos into the checklist, Notes into the shared Notes tab. Dropped rows are
+                ignored.
+                {todoCount || noteCount
+                  ? ` Ready: ${todoCount} to-do${todoCount === 1 ? "" : "s"}, ${noteCount} note${noteCount === 1 ? "" : "s"}.`
+                  : ""}
               </p>
             </div>
             <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void confirm()}>
-              {busy ? "Saving…" : "Confirm into To-dos"}
+              {busy ? "Saving…" : "Confirm"}
             </button>
           </header>
 
           <ul className="ingest-draft-list">
-            {drafts.map((row) => (
-              <li key={row.id} className={row.include ? "ingest-draft" : "ingest-draft muted-row"}>
-                <label className="ingest-include">
+            {drafts.map((row) => {
+              const isTodo = row.route === "todo";
+              const isNote = row.route === "note";
+              const isDrop = row.route === "drop";
+              return (
+                <li
+                  key={row.id}
+                  className={isDrop ? "ingest-draft muted-row" : "ingest-draft"}
+                  data-route={row.route}
+                >
+                  <div className="ingest-route" role="group" aria-label="Route">
+                    {ROUTES.map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        className={row.route === option.id ? "active" : ""}
+                        aria-pressed={row.route === option.id}
+                        onClick={() => patchDraft(row.id, { route: option.id })}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
                   <input
-                    type="checkbox"
-                    checked={row.include}
-                    onChange={(event) => patchDraft(row.id, { include: event.target.checked })}
+                    className="field ingest-label"
+                    value={row.label}
+                    onChange={(event) => patchDraft(row.id, { label: event.target.value })}
+                    aria-label="Suggestion text"
                   />
-                  <span>Keep</span>
-                </label>
-                <input
-                  className="field"
-                  value={row.label}
-                  onChange={(event) => patchDraft(row.id, { label: event.target.value })}
-                  aria-label="Task label"
-                />
-                <select
-                  className="field"
-                  value={row.owner}
-                  onChange={(event) => patchDraft(row.id, { owner: event.target.value as Owner })}
-                  aria-label="Owner"
-                >
-                  {OWNERS.map((owner) => (
-                    <option key={owner.id} value={owner.id}>
-                      {owner.label}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="field"
-                  value={row.parentId}
-                  onChange={(event) => patchDraft(row.id, { parentId: event.target.value })}
-                  aria-label="Parent checklist item"
-                >
-                  {parents.map((parent) => (
-                    <option key={parent.id} value={parent.id}>
-                      {parent.phase}: {parent.label.slice(0, 80)}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  className="field"
-                  type="date"
-                  value={row.dueDate ?? ""}
-                  onChange={(event) => patchDraft(row.id, { dueDate: event.target.value || null })}
-                  aria-label="Due date"
-                />
-                <input
-                  className="field"
-                  type="date"
-                  value={row.startDate ?? ""}
-                  onChange={(event) => patchDraft(row.id, { startDate: event.target.value || null })}
-                  aria-label="Start date"
-                />
-                <input
-                  className="field"
-                  type="date"
-                  value={row.endDate ?? ""}
-                  onChange={(event) => patchDraft(row.id, { endDate: event.target.value || null })}
-                  aria-label="End date"
-                />
-              </li>
-            ))}
+                  {isTodo ? (
+                    <>
+                      <select
+                        className="field"
+                        value={row.owner}
+                        onChange={(event) => patchDraft(row.id, { owner: event.target.value as Owner })}
+                        aria-label="Owner"
+                      >
+                        {OWNERS.map((owner) => (
+                          <option key={owner.id} value={owner.id}>
+                            {owner.label}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        className="field"
+                        value={row.parentId}
+                        onChange={(event) => patchDraft(row.id, { parentId: event.target.value })}
+                        aria-label="Parent checklist item"
+                      >
+                        {parents.map((parent) => (
+                          <option key={parent.id} value={parent.id}>
+                            {parent.phase}: {parent.label.slice(0, 80)}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        className="field"
+                        type="date"
+                        value={row.dueDate ?? ""}
+                        onChange={(event) =>
+                          patchDraft(row.id, { dueDate: event.target.value || null })
+                        }
+                        aria-label="Due date"
+                      />
+                      <input
+                        className="field"
+                        type="date"
+                        value={row.startDate ?? ""}
+                        onChange={(event) =>
+                          patchDraft(row.id, { startDate: event.target.value || null })
+                        }
+                        aria-label="Start date"
+                      />
+                      <input
+                        className="field"
+                        type="date"
+                        value={row.endDate ?? ""}
+                        onChange={(event) =>
+                          patchDraft(row.id, { endDate: event.target.value || null })
+                        }
+                        aria-label="End date"
+                      />
+                    </>
+                  ) : null}
+                  {isNote ? (
+                    <p className="ingest-note-hint">Goes to shared Notes — not To-dos.</p>
+                  ) : null}
+                  {isDrop ? <p className="ingest-note-hint">Won’t be saved.</p> : null}
+                  <button
+                    type="button"
+                    className="btn btn-secondary ingest-trash"
+                    aria-label="Trash this row"
+                    title="Trash"
+                    onClick={() => trashDraft(row.id)}
+                  >
+                    Trash
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </div>
       ) : null}
@@ -371,7 +450,11 @@ export function IngestPanel({
                 <li key={item.id}>
                   <strong>{item.title}</strong>
                   <span>
-                    {item.stepCount} tasks · {item.kind} ·{" "}
+                    {item.stepCount} to-do{item.stepCount === 1 ? "" : "s"}
+                    {item.noteCount
+                      ? ` · ${item.noteCount} note${item.noteCount === 1 ? "" : "s"}`
+                      : ""}{" "}
+                    · {item.kind} ·{" "}
                     {new Date(item.createdAt).toLocaleString("en-US", {
                       month: "short",
                       day: "numeric",

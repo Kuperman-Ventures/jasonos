@@ -1,6 +1,6 @@
 "use client";
 
-import { IngestPanel } from "./IngestPanel";
+import { IngestPanel, type IngestConfirmPayload } from "./IngestPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import { TodosPanel } from "./TodosPanel";
 import type { PersistedIngestSource, PersistedProjectStep } from "@/lib/ingest";
@@ -19,6 +19,7 @@ export function ProjectManagementTab({
   checklist,
   projectSteps,
   ingestSources,
+  notes,
   onToggle,
   onConfirmIngest,
   dateline,
@@ -30,8 +31,9 @@ export function ProjectManagementTab({
   checklist: Record<string, boolean>;
   projectSteps: PersistedProjectStep[];
   ingestSources: PersistedIngestSource[];
+  notes: string;
   onToggle: (id: string, checked: boolean) => void;
-  onConfirmIngest: (steps: PersistedProjectStep[], source: PersistedIngestSource) => Promise<void>;
+  onConfirmIngest: (payload: IngestConfirmPayload) => Promise<void>;
   dateline: string;
 }) {
   const active = projectSectionById(section);
@@ -88,6 +90,7 @@ export function ProjectManagementTab({
           phases={phases}
           projectSteps={projectSteps}
           ingestSources={ingestSources}
+          notes={notes}
           onConfirm={onConfirmIngest}
         />
       ) : null}

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  appendIngestNotes,
+  formatIngestNotesBlock,
   heuristicSuggestions,
   normalizeIngestSources,
   normalizePersistedSteps,
@@ -25,7 +27,7 @@ Short
     suggestions.find((row) => /campus visit/i.test(row.label))?.owner,
     "kat",
   );
-  assert.ok(suggestions.every((row) => row.include));
+  assert.ok(suggestions.every((row) => row.route === "todo"));
   assert.ok(!suggestions.some((row) => /example.com/i.test(row.label)));
 });
 
@@ -59,9 +61,27 @@ test("normalizeIngestSources maps history rows", () => {
       excerpt: "notes",
       createdAt: "2026-09-20T12:00:00.000Z",
       stepCount: 3,
+      noteCount: 2,
     },
     { title: "missing id" },
   ]);
   assert.equal(sources.length, 1);
   assert.equal(sources[0]?.stepCount, 3);
+  assert.equal(sources[0]?.noteCount, 2);
+});
+
+test("formatIngestNotesBlock tags source and bullets notes", () => {
+  const block = formatIngestNotesBlock({
+    title: "Fall webinar",
+    createdAt: "2026-09-20T12:00:00.000Z",
+    notes: ["Ask about ED deadlines", "Campus culture felt strong"],
+  });
+  assert.match(block, /From Ingest · Fall webinar/);
+  assert.match(block, /• Ask about ED deadlines/);
+  assert.match(block, /• Campus culture felt strong/);
+});
+
+test("appendIngestNotes stacks blocks without wiping existing notes", () => {
+  assert.equal(appendIngestNotes("", "fresh"), "fresh");
+  assert.equal(appendIngestNotes("old", "fresh"), "old\n\nfresh");
 });
