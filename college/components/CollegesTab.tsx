@@ -1,9 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CollegeRecord } from "./CollegeRecord";
 import { SchoolMark } from "./SchoolMark";
 import { compareSchools, nextAction, primaryDeadline, type SortKey } from "@/lib/list";
+import {
+  LIST_COLUMNS,
+  LIST_PHASES,
+  advanceSchoolPatch,
+  archiveSchoolPatch,
+  currentListPhaseId,
+  listPhaseById,
+  normalizeColumns,
+  phaseCountGauge,
+  selectivityGauges,
+  type ListColumnId,
+  type ListPhaseId,
+  type MemberListPrefs,
+} from "@/lib/list-phases";
 import {
   INTEREST_LEVELS,
   SELECTIVITY_TIERS,
@@ -19,10 +33,14 @@ import {
   type SelectivityTier,
 } from "@/lib/types";
 
+const SELECTIVITY_GAUGE_TIERS = SELECTIVITY_TIERS.filter((tier) => tier.id);
+
 export function CollegesTab({
   schools,
   selectedId,
   dateline,
+  listPrefs,
+  onListPrefsChange,
   onOpen,
   onClose,
   onPatch,
@@ -41,6 +59,8 @@ export function CollegesTab({
   schools: School[];
   selectedId: string | null;
   dateline: string;
+  listPrefs: MemberListPrefs;
+  onListPrefsChange: (prefs: MemberListPrefs) => void;
   onOpen: (id: string) => void;
   onClose: () => void;
   onPatch: (id: string, patch: Partial<School>) => void;
@@ -56,6 +76,7 @@ export function CollegesTab({
   onPatchContact: (id: string, contactId: string, patch: ContactPatch) => void;
   onDeleteContact: (id: string, contactId: string) => void;
 }) {
+  const [phaseId, setPhaseId] = useState<ListPhaseId>(() => currentListPhaseId());
   const [query, setQuery] = useState("");
   const [tier, setTier] = useState<SelectivityTier | "any">("any");
   const [interest, setInterest] = useState<InterestLevel | "any">("any");
@@ -63,20 +84,63 @@ export function CollegesTab({
   const [sortDir, setSortDir] = useState<1 | -1>(1);
   const [name, setName] = useState("");
   const [adding, setAdding] = useState(false);
+  const [columnsOpen, setColumnsOpen] = useState(false);
+  const columnsRef = useRef<HTMLDivElement | null>(null);
+
+  const phase = listPhaseById(phaseId);
+  const columns = normalizeColumns(listPrefs.columnsByPhase[phaseId], phase);
+  const showArchived = listPrefs.showArchived;
+
+  useEffect(() => {
+    if (!columnsOpen) return;
+    function onDoc(event: MouseEvent) {
+      if (!columnsRef.current?.contains(event.target as Node)) setColumnsOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [columnsOpen]);
+
+  const phaseSchools = useMemo(() => {
+    return schools.filter((school) => {
+      if (school.archived) return showArchived && school.phasesParticipated.includes(phaseId);
+      return school.listPhase === phaseId;
+    });
+  }, [schools, phaseId, showArchived]);
+
+  const activeCount = useMemo(
+    () => schools.filter((school) => !school.archived && school.listPhase === phaseId).length,
+    [schools, phaseId],
+  );
+
+  const countGauge = phaseCountGauge(activeCount, phase);
+  const tierGauges = useMemo(
+    () =>
+      selectivityGauges(
+        schools.filter((school) => !school.archived && school.listPhase === phaseId),
+        SELECTIVITY_GAUGE_TIERS,
+      ),
+    [schools, phaseId],
+  );
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const filtered = schools.filter((school) => {
+    const filtered = phaseSchools.filter((school) => {
       if (tier !== "any" && school.selectivityTier !== tier) return false;
       if (interest !== "any" && school.interestLevel !== interest) return false;
       if (!q) return true;
-      return [school.name, school.location, school.notes, school.admissionsContext].join(" ").toLowerCase().includes(q);
+      return [school.name, school.location, school.notes, school.admissionsContext]
+        .join(" ")
+        .toLowerCase()
+        .includes(q);
     });
     const sorted = [...filtered].sort((a, b) => compareSchools(a, b, sort));
     return sortDir === 1 ? sorted : sorted.reverse();
-  }, [schools, query, tier, interest, sort, sortDir]);
+  }, [phaseSchools, query, tier, interest, sort, sortDir]);
 
   const selected = schools.find((school) => school.id === selectedId) ?? null;
+  const archivedInPhase = schools.filter(
+    (school) => school.archived && school.phasesParticipated.includes(phaseId),
+  ).length;
 
   function toggleSort(next: SortKey) {
     if (sort === next) setSortDir((dir) => (dir === 1 ? -1 : 1));
@@ -91,6 +155,117 @@ export function CollegesTab({
     return sortDir === 1 ? " ↑" : " ↓";
   }
 
+  function setColumns(next: ListColumnId[]) {
+    onListPrefsChange({
+      ...listPrefs,
+      columnsByPhase: {
+        ...listPrefs.columnsByPhase,
+        [phaseId]: normalizeColumns(next, phase),
+      },
+    });
+  }
+
+  function toggleColumn(id: ListColumnId) {
+    if (id === "school") return;
+    if (columns.includes(id)) setColumns(columns.filter((column) => column !== id));
+    else setColumns([...columns, id]);
+  }
+
+  function resetColumns() {
+    setColumns([...phase.defaultColumns]);
+  }
+
+  function advanceSchool(school: School) {
+    const patch = advanceSchoolPatch(school);
+    if (!patch) return;
+    onPatch(school.id, patch);
+  }
+
+  function archiveSchool(school: School) {
+    onPatch(school.id, archiveSchoolPatch(school));
+  }
+
+  function restoreSchool(school: School) {
+    onPatch(school.id, { archived: false, archivedAt: null });
+  }
+
+  function renderCell(column: ListColumnId, school: School) {
+    const deadline = primaryDeadline(school);
+    const action = nextAction(school);
+    const track = trackLabel(school.admissionTrack);
+
+    switch (column) {
+      case "school":
+        return (
+          <td key={column} className="school-name">
+            <div className="school-id">
+              <SchoolMark name={school.name} website={school.website} />
+              <span>
+                {school.name}
+                {school.archived ? <small className="archived-tag">Archived</small> : null}
+              </span>
+            </div>
+          </td>
+        );
+      case "location":
+        return (
+          <td key={column}>
+            <div>{school.location || "—"}</div>
+          </td>
+        );
+      case "status":
+        return <td key={column}>{statusLabel(school.applicationStatus) || "—"}</td>;
+      case "track":
+        return (
+          <td key={column}>
+            <div>{track || "Not chosen"}</div>
+            <div className="muted">{deadline.date ? formatDate(deadline.date) : "No date"}</div>
+          </td>
+        );
+      case "selectivity":
+        return <td key={column}>{tierLabel(school.selectivityTier) || "—"}</td>;
+      case "interest":
+        return (
+          <td key={column} onClick={(event) => event.stopPropagation()}>
+            <select
+              className="field compact"
+              value={school.interestLevel}
+              aria-label={`Interest for ${school.name}`}
+              onChange={(event) =>
+                onPatch(school.id, { interestLevel: event.target.value as School["interestLevel"] })
+              }
+            >
+              {INTEREST_LEVELS.map((item) => (
+                <option key={item.id || "unset"} value={item.id}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </td>
+        );
+      case "action":
+        return (
+          <td key={column}>
+            <div>{action.title || "—"}</div>
+            {action.dueDate ? <div className="muted">{formatDate(action.dueDate)}</div> : null}
+          </td>
+        );
+      default:
+        return null;
+    }
+  }
+
+  function sortKeyForColumn(column: ListColumnId): SortKey | null {
+    if (column === "school") return "name";
+    if (column === "status") return "status";
+    if (column === "selectivity") return "selectivity";
+    if (column === "interest") return "interest";
+    if (column === "action") return "action";
+    return null;
+  }
+
+  const gaugeFill = Math.min(countGauge.percent, 160);
+
   return (
     <section>
       <header className="page-head">
@@ -99,11 +274,78 @@ export function CollegesTab({
           <h2>College list</h2>
         </div>
         <div className="readout">
-          <span className="label">Showing</span>
-          <span className="figure">{visible.length}</span>
-          <span className="unit">of {schools.length} schools</span>
+          <span className="label">{phase.label} list</span>
+          <span className="figure">{activeCount}</span>
+          <span className="unit">
+            of ~{phase.target} target ({phase.rangeLabel})
+          </span>
         </div>
       </header>
+
+      <div className="list-phase-bar" role="tablist" aria-label="List phase">
+        {LIST_PHASES.map((item) => {
+          const count = schools.filter((school) => !school.archived && school.listPhase === item.id).length;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={phaseId === item.id}
+              className={phaseId === item.id ? "active" : ""}
+              onClick={() => setPhaseId(item.id)}
+            >
+              <span className="phase-name">{item.label}</span>
+              <span className="phase-meta">
+                {item.window} · {count}/{item.target}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="list-gauges" aria-label="List gauges">
+        <div className="list-gauge list-gauge-count">
+          <div className="list-gauge-head">
+            <span className="label">List size vs target</span>
+            <span className="list-gauge-pct">{countGauge.percent}%</span>
+          </div>
+          <div className="list-gauge-track" aria-hidden="true">
+            <span className="list-gauge-fill" style={{ width: `${Math.min(gaugeFill, 100)}%` }} />
+            {gaugeFill > 100 ? (
+              <span className="list-gauge-over" style={{ width: `${Math.min(gaugeFill - 100, 60)}%` }} />
+            ) : null}
+          </div>
+          <div className="list-gauge-note">
+            {activeCount} active · target ~{phase.target} ({phase.rangeLabel})
+            {countGauge.percent > 100 ? " · over target" : null}
+          </div>
+        </div>
+
+        <div className="list-gauge list-gauge-mix">
+          <div className="list-gauge-head">
+            <span className="label">Selectivity mix</span>
+            <span className="list-gauge-pct">{activeCount ? "of active list" : "no schools yet"}</span>
+          </div>
+          <div className="selectivity-bars">
+            {tierGauges.map((slice) => (
+              <div key={slice.id} className="selectivity-bar">
+                <div className="selectivity-bar-meta">
+                  <span>{slice.label}</span>
+                  <span>
+                    {slice.count} · {slice.percent}%
+                  </span>
+                </div>
+                <div className="list-gauge-track" aria-hidden="true">
+                  <span
+                    className={`list-gauge-fill tier-${slice.id}`}
+                    style={{ width: `${Math.min(slice.percent, 100)}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
 
       <form
         className="toolbar"
@@ -124,7 +366,12 @@ export function CollegesTab({
           placeholder="Search schools"
           onChange={(event) => setQuery(event.target.value)}
         />
-        <select className="select" value={tier} aria-label="Filter by selectivity" onChange={(event) => setTier(event.target.value as SelectivityTier | "any")}>
+        <select
+          className="select"
+          value={tier}
+          aria-label="Filter by selectivity"
+          onChange={(event) => setTier(event.target.value as SelectivityTier | "any")}
+        >
           <option value="any">All selectivity</option>
           {SELECTIVITY_TIERS.map((item) => (
             <option key={item.id || "unset"} value={item.id}>
@@ -132,7 +379,12 @@ export function CollegesTab({
             </option>
           ))}
         </select>
-        <select className="select" value={interest} aria-label="Filter by interest" onChange={(event) => setInterest(event.target.value as InterestLevel | "any")}>
+        <select
+          className="select"
+          value={interest}
+          aria-label="Filter by interest"
+          onChange={(event) => setInterest(event.target.value as InterestLevel | "any")}
+        >
           <option value="any">All interest</option>
           {INTEREST_LEVELS.map((item) => (
             <option key={item.id || "unset"} value={item.id}>
@@ -156,86 +408,105 @@ export function CollegesTab({
           <option value="status">Application status</option>
           <option value="action">Next action</option>
         </select>
-        <input className="input" value={name} placeholder="Add a school" disabled={adding} onChange={(event) => setName(event.target.value)} />
+        <div className="columns-menu" ref={columnsRef}>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            aria-expanded={columnsOpen}
+            onClick={() => setColumnsOpen((open) => !open)}
+          >
+            Columns
+          </button>
+          {columnsOpen ? (
+            <div className="columns-panel" role="dialog" aria-label="Visible columns">
+              <p className="columns-hint">Saved for your login on this phase.</p>
+              {LIST_COLUMNS.map((column) => (
+                <label key={column.id} className="columns-option">
+                  <input
+                    type="checkbox"
+                    checked={columns.includes(column.id)}
+                    disabled={column.required}
+                    onChange={() => toggleColumn(column.id)}
+                  />
+                  <span>{column.label}</span>
+                </label>
+              ))}
+              <button type="button" className="btn btn-ghost columns-reset" onClick={resetColumns}>
+                Reset to {phase.label} defaults
+              </button>
+            </div>
+          ) : null}
+        </div>
+        <label className="archive-toggle">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(event) =>
+              onListPrefsChange({ ...listPrefs, showArchived: event.target.checked })
+            }
+          />
+          <span>
+            Archived{archivedInPhase ? ` (${archivedInPhase})` : ""}
+          </span>
+        </label>
+        <input
+          className="input"
+          value={name}
+          placeholder="Add a school"
+          disabled={adding}
+          onChange={(event) => setName(event.target.value)}
+        />
         <button type="submit" className="btn btn-primary" disabled={adding}>
           {adding ? "Looking up" : "Add"}
         </button>
       </form>
 
       <div className="table-wrap schools-wrap">
-        <table className="schools">
+        <table className="schools" style={{ minWidth: Math.max(520, columns.length * 140) }}>
           <thead>
             <tr>
-              <th>
-                <button type="button" className={sort === "name" ? "active" : ""} onClick={() => toggleSort("name")}>
-                  School{arrow("name")}
-                </button>
-              </th>
-              <th>
-                <button type="button" className={sort === "status" ? "active" : ""} onClick={() => toggleSort("status")}>
-                  Status{arrow("status")}
-                </button>
-              </th>
-              <th>Track and deadline</th>
-              <th>
-                <button type="button" className={sort === "selectivity" ? "active" : ""} onClick={() => toggleSort("selectivity")}>
-                  Selectivity{arrow("selectivity")}
-                </button>
-              </th>
-              <th>
-                <button type="button" className={sort === "interest" ? "active" : ""} onClick={() => toggleSort("interest")}>
-                  Interest{arrow("interest")}
-                </button>
-              </th>
-              <th>
-                <button type="button" className={sort === "action" ? "active" : ""} onClick={() => toggleSort("action")}>
-                  Next action{arrow("action")}
-                </button>
-              </th>
+              {columns.map((columnId) => {
+                const meta = LIST_COLUMNS.find((column) => column.id === columnId);
+                const sortKey = sortKeyForColumn(columnId);
+                return (
+                  <th key={columnId}>
+                    {sortKey ? (
+                      <button
+                        type="button"
+                        className={sort === sortKey ? "active" : ""}
+                        onClick={() => toggleSort(sortKey)}
+                      >
+                        {meta?.label ?? columnId}
+                        {arrow(sortKey)}
+                      </button>
+                    ) : (
+                      meta?.label ?? columnId
+                    )}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
-            {visible.map((school) => {
-              const deadline = primaryDeadline(school);
-              const action = nextAction(school);
-              const track = trackLabel(school.admissionTrack);
-              return (
-                <tr key={school.id} className={school.id === selectedId ? "selected" : undefined} onClick={() => onOpen(school.id)}>
-                  <td className="school-name">
-                    <div className="school-id">
-                      <SchoolMark name={school.name} website={school.website} />
-                      <span>{school.name}</span>
-                    </div>
-                  </td>
-                  <td>{statusLabel(school.applicationStatus)}</td>
-                  <td>
-                    <div>{track || "Not chosen"}</div>
-                    <div className="muted">{deadline.date ? formatDate(deadline.date) : "No date"}</div>
-                  </td>
-                  <td>{tierLabel(school.selectivityTier)}</td>
-                  <td onClick={(event) => event.stopPropagation()}>
-                    <select
-                      className="field compact"
-                      value={school.interestLevel}
-                      aria-label={`Interest for ${school.name}`}
-                      onChange={(event) => onPatch(school.id, { interestLevel: event.target.value as School["interestLevel"] })}
-                    >
-                      {INTEREST_LEVELS.map((item) => (
-                        <option key={item.id || "unset"} value={item.id}>
-                          {item.label}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <div>{action.title || "—"}</div>
-                    {action.dueDate ? <div className="muted">{formatDate(action.dueDate)}</div> : null}
-                  </td>
-                </tr>
-              );
-            })}
+            {visible.map((school) => (
+              <tr
+                key={school.id}
+                className={[
+                  school.id === selectedId ? "selected" : "",
+                  school.archived ? "archived-row" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ") || undefined}
+                onClick={() => onOpen(school.id)}
+              >
+                {columns.map((column) => renderCell(column, school))}
+              </tr>
+            ))}
           </tbody>
         </table>
+        {visible.length === 0 ? (
+          <p className="empty-list">No schools in {phase.label} yet.</p>
+        ) : null}
       </div>
 
       <div className="school-cards">
@@ -246,29 +517,41 @@ export function CollegesTab({
             <div key={school.id} className="school-card" onClick={() => onOpen(school.id)}>
               <h3 className="school-id">
                 <SchoolMark name={school.name} website={school.website} />
-                <span>{school.name}</span>
+                <span>
+                  {school.name}
+                  {school.archived ? <small className="archived-tag">Archived</small> : null}
+                </span>
               </h3>
               <div className="card-meta">
-                <span>{statusLabel(school.applicationStatus)}</span>
-                <span>{tierLabel(school.selectivityTier)}</span>
-                <span>{trackLabel(school.admissionTrack) || "Track not chosen"}</span>
-                <span>{deadline.date ? formatDate(deadline.date) : "No deadline"}</span>
-                <span>{action.title || "No next action"}</span>
+                {columns.includes("status") ? <span>{statusLabel(school.applicationStatus) || "—"}</span> : null}
+                {columns.includes("location") ? <span>{school.location || "—"}</span> : null}
+                {columns.includes("selectivity") ? <span>{tierLabel(school.selectivityTier) || "—"}</span> : null}
+                {columns.includes("track") ? (
+                  <span>
+                    {trackLabel(school.admissionTrack) || "Track not chosen"}
+                    {deadline.date ? ` · ${formatDate(deadline.date)}` : ""}
+                  </span>
+                ) : null}
+                {columns.includes("action") ? <span>{action.title || "No next action"}</span> : null}
               </div>
-              <div onClick={(event) => event.stopPropagation()}>
-                <select
-                  className="field compact"
-                  value={school.interestLevel}
-                  aria-label={`Interest for ${school.name}`}
-                  onChange={(event) => onPatch(school.id, { interestLevel: event.target.value as School["interestLevel"] })}
-                >
-                  {INTEREST_LEVELS.map((item) => (
-                    <option key={item.id || "unset"} value={item.id}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {columns.includes("interest") ? (
+                <div onClick={(event) => event.stopPropagation()}>
+                  <select
+                    className="field compact"
+                    value={school.interestLevel}
+                    aria-label={`Interest for ${school.name}`}
+                    onChange={(event) =>
+                      onPatch(school.id, { interestLevel: event.target.value as School["interestLevel"] })
+                    }
+                  >
+                    {INTEREST_LEVELS.map((item) => (
+                      <option key={item.id || "unset"} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
             </div>
           );
         })}
@@ -281,6 +564,9 @@ export function CollegesTab({
           onBack={onClose}
           onPatch={(patch) => onPatch(selected.id, patch)}
           onDelete={() => onDelete(selected.id)}
+          onAdvance={() => advanceSchool(selected)}
+          onArchive={() => archiveSchool(selected)}
+          onRestore={() => restoreSchool(selected)}
           onAddStep={(label, owner) => onAddStep(selected.id, label, owner)}
           onPatchStep={(stepId, patch) => onPatchStep(selected.id, stepId, patch)}
           onDeleteStep={(stepId) => onDeleteStep(selected.id, stepId)}

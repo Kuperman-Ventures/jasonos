@@ -18,6 +18,7 @@ import type {
   SchoolSeed,
   SelectivityTier,
   Step,
+  ListPhaseId,
 } from "./types";
 import {
   fromSeed,
@@ -25,6 +26,7 @@ import {
   isApplicationStatus,
   isChoice,
   isInterestLevel,
+  isListPhaseId,
   isOwner,
   isPlan,
   isSelectivityTier,
@@ -65,6 +67,10 @@ type SchoolRow = {
   merit_aid_notes: string;
   research_sources?: string | null;
   website?: string | null;
+  list_phase?: string | null;
+  phases_participated?: string[] | null;
+  archived?: boolean | null;
+  archived_at?: string | null;
   school_steps?: StepRow[] | null;
   deadlines?: DeadlineRow[] | null;
   contacts?: ContactRow[] | null;
@@ -176,6 +182,10 @@ export function mapSchool(row: SchoolRow): School {
     meritAidNotes: row.merit_aid_notes ?? "",
     researchSources: row.research_sources ?? "",
     website: row.website || knownWebsite(row.id),
+    listPhase: isListPhaseId(row.list_phase ?? "") ? (row.list_phase as ListPhaseId) : "exploration",
+    phasesParticipated: (row.phases_participated ?? ["exploration"]).filter(isListPhaseId),
+    archived: Boolean(row.archived),
+    archivedAt: row.archived_at ?? null,
     steps,
     deadlines,
     contacts,
@@ -183,7 +193,7 @@ export function mapSchool(row: SchoolRow): School {
 }
 
 const SCHOOL_COLUMNS =
-  "id, name, location, campus_size, mechanical_engineering, materials, materials_offering, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, deadline, deadline_label, selectivity_tier, interest_level, application_status, admission_track, test_policy, middle_50, application_platform, required_essays, teacher_recs, cost_of_attendance, net_price_estimate, merit_aid_notes, research_sources, website, school_steps(id, label, owner, done, sort_order), deadlines(id, title, due_date, completed, sort_order), contacts(id, name, role, email, phone)";
+  "id, name, location, campus_size, mechanical_engineering, materials, materials_offering, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, deadline, deadline_label, selectivity_tier, interest_level, application_status, admission_track, test_policy, middle_50, application_platform, required_essays, teacher_recs, cost_of_attendance, net_price_estimate, merit_aid_notes, research_sources, website, list_phase, phases_participated, archived, archived_at, school_steps(id, label, owner, done, sort_order), deadlines(id, title, due_date, completed, sort_order), contacts(id, name, role, email, phone)";
 
 export async function listSchools(): Promise<School[]> {
   if (!supabaseConfigured()) return seedSchools();
@@ -240,7 +250,14 @@ export async function createSchool(name: string): Promise<School> {
     Math.max(0, ...(existing ?? []).map((row) => Number(row.list_order) || 0)) + 1;
   const { data, error } = await db
     .from("schools")
-    .insert({ id, name: trimmed, list_order: listOrder })
+    .insert({
+      id,
+      name: trimmed,
+      list_order: listOrder,
+      list_phase: "exploration",
+      phases_participated: ["exploration"],
+      archived: false,
+    })
     .select(SCHOOL_COLUMNS)
     .single();
   if (error) throw error;
@@ -290,6 +307,22 @@ export function schoolPatchToRow(patch: Record<string, unknown>): Record<string,
   }
   if (typeof patch.admissionTrack === "string" && isAdmissionTrack(patch.admissionTrack)) {
     row.admission_track = patch.admissionTrack as AdmissionTrack;
+  }
+  if (typeof patch.listPhase === "string" && isListPhaseId(patch.listPhase)) {
+    row.list_phase = patch.listPhase;
+  }
+  if (Array.isArray(patch.phasesParticipated)) {
+    row.phases_participated = patch.phasesParticipated.filter(
+      (value): value is ListPhaseId => typeof value === "string" && isListPhaseId(value),
+    );
+  }
+  if (typeof patch.archived === "boolean") {
+    row.archived = patch.archived;
+    if (patch.archived) row.archived_at = new Date().toISOString();
+    else row.archived_at = null;
+  }
+  if (patch.archivedAt === null || typeof patch.archivedAt === "string") {
+    if ("archivedAt" in patch) row.archived_at = patch.archivedAt || null;
   }
   if (typeof patch.visited === "boolean") row.visited = patch.visited;
   if (patch.visitDate === null || typeof patch.visitDate === "string") {
@@ -479,4 +512,61 @@ async function getSchool(id: string): Promise<School> {
 export function seedById(id: string): School | undefined {
   const seed = (schoolsFile.schools as SchoolSeed[]).find((school) => school.id === id);
   return seed ? fromSeed(seed) : undefined;
+}
+
+export async function getMemberPrefs(memberId: string): Promise<{
+  collegesColumns: Record<string, string[]>;
+  showArchived: boolean;
+}> {
+  if (!supabaseConfigured() || memberId === "local") {
+    return { collegesColumns: {}, showArchived: false };
+  }
+  const db = collegeDb();
+  const { data, error } = await db
+    .from("member_prefs")
+    .select("colleges_columns, show_archived")
+    .eq("member_id", memberId)
+    .maybeSingle();
+  if (error) throw error;
+  const columns =
+    data?.colleges_columns && typeof data.colleges_columns === "object"
+      ? (data.colleges_columns as Record<string, string[]>)
+      : {};
+  return {
+    collegesColumns: columns,
+    showArchived: Boolean(data?.show_archived),
+  };
+}
+
+export async function upsertMemberPrefs(
+  memberId: string,
+  patch: { collegesColumns?: Record<string, string[]>; showArchived?: boolean },
+): Promise<{ collegesColumns: Record<string, string[]>; showArchived: boolean }> {
+  if (!supabaseConfigured() || memberId === "local") {
+    return {
+      collegesColumns: patch.collegesColumns ?? {},
+      showArchived: Boolean(patch.showArchived),
+    };
+  }
+  const current = await getMemberPrefs(memberId);
+  const next = {
+    member_id: memberId,
+    colleges_columns: patch.collegesColumns ?? current.collegesColumns,
+    show_archived: patch.showArchived ?? current.showArchived,
+    updated_at: new Date().toISOString(),
+  };
+  const db = collegeDb();
+  const { data, error } = await db
+    .from("member_prefs")
+    .upsert(next, { onConflict: "member_id" })
+    .select("colleges_columns, show_archived")
+    .single();
+  if (error) throw error;
+  return {
+    collegesColumns:
+      data.colleges_columns && typeof data.colleges_columns === "object"
+        ? (data.colleges_columns as Record<string, string[]>)
+        : {},
+    showArchived: Boolean(data.show_archived),
+  };
 }

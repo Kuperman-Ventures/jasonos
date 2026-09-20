@@ -17,6 +17,7 @@ export type SelectivityTier = "" | "extremely_selective" | "very_selective" | "c
 export type InterestLevel = "" | "top" | "high" | "moderate" | "safety";
 export type ApplicationStatus = "" | "researching" | "applying" | "submitted" | "accepted" | "enrolled";
 export type AdmissionTrack = "" | "ed1" | "ed2" | "ea" | "rd" | "rolling";
+export type ListPhaseId = "exploration" | "consideration" | "applications";
 
 export type Step = {
   id: string;
@@ -85,6 +86,10 @@ export type School = {
   meritAidNotes: string;
   researchSources: string;
   website: string;
+  listPhase: ListPhaseId;
+  phasesParticipated: ListPhaseId[];
+  archived: boolean;
+  archivedAt: string | null;
   steps: Step[];
   deadlines: Deadline[];
   contacts: SchoolContact[];
@@ -341,6 +346,10 @@ export function isAdmissionTrack(value: string): value is AdmissionTrack {
   return ADMISSION_TRACKS.some((item) => item.id === value);
 }
 
+export function isListPhaseId(value: string): value is ListPhaseId {
+  return value === "exploration" || value === "consideration" || value === "applications";
+}
+
 export function schoolFaviconUrl(website: string): string {
   const trimmed = website.trim();
   if (!trimmed) return "";
@@ -400,6 +409,10 @@ export function fromSeed(seed: SchoolSeed): School {
     meritAidNotes: "",
     researchSources: "",
     website: knownWebsite(seed.id),
+    listPhase: "exploration",
+    phasesParticipated: ["exploration"],
+    archived: false,
+    archivedAt: null,
     steps: [],
     deadlines: [],
     contacts: [],

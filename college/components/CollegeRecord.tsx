@@ -14,6 +14,7 @@ import {
   type Owner,
   type School,
 } from "@/lib/types";
+import { LIST_PHASES, nextListPhaseId } from "@/lib/list-phases";
 import { sourceLines } from "@/lib/school-research";
 import { SchoolMark } from "./SchoolMark";
 
@@ -47,6 +48,9 @@ export function CollegeRecord({
   onBack,
   onPatch,
   onDelete,
+  onAdvance,
+  onArchive,
+  onRestore,
   onAddStep,
   onPatchStep,
   onDeleteStep,
@@ -61,6 +65,9 @@ export function CollegeRecord({
   onBack: () => void;
   onPatch: (patch: Partial<School>) => void;
   onDelete: () => void;
+  onAdvance: () => void;
+  onArchive: () => void;
+  onRestore: () => void;
   onAddStep: (label: string, owner: Owner) => void;
   onPatchStep: (stepId: string, patch: { done?: boolean; owner?: Owner; label?: string }) => void;
   onDeleteStep: (stepId: string) => void;
@@ -115,6 +122,16 @@ export function CollegeRecord({
     ["Admissions context", school.admissionsContext],
   ];
 
+  const phaseLabel =
+    LIST_PHASES.find((phase) => phase.id === school.listPhase)?.label ?? school.listPhase;
+  const nextPhase = nextListPhaseId(school.listPhase);
+  const nextPhaseLabel = nextPhase
+    ? LIST_PHASES.find((phase) => phase.id === nextPhase)?.label
+    : null;
+  const participated = school.phasesParticipated
+    .map((id) => LIST_PHASES.find((phase) => phase.id === id)?.label ?? id)
+    .join(" → ");
+
   return (
     <div className="drawer-root">
       <button type="button" className="drawer-backdrop" aria-label="Close school" onClick={onBack} />
@@ -131,6 +148,42 @@ export function CollegeRecord({
             </div>
           </div>
         </div>
+
+        <section className="drawer-section">
+          <h3>List phase</h3>
+          <p className="section-sub">
+            {school.archived ? "Archived" : phaseLabel}
+            {participated ? ` · participated: ${participated}` : ""}
+          </p>
+          <div className="phase-actions">
+            {!school.archived && nextPhaseLabel ? (
+              <button type="button" className="btn btn-primary" onClick={onAdvance}>
+                Advance to {nextPhaseLabel}
+              </button>
+            ) : null}
+            {school.archived ? (
+              <button type="button" className="btn btn-primary" onClick={onRestore}>
+                Restore to list
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      `Archive ${school.name}? It stays on file with the phases it was in.`,
+                    )
+                  ) {
+                    onArchive();
+                  }
+                }}
+              >
+                Archive from list
+              </button>
+            )}
+          </div>
+        </section>
 
         <section className="drawer-section">
           <h3>Admissions and academics</h3>

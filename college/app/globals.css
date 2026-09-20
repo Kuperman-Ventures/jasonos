@@ -710,7 +710,7 @@ nav.tabs button.active:active { background: var(--color-accent-pressed); }
 }
 table.rubric, table.schools { border-collapse: collapse; width: 100%; background: transparent; }
 table.rubric { min-width: 860px; }
-table.schools { min-width: 920px; }
+table.schools { min-width: 0; }
 table.rubric th, table.rubric td, table.schools th, table.schools td {
   padding: var(--space-3) var(--space-3);
   border-bottom: 1px solid var(--color-divider);
@@ -1632,4 +1632,185 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   .firm-card, .school-card, .step-row { box-shadow: none !important; break-inside: avoid; }
   .table-wrap { overflow: visible !important; }
   table.rubric, table.schools { min-width: 0 !important; }
+}
+
+/* ---------- college list funnel ---------- */
+.list-phase-bar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+.list-phase-bar button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 64px;
+  padding: var(--space-3);
+  text-align: left;
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  cursor: pointer;
+  font: inherit;
+}
+.list-phase-bar button:hover { border-color: var(--color-accent-400); }
+.list-phase-bar button.active {
+  border-color: var(--color-accent-500);
+  box-shadow: inset 3px 0 0 var(--color-accent-500);
+}
+.list-phase-bar .phase-name {
+  font-family: var(--font-heading);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.list-phase-bar .phase-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-subtle);
+}
+.list-gauges {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+.list-gauge {
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.list-gauge-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+.list-gauge-head .label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+.list-gauge-pct {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-500);
+}
+.list-gauge-track {
+  position: relative;
+  display: flex;
+  height: 8px;
+  background: var(--color-neutral-300);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.list-gauge-fill {
+  display: block;
+  height: 100%;
+  background: var(--color-accent-500);
+}
+.list-gauge-over {
+  display: block;
+  height: 100%;
+  background: var(--color-accent-700);
+}
+.list-gauge-note {
+  margin-top: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-subtle);
+}
+.selectivity-bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.selectivity-bar-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.list-gauge-fill.tier-extremely_selective { background: var(--color-accent-700); }
+.list-gauge-fill.tier-very_selective { background: var(--color-accent-500); }
+.list-gauge-fill.tier-competitive { background: var(--color-brand); }
+.list-gauge-fill.tier-less_competitive { background: var(--color-cyan); }
+.columns-menu { position: relative; }
+.columns-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 5;
+  width: min(260px, 80vw);
+  padding: var(--space-3);
+  background: var(--color-bg);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.columns-hint {
+  margin: 0 0 var(--space-1);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-subtle);
+}
+.columns-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.columns-reset { align-self: flex-start; margin-top: var(--space-1); }
+.archive-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  font-size: 14px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.archived-tag {
+  display: inline-block;
+  margin-left: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+table.schools tbody tr.archived-row td { opacity: 0.62; }
+.empty-list {
+  margin: var(--space-4) 0 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-subtle);
+}
+.phase-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+@media (max-width: 900px) {
+  .list-phase-bar,
+  .list-gauges { grid-template-columns: 1fr; }
 }

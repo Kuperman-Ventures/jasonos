@@ -25,6 +25,7 @@ import {
 } from "@/lib/content";
 import { currentPhaseIndex, phaseStatuses } from "@/lib/phases";
 import { useSchoolPipeline } from "@/lib/use-school-pipeline";
+import { defaultListPrefs, mergeListPrefs, type MemberListPrefs } from "@/lib/list-phases";
 import type { ContactPatch, DeadlinePatch, Owner, School, Scores, TabId } from "@/lib/types";
 import {
   fromSeed,
@@ -32,6 +33,7 @@ import {
   isApplicationStatus,
   isChoice,
   isInterestLevel,
+  isListPhaseId,
   isPlan,
   isSelectivityTier,
   TABS,
@@ -84,24 +86,31 @@ export function Portal({
   const [saveState, setSaveState] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [railOpen, setRailOpen] = useState(false);
+  const [listPrefs, setListPrefs] = useState<MemberListPrefs>(() => defaultListPrefs());
   const notesTimer = useRef<number | undefined>(undefined);
+  const prefsTimer = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
-        const stateRes = await fetch("/api/state");
+        const [stateRes, prefsRes] = await Promise.all([fetch("/api/state"), fetch("/api/prefs")]);
         const state = (await stateRes.json()) as {
           checklist?: Record<string, boolean>;
           scores?: Scores;
           notes?: string;
           persisted?: boolean;
         };
+        const prefsBody = (await prefsRes.json()) as {
+          prefs?: MemberListPrefs;
+          error?: string;
+        };
         if (cancelled) return;
         if (state.checklist) setChecklist(state.checklist);
         if (state.scores) setScores({ ...seedScores, ...state.scores });
         if (typeof state.notes === "string") setNotes(state.notes);
         setPersisted(Boolean(state.persisted));
+        if (prefsBody.prefs) setListPrefs(mergeListPrefs(prefsBody.prefs));
       } catch {
         if (!cancelled) setSaveState("Not saved");
       } finally {
@@ -113,6 +122,26 @@ export function Portal({
       cancelled = true;
     };
   }, []);
+
+  function saveListPrefs(next: MemberListPrefs) {
+    const merged = mergeListPrefs(next);
+    setListPrefs(merged);
+    window.clearTimeout(prefsTimer.current);
+    prefsTimer.current = window.setTimeout(() => {
+      void fetch("/api/prefs", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(merged),
+      })
+        .then(async (response) => {
+          if (!response.ok) throw new Error("prefs");
+          const body = (await response.json()) as { prefs?: MemberListPrefs };
+          if (body.prefs) setListPrefs(mergeListPrefs(body.prefs));
+          setSaveState("Saved");
+        })
+        .catch(() => setSaveState("Not saved"));
+    }, 350);
+  }
 
   const replaceUrl = useCallback((nextTab: TabId, nextSchool: string | null) => {
     const params = new URLSearchParams();
@@ -482,6 +511,8 @@ export function Portal({
             schools={schools}
             selectedId={schoolId}
             dateline={phaseLabel}
+            listPrefs={listPrefs}
+            onListPrefsChange={saveListPrefs}
             onOpen={(id) => {
               replaceUrl("colleges", id);
             }}
@@ -495,6 +526,7 @@ export function Portal({
               if (patch.interestLevel !== undefined && !isInterestLevel(patch.interestLevel)) return;
               if (patch.applicationStatus !== undefined && !isApplicationStatus(patch.applicationStatus)) return;
               if (patch.admissionTrack !== undefined && !isAdmissionTrack(patch.admissionTrack)) return;
+              if (patch.listPhase !== undefined && !isListPhaseId(patch.listPhase)) return;
               void patchSchool(id, patch);
             }}
             onCreate={(value) => createSchool(value)}
