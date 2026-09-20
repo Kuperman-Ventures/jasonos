@@ -1,6 +1,7 @@
 import type { Phase, School, SelectivityTier } from "./types";
 import { SELECTIVITY_TIERS, tierLabel } from "./types";
 import type { PhaseStatus } from "./phases";
+import { US_STATE_CENTROIDS } from "./us-state-paths";
 
 export type SelectivitySlice = {
   id: SelectivityTier;
@@ -14,7 +15,10 @@ export type StateCount = {
   count: number;
 };
 
-export { US_STATE_PATHS, US_MAP_VIEWBOX } from "./us-state-paths";
+/** Ordered most → least selective for the snapshot meter. */
+export const SELECTIVITY_SPECTRUM = SELECTIVITY_TIERS.filter((tier) => tier.id);
+
+export { US_STATE_PATHS, US_MAP_VIEWBOX, US_STATE_CENTROIDS } from "./us-state-paths";
 
 /** Fill strength 0–1 for choropleth intensity from school count. */
 export function stateFillStrength(count: number, max: number): number {
@@ -27,6 +31,21 @@ const STATE_RE = /,\s*([A-Z]{2})\s*$/;
 export function stateFromLocation(location: string): string | null {
   const match = location.trim().match(STATE_RE);
   return match?.[1] ?? null;
+}
+
+export function stateCentroid(state: string): { x: number; y: number } | null {
+  return US_STATE_CENTROIDS[state] ?? null;
+}
+
+/**
+ * Position on the selectivity spectrum from 0 (extremely) to 1 (less competitive).
+ * Returns null when the tier is unset.
+ */
+export function selectivitySpectrumPosition(tier: SelectivityTier): number | null {
+  const index = SELECTIVITY_SPECTRUM.findIndex((item) => item.id === tier);
+  if (index < 0) return null;
+  const last = SELECTIVITY_SPECTRUM.length - 1;
+  return last <= 0 ? 0 : index / last;
 }
 
 export function selectivityBreakdown(schools: School[]): SelectivitySlice[] {

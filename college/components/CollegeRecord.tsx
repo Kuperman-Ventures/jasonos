@@ -11,7 +11,6 @@ import {
   formatDate,
   ownerLabel,
   statusLabel,
-  tierLabel,
   trackLabel,
   type ContactPatch,
   type DeadlinePatch,
@@ -22,6 +21,7 @@ import { LIST_PHASES, nextListPhaseId, previousListPhaseId } from "@/lib/list-ph
 import { sourceLines } from "@/lib/school-research";
 import { fetchSchoolPhotoUrl, websiteHostLabel, websiteHref } from "@/lib/school-photo";
 import { SchoolMark } from "./SchoolMark";
+import { SchoolSnapshotViz } from "./SchoolSnapshotViz";
 
 type SchoolModalTab = "snapshot" | "settings" | "requirements" | "financials" | "projects";
 
@@ -221,13 +221,7 @@ export function CollegeRecord({
   const nextOpenDeadline = deadlines.find((item) => !item.completed && item.dueDate) ?? null;
 
   const overviewFacts: { label: string; value: string; emphasize?: "accent" | "mono" | "default" }[] = [
-    { label: "Location", value: school.location },
     { label: "Campus / size", value: school.campusSize },
-    {
-      label: "Selectivity",
-      value: tierLabel(school.selectivityTier) || school.selectivity,
-      emphasize: "accent",
-    },
     { label: "Test policy", value: school.testPolicy },
     { label: "Middle 50%", value: school.middle50, emphasize: "mono" },
     { label: "Mechanical Engineering", value: school.mechanicalEngineering },
@@ -306,6 +300,7 @@ export function CollegeRecord({
                   project work.
                 </p>
               </div>
+              <SchoolSnapshotViz location={school.location} selectivityTier={school.selectivityTier} />
               <div className="fact-grid school-overview-facts">
                 {overviewFacts.map((fact) => (
                   <Fact key={fact.label} label={fact.label} value={fact.value} emphasize={fact.emphasize} />

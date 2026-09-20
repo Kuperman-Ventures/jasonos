@@ -1038,6 +1038,146 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
 .school-overview-facts {
   margin-bottom: var(--space-6);
 }
+.school-snapshot-viz {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: var(--space-6) var(--space-8);
+  align-items: stretch;
+  margin-bottom: var(--space-8);
+}
+.snapshot-map-panel,
+.snapshot-meter-panel {
+  min-width: 0;
+}
+.snapshot-map-panel .label,
+.snapshot-meter-panel .label {
+  margin-bottom: var(--space-3);
+}
+.snapshot-map {
+  width: 100%;
+  height: auto;
+  display: block;
+  background:
+    radial-gradient(ellipse at 30% 20%, color-mix(in srgb, var(--color-brand) 8%, transparent), transparent 55%),
+    linear-gradient(165deg, var(--color-surface), color-mix(in srgb, var(--neutral-300) 35%, var(--color-bg)));
+  border-radius: 0;
+}
+.snapshot-map-state {
+  fill: color-mix(in srgb, var(--neutral-300) 70%, var(--color-bg));
+  stroke: var(--color-bg);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  transition: fill 220ms ease;
+}
+.snapshot-map-state.is-home {
+  fill: color-mix(in srgb, var(--color-brand) 55%, var(--done-500));
+}
+.snapshot-map-pin-pulse {
+  fill: color-mix(in srgb, var(--accent-500) 28%, transparent);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: snapshot-pin-pulse 1.8s ease-out infinite;
+}
+.snapshot-map-pin-dot {
+  fill: var(--accent-500);
+  stroke: #f8f4f4;
+  stroke-width: 2.5;
+}
+.snapshot-map-pin-core {
+  fill: #f8f4f4;
+}
+@keyframes snapshot-pin-pulse {
+  0% { transform: scale(0.55); opacity: 0.55; }
+  70% { transform: scale(1.6); opacity: 0; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+.snapshot-viz-caption {
+  margin: var(--space-3) 0 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.snapshot-meter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0 var(--space-1);
+}
+.snapshot-meter-svg {
+  width: min(100%, 280px);
+  height: auto;
+  display: block;
+}
+.snapshot-meter-track {
+  fill: none;
+  stroke: var(--neutral-300);
+  stroke-width: 12;
+  stroke-linecap: round;
+}
+.snapshot-meter-fill {
+  fill: none;
+  stroke: url(#selectivity-arc-fill);
+  stroke-width: 12;
+  stroke-linecap: round;
+}
+.snapshot-meter-tick {
+  fill: var(--color-bg);
+  stroke: var(--neutral-400);
+  stroke-width: 1.5;
+}
+.snapshot-meter-tick.is-active {
+  fill: var(--accent-500);
+  stroke: #f8f4f4;
+  stroke-width: 2;
+}
+.snapshot-meter-needle line {
+  stroke: var(--color-text);
+  stroke-width: 2;
+  stroke-linecap: round;
+  animation: snapshot-needle-in 550ms ease-out both;
+}
+.snapshot-meter-hub {
+  fill: var(--color-text);
+}
+.snapshot-meter-hub.is-unset {
+  fill: var(--neutral-400);
+}
+.snapshot-meter-head {
+  fill: var(--accent-500);
+  stroke: #f8f4f4;
+  stroke-width: 2;
+  animation: snapshot-needle-in 550ms ease-out both;
+}
+@keyframes snapshot-needle-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.snapshot-meter-readout {
+  text-align: center;
+  width: min(100%, 280px);
+}
+.snapshot-meter-readout strong {
+  display: block;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+}
+.snapshot-meter.is-unset .snapshot-meter-readout strong {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+.snapshot-meter-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
 .school-overview-prose {
   display: grid;
   gap: var(--space-6);
@@ -1249,7 +1389,8 @@ table.schools .muted,
   .fact-grid { grid-template-columns: 1fr; }
   .drawer-grid,
   .school-edit-grid,
-  .school-overview-status { grid-template-columns: 1fr; }
+  .school-overview-status,
+  .school-snapshot-viz { grid-template-columns: 1fr; }
   .school-modal {
     width: 100%;
     max-height: 100vh;
