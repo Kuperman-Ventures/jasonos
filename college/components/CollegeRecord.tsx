@@ -48,13 +48,58 @@ function BlurInput({
   );
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
+function Fact({
+  label,
+  value,
+  emphasize,
+}: {
+  label: string;
+  value: string;
+  emphasize?: "accent" | "mono" | "default";
+}) {
+  const trimmed = value.trim();
+  const yes = /^yes$/i.test(trimmed);
+  const no = /^no$/i.test(trimmed);
+  const empty = !trimmed;
+  const tone = emphasize ?? (looksLikeDatum(trimmed) ? "mono" : "default");
+
   return (
-    <div className="fact">
+    <div className={`fact${yes ? " fact-yes" : ""}${no ? " fact-no" : ""}${empty ? " fact-empty" : ""}`}>
       <div className="label">{label}</div>
-      <p>{value.trim() ? value : "—"}</p>
+      {yes ? (
+        <p className="fact-value fact-check" aria-label="Yes">
+          <span className="fact-check-icon" aria-hidden="true">
+            <svg viewBox="0 0 20 20" width="22" height="22" fill="none">
+              <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.6" />
+              <path
+                d="M5.8 10.2 8.6 13l5.6-6.2"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
+        </p>
+      ) : no ? (
+        <p className="fact-value fact-cross" aria-label="No">
+          <span className="fact-cross-icon" aria-hidden="true">
+            <svg viewBox="0 0 20 20" width="20" height="20" fill="none">
+              <circle cx="10" cy="10" r="8.5" stroke="currentColor" strokeWidth="1.4" />
+              <path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </span>
+        </p>
+      ) : (
+        <p className={`fact-value fact-tone-${tone}`}>{empty ? "—" : trimmed}</p>
+      )}
     </div>
   );
+}
+
+function looksLikeDatum(value: string): boolean {
+  if (!value) return false;
+  return /[$€£]|^\d|%|\b\d{3,4}\b/.test(value);
 }
 
 export function CollegeRecord({
@@ -164,19 +209,23 @@ export function CollegeRecord({
 
   const nextOpenDeadline = deadlines.find((item) => !item.completed && item.dueDate) ?? null;
 
-  const overviewFacts: [string, string][] = [
-    ["Location", school.location],
-    ["Campus / size", school.campusSize],
-    ["Selectivity", tierLabel(school.selectivityTier) || school.selectivity],
-    ["Test policy", school.testPolicy],
-    ["Middle 50%", school.middle50],
-    ["Mechanical engineering", school.mechanicalEngineering],
-    ["Materials", school.materials],
-    ["Materials offering", school.materialsOffering],
-    ["Application platform", school.applicationPlatform],
-    ["Teacher recommendations", school.teacherRecs],
-    ["Sticker price", school.costOfAttendance],
-    ["Net price estimate", school.netPriceEstimate],
+  const overviewFacts: { label: string; value: string; emphasize?: "accent" | "mono" | "default" }[] = [
+    { label: "Location", value: school.location },
+    { label: "Campus / size", value: school.campusSize },
+    {
+      label: "Selectivity",
+      value: tierLabel(school.selectivityTier) || school.selectivity,
+      emphasize: "accent",
+    },
+    { label: "Test policy", value: school.testPolicy },
+    { label: "Middle 50%", value: school.middle50, emphasize: "mono" },
+    { label: "Mechanical Engineering", value: school.mechanicalEngineering },
+    { label: "Material Sciences", value: school.materials },
+    { label: "Material sciences offering", value: school.materialsOffering },
+    { label: "Application platform", value: school.applicationPlatform },
+    { label: "Teacher recommendations", value: school.teacherRecs, emphasize: "mono" },
+    { label: "Sticker price", value: school.costOfAttendance, emphasize: "mono" },
+    { label: "Net price estimate", value: school.netPriceEstimate, emphasize: "mono" },
   ];
 
   return (
@@ -229,8 +278,8 @@ export function CollegeRecord({
             </p>
           </div>
           <div className="fact-grid school-overview-facts">
-            {overviewFacts.map(([label, value]) => (
-              <Fact key={label} label={label} value={value} />
+            {overviewFacts.map((fact) => (
+              <Fact key={fact.label} label={fact.label} value={fact.value} emphasize={fact.emphasize} />
             ))}
           </div>
           {school.admissionsContext || school.satContext || school.requiredEssays || school.meritAidNotes ? (
@@ -262,8 +311,12 @@ export function CollegeRecord({
             </div>
           ) : null}
           <div className="school-overview-status">
-            <Fact label="Interest" value={INTEREST_LEVELS.find((item) => item.id === school.interestLevel)?.label ?? ""} />
-            <Fact label="Application status" value={statusLabel(school.applicationStatus)} />
+            <Fact
+              label="Interest"
+              value={INTEREST_LEVELS.find((item) => item.id === school.interestLevel)?.label ?? ""}
+              emphasize="accent"
+            />
+            <Fact label="Application status" value={statusLabel(school.applicationStatus)} emphasize="accent" />
             <Fact label="Admission track" value={trackLabel(school.admissionTrack)} />
             <Fact
               label="Next deadline"
@@ -272,6 +325,7 @@ export function CollegeRecord({
                   ? `${nextOpenDeadline.title} · ${formatDate(nextOpenDeadline.dueDate)}`
                   : ""
               }
+              emphasize="mono"
             />
           </div>
         </section>
@@ -440,28 +494,28 @@ export function CollegeRecord({
               />
             </label>
             <label className="stack-field">
-              <span className="label">Mechanical engineering</span>
+              <span className="label">Mechanical Engineering</span>
               <BlurInput
                 value={school.mechanicalEngineering}
-                ariaLabel="Mechanical engineering"
-                placeholder="Not entered"
+                ariaLabel="Mechanical Engineering"
+                placeholder="Yes / No"
                 onCommit={(value) => onPatch({ mechanicalEngineering: value })}
               />
             </label>
             <label className="stack-field">
-              <span className="label">Materials</span>
+              <span className="label">Material Sciences</span>
               <BlurInput
                 value={school.materials}
-                ariaLabel="Materials"
-                placeholder="Not entered"
+                ariaLabel="Material Sciences"
+                placeholder="Yes / No"
                 onCommit={(value) => onPatch({ materials: value })}
               />
             </label>
             <label className="stack-field">
-              <span className="label">Materials offering</span>
+              <span className="label">Material sciences offering</span>
               <BlurInput
                 value={school.materialsOffering}
-                ariaLabel="Materials offering"
+                ariaLabel="Material sciences offering"
                 placeholder="Not entered"
                 onCommit={(value) => onPatch({ materialsOffering: value })}
               />

@@ -1140,7 +1140,52 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   color: var(--text-subtle);
   margin-bottom: var(--space-2);
 }
-.fact p { margin: 0; font-size: 17px; line-height: 1.6; max-width: 66ch; }
+.fact p,
+.fact .fact-value {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  max-width: 66ch;
+  color: var(--color-text);
+}
+.fact-tone-mono {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.fact-tone-accent {
+  color: var(--text-accent);
+}
+.fact-empty .fact-value {
+  color: var(--text-subtle);
+  font-weight: 400;
+}
+.fact-check {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  color: #1f7a3a;
+}
+.fact-check-icon {
+  display: inline-flex;
+  color: #1f7a3a;
+}
+.fact-cross {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+  color: var(--text-subtle);
+}
+.fact-cross-icon {
+  display: inline-flex;
+  opacity: 0.75;
+}
+.fact-yes {
+  border-left-color: rgba(31, 122, 58, 0.35);
+}
 .step-row {
   display: flex;
   gap: var(--space-3);
