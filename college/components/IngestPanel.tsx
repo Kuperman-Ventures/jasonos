@@ -30,8 +30,10 @@ export function IngestPanel({
   const [url, setUrl] = useState("");
   const [pdfName, setPdfName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [method, setMethod] = useState<"ai" | "heuristic" | "">("");
+  const [pdfMethod, setPdfMethod] = useState<"embedded" | "ocr" | "">("");
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
   const [source, setSource] = useState<IngestSourceDraft | null>(null);
 
@@ -81,13 +83,27 @@ export function IngestPanel({
   async function runPdf(file: File) {
     setBusy(true);
     setError("");
+    setStatus("Reading PDF…");
     setPdfName(file.name);
+    setPdfMethod("");
     try {
-      // Read the PDF in the browser so we only POST extracted text (avoids Vercel 4.5 MB upload limit).
-      const { extractPdfText, isPdfFile } = await import("@/lib/pdf");
+      const { isPdfFile, MAX_PDF_BYTES } = await import("@/lib/pdf");
+      const { readPdfForIngest } = await import("@/lib/pdf-ocr");
       if (!isPdfFile(file)) throw new Error("Upload a PDF file (.pdf).");
+      if (file.size > MAX_PDF_BYTES) {
+        throw new Error("PDF is too large (max 25 MB). Try a smaller export or fewer slides.");
+      }
       const bytes = new Uint8Array(await file.arrayBuffer());
-      const { text: pdfText, pageCount } = await extractPdfText(bytes);
+      const { text: pdfText, pageCount, method: readMethod } = await readPdfForIngest(
+        bytes,
+        (progress) => setStatus(progress.detail),
+      );
+      setPdfMethod(readMethod);
+      setStatus(
+        readMethod === "ocr"
+          ? "OCR done — suggesting tasks…"
+          : "Text extracted — suggesting tasks…",
+      );
       const response = await fetch("/api/ingest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -98,10 +114,12 @@ export function IngestPanel({
         }),
       });
       await applyParseResponse(response);
+      setStatus("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "PDF parse failed");
       setDrafts([]);
       setSource(null);
+      setStatus("");
     } finally {
       setBusy(false);
     }
@@ -152,6 +170,8 @@ export function IngestPanel({
       setTitle("");
       setPdfName("");
       setMethod("");
+      setPdfMethod("");
+      setStatus("");
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save tasks");
@@ -217,10 +237,11 @@ export function IngestPanel({
               disabled={busy}
               onClick={() => fileInputRef.current?.click()}
             >
-              {busy ? "Scanning…" : "Choose PDF"}
+              {busy ? "Working…" : "Choose PDF"}
             </button>
           </div>
           {pdfName ? <p className="ingest-file-name">{pdfName}</p> : null}
+          {status ? <p className="ingest-status" aria-live="polite">{status}</p> : null}
         </label>
 
         <div className="ingest-or">or pull from a URL</div>
@@ -246,9 +267,9 @@ export function IngestPanel({
         </label>
 
         <p className="section-sub">
-          PDF text is read in your browser (works for slide decks with selectable text), then only
-          that text is sent for task suggestions. Image-only scans and live Granola pull come later —
-          paste those for now.
+          PDFs are read in your browser. Selectable-text decks are fast; image-only webinar slides run
+          OCR page by page (first run downloads the OCR engine). Only the text is sent for task
+          suggestions. Live Granola pull still comes later — paste those notes for now.
         </p>
       </div>
 
@@ -260,8 +281,9 @@ export function IngestPanel({
             <div>
               <h3 className="dash-title">Review suggested tasks</h3>
               <p className="section-sub">
-                {method === "ai" ? "Parsed with AI." : "Parsed with local heuristics."} Edit, assign,
-                date, then confirm to send them into To-dos.
+                {method === "ai" ? "Parsed with AI." : "Parsed with local heuristics."}
+                {pdfMethod === "ocr" ? " PDF text came from OCR." : ""}{" "}
+                Edit, assign, date, then confirm to send them into To-dos.
               </p>
             </div>
             <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void confirm()}>

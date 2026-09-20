@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start --port 3210",
     "lint": "eslint",
-    "test": "tsx --test lib/scores.test.ts lib/list.test.ts lib/list-phases.test.ts lib/project-management.test.ts lib/project-todos.test.ts lib/ingest.test.ts lib/pdf.test.ts lib/school-research.test.ts lib/auth.test.ts lib/dashboard.test.ts lib/roadmap.test.ts"
+    "test": "tsx --test lib/scores.test.ts lib/list.test.ts lib/list-phases.test.ts lib/project-management.test.ts lib/project-todos.test.ts lib/ingest.test.ts lib/pdf.test.ts lib/pdf-ocr.test.ts lib/school-research.test.ts lib/auth.test.ts lib/dashboard.test.ts lib/roadmap.test.ts"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.196",
@@ -18,6 +18,7 @@
     "next": "16.2.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "tesseract.js": "^7.0.0",
     "unpdf": "^1.8.1"
   },
   "devDependencies": {

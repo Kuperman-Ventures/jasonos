@@ -4,6 +4,7 @@
 export const MAX_PDF_BYTES = 25 * 1024 * 1024;
 export const MAX_PDF_PAGES = 80;
 export const MAX_PDF_TEXT_CHARS = 40000;
+export const MIN_EMBEDDED_TEXT_CHARS = 20;
 
 export function isPdfFile(file: { name?: string; type?: string }): boolean {
   const type = (file.type ?? "").toLowerCase();
@@ -11,6 +12,11 @@ export function isPdfFile(file: { name?: string; type?: string }): boolean {
   return type === "application/pdf" || type === "application/x-pdf" || name.endsWith(".pdf");
 }
 
+export function cleanPdfText(raw: string): string {
+  return raw.replace(/\u0000/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/** Embedded text layer only (no OCR). Used by server multipart and unit tests. */
 export async function extractPdfText(bytes: Uint8Array): Promise<{
   text: string;
   pageCount: number;
@@ -30,12 +36,11 @@ export async function extractPdfText(bytes: Uint8Array): Promise<{
   }
 
   const extracted = await extractText(pdf, { mergePages: true });
-  const raw = typeof extracted.text === "string" ? extracted.text : "";
-  const text = raw.replace(/\u0000/g, "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  const text = cleanPdfText(typeof extracted.text === "string" ? extracted.text : "");
 
-  if (text.length < 20) {
+  if (text.length < MIN_EMBEDDED_TEXT_CHARS) {
     throw new Error(
-      "No readable text in that PDF. Image-only scans need OCR later — export a text PDF from the slides, or paste the text.",
+      "No readable text layer in that PDF. In the browser, Choose PDF will OCR image-only slides.",
     );
   }
 
