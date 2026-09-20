@@ -103,6 +103,22 @@ export function previousListPhaseId(id: ListPhaseId): ListPhaseId | null {
   return index > 0 ? LIST_PHASES[index - 1]?.id ?? null : null;
 }
 
+/**
+ * Which list tab a live (non-archived) school appears on.
+ * Exploration keeps schools after they move to Consideration.
+ * Moving Consideration → Applications removes them from Consideration
+ * (and they leave Exploration too — only the current Applications list).
+ */
+export function schoolOnListPhase(
+  school: { listPhase: ListPhaseId },
+  phaseId: ListPhaseId,
+): boolean {
+  if (phaseId === "exploration") {
+    return school.listPhase === "exploration" || school.listPhase === "consideration";
+  }
+  return school.listPhase === phaseId;
+}
+
 /** Move a school to any funnel phase (forward or back). Keeps participation history. */
 export function moveSchoolPhasePatch(
   school: {

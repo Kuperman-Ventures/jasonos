@@ -9,6 +9,7 @@ import {
   phaseCountGauge,
   previousListPhaseId,
   retreatSchoolPatch,
+  schoolOnListPhase,
   selectivityGauges,
 } from "./list-phases";
 
@@ -144,4 +145,24 @@ test("retreat moves a school back without wiping participation history", () => {
     "consideration",
     "applications",
   ]);
+});
+
+test("exploration keeps consideration schools; applications clears consideration", () => {
+  const exploring = { listPhase: "exploration" as const };
+  const considering = { listPhase: "consideration" as const };
+  const applying = { listPhase: "applications" as const };
+
+  assert.equal(schoolOnListPhase(exploring, "exploration"), true);
+  assert.equal(schoolOnListPhase(exploring, "consideration"), false);
+  assert.equal(schoolOnListPhase(exploring, "applications"), false);
+
+  // Moved E → C: still on Exploration, now also on Consideration
+  assert.equal(schoolOnListPhase(considering, "exploration"), true);
+  assert.equal(schoolOnListPhase(considering, "consideration"), true);
+  assert.equal(schoolOnListPhase(considering, "applications"), false);
+
+  // Moved C → A: off Consideration (and Exploration), only Applications
+  assert.equal(schoolOnListPhase(applying, "exploration"), false);
+  assert.equal(schoolOnListPhase(applying, "consideration"), false);
+  assert.equal(schoolOnListPhase(applying, "applications"), true);
 });

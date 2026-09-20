@@ -14,6 +14,7 @@ import {
   normalizeColumns,
   retreatSchoolPatch,
   phaseCountGauge,
+  schoolOnListPhase,
   selectivityGauges,
   type ListColumnId,
   type ListPhaseId,
@@ -114,12 +115,12 @@ export function CollegesTab({
   const phaseSchools = useMemo(() => {
     return schools.filter((school) => {
       if (school.archived) return showArchived && school.phasesParticipated.includes(phaseId);
-      return school.listPhase === phaseId;
+      return schoolOnListPhase(school, phaseId);
     });
   }, [schools, phaseId, showArchived]);
 
   const activeCount = useMemo(
-    () => schools.filter((school) => !school.archived && school.listPhase === phaseId).length,
+    () => schools.filter((school) => !school.archived && schoolOnListPhase(school, phaseId)).length,
     [schools, phaseId],
   );
 
@@ -127,7 +128,7 @@ export function CollegesTab({
   const tierGauges = useMemo(
     () =>
       selectivityGauges(
-        schools.filter((school) => !school.archived && school.listPhase === phaseId),
+        schools.filter((school) => !school.archived && schoolOnListPhase(school, phaseId)),
         SELECTIVITY_GAUGE_TIERS,
       ),
     [schools, phaseId],
@@ -302,7 +303,9 @@ export function CollegesTab({
 
       <div className="list-phase-bar" role="tablist" aria-label="List phase">
         {LIST_PHASES.map((item) => {
-          const count = schools.filter((school) => !school.archived && school.listPhase === item.id).length;
+          const count = schools.filter(
+            (school) => !school.archived && schoolOnListPhase(school, item.id),
+          ).length;
           const isCalendarCurrent = item.id === calendarPhaseId;
           const isViewing = phaseId === item.id;
           return (
