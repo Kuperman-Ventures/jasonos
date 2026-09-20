@@ -9,6 +9,7 @@ import {
   projectSectionById,
   type ProjectSectionId,
 } from "@/lib/project-management";
+import { memberOwnerId } from "@/lib/project-todos";
 import type { Phase } from "@/lib/types";
 
 export function ProjectManagementTab({
@@ -91,6 +92,7 @@ export function ProjectManagementTab({
           projectSteps={projectSteps}
           ingestSources={ingestSources}
           notes={notes}
+          assignedBy={memberOwnerId(memberId)}
           onConfirm={onConfirmIngest}
         />
       ) : null}

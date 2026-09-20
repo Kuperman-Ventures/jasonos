@@ -29,6 +29,8 @@ export type PersistedProjectStep = {
   id: string;
   label: string;
   owner: Owner;
+  /** Who put this on the owner's list. Null for seed/system rows. */
+  assignedBy: Owner | null;
   parentId: string;
   dueDate: string | null;
   startDate: string | null;
@@ -262,6 +264,8 @@ export function normalizePersistedSteps(raw: unknown): PersistedProjectStep[] {
       id: item.id,
       label: item.label,
       owner,
+      assignedBy:
+        typeof item.assignedBy === "string" && isOwner(item.assignedBy) ? item.assignedBy : null,
       parentId: item.parentId,
       dueDate: typeof item.dueDate === "string" ? item.dueDate : null,
       startDate: typeof item.startDate === "string" ? item.startDate : null,

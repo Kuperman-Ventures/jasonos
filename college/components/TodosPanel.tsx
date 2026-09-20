@@ -2,6 +2,8 @@
 
 import type { PersistedProjectStep } from "@/lib/ingest";
 import {
+  assignedByBadge,
+  canMarkTodoDone,
   formatTodoWhen,
   groupTodosByOwner,
   listProjectTodos,
@@ -13,22 +15,41 @@ import { ownerLabel, type Owner, type Phase } from "@/lib/types";
 
 function TodoRow({
   todo,
+  viewer,
   onToggle,
 }: {
   todo: ProjectTodo;
+  viewer: Owner;
   onToggle: (id: string, checked: boolean) => void;
 }) {
+  const canToggle = canMarkTodoDone(viewer, todo.owner);
+  const fromBadge = assignedByBadge(todo);
+
   return (
     <li className={todo.done ? "todo-row done" : "todo-row"}>
-      <label className="todo-check">
+      <label className={canToggle ? "todo-check" : "todo-check locked"}>
         <input
           type="checkbox"
           checked={todo.done}
-          onChange={(event) => onToggle(todo.id, event.target.checked)}
-          aria-label={`Mark done: ${todo.label}`}
+          disabled={!canToggle}
+          onChange={(event) => {
+            if (!canToggle) return;
+            onToggle(todo.id, event.target.checked);
+          }}
+          aria-label={
+            canToggle
+              ? `Mark done: ${todo.label}`
+              : `${todo.label} (only ${ownerLabel(todo.owner)} can check this off)`
+          }
+          title={
+            canToggle ? undefined : `Only ${ownerLabel(todo.owner)} can check this off`
+          }
         />
         <span className="todo-copy">
-          <span className="todo-label">{todo.label}</span>
+          <span className="todo-label-row">
+            <span className="todo-label">{todo.label}</span>
+            {fromBadge ? <span className="todo-from-badge">{fromBadge}</span> : null}
+          </span>
           <span className="todo-meta">
             <span className="todo-when">{formatTodoWhen(todo)}</span>
             <span className="todo-parent">
@@ -44,10 +65,12 @@ function TodoRow({
 function TodoBucket({
   bucket,
   emphasis,
+  viewer,
   onToggle,
 }: {
   bucket: OwnerTodoBucket;
   emphasis: "focus" | "other";
+  viewer: Owner;
   onToggle: (id: string, checked: boolean) => void;
 }) {
   const total = bucket.open.length + bucket.done.length;
@@ -75,7 +98,7 @@ function TodoBucket({
       {bucket.open.length ? (
         <ul className="todo-list">
           {bucket.open.map((todo) => (
-            <TodoRow key={todo.id} todo={todo} onToggle={onToggle} />
+            <TodoRow key={todo.id} todo={todo} viewer={viewer} onToggle={onToggle} />
           ))}
         </ul>
       ) : (
@@ -86,7 +109,7 @@ function TodoBucket({
           <summary>Done ({bucket.done.length})</summary>
           <ul className="todo-list">
             {bucket.done.map((todo) => (
-              <TodoRow key={todo.id} todo={todo} onToggle={onToggle} />
+              <TodoRow key={todo.id} todo={todo} viewer={viewer} onToggle={onToggle} />
             ))}
           </ul>
         </details>
@@ -129,13 +152,30 @@ export function TodosPanel({
         </div>
       </div>
 
-      <TodoBucket bucket={grouped.mine} emphasis="focus" onToggle={onToggle} />
+      <p className="section-sub todos-acl-note">
+        Anyone can put work on anyone&apos;s list. Only you can check off items on your list.
+      </p>
+
+      <TodoBucket
+        bucket={grouped.mine}
+        emphasis="focus"
+        viewer={focusOwner}
+        onToggle={onToggle}
+      />
 
       <h3 className="dash-title todos-others-title">Also on the list</h3>
-      <p className="section-sub">Same checklist — Jason, Kat, and Kyle each see their own work first.</p>
+      <p className="section-sub">
+        You can add to these lists from Ingest. Checkboxes stay with the person who owns the work.
+      </p>
       <div className="todos-others">
         {grouped.others.map((bucket) => (
-          <TodoBucket key={bucket.owner} bucket={bucket} emphasis="other" onToggle={onToggle} />
+          <TodoBucket
+            key={bucket.owner}
+            bucket={bucket}
+            emphasis="other"
+            viewer={focusOwner}
+            onToggle={onToggle}
+          />
         ))}
       </div>
     </div>

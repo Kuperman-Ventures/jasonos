@@ -37,6 +37,7 @@ test("normalizePersistedSteps keeps valid rows only", () => {
       id: "ing-1",
       label: "Email counselor",
       owner: "jason",
+      assignedBy: "kat",
       parentId: "inbox",
       dueDate: "2026-10-01",
       startDate: null,
@@ -49,6 +50,7 @@ test("normalizePersistedSteps keeps valid rows only", () => {
   ]);
   assert.equal(steps.length, 1);
   assert.equal(steps[0]?.owner, "jason");
+  assert.equal(steps[0]?.assignedBy, "kat");
   assert.equal(steps[0]?.dueDate, "2026-10-01");
 });
 

@@ -32,12 +32,15 @@ export function IngestPanel({
   projectSteps,
   ingestSources,
   notes,
+  assignedBy,
   onConfirm,
 }: {
   phases: Phase[];
   projectSteps: PersistedProjectStep[];
   ingestSources: PersistedIngestSource[];
   notes: string;
+  /** Signed-in person — stamped on to-dos they put on anyone's list. */
+  assignedBy: Owner;
   onConfirm: (payload: IngestConfirmPayload) => Promise<void>;
 }) {
   const parents = useMemo(() => checklistParents(phases), [phases]);
@@ -174,6 +177,7 @@ export function IngestPanel({
           id: `ing-${source.id.slice(0, 8)}-${index + 1}-${Math.random().toString(36).slice(2, 7)}`,
           label: row.label.trim(),
           owner: row.owner,
+          assignedBy,
           parentId: row.parentId,
           dueDate: row.dueDate,
           startDate: row.startDate,

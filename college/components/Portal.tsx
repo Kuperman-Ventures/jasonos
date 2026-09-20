@@ -32,6 +32,11 @@ import {
   resolveProjectSection,
   type ProjectSectionId,
 } from "@/lib/project-management";
+import {
+  canMarkTodoDone,
+  memberOwnerId,
+  todoOwnerIndex,
+} from "@/lib/project-todos";
 import type { ContactPatch, DeadlinePatch, Owner, School, Scores, TabId } from "@/lib/types";
 import {
   fromSeed,
@@ -225,6 +230,14 @@ export function Portal({
   }
 
   function toggleItem(id: string, checked: boolean) {
+    const owners = todoOwnerIndex(projectSteps);
+    const owner = owners.get(id);
+    const viewer = memberOwnerId(member.id);
+    if (owner && !canMarkTodoDone(viewer, owner)) {
+      setSaveState("Only the list owner can check that off");
+      window.setTimeout(() => setSaveState(""), 2000);
+      return;
+    }
     const next = { ...checklist, [id]: checked };
     setChecklist(next);
     void patchState({ checklist: next });

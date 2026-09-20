@@ -23,6 +23,8 @@ export type ProjectTodo = {
   id: string;
   label: string;
   owner: Owner;
+  /** Who put this on the owner's list; null when seed/system or self-assigned with no badge. */
+  assignedBy: Owner | null;
   dueDate: string | null;
   startDate: string | null;
   endDate: string | null;
@@ -63,6 +65,59 @@ export function memberOwnerId(memberId: string): Owner {
   return "jason";
 }
 
+/** Only the person whose list it is can mark a to-do done. */
+export function canMarkTodoDone(viewer: Owner, todoOwner: Owner): boolean {
+  return viewer === todoOwner;
+}
+
+/** Badge text when someone else put the item on this list. */
+export function assignedByBadge(todo: Pick<ProjectTodo, "owner" | "assignedBy">): string | null {
+  if (!todo.assignedBy || todo.assignedBy === todo.owner) return null;
+  return `From ${ownerLabel(todo.assignedBy)}`;
+}
+
+/** Owner lookup for seed + dynamic to-dos (used for check-off ACL). */
+export function todoOwnerIndex(dynamicSteps: PersistedProjectStep[] = []): Map<string, Owner> {
+  const map = new Map<string, Owner>();
+  const groups = stepsFile as ChecklistStepGroupSeed[];
+  for (const group of groups) {
+    for (const step of group.steps) {
+      if (isOwner(step.owner)) map.set(step.id, step.owner);
+    }
+  }
+  for (const step of dynamicSteps) {
+    map.set(step.id, step.owner);
+  }
+  return map;
+}
+
+/**
+ * Strip illegal check-off flips from a checklist patch.
+ * Shared runway/timeline ids (not in the todo owner map) stay editable by anyone.
+ */
+export function sanitizeChecklistForViewer(
+  current: Record<string, boolean>,
+  next: Record<string, boolean>,
+  viewer: Owner,
+  owners: Map<string, Owner>,
+): { checklist: Record<string, boolean>; blocked: string[] } {
+  const checklist = { ...next };
+  const blocked: string[] = [];
+  const ids = new Set([...Object.keys(current), ...Object.keys(next)]);
+  for (const id of ids) {
+    const before = Boolean(current[id]);
+    const after = Boolean(next[id]);
+    if (before === after) continue;
+    const owner = owners.get(id);
+    if (owner && !canMarkTodoDone(viewer, owner)) {
+      blocked.push(id);
+      if (before) checklist[id] = true;
+      else delete checklist[id];
+    }
+  }
+  return { checklist, blocked };
+}
+
 export function formatTodoWhen(todo: Pick<ProjectTodo, "dueDate" | "startDate" | "endDate">): string {
   if (todo.startDate && todo.endDate) {
     return `${formatDate(todo.startDate)} – ${formatDate(todo.endDate)}`;
@@ -85,6 +140,7 @@ function pushTodo(
     id: string;
     label: string;
     owner: Owner;
+    assignedBy: Owner | null;
     dueDate: string | null;
     startDate: string | null;
     endDate: string | null;
@@ -101,6 +157,7 @@ function pushTodo(
     id: step.id,
     label: step.label,
     owner: step.owner,
+    assignedBy: step.assignedBy,
     dueDate: step.dueDate,
     startDate: step.startDate,
     endDate: step.endDate,
@@ -132,6 +189,7 @@ export function listProjectTodos(
           id: step.id,
           label: step.label,
           owner: step.owner,
+          assignedBy: null,
           dueDate: step.dueDate,
           startDate: step.startDate,
           endDate: step.endDate,
@@ -144,7 +202,22 @@ export function listProjectTodos(
   }
 
   for (const step of dynamicSteps) {
-    pushTodo(todos, seen, step, checklist, parents);
+    pushTodo(
+      todos,
+      seen,
+      {
+        id: step.id,
+        label: step.label,
+        owner: step.owner,
+        assignedBy: step.assignedBy,
+        dueDate: step.dueDate,
+        startDate: step.startDate,
+        endDate: step.endDate,
+        parentId: step.parentId,
+      },
+      checklist,
+      parents,
+    );
   }
 
   return todos.sort((a, b) => {

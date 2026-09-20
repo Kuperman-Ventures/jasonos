@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  assignedByBadge,
+  canMarkTodoDone,
   formatTodoWhen,
   groupTodosByOwner,
   listProjectTodos,
   memberOwnerId,
+  sanitizeChecklistForViewer,
+  todoOwnerIndex,
 } from "./project-todos";
 
 test("memberOwnerId maps household ids onto owners", () => {
@@ -12,6 +16,44 @@ test("memberOwnerId maps household ids onto owners", () => {
   assert.equal(memberOwnerId("kat"), "kat");
   assert.equal(memberOwnerId("kyle"), "kyle");
   assert.equal(memberOwnerId("local"), "jason");
+});
+
+test("only the list owner can mark a to-do done", () => {
+  assert.equal(canMarkTodoDone("kat", "kat"), true);
+  assert.equal(canMarkTodoDone("jason", "kat"), false);
+  assert.equal(canMarkTodoDone("kyle", "kyle"), true);
+});
+
+test("assignedByBadge only shows when someone else assigned it", () => {
+  assert.equal(assignedByBadge({ owner: "kat", assignedBy: "jason" }), "From Jason");
+  assert.equal(assignedByBadge({ owner: "kat", assignedBy: "kat" }), null);
+  assert.equal(assignedByBadge({ owner: "kat", assignedBy: null }), null);
+});
+
+test("sanitizeChecklistForViewer blocks flipping someone else's to-do", () => {
+  const owners = todoOwnerIndex([
+    {
+      id: "ing-kat",
+      label: "Campus tour",
+      owner: "kat",
+      assignedBy: "jason",
+      parentId: "inbox",
+      dueDate: null,
+      startDate: null,
+      endDate: null,
+      sourceId: null,
+      createdAt: "2026-09-20T12:00:00.000Z",
+    },
+  ]);
+  const { checklist, blocked } = sanitizeChecklistForViewer(
+    {},
+    { "ing-kat": true, "shared-runway-item": true },
+    "jason",
+    owners,
+  );
+  assert.deepEqual(blocked, ["ing-kat"]);
+  assert.equal(checklist["ing-kat"], undefined);
+  assert.equal(checklist["shared-runway-item"], true);
 });
 
 test("listProjectTodos nests under runway parents and sorts open first", () => {
@@ -28,7 +70,7 @@ test("listProjectTodos nests under runway parents and sorts open first", () => {
   assert.equal(withDone[withDone.length - 1]?.id, "p1-1-s3");
 });
 
-test("listProjectTodos merges dynamic ingest steps", () => {
+test("listProjectTodos merges dynamic ingest steps with assigner", () => {
   const todos = listProjectTodos(
     {},
     undefined,
@@ -37,6 +79,7 @@ test("listProjectTodos merges dynamic ingest steps", () => {
         id: "ing-test-1",
         label: "Book October campus tour",
         owner: "kat",
+        assignedBy: "jason",
         parentId: "inbox",
         dueDate: "2026-10-05",
         startDate: null,
@@ -49,6 +92,8 @@ test("listProjectTodos merges dynamic ingest steps", () => {
   const ingested = todos.find((todo) => todo.id === "ing-test-1");
   assert.ok(ingested);
   assert.equal(ingested?.owner, "kat");
+  assert.equal(ingested?.assignedBy, "jason");
+  assert.equal(assignedByBadge(ingested!), "From Jason");
   assert.equal(ingested?.phase, "Inbox");
   assert.match(ingested?.parentText ?? "", /Ingested/);
 });

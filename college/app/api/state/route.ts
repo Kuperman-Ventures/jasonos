@@ -8,6 +8,11 @@ import {
   type PersistedIngestSource,
   type PersistedProjectStep,
 } from "@/lib/ingest";
+import {
+  memberOwnerId,
+  sanitizeChecklistForViewer,
+  todoOwnerIndex,
+} from "@/lib/project-todos";
 import { clampScore } from "@/lib/scores";
 import type { Scores } from "@/lib/types";
 
@@ -71,7 +76,37 @@ export async function PATCH(request: Request) {
     ingestSources?: PersistedIngestSource[];
   };
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (body.checklist && typeof body.checklist === "object") patch.checklist = body.checklist;
+  const db = collegeDb();
+
+  if (body.checklist && typeof body.checklist === "object") {
+    const { data: currentRow, error: readError } = await db
+      .from("app_state")
+      .select("checklist, project_steps")
+      .eq("id", "kyle-college")
+      .maybeSingle();
+    if (readError) {
+      return NextResponse.json({ error: readError.message }, { status: 400 });
+    }
+    const row = currentRow as StateRow | null;
+    const currentChecklist =
+      row?.checklist && typeof row.checklist === "object" ? row.checklist : {};
+    const projectSteps = Array.isArray(body.projectSteps)
+      ? normalizePersistedSteps(body.projectSteps)
+      : normalizePersistedSteps(row?.project_steps);
+    const viewer = memberOwnerId(session.member.id);
+    const { checklist, blocked } = sanitizeChecklistForViewer(
+      currentChecklist,
+      body.checklist,
+      viewer,
+      todoOwnerIndex(projectSteps),
+    );
+    patch.checklist = checklist;
+    if (blocked.length) {
+      // Still save the legal flips; surface that some were ignored.
+      patch._blocked_todo_checks = blocked.length;
+    }
+  }
+
   if (body.scores && typeof body.scores === "object") {
     const scores: Scores = {};
     for (const [firmId, criteria] of Object.entries(body.scores)) {
@@ -85,11 +120,19 @@ export async function PATCH(request: Request) {
   if (typeof body.notes === "string") patch.notes = body.notes;
   if (Array.isArray(body.projectSteps)) patch.project_steps = normalizePersistedSteps(body.projectSteps);
   if (Array.isArray(body.ingestSources)) patch.ingest_sources = normalizeIngestSources(body.ingestSources);
+
+  // Don't persist internal meta on the row.
+  const blockedCount =
+    typeof patch._blocked_todo_checks === "number" ? patch._blocked_todo_checks : 0;
+  delete patch._blocked_todo_checks;
+
   try {
-    const db = collegeDb();
     const { error } = await db.from("app_state").update(patch).eq("id", "kyle-college");
     if (error) throw error;
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({
+      ok: true,
+      ...(blockedCount ? { blockedTodoChecks: blockedCount } : {}),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not save";
     return NextResponse.json({ error: message }, { status: 400 });

@@ -1917,9 +1917,38 @@ table.schools .muted,
   color: var(--color-text);
   line-height: 1.35;
 }
+.todo-label-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+}
+.todo-from-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  padding: 2px 8px;
+  white-space: nowrap;
+}
 .todo-row.done .todo-label {
   color: var(--text-subtle);
   text-decoration: line-through;
+}
+.todo-check.locked {
+  cursor: default;
+  opacity: 0.92;
+}
+.todo-check.locked input {
+  cursor: not-allowed;
+}
+.todos-acl-note {
+  margin: 0 0 var(--space-4);
 }
 .todo-meta {
   display: flex;
