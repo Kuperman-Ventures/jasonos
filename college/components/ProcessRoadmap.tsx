@@ -141,9 +141,10 @@ export function ProcessRoadmap({
           {cells.map((cell) => (
             <div
               key={`${cell.year}-${cell.month}`}
-              className="mo"
+              className={cell.index === nowIndex ? "mo mo-now" : "mo"}
               style={{ gridRow: 2, gridColumn: gridColumnStart(cell.index) }}
               {...(cell.quarter ? { "data-q": true } : {})}
+              {...(cell.index === nowIndex ? { "aria-current": "date" as const } : {})}
             >
               {cell.label}
             </div>
@@ -154,7 +155,12 @@ export function ProcessRoadmap({
             className="now"
             style={{ gridColumn: gridColumnStart(nowIndex) }}
             aria-hidden="true"
-          />
+          >
+            <span className="now-badge">
+              <span className="now-badge-label">You are here</span>
+              <span className="now-badge-date">{nowLabel}</span>
+            </span>
+          </div>
 
           {ordered.map((track, index) => (
             <TrackRow
@@ -169,7 +175,7 @@ export function ProcessRoadmap({
       </div>
 
       <div className="legend">
-        <span>
+        <span className="legend-here">
           <i className="swatch now" />
           You are here · {nowLabel}
         </span>

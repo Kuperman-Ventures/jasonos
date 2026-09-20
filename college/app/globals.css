@@ -526,13 +526,14 @@ nav.tabs button.active:active { background: var(--color-accent-pressed); }
 .track-item:last-child { padding-bottom: 0; }
 .track-date {
   font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 1.5;
-  color: var(--text-subtle);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--color-text);
   text-align: right;
   padding-top: 2px;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 .track-rail {
   position: relative;
@@ -574,8 +575,9 @@ nav.tabs button.active:active { background: var(--color-accent-pressed); }
 .track-count {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--text-subtle);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
   font-variant-numeric: tabular-nums;
 }
 
@@ -908,8 +910,11 @@ footer {
   flex-wrap: wrap;
   gap: var(--space-2);
   align-items: center;
-  color: var(--text-muted);
-  font-size: 16px;
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 .school-id { display: flex; align-items: flex-start; gap: var(--space-2); }
 .school-mark {
@@ -1045,6 +1050,14 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
 .step-row label { flex: 1; }
 .step-row.done label { color: var(--text-muted); text-decoration: line-through; }
 .muted { color: var(--text-muted); }
+table.schools .muted,
+.school-card .muted {
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
 .guide { margin-top: var(--section-gap); max-width: 66ch; }
 
 @media (max-width: 720px) {
@@ -1353,12 +1366,14 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
 .timeline-roadmap { margin-bottom: var(--space-8); }
 .roadmap-head { margin-bottom: var(--space-4); }
 .roadmap-meta {
-  font-size: 12px;
-  color: var(--text-subtle);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text);
 }
 .gantt-scroll {
   overflow-x: auto;
   overflow-y: visible;
+  padding-top: var(--space-8);
   padding-bottom: var(--space-2);
 }
 .gantt {
@@ -1372,31 +1387,39 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
 .gantt .yr {
   grid-row: 1;
   font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.16em;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--text-subtle);
-  padding-bottom: 2px;
+  color: var(--text-muted);
+  padding-bottom: 4px;
 }
 .gantt .mo {
   grid-row: 2;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
-  color: var(--text-subtle);
+  color: var(--text-muted);
   text-align: center;
-  padding-bottom: 7px;
+  padding-bottom: 8px;
   border-bottom: 1px solid var(--color-divider);
 }
 .gantt .mo[data-q] {
-  color: var(--text-muted);
-  font-weight: 600;
+  color: var(--color-text);
+  font-weight: 700;
+}
+.gantt .mo-now {
+  color: var(--accent-500);
+  font-weight: 700;
+  border-bottom-color: var(--accent-500);
+  border-bottom-width: 2px;
+  padding-bottom: 7px;
 }
 .gantt .head-pad {
   grid-row: 2;
   border-bottom: 1px solid var(--color-divider);
-  padding-bottom: 7px;
+  padding-bottom: 8px;
 }
 .gantt .gridlines {
   grid-column: 3 / -1;
@@ -1413,22 +1436,59 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
 .gantt .now {
   grid-row: 2 / -1;
   align-self: stretch;
-  justify-self: start;
-  width: 2px;
-  background: var(--accent-500);
+  justify-self: stretch;
+  width: auto;
+  margin: 0;
+  background: color-mix(in srgb, var(--accent-500) 12%, transparent);
+  border-left: 3px solid var(--accent-500);
   pointer-events: none;
   position: relative;
-  z-index: 2;
+  z-index: 0;
+  box-shadow: inset -1px 0 0 color-mix(in srgb, var(--accent-500) 35%, transparent);
 }
-.gantt .now::after {
-  content: "NOW";
+.gantt .now-badge {
   position: absolute;
-  top: -16px;
-  left: -3px;
+  top: -2px;
+  left: 50%;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: max-content;
+  padding: 5px 8px 6px;
+  background: var(--accent-500);
+  color: var(--color-on-accent);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  z-index: 4;
+}
+.gantt .now-badge::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  background: var(--accent-500);
+  transform: translateX(-50%) rotate(45deg);
+  border-radius: 1px;
+}
+.gantt .now-badge-label {
   font-family: var(--font-mono);
   font-size: 9px;
+  font-weight: 600;
   letter-spacing: 0.14em;
-  color: var(--accent-500);
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+.gantt .now-badge-date {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
 }
 .gantt .name {
   grid-column: 1;
@@ -1451,10 +1511,12 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   display: flex;
   align-items: center;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 13px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: var(--text-subtle);
+  color: var(--color-text);
   padding-right: var(--space-3);
+  letter-spacing: -0.01em;
 }
 .gantt .rule {
   grid-column: 1 / -1;
@@ -1497,13 +1559,22 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   padding-top: var(--space-3);
   border-top: 1px solid var(--color-divider);
   font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-subtle);
+  font-size: 12px;
+  color: var(--text-muted);
 }
 .legend span { display: flex; align-items: center; gap: 6px; }
+.legend-here {
+  color: var(--accent-500);
+  font-weight: 600;
+}
 .legend i,
 .legend .swatch { display: block; flex: none; }
-.legend .swatch.now { width: 14px; height: 8px; background: var(--accent-500); }
+.legend .swatch.now {
+  width: 3px;
+  height: 14px;
+  background: var(--accent-500);
+  box-shadow: 4px 0 0 color-mix(in srgb, var(--accent-500) 18%, transparent);
+}
 .legend .swatch.bar { width: 14px; height: 8px; background: var(--bar); }
 .legend .swatch.future { width: 14px; height: 8px; background: var(--bar-future); }
 .legend .swatch.pin {
@@ -1520,7 +1591,11 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
     --month-min: 26px;
   }
   .gantt .span { display: none; }
+  .gantt .now-badge-label { font-size: 8px; }
+  .gantt .now-badge-date { font-size: 11px; }
+  .gantt .now-badge { padding: 4px 6px 5px; }
 }
+
 
 
 .dash-grid {
@@ -1553,7 +1628,11 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   font-size: 14px;
   margin-bottom: 6px;
 }
-.dash-bar-label .mono { color: var(--text-subtle); font-size: 12px; }
+.dash-bar-label .mono {
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 600;
+}
 .dash-bar-track {
   height: 10px;
   background: var(--color-surface);
