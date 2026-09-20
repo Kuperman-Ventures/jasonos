@@ -2,7 +2,7 @@ import { knownWebsite } from "./school-websites";
 
 export type Choice = "top" | "middle" | "low" | "backup" | "unsure";
 export type Plan = "" | "ed" | "ea" | "rd" | "rolling";
-export type Owner = "kyle" | "jason" | "wife";
+export type Owner = "kyle" | "jason" | "kat";
 export type TabId = "colleges" | "timeline" | "faq" | "questions" | "consultants" | "notes";
 
 export type SelectivityTier = "" | "extremely_selective" | "very_selective" | "competitive" | "less_competitive";
@@ -170,7 +170,7 @@ export const ADMISSION_TRACKS: { id: AdmissionTrack; label: string }[] = [
 export const OWNERS: { id: Owner; label: string }[] = [
   { id: "kyle", label: "Kyle" },
   { id: "jason", label: "Jason" },
-  { id: "wife", label: "Wife" },
+  { id: "kat", label: "Kat" },
 ];
 
 export const STEP_PRESETS = [

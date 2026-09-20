@@ -70,7 +70,11 @@ function readStart(): { tab: TabId; schoolId: string | null } {
   return { tab, schoolId: null };
 }
 
-export function Portal() {
+export function Portal({
+  member,
+}: {
+  member: { id: string; displayName: string; role: string; email: string };
+}) {
   const start = readStart();
   const [tab, setTab] = useState<TabId>(start.tab);
   const schoolId = useSyncExternalStore(subscribeSchool, schoolFromLocation, () => null);
@@ -447,6 +451,15 @@ export function Portal() {
           <h1>Kyle&apos;s College Search</h1>
         </div>
         <div className="mast-actions">
+          <p className="signed-in mono">
+            {member.displayName}
+            {member.role === "super_admin" ? " · Admin" : ""}
+          </p>
+          <form action="/auth/signout" method="post">
+            <button type="submit" className="btn btn-ghost compact">
+              Sign out
+            </button>
+          </form>
           <ThemeToggle />
           <p className="phase-datum">{pill}</p>
         </div>

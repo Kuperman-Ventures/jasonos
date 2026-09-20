@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { seedSchools } from "./content";
 import type { School } from "./types";
 
-// Interest is editable by anyone until login exists.
-// Later, only Kyle should set interestLevel.
+// Interest is editable by anyone signed in for now.
+// Later, only Kyle (student) should set interestLevel.
 export function useSchoolPipeline() {
   const [schools, setSchools] = useState<School[]>(() => seedSchools());
   const [persisted, setPersisted] = useState(false);

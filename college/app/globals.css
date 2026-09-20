@@ -254,6 +254,16 @@ header.mast h1 {
   gap: var(--space-4);
   align-items: center;
 }
+.signed-in {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.btn.compact {
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  font-size: 14px;
+}
 .phase-datum {
   margin: 0;
   font-family: var(--font-mono);
@@ -323,6 +333,49 @@ nav.tabs button.active:active { background: var(--color-accent-pressed); }
 .btn-secondary:active, .print-btn:active { background: var(--color-accent-200); }
 .btn-ghost { color: var(--text-muted); }
 .btn-ghost:hover { background: var(--color-surface); color: var(--color-text); }
+
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-6);
+  background:
+    radial-gradient(ellipse at top, var(--color-accent-100), transparent 55%),
+    var(--color-bg);
+}
+.login-card {
+  width: min(440px, 100%);
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-8);
+  background: var(--color-bg);
+  border: 1px solid var(--color-divider);
+}
+.login-card h1 {
+  font-size: 36px;
+  margin: 0;
+}
+.login-form {
+  display: grid;
+  gap: var(--space-3);
+}
+.login-or {
+  margin: 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.login-error,
+.login-message {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.45;
+}
+.login-error { color: var(--text-accent); }
+.login-message { color: var(--text-muted); }
 
 .tag, .pill {
   display: inline-block;

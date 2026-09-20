@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
+import { isSession, requireCollegeSession } from "@/lib/auth";
 import { seedScores } from "@/lib/content";
 import { collegeDb, supabaseConfigured } from "@/lib/db";
 import { clampScore } from "@/lib/scores";
 import type { Scores } from "@/lib/types";
-
-// Auth: not in v1. This route is the household's shared state and the
-// service-role key stays on the server. Before this URL is public, gate it
-// to Kyle, Jason, and his wife. Do not create those logins until JasonOS
-// row-level rules stop treating every logged-in Supabase user as the owner.
 
 type StateRow = {
   checklist: Record<string, boolean> | null;
@@ -20,6 +16,8 @@ function emptyState() {
 }
 
 export async function GET() {
+  const session = await requireCollegeSession();
+  if (!isSession(session)) return session;
   if (!supabaseConfigured()) return NextResponse.json(emptyState());
   try {
     const db = collegeDb();
@@ -43,7 +41,8 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  // Auth would be checked here before the household is anyone with the URL.
+  const session = await requireCollegeSession();
+  if (!isSession(session)) return session;
   if (!supabaseConfigured()) {
     return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
   }

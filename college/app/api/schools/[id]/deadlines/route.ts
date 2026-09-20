@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
+import { isSession, requireCollegeSession } from "@/lib/auth";
 import { addDeadline, deleteDeadline, supabaseConfigured, updateDeadline } from "@/lib/db";
 
 type Context = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, context: Context) {
+  const session = await requireCollegeSession();
+  if (!isSession(session)) return session;
   if (!supabaseConfigured()) {
     return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
   }
@@ -21,6 +24,8 @@ export async function POST(request: Request, context: Context) {
 }
 
 export async function PATCH(request: Request, context: Context) {
+  const session = await requireCollegeSession();
+  if (!isSession(session)) return session;
   if (!supabaseConfigured()) {
     return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
   }
@@ -46,6 +51,8 @@ export async function PATCH(request: Request, context: Context) {
 }
 
 export async function DELETE(request: Request, context: Context) {
+  const session = await requireCollegeSession();
+  if (!isSession(session)) return session;
   if (!supabaseConfigured()) {
     return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
   }

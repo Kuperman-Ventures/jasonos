@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
+import { isSession, requireCollegeSession } from "@/lib/auth";
 import { applySchoolFacts, createSchool, listSchools, supabaseConfigured } from "@/lib/db";
 import { lookupSchool } from "@/lib/school-lookup";
 
 export const maxDuration = 60;
 
 export async function GET() {
+  const session = await requireCollegeSession();
+  if (!isSession(session)) return session;
   try {
     const schools = await listSchools();
     return NextResponse.json({ persisted: supabaseConfigured(), schools });
@@ -15,6 +18,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const session = await requireCollegeSession();
+  if (!isSession(session)) return session;
   if (!supabaseConfigured()) {
     return NextResponse.json({ error: "Supabase is not configured" }, { status: 503 });
   }
