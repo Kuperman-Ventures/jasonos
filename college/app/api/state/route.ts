@@ -10,8 +10,11 @@ import {
 } from "@/lib/ingest";
 import {
   memberOwnerId,
+  normalizeTodoSubtasks,
   sanitizeChecklistForViewer,
+  sanitizeSubtasksForViewer,
   todoOwnerIndex,
+  type TodoSubtaskMap,
 } from "@/lib/project-todos";
 import { clampScore } from "@/lib/scores";
 import type { Scores } from "@/lib/types";
@@ -22,6 +25,7 @@ type StateRow = {
   notes: string | null;
   project_steps?: unknown;
   ingest_sources?: unknown;
+  todo_subtasks?: unknown;
 };
 
 function emptyState() {
@@ -32,6 +36,7 @@ function emptyState() {
     notes: "",
     projectSteps: [] as PersistedProjectStep[],
     ingestSources: [] as PersistedIngestSource[],
+    todoSubtasks: {} as TodoSubtaskMap,
   };
 }
 
@@ -43,7 +48,7 @@ export async function GET() {
     const db = collegeDb();
     const { data, error } = await db
       .from("app_state")
-      .select("checklist, scores, notes, project_steps, ingest_sources")
+      .select("checklist, scores, notes, project_steps, ingest_sources, todo_subtasks")
       .eq("id", "kyle-college")
       .maybeSingle();
     if (error) throw error;
@@ -55,6 +60,7 @@ export async function GET() {
       notes: row?.notes ?? "",
       projectSteps: normalizePersistedSteps(row?.project_steps),
       ingestSources: normalizeIngestSources(row?.ingest_sources),
+      todoSubtasks: normalizeTodoSubtasks(row?.todo_subtasks),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not read state";
@@ -74,36 +80,51 @@ export async function PATCH(request: Request) {
     notes?: string;
     projectSteps?: PersistedProjectStep[];
     ingestSources?: PersistedIngestSource[];
+    todoSubtasks?: TodoSubtaskMap;
   };
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   const db = collegeDb();
 
-  if (body.checklist && typeof body.checklist === "object") {
+  const needsOwnerRead =
+    (body.checklist && typeof body.checklist === "object") ||
+    (body.todoSubtasks && typeof body.todoSubtasks === "object");
+
+  if (needsOwnerRead) {
     const { data: currentRow, error: readError } = await db
       .from("app_state")
-      .select("checklist, project_steps")
+      .select("checklist, project_steps, todo_subtasks")
       .eq("id", "kyle-college")
       .maybeSingle();
     if (readError) {
       return NextResponse.json({ error: readError.message }, { status: 400 });
     }
     const row = currentRow as StateRow | null;
-    const currentChecklist =
-      row?.checklist && typeof row.checklist === "object" ? row.checklist : {};
     const projectSteps = Array.isArray(body.projectSteps)
       ? normalizePersistedSteps(body.projectSteps)
       : normalizePersistedSteps(row?.project_steps);
     const viewer = memberOwnerId(session.member.id);
-    const { checklist, blocked } = sanitizeChecklistForViewer(
-      currentChecklist,
-      body.checklist,
-      viewer,
-      todoOwnerIndex(projectSteps),
-    );
-    patch.checklist = checklist;
-    if (blocked.length) {
-      // Still save the legal flips; surface that some were ignored.
-      patch._blocked_todo_checks = blocked.length;
+    const owners = todoOwnerIndex(projectSteps);
+
+    if (body.checklist && typeof body.checklist === "object") {
+      const currentChecklist =
+        row?.checklist && typeof row.checklist === "object" ? row.checklist : {};
+      const { checklist, blocked } = sanitizeChecklistForViewer(
+        currentChecklist,
+        body.checklist,
+        viewer,
+        owners,
+      );
+      patch.checklist = checklist;
+      if (blocked.length) patch._blocked_todo_checks = blocked.length;
+    }
+
+    if (body.todoSubtasks && typeof body.todoSubtasks === "object") {
+      patch.todo_subtasks = sanitizeSubtasksForViewer(
+        normalizeTodoSubtasks(row?.todo_subtasks),
+        normalizeTodoSubtasks(body.todoSubtasks),
+        viewer,
+        owners,
+      );
     }
   }
 

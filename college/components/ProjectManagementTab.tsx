@@ -9,7 +9,7 @@ import {
   projectSectionById,
   type ProjectSectionId,
 } from "@/lib/project-management";
-import { memberOwnerId } from "@/lib/project-todos";
+import { memberOwnerId, type TodoSubtaskMap } from "@/lib/project-todos";
 import type { Phase } from "@/lib/types";
 
 export function ProjectManagementTab({
@@ -21,7 +21,9 @@ export function ProjectManagementTab({
   projectSteps,
   ingestSources,
   notes,
+  subtasks,
   onToggle,
+  onChangeSubtasks,
   onConfirmIngest,
   dateline,
 }: {
@@ -33,7 +35,9 @@ export function ProjectManagementTab({
   projectSteps: PersistedProjectStep[];
   ingestSources: PersistedIngestSource[];
   notes: string;
+  subtasks: TodoSubtaskMap;
   onToggle: (id: string, checked: boolean) => void;
+  onChangeSubtasks: (next: TodoSubtaskMap) => void;
   onConfirmIngest: (payload: IngestConfirmPayload) => Promise<void>;
   dateline: string;
 }) {
@@ -82,7 +86,9 @@ export function ProjectManagementTab({
           phases={phases}
           checklist={checklist}
           projectSteps={projectSteps}
+          subtasks={subtasks}
           onToggle={onToggle}
+          onChangeSubtasks={onChangeSubtasks}
         />
       ) : null}
 

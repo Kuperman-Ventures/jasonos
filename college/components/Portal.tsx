@@ -36,6 +36,7 @@ import {
   canMarkTodoDone,
   memberOwnerId,
   todoOwnerIndex,
+  type TodoSubtaskMap,
 } from "@/lib/project-todos";
 import type { ContactPatch, DeadlinePatch, Owner, School, Scores, TabId } from "@/lib/types";
 import {
@@ -95,6 +96,7 @@ export function Portal({
   const [notes, setNotes] = useState("");
   const [projectSteps, setProjectSteps] = useState<PersistedProjectStep[]>([]);
   const [ingestSources, setIngestSources] = useState<PersistedIngestSource[]>([]);
+  const [todoSubtasks, setTodoSubtasks] = useState<TodoSubtaskMap>({});
   const pipeline = useSchoolPipeline();
   const schools = pipeline.schools;
   const setSchools = pipeline.setSchools;
@@ -126,6 +128,7 @@ export function Portal({
           notes?: string;
           projectSteps?: PersistedProjectStep[];
           ingestSources?: PersistedIngestSource[];
+          todoSubtasks?: TodoSubtaskMap;
           persisted?: boolean;
         };
         const prefsBody = (await prefsRes.json()) as {
@@ -138,6 +141,9 @@ export function Portal({
         if (typeof state.notes === "string") setNotes(state.notes);
         if (Array.isArray(state.projectSteps)) setProjectSteps(state.projectSteps);
         if (Array.isArray(state.ingestSources)) setIngestSources(state.ingestSources);
+        if (state.todoSubtasks && typeof state.todoSubtasks === "object") {
+          setTodoSubtasks(state.todoSubtasks);
+        }
         setPersisted(Boolean(state.persisted));
         if (prefsBody.prefs) setListPrefs(mergeListPrefs(prefsBody.prefs));
       } catch {
@@ -211,6 +217,7 @@ export function Portal({
     notes?: string;
     projectSteps?: PersistedProjectStep[];
     ingestSources?: PersistedIngestSource[];
+    todoSubtasks?: TodoSubtaskMap;
   }) {
     if (!persisted) {
       setSaveState("Not saved");
@@ -241,6 +248,11 @@ export function Portal({
     const next = { ...checklist, [id]: checked };
     setChecklist(next);
     void patchState({ checklist: next });
+  }
+
+  function changeSubtasks(next: TodoSubtaskMap) {
+    setTodoSubtasks(next);
+    void patchState({ todoSubtasks: next });
   }
 
   async function confirmIngest(payload: {
@@ -631,7 +643,9 @@ export function Portal({
             projectSteps={projectSteps}
             ingestSources={ingestSources}
             notes={notes}
+            subtasks={todoSubtasks}
             onToggle={toggleItem}
+            onChangeSubtasks={changeSubtasks}
             onConfirmIngest={confirmIngest}
             dateline={phaseLabel}
           />

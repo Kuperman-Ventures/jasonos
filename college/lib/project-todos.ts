@@ -35,6 +35,15 @@ export type ProjectTodo = {
   phaseWindow: string;
 };
 
+export type TodoSubtask = {
+  id: string;
+  label: string;
+  dueDate: string | null;
+  done: boolean;
+};
+
+export type TodoSubtaskMap = Record<string, TodoSubtask[]>;
+
 type ParentLookup = {
   parentText: string;
   phase: string;
@@ -258,5 +267,97 @@ export function groupTodosByOwner(
   return {
     mine: bucket(focusOwner),
     others: OWNERS.filter((owner) => owner.id !== focusOwner).map((owner) => bucket(owner.id)),
+  };
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function normalizeTodoSubtasks(raw: unknown): TodoSubtaskMap {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: TodoSubtaskMap = {};
+  for (const [parentId, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!parentId || !Array.isArray(value)) continue;
+    const rows: TodoSubtask[] = [];
+    for (const item of value) {
+      if (!item || typeof item !== "object") continue;
+      const row = item as Record<string, unknown>;
+      if (typeof row.id !== "string" || typeof row.label !== "string") continue;
+      const label = row.label.trim();
+      if (!label) continue;
+      rows.push({
+        id: row.id,
+        label,
+        dueDate: typeof row.dueDate === "string" && ISO_DATE.test(row.dueDate) ? row.dueDate : null,
+        done: Boolean(row.done),
+      });
+    }
+    if (rows.length) out[parentId] = rows;
+  }
+  return out;
+}
+
+/** Non-owners may add subtasks but cannot flip done. */
+export function sanitizeSubtasksForViewer(
+  current: TodoSubtaskMap,
+  next: TodoSubtaskMap,
+  viewer: Owner,
+  owners: Map<string, Owner>,
+): TodoSubtaskMap {
+  const parentIds = new Set([...Object.keys(current), ...Object.keys(next)]);
+  const out: TodoSubtaskMap = {};
+  for (const parentId of parentIds) {
+    const owner = owners.get(parentId);
+    const before = current[parentId] ?? [];
+    const after = next[parentId] ?? [];
+    if (!owner || canMarkTodoDone(viewer, owner)) {
+      if (after.length) out[parentId] = after;
+      continue;
+    }
+    const beforeDone = new Map(before.map((row) => [row.id, row.done]));
+    const merged = after.map((row) => ({
+      ...row,
+      done: beforeDone.has(row.id) ? Boolean(beforeDone.get(row.id)) : false,
+    }));
+    if (merged.length) out[parentId] = merged;
+  }
+  return out;
+}
+
+export function todoPrimaryDate(todo: Pick<ProjectTodo, "dueDate" | "startDate" | "endDate">): string | null {
+  return todo.dueDate ?? todo.startDate ?? todo.endDate;
+}
+
+export function shortDueLabel(iso: string | null): string {
+  if (!iso || !ISO_DATE.test(iso)) return "—";
+  const [year, month, day] = iso.split("-").map(Number);
+  if (!year || !month || !day) return "—";
+  return new Date(year, month - 1, day).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/** dated = has a date; soon = due within the next 7 days (including today). */
+export function dueTone(
+  iso: string | null,
+  now: Date = new Date(),
+): "dated" | "soon" | "undated" {
+  if (!iso || !ISO_DATE.test(iso)) return "undated";
+  const [year, month, day] = iso.split("-").map(Number);
+  if (!year || !month || !day) return "undated";
+  const due = new Date(year, month - 1, day);
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.round((due.getTime() - start.getTime()) / 86_400_000);
+  if (days >= 0 && days <= 7) return "soon";
+  return "dated";
+}
+
+export function openListStats(todos: ProjectTodo[]): { open: number; dated: number; label: string } {
+  const openTodos = todos.filter((todo) => !todo.done);
+  const dated = openTodos.filter((todo) => todoPrimaryDate(todo)).length;
+  return {
+    open: openTodos.length,
+    dated,
+    label: `${openTodos.length} open · ${dated} dated`,
   };
 }

@@ -3,11 +3,15 @@ import test from "node:test";
 import {
   assignedByBadge,
   canMarkTodoDone,
+  dueTone,
   formatTodoWhen,
   groupTodosByOwner,
   listProjectTodos,
   memberOwnerId,
+  openListStats,
   sanitizeChecklistForViewer,
+  sanitizeSubtasksForViewer,
+  shortDueLabel,
   todoOwnerIndex,
 } from "./project-todos";
 
@@ -105,6 +109,80 @@ test("groupTodosByOwner focuses the signed-in person", () => {
   assert.ok(grouped.mine.open.length > 0);
   assert.ok(grouped.others.every((bucket) => bucket.owner !== "kyle"));
   assert.ok(grouped.others.some((bucket) => bucket.owner === "jason" && bucket.open.length > 0));
+});
+
+test("short due labels and soon-window tone", () => {
+  assert.equal(shortDueLabel(null), "—");
+  assert.equal(shortDueLabel("2026-09-25"), "Sep 25");
+  assert.equal(dueTone("2026-09-25", new Date(2026, 8, 20)), "soon");
+  assert.equal(dueTone("2026-12-15", new Date(2026, 8, 20)), "dated");
+  assert.equal(dueTone(null), "undated");
+});
+
+test("openListStats counts open and dated", () => {
+  const stats = openListStats([
+    {
+      id: "a",
+      label: "Dated",
+      owner: "jason",
+      assignedBy: null,
+      dueDate: "2026-10-01",
+      startDate: null,
+      endDate: null,
+      done: false,
+      parentId: "inbox",
+      parentText: "x",
+      phase: "Junior Fall",
+      phaseWindow: "now",
+    },
+    {
+      id: "b",
+      label: "Undated",
+      owner: "jason",
+      assignedBy: null,
+      dueDate: null,
+      startDate: null,
+      endDate: null,
+      done: false,
+      parentId: "inbox",
+      parentText: "x",
+      phase: "Junior Fall",
+      phaseWindow: "now",
+    },
+    {
+      id: "c",
+      label: "Done",
+      owner: "jason",
+      assignedBy: null,
+      dueDate: "2026-10-02",
+      startDate: null,
+      endDate: null,
+      done: true,
+      parentId: "inbox",
+      parentText: "x",
+      phase: "Junior Fall",
+      phaseWindow: "now",
+    },
+  ]);
+  assert.equal(stats.label, "2 open · 1 dated");
+});
+
+test("sanitizeSubtasksForViewer lets others add but not check off", () => {
+  const owners = todoOwnerIndex([]);
+  owners.set("kat-task", "kat");
+  const current = {
+    "kat-task": [{ id: "s1", label: "Existing", dueDate: null, done: false }],
+  };
+  const next = {
+    "kat-task": [
+      { id: "s1", label: "Existing", dueDate: null, done: true },
+      { id: "s2", label: "Added by Jason", dueDate: null, done: true },
+    ],
+  };
+  const saved = sanitizeSubtasksForViewer(current, next, "jason", owners);
+  assert.equal(saved["kat-task"]?.[0]?.done, false);
+  assert.equal(saved["kat-task"]?.[1]?.done, false);
+  assert.equal(saved["kat-task"]?.[1]?.label, "Added by Jason");
 });
 
 test("formatTodoWhen covers due dates and windows", () => {

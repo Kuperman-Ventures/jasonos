@@ -1989,6 +1989,183 @@ table.schools .muted,
   gap: var(--space-4);
 }
 
+/* ---------- expandable to-do rows (option 1e) ---------- */
+.todos-panel .list {
+  max-width: 760px;
+  margin-bottom: var(--space-8);
+}
+.todos-panel .list-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.todos-panel .list-head h1 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 26px;
+  font-weight: 600;
+}
+.todos-panel .list-count {
+  font-family: var(--font-heading);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-neutral-700);
+  white-space: nowrap;
+}
+.todos-panel .task {
+  border-bottom: 1px solid var(--color-divider);
+}
+.todos-panel .task-row {
+  display: grid;
+  grid-template-columns: 22px 1fr auto 18px;
+  column-gap: var(--space-2);
+  align-items: center;
+  padding: 11px 6px;
+}
+.todos-panel .task-row:hover { background: var(--color-accent-100); }
+.todos-panel .task-check {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+.todos-panel .task-check:checked + .task-title .task-title-text {
+  color: var(--color-neutral-700);
+  text-decoration: line-through;
+}
+.todos-panel .task-title {
+  all: unset;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+.todos-panel .task-title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 17px;
+  line-height: 1.3;
+  min-width: 0;
+}
+.todos-panel .task-title:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.todos-panel .task-due {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  color: var(--color-accent-700);
+}
+.todos-panel .task-due.is-soon { color: var(--milestone-ink); }
+.todos-panel .task-due.is-undated { color: var(--color-neutral-700); }
+.todos-panel .task-caret {
+  justify-self: end;
+  width: 18px;
+  height: 18px;
+  color: var(--color-neutral-700);
+  transition: transform 120ms ease;
+}
+.todos-panel .task.is-open .task-caret { transform: rotate(90deg); }
+.todos-panel .task-sub-count {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-neutral-700);
+  white-space: nowrap;
+}
+.todos-panel .task-body {
+  display: none;
+  padding: 0 6px 14px 34px;
+}
+.todos-panel .task.is-open .task-body { display: block; }
+.todos-panel .task-note {
+  margin: 0 0 var(--space-3);
+  font-size: 15px;
+  line-height: 1.45;
+  max-width: 60ch;
+  color: var(--color-neutral-800);
+}
+.todos-panel .task-note em { color: var(--color-neutral-700); font-style: italic; }
+.todos-panel .subs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.todos-panel .sub {
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  column-gap: var(--space-2);
+  align-items: center;
+  padding: 7px 0;
+}
+.todos-panel .sub + .sub { border-top: 1px solid var(--color-divider); }
+.todos-panel .sub-check {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+.todos-panel .sub-title { font-size: 15px; line-height: 1.35; }
+.todos-panel .sub input:checked + .sub-title,
+.todos-panel .sub input:checked ~ .sub-title {
+  color: var(--color-neutral-700);
+  text-decoration: line-through;
+}
+.todos-panel .sub-due {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--color-neutral-700);
+  white-space: nowrap;
+}
+.todos-panel .sub-add {
+  all: unset;
+  margin-top: var(--space-2);
+  font-size: 14px;
+  color: var(--color-accent-700);
+  cursor: pointer;
+}
+.todos-panel .sub-add:hover {
+  color: var(--color-accent-600);
+  text-decoration: underline;
+}
+.todos-panel .sub-add:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.todos-panel .sub-draft {
+  margin-top: var(--space-2);
+  max-width: 420px;
+}
+.todos-panel .todo-from-badge {
+  flex: none;
+}
+
+@media (max-width: 560px) {
+  .todos-panel .task-row {
+    grid-template-columns: 22px minmax(0, 1fr) 18px;
+    grid-template-areas:
+      "check title caret"
+      "check meta caret";
+    row-gap: 2px;
+  }
+  .todos-panel .task-check { grid-area: check; }
+  .todos-panel .task-title { grid-area: title; }
+  .todos-panel .task-due,
+  .todos-panel .task-sub-count { grid-area: meta; justify-self: start; }
+  .todos-panel .task-caret { grid-area: caret; align-self: center; }
+}
+
 /* ---------- project ingest ---------- */
 .ingest-compose {
   display: flex;
