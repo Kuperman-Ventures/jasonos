@@ -2352,8 +2352,8 @@ table.schools .muted,
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
-  min-height: 64px;
+  gap: 6px;
+  min-height: 88px;
   padding: var(--space-3);
   text-align: left;
   background: var(--color-surface);
@@ -2368,17 +2368,47 @@ table.schools .muted,
   border-color: var(--color-accent-500);
   box-shadow: inset 3px 0 0 var(--color-accent-500);
 }
+.list-phase-bar button.is-current {
+  background: var(--accent-100);
+}
+.list-phase-bar .phase-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+}
 .list-phase-bar .phase-name {
   font-family: var(--font-heading);
   font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
-.list-phase-bar .phase-meta {
+.list-phase-bar .phase-now {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-accent);
+}
+.list-phase-bar .phase-window {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--color-text);
+}
+.list-phase-bar .phase-count {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.04em;
   color: var(--text-subtle);
+}
+.list-phase-bar button:not(.is-current) .phase-window {
+  color: var(--text-muted);
 }
 .list-gauges {
   display: grid;

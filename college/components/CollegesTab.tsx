@@ -281,6 +281,7 @@ export function CollegesTab({
     return null;
   }
 
+  const calendarPhaseId = currentListPhaseId();
   const gaugeFill = Math.min(countGauge.percent, 160);
 
   return (
@@ -302,18 +303,27 @@ export function CollegesTab({
       <div className="list-phase-bar" role="tablist" aria-label="List phase">
         {LIST_PHASES.map((item) => {
           const count = schools.filter((school) => !school.archived && school.listPhase === item.id).length;
+          const isCalendarCurrent = item.id === calendarPhaseId;
+          const isViewing = phaseId === item.id;
           return (
             <button
               key={item.id}
               type="button"
               role="tab"
-              aria-selected={phaseId === item.id}
-              className={phaseId === item.id ? "active" : ""}
+              aria-selected={isViewing}
+              aria-current={isCalendarCurrent ? "date" : undefined}
+              className={[isViewing ? "active" : "", isCalendarCurrent ? "is-current" : ""]
+                .filter(Boolean)
+                .join(" ")}
               onClick={() => setPhaseId(item.id)}
             >
-              <span className="phase-name">{item.label}</span>
-              <span className="phase-meta">
-                {item.window} · {count}/{item.target}
+              <span className="phase-top">
+                <span className="phase-name">{item.label}</span>
+                {isCalendarCurrent ? <span className="phase-now">Current window</span> : null}
+              </span>
+              <span className="phase-window">{item.window}</span>
+              <span className="phase-count">
+                {count}/{item.target} schools
               </span>
             </button>
           );

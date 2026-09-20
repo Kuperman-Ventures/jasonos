@@ -40,7 +40,7 @@ export const LIST_PHASES: ListPhase[] = [
   {
     id: "exploration",
     label: "Exploration",
-    window: "Now – Dec 2026",
+    window: "Sep 2026 – Dec 2026",
     target: 30,
     rangeLabel: "27–33",
     startsOn: "2026-09-01",
@@ -51,7 +51,7 @@ export const LIST_PHASES: ListPhase[] = [
   {
     id: "consideration",
     label: "Consideration",
-    window: "Jan – Jul 2027",
+    window: "Jan 2027 – Jul 2027",
     target: 12,
     rangeLabel: "10–15",
     startsOn: "2027-01-01",
@@ -61,7 +61,7 @@ export const LIST_PHASES: ListPhase[] = [
   {
     id: "applications",
     label: "Applications",
-    window: "Jul 2027 →",
+    window: "Jul 2027 onward",
     target: 10,
     rangeLabel: "8–12",
     startsOn: "2027-07-27",
