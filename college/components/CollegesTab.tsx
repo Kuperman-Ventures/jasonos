@@ -76,7 +76,7 @@ export function CollegesTab({
   onPatchContact: (id: string, contactId: string, patch: ContactPatch) => void;
   onDeleteContact: (id: string, contactId: string) => void;
 }) {
-  const [phaseId, setPhaseId] = useState<ListPhaseId>(() => currentListPhaseId());
+  const [phaseId, setPhaseId] = useState<ListPhaseId>("exploration");
   const [query, setQuery] = useState("");
   const [tier, setTier] = useState<SelectivityTier | "any">("any");
   const [interest, setInterest] = useState<InterestLevel | "any">("any");
@@ -87,6 +87,10 @@ export function CollegesTab({
   const [columnsOpen, setColumnsOpen] = useState(false);
   const columnsRef = useRef<HTMLDivElement | null>(null);
 
+  useEffect(() => {
+    setPhaseId(currentListPhaseId());
+  }, []);
+
   const phase = listPhaseById(phaseId);
   const columns = normalizeColumns(listPrefs.columnsByPhase[phaseId], phase);
   const showArchived = listPrefs.showArchived;
@@ -96,8 +100,14 @@ export function CollegesTab({
     function onDoc(event: MouseEvent) {
       if (!columnsRef.current?.contains(event.target as Node)) setColumnsOpen(false);
     }
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    // Attach after this click finishes so the opening click does not immediately close.
+    const timer = window.setTimeout(() => {
+      document.addEventListener("mousedown", onDoc);
+    }, 0);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("mousedown", onDoc);
+    };
   }, [columnsOpen]);
 
   const phaseSchools = useMemo(() => {

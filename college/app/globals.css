@@ -1753,7 +1753,7 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  z-index: 5;
+  z-index: 40;
   width: min(260px, 80vw);
   padding: var(--space-3);
   background: var(--color-bg);

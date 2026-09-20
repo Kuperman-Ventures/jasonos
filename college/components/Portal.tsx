@@ -73,8 +73,8 @@ export function Portal({
 }: {
   member: { id: string; displayName: string; role: string; email: string };
 }) {
-  const start = readStart();
-  const [tab, setTab] = useState<TabId>(start.tab);
+  // Always start on dashboard so SSR and the first client paint match. URL sync happens after mount.
+  const [tab, setTab] = useState<TabId>("dashboard");
   const schoolId = useSyncExternalStore(subscribeSchool, schoolFromLocation, () => null);
   const [checklist, setChecklist] = useState<Record<string, boolean>>({});
   const [scores, setScores] = useState<Scores>(seedScores);
@@ -89,6 +89,13 @@ export function Portal({
   const [listPrefs, setListPrefs] = useState<MemberListPrefs>(() => defaultListPrefs());
   const notesTimer = useRef<number | undefined>(undefined);
   const prefsTimer = useRef<number | undefined>(undefined);
+  const urlBootstrapped = useRef(false);
+
+  useEffect(() => {
+    if (urlBootstrapped.current) return;
+    urlBootstrapped.current = true;
+    setTab(readStart().tab);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
