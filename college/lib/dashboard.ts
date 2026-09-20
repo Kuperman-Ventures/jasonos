@@ -14,58 +14,13 @@ export type StateCount = {
   count: number;
 };
 
-/** Approximate contiguous-US state centroids in a 1000×620 viewBox. */
-export const STATE_CENTROIDS: Record<string, { x: number; y: number }> = {
-  WA: { x: 120, y: 60 },
-  OR: { x: 100, y: 120 },
-  CA: { x: 90, y: 230 },
-  NV: { x: 140, y: 200 },
-  ID: { x: 180, y: 110 },
-  MT: { x: 260, y: 70 },
-  WY: { x: 270, y: 150 },
-  UT: { x: 210, y: 210 },
-  AZ: { x: 200, y: 300 },
-  CO: { x: 290, y: 230 },
-  NM: { x: 270, y: 310 },
-  ND: { x: 370, y: 70 },
-  SD: { x: 370, y: 140 },
-  NE: { x: 380, y: 200 },
-  KS: { x: 400, y: 250 },
-  OK: { x: 420, y: 300 },
-  TX: { x: 400, y: 380 },
-  MN: { x: 460, y: 90 },
-  IA: { x: 470, y: 180 },
-  MO: { x: 490, y: 250 },
-  AR: { x: 500, y: 320 },
-  LA: { x: 510, y: 400 },
-  WI: { x: 530, y: 110 },
-  IL: { x: 540, y: 200 },
-  MS: { x: 550, y: 360 },
-  MI: { x: 590, y: 120 },
-  IN: { x: 590, y: 200 },
-  KY: { x: 610, y: 250 },
-  TN: { x: 610, y: 300 },
-  AL: { x: 600, y: 360 },
-  OH: { x: 640, y: 190 },
-  GA: { x: 660, y: 360 },
-  FL: { x: 700, y: 440 },
-  SC: { x: 700, y: 330 },
-  NC: { x: 720, y: 290 },
-  VA: { x: 730, y: 250 },
-  WV: { x: 690, y: 230 },
-  PA: { x: 740, y: 180 },
-  NY: { x: 780, y: 130 },
-  VT: { x: 800, y: 90 },
-  NH: { x: 820, y: 90 },
-  ME: { x: 850, y: 60 },
-  MA: { x: 840, y: 130 },
-  RI: { x: 850, y: 150 },
-  CT: { x: 830, y: 155 },
-  NJ: { x: 800, y: 185 },
-  DE: { x: 790, y: 210 },
-  MD: { x: 770, y: 220 },
-  DC: { x: 760, y: 235 },
-};
+export { US_STATE_PATHS, US_MAP_VIEWBOX } from "./us-state-paths";
+
+/** Fill strength 0–1 for choropleth intensity from school count. */
+export function stateFillStrength(count: number, max: number): number {
+  if (count <= 0 || max <= 0) return 0;
+  return Math.max(0.22, count / max);
+}
 
 const STATE_RE = /,\s*([A-Z]{2})\s*$/;
 
