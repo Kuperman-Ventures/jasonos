@@ -8,7 +8,11 @@ import {
   OWNERS,
   SELECTIVITY_TIERS,
   STEP_PRESETS,
+  formatDate,
   ownerLabel,
+  statusLabel,
+  tierLabel,
+  trackLabel,
   type ContactPatch,
   type DeadlinePatch,
   type Owner,
@@ -16,6 +20,7 @@ import {
 } from "@/lib/types";
 import { LIST_PHASES, nextListPhaseId, previousListPhaseId } from "@/lib/list-phases";
 import { sourceLines } from "@/lib/school-research";
+import { fetchSchoolPhotoUrl, websiteHostLabel, websiteHref } from "@/lib/school-photo";
 import { SchoolMark } from "./SchoolMark";
 
 function BlurInput({
@@ -40,6 +45,15 @@ function BlurInput({
         if (event.target.value !== value) onCommit(event.target.value);
       }}
     />
+  );
+}
+
+function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="fact">
+      <div className="label">{label}</div>
+      <p>{value.trim() ? value : "—"}</p>
+    </div>
   );
 }
 
@@ -90,6 +104,8 @@ export function CollegeRecord({
   const [contactRole, setContactRole] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoFailed, setPhotoFailed] = useState(false);
 
   const onBackRef = useRef(onBack);
   useEffect(() => {
@@ -109,22 +125,24 @@ export function CollegeRecord({
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    setPhotoUrl(null);
+    setPhotoFailed(false);
+    void fetchSchoolPhotoUrl(school.id, school.name).then((url) => {
+      if (!cancelled) setPhotoUrl(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [school.id, school.name]);
+
   const deadlines = [...school.deadlines].sort((a, b) => {
     if (a.dueDate && b.dueDate && a.dueDate !== b.dueDate) return a.dueDate.localeCompare(b.dueDate);
     if (a.dueDate && !b.dueDate) return -1;
     if (!a.dueDate && b.dueDate) return 1;
     return a.sortOrder - b.sortOrder;
   });
-
-  const program: [string, string][] = [
-    ["Location", school.location],
-    ["Campus / size", school.campusSize],
-    ["Mechanical engineering", school.mechanicalEngineering],
-    ["Materials", school.materials],
-    ["Materials offering", school.materialsOffering],
-    ["SAT context", school.satContext],
-    ["Admissions context", school.admissionsContext],
-  ];
 
   const phaseLabel =
     LIST_PHASES.find((phase) => phase.id === school.listPhase)?.label ?? school.listPhase;
@@ -140,24 +158,125 @@ export function CollegeRecord({
     .map((id) => LIST_PHASES.find((phase) => phase.id === id)?.label ?? id)
     .join(" → ");
 
+  const siteHref = websiteHref(school.website);
+  const siteLabel = websiteHostLabel(school.website) || "School website";
+  const showPhoto = Boolean(photoUrl) && !photoFailed;
+
+  const nextOpenDeadline = deadlines.find((item) => !item.completed && item.dueDate) ?? null;
+
+  const overviewFacts: [string, string][] = [
+    ["Location", school.location],
+    ["Campus / size", school.campusSize],
+    ["Selectivity", tierLabel(school.selectivityTier) || school.selectivity],
+    ["Test policy", school.testPolicy],
+    ["Middle 50%", school.middle50],
+    ["Mechanical engineering", school.mechanicalEngineering],
+    ["Materials", school.materials],
+    ["Materials offering", school.materialsOffering],
+    ["Application platform", school.applicationPlatform],
+    ["Teacher recommendations", school.teacherRecs],
+    ["Sticker price", school.costOfAttendance],
+    ["Net price estimate", school.netPriceEstimate],
+  ];
+
   return (
-    <div className="drawer-root">
-      <button type="button" className="drawer-backdrop" aria-label="Close school" onClick={onBack} />
-      <aside className="drawer" role="dialog" aria-modal="true" aria-label={school.name}>
-        <button type="button" className="back-link" onClick={onBack}>
-          Close
-        </button>
-        <div className="detail-head">
-          <div className="school-id">
-            <SchoolMark name={school.name} website={school.website} />
-            <div>
-              <h2>{school.name}</h2>
-              <p className="section-sub">{school.location}</p>
+    <div className="school-modal-root">
+      <button type="button" className="school-modal-backdrop" aria-label="Close school" onClick={onBack} />
+      <div className="school-modal" role="dialog" aria-modal="true" aria-label={school.name}>
+        <header className="school-modal-chrome">
+          <button type="button" className="back-link" onClick={onBack}>
+            Close
+          </button>
+          <span className="school-modal-phase">
+            {school.archived ? "Archived" : phaseLabel}
+            {participated ? ` · ${participated}` : ""}
+          </span>
+        </header>
+
+        <div className={`school-hero${showPhoto ? "" : " school-hero-empty"}`}>
+          {showPhoto ? (
+            <img
+              className="school-hero-photo"
+              src={photoUrl!}
+              alt=""
+              onError={() => setPhotoFailed(true)}
+            />
+          ) : null}
+          <div className="school-hero-scrim" aria-hidden="true" />
+          <div className="school-hero-copy">
+            <div className="school-hero-identity">
+              <SchoolMark name={school.name} website={school.website} />
+              <div>
+                <h2>{school.name}</h2>
+                <p className="school-hero-location">{school.location || "Location not set"}</p>
+              </div>
             </div>
+            {siteHref ? (
+              <a className="school-hero-link" href={siteHref} target="_blank" rel="noreferrer">
+                Visit {siteLabel}
+              </a>
+            ) : (
+              <span className="school-hero-link school-hero-link-missing">No website on file</span>
+            )}
           </div>
         </div>
 
-        <section className="drawer-section">
+        <section className="school-overview">
+          <div className="school-overview-head">
+            <h3>At a glance</h3>
+            <p className="section-sub">
+              Snapshot facts for this school. Editing lives further down so this view stays readable.
+            </p>
+          </div>
+          <div className="fact-grid school-overview-facts">
+            {overviewFacts.map(([label, value]) => (
+              <Fact key={label} label={label} value={value} />
+            ))}
+          </div>
+          {school.admissionsContext || school.satContext || school.requiredEssays || school.meritAidNotes ? (
+            <div className="school-overview-prose">
+              {school.admissionsContext ? (
+                <div className="fact fact-wide">
+                  <div className="label">Admissions context</div>
+                  <p>{school.admissionsContext}</p>
+                </div>
+              ) : null}
+              {school.satContext ? (
+                <div className="fact fact-wide">
+                  <div className="label">SAT context</div>
+                  <p>{school.satContext}</p>
+                </div>
+              ) : null}
+              {school.requiredEssays ? (
+                <div className="fact fact-wide">
+                  <div className="label">Required essays</div>
+                  <p>{school.requiredEssays}</p>
+                </div>
+              ) : null}
+              {school.meritAidNotes ? (
+                <div className="fact fact-wide">
+                  <div className="label">Merit aid</div>
+                  <p>{school.meritAidNotes}</p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          <div className="school-overview-status">
+            <Fact label="Interest" value={INTEREST_LEVELS.find((item) => item.id === school.interestLevel)?.label ?? ""} />
+            <Fact label="Application status" value={statusLabel(school.applicationStatus)} />
+            <Fact label="Admission track" value={trackLabel(school.admissionTrack)} />
+            <Fact
+              label="Next deadline"
+              value={
+                nextOpenDeadline
+                  ? `${nextOpenDeadline.title} · ${formatDate(nextOpenDeadline.dueDate)}`
+                  : ""
+              }
+            />
+          </div>
+        </section>
+
+        <section className="school-modal-section school-edit-block">
           <h3>List phase</h3>
           <p className="section-sub">
             {school.archived ? "Archived" : phaseLabel}
@@ -203,9 +322,13 @@ export function CollegeRecord({
           </div>
         </section>
 
-        <section className="drawer-section">
-          <h3>Admissions and academics</h3>
-          <div className="drawer-grid">
+        <section className="school-modal-section school-edit-block">
+          <div className="school-overview-head">
+            <h3>Update record</h3>
+            <p className="section-sub">Change fields here. The snapshot above updates after you save.</p>
+          </div>
+          <h4 className="school-edit-label">Admissions and academics</h4>
+          <div className="school-edit-grid">
             <label className="stack-field">
               <span className="label">Selectivity tier</span>
               <select
@@ -298,8 +421,62 @@ export function CollegeRecord({
                 onCommit={(value) => onPatch({ teacherRecs: value })}
               />
             </label>
+            <label className="stack-field">
+              <span className="label">Location</span>
+              <BlurInput
+                value={school.location}
+                ariaLabel="Location"
+                placeholder="Not entered"
+                onCommit={(value) => onPatch({ location: value })}
+              />
+            </label>
+            <label className="stack-field">
+              <span className="label">Campus / size</span>
+              <BlurInput
+                value={school.campusSize}
+                ariaLabel="Campus size"
+                placeholder="Not entered"
+                onCommit={(value) => onPatch({ campusSize: value })}
+              />
+            </label>
+            <label className="stack-field">
+              <span className="label">Mechanical engineering</span>
+              <BlurInput
+                value={school.mechanicalEngineering}
+                ariaLabel="Mechanical engineering"
+                placeholder="Not entered"
+                onCommit={(value) => onPatch({ mechanicalEngineering: value })}
+              />
+            </label>
+            <label className="stack-field">
+              <span className="label">Materials</span>
+              <BlurInput
+                value={school.materials}
+                ariaLabel="Materials"
+                placeholder="Not entered"
+                onCommit={(value) => onPatch({ materials: value })}
+              />
+            </label>
+            <label className="stack-field">
+              <span className="label">Materials offering</span>
+              <BlurInput
+                value={school.materialsOffering}
+                ariaLabel="Materials offering"
+                placeholder="Not entered"
+                onCommit={(value) => onPatch({ materialsOffering: value })}
+              />
+            </label>
+            <label className="stack-field">
+              <span className="label">Website</span>
+              <BlurInput
+                value={school.website}
+                ariaLabel="School website"
+                placeholder="https://"
+                onCommit={(value) => onPatch({ website: value })}
+              />
+            </label>
           </div>
-          <label className="stack-field" style={{ marginTop: 16 }}>
+          <label className="stack-field school-edit-full">
             <span className="label">Required essays</span>
             <textarea
               className="field"
@@ -311,19 +488,35 @@ export function CollegeRecord({
               }}
             />
           </label>
-          <div className="fact-grid" style={{ marginTop: 24 }}>
-            {program.map(([label, value]) => (
-              <div key={label} className="fact">
-                <div className="label">{label}</div>
-                <p>{value || "—"}</p>
-              </div>
-            ))}
-          </div>
-        </section>
+          <label className="stack-field school-edit-full">
+            <span className="label">Admissions context</span>
+            <textarea
+              className="field"
+              defaultValue={school.admissionsContext}
+              key={school.admissionsContext}
+              placeholder="Not entered"
+              onBlur={(event) => {
+                if (event.target.value !== school.admissionsContext) {
+                  onPatch({ admissionsContext: event.target.value });
+                }
+              }}
+            />
+          </label>
+          <label className="stack-field school-edit-full">
+            <span className="label">SAT context</span>
+            <textarea
+              className="field"
+              defaultValue={school.satContext}
+              key={school.satContext}
+              placeholder="Not entered"
+              onBlur={(event) => {
+                if (event.target.value !== school.satContext) onPatch({ satContext: event.target.value });
+              }}
+            />
+          </label>
 
-        <section className="drawer-section">
-          <h3>Financials</h3>
-          <div className="drawer-grid">
+          <h4 className="school-edit-label">Financials</h4>
+          <div className="school-edit-grid">
             <label className="stack-field">
               <span className="label">Sticker price</span>
               <BlurInput
@@ -343,7 +536,7 @@ export function CollegeRecord({
               />
             </label>
           </div>
-          <label className="stack-field" style={{ marginTop: 16 }}>
+          <label className="stack-field school-edit-full">
             <span className="label">Merit aid notes</span>
             <textarea
               className="field"
@@ -357,7 +550,7 @@ export function CollegeRecord({
           </label>
         </section>
 
-        <section className="drawer-section">
+        <section className="school-modal-section school-edit-block">
           <h3>Engagement and contacts</h3>
           {school.contacts.length === 0 ? <p className="muted">No contacts yet.</p> : null}
           {school.contacts.length > 0 ? (
@@ -466,7 +659,7 @@ export function CollegeRecord({
             />
           </label>
 
-          <h3 style={{ marginTop: 28 }}>Touchpoints</h3>
+          <h4 className="school-edit-label">Touchpoints</h4>
           {school.steps.length === 0 ? <p className="muted">No touchpoints yet.</p> : null}
           {school.steps.map((step) => (
             <div key={step.id} className={step.done ? "step-row done" : "step-row"}>
@@ -518,7 +711,7 @@ export function CollegeRecord({
           </div>
         </section>
 
-        <section className="drawer-section">
+        <section className="school-modal-section school-edit-block">
           <h3>Deadlines</h3>
           {deadlines.length === 0 ? <p className="muted">No deadlines yet.</p> : null}
           {deadlines.length > 0 ? (
@@ -586,7 +779,7 @@ export function CollegeRecord({
           </form>
         </section>
 
-        <section className="drawer-section">
+        <section className="school-modal-section school-edit-block">
           <h3>Notes for Kyle</h3>
           <textarea
             className="field"
@@ -599,7 +792,7 @@ export function CollegeRecord({
         </section>
 
         {school.researchSources ? (
-          <section className="drawer-section">
+          <section className="school-modal-section">
             <h3>Where this came from</h3>
             <ul className="source-list">
               {sourceLines(school.researchSources).map((source) => (
@@ -623,7 +816,7 @@ export function CollegeRecord({
         >
           Remove school
         </button>
-      </aside>
+      </div>
     </div>
   );
 }
