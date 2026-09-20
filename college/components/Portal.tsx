@@ -26,6 +26,7 @@ import {
 import { currentPhaseIndex, phaseStatuses } from "@/lib/phases";
 import { useSchoolPipeline } from "@/lib/use-school-pipeline";
 import { defaultListPrefs, mergeListPrefs, type MemberListPrefs } from "@/lib/list-phases";
+import type { PersistedIngestSource, PersistedProjectStep } from "@/lib/ingest";
 import {
   DEFAULT_PROJECT_SECTION,
   resolveProjectSection,
@@ -87,6 +88,8 @@ export function Portal({
   const [checklist, setChecklist] = useState<Record<string, boolean>>({});
   const [scores, setScores] = useState<Scores>(seedScores);
   const [notes, setNotes] = useState("");
+  const [projectSteps, setProjectSteps] = useState<PersistedProjectStep[]>([]);
+  const [ingestSources, setIngestSources] = useState<PersistedIngestSource[]>([]);
   const pipeline = useSchoolPipeline();
   const schools = pipeline.schools;
   const setSchools = pipeline.setSchools;
@@ -116,6 +119,8 @@ export function Portal({
           checklist?: Record<string, boolean>;
           scores?: Scores;
           notes?: string;
+          projectSteps?: PersistedProjectStep[];
+          ingestSources?: PersistedIngestSource[];
           persisted?: boolean;
         };
         const prefsBody = (await prefsRes.json()) as {
@@ -126,6 +131,8 @@ export function Portal({
         if (state.checklist) setChecklist(state.checklist);
         if (state.scores) setScores({ ...seedScores, ...state.scores });
         if (typeof state.notes === "string") setNotes(state.notes);
+        if (Array.isArray(state.projectSteps)) setProjectSteps(state.projectSteps);
+        if (Array.isArray(state.ingestSources)) setIngestSources(state.ingestSources);
         setPersisted(Boolean(state.persisted));
         if (prefsBody.prefs) setListPrefs(mergeListPrefs(prefsBody.prefs));
       } catch {
@@ -193,10 +200,16 @@ export function Portal({
   const faqCount = faqCategories.reduce((sum, category) => sum + category.items.length, 0);
   const testingCount = testingItems(phases).length;
 
-  async function patchState(body: { checklist?: Record<string, boolean>; scores?: Scores; notes?: string }) {
+  async function patchState(body: {
+    checklist?: Record<string, boolean>;
+    scores?: Scores;
+    notes?: string;
+    projectSteps?: PersistedProjectStep[];
+    ingestSources?: PersistedIngestSource[];
+  }) {
     if (!persisted) {
       setSaveState("Not saved");
-      return;
+      return false;
     }
     setSaveState("Saving...");
     const response = await fetch("/api/state", {
@@ -208,12 +221,23 @@ export function Portal({
     if (response.ok && body.notes !== undefined) {
       window.setTimeout(() => setSaveState(""), 1500);
     }
+    return response.ok;
   }
 
   function toggleItem(id: string, checked: boolean) {
     const next = { ...checklist, [id]: checked };
     setChecklist(next);
     void patchState({ checklist: next });
+  }
+
+  async function confirmIngest(steps: PersistedProjectStep[], source: PersistedIngestSource) {
+    const nextSources = [...ingestSources.filter((row) => row.id !== source.id), source];
+    setProjectSteps(steps);
+    setIngestSources(nextSources);
+    const ok = await patchState({ projectSteps: steps, ingestSources: nextSources });
+    if (!ok) {
+      throw new Error("Could not save ingested tasks");
+    }
   }
 
   function changeScore(firmId: string, criterionId: string, value: number) {
@@ -582,7 +606,10 @@ export function Portal({
             memberId={member.id}
             phases={phases}
             checklist={checklist}
+            projectSteps={projectSteps}
+            ingestSources={ingestSources}
             onToggle={toggleItem}
+            onConfirmIngest={confirmIngest}
             dateline={phaseLabel}
           />
         ) : null}

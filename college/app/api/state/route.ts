@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { isSession, requireCollegeSession } from "@/lib/auth";
 import { seedScores } from "@/lib/content";
 import { collegeDb, supabaseConfigured } from "@/lib/db";
+import {
+  normalizeIngestSources,
+  normalizePersistedSteps,
+  type PersistedIngestSource,
+  type PersistedProjectStep,
+} from "@/lib/ingest";
 import { clampScore } from "@/lib/scores";
 import type { Scores } from "@/lib/types";
 
@@ -9,10 +15,19 @@ type StateRow = {
   checklist: Record<string, boolean> | null;
   scores: Scores | null;
   notes: string | null;
+  project_steps?: unknown;
+  ingest_sources?: unknown;
 };
 
 function emptyState() {
-  return { persisted: false, checklist: {}, scores: seedScores, notes: "" };
+  return {
+    persisted: false,
+    checklist: {},
+    scores: seedScores,
+    notes: "",
+    projectSteps: [] as PersistedProjectStep[],
+    ingestSources: [] as PersistedIngestSource[],
+  };
 }
 
 export async function GET() {
@@ -23,7 +38,7 @@ export async function GET() {
     const db = collegeDb();
     const { data, error } = await db
       .from("app_state")
-      .select("checklist, scores, notes")
+      .select("checklist, scores, notes, project_steps, ingest_sources")
       .eq("id", "kyle-college")
       .maybeSingle();
     if (error) throw error;
@@ -33,6 +48,8 @@ export async function GET() {
       checklist: row?.checklist ?? {},
       scores: { ...seedScores, ...(row?.scores ?? {}) },
       notes: row?.notes ?? "",
+      projectSteps: normalizePersistedSteps(row?.project_steps),
+      ingestSources: normalizeIngestSources(row?.ingest_sources),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not read state";
@@ -50,6 +67,8 @@ export async function PATCH(request: Request) {
     checklist?: Record<string, boolean>;
     scores?: Scores;
     notes?: string;
+    projectSteps?: PersistedProjectStep[];
+    ingestSources?: PersistedIngestSource[];
   };
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (body.checklist && typeof body.checklist === "object") patch.checklist = body.checklist;
@@ -64,6 +83,8 @@ export async function PATCH(request: Request) {
     patch.scores = scores;
   }
   if (typeof body.notes === "string") patch.notes = body.notes;
+  if (Array.isArray(body.projectSteps)) patch.project_steps = normalizePersistedSteps(body.projectSteps);
+  if (Array.isArray(body.ingestSources)) patch.ingest_sources = normalizeIngestSources(body.ingestSources);
   try {
     const db = collegeDb();
     const { error } = await db.from("app_state").update(patch).eq("id", "kyle-college");
@@ -71,6 +92,6 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ ok: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not save";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }

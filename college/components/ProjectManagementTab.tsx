@@ -1,7 +1,9 @@
 "use client";
 
+import { IngestPanel } from "./IngestPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import { TodosPanel } from "./TodosPanel";
+import type { PersistedIngestSource, PersistedProjectStep } from "@/lib/ingest";
 import {
   PROJECT_SECTIONS,
   projectSectionById,
@@ -15,7 +17,10 @@ export function ProjectManagementTab({
   memberId,
   phases,
   checklist,
+  projectSteps,
+  ingestSources,
   onToggle,
+  onConfirmIngest,
   dateline,
 }: {
   section: ProjectSectionId;
@@ -23,7 +28,10 @@ export function ProjectManagementTab({
   memberId: string;
   phases: Phase[];
   checklist: Record<string, boolean>;
+  projectSteps: PersistedProjectStep[];
+  ingestSources: PersistedIngestSource[];
   onToggle: (id: string, checked: boolean) => void;
+  onConfirmIngest: (steps: PersistedProjectStep[], source: PersistedIngestSource) => Promise<void>;
   dateline: string;
 }) {
   const active = projectSectionById(section);
@@ -70,7 +78,17 @@ export function ProjectManagementTab({
           memberId={memberId}
           phases={phases}
           checklist={checklist}
+          projectSteps={projectSteps}
           onToggle={onToggle}
+        />
+      ) : null}
+
+      {active.status === "ready" && active.id === "ingest" ? (
+        <IngestPanel
+          phases={phases}
+          projectSteps={projectSteps}
+          ingestSources={ingestSources}
+          onConfirm={onConfirmIngest}
         />
       ) : null}
 
@@ -78,8 +96,8 @@ export function ProjectManagementTab({
         <div className="pm-soon">
           <h3 className="dash-title">{active.label}</h3>
           <p className="section-sub">
-            This submenu is reserved for the next project-management build. Timeline and To-dos stay
-            available above in the meantime.
+            This submenu is reserved for the next project-management build. Timeline, To-dos, and
+            Ingest stay available above in the meantime.
           </p>
         </div>
       ) : null}

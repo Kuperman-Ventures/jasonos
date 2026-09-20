@@ -27,8 +27,8 @@ export const PROJECT_SECTIONS: ProjectSection[] = [
   {
     id: "ingest",
     label: "Ingest",
-    blurb: "Paste articles, URLs, PDFs, or notes — task parsing comes next.",
-    status: "soon",
+    blurb: "Paste notes or a URL, review suggested tasks, then confirm them into To-dos.",
+    status: "ready",
   },
   {
     id: "board",

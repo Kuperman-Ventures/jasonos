@@ -2,6 +2,7 @@
 
 import stepsFile from "@/content/checklist-steps.json";
 import { phases } from "@/lib/content";
+import { INBOX_PARENT_ID, type PersistedProjectStep } from "@/lib/ingest";
 import { OWNERS, formatDate, isOwner, ownerLabel, type Owner, type Phase } from "@/lib/types";
 
 export type ChecklistStepSeed = {
@@ -40,6 +41,11 @@ type ParentLookup = {
 
 function parentIndex(phaseList: Phase[] = phases): Map<string, ParentLookup> {
   const map = new Map<string, ParentLookup>();
+  map.set(INBOX_PARENT_ID, {
+    parentText: "Ingested — not filed under a runway item yet",
+    phase: "Inbox",
+    phaseWindow: "As needed",
+  });
   for (const phase of phaseList) {
     for (const item of phase.items) {
       map.set(item.id, {
@@ -72,33 +78,73 @@ function dateSortValue(todo: ProjectTodo): number {
   return key ? Date.parse(key) : Number.POSITIVE_INFINITY;
 }
 
+function pushTodo(
+  todos: ProjectTodo[],
+  seen: Set<string>,
+  step: {
+    id: string;
+    label: string;
+    owner: Owner;
+    dueDate: string | null;
+    startDate: string | null;
+    endDate: string | null;
+    parentId: string;
+  },
+  checklist: Record<string, boolean>,
+  parents: Map<string, ParentLookup>,
+) {
+  if (seen.has(step.id)) return;
+  const parent = parents.get(step.parentId) ?? parents.get(INBOX_PARENT_ID);
+  if (!parent) return;
+  seen.add(step.id);
+  todos.push({
+    id: step.id,
+    label: step.label,
+    owner: step.owner,
+    dueDate: step.dueDate,
+    startDate: step.startDate,
+    endDate: step.endDate,
+    done: Boolean(checklist[step.id]),
+    parentId: step.parentId,
+    parentText: parent.parentText,
+    phase: parent.phase,
+    phaseWindow: parent.phaseWindow,
+  });
+}
+
 export function listProjectTodos(
   checklist: Record<string, boolean>,
   phaseList: Phase[] = phases,
+  dynamicSteps: PersistedProjectStep[] = [],
 ): ProjectTodo[] {
   const parents = parentIndex(phaseList);
   const groups = stepsFile as ChecklistStepGroupSeed[];
   const todos: ProjectTodo[] = [];
+  const seen = new Set<string>();
 
   for (const group of groups) {
-    const parent = parents.get(group.parentId);
-    if (!parent) continue;
     for (const step of group.steps) {
       if (!isOwner(step.owner)) continue;
-      todos.push({
-        id: step.id,
-        label: step.label,
-        owner: step.owner,
-        dueDate: step.dueDate,
-        startDate: step.startDate,
-        endDate: step.endDate,
-        done: Boolean(checklist[step.id]),
-        parentId: group.parentId,
-        parentText: parent.parentText,
-        phase: parent.phase,
-        phaseWindow: parent.phaseWindow,
-      });
+      pushTodo(
+        todos,
+        seen,
+        {
+          id: step.id,
+          label: step.label,
+          owner: step.owner,
+          dueDate: step.dueDate,
+          startDate: step.startDate,
+          endDate: step.endDate,
+          parentId: group.parentId,
+        },
+        checklist,
+        parents,
+      );
     }
+  }
+
+  for (const step of dynamicSteps) {
+    pushTodo(todos, seen, step, checklist, parents);
   }
 
   return todos.sort((a, b) => {

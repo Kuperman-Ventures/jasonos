@@ -1960,6 +1960,129 @@ table.schools .muted,
   gap: var(--space-4);
 }
 
+/* ---------- project ingest ---------- */
+.ingest-compose {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+  max-width: 720px;
+}
+.ingest-textarea {
+  min-height: 180px;
+  resize: vertical;
+}
+.ingest-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.ingest-or {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+.ingest-url-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+.ingest-url-row .grow {
+  flex: 1 1 240px;
+}
+.ingest-error {
+  margin: 0 0 var(--space-4);
+  color: var(--text-accent);
+  font-size: 14px;
+}
+.ingest-review {
+  margin-top: var(--space-6);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--color-divider);
+}
+.ingest-review-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.ingest-draft-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.ingest-draft {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1.6fr) minmax(110px, 0.6fr) minmax(160px, 1.1fr) repeat(3, minmax(120px, 0.55fr));
+  gap: var(--space-2);
+  align-items: center;
+  padding: var(--space-3);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.ingest-draft.muted-row {
+  opacity: 0.55;
+}
+.ingest-include {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  white-space: nowrap;
+}
+.ingest-history {
+  margin-top: var(--space-8);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--color-divider);
+  max-width: 720px;
+}
+.ingest-history-list {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.ingest-history-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ingest-history-list strong {
+  font-size: 15px;
+}
+.ingest-history-list span {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-subtle);
+}
+
+@media (max-width: 1100px) {
+  .ingest-draft {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ingest-draft .field:nth-child(2) {
+    grid-column: 1 / -1;
+  }
+  .ingest-draft .field:nth-child(4) {
+    grid-column: 1 / -1;
+  }
+}
+
 /* ---------- college list funnel ---------- */
 .list-phase-bar {
   display: grid;

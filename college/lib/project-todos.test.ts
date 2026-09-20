@@ -28,6 +28,31 @@ test("listProjectTodos nests under runway parents and sorts open first", () => {
   assert.equal(withDone[withDone.length - 1]?.id, "p1-1-s3");
 });
 
+test("listProjectTodos merges dynamic ingest steps", () => {
+  const todos = listProjectTodos(
+    {},
+    undefined,
+    [
+      {
+        id: "ing-test-1",
+        label: "Book October campus tour",
+        owner: "kat",
+        parentId: "inbox",
+        dueDate: "2026-10-05",
+        startDate: null,
+        endDate: null,
+        sourceId: "src-1",
+        createdAt: "2026-09-20T12:00:00.000Z",
+      },
+    ],
+  );
+  const ingested = todos.find((todo) => todo.id === "ing-test-1");
+  assert.ok(ingested);
+  assert.equal(ingested?.owner, "kat");
+  assert.equal(ingested?.phase, "Inbox");
+  assert.match(ingested?.parentText ?? "", /Ingested/);
+});
+
 test("groupTodosByOwner focuses the signed-in person", () => {
   const todos = listProjectTodos({});
   const grouped = groupTodosByOwner(todos, "kyle");

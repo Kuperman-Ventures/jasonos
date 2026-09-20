@@ -1,5 +1,6 @@
 "use client";
 
+import type { PersistedProjectStep } from "@/lib/ingest";
 import {
   formatTodoWhen,
   groupTodosByOwner,
@@ -98,15 +99,17 @@ export function TodosPanel({
   memberId,
   phases,
   checklist,
+  projectSteps = [],
   onToggle,
 }: {
   memberId: string;
   phases: Phase[];
   checklist: Record<string, boolean>;
+  projectSteps?: PersistedProjectStep[];
   onToggle: (id: string, checked: boolean) => void;
 }) {
   const focusOwner: Owner = memberOwnerId(memberId);
-  const todos = listProjectTodos(checklist, phases);
+  const todos = listProjectTodos(checklist, phases, projectSteps);
   const grouped = groupTodosByOwner(todos, focusOwner);
   const myOpen = grouped.mine.open.length;
   const othersOpen = grouped.others.reduce((sum, bucket) => sum + bucket.open.length, 0);
