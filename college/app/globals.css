@@ -1104,35 +1104,47 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   padding: var(--space-2) 0 var(--space-1);
 }
 .snapshot-meter-svg {
-  width: min(100%, 280px);
+  width: min(100%, 300px);
   height: auto;
   display: block;
 }
 .snapshot-meter-track {
   fill: none;
-  stroke: var(--neutral-300);
-  stroke-width: 12;
+  stroke: color-mix(in srgb, var(--neutral-400) 70%, var(--color-bg));
+  stroke-width: 16;
   stroke-linecap: round;
 }
-.snapshot-meter-fill {
+.snapshot-meter-spectrum {
   fill: none;
-  stroke: url(#selectivity-arc-fill);
-  stroke-width: 12;
+  stroke: url(#selectivity-arc-spectrum);
+  stroke-width: 10;
+  stroke-linecap: round;
+  opacity: 0.92;
+}
+.snapshot-meter.is-unset .snapshot-meter-spectrum {
+  opacity: 0.28;
+}
+.snapshot-meter-mark line {
+  stroke: var(--neutral-400);
+  stroke-width: 2;
   stroke-linecap: round;
 }
-.snapshot-meter-tick {
+.snapshot-meter-mark circle {
   fill: var(--color-bg);
   stroke: var(--neutral-400);
   stroke-width: 1.5;
 }
-.snapshot-meter-tick.is-active {
+.snapshot-meter-mark.is-active line {
+  stroke: var(--color-text);
+}
+.snapshot-meter-mark.is-active circle {
   fill: var(--accent-500);
   stroke: #f8f4f4;
   stroke-width: 2;
 }
 .snapshot-meter-needle line {
   stroke: var(--color-text);
-  stroke-width: 2;
+  stroke-width: 2.5;
   stroke-linecap: round;
   animation: snapshot-needle-in 550ms ease-out both;
 }
@@ -1145,7 +1157,7 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
 .snapshot-meter-head {
   fill: var(--accent-500);
   stroke: #f8f4f4;
-  stroke-width: 2;
+  stroke-width: 2.5;
   animation: snapshot-needle-in 550ms ease-out both;
 }
 @keyframes snapshot-needle-in {
@@ -1154,7 +1166,7 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
 }
 .snapshot-meter-readout {
   text-align: center;
-  width: min(100%, 280px);
+  width: min(100%, 300px);
 }
 .snapshot-meter-readout strong {
   display: block;

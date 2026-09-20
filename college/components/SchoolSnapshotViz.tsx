@@ -63,16 +63,16 @@ function SchoolLocationMap({ location }: { location: string }) {
 function SelectivityMeter({ tier }: { tier: SelectivityTier }) {
   const position = selectivitySpectrumPosition(tier);
   const label = tierLabel(tier) || "Not set";
-  const cx = 100;
-  const cy = 108;
-  const r = 78;
-  const startDeg = 180;
-  const endDeg = 360;
+  const cx = 110;
+  const cy = 118;
+  const r = 88;
+  // Open gauge arc (bowed upward): left → top → right
+  const startDeg = 200;
+  const endDeg = 340;
   const track = arcPath(cx, cy, r, startDeg, endDeg);
   const needleAngle = position == null ? null : startDeg + position * (endDeg - startDeg);
-  const needle = needleAngle == null ? null : polar(cx, cy, r, needleAngle);
-  const fillEnd = needleAngle == null ? startDeg : needleAngle;
-  const fill = position == null || position <= 0 ? null : arcPath(cx, cy, r, startDeg, fillEnd);
+  const needleOuter = needleAngle == null ? null : polar(cx, cy, r, needleAngle);
+  const needleInner = needleAngle == null ? null : polar(cx, cy, r - 18, needleAngle);
 
   return (
     <div className="snapshot-meter-panel">
@@ -86,39 +86,37 @@ function SelectivityMeter({ tier }: { tier: SelectivityTier }) {
             : `${label}: ${Math.round(position * 100)}% along the spectrum from extremely selective to less competitive`
         }
       >
-        <svg className="snapshot-meter-svg" viewBox="0 0 200 130" aria-hidden="true">
+        <svg className="snapshot-meter-svg" viewBox="0 0 220 150" aria-hidden="true">
           <defs>
-            <linearGradient id="selectivity-arc-fill" x1="0%" y1="0%" x2="100%" y2="0%">
+            <linearGradient id="selectivity-arc-spectrum" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor="var(--accent-500)" />
-              <stop offset="55%" stopColor="var(--color-accent-400)" />
+              <stop offset="45%" stopColor="var(--color-accent-400)" />
               <stop offset="100%" stopColor="var(--done-500)" />
             </linearGradient>
           </defs>
           <path className="snapshot-meter-track" d={track} />
-          {fill ? <path className="snapshot-meter-fill" d={fill} /> : null}
+          <path className="snapshot-meter-spectrum" d={track} />
           {SELECTIVITY_SPECTRUM.map((item, index) => {
             const t = index / (SELECTIVITY_SPECTRUM.length - 1);
             const angle = startDeg + t * (endDeg - startDeg);
-            const tick = polar(cx, cy, r, angle);
+            const tickOuter = polar(cx, cy, r + 8, angle);
+            const tickInner = polar(cx, cy, r - 8, angle);
             const active = item.id === tier;
             return (
-              <circle
-                key={item.id}
-                className={`snapshot-meter-tick${active ? " is-active" : ""}`}
-                cx={tick.x}
-                cy={tick.y}
-                r={active ? 4.5 : 2.5}
-              />
+              <g key={item.id} className={`snapshot-meter-mark${active ? " is-active" : ""}`}>
+                <line x1={tickInner.x} y1={tickInner.y} x2={tickOuter.x} y2={tickOuter.y} />
+                <circle cx={polar(cx, cy, r, angle).x} cy={polar(cx, cy, r, angle).y} r={active ? 6 : 3} />
+              </g>
             );
           })}
-          {needle ? (
+          {needleOuter && needleInner ? (
             <g className="snapshot-meter-needle">
-              <line x1={cx} y1={cy} x2={needle.x} y2={needle.y} />
-              <circle className="snapshot-meter-hub" cx={cx} cy={cy} r="5" />
-              <circle className="snapshot-meter-head" cx={needle.x} cy={needle.y} r="7" />
+              <line x1={cx} y1={cy} x2={needleInner.x} y2={needleInner.y} />
+              <circle className="snapshot-meter-hub" cx={cx} cy={cy} r="6" />
+              <circle className="snapshot-meter-head" cx={needleOuter.x} cy={needleOuter.y} r="8" />
             </g>
           ) : (
-            <circle className="snapshot-meter-hub is-unset" cx={cx} cy={cy} r="5" />
+            <circle className="snapshot-meter-hub is-unset" cx={cx} cy={cy} r="6" />
           )}
         </svg>
         <div className="snapshot-meter-readout">
