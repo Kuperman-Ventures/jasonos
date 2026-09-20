@@ -9,6 +9,7 @@ import {
   selectivityBreakdown,
   stateFillStrength,
 } from "@/lib/dashboard";
+import { formatNowDay, formatTodayLong } from "@/lib/roadmap";
 import type { School, SelectivityTier } from "@/lib/types";
 
 const TIER_CLASS: Record<SelectivityTier, string> = {
@@ -34,6 +35,9 @@ export function DashboardTab({
   const maxState = Math.max(1, ...byState.map((item) => item.count));
   const countByState = useMemo(() => new Map(byState.map((item) => [item.state, item.count])), [byState]);
   const mappedStates = Object.keys(US_STATE_PATHS).sort();
+  const today = useMemo(() => new Date(), []);
+  const todayLong = formatTodayLong(today);
+  const todayShort = formatNowDay(today);
 
   return (
     <section className="dashboard">
@@ -42,10 +46,19 @@ export function DashboardTab({
           <div className="dateline">{dateline}</div>
           <h2>Dashboard</h2>
         </div>
-        <div className="readout">
-          <span className="label">Schools</span>
-          <span className="figure">{schools.length}</span>
-          <span className="unit">on the list</span>
+        <div className="page-head-readouts">
+          <div className="readout today-readout" title={todayLong}>
+            <span className="label">Today</span>
+            <span className="figure">{todayShort}</span>
+            <span className="unit">
+              {today.toLocaleDateString("en-US", { weekday: "long" })} · {today.getFullYear()}
+            </span>
+          </div>
+          <div className="readout">
+            <span className="label">Schools</span>
+            <span className="figure">{schools.length}</span>
+            <span className="unit">on the list</span>
+          </div>
         </div>
       </header>
 

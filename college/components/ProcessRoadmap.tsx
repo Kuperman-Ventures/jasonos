@@ -5,6 +5,8 @@ import {
   ROADMAP_TRACKS,
   accessibleTrackName,
   currentMonthIndex,
+  dayProgressInMonth,
+  formatNowDay,
   formatSpan,
   gridColumnStart,
   monthCells,
@@ -90,9 +92,12 @@ export function ProcessRoadmap({
   const cells = useMemo(() => monthCells(), []);
   const bands = useMemo(() => yearBands(cells), [cells]);
   const nowIndex = currentMonthIndex(now);
-  const nowLabel = cells[nowIndex]
+  const dayProgress = dayProgressInMonth(now);
+  const nowDayLabel = formatNowDay(now);
+  const nowMonthLabel = cells[nowIndex]
     ? `${cells[nowIndex].label} ${cells[nowIndex].year}`
     : "";
+  const lineLeft = `${dayProgress * 100}%`;
 
   const bars = ROADMAP_TRACKS.filter((track) => track.kind === "bar");
   const milestones = ROADMAP_TRACKS.filter((track) => track.kind === "milestone");
@@ -156,9 +161,10 @@ export function ProcessRoadmap({
             style={{ gridColumn: gridColumnStart(nowIndex) }}
             aria-hidden="true"
           >
-            <span className="now-badge">
+            <span className="now-line" style={{ left: lineLeft }} />
+            <span className="now-badge" style={{ left: lineLeft }}>
               <span className="now-badge-label">You are here</span>
-              <span className="now-badge-date">{nowLabel}</span>
+              <span className="now-badge-date">{nowDayLabel}</span>
             </span>
           </div>
 
@@ -177,7 +183,7 @@ export function ProcessRoadmap({
       <div className="legend">
         <span className="legend-here">
           <i className="swatch now" />
-          You are here · {nowLabel}
+          You are here · {nowDayLabel} · {nowMonthLabel}
         </span>
         <span>
           <i className="swatch bar" />

@@ -5,7 +5,10 @@ import {
   ROADMAP_TRACKS,
   accessibleTrackName,
   currentMonthIndex,
+  dayProgressInMonth,
+  formatNowDay,
   formatSpan,
+  formatTodayLong,
   gridColumnStart,
   monthCells,
   monthIndex,
@@ -80,4 +83,12 @@ test("currentMonthIndex clamps into the window", () => {
   assert.equal(currentMonthIndex(new Date("2026-11-20T12:00:00Z")), 2);
   assert.equal(currentMonthIndex(new Date("2025-01-01T12:00:00Z")), 0);
   assert.equal(currentMonthIndex(new Date("2030-01-01T12:00:00Z")), ROADMAP_MONTHS - 1);
+});
+
+test("dayProgressInMonth walks across the month", () => {
+  assert.equal(dayProgressInMonth(new Date("2026-09-01T12:00:00")), 0);
+  assert.ok(Math.abs(dayProgressInMonth(new Date("2026-09-16T12:00:00")) - 0.5) < 0.01);
+  assert.ok(dayProgressInMonth(new Date("2026-09-30T12:00:00")) > 0.9);
+  assert.equal(formatNowDay(new Date("2026-09-20T12:00:00")), "Sep 20");
+  assert.match(formatTodayLong(new Date("2026-09-20T12:00:00")), /Sep 20, 2026/);
 });

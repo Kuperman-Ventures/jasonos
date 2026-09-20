@@ -169,6 +169,32 @@ export function currentMonthIndex(now = new Date()): number {
   return Math.min(Math.max(idx, 0), ROADMAP_MONTHS - 1);
 }
 
+/**
+ * How far through the current calendar month we are (0 at day 1, ~1 at month end).
+ * Used to slide the “you are here” line across the month column day by day.
+ */
+export function dayProgressInMonth(now = new Date()): number {
+  const day = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  if (daysInMonth <= 1) return 0;
+  return Math.min(1, Math.max(0, (day - 1) / daysInMonth));
+}
+
+/** Short label for the live “you are here” badge, e.g. "Sep 20". */
+export function formatNowDay(now = new Date()): string {
+  return `${MONTH_SHORT[now.getMonth()]} ${now.getDate()}`;
+}
+
+/** Full today label for the Dashboard header, e.g. "Sunday, Sep 20, 2026". */
+export function formatTodayLong(now = new Date()): string {
+  return now.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export type TrackState = "active" | "future" | "done";
 
 export function trackState(
