@@ -65,6 +65,20 @@
   --hover-fill: rgba(32, 30, 29, 0.05);
   --rail-w: 196px;
 
+  --color-hairline: rgba(32, 30, 29, 0.08);
+  --bar: #1b4aa0;
+  --bar-future: #b8c7e0;
+  --milestone: #d6006c;
+  --milestone-ink: #a6034f;
+
+  /* dense ledger geometry */
+  --months: 17;
+  --row-h: 34px;
+  --bar-h: 16px;
+  --label-w: 250px;
+  --span-w: 96px;
+  --month-min: 34px;
+
   color-scheme: light;
 }
 
@@ -98,6 +112,11 @@
     --neutral-300: #3a3f47;
     --done-500: #4cb8d8;
     --hover-fill: rgba(240, 238, 236, 0.06);
+    --color-hairline: rgba(240, 238, 236, 0.08);
+    --bar: #4a7fd4;
+    --bar-future: #39455c;
+    --milestone: #ff4d9d;
+    --milestone-ink: #ff87bd;
     color-scheme: dark;
   }
 }
@@ -131,6 +150,11 @@
   --neutral-300: #3a3f47;
   --done-500: #4cb8d8;
   --hover-fill: rgba(240, 238, 236, 0.06);
+  --color-hairline: rgba(240, 238, 236, 0.08);
+  --bar: #4a7fd4;
+  --bar-future: #39455c;
+  --milestone: #ff4d9d;
+  --milestone-ink: #ff87bd;
   color-scheme: dark;
 }
 
@@ -163,6 +187,11 @@
   --neutral-300: var(--color-neutral-300);
   --done-500: var(--color-cyan);
   --hover-fill: rgba(32, 30, 29, 0.05);
+  --color-hairline: rgba(32, 30, 29, 0.08);
+  --bar: #1b4aa0;
+  --bar-future: #b8c7e0;
+  --milestone: #d6006c;
+  --milestone-ink: #a6034f;
   color-scheme: light;
 }
 
@@ -1320,167 +1349,176 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   color: var(--text-subtle);
 }
 
-/* ---------- process roadmap (Gantt) ---------- */
+/* ---------- dense month ledger (timeline) ---------- */
 .timeline-roadmap { margin-bottom: var(--space-8); }
-.roadmap-head {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin-bottom: var(--space-6);
-}
-.roadmap-chart {
-  --roadmap-pad-x: var(--space-2);
-  position: relative;
-  padding: var(--space-8) var(--roadmap-pad-x) var(--space-3);
-}
-.roadmap-here {
-  position: absolute;
-  top: var(--space-2);
-  bottom: 58px;
-  left: 0;
-  width: 0;
-  border-left: 1.5px dashed var(--text-accent);
-  z-index: 3;
-  pointer-events: none;
-}
-.roadmap-here-tag {
-  position: absolute;
-  top: 0;
-  left: 0;
-  transform: translateX(-50%);
-  white-space: nowrap;
-  font-family: var(--font-body);
+.roadmap-head { margin-bottom: var(--space-4); }
+.roadmap-meta {
   font-size: 12px;
-  font-style: italic;
-  font-weight: 500;
-  color: var(--text-accent);
-  background: var(--color-bg);
-  border: 1px solid var(--color-accent-300);
-  border-radius: var(--radius-sm);
-  padding: 2px 8px;
-  line-height: 1.4;
+  color: var(--text-subtle);
 }
-.roadmap-tracks {
-  list-style: none;
-  margin: 0;
-  padding: var(--space-4) 0 var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  position: relative;
-  z-index: 1;
+.gantt-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: var(--space-2);
 }
-.roadmap-row {
-  position: relative;
-  height: 42px;
-}
-.roadmap-bar {
-  position: absolute;
-  top: 0;
-  height: 100%;
-  display: flex;
+.gantt {
+  display: grid;
+  grid-template-columns: var(--label-w) var(--span-w) repeat(var(--months), minmax(var(--month-min), 1fr));
   align-items: center;
-  justify-content: center;
-  padding: 0 28px 0 14px;
-  background: var(--color-brand);
-  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 0 100%);
-}
-.roadmap-bar.is-done { background: var(--done-500); }
-.roadmap-bar-text {
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.2;
-  text-align: center;
-  color: #fff;
-  text-wrap: balance;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-.roadmap-milestone-row {
+  min-width: calc(var(--label-w) + var(--span-w) + var(--months) * var(--month-min));
   position: relative;
-  height: 100px;
-  margin: -28px 0 var(--space-3);
+}
+.gantt .yr {
+  grid-row: 1;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  padding-bottom: 2px;
+}
+.gantt .mo {
+  grid-row: 2;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-subtle);
+  text-align: center;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--color-divider);
+}
+.gantt .mo[data-q] {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.gantt .head-pad {
+  grid-row: 2;
+  border-bottom: 1px solid var(--color-divider);
+  padding-bottom: 7px;
+}
+.gantt .gridlines {
+  grid-column: 3 / -1;
+  grid-row: 3 / -1;
+  align-self: stretch;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    to right,
+    var(--color-hairline) 0 1px,
+    transparent 1px calc(100% / var(--months))
+  );
+  background-size: calc(100% / var(--months) * var(--months)) 100%;
+}
+.gantt .now {
+  grid-row: 2 / -1;
+  align-self: stretch;
+  justify-self: start;
+  width: 2px;
+  background: var(--accent-500);
+  pointer-events: none;
+  position: relative;
   z-index: 2;
 }
-.roadmap-milestone {
+.gantt .now::after {
+  content: "NOW";
   position: absolute;
-  top: 0;
-  width: 124px;
-  height: 124px;
-  transform: translateX(-50%);
-  border: 2px solid var(--color-brand);
-  border-radius: 50%;
-  background: var(--color-bg);
+  top: -16px;
+  left: -3px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--accent-500);
+}
+.gantt .name {
+  grid-column: 1;
+  height: var(--row-h);
   display: flex;
   align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: var(--space-3);
+  gap: var(--space-2);
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--color-text);
+  padding-right: var(--space-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.roadmap-milestone span {
-  font-family: var(--font-heading);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.3;
-  letter-spacing: -0.01em;
-  color: var(--color-brand);
-  text-wrap: balance;
+.gantt .name[data-state="future"] { color: var(--text-subtle); }
+.gantt .span {
+  grid-column: 2;
+  height: var(--row-h);
+  display: flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-subtle);
+  padding-right: var(--space-3);
 }
-.roadmap-milestone.is-done {
-  border-color: var(--done-500);
+.gantt .rule {
+  grid-column: 1 / -1;
+  height: var(--row-h);
+  border-bottom: 1px solid var(--color-hairline);
 }
-.roadmap-milestone.is-done span { color: var(--done-500); }
-.roadmap-axis {
+.gantt .bar {
+  height: var(--bar-h);
+  background: var(--bar);
+  border-radius: var(--radius-sm);
+  align-self: center;
   position: relative;
   z-index: 1;
-  padding-top: var(--space-1);
-}
-.roadmap-axis-line {
-  height: 1px;
-  background: var(--color-text);
-  position: relative;
-}
-.roadmap-axis-line::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  top: 50%;
-  width: 0;
-  height: 0;
-  border-top: 4px solid transparent;
-  border-bottom: 4px solid transparent;
-  border-left: 7px solid var(--color-text);
-  transform: translate(1px, -50%);
-}
-.roadmap-seasons {
-  list-style: none;
-  margin: var(--space-2) 0 0;
+  border: 0;
   padding: 0;
+  cursor: pointer;
+}
+.gantt .bar:hover { background: var(--accent-600); }
+.gantt .bar[data-state="future"] { background: var(--bar-future); }
+.gantt .bar[data-state="future"]:hover { background: var(--accent-500); }
+.gantt .pin {
+  width: 11px;
+  height: 11px;
+  background: var(--milestone);
+  transform: rotate(45deg);
+  justify-self: start;
+  margin-left: -5px;
+  align-self: center;
+  position: relative;
+  z-index: 2;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.legend {
   display: flex;
-  justify-content: space-between;
-}
-.roadmap-seasons li {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-  width: 0;
-}
-.roadmap-season-tick {
-  width: 1px;
-  height: 7px;
-  background: var(--color-text);
-}
-.roadmap-season-label {
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-divider);
+  font-family: var(--font-mono);
   font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--text-muted);
-  white-space: nowrap;
+  color: var(--text-subtle);
+}
+.legend span { display: flex; align-items: center; gap: 6px; }
+.legend i,
+.legend .swatch { display: block; flex: none; }
+.legend .swatch.now { width: 14px; height: 8px; background: var(--accent-500); }
+.legend .swatch.bar { width: 14px; height: 8px; background: var(--bar); }
+.legend .swatch.future { width: 14px; height: 8px; background: var(--bar-future); }
+.legend .swatch.pin {
+  width: 9px;
+  height: 9px;
+  background: var(--milestone);
+  transform: rotate(45deg);
+}
+
+@media (max-width: 900px) {
+  :root {
+    --label-w: 180px;
+    --span-w: 0px;
+    --month-min: 26px;
+  }
+  .gantt .span { display: none; }
 }
 
 
@@ -1573,21 +1611,6 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
 
 @media (max-width: 1100px) {
   .dash-grid { grid-template-columns: 1fr; }
-  .roadmap-bar-text { font-size: 12px; }
-  .roadmap-milestone { width: 104px; height: 104px; }
-  .roadmap-milestone span { font-size: 11px; }
-  .roadmap-milestone-row { height: 92px; }
-}
-@media (max-width: 720px) {
-  .roadmap-chart { padding-top: var(--space-6); }
-  .roadmap-row { height: 38px; }
-  .roadmap-bar { padding: 0 22px 0 10px; }
-  .roadmap-bar-text { font-size: 11px; }
-  .roadmap-season-label { font-size: 9px; }
-  .roadmap-milestone-row { height: 80px; margin-bottom: var(--space-3); }
-  .roadmap-milestone { width: 88px; height: 88px; padding: var(--space-2); }
-  .roadmap-milestone span { font-size: 10px; }
-  .roadmap-here-tag { font-size: 11px; }
 }
 
 @media print {

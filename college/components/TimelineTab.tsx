@@ -16,6 +16,7 @@ export function TimelineTab({
   dateline: string;
 }) {
   const statuses = phaseStatuses(phases, checklist);
+  const itemCount = phases.reduce((sum, phase) => sum + phase.items.length, 0);
 
   return (
     <section>
@@ -30,11 +31,11 @@ export function TimelineTab({
       </header>
 
       <div className="timeline-roadmap">
-        <ProcessRoadmap
-          checklist={checklist}
-          subtitle="Same runway as the Dashboard. Check items below to move the bars."
-        />
+        <ProcessRoadmap checklist={checklist} showTitle={false} />
       </div>
+
+      <h3 className="dash-title">Checklist</h3>
+      <p className="section-sub">{itemCount} items across {phases.length} phases. Checking them off marks work done on the ledger above.</p>
 
       <ol className="track">
         {phases.map((phase, index) => {

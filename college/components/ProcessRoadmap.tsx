@@ -2,111 +2,187 @@
 
 import { useMemo } from "react";
 import {
-  ROADMAP_SEASONS,
+  ROADMAP_MONTHS,
   ROADMAP_TRACKS,
-  barPlacement,
-  herePlacement,
-  milestonePlacement,
-  trackProgress,
+  accessibleTrackName,
+  currentMonthIndex,
+  formatSpan,
+  gridColumnStart,
+  monthCells,
+  monthIndex,
+  spanLength,
+  trackState,
+  yearBands,
   type RoadmapTrack,
 } from "@/lib/roadmap";
 
-function BarRow({
+function TrackRow({
   track,
+  row,
   checklist,
+  now,
 }: {
   track: RoadmapTrack;
+  row: number;
   checklist: Record<string, boolean>;
+  now: Date;
 }) {
-  const progress = trackProgress(track, checklist);
-  const place = barPlacement(track.start, track.end);
-  const done = progress.total > 0 && progress.done === progress.total;
+  const state = trackState(track, checklist, now);
+  const start = monthIndex(track.start.year, track.start.month);
+  const length = spanLength(track.start, track.end);
+  const name = accessibleTrackName(track, state);
+  const span = formatSpan(track);
 
   return (
-    <li className="roadmap-row">
+    <>
+      <div className="rule" style={{ gridRow: row, gridColumn: "1 / -1" }} />
       <div
-        className={`roadmap-bar${done ? " is-done" : ""}`}
-        style={{ left: `${place.left}%`, width: `${place.width}%` }}
-        role="img"
-        aria-label={`${track.label}: ${progress.done} of ${progress.total} checklist items done`}
+        className="name"
+        style={
+          track.kind === "milestone"
+            ? { gridRow: row, color: "var(--milestone-ink)" }
+            : { gridRow: row }
+        }
+        data-state={state === "future" ? "future" : undefined}
+        title={name}
       >
-        <span className="roadmap-bar-text">{track.label}</span>
+        {track.label}
       </div>
-    </li>
-  );
-}
-
-function Milestone({
-  track,
-  checklist,
-}: {
-  track: RoadmapTrack;
-  checklist: Record<string, boolean>;
-}) {
-  const progress = trackProgress(track, checklist);
-  const left = milestonePlacement(track.end);
-  const done = progress.total > 0 && progress.done === progress.total;
-
-  return (
-    <div
-      className={`roadmap-milestone${done ? " is-done" : ""}`}
-      style={{ left: `${left}%` }}
-      role="img"
-      aria-label={`${track.label}: ${progress.done} of ${progress.total} checklist items done`}
-    >
-      <span>{track.label}</span>
-    </div>
+      <div className="span" style={{ gridRow: row }}>
+        {span}
+      </div>
+      {track.kind === "milestone" ? (
+        <button
+          type="button"
+          className="pin"
+          style={{ gridRow: row, gridColumn: gridColumnStart(start) }}
+          title={name}
+          aria-label={name}
+        />
+      ) : (
+        <button
+          type="button"
+          className="bar"
+          data-state={state === "future" ? "future" : undefined}
+          style={{
+            gridRow: row,
+            gridColumn: `${gridColumnStart(start)} / span ${length}`,
+          }}
+          title={name}
+          aria-label={name}
+        />
+      )}
+    </>
   );
 }
 
 export function ProcessRoadmap({
   checklist,
-  title = "College Process Timeline",
-  subtitle = "Junior year into senior winter. Bars follow the checklist; the dashed line is today.",
+  title = "Timeline",
+  showTitle = true,
+  dateline,
 }: {
   checklist: Record<string, boolean>;
   title?: string;
-  subtitle?: string;
+  showTitle?: boolean;
+  dateline?: string;
 }) {
-  const here = useMemo(() => herePlacement(), []);
+  const now = useMemo(() => new Date(), []);
+  const cells = useMemo(() => monthCells(), []);
+  const bands = useMemo(() => yearBands(cells), [cells]);
+  const nowIndex = currentMonthIndex(now);
+  const nowLabel = cells[nowIndex]
+    ? `${cells[nowIndex].label} ${cells[nowIndex].year}`
+    : "";
+
   const bars = ROADMAP_TRACKS.filter((track) => track.kind === "bar");
   const milestones = ROADMAP_TRACKS.filter((track) => track.kind === "milestone");
+  // Keep milestone between money and applications like the reference.
+  const ordered: RoadmapTrack[] = [];
+  for (const track of ROADMAP_TRACKS) {
+    if (track.kind === "milestone") continue;
+    ordered.push(track);
+    if (track.id === "money") ordered.push(...milestones);
+  }
 
   return (
     <section className="roadmap" aria-label={title}>
-      <header className="roadmap-head">
-        <h3 className="dash-title">{title}</h3>
-        <p className="section-sub">{subtitle}</p>
-      </header>
+      {showTitle ? (
+        <header className="page-head roadmap-head">
+          <div>
+            {dateline ? <div className="dateline">{dateline}</div> : null}
+            <h3 className="dash-title">{title}</h3>
+          </div>
+          <div className="mono roadmap-meta">
+            {bars.length} tasks · {milestones.length} milestone · Sep 2026 – Jan 2028
+          </div>
+        </header>
+      ) : null}
 
-      <div className="roadmap-chart">
-        <div className="roadmap-here" style={{ left: `${here}%` }} aria-hidden="true">
-          <span className="roadmap-here-tag">You are here</span>
-        </div>
-
-        <ul className="roadmap-tracks">
-          {bars.map((track) => (
-            <BarRow key={track.id} track={track} checklist={checklist} />
+      <div className="gantt-scroll">
+        <div
+          className="gantt"
+          role="table"
+          aria-label="Application timeline by month"
+          style={{ ["--months" as string]: ROADMAP_MONTHS }}
+        >
+          {bands.map((band) => (
+            <div
+              key={band.year}
+              className="yr"
+              style={{ gridColumn: `${gridColumnStart(band.start)} / span ${band.span}` }}
+            >
+              {band.year}
+            </div>
           ))}
-        </ul>
 
-        <div className="roadmap-milestone-row">
-          {milestones.map((track) => (
-            <Milestone key={track.id} track={track} checklist={checklist} />
+          <div className="head-pad" style={{ gridColumn: "1 / 3" }} />
+          {cells.map((cell) => (
+            <div
+              key={`${cell.year}-${cell.month}`}
+              className="mo"
+              {...(cell.quarter ? { "data-q": true } : {})}
+            >
+              {cell.label}
+            </div>
+          ))}
+
+          <div className="gridlines" />
+          <div
+            className="now"
+            style={{ gridColumn: gridColumnStart(nowIndex) }}
+            aria-hidden="true"
+          />
+
+          {ordered.map((track, index) => (
+            <TrackRow
+              key={track.id}
+              track={track}
+              row={3 + index}
+              checklist={checklist}
+              now={now}
+            />
           ))}
         </div>
+      </div>
 
-        <div className="roadmap-axis">
-          <div className="roadmap-axis-line" aria-hidden="true" />
-          <ol className="roadmap-seasons">
-            {ROADMAP_SEASONS.map((season) => (
-              <li key={season.id}>
-                <span className="roadmap-season-tick" aria-hidden="true" />
-                <span className="roadmap-season-label mono">{season.label}</span>
-              </li>
-            ))}
-          </ol>
-        </div>
+      <div className="legend">
+        <span>
+          <i className="swatch now" />
+          You are here · {nowLabel}
+        </span>
+        <span>
+          <i className="swatch bar" />
+          In progress
+        </span>
+        <span>
+          <i className="swatch future" />
+          Not started
+        </span>
+        <span>
+          <i className="swatch pin" />
+          Milestone
+        </span>
       </div>
     </section>
   );

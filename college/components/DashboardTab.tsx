@@ -50,7 +50,7 @@ export function DashboardTab({
       </header>
 
       <div className="dash-block">
-        <ProcessRoadmap checklist={checklist} />
+        <ProcessRoadmap checklist={checklist} title="College Process Timeline" />
       </div>
 
       <div className="dash-block">

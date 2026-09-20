@@ -1,49 +1,83 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  ROADMAP_MONTHS,
   ROADMAP_TRACKS,
-  barPlacement,
-  currentSeasonId,
-  herePlacement,
-  milestonePlacement,
-  trackProgress,
+  accessibleTrackName,
+  currentMonthIndex,
+  formatSpan,
+  gridColumnStart,
+  monthCells,
+  monthIndex,
+  spanLength,
+  trackState,
+  yearBands,
 } from "./roadmap";
 
-test("barPlacement spans seasons on a 0–100 axis", () => {
-  const list = barPlacement("fall-2026", "summer-2027");
-  assert.equal(list.left, 0);
-  assert.equal(list.width, 60);
-  const short = barPlacement("fall-2027", "fall-2027");
-  assert.equal(short.left, 80);
-  assert.ok(short.width >= 8);
+test("monthIndex is zero at Sep 2026", () => {
+  assert.equal(monthIndex(2026, 8), 0);
+  assert.equal(monthIndex(2027, 0), 4);
+  assert.equal(monthIndex(2027, 6), 10);
+  assert.equal(monthIndex(2027, 9), 13);
+  assert.equal(monthIndex(2028, 0), 16);
 });
 
-test("milestone and here sit on season markers", () => {
-  assert.equal(milestonePlacement("summer-2027"), 60);
-  assert.equal(herePlacement(new Date("2026-09-20T12:00:00Z")), 0);
-  assert.equal(currentSeasonId(new Date("2027-04-01T12:00:00Z")), "spring-2027");
+test("spanLength is inclusive", () => {
+  assert.equal(spanLength({ year: 2026, month: 8 }, { year: 2027, month: 2 }), 7);
+  assert.equal(spanLength({ year: 2027, month: 6 }, { year: 2027, month: 6 }), 1);
+  assert.equal(spanLength({ year: 2027, month: 9 }, { year: 2028, month: 0 }), 4);
 });
 
-test("trackProgress reads linked checklist ids", () => {
-  const track = ROADMAP_TRACKS.find((item) => item.id === "college-list");
-  assert.ok(track);
-  const empty = trackProgress(track, {});
-  assert.equal(empty.done, 0);
-  assert.equal(empty.percent, 0);
-  const partial = trackProgress(track, { "p1-5": true, "p2-4": true });
-  assert.equal(partial.done, 2);
-  assert.equal(partial.total, 5);
-  assert.equal(partial.percent, 40);
+test("grid columns match the dense ledger math", () => {
+  assert.equal(gridColumnStart(0), 3);
+  assert.equal(gridColumnStart(2), 5); // Nov 2026 → NOW column
+  assert.equal(gridColumnStart(10), 13); // Jul 2027 essays pin
 });
 
-test("roadmap covers the reference workstreams plus checklist spans", () => {
-  const ids = ROADMAP_TRACKS.map((track) => track.id);
-  assert.ok(ids.includes("college-list"));
-  assert.ok(ids.includes("visits"));
-  assert.ok(ids.includes("recs"));
-  assert.ok(ids.includes("passion"));
-  assert.ok(ids.includes("essays"));
-  assert.ok(ids.includes("testing"));
-  assert.ok(ids.includes("money"));
-  assert.ok(ids.includes("applications"));
+test("month window is 17 cells with year bands", () => {
+  const cells = monthCells();
+  assert.equal(cells.length, ROADMAP_MONTHS);
+  assert.equal(cells[0].label, "Sep");
+  assert.equal(cells[cells.length - 1].label, "Jan");
+  assert.deepEqual(
+    yearBands(cells).map((band) => ({ year: band.year, start: band.start, span: band.span })),
+    [
+      { year: 2026, start: 0, span: 4 },
+      { year: 2027, start: 4, span: 12 },
+      { year: 2028, start: 16, span: 1 },
+    ],
+  );
+});
+
+test("reference tracks land on the example spans", () => {
+  const list = ROADMAP_TRACKS.find((track) => track.id === "college-list");
+  const essays = ROADMAP_TRACKS.find((track) => track.id === "essays");
+  const apps = ROADMAP_TRACKS.find((track) => track.id === "applications");
+  assert.ok(list && essays && apps);
+  assert.equal(formatSpan(list), "Sep – Mar");
+  assert.equal(formatSpan(essays), "Jul 2027");
+  assert.equal(formatSpan(apps), "Oct – Jan 28");
+  assert.equal(spanLength(list.start, list.end), 7);
+  assert.equal(monthIndex(essays.start.year, essays.start.month), 10);
+});
+
+test("trackState marks future work past the current month", () => {
+  const apps = ROADMAP_TRACKS.find((track) => track.id === "applications");
+  assert.ok(apps);
+  assert.equal(trackState(apps, {}, new Date("2026-11-15T12:00:00Z")), "future");
+  assert.equal(trackState(apps, {}, new Date("2027-11-15T12:00:00Z")), "active");
+  assert.equal(
+    trackState(apps, { "p4-4": true, "p5-2": true, "p5-4": true }, new Date("2027-11-15T12:00:00Z")),
+    "done",
+  );
+  assert.match(
+    accessibleTrackName(apps, "future"),
+    /not started/,
+  );
+});
+
+test("currentMonthIndex clamps into the window", () => {
+  assert.equal(currentMonthIndex(new Date("2026-11-20T12:00:00Z")), 2);
+  assert.equal(currentMonthIndex(new Date("2025-01-01T12:00:00Z")), 0);
+  assert.equal(currentMonthIndex(new Date("2030-01-01T12:00:00Z")), ROADMAP_MONTHS - 1);
 });

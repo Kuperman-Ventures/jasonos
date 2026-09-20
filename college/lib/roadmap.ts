@@ -1,140 +1,186 @@
-/** Seasonal Gantt for the college process. Bars pull from the reference roadmap and the checklist. */
-
-export type SeasonId =
-  | "fall-2026"
-  | "winter-2027"
-  | "spring-2027"
-  | "summer-2027"
-  | "fall-2027"
-  | "winter-2028";
+/** Dense month-resolution ledger for the college process runway. */
 
 export type RoadmapKind = "bar" | "milestone";
 
 export type RoadmapTrack = {
   id: string;
   label: string;
-  start: SeasonId;
-  /** Inclusive end season for bars; milestones sit on this season. */
-  end: SeasonId;
+  /** Inclusive start: calendar year + month (0–11). */
+  start: { year: number; month: number };
+  /** Inclusive end for bars; milestones use the same month. */
+  end: { year: number; month: number };
   kind: RoadmapKind;
-  /** Checklist item ids that feed this track's progress. */
   itemIds: string[];
 };
 
-export const ROADMAP_SEASONS: { id: SeasonId; label: string }[] = [
-  { id: "fall-2026", label: "Fall 2026" },
-  { id: "winter-2027", label: "Winter 2027" },
-  { id: "spring-2027", label: "Spring 2027" },
-  { id: "summer-2027", label: "Summer 2027" },
-  { id: "fall-2027", label: "Fall 2027" },
-  { id: "winter-2028", label: "Winter 2028" },
-];
+/** First month column = Sep 2026. Widening the window is a token / MONTHS change. */
+export const ROADMAP_ORIGIN = { year: 2026, month: 8 } as const;
+export const ROADMAP_MONTHS = 17;
 
 export const ROADMAP_TRACKS: RoadmapTrack[] = [
   {
     id: "college-list",
-    label: "Develop College List",
-    start: "fall-2026",
-    end: "summer-2027",
+    label: "Develop college list",
+    start: { year: 2026, month: 8 },
+    end: { year: 2027, month: 2 },
     kind: "bar",
     itemIds: ["p1-5", "p2-3", "p2-4", "p3-2", "p4-1"],
   },
   {
     id: "visits",
-    label: "Visit Colleges In Person & Virtually",
-    start: "fall-2026",
-    end: "summer-2027",
+    label: "Visit colleges, in person & virtually",
+    start: { year: 2026, month: 8 },
+    end: { year: 2027, month: 2 },
     kind: "bar",
     itemIds: ["p2-2", "p4-2"],
   },
   {
     id: "testing",
     label: "Testing · PSAT → SAT / ACT",
-    start: "fall-2026",
-    end: "fall-2027",
+    start: { year: 2026, month: 8 },
+    end: { year: 2027, month: 5 },
     kind: "bar",
     itemIds: ["p1-1", "p2-1", "p3-3", "p5-1"],
   },
   {
     id: "recs",
-    label: "Bio for GC, Brag Sheet & Teacher Recommendations",
-    start: "winter-2027",
-    end: "fall-2027",
+    label: "Bio for GC, brag sheet & teacher recs",
+    start: { year: 2027, month: 0 },
+    end: { year: 2027, month: 5 },
     kind: "bar",
     itemIds: ["p1-3", "p2-5", "p3-1", "p3-4", "p5-3"],
   },
   {
     id: "passion",
-    label: "Community Service / Passion Project",
-    start: "fall-2026",
-    end: "summer-2027",
+    label: "Community service / passion project",
+    start: { year: 2026, month: 8 },
+    end: { year: 2027, month: 2 },
     kind: "bar",
     itemIds: ["p1-6"],
   },
   {
     id: "money",
-    label: "Budget → FAFSA / CSS / Aid",
-    start: "fall-2026",
-    end: "winter-2028",
+    label: "Budget → FAFSA / CSS / aid",
+    start: { year: 2026, month: 8 },
+    end: { year: 2027, month: 11 },
     kind: "bar",
     itemIds: ["p1-4", "p2-3", "p5-5", "p6-1", "p6-2", "p6-3", "p6-4"],
   },
   {
     id: "essays",
-    label: "Rising Seniors: Write Your College Application Essays",
-    start: "summer-2027",
-    end: "summer-2027",
+    label: "Rising seniors: write your essays",
+    start: { year: 2027, month: 6 },
+    end: { year: 2027, month: 6 },
     kind: "milestone",
     itemIds: ["p3-5", "p4-3", "p4-5"],
   },
   {
     id: "applications",
-    label: "Submit Applications",
-    start: "fall-2027",
-    end: "winter-2028",
+    label: "Submit applications",
+    start: { year: 2027, month: 9 },
+    end: { year: 2028, month: 0 },
     kind: "bar",
     itemIds: ["p4-4", "p5-2", "p5-4"],
   },
 ];
 
-const SEASON_INDEX = Object.fromEntries(
-  ROADMAP_SEASONS.map((season, index) => [season.id, index]),
-) as Record<SeasonId, number>;
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-export function seasonIndex(id: SeasonId): number {
-  return SEASON_INDEX[id];
+export type MonthCell = {
+  index: number;
+  year: number;
+  month: number;
+  label: string;
+  /** Quarter-opening months stay heavier when the scale compresses. */
+  quarter: boolean;
+};
+
+export function absoluteMonth(year: number, month: number): number {
+  return year * 12 + month;
 }
 
-/** Left edge and width as percentages of the season axis (markers at equal spacing). */
-export function barPlacement(start: SeasonId, end: SeasonId): { left: number; width: number } {
-  const last = ROADMAP_SEASONS.length - 1;
-  const startIdx = seasonIndex(start);
-  const endIdx = Math.max(startIdx, seasonIndex(end));
-  const left = (startIdx / last) * 100;
-  const width = Math.max(((endIdx - startIdx) / last) * 100, 8);
-  return { left, width: Math.min(width, 100 - left) };
+export function monthIndex(year: number, month: number): number {
+  return absoluteMonth(year, month) - absoluteMonth(ROADMAP_ORIGIN.year, ROADMAP_ORIGIN.month);
 }
 
-export function milestonePlacement(season: SeasonId): number {
-  const last = ROADMAP_SEASONS.length - 1;
-  return (seasonIndex(season) / last) * 100;
+export function monthCells(count = ROADMAP_MONTHS): MonthCell[] {
+  const cells: MonthCell[] = [];
+  for (let index = 0; index < count; index++) {
+    const absolute = absoluteMonth(ROADMAP_ORIGIN.year, ROADMAP_ORIGIN.month) + index;
+    const year = Math.floor(absolute / 12);
+    const month = absolute % 12;
+    cells.push({
+      index,
+      year,
+      month,
+      label: MONTH_SHORT[month],
+      quarter: month % 3 === 0,
+    });
+  }
+  return cells;
 }
 
-/** Calendar “you are here” for the junior/senior runway. */
-export function currentSeasonId(now = new Date()): SeasonId {
-  const y = now.getFullYear();
-  const m = now.getMonth(); // 0–11
-  if (y < 2026 || (y === 2026 && m < 8)) return "fall-2026";
-  if (y === 2026) return "fall-2026"; // Sep–Dec 2026
-  if (y === 2027 && m <= 1) return "winter-2027"; // Jan–Feb
-  if (y === 2027 && m <= 4) return "spring-2027"; // Mar–May
-  if (y === 2027 && m <= 7) return "summer-2027"; // Jun–Aug
-  if (y === 2027) return "fall-2027"; // Sep–Dec 2027
-  return "winter-2028";
+export function yearBands(cells: MonthCell[]): { year: number; start: number; span: number }[] {
+  const bands: { year: number; start: number; span: number }[] = [];
+  for (const cell of cells) {
+    const last = bands[bands.length - 1];
+    if (last && last.year === cell.year) last.span += 1;
+    else bands.push({ year: cell.year, start: cell.index, span: 1 });
+  }
+  return bands;
 }
 
-export function herePlacement(now = new Date()): number {
-  return milestonePlacement(currentSeasonId(now));
+/** Inclusive month span length for grid `span L`. */
+export function spanLength(start: { year: number; month: number }, end: { year: number; month: number }): number {
+  return Math.max(1, monthIndex(end.year, end.month) - monthIndex(start.year, start.month) + 1);
+}
+
+/** CSS grid column for month index S: months start at column 3 → `3 + S`. */
+export function gridColumnStart(startIndex: number): number {
+  return 3 + startIndex;
+}
+
+export function formatSpan(track: RoadmapTrack): string {
+  const startLabel = MONTH_SHORT[track.start.month];
+  const endLabel = MONTH_SHORT[track.end.month];
+  if (track.kind === "milestone") {
+    return `${startLabel} ${track.start.year}`;
+  }
+  if (track.start.year === track.end.year) {
+    return `${startLabel} – ${endLabel}`;
+  }
+  const wrapped = track.end.month < track.start.month;
+  const endYearShort = String(track.end.year).slice(2);
+  // Match the dense-ledger labels: "Sep – Mar", "Sep – Dec 27", "Oct – Jan 28".
+  if (wrapped && track.end.month > 0) {
+    return `${startLabel} – ${endLabel}`;
+  }
+  return `${startLabel} – ${endLabel} ${endYearShort}`;
+}
+
+export function formatRange(track: RoadmapTrack): string {
+  const start = `${MONTH_SHORT[track.start.month]} ${track.start.year}`;
+  const end = `${MONTH_SHORT[track.end.month]} ${track.end.year}`;
+  return track.kind === "milestone" ? start : `${start} – ${end}`;
+}
+
+export function currentMonthIndex(now = new Date()): number {
+  const idx = monthIndex(now.getFullYear(), now.getMonth());
+  return Math.min(Math.max(idx, 0), ROADMAP_MONTHS - 1);
+}
+
+export type TrackState = "active" | "future" | "done";
+
+export function trackState(
+  track: RoadmapTrack,
+  checklist: Record<string, boolean>,
+  now = new Date(),
+): TrackState {
+  const progress = trackProgress(track, checklist);
+  if (progress.total > 0 && progress.done === progress.total) return "done";
+  const startIdx = monthIndex(track.start.year, track.start.month);
+  if (startIdx > currentMonthIndex(now)) return "future";
+  return "active";
 }
 
 export function trackProgress(
@@ -148,4 +194,13 @@ export function trackProgress(
     total,
     percent: total ? Math.round((done / total) * 100) : 0,
   };
+}
+
+export function accessibleTrackName(track: RoadmapTrack, state: TrackState): string {
+  const status =
+    state === "done" ? "complete" : state === "future" ? "not started" : "in progress";
+  if (track.kind === "milestone") {
+    return `Milestone · ${track.label} · ${formatRange(track)} · ${status}`;
+  }
+  return `${track.label} · ${formatRange(track)} · ${status}`;
 }
