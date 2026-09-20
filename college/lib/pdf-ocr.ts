@@ -33,8 +33,12 @@ export async function readPdfForIngest(
 ): Promise<PdfReadResult> {
   onProgress?.({ phase: "reading", detail: "Reading PDF…" });
 
-  const { extractText, getDocumentProxy } = await import("unpdf");
-  const pdf = await getDocumentProxy(bytes);
+  // PDF.js transfers/detaches the ArrayBuffer it receives. Keep a private copy so OCR
+  // can still render pages after the text-layer pass.
+  const owned = bytes.slice();
+
+  const { extractText, getDocumentProxy, renderPageAsImage } = await import("unpdf");
+  const pdf = await getDocumentProxy(owned);
   const pageCount = pdf.numPages ?? 0;
   if (pageCount > MAX_PDF_PAGES) {
     throw new Error(`PDF has too many pages (max ${MAX_PDF_PAGES}). Split the deck and try again.`);
@@ -64,7 +68,6 @@ export async function readPdfForIngest(
     detail: "No text layer — starting OCR (first load may take a minute)…",
   });
 
-  const { renderPageAsImage } = await import("unpdf");
   const { createWorker } = await import("tesseract.js");
   const worker = await createWorker("eng");
 
@@ -77,7 +80,8 @@ export async function readPdfForIngest(
         total: ocrPages,
         detail: `OCR page ${page} of ${ocrPages}…`,
       });
-      const dataUrl = (await renderPageAsImage(bytes, page, {
+      // Render from the open document proxy — do not re-pass the (possibly detached) bytes.
+      const dataUrl = (await renderPageAsImage(pdf, page, {
         scale: 2,
         toDataURL: true,
       })) as string;

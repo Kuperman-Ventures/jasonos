@@ -15,4 +15,7 @@ test("readPdfForIngest uses embedded text when present", async () => {
   assert.match(result.text, /SAT reading/i);
   assert.ok(phases.includes("reading"));
   assert.ok(phases.includes("done"));
+  // Caller buffer must stay usable after PDF.js load (no accidental detach of the original).
+  assert.equal(bytes.byteLength > 0, true);
+  assert.doesNotThrow(() => bytes.slice(0, 4));
 });
