@@ -2,7 +2,6 @@
 
 import { useMemo } from "react";
 import {
-  ROADMAP_MONTHS,
   ROADMAP_TRACKS,
   accessibleTrackName,
   currentMonthIndex,
@@ -124,30 +123,33 @@ export function ProcessRoadmap({
           className="gantt"
           role="table"
           aria-label="Application timeline by month"
-          style={{ ["--months" as string]: ROADMAP_MONTHS }}
         >
           {bands.map((band) => (
             <div
               key={band.year}
               className="yr"
-              style={{ gridColumn: `${gridColumnStart(band.start)} / span ${band.span}` }}
+              style={{
+                gridRow: 1,
+                gridColumn: `${gridColumnStart(band.start)} / span ${band.span}`,
+              }}
             >
               {band.year}
             </div>
           ))}
 
-          <div className="head-pad" style={{ gridColumn: "1 / 3" }} />
+          <div className="head-pad" style={{ gridRow: 2, gridColumn: "1 / 3" }} />
           {cells.map((cell) => (
             <div
               key={`${cell.year}-${cell.month}`}
               className="mo"
+              style={{ gridRow: 2, gridColumn: gridColumnStart(cell.index) }}
               {...(cell.quarter ? { "data-q": true } : {})}
             >
               {cell.label}
             </div>
           ))}
 
-          <div className="gridlines" />
+          <div className="gridlines" aria-hidden="true" />
           <div
             className="now"
             style={{ gridColumn: gridColumnStart(nowIndex) }}

@@ -1363,9 +1363,10 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
 }
 .gantt {
   display: grid;
-  grid-template-columns: var(--label-w) var(--span-w) repeat(var(--months), minmax(var(--month-min), 1fr));
+  grid-template-columns: var(--label-w) var(--span-w) repeat(17, minmax(var(--month-min), 1fr));
+  grid-auto-flow: row;
   align-items: center;
-  min-width: calc(var(--label-w) + var(--span-w) + var(--months) * var(--month-min));
+  min-width: calc(var(--label-w) + var(--span-w) + 17 * var(--month-min));
   position: relative;
 }
 .gantt .yr {
