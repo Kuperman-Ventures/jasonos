@@ -3,7 +3,15 @@ import { knownWebsite } from "./school-websites";
 export type Choice = "top" | "middle" | "low" | "backup" | "unsure";
 export type Plan = "" | "ed" | "ea" | "rd" | "rolling";
 export type Owner = "kyle" | "jason" | "kat";
-export type TabId = "colleges" | "timeline" | "faq" | "questions" | "consultants" | "notes" | "testing";
+export type TabId =
+  | "dashboard"
+  | "colleges"
+  | "timeline"
+  | "faq"
+  | "questions"
+  | "consultants"
+  | "notes"
+  | "testing";
 
 export type SelectivityTier = "" | "extremely_selective" | "very_selective" | "competitive" | "less_competitive";
 export type InterestLevel = "" | "top" | "high" | "moderate" | "safety";
@@ -187,6 +195,7 @@ export const STEP_PRESETS = [
 ];
 
 export const TABS: { id: TabId; label: string }[] = [
+  { id: "dashboard", label: "Dashboard" },
   { id: "colleges", label: "Colleges" },
   { id: "timeline", label: "Timeline" },
   { id: "questions", label: "App Questions" },

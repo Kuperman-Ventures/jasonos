@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { AppQuestionsTab } from "./AppQuestionsTab";
 import { CollegesTab } from "./CollegesTab";
 import { ConsultantsTab } from "./ConsultantsTab";
+import { DashboardTab } from "./DashboardTab";
 import { FaqTab } from "./FaqTab";
 import { LeftRail } from "./LeftRail";
 import { NotesTab } from "./NotesTab";
@@ -56,12 +57,12 @@ function schoolFromLocation() {
 }
 
 function readStart(): { tab: TabId; schoolId: string | null } {
-  if (typeof window === "undefined") return { tab: "colleges", schoolId: null };
+  if (typeof window === "undefined") return { tab: "dashboard", schoolId: null };
   const params = new URLSearchParams(window.location.search);
   const school = params.get("school");
   if (school) return { tab: "colleges", schoolId: school };
   const requested = params.get("tab");
-  const tab = requested && TABS.some((item) => item.id === requested) ? (requested as TabId) : "colleges";
+  const tab = requested && TABS.some((item) => item.id === requested) ? (requested as TabId) : "dashboard";
   return { tab, schoolId: null };
 }
 
@@ -469,6 +470,15 @@ export function Portal({
         >
           Menu
         </button>
+        {tab === "dashboard" ? (
+          <DashboardTab
+            schools={schools}
+            phases={phases}
+            statuses={statuses}
+            phaseIndex={phaseIndex}
+            dateline={phaseLabel}
+          />
+        ) : null}
         {tab === "colleges" ? (
           <CollegesTab
             schools={schools}

@@ -7,6 +7,7 @@ import type { Phase, TabId } from "@/lib/types";
 import { ThemeToggle } from "./ThemeToggle";
 
 const PRIMARY: { id: TabId; label: string }[] = [
+  { id: "dashboard", label: "Dashboard" },
   { id: "colleges", label: "Colleges" },
   { id: "timeline", label: "Timeline" },
   { id: "questions", label: "App Questions" },
