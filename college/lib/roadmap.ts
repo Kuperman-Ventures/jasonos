@@ -49,7 +49,7 @@ export const ROADMAP_TRACKS: RoadmapTrack[] = [
   },
   {
     id: "testing",
-    label: "Testing: PSAT → SAT/ACT",
+    label: "Testing · PSAT → SAT / ACT",
     start: "fall-2026",
     end: "fall-2027",
     kind: "bar",
@@ -73,7 +73,7 @@ export const ROADMAP_TRACKS: RoadmapTrack[] = [
   },
   {
     id: "money",
-    label: "Money: Budget → FAFSA / CSS / Aid",
+    label: "Budget → FAFSA / CSS / Aid",
     start: "fall-2026",
     end: "winter-2028",
     kind: "bar",
@@ -89,9 +89,9 @@ export const ROADMAP_TRACKS: RoadmapTrack[] = [
   },
   {
     id: "applications",
-    label: "Submit Applications (EA / ED / RD)",
+    label: "Submit Applications",
     start: "fall-2027",
-    end: "fall-2027",
+    end: "winter-2028",
     kind: "bar",
     itemIds: ["p4-4", "p5-2", "p5-4"],
   },

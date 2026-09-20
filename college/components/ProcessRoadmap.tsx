@@ -23,20 +23,16 @@ function BarRow({
   const done = progress.total > 0 && progress.done === progress.total;
 
   return (
-    <div className="roadmap-row">
-      <div className="roadmap-lane" aria-hidden="true">
-        <div
-          className={`roadmap-bar${done ? " is-done" : ""}`}
-          style={{ left: `${place.left}%`, width: `${place.width}%` }}
-          title={`${track.label}: ${progress.done}/${progress.total}`}
-        >
-          <span className="roadmap-bar-label">{track.label}</span>
-          {progress.total ? (
-            <span className="roadmap-bar-pct mono">{progress.percent}%</span>
-          ) : null}
-        </div>
+    <li className="roadmap-row">
+      <div
+        className={`roadmap-bar${done ? " is-done" : ""}`}
+        style={{ left: `${place.left}%`, width: `${place.width}%` }}
+        role="img"
+        aria-label={`${track.label}: ${progress.done} of ${progress.total} checklist items done`}
+      >
+        <span className="roadmap-bar-text">{track.label}</span>
       </div>
-    </div>
+    </li>
   );
 }
 
@@ -55,10 +51,10 @@ function Milestone({
     <div
       className={`roadmap-milestone${done ? " is-done" : ""}`}
       style={{ left: `${left}%` }}
-      title={`${track.label}: ${progress.done}/${progress.total}`}
+      role="img"
+      aria-label={`${track.label}: ${progress.done} of ${progress.total} checklist items done`}
     >
       <span>{track.label}</span>
-      {progress.total ? <em className="mono">{progress.percent}%</em> : null}
     </div>
   );
 }
@@ -66,7 +62,7 @@ function Milestone({
 export function ProcessRoadmap({
   checklist,
   title = "College Process Timeline",
-  subtitle = "Workstreams across junior year into senior winter. Bars pull from the checklist; the dashed line is where we are now.",
+  subtitle = "Junior year into senior winter. Bars follow the checklist; the dashed line is today.",
 }: {
   checklist: Record<string, boolean>;
   title?: string;
@@ -83,18 +79,18 @@ export function ProcessRoadmap({
         <p className="section-sub">{subtitle}</p>
       </header>
 
-      <div className="roadmap-frame">
-        <div className="roadmap-here" style={{ left: `${here}%` }}>
+      <div className="roadmap-chart">
+        <div className="roadmap-here" style={{ left: `${here}%` }} aria-hidden="true">
           <span className="roadmap-here-tag">You are here</span>
         </div>
 
-        <div className="roadmap-tracks">
+        <ul className="roadmap-tracks">
           {bars.map((track) => (
             <BarRow key={track.id} track={track} checklist={checklist} />
           ))}
-        </div>
+        </ul>
 
-        <div className="roadmap-milestone-row" aria-hidden={milestones.length === 0}>
+        <div className="roadmap-milestone-row">
           {milestones.map((track) => (
             <Milestone key={track.id} track={track} checklist={checklist} />
           ))}
