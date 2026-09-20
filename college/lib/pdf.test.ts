@@ -27,3 +27,9 @@ test("extractPdfText rejects empty and oversized buffers", async () => {
   const big = new Uint8Array(MAX_PDF_BYTES + 1);
   await assert.rejects(() => extractPdfText(big), /too large/i);
 });
+
+test("messageFromFailedResponse maps Vercel 413 plain text", async () => {
+  const { messageFromFailedResponse } = await import("./pdf");
+  assert.match(messageFromFailedResponse("Request Entity Too Large", 413), /too large/i);
+  assert.equal(messageFromFailedResponse("Nope", 500), "Nope");
+});

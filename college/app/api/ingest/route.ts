@@ -4,6 +4,7 @@ import { fetchUrlText, suggestStepsFromText } from "@/lib/ingest";
 import { extractPdfText, isPdfFile } from "@/lib/pdf";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 async function parseMultipart(request: Request): Promise<{
   text: string;

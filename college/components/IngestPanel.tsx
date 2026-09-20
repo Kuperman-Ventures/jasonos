@@ -36,12 +36,19 @@ export function IngestPanel({
   const [source, setSource] = useState<IngestSourceDraft | null>(null);
 
   async function applyParseResponse(response: Response) {
-    const body = (await response.json()) as {
+    const raw = await response.text();
+    let body: {
       error?: string;
       suggestions?: SuggestedStep[];
       method?: "ai" | "heuristic";
       source?: IngestSourceDraft;
     };
+    try {
+      body = JSON.parse(raw) as typeof body;
+    } catch {
+      const { messageFromFailedResponse } = await import("@/lib/pdf");
+      throw new Error(messageFromFailedResponse(raw, response.status));
+    }
     if (!response.ok) throw new Error(body.error || "Parse failed");
     setDrafts(body.suggestions ?? []);
     setSource(body.source ?? null);
@@ -76,12 +83,19 @@ export function IngestPanel({
     setError("");
     setPdfName(file.name);
     try {
-      const form = new FormData();
-      form.set("file", file);
-      form.set("title", title || file.name.replace(/\.pdf$/i, ""));
+      // Read the PDF in the browser so we only POST extracted text (avoids Vercel 4.5 MB upload limit).
+      const { extractPdfText, isPdfFile } = await import("@/lib/pdf");
+      if (!isPdfFile(file)) throw new Error("Upload a PDF file (.pdf).");
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const { text: pdfText, pageCount } = await extractPdfText(bytes);
       const response = await fetch("/api/ingest", {
         method: "POST",
-        body: form,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: pdfText,
+          title: title || file.name.replace(/\.pdf$/i, "") || `PDF (${pageCount} pages)`,
+          kind: "file",
+        }),
       });
       await applyParseResponse(response);
     } catch (err) {
@@ -232,8 +246,9 @@ export function IngestPanel({
         </label>
 
         <p className="section-sub">
-          PDF text is pulled from the file (works for slide decks with selectable text). Image-only
-          scans and live Granola pull come later — paste those for now.
+          PDF text is read in your browser (works for slide decks with selectable text), then only
+          that text is sent for task suggestions. Image-only scans and live Granola pull come later —
+          paste those for now.
         </p>
       </div>
 

@@ -1,6 +1,7 @@
 /** Extract readable text from PDF bytes (webinar decks, handouts). */
 
-export const MAX_PDF_BYTES = 8 * 1024 * 1024;
+/** Browser-side read limit — we only send extracted text to the server. */
+export const MAX_PDF_BYTES = 25 * 1024 * 1024;
 export const MAX_PDF_PAGES = 80;
 export const MAX_PDF_TEXT_CHARS = 40000;
 
@@ -18,7 +19,7 @@ export async function extractPdfText(bytes: Uint8Array): Promise<{
     throw new Error("That PDF was empty.");
   }
   if (bytes.byteLength > MAX_PDF_BYTES) {
-    throw new Error("PDF is too large (max 8 MB). Try a smaller export or fewer slides.");
+    throw new Error("PDF is too large (max 25 MB). Try a smaller export or fewer slides.");
   }
 
   const { extractText, getDocumentProxy } = await import("unpdf");
@@ -42,4 +43,14 @@ export async function extractPdfText(bytes: Uint8Array): Promise<{
     text: text.slice(0, MAX_PDF_TEXT_CHARS),
     pageCount,
   };
+}
+
+/** Turn a non-JSON HTTP body into a usable error (Vercel 413, HTML errors, etc.). */
+export function messageFromFailedResponse(raw: string, status: number): string {
+  const clipped = raw.replace(/\s+/g, " ").trim().slice(0, 160);
+  if (status === 413 || /request entity too large/i.test(clipped)) {
+    return "That file was too large to upload as-is. PDFs are read in your browser now — try Choose PDF again.";
+  }
+  if (clipped) return clipped;
+  return `Request failed (${status || "unknown"})`;
 }
