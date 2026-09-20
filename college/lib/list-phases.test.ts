@@ -7,6 +7,8 @@ import {
   mergeListPrefs,
   normalizeColumns,
   phaseCountGauge,
+  previousListPhaseId,
+  retreatSchoolPatch,
   selectivityGauges,
 } from "./list-phases";
 
@@ -107,4 +109,39 @@ test("advance and archive keep phase participation", () => {
     }),
     null,
   );
+});
+
+test("retreat moves a school back without wiping participation history", () => {
+  assert.equal(previousListPhaseId("exploration"), null);
+  assert.equal(previousListPhaseId("consideration"), "exploration");
+  assert.equal(previousListPhaseId("applications"), "consideration");
+
+  const retreated = retreatSchoolPatch({
+    listPhase: "consideration",
+    phasesParticipated: ["exploration", "consideration"],
+  });
+  assert.deepEqual(retreated, {
+    listPhase: "exploration",
+    phasesParticipated: ["exploration", "consideration"],
+    archived: false,
+  });
+
+  assert.equal(
+    retreatSchoolPatch({
+      listPhase: "exploration",
+      phasesParticipated: ["exploration"],
+    }),
+    null,
+  );
+
+  const fromApps = retreatSchoolPatch({
+    listPhase: "applications",
+    phasesParticipated: ["exploration", "consideration", "applications"],
+  });
+  assert.equal(fromApps?.listPhase, "consideration");
+  assert.deepEqual(fromApps?.phasesParticipated, [
+    "exploration",
+    "consideration",
+    "applications",
+  ]);
 });

@@ -98,16 +98,42 @@ export function nextListPhaseId(id: ListPhaseId): ListPhaseId | null {
   return LIST_PHASES[index + 1]?.id ?? null;
 }
 
+export function previousListPhaseId(id: ListPhaseId): ListPhaseId | null {
+  const index = LIST_PHASES.findIndex((phase) => phase.id === id);
+  return index > 0 ? LIST_PHASES[index - 1]?.id ?? null : null;
+}
+
+/** Move a school to any funnel phase (forward or back). Keeps participation history. */
+export function moveSchoolPhasePatch(
+  school: {
+    listPhase: ListPhaseId;
+    phasesParticipated: ListPhaseId[];
+  },
+  target: ListPhaseId,
+): { listPhase: ListPhaseId; phasesParticipated: ListPhaseId[]; archived: false } | null {
+  if (target === school.listPhase) return null;
+  const participated = school.phasesParticipated.includes(target)
+    ? school.phasesParticipated
+    : [...school.phasesParticipated, target];
+  return { listPhase: target, phasesParticipated: participated, archived: false };
+}
+
 export function advanceSchoolPatch(school: {
   listPhase: ListPhaseId;
   phasesParticipated: ListPhaseId[];
 }): { listPhase: ListPhaseId; phasesParticipated: ListPhaseId[]; archived: false } | null {
   const next = nextListPhaseId(school.listPhase);
   if (!next) return null;
-  const participated = school.phasesParticipated.includes(next)
-    ? school.phasesParticipated
-    : [...school.phasesParticipated, next];
-  return { listPhase: next, phasesParticipated: participated, archived: false };
+  return moveSchoolPhasePatch(school, next);
+}
+
+export function retreatSchoolPatch(school: {
+  listPhase: ListPhaseId;
+  phasesParticipated: ListPhaseId[];
+}): { listPhase: ListPhaseId; phasesParticipated: ListPhaseId[]; archived: false } | null {
+  const previous = previousListPhaseId(school.listPhase);
+  if (!previous) return null;
+  return moveSchoolPhasePatch(school, previous);
 }
 
 export function archiveSchoolPatch(school: {

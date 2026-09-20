@@ -14,7 +14,7 @@ import {
   type Owner,
   type School,
 } from "@/lib/types";
-import { LIST_PHASES, nextListPhaseId } from "@/lib/list-phases";
+import { LIST_PHASES, nextListPhaseId, previousListPhaseId } from "@/lib/list-phases";
 import { sourceLines } from "@/lib/school-research";
 import { SchoolMark } from "./SchoolMark";
 
@@ -49,6 +49,7 @@ export function CollegeRecord({
   onPatch,
   onDelete,
   onAdvance,
+  onRetreat,
   onArchive,
   onRestore,
   onAddStep,
@@ -66,6 +67,7 @@ export function CollegeRecord({
   onPatch: (patch: Partial<School>) => void;
   onDelete: () => void;
   onAdvance: () => void;
+  onRetreat: () => void;
   onArchive: () => void;
   onRestore: () => void;
   onAddStep: (label: string, owner: Owner) => void;
@@ -128,6 +130,10 @@ export function CollegeRecord({
   const nextPhaseLabel = nextPhase
     ? LIST_PHASES.find((phase) => phase.id === nextPhase)?.label
     : null;
+  const previousPhase = previousListPhaseId(school.listPhase);
+  const previousPhaseLabel = previousPhase
+    ? LIST_PHASES.find((phase) => phase.id === previousPhase)?.label
+    : null;
   const participated = school.phasesParticipated
     .map((id) => LIST_PHASES.find((phase) => phase.id === id)?.label ?? id)
     .join(" → ");
@@ -153,12 +159,17 @@ export function CollegeRecord({
           <h3>List phase</h3>
           <p className="section-sub">
             {school.archived ? "Archived" : phaseLabel}
-            {participated ? ` · participated: ${participated}` : ""}
+            {participated ? ` · been in: ${participated}` : ""}
           </p>
           <div className="phase-actions">
+            {!school.archived && previousPhaseLabel ? (
+              <button type="button" className="btn btn-secondary" onClick={onRetreat}>
+                Move back to {previousPhaseLabel}
+              </button>
+            ) : null}
             {!school.archived && nextPhaseLabel ? (
               <button type="button" className="btn btn-primary" onClick={onAdvance}>
-                Advance to {nextPhaseLabel}
+                Move to {nextPhaseLabel}
               </button>
             ) : null}
             {school.archived ? (

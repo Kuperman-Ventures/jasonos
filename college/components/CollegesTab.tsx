@@ -12,6 +12,7 @@ import {
   currentListPhaseId,
   listPhaseById,
   normalizeColumns,
+  retreatSchoolPatch,
   phaseCountGauge,
   selectivityGauges,
   type ListColumnId,
@@ -187,6 +188,12 @@ export function CollegesTab({
 
   function advanceSchool(school: School) {
     const patch = advanceSchoolPatch(school);
+    if (!patch) return;
+    onPatch(school.id, patch);
+  }
+
+  function retreatSchool(school: School) {
+    const patch = retreatSchoolPatch(school);
     if (!patch) return;
     onPatch(school.id, patch);
   }
@@ -575,6 +582,7 @@ export function CollegesTab({
           onPatch={(patch) => onPatch(selected.id, patch)}
           onDelete={() => onDelete(selected.id)}
           onAdvance={() => advanceSchool(selected)}
+          onRetreat={() => retreatSchool(selected)}
           onArchive={() => archiveSchool(selected)}
           onRestore={() => restoreSchool(selected)}
           onAddStep={(label, owner) => onAddStep(selected.id, label, owner)}
