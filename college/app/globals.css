@@ -1057,12 +1057,12 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   margin-bottom: var(--space-2);
 }
 .snapshot-viz-frame {
-  flex: 1 1 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 132px;
-  max-height: 148px;
+  height: 140px;
+  min-height: 140px;
+  max-height: 140px;
 }
 .snapshot-map {
   width: 100%;
