@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CollegeRecord } from "./CollegeRecord";
 import { SchoolMark } from "./SchoolMark";
+import { ListPhaseIcon } from "./ListPhaseIcon";
 import { compareSchools, nextAction, primaryDeadline, type SortKey } from "@/lib/list";
 import {
   LIST_COLUMNS,
@@ -298,7 +299,10 @@ export function CollegesTab({
           <h2>College list</h2>
         </div>
         <div className="readout">
-          <span className="label">{phase.label} list</span>
+          <span className="label">
+            <ListPhaseIcon phaseId={phaseId} />
+            {phase.label} list
+          </span>
           <span className="figure">{activeCount}</span>
           <span className="unit">
             of ~{phase.target} target ({phase.rangeLabel})
@@ -326,7 +330,10 @@ export function CollegesTab({
               onClick={() => setPhaseId(item.id)}
             >
               <span className="phase-top">
-                <span className="phase-name">{item.label}</span>
+                <span className="phase-name">
+                  <ListPhaseIcon phaseId={item.id} />
+                  {item.label}
+                </span>
                 {isCalendarCurrent ? <span className="phase-now">Current window</span> : null}
               </span>
               <span className="phase-window">{item.window}</span>

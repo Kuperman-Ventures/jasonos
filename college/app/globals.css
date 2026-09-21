@@ -1113,12 +1113,14 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   stroke: color-mix(in srgb, var(--neutral-400) 70%, var(--color-bg));
   stroke-width: 16;
   stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .snapshot-meter-spectrum {
   fill: none;
   stroke: url(#selectivity-arc-spectrum);
   stroke-width: 10;
   stroke-linecap: round;
+  stroke-linejoin: round;
   opacity: 0.92;
 }
 .snapshot-meter.is-unset .snapshot-meter-spectrum {
@@ -2989,10 +2991,31 @@ table.schools .muted,
   width: 100%;
 }
 .list-phase-bar .phase-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-family: var(--font-heading);
   font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.02em;
+}
+.list-phase-icon {
+  flex: none;
+  color: var(--text-accent);
+  display: block;
+}
+.list-phase-bar button.active .list-phase-icon,
+.list-phase-bar button.is-current .list-phase-icon {
+  color: var(--accent-500);
+}
+.page-head .readout .label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.page-head .readout .list-phase-icon {
+  width: 16px;
+  height: 16px;
 }
 .list-phase-bar .phase-now {
   flex-shrink: 0;

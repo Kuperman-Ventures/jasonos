@@ -70,13 +70,16 @@ function SelectivityMeter({ tier }: { tier: SelectivityTier }) {
   const position = selectivitySpectrumPosition(tier);
   const label = tierLabel(tier) || "Not set";
   // Hub low; arch (180°→360° through 270° up) sits above the title.
+  // Left = less competitive, right = extremely selective (flipped horizontally).
   const cx = 110;
   const cy = 120;
   const r = 88;
   const startDeg = 180;
   const endDeg = 360;
   const track = gaugeArchPath(cx, cy, r, startDeg, endDeg);
-  const needleAngle = position == null ? null : startDeg + position * (endDeg - startDeg);
+  const tickTiers = [...SELECTIVITY_SPECTRUM].reverse();
+  const needleT = position == null ? null : 1 - position;
+  const needleAngle = needleT == null ? null : startDeg + needleT * (endDeg - startDeg);
   const needleOuter = needleAngle == null ? null : polar(cx, cy, r, needleAngle);
   const needleInner = needleAngle == null ? null : polar(cx, cy, r - 18, needleAngle);
   const top = cy - r - 14;
@@ -92,21 +95,21 @@ function SelectivityMeter({ tier }: { tier: SelectivityTier }) {
         aria-label={
           position == null
             ? "Selectivity not set"
-            : `${label}: ${Math.round(position * 100)}% along the spectrum from extremely selective to less competitive`
+            : `${label}: ${Math.round((1 - position) * 100)}% along the spectrum from less competitive to extremely selective`
         }
       >
         <svg className="snapshot-meter-svg" viewBox={`0 ${top} 220 ${height}`} aria-hidden="true">
           <defs>
             <linearGradient id="selectivity-arc-spectrum" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="var(--accent-500)" />
-              <stop offset="45%" stopColor="var(--color-accent-400)" />
-              <stop offset="100%" stopColor="var(--done-500)" />
+              <stop offset="0%" stopColor="var(--done-500)" />
+              <stop offset="55%" stopColor="var(--color-accent-400)" />
+              <stop offset="100%" stopColor="var(--accent-500)" />
             </linearGradient>
           </defs>
           <path className="snapshot-meter-track" d={track} />
           <path className="snapshot-meter-spectrum" d={track} />
-          {SELECTIVITY_SPECTRUM.map((item, index) => {
-            const t = index / (SELECTIVITY_SPECTRUM.length - 1);
+          {tickTiers.map((item, index) => {
+            const t = index / (tickTiers.length - 1);
             const angle = startDeg + t * (endDeg - startDeg);
             const onArc = polar(cx, cy, r, angle);
             const tickOuter = polar(cx, cy, r + 8, angle);
@@ -132,8 +135,8 @@ function SelectivityMeter({ tier }: { tier: SelectivityTier }) {
         <div className="snapshot-meter-readout">
           <strong>{label}</strong>
           <span className="snapshot-meter-ends">
-            <span>Extremely</span>
             <span>Less competitive</span>
+            <span>Extremely</span>
           </span>
         </div>
       </div>
