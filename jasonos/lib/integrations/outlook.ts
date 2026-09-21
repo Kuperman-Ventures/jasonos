@@ -6,6 +6,7 @@ import {
   OUTLOOK_PAGE_SIZE,
   dedupeOutlookMessages,
   graphSinceTimestamp,
+  inferOutlookWellKnownName,
   mapGraphMessage,
   rankOutlookFolders,
   type GraphMessage,
@@ -88,9 +89,11 @@ async function listFolders(token: string): Promise<{
   warnings: string[];
 }> {
   const warnings: string[] = [];
+  // Personal Outlook.com rejects $select=wellKnownName (Graph 400).
+  // Rank / skip using displayName via inferOutlookWellKnownName instead.
   const { status, body } = await graphGet(
     token,
-    "/me/mailFolders?$top=50&$select=id,displayName,wellKnownName"
+    "/me/mailFolders?$top=50&$select=id,displayName"
   );
   if (status < 200 || status >= 300) {
     warnings.push(
@@ -102,19 +105,20 @@ async function listFolders(token: string): Promise<{
   const top = ((body?.value ?? []) as Array<{
     id?: string;
     displayName?: string;
-    wellKnownName?: string | null;
   }>)
     .filter((folder) => folder.id)
-    .map((folder) => ({
-      id: folder.id as string,
-      displayName: folder.displayName?.trim() || "Folder",
-      wellKnownName: folder.wellKnownName ?? null,
-    }));
+    .map((folder) => {
+      const displayName = folder.displayName?.trim() || "Folder";
+      return {
+        id: folder.id as string,
+        displayName,
+        wellKnownName: inferOutlookWellKnownName(displayName),
+      };
+    });
 
   const parents = top.filter((folder) => {
     const well = (folder.wellKnownName ?? "").toLowerCase();
-    const name = folder.displayName.toLowerCase();
-    return well === "inbox" || well === "archive" || name === "inbox" || name === "archive";
+    return well === "inbox" || well === "archive";
   });
 
   const children: OutlookFolderRef[] = [];

@@ -9,6 +9,7 @@ import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import { OUTLOOK_WRAP_EMAIL } from "@/lib/integrations/unwrap-forwarded-mail";
 import { listOutlookMessages } from "@/lib/integrations/outlook";
 import { getOutlookAccountAccess } from "@/lib/integrations/outlook-tokens";
+import { outlookTouchExternalId } from "@/lib/integrations/outlook-mail";
 import {
   calendarEventGuests,
   fetchAccountCalendarEvents,
@@ -1032,8 +1033,8 @@ export async function syncOutreachFromOutlook(opts?: {
         touched_at: touchedAt,
         source: "outlook",
         external_id: firstMatched
-          ? `outlook:${m.id}`
-          : `outlook:${m.id}::${contact.id}`,
+          ? outlookTouchExternalId(m.id)
+          : outlookTouchExternalId(m.id, contact.id),
         brief:
           oneLine(m.snippet) || (outbound ? "Email sent" : "Email received"),
         subject: m.subject ?? null,

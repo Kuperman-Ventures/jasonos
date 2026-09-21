@@ -126,24 +126,32 @@ export async function insertContactTouches(
     // Pre-check: which (source, external_id) tuples already exist? The .in()
     // pair may match a small cross-product superset; we filter precisely in
     // JS below using a Set of `${source}::${external_id}` keys.
-    const { data: existingRows, error: preErr } = await client
-      .from("contact_touches")
-      .select("source, external_id")
-      .in("source", sources)
-      .in("external_id", externalIds);
+    // Chunk ids — Outlook Graph message ids are huge and a single .in() can
+    // blow the PostgREST URL (400 Bad Request).
+    const existingKeys = new Set<string>();
+    const PRECHECK_CHUNK = 40;
+    let precheckFailed = false;
+    for (let i = 0; i < externalIds.length; i += PRECHECK_CHUNK) {
+      const chunk = externalIds.slice(i, i + PRECHECK_CHUNK);
+      const { data: existingRows, error: preErr } = await client
+        .from("contact_touches")
+        .select("source, external_id")
+        .in("source", sources)
+        .in("external_id", chunk);
 
-    if (preErr) {
-      // Bail safely: without the pre-check we'd risk inserting duplicates
-      // (the partial unique index can't catch us via ON CONFLICT here).
-      result.errors.push(`pre-check: ${preErr.message}`);
-    } else {
-      const existingKeys = new Set<string>();
+      if (preErr) {
+        result.errors.push(`pre-check: ${preErr.message}`);
+        precheckFailed = true;
+        break;
+      }
       for (const row of existingRows ?? []) {
         const src = row.source as string | null;
         const ext = row.external_id as string | null;
         if (src && ext) existingKeys.add(`${src}::${ext}`);
       }
+    }
 
+    if (!precheckFailed) {
       const newRows = withDedup.filter(
         (t) => !existingKeys.has(`${t.source}::${t.external_id}`)
       );

@@ -4,11 +4,36 @@ import {
   dedupeOutlookMessages,
   formatGraphAddress,
   graphSinceTimestamp,
+  inferOutlookWellKnownName,
   mapGraphMessage,
+  outlookTouchExternalId,
   rankOutlookFolders,
   shouldSkipOutlookFolder,
   type OutlookMessage,
 } from "./outlook-mail.ts";
+
+describe("inferOutlookWellKnownName", () => {
+  it("maps personal Outlook folder labels without Graph wellKnownName", () => {
+    assert.equal(inferOutlookWellKnownName("Inbox"), "inbox");
+    assert.equal(inferOutlookWellKnownName("Sent Items"), "sentitems");
+    assert.equal(inferOutlookWellKnownName("Junk Email"), "junkemail");
+    assert.equal(inferOutlookWellKnownName("Deleted Items"), "deleteditems");
+    assert.equal(inferOutlookWellKnownName("Recruiters"), null);
+  });
+});
+
+describe("outlookTouchExternalId", () => {
+  it("shortens huge Graph message ids so PostgREST pre-checks stay under URL limits", () => {
+    const huge = `AAMkAGI2${"A".repeat(200)}`;
+    const id = outlookTouchExternalId(huge);
+    assert.match(id, /^outlook:[a-f0-9]{32}$/);
+    assert.equal(outlookTouchExternalId(huge), id);
+    assert.equal(
+      outlookTouchExternalId(huge, "contact-1"),
+      `${id}::contact-1`
+    );
+  });
+});
 
 describe("shouldSkipOutlookFolder", () => {
   it("skips junk, drafts, deleted, and outbox by well-known name or label", () => {

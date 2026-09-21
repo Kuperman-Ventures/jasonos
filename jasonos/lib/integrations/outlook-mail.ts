@@ -1,6 +1,8 @@
 // Pure Outlook / Microsoft Graph mail helpers. No network, no server-only,
 // so sync and unit tests can share folder rules and address formatting.
 
+import { createHash } from "node:crypto";
+
 export const OUTLOOK_FOLDER_CAP = 12;
 export const OUTLOOK_PAGE_SIZE = 40;
 export const OUTLOOK_MAX_PAGES = 2;
@@ -65,14 +67,56 @@ export interface OutlookMessage {
   webLink: string | null;
 }
 
+/**
+ * Personal Outlook.com Graph does not expose mailFolder.wellKnownName.
+ * Infer the common well-known keys from the folder label instead.
+ */
+export function inferOutlookWellKnownName(
+  displayName: string | null | undefined
+): string | null {
+  const name = (displayName ?? "").trim().toLowerCase();
+  if (!name) return null;
+  if (name === "inbox") return "inbox";
+  if (name === "sent items" || name === "sent") return "sentitems";
+  if (name === "deleted items" || name === "trash") return "deleteditems";
+  if (name === "junk email" || name === "junk e-mail" || name === "junk" || name === "spam") {
+    return "junkemail";
+  }
+  if (name === "drafts" || name === "draft") return "drafts";
+  if (name === "archive") return "archive";
+  if (name === "outbox") return "outbox";
+  if (name === "clutter") return "clutter";
+  if (name === "conversation history") return "conversationhistory";
+  if (name === "sync issues") return "syncissues";
+  return null;
+}
+
 export function shouldSkipOutlookFolder(folder: {
   displayName?: string | null;
   wellKnownName?: string | null;
 }): boolean {
-  const well = (folder.wellKnownName ?? "").trim().toLowerCase();
+  const well =
+    (folder.wellKnownName ?? "").trim().toLowerCase() ||
+    inferOutlookWellKnownName(folder.displayName) ||
+    "";
   if (well && SKIP_WELL_KNOWN.has(well)) return true;
   const name = (folder.displayName ?? "").trim();
   return SKIP_NAME.test(name);
+}
+
+/**
+ * Graph message ids are huge base64 blobs. Storing them raw makes the
+ * contact_touches pre-check `.in(external_id, …)` URL hit Bad Request.
+ */
+export function outlookTouchExternalId(
+  messageId: string,
+  contactId?: string | null
+): string {
+  const digest = createHash("sha256")
+    .update(messageId)
+    .digest("hex")
+    .slice(0, 32);
+  return contactId ? `outlook:${digest}::${contactId}` : `outlook:${digest}`;
 }
 
 function priorityIndex(folder: {
