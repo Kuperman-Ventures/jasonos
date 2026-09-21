@@ -2747,6 +2747,30 @@ table.schools .muted,
   color: var(--color-neutral-800);
 }
 .todos-panel .task-note em { color: var(--color-neutral-700); font-style: italic; }
+.todos-panel .todo-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  max-width: 640px;
+}
+.todos-panel .todo-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.todos-panel .todo-edit-field .label {
+  margin: 0;
+}
+.todos-panel .todo-edit-description {
+  min-height: 72px;
+  resize: vertical;
+}
+.todos-panel .todo-edit-dates {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
 .todos-panel .subs {
   list-style: none;
   margin: 0;
@@ -2756,7 +2780,7 @@ table.schools .muted,
 }
 .todos-panel .sub {
   display: grid;
-  grid-template-columns: 22px 1fr auto;
+  grid-template-columns: 22px minmax(0, 1fr) 148px;
   column-gap: var(--space-2);
   align-items: center;
   padding: 7px 0;
@@ -2769,8 +2793,14 @@ table.schools .muted,
   accent-color: var(--color-accent);
 }
 .todos-panel .sub-title { font-size: 15px; line-height: 1.35; }
+.todos-panel .sub-title-edit,
+.todos-panel .sub-due-edit {
+  min-height: 36px;
+  font-size: 14px;
+}
 .todos-panel .sub input:checked + .sub-title,
-.todos-panel .sub input:checked ~ .sub-title {
+.todos-panel .sub input:checked ~ .sub-title,
+.todos-panel .sub input:checked ~ .sub-title-edit {
   color: var(--color-neutral-700);
   text-decoration: line-through;
 }
@@ -2824,6 +2854,16 @@ table.schools .muted,
   .todos-panel .task-due,
   .todos-panel .task-sub-count { grid-area: meta; justify-self: start; }
   .todos-panel .task-caret { grid-area: caret; align-self: center; }
+  .todos-panel .todo-edit-dates,
+  .todos-panel .sub {
+    grid-template-columns: 1fr;
+  }
+  .todos-panel .sub {
+    grid-template-columns: 22px minmax(0, 1fr);
+  }
+  .todos-panel .sub-due-edit {
+    grid-column: 2;
+  }
 }
 
 /* ---------- project ingest ---------- */

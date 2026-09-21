@@ -10,10 +10,12 @@ import {
 } from "@/lib/ingest";
 import {
   memberOwnerId,
+  normalizeTodoEdits,
   normalizeTodoSubtasks,
   sanitizeChecklistForViewer,
   sanitizeSubtasksForViewer,
   todoOwnerIndex,
+  type TodoEditMap,
   type TodoSubtaskMap,
 } from "@/lib/project-todos";
 import { clampScore } from "@/lib/scores";
@@ -26,6 +28,7 @@ type StateRow = {
   project_steps?: unknown;
   ingest_sources?: unknown;
   todo_subtasks?: unknown;
+  todo_edits?: unknown;
 };
 
 function emptyState() {
@@ -37,6 +40,7 @@ function emptyState() {
     projectSteps: [] as PersistedProjectStep[],
     ingestSources: [] as PersistedIngestSource[],
     todoSubtasks: {} as TodoSubtaskMap,
+    todoEdits: {} as TodoEditMap,
   };
 }
 
@@ -48,7 +52,7 @@ export async function GET() {
     const db = collegeDb();
     const { data, error } = await db
       .from("app_state")
-      .select("checklist, scores, notes, project_steps, ingest_sources, todo_subtasks")
+      .select("checklist, scores, notes, project_steps, ingest_sources, todo_subtasks, todo_edits")
       .eq("id", "kyle-college")
       .maybeSingle();
     if (error) throw error;
@@ -61,6 +65,7 @@ export async function GET() {
       projectSteps: normalizePersistedSteps(row?.project_steps),
       ingestSources: normalizeIngestSources(row?.ingest_sources),
       todoSubtasks: normalizeTodoSubtasks(row?.todo_subtasks),
+      todoEdits: normalizeTodoEdits(row?.todo_edits),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not read state";
@@ -81,6 +86,7 @@ export async function PATCH(request: Request) {
     projectSteps?: PersistedProjectStep[];
     ingestSources?: PersistedIngestSource[];
     todoSubtasks?: TodoSubtaskMap;
+    todoEdits?: TodoEditMap;
   };
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   const db = collegeDb();
@@ -141,6 +147,9 @@ export async function PATCH(request: Request) {
   if (typeof body.notes === "string") patch.notes = body.notes;
   if (Array.isArray(body.projectSteps)) patch.project_steps = normalizePersistedSteps(body.projectSteps);
   if (Array.isArray(body.ingestSources)) patch.ingest_sources = normalizeIngestSources(body.ingestSources);
+  if (body.todoEdits && typeof body.todoEdits === "object") {
+    patch.todo_edits = normalizeTodoEdits(body.todoEdits);
+  }
 
   // Don't persist internal meta on the row.
   const blockedCount =

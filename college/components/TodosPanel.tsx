@@ -14,6 +14,8 @@ import {
   todoPrimaryDate,
   type OwnerTodoBucket,
   type ProjectTodo,
+  type TodoEdit,
+  type TodoEditMap,
   type TodoSubtask,
   type TodoSubtaskMap,
 } from "@/lib/project-todos";
@@ -39,6 +41,8 @@ function TaskRow({
   onDraftLabel,
   onCommitDraft,
   onCancelDraft,
+  onEdit,
+  onEditSub,
 }: {
   todo: ProjectTodo;
   subtasks: TodoSubtask[];
@@ -53,6 +57,8 @@ function TaskRow({
   onDraftLabel: (value: string) => void;
   onCommitDraft: () => void;
   onCancelDraft: () => void;
+  onEdit: (patch: TodoEdit) => void;
+  onEditSub: (subId: string, patch: { label?: string; dueDate?: string | null }) => void;
 }) {
   const canToggle = canMarkTodoDone(viewer, todo.owner);
   const fromBadge = assignedByBadge(todo);
@@ -111,6 +117,69 @@ function TaskRow({
             </span>
           ) : null}
         </p>
+        <div className="todo-edit">
+          <label className="todo-edit-field">
+            <span className="label">Wording</span>
+            <input
+              className="field"
+              aria-label={`Wording for ${todo.label}`}
+              defaultValue={todo.label}
+              key={`${todo.id}-label-${todo.label}`}
+              onBlur={(event) => {
+                const value = event.target.value.trim();
+                if (value && value !== todo.label) onEdit({ label: value });
+                else event.target.value = todo.label;
+              }}
+            />
+          </label>
+          <label className="todo-edit-field">
+            <span className="label">Description</span>
+            <textarea
+              className="field todo-edit-description"
+              aria-label={`Description for ${todo.label}`}
+              rows={3}
+              placeholder="Add a description"
+              defaultValue={todo.description}
+              key={`${todo.id}-desc-${todo.description}`}
+              onBlur={(event) => {
+                const value = event.target.value.trim();
+                if (value !== todo.description) onEdit({ description: value });
+              }}
+            />
+          </label>
+          <div className="todo-edit-dates">
+            <label className="todo-edit-field">
+              <span className="label">Due date</span>
+              <input
+                className="field"
+                type="date"
+                aria-label={`Due date for ${todo.label}`}
+                value={todo.dueDate ?? ""}
+                onChange={(event) => onEdit({ dueDate: event.target.value || null })}
+              />
+            </label>
+            <label className="todo-edit-field">
+              <span className="label">Start</span>
+              <input
+                className="field"
+                type="date"
+                aria-label={`Start date for ${todo.label}`}
+                value={todo.startDate ?? ""}
+                onChange={(event) => onEdit({ startDate: event.target.value || null })}
+              />
+            </label>
+            <label className="todo-edit-field">
+              <span className="label">End</span>
+              <input
+                className="field"
+                type="date"
+                aria-label={`End date for ${todo.label}`}
+                value={todo.endDate ?? ""}
+                onChange={(event) => onEdit({ endDate: event.target.value || null })}
+              />
+            </label>
+          </div>
+        </div>
         {subtasks.length ? (
           <ul className="subs">
             {subtasks.map((sub) => (
@@ -121,15 +190,34 @@ function TaskRow({
                   id={sub.id}
                   checked={sub.done}
                   disabled={!canToggle}
+                  aria-label={
+                    canToggle
+                      ? `Complete: ${sub.label}`
+                      : `${sub.label} (only ${ownerLabel(todo.owner)} can check this off)`
+                  }
                   onChange={(event) => {
                     if (!canToggle) return;
                     onToggleSub(sub.id, event.target.checked);
                   }}
                 />
-                <label className="sub-title" htmlFor={sub.id}>
-                  {sub.label}
-                </label>
-                <span className="sub-due">{shortDueLabel(sub.dueDate)}</span>
+                <input
+                  className="field sub-title-edit"
+                  aria-label={`Subtask wording for ${sub.label}`}
+                  defaultValue={sub.label}
+                  key={`${sub.id}-label-${sub.label}`}
+                  onBlur={(event) => {
+                    const value = event.target.value.trim();
+                    if (value && value !== sub.label) onEditSub(sub.id, { label: value });
+                    else event.target.value = sub.label;
+                  }}
+                />
+                <input
+                  className="field sub-due-edit"
+                  type="date"
+                  aria-label={`Due date for ${sub.label}`}
+                  value={sub.dueDate ?? ""}
+                  onChange={(event) => onEditSub(sub.id, { dueDate: event.target.value || null })}
+                />
               </li>
             ))}
           </ul>
@@ -179,6 +267,8 @@ function TaskList({
   onDraftLabel,
   onCommitDraft,
   onCancelDraft,
+  onEdit,
+  onEditSub,
 }: {
   bucket: OwnerTodoBucket;
   emphasis: "focus" | "other";
@@ -194,6 +284,8 @@ function TaskList({
   onDraftLabel: (value: string) => void;
   onCommitDraft: (parentId: string) => void;
   onCancelDraft: () => void;
+  onEdit: (id: string, patch: TodoEdit) => void;
+  onEditSub: (parentId: string, subId: string, patch: { label?: string; dueDate?: string | null }) => void;
 }) {
   const todos = [...bucket.open, ...bucket.done];
   const stats = openListStats(todos);
@@ -232,6 +324,8 @@ function TaskList({
           onDraftLabel={onDraftLabel}
           onCommitDraft={() => onCommitDraft(todo.id)}
           onCancelDraft={onCancelDraft}
+          onEdit={(patch) => onEdit(todo.id, patch)}
+          onEditSub={(subId, patch) => onEditSub(todo.id, subId, patch)}
         />
       ))}
     </div>
@@ -244,19 +338,23 @@ export function TodosPanel({
   checklist,
   projectSteps = [],
   subtasks,
+  todoEdits,
   onToggle,
   onChangeSubtasks,
+  onEditTodo,
 }: {
   memberId: string;
   phases: Phase[];
   checklist: Record<string, boolean>;
   projectSteps?: PersistedProjectStep[];
   subtasks: TodoSubtaskMap;
+  todoEdits: TodoEditMap;
   onToggle: (id: string, checked: boolean) => void;
   onChangeSubtasks: (next: TodoSubtaskMap) => void;
+  onEditTodo: (id: string, patch: TodoEdit) => void;
 }) {
   const focusOwner: Owner = memberOwnerId(memberId);
-  const todos = listProjectTodos(checklist, phases, projectSteps);
+  const todos = listProjectTodos(checklist, phases, projectSteps, todoEdits);
   const grouped = groupTodosByOwner(todos, focusOwner);
   const storageKey = `kyle-todo-open:${focusOwner}`;
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
@@ -324,6 +422,19 @@ export function TodosPanel({
     });
   }
 
+  function editSub(
+    parentId: string,
+    subId: string,
+    patch: { label?: string; dueDate?: string | null },
+  ) {
+    onChangeSubtasks({
+      ...subtasks,
+      [parentId]: (subtasks[parentId] ?? []).map((row) =>
+        row.id === subId ? { ...row, ...patch } : row,
+      ),
+    });
+  }
+
   const shared = {
     viewer: focusOwner,
     openIds,
@@ -340,6 +451,8 @@ export function TodosPanel({
       setDraftParent(null);
       setDraftLabel("");
     },
+    onEdit: onEditTodo,
+    onEditSub: editSub,
   };
 
   return (

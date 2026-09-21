@@ -22,6 +22,8 @@ export type ChecklistStepGroupSeed = {
 export type ProjectTodo = {
   id: string;
   label: string;
+  /** Free-text note under the wording. Empty when nobody has written one. */
+  description: string;
   owner: Owner;
   /** Who put this on the owner's list; null when seed/system or self-assigned with no badge. */
   assignedBy: Owner | null;
@@ -34,6 +36,17 @@ export type ProjectTodo = {
   phase: string;
   phaseWindow: string;
 };
+
+/** Household overrides for seed and ingested to-dos. Missing keys keep the original. */
+export type TodoEdit = {
+  label?: string;
+  description?: string;
+  dueDate?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+};
+
+export type TodoEditMap = Record<string, TodoEdit>;
 
 export type TodoSubtask = {
   id: string;
@@ -142,6 +155,59 @@ function dateSortValue(todo: ProjectTodo): number {
   return key ? Date.parse(key) : Number.POSITIVE_INFINITY;
 }
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function cleanDate(value: unknown): string | null | undefined {
+  if (value === null || value === "") return null;
+  if (typeof value === "string" && ISO_DATE.test(value)) return value;
+  return undefined;
+}
+
+export function normalizeTodoEdits(raw: unknown): TodoEditMap {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: TodoEditMap = {};
+  for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!id || !value || typeof value !== "object" || Array.isArray(value)) continue;
+    const row = value as Record<string, unknown>;
+    const edit: TodoEdit = {};
+    if (typeof row.label === "string" && row.label.trim()) edit.label = row.label.trim();
+    if (typeof row.description === "string") edit.description = row.description.trim();
+    const dueDate = cleanDate(row.dueDate);
+    const startDate = cleanDate(row.startDate);
+    const endDate = cleanDate(row.endDate);
+    if (dueDate !== undefined) edit.dueDate = dueDate;
+    if (startDate !== undefined) edit.startDate = startDate;
+    if (endDate !== undefined) edit.endDate = endDate;
+    if (Object.keys(edit).length) out[id] = edit;
+  }
+  return out;
+}
+
+function withEdit(
+  step: {
+    id: string;
+    label: string;
+    owner: Owner;
+    assignedBy: Owner | null;
+    dueDate: string | null;
+    startDate: string | null;
+    endDate: string | null;
+    parentId: string;
+  },
+  edits: TodoEditMap,
+) {
+  const edit = edits[step.id];
+  if (!edit) return { ...step, description: "" };
+  return {
+    ...step,
+    label: edit.label?.trim() || step.label,
+    description: edit.description ?? "",
+    dueDate: "dueDate" in edit ? (edit.dueDate ?? null) : step.dueDate,
+    startDate: "startDate" in edit ? (edit.startDate ?? null) : step.startDate,
+    endDate: "endDate" in edit ? (edit.endDate ?? null) : step.endDate,
+  };
+}
+
 function pushTodo(
   todos: ProjectTodo[],
   seen: Set<string>,
@@ -157,21 +223,24 @@ function pushTodo(
   },
   checklist: Record<string, boolean>,
   parents: Map<string, ParentLookup>,
+  edits: TodoEditMap,
 ) {
   if (seen.has(step.id)) return;
   const parent = parents.get(step.parentId) ?? parents.get(INBOX_PARENT_ID);
   if (!parent) return;
+  const edited = withEdit(step, edits);
   seen.add(step.id);
   todos.push({
-    id: step.id,
-    label: step.label,
-    owner: step.owner,
-    assignedBy: step.assignedBy,
-    dueDate: step.dueDate,
-    startDate: step.startDate,
-    endDate: step.endDate,
+    id: edited.id,
+    label: edited.label,
+    description: edited.description,
+    owner: edited.owner,
+    assignedBy: edited.assignedBy,
+    dueDate: edited.dueDate,
+    startDate: edited.startDate,
+    endDate: edited.endDate,
     done: Boolean(checklist[step.id]),
-    parentId: step.parentId,
+    parentId: edited.parentId,
     parentText: parent.parentText,
     phase: parent.phase,
     phaseWindow: parent.phaseWindow,
@@ -182,6 +251,7 @@ export function listProjectTodos(
   checklist: Record<string, boolean>,
   phaseList: Phase[] = phases,
   dynamicSteps: PersistedProjectStep[] = [],
+  edits: TodoEditMap = {},
 ): ProjectTodo[] {
   const parents = parentIndex(phaseList);
   const groups = stepsFile as ChecklistStepGroupSeed[];
@@ -206,6 +276,7 @@ export function listProjectTodos(
         },
         checklist,
         parents,
+        edits,
       );
     }
   }
@@ -226,6 +297,7 @@ export function listProjectTodos(
       },
       checklist,
       parents,
+      edits,
     );
   }
 
@@ -269,8 +341,6 @@ export function groupTodosByOwner(
     others: OWNERS.filter((owner) => owner.id !== focusOwner).map((owner) => bucket(owner.id)),
   };
 }
-
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function normalizeTodoSubtasks(raw: unknown): TodoSubtaskMap {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};

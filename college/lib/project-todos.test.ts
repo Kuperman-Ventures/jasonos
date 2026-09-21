@@ -8,6 +8,7 @@ import {
   groupTodosByOwner,
   listProjectTodos,
   memberOwnerId,
+  normalizeTodoEdits,
   openListStats,
   sanitizeChecklistForViewer,
   sanitizeSubtasksForViewer,
@@ -100,6 +101,36 @@ test("listProjectTodos merges dynamic ingest steps with assigner", () => {
   assert.equal(assignedByBadge(ingested!), "From Jason");
   assert.equal(ingested?.phase, "Inbox");
   assert.match(ingested?.parentText ?? "", /Ingested/);
+});
+
+test("listProjectTodos applies wording, description, and date edits", () => {
+  const todos = listProjectTodos(
+    {},
+    undefined,
+    [],
+    {
+      "p1-1-s3": {
+        label: "Register for the October PSAT",
+        description: "Do this before the fee waiver window closes.",
+        dueDate: "2026-10-01",
+        startDate: null,
+        endDate: null,
+      },
+    },
+  );
+  const psat = todos.find((todo) => todo.id === "p1-1-s3");
+  assert.equal(psat?.label, "Register for the October PSAT");
+  assert.equal(psat?.description, "Do this before the fee waiver window closes.");
+  assert.equal(psat?.dueDate, "2026-10-01");
+
+  const cleared = normalizeTodoEdits({
+    "p1-1-s3": { dueDate: "", description: "  keep me  ", label: "   " },
+    junk: "nope",
+  });
+  assert.equal(cleared["p1-1-s3"]?.dueDate, null);
+  assert.equal(cleared["p1-1-s3"]?.description, "keep me");
+  assert.equal(cleared["p1-1-s3"]?.label, undefined);
+  assert.equal(cleared.junk, undefined);
 });
 
 test("groupTodosByOwner focuses the signed-in person", () => {
