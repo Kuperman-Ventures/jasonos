@@ -198,6 +198,74 @@ export type SelectivityGauge = {
   percent: number;
 };
 
+/** Target share of the list for each set selectivity tier. */
+export const IDEAL_SELECTIVITY_MIX: {
+  id: "extremely_selective" | "very_selective" | "competitive" | "less_competitive";
+  label: string;
+  idealPercent: number;
+}[] = [
+  { id: "extremely_selective", label: "Extremely selective", idealPercent: 10 },
+  { id: "very_selective", label: "Very selective", idealPercent: 20 },
+  { id: "competitive", label: "Competitive", idealPercent: 45 },
+  { id: "less_competitive", label: "Less competitive", idealPercent: 25 },
+];
+
+export type SelectivityPieSlice = {
+  id: string;
+  label: string;
+  count: number;
+  /** Actual share of schools with a set tier (sums to 100 when any are set). */
+  actualPercent: number;
+  idealPercent: number;
+  /** Start angle in degrees (0 = right, clockwise-friendly for SVG helpers). */
+  startAngle: number;
+  /** Ideal wedge size in degrees. */
+  idealSweep: number;
+  /** Colored fill size inside the ideal wedge (capped at idealSweep). */
+  fillSweep: number;
+  /** True when actual share exceeds the ideal share. */
+  overIdeal: boolean;
+};
+
+/**
+ * Build pie slices: wedge sizes follow the ideal mix; colored fill shows how
+ * much of that ideal slot the live list has filled.
+ */
+export function selectivityPieSlices(
+  schools: { selectivityTier: string }[],
+): { slices: SelectivityPieSlice[]; setCount: number; unsetCount: number } {
+  const setSchools = schools.filter((school) =>
+    IDEAL_SELECTIVITY_MIX.some((tier) => tier.id === school.selectivityTier),
+  );
+  const unsetCount = schools.length - setSchools.length;
+  const setCount = setSchools.length;
+  const total = setCount || 1;
+
+  let cursor = -90; // start at top
+  const slices = IDEAL_SELECTIVITY_MIX.map((tier) => {
+    const count = setSchools.filter((school) => school.selectivityTier === tier.id).length;
+    const actualPercent = setCount ? Math.round((count / total) * 1000) / 10 : 0;
+    const idealSweep = (tier.idealPercent / 100) * 360;
+    const fillRatio = tier.idealPercent > 0 ? actualPercent / tier.idealPercent : 0;
+    const fillSweep = Math.min(1, Math.max(0, fillRatio)) * idealSweep;
+    const startAngle = cursor;
+    cursor += idealSweep;
+    return {
+      id: tier.id,
+      label: tier.label,
+      count,
+      actualPercent,
+      idealPercent: tier.idealPercent,
+      startAngle,
+      idealSweep,
+      fillSweep,
+      overIdeal: actualPercent > tier.idealPercent + 0.05,
+    };
+  });
+
+  return { slices, setCount, unsetCount };
+}
+
 /** Selectivity mix for the schools currently shown in a phase. */
 export function selectivityGauges(
   schools: { selectivityTier: string }[],

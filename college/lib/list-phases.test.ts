@@ -13,6 +13,7 @@ import {
   canAdvanceListPhase,
   isForwardListPhaseMove,
   selectivityGauges,
+  selectivityPieSlices,
 } from "./list-phases";
 
 test("currentListPhaseId follows the funnel calendar", () => {
@@ -51,6 +52,57 @@ test("selectivityGauges uses live mix percentages", () => {
   );
   assert.equal(slices[0].percent, 66.7);
   assert.equal(slices[1].count, 1);
+});
+
+test("selectivityPieSlices sizes wedges by ideal mix and fills by actual share", () => {
+  // 10 schools: 2 extremely (20%), 1 very (10%), 4 competitive (40%), 3 less (30%)
+  // Ideal: 10 / 20 / 45 / 25
+  const schools = [
+    ...Array.from({ length: 2 }, () => ({ selectivityTier: "extremely_selective" })),
+    { selectivityTier: "very_selective" },
+    ...Array.from({ length: 4 }, () => ({ selectivityTier: "competitive" })),
+    ...Array.from({ length: 3 }, () => ({ selectivityTier: "less_competitive" })),
+    { selectivityTier: "" },
+  ];
+  const { slices, setCount, unsetCount } = selectivityPieSlices(schools);
+  assert.equal(setCount, 10);
+  assert.equal(unsetCount, 1);
+  assert.equal(slices.length, 4);
+
+  assert.equal(slices[0].idealPercent, 10);
+  assert.equal(slices[0].idealSweep, 36);
+  assert.equal(slices[0].actualPercent, 20);
+  assert.equal(slices[0].overIdeal, true);
+  assert.equal(slices[0].fillSweep, 36); // capped at ideal
+
+  assert.equal(slices[1].idealPercent, 20);
+  assert.equal(slices[1].actualPercent, 10);
+  assert.equal(slices[1].fillSweep, 36); // half of the 72° ideal wedge
+  assert.equal(slices[1].overIdeal, false);
+
+  assert.equal(slices[2].idealPercent, 45);
+  assert.equal(slices[2].actualPercent, 40);
+  assert.ok(Math.abs(slices[2].fillSweep - (40 / 45) * 162) < 0.01);
+
+  assert.equal(slices[3].idealPercent, 25);
+  assert.equal(slices[3].actualPercent, 30);
+  assert.equal(slices[3].overIdeal, true);
+
+  // Wedges start at top (-90) and run clockwise through ideal shares
+  assert.equal(slices[0].startAngle, -90);
+  assert.equal(slices[1].startAngle, -54);
+  assert.equal(slices[2].startAngle, 18);
+  assert.equal(slices[3].startAngle, 180);
+});
+
+test("selectivityPieSlices stays empty when no tiers are set", () => {
+  const { slices, setCount, unsetCount } = selectivityPieSlices([
+    { selectivityTier: "" },
+    { selectivityTier: "" },
+  ]);
+  assert.equal(setCount, 0);
+  assert.equal(unsetCount, 2);
+  assert.ok(slices.every((slice) => slice.count === 0 && slice.fillSweep === 0));
 });
 
 test("normalizeColumns keeps school and falls back to phase defaults", () => {
