@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { CollegeRecord } from "./CollegeRecord";
 import { SchoolMark } from "./SchoolMark";
 import { ListPhaseIcon } from "./ListPhaseIcon";
+import { SelectivityMixPie } from "./SelectivityMixPie";
 import { compareSchools, nextAction, primaryDeadline, type SortKey } from "@/lib/list";
 import {
   LIST_COLUMNS,
@@ -17,7 +18,7 @@ import {
   retreatSchoolPatch,
   phaseCountGauge,
   schoolOnListPhase,
-  selectivityGauges,
+  selectivityPieSlices,
   type ListColumnId,
   type ListPhaseId,
   type MemberListPrefs,
@@ -36,8 +37,6 @@ import {
   type School,
   type SelectivityTier,
 } from "@/lib/types";
-
-const SELECTIVITY_GAUGE_TIERS = SELECTIVITY_TIERS.filter((tier) => tier.id);
 
 export function CollegesTab({
   schools,
@@ -130,11 +129,10 @@ export function CollegesTab({
   );
 
   const countGauge = phaseCountGauge(activeCount, phase);
-  const tierGauges = useMemo(
+  const mixPie = useMemo(
     () =>
-      selectivityGauges(
+      selectivityPieSlices(
         schools.filter((school) => !school.archived && schoolOnListPhase(school, phaseId)),
-        SELECTIVITY_GAUGE_TIERS,
       ),
     [schools, phaseId],
   );
@@ -366,26 +364,15 @@ export function CollegesTab({
         <div className="list-gauge list-gauge-mix">
           <div className="list-gauge-head">
             <span className="label">Selectivity mix</span>
-            <span className="list-gauge-pct">{activeCount ? "of active list" : "no schools yet"}</span>
+            <span className="list-gauge-pct">
+              {mixPie.setCount ? "vs ideal" : activeCount ? "set tiers" : "no schools yet"}
+            </span>
           </div>
-          <div className="selectivity-bars">
-            {tierGauges.map((slice) => (
-              <div key={slice.id} className="selectivity-bar">
-                <div className="selectivity-bar-meta">
-                  <span>{slice.label}</span>
-                  <span>
-                    {slice.count} · {slice.percent}%
-                  </span>
-                </div>
-                <div className="list-gauge-track" aria-hidden="true">
-                  <span
-                    className={`list-gauge-fill tier-${slice.id}`}
-                    style={{ width: `${Math.min(slice.percent, 100)}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+          <SelectivityMixPie
+            slices={mixPie.slices}
+            setCount={mixPie.setCount}
+            unsetCount={mixPie.unsetCount}
+          />
         </div>
       </div>
 
