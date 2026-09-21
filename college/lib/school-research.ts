@@ -16,6 +16,7 @@ export type FoundFacts = {
   requiredEssays: string;
   teacherRecs: string;
   costOfAttendance: string;
+  netPriceEstimate: string;
   meritAidNotes: string;
   website: string;
   deadlines: DeadlineFact[];
@@ -58,6 +59,8 @@ export type ScorecardRow = {
   "latest.cost.roomboard.oncampus"?: number | null;
   "latest.cost.booksupply"?: number | null;
   "latest.cost.otherexpense.oncampus"?: number | null;
+  "latest.cost.avg_net_price.public"?: number | null;
+  "latest.cost.avg_net_price.private"?: number | null;
 };
 
 const STOP = new Set(["of", "the", "at", "and", "for", "main", "campus"]);
@@ -77,6 +80,7 @@ export function emptyFacts(): FoundFacts {
     requiredEssays: "",
     teacherRecs: "",
     costOfAttendance: "",
+    netPriceEstimate: "",
     meritAidNotes: "",
     website: "",
     deadlines: [],
@@ -191,6 +195,25 @@ function httpsUrl(raw: string | null | undefined): string {
   return `https://${trimmed.replace(/^\/+/, "")}`;
 }
 
+function netPriceLine(row: ScorecardRow): string {
+  const ownership = row["school.ownership"];
+  const publicNet = row["latest.cost.avg_net_price.public"];
+  const privateNet = row["latest.cost.avg_net_price.private"];
+  const amount =
+    ownership === 1
+      ? typeof publicNet === "number"
+        ? publicNet
+        : null
+      : typeof privateNet === "number"
+        ? privateNet
+        : typeof publicNet === "number"
+          ? publicNet
+          : null;
+  if (amount == null || !Number.isFinite(amount) || amount <= 0) return "";
+  const audience = ownership === 1 ? "in-state students receiving federal aid" : "students receiving federal aid";
+  return `${money(amount)} average net price for ${audience} (College Scorecard)`;
+}
+
 function satLine(row: ScorecardRow): string {
   const readLow = row["latest.admissions.sat_scores.25th_percentile.critical_reading"];
   const readHigh = row["latest.admissions.sat_scores.75th_percentile.critical_reading"];
@@ -218,6 +241,7 @@ export function mapScorecard(row: ScorecardRow): FoundFacts {
   facts.middle50 = facts.satContext;
   facts.testPolicy = testPolicyLabel(row["latest.admissions.test_requirements"]);
   facts.costOfAttendance = stickerPrice(row);
+  facts.netPriceEstimate = netPriceLine(row);
   const site = httpsUrl(row["school.school_url"]);
   facts.website = site;
   if (site) facts.sources.push({ title: row["school.name"], url: site });
@@ -368,6 +392,8 @@ export function lookupSummary(input: {
   if (input.facts.satContext || input.facts.middle50) scorecardBits.push("SAT range");
   if (input.facts.testPolicy) scorecardBits.push("test policy");
   if (input.facts.costOfAttendance) scorecardBits.push("sticker price");
+  if (input.facts.netPriceEstimate) scorecardBits.push("net price");
+  if (input.facts.website) scorecardBits.push("website");
 
   const searchBits: string[] = [];
   if (input.facts.applicationPlatform) searchBits.push("application platform");

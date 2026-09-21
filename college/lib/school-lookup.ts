@@ -1,38 +1,13 @@
 import {
   formatSources,
   lookupSummary,
-  mapScorecard,
   mergeFacts,
   parseSearchJson,
-  pickScorecardMatch,
   type FoundFacts,
-  type ScorecardRow,
   type SearchFacts,
   type SourceLink,
 } from "./school-research";
-
-const SCORECARD_FIELDS = [
-  "id",
-  "school.name",
-  "school.city",
-  "school.state",
-  "school.locale",
-  "school.school_url",
-  "school.ownership",
-  "latest.student.size",
-  "latest.admissions.admission_rate.overall",
-  "latest.admissions.test_requirements",
-  "latest.admissions.sat_scores.25th_percentile.critical_reading",
-  "latest.admissions.sat_scores.75th_percentile.critical_reading",
-  "latest.admissions.sat_scores.25th_percentile.math",
-  "latest.admissions.sat_scores.75th_percentile.math",
-  "latest.cost.attendance.academic_year",
-  "latest.cost.tuition.in_state",
-  "latest.cost.tuition.out_of_state",
-  "latest.cost.roomboard.oncampus",
-  "latest.cost.booksupply",
-  "latest.cost.otherexpense.oncampus",
-].join(",");
+import { queryCollegeScorecard } from "./college-scorecard";
 
 export type LookupResult = {
   facts: FoundFacts;
@@ -50,21 +25,6 @@ function webSearchAvailable(): boolean {
       process.env.VERCEL_OIDC_TOKEN?.trim() ||
       process.env.VERCEL,
   );
-}
-
-async function scorecardRows(name: string): Promise<ScorecardRow[]> {
-  const key = process.env.COLLEGE_SCORECARD_API_KEY?.trim() || "DEMO_KEY";
-  const url = new URL("https://api.data.gov/ed/collegescorecard/v1/schools.json");
-  url.searchParams.set("api_key", key);
-  url.searchParams.set("school.name", name);
-  url.searchParams.set("school.operating", "1");
-  url.searchParams.set("school.main_campus", "1");
-  url.searchParams.set("per_page", "20");
-  url.searchParams.set("fields", SCORECARD_FIELDS);
-  const response = await fetch(url, { signal: AbortSignal.timeout(8000) });
-  if (!response.ok) throw new Error(`College Scorecard returned ${response.status}`);
-  const body = (await response.json()) as { results?: ScorecardRow[] };
-  return body.results ?? [];
 }
 
 function collectSources(result: {
@@ -92,7 +52,10 @@ function collectSources(result: {
   return out;
 }
 
-async function searchWeb(name: string, today: string): Promise<{ facts: SearchFacts | null; sources: SourceLink[]; status: "filled" | "empty" | "skipped" | "failed" }> {
+async function searchWeb(
+  name: string,
+  today: string,
+): Promise<{ facts: SearchFacts | null; sources: SourceLink[]; status: "filled" | "empty" | "skipped" | "failed" }> {
   if (!webSearchAvailable()) return { facts: null, sources: [], status: "skipped" };
   try {
     const { generateText, stepCountIs } = await import("ai");
@@ -141,39 +104,32 @@ Do not include SAT scores, admit rates, or prices. Do not choose a plan for the 
 
 export async function lookupSchool(name: string): Promise<LookupResult> {
   const today = todayIso();
-  let scorecard: FoundFacts | null = null;
-  let scorecardStatus: "hit" | "miss" | "failed" = "miss";
-  try {
-    const rows = await scorecardRows(name);
-    const match = pickScorecardMatch(name, rows);
-    if (match) {
-      scorecard = mapScorecard(match);
-      scorecardStatus = "hit";
-    }
-  } catch (error) {
-    console.error("College Scorecard lookup failed", error);
-    scorecardStatus = "failed";
-  }
+  let scorecard = await queryCollegeScorecard(name);
 
   const search = await searchWeb(name, today);
-  if (!scorecard && search.facts?.officialName && search.facts.officialName.toLowerCase() !== name.toLowerCase()) {
-    try {
-      const rows = await scorecardRows(search.facts.officialName);
-      const match = pickScorecardMatch(search.facts.officialName, rows);
-      if (match) {
-        scorecard = mapScorecard(match);
-        scorecardStatus = "hit";
-      }
-    } catch (error) {
-      console.error("College Scorecard retry failed", error);
-      if (scorecardStatus !== "hit") scorecardStatus = "failed";
-    }
+  if (
+    scorecard.status !== "hit" &&
+    search.facts?.officialName &&
+    search.facts.officialName.toLowerCase() !== name.toLowerCase()
+  ) {
+    const retry = await queryCollegeScorecard(search.facts.officialName);
+    if (retry.status === "hit") scorecard = retry;
+    else if (scorecard.status !== "failed") scorecard = retry;
   }
 
-  const facts = mergeFacts(scorecard, search.status === "filled" ? search.facts : null, search.sources);
+  const facts = mergeFacts(
+    scorecard.status === "hit" ? scorecard.facts : null,
+    search.status === "filled" ? search.facts : null,
+    search.sources,
+  );
   return {
     facts,
     sourcesText: formatSources(facts.sources),
-    summary: lookupSummary({ name, facts, scorecard: scorecardStatus, search: search.status }),
+    summary: lookupSummary({
+      name,
+      facts,
+      scorecard: scorecard.status,
+      search: search.status,
+    }),
   };
 }

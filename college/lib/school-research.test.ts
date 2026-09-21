@@ -26,6 +26,7 @@ const mit: ScorecardRow = {
   "latest.admissions.sat_scores.25th_percentile.math": 780,
   "latest.admissions.sat_scores.75th_percentile.math": 800,
   "latest.cost.attendance.academic_year": 82730,
+  "latest.cost.avg_net_price.private": 19840,
 };
 
 test("scorecard match prefers Georgia Tech over technical colleges", () => {
@@ -46,6 +47,7 @@ test("scorecard facts use published numbers and do not set a selectivity tier", 
   assert.equal(facts.middle50, facts.satContext);
   assert.equal(facts.testPolicy, "Test required");
   assert.match(facts.costOfAttendance, /\$82,730/);
+  assert.match(facts.netPriceEstimate, /\$19,840/);
   assert.equal(facts.website, "https://web.mit.edu/");
   assert.equal(facts.sources[0]?.url, "https://web.mit.edu/");
   assert.match(facts.sources[1]?.url ?? "", /166683/);

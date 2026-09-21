@@ -347,9 +347,15 @@ export async function updateSchool(id: string, patch: Record<string, unknown>): 
   return mapSchool(data as SchoolRow);
 }
 
-export async function applySchoolFacts(id: string, facts: FoundFacts): Promise<School> {
+export async function applySchoolFacts(
+  id: string,
+  facts: FoundFacts,
+  options?: { onlyBlank?: boolean },
+): Promise<School> {
+  const onlyBlank = Boolean(options?.onlyBlank);
+  const current = onlyBlank ? await getSchool(id) : null;
   const patch: Record<string, string> = {};
-  const fields: [keyof FoundFacts, string][] = [
+  const fields: [keyof FoundFacts, keyof School][] = [
     ["location", "location"],
     ["campusSize", "campusSize"],
     ["mechanicalEngineering", "mechanicalEngineering"],
@@ -363,18 +369,28 @@ export async function applySchoolFacts(id: string, facts: FoundFacts): Promise<S
     ["requiredEssays", "requiredEssays"],
     ["teacherRecs", "teacherRecs"],
     ["costOfAttendance", "costOfAttendance"],
+    ["netPriceEstimate", "netPriceEstimate"],
     ["meritAidNotes", "meritAidNotes"],
     ["website", "website"],
   ];
-  for (const [key, patchKey] of fields) {
-    const value = facts[key];
-    if (typeof value === "string" && value) patch[patchKey] = value;
+  for (const [factKey, schoolKey] of fields) {
+    const value = facts[factKey];
+    if (typeof value !== "string" || !value) continue;
+    if (onlyBlank && current) {
+      const existing = current[schoolKey];
+      if (typeof existing === "string" && existing.trim()) continue;
+    }
+    patch[schoolKey] = value;
   }
   const sources = formatSources(facts.sources);
-  if (sources) patch.researchSources = sources;
-  let school = await updateSchool(id, patch);
-  for (const deadline of facts.deadlines) {
-    school = await addDeadline(id, deadline.title, deadline.dueDate);
+  if (sources && (!onlyBlank || !current?.researchSources?.trim())) {
+    patch.researchSources = sources;
+  }
+  let school = Object.keys(patch).length ? await updateSchool(id, patch) : current ?? (await getSchool(id));
+  if (!onlyBlank) {
+    for (const deadline of facts.deadlines) {
+      school = await addDeadline(id, deadline.title, deadline.dueDate);
+    }
   }
   return school;
 }
