@@ -62,6 +62,17 @@ test("selectivity tier only uses the admissions lines that fit", () => {
   assert.equal(selectivityTierFromContext("Selective"), "");
 });
 
+test("pathwayFromContext strips tier prefixes for the snapshot card", async () => {
+  const { pathwayFromContext } = await import("./types");
+  assert.equal(
+    pathwayFromContext("Competitive direct-to-engineering pathway"),
+    "Direct-to-engineering",
+  );
+  assert.equal(pathwayFromContext("Extremely selective"), "");
+  assert.equal(pathwayFromContext(""), "");
+  assert.equal(pathwayFromContext("Engineering entry pathway"), "Engineering entry");
+});
+
 test("next action is the earliest unfinished deadline", () => {
   const school: School = {
     ...fromSeed(file.schools[0]),

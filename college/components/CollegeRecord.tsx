@@ -8,10 +8,7 @@ import {
   OWNERS,
   SELECTIVITY_TIERS,
   STEP_PRESETS,
-  formatDate,
   ownerLabel,
-  statusLabel,
-  trackLabel,
   type ContactPatch,
   type DeadlinePatch,
   type Owner,
@@ -22,6 +19,7 @@ import { sourceLines } from "@/lib/school-research";
 import { fetchSchoolPhotoUrl, websiteHostLabel, websiteHref } from "@/lib/school-photo";
 import { SchoolMark } from "./SchoolMark";
 import { SchoolSnapshotViz } from "./SchoolSnapshotViz";
+import { SchoolSnapshotSummary } from "./SchoolSnapshotSummary";
 
 type SchoolModalTab = "snapshot" | "settings" | "requirements" | "financials" | "projects";
 
@@ -56,60 +54,6 @@ function BlurInput({
       }}
     />
   );
-}
-
-function Fact({
-  label,
-  value,
-  emphasize,
-}: {
-  label: string;
-  value: string;
-  emphasize?: "accent" | "mono" | "default";
-}) {
-  const trimmed = value.trim();
-  const yes = /^yes$/i.test(trimmed);
-  const no = /^no$/i.test(trimmed);
-  const empty = !trimmed;
-  const tone = emphasize ?? (looksLikeDatum(trimmed) ? "mono" : "default");
-
-  return (
-    <div className={`fact${yes ? " fact-yes" : ""}${no ? " fact-no" : ""}${empty ? " fact-empty" : ""}`}>
-      <div className="label">{label}</div>
-      {yes ? (
-        <p className="fact-value fact-check" aria-label="Yes">
-          <span className="fact-check-icon" aria-hidden="true">
-            <svg viewBox="0 0 20 20" width="22" height="22" fill="none">
-              <circle cx="10" cy="10" r="9" stroke="currentColor" strokeWidth="1.6" />
-              <path
-                d="M5.8 10.2 8.6 13l5.6-6.2"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </span>
-        </p>
-      ) : no ? (
-        <p className="fact-value fact-cross" aria-label="No">
-          <span className="fact-cross-icon" aria-hidden="true">
-            <svg viewBox="0 0 20 20" width="20" height="20" fill="none">
-              <circle cx="10" cy="10" r="8.5" stroke="currentColor" strokeWidth="1.4" />
-              <path d="M7 7l6 6M13 7l-6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-          </span>
-        </p>
-      ) : (
-        <p className={`fact-value fact-tone-${tone}`}>{empty ? "—" : trimmed}</p>
-      )}
-    </div>
-  );
-}
-
-function looksLikeDatum(value: string): boolean {
-  if (!value) return false;
-  return /[$€£]|^\d|%|\b\d{3,4}\b/.test(value);
 }
 
 export function CollegeRecord({
@@ -220,19 +164,6 @@ export function CollegeRecord({
   const showPhoto = Boolean(photoUrl) && !photoFailed;
   const nextOpenDeadline = deadlines.find((item) => !item.completed && item.dueDate) ?? null;
 
-  const overviewFacts: { label: string; value: string; emphasize?: "accent" | "mono" | "default" }[] = [
-    { label: "Campus / size", value: school.campusSize },
-    { label: "Test policy", value: school.testPolicy },
-    { label: "Middle 50%", value: school.middle50, emphasize: "mono" },
-    { label: "Mechanical Engineering", value: school.mechanicalEngineering },
-    { label: "Material Sciences", value: school.materials },
-    { label: "Material sciences offering", value: school.materialsOffering },
-    { label: "Application platform", value: school.applicationPlatform },
-    { label: "Teacher recommendations", value: school.teacherRecs, emphasize: "mono" },
-    { label: "Sticker price", value: school.costOfAttendance, emphasize: "mono" },
-    { label: "Net price estimate", value: school.netPriceEstimate, emphasize: "mono" },
-  ];
-
   return (
     <div className="school-modal-root">
       <button type="button" className="school-modal-backdrop" aria-label="Close school" onClick={onBack} />
@@ -301,57 +232,15 @@ export function CollegeRecord({
                 </p>
               </div>
               <SchoolSnapshotViz location={school.location} selectivityTier={school.selectivityTier} />
-              <div className="fact-grid school-overview-facts">
-                {overviewFacts.map((fact) => (
-                  <Fact key={fact.label} label={fact.label} value={fact.value} emphasize={fact.emphasize} />
-                ))}
-              </div>
-              {school.admissionsContext || school.satContext || school.requiredEssays || school.meritAidNotes ? (
-                <div className="school-overview-prose">
-                  {school.admissionsContext ? (
-                    <div className="fact fact-wide">
-                      <div className="label">Admissions context</div>
-                      <p className="fact-value">{school.admissionsContext}</p>
-                    </div>
-                  ) : null}
-                  {school.satContext ? (
-                    <div className="fact fact-wide">
-                      <div className="label">SAT context</div>
-                      <p className="fact-value fact-tone-mono">{school.satContext}</p>
-                    </div>
-                  ) : null}
-                  {school.requiredEssays ? (
-                    <div className="fact fact-wide">
-                      <div className="label">Required essays</div>
-                      <p className="fact-value">{school.requiredEssays}</p>
-                    </div>
-                  ) : null}
-                  {school.meritAidNotes ? (
-                    <div className="fact fact-wide">
-                      <div className="label">Merit aid</div>
-                      <p className="fact-value">{school.meritAidNotes}</p>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-              <div className="school-overview-status">
-                <Fact
-                  label="Interest"
-                  value={INTEREST_LEVELS.find((item) => item.id === school.interestLevel)?.label ?? ""}
-                  emphasize="accent"
-                />
-                <Fact label="Application status" value={statusLabel(school.applicationStatus)} emphasize="accent" />
-                <Fact label="Admission track" value={trackLabel(school.admissionTrack)} />
-                <Fact
-                  label="Next deadline"
-                  value={
-                    nextOpenDeadline
-                      ? `${nextOpenDeadline.title} · ${formatDate(nextOpenDeadline.dueDate)}`
-                      : ""
-                  }
-                  emphasize="mono"
-                />
-              </div>
+              <SchoolSnapshotSummary
+                school={school}
+                nextDeadline={
+                  nextOpenDeadline?.dueDate
+                    ? { title: nextOpenDeadline.title, dueDate: nextOpenDeadline.dueDate }
+                    : null
+                }
+                onSetStand={() => setTab("settings")}
+              />
             </section>
           ) : null}
 

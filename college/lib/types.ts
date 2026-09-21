@@ -325,6 +325,21 @@ export function selectivityTierFromContext(context: string): SelectivityTier {
   return "";
 }
 
+/** Short pathway line for the snapshot card, stripped of tier prefixes. */
+export function pathwayFromContext(context: string): string {
+  const trimmed = context.trim();
+  if (!trimmed) return "";
+  if (/^(extremely selective|very selective|competitive|less competitive)$/i.test(trimmed)) {
+    return "";
+  }
+  const cleaned = trimmed
+    .replace(/^(extremely selective|very selective|competitive|less competitive)\s+/i, "")
+    .replace(/\s+pathway$/i, "")
+    .trim();
+  if (!cleaned) return "";
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
 export function isChoice(value: string): value is Choice {
   return CHOICES.some((c) => c.id === value);
 }
