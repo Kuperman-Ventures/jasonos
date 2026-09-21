@@ -1049,14 +1049,44 @@ export async function syncOutreachFromOutlook(opts?: {
   await applyEmailEnrichments(enrich);
   revalidatePaths();
 
-  const warnings = fetched.warnings;
-  if (warnings.length && !insertResult.inserted && touches.length === 0 && fetched.messages.length === 0) {
+  const softWarnings = fetched.warnings;
+  const hardErrors = insertResult.errors;
+  const issues = [...hardErrors, ...softWarnings];
+
+  if (softWarnings.length && !insertResult.inserted && touches.length === 0 && fetched.messages.length === 0) {
     await log({
       ok: false,
       accountEmail: account.accountEmail,
-      errors: warnings,
+      error: softWarnings.join(" · "),
+      errors: softWarnings,
     });
-    return errorResult("outlook", warnings.join(" · "));
+    return errorResult("outlook", softWarnings.join(" · "));
+  }
+
+  if (hardErrors.length && !insertResult.inserted) {
+    const message = issues.join(" · ");
+    await log({
+      ok: false,
+      accountEmail: account.accountEmail,
+      matched: touches.length,
+      inserted: 0,
+      duplicates: insertResult.duplicates,
+      cadenceUpdates: insertResult.cadenceUpdates,
+      skipped,
+      candidatesStaged: staged.created,
+      unmatchedNames: staged.newNames,
+      messageCount: fetched.messages.length,
+      error: message,
+      errors: hardErrors,
+      warnings: softWarnings,
+    });
+    return {
+      ...errorResult("outlook", message),
+      matched: touches.length,
+      skipped,
+      candidatesStaged: staged.created,
+      warnings: issues,
+    };
   }
 
   const result = okResult(
@@ -1065,7 +1095,7 @@ export async function syncOutreachFromOutlook(opts?: {
     touches.length,
     skipped,
     staged.created,
-    warnings
+    softWarnings
   );
   await log({
     ok: result.ok,
@@ -1078,7 +1108,13 @@ export async function syncOutreachFromOutlook(opts?: {
     candidatesStaged: staged.created,
     unmatchedNames: staged.newNames,
     messageCount: fetched.messages.length,
-    errors: [...insertResult.errors, ...warnings],
+    ...(issues.length
+      ? {
+          error: issues.join(" · "),
+          warnings: softWarnings,
+          errors: hardErrors,
+        }
+      : {}),
   });
   return result;
 }

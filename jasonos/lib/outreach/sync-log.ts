@@ -2,6 +2,12 @@ import "server-only";
 
 import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import {
+  formatSyncSummary,
+  isOkPayload,
+  isUnavailablePayload,
+  payloadIssueText,
+} from "@/lib/outreach/sync-log-format";
 
 export type SyncLogSource =
   | "gmail"
@@ -75,86 +81,7 @@ function str(payload: Record<string, unknown>, key: string): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function isUnavailable(payload: Record<string, unknown>): boolean {
-  return payload.unavailable === true;
-}
-
-function isOk(payload: Record<string, unknown>): boolean {
-  if (isUnavailable(payload)) return true;
-  if (payload.ok === false) return false;
-  const error = str(payload, "error");
-  if (error && payload.ok !== true && !("inserted" in payload) && !("created" in payload) && !("matched" in payload)) {
-    return false;
-  }
-  return true;
-}
-
-function namesClip(payload: Record<string, unknown>, limit = 4): string | null {
-  const raw = payload.unmatchedNames;
-  if (!Array.isArray(raw) || !raw.length) return null;
-  const names = raw
-    .filter((n): n is string => typeof n === "string" && n.trim().length > 0)
-    .map((n) => n.trim());
-  if (!names.length) return null;
-  const shown = names.slice(0, limit);
-  const extra = names.length - shown.length;
-  return extra > 0 ? `${shown.join(", ")}, +${extra} more` : shown.join(", ");
-}
-
-function suggestedClip(payload: Record<string, unknown>): string | null {
-  const staged = num(payload, "candidatesStaged") || num(payload, "created");
-  const names = namesClip(payload);
-  if (staged <= 0 && !names) return null;
-  const count = staged || (Array.isArray(payload.unmatchedNames) ? payload.unmatchedNames.length : 0);
-  return names ? `+${count} to Suggested (${names})` : `+${count} to Suggested`;
-}
-
-/** One-line description of a sync payload for the log list. */
-export function formatSyncSummary(
-  source: string,
-  payload: Record<string, unknown>
-): string {
-  const error = str(payload, "error");
-  if (isUnavailable(payload)) {
-    return error ?? "skipped";
-  }
-  if (!isOk(payload)) {
-    return error ? `failed: ${error}` : "failed";
-  }
-
-  if (source === "suggested") {
-    const created = num(payload, "created");
-    const updated = num(payload, "updated");
-    const scanned = num(payload, "scanned");
-    const skipped = num(payload, "skipped");
-    const names = namesClip(payload);
-    const parts: string[] = [];
-    if (created || names) {
-      parts.push(names ? `+${created} new (${names})` : `+${created} new`);
-    } else {
-      parts.push("+0 new");
-    }
-    if (updated) parts.push(`${updated} updated`);
-    if (scanned) parts.push(`${scanned} scanned`);
-    if (skipped) parts.push(`${skipped} skipped`);
-    return parts.join(" · ");
-  }
-
-  const inserted = num(payload, "inserted");
-  const duplicates = num(payload, "duplicates");
-  const cadence = num(payload, "cadenceUpdates");
-  const meetingsInserted = num(payload, "meetingsInserted");
-  const meetingsUpdated = num(payload, "meetingsUpdated");
-  const parts = [`${inserted > 0 ? "+" : ""}${inserted} new`];
-  if (duplicates) parts.push(`${duplicates} already captured`);
-  if (cadence) parts.push(`advanced ${cadence}`);
-  if (meetingsInserted) parts.push(`+${meetingsInserted} meetings`);
-  else if (meetingsUpdated) parts.push(`${meetingsUpdated} meetings updated`);
-  const staged = suggestedClip(payload);
-  if (staged) parts.push(staged);
-  if (error) parts.push(error);
-  return parts.join(" · ");
-}
+export { formatSyncSummary } from "@/lib/outreach/sync-log-format";
 
 export function syncLogSourceTitle(
   source: string,
@@ -254,15 +181,15 @@ export async function appendSyncLog(
     const { error } = await client.from("sync_log").insert({
       ran_at: new Date().toISOString(),
       source,
-      ok: isOk(payload),
-      unavailable: isUnavailable(payload),
+      ok: isOkPayload(payload),
+      unavailable: isUnavailablePayload(payload),
       inserted,
       matched: num(payload, "matched"),
       duplicates: num(payload, "duplicates"),
       cadence_updates: num(payload, "cadenceUpdates"),
       skipped: num(payload, "skipped"),
       summary: formatSyncSummary(source, payload),
-      error: str(payload, "error"),
+      error: payloadIssueText(payload),
       result: payload,
       run_id: runId ?? null,
     });
@@ -295,14 +222,25 @@ export async function getSyncLog(limit = 500): Promise<SyncLogEntry[]> {
     }
     return (data ?? []).map((row) => {
       const result = asRecord(row.result);
-      const summary =
-        (typeof row.summary === "string" && row.summary.trim()) ||
-        formatSyncSummary(String(row.source ?? ""), result);
+      // Prefer a freshly formatted summary so older rows that only stored
+      // issues in `errors[]` still show the warning/failure text.
+      const summary = formatSyncSummary(String(row.source ?? ""), {
+        ...result,
+        ok: row.ok,
+        unavailable: row.unavailable,
+        error: row.error ?? result.error,
+      });
+      const ok = isOkPayload({
+        ...result,
+        ok: row.ok,
+        unavailable: row.unavailable,
+        error: row.error ?? result.error,
+      });
       return {
         id: String(row.id),
         ran_at: String(row.ran_at),
         source: String(row.source ?? ""),
-        ok: row.ok === true,
+        ok,
         unavailable: row.unavailable === true,
         inserted: Number(row.inserted) || 0,
         matched: Number(row.matched) || 0,
@@ -310,7 +248,7 @@ export async function getSyncLog(limit = 500): Promise<SyncLogEntry[]> {
         cadence_updates: Number(row.cadence_updates) || 0,
         skipped: Number(row.skipped) || 0,
         summary,
-        error: (row.error as string | null) ?? null,
+        error: (row.error as string | null) ?? payloadIssueText(result),
         result,
         run_id: (row.run_id as string | null) ?? null,
       };
