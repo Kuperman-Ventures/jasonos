@@ -133,25 +133,57 @@ function TaskRow({
           ) : null}
         </p>
         <div className="todo-assign-row">
-          <label className="todo-edit-field todo-assign-field">
-            <span className="label">Assigned to</span>
-            <select
-              className="field"
-              aria-label={`Assign ${todo.label}`}
-              value={todo.owner ?? ""}
-              onChange={(event) => {
-                const value = event.target.value;
-                onAssign(value === "" ? null : (value as Owner));
-              }}
+          <div className="todo-assign-field">
+            <span className="label" id={`assign-label-${todo.id}`}>
+              Assigned to
+            </span>
+            <div
+              className="todo-assign-picker"
+              role="radiogroup"
+              aria-labelledby={`assign-label-${todo.id}`}
             >
-              <option value="">Unclaimed</option>
-              {OWNERS.map((owner) => (
-                <option key={owner.id} value={owner.id}>
-                  {owner.label}
-                </option>
-              ))}
-            </select>
-          </label>
+              <button
+                type="button"
+                role="radio"
+                className={`todo-assign-choice${!todo.owner ? " is-selected" : ""}`}
+                aria-checked={!todo.owner}
+                aria-label="Unclaimed"
+                onClick={() => onAssign(null)}
+              >
+                <span className="todo-assign-avatar todo-assign-unclaimed" aria-hidden="true">
+                  <span className="todo-assign-unclaimed-mark">?</span>
+                </span>
+                <span className="todo-assign-choice-name">Unclaimed</span>
+              </button>
+              {OWNERS.map((owner) => {
+                const profile = profiles.get(owner.id);
+                const selected = todo.owner === owner.id;
+                return (
+                  <button
+                    key={owner.id}
+                    type="button"
+                    role="radio"
+                    className={`todo-assign-choice${selected ? " is-selected" : ""}`}
+                    aria-checked={selected}
+                    aria-label={profile?.displayName ?? owner.label}
+                    onClick={() => onAssign(owner.id)}
+                  >
+                    <span className="todo-assign-avatar" aria-hidden="true">
+                      <MemberBadge
+                        name={profile?.displayName ?? owner.label}
+                        avatarUrl={profile?.avatarUrl}
+                        size="md"
+                        showName={false}
+                      />
+                    </span>
+                    <span className="todo-assign-choice-name">
+                      {profile?.displayName ?? owner.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           {todo.owner !== viewer ? (
             <button type="button" className="btn btn-secondary todo-claim-btn" onClick={() => onAssign(viewer)}>
               Claim for me

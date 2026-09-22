@@ -2861,16 +2861,135 @@ table.schools .muted,
   display: flex;
   flex-wrap: wrap;
   align-items: end;
-  gap: var(--space-3);
+  gap: var(--space-4);
   margin-bottom: var(--space-4);
-  max-width: 640px;
+  max-width: 720px;
 }
 .todos-panel .todo-assign-field {
-  flex: 1 1 180px;
-  min-width: 160px;
+  flex: 1 1 280px;
+  min-width: 220px;
+  display: grid;
+  gap: var(--space-2);
+}
+.todos-panel .todo-assign-field > .label {
+  margin: 0;
+}
+.todos-panel .todo-assign-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-3);
+}
+.todos-panel .todo-assign-choice {
+  all: unset;
+  box-sizing: border-box;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: 76px;
+  cursor: pointer;
+  color: var(--text-subtle);
+  transition:
+    color 140ms ease,
+    transform 140ms ease;
+}
+.todos-panel .todo-assign-choice:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+  border-radius: 10px;
+}
+.todos-panel .todo-assign-avatar {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  transition:
+    width 160ms ease,
+    height 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    filter 160ms ease,
+    opacity 160ms ease;
+  opacity: 0.42;
+  filter: grayscale(0.55) contrast(0.92);
+}
+.todos-panel .todo-assign-avatar .member-badge,
+.todos-panel .todo-assign-avatar .member-badge-avatar {
+  width: 100%;
+  height: 100%;
+}
+.todos-panel .todo-assign-avatar .member-badge-md .member-badge-avatar {
+  width: 100%;
+  height: 100%;
+  font-size: 12px;
+}
+.todos-panel .todo-assign-unclaimed {
+  border: 1.5px dashed color-mix(in srgb, var(--color-neutral-700) 55%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 80%, var(--color-neutral-200));
+  color: var(--text-subtle);
+}
+.todos-panel .todo-assign-unclaimed-mark {
+  font-family: var(--font-heading);
+  font-size: 17px;
+  font-weight: 650;
+  line-height: 1;
+}
+.todos-panel .todo-assign-choice-name {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.7;
+}
+.todos-panel .todo-assign-choice.is-selected {
+  color: var(--color-text);
+  transform: translateY(-3px);
+}
+.todos-panel .todo-assign-choice.is-selected .todo-assign-avatar {
+  width: 58px;
+  height: 58px;
+  opacity: 1;
+  filter: none;
+  box-shadow:
+    0 0 0 3px var(--color-bg, #fff),
+    0 0 0 6px var(--color-accent),
+    0 8px 18px color-mix(in srgb, var(--color-accent) 28%, transparent);
+}
+.todos-panel .todo-assign-choice.is-selected .todo-assign-avatar .member-badge-md .member-badge-avatar {
+  font-size: 15px;
+}
+.todos-panel .todo-assign-choice.is-selected .todo-assign-unclaimed {
+  border-style: solid;
+  border-width: 2px;
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface));
+  color: var(--color-accent);
+}
+.todos-panel .todo-assign-choice.is-selected .todo-assign-choice-name {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  opacity: 1;
+  color: var(--color-accent);
+}
+.todos-panel .todo-assign-choice:not(.is-selected):hover .todo-assign-avatar {
+  opacity: 0.78;
+  filter: grayscale(0.15);
+  transform: scale(1.06);
+}
+.todos-panel .todo-assign-choice:not(.is-selected):hover .todo-assign-choice-name {
+  opacity: 0.95;
+  color: var(--color-text);
 }
 .todos-panel .todo-claim-btn {
   min-height: 40px;
+  align-self: center;
 }
 .todos-panel .list-count {
   font-family: var(--font-heading);
