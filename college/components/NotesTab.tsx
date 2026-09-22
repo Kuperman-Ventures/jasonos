@@ -11,11 +11,14 @@ import {
   markPinReviewed,
   noteFilterStorageKey,
   ownerAvatarGround,
+  removePinNote,
   reviewInstruction,
   shortPinDate,
+  updatePinNote,
   waitingOnViewer,
   type NoteBoardFilter,
   type PinNote,
+  type PinNoteEdit,
 } from "@/lib/note-board";
 import { memberOwnerId } from "@/lib/project-todos";
 import { ownerLabel, type Owner } from "@/lib/types";
@@ -276,6 +279,8 @@ function NoteDetail({
   onMarkReviewed,
   onMakeTodo,
   onMakeCalendar,
+  onSave,
+  onDelete,
   previewLoading,
   calendarBusy,
 }: {
@@ -286,6 +291,8 @@ function NoteDetail({
   onMarkReviewed: () => void;
   onMakeTodo: () => void;
   onMakeCalendar: () => void;
+  onSave: (patch: PinNoteEdit) => void;
+  onDelete: () => void;
   previewLoading?: boolean;
   calendarBusy?: boolean;
 }) {
@@ -296,6 +303,35 @@ function NoteDetail({
     item.kind === "website"
       ? decodeHtmlEntities(item.previewSummary?.trim() || item.body?.trim() || "")
       : decodeHtmlEntities(item.body?.trim() || "");
+  const [editing, setEditing] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(item.title);
+  const [bodyDraft, setBodyDraft] = useState(
+    item.kind === "website" ? item.previewSummary || item.body : item.body,
+  );
+  const [urlDraft, setUrlDraft] = useState(item.url ?? "");
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  useEffect(() => {
+    setEditing(false);
+    setConfirmDelete(false);
+    setTitleDraft(item.title);
+    setBodyDraft(item.kind === "website" ? item.previewSummary || item.body : item.body);
+    setUrlDraft(item.url ?? "");
+  }, [item.id, item.title, item.body, item.previewSummary, item.url, item.kind]);
+
+  function saveEdit() {
+    const patch: PinNoteEdit = {
+      title: titleDraft,
+      body: bodyDraft,
+      url: urlDraft.trim() || null,
+    };
+    if (item.kind === "website") {
+      patch.previewSummary = bodyDraft;
+      patch.body = bodyDraft;
+    }
+    onSave(patch);
+    setEditing(false);
+  }
 
   return (
     <section className="board note-detail">
@@ -307,62 +343,141 @@ function NoteDetail({
         <DetailMedia item={item} />
         <div className="note-detail-main">
           <span className="pin-kind">{kindLabel(item.kind)}</span>
-          <h1 className="note-detail-title">{item.title}</h1>
-          <div className="pin-meta">
-            <MemberBadge
-              name={uploaderName}
-              avatarUrl={uploader?.avatarUrl}
-              prefix="Added by"
-              size="sm"
-            />
-            <span className="pin-date">{shortPinDate(item.createdAt)}</span>
-          </div>
-          {item.url ? (
-            <p className="note-detail-link">
-              <a href={item.url} target="_blank" rel="noreferrer">
-                {item.host ?? item.url}
-              </a>
-            </p>
-          ) : null}
-          {item.assetUrl && !isImageAsset(item) && !isPdfAsset(item) ? (
-            <p className="note-detail-link">
-              <a href={item.assetUrl} target="_blank" rel="noreferrer">
-                Open file
-              </a>
-            </p>
-          ) : null}
-          {item.kind === "website" && previewLoading && !item.previewImageUrl && !summary ? (
-            <p className="note-detail-preview-status">Loading link preview…</p>
-          ) : null}
-          {summary ? <div className="note-detail-body">{summary}</div> : null}
-          <div className="note-detail-actions">
-            {item.url ? (
-              <a
-                className="btn btn-primary"
-                href={item.url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open link in new tab
-              </a>
-            ) : null}
-            {forReview ? (
-              <button type="button" className="btn btn-secondary" onClick={onMarkReviewed}>
-                Mark reviewed
-              </button>
-            ) : null}
-            <button type="button" className="btn btn-secondary" onClick={onMakeTodo}>
-              Make a to-do
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={onMakeCalendar}
-              disabled={calendarBusy}
-            >
-              {calendarBusy ? "Scanning for date…" : "Make a calendar event"}
-            </button>
-          </div>
+          {editing ? (
+            <div className="note-edit">
+              <label className="note-edit-field">
+                <span className="label">Title</span>
+                <input
+                  className="field"
+                  value={titleDraft}
+                  onChange={(event) => setTitleDraft(event.target.value)}
+                />
+              </label>
+              {item.kind === "website" || item.url !== null ? (
+                <label className="note-edit-field">
+                  <span className="label">Link</span>
+                  <input
+                    className="field"
+                    value={urlDraft}
+                    onChange={(event) => setUrlDraft(event.target.value)}
+                    placeholder="https://"
+                  />
+                </label>
+              ) : null}
+              <label className="note-edit-field">
+                <span className="label">{item.kind === "website" ? "Summary" : "Body"}</span>
+                <textarea
+                  className="field"
+                  rows={8}
+                  value={bodyDraft}
+                  onChange={(event) => setBodyDraft(event.target.value)}
+                />
+              </label>
+              <div className="note-detail-actions">
+                <button type="button" className="btn btn-primary" onClick={saveEdit}>
+                  Save
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setEditing(false);
+                    setTitleDraft(item.title);
+                    setBodyDraft(
+                      item.kind === "website" ? item.previewSummary || item.body : item.body,
+                    );
+                    setUrlDraft(item.url ?? "");
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <h1 className="note-detail-title">{item.title}</h1>
+              <div className="pin-meta">
+                <MemberBadge
+                  name={uploaderName}
+                  avatarUrl={uploader?.avatarUrl}
+                  prefix="Added by"
+                  size="sm"
+                />
+                <span className="pin-date">{shortPinDate(item.createdAt)}</span>
+              </div>
+              {item.url ? (
+                <p className="note-detail-link">
+                  <a href={item.url} target="_blank" rel="noreferrer">
+                    {item.host ?? item.url}
+                  </a>
+                </p>
+              ) : null}
+              {item.assetUrl && !isImageAsset(item) && !isPdfAsset(item) ? (
+                <p className="note-detail-link">
+                  <a href={item.assetUrl} target="_blank" rel="noreferrer">
+                    Open file
+                  </a>
+                </p>
+              ) : null}
+              {item.kind === "website" && previewLoading && !item.previewImageUrl && !summary ? (
+                <p className="note-detail-preview-status">Loading link preview…</p>
+              ) : null}
+              {summary ? <div className="note-detail-body">{summary}</div> : null}
+              <div className="note-detail-actions">
+                {item.url ? (
+                  <a
+                    className="btn btn-primary"
+                    href={item.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open link in new tab
+                  </a>
+                ) : null}
+                {forReview ? (
+                  <button type="button" className="btn btn-secondary" onClick={onMarkReviewed}>
+                    Mark reviewed
+                  </button>
+                ) : null}
+                <button type="button" className="btn btn-secondary" onClick={() => setEditing(true)}>
+                  Edit
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={onMakeTodo}>
+                  Make a to-do
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={onMakeCalendar}
+                  disabled={calendarBusy}
+                >
+                  {calendarBusy ? "Scanning for date…" : "Make a calendar event"}
+                </button>
+                {confirmDelete ? (
+                  <>
+                    <button type="button" className="btn btn-primary" onClick={onDelete}>
+                      Delete note
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      onClick={() => setConfirmDelete(false)}
+                    >
+                      Keep
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => setConfirmDelete(true)}
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </article>
     </section>
@@ -487,6 +602,13 @@ export function NotesTab({
           if (calendarBusy) return;
           setCalendarBusy(true);
           void Promise.resolve(onMakeCalendar(openItem)).finally(() => setCalendarBusy(false));
+        }}
+        onSave={(patch) => {
+          onChangeNoteItems(updatePinNote(noteItems, openItem.id, patch));
+        }}
+        onDelete={() => {
+          onChangeNoteItems(removePinNote(noteItems, openItem.id));
+          onOpenNote(null);
         }}
         previewLoading={previewLoading}
         calendarBusy={calendarBusy}

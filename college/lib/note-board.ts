@@ -482,6 +482,49 @@ export function markPinReviewed(items: PinNote[], id: string, viewer: Owner): Pi
   });
 }
 
+export type PinNoteEdit = {
+  title?: string;
+  body?: string;
+  url?: string | null;
+  previewSummary?: string | null;
+};
+
+export function updatePinNote(items: PinNote[], id: string, patch: PinNoteEdit): PinNote[] {
+  return items.map((item) => {
+    if (item.id !== id) return item;
+    const title =
+      typeof patch.title === "string" && patch.title.trim() ? patch.title.trim().slice(0, 160) : item.title;
+    const body = typeof patch.body === "string" ? patch.body : item.body;
+    const url =
+      patch.url === undefined
+        ? item.url
+        : typeof patch.url === "string" && patch.url.trim()
+          ? patch.url.trim()
+          : null;
+    const previewSummary =
+      patch.previewSummary === undefined
+        ? item.previewSummary
+        : typeof patch.previewSummary === "string" && patch.previewSummary.trim()
+          ? patch.previewSummary.trim().slice(0, 600)
+          : null;
+    return {
+      ...item,
+      title,
+      body,
+      url,
+      host: url ? hostFromUrl(url) ?? item.host : item.kind === "website" ? item.host : null,
+      previewSummary:
+        item.kind === "website"
+          ? (previewSummary ?? (body.trim().slice(0, 600) || null))
+          : item.previewSummary,
+    };
+  });
+}
+
+export function removePinNote(items: PinNote[], id: string): PinNote[] {
+  return items.filter((item) => item.id !== id);
+}
+
 /** Stable avatar ground color per household member (white initials). */
 export function ownerAvatarGround(owner: Owner): string {
   switch (owner) {

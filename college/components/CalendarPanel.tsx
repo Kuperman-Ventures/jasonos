@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { shortEventDate, type CalendarEvent } from "@/lib/calendar-events";
+import {
+  removeCalendarEvent,
+  shortEventDate,
+  updateCalendarEvent,
+  type CalendarEvent,
+  type CalendarEventEdit,
+} from "@/lib/calendar-events";
 import { ownerLabel } from "@/lib/types";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
@@ -43,15 +49,155 @@ function initialCursor(events: CalendarEvent[]): { year: number; monthIndex: num
   return { year: now.getFullYear(), monthIndex: now.getMonth() };
 }
 
+function EventRow({
+  event,
+  showWhen,
+  onChange,
+  onDelete,
+}: {
+  event: CalendarEvent;
+  showWhen?: boolean;
+  onChange: (id: string, patch: CalendarEventEdit) => void;
+  onDelete: (id: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(event.title);
+  const [dateDraft, setDateDraft] = useState(event.date ?? "");
+  const [notesDraft, setNotesDraft] = useState(event.notes);
+
+  useEffect(() => {
+    setEditing(false);
+    setConfirmDelete(false);
+    setTitleDraft(event.title);
+    setDateDraft(event.date ?? "");
+    setNotesDraft(event.notes);
+  }, [event.id, event.title, event.date, event.notes]);
+
+  function save() {
+    onChange(event.id, {
+      title: titleDraft,
+      date: dateDraft.trim() || null,
+      notes: notesDraft,
+    });
+    setEditing(false);
+  }
+
+  return (
+    <li className="calendar-event">
+      {showWhen ? (
+        <div className="calendar-event-when mono">{shortEventDate(event.date)}</div>
+      ) : null}
+      <div className="calendar-event-body">
+        {editing ? (
+          <div className="cal-event-edit">
+            <label className="cal-event-edit-field">
+              <span className="label">Title</span>
+              <input
+                className="field"
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+              />
+            </label>
+            <label className="cal-event-edit-field">
+              <span className="label">Date</span>
+              <input
+                className="field"
+                type="date"
+                value={dateDraft}
+                onChange={(e) => setDateDraft(e.target.value)}
+              />
+            </label>
+            <label className="cal-event-edit-field">
+              <span className="label">Notes</span>
+              <textarea
+                className="field"
+                rows={3}
+                value={notesDraft}
+                onChange={(e) => setNotesDraft(e.target.value)}
+              />
+            </label>
+            <div className="cal-event-edit-actions">
+              <button type="button" className="btn btn-primary compact" onClick={save}>
+                Save
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary compact"
+                onClick={() => {
+                  setEditing(false);
+                  setTitleDraft(event.title);
+                  setDateDraft(event.date ?? "");
+                  setNotesDraft(event.notes);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <strong>{event.title}</strong>
+            <span>Added by {ownerLabel(event.createdBy)}</span>
+            {event.notes ? <p className="calendar-event-notes">{event.notes}</p> : null}
+            {event.assetUrl ? (
+              <a href={event.assetUrl} target="_blank" rel="noreferrer">
+                Open file
+              </a>
+            ) : null}
+            <div className="cal-event-row-actions">
+              <button
+                type="button"
+                className="btn btn-secondary compact"
+                onClick={() => setEditing(true)}
+              >
+                Edit
+              </button>
+              {confirmDelete ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-primary compact"
+                    onClick={() => onDelete(event.id)}
+                  >
+                    Delete event
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost compact"
+                    onClick={() => setConfirmDelete(false)}
+                  >
+                    Keep
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-ghost compact"
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  Delete
+                </button>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </li>
+  );
+}
+
 export function CalendarPanel({
   events,
   dateline,
   focusDate,
+  onChangeEvents,
 }: {
   events: CalendarEvent[];
   dateline: string;
   /** When set (YYYY-MM-DD), open the month that contains this date. */
   focusDate?: string | null;
+  onChangeEvents: (next: CalendarEvent[]) => void;
 }) {
   const [cursor, setCursor] = useState(() => cursorFromDate(focusDate) ?? initialCursor(events));
   const [selectedKey, setSelectedKey] = useState<string | null>(focusDate ?? null);
@@ -126,13 +272,34 @@ export function CalendarPanel({
     setSelectedKey(null);
   }
 
+  function patchEvent(id: string, patch: CalendarEventEdit) {
+    const next = updateCalendarEvent(events, id, patch);
+    onChangeEvents(next);
+    const updated = next.find((row) => row.id === id);
+    if (updated?.date) {
+      const nextCursor = cursorFromDate(updated.date);
+      if (nextCursor) {
+        setCursor(nextCursor);
+        setSelectedKey(updated.date);
+      }
+    } else if (updated && !updated.date) {
+      setSelectedKey(null);
+    }
+  }
+
+  function deleteEvent(id: string) {
+    onChangeEvents(removeCalendarEvent(events, id));
+  }
+
   async function copySubscribeLink() {
     if (!subscribeHttps) return;
     setSubscribeBusy(true);
     setSubscribeStatus("");
     try {
       await navigator.clipboard.writeText(subscribeHttps);
-      setSubscribeStatus("Copied the subscribe link. Paste it in Apple Calendar, Google Calendar, or Outlook.");
+      setSubscribeStatus(
+        "Copied the subscribe link. Paste it in Apple Calendar, Google Calendar, or Outlook.",
+      );
     } catch {
       setSubscribeStatus("Could not copy — select the link below and copy it yourself.");
     } finally {
@@ -148,38 +315,6 @@ export function CalendarPanel({
           <h3 className="dash-title">Calendar</h3>
         </div>
       </header>
-      <p className="section-sub">
-        Month view of events from Ingest and from Notes via Make a calendar event.
-      </p>
-
-      {subscribeHttps ? (
-        <div className="cal-subscribe">
-          <div>
-            <h4 className="cal-detail-heading">Subscribe on your phone or computer</h4>
-            <p className="section-sub" style={{ margin: 0 }}>
-              Add this feed in Apple Calendar, Google Calendar, or Outlook so household events show
-              up on your own calendar and stay updated.
-            </p>
-          </div>
-          <div className="cal-subscribe-actions">
-            <button
-              type="button"
-              className="btn btn-primary compact"
-              onClick={() => void copySubscribeLink()}
-              disabled={subscribeBusy}
-            >
-              Copy subscribe link
-            </button>
-            {subscribeWebcal ? (
-              <a className="btn btn-secondary compact" href={subscribeWebcal}>
-                Open in calendar app
-              </a>
-            ) : null}
-          </div>
-          <p className="cal-subscribe-url mono">{subscribeHttps}</p>
-          {subscribeStatus ? <p className="cal-subscribe-status">{subscribeStatus}</p> : null}
-        </div>
-      ) : null}
 
       <div className="cal-toolbar">
         <button type="button" className="btn btn-secondary compact" onClick={() => shiftMonth(-1)}>
@@ -217,8 +352,8 @@ export function CalendarPanel({
               <span className="cal-day mono">{cell.day}</span>
               {dayEvents.length ? (
                 <span className="cal-dots" aria-hidden="true">
-                  {dayEvents.slice(0, 3).map((event) => (
-                    <i key={event.id} />
+                  {dayEvents.slice(0, 3).map((row) => (
+                    <i key={row.id} />
                   ))}
                 </span>
               ) : null}
@@ -239,18 +374,12 @@ export function CalendarPanel({
             ) : (
               <ul className="calendar-event-list">
                 {selectedEvents.map((event) => (
-                  <li key={event.id} className="calendar-event">
-                    <div className="calendar-event-body">
-                      <strong>{event.title}</strong>
-                      <span>Added by {ownerLabel(event.createdBy)}</span>
-                      {event.notes ? <p className="calendar-event-notes">{event.notes}</p> : null}
-                      {event.assetUrl ? (
-                        <a href={event.assetUrl} target="_blank" rel="noreferrer">
-                          Open file
-                        </a>
-                      ) : null}
-                    </div>
-                  </li>
+                  <EventRow
+                    key={event.id}
+                    event={event}
+                    onChange={patchEvent}
+                    onDelete={deleteEvent}
+                  />
                 ))}
               </ul>
             )}
@@ -263,13 +392,13 @@ export function CalendarPanel({
             ) : (
               <ul className="calendar-event-list">
                 {monthEvents.map((event) => (
-                  <li key={event.id} className="calendar-event">
-                    <div className="calendar-event-when mono">{shortEventDate(event.date)}</div>
-                    <div className="calendar-event-body">
-                      <strong>{event.title}</strong>
-                      <span>Added by {ownerLabel(event.createdBy)}</span>
-                    </div>
-                  </li>
+                  <EventRow
+                    key={event.id}
+                    event={event}
+                    showWhen
+                    onChange={patchEvent}
+                    onDelete={deleteEvent}
+                  />
                 ))}
               </ul>
             )}
@@ -282,15 +411,44 @@ export function CalendarPanel({
           <h4 className="cal-detail-heading">Undated</h4>
           <ul className="calendar-event-list">
             {undated.map((event) => (
-              <li key={event.id} className="calendar-event">
-                <div className="calendar-event-when mono">Undated</div>
-                <div className="calendar-event-body">
-                  <strong>{event.title}</strong>
-                  <span>Added by {ownerLabel(event.createdBy)}</span>
-                </div>
-              </li>
+              <EventRow
+                key={event.id}
+                event={event}
+                showWhen
+                onChange={patchEvent}
+                onDelete={deleteEvent}
+              />
             ))}
           </ul>
+        </div>
+      ) : null}
+
+      {subscribeHttps ? (
+        <div className="cal-subscribe">
+          <div>
+            <h4 className="cal-detail-heading">Subscribe on your phone or computer</h4>
+            <p className="section-sub" style={{ margin: 0 }}>
+              Add this feed in Apple Calendar, Google Calendar, or Outlook so household events show
+              up on your own calendar and stay updated.
+            </p>
+          </div>
+          <div className="cal-subscribe-actions">
+            <button
+              type="button"
+              className="btn btn-primary compact"
+              onClick={() => void copySubscribeLink()}
+              disabled={subscribeBusy}
+            >
+              Copy subscribe link
+            </button>
+            {subscribeWebcal ? (
+              <a className="btn btn-secondary compact" href={subscribeWebcal}>
+                Open in calendar app
+              </a>
+            ) : null}
+          </div>
+          <p className="cal-subscribe-url mono">{subscribeHttps}</p>
+          {subscribeStatus ? <p className="cal-subscribe-status">{subscribeStatus}</p> : null}
         </div>
       ) : null}
     </div>

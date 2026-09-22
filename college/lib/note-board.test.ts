@@ -9,7 +9,9 @@ import {
   markPinReviewed,
   migrateLegacyNotesText,
   normalizePinNotes,
+  removePinNote,
   reviewInstruction,
+  updatePinNote,
   waitingOnViewer,
   type PinNote,
 } from "./note-board";
@@ -162,4 +164,14 @@ test("normalizePinNotes drops bad rows", () => {
     ]).length,
     1,
   );
+});
+
+test("updatePinNote and removePinNote", () => {
+  const items = [
+    sample({ id: "n1", title: "Old", createdAt: "2026-09-01T00:00:00Z", body: "body" }),
+  ];
+  const updated = updatePinNote(items, "n1", { title: "New title", body: "New body" });
+  assert.equal(updated[0]!.title, "New title");
+  assert.equal(updated[0]!.body, "New body");
+  assert.equal(removePinNote(updated, "n1").length, 0);
 });

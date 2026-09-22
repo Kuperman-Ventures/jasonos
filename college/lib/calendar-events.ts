@@ -53,3 +53,47 @@ export function shortEventDate(isoDate: string | null): string {
   if (Number.isNaN(date.getTime())) return isoDate;
   return date.toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
+
+export type CalendarEventEdit = {
+  title?: string;
+  date?: string | null;
+  notes?: string;
+  startTime?: string | null;
+  endTime?: string | null;
+};
+
+export function updateCalendarEvent(
+  events: CalendarEvent[],
+  id: string,
+  patch: CalendarEventEdit,
+): CalendarEvent[] {
+  return events.map((event) => {
+    if (event.id !== id) return event;
+    const title =
+      typeof patch.title === "string" && patch.title.trim() ? patch.title.trim() : event.title;
+    const date =
+      patch.date === undefined
+        ? event.date
+        : typeof patch.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(patch.date)
+          ? patch.date
+          : null;
+    const notes = typeof patch.notes === "string" ? patch.notes : event.notes;
+    const startTime =
+      patch.startTime === undefined
+        ? event.startTime
+        : typeof patch.startTime === "string" && patch.startTime
+          ? patch.startTime
+          : null;
+    const endTime =
+      patch.endTime === undefined
+        ? event.endTime
+        : typeof patch.endTime === "string" && patch.endTime
+          ? patch.endTime
+          : null;
+    return { ...event, title, date, notes, startTime, endTime };
+  });
+}
+
+export function removeCalendarEvent(events: CalendarEvent[], id: string): CalendarEvent[] {
+  return events.filter((event) => event.id !== id);
+}

@@ -311,6 +311,14 @@ export function Portal({
     });
   }
 
+  function changeCalendarEvents(next: CalendarEvent[]) {
+    setCalendarEvents(next);
+    setSaveState("Saving...");
+    void patchState({ calendarEvents: next }).then((ok) => {
+      setSaveState(ok ? "Saved" : "Not saved");
+    });
+  }
+
   function goProjectSection(next: ProjectSectionId) {
     setProjectSection(next);
     setTab("projects");
@@ -862,6 +870,7 @@ export function Portal({
             onToggle={toggleItem}
             onChangeSubtasks={changeSubtasks}
             onEditTodo={changeTodoEdit}
+            onChangeCalendarEvents={changeCalendarEvents}
             dateline={phaseLabel}
           />
         ) : null}

@@ -29,6 +29,7 @@ export function ProjectManagementTab({
   onToggle,
   onChangeSubtasks,
   onEditTodo,
+  onChangeCalendarEvents,
   dateline,
 }: {
   section: ProjectSectionId;
@@ -45,6 +46,7 @@ export function ProjectManagementTab({
   onToggle: (id: string, checked: boolean) => void;
   onChangeSubtasks: (next: TodoSubtaskMap) => void;
   onEditTodo: (id: string, patch: TodoEdit) => void;
+  onChangeCalendarEvents: (next: CalendarEvent[]) => void;
   dateline: string;
 }) {
   const active = projectSectionById(section);
@@ -106,6 +108,7 @@ export function ProjectManagementTab({
           events={calendarEvents}
           dateline={dateline}
           focusDate={calendarFocusDate}
+          onChangeEvents={onChangeCalendarEvents}
         />
       ) : null}
     </section>

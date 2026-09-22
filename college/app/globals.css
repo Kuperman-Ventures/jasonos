@@ -4451,7 +4451,7 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   display: grid;
   gap: var(--space-3);
   padding: var(--space-4);
-  margin-bottom: var(--space-6);
+  margin-top: var(--space-8);
   border: 1px solid var(--color-divider);
   background: var(--color-bg);
 }
@@ -4471,6 +4471,46 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   margin: 0;
   font-size: 14px;
   color: var(--color-neutral-800);
+}
+.cal-event-row-actions,
+.cal-event-edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+  align-items: center;
+}
+.cal-event-edit {
+  display: grid;
+  gap: var(--space-3);
+}
+.cal-event-edit-field {
+  display: grid;
+  gap: 4px;
+}
+.cal-event-edit-field .label {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.note-edit {
+  display: grid;
+  gap: var(--space-3);
+}
+.note-edit-field {
+  display: grid;
+  gap: 4px;
+}
+.note-edit-field .label {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.note-edit-field textarea.field {
+  min-height: 160px;
+  resize: vertical;
 }
 .cal-detail-heading {
   margin: 0 0 var(--space-3);
