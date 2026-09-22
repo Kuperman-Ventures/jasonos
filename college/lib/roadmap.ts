@@ -19,12 +19,28 @@ export const ROADMAP_MONTHS = 17;
 
 export const ROADMAP_TRACKS: RoadmapTrack[] = [
   {
-    id: "college-list",
-    label: "Develop college list",
-    start: { year: 2026, month: 8 },
+    id: "list-explore",
+    label: "Complete Explore list",
+    start: { year: 2027, month: 2 },
     end: { year: 2027, month: 2 },
-    kind: "bar",
-    itemIds: ["p1-5", "p2-3", "p2-4", "p3-2", "p4-1"],
+    kind: "milestone",
+    itemIds: ["p1-5"],
+  },
+  {
+    id: "list-consider",
+    label: "Complete Consider list",
+    start: { year: 2027, month: 5 },
+    end: { year: 2027, month: 5 },
+    kind: "milestone",
+    itemIds: ["p2-3", "p2-4", "p3-2"],
+  },
+  {
+    id: "list-apply",
+    label: "Complete Apply list",
+    start: { year: 2027, month: 7 },
+    end: { year: 2027, month: 7 },
+    kind: "milestone",
+    itemIds: ["p4-1"],
   },
   {
     id: "visits",
