@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { CalendarPanel } from "./CalendarPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import { TodosPanel } from "./TodosPanel";
@@ -54,6 +55,26 @@ export function ProjectManagementTab({
   dateline: string;
 }) {
   const active = projectSectionById(section);
+  const [addingTodo, setAddingTodo] = useState(false);
+  const [newTodoLabel, setNewTodoLabel] = useState("");
+
+  function commitNewTodo() {
+    const label = newTodoLabel.trim();
+    if (!label) {
+      setAddingTodo(false);
+      setNewTodoLabel("");
+      return;
+    }
+    onAddTodo(label);
+    setNewTodoLabel("");
+    setAddingTodo(false);
+  }
+
+  function changeSection(next: ProjectSectionId) {
+    onSectionChange(next);
+    setAddingTodo(false);
+    setNewTodoLabel("");
+  }
 
   return (
     <section className="pm">
@@ -64,27 +85,74 @@ export function ProjectManagementTab({
         </div>
       </header>
 
-      <nav className="pm-subnav" aria-label="Project Management sections">
-        {PROJECT_SECTIONS.map((item) => {
-          const selected = item.id === section;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              className={selected ? "active" : ""}
-              aria-current={selected ? "page" : undefined}
-              disabled={item.status === "soon"}
-              title={item.status === "soon" ? "Coming later" : item.blurb}
-              onClick={() => {
-                if (item.status === "ready") onSectionChange(item.id);
-              }}
-            >
-              <span className="pm-subnav-label">{item.label}</span>
-              {item.status === "soon" ? <span className="pm-subnav-soon">Soon</span> : null}
-            </button>
-          );
-        })}
-      </nav>
+      <div className="pm-toolbar">
+        <nav className="pm-subnav" aria-label="Project Management sections">
+          {PROJECT_SECTIONS.map((item) => {
+            const selected = item.id === section;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                className={selected ? "active" : ""}
+                aria-current={selected ? "page" : undefined}
+                disabled={item.status === "soon"}
+                title={item.status === "soon" ? "Coming later" : item.blurb}
+                onClick={() => {
+                  if (item.status === "ready") changeSection(item.id);
+                }}
+              >
+                <span className="pm-subnav-label">{item.label}</span>
+                {item.status === "soon" ? <span className="pm-subnav-soon">Soon</span> : null}
+              </button>
+            );
+          })}
+        </nav>
+
+        {section === "todos" ? (
+          <div className="todo-add pm-toolbar-action">
+            {addingTodo ? (
+              <div className="todo-add-draft">
+                <input
+                  className="field"
+                  autoFocus
+                  value={newTodoLabel}
+                  aria-label="New to-do"
+                  placeholder="What needs doing?"
+                  onChange={(event) => setNewTodoLabel(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitNewTodo();
+                    }
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      setAddingTodo(false);
+                      setNewTodoLabel("");
+                    }
+                  }}
+                />
+                <button type="button" className="btn btn-primary compact" onClick={commitNewTodo}>
+                  Add
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost compact"
+                  onClick={() => {
+                    setAddingTodo(false);
+                    setNewTodoLabel("");
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button type="button" className="btn btn-secondary" onClick={() => setAddingTodo(true)}>
+                Add a to-do
+              </button>
+            )}
+          </div>
+        ) : null}
+      </div>
 
       {active.blurb ? <p className="pm-blurb">{active.blurb}</p> : null}
 
@@ -105,7 +173,6 @@ export function ProjectManagementTab({
           onChangeSubtasks={onChangeSubtasks}
           onEditTodo={onEditTodo}
           onDeleteTodo={onDeleteTodo}
-          onAddTodo={onAddTodo}
         />
       ) : null}
 

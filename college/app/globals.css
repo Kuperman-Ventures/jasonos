@@ -2658,7 +2658,37 @@ table.schools .muted,
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  margin-bottom: 0;
+  min-width: 0;
+}
+.pm-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   margin-bottom: var(--space-3);
+}
+.pm-toolbar .pm-subnav {
+  flex: 1 1 auto;
+}
+.pm-toolbar-action {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+.pm-toolbar .todo-add {
+  margin-bottom: 0;
+}
+.pm-toolbar .todo-add-draft {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  max-width: min(420px, 100%);
+}
+.pm-toolbar .todo-add-draft .field {
+  flex: 1 1 160px;
+  min-width: 0;
 }
 .pm-subnav button {
   display: inline-flex;
@@ -2881,20 +2911,6 @@ table.schools .muted,
 }
 
 /* ---------- expandable to-do rows (option 1e) ---------- */
-.todos-panel .todo-add {
-  margin-bottom: var(--space-5);
-}
-.todos-panel .todo-add-draft {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  align-items: center;
-  max-width: 640px;
-}
-.todos-panel .todo-add-draft .field {
-  flex: 1 1 220px;
-  min-width: 0;
-}
 .todos-panel .list {
   width: 100%;
   max-width: none;
