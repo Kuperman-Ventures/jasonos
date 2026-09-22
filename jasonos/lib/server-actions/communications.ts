@@ -11,6 +11,10 @@ import {
   getGmailThread,
   isGmailConnected,
 } from "@/lib/integrations/gmail";
+import {
+  GMAIL_EXCLUDE_DRAFTS_QUERY,
+  shouldCountGmailMessageForTouch,
+} from "@/lib/integrations/gmail-labels";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import { OUTLOOK_WRAP_EMAIL } from "@/lib/integrations/unwrap-forwarded-mail";
 import {
@@ -792,12 +796,12 @@ export async function syncSentToday(): Promise<SyncSentTodayResult> {
     const mailboxTokens = await listGoogleAccessTokens();
     for (const { provider, token } of mailboxTokens) {
       const sent = await searchGmailThreads({
-        query: `in:sent after:${todayEpoch}`,
+        query: `in:sent ${GMAIL_EXCLUDE_DRAFTS_QUERY} after:${todayEpoch}`,
         pageSize: 50,
         accessToken: token,
       });
       const wraps = await searchGmailThreads({
-        query: `from:${OUTLOOK_WRAP_EMAIL} after:${todayEpoch}`,
+        query: `from:${OUTLOOK_WRAP_EMAIL} ${GMAIL_EXCLUDE_DRAFTS_QUERY} after:${todayEpoch}`,
         pageSize: 50,
         accessToken: token,
       });
@@ -812,6 +816,14 @@ export async function syncSentToday(): Promise<SyncSentTodayResult> {
         for (const m of full.messages) {
           // Only my outbound messages sent today (fixed: must have from header AND be from me)
           if (!m.from || !isFromMe(m.from)) continue;
+          if (
+            !shouldCountGmailMessageForTouch({
+              labelIds: m.labelIds,
+              fromMe: true,
+            })
+          ) {
+            continue;
+          }
           if (!m.date || new Date(m.date).getTime() < today.getTime()) continue;
           // Skip emails sent to myself (job alerts, auto-forwards, etc.)
           if (m.to && isMyOwnAddress(m.to)) continue;
