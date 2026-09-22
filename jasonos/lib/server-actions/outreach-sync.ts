@@ -5,6 +5,10 @@ import {
   searchGmailThreads,
   getGmailThread,
 } from "@/lib/integrations/gmail";
+import {
+  GMAIL_EXCLUDE_DRAFTS_QUERY,
+  shouldCountGmailMessageForTouch,
+} from "@/lib/integrations/gmail-labels";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import { OUTLOOK_WRAP_EMAIL } from "@/lib/integrations/unwrap-forwarded-mail";
 import { listOutlookMessages } from "@/lib/integrations/outlook";
@@ -342,12 +346,12 @@ export async function syncOutreachFromGmail(opts?: {
 
     try {
       const sent = await searchGmailThreads({
-        query: `in:sent after:${afterDate}`,
+        query: `in:sent ${GMAIL_EXCLUDE_DRAFTS_QUERY} after:${afterDate}`,
         pageSize: 100,
         accessToken: token,
       });
       const wraps = await searchGmailThreads({
-        query: `from:${OUTLOOK_WRAP_EMAIL} after:${afterDate}`,
+        query: `from:${OUTLOOK_WRAP_EMAIL} ${GMAIL_EXCLUDE_DRAFTS_QUERY} after:${afterDate}`,
         pageSize: 100,
         accessToken: token,
       });
@@ -359,12 +363,21 @@ export async function syncOutreachFromGmail(opts?: {
 
         for (const m of full.messages) {
           if (!m.from || !m.date) continue;
+          const outbound = isFromMe(m.from);
+          // Full-thread fetch includes draft replies sitting in Sent threads.
+          if (
+            !shouldCountGmailMessageForTouch({
+              labelIds: m.labelIds,
+              fromMe: outbound,
+            })
+          ) {
+            continue;
+          }
           if (new Date(m.date).getTime() < Date.now() - daysBack * 86_400_000) {
             continue;
           }
 
           const touchedAt = new Date(m.date).toISOString();
-          const outbound = isFromMe(m.from);
           const counterparties = outbound
             ? splitRecipientHeaders(m.to, m.cc)
             : [m.from];

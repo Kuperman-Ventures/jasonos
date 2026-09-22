@@ -20,6 +20,7 @@ import {
   isCalendarInviteSubject,
   isCalendarProxyAddress,
 } from "@/lib/outreach/mail-noise";
+import { GMAIL_EXCLUDE_DRAFTS_QUERY, shouldCountGmailMessageForTouch } from "@/lib/integrations/gmail-labels";
 
 export interface GmailReply {
   id: string;
@@ -327,7 +328,7 @@ async function listCounterpartiesForToken(
 ): Promise<EmailCounterparty[]> {
   const messages = await listMessageIds(
     access,
-    `-in:chats after:${afterEpoch}`,
+    `-in:chats ${GMAIL_EXCLUDE_DRAFTS_QUERY} after:${afterEpoch}`,
     max
   );
   const detailed = await mapWithConcurrency(messages, 5, (m) =>
@@ -356,6 +357,14 @@ async function listCounterpartiesForToken(
         /\b(bulk|list|auto_reply|junk)\b/i.test(get("Precedence") ?? ""));
 
     if (isFromMe(fromHeader)) {
+      if (
+        !shouldCountGmailMessageForTouch({
+          labelIds: mapped.labelIds,
+          fromMe: true,
+        })
+      ) {
+        continue;
+      }
       for (const raw of [
         ...splitAddresses(mapped.to),
         ...splitAddresses(mapped.cc),
