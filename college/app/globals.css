@@ -125,6 +125,29 @@ a {
 
 a:hover { color: var(--link-hover); }
 
+/* Buttons that are anchors must not inherit link underline / rust text. */
+a.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: inherit;
+}
+a.btn-primary,
+a.btn-primary:hover,
+a.btn-primary:active {
+  color: var(--color-on-accent);
+  text-decoration: none;
+}
+a.btn-secondary,
+a.btn-secondary:hover {
+  text-decoration: none;
+}
+a.btn-ghost,
+a.btn-ghost:hover {
+  text-decoration: none;
+}
+
 h1, h2, h3 {
   font-family: var(--font-heading);
   font-weight: 600;
@@ -3797,21 +3820,8 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   .list-gauges { grid-template-columns: 1fr; }
 }
 
-/* ---------- Notes pinboard (option 2a) ---------- */
+/* ---------- Notes pinboard (Track tokens — Archivo + orange accent) ---------- */
 .board {
-  --color-accent: var(--color-cyan);
-  --color-accent-100: #e9f8ff;
-  --color-accent-200: #cbeeff;
-  --color-accent-300: #99e0ff;
-  --color-accent-400: #62c5ee;
-  --color-accent-500: #38a6cf;
-  --color-accent-600: #1186ac;
-  --color-accent-700: #006786;
-  --color-accent-800: #004961;
-  --color-accent-900: #0a303e;
-  --font-heading: var(--font-source-serif), "Source Serif 4", Georgia, serif;
-  --font-body: var(--font-source-serif), "Source Serif 4", Georgia, serif;
-  --font-heading-weight: 600;
   max-width: 1080px;
   display: flex;
   flex-direction: column;
@@ -3823,7 +3833,8 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
 .board h2,
 .board h3 {
   font-family: var(--font-heading);
-  font-weight: var(--font-heading-weight);
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 .board-head {
   display: flex;
@@ -3892,7 +3903,7 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
 }
 .board .seg-opt:has(input:checked) {
   background: var(--color-accent);
-  color: var(--color-bg);
+  color: var(--color-on-accent);
 }
 .board .seg-opt:not(:has(input:checked)):hover {
   background: color-mix(in srgb, var(--color-text) 7%, transparent);
@@ -3933,13 +3944,14 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
 .pin {
   display: flex;
   flex-direction: column;
-  background: var(--color-surface);
-  box-shadow: var(--shadow-sm);
+  background: var(--color-bg);
+  border: 1px solid var(--color-divider);
   text-decoration: none;
   color: inherit;
+  border-radius: var(--radius-md);
 }
 .pin:hover {
-  box-shadow: var(--shadow-md);
+  border-color: var(--color-accent-400);
 }
 .pin:focus-visible {
   outline: 2px solid var(--color-accent);
@@ -4000,7 +4012,7 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
 .plate-media .plate-text {
   color: var(--color-bg);
   font-family: var(--font-heading);
-  font-weight: var(--font-heading-weight);
+  font-weight: 600;
   font-size: 19px;
   line-height: 1.25;
   -webkit-line-clamp: 2;
@@ -4095,7 +4107,7 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   justify-content: center;
   overflow: hidden;
   font-family: var(--font-heading);
-  font-weight: var(--font-heading-weight);
+  font-weight: 600;
   font-size: 12px;
   color: #fff;
 }
@@ -4123,8 +4135,8 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   align-self: start;
 }
 .note-detail-card {
-  background: var(--color-surface);
-  box-shadow: var(--shadow-md);
+  background: var(--color-bg);
+  border: 1px solid var(--color-divider);
   display: flex;
   flex-direction: column;
 }
@@ -4169,7 +4181,7 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
 .note-detail-recording-lede {
   margin: var(--space-3) 0 0;
   font-family: var(--font-heading);
-  font-weight: var(--font-heading-weight);
+  font-weight: 600;
   font-size: 22px;
   line-height: 1.3;
 }
@@ -4192,7 +4204,7 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   font-size: 28px;
   line-height: 1.2;
   font-family: var(--font-heading);
-  font-weight: var(--font-heading-weight);
+  font-weight: 600;
 }
 .note-detail-link {
   margin: 0;
@@ -4210,6 +4222,12 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   flex-wrap: wrap;
   gap: var(--space-2);
   margin-top: var(--space-2);
+  align-items: center;
+}
+.note-detail-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .note-detail-preview-status {
   margin: 0;
@@ -4334,6 +4352,118 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   max-height: 140px;
   object-fit: cover;
   border: 1px solid var(--color-divider);
+}
+.calendar-event-notes {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 14px;
+  color: var(--color-neutral-800);
+}
+.cal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+.cal-month-label {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+  text-align: center;
+  flex: 1;
+}
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--color-divider);
+  border: 1px solid var(--color-divider);
+  margin-bottom: var(--space-6);
+}
+.cal-weekday {
+  background: var(--color-surface);
+  padding: var(--space-2);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  text-align: center;
+}
+.cal-cell {
+  min-height: 88px;
+  padding: var(--space-2);
+  background: var(--color-bg);
+  border: 0;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--color-text);
+  font: inherit;
+}
+.cal-cell.is-pad {
+  background: var(--color-surface);
+  cursor: default;
+  min-height: 88px;
+}
+.cal-cell.has-events {
+  background: var(--color-accent-100);
+}
+.cal-cell.is-selected {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+  z-index: 1;
+}
+.cal-day {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.cal-dots {
+  display: flex;
+  gap: 3px;
+}
+.cal-dots i {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  display: block;
+}
+.cal-cell-title {
+  font-size: 12px;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--color-text);
+}
+.cal-day-detail,
+.cal-undated {
+  margin-top: var(--space-2);
+}
+.cal-detail-heading {
+  margin: 0 0 var(--space-3);
+  font-size: 16px;
+  font-family: var(--font-heading);
+  font-weight: 600;
+}
+.cal-day-detail .calendar-event {
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (max-width: 720px) {
+  .cal-cell {
+    min-height: 64px;
+    padding: var(--space-1);
+  }
+  .cal-cell-title {
+    display: none;
+  }
 }
 @media (max-width: 620px) {
   .calendar-event {

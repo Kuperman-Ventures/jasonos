@@ -9,7 +9,7 @@ export type LinkPreview = {
   text: string;
 };
 
-function decodeEntities(value: string): string {
+export function decodeHtmlEntities(value: string): string {
   return value
     .replace(/&amp;/gi, "&")
     .replace(/&lt;/gi, "<")
@@ -17,10 +17,16 @@ function decodeEntities(value: string): string {
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
     .replace(/&apos;/gi, "'")
+    .replace(/&hellip;/gi, "…")
+    .replace(/&nbsp;/gi, " ")
     .replace(/&#x([0-9a-f]+);/gi, (_, hex: string) =>
       String.fromCodePoint(Number.parseInt(hex, 16)),
     )
     .replace(/&#(\d+);/g, (_, dec: string) => String.fromCodePoint(Number.parseInt(dec, 10)));
+}
+
+function decodeEntities(value: string): string {
+  return decodeHtmlEntities(value);
 }
 
 function metaContent(html: string, keys: string[]): string | null {

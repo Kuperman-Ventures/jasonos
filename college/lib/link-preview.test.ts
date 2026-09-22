@@ -44,3 +44,11 @@ test("parseLinkPreviewHtml falls back to title and description meta", () => {
   assert.equal(preview.description, "A short blurb about the page.");
   assert.equal(preview.imageUrl, null);
 });
+
+test("parseLinkPreviewHtml decodes hellip entities", () => {
+  const html = `<html><head>
+    <meta property="og:description" content="Loading&hellip; Sign in" />
+  </head><body></body></html>`;
+  const preview = parseLinkPreviewHtml(html, "https://drive.google.com/file");
+  assert.equal(preview.description, "Loading… Sign in");
+});

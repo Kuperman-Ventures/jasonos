@@ -14,9 +14,10 @@ const PRIMARY: { id: TabId; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
   { id: "colleges", label: "Colleges" },
   { id: "projects", label: "Project Management" },
+  { id: "ingest", label: "Ingest" },
+  { id: "notes", label: "Notes" },
   { id: "questions", label: "App Questions" },
   { id: "consultants", label: "Consultants" },
-  { id: "notes", label: "Notes" },
 ];
 
 const REFERENCE: { id: TabId; label: string }[] = [

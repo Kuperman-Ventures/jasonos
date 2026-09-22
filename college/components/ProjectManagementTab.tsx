@@ -1,18 +1,16 @@
 "use client";
 
 import { CalendarPanel } from "./CalendarPanel";
-import { IngestPanel, type IngestConfirmPayload } from "./IngestPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import { TodosPanel } from "./TodosPanel";
 import type { CalendarEvent } from "@/lib/calendar-events";
-import type { PersistedIngestSource, PersistedProjectStep } from "@/lib/ingest";
-import type { PinNote } from "@/lib/note-board";
+import type { PersistedProjectStep } from "@/lib/ingest";
 import {
   PROJECT_SECTIONS,
   projectSectionById,
   type ProjectSectionId,
 } from "@/lib/project-management";
-import { memberOwnerId, type TodoEdit, type TodoEditMap, type TodoSubtaskMap } from "@/lib/project-todos";
+import { type TodoEdit, type TodoEditMap, type TodoSubtaskMap } from "@/lib/project-todos";
 import type { MemberProfile } from "@/lib/member-avatars";
 import type { Phase } from "@/lib/types";
 
@@ -24,16 +22,13 @@ export function ProjectManagementTab({
   phases,
   checklist,
   projectSteps,
-  ingestSources,
-  notes,
-  noteItems,
   calendarEvents,
+  calendarFocusDate,
   subtasks,
   todoEdits,
   onToggle,
   onChangeSubtasks,
   onEditTodo,
-  onConfirmIngest,
   dateline,
 }: {
   section: ProjectSectionId;
@@ -43,16 +38,13 @@ export function ProjectManagementTab({
   phases: Phase[];
   checklist: Record<string, boolean>;
   projectSteps: PersistedProjectStep[];
-  ingestSources: PersistedIngestSource[];
-  notes: string;
-  noteItems: PinNote[];
   calendarEvents: CalendarEvent[];
+  calendarFocusDate?: string | null;
   subtasks: TodoSubtaskMap;
   todoEdits: TodoEditMap;
   onToggle: (id: string, checked: boolean) => void;
   onChangeSubtasks: (next: TodoSubtaskMap) => void;
   onEditTodo: (id: string, patch: TodoEdit) => void;
-  onConfirmIngest: (payload: IngestConfirmPayload) => Promise<void>;
   dateline: string;
 }) {
   const active = projectSectionById(section);
@@ -109,31 +101,12 @@ export function ProjectManagementTab({
         />
       ) : null}
 
-      {active.status === "ready" && active.id === "ingest" ? (
-        <IngestPanel
-          phases={phases}
-          projectSteps={projectSteps}
-          ingestSources={ingestSources}
-          notes={notes}
-          noteItems={noteItems}
-          calendarEvents={calendarEvents}
-          assignedBy={memberOwnerId(memberId)}
-          onConfirm={onConfirmIngest}
-        />
-      ) : null}
-
       {active.status === "ready" && active.id === "calendar" ? (
-        <CalendarPanel events={calendarEvents} dateline={dateline} />
-      ) : null}
-
-      {active.status === "soon" ? (
-        <div className="pm-soon">
-          <h3 className="dash-title">{active.label}</h3>
-          <p className="section-sub">
-            This submenu is reserved for the next project-management build. Timeline, To-dos,
-            Ingest, and Calendar stay available above in the meantime.
-          </p>
-        </div>
+        <CalendarPanel
+          events={calendarEvents}
+          dateline={dateline}
+          focusDate={calendarFocusDate}
+        />
       ) : null}
     </section>
   );

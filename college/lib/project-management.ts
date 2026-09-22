@@ -1,6 +1,6 @@
 /** Project Management section — parent nav with submenus. */
 
-export type ProjectSectionId = "timeline" | "todos" | "ingest" | "board" | "calendar";
+export type ProjectSectionId = "timeline" | "todos" | "calendar";
 
 export type ProjectSection = {
   id: ProjectSectionId;
@@ -25,22 +25,9 @@ export const PROJECT_SECTIONS: ProjectSection[] = [
     status: "ready",
   },
   {
-    id: "ingest",
-    label: "Ingest",
-    blurb:
-      "Paste, URL, or upload PDF/PNG/JPG — read text for suggestions, or save the asset as-is to Note, To-do, and/or Calendar.",
-    status: "ready",
-  },
-  {
-    id: "board",
-    label: "Board",
-    blurb: "Kanban-style view of work — coming next.",
-    status: "soon",
-  },
-  {
     id: "calendar",
     label: "Calendar",
-    blurb: "Events from Ingest — list now, full grid later.",
+    blurb: "Month view of events from Ingest and Notes.",
     status: "ready",
   },
 ];
@@ -55,7 +42,7 @@ export function projectSectionById(id: ProjectSectionId): ProjectSection {
   return PROJECT_SECTIONS.find((section) => section.id === id) ?? PROJECT_SECTIONS[0];
 }
 
-/** Map legacy ?tab=timeline (and unknown pm values) onto a section. */
+/** Map legacy ?tab=timeline / pm=ingest|board onto a live section. */
 export function resolveProjectSection(raw: string | null): ProjectSectionId {
   if (raw && isProjectSectionId(raw)) return raw;
   return DEFAULT_PROJECT_SECTION;

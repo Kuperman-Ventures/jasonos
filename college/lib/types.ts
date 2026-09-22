@@ -8,6 +8,7 @@ export type TabId =
   | "colleges"
   | "projects"
   | "timeline"
+  | "ingest"
   | "faq"
   | "questions"
   | "consultants"
@@ -204,14 +205,15 @@ export const TABS: { id: TabId; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
   { id: "colleges", label: "Colleges" },
   { id: "projects", label: "Project Management" },
+  { id: "ingest", label: "Ingest" },
+  { id: "notes", label: "Notes" },
   { id: "questions", label: "App Questions" },
   { id: "consultants", label: "Consultants" },
-  { id: "notes", label: "Notes" },
   { id: "faq", label: "FAQ" },
   { id: "testing", label: "Testing" },
 ];
 
-/** Normalize legacy tab ids (e.g. timeline → projects). */
+/** Normalize legacy tab ids (e.g. timeline → projects, pm=ingest → ingest). */
 export function normalizeTabId(value: string | null): TabId | null {
   if (!value) return null;
   if (value === "timeline") return "projects";

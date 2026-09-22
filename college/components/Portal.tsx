@@ -8,6 +8,7 @@ import { DashboardTab } from "./DashboardTab";
 import { FaqTab } from "./FaqTab";
 import { LeftRail } from "./LeftRail";
 import { NotesTab } from "./NotesTab";
+import { IngestPanel } from "./IngestPanel";
 import { ProjectManagementTab } from "./ProjectManagementTab";
 import { TestingTab, testingItems } from "./TestingTab";
 import {
@@ -34,6 +35,7 @@ import {
   type PinNote,
 } from "@/lib/note-board";
 import { normalizeCalendarEvents, type CalendarEvent } from "@/lib/calendar-events";
+import { parseEventDateFromText } from "@/lib/event-date";
 import {
   DEFAULT_PROJECT_SECTION,
   resolveProjectSection,
@@ -97,9 +99,14 @@ function readStart(): {
   }
   const params = new URLSearchParams(window.location.search);
   const school = params.get("school");
-  const projectSection = resolveProjectSection(params.get("pm"));
+  const pmRaw = params.get("pm");
+  const projectSection = resolveProjectSection(pmRaw);
   const noteId = params.get("note");
   if (school) return { tab: "colleges", schoolId: school, projectSection, noteId: null };
+  // Legacy Project Management → Ingest deep link
+  if (params.get("tab") === "projects" && pmRaw === "ingest") {
+    return { tab: "ingest", schoolId: null, projectSection: DEFAULT_PROJECT_SECTION, noteId: null };
+  }
   const tab = normalizeTabId(params.get("tab")) ?? "dashboard";
   return {
     tab,
@@ -125,6 +132,7 @@ export function Portal({
   const [notes, setNotes] = useState("");
   const [noteItems, setNoteItems] = useState<PinNote[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [calendarFocusDate, setCalendarFocusDate] = useState<string | null>(null);
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
   const [projectSteps, setProjectSteps] = useState<PersistedProjectStep[]>([]);
   const [ingestSources, setIngestSources] = useState<PersistedIngestSource[]>([]);
@@ -421,11 +429,21 @@ export function Portal({
 
   function makeCalendarFromNote(note: PinNote) {
     const createdAt = new Date().toISOString();
-    const notesParts = [note.body?.trim() || "", note.url?.trim() || ""].filter(Boolean);
+    const notesParts = [
+      note.previewSummary?.trim() || "",
+      note.body?.trim() || "",
+      note.url?.trim() || "",
+    ].filter(Boolean);
+    const date = parseEventDateFromText(
+      note.title,
+      note.previewSummary,
+      note.body,
+      note.url,
+    );
     const event: CalendarEvent = {
       id: `note-cal-${note.id.slice(0, 10)}-${Math.random().toString(36).slice(2, 7)}`,
       title: note.title,
-      date: null,
+      date,
       startTime: null,
       endTime: null,
       notes: notesParts.join("\n\n"),
@@ -437,6 +455,7 @@ export function Portal({
     };
     const next = [event, ...calendarEvents];
     setCalendarEvents(next);
+    setCalendarFocusDate(date);
     void patchState({ calendarEvents: next });
     goProjectSection("calendar");
   }
@@ -817,18 +836,39 @@ export function Portal({
             phases={phases}
             checklist={checklist}
             projectSteps={projectSteps}
-            ingestSources={ingestSources}
-            notes={notes}
-            noteItems={noteItems}
             calendarEvents={calendarEvents}
+            calendarFocusDate={calendarFocusDate}
             subtasks={todoSubtasks}
             todoEdits={todoEdits}
             onToggle={toggleItem}
             onChangeSubtasks={changeSubtasks}
             onEditTodo={changeTodoEdit}
-            onConfirmIngest={confirmIngest}
             dateline={phaseLabel}
           />
+        ) : null}
+        {tab === "ingest" ? (
+          <section className="pm">
+            <header className="page-head">
+              <div>
+                <div className="dateline">{phaseLabel}</div>
+                <h2>Ingest</h2>
+              </div>
+            </header>
+            <p className="pm-blurb">
+              Paste, URL, or upload PDF/PNG/JPG — read text for suggestions, or save the asset
+              as-is to Note, To-do, and/or Calendar.
+            </p>
+            <IngestPanel
+              phases={phases}
+              projectSteps={projectSteps}
+              ingestSources={ingestSources}
+              notes={notes}
+              noteItems={noteItems}
+              calendarEvents={calendarEvents}
+              assignedBy={memberOwnerId(member.id)}
+              onConfirm={confirmIngest}
+            />
+          </section>
         ) : null}
         {tab === "faq" ? <FaqTab categories={faqCategories} dateline={phaseLabel} /> : null}
         {tab === "questions" ? (

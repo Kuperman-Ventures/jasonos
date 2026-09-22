@@ -19,6 +19,7 @@ import {
 } from "@/lib/note-board";
 import { memberOwnerId } from "@/lib/project-todos";
 import { ownerLabel, type Owner } from "@/lib/types";
+import { decodeHtmlEntities } from "@/lib/link-preview";
 
 const FILTERS: { id: NoteBoardFilter; label: string }[] = [
   { id: "all", label: "All" },
@@ -291,13 +292,13 @@ function NoteDetail({
   const uploaderName = uploader?.displayName ?? ownerLabel(item.addedBy);
   const summary =
     item.kind === "website"
-      ? (item.previewSummary?.trim() || item.body?.trim() || "")
-      : item.body?.trim() || "";
+      ? decodeHtmlEntities(item.previewSummary?.trim() || item.body?.trim() || "")
+      : decodeHtmlEntities(item.body?.trim() || "");
 
   return (
     <section className="board note-detail">
       <button type="button" className="btn btn-ghost note-detail-back" onClick={onBack}>
-        ← Back to board
+        ← Back to Notes
       </button>
       <article className={`note-detail-card${forReview ? " is-for-review" : ""}`}>
         <div className="pin-flag" />
@@ -515,8 +516,8 @@ export function NotesTab({
 
       {!noteItems.length ? (
         <p className="board-empty">
-          Nothing on the board yet. Route a paste, URL, or PDF to Note in{" "}
-          <a href="/?tab=projects&pm=ingest">Project Management → Ingest</a>.
+          Nothing here yet. Route a paste, URL, or PDF to Note in{" "}
+          <a href="/?tab=ingest">Ingest</a>.
         </p>
       ) : !bands.length ? (
         <p className="board-empty">No items match this filter.</p>
