@@ -24,6 +24,10 @@ function toKey(year: number, monthIndex: number, day: number): string {
   return `${year}-${pad2(monthIndex + 1)}-${pad2(day)}`;
 }
 
+function todayKey(now = new Date()): string {
+  return toKey(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
 function monthLabel(year: number, monthIndex: number): string {
   return new Date(year, monthIndex, 1).toLocaleString("en-US", {
     month: "long",
@@ -233,6 +237,9 @@ export function CalendarPanel({
   }, []);
 
   const { year, monthIndex } = cursor;
+  const today = todayKey();
+  const viewingTodayMonth =
+    year === Number(today.slice(0, 4)) && monthIndex === Number(today.slice(5, 7)) - 1;
   const start = monthStart(year, monthIndex);
   const startWeekday = start.getDay();
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
@@ -270,6 +277,13 @@ export function CalendarPanel({
     const next = new Date(year, monthIndex + delta, 1);
     setCursor({ year: next.getFullYear(), monthIndex: next.getMonth() });
     setSelectedKey(null);
+  }
+
+  function goToday() {
+    const now = new Date();
+    const key = todayKey(now);
+    setCursor({ year: now.getFullYear(), monthIndex: now.getMonth() });
+    setSelectedKey(key);
   }
 
   function patchEvent(id: string, patch: CalendarEventEdit) {
@@ -320,7 +334,17 @@ export function CalendarPanel({
         <button type="button" className="btn btn-secondary compact" onClick={() => shiftMonth(-1)}>
           Previous
         </button>
-        <h4 className="cal-month-label mono">{monthLabel(year, monthIndex)}</h4>
+        <div className="cal-toolbar-center">
+          <h4 className="cal-month-label mono">{monthLabel(year, monthIndex)}</h4>
+          <button
+            type="button"
+            className={`btn compact cal-today-jump${viewingTodayMonth ? " is-current" : " btn-secondary"}`}
+            onClick={goToday}
+            aria-current={viewingTodayMonth ? "date" : undefined}
+          >
+            Today
+          </button>
+        </div>
         <button type="button" className="btn btn-secondary compact" onClick={() => shiftMonth(1)}>
           Next
         </button>
@@ -339,17 +363,22 @@ export function CalendarPanel({
           const key = cell.key;
           const dayEvents = byDay.get(key) ?? [];
           const selected = selectedKey === key;
+          const isToday = key === today;
           return (
             <button
               key={key}
               type="button"
               role="gridcell"
-              className={`cal-cell${dayEvents.length ? " has-events" : ""}${selected ? " is-selected" : ""}`}
-              aria-label={`${shortEventDate(key)}${dayEvents.length ? `, ${dayEvents.length} event${dayEvents.length === 1 ? "" : "s"}` : ""}`}
+              className={`cal-cell${dayEvents.length ? " has-events" : ""}${selected ? " is-selected" : ""}${isToday ? " is-today" : ""}`}
+              aria-label={`${shortEventDate(key)}${isToday ? ", today" : ""}${dayEvents.length ? `, ${dayEvents.length} event${dayEvents.length === 1 ? "" : "s"}` : ""}`}
               aria-pressed={selected}
+              aria-current={isToday ? "date" : undefined}
               onClick={() => setSelectedKey(key)}
             >
-              <span className="cal-day mono">{cell.day}</span>
+              <span className="cal-day-row">
+                <span className={`cal-day mono${isToday ? " is-today" : ""}`}>{cell.day}</span>
+                {isToday ? <span className="cal-today-mark mono">Today</span> : null}
+              </span>
               {dayEvents.length ? (
                 <span className="cal-dots" aria-hidden="true">
                   {dayEvents.slice(0, 3).map((row) => (
