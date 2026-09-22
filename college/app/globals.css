@@ -2810,11 +2810,14 @@ table.schools .muted,
 .todos-panel .task-title {
   all: unset;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   min-width: 0;
   cursor: pointer;
   font-family: var(--font-body);
+}
+.todos-panel .task-title .member-badge {
+  flex: none;
 }
 .todos-panel .task-title-text {
   overflow: hidden;
