@@ -15,6 +15,7 @@ import {
   spanLength,
   trackState,
   yearBands,
+  segmentState,
 } from "./roadmap";
 
 test("monthIndex is zero at Sep 2026", () => {
@@ -53,21 +54,31 @@ test("month window is 17 cells with year bands", () => {
 });
 
 test("reference tracks land on the example spans", () => {
-  const explore = ROADMAP_TRACKS.find((track) => track.id === "list-explore");
-  const consider = ROADMAP_TRACKS.find((track) => track.id === "list-consider");
-  const applyList = ROADMAP_TRACKS.find((track) => track.id === "list-apply");
+  const list = ROADMAP_TRACKS.find((track) => track.id === "college-list");
   const essays = ROADMAP_TRACKS.find((track) => track.id === "essays");
   const apps = ROADMAP_TRACKS.find((track) => track.id === "applications");
-  assert.ok(explore && consider && applyList && essays && apps);
-  assert.equal(formatSpan(explore), "Mar 2027");
-  assert.equal(formatSpan(consider), "Jun 2027");
-  assert.equal(formatSpan(applyList), "Aug 2027");
+  assert.ok(list && essays && apps);
+  assert.equal(formatSpan(list), "Sep – Aug");
   assert.equal(formatSpan(essays), "Jul 2027");
   assert.equal(formatSpan(apps), "Oct – Jan 28");
-  assert.equal(monthIndex(explore.start.year, explore.start.month), 6);
-  assert.equal(monthIndex(consider.start.year, consider.start.month), 9);
-  assert.equal(monthIndex(applyList.start.year, applyList.start.month), 11);
+  assert.equal(spanLength(list.start, list.end), 12);
+  assert.equal(list.segments?.length, 3);
+  assert.equal(list.segments?.[0]?.label, "Explore");
+  assert.equal(spanLength(list.segments![0].start, list.segments![0].end), 7);
+  assert.equal(spanLength(list.segments![1].start, list.segments![1].end), 3);
+  assert.equal(spanLength(list.segments![2].start, list.segments![2].end), 2);
   assert.equal(monthIndex(essays.start.year, essays.start.month), 10);
+});
+
+test("segmentState colors Explore as active before Consider starts", () => {
+  const list = ROADMAP_TRACKS.find((track) => track.id === "college-list");
+  assert.ok(list?.segments);
+  const [explore, consider, apply] = list.segments;
+  assert.equal(segmentState(explore, new Date("2026-11-15T12:00:00Z")), "active");
+  assert.equal(segmentState(consider, new Date("2026-11-15T12:00:00Z")), "future");
+  assert.equal(segmentState(apply, new Date("2026-11-15T12:00:00Z")), "future");
+  assert.equal(segmentState(explore, new Date("2027-04-15T12:00:00Z")), "done");
+  assert.equal(segmentState(consider, new Date("2027-04-15T12:00:00Z")), "active");
 });
 
 test("trackState marks future work past the current month", () => {

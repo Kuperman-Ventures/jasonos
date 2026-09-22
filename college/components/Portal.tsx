@@ -27,7 +27,8 @@ import {
 } from "@/lib/content";
 import { currentPhaseIndex, phaseStatuses } from "@/lib/phases";
 import { useSchoolPipeline } from "@/lib/use-school-pipeline";
-import { defaultListPrefs, mergeListPrefs, canAdvanceListPhase, isForwardListPhaseMove, type MemberListPrefs } from "@/lib/list-phases";
+import { defaultListPrefs, mergeListPrefs, isForwardListPhaseMove, type MemberListPrefs } from "@/lib/list-phases";
+import { canAdvanceListPhase } from "@/lib/permissions";
 import type { PersistedIngestSource, PersistedProjectStep } from "@/lib/ingest";
 import { INBOX_PARENT_ID } from "@/lib/ingest";
 import {
@@ -1055,6 +1056,7 @@ export function Portal({
             dateline={phaseLabel}
             listPrefs={listPrefs}
             memberId={member.id}
+            memberRole={member.role}
             onListPrefsChange={saveListPrefs}
             onOpen={(id) => {
               replaceUrl("colleges", id);
@@ -1075,7 +1077,7 @@ export function Portal({
                 if (
                   current &&
                   isForwardListPhaseMove(current.listPhase, patch.listPhase) &&
-                  !canAdvanceListPhase(member.id)
+                  !canAdvanceListPhase(member)
                 ) {
                   return;
                 }

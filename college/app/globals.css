@@ -1816,6 +1816,60 @@ table.schools .muted,
   font-size: 12px;
   color: var(--text-muted);
 }
+.rail-profile-role {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-accent-700);
+}
+.rail-profile-roles {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+.rail-profile-roles .label {
+  margin: 0;
+}
+.rail-profile-roles ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rail-profile-roles li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.rail-profile-roles li.is-current {
+  border-color: var(--color-accent-400);
+  background: var(--color-accent-100);
+  color: var(--color-text);
+  font-weight: 600;
+}
+.rail-profile-role-you {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-accent-700);
+}
+.rail-profile-role-blurb {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
 .rail-profile-remove,
 .rail-account button[type="submit"] {
   align-self: flex-start;
@@ -2226,6 +2280,53 @@ table.schools .muted,
 .gantt .bar:hover { background: var(--accent-600); }
 .gantt .bar[data-state="future"] { background: var(--bar-future); }
 .gantt .bar[data-state="future"]:hover { background: var(--accent-500); }
+.gantt .bar-stack {
+  height: var(--bar-h);
+  align-self: center;
+  display: grid;
+  gap: 1px;
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.gantt .bar-seg {
+  height: 100%;
+  min-width: 0;
+  border: 0;
+  padding: 0 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bar);
+  color: #fff;
+}
+.gantt .bar-seg[data-state="done"] {
+  background: var(--bar);
+}
+.gantt .bar-seg[data-state="active"] {
+  background: var(--bar);
+}
+.gantt .bar-seg[data-state="future"] {
+  background: var(--bar-future);
+  color: var(--color-text);
+}
+.gantt .bar-seg:hover {
+  filter: brightness(1.06);
+}
+.gantt .bar-seg-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
 .gantt .pin {
   width: 11px;
   height: 11px;

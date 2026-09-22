@@ -2,6 +2,15 @@
 
 export type RoadmapKind = "bar" | "milestone";
 
+export type RoadmapSegment = {
+  id: string;
+  label: string;
+  /** Inclusive start: calendar year + month (0–11). */
+  start: { year: number; month: number };
+  /** Inclusive end month for this segment. */
+  end: { year: number; month: number };
+};
+
 export type RoadmapTrack = {
   id: string;
   label: string;
@@ -11,6 +20,8 @@ export type RoadmapTrack = {
   end: { year: number; month: number };
   kind: RoadmapKind;
   itemIds: string[];
+  /** Optional labeled sections inside a bar (e.g. Explore / Consider / Apply). */
+  segments?: RoadmapSegment[];
 };
 
 /** First month column = Sep 2026. Widening the window is a token / MONTHS change. */
@@ -19,28 +30,32 @@ export const ROADMAP_MONTHS = 17;
 
 export const ROADMAP_TRACKS: RoadmapTrack[] = [
   {
-    id: "list-explore",
-    label: "Complete Explore list",
-    start: { year: 2027, month: 2 },
-    end: { year: 2027, month: 2 },
-    kind: "milestone",
-    itemIds: ["p1-5"],
-  },
-  {
-    id: "list-consider",
-    label: "Complete Consider list",
-    start: { year: 2027, month: 5 },
-    end: { year: 2027, month: 5 },
-    kind: "milestone",
-    itemIds: ["p2-3", "p2-4", "p3-2"],
-  },
-  {
-    id: "list-apply",
-    label: "Complete Apply list",
-    start: { year: 2027, month: 7 },
+    id: "college-list",
+    label: "Complete college list",
+    start: { year: 2026, month: 8 },
     end: { year: 2027, month: 7 },
-    kind: "milestone",
-    itemIds: ["p4-1"],
+    kind: "bar",
+    itemIds: ["p1-5", "p2-3", "p2-4", "p3-2", "p4-1"],
+    segments: [
+      {
+        id: "explore",
+        label: "Explore",
+        start: { year: 2026, month: 8 },
+        end: { year: 2027, month: 2 },
+      },
+      {
+        id: "consider",
+        label: "Consider",
+        start: { year: 2027, month: 3 },
+        end: { year: 2027, month: 5 },
+      },
+      {
+        id: "apply",
+        label: "Apply",
+        start: { year: 2027, month: 6 },
+        end: { year: 2027, month: 7 },
+      },
+    ],
   },
   {
     id: "visits",
@@ -214,6 +229,16 @@ export function trackState(
   if (progress.total > 0 && progress.done === progress.total) return "done";
   const startIdx = monthIndex(track.start.year, track.start.month);
   if (startIdx > currentMonthIndex(now)) return "future";
+  return "active";
+}
+
+/** Color state for a labeled section inside a segmented bar. */
+export function segmentState(segment: RoadmapSegment, now = new Date()): TrackState {
+  const nowIdx = currentMonthIndex(now);
+  const startIdx = monthIndex(segment.start.year, segment.start.month);
+  const endIdx = monthIndex(segment.end.year, segment.end.month);
+  if (nowIdx < startIdx) return "future";
+  if (nowIdx > endIdx) return "done";
   return "active";
 }
 

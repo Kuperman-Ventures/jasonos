@@ -2,13 +2,7 @@
 
 import { useRef, useState } from "react";
 import { MemberBadge } from "./MemberBadge";
-
-function roleLabel(role: string): string {
-  if (role === "super_admin") return "Admin";
-  if (role === "parent") return "Parent";
-  if (role === "student") return "Student";
-  return role;
-}
+import { HOUSEHOLD_ROLES, roleLabel } from "@/lib/permissions";
 
 function readAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -29,6 +23,8 @@ export function RailProfile({
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const label = roleLabel(member.role);
+  const roleMeta = HOUSEHOLD_ROLES.find((row) => row.id === member.role);
 
   async function upload(file: File) {
     setBusy(true);
@@ -99,7 +95,21 @@ export function RailProfile({
       />
       <div className="rail-profile-meta">
         <strong>{member.displayName}</strong>
-        <span>{roleLabel(member.role)}</span>
+        <span className="rail-profile-role" title={roleMeta?.blurb}>
+          {label}
+        </span>
+      </div>
+      <div className="rail-profile-roles" aria-label="Household roles">
+        <span className="label">Roles</span>
+        <ul>
+          {HOUSEHOLD_ROLES.map((row) => (
+            <li key={row.id} className={row.id === member.role ? "is-current" : undefined}>
+              <span className="rail-profile-role-name">{row.label}</span>
+              {row.id === member.role ? <span className="rail-profile-role-you">You</span> : null}
+            </li>
+          ))}
+        </ul>
+        {roleMeta ? <p className="rail-profile-role-blurb">{roleMeta.blurb}</p> : null}
       </div>
       {member.avatarUrl ? (
         <button type="button" className="rail-profile-remove" disabled={busy} onClick={() => void clearAvatar()}>
