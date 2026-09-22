@@ -15,7 +15,7 @@ export const APPS_SECTIONS: AppsSection[] = [
   {
     id: "activities",
     label: "Activities",
-    blurb: "Keep the details now. Tell your story later.",
+    blurb: "",
     status: "ready",
   },
   {

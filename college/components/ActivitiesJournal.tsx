@@ -274,7 +274,6 @@ function MyActivitiesView({
       <header className="aj-head">
         <div>
           <h3 className="aj-title">My Activities</h3>
-          <p className="aj-support">Keep the details now. Tell your story later.</p>
         </div>
         <div className="aj-actions">
           <button
