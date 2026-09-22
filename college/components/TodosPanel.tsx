@@ -304,13 +304,23 @@ function TaskList({
   const todos = [...bucket.open, ...bucket.done];
   const stats = openListStats(todos);
   const listClass = emphasis === "focus" ? "list list-focus" : "list list-other";
+  const profile = profiles.get(bucket.owner);
+  const head = (
+    <div className="list-head">
+      <h1 className="list-head-name">
+        <MemberBadge
+          name={profile?.displayName ?? bucket.label}
+          avatarUrl={profile?.avatarUrl}
+          size="md"
+        />
+      </h1>
+      <span className="list-count">{stats.label}</span>
+    </div>
+  );
   if (!todos.length) {
     return (
       <div className={listClass}>
-        <div className="list-head">
-          <h1>{bucket.label}</h1>
-          <span className="list-count">{stats.label}</span>
-        </div>
+        {head}
         <p className="todo-empty">No to-dos assigned yet.</p>
       </div>
     );
@@ -318,10 +328,7 @@ function TaskList({
 
   return (
     <div className={listClass}>
-      <div className="list-head">
-        <h1>{bucket.label}</h1>
-        <span className="list-count">{stats.label}</span>
-      </div>
+      {head}
       {todos.map((todo) => (
         <TaskRow
           key={todo.id}

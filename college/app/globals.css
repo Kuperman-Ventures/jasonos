@@ -2768,15 +2768,30 @@ table.schools .muted,
 .todos-panel .list-head {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: var(--space-3);
   margin-bottom: var(--space-4);
 }
-.todos-panel .list-head h1 {
+.todos-panel .list-head h1,
+.todos-panel .list-head-name {
   margin: 0;
   font-family: var(--font-heading);
   font-size: 26px;
   font-weight: 600;
+}
+.todos-panel .list-head-name .member-badge {
+  gap: 12px;
+}
+.todos-panel .list-head-name .member-badge-md .member-badge-avatar {
+  width: 40px;
+  height: 40px;
+  font-size: 13px;
+}
+.todos-panel .list-head-name .member-badge-name {
+  font-family: var(--font-heading);
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--color-text);
 }
 .todos-panel .list-count {
   font-family: var(--font-heading);
