@@ -82,6 +82,15 @@ function TaskRow({
     ? `Only ${ownerLabel(todo.owner)} can check this off`
     : "Claim this to-do before checking it off";
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setEditing(false);
+      setConfirmDelete(false);
+    }
+  }, [open]);
+
   return (
     <div className={open ? "task is-open" : "task"} data-task={todo.id}>
       <div className="task-row">
@@ -127,222 +136,249 @@ function TaskRow({
       <div className="task-body" id={bodyId}>
         <p className="task-note">
           <em>{todo.phase}</em> · {todo.parentText}
-          {subtasks.length > 0 && date ? (
-            <span className="task-sub-count">
-              {" "}
-              · {subtasks.length} subtask{subtasks.length === 1 ? "" : "s"}
-            </span>
-          ) : null}
         </p>
-        <div className="todo-assign-row">
-          <div className="todo-assign-field">
-            <span className="label" id={`assign-label-${todo.id}`}>
-              Assigned to
-            </span>
-            <div
-              className="todo-assign-picker"
-              role="radiogroup"
-              aria-labelledby={`assign-label-${todo.id}`}
-            >
-              <button
-                type="button"
-                role="radio"
-                className={`todo-assign-choice${!todo.owner ? " is-selected" : ""}`}
-                aria-checked={!todo.owner}
-                aria-label="Unclaimed"
-                onClick={() => onAssign(null)}
-              >
-                <span className="todo-assign-avatar todo-assign-unclaimed" aria-hidden="true">
-                  <span className="todo-assign-unclaimed-mark">?</span>
-                </span>
-                <span className="todo-assign-choice-name">Unclaimed</span>
-              </button>
-              {OWNERS.map((owner) => {
-                const profile = profiles.get(owner.id);
-                const selected = todo.owner === owner.id;
-                return (
-                  <button
-                    key={owner.id}
-                    type="button"
-                    role="radio"
-                    className={`todo-assign-choice${selected ? " is-selected" : ""}`}
-                    aria-checked={selected}
-                    aria-label={profile?.displayName ?? owner.label}
-                    onClick={() => onAssign(owner.id)}
-                  >
-                    <span className="todo-assign-avatar" aria-hidden="true">
-                      <MemberBadge
-                        name={profile?.displayName ?? owner.label}
-                        avatarUrl={profile?.avatarUrl}
-                        size="md"
-                        showName={false}
-                      />
-                    </span>
-                    <span className="todo-assign-choice-name">
-                      {profile?.displayName ?? owner.label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          {todo.owner !== viewer ? (
-            <button type="button" className="btn btn-secondary todo-claim-btn" onClick={() => onAssign(viewer)}>
-              Claim for me
-            </button>
-          ) : null}
-        </div>
-        <div className="todo-edit">
-          <label className="todo-edit-field">
-            <span className="label">Wording</span>
+
+        <div className="todo-subtasks">
+          {subtasks.length ? (
+            <ul className="subs">
+              {subtasks.map((sub) => (
+                <li key={sub.id} className="sub">
+                  <input
+                    className="sub-check"
+                    type="checkbox"
+                    id={sub.id}
+                    checked={sub.done}
+                    disabled={!canToggle}
+                    aria-label={
+                      canToggle ? `Complete: ${sub.label}` : `${sub.label} (${ownerLockLabel})`
+                    }
+                    onChange={(event) => {
+                      if (!canToggle) return;
+                      onToggleSub(sub.id, event.target.checked);
+                    }}
+                  />
+                  <input
+                    className="field sub-title-edit"
+                    aria-label={`Subtask wording for ${sub.label}`}
+                    defaultValue={sub.label}
+                    key={`${sub.id}-label-${sub.label}`}
+                    onBlur={(event) => {
+                      const value = event.target.value.trim();
+                      if (value && value !== sub.label) onEditSub(sub.id, { label: value });
+                      else event.target.value = sub.label;
+                    }}
+                  />
+                  <input
+                    className="field sub-due-edit"
+                    type="date"
+                    aria-label={`Due date for ${sub.label}`}
+                    value={sub.dueDate ?? ""}
+                    onChange={(event) => onEditSub(sub.id, { dueDate: event.target.value || null })}
+                  />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="todo-empty todo-subtasks-empty">No subtasks yet.</p>
+          )}
+          {drafting ? (
             <input
-              className="field"
-              aria-label={`Wording for ${todo.label}`}
-              defaultValue={todo.label}
-              key={`${todo.id}-label-${todo.label}`}
-              onBlur={(event) => {
-                const value = event.target.value.trim();
-                if (value && value !== todo.label) onEdit({ label: value });
-                else event.target.value = todo.label;
+              className="field sub-draft"
+              autoFocus
+              value={draftLabel}
+              aria-label="New subtask"
+              placeholder="Subtask"
+              onChange={(event) => onDraftLabel(event.target.value)}
+              onBlur={onCommitDraft}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  onCommitDraft();
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  onCancelDraft();
+                }
               }}
             />
-          </label>
-          <label className="todo-edit-field">
-            <span className="label">Description</span>
-            <textarea
-              className="field todo-edit-description"
-              aria-label={`Description for ${todo.label}`}
-              rows={3}
-              placeholder="Add a description"
-              defaultValue={todo.description}
-              key={`${todo.id}-desc-${todo.description}`}
-              onBlur={(event) => {
-                const value = event.target.value.trim();
-                if (value !== todo.description) onEdit({ description: value });
-              }}
-            />
-          </label>
-          <div className="todo-edit-dates">
-            <label className="todo-edit-field">
-              <span className="label">Due date</span>
-              <input
-                className="field"
-                type="date"
-                aria-label={`Due date for ${todo.label}`}
-                value={todo.dueDate ?? ""}
-                onChange={(event) => onEdit({ dueDate: event.target.value || null })}
-              />
-            </label>
-            <label className="todo-edit-field">
-              <span className="label">Start</span>
-              <input
-                className="field"
-                type="date"
-                aria-label={`Start date for ${todo.label}`}
-                value={todo.startDate ?? ""}
-                onChange={(event) => onEdit({ startDate: event.target.value || null })}
-              />
-            </label>
-            <label className="todo-edit-field">
-              <span className="label">End</span>
-              <input
-                className="field"
-                type="date"
-                aria-label={`End date for ${todo.label}`}
-                value={todo.endDate ?? ""}
-                onChange={(event) => onEdit({ endDate: event.target.value || null })}
-              />
-            </label>
-          </div>
-          <div className="todo-delete-row">
-            {confirmDelete ? (
-              <>
-                <button type="button" className="btn btn-primary compact" onClick={onDelete}>
-                  Delete to-do
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-ghost compact"
-                  onClick={() => setConfirmDelete(false)}
-                >
-                  Keep
-                </button>
-              </>
-            ) : (
+          ) : (
+            <button className="sub-add" type="button" onClick={onStartDraft}>
+              Add subtask
+            </button>
+          )}
+        </div>
+
+        {editing ? (
+          <div className="todo-edit-panel">
+            <div className="todo-edit-panel-head">
+              <span className="label">Edit to-do</span>
               <button
                 type="button"
                 className="btn btn-ghost compact"
-                onClick={() => setConfirmDelete(true)}
+                onClick={() => {
+                  setEditing(false);
+                  setConfirmDelete(false);
+                }}
               >
-                Delete
+                Done
               </button>
-            )}
-          </div>
-        </div>
-        {subtasks.length ? (
-          <ul className="subs">
-            {subtasks.map((sub) => (
-              <li key={sub.id} className="sub">
+            </div>
+            <div className="todo-assign-row">
+              <div className="todo-assign-field">
+                <span className="label" id={`assign-label-${todo.id}`}>
+                  Assigned to
+                </span>
+                <div
+                  className="todo-assign-picker"
+                  role="radiogroup"
+                  aria-labelledby={`assign-label-${todo.id}`}
+                >
+                  <button
+                    type="button"
+                    role="radio"
+                    className={`todo-assign-choice${!todo.owner ? " is-selected" : ""}`}
+                    aria-checked={!todo.owner}
+                    aria-label="Unclaimed"
+                    onClick={() => onAssign(null)}
+                  >
+                    <span className="todo-assign-avatar todo-assign-unclaimed" aria-hidden="true">
+                      <span className="todo-assign-unclaimed-mark">?</span>
+                    </span>
+                    <span className="todo-assign-choice-name">Unclaimed</span>
+                  </button>
+                  {OWNERS.map((owner) => {
+                    const profile = profiles.get(owner.id);
+                    const selected = todo.owner === owner.id;
+                    return (
+                      <button
+                        key={owner.id}
+                        type="button"
+                        role="radio"
+                        className={`todo-assign-choice${selected ? " is-selected" : ""}`}
+                        aria-checked={selected}
+                        aria-label={profile?.displayName ?? owner.label}
+                        onClick={() => onAssign(owner.id)}
+                      >
+                        <span className="todo-assign-avatar" aria-hidden="true">
+                          <MemberBadge
+                            name={profile?.displayName ?? owner.label}
+                            avatarUrl={profile?.avatarUrl}
+                            size="md"
+                            showName={false}
+                          />
+                        </span>
+                        <span className="todo-assign-choice-name">
+                          {profile?.displayName ?? owner.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {todo.owner !== viewer ? (
+                <button
+                  type="button"
+                  className="btn btn-secondary todo-claim-btn"
+                  onClick={() => onAssign(viewer)}
+                >
+                  Claim for me
+                </button>
+              ) : null}
+            </div>
+            <div className="todo-edit">
+              <label className="todo-edit-field">
+                <span className="label">Wording</span>
                 <input
-                  className="sub-check"
-                  type="checkbox"
-                  id={sub.id}
-                  checked={sub.done}
-                  disabled={!canToggle}
-                  aria-label={
-                    canToggle ? `Complete: ${sub.label}` : `${sub.label} (${ownerLockLabel})`
-                  }
-                  onChange={(event) => {
-                    if (!canToggle) return;
-                    onToggleSub(sub.id, event.target.checked);
-                  }}
-                />
-                <input
-                  className="field sub-title-edit"
-                  aria-label={`Subtask wording for ${sub.label}`}
-                  defaultValue={sub.label}
-                  key={`${sub.id}-label-${sub.label}`}
+                  className="field"
+                  aria-label={`Wording for ${todo.label}`}
+                  defaultValue={todo.label}
+                  key={`${todo.id}-label-${todo.label}`}
                   onBlur={(event) => {
                     const value = event.target.value.trim();
-                    if (value && value !== sub.label) onEditSub(sub.id, { label: value });
-                    else event.target.value = sub.label;
+                    if (value && value !== todo.label) onEdit({ label: value });
+                    else event.target.value = todo.label;
                   }}
                 />
-                <input
-                  className="field sub-due-edit"
-                  type="date"
-                  aria-label={`Due date for ${sub.label}`}
-                  value={sub.dueDate ?? ""}
-                  onChange={(event) => onEditSub(sub.id, { dueDate: event.target.value || null })}
+              </label>
+              <label className="todo-edit-field">
+                <span className="label">Description</span>
+                <textarea
+                  className="field todo-edit-description"
+                  aria-label={`Description for ${todo.label}`}
+                  rows={3}
+                  placeholder="Add a description"
+                  defaultValue={todo.description}
+                  key={`${todo.id}-desc-${todo.description}`}
+                  onBlur={(event) => {
+                    const value = event.target.value.trim();
+                    if (value !== todo.description) onEdit({ description: value });
+                  }}
                 />
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        {drafting ? (
-          <input
-            className="field sub-draft"
-            autoFocus
-            value={draftLabel}
-            aria-label="New subtask"
-            placeholder="Subtask"
-            onChange={(event) => onDraftLabel(event.target.value)}
-            onBlur={onCommitDraft}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                onCommitDraft();
-              }
-              if (event.key === "Escape") {
-                event.preventDefault();
-                onCancelDraft();
-              }
-            }}
-          />
+              </label>
+              <div className="todo-edit-dates">
+                <label className="todo-edit-field">
+                  <span className="label">Due date</span>
+                  <input
+                    className="field"
+                    type="date"
+                    aria-label={`Due date for ${todo.label}`}
+                    value={todo.dueDate ?? ""}
+                    onChange={(event) => onEdit({ dueDate: event.target.value || null })}
+                  />
+                </label>
+                <label className="todo-edit-field">
+                  <span className="label">Start</span>
+                  <input
+                    className="field"
+                    type="date"
+                    aria-label={`Start date for ${todo.label}`}
+                    value={todo.startDate ?? ""}
+                    onChange={(event) => onEdit({ startDate: event.target.value || null })}
+                  />
+                </label>
+                <label className="todo-edit-field">
+                  <span className="label">End</span>
+                  <input
+                    className="field"
+                    type="date"
+                    aria-label={`End date for ${todo.label}`}
+                    value={todo.endDate ?? ""}
+                    onChange={(event) => onEdit({ endDate: event.target.value || null })}
+                  />
+                </label>
+              </div>
+              <div className="todo-delete-row">
+                {confirmDelete ? (
+                  <>
+                    <button type="button" className="btn btn-primary compact" onClick={onDelete}>
+                      Delete to-do
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost compact"
+                      onClick={() => setConfirmDelete(false)}
+                    >
+                      Keep
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-ghost compact"
+                    onClick={() => setConfirmDelete(true)}
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         ) : (
-          <button className="sub-add" type="button" onClick={onStartDraft}>
-            Add subtask
-          </button>
+          <div className="todo-expand-actions">
+            <button type="button" className="btn btn-secondary compact" onClick={() => setEditing(true)}>
+              Edit
+            </button>
+          </div>
         )}
       </div>
     </div>
