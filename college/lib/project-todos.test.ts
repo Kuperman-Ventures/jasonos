@@ -11,6 +11,7 @@ import {
   memberOwnerId,
   normalizeTodoEdits,
   openListStats,
+  removeProjectTodoState,
   sanitizeChecklistForViewer,
   sanitizeSubtasksForViewer,
   shortDueLabel,
@@ -254,4 +255,35 @@ test("formatTodoWhen covers due dates and windows", () => {
     }),
     /Oct 1, 2026/,
   );
+});
+
+test("removeProjectTodoState soft-deletes seed todos and drops dynamic steps", () => {
+  const dynamic = {
+    id: "ing-1",
+    label: "Campus tour",
+    owner: "kat" as const,
+    assignedBy: "jason" as const,
+    parentId: "inbox",
+    dueDate: null,
+    startDate: null,
+    endDate: null,
+    sourceId: null,
+    createdAt: "2026-09-20T12:00:00.000Z",
+  };
+  const removed = removeProjectTodoState(
+    "ing-1",
+    [dynamic],
+    {},
+    { "ing-1": [{ id: "sub-1", label: "Book", dueDate: null, done: false }] },
+    { "ing-1": true },
+  );
+  assert.equal(removed.projectSteps.length, 0);
+  assert.equal(removed.todoEdits["ing-1"]?.deleted, true);
+  assert.equal(removed.todoSubtasks["ing-1"], undefined);
+  assert.equal(removed.checklist["ing-1"], undefined);
+
+  const soft = removeProjectTodoState("p1-1-s3", [], {}, {}, { "p1-1-s3": true });
+  assert.equal(soft.todoEdits["p1-1-s3"]?.deleted, true);
+  const listed = listProjectTodos(soft.checklist, undefined, soft.projectSteps, soft.todoEdits);
+  assert.equal(listed.find((todo) => todo.id === "p1-1-s3"), undefined);
 });

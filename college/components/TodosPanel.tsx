@@ -49,6 +49,7 @@ function TaskRow({
   onEdit,
   onEditSub,
   onAssign,
+  onDelete,
 }: {
   todo: ProjectTodo;
   subtasks: TodoSubtask[];
@@ -67,6 +68,7 @@ function TaskRow({
   onEdit: (patch: TodoEdit) => void;
   onEditSub: (subId: string, patch: { label?: string; dueDate?: string | null }) => void;
   onAssign: (owner: Owner | null) => void;
+  onDelete: () => void;
 }) {
   const canToggle = canMarkTodoDone(viewer, todo.owner);
   const fromOwner = todo.assignedBy && todo.owner && todo.assignedBy !== todo.owner ? todo.assignedBy : null;
@@ -79,7 +81,7 @@ function TaskRow({
   const ownerLockLabel = todo.owner
     ? `Only ${ownerLabel(todo.owner)} can check this off`
     : "Claim this to-do before checking it off";
-
+  const [confirmDelete, setConfirmDelete] = useState(false);
   return (
     <div className={open ? "task is-open" : "task"} data-task={todo.id}>
       <div className="task-row">
@@ -252,6 +254,30 @@ function TaskRow({
               />
             </label>
           </div>
+          <div className="todo-delete-row">
+            {confirmDelete ? (
+              <>
+                <button type="button" className="btn btn-primary compact" onClick={onDelete}>
+                  Delete to-do
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost compact"
+                  onClick={() => setConfirmDelete(false)}
+                >
+                  Keep
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-ghost compact"
+                onClick={() => setConfirmDelete(true)}
+              >
+                Delete
+              </button>
+            )}
+          </div>
         </div>
         {subtasks.length ? (
           <ul className="subs">
@@ -342,6 +368,7 @@ function TaskList({
   onEdit,
   onEditSub,
   onAssign,
+  onDelete,
 }: {
   bucket: OwnerTodoBucket;
   emphasis: "focus" | "other";
@@ -361,6 +388,7 @@ function TaskList({
   onEdit: (id: string, patch: TodoEdit) => void;
   onEditSub: (parentId: string, subId: string, patch: { label?: string; dueDate?: string | null }) => void;
   onAssign: (id: string, owner: Owner | null) => void;
+  onDelete: (id: string) => void;
 }) {
   const todos = [...bucket.open, ...bucket.done];
   const stats = openListStats(todos);
@@ -400,6 +428,7 @@ function TaskList({
             onEdit={(patch) => onEdit(todo.id, patch)}
             onEditSub={(subId, patch) => onEditSub(todo.id, subId, patch)}
             onAssign={(owner) => onAssign(todo.id, owner)}
+            onDelete={() => onDelete(todo.id)}
           />
         ))
       ) : (
@@ -437,6 +466,7 @@ function OthersSection({
     onEdit: (id: string, patch: TodoEdit) => void;
     onEditSub: (parentId: string, subId: string, patch: { label?: string; dueDate?: string | null }) => void;
     onAssign: (id: string, owner: Owner | null) => void;
+    onDelete: (id: string) => void;
   };
 }) {
   if (!buckets.length) return null;
@@ -503,6 +533,7 @@ function UnclaimedList({
   onEdit,
   onEditSub,
   onAssign,
+  onDelete,
 }: {
   bucket: UnclaimedTodoBucket;
   viewer: Owner;
@@ -521,6 +552,7 @@ function UnclaimedList({
   onEdit: (id: string, patch: TodoEdit) => void;
   onEditSub: (parentId: string, subId: string, patch: { label?: string; dueDate?: string | null }) => void;
   onAssign: (id: string, owner: Owner | null) => void;
+  onDelete: (id: string) => void;
 }) {
   const todos = [...bucket.open, ...bucket.done];
   const stats = openListStats(todos);
@@ -555,6 +587,7 @@ function UnclaimedList({
             onEdit={(patch) => onEdit(todo.id, patch)}
             onEditSub={(subId, patch) => onEditSub(todo.id, subId, patch)}
             onAssign={(owner) => onAssign(todo.id, owner)}
+            onDelete={() => onDelete(todo.id)}
           />
         ))
       ) : (
@@ -575,6 +608,7 @@ export function TodosPanel({
   onToggle,
   onChangeSubtasks,
   onEditTodo,
+  onDeleteTodo,
 }: {
   memberId: string;
   memberProfiles: MemberProfile[];
@@ -586,6 +620,7 @@ export function TodosPanel({
   onToggle: (id: string, checked: boolean) => void;
   onChangeSubtasks: (next: TodoSubtaskMap) => void;
   onEditTodo: (id: string, patch: TodoEdit) => void;
+  onDeleteTodo: (id: string) => void;
 }) {
   const focusOwner: Owner = memberOwnerId(memberId);
   const profiles = new Map(memberProfiles.map((row) => [row.id, row]));
@@ -712,6 +747,7 @@ export function TodosPanel({
     onEdit: onEditTodo,
     onEditSub: editSub,
     onAssign: assignTodo,
+    onDelete: onDeleteTodo,
   };
 
   return (

@@ -13,7 +13,8 @@ export type TabId =
   | "questions"
   | "consultants"
   | "notes"
-  | "testing";
+  | "testing"
+  | "log";
 
 export type SelectivityTier = "" | "extremely_selective" | "very_selective" | "competitive" | "less_competitive";
 export type InterestLevel = "" | "top" | "high" | "moderate" | "safety";
@@ -210,6 +211,7 @@ export const TABS: { id: TabId; label: string }[] = [
   { id: "questions", label: "App Questions" },
   { id: "consultants", label: "Consultants" },
   { id: "faq", label: "FAQ" },
+  { id: "log", label: "Log" },
   { id: "testing", label: "Testing" },
 ];
 

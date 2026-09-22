@@ -18,6 +18,7 @@ const PRIMARY: { id: TabId; label: string }[] = [
   { id: "notes", label: "Notes" },
   { id: "questions", label: "App Questions" },
   { id: "consultants", label: "Consultants" },
+  { id: "log", label: "Log" },
 ];
 
 const REFERENCE: { id: TabId; label: string }[] = [
