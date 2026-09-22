@@ -155,17 +155,16 @@ export function sanitizeChecklistForViewer(
 }
 
 export function formatTodoWhen(todo: Pick<ProjectTodo, "dueDate" | "startDate" | "endDate">): string {
-  if (todo.startDate && todo.endDate) {
-    return `${formatDate(todo.startDate)} – ${formatDate(todo.endDate)}`;
+  const due = todoPrimaryDate(todo);
+  if (todo.startDate && due) {
+    return `${formatDate(todo.startDate)} – ${formatDate(due)}`;
   }
-  if (todo.dueDate) return formatDate(todo.dueDate);
-  if (todo.startDate) return `Starts ${formatDate(todo.startDate)}`;
-  if (todo.endDate) return `Ends ${formatDate(todo.endDate)}`;
+  if (due) return formatDate(due);
   return "No date";
 }
 
 function dateSortValue(todo: ProjectTodo): number {
-  const key = todo.dueDate ?? todo.startDate ?? todo.endDate;
+  const key = todoPrimaryDate(todo);
   return key ? Date.parse(key) : Number.POSITIVE_INFINITY;
 }
 
@@ -472,8 +471,9 @@ export function sanitizeSubtasksForViewer(
   return out;
 }
 
+/** List/sort date: end date is the due date by default; never fall back to start. */
 export function todoPrimaryDate(todo: Pick<ProjectTodo, "dueDate" | "startDate" | "endDate">): string | null {
-  return todo.dueDate ?? todo.startDate ?? todo.endDate;
+  return todo.endDate ?? todo.dueDate ?? null;
 }
 
 export function shortDueLabel(iso: string | null): string {

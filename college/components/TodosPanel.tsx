@@ -318,8 +318,11 @@ function TaskRow({
                     className="field"
                     type="date"
                     aria-label={`Due date for ${todo.label}`}
-                    value={todo.dueDate ?? ""}
-                    onChange={(event) => onEdit({ dueDate: event.target.value || null })}
+                    value={todo.endDate ?? todo.dueDate ?? ""}
+                    onChange={(event) => {
+                      const value = event.target.value || null;
+                      onEdit({ dueDate: value, endDate: value });
+                    }}
                   />
                 </label>
                 <label className="todo-edit-field">
@@ -330,16 +333,6 @@ function TaskRow({
                     aria-label={`Start date for ${todo.label}`}
                     value={todo.startDate ?? ""}
                     onChange={(event) => onEdit({ startDate: event.target.value || null })}
-                  />
-                </label>
-                <label className="todo-edit-field">
-                  <span className="label">End</span>
-                  <input
-                    className="field"
-                    type="date"
-                    aria-label={`End date for ${todo.label}`}
-                    value={todo.endDate ?? ""}
-                    onChange={(event) => onEdit({ endDate: event.target.value || null })}
                   />
                 </label>
               </div>

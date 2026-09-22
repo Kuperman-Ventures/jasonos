@@ -16,6 +16,7 @@ import {
   sanitizeSubtasksForViewer,
   shortDueLabel,
   todoOwnerIndex,
+  todoPrimaryDate,
 } from "./project-todos";
 
 test("memberOwnerId maps household ids onto owners", () => {
@@ -242,6 +243,25 @@ test("sanitizeSubtasksForViewer lets others add but not check off", () => {
   assert.equal(saved["kat-task"]?.[1]?.label, "Added by Jason");
 });
 
+test("todoPrimaryDate prefers end as due and never uses start", () => {
+  assert.equal(
+    todoPrimaryDate({ dueDate: "2026-09-20", startDate: "2026-09-01", endDate: "2026-09-25" }),
+    "2026-09-25",
+  );
+  assert.equal(
+    todoPrimaryDate({ dueDate: "2026-09-20", startDate: "2026-09-01", endDate: null }),
+    "2026-09-20",
+  );
+  assert.equal(
+    todoPrimaryDate({ dueDate: null, startDate: "2026-09-14", endDate: null }),
+    null,
+  );
+  assert.equal(
+    todoPrimaryDate({ dueDate: null, startDate: null, endDate: "2026-10-10" }),
+    "2026-10-10",
+  );
+});
+
 test("formatTodoWhen covers due dates and windows", () => {
   assert.equal(
     formatTodoWhen({ dueDate: "2026-09-20", startDate: null, endDate: null }),
@@ -254,6 +274,10 @@ test("formatTodoWhen covers due dates and windows", () => {
       endDate: "2026-10-10",
     }),
     /Oct 1, 2026/,
+  );
+  assert.equal(
+    formatTodoWhen({ dueDate: null, startDate: "2026-09-14", endDate: null }),
+    "No date",
   );
 });
 
