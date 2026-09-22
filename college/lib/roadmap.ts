@@ -59,14 +59,6 @@ export const ROADMAP_TRACKS: RoadmapTrack[] = [
     itemIds: ["p1-6"],
   },
   {
-    id: "money",
-    label: "Budget → FAFSA / CSS / aid",
-    start: { year: 2026, month: 8 },
-    end: { year: 2027, month: 11 },
-    kind: "bar",
-    itemIds: ["p1-4", "p2-3", "p5-5", "p6-1", "p6-2", "p6-3", "p6-4"],
-  },
-  {
     id: "essays",
     label: "Rising seniors: write your essays",
     start: { year: 2027, month: 6 },

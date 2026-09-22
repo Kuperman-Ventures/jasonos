@@ -99,12 +99,12 @@ export function ProcessRoadmap({
 
   const bars = ROADMAP_TRACKS.filter((track) => track.kind === "bar");
   const milestones = ROADMAP_TRACKS.filter((track) => track.kind === "milestone");
-  // Keep milestone between money and applications like the reference.
+  // Keep the essays milestone just above Submit applications.
   const ordered: RoadmapTrack[] = [];
   for (const track of ROADMAP_TRACKS) {
     if (track.kind === "milestone") continue;
+    if (track.id === "applications") ordered.push(...milestones);
     ordered.push(track);
-    if (track.id === "money") ordered.push(...milestones);
   }
 
   const lastTrackRow = 2 + ordered.length;
