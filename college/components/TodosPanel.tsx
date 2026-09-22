@@ -588,9 +588,6 @@ function UnclaimedList({
         <h1 className="list-head-name">Unclaimed</h1>
         <span className="list-count">{stats.label}</span>
       </div>
-      <p className="todo-unclaimed-blurb">
-        Anyone can claim these or assign them to Kyle, Jason, or Kat.
-      </p>
       {todos.length ? (
         todos.map((todo) => (
           <TaskRow
