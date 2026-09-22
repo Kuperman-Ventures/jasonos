@@ -27,6 +27,11 @@ export type IngestSourceDraft = {
   assetPath?: string | null;
   mimeType?: string | null;
   fileName?: string | null;
+  /** Open Graph image when kind is url. */
+  previewImageUrl?: string | null;
+  /** Short page summary for Notes detail. */
+  previewSummary?: string | null;
+  previewSiteName?: string | null;
 };
 
 export type PersistedProjectStep = {
@@ -242,23 +247,9 @@ ${trimmed.slice(0, 12000)}`,
 }
 
 export async function fetchUrlText(url: string): Promise<string> {
-  const response = await fetch(url, {
-    signal: AbortSignal.timeout(12000),
-    headers: { "User-Agent": "KyleCollegePortal/0.1" },
-  });
-  if (!response.ok) throw new Error(`Could not fetch URL (${response.status})`);
-  const contentType = response.headers.get("content-type") ?? "";
-  const raw = await response.text();
-  if (contentType.includes("html") || raw.includes("<html")) {
-    return raw
-      .replace(/<script[\s\S]*?<\/script>/gi, " ")
-      .replace(/<style[\s\S]*?<\/style>/gi, " ")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 20000);
-  }
-  return raw.trim().slice(0, 20000);
+  const { fetchLinkPreview } = await import("@/lib/link-preview");
+  const preview = await fetchLinkPreview(url);
+  return preview.text;
 }
 
 export function normalizePersistedSteps(raw: unknown): PersistedProjectStep[] {

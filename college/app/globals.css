@@ -4211,6 +4211,32 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   gap: var(--space-2);
   margin-top: var(--space-2);
 }
+.note-detail-preview-status {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-neutral-700);
+}
+.note-detail-site {
+  padding: 0;
+  background: #fff;
+}
+.note-detail-site .plate-site {
+  padding: var(--space-4);
+}
+.note-detail-link-preview {
+  margin: 0;
+}
+.note-detail-link-preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 420px;
+  object-fit: cover;
+  background: var(--color-neutral-200);
+}
+.plate-link {
+  padding: 0;
+}
 
 @media (max-width: 900px) {
   .band {
@@ -4272,12 +4298,6 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   max-height: 180px;
   object-fit: cover;
   display: block;
-}
-.note-detail-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
 }
 .calendar-event-list {
   list-style: none;

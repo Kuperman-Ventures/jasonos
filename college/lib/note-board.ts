@@ -35,6 +35,10 @@ export type PinNote = {
   assetUrl: string | null;
   assetPath: string | null;
   mimeType: string | null;
+  /** Open Graph / link-preview image for website pins. */
+  previewImageUrl: string | null;
+  /** Short summary of the linked page. */
+  previewSummary: string | null;
 };
 
 export type NoteBand = {
@@ -284,6 +288,14 @@ export function normalizePinNotes(raw: unknown): PinNote[] {
       assetUrl: typeof item.assetUrl === "string" && item.assetUrl ? item.assetUrl : null,
       assetPath: typeof item.assetPath === "string" && item.assetPath ? item.assetPath : null,
       mimeType: typeof item.mimeType === "string" && item.mimeType ? item.mimeType : null,
+      previewImageUrl:
+        typeof item.previewImageUrl === "string" && item.previewImageUrl
+          ? item.previewImageUrl
+          : null,
+      previewSummary:
+        typeof item.previewSummary === "string" && item.previewSummary.trim()
+          ? item.previewSummary.trim().slice(0, 600)
+          : null,
     });
   }
   return out;
@@ -327,6 +339,8 @@ export function migrateLegacyNotesText(notes: string, addedBy: Owner = "jason"):
         assetUrl: null,
         assetPath: null,
         mimeType: null,
+        previewImageUrl: null,
+        previewSummary: null,
       });
       continue;
     }
@@ -352,6 +366,8 @@ export function migrateLegacyNotesText(notes: string, addedBy: Owner = "jason"):
       assetUrl: null,
       assetPath: null,
       mimeType: null,
+      previewImageUrl: null,
+      previewSummary: null,
     });
   }
 
@@ -372,11 +388,17 @@ export function buildPinNotesFromIngest(input: {
   mimeType?: string | null;
   /** When true and there is an asset, create one pin for the file itself. */
   assetAsNote?: boolean;
+  previewImageUrl?: string | null;
+  previewSummary?: string | null;
 }): PinNote[] {
   const assetUrl = input.assetUrl ?? null;
   const assetPath = input.assetPath ?? null;
   const mimeType = input.mimeType ?? null;
   const isImage = Boolean(mimeType?.startsWith("image/"));
+  const previewImageUrl = input.previewImageUrl ?? null;
+  const previewSummary = input.previewSummary?.trim()
+    ? input.previewSummary.trim().slice(0, 600)
+    : null;
 
   if (input.assetAsNote && assetUrl) {
     return [
@@ -398,6 +420,8 @@ export function buildPinNotesFromIngest(input: {
         assetUrl,
         assetPath,
         mimeType,
+        previewImageUrl: null,
+        previewSummary: null,
       },
     ];
   }
@@ -419,28 +443,35 @@ export function buildPinNotesFromIngest(input: {
         null
       : null;
 
-  return labels.map((label, index) => ({
-    id: `note-${input.sourceId.slice(0, 8)}-${index + 1}-${Math.random().toString(36).slice(2, 7)}`,
-    title: label.slice(0, 160),
-    kind,
-    addedBy: input.addedBy,
-    createdAt: input.createdAt,
-    reviewers: [],
-    reviewedBy: [],
-    reviewDue: null,
-    body:
-      kind === "note"
-        ? label
-        : [label, input.sourceText.trim().slice(0, 600)].filter(Boolean).join("\n\n"),
-    host,
-    url,
-    pageCount: null,
-    durationLabel: null,
-    sourceId: input.sourceId,
-    assetUrl,
-    assetPath,
-    mimeType,
-  }));
+  return labels.map((label, index) => {
+    const summaryBody =
+      kind === "website"
+        ? previewSummary || input.sourceText.trim().slice(0, 600)
+        : kind === "note"
+          ? label
+          : [label, input.sourceText.trim().slice(0, 600)].filter(Boolean).join("\n\n");
+    return {
+      id: `note-${input.sourceId.slice(0, 8)}-${index + 1}-${Math.random().toString(36).slice(2, 7)}`,
+      title: label.slice(0, 160),
+      kind,
+      addedBy: input.addedBy,
+      createdAt: input.createdAt,
+      reviewers: [],
+      reviewedBy: [],
+      reviewDue: null,
+      body: summaryBody,
+      host,
+      url,
+      pageCount: null,
+      durationLabel: null,
+      sourceId: input.sourceId,
+      assetUrl,
+      assetPath,
+      mimeType,
+      previewImageUrl: kind === "website" ? previewImageUrl : null,
+      previewSummary: kind === "website" ? previewSummary : null,
+    };
+  });
 }
 
 export function markPinReviewed(items: PinNote[], id: string, viewer: Owner): PinNote[] {

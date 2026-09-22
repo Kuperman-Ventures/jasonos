@@ -419,6 +419,28 @@ export function Portal({
     goProjectSection("todos");
   }
 
+  function makeCalendarFromNote(note: PinNote) {
+    const createdAt = new Date().toISOString();
+    const notesParts = [note.body?.trim() || "", note.url?.trim() || ""].filter(Boolean);
+    const event: CalendarEvent = {
+      id: `note-cal-${note.id.slice(0, 10)}-${Math.random().toString(36).slice(2, 7)}`,
+      title: note.title,
+      date: null,
+      startTime: null,
+      endTime: null,
+      notes: notesParts.join("\n\n"),
+      createdAt,
+      createdBy: memberOwnerId(member.id),
+      sourceId: note.sourceId,
+      assetUrl: note.assetUrl,
+      assetPath: note.assetPath,
+    };
+    const next = [event, ...calendarEvents];
+    setCalendarEvents(next);
+    void patchState({ calendarEvents: next });
+    goProjectSection("calendar");
+  }
+
   function changeScore(firmId: string, criterionId: string, value: number) {
     const next = { ...scores, [firmId]: { ...scores[firmId], [criterionId]: value } };
     setScores(next);
@@ -839,6 +861,7 @@ export function Portal({
             onOpenNote={openNote}
             onChangeNoteItems={changeNoteItems}
             onMakeTodo={makeTodoFromNote}
+            onMakeCalendar={makeCalendarFromNote}
           />
         ) : null}
         {tab === "testing" ? (

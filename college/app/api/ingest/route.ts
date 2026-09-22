@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isSession, requireCollegeSession } from "@/lib/auth";
-import { fetchUrlText, suggestStepsFromText } from "@/lib/ingest";
+import { suggestStepsFromText } from "@/lib/ingest";
+import { fetchLinkPreview, summarizeLinkPreview } from "@/lib/link-preview";
 import { extractPdfText, isPdfFile } from "@/lib/pdf";
 
 export const runtime = "nodejs";
@@ -10,6 +11,9 @@ async function parseMultipart(request: Request): Promise<{
   text: string;
   kind: "paste" | "url" | "file";
   title: string;
+  previewImageUrl: string | null;
+  previewSummary: string | null;
+  previewSiteName: string | null;
 }> {
   const form = await request.formData();
   const titleField = form.get("title");
@@ -29,6 +33,9 @@ async function parseMultipart(request: Request): Promise<{
     text,
     kind: "file",
     title: title || file.name.replace(/\.pdf$/i, "") || `PDF (${pageCount} pages)`,
+    previewImageUrl: null,
+    previewSummary: null,
+    previewSiteName: null,
   };
 }
 
@@ -36,6 +43,9 @@ async function parseJson(request: Request): Promise<{
   text: string;
   kind: "paste" | "url" | "file";
   title: string;
+  previewImageUrl: string | null;
+  previewSummary: string | null;
+  previewSiteName: string | null;
 }> {
   const body = (await request.json()) as {
     text?: string;
@@ -47,19 +57,26 @@ async function parseJson(request: Request): Promise<{
   let text = typeof body.text === "string" ? body.text.trim() : "";
   let kind = body.kind ?? "paste";
   let title = typeof body.title === "string" ? body.title.trim() : "";
+  let previewImageUrl: string | null = null;
+  let previewSummary: string | null = null;
+  let previewSiteName: string | null = null;
 
   if (!text && typeof body.url === "string" && body.url.trim()) {
     kind = "url";
     const url = body.url.trim();
-    title = title || url;
-    text = await fetchUrlText(url);
+    const preview = await fetchLinkPreview(url);
+    text = preview.text;
+    previewImageUrl = preview.imageUrl;
+    previewSummary = summarizeLinkPreview(preview) || null;
+    previewSiteName = preview.siteName;
+    title = title || preview.title || url;
   }
 
   if (!text) {
     throw new Error("Paste some text, upload a PDF, or provide a URL.");
   }
 
-  return { text, kind, title };
+  return { text, kind, title, previewImageUrl, previewSummary, previewSiteName };
 }
 
 export async function POST(request: Request) {
@@ -85,6 +102,9 @@ export async function POST(request: Request) {
         kind: input.kind,
         text: input.text,
         createdAt: new Date().toISOString(),
+        previewImageUrl: input.previewImageUrl,
+        previewSummary: input.previewSummary,
+        previewSiteName: input.previewSiteName,
       },
     });
   } catch (error) {

@@ -30,6 +30,8 @@ function sample(partial: Partial<PinNote> & Pick<PinNote, "id" | "title" | "crea
     assetUrl: null,
     assetPath: null,
     mimeType: null,
+    previewImageUrl: null,
+    previewSummary: null,
     ...partial,
   };
 }
@@ -140,11 +142,15 @@ test("buildPinNotesFromIngest creates one pin per note row", () => {
     createdAt: "2026-09-18T12:00:00Z",
     addedBy: "jason",
     noteLabels: ["UW direct-to-engineering pathway"],
+    previewImageUrl: "https://cdn.example.com/uw.jpg",
+    previewSummary: "Direct-to-engineering for first-year applicants.",
   });
   assert.equal(items.length, 1);
   assert.equal(items[0]!.kind, "website");
   assert.equal(items[0]!.host, "washington.edu");
   assert.equal(items[0]!.title, "UW direct-to-engineering pathway");
+  assert.equal(items[0]!.previewImageUrl, "https://cdn.example.com/uw.jpg");
+  assert.equal(items[0]!.previewSummary, "Direct-to-engineering for first-year applicants.");
 });
 
 test("normalizePinNotes drops bad rows", () => {

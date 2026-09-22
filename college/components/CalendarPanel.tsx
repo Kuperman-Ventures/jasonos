@@ -25,11 +25,11 @@ export function CalendarPanel({
         </div>
       </header>
       <p className="section-sub">
-        Events land here from Ingest when you route a row (or an as-is upload) to Calendar. A full
-        month grid comes later.
+        Events land here from Ingest (route to Calendar) or from a Note via Make a calendar event. A
+        full month grid comes later.
       </p>
       {!sorted.length ? (
-        <p className="todo-empty">No calendar events yet. Add some from Ingest.</p>
+        <p className="todo-empty">No calendar events yet. Add some from Ingest or a Note.</p>
       ) : (
         <ul className="calendar-event-list">
           {sorted.map((event) => (

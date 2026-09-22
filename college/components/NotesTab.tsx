@@ -95,7 +95,16 @@ function Plate({ item }: { item: PinNote }) {
 
   const host = item.host ?? "link";
   const initial = host.charAt(0).toUpperCase();
-  const quote = item.body.split("\n").find((line) => line.trim()) ?? item.title;
+  const quote =
+    item.previewSummary || item.body.split("\n").find((line) => line.trim()) || item.title;
+  if (item.previewImageUrl) {
+    return (
+      <div className="plate plate-image plate-link">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={item.previewImageUrl} alt="" />
+      </div>
+    );
+  }
   return (
     <div className="plate">
       <span className="plate-site">
@@ -144,16 +153,23 @@ function DetailMedia({ item }: { item: PinNote }) {
     const host = item.host ?? "link";
     return (
       <div className="note-detail-media note-detail-site">
-        <span className="plate-site">
-          <span
-            className="favicon"
-            style={{ background: "var(--color-accent-800)" }}
-            aria-hidden="true"
-          >
-            {host.charAt(0).toUpperCase()}
+        {item.previewImageUrl ? (
+          <figure className="note-detail-link-preview">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={item.previewImageUrl} alt="" />
+          </figure>
+        ) : (
+          <span className="plate-site">
+            <span
+              className="favicon"
+              style={{ background: "var(--color-accent-800)" }}
+              aria-hidden="true"
+            >
+              {host.charAt(0).toUpperCase()}
+            </span>
+            <span className="plate-host">{host}</span>
           </span>
-          <span className="plate-host">{host}</span>
-        </span>
+        )}
       </div>
     );
   }
@@ -258,6 +274,8 @@ function NoteDetail({
   onBack,
   onMarkReviewed,
   onMakeTodo,
+  onMakeCalendar,
+  previewLoading,
 }: {
   item: PinNote;
   viewer: Owner;
@@ -265,11 +283,16 @@ function NoteDetail({
   onBack: () => void;
   onMarkReviewed: () => void;
   onMakeTodo: () => void;
+  onMakeCalendar: () => void;
+  previewLoading?: boolean;
 }) {
   const forReview = waitingOnViewer(item, viewer);
   const uploader = profiles.get(item.addedBy);
   const uploaderName = uploader?.displayName ?? ownerLabel(item.addedBy);
-  const fullBody = item.body?.trim() || "";
+  const summary =
+    item.kind === "website"
+      ? (item.previewSummary?.trim() || item.body?.trim() || "")
+      : item.body?.trim() || "";
 
   return (
     <section className="board note-detail">
@@ -305,15 +328,31 @@ function NoteDetail({
               </a>
             </p>
           ) : null}
-          {fullBody ? <div className="note-detail-body">{fullBody}</div> : null}
+          {item.kind === "website" && previewLoading && !item.previewImageUrl && !summary ? (
+            <p className="note-detail-preview-status">Loading link preview…</p>
+          ) : null}
+          {summary ? <div className="note-detail-body">{summary}</div> : null}
           <div className="note-detail-actions">
+            {item.url ? (
+              <a
+                className="btn btn-primary"
+                href={item.url}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open link in new tab
+              </a>
+            ) : null}
             {forReview ? (
-              <button type="button" className="btn btn-primary" onClick={onMarkReviewed}>
+              <button type="button" className="btn btn-secondary" onClick={onMarkReviewed}>
                 Mark reviewed
               </button>
             ) : null}
             <button type="button" className="btn btn-secondary" onClick={onMakeTodo}>
-              Make a to-do from this
+              Make a to-do
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={onMakeCalendar}>
+              Make a calendar event
             </button>
           </div>
         </div>
@@ -331,6 +370,7 @@ export function NotesTab({
   onOpenNote,
   onChangeNoteItems,
   onMakeTodo,
+  onMakeCalendar,
 }: {
   memberId: string;
   memberProfiles: MemberProfile[];
@@ -340,6 +380,7 @@ export function NotesTab({
   onOpenNote: (id: string | null) => void;
   onChangeNoteItems: (next: PinNote[]) => void;
   onMakeTodo: (note: PinNote) => void;
+  onMakeCalendar: (note: PinNote) => void;
 }) {
   const viewer = memberOwnerId(memberId);
   const profiles = useMemo(
@@ -371,6 +412,56 @@ export function NotesTab({
   const bands = bandPinNotes(visible);
   const waiting = noteItems.filter((item) => waitingOnViewer(item, viewer)).length;
   const openItem = openNoteId ? noteItems.find((item) => item.id === openNoteId) ?? null : null;
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const previewAttempted = useMemo(() => new Set<string>(), []);
+
+  useEffect(() => {
+    if (!openItem || openItem.kind !== "website" || !openItem.url) return;
+    if (openItem.previewImageUrl && openItem.previewSummary) return;
+    if (previewAttempted.has(openItem.id)) return;
+    previewAttempted.add(openItem.id);
+    let cancelled = false;
+    setPreviewLoading(true);
+    void (async () => {
+      try {
+        const response = await fetch("/api/link-preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: openItem.url }),
+        });
+        if (!response.ok || cancelled) return;
+        const body = (await response.json()) as {
+          imageUrl?: string | null;
+          summary?: string | null;
+        };
+        if (cancelled) return;
+        const nextImage = body.imageUrl?.trim() || null;
+        const nextSummary = body.summary?.trim() || null;
+        if (!nextImage && !nextSummary) return;
+        onChangeNoteItems(
+          noteItems.map((row) =>
+            row.id === openItem.id
+              ? {
+                  ...row,
+                  previewImageUrl: row.previewImageUrl || nextImage,
+                  previewSummary: row.previewSummary || nextSummary,
+                  body: row.previewSummary || nextSummary || row.body,
+                }
+              : row,
+          ),
+        );
+      } catch {
+        /* keep the note readable without a preview */
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally keyed on the open note id — avoid re-fetch loops when preview lands.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openItem?.id]);
 
   if (openItem) {
     return (
@@ -383,6 +474,8 @@ export function NotesTab({
           onChangeNoteItems(markPinReviewed(noteItems, openItem.id, viewer));
         }}
         onMakeTodo={() => onMakeTodo(openItem)}
+        onMakeCalendar={() => onMakeCalendar(openItem)}
+        previewLoading={previewLoading}
       />
     );
   }

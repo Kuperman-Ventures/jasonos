@@ -449,6 +449,8 @@ export function IngestPanel({
         assetUrl: source.assetUrl,
         assetPath: source.assetPath,
         mimeType: source.mimeType,
+        previewImageUrl: source.previewImageUrl,
+        previewSummary: source.previewSummary,
       });
       const createdEvents: CalendarEvent[] = calendarRows.map((row, index) => ({
         id: `cal-${source.id.slice(0, 8)}-${index + 1}-${Math.random().toString(36).slice(2, 7)}`,
