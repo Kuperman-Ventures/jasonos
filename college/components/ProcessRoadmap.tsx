@@ -99,14 +99,7 @@ export function ProcessRoadmap({
 
   const bars = ROADMAP_TRACKS.filter((track) => track.kind === "bar");
   const milestones = ROADMAP_TRACKS.filter((track) => track.kind === "milestone");
-  // Keep the essays milestone just above Submit applications.
-  const ordered: RoadmapTrack[] = [];
-  for (const track of ROADMAP_TRACKS) {
-    if (track.kind === "milestone") continue;
-    if (track.id === "applications") ordered.push(...milestones);
-    ordered.push(track);
-  }
-
+  const ordered = ROADMAP_TRACKS;
   const lastTrackRow = 2 + ordered.length;
 
   return (
@@ -118,7 +111,7 @@ export function ProcessRoadmap({
             <h3 className="dash-title">{title}</h3>
           </div>
           <div className="mono roadmap-meta">
-            {bars.length} tasks · {milestones.length} milestone · Sep 2026 – Jan 2028
+            {bars.length} tasks · {milestones.length} milestones · Sep 2026 – Jan 2028
           </div>
         </header>
       ) : null}

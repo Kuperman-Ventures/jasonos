@@ -53,14 +53,20 @@ test("month window is 17 cells with year bands", () => {
 });
 
 test("reference tracks land on the example spans", () => {
-  const list = ROADMAP_TRACKS.find((track) => track.id === "college-list");
+  const explore = ROADMAP_TRACKS.find((track) => track.id === "list-explore");
+  const consider = ROADMAP_TRACKS.find((track) => track.id === "list-consider");
+  const applyList = ROADMAP_TRACKS.find((track) => track.id === "list-apply");
   const essays = ROADMAP_TRACKS.find((track) => track.id === "essays");
   const apps = ROADMAP_TRACKS.find((track) => track.id === "applications");
-  assert.ok(list && essays && apps);
-  assert.equal(formatSpan(list), "Sep – Mar");
+  assert.ok(explore && consider && applyList && essays && apps);
+  assert.equal(formatSpan(explore), "Mar 2027");
+  assert.equal(formatSpan(consider), "Jun 2027");
+  assert.equal(formatSpan(applyList), "Aug 2027");
   assert.equal(formatSpan(essays), "Jul 2027");
   assert.equal(formatSpan(apps), "Oct – Jan 28");
-  assert.equal(spanLength(list.start, list.end), 7);
+  assert.equal(monthIndex(explore.start.year, explore.start.month), 6);
+  assert.equal(monthIndex(consider.start.year, consider.start.month), 9);
+  assert.equal(monthIndex(applyList.start.year, applyList.start.month), 11);
   assert.equal(monthIndex(essays.start.year, essays.start.month), 10);
 });
 
