@@ -4114,7 +4114,7 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
 }
 
 .note-detail {
-  max-width: 640px;
+  max-width: 720px;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -4123,12 +4123,76 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   align-self: start;
 }
 .note-detail-card {
+  background: var(--color-surface);
   box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+}
+.note-detail-card.is-for-review .pin-flag {
+  background: var(--color-accent);
+}
+.note-detail-media {
+  margin: 0;
+  background: #fff;
+  border-bottom: 1px solid var(--color-divider);
+}
+.note-detail-media img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: none;
+  object-fit: contain;
+  background: #fff;
+}
+.note-detail-pdf iframe {
+  display: block;
+  width: 100%;
+  min-height: 70vh;
+  border: 0;
+  background: var(--color-neutral-200);
+}
+.note-detail-pdf {
+  padding-bottom: var(--space-3);
+}
+.note-detail-pdf .note-detail-link {
+  margin: var(--space-3) var(--space-4) 0;
+}
+.note-detail-recording {
+  padding: var(--space-6) var(--space-4);
+  background: var(--color-text);
+  color: var(--color-bg);
+  border-bottom: 0;
+}
+.note-detail-recording .plate-kicker {
+  color: var(--color-neutral-300);
+}
+.note-detail-recording-lede {
+  margin: var(--space-3) 0 0;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 22px;
+  line-height: 1.3;
+}
+.note-detail-typed {
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-accent-100);
+  border-bottom: 0;
+}
+.note-detail-typed .plate-kicker {
+  color: var(--color-accent-800);
+}
+.note-detail-main {
+  padding: var(--space-4) var(--space-4) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 .note-detail-title {
+  margin: 0;
   font-size: 28px;
-  -webkit-line-clamp: unset;
-  display: block;
+  line-height: 1.2;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
 }
 .note-detail-link {
   margin: 0;
@@ -4136,9 +4200,16 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
 }
 .note-detail-body {
   white-space: pre-wrap;
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: 16px;
+  line-height: 1.55;
   color: var(--color-neutral-800);
+  max-width: 62ch;
+}
+.note-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 
 @media (max-width: 900px) {

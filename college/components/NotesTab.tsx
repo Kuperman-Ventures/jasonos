@@ -36,6 +36,19 @@ function roleLabel(role: string | undefined): string {
   return role.replace(/_/g, " ");
 }
 
+function isImageAsset(item: PinNote): boolean {
+  if (!item.assetUrl) return false;
+  if (item.mimeType?.startsWith("image/")) return true;
+  if (item.assetUrl.startsWith("data:image")) return true;
+  return /\.(png|jpe?g|webp|gif)(\?|$)/i.test(item.assetUrl);
+}
+
+function isPdfAsset(item: PinNote): boolean {
+  if (!item.assetUrl) return false;
+  if (item.mimeType === "application/pdf") return true;
+  return /\.pdf(\?|$)/i.test(item.assetUrl);
+}
+
 function Plate({ item }: { item: PinNote }) {
   if (item.kind === "note") {
     return (
@@ -56,11 +69,11 @@ function Plate({ item }: { item: PinNote }) {
     );
   }
   if (item.kind === "document") {
-    if (item.assetUrl && (item.mimeType?.startsWith("image/") || /\.(png|jpe?g|webp|gif)(\?|$)/i.test(item.assetUrl) || item.assetUrl.startsWith("data:image"))) {
+    if (isImageAsset(item)) {
       return (
         <div className="plate plate-image">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={item.assetUrl} alt="" />
+          <img src={item.assetUrl!} alt="" />
         </div>
       );
     }
@@ -94,6 +107,64 @@ function Plate({ item }: { item: PinNote }) {
       <span className="plate-text">“{quote}”</span>
     </div>
   );
+}
+
+function DetailMedia({ item }: { item: PinNote }) {
+  if (isImageAsset(item) && item.assetUrl) {
+    return (
+      <figure className="note-detail-media">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={item.assetUrl} alt={item.title} />
+      </figure>
+    );
+  }
+  if (isPdfAsset(item) && item.assetUrl) {
+    return (
+      <div className="note-detail-media note-detail-pdf">
+        <iframe title={item.title} src={item.assetUrl} />
+        <p className="note-detail-link">
+          <a href={item.assetUrl} target="_blank" rel="noreferrer">
+            Open PDF in a new tab
+          </a>
+        </p>
+      </div>
+    );
+  }
+  if (item.kind === "recording") {
+    return (
+      <div className="note-detail-media note-detail-recording">
+        <span className="plate-kicker">
+          {item.durationLabel ? `Webinar · ${item.durationLabel}` : "Recording"}
+        </span>
+        {item.body ? <p className="note-detail-recording-lede">{item.body}</p> : null}
+      </div>
+    );
+  }
+  if (item.kind === "website") {
+    const host = item.host ?? "link";
+    return (
+      <div className="note-detail-media note-detail-site">
+        <span className="plate-site">
+          <span
+            className="favicon"
+            style={{ background: "var(--color-accent-800)" }}
+            aria-hidden="true"
+          >
+            {host.charAt(0).toUpperCase()}
+          </span>
+          <span className="plate-host">{host}</span>
+        </span>
+      </div>
+    );
+  }
+  if (item.kind === "note") {
+    return (
+      <div className="note-detail-media note-detail-typed">
+        <span className="plate-kicker">Typed note</span>
+      </div>
+    );
+  }
+  return null;
 }
 
 function PinCard({
@@ -169,7 +240,9 @@ function PinCard({
                   </span>
                 );
               })}
-              {overflow > 0 ? <span className="avatar avatar-sm avatar-more">+{overflow}</span> : null}
+              {overflow > 0 ? (
+                <span className="avatar avatar-sm avatar-more">+{overflow}</span>
+              ) : null}
             </span>
           ) : null}
         </div>
@@ -196,18 +269,19 @@ function NoteDetail({
   const forReview = waitingOnViewer(item, viewer);
   const uploader = profiles.get(item.addedBy);
   const uploaderName = uploader?.displayName ?? ownerLabel(item.addedBy);
+  const fullBody = item.body?.trim() || "";
 
   return (
-    <section className="note-detail">
+    <section className="board note-detail">
       <button type="button" className="btn btn-ghost note-detail-back" onClick={onBack}>
         ← Back to board
       </button>
-      <div className={`pin note-detail-card${forReview ? " is-for-review" : ""}`}>
+      <article className={`note-detail-card${forReview ? " is-for-review" : ""}`}>
         <div className="pin-flag" />
-        <Plate item={item} />
-        <div className="pin-body">
+        <DetailMedia item={item} />
+        <div className="note-detail-main">
           <span className="pin-kind">{kindLabel(item.kind)}</span>
-          <h1 className="pin-title note-detail-title">{item.title}</h1>
+          <h1 className="note-detail-title">{item.title}</h1>
           <div className="pin-meta">
             <MemberBadge
               name={uploaderName}
@@ -224,14 +298,14 @@ function NoteDetail({
               </a>
             </p>
           ) : null}
-          {item.assetUrl && !item.mimeType?.startsWith("image/") ? (
+          {item.assetUrl && !isImageAsset(item) && !isPdfAsset(item) ? (
             <p className="note-detail-link">
               <a href={item.assetUrl} target="_blank" rel="noreferrer">
                 Open file
               </a>
             </p>
           ) : null}
-          {item.body ? <div className="note-detail-body">{item.body}</div> : null}
+          {fullBody ? <div className="note-detail-body">{fullBody}</div> : null}
           <div className="note-detail-actions">
             {forReview ? (
               <button type="button" className="btn btn-primary" onClick={onMarkReviewed}>
@@ -243,7 +317,7 @@ function NoteDetail({
             </button>
           </div>
         </div>
-      </div>
+      </article>
     </section>
   );
 }
