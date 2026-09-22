@@ -134,10 +134,6 @@ function TaskRow({
         {CARET}
       </div>
       <div className="task-body" id={bodyId}>
-        <p className="task-note">
-          <em>{todo.phase}</em> · {todo.parentText}
-        </p>
-
         <div className="todo-subtasks">
           {subtasks.length ? (
             <ul className="subs">
