@@ -35,7 +35,7 @@ test("spanLength is inclusive", () => {
 test("grid columns match the dense ledger math", () => {
   assert.equal(gridColumnStart(0), 2);
   assert.equal(gridColumnStart(2), 4); // Nov 2026 → NOW column
-  assert.equal(gridColumnStart(10), 12); // Jul 2027 essays pin
+  assert.equal(gridColumnStart(9), 11); // Jun 2027 essays bar
 });
 
 test("month window is 17 cells with year bands", () => {
@@ -59,15 +59,17 @@ test("reference tracks land on the example spans", () => {
   const apps = ROADMAP_TRACKS.find((track) => track.id === "applications");
   assert.ok(list && essays && apps);
   assert.equal(formatSpan(list), "Sep – Aug");
-  assert.equal(formatSpan(essays), "Jul 2027");
+  assert.equal(essays.kind, "bar");
+  assert.equal(formatSpan(essays), "Jun 2027");
   assert.equal(formatSpan(apps), "Oct – Jan 28");
   assert.equal(spanLength(list.start, list.end), 12);
+  assert.equal(spanLength(essays.start, essays.end), 1);
   assert.equal(list.segments?.length, 3);
   assert.equal(list.segments?.[0]?.label, "Explore");
   assert.equal(spanLength(list.segments![0].start, list.segments![0].end), 7);
   assert.equal(spanLength(list.segments![1].start, list.segments![1].end), 3);
   assert.equal(spanLength(list.segments![2].start, list.segments![2].end), 2);
-  assert.equal(monthIndex(essays.start.year, essays.start.month), 10);
+  assert.equal(monthIndex(essays.start.year, essays.start.month), 9);
 });
 
 test("segmentState colors Explore as active before Consider starts", () => {

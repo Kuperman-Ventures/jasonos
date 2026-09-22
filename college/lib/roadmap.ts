@@ -92,9 +92,9 @@ export const ROADMAP_TRACKS: RoadmapTrack[] = [
   {
     id: "essays",
     label: "Rising seniors: write your essays",
-    start: { year: 2027, month: 6 },
-    end: { year: 2027, month: 6 },
-    kind: "milestone",
+    start: { year: 2027, month: 5 },
+    end: { year: 2027, month: 5 },
+    kind: "bar",
     itemIds: ["p3-5", "p4-3", "p4-5"],
   },
   {
@@ -167,6 +167,12 @@ export function formatSpan(track: RoadmapTrack): string {
   const startLabel = MONTH_SHORT[track.start.month];
   const endLabel = MONTH_SHORT[track.end.month];
   if (track.kind === "milestone") {
+    return `${startLabel} ${track.start.year}`;
+  }
+  if (
+    track.start.year === track.end.year &&
+    track.start.month === track.end.month
+  ) {
     return `${startLabel} ${track.start.year}`;
   }
   if (track.start.year === track.end.year) {
