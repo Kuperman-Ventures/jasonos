@@ -2780,6 +2780,20 @@ table.schools .muted,
 }
 
 /* ---------- expandable to-do rows (option 1e) ---------- */
+.todos-panel .todo-add {
+  margin-bottom: var(--space-5);
+}
+.todos-panel .todo-add-draft {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  max-width: 640px;
+}
+.todos-panel .todo-add-draft .field {
+  flex: 1 1 220px;
+  min-width: 0;
+}
 .todos-panel .list {
   width: 100%;
   max-width: none;

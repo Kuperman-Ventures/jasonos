@@ -30,6 +30,7 @@ export function ProjectManagementTab({
   onChangeSubtasks,
   onEditTodo,
   onDeleteTodo,
+  onAddTodo,
   onChangeCalendarEvents,
   dateline,
 }: {
@@ -48,6 +49,7 @@ export function ProjectManagementTab({
   onChangeSubtasks: (next: TodoSubtaskMap) => void;
   onEditTodo: (id: string, patch: TodoEdit) => void;
   onDeleteTodo: (id: string) => void;
+  onAddTodo: (label: string) => void;
   onChangeCalendarEvents: (next: CalendarEvent[]) => void;
   dateline: string;
 }) {
@@ -84,7 +86,7 @@ export function ProjectManagementTab({
         })}
       </nav>
 
-      <p className="pm-blurb">{active.blurb}</p>
+      {active.blurb ? <p className="pm-blurb">{active.blurb}</p> : null}
 
       {active.status === "ready" && active.id === "timeline" ? (
         <TimelinePanel phases={phases} checklist={checklist} onToggle={onToggle} />
@@ -103,6 +105,7 @@ export function ProjectManagementTab({
           onChangeSubtasks={onChangeSubtasks}
           onEditTodo={onEditTodo}
           onDeleteTodo={onDeleteTodo}
+          onAddTodo={onAddTodo}
         />
       ) : null}
 

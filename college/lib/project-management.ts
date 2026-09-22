@@ -21,7 +21,7 @@ export const PROJECT_SECTIONS: ProjectSection[] = [
   {
     id: "todos",
     label: "To-dos",
-    blurb: "Your assigned steps first, with the rest of the household still visible.",
+    blurb: "",
     status: "ready",
   },
   {
