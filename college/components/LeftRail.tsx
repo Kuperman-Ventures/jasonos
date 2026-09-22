@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Image from "next/image";
+import { RailProfile } from "./RailProfile";
 import {
   PROJECT_SECTIONS,
   type ProjectSectionId,
@@ -23,19 +24,13 @@ const REFERENCE: { id: TabId; label: string }[] = [
   { id: "testing", label: "Testing" },
 ];
 
-function roleLabel(role: string): string {
-  if (role === "super_admin") return "Admin";
-  if (role === "parent") return "Parent";
-  if (role === "student") return "Student";
-  return role;
-}
-
 export function LeftRail({
   tab,
   onChange,
   projectSection,
   onProjectSectionChange,
   member,
+  onAvatarChange,
   schoolCount,
   projectCount,
   questionCount,
@@ -52,7 +47,8 @@ export function LeftRail({
   onChange: (tab: TabId) => void;
   projectSection: ProjectSectionId;
   onProjectSectionChange: (section: ProjectSectionId) => void;
-  member: { displayName: string; role: string };
+  member: { displayName: string; role: string; avatarUrl: string | null };
+  onAvatarChange: (avatarUrl: string | null) => void;
   schoolCount: number;
   projectCount: number;
   questionCount: number;
@@ -216,12 +212,7 @@ export function LeftRail({
             </span>
           ) : null}
           <div className="rail-account">
-            <strong>
-              {member.displayName} · {roleLabel(member.role)}
-            </strong>
-            <form action="/auth/signout" method="post">
-              <button type="submit">Sign out</button>
-            </form>
+            <RailProfile member={member} onAvatarChange={onAvatarChange} />
           </div>
         </div>
       </aside>

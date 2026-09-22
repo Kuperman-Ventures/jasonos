@@ -13,6 +13,8 @@ test("super admin is Jason's role", () => {
       role: "super_admin",
       uiVisible: true,
       authUserId: "u1",
+      avatarPath: null,
+      avatarUrl: null,
     },
   };
   assert.equal(isSuperAdmin(session), true);
@@ -29,6 +31,8 @@ test("student is not super admin", () => {
       role: "student",
       uiVisible: true,
       authUserId: "u2",
+      avatarPath: null,
+      avatarUrl: null,
     },
   };
   assert.equal(isSuperAdmin(session), false);

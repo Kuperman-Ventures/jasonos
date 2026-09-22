@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MemberBadge } from "./MemberBadge";
 import type { PersistedProjectStep } from "@/lib/ingest";
+import type { MemberProfile } from "@/lib/member-avatars";
 import {
   assignedByBadge,
   canMarkTodoDone,
@@ -32,6 +34,7 @@ function TaskRow({
   subtasks,
   open,
   viewer,
+  profiles,
   drafting,
   draftLabel,
   onToggleOpen,
@@ -48,6 +51,7 @@ function TaskRow({
   subtasks: TodoSubtask[];
   open: boolean;
   viewer: Owner;
+  profiles: Map<string, MemberProfile>;
   drafting: boolean;
   draftLabel: string;
   onToggleOpen: () => void;
@@ -61,7 +65,9 @@ function TaskRow({
   onEditSub: (subId: string, patch: { label?: string; dueDate?: string | null }) => void;
 }) {
   const canToggle = canMarkTodoDone(viewer, todo.owner);
-  const fromBadge = assignedByBadge(todo);
+  const fromOwner = todo.assignedBy && todo.assignedBy !== todo.owner ? todo.assignedBy : null;
+  const fromProfile = fromOwner ? profiles.get(fromOwner) : null;
+  const fromLabel = assignedByBadge(todo);
   const date = todoPrimaryDate(todo);
   const tone = dueTone(date);
   const showCountInColumn = subtasks.length > 0 && !date;
@@ -94,7 +100,13 @@ function TaskRow({
           onClick={onToggleOpen}
         >
           <span className="task-title-text">{todo.label}</span>
-          {fromBadge ? <span className="todo-from-badge">{fromBadge}</span> : null}
+          {fromOwner && fromLabel ? (
+            <MemberBadge
+              name={fromProfile?.displayName ?? ownerLabel(fromOwner)}
+              avatarUrl={fromProfile?.avatarUrl}
+              prefix="From"
+            />
+          ) : null}
         </button>
         {showCountInColumn ? (
           <span className="task-sub-count">
@@ -256,6 +268,7 @@ function TaskList({
   bucket,
   emphasis,
   viewer,
+  profiles,
   openIds,
   subtasks,
   draftParent,
@@ -273,6 +286,7 @@ function TaskList({
   bucket: OwnerTodoBucket;
   emphasis: "focus" | "other";
   viewer: Owner;
+  profiles: Map<string, MemberProfile>;
   openIds: Set<string>;
   subtasks: TodoSubtaskMap;
   draftParent: string | null;
@@ -315,6 +329,7 @@ function TaskList({
           subtasks={subtasks[todo.id] ?? []}
           open={openIds.has(todo.id)}
           viewer={viewer}
+          profiles={profiles}
           drafting={draftParent === todo.id}
           draftLabel={draftParent === todo.id ? draftLabel : ""}
           onToggleOpen={() => onToggleOpen(todo.id)}
@@ -334,6 +349,7 @@ function TaskList({
 
 export function TodosPanel({
   memberId,
+  memberProfiles,
   phases,
   checklist,
   projectSteps = [],
@@ -344,6 +360,7 @@ export function TodosPanel({
   onEditTodo,
 }: {
   memberId: string;
+  memberProfiles: MemberProfile[];
   phases: Phase[];
   checklist: Record<string, boolean>;
   projectSteps?: PersistedProjectStep[];
@@ -354,6 +371,7 @@ export function TodosPanel({
   onEditTodo: (id: string, patch: TodoEdit) => void;
 }) {
   const focusOwner: Owner = memberOwnerId(memberId);
+  const profiles = new Map(memberProfiles.map((row) => [row.id, row]));
   const todos = listProjectTodos(checklist, phases, projectSteps, todoEdits);
   const grouped = groupTodosByOwner(todos, focusOwner);
   const storageKey = `kyle-todo-open:${focusOwner}`;
@@ -437,6 +455,7 @@ export function TodosPanel({
 
   const shared = {
     viewer: focusOwner,
+    profiles,
     openIds,
     subtasks,
     draftParent,

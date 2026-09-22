@@ -14,6 +14,7 @@ export default async function HomePage() {
           displayName: session.member.displayName,
           role: session.member.role,
           email: session.email,
+          avatarUrl: session.member.avatarUrl,
         }}
       />
     );
@@ -26,6 +27,7 @@ export default async function HomePage() {
         displayName: "Local",
         role: "super_admin",
         email: "",
+        avatarUrl: null,
       }}
     />
   );

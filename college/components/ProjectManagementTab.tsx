@@ -10,12 +10,14 @@ import {
   type ProjectSectionId,
 } from "@/lib/project-management";
 import { memberOwnerId, type TodoEdit, type TodoEditMap, type TodoSubtaskMap } from "@/lib/project-todos";
+import type { MemberProfile } from "@/lib/member-avatars";
 import type { Phase } from "@/lib/types";
 
 export function ProjectManagementTab({
   section,
   onSectionChange,
   memberId,
+  memberProfiles,
   phases,
   checklist,
   projectSteps,
@@ -32,6 +34,7 @@ export function ProjectManagementTab({
   section: ProjectSectionId;
   onSectionChange: (section: ProjectSectionId) => void;
   memberId: string;
+  memberProfiles: MemberProfile[];
   phases: Phase[];
   checklist: Record<string, boolean>;
   projectSteps: PersistedProjectStep[];
@@ -87,6 +90,7 @@ export function ProjectManagementTab({
       {active.status === "ready" && active.id === "todos" ? (
         <TodosPanel
           memberId={memberId}
+          memberProfiles={memberProfiles}
           phases={phases}
           checklist={checklist}
           projectSteps={projectSteps}

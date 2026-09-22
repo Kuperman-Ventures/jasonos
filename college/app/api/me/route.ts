@@ -13,6 +13,7 @@ export async function GET() {
       displayName: session.member.displayName,
       role: session.member.role,
       email: session.email,
+      avatarUrl: session.member.avatarUrl,
       isSuperAdmin: isSuperAdmin(session),
     },
   });

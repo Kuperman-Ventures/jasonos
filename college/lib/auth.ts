@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { collegeDb, supabaseConfigured } from "./db";
+import { publicAvatarUrl } from "./member-avatars";
 import { createAuthServerClient } from "./supabase/server";
 
 export type MemberRole = "super_admin" | "parent" | "student" | "sibling" | "guest";
@@ -11,6 +12,8 @@ export type CollegeMember = {
   role: MemberRole;
   uiVisible: boolean;
   authUserId: string | null;
+  avatarPath: string | null;
+  avatarUrl: string | null;
 };
 
 export type CollegeSession = {
@@ -26,9 +29,11 @@ type MemberRow = {
   role: MemberRole;
   ui_visible: boolean;
   auth_user_id: string | null;
+  avatar_path?: string | null;
 };
 
 function mapMember(row: MemberRow): CollegeMember {
+  const avatarPath = row.avatar_path ?? null;
   return {
     id: row.id,
     email: row.email,
@@ -36,6 +41,8 @@ function mapMember(row: MemberRow): CollegeMember {
     role: row.role,
     uiVisible: row.ui_visible,
     authUserId: row.auth_user_id,
+    avatarPath,
+    avatarUrl: publicAvatarUrl(avatarPath),
   };
 }
 
@@ -90,6 +97,8 @@ export async function requireCollegeSession(): Promise<CollegeSession | NextResp
         role: "super_admin",
         uiVisible: true,
         authUserId: null,
+        avatarPath: null,
+        avatarUrl: null,
       },
     };
   }

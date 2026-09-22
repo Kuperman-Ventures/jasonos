@@ -41,6 +41,7 @@ import {
   type TodoEditMap,
   type TodoSubtaskMap,
 } from "@/lib/project-todos";
+import type { MemberProfile } from "@/lib/member-avatars";
 import type { ContactPatch, DeadlinePatch, Owner, School, Scores, TabId } from "@/lib/types";
 import {
   fromSeed,
@@ -86,14 +87,16 @@ function readStart(): { tab: TabId; schoolId: string | null; projectSection: Pro
 }
 
 export function Portal({
-  member,
+  member: initialMember,
 }: {
-  member: { id: string; displayName: string; role: string; email: string };
+  member: { id: string; displayName: string; role: string; email: string; avatarUrl: string | null };
 }) {
   // Always start on dashboard so SSR and the first client paint match. URL sync happens after mount.
   const [tab, setTab] = useState<TabId>("dashboard");
   const [projectSection, setProjectSection] = useState<ProjectSectionId>(DEFAULT_PROJECT_SECTION);
   const schoolId = useSyncExternalStore(subscribeSchool, schoolFromLocation, () => null);
+  const [member, setMember] = useState(initialMember);
+  const [memberProfiles, setMemberProfiles] = useState<MemberProfile[]>([]);
   const [checklist, setChecklist] = useState<Record<string, boolean>>({});
   const [scores, setScores] = useState<Scores>(seedScores);
   const [notes, setNotes] = useState("");
@@ -125,7 +128,11 @@ export function Portal({
     let cancelled = false;
     async function load() {
       try {
-        const [stateRes, prefsRes] = await Promise.all([fetch("/api/state"), fetch("/api/prefs")]);
+        const [stateRes, prefsRes, membersRes] = await Promise.all([
+          fetch("/api/state"),
+          fetch("/api/prefs"),
+          fetch("/api/members"),
+        ]);
         const state = (await stateRes.json()) as {
           checklist?: Record<string, boolean>;
           scores?: Scores;
@@ -140,6 +147,9 @@ export function Portal({
           prefs?: MemberListPrefs;
           error?: string;
         };
+        const membersBody = (await membersRes.json()) as {
+          members?: MemberProfile[];
+        };
         if (cancelled) return;
         if (state.checklist) setChecklist(state.checklist);
         if (state.scores) setScores({ ...seedScores, ...state.scores });
@@ -151,6 +161,18 @@ export function Portal({
         }
         if (state.todoEdits && typeof state.todoEdits === "object") {
           setTodoEdits(normalizeTodoEdits(state.todoEdits));
+        }
+        if (Array.isArray(membersBody.members)) {
+          setMemberProfiles(membersBody.members);
+          const mine = membersBody.members.find((row) => row.id === initialMember.id);
+          if (mine) {
+            setMember((current) => ({
+              ...current,
+              displayName: mine.displayName,
+              role: mine.role,
+              avatarUrl: mine.avatarUrl,
+            }));
+          }
         }
         setPersisted(Boolean(state.persisted));
         if (prefsBody.prefs) setListPrefs(mergeListPrefs(prefsBody.prefs));
@@ -164,7 +186,7 @@ export function Portal({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialMember.id]);
 
   function saveListPrefs(next: MemberListPrefs) {
     const merged = mergeListPrefs(next);
@@ -586,6 +608,12 @@ export function Portal({
         projectSection={projectSection}
         onProjectSectionChange={goProjectSection}
         member={member}
+        onAvatarChange={(avatarUrl) => {
+          setMember((current) => ({ ...current, avatarUrl }));
+          setMemberProfiles((current) =>
+            current.map((row) => (row.id === member.id ? { ...row, avatarUrl } : row)),
+          );
+        }}
         schoolCount={schools.length}
         projectCount={phases.length}
         questionCount={essayPromptList.length}
@@ -667,6 +695,7 @@ export function Portal({
             section={projectSection}
             onSectionChange={goProjectSection}
             memberId={member.id}
+            memberProfiles={memberProfiles}
             phases={phases}
             checklist={checklist}
             projectSteps={projectSteps}
