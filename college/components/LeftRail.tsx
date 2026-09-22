@@ -4,6 +4,10 @@ import { useEffect, useRef } from "react";
 import Image from "next/image";
 import { RailProfile } from "./RailProfile";
 import {
+  APPS_SECTIONS,
+  type AppsSectionId,
+} from "@/lib/apps-materials";
+import {
   PROJECT_SECTIONS,
   type ProjectSectionId,
 } from "@/lib/project-management";
@@ -16,12 +20,12 @@ const PRIMARY: { id: TabId; label: string }[] = [
   { id: "projects", label: "Project Management" },
   { id: "ingest", label: "Ingest" },
   { id: "notes", label: "Notes" },
-  { id: "questions", label: "App Questions" },
-  { id: "consultants", label: "Consultants" },
+  { id: "apps", label: "Apps & Materials" },
   { id: "log", label: "Log" },
 ];
 
 const REFERENCE: { id: TabId; label: string }[] = [
+  { id: "consultants", label: "Consultants" },
   { id: "faq", label: "FAQ" },
   { id: "testing", label: "Testing" },
 ];
@@ -31,6 +35,8 @@ export function LeftRail({
   onChange,
   projectSection,
   onProjectSectionChange,
+  appsSection,
+  onAppsSectionChange,
   member,
   onAvatarChange,
   schoolCount,
@@ -49,6 +55,8 @@ export function LeftRail({
   onChange: (tab: TabId) => void;
   projectSection: ProjectSectionId;
   onProjectSectionChange: (section: ProjectSectionId) => void;
+  appsSection: AppsSectionId;
+  onAppsSectionChange: (section: AppsSectionId) => void;
   member: { displayName: string; role: string; avatarUrl: string | null };
   onAvatarChange: (avatarUrl: string | null) => void;
   schoolCount: number;
@@ -69,12 +77,13 @@ export function LeftRail({
   const counts: Partial<Record<TabId, number>> = {
     colleges: schoolCount,
     projects: projectCount,
-    questions: questionCount,
+    apps: questionCount,
     consultants: consultantCount,
     faq: faqCount,
     testing: testingCount,
   };
   const projectsOpen = tab === "projects";
+  const appsOpen = tab === "apps";
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -119,7 +128,13 @@ export function LeftRail({
             <div key={item.id} className="rail-item">
               <a
                 className="rail-link"
-                href={item.id === "projects" ? "/?tab=projects&pm=timeline" : `/?tab=${item.id}`}
+                href={
+                  item.id === "projects"
+                    ? "/?tab=projects&pm=timeline"
+                    : item.id === "apps"
+                      ? "/?tab=apps&am=questions"
+                      : `/?tab=${item.id}`
+                }
                 aria-current={tab === item.id ? "page" : undefined}
                 onClick={(event) => {
                   event.preventDefault();
@@ -143,6 +158,27 @@ export function LeftRail({
                       onClick={() => {
                         if (section.status !== "ready") return;
                         onProjectSectionChange(section.id);
+                        onOpenChange(false);
+                      }}
+                    >
+                      <span>{section.label}</span>
+                      {section.status === "soon" ? <span className="soon">Soon</span> : null}
+                    </button>
+                  ))}
+                </nav>
+              ) : null}
+              {item.id === "apps" && appsOpen ? (
+                <nav className="rail-subnav" aria-label="Apps and Materials sections">
+                  {APPS_SECTIONS.map((section) => (
+                    <button
+                      key={section.id}
+                      type="button"
+                      className={appsSection === section.id ? "rail-sublink active" : "rail-sublink"}
+                      aria-current={appsSection === section.id ? "page" : undefined}
+                      disabled={section.status === "soon"}
+                      onClick={() => {
+                        if (section.status !== "ready") return;
+                        onAppsSectionChange(section.id);
                         onOpenChange(false);
                       }}
                     >

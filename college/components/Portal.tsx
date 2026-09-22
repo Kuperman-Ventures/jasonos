@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { AppQuestionsTab } from "./AppQuestionsTab";
+import { AppsMaterialsTab } from "./AppsMaterialsTab";
 import { CollegesTab } from "./CollegesTab";
 import { ConsultantsTab } from "./ConsultantsTab";
 import { DashboardTab } from "./DashboardTab";
@@ -36,6 +36,11 @@ import {
   type PinNote,
 } from "@/lib/note-board";
 import { normalizeCalendarEvents, type CalendarEvent } from "@/lib/calendar-events";
+import {
+  DEFAULT_APPS_SECTION,
+  resolveAppsSection,
+  type AppsSectionId,
+} from "@/lib/apps-materials";
 import {
   DEFAULT_PROJECT_SECTION,
   resolveProjectSection,
@@ -91,6 +96,7 @@ function readStart(): {
   tab: TabId;
   schoolId: string | null;
   projectSection: ProjectSectionId;
+  appsSection: AppsSectionId;
   noteId: string | null;
 } {
   if (typeof window === "undefined") {
@@ -98,6 +104,7 @@ function readStart(): {
       tab: "dashboard",
       schoolId: null,
       projectSection: DEFAULT_PROJECT_SECTION,
+      appsSection: DEFAULT_APPS_SECTION,
       noteId: null,
     };
   }
@@ -105,17 +112,33 @@ function readStart(): {
   const school = params.get("school");
   const pmRaw = params.get("pm");
   const projectSection = resolveProjectSection(pmRaw);
+  const appsSection = resolveAppsSection(params.get("am"));
   const noteId = params.get("note");
-  if (school) return { tab: "colleges", schoolId: school, projectSection, noteId: null };
+  if (school) {
+    return {
+      tab: "colleges",
+      schoolId: school,
+      projectSection,
+      appsSection,
+      noteId: null,
+    };
+  }
   // Legacy Project Management → Ingest deep link
   if (params.get("tab") === "projects" && pmRaw === "ingest") {
-    return { tab: "ingest", schoolId: null, projectSection: DEFAULT_PROJECT_SECTION, noteId: null };
+    return {
+      tab: "ingest",
+      schoolId: null,
+      projectSection: DEFAULT_PROJECT_SECTION,
+      appsSection,
+      noteId: null,
+    };
   }
   const tab = normalizeTabId(params.get("tab")) ?? "dashboard";
   return {
     tab,
     schoolId: null,
     projectSection,
+    appsSection,
     noteId: tab === "notes" && noteId ? noteId : null,
   };
 }
@@ -128,6 +151,7 @@ export function Portal({
   // Always start on dashboard so SSR and the first client paint match. URL sync happens after mount.
   const [tab, setTab] = useState<TabId>("dashboard");
   const [projectSection, setProjectSection] = useState<ProjectSectionId>(DEFAULT_PROJECT_SECTION);
+  const [appsSection, setAppsSection] = useState<AppsSectionId>(DEFAULT_APPS_SECTION);
   const schoolId = useSyncExternalStore(subscribeSchool, schoolFromLocation, () => null);
   const [member, setMember] = useState(initialMember);
   const [memberProfiles, setMemberProfiles] = useState<MemberProfile[]>([]);
@@ -160,6 +184,7 @@ export function Portal({
     const start = readStart();
     setTab(start.tab);
     setProjectSection(start.projectSection);
+    setAppsSection(start.appsSection);
     setOpenNoteId(start.noteId);
   }, []);
 
@@ -281,11 +306,15 @@ export function Portal({
       nextSchool: string | null,
       nextProjectSection: ProjectSectionId = projectSection,
       nextNoteId: string | null = null,
+      nextAppsSection: AppsSectionId = appsSection,
     ) => {
       const params = new URLSearchParams();
       if (nextTab !== "colleges") params.set("tab", nextTab);
       if (nextTab === "projects") {
         params.set("pm", nextProjectSection);
+      }
+      if (nextTab === "apps") {
+        params.set("am", nextAppsSection);
       }
       if (nextTab === "notes" && nextNoteId) params.set("note", nextNoteId);
       if (nextSchool) params.set("school", nextSchool);
@@ -293,19 +322,19 @@ export function Portal({
       window.history.replaceState(null, "", query ? `/?${query}` : "/");
       emitSchool();
     },
-    [projectSection],
+    [projectSection, appsSection],
   );
 
   function goTab(next: TabId) {
     setTab(next);
     if (next !== "notes") setOpenNoteId(null);
-    replaceUrl(next, next === "colleges" ? schoolId : null, projectSection, null);
+    replaceUrl(next, next === "colleges" ? schoolId : null, projectSection, null, appsSection);
   }
 
   function openNote(id: string | null) {
     setOpenNoteId(id);
     setTab("notes");
-    replaceUrl("notes", null, projectSection, id);
+    replaceUrl("notes", null, projectSection, id, appsSection);
   }
 
   function changeNoteItems(next: PinNote[]) {
@@ -396,6 +425,12 @@ export function Portal({
     setProjectSection(next);
     setTab("projects");
     replaceUrl("projects", null, next);
+  }
+
+  function goAppsSection(next: AppsSectionId) {
+    setAppsSection(next);
+    setTab("apps");
+    replaceUrl("apps", null, projectSection, null, next);
   }
 
   const statuses = useMemo(() => phaseStatuses(phases, checklist), [checklist]);
@@ -945,6 +980,8 @@ export function Portal({
         onChange={goTab}
         projectSection={projectSection}
         onProjectSectionChange={goProjectSection}
+        appsSection={appsSection}
+        onAppsSectionChange={goAppsSection}
         member={member}
         onAvatarChange={(avatarUrl) => {
           setMember((current) => ({ ...current, avatarUrl }));
@@ -1074,8 +1111,10 @@ export function Portal({
           </section>
         ) : null}
         {tab === "faq" ? <FaqTab categories={faqCategories} dateline={phaseLabel} /> : null}
-        {tab === "questions" ? (
-          <AppQuestionsTab
+        {tab === "apps" ? (
+          <AppsMaterialsTab
+            section={appsSection}
+            onSectionChange={goAppsSection}
             core={appCore}
             prompts={essayPromptList}
             writing={writingBlocks}

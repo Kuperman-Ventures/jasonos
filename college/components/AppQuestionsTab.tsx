@@ -20,23 +20,15 @@ export function AppQuestionsTab({
   writing,
   demographics,
   supplements,
-  dateline,
 }: {
   core: TextBlock[];
   prompts: string[];
   writing: TextBlock[];
   demographics: TextBlock[];
   supplements: Supplemental[];
-  dateline: string;
 }) {
   return (
-    <section>
-      <header className="page-head">
-        <div>
-          <div className="dateline">{dateline}</div>
-          <h2>Application Questions</h2>
-        </div>
-      </header>
+    <div className="apps-questions">
       <p className="section-sub">
         The actual fields and prompts on the application itself - the Common App core, plus what each school adds on
         top. Current as of the 2026-27 cycle; reconfirm once Kyle&apos;s Common App account is open next summer.
@@ -69,6 +61,6 @@ export function AppQuestionsTab({
         ))}
       </div>
       <PrepQuestions />
-    </section>
+    </div>
   );
 }
