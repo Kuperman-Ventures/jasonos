@@ -98,7 +98,7 @@ export async function PATCH(request: Request) {
   if (needsOwnerRead) {
     const { data: currentRow, error: readError } = await db
       .from("app_state")
-      .select("checklist, project_steps, todo_subtasks")
+      .select("checklist, project_steps, todo_subtasks, todo_edits")
       .eq("id", "kyle-college")
       .maybeSingle();
     if (readError) {
@@ -108,8 +108,12 @@ export async function PATCH(request: Request) {
     const projectSteps = Array.isArray(body.projectSteps)
       ? normalizePersistedSteps(body.projectSteps)
       : normalizePersistedSteps(row?.project_steps);
+    const todoEdits =
+      body.todoEdits && typeof body.todoEdits === "object"
+        ? normalizeTodoEdits(body.todoEdits)
+        : normalizeTodoEdits(row?.todo_edits);
     const viewer = memberOwnerId(session.member.id);
-    const owners = todoOwnerIndex(projectSteps);
+    const owners = todoOwnerIndex(projectSteps, todoEdits);
 
     if (body.checklist && typeof body.checklist === "object") {
       const currentChecklist =

@@ -2793,6 +2793,55 @@ table.schools .muted,
   font-weight: 600;
   color: var(--color-text);
 }
+.todos-panel .list-head-toggle {
+  all: unset;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  cursor: pointer;
+}
+.todos-panel .list-head-toggle:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+.todos-panel .list-head-caret {
+  display: inline-flex;
+  color: var(--color-neutral-700);
+  transition: transform 120ms ease;
+}
+.todos-panel .list-head-caret.is-open {
+  transform: rotate(90deg);
+}
+.todos-panel .list-other.is-collapsed .list-head {
+  margin-bottom: 0;
+}
+.todos-panel .list-unclaimed {
+  margin-top: var(--space-8);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--color-divider);
+}
+.todos-panel .todo-unclaimed-blurb {
+  margin: calc(-1 * var(--space-2)) 0 var(--space-4);
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.todos-panel .todo-assign-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  max-width: 640px;
+}
+.todos-panel .todo-assign-field {
+  flex: 1 1 180px;
+  min-width: 160px;
+}
+.todos-panel .todo-claim-btn {
+  min-height: 40px;
+}
 .todos-panel .list-count {
   font-family: var(--font-heading);
   font-size: 13px;

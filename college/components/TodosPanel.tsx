@@ -5,6 +5,7 @@ import { MemberBadge } from "./MemberBadge";
 import type { PersistedProjectStep } from "@/lib/ingest";
 import type { MemberProfile } from "@/lib/member-avatars";
 import {
+  assignmentPatch,
   assignedByBadge,
   canMarkTodoDone,
   dueTone,
@@ -20,8 +21,9 @@ import {
   type TodoEditMap,
   type TodoSubtask,
   type TodoSubtaskMap,
+  type UnclaimedTodoBucket,
 } from "@/lib/project-todos";
-import { ownerLabel, type Owner, type Phase } from "@/lib/types";
+import { OWNERS, ownerLabel, type Owner, type Phase } from "@/lib/types";
 
 const CARET = (
   <svg className="task-caret" viewBox="0 0 16 16" aria-hidden="true">
@@ -46,6 +48,7 @@ function TaskRow({
   onCancelDraft,
   onEdit,
   onEditSub,
+  onAssign,
 }: {
   todo: ProjectTodo;
   subtasks: TodoSubtask[];
@@ -63,15 +66,19 @@ function TaskRow({
   onCancelDraft: () => void;
   onEdit: (patch: TodoEdit) => void;
   onEditSub: (subId: string, patch: { label?: string; dueDate?: string | null }) => void;
+  onAssign: (owner: Owner | null) => void;
 }) {
   const canToggle = canMarkTodoDone(viewer, todo.owner);
-  const fromOwner = todo.assignedBy && todo.assignedBy !== todo.owner ? todo.assignedBy : null;
+  const fromOwner = todo.assignedBy && todo.owner && todo.assignedBy !== todo.owner ? todo.assignedBy : null;
   const fromProfile = fromOwner ? profiles.get(fromOwner) : null;
   const fromLabel = assignedByBadge(todo);
   const date = todoPrimaryDate(todo);
   const tone = dueTone(date);
   const showCountInColumn = subtasks.length > 0 && !date;
   const bodyId = `b-${todo.id}`;
+  const ownerLockLabel = todo.owner
+    ? `Only ${ownerLabel(todo.owner)} can check this off`
+    : "Claim this to-do before checking it off";
 
   return (
     <div className={open ? "task is-open" : "task"} data-task={todo.id}>
@@ -81,12 +88,8 @@ function TaskRow({
           type="checkbox"
           checked={todo.done}
           disabled={!canToggle}
-          aria-label={
-            canToggle
-              ? `Complete: ${todo.label}`
-              : `${todo.label} (only ${ownerLabel(todo.owner)} can check this off)`
-          }
-          title={canToggle ? undefined : `Only ${ownerLabel(todo.owner)} can check this off`}
+          aria-label={canToggle ? `Complete: ${todo.label}` : `${todo.label} (${ownerLockLabel})`}
+          title={canToggle ? undefined : ownerLockLabel}
           onChange={(event) => {
             if (!canToggle) return;
             onToggle(todo.id, event.target.checked);
@@ -129,6 +132,32 @@ function TaskRow({
             </span>
           ) : null}
         </p>
+        <div className="todo-assign-row">
+          <label className="todo-edit-field todo-assign-field">
+            <span className="label">Assigned to</span>
+            <select
+              className="field"
+              aria-label={`Assign ${todo.label}`}
+              value={todo.owner ?? ""}
+              onChange={(event) => {
+                const value = event.target.value;
+                onAssign(value === "" ? null : (value as Owner));
+              }}
+            >
+              <option value="">Unclaimed</option>
+              {OWNERS.map((owner) => (
+                <option key={owner.id} value={owner.id}>
+                  {owner.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {todo.owner !== viewer ? (
+            <button type="button" className="btn btn-secondary todo-claim-btn" onClick={() => onAssign(viewer)}>
+              Claim for me
+            </button>
+          ) : null}
+        </div>
         <div className="todo-edit">
           <label className="todo-edit-field">
             <span className="label">Wording</span>
@@ -203,9 +232,7 @@ function TaskRow({
                   checked={sub.done}
                   disabled={!canToggle}
                   aria-label={
-                    canToggle
-                      ? `Complete: ${sub.label}`
-                      : `${sub.label} (only ${ownerLabel(todo.owner)} can check this off)`
+                    canToggle ? `Complete: ${sub.label}` : `${sub.label} (${ownerLockLabel})`
                   }
                   onChange={(event) => {
                     if (!canToggle) return;
@@ -273,6 +300,8 @@ function TaskList({
   subtasks,
   draftParent,
   draftLabel,
+  listExpanded,
+  onToggleList,
   onToggleOpen,
   onToggle,
   onToggleSub,
@@ -282,9 +311,127 @@ function TaskList({
   onCancelDraft,
   onEdit,
   onEditSub,
+  onAssign,
 }: {
   bucket: OwnerTodoBucket;
   emphasis: "focus" | "other";
+  viewer: Owner;
+  profiles: Map<string, MemberProfile>;
+  openIds: Set<string>;
+  subtasks: TodoSubtaskMap;
+  draftParent: string | null;
+  draftLabel: string;
+  listExpanded: boolean;
+  onToggleList?: () => void;
+  onToggleOpen: (id: string) => void;
+  onToggle: (id: string, checked: boolean) => void;
+  onToggleSub: (parentId: string, subId: string, checked: boolean) => void;
+  onStartDraft: (parentId: string) => void;
+  onDraftLabel: (value: string) => void;
+  onCommitDraft: (parentId: string) => void;
+  onCancelDraft: () => void;
+  onEdit: (id: string, patch: TodoEdit) => void;
+  onEditSub: (parentId: string, subId: string, patch: { label?: string; dueDate?: string | null }) => void;
+  onAssign: (id: string, owner: Owner | null) => void;
+}) {
+  const todos = [...bucket.open, ...bucket.done];
+  const stats = openListStats(todos);
+  const listClass = emphasis === "focus" ? "list list-focus" : "list list-other";
+  const profile = profiles.get(bucket.owner);
+  const collapsible = emphasis === "other";
+  const showBody = !collapsible || listExpanded;
+
+  const head = (
+    <div className="list-head">
+      {collapsible ? (
+        <button
+          type="button"
+          className="list-head-toggle"
+          aria-expanded={listExpanded}
+          onClick={onToggleList}
+        >
+          <span className="list-head-name">
+            <MemberBadge
+              name={profile?.displayName ?? bucket.label}
+              avatarUrl={profile?.avatarUrl}
+              size="md"
+            />
+          </span>
+          <span className="list-count">{stats.label}</span>
+          <span className={`list-head-caret${listExpanded ? " is-open" : ""}`} aria-hidden="true">
+            {CARET}
+          </span>
+        </button>
+      ) : (
+        <>
+          <h1 className="list-head-name">
+            <MemberBadge
+              name={profile?.displayName ?? bucket.label}
+              avatarUrl={profile?.avatarUrl}
+              size="md"
+            />
+          </h1>
+          <span className="list-count">{stats.label}</span>
+        </>
+      )}
+    </div>
+  );
+
+  return (
+    <div className={`${listClass}${collapsible && !listExpanded ? " is-collapsed" : ""}`}>
+      {head}
+      {showBody ? (
+        todos.length ? (
+          todos.map((todo) => (
+            <TaskRow
+              key={todo.id}
+              todo={todo}
+              subtasks={subtasks[todo.id] ?? []}
+              open={openIds.has(todo.id)}
+              viewer={viewer}
+              profiles={profiles}
+              drafting={draftParent === todo.id}
+              draftLabel={draftParent === todo.id ? draftLabel : ""}
+              onToggleOpen={() => onToggleOpen(todo.id)}
+              onToggle={onToggle}
+              onToggleSub={(subId, checked) => onToggleSub(todo.id, subId, checked)}
+              onStartDraft={() => onStartDraft(todo.id)}
+              onDraftLabel={onDraftLabel}
+              onCommitDraft={() => onCommitDraft(todo.id)}
+              onCancelDraft={onCancelDraft}
+              onEdit={(patch) => onEdit(todo.id, patch)}
+              onEditSub={(subId, patch) => onEditSub(todo.id, subId, patch)}
+              onAssign={(owner) => onAssign(todo.id, owner)}
+            />
+          ))
+        ) : (
+          <p className="todo-empty">No to-dos assigned yet.</p>
+        )
+      ) : null}
+    </div>
+  );
+}
+
+function UnclaimedList({
+  bucket,
+  viewer,
+  profiles,
+  openIds,
+  subtasks,
+  draftParent,
+  draftLabel,
+  onToggleOpen,
+  onToggle,
+  onToggleSub,
+  onStartDraft,
+  onDraftLabel,
+  onCommitDraft,
+  onCancelDraft,
+  onEdit,
+  onEditSub,
+  onAssign,
+}: {
+  bucket: UnclaimedTodoBucket;
   viewer: Owner;
   profiles: Map<string, MemberProfile>;
   openIds: Set<string>;
@@ -300,56 +447,46 @@ function TaskList({
   onCancelDraft: () => void;
   onEdit: (id: string, patch: TodoEdit) => void;
   onEditSub: (parentId: string, subId: string, patch: { label?: string; dueDate?: string | null }) => void;
+  onAssign: (id: string, owner: Owner | null) => void;
 }) {
   const todos = [...bucket.open, ...bucket.done];
   const stats = openListStats(todos);
-  const listClass = emphasis === "focus" ? "list list-focus" : "list list-other";
-  const profile = profiles.get(bucket.owner);
-  const head = (
-    <div className="list-head">
-      <h1 className="list-head-name">
-        <MemberBadge
-          name={profile?.displayName ?? bucket.label}
-          avatarUrl={profile?.avatarUrl}
-          size="md"
-        />
-      </h1>
-      <span className="list-count">{stats.label}</span>
-    </div>
-  );
-  if (!todos.length) {
-    return (
-      <div className={listClass}>
-        {head}
-        <p className="todo-empty">No to-dos assigned yet.</p>
-      </div>
-    );
-  }
 
   return (
-    <div className={listClass}>
-      {head}
-      {todos.map((todo) => (
-        <TaskRow
-          key={todo.id}
-          todo={todo}
-          subtasks={subtasks[todo.id] ?? []}
-          open={openIds.has(todo.id)}
-          viewer={viewer}
-          profiles={profiles}
-          drafting={draftParent === todo.id}
-          draftLabel={draftParent === todo.id ? draftLabel : ""}
-          onToggleOpen={() => onToggleOpen(todo.id)}
-          onToggle={onToggle}
-          onToggleSub={(subId, checked) => onToggleSub(todo.id, subId, checked)}
-          onStartDraft={() => onStartDraft(todo.id)}
-          onDraftLabel={onDraftLabel}
-          onCommitDraft={() => onCommitDraft(todo.id)}
-          onCancelDraft={onCancelDraft}
-          onEdit={(patch) => onEdit(todo.id, patch)}
-          onEditSub={(subId, patch) => onEditSub(todo.id, subId, patch)}
-        />
-      ))}
+    <div className="list list-unclaimed">
+      <div className="list-head">
+        <h1 className="list-head-name">Unclaimed</h1>
+        <span className="list-count">{stats.label}</span>
+      </div>
+      <p className="todo-unclaimed-blurb">
+        Anyone can claim these or assign them to Kyle, Jason, or Kat.
+      </p>
+      {todos.length ? (
+        todos.map((todo) => (
+          <TaskRow
+            key={todo.id}
+            todo={todo}
+            subtasks={subtasks[todo.id] ?? []}
+            open={openIds.has(todo.id)}
+            viewer={viewer}
+            profiles={profiles}
+            drafting={draftParent === todo.id}
+            draftLabel={draftParent === todo.id ? draftLabel : ""}
+            onToggleOpen={() => onToggleOpen(todo.id)}
+            onToggle={onToggle}
+            onToggleSub={(subId, checked) => onToggleSub(todo.id, subId, checked)}
+            onStartDraft={() => onStartDraft(todo.id)}
+            onDraftLabel={onDraftLabel}
+            onCommitDraft={() => onCommitDraft(todo.id)}
+            onCancelDraft={onCancelDraft}
+            onEdit={(patch) => onEdit(todo.id, patch)}
+            onEditSub={(subId, patch) => onEditSub(todo.id, subId, patch)}
+            onAssign={(owner) => onAssign(todo.id, owner)}
+          />
+        ))
+      ) : (
+        <p className="todo-empty">Nothing waiting to be claimed.</p>
+      )}
     </div>
   );
 }
@@ -382,7 +519,9 @@ export function TodosPanel({
   const todos = listProjectTodos(checklist, phases, projectSteps, todoEdits);
   const grouped = groupTodosByOwner(todos, focusOwner);
   const storageKey = `kyle-todo-open:${focusOwner}`;
+  const othersKey = `kyle-todo-others:${focusOwner}`;
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
+  const [expandedOthers, setExpandedOthers] = useState<Set<Owner>>(new Set());
   const [draftParent, setDraftParent] = useState<string | null>(null);
   const [draftLabel, setDraftLabel] = useState("");
 
@@ -400,12 +539,42 @@ export function TodosPanel({
     }
   }, [storageKey]);
 
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(othersKey);
+      if (!raw) {
+        setExpandedOthers(new Set());
+        return;
+      }
+      const parsed = JSON.parse(raw) as unknown;
+      setExpandedOthers(
+        new Set(
+          Array.isArray(parsed)
+            ? parsed.filter((id): id is Owner => typeof id === "string" && OWNERS.some((o) => o.id === id))
+            : [],
+        ),
+      );
+    } catch {
+      setExpandedOthers(new Set());
+    }
+  }, [othersKey]);
+
   function toggleOpen(id: string) {
     setOpenIds((current) => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       window.localStorage.setItem(storageKey, JSON.stringify([...next]));
+      return next;
+    });
+  }
+
+  function toggleOtherList(owner: Owner) {
+    setExpandedOthers((current) => {
+      const next = new Set(current);
+      if (next.has(owner)) next.delete(owner);
+      else next.add(owner);
+      window.localStorage.setItem(othersKey, JSON.stringify([...next]));
       return next;
     });
   }
@@ -460,6 +629,10 @@ export function TodosPanel({
     });
   }
 
+  function assignTodo(id: string, owner: Owner | null) {
+    onEditTodo(id, assignmentPatch(focusOwner, owner));
+  }
+
   const shared = {
     viewer: focusOwner,
     profiles,
@@ -479,16 +652,30 @@ export function TodosPanel({
     },
     onEdit: onEditTodo,
     onEditSub: editSub,
+    onAssign: assignTodo,
   };
 
   return (
     <div className="pm-panel todos-panel">
-      <TaskList bucket={grouped.mine} emphasis="focus" {...shared} />
+      <TaskList
+        bucket={grouped.mine}
+        emphasis="focus"
+        listExpanded
+        {...shared}
+      />
       <div className="todos-others">
         {grouped.others.map((bucket) => (
-          <TaskList key={bucket.owner} bucket={bucket} emphasis="other" {...shared} />
+          <TaskList
+            key={bucket.owner}
+            bucket={bucket}
+            emphasis="other"
+            listExpanded={expandedOthers.has(bucket.owner)}
+            onToggleList={() => toggleOtherList(bucket.owner)}
+            {...shared}
+          />
         ))}
       </div>
+      <UnclaimedList bucket={grouped.unclaimed} {...shared} />
     </div>
   );
 }

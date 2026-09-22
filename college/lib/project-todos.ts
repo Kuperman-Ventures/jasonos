@@ -24,8 +24,9 @@ export type ProjectTodo = {
   label: string;
   /** Free-text note under the wording. Empty when nobody has written one. */
   description: string;
-  owner: Owner;
-  /** Who put this on the owner's list; null when seed/system or self-assigned with no badge. */
+  /** null = unclaimed — sitting in the shared pool until someone claims or is assigned. */
+  owner: Owner | null;
+  /** Who put this on the owner's list; null when seed/system, unclaimed, or self-claimed. */
   assignedBy: Owner | null;
   dueDate: string | null;
   startDate: string | null;
@@ -44,6 +45,9 @@ export type TodoEdit = {
   dueDate?: string | null;
   startDate?: string | null;
   endDate?: string | null;
+  /** Set to an owner, or null to move into Unclaimed. */
+  owner?: Owner | null;
+  assignedBy?: Owner | null;
 };
 
 export type TodoEditMap = Record<string, TodoEdit>;
@@ -87,19 +91,22 @@ export function memberOwnerId(memberId: string): Owner {
   return "jason";
 }
 
-/** Only the person whose list it is can mark a to-do done. */
-export function canMarkTodoDone(viewer: Owner, todoOwner: Owner): boolean {
-  return viewer === todoOwner;
+/** Only the person whose list it is can mark a to-do done. Unclaimed items must be claimed first. */
+export function canMarkTodoDone(viewer: Owner, todoOwner: Owner | null): boolean {
+  return todoOwner != null && viewer === todoOwner;
 }
 
 /** Badge text when someone else put the item on this list. */
 export function assignedByBadge(todo: Pick<ProjectTodo, "owner" | "assignedBy">): string | null {
-  if (!todo.assignedBy || todo.assignedBy === todo.owner) return null;
+  if (!todo.owner || !todo.assignedBy || todo.assignedBy === todo.owner) return null;
   return `From ${ownerLabel(todo.assignedBy)}`;
 }
 
 /** Owner lookup for seed + dynamic to-dos (used for check-off ACL). */
-export function todoOwnerIndex(dynamicSteps: PersistedProjectStep[] = []): Map<string, Owner> {
+export function todoOwnerIndex(
+  dynamicSteps: PersistedProjectStep[] = [],
+  edits: TodoEditMap = {},
+): Map<string, Owner> {
   const map = new Map<string, Owner>();
   const groups = stepsFile as ChecklistStepGroupSeed[];
   for (const group of groups) {
@@ -109,6 +116,11 @@ export function todoOwnerIndex(dynamicSteps: PersistedProjectStep[] = []): Map<s
   }
   for (const step of dynamicSteps) {
     map.set(step.id, step.owner);
+  }
+  for (const [id, edit] of Object.entries(edits)) {
+    if (!("owner" in edit)) continue;
+    if (edit.owner == null) map.delete(id);
+    else if (isOwner(edit.owner)) map.set(id, edit.owner);
   }
   return map;
 }
@@ -178,6 +190,16 @@ export function normalizeTodoEdits(raw: unknown): TodoEditMap {
     if (dueDate !== undefined) edit.dueDate = dueDate;
     if (startDate !== undefined) edit.startDate = startDate;
     if (endDate !== undefined) edit.endDate = endDate;
+    if ("owner" in row) {
+      if (row.owner === null || row.owner === "") edit.owner = null;
+      else if (typeof row.owner === "string" && isOwner(row.owner)) edit.owner = row.owner;
+    }
+    if ("assignedBy" in row) {
+      if (row.assignedBy === null || row.assignedBy === "") edit.assignedBy = null;
+      else if (typeof row.assignedBy === "string" && isOwner(row.assignedBy)) {
+        edit.assignedBy = row.assignedBy;
+      }
+    }
     if (Object.keys(edit).length) out[id] = edit;
   }
   return out;
@@ -197,11 +219,13 @@ function withEdit(
   edits: TodoEditMap,
 ) {
   const edit = edits[step.id];
-  if (!edit) return { ...step, description: "" };
+  if (!edit) return { ...step, description: "", owner: step.owner as Owner | null };
   return {
     ...step,
     label: edit.label?.trim() || step.label,
     description: edit.description ?? "",
+    owner: "owner" in edit ? (edit.owner ?? null) : step.owner,
+    assignedBy: "assignedBy" in edit ? (edit.assignedBy ?? null) : step.assignedBy,
     dueDate: "dueDate" in edit ? (edit.dueDate ?? null) : step.dueDate,
     startDate: "startDate" in edit ? (edit.startDate ?? null) : step.startDate,
     endDate: "endDate" in edit ? (edit.endDate ?? null) : step.endDate,
@@ -314,13 +338,33 @@ export type OwnerTodoBucket = {
   done: ProjectTodo[];
 };
 
+export type UnclaimedTodoBucket = {
+  open: ProjectTodo[];
+  done: ProjectTodo[];
+};
+
+/** Build the assignment patch when claiming or assigning a to-do. */
+export function assignmentPatch(
+  viewer: Owner,
+  nextOwner: Owner | null,
+): Pick<TodoEdit, "owner" | "assignedBy"> {
+  if (nextOwner == null) return { owner: null, assignedBy: null };
+  if (nextOwner === viewer) return { owner: nextOwner, assignedBy: null };
+  return { owner: nextOwner, assignedBy: viewer };
+}
+
 export function groupTodosByOwner(
   todos: ProjectTodo[],
   focusOwner: Owner,
-): { mine: OwnerTodoBucket; others: OwnerTodoBucket[] } {
+): { mine: OwnerTodoBucket; others: OwnerTodoBucket[]; unclaimed: UnclaimedTodoBucket } {
   const byOwner = new Map<Owner, ProjectTodo[]>();
   for (const owner of OWNERS) byOwner.set(owner.id, []);
+  const unclaimedRows: ProjectTodo[] = [];
   for (const todo of todos) {
+    if (!todo.owner) {
+      unclaimedRows.push(todo);
+      continue;
+    }
     const list = byOwner.get(todo.owner) ?? [];
     list.push(todo);
     byOwner.set(todo.owner, list);
@@ -339,6 +383,10 @@ export function groupTodosByOwner(
   return {
     mine: bucket(focusOwner),
     others: OWNERS.filter((owner) => owner.id !== focusOwner).map((owner) => bucket(owner.id)),
+    unclaimed: {
+      open: unclaimedRows.filter((todo) => !todo.done),
+      done: unclaimedRows.filter((todo) => todo.done),
+    },
   };
 }
 

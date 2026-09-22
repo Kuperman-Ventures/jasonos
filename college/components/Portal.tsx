@@ -268,7 +268,7 @@ export function Portal({
   }
 
   function toggleItem(id: string, checked: boolean) {
-    const owners = todoOwnerIndex(projectSteps);
+    const owners = todoOwnerIndex(projectSteps, todoEdits);
     const owner = owners.get(id);
     const viewer = memberOwnerId(member.id);
     if (owner && !canMarkTodoDone(viewer, owner)) {

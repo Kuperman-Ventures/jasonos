@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  assignmentPatch,
   assignedByBadge,
   canMarkTodoDone,
   dueTone,
@@ -27,12 +28,14 @@ test("only the list owner can mark a to-do done", () => {
   assert.equal(canMarkTodoDone("kat", "kat"), true);
   assert.equal(canMarkTodoDone("jason", "kat"), false);
   assert.equal(canMarkTodoDone("kyle", "kyle"), true);
+  assert.equal(canMarkTodoDone("jason", null), false);
 });
 
 test("assignedByBadge only shows when someone else assigned it", () => {
   assert.equal(assignedByBadge({ owner: "kat", assignedBy: "jason" }), "From Jason");
   assert.equal(assignedByBadge({ owner: "kat", assignedBy: "kat" }), null);
   assert.equal(assignedByBadge({ owner: "kat", assignedBy: null }), null);
+  assert.equal(assignedByBadge({ owner: null, assignedBy: "jason" }), null);
 });
 
 test("sanitizeChecklistForViewer blocks flipping someone else's to-do", () => {
@@ -140,6 +143,28 @@ test("groupTodosByOwner focuses the signed-in person", () => {
   assert.ok(grouped.mine.open.length > 0);
   assert.ok(grouped.others.every((bucket) => bucket.owner !== "kyle"));
   assert.ok(grouped.others.some((bucket) => bucket.owner === "jason" && bucket.open.length > 0));
+  assert.equal(grouped.unclaimed.open.length, 0);
+});
+
+test("assignmentPatch and unclaimed edits move to-dos between lists", () => {
+  assert.deepEqual(assignmentPatch("jason", "kyle"), { owner: "kyle", assignedBy: "jason" });
+  assert.deepEqual(assignmentPatch("jason", "jason"), { owner: "jason", assignedBy: null });
+  assert.deepEqual(assignmentPatch("jason", null), { owner: null, assignedBy: null });
+
+  const todos = listProjectTodos(
+    {},
+    undefined,
+    [],
+    {
+      "p1-1-s3": { owner: null, assignedBy: null },
+      "p1-1-s1": { owner: "kat", assignedBy: "jason" },
+    },
+  );
+  const grouped = groupTodosByOwner(todos, "jason");
+  assert.ok(grouped.unclaimed.open.some((todo) => todo.id === "p1-1-s3"));
+  assert.ok(grouped.others.find((bucket) => bucket.owner === "kat")?.open.some((todo) => todo.id === "p1-1-s1"));
+  assert.equal(todoOwnerIndex([], { "p1-1-s3": { owner: null } }).has("p1-1-s3"), false);
+  assert.equal(todoOwnerIndex([], { "p1-1-s1": { owner: "kat" } }).get("p1-1-s1"), "kat");
 });
 
 test("short due labels and soon-window tone", () => {
