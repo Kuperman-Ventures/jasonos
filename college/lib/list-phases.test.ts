@@ -10,11 +10,11 @@ import {
   previousListPhaseId,
   retreatSchoolPatch,
   schoolOnListPhase,
-  canAdvanceListPhase,
   isForwardListPhaseMove,
   selectivityGauges,
   selectivityPieSlices,
 } from "./list-phases";
+import { canAdvanceListPhase } from "./permissions";
 
 test("currentListPhaseId follows the funnel calendar", () => {
   assert.equal(currentListPhaseId(new Date("2026-09-20T12:00:00Z")), "exploration");
@@ -221,11 +221,11 @@ test("exploration keeps consideration schools; applications clears consideration
   assert.equal(schoolOnListPhase(applying, "applications"), true);
 });
 
-test("only Kyle (or local seed) can advance list phases", () => {
-  assert.equal(canAdvanceListPhase("kyle"), true);
-  assert.equal(canAdvanceListPhase("local"), true);
-  assert.equal(canAdvanceListPhase("jason"), false);
-  assert.equal(canAdvanceListPhase("kat"), false);
+test("only the Student role can advance list phases", () => {
+  assert.equal(canAdvanceListPhase({ id: "kyle", role: "student" }), true);
+  assert.equal(canAdvanceListPhase({ id: "local", role: "super_admin" }), true);
+  assert.equal(canAdvanceListPhase({ id: "jason", role: "super_admin" }), false);
+  assert.equal(canAdvanceListPhase({ id: "kat", role: "parent" }), false);
 
   assert.equal(isForwardListPhaseMove("exploration", "consideration"), true);
   assert.equal(isForwardListPhaseMove("consideration", "applications"), true);

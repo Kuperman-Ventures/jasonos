@@ -11,18 +11,19 @@ import {
   LIST_PHASES,
   advanceSchoolPatch,
   archiveSchoolPatch,
-  canAdvanceListPhase,
   currentListPhaseId,
   listPhaseById,
   normalizeColumns,
   retreatSchoolPatch,
   phaseCountGauge,
   schoolOnListPhase,
+  selectivityGauges,
   selectivityPieSlices,
   type ListColumnId,
   type ListPhaseId,
   type MemberListPrefs,
 } from "@/lib/list-phases";
+import { canAdvanceListPhase } from "@/lib/permissions";
 import {
   INTEREST_LEVELS,
   SELECTIVITY_TIERS,
@@ -44,6 +45,7 @@ export function CollegesTab({
   dateline,
   listPrefs,
   memberId,
+  memberRole,
   onListPrefsChange,
   onOpen,
   onClose,
@@ -65,6 +67,7 @@ export function CollegesTab({
   dateline: string;
   listPrefs: MemberListPrefs;
   memberId: string;
+  memberRole: string;
   onListPrefsChange: (prefs: MemberListPrefs) => void;
   onOpen: (id: string) => void;
   onClose: () => void;
@@ -81,7 +84,7 @@ export function CollegesTab({
   onPatchContact: (id: string, contactId: string, patch: ContactPatch) => void;
   onDeleteContact: (id: string, contactId: string) => void;
 }) {
-  const canAdvance = canAdvanceListPhase(memberId);
+  const canAdvance = canAdvanceListPhase({ id: memberId, role: memberRole });
   const [phaseId, setPhaseId] = useState<ListPhaseId>("exploration");
   const [query, setQuery] = useState("");
   const [tier, setTier] = useState<SelectivityTier | "any">("any");

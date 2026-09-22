@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
 import { isSession, requireCollegeSession } from "@/lib/auth";
 import { deleteSchool, getSchool, supabaseConfigured, updateSchool } from "@/lib/db";
-import {
-  canAdvanceListPhase,
-  isForwardListPhaseMove,
-  isListPhaseId,
-} from "@/lib/list-phases";
+import { isForwardListPhaseMove, isListPhaseId } from "@/lib/list-phases";
+import { canAdvanceListPhase } from "@/lib/permissions";
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -21,9 +18,12 @@ export async function PATCH(request: Request, context: Context) {
   if (typeof body.listPhase === "string" && isListPhaseId(body.listPhase)) {
     try {
       const current = await getSchool(id);
-      if (isForwardListPhaseMove(current.listPhase, body.listPhase) && !canAdvanceListPhase(session.member.id)) {
+      if (
+        isForwardListPhaseMove(current.listPhase, body.listPhase) &&
+        !canAdvanceListPhase(session.member)
+      ) {
         return NextResponse.json(
-          { error: "Only Kyle can move schools into Consideration or Applications." },
+          { error: "Only the Student can move schools into Consideration or Applications." },
           { status: 403 },
         );
       }

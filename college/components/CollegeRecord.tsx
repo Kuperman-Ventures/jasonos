@@ -269,7 +269,7 @@ export function CollegeRecord({
                 ) : null}
                 {!school.archived && nextPhaseLabel && !canAdvancePhase ? (
                   <p className="section-sub phase-advance-lock">
-                    Only Kyle can move schools into {nextPhaseLabel}.
+                    Only the Student can move schools into {nextPhaseLabel}.
                   </p>
                 ) : null}
                 {school.archived ? (

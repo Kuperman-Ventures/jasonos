@@ -11,6 +11,7 @@ import {
   gridColumnStart,
   monthCells,
   monthIndex,
+  segmentState,
   spanLength,
   trackState,
   yearBands,
@@ -34,6 +35,7 @@ function TrackRow({
   const name = accessibleTrackName(track, state);
   const span = formatSpan(track);
   const detail = `${name} · ${span}`;
+  const segments = track.segments ?? [];
 
   return (
     <>
@@ -58,6 +60,43 @@ function TrackRow({
           title={detail}
           aria-label={detail}
         />
+      ) : segments.length ? (
+        <div
+          className="bar-stack"
+          style={{
+            gridRow: row,
+            gridColumn: `${gridColumnStart(start)} / span ${length}`,
+            gridTemplateColumns: segments
+              .map((segment) => `${spanLength(segment.start, segment.end)}fr`)
+              .join(" "),
+          }}
+          role="group"
+          aria-label={detail}
+        >
+          {segments.map((segment) => {
+            const segState = segmentState(segment, now);
+            const segSpan = formatSpan({
+              ...track,
+              start: segment.start,
+              end: segment.end,
+              kind: "bar",
+              label: segment.label,
+            });
+            const segDetail = `${track.label} · ${segment.label} · ${segSpan}`;
+            return (
+              <button
+                key={segment.id}
+                type="button"
+                className="bar-seg"
+                data-state={segState}
+                title={segDetail}
+                aria-label={segDetail}
+              >
+                <span className="bar-seg-label">{segment.label}</span>
+              </button>
+            );
+          })}
+        </div>
       ) : (
         <button
           type="button"
@@ -111,7 +150,7 @@ export function ProcessRoadmap({
             <h3 className="dash-title">{title}</h3>
           </div>
           <div className="mono roadmap-meta">
-            {bars.length} tasks · {milestones.length} milestones · Sep 2026 – Jan 2028
+            {bars.length} tasks · {milestones.length} milestone · Sep 2026 – Jan 2028
           </div>
         </header>
       ) : null}
