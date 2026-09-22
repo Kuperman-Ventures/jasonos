@@ -150,7 +150,11 @@ export function ProcessRoadmap({
             <h3 className="dash-title">{title}</h3>
           </div>
           <div className="mono roadmap-meta">
-            {bars.length} tasks · {milestones.length} milestone · Sep 2026 – Jan 2028
+            {bars.length} tasks
+            {milestones.length
+              ? ` · ${milestones.length} milestone${milestones.length === 1 ? "" : "s"}`
+              : ""}{" "}
+            · Sep 2026 – Jan 2028
           </div>
         </header>
       ) : null}
