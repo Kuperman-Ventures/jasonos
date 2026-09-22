@@ -300,8 +300,6 @@ function TaskList({
   subtasks,
   draftParent,
   draftLabel,
-  listExpanded,
-  onToggleList,
   onToggleOpen,
   onToggle,
   onToggleSub,
@@ -321,8 +319,6 @@ function TaskList({
   subtasks: TodoSubtaskMap;
   draftParent: string | null;
   draftLabel: string;
-  listExpanded: boolean;
-  onToggleList?: () => void;
   onToggleOpen: (id: string) => void;
   onToggle: (id: string, checked: boolean) => void;
   onToggleSub: (parentId: string, subId: string, checked: boolean) => void;
@@ -338,75 +334,120 @@ function TaskList({
   const stats = openListStats(todos);
   const listClass = emphasis === "focus" ? "list list-focus" : "list list-other";
   const profile = profiles.get(bucket.owner);
-  const collapsible = emphasis === "other";
-  const showBody = !collapsible || listExpanded;
 
-  const head = (
-    <div className="list-head">
-      {collapsible ? (
-        <button
-          type="button"
-          className="list-head-toggle"
-          aria-expanded={listExpanded}
-          onClick={onToggleList}
-        >
-          <span className="list-head-name">
-            <MemberBadge
-              name={profile?.displayName ?? bucket.label}
-              avatarUrl={profile?.avatarUrl}
-              size="md"
-            />
-          </span>
-          <span className="list-count">{stats.label}</span>
-          <span className={`list-head-caret${listExpanded ? " is-open" : ""}`} aria-hidden="true">
-            {CARET}
-          </span>
-        </button>
+  return (
+    <div className={listClass}>
+      <div className="list-head">
+        <h1 className="list-head-name">
+          <MemberBadge
+            name={profile?.displayName ?? bucket.label}
+            avatarUrl={profile?.avatarUrl}
+            size="md"
+          />
+        </h1>
+        <span className="list-count">{stats.label}</span>
+      </div>
+      {todos.length ? (
+        todos.map((todo) => (
+          <TaskRow
+            key={todo.id}
+            todo={todo}
+            subtasks={subtasks[todo.id] ?? []}
+            open={openIds.has(todo.id)}
+            viewer={viewer}
+            profiles={profiles}
+            drafting={draftParent === todo.id}
+            draftLabel={draftParent === todo.id ? draftLabel : ""}
+            onToggleOpen={() => onToggleOpen(todo.id)}
+            onToggle={onToggle}
+            onToggleSub={(subId, checked) => onToggleSub(todo.id, subId, checked)}
+            onStartDraft={() => onStartDraft(todo.id)}
+            onDraftLabel={onDraftLabel}
+            onCommitDraft={() => onCommitDraft(todo.id)}
+            onCancelDraft={onCancelDraft}
+            onEdit={(patch) => onEdit(todo.id, patch)}
+            onEditSub={(subId, patch) => onEditSub(todo.id, subId, patch)}
+            onAssign={(owner) => onAssign(todo.id, owner)}
+          />
+        ))
       ) : (
-        <>
-          <h1 className="list-head-name">
-            <MemberBadge
-              name={profile?.displayName ?? bucket.label}
-              avatarUrl={profile?.avatarUrl}
-              size="md"
-            />
-          </h1>
-          <span className="list-count">{stats.label}</span>
-        </>
+        <p className="todo-empty">No to-dos assigned yet.</p>
       )}
     </div>
   );
+}
+
+function OthersSection({
+  buckets,
+  expanded,
+  onToggle,
+  profiles,
+  shared,
+}: {
+  buckets: OwnerTodoBucket[];
+  expanded: boolean;
+  onToggle: () => void;
+  profiles: Map<string, MemberProfile>;
+  shared: {
+    viewer: Owner;
+    profiles: Map<string, MemberProfile>;
+    openIds: Set<string>;
+    subtasks: TodoSubtaskMap;
+    draftParent: string | null;
+    draftLabel: string;
+    onToggleOpen: (id: string) => void;
+    onToggle: (id: string, checked: boolean) => void;
+    onToggleSub: (parentId: string, subId: string, checked: boolean) => void;
+    onStartDraft: (parentId: string) => void;
+    onDraftLabel: (value: string) => void;
+    onCommitDraft: (parentId: string) => void;
+    onCancelDraft: () => void;
+    onEdit: (id: string, patch: TodoEdit) => void;
+    onEditSub: (parentId: string, subId: string, patch: { label?: string; dueDate?: string | null }) => void;
+    onAssign: (id: string, owner: Owner | null) => void;
+  };
+}) {
+  if (!buckets.length) return null;
+
+  const allTodos = buckets.flatMap((bucket) => [...bucket.open, ...bucket.done]);
+  const stats = openListStats(allTodos);
 
   return (
-    <div className={`${listClass}${collapsible && !listExpanded ? " is-collapsed" : ""}`}>
-      {head}
-      {showBody ? (
-        todos.length ? (
-          todos.map((todo) => (
-            <TaskRow
-              key={todo.id}
-              todo={todo}
-              subtasks={subtasks[todo.id] ?? []}
-              open={openIds.has(todo.id)}
-              viewer={viewer}
-              profiles={profiles}
-              drafting={draftParent === todo.id}
-              draftLabel={draftParent === todo.id ? draftLabel : ""}
-              onToggleOpen={() => onToggleOpen(todo.id)}
-              onToggle={onToggle}
-              onToggleSub={(subId, checked) => onToggleSub(todo.id, subId, checked)}
-              onStartDraft={() => onStartDraft(todo.id)}
-              onDraftLabel={onDraftLabel}
-              onCommitDraft={() => onCommitDraft(todo.id)}
-              onCancelDraft={onCancelDraft}
-              onEdit={(patch) => onEdit(todo.id, patch)}
-              onEditSub={(subId, patch) => onEditSub(todo.id, subId, patch)}
-              onAssign={(owner) => onAssign(todo.id, owner)}
-            />
-          ))
-        ) : (
-          <p className="todo-empty">No to-dos assigned yet.</p>
-        )
+    <div className={`todos-others${expanded ? "" : " is-collapsed"}`}>
+      <button
+        type="button"
+        className="todos-others-toggle"
+        aria-expanded={expanded}
+        onClick={onToggle}
+      >
+        <span className="todos-others-toggle-main">
+          <span className="todos-others-toggle-label">Everyone else</span>
+          <span className="todos-others-avatars" aria-hidden="true">
+            {buckets.map((bucket) => {
+              const profile = profiles.get(bucket.owner);
+              return (
+                  <MemberBadge
+                  key={bucket.owner}
+                  name={profile?.displayName ?? bucket.label}
+                  avatarUrl={profile?.avatarUrl}
+                  size="sm"
+                  showName={false}
+                />
+              );
+            })}
+          </span>
+        </span>
+        <span className="list-count">{stats.label}</span>
+        <span className={`list-head-caret${expanded ? " is-open" : ""}`} aria-hidden="true">
+          {CARET}
+        </span>
+      </button>
+      {expanded ? (
+        <div className="todos-others-body">
+          {buckets.map((bucket) => (
+            <TaskList key={bucket.owner} bucket={bucket} emphasis="other" {...shared} />
+          ))}
+        </div>
       ) : null}
     </div>
   );
@@ -519,9 +560,9 @@ export function TodosPanel({
   const todos = listProjectTodos(checklist, phases, projectSteps, todoEdits);
   const grouped = groupTodosByOwner(todos, focusOwner);
   const storageKey = `kyle-todo-open:${focusOwner}`;
-  const othersKey = `kyle-todo-others:${focusOwner}`;
+  const othersKey = `kyle-todo-others-open:${focusOwner}`;
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
-  const [expandedOthers, setExpandedOthers] = useState<Set<Owner>>(new Set());
+  const [othersExpanded, setOthersExpanded] = useState(false);
   const [draftParent, setDraftParent] = useState<string | null>(null);
   const [draftLabel, setDraftLabel] = useState("");
 
@@ -541,21 +582,9 @@ export function TodosPanel({
 
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(othersKey);
-      if (!raw) {
-        setExpandedOthers(new Set());
-        return;
-      }
-      const parsed = JSON.parse(raw) as unknown;
-      setExpandedOthers(
-        new Set(
-          Array.isArray(parsed)
-            ? parsed.filter((id): id is Owner => typeof id === "string" && OWNERS.some((o) => o.id === id))
-            : [],
-        ),
-      );
+      setOthersExpanded(window.localStorage.getItem(othersKey) === "1");
     } catch {
-      setExpandedOthers(new Set());
+      setOthersExpanded(false);
     }
   }, [othersKey]);
 
@@ -569,12 +598,10 @@ export function TodosPanel({
     });
   }
 
-  function toggleOtherList(owner: Owner) {
-    setExpandedOthers((current) => {
-      const next = new Set(current);
-      if (next.has(owner)) next.delete(owner);
-      else next.add(owner);
-      window.localStorage.setItem(othersKey, JSON.stringify([...next]));
+  function toggleOthers() {
+    setOthersExpanded((current) => {
+      const next = !current;
+      window.localStorage.setItem(othersKey, next ? "1" : "0");
       return next;
     });
   }
@@ -657,24 +684,14 @@ export function TodosPanel({
 
   return (
     <div className="pm-panel todos-panel">
-      <TaskList
-        bucket={grouped.mine}
-        emphasis="focus"
-        listExpanded
-        {...shared}
+      <TaskList bucket={grouped.mine} emphasis="focus" {...shared} />
+      <OthersSection
+        buckets={grouped.others}
+        expanded={othersExpanded}
+        onToggle={toggleOthers}
+        profiles={profiles}
+        shared={shared}
       />
-      <div className="todos-others">
-        {grouped.others.map((bucket) => (
-          <TaskList
-            key={bucket.owner}
-            bucket={bucket}
-            emphasis="other"
-            listExpanded={expandedOthers.has(bucket.owner)}
-            onToggleList={() => toggleOtherList(bucket.owner)}
-            {...shared}
-          />
-        ))}
-      </div>
       <UnclaimedList bucket={grouped.unclaimed} {...shared} />
     </div>
   );

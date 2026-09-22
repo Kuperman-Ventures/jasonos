@@ -2742,7 +2742,6 @@ table.schools .muted,
 .todos-others-title { margin-top: var(--space-2); }
 .todos-others {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: var(--space-4);
 }
 
@@ -2756,12 +2755,59 @@ table.schools .muted,
   width: 100%;
 }
 .todos-panel .todos-others {
+  display: block;
+  margin-bottom: var(--space-8);
+}
+.todos-panel .todos-others-toggle {
+  all: unset;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) 0;
+  cursor: pointer;
+}
+.todos-panel .todos-others-toggle:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+.todos-panel .todos-others-toggle-main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.todos-panel .todos-others-toggle-label {
+  font-family: var(--font-heading);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.todos-panel .todos-others-avatars {
+  display: flex;
+  align-items: center;
+}
+.todos-panel .todos-others-avatars .member-badge {
+  margin-left: -6px;
+}
+.todos-panel .todos-others-avatars .member-badge:first-child {
+  margin-left: 0;
+}
+.todos-panel .todos-others-avatars .member-badge-avatar {
+  box-shadow: 0 0 0 2px var(--color-bg, #fff);
+}
+.todos-panel .todos-others:not(.is-collapsed) .todos-others-toggle {
+  margin-bottom: var(--space-4);
+}
+.todos-panel .todos-others-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-6);
   align-items: start;
 }
-.todos-panel .todos-others .list {
+.todos-panel .todos-others-body .list {
   margin-bottom: 0;
   min-width: 0;
 }
@@ -2793,19 +2839,6 @@ table.schools .muted,
   font-weight: 600;
   color: var(--color-text);
 }
-.todos-panel .list-head-toggle {
-  all: unset;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: var(--space-3);
-  width: 100%;
-  cursor: pointer;
-}
-.todos-panel .list-head-toggle:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 3px;
-}
 .todos-panel .list-head-caret {
   display: inline-flex;
   color: var(--color-neutral-700);
@@ -2813,9 +2846,6 @@ table.schools .muted,
 }
 .todos-panel .list-head-caret.is-open {
   transform: rotate(90deg);
-}
-.todos-panel .list-other.is-collapsed .list-head {
-  margin-bottom: 0;
 }
 .todos-panel .list-unclaimed {
   margin-top: var(--space-8);
@@ -3020,7 +3050,7 @@ table.schools .muted,
 }
 
 @media (max-width: 800px) {
-  .todos-panel .todos-others {
+  .todos-panel .todos-others-body {
     grid-template-columns: 1fr;
     gap: var(--space-8);
   }
