@@ -132,7 +132,7 @@ export function LeftRail({
                   item.id === "projects"
                     ? "/?tab=projects&pm=timeline"
                     : item.id === "apps"
-                      ? "/?tab=apps&am=questions"
+                      ? `/?tab=apps&am=${appsSection || "activities"}`
                       : `/?tab=${item.id}`
                 }
                 aria-current={tab === item.id ? "page" : undefined}
