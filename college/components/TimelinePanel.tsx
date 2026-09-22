@@ -15,7 +15,6 @@ export function TimelinePanel({
   onToggle: (id: string, checked: boolean) => void;
 }) {
   const statuses = phaseStatuses(phases, checklist);
-  const itemCount = phases.reduce((sum, phase) => sum + phase.items.length, 0);
 
   return (
     <div className="pm-panel">
@@ -30,10 +29,6 @@ export function TimelinePanel({
       </div>
 
       <h3 className="dash-title">Checklist</h3>
-      <p className="section-sub">
-        {itemCount} items across {phases.length} phases. Checking them off marks work done on the
-        ledger above.
-      </p>
 
       <ol className="track">
         {phases.map((phase, index) => {

@@ -15,7 +15,7 @@ export const PROJECT_SECTIONS: ProjectSection[] = [
   {
     id: "timeline",
     label: "Timeline",
-    blurb: "Process ledger and phase checklist for the college runway.",
+    blurb: "",
     status: "ready",
   },
   {
@@ -27,7 +27,7 @@ export const PROJECT_SECTIONS: ProjectSection[] = [
   {
     id: "calendar",
     label: "Calendar",
-    blurb: "Month view of events from Ingest and Notes.",
+    blurb: "",
     status: "ready",
   },
 ];
