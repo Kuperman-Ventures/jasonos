@@ -1,4 +1,4 @@
-/** Pull a calendar date out of note titles, bodies, and filenames. */
+/** Pull a calendar date out of note titles, bodies, filenames, and page text. */
 
 const MONTHS: Record<string, number> = {
   jan: 1,
@@ -27,6 +27,16 @@ const MONTHS: Record<string, number> = {
   december: 12,
 };
 
+const MONTH_ALT =
+  "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?";
+
+export type EventDatePrecision = "day" | "month";
+
+export type ParsedEventDate = {
+  date: string;
+  precision: EventDatePrecision;
+};
+
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }
@@ -39,61 +49,123 @@ function isoDate(year: number, month: number, day: number): string | null {
   return `${year}-${pad2(month)}-${pad2(day)}`;
 }
 
+function yearsInText(text: string): number[] {
+  const years = new Set<number>();
+  for (const match of text.matchAll(/\b(20\d{2})\b/g)) {
+    years.add(Number(match[1]));
+  }
+  return [...years];
+}
+
+function defaultYear(text: string): number {
+  const years = yearsInText(text);
+  if (years.includes(2026)) return 2026;
+  if (years.length) return years[0]!;
+  return new Date().getFullYear();
+}
+
+function pushUnique(out: ParsedEventDate[], hit: ParsedEventDate | null) {
+  if (!hit) return;
+  if (out.some((row) => row.date === hit.date && row.precision === hit.precision)) return;
+  out.push(hit);
+}
+
+/** All date candidates found in text, day-precision first when picking. */
+export function parseEventDatesFromText(
+  ...parts: Array<string | null | undefined>
+): ParsedEventDate[] {
+  const text = parts.filter(Boolean).join(" \n ");
+  if (!text.trim()) return [];
+  const out: ParsedEventDate[] = [];
+  const yearHint = defaultYear(text);
+
+  for (const match of text.matchAll(/\b(20\d{2})-(\d{2})-(\d{2})\b/g)) {
+    const hit = isoDate(Number(match[1]), Number(match[2]), Number(match[3]));
+    pushUnique(out, hit ? { date: hit, precision: "day" } : null);
+  }
+
+  for (const match of text.matchAll(/\b(\d{1,2})\/(\d{1,2})\/(20\d{2})\b/g)) {
+    const hit = isoDate(Number(match[3]), Number(match[1]), Number(match[2]));
+    pushUnique(out, hit ? { date: hit, precision: "day" } : null);
+  }
+
+  const namedFull = new RegExp(
+    `\\b(${MONTH_ALT})\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,)?\\s+(20\\d{2})\\b`,
+    "gi",
+  );
+  for (const match of text.matchAll(namedFull)) {
+    const month = MONTHS[match[1]!.toLowerCase()];
+    if (!month) continue;
+    const hit = isoDate(Number(match[3]), month, Number(match[2]));
+    pushUnique(out, hit ? { date: hit, precision: "day" } : null);
+  }
+
+  // "30 September 2026"
+  const dayMonthYear = new RegExp(
+    `\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH_ALT})(?:,)?\\s+(20\\d{2})\\b`,
+    "gi",
+  );
+  for (const match of text.matchAll(dayMonthYear)) {
+    const month = MONTHS[match[2]!.toLowerCase()];
+    if (!month) continue;
+    const hit = isoDate(Number(match[3]), month, Number(match[1]));
+    pushUnique(out, hit ? { date: hit, precision: "day" } : null);
+  }
+
+  // "September 30" / "Sept 30th" — year from surrounding text (e.g. Sept2026)
+  const namedDay = new RegExp(
+    `\\b(${MONTH_ALT})\\s+(\\d{1,2})(?:st|nd|rd|th)?(?!\\s*,?\\s*20\\d{2})\\b`,
+    "gi",
+  );
+  for (const match of text.matchAll(namedDay)) {
+    const month = MONTHS[match[1]!.toLowerCase()];
+    if (!month) continue;
+    const hit = isoDate(yearHint, month, Number(match[2]));
+    pushUnique(out, hit ? { date: hit, precision: "day" } : null);
+  }
+
+  // "30 September" without year
+  const dayMonth = new RegExp(
+    `\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${MONTH_ALT})(?!\\s*,?\\s*20\\d{2})\\b`,
+    "gi",
+  );
+  for (const match of text.matchAll(dayMonth)) {
+    const month = MONTHS[match[2]!.toLowerCase()];
+    if (!month) continue;
+    const hit = isoDate(yearHint, month, Number(match[1]));
+    pushUnique(out, hit ? { date: hit, precision: "day" } : null);
+  }
+
+  // Filenames like Key_Sept2026.pdf — month precision only
+  const glued = new RegExp(
+    `(?:^|[^A-Za-z])(${MONTH_ALT})[_\\s-]*(20\\d{2})\\b`,
+    "gi",
+  );
+  for (const match of text.matchAll(glued)) {
+    const month = MONTHS[match[1]!.toLowerCase()];
+    if (!month) continue;
+    const hit = isoDate(Number(match[2]), month, 1);
+    pushUnique(out, hit ? { date: hit, precision: "month" } : null);
+  }
+
+  const monthYear = new RegExp(`\\b(${MONTH_ALT})\\s+(20\\d{2})\\b`, "gi");
+  for (const match of text.matchAll(monthYear)) {
+    const month = MONTHS[match[1]!.toLowerCase()];
+    if (!month) continue;
+    const hit = isoDate(Number(match[2]), month, 1);
+    pushUnique(out, hit ? { date: hit, precision: "month" } : null);
+  }
+
+  return out;
+}
+
 /**
- * Best-effort date from free text (titles, PDF names like Key_Sept2026.pdf,
- * "September 15, 2026", "2026-09-15", "9/15/2026").
- * Month+year with no day → the 1st of that month.
+ * Best-effort single date. Prefers day-precision (e.g. September 30, 2026)
+ * over month-only guesses from filenames (Sept2026 → the 1st).
  */
 export function parseEventDateFromText(...parts: Array<string | null | undefined>): string | null {
-  const text = parts.filter(Boolean).join(" \n ");
-  if (!text.trim()) return null;
-
-  const iso = text.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
-  if (iso) {
-    const hit = isoDate(Number(iso[1]), Number(iso[2]), Number(iso[3]));
-    if (hit) return hit;
-  }
-
-  const slash = text.match(/\b(\d{1,2})\/(\d{1,2})\/(20\d{2})\b/);
-  if (slash) {
-    const hit = isoDate(Number(slash[3]), Number(slash[1]), Number(slash[2]));
-    if (hit) return hit;
-  }
-
-  const namedFull = text.match(
-    /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,)?\s+(20\d{2})\b/i,
-  );
-  if (namedFull) {
-    const month = MONTHS[namedFull[1]!.toLowerCase()];
-    if (month) {
-      const hit = isoDate(Number(namedFull[3]), month, Number(namedFull[2]));
-      if (hit) return hit;
-    }
-  }
-
-  // Filenames like College_Career_Fair_Key_Sept2026.pdf or Sept2026
-  // Underscore is a word char in JS, so don't require \b before the month.
-  const glued = text.match(
-    /(?:^|[^A-Za-z])(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)[_\s-]*(20\d{2})\b/i,
-  );
-  if (glued) {
-    const month = MONTHS[glued[1]!.toLowerCase()];
-    if (month) {
-      const hit = isoDate(Number(glued[2]), month, 1);
-      if (hit) return hit;
-    }
-  }
-
-  const monthYear = text.match(
-    /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+(20\d{2})\b/i,
-  );
-  if (monthYear) {
-    const month = MONTHS[monthYear[1]!.toLowerCase()];
-    if (month) {
-      const hit = isoDate(Number(monthYear[2]), month, 1);
-      if (hit) return hit;
-    }
-  }
-
-  return null;
+  const candidates = parseEventDatesFromText(...parts);
+  const day = candidates.find((row) => row.precision === "day");
+  if (day) return day.date;
+  return candidates[0]?.date ?? null;
 }

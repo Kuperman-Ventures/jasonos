@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { shortEventDate, type CalendarEvent } from "@/lib/calendar-events";
 import { ownerLabel } from "@/lib/types";
 
@@ -25,15 +25,20 @@ function monthLabel(year: number, monthIndex: number): string {
   });
 }
 
+function cursorFromDate(iso: string | null | undefined): { year: number; monthIndex: number } | null {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  const [y, m] = iso.split("-").map(Number);
+  if (!y || !m) return null;
+  return { year: y, monthIndex: m - 1 };
+}
+
 function initialCursor(events: CalendarEvent[]): { year: number; monthIndex: number } {
   const dated = events
     .map((event) => event.date)
     .filter((date): date is string => Boolean(date))
     .sort();
-  if (dated[0]) {
-    const [y, m] = dated[0].split("-").map(Number);
-    if (y && m) return { year: y, monthIndex: m - 1 };
-  }
+  const fromEvent = cursorFromDate(dated[0]);
+  if (fromEvent) return fromEvent;
   const now = new Date();
   return { year: now.getFullYear(), monthIndex: now.getMonth() };
 }
@@ -48,15 +53,38 @@ export function CalendarPanel({
   /** When set (YYYY-MM-DD), open the month that contains this date. */
   focusDate?: string | null;
 }) {
-  const seed = useMemo(() => {
-    if (focusDate && /^\d{4}-\d{2}-\d{2}$/.test(focusDate)) {
-      const [y, m] = focusDate.split("-").map(Number);
-      if (y && m) return { year: y, monthIndex: m - 1 };
-    }
-    return initialCursor(events);
-  }, [events, focusDate]);
-  const [cursor, setCursor] = useState(seed);
+  const [cursor, setCursor] = useState(() => cursorFromDate(focusDate) ?? initialCursor(events));
   const [selectedKey, setSelectedKey] = useState<string | null>(focusDate ?? null);
+  const [subscribeHttps, setSubscribeHttps] = useState<string | null>(null);
+  const [subscribeWebcal, setSubscribeWebcal] = useState<string | null>(null);
+  const [subscribeStatus, setSubscribeStatus] = useState("");
+  const [subscribeBusy, setSubscribeBusy] = useState(false);
+
+  useEffect(() => {
+    const next = cursorFromDate(focusDate);
+    if (!next) return;
+    setCursor(next);
+    setSelectedKey(focusDate ?? null);
+  }, [focusDate]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch("/api/calendar/subscribe");
+        if (!response.ok || cancelled) return;
+        const body = (await response.json()) as { httpsUrl?: string; webcalUrl?: string };
+        if (cancelled) return;
+        if (body.httpsUrl) setSubscribeHttps(body.httpsUrl);
+        if (body.webcalUrl) setSubscribeWebcal(body.webcalUrl);
+      } catch {
+        /* subscribe block stays hidden until links load */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const { year, monthIndex } = cursor;
   const start = monthStart(year, monthIndex);
@@ -98,6 +126,20 @@ export function CalendarPanel({
     setSelectedKey(null);
   }
 
+  async function copySubscribeLink() {
+    if (!subscribeHttps) return;
+    setSubscribeBusy(true);
+    setSubscribeStatus("");
+    try {
+      await navigator.clipboard.writeText(subscribeHttps);
+      setSubscribeStatus("Copied the subscribe link. Paste it in Apple Calendar, Google Calendar, or Outlook.");
+    } catch {
+      setSubscribeStatus("Could not copy — select the link below and copy it yourself.");
+    } finally {
+      setSubscribeBusy(false);
+    }
+  }
+
   return (
     <div className="pm-panel calendar-panel">
       <header className="page-head" style={{ marginBottom: "var(--space-4)" }}>
@@ -109,6 +151,35 @@ export function CalendarPanel({
       <p className="section-sub">
         Month view of events from Ingest and from Notes via Make a calendar event.
       </p>
+
+      {subscribeHttps ? (
+        <div className="cal-subscribe">
+          <div>
+            <h4 className="cal-detail-heading">Subscribe on your phone or computer</h4>
+            <p className="section-sub" style={{ margin: 0 }}>
+              Add this feed in Apple Calendar, Google Calendar, or Outlook so household events show
+              up on your own calendar and stay updated.
+            </p>
+          </div>
+          <div className="cal-subscribe-actions">
+            <button
+              type="button"
+              className="btn btn-primary compact"
+              onClick={() => void copySubscribeLink()}
+              disabled={subscribeBusy}
+            >
+              Copy subscribe link
+            </button>
+            {subscribeWebcal ? (
+              <a className="btn btn-secondary compact" href={subscribeWebcal}>
+                Open in calendar app
+              </a>
+            ) : null}
+          </div>
+          <p className="cal-subscribe-url mono">{subscribeHttps}</p>
+          {subscribeStatus ? <p className="cal-subscribe-status">{subscribeStatus}</p> : null}
+        </div>
+      ) : null}
 
       <div className="cal-toolbar">
         <button type="button" className="btn btn-secondary compact" onClick={() => shiftMonth(-1)}>

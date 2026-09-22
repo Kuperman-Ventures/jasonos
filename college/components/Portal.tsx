@@ -35,7 +35,6 @@ import {
   type PinNote,
 } from "@/lib/note-board";
 import { normalizeCalendarEvents, type CalendarEvent } from "@/lib/calendar-events";
-import { parseEventDateFromText } from "@/lib/event-date";
 import {
   DEFAULT_PROJECT_SECTION,
   resolveProjectSection,
@@ -427,19 +426,39 @@ export function Portal({
     goProjectSection("todos");
   }
 
-  function makeCalendarFromNote(note: PinNote) {
+  async function makeCalendarFromNote(note: PinNote) {
     const createdAt = new Date().toISOString();
+    let date: string | null = null;
+    try {
+      const response = await fetch("/api/calendar/from-note", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: note.title,
+          body: note.body,
+          previewSummary: note.previewSummary,
+          url: note.url,
+          assetUrl: note.assetUrl,
+          mimeType: note.mimeType,
+        }),
+      });
+      if (response.ok) {
+        const body = (await response.json()) as { date?: string | null };
+        date = typeof body.date === "string" && body.date ? body.date : null;
+      }
+    } catch {
+      /* fall through to local parse */
+    }
+    if (!date) {
+      const { parseEventDateFromText } = await import("@/lib/event-date");
+      date = parseEventDateFromText(note.title, note.previewSummary, note.body, note.url);
+    }
+
     const notesParts = [
       note.previewSummary?.trim() || "",
       note.body?.trim() || "",
       note.url?.trim() || "",
     ].filter(Boolean);
-    const date = parseEventDateFromText(
-      note.title,
-      note.previewSummary,
-      note.body,
-      note.url,
-    );
     const event: CalendarEvent = {
       id: `note-cal-${note.id.slice(0, 10)}-${Math.random().toString(36).slice(2, 7)}`,
       title: note.title,
