@@ -8,6 +8,7 @@ import {
   type PersistedIngestSource,
   type PersistedProjectStep,
 } from "@/lib/ingest";
+import { normalizePinNotes, type PinNote } from "@/lib/note-board";
 import {
   memberOwnerId,
   normalizeTodoEdits,
@@ -29,7 +30,94 @@ type StateRow = {
   ingest_sources?: unknown;
   todo_subtasks?: unknown;
   todo_edits?: unknown;
+  note_items?: unknown;
 };
+
+function localDemoPins(): PinNote[] {
+  // Anchored to mid-September 2026 so This week / Last week both show.
+  return [
+    {
+      id: "demo-webinar",
+      title: "Ron Feuchs webinar — reaches and bandwidth",
+      kind: "recording",
+      addedBy: "jason",
+      createdAt: "2026-09-20T16:00:00.000Z",
+      reviewers: ["jason"],
+      reviewedBy: [],
+      reviewDue: "2026-09-27",
+      body: "Building a balanced list",
+      host: null,
+      url: null,
+      pageCount: null,
+      durationLabel: "48 min",
+      sourceId: null,
+    },
+    {
+      id: "demo-uw",
+      title: "UW direct-to-engineering pathway",
+      kind: "website",
+      addedBy: "jason",
+      createdAt: "2026-09-18T16:00:00.000Z",
+      reviewers: [],
+      reviewedBy: [],
+      reviewDue: null,
+      body: "Direct-to-engineering admission is offered to a limited number of first-year applicants…",
+      host: "washington.edu",
+      url: "https://www.washington.edu/admissions",
+      pageCount: null,
+      durationLabel: null,
+      sourceId: null,
+    },
+    {
+      id: "demo-prompts",
+      title: "Common App essay prompts, 2026–27",
+      kind: "document",
+      addedBy: "jason",
+      createdAt: "2026-09-15T16:00:00.000Z",
+      reviewers: ["jason", "kyle"],
+      reviewedBy: [],
+      reviewDue: null,
+      body: "Essay prompts packet",
+      host: null,
+      url: null,
+      pageCount: 4,
+      durationLabel: null,
+      sourceId: null,
+    },
+    {
+      id: "demo-testing",
+      title: "Testing plan through May",
+      kind: "note",
+      addedBy: "kyle",
+      createdAt: "2026-09-14T16:00:00.000Z",
+      reviewers: [],
+      reviewedBy: [],
+      reviewDue: null,
+      body: "PSAT this fall, March SAT, then May SAT. Math is the priority given the engineering focus…",
+      host: null,
+      url: null,
+      pageCount: null,
+      durationLabel: null,
+      sourceId: null,
+    },
+    {
+      id: "demo-this-week",
+      title: "Questions for the Sep 28 call",
+      kind: "note",
+      addedBy: "jason",
+      createdAt: "2026-09-22T14:00:00.000Z",
+      reviewers: [],
+      reviewedBy: [],
+      reviewDue: null,
+      body: "Merit aid timing, whether the résumé goes to every school, summer program deadlines…",
+      host: null,
+      url: null,
+      pageCount: null,
+      durationLabel: null,
+      sourceId: null,
+    },
+  ];
+}
 
 function emptyState() {
   return {
@@ -41,6 +129,7 @@ function emptyState() {
     ingestSources: [] as PersistedIngestSource[],
     todoSubtasks: {} as TodoSubtaskMap,
     todoEdits: {} as TodoEditMap,
+    noteItems: localDemoPins(),
   };
 }
 
@@ -52,7 +141,9 @@ export async function GET() {
     const db = collegeDb();
     const { data, error } = await db
       .from("app_state")
-      .select("checklist, scores, notes, project_steps, ingest_sources, todo_subtasks, todo_edits")
+      .select(
+        "checklist, scores, notes, project_steps, ingest_sources, todo_subtasks, todo_edits, note_items",
+      )
       .eq("id", "kyle-college")
       .maybeSingle();
     if (error) throw error;
@@ -66,6 +157,7 @@ export async function GET() {
       ingestSources: normalizeIngestSources(row?.ingest_sources),
       todoSubtasks: normalizeTodoSubtasks(row?.todo_subtasks),
       todoEdits: normalizeTodoEdits(row?.todo_edits),
+      noteItems: normalizePinNotes(row?.note_items),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not read state";
@@ -87,6 +179,7 @@ export async function PATCH(request: Request) {
     ingestSources?: PersistedIngestSource[];
     todoSubtasks?: TodoSubtaskMap;
     todoEdits?: TodoEditMap;
+    noteItems?: PinNote[];
   };
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   const db = collegeDb();
@@ -154,6 +247,7 @@ export async function PATCH(request: Request) {
   if (body.todoEdits && typeof body.todoEdits === "object") {
     patch.todo_edits = normalizeTodoEdits(body.todoEdits);
   }
+  if (Array.isArray(body.noteItems)) patch.note_items = normalizePinNotes(body.noteItems);
 
   // Don't persist internal meta on the row.
   const blockedCount =

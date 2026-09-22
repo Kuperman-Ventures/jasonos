@@ -4,6 +4,7 @@ import { IngestPanel, type IngestConfirmPayload } from "./IngestPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import { TodosPanel } from "./TodosPanel";
 import type { PersistedIngestSource, PersistedProjectStep } from "@/lib/ingest";
+import type { PinNote } from "@/lib/note-board";
 import {
   PROJECT_SECTIONS,
   projectSectionById,
@@ -23,6 +24,7 @@ export function ProjectManagementTab({
   projectSteps,
   ingestSources,
   notes,
+  noteItems,
   subtasks,
   todoEdits,
   onToggle,
@@ -40,6 +42,7 @@ export function ProjectManagementTab({
   projectSteps: PersistedProjectStep[];
   ingestSources: PersistedIngestSource[];
   notes: string;
+  noteItems: PinNote[];
   subtasks: TodoSubtaskMap;
   todoEdits: TodoEditMap;
   onToggle: (id: string, checked: boolean) => void;
@@ -108,6 +111,7 @@ export function ProjectManagementTab({
           projectSteps={projectSteps}
           ingestSources={ingestSources}
           notes={notes}
+          noteItems={noteItems}
           assignedBy={memberOwnerId(memberId)}
           onConfirm={onConfirmIngest}
         />

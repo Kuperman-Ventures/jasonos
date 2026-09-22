@@ -28,6 +28,11 @@ import { useSchoolPipeline } from "@/lib/use-school-pipeline";
 import { defaultListPrefs, mergeListPrefs, canAdvanceListPhase, isForwardListPhaseMove, type MemberListPrefs } from "@/lib/list-phases";
 import type { PersistedIngestSource, PersistedProjectStep } from "@/lib/ingest";
 import {
+  migrateLegacyNotesText,
+  normalizePinNotes,
+  type PinNote,
+} from "@/lib/note-board";
+import {
   DEFAULT_PROJECT_SECTION,
   resolveProjectSection,
   type ProjectSectionId,
@@ -74,16 +79,32 @@ function schoolFromLocation() {
   return new URLSearchParams(window.location.search).get("school");
 }
 
-function readStart(): { tab: TabId; schoolId: string | null; projectSection: ProjectSectionId } {
+function readStart(): {
+  tab: TabId;
+  schoolId: string | null;
+  projectSection: ProjectSectionId;
+  noteId: string | null;
+} {
   if (typeof window === "undefined") {
-    return { tab: "dashboard", schoolId: null, projectSection: DEFAULT_PROJECT_SECTION };
+    return {
+      tab: "dashboard",
+      schoolId: null,
+      projectSection: DEFAULT_PROJECT_SECTION,
+      noteId: null,
+    };
   }
   const params = new URLSearchParams(window.location.search);
   const school = params.get("school");
   const projectSection = resolveProjectSection(params.get("pm"));
-  if (school) return { tab: "colleges", schoolId: school, projectSection };
+  const noteId = params.get("note");
+  if (school) return { tab: "colleges", schoolId: school, projectSection, noteId: null };
   const tab = normalizeTabId(params.get("tab")) ?? "dashboard";
-  return { tab, schoolId: null, projectSection };
+  return {
+    tab,
+    schoolId: null,
+    projectSection,
+    noteId: tab === "notes" && noteId ? noteId : null,
+  };
 }
 
 export function Portal({
@@ -100,6 +121,8 @@ export function Portal({
   const [checklist, setChecklist] = useState<Record<string, boolean>>({});
   const [scores, setScores] = useState<Scores>(seedScores);
   const [notes, setNotes] = useState("");
+  const [noteItems, setNoteItems] = useState<PinNote[]>([]);
+  const [openNoteId, setOpenNoteId] = useState<string | null>(null);
   const [projectSteps, setProjectSteps] = useState<PersistedProjectStep[]>([]);
   const [ingestSources, setIngestSources] = useState<PersistedIngestSource[]>([]);
   const [todoSubtasks, setTodoSubtasks] = useState<TodoSubtaskMap>({});
@@ -112,9 +135,9 @@ export function Portal({
   const [loaded, setLoaded] = useState(false);
   const [railOpen, setRailOpen] = useState(false);
   const [listPrefs, setListPrefs] = useState<MemberListPrefs>(() => defaultListPrefs());
-  const notesTimer = useRef<number | undefined>(undefined);
   const prefsTimer = useRef<number | undefined>(undefined);
   const urlBootstrapped = useRef(false);
+  const legacyNotesMigrated = useRef(false);
 
   useEffect(() => {
     if (urlBootstrapped.current) return;
@@ -122,6 +145,7 @@ export function Portal({
     const start = readStart();
     setTab(start.tab);
     setProjectSection(start.projectSection);
+    setOpenNoteId(start.noteId);
   }, []);
 
   useEffect(() => {
@@ -141,6 +165,7 @@ export function Portal({
           ingestSources?: PersistedIngestSource[];
           todoSubtasks?: TodoSubtaskMap;
           todoEdits?: TodoEditMap;
+          noteItems?: PinNote[];
           persisted?: boolean;
         };
         const prefsBody = (await prefsRes.json()) as {
@@ -161,6 +186,29 @@ export function Portal({
         }
         if (state.todoEdits && typeof state.todoEdits === "object") {
           setTodoEdits(normalizeTodoEdits(state.todoEdits));
+        }
+        const loadedNotes = typeof state.notes === "string" ? state.notes : "";
+        const loadedItems = Array.isArray(state.noteItems)
+          ? normalizePinNotes(state.noteItems)
+          : [];
+        if (loadedItems.length) {
+          setNoteItems(loadedItems);
+        } else if (loadedNotes.trim() && !legacyNotesMigrated.current) {
+          legacyNotesMigrated.current = true;
+          const migrated = migrateLegacyNotesText(
+            loadedNotes,
+            memberOwnerId(initialMember.id),
+          );
+          setNoteItems(migrated);
+          if (migrated.length && state.persisted) {
+            void fetch("/api/state", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ noteItems: migrated }),
+            });
+          }
+        } else {
+          setNoteItems([]);
         }
         if (Array.isArray(membersBody.members)) {
           setMemberProfiles(membersBody.members);
@@ -209,12 +257,18 @@ export function Portal({
   }
 
   const replaceUrl = useCallback(
-    (nextTab: TabId, nextSchool: string | null, nextProjectSection: ProjectSectionId = projectSection) => {
+    (
+      nextTab: TabId,
+      nextSchool: string | null,
+      nextProjectSection: ProjectSectionId = projectSection,
+      nextNoteId: string | null = null,
+    ) => {
       const params = new URLSearchParams();
       if (nextTab !== "colleges") params.set("tab", nextTab);
       if (nextTab === "projects") {
         params.set("pm", nextProjectSection);
       }
+      if (nextTab === "notes" && nextNoteId) params.set("note", nextNoteId);
       if (nextSchool) params.set("school", nextSchool);
       const query = params.toString();
       window.history.replaceState(null, "", query ? `/?${query}` : "/");
@@ -225,7 +279,22 @@ export function Portal({
 
   function goTab(next: TabId) {
     setTab(next);
-    replaceUrl(next, next === "colleges" ? schoolId : null);
+    if (next !== "notes") setOpenNoteId(null);
+    replaceUrl(next, next === "colleges" ? schoolId : null, projectSection, null);
+  }
+
+  function openNote(id: string | null) {
+    setOpenNoteId(id);
+    setTab("notes");
+    replaceUrl("notes", null, projectSection, id);
+  }
+
+  function changeNoteItems(next: PinNote[]) {
+    setNoteItems(next);
+    setSaveState("Saving...");
+    void patchState({ noteItems: next }).then((ok) => {
+      setSaveState(ok ? "Saved" : "Not saved");
+    });
   }
 
   function goProjectSection(next: ProjectSectionId) {
@@ -249,6 +318,7 @@ export function Portal({
     ingestSources?: PersistedIngestSource[];
     todoSubtasks?: TodoSubtaskMap;
     todoEdits?: TodoEditMap;
+    noteItems?: PinNote[];
   }) {
     if (!persisted) {
       setSaveState("Not saved");
@@ -299,15 +369,18 @@ export function Portal({
     steps: PersistedProjectStep[];
     source: PersistedIngestSource;
     notes: string;
+    noteItems: PinNote[];
   }) {
     const nextSources = [...ingestSources.filter((row) => row.id !== payload.source.id), payload.source];
     setProjectSteps(payload.steps);
     setIngestSources(nextSources);
     setNotes(payload.notes);
+    setNoteItems(payload.noteItems);
     const ok = await patchState({
       projectSteps: payload.steps,
       ingestSources: nextSources,
       notes: payload.notes,
+      noteItems: payload.noteItems,
     });
     if (!ok) {
       throw new Error("Could not save ingest");
@@ -318,15 +391,6 @@ export function Portal({
     const next = { ...scores, [firmId]: { ...scores[firmId], [criterionId]: value } };
     setScores(next);
     void patchState({ scores: next });
-  }
-
-  function changeNotes(value: string) {
-    setNotes(value);
-    setSaveState("Saving...");
-    window.clearTimeout(notesTimer.current);
-    notesTimer.current = window.setTimeout(() => {
-      void patchState({ notes: value });
-    }, 700);
   }
 
   function replaceSchool(school: School) {
@@ -701,6 +765,7 @@ export function Portal({
             projectSteps={projectSteps}
             ingestSources={ingestSources}
             notes={notes}
+            noteItems={noteItems}
             subtasks={todoSubtasks}
             todoEdits={todoEdits}
             onToggle={toggleItem}
@@ -732,7 +797,15 @@ export function Portal({
           />
         ) : null}
         {tab === "notes" ? (
-          <NotesTab notes={notes} saveState={saveState} onChange={changeNotes} dateline={phaseLabel} />
+          <NotesTab
+            memberId={member.id}
+            memberProfiles={memberProfiles}
+            noteItems={noteItems}
+            openNoteId={openNoteId}
+            dateline={phaseLabel}
+            onOpenNote={openNote}
+            onChangeNoteItems={changeNoteItems}
+          />
         ) : null}
         {tab === "testing" ? (
           <TestingTab phases={phases} checklist={checklist} onToggle={toggleItem} dateline={phaseLabel} />

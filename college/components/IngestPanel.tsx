@@ -11,6 +11,7 @@ import {
   type PersistedProjectStep,
   type SuggestedStep,
 } from "@/lib/ingest";
+import { buildPinNotesFromIngest, type PinNote } from "@/lib/note-board";
 import { OWNERS, type Owner, type Phase } from "@/lib/types";
 
 type DraftRow = SuggestedStep;
@@ -19,6 +20,7 @@ export type IngestConfirmPayload = {
   steps: PersistedProjectStep[];
   source: PersistedIngestSource;
   notes: string;
+  noteItems: PinNote[];
 };
 
 const ROUTES: { id: IngestRoute; label: string }[] = [
@@ -32,6 +34,7 @@ export function IngestPanel({
   projectSteps,
   ingestSources,
   notes,
+  noteItems,
   assignedBy,
   onConfirm,
 }: {
@@ -39,6 +42,7 @@ export function IngestPanel({
   projectSteps: PersistedProjectStep[];
   ingestSources: PersistedIngestSource[];
   notes: string;
+  noteItems: PinNote[];
   /** Signed-in person — stamped on to-dos they put on anyone's list. */
   assignedBy: Owner;
   onConfirm: (payload: IngestConfirmPayload) => Promise<void>;
@@ -192,6 +196,17 @@ export function IngestPanel({
         notes: noteRows.map((row) => row.label),
       });
       const nextNotes = appendIngestNotes(notes, notesBlock);
+      const createdPins = buildPinNotesFromIngest({
+        sourceId: source.id,
+        sourceTitle: source.title,
+        sourceKind: source.kind,
+        sourceText: source.text,
+        sourceUrl: source.kind === "url" ? url.trim() || null : null,
+        createdAt: createdAt,
+        addedBy: assignedBy,
+        noteLabels: noteRows.map((row) => row.label),
+      });
+      const nextNoteItems = [...createdPins, ...noteItems];
       const nextSource: PersistedIngestSource = {
         id: source.id,
         title: source.title,
@@ -201,7 +216,12 @@ export function IngestPanel({
         stepCount: todoRows.length,
         noteCount: noteRows.length,
       };
-      await onConfirm({ steps, source: nextSource, notes: nextNotes });
+      await onConfirm({
+        steps,
+        source: nextSource,
+        notes: nextNotes,
+        noteItems: nextNoteItems,
+      });
       setDrafts([]);
       setSource(null);
       setText("");
