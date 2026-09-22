@@ -8,8 +8,14 @@ import {
   type PersistedIngestSource,
   type PersistedProjectStep,
 } from "@/lib/ingest";
+import {
+  emptyJournal,
+  normalizeJournal,
+  type ActivitiesJournal,
+} from "@/lib/activities-journal";
 import { normalizeCalendarEvents, type CalendarEvent } from "@/lib/calendar-events";
 import { normalizePinNotes, type PinNote } from "@/lib/note-board";
+import { canEditActivitiesJournal } from "@/lib/permissions";
 import {
   memberOwnerId,
   normalizeTodoEdits,
@@ -33,6 +39,7 @@ type StateRow = {
   todo_edits?: unknown;
   note_items?: unknown;
   calendar_events?: unknown;
+  activities_journal?: unknown;
 };
 
 function localDemoPins(): PinNote[] {
@@ -159,6 +166,7 @@ function emptyState() {
     todoEdits: {} as TodoEditMap,
     noteItems: localDemoPins(),
     calendarEvents: [] as CalendarEvent[],
+    activitiesJournal: emptyJournal(),
   };
 }
 
@@ -171,7 +179,7 @@ export async function GET() {
     const { data, error } = await db
       .from("app_state")
       .select(
-        "checklist, scores, notes, project_steps, ingest_sources, todo_subtasks, todo_edits, note_items, calendar_events",
+        "checklist, scores, notes, project_steps, ingest_sources, todo_subtasks, todo_edits, note_items, calendar_events, activities_journal",
       )
       .eq("id", "kyle-college")
       .maybeSingle();
@@ -188,6 +196,7 @@ export async function GET() {
       todoEdits: normalizeTodoEdits(row?.todo_edits),
       noteItems: normalizePinNotes(row?.note_items),
       calendarEvents: normalizeCalendarEvents(row?.calendar_events),
+      activitiesJournal: normalizeJournal(row?.activities_journal),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not read state";
@@ -211,9 +220,19 @@ export async function PATCH(request: Request) {
     todoEdits?: TodoEditMap;
     noteItems?: PinNote[];
     calendarEvents?: CalendarEvent[];
+    activitiesJournal?: ActivitiesJournal;
   };
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   const db = collegeDb();
+
+  if (body.activitiesJournal !== undefined) {
+    if (!canEditActivitiesJournal(session.member)) {
+      return NextResponse.json(
+        { error: "Only the Student or Admin can edit the activities journal." },
+        { status: 403 },
+      );
+    }
+  }
 
   const needsOwnerRead =
     (body.checklist && typeof body.checklist === "object") ||
@@ -281,6 +300,9 @@ export async function PATCH(request: Request) {
   if (Array.isArray(body.noteItems)) patch.note_items = normalizePinNotes(body.noteItems);
   if (Array.isArray(body.calendarEvents)) {
     patch.calendar_events = normalizeCalendarEvents(body.calendarEvents);
+  }
+  if (body.activitiesJournal !== undefined) {
+    patch.activities_journal = normalizeJournal(body.activitiesJournal);
   }
 
   // Don't persist internal meta on the row.

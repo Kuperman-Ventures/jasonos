@@ -1,6 +1,6 @@
 /** Apps & Materials — parent nav with subsections. */
 
-export type AppsSectionId = "questions" | "materials";
+export type AppsSectionId = "activities" | "questions" | "materials";
 
 export type AppsSection = {
   id: AppsSectionId;
@@ -12,6 +12,12 @@ export type AppsSection = {
 };
 
 export const APPS_SECTIONS: AppsSection[] = [
+  {
+    id: "activities",
+    label: "Activities",
+    blurb: "Keep the details now. Tell your story later.",
+    status: "ready",
+  },
   {
     id: "questions",
     label: "App Questions",
@@ -27,7 +33,18 @@ export const APPS_SECTIONS: AppsSection[] = [
   },
 ];
 
-export const DEFAULT_APPS_SECTION: AppsSectionId = "questions";
+export const DEFAULT_APPS_SECTION: AppsSectionId = "activities";
+
+/** In-page views inside Activities. */
+export type ActivitiesViewId = "my" | "awards" | "prep";
+
+export const ACTIVITIES_VIEWS: { id: ActivitiesViewId; label: string }[] = [
+  { id: "my", label: "My Activities" },
+  { id: "awards", label: "Awards & Milestones" },
+  { id: "prep", label: "Application Prep" },
+];
+
+export const DEFAULT_ACTIVITIES_VIEW: ActivitiesViewId = "my";
 
 export function isAppsSectionId(value: string): value is AppsSectionId {
   return APPS_SECTIONS.some((section) => section.id === value);
@@ -41,4 +58,13 @@ export function appsSectionById(id: AppsSectionId): AppsSection {
 export function resolveAppsSection(raw: string | null): AppsSectionId {
   if (raw && isAppsSectionId(raw)) return raw;
   return DEFAULT_APPS_SECTION;
+}
+
+export function isActivitiesViewId(value: string): value is ActivitiesViewId {
+  return ACTIVITIES_VIEWS.some((view) => view.id === value);
+}
+
+export function resolveActivitiesView(raw: string | null): ActivitiesViewId {
+  if (raw && isActivitiesViewId(raw)) return raw;
+  return DEFAULT_ACTIVITIES_VIEW;
 }

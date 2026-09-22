@@ -11,7 +11,7 @@ export const HOUSEHOLD_ROLES: { id: MemberRole; label: string; blurb: string }[]
   {
     id: "super_admin",
     label: "Admin",
-    blurb: "Full household access and setup.",
+    blurb: "Full household access and setup, including the activities journal.",
   },
   {
     id: "parent",
@@ -55,8 +55,11 @@ export function canAdvanceListPhase(member: RoleMember): boolean {
   return isStudentRole(member.role);
 }
 
-/** Student role owns the activities journal; everyone else can view. */
+/**
+ * Student owns the activities journal; Admin can edit for UAT and household help.
+ * Parent and others can view only.
+ */
 export function canEditActivitiesJournal(member: RoleMember): boolean {
   if (member.id === "local") return true;
-  return isStudentRole(member.role);
+  return isStudentRole(member.role) || isAdminRole(member.role);
 }

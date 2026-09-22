@@ -38,10 +38,18 @@ import {
 } from "@/lib/note-board";
 import { normalizeCalendarEvents, type CalendarEvent } from "@/lib/calendar-events";
 import {
+  DEFAULT_ACTIVITIES_VIEW,
   DEFAULT_APPS_SECTION,
+  resolveActivitiesView,
   resolveAppsSection,
+  type ActivitiesViewId,
   type AppsSectionId,
 } from "@/lib/apps-materials";
+import {
+  emptyJournal,
+  normalizeJournal,
+  type ActivitiesJournal,
+} from "@/lib/activities-journal";
 import {
   DEFAULT_PROJECT_SECTION,
   resolveProjectSection,
@@ -58,6 +66,7 @@ import {
   type TodoEditMap,
   type TodoSubtaskMap,
 } from "@/lib/project-todos";
+import { canEditActivitiesJournal } from "@/lib/permissions";
 import { postActivity } from "@/lib/post-activity";
 import type { MemberProfile } from "@/lib/member-avatars";
 import type { ContactPatch, DeadlinePatch, Owner, School, Scores, TabId } from "@/lib/types";
@@ -98,7 +107,9 @@ function readStart(): {
   schoolId: string | null;
   projectSection: ProjectSectionId;
   appsSection: AppsSectionId;
+  activitiesView: ActivitiesViewId;
   noteId: string | null;
+  activityId: string | null;
 } {
   if (typeof window === "undefined") {
     return {
@@ -106,7 +117,9 @@ function readStart(): {
       schoolId: null,
       projectSection: DEFAULT_PROJECT_SECTION,
       appsSection: DEFAULT_APPS_SECTION,
+      activitiesView: DEFAULT_ACTIVITIES_VIEW,
       noteId: null,
+      activityId: null,
     };
   }
   const params = new URLSearchParams(window.location.search);
@@ -114,14 +127,18 @@ function readStart(): {
   const pmRaw = params.get("pm");
   const projectSection = resolveProjectSection(pmRaw);
   const appsSection = resolveAppsSection(params.get("am"));
+  const activitiesView = resolveActivitiesView(params.get("av"));
   const noteId = params.get("note");
+  const activityId = params.get("activity");
   if (school) {
     return {
       tab: "colleges",
       schoolId: school,
       projectSection,
       appsSection,
+      activitiesView,
       noteId: null,
+      activityId: null,
     };
   }
   // Legacy Project Management → Ingest deep link
@@ -131,7 +148,9 @@ function readStart(): {
       schoolId: null,
       projectSection: DEFAULT_PROJECT_SECTION,
       appsSection,
+      activitiesView,
       noteId: null,
+      activityId: null,
     };
   }
   const tab = normalizeTabId(params.get("tab")) ?? "dashboard";
@@ -140,7 +159,9 @@ function readStart(): {
     schoolId: null,
     projectSection,
     appsSection,
+    activitiesView,
     noteId: tab === "notes" && noteId ? noteId : null,
+    activityId: tab === "apps" && activityId ? activityId : null,
   };
 }
 
@@ -153,6 +174,9 @@ export function Portal({
   const [tab, setTab] = useState<TabId>("dashboard");
   const [projectSection, setProjectSection] = useState<ProjectSectionId>(DEFAULT_PROJECT_SECTION);
   const [appsSection, setAppsSection] = useState<AppsSectionId>(DEFAULT_APPS_SECTION);
+  const [activitiesView, setActivitiesView] = useState<ActivitiesViewId>(DEFAULT_ACTIVITIES_VIEW);
+  const [activitiesJournal, setActivitiesJournal] = useState<ActivitiesJournal>(() => emptyJournal());
+  const [openActivityId, setOpenActivityId] = useState<string | null>(null);
   const schoolId = useSyncExternalStore(subscribeSchool, schoolFromLocation, () => null);
   const [member, setMember] = useState(initialMember);
   const [memberProfiles, setMemberProfiles] = useState<MemberProfile[]>([]);
@@ -186,7 +210,9 @@ export function Portal({
     setTab(start.tab);
     setProjectSection(start.projectSection);
     setAppsSection(start.appsSection);
+    setActivitiesView(start.activitiesView);
     setOpenNoteId(start.noteId);
+    setOpenActivityId(start.activityId);
   }, []);
 
   useEffect(() => {
@@ -208,6 +234,7 @@ export function Portal({
           todoEdits?: TodoEditMap;
           noteItems?: PinNote[];
           calendarEvents?: CalendarEvent[];
+          activitiesJournal?: ActivitiesJournal;
           persisted?: boolean;
         };
         const prefsBody = (await prefsRes.json()) as {
@@ -254,6 +281,9 @@ export function Portal({
         }
         if (Array.isArray(state.calendarEvents)) {
           setCalendarEvents(normalizeCalendarEvents(state.calendarEvents));
+        }
+        if (state.activitiesJournal !== undefined) {
+          setActivitiesJournal(normalizeJournal(state.activitiesJournal));
         }
         if (Array.isArray(membersBody.members)) {
           setMemberProfiles(membersBody.members);
@@ -308,6 +338,8 @@ export function Portal({
       nextProjectSection: ProjectSectionId = projectSection,
       nextNoteId: string | null = null,
       nextAppsSection: AppsSectionId = appsSection,
+      nextActivitiesView: ActivitiesViewId = activitiesView,
+      nextActivityId: string | null = openActivityId,
     ) => {
       const params = new URLSearchParams();
       if (nextTab !== "colleges") params.set("tab", nextTab);
@@ -316,6 +348,10 @@ export function Portal({
       }
       if (nextTab === "apps") {
         params.set("am", nextAppsSection);
+        if (nextAppsSection === "activities") {
+          params.set("av", nextActivitiesView);
+          if (nextActivityId) params.set("activity", nextActivityId);
+        }
       }
       if (nextTab === "notes" && nextNoteId) params.set("note", nextNoteId);
       if (nextSchool) params.set("school", nextSchool);
@@ -323,12 +359,13 @@ export function Portal({
       window.history.replaceState(null, "", query ? `/?${query}` : "/");
       emitSchool();
     },
-    [projectSection, appsSection],
+    [projectSection, appsSection, activitiesView, openActivityId],
   );
 
   function goTab(next: TabId) {
     setTab(next);
     if (next !== "notes") setOpenNoteId(null);
+    if (next !== "apps") setOpenActivityId(null);
     replaceUrl(next, next === "colleges" ? schoolId : null, projectSection, null, appsSection);
   }
 
@@ -431,7 +468,40 @@ export function Portal({
   function goAppsSection(next: AppsSectionId) {
     setAppsSection(next);
     setTab("apps");
-    replaceUrl("apps", null, projectSection, null, next);
+    if (next !== "activities") setOpenActivityId(null);
+    replaceUrl("apps", null, projectSection, null, next, activitiesView, next === "activities" ? openActivityId : null);
+  }
+
+  function goActivitiesView(next: ActivitiesViewId) {
+    setActivitiesView(next);
+    setTab("apps");
+    setAppsSection("activities");
+    if (next !== "my") setOpenActivityId(null);
+    replaceUrl(
+      "apps",
+      null,
+      projectSection,
+      null,
+      "activities",
+      next,
+      next === "my" ? openActivityId : null,
+    );
+  }
+
+  function openActivity(id: string | null) {
+    setOpenActivityId(id);
+    setTab("apps");
+    setAppsSection("activities");
+    setActivitiesView("my");
+    replaceUrl("apps", null, projectSection, null, "activities", "my", id);
+  }
+
+  function changeJournal(next: ActivitiesJournal) {
+    setActivitiesJournal(next);
+    setSaveState("Saving...");
+    void patchState({ activitiesJournal: next }).then((ok) => {
+      setSaveState(ok ? "Saved" : "Not saved");
+    });
   }
 
   const statuses = useMemo(() => phaseStatuses(phases, checklist), [checklist]);
@@ -440,6 +510,7 @@ export function Portal({
   const phaseLabel = current ? `Phase ${phaseIndex + 1} · ${current.phase}` : "";
   const faqCount = faqCategories.reduce((sum, category) => sum + category.items.length, 0);
   const testingCount = testingItems(phases).length;
+  const canEditJournal = canEditActivitiesJournal(member);
 
   async function patchState(body: {
     checklist?: Record<string, boolean>;
@@ -451,6 +522,7 @@ export function Portal({
     todoEdits?: TodoEditMap;
     noteItems?: PinNote[];
     calendarEvents?: CalendarEvent[];
+    activitiesJournal?: ActivitiesJournal;
   }) {
     if (!persisted) {
       setSaveState("Not saved");
@@ -1154,6 +1226,13 @@ export function Portal({
             demographics={demographicBlocks}
             supplements={supplementCards}
             dateline={phaseLabel}
+            journal={activitiesJournal}
+            canEditJournal={canEditJournal}
+            activitiesView={activitiesView}
+            onActivitiesViewChange={goActivitiesView}
+            onJournalChange={changeJournal}
+            openActivityId={openActivityId}
+            onOpenActivity={openActivity}
           />
         ) : null}
         {tab === "consultants" ? (

@@ -29,9 +29,9 @@ test("only the Student role advances list phases", () => {
   assert.equal(canAdvanceListPhase({ id: "kat", role: "parent" }), false);
 });
 
-test("only the Student role edits the activities journal", () => {
+test("Student and Admin edit the activities journal; Parent views only", () => {
   assert.equal(canEditActivitiesJournal({ id: "kyle", role: "student" }), true);
-  assert.equal(canEditActivitiesJournal({ id: "jason", role: "super_admin" }), false);
+  assert.equal(canEditActivitiesJournal({ id: "jason", role: "super_admin" }), true);
   assert.equal(canEditActivitiesJournal({ id: "kat", role: "parent" }), false);
   assert.equal(canEditActivitiesJournal({ id: "local", role: "super_admin" }), true);
 });
