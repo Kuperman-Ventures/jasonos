@@ -12,6 +12,13 @@ const seed = JSON.parse(
 ) as Scores;
 
 test("weighted totals match the artifact seed", () => {
-  assert.equal(weightedTotal(seed.ctk, criteria).toFixed(2), "3.85");
-  assert.equal(weightedTotal(seed.hfc, criteria).toFixed(2), "3.70");
+  assert.equal(weightedTotal(seed.ctk, criteria).toFixed(2), "3.15");
+  assert.equal(weightedTotal(seed.hfc, criteria).toFixed(2), "3.30");
+});
+
+test("requested criterion weights match the eval mix", () => {
+  const byId = Object.fromEntries(criteria.map((c) => [c.id, c.weight]));
+  assert.equal(byId.price, 0.05);
+  assert.equal(byId.scope, 0.05);
+  assert.equal(byId.track, 0.2);
 });
