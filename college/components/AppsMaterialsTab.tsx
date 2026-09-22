@@ -1,11 +1,14 @@
 "use client";
 
+import { ActivitiesJournal } from "./ActivitiesJournal";
 import { AppQuestionsTab } from "./AppQuestionsTab";
 import {
   APPS_SECTIONS,
   appsSectionById,
+  type ActivitiesViewId,
   type AppsSectionId,
 } from "@/lib/apps-materials";
+import type { ActivitiesJournal as Journal } from "@/lib/activities-journal";
 import type { Supplemental, TextBlock } from "@/lib/types";
 
 export function AppsMaterialsTab({
@@ -17,6 +20,13 @@ export function AppsMaterialsTab({
   demographics,
   supplements,
   dateline,
+  journal,
+  canEditJournal,
+  activitiesView,
+  onActivitiesViewChange,
+  onJournalChange,
+  openActivityId,
+  onOpenActivity,
 }: {
   section: AppsSectionId;
   onSectionChange: (section: AppsSectionId) => void;
@@ -26,6 +36,13 @@ export function AppsMaterialsTab({
   demographics: TextBlock[];
   supplements: Supplemental[];
   dateline: string;
+  journal: Journal;
+  canEditJournal: boolean;
+  activitiesView: ActivitiesViewId;
+  onActivitiesViewChange: (view: ActivitiesViewId) => void;
+  onJournalChange: (next: Journal) => void;
+  openActivityId: string | null;
+  onOpenActivity: (id: string | null) => void;
 }) {
   const active = appsSectionById(section);
 
@@ -61,6 +78,18 @@ export function AppsMaterialsTab({
       </nav>
 
       <p className="pm-blurb">{active.blurb}</p>
+
+      {active.status === "ready" && active.id === "activities" ? (
+        <ActivitiesJournal
+          journal={journal}
+          canEdit={canEditJournal}
+          view={activitiesView}
+          onViewChange={onActivitiesViewChange}
+          onChange={onJournalChange}
+          openActivityId={openActivityId}
+          onOpenActivity={onOpenActivity}
+        />
+      ) : null}
 
       {active.status === "ready" && active.id === "questions" ? (
         <AppQuestionsTab
