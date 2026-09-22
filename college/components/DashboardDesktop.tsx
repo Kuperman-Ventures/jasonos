@@ -177,9 +177,6 @@ export function DashboardDesktop({
 
       <div className="dash-block">
         <h3 className="dash-title">Phase 1 · Build the list</h3>
-        <p className="section-sub">
-          Selectivity mix and where the schools sit geographically. Counts come from the live college list.
-        </p>
         <div className="dash-grid">
           <DashboardSelectivityPanel
             schools={schools}
