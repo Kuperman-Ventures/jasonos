@@ -172,21 +172,21 @@ export function ActivitiesJournal({
 
   return (
     <div className="aj">
-      <nav className="pm-subnav aj-view-nav" aria-label="Activities views">
+      <nav className="aj-view-nav" aria-label="Activities views">
         {ACTIVITIES_VIEWS.map((item) => {
           const selected = item.id === view;
           return (
             <button
               key={item.id}
               type="button"
-              className={selected ? "active" : ""}
+              className={selected ? "aj-view-tab active" : "aj-view-tab"}
               aria-current={selected ? "page" : undefined}
               onClick={() => {
                 onViewChange(item.id);
                 if (item.id !== "my") onOpenActivity(null);
               }}
             >
-              <span className="pm-subnav-label">{item.label}</span>
+              {item.label}
             </button>
           );
         })}
