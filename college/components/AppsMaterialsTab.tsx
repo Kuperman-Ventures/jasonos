@@ -77,7 +77,7 @@ export function AppsMaterialsTab({
         })}
       </nav>
 
-      <p className="pm-blurb">{active.blurb}</p>
+      {active.blurb ? <p className="pm-blurb">{active.blurb}</p> : null}
 
       {active.status === "ready" && active.id === "activities" ? (
         <ActivitiesJournal
