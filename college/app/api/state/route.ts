@@ -8,6 +8,7 @@ import {
   type PersistedIngestSource,
   type PersistedProjectStep,
 } from "@/lib/ingest";
+import { normalizeCalendarEvents, type CalendarEvent } from "@/lib/calendar-events";
 import { normalizePinNotes, type PinNote } from "@/lib/note-board";
 import {
   memberOwnerId,
@@ -31,6 +32,7 @@ type StateRow = {
   todo_subtasks?: unknown;
   todo_edits?: unknown;
   note_items?: unknown;
+  calendar_events?: unknown;
 };
 
 function localDemoPins(): PinNote[] {
@@ -51,6 +53,9 @@ function localDemoPins(): PinNote[] {
       pageCount: null,
       durationLabel: "48 min",
       sourceId: null,
+      assetUrl: null,
+      assetPath: null,
+      mimeType: null,
     },
     {
       id: "demo-uw",
@@ -67,6 +72,9 @@ function localDemoPins(): PinNote[] {
       pageCount: null,
       durationLabel: null,
       sourceId: null,
+      assetUrl: null,
+      assetPath: null,
+      mimeType: null,
     },
     {
       id: "demo-prompts",
@@ -83,6 +91,9 @@ function localDemoPins(): PinNote[] {
       pageCount: 4,
       durationLabel: null,
       sourceId: null,
+      assetUrl: null,
+      assetPath: null,
+      mimeType: null,
     },
     {
       id: "demo-testing",
@@ -99,6 +110,9 @@ function localDemoPins(): PinNote[] {
       pageCount: null,
       durationLabel: null,
       sourceId: null,
+      assetUrl: null,
+      assetPath: null,
+      mimeType: null,
     },
     {
       id: "demo-this-week",
@@ -115,6 +129,9 @@ function localDemoPins(): PinNote[] {
       pageCount: null,
       durationLabel: null,
       sourceId: null,
+      assetUrl: null,
+      assetPath: null,
+      mimeType: null,
     },
   ];
 }
@@ -130,6 +147,7 @@ function emptyState() {
     todoSubtasks: {} as TodoSubtaskMap,
     todoEdits: {} as TodoEditMap,
     noteItems: localDemoPins(),
+    calendarEvents: [] as CalendarEvent[],
   };
 }
 
@@ -142,7 +160,7 @@ export async function GET() {
     const { data, error } = await db
       .from("app_state")
       .select(
-        "checklist, scores, notes, project_steps, ingest_sources, todo_subtasks, todo_edits, note_items",
+        "checklist, scores, notes, project_steps, ingest_sources, todo_subtasks, todo_edits, note_items, calendar_events",
       )
       .eq("id", "kyle-college")
       .maybeSingle();
@@ -158,6 +176,7 @@ export async function GET() {
       todoSubtasks: normalizeTodoSubtasks(row?.todo_subtasks),
       todoEdits: normalizeTodoEdits(row?.todo_edits),
       noteItems: normalizePinNotes(row?.note_items),
+      calendarEvents: normalizeCalendarEvents(row?.calendar_events),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not read state";
@@ -180,6 +199,7 @@ export async function PATCH(request: Request) {
     todoSubtasks?: TodoSubtaskMap;
     todoEdits?: TodoEditMap;
     noteItems?: PinNote[];
+    calendarEvents?: CalendarEvent[];
   };
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   const db = collegeDb();
@@ -248,6 +268,9 @@ export async function PATCH(request: Request) {
     patch.todo_edits = normalizeTodoEdits(body.todoEdits);
   }
   if (Array.isArray(body.noteItems)) patch.note_items = normalizePinNotes(body.noteItems);
+  if (Array.isArray(body.calendarEvents)) {
+    patch.calendar_events = normalizeCalendarEvents(body.calendarEvents);
+  }
 
   // Don't persist internal meta on the row.
   const blockedCount =

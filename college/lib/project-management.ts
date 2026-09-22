@@ -27,7 +27,8 @@ export const PROJECT_SECTIONS: ProjectSection[] = [
   {
     id: "ingest",
     label: "Ingest",
-    blurb: "Paste notes, upload a PDF (OCR for image slides), or fetch a URL — route each suggestion to To-do, Note, or Drop.",
+    blurb:
+      "Paste, URL, or upload PDF/PNG/JPG — read text for suggestions, or save the asset as-is to Note, To-do, and/or Calendar.",
     status: "ready",
   },
   {
@@ -39,8 +40,8 @@ export const PROJECT_SECTIONS: ProjectSection[] = [
   {
     id: "calendar",
     label: "Calendar",
-    blurb: "Deadlines and visits on a calendar — coming next.",
-    status: "soon",
+    blurb: "Events from Ingest — list now, full grid later.",
+    status: "ready",
   },
 ];
 

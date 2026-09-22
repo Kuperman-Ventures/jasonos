@@ -27,11 +27,13 @@ import { currentPhaseIndex, phaseStatuses } from "@/lib/phases";
 import { useSchoolPipeline } from "@/lib/use-school-pipeline";
 import { defaultListPrefs, mergeListPrefs, canAdvanceListPhase, isForwardListPhaseMove, type MemberListPrefs } from "@/lib/list-phases";
 import type { PersistedIngestSource, PersistedProjectStep } from "@/lib/ingest";
+import { INBOX_PARENT_ID } from "@/lib/ingest";
 import {
   migrateLegacyNotesText,
   normalizePinNotes,
   type PinNote,
 } from "@/lib/note-board";
+import { normalizeCalendarEvents, type CalendarEvent } from "@/lib/calendar-events";
 import {
   DEFAULT_PROJECT_SECTION,
   resolveProjectSection,
@@ -122,6 +124,7 @@ export function Portal({
   const [scores, setScores] = useState<Scores>(seedScores);
   const [notes, setNotes] = useState("");
   const [noteItems, setNoteItems] = useState<PinNote[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
   const [projectSteps, setProjectSteps] = useState<PersistedProjectStep[]>([]);
   const [ingestSources, setIngestSources] = useState<PersistedIngestSource[]>([]);
@@ -166,6 +169,7 @@ export function Portal({
           todoSubtasks?: TodoSubtaskMap;
           todoEdits?: TodoEditMap;
           noteItems?: PinNote[];
+          calendarEvents?: CalendarEvent[];
           persisted?: boolean;
         };
         const prefsBody = (await prefsRes.json()) as {
@@ -209,6 +213,9 @@ export function Portal({
           }
         } else {
           setNoteItems([]);
+        }
+        if (Array.isArray(state.calendarEvents)) {
+          setCalendarEvents(normalizeCalendarEvents(state.calendarEvents));
         }
         if (Array.isArray(membersBody.members)) {
           setMemberProfiles(membersBody.members);
@@ -319,6 +326,7 @@ export function Portal({
     todoSubtasks?: TodoSubtaskMap;
     todoEdits?: TodoEditMap;
     noteItems?: PinNote[];
+    calendarEvents?: CalendarEvent[];
   }) {
     if (!persisted) {
       setSaveState("Not saved");
@@ -370,21 +378,45 @@ export function Portal({
     source: PersistedIngestSource;
     notes: string;
     noteItems: PinNote[];
+    calendarEvents: CalendarEvent[];
   }) {
     const nextSources = [...ingestSources.filter((row) => row.id !== payload.source.id), payload.source];
     setProjectSteps(payload.steps);
     setIngestSources(nextSources);
     setNotes(payload.notes);
     setNoteItems(payload.noteItems);
+    setCalendarEvents(payload.calendarEvents);
     const ok = await patchState({
       projectSteps: payload.steps,
       ingestSources: nextSources,
       notes: payload.notes,
       noteItems: payload.noteItems,
+      calendarEvents: payload.calendarEvents,
     });
     if (!ok) {
       throw new Error("Could not save ingest");
     }
+  }
+
+  function makeTodoFromNote(note: PinNote) {
+    const createdAt = new Date().toISOString();
+    const step: PersistedProjectStep = {
+      id: `note-todo-${note.id.slice(0, 10)}-${Math.random().toString(36).slice(2, 7)}`,
+      label: note.title,
+      owner: memberOwnerId(member.id),
+      assignedBy: memberOwnerId(member.id),
+      parentId: INBOX_PARENT_ID,
+      dueDate: null,
+      startDate: null,
+      endDate: null,
+      sourceId: note.sourceId,
+      createdAt,
+      assetUrl: note.assetUrl,
+    };
+    const next = [...projectSteps, step];
+    setProjectSteps(next);
+    void patchState({ projectSteps: next });
+    goProjectSection("todos");
   }
 
   function changeScore(firmId: string, criterionId: string, value: number) {
@@ -766,6 +798,7 @@ export function Portal({
             ingestSources={ingestSources}
             notes={notes}
             noteItems={noteItems}
+            calendarEvents={calendarEvents}
             subtasks={todoSubtasks}
             todoEdits={todoEdits}
             onToggle={toggleItem}
@@ -805,6 +838,7 @@ export function Portal({
             dateline={phaseLabel}
             onOpenNote={openNote}
             onChangeNoteItems={changeNoteItems}
+            onMakeTodo={makeTodoFromNote}
           />
         ) : null}
         {tab === "testing" ? (

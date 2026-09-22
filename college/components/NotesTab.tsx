@@ -56,11 +56,20 @@ function Plate({ item }: { item: PinNote }) {
     );
   }
   if (item.kind === "document") {
+    if (item.assetUrl && (item.mimeType?.startsWith("image/") || /\.(png|jpe?g|webp|gif)(\?|$)/i.test(item.assetUrl) || item.assetUrl.startsWith("data:image"))) {
+      return (
+        <div className="plate plate-image">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={item.assetUrl} alt="" />
+        </div>
+      );
+    }
     const lines = [70, 92, 86, 58, 90];
     return (
       <div className="plate">
         <span className="plate-kicker">
           PDF{item.pageCount ? ` · ${item.pageCount} pages` : ""}
+          {item.assetUrl ? " · file" : ""}
         </span>
         <span className="plate-lines" aria-hidden="true">
           {lines.map((width, index) => (
@@ -175,12 +184,14 @@ function NoteDetail({
   profiles,
   onBack,
   onMarkReviewed,
+  onMakeTodo,
 }: {
   item: PinNote;
   viewer: Owner;
   profiles: Map<string, MemberProfile>;
   onBack: () => void;
   onMarkReviewed: () => void;
+  onMakeTodo: () => void;
 }) {
   const forReview = waitingOnViewer(item, viewer);
   const uploader = profiles.get(item.addedBy);
@@ -213,12 +224,24 @@ function NoteDetail({
               </a>
             </p>
           ) : null}
-          {item.body ? <div className="note-detail-body">{item.body}</div> : null}
-          {forReview ? (
-            <button type="button" className="btn btn-primary" onClick={onMarkReviewed}>
-              Mark reviewed
-            </button>
+          {item.assetUrl && !item.mimeType?.startsWith("image/") ? (
+            <p className="note-detail-link">
+              <a href={item.assetUrl} target="_blank" rel="noreferrer">
+                Open file
+              </a>
+            </p>
           ) : null}
+          {item.body ? <div className="note-detail-body">{item.body}</div> : null}
+          <div className="note-detail-actions">
+            {forReview ? (
+              <button type="button" className="btn btn-primary" onClick={onMarkReviewed}>
+                Mark reviewed
+              </button>
+            ) : null}
+            <button type="button" className="btn btn-secondary" onClick={onMakeTodo}>
+              Make a to-do from this
+            </button>
+          </div>
         </div>
       </div>
     </section>
@@ -233,6 +256,7 @@ export function NotesTab({
   dateline,
   onOpenNote,
   onChangeNoteItems,
+  onMakeTodo,
 }: {
   memberId: string;
   memberProfiles: MemberProfile[];
@@ -241,6 +265,7 @@ export function NotesTab({
   dateline: string;
   onOpenNote: (id: string | null) => void;
   onChangeNoteItems: (next: PinNote[]) => void;
+  onMakeTodo: (note: PinNote) => void;
 }) {
   const viewer = memberOwnerId(memberId);
   const profiles = useMemo(
@@ -283,6 +308,7 @@ export function NotesTab({
         onMarkReviewed={() => {
           onChangeNoteItems(markPinReviewed(noteItems, openItem.id, viewer));
         }}
+        onMakeTodo={() => onMakeTodo(openItem)}
       />
     );
   }

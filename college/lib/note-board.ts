@@ -31,6 +31,10 @@ export type PinNote = {
   durationLabel: string | null;
   /** Ingest source id when this came from Ingest. */
   sourceId: string | null;
+  /** Stored file URL (image/PDF) for plate + detail. */
+  assetUrl: string | null;
+  assetPath: string | null;
+  mimeType: string | null;
 };
 
 export type NoteBand = {
@@ -277,6 +281,9 @@ export function normalizePinNotes(raw: unknown): PinNote[] {
           ? item.durationLabel
           : null,
       sourceId: typeof item.sourceId === "string" && item.sourceId ? item.sourceId : null,
+      assetUrl: typeof item.assetUrl === "string" && item.assetUrl ? item.assetUrl : null,
+      assetPath: typeof item.assetPath === "string" && item.assetPath ? item.assetPath : null,
+      mimeType: typeof item.mimeType === "string" && item.mimeType ? item.mimeType : null,
     });
   }
   return out;
@@ -317,6 +324,9 @@ export function migrateLegacyNotesText(notes: string, addedBy: Owner = "jason"):
         pageCount: null,
         durationLabel: null,
         sourceId: null,
+        assetUrl: null,
+        assetPath: null,
+        mimeType: null,
       });
       continue;
     }
@@ -339,6 +349,9 @@ export function migrateLegacyNotesText(notes: string, addedBy: Owner = "jason"):
       pageCount: null,
       durationLabel: null,
       sourceId: null,
+      assetUrl: null,
+      assetPath: null,
+      mimeType: null,
     });
   }
 
@@ -354,14 +367,50 @@ export function buildPinNotesFromIngest(input: {
   createdAt: string;
   addedBy: Owner;
   noteLabels: string[];
+  assetUrl?: string | null;
+  assetPath?: string | null;
+  mimeType?: string | null;
+  /** When true and there is an asset, create one pin for the file itself. */
+  assetAsNote?: boolean;
 }): PinNote[] {
+  const assetUrl = input.assetUrl ?? null;
+  const assetPath = input.assetPath ?? null;
+  const mimeType = input.mimeType ?? null;
+  const isImage = Boolean(mimeType?.startsWith("image/"));
+
+  if (input.assetAsNote && assetUrl) {
+    return [
+      {
+        id: `note-${input.sourceId.slice(0, 8)}-asset-${Math.random().toString(36).slice(2, 7)}`,
+        title: (input.sourceTitle || input.noteLabels[0] || "Uploaded file").slice(0, 160),
+        kind: isImage || input.sourceKind === "file" ? "document" : kindFromIngestSource(input.sourceKind),
+        addedBy: input.addedBy,
+        createdAt: input.createdAt,
+        reviewers: [],
+        reviewedBy: [],
+        reviewDue: null,
+        body: input.sourceText.trim().slice(0, 600) || input.sourceTitle,
+        host: null,
+        url: null,
+        pageCount: null,
+        durationLabel: null,
+        sourceId: input.sourceId,
+        assetUrl,
+        assetPath,
+        mimeType,
+      },
+    ];
+  }
+
   const labels = input.noteLabels.map((label) => label.trim()).filter(Boolean);
   if (!labels.length) return [];
 
-  const kind = kindFromIngestSource(input.sourceKind);
+  let kind = kindFromIngestSource(input.sourceKind);
+  if (input.sourceKind === "file" && isImage) kind = "document";
   const host =
     kind === "website"
-      ? hostFromUrl(input.sourceUrl) ?? hostFromUrl(input.sourceText.split(/\s+/).find((t) => /^https?:\/\//i.test(t)))
+      ? hostFromUrl(input.sourceUrl) ??
+        hostFromUrl(input.sourceText.split(/\s+/).find((t) => /^https?:\/\//i.test(t)))
       : null;
   const url =
     kind === "website"
@@ -370,7 +419,6 @@ export function buildPinNotesFromIngest(input: {
         null
       : null;
 
-  // One pin per note row — title is the user-facing line; body keeps source excerpt.
   return labels.map((label, index) => ({
     id: `note-${input.sourceId.slice(0, 8)}-${index + 1}-${Math.random().toString(36).slice(2, 7)}`,
     title: label.slice(0, 160),
@@ -386,9 +434,12 @@ export function buildPinNotesFromIngest(input: {
         : [label, input.sourceText.trim().slice(0, 600)].filter(Boolean).join("\n\n"),
     host,
     url,
-    pageCount: kind === "document" ? null : null,
+    pageCount: null,
     durationLabel: null,
     sourceId: input.sourceId,
+    assetUrl,
+    assetPath,
+    mimeType,
   }));
 }
 

@@ -1,8 +1,10 @@
 "use client";
 
+import { CalendarPanel } from "./CalendarPanel";
 import { IngestPanel, type IngestConfirmPayload } from "./IngestPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import { TodosPanel } from "./TodosPanel";
+import type { CalendarEvent } from "@/lib/calendar-events";
 import type { PersistedIngestSource, PersistedProjectStep } from "@/lib/ingest";
 import type { PinNote } from "@/lib/note-board";
 import {
@@ -25,6 +27,7 @@ export function ProjectManagementTab({
   ingestSources,
   notes,
   noteItems,
+  calendarEvents,
   subtasks,
   todoEdits,
   onToggle,
@@ -43,6 +46,7 @@ export function ProjectManagementTab({
   ingestSources: PersistedIngestSource[];
   notes: string;
   noteItems: PinNote[];
+  calendarEvents: CalendarEvent[];
   subtasks: TodoSubtaskMap;
   todoEdits: TodoEditMap;
   onToggle: (id: string, checked: boolean) => void;
@@ -112,17 +116,22 @@ export function ProjectManagementTab({
           ingestSources={ingestSources}
           notes={notes}
           noteItems={noteItems}
+          calendarEvents={calendarEvents}
           assignedBy={memberOwnerId(memberId)}
           onConfirm={onConfirmIngest}
         />
+      ) : null}
+
+      {active.status === "ready" && active.id === "calendar" ? (
+        <CalendarPanel events={calendarEvents} dateline={dateline} />
       ) : null}
 
       {active.status === "soon" ? (
         <div className="pm-soon">
           <h3 className="dash-title">{active.label}</h3>
           <p className="section-sub">
-            This submenu is reserved for the next project-management build. Timeline, To-dos, and
-            Ingest stay available above in the meantime.
+            This submenu is reserved for the next project-management build. Timeline, To-dos,
+            Ingest, and Calendar stay available above in the meantime.
           </p>
         </div>
       ) : null}

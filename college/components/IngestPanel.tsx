@@ -1,33 +1,53 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import type { CalendarEvent } from "@/lib/calendar-events";
 import {
   appendIngestNotes,
   checklistParents,
   formatIngestNotesBlock,
+  INBOX_PARENT_ID,
   type IngestRoute,
   type IngestSourceDraft,
   type PersistedIngestSource,
   type PersistedProjectStep,
   type SuggestedStep,
 } from "@/lib/ingest";
+import { acceptIngestAttr, INGEST_MAX_BYTES, isIngestFile } from "@/lib/ingest-assets";
 import { buildPinNotesFromIngest, type PinNote } from "@/lib/note-board";
 import { OWNERS, type Owner, type Phase } from "@/lib/types";
 
 type DraftRow = SuggestedStep;
+
+type PendingFile = {
+  file: File;
+  previewUrl: string | null;
+};
+
+type AsIsDest = {
+  note: boolean;
+  todo: boolean;
+  calendar: boolean;
+};
 
 export type IngestConfirmPayload = {
   steps: PersistedProjectStep[];
   source: PersistedIngestSource;
   notes: string;
   noteItems: PinNote[];
+  calendarEvents: CalendarEvent[];
 };
 
 const ROUTES: { id: IngestRoute; label: string }[] = [
   { id: "todo", label: "To-do" },
   { id: "note", label: "Note" },
+  { id: "calendar", label: "Calendar" },
   { id: "drop", label: "Drop" },
 ];
+
+function newId(prefix: string): string {
+  return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
+}
 
 export function IngestPanel({
   phases,
@@ -35,6 +55,7 @@ export function IngestPanel({
   ingestSources,
   notes,
   noteItems,
+  calendarEvents,
   assignedBy,
   onConfirm,
 }: {
@@ -43,7 +64,7 @@ export function IngestPanel({
   ingestSources: PersistedIngestSource[];
   notes: string;
   noteItems: PinNote[];
-  /** Signed-in person — stamped on to-dos they put on anyone's list. */
+  calendarEvents: CalendarEvent[];
   assignedBy: Owner;
   onConfirm: (payload: IngestConfirmPayload) => Promise<void>;
 }) {
@@ -52,16 +73,97 @@ export function IngestPanel({
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [url, setUrl] = useState("");
-  const [pdfName, setPdfName] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [method, setMethod] = useState<"ai" | "heuristic" | "">("");
-  const [pdfMethod, setPdfMethod] = useState<"embedded" | "ocr" | "">("");
+  const [readMethod, setReadMethod] = useState<"embedded" | "ocr" | "">("");
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
   const [source, setSource] = useState<IngestSourceDraft | null>(null);
+  const [pendingFile, setPendingFile] = useState<PendingFile | null>(null);
+  const [asIsTitle, setAsIsTitle] = useState("");
+  const [asIsDest, setAsIsDest] = useState<AsIsDest>({ note: true, todo: false, calendar: false });
+  const [asIsOwner, setAsIsOwner] = useState<Owner>(assignedBy);
+  const [asIsDate, setAsIsDate] = useState("");
+  const [uploadedAsset, setUploadedAsset] = useState<{
+    assetUrl: string | null;
+    assetPath: string | null;
+    mimeType: string | null;
+    fileName: string | null;
+  } | null>(null);
 
-  async function applyParseResponse(response: Response) {
+  function clearPendingFile() {
+    if (pendingFile?.previewUrl) URL.revokeObjectURL(pendingFile.previewUrl);
+    setPendingFile(null);
+    setUploadedAsset(null);
+    setAsIsTitle("");
+    setAsIsDest({ note: true, todo: false, calendar: false });
+    setAsIsDate("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function pickFile(file: File) {
+    setError("");
+    setDrafts([]);
+    setSource(null);
+    if (!isIngestFile(file)) {
+      setError("Use a PDF, PNG, JPG, WebP, or GIF.");
+      return;
+    }
+    if (file.size > INGEST_MAX_BYTES) {
+      setError("File is too large (max 25 MB).");
+      return;
+    }
+    if (pendingFile?.previewUrl) URL.revokeObjectURL(pendingFile.previewUrl);
+    const previewUrl = file.type.startsWith("image/") ? URL.createObjectURL(file) : null;
+    setPendingFile({ file, previewUrl });
+    setAsIsTitle(title || file.name.replace(/\.[^.]+$/, ""));
+    setUploadedAsset(null);
+  }
+
+  async function uploadAsset(file: File): Promise<{
+    assetUrl: string | null;
+    assetPath: string | null;
+    mimeType: string | null;
+    fileName: string | null;
+  }> {
+    const form = new FormData();
+    form.set("file", file);
+    const response = await fetch("/api/ingest/upload", { method: "POST", body: form });
+    if (response.status === 503) {
+      // Local seed mode — keep a temporary preview URL for images.
+      const localUrl = file.type.startsWith("image/")
+        ? await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result));
+            reader.onerror = () => reject(new Error("Could not read file"));
+            reader.readAsDataURL(file);
+          })
+        : null;
+      return {
+        assetUrl: localUrl,
+        assetPath: null,
+        mimeType: file.type || null,
+        fileName: file.name,
+      };
+    }
+    const body = (await response.json()) as {
+      error?: string;
+      assetUrl?: string;
+      assetPath?: string;
+      mimeType?: string;
+      fileName?: string;
+    };
+    if (!response.ok) throw new Error(body.error || "Upload failed");
+    return {
+      assetUrl: body.assetUrl ?? null,
+      assetPath: body.assetPath ?? null,
+      mimeType: body.mimeType ?? file.type ?? null,
+      fileName: body.fileName ?? file.name,
+    };
+  }
+
+  async function applyParseResponse(response: Response, asset?: typeof uploadedAsset) {
     const raw = await response.text();
     let body: {
       error?: string;
@@ -82,7 +184,14 @@ export function IngestPanel({
         route: row.route ?? "todo",
       })),
     );
-    setSource(body.source ?? null);
+    const nextSource = body.source ?? null;
+    if (nextSource && asset) {
+      nextSource.assetUrl = asset.assetUrl;
+      nextSource.assetPath = asset.assetPath;
+      nextSource.mimeType = asset.mimeType;
+      nextSource.fileName = asset.fileName;
+    }
+    setSource(nextSource);
     setMethod(body.method ?? "");
   }
 
@@ -109,45 +218,175 @@ export function IngestPanel({
     }
   }
 
-  async function runPdf(file: File) {
+  async function runReadText() {
+    if (!pendingFile) return;
     setBusy(true);
     setError("");
-    setStatus("Reading PDF…");
-    setPdfName(file.name);
-    setPdfMethod("");
+    setStatus("Uploading file…");
+    setReadMethod("");
     try {
-      const { isPdfFile, MAX_PDF_BYTES } = await import("@/lib/pdf");
-      const { readPdfForIngest } = await import("@/lib/pdf-ocr");
-      if (!isPdfFile(file)) throw new Error("Upload a PDF file (.pdf).");
-      if (file.size > MAX_PDF_BYTES) {
-        throw new Error("PDF is too large (max 25 MB). Try a smaller export or fewer slides.");
+      const asset = await uploadAsset(pendingFile.file);
+      setUploadedAsset(asset);
+      const isPdf =
+        pendingFile.file.type === "application/pdf" ||
+        pendingFile.file.name.toLowerCase().endsWith(".pdf");
+      let extracted = "";
+      if (isPdf) {
+        setStatus("Reading PDF…");
+        const { readPdfForIngest } = await import("@/lib/pdf-ocr");
+        const bytes = new Uint8Array(await pendingFile.file.arrayBuffer());
+        const result = await readPdfForIngest(bytes, (progress) => setStatus(progress.detail));
+        extracted = result.text;
+        setReadMethod(result.method);
+      } else {
+        setStatus("Reading image…");
+        const { readImageForIngest } = await import("@/lib/image-ocr");
+        const result = await readImageForIngest(pendingFile.file, (progress) =>
+          setStatus(progress.detail),
+        );
+        extracted = result.text;
+        setReadMethod("ocr");
       }
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      const { text: pdfText, pageCount, method: readMethod } = await readPdfForIngest(
-        bytes,
-        (progress) => setStatus(progress.detail),
-      );
-      setPdfMethod(readMethod);
-      setStatus(
-        readMethod === "ocr"
-          ? "OCR done — suggesting tasks…"
-          : "Text extracted — suggesting tasks…",
-      );
+      setStatus("Suggesting tasks…");
       const response = await fetch("/api/ingest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          text: pdfText,
-          title: title || file.name.replace(/\.pdf$/i, "") || `PDF (${pageCount} pages)`,
+          text: extracted,
+          title:
+            title ||
+            asIsTitle ||
+            pendingFile.file.name.replace(/\.[^.]+$/, "") ||
+            "Uploaded file",
           kind: "file",
         }),
       });
-      await applyParseResponse(response);
+      await applyParseResponse(response, asset);
       setStatus("");
+      clearPendingFile();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "PDF parse failed");
+      setError(err instanceof Error ? err.message : "Could not read file");
       setDrafts([]);
       setSource(null);
+      setStatus("");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function runSaveAsIs() {
+    if (!pendingFile) return;
+    if (!asIsDest.note && !asIsDest.todo && !asIsDest.calendar) {
+      setError("Pick at least one destination: Note, To-do, or Calendar.");
+      return;
+    }
+    const label = (asIsTitle || pendingFile.file.name).trim();
+    if (!label) {
+      setError("Add a title for this file.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setStatus("Uploading file…");
+    try {
+      const asset = await uploadAsset(pendingFile.file);
+      const createdAt = new Date().toISOString();
+      const sourceId = newId("file");
+      let nextSteps = projectSteps;
+      let nextNotes = notes;
+      let nextPins = noteItems;
+      let nextEvents = calendarEvents;
+      let stepCount = 0;
+      let noteCount = 0;
+      let calendarCount = 0;
+
+      if (asIsDest.todo) {
+        stepCount = 1;
+        nextSteps = [
+          ...projectSteps,
+          {
+            id: newId("ing"),
+            label,
+            owner: asIsOwner,
+            assignedBy,
+            parentId: INBOX_PARENT_ID,
+            dueDate: asIsDate || null,
+            startDate: null,
+            endDate: null,
+            sourceId,
+            createdAt,
+            assetUrl: asset.assetUrl,
+          },
+        ];
+      }
+      if (asIsDest.note) {
+        noteCount = 1;
+        const pins = buildPinNotesFromIngest({
+          sourceId,
+          sourceTitle: label,
+          sourceKind: "file",
+          sourceText: "",
+          createdAt,
+          addedBy: assignedBy,
+          noteLabels: [label],
+          assetUrl: asset.assetUrl,
+          assetPath: asset.assetPath,
+          mimeType: asset.mimeType,
+          assetAsNote: true,
+        });
+        nextPins = [...pins, ...noteItems];
+        nextNotes = appendIngestNotes(
+          notes,
+          formatIngestNotesBlock({ title: label, createdAt, notes: [label] }),
+        );
+      }
+      if (asIsDest.calendar) {
+        calendarCount = 1;
+        nextEvents = [
+          {
+            id: newId("cal"),
+            title: label,
+            date: asIsDate || null,
+            startTime: null,
+            endTime: null,
+            notes: "",
+            createdAt,
+            createdBy: assignedBy,
+            sourceId,
+            assetUrl: asset.assetUrl,
+            assetPath: asset.assetPath,
+          },
+          ...calendarEvents,
+        ];
+      }
+
+      const nextSource: PersistedIngestSource = {
+        id: sourceId,
+        title: label,
+        kind: "file",
+        excerpt: label.slice(0, 280),
+        createdAt,
+        stepCount,
+        noteCount,
+        calendarCount,
+        assetUrl: asset.assetUrl,
+        assetPath: asset.assetPath,
+        mimeType: asset.mimeType,
+        fileName: asset.fileName,
+      };
+
+      await onConfirm({
+        steps: nextSteps,
+        source: nextSource,
+        notes: nextNotes,
+        noteItems: nextPins,
+        calendarEvents: nextEvents,
+      });
+      clearPendingFile();
+      setTitle("");
+      setStatus("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save file");
       setStatus("");
     } finally {
       setBusy(false);
@@ -167,8 +406,9 @@ export function IngestPanel({
     const labeled = drafts.filter((row) => row.label.trim());
     const todoRows = labeled.filter((row) => row.route === "todo");
     const noteRows = labeled.filter((row) => row.route === "note");
-    if (!todoRows.length && !noteRows.length) {
-      setError("Route at least one row to To-do or Note, or trash the rest and try again.");
+    const calendarRows = labeled.filter((row) => row.route === "calendar");
+    if (!todoRows.length && !noteRows.length && !calendarRows.length) {
+      setError("Route at least one row to To-do, Note, or Calendar.");
       return;
     }
     setBusy(true);
@@ -188,6 +428,7 @@ export function IngestPanel({
           endDate: row.endDate,
           sourceId: source.id,
           createdAt,
+          assetUrl: source.assetUrl ?? null,
         })),
       ];
       const notesBlock = formatIngestNotesBlock({
@@ -202,11 +443,26 @@ export function IngestPanel({
         sourceKind: source.kind,
         sourceText: source.text,
         sourceUrl: source.kind === "url" ? url.trim() || null : null,
-        createdAt: createdAt,
+        createdAt,
         addedBy: assignedBy,
         noteLabels: noteRows.map((row) => row.label),
+        assetUrl: source.assetUrl,
+        assetPath: source.assetPath,
+        mimeType: source.mimeType,
       });
-      const nextNoteItems = [...createdPins, ...noteItems];
+      const createdEvents: CalendarEvent[] = calendarRows.map((row, index) => ({
+        id: `cal-${source.id.slice(0, 8)}-${index + 1}-${Math.random().toString(36).slice(2, 7)}`,
+        title: row.label.trim(),
+        date: row.dueDate,
+        startTime: null,
+        endTime: null,
+        notes: "",
+        createdAt,
+        createdBy: assignedBy,
+        sourceId: source.id,
+        assetUrl: source.assetUrl ?? null,
+        assetPath: source.assetPath ?? null,
+      }));
       const nextSource: PersistedIngestSource = {
         id: source.id,
         title: source.title,
@@ -215,23 +471,28 @@ export function IngestPanel({
         createdAt: source.createdAt,
         stepCount: todoRows.length,
         noteCount: noteRows.length,
+        calendarCount: calendarRows.length,
+        assetUrl: source.assetUrl ?? null,
+        assetPath: source.assetPath ?? null,
+        mimeType: source.mimeType ?? null,
+        fileName: source.fileName ?? null,
       };
       await onConfirm({
         steps,
         source: nextSource,
         notes: nextNotes,
-        noteItems: nextNoteItems,
+        noteItems: [...createdPins, ...noteItems],
+        calendarEvents: [...createdEvents, ...calendarEvents],
       });
       setDrafts([]);
       setSource(null);
       setText("");
       setUrl("");
       setTitle("");
-      setPdfName("");
       setMethod("");
-      setPdfMethod("");
+      setReadMethod("");
       setStatus("");
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      clearPendingFile();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save");
     } finally {
@@ -241,6 +502,7 @@ export function IngestPanel({
 
   const todoCount = drafts.filter((row) => row.route === "todo" && row.label.trim()).length;
   const noteCount = drafts.filter((row) => row.route === "note" && row.label.trim()).length;
+  const calendarCount = drafts.filter((row) => row.route === "calendar" && row.label.trim()).length;
 
   return (
     <div className="pm-panel ingest-panel">
@@ -277,20 +539,20 @@ export function IngestPanel({
           </button>
         </div>
 
-        <div className="ingest-or">or upload webinar slides (PDF)</div>
+        <div className="ingest-or">or upload a file (PDF, PNG, JPG, WebP, GIF)</div>
 
         <label className="stack-field">
-          <span className="label">PDF file</span>
+          <span className="label">File</span>
           <div className="ingest-file-row">
             <input
               ref={fileInputRef}
               className="field grow ingest-file"
               type="file"
-              accept="application/pdf,.pdf"
+              accept={acceptIngestAttr()}
               disabled={busy}
               onChange={(event) => {
                 const file = event.target.files?.[0];
-                if (file) void runPdf(file);
+                if (file) pickFile(file);
               }}
             />
             <button
@@ -299,12 +561,113 @@ export function IngestPanel({
               disabled={busy}
               onClick={() => fileInputRef.current?.click()}
             >
-              {busy ? "Working…" : "Choose PDF"}
+              Choose file
             </button>
           </div>
-          {pdfName ? <p className="ingest-file-name">{pdfName}</p> : null}
-          {status ? <p className="ingest-status" aria-live="polite">{status}</p> : null}
         </label>
+
+        {pendingFile ? (
+          <div className="ingest-file-mode">
+            <p className="ingest-file-name">
+              Selected: <strong>{pendingFile.file.name}</strong>
+            </p>
+            {pendingFile.previewUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img className="ingest-file-preview" src={pendingFile.previewUrl} alt="" />
+            ) : null}
+            <p className="section-sub">
+              What should we do with this file? Read the text to suggest to-dos/notes/calendar rows,
+              or save the asset as-is onto Notes, a To-do, and/or Calendar.
+            </p>
+            <div className="ingest-actions">
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={busy}
+                onClick={() => void runReadText()}
+              >
+                {busy ? "Working…" : "Read text & suggest"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={busy}
+                onClick={() => clearPendingFile()}
+              >
+                Clear file
+              </button>
+            </div>
+
+            <div className="ingest-asis">
+              <h3 className="dash-title">Or save as-is</h3>
+              <label className="stack-field">
+                <span className="label">Title</span>
+                <input
+                  className="field"
+                  value={asIsTitle}
+                  onChange={(event) => setAsIsTitle(event.target.value)}
+                />
+              </label>
+              <div className="ingest-asis-dest" role="group" aria-label="Save destinations">
+                {(
+                  [
+                    ["note", "Note"],
+                    ["todo", "To-do"],
+                    ["calendar", "Calendar"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label key={key} className="ingest-asis-check">
+                    <input
+                      type="checkbox"
+                      checked={asIsDest[key]}
+                      onChange={(event) =>
+                        setAsIsDest((current) => ({ ...current, [key]: event.target.checked }))
+                      }
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+              {asIsDest.todo ? (
+                <label className="stack-field">
+                  <span className="label">Assign to-do to</span>
+                  <select
+                    className="field"
+                    value={asIsOwner}
+                    onChange={(event) => setAsIsOwner(event.target.value as Owner)}
+                  >
+                    {OWNERS.map((owner) => (
+                      <option key={owner.id} value={owner.id}>
+                        {owner.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
+              {asIsDest.todo || asIsDest.calendar ? (
+                <label className="stack-field">
+                  <span className="label">Date (optional)</span>
+                  <input
+                    className="field"
+                    type="date"
+                    value={asIsDate}
+                    onChange={(event) => setAsIsDate(event.target.value)}
+                  />
+                </label>
+              ) : null}
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={busy}
+                onClick={() => void runSaveAsIs()}
+              >
+                {busy ? "Saving…" : "Save asset"}
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {status ? <p className="ingest-status" aria-live="polite">{status}</p> : null}
 
         <div className="ingest-or">or pull from a URL</div>
 
@@ -329,9 +692,8 @@ export function IngestPanel({
         </label>
 
         <p className="section-sub">
-          PDFs are read in your browser. Selectable-text decks are fast; image-only webinar slides run
-          OCR page by page (first run downloads the OCR engine). Only the text is sent for
-          suggestions. Route each row to To-do, Note, or Drop — trash removes OCR junk.
+          Pick a file first, then choose whether to read its text for suggestions or save the asset
+          as-is. Route each suggestion to To-do, Note, Calendar, or Drop.
         </p>
       </div>
 
@@ -344,11 +706,10 @@ export function IngestPanel({
               <h3 className="dash-title">Review suggestions</h3>
               <p className="section-sub">
                 {method === "ai" ? "Parsed with AI." : "Parsed with local heuristics."}
-                {pdfMethod === "ocr" ? " PDF text came from OCR." : ""}{" "}
-                Send To-dos into the checklist, Notes into the shared Notes tab. Dropped rows are
-                ignored.
-                {todoCount || noteCount
-                  ? ` Ready: ${todoCount} to-do${todoCount === 1 ? "" : "s"}, ${noteCount} note${noteCount === 1 ? "" : "s"}.`
+                {readMethod === "ocr" ? " Text came from OCR." : ""}{" "}
+                Route each row to To-do, Note, Calendar, or Drop.
+                {todoCount || noteCount || calendarCount
+                  ? ` Ready: ${todoCount} to-do${todoCount === 1 ? "" : "s"}, ${noteCount} note${noteCount === 1 ? "" : "s"}, ${calendarCount} calendar.`
                   : ""}
               </p>
             </div>
@@ -361,6 +722,7 @@ export function IngestPanel({
             {drafts.map((row) => {
               const isTodo = row.route === "todo";
               const isNote = row.route === "note";
+              const isCalendar = row.route === "calendar";
               const isDrop = row.route === "drop";
               return (
                 <li
@@ -392,7 +754,9 @@ export function IngestPanel({
                       <select
                         className="field"
                         value={row.owner}
-                        onChange={(event) => patchDraft(row.id, { owner: event.target.value as Owner })}
+                        onChange={(event) =>
+                          patchDraft(row.id, { owner: event.target.value as Owner })
+                        }
                         aria-label="Owner"
                       >
                         {OWNERS.map((owner) => (
@@ -422,28 +786,22 @@ export function IngestPanel({
                         }
                         aria-label="Due date"
                       />
-                      <input
-                        className="field"
-                        type="date"
-                        value={row.startDate ?? ""}
-                        onChange={(event) =>
-                          patchDraft(row.id, { startDate: event.target.value || null })
-                        }
-                        aria-label="Start date"
-                      />
-                      <input
-                        className="field"
-                        type="date"
-                        value={row.endDate ?? ""}
-                        onChange={(event) =>
-                          patchDraft(row.id, { endDate: event.target.value || null })
-                        }
-                        aria-label="End date"
-                      />
                     </>
                   ) : null}
-                  {isNote ? (
-                    <p className="ingest-note-hint">Goes to shared Notes — not To-dos.</p>
+                  {isCalendar ? (
+                    <input
+                      className="field"
+                      type="date"
+                      value={row.dueDate ?? ""}
+                      onChange={(event) =>
+                        patchDraft(row.id, { dueDate: event.target.value || null })
+                      }
+                      aria-label="Event date"
+                    />
+                  ) : null}
+                  {isNote ? <p className="ingest-note-hint">Goes to the Notes pinboard.</p> : null}
+                  {isCalendar ? (
+                    <p className="ingest-note-hint">Goes to Calendar events.</p>
                   ) : null}
                   {isDrop ? <p className="ingest-note-hint">Won’t be saved.</p> : null}
                   <button
@@ -477,6 +835,9 @@ export function IngestPanel({
                     {item.stepCount} to-do{item.stepCount === 1 ? "" : "s"}
                     {item.noteCount
                       ? ` · ${item.noteCount} note${item.noteCount === 1 ? "" : "s"}`
+                      : ""}
+                    {item.calendarCount
+                      ? ` · ${item.calendarCount} calendar`
                       : ""}{" "}
                     · {item.kind} ·{" "}
                     {new Date(item.createdAt).toLocaleString("en-US", {

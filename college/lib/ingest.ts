@@ -3,7 +3,7 @@
 import { phases } from "@/lib/content";
 import { isOwner, type Owner, type Phase } from "@/lib/types";
 
-export type IngestRoute = "todo" | "note" | "drop";
+export type IngestRoute = "todo" | "note" | "calendar" | "drop";
 
 export type SuggestedStep = {
   id: string;
@@ -23,6 +23,10 @@ export type IngestSourceDraft = {
   kind: "paste" | "url" | "file";
   text: string;
   createdAt: string;
+  assetUrl?: string | null;
+  assetPath?: string | null;
+  mimeType?: string | null;
+  fileName?: string | null;
 };
 
 export type PersistedProjectStep = {
@@ -37,6 +41,7 @@ export type PersistedProjectStep = {
   endDate: string | null;
   sourceId: string | null;
   createdAt: string;
+  assetUrl?: string | null;
 };
 
 export type PersistedIngestSource = {
@@ -47,6 +52,11 @@ export type PersistedIngestSource = {
   createdAt: string;
   stepCount: number;
   noteCount: number;
+  calendarCount?: number;
+  assetUrl?: string | null;
+  assetPath?: string | null;
+  mimeType?: string | null;
+  fileName?: string | null;
 };
 
 export const INBOX_PARENT_ID = "inbox";
@@ -272,6 +282,7 @@ export function normalizePersistedSteps(raw: unknown): PersistedProjectStep[] {
       endDate: typeof item.endDate === "string" ? item.endDate : null,
       sourceId: typeof item.sourceId === "string" ? item.sourceId : null,
       createdAt: typeof item.createdAt === "string" ? item.createdAt : new Date().toISOString(),
+      assetUrl: typeof item.assetUrl === "string" && item.assetUrl ? item.assetUrl : null,
     });
   }
   return out;
@@ -296,6 +307,11 @@ export function normalizeIngestSources(raw: unknown): PersistedIngestSource[] {
         typeof item.createdAt === "string" ? item.createdAt : new Date().toISOString(),
       stepCount: Number(item.stepCount) || 0,
       noteCount: Number(item.noteCount) || 0,
+      calendarCount: Number(item.calendarCount) || 0,
+      assetUrl: typeof item.assetUrl === "string" && item.assetUrl ? item.assetUrl : null,
+      assetPath: typeof item.assetPath === "string" && item.assetPath ? item.assetPath : null,
+      mimeType: typeof item.mimeType === "string" && item.mimeType ? item.mimeType : null,
+      fileName: typeof item.fileName === "string" && item.fileName ? item.fileName : null,
     });
   }
   return out;
