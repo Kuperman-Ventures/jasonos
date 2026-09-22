@@ -7,6 +7,7 @@ import { ConsultantsTab } from "./ConsultantsTab";
 import { DashboardTab } from "./DashboardTab";
 import { FaqTab } from "./FaqTab";
 import { LeftRail } from "./LeftRail";
+import { LogTab } from "./LogTab";
 import { NotesTab } from "./NotesTab";
 import { IngestPanel } from "./IngestPanel";
 import { ProjectManagementTab } from "./ProjectManagementTab";
@@ -42,13 +43,16 @@ import {
 } from "@/lib/project-management";
 import {
   canMarkTodoDone,
+  listProjectTodos,
   memberOwnerId,
   normalizeTodoEdits,
+  removeProjectTodoState,
   todoOwnerIndex,
   type TodoEdit,
   type TodoEditMap,
   type TodoSubtaskMap,
 } from "@/lib/project-todos";
+import { postActivity } from "@/lib/post-activity";
 import type { MemberProfile } from "@/lib/member-avatars";
 import type { ContactPatch, DeadlinePatch, Owner, School, Scores, TabId } from "@/lib/types";
 import {
@@ -61,6 +65,7 @@ import {
   isPlan,
   isSelectivityTier,
   normalizeTabId,
+  ownerLabel,
 } from "@/lib/types";
 
 const schoolListeners = new Set<() => void>();
@@ -304,18 +309,86 @@ export function Portal({
   }
 
   function changeNoteItems(next: PinNote[]) {
+    const prevIds = new Set(noteItems.map((row) => row.id));
+    const nextIds = new Set(next.map((row) => row.id));
+    const removed = noteItems.filter((row) => !nextIds.has(row.id));
+    const added = next.filter((row) => !prevIds.has(row.id));
+    const updated = next.filter((row) => {
+      if (!prevIds.has(row.id)) return false;
+      const prev = noteItems.find((item) => item.id === row.id);
+      return Boolean(prev) && JSON.stringify(prev) !== JSON.stringify(row);
+    });
     setNoteItems(next);
     setSaveState("Saving...");
     void patchState({ noteItems: next }).then((ok) => {
       setSaveState(ok ? "Saved" : "Not saved");
+      if (!ok) return;
+      for (const row of added) {
+        postActivity({
+          action: "create",
+          entityType: "note",
+          entityId: row.id,
+          summary: `Added note “${row.title}”`,
+        });
+      }
+      for (const row of removed) {
+        postActivity({
+          action: "delete",
+          entityType: "note",
+          entityId: row.id,
+          summary: `Deleted note “${row.title}”`,
+        });
+      }
+      for (const row of updated) {
+        postActivity({
+          action: "update",
+          entityType: "note",
+          entityId: row.id,
+          summary: `Updated note “${row.title}”`,
+        });
+      }
     });
   }
 
   function changeCalendarEvents(next: CalendarEvent[]) {
+    const prevIds = new Set(calendarEvents.map((row) => row.id));
+    const nextIds = new Set(next.map((row) => row.id));
+    const removed = calendarEvents.filter((row) => !nextIds.has(row.id));
+    const added = next.filter((row) => !prevIds.has(row.id));
+    const updated = next.filter((row) => {
+      if (!prevIds.has(row.id)) return false;
+      const prev = calendarEvents.find((item) => item.id === row.id);
+      return Boolean(prev) && JSON.stringify(prev) !== JSON.stringify(row);
+    });
     setCalendarEvents(next);
     setSaveState("Saving...");
     void patchState({ calendarEvents: next }).then((ok) => {
       setSaveState(ok ? "Saved" : "Not saved");
+      if (!ok) return;
+      for (const row of added) {
+        postActivity({
+          action: "create",
+          entityType: "calendar",
+          entityId: row.id,
+          summary: `Added calendar event “${row.title}”`,
+        });
+      }
+      for (const row of removed) {
+        postActivity({
+          action: "delete",
+          entityType: "calendar",
+          entityId: row.id,
+          summary: `Deleted calendar event “${row.title}”`,
+        });
+      }
+      for (const row of updated) {
+        postActivity({
+          action: "update",
+          entityType: "calendar",
+          entityId: row.id,
+          summary: `Updated calendar event “${row.title}”`,
+        });
+      }
     });
   }
 
@@ -369,9 +442,20 @@ export function Portal({
       window.setTimeout(() => setSaveState(""), 2000);
       return;
     }
+    const label =
+      listProjectTodos(checklist, phases, projectSteps, todoEdits).find((todo) => todo.id === id)
+        ?.label ?? id;
     const next = { ...checklist, [id]: checked };
     setChecklist(next);
-    void patchState({ checklist: next });
+    void patchState({ checklist: next }).then((ok) => {
+      if (!ok) return;
+      postActivity({
+        action: checked ? "complete" : "reopen",
+        entityType: "checklist",
+        entityId: id,
+        summary: checked ? `Marked “${label}” done` : `Reopened “${label}”`,
+      });
+    });
   }
 
   function changeSubtasks(next: TodoSubtaskMap) {
@@ -380,12 +464,60 @@ export function Portal({
   }
 
   function changeTodoEdit(id: string, patch: TodoEdit) {
+    const before =
+      listProjectTodos(checklist, phases, projectSteps, todoEdits).find((todo) => todo.id === id) ??
+      null;
     const next = normalizeTodoEdits({
       ...todoEdits,
       [id]: { ...todoEdits[id], ...patch },
     });
     setTodoEdits(next);
-    void patchState({ todoEdits: next });
+    void patchState({ todoEdits: next }).then((ok) => {
+      if (!ok) return;
+      const label = patch.label?.trim() || before?.label || id;
+      if ("owner" in patch) {
+        const who = patch.owner ? ownerLabel(patch.owner) : "Unclaimed";
+        postActivity({
+          action: "assign",
+          entityType: "todo",
+          entityId: id,
+          summary: `Assigned “${label}” to ${who}`,
+          detail: { owner: patch.owner ?? null },
+        });
+        return;
+      }
+      postActivity({
+        action: "update",
+        entityType: "todo",
+        entityId: id,
+        summary: `Edited to-do “${label}”`,
+      });
+    });
+  }
+
+  function deleteTodo(id: string) {
+    const before =
+      listProjectTodos(checklist, phases, projectSteps, todoEdits).find((todo) => todo.id === id) ??
+      null;
+    const next = removeProjectTodoState(id, projectSteps, todoEdits, todoSubtasks, checklist);
+    setProjectSteps(next.projectSteps);
+    setTodoEdits(next.todoEdits);
+    setTodoSubtasks(next.todoSubtasks);
+    setChecklist(next.checklist);
+    void patchState({
+      projectSteps: next.projectSteps,
+      todoEdits: next.todoEdits,
+      todoSubtasks: next.todoSubtasks,
+      checklist: next.checklist,
+    }).then((ok) => {
+      if (!ok) return;
+      postActivity({
+        action: "delete",
+        entityType: "todo",
+        entityId: id,
+        summary: `Deleted to-do “${before?.label ?? id}”`,
+      });
+    });
   }
 
   async function confirmIngest(payload: {
@@ -411,6 +543,17 @@ export function Portal({
     if (!ok) {
       throw new Error("Could not save ingest");
     }
+    postActivity({
+      action: "confirm",
+      entityType: "ingest",
+      entityId: payload.source.id,
+      summary: `Ingested “${payload.source.title || payload.source.id}”`,
+      detail: {
+        stepCount: payload.steps.length,
+        noteCount: payload.noteItems.length,
+        eventCount: payload.calendarEvents.length,
+      },
+    });
   }
 
   function makeTodoFromNote(note: PinNote) {
@@ -430,7 +573,16 @@ export function Portal({
     };
     const next = [...projectSteps, step];
     setProjectSteps(next);
-    void patchState({ projectSteps: next });
+    void patchState({ projectSteps: next }).then((ok) => {
+      if (!ok) return;
+      postActivity({
+        action: "create",
+        entityType: "todo",
+        entityId: step.id,
+        summary: `Made to-do “${note.title}” from a note`,
+        detail: { noteId: note.id },
+      });
+    });
     goProjectSection("todos");
   }
 
@@ -483,7 +635,16 @@ export function Portal({
     const next = [event, ...calendarEvents];
     setCalendarEvents(next);
     setCalendarFocusDate(date);
-    void patchState({ calendarEvents: next });
+    void patchState({ calendarEvents: next }).then((ok) => {
+      if (!ok) return;
+      postActivity({
+        action: "create",
+        entityType: "calendar",
+        entityId: event.id,
+        summary: `Made calendar event “${note.title}” from a note`,
+        detail: { noteId: note.id, date },
+      });
+    });
     goProjectSection("calendar");
   }
 
@@ -554,9 +715,16 @@ export function Portal({
     setSchools((current) => [...current, body.school]);
     replaceUrl("colleges", body.school.id);
     setSaveState(body.research?.summary || "Saved");
+    postActivity({
+      action: "create",
+      entityType: "school",
+      entityId: body.school.id,
+      summary: `Added college “${body.school.name}”`,
+    });
   }
 
   async function deleteSchool(id: string) {
+    const name = schools.find((school) => school.id === id)?.name ?? id;
     setSchools((current) => current.filter((school) => school.id !== id));
     replaceUrl("colleges", null);
     if (!pipeline.persisted) {
@@ -564,6 +732,12 @@ export function Portal({
       return;
     }
     await fetch(`/api/schools/${id}`, { method: "DELETE" });
+    postActivity({
+      action: "delete",
+      entityType: "school",
+      entityId: id,
+      summary: `Removed college “${name}”`,
+    });
   }
 
   async function addStep(id: string, label: string, owner: Owner) {
@@ -870,6 +1044,7 @@ export function Portal({
             onToggle={toggleItem}
             onChangeSubtasks={changeSubtasks}
             onEditTodo={changeTodoEdit}
+            onDeleteTodo={deleteTodo}
             onChangeCalendarEvents={changeCalendarEvents}
             dateline={phaseLabel}
           />
@@ -935,6 +1110,7 @@ export function Portal({
         {tab === "testing" ? (
           <TestingTab phases={phases} checklist={checklist} onToggle={toggleItem} dateline={phaseLabel} />
         ) : null}
+        {tab === "log" ? <LogTab dateline={phaseLabel} /> : null}
         <div className="save-state">{loaded && pipeline.loaded ? saveState : "Loading..."}</div>
       </main>
     </div>

@@ -48,6 +48,8 @@ export type TodoEdit = {
   /** Set to an owner, or null to move into Unclaimed. */
   owner?: Owner | null;
   assignedBy?: Owner | null;
+  /** Soft-delete seed (and any) to-dos so they leave every list. */
+  deleted?: boolean;
 };
 
 export type TodoEditMap = Record<string, TodoEdit>;
@@ -200,6 +202,7 @@ export function normalizeTodoEdits(raw: unknown): TodoEditMap {
         edit.assignedBy = row.assignedBy;
       }
     }
+    if (row.deleted === true) edit.deleted = true;
     if (Object.keys(edit).length) out[id] = edit;
   }
   return out;
@@ -250,6 +253,7 @@ function pushTodo(
   edits: TodoEditMap,
 ) {
   if (seen.has(step.id)) return;
+  if (edits[step.id]?.deleted) return;
   const parent = parents.get(step.parentId) ?? parents.get(INBOX_PARENT_ID);
   if (!parent) return;
   const edited = withEdit(step, edits);
@@ -351,6 +355,33 @@ export function assignmentPatch(
   if (nextOwner == null) return { owner: null, assignedBy: null };
   if (nextOwner === viewer) return { owner: nextOwner, assignedBy: null };
   return { owner: nextOwner, assignedBy: viewer };
+}
+
+/** Remove a dynamic step and clear related maps; soft-delete seed rows via edits. */
+export function removeProjectTodoState(
+  id: string,
+  projectSteps: PersistedProjectStep[],
+  edits: TodoEditMap,
+  subtasks: TodoSubtaskMap,
+  checklist: Record<string, boolean>,
+): {
+  projectSteps: PersistedProjectStep[];
+  todoEdits: TodoEditMap;
+  todoSubtasks: TodoSubtaskMap;
+  checklist: Record<string, boolean>;
+} {
+  const nextSteps = projectSteps.filter((step) => step.id !== id);
+  const nextEdits = { ...edits, [id]: { ...edits[id], deleted: true } };
+  const nextSubtasks = { ...subtasks };
+  delete nextSubtasks[id];
+  const nextChecklist = { ...checklist };
+  delete nextChecklist[id];
+  return {
+    projectSteps: nextSteps,
+    todoEdits: normalizeTodoEdits(nextEdits),
+    todoSubtasks: nextSubtasks,
+    checklist: nextChecklist,
+  };
 }
 
 export function groupTodosByOwner(
