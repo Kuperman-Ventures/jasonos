@@ -621,6 +621,36 @@ export function Portal({
     goProjectSection("todos");
   }
 
+  function addTodo(label: string) {
+    const trimmed = label.trim();
+    if (!trimmed) return;
+    const createdAt = new Date().toISOString();
+    const owner = memberOwnerId(member.id);
+    const step: PersistedProjectStep = {
+      id: `todo-${Math.random().toString(36).slice(2, 10)}`,
+      label: trimmed,
+      owner,
+      assignedBy: owner,
+      parentId: INBOX_PARENT_ID,
+      dueDate: null,
+      startDate: null,
+      endDate: null,
+      sourceId: null,
+      createdAt,
+    };
+    const next = [...projectSteps, step];
+    setProjectSteps(next);
+    void patchState({ projectSteps: next }).then((ok) => {
+      if (!ok) return;
+      postActivity({
+        action: "create",
+        entityType: "todo",
+        entityId: step.id,
+        summary: `Added to-do “${trimmed}”`,
+      });
+    });
+  }
+
   async function makeCalendarFromNote(note: PinNote) {
     const createdAt = new Date().toISOString();
     let date: string | null = null;
@@ -1082,6 +1112,7 @@ export function Portal({
             onChangeSubtasks={changeSubtasks}
             onEditTodo={changeTodoEdit}
             onDeleteTodo={deleteTodo}
+            onAddTodo={addTodo}
             onChangeCalendarEvents={changeCalendarEvents}
             dateline={phaseLabel}
           />

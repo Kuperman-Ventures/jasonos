@@ -634,6 +634,7 @@ export function TodosPanel({
   onChangeSubtasks,
   onEditTodo,
   onDeleteTodo,
+  onAddTodo,
 }: {
   memberId: string;
   memberProfiles: MemberProfile[];
@@ -646,6 +647,7 @@ export function TodosPanel({
   onChangeSubtasks: (next: TodoSubtaskMap) => void;
   onEditTodo: (id: string, patch: TodoEdit) => void;
   onDeleteTodo: (id: string) => void;
+  onAddTodo: (label: string) => void;
 }) {
   const focusOwner: Owner = memberOwnerId(memberId);
   const profiles = new Map(memberProfiles.map((row) => [row.id, row]));
@@ -657,6 +659,8 @@ export function TodosPanel({
   const [othersExpanded, setOthersExpanded] = useState(false);
   const [draftParent, setDraftParent] = useState<string | null>(null);
   const [draftLabel, setDraftLabel] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [newLabel, setNewLabel] = useState("");
 
   useEffect(() => {
     try {
@@ -752,6 +756,18 @@ export function TodosPanel({
     onEditTodo(id, assignmentPatch(focusOwner, owner));
   }
 
+  function commitNewTodo() {
+    const label = newLabel.trim();
+    if (!label) {
+      setAdding(false);
+      setNewLabel("");
+      return;
+    }
+    onAddTodo(label);
+    setNewLabel("");
+    setAdding(false);
+  }
+
   const shared = {
     viewer: focusOwner,
     profiles,
@@ -777,6 +793,48 @@ export function TodosPanel({
 
   return (
     <div className="pm-panel todos-panel">
+      <div className="todo-add">
+        {adding ? (
+          <div className="todo-add-draft">
+            <input
+              className="field"
+              autoFocus
+              value={newLabel}
+              aria-label="New to-do"
+              placeholder="What needs doing?"
+              onChange={(event) => setNewLabel(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  commitNewTodo();
+                }
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  setAdding(false);
+                  setNewLabel("");
+                }
+              }}
+            />
+            <button type="button" className="btn btn-primary compact" onClick={commitNewTodo}>
+              Add
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost compact"
+              onClick={() => {
+                setAdding(false);
+                setNewLabel("");
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button type="button" className="btn btn-secondary" onClick={() => setAdding(true)}>
+            Add a to-do
+          </button>
+        )}
+      </div>
       <TaskList bucket={grouped.mine} emphasis="focus" {...shared} />
       <OthersSection
         buckets={grouped.others}
