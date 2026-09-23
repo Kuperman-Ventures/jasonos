@@ -388,6 +388,11 @@ export function buildPinNotesFromIngest(input: {
   mimeType?: string | null;
   /** When true and there is an asset, create one pin for the file itself. */
   assetAsNote?: boolean;
+  /**
+   * When true, create one typed note whose body is the full source text
+   * (paste-as-note), ignoring per-row labels except as a title fallback.
+   */
+  wholeTextAsNote?: boolean;
   previewImageUrl?: string | null;
   previewSummary?: string | null;
 }): PinNote[] {
@@ -420,6 +425,40 @@ export function buildPinNotesFromIngest(input: {
         assetUrl,
         assetPath,
         mimeType,
+        previewImageUrl: null,
+        previewSummary: null,
+      },
+    ];
+  }
+
+  if (input.wholeTextAsNote) {
+    const body = input.sourceText.trim();
+    if (!body) return [];
+    const title = (
+      input.sourceTitle.trim() ||
+      input.noteLabels[0]?.trim() ||
+      body.split(/\r?\n/).find((line) => line.trim()) ||
+      "Pasted note"
+    ).slice(0, 160);
+    return [
+      {
+        id: `note-${input.sourceId.slice(0, 8)}-whole-${Math.random().toString(36).slice(2, 7)}`,
+        title,
+        kind: "note",
+        addedBy: input.addedBy,
+        createdAt: input.createdAt,
+        reviewers: [],
+        reviewedBy: [],
+        reviewDue: null,
+        body,
+        host: null,
+        url: null,
+        pageCount: null,
+        durationLabel: null,
+        sourceId: input.sourceId,
+        assetUrl: null,
+        assetPath: null,
+        mimeType: null,
         previewImageUrl: null,
         previewSummary: null,
       },

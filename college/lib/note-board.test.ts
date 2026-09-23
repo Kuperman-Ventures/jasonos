@@ -155,6 +155,46 @@ test("buildPinNotesFromIngest creates one pin per note row", () => {
   assert.equal(items[0]!.previewSummary, "Direct-to-engineering for first-year applicants.");
 });
 
+test("buildPinNotesFromIngest wholeTextAsNote keeps full paste as one note", () => {
+  const body = [
+    "Merit aid timing",
+    "Whether the résumé goes to every school",
+    "Summer program deadlines",
+    "",
+    "Also ask about bandwidth for reaches.",
+  ].join("\n");
+  const items = buildPinNotesFromIngest({
+    sourceId: "paste-abcdef12",
+    sourceTitle: "Sep 28 call prep",
+    sourceKind: "paste",
+    sourceText: body,
+    createdAt: "2026-09-22T12:00:00Z",
+    addedBy: "jason",
+    noteLabels: ["ignored when whole"],
+    wholeTextAsNote: true,
+  });
+  assert.equal(items.length, 1);
+  assert.equal(items[0]!.kind, "note");
+  assert.equal(items[0]!.title, "Sep 28 call prep");
+  assert.equal(items[0]!.body, body);
+  assert.equal(items[0]!.url, null);
+  assert.equal(items[0]!.assetUrl, null);
+});
+
+test("buildPinNotesFromIngest wholeTextAsNote no-ops on empty text", () => {
+  const items = buildPinNotesFromIngest({
+    sourceId: "paste-empty01",
+    sourceTitle: "Empty",
+    sourceKind: "paste",
+    sourceText: "   \n  ",
+    createdAt: "2026-09-22T12:00:00Z",
+    addedBy: "jason",
+    noteLabels: ["Empty"],
+    wholeTextAsNote: true,
+  });
+  assert.equal(items.length, 0);
+});
+
 test("normalizePinNotes drops bad rows", () => {
   assert.equal(normalizePinNotes(null).length, 0);
   assert.equal(

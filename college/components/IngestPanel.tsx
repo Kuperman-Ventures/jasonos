@@ -218,6 +218,67 @@ export function IngestPanel({
     }
   }
 
+  async function runSavePasteAsNote() {
+    const body = text.trim();
+    if (!body) {
+      setError("Paste some text first.");
+      return;
+    }
+    const label = (title.trim() || "Pasted notes").slice(0, 160);
+    setBusy(true);
+    setError("");
+    setStatus("Saving note…");
+    try {
+      const createdAt = new Date().toISOString();
+      const sourceId = newId("paste");
+      const pins = buildPinNotesFromIngest({
+        sourceId,
+        sourceTitle: label,
+        sourceKind: "paste",
+        sourceText: body,
+        createdAt,
+        addedBy: assignedBy,
+        noteLabels: [label],
+        wholeTextAsNote: true,
+      });
+      const nextNotes = appendIngestNotes(
+        notes,
+        formatIngestNotesBlock({ title: label, createdAt, notes: [body] }),
+      );
+      const nextSource: PersistedIngestSource = {
+        id: sourceId,
+        title: label,
+        kind: "paste",
+        excerpt: body.slice(0, 280),
+        createdAt,
+        stepCount: 0,
+        noteCount: 1,
+        calendarCount: 0,
+        assetUrl: null,
+        assetPath: null,
+        mimeType: null,
+        fileName: null,
+      };
+      await onConfirm({
+        steps: projectSteps,
+        source: nextSource,
+        notes: nextNotes,
+        noteItems: [...pins, ...noteItems],
+        calendarEvents,
+      });
+      setDrafts([]);
+      setSource(null);
+      setText("");
+      setTitle("");
+      setStatus("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save note");
+      setStatus("");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function runReadText() {
     if (!pendingFile) return;
     setBusy(true);
@@ -535,9 +596,17 @@ export function IngestPanel({
             type="button"
             className="btn btn-primary"
             disabled={busy || !text.trim()}
+            onClick={() => void runSavePasteAsNote()}
+          >
+            Save paste as note
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            disabled={busy || !text.trim()}
             onClick={() => void runParse("paste")}
           >
-            {busy ? "Reading…" : "Suggest tasks from paste"}
+            Suggest tasks from paste
           </button>
         </div>
 
@@ -694,8 +763,8 @@ export function IngestPanel({
         </label>
 
         <p className="section-sub">
-          Pick a file first, then choose whether to read its text for suggestions or save the asset
-          as-is. Route each suggestion to To-do, Note, Calendar, or Drop.
+          Paste text and save it as one note as-is, or suggest tasks to split into to-dos/notes/calendar.
+          For files, read the text for suggestions or save the asset as-is.
         </p>
       </div>
 
