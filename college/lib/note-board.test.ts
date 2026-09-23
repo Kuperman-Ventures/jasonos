@@ -3,7 +3,6 @@ import { test } from "node:test";
 import {
   bandPinNotes,
   buildPinNotesFromIngest,
-  combinePinNotes,
   filterPinNotes,
   hostFromUrl,
   kindFromIngestSource,
@@ -175,75 +174,4 @@ test("updatePinNote and removePinNote", () => {
   assert.equal(updated[0]!.title, "New title");
   assert.equal(updated[0]!.body, "New body");
   assert.equal(removePinNote(updated, "n1").length, 0);
-});
-
-test("combinePinNotes merges sources into target and drops sources", () => {
-  const items = [
-    sample({
-      id: "keep",
-      title: "Keep me",
-      createdAt: "2026-09-03T00:00:00Z",
-      body: "Primary body",
-      kind: "document",
-      assetUrl: "https://cdn.example/a.pdf",
-      mimeType: "application/pdf",
-      reviewers: ["jason"],
-      reviewedBy: ["jason"],
-      reviewDue: "2026-09-20",
-    }),
-    sample({
-      id: "src-a",
-      title: "Source A",
-      createdAt: "2026-09-02T00:00:00Z",
-      body: "Alpha notes",
-      url: "https://example.com/a",
-      reviewers: ["kyle"],
-      reviewDue: "2026-09-10",
-    }),
-    sample({
-      id: "src-b",
-      title: "Source B",
-      createdAt: "2026-09-01T00:00:00Z",
-      body: "",
-      assetUrl: "https://cdn.example/b.png",
-      mimeType: "image/png",
-      reviewers: ["kat", "jason"],
-    }),
-    sample({
-      id: "other",
-      title: "Leave alone",
-      createdAt: "2026-08-01T00:00:00Z",
-      body: "untouched",
-    }),
-  ];
-
-  const next = combinePinNotes(items, "keep", ["src-a", "src-b", "keep", "missing"]);
-  assert.deepEqual(
-    next.map((row) => row.id),
-    ["keep", "other"],
-  );
-  const kept = next[0]!;
-  assert.equal(kept.title, "Keep me");
-  assert.equal(kept.kind, "document");
-  assert.equal(kept.assetUrl, "https://cdn.example/a.pdf");
-  assert.match(kept.body, /Primary body/);
-  assert.match(kept.body, /## Source A/);
-  assert.match(kept.body, /Alpha notes/);
-  assert.match(kept.body, /https:\/\/example\.com\/a/);
-  assert.match(kept.body, /## Source B/);
-  assert.match(kept.body, /Image: https:\/\/cdn\.example\/b\.png/);
-  assert.deepEqual(kept.reviewers.sort(), ["jason", "kat", "kyle"]);
-  assert.deepEqual(kept.reviewedBy, ["jason"]);
-  assert.equal(kept.reviewDue, "2026-09-10");
-  assert.equal(next[1]!.body, "untouched");
-});
-
-test("combinePinNotes no-ops without valid sources", () => {
-  const items = [
-    sample({ id: "a", title: "A", createdAt: "2026-09-01T00:00:00Z" }),
-    sample({ id: "b", title: "B", createdAt: "2026-09-02T00:00:00Z" }),
-  ];
-  assert.equal(combinePinNotes(items, "a", []), items);
-  assert.equal(combinePinNotes(items, "a", ["a"]), items);
-  assert.equal(combinePinNotes(items, "missing", ["a"]), items);
 });

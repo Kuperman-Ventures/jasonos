@@ -5,7 +5,6 @@ import { MemberBadge } from "./MemberBadge";
 import type { MemberProfile } from "@/lib/member-avatars";
 import {
   bandPinNotes,
-  combinePinNotes,
   filterPinNotes,
   isNoteBoardFilter,
   kindLabel,
@@ -194,18 +193,12 @@ function PinCard({
   profiles,
   href,
   onOpen,
-  selectMode,
-  selected,
-  onToggleSelect,
 }: {
   item: PinNote;
   viewer: Owner;
   profiles: Map<string, MemberProfile>;
   href: string;
   onOpen: () => void;
-  selectMode?: boolean;
-  selected?: boolean;
-  onToggleSelect?: () => void;
 }) {
   const forReview = waitingOnViewer(item, viewer);
   const instruction = reviewInstruction(item, viewer);
@@ -215,22 +208,16 @@ function PinCard({
   const otherReviewers = item.reviewers.filter((id) => id !== viewer);
   const shownReviewers = otherReviewers.slice(0, 3);
   const overflow = otherReviewers.length - shownReviewers.length;
-  const className = [
-    "pin",
-    forReview ? "is-for-review" : "",
-    selectMode ? "is-selecting" : "",
-    selected ? "is-selected" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
 
-  const inner = (
-    <>
-      {selectMode ? (
-        <span className="pin-check" aria-hidden="true">
-          {selected ? "✓" : ""}
-        </span>
-      ) : null}
+  return (
+    <a
+      className={`pin${forReview ? " is-for-review" : ""}`}
+      href={href}
+      onClick={(event) => {
+        event.preventDefault();
+        onOpen();
+      }}
+    >
       <div className="pin-flag" />
       <Plate item={item} />
       <div className="pin-body">
@@ -280,33 +267,6 @@ function PinCard({
           ) : null}
         </div>
       </div>
-    </>
-  );
-
-  if (selectMode) {
-    return (
-      <button
-        type="button"
-        className={className}
-        aria-pressed={selected}
-        aria-label={`${selected ? "Deselect" : "Select"} ${item.title}`}
-        onClick={() => onToggleSelect?.()}
-      >
-        {inner}
-      </button>
-    );
-  }
-
-  return (
-    <a
-      className={className}
-      href={href}
-      onClick={(event) => {
-        event.preventDefault();
-        onOpen();
-      }}
-    >
-      {inner}
     </a>
   );
 }
@@ -553,10 +513,6 @@ export function NotesTab({
   const storageKey = noteFilterStorageKey(memberId);
   const [filter, setFilter] = useState<NoteBoardFilter>("all");
   const [calendarBusy, setCalendarBusy] = useState(false);
-  const [selectMode, setSelectMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [pickTarget, setPickTarget] = useState(false);
-  const [targetId, setTargetId] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -576,40 +532,12 @@ export function NotesTab({
     }
   }
 
-  function exitSelectMode() {
-    setSelectMode(false);
-    setSelectedIds([]);
-    setPickTarget(false);
-    setTargetId(null);
-  }
-
-  function toggleSelect(id: string) {
-    setSelectedIds((prev) => {
-      if (prev.includes(id)) return prev.filter((row) => row !== id);
-      return [...prev, id];
-    });
-    setPickTarget(false);
-    setTargetId(null);
-  }
-
-  function confirmCombine() {
-    if (!targetId || selectedIds.length < 2) return;
-    const sources = selectedIds.filter((id) => id !== targetId);
-    onChangeNoteItems(combinePinNotes(noteItems, targetId, sources));
-    exitSelectMode();
-    onOpenNote(targetId);
-  }
-
   const visible = filterPinNotes(noteItems, filter, viewer);
   const bands = bandPinNotes(visible);
   const waiting = noteItems.filter((item) => waitingOnViewer(item, viewer)).length;
   const openItem = openNoteId ? noteItems.find((item) => item.id === openNoteId) ?? null : null;
   const [previewLoading, setPreviewLoading] = useState(false);
   const previewAttempted = useMemo(() => new Set<string>(), []);
-  const selectedNotes = selectedIds
-    .map((id) => noteItems.find((item) => item.id === id))
-    .filter((item): item is PinNote => Boolean(item));
-  const canCombine = selectedNotes.length >= 2;
 
   useEffect(() => {
     if (!openItem || openItem.kind !== "website" || !openItem.url) return;
@@ -706,108 +634,20 @@ export function NotesTab({
             ) : null}
           </div>
         </div>
-        <div className="board-head-tools">
-          {noteItems.length >= 2 ? (
-            selectMode ? (
-              <div className="board-combine-bar" role="group" aria-label="Combine notes">
-                <span className="board-combine-count">
-                  {selectedIds.length} selected
-                  {canCombine ? "" : " · pick at least 2"}
-                </span>
-                {pickTarget ? (
-                  <>
-                    <label className="board-combine-target">
-                      <span className="label">Keep</span>
-                      <select
-                        className="field"
-                        value={targetId ?? ""}
-                        onChange={(event) => setTargetId(event.target.value || null)}
-                      >
-                        <option value="">Choose note…</option>
-                        {selectedNotes.map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.title.trim() || "Untitled"}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      disabled={!targetId}
-                      onClick={confirmCombine}
-                    >
-                      Combine into one
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      onClick={() => {
-                        setPickTarget(false);
-                        setTargetId(null);
-                      }}
-                    >
-                      Back
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      className="btn btn-primary"
-                      disabled={!canCombine}
-                      onClick={() => {
-                        setPickTarget(true);
-                        setTargetId(selectedIds[0] ?? null);
-                      }}
-                    >
-                      Combine
-                    </button>
-                    <button type="button" className="btn btn-ghost" onClick={exitSelectMode}>
-                      Cancel
-                    </button>
-                  </>
-                )}
-              </div>
-            ) : (
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => {
-                  setSelectMode(true);
-                  setSelectedIds([]);
-                  setPickTarget(false);
-                  setTargetId(null);
-                }}
-              >
-                Combine notes
-              </button>
-            )
-          ) : null}
-          {!selectMode ? (
-            <div className="seg" role="radiogroup" aria-label="Filter the board">
-              {FILTERS.map((opt) => (
-                <label key={opt.id} className="seg-opt">
-                  <input
-                    type="radio"
-                    name="board-filter"
-                    checked={filter === opt.id}
-                    onChange={() => changeFilter(opt.id)}
-                  />
-                  {opt.label}
-                </label>
-              ))}
-            </div>
-          ) : null}
+        <div className="seg" role="radiogroup" aria-label="Filter the board">
+          {FILTERS.map((opt) => (
+            <label key={opt.id} className="seg-opt">
+              <input
+                type="radio"
+                name="board-filter"
+                checked={filter === opt.id}
+                onChange={() => changeFilter(opt.id)}
+              />
+              {opt.label}
+            </label>
+          ))}
         </div>
       </div>
-
-      {selectMode && pickTarget ? (
-        <p className="board-combine-hint">
-          The note you keep keeps its title, type, and any attached file or link. Text and links
-          from the others are appended underneath.
-        </p>
-      ) : null}
 
       {!noteItems.length ? (
         <p className="board-empty">
@@ -832,9 +672,6 @@ export function NotesTab({
                   profiles={profiles}
                   href={`/?tab=notes&note=${encodeURIComponent(item.id)}`}
                   onOpen={() => onOpenNote(item.id)}
-                  selectMode={selectMode}
-                  selected={selectedIds.includes(item.id)}
-                  onToggleSelect={() => toggleSelect(item.id)}
                 />
               ))}
             </div>
