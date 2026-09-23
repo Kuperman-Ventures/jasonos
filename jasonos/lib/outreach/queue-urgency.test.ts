@@ -4,6 +4,7 @@ import type { QueueCard } from "./queue-buckets.ts";
 import {
   deriveQueueUrgency,
   flattenQueueColumns,
+  selectDueThisWeekQueueCards,
   selectOverdueQueueCards,
   unionScheduleIntoQueueColumns,
 } from "./queue-urgency.ts";
@@ -237,5 +238,76 @@ describe("unionScheduleIntoQueueColumns", () => {
     for (const name of extras) {
       assert.ok(overdue.some((c) => c.name === name));
     }
+  });
+});
+
+describe("selectDueThisWeekQueueCards", () => {
+  it("picks due-today and due-by-Friday, skips overdue and next week", () => {
+    // Tue 2026-09-15 → Friday is 2026-09-18
+    const columns = {
+      network_growth: [
+        card({
+          name: "Due today",
+          contactId: "today",
+          next_touch_date: "2026-09-15",
+        }),
+        card({
+          name: "Due Friday",
+          contactId: "fri",
+          next_touch_date: "2026-09-18",
+        }),
+        card({
+          name: "Overdue",
+          contactId: "late",
+          next_touch_date: "2026-09-10",
+        }),
+        card({
+          name: "Next week",
+          contactId: "later",
+          next_touch_date: "2026-09-22",
+        }),
+      ],
+      network_maintenance: [],
+      browning_cold: [],
+    };
+
+    const due = selectDueThisWeekQueueCards(columns, new Map(), today);
+    assert.equal(due.length, 2);
+    assert.deepEqual(
+      due.map((c) => c.name).sort(),
+      ["Due Friday", "Due today"]
+    );
+  });
+
+  it("includes Schedule-only people the classified queue missed", () => {
+    const columns = unionScheduleIntoQueueColumns(
+      {
+        network_growth: [
+          card({
+            name: "Already queued",
+            contactId: "queued",
+            next_touch_date: "2026-09-16",
+          }),
+        ],
+        network_maintenance: [],
+        browning_cold: [],
+      },
+      [
+        {
+          id: "extra",
+          contactId: "extra",
+          name: "Schedule only",
+          title: null,
+          firm: null,
+          nextActionDueDate: "2026-09-17",
+          lastTouch: null,
+          source: "cadence",
+        },
+      ],
+      new Map()
+    );
+    const due = selectDueThisWeekQueueCards(columns, new Map(), today);
+    assert.equal(due.length, 2);
+    assert.ok(due.some((c) => c.name === "Schedule only"));
   });
 });

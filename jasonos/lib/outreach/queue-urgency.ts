@@ -173,17 +173,39 @@ export function selectOverdueQueueCards(
   commByContactId: Map<string, QueueUrgencyComm> = new Map(),
   today: string = etToday()
 ): QueueCard[] {
-  const overdue: QueueCard[] = [];
+  return selectQueueCardsByUrgency(columns, "overdue", commByContactId, today);
+}
+
+export function selectDueThisWeekQueueCards(
+  columns: QueueColumns,
+  commByContactId: Map<string, QueueUrgencyComm> = new Map(),
+  today: string = etToday()
+): QueueCard[] {
+  return selectQueueCardsByUrgency(
+    columns,
+    "due_this_week",
+    commByContactId,
+    today
+  );
+}
+
+function selectQueueCardsByUrgency(
+  columns: QueueColumns,
+  urgency: QueueUrgencyKey,
+  commByContactId: Map<string, QueueUrgencyComm>,
+  today: string
+): QueueCard[] {
+  const matched: QueueCard[] = [];
   const seen = new Set<string>();
   for (const card of flattenQueueColumns(columns)) {
     const comm = card.contactId
       ? commByContactId.get(card.contactId)
       : undefined;
-    if (deriveQueueUrgency(card, comm, today) !== "overdue") continue;
+    if (deriveQueueUrgency(card, comm, today) !== urgency) continue;
     const id = card.contactId ?? card.recruiterId ?? card.key;
     if (seen.has(id)) continue;
     seen.add(id);
-    overdue.push(card);
+    matched.push(card);
   }
-  return overdue;
+  return matched;
 }

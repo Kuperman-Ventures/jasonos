@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import {
   AlertCircle,
   BarChart3,
+  Clock,
   ExternalLink,
   ArrowUpRight,
   PlugZap,
@@ -39,6 +40,12 @@ const COLUMN_LABEL: Record<string, string> = {
 };
 
 type ModalMode = { contact: AttentionContact; tab: "engage" | "contact" };
+
+function dueLabel(daysUntilDue: number): string {
+  if (daysUntilDue <= 0) return "due today";
+  if (daysUntilDue === 1) return "due tomorrow";
+  return `in ${daysUntilDue}d`;
+}
 
 export function HomeClient({
   data,
@@ -174,6 +181,76 @@ export function HomeClient({
     })();
   };
 
+  const renderRow = (
+    c: AttentionContact,
+    timing: { kind: "overdue" } | { kind: "due"; label: string }
+  ) => (
+    <li
+      key={c.id}
+      className="flex min-h-[4.125rem] flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3"
+    >
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <TierDegreeBadge tier={c.tier} degree={c.degree} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium">
+            {c.name}
+            {c.firm ? (
+              <span className="ml-1.5 text-[11px] text-muted-foreground">
+                · {c.firm}
+              </span>
+            ) : null}
+          </p>
+          <p className="truncate text-[11px] text-muted-foreground">
+            <span className="rounded-sm border border-border px-1 py-0.5 text-[9px] uppercase tracking-wider">
+              {COLUMN_LABEL[c.column] ?? c.column}
+            </span>
+            <span
+              className={
+                timing.kind === "overdue"
+                  ? "ml-1.5 text-red-300"
+                  : "ml-1.5 text-amber-300"
+              }
+            >
+              {timing.kind === "overdue"
+                ? `${c.daysOverdue}d overdue`
+                : timing.label}
+            </span>
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0">
+        <Button variant="outline" size="sm" onClick={() => openContact(c)}>
+          Open
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => draftEmail(c)}
+          disabled={drafting && draftFor?.id === c.id}
+        >
+          {drafting && draftFor?.id === c.id ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : null}
+          Draft email
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void writeText(c)}
+          disabled={textingId === c.id}
+        >
+          {textingId === c.id ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : null}
+          Text
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => logContact(c)}>
+          Log
+        </Button>
+      </div>
+    </li>
+  );
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-6">
       <header className="flex items-center gap-3">
@@ -181,12 +258,39 @@ export function HomeClient({
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Home</h1>
           <p className="text-xs text-muted-foreground">
-            Overdue outreach and site traffic.
+            Due this week, overdue outreach, and site traffic.
           </p>
         </div>
       </header>
 
       {children}
+
+      <section className="overflow-hidden rounded-xl border bg-card">
+        <div className="flex items-center gap-2 bg-amber-600/70 px-4 py-2.5 text-white">
+          <Clock className="h-4 w-4" />
+          <h2 className="text-sm font-semibold tracking-tight">Due This Week</h2>
+          <span className="ml-auto rounded-full bg-black/20 px-2 py-0.5 text-[11px] font-medium tabular-nums">
+            {data.dueThisWeek.length}
+          </span>
+        </div>
+        <p className="border-b px-4 py-1.5 text-[11px] text-muted-foreground">
+          Due today or by Friday. Open, draft, text, or log from here.
+        </p>
+        {data.dueThisWeek.length === 0 ? (
+          <p className="px-4 py-8 text-center text-xs text-muted-foreground">
+            Nobody due this week.
+          </p>
+        ) : (
+          <ul className="max-h-[calc(10*4.125rem)] divide-y divide-border overflow-y-auto overscroll-contain">
+            {data.dueThisWeek.map((c) =>
+              renderRow(c, {
+                kind: "due",
+                label: dueLabel(c.daysUntilDue),
+              })
+            )}
+          </ul>
+        )}
+      </section>
 
       <section className="overflow-hidden rounded-xl border bg-card">
         <div className="flex items-center gap-2 bg-red-700/70 px-4 py-2.5 text-white">
@@ -206,72 +310,7 @@ export function HomeClient({
           </p>
         ) : (
           <ul className="max-h-[calc(10*4.125rem)] divide-y divide-border overflow-y-auto overscroll-contain">
-            {data.overdue.map((c) => (
-              <li
-                key={c.id}
-                className="flex min-h-[4.125rem] flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3"
-              >
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <TierDegreeBadge tier={c.tier} degree={c.degree} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">
-                      {c.name}
-                      {c.firm ? (
-                        <span className="ml-1.5 text-[11px] text-muted-foreground">
-                          · {c.firm}
-                        </span>
-                      ) : null}
-                    </p>
-                    <p className="truncate text-[11px] text-muted-foreground">
-                      <span className="rounded-sm border border-border px-1 py-0.5 text-[9px] uppercase tracking-wider">
-                        {COLUMN_LABEL[c.column] ?? c.column}
-                      </span>
-                      <span className="ml-1.5 text-red-300">
-                        {c.daysOverdue}d overdue
-                      </span>
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5 sm:shrink-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openContact(c)}
-                  >
-                    Open
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => draftEmail(c)}
-                    disabled={drafting && draftFor?.id === c.id}
-                  >
-                    {drafting && draftFor?.id === c.id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : null}
-                    Draft email
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void writeText(c)}
-                    disabled={textingId === c.id}
-                  >
-                    {textingId === c.id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : null}
-                    Text
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => logContact(c)}
-                  >
-                    Log
-                  </Button>
-                </div>
-              </li>
-            ))}
+            {data.overdue.map((c) => renderRow(c, { kind: "overdue" }))}
           </ul>
         )}
       </section>
