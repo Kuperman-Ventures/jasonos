@@ -648,7 +648,8 @@ export function Portal({
       noteItems: payload.noteItems,
       calendarEvents: payload.calendarEvents,
     });
-    if (!ok) {
+    // Local/demo mode has no backend row — keep the optimistic UI and leave "Not saved".
+    if (!ok && persisted) {
       throw new Error("Could not save ingest");
     }
     postActivity({
