@@ -5582,7 +5582,7 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
 }
 .appq-ruler-school.is-strong { font-weight: 700; }
 .appq-lanes { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-.appq-lane { position: relative; height: 16px; overflow: hidden; }
+.appq-lane { position: relative; height: 16px; }
 .appq-bar {
   position: absolute;
   top: 2px;
@@ -5709,9 +5709,14 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
 .appq-q { border-top: 1px solid var(--color-divider); }
 .appq-q.is-open { background: var(--color-surface); }
 .appq-q-row {
-  all: unset;
   box-sizing: border-box;
   width: 100%;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
   display: grid;
   grid-template-columns: var(--appq-cols);
@@ -5719,6 +5724,8 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   align-items: center;
   padding: 12px 0;
   min-height: 44px;
+  appearance: none;
+  -webkit-appearance: none;
 }
 .appq-q-row:hover { background: var(--color-accent-100); }
 .appq-q-row:focus-visible {
