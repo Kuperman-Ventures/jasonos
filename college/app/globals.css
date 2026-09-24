@@ -5977,16 +5977,16 @@ table.schools td.interest-cell {
 .chip:nth-child(3) { --chip-color: var(--lvl-3); --chip-fg: var(--lvl-3-fg); }
 .chip:nth-child(4) { --chip-color: var(--lvl-4); --chip-fg: var(--lvl-4-fg); }
 
-table.schools tbody tr.row:hover .chips,
-table.schools tbody tr.row:focus-within .chips {
+/* Hover only — not :focus-within. Focus after a chip click must not keep
+   chips open once the pointer leaves the row (no extra click required). */
+table.schools tbody tr.row:hover .chips {
   display: flex;
 }
-table.schools tbody tr.row:hover .interest-value,
-table.schools tbody tr.row:focus-within .interest-value {
+table.schools tbody tr.row:hover .interest-value {
   display: none;
 }
 
-/* After a pick, hold the meter even while the row is still hovered/focused. */
+/* Touch / settled: force the meter until the interest control is touched again. */
 .interest.is-settled .chips {
   display: none !important;
 }
@@ -6011,11 +6011,9 @@ table.schools tbody tr.row:focus-within .interest-value {
   .interest.is-settled .interest-value { display: flex !important; }
 }
 
-.school-card:hover .chips,
-.school-card:focus-within .chips {
+.school-card:hover .chips {
   display: flex;
 }
-.school-card:hover .interest-value,
-.school-card:focus-within .interest-value {
+.school-card:hover .interest-value {
   display: none;
 }
