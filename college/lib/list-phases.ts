@@ -17,6 +17,10 @@ export type ListPhase = {
   window: string;
   /** Soft target used for the overall gauge (can read over 100%). */
   target: number;
+  /** Inclusive low end of the acceptable range. */
+  rangeLo: number;
+  /** Inclusive high end of the acceptable range. */
+  rangeHi: number;
   /** Human range for the readout. */
   rangeLabel: string;
   /** Inclusive start YYYY-MM-DD. */
@@ -42,6 +46,8 @@ export const LIST_PHASES: ListPhase[] = [
     label: "Exploration",
     window: "Sep 2026 – Dec 2026",
     target: 30,
+    rangeLo: 27,
+    rangeHi: 33,
     rangeLabel: "27–33",
     startsOn: "2026-09-01",
     endsOn: "2026-12-31",
@@ -53,6 +59,8 @@ export const LIST_PHASES: ListPhase[] = [
     label: "Consideration",
     window: "Jan 2027 – Jul 2027",
     target: 12,
+    rangeLo: 10,
+    rangeHi: 15,
     rangeLabel: "10–15",
     startsOn: "2027-01-01",
     endsOn: "2027-07-26",
@@ -63,6 +71,8 @@ export const LIST_PHASES: ListPhase[] = [
     label: "Applications",
     window: "Jul 2027 onward",
     target: 10,
+    rangeLo: 8,
+    rangeHi: 12,
     rangeLabel: "8–12",
     startsOn: "2027-07-27",
     endsOn: null,
@@ -184,6 +194,55 @@ export function phaseCountGauge(count: number, phase: ListPhase): PhaseGauge {
   };
 }
 
+/** Ideal count for a tier: share × target list size, rounded, minimum 1. */
+export function idealTierCount(idealPercent: number, targetListSize: number): number {
+  return Math.max(1, Math.round((idealPercent / 100) * targetListSize));
+}
+
+export type ListSizeBar = {
+  count: number;
+  target: number;
+  lo: number;
+  hi: number;
+  scaleMax: number;
+  note: string;
+  prose: string;
+  overRange: boolean;
+  underRange: boolean;
+};
+
+/** Size bar on a 0–scaleMax scale with an acceptable band and target tick. */
+export function listSizeBar(count: number, phase: ListPhase, scaleMax = 50): ListSizeBar {
+  const lo = phase.rangeLo;
+  const hi = phase.rangeHi;
+  const target = phase.target;
+  const over = count - hi;
+  const under = lo - count;
+  const overRange = over > 0;
+  const underRange = under > 0;
+  const note = overRange ? `+${over} over range` : underRange ? `${under} under range` : "In range";
+  let prose = `${count} active against a target of about ${target}.`;
+  if (overRange) {
+    prose =
+      phase.id === "exploration"
+        ? `${count} active against a target of about ${target}. Trim ${over} to reach the top of the range before Consideration opens in January.`
+        : `${count} active against a target of about ${target}. Trim ${over} to reach the top of the range.`;
+  } else if (underRange) {
+    prose = `${count} active against a target of about ${target}. Add ${under} more to reach the bottom of the range.`;
+  }
+  return {
+    count,
+    target,
+    lo,
+    hi,
+    scaleMax: Math.max(scaleMax, count, hi),
+    note,
+    prose,
+    overRange,
+    underRange,
+  };
+}
+
 export type SelectivityGauge = {
   id: string;
   label: string;
@@ -203,56 +262,67 @@ export const IDEAL_SELECTIVITY_MIX: {
   { id: "less_competitive", label: "Less competitive", idealPercent: 25 },
 ];
 
+export type SelectivityMixStatus = "over" | "met" | "under";
+
 export type SelectivityPieSlice = {
   id: string;
   label: string;
   count: number;
-  /** Actual share of schools with a set tier (sums to 100 when any are set). */
-  actualPercent: number;
+  /** Ideal school count for this tier (share × target list size). */
+  idealCount: number;
   idealPercent: number;
-  /** Start angle in degrees (0 = right, clockwise-friendly for SVG helpers). */
+  /** Wedge start angle in degrees after the gap (0 = right). */
   startAngle: number;
-  /** Ideal wedge size in degrees. */
-  idealSweep: number;
-  /** Colored fill size inside the ideal wedge (capped at idealSweep). */
-  fillSweep: number;
-  /** True when actual share exceeds the ideal share. */
-  overIdeal: boolean;
+  /** Wedge end angle in degrees before the next gap. */
+  endAngle: number;
+  /** have ÷ idealCount, uncapped (over is drawn as an outer band). */
+  fillRatio: number;
+  status: SelectivityMixStatus;
+  statusLabel: string;
 };
 
+const PIE_GAP_DEG = 2.4;
+
 /**
- * Build pie slices: wedge sizes follow the ideal mix; colored fill shows how
- * much of that ideal slot the live list has filled.
+ * Build pie slices: wedge angles follow the ideal mix; radial fill shows
+ * have ÷ ideal count against the target list size.
  */
 export function selectivityPieSlices(
   schools: { selectivityTier: string }[],
+  targetListSize: number,
 ): { slices: SelectivityPieSlice[]; setCount: number; unsetCount: number } {
   const setSchools = schools.filter((school) =>
     IDEAL_SELECTIVITY_MIX.some((tier) => tier.id === school.selectivityTier),
   );
   const unsetCount = schools.length - setSchools.length;
   const setCount = setSchools.length;
-  const total = setCount || 1;
+  const basis = targetListSize > 0 ? targetListSize : 1;
 
   let cursor = -90; // start at top
   const slices = IDEAL_SELECTIVITY_MIX.map((tier) => {
     const count = setSchools.filter((school) => school.selectivityTier === tier.id).length;
-    const actualPercent = setCount ? Math.round((count / total) * 1000) / 10 : 0;
-    const idealSweep = (tier.idealPercent / 100) * 360;
-    const fillRatio = tier.idealPercent > 0 ? actualPercent / tier.idealPercent : 0;
-    const fillSweep = Math.min(1, Math.max(0, fillRatio)) * idealSweep;
-    const startAngle = cursor;
-    cursor += idealSweep;
+    const idealCount = idealTierCount(tier.idealPercent, basis);
+    const fillRatio = idealCount > 0 ? count / idealCount : 0;
+    const sweep = (tier.idealPercent / 100) * 360;
+    const startAngle = cursor + PIE_GAP_DEG / 2;
+    const endAngle = cursor + sweep - PIE_GAP_DEG / 2;
+    cursor += sweep;
+    const status: SelectivityMixStatus =
+      count > idealCount ? "over" : count === idealCount ? "met" : "under";
+    const delta = count - idealCount;
+    const statusLabel =
+      status === "over" ? `+${delta} over` : status === "met" ? "On ideal" : `${-delta} to go`;
     return {
       id: tier.id,
       label: tier.label,
       count,
-      actualPercent,
+      idealCount,
       idealPercent: tier.idealPercent,
       startAngle,
-      idealSweep,
-      fillSweep,
-      overIdeal: actualPercent > tier.idealPercent + 0.05,
+      endAngle,
+      fillRatio,
+      status,
+      statusLabel,
     };
   });
 

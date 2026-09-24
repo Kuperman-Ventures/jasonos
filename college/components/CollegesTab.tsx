@@ -1,11 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CollegeRecord } from "./CollegeRecord";
-import { SchoolMark } from "./SchoolMark";
-import { ListPhaseIcon } from "./ListPhaseIcon";
-import { SelectivityMixPie } from "./SelectivityMixPie";
-import { compareSchools, nextAction, primaryDeadline, type SortKey } from "@/lib/list";
 import {
   LIST_COLUMNS,
   LIST_PHASES,
@@ -13,16 +8,19 @@ import {
   archiveSchoolPatch,
   currentListPhaseId,
   listPhaseById,
+  listSizeBar,
   normalizeColumns,
   retreatSchoolPatch,
-  phaseCountGauge,
   schoolOnListPhase,
-  selectivityGauges,
   selectivityPieSlices,
   type ListColumnId,
   type ListPhaseId,
   type MemberListPrefs,
 } from "@/lib/list-phases";
+import { SelectivityMixPie } from "./SelectivityMixPie";
+import { CollegeRecord } from "./CollegeRecord";
+import { SchoolMark } from "./SchoolMark";
+import { compareSchools, nextAction, primaryDeadline, type SortKey } from "@/lib/list";
 import { canAdvanceListPhase } from "@/lib/permissions";
 import {
   INTEREST_LEVELS,
@@ -131,13 +129,14 @@ export function CollegesTab({
     [schools, phaseId],
   );
 
-  const countGauge = phaseCountGauge(activeCount, phase);
+  const sizeBar = listSizeBar(activeCount, phase);
   const mixPie = useMemo(
     () =>
       selectivityPieSlices(
         schools.filter((school) => !school.archived && schoolOnListPhase(school, phaseId)),
+        phase.target,
       ),
-    [schools, phaseId],
+    [schools, phaseId, phase.target],
   );
 
   const visible = useMemo(() => {
@@ -290,92 +289,117 @@ export function CollegesTab({
   }
 
   const calendarPhaseId = currentListPhaseId();
-  const gaugeFill = Math.min(countGauge.percent, 160);
+  const pct = (n: number) => `${(n / sizeBar.scaleMax) * 100}%`;
+  const sizeFillTop = Math.min(sizeBar.count, sizeBar.hi);
 
   return (
     <section className="colleges-list" data-list-phase={phaseId}>
-      <header className="page-head">
-        <div>
-          <div className="dateline">{dateline}</div>
-          <h2>College list</h2>
-        </div>
-        <div className="readout">
-          <span className="label">
-            <ListPhaseIcon phaseId={phaseId} />
-            {phase.label} list
-          </span>
-          <span className="figure">{activeCount}</span>
-          <span className="unit">
-            of ~{phase.target} target ({phase.rangeLabel})
-          </span>
-        </div>
-      </header>
-
-      <div className="list-phase-bar" role="tablist" aria-label="List phase">
-        {LIST_PHASES.map((item) => {
-          const count = schools.filter(
-            (school) => !school.archived && schoolOnListPhase(school, item.id),
-          ).length;
-          const isCalendarCurrent = item.id === calendarPhaseId;
-          const isViewing = phaseId === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={isViewing}
-              aria-current={isCalendarCurrent ? "date" : undefined}
-              className={[isViewing ? "active" : "", isCalendarCurrent ? "is-current" : ""]
-                .filter(Boolean)
-                .join(" ")}
-              onClick={() => setPhaseId(item.id)}
-            >
-              <span className="phase-top">
-                <span className="phase-name">
-                  <ListPhaseIcon phaseId={item.id} />
-                  {item.label}
-                </span>
-                {isCalendarCurrent ? <span className="phase-now">Current window</span> : null}
-              </span>
-              <span className="phase-window">{item.window}</span>
-              <span className="phase-count">
-                {count}/{item.target} schools
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="list-gauges" aria-label="List gauges">
-        <div className="list-gauge list-gauge-count">
-          <div className="list-gauge-head">
-            <span className="label">List size vs target</span>
-            <span className="list-gauge-pct">{countGauge.percent}%</span>
+      <div className="list-dash">
+        <header className="list-dash-head">
+          <div className="list-dash-title">
+            <span className="kicker">{dateline}</span>
+            <h1>College list</h1>
           </div>
-          <div className="list-gauge-track" aria-hidden="true">
-            <span className="list-gauge-fill" style={{ width: `${Math.min(gaugeFill, 100)}%` }} />
-            {gaugeFill > 100 ? (
-              <span className="list-gauge-over" style={{ width: `${Math.min(gaugeFill - 100, 60)}%` }} />
-            ) : null}
-          </div>
-          <div className="list-gauge-note">
-            {activeCount} active · target ~{phase.target} ({phase.rangeLabel})
-            {countGauge.percent > 100 ? " · over target" : null}
-          </div>
-        </div>
-
-        <div className="list-gauge list-gauge-mix">
-          <div className="list-gauge-head">
-            <span className="label">Selectivity mix</span>
-            <span className="list-gauge-pct">
-              {mixPie.setCount ? "vs ideal" : activeCount ? "set tiers" : "no schools yet"}
+          <div className="readout">
+            <span className="label">{phase.label} list</span>
+            <span className="readout-fig">{activeCount}</span>
+            <span className="datum">
+              of ~{phase.target} target ({phase.rangeLabel})
             </span>
           </div>
-          <SelectivityMixPie
-            slices={mixPie.slices}
-            setCount={mixPie.setCount}
-            unsetCount={mixPie.unsetCount}
-          />
+        </header>
+
+        <ol className="list-dash-phases" aria-label="List phases">
+          {LIST_PHASES.map((item) => {
+            const count = schools.filter(
+              (school) => !school.archived && schoolOnListPhase(school, item.id),
+            ).length;
+            const isCalendarCurrent = item.id === calendarPhaseId;
+            const isViewing = phaseId === item.id;
+            return (
+              <li
+                key={item.id}
+                className={[
+                  "list-dash-phase",
+                  isViewing ? "is-viewing" : "",
+                  isCalendarCurrent ? "is-current" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                aria-current={isCalendarCurrent ? "step" : undefined}
+              >
+                <button
+                  type="button"
+                  className="list-dash-phase-btn"
+                  aria-pressed={isViewing}
+                  onClick={() => setPhaseId(item.id)}
+                >
+                  <span className="phase-top">
+                    <span className="phase-name">{item.label}</span>
+                    {isCalendarCurrent ? <span className="phase-now">Now</span> : null}
+                  </span>
+                  <span className="datum">
+                    {item.window} · {count} / {item.target} schools
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+
+        <div className="list-dash-panels">
+          <section className="list-dash-panel" aria-labelledby="list-size-h">
+            <div className="panel-head">
+              <span className="label" id="list-size-h">
+                List size
+              </span>
+              <span className={`over-note${sizeBar.overRange ? "" : sizeBar.underRange ? " is-under" : " is-in"}`}>
+                {sizeBar.note}
+              </span>
+            </div>
+            <div className="sizebar" aria-hidden="true">
+              <div
+                className="sizebar-range"
+                style={{ left: pct(sizeBar.lo), width: pct(sizeBar.hi - sizeBar.lo) }}
+              />
+              <div className="sizebar-track" />
+              <div className="sizebar-fill" style={{ width: pct(sizeFillTop) }} />
+              {sizeBar.count > sizeBar.hi ? (
+                <div
+                  className="sizebar-over"
+                  style={{
+                    left: pct(sizeBar.hi),
+                    width: pct(sizeBar.count - sizeBar.hi),
+                  }}
+                />
+              ) : null}
+              <div className="sizebar-target" style={{ left: pct(sizeBar.target) }} />
+              <span className="sizebar-tick" style={{ left: pct(sizeBar.lo) }}>
+                {sizeBar.lo}
+              </span>
+              <span className="sizebar-tick" style={{ left: pct(sizeBar.hi) }}>
+                {sizeBar.hi}
+              </span>
+              <span
+                className={`sizebar-tick${sizeBar.overRange ? " is-over" : ""}`}
+                style={{ left: pct(sizeBar.count) }}
+              >
+                {sizeBar.count}
+              </span>
+            </div>
+            <p className="prose">{sizeBar.prose}</p>
+          </section>
+
+          <section className="list-dash-panel" aria-labelledby="list-mix-h">
+            <span className="label" id="list-mix-h">
+              Selectivity mix vs ideal
+            </span>
+            <SelectivityMixPie
+              slices={mixPie.slices}
+              setCount={mixPie.setCount}
+              unsetCount={mixPie.unsetCount}
+            />
+          </section>
         </div>
       </div>
 
