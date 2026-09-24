@@ -45,7 +45,7 @@ export function InterestPicker({
     const interest = rootRef.current;
     if (!interest) return;
     const row = interest.closest("tr.row, .school-card");
-    if (!row) return;
+    if (!(row instanceof HTMLElement)) return;
 
     function onRowLeave() {
       setSettled(true);
