@@ -44,8 +44,9 @@ export function InterestPicker({
   useEffect(() => {
     const interest = rootRef.current;
     if (!interest) return;
-    const row = interest.closest("tr.row, .school-card");
-    if (!(row instanceof HTMLElement)) return;
+    const found = interest.closest("tr.row, .school-card");
+    if (!(found instanceof HTMLElement)) return;
+    const row: HTMLElement = found;
 
     function onRowLeave() {
       setSettled(true);
