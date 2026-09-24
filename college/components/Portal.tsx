@@ -794,7 +794,14 @@ export function Portal({
   }
 
   async function patchSchool(id: string, patch: Partial<School>) {
-    setSchools((current) => current.map((school) => (school.id === id ? { ...school, ...patch } : school)));
+    let previous: School | undefined;
+    setSchools((current) =>
+      current.map((school) => {
+        if (school.id !== id) return school;
+        previous = school;
+        return { ...school, ...patch };
+      }),
+    );
     if (!pipeline.persisted) {
       setSaveState("Not saved");
       return;
@@ -805,6 +812,7 @@ export function Portal({
       body: JSON.stringify(patch),
     });
     if (!response.ok) {
+      if (previous) replaceSchool(previous);
       setSaveState("Not saved");
       return;
     }

@@ -19,6 +19,7 @@ import {
 } from "@/lib/list-phases";
 import { SelectivityMixPie } from "./SelectivityMixPie";
 import { CollegeRecord } from "./CollegeRecord";
+import { InterestPicker } from "./InterestPicker";
 import { SchoolMark } from "./SchoolMark";
 import { compareSchools, nextAction, primaryDeadline, type SortKey } from "@/lib/list";
 import { canAdvanceListPhase } from "@/lib/permissions";
@@ -250,21 +251,12 @@ export function CollegesTab({
         return <td key={column}>{tierLabel(school.selectivityTier) || "—"}</td>;
       case "interest":
         return (
-          <td key={column} onClick={(event) => event.stopPropagation()}>
-            <select
-              className="field compact"
+          <td key={column} className="interest-cell" onClick={(event) => event.stopPropagation()}>
+            <InterestPicker
               value={school.interestLevel}
-              aria-label={`Interest for ${school.name}`}
-              onChange={(event) =>
-                onPatch(school.id, { interestLevel: event.target.value as School["interestLevel"] })
-              }
-            >
-              {INTEREST_LEVELS.map((item) => (
-                <option key={item.id || "unset"} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
+              schoolName={school.name}
+              onChange={(next) => onPatch(school.id, { interestLevel: next })}
+            />
           </td>
         );
       case "action":
@@ -548,11 +540,13 @@ export function CollegesTab({
               <tr
                 key={school.id}
                 className={[
+                  "row",
                   school.id === selectedId ? "selected" : "",
                   school.archived ? "archived-row" : "",
                 ]
                   .filter(Boolean)
-                  .join(" ") || undefined}
+                  .join(" ")}
+                data-level={school.interestLevel || undefined}
                 onClick={() => onOpen(school.id)}
               >
                 {columns.map((column) => renderCell(column, school))}
@@ -591,21 +585,12 @@ export function CollegesTab({
                 {columns.includes("action") ? <span>{action.title || "No next action"}</span> : null}
               </div>
               {columns.includes("interest") ? (
-                <div onClick={(event) => event.stopPropagation()}>
-                  <select
-                    className="field compact"
+                <div className="school-card-interest" data-level={school.interestLevel || undefined}>
+                  <InterestPicker
                     value={school.interestLevel}
-                    aria-label={`Interest for ${school.name}`}
-                    onChange={(event) =>
-                      onPatch(school.id, { interestLevel: event.target.value as School["interestLevel"] })
-                    }
-                  >
-                    {INTEREST_LEVELS.map((item) => (
-                      <option key={item.id || "unset"} value={item.id}>
-                        {item.label}
-                      </option>
-                    ))}
-                  </select>
+                    schoolName={school.name}
+                    onChange={(next) => onPatch(school.id, { interestLevel: next })}
+                  />
                 </div>
               ) : null}
             </div>
