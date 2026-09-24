@@ -24,10 +24,10 @@ type SchoolModalTab = "snapshot" | "settings" | "requirements" | "financials" | 
 
 const SCHOOL_MODAL_TABS: { id: SchoolModalTab; label: string }[] = [
   { id: "snapshot", label: "Snapshot" },
-  { id: "settings", label: "Settings" },
   { id: "requirements", label: "Requirements" },
   { id: "financials", label: "Financials" },
   { id: "projects", label: "Project management" },
+  { id: "settings", label: "Settings" },
 ];
 
 function BlurInput({
@@ -212,7 +212,12 @@ export function CollegeRecord({
               type="button"
               role="tab"
               aria-selected={tab === item.id}
-              className={tab === item.id ? "active" : undefined}
+              className={[
+                tab === item.id ? "active" : undefined,
+                item.id === "settings" ? "school-modal-tab-settings" : undefined,
+              ]
+                .filter(Boolean)
+                .join(" ") || undefined}
               onClick={() => setTab(item.id)}
             >
               {item.label}
@@ -268,7 +273,7 @@ export function CollegeRecord({
                 ) : (
                   <button
                     type="button"
-                    className="btn btn-ghost"
+                    className="btn btn-secondary school-archive-btn"
                     onClick={() => {
                       if (
                         window.confirm(
