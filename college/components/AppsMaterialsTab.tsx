@@ -9,16 +9,10 @@ import {
   type AppsSectionId,
 } from "@/lib/apps-materials";
 import type { ActivitiesJournal as Journal } from "@/lib/activities-journal";
-import type { Supplemental, TextBlock } from "@/lib/types";
 
 export function AppsMaterialsTab({
   section,
   onSectionChange,
-  core,
-  prompts,
-  writing,
-  demographics,
-  supplements,
   dateline,
   journal,
   canEditJournal,
@@ -30,11 +24,6 @@ export function AppsMaterialsTab({
 }: {
   section: AppsSectionId;
   onSectionChange: (section: AppsSectionId) => void;
-  core: TextBlock[];
-  prompts: string[];
-  writing: TextBlock[];
-  demographics: TextBlock[];
-  supplements: Supplemental[];
   dateline: string;
   journal: Journal;
   canEditJournal: boolean;
@@ -91,15 +80,7 @@ export function AppsMaterialsTab({
         />
       ) : null}
 
-      {active.status === "ready" && active.id === "questions" ? (
-        <AppQuestionsTab
-          core={core}
-          prompts={prompts}
-          writing={writing}
-          demographics={demographics}
-          supplements={supplements}
-        />
-      ) : null}
+      {active.status === "ready" && active.id === "questions" ? <AppQuestionsTab /> : null}
     </section>
   );
 }

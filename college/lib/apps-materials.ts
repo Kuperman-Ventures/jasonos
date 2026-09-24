@@ -21,8 +21,7 @@ export const APPS_SECTIONS: AppsSection[] = [
   {
     id: "questions",
     label: "App Questions",
-    blurb:
-      "Common App core fields, essay prompts, and what each school adds on top for the 2026-27 cycle.",
+    blurb: "",
     status: "ready",
   },
   {
