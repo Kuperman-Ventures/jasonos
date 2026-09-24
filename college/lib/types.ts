@@ -162,7 +162,7 @@ export const INTEREST_LEVELS: { id: InterestLevel; label: string }[] = [
   { id: "top", label: "Top choice" },
   { id: "high", label: "High interest" },
   { id: "moderate", label: "Moderate interest" },
-  { id: "safety", label: "Safety/backup" },
+  { id: "safety", label: "Safety / backup" },
 ];
 
 export const APPLICATION_STATUSES: { id: ApplicationStatus; label: string }[] = [

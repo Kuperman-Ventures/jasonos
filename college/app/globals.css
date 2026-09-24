@@ -5840,3 +5840,172 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   .appq-pair { grid-template-columns: 1fr; }
   .appq-sec-head h2 { font-size: 28px; }
 }
+
+/* ---------- College list Interest picker (ramp palette) ---------- */
+.colleges-list {
+  /* Interest levels: safety → moderate → high → top (one blue ramp) */
+  --lvl-1: oklch(0.78 0.07 225);
+  --lvl-1-fg: var(--color-text);
+  --lvl-1-row: transparent;
+  --lvl-2: oklch(0.66 0.10 225);
+  --lvl-2-fg: var(--color-text);
+  --lvl-2-row: transparent;
+  --lvl-3: oklch(0.54 0.12 228);
+  --lvl-3-fg: #fff;
+  --lvl-3-row: transparent;
+  --lvl-4: oklch(0.42 0.12 232);
+  --lvl-4-fg: #fff;
+  --lvl-4-row: oklch(0.95 0.02 225);
+}
+
+table.schools tbody tr.row {
+  background: var(--row-tint, transparent);
+}
+table.schools tbody tr.row[data-level="safety"] {
+  --meter: var(--lvl-1);
+  --row-tint: var(--lvl-1-row);
+}
+table.schools tbody tr.row[data-level="moderate"] {
+  --meter: var(--lvl-2);
+  --row-tint: var(--lvl-2-row);
+}
+table.schools tbody tr.row[data-level="high"] {
+  --meter: var(--lvl-3);
+  --row-tint: var(--lvl-3-row);
+}
+table.schools tbody tr.row[data-level="top"] {
+  --meter: var(--lvl-4);
+  --row-tint: var(--lvl-4-row);
+}
+
+table.schools tbody tr.row:hover,
+table.schools tbody tr.row:focus-within {
+  background: var(--color-surface);
+}
+table.schools tbody tr.row:hover td,
+table.schools tbody tr.row:focus-within td {
+  background: transparent;
+}
+table.schools tbody tr.row.selected td {
+  background: transparent;
+}
+table.schools tbody tr.row.selected {
+  background: var(--color-surface);
+}
+
+table.schools td.interest-cell {
+  min-width: 300px;
+  width: 300px;
+  max-width: 300px;
+  vertical-align: middle;
+}
+
+.interest {
+  position: relative;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.interest-value {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.meter {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 18px;
+  flex: none;
+}
+.meter span {
+  width: 6px;
+  background: var(--color-neutral-300);
+  border-radius: var(--radius-sm);
+}
+.meter span:nth-child(1) { height: 25%; }
+.meter span:nth-child(2) { height: 50%; }
+.meter span:nth-child(3) { height: 75%; }
+.meter span:nth-child(4) { height: 100%; }
+.meter span.on {
+  background: var(--meter, var(--color-neutral-300));
+}
+.value-name {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.value-name.unset {
+  font-weight: 400;
+  color: var(--text-subtle);
+}
+
+.chips {
+  display: none;
+  gap: 4px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+.chip {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  padding: 8px 9px;
+  border: 0;
+  cursor: pointer;
+  background: var(--color-bg);
+  color: var(--text-muted);
+  box-shadow: inset 0 0 0 1px var(--color-neutral-300);
+  border-radius: var(--radius-sm);
+}
+.chip:hover {
+  box-shadow: inset 0 0 0 2px var(--chip-color);
+}
+.chip[aria-checked="true"] {
+  background: var(--chip-color);
+  color: var(--chip-fg);
+  box-shadow: none;
+  font-weight: 700;
+}
+.chip:nth-child(1) { --chip-color: var(--lvl-1); --chip-fg: var(--lvl-1-fg); }
+.chip:nth-child(2) { --chip-color: var(--lvl-2); --chip-fg: var(--lvl-2-fg); }
+.chip:nth-child(3) { --chip-color: var(--lvl-3); --chip-fg: var(--lvl-3-fg); }
+.chip:nth-child(4) { --chip-color: var(--lvl-4); --chip-fg: var(--lvl-4-fg); }
+
+table.schools tbody tr.row:hover .chips,
+table.schools tbody tr.row:focus-within .chips {
+  display: flex;
+}
+table.schools tbody tr.row:hover .interest-value,
+table.schools tbody tr.row:focus-within .interest-value {
+  display: none;
+}
+
+/* Mobile cards */
+.school-card-interest {
+  margin-top: var(--space-2);
+  --meter: var(--color-neutral-300);
+}
+.school-card-interest[data-level="safety"] { --meter: var(--lvl-1); }
+.school-card-interest[data-level="moderate"] { --meter: var(--lvl-2); }
+.school-card-interest[data-level="high"] { --meter: var(--lvl-3); }
+.school-card-interest[data-level="top"] { --meter: var(--lvl-4); }
+
+@media (hover: none) {
+  .chips { display: flex; }
+  .interest-value { display: none; }
+}
+
+.school-card:hover .chips,
+.school-card:focus-within .chips {
+  display: flex;
+}
+.school-card:hover .interest-value,
+.school-card:focus-within .interest-value {
+  display: none;
+}
