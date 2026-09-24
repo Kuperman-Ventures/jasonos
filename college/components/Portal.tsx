@@ -13,18 +13,14 @@ import { IngestPanel } from "./IngestPanel";
 import { ProjectManagementTab } from "./ProjectManagementTab";
 import { TestingTab, testingItems } from "./TestingTab";
 import {
-  appCore,
   consultantCriteria,
   consultantFirms,
   consultantQuestions,
-  demographicBlocks,
-  essayPromptList,
   faqCategories,
   phases,
   seedScores,
-  supplementCards,
-  writingBlocks,
 } from "@/lib/content";
+import { appQuestions } from "@/lib/app-questions";
 import { currentPhaseIndex, phaseStatuses } from "@/lib/phases";
 import { useSchoolPipeline } from "@/lib/use-school-pipeline";
 import { defaultListPrefs, mergeListPrefs, isForwardListPhaseMove, type MemberListPrefs } from "@/lib/list-phases";
@@ -1095,7 +1091,7 @@ export function Portal({
         }}
         schoolCount={schools.length}
         projectCount={phases.length}
-        questionCount={essayPromptList.length}
+        questionCount={appQuestions.essay.prompts.length}
         consultantCount={consultantFirms.length}
         faqCount={faqCount}
         testingCount={testingCount}
@@ -1221,11 +1217,6 @@ export function Portal({
           <AppsMaterialsTab
             section={appsSection}
             onSectionChange={goAppsSection}
-            core={appCore}
-            prompts={essayPromptList}
-            writing={writingBlocks}
-            demographics={demographicBlocks}
-            supplements={supplementCards}
             dateline={phaseLabel}
             journal={activitiesJournal}
             canEditJournal={canEditJournal}
