@@ -4,33 +4,20 @@ import {
   SELECTIVITY_SPECTRUM,
   US_MAP_VIEWBOX,
   US_STATE_PATHS,
-  selectivitySpectrumPosition,
   stateCentroid,
   stateFromLocation,
 } from "@/lib/dashboard";
 import { tierLabel, type SelectivityTier } from "@/lib/types";
 
+/** Low → high; CSS `--tier-N` matches college list pie (Less=1 … Extremely=4). */
+const GAUGE_TIERS = [...SELECTIVITY_SPECTRUM].reverse();
+
 function polar(cx: number, cy: number, r: number, angleDeg: number) {
   const rad = (angleDeg * Math.PI) / 180;
-  // 0° right, 90° down (SVG y grows down), 180° left, 270° up.
   return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
 }
 
-/**
- * Gauge arch from left → top → right.
- * Built from polar samples (not SVG sweep flags) so it cannot flip into a smile.
- */
-function gaugeArchPath(cx: number, cy: number, r: number, startDeg: number, endDeg: number, steps = 64) {
-  const parts: string[] = [];
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const point = polar(cx, cy, r, startDeg + t * (endDeg - startDeg));
-    parts.push(`${i === 0 ? "M" : "L"} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`);
-  }
-  return parts.join(" ");
-}
-
-function SchoolLocationMap({ location }: { location: string }) {
+export function SchoolLocationMap({ location }: { location: string }) {
   const state = stateFromLocation(location);
   const pin = state ? stateCentroid(state) : null;
   const states = Object.keys(US_STATE_PATHS).sort();
@@ -43,111 +30,101 @@ function SchoolLocationMap({ location }: { location: string }) {
       : "Location not set";
 
   return (
-    <div className="snapshot-map-panel">
-      <div className="label">Location</div>
-      <div className="snapshot-viz-frame">
-        <svg className="snapshot-map" viewBox={US_MAP_VIEWBOX} role="img" aria-label={label}>
-          {states.map((code) => (
-            <path
-              key={code}
-              className={`snapshot-map-state${code === state ? " is-home" : ""}`}
-              d={US_STATE_PATHS[code]}
-            />
-          ))}
-          {pin ? (
-            <g className="snapshot-map-pin" transform={`translate(${pin.x} ${pin.y})`}>
-              <circle className="snapshot-map-pin-pulse" r="14" />
-              <circle className="snapshot-map-pin-dot" r="7" />
-              <circle className="snapshot-map-pin-core" r="2.75" />
-            </g>
-          ) : null}
-        </svg>
-      </div>
-      <p className="snapshot-viz-caption">{location.trim() || "Add a city and state in Settings"}</p>
+    <div className="snapshot-map-wrap">
+      <svg className="snapshot-map" viewBox={US_MAP_VIEWBOX} role="img" aria-label={label}>
+        {states.map((code) => (
+          <path
+            key={code}
+            className={`snapshot-map-state${code === state ? " is-home" : ""}`}
+            d={US_STATE_PATHS[code]}
+          />
+        ))}
+        {pin ? (
+          <g className="snapshot-map-pin" transform={`translate(${pin.x} ${pin.y})`}>
+            <circle className="snapshot-map-pin-pulse" r="14" />
+            <circle className="snapshot-map-pin-dot" r="7" />
+            <circle className="snapshot-map-pin-core" r="2.75" />
+          </g>
+        ) : null}
+      </svg>
     </div>
   );
 }
 
-function SelectivityMeter({ tier }: { tier: SelectivityTier }) {
-  const position = selectivitySpectrumPosition(tier);
+export function SelectivityGauge({ tier }: { tier: SelectivityTier }) {
+  const activeIndex = GAUGE_TIERS.findIndex((item) => item.id === tier);
   const label = tierLabel(tier) || "Not set";
-  // Hub low; arch (180°→360° through 270° up) sits above the title.
-  // Left = less competitive, right = extremely selective (flipped horizontally).
-  const cx = 110;
-  const cy = 118;
-  const r = 72;
-  const startDeg = 180;
-  const endDeg = 360;
-  const track = gaugeArchPath(cx, cy, r, startDeg, endDeg);
-  const tickTiers = [...SELECTIVITY_SPECTRUM].reverse();
-  const needleT = position == null ? null : 1 - position;
-  const needleAngle = needleT == null ? null : startDeg + needleT * (endDeg - startDeg);
-  const needleOuter = needleAngle == null ? null : polar(cx, cy, r, needleAngle);
-  const needleInner = needleAngle == null ? null : polar(cx, cy, r - 14, needleAngle);
-  const top = cy - r - 10;
-  const bottom = cy + 8;
-  const height = bottom - top;
+  const cx = 150;
+  const cy = 150;
+  const r = 110;
+  const stroke = 34;
+  const gap = 3;
+  const needleLen = 78;
+
+  const aria =
+    activeIndex < 0
+      ? "Selectivity not set"
+      : `Selectivity: ${label}, tier ${activeIndex + 1} of ${GAUGE_TIERS.length}`;
 
   return (
-    <div className="snapshot-meter-panel">
-      <div className="label">Selectivity</div>
-      <div className="snapshot-viz-frame">
-        <div
-          className={`snapshot-meter${position == null ? " is-unset" : ""}`}
-          role="img"
-          aria-label={
-            position == null
-              ? "Selectivity not set"
-              : `${label}: ${Math.round((1 - position) * 100)}% along the spectrum from less competitive to extremely selective`
-          }
-        >
-          <svg className="snapshot-meter-svg" viewBox={`0 ${top} 220 ${height}`} aria-hidden="true">
-            <defs>
-              <linearGradient id="selectivity-arc-spectrum" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="var(--done-500)" />
-                <stop offset="55%" stopColor="var(--color-accent-400)" />
-                <stop offset="100%" stopColor="var(--accent-500)" />
-              </linearGradient>
-            </defs>
-            <path className="snapshot-meter-track" d={track} />
-            <path className="snapshot-meter-spectrum" d={track} />
-            {tickTiers.map((item, index) => {
-              const t = index / (tickTiers.length - 1);
-              const angle = startDeg + t * (endDeg - startDeg);
-              const onArc = polar(cx, cy, r, angle);
-              const tickOuter = polar(cx, cy, r + 6, angle);
-              const tickInner = polar(cx, cy, r - 6, angle);
-              const active = item.id === tier;
+    <div className="gauge">
+      <svg viewBox="0 0 300 170" role="img" aria-label={aria}>
+        {GAUGE_TIERS.map((item, i) => {
+          const a0 = 180 + i * 45 + gap / 2;
+          const a1 = 180 + (i + 1) * 45 - gap / 2;
+          const start = polar(cx, cy, r, a0);
+          const end = polar(cx, cy, r, a1);
+          const cssN = i + 1;
+          const active = i === activeIndex;
+          return (
+            <path
+              key={item.id}
+              d={`M${start.x} ${start.y}A${r} ${r} 0 0 1 ${end.x} ${end.y}`}
+              fill="none"
+              strokeWidth={stroke}
+              stroke={active ? `var(--tier-${cssN})` : `var(--tier-${cssN}-tint)`}
+            />
+          );
+        })}
+        {activeIndex >= 0 ? (
+          <>
+            {(() => {
+              const tip = polar(cx, cy, needleLen, 180 + activeIndex * 45 + 22.5);
               return (
-                <g key={item.id} className={`snapshot-meter-mark${active ? " is-active" : ""}`}>
-                  <line x1={tickInner.x} y1={tickInner.y} x2={tickOuter.x} y2={tickOuter.y} />
-                  <circle cx={onArc.x} cy={onArc.y} r={active ? 5 : 2.5} />
-                </g>
+                <line
+                  x1={cx}
+                  y1={cy}
+                  x2={tip.x}
+                  y2={tip.y}
+                  stroke="var(--color-text)"
+                  strokeWidth={8}
+                  strokeLinecap="round"
+                />
               );
-            })}
-            {needleOuter && needleInner ? (
-              <g className="snapshot-meter-needle">
-                <line x1={cx} y1={cy} x2={needleInner.x} y2={needleInner.y} />
-                <circle className="snapshot-meter-hub" cx={cx} cy={cy} r="5" />
-                <circle className="snapshot-meter-head" cx={needleOuter.x} cy={needleOuter.y} r="6.5" />
-              </g>
-            ) : (
-              <circle className="snapshot-meter-hub is-unset" cx={cx} cy={cy} r="5" />
-            )}
-          </svg>
-          <div className="snapshot-meter-readout">
-            <strong>{label}</strong>
-            <span className="snapshot-meter-ends">
-              <span>Less competitive</span>
-              <span>Extremely</span>
-            </span>
-          </div>
-        </div>
-      </div>
+            })()}
+            <circle cx={cx} cy={cy} r={14} fill="var(--color-text)" />
+            <circle cx={cx} cy={cy} r={5} fill="var(--color-bg)" />
+          </>
+        ) : (
+          <>
+            <circle cx={cx} cy={cy} r={14} fill="var(--color-neutral-400)" />
+            <circle cx={cx} cy={cy} r={5} fill="var(--color-bg)" />
+          </>
+        )}
+      </svg>
+      <span className="gauge-label">{label}</span>
+      <span className="gauge-sub">
+        {activeIndex < 0
+          ? "Set a tier in Settings"
+          : `${activeIndex + 1} of ${GAUGE_TIERS.length}${
+              activeIndex === GAUGE_TIERS.length - 1 ? " · top tier" : ""
+            }`}
+      </span>
     </div>
   );
 }
 
+/** @deprecated Prefer composing SchoolLocationMap + SelectivityGauge inside the snapshot areas. */
 export function SchoolSnapshotViz({
   location,
   selectivityTier,
@@ -158,7 +135,7 @@ export function SchoolSnapshotViz({
   return (
     <div className="school-snapshot-viz">
       <SchoolLocationMap location={location} />
-      <SelectivityMeter tier={selectivityTier} />
+      <SelectivityGauge tier={selectivityTier} />
     </div>
   );
 }

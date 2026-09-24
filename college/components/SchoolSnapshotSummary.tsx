@@ -7,19 +7,19 @@ import {
   INTEREST_LEVELS,
   pathwayFromContext,
 } from "@/lib/types";
-import { SELECTIVITY_SPECTRUM } from "@/lib/dashboard";
 import { websiteHref, websiteHostLabel } from "@/lib/school-photo";
+import { SchoolLocationMap, SelectivityGauge } from "./SchoolSnapshotViz";
 
 function displayOrUnset(value: string): string {
   const trimmed = value.trim();
   return trimmed || "Not set";
 }
 
-function offeredLabel(value: string): { text: string; tone: "offered" | "muted" | "plain" } {
+function offeredLabel(value: string): { text: string; tone: "offered" | "unset" | "plain" } {
   const trimmed = value.trim();
   if (/^yes$/i.test(trimmed)) return { text: "Offered", tone: "offered" };
-  if (/^no$/i.test(trimmed)) return { text: "Not offered", tone: "muted" };
-  if (!trimmed) return { text: "Not set", tone: "muted" };
+  if (/^no$/i.test(trimmed)) return { text: "Not offered", tone: "unset" };
+  if (!trimmed) return { text: "Not set", tone: "unset" };
   return { text: trimmed, tone: "plain" };
 }
 
@@ -46,10 +46,10 @@ function standHeadline(school: School): { title: string; accent: boolean } {
   if (school.interestLevel || school.admissionTrack) {
     return { title: "In progress", accent: true };
   }
-  return { title: "Not started", accent: true };
+  return { title: "Not started", accent: false };
 }
 
-function SnapshotRow({
+function Fact({
   label,
   value,
   tone = "plain",
@@ -57,39 +57,23 @@ function SnapshotRow({
 }: {
   label: string;
   value: string;
-  tone?: "plain" | "offered" | "muted" | "link";
+  tone?: "plain" | "offered" | "unset" | "link";
   href?: string;
 }) {
   const empty = !value.trim() || value === "Not set";
+  const className = empty || tone === "unset" ? "unset" : tone === "offered" ? "offered" : undefined;
   return (
-    <div className={`snapshot-card-row${empty ? " is-empty" : ""}`}>
-      <span className="snapshot-card-row-label">{label}</span>
-      {href && !empty ? (
-        <a className="snapshot-card-row-value is-link" href={href} target="_blank" rel="noreferrer">
-          {value}
-        </a>
-      ) : (
-        <span className={`snapshot-card-row-value tone-${tone}`}>{value}</span>
-      )}
-    </div>
-  );
-}
-
-function SelectivitySegments({ tier }: { tier: School["selectivityTier"] }) {
-  // Left → right matches the arch meter: less competitive → extremely selective.
-  const segments = [...SELECTIVITY_SPECTRUM].reverse();
-  return (
-    <div
-      className="snapshot-seg-meter"
-      role="img"
-      aria-label={tierLabel(tier) || "Selectivity not set"}
-    >
-      {segments.map((item) => (
-        <span
-          key={item.id}
-          className={`snapshot-seg${item.id === tier ? " is-active" : ""}`}
-        />
-      ))}
+    <div className="fact">
+      <dt>{label}</dt>
+      <dd className={className}>
+        {href && !empty ? (
+          <a href={href} target="_blank" rel="noreferrer">
+            {value}
+          </a>
+        ) : (
+          value
+        )}
+      </dd>
     </div>
   );
 }
@@ -121,79 +105,116 @@ export function SchoolSnapshotSummary({
   if (!school.teacherRecs.trim()) missingBits.push("teacher recommendations");
 
   return (
-    <div className="school-snapshot-summary">
-      <div className="snapshot-card-grid">
-        <section className="snapshot-card">
-          <div className="label">Admissions</div>
-          <h4 className="snapshot-card-title">{tier}</h4>
-          <SelectivitySegments tier={school.selectivityTier} />
-          <div className="snapshot-card-rows">
-            <SnapshotRow label="Test policy" value={displayOrUnset(school.testPolicy)} />
-            <SnapshotRow label="SAT" value={displayOrUnset(school.satContext)} />
-            <SnapshotRow label="Pathway" value={displayOrUnset(pathway || school.admissionsContext)} />
-          </div>
+    <div className="snapshot">
+      <div className="intro">
+        <h1>School snapshot</h1>
+        <p className="lede">
+          Key facts at a glance. Use the other tabs to edit settings, requirements, money, or
+          school-level project work.
+        </p>
+      </div>
+
+      <div className="areas">
+        <section className="area" aria-labelledby="snap-loc-h">
+          <span className="area-label" id="snap-loc-h">
+            Location
+          </span>
+          <SchoolLocationMap location={school.location} />
+          <span>{school.location.trim() || "Add a city and state in Settings"}</span>
         </section>
 
-        <section className="snapshot-card">
-          <div className="label">Where you stand</div>
-          <h4 className={`snapshot-card-title${stand.accent ? " is-accent" : ""}`}>{stand.title}</h4>
-          <div className="snapshot-card-rows">
-            <SnapshotRow label="Interest" value={interest} tone={interest === "Not set" ? "muted" : "plain"} />
-            <SnapshotRow
+        <section className="area" aria-labelledby="snap-sel-h">
+          <span className="area-label" id="snap-sel-h">
+            Selectivity
+          </span>
+          <SelectivityGauge tier={school.selectivityTier} />
+        </section>
+
+        <section className="area" aria-labelledby="snap-adm-h">
+          <span className="area-label" id="snap-adm-h">
+            Admissions
+          </span>
+          <span className="area-head">{tier}</span>
+          <dl className="facts">
+            <Fact label="Test policy" value={displayOrUnset(school.testPolicy)} />
+            <Fact label="SAT" value={displayOrUnset(school.satContext)} />
+            <Fact
+              label="Pathway"
+              value={displayOrUnset(pathway || school.admissionsContext)}
+            />
+          </dl>
+        </section>
+
+        <section className="area" aria-labelledby="snap-stand-h">
+          <span className="area-label" id="snap-stand-h">
+            Where you stand
+          </span>
+          <span className={`area-head${stand.accent ? " is-status" : ""}`}>{stand.title}</span>
+          <dl className="facts">
+            <Fact
+              label="Interest"
+              value={interest}
+              tone={interest === "Not set" ? "unset" : "plain"}
+            />
+            <Fact
               label="Application status"
               value={school.applicationStatus ? statusLabel(school.applicationStatus) : "Not set"}
-              tone={school.applicationStatus ? "plain" : "muted"}
+              tone={school.applicationStatus ? "plain" : "unset"}
             />
-            <SnapshotRow
+            <Fact
               label="Admission track"
               value={school.admissionTrack ? trackLabel(school.admissionTrack) : "Not set"}
-              tone={school.admissionTrack ? "plain" : "muted"}
+              tone={school.admissionTrack ? "plain" : "unset"}
             />
-            <SnapshotRow
+            <Fact
               label="Next deadline"
               value={
                 nextDeadline
                   ? `${nextDeadline.title} · ${formatDate(nextDeadline.dueDate)}`
                   : "Not set"
               }
-              tone={nextDeadline ? "plain" : "muted"}
+              tone={nextDeadline ? "plain" : "unset"}
             />
-          </div>
+          </dl>
           {standIncomplete ? (
-            <button type="button" className="snapshot-set-these" onClick={onSetStand}>
+            <button type="button" className="action" onClick={onSetStand}>
               Set these
             </button>
           ) : null}
         </section>
 
-        <section className="snapshot-card">
-          <div className="label">Programs</div>
-          <h4 className="snapshot-card-title">
+        <section className="area" aria-labelledby="snap-prog-h">
+          <span className="area-label" id="snap-prog-h">
+            Programs
+          </span>
+          <span className="area-head">
             {programsHeadline(school.mechanicalEngineering, school.materials)}
-          </h4>
-          <div className="snapshot-card-rows">
-            <SnapshotRow label="Mechanical engineering" value={me.text} tone={me.tone} />
-            <SnapshotRow label="Material sciences" value={mat.text} tone={mat.tone} />
-            <SnapshotRow label="Degree shape" value={displayOrUnset(school.materialsOffering)} />
-          </div>
+          </span>
+          <dl className="facts">
+            <Fact label="Mechanical engineering" value={me.text} tone={me.tone} />
+            <Fact label="Material sciences" value={mat.text} tone={mat.tone} />
+            <Fact label="Degree shape" value={displayOrUnset(school.materialsOffering)} />
+          </dl>
         </section>
 
-        <section className="snapshot-card">
-          <div className="label">Campus</div>
-          <h4 className="snapshot-card-title">{campusHeadline(school.campusSize)}</h4>
-          <div className="snapshot-card-rows">
-            <SnapshotRow label="City" value={displayOrUnset(school.location)} />
-            <SnapshotRow
+        <section className="area" aria-labelledby="snap-camp-h">
+          <span className="area-label" id="snap-camp-h">
+            Campus
+          </span>
+          <span className="area-head">{campusHeadline(school.campusSize)}</span>
+          <dl className="facts">
+            <Fact label="City" value={displayOrUnset(school.location)} />
+            <Fact
               label="Site"
               value={siteLabel || "Not set"}
-              tone={siteHref ? "link" : "muted"}
+              tone={siteHref ? "link" : "unset"}
               href={siteHref || undefined}
             />
-          </div>
+          </dl>
         </section>
       </div>
 
-      <p className="snapshot-summary-note">
+      <p className="foot">
         Tuition, aid and net price live in the Financials tab.
         {missingBits.length
           ? ` ${missingBits.join(", ").replace(/^./, (c) => c.toUpperCase())} ${

@@ -21,8 +21,18 @@ function sector(r0: number, r1: number, a0: number, a1: number): string {
   return `M${x1} ${y1}A${r1} ${r1} 0 ${large} 1 ${x2} ${y2}L${x3} ${y3}A${r0} ${r0} 0 ${large} 0 ${x4} ${y4}Z`;
 }
 
-function tierTone(index: number): { solid: string; tint: string } {
-  const n = index + 1;
+function tierTone(id: string): { solid: string; tint: string } {
+  // Shared low→high palette with the school snapshot gauge (Less=1 … Extremely=4).
+  const n =
+    id === "less_competitive"
+      ? 1
+      : id === "competitive"
+        ? 2
+        : id === "very_selective"
+          ? 3
+          : id === "extremely_selective"
+            ? 4
+            : 1;
   return {
     solid: `var(--tier-${n})`,
     tint: `var(--tier-${n}-tint)`,
@@ -45,8 +55,8 @@ export function SelectivityMixPie({
         role="img"
         aria-label="Selectivity mix against ideal"
       >
-        {slices.map((slice, index) => {
-          const { solid, tint } = tierTone(index);
+        {slices.map((slice) => {
+          const { solid, tint } = tierTone(slice.id);
           const fill = Math.min(Math.max(slice.fillRatio, 0), 1);
           const mid = (slice.startAngle + slice.endAngle) / 2;
           const [lx, ly] = polar(R_OUT + 34, mid);
@@ -87,8 +97,8 @@ export function SelectivityMixPie({
           <span>Ideal</span>
           <span>Status</span>
         </div>
-        {slices.map((slice, index) => {
-          const { solid, tint } = tierTone(index);
+        {slices.map((slice) => {
+          const { solid, tint } = tierTone(slice.id);
           return (
             <div key={slice.id} className="legend-row">
               <span className="tier">

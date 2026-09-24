@@ -18,7 +18,6 @@ import { LIST_PHASES, nextListPhaseId, previousListPhaseId } from "@/lib/list-ph
 import { sourceLines } from "@/lib/school-research";
 import { fetchSchoolPhotoUrl, websiteHostLabel, websiteHref } from "@/lib/school-photo";
 import { SchoolMark } from "./SchoolMark";
-import { SchoolSnapshotViz } from "./SchoolSnapshotViz";
 import { SchoolSnapshotSummary } from "./SchoolSnapshotSummary";
 
 type SchoolModalTab = "snapshot" | "settings" | "requirements" | "financials" | "projects";
@@ -223,25 +222,15 @@ export function CollegeRecord({
 
         <div className="school-modal-panel" role="tabpanel">
           {tab === "snapshot" ? (
-            <section className="school-overview">
-              <div className="school-overview-head">
-                <h3>School snapshot</h3>
-                <p className="section-sub">
-                  Key facts at a glance. Use the other tabs to edit settings, requirements, money, or school-level
-                  project work.
-                </p>
-              </div>
-              <SchoolSnapshotViz location={school.location} selectivityTier={school.selectivityTier} />
-              <SchoolSnapshotSummary
-                school={school}
-                nextDeadline={
-                  nextOpenDeadline?.dueDate
-                    ? { title: nextOpenDeadline.title, dueDate: nextOpenDeadline.dueDate }
-                    : null
-                }
-                onSetStand={() => setTab("settings")}
-              />
-            </section>
+            <SchoolSnapshotSummary
+              school={school}
+              nextDeadline={
+                nextOpenDeadline?.dueDate
+                  ? { title: nextOpenDeadline.title, dueDate: nextOpenDeadline.dueDate }
+                  : null
+              }
+              onSetStand={() => setTab("settings")}
+            />
           ) : null}
 
           {tab === "settings" ? (
