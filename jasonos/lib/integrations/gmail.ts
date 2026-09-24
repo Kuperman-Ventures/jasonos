@@ -12,10 +12,16 @@ import {
   unwrapOutlookForward,
 } from "@/lib/integrations/unwrap-forwarded-mail";
 import { pickJobListingUrl } from "@/lib/integrations/job-listing-urls";
+import { gmailAfterSlashDate } from "@/lib/dates";
 import {
   getGoogleAccessToken,
   listGoogleAccessTokens,
 } from "@/lib/integrations/google-tokens";
+import {
+  latestHitPerThread,
+  qualifySentMessage,
+  type SentMailHit,
+} from "@/lib/outreach/sent-followups";
 import {
   isCalendarInviteSubject,
   isCalendarProxyAddress,
@@ -443,6 +449,65 @@ export async function listRecentCounterparties(opts?: {
   } catch (err) {
     console.error("[gmail] counterparty scan failed:", err);
     return emptyResult([], true, err instanceof Error ? err.message : String(err));
+  }
+}
+
+export const SENT_FOLLOWUP_SCAN_MAX = 200;
+
+/**
+ * Sent mail from the Advisors mailbox only. Newest messages, one hit per
+ * thread, ready for the follow-up review list.
+ */
+export async function listAdvisorsSentMail(opts?: {
+  daysBack?: number;
+  max?: number;
+}): Promise<IntegrationResult<SentMailHit[]>> {
+  const token = await getGoogleAccessToken();
+  if (!token) return emptyResult([], false);
+
+  try {
+    const daysBack = opts?.daysBack ?? 90;
+    const max = opts?.max ?? SENT_FOLLOWUP_SCAN_MAX;
+    const after = gmailAfterSlashDate(daysBack);
+    const messages = await listMessageIds(
+      token,
+      `in:sent -in:drafts -in:chats after:${after}`,
+      max
+    );
+    const detailed = await mapWithConcurrency(messages, 4, (m) =>
+      gmailFetch<GmailMsgResp>(
+        `/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Subject&metadataHeaders=Date`,
+        token
+      )
+    );
+    const hits: SentMailHit[] = [];
+    for (const message of detailed) {
+      const mapped = mapGmailMessage(message);
+      const qualified = qualifySentMessage({
+        labelIds: mapped.labelIds,
+        subject: mapped.subject,
+        to: mapped.to,
+        cc: mapped.cc,
+      });
+      if (!qualified.ok) continue;
+      hits.push({
+        threadId: mapped.threadId,
+        messageId: mapped.id,
+        subject: (mapped.subject ?? "").trim() || "(no subject)",
+        sentAt: messageCommunicationIso(mapped),
+        snippet: (mapped.snippet ?? "").replace(/\s+/g, " ").trim().slice(0, 240),
+        toLine: qualified.toLine,
+        recipients: qualified.recipients,
+      });
+    }
+    return emptyResult(latestHitPerThread(hits), true);
+  } catch (err) {
+    console.error("[gmail] advisors sent scan failed:", err);
+    return emptyResult(
+      [],
+      true,
+      err instanceof Error ? err.message : String(err)
+    );
   }
 }
 

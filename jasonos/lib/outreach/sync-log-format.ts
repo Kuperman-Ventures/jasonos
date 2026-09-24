@@ -109,6 +109,17 @@ export function formatSyncSummary(
     return issues.length ? `failed: ${issues.join(" · ")}` : "failed";
   }
 
+  if (source === "sent-followups") {
+    const created = num(payload, "created");
+    const updated = num(payload, "updated");
+    const scanned = num(payload, "scanned");
+    const parts = [`+${created} to review`];
+    if (updated) parts.push(`${updated} reopened`);
+    if (scanned) parts.push(`${scanned} threads`);
+    if (issues.length) parts.push(issues.join(" · "));
+    return parts.join(" · ");
+  }
+
   if (source === "suggested") {
     const created = num(payload, "created");
     const updated = num(payload, "updated");

@@ -9,6 +9,7 @@ import {
   Building2,
   UserPlus,
   LayoutDashboard,
+  Mail,
   Share2,
 } from "lucide-react";
 
@@ -20,14 +21,17 @@ const TABS = [
   { href: "/outreach/people", label: "People", icon: Users },
   { href: "/outreach/network-map", label: "Network Map", icon: Share2 },
   { href: "/outreach/suggested", label: "Suggested", icon: UserPlus },
+  { href: "/outreach/sent", label: "Sent", icon: Mail },
   { href: "/outreach/firms", label: "Firms", icon: Building2 },
 ] as const;
 
 export function OutreachTabs({
   suggestedCount = 0,
+  sentCount = 0,
   gmailPersonalConnected = true,
 }: {
   suggestedCount?: number;
+  sentCount?: number;
   gmailPersonalConnected?: boolean;
 }) {
   const pathname = usePathname() ?? "";
@@ -38,8 +42,13 @@ export function OutreachTabs({
         {TABS.map((tab) => {
           const active = pathname.startsWith(tab.href);
           const Icon = tab.icon;
-          const showBadge =
-            tab.href === "/outreach/suggested" && suggestedCount > 0;
+          const badgeCount =
+            tab.href === "/outreach/suggested"
+              ? suggestedCount
+              : tab.href === "/outreach/sent"
+                ? sentCount
+                : 0;
+          const showBadge = badgeCount > 0;
           return (
             <Link
               key={tab.href}
@@ -55,7 +64,7 @@ export function OutreachTabs({
               {tab.label}
               {showBadge ? (
                 <span className="ml-0.5 rounded-full bg-foreground px-1.5 py-0.5 text-[10px] font-medium leading-none text-background">
-                  {suggestedCount}
+                  {badgeCount}
                 </span>
               ) : null}
             </Link>
