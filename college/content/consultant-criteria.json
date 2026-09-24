@@ -1,0 +1,38 @@
+[
+  {
+    "id": "cred",
+    "name": "Verified Credentials",
+    "weight": 0.2,
+    "desc": "IECA, HECA, or NACAC membership, or an equivalent admissions background, for the specific person who'd work with Kyle."
+  },
+  {
+    "id": "price",
+    "name": "Transparent Pricing",
+    "weight": 0.15,
+    "desc": "Fees published up front rather than revealed only on a sales call."
+  },
+  {
+    "id": "local",
+    "name": "Local Logistics",
+    "weight": 0.15,
+    "desc": "Realistic in-person access from Maplewood, given campus visits and meetings add up over two years."
+  },
+  {
+    "id": "scope",
+    "name": "Fit For The Gap",
+    "weight": 0.2,
+    "desc": "Adds something Columbia HS's own counseling office doesn't already cover, rather than duplicating it."
+  },
+  {
+    "id": "phil",
+    "name": "Philosophy & Red Flags",
+    "weight": 0.2,
+    "desc": "No guarantees, no essay-writing-for-the-student, no language that edges toward gaming the process."
+  },
+  {
+    "id": "track",
+    "name": "Verifiable Track Record",
+    "weight": 0.1,
+    "desc": "Outcomes that could be checked with real references, not just testimonials on the site."
+  }
+]
