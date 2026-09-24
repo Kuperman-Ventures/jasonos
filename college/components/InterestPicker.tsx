@@ -13,11 +13,15 @@ export const INTEREST_PICKER_LEVELS = [
 
 export type InterestPickerValue = Exclude<InterestLevel, ""> | "";
 
-/** Pause after a pick before the meter replaces the chips. */
-const SETTLE_MS = 480;
-
 function levelIndex(value: InterestPickerValue): number {
   return INTEREST_PICKER_LEVELS.findIndex((level) => level.key === value);
+}
+
+function blurIfInside(root: HTMLElement | null) {
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && root?.contains(active)) {
+    active.blur();
+  }
 }
 
 export function InterestPicker({
@@ -31,32 +35,31 @@ export function InterestPicker({
 }) {
   const idx = levelIndex(value);
   const current = idx >= 0 ? INTEREST_PICKER_LEVELS[idx] : null;
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const groupRef = useRef<HTMLDivElement | null>(null);
-  const settleTimer = useRef<number | undefined>(undefined);
   const [settled, setSettled] = useState(false);
 
+  // Leaving the school row must close the chips — no extra click needed.
+  // Chips stay open after a click because the chip keeps focus (focus-within).
   useEffect(() => {
-    return () => {
-      if (settleTimer.current !== undefined) window.clearTimeout(settleTimer.current);
-    };
-  }, []);
+    const interest = rootRef.current;
+    if (!interest) return;
+    const row = interest.closest("tr.row, .school-card");
+    if (!row) return;
 
-  function settleToMeter() {
-    if (settleTimer.current !== undefined) window.clearTimeout(settleTimer.current);
-    settleTimer.current = window.setTimeout(() => {
+    function onRowLeave() {
       setSettled(true);
-      const active = document.activeElement;
-      if (active instanceof HTMLElement && groupRef.current?.contains(active)) {
-        active.blur();
-      }
-    }, SETTLE_MS);
-  }
+      blurIfInside(row);
+    }
+
+    row.addEventListener("pointerleave", onRowLeave);
+    return () => row.removeEventListener("pointerleave", onRowLeave);
+  }, []);
 
   function selectKey(key: string) {
     const next: InterestPickerValue = value === key ? "" : (key as InterestPickerValue);
     setSettled(false);
     onChange(next);
-    settleToMeter();
   }
 
   function onGroupKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -87,7 +90,6 @@ export function InterestPicker({
       event.stopPropagation();
       setSettled(false);
       onChange("");
-      settleToMeter();
       return;
     }
 
@@ -101,10 +103,10 @@ export function InterestPicker({
 
   return (
     <div
+      ref={rootRef}
       className={settled ? "interest is-settled" : "interest"}
       onClick={(event) => event.stopPropagation()}
       onPointerEnter={() => {
-        // Fresh hover can open chips again after a prior pick.
         if (settled) setSettled(false);
       }}
     >
