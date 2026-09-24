@@ -5986,6 +5986,14 @@ table.schools tbody tr.row:focus-within .interest-value {
   display: none;
 }
 
+/* After a pick, hold the meter even while the row is still hovered/focused. */
+.interest.is-settled .chips {
+  display: none !important;
+}
+.interest.is-settled .interest-value {
+  display: flex !important;
+}
+
 /* Mobile cards */
 .school-card-interest {
   margin-top: var(--space-2);
@@ -5999,6 +6007,8 @@ table.schools tbody tr.row:focus-within .interest-value {
 @media (hover: none) {
   .chips { display: flex; }
   .interest-value { display: none; }
+  .interest.is-settled .chips { display: none !important; }
+  .interest.is-settled .interest-value { display: flex !important; }
 }
 
 .school-card:hover .chips,

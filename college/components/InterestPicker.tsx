@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { InterestLevel } from "@/lib/types";
 
 /** Low → high, matching the Interest cell reference. Empty string = Not set. */
@@ -12,6 +12,9 @@ export const INTEREST_PICKER_LEVELS = [
 ];
 
 export type InterestPickerValue = Exclude<InterestLevel, ""> | "";
+
+/** Pause after a pick before the meter replaces the chips. */
+const SETTLE_MS = 480;
 
 function levelIndex(value: InterestPickerValue): number {
   return INTEREST_PICKER_LEVELS.findIndex((level) => level.key === value);
@@ -29,20 +32,31 @@ export function InterestPicker({
   const idx = levelIndex(value);
   const current = idx >= 0 ? INTEREST_PICKER_LEVELS[idx] : null;
   const groupRef = useRef<HTMLDivElement | null>(null);
-  const focusKeyRef = useRef<string | null>(null);
+  const settleTimer = useRef<number | undefined>(undefined);
+  const [settled, setSettled] = useState(false);
 
   useEffect(() => {
-    const key = focusKeyRef.current;
-    if (!key || !groupRef.current) return;
-    const chip = groupRef.current.querySelector<HTMLButtonElement>(`.chip[data-key="${key}"]`);
-    chip?.focus();
-    focusKeyRef.current = null;
-  }, [value]);
+    return () => {
+      if (settleTimer.current !== undefined) window.clearTimeout(settleTimer.current);
+    };
+  }, []);
+
+  function settleToMeter() {
+    if (settleTimer.current !== undefined) window.clearTimeout(settleTimer.current);
+    settleTimer.current = window.setTimeout(() => {
+      setSettled(true);
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && groupRef.current?.contains(active)) {
+        active.blur();
+      }
+    }, SETTLE_MS);
+  }
 
   function selectKey(key: string) {
     const next: InterestPickerValue = value === key ? "" : (key as InterestPickerValue);
-    focusKeyRef.current = key;
+    setSettled(false);
     onChange(next);
+    settleToMeter();
   }
 
   function onGroupKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -55,6 +69,7 @@ export function InterestPicker({
     if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
       event.preventDefault();
       event.stopPropagation();
+      setSettled(false);
       if (!chips.length) return;
       const from = i >= 0 ? i : 0;
       const next =
@@ -70,8 +85,9 @@ export function InterestPicker({
     if (event.key === "Delete" || event.key === "Backspace") {
       event.preventDefault();
       event.stopPropagation();
-      focusKeyRef.current = chips[Math.max(i, 0)]?.dataset.key ?? INTEREST_PICKER_LEVELS[0].key;
+      setSettled(false);
       onChange("");
+      settleToMeter();
       return;
     }
 
@@ -84,7 +100,14 @@ export function InterestPicker({
   }
 
   return (
-    <div className="interest" onClick={(event) => event.stopPropagation()}>
+    <div
+      className={settled ? "interest is-settled" : "interest"}
+      onClick={(event) => event.stopPropagation()}
+      onPointerEnter={() => {
+        // Fresh hover can open chips again after a prior pick.
+        if (settled) setSettled(false);
+      }}
+    >
       <span className="interest-value" aria-hidden="true">
         <span className="meter">
           {INTEREST_PICKER_LEVELS.map((level, i) => (
