@@ -258,7 +258,7 @@ export function HomeClient({
         <div>
           <h1 className="text-lg font-semibold tracking-tight">Home</h1>
           <p className="text-xs text-muted-foreground">
-            Due this week, overdue outreach, and site traffic.
+            Due this week, overdue outreach, sent-mail follow-ups, and site traffic.
           </p>
         </div>
       </header>

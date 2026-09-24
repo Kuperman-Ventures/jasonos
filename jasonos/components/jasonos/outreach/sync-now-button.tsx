@@ -7,6 +7,7 @@ import { RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { syncOutreachAll } from "@/lib/server-actions/outreach-sync";
 import { captureEmailCandidates } from "@/lib/server-actions/contact-candidates";
+import { captureSentEmailFollowups } from "@/lib/server-actions/sent-followups";
 import {
   SUGGESTED_SCAN_DAYS_BACK,
   SUGGESTED_SCAN_DAYS_FORWARD,
@@ -30,7 +31,7 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
     setRunning(true);
     try {
       const runId = crypto.randomUUID();
-      const [result, suggested] = await Promise.all([
+      const [result, suggested, sentFollowups] = await Promise.all([
         syncOutreachAll({
           daysBack: SUGGESTED_SCAN_DAYS_BACK,
           daysForward: SUGGESTED_SCAN_DAYS_FORWARD,
@@ -39,6 +40,10 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
         captureEmailCandidates({
           days: SUGGESTED_SCAN_DAYS_BACK,
           max: 250,
+          runId,
+        }),
+        captureSentEmailFollowups({
+          daysBack: SUGGESTED_SCAN_DAYS_BACK,
           runId,
         }),
       ]);
@@ -112,6 +117,19 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
       } else if (suggestedFatal) {
         messages.push(`Suggested failed: ${suggested.error}`);
       }
+      let sentFatal = false;
+      if (sentFollowups.ok) {
+        messages.push(
+          `Sent +${sentFollowups.created}${
+            sentFollowups.updated ? `, ${sentFollowups.updated} reopened` : ""
+          }`
+        );
+      } else if (sentFollowups.unavailable) {
+        messages.push(sentFollowups.error);
+      } else {
+        sentFatal = true;
+        messages.push(`Sent follow-ups failed: ${sentFollowups.error}`);
+      }
 
       const beeperFatal = Boolean(
         result.beeper && !result.beeper.ok && !result.beeper.unavailable
@@ -119,7 +137,8 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
       const outlookFatal = Boolean(
         result.outlook && !result.outlook.ok && !result.outlook.unavailable
       );
-      const allOk = result.ok && !suggestedFatal && !beeperFatal && !outlookFatal;
+      const allOk =
+        result.ok && !suggestedFatal && !beeperFatal && !outlookFatal && !sentFatal;
       const mailboxWarning = Boolean(
         result.gcal?.warnings?.length ||
           result.gmail?.warnings?.length ||
@@ -136,6 +155,7 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
         !beeperFatal &&
         !outlookFatal &&
         !suggestedFatal &&
+        !sentFatal &&
         anyMailboxOk;
       if ((allOk || softOnlyMiss) && mailboxWarning) {
         toast.warning(messages.join(" · ") || "Sync finished with a warning");

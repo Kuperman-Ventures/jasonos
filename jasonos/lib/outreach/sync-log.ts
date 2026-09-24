@@ -15,7 +15,8 @@ export type SyncLogSource =
   | "outlook"
   | "beeper"
   | "hubspot"
-  | "suggested";
+  | "suggested"
+  | "sent-followups";
 
 export const SYNC_LOG_SOURCE_LABELS: Record<string, string> = {
   gmail: "Gmail",
@@ -24,6 +25,7 @@ export const SYNC_LOG_SOURCE_LABELS: Record<string, string> = {
   beeper: "Beeper",
   hubspot: "HubSpot",
   suggested: "Suggested",
+  "sent-followups": "Sent follow-ups",
   "job-alerts": "Job Alerts",
 };
 
@@ -55,7 +57,15 @@ export interface SyncLogInstance {
   entries: SyncLogEntry[];
 }
 
-const SOURCE_ORDER = ["gmail", "outlook", "gcal", "beeper", "suggested", "hubspot"];
+const SOURCE_ORDER = [
+  "gmail",
+  "outlook",
+  "gcal",
+  "beeper",
+  "suggested",
+  "sent-followups",
+  "hubspot",
+];
 const CLUSTER_MS = 90_000;
 
 function hasServiceRole() {
