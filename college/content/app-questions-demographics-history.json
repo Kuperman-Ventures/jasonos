@@ -1,0 +1,10 @@
+[
+  {
+    "h": "Demographics Page (entirely optional)",
+    "p": "Race/ethnicity (select one or more), religious preference (dropdown, includes \"none\" and \"prefer not to answer\"), and U.S. armed forces status. Kyle can skip every question here with no penalty - used for reporting and outreach, not as an admission filter at most schools."
+  },
+  {
+    "h": "Disciplinary And Criminal History",
+    "p": "The Common App itself no longer asks about high school disciplinary history (removed 2020) or criminal history (removed 2019) in its standard core. Individual member colleges can still add either question through their own supplement, so it needs to be checked per school rather than assumed absent."
+  }
+]
