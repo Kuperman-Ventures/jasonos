@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start --port 3210",
     "lint": "eslint",
-    "test": "tsx --test lib/scores.test.ts lib/list.test.ts lib/list-phases.test.ts lib/project-management.test.ts lib/project-todos.test.ts lib/ingest.test.ts lib/ingest-assets.test.ts lib/note-board.test.ts lib/link-preview.test.ts lib/event-date.test.ts lib/ical.test.ts lib/calendar-events.test.ts lib/pdf.test.ts lib/pdf-ocr.test.ts lib/school-research.test.ts lib/school-photo.test.ts lib/auth.test.ts lib/dashboard.test.ts lib/roadmap.test.ts lib/use-viewport-mode.test.ts lib/college-scorecard.test.ts lib/member-avatars.test.ts lib/activities-journal.test.ts lib/apps-materials.test.ts lib/permissions.test.ts"
+    "test": "tsx --test lib/scores.test.ts lib/list.test.ts lib/list-phases.test.ts lib/project-management.test.ts lib/project-todos.test.ts lib/ingest.test.ts lib/ingest-assets.test.ts lib/note-board.test.ts lib/link-preview.test.ts lib/event-date.test.ts lib/ical.test.ts lib/calendar-events.test.ts lib/pdf.test.ts lib/pdf-ocr.test.ts lib/school-research.test.ts lib/school-photo.test.ts lib/auth.test.ts lib/dashboard.test.ts lib/roadmap.test.ts lib/use-viewport-mode.test.ts lib/college-scorecard.test.ts lib/common-app-grid.test.ts lib/member-avatars.test.ts lib/activities-journal.test.ts lib/apps-materials.test.ts lib/permissions.test.ts"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.196",

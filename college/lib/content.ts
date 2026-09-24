@@ -23,6 +23,7 @@ import type {
   TextBlock,
 } from "./types";
 import { fromSeed } from "./types";
+import { applyCommonAppFactsLocal, queryCommonAppGrid } from "./common-app-grid";
 
 export const phases = timeline as Phase[];
 export const faqCategories = faq as FaqCategory[];
@@ -39,5 +40,10 @@ export const selectivityGuide = schoolsFile.selectivityGuide as SelectivityGuide
 export const prep = prepQuestions;
 
 export function seedSchools(): School[] {
-  return schoolsFile.schools.map(fromSeed);
+  return schoolsFile.schools.map((seed) => {
+    const school = fromSeed(seed);
+    const lookup = queryCommonAppGrid(school.name);
+    if (lookup.status !== "hit" || !lookup.facts) return school;
+    return applyCommonAppFactsLocal(school, lookup.facts);
+  });
 }

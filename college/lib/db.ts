@@ -387,9 +387,16 @@ export async function applySchoolFacts(
     patch.researchSources = sources;
   }
   let school = Object.keys(patch).length ? await updateSchool(id, patch) : current ?? (await getSchool(id));
-  if (!onlyBlank) {
+  if (facts.deadlines.length) {
+    const existingTitles = new Set(
+      (school.deadlines ?? []).map((deadline) => deadline.title.trim().toLowerCase()).filter(Boolean),
+    );
     for (const deadline of facts.deadlines) {
-      school = await addDeadline(id, deadline.title, deadline.dueDate);
+      const title = deadline.title.trim();
+      if (!title) continue;
+      if (onlyBlank && existingTitles.has(title.toLowerCase())) continue;
+      school = await addDeadline(id, title, deadline.dueDate);
+      existingTitles.add(title.toLowerCase());
     }
   }
   return school;
