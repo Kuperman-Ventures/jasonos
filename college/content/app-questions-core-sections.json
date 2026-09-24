@@ -1,0 +1,26 @@
+[
+  {
+    "h": "Profile",
+    "p": "Personal information (legal name, preferred name, former name if applicable), current and permanent address, phone and email, demographics subsection (see below), language spoken at home, geography and nationality (citizenship, place of birth, visa status), and whether Kyle is applying for a Common App fee waiver."
+  },
+  {
+    "h": "Family",
+    "p": "Household - who Kyle currently lives with. Details for up to two parents/guardians, including their highest level of education (this is how first-generation status gets determined - there's no direct \"are you first-gen\" question). Sibling information, including where siblings attend or attended college."
+  },
+  {
+    "h": "Education",
+    "p": "Current and any other high schools attended. Colleges already attended, if any. Grades and GPA information. Current-year courses. Honors, up to five, with level of recognition. Community-based organizations worked with in the process. A short future-plans question on career interest."
+  },
+  {
+    "h": "Testing",
+    "p": "Self-reported standardized test scores. Optional, and only matters at schools requiring or considering scores."
+  },
+  {
+    "h": "Activities",
+    "p": "Up to 10 activities. For each: activity type from a list (athletics, art, community service, debate/speech, foreign language, research, social justice, work, and others), position/leadership (50-character limit), organization name (100-character limit), description (150-character limit, roughly 20-25 words), grade levels participated, timing (school year, break, or all year), hours per week, weeks per year, and intent to continue in college."
+  },
+  {
+    "h": "Courses and Grades (required by some colleges, not the Common App core)",
+    "p": "School name, school year, grading scale, every course by subject and name, course level, and grade earned - essentially a self-reported transcript."
+  }
+]
