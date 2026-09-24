@@ -428,7 +428,7 @@ function MyActivitiesView({
                     className="btn btn-secondary compact"
                     onClick={() => onOpenActivity(activity.id)}
                   >
-                    View activity
+                    Edit activity
                   </button>
                 </div>
               </li>
