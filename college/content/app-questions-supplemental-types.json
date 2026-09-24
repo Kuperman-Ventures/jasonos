@@ -1,0 +1,27 @@
+[
+  {
+    "name": "Why This College",
+    "example": "School-specific - no standard wording.",
+    "note": "Requires naming actual courses, programs, or professors; can't be recycled across schools without real editing."
+  },
+  {
+    "name": "Why This Major",
+    "example": "UT Austin: \"Why are you interested in the major you indicated?\" (250-300 words)",
+    "note": "Wants a connection to real experience, not just stated interest."
+  },
+  {
+    "name": "Community",
+    "example": "Yale: \"Reflect on your membership in a community to which you feel connected.\" (400 words)",
+    "note": "Wants an actual group and Kyle's specific role in it."
+  },
+  {
+    "name": "Extracurricular Elaboration",
+    "example": "Stanford: as short as 3-50 words in recent cycles",
+    "note": "Wants depth on one listed activity, not a repeat of the activities list."
+  },
+  {
+    "name": "Diversity / Perspective",
+    "example": "Princeton: \"How has your lived experience shaped you?\" (400-500 words)",
+    "note": "Word limits on supplements vary from a few words to 650 - the workload driver on a full list is usually the supplements, not the one Common App essay."
+  }
+]
