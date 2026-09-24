@@ -37,10 +37,12 @@ export function InterestPicker({
   const current = idx >= 0 ? INTEREST_PICKER_LEVELS[idx] : null;
   const rootRef = useRef<HTMLDivElement | null>(null);
   const groupRef = useRef<HTMLDivElement | null>(null);
+  /** Touch / no-hover: collapse chips to the meter after a pick until re-touched. */
   const [settled, setSettled] = useState(false);
 
-  // Leaving the school row must close the chips — no extra click needed.
-  // Chips stay open after a click because the chip keeps focus (focus-within).
+  // Leaving the school row must resolve back to the meter with no extra click.
+  // Chip clicks leave focus on the button; we blur so nothing keeps the chips open.
+  // Also set settled for touch layouts where chips are always visible until settled.
   useEffect(() => {
     const interest = rootRef.current;
     if (!interest) return;
@@ -48,19 +50,41 @@ export function InterestPicker({
     if (!(found instanceof HTMLElement)) return;
     const row: HTMLElement = found;
 
-    function onRowLeave() {
+    function resolveToIndicator() {
       setSettled(true);
       blurIfInside(row);
     }
 
+    function onRowLeave(event: PointerEvent) {
+      const next = event.relatedTarget;
+      if (next instanceof Node && row.contains(next)) return;
+      resolveToIndicator();
+    }
+
+    // Table rows sometimes skip pointerleave; cell-level leave + :hover check is reliable.
+    function onCellLeave(event: PointerEvent) {
+      const next = event.relatedTarget;
+      if (next instanceof Node && row.contains(next)) return;
+      // Defer so the browser has updated :hover before we decide.
+      requestAnimationFrame(() => {
+        if (!row.matches(":hover")) resolveToIndicator();
+      });
+    }
+
     row.addEventListener("pointerleave", onRowLeave);
-    return () => row.removeEventListener("pointerleave", onRowLeave);
+    const cells = [...row.querySelectorAll("td")];
+    for (const cell of cells) cell.addEventListener("pointerleave", onCellLeave);
+    return () => {
+      row.removeEventListener("pointerleave", onRowLeave);
+      for (const cell of cells) cell.removeEventListener("pointerleave", onCellLeave);
+    };
   }, []);
 
   function selectKey(key: string) {
     const next: InterestPickerValue = value === key ? "" : (key as InterestPickerValue);
-    setSettled(false);
     onChange(next);
+    // Drop focus immediately so leaving the row cannot leave chips stuck open.
+    requestAnimationFrame(() => blurIfInside(rootRef.current));
   }
 
   function onGroupKeyDown(event: KeyboardEvent<HTMLDivElement>) {
