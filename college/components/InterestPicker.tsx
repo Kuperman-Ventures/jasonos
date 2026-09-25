@@ -28,10 +28,13 @@ export function InterestPicker({
   value,
   schoolName,
   onChange,
+  onArchive,
 }: {
   value: InterestPickerValue;
   schoolName: string;
   onChange: (next: InterestPickerValue) => void;
+  /** Optional: orange X in the chip row; tooltip reads Archive. */
+  onArchive?: () => void;
 }) {
   const idx = levelIndex(value);
   const current = idx >= 0 ? INTEREST_PICKER_LEVELS[idx] : null;
@@ -145,35 +148,58 @@ export function InterestPicker({
           {current ? current.name : "Not set"}
         </span>
       </span>
-      <div
-        ref={groupRef}
-        className="chips"
-        role="radiogroup"
-        aria-label={`Interest for ${schoolName}`}
-        onKeyDown={onGroupKeyDown}
-      >
-        {INTEREST_PICKER_LEVELS.map((level, i) => {
-          const checked = i === idx;
-          const tabIndex = i === Math.max(idx, 0) ? 0 : -1;
-          return (
-            <button
-              key={level.key}
-              type="button"
-              className="chip"
-              role="radio"
-              aria-checked={checked}
-              tabIndex={tabIndex}
-              data-key={level.key}
-              title={level.name}
-              onClick={(event) => {
-                event.stopPropagation();
-                selectKey(level.key);
-              }}
-            >
-              {level.short}
-            </button>
-          );
-        })}
+      <div className="chips">
+        <div
+          ref={groupRef}
+          className="chips-levels"
+          role="radiogroup"
+          aria-label={`Interest for ${schoolName}`}
+          onKeyDown={onGroupKeyDown}
+        >
+          {INTEREST_PICKER_LEVELS.map((level, i) => {
+            const checked = i === idx;
+            const tabIndex = i === Math.max(idx, 0) ? 0 : -1;
+            return (
+              <button
+                key={level.key}
+                type="button"
+                className="chip"
+                role="radio"
+                aria-checked={checked}
+                tabIndex={tabIndex}
+                data-key={level.key}
+                title={level.name}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  selectKey(level.key);
+                }}
+              >
+                {level.short}
+              </button>
+            );
+          })}
+        </div>
+        {onArchive ? (
+          <button
+            type="button"
+            className="chip chip-archive"
+            title="Archive"
+            aria-label={`Archive ${schoolName}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (
+                window.confirm(
+                  `Archive ${schoolName}? It stays on file with the phases it was in.`,
+                )
+              ) {
+                onArchive();
+              }
+              requestAnimationFrame(() => blurIfInside(rootRef.current));
+            }}
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        ) : null}
       </div>
     </div>
   );

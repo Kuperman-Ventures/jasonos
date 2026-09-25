@@ -256,6 +256,7 @@ export function CollegesTab({
               value={school.interestLevel}
               schoolName={school.name}
               onChange={(next) => onPatch(school.id, { interestLevel: next })}
+              onArchive={school.archived ? undefined : () => archiveSchool(school)}
             />
           </td>
         );
@@ -590,6 +591,7 @@ export function CollegesTab({
                     value={school.interestLevel}
                     schoolName={school.name}
                     onChange={(next) => onPatch(school.id, { interestLevel: next })}
+                    onArchive={school.archived ? undefined : () => archiveSchool(school)}
                   />
                 </div>
               ) : null}
