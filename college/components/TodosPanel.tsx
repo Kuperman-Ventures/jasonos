@@ -158,37 +158,42 @@ function TaskRow({
 
   function closeMenuAndRefocus() {
     onCloseMenu();
-    const anchor = byProject ? gripRef.current : tagRef.current;
-    window.requestAnimationFrame(() => anchor?.focus());
+    window.requestAnimationFrame(() => gripRef.current?.focus());
   }
 
   return (
     <div className={open ? "task is-open" : "task"} data-task={todo.id}>
       <div
-        className={`task-row${byProject ? " is-project-view" : ""}${dragging ? " is-lifted" : ""}${menuOpen ? " is-menu-open" : ""}`}
+        className={`task-row${byProject ? " is-project-view" : " is-person-view"}${dragging ? " is-lifted" : ""}${menuOpen ? " is-menu-open" : ""}`}
         ref={rowRef}
       >
-        {byProject ? (
-          <button
-            ref={gripRef}
-            type="button"
-            className="task-grip"
-            draggable
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            aria-label={`Move “${todo.label}”. Drag, or press to choose a project`}
-            title="Drag to move, or click for the Move menu"
-            onClick={onToggleMenu}
-            onDragStart={(event) => {
-              event.dataTransfer.setData("text/plain", todo.id);
-              event.dataTransfer.effectAllowed = "move";
-              if (rowRef.current) event.dataTransfer.setDragImage(rowRef.current, 20, 20);
-              onGripDragStart(event);
-            }}
-          >
-            ⋮⋮
-          </button>
-        ) : null}
+        <button
+          ref={gripRef}
+          type="button"
+          className="task-grip"
+          draggable={byProject}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          aria-label={
+            byProject
+              ? `Move “${todo.label}”. Drag, or press to choose a project`
+              : `Move “${todo.label}”. Press to choose a project`
+          }
+          title={byProject ? "Drag to move, or click for the Move menu" : "Click for the Move menu"}
+          onClick={onToggleMenu}
+          onDragStart={
+            byProject
+              ? (event) => {
+                  event.dataTransfer.setData("text/plain", todo.id);
+                  event.dataTransfer.effectAllowed = "move";
+                  if (rowRef.current) event.dataTransfer.setDragImage(rowRef.current, 20, 20);
+                  onGripDragStart(event);
+                }
+              : undefined
+          }
+        >
+          ⋮⋮
+        </button>
         <input
           className="task-check"
           type="checkbox"
