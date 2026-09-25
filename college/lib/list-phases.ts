@@ -15,6 +15,8 @@ export type ListPhase = {
   id: ListPhaseId;
   label: string;
   window: string;
+  /** Season label for the list-dashboard eyebrow (e.g. Junior spring). */
+  season: string;
   /** Soft target used for the overall gauge (can read over 100%). */
   target: number;
   /** Inclusive low end of the acceptable range. */
@@ -45,6 +47,7 @@ export const LIST_PHASES: ListPhase[] = [
     id: "exploration",
     label: "Exploration",
     window: "Sep 2026 – Dec 2026",
+    season: "Junior fall",
     target: 30,
     rangeLo: 27,
     rangeHi: 33,
@@ -58,6 +61,7 @@ export const LIST_PHASES: ListPhase[] = [
     id: "consideration",
     label: "Consideration",
     window: "Jan 2027 – Jul 2027",
+    season: "Junior spring",
     target: 12,
     rangeLo: 10,
     rangeHi: 15,
@@ -70,6 +74,7 @@ export const LIST_PHASES: ListPhase[] = [
     id: "applications",
     label: "Applications",
     window: "Jul 2027 onward",
+    season: "Senior fall",
     target: 10,
     rangeLo: 8,
     rangeHi: 12,
@@ -101,6 +106,54 @@ export function currentListPhaseId(now = new Date()): ListPhaseId {
     return phase.id;
   }
   return "applications";
+}
+
+function parseListDay(iso: string): Date {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+/** Exclusive end used for calendar-bar length (open Applications runs through Jan 1 2028). */
+export function listPhaseExclusiveEnd(phase: ListPhase): Date {
+  if (phase.endsOn) {
+    const end = parseListDay(phase.endsOn);
+    end.setDate(end.getDate() + 1);
+    return end;
+  }
+  return new Date(2028, 0, 1);
+}
+
+/** Day count for proportional stepper columns. */
+export function listPhaseDaySpan(phase: ListPhase): number {
+  const start = parseListDay(phase.startsOn);
+  const end = listPhaseExclusiveEnd(phase);
+  return Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000));
+}
+
+/**
+ * How far the calendar has filled this phase’s bar (0–1).
+ * Past phases are full; future phases are empty; the current phase is partial.
+ */
+export function listPhaseBarProgress(phase: ListPhase, now = new Date()): number {
+  const currentId = currentListPhaseId(now);
+  const currentIndex = LIST_PHASES.findIndex((item) => item.id === currentId);
+  const index = LIST_PHASES.findIndex((item) => item.id === phase.id);
+  if (index < 0) return 0;
+  if (index < currentIndex) return 1;
+  if (index > currentIndex) return 0;
+  const start = parseListDay(phase.startsOn).getTime();
+  const end = listPhaseExclusiveEnd(phase).getTime();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  if (today <= start) return 0;
+  if (today >= end) return 1;
+  return (today - start) / (end - start);
+}
+
+/** Eyebrow for the list dashboard: Phase N of 3 · season. */
+export function listPhaseEyebrow(phaseId: ListPhaseId): string {
+  const index = LIST_PHASES.findIndex((phase) => phase.id === phaseId);
+  const phase = listPhaseById(phaseId);
+  return `Phase ${index + 1} of 3 · ${phase.season}`;
 }
 
 export function nextListPhaseId(id: ListPhaseId): ListPhaseId | null {

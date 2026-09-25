@@ -1130,7 +1130,6 @@ export function Portal({
           <CollegesTab
             schools={schools}
             selectedId={schoolId}
-            dateline={phaseLabel}
             listPrefs={listPrefs}
             memberId={member.id}
             memberRole={member.role}

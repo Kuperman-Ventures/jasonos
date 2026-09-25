@@ -5,6 +5,10 @@ import {
   archiveSchoolPatch,
   currentListPhaseId,
   idealTierCount,
+  listPhaseBarProgress,
+  listPhaseDaySpan,
+  listPhaseEyebrow,
+  LIST_PHASES,
   listSizeBar,
   mergeListPrefs,
   normalizeColumns,
@@ -22,6 +26,7 @@ const explorationPhase = {
   id: "exploration" as const,
   label: "Exploration",
   window: "",
+  season: "Junior fall",
   target: 30,
   rangeLo: 27,
   rangeHi: 33,
@@ -37,6 +42,16 @@ test("currentListPhaseId follows the funnel calendar", () => {
   assert.equal(currentListPhaseId(new Date("2027-01-01T12:00:00Z")), "consideration");
   assert.equal(currentListPhaseId(new Date("2027-07-26T12:00:00Z")), "consideration");
   assert.equal(currentListPhaseId(new Date("2027-07-27T12:00:00Z")), "applications");
+});
+
+test("list phase calendar bar spans, progress, and eyebrow", () => {
+  assert.ok(listPhaseDaySpan(LIST_PHASES[0]) > 100);
+  assert.ok(listPhaseDaySpan(LIST_PHASES[1]) > listPhaseDaySpan(LIST_PHASES[0]));
+  const midExploration = listPhaseBarProgress(LIST_PHASES[0], new Date(2026, 9, 15));
+  assert.ok(midExploration > 0 && midExploration < 1);
+  assert.equal(listPhaseBarProgress(LIST_PHASES[1], new Date(2026, 9, 15)), 0);
+  assert.equal(listPhaseBarProgress(LIST_PHASES[0], new Date(2027, 2, 1)), 1);
+  assert.equal(listPhaseEyebrow("consideration"), "Phase 2 of 3 · Junior spring");
 });
 
 test("phaseCountGauge can read over 100%", () => {
