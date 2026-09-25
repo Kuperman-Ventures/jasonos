@@ -36,6 +36,8 @@ export type ProjectTodo = {
   parentText: string;
   phase: string;
   phaseWindow: string;
+  /** Household project grouping — orthogonal to runway parentId. */
+  projectId: string | null;
 };
 
 /** Household overrides for seed and ingested to-dos. Missing keys keep the original. */
@@ -50,6 +52,8 @@ export type TodoEdit = {
   assignedBy?: Owner | null;
   /** Soft-delete seed (and any) to-dos so they leave every list. */
   deleted?: boolean;
+  /** Household project id, or null for "No project". */
+  projectId?: string | null;
 };
 
 export type TodoEditMap = Record<string, TodoEdit>;
@@ -202,6 +206,12 @@ export function normalizeTodoEdits(raw: unknown): TodoEditMap {
       }
     }
     if (row.deleted === true) edit.deleted = true;
+    if ("projectId" in row) {
+      if (row.projectId === null || row.projectId === "") edit.projectId = null;
+      else if (typeof row.projectId === "string" && row.projectId.trim()) {
+        edit.projectId = row.projectId.trim();
+      }
+    }
     if (Object.keys(edit).length) out[id] = edit;
   }
   return out;
@@ -221,7 +231,14 @@ function withEdit(
   edits: TodoEditMap,
 ) {
   const edit = edits[step.id];
-  if (!edit) return { ...step, description: "", owner: step.owner as Owner | null };
+  if (!edit) {
+    return {
+      ...step,
+      description: "",
+      owner: step.owner as Owner | null,
+      projectId: null as string | null,
+    };
+  }
   return {
     ...step,
     label: edit.label?.trim() || step.label,
@@ -231,6 +248,7 @@ function withEdit(
     dueDate: "dueDate" in edit ? (edit.dueDate ?? null) : step.dueDate,
     startDate: "startDate" in edit ? (edit.startDate ?? null) : step.startDate,
     endDate: "endDate" in edit ? (edit.endDate ?? null) : step.endDate,
+    projectId: "projectId" in edit ? (edit.projectId ?? null) : null,
   };
 }
 
@@ -271,6 +289,7 @@ function pushTodo(
     parentText: parent.parentText,
     phase: parent.phase,
     phaseWindow: parent.phaseWindow,
+    projectId: edited.projectId,
   });
 }
 
@@ -418,6 +437,55 @@ export function groupTodosByOwner(
       done: unclaimedRows.filter((todo) => todo.done),
     },
   };
+}
+
+export type TodoProjectGroup = {
+  projectId: string | null;
+  name: string;
+  colorIndex: number | null;
+  open: ProjectTodo[];
+  done: ProjectTodo[];
+};
+
+/** Projects in creation order, then No project last. */
+export function groupTodosByProject(
+  todos: ProjectTodo[],
+  projects: { id: string; name: string; colorIndex: number; createdAt: string }[],
+): TodoProjectGroup[] {
+  const ordered = [...projects].sort(
+    (a, b) => a.createdAt.localeCompare(b.createdAt) || a.name.localeCompare(b.name),
+  );
+  const known = new Set(ordered.map((p) => p.id));
+  const groups: TodoProjectGroup[] = ordered.map((project) => {
+    const rows = todos.filter((todo) => todo.projectId === project.id);
+    return {
+      projectId: project.id,
+      name: project.name,
+      colorIndex: project.colorIndex,
+      open: rows.filter((todo) => !todo.done),
+      done: rows.filter((todo) => todo.done),
+    };
+  });
+  const none = todos.filter((todo) => !todo.projectId || !known.has(todo.projectId));
+  groups.push({
+    projectId: null,
+    name: "No project",
+    colorIndex: null,
+    open: none.filter((todo) => !todo.done),
+    done: none.filter((todo) => todo.done),
+  });
+  return groups;
+}
+
+/** Clear projectId from edits when a project is deleted. Never deletes to-dos. */
+export function clearProjectIdFromEdits(projectId: string, edits: TodoEditMap): TodoEditMap {
+  const next: TodoEditMap = { ...edits };
+  for (const [id, edit] of Object.entries(edits)) {
+    if (edit.projectId === projectId) {
+      next[id] = { ...edit, projectId: null };
+    }
+  }
+  return next;
 }
 
 export function normalizeTodoSubtasks(raw: unknown): TodoSubtaskMap {

@@ -53,6 +53,7 @@ import {
 } from "@/lib/project-management";
 import {
   canMarkTodoDone,
+  clearProjectIdFromEdits,
   listProjectTodos,
   memberOwnerId,
   normalizeTodoEdits,
@@ -62,6 +63,10 @@ import {
   type TodoEditMap,
   type TodoSubtaskMap,
 } from "@/lib/project-todos";
+import {
+  normalizeTodoProjects,
+  type TodoProject,
+} from "@/lib/todo-projects";
 import { canEditActivitiesJournal } from "@/lib/permissions";
 import { postActivity } from "@/lib/post-activity";
 import type { MemberProfile } from "@/lib/member-avatars";
@@ -187,6 +192,7 @@ export function Portal({
   const [ingestSources, setIngestSources] = useState<PersistedIngestSource[]>([]);
   const [todoSubtasks, setTodoSubtasks] = useState<TodoSubtaskMap>({});
   const [todoEdits, setTodoEdits] = useState<TodoEditMap>({});
+  const [todoProjects, setTodoProjects] = useState<TodoProject[]>([]);
   const pipeline = useSchoolPipeline();
   const schools = pipeline.schools;
   const setSchools = pipeline.setSchools;
@@ -228,6 +234,7 @@ export function Portal({
           ingestSources?: PersistedIngestSource[];
           todoSubtasks?: TodoSubtaskMap;
           todoEdits?: TodoEditMap;
+          todoProjects?: TodoProject[];
           noteItems?: PinNote[];
           calendarEvents?: CalendarEvent[];
           activitiesJournal?: ActivitiesJournal;
@@ -251,6 +258,9 @@ export function Portal({
         }
         if (state.todoEdits && typeof state.todoEdits === "object") {
           setTodoEdits(normalizeTodoEdits(state.todoEdits));
+        }
+        if (Array.isArray(state.todoProjects)) {
+          setTodoProjects(normalizeTodoProjects(state.todoProjects));
         }
         const loadedNotes = typeof state.notes === "string" ? state.notes : "";
         const loadedItems = Array.isArray(state.noteItems)
@@ -516,6 +526,7 @@ export function Portal({
     ingestSources?: PersistedIngestSource[];
     todoSubtasks?: TodoSubtaskMap;
     todoEdits?: TodoEditMap;
+    todoProjects?: TodoProject[];
     noteItems?: PinNote[];
     calendarEvents?: CalendarEvent[];
     activitiesJournal?: ActivitiesJournal;
@@ -596,6 +607,30 @@ export function Portal({
         entityId: id,
         summary: `Edited to-do “${label}”`,
       });
+    });
+  }
+
+  function changeTodoProjects(next: TodoProject[]) {
+    const normalized = normalizeTodoProjects(next);
+    const previous = todoProjects;
+    setTodoProjects(normalized);
+    void patchState({ todoProjects: normalized }).then((ok) => {
+      if (!ok) setTodoProjects(previous);
+    });
+  }
+
+  function deleteTodoProject(projectId: string) {
+    const previousProjects = todoProjects;
+    const previousEdits = todoEdits;
+    const nextProjects = todoProjects.filter((project) => project.id !== projectId);
+    const nextEdits = clearProjectIdFromEdits(projectId, todoEdits);
+    setTodoProjects(nextProjects);
+    setTodoEdits(nextEdits);
+    void patchState({ todoProjects: nextProjects, todoEdits: nextEdits }).then((ok) => {
+      if (!ok) {
+        setTodoProjects(previousProjects);
+        setTodoEdits(previousEdits);
+      }
     });
   }
 
@@ -1186,9 +1221,12 @@ export function Portal({
             calendarFocusDate={calendarFocusDate}
             subtasks={todoSubtasks}
             todoEdits={todoEdits}
+            todoProjects={todoProjects}
             onToggle={toggleItem}
             onChangeSubtasks={changeSubtasks}
             onEditTodo={changeTodoEdit}
+            onChangeTodoProjects={changeTodoProjects}
+            onDeleteTodoProject={deleteTodoProject}
             onDeleteTodo={deleteTodo}
             onAddTodo={addTodo}
             onChangeCalendarEvents={changeCalendarEvents}
