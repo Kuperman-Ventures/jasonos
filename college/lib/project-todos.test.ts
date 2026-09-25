@@ -7,16 +7,20 @@ import {
   dueTone,
   formatTodoWhen,
   groupTodosByOwner,
+  isTodoOverdue,
   listProjectTodos,
   memberOwnerId,
   normalizeTodoEdits,
   openListStats,
+  personMeterMax,
+  personMeterRows,
   removeProjectTodoState,
   sanitizeChecklistForViewer,
   sanitizeSubtasksForViewer,
   shortDueLabel,
   todoOwnerIndex,
   todoPrimaryDate,
+  type ProjectTodo,
 } from "./project-todos";
 
 test("memberOwnerId maps household ids onto owners", () => {
@@ -174,6 +178,8 @@ test("short due labels and soon-window tone", () => {
   assert.equal(shortDueLabel("2026-09-25"), "Sep 25");
   assert.equal(dueTone("2026-09-25", new Date(2026, 8, 20)), "soon");
   assert.equal(dueTone("2026-12-15", new Date(2026, 8, 20)), "dated");
+  assert.equal(dueTone("2026-09-18", new Date(2026, 8, 25)), "over");
+  assert.equal(dueTone("2026-09-25", new Date(2026, 8, 25)), "soon");
   assert.equal(dueTone(null), "undated");
 });
 
@@ -310,4 +316,66 @@ test("removeProjectTodoState soft-deletes seed todos and drops dynamic steps", (
   assert.equal(soft.todoEdits["p1-1-s3"]?.deleted, true);
   const listed = listProjectTodos(soft.checklist, undefined, soft.projectSteps, soft.todoEdits);
   assert.equal(listed.find((todo) => todo.id === "p1-1-s3"), undefined);
+});
+
+function meterTodo(
+  partial: Partial<ProjectTodo> & Pick<ProjectTodo, "id" | "owner" | "done">,
+): ProjectTodo {
+  return {
+    label: partial.label ?? partial.id,
+    assignedBy: null,
+    dueDate: null,
+    startDate: null,
+    endDate: null,
+    parentId: "inbox",
+    parentText: "x",
+    phase: "Junior Fall",
+    phaseWindow: "now",
+    projectId: null,
+    description: "",
+    ...partial,
+  };
+}
+
+test("isTodoOverdue is before today only; today and undated are not", () => {
+  const now = new Date(2026, 8, 25);
+  assert.equal(
+    isTodoOverdue(meterTodo({ id: "a", owner: "kyle", done: false, dueDate: "2026-09-18" }), now),
+    true,
+  );
+  assert.equal(
+    isTodoOverdue(meterTodo({ id: "b", owner: "kyle", done: false, dueDate: "2026-09-25" }), now),
+    false,
+  );
+  assert.equal(
+    isTodoOverdue(meterTodo({ id: "c", owner: "kyle", done: false, dueDate: null }), now),
+    false,
+  );
+  assert.equal(
+    isTodoOverdue(meterTodo({ id: "d", owner: "kyle", done: true, dueDate: "2026-09-12" }), now),
+    false,
+  );
+});
+
+test("personMeterRows is me-first, open-only, and keeps zero members", () => {
+  const now = new Date(2026, 8, 25);
+  const todos = [
+    meterTodo({ id: "1", owner: "kyle", done: false, dueDate: "2026-09-12" }),
+    meterTodo({ id: "2", owner: "kyle", done: false, dueDate: null }),
+    meterTodo({ id: "3", owner: "kyle", done: true, dueDate: "2026-09-01" }),
+    meterTodo({ id: "4", owner: "kat", done: false, dueDate: "2026-09-22" }),
+    meterTodo({ id: "5", owner: "kat", done: false, endDate: "2026-10-01" }),
+    meterTodo({ id: "6", owner: null, done: false, dueDate: "2026-09-01" }),
+  ];
+  const rows = personMeterRows(todos, "jason", now);
+  assert.deepEqual(
+    rows.map((row) => ({ owner: row.owner, total: row.total, overdue: row.overdue })),
+    [
+      { owner: "jason", total: 0, overdue: 0 },
+      { owner: "kyle", total: 2, overdue: 1 },
+      { owner: "kat", total: 2, overdue: 1 },
+    ],
+  );
+  assert.equal(personMeterMax(rows), 2);
+  assert.equal(personMeterMax([{ owner: "jason", label: "Jason", total: 0, overdue: 0 }]), 1);
 });

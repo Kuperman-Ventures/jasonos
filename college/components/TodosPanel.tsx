@@ -16,9 +16,12 @@ import {
   listProjectTodos,
   memberOwnerId,
   openListStats,
+  personMeterMax,
+  personMeterRows,
   shortDueLabel,
   todoPrimaryDate,
   type OwnerTodoBucket,
+  type PersonMeterRow,
   type ProjectTodo,
   type TodoEdit,
   type TodoEditMap,
@@ -271,7 +274,11 @@ function TaskRow({
             {subtasks.length} subtask{subtasks.length === 1 ? "" : "s"}
           </span>
         ) : (
-          <span className={`task-due${tone === "soon" ? " is-soon" : ""}${tone === "undated" ? " is-undated" : ""}`}>
+          <span
+            className={`task-due${
+              tone === "over" ? " is-over" : tone === "soon" ? " is-soon" : tone === "undated" ? " is-undated" : ""
+            }`}
+          >
             {shortDueLabel(date)}
           </span>
         )}
@@ -706,6 +713,48 @@ function UnclaimedList({
   );
 }
 
+function TodoPersonMeter({
+  rows,
+  profiles,
+}: {
+  rows: PersonMeterRow[];
+  profiles: Map<string, MemberProfile>;
+}) {
+  const max = personMeterMax(rows);
+  return (
+    <div className="todos-meter" aria-label="To-dos per person">
+      {rows.map((row) => {
+        const profile = profiles.get(row.owner);
+        const name = profile?.displayName ?? row.label;
+        const fillPct = (row.total / max) * 100;
+        const overduePct = row.total ? (row.overdue / row.total) * 100 : 0;
+        const aria = `${name}: ${row.total} to-do${row.total === 1 ? "" : "s"}, ${row.overdue} overdue`;
+        return (
+          <div key={row.owner} className="todos-mp">
+            <div className="todos-mp-head">
+              <MemberBadge name={name} avatarUrl={profile?.avatarUrl} size="sm" showName={false} />
+              <span className="todos-mp-name">{name}</span>
+              <span className="todos-mp-nums">
+                <span>
+                  <b>{row.total}</b>TOTAL
+                </span>
+                <span className={`todos-mp-od${row.overdue ? "" : " is-zero"}`}>
+                  <b>{row.overdue}</b>OVERDUE
+                </span>
+              </span>
+            </div>
+            <div className="todos-mp-track" role="img" aria-label={aria}>
+              <span className="todos-mp-fill" style={{ width: `${fillPct}%` }}>
+                <span className="todos-mp-over" style={{ width: `${overduePct}%` }} />
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function TodosPanel({
   memberId,
   memberProfiles,
@@ -979,6 +1028,7 @@ export function TodosPanel({
   };
 
   const projectGroups = groupTodosByProject(todos, todoProjects);
+  const meterRows = personMeterRows(todos, focusOwner);
   const showTopEditor = Boolean(editor && (editor.mode === "new" || groupBy !== "project"));
 
   const editorPanel = editor ? (
@@ -1022,6 +1072,8 @@ export function TodosPanel({
           </button>
         ) : null}
       </div>
+
+      <TodoPersonMeter rows={meterRows} profiles={profiles} />
 
       {showTopEditor ? editorPanel : null}
 

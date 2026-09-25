@@ -554,19 +554,80 @@ export function shortDueLabel(iso: string | null): string {
   });
 }
 
-/** dated = has a date; soon = due within the next 7 days (including today). */
+/** Local calendar day for an ISO date (yyyy-mm-dd), ignoring time zone of the ISO string. */
+function localDayFromIso(iso: string): Date | null {
+  if (!ISO_DATE.test(iso)) return null;
+  const [year, month, day] = iso.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
+function startOfLocalDay(now: Date): Date {
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+/**
+ * Overdue = primary due date before today in local TZ.
+ * Due today is not overdue. Undated is never overdue.
+ */
+export function isTodoOverdue(
+  todo: Pick<ProjectTodo, "dueDate" | "startDate" | "endDate" | "done">,
+  now: Date = new Date(),
+): boolean {
+  if (todo.done) return false;
+  const iso = todoPrimaryDate(todo);
+  if (!iso) return false;
+  const due = localDayFromIso(iso);
+  if (!due) return false;
+  return due.getTime() < startOfLocalDay(now).getTime();
+}
+
+/** dated = has a date; soon = due within 7 days incl. today; over = past due (wins over soon). */
 export function dueTone(
   iso: string | null,
   now: Date = new Date(),
-): "dated" | "soon" | "undated" {
-  if (!iso || !ISO_DATE.test(iso)) return "undated";
-  const [year, month, day] = iso.split("-").map(Number);
-  if (!year || !month || !day) return "undated";
-  const due = new Date(year, month - 1, day);
-  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+): "dated" | "soon" | "over" | "undated" {
+  if (!iso) return "undated";
+  const due = localDayFromIso(iso);
+  if (!due) return "undated";
+  const start = startOfLocalDay(now);
   const days = Math.round((due.getTime() - start.getTime()) / 86_400_000);
-  if (days >= 0 && days <= 7) return "soon";
+  if (days < 0) return "over";
+  if (days <= 7) return "soon";
   return "dated";
+}
+
+export type PersonMeterRow = {
+  owner: Owner;
+  label: string;
+  total: number;
+  overdue: number;
+};
+
+/**
+ * One meter row per family member, me-first (Person view order). Includes zeros.
+ * Counts open to-dos only; overdue uses local calendar before today.
+ */
+export function personMeterRows(
+  todos: ProjectTodo[],
+  focusOwner: Owner,
+  now: Date = new Date(),
+): PersonMeterRow[] {
+  const order: Owner[] = [focusOwner, ...OWNERS.filter((owner) => owner.id !== focusOwner).map((o) => o.id)];
+  return order.map((owner) => {
+    const open = todos.filter((todo) => !todo.done && todo.owner === owner);
+    return {
+      owner,
+      label: ownerLabel(owner),
+      total: open.length,
+      overdue: open.filter((todo) => isTodoOverdue(todo, now)).length,
+    };
+  });
+}
+
+/** Max open total across meter rows (at least 1 so bar math stays finite). */
+export function personMeterMax(rows: PersonMeterRow[]): number {
+  return Math.max(1, ...rows.map((row) => row.total));
 }
 
 export function openListStats(todos: ProjectTodo[]): { open: number; dated: number; label: string } {
