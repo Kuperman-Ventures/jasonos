@@ -57,6 +57,8 @@ export function IngestPanel({
   noteItems,
   calendarEvents,
   assignedBy,
+  schoolNames,
+  openTodos,
   onConfirm,
 }: {
   phases: Phase[];
@@ -66,6 +68,8 @@ export function IngestPanel({
   noteItems: PinNote[];
   calendarEvents: CalendarEvent[];
   assignedBy: Owner;
+  schoolNames: string[];
+  openTodos: { title: string; school: string | null; dueDate: string | null }[];
   onConfirm: (payload: IngestConfirmPayload) => Promise<void>;
 }) {
   const parents = useMemo(() => checklistParents(phases), [phases]);
@@ -79,6 +83,7 @@ export function IngestPanel({
   const [method, setMethod] = useState<"ai" | "heuristic" | "">("");
   const [readMethod, setReadMethod] = useState<"embedded" | "ocr" | "">("");
   const [drafts, setDrafts] = useState<DraftRow[]>([]);
+  const [documentSummary, setDocumentSummary] = useState("");
   const [source, setSource] = useState<IngestSourceDraft | null>(null);
   const [pendingFile, setPendingFile] = useState<PendingFile | null>(null);
   const [asIsTitle, setAsIsTitle] = useState("");
@@ -91,6 +96,13 @@ export function IngestPanel({
     mimeType: string | null;
     fileName: string | null;
   } | null>(null);
+
+  function extractionContext() {
+    return {
+      schoolNames,
+      openTodos,
+    };
+  }
 
   function clearPendingFile() {
     if (pendingFile?.previewUrl) URL.revokeObjectURL(pendingFile.previewUrl);
@@ -169,6 +181,7 @@ export function IngestPanel({
       error?: string;
       suggestions?: SuggestedStep[];
       method?: "ai" | "heuristic";
+      documentSummary?: string;
       source?: IngestSourceDraft;
     };
     try {
@@ -178,12 +191,14 @@ export function IngestPanel({
       throw new Error(messageFromFailedResponse(raw, response.status));
     }
     if (!response.ok) throw new Error(body.error || "Parse failed");
-    setDrafts(
-      (body.suggestions ?? []).map((row) => ({
+    const nextDrafts = (body.suggestions ?? [])
+      .map((row) => ({
         ...row,
         route: row.route ?? "todo",
-      })),
-    );
+      }))
+      .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0));
+    setDrafts(nextDrafts);
+    setDocumentSummary(body.documentSummary?.trim() || "");
     const nextSource = body.source ?? null;
     if (nextSource && asset) {
       nextSource.assetUrl = asset.assetUrl;
@@ -204,14 +219,21 @@ export function IngestPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           kind === "url"
-            ? { url, title: title || url, kind: "url" }
-            : { text, title: title || "Pasted notes", kind: "paste" },
+            ? { url, title: title || url, kind: "url", ...extractionContext() }
+            : {
+                text,
+                title: title || "Pasted notes",
+                kind: "paste",
+                fileName: title || "pasted-notes.txt",
+                ...extractionContext(),
+              },
         ),
       });
       await applyParseResponse(response);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Parse failed");
       setDrafts([]);
+      setDocumentSummary("");
       setSource(null);
     } finally {
       setBusy(false);
@@ -320,6 +342,8 @@ export function IngestPanel({
             pendingFile.file.name.replace(/\.[^.]+$/, "") ||
             "Uploaded file",
           kind: "file",
+          fileName: pendingFile.file.name,
+          ...extractionContext(),
         }),
       });
       await applyParseResponse(response, asset);
@@ -328,6 +352,7 @@ export function IngestPanel({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not read file");
       setDrafts([]);
+      setDocumentSummary("");
       setSource(null);
       setStatus("");
     } finally {
@@ -475,6 +500,23 @@ export function IngestPanel({
     setBusy(true);
     setError("");
     try {
+      // Log approve/reject for the extraction ratio (to-do kept = approved).
+      void fetch("/api/ingest/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rows: drafts.map((row) => ({
+            sourceId: source.id,
+            title: row.label.trim(),
+            category: row.category ?? null,
+            confidence: row.confidence ?? null,
+            approved: row.route === "todo",
+          })),
+        }),
+      }).catch(() => {
+        /* non-blocking */
+      });
+
       const createdAt = new Date().toISOString();
       const steps: PersistedProjectStep[] = [
         ...projectSteps,
@@ -548,6 +590,7 @@ export function IngestPanel({
         calendarEvents: [...createdEvents, ...calendarEvents],
       });
       setDrafts([]);
+      setDocumentSummary("");
       setSource(null);
       setText("");
       setUrl("");
@@ -566,6 +609,9 @@ export function IngestPanel({
   const todoCount = drafts.filter((row) => row.route === "todo" && row.label.trim()).length;
   const noteCount = drafts.filter((row) => row.route === "note" && row.label.trim()).length;
   const calendarCount = drafts.filter((row) => row.route === "calendar" && row.label.trim()).length;
+  const reviewedCount = drafts.filter((row) => row.label.trim()).length;
+  const liveApprovalRate =
+    reviewedCount > 0 ? Math.round((todoCount / reviewedCount) * 100) : null;
 
   return (
     <div className="pm-panel ingest-panel">
@@ -775,6 +821,7 @@ export function IngestPanel({
           <header className="ingest-review-head">
             <div>
               <h3 className="dash-title">Review suggestions</h3>
+              {documentSummary ? <p className="ingest-doc-summary">{documentSummary}</p> : null}
               <p className="section-sub">
                 {method === "ai" ? "Parsed with AI." : "Parsed with local heuristics."}
                 {readMethod === "ocr" ? " Text came from OCR." : ""}{" "}
@@ -783,6 +830,12 @@ export function IngestPanel({
                   ? ` Ready: ${todoCount} to-do${todoCount === 1 ? "" : "s"}, ${noteCount} note${noteCount === 1 ? "" : "s"}, ${calendarCount} calendar.`
                   : ""}
               </p>
+              {liveApprovalRate !== null ? (
+                <p className="ingest-approval-rate">
+                  Approval rate for this document (kept as to-do): {liveApprovalRate}% ({todoCount}/
+                  {reviewedCount})
+                </p>
+              ) : null}
             </div>
             <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void confirm()}>
               {busy ? "Saving…" : "Confirm"}
@@ -814,12 +867,29 @@ export function IngestPanel({
                       </button>
                     ))}
                   </div>
-                  <input
-                    className="field ingest-label"
-                    value={row.label}
-                    onChange={(event) => patchDraft(row.id, { label: event.target.value })}
-                    aria-label="Suggestion text"
-                  />
+                  <div className="ingest-draft-main">
+                    {row.updatesExisting ? (
+                      <span className="ingest-updates-tag">Updates existing</span>
+                    ) : null}
+                    <input
+                      className="field ingest-label"
+                      value={row.label}
+                      onChange={(event) => patchDraft(row.id, { label: event.target.value })}
+                      aria-label="Suggestion text"
+                    />
+                    {row.details ? <p className="ingest-details">{row.details}</p> : null}
+                    {row.evidence ? <p className="ingest-evidence">“{row.evidence}”</p> : null}
+                    {row.conditionalOn ? (
+                      <p className="ingest-note-hint">If: {row.conditionalOn}</p>
+                    ) : null}
+                    {typeof row.confidence === "number" ? (
+                      <p className="ingest-note-hint">
+                        Confidence {Math.round(row.confidence * 100)}%
+                        {row.category ? ` · ${row.category.replace(/_/g, " ")}` : ""}
+                        {row.school ? ` · ${row.school}` : ""}
+                      </p>
+                    ) : null}
+                  </div>
                   {isTodo ? (
                     <>
                       <select

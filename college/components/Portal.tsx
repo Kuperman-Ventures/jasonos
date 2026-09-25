@@ -1215,6 +1215,14 @@ export function Portal({
               noteItems={noteItems}
               calendarEvents={calendarEvents}
               assignedBy={memberOwnerId(member.id)}
+              schoolNames={schools.map((school) => school.name)}
+              openTodos={listProjectTodos(checklist, phases, projectSteps, todoEdits)
+                .filter((todo) => !todo.done)
+                .map((todo) => ({
+                  title: todo.label,
+                  school: null,
+                  dueDate: todo.dueDate,
+                }))}
               onConfirm={confirmIngest}
             />
           </section>
