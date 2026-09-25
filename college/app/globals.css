@@ -3534,14 +3534,18 @@ table.schools .muted,
 }
 
 /* ---------- college list funnel ---------- */
-/* Each list phase remaps Track tokens — same palette, different mix. No light/dark. */
+/* Deepening paper (2c): header stays on site paper; body takes viewed phase ground. */
 .colleges-list {
   margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-8)) calc(-1 * var(--space-8));
-  padding: var(--space-6) var(--space-8) var(--space-8);
+  padding: 0;
   min-height: calc(100% + var(--space-6) + var(--space-8));
   background: var(--color-bg);
   color: var(--color-text);
-  transition: background 0.25s ease, color 0.25s ease;
+  --phase-bg: #f3f2f2;
+  --phase-surface: #e8e6e5;
+  --phase-track: #d7d3d3;
+  --phase-muted: #444141;
+  --phase-subtle: #605d5d;
   /* Chart-only selectivity hues, low → high (Less … Extremely). Shared with school snapshot. */
   --tier-1: oklch(0.50 0.11 150);
   --tier-1-tint: oklch(0.90 0.035 150);
@@ -3554,66 +3558,54 @@ table.schools .muted,
   --text-accent-2: #006786;
 }
 
-/* Exploration uses the default Track :root palette (original site look). */
-
-/* Consideration — warm orange wash (was Exploration) */
+.colleges-list[data-list-phase="exploration"] {
+  --phase-bg: #f3f2f2;
+  --phase-surface: #e8e6e5;
+  --phase-track: #d7d3d3;
+  --phase-muted: #444141;
+  --phase-subtle: #605d5d;
+}
 .colleges-list[data-list-phase="consideration"] {
-  --color-bg: #feeee4;
-  --color-surface: #f8f4f4;
-  --color-divider: rgba(158, 54, 3, 0.18);
-  --color-hairline: rgba(158, 54, 3, 0.1);
-  --color-text: #201e1d;
-  --text-muted: #461a05;
-  --text-subtle: #742703;
-  --text-accent: #9e3603;
-  --link-hover: #c74503;
-  --color-accent: #e85504;
-  --color-accent-pressed: #c74503;
-  --accent-100: #fdd6c0;
-  --accent-500: #e85504;
-  --accent-600: #c74503;
-  --hover-fill: rgba(232, 85, 4, 0.08);
-  --neutral-300: #fab48e;
-  --color-neutral-300: #fab48e;
-  --done-500: #0088b0;
-  --shadow-sm: 0 1px 2px rgba(70, 26, 5, 0.08);
-  --shadow-md: 0 8px 24px rgba(70, 26, 5, 0.1);
-  --shadow-lg: 0 18px 40px rgba(70, 26, 5, 0.14);
+  --phase-bg: #e7e5e2;
+  --phase-surface: #dbd8d4;
+  --phase-track: #c5c1bc;
+  --phase-muted: #444141;
+  --phase-subtle: #605d5d;
 }
-
-/* Applications — cyan decisive */
 .colleges-list[data-list-phase="applications"] {
-  --color-bg: #eae9e9;
-  --color-surface: #f8f4f4;
-  --color-divider: rgba(0, 136, 176, 0.22);
-  --color-hairline: rgba(0, 136, 176, 0.12);
-  --color-text: #201e1d;
-  --text-muted: #2d2b2b;
-  --text-subtle: #444141;
-  --text-accent: #0088b0;
-  --link-hover: #0088b0;
-  --color-accent: #0088b0;
-  --color-accent-pressed: #0088b0;
-  --color-on-accent: #f8f4f4;
-  --accent-100: #f8f4f4;
-  --accent-500: #0088b0;
-  --accent-600: #0088b0;
-  --hover-fill: rgba(0, 136, 176, 0.1);
-  --neutral-300: #d7d3d3;
-  --color-neutral-300: #bab6b6;
-  --done-500: #0088b0;
-  --bar: #0088b0;
-  --bar-future: #bab6b6;
+  --phase-bg: #d6d9dc;
+  --phase-surface: #c9cdd1;
+  --phase-track: #b0b5bb;
+  --phase-muted: #3a3838;
+  --phase-subtle: #4f4d4d;
 }
 
-/* College list dashboard (unboxed 1a + ideal-share pie 2b) */
+.list-dash-chrome {
+  padding: var(--space-6) var(--space-8) 0;
+  background: var(--color-bg);
+}
+.list-dash-body {
+  padding: var(--space-8) var(--space-8) var(--space-8);
+  background: var(--phase-bg);
+  color: var(--color-text);
+  transition: background 0.35s ease;
+  --color-bg: var(--phase-bg);
+  --color-surface: var(--phase-surface);
+  --color-neutral-200: var(--phase-surface);
+  --color-neutral-300: var(--phase-track);
+  --text-muted: var(--phase-muted);
+  --text-subtle: var(--phase-subtle);
+}
+
+/* College list dashboard — calendar-bar phase stepper */
 .list-dash {
   display: flex;
   flex-direction: column;
   gap: 48px;
   margin-bottom: var(--space-8);
 }
-.list-dash .label {
+.list-dash .label,
+.list-dash-chrome .label {
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 500;
@@ -3621,7 +3613,8 @@ table.schools .muted,
   text-transform: uppercase;
   color: var(--text-subtle);
 }
-.list-dash .datum {
+.list-dash .datum,
+.list-dash-chrome .datum {
   font-family: var(--font-mono);
   font-size: 13px;
   font-variant-numeric: tabular-nums;
@@ -3639,7 +3632,7 @@ table.schools .muted,
   flex-direction: column;
   gap: 8px;
 }
-.list-dash .kicker {
+.list-dash-chrome .kicker {
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 500;
@@ -3647,7 +3640,7 @@ table.schools .muted,
   text-transform: uppercase;
   color: var(--text-accent);
 }
-.list-dash h1 {
+.list-dash-chrome h1 {
   margin: 0;
   font-family: var(--font-heading);
   font-size: 42px;
@@ -3655,15 +3648,16 @@ table.schools .muted,
   letter-spacing: -0.02em;
   line-height: 1.1;
 }
-.list-dash .readout {
+.list-dash-chrome .readout {
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding-left: var(--space-6);
   border-left: 1px solid var(--color-divider);
   background: none;
+  min-width: 220px;
 }
-.list-dash .readout-fig {
+.list-dash-chrome .readout-fig {
   font-family: var(--font-mono);
   font-size: 52px;
   font-weight: 500;
@@ -3673,65 +3667,128 @@ table.schools .muted,
   color: var(--color-accent-500);
 }
 
-.list-dash-phases {
+/* Span tones fixed per step; darker left → right. */
+.list-dash-step[data-step="exploration"] {
+  --step-tone: #bab6b6;
+  --step-own-bg: #f3f2f2;
+}
+.list-dash-step[data-step="consideration"] {
+  --step-tone: #a8a39d;
+  --step-own-bg: #e7e5e2;
+}
+.list-dash-step[data-step="applications"] {
+  --step-tone: #8f969e;
+  --step-own-bg: #d6d9dc;
+}
+
+.list-dash-stepper {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-6);
+  gap: 6px;
   list-style: none;
-  margin: 0;
+  margin: 36px 0 0;
   padding: 0;
 }
-.list-dash-phase {
+.list-dash-step {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: var(--space-3);
-  border-top: 3px solid var(--color-neutral-300);
+  min-width: 0;
 }
-.list-dash-phase[aria-current="step"] {
-  border-top-color: var(--color-accent-500);
-}
-.list-dash-phase-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 8px;
-  width: 100%;
-  min-height: 44px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
+.list-dash-step-btn {
+  all: unset;
+  box-sizing: border-box;
   cursor: pointer;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 6px 18px 26px;
+  border-top: 3px solid transparent;
+  background: transparent;
+  font-family: var(--font-body);
+  transition: background 0.35s ease;
 }
-.list-dash-phase-btn:focus-visible {
+.list-dash-step-btn:hover {
+  background: color-mix(in oklab, var(--step-own-bg) 55%, transparent);
+}
+.list-dash-step-btn:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
-.list-dash-phase.is-viewing .phase-name {
-  color: var(--color-text);
+.list-dash-step-btn[aria-current="step"] {
+  background: var(--step-own-bg);
+  border-top-color: var(--color-text);
 }
-.list-dash-phase .phase-top {
+.step-today-slot {
+  height: 34px;
+  position: relative;
+}
+.step-today {
+  position: absolute;
+  bottom: 0;
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--space-2);
-  width: 100%;
+  flex-direction: column;
+  gap: 4px;
+  transform: translateX(-50%);
 }
-.list-dash-phase .phase-name {
-  font-family: var(--font-heading);
-  font-size: 20px;
-  font-weight: 600;
-}
-.list-dash-phase .phase-now {
+.step-today span:first-child {
   font-family: var(--font-mono);
   font-size: 10px;
-  font-weight: 500;
+  letter-spacing: 0.16em;
+  color: var(--text-accent);
+  white-space: nowrap;
+}
+.step-today span:last-child {
+  width: 2px;
+  height: 12px;
+  background: var(--color-accent-500);
+}
+.step-bar-slot {
+  height: 12px;
+  display: flex;
+  align-items: center;
+}
+.step-bar {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  background: var(--step-tone);
+  transition: height 0.2s ease;
+}
+.list-dash-step-btn[aria-current="step"] .step-bar {
+  height: 12px;
+}
+.step-bar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--color-accent-500);
+}
+.step-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
+  color: var(--text-subtle);
+}
+.step-now {
+  margin-left: 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
   color: var(--text-accent);
+}
+.step-name {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-top: -4px;
+}
+.list-dash-step-btn[aria-current="step"] .step-name {
+  color: var(--color-text);
+}
+.step-meta {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-subtle);
 }
 
 .list-dash-panels {
@@ -3921,9 +3978,15 @@ table.schools .muted,
     padding-left: 0;
     border-left: 0;
   }
-  .list-dash-phases {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-4);
+  .list-dash-stepper {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: var(--space-2);
+  }
+  .list-dash-step-btn {
+    padding: 6px 12px 18px;
+  }
+  .step-name {
+    font-size: 18px;
   }
 }
 

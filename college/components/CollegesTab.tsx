@@ -7,7 +7,10 @@ import {
   advanceSchoolPatch,
   archiveSchoolPatch,
   currentListPhaseId,
+  listPhaseBarProgress,
   listPhaseById,
+  listPhaseDaySpan,
+  listPhaseEyebrow,
   listSizeBar,
   normalizeColumns,
   retreatSchoolPatch,
@@ -41,7 +44,6 @@ import {
 export function CollegesTab({
   schools,
   selectedId,
-  dateline,
   listPrefs,
   memberId,
   memberRole,
@@ -63,7 +65,6 @@ export function CollegesTab({
 }: {
   schools: School[];
   selectedId: string | null;
-  dateline: string;
   listPrefs: MemberListPrefs;
   memberId: string;
   memberRole: string;
@@ -284,13 +285,24 @@ export function CollegesTab({
   const calendarPhaseId = currentListPhaseId();
   const pct = (n: number) => `${(n / sizeBar.scaleMax) * 100}%`;
   const sizeFillTop = Math.min(sizeBar.count, sizeBar.hi);
+  const stepperColumns = LIST_PHASES.map((item) => `${listPhaseDaySpan(item)}fr`).join(" ");
+  const today = new Date();
+  const todayLabel = `TODAY · ${today
+    .toLocaleString("en", { month: "short" })
+    .toUpperCase()} ${today.getDate()}`;
+
+  function movePhaseView(delta: -1 | 1) {
+    const index = LIST_PHASES.findIndex((item) => item.id === phaseId);
+    const next = LIST_PHASES[index + delta];
+    if (next) setPhaseId(next.id);
+  }
 
   return (
     <section className="colleges-list" data-list-phase={phaseId}>
-      <div className="list-dash">
+      <div className="list-dash-chrome">
         <header className="list-dash-head">
           <div className="list-dash-title">
-            <span className="kicker">{dateline}</span>
+            <span className="kicker">{listPhaseEyebrow(phaseId)}</span>
             <h1>College list</h1>
           </div>
           <div className="readout">
@@ -302,36 +314,54 @@ export function CollegesTab({
           </div>
         </header>
 
-        <ol className="list-dash-phases" aria-label="List phases">
-          {LIST_PHASES.map((item) => {
+        <ol
+          className="list-dash-stepper"
+          aria-label="College list phases"
+          style={{ gridTemplateColumns: stepperColumns }}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowRight") {
+              event.preventDefault();
+              movePhaseView(1);
+            } else if (event.key === "ArrowLeft") {
+              event.preventDefault();
+              movePhaseView(-1);
+            }
+          }}
+        >
+          {LIST_PHASES.map((item, index) => {
             const count = schools.filter(
               (school) => !school.archived && schoolOnListPhase(school, item.id),
             ).length;
             const isCalendarCurrent = item.id === calendarPhaseId;
             const isViewing = phaseId === item.id;
+            const progress = listPhaseBarProgress(item, today);
             return (
-              <li
-                key={item.id}
-                className={[
-                  "list-dash-phase",
-                  isViewing ? "is-viewing" : "",
-                  isCalendarCurrent ? "is-current" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                aria-current={isCalendarCurrent ? "step" : undefined}
-              >
+              <li key={item.id} className="list-dash-step" data-step={item.id}>
                 <button
                   type="button"
-                  className="list-dash-phase-btn"
-                  aria-pressed={isViewing}
+                  className="list-dash-step-btn"
+                  aria-current={isViewing ? "step" : undefined}
                   onClick={() => setPhaseId(item.id)}
                 >
-                  <span className="phase-top">
-                    <span className="phase-name">{item.label}</span>
-                    {isCalendarCurrent ? <span className="phase-now">Now</span> : null}
+                  <div className="step-today-slot">
+                    {isCalendarCurrent ? (
+                      <div className="step-today" style={{ left: `${(progress * 100).toFixed(2)}%` }}>
+                        <span>{todayLabel}</span>
+                        <span />
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="step-bar-slot">
+                    <div className="step-bar">
+                      <i style={{ width: `${(progress * 100).toFixed(2)}%` }} />
+                    </div>
+                  </div>
+                  <span className="step-num">
+                    Step {index + 1}
+                    {isCalendarCurrent ? <span className="step-now">NOW</span> : null}
                   </span>
-                  <span className="datum">
+                  <span className="step-name">{item.label}</span>
+                  <span className="step-meta">
                     {item.window} · {count} / {item.target} schools
                   </span>
                 </button>
@@ -339,62 +369,65 @@ export function CollegesTab({
             );
           })}
         </ol>
-
-        <div className="list-dash-panels">
-          <section className="list-dash-panel" aria-labelledby="list-size-h">
-            <div className="panel-head">
-              <span className="label" id="list-size-h">
-                List size
-              </span>
-              <span className={`over-note${sizeBar.overRange ? "" : sizeBar.underRange ? " is-under" : " is-in"}`}>
-                {sizeBar.note}
-              </span>
-            </div>
-            <div className="sizebar" aria-hidden="true">
-              <div
-                className="sizebar-range"
-                style={{ left: pct(sizeBar.lo), width: pct(sizeBar.hi - sizeBar.lo) }}
-              />
-              <div className="sizebar-track" />
-              <div className="sizebar-fill" style={{ width: pct(sizeFillTop) }} />
-              {sizeBar.count > sizeBar.hi ? (
-                <div
-                  className="sizebar-over"
-                  style={{
-                    left: pct(sizeBar.hi),
-                    width: pct(sizeBar.count - sizeBar.hi),
-                  }}
-                />
-              ) : null}
-              <div className="sizebar-target" style={{ left: pct(sizeBar.target) }} />
-              <span className="sizebar-tick" style={{ left: pct(sizeBar.lo) }}>
-                {sizeBar.lo}
-              </span>
-              <span className="sizebar-tick" style={{ left: pct(sizeBar.hi) }}>
-                {sizeBar.hi}
-              </span>
-              <span
-                className={`sizebar-tick${sizeBar.overRange ? " is-over" : ""}`}
-                style={{ left: pct(sizeBar.count) }}
-              >
-                {sizeBar.count}
-              </span>
-            </div>
-            <p className="prose">{sizeBar.prose}</p>
-          </section>
-
-          <section className="list-dash-panel" aria-labelledby="list-mix-h">
-            <span className="label" id="list-mix-h">
-              Selectivity mix vs ideal
-            </span>
-            <SelectivityMixPie
-              slices={mixPie.slices}
-              setCount={mixPie.setCount}
-              unsetCount={mixPie.unsetCount}
-            />
-          </section>
-        </div>
       </div>
+
+      <div className="list-dash-body">
+        <div className="list-dash">
+          <div className="list-dash-panels">
+            <section className="list-dash-panel" aria-labelledby="list-size-h">
+              <div className="panel-head">
+                <span className="label" id="list-size-h">
+                  List size
+                </span>
+                <span className={`over-note${sizeBar.overRange ? "" : sizeBar.underRange ? " is-under" : " is-in"}`}>
+                  {sizeBar.note}
+                </span>
+              </div>
+              <div className="sizebar" aria-hidden="true">
+                <div
+                  className="sizebar-range"
+                  style={{ left: pct(sizeBar.lo), width: pct(sizeBar.hi - sizeBar.lo) }}
+                />
+                <div className="sizebar-track" />
+                <div className="sizebar-fill" style={{ width: pct(sizeFillTop) }} />
+                {sizeBar.count > sizeBar.hi ? (
+                  <div
+                    className="sizebar-over"
+                    style={{
+                      left: pct(sizeBar.hi),
+                      width: pct(sizeBar.count - sizeBar.hi),
+                    }}
+                  />
+                ) : null}
+                <div className="sizebar-target" style={{ left: pct(sizeBar.target) }} />
+                <span className="sizebar-tick" style={{ left: pct(sizeBar.lo) }}>
+                  {sizeBar.lo}
+                </span>
+                <span className="sizebar-tick" style={{ left: pct(sizeBar.hi) }}>
+                  {sizeBar.hi}
+                </span>
+                <span
+                  className={`sizebar-tick${sizeBar.overRange ? " is-over" : ""}`}
+                  style={{ left: pct(sizeBar.count) }}
+                >
+                  {sizeBar.count}
+                </span>
+              </div>
+              <p className="prose">{sizeBar.prose}</p>
+            </section>
+
+            <section className="list-dash-panel" aria-labelledby="list-mix-h">
+              <span className="label" id="list-mix-h">
+                Selectivity mix vs ideal
+              </span>
+              <SelectivityMixPie
+                slices={mixPie.slices}
+                setCount={mixPie.setCount}
+                unsetCount={mixPie.unsetCount}
+              />
+            </section>
+          </div>
+        </div>
 
       <form
         className="toolbar"
@@ -598,6 +631,7 @@ export function CollegesTab({
             </div>
           );
         })}
+      </div>
       </div>
 
       {selected ? (
