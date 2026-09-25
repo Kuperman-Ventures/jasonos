@@ -231,10 +231,21 @@ export function CollegeRecord({
               school={school}
               nextDeadline={
                 nextOpenDeadline?.dueDate
-                  ? { title: nextOpenDeadline.title, dueDate: nextOpenDeadline.dueDate }
+                  ? {
+                      id: nextOpenDeadline.id,
+                      title: nextOpenDeadline.title,
+                      dueDate: nextOpenDeadline.dueDate,
+                    }
                   : null
               }
-              onSetStand={() => setTab("settings")}
+              onPatch={onPatch}
+              onChangeDeadlineDate={(iso) => {
+                if (nextOpenDeadline) {
+                  onPatchDeadline(nextOpenDeadline.id, { dueDate: iso || null });
+                  return;
+                }
+                if (iso) onAddDeadline("Next deadline", iso);
+              }}
             />
           ) : null}
 

@@ -1,36 +1,121 @@
+"use client";
+
 import {
+  type AdmissionTrack,
+  type ApplicationStatus,
+  type InterestLevel,
   type School,
-  formatDate,
+  ADMISSION_TRACKS,
+  INTEREST_LEVELS,
+  SNAPSHOT_APPLICATION_STATUSES,
+  SNAPSHOT_PROGRAMS,
+  TEST_POLICY_OPTIONS,
+  programOfferedFromRecord,
+  programsOfferedHeadline,
   statusLabel,
   tierLabel,
-  trackLabel,
-  INTEREST_LEVELS,
   pathwayFromContext,
 } from "@/lib/types";
 import { websiteHref, websiteHostLabel } from "@/lib/school-photo";
 import { SchoolLocationMap, SelectivityGauge } from "./SchoolSnapshotViz";
 
-function displayOrUnset(value: string): string {
-  const trimmed = value.trim();
-  return trimmed || "Not set";
+type SnapshotPatch = Partial<
+  Pick<
+    School,
+    | "interestLevel"
+    | "applicationStatus"
+    | "admissionTrack"
+    | "testPolicy"
+    | "familyTestPolicy"
+    | "trackedPrograms"
+  >
+>;
+
+function PlainFact({ label, value, href }: { label: string; value: string; href?: string }) {
+  const empty = !value.trim() || value === "Not set";
+  return (
+    <div className="fact">
+      <dt>{label}</dt>
+      <dd>
+        {href && !empty ? (
+          <a href={href} target="_blank" rel="noreferrer">
+            {value}
+          </a>
+        ) : (
+          value || "Not set"
+        )}
+      </dd>
+    </div>
+  );
 }
 
-function offeredLabel(value: string): { text: string; tone: "offered" | "unset" | "plain" } {
-  const trimmed = value.trim();
-  if (/^yes$/i.test(trimmed)) return { text: "Offered", tone: "offered" };
-  if (/^no$/i.test(trimmed)) return { text: "Not offered", tone: "unset" };
-  if (!trimmed) return { text: "Not set", tone: "unset" };
-  return { text: trimmed, tone: "plain" };
+function SetSelect({
+  label,
+  note,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  note?: string;
+  value: string;
+  options: { id: string; label: string }[];
+  onChange: (next: string) => void;
+}) {
+  const unset = !value;
+  return (
+    <div className="fact">
+      <dt>
+        {label}
+        {note ? <small>{note}</small> : null}
+      </dt>
+      <dd>
+        <span className={`set${unset ? " unset" : ""}`}>
+          <select
+            aria-label={label}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+          >
+            <option value="">{unset ? "Set" : "Clear"}</option>
+            {options
+              .filter((item) => item.id !== "")
+              .map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label}
+                </option>
+              ))}
+          </select>
+        </span>
+      </dd>
+    </div>
+  );
 }
 
-function programsHeadline(mechanical: string, materials: string): string {
-  const me = /^yes$/i.test(mechanical.trim());
-  const mat = /^yes$/i.test(materials.trim());
-  if (me && mat) return "Both offered";
-  if (me) return "Mechanical engineering";
-  if (mat) return "Material sciences";
-  if (!mechanical.trim() && !materials.trim()) return "Programs not set";
-  return "Mixed";
+function SetDate({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (next: string) => void;
+}) {
+  const unset = !value;
+  return (
+    <div className="fact">
+      <dt>{label}</dt>
+      <dd>
+        <span className={`set date${unset ? " unset" : ""}`}>
+          <input
+            type="date"
+            aria-label={label}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+          />
+        </span>
+      </dd>
+    </div>
+  );
 }
 
 function campusHeadline(campusSize: string): string {
@@ -39,65 +124,39 @@ function campusHeadline(campusSize: string): string {
   return trimmed.replace(/\s*\/\s*/g, " · ");
 }
 
-function standHeadline(school: School): { title: string; accent: boolean } {
-  if (school.applicationStatus) {
-    return { title: statusLabel(school.applicationStatus), accent: false };
-  }
-  if (school.interestLevel || school.admissionTrack) {
-    return { title: "In progress", accent: true };
-  }
-  return { title: "Not started", accent: false };
-}
-
-function Fact({
-  label,
-  value,
-  tone = "plain",
-  href,
-}: {
-  label: string;
-  value: string;
-  tone?: "plain" | "offered" | "unset" | "link";
-  href?: string;
-}) {
-  const empty = !value.trim() || value === "Not set";
-  const className = empty || tone === "unset" ? "unset" : tone === "offered" ? "offered" : undefined;
-  return (
-    <div className="fact">
-      <dt>{label}</dt>
-      <dd className={className}>
-        {href && !empty ? (
-          <a href={href} target="_blank" rel="noreferrer">
-            {value}
-          </a>
-        ) : (
-          value
-        )}
-      </dd>
-    </div>
-  );
-}
-
 export function SchoolSnapshotSummary({
   school,
   nextDeadline,
-  onSetStand,
+  onPatch,
+  onChangeDeadlineDate,
 }: {
   school: School;
-  nextDeadline: { title: string; dueDate: string } | null;
-  onSetStand: () => void;
+  nextDeadline: { id: string; title: string; dueDate: string } | null;
+  onPatch: (patch: SnapshotPatch) => void;
+  onChangeDeadlineDate: (iso: string) => void;
 }) {
   const tier = tierLabel(school.selectivityTier) || "Selectivity not set";
-  const stand = standHeadline(school);
-  const interest =
-    INTEREST_LEVELS.find((item) => item.id === school.interestLevel)?.label || "Not set";
-  const me = offeredLabel(school.mechanicalEngineering);
-  const mat = offeredLabel(school.materials);
+  const statusHead = school.applicationStatus
+    ? statusLabel(school.applicationStatus)
+    : "Not started";
   const pathway = pathwayFromContext(school.admissionsContext);
   const siteHref = websiteHref(school.website);
   const siteLabel = websiteHostLabel(school.website);
-  const standIncomplete =
-    !school.interestLevel || !school.applicationStatus || !school.admissionTrack;
+
+  const recordTestPolicy = school.testPolicy.trim();
+  const testPolicyValue = recordTestPolicy || school.familyTestPolicy.trim();
+  const testPolicyMissing = !recordTestPolicy;
+
+  const offeredMap: Record<string, boolean | null> = {};
+  for (const program of SNAPSHOT_PROGRAMS) {
+    offeredMap[program.label] = programOfferedFromRecord(school[program.offeredField]);
+  }
+  const tracked = school.trackedPrograms.filter((label) =>
+    SNAPSHOT_PROGRAMS.some((row) => row.label === label),
+  );
+  const addable = SNAPSHOT_PROGRAMS.map((row) => row.label).filter(
+    (label) => !tracked.includes(label),
+  );
 
   const missingBits: string[] = [];
   if (!school.middle50.trim()) missingBits.push("Middle 50%");
@@ -109,8 +168,7 @@ export function SchoolSnapshotSummary({
       <div className="intro">
         <h1>School snapshot</h1>
         <p className="lede">
-          Key facts at a glance. Use the other tabs to edit settings, requirements, money, or
-          school-level project work.
+          Key facts at a glance. Set family-owned values in place — they save as you change them.
         </p>
       </div>
 
@@ -136,11 +194,24 @@ export function SchoolSnapshotSummary({
           </span>
           <span className="area-head">{tier}</span>
           <dl className="facts">
-            <Fact label="Test policy" value={displayOrUnset(school.testPolicy)} />
-            <Fact label="SAT" value={displayOrUnset(school.satContext)} />
-            <Fact
+            {testPolicyMissing ? (
+              <SetSelect
+                label="Test policy"
+                note="Missing from record"
+                value={school.familyTestPolicy}
+                options={[
+                  { id: "", label: "Set" },
+                  ...TEST_POLICY_OPTIONS.map((value) => ({ id: value, label: value })),
+                ]}
+                onChange={(next) => onPatch({ familyTestPolicy: next })}
+              />
+            ) : (
+              <PlainFact label="Test policy" value={testPolicyValue} />
+            )}
+            <PlainFact label="SAT" value={school.satContext.trim() || "Not set"} />
+            <PlainFact
               label="Pathway"
-              value={displayOrUnset(pathway || school.admissionsContext)}
+              value={(pathway || school.admissionsContext).trim() || "Not set"}
             />
           </dl>
         </section>
@@ -149,51 +220,91 @@ export function SchoolSnapshotSummary({
           <span className="area-label" id="snap-stand-h">
             Where you stand
           </span>
-          <span className={`area-head${stand.accent ? " is-status" : ""}`}>{stand.title}</span>
+          <span className="area-head is-status">{statusHead}</span>
           <dl className="facts">
-            <Fact
+            <SetSelect
               label="Interest"
-              value={interest}
-              tone={interest === "Not set" ? "unset" : "plain"}
+              value={school.interestLevel}
+              options={INTEREST_LEVELS}
+              onChange={(next) => onPatch({ interestLevel: next as InterestLevel })}
             />
-            <Fact
+            <SetSelect
               label="Application status"
-              value={school.applicationStatus ? statusLabel(school.applicationStatus) : "Not set"}
-              tone={school.applicationStatus ? "plain" : "unset"}
+              value={school.applicationStatus}
+              options={SNAPSHOT_APPLICATION_STATUSES}
+              onChange={(next) => onPatch({ applicationStatus: next as ApplicationStatus })}
             />
-            <Fact
+            <SetSelect
               label="Admission track"
-              value={school.admissionTrack ? trackLabel(school.admissionTrack) : "Not set"}
-              tone={school.admissionTrack ? "plain" : "unset"}
+              value={school.admissionTrack}
+              options={ADMISSION_TRACKS}
+              onChange={(next) => onPatch({ admissionTrack: next as AdmissionTrack })}
             />
-            <Fact
+            <SetDate
               label="Next deadline"
-              value={
-                nextDeadline
-                  ? `${nextDeadline.title} · ${formatDate(nextDeadline.dueDate)}`
-                  : "Not set"
-              }
-              tone={nextDeadline ? "plain" : "unset"}
+              value={nextDeadline?.dueDate ?? ""}
+              onChange={onChangeDeadlineDate}
             />
           </dl>
-          {standIncomplete ? (
-            <button type="button" className="action" onClick={onSetStand}>
-              Set these
-            </button>
-          ) : null}
         </section>
 
         <section className="area" aria-labelledby="snap-prog-h">
           <span className="area-label" id="snap-prog-h">
             Programs
           </span>
-          <span className="area-head">
-            {programsHeadline(school.mechanicalEngineering, school.materials)}
-          </span>
+          <span className="area-head">{programsOfferedHeadline(tracked, offeredMap)}</span>
           <dl className="facts">
-            <Fact label="Mechanical engineering" value={me.text} tone={me.tone} />
-            <Fact label="Material sciences" value={mat.text} tone={mat.tone} />
-            <Fact label="Degree shape" value={displayOrUnset(school.materialsOffering)} />
+            {tracked.map((label) => {
+              const ok = offeredMap[label];
+              const offered = ok === true;
+              return (
+                <div className="fact" key={label}>
+                  <dt>{label}</dt>
+                  <dd>
+                    <span className={`offer${offered ? "" : " no"}`}>
+                      <i aria-hidden="true">{offered ? "✓" : "–"}</i>
+                      {offered ? "Offered" : "Not offered"}
+                    </span>
+                    <button
+                      type="button"
+                      className="remove"
+                      aria-label={`Stop tracking ${label}`}
+                      onClick={() =>
+                        onPatch({
+                          trackedPrograms: tracked.filter((item) => item !== label),
+                        })
+                      }
+                    >
+                      ×
+                    </button>
+                  </dd>
+                </div>
+              );
+            })}
+            <PlainFact
+              label="Degree shape"
+              value={school.materialsOffering.trim() || "Not set"}
+            />
+            {addable.length ? (
+              <div className="add">
+                <select
+                  aria-label="Track another program"
+                  value=""
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    if (!next) return;
+                    onPatch({ trackedPrograms: [...tracked, next] });
+                  }}
+                >
+                  <option value="">＋ Track another program</option>
+                  {addable.map((label) => (
+                    <option key={label} value={label}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
           </dl>
         </section>
 
@@ -203,11 +314,10 @@ export function SchoolSnapshotSummary({
           </span>
           <span className="area-head">{campusHeadline(school.campusSize)}</span>
           <dl className="facts">
-            <Fact label="City" value={displayOrUnset(school.location)} />
-            <Fact
+            <PlainFact label="City" value={school.location.trim() || "Not set"} />
+            <PlainFact
               label="Site"
               value={siteLabel || "Not set"}
-              tone={siteHref ? "link" : "unset"}
               href={siteHref || undefined}
             />
           </dl>
