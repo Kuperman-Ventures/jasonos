@@ -3475,12 +3475,6 @@ table.schools .muted,
   color: var(--color-text);
   cursor: pointer;
 }
-.todos-panel .task-ptag.is-empty {
-  border-style: dashed;
-  border-color: rgba(32, 30, 29, 0.25);
-  background: transparent;
-  color: var(--color-neutral-600);
-}
 .todos-panel .task-ptag:hover,
 .todos-panel .task-ptag[aria-expanded="true"] { background: var(--color-accent-100); }
 .todos-panel .task-ptag:focus-visible {
@@ -3557,14 +3551,6 @@ table.schools .muted,
   color: var(--color-accent-700);
   font-weight: 700;
 }
-.todo-move-menu hr {
-  height: 1px;
-  margin: 6px 0;
-  border: 0;
-  background: rgba(32, 30, 29, 0.12);
-}
-.todo-move-new { color: var(--color-accent-700); font-weight: 600; }
-
 .todo-project-groups {
   display: flex;
   flex-direction: column;
