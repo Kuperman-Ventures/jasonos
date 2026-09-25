@@ -854,19 +854,31 @@ export function IngestPanel({
                   className={isDrop ? "ingest-draft muted-row" : "ingest-draft"}
                   data-route={row.route}
                 >
-                  <div className="ingest-route" role="group" aria-label="Route">
-                    {ROUTES.map((option) => (
-                      <button
-                        key={option.id}
-                        type="button"
-                        className={row.route === option.id ? "active" : ""}
-                        aria-pressed={row.route === option.id}
-                        onClick={() => patchDraft(row.id, { route: option.id })}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
+                  <div className="ingest-draft-top">
+                    <div className="ingest-route" role="group" aria-label="Route">
+                      {ROUTES.map((option) => (
+                        <button
+                          key={option.id}
+                          type="button"
+                          className={row.route === option.id ? "active" : ""}
+                          aria-pressed={row.route === option.id}
+                          onClick={() => patchDraft(row.id, { route: option.id })}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-secondary ingest-trash"
+                      aria-label="Trash this row"
+                      title="Trash"
+                      onClick={() => trashDraft(row.id)}
+                    >
+                      Trash
+                    </button>
                   </div>
+
                   <div className="ingest-draft-main">
                     {row.updatesExisting ? (
                       <span className="ingest-updates-tag">Updates existing</span>
@@ -875,85 +887,93 @@ export function IngestPanel({
                       className="field ingest-label"
                       value={row.label}
                       onChange={(event) => patchDraft(row.id, { label: event.target.value })}
-                      aria-label="Suggestion text"
+                      aria-label="Suggestion title"
                     />
                     {row.details ? <p className="ingest-details">{row.details}</p> : null}
                     {row.evidence ? <p className="ingest-evidence">“{row.evidence}”</p> : null}
-                    {row.conditionalOn ? (
-                      <p className="ingest-note-hint">If: {row.conditionalOn}</p>
-                    ) : null}
-                    {typeof row.confidence === "number" ? (
-                      <p className="ingest-note-hint">
-                        Confidence {Math.round(row.confidence * 100)}%
-                        {row.category ? ` · ${row.category.replace(/_/g, " ")}` : ""}
-                        {row.school ? ` · ${row.school}` : ""}
-                      </p>
-                    ) : null}
+                    <div className="ingest-draft-meta">
+                      {row.conditionalOn ? (
+                        <p className="ingest-note-hint">If: {row.conditionalOn}</p>
+                      ) : null}
+                      {typeof row.confidence === "number" ? (
+                        <p className="ingest-note-hint">
+                          Confidence {Math.round(row.confidence * 100)}%
+                          {row.category ? ` · ${row.category.replace(/_/g, " ")}` : ""}
+                          {row.school ? ` · ${row.school}` : ""}
+                        </p>
+                      ) : null}
+                      {isNote ? <p className="ingest-note-hint">Goes to the Notes pinboard.</p> : null}
+                      {isCalendar ? (
+                        <p className="ingest-note-hint">Goes to Calendar events.</p>
+                      ) : null}
+                      {isDrop ? <p className="ingest-note-hint">Won’t be saved.</p> : null}
+                    </div>
                   </div>
-                  {isTodo ? (
-                    <>
-                      <select
-                        className="field"
-                        value={row.owner}
-                        onChange={(event) =>
-                          patchDraft(row.id, { owner: event.target.value as Owner })
-                        }
-                        aria-label="Owner"
-                      >
-                        {OWNERS.map((owner) => (
-                          <option key={owner.id} value={owner.id}>
-                            {owner.label}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        className="field"
-                        value={row.parentId}
-                        onChange={(event) => patchDraft(row.id, { parentId: event.target.value })}
-                        aria-label="Parent checklist item"
-                      >
-                        {parents.map((parent) => (
-                          <option key={parent.id} value={parent.id}>
-                            {parent.phase}: {parent.label.slice(0, 80)}
-                          </option>
-                        ))}
-                      </select>
-                      <input
-                        className="field"
-                        type="date"
-                        value={row.dueDate ?? ""}
-                        onChange={(event) =>
-                          patchDraft(row.id, { dueDate: event.target.value || null })
-                        }
-                        aria-label="Due date"
-                      />
-                    </>
+
+                  {isTodo || isCalendar ? (
+                    <div className="ingest-draft-fields">
+                      {isTodo ? (
+                        <>
+                          <label className="ingest-field">
+                            <span>Owner</span>
+                            <select
+                              className="field"
+                              value={row.owner}
+                              onChange={(event) =>
+                                patchDraft(row.id, { owner: event.target.value as Owner })
+                              }
+                            >
+                              {OWNERS.map((owner) => (
+                                <option key={owner.id} value={owner.id}>
+                                  {owner.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="ingest-field ingest-field-wide">
+                            <span>Parent checklist</span>
+                            <select
+                              className="field"
+                              value={row.parentId}
+                              onChange={(event) =>
+                                patchDraft(row.id, { parentId: event.target.value })
+                              }
+                            >
+                              {parents.map((parent) => (
+                                <option key={parent.id} value={parent.id}>
+                                  {parent.phase}: {parent.label.slice(0, 80)}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="ingest-field">
+                            <span>Due</span>
+                            <input
+                              className="field"
+                              type="date"
+                              value={row.dueDate ?? ""}
+                              onChange={(event) =>
+                                patchDraft(row.id, { dueDate: event.target.value || null })
+                              }
+                            />
+                          </label>
+                        </>
+                      ) : null}
+                      {isCalendar ? (
+                        <label className="ingest-field">
+                          <span>Event date</span>
+                          <input
+                            className="field"
+                            type="date"
+                            value={row.dueDate ?? ""}
+                            onChange={(event) =>
+                              patchDraft(row.id, { dueDate: event.target.value || null })
+                            }
+                          />
+                        </label>
+                      ) : null}
+                    </div>
                   ) : null}
-                  {isCalendar ? (
-                    <input
-                      className="field"
-                      type="date"
-                      value={row.dueDate ?? ""}
-                      onChange={(event) =>
-                        patchDraft(row.id, { dueDate: event.target.value || null })
-                      }
-                      aria-label="Event date"
-                    />
-                  ) : null}
-                  {isNote ? <p className="ingest-note-hint">Goes to the Notes pinboard.</p> : null}
-                  {isCalendar ? (
-                    <p className="ingest-note-hint">Goes to Calendar events.</p>
-                  ) : null}
-                  {isDrop ? <p className="ingest-note-hint">Won’t be saved.</p> : null}
-                  <button
-                    type="button"
-                    className="btn btn-secondary ingest-trash"
-                    aria-label="Trash this row"
-                    title="Trash"
-                    onClick={() => trashDraft(row.id)}
-                  >
-                    Trash
-                  </button>
                 </li>
               );
             })}
