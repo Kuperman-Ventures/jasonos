@@ -15,6 +15,15 @@ export type SuggestedStep = {
   endDate: string | null;
   /** Where this row goes on confirm. Trash removes the row; Drop keeps it visible but discarded. */
   route: IngestRoute;
+  /** Model extraction extras (optional for legacy heuristic rows). */
+  details?: string | null;
+  category?: string | null;
+  school?: string | null;
+  dueDateBasis?: "explicit" | "inferred" | null;
+  conditionalOn?: string | null;
+  updatesExisting?: string | null;
+  evidence?: string | null;
+  confidence?: number | null;
 };
 
 export type IngestSourceDraft = {
@@ -193,76 +202,6 @@ export function heuristicSuggestions(text: string, phaseList: Phase[] = phases):
   }));
 }
 
-function aiAvailable(): boolean {
-  return Boolean(
-    process.env.AI_GATEWAY_API_KEY?.trim() ||
-      process.env.VERCEL_OIDC_TOKEN?.trim() ||
-      process.env.VERCEL,
-  );
-}
-
-const INGEST_TODO_SYSTEM = `You extract ONLY real to-dos from ingested text (email, notes, PDF, paste, URL) for a high-school college-admissions household (Jason parent/admin, Kat parent, Kyle student).
-
-A to-do is a concrete next action someone on the household must do. Write each label as a short imperative sentence (e.g. "Register Kyle for AP exams on College Board by Oct 31").
-
-INCLUDE when the source clearly asks for or implies work such as: register, sign up, schedule, pay, submit, email, call, complete a form, practice, visit, apply, follow up, confirm, request, upload, download.
-
-EXCLUDE (do not return these at all — not even as notes):
-- Greetings and sign-offs ("Dear AP Students and Parents,", "Thanks,")
-- Section headers and step labels ("STEP TWO:", "AP Registration Timeline:")
-- Pure schedule / fee lines that are not themselves an action ("Sep 17, 2026 08:00 AM: …", "LATE REGISTRATION FEE:")
-- Link blurbs ("This is the link students can use…")
-- Background narration ("Students log into the College Board website…") unless rewritten into an imperative to-do the household should perform
-- Vague goals with no next step
-- Duplicate or near-duplicate actions
-
-Return ONLY a JSON array. Each object:
-{ "label": string, "owner": "jason"|"kat"|"kyle", "parentId": string, "dueDate": "YYYY-MM-DD"|null, "startDate": "YYYY-MM-DD"|null, "endDate": "YYYY-MM-DD"|null }
-
-Rules:
-- Prefer fewer high-quality to-dos over many weak ones. Zero items is correct when the text has no real to-dos.
-- Do not invent facts not implied by the source. Max 8 items.
-- parentId must be from the parent list or "inbox".`;
-
-function parseSuggestionJson(raw: string): SuggestedStep[] {
-  const match = raw.match(/\[[\s\S]*\]/);
-  if (!match) return [];
-  try {
-    const parsed = JSON.parse(match[0]) as Array<{
-      label?: string;
-      owner?: string;
-      parentId?: string;
-      dueDate?: string | null;
-      startDate?: string | null;
-      endDate?: string | null;
-    }>;
-    return parsed
-      .filter((row) => typeof row.label === "string" && row.label.trim().length >= 8)
-      .map((row) => ({ ...row, label: normalizeTodoLabel(row.label!) }))
-      .filter((row) => !isJunkTodoLabel(row.label!))
-      .slice(0, 8)
-      .map((row, index) => ({
-        id: `draft-${index + 1}`,
-        label: row.label!,
-        owner: row.owner && isOwner(row.owner) ? row.owner : guessOwner(row.label!),
-        parentId:
-          typeof row.parentId === "string" && row.parentId
-            ? row.parentId
-            : guessParentId(row.label!),
-        dueDate: typeof row.dueDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(row.dueDate) ? row.dueDate : null,
-        startDate:
-          typeof row.startDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(row.startDate)
-            ? row.startDate
-            : null,
-        endDate:
-          typeof row.endDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(row.endDate) ? row.endDate : null,
-        route: "todo" as const,
-      }));
-  } catch {
-    return [];
-  }
-}
-
 /** Append-ready block for Notes tab from ingest rows routed as notes. */
 export function formatIngestNotesBlock(input: {
   title: string;
@@ -290,36 +229,67 @@ export function appendIngestNotes(existing: string, block: string): string {
 export async function suggestStepsFromText(
   text: string,
   phaseList: Phase[] = phases,
-): Promise<{ suggestions: SuggestedStep[]; method: "ai" | "heuristic" }> {
+  context?: {
+    sourceFilename?: string;
+    sourceType?: "paste" | "url" | "file" | "pdf" | "word" | "image";
+    schoolNames?: string[];
+    openTodos?: { title: string; school: string | null; dueDate: string | null }[];
+  },
+): Promise<{
+  suggestions: SuggestedStep[];
+  method: "ai";
+  documentSummary: string;
+  error?: string;
+}> {
   const trimmed = text.trim();
-  if (!trimmed) return { suggestions: [], method: "heuristic" };
-
-  if (!aiAvailable()) {
-    return { suggestions: heuristicSuggestions(trimmed, phaseList), method: "heuristic" };
+  if (!trimmed) {
+    return { suggestions: [], method: "ai", documentSummary: "Empty document." };
   }
 
-  try {
-    const parents = checklistParents(phaseList)
-      .slice(0, 40)
-      .map((row) => `${row.id} | ${row.phase} | ${row.label}`)
-      .join("\n");
-    const { generateText } = await import("ai");
-    const { gateway } = await import("@ai-sdk/gateway");
-    const result = await generateText({
-      model: gateway("anthropic/claude-sonnet-4-6"),
-      system: INGEST_TODO_SYSTEM,
-      prompt: `Parent checklist options:
-${parents}
+  const { extractTodosFromText } = await import("@/lib/extract-todos");
+  const today = new Date();
+  const todayIso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const result = await extractTodosFromText(trimmed, {
+    today: todayIso,
+    sourceFilename: context?.sourceFilename ?? "",
+    sourceType: context?.sourceType ?? "paste",
+    schoolNames: context?.schoolNames ?? [],
+    openTodos: context?.openTodos ?? [],
+  });
 
-Source text (any ingest: email, paste, file, or URL extract):
-${trimmed.slice(0, 12000)}`,
-    });
-    // Empty array is a valid answer — do not fall back to the line-splitting heuristic.
-    return { suggestions: parseSuggestionJson(result.text), method: "ai" };
-  } catch {
-    // fall through
+  if (!result.ok) {
+    return {
+      suggestions: [],
+      method: "ai",
+      documentSummary: "",
+      error: result.error,
+    };
   }
-  return { suggestions: heuristicSuggestions(trimmed, phaseList), method: "heuristic" };
+
+  const suggestions: SuggestedStep[] = result.todos.map((todo, index) => ({
+    id: `draft-${index + 1}`,
+    label: todo.title,
+    owner: guessOwner(`${todo.title} ${todo.details}`),
+    parentId: guessParentId(`${todo.title} ${todo.details} ${todo.school ?? ""}`, phaseList),
+    dueDate: todo.due_date,
+    startDate: null,
+    endDate: null,
+    route: "todo" as const,
+    details: todo.details,
+    category: todo.category,
+    school: todo.school,
+    dueDateBasis: todo.due_date_basis,
+    conditionalOn: todo.conditional_on,
+    updatesExisting: todo.updates_existing,
+    evidence: todo.evidence,
+    confidence: todo.confidence,
+  }));
+
+  return {
+    suggestions,
+    method: "ai",
+    documentSummary: result.documentSummary,
+  };
 }
 
 export async function fetchUrlText(url: string): Promise<string> {
