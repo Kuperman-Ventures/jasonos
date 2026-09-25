@@ -2,7 +2,7 @@
 
 Compared the **old heuristic** (`heuristicSuggestions`) against the **new model extractor** (`extractTodosFromText`) on three fixtures.
 
-Local agent VM has no `AI_GATEWAY_API_KEY`, so the new path correctly returns a configuration error here. On Vercel Production (kyle-college) the AI Gateway is available and runs the Claude Sonnet model.
+Local agent VM has no `AI_GATEWAY_API_KEY`, so the new path correctly returns a configuration error here. On Vercel Production (kyle-college) the AI Gateway runs **Gemini 2.5 Flash** by default (free-tier). Claude Sonnet needs paid AI Gateway credits; if a preferred model is blocked, the app falls back to `poolside/laguna-s-2.1-free`.
 
 ## Fixtures
 
