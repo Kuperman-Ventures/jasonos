@@ -6007,6 +6007,7 @@ table.schools td.interest-cell {
 .chip-archive {
   flex: none;
   width: 32px;
+  min-height: 34px;
   padding: 0;
   display: inline-flex;
   align-items: center;
