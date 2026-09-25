@@ -42,6 +42,12 @@ type SchoolRow = {
   mechanical_engineering: string;
   materials: string;
   materials_offering: string;
+  materials_program?: string | null;
+  materials_source_url?: string | null;
+  aerospace_engineering?: string | null;
+  aerospace_program?: string | null;
+  aerospace_notes?: string | null;
+  aerospace_source_url?: string | null;
   admissions_context: string;
   sat_context: string;
   selectivity: string;
@@ -159,6 +165,12 @@ export function mapSchool(row: SchoolRow): School {
     mechanicalEngineering: row.mechanical_engineering,
     materials: row.materials,
     materialsOffering: row.materials_offering,
+    materialsProgram: row.materials_program ?? "",
+    materialsSourceUrl: row.materials_source_url ?? "",
+    aerospaceEngineering: row.aerospace_engineering ?? "",
+    aerospaceProgram: row.aerospace_program ?? "",
+    aerospaceNotes: row.aerospace_notes ?? "",
+    aerospaceSourceUrl: row.aerospace_source_url ?? "",
     admissionsContext: row.admissions_context,
     satContext: row.sat_context,
     selectivity: row.selectivity,
@@ -181,6 +193,7 @@ export function mapSchool(row: SchoolRow): School {
       row.tracked_programs,
       row.mechanical_engineering ?? "",
       row.materials ?? "",
+      row.aerospace_engineering ?? "",
     ),
     middle50: row.middle_50 ?? "",
     applicationPlatform: row.application_platform ?? "",
@@ -202,7 +215,7 @@ export function mapSchool(row: SchoolRow): School {
 }
 
 const SCHOOL_COLUMNS =
-  "id, name, location, campus_size, mechanical_engineering, materials, materials_offering, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, deadline, deadline_label, selectivity_tier, interest_level, application_status, admission_track, test_policy, family_test_policy, tracked_programs, middle_50, application_platform, required_essays, teacher_recs, cost_of_attendance, net_price_estimate, merit_aid_notes, research_sources, website, list_phase, phases_participated, archived, archived_at, school_steps(id, label, owner, done, sort_order), deadlines(id, title, due_date, completed, sort_order), contacts(id, name, role, email, phone)";
+  "id, name, location, campus_size, mechanical_engineering, materials, materials_offering, materials_program, materials_source_url, aerospace_engineering, aerospace_program, aerospace_notes, aerospace_source_url, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, deadline, deadline_label, selectivity_tier, interest_level, application_status, admission_track, test_policy, family_test_policy, tracked_programs, middle_50, application_platform, required_essays, teacher_recs, cost_of_attendance, net_price_estimate, merit_aid_notes, research_sources, website, list_phase, phases_participated, archived, archived_at, school_steps(id, label, owner, done, sort_order), deadlines(id, title, due_date, completed, sort_order), contacts(id, name, role, email, phone)";
 
 export async function listSchools(): Promise<School[]> {
   if (!supabaseConfigured()) return seedSchools();
@@ -280,6 +293,12 @@ const PATCH_COLUMNS: Record<string, string> = {
   mechanicalEngineering: "mechanical_engineering",
   materials: "materials",
   materialsOffering: "materials_offering",
+  materialsProgram: "materials_program",
+  materialsSourceUrl: "materials_source_url",
+  aerospaceEngineering: "aerospace_engineering",
+  aerospaceProgram: "aerospace_program",
+  aerospaceNotes: "aerospace_notes",
+  aerospaceSourceUrl: "aerospace_source_url",
   admissionsContext: "admissions_context",
   satContext: "sat_context",
   selectivity: "selectivity",

@@ -80,7 +80,7 @@ async function searchWeb(
 Return ONLY JSON:
 {"officialName":"","location":"","campusSize":"","mechanicalEngineering":"","materials":"","materialsOffering":"","testPolicy":"","applicationPlatform":"","requiredEssays":"","teacherRecs":"","meritAidNotes":"","deadlines":[{"title":"","dueDate":""}]}
 
-mechanicalEngineering and materials are Yes, No, or "". Yes only if a result says that undergraduate major is offered. No only if a result says it is not offered.
+mechanicalEngineering and materials are Yes, Partial, No, or "". Yes only if a result says that undergraduate major is offered standalone. Partial if only a concentration, track, minor, or certificate exists. No only if a result says it is not offered.
 dueDate is YYYY-MM-DD only when the result states that exact date, including the year. If the year is missing, put the month and day in the title and leave dueDate empty.
 Do not include SAT scores, admit rates, or prices. Do not choose a plan for the family.`,
         prompt: `Look up undergraduate admissions facts for ${name}. Kyle is a junior at Columbia High School in Maplewood, NJ, interested in mechanical engineering and materials, enrolling in fall 2028. Find the application platform, required essays, teacher recommendation count, whether mechanical engineering and materials are offered, merit scholarships that are publicly described, and application deadline dates.`,

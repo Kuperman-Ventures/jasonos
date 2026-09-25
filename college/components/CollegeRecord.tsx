@@ -392,7 +392,7 @@ export function CollegeRecord({
                   <BlurInput
                     value={school.mechanicalEngineering}
                     ariaLabel="Mechanical Engineering"
-                    placeholder="Yes / No"
+                    placeholder="Yes / Partial / No"
                     onCommit={(value) => onPatch({ mechanicalEngineering: value })}
                   />
                 </label>
@@ -401,7 +401,7 @@ export function CollegeRecord({
                   <BlurInput
                     value={school.materials}
                     ariaLabel="Material Sciences"
-                    placeholder="Yes / No"
+                    placeholder="Yes / Partial / No"
                     onCommit={(value) => onPatch({ materials: value })}
                   />
                 </label>
@@ -412,6 +412,60 @@ export function CollegeRecord({
                     ariaLabel="Material sciences offering"
                     placeholder="Not entered"
                     onCommit={(value) => onPatch({ materialsOffering: value })}
+                  />
+                </label>
+                <label className="stack-field">
+                  <span className="label">Materials program</span>
+                  <BlurInput
+                    value={school.materialsProgram}
+                    ariaLabel="Materials program"
+                    placeholder="Program name"
+                    onCommit={(value) => onPatch({ materialsProgram: value })}
+                  />
+                </label>
+                <label className="stack-field">
+                  <span className="label">Aerospace Engineering</span>
+                  <BlurInput
+                    value={school.aerospaceEngineering}
+                    ariaLabel="Aerospace Engineering"
+                    placeholder="Yes / Partial / No"
+                    onCommit={(value) => onPatch({ aerospaceEngineering: value })}
+                  />
+                </label>
+                <label className="stack-field">
+                  <span className="label">Aerospace program</span>
+                  <BlurInput
+                    value={school.aerospaceProgram}
+                    ariaLabel="Aerospace program"
+                    placeholder="Program name"
+                    onCommit={(value) => onPatch({ aerospaceProgram: value })}
+                  />
+                </label>
+                <label className="stack-field">
+                  <span className="label">Aerospace notes</span>
+                  <BlurInput
+                    value={school.aerospaceNotes}
+                    ariaLabel="Aerospace notes"
+                    placeholder="One sentence"
+                    onCommit={(value) => onPatch({ aerospaceNotes: value })}
+                  />
+                </label>
+                <label className="stack-field">
+                  <span className="label">Aerospace source</span>
+                  <BlurInput
+                    value={school.aerospaceSourceUrl}
+                    ariaLabel="Aerospace source URL"
+                    placeholder="https://"
+                    onCommit={(value) => onPatch({ aerospaceSourceUrl: value })}
+                  />
+                </label>
+                <label className="stack-field">
+                  <span className="label">Materials source</span>
+                  <BlurInput
+                    value={school.materialsSourceUrl}
+                    ariaLabel="Materials source URL"
+                    placeholder="https://"
+                    onCommit={(value) => onPatch({ materialsSourceUrl: value })}
                   />
                 </label>
               </div>

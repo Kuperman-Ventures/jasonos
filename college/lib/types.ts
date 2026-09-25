@@ -63,6 +63,12 @@ export type School = {
   mechanicalEngineering: string;
   materials: string;
   materialsOffering: string;
+  materialsProgram: string;
+  materialsSourceUrl: string;
+  aerospaceEngineering: string;
+  aerospaceProgram: string;
+  aerospaceNotes: string;
+  aerospaceSourceUrl: string;
   admissionsContext: string;
   satContext: string;
   selectivity: string;
@@ -110,12 +116,21 @@ export type SchoolSeed = {
   mechanicalEngineering: string;
   materials: string;
   materialsOffering: string;
+  materialsProgram?: string;
+  materialsSourceUrl?: string;
+  aerospaceEngineering?: string;
+  aerospaceProgram?: string;
+  aerospaceNotes?: string;
+  aerospaceSourceUrl?: string;
   admissionsContext: string;
   satContext: string;
   selectivity: string;
   notes: string;
   listOrder: number;
 };
+
+/** Yes = standalone bachelor's; Partial = concentration/track/minor/certificate; No = none. */
+export type ProgramOfferStatus = "yes" | "partial" | "no" | null;
 
 export type PhaseItem = { id: string; text: string };
 export type Phase = { phase: string; window: string; items: PhaseItem[] };
@@ -198,10 +213,11 @@ export const TEST_POLICY_OPTIONS = ["Test required", "Test optional", "Test-free
 /** Programs the snapshot can track, keyed to offered fields on the school record. */
 export const SNAPSHOT_PROGRAMS: {
   label: string;
-  offeredField: "mechanicalEngineering" | "materials";
+  offeredField: "mechanicalEngineering" | "materials" | "aerospaceEngineering";
 }[] = [
   { label: "Mechanical engineering", offeredField: "mechanicalEngineering" },
   { label: "Material sciences", offeredField: "materials" },
+  { label: "Aerospace engineering", offeredField: "aerospaceEngineering" },
 ];
 
 export const OWNERS: { id: Owner; label: string }[] = [
@@ -434,8 +450,17 @@ export function formatDate(iso: string | null): string {
 }
 
 export function fromSeed(seed: SchoolSeed): School {
+  const mechanicalEngineering = seed.mechanicalEngineering;
+  const materials = seed.materials;
+  const aerospaceEngineering = seed.aerospaceEngineering ?? "";
   return {
     ...seed,
+    materialsProgram: seed.materialsProgram ?? "",
+    materialsSourceUrl: seed.materialsSourceUrl ?? "",
+    aerospaceEngineering,
+    aerospaceProgram: seed.aerospaceProgram ?? "",
+    aerospaceNotes: seed.aerospaceNotes ?? "",
+    aerospaceSourceUrl: seed.aerospaceSourceUrl ?? "",
     choice: "unsure",
     plan: "",
     visited: false,
@@ -449,7 +474,7 @@ export function fromSeed(seed: SchoolSeed): School {
     admissionTrack: "",
     testPolicy: "",
     familyTestPolicy: "",
-    trackedPrograms: defaultTrackedPrograms(seed.mechanicalEngineering, seed.materials),
+    trackedPrograms: defaultTrackedPrograms(mechanicalEngineering, materials, aerospaceEngineering),
     middle50: "",
     applicationPlatform: "",
     requiredEssays: "",
@@ -469,41 +494,72 @@ export function fromSeed(seed: SchoolSeed): School {
   };
 }
 
-/** Default tracked list: programs that already have an offered answer, else both. */
-export function defaultTrackedPrograms(mechanical: string, materials: string): string[] {
+/** Default tracked list: programs that already have an offered answer, else all known programs. */
+export function defaultTrackedPrograms(
+  mechanical: string,
+  materials: string,
+  aerospace = "",
+): string[] {
   const tracked: string[] = [];
   if (mechanical.trim()) tracked.push("Mechanical engineering");
   if (materials.trim()) tracked.push("Material sciences");
+  if (aerospace.trim()) tracked.push("Aerospace engineering");
   return tracked.length ? tracked : SNAPSHOT_PROGRAMS.map((row) => row.label);
 }
 
-export function normalizeTrackedPrograms(raw: unknown, mechanical: string, materials: string): string[] {
+export function normalizeTrackedPrograms(
+  raw: unknown,
+  mechanical: string,
+  materials: string,
+  aerospace = "",
+): string[] {
   if (Array.isArray(raw)) {
     const labels = new Set(SNAPSHOT_PROGRAMS.map((row) => row.label));
     const out = raw.filter((value): value is string => typeof value === "string" && labels.has(value));
     if (out.length) return out;
   }
-  return defaultTrackedPrograms(mechanical, materials);
+  return defaultTrackedPrograms(mechanical, materials, aerospace);
 }
 
 export function programsOfferedHeadline(
   tracked: string[],
-  offered: Record<string, boolean | null>,
+  offered: Record<string, ProgramOfferStatus | boolean | null>,
 ): string {
   const total = tracked.length;
   if (!total) return "None tracked";
-  const n = tracked.filter((label) => offered[label] === true).length;
-  if (n === total) {
+  const statuses = tracked.map((label) => {
+    const value = offered[label];
+    if (value === true || value === "yes") return "yes";
+    if (value === "partial") return "partial";
+    if (value === false || value === "no") return "no";
+    return null;
+  });
+  const yes = statuses.filter((status) => status === "yes").length;
+  const partial = statuses.filter((status) => status === "partial").length;
+  if (yes === total) {
     if (total === 1) return "Offered";
     if (total === 2) return "Both offered";
     return `All ${total} offered`;
   }
-  return `${n} of ${total} offered`;
+  if (yes + partial === total && partial > 0) {
+    if (yes === 0) return total === 1 ? "Partial" : "Partial only";
+    return `${yes} offered, ${partial} partial`;
+  }
+  return `${yes} of ${total} offered`;
 }
 
-export function programOfferedFromRecord(value: string): boolean | null {
+export function programOfferStatus(value: string): ProgramOfferStatus {
   const trimmed = value.trim();
-  if (/^yes$/i.test(trimmed)) return true;
-  if (/^no$/i.test(trimmed)) return false;
+  if (/^yes$/i.test(trimmed)) return "yes";
+  if (/^partial$/i.test(trimmed)) return "partial";
+  if (/^no$/i.test(trimmed)) return "no";
+  return null;
+}
+
+/** True for Yes or Partial, false for No, null when unset. */
+export function programOfferedFromRecord(value: string): boolean | null {
+  const status = programOfferStatus(value);
+  if (status === "yes" || status === "partial") return true;
+  if (status === "no") return false;
   return null;
 }

@@ -1277,6 +1277,21 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
 .snapshot .offer.no i {
   background: #9b9797;
 }
+.snapshot .offer.partial {
+  color: oklch(0.52 0.1 70);
+}
+.snapshot .offer.partial i {
+  background: oklch(0.62 0.12 70);
+}
+.snapshot .offer-meta {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-subtle);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.35;
+  max-width: 28ch;
+}
 .snapshot .remove {
   width: 28px;
   height: 28px;

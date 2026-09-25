@@ -89,6 +89,7 @@ export function CollegesTab({
   const [query, setQuery] = useState("");
   const [tier, setTier] = useState<SelectivityTier | "any">("any");
   const [interest, setInterest] = useState<InterestLevel | "any">("any");
+  const [aerospaceFilter, setAerospaceFilter] = useState<"any" | "Yes" | "Partial" | "No">("any");
   const [sort, setSort] = useState<SortKey>("list");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
   const [name, setName] = useState("");
@@ -146,15 +147,21 @@ export function CollegesTab({
     const filtered = phaseSchools.filter((school) => {
       if (tier !== "any" && school.selectivityTier !== tier) return false;
       if (interest !== "any" && school.interestLevel !== interest) return false;
+      if (
+        aerospaceFilter !== "any" &&
+        school.aerospaceEngineering.trim().toLowerCase() !== aerospaceFilter.toLowerCase()
+      ) {
+        return false;
+      }
       if (!q) return true;
-      return [school.name, school.location, school.notes, school.admissionsContext]
+      return [school.name, school.location, school.notes, school.admissionsContext, school.aerospaceProgram]
         .join(" ")
         .toLowerCase()
         .includes(q);
     });
     const sorted = [...filtered].sort((a, b) => compareSchools(a, b, sort));
     return sortDir === 1 ? sorted : sorted.reverse();
-  }, [phaseSchools, query, tier, interest, sort, sortDir]);
+  }, [phaseSchools, query, tier, interest, aerospaceFilter, sort, sortDir]);
 
   const selected = schools.find((school) => school.id === selectedId) ?? null;
   const archivedInPhase = schools.filter(
@@ -266,6 +273,19 @@ export function CollegesTab({
           <td key={column}>
             <div>{action.title || "—"}</div>
             {action.dueDate ? <div className="muted">{formatDate(action.dueDate)}</div> : null}
+          </td>
+        );
+      case "mechanical":
+        return <td key={column}>{school.mechanicalEngineering.trim() || "—"}</td>;
+      case "materials":
+        return <td key={column}>{school.materials.trim() || "—"}</td>;
+      case "aerospace":
+        return (
+          <td key={column}>
+            <div>{school.aerospaceEngineering.trim() || "—"}</div>
+            {school.aerospaceProgram.trim() ? (
+              <div className="muted">{school.aerospaceProgram}</div>
+            ) : null}
           </td>
         );
       default:
@@ -476,6 +496,19 @@ export function CollegesTab({
         </select>
         <select
           className="select"
+          value={aerospaceFilter}
+          aria-label="Filter by aerospace engineering"
+          onChange={(event) =>
+            setAerospaceFilter(event.target.value as "any" | "Yes" | "Partial" | "No")
+          }
+        >
+          <option value="any">All aerospace</option>
+          <option value="Yes">Aerospace Yes</option>
+          <option value="Partial">Aerospace Partial</option>
+          <option value="No">Aerospace No</option>
+        </select>
+        <select
+          className="select"
           value={sort}
           aria-label="Sort schools"
           onChange={(event) => {
@@ -617,6 +650,15 @@ export function CollegesTab({
                   </span>
                 ) : null}
                 {columns.includes("action") ? <span>{action.title || "No next action"}</span> : null}
+                {columns.includes("mechanical") ? (
+                  <span>ME {school.mechanicalEngineering.trim() || "—"}</span>
+                ) : null}
+                {columns.includes("materials") ? (
+                  <span>Mat {school.materials.trim() || "—"}</span>
+                ) : null}
+                {columns.includes("aerospace") ? (
+                  <span>Aero {school.aerospaceEngineering.trim() || "—"}</span>
+                ) : null}
               </div>
               {columns.includes("interest") ? (
                 <div className="school-card-interest" data-level={school.interestLevel || undefined}>
