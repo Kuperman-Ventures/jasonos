@@ -5908,9 +5908,10 @@ table.schools tbody tr.row.selected {
 }
 
 table.schools td.interest-cell {
-  min-width: 300px;
-  width: 300px;
-  max-width: 300px;
+  /* Four level chips + archive X need ~380px; 300px clipped Top choice. */
+  min-width: 380px;
+  width: 380px;
+  max-width: 380px;
   vertical-align: middle;
 }
 
@@ -5919,6 +5920,7 @@ table.schools td.interest-cell {
   min-height: 44px;
   display: flex;
   align-items: center;
+  width: 100%;
 }
 .interest-value {
   display: flex;
@@ -5963,19 +5965,22 @@ table.schools td.interest-cell {
   align-items: center;
   gap: 6px;
   flex-wrap: nowrap;
-  min-width: 0;
+  flex: none;
+  width: max-content;
+  max-width: none;
 }
 .chips-levels {
   display: flex;
   gap: 4px;
   flex-wrap: nowrap;
-  min-width: 0;
+  flex: none;
 }
 .chip {
   font: inherit;
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
+  flex: none;
   padding: 8px 9px;
   border: 0;
   cursor: pointer;
