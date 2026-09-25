@@ -26,6 +26,7 @@ import {
   type TodoEditMap,
   type TodoSubtaskMap,
 } from "@/lib/project-todos";
+import { normalizeTodoProjects, type TodoProject } from "@/lib/todo-projects";
 import { clampScore } from "@/lib/scores";
 import type { Scores } from "@/lib/types";
 
@@ -37,6 +38,7 @@ type StateRow = {
   ingest_sources?: unknown;
   todo_subtasks?: unknown;
   todo_edits?: unknown;
+  todo_projects?: unknown;
   note_items?: unknown;
   calendar_events?: unknown;
   activities_journal?: unknown;
@@ -164,6 +166,7 @@ function emptyState() {
     ingestSources: [] as PersistedIngestSource[],
     todoSubtasks: {} as TodoSubtaskMap,
     todoEdits: {} as TodoEditMap,
+    todoProjects: [] as TodoProject[],
     noteItems: localDemoPins(),
     calendarEvents: [] as CalendarEvent[],
     activitiesJournal: emptyJournal(),
@@ -179,7 +182,7 @@ export async function GET() {
     const { data, error } = await db
       .from("app_state")
       .select(
-        "checklist, scores, notes, project_steps, ingest_sources, todo_subtasks, todo_edits, note_items, calendar_events, activities_journal",
+        "checklist, scores, notes, project_steps, ingest_sources, todo_subtasks, todo_edits, todo_projects, note_items, calendar_events, activities_journal",
       )
       .eq("id", "kyle-college")
       .maybeSingle();
@@ -194,6 +197,7 @@ export async function GET() {
       ingestSources: normalizeIngestSources(row?.ingest_sources),
       todoSubtasks: normalizeTodoSubtasks(row?.todo_subtasks),
       todoEdits: normalizeTodoEdits(row?.todo_edits),
+      todoProjects: normalizeTodoProjects(row?.todo_projects),
       noteItems: normalizePinNotes(row?.note_items),
       calendarEvents: normalizeCalendarEvents(row?.calendar_events),
       activitiesJournal: normalizeJournal(row?.activities_journal),
@@ -218,6 +222,7 @@ export async function PATCH(request: Request) {
     ingestSources?: PersistedIngestSource[];
     todoSubtasks?: TodoSubtaskMap;
     todoEdits?: TodoEditMap;
+    todoProjects?: TodoProject[];
     noteItems?: PinNote[];
     calendarEvents?: CalendarEvent[];
     activitiesJournal?: ActivitiesJournal;
@@ -296,6 +301,9 @@ export async function PATCH(request: Request) {
   if (Array.isArray(body.ingestSources)) patch.ingest_sources = normalizeIngestSources(body.ingestSources);
   if (body.todoEdits && typeof body.todoEdits === "object") {
     patch.todo_edits = normalizeTodoEdits(body.todoEdits);
+  }
+  if (Array.isArray(body.todoProjects)) {
+    patch.todo_projects = normalizeTodoProjects(body.todoProjects);
   }
   if (Array.isArray(body.noteItems)) patch.note_items = normalizePinNotes(body.noteItems);
   if (Array.isArray(body.calendarEvents)) {

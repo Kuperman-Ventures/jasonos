@@ -12,6 +12,7 @@ import {
   type ProjectSectionId,
 } from "@/lib/project-management";
 import { type TodoEdit, type TodoEditMap, type TodoSubtaskMap } from "@/lib/project-todos";
+import type { TodoProject } from "@/lib/todo-projects";
 import type { MemberProfile } from "@/lib/member-avatars";
 import type { Phase } from "@/lib/types";
 
@@ -27,9 +28,12 @@ export function ProjectManagementTab({
   calendarFocusDate,
   subtasks,
   todoEdits,
+  todoProjects,
   onToggle,
   onChangeSubtasks,
   onEditTodo,
+  onChangeTodoProjects,
+  onDeleteTodoProject,
   onDeleteTodo,
   onAddTodo,
   onChangeCalendarEvents,
@@ -46,9 +50,12 @@ export function ProjectManagementTab({
   calendarFocusDate?: string | null;
   subtasks: TodoSubtaskMap;
   todoEdits: TodoEditMap;
+  todoProjects: TodoProject[];
   onToggle: (id: string, checked: boolean) => void;
   onChangeSubtasks: (next: TodoSubtaskMap) => void;
   onEditTodo: (id: string, patch: TodoEdit) => void;
+  onChangeTodoProjects: (next: TodoProject[]) => void;
+  onDeleteTodoProject: (projectId: string) => void;
   onDeleteTodo: (id: string) => void;
   onAddTodo: (label: string) => void;
   onChangeCalendarEvents: (next: CalendarEvent[]) => void;
@@ -169,9 +176,12 @@ export function ProjectManagementTab({
           projectSteps={projectSteps}
           subtasks={subtasks}
           todoEdits={todoEdits}
+          todoProjects={todoProjects}
           onToggle={onToggle}
           onChangeSubtasks={onChangeSubtasks}
           onEditTodo={onEditTodo}
+          onChangeTodoProjects={onChangeTodoProjects}
+          onDeleteTodoProject={onDeleteTodoProject}
           onDeleteTodo={onDeleteTodo}
         />
       ) : null}
