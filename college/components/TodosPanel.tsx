@@ -998,22 +998,24 @@ export function TodosPanel({
     <div className="pm-panel todos-panel">
       <div className="todos-groupbar">
         <span className="label">Group by</span>
-        <button
-          type="button"
-          className="todos-seg"
-          aria-pressed={groupBy === "person"}
-          onClick={() => changeGroupBy("person")}
-        >
-          Person
-        </button>
-        <button
-          type="button"
-          className="todos-seg"
-          aria-pressed={groupBy === "project"}
-          onClick={() => changeGroupBy("project")}
-        >
-          Project
-        </button>
+        <div className="todos-rocker" role="group" aria-label="Group by">
+          <button
+            type="button"
+            className="todos-rocker-opt"
+            aria-pressed={groupBy === "person"}
+            onClick={() => changeGroupBy("person")}
+          >
+            Person
+          </button>
+          <button
+            type="button"
+            className="todos-rocker-opt"
+            aria-pressed={groupBy === "project"}
+            onClick={() => changeGroupBy("project")}
+          >
+            Project
+          </button>
+        </div>
         {groupBy === "project" ? (
           <button type="button" className="todos-newproject" onClick={() => startNewProject()}>
             ＋ New project
