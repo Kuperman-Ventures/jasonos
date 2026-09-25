@@ -3429,6 +3429,11 @@ table.schools .muted,
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
+.todos-panel .task-row.is-person-view .task-grip {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.todos-panel .task-row.is-person-view .task-grip:active { cursor: pointer; }
 .todos-panel .task-owner { display: flex; align-items: center; }
 .todos-panel .task-owner .member-badge-avatar {
   width: 28px;
