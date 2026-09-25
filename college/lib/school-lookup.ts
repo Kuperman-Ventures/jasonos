@@ -99,7 +99,11 @@ Do not include SAT scores, admit rates, or prices. Do not choose a plan for the 
           facts.meritAidNotes ||
           facts.testPolicy,
       );
-      return { facts, sources, status: (hasFact ? "filled" : "empty") as const };
+      return {
+        facts,
+        sources,
+        status: hasFact ? ("filled" as const) : ("empty" as const),
+      };
     };
 
     try {
