@@ -209,23 +209,6 @@ function parseJsonObject(raw: string): unknown {
   return JSON.parse(body.slice(start, end + 1));
 }
 
-function aiAvailable(): boolean {
-  return Boolean(
-    process.env.AI_GATEWAY_API_KEY?.trim() ||
-      process.env.VERCEL_OIDC_TOKEN?.trim() ||
-      process.env.VERCEL ||
-      process.env.ANTHROPIC_API_KEY?.trim(),
-  );
-}
-
-function extractionModelId(): string {
-  return (
-    process.env.EXTRACTION_MODEL?.trim() ||
-    process.env.ANTHROPIC_MODEL?.trim() ||
-    "anthropic/claude-sonnet-4-6"
-  );
-}
-
 function buildUserPrompt(text: string, context: ExtractTodosContext): string {
   const schools =
     context.schoolNames.length > 0
@@ -254,11 +237,15 @@ Document text:
 ${text}`;
 }
 
-async function callModelOnce(text: string, context: ExtractTodosContext): Promise<ExtractionResult> {
+async function callModelOnce(
+  text: string,
+  context: ExtractTodosContext,
+  modelOverride?: string | null,
+): Promise<ExtractionResult> {
   const { generateText } = await import("ai");
-  const { gateway } = await import("@ai-sdk/gateway");
+  const { resolveCollegeModel } = await import("@/lib/ai-model");
   const result = await generateText({
-    model: gateway(extractionModelId()),
+    model: await resolveCollegeModel(modelOverride),
     system: EXTRACT_TODOS_SYSTEM_PROMPT,
     prompt: buildUserPrompt(text, context),
   });
@@ -270,20 +257,46 @@ async function callModelWithRetry(
   text: string,
   context: ExtractTodosContext,
 ): Promise<ExtractionResult> {
-  try {
-    return await callModelOnce(text, context);
-  } catch (firstError) {
+  const {
+    FREE_FALLBACK_COLLEGE_AI_MODEL,
+    formatGatewayAccessError,
+    isGatewayModelAccessError,
+  } = await import("@/lib/ai-model");
+
+  const run = async (modelOverride?: string | null) => {
     try {
-      return await callModelOnce(text, context);
-    } catch (secondError) {
-      const message =
-        secondError instanceof Error
-          ? secondError.message
-          : firstError instanceof Error
-            ? firstError.message
-            : "Extraction failed";
-      throw new Error(`Could not parse model output as valid extraction JSON: ${message}`);
+      return await callModelOnce(text, context, modelOverride);
+    } catch (firstError) {
+      try {
+        return await callModelOnce(text, context, modelOverride);
+      } catch (secondError) {
+        const message =
+          secondError instanceof Error
+            ? secondError.message
+            : firstError instanceof Error
+              ? firstError.message
+              : "Extraction failed";
+        throw new Error(message);
+      }
     }
+  };
+
+  try {
+    return await run();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Extraction failed";
+    if (isGatewayModelAccessError(message)) {
+      try {
+        return await run(FREE_FALLBACK_COLLEGE_AI_MODEL);
+      } catch (fallbackError) {
+        const fallbackMessage =
+          fallbackError instanceof Error ? fallbackError.message : message;
+        throw new Error(
+          `Could not extract to-dos: ${formatGatewayAccessError(fallbackMessage)}`,
+        );
+      }
+    }
+    throw new Error(`Could not parse model output as valid extraction JSON: ${message}`);
   }
 }
 
@@ -299,7 +312,8 @@ export async function extractTodosFromText(
   if (!trimmed) {
     return { ok: true, documentSummary: "Empty document.", todos: [] };
   }
-  if (!aiAvailable()) {
+  const { aiGatewayAvailable } = await import("@/lib/ai-model");
+  if (!aiGatewayAvailable()) {
     return {
       ok: false,
       error: "AI extraction is not configured (set AI_GATEWAY_API_KEY or deploy on Vercel).",
