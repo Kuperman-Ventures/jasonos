@@ -1,15 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import { MemberBadge } from "./MemberBadge";
+import { TodoMoveMenu } from "./TodoMoveMenu";
+import { TodoProjectEditor, type ProjectEditorState } from "./TodoProjectEditor";
 import type { PersistedProjectStep } from "@/lib/ingest";
-import type { MemberProfile } from "@/lib/member-avatars";
+import { type MemberProfile } from "@/lib/member-avatars";
 import {
   assignmentPatch,
   assignedByBadge,
   canMarkTodoDone,
   dueTone,
   groupTodosByOwner,
+  groupTodosByProject,
   listProjectTodos,
   memberOwnerId,
   openListStats,
@@ -23,6 +26,17 @@ import {
   type TodoSubtaskMap,
   type UnclaimedTodoBucket,
 } from "@/lib/project-todos";
+import {
+  TODO_GROUP_STORAGE_KEY,
+  createTodoProject,
+  isTodoGroupBy,
+  nextProjectColorIndex,
+  normalizeProjectName,
+  openDatedStats,
+  projectColor,
+  type TodoGroupBy,
+  type TodoProject,
+} from "@/lib/todo-projects";
 import { OWNERS, ownerLabel, type Owner, type Phase } from "@/lib/types";
 
 const CARET = (
@@ -30,6 +44,19 @@ const CARET = (
     <path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
   </svg>
 );
+
+/** Project grouping props every row needs, threaded through the list wrappers. */
+type TodoProjectProps = {
+  groupBy: TodoGroupBy;
+  projects: TodoProject[];
+  menuTodoId: string | null;
+  dragTodoId: string | null;
+  onToggleMenu: (id: string) => void;
+  onPickProject: (id: string, projectId: string | null) => void;
+  onNewProjectFromTodo: (id: string) => void;
+  onCloseMenu: () => void;
+  onGripDragStart: (id: string, event: DragEvent<HTMLElement>) => void;
+};
 
 function TaskRow({
   todo,
@@ -39,6 +66,10 @@ function TaskRow({
   profiles,
   drafting,
   draftLabel,
+  groupBy,
+  projects,
+  menuOpen,
+  dragging,
   onToggleOpen,
   onToggle,
   onToggleSub,
@@ -50,6 +81,11 @@ function TaskRow({
   onEditSub,
   onAssign,
   onDelete,
+  onToggleMenu,
+  onPickProject,
+  onNewProjectFromTodo,
+  onCloseMenu,
+  onGripDragStart,
 }: {
   todo: ProjectTodo;
   subtasks: TodoSubtask[];
@@ -58,6 +94,10 @@ function TaskRow({
   profiles: Map<string, MemberProfile>;
   drafting: boolean;
   draftLabel: string;
+  groupBy: TodoGroupBy;
+  projects: TodoProject[];
+  menuOpen: boolean;
+  dragging: boolean;
   onToggleOpen: () => void;
   onToggle: (id: string, checked: boolean) => void;
   onToggleSub: (subId: string, checked: boolean) => void;
@@ -69,6 +109,11 @@ function TaskRow({
   onEditSub: (subId: string, patch: { label?: string; dueDate?: string | null }) => void;
   onAssign: (owner: Owner | null) => void;
   onDelete: () => void;
+  onToggleMenu: () => void;
+  onPickProject: (projectId: string | null) => void;
+  onNewProjectFromTodo: () => void;
+  onCloseMenu: () => void;
+  onGripDragStart: (event: DragEvent<HTMLElement>) => void;
 }) {
   const canToggle = canMarkTodoDone(viewer, todo.owner);
   const fromOwner = todo.assignedBy && todo.owner && todo.assignedBy !== todo.owner ? todo.assignedBy : null;
@@ -83,6 +128,15 @@ function TaskRow({
     : "Claim this to-do before checking it off";
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editing, setEditing] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const gripRef = useRef<HTMLButtonElement>(null);
+  const tagRef = useRef<HTMLButtonElement>(null);
+  const menuWrapRef = useRef<HTMLDivElement>(null);
+
+  const byProject = groupBy === "project";
+  const project = projects.find((row) => row.id === todo.projectId) ?? null;
+  const ownerProfile = todo.owner ? profiles.get(todo.owner) : null;
+  const showMeta = !byProject;
 
   useEffect(() => {
     if (!open) {
@@ -91,9 +145,53 @@ function TaskRow({
     }
   }, [open]);
 
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onPointerDown(event: MouseEvent) {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (menuWrapRef.current?.contains(target)) return;
+      if (gripRef.current?.contains(target)) return;
+      if (tagRef.current?.contains(target)) return;
+      onCloseMenu();
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [menuOpen, onCloseMenu]);
+
+  function closeMenuAndRefocus() {
+    onCloseMenu();
+    const anchor = byProject ? gripRef.current : tagRef.current;
+    window.requestAnimationFrame(() => anchor?.focus());
+  }
+
   return (
     <div className={open ? "task is-open" : "task"} data-task={todo.id}>
-      <div className="task-row">
+      <div
+        className={`task-row${byProject ? " is-project-view" : ""}${dragging ? " is-lifted" : ""}${menuOpen ? " is-menu-open" : ""}`}
+        ref={rowRef}
+      >
+        {byProject ? (
+          <button
+            ref={gripRef}
+            type="button"
+            className="task-grip"
+            draggable
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            aria-label={`Move “${todo.label}”. Drag, or press to choose a project`}
+            title="Drag to move, or click for the Move menu"
+            onClick={onToggleMenu}
+            onDragStart={(event) => {
+              event.dataTransfer.setData("text/plain", todo.id);
+              event.dataTransfer.effectAllowed = "move";
+              if (rowRef.current) event.dataTransfer.setDragImage(rowRef.current, 20, 20);
+              onGripDragStart(event);
+            }}
+          >
+            ⋮⋮
+          </button>
+        ) : null}
         <input
           className="task-check"
           type="checkbox"
@@ -106,22 +204,63 @@ function TaskRow({
             onToggle(todo.id, event.target.checked);
           }}
         />
-        <button
-          className="task-title"
-          type="button"
-          aria-expanded={open}
-          aria-controls={bodyId}
-          onClick={onToggleOpen}
-        >
-          <span className="task-title-text">{todo.label}</span>
-          {fromOwner && fromLabel ? (
-            <MemberBadge
-              name={fromProfile?.displayName ?? ownerLabel(fromOwner)}
-              avatarUrl={fromProfile?.avatarUrl}
-              prefix="From"
-            />
+        {byProject ? (
+          <span className="task-owner">
+            {todo.owner ? (
+              <MemberBadge
+                name={ownerProfile?.displayName ?? ownerLabel(todo.owner)}
+                avatarUrl={ownerProfile?.avatarUrl}
+                size="sm"
+                showName={false}
+              />
+            ) : (
+              <span className="task-owner-none" title="Unclaimed">
+                ?
+                <span className="sr-only">Unclaimed</span>
+              </span>
+            )}
+          </span>
+        ) : null}
+        <div className="task-main">
+          <button
+            className="task-title"
+            type="button"
+            aria-expanded={open}
+            aria-controls={bodyId}
+            onClick={onToggleOpen}
+          >
+            <span className="task-title-text">{todo.label}</span>
+          </button>
+          {showMeta ? (
+            <div className="task-meta">
+              <button
+                ref={tagRef}
+                type="button"
+                className={`task-ptag${project ? "" : " is-empty"}`}
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                aria-label={`Move “${todo.label}”. Choose a project`}
+                onClick={onToggleMenu}
+              >
+                {project ? (
+                  <span
+                    className="task-ptag-dot"
+                    style={{ background: projectColor(project.colorIndex) }}
+                    aria-hidden="true"
+                  />
+                ) : null}
+                <span className="task-ptag-name">{project ? project.name : "＋ Project"}</span>
+              </button>
+              {fromOwner && fromLabel ? (
+                <MemberBadge
+                  name={fromProfile?.displayName ?? ownerLabel(fromOwner)}
+                  avatarUrl={fromProfile?.avatarUrl}
+                  prefix="From"
+                />
+              ) : null}
+            </div>
           ) : null}
-        </button>
+        </div>
         {showCountInColumn ? (
           <span className="task-sub-count">
             {subtasks.length} subtask{subtasks.length === 1 ? "" : "s"}
@@ -133,6 +272,17 @@ function TaskRow({
         )}
         {CARET}
       </div>
+      {menuOpen ? (
+        <div className="task-menu-anchor" ref={menuWrapRef}>
+          <TodoMoveMenu
+            projects={projects}
+            currentProjectId={todo.projectId}
+            onPick={(projectId) => onPickProject(projectId)}
+            onNewProject={onNewProjectFromTodo}
+            onClose={closeMenuAndRefocus}
+          />
+        </div>
+      ) : null}
       <div className="task-body" id={bodyId}>
         <div className="todo-subtasks">
           {subtasks.length ? (
@@ -374,29 +524,8 @@ function TaskRow({
   );
 }
 
-function TaskList({
-  bucket,
-  emphasis,
-  viewer,
-  profiles,
-  openIds,
-  subtasks,
-  draftParent,
-  draftLabel,
-  onToggleOpen,
-  onToggle,
-  onToggleSub,
-  onStartDraft,
-  onDraftLabel,
-  onCommitDraft,
-  onCancelDraft,
-  onEdit,
-  onEditSub,
-  onAssign,
-  onDelete,
-}: {
-  bucket: OwnerTodoBucket;
-  emphasis: "focus" | "other";
+/** Everything the list wrappers hand each row. */
+type SharedTodoProps = TodoProjectProps & {
   viewer: Owner;
   profiles: Map<string, MemberProfile>;
   openIds: Set<string>;
@@ -414,7 +543,52 @@ function TaskList({
   onEditSub: (parentId: string, subId: string, patch: { label?: string; dueDate?: string | null }) => void;
   onAssign: (id: string, owner: Owner | null) => void;
   onDelete: (id: string) => void;
+};
+
+function renderTaskRow(todo: ProjectTodo, shared: SharedTodoProps) {
+  return (
+    <TaskRow
+      key={todo.id}
+      todo={todo}
+      subtasks={shared.subtasks[todo.id] ?? []}
+      open={shared.openIds.has(todo.id)}
+      viewer={shared.viewer}
+      profiles={shared.profiles}
+      drafting={shared.draftParent === todo.id}
+      draftLabel={shared.draftParent === todo.id ? shared.draftLabel : ""}
+      groupBy={shared.groupBy}
+      projects={shared.projects}
+      menuOpen={shared.menuTodoId === todo.id}
+      dragging={shared.dragTodoId === todo.id}
+      onToggleOpen={() => shared.onToggleOpen(todo.id)}
+      onToggle={shared.onToggle}
+      onToggleSub={(subId, checked) => shared.onToggleSub(todo.id, subId, checked)}
+      onStartDraft={() => shared.onStartDraft(todo.id)}
+      onDraftLabel={shared.onDraftLabel}
+      onCommitDraft={() => shared.onCommitDraft(todo.id)}
+      onCancelDraft={shared.onCancelDraft}
+      onEdit={(patch) => shared.onEdit(todo.id, patch)}
+      onEditSub={(subId, patch) => shared.onEditSub(todo.id, subId, patch)}
+      onAssign={(owner) => shared.onAssign(todo.id, owner)}
+      onDelete={() => shared.onDelete(todo.id)}
+      onToggleMenu={() => shared.onToggleMenu(todo.id)}
+      onPickProject={(projectId) => shared.onPickProject(todo.id, projectId)}
+      onNewProjectFromTodo={() => shared.onNewProjectFromTodo(todo.id)}
+      onCloseMenu={shared.onCloseMenu}
+      onGripDragStart={(event) => shared.onGripDragStart(todo.id, event)}
+    />
+  );
+}
+
+function TaskList({
+  bucket,
+  emphasis,
+  ...shared
+}: SharedTodoProps & {
+  bucket: OwnerTodoBucket;
+  emphasis: "focus" | "other";
 }) {
+  const { profiles } = shared;
   const todos = [...bucket.open, ...bucket.done];
   const stats = openListStats(todos);
   const listClass = emphasis === "focus" ? "list list-focus" : "list list-other";
@@ -433,29 +607,7 @@ function TaskList({
         <span className="list-count">{stats.label}</span>
       </div>
       {todos.length ? (
-        todos.map((todo) => (
-          <TaskRow
-            key={todo.id}
-            todo={todo}
-            subtasks={subtasks[todo.id] ?? []}
-            open={openIds.has(todo.id)}
-            viewer={viewer}
-            profiles={profiles}
-            drafting={draftParent === todo.id}
-            draftLabel={draftParent === todo.id ? draftLabel : ""}
-            onToggleOpen={() => onToggleOpen(todo.id)}
-            onToggle={onToggle}
-            onToggleSub={(subId, checked) => onToggleSub(todo.id, subId, checked)}
-            onStartDraft={() => onStartDraft(todo.id)}
-            onDraftLabel={onDraftLabel}
-            onCommitDraft={() => onCommitDraft(todo.id)}
-            onCancelDraft={onCancelDraft}
-            onEdit={(patch) => onEdit(todo.id, patch)}
-            onEditSub={(subId, patch) => onEditSub(todo.id, subId, patch)}
-            onAssign={(owner) => onAssign(todo.id, owner)}
-            onDelete={() => onDelete(todo.id)}
-          />
-        ))
+        todos.map((todo) => renderTaskRow(todo, shared))
       ) : (
         <p className="todo-empty">No to-dos assigned yet.</p>
       )}
@@ -474,25 +626,7 @@ function OthersSection({
   expanded: boolean;
   onToggle: () => void;
   profiles: Map<string, MemberProfile>;
-  shared: {
-    viewer: Owner;
-    profiles: Map<string, MemberProfile>;
-    openIds: Set<string>;
-    subtasks: TodoSubtaskMap;
-    draftParent: string | null;
-    draftLabel: string;
-    onToggleOpen: (id: string) => void;
-    onToggle: (id: string, checked: boolean) => void;
-    onToggleSub: (parentId: string, subId: string, checked: boolean) => void;
-    onStartDraft: (parentId: string) => void;
-    onDraftLabel: (value: string) => void;
-    onCommitDraft: (parentId: string) => void;
-    onCancelDraft: () => void;
-    onEdit: (id: string, patch: TodoEdit) => void;
-    onEditSub: (parentId: string, subId: string, patch: { label?: string; dueDate?: string | null }) => void;
-    onAssign: (id: string, owner: Owner | null) => void;
-    onDelete: (id: string) => void;
-  };
+  shared: SharedTodoProps;
 }) {
   if (!buckets.length) return null;
 
@@ -542,42 +676,9 @@ function OthersSection({
 
 function UnclaimedList({
   bucket,
-  viewer,
-  profiles,
-  openIds,
-  subtasks,
-  draftParent,
-  draftLabel,
-  onToggleOpen,
-  onToggle,
-  onToggleSub,
-  onStartDraft,
-  onDraftLabel,
-  onCommitDraft,
-  onCancelDraft,
-  onEdit,
-  onEditSub,
-  onAssign,
-  onDelete,
-}: {
+  ...shared
+}: SharedTodoProps & {
   bucket: UnclaimedTodoBucket;
-  viewer: Owner;
-  profiles: Map<string, MemberProfile>;
-  openIds: Set<string>;
-  subtasks: TodoSubtaskMap;
-  draftParent: string | null;
-  draftLabel: string;
-  onToggleOpen: (id: string) => void;
-  onToggle: (id: string, checked: boolean) => void;
-  onToggleSub: (parentId: string, subId: string, checked: boolean) => void;
-  onStartDraft: (parentId: string) => void;
-  onDraftLabel: (value: string) => void;
-  onCommitDraft: (parentId: string) => void;
-  onCancelDraft: () => void;
-  onEdit: (id: string, patch: TodoEdit) => void;
-  onEditSub: (parentId: string, subId: string, patch: { label?: string; dueDate?: string | null }) => void;
-  onAssign: (id: string, owner: Owner | null) => void;
-  onDelete: (id: string) => void;
 }) {
   const todos = [...bucket.open, ...bucket.done];
   const stats = openListStats(todos);
@@ -589,29 +690,7 @@ function UnclaimedList({
         <span className="list-count">{stats.label}</span>
       </div>
       {todos.length ? (
-        todos.map((todo) => (
-          <TaskRow
-            key={todo.id}
-            todo={todo}
-            subtasks={subtasks[todo.id] ?? []}
-            open={openIds.has(todo.id)}
-            viewer={viewer}
-            profiles={profiles}
-            drafting={draftParent === todo.id}
-            draftLabel={draftParent === todo.id ? draftLabel : ""}
-            onToggleOpen={() => onToggleOpen(todo.id)}
-            onToggle={onToggle}
-            onToggleSub={(subId, checked) => onToggleSub(todo.id, subId, checked)}
-            onStartDraft={() => onStartDraft(todo.id)}
-            onDraftLabel={onDraftLabel}
-            onCommitDraft={() => onCommitDraft(todo.id)}
-            onCancelDraft={onCancelDraft}
-            onEdit={(patch) => onEdit(todo.id, patch)}
-            onEditSub={(subId, patch) => onEditSub(todo.id, subId, patch)}
-            onAssign={(owner) => onAssign(todo.id, owner)}
-            onDelete={() => onDelete(todo.id)}
-          />
-        ))
+        todos.map((todo) => renderTaskRow(todo, shared))
       ) : (
         <p className="todo-empty">Nothing waiting to be claimed.</p>
       )}
@@ -627,10 +706,13 @@ export function TodosPanel({
   projectSteps = [],
   subtasks,
   todoEdits,
+  todoProjects = [],
   onToggle,
   onChangeSubtasks,
   onEditTodo,
   onDeleteTodo,
+  onChangeTodoProjects,
+  onDeleteTodoProject,
 }: {
   memberId: string;
   memberProfiles: MemberProfile[];
@@ -639,10 +721,13 @@ export function TodosPanel({
   projectSteps?: PersistedProjectStep[];
   subtasks: TodoSubtaskMap;
   todoEdits: TodoEditMap;
+  todoProjects?: TodoProject[];
   onToggle: (id: string, checked: boolean) => void;
   onChangeSubtasks: (next: TodoSubtaskMap) => void;
   onEditTodo: (id: string, patch: TodoEdit) => void;
   onDeleteTodo: (id: string) => void;
+  onChangeTodoProjects: (next: TodoProject[]) => void;
+  onDeleteTodoProject: (projectId: string) => void;
 }) {
   const focusOwner: Owner = memberOwnerId(memberId);
   const profiles = new Map(memberProfiles.map((row) => [row.id, row]));
@@ -654,6 +739,25 @@ export function TodosPanel({
   const [othersExpanded, setOthersExpanded] = useState(false);
   const [draftParent, setDraftParent] = useState<string | null>(null);
   const [draftLabel, setDraftLabel] = useState("");
+  const [groupBy, setGroupBy] = useState<TodoGroupBy>("person");
+  const [menuTodoId, setMenuTodoId] = useState<string | null>(null);
+  const [editor, setEditor] = useState<ProjectEditorState | null>(null);
+  const [dragTodoId, setDragTodoId] = useState<string | null>(null);
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(TODO_GROUP_STORAGE_KEY);
+      if (isTodoGroupBy(raw)) setGroupBy(raw);
+    } catch {
+      setGroupBy("person");
+    }
+  }, []);
+
+  useEffect(() => {
+    document.body.classList.toggle("todos-dragging", Boolean(dragTodoId));
+    return () => document.body.classList.remove("todos-dragging");
+  }, [dragTodoId]);
 
   useEffect(() => {
     try {
@@ -749,7 +853,101 @@ export function TodosPanel({
     onEditTodo(id, assignmentPatch(focusOwner, owner));
   }
 
-  const shared = {
+  function changeGroupBy(next: TodoGroupBy) {
+    setGroupBy(next);
+    setMenuTodoId(null);
+    setEditor(null);
+    try {
+      window.localStorage.setItem(TODO_GROUP_STORAGE_KEY, next);
+    } catch {
+      /* storage is best effort */
+    }
+  }
+
+  function startNewProject(moveTodoIds: string[] = []) {
+    setMenuTodoId(null);
+    setEditor({
+      mode: "new",
+      projectId: null,
+      draft: "",
+      colorIndex: nextProjectColorIndex(todoProjects),
+      moveTodoIds,
+      confirmDelete: false,
+    });
+  }
+
+  function startEditProject(project: TodoProject) {
+    setMenuTodoId(null);
+    setEditor({
+      mode: "edit",
+      projectId: project.id,
+      draft: project.name,
+      colorIndex: project.colorIndex,
+      moveTodoIds: [],
+      confirmDelete: false,
+    });
+  }
+
+  function saveEditor() {
+    if (!editor) return;
+    const name = normalizeProjectName(editor.draft);
+    if (!name) return;
+    if (editor.mode === "new") {
+      const project = createTodoProject(name, todoProjects, editor.colorIndex);
+      if (!project) return;
+      onChangeTodoProjects([...todoProjects, project]);
+      for (const id of editor.moveTodoIds) onEditTodo(id, { projectId: project.id });
+    } else if (editor.projectId) {
+      onChangeTodoProjects(
+        todoProjects.map((row) =>
+          row.id === editor.projectId ? { ...row, name, colorIndex: editor.colorIndex } : row,
+        ),
+      );
+    }
+    setEditor(null);
+  }
+
+  function deleteEditorProject() {
+    if (!editor?.projectId) return;
+    onDeleteTodoProject(editor.projectId);
+    setEditor(null);
+  }
+
+  function pickProject(id: string, projectId: string | null) {
+    onEditTodo(id, { projectId });
+    setMenuTodoId(null);
+  }
+
+  function endDrag() {
+    setDragTodoId(null);
+    setDragOverKey(null);
+  }
+
+  function dropOnGroup(event: DragEvent<HTMLElement>, key: string) {
+    event.preventDefault();
+    const id = event.dataTransfer.getData("text/plain") || dragTodoId;
+    endDrag();
+    if (!id) return;
+    onEditTodo(id, { projectId: key === "none" ? null : key });
+  }
+
+  const editorTodoCount = editor?.projectId
+    ? todos.filter((todo) => todo.projectId === editor.projectId).length
+    : 0;
+
+  const shared: SharedTodoProps = {
+    groupBy,
+    projects: todoProjects,
+    menuTodoId,
+    dragTodoId,
+    onToggleMenu: (id: string) => setMenuTodoId((current) => (current === id ? null : id)),
+    onPickProject: pickProject,
+    onNewProjectFromTodo: (id: string) => startNewProject([id]),
+    onCloseMenu: () => setMenuTodoId(null),
+    onGripDragStart: (id: string) => {
+      setMenuTodoId(null);
+      setDragTodoId(id);
+    },
     viewer: focusOwner,
     profiles,
     openIds,
@@ -772,17 +970,119 @@ export function TodosPanel({
     onDelete: onDeleteTodo,
   };
 
+  const projectGroups = groupTodosByProject(todos, todoProjects);
+  const showTopEditor = Boolean(editor && (editor.mode === "new" || groupBy !== "project"));
+
+  const editorPanel = editor ? (
+    <TodoProjectEditor
+      state={editor}
+      projects={todoProjects}
+      todoCount={editorTodoCount}
+      onChange={(patch) => setEditor((current) => (current ? { ...current, ...patch } : current))}
+      onSave={saveEditor}
+      onCancel={() => setEditor(null)}
+      onAskDelete={() => setEditor((current) => (current ? { ...current, confirmDelete: true } : current))}
+      onConfirmDelete={deleteEditorProject}
+    />
+  ) : null;
+
   return (
     <div className="pm-panel todos-panel">
-      <TaskList bucket={grouped.mine} emphasis="focus" {...shared} />
-      <OthersSection
-        buckets={grouped.others}
-        expanded={othersExpanded}
-        onToggle={toggleOthers}
-        profiles={profiles}
-        shared={shared}
-      />
-      <UnclaimedList bucket={grouped.unclaimed} {...shared} />
+      <div className="todos-groupbar">
+        <span className="label">Group by</span>
+        <button
+          type="button"
+          className="todos-seg"
+          aria-pressed={groupBy === "person"}
+          onClick={() => changeGroupBy("person")}
+        >
+          Person
+        </button>
+        <button
+          type="button"
+          className="todos-seg"
+          aria-pressed={groupBy === "project"}
+          onClick={() => changeGroupBy("project")}
+        >
+          Project
+        </button>
+        {groupBy === "project" ? (
+          <button type="button" className="todos-newproject" onClick={() => startNewProject()}>
+            ＋ New project
+          </button>
+        ) : null}
+      </div>
+
+      {showTopEditor ? editorPanel : null}
+
+      {groupBy === "project" ? (
+        <div className="todo-project-groups" onDragEnd={endDrag}>
+          {projectGroups.map((group) => {
+            const key = group.projectId ?? "none";
+            const rows = [...group.open, ...group.done];
+            const stats = openDatedStats(rows);
+            const project = group.projectId
+              ? todoProjects.find((row) => row.id === group.projectId) ?? null
+              : null;
+            const editingHere = Boolean(
+              editor && editor.mode === "edit" && editor.projectId === group.projectId,
+            );
+            return (
+              <section
+                key={key}
+                className={`todo-project-group${dragOverKey === key ? " is-over" : ""}`}
+                aria-label={group.name}
+                onDragOver={(event) => {
+                  if (!dragTodoId) return;
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                  if (dragOverKey !== key) setDragOverKey(key);
+                }}
+                onDrop={(event) => dropOnGroup(event, key)}
+              >
+                <div className="todo-project-head">
+                  <span
+                    className={`todo-project-sq${project ? "" : " is-none"}`}
+                    style={project ? { background: projectColor(project.colorIndex) } : undefined}
+                    aria-hidden="true"
+                  />
+                  <h2 className="todo-project-name">{group.name}</h2>
+                  {project ? (
+                    <button
+                      type="button"
+                      className="todo-project-edit"
+                      onClick={() => startEditProject(project)}
+                    >
+                      Edit
+                    </button>
+                  ) : null}
+                  <span className="list-count todo-project-stat">{stats.label}</span>
+                </div>
+                {editingHere ? editorPanel : null}
+                {rows.length ? (
+                  rows.map((todo) => renderTaskRow(todo, shared))
+                ) : (
+                  <p className="todo-empty todo-project-empty">
+                    Drag a to-do here, or use its dots to choose this project.
+                  </p>
+                )}
+              </section>
+            );
+          })}
+        </div>
+      ) : (
+        <>
+          <TaskList bucket={grouped.mine} emphasis="focus" {...shared} />
+          <OthersSection
+            buckets={grouped.others}
+            expanded={othersExpanded}
+            onToggle={toggleOthers}
+            profiles={profiles}
+            shared={shared}
+          />
+          <UnclaimedList bucket={grouped.unclaimed} {...shared} />
+        </>
+      )}
     </div>
   );
 }
