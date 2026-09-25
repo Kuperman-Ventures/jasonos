@@ -53,7 +53,6 @@ type TodoProjectProps = {
   dragTodoId: string | null;
   onToggleMenu: (id: string) => void;
   onPickProject: (id: string, projectId: string | null) => void;
-  onNewProjectFromTodo: (id: string) => void;
   onCloseMenu: () => void;
   onGripDragStart: (id: string, event: DragEvent<HTMLElement>) => void;
 };
@@ -83,7 +82,6 @@ function TaskRow({
   onDelete,
   onToggleMenu,
   onPickProject,
-  onNewProjectFromTodo,
   onCloseMenu,
   onGripDragStart,
 }: {
@@ -111,7 +109,6 @@ function TaskRow({
   onDelete: () => void;
   onToggleMenu: () => void;
   onPickProject: (projectId: string | null) => void;
-  onNewProjectFromTodo: () => void;
   onCloseMenu: () => void;
   onGripDragStart: (event: DragEvent<HTMLElement>) => void;
 }) {
@@ -136,7 +133,7 @@ function TaskRow({
   const byProject = groupBy === "project";
   const project = projects.find((row) => row.id === todo.projectId) ?? null;
   const ownerProfile = todo.owner ? profiles.get(todo.owner) : null;
-  const showMeta = !byProject;
+  const showMeta = !byProject && Boolean(project || (fromOwner && fromLabel));
 
   useEffect(() => {
     if (!open) {
@@ -233,24 +230,24 @@ function TaskRow({
           </button>
           {showMeta ? (
             <div className="task-meta">
-              <button
-                ref={tagRef}
-                type="button"
-                className={`task-ptag${project ? "" : " is-empty"}`}
-                aria-haspopup="menu"
-                aria-expanded={menuOpen}
-                aria-label={`Move “${todo.label}”. Choose a project`}
-                onClick={onToggleMenu}
-              >
-                {project ? (
+              {project ? (
+                <button
+                  ref={tagRef}
+                  type="button"
+                  className="task-ptag"
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                  aria-label={`Move “${todo.label}”. Choose a project`}
+                  onClick={onToggleMenu}
+                >
                   <span
                     className="task-ptag-dot"
                     style={{ background: projectColor(project.colorIndex) }}
                     aria-hidden="true"
                   />
-                ) : null}
-                <span className="task-ptag-name">{project ? project.name : "＋ Project"}</span>
-              </button>
+                  <span className="task-ptag-name">{project.name}</span>
+                </button>
+              ) : null}
               {fromOwner && fromLabel ? (
                 <MemberBadge
                   name={fromProfile?.displayName ?? ownerLabel(fromOwner)}
@@ -278,7 +275,6 @@ function TaskRow({
             projects={projects}
             currentProjectId={todo.projectId}
             onPick={(projectId) => onPickProject(projectId)}
-            onNewProject={onNewProjectFromTodo}
             onClose={closeMenuAndRefocus}
           />
         </div>
@@ -573,7 +569,6 @@ function renderTaskRow(todo: ProjectTodo, shared: SharedTodoProps) {
       onDelete={() => shared.onDelete(todo.id)}
       onToggleMenu={() => shared.onToggleMenu(todo.id)}
       onPickProject={(projectId) => shared.onPickProject(todo.id, projectId)}
-      onNewProjectFromTodo={() => shared.onNewProjectFromTodo(todo.id)}
       onCloseMenu={shared.onCloseMenu}
       onGripDragStart={(event) => shared.onGripDragStart(todo.id, event)}
     />
@@ -942,7 +937,6 @@ export function TodosPanel({
     dragTodoId,
     onToggleMenu: (id: string) => setMenuTodoId((current) => (current === id ? null : id)),
     onPickProject: pickProject,
-    onNewProjectFromTodo: (id: string) => startNewProject([id]),
     onCloseMenu: () => setMenuTodoId(null),
     onGripDragStart: (id: string) => {
       setMenuTodoId(null);

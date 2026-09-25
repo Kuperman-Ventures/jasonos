@@ -7,13 +7,11 @@ export function TodoMoveMenu({
   projects,
   currentProjectId,
   onPick,
-  onNewProject,
   onClose,
 }: {
   projects: TodoProject[];
   currentProjectId: string | null;
   onPick: (projectId: string | null) => void;
-  onNewProject: () => void;
   onClose: () => void;
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -78,10 +76,6 @@ export function TodoMoveMenu({
           </button>
         );
       })}
-      <hr />
-      <button type="button" role="menuitem" className="todo-move-new" onClick={onNewProject}>
-        ＋ New project…
-      </button>
     </div>
   );
 }
