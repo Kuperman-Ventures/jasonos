@@ -1,34 +1,26 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type DragEvent } from "react";
 import type { CalendarEvent } from "@/lib/calendar-events";
 import {
   appendIngestNotes,
-  checklistParents,
   formatIngestNotesBlock,
   INBOX_PARENT_ID,
-  type IngestRoute,
   type IngestSourceDraft,
   type PersistedIngestSource,
   type PersistedProjectStep,
   type SuggestedStep,
 } from "@/lib/ingest";
-import { acceptIngestAttr, INGEST_MAX_BYTES, isIngestFile } from "@/lib/ingest-assets";
+import {
+  acceptIngestAttr,
+  formatBytes,
+  INGEST_MAX_BYTES,
+  ingestFileKind,
+  isIngestFile,
+  type IngestAssetKind,
+} from "@/lib/ingest-assets";
 import { buildPinNotesFromIngest, type PinNote } from "@/lib/note-board";
 import { OWNERS, type Owner, type Phase } from "@/lib/types";
-
-type DraftRow = SuggestedStep;
-
-type PendingFile = {
-  file: File;
-  previewUrl: string | null;
-};
-
-type AsIsDest = {
-  note: boolean;
-  todo: boolean;
-  calendar: boolean;
-};
 
 export type IngestConfirmPayload = {
   steps: PersistedProjectStep[];
@@ -38,19 +30,106 @@ export type IngestConfirmPayload = {
   calendarEvents: CalendarEvent[];
 };
 
-const ROUTES: { id: IngestRoute; label: string }[] = [
-  { id: "todo", label: "To-do" },
-  { id: "note", label: "Note" },
-  { id: "calendar", label: "Calendar" },
-  { id: "drop", label: "Drop" },
+type JobsState = { note: boolean; todo: boolean; cal: boolean };
+
+type AssetInfo = {
+  file: File;
+  kind: IngestAssetKind;
+  name: string;
+  meta: string;
+};
+
+type TodoDraft = {
+  id: string;
+  title: string;
+  owner: Owner;
+  dueDate: string | null;
+  evidence: string | null;
+  updatesExisting: string | null;
+  sourceLocator: string;
+  parentId: string;
+  skipped: boolean;
+};
+
+type EventDraft = {
+  id: string;
+  title: string;
+  location: string;
+  date: string | null;
+  time: string;
+  sourceLocator: string;
+  skipped: boolean;
+};
+
+const JOB_CARDS: { id: keyof JobsState; title: string; description: string }[] = [
+  {
+    id: "note",
+    title: "Save as a note",
+    description: "The whole asset, pinned to Notes as one item. Nothing to review.",
+  },
+  {
+    id: "todo",
+    title: "Find to-dos",
+    description: "Pull out tasks. You review each one before it’s added.",
+  },
+  {
+    id: "cal",
+    title: "Find calendar events",
+    description: "Pull out dates. You review each one before it’s added.",
+  },
 ];
 
 function newId(prefix: string): string {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
+}
+
+function kindLabel(kind: IngestAssetKind): string {
+  if (kind === "email") return "Email";
+  if (kind === "pdf") return "PDF";
+  return "Deck";
+}
+
+function defaultNoteTitle(asset: AssetInfo | null, paste: string): string {
+  if (asset) return asset.name.replace(/\.[^.]+$/, "");
+  if (paste.trim()) return "Pasted text";
+  return "";
+}
+
+function isCalendarSuggestion(row: SuggestedStep): boolean {
+  return row.category === "visit_event" || row.route === "calendar";
+}
+
+function toTodoDraft(row: SuggestedStep): TodoDraft {
+  return {
+    id: row.id,
+    title: row.label,
+    owner: row.owner,
+    dueDate: row.dueDate,
+    evidence: row.evidence ?? null,
+    updatesExisting: row.updatesExisting ?? null,
+    sourceLocator: row.details ? "Doc" : "—",
+    parentId: row.parentId || INBOX_PARENT_ID,
+    skipped: false,
+  };
+}
+
+function toEventDraft(row: SuggestedStep): EventDraft {
+  return {
+    id: row.id,
+    title: row.label,
+    location: row.school?.trim() || "",
+    date: row.dueDate,
+    time: "",
+    sourceLocator: "—",
+    skipped: false,
+  };
+}
+
 export function IngestPanel({
-  phases,
   projectSteps,
   ingestSources,
   notes,
@@ -72,89 +151,92 @@ export function IngestPanel({
   openTodos: { title: string; school: string | null; dueDate: string | null }[];
   onConfirm: (payload: IngestConfirmPayload) => Promise<void>;
 }) {
-  const parents = useMemo(() => checklistParents(phases), [phases]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [title, setTitle] = useState("");
-  const [text, setText] = useState("");
-  const [url, setUrl] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState("");
-  const [error, setError] = useState("");
-  const [method, setMethod] = useState<"ai" | "heuristic" | "">("");
-  const [readMethod, setReadMethod] = useState<"embedded" | "ocr" | "">("");
-  const [drafts, setDrafts] = useState<DraftRow[]>([]);
-  const [documentSummary, setDocumentSummary] = useState("");
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [paste, setPaste] = useState("");
+  const [asset, setAsset] = useState<AssetInfo | null>(null);
+  const [dropOver, setDropOver] = useState(false);
+  const [jobs, setJobs] = useState<JobsState>({ note: true, todo: true, cal: true });
+  const [noteTitle, setNoteTitle] = useState("");
+  const [todos, setTodos] = useState<TodoDraft[]>([]);
+  const [events, setEvents] = useState<EventDraft[]>([]);
   const [source, setSource] = useState<IngestSourceDraft | null>(null);
-  const [pendingFile, setPendingFile] = useState<PendingFile | null>(null);
-  const [asIsTitle, setAsIsTitle] = useState("");
-  const [asIsDest, setAsIsDest] = useState<AsIsDest>({ note: true, todo: false, calendar: false });
-  const [asIsOwner, setAsIsOwner] = useState<Owner>(assignedBy);
-  const [asIsDate, setAsIsDate] = useState("");
   const [uploadedAsset, setUploadedAsset] = useState<{
     assetUrl: string | null;
     assetPath: string | null;
     mimeType: string | null;
     fileName: string | null;
   } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
 
-  function extractionContext() {
-    return {
-      schoolNames,
-      openTodos,
-    };
+  const hasSource = Boolean(asset) || paste.trim().length > 0;
+  const anyJob = jobs.note || jobs.todo || jobs.cal;
+  const onlyNote = jobs.note && !jobs.todo && !jobs.cal;
+  const sourceName = asset ? asset.name : paste.trim() ? "Pasted text" : "";
+
+  const keptTodos = useMemo(() => todos.filter((row) => !row.skipped && row.title.trim()), [todos]);
+  const keptEvents = useMemo(
+    () => events.filter((row) => !row.skipped && row.title.trim()),
+    [events],
+  );
+
+  function saveSummary(): string {
+    const parts: string[] = [];
+    if (jobs.note) parts.push("note");
+    if (jobs.todo && keptTodos.length) parts.push(plural(keptTodos.length, "to-do"));
+    if (jobs.cal && keptEvents.length) parts.push(plural(keptEvents.length, "event"));
+    return parts.length ? `Save ${parts.join(" + ")}` : "Nothing to save";
   }
 
-  function clearPendingFile() {
-    if (pendingFile?.previewUrl) URL.revokeObjectURL(pendingFile.previewUrl);
-    setPendingFile(null);
+  function clearAsset() {
+    setAsset(null);
     setUploadedAsset(null);
-    setAsIsTitle("");
-    setAsIsDest({ note: true, todo: false, calendar: false });
-    setAsIsDate("");
+    setError("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   function pickFile(file: File) {
     setError("");
-    setDrafts([]);
-    setSource(null);
     if (!isIngestFile(file)) {
-      setError("Use a PDF, PNG, JPG, WebP, or GIF.");
+      setError("Use a PowerPoint, Keynote, PDF or email file.");
       return;
     }
     if (file.size > INGEST_MAX_BYTES) {
       setError("File is too large (max 25 MB).");
       return;
     }
-    if (pendingFile?.previewUrl) URL.revokeObjectURL(pendingFile.previewUrl);
-    const previewUrl = file.type.startsWith("image/") ? URL.createObjectURL(file) : null;
-    setPendingFile({ file, previewUrl });
-    setAsIsTitle(title || file.name.replace(/\.[^.]+$/, ""));
+    const kind = ingestFileKind(file);
+    if (!kind) {
+      setError("Use a PowerPoint, Keynote, PDF or email file.");
+      return;
+    }
+    setAsset({
+      file,
+      kind,
+      name: file.name,
+      meta: formatBytes(file.size),
+    });
+    setNoteTitle(file.name.replace(/\.[^.]+$/, ""));
     setUploadedAsset(null);
   }
 
-  async function uploadAsset(file: File): Promise<{
-    assetUrl: string | null;
-    assetPath: string | null;
-    mimeType: string | null;
-    fileName: string | null;
-  }> {
+  function onDrop(event: DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setDropOver(false);
+    const file = event.dataTransfer.files?.[0];
+    if (file) pickFile(file);
+  }
+
+  async function uploadAsset(file: File) {
     const form = new FormData();
     form.set("file", file);
     const response = await fetch("/api/ingest/upload", { method: "POST", body: form });
     if (response.status === 503) {
-      // Local seed mode — keep a temporary preview URL for images.
-      const localUrl = file.type.startsWith("image/")
-        ? await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(String(reader.result));
-            reader.onerror = () => reject(new Error("Could not read file"));
-            reader.readAsDataURL(file);
-          })
-        : null;
       return {
-        assetUrl: localUrl,
-        assetPath: null,
+        assetUrl: null as string | null,
+        assetPath: null as string | null,
         mimeType: file.type || null,
         fileName: file.name,
       };
@@ -175,209 +257,164 @@ export function IngestPanel({
     };
   }
 
-  async function applyParseResponse(response: Response, asset?: typeof uploadedAsset) {
-    const raw = await response.text();
-    let body: {
-      error?: string;
-      suggestions?: SuggestedStep[];
-      method?: "ai" | "heuristic";
-      documentSummary?: string;
-      source?: IngestSourceDraft;
-    };
-    try {
-      body = JSON.parse(raw) as typeof body;
-    } catch {
-      const { messageFromFailedResponse } = await import("@/lib/pdf");
-      throw new Error(messageFromFailedResponse(raw, response.status));
+  async function extractTextFromAsset(info: AssetInfo): Promise<string> {
+    if (info.kind === "pdf") {
+      setStatus("Reading PDF…");
+      const { readPdfForIngest } = await import("@/lib/pdf-ocr");
+      const bytes = new Uint8Array(await info.file.arrayBuffer());
+      const result = await readPdfForIngest(bytes, (progress) => setStatus(progress.detail));
+      return result.text;
     }
-    if (!response.ok) throw new Error(body.error || "Parse failed");
-    const nextDrafts = (body.suggestions ?? [])
-      .map((row) => ({
-        ...row,
-        route: row.route ?? "todo",
-      }))
-      .sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0));
-    setDrafts(nextDrafts);
-    setDocumentSummary(body.documentSummary?.trim() || "");
-    const nextSource = body.source ?? null;
-    if (nextSource && asset) {
-      nextSource.assetUrl = asset.assetUrl;
-      nextSource.assetPath = asset.assetPath;
-      nextSource.mimeType = asset.mimeType;
-      nextSource.fileName = asset.fileName;
+    if (info.kind === "email" && info.name.toLowerCase().endsWith(".eml")) {
+      setStatus("Reading email…");
+      return await info.file.text();
     }
-    setSource(nextSource);
-    setMethod(body.method ?? "");
+    throw new Error(
+      "Can’t extract text from this file yet. Paste the text, or save as a note only.",
+    );
   }
 
-  async function runParse(kind: "paste" | "url") {
+  async function runFindItems() {
+    if (!anyJob) return;
     setBusy(true);
     setError("");
+    setStatus("");
     try {
-      const response = await fetch("/api/ingest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          kind === "url"
-            ? { url, title: title || url, kind: "url", ...extractionContext() }
-            : {
-                text,
-                title: title || "Pasted notes",
-                kind: "paste",
-                fileName: title || "pasted-notes.txt",
-                ...extractionContext(),
-              },
-        ),
-      });
-      await applyParseResponse(response);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Parse failed");
-      setDrafts([]);
-      setDocumentSummary("");
-      setSource(null);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function runSavePasteAsNote() {
-    const body = text.trim();
-    if (!body) {
-      setError("Paste some text first.");
-      return;
-    }
-    const label = (title.trim() || "Pasted notes").slice(0, 160);
-    setBusy(true);
-    setError("");
-    setStatus("Saving note…");
-    try {
-      const createdAt = new Date().toISOString();
-      const sourceId = newId("paste");
-      const pins = buildPinNotesFromIngest({
-        sourceId,
-        sourceTitle: label,
-        sourceKind: "paste",
-        sourceText: body,
-        createdAt,
-        addedBy: assignedBy,
-        noteLabels: [label],
-        wholeTextAsNote: true,
-      });
-      const nextNotes = appendIngestNotes(
-        notes,
-        formatIngestNotesBlock({ title: label, createdAt, notes: [body] }),
-      );
-      const nextSource: PersistedIngestSource = {
-        id: sourceId,
-        title: label,
-        kind: "paste",
-        excerpt: body.slice(0, 280),
-        createdAt,
-        stepCount: 0,
-        noteCount: 1,
-        calendarCount: 0,
-        assetUrl: null,
-        assetPath: null,
-        mimeType: null,
-        fileName: null,
-      };
-      await onConfirm({
-        steps: projectSteps,
-        source: nextSource,
-        notes: nextNotes,
-        noteItems: [...pins, ...noteItems],
-        calendarEvents,
-      });
-      setDrafts([]);
-      setSource(null);
-      setText("");
-      setTitle("");
-      setStatus("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save note");
-      setStatus("");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function runReadText() {
-    if (!pendingFile) return;
-    setBusy(true);
-    setError("");
-    setStatus("Uploading file…");
-    setReadMethod("");
-    try {
-      const asset = await uploadAsset(pendingFile.file);
-      setUploadedAsset(asset);
-      const isPdf =
-        pendingFile.file.type === "application/pdf" ||
-        pendingFile.file.name.toLowerCase().endsWith(".pdf");
-      let extracted = "";
-      if (isPdf) {
-        setStatus("Reading PDF…");
-        const { readPdfForIngest } = await import("@/lib/pdf-ocr");
-        const bytes = new Uint8Array(await pendingFile.file.arrayBuffer());
-        const result = await readPdfForIngest(bytes, (progress) => setStatus(progress.detail));
-        extracted = result.text;
-        setReadMethod(result.method);
-      } else {
-        setStatus("Reading image…");
-        const { readImageForIngest } = await import("@/lib/image-ocr");
-        const result = await readImageForIngest(pendingFile.file, (progress) =>
-          setStatus(progress.detail),
-        );
-        extracted = result.text;
-        setReadMethod("ocr");
+      // Note-only: skip extraction and go straight to save review.
+      if (onlyNote) {
+        if (asset) {
+          setStatus("Uploading file…");
+          const uploaded = await uploadAsset(asset.file);
+          setUploadedAsset(uploaded);
+        }
+        setTodos([]);
+        setEvents([]);
+        setSource({
+          id: newId(asset ? "file" : "paste"),
+          title: noteTitle.trim() || defaultNoteTitle(asset, paste) || "Ingest",
+          kind: asset ? "file" : "paste",
+          text: asset ? "" : paste,
+          createdAt: new Date().toISOString(),
+          assetUrl: null,
+          assetPath: null,
+          mimeType: asset?.file.type ?? null,
+          fileName: asset?.name ?? null,
+        });
+        if (!noteTitle.trim()) setNoteTitle(defaultNoteTitle(asset, paste));
+        setStep(3);
+        setStatus("");
+        return;
       }
-      setStatus("Suggesting tasks…");
+
+      let text = paste.trim();
+      let uploaded = uploadedAsset;
+      if (asset) {
+        setStatus(asset.kind === "deck" ? "Reading deck…" : "Uploading file…");
+        uploaded = await uploadAsset(asset.file);
+        setUploadedAsset(uploaded);
+        text = await extractTextFromAsset(asset);
+      }
+      if (!text.trim()) {
+        throw new Error("No text found. Paste the contents, or save as a note only.");
+      }
+
+      setStatus(jobs.todo && jobs.cal ? "Finding items…" : jobs.todo ? "Finding to-dos…" : "Finding calendar events…");
       const response = await fetch("/api/ingest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          text: extracted,
-          title:
-            title ||
-            asIsTitle ||
-            pendingFile.file.name.replace(/\.[^.]+$/, "") ||
-            "Uploaded file",
-          kind: "file",
-          fileName: pendingFile.file.name,
-          ...extractionContext(),
+          text,
+          title: noteTitle.trim() || defaultNoteTitle(asset, paste) || (asset ? asset.name : "Pasted notes"),
+          kind: asset ? "file" : "paste",
+          fileName: asset?.name ?? "pasted-notes.txt",
+          schoolNames,
+          openTodos,
         }),
       });
-      await applyParseResponse(response, asset);
+      const raw = await response.text();
+      let body: {
+        error?: string;
+        suggestions?: SuggestedStep[];
+        documentSummary?: string;
+        source?: IngestSourceDraft;
+      };
+      try {
+        body = JSON.parse(raw) as typeof body;
+      } catch {
+        const { messageFromFailedResponse } = await import("@/lib/pdf");
+        throw new Error(messageFromFailedResponse(raw, response.status));
+      }
+      if (!response.ok) throw new Error(body.error || "Parse failed");
+
+      const suggestions = body.suggestions ?? [];
+      const nextSource = body.source ?? null;
+      if (nextSource && uploaded) {
+        nextSource.assetUrl = uploaded.assetUrl;
+        nextSource.assetPath = uploaded.assetPath;
+        nextSource.mimeType = uploaded.mimeType;
+        nextSource.fileName = uploaded.fileName;
+      }
+      setSource(nextSource);
+
+      const calRows = suggestions.filter(isCalendarSuggestion);
+      const todoRows = suggestions.filter((row) => !isCalendarSuggestion(row));
+      setTodos(jobs.todo ? (jobs.cal ? todoRows : suggestions).map(toTodoDraft) : []);
+      setEvents(jobs.cal ? (jobs.todo ? calRows : suggestions).map(toEventDraft) : []);
+      if (!noteTitle.trim()) setNoteTitle(defaultNoteTitle(asset, paste));
+      setStep(3);
       setStatus("");
-      clearPendingFile();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not read file");
-      setDrafts([]);
-      setDocumentSummary("");
-      setSource(null);
+      setError(err instanceof Error ? err.message : "Could not find items");
       setStatus("");
     } finally {
       setBusy(false);
     }
   }
 
-  async function runSaveAsIs() {
-    if (!pendingFile) return;
-    if (!asIsDest.note && !asIsDest.todo && !asIsDest.calendar) {
-      setError("Pick at least one destination: Note, To-do, or Calendar.");
-      return;
-    }
-    const label = (asIsTitle || pendingFile.file.name).trim();
-    if (!label) {
-      setError("Add a title for this file.");
-      return;
-    }
+  async function saveAll() {
     setBusy(true);
     setError("");
-    setStatus("Uploading file…");
+    setStatus("Saving…");
     try {
-      const asset = await uploadAsset(pendingFile.file);
       const createdAt = new Date().toISOString();
-      const sourceId = newId("file");
+      const title = (noteTitle.trim() || defaultNoteTitle(asset, paste) || "Ingest").slice(0, 160);
+      let assetMeta = uploadedAsset;
+      if (asset && !assetMeta) {
+        assetMeta = await uploadAsset(asset.file);
+        setUploadedAsset(assetMeta);
+      }
+
+      const sourceId = source?.id ?? newId(asset ? "file" : "paste");
+      const sourceKind: PersistedIngestSource["kind"] = asset ? "file" : "paste";
+      const sourceText = asset ? source?.text ?? "" : paste;
+
+      // Feedback: kept to-dos and events = approved.
+      if (jobs.todo || jobs.cal) {
+        const feedbackRows = [
+          ...todos.map((row) => ({
+            sourceId,
+            title: row.title.trim(),
+            category: null as string | null,
+            confidence: null as number | null,
+            approved: !row.skipped && Boolean(row.title.trim()),
+          })),
+          ...events.map((row) => ({
+            sourceId,
+            title: row.title.trim(),
+            category: "visit_event" as string | null,
+            confidence: null as number | null,
+            approved: !row.skipped && Boolean(row.title.trim()),
+          })),
+        ];
+        void fetch("/api/ingest/feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rows: feedbackRows }),
+        }).catch(() => {
+          /* non-blocking */
+        });
+      }
+
       let nextSteps = projectSteps;
       let nextNotes = notes;
       let nextPins = noteItems;
@@ -386,79 +423,92 @@ export function IngestPanel({
       let noteCount = 0;
       let calendarCount = 0;
 
-      if (asIsDest.todo) {
-        stepCount = 1;
+      if (jobs.todo) {
+        stepCount = keptTodos.length;
         nextSteps = [
           ...projectSteps,
-          {
-            id: newId("ing"),
-            label,
-            owner: asIsOwner,
+          ...keptTodos.map((row, index) => ({
+            id: `ing-${sourceId.slice(0, 8)}-${index + 1}-${Math.random().toString(36).slice(2, 7)}`,
+            label: row.title.trim(),
+            owner: row.owner,
             assignedBy,
-            parentId: INBOX_PARENT_ID,
-            dueDate: asIsDate || null,
+            parentId: row.parentId || INBOX_PARENT_ID,
+            dueDate: row.dueDate,
             startDate: null,
             endDate: null,
             sourceId,
             createdAt,
-            assetUrl: asset.assetUrl,
-          },
+            assetUrl: assetMeta?.assetUrl ?? source?.assetUrl ?? null,
+          })),
         ];
       }
-      if (asIsDest.note) {
+
+      if (jobs.note) {
         noteCount = 1;
         const pins = buildPinNotesFromIngest({
           sourceId,
-          sourceTitle: label,
-          sourceKind: "file",
-          sourceText: "",
+          sourceTitle: title,
+          sourceKind,
+          sourceText,
           createdAt,
           addedBy: assignedBy,
-          noteLabels: [label],
-          assetUrl: asset.assetUrl,
-          assetPath: asset.assetPath,
-          mimeType: asset.mimeType,
-          assetAsNote: true,
+          noteLabels: [title],
+          wholeTextAsNote: !asset,
+          assetAsNote: Boolean(asset),
+          assetUrl: assetMeta?.assetUrl ?? source?.assetUrl ?? null,
+          assetPath: assetMeta?.assetPath ?? source?.assetPath ?? null,
+          mimeType: assetMeta?.mimeType ?? source?.mimeType ?? null,
         });
         nextPins = [...pins, ...noteItems];
         nextNotes = appendIngestNotes(
           notes,
-          formatIngestNotesBlock({ title: label, createdAt, notes: [label] }),
+          formatIngestNotesBlock({
+            title,
+            createdAt,
+            notes: [asset ? title : sourceText.trim() || title],
+          }),
         );
       }
-      if (asIsDest.calendar) {
-        calendarCount = 1;
+
+      if (jobs.cal) {
+        calendarCount = keptEvents.length;
         nextEvents = [
-          {
-            id: newId("cal"),
-            title: label,
-            date: asIsDate || null,
-            startTime: null,
+          ...keptEvents.map((row, index) => ({
+            id: `cal-${sourceId.slice(0, 8)}-${index + 1}-${Math.random().toString(36).slice(2, 7)}`,
+            title: row.title.trim(),
+            date: row.date,
+            startTime: row.time.trim() || null,
             endTime: null,
-            notes: "",
+            notes: row.location.trim(),
             createdAt,
             createdBy: assignedBy,
             sourceId,
-            assetUrl: asset.assetUrl,
-            assetPath: asset.assetPath,
-          },
+            assetUrl: assetMeta?.assetUrl ?? source?.assetUrl ?? null,
+            assetPath: assetMeta?.assetPath ?? source?.assetPath ?? null,
+          })),
           ...calendarEvents,
         ];
       }
 
+      if (!jobs.note && !stepCount && !calendarCount) {
+        setError("Keep at least one to-do or event, or turn on Save as a note.");
+        setStatus("");
+        return;
+      }
+
       const nextSource: PersistedIngestSource = {
         id: sourceId,
-        title: label,
-        kind: "file",
-        excerpt: label.slice(0, 280),
-        createdAt,
+        title,
+        kind: sourceKind,
+        excerpt: (asset ? title : sourceText).slice(0, 280),
+        createdAt: source?.createdAt ?? createdAt,
         stepCount,
         noteCount,
         calendarCount,
-        assetUrl: asset.assetUrl,
-        assetPath: asset.assetPath,
-        mimeType: asset.mimeType,
-        fileName: asset.fileName,
+        assetUrl: assetMeta?.assetUrl ?? source?.assetUrl ?? null,
+        assetPath: assetMeta?.assetPath ?? source?.assetPath ?? null,
+        mimeType: assetMeta?.mimeType ?? source?.mimeType ?? null,
+        fileName: assetMeta?.fileName ?? source?.fileName ?? asset?.name ?? null,
       };
 
       await onConfirm({
@@ -468,203 +518,91 @@ export function IngestPanel({
         noteItems: nextPins,
         calendarEvents: nextEvents,
       });
-      clearPendingFile();
-      setTitle("");
-      setStatus("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save file");
-      setStatus("");
-    } finally {
-      setBusy(false);
-    }
-  }
 
-  function patchDraft(id: string, patch: Partial<DraftRow>) {
-    setDrafts((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
-  }
-
-  function trashDraft(id: string) {
-    setDrafts((current) => current.filter((row) => row.id !== id));
-  }
-
-  async function confirm() {
-    if (!source) return;
-    const labeled = drafts.filter((row) => row.label.trim());
-    const todoRows = labeled.filter((row) => row.route === "todo");
-    const noteRows = labeled.filter((row) => row.route === "note");
-    const calendarRows = labeled.filter((row) => row.route === "calendar");
-    if (!todoRows.length && !noteRows.length && !calendarRows.length) {
-      setError("Route at least one row to To-do, Note, or Calendar.");
-      return;
-    }
-    setBusy(true);
-    setError("");
-    try {
-      // Log approve/reject for the extraction ratio (to-do kept = approved).
-      void fetch("/api/ingest/feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rows: drafts.map((row) => ({
-            sourceId: source.id,
-            title: row.label.trim(),
-            category: row.category ?? null,
-            confidence: row.confidence ?? null,
-            approved: row.route === "todo",
-          })),
-        }),
-      }).catch(() => {
-        /* non-blocking */
-      });
-
-      const createdAt = new Date().toISOString();
-      const steps: PersistedProjectStep[] = [
-        ...projectSteps,
-        ...todoRows.map((row, index) => ({
-          id: `ing-${source.id.slice(0, 8)}-${index + 1}-${Math.random().toString(36).slice(2, 7)}`,
-          label: row.label.trim(),
-          owner: row.owner,
-          assignedBy,
-          parentId: row.parentId,
-          dueDate: row.dueDate,
-          startDate: row.startDate,
-          endDate: row.endDate,
-          sourceId: source.id,
-          createdAt,
-          assetUrl: source.assetUrl ?? null,
-        })),
-      ];
-      const notesBlock = formatIngestNotesBlock({
-        title: source.title,
-        createdAt: source.createdAt,
-        notes: noteRows.map((row) => row.label),
-      });
-      const nextNotes = appendIngestNotes(notes, notesBlock);
-      const createdPins = buildPinNotesFromIngest({
-        sourceId: source.id,
-        sourceTitle: source.title,
-        sourceKind: source.kind,
-        sourceText: source.text,
-        sourceUrl: source.kind === "url" ? url.trim() || null : null,
-        createdAt,
-        addedBy: assignedBy,
-        noteLabels: noteRows.map((row) => row.label),
-        assetUrl: source.assetUrl,
-        assetPath: source.assetPath,
-        mimeType: source.mimeType,
-        previewImageUrl: source.previewImageUrl,
-        previewSummary: source.previewSummary,
-      });
-      const createdEvents: CalendarEvent[] = calendarRows.map((row, index) => ({
-        id: `cal-${source.id.slice(0, 8)}-${index + 1}-${Math.random().toString(36).slice(2, 7)}`,
-        title: row.label.trim(),
-        date: row.dueDate,
-        startTime: null,
-        endTime: null,
-        notes: "",
-        createdAt,
-        createdBy: assignedBy,
-        sourceId: source.id,
-        assetUrl: source.assetUrl ?? null,
-        assetPath: source.assetPath ?? null,
-      }));
-      const nextSource: PersistedIngestSource = {
-        id: source.id,
-        title: source.title,
-        kind: source.kind,
-        excerpt: source.text.slice(0, 280),
-        createdAt: source.createdAt,
-        stepCount: todoRows.length,
-        noteCount: noteRows.length,
-        calendarCount: calendarRows.length,
-        assetUrl: source.assetUrl ?? null,
-        assetPath: source.assetPath ?? null,
-        mimeType: source.mimeType ?? null,
-        fileName: source.fileName ?? null,
-      };
-      await onConfirm({
-        steps,
-        source: nextSource,
-        notes: nextNotes,
-        noteItems: [...createdPins, ...noteItems],
-        calendarEvents: [...createdEvents, ...calendarEvents],
-      });
-      setDrafts([]);
-      setDocumentSummary("");
+      setPaste("");
+      clearAsset();
+      setJobs({ note: true, todo: true, cal: true });
+      setNoteTitle("");
+      setTodos([]);
+      setEvents([]);
       setSource(null);
-      setText("");
-      setUrl("");
-      setTitle("");
-      setMethod("");
-      setReadMethod("");
+      setStep(1);
       setStatus("");
-      clearPendingFile();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save");
+      setStatus("");
     } finally {
       setBusy(false);
     }
   }
 
-  const todoCount = drafts.filter((row) => row.route === "todo" && row.label.trim()).length;
-  const noteCount = drafts.filter((row) => row.route === "note" && row.label.trim()).length;
-  const calendarCount = drafts.filter((row) => row.route === "calendar" && row.label.trim()).length;
-  const reviewedCount = drafts.filter((row) => row.label.trim()).length;
-  const liveApprovalRate =
-    reviewedCount > 0 ? Math.round((todoCount / reviewedCount) * 100) : null;
+  const jobsSub =
+    JOB_CARDS.filter((card) => jobs[card.id])
+      .map((card) => card.title.replace(/^Find /, "").replace(/^Save as a /, ""))
+      .join(" · ") || "None picked";
+
+  const stepsMeta: { n: string; label: string; sub: string; reach: boolean }[] = [
+    {
+      n: "01",
+      label: "Asset",
+      sub: hasSource ? sourceName : "File or pasted text",
+      reach: true,
+    },
+    {
+      n: "02",
+      label: "Jobs",
+      sub: jobsSub,
+      reach: hasSource,
+    },
+    {
+      n: "03",
+      label: onlyNote ? "Save" : "Review",
+      sub: onlyNote ? "Nothing to review" : "Only what was found",
+      reach: hasSource && anyJob,
+    },
+  ];
 
   return (
     <div className="pm-panel ingest-panel">
-      <div className="ingest-compose">
-        <label className="stack-field">
-          <span className="label">Source title</span>
-          <input
-            className="field"
-            value={title}
-            placeholder="Webinar slides, article title, Granola paste…"
-            onChange={(event) => setTitle(event.target.value)}
-          />
-        </label>
+      <nav className="ingest-steps" aria-label="Ingest steps">
+        {stepsMeta.map((meta, index) => {
+          const k = (index + 1) as 1 | 2 | 3;
+          const on = k === step;
+          const done = k < step;
+          return (
+            <button
+              key={meta.n}
+              type="button"
+              className={`ingest-step${on ? " is-on" : ""}${done ? " is-done" : ""}`}
+              disabled={!meta.reach || busy}
+              aria-current={on ? "step" : undefined}
+              onClick={() => {
+                if (meta.reach) setStep(k);
+              }}
+            >
+              <span className="ingest-step-n">{meta.n}</span>
+              <span className="ingest-step-l">{meta.label}</span>
+              <span className="ingest-step-sub">{meta.sub}</span>
+            </button>
+          );
+        })}
+      </nav>
 
-        <label className="stack-field">
-          <span className="label">Paste text</span>
-          <textarea
-            className="field ingest-textarea"
-            rows={8}
-            value={text}
-            placeholder="Paste article text, webinar notes, or a Granola transcript export here."
-            onChange={(event) => setText(event.target.value)}
-          />
-        </label>
-
-        <div className="ingest-actions">
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={busy || !text.trim()}
-            onClick={() => void runSavePasteAsNote()}
+      {step === 1 ? (
+        <div className="ingest-panel-body">
+          <label
+            className={`ingest-drop${dropOver ? " is-over" : ""}`}
+            onDragOver={(event) => {
+              event.preventDefault();
+              setDropOver(true);
+            }}
+            onDragLeave={() => setDropOver(false)}
+            onDrop={onDrop}
           >
-            Save paste as note
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            disabled={busy || !text.trim()}
-            onClick={() => void runParse("paste")}
-          >
-            Suggest tasks from paste
-          </button>
-        </div>
-
-        <div className="ingest-or">or upload a file (PDF, PNG, JPG, WebP, GIF)</div>
-
-        <label className="stack-field">
-          <span className="label">File</span>
-          <div className="ingest-file-row">
             <input
               ref={fileInputRef}
-              className="field grow ingest-file"
               type="file"
+              hidden
               accept={acceptIngestAttr()}
               disabled={busy}
               onChange={(event) => {
@@ -672,312 +610,342 @@ export function IngestPanel({
                 if (file) pickFile(file);
               }}
             />
+            <strong>Drop a PowerPoint or an email</strong>
+            <span className="ingest-datum">.pptx · .key · .pdf · .eml · .msg</span>
+          </label>
+
+          <span className="label">or paste text</span>
+          <textarea
+            className="field ingest-paste"
+            value={paste}
+            placeholder="Paste an email, article, webinar notes or a transcript."
+            disabled={busy}
+            onChange={(event) => setPaste(event.target.value)}
+          />
+
+          {asset ? (
+            <div className="ingest-asset">
+              <span className="ingest-kind">{kindLabel(asset.kind)}</span>
+              <span className="ingest-asset-name">{asset.name}</span>
+              <span className="ingest-datum">{asset.meta}</span>
+              <button type="button" className="ingest-ghost" disabled={busy} onClick={clearAsset}>
+                Remove
+              </button>
+            </div>
+          ) : null}
+
+          {error ? (
+            <p className="ingest-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+
+          <div className="ingest-actions">
             <button
               type="button"
-              className="btn btn-secondary"
-              disabled={busy}
-              onClick={() => fileInputRef.current?.click()}
+              className="btn btn-primary ingest-primary"
+              disabled={busy || !hasSource}
+              onClick={() => {
+                setError("");
+                setStep(2);
+              }}
             >
-              Choose file
+              Next
             </button>
           </div>
-        </label>
+        </div>
+      ) : null}
 
-        {pendingFile ? (
-          <div className="ingest-file-mode">
-            <p className="ingest-file-name">
-              Selected: <strong>{pendingFile.file.name}</strong>
-            </p>
-            {pendingFile.previewUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img className="ingest-file-preview" src={pendingFile.previewUrl} alt="" />
-            ) : null}
-            <p className="section-sub">
-              What should we do with this file? Read the text to suggest to-dos/notes/calendar rows,
-              or save the asset as-is onto Notes, a To-do, and/or Calendar.
-            </p>
-            <div className="ingest-actions">
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={busy}
-                onClick={() => void runReadText()}
-              >
-                {busy ? "Working…" : "Read text & suggest"}
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                disabled={busy}
-                onClick={() => clearPendingFile()}
-              >
-                Clear file
-              </button>
-            </div>
-
-            <div className="ingest-asis">
-              <h3 className="dash-title">Or save as-is</h3>
-              <label className="stack-field">
-                <span className="label">Title</span>
-                <input
-                  className="field"
-                  value={asIsTitle}
-                  onChange={(event) => setAsIsTitle(event.target.value)}
-                />
-              </label>
-              <div className="ingest-asis-dest" role="group" aria-label="Save destinations">
-                {(
-                  [
-                    ["note", "Note"],
-                    ["todo", "To-do"],
-                    ["calendar", "Calendar"],
-                  ] as const
-                ).map(([key, label]) => (
-                  <label key={key} className="ingest-asis-check">
-                    <input
-                      type="checkbox"
-                      checked={asIsDest[key]}
-                      onChange={(event) =>
-                        setAsIsDest((current) => ({ ...current, [key]: event.target.checked }))
-                      }
-                    />
-                    {label}
-                  </label>
-                ))}
-              </div>
-              {asIsDest.todo ? (
-                <label className="stack-field">
-                  <span className="label">Assign to-do to</span>
-                  <select
-                    className="field"
-                    value={asIsOwner}
-                    onChange={(event) => setAsIsOwner(event.target.value as Owner)}
-                  >
-                    {OWNERS.map((owner) => (
-                      <option key={owner.id} value={owner.id}>
-                        {owner.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : null}
-              {asIsDest.todo || asIsDest.calendar ? (
-                <label className="stack-field">
-                  <span className="label">Date (optional)</span>
-                  <input
-                    className="field"
-                    type="date"
-                    value={asIsDate}
-                    onChange={(event) => setAsIsDate(event.target.value)}
-                  />
-                </label>
-              ) : null}
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={busy}
-                onClick={() => void runSaveAsIs()}
-              >
-                {busy ? "Saving…" : "Save asset"}
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        {status ? <p className="ingest-status" aria-live="polite">{status}</p> : null}
-
-        <div className="ingest-or">or pull from a URL</div>
-
-        <label className="stack-field">
-          <span className="label">URL</span>
-          <div className="ingest-url-row">
-            <input
-              className="field grow"
-              value={url}
-              placeholder="https://"
-              onChange={(event) => setUrl(event.target.value)}
-            />
-            <button
-              type="button"
-              className="btn btn-secondary"
-              disabled={busy || !url.trim()}
-              onClick={() => void runParse("url")}
-            >
-              Fetch & suggest
-            </button>
-          </div>
-        </label>
-
-        <p className="section-sub">
-          Paste text and save it as one note as-is, or suggest tasks to split into to-dos/notes/calendar.
-          For files, read the text for suggestions or save the asset as-is.
-        </p>
-      </div>
-
-      {error ? <p className="ingest-error">{error}</p> : null}
-
-      {drafts.length ? (
-        <div className="ingest-review">
-          <header className="ingest-review-head">
-            <div>
-              <h3 className="dash-title">Review suggestions</h3>
-              {documentSummary ? <p className="ingest-doc-summary">{documentSummary}</p> : null}
-              <p className="section-sub">
-                {method === "ai" ? "Parsed with AI." : "Parsed with local heuristics."}
-                {readMethod === "ocr" ? " Text came from OCR." : ""}{" "}
-                Route each row to To-do, Note, Calendar, or Drop.
-                {todoCount || noteCount || calendarCount
-                  ? ` Ready: ${todoCount} to-do${todoCount === 1 ? "" : "s"}, ${noteCount} note${noteCount === 1 ? "" : "s"}, ${calendarCount} calendar.`
-                  : ""}
-              </p>
-              {liveApprovalRate !== null ? (
-                <p className="ingest-approval-rate">
-                  Approval rate for this document (kept as to-do): {liveApprovalRate}% ({todoCount}/
-                  {reviewedCount})
-                </p>
-              ) : null}
-            </div>
-            <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void confirm()}>
-              {busy ? "Saving…" : "Confirm"}
-            </button>
-          </header>
-
-          <ul className="ingest-draft-list">
-            {drafts.map((row) => {
-              const isTodo = row.route === "todo";
-              const isNote = row.route === "note";
-              const isCalendar = row.route === "calendar";
-              const isDrop = row.route === "drop";
+      {step === 2 ? (
+        <div className="ingest-panel-body">
+          <h2 className="ingest-jobs-heading">What should we do with {sourceName}?</h2>
+          <div className="ingest-jobs">
+            {JOB_CARDS.map((card) => {
+              const on = jobs[card.id];
               return (
-                <li
-                  key={row.id}
-                  className={isDrop ? "ingest-draft muted-row" : "ingest-draft"}
-                  data-route={row.route}
+                <button
+                  key={card.id}
+                  type="button"
+                  className="ingest-job"
+                  aria-pressed={on}
+                  disabled={busy}
+                  onClick={() => setJobs((current) => ({ ...current, [card.id]: !current[card.id] }))}
                 >
-                  <div className="ingest-draft-top">
-                    <div className="ingest-route" role="group" aria-label="Route">
-                      {ROUTES.map((option) => (
-                        <button
-                          key={option.id}
-                          type="button"
-                          className={row.route === option.id ? "active" : ""}
-                          aria-pressed={row.route === option.id}
-                          onClick={() => patchDraft(row.id, { route: option.id })}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      className="btn btn-secondary ingest-trash"
-                      aria-label="Trash this row"
-                      title="Trash"
-                      onClick={() => trashDraft(row.id)}
-                    >
-                      Trash
-                    </button>
-                  </div>
-
-                  <div className="ingest-draft-main">
-                    {row.updatesExisting ? (
-                      <span className="ingest-updates-tag">Updates existing</span>
-                    ) : null}
-                    <input
-                      className="field ingest-label"
-                      value={row.label}
-                      onChange={(event) => patchDraft(row.id, { label: event.target.value })}
-                      aria-label="Suggestion title"
-                    />
-                    {row.details ? <p className="ingest-details">{row.details}</p> : null}
-                    {row.evidence ? <p className="ingest-evidence">“{row.evidence}”</p> : null}
-                    <div className="ingest-draft-meta">
-                      {row.conditionalOn ? (
-                        <p className="ingest-note-hint">If: {row.conditionalOn}</p>
-                      ) : null}
-                      {typeof row.confidence === "number" ? (
-                        <p className="ingest-note-hint">
-                          Confidence {Math.round(row.confidence * 100)}%
-                          {row.category ? ` · ${row.category.replace(/_/g, " ")}` : ""}
-                          {row.school ? ` · ${row.school}` : ""}
-                        </p>
-                      ) : null}
-                      {isNote ? <p className="ingest-note-hint">Goes to the Notes pinboard.</p> : null}
-                      {isCalendar ? (
-                        <p className="ingest-note-hint">Goes to Calendar events.</p>
-                      ) : null}
-                      {isDrop ? <p className="ingest-note-hint">Won’t be saved.</p> : null}
-                    </div>
-                  </div>
-
-                  {isTodo || isCalendar ? (
-                    <div className="ingest-draft-fields">
-                      {isTodo ? (
-                        <>
-                          <label className="ingest-field">
-                            <span>Owner</span>
-                            <select
-                              className="field"
-                              value={row.owner}
-                              onChange={(event) =>
-                                patchDraft(row.id, { owner: event.target.value as Owner })
-                              }
-                            >
-                              {OWNERS.map((owner) => (
-                                <option key={owner.id} value={owner.id}>
-                                  {owner.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="ingest-field ingest-field-wide">
-                            <span>Parent checklist</span>
-                            <select
-                              className="field"
-                              value={row.parentId}
-                              onChange={(event) =>
-                                patchDraft(row.id, { parentId: event.target.value })
-                              }
-                            >
-                              {parents.map((parent) => (
-                                <option key={parent.id} value={parent.id}>
-                                  {parent.phase}: {parent.label.slice(0, 80)}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="ingest-field">
-                            <span>Due</span>
-                            <input
-                              className="field"
-                              type="date"
-                              value={row.dueDate ?? ""}
-                              onChange={(event) =>
-                                patchDraft(row.id, { dueDate: event.target.value || null })
-                              }
-                            />
-                          </label>
-                        </>
-                      ) : null}
-                      {isCalendar ? (
-                        <label className="ingest-field">
-                          <span>Event date</span>
-                          <input
-                            className="field"
-                            type="date"
-                            value={row.dueDate ?? ""}
-                            onChange={(event) =>
-                              patchDraft(row.id, { dueDate: event.target.value || null })
-                            }
-                          />
-                        </label>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </li>
+                  <span className="ingest-job-box" aria-hidden="true">
+                    {on ? "✓" : ""}
+                  </span>
+                  <span className="ingest-job-t">{card.title}</span>
+                  <span className="ingest-job-d">{card.description}</span>
+                </button>
               );
             })}
-          </ul>
+          </div>
+          {error ? (
+            <p className="ingest-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {status ? (
+            <p className="ingest-status" aria-live="polite">
+              {status}
+            </p>
+          ) : null}
+          <div className="ingest-actions">
+            <button
+              type="button"
+              className="btn btn-primary ingest-primary"
+              disabled={busy || !anyJob}
+              onClick={() => void runFindItems()}
+            >
+              {busy ? "Working…" : onlyNote ? "Next: save" : "Find items"}
+            </button>
+            <button
+              type="button"
+              className="ingest-ghost"
+              disabled={busy}
+              onClick={() => setStep(1)}
+            >
+              Back
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {step === 3 ? (
+        <div className="ingest-panel-body ingest-review-body">
+          {jobs.note ? (
+            <div className="ingest-note-row">
+              <span className="label">Note</span>
+              <input
+                className="field"
+                value={noteTitle}
+                aria-label="Note title"
+                disabled={busy}
+                onChange={(event) => setNoteTitle(event.target.value)}
+              />
+              <span className="ingest-datum">
+                whole {asset ? kindLabel(asset.kind).toLowerCase() : "paste"} · to Notes pinboard
+              </span>
+            </div>
+          ) : null}
+
+          {jobs.todo ? (
+            <div className="ingest-group">
+              <div className="ingest-group-head">
+                <h2>To-dos</h2>
+                <span className="ingest-datum">
+                  {keptTodos.length} of {todos.length} kept
+                </span>
+              </div>
+              {todos.length ? (
+                todos.map((row) => (
+                  <div
+                    key={row.id}
+                    className={`ingest-row${row.skipped ? " is-skip" : ""}`}
+                  >
+                    <div className="ingest-seg" role="group" aria-label="Keep or skip">
+                      <button
+                        type="button"
+                        aria-pressed={!row.skipped}
+                        disabled={busy}
+                        onClick={() =>
+                          setTodos((current) =>
+                            current.map((item) =>
+                              item.id === row.id ? { ...item, skipped: false } : item,
+                            ),
+                          )
+                        }
+                      >
+                        Keep
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={row.skipped}
+                        disabled={busy}
+                        onClick={() =>
+                          setTodos((current) =>
+                            current.map((item) =>
+                              item.id === row.id ? { ...item, skipped: true } : item,
+                            ),
+                          )
+                        }
+                      >
+                        Skip
+                      </button>
+                    </div>
+                    <div className="ingest-row-main">
+                      <div className="ingest-row-title-line">
+                        <span className="ingest-row-title">{row.title}</span>
+                        {row.updatesExisting ? (
+                          <span className="ingest-tag">Updates existing</span>
+                        ) : null}
+                      </div>
+                      {row.evidence ? (
+                        <span className="ingest-quote">“{row.evidence}”</span>
+                      ) : null}
+                    </div>
+                    <select
+                      className="field"
+                      aria-label="Owner"
+                      value={row.owner}
+                      disabled={busy || row.skipped}
+                      onChange={(event) =>
+                        setTodos((current) =>
+                          current.map((item) =>
+                            item.id === row.id
+                              ? { ...item, owner: event.target.value as Owner }
+                              : item,
+                          ),
+                        )
+                      }
+                    >
+                      {OWNERS.map((owner) => (
+                        <option key={owner.id} value={owner.id}>
+                          {owner.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      className="field"
+                      type="date"
+                      aria-label="Due date"
+                      value={row.dueDate ?? ""}
+                      disabled={busy || row.skipped}
+                      onChange={(event) =>
+                        setTodos((current) =>
+                          current.map((item) =>
+                            item.id === row.id
+                              ? { ...item, dueDate: event.target.value || null }
+                              : item,
+                          ),
+                        )
+                      }
+                    />
+                    <span className="ingest-datum ingest-src">{row.sourceLocator}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="section-sub">No to-dos found in this asset.</p>
+              )}
+            </div>
+          ) : null}
+
+          {jobs.cal ? (
+            <div className="ingest-group">
+              <div className="ingest-group-head">
+                <h2>Calendar</h2>
+                <span className="ingest-datum">
+                  {keptEvents.length} of {events.length} kept
+                </span>
+              </div>
+              {events.length ? (
+                events.map((row) => (
+                  <div
+                    key={row.id}
+                    className={`ingest-row ingest-row-cal${row.skipped ? " is-skip" : ""}`}
+                  >
+                    <div className="ingest-seg" role="group" aria-label="Keep or skip">
+                      <button
+                        type="button"
+                        aria-pressed={!row.skipped}
+                        disabled={busy}
+                        onClick={() =>
+                          setEvents((current) =>
+                            current.map((item) =>
+                              item.id === row.id ? { ...item, skipped: false } : item,
+                            ),
+                          )
+                        }
+                      >
+                        Keep
+                      </button>
+                      <button
+                        type="button"
+                        aria-pressed={row.skipped}
+                        disabled={busy}
+                        onClick={() =>
+                          setEvents((current) =>
+                            current.map((item) =>
+                              item.id === row.id ? { ...item, skipped: true } : item,
+                            ),
+                          )
+                        }
+                      >
+                        Skip
+                      </button>
+                    </div>
+                    <div className="ingest-row-main">
+                      <span className="ingest-row-title">{row.title}</span>
+                      {row.location ? <span className="ingest-where">{row.location}</span> : null}
+                    </div>
+                    <input
+                      className="field"
+                      type="date"
+                      aria-label="Date"
+                      value={row.date ?? ""}
+                      disabled={busy || row.skipped}
+                      onChange={(event) =>
+                        setEvents((current) =>
+                          current.map((item) =>
+                            item.id === row.id
+                              ? { ...item, date: event.target.value || null }
+                              : item,
+                          ),
+                        )
+                      }
+                    />
+                    <input
+                      className="field"
+                      type="time"
+                      aria-label="Time"
+                      value={row.time}
+                      disabled={busy || row.skipped}
+                      onChange={(event) =>
+                        setEvents((current) =>
+                          current.map((item) =>
+                            item.id === row.id ? { ...item, time: event.target.value } : item,
+                          ),
+                        )
+                      }
+                    />
+                    <span className="ingest-datum ingest-src">{row.sourceLocator}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="section-sub">No calendar events found in this asset.</p>
+              )}
+            </div>
+          ) : null}
+
+          {error ? (
+            <p className="ingest-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+
+          <div className="ingest-actions">
+            <button
+              type="button"
+              className="btn btn-primary ingest-primary"
+              disabled={busy || saveSummary() === "Nothing to save"}
+              onClick={() => void saveAll()}
+            >
+              {busy ? "Saving…" : saveSummary()}
+            </button>
+            <button
+              type="button"
+              className="ingest-ghost"
+              disabled={busy}
+              onClick={() => setStep(2)}
+            >
+              Back to jobs
+            </button>
+            {status ? (
+              <span className="ingest-status" aria-live="polite">
+                {status}
+              </span>
+            ) : null}
+          </div>
         </div>
       ) : null}
 

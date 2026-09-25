@@ -1242,8 +1242,8 @@ export function Portal({
               </div>
             </header>
             <p className="pm-blurb">
-              Paste, URL, or upload PDF/PNG/JPG — read text for suggestions, or save the asset
-              as-is to Note, To-do, and/or Calendar.
+              Drop a deck or email, or paste text. Choose whether to save a note, find to-dos,
+              find calendar events — then review and save.
             </p>
             <IngestPanel
               phases={phases}

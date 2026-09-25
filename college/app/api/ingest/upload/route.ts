@@ -4,11 +4,26 @@ import { supabaseConfigured } from "@/lib/db";
 import {
   INGEST_BUCKET,
   INGEST_MAX_BYTES,
-  INGEST_MIME,
   ingestExtension,
+  ingestFileKind,
   ingestStorageAdmin,
+  isIngestFile,
   publicIngestUrl,
 } from "@/lib/ingest-assets";
+
+function resolveMime(file: File): string {
+  const type = (file.type || "").toLowerCase();
+  if (type && type !== "application/octet-stream") return type;
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".pdf")) return "application/pdf";
+  if (name.endsWith(".pptx")) {
+    return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+  }
+  if (name.endsWith(".key")) return "application/vnd.apple.keynote";
+  if (name.endsWith(".eml")) return "message/rfc822";
+  if (name.endsWith(".msg")) return "application/vnd.ms-outlook";
+  return type || "application/octet-stream";
+}
 
 export async function POST(request: Request) {
   const session = await requireCollegeSession();
@@ -25,10 +40,9 @@ export async function POST(request: Request) {
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "Choose a file" }, { status: 400 });
   }
-  const mime = file.type || "application/octet-stream";
-  if (!INGEST_MIME.has(mime) && !/\.(pdf|png|jpe?g|webp|gif)$/i.test(file.name)) {
+  if (!isIngestFile(file) || !ingestFileKind(file)) {
     return NextResponse.json(
-      { error: "Use a PDF, PNG, JPG, WebP, or GIF" },
+      { error: "Use a PowerPoint, Keynote, PDF or email file." },
       { status: 400 },
     );
   }
@@ -36,18 +50,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "File must be under 25 MB" }, { status: 400 });
   }
 
-  const resolvedMime = INGEST_MIME.has(mime)
-    ? mime
-    : file.name.toLowerCase().endsWith(".pdf")
-      ? "application/pdf"
-      : file.name.toLowerCase().endsWith(".png")
-        ? "image/png"
-        : file.name.toLowerCase().endsWith(".webp")
-          ? "image/webp"
-          : file.name.toLowerCase().endsWith(".gif")
-            ? "image/gif"
-            : "image/jpeg";
-
+  const resolvedMime = resolveMime(file);
   const ext = ingestExtension(resolvedMime, file.name);
   if (!ext) {
     return NextResponse.json({ error: "Unsupported file type" }, { status: 400 });
@@ -71,5 +74,6 @@ export async function POST(request: Request) {
     mimeType: resolvedMime,
     fileName: file.name,
     bytes: file.size,
+    kind: ingestFileKind(file),
   });
 }
