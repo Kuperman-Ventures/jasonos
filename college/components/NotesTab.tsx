@@ -282,7 +282,6 @@ function NoteDetail({
   onSave,
   onDelete,
   previewLoading,
-  calendarBusy,
 }: {
   item: PinNote;
   viewer: Owner;
@@ -294,7 +293,6 @@ function NoteDetail({
   onSave: (patch: PinNoteEdit) => void;
   onDelete: () => void;
   previewLoading?: boolean;
-  calendarBusy?: boolean;
 }) {
   const forReview = waitingOnViewer(item, viewer);
   const uploader = profiles.get(item.addedBy);
@@ -445,13 +443,8 @@ function NoteDetail({
                 <button type="button" className="btn btn-secondary" onClick={onMakeTodo}>
                   Make a to-do
                 </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={onMakeCalendar}
-                  disabled={calendarBusy}
-                >
-                  {calendarBusy ? "Scanning for date…" : "Make a calendar event"}
+                <button type="button" className="btn btn-secondary" onClick={onMakeCalendar}>
+                  Make a calendar event
                 </button>
                 {confirmDelete ? (
                   <>
@@ -503,7 +496,7 @@ export function NotesTab({
   onOpenNote: (id: string | null) => void;
   onChangeNoteItems: (next: PinNote[]) => void;
   onMakeTodo: (note: PinNote) => void;
-  onMakeCalendar: (note: PinNote) => void | Promise<void>;
+  onMakeCalendar: (note: PinNote) => void;
 }) {
   const viewer = memberOwnerId(memberId);
   const profiles = useMemo(
@@ -512,7 +505,6 @@ export function NotesTab({
   );
   const storageKey = noteFilterStorageKey(memberId);
   const [filter, setFilter] = useState<NoteBoardFilter>("all");
-  const [calendarBusy, setCalendarBusy] = useState(false);
 
   useEffect(() => {
     try {
@@ -598,11 +590,7 @@ export function NotesTab({
           onChangeNoteItems(markPinReviewed(noteItems, openItem.id, viewer));
         }}
         onMakeTodo={() => onMakeTodo(openItem)}
-        onMakeCalendar={() => {
-          if (calendarBusy) return;
-          setCalendarBusy(true);
-          void Promise.resolve(onMakeCalendar(openItem)).finally(() => setCalendarBusy(false));
-        }}
+        onMakeCalendar={() => onMakeCalendar(openItem)}
         onSave={(patch) => {
           onChangeNoteItems(updatePinNote(noteItems, openItem.id, patch));
         }}
@@ -611,7 +599,6 @@ export function NotesTab({
           onOpenNote(null);
         }}
         previewLoading={previewLoading}
-        calendarBusy={calendarBusy}
       />
     );
   }

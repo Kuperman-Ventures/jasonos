@@ -5,6 +5,17 @@ import { isOwner, type Owner, type Phase } from "@/lib/types";
 
 export type IngestRoute = "todo" | "note" | "calendar" | "drop";
 
+/** Hand a note (or other text) into Ingest at the Jobs step. */
+export type IngestHandoff = {
+  id: string;
+  title: string;
+  text: string;
+  /** Which jobs start on. Note defaults off — the source is already a note. */
+  jobs: { note: boolean; todo: boolean; cal: boolean };
+  /** Optional link back to the pin that started this. */
+  fromNoteId?: string;
+};
+
 export type SuggestedStep = {
   id: string;
   label: string;

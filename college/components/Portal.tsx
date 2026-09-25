@@ -25,14 +25,14 @@ import { currentPhaseIndex, phaseStatuses } from "@/lib/phases";
 import { useSchoolPipeline } from "@/lib/use-school-pipeline";
 import { defaultListPrefs, mergeListPrefs, isForwardListPhaseMove, type MemberListPrefs } from "@/lib/list-phases";
 import { canAdvanceListPhase } from "@/lib/permissions";
-import type { PersistedIngestSource, PersistedProjectStep } from "@/lib/ingest";
+import { normalizeCalendarEvents, type CalendarEvent } from "@/lib/calendar-events";
+import type { IngestHandoff, PersistedIngestSource, PersistedProjectStep } from "@/lib/ingest";
 import { INBOX_PARENT_ID } from "@/lib/ingest";
 import {
   migrateLegacyNotesText,
   normalizePinNotes,
   type PinNote,
 } from "@/lib/note-board";
-import { normalizeCalendarEvents, type CalendarEvent } from "@/lib/calendar-events";
 import {
   DEFAULT_ACTIVITIES_VIEW,
   DEFAULT_APPS_SECTION,
@@ -190,6 +190,7 @@ export function Portal({
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
   const [projectSteps, setProjectSteps] = useState<PersistedProjectStep[]>([]);
   const [ingestSources, setIngestSources] = useState<PersistedIngestSource[]>([]);
+  const [ingestHandoff, setIngestHandoff] = useState<IngestHandoff | null>(null);
   const [todoSubtasks, setTodoSubtasks] = useState<TodoSubtaskMap>({});
   const [todoEdits, setTodoEdits] = useState<TodoEditMap>({});
   const [todoProjects, setTodoProjects] = useState<TodoProject[]>([]);
@@ -696,34 +697,37 @@ export function Portal({
     });
   }
 
-  function makeTodoFromNote(note: PinNote) {
-    const createdAt = new Date().toISOString();
-    const step: PersistedProjectStep = {
-      id: `note-todo-${note.id.slice(0, 10)}-${Math.random().toString(36).slice(2, 7)}`,
-      label: note.title,
-      owner: memberOwnerId(member.id),
-      assignedBy: memberOwnerId(member.id),
-      parentId: INBOX_PARENT_ID,
-      dueDate: null,
-      startDate: null,
-      endDate: null,
-      sourceId: note.sourceId,
-      createdAt,
-      assetUrl: note.assetUrl,
+  function noteTextForIngest(note: PinNote): string {
+    const parts = [note.body?.trim(), note.previewSummary?.trim(), note.url?.trim()].filter(Boolean);
+    if (parts.length) return parts.join("\n\n");
+    return note.title.trim() || "Note";
+  }
+
+  /** Open Ingest at Jobs with this note — user picks Find to-dos / calendar / etc. */
+  function sendNoteToIngest(note: PinNote, intent: "todo" | "calendar") {
+    const handoff: IngestHandoff = {
+      id: `note-hand-${note.id}-${Date.now()}`,
+      title: note.title.trim() || "Note",
+      text: noteTextForIngest(note),
+      jobs: {
+        note: false,
+        todo: intent === "todo",
+        cal: intent === "calendar",
+      },
+      fromNoteId: note.id,
     };
-    const next = [...projectSteps, step];
-    setProjectSteps(next);
-    void patchState({ projectSteps: next }).then((ok) => {
-      if (!ok) return;
-      postActivity({
-        action: "create",
-        entityType: "todo",
-        entityId: step.id,
-        summary: `Made to-do “${note.title}” from a note`,
-        detail: { noteId: note.id },
-      });
-    });
-    goProjectSection("todos");
+    setIngestHandoff(handoff);
+    setOpenNoteId(null);
+    setTab("ingest");
+    replaceUrl("ingest", null, projectSection, null, appsSection);
+  }
+
+  function makeTodoFromNote(note: PinNote) {
+    sendNoteToIngest(note, "todo");
+  }
+
+  function makeCalendarFromNote(note: PinNote) {
+    sendNoteToIngest(note, "calendar");
   }
 
   function addTodo(label: string) {
@@ -754,68 +758,6 @@ export function Portal({
         summary: `Added to-do “${trimmed}”`,
       });
     });
-  }
-
-  async function makeCalendarFromNote(note: PinNote) {
-    const createdAt = new Date().toISOString();
-    let date: string | null = null;
-    try {
-      const response = await fetch("/api/calendar/from-note", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: note.title,
-          body: note.body,
-          previewSummary: note.previewSummary,
-          url: note.url,
-          assetUrl: note.assetUrl,
-          mimeType: note.mimeType,
-        }),
-      });
-      if (response.ok) {
-        const body = (await response.json()) as { date?: string | null };
-        date = typeof body.date === "string" && body.date ? body.date : null;
-      }
-    } catch {
-      /* fall through to local parse */
-    }
-    if (!date) {
-      const { parseEventDateFromText } = await import("@/lib/event-date");
-      date = parseEventDateFromText(note.title, note.previewSummary, note.body, note.url);
-    }
-
-    const notesParts = [
-      note.previewSummary?.trim() || "",
-      note.body?.trim() || "",
-      note.url?.trim() || "",
-    ].filter(Boolean);
-    const event: CalendarEvent = {
-      id: `note-cal-${note.id.slice(0, 10)}-${Math.random().toString(36).slice(2, 7)}`,
-      title: note.title,
-      date,
-      startTime: null,
-      endTime: null,
-      notes: notesParts.join("\n\n"),
-      createdAt,
-      createdBy: memberOwnerId(member.id),
-      sourceId: note.sourceId,
-      assetUrl: note.assetUrl,
-      assetPath: note.assetPath,
-    };
-    const next = [event, ...calendarEvents];
-    setCalendarEvents(next);
-    setCalendarFocusDate(date);
-    void patchState({ calendarEvents: next }).then((ok) => {
-      if (!ok) return;
-      postActivity({
-        action: "create",
-        entityType: "calendar",
-        entityId: event.id,
-        summary: `Made calendar event “${note.title}” from a note`,
-        detail: { noteId: note.id, date },
-      });
-    });
-    goProjectSection("calendar");
   }
 
   function changeScore(firmId: string, criterionId: string, value: number) {
@@ -1261,6 +1203,8 @@ export function Portal({
                   school: null,
                   dueDate: todo.dueDate,
                 }))}
+              handoff={ingestHandoff}
+              onHandoffConsumed={() => setIngestHandoff(null)}
               onConfirm={confirmIngest}
             />
           </section>

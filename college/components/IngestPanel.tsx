@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import type { CalendarEvent } from "@/lib/calendar-events";
 import {
   appendIngestNotes,
   formatIngestNotesBlock,
   INBOX_PARENT_ID,
+  type IngestHandoff,
   type IngestSourceDraft,
   type PersistedIngestSource,
   type PersistedProjectStep,
@@ -138,6 +139,8 @@ export function IngestPanel({
   assignedBy,
   schoolNames,
   openTodos,
+  handoff,
+  onHandoffConsumed,
   onConfirm,
 }: {
   phases: Phase[];
@@ -149,6 +152,9 @@ export function IngestPanel({
   assignedBy: Owner;
   schoolNames: string[];
   openTodos: { title: string; school: string | null; dueDate: string | null }[];
+  /** When set, jump to Jobs with this text/title and job toggles. */
+  handoff?: IngestHandoff | null;
+  onHandoffConsumed?: () => void;
   onConfirm: (payload: IngestConfirmPayload) => Promise<void>;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -170,11 +176,38 @@ export function IngestPanel({
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [handoffBanner, setHandoffBanner] = useState("");
+
+  useEffect(() => {
+    if (!handoff) return;
+    setAsset(null);
+    setUploadedAsset(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setPaste(handoff.text);
+    setNoteTitle(handoff.title);
+    setJobs({ ...handoff.jobs });
+    setTodos([]);
+    setEvents([]);
+    setSource(null);
+    setError("");
+    setStatus("");
+    setStep(2);
+    setHandoffBanner(
+      handoff.fromNoteId
+        ? `From note “${handoff.title}”. Pick jobs, then find items.`
+        : `Loaded “${handoff.title}”. Pick jobs, then find items.`,
+    );
+    onHandoffConsumed?.();
+    // Only react when a new handoff id arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handoff?.id]);
 
   const hasSource = Boolean(asset) || paste.trim().length > 0;
   const anyJob = jobs.note || jobs.todo || jobs.cal;
   const onlyNote = jobs.note && !jobs.todo && !jobs.cal;
-  const sourceName = asset ? asset.name : paste.trim() ? "Pasted text" : "";
+  const sourceName = asset
+    ? asset.name
+    : noteTitle.trim() || (paste.trim() ? "Pasted text" : "");
 
   const keptTodos = useMemo(() => todos.filter((row) => !row.skipped && row.title.trim()), [todos]);
   const keptEvents = useMemo(
@@ -658,6 +691,7 @@ export function IngestPanel({
 
       {step === 2 ? (
         <div className="ingest-panel-body">
+          {handoffBanner ? <p className="ingest-status">{handoffBanner}</p> : null}
           <h2 className="ingest-jobs-heading">What should we do with {sourceName}?</h2>
           <div className="ingest-jobs">
             {JOB_CARDS.map((card) => {
