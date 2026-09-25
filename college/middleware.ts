@@ -4,12 +4,14 @@ import { NextResponse, type NextRequest } from "next/server";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Public auth routes and static assets stay open.
+  // Public auth routes and static brand assets stay open (favicon must work on login).
   if (
     pathname.startsWith("/login") ||
     pathname.startsWith("/auth/") ||
     pathname.startsWith("/_next") ||
     pathname === "/favicon.ico" ||
+    pathname === "/icon.png" ||
+    pathname === "/apple-icon.png" ||
     pathname === "/logo.png"
   ) {
     return NextResponse.next();
