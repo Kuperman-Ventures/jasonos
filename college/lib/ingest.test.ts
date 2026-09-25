@@ -4,6 +4,8 @@ import {
   appendIngestNotes,
   formatIngestNotesBlock,
   heuristicSuggestions,
+  isActionableTodoLabel,
+  isJunkTodoLabel,
   normalizeIngestSources,
   normalizePersistedSteps,
 } from "./ingest";
@@ -18,7 +20,7 @@ https://example.com/ignore-me
 Short
 `;
   const suggestions = heuristicSuggestions(text);
-  assert.ok(suggestions.length >= 3);
+  assert.ok(suggestions.length >= 2);
   assert.equal(
     suggestions.find((row) => /SAT/i.test(row.label))?.owner,
     "kyle",
@@ -29,6 +31,45 @@ Short
   );
   assert.ok(suggestions.every((row) => row.route === "todo"));
   assert.ok(!suggestions.some((row) => /example.com/i.test(row.label)));
+});
+
+test("ingest ignores greetings, headers, and schedule blurbs that are not to-dos", () => {
+  const email = `
+Dear AP Students and Parents,
+
+AP exam registration at Columbia High School requires two steps.
+Both steps must be finished by October 31st without a late fee.
+
+Students log into the College Board website using this school code.
+STEP TWO: (Opens September 25th, 2026)
+This is the link students can use to log into Total Registration.
+AP Registration Timeline:
+Sep 17, 2026 08:00 AM: Date and Time to begin registration
+Oct 31, 2026 11:59 PM: LATE REGISTRATION FEE begins
+
+Please register for AP exams on College Board by October 31.
+Kyle should complete Total Registration once it opens September 25.
+`;
+
+  assert.equal(isJunkTodoLabel("Dear AP Students and Parents,"), true);
+  assert.equal(isJunkTodoLabel("STEP TWO: (Opens September 25th, 2026)"), true);
+  assert.equal(isJunkTodoLabel("AP Registration Timeline:"), true);
+  assert.equal(isJunkTodoLabel("Sep 17, 2026 08:00 AM: Date and Time to begin registration"), true);
+  assert.equal(isJunkTodoLabel("This is the link students can use to log into Total Registration."), true);
+  assert.equal(isJunkTodoLabel("Students log into the College Board website using this school code."), true);
+  assert.equal(isActionableTodoLabel("Please register for AP exams on College Board by October 31."), true);
+  assert.equal(isActionableTodoLabel("Kyle should complete Total Registration once it opens September 25."), true);
+
+  const suggestions = heuristicSuggestions(email);
+  assert.ok(suggestions.length >= 1);
+  assert.ok(suggestions.length <= 4);
+  assert.ok(suggestions.every((row) => isActionableTodoLabel(row.label)));
+  assert.ok(
+    !suggestions.some((row) =>
+      /Dear AP|STEP TWO|Timeline:|This is the link|Students log into/i.test(row.label),
+    ),
+  );
+  assert.ok(suggestions.some((row) => /register/i.test(row.label)));
 });
 
 test("normalizePersistedSteps keeps valid rows only", () => {
