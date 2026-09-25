@@ -12,7 +12,13 @@
       "satContext": "~1530–1580",
       "selectivity": "Extreme Reach",
       "notes": "Elite engineering; keep as aspirational option",
-      "listOrder": 1
+      "listOrder": 1,
+      "materialsProgram": "Materials Science and Engineering (SB, Course 3)",
+      "materialsSourceUrl": "https://catalog.mit.edu/degree-charts/",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "Aerospace Engineering (SB, Course 16)",
+      "aerospaceNotes": "Offered by the Department of Aeronautics and Astronautics.",
+      "aerospaceSourceUrl": "https://catalog.mit.edu/degree-charts/"
     },
     {
       "id": "stanford-university",
@@ -26,7 +32,13 @@
       "satContext": "~1510–1570",
       "selectivity": "Extreme Reach",
       "notes": "Broad engineering + materials flexibility",
-      "listOrder": 2
+      "listOrder": 2,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://majors.stanford.edu/majors/materials-science-and-engineering",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "Aeronautics and Astronautics (BS)",
+      "aerospaceNotes": "The diploma reads Bachelor of Science in Engineering, with Aeronautics and Astronautics named as the program.",
+      "aerospaceSourceUrl": "https://bulletin.stanford.edu/programs/AA-BS"
     },
     {
       "id": "uc-berkeley",
@@ -40,7 +52,13 @@
       "satContext": "Test-free",
       "selectivity": "Extreme Reach",
       "notes": "Outstanding materials and mechanical programs",
-      "listOrder": 3
+      "listOrder": 3,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://engineering.berkeley.edu/admissions/undergraduate-admissions/undergraduate-academic-programs/",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Engineering",
+      "aerospaceNotes": "New major (first freshman class Fall 2022); applicants choose the major on the application.",
+      "aerospaceSourceUrl": "https://engineering.berkeley.edu/academics/undergraduate-programs/aerospace-engineering/"
     },
     {
       "id": "cornell-university",
@@ -54,7 +72,13 @@
       "satContext": "~1510–1570",
       "selectivity": "Extreme Reach",
       "notes": "Excellent fit for combined mechanical/materials interests",
-      "listOrder": 4
+      "listOrder": 4,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://catalog.cornell.edu/programs/materials-science-engineering-bs/",
+      "aerospaceEngineering": "Partial",
+      "aerospaceProgram": "Aerospace Engineering Minor",
+      "aerospaceNotes": "The department is named Mechanical and Aerospace Engineering, but the only undergraduate major is Mechanical Engineering.",
+      "aerospaceSourceUrl": "https://courses.cornell.edu/programs/aerospace-engineering-minor/"
     },
     {
       "id": "northwestern-university",
@@ -68,7 +92,13 @@
       "satContext": "~1500–1560",
       "selectivity": "Extreme Reach",
       "notes": "Especially notable materials program",
-      "listOrder": 5
+      "listOrder": 5,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://www.mccormick.northwestern.edu/materials-science/academics/undergraduate/bachelor-of-science/",
+      "aerospaceEngineering": "Partial",
+      "aerospaceProgram": "Space Engineering Certificate",
+      "aerospaceNotes": "No aerospace major, minor or concentration; the only aerospace-specific option is an undergraduate certificate.",
+      "aerospaceSourceUrl": "https://catalogs.northwestern.edu/undergraduate/engineering-applied-science/space-engineering/space-engineering-certificate/"
     },
     {
       "id": "cmu",
@@ -82,7 +112,13 @@
       "satContext": "~1510–1570",
       "selectivity": "Extreme Reach",
       "notes": "Robotics/research interests make this especially relevant",
-      "listOrder": 6
+      "listOrder": 6,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://coursecatalog.web.cmu.edu/degreesoffered/",
+      "aerospaceEngineering": "No",
+      "aerospaceProgram": "",
+      "aerospaceNotes": "The catalog lists no aerospace major, track or minor.",
+      "aerospaceSourceUrl": "https://coursecatalog.web.cmu.edu/schools-colleges/collegeofengineering/departmentofmechanicalengineering/"
     },
     {
       "id": "upenn",
@@ -96,7 +132,13 @@
       "satContext": "~1510–1560",
       "selectivity": "Extreme Reach",
       "notes": "Small engineering school within larger university",
-      "listOrder": 7
+      "listOrder": 7,
+      "materialsProgram": "Materials Science and Engineering (BSE)",
+      "materialsSourceUrl": "https://catalog.upenn.edu/undergraduate/programs/materials-science-engineering-bse/",
+      "aerospaceEngineering": "No",
+      "aerospaceProgram": "",
+      "aerospaceNotes": "None of the four Mechanical Engineering concentrations is aerospace.",
+      "aerospaceSourceUrl": "https://catalog.upenn.edu/undergraduate/programs/mechanical-engineering-applied-mechanics-bse/"
     },
     {
       "id": "johns-hopkins-university",
@@ -105,12 +147,18 @@
       "campusSize": "Urban / Medium",
       "mechanicalEngineering": "Yes",
       "materials": "Yes",
-      "materialsOffering": "Materials-related degree/path",
+      "materialsOffering": "Standalone undergraduate",
       "admissionsContext": "Extremely selective",
       "satContext": "~1530–1570",
       "selectivity": "Extreme Reach",
       "notes": "Research-intensive; verify exact current undergraduate materials structure",
-      "listOrder": 8
+      "listOrder": 8,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://e-catalogue.jhu.edu/engineering/full-time-residential-programs/degree-programs/materials-science-engineering/materials-engineering-bachelor-science/",
+      "aerospaceEngineering": "Partial",
+      "aerospaceProgram": "Aerospace Engineering track within Mechanical Engineering; Space Science and Engineering Minor",
+      "aerospaceNotes": "The aerospace track is a formal track inside the Mechanical Engineering major, not a separate degree.",
+      "aerospaceSourceUrl": "https://engineering.jhu.edu/ug-academic/advising/eng-101/programs/meche/"
     },
     {
       "id": "georgia-tech",
@@ -124,7 +172,13 @@
       "satContext": "~1370–1530",
       "selectivity": "Reach",
       "notes": "Exceptional strength in both mechanical and materials",
-      "listOrder": 9
+      "listOrder": 9,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://catalog.gatech.edu/colleges/coe/materials-science/",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Engineering",
+      "aerospaceNotes": "Offered by its own school (Guggenheim School of Aerospace Engineering).",
+      "aerospaceSourceUrl": "https://catalog.gatech.edu/programs/aerospace-engineering-bs/"
     },
     {
       "id": "university-of-michigan-ann-arbor",
@@ -138,7 +192,13 @@
       "satContext": "1430 median Engineering",
       "selectivity": "Reach",
       "notes": "Excellent breadth; holistic engineering review",
-      "listOrder": 10
+      "listOrder": 10,
+      "materialsProgram": "Materials Science and Engineering (BSE)",
+      "materialsSourceUrl": "https://bulletin.engin.umich.edu/ug-ed/degrees/",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BSE in Aerospace Engineering",
+      "aerospaceNotes": "Students enter engineering undeclared and choose a major by the third term; a separate BSE in Space Science and Engineering also exists.",
+      "aerospaceSourceUrl": "https://bulletin.engin.umich.edu/ug-ed/degrees/"
     },
     {
       "id": "uiuc",
@@ -152,7 +212,13 @@
       "satContext": "~1480–1550 Engineering",
       "selectivity": "Reach",
       "notes": "Top-tier in both fields; also MSE + Data Science option",
-      "listOrder": 11
+      "listOrder": 11,
+      "materialsProgram": "Materials Science and Engineering (BS); also MSE + Data Science (BS)",
+      "materialsSourceUrl": "https://catalog.illinois.edu/schools/engineering/",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Engineering",
+      "aerospaceNotes": "A combined BS-MS is also offered.",
+      "aerospaceSourceUrl": "https://catalog.illinois.edu/undergraduate/engineering/aerospace-engineering-bs/"
     },
     {
       "id": "ut-austin",
@@ -166,7 +232,13 @@
       "satContext": "High",
       "selectivity": "Reach",
       "notes": "Excellent engineering; OOS admission is difficult",
-      "listOrder": 12
+      "listOrder": 12,
+      "materialsProgram": "Materials Science and Engineering (BS) - new, first class Fall 2027",
+      "materialsSourceUrl": "https://news.utexas.edu/2026/08/03/ut-launches-new-materials-science-bachelors-program/",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Engineering",
+      "aerospaceNotes": "Offered by the Department of Aerospace Engineering and Engineering Mechanics.",
+      "aerospaceSourceUrl": "https://catalog.utexas.edu/undergraduate/programs/aerospace-engineering-bsase/"
     },
     {
       "id": "ucla",
@@ -180,7 +252,13 @@
       "satContext": "Test-free",
       "selectivity": "Extreme Reach",
       "notes": "Strong materials + mechanical; UC test-free admissions",
-      "listOrder": 13
+      "listOrder": 13,
+      "materialsProgram": "Materials Engineering (BS)",
+      "materialsSourceUrl": "https://catalog.registrar.ucla.edu/major/2025/materialsengineeringbs",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Engineering",
+      "aerospaceNotes": "Offered by the Mechanical and Aerospace Engineering department.",
+      "aerospaceSourceUrl": "https://catalog.registrar.ucla.edu/major/2021/aerospaceengineeringbs?siteYear=2021"
     },
     {
       "id": "purdue-university",
@@ -194,7 +272,13 @@
       "satContext": "~1380–1520 Engineering",
       "selectivity": "Reach / High Target",
       "notes": "Very strong option; first-year engineering lets students explore disciplines",
-      "listOrder": 14
+      "listOrder": 14,
+      "materialsProgram": "Materials Engineering (BSMSE)",
+      "materialsSourceUrl": "https://catalog.purdue.edu/preview_program.php?catoid=17&poid=29737",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aeronautical and Astronautical Engineering",
+      "aerospaceNotes": "Offered by its own School of Aeronautics and Astronautics; students choose it after First-Year Engineering.",
+      "aerospaceSourceUrl": "https://catalog.purdue.edu/preview_program.php?catoid=18&poid=32503"
     },
     {
       "id": "university-of-maryland-college-park",
@@ -208,7 +292,13 @@
       "satContext": "~1380–1520",
       "selectivity": "High Target",
       "notes": "Strong research access near DC",
-      "listOrder": 15
+      "listOrder": 15,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://academiccatalog.umd.edu/undergraduate/colleges-schools/engineering/materials-science-engineering/materials-science-engineering-major/",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Engineering",
+      "aerospaceNotes": "Offered by its own Department of Aerospace Engineering.",
+      "aerospaceSourceUrl": "https://academiccatalog.umd.edu/undergraduate/colleges-schools/engineering/aerospace-engineering/aerospace-engineering-major/"
     },
     {
       "id": "university-of-washington",
@@ -222,7 +312,13 @@
       "satContext": "Test optional",
       "selectivity": "Reach",
       "notes": "Excellent materials research ecosystem",
-      "listOrder": 16
+      "listOrder": 16,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://mse.washington.edu/current/undergrad/courses",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aeronautics and Astronautics",
+      "aerospaceNotes": "Offered by the William E. Boeing Department of Aeronautics and Astronautics.",
+      "aerospaceSourceUrl": "https://www.aa.washington.edu/students/academics/bsaae"
     },
     {
       "id": "university-of-wisconsin-madison",
@@ -236,7 +332,13 @@
       "satContext": "~1370–1500",
       "selectivity": "High Target",
       "notes": "Strong traditional engineering + college-town experience",
-      "listOrder": 17
+      "listOrder": 17,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://guide.wisc.edu/undergraduate/engineering/materials-science-engineering/materials-science-engineering-bs/",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Engineering",
+      "aerospaceNotes": "New major approved February 2026, first enrolling Fall 2026, run by the Mechanical Engineering department.",
+      "aerospaceSourceUrl": "https://engineering.wisc.edu/news/regents-approve-new-aerospace-engineering-major/"
     },
     {
       "id": "virginia-tech",
@@ -250,7 +352,13 @@
       "satContext": "~1240–1430",
       "selectivity": "High Target",
       "notes": "Hands-on engineering culture",
-      "listOrder": 18
+      "listOrder": 18,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://catalog.vt.edu/undergraduate/college-engineering/materials-science-engineering/materials-science-engineering-bs/",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Engineering",
+      "aerospaceNotes": "Offered by the Aerospace and Ocean Engineering department.",
+      "aerospaceSourceUrl": "https://catalog.vt.edu/undergraduate/college-engineering/aerospace-ocean-engineering/aerospace-engineering-bs/"
     },
     {
       "id": "penn-state",
@@ -264,7 +372,13 @@
       "satContext": "~1250–1430",
       "selectivity": "Target",
       "notes": "Particularly strong materials reputation",
-      "listOrder": 19
+      "listOrder": 19,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://bulletins.psu.edu/undergraduate/colleges/earth-mineral-sciences/materials-science-engineering-bs/",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Engineering",
+      "aerospaceNotes": "Offered by its own Department of Aerospace Engineering.",
+      "aerospaceSourceUrl": "https://bulletins.psu.edu/undergraduate/colleges/engineering/aerospace-engineering-bs/"
     },
     {
       "id": "ohio-state-university",
@@ -278,7 +392,13 @@
       "satContext": "~1310–1480",
       "selectivity": "Target",
       "notes": "Large engineering resources and research",
-      "listOrder": 20
+      "listOrder": 20,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://engineering.osu.edu/bachelor-science-materials-science-and-engineering",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Engineering",
+      "aerospaceNotes": "Offered by the Mechanical and Aerospace Engineering department; students apply to the major after enrolling.",
+      "aerospaceSourceUrl": "https://engineering.osu.edu/bachelor-science-aerospace-engineering"
     },
     {
       "id": "university-of-minnesota-twin-cities",
@@ -292,7 +412,13 @@
       "satContext": "~1350–1490",
       "selectivity": "Target",
       "notes": "Materials program has strong industry/research links",
-      "listOrder": 21
+      "listOrder": 21,
+      "materialsProgram": "Bachelor of Materials Science and Engineering (BMatSE)",
+      "materialsSourceUrl": "https://cse.umn.edu/cems/bachelor-materials-science-and-engineering",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "Bachelor of Aerospace Engineering and Mechanics (BAEM)",
+      "aerospaceNotes": "Offered by the Department of Aerospace Engineering and Mechanics.",
+      "aerospaceSourceUrl": "https://onestop2.umn.edu/pcas/viewCatalogProgram.do?programID=2&strm=1243&campus=UMNTC"
     },
     {
       "id": "nc-state",
@@ -306,7 +432,13 @@
       "satContext": "~1290–1450",
       "selectivity": "High Target",
       "notes": "Strong engineering + Research Triangle access",
-      "listOrder": 22
+      "listOrder": 22,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://catalog.ncsu.edu/undergraduate/engineering/materials-science-engineering/materials-science-engineering-bs/",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Engineering",
+      "aerospaceNotes": "Offered by the Mechanical and Aerospace Engineering department.",
+      "aerospaceSourceUrl": "https://catalog.ncsu.edu/undergraduate/engineering/mechanical-aerospace/aerospace-engineering-bs/"
     },
     {
       "id": "uc-davis",
@@ -320,7 +452,13 @@
       "satContext": "Test-free",
       "selectivity": "Target",
       "notes": "Good balance of engineering and college-town campus",
-      "listOrder": 23
+      "listOrder": 23,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://catalog.ucdavis.edu/departments-programs-degrees/materials-science-engineering/materials-science-engineering-bs/",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Science and Engineering",
+      "aerospaceNotes": "Offered by the Mechanical and Aerospace Engineering department.",
+      "aerospaceSourceUrl": "https://catalog.ucdavis.edu/departments-programs-degrees/mechanical-aerospace-engineering/aerospace-science-engineering-bs/"
     },
     {
       "id": "uc-irvine",
@@ -334,7 +472,13 @@
       "satContext": "Test-free",
       "selectivity": "Target",
       "notes": "Materials opportunities within engineering",
-      "listOrder": 24
+      "listOrder": 24,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://catalogue.uci.edu/thehenrysamuelischoolofengineering/departmentofmaterialsscienceandengineering/",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Engineering",
+      "aerospaceNotes": "Offered by the Mechanical and Aerospace Engineering department.",
+      "aerospaceSourceUrl": "https://catalogue.uci.edu/thehenrysamuelischoolofengineering/departmentofmechanicalandaerospaceengineering/aerospaceengineering_bs/"
     },
     {
       "id": "case-western-reserve-university",
@@ -348,7 +492,13 @@
       "satContext": "~1420–1520",
       "selectivity": "Target",
       "notes": "Smaller private research university; good STEM fit",
-      "listOrder": 25
+      "listOrder": 25,
+      "materialsProgram": "Materials Science and Engineering (BSE)",
+      "materialsSourceUrl": "https://bulletin.case.edu/engineering/materials-science-engineering/materials-science-engineering-bse/",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BSE in Aerospace Engineering",
+      "aerospaceNotes": "Offered by the Mechanical and Aerospace Engineering department.",
+      "aerospaceSourceUrl": "https://bulletin.case.edu/engineering/mechanical-aerospace-engineering/aerospace-engineering-bse/"
     },
     {
       "id": "rpi",
@@ -362,7 +512,13 @@
       "satContext": "~1360–1500",
       "selectivity": "Target",
       "notes": "Small STEM-focused environment",
-      "listOrder": 26
+      "listOrder": 26,
+      "materialsProgram": "Materials Engineering (BS)",
+      "materialsSourceUrl": "https://catalog.rpi.edu/preview_program.php?catoid=33&poid=9566",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Engineering (department also lists BS in Aeronautical Engineering)",
+      "aerospaceNotes": "RPI also offers dual BS programs combining aerospace or aeronautical with mechanical engineering.",
+      "aerospaceSourceUrl": "https://mane.rpi.edu/programs/aerospace-engineering-b-s"
     },
     {
       "id": "rutgers-university-new-brunswick",
@@ -376,7 +532,13 @@
       "satContext": "Test optional",
       "selectivity": "Target",
       "notes": "Kyle attended Rutgers Honors Engineering eXperience (R-HEX); useful benchmark school",
-      "listOrder": 27
+      "listOrder": 27,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://soe.rutgers.edu/academics/majors-and-areas-study/materials-science-and-engineering",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Engineering",
+      "aerospaceNotes": "The only public university in New Jersey with an aerospace engineering degree; a 5-year BS/MS is also offered.",
+      "aerospaceSourceUrl": "https://mae.rutgers.edu/admissions/undergraduate-program/aerospace-engineering"
     },
     {
       "id": "university-of-florida",
@@ -390,7 +552,13 @@
       "satContext": "~1330–1470",
       "selectivity": "High Target",
       "notes": "Large, broad engineering college",
-      "listOrder": 28
+      "listOrder": 28,
+      "materialsProgram": "Materials Science and Engineering (BSMS)",
+      "materialsSourceUrl": "https://catalog.ufl.edu/UGRD/colleges-schools/UGENG/MSE_BSMS/",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Engineering",
+      "aerospaceNotes": "Offered by the Mechanical and Aerospace Engineering department.",
+      "aerospaceSourceUrl": "https://catalog.ufl.edu/UGRD/colleges-schools/UGENG/ARO_BSAE/"
     },
     {
       "id": "texas-a-and-m-university",
@@ -404,7 +572,13 @@
       "satContext": "~1160–1390",
       "selectivity": "Target",
       "notes": "Large engineering ecosystem; review entry-to-major process",
-      "listOrder": 29
+      "listOrder": 29,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://catalog.tamu.edu/undergraduate/engineering/materials-science/bs/",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Engineering",
+      "aerospaceNotes": "The 2026-27 catalog also lists a separate BS in Space Engineering in the same department.",
+      "aerospaceSourceUrl": "https://catalog.tamu.edu/undergraduate/engineering/aerospace/bs/"
     },
     {
       "id": "colorado-school-of-mines",
@@ -418,7 +592,13 @@
       "satContext": "~1330–1490",
       "selectivity": "Target",
       "notes": "STEM-focused; strong materials/metallurgy identity",
-      "listOrder": 30
+      "listOrder": 30,
+      "materialsProgram": "Metallurgical and Materials Engineering (BS)",
+      "materialsSourceUrl": "https://catalog.mines.edu/undergraduate/academics/degrees/",
+      "aerospaceEngineering": "Partial",
+      "aerospaceProgram": "Aerospace Engineering Minor; Aerospace track within Mechanical Engineering",
+      "aerospaceNotes": "No aerospace degree among the school's 21 undergraduate degrees.",
+      "aerospaceSourceUrl": "https://www.mines.edu/academics/program/minor-aerospace-engineering/"
     },
     {
       "id": "uva",
@@ -427,12 +607,18 @@
       "campusSize": "College town / Medium",
       "mechanicalEngineering": "Yes",
       "materials": "Yes",
-      "materialsOffering": "Materials-related undergraduate pathway",
+      "materialsOffering": "Standalone undergraduate",
       "admissionsContext": "Very selective out-of-state",
       "satContext": "~1410–1530",
       "selectivity": "Reach",
       "notes": "Strong engineering; verify standalone degree structure for application year",
-      "listOrder": 31
+      "listOrder": 31,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://engineering.virginia.edu/department/materials-science-and-engineering/academics/undergraduate-programs/bs-materials-science-and-engineering",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Engineering",
+      "aerospaceNotes": "Offered by the Mechanical and Aerospace Engineering department.",
+      "aerospaceSourceUrl": "https://engineering.virginia.edu/department/mechanical-and-aerospace-engineering/academics/aerospace-engineering-undergraduate-program/bs-aerospace-engineering"
     },
     {
       "id": "lehigh-university",
@@ -446,7 +632,13 @@
       "satContext": "~1360–1490",
       "selectivity": "Target",
       "notes": "Smaller private engineering environment",
-      "listOrder": 32
+      "listOrder": 32,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://engineering.lehigh.edu/mse/undergraduate/mse-bs",
+      "aerospaceEngineering": "Partial",
+      "aerospaceProgram": "Aerospace Engineering Minor",
+      "aerospaceNotes": "Lehigh's aerospace page describes a minor only, not a major.",
+      "aerospaceSourceUrl": "https://engineering.lehigh.edu/academics/undergraduate/minors/aerospace-engineering"
     },
     {
       "id": "uconn",
@@ -455,12 +647,18 @@
       "campusSize": "College town / Large",
       "mechanicalEngineering": "Yes",
       "materials": "Yes",
-      "materialsOffering": "Materials-related undergraduate/path",
+      "materialsOffering": "Standalone undergraduate",
       "admissionsContext": "Competitive",
       "satContext": "~1220–1440",
       "selectivity": "Target",
       "notes": "Good Northeast option; verify exact current degree title",
-      "listOrder": 33
+      "listOrder": 33,
+      "materialsProgram": "Materials Science and Engineering (BSE)",
+      "materialsSourceUrl": "https://catalog.uconn.edu/undergraduate/engineering/materials-science-engineering-bse/",
+      "aerospaceEngineering": "Partial",
+      "aerospaceProgram": "Aerospace concentration within Mechanical Engineering",
+      "aerospaceNotes": "The department is named Mechanical, Aerospace, and Manufacturing Engineering, but aerospace is a concentration only; it appears on the transcript.",
+      "aerospaceSourceUrl": "https://mechanical-aerospace-manufacturing.engineering.uconn.edu/undergraduate/areas-of-concentration/"
     },
     {
       "id": "university-of-delaware",
@@ -468,13 +666,19 @@
       "location": "Newark, DE",
       "campusSize": "College town / Medium",
       "mechanicalEngineering": "Yes",
-      "materials": "No",
-      "materialsOffering": "Materials coursework / research, no standalone MSE BS",
+      "materials": "Yes",
+      "materialsOffering": "Standalone undergraduate",
       "admissionsContext": "Competitive",
       "satContext": "~1190–1360",
       "selectivity": "Likely / Target",
       "notes": "Good mechanical option if materials becomes secondary",
-      "listOrder": 34
+      "listOrder": 34,
+      "materialsProgram": "Bachelor of Materials Science and Engineering (BMSE)",
+      "materialsSourceUrl": "https://mseg.udel.edu/students/undergraduate/",
+      "aerospaceEngineering": "Partial",
+      "aerospaceProgram": "Aerospace Engineering concentration within Mechanical Engineering",
+      "aerospaceNotes": "Aerospace is a concentration inside the Bachelor of Mechanical Engineering.",
+      "aerospaceSourceUrl": "https://catalog.udel.edu/preview_program.php?catoid=94&poid=92799"
     },
     {
       "id": "drexel-university",
@@ -488,7 +692,13 @@
       "satContext": "~1240–1470",
       "selectivity": "Likely / Target",
       "notes": "Co-op is a major differentiator",
-      "listOrder": 35
+      "listOrder": 35,
+      "materialsProgram": "Materials Science and Engineering (BSMSE)",
+      "materialsSourceUrl": "https://catalog.drexel.edu/majors/",
+      "aerospaceEngineering": "Partial",
+      "aerospaceProgram": "Aerospace area of interest within Mechanical Engineering and Mechanics",
+      "aerospaceNotes": "Aerospace is a technical-elective track inside the Mechanical Engineering major; there is no aerospace major.",
+      "aerospaceSourceUrl": "https://drexel.edu/engineering/academics/departments/mechanical-engineering/resources/current-undergraduate-students/bs-mechanical-engineering/areas-of-interest/"
     },
     {
       "id": "iowa-state-university",
@@ -502,7 +712,13 @@
       "satContext": "~1100–1330",
       "selectivity": "Likely",
       "notes": "Strong engineering safety/likely candidate to investigate",
-      "listOrder": 36
+      "listOrder": 36,
+      "materialsProgram": "Materials Engineering (BS)",
+      "materialsSourceUrl": "https://catalog.iastate.edu/collegeofengineering/materialsengineering/",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Engineering",
+      "aerospaceNotes": "Offered by its own Department of Aerospace Engineering.",
+      "aerospaceSourceUrl": "https://catalog.iastate.edu/collegeofengineering/aerospaceengineering/"
     },
     {
       "id": "clemson-university",
@@ -511,12 +727,18 @@
       "campusSize": "College town / Large",
       "mechanicalEngineering": "Yes",
       "materials": "Yes",
-      "materialsOffering": "Materials Science & Engineering",
+      "materialsOffering": "Standalone undergraduate",
       "admissionsContext": "Competitive",
       "satContext": "~1250–1400",
       "selectivity": "Target",
       "notes": "Strong engineering and traditional campus environment",
-      "listOrder": 37
+      "listOrder": 37,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://www.clemson.edu/cecas/academics/degrees.html",
+      "aerospaceEngineering": "No",
+      "aerospaceProgram": "",
+      "aerospaceNotes": "No aerospace engineering major, concentration or minor; the Aerospace Studies minor is Air Force ROTC, not engineering.",
+      "aerospaceSourceUrl": "https://www.clemson.edu/cecas/academics/degrees.html"
     },
     {
       "id": "university-of-tennessee-knoxville",
@@ -525,12 +747,18 @@
       "campusSize": "Urban / Large",
       "mechanicalEngineering": "Yes",
       "materials": "Yes",
-      "materialsOffering": "Materials Science & Engineering",
+      "materialsOffering": "Standalone undergraduate",
       "admissionsContext": "Moderate",
       "satContext": "~1240–1400",
       "selectivity": "Likely / Target",
       "notes": "Materials research links to Oak Ridge region",
-      "listOrder": 38
+      "listOrder": 38,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://tickle.utk.edu/academics/undergraduate-programs/materials-science-and-engineering-bsmse/",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Engineering",
+      "aerospaceNotes": "Offered by the Mechanical and Aerospace Engineering department; entry to upper-division courses is GPA-based.",
+      "aerospaceSourceUrl": "https://tickle.utk.edu/mae/academics/undergrad-studies/aerospace-engineering-bs/"
     },
     {
       "id": "michigan-tech",
@@ -544,7 +772,13 @@
       "satContext": "~1130–1350",
       "selectivity": "Likely",
       "notes": "Very engineering-focused; remote location is a major campus-fit factor",
-      "listOrder": 39
+      "listOrder": 39,
+      "materialsProgram": "Materials Science and Engineering (BS)",
+      "materialsSourceUrl": "https://www.mtu.edu/materials/undergraduate/degree/",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Engineering",
+      "aerospaceNotes": "New major; the first class enrolled in 2025.",
+      "aerospaceSourceUrl": "https://www.mtu.edu/mechanical-aerospace/undergraduate/ae/"
     },
     {
       "id": "njit",
@@ -552,13 +786,19 @@
       "location": "Newark, NJ",
       "campusSize": "Urban / Medium",
       "mechanicalEngineering": "Yes",
-      "materials": "No",
-      "materialsOffering": "Materials pathway / coursework rather than standalone MSE BS",
+      "materials": "Yes",
+      "materialsOffering": "Standalone undergraduate",
       "admissionsContext": "Broad access",
       "satContext": "~1190–1450",
       "selectivity": "Likely",
       "notes": "Local engineering-focused likely option",
-      "listOrder": 40
+      "listOrder": 40,
+      "materialsProgram": "Materials Engineering (BS)",
+      "materialsSourceUrl": "https://catalog.njit.edu/undergraduate/newark-college-engineering/chemical-materials-engineering/cme-bs/",
+      "aerospaceEngineering": "No",
+      "aerospaceProgram": "",
+      "aerospaceNotes": "No aerospace engineering option; the Leadership and Aerospace Studies minor is ROTC, not engineering.",
+      "aerospaceSourceUrl": "https://catalog.njit.edu/undergraduate/newark-college-engineering/mechanical-industrial/mechanical-engineering-bs/"
     },
     {
       "id": "wpi",
@@ -566,13 +806,19 @@
       "location": "Worcester, MA",
       "campusSize": "Small city / Small",
       "mechanicalEngineering": "Yes",
-      "materials": "No",
-      "materialsOffering": "Materials concentration/coursework",
+      "materials": "Partial",
+      "materialsOffering": "Concentration within Mechanical Engineering, plus minor",
       "admissionsContext": "Engineering-focused",
       "satContext": "Test optional",
       "selectivity": "Target",
       "notes": "Project-based curriculum fits robotics/research interests",
-      "listOrder": 41
+      "listOrder": 41,
+      "materialsProgram": "Materials Science and Engineering concentration within Mechanical Engineering; Materials Engineering Minor",
+      "materialsSourceUrl": "https://wpi.cleancatalog.net/mechanical-and-materials-engineering",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "BS in Aerospace Engineering",
+      "aerospaceNotes": "Offered by the Aerospace Engineering department.",
+      "aerospaceSourceUrl": "https://wpi.cleancatalog.net/aerospace-engineering/aerospace-engineering-major"
     },
     {
       "id": "stevens-institute-of-technology",
@@ -580,13 +826,19 @@
       "location": "Hoboken, NJ",
       "campusSize": "Urban / Small",
       "mechanicalEngineering": "Yes",
-      "materials": "No",
-      "materialsOffering": "Materials concentration/coursework",
+      "materials": "Partial",
+      "materialsOffering": "Minor only",
       "admissionsContext": "Engineering-focused",
       "satContext": "~1380–1510",
       "selectivity": "Target",
       "notes": "Small STEM school; strong proximity to NYC industry",
-      "listOrder": 42
+      "listOrder": 42,
+      "materialsProgram": "Materials Science and Engineering Minor",
+      "materialsSourceUrl": "https://www.stevens.edu/school-engineering-science/departments/chemical-engineering-materials-science/undergraduate-studies",
+      "aerospaceEngineering": "Yes",
+      "aerospaceProgram": "Bachelor's in Aerospace Engineering (new, starts Fall 2027)",
+      "aerospaceNotes": "New major starting Fall 2027, so it will be running when Kyle enrolls in Fall 2028; an aerospace concentration in Mechanical Engineering also exists.",
+      "aerospaceSourceUrl": "https://www.stevens.edu/school-engineering-science/departments/mechanical-engineering/undergraduate-studies"
     },
     {
       "id": "rose-hulman-institute-of-technology",
@@ -594,13 +846,19 @@
       "location": "Terre Haute, IN",
       "campusSize": "Small city / Small",
       "mechanicalEngineering": "Yes",
-      "materials": "No",
-      "materialsOffering": "Materials minor/coursework",
+      "materials": "Partial",
+      "materialsOffering": "Minor only",
       "admissionsContext": "Engineering-focused",
       "satContext": "~1320–1490",
       "selectivity": "Target",
       "notes": "Undergraduate-only STEM focus; excellent teaching emphasis",
-      "listOrder": 43
+      "listOrder": 43,
+      "materialsProgram": "Materials Science and Engineering Minor",
+      "materialsSourceUrl": "https://catalog.rose-hulman.edu/catalog/minors-certificates/materials-scienceengineering-minor/",
+      "aerospaceEngineering": "Partial",
+      "aerospaceProgram": "Aerospace Engineering area of concentration within Mechanical Engineering",
+      "aerospaceNotes": "Aerospace is a concentration inside the Mechanical Engineering major.",
+      "aerospaceSourceUrl": "https://www.rose-hulman.edu/academics/academic-departments/mechanical-engineering/majors-and-minors.html"
     }
   ],
   "selectivityGuide": [

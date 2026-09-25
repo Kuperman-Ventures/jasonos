@@ -9,7 +9,10 @@ export type ListColumnId =
   | "track"
   | "selectivity"
   | "interest"
-  | "action";
+  | "action"
+  | "mechanical"
+  | "materials"
+  | "aerospace";
 
 export type ListPhase = {
   id: ListPhaseId;
@@ -40,6 +43,9 @@ export const LIST_COLUMNS: { id: ListColumnId; label: string; required?: boolean
   { id: "selectivity", label: "Selectivity" },
   { id: "interest", label: "Interest" },
   { id: "action", label: "Next action" },
+  { id: "mechanical", label: "Mechanical" },
+  { id: "materials", label: "Materials" },
+  { id: "aerospace", label: "Aerospace" },
 ];
 
 export const LIST_PHASES: ListPhase[] = [
@@ -55,7 +61,7 @@ export const LIST_PHASES: ListPhase[] = [
     startsOn: "2026-09-01",
     endsOn: "2026-12-31",
     // Status is the same for everyone here — researching — so leave it off.
-    defaultColumns: ["school", "location", "selectivity", "interest", "action"],
+    defaultColumns: ["school", "location", "selectivity", "interest", "aerospace", "action"],
   },
   {
     id: "consideration",
@@ -68,7 +74,7 @@ export const LIST_PHASES: ListPhase[] = [
     rangeLabel: "10–15",
     startsOn: "2027-01-01",
     endsOn: "2027-07-26",
-    defaultColumns: ["school", "selectivity", "interest", "track", "action"],
+    defaultColumns: ["school", "selectivity", "interest", "aerospace", "track", "action"],
   },
   {
     id: "applications",
@@ -81,7 +87,7 @@ export const LIST_PHASES: ListPhase[] = [
     rangeLabel: "8–12",
     startsOn: "2027-07-27",
     endsOn: null,
-    defaultColumns: ["school", "status", "track", "selectivity", "interest", "action"],
+    defaultColumns: ["school", "status", "track", "selectivity", "interest", "aerospace", "action"],
   },
 ];
 

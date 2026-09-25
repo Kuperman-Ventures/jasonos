@@ -260,6 +260,7 @@ function clip(value: unknown, max: number): string {
 function yesNo(value: unknown): string {
   const text = clip(value, 8).toLowerCase();
   if (text === "yes") return "Yes";
+  if (text === "partial") return "Partial";
   if (text === "no") return "No";
   return "";
 }

@@ -10,11 +10,12 @@ import {
   SNAPSHOT_APPLICATION_STATUSES,
   SNAPSHOT_PROGRAMS,
   TEST_POLICY_OPTIONS,
-  programOfferedFromRecord,
+  programOfferStatus,
   programsOfferedHeadline,
   statusLabel,
   tierLabel,
   pathwayFromContext,
+  type ProgramOfferStatus,
 } from "@/lib/types";
 import { websiteHref, websiteHostLabel } from "@/lib/school-photo";
 import { SchoolLocationMap, SelectivityGauge } from "./SchoolSnapshotViz";
@@ -147,9 +148,9 @@ export function SchoolSnapshotSummary({
   const testPolicyValue = recordTestPolicy || school.familyTestPolicy.trim();
   const testPolicyMissing = !recordTestPolicy;
 
-  const offeredMap: Record<string, boolean | null> = {};
+  const offeredMap: Record<string, ProgramOfferStatus> = {};
   for (const program of SNAPSHOT_PROGRAMS) {
-    offeredMap[program.label] = programOfferedFromRecord(school[program.offeredField]);
+    offeredMap[program.label] = programOfferStatus(school[program.offeredField]);
   }
   const tracked = school.trackedPrograms.filter((label) =>
     SNAPSHOT_PROGRAMS.some((row) => row.label === label),
@@ -255,16 +256,24 @@ export function SchoolSnapshotSummary({
           <span className="area-head">{programsOfferedHeadline(tracked, offeredMap)}</span>
           <dl className="facts">
             {tracked.map((label) => {
-              const ok = offeredMap[label];
-              const offered = ok === true;
+              const status = offeredMap[label];
+              const offered = status === "yes";
+              const partial = status === "partial";
+              const programMeta =
+                label === "Aerospace engineering"
+                  ? school.aerospaceProgram.trim() || school.aerospaceNotes.trim()
+                  : label === "Material sciences"
+                    ? school.materialsProgram.trim() || school.materialsOffering.trim()
+                    : "";
               return (
                 <div className="fact" key={label}>
                   <dt>{label}</dt>
                   <dd>
-                    <span className={`offer${offered ? "" : " no"}`}>
-                      <i aria-hidden="true">{offered ? "✓" : "–"}</i>
-                      {offered ? "Offered" : "Not offered"}
+                    <span className={`offer${offered ? "" : partial ? " partial" : " no"}`}>
+                      <i aria-hidden="true">{offered ? "✓" : partial ? "·" : "–"}</i>
+                      {offered ? "Offered" : partial ? "Partial" : "Not offered"}
                     </span>
+                    {programMeta ? <span className="offer-meta">{programMeta}</span> : null}
                     <button
                       type="button"
                       className="remove"
