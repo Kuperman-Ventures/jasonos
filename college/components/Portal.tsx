@@ -866,6 +866,27 @@ export function Portal({
     });
   }
 
+  function sendVisitPlan(payload: { events: CalendarEvent[]; todos: PersistedProjectStep[] }) {
+    if (payload.events.length) {
+      changeCalendarEvents([...payload.events, ...calendarEvents]);
+    }
+    if (payload.todos.length) {
+      const nextSteps = [...projectSteps, ...payload.todos];
+      setProjectSteps(nextSteps);
+      void patchState({ projectSteps: nextSteps }).then((ok) => {
+        if (!ok) return;
+        for (const step of payload.todos) {
+          postActivity({
+            action: "create",
+            entityType: "todo",
+            entityId: step.id,
+            summary: `Added to-do “${step.label}” from visit planning`,
+          });
+        }
+      });
+    }
+  }
+
   function changeScore(firmId: string, criterionId: string, value: number) {
     const next = { ...scores, [firmId]: { ...scores[firmId], [criterionId]: value } };
     setScores(next);
@@ -1264,6 +1285,8 @@ export function Portal({
             todoEdits={todoEdits}
             onCycleRequirementStatus={cycleRequirementStatus}
             onAddRequirementTodo={addRequirementTodo}
+            processPhaseLabel={current?.phase ?? null}
+            onSendVisitPlan={sendVisitPlan}
           />
         ) : null}
         {tab === "projects" ? (
