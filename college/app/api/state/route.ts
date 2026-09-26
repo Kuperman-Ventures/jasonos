@@ -29,6 +29,10 @@ import {
 import { normalizeTodoProjects, type TodoProject } from "@/lib/todo-projects";
 import { clampScore } from "@/lib/scores";
 import type { Scores } from "@/lib/types";
+import {
+  normalizeRequirementProgress,
+  type RequirementProgressMap,
+} from "@/lib/requirement-progress";
 
 type StateRow = {
   checklist: Record<string, boolean> | null;
@@ -42,6 +46,7 @@ type StateRow = {
   note_items?: unknown;
   calendar_events?: unknown;
   activities_journal?: unknown;
+  requirement_progress?: unknown;
 };
 
 function localDemoPins(): PinNote[] {
@@ -180,6 +185,7 @@ function emptyState() {
     noteItems: localDemoPins(),
     calendarEvents: [] as CalendarEvent[],
     activitiesJournal: emptyJournal(),
+    requirementProgress: {} as RequirementProgressMap,
   };
 }
 
@@ -192,7 +198,7 @@ export async function GET() {
     const { data, error } = await db
       .from("app_state")
       .select(
-        "checklist, scores, notes, project_steps, ingest_sources, todo_subtasks, todo_edits, todo_projects, note_items, calendar_events, activities_journal",
+        "checklist, scores, notes, project_steps, ingest_sources, todo_subtasks, todo_edits, todo_projects, note_items, calendar_events, activities_journal, requirement_progress",
       )
       .eq("id", "kyle-college")
       .maybeSingle();
@@ -211,6 +217,7 @@ export async function GET() {
       noteItems: normalizePinNotes(row?.note_items),
       calendarEvents: normalizeCalendarEvents(row?.calendar_events),
       activitiesJournal: normalizeJournal(row?.activities_journal),
+      requirementProgress: normalizeRequirementProgress(row?.requirement_progress),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not read state";
@@ -236,6 +243,7 @@ export async function PATCH(request: Request) {
     noteItems?: PinNote[];
     calendarEvents?: CalendarEvent[];
     activitiesJournal?: ActivitiesJournal;
+    requirementProgress?: RequirementProgressMap;
   };
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   const db = collegeDb();
@@ -321,6 +329,9 @@ export async function PATCH(request: Request) {
   }
   if (body.activitiesJournal !== undefined) {
     patch.activities_journal = normalizeJournal(body.activitiesJournal);
+  }
+  if (body.requirementProgress && typeof body.requirementProgress === "object") {
+    patch.requirement_progress = normalizeRequirementProgress(body.requirementProgress);
   }
 
   // Don't persist internal meta on the row.

@@ -71,6 +71,8 @@ export type PersistedProjectStep = {
   schoolId?: string | null;
   /** Back-link to the school project note that created this to-do. */
   sourceNoteId?: string | null;
+  /** Requirements checklist key that spawned this to-do. */
+  sourceRequirement?: string | null;
 };
 
 export type PersistedIngestSource = {
@@ -338,6 +340,10 @@ export function normalizePersistedSteps(raw: unknown): PersistedProjectStep[] {
       schoolId: typeof item.schoolId === "string" && item.schoolId ? item.schoolId : null,
       sourceNoteId:
         typeof item.sourceNoteId === "string" && item.sourceNoteId ? item.sourceNoteId : null,
+      sourceRequirement:
+        typeof item.sourceRequirement === "string" && item.sourceRequirement
+          ? item.sourceRequirement
+          : null,
     });
   }
   return out;

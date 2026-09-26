@@ -16,9 +16,14 @@ import { sourceLines } from "@/lib/school-research";
 import { fetchSchoolPhotoUrl, websiteHostLabel, websiteHref } from "@/lib/school-photo";
 import type { MemberProfile } from "@/lib/member-avatars";
 import type { RoutedSchoolNotePayload } from "@/lib/school-project-notes";
+import type { PersistedProjectStep } from "@/lib/ingest";
+import type { RequirementProgressMap, RequirementStatus } from "@/lib/requirement-progress";
+import type { TodoEditMap } from "@/lib/project-todos";
+import type { RequirementKey } from "@/lib/school-requirements";
 import { SchoolMark } from "./SchoolMark";
 import { SchoolSnapshotSummary } from "./SchoolSnapshotSummary";
 import { SchoolProjectManagement } from "./SchoolProjectManagement";
+import { SchoolRequirements } from "./SchoolRequirements";
 
 type SchoolModalTab = "snapshot" | "settings" | "requirements" | "financials" | "projects";
 
@@ -80,6 +85,11 @@ export function CollegeRecord({
   onDeleteContact,
   onSendProjectNote,
   onRemoveProjectNote,
+  requirementProgress,
+  projectSteps,
+  todoEdits,
+  onCycleRequirementStatus,
+  onAddRequirementTodo,
 }: {
   school: School;
   /** Undergrad counts for non-archived schools on the family's list (size gauge ends). */
@@ -106,6 +116,11 @@ export function CollegeRecord({
   onDeleteContact: (contactId: string) => void;
   onSendProjectNote: (payload: RoutedSchoolNotePayload) => void;
   onRemoveProjectNote: (noteId: string) => void;
+  requirementProgress: RequirementProgressMap;
+  projectSteps: PersistedProjectStep[];
+  todoEdits: TodoEditMap;
+  onCycleRequirementStatus: (key: RequirementKey, status: RequirementStatus) => void;
+  onAddRequirementTodo: (key: RequirementKey, title: string) => void;
 }) {
   const [tab, setTab] = useState<SchoolModalTab>("snapshot");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -515,90 +530,17 @@ export function CollegeRecord({
           ) : null}
 
           {tab === "requirements" ? (
-            <section className="school-modal-section">
-              <div className="school-overview-head">
-                <h3>Requirements</h3>
-                <p className="section-sub">
-                  Testing, essays, recs, and other pieces this school&apos;s application expects.
-                </p>
-              </div>
-              <div className="school-edit-grid">
-                <label className="stack-field">
-                  <span className="label">Test policy</span>
-                  <BlurInput
-                    value={school.testPolicy}
-                    ariaLabel="Test policy"
-                    placeholder="Not entered"
-                    onCommit={(value) => onPatch({ testPolicy: value })}
-                  />
-                </label>
-                <label className="stack-field">
-                  <span className="label">Middle 50%</span>
-                  <BlurInput
-                    value={school.middle50}
-                    ariaLabel="Middle 50 percent"
-                    placeholder="Not entered"
-                    onCommit={(value) => onPatch({ middle50: value })}
-                  />
-                </label>
-                <label className="stack-field">
-                  <span className="label">Application platform</span>
-                  <BlurInput
-                    value={school.applicationPlatform}
-                    ariaLabel="Application platform"
-                    placeholder="Not entered"
-                    onCommit={(value) => onPatch({ applicationPlatform: value })}
-                  />
-                </label>
-                <label className="stack-field">
-                  <span className="label">Teacher recommendations</span>
-                  <BlurInput
-                    value={school.teacherRecs}
-                    ariaLabel="Teacher recommendation count"
-                    placeholder="Not entered"
-                    onCommit={(value) => onPatch({ teacherRecs: value })}
-                  />
-                </label>
-              </div>
-              <label className="stack-field school-edit-full">
-                <span className="label">SAT context</span>
-                <textarea
-                  className="field"
-                  defaultValue={school.satContext}
-                  key={school.satContext}
-                  placeholder="Not entered"
-                  onBlur={(event) => {
-                    if (event.target.value !== school.satContext) onPatch({ satContext: event.target.value });
-                  }}
-                />
-              </label>
-              <label className="stack-field school-edit-full">
-                <span className="label">Required essays</span>
-                <textarea
-                  className="field"
-                  defaultValue={school.requiredEssays}
-                  key={school.requiredEssays}
-                  placeholder="Not entered"
-                  onBlur={(event) => {
-                    if (event.target.value !== school.requiredEssays) onPatch({ requiredEssays: event.target.value });
-                  }}
-                />
-              </label>
-              <label className="stack-field school-edit-full">
-                <span className="label">Admissions context</span>
-                <textarea
-                  className="field"
-                  defaultValue={school.admissionsContext}
-                  key={school.admissionsContext}
-                  placeholder="Not entered"
-                  onBlur={(event) => {
-                    if (event.target.value !== school.admissionsContext) {
-                      onPatch({ admissionsContext: event.target.value });
-                    }
-                  }}
-                />
-              </label>
-            </section>
+            <SchoolRequirements
+              school={school}
+              memberId={memberId}
+              memberName={memberName}
+              requirementProgress={requirementProgress}
+              projectSteps={projectSteps}
+              todoEdits={todoEdits}
+              onPatch={onPatch}
+              onCycleStatus={onCycleRequirementStatus}
+              onAddRequirementTodo={onAddRequirementTodo}
+            />
           ) : null}
 
           {tab === "financials" ? (

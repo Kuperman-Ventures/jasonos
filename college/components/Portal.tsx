@@ -30,6 +30,14 @@ import { normalizeCalendarEvents, type CalendarEvent } from "@/lib/calendar-even
 import type { IngestHandoff, PersistedIngestSource, PersistedProjectStep } from "@/lib/ingest";
 import { INBOX_PARENT_ID } from "@/lib/ingest";
 import {
+  normalizeRequirementProgress,
+  setRequirementStatus,
+  setRequirementTodoId,
+  type RequirementProgressMap,
+  type RequirementStatus,
+} from "@/lib/requirement-progress";
+import type { RequirementKey } from "@/lib/school-requirements";
+import {
   migrateLegacyNotesText,
   normalizePinNotes,
   type PinNote,
@@ -197,6 +205,7 @@ export function Portal({
   const [todoSubtasks, setTodoSubtasks] = useState<TodoSubtaskMap>({});
   const [todoEdits, setTodoEdits] = useState<TodoEditMap>({});
   const [todoProjects, setTodoProjects] = useState<TodoProject[]>([]);
+  const [requirementProgress, setRequirementProgress] = useState<RequirementProgressMap>({});
   const pipeline = useSchoolPipeline();
   const schools = pipeline.schools;
   const setSchools = pipeline.setSchools;
@@ -242,6 +251,7 @@ export function Portal({
           noteItems?: PinNote[];
           calendarEvents?: CalendarEvent[];
           activitiesJournal?: ActivitiesJournal;
+          requirementProgress?: RequirementProgressMap;
           persisted?: boolean;
         };
         const prefsBody = (await prefsRes.json()) as {
@@ -265,6 +275,9 @@ export function Portal({
         }
         if (Array.isArray(state.todoProjects)) {
           setTodoProjects(normalizeTodoProjects(state.todoProjects));
+        }
+        if (state.requirementProgress && typeof state.requirementProgress === "object") {
+          setRequirementProgress(normalizeRequirementProgress(state.requirementProgress));
         }
         const loadedNotes = typeof state.notes === "string" ? state.notes : "";
         const loadedItems = Array.isArray(state.noteItems)
@@ -542,6 +555,7 @@ export function Portal({
     noteItems?: PinNote[];
     calendarEvents?: CalendarEvent[];
     activitiesJournal?: ActivitiesJournal;
+    requirementProgress?: RequirementProgressMap;
   }) {
     if (!persisted) {
       setSaveState("Not saved");
@@ -803,6 +817,53 @@ export function Portal({
     if (!school) return;
     const nextNotes = school.projectNotes.filter((note) => note.id !== noteId);
     await patchSchool(schoolId, { projectNotes: nextNotes });
+  }
+
+  function cycleRequirementStatus(
+    schoolId: string,
+    key: RequirementKey,
+    status: RequirementStatus,
+  ) {
+    const owner = memberOwnerId(member.id);
+    const next = setRequirementStatus(requirementProgress, owner, schoolId, key, status);
+    setRequirementProgress(next);
+    void patchState({ requirementProgress: next });
+  }
+
+  function addRequirementTodo(schoolId: string, key: RequirementKey, title: string) {
+    const school = schools.find((row) => row.id === schoolId);
+    if (!school) return;
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    const owner = memberOwnerId(member.id);
+    const createdAt = new Date().toISOString();
+    const step: PersistedProjectStep = {
+      id: `todo-${Math.random().toString(36).slice(2, 10)}`,
+      label: trimmed,
+      owner,
+      assignedBy: owner,
+      parentId: INBOX_PARENT_ID,
+      dueDate: null,
+      startDate: null,
+      endDate: null,
+      sourceId: null,
+      createdAt,
+      schoolId,
+      sourceRequirement: key,
+    };
+    const nextSteps = [...projectSteps, step];
+    const nextProgress = setRequirementTodoId(requirementProgress, owner, schoolId, key, step.id);
+    setProjectSteps(nextSteps);
+    setRequirementProgress(nextProgress);
+    void patchState({ projectSteps: nextSteps, requirementProgress: nextProgress }).then((ok) => {
+      if (!ok) return;
+      postActivity({
+        action: "create",
+        entityType: "todo",
+        entityId: step.id,
+        summary: `Added to-do “${trimmed}” from ${school.name} requirements`,
+      });
+    });
   }
 
   function changeScore(firmId: string, criterionId: string, value: number) {
@@ -1198,6 +1259,11 @@ export function Portal({
             memberProfiles={memberProfiles}
             onSendProjectNote={(id, payload) => void sendSchoolProjectNote(id, payload)}
             onRemoveProjectNote={(id, noteId) => void removeSchoolProjectNote(id, noteId)}
+            requirementProgress={requirementProgress}
+            projectSteps={projectSteps}
+            todoEdits={todoEdits}
+            onCycleRequirementStatus={cycleRequirementStatus}
+            onAddRequirementTodo={addRequirementTodo}
           />
         ) : null}
         {tab === "projects" ? (

@@ -45,6 +45,10 @@ import {
 import { downloadSchoolsCsv } from "@/lib/college-export";
 import type { MemberProfile } from "@/lib/member-avatars";
 import type { RoutedSchoolNotePayload } from "@/lib/school-project-notes";
+import type { PersistedProjectStep } from "@/lib/ingest";
+import type { RequirementProgressMap, RequirementStatus } from "@/lib/requirement-progress";
+import type { TodoEditMap } from "@/lib/project-todos";
+import type { RequirementKey } from "@/lib/school-requirements";
 
 export function CollegesTab({
   schools,
@@ -71,6 +75,11 @@ export function CollegesTab({
   onDeleteContact,
   onSendProjectNote,
   onRemoveProjectNote,
+  requirementProgress,
+  projectSteps,
+  todoEdits,
+  onCycleRequirementStatus,
+  onAddRequirementTodo,
 }: {
   schools: School[];
   selectedId: string | null;
@@ -96,6 +105,15 @@ export function CollegesTab({
   onDeleteContact: (id: string, contactId: string) => void;
   onSendProjectNote: (schoolId: string, payload: RoutedSchoolNotePayload) => void;
   onRemoveProjectNote: (schoolId: string, noteId: string) => void;
+  requirementProgress: RequirementProgressMap;
+  projectSteps: PersistedProjectStep[];
+  todoEdits: TodoEditMap;
+  onCycleRequirementStatus: (
+    schoolId: string,
+    key: RequirementKey,
+    status: RequirementStatus,
+  ) => void;
+  onAddRequirementTodo: (schoolId: string, key: RequirementKey, title: string) => void;
 }) {
   const canAdvance = canAdvanceListPhase({ id: memberId, role: memberRole });
   const [phaseId, setPhaseId] = useState<ListPhaseId>("exploration");
@@ -748,6 +766,13 @@ export function CollegesTab({
           onDeleteContact={(contactId) => onDeleteContact(selected.id, contactId)}
           onSendProjectNote={(payload) => onSendProjectNote(selected.id, payload)}
           onRemoveProjectNote={(noteId) => onRemoveProjectNote(selected.id, noteId)}
+          requirementProgress={requirementProgress}
+          projectSteps={projectSteps}
+          todoEdits={todoEdits}
+          onCycleRequirementStatus={(key, status) =>
+            onCycleRequirementStatus(selected.id, key, status)
+          }
+          onAddRequirementTodo={(key, title) => onAddRequirementTodo(selected.id, key, title)}
         />
       ) : null}
     </section>
