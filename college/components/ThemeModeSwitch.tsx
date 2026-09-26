@@ -51,7 +51,7 @@ export function ThemeModeSwitch({ className = "" }: { className?: string }) {
   }
 
   return (
-    <div className={`theme-mode ${className}`.trim()} role="group" aria-label="Theme">
+    <div className={className.trim() || "theme-mode"} role="group" aria-label="Appearance">
       {OPTIONS.map((option) => (
         <button
           key={option.id}

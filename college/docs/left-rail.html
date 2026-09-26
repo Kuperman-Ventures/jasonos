@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Left rail · Process groups</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<style>
+  :root {
+    --desk: #f3f2f2; --rail: #eae9e9; --card: #f3f2f2; --hover: #e0dede; --menu: #ffffff;
+    --ink: #201e1d; --muted: #444141; --subtle: #605d5d; --line: #d7d3d3;
+    --accent: #e85504; --tint: #feeee4; --on-tint: #461a05; --icon-on: #c74503; --accent-text: #9e3603; --pressed: #c74503;
+    --brand: #2f5aa0; --avatar-bg: #d3dcea; --avatar-ink: #2f5aa0;
+    --menu-shadow: 0 12px 32px rgba(32,30,29,.18);
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+    color-scheme: light;
+  }
+  [data-mode="dark"] {
+    --desk: #1f2228; --rail: #16181b; --card: #1f2228; --hover: #2d3139; --menu: #2d3139;
+    --ink: #f0eeec; --muted: #c3c8cf; --subtle: #9aa0a8; --line: #3d424b;
+    --tint: #3b2317; --on-tint: #fdd6c0; --icon-on: #fab48e; --accent-text: #fab48e; --pressed: #f58749;
+    --brand: #7ba4ee; --avatar-bg: #26344d; --avatar-ink: #a9c1ec;
+    --menu-shadow: 0 16px 40px rgba(0,0,0,.55), 0 0 0 1px rgba(240,238,236,.06);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Archivo", system-ui, sans-serif; color: var(--ink); background: var(--desk); }
+  a { color: var(--accent-text); text-decoration: none; }
+  a:hover { color: var(--pressed); }
+  button { font-family: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .app { display: flex; min-height: 100vh; }
+
+  .rail { width: 280px; flex-shrink: 0; background: var(--rail); padding: 28px 16px 20px; display: flex; flex-direction: column; gap: 26px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+  .brand { display: flex; gap: 12px; align-items: center; padding: 0 12px; }
+  .brand i { font-size: 30px; color: var(--brand); }
+  .brand b { display: block; font-size: 17px; font-weight: 700; }
+  .brand span { font-size: 13px; color: var(--subtle); }
+
+  .phase { display: flex; flex-direction: column; gap: 8px; padding: 14px 12px; background: var(--card); border-radius: 3px; }
+  .phase .top { display: flex; justify-content: space-between; align-items: baseline; }
+  .phase .top b { font-size: 15px; font-weight: 600; }
+  .phase .top span { font-family: var(--mono); font-size: 12px; color: var(--subtle); }
+  .phase .segs { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; }
+  .phase .segs i { height: 5px; background: var(--line); }
+  .phase .segs i.on { background: var(--accent); }
+  .phase .next { font-size: 13px; color: var(--subtle); }
+
+  nav { display: flex; flex-direction: column; gap: 2px; }
+  .group { padding: 0 12px 6px; font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--subtle); }
+  [data-mode="dark"] .group { font-weight: 500; }
+  .item { display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 12px; border-radius: 3px; font-size: 15px; color: var(--ink); border: none; background: none; cursor: pointer; text-align: left; width: 100%; }
+  .item i { font-size: 20px; color: var(--subtle); }
+  .item:hover { background: var(--hover); }
+  .item .count { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--subtle); }
+  .item[aria-current="page"] { background: var(--tint); color: var(--on-tint); font-weight: 600; }
+  .item[aria-current="page"] i { color: var(--icon-on); }
+
+  .spacer { flex: 1; }
+  .account { position: relative; }
+  .me { display: flex; align-items: center; gap: 12px; padding: 8px 12px; width: 100%; border: none; background: none; border-radius: 3px; cursor: pointer; text-align: left; }
+  .me:hover, .me[aria-expanded="true"] { background: var(--hover); }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0; background: var(--avatar-bg); color: var(--avatar-ink); font-size: 14px; font-weight: 700; display: grid; place-items: center; overflow: hidden; }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .avatar.lg { width: 44px; height: 44px; font-size: 18px; }
+  .me .name { flex: 1; font-size: 15px; font-weight: 600; }
+  .me .name span { font-weight: 400; color: var(--subtle); }
+  .me i { font-size: 22px; color: var(--subtle); }
+
+  .menu { position: absolute; left: 0; bottom: calc(100% + 8px); width: 290px; background: var(--menu); box-shadow: var(--menu-shadow); border-radius: 4px; padding: 18px; display: flex; flex-direction: column; gap: 18px; z-index: 10; }
+  .menu[hidden] { display: none; }
+  .menu .who { display: flex; gap: 12px; align-items: center; }
+  .menu .who b { display: block; font-size: 16px; }
+  .menu .who div div { display: flex; gap: 12px; font-size: 13px; margin-top: 2px; }
+  .menu .lbl { font-family: var(--mono); font-size: 11px; letter-spacing: .16em; text-transform: uppercase; color: var(--subtle); margin-bottom: 8px; display: block; }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 2px; background: var(--rail); border-radius: 3px; }
+  .seg button { padding: 6px 0; font-size: 14px; border: none; background: none; color: var(--muted); border-radius: 2px; cursor: pointer; }
+  .seg button:hover { color: var(--ink); }
+  .seg button[aria-pressed="true"] { background: var(--tint); color: var(--on-tint); font-weight: 600; }
+  .seg.neutral button[aria-pressed="true"] { background: var(--menu); color: var(--ink); box-shadow: 0 0 0 1px var(--line); }
+  .role-note { font-size: 13px; line-height: 1.45; color: var(--subtle); margin-top: 8px; }
+  .menu .links { display: flex; flex-direction: column; gap: 2px; margin: 0 -8px; }
+  .menu .links .item { height: 36px; padding: 0 8px; gap: 10px; }
+  .menu .links .item i { font-size: 18px; }
+
+  main { flex: 1; padding: 48px; }
+  main h1 { margin: 0; font-size: 34px; letter-spacing: -.02em; }
+  main p { color: var(--subtle); }
+
+  @media (forced-colors: active) { .item[aria-current="page"], .seg button[aria-pressed="true"] { border: 1px solid CanvasText; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail" aria-label="Main">
+    <div class="brand">
+      <i class="ph-duotone ph-graduation-cap" aria-hidden="true"></i>
+      <div><b id="household"></b><span id="studentLine"></span></div>
+    </div>
+
+    <div class="phase" id="phase" aria-label="Current phase"></div>
+
+    <div id="nav"></div>
+
+    <div class="spacer"></div>
+
+    <div class="account">
+      <div class="menu" id="menu" hidden role="dialog" aria-label="Account">
+        <div class="who"><span class="avatar lg" id="avatarLg"></span><div><b id="menuName"></b><div><a href="#" id="changePhoto">Change photo</a><a href="#" id="removePhoto">Remove</a></div></div></div>
+        <div><span class="lbl">View as</span><div class="seg" id="roles" role="group" aria-label="View as"></div><div class="role-note" id="roleNote"></div></div>
+        <div><span class="lbl">Appearance</span><div class="seg neutral" id="theme" role="group" aria-label="Appearance"></div></div>
+        <div class="links">
+          <button class="item" data-route="admin"><i class="ph-duotone ph-gear-six" aria-hidden="true"></i>Admin</button>
+          <button class="item" id="signOut"><i class="ph-duotone ph-sign-out" aria-hidden="true"></i>Sign out</button>
+        </div>
+      </div>
+      <button class="me" id="me" aria-expanded="false" aria-controls="menu">
+        <span class="avatar" id="avatar"></span>
+        <span class="name" id="meName"></span>
+        <i class="ph-duotone ph-dots-three" aria-hidden="true"></i>
+      </button>
+    </div>
+  </aside>
+  <main><h1 id="pageTitle"></h1><p>Page content.</p></main>
+</div>
+
+<script>
+// ─── SAMPLE DATA ─── Replace with household, student, signed-in user, and live counts.
+const HOUSEHOLD = { name: "Kyle's College Search", student: 'Kyle', grade: 'Junior', school: 'Columbia High School' };
+const USER = { name: 'Jason', photoUrl: null, roles: ['Admin', 'Parent', 'Student'], signedInAs: 'Admin' };
+const ROLE_NOTES = {
+  Admin: 'Full household access and setup, including the activities journal.',
+  Parent: '', Student: '' // TODO: pull from existing role descriptions
+};
+const PHASE = { index: 0, total: 6, name: 'Junior Fall', next: 'Winter/Spring, Jan–May 2027' };
+// Groups and order are fixed. Counts come from live data; 0/null hides the count.
+const NAV = [
+  { group: 'Plan', items: [
+    { id: 'dashboard', label: 'Dashboard', icon: 'ph-squares-four' },
+    { id: 'project-management', label: 'Project Management', icon: 'ph-kanban', count: 6 },
+    { id: 'notes', label: 'Notes', icon: 'ph-note-pencil' },
+    { id: 'log', label: 'Log', icon: 'ph-clock-counter-clockwise' }
+  ]},
+  { group: 'Schools', items: [
+    { id: 'colleges', label: 'Colleges', icon: 'ph-bank', count: 44 },
+    { id: 'apps-materials', label: 'Apps & Materials', icon: 'ph-files', count: 7 },
+    { id: 'ingest', label: 'Ingest', icon: 'ph-tray-arrow-down' }
+  ]},
+  { group: 'Reference', items: [
+    { id: 'consultants', label: 'Consultants', icon: 'ph-users-three', count: 5 },
+    { id: 'faq', label: 'FAQ', icon: 'ph-question', count: 30 },
+    { id: 'testing', label: 'Testing', icon: 'ph-exam', count: 4 }
+  ]}
+];
+
+// ─── Integration hooks ───
+function navigate(id) { /* router.push('/' + id) */ }
+function setViewAs(role) { /* persist preview role for this session */ }
+function saveTheme(t) { localStorage.setItem('track-theme', t); /* also save to user profile */ }
+function signOut() { /* auth.signOut() */ }
+function changePhoto() { /* open file picker */ }
+function removePhoto() { /* DELETE photo */ }
+
+// ─── State ───
+let route = 'dashboard';
+let viewAs = USER.signedInAs;
+let theme = localStorage.getItem('track-theme') || 'system';
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const initial = n => esc(n.trim()[0] || '?');
+
+function applyTheme() {
+  document.documentElement.dataset.mode = theme === 'system' ? (mq.matches ? 'dark' : 'light') : theme;
+}
+
+function render() {
+  $('household').textContent = HOUSEHOLD.name;
+  $('studentLine').textContent = `${HOUSEHOLD.grade} · ${HOUSEHOLD.school}`;
+
+  $('phase').innerHTML = `
+    <div class="top"><b>${esc(PHASE.name)}</b><span>${PHASE.index + 1} / ${PHASE.total}</span></div>
+    <div class="segs">${Array.from({ length: PHASE.total }, (_, i) => `<i class="${i <= PHASE.index ? 'on' : ''}"></i>`).join('')}</div>
+    <span class="next">Next: ${esc(PHASE.next)}</span>`;
+
+  $('nav').innerHTML = NAV.map(g => `
+    <nav aria-label="${g.group}" style="margin-bottom:26px">
+      <span class="group">${g.group}</span>
+      ${g.items.map(it => `<button class="item" data-route="${it.id}" ${it.id === route ? 'aria-current="page"' : ''}>
+        <i class="ph-duotone ${it.icon}" aria-hidden="true"></i>${esc(it.label)}${it.count ? `<span class="count">${it.count}</span>` : ''}
+      </button>`).join('')}
+    </nav>`).join('');
+
+  const av = USER.photoUrl ? `<img src="${USER.photoUrl}" alt="">` : initial(USER.name);
+  $('avatar').innerHTML = av; $('avatarLg').innerHTML = av;
+  $('removePhoto').hidden = !USER.photoUrl;
+  $('meName').innerHTML = `${esc(USER.name)} <span>· ${esc(viewAs)}</span>`;
+  $('menuName').textContent = USER.name;
+  $('roles').innerHTML = USER.roles.map(r => `<button data-role="${r}" aria-pressed="${r === viewAs}">${r}</button>`).join('');
+  $('roleNote').textContent = ROLE_NOTES[viewAs] || '';
+  $('theme').innerHTML = ['system', 'light', 'dark'].map(t => `<button data-theme="${t}" aria-pressed="${t === theme}">${t[0].toUpperCase() + t.slice(1)}</button>`).join('');
+
+  const cur = NAV.flatMap(g => g.items).find(i => i.id === route);
+  $('pageTitle').textContent = cur ? cur.label : 'Admin';
+}
+
+function toggleMenu(open) {
+  const o = open ?? $('menu').hidden;
+  $('menu').hidden = !o;
+  $('me').setAttribute('aria-expanded', o);
+}
+
+document.addEventListener('click', e => {
+  const r = e.target.closest('[data-route]'), role = e.target.closest('[data-role]'), t = e.target.closest('[data-theme]');
+  if (r) { route = r.dataset.route; navigate(route); toggleMenu(false); render(); return; }
+  if (role) { viewAs = role.dataset.role; setViewAs(viewAs); render(); return; }
+  if (t) { theme = t.dataset.theme; saveTheme(theme); applyTheme(); render(); return; }
+  if (e.target.closest('#me')) { toggleMenu(); return; }
+  if (e.target.closest('#signOut')) { signOut(); return; }
+  if (e.target.closest('#changePhoto')) { e.preventDefault(); changePhoto(); return; }
+  if (e.target.closest('#removePhoto')) { e.preventDefault(); removePhoto(); return; }
+  if (!e.target.closest('#menu')) toggleMenu(false);
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('menu').hidden) { toggleMenu(false); $('me').focus(); } });
+mq.addEventListener('change', applyTheme);
+
+applyTheme();
+render();
+</script>
+</body>
+</html>
