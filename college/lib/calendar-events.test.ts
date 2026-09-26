@@ -19,6 +19,8 @@ function sample(partial: Partial<CalendarEvent> & Pick<CalendarEvent, "id" | "ti
     sourceId: null,
     assetUrl: null,
     assetPath: null,
+    schoolId: null,
+    sourceNoteId: null,
     ...partial,
   };
 }

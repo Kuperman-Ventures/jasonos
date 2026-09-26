@@ -15,6 +15,10 @@ export type CalendarEvent = {
   sourceId: string | null;
   assetUrl: string | null;
   assetPath: string | null;
+  /** School this event was sent from (Project Management Notes). */
+  schoolId: string | null;
+  /** Back-link to the school project note that created this event. */
+  sourceNoteId: string | null;
 };
 
 export function normalizeCalendarEvents(raw: unknown): CalendarEvent[] {
@@ -42,6 +46,9 @@ export function normalizeCalendarEvents(raw: unknown): CalendarEvent[] {
       sourceId: typeof item.sourceId === "string" && item.sourceId ? item.sourceId : null,
       assetUrl: typeof item.assetUrl === "string" && item.assetUrl ? item.assetUrl : null,
       assetPath: typeof item.assetPath === "string" && item.assetPath ? item.assetPath : null,
+      schoolId: typeof item.schoolId === "string" && item.schoolId ? item.schoolId : null,
+      sourceNoteId:
+        typeof item.sourceNoteId === "string" && item.sourceNoteId ? item.sourceNoteId : null,
     });
   }
   return out;

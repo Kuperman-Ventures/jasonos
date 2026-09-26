@@ -67,6 +67,8 @@ function localDemoPins(): PinNote[] {
       mimeType: null,
       previewImageUrl: null,
       previewSummary: null,
+      schoolId: null,
+      sourceNoteId: null,
     },
     {
       id: "demo-uw",
@@ -89,6 +91,8 @@ function localDemoPins(): PinNote[] {
       previewImageUrl: null,
       previewSummary:
         "Direct-to-engineering admission is offered to a limited number of first-year applicants…",
+      schoolId: null,
+      sourceNoteId: null,
     },
     {
       id: "demo-prompts",
@@ -110,6 +114,8 @@ function localDemoPins(): PinNote[] {
       mimeType: null,
       previewImageUrl: null,
       previewSummary: null,
+      schoolId: null,
+      sourceNoteId: null,
     },
     {
       id: "demo-testing",
@@ -131,6 +137,8 @@ function localDemoPins(): PinNote[] {
       mimeType: null,
       previewImageUrl: null,
       previewSummary: null,
+      schoolId: null,
+      sourceNoteId: null,
     },
     {
       id: "demo-this-week",
@@ -152,6 +160,8 @@ function localDemoPins(): PinNote[] {
       mimeType: null,
       previewImageUrl: null,
       previewSummary: null,
+      schoolId: null,
+      sourceNoteId: null,
     },
   ];
 }

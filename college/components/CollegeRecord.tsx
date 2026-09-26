@@ -5,11 +5,7 @@ import {
   ADMISSION_TRACKS,
   APPLICATION_STATUSES,
   INTEREST_LEVELS,
-  OWNERS,
   SELECTIVITY_TIERS,
-  VISIT_STATUSES,
-  STEP_PRESETS,
-  ownerLabel,
   type ContactPatch,
   type DeadlinePatch,
   type Owner,
@@ -18,8 +14,11 @@ import {
 import { LIST_PHASES, nextListPhaseId, previousListPhaseId } from "@/lib/list-phases";
 import { sourceLines } from "@/lib/school-research";
 import { fetchSchoolPhotoUrl, websiteHostLabel, websiteHref } from "@/lib/school-photo";
+import type { MemberProfile } from "@/lib/member-avatars";
+import type { RoutedSchoolNotePayload } from "@/lib/school-project-notes";
 import { SchoolMark } from "./SchoolMark";
 import { SchoolSnapshotSummary } from "./SchoolSnapshotSummary";
+import { SchoolProjectManagement } from "./SchoolProjectManagement";
 
 type SchoolModalTab = "snapshot" | "settings" | "requirements" | "financials" | "projects";
 
@@ -27,7 +26,7 @@ const SCHOOL_MODAL_TABS: { id: SchoolModalTab; label: string }[] = [
   { id: "snapshot", label: "Snapshot" },
   { id: "requirements", label: "Requirements" },
   { id: "financials", label: "Financials" },
-  { id: "projects", label: "Project management" },
+  { id: "projects", label: "Project Management" },
   { id: "settings", label: "Settings" },
 ];
 
@@ -60,6 +59,9 @@ export function CollegeRecord({
   school,
   listUndergrads,
   canAdvancePhase,
+  memberId,
+  memberName,
+  memberProfiles,
   onBack,
   onPatch,
   onDelete,
@@ -76,11 +78,16 @@ export function CollegeRecord({
   onAddContact,
   onPatchContact,
   onDeleteContact,
+  onSendProjectNote,
+  onRemoveProjectNote,
 }: {
   school: School;
   /** Undergrad counts for non-archived schools on the family's list (size gauge ends). */
   listUndergrads: number[];
   canAdvancePhase: boolean;
+  memberId: string;
+  memberName: string;
+  memberProfiles: MemberProfile[];
   onBack: () => void;
   onPatch: (patch: Partial<School>) => void;
   onDelete: () => void;
@@ -97,16 +104,10 @@ export function CollegeRecord({
   onAddContact: (contact: ContactPatch) => void;
   onPatchContact: (contactId: string, patch: ContactPatch) => void;
   onDeleteContact: (contactId: string) => void;
+  onSendProjectNote: (payload: RoutedSchoolNotePayload) => void;
+  onRemoveProjectNote: (noteId: string) => void;
 }) {
   const [tab, setTab] = useState<SchoolModalTab>("snapshot");
-  const [stepLabel, setStepLabel] = useState("");
-  const [stepOwner, setStepOwner] = useState<Owner>("kyle");
-  const [deadlineTitle, setDeadlineTitle] = useState("");
-  const [deadlineDate, setDeadlineDate] = useState("");
-  const [contactName, setContactName] = useState("");
-  const [contactRole, setContactRole] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
-  const [contactPhone, setContactPhone] = useState("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoFailed, setPhotoFailed] = useState(false);
 
@@ -642,299 +643,24 @@ export function CollegeRecord({
           ) : null}
 
           {tab === "projects" ? (
-            <section className="school-modal-section">
-              <div className="school-overview-head">
-                <h3>Project management</h3>
-                <p className="section-sub">
-                  Contacts, visits, touchpoints, and deadlines for this school — separate from the household to-do lists.
-                </p>
-              </div>
-
-              <h4 className="school-edit-label">Contacts</h4>
-              {school.contacts.length === 0 ? <p className="muted">No contacts yet.</p> : null}
-              {school.contacts.length > 0 ? (
-                <table className="child-table">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Role</th>
-                      <th>Email</th>
-                      <th>Phone</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {school.contacts.map((contact) => (
-                      <tr key={contact.id}>
-                        <td>
-                          <BlurInput
-                            value={contact.name}
-                            ariaLabel={`Name for ${contact.name || "contact"}`}
-                            onCommit={(value) => onPatchContact(contact.id, { name: value })}
-                          />
-                        </td>
-                        <td>
-                          <BlurInput
-                            value={contact.role}
-                            ariaLabel="Contact role"
-                            placeholder="Regional rep"
-                            onCommit={(value) => onPatchContact(contact.id, { role: value })}
-                          />
-                        </td>
-                        <td>
-                          <BlurInput
-                            value={contact.email}
-                            ariaLabel="Contact email"
-                            onCommit={(value) => onPatchContact(contact.id, { email: value })}
-                          />
-                        </td>
-                        <td>
-                          <BlurInput
-                            value={contact.phone}
-                            ariaLabel="Contact phone"
-                            onCommit={(value) => onPatchContact(contact.id, { phone: value })}
-                          />
-                        </td>
-                        <td>
-                          <button type="button" className="btn btn-ghost" onClick={() => onDeleteContact(contact.id)}>
-                            Remove
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : null}
-              <form
-                className="add-row"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (!contactName.trim()) return;
-                  onAddContact({
-                    name: contactName.trim(),
-                    role: contactRole.trim(),
-                    email: contactEmail.trim(),
-                    phone: contactPhone.trim(),
-                  });
-                  setContactName("");
-                  setContactRole("");
-                  setContactEmail("");
-                  setContactPhone("");
-                }}
-              >
-                <input
-                  className="field"
-                  value={contactName}
-                  placeholder="Name"
-                  onChange={(event) => setContactName(event.target.value)}
-                />
-                <input
-                  className="field"
-                  value={contactRole}
-                  placeholder="Role"
-                  onChange={(event) => setContactRole(event.target.value)}
-                />
-                <input
-                  className="field"
-                  value={contactEmail}
-                  placeholder="Email"
-                  onChange={(event) => setContactEmail(event.target.value)}
-                />
-                <input
-                  className="field"
-                  value={contactPhone}
-                  placeholder="Phone"
-                  onChange={(event) => setContactPhone(event.target.value)}
-                />
-                <button type="submit" className="btn btn-primary">
-                  Add contact
-                </button>
-              </form>
-
-              <h4 className="school-edit-label">Visit</h4>
-              <div className="school-edit-grid">
-                <label className="stack-field">
-                  <span className="label">Visit status</span>
-                  <select
-                    className="field"
-                    value={school.visitStatus}
-                    onChange={(event) =>
-                      onPatch({ visitStatus: event.target.value as School["visitStatus"] })
-                    }
-                  >
-                    {VISIT_STATUSES.map((item) => (
-                      <option key={item.id || "unset"} value={item.id}>
-                        {item.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="stack-field">
-                  <span className="label">Visit date</span>
-                  <input
-                    className="field"
-                    type="date"
-                    value={school.visitDate ?? ""}
-                    onChange={(event) => onPatch({ visitDate: event.target.value || null })}
-                  />
-                </label>
-              </div>
-              <label className="stack-field">
-                <span className="label">Visit notes</span>
-                <textarea
-                  className="field"
-                  defaultValue={school.visitNotes}
-                  key={school.visitNotes}
-                  onBlur={(event) => {
-                    if (event.target.value !== school.visitNotes) onPatch({ visitNotes: event.target.value });
-                  }}
-                />
-              </label>
-
-              <h4 className="school-edit-label">Touchpoints</h4>
-              {school.steps.length === 0 ? <p className="muted">No touchpoints yet.</p> : null}
-              {school.steps.map((step) => (
-                <div key={step.id} className={step.done ? "step-row done" : "step-row"}>
-                  <input
-                    type="checkbox"
-                    checked={step.done}
-                    onChange={(event) => onPatchStep(step.id, { done: event.target.checked })}
-                  />
-                  <label>{step.label}</label>
-                  <select
-                    className="field compact"
-                    value={step.owner}
-                    onChange={(event) => onPatchStep(step.id, { owner: event.target.value as Owner })}
-                  >
-                    {OWNERS.map((owner) => (
-                      <option key={owner.id} value={owner.id}>
-                        {owner.label}
-                      </option>
-                    ))}
-                  </select>
-                  <button type="button" className="btn btn-ghost" onClick={() => onDeleteStep(step.id)}>
-                    Remove
-                  </button>
-                </div>
-              ))}
-              <div className="add-row">
-                <input
-                  className="field"
-                  list="step-presets"
-                  value={stepLabel}
-                  placeholder="Add a visit, call, or interview"
-                  onChange={(event) => setStepLabel(event.target.value)}
-                />
-                <datalist id="step-presets">
-                  {STEP_PRESETS.map((preset) => (
-                    <option key={preset} value={preset} />
-                  ))}
-                </datalist>
-                <select
-                  className="field"
-                  value={stepOwner}
-                  onChange={(event) => setStepOwner(event.target.value as Owner)}
-                >
-                  {OWNERS.map((owner) => (
-                    <option key={owner.id} value={owner.id}>
-                      {ownerLabel(owner.id)}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  onClick={() => {
-                    if (!stepLabel.trim()) return;
-                    onAddStep(stepLabel.trim(), stepOwner);
-                    setStepLabel("");
-                  }}
-                >
-                  Add
-                </button>
-              </div>
-
-              <h4 className="school-edit-label">Deadlines</h4>
-              {deadlines.length === 0 ? <p className="muted">No deadlines yet.</p> : null}
-              {deadlines.length > 0 ? (
-                <table className="child-table">
-                  <thead>
-                    <tr>
-                      <th>Done</th>
-                      <th>Milestone</th>
-                      <th>Due</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {deadlines.map((deadline) => (
-                      <tr key={deadline.id} className={deadline.completed ? "done" : undefined}>
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={deadline.completed}
-                            aria-label={`Completed ${deadline.title}`}
-                            onChange={(event) => onPatchDeadline(deadline.id, { completed: event.target.checked })}
-                          />
-                        </td>
-                        <td>
-                          <BlurInput
-                            value={deadline.title}
-                            ariaLabel="Deadline title"
-                            onCommit={(value) => onPatchDeadline(deadline.id, { title: value })}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            className="field"
-                            type="date"
-                            aria-label="Due date"
-                            value={deadline.dueDate ?? ""}
-                            onChange={(event) => onPatchDeadline(deadline.id, { dueDate: event.target.value || null })}
-                          />
-                        </td>
-                        <td>
-                          <button
-                            type="button"
-                            className="btn btn-ghost"
-                            onClick={() => onDeleteDeadline(deadline.id)}
-                          >
-                            Remove
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : null}
-              <form
-                className="add-row"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (!deadlineTitle.trim()) return;
-                  onAddDeadline(deadlineTitle.trim(), deadlineDate || null);
-                  setDeadlineTitle("");
-                  setDeadlineDate("");
-                }}
-              >
-                <input
-                  className="field"
-                  value={deadlineTitle}
-                  placeholder="Milestone"
-                  onChange={(event) => setDeadlineTitle(event.target.value)}
-                />
-                <input
-                  className="field"
-                  type="date"
-                  value={deadlineDate}
-                  aria-label="New deadline date"
-                  onChange={(event) => setDeadlineDate(event.target.value)}
-                />
-                <button type="submit" className="btn btn-primary">
-                  Add deadline
-                </button>
-              </form>
-            </section>
+            <SchoolProjectManagement
+              school={school}
+              memberId={memberId}
+              memberName={memberName}
+              memberProfiles={memberProfiles}
+              onPatch={onPatch}
+              onAddStep={onAddStep}
+              onPatchStep={onPatchStep}
+              onDeleteStep={onDeleteStep}
+              onAddDeadline={onAddDeadline}
+              onPatchDeadline={onPatchDeadline}
+              onDeleteDeadline={onDeleteDeadline}
+              onAddContact={onAddContact}
+              onPatchContact={onPatchContact}
+              onDeleteContact={onDeleteContact}
+              onSendNote={onSendProjectNote}
+              onRemoveNote={onRemoveProjectNote}
+            />
           ) : null}
         </div>
       </div>

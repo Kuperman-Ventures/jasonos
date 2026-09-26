@@ -38,6 +38,8 @@ export type ProjectTodo = {
   phaseWindow: string;
   /** Household project grouping — orthogonal to runway parentId. */
   projectId: string | null;
+  /** School this to-do was sent from (Project Management Notes). */
+  schoolId: string | null;
 };
 
 /** Household overrides for seed and ingested to-dos. Missing keys keep the original. */
@@ -264,6 +266,7 @@ function pushTodo(
     startDate: string | null;
     endDate: string | null;
     parentId: string;
+    schoolId?: string | null;
   },
   checklist: Record<string, boolean>,
   parents: Map<string, ParentLookup>,
@@ -290,6 +293,7 @@ function pushTodo(
     phase: parent.phase,
     phaseWindow: parent.phaseWindow,
     projectId: edited.projectId,
+    schoolId: step.schoolId ?? null,
   });
 }
 
@@ -340,6 +344,7 @@ export function listProjectTodos(
         startDate: step.startDate,
         endDate: step.endDate,
         parentId: step.parentId,
+        schoolId: step.schoolId ?? null,
       },
       checklist,
       parents,

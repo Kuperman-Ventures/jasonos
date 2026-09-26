@@ -1,4 +1,7 @@
 import { knownWebsite } from "./school-websites";
+import type { SchoolProjectNote } from "./school-project-notes";
+
+export type { SchoolProjectNote } from "./school-project-notes";
 
 export type Choice = "top" | "middle" | "low" | "backup" | "unsure";
 export type Plan = "" | "ed" | "ea" | "rd" | "rolling";
@@ -128,6 +131,8 @@ export type School = {
   steps: Step[];
   deadlines: Deadline[];
   contacts: SchoolContact[];
+  /** Notes sent from this school's Project Management tab. */
+  projectNotes: SchoolProjectNote[];
 };
 
 export type SchoolSeed = {
@@ -545,6 +550,7 @@ export function fromSeed(seed: SchoolSeed): School {
     steps: [],
     deadlines: [],
     contacts: [],
+    projectNotes: [],
   };
 }
 

@@ -43,6 +43,8 @@ import {
   type VisitStatus,
 } from "@/lib/types";
 import { downloadSchoolsCsv } from "@/lib/college-export";
+import type { MemberProfile } from "@/lib/member-avatars";
+import type { RoutedSchoolNotePayload } from "@/lib/school-project-notes";
 
 export function CollegesTab({
   schools,
@@ -50,6 +52,8 @@ export function CollegesTab({
   listPrefs,
   memberId,
   memberRole,
+  memberName,
+  memberProfiles,
   onListPrefsChange,
   onOpen,
   onClose,
@@ -65,12 +69,16 @@ export function CollegesTab({
   onAddContact,
   onPatchContact,
   onDeleteContact,
+  onSendProjectNote,
+  onRemoveProjectNote,
 }: {
   schools: School[];
   selectedId: string | null;
   listPrefs: MemberListPrefs;
   memberId: string;
   memberRole: string;
+  memberName: string;
+  memberProfiles: MemberProfile[];
   onListPrefsChange: (prefs: MemberListPrefs) => void;
   onOpen: (id: string) => void;
   onClose: () => void;
@@ -86,6 +94,8 @@ export function CollegesTab({
   onAddContact: (id: string, contact: ContactPatch) => void;
   onPatchContact: (id: string, contactId: string, patch: ContactPatch) => void;
   onDeleteContact: (id: string, contactId: string) => void;
+  onSendProjectNote: (schoolId: string, payload: RoutedSchoolNotePayload) => void;
+  onRemoveProjectNote: (schoolId: string, noteId: string) => void;
 }) {
   const canAdvance = canAdvanceListPhase({ id: memberId, role: memberRole });
   const [phaseId, setPhaseId] = useState<ListPhaseId>("exploration");
@@ -717,6 +727,9 @@ export function CollegesTab({
             .map((row) => row.undergradEnrollment)
             .filter((n): n is number => typeof n === "number" && Number.isFinite(n))}
           canAdvancePhase={canAdvance}
+          memberId={memberId}
+          memberName={memberName}
+          memberProfiles={memberProfiles}
           onBack={onClose}
           onPatch={(patch) => onPatch(selected.id, patch)}
           onDelete={() => onDelete(selected.id)}
@@ -733,6 +746,8 @@ export function CollegesTab({
           onAddContact={(contact) => onAddContact(selected.id, contact)}
           onPatchContact={(contactId, patch) => onPatchContact(selected.id, contactId, patch)}
           onDeleteContact={(contactId) => onDeleteContact(selected.id, contactId)}
+          onSendProjectNote={(payload) => onSendProjectNote(selected.id, payload)}
+          onRemoveProjectNote={(noteId) => onRemoveProjectNote(selected.id, noteId)}
         />
       ) : null}
     </section>

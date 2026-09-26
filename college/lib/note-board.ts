@@ -39,6 +39,10 @@ export type PinNote = {
   previewImageUrl: string | null;
   /** Short summary of the linked page. */
   previewSummary: string | null;
+  /** School this pin was sent from (Project Management Notes). */
+  schoolId: string | null;
+  /** Back-link to the school project note that created this pin. */
+  sourceNoteId: string | null;
 };
 
 export type NoteBand = {
@@ -296,6 +300,9 @@ export function normalizePinNotes(raw: unknown): PinNote[] {
         typeof item.previewSummary === "string" && item.previewSummary.trim()
           ? item.previewSummary.trim().slice(0, 600)
           : null,
+      schoolId: typeof item.schoolId === "string" && item.schoolId ? item.schoolId : null,
+      sourceNoteId:
+        typeof item.sourceNoteId === "string" && item.sourceNoteId ? item.sourceNoteId : null,
     });
   }
   return out;
@@ -341,6 +348,8 @@ export function migrateLegacyNotesText(notes: string, addedBy: Owner = "jason"):
         mimeType: null,
         previewImageUrl: null,
         previewSummary: null,
+        schoolId: null,
+        sourceNoteId: null,
       });
       continue;
     }
@@ -368,6 +377,8 @@ export function migrateLegacyNotesText(notes: string, addedBy: Owner = "jason"):
       mimeType: null,
       previewImageUrl: null,
       previewSummary: null,
+      schoolId: null,
+      sourceNoteId: null,
     });
   }
 
@@ -427,6 +438,8 @@ export function buildPinNotesFromIngest(input: {
         mimeType,
         previewImageUrl: null,
         previewSummary: null,
+        schoolId: null,
+        sourceNoteId: null,
       },
     ];
   }
@@ -461,6 +474,8 @@ export function buildPinNotesFromIngest(input: {
         mimeType: null,
         previewImageUrl: null,
         previewSummary: null,
+        schoolId: null,
+        sourceNoteId: null,
       },
     ];
   }
@@ -509,6 +524,8 @@ export function buildPinNotesFromIngest(input: {
       mimeType,
       previewImageUrl: kind === "website" ? previewImageUrl : null,
       previewSummary: kind === "website" ? previewSummary : null,
+      schoolId: null,
+      sourceNoteId: null,
     };
   });
 }
