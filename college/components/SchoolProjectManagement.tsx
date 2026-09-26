@@ -192,11 +192,6 @@ export function SchoolProjectManagement({
     <section className="school-modal-section school-pm">
       <div className="school-overview-head">
         <h3>Project Management</h3>
-        <p className="section-sub">
-          Notes, contacts, visits, touchpoints, and deadlines for {school.name}. Notes can be
-          sent to the household To-Do list, Notes board, or Calendar, tagged to the writer and
-          this school.
-        </p>
       </div>
 
       <div className="school-pm-sub">
