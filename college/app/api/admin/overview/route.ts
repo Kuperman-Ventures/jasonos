@@ -13,7 +13,7 @@ import { aiGatewayAvailable, collegeAiModelId } from "@/lib/ai-model";
 import { authConfigured, isSession, isSuperAdmin, requireCollegeSession } from "@/lib/auth";
 import { schoolNeedsCommonAppFill } from "@/lib/common-app-grid";
 import { listSchools, supabaseConfigured } from "@/lib/db";
-import { publicAvatarUrl } from "@/lib/member-avatars";
+import { resolveMemberAvatarUrl } from "@/lib/member-avatars";
 
 export const runtime = "nodejs";
 
@@ -47,7 +47,7 @@ async function listAdminMembers(): Promise<AdminMemberRow[]> {
   });
   const { data, error } = await db
     .from("members")
-    .select("id, email, display_name, role, ui_visible, auth_user_id, avatar_path")
+    .select("id, email, display_name, role, ui_visible, auth_user_id, avatar_path, oauth_avatar_url")
     .order("id");
   if (error) throw error;
 
@@ -68,7 +68,10 @@ async function listAdminMembers(): Promise<AdminMemberRow[]> {
         role: (row.role as string) || "guest",
         uiVisible: Boolean(row.ui_visible),
         authUserId,
-        avatarUrl: publicAvatarUrl((row.avatar_path as string | null) ?? null),
+        avatarUrl: resolveMemberAvatarUrl(
+          (row.avatar_path as string | null) ?? null,
+          (row.oauth_avatar_url as string | null) ?? null,
+        ),
         lastSignInAt,
       }),
     );
