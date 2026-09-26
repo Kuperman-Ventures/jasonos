@@ -1257,6 +1257,8 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   gap: 8px;
   color: oklch(0.5 0.11 150);
   font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 .snapshot .offer i {
   width: 22px;
@@ -1270,6 +1272,7 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 .snapshot .offer.no {
   color: var(--text-subtle);
@@ -1283,14 +1286,18 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
 .snapshot .offer.partial i {
   background: oklch(0.62 0.12 70);
 }
+.snapshot .offer-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
 .snapshot .offer-meta {
-  display: block;
-  margin-top: 4px;
   color: var(--text-subtle);
   font-size: 13px;
   font-weight: 400;
   line-height: 1.35;
-  max-width: 28ch;
 }
 .snapshot .remove {
   width: 28px;

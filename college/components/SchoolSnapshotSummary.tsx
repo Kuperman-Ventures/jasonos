@@ -269,11 +269,13 @@ export function SchoolSnapshotSummary({
                 <div className="fact" key={label}>
                   <dt>{label}</dt>
                   <dd>
-                    <span className={`offer${offered ? "" : partial ? " partial" : " no"}`}>
-                      <i aria-hidden="true">{offered ? "✓" : partial ? "·" : "–"}</i>
-                      {offered ? "Offered" : partial ? "Partial" : "Not offered"}
-                    </span>
-                    {programMeta ? <span className="offer-meta">{programMeta}</span> : null}
+                    <div className="offer-stack">
+                      <span className={`offer${offered ? "" : partial ? " partial" : " no"}`}>
+                        <i aria-hidden="true">{offered ? "✓" : partial ? "·" : "–"}</i>
+                        {offered ? "Offered" : partial ? "Partial" : "Not offered"}
+                      </span>
+                      {programMeta ? <span className="offer-meta">{programMeta}</span> : null}
+                    </div>
                     <button
                       type="button"
                       className="remove"
