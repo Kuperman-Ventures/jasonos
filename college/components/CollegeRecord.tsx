@@ -26,7 +26,7 @@ import { SchoolSnapshotSummary } from "./SchoolSnapshotSummary";
 import { SchoolProjectManagement } from "./SchoolProjectManagement";
 import { SchoolRequirements } from "./SchoolRequirements";
 import { SchoolPhotos } from "./SchoolPhotos";
-import { SchoolVisitPlanning } from "./SchoolVisitPlanning";
+import { SchoolTripPlanning } from "./SchoolTripPlanning";
 
 type SchoolModalTab =
   | "snapshot"
@@ -43,7 +43,7 @@ const SCHOOL_MODAL_TABS: { id: SchoolModalTab; label: string }[] = [
   { id: "financials", label: "Financials" },
   { id: "projects", label: "Project Management" },
   { id: "photos", label: "Photos" },
-  { id: "visit", label: "Visit planning" },
+  { id: "visit", label: "Trip planning" },
   { id: "settings", label: "Settings" },
 ];
 
@@ -103,8 +103,6 @@ export function CollegeRecord({
   onCycleRequirementStatus,
   onAddRequirementTodo,
   listSchools,
-  listPhaseId,
-  processPhaseLabel,
   onSendVisitPlan,
 }: {
   school: School;
@@ -633,11 +631,9 @@ export function CollegeRecord({
           ) : null}
 
           {tab === "visit" ? (
-            <SchoolVisitPlanning
+            <SchoolTripPlanning
               school={school}
               listSchools={listSchools}
-              listPhaseId={listPhaseId}
-              processPhaseLabel={processPhaseLabel}
               memberId={memberId}
               onSendVisitPlan={onSendVisitPlan}
             />

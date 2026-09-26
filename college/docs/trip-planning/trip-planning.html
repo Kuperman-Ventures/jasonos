@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>School detail · Trip planning</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/d3@7.9.0/dist/d3.min.js" integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/topojson-client@3.1.0/dist/topojson-client.min.js" integrity="sha384-Ukv1p/xTma6P4/2bY5KzWBw+ydSpXmhCMtyciIQVDJ1RmOxtCYNMF1uXT9T63H67" crossorigin="anonymous"></script>
+<script>document.documentElement.dataset.mode = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';</script>
+<style>
+  :root { --mono:"IBM Plex Mono", ui-monospace, monospace; --region-fill:rgba(32,30,29,.035); --region-on:rgba(232,85,4,.07); --tile-filter:grayscale(1) contrast(.82) brightness(1.1); }
+  [data-mode="dark"] { --region-fill:rgba(240,238,236,.04); --region-on:rgba(232,85,4,.12); --tile-filter:grayscale(1) invert(1) contrast(.8) brightness(.85); }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--color-desk); font-family:"Archivo", system-ui, sans-serif; color:var(--color-text); }
+  a { color:var(--text-accent); text-decoration:none; } a:hover { color:var(--color-accent-pressed); }
+  button { cursor:pointer; }
+  .wrap { padding:40px 24px; }
+  .modal { max-width:1100px; margin:0 auto; background:var(--color-bg); box-shadow:var(--shadow-lg); padding:24px 40px 44px; display:flex; flex-direction:column; gap:26px; }
+  .top { display:flex; justify-content:space-between; align-items:center; }
+  .theme { display:flex; gap:2px; }
+  .theme button { background:none; border:1px solid transparent; color:var(--text-subtle); padding:4px 10px; border-radius:2px; font-size:13px; }
+  .theme button[aria-pressed="true"] { border-color:var(--color-border); color:var(--color-text); font-weight:600; }
+  nav.tabs { display:flex; flex-wrap:wrap; gap:0 4px; align-items:flex-end; border-bottom:1px solid var(--color-border); }
+  nav.tabs span { padding:12px 10px; font-size:16px; color:var(--text-muted); white-space:nowrap; }
+  nav.tabs .on { font-weight:600; color:var(--color-text); border-bottom:3px solid var(--color-accent); margin-bottom:-1px; }
+  nav.tabs .sp { flex:1; padding:0; }
+  .label { font-family:var(--mono); font-size:12px; letter-spacing:.16em; text-transform:uppercase; color:var(--text-subtle); }
+  .label.sm { font-size:11px; }
+  [data-mode="dark"] .label { font-weight:500; }
+  .kicker { display:flex; gap:10px; align-items:center; }
+  .kicker b { font-size:16px; }
+  .mk { width:24px; height:24px; flex-shrink:0; border-radius:3px; color:#fff; font-size:11px; font-weight:800; display:grid; place-items:center; }
+  [data-mode="dark"] .mk { box-shadow:inset 0 0 0 1px var(--logo-ring); }
+  .mk.sm { width:22px; height:22px; font-size:10px; }
+  .foot { margin:0; font-size:13px; color:var(--text-subtle); }
+  .subtabs { display:flex; gap:28px; flex-wrap:wrap; }
+  .subtab { background:none; border:none; padding:0 0 8px; display:flex; gap:8px; align-items:baseline; font-size:15px; color:var(--text-muted); border-bottom:2px solid transparent; }
+  .subtab:hover { color:var(--color-text); }
+  .subtab[aria-selected="true"] { font-weight:600; color:var(--color-text); border-bottom-color:var(--color-accent); }
+  .subtab .count { font-family:var(--mono); font-size:11px; color:var(--text-subtle); font-weight:400; }
+  .panel { display:flex; flex-direction:column; gap:22px; }
+  .panel[hidden] { display:none; }
+  .seg { display:inline-grid; grid-auto-flow:column; gap:2px; padding:2px; background:var(--color-surface); border-radius:3px; }
+  .seg button { border:none; background:none; padding:6px 12px; font-size:14px; color:var(--text-muted); border-radius:2px; }
+  .seg button:hover { color:var(--color-text); }
+  .seg button[aria-pressed="true"] { background:var(--color-raised); color:var(--color-text); font-weight:600; box-shadow:0 0 0 1px var(--color-border); }
+  .legend { display:flex; flex-wrap:wrap; gap:10px 20px; align-items:center; font-size:13px; color:var(--text-muted); }
+  .sw { width:14px; height:14px; border-radius:2px; display:inline-block; vertical-align:-2px; margin-right:8px; }
+  .inc { height:30px; padding:0 10px; border:1px solid var(--color-dash); border-radius:3px; background:none; font-size:13px; color:var(--text-muted); }
+  .inc:hover { border-color:var(--color-accent); }
+  .inc[aria-pressed="true"] { background:var(--color-accent-tint); border-color:var(--color-accent-border); color:var(--text-on-tint); font-weight:600; }
+  .btn-primary { display:flex; gap:8px; align-items:center; height:38px; padding:0 14px; border:none; border-radius:3px; background:var(--color-accent); color:var(--text-on-accent); font-size:14px; font-weight:700; }
+  .btn-primary:hover { background:var(--color-accent-pressed); color:#fff; }
+  .btn-primary:disabled { opacity:.45; cursor:default; }
+  .head-row { display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap; }
+  .head-row h2 { margin:0; font-size:22px; letter-spacing:-.01em; }
+  .head-row p { margin:4px 0 0; font-size:14px; color:var(--text-muted); }
+
+  /* Nearby */
+  .map-layout { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:24px; }
+  .vmap { height:540px; border-radius:2px; background:var(--color-surface); }
+  .vmap .leaflet-tile-pane { filter:var(--tile-filter); }
+  .vmap .leaflet-control-attribution { font-size:10px; background:color-mix(in srgb, var(--color-bg) 85%, transparent); color:var(--text-subtle); }
+  .vmap .leaflet-control-attribution a { color:var(--text-accent); }
+  .vmap .leaflet-bar a { background:var(--color-raised); color:var(--color-text); border-color:var(--color-border); }
+  .pin { transform:translate(-50%,-50%); display:inline-flex; align-items:center; justify-content:center; min-width:28px; height:26px; padding:0 6px; border-radius:3px; font:800 11px/1 "Archivo", sans-serif; white-space:nowrap; border:2px solid var(--color-bg); box-shadow:0 1px 4px rgba(0,0,0,.28); cursor:pointer; }
+  .pin.none { background:var(--color-bg); color:var(--text-muted); border:1.5px dashed var(--color-dash); }
+  .pin.here { box-shadow:0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-text), 0 2px 6px rgba(0,0,0,.3); }
+  .pin.air { background:var(--color-text); color:var(--color-bg); font:600 10px/1 var(--mono); }
+  .pin.dim { opacity:.35; }
+  .leg { transform:translate(-50%,-50%); background:var(--color-text); color:var(--color-bg); font:500 11px/1 var(--mono); padding:4px 6px; border-radius:2px; white-space:nowrap; }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background:var(--color-raised); color:var(--color-text); }
+  .leaflet-popup-content-wrapper { border-radius:4px; box-shadow:0 12px 32px rgba(0,0,0,.2); }
+  .leaflet-popup-content { margin:14px 16px; font-family:"Archivo", sans-serif; }
+  .pop { display:flex; flex-direction:column; gap:8px; min-width:190px; align-items:flex-start; }
+  .pop b { font-size:15px; } .pop span { font-size:13px; color:var(--text-subtle); }
+  .clist { display:flex; flex-direction:column; gap:4px; }
+  .cl { display:flex; flex-direction:column; gap:8px; padding:14px; border-radius:3px; border:1px solid transparent; cursor:pointer; }
+  .cl:hover { background:var(--color-surface); }
+  .cl.on { background:var(--color-surface); border-color:var(--color-border); }
+  .cl-top { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+  .cl-top b { font-size:16px; }
+  .cl-days { font-family:var(--mono); font-size:12px; font-weight:600; color:var(--text-accent); }
+  .cl-sub { font-size:13px; line-height:1.4; color:var(--text-subtle); }
+  .cl-bot { display:flex; justify-content:space-between; align-items:center; }
+  .cl-marks { display:flex; gap:4px; }
+  .cl-marks .mk.none { background:transparent !important; color:var(--text-muted); border:1px dashed var(--color-dash); }
+  .fly { display:flex; flex-direction:column; gap:4px; padding:14px; font-size:13px; line-height:1.45; color:var(--text-muted); }
+
+  /* When to go */
+  .wx { display:flex; gap:10px; align-items:center; padding:10px 14px; background:var(--color-surface); border-radius:3px; font-size:14px; }
+  .wx b { font-family:var(--mono); font-size:15px; }
+  .wk { display:grid; grid-template-columns:170px repeat(9, minmax(0,1fr)); gap:4px; }
+  .rh { display:flex; align-items:center; gap:8px; font-size:14px; font-weight:600; min-height:40px; }
+  .rh small { font-weight:400; color:var(--text-subtle); font-size:12px; }
+  .ch { border:none; background:none; padding:6px 0; border-radius:3px; display:flex; flex-direction:column; align-items:center; gap:2px; color:var(--color-text); }
+  .ch:hover { background:var(--color-surface); }
+  .ch b { font-size:13px; } .ch span { font-family:var(--mono); font-size:11px; color:var(--text-subtle); }
+  .ch.best span { color:var(--text-accent); font-weight:600; }
+  .ch.sel { background:var(--color-text); color:var(--color-bg); }
+  .ch.sel span { color:var(--color-bg); opacity:.75; }
+  .cell { min-height:40px; border-radius:2px; display:grid; place-items:center; font-size:12px; cursor:pointer; border:1px solid transparent; }
+  .cell.session, .cell.kschool { background:var(--color-surface); color:var(--text-subtle); }
+  .cell.break { border:1px dashed var(--color-dash); color:var(--text-muted); font-weight:600; }
+  .cell.finals { background:repeating-linear-gradient(135deg, var(--color-accent-tint-2) 0 5px, var(--color-accent-tint) 5px 10px); color:var(--text-on-tint); font-weight:600; }
+  .cell.kbreak { background:var(--color-accent); color:var(--text-on-accent); font-weight:700; }
+  .cell.wxc { font-family:var(--mono); font-size:11px; color:var(--text-muted); cursor:default; text-align:center; }
+  .cell.col-sel { box-shadow:inset 0 0 0 2px var(--color-text); }
+  .verdict { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:32px; }
+  .verdict h3 { margin:0 0 10px; font-size:16px; }
+  .vlist { display:flex; flex-direction:column; gap:8px; margin:0; padding:0; list-style:none; }
+  .vlist li { display:flex; gap:10px; align-items:flex-start; font-size:14px; line-height:1.4; }
+  .st { flex-shrink:0; width:18px; height:18px; margin-top:1px; border-radius:50%; display:grid; place-items:center; font-size:11px; font-weight:800; }
+  .st.ok { background:var(--color-text); color:var(--color-bg); }
+  .st.warn { background:var(--color-accent); color:var(--text-on-accent); }
+
+  /* Itinerary */
+  .banner { display:flex; gap:10px; align-items:center; padding:10px 14px; border-radius:3px; background:var(--color-accent-tint); color:var(--text-on-tint); font-size:14px; }
+  .banner button { background:none; border:none; padding:0; color:var(--text-accent); font-weight:600; font-size:14px; }
+  .days { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:28px; }
+  .day { display:flex; flex-direction:column; gap:10px; }
+  .slot { display:grid; grid-template-columns:52px minmax(0,1fr); gap:12px; align-items:start; }
+  .slot time { font-family:var(--mono); font-size:12px; color:var(--text-subtle); padding-top:10px; }
+  .box { display:flex; align-items:center; gap:10px; min-height:40px; padding:8px 12px; border-radius:3px; background:var(--color-surface); border:1px solid var(--color-surface); }
+  .box.here { background:var(--color-accent-tint); border-color:var(--color-accent-border); color:var(--text-on-tint); }
+  .box.gap { background:transparent; border:1px dashed var(--color-border); color:var(--text-muted); }
+  .box .kind { font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-subtle); width:44px; flex-shrink:0; }
+  .box b { display:block; font-size:14px; font-weight:600; } .box.gap b { font-weight:400; }
+  .box small { font-size:12px; color:var(--text-subtle); }
+  .empty { margin:0; font-size:15px; color:var(--text-subtle); }
+  .toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--color-text); color:var(--color-bg); padding:10px 16px; border-radius:3px; font-size:14px; z-index:2000; }
+  .toast[hidden] { display:none; }
+
+  /* Climate */
+  .clim-sum { display:flex; flex-direction:column; gap:6px; }
+  .clim-sum p { margin:0; font-size:16px; line-height:1.45; max-width:62ch; }
+  .clim-sum p.cmp { color:var(--text-muted); font-size:15px; }
+  .clim { display:grid; grid-template-columns:64px repeat(12, minmax(0,1fr)); column-gap:6px; row-gap:8px; align-items:end; }
+  .rl { font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-subtle); align-self:center; }
+  .temp { position:relative; height:220px; }
+  .temp .grid { position:absolute; left:0; right:0; height:1px; background:var(--color-rule); }
+  .bar { position:absolute; border-radius:3px; }
+  .bar.main { left:18%; width:30%; background:var(--color-accent); }
+  .bar.main.solo { left:30%; width:40%; }
+  .bar.cmp { left:54%; width:26%; border:1.5px solid var(--color-text); }
+  .tnum { position:absolute; left:0; right:0; text-align:center; font-family:var(--mono); font-size:11px; }
+  .tnum.hi { font-weight:600; } .tnum.lo { color:var(--text-subtle); }
+  .ylab { position:absolute; right:6px; font-family:var(--mono); font-size:10px; color:var(--text-subtle); transform:translateY(-50%); }
+  .rain { height:48px; display:flex; gap:3px; align-items:flex-end; justify-content:center; }
+  .rain i { display:block; width:30%; background:var(--lvl-3); border-radius:1px 1px 0 0; }
+  .rain i.cmp { background:transparent; border:1.5px solid var(--color-text); border-bottom:none; }
+  .snow { font-family:var(--mono); font-size:11px; text-align:center; min-height:14px; }
+  .mon { font-size:13px; font-weight:600; text-align:center; }
+  .sy { grid-column:3 / span 9; height:26px; border-radius:2px; background:var(--color-accent-tint); color:var(--text-on-tint); font-size:12px; font-weight:600; display:flex; align-items:center; justify-content:center; }
+
+  /* All schools */
+  .nat-layout { display:grid; grid-template-columns:minmax(0,1fr) 290px; gap:24px; align-items:start; }
+  .map-wrap { position:relative; }
+  .usmap { width:100%; height:auto; display:block; background:var(--color-surface); border-radius:2px; }
+  .usmap .land-o { fill:var(--color-surface-2); stroke:var(--color-bg); stroke-width:.6; }
+  .usmap .land-us { fill:var(--color-raised); stroke:var(--color-dash); stroke-width:.8; }
+  .usmap .region { fill:var(--region-fill); stroke:var(--text-subtle); stroke-width:1; stroke-dasharray:3 3; transition:fill .15s, opacity .15s; }
+  .usmap .region.on { fill:var(--region-on); stroke:var(--color-text); stroke-width:1.5; stroke-dasharray:none; }
+  .usmap .region.off { opacity:.35; }
+  .usmap .rlabel { font:600 10px var(--mono); letter-spacing:.1em; text-transform:uppercase; fill:var(--text-subtle); pointer-events:none; }
+  .usmap .rlabel.on { fill:var(--color-text); }
+  .usmap .dot { stroke:var(--color-raised); stroke-width:1.5; cursor:pointer; transition:opacity .15s; }
+  .usmap .dot.here { stroke:var(--color-text); stroke-width:2.5; }
+  .usmap .home { fill:var(--color-text); }
+  .usmap .home-l { font:600 11px var(--mono); fill:var(--color-text); }
+  .tip { position:absolute; pointer-events:none; background:var(--color-text); color:var(--color-bg); font-size:12px; padding:5px 8px; border-radius:2px; white-space:nowrap; transform:translate(-50%, calc(-100% - 10px)); }
+  .tip[hidden] { display:none; }
+  .regions { display:flex; flex-direction:column; gap:2px; }
+  .rg { display:flex; flex-direction:column; gap:7px; padding:11px 14px; border-radius:3px; }
+  .rg:hover, .rg.on { background:var(--color-surface); }
+  .rg-top { display:flex; justify-content:space-between; align-items:baseline; }
+  .rg-top b { font-size:15px; } .rg-top span { font-family:var(--mono); font-size:13px; color:var(--text-subtle); }
+  .rg-bar { display:flex; height:8px; gap:2px; }
+  .rg-bar i { display:block; flex:1; height:100%; border-radius:1px; }
+  .rg-note { font-size:12px; color:var(--text-subtle); }
+
+  @media (max-width: 900px) {
+    .modal { padding:22px 18px 32px; }
+    .map-layout, .nat-layout, .verdict { grid-template-columns:1fr; }
+    .wk { grid-template-columns:110px repeat(9, minmax(0,1fr)); }
+    .vmap { height:420px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap" id="root">
+<div class="modal">
+  <div class="top"><a href="#">Close</a><div class="theme" role="group" aria-label="Theme (demo)"><button data-theme="light">Light</button><button data-theme="dark">Dark</button></div></div>
+  <nav class="tabs"><span>Snapshot</span><span>Requirements</span><span>Financials</span><span>Project Management</span><span>Photos</span><span class="on">Trip planning</span><span class="sp"></span><span>Settings</span></nav>
+  <div class="kicker"><span class="mk" id="hereMark"></span><b id="hereName"></b><span class="label">Trip planning</span></div>
+  <div class="subtabs" role="tablist" id="subtabs"></div>
+
+  <!-- NEARBY -->
+  <section class="panel" data-panel="nearby" role="tabpanel">
+    <div class="map-layout">
+      <div id="vmap" class="vmap" aria-label="Map of nearby schools"></div>
+      <div class="clist" id="clist"></div>
+    </div>
+    <div class="legend" id="legendA"></div>
+    <p class="foot">Lines show visiting order, not road routes. Double-click the map to see every cluster.</p>
+  </section>
+
+  <!-- WHEN TO GO -->
+  <section class="panel" data-panel="when" role="tabpanel" hidden>
+    <div class="head-row"><div><h2>When to go</h2><p id="whenMeta"></p></div><div class="wx" id="wx"></div></div>
+    <div class="wk" id="wk"></div>
+    <div class="verdict" id="verdict"></div>
+    <p class="foot">Click any week to move the trip. The itinerary follows.</p>
+  </section>
+
+  <!-- ITINERARY -->
+  <section class="panel" data-panel="itinerary" role="tabpanel" hidden>
+    <div class="head-row">
+      <div><h2 id="tripTitle"></h2><p id="tripMeta"></p></div>
+      <button class="btn-primary" id="send">Send to Calendar</button>
+    </div>
+    <div id="tripBanner"></div>
+    <div class="days" id="days"></div>
+    <p class="foot">Tour and info session times are placeholders until booked.</p>
+  </section>
+
+  <!-- CLIMATE -->
+  <section class="panel" data-panel="climate" role="tabpanel" hidden>
+    <div class="head-row">
+      <div class="clim-sum" id="climSum"></div>
+      <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-start"><span class="label sm">Compare with</span><div class="seg" id="cmpSeg" role="group" aria-label="Compare with"></div></div>
+    </div>
+    <div class="clim" id="clim"></div>
+    <div class="legend" id="climKey"></div>
+    <p class="foot">Approximate monthly averages, °F and inches.</p>
+  </section>
+
+  <!-- ALL SCHOOLS -->
+  <section class="panel" data-panel="all" role="tabpanel" hidden>
+    <div class="head-row"><div><h2>All schools</h2><p id="allMeta"></p></div></div>
+    <div class="nat-layout">
+      <div class="map-wrap"><svg id="usmap" class="usmap" viewBox="0 0 700 440" role="img" aria-label="Map of Kyle's schools by region"></svg><div class="tip" id="tip" hidden></div></div>
+      <div class="regions" id="regions"></div>
+    </div>
+    <div class="legend" id="legendB"></div>
+  </section>
+</div>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+// ════ SAMPLE DATA ════ Replace with real records. Interest levels, drive times, calendars and climate are illustrative.
+const HERE = 'ucla';
+const HOME = { name:'Maplewood, NJ', ll:[40.7312,-74.2735], airport:'EWR' };
+const STUDENT = { name:'Kyle', school:'Columbia HS', breaks:[5] };            // week indexes (see WEEKS) when Kyle is off school
+const WEEKS = ['Mar 1','Mar 8','Mar 15','Mar 22','Mar 29','Apr 5','Apr 12','Apr 19','Apr 26'];
+const WEEK0 = new Date(2027, 2, 1);                                            // Monday of WEEKS[0]
+const WX = [['68°','some rain'],['68°','some rain'],['68°','some rain'],['69°','light rain'],['69°','dry'],['70°','dry'],['70°','dry'],['71°','dry'],['71°','dry']];
+// cal: week index → 'break' | 'finals'. Missing = in session.
+const S = {
+  ucla:{ n:'UCLA', m:'U', ll:[34.0689,-118.4452], lv:'top', color:'#2774ae', cal:{2:'finals',3:'break'} },
+  usc:{ n:'USC', m:'SC', ll:[34.0224,-118.2851], lv:'high', color:'#990000', cal:{2:'break'} },
+  lmu:{ n:'LMU', m:'L', ll:[33.9700,-118.4185], lv:'moderate', color:'#00205b', cal:{1:'break'} },
+  cal:{ n:'Caltech', m:'C', ll:[34.1377,-118.1253], lv:'none', color:'#ff6c0c', cal:{2:'finals',3:'break'} },
+  pom:{ n:'Pomona', m:'P', ll:[34.0977,-117.7131], lv:'top', color:'#0057b8', cal:{2:'break'}, nudge:-17 },
+  hmc:{ n:'Harvey Mudd', m:'H', ll:[34.1060,-117.7090], lv:'safety', color:'#333333', cal:{2:'break'}, nudge:17 },
+  ucsb:{ n:'UC Santa Barbara', m:'SB', ll:[34.4140,-119.8489], lv:'high', color:'#003660', cal:{2:'finals',3:'break'} },
+  uci:{ n:'UC Irvine', m:'I', ll:[33.6405,-117.8443], lv:'moderate', color:'#0064a4', cal:{2:'finals',3:'break'} },
+  ucsd:{ n:'UC San Diego', m:'SD', ll:[32.8801,-117.2340], lv:'high', color:'#182b49', cal:{2:'finals',3:'break'} }
+};
+// Clusters come from the server (drive-time grouping). at = where each leg label sits along its line (0–1); null leg = no label.
+const CL = [
+  { id:'same', name:'Same day', sub:'Westside and central LA', days:1, stops:['ucla','lmu','usc'], legs:['20 min','25 min'],
+    plan:[[['9:00','ucla','UCLA info session','Then campus tour, 10:30'],['12:30',null,'Lunch in Westwood','','Meal'],['1:45',null,'20 min','','Drive'],['2:15','lmu','LMU tour','Self-guided option'],['4:00',null,'25 min','','Drive'],['4:30','usc','USC walk-through','Tour next morning if booked']]] },
+  { id:'plus1', name:'+1 day', sub:'Pasadena and Claremont', note:'Pomona and Harvey Mudd are next door, about 5 min apart.', days:1, from:'usc', fromLeg:'40 min', stops:['cal','pom','hmc'], legs:['35 min',null],
+    plan:[[['9:30','cal','Caltech drive-by','Not on list'],['11:00',null,'35 min','','Drive'],['1:30','pom','Pomona info session'],['3:30','hmc','Harvey Mudd tour','Walk across the 5C campus']]] },
+  { id:'long', name:'Longer trip', sub:'Up and down the coast', days:2, from:'ucla', fromLeg:'1 hr 45', stops:['ucsb','uci','ucsd'], legs:['2 hr 30','1 hr 20'], at:[0.5,0.8,0.5],
+    plan:[[['10:00','ucsb','UC Santa Barbara tour'],['1:00',null,'2 hr 30','','Drive'],['4:00','uci','UC Irvine walk-through']],[['9:00','uci','UC Irvine tour'],['11:30',null,'1 hr 20','','Drive'],['1:30','ucsd','UC San Diego tour']]] }
+];
+const TRIP = { name:'LA spring break trip', airport:'LAX', airportLL:[33.9416,-118.4085], flight:'EWR → LAX, about 6 hr' };
+const CLIM = {
+  here:{ n:'UCLA', city:'Westwood, LA', hi:[68,67,68,70,71,74,78,80,79,76,72,67], lo:[50,51,52,54,57,60,63,64,63,59,53,49], p:[3.3,3.8,2.4,0.8,0.3,0.1,0,0,0.2,0.6,1.1,2.3], s:[0,0,0,0,0,0,0,0,0,0,0,0], sum:'Mild all year. Highs stay between 67° and 80°F, rain falls mostly December to March, and it never snows.' },
+  home:{ n:'Home', label:'Home · Maplewood', city:'Maplewood, NJ', hi:[40,43,51,63,73,82,87,85,78,66,55,44], lo:[26,28,34,44,54,64,70,68,61,49,39,31], p:[3.5,3.0,4.2,3.9,4.0,4.2,4.6,4.0,4.0,3.6,3.5,4.1], s:[9,9,5,0.5,0,0,0,0,0,0,0.5,5], sum:'Winter highs near 40°F and about 28 in. of snow a year. UCLA is about 28° warmer in January.' },
+  boston:{ n:'Boston', label:'Boston', city:'Boston, MA', hi:[37,39,46,57,67,77,82,81,73,62,52,42], lo:[23,25,31,41,50,60,66,65,58,47,38,29], p:[3.4,3.3,4.3,3.7,3.5,3.9,3.4,3.4,3.4,3.9,3.9,4.0], s:[13,13,8,2,0,0,0,0,0,0,1,9], sum:'Colder than home, with about 46 in. of snow from December to March. That covers most of the spring semester.' }
+};
+// All schools on Kyle's list (sample of 27).
+const NAT = [
+  ['UCLA',34.0689,-118.4452,'top','West Coast'],['USC',34.0224,-118.2851,'high','West Coast'],['Pomona',34.0977,-117.7131,'top','West Coast'],['Harvey Mudd',34.1060,-117.7090,'safety','West Coast'],
+  ['UC Santa Barbara',34.4140,-119.8489,'high','West Coast'],['UC San Diego',32.8801,-117.2340,'high','West Coast'],['UC Irvine',33.6405,-117.8443,'moderate','West Coast'],['LMU',33.9700,-118.4185,'moderate','West Coast'],['U of Washington',47.6553,-122.3035,'moderate','West Coast'],
+  ['CU Boulder',40.0076,-105.2659,'safety','Mountain'],['U of Utah',40.7649,-111.8421,'moderate','Mountain'],
+  ['UT Austin',30.2849,-97.7341,'moderate','Texas'],['Rice',29.7174,-95.4018,'high','Texas'],
+  ['Michigan',42.2780,-83.7382,'high','Midwest'],['Northwestern',42.0565,-87.6753,'top','Midwest'],['Wisconsin',43.0766,-89.4125,'moderate','Midwest'],
+  ['Boston University',42.3505,-71.1054,'moderate','Northeast'],['Northeastern',42.3398,-71.0892,'high','Northeast'],['Tufts',42.4075,-71.1190,'top','Northeast'],['NYU',40.7295,-73.9965,'high','Northeast'],['Rutgers',40.5008,-74.4474,'safety','Northeast'],
+  ['Penn State',40.7982,-77.8599,'safety','Mid-Atlantic'],['Georgetown',38.9076,-77.0723,'high','Mid-Atlantic'],['UVA',38.0336,-78.5080,'high','Mid-Atlantic'],
+  ['UNC',35.9049,-79.0469,'moderate','South'],['Emory',33.7925,-84.3240,'moderate','South'],['Miami',25.7215,-80.2793,'safety','South']
+].map(([n,lat,lon,lv,rg]) => ({ n, lat, lon, lv, rg }));
+const REGIONS = [
+  { id:'Northeast', note:'Drive from home', at:'top' },
+  { id:'Mid-Atlantic', note:'Drive · 3 to 5 hr', at:'left' },
+  { id:'South', note:'Fly, or drive to UNC (8 hr)', at:'left' },
+  { id:'Midwest', note:'Fly to Chicago or Detroit', at:'top' },
+  { id:'Mountain', note:'Fly · Denver, Salt Lake City', at:'top' },
+  { id:'Texas', note:'Fly to Austin · Houston is 2.5 hr away', at:'bottom' },
+  { id:'West Coast', note:'Fly · LA and Seattle trips', at:'right' }
+];
+
+// ════ Integration hooks ════
+function saveTrip(trip) { /* PUT trip { schoolId: HERE, clusters: [...], weekStart, userId } */ }
+function sendToCalendar(events) { /* POST events[] { title, start, schoolId, userId, source:'trip-plan' } + To-Do "Book {school} tour" per school */ }
+
+// ════ State ════
+const state = { tab:'nearby', inTrip:{ same:true, plus1:true, long:false }, active:'same', wk:5, cmp:'home' };
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+const LV = {
+  top:{ l:'Top choice', c:'var(--lvl-4)', fg:'var(--lvl-4-fg)' }, high:{ l:'High interest', c:'var(--lvl-3)', fg:'var(--lvl-3-fg)' },
+  moderate:{ l:'Moderate interest', c:'var(--lvl-2)', fg:'var(--lvl-2-fg)' }, safety:{ l:'Safety / backup', c:'var(--lvl-1)', fg:'var(--lvl-1-fg)' },
+  none:{ l:'Not on list', c:'var(--color-bg)', fg:'var(--text-muted)' }
+};
+const ORDER = ['top','high','moderate','safety','none'];
+const legend = here => `<span class="label sm">${STUDENT.name}'s interest</span>` + ORDER.map(k => `<span><span class="sw" style="${k==='none'?'border:1px dashed var(--color-dash)':`background:${LV[k].c}`}"></span>${LV[k].l}</span>`).join('') + (here ? `<span style="margin-left:auto"><span class="sw" style="box-shadow:0 0 0 2px var(--color-text)"></span>This school</span>` : '');
+const mark = (k, sm) => `<span class="mk ${sm?'sm':''}" style="background:${S[k].color}">${S[k].m}</span>`;
+const tripClusters = () => CL.filter(c => state.inTrip[c.id]);
+const tripSchools = () => [...new Set(tripClusters().flatMap(c => c.plan.flat().map(s => s[1]).filter(Boolean)))];
+const tripDays = () => tripClusters().flatMap(c => c.plan);
+const stateOf = (k, i) => S[k].cal[i] || 'session';
+const weekDate = (i, add = 0) => { const d = new Date(WEEK0); d.setDate(d.getDate() + i * 7 + add); return d; };
+const fmt = (d, o = { month:'short', day:'numeric' }) => d.toLocaleDateString('en-US', o);
+
+// ════ Sub-tabs ════
+function renderTabs() {
+  const n = tripClusters().length, d = tripDays().length;
+  const tabs = [['nearby','Nearby', n ? `${n} in trip` : ''],['when','When to go',''],['itinerary','Itinerary', d ? `${d} ${d===1?'day':'days'}` : ''],['climate','Climate',''],['all','All schools', NAT.length]];
+  $('subtabs').innerHTML = tabs.map(([k, l, c]) => `<button class="subtab" role="tab" data-tab="${k}" aria-selected="${k===state.tab}"><span>${l}</span>${c ? `<span class="count">${c}</span>` : ''}</button>`).join('');
+  document.querySelectorAll('[data-panel]').forEach(p => p.hidden = p.dataset.panel !== state.tab);
+  if (state.tab === 'nearby') initNearby();
+  if (state.tab === 'all') initAll();
+}
+$('subtabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) { state.tab = b.dataset.tab; renderTabs(); } });
+
+// ════ Nearby ════
+let map, markers = {}, lines = {}, legLayers = {};
+const clLL = c => [...(c.from ? [S[c.from].ll] : []), ...c.stops.map(k => S[k].ll)];
+function initNearby() {
+  if (map) { map.invalidateSize(); return; }
+  map = L.map('vmap', { scrollWheelZoom:false, doubleClickZoom:false, zoomSnap:0.25 });
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'© OpenStreetMap contributors', maxZoom:18 }).addTo(map);
+  Object.entries(S).forEach(([k, s]) => {
+    const lv = LV[s.lv];
+    const html = `<div class="pin ${s.lv==='none'?'none':''} ${k===HERE?'here':''}" style="${s.nudge ? `margin-left:${s.nudge}px;` : ''}${s.lv==='none' ? '' : `background:${lv.c};color:${lv.fg}`}" title="${esc(s.n)}">${s.m}</div>`;
+    markers[k] = L.marker(s.ll, { icon:L.divIcon({ className:'', html, iconSize:null }), riseOnHover:true, zIndexOffset:k===HERE?1000:0 }).addTo(map);
+    const cl = CL.find(c => c.stops.includes(k));
+    markers[k].bindPopup(() => `<div class="pop"><b>${esc(s.n)}</b><span>${lv.l}${k===HERE?' · viewing':''}</span><span>${cl.name} · ${esc(cl.sub)}</span><button class="inc" data-inc="${cl.id}" aria-pressed="${!!state.inTrip[cl.id]}">${state.inTrip[cl.id] ? 'In trip ✓' : 'Add ' + cl.name.toLowerCase() + ' to trip'}</button></div>`, { closeButton:false, offset:[0,-8] });
+  });
+  const air = L.marker(TRIP.airportLL, { icon:L.divIcon({ className:'', html:`<div class="pin air">${TRIP.airport}</div>`, iconSize:null }), interactive:false });
+  map.on('zoomend', () => { if (map.getZoom() >= 10.5) air.addTo(map); else air.remove(); });
+  CL.forEach(c => {
+    const pts = clLL(c), legs = [...(c.from ? [c.fromLeg] : []), ...c.legs];
+    lines[c.id] = L.polyline(pts, { color:'#201e1d', weight:2, opacity:.35, dashArray:'4 6' }).addTo(map);
+    lines[c.id].on('mouseover', () => { if (c.id !== state.active) setActive(c.id, false); });
+    legLayers[c.id] = L.layerGroup(legs.map((t, i) => t && [t, i]).filter(Boolean).map(([t, i]) => {
+      const a = pts[i], b = pts[i + 1], f = (c.at && c.at[i]) || 0.5;
+      return L.marker([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f], { icon:L.divIcon({ className:'', html:`<div class="leg">${t}</div>`, iconSize:null }), interactive:false });
+    }));
+  });
+  map.fitBounds(clLL(CL.find(c => c.id === state.active)), { padding:[70,70], maxZoom:12 });
+  setActive(state.active, false);
+  $('vmap').addEventListener('dblclick', () => map.flyToBounds(Object.values(S).map(s => s.ll), { padding:[28,28], duration:.6 }));
+}
+function lineStyle(on) {
+  const ink = getComputedStyle(document.documentElement).getPropertyValue('--color-text').trim();
+  return on ? { color:'#e85504', weight:4, opacity:1, dashArray:null } : { color:ink, weight:2, opacity:.35, dashArray:'4 6' };
+}
+function setActive(id, fly = true) {
+  state.active = id;
+  if (!map) return;
+  CL.forEach(c => { const on = c.id === id; lines[c.id].setStyle(lineStyle(on)); if (on) { lines[c.id].bringToFront(); legLayers[c.id].addTo(map); } else legLayers[c.id].remove(); });
+  const act = CL.find(c => c.id === id), keep = new Set([...act.stops, act.from].filter(Boolean));
+  Object.entries(markers).forEach(([k, m]) => m.getElement()?.firstElementChild?.classList.toggle('dim', !keep.has(k)));
+  document.querySelectorAll('.cl').forEach(el => el.classList.toggle('on', el.dataset.cl === id));
+  if (fly) map.flyToBounds(clLL(act), { padding:[70,70], duration:.6, maxZoom:12 });
+}
+function renderClist() {
+  $('clist').innerHTML = CL.map(c => `
+    <div class="cl ${c.id===state.active?'on':''}" data-cl="${c.id}" tabindex="0">
+      <div class="cl-top"><b>${c.name}</b><span class="cl-days">${c.id==='same' ? '1 day' : '+' + c.days + (c.days > 1 ? ' days' : ' day')}</span></div>
+      <span class="cl-sub">${esc(c.sub)}${c.note ? '. ' + esc(c.note) : ''}</span>
+      <div class="cl-bot">
+        <div class="cl-marks">${c.stops.map(k => `<span class="mk sm ${S[k].lv==='none'?'none':''}" title="${esc(S[k].n)} · ${LV[S[k].lv].l}" style="background:${LV[S[k].lv].c};color:${LV[S[k].lv].fg};${k===HERE?'box-shadow:0 0 0 2px var(--color-bg),0 0 0 4px var(--color-text)':''}">${S[k].m}</span>`).join('')}</div>
+        <button class="inc" data-inc="${c.id}" aria-pressed="${!!state.inTrip[c.id]}">${state.inTrip[c.id] ? 'In trip ✓' : 'Add to trip'}</button>
+      </div>
+    </div>`).join('') + `<div class="fly"><span class="label sm">Getting there</span>Fly ${TRIP.flight}. Base in Westwood; every cluster starts within 2 hr of it.</div>`;
+}
+$('clist').addEventListener('mouseover', e => { const c = e.target.closest('.cl'); if (c && c.dataset.cl !== state.active) setActive(c.dataset.cl); });
+$('clist').addEventListener('click', e => { if (e.target.closest('[data-inc]')) return; const c = e.target.closest('.cl'); if (c) setActive(c.dataset.cl); });
+$('clist').addEventListener('keydown', e => { const c = e.target.closest('.cl'); if (c && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setActive(c.dataset.cl); } });
+
+// ════ When to go ════
+function renderWhen() {
+  const ks = tripSchools(), wk = state.wk;
+  const best = WEEKS.map((_, i) => STUDENT.breaks.includes(i) && ks.every(k => stateOf(k, i) === 'session'));
+  if (!ks.length) { $('wk').innerHTML = '<p class="empty" style="grid-column:1/-1">Add a cluster in Nearby to see its calendars.</p>'; $('verdict').innerHTML = ''; }
+  else {
+    let h = `<span></span>` + WEEKS.map((w, i) => `<button class="ch ${i===wk?'sel':''} ${best[i]?'best':''}" data-wk="${i}"><b>${w}</b><span>${best[i] ? 'best fit' : 'week'}</span></button>`).join('');
+    h += `<div class="rh">${STUDENT.name} <small>${esc(STUDENT.school)}</small></div>` + WEEKS.map((_, i) => { const b = STUDENT.breaks.includes(i); return `<div class="cell ${b?'kbreak':'kschool'} ${i===wk?'col-sel':''}" data-wk="${i}">${b?'Break':'School'}</div>`; }).join('');
+    ks.forEach(k => { h += `<div class="rh">${mark(k, true)}${esc(S[k].n)}</div>` + WEEKS.map((_, i) => { const st = stateOf(k, i); return `<div class="cell ${st} ${i===wk?'col-sel':''}" data-wk="${i}">${{ session:'Classes', break:'Break', finals:'Finals' }[st]}</div>`; }).join(''); });
+    h += `<div class="rh"><small>LA weather</small></div>` + WX.map(([t, r]) => `<div class="cell wxc">${t}<br>${r}</div>`).join('');
+    $('wk').innerHTML = h;
+    const WHY = { break:'on spring break. Campus will be quiet, and many offices run limited tours.', finals:'in finals. Tours often pause and students won\'t have time to talk.' };
+    const warns = ks.filter(k => stateOf(k, wk) !== 'session');
+    const kyleOff = STUDENT.breaks.includes(wk), bi = best.indexOf(true);
+    $('verdict').innerHTML = `
+      <div><h3>${warns.length ? `${warns.length} ${warns.length===1?'school needs':'schools need'} a different week` : 'Every campus is in session'}</h3><ul class="vlist">${
+        (warns.length ? warns.map(k => `<li><span class="st warn">!</span><span><b>${esc(S[k].n)}</b> is ${WHY[stateOf(k, wk)]}</span></li>`) : ks.map(k => `<li><span class="st ok">✓</span><span><b>${esc(S[k].n)}</b> in session</span></li>`)).join('')}</ul></div>
+      <div><h3>${STUDENT.name}</h3><ul class="vlist"><li><span class="st ${kyleOff?'ok':'warn'}">${kyleOff?'✓':'!'}</span><span>${kyleOff ? 'On break. No school days missed.' : `School week. The trip would miss ${Math.min(tripDays().length, 5)} days of class.`}</span></li>
+        ${best[wk] || bi < 0 ? '' : `<li><span class="st ok">→</span><span>Best fit: <a href="#" data-wk="${bi}">week of ${WEEKS[bi]}</a></span></li>`}</ul></div>`;
+  }
+  $('whenMeta').textContent = `Week of ${WEEKS[wk]} · ${ks.length} schools`;
+  const end = weekDate(wk, Math.max(tripDays().length, 1) - 1);
+  $('wx').innerHTML = `<span class="label sm">LA, ${fmt(weekDate(wk))}–${fmt(end)}</span><b>${WX[wk][0]}</b><span>${WX[wk][1] === 'dry' ? 'rain unlikely' : WX[wk][1]}</span>`;
+}
+document.querySelector('[data-panel="when"]').addEventListener('click', e => { const t = e.target.closest('[data-wk]'); if (t) { e.preventDefault(); state.wk = +t.dataset.wk; renderAll(); } });
+
+// ════ Itinerary ════
+function renderItin() {
+  const days = tripDays(), ks = tripSchools(), wk = state.wk;
+  $('tripTitle').textContent = TRIP.name;
+  $('tripMeta').textContent = `Week of ${WEEKS[wk]} · ${ks.length} schools · ${days.length} ${days.length===1?'day':'days'}`;
+  $('send').disabled = !days.length;
+  const bad = ks.filter(k => stateOf(k, wk) !== 'session');
+  $('tripBanner').innerHTML = bad.length ? `<div class="banner"><span>${bad.map(k => esc(S[k].n)).join(', ')} ${bad.length===1?'is':'are'} on break or in finals that week.</span><button data-go="when">See When to go →</button></div>` : '';
+  $('days').innerHTML = days.length ? days.map((items, i) => `<div class="day"><span class="label sm">Day ${i + 1} · ${fmt(weekDate(wk, i), { weekday:'short', month:'short', day:'numeric' })}</span>${items.map(([t, k, title, sub, kind]) => `
+      <div class="slot"><time>${t}</time><div class="box ${k===HERE?'here':k?'':'gap'}">${k ? mark(k) : `<span class="kind">${kind}</span>`}<div><b>${esc(title)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</div></div></div>`).join('')}</div>`).join('')
+    : '<p class="empty">Add a cluster in Nearby to start a trip.</p>';
+}
+document.querySelector('[data-panel="itinerary"]').addEventListener('click', e => { const g = e.target.closest('[data-go]'); if (g) { state.tab = g.dataset.go; renderTabs(); } });
+$('send').onclick = () => {
+  const ev = tripDays().flatMap((items, i) => items.filter(s => s[1]).map(s => ({ title:s[2], date:weekDate(state.wk, i), time:s[0], schoolId:s[1] })));
+  sendToCalendar(ev);
+  $('toast').textContent = `${ev.length} visits sent to Calendar`; $('toast').hidden = false;
+  setTimeout(() => $('toast').hidden = true, 2400);
+};
+
+// ════ Climate ════
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], DISP = [7,8,9,10,11,0,1,2,3,4,5,6];
+const T0 = 15, T1 = 95, TH = 220, ty = t => TH - (t - T0) / (T1 - T0) * TH;
+function renderClimate() {
+  const a = CLIM.here, b = state.cmp === 'none' ? null : CLIM[state.cmp];
+  $('cmpSeg').innerHTML = [['none','None'],['home',CLIM.home.label],['boston',CLIM.boston.label]].map(([k, l]) => `<button data-cmp="${k}" aria-pressed="${k===state.cmp}">${l}</button>`).join('');
+  $('climSum').innerHTML = `<h2 style="margin:0; font-size:22px; letter-spacing:-.01em">Climate</h2><p><b>${a.n}:</b> ${a.sum}</p>${b ? `<p class="cmp"><b>${b.n}:</b> ${b.sum}</p>` : ''}`;
+  const gl = [30,50,70,90].map(t => `<div class="grid" style="top:${ty(t)}px"></div>`).join('');
+  let h = `<div class="temp">${[30,50,70,90].map(t => `<span class="ylab" style="top:${ty(t)}px">${t}°</span>`).join('')}</div>`;
+  DISP.forEach(i => {
+    const hi = a.hi[i], lo = a.lo[i];
+    h += `<div class="temp">${gl}<div class="bar main ${b?'':'solo'}" style="top:${ty(hi)}px;height:${ty(lo)-ty(hi)}px" title="${a.n} ${MON[i]}: ${hi}° / ${lo}°"></div>
+      ${b ? `<div class="bar cmp" style="top:${ty(b.hi[i])}px;height:${ty(b.lo[i])-ty(b.hi[i])}px" title="${b.n} ${MON[i]}: ${b.hi[i]}° / ${b.lo[i]}°"></div>` : ''}
+      <span class="tnum hi" style="top:${ty(Math.max(hi, b ? b.hi[i] : 0)) - 18}px">${hi}°</span><span class="tnum lo" style="top:${ty(Math.min(lo, b ? b.lo[i] : 99)) + 4}px">${lo}°</span></div>`;
+  });
+  h += `<span class="rl">Rain</span>` + DISP.map(i => `<div class="rain"><i style="height:${a.p[i]/5*48}px"></i>${b ? `<i class="cmp" style="height:${b.p[i]/5*48}px"></i>` : ''}</div>`).join('');
+  h += `<span class="rl">Snow</span>` + DISP.map(i => { const v = b ? b.s[i] : a.s[i]; return `<div class="snow">${v >= 1 ? v + '″' : ''}</div>`; }).join('');
+  h += `<span></span>` + DISP.map(i => `<div class="mon">${MON[i]}</div>`).join('') + `<span></span><div class="sy">School year · Sep–May</div>`;
+  $('clim').innerHTML = h;
+  $('climKey').innerHTML = `<span><span class="sw" style="background:var(--color-accent)"></span>${a.n} high–low</span>` + (b ? `<span><span class="sw" style="border:1.5px solid var(--color-text)"></span>${b.city} high–low</span><span>Snow row shows ${b.n.toLowerCase()} snowfall</span>` : '') + `<span><span class="sw" style="background:var(--lvl-3)"></span>Rain, ${a.n}</span>`;
+}
+$('cmpSeg').addEventListener('click', e => { const b = e.target.closest('[data-cmp]'); if (b) { state.cmp = b.dataset.cmp; renderClimate(); } });
+
+// ════ All schools ════
+let allDrawn = false;
+async function initAll() {
+  if (allDrawn) return; allDrawn = true;
+  const svg = d3.select('#usmap'), W = 700, H = 440;
+  let topo;
+  try { topo = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json').then(r => r.json()); }
+  catch (e) { svg.append('text').attr('x', 20).attr('y', 30).text('Map data failed to load'); allDrawn = false; return; }
+  const feats = topojson.feature(topo, topo.objects.countries).features;
+  const proj = d3.geoAlbers().parallels([29.5,45.5]).rotate([96,0]).fitExtent([[28,28],[W-28,H-28]], { type:'MultiPoint', coordinates:[[-124.6,48.4],[-67.2,44.8],[-80.2,25.2],[-117.1,32.5],[-97.4,25.9],[-95,49]] });
+  const path = d3.geoPath(proj), g = svg.append('g');
+  g.selectAll('path.land-o').data(feats.filter(f => ['124','484'].includes(f.id))).join('path').attr('class','land-o').attr('d', path);
+  g.append('path').datum(feats.find(f => f.id === '840')).attr('class','land-us').attr('d', path);
+  NAT.forEach(s => s.xy = proj([s.lon, s.lat]));
+
+  // Region outlines: a padded, smoothed hull around each region's schools.
+  const PAD = 15, line = d3.line().curve(d3.curveCatmullRomClosed.alpha(0.5));
+  const rg = g.append('g');
+  REGIONS.forEach(r => {
+    const pts = NAT.filter(s => s.rg === r.id).map(s => s.xy);
+    const ring = pts.flatMap(([x, y]) => d3.range(16).map(a => [x + PAD * Math.cos(a / 8 * Math.PI), y + PAD * Math.sin(a / 8 * Math.PI)]));
+    const hull = d3.polygonHull(ring);
+    r.el = rg.append('path').attr('class','region').attr('d', line(hull)).on('mouseenter', () => focusRegion(r.id)).on('mouseleave', () => focusRegion(null));
+    const xs = hull.map(p => p[0]), ys = hull.map(p => p[1]);
+    const [x0, x1, y0, y1] = [d3.min(xs), d3.max(xs), d3.min(ys), d3.max(ys)], mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+    const pos = { top:[mx, y0 - 6, 'middle'], bottom:[mx, y1 + 14, 'middle'], left:[x0 - 6, my + 4, 'end'], right:[x1 + 6, my + 4, 'start'] }[r.at];
+    r.lab = rg.append('text').attr('class','rlabel').attr('x', pos[0]).attr('y', pos[1]).attr('text-anchor', pos[2]).text(r.id);
+  });
+
+  const hp = proj([HOME.ll[1], HOME.ll[0]]);
+  g.append('rect').attr('class','home').attr('x', hp[0]-5).attr('y', hp[1]-5).attr('width',10).attr('height',10).attr('transform', `rotate(45 ${hp[0]} ${hp[1]})`);
+  g.append('text').attr('class','home-l').attr('x', hp[0]-9).attr('y', hp[1]+4).attr('text-anchor','end').text('Home');
+  const tip = $('tip');
+  const dots = g.selectAll('circle').data(NAT.slice().sort((a, b) => ORDER.indexOf(b.lv) - ORDER.indexOf(a.lv))).join('circle')
+    .attr('class', d => 'dot' + (d.n === S[HERE].n ? ' here' : ''))
+    .attr('cx', d => d.xy[0]).attr('cy', d => d.xy[1]).attr('r', d => d.n === S[HERE].n ? 8 : 6.5)
+    .style('fill', d => LV[d.lv].c)
+    .on('mouseenter', function (e, d) { const r = svg.node().getBoundingClientRect(); tip.style.left = (d.xy[0] / W * r.width) + 'px'; tip.style.top = (d.xy[1] / H * r.height) + 'px'; tip.textContent = `${d.n} · ${LV[d.lv].l}`; tip.hidden = false; })
+    .on('mouseleave', () => tip.hidden = true);
+
+  function focusRegion(id) {
+    REGIONS.forEach(r => { r.el.classed('on', r.id === id).classed('off', id && r.id !== id); r.lab.classed('on', r.id === id); });
+    dots.attr('opacity', d => !id || d.rg === id ? 1 : .18);
+    document.querySelectorAll('.rg').forEach(el => el.classList.toggle('on', el.dataset.rg === id));
+  }
+  $('regions').innerHTML = REGIONS.map(r => {
+    const list = NAT.filter(s => s.rg === r.id);
+    return `<div class="rg" data-rg="${r.id}"><div class="rg-top"><b>${r.id}</b><span>${list.length}</span></div>
+      <div class="rg-bar">${ORDER.flatMap(k => list.filter(s => s.lv === k)).map(s => `<i style="background:${LV[s.lv].c}" title="${esc(s.n)}"></i>`).join('')}</div><span class="rg-note">${r.note}</span></div>`;
+  }).join('');
+  $('regions').addEventListener('mouseover', e => { const r = e.target.closest('.rg'); if (r) focusRegion(r.dataset.rg); });
+  $('regions').addEventListener('mouseleave', () => focusRegion(null));
+}
+
+// ════ Render + events ════
+function renderAll() { renderTabs(); renderClist(); if (map) setActive(state.active, false); renderWhen(); renderItin(); saveTrip({ clusters:tripClusters().map(c => c.id), weekStart:weekDate(state.wk) }); }
+document.addEventListener('click', e => {
+  const inc = e.target.closest('[data-inc]'), th = e.target.closest('[data-theme]');
+  if (inc) { state.inTrip[inc.dataset.inc] = !state.inTrip[inc.dataset.inc]; map && map.closePopup(); renderAll(); }
+  if (th) { document.documentElement.dataset.mode = th.dataset.theme; syncTheme(); }
+});
+function syncTheme() {
+  document.querySelectorAll('[data-theme]').forEach(b => b.setAttribute('aria-pressed', b.dataset.theme === document.documentElement.dataset.mode));
+  if (map) CL.forEach(c => lines[c.id].setStyle(lineStyle(c.id === state.active)));
+}
+$('hereMark').style.background = S[HERE].color; $('hereMark').textContent = S[HERE].m; $('hereName').textContent = S[HERE].n;
+$('legendA').innerHTML = legend(true);
+$('legendB').innerHTML = legend(false) + `<span style="margin-left:auto; display:flex; align-items:center; gap:8px"><span style="width:10px;height:10px;background:var(--color-text);transform:rotate(45deg);display:inline-block"></span>Home</span><span><span class="sw" style="border:1px dashed var(--text-subtle)"></span>Region</span>`;
+$('allMeta').textContent = `${NAT.length} schools · ${REGIONS.length} regions · Home: ${HOME.name}`;
+renderClimate();
+renderAll();
+syncTheme();
+</script>
+</body>
+</html>

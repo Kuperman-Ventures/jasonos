@@ -1,0 +1,81 @@
+/** Persist trip membership + selected week per user/school. */
+
+export const TRIP_PLAN_STORAGE_PREFIX = "track-trip-plan";
+
+export type TripPlanState = {
+  /** Cluster ids included in the trip (e.g. "same", "plus1"). */
+  clusterIds: string[];
+  /** Index into the When-to-go week grid (0–8). */
+  weekIndex: number;
+};
+
+export function tripPlanStorageKey(userId: string, schoolId: string): string {
+  return `${TRIP_PLAN_STORAGE_PREFIX}:${userId}:${schoolId}`;
+}
+
+export function defaultTripPlanState(clusterIds: string[] = ["same"]): TripPlanState {
+  return {
+    clusterIds: [...clusterIds],
+    weekIndex: 5,
+  };
+}
+
+export function parseTripPlanState(raw: unknown): TripPlanState | null {
+  if (!raw || typeof raw !== "object") return null;
+  const row = raw as Record<string, unknown>;
+  if (!Array.isArray(row.clusterIds)) return null;
+  const clusterIds = row.clusterIds.filter(
+    (id): id is string => typeof id === "string" && id.length > 0,
+  );
+  const weekIndex =
+    typeof row.weekIndex === "number" && Number.isFinite(row.weekIndex)
+      ? Math.max(0, Math.min(8, Math.round(row.weekIndex)))
+      : 5;
+  return { clusterIds, weekIndex };
+}
+
+export function readTripPlanState(
+  userId: string,
+  schoolId: string,
+): TripPlanState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(tripPlanStorageKey(userId, schoolId));
+    if (!raw) return null;
+    return parseTripPlanState(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+export function writeTripPlanState(
+  userId: string,
+  schoolId: string,
+  state: TripPlanState,
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      tripPlanStorageKey(userId, schoolId),
+      JSON.stringify({
+        clusterIds: state.clusterIds,
+        weekIndex: state.weekIndex,
+      }),
+    );
+  } catch {
+    /* private mode / quota */
+  }
+}
+
+export function toggleClusterInTrip(
+  state: TripPlanState,
+  clusterId: string,
+): TripPlanState {
+  const has = state.clusterIds.includes(clusterId);
+  return {
+    ...state,
+    clusterIds: has
+      ? state.clusterIds.filter((id) => id !== clusterId)
+      : [...state.clusterIds, clusterId],
+  };
+}
