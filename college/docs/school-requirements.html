@@ -9,20 +9,35 @@
 <style>
   :root {
     --bg: #f3f2f2; --ink: #201e1d; --muted: #444141; --subtle: #605d5d; --accent-text: #9e3603;
-    --accent: #e85504; --accent-100: #feeee4; --accent-200: #fdd6c0; --accent-300: #fab48e; --accent-600: #c74503;
+    --accent: #e85504; --accent-100: #feeee4; --accent-200: #fdd6c0; --accent-300: #fab48e; --accent-400: #f58749; --accent-600: #c74503;
     --accent-800: #742703; --accent-900: #461a05;
     --n-100: #eceaea; --n-200: #dcdada; --n-300: #c9c6c6; --n-400: #9b9797;
     --shadow-lg: 0 18px 48px rgba(32,30,29,.16), 0 4px 12px rgba(32,30,29,.08);
     --mono: "IBM Plex Mono", ui-monospace, monospace;
+    --desk: #e6e4e3; --rule: var(--n-200); --track: var(--n-200); --tile-off: var(--n-200); --dash: var(--n-400);
+    --tint: var(--accent-100); --tint-2: var(--accent-200); --tint-border: var(--accent-300); --on-tint: var(--accent-900); --on-tint-2: var(--accent-800);
+    --on-accent: var(--accent-900); --band: var(--accent-300); --done-fill: var(--n-100); --chip-border: var(--n-300); --dot-off: var(--n-400);
+    --modal-edge: transparent; --pressed: var(--accent-600);
+    color-scheme: light;
+  }
+  [data-mode="dark"] {
+    --bg: #1f2228; --ink: #f0eeec; --muted: #c3c8cf; --subtle: #9aa0a8; --accent-text: #fab48e;
+    --desk: #16181b; --rule: rgba(240,238,236,.10); --track: #2d3139; --tile-off: #2d3139; --dash: #5d636c;
+    --tint: #3b2317; --tint-2: #50301d; --tint-border: #9e3603; --on-tint: #fdd6c0; --on-tint-2: #fab48e;
+    --band: #9e3603; --done-fill: #2d3139; --chip-border: #3d424b; --dot-off: #6b717a;
+    --n-300: #3d424b; --modal-edge: rgba(240,238,236,.08); --pressed: var(--accent-400);
+    --shadow-lg: 0 24px 64px rgba(0,0,0,.55), 0 0 0 1px rgba(240,238,236,.06);
+    color-scheme: dark;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: #e6e4e3; font-family: "Archivo", system-ui, sans-serif; color: var(--ink); }
+  body { margin: 0; background: var(--desk); font-family: "Archivo", system-ui, sans-serif; color: var(--ink); }
   a { color: var(--accent-text); text-decoration: none; border-bottom: 1px solid currentColor; }
-  a:hover { color: var(--accent-600); }
+  a:hover { color: var(--pressed); }
+  [data-mode="dark"] a:hover { color: #fdd6c0; }
   button { font-family: inherit; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .wrap { padding: 40px 24px; }
-  .modal { max-width: 1040px; margin: 0 auto; background: var(--bg); box-shadow: var(--shadow-lg); padding: 28px 40px 56px; display: flex; flex-direction: column; gap: 36px; }
+  .modal { border: 1px solid var(--modal-edge); max-width: 1040px; margin: 0 auto; background: var(--bg); box-shadow: var(--shadow-lg); padding: 28px 40px 56px; display: flex; flex-direction: column; gap: 36px; }
   .top { display: flex; justify-content: space-between; align-items: center; }
   nav.tabs { display: flex; gap: 8px; align-items: flex-end; border-bottom: 1px solid var(--n-300); }
   nav.tabs span { padding: 12px 14px; font-size: 16px; color: var(--muted); }
@@ -32,6 +47,7 @@
   .label.sm { font-size: 11px; }
   header { display: flex; flex-direction: column; gap: 12px; }
   .kicker { display: flex; gap: 10px; align-items: center; }
+  [data-mode="dark"] .school { box-shadow: inset 0 0 0 1px rgba(240,238,236,.14); }
   .school { width: 24px; height: 24px; flex-shrink: 0; border-radius: 3px; background: var(--school, #2774ae); color: #fff; font-size: 12px; font-weight: 800; display: grid; place-items: center; overflow: hidden; }
   .school img { width: 100%; height: 100%; object-fit: cover; }
   .kicker b { font-size: 16px; }
@@ -41,7 +57,7 @@
   .stat .v.hot { color: var(--accent-text); }
   .stat .s { font-size: 14px; color: var(--muted); }
   .progress { display: flex; gap: 16px; align-items: center; }
-  .progress .bar { width: 220px; height: 6px; background: var(--n-200); border-radius: 3px; overflow: hidden; }
+  .progress .bar { width: 220px; height: 6px; background: var(--track); border-radius: 3px; overflow: hidden; }
   .progress .bar i { display: block; height: 100%; background: var(--accent); transition: width .2s; }
   .progress span { font-family: var(--mono); font-size: 13px; color: var(--muted); }
 
@@ -52,36 +68,37 @@
   .group h3 span { font-family: var(--mono); font-size: 13px; font-weight: 400; color: var(--subtle); }
   .tiles { display: flex; gap: 4px; }
   .tile { flex: 1; min-width: 0; height: 88px; padding: 12px; border-radius: 2px; display: flex; flex-direction: column; justify-content: space-between; gap: 6px; }
-  .tile b { font-size: 15px; line-height: 1.2; text-wrap: pretty; }
+  .tile b { font-size: 15px; line-height: 1.2; text-wrap: pretty; overflow-wrap: anywhere; hyphens: auto; min-width: 0; }
   .tile small { font-size: 13px; line-height: 1.2; }
-  .g-req h3 { color: var(--accent-text); } .g-req .tile { background: var(--accent); border: 1px solid var(--accent); color: var(--accent-900); }
-  .g-mod h3 { color: var(--accent-text); } .g-mod .tile { background: repeating-linear-gradient(135deg, var(--accent-200) 0 6px, var(--accent-100) 6px 12px); border: 1px solid var(--accent); color: var(--accent-900); } .g-mod small { color: var(--accent-800); }
-  .g-no h3 { color: var(--ink); } .g-no .tile { background: var(--n-200); border: 1px solid var(--n-200); } .g-no small { color: var(--muted); }
-  .g-unk h3 { color: var(--subtle); } .g-unk .tile { background: transparent; border: 1px dashed var(--n-400); color: var(--muted); } .g-unk small { color: var(--subtle); }
+  .g-req h3 { color: var(--accent-text); } .g-req .tile { background: var(--accent); border: 1px solid var(--accent); color: var(--on-accent); }
+  .g-mod h3 { color: var(--accent-text); } .g-mod .tile { background: repeating-linear-gradient(135deg, var(--tint-2) 0 6px, var(--tint) 6px 12px); border: 1px solid var(--accent); color: var(--on-tint); } .g-mod small { color: var(--on-tint-2); }
+  .g-no h3 { color: var(--ink); } .g-no .tile { background: var(--tile-off); border: 1px solid var(--tile-off); } .g-no small { color: var(--muted); }
+  .g-unk h3 { color: var(--subtle); } .g-unk .tile { background: transparent; border: 1px dashed var(--dash); color: var(--muted); } .g-unk small { color: var(--subtle); }
   .nomod { font-size: 14px; color: var(--subtle); }
 
   .kit .row { display: grid; grid-template-columns: 150px minmax(0,1fr) 150px 170px; gap: 24px; align-items: center; }
   .kit .head { padding-bottom: 10px; }
-  .kit .item { padding: 18px 0; border-top: 1px solid var(--n-200); }
-  .kit .quiet { padding: 14px 0; border-top: 1px solid var(--n-200); color: var(--subtle); font-size: 16px; }
-  .status { justify-self: start; display: flex; gap: 8px; align-items: center; padding: 6px 10px; font-size: 14px; font-weight: 600; border-radius: 2px; cursor: pointer; border: 1px solid var(--n-300); background: transparent; color: var(--muted); }
-  .status i { width: 8px; height: 8px; border-radius: 50%; background: var(--n-400); }
-  .status[data-s="1"] { border-color: var(--accent-300); background: var(--accent-100); color: var(--accent-900); } .status[data-s="1"] i { background: var(--accent); }
-  .status[data-s="2"] { background: var(--n-100); color: var(--ink); } .status[data-s="2"] i { background: var(--ink); }
+  .kit .item { padding: 18px 0; border-top: 1px solid var(--rule); }
+  .kit .quiet { padding: 14px 0; border-top: 1px solid var(--rule); color: var(--subtle); font-size: 16px; }
+  .status { justify-self: start; display: flex; gap: 8px; align-items: center; padding: 6px 10px; font-size: 14px; font-weight: 600; border-radius: 2px; cursor: pointer; border: 1px solid var(--chip-border); background: transparent; color: var(--muted); }
+  .status i { width: 8px; height: 8px; border-radius: 50%; background: var(--dot-off); }
+  .status[data-s="1"] { border-color: var(--tint-border); background: var(--tint); color: var(--on-tint); } .status[data-s="1"] i { background: var(--accent); }
+  .status[data-s="2"] { background: var(--done-fill); color: var(--ink); } .status[data-s="2"] i { background: var(--ink); }
   .status:hover { border-color: var(--accent); }
   .what { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .what b { font-size: 18px; } .what span { font-size: 15px; color: var(--muted); text-wrap: pretty; }
   .says { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-text); }
   .quiet .says { color: var(--subtle); }
   .todo { justify-self: end; background: none; border: none; padding: 0; font-size: 15px; font-weight: 600; cursor: pointer; color: var(--accent-text); }
-  .todo:hover { color: var(--accent-600); } .todo:disabled { color: var(--subtle); cursor: default; }
+  .todo:hover { color: var(--pressed); }
+  [data-mode="dark"] .todo:hover { color: #fdd6c0; } .todo:disabled { color: var(--subtle); cursor: default; }
 
   .context { display: grid; grid-template-columns: minmax(0,1.4fr) minmax(0,1fr); gap: 56px; }
   .context > div { display: flex; flex-direction: column; gap: 16px; }
   .range { position: relative; height: 56px; }
   .range .track, .range .band { position: absolute; top: 22px; height: 10px; border-radius: 2px; }
-  .range .track { left: 0; right: 0; background: var(--n-200); }
-  .range .band { background: var(--accent-300); }
+  .range .track { left: 0; right: 0; background: var(--track); }
+  .range .band { background: var(--band); }
   .range .me { position: absolute; top: 12px; width: 3px; height: 30px; background: var(--ink); transform: translateX(-1px); }
   .range .me-l { position: absolute; top: -6px; transform: translateX(-50%); font-size: 14px; font-weight: 700; white-space: nowrap; }
   .range .tick { position: absolute; top: 40px; transform: translateX(-50%); font-family: var(--mono); font-size: 12px; color: var(--muted); }
@@ -90,6 +107,15 @@
   .foot { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; color: var(--subtle); }
   .foot a { font-size: 15px; }
 
+  .theme { display: flex; gap: 2px; font-size: 13px; }
+  .theme button { background: none; border: 1px solid transparent; color: var(--subtle); padding: 4px 10px; border-radius: 2px; cursor: pointer; font-size: 13px; }
+  .theme button:hover { color: var(--ink); }
+  .theme button[aria-pressed="true"] { border-color: var(--chip-border); color: var(--ink); font-weight: 600; }
+  [data-mode="dark"] .label.sm, [data-mode="dark"] .says, [data-mode="dark"] .tick { font-weight: 500; }
+  @media (forced-colors: active) { .tile, .status, .school { border: 1px solid CanvasText; } }
+  @media (max-width: 1000px) {
+    .groups { grid-template-columns: 1fr !important; }
+  }
   @media (max-width: 800px) {
     .modal { padding: 24px 20px 40px; }
     .stats { grid-template-columns: 1fr 1fr; }
@@ -104,7 +130,7 @@
 <body>
 <div class="wrap">
 <div class="modal">
-  <div class="top"><a href="#">Close</a></div>
+  <div class="top"><a href="#">Close</a><div class="theme" role="group" aria-label="Theme"><button data-theme="system">System</button><button data-theme="light">Light</button><button data-theme="dark">Dark</button></div></div>
   <nav class="tabs"><span>Snapshot</span><span class="on">Requirements</span><span>Financials</span><span>Project Management</span><span class="sp"></span><span>Settings</span></nav>
 
   <header>
@@ -141,6 +167,17 @@
 </div>
 
 <script>
+// ─── Theme ─── "system" follows Windows/macOS via prefers-color-scheme. Persist the user's choice in their profile.
+let THEME = localStorage.getItem('track-theme') || 'system';
+const mq = matchMedia('(prefers-color-scheme: dark)');
+function applyTheme() {
+  const mode = THEME === 'system' ? (mq.matches ? 'dark' : 'light') : THEME;
+  document.documentElement.dataset.mode = mode;
+  document.querySelectorAll('.theme button').forEach(b => b.setAttribute('aria-pressed', b.dataset.theme === THEME));
+}
+mq.addEventListener('change', applyTheme);
+document.addEventListener('click', e => { const b = e.target.closest('.theme button'); if (b) { THEME = b.dataset.theme; localStorage.setItem('track-theme', THEME); applyTheme(); } });
+
 // ─── SAMPLE DATA ─── Replace with the school record + the signed-in student's progress.
 const SCHOOL = { id: 'ucla', name: 'UCLA', color: '#2774ae', iconUrl: null };
 const USER = { id: 'kyle', name: 'Kyle', sat: 1450 };           // sat: null hides the marker
@@ -247,6 +284,7 @@ document.addEventListener('click', e => {
   if (t && !t.disabled) { const k = t.dataset.key; PROGRESS[k] = PROGRESS[k] || { status: 0 }; PROGRESS[k].inTodo = true; addToTodo(k); render(); }
 });
 render();
+applyTheme();
 </script>
 </body>
 </html>

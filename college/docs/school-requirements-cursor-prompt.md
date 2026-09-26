@@ -2,7 +2,7 @@
 
 Rebuild the **Requirements** tab of the school detail modal. Today it is a stack of editable text boxes (Test policy, Middle 50%, Application platform, Teacher recommendations, SAT context, Required essays, Admissions context). Replace it with a read-first layout: a comparable dashboard of what the school asks for, then the student's checklist against it.
 
-Reference: `requirements.html` (working vanilla HTML/JS, UCLA as sample). Match its layout, spacing and behavior; port to the app's framework and data layer. Visual rules: `design-guidelines.md`.
+Reference: `requirements.html` (working vanilla HTML/JS, UCLA as sample). Match its layout, spacing and behavior; port to the app's framework and data layer. Visual rules: `design-guidelines.md` (this tab) and `the-track-design-guidelines.md` (project-wide, including §2b Dark mode). Implement light and dark from the start using the semantic tokens; the reference has a System / Light / Dark switch wired.
 
 ## Role in the process
 
@@ -54,8 +54,10 @@ requirementProgress = { userId, schoolId, key, status: 0|1|2, todoId|null }
 ```
 Map existing fields: Test policy → `tests` state; Required essays → `essay` (and `supplements` if listed); Teacher recommendations text → `teacherRecs` + `counselorRec`; SAT context → `satRange`. Missing fields → `unk`.
 
-## Responsive (<800px)
-Stats 2×2; profile groups stack; checklist drops the "says" column; context stacks.
+## Responsive
+- <1000px: profile groups stack (one group per row, full width).
+- <800px: stats 2×2; checklist drops the "says" column; context stacks.
+- Tile names use `overflow-wrap: anywhere` so long labels never overflow.
 
 ## Open questions
 - "SAT or ACT" sub-label under Testing is placeholder copy. Confirm or pull from data.

@@ -21,6 +21,22 @@ These rules are specific to the Requirements tab. Project-wide rules (tokens, ty
 | Checklist title / detail | 18 / 600 · 15 muted |
 | Tag (Required, Not required) | Mono 12 / 0.08em, uppercase |
 
+## Dark mode
+
+Full rules in the root `design-guidelines.md` §2b. Tab-specific mappings:
+
+| Element | Light | Dark |
+| --- | --- | --- |
+| Modal / desk | `#f3f2f2` / `#e6e4e3` | `#1f2228` / `#16181b` |
+| Required tile | accent fill, `#461a05` text | same |
+| Modified stripes | `#fdd6c0` / `#feeee4` | `#50301d` / `#3b2317`, text `#fdd6c0` |
+| Not required tile, progress track | `#dcdada` | `#2d3139` |
+| Not listed dash | `#9b9797` | `#5d636c` |
+| In-progress chip | `#feeee4` fill, `#fab48e` border | `#3b2317` fill, `#9e3603` border, `#fdd6c0` text |
+| Done chip | `#eceaea` | `#2d3139` |
+| SAT band | `#fab48e` | `#9e3603` |
+| Row rules | `#dcdada` | `rgba(240,238,236,.10)` |
+
 ## Profile tile states
 
 Don't rely on color alone. Each state also differs in fill type and in its group header word.
