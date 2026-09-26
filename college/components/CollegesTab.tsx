@@ -89,7 +89,6 @@ export function CollegesTab({
   const [query, setQuery] = useState("");
   const [tier, setTier] = useState<SelectivityTier | "any">("any");
   const [interest, setInterest] = useState<InterestLevel | "any">("any");
-  const [aerospaceFilter, setAerospaceFilter] = useState<"any" | "Yes" | "Partial" | "No">("any");
   const [sort, setSort] = useState<SortKey>("list");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
   const [name, setName] = useState("");
@@ -147,21 +146,15 @@ export function CollegesTab({
     const filtered = phaseSchools.filter((school) => {
       if (tier !== "any" && school.selectivityTier !== tier) return false;
       if (interest !== "any" && school.interestLevel !== interest) return false;
-      if (
-        aerospaceFilter !== "any" &&
-        school.aerospaceEngineering.trim().toLowerCase() !== aerospaceFilter.toLowerCase()
-      ) {
-        return false;
-      }
       if (!q) return true;
-      return [school.name, school.location, school.notes, school.admissionsContext, school.aerospaceProgram]
+      return [school.name, school.location, school.notes, school.admissionsContext]
         .join(" ")
         .toLowerCase()
         .includes(q);
     });
     const sorted = [...filtered].sort((a, b) => compareSchools(a, b, sort));
     return sortDir === 1 ? sorted : sorted.reverse();
-  }, [phaseSchools, query, tier, interest, aerospaceFilter, sort, sortDir]);
+  }, [phaseSchools, query, tier, interest, sort, sortDir]);
 
   const selected = schools.find((school) => school.id === selectedId) ?? null;
   const archivedInPhase = schools.filter(
@@ -493,19 +486,6 @@ export function CollegesTab({
               {item.label}
             </option>
           ))}
-        </select>
-        <select
-          className="select"
-          value={aerospaceFilter}
-          aria-label="Filter by aerospace engineering"
-          onChange={(event) =>
-            setAerospaceFilter(event.target.value as "any" | "Yes" | "Partial" | "No")
-          }
-        >
-          <option value="any">All aerospace</option>
-          <option value="Yes">Aerospace Yes</option>
-          <option value="Partial">Aerospace Partial</option>
-          <option value="No">Aerospace No</option>
         </select>
         <select
           className="select"
