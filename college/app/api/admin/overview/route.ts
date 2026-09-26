@@ -86,7 +86,7 @@ export async function GET() {
   try {
     const [schools, activity, members] = await Promise.all([
       listSchools(),
-      listActivity(80),
+      listActivity(150),
       listAdminMembers(),
     ]);
     const schoolActivity = activity.find((entry) => entry.entityType === "school");
