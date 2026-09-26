@@ -94,9 +94,17 @@ test("mapCommonAppRow fills platform, essays, recs, test policy, and deadlines",
   assert.match(facts.meritAidNotes, /\$100/);
   assert.equal(facts.deadlines.length, 2);
   assert.equal(facts.deadlines[0]?.title, "Restrictive Early Action");
-  assert.equal(facts.deadlines[0]?.dueDate, "2026-11-01");
+  // Grid is 2026-27 (current seniors); Kyle applies 2027-28 → +1 year.
+  assert.equal(facts.deadlines[0]?.dueDate, "2027-11-01");
   assert.equal(facts.deadlines[1]?.title, "Regular Decision");
-  assert.equal(facts.deadlines[1]?.dueDate, "2027-01-05");
+  assert.equal(facts.deadlines[1]?.dueDate, "2028-01-05");
+});
+
+test("toKyleApplicationCycleDate shifts grid years forward one cycle", async () => {
+  const { toKyleApplicationCycleDate, shiftIsoDateYears } = await import("./common-app-grid");
+  assert.equal(toKyleApplicationCycleDate("2026-11-01"), "2027-11-01");
+  assert.equal(toKyleApplicationCycleDate("2027-01-15"), "2028-01-15");
+  assert.equal(shiftIsoDateYears("2026-11-01", 0), "2026-11-01");
 });
 
 test("schoolNeedsCommonAppFill detects blank application fields", () => {
