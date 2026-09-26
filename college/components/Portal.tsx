@@ -78,6 +78,7 @@ import {
   isApplicationStatus,
   isChoice,
   isInterestLevel,
+  isVisitStatus,
   isListPhaseId,
   isPlan,
   isSelectivityTier,
@@ -1131,6 +1132,7 @@ export function Portal({
               if (patch.plan !== undefined && !isPlan(patch.plan)) return;
               if (patch.selectivityTier !== undefined && !isSelectivityTier(patch.selectivityTier)) return;
               if (patch.interestLevel !== undefined && !isInterestLevel(patch.interestLevel)) return;
+              if (patch.visitStatus !== undefined && !isVisitStatus(patch.visitStatus)) return;
               if (patch.applicationStatus !== undefined && !isApplicationStatus(patch.applicationStatus)) return;
               if (patch.admissionTrack !== undefined && !isAdmissionTrack(patch.admissionTrack)) return;
               if (patch.listPhase !== undefined && !isListPhaseId(patch.listPhase)) return;

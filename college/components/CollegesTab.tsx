@@ -29,6 +29,7 @@ import { canAdvanceListPhase } from "@/lib/permissions";
 import {
   INTEREST_LEVELS,
   SELECTIVITY_TIERS,
+  VISIT_STATUSES,
   formatDate,
   statusLabel,
   tierLabel,
@@ -39,7 +40,9 @@ import {
   type Owner,
   type School,
   type SelectivityTier,
+  type VisitStatus,
 } from "@/lib/types";
+import { downloadSchoolsCsv } from "@/lib/college-export";
 
 export function CollegesTab({
   schools,
@@ -259,6 +262,25 @@ export function CollegesTab({
               onChange={(next) => onPatch(school.id, { interestLevel: next })}
               onArchive={school.archived ? undefined : () => archiveSchool(school)}
             />
+          </td>
+        );
+      case "visit":
+        return (
+          <td key={column} className="visit-cell" onClick={(event) => event.stopPropagation()}>
+            <select
+              className="visit-select"
+              aria-label={`Visit status for ${school.name}`}
+              value={school.visitStatus}
+              onChange={(event) =>
+                onPatch(school.id, { visitStatus: event.target.value as VisitStatus })
+              }
+            >
+              {VISIT_STATUSES.map((item) => (
+                <option key={item.id || "unset"} value={item.id}>
+                  {item.id ? item.label : "Set visit"}
+                </option>
+              ))}
+            </select>
           </td>
         );
       case "action":
@@ -544,6 +566,18 @@ export function CollegesTab({
             Archived{archivedInPhase ? ` (${archivedInPhase})` : ""}
           </span>
         </label>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={() =>
+            downloadSchoolsCsv(
+              [...schools].sort((a, b) => a.listOrder - b.listOrder),
+              "kyle-college-list.csv",
+            )
+          }
+        >
+          Download spreadsheet
+        </button>
         <input
           className="input"
           value={name}
@@ -638,6 +672,24 @@ export function CollegesTab({
                 ) : null}
                 {columns.includes("aerospace") ? (
                   <span>Aero {school.aerospaceEngineering.trim() || "—"}</span>
+                ) : null}
+                {columns.includes("visit") ? (
+                  <span onClick={(event) => event.stopPropagation()}>
+                    <select
+                      className="visit-select"
+                      aria-label={`Visit status for ${school.name}`}
+                      value={school.visitStatus}
+                      onChange={(event) =>
+                        onPatch(school.id, { visitStatus: event.target.value as VisitStatus })
+                      }
+                    >
+                      {VISIT_STATUSES.map((item) => (
+                        <option key={item.id || "unset"} value={item.id}>
+                          {item.id ? item.label : "Set visit"}
+                        </option>
+                      ))}
+                    </select>
+                  </span>
                 ) : null}
               </div>
               {columns.includes("interest") ? (

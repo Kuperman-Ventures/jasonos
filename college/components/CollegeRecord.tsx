@@ -7,6 +7,7 @@ import {
   INTEREST_LEVELS,
   OWNERS,
   SELECTIVITY_TIERS,
+  VISIT_STATUSES,
   STEP_PRESETS,
   ownerLabel,
   type ContactPatch,
@@ -751,14 +752,22 @@ export function CollegeRecord({
               </form>
 
               <h4 className="school-edit-label">Visit</h4>
-              <div className="filters">
-                <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <input
-                    type="checkbox"
-                    checked={school.visited}
-                    onChange={(event) => onPatch({ visited: event.target.checked })}
-                  />
-                  Visited
+              <div className="school-edit-grid">
+                <label className="stack-field">
+                  <span className="label">Visit status</span>
+                  <select
+                    className="field"
+                    value={school.visitStatus}
+                    onChange={(event) =>
+                      onPatch({ visitStatus: event.target.value as School["visitStatus"] })
+                    }
+                  >
+                    {VISIT_STATUSES.map((item) => (
+                      <option key={item.id || "unset"} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label className="stack-field">
                   <span className="label">Visit date</span>

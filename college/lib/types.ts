@@ -19,6 +19,7 @@ export type TabId =
 
 export type SelectivityTier = "" | "extremely_selective" | "very_selective" | "competitive" | "less_competitive";
 export type InterestLevel = "" | "top" | "high" | "moderate" | "safety";
+export type VisitStatus = "" | "visited" | "want" | "planned";
 export type ApplicationStatus = "" | "researching" | "applying" | "submitted" | "accepted" | "enrolled";
 export type AdmissionTrack = "" | "ed1" | "ed2" | "ea" | "rea" | "rd" | "rolling";
 export type ListPhaseId = "exploration" | "consideration" | "applications";
@@ -80,6 +81,7 @@ export type School = {
   choice: Choice;
   plan: Plan;
   visited: boolean;
+  visitStatus: VisitStatus;
   visitDate: string | null;
   visitNotes: string;
   deadline: string | null;
@@ -185,6 +187,13 @@ export const INTEREST_LEVELS: { id: InterestLevel; label: string }[] = [
   { id: "high", label: "High" },
   { id: "moderate", label: "Medium" },
   { id: "safety", label: "Low" },
+];
+
+export const VISIT_STATUSES: { id: VisitStatus; label: string }[] = [
+  { id: "", label: "Not set" },
+  { id: "visited", label: "Visited" },
+  { id: "want", label: "Want to Visit" },
+  { id: "planned", label: "Visit Planned" },
 ];
 
 export const APPLICATION_STATUSES: { id: ApplicationStatus; label: string }[] = [
@@ -313,6 +322,10 @@ export function interestLabel(id: InterestLevel): string {
   return INTEREST_LEVELS.find((item) => item.id === id)?.label ?? "";
 }
 
+export function visitLabel(id: VisitStatus): string {
+  return VISIT_STATUSES.find((item) => item.id === id)?.label ?? "";
+}
+
 export function statusLabel(id: ApplicationStatus): string {
   return APPLICATION_STATUSES.find((item) => item.id === id)?.label ?? "";
 }
@@ -406,6 +419,10 @@ export function isInterestLevel(value: string): value is InterestLevel {
   return INTEREST_LEVELS.some((item) => item.id === value);
 }
 
+export function isVisitStatus(value: string): value is VisitStatus {
+  return VISIT_STATUSES.some((item) => item.id === value);
+}
+
 export function isApplicationStatus(value: string): value is ApplicationStatus {
   return APPLICATION_STATUSES.some((item) => item.id === value);
 }
@@ -469,6 +486,7 @@ export function fromSeed(seed: SchoolSeed): School {
     choice: "unsure",
     plan: "",
     visited: false,
+    visitStatus: "",
     visitDate: null,
     visitNotes: "",
     deadline: null,

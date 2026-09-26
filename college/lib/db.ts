@@ -19,6 +19,7 @@ import type {
   SelectivityTier,
   Step,
   ListPhaseId,
+  VisitStatus,
 } from "./types";
 import {
   fromSeed,
@@ -30,6 +31,7 @@ import {
   isOwner,
   isPlan,
   isSelectivityTier,
+  isVisitStatus,
   normalizeTrackedPrograms,
 } from "./types";
 import schoolsFile from "@/content/schools.json";
@@ -59,6 +61,7 @@ type SchoolRow = {
   visited: boolean;
   visit_date: string | null;
   visit_notes: string;
+  visit_status?: string | null;
   deadline: string | null;
   deadline_label: string;
   selectivity_tier: string;
@@ -184,6 +187,11 @@ export function mapSchool(row: SchoolRow): School {
     choice: isChoice(row.choice) ? row.choice : "unsure",
     plan: isPlan(row.plan) ? row.plan : "",
     visited: row.visited,
+    visitStatus: isVisitStatus(row.visit_status ?? "")
+      ? (row.visit_status as VisitStatus)
+      : row.visited
+        ? "visited"
+        : "",
     visitDate: row.visit_date,
     visitNotes: row.visit_notes,
     deadline: row.deadline,
@@ -220,7 +228,7 @@ export function mapSchool(row: SchoolRow): School {
 }
 
 const SCHOOL_COLUMNS =
-  "id, name, location, campus_size, undergrad_enrollment, mechanical_engineering, materials, materials_offering, materials_program, materials_source_url, aerospace_engineering, aerospace_program, aerospace_notes, aerospace_source_url, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, deadline, deadline_label, selectivity_tier, interest_level, application_status, admission_track, test_policy, family_test_policy, tracked_programs, middle_50, application_platform, required_essays, teacher_recs, cost_of_attendance, net_price_estimate, merit_aid_notes, research_sources, website, list_phase, phases_participated, archived, archived_at, school_steps(id, label, owner, done, sort_order), deadlines(id, title, due_date, completed, sort_order), contacts(id, name, role, email, phone)";
+  "id, name, location, campus_size, undergrad_enrollment, mechanical_engineering, materials, materials_offering, materials_program, materials_source_url, aerospace_engineering, aerospace_program, aerospace_notes, aerospace_source_url, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, visit_status, deadline, deadline_label, selectivity_tier, interest_level, application_status, admission_track, test_policy, family_test_policy, tracked_programs, middle_50, application_platform, required_essays, teacher_recs, cost_of_attendance, net_price_estimate, merit_aid_notes, research_sources, website, list_phase, phases_participated, archived, archived_at, school_steps(id, label, owner, done, sort_order), deadlines(id, title, due_date, completed, sort_order), contacts(id, name, role, email, phone)";
 
 export async function listSchools(): Promise<School[]> {
   if (!supabaseConfigured()) return seedSchools();
@@ -334,6 +342,10 @@ export function schoolPatchToRow(patch: Record<string, unknown>): Record<string,
   }
   if (typeof patch.interestLevel === "string" && isInterestLevel(patch.interestLevel)) {
     row.interest_level = patch.interestLevel as InterestLevel;
+  }
+  if (typeof patch.visitStatus === "string" && isVisitStatus(patch.visitStatus)) {
+    row.visit_status = patch.visitStatus as VisitStatus;
+    row.visited = patch.visitStatus === "visited";
   }
   if (typeof patch.applicationStatus === "string" && isApplicationStatus(patch.applicationStatus)) {
     row.application_status = patch.applicationStatus as ApplicationStatus;
