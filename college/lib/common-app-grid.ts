@@ -2,6 +2,10 @@
  * Common App 2026–27 Requirements Grid helpers.
  * Fills application platform, essays, recs, test policy, and deadlines
  * from the published grid (blank fields only when used as backfill).
+ *
+ * The imported grid is the current seniors' cycle (apply Fall 2026 → enroll Fall 2027).
+ * Kyle is a junior: apply Fall 2027 → enroll Fall 2028. Dated deadlines are shifted
+ * forward so Next Action shows his cycle, not this year's seniors.
  */
 
 import gridFile from "@/content/commonapp-grid-2026-27.json";
@@ -11,6 +15,23 @@ import {
   type DeadlineFact,
   type FoundFacts,
 } from "./school-research";
+
+/** Start year of the cycle baked into `commonapp-grid-2026-27.json`. */
+export const COMMON_APP_GRID_CYCLE_START = 2026;
+/** Kyle applies in Fall of this year (Fall 2028 enrollment). */
+export const KYLE_APPLICATION_CYCLE_START = 2027;
+
+/** Shift a YYYY-MM-DD by whole years (month/day unchanged). */
+export function shiftIsoDateYears(iso: string, deltaYears: number): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso) || !deltaYears) return iso;
+  const year = Number(iso.slice(0, 4)) + deltaYears;
+  return `${year}${iso.slice(4)}`;
+}
+
+/** Map a grid deadline date into Kyle's application cycle. */
+export function toKyleApplicationCycleDate(iso: string): string {
+  return shiftIsoDateYears(iso, KYLE_APPLICATION_CYCLE_START - COMMON_APP_GRID_CYCLE_START);
+}
 
 export type CommonAppDeadlineKey = "ED" | "EDII" | "EA" | "EAII" | "REA" | "RD";
 
@@ -301,7 +322,7 @@ function deadlineFacts(row: CommonAppGridRow): DeadlineFact[] {
       continue;
     }
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      facts.push({ title, dueDate: value });
+      facts.push({ title, dueDate: toKyleApplicationCycleDate(value) });
       continue;
     }
     facts.push({ title: `${title} (${value})`, dueDate: null });
@@ -362,7 +383,7 @@ export function mapCommonAppRow(row: CommonAppGridRow): FoundFacts {
   facts.deadlines = deadlineFacts(row);
   facts.sources = [
     {
-      title: "Common App 2026-27 Requirements Grid",
+      title: "Common App 2026-27 Requirements Grid (dates shifted +1y for Kyle Fall 2028)",
       url: "https://www.commonapp.org/",
     },
   ];
