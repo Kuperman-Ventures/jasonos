@@ -80,6 +80,8 @@ export function CollegesTab({
   todoEdits,
   onCycleRequirementStatus,
   onAddRequirementTodo,
+  processPhaseLabel,
+  onSendVisitPlan,
 }: {
   schools: School[];
   selectedId: string | null;
@@ -114,6 +116,11 @@ export function CollegesTab({
     status: RequirementStatus,
   ) => void;
   onAddRequirementTodo: (schoolId: string, key: RequirementKey, title: string) => void;
+  processPhaseLabel: string | null;
+  onSendVisitPlan: (payload: {
+    events: import("@/lib/calendar-events").CalendarEvent[];
+    todos: PersistedProjectStep[];
+  }) => void;
 }) {
   const canAdvance = canAdvanceListPhase({ id: memberId, role: memberRole });
   const [phaseId, setPhaseId] = useState<ListPhaseId>("exploration");
@@ -831,6 +838,10 @@ export function CollegesTab({
             onCycleRequirementStatus(selected.id, key, status)
           }
           onAddRequirementTodo={(key, title) => onAddRequirementTodo(selected.id, key, title)}
+          listSchools={schools.filter((row) => !row.archived)}
+          listPhaseId={phaseId}
+          processPhaseLabel={processPhaseLabel}
+          onSendVisitPlan={onSendVisitPlan}
         />
       ) : null}
     </section>

@@ -11,12 +11,13 @@ import {
   type Owner,
   type School,
 } from "@/lib/types";
-import { LIST_PHASES, nextListPhaseId, previousListPhaseId } from "@/lib/list-phases";
+import { LIST_PHASES, nextListPhaseId, previousListPhaseId, type ListPhaseId } from "@/lib/list-phases";
 import { sourceLines } from "@/lib/school-research";
 import { fetchSchoolPhotoUrl, websiteHostLabel, websiteHref } from "@/lib/school-photo";
 import type { MemberProfile } from "@/lib/member-avatars";
 import type { RoutedSchoolNotePayload } from "@/lib/school-project-notes";
 import type { PersistedProjectStep } from "@/lib/ingest";
+import type { CalendarEvent } from "@/lib/calendar-events";
 import type { RequirementProgressMap, RequirementStatus } from "@/lib/requirement-progress";
 import type { TodoEditMap } from "@/lib/project-todos";
 import type { RequirementKey } from "@/lib/school-requirements";
@@ -25,6 +26,7 @@ import { SchoolSnapshotSummary } from "./SchoolSnapshotSummary";
 import { SchoolProjectManagement } from "./SchoolProjectManagement";
 import { SchoolRequirements } from "./SchoolRequirements";
 import { SchoolPhotos } from "./SchoolPhotos";
+import { SchoolVisitPlanning } from "./SchoolVisitPlanning";
 
 type SchoolModalTab =
   | "snapshot"
@@ -32,7 +34,8 @@ type SchoolModalTab =
   | "requirements"
   | "financials"
   | "projects"
-  | "photos";
+  | "photos"
+  | "visit";
 
 const SCHOOL_MODAL_TABS: { id: SchoolModalTab; label: string }[] = [
   { id: "snapshot", label: "Snapshot" },
@@ -40,6 +43,7 @@ const SCHOOL_MODAL_TABS: { id: SchoolModalTab; label: string }[] = [
   { id: "financials", label: "Financials" },
   { id: "projects", label: "Project Management" },
   { id: "photos", label: "Photos" },
+  { id: "visit", label: "Visit planning" },
   { id: "settings", label: "Settings" },
 ];
 
@@ -98,6 +102,10 @@ export function CollegeRecord({
   todoEdits,
   onCycleRequirementStatus,
   onAddRequirementTodo,
+  listSchools,
+  listPhaseId,
+  processPhaseLabel,
+  onSendVisitPlan,
 }: {
   school: School;
   /** Undergrad counts for non-archived schools on the family's list (size gauge ends). */
@@ -129,6 +137,13 @@ export function CollegeRecord({
   todoEdits: TodoEditMap;
   onCycleRequirementStatus: (key: RequirementKey, status: RequirementStatus) => void;
   onAddRequirementTodo: (key: RequirementKey, title: string) => void;
+  listSchools: School[];
+  listPhaseId: ListPhaseId;
+  processPhaseLabel: string | null;
+  onSendVisitPlan: (payload: {
+    events: CalendarEvent[];
+    todos: PersistedProjectStep[];
+  }) => void;
 }) {
   const [tab, setTab] = useState<SchoolModalTab>("snapshot");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -615,6 +630,17 @@ export function CollegeRecord({
 
           {tab === "photos" ? (
             <SchoolPhotos school={school} memberProfiles={memberProfiles} />
+          ) : null}
+
+          {tab === "visit" ? (
+            <SchoolVisitPlanning
+              school={school}
+              listSchools={listSchools}
+              listPhaseId={listPhaseId}
+              processPhaseLabel={processPhaseLabel}
+              memberId={memberId}
+              onSendVisitPlan={onSendVisitPlan}
+            />
           ) : null}
         </div>
       </div>
