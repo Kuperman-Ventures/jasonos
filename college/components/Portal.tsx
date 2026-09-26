@@ -8,6 +8,7 @@ import { DashboardTab } from "./DashboardTab";
 import { FaqTab } from "./FaqTab";
 import { LeftRail } from "./LeftRail";
 import { LogTab } from "./LogTab";
+import { AdminTab } from "./AdminTab";
 import { NotesTab } from "./NotesTab";
 import { IngestPanel } from "./IngestPanel";
 import { ProjectManagementTab } from "./ProjectManagementTab";
@@ -24,7 +25,7 @@ import { appQuestions } from "@/lib/app-questions";
 import { currentPhaseIndex, phaseStatuses } from "@/lib/phases";
 import { useSchoolPipeline } from "@/lib/use-school-pipeline";
 import { defaultListPrefs, mergeListPrefs, isForwardListPhaseMove, type MemberListPrefs } from "@/lib/list-phases";
-import { canAdvanceListPhase } from "@/lib/permissions";
+import { canAdvanceListPhase, isAdminRole } from "@/lib/permissions";
 import { normalizeCalendarEvents, type CalendarEvent } from "@/lib/calendar-events";
 import type { IngestHandoff, PersistedIngestSource, PersistedProjectStep } from "@/lib/ingest";
 import { INBOX_PARENT_ID } from "@/lib/ingest";
@@ -370,11 +371,19 @@ export function Portal({
   );
 
   function goTab(next: TabId) {
-    setTab(next);
-    if (next !== "notes") setOpenNoteId(null);
-    if (next !== "apps") setOpenActivityId(null);
-    replaceUrl(next, next === "colleges" ? schoolId : null, projectSection, null, appsSection);
+    const target = next === "admin" && !isAdminRole(member.role) ? "dashboard" : next;
+    setTab(target);
+    if (target !== "notes") setOpenNoteId(null);
+    if (target !== "apps") setOpenActivityId(null);
+    replaceUrl(target, target === "colleges" ? schoolId : null, projectSection, null, appsSection);
   }
+
+  useEffect(() => {
+    if (tab !== "admin") return;
+    if (isAdminRole(member.role)) return;
+    setTab("dashboard");
+    replaceUrl("dashboard", null, projectSection, null, appsSection);
+  }, [tab, member.role, projectSection, appsSection, replaceUrl]);
 
   function openNote(id: string | null) {
     setOpenNoteId(id);
@@ -1251,6 +1260,7 @@ export function Portal({
           <TestingTab phases={phases} checklist={checklist} onToggle={toggleItem} dateline={phaseLabel} />
         ) : null}
         {tab === "log" ? <LogTab dateline={phaseLabel} /> : null}
+        {tab === "admin" && isAdminRole(member.role) ? <AdminTab dateline={phaseLabel} /> : null}
         <div className="save-state">{loaded && pipeline.loaded ? saveState : "Loading..."}</div>
       </main>
     </div>

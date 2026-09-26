@@ -5653,6 +5653,170 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   }
 }
 
+/* Creator admin */
+.admin-panel .section-sub {
+  margin: 0 0 var(--space-5);
+  max-width: 70ch;
+  color: var(--color-neutral-700);
+  line-height: 1.45;
+}
+.admin-section {
+  margin: 0 0 var(--space-8);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-divider);
+}
+.admin-section h3 {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-heading);
+  font-size: 22px;
+  font-weight: 600;
+}
+.admin-section h4 {
+  margin: 0 0 var(--space-2);
+  font-size: 15px;
+  font-weight: 600;
+}
+.admin-inline-btn {
+  padding: 0;
+  font: inherit;
+  color: var(--text-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.admin-members {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.admin-members th,
+.admin-members td {
+  text-align: left;
+  vertical-align: top;
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--color-divider);
+}
+.admin-members th {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  font-weight: 600;
+}
+.admin-person {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.admin-email-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 220px;
+}
+.admin-email-row .field {
+  flex: 1;
+  min-width: 0;
+}
+.admin-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.admin-invite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.admin-magic-note {
+  margin: 6px 0 0;
+  font-size: 12px;
+  max-width: 28ch;
+}
+.admin-pulse-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px 24px;
+  margin: 0;
+}
+.admin-pulse-grid > div {
+  min-width: 0;
+}
+.admin-pulse-grid dt {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  margin-bottom: 4px;
+}
+.admin-pulse-grid dd {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.admin-pulse-grid dd.ok { color: oklch(0.45 0.11 150); }
+.admin-pulse-grid dd.bad { color: oklch(0.5 0.16 25); }
+.admin-pulse-grid dd.warn { color: oklch(0.5 0.12 70); }
+.admin-phase-bars {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: var(--space-5);
+}
+.admin-phase-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.admin-phase-track {
+  height: 8px;
+  background: var(--color-neutral-200);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+.admin-phase-track span {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+}
+.admin-hygiene-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+.admin-hygiene-block {
+  min-width: 0;
+}
+.admin-name-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  line-height: 1.35;
+}
+@media (max-width: 900px) {
+  .admin-members {
+    display: block;
+  }
+  .admin-members thead {
+    display: none;
+  }
+  .admin-members tr {
+    display: block;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--color-divider);
+  }
+  .admin-members td {
+    display: block;
+    border: 0;
+    padding: 4px 0;
+  }
+}
+
+
 /* ---------- Activities journal ---------- */
 .aj {
   display: flex;
