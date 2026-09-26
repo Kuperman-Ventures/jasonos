@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>School detail · Visit planning</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<style>
+  :root {
+    --desk: #e6e4e3; --bg: #f3f2f2; --surface: #eae9e9; --ink: #201e1d; --muted: #444141; --subtle: #605d5d;
+    --accent: #e85504; --accent-text: #9e3603; --pressed: #c74503; --on-accent: #461a05;
+    --line: #9b9797; --dash: #9b9797; --slot-dash: #c9c6c6; --rule: #dcdada;
+    --here-tint: #feeee4; --here-border: #fab48e; --on-tint: #461a05;
+    /* Interest ramp, from handoff-interest-picker (6a · One blue). safety → top */
+    --lvl-1: oklch(0.78 0.07 225); --lvl-1-fg: #201e1d;
+    --lvl-2: oklch(0.66 0.10 225); --lvl-2-fg: #201e1d;
+    --lvl-3: oklch(0.54 0.12 228); --lvl-3-fg: #fff;
+    --lvl-4: oklch(0.42 0.12 232); --lvl-4-fg: #fff;
+    --shadow-lg: 0 18px 48px rgba(32,30,29,.16);
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+    color-scheme: light;
+  }
+  [data-mode="dark"] {
+    --desk: #16181b; --bg: #1f2228; --surface: #2d3139; --ink: #f0eeec; --muted: #c3c8cf; --subtle: #9aa0a8;
+    --accent-text: #fab48e; --pressed: #f58749;
+    --line: #5d636c; --dash: #5d636c; --slot-dash: #3d424b; --rule: rgba(240,238,236,.10);
+    --here-tint: #3b2317; --here-border: #9e3603; --on-tint: #fdd6c0;
+    --lvl-1: oklch(0.80 0.07 225); --lvl-2: oklch(0.70 0.10 225); --lvl-3: oklch(0.58 0.12 228); --lvl-4: oklch(0.48 0.13 232);
+    --shadow-lg: 0 24px 64px rgba(0,0,0,.55), 0 0 0 1px rgba(240,238,236,.06);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--desk); font-family: "Archivo", system-ui, sans-serif; color: var(--ink); }
+  a { color: var(--accent-text); text-decoration: none; }
+  a:hover { color: var(--pressed); }
+  button { font-family: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .wrap { padding: 40px 24px; }
+  .modal { max-width: 1040px; margin: 0 auto; background: var(--bg); box-shadow: var(--shadow-lg); padding: 28px 40px 48px; display: flex; flex-direction: column; gap: 40px; }
+  .kicker { display: flex; gap: 10px; align-items: center; }
+  .school { width: 24px; height: 24px; flex-shrink: 0; border-radius: 3px; background: var(--school); color: #fff; font-size: 11px; font-weight: 800; display: grid; place-items: center; }
+  [data-mode="dark"] .school { box-shadow: inset 0 0 0 1px rgba(240,238,236,.14); }
+  .kicker b { font-size: 16px; }
+  .label { font-family: var(--mono); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--subtle); }
+  .label.sm { font-size: 11px; }
+  [data-mode="dark"] .label { font-weight: 500; }
+
+  /* Clusters */
+  .clusters { display: flex; flex-direction: column; gap: 30px; }
+  .cluster { display: flex; flex-direction: column; gap: 14px; }
+  .c-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+  .c-head h3 { margin: 0; font-size: 18px; font-weight: 700; }
+  .c-head p { margin: 2px 0 0; font-size: 14px; color: var(--subtle); }
+  .c-side { display: flex; gap: 16px; align-items: baseline; white-space: nowrap; }
+  .c-days { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--accent-text); }
+  .include { background: none; border: 1px solid var(--dash); border-radius: 3px; height: 30px; padding: 0 10px; font-size: 13px; cursor: pointer; color: var(--muted); }
+  .include:hover { border-color: var(--accent); }
+  .include[aria-pressed="true"] { background: var(--here-tint); border-color: var(--here-border); color: var(--on-tint); font-weight: 600; }
+  .chain { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 0; }
+  .leg { display: flex; align-items: center; gap: 6px; padding: 0 10px; font-family: var(--mono); font-size: 12px; color: var(--subtle); }
+  .leg::before, .leg::after { content: ""; width: 18px; height: 1px; background: var(--line); }
+  .stop { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 12px 0 6px; border-radius: 3px; font-size: 14px; font-weight: 600; background: var(--lv); color: var(--lv-fg); border: 1px solid var(--lv); }
+  .stop[data-level="safety"] { --lv: var(--lvl-1); --lv-fg: var(--lvl-1-fg); }
+  .stop[data-level="moderate"] { --lv: var(--lvl-2); --lv-fg: var(--lvl-2-fg); }
+  .stop[data-level="high"] { --lv: var(--lvl-3); --lv-fg: var(--lvl-3-fg); }
+  .stop[data-level="top"] { --lv: var(--lvl-4); --lv-fg: var(--lvl-4-fg); }
+  .stop[data-level="none"] { background: transparent; border: 1px dashed var(--dash); color: var(--muted); }
+  .stop.here { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ink); }
+  .c-note { font-size: 13px; color: var(--subtle); }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; font-size: 13px; color: var(--muted); }
+  .legend .sw { width: 14px; height: 14px; border-radius: 2px; display: inline-block; vertical-align: -2px; margin-right: 8px; }
+  .legend .here-key { margin-left: auto; }
+
+  /* Itinerary */
+  .it-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
+  .it-head h2 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
+  .it-head p { margin: 4px 0 0; font-size: 14px; color: var(--muted); }
+  .btn-primary { display: flex; gap: 8px; align-items: center; height: 38px; padding: 0 14px; border: none; border-radius: 3px; background: var(--accent); color: var(--on-accent); font-size: 14px; font-weight: 700; cursor: pointer; }
+  .btn-primary:hover { background: var(--pressed); color: #fff; }
+  .btn-primary:disabled { opacity: .45; cursor: default; }
+  .btn-primary i { font-size: 18px; }
+  .days { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 28px; margin-top: 20px; }
+  .day { display: flex; flex-direction: column; gap: 10px; }
+  .slot { display: grid; grid-template-columns: 52px minmax(0,1fr); gap: 12px; align-items: start; }
+  .slot time { font-family: var(--mono); font-size: 12px; color: var(--subtle); padding-top: 10px; }
+  .slot .box { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 8px 12px; border-radius: 3px; background: var(--surface); border: 1px solid var(--surface); }
+  .slot .box.here { background: var(--here-tint); border-color: var(--here-border); color: var(--on-tint); }
+  .slot .box.gap { background: transparent; border: 1px dashed var(--slot-dash); color: var(--muted); }
+  .slot .box i { font-size: 18px; color: var(--subtle); }
+  .slot .box b { display: block; font-size: 14px; font-weight: 600; }
+  .slot .box.gap b { font-weight: 400; }
+  .slot .box small { font-size: 12px; color: var(--subtle); }
+  .it-foot { font-size: 13px; color: var(--subtle); margin-top: 16px; }
+  .empty { font-size: 15px; color: var(--subtle); margin-top: 16px; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 3px; font-size: 14px; }
+  .toast[hidden] { display: none; }
+
+  .theme { display: flex; gap: 2px; justify-content: flex-end; }
+  .theme button { background: none; border: 1px solid transparent; color: var(--subtle); padding: 4px 10px; border-radius: 2px; cursor: pointer; font-size: 13px; }
+  .theme button[aria-pressed="true"] { border-color: var(--dash); color: var(--ink); font-weight: 600; }
+  @media (max-width: 700px) { .modal { padding: 24px 20px 36px; } .c-head, .it-head { flex-direction: column; align-items: flex-start; } .legend .here-key { margin-left: 0; } }
+  @media (forced-colors: active) { .stop, .include, .slot .box { border: 1px solid CanvasText; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="modal">
+  <div class="theme" role="group" aria-label="Theme (demo)"><button data-theme="light">Light</button><button data-theme="dark">Dark</button></div>
+  <div class="kicker"><span class="school" id="mark"></span><b id="schoolName"></b><span class="label">Visit planning</span></div>
+
+  <section class="clusters" id="clusters" aria-label="Trip clusters"></section>
+  <div class="legend" id="legend"></div>
+
+  <section aria-labelledby="tripTitle">
+    <div class="it-head">
+      <div><h2 id="tripTitle"></h2><p id="tripMeta"></p></div>
+      <button class="btn-primary" id="send"><i class="ph-duotone ph-calendar-plus"></i>Send to Calendar</button>
+    </div>
+    <div class="days" id="days"></div>
+    <p class="it-foot">Tour and info session times are placeholders until booked.</p>
+  </section>
+</div>
+</div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+// ─── SAMPLE DATA ─── Distances, times and interest levels are illustrative.
+const CURRENT = 'ucla';
+const SCHOOLS = {
+  ucla: { name: 'UCLA', mark: 'U', color: '#2774ae' }, usc: { name: 'USC', mark: 'SC', color: '#990000' },
+  lmu: { name: 'LMU', mark: 'L', color: '#00205b' }, cal: { name: 'Caltech', mark: 'C', color: '#ff6c0c' },
+  pom: { name: 'Pomona', mark: 'P', color: '#0057b8' }, hmc: { name: 'Harvey Mudd', mark: 'H', color: '#333333' },
+  ucsb: { name: 'UC Santa Barbara', mark: 'SB', color: '#003660' }, uci: { name: 'UC Irvine', mark: 'I', color: '#0064a4' },
+  ucsd: { name: 'UC San Diego', mark: 'SD', color: '#182b49' }
+};
+// Kyle's interest per school (same keys as the Interest picker). Missing = not on list.
+const INTEREST = { ucla: 'top', usc: 'high', lmu: 'moderate', pom: 'top', hmc: 'safety', ucsb: 'high', uci: 'moderate', ucsd: 'high' };
+const LEVELS = [['top', 'Top choice'], ['high', 'High interest'], ['moderate', 'Moderate interest'], ['safety', 'Safety / backup'], ['none', 'Not on list']];
+// Clusters: computed server-side from drive time between list schools + nearby schools. leg = drive from previous stop.
+const CLUSTERS = [
+  { id: 'same', name: 'Same day', sub: 'Westside and central LA', days: 1, stops: [['ucla'], ['lmu', '20 min'], ['usc', '25 min']],
+    note: 'Tours at UCLA and USC are both weekday mornings, so one of them needs an afternoon slot.',
+    plan: [[
+      ['9:00', 'ucla', 'UCLA info session', 'Then campus tour, 10:30'], ['12:30', null, 'Lunch in Westwood', '', 'ph-fork-knife'],
+      ['1:45', null, 'Drive · 20 min', '', 'ph-car'], ['2:15', 'lmu', 'LMU tour', 'Self-guided option'],
+      ['4:00', null, 'Drive · 25 min', '', 'ph-car'], ['4:30', 'usc', 'USC walk-through', 'Tour next morning if booked']
+    ]] },
+  { id: 'plus1', name: '+1 day', sub: 'Pasadena and Claremont', days: 1, stops: [['cal', '40 min'], ['pom', '35 min'], ['hmc', '5 min']],
+    note: 'Pomona and Harvey Mudd share a campus edge. Caltech isn\'t on the list but is on the way.',
+    plan: [[
+      ['9:30', 'cal', 'Caltech drive-by', 'Not on list'], ['11:00', null, 'Drive · 35 min', '', 'ph-car'],
+      ['1:30', 'pom', 'Pomona info session'], ['3:30', 'hmc', 'Harvey Mudd tour', 'Walk across 5C campus']
+    ]] },
+  { id: 'long', name: 'Longer trip', sub: 'Up and down the coast', days: 2, stops: [['ucsb', '1 hr 45'], ['uci', '2 hr 30'], ['ucsd', '1 hr 20']],
+    note: 'Three UCs with the same application. Worth seeing together to compare.',
+    plan: [
+      [['10:00', 'ucsb', 'UC Santa Barbara tour'], ['1:00', null, 'Drive · 2 hr 30', '', 'ph-car'], ['4:00', 'uci', 'UC Irvine walk-through']],
+      [['9:00', 'uci', 'UC Irvine tour'], ['11:30', null, 'Drive · 1 hr 20', '', 'ph-car'], ['1:30', 'ucsd', 'UC San Diego tour']]
+    ] }
+];
+const TRIP = { name: 'LA spring break trip', window: 'Junior Winter/Spring · Apr 2027', start: '2027-04-05' };
+
+// ─── Integration hooks ───
+function sendToCalendar(events) {
+  /* POST calendar events[] — each { title, start, schoolId, userId, source: 'visit-plan' }.
+     Also create a To-Do "Book {school} tour" per school stop. Same user + school tags as Notes. */
+}
+
+// ─── State + render ───
+let included = { same: true, plus1: true, long: false };
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const lvl = k => INTEREST[k] || 'none';
+const mark = k => `<span class="school" style="--school:${SCHOOLS[k].color}">${SCHOOLS[k].mark}</span>`;
+
+function render() {
+  $('mark').style.setProperty('--school', SCHOOLS[CURRENT].color);
+  $('mark').textContent = SCHOOLS[CURRENT].mark;
+  $('schoolName').textContent = SCHOOLS[CURRENT].name;
+
+  $('clusters').innerHTML = CLUSTERS.map(c => `<div class="cluster">
+    <div class="c-head">
+      <div><h3>${c.name}</h3><p>${esc(c.sub)}</p></div>
+      <div class="c-side"><span class="c-days">${c.id === 'same' ? '1 day' : '+' + c.days + (c.days > 1 ? ' days' : ' day')}</span>
+        <button class="include" data-inc="${c.id}" aria-pressed="${!!included[c.id]}">${included[c.id] ? 'In trip ✓' : 'Add to trip'}</button></div>
+    </div>
+    <div class="chain">${c.stops.map(([k, leg]) => `${leg ? `<span class="leg">${leg}</span>` : ''}<span class="stop${k === CURRENT ? ' here' : ''}" data-level="${lvl(k)}" title="${esc(SCHOOLS[k].name)} · ${LEVELS.find(l => l[0] === lvl(k))[1]}">${mark(k)}${esc(SCHOOLS[k].name)}</span>`).join('')}</div>
+    <span class="c-note">${esc(c.note)}</span>
+  </div>`).join('');
+
+  $('legend').innerHTML = `<span class="label sm">Kyle's interest</span>` +
+    LEVELS.map(([k, l]) => `<span><span class="sw" style="${k === 'none' ? 'border:1px dashed var(--dash)' : `background:var(--lvl-${['safety','moderate','high','top'].indexOf(k) + 1})`}"></span>${l}</span>`).join('') +
+    `<span class="here-key"><span class="sw" style="box-shadow:0 0 0 2px var(--ink)"></span>This school</span>`;
+
+  const days = CLUSTERS.filter(c => included[c.id]).flatMap(c => c.plan);
+  const schools = new Set(days.flat().map(s => s[1]).filter(Boolean));
+  const start = new Date(TRIP.start + 'T12:00');
+  $('tripTitle').textContent = TRIP.name;
+  $('tripMeta').textContent = `${TRIP.window} · ${schools.size} schools · ${days.length} ${days.length === 1 ? 'day' : 'days'}`;
+  $('send').disabled = !days.length;
+  $('days').innerHTML = days.length ? days.map((items, i) => {
+    const d = new Date(start); d.setDate(d.getDate() + i);
+    const label = `Day ${i + 1} · ${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`;
+    return `<div class="day"><span class="label sm">${label}</span>${items.map(([t, k, title, sub, icon]) => `<div class="slot"><time>${t}</time>
+      <div class="box${k === CURRENT ? ' here' : k ? '' : ' gap'}">${k ? mark(k) : `<i class="ph-duotone ${icon}"></i>`}<div><b>${esc(title)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</div></div></div>`).join('')}</div>`;
+  }).join('') : '';
+  if (!days.length) $('days').innerHTML = '<p class="empty">Add a cluster above to start a trip.</p>';
+}
+
+document.addEventListener('click', e => {
+  const inc = e.target.closest('[data-inc]'), t = e.target.closest('[data-theme]');
+  if (inc) { included[inc.dataset.inc] = !included[inc.dataset.inc]; render(); }
+  if (t) { document.documentElement.dataset.mode = t.dataset.theme; document.querySelectorAll('[data-theme]').forEach(b => b.setAttribute('aria-pressed', b === t)); }
+});
+$('send').onclick = () => {
+  const events = CLUSTERS.filter(c => included[c.id]).flatMap(c => c.plan).flatMap((items, i) => items.filter(s => s[1]).map(s => ({ title: s[2], day: i, time: s[0], schoolId: s[1] })));
+  sendToCalendar(events);
+  $('toast').textContent = `${events.length} visits sent to Calendar`; $('toast').hidden = false;
+  setTimeout(() => $('toast').hidden = true, 2400);
+};
+
+document.documentElement.dataset.mode = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+document.querySelector(`[data-theme="${document.documentElement.dataset.mode}"]`).setAttribute('aria-pressed', 'true');
+render();
+</script>
+</body>
+</html>
