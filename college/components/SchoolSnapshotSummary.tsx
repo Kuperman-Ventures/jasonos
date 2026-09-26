@@ -25,6 +25,7 @@ import {
   tierHeadlineVar,
   type CampusSetting,
 } from "@/lib/campus-size";
+import { admitResidencyDisplay } from "@/lib/residency-admit";
 import { websiteHref, websiteHostLabel } from "@/lib/school-photo";
 import { SchoolLocationMap, SelectivityGauge } from "./SchoolSnapshotViz";
 
@@ -221,6 +222,8 @@ export function SchoolSnapshotSummary({
   if (!school.applicationPlatform.trim()) missingBits.push("application platform");
   if (!school.teacherRecs.trim()) missingBits.push("teacher recommendations");
 
+  const residency = admitResidencyDisplay(school);
+
   return (
     <div className="snapshot">
       <div className="intro">
@@ -271,6 +274,38 @@ export function SchoolSnapshotSummary({
               label="Pathway"
               value={(pathway || school.admissionsContext).trim() || "Not set"}
             />
+            {residency.kind === "private" ? (
+              <PlainFact label="Residency" value="Residency does not affect admission" />
+            ) : null}
+            {residency.kind === "public" ? (
+              <>
+                <div className="fact">
+                  <dt>Overall admit rate</dt>
+                  <dd>
+                    {residency.overall || "Not set"}
+                    {residency.year ? <span className="admit-year">{residency.year}</span> : null}
+                    {residency.showStatusBadge ? (
+                      <span className="admit-status-badge">{residency.status}</span>
+                    ) : null}
+                  </dd>
+                </div>
+                <div className="fact">
+                  <dt>{residency.kyleLabel || "Kyle's rate"}</dt>
+                  <dd>
+                    {residency.kyleRate || "Not published"}
+                    {residency.showStatusBadge && !residency.overall ? (
+                      <span className="admit-status-badge">{residency.status}</span>
+                    ) : null}
+                  </dd>
+                </div>
+                {residency.engineeringNote ? (
+                  <PlainFact label="Engineering note" value={residency.engineeringNote} />
+                ) : null}
+                {residency.policy ? (
+                  <PlainFact label="Out-of-state policy" value={residency.policy} />
+                ) : null}
+              </>
+            ) : null}
           </dl>
         </section>
 

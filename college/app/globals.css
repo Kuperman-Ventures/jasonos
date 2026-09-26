@@ -1223,6 +1223,25 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
 .snapshot .fact dd a:hover {
   color: var(--color-accent-600);
 }
+.snapshot .admit-year {
+  margin-left: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-subtle);
+}
+.snapshot .admit-status-badge {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: oklch(0.42 0.08 70);
+  background: oklch(0.93 0.03 70);
+}
 .snapshot .set {
   position: relative;
   display: inline-flex;
