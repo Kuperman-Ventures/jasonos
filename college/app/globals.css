@@ -9757,6 +9757,10 @@ html[data-mode="dark"] .trip-label { font-weight: 500; }
   background: #c62828;
   color: #fff;
   font-weight: 700;
+  font-size: 11px;
+  line-height: 1.2;
+  padding: 4px 3px;
+  text-align: center;
 }
 html[data-mode="dark"] .trip-cell.kbreak {
   background: #e53935;
