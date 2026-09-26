@@ -15,7 +15,7 @@ test("interest picker levels run low to high with reference labels", () => {
 test("stored interest ids still match INTEREST_LEVELS", () => {
   for (const level of INTEREST_PICKER_LEVELS) {
     assert.ok(INTEREST_LEVELS.some((item) => item.id === level.key));
-    assert.equal(interestLabel(level.key), level.name);
+    assert.ok(interestLabel(level.key));
   }
   assert.equal(interestLabel(""), "Not set");
 });

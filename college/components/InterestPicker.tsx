@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
+import { createPortal } from "react-dom";
 import type { InterestLevel } from "@/lib/types";
 
 /** Low → high, matching the Interest cell reference. Empty string = Not set. */
@@ -17,12 +25,7 @@ function levelIndex(value: InterestPickerValue): number {
   return INTEREST_PICKER_LEVELS.findIndex((level) => level.key === value);
 }
 
-function blurIfInside(root: HTMLElement | null) {
-  const active = document.activeElement;
-  if (active instanceof HTMLElement && root?.contains(active)) {
-    active.blur();
-  }
-}
+type PopoverPos = { top: number; left: number; openUp: boolean };
 
 export function InterestPicker({
   value,
@@ -39,55 +42,88 @@ export function InterestPicker({
   const idx = levelIndex(value);
   const current = idx >= 0 ? INTEREST_PICKER_LEVELS[idx] : null;
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
   const groupRef = useRef<HTMLDivElement | null>(null);
-  /** Touch / no-hover: collapse chips to the meter after a pick until re-touched. */
-  const [settled, setSettled] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<PopoverPos | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const listId = useId();
 
-  // Leaving the school row must resolve back to the meter with no extra click.
-  // Chip clicks leave focus on the button; we blur so nothing keeps the chips open.
-  // Also set settled for touch layouts where chips are always visible until settled.
   useEffect(() => {
-    const interest = rootRef.current;
-    if (!interest) return;
-    const found = interest.closest("tr.row, .school-card");
-    if (!(found instanceof HTMLElement)) return;
-    const row: HTMLElement = found;
-
-    function resolveToIndicator() {
-      setSettled(true);
-      blurIfInside(row);
-    }
-
-    function onRowLeave(event: PointerEvent) {
-      const next = event.relatedTarget;
-      if (next instanceof Node && row.contains(next)) return;
-      resolveToIndicator();
-    }
-
-    // Table rows sometimes skip pointerleave; cell-level leave + :hover check is reliable.
-    function onCellLeave(event: PointerEvent) {
-      const next = event.relatedTarget;
-      if (next instanceof Node && row.contains(next)) return;
-      // Defer so the browser has updated :hover before we decide.
-      requestAnimationFrame(() => {
-        if (!row.matches(":hover")) resolveToIndicator();
-      });
-    }
-
-    row.addEventListener("pointerleave", onRowLeave);
-    const cells = [...row.querySelectorAll("td")];
-    for (const cell of cells) cell.addEventListener("pointerleave", onCellLeave);
-    return () => {
-      row.removeEventListener("pointerleave", onRowLeave);
-      for (const cell of cells) cell.removeEventListener("pointerleave", onCellLeave);
-    };
+    setMounted(true);
   }, []);
+
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) {
+      setPos(null);
+      return;
+    }
+
+    function place() {
+      const trigger = triggerRef.current;
+      if (!trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      const popoverHeight = popoverRef.current?.offsetHeight ?? 56;
+      const gap = 6;
+      const openUp = rect.bottom + gap + popoverHeight > window.innerHeight - 8 && rect.top > popoverHeight + gap;
+      const top = openUp ? rect.top - gap - popoverHeight : rect.bottom + gap;
+      const width = popoverRef.current?.offsetWidth ?? 320;
+      const left = Math.min(
+        Math.max(8, rect.left),
+        window.innerWidth - width - 8,
+      );
+      setPos({ top, left, openUp });
+    }
+
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (rootRef.current?.contains(target)) return;
+      if (popoverRef.current?.contains(target)) return;
+      setOpen(false);
+    }
+
+    function onKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    }
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const chips = groupRef.current?.querySelectorAll<HTMLButtonElement>(".chip");
+    const focusIndex = Math.max(idx, 0);
+    chips?.[focusIndex]?.focus();
+  }, [open, idx]);
 
   function selectKey(key: string) {
     const next: InterestPickerValue = value === key ? "" : (key as InterestPickerValue);
     onChange(next);
-    // Drop focus immediately so leaving the row cannot leave chips stuck open.
-    requestAnimationFrame(() => blurIfInside(rootRef.current));
+    setOpen(false);
+    requestAnimationFrame(() => triggerRef.current?.focus());
   }
 
   function onGroupKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -100,7 +136,6 @@ export function InterestPicker({
     if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
       event.preventDefault();
       event.stopPropagation();
-      setSettled(false);
       if (!chips.length) return;
       const from = i >= 0 ? i : 0;
       const next =
@@ -116,8 +151,9 @@ export function InterestPicker({
     if (event.key === "Delete" || event.key === "Backspace") {
       event.preventDefault();
       event.stopPropagation();
-      setSettled(false);
       onChange("");
+      setOpen(false);
+      requestAnimationFrame(() => triggerRef.current?.focus());
       return;
     }
 
@@ -129,78 +165,109 @@ export function InterestPicker({
     }
   }
 
+  const label = current ? current.short : "Not set";
+  const ariaLabel = current
+    ? `Interest for ${schoolName}: ${current.name}. Open to change.`
+    : `Interest for ${schoolName}: not set. Open to set.`;
+
+  const popover =
+    mounted && open
+      ? createPortal(
+          <div
+            ref={popoverRef}
+            className={`interest-popover${pos?.openUp ? " open-up" : ""}`}
+            style={
+              pos
+                ? { top: pos.top, left: pos.left }
+                : { top: -9999, left: -9999, visibility: "hidden" }
+            }
+            role="dialog"
+            aria-label={`Set interest for ${schoolName}`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="chips">
+              {onArchive ? (
+                <button
+                  type="button"
+                  className="chip chip-archive"
+                  title="Archive"
+                  aria-label={`Archive ${schoolName}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (
+                      window.confirm(
+                        `Archive ${schoolName}? It stays on file with the phases it was in.`,
+                      )
+                    ) {
+                      onArchive();
+                      setOpen(false);
+                    }
+                  }}
+                >
+                  <span aria-hidden="true">×</span>
+                </button>
+              ) : null}
+              <div
+                ref={groupRef}
+                id={listId}
+                className="chips-levels"
+                role="radiogroup"
+                aria-label={`Interest for ${schoolName}`}
+                onKeyDown={onGroupKeyDown}
+              >
+                {INTEREST_PICKER_LEVELS.map((level, i) => {
+                  const checked = i === idx;
+                  const tabIndex = i === Math.max(idx, 0) ? 0 : -1;
+                  return (
+                    <button
+                      key={level.key}
+                      type="button"
+                      className="chip"
+                      role="radio"
+                      aria-checked={checked}
+                      tabIndex={tabIndex}
+                      data-key={level.key}
+                      title={level.name}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        selectKey(level.key);
+                      }}
+                    >
+                      {level.short}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
+
   return (
-    <div
-      ref={rootRef}
-      className={settled ? "interest is-settled" : "interest"}
-      onClick={(event) => event.stopPropagation()}
-      onPointerEnter={() => {
-        if (settled) setSettled(false);
-      }}
-    >
-      <span className="interest-value" aria-hidden="true">
-        <span className="meter">
+    <div ref={rootRef} className="interest" onClick={(event) => event.stopPropagation()}>
+      <button
+        ref={triggerRef}
+        type="button"
+        className={`interest-trigger${current ? "" : " unset"}${open ? " is-open" : ""}`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls={open ? listId : undefined}
+        aria-label={ariaLabel}
+        title={current ? current.name : "Not set"}
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen((wasOpen) => !wasOpen);
+        }}
+      >
+        <span className="meter" aria-hidden="true">
           {INTEREST_PICKER_LEVELS.map((level, i) => (
             <span key={level.key} className={idx >= 0 && i <= idx ? "on" : undefined} />
           ))}
         </span>
-        <span className={current ? "value-name" : "value-name unset"}>
-          {current ? current.name : "Not set"}
-        </span>
-      </span>
-      <div className="chips">
-        {onArchive ? (
-          <button
-            type="button"
-            className="chip chip-archive"
-            title="Archive"
-            aria-label={`Archive ${schoolName}`}
-            onClick={(event) => {
-              event.stopPropagation();
-              if (
-                window.confirm(
-                  `Archive ${schoolName}? It stays on file with the phases it was in.`,
-                )
-              ) {
-                onArchive();
-              }
-              requestAnimationFrame(() => blurIfInside(rootRef.current));
-            }}
-          >
-            <span aria-hidden="true">×</span>
-          </button>
-        ) : null}
-        <div
-          ref={groupRef}
-          className="chips-levels"
-          role="radiogroup"
-          aria-label={`Interest for ${schoolName}`}
-          onKeyDown={onGroupKeyDown}
-        >
-          {INTEREST_PICKER_LEVELS.map((level, i) => {
-            const checked = i === idx;
-            const tabIndex = i === Math.max(idx, 0) ? 0 : -1;
-            return (
-              <button
-                key={level.key}
-                type="button"
-                className="chip"
-                role="radio"
-                aria-checked={checked}
-                tabIndex={tabIndex}
-                data-key={level.key}
-                title={level.name}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  selectKey(level.key);
-                }}
-              >
-                {level.short}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+        <span className={current ? "value-name" : "value-name unset"}>{label}</span>
+      </button>
+      {popover}
     </div>
   );
 }

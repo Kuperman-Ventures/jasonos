@@ -7012,10 +7012,10 @@ table.schools tbody tr.row.selected {
 }
 
 table.schools td.interest-cell {
-  /* Four level chips + archive X need ~380px; 300px clipped Top choice. */
-  min-width: 380px;
-  width: 380px;
-  max-width: 380px;
+  /* Compact meter + short label; chips open in a floating popover. */
+  min-width: 132px;
+  width: 148px;
+  max-width: 168px;
   vertical-align: middle;
 }
 
@@ -7052,11 +7052,32 @@ table.schools td.visit-cell {
   align-items: center;
   width: 100%;
 }
-.interest-value {
-  display: flex;
+.interest-trigger {
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  max-width: 100%;
   min-width: 0;
+  margin: 0;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.interest-trigger:hover,
+.interest-trigger.is-open {
+  background: rgba(32, 30, 29, 0.05);
+}
+.interest-trigger:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.interest-trigger.unset {
+  color: var(--text-subtle);
 }
 .meter {
   display: flex;
@@ -7078,20 +7099,31 @@ table.schools td.visit-cell {
   background: var(--meter, var(--color-neutral-300));
 }
 .value-name {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 .value-name.unset {
   font-weight: 400;
   color: var(--text-subtle);
 }
 
-.chips {
-  display: none;
+.interest-popover {
+  position: fixed;
+  z-index: 80;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  box-shadow:
+    0 0 0 1px rgba(32, 30, 29, 0.12),
+    0 12px 28px rgba(32, 30, 29, 0.16);
+}
+.interest-popover .chips {
+  display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: nowrap;
@@ -7155,23 +7187,6 @@ table.schools td.visit-cell {
   box-shadow: inset 0 0 0 2px oklch(0.62 0.16 45);
 }
 
-/* Hover only — not :focus-within. Focus after a chip click must not keep
-   chips open once the pointer leaves the row (no extra click required). */
-table.schools tbody tr.row:hover .chips {
-  display: flex;
-}
-table.schools tbody tr.row:hover .interest-value {
-  display: none;
-}
-
-/* Touch / settled: force the meter until the interest control is touched again. */
-.interest.is-settled .chips {
-  display: none !important;
-}
-.interest.is-settled .interest-value {
-  display: flex !important;
-}
-
 /* Mobile cards */
 .school-card-interest {
   margin-top: var(--space-2);
@@ -7181,17 +7196,3 @@ table.schools tbody tr.row:hover .interest-value {
 .school-card-interest[data-level="moderate"] { --meter: var(--lvl-2); }
 .school-card-interest[data-level="high"] { --meter: var(--lvl-3); }
 .school-card-interest[data-level="top"] { --meter: var(--lvl-4); }
-
-@media (hover: none) {
-  .chips { display: flex; }
-  .interest-value { display: none; }
-  .interest.is-settled .chips { display: none !important; }
-  .interest.is-settled .interest-value { display: flex !important; }
-}
-
-.school-card:hover .chips {
-  display: flex;
-}
-.school-card:hover .interest-value {
-  display: none;
-}
