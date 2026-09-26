@@ -225,9 +225,7 @@ export function SchoolSnapshotSummary({
     <div className="snapshot">
       <div className="intro">
         <h1>School snapshot</h1>
-        <p className="lede">
-          Key facts at a glance. Set family-owned values in place — they save as you change them.
-        </p>
+        <p className="lede">Key facts at a glance.</p>
       </div>
 
       <div className="areas">
