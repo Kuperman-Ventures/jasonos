@@ -149,6 +149,27 @@ export function InterestPicker({
         </span>
       </span>
       <div className="chips">
+        {onArchive ? (
+          <button
+            type="button"
+            className="chip chip-archive"
+            title="Archive"
+            aria-label={`Archive ${schoolName}`}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (
+                window.confirm(
+                  `Archive ${schoolName}? It stays on file with the phases it was in.`,
+                )
+              ) {
+                onArchive();
+              }
+              requestAnimationFrame(() => blurIfInside(rootRef.current));
+            }}
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        ) : null}
         <div
           ref={groupRef}
           className="chips-levels"
@@ -179,27 +200,6 @@ export function InterestPicker({
             );
           })}
         </div>
-        {onArchive ? (
-          <button
-            type="button"
-            className="chip chip-archive"
-            title="Archive"
-            aria-label={`Archive ${schoolName}`}
-            onClick={(event) => {
-              event.stopPropagation();
-              if (
-                window.confirm(
-                  `Archive ${schoolName}? It stays on file with the phases it was in.`,
-                )
-              ) {
-                onArchive();
-              }
-              requestAnimationFrame(() => blurIfInside(rootRef.current));
-            }}
-          >
-            <span aria-hidden="true">×</span>
-          </button>
-        ) : null}
       </div>
     </div>
   );
