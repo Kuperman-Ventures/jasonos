@@ -1,0 +1,42 @@
+{
+  "soc": {
+    "cred": 2,
+    "price": 1,
+    "local": 2,
+    "scope": 3,
+    "phil": 3,
+    "track": 3
+  },
+  "ari": {
+    "cred": 2,
+    "price": 1,
+    "local": 1,
+    "scope": 4,
+    "phil": 3,
+    "track": 2
+  },
+  "fcp": {
+    "cred": 2,
+    "price": 1,
+    "local": 4,
+    "scope": 3,
+    "phil": 4,
+    "track": 3
+  },
+  "ctk": {
+    "cred": 3,
+    "price": 4,
+    "local": 5,
+    "scope": 4,
+    "phil": 4,
+    "track": 3
+  },
+  "hfc": {
+    "cred": 5,
+    "price": 1,
+    "local": 3,
+    "scope": 4,
+    "phil": 5,
+    "track": 3
+  }
+}

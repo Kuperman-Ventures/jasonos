@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Phase stepper — calendar bar, fused span (3c)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,300..900;1,62..125,300..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --paper:#f3f2f2; --ink:#201e1d; --muted:#444141; --subtle:#605d5d;
+  --accent:#e85504; --text-accent:#9e3603; --divider:rgba(32,30,29,.16);
+  --mono:"IBM Plex Mono",monospace; --sans:"Archivo",system-ui,sans-serif;
+}
+/* 2c "Deepening paper": one token set per phase. The page reads these. */
+[data-phase="exploration"]  {--phase-bg:#f3f2f2;--phase-surface:#e8e6e5;--phase-track:#d7d3d3;--phase-muted:#444141;--phase-subtle:#605d5d}
+[data-phase="consideration"]{--phase-bg:#e7e5e2;--phase-surface:#dbd8d4;--phase-track:#c5c1bc;--phase-muted:#444141;--phase-subtle:#605d5d}
+[data-phase="applications"] {--phase-bg:#d6d9dc;--phase-surface:#c9cdd1;--phase-track:#b0b5bb;--phase-muted:#3a3838;--phase-subtle:#4f4d4d}
+/* Span tones: fixed per step, independent of the viewed phase */
+.step[data-step="exploration"]  {--tone:#bab6b6;--own-bg:#f3f2f2}
+.step[data-step="consideration"]{--tone:#a8a39d;--own-bg:#e7e5e2}
+.step[data-step="applications"] {--tone:#8f969e;--own-bg:#d6d9dc}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans)}
+a{color:var(--text-accent)}a:hover{color:#c74503}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.label{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--phase-subtle,var(--subtle))}
+
+.head{background:var(--paper);padding:56px 72px 0}
+.head-top{display:flex;justify-content:space-between;gap:40px}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-accent)}
+h1{margin:10px 0 0;font-size:42px;line-height:1.1;font-weight:700;letter-spacing:-.02em}
+.readout{border-left:1px solid var(--divider);padding-left:30px;display:flex;flex-direction:column;gap:6px;min-width:220px}
+.readout .fig{font-family:var(--mono);font-size:48px;line-height:1;font-weight:500;color:var(--accent);font-variant-numeric:tabular-nums}
+.readout .sub{font-family:var(--mono);font-size:14px;color:var(--muted)}
+
+/* Stepper */
+.stepper{display:grid;grid-template-columns:4fr 7fr 5fr;gap:6px;margin-top:36px;list-style:none;padding:0;margin-bottom:0}
+.step{display:flex}
+.step button{all:unset;box-sizing:border-box;cursor:pointer;width:100%;height:100%;display:flex;flex-direction:column;gap:12px;
+  padding:6px 18px 26px;border-top:3px solid transparent;background:transparent;font-family:var(--sans);transition:background .35s}
+.step button:hover{background:color-mix(in oklab,var(--own-bg) 55%,transparent)}
+.step button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.step button[aria-current="step"]{background:var(--own-bg);border-top-color:var(--ink)}
+.today-slot{height:34px;position:relative}
+.today{position:absolute;bottom:0;display:flex;flex-direction:column;gap:4px}
+.today span:first-child{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--text-accent);white-space:nowrap}
+.today span:last-child{width:2px;height:12px;background:var(--accent)}
+.bar-slot{height:12px;display:flex;align-items:center}
+.bar{position:relative;width:100%;height:6px;background:var(--tone);transition:height .2s}
+[aria-current="step"] .bar{height:12px}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--accent)}
+.step .num{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--subtle)}
+.step .now{margin-left:10px;font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--text-accent)}
+.step .name{font-size:22px;font-weight:600;color:var(--muted);margin-top:-4px}
+[aria-current="step"] .name{color:var(--ink)}
+.step .meta{font-family:var(--mono);font-size:13px;color:var(--subtle)}
+
+/* Page body takes the viewed phase color */
+.body{background:var(--phase-bg);padding:40px 72px 72px;display:flex;flex-direction:column;gap:32px;transition:background .35s;min-height:60vh}
+.size{display:flex;flex-direction:column;gap:14px;max-width:560px}
+.size-row{display:flex;justify-content:space-between}
+.size-row .mono{font-size:14px;color:var(--phase-muted)}
+.track{position:relative;height:6px;background:var(--phase-track)}
+.track .band{position:absolute;top:-6px;bottom:-6px;background:rgba(32,30,29,.08)}
+.track .fill{position:absolute;top:0;bottom:0;left:0;background:var(--ink)}
+.track .over{position:absolute;top:0;bottom:0;background:var(--accent)}
+.note{margin:0;font-size:16px;line-height:1.55;color:var(--phase-muted);max-width:66ch}
+.thead{background:var(--phase-surface);padding:18px 20px;display:grid;gap:16px}
+</style>
+</head>
+<body>
+<div id="app" data-phase="consideration">
+  <header class="head">
+    <div class="head-top">
+      <div>
+        <div class="eyebrow" id="eyebrow"></div>
+        <h1>College list</h1>
+      </div>
+      <div class="readout">
+        <span class="label" id="readLabel"></span>
+        <span class="fig" id="readFig"></span>
+        <span class="sub" id="readSub"></span>
+      </div>
+    </div>
+    <ol class="stepper" id="stepper" aria-label="College list phases"></ol>
+  </header>
+  <main class="body">
+    <section class="size">
+      <div class="size-row"><span class="label">List size</span><span class="mono" id="sizeNote"></span></div>
+      <div class="track"><span class="band" id="band"></span><span class="fill" id="fill"></span><span class="over" id="over"></span></div>
+      <p class="note" id="note"></p>
+    </section>
+    <div class="thead" id="thead"></div>
+  </main>
+</div>
+<script>
+const TODAY = new Date(2026, 8, 25);
+const PHASES = [
+  {key:'exploration',  name:'Exploration',  season:'Junior fall',   start:new Date(2026,8,1), end:new Date(2027,0,1), dates:'Sep 2026 – Dec 2026', have:43, target:30, lo:27, hi:33, max:50,
+   cols:['School','Location','Selectivity','Interest']},
+  {key:'consideration',name:'Consideration',season:'Junior spring', start:new Date(2027,0,1), end:new Date(2027,7,1), dates:'Jan 2027 – Jul 2027', have:0, target:12, lo:10, hi:15, max:20,
+   cols:['School','Selectivity','Interest','Track & deadline','Next action']},
+  {key:'applications', name:'Applications', season:'Senior fall',   start:new Date(2027,7,1), end:new Date(2028,0,1), dates:'Jul 2027 onward',     have:0, target:10, lo:8,  hi:12, max:16,
+   cols:['School','Status','Track & deadline','Selectivity','Interest','Next action']}
+];
+const nowIdx = PHASES.findIndex(p => TODAY >= p.start && TODAY < p.end);
+let viewIdx = 1;
+const app = document.getElementById('app'), stepper = document.getElementById('stepper');
+const pct = n => (n*100).toFixed(2)+'%';
+
+// Grid columns follow each phase's real length
+stepper.style.gridTemplateColumns = PHASES.map(p => ((p.end-p.start)/864e5).toFixed(0)+'fr').join(' ');
+
+function render(){
+  const p = PHASES[viewIdx];
+  app.dataset.phase = p.key;
+  stepper.innerHTML = PHASES.map((s,i) => {
+    const isNow = i===nowIdx, progress = isNow ? (TODAY-s.start)/(s.end-s.start) : (i<nowIdx ? 1 : 0);
+    return `<li class="step" data-step="${s.key}">
+      <button type="button" data-i="${i}" ${i===viewIdx?'aria-current="step"':''}>
+        <div class="today-slot">${isNow?`<div class="today" style="left:${pct(progress)}"><span>TODAY · ${TODAY.toLocaleString('en',{month:'short'}).toUpperCase()} ${TODAY.getDate()}</span><span></span></div>`:''}</div>
+        <div class="bar-slot"><div class="bar"><i style="width:${pct(progress)}"></i></div></div>
+        <span class="num">Step ${i+1}${isNow?'<span class="now">NOW</span>':''}</span>
+        <span class="name">${s.name}</span>
+        <span class="meta">${s.dates} · ${s.have} / ${s.target} schools</span>
+      </button></li>`;
+  }).join('');
+  document.getElementById('eyebrow').textContent = `Phase ${viewIdx+1} of 3 · ${p.season}`;
+  document.getElementById('readLabel').textContent = `${p.name} list`;
+  document.getElementById('readFig').textContent = p.have;
+  document.getElementById('readSub').textContent = `of ~${p.target} target (${p.lo}–${p.hi})`;
+  document.getElementById('sizeNote').textContent = p.have>p.hi ? `+${p.have-p.hi} over range` : p.have<p.lo ? `${p.lo-p.have} under range` : 'In range';
+  const band = document.getElementById('band'); band.style.left = pct(p.lo/p.max); band.style.width = pct((p.hi-p.lo)/p.max);
+  document.getElementById('fill').style.width = pct(Math.min(p.have,p.hi)/p.max);
+  const over = document.getElementById('over'); over.style.left = pct(p.hi/p.max); over.style.width = pct(Math.max(0,p.have-p.hi)/p.max);
+  document.getElementById('note').textContent = p.have>p.hi
+    ? `${p.have} active against a target of about ${p.target}. Trim ${p.have-p.hi} to reach the top of the range.`
+    : `${p.have} active against a target of about ${p.target}. Add ${Math.max(0,p.lo-p.have)} to reach the bottom of the range.`;
+  const th = document.getElementById('thead');
+  th.style.gridTemplateColumns = `2fr repeat(${p.cols.length-1},minmax(0,1fr))`;
+  th.innerHTML = p.cols.map(c => `<span class="label">${c}</span>`).join('');
+}
+stepper.addEventListener('click', e => { const b = e.target.closest('button[data-i]'); if(b){ viewIdx = +b.dataset.i; render(); } });
+stepper.addEventListener('keydown', e => {
+  if(!['ArrowLeft','ArrowRight'].includes(e.key)) return;
+  viewIdx = Math.max(0, Math.min(2, viewIdx + (e.key==='ArrowRight'?1:-1))); render();
+  stepper.querySelector('[aria-current="step"]').focus();
+});
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Track — timeline (dense ledger, months)</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,300..900;1,62..125,300..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root {
+  --color-bg: #f3f2f2;
+  --color-surface: #eae9e9;
+  --color-divider: rgba(32,30,29,0.16);
+  --color-hairline: rgba(32,30,29,0.08);
+  --color-text: #201e1d;
+  --text-muted: #444141;
+  --text-subtle: #605d5d;
+  --text-accent: #9e3603;
+  --accent-500: #e85504; --accent-600: #c74503; --accent-100: #feeee4;
+  --bar: #1b4aa0;
+  --bar-future: #b8c7e0;
+  --milestone: #d6006c; --milestone-ink: #a6034f;
+  --font-heading: "Archivo", system-ui, sans-serif;
+  --font-body: "Archivo", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --space-1: 5px; --space-2: 10px; --space-3: 15px; --space-4: 20px; --space-6: 30px;
+  --radius-sm: 1px; --radius-md: 2px;
+
+  /* timeline geometry — the only numbers to change when the window moves */
+  --months: 17;
+  --row-h: 34px;
+  --bar-h: 16px;
+  --label-w: 250px;
+  --span-w: 96px;
+  --month-min: 34px;
+}
+[data-theme="dark"] {
+  --color-bg: #16181b; --color-surface: #1f2228;
+  --color-divider: rgba(240,238,236,0.16); --color-hairline: rgba(240,238,236,0.08);
+  --color-text: #f0eeec; --text-muted: #c3c8cf; --text-subtle: #9aa0a8; --text-accent: #fab48e;
+  --accent-100: rgba(232,85,4,0.14);
+  --bar: #4a7fd4; --bar-future: #39455c; --milestone: #ff4d9d; --milestone-ink: #ff87bd;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--color-bg); color: var(--color-text); font-family: var(--font-body); font-size: 17px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+a { color: var(--text-accent); }
+:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 2px; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.label { font-family: var(--font-mono); font-size: 10px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-subtle); }
+
+.page { padding: var(--space-6); max-width: 1400px; }
+.page-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4); }
+.page-head h1 { margin: 0; font-family: var(--font-heading); font-size: 32px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; }
+.page-head .dateline { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-accent); margin-bottom: var(--space-1); }
+
+/* ---------- the chart ---------- */
+.gantt-scroll { overflow-x: auto; overflow-y: visible; padding-bottom: var(--space-2); }
+.gantt {
+  display: grid;
+  grid-template-columns: var(--label-w) var(--span-w) repeat(var(--months), minmax(var(--month-min), 1fr));
+  align-items: center;
+  min-width: calc(var(--label-w) + var(--span-w) + var(--months) * var(--month-min));
+  position: relative;
+}
+
+/* header */
+.gantt .yr {
+  grid-row: 1;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 500;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-subtle);
+  padding-bottom: 2px;
+}
+.gantt .mo {
+  grid-row: 2;
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-subtle);
+  text-align: center; padding-bottom: 7px;
+  border-bottom: 1px solid var(--color-divider);
+}
+.gantt .mo[data-q] { color: var(--text-muted); font-weight: 600; }
+.gantt .head-pad { grid-row: 2; border-bottom: 1px solid var(--color-divider); padding-bottom: 7px; }
+
+/* background layers */
+.gantt .gridlines {
+  grid-column: 3 / -1; grid-row: 3 / -1;
+  align-self: stretch; pointer-events: none;
+  background-image: repeating-linear-gradient(to right, var(--color-hairline) 0 1px, transparent 1px calc(100% / var(--months)));
+  background-size: calc(100% / var(--months) * var(--months)) 100%;
+}
+.gantt .now {
+  grid-row: 2 / -1; align-self: stretch; justify-self: start;
+  width: 2px; background: var(--accent-500); pointer-events: none; position: relative;
+}
+.gantt .now::after {
+  content: "NOW"; position: absolute; top: -16px; left: -3px;
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.14em; color: var(--accent-500);
+}
+
+/* rows */
+.gantt .name {
+  grid-column: 1; height: var(--row-h);
+  display: flex; align-items: center; gap: var(--space-2);
+  font-size: 15px; color: var(--color-text); padding-right: var(--space-3);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.gantt .name[data-state="future"] { color: var(--text-subtle); }
+.gantt .span {
+  grid-column: 2; height: var(--row-h);
+  display: flex; align-items: center;
+  font-family: var(--font-mono); font-size: 11px; font-variant-numeric: tabular-nums;
+  color: var(--text-subtle); padding-right: var(--space-3);
+}
+.gantt .rule { grid-column: 1 / -1; height: var(--row-h); border-bottom: 1px solid var(--color-hairline); }
+.gantt .bar {
+  height: var(--bar-h); background: var(--bar); border-radius: var(--radius-sm);
+  align-self: center; position: relative; z-index: 1; cursor: pointer;
+}
+.gantt .bar:hover { background: var(--accent-600); }
+.gantt .bar[data-state="future"] { background: var(--bar-future); }
+.gantt .bar[data-state="future"]:hover { background: var(--accent-500); }
+.gantt .pin {
+  width: 11px; height: 11px; background: var(--milestone);
+  transform: rotate(45deg); justify-self: start; margin-left: -5px;
+  align-self: center; position: relative; z-index: 2;
+}
+
+.legend { display: flex; flex-wrap: wrap; gap: var(--space-4); margin-top: var(--space-3); padding-top: var(--space-3); border-top: 1px solid var(--color-divider); font-family: var(--font-mono); font-size: 11px; color: var(--text-subtle); }
+.legend span { display: flex; align-items: center; gap: 6px; }
+.legend i { display: block; }
+
+@media (max-width: 900px) {
+  :root { --label-w: 180px; --span-w: 0px; --month-min: 26px; }
+  .gantt .span { display: none; }
+  .page { padding: var(--space-4); }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="page-head">
+    <div>
+      <div class="dateline">Phase 1 · Junior Fall</div>
+      <h1>Timeline</h1>
+    </div>
+    <div class="mono" style="font-size:12px; color:var(--text-subtle)">7 tasks · 1 milestone · Sep 2026 – Jan 2028</div>
+  </header>
+
+  <div class="gantt-scroll">
+    <!--
+      Column math: column 1 = name, column 2 = span text, months start at column 3.
+      A task from month index S (0 = Sep 2026) lasting L months is
+      grid-column: calc(3 + S) / span L.
+    -->
+    <div class="gantt" role="table" aria-label="Application timeline by month">
+
+      <!-- year bands -->
+      <div class="yr" style="grid-column: 3 / span 4">2026</div>
+      <div class="yr" style="grid-column: 7 / span 12">2027</div>
+      <div class="yr" style="grid-column: 19 / span 1">2028</div>
+
+      <!-- month scale -->
+      <div class="head-pad" style="grid-column: 1 / 3"></div>
+      <div class="mo" data-q>Sep</div><div class="mo">Oct</div><div class="mo">Nov</div><div class="mo">Dec</div>
+      <div class="mo" data-q>Jan</div><div class="mo">Feb</div><div class="mo">Mar</div>
+      <div class="mo" data-q>Apr</div><div class="mo">May</div><div class="mo">Jun</div>
+      <div class="mo" data-q>Jul</div><div class="mo">Aug</div><div class="mo">Sep</div>
+      <div class="mo" data-q>Oct</div><div class="mo">Nov</div><div class="mo">Dec</div>
+      <div class="mo" data-q>Jan</div>
+
+      <div class="gridlines"></div>
+      <!-- now = Nov 2026 → index 2 → column 5 -->
+      <div class="now" style="grid-column: 5" aria-hidden="true"></div>
+
+      <!-- row 1 · Develop college list · Sep 26 – Mar 27 -->
+      <div class="rule" style="grid-row: 3; grid-column: 1 / -1"></div>
+      <div class="name" style="grid-row: 3">Develop college list</div>
+      <div class="span" style="grid-row: 3">Sep – Mar</div>
+      <div class="bar" style="grid-row: 3; grid-column: 3 / span 7" title="Develop college list · Sep 2026 – Mar 2027"></div>
+
+      <!-- row 2 · Visit colleges · Sep 26 – Mar 27 -->
+      <div class="rule" style="grid-row: 4; grid-column: 1 / -1"></div>
+      <div class="name" style="grid-row: 4">Visit colleges, in person &amp; virtually</div>
+      <div class="span" style="grid-row: 4">Sep – Mar</div>
+      <div class="bar" style="grid-row: 4; grid-column: 3 / span 7" title="Visit colleges · Sep 2026 – Mar 2027"></div>
+
+      <!-- row 3 · Testing · Sep 26 – Jun 27 -->
+      <div class="rule" style="grid-row: 5; grid-column: 1 / -1"></div>
+      <div class="name" style="grid-row: 5">Testing · PSAT → SAT / ACT</div>
+      <div class="span" style="grid-row: 5">Sep – Jun</div>
+      <div class="bar" style="grid-row: 5; grid-column: 3 / span 10" title="Testing · Sep 2026 – Jun 2027"></div>
+
+      <!-- row 4 · Bio, brag sheet & recs · Jan 27 – Jun 27 -->
+      <div class="rule" style="grid-row: 6; grid-column: 1 / -1"></div>
+      <div class="name" style="grid-row: 6">Bio for GC, brag sheet &amp; teacher recs</div>
+      <div class="span" style="grid-row: 6">Jan – Jun</div>
+      <div class="bar" style="grid-row: 6; grid-column: 7 / span 6" title="Bio, brag sheet and teacher recommendations · Jan 2027 – Jun 2027"></div>
+
+      <!-- row 5 · Community service · Sep 26 – Mar 27 -->
+      <div class="rule" style="grid-row: 7; grid-column: 1 / -1"></div>
+      <div class="name" style="grid-row: 7">Community service / passion project</div>
+      <div class="span" style="grid-row: 7">Sep – Mar</div>
+      <div class="bar" style="grid-row: 7; grid-column: 3 / span 7" title="Community service / passion project · Sep 2026 – Mar 2027"></div>
+
+      <!-- row 6 · Budget → FAFSA · Sep 26 – Dec 27, with the essays milestone at Jul 27 -->
+      <div class="rule" style="grid-row: 8; grid-column: 1 / -1"></div>
+      <div class="name" style="grid-row: 8">Budget → FAFSA / CSS / aid</div>
+      <div class="span" style="grid-row: 8">Sep – Dec 27</div>
+      <div class="bar" style="grid-row: 8; grid-column: 3 / span 16" title="Budget, FAFSA, CSS and aid · Sep 2026 – Dec 2027"></div>
+
+      <!-- milestone row · essays · Jul 27 -->
+      <div class="rule" style="grid-row: 9; grid-column: 1 / -1"></div>
+      <div class="name" style="grid-row: 9; color: var(--milestone-ink)">Rising seniors: write your essays</div>
+      <div class="span" style="grid-row: 9">Jul 2027</div>
+      <div class="pin" style="grid-row: 9; grid-column: 13" title="Milestone · write your college application essays · Jul 2027"></div>
+
+      <!-- row 7 · Submit applications · Oct 27 – Jan 28 -->
+      <div class="name" style="grid-row: 10" data-state="future">Submit applications</div>
+      <div class="span" style="grid-row: 10">Oct – Jan 28</div>
+      <div class="bar" data-state="future" style="grid-row: 10; grid-column: 16 / span 4" title="Submit applications · Oct 2027 – Jan 2028 · not started"></div>
+
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i style="width:14px; height:8px; background:var(--accent-500)"></i>You are here · Nov 2026</span>
+    <span><i style="width:14px; height:8px; background:var(--bar)"></i>In progress</span>
+    <span><i style="width:14px; height:8px; background:var(--bar-future)"></i>Not started</span>
+    <span><i style="width:9px; height:9px; background:var(--milestone); transform:rotate(45deg)"></i>Milestone</span>
+  </div>
+
+</div>
+</body>
+</html>

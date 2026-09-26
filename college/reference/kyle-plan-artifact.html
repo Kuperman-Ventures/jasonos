@@ -1,0 +1,1153 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Kyle's College Search</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --ink:#0d1526;
+    --surface:#141f38;
+    --surface-2:#1b2942;
+    --line:rgba(255,255,255,0.10);
+    --line-gold:rgba(201,162,75,0.28);
+    --text:#eef1f7;
+    --text-muted:#a3adc6;
+    --gold:#c9a24b;
+    --gold-bright:#e2c07c;
+    --good:#7fae82;
+    --good-bg:rgba(127,174,130,0.14);
+    --warn:#d97b3f;
+    --warn-bg:rgba(217,123,63,0.14);
+    --bad:#c1666b;
+    --bad-bg:rgba(193,102,107,0.14);
+    --shadow: 0 10px 30px rgba(0,0,0,0.35);
+  }
+  @media (prefers-color-scheme: light){
+    :root:not([data-theme="dark"]){
+      --ink:#faf7f0;
+      --surface:#ffffff;
+      --surface-2:#f2ede0;
+      --line:rgba(22,33,61,0.12);
+      --line-gold:rgba(150,116,43,0.35);
+      --text:#1b2438;
+      --text-muted:#5b6478;
+      --gold:#8a6a28;
+      --gold-bright:#6e551f;
+      --good:#3f7a46;
+      --good-bg:rgba(63,122,70,0.12);
+      --warn:#a85a24;
+      --warn-bg:rgba(168,90,36,0.12);
+      --bad:#9c3d43;
+      --bad-bg:rgba(156,61,67,0.12);
+      --shadow: 0 8px 24px rgba(22,33,61,0.10);
+    }
+  }
+  :root[data-theme="light"]{
+    --ink:#faf7f0;
+    --surface:#ffffff;
+    --surface-2:#f2ede0;
+    --line:rgba(22,33,61,0.12);
+    --line-gold:rgba(150,116,43,0.35);
+    --text:#1b2438;
+    --text-muted:#5b6478;
+    --gold:#8a6a28;
+    --gold-bright:#6e551f;
+    --good:#3f7a46;
+    --good-bg:rgba(63,122,70,0.12);
+    --warn:#a85a24;
+    --warn-bg:rgba(168,90,36,0.12);
+    --bad:#9c3d43;
+    --bad-bg:rgba(156,61,67,0.12);
+    --shadow: 0 8px 24px rgba(22,33,61,0.10);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--ink);
+    color:var(--text);
+    font-family:'IBM Plex Sans', -apple-system, 'Segoe UI', sans-serif;
+    padding:0 20px 64px;
+  }
+  .wrap{max-width:980px; margin:0 auto;}
+
+  h1,h2,h3{font-family:'Fraunces', Georgia, serif; text-wrap:balance; margin:0; font-weight:600;}
+  .mono{font-family:'JetBrains Mono','SFMono-Regular',Consolas,monospace;}
+
+  /* ---- Masthead ---- */
+  header.mast{
+    padding:40px 0 24px;
+    border-bottom:1px solid var(--line-gold);
+    display:flex; flex-wrap:wrap; gap:20px; justify-content:space-between; align-items:flex-end;
+  }
+  header.mast .eyebrow{
+    font-family:'JetBrains Mono',monospace; font-size:12px; letter-spacing:0.12em; text-transform:uppercase;
+    color:var(--gold); margin:0 0 10px;
+  }
+  header.mast h1{font-size:clamp(28px,4.5vw,40px); line-height:1.1;}
+  header.mast .sub{color:var(--text-muted); font-size:15px; margin-top:6px;}
+  .status-pill{
+    font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--ink); background:var(--gold);
+    padding:7px 14px; border-radius:100px; white-space:nowrap; height:fit-content;
+  }
+
+  /* ---- Tabs ---- */
+  nav.tabs{
+    display:flex; gap:6px; margin:28px 0 24px; border-bottom:1px solid var(--line); padding-bottom:0;
+    overflow-x:auto;
+  }
+  nav.tabs button{
+    font-family:'IBM Plex Sans',sans-serif; font-size:14px; font-weight:600; color:var(--text-muted);
+    background:none; border:none; padding:12px 4px; margin-right:22px; cursor:pointer;
+    border-bottom:2px solid transparent; white-space:nowrap;
+  }
+  nav.tabs button:hover{color:var(--text);}
+  nav.tabs button.active{color:var(--gold); border-bottom-color:var(--gold);}
+  nav.tabs button:focus-visible{outline:2px solid var(--gold); outline-offset:2px;}
+
+  section.panel{display:none;}
+  section.panel.active{display:block;}
+
+  /* ---- Mobile roadmap (visual, phones only) ---- */
+  .roadmap{display:none;}
+  @media screen and (max-width:640px){
+    .roadmap{display:block; margin:6px 0 30px;}
+    .phase-body{display:none;}
+    .phase.expanded .phase-body{display:block;}
+    .phase-head{cursor:pointer;}
+  }
+  .roadmap-item{display:flex; gap:14px; position:relative; padding-bottom:24px; cursor:pointer;}
+  .roadmap-item:last-child{padding-bottom:0;}
+  .roadmap-item:not(:last-child)::before{
+    content:""; position:absolute; left:16px; top:34px; bottom:-24px; width:2px; background:var(--line-gold);
+  }
+  .roadmap-item.state-done:not(:last-child)::before{background:var(--gold);}
+  .roadmap-dot{
+    width:34px; height:34px; border-radius:50%; flex-shrink:0; position:relative; z-index:1;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:600;
+    border:2px solid var(--line-gold); color:var(--text-muted); background:var(--surface);
+  }
+  .roadmap-item.state-done .roadmap-dot{background:var(--gold); border-color:var(--gold); color:var(--ink);}
+  .roadmap-item.state-current .roadmap-dot{border-color:var(--gold); color:var(--gold); box-shadow:0 0 0 4px var(--line-gold);}
+  .roadmap-info{flex:1 1 auto; padding-top:4px; min-width:0;}
+  .roadmap-top{display:flex; align-items:baseline; justify-content:space-between; gap:10px;}
+  .roadmap-name{font-family:'Fraunces',serif; font-size:16px; font-weight:600;}
+  .roadmap-progress{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-muted); white-space:nowrap;}
+  .roadmap-window{font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:600; color:var(--gold); margin-top:3px;}
+
+  /* ---- Timeline ---- */
+  .phase{
+    background:var(--surface); border:1px solid var(--line); border-radius:10px;
+    margin-bottom:18px; overflow:hidden;
+  }
+  .phase-head{
+    display:flex; align-items:center; gap:16px; padding:18px 20px;
+    border-bottom:1px solid var(--line);
+  }
+  .phase-num{
+    font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--gold);
+    border:1px solid var(--line-gold); border-radius:100px; width:30px; height:30px;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .phase-head h2{font-size:19px; flex:1 1 auto;}
+  .phase-window{
+    font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:600; color:var(--gold);
+    letter-spacing:0.02em; white-space:nowrap; border:1px solid var(--line-gold); border-radius:100px;
+    padding:5px 12px;
+  }
+  .phase-progress{
+    font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--text-muted);
+    white-space:nowrap;
+  }
+  .phase-body{padding:6px 20px 14px;}
+  .item{
+    display:flex; align-items:flex-start; gap:12px; padding:11px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .item:last-child{border-bottom:none;}
+  .item input[type="checkbox"]{
+    margin-top:3px; width:17px; height:17px; accent-color:var(--gold); flex-shrink:0; cursor:pointer;
+  }
+  .item label{font-size:14.5px; line-height:1.5; cursor:pointer;}
+  .item.done label{color:var(--text-muted); text-decoration:line-through; text-decoration-color:var(--line-gold);}
+
+  /* ---- Consultants ---- */
+  .firm-grid{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; margin-bottom:28px;
+  }
+  .firm-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:18px;
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .firm-card h3{font-size:17px;}
+  .firm-card a{color:var(--gold); font-size:12px; text-decoration:none; font-family:'JetBrains Mono',monospace;}
+  .firm-card a:hover{text-decoration:underline;}
+  .firm-fact{font-size:13px; color:var(--text-muted); line-height:1.5;}
+  .firm-fact b{color:var(--text); font-weight:600;}
+  .firm-score{
+    margin-top:auto; padding-top:10px; border-top:1px solid var(--line);
+    display:flex; justify-content:space-between; align-items:baseline;
+  }
+  .firm-score .label{font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);}
+  .firm-score .val{font-family:'JetBrains Mono',monospace; font-size:22px; color:var(--gold);}
+  .firm-card.leader{border-color:var(--line-gold); box-shadow:var(--shadow);}
+
+  .table-wrap{overflow-x:auto; border:1px solid var(--line); border-radius:10px; margin-bottom:8px;}
+  table.rubric{border-collapse:collapse; width:100%; min-width:860px; background:var(--surface);}
+  table.rubric th, table.rubric td{padding:12px 14px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top;}
+  table.rubric th{
+    font-family:'JetBrains Mono',monospace; font-size:11px; text-transform:uppercase; letter-spacing:0.06em;
+    color:var(--text-muted); background:var(--surface-2); position:sticky; top:0;
+  }
+  table.rubric td.crit{max-width:260px;}
+  table.rubric td.crit .name{font-weight:600; font-size:14px;}
+  table.rubric td.crit .desc{font-size:12px; color:var(--text-muted); margin-top:3px; line-height:1.4;}
+  table.rubric td.weight{font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--gold); white-space:nowrap;}
+  table.rubric td.score{text-align:center;}
+  table.rubric input.score-in{
+    width:44px; text-align:center; font-family:'JetBrains Mono',monospace; font-size:14px;
+    background:var(--surface-2); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:6px 4px;
+  }
+  table.rubric input.score-in:focus{outline:2px solid var(--gold); outline-offset:1px;}
+  table.rubric tr.total td{font-family:'JetBrains Mono',monospace; font-weight:600; background:var(--surface-2);}
+  table.rubric tr.total td.score{font-size:16px; color:var(--gold);}
+
+  .rubric-note{font-size:12.5px; color:var(--text-muted); line-height:1.6; margin:14px 0 28px;}
+
+  /* ---- FAQ accordion ---- */
+  .faq-item{border-bottom:1px solid var(--line); padding:10px 0;}
+  .faq-item:last-child{border-bottom:none;}
+  .faq-q{display:flex; justify-content:space-between; align-items:center; gap:14px; cursor:pointer;}
+  .faq-q span:first-child{font-size:14.5px; font-weight:600; line-height:1.4;}
+  .faq-q .chev{font-size:16px; color:var(--gold); flex-shrink:0; transition:transform .15s ease;}
+  .faq-item.open .faq-q .chev{transform:rotate(90deg);}
+  .faq-a{display:none; font-size:13.5px; line-height:1.65; color:var(--text-muted); padding-top:8px; max-width:820px;}
+  .faq-item.open .faq-a{display:block;}
+
+  /* ---- Application Questions reference ---- */
+  .appq-subhead{font-size:12px; text-transform:uppercase; letter-spacing:0.08em; font-family:'JetBrains Mono',monospace; color:var(--gold); margin:0 0 12px;}
+  .appq-group{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:6px 20px; margin-bottom:24px;}
+  .appq-block{padding:14px 0; border-bottom:1px solid var(--line);}
+  .appq-block:last-child{border-bottom:none;}
+  .appq-block h3{font-size:15px; margin-bottom:5px;}
+  .appq-block p{font-size:13.5px; line-height:1.6; color:var(--text-muted); margin:0;}
+
+  .callprep{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:20px 22px;}
+  .callprep h3{font-size:16px; margin-bottom:12px;}
+  .callprep ol{margin:0; padding-left:20px; display:flex; flex-direction:column; gap:9px;}
+  .callprep li{font-size:14px; line-height:1.55;}
+
+  /* ---- Notes ---- */
+  textarea#notes{
+    width:100%; min-height:280px; background:var(--surface); color:var(--text);
+    border:1px solid var(--line); border-radius:10px; padding:16px; font-family:'IBM Plex Sans',sans-serif;
+    font-size:14.5px; line-height:1.6; resize:vertical;
+  }
+  textarea#notes:focus{outline:2px solid var(--gold); outline-offset:1px;}
+  .save-state{font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text-muted); margin-top:8px; height:14px;}
+
+  .section-title{font-size:20px; margin:0 0 4px;}
+  .section-sub{font-size:13.5px; color:var(--text-muted); margin:0 0 18px;}
+
+  .panel-toolbar{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:6px;}
+  #panel-timeline .panel-toolbar{justify-content:flex-end; margin-bottom:14px;}
+  .print-btn{
+    font-family:'IBM Plex Sans',sans-serif; font-size:12.5px; font-weight:600; color:var(--gold);
+    background:none; border:1px solid var(--line-gold); border-radius:100px; padding:8px 16px;
+    cursor:pointer; white-space:nowrap;
+  }
+  .print-btn:hover{background:var(--surface-2);}
+  .print-btn:focus-visible{outline:2px solid var(--gold); outline-offset:2px;}
+
+  footer{margin-top:48px; padding-top:18px; border-top:1px solid var(--line); font-size:12px; color:var(--text-muted);}
+
+  /* ---- Print ---- */
+  @media print{
+    :root, :root[data-theme="dark"], :root[data-theme="light"]{
+      --ink:#ffffff; --surface:#ffffff; --surface-2:#f2f2f0;
+      --line:#cccccc; --line-gold:#8a6a28;
+      --text:#111111; --text-muted:#444444;
+      --gold:#6e551f; --gold-bright:#6e551f;
+    }
+    body{padding:0; background:#fff;}
+    .no-print{display:none !important;}
+    header.mast{border-bottom-color:#999;}
+    nav.tabs{display:none !important;}
+    .roadmap{display:none !important;}
+    section.panel{display:none !important;}
+    section.panel.active{display:block !important;}
+    .phase{break-inside:avoid; box-shadow:none !important;}
+    .phase-body{display:block !important;}
+    .firm-card, .callprep{break-inside:avoid; box-shadow:none !important;}
+    .firm-card.leader{box-shadow:none !important;}
+    .table-wrap{overflow:visible !important; box-shadow:none !important;}
+    table.rubric{min-width:0 !important;}
+    table.rubric input.score-in{
+      border:none !important; background:none !important; color:#111 !important;
+      -moz-appearance:textfield; appearance:textfield;
+    }
+    table.rubric input.score-in::-webkit-inner-spin-button,
+    table.rubric input.score-in::-webkit-outer-spin-button{-webkit-appearance:none; margin:0;}
+    textarea#notes{border:1px solid #999;}
+    footer{display:none !important;}
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="mast">
+    <div>
+      <p class="eyebrow">College Search &middot; Working Plan</p>
+      <h1>Kyle's College Search</h1>
+      <p class="sub">Junior year &middot; Columbia High School, Maplewood, NJ</p>
+    </div>
+    <div class="status-pill mono" id="statusPill">Junior Fall &middot; Phase 1 of 6</div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab-btn active" data-panel="timeline" role="tab" aria-selected="true">Timeline</button>
+    <button class="tab-btn" data-panel="faq" role="tab" aria-selected="false">FAQ</button>
+    <button class="tab-btn" data-panel="appquestions" role="tab" aria-selected="false">App Questions</button>
+    <button class="tab-btn" data-panel="consultants" role="tab" aria-selected="false">Consultant Evaluation</button>
+    <button class="tab-btn" data-panel="notes" role="tab" aria-selected="false">Notes</button>
+  </nav>
+
+  <section class="panel active" id="panel-timeline">
+    <div class="panel-toolbar no-print"><button class="print-btn" id="btnPrintTimeline">Save as PDF</button></div>
+    <div class="roadmap" id="roadmap"></div>
+    <div id="phaseList"></div>
+  </section>
+
+  <section class="panel" id="panel-consultants">
+    <div class="panel-toolbar">
+      <h2 class="section-title" style="margin:0;">Consultant Evaluation</h2>
+      <button class="print-btn no-print" id="btnPrintConsultants">Save as PDF</button>
+    </div>
+    <p class="section-sub">Four firms you're considering, scored against one rubric. Scores below are a first-pass read from each firm's own website and public listings only &mdash; nobody has been called yet. Treat every number as a starting point to argue with, not a verdict.</p>
+
+    <div class="firm-grid" id="firmGrid"></div>
+
+    <div class="table-wrap">
+      <table class="rubric" id="rubricTable">
+        <thead>
+          <tr>
+            <th style="min-width:220px;">Criterion</th>
+            <th>Weight</th>
+            <th>Stand Out For College</th>
+            <th>Ariadne College Advisors</th>
+            <th>First Choice Prep</th>
+            <th>CTK College Coach</th>
+            <th>High Five College Prep</th>
+          </tr>
+        </thead>
+        <tbody id="rubricBody"></tbody>
+        <tfoot>
+          <tr class="total">
+            <td>Weighted Total</td>
+            <td class="mono">100%</td>
+            <td class="score mono" id="total-soc">&mdash;</td>
+            <td class="score mono" id="total-ari">&mdash;</td>
+            <td class="score mono" id="total-fcp">&mdash;</td>
+            <td class="score mono" id="total-ctk">&mdash;</td>
+            <td class="score mono" id="total-hfc">&mdash;</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <p class="rubric-note">Scoring: 1 (weak) to 5 (strong) on each criterion, weighted and totaled out of 5. Edit any score after a call or a reference check &mdash; the sheet recalculates and saves automatically.</p>
+
+    <div class="callprep">
+      <h3>Questions To Ask Before Signing With Anyone</h3>
+      <ol id="questionsList"></ol>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-faq">
+    <h2 class="section-title">Frequently Asked Questions</h2>
+    <p class="section-sub">The questions families most commonly ask during the college search and application process, organized by phase. Tap a question to expand the answer.</p>
+    <div id="faqList"></div>
+  </section>
+
+  <section class="panel" id="panel-appquestions">
+    <h2 class="section-title">Application Questions</h2>
+    <p class="section-sub">The actual fields and prompts on the application itself - the Common App core, plus what each school adds on top. Current as of the 2026-27 cycle; reconfirm once Kyle's Common App account is open next summer.</p>
+
+    <p class="appq-subhead">Common App Core Sections</p>
+    <div class="appq-group" id="appqCore"></div>
+
+    <div class="callprep" style="margin-bottom:24px;">
+      <h3>Personal Essay - Pick One, 250-650 Words</h3>
+      <ol id="essayPromptsList"></ol>
+    </div>
+
+    <p class="appq-subhead">Other Writing Sections</p>
+    <div class="appq-group" id="appqWriting"></div>
+
+    <p class="appq-subhead">Demographics And History</p>
+    <div class="appq-group" id="appqOther"></div>
+
+    <p class="appq-subhead">Supplemental Essays Added By Each School</p>
+    <div class="firm-grid" id="suppGrid"></div>
+  </section>
+
+  <section class="panel" id="panel-notes">
+    <h2 class="section-title">Notes</h2>
+    <p class="section-sub">Family notes, open questions, and decisions as you make them. Shared with anyone who has this page open.</p>
+    <textarea id="notes" placeholder="Start typing..."></textarea>
+    <div class="save-state" id="saveState"></div>
+  </section>
+
+  <footer>Built for Kyle's college search &middot; last opened <span class="mono" id="todayDate"></span></footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script>
+(function(){
+
+  var CHECKLIST = [
+    {
+      phase: "Junior Fall",
+      window: "Sept – Dec 2026",
+      items: [
+        {id:"p1-1", text:"Take the PSAT/NMSQT in October to get a baseline score and check National Merit eligibility."},
+        {id:"p1-2", text:"Confirm senior-year course selections reflect the strongest schedule Kyle can handle well, not just the most APs available."},
+        {id:"p1-3", text:"Start a running log of activities, jobs, and leadership roles with dates, hours, and specific contributions - build it now instead of reconstructing it next fall."},
+        {id:"p1-4", text:"Have a direct family conversation about what you're willing to spend, so “reach,” “match,” and “safety” include a financial-safety category from the start."},
+        {id:"p1-5", text:"Set up a free profile on a couple of college search tools to explore options - this is research, not applying."}
+      ]
+    },
+    {
+      phase: "Junior Winter/Spring",
+      window: "Jan – May 2027",
+      items: [
+        {id:"p2-1", text:"Decide between the SAT and ACT and register for a spring test date."},
+        {id:"p2-2", text:"Visit a mix of campus types - large state school, small college, urban, suburban - before the college list gets built, so preferences come from real visits, not assumptions."},
+        {id:"p2-3", text:"Run the Net Price Calculator on 3-5 schools spanning different selectivity and cost, to see real numbers instead of sticker price."},
+        {id:"p2-4", text:"Narrow academic and career interests enough to shape the college list, without forcing Kyle to commit to a major."},
+        {id:"p2-5", text:"Identify two junior-year teachers in core subjects who know Kyle's work well, as likely recommendation-letter writers."}
+      ]
+    },
+    {
+      phase: "End of Junior Year",
+      window: "May – Jun 2027",
+      items: [
+        {id:"p3-1", text:"Formally request recommendation letters before the school year ends - teachers get flooded with requests every fall."},
+        {id:"p3-2", text:"Draft a first-pass college list sorted into reach, target, likely, and financial-safety tiers, with the criteria for each tier written down."},
+        {id:"p3-3", text:"Take a second SAT/ACT sitting if the plan calls for one, and decide whether testing is finished."},
+        {id:"p3-4", text:"Put together the resume or “brag sheet” the counselor and recommenders will use to write about Kyle."},
+        {id:"p3-5", text:"Start brainstorming Common App personal essay topics - ideas only, not a draft yet."}
+      ]
+    },
+    {
+      phase: "Summer Before Senior Year",
+      window: "Jun – Aug 2027",
+      items: [
+        {id:"p4-1", text:"Finalize the college list at roughly 8-12 schools spread across the reach/target/likely/safety tiers."},
+        {id:"p4-2", text:"Visit the remaining priority campuses and note specific details worth using later in “why this school” essays."},
+        {id:"p4-3", text:"Write a full draft of the Common App personal essay before senior year starts."},
+        {id:"p4-4", text:"Open the Common App account (submissions can't go in before August 1) and start filling in the activities section."},
+        {id:"p4-5", text:"Draft supplemental “why us” essays for any schools with early deadlines."}
+      ]
+    },
+    {
+      phase: "Senior Fall",
+      window: "Aug – Nov 2027",
+      items: [
+        {id:"p5-1", text:"Take a final SAT/ACT sitting in August or September if another score jump is realistic."},
+        {id:"p5-2", text:"Submit Early Action or Early Decision applications - most deadlines fall on November 1 or November 15."},
+        {id:"p5-3", text:"Confirm every recommender and the school counselor have actually submitted their materials."},
+        {id:"p5-4", text:"Submit Regular Decision applications on a rolling basis through the fall rather than all at once in December."},
+        {id:"p5-5", text:"File the FAFSA as soon as it opens - the 2028-29 form (Kyle's cycle, for fall 2028 enrollment), expected to open around October 1, 2027. File within the first couple of weeks: some state grants and college aid are first-come, first-served, so waiting until winter costs real money."}
+      ]
+    },
+    {
+      phase: "Senior Winter",
+      window: "Dec 2027 – Mar 2028",
+      items: [
+        {id:"p6-1", text:"Confirm every college on the list has received and processed the FAFSA, and respond quickly to any verification requests - don't just file it and assume it's done."},
+        {id:"p6-2", text:"Complete the CSS Profile for any private colleges that require it."},
+        {id:"p6-3", text:"Track and meet merit scholarship deadlines, which often land earlier than the admission deadline itself."},
+        {id:"p6-4", text:"Compare financial aid offers using actual net cost once decisions arrive, not the headline sticker price."}
+      ]
+    }
+  ];
+
+  var FIRMS = [
+    {id:"soc", name:"Stand Out For College", url:"https://standoutforcollege.com", location:"Cross River, NY (~45 min away)",
+     people:"Ron Feuchs (Rutgers BA, Columbia MBA) & Jackie Tepper (Penn BA, NYU Law JD)",
+     pricing:"Not published - contact for pricing", model:"“Stand out” narrative building through passion projects and community-service stories"},
+    {id:"ari", name:"Ariadne College Advisors", url:"https://trustariadne.org", location:"Virtual / national (workshops in MI, IL, CT)",
+     people:"CEO, COO, VP of Financial Client Services, Director of Financial Aid",
+     pricing:"Not published - discounts advertised for low-income, military, and public-school families", model:"Financial-aid-forward: Prepare, Apply, Pay"},
+    {id:"fcp", name:"First Choice Prep", url:"https://www.firstchoiceprep.com", location:"Livingston & Millburn, NJ (~10-15 min away)",
+     people:"15+ years in business; primarily a tutoring/test-prep company",
+     pricing:"Not published", model:"Diagnostic-driven tutoring and test prep, with admissions consulting as an add-on"},
+    {id:"ctk", name:"CTK College Coach", url:"https://www.ctkcollegecoach.com", location:"Maplewood, NJ (same town)",
+     people:"Founder Christina Taber-Kewene, plus a dedicated essay coach",
+     pricing:"Published: $4,800-$6,300 for an 8/12-school application package; concierge package is quote-based", model:"Admissions strategy paired with essay coaching"},
+    {id:"hfc", name:"High Five College Prep", url:"https://www.highfivecollegeprep.com", location:"Randolph, NJ (~35-45 min away)",
+     people:"Founder Hildie Steiner - IECA professional member and NJ IECA regional representative, NJACAC member",
+     pricing:"Not published - contact for rates", model:"Comprehensive or “Senior Crunch” packages; states directly it does not guarantee admission; specific experience with students who have IEPs, 504s, anxiety, or ADHD"}
+  ];
+
+  var CRITERIA = [
+    {id:"cred", name:"Verified Credentials", weight:0.20, desc:"IECA, HECA, or NACAC membership, or an equivalent admissions background, for the specific person who'd work with Kyle."},
+    {id:"price", name:"Transparent Pricing", weight:0.15, desc:"Fees published up front rather than revealed only on a sales call."},
+    {id:"local", name:"Local Logistics", weight:0.15, desc:"Realistic in-person access from Maplewood, given campus visits and meetings add up over two years."},
+    {id:"scope", name:"Fit For The Gap", weight:0.20, desc:"Adds something Columbia HS's own counseling office doesn't already cover, rather than duplicating it."},
+    {id:"phil", name:"Philosophy & Red Flags", weight:0.20, desc:"No guarantees, no essay-writing-for-the-student, no language that edges toward gaming the process."},
+    {id:"track", name:"Verifiable Track Record", weight:0.10, desc:"Outcomes that could be checked with real references, not just testimonials on the site."}
+  ];
+
+  var SEED_SCORES = {
+    soc: {cred:2, price:1, local:2, scope:3, phil:3, track:3},
+    ari: {cred:2, price:1, local:1, scope:4, phil:3, track:2},
+    fcp: {cred:2, price:1, local:4, scope:3, phil:4, track:3},
+    ctk: {cred:3, price:4, local:5, scope:4, phil:4, track:3},
+    hfc: {cred:5, price:1, local:3, scope:4, phil:5, track:3}
+  };
+
+  var QUESTIONS = [
+    "Will you guarantee admission to a specific school, or a scholarship amount? (A “yes” is disqualifying - no one can honestly promise this.)",
+    "What are your professional credentials, and do you belong to IECA, HECA, or NACAC?",
+    "How many campuses do you personally visit each year, and which ones in the last twelve months?",
+    "Will you write or substantially rewrite Kyle's essays yourself, or coach him through writing his own?",
+    "Are all fees disclosed in writing before we sign anything, including what happens if we stop partway through?",
+    "Who exactly works with Kyle day to day - you, or someone else on your team?",
+    "Do you receive any compensation from colleges for placing or referring students?",
+    "What does your process look like for a family starting in junior fall rather than freshman year?"
+  ];
+
+  var FAQ_DATA = [
+    {cat:"Building The List", items:[
+      {q:"When should the list be finalized, and are we on track?", a:"The general guidance is to finalize the college list by the end of junior year summer, so senior fall is spent applying rather than researching. Kyle's timeline targets an 8-12 school final list by August 2027, which matches this pattern."},
+      {q:"How many colleges should Kyle apply to?", a:"Most counselors recommend 8-12 schools: 2-3 reach, 4-6 target, 2-3 likely, with at least one financial safety in the mix (a school that's affordable even without aid). Applying to more adds essay workload without materially improving odds, since a strong likely-school list already provides options."},
+      {q:"What's the difference between a reach, target, and likely school?", a:"A reach is a school where Kyle's grades and scores fall below the middle 50% of admitted students, or that's highly selective regardless of stats. A target is a school where his profile falls within the middle 50%. A likely (safety) school is one where his profile is above the middle 50% and admission is close to certain. A financial safety is a likely school the family can afford at sticker price, not just one Kyle would likely get into."},
+      {q:"Does it matter that Kyle hasn't picked a major?", a:"No, for the large majority of schools. Most colleges admit to the university generally, not to a specific program, and \"undecided\" is a normal answer. The exception is direct-admit programs (engineering, nursing, business, architecture, art/design) at some schools, where the major applied to does affect admission odds - worth checking per school once the list narrows."},
+      {q:"How much do campus visits matter?", a:"They matter for Kyle's own decision-making, since fit is hard to judge from a website, and at some schools for demonstrated interest (see the Application Itself questions below). They don't affect admission at most large public universities or highly selective private schools that get far more applicants than they could ever track visits for."}
+    ]},
+    {cat:"Testing", items:[
+      {q:"Should Kyle take the SAT or ACT, or both?", a:"Most students do better on one than the other. The standard approach is a full-length practice test of each, then focusing prep on the stronger result. Taking both \"just in case\" is rarely worth the extra time unless the first practice test is inconclusive."},
+      {q:"Is test-optional actually optional?", a:"It depends on the school, and this has been shifting. As of fall 2026, most colleges remain test-optional, but a growing list of highly selective schools have reinstated testing requirements, including Harvard, Yale, Brown, Cornell, Dartmouth, Penn, MIT, Stanford, Georgetown, and Johns Hopkins, along with some large public flagships. Current guidance: submit scores if they fall at or above a school's published middle-50% range; apply test-optional if they fall below it and the rest of the application is strong."},
+      {q:"Should Kyle retake the test if he can likely improve his score?", a:"Generally yes if there's meaningful room to move the score into or above a target school's middle-50% range, since most colleges superscore. It's not worth a retake for a marginal gain of a few points."},
+      {q:"What does superscoring mean?", a:"Most colleges that accept the SAT or ACT will combine a student's best section scores across multiple sittings, even from different test dates, rather than looking only at one test date's total. Not every school does this - worth checking per school on the list."},
+      {q:"Does the PSAT matter beyond National Merit?", a:"The PSAT itself isn't reported to colleges and doesn't appear on applications. Its main uses are practice for the real test, an early diagnostic of SAT-style performance, and eligibility for National Merit recognition for students who score in the top tier nationally."}
+    ]},
+    {cat:"The Application Itself", items:[
+      {q:"What's the Common App, and does every school use it?", a:"The Common Application is accepted by 1,100+ colleges and lets a student fill out one core application and send it to multiple schools, each adding its own supplemental questions. The Coalition Application is a similar but smaller alternative (170+ schools). Some schools, including several public university systems, use their own separate application instead of either."},
+      {q:"How much does the essay actually matter?", a:"It matters most at schools that read applications holistically and reject far more qualified applicants than they admit - it's the one place a student's voice, rather than a transcript number, comes through. It matters less at large public universities that admit primarily on GPA and test scores through a formula. It rarely overcomes a genuinely weak transcript, but it can be the deciding factor between two similarly qualified applicants."},
+      {q:"How personal should the essay get?", a:"Personal enough to sound like Kyle, not like a resume restated in paragraph form - the common failure mode admissions readers describe is a generic \"here's what I accomplished\" essay rather than one that reveals how he thinks. It doesn't need to center on hardship; a well-observed essay about something ordinary, told specifically, usually reads better than a dramatic topic told generically."},
+      {q:"How much do extracurriculars matter, and is it about breadth or depth?", a:"Depth and demonstrated commitment over a long list of loosely-held activities. Admissions readers generally respond better to sustained involvement and some leadership or initiative in two or three areas than to ten clubs joined for a semester each. Quality of role and impact matters more than quantity of activities listed."},
+      {q:"Do interviews matter, and should Kyle do one if it's optional?", a:"At schools where interviews are purely informational, they carry little to no weight and mainly help the student learn about the school. At schools where interviews are evaluative, they can meaningfully help or hurt. When a school offers an optional interview, doing it is generally worth it unless scheduling genuinely isn't possible - declining an offered interview at a school with any weight on it can read as lack of interest."},
+      {q:"What's \"demonstrated interest,\" and does it actually affect admission?", a:"Demonstrated interest is a school's tracking of a student's engagement - campus visits, opening emails, interview attendance, applying early - as a signal of how likely that student is to enroll if admitted. Many private colleges and some public ones use it as a factor, especially in the middle of their applicant pool. Most large public flagships and the most selective private schools, which don't need to worry about yield, don't weigh it. Worth checking per school, since it changes whether a visit or an early application is worth the effort."}
+    ]},
+    {cat:"Recommendations", items:[
+      {q:"How many recommendation letters does Kyle need, and from whom?", a:"Most schools require one counselor letter, which Kyle's guidance counselor writes automatically as part of Columbia HS's process, plus one or two teacher letters, typically from core academic subjects taught junior or senior year. The strongest letters usually come from a teacher who knows the student well, not necessarily the one who gave the highest grade."},
+      {q:"When should Kyle ask, and what should he give the recommender?", a:"The standard advice is to ask before the end of junior year, ideally in person, so the teacher has the summer to write rather than getting the request buried during a busy fall. Kyle's timeline has this flagged for May-June 2027. Give the recommender a resume or brag sheet, a short note on what he'd want highlighted, and the list of schools and deadlines."},
+      {q:"Does the counselor letter matter as much as teacher letters?", a:"Yes, often more, since it's the one letter that speaks to the whole four years and can contextualize the transcript, the school's rigor, and any circumstances that affected performance. Worth making sure Kyle's counselor genuinely knows him beyond a scheduling relationship."}
+    ]},
+    {cat:"Application Plans And Deadlines", items:[
+      {q:"What's the real difference between Early Decision, Early Action, and Regular Decision?", a:"Early Decision (ED) is binding - if admitted, the student must withdraw all other applications and attend, and can typically only apply ED to one school. Early Action (EA) is nonbinding and lets a student apply to multiple EA schools while still deciding by the regular reply deadline, usually May 1. Regular Decision (RD) has later deadlines and no early commitment either way. Some schools also offer ED2, a second binding round with a January-ish deadline."},
+      {q:"Is Early Decision a good idea?", a:"It only makes sense when a school is genuinely the clear first choice and the family is comfortable committing to pay what's offered, since ED forecloses comparing financial aid packages across schools. Admit rates are often higher for ED, but that's partly because the ED pool tends to be strong - recruited athletes, legacies, highly certain applicants - not proof that applying ED itself raises any individual student's odds."},
+      {q:"What happens if Kyle is deferred from EA or ED to Regular Decision?", a:"A deferral means the school will reconsider the application alongside the RD pool rather than deciding early - it isn't a rejection. Many schools invite a short letter of continued interest and updated grades or achievements; check whether the specific school accepts one before sending it unprompted."},
+      {q:"What are the realistic odds of getting off a waitlist, and what should he do if waitlisted?", a:"Waitlist movement varies widely by school and year and is often in the single digits to low double digits as a percentage of the waitlist. If waitlisted at a school Kyle would actually attend, the standard steps are: accept the waitlist spot, send a concise letter of continued interest with any new information, and in the meantime commit to and pay the deposit at the best school that did admit him, since a waitlist offer isn't guaranteed."}
+    ]},
+    {cat:"Financial Aid And Cost", items:[
+      {q:"When does FAFSA open, and what deadline actually matters?", a:"Kyle's family will file the 2028-29 FAFSA (for fall 2028 enrollment), not the 2027-28 form that's opening now for this year's seniors. Following the recent pattern, the 2028-29 form should open around October 1, 2027, though the exact date isn't published yet this far out. The deadlines that matter more than the federal one are each college's own priority filing date, often November through February of senior year, and any state grant deadlines, some of which are first-come, first-served. This is now scheduled for Senior Fall on the Timeline tab, not Senior Winter."},
+      {q:"Do we need the CSS Profile too, and how is it different from FAFSA?", a:"The CSS Profile is a separate, more detailed financial aid application used by roughly 200 mostly private colleges, in addition to the FAFSA, not instead of it. It asks for more detail - home equity, small business or family farm value, noncustodial parent finances in some cases - which schools use to award their own institutional aid on top of federal aid. Whether any given school requires it needs to be checked school by school."},
+      {q:"How accurate are Net Price Calculators?", a:"They're a genuinely useful early estimate, required by federal law on every college's website, but only as accurate as the assumptions built into each school's calculator and the numbers a family enters. Most reliable for straightforward financial situations, less reliable for anything more complex. Running them on the full list once numbers are known is one of the higher-value uses of time in junior spring."},
+      {q:"How does merit aid work, and can an offer be negotiated?", a:"Merit aid is awarded based on academic or other achievement rather than financial need, and criteria vary widely by school. Asking a school to reconsider an aid offer is a normal and accepted practice at many schools, especially with a competing offer from a comparable school in hand as leverage - most effective when framed as a specific, documented request rather than a general ask for more money."},
+      {q:"Does applying for financial aid hurt admission chances?", a:"At need-blind schools, the admission decision is made without knowing whether the applicant is requesting aid, so it doesn't. At need-aware schools, financial need can be a factor, typically only at the margin for borderline applicants. Most highly selective private colleges are need-blind for domestic applicants; state flagships are effectively need-blind since aid isn't usually part of their admission formula. Worth confirming per school."}
+    ]},
+    {cat:"After Decisions", items:[
+      {q:"Can a rejection be appealed?", a:"Almost never productively - most colleges don't have a formal appeal process for admission decisions, and the ones that do rarely reverse them absent a clear factual error. This is different from appealing a financial aid offer, which is common and often effective."},
+      {q:"What if Kyle wants to take a gap year?", a:"Most colleges allow admitted students to defer enrollment for a year, usually by request after acceptance, and it's a well-established, unpenalized option. The logistics - deposit handling, financial aid recalculation, whether outside coursework is allowed - vary by school and are worth asking about directly if it becomes a live option."}
+    ]}
+  ];
+
+  var APPQ_CORE = [
+    {h:"Profile", p:"Personal information (legal name, preferred name, former name if applicable), current and permanent address, phone and email, demographics subsection (see below), language spoken at home, geography and nationality (citizenship, place of birth, visa status), and whether Kyle is applying for a Common App fee waiver."},
+    {h:"Family", p:"Household - who Kyle currently lives with. Details for up to two parents/guardians, including their highest level of education (this is how first-generation status gets determined - there's no direct \"are you first-gen\" question). Sibling information, including where siblings attend or attended college."},
+    {h:"Education", p:"Current and any other high schools attended. Colleges already attended, if any. Grades and GPA information. Current-year courses. Honors, up to five, with level of recognition. Community-based organizations worked with in the process. A short future-plans question on career interest."},
+    {h:"Testing", p:"Self-reported standardized test scores. Optional, and only matters at schools requiring or considering scores."},
+    {h:"Activities", p:"Up to 10 activities. For each: activity type from a list (athletics, art, community service, debate/speech, foreign language, research, social justice, work, and others), position/leadership (50-character limit), organization name (100-character limit), description (150-character limit, roughly 20-25 words), grade levels participated, timing (school year, break, or all year), hours per week, weeks per year, and intent to continue in college."},
+    {h:"Courses and Grades (required by some colleges, not the Common App core)", p:"School name, school year, grading scale, every course by subject and name, course level, and grade earned - essentially a self-reported transcript."}
+  ];
+
+  var ESSAY_PROMPTS = [
+    "Some students have a background, identity, interest, or talent that is so meaningful they believe their application would be incomplete without it. If this sounds like you, then please share your story.",
+    "The lessons we take from obstacles we encounter can be fundamental to later success. Recount a time when you faced a challenge, setback, or failure. How did it affect you, and what did you learn from the experience?",
+    "Reflect on a time when you questioned or challenged a belief or idea. What prompted your thinking? What was the outcome?",
+    "Reflect on something that someone has done for you that has made you happy or thankful in a surprising way. How has this gratitude affected or motivated you?",
+    "Discuss an accomplishment, event, or realization that sparked a period of personal growth and a new understanding of yourself or others.",
+    "Describe a topic, idea, or concept you find so engaging that it makes you lose all track of time. Why does it captivate you? What or who do you turn to when you want to learn more?",
+    "Share an essay on any topic of your choice. It can be one you've already written, one that responds to a different prompt, or one of your own design."
+  ];
+
+  var APPQ_WRITING = [
+    {h:"Challenges and Circumstances (250 words, optional)", p:"A newer, permanent section for hardships that affected Kyle's application - housing instability, family disruption, discrimination, or lack of access to study space or technology. Only worth using if something real applies."},
+    {h:"Additional Information (300 words, optional)", p:"A separate box for context that doesn't fit anywhere else - an academic anomaly with an explanation, an activity that needed more room than the 150-character limit allowed, or a work sample reference. Not a place for a second essay."}
+  ];
+
+  var APPQ_OTHER = [
+    {h:"Demographics Page (entirely optional)", p:"Race/ethnicity (select one or more), religious preference (dropdown, includes \"none\" and \"prefer not to answer\"), and U.S. armed forces status. Kyle can skip every question here with no penalty - used for reporting and outreach, not as an admission filter at most schools."},
+    {h:"Disciplinary And Criminal History", p:"The Common App itself no longer asks about high school disciplinary history (removed 2020) or criminal history (removed 2019) in its standard core. Individual member colleges can still add either question through their own supplement, so it needs to be checked per school rather than assumed absent."}
+  ];
+
+  var SUPP_TYPES = [
+    {name:"Why This College", example:"School-specific - no standard wording.", note:"Requires naming actual courses, programs, or professors; can't be recycled across schools without real editing."},
+    {name:"Why This Major", example:"UT Austin: \"Why are you interested in the major you indicated?\" (250-300 words)", note:"Wants a connection to real experience, not just stated interest."},
+    {name:"Community", example:"Yale: \"Reflect on your membership in a community to which you feel connected.\" (400 words)", note:"Wants an actual group and Kyle's specific role in it."},
+    {name:"Extracurricular Elaboration", example:"Stanford: as short as 3-50 words in recent cycles", note:"Wants depth on one listed activity, not a repeat of the activities list."},
+    {name:"Diversity / Perspective", example:"Princeton: \"How has your lived experience shaped you?\" (400-500 words)", note:"Word limits on supplements vary from a few words to 650 - the workload driver on a full list is usually the supplements, not the one Common App essay."}
+  ];
+
+  var STATE = null;
+  var db = null;
+  var docRef = null;
+  var downloadsCap = null;
+  var notesSaveTimer = null;
+
+  function defaultState(){
+    var checklist = {};
+    CHECKLIST.forEach(function(ph){ ph.items.forEach(function(it){ checklist[it.id] = false; }); });
+    return { checklist: checklist, scores: JSON.parse(JSON.stringify(SEED_SCORES)), notes: "" };
+  }
+
+  function phaseStatuses(){
+    var statuses = [];
+    var currentSet = false;
+    CHECKLIST.forEach(function(ph){
+      var doneCount = ph.items.filter(function(it){ return STATE.checklist[it.id]; }).length;
+      var st = "upcoming";
+      if (doneCount === ph.items.length) st = "done";
+      else if (!currentSet){ st = "current"; currentSet = true; }
+      statuses.push({doneCount:doneCount, total:ph.items.length, status:st});
+    });
+    if (!currentSet && statuses.length) statuses[statuses.length-1].status = "current";
+    return statuses;
+  }
+
+  function toggleExpand(idx){
+    var card = document.getElementById("phase-" + (idx+1));
+    if (card) card.classList.toggle("expanded");
+  }
+
+  function renderPhases(){
+    var wrap = document.getElementById("phaseList");
+    wrap.innerHTML = "";
+    var statuses = phaseStatuses();
+    CHECKLIST.forEach(function(ph, idx){
+      var doneCount = statuses[idx].doneCount;
+
+      var card = document.createElement("div");
+      card.className = "phase" + (statuses[idx].status === "current" ? " expanded" : "");
+      card.id = "phase-" + (idx+1);
+
+      var head = document.createElement("div");
+      head.className = "phase-head";
+      head.innerHTML =
+        '<span class="phase-num mono">' + (idx+1) + '</span>' +
+        '<h2>' + ph.phase + '</h2>' +
+        '<span class="phase-window">' + ph.window + '</span>' +
+        '<span class="phase-progress">' + doneCount + '/' + ph.items.length + '</span>';
+      head.addEventListener("click", function(){ toggleExpand(idx); });
+      card.appendChild(head);
+
+      var body = document.createElement("div");
+      body.className = "phase-body";
+      ph.items.forEach(function(it){
+        var row = document.createElement("div");
+        row.className = "item" + (STATE.checklist[it.id] ? " done" : "");
+        var cb = document.createElement("input");
+        cb.type = "checkbox"; cb.id = it.id; cb.checked = !!STATE.checklist[it.id];
+        cb.addEventListener("change", function(){ toggleItem(it.id, cb.checked); });
+        cb.addEventListener("click", function(e){ e.stopPropagation(); });
+        var label = document.createElement("label");
+        label.setAttribute("for", it.id);
+        label.textContent = it.text;
+        label.addEventListener("click", function(e){ e.stopPropagation(); });
+        row.appendChild(cb); row.appendChild(label);
+        body.appendChild(row);
+      });
+      card.appendChild(body);
+      wrap.appendChild(card);
+    });
+
+    var currentPhase = statuses.findIndex(function(s){ return s.status === "current"; });
+    if (currentPhase === -1) currentPhase = statuses.length - 1;
+    document.getElementById("statusPill").textContent = CHECKLIST[currentPhase].phase + " · Phase " + (currentPhase+1) + " of " + CHECKLIST.length;
+  }
+
+  function renderRoadmap(){
+    var wrap = document.getElementById("roadmap");
+    wrap.innerHTML = "";
+    var statuses = phaseStatuses();
+    CHECKLIST.forEach(function(ph, idx){
+      var st = statuses[idx];
+      var item = document.createElement("div");
+      item.className = "roadmap-item state-" + st.status;
+      item.innerHTML =
+        '<div class="roadmap-dot">' + (st.status === "done" ? "✓" : (idx+1)) + '</div>' +
+        '<div class="roadmap-info">' +
+          '<div class="roadmap-top"><span class="roadmap-name">' + ph.phase + '</span>' +
+          '<span class="roadmap-progress">' + st.doneCount + '/' + st.total + '</span></div>' +
+          '<div class="roadmap-window">' + ph.window + '</div>' +
+        '</div>';
+      item.addEventListener("click", function(){
+        var card = document.getElementById("phase-" + (idx+1));
+        if (!card) return;
+        card.classList.add("expanded");
+        card.scrollIntoView({behavior:"smooth", block:"start"});
+      });
+      wrap.appendChild(item);
+    });
+  }
+
+  function toggleItem(id, val){
+    STATE.checklist[id] = val;
+    renderPhases();
+    saveState({checklist: STATE.checklist});
+  }
+
+  function weightedTotal(firmId){
+    var scores = STATE.scores[firmId] || {};
+    var total = 0;
+    CRITERIA.forEach(function(c){ total += (Number(scores[c.id]) || 0) * c.weight; });
+    return total;
+  }
+
+  function renderFirms(){
+    var grid = document.getElementById("firmGrid");
+    grid.innerHTML = "";
+    var totals = FIRMS.map(function(f){ return {id:f.id, t: weightedTotal(f.id)}; });
+    var maxT = Math.max.apply(null, totals.map(function(t){ return t.t; }));
+
+    FIRMS.forEach(function(f){
+      var t = weightedTotal(f.id);
+      var card = document.createElement("div");
+      card.className = "firm-card" + (t === maxT ? " leader" : "");
+      card.innerHTML =
+        '<h3>' + f.name + '</h3>' +
+        '<a href="' + f.url + '" target="_blank" rel="noopener">' + f.url.replace("https://","") + '</a>' +
+        '<div class="firm-fact"><b>Location: </b>' + f.location + '</div>' +
+        '<div class="firm-fact"><b>Who: </b>' + f.people + '</div>' +
+        '<div class="firm-fact"><b>Pricing: </b>' + f.pricing + '</div>' +
+        '<div class="firm-fact"><b>Model: </b>' + f.model + '</div>' +
+        '<div class="firm-score"><span class="label">Weighted Score</span><span class="val mono">' + t.toFixed(2) + '</span></div>';
+      grid.appendChild(card);
+    });
+  }
+
+  function renderRubric(){
+    var body = document.getElementById("rubricBody");
+    body.innerHTML = "";
+    CRITERIA.forEach(function(c){
+      var tr = document.createElement("tr");
+      var critTd = document.createElement("td");
+      critTd.className = "crit";
+      critTd.innerHTML = '<div class="name">' + c.name + '</div><div class="desc">' + c.desc + '</div>';
+      tr.appendChild(critTd);
+
+      var wTd = document.createElement("td");
+      wTd.className = "weight mono";
+      wTd.textContent = Math.round(c.weight*100) + "%";
+      tr.appendChild(wTd);
+
+      FIRMS.forEach(function(f){
+        var td = document.createElement("td");
+        td.className = "score";
+        var input = document.createElement("input");
+        input.type = "number"; input.min = "1"; input.max = "5"; input.step = "1";
+        input.className = "score-in";
+        input.value = STATE.scores[f.id][c.id];
+        input.addEventListener("change", function(){
+          var v = Math.min(5, Math.max(1, Number(input.value) || 1));
+          input.value = v;
+          STATE.scores[f.id][c.id] = v;
+          renderTotals();
+          renderFirms();
+          saveState({scores: STATE.scores});
+        });
+        td.appendChild(input);
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+    renderTotals();
+  }
+
+  function renderTotals(){
+    FIRMS.forEach(function(f){
+      document.getElementById("total-" + f.id).textContent = weightedTotal(f.id).toFixed(2);
+    });
+  }
+
+  function renderQuestions(){
+    var ol = document.getElementById("questionsList");
+    ol.innerHTML = "";
+    QUESTIONS.forEach(function(q){
+      var li = document.createElement("li");
+      li.textContent = q;
+      ol.appendChild(li);
+    });
+  }
+
+  function renderNotes(){
+    var ta = document.getElementById("notes");
+    if (document.activeElement !== ta) ta.value = STATE.notes || "";
+  }
+
+  function renderFAQ(){
+    var wrap = document.getElementById("faqList");
+    if (!wrap || wrap.childElementCount) return;
+    FAQ_DATA.forEach(function(cat, ci){
+      var card = document.createElement("div");
+      card.className = "phase";
+
+      var head = document.createElement("div");
+      head.className = "phase-head";
+      var num = document.createElement("span"); num.className = "phase-num mono"; num.textContent = String(ci+1);
+      var h2 = document.createElement("h2"); h2.textContent = cat.cat;
+      var cnt = document.createElement("span"); cnt.className = "phase-progress";
+      cnt.textContent = cat.items.length + (cat.items.length === 1 ? " question" : " questions");
+      head.appendChild(num); head.appendChild(h2); head.appendChild(cnt);
+      head.addEventListener("click", function(){ card.classList.toggle("expanded"); });
+      card.appendChild(head);
+
+      var body = document.createElement("div");
+      body.className = "phase-body";
+      cat.items.forEach(function(it){
+        var fi = document.createElement("div"); fi.className = "faq-item";
+        var qrow = document.createElement("div"); qrow.className = "faq-q";
+        var qtext = document.createElement("span"); qtext.textContent = it.q;
+        var chev = document.createElement("span"); chev.className = "chev mono"; chev.textContent = "›";
+        qrow.appendChild(qtext); qrow.appendChild(chev);
+        var ans = document.createElement("div"); ans.className = "faq-a"; ans.textContent = it.a;
+        qrow.addEventListener("click", function(){ fi.classList.toggle("open"); });
+        fi.appendChild(qrow); fi.appendChild(ans);
+        body.appendChild(fi);
+      });
+      card.appendChild(body);
+      wrap.appendChild(card);
+    });
+  }
+
+  function renderAppqBlocks(containerId, list){
+    var wrap = document.getElementById(containerId);
+    if (!wrap || wrap.childElementCount) return;
+    list.forEach(function(s){
+      var b = document.createElement("div"); b.className = "appq-block";
+      var h3 = document.createElement("h3"); h3.textContent = s.h;
+      var p = document.createElement("p"); p.textContent = s.p;
+      b.appendChild(h3); b.appendChild(p);
+      wrap.appendChild(b);
+    });
+  }
+
+  function renderAppQuestions(){
+    renderAppqBlocks("appqCore", APPQ_CORE);
+    renderAppqBlocks("appqWriting", APPQ_WRITING);
+    renderAppqBlocks("appqOther", APPQ_OTHER);
+
+    var promptList = document.getElementById("essayPromptsList");
+    if (promptList && !promptList.childElementCount){
+      ESSAY_PROMPTS.forEach(function(p){
+        var li = document.createElement("li");
+        li.textContent = p;
+        promptList.appendChild(li);
+      });
+    }
+
+    var suppGrid = document.getElementById("suppGrid");
+    if (suppGrid && !suppGrid.childElementCount){
+      SUPP_TYPES.forEach(function(t){
+        var card = document.createElement("div"); card.className = "firm-card";
+        var h3 = document.createElement("h3"); h3.textContent = t.name;
+        var ex = document.createElement("div"); ex.className = "firm-fact";
+        var exb = document.createElement("b"); exb.textContent = "Example: ";
+        ex.appendChild(exb); ex.appendChild(document.createTextNode(t.example));
+        var nt = document.createElement("div"); nt.className = "firm-fact";
+        var ntb = document.createElement("b"); ntb.textContent = "Note: ";
+        nt.appendChild(ntb); nt.appendChild(document.createTextNode(t.note));
+        card.appendChild(h3); card.appendChild(ex); card.appendChild(nt);
+        suppGrid.appendChild(card);
+      });
+    }
+  }
+
+  function renderAll(){
+    renderPhases();
+    renderRoadmap();
+    renderFirms();
+    renderRubric();
+    renderNotes();
+    renderFAQ();
+    renderAppQuestions();
+  }
+
+  function saveState(patch){
+    if (!docRef){ STATE = Object.assign(STATE, patch); return; }
+    docRef.update(patch).catch(function(){
+      docRef.set(Object.assign({}, STATE, patch)).catch(function(){});
+    });
+  }
+
+  function pad2(n){ return (n<10?"0":"")+n; }
+  function fmtDate(d){ return d.getFullYear() + "-" + pad2(d.getMonth()+1) + "-" + pad2(d.getDate()); }
+
+  function flashBtn(btn, msg, revertTo, ms){
+    btn.textContent = msg;
+    setTimeout(function(){ btn.disabled = false; btn.textContent = revertTo; }, ms || 2200);
+  }
+
+  async function saveBlob(btn, blob, filename, origText){
+    if (!downloadsCap){
+      flashBtn(btn, "PDF saving unavailable here", origText);
+      return;
+    }
+    try{
+      await downloadsCap.save({filename: filename, data: blob});
+      flashBtn(btn, "Saved", origText, 1500);
+    }catch(e){
+      if (e && e.code === "declined"){ btn.disabled = false; btn.textContent = origText; return; }
+      flashBtn(btn, "Couldn't save - try again", origText);
+    }
+  }
+
+  async function exportTimelinePDF(btn){
+    var origText = btn.textContent;
+    if (!window.jspdf){ flashBtn(btn, "PDF library unavailable", origText); return; }
+    btn.disabled = true; btn.textContent = "Preparing…";
+    var jsPDF = window.jspdf.jsPDF;
+    var doc = new jsPDF({unit:"pt", format:"letter"});
+    var pageW = doc.internal.pageSize.getWidth();
+    var pageH = doc.internal.pageSize.getHeight();
+    var margin = 48;
+    var y = margin;
+
+    doc.setFont("helvetica","bold"); doc.setFontSize(18);
+    doc.text("Kyle's College Search", margin, y); y += 20;
+    doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(90);
+    doc.text("Timeline - junior year, Columbia High School, Maplewood, NJ", margin, y); y += 14;
+    doc.text("Generated " + fmtDate(new Date()), margin, y); y += 24;
+    doc.setTextColor(20);
+
+    CHECKLIST.forEach(function(ph, idx){
+      if (y > pageH - 90){ doc.addPage(); y = margin; }
+      doc.setFont("helvetica","bold"); doc.setFontSize(12);
+      doc.text((idx+1) + ". " + ph.phase, margin, y);
+      doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(120);
+      doc.text(ph.window, pageW - margin, y, {align:"right"});
+      doc.setTextColor(20);
+      y += 16;
+      ph.items.forEach(function(it){
+        var mark = STATE.checklist[it.id] ? "[x] " : "[ ] ";
+        doc.setFontSize(9.5);
+        var lines = doc.splitTextToSize(mark + it.text, pageW - margin*2 - 10);
+        lines.forEach(function(line){
+          if (y > pageH - margin){ doc.addPage(); y = margin; }
+          doc.text(line, margin + 10, y);
+          y += 13;
+        });
+      });
+      y += 10;
+    });
+
+    saveBlob(btn, doc.output("blob"), "kyle-college-search-timeline.pdf", origText);
+  }
+
+  async function exportConsultantsPDF(btn){
+    var origText = btn.textContent;
+    if (!window.jspdf || !window.jspdf.jsPDF){ flashBtn(btn, "PDF library unavailable", origText); return; }
+    btn.disabled = true; btn.textContent = "Preparing…";
+    var jsPDF = window.jspdf.jsPDF;
+    var doc = new jsPDF({unit:"pt", format:"letter", orientation:"landscape"});
+    var pageW = doc.internal.pageSize.getWidth();
+    var pageH = doc.internal.pageSize.getHeight();
+    var margin = 40;
+    var y = margin;
+
+    doc.setFont("helvetica","bold"); doc.setFontSize(18);
+    doc.text("Kyle's College Search", margin, y); y += 20;
+    doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(90);
+    doc.text("Consultant evaluation - first-pass read from public information only", margin, y); y += 14;
+    doc.text("Generated " + fmtDate(new Date()), margin, y); y += 20;
+    doc.setTextColor(20);
+
+    FIRMS.forEach(function(f){
+      doc.setFont("helvetica","bold"); doc.setFontSize(10);
+      doc.text(f.name + "  (" + weightedTotal(f.id).toFixed(2) + "/5)", margin, y);
+      doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(90);
+      var lines = doc.splitTextToSize(f.location + "  ·  " + f.pricing, pageW - margin*2);
+      doc.text(lines, margin, y+11);
+      doc.setTextColor(20);
+      y += 11 + lines.length*10 + 4;
+    });
+    y += 10;
+
+    var CRIT_COL_WIDTH = 155;
+    var CRIT_PAD = 5;
+    var CRIT_INNER_WIDTH = CRIT_COL_WIDTH - CRIT_PAD*2;
+
+    var head = [["Criterion","Weight"].concat(FIRMS.map(function(f){ return f.name; }))];
+    var body = CRITERIA.map(function(c){
+      var row = [c.name, Math.round(c.weight*100)+"%"];
+      FIRMS.forEach(function(f){ row.push(String(STATE.scores[f.id][c.id])); });
+      return row;
+    });
+    body.push(["Weighted Total","100%"].concat(FIRMS.map(function(f){ return weightedTotal(f.id).toFixed(2); })));
+
+    doc.autoTable({
+      head: head, body: body, startY: y, margin:{left:margin, right:margin},
+      styles:{fontSize:8, cellPadding:CRIT_PAD, valign:"top"},
+      headStyles:{fillColor:[20,31,56], textColor:255},
+      columnStyles:{0:{cellWidth:CRIT_COL_WIDTH}},
+      didParseCell: function(data){
+        if (data.section === "body" && data.column.index === 0 && data.row.index < CRITERIA.length){
+          var c = CRITERIA[data.row.index];
+          var descLines = doc.splitTextToSize(c.desc, CRIT_INNER_WIDTH);
+          data.cell.text = [];
+          data.cell._critName = c.name;
+          data.cell._critDescLines = descLines;
+          data.cell.styles.minCellHeight = 12 + descLines.length*9 + 8;
+        }
+        if (data.section === "body" && data.row.index === body.length-1){ data.cell.styles.fontStyle = "bold"; }
+      },
+      didDrawCell: function(data){
+        if (data.section === "body" && data.column.index === 0 && data.cell._critName){
+          var x = data.cell.x + CRIT_PAD;
+          var yPos = data.cell.y + CRIT_PAD + 7;
+          doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor(20);
+          doc.text(data.cell._critName, x, yPos);
+          yPos += 10;
+          doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(100);
+          data.cell._critDescLines.forEach(function(line){ doc.text(line, x, yPos); yPos += 9; });
+          doc.setTextColor(20); doc.setFont("helvetica","normal"); doc.setFontSize(8);
+        }
+      }
+    });
+
+    var afterY = doc.lastAutoTable.finalY + 24;
+    if (afterY > pageH - 60){ doc.addPage(); afterY = margin; }
+    doc.setFont("helvetica","bold"); doc.setFontSize(11);
+    doc.text("Questions To Ask Before Signing With Anyone", margin, afterY);
+    afterY += 16;
+    doc.setFont("helvetica","normal"); doc.setFontSize(9);
+    QUESTIONS.forEach(function(q, i){
+      var lines = doc.splitTextToSize((i+1) + ". " + q, pageW - margin*2 - 10);
+      lines.forEach(function(line){
+        if (afterY > pageH - margin){ doc.addPage(); afterY = margin; }
+        doc.text(line, margin, afterY);
+        afterY += 13;
+      });
+      afterY += 3;
+    });
+
+    saveBlob(btn, doc.output("blob"), "kyle-college-search-consultant-evaluation.pdf", origText);
+  }
+
+  function initExportButtons(){
+    var t = document.getElementById("btnPrintTimeline");
+    var c = document.getElementById("btnPrintConsultants");
+    if (t) t.addEventListener("click", function(){ exportTimelinePDF(t); });
+    if (c) c.addEventListener("click", function(){ exportConsultantsPDF(c); });
+  }
+
+  function initTabs(){
+    var btns = document.querySelectorAll(".tab-btn");
+    btns.forEach(function(btn){
+      btn.addEventListener("click", function(){
+        btns.forEach(function(b){ b.classList.remove("active"); b.setAttribute("aria-selected","false"); });
+        btn.classList.add("active"); btn.setAttribute("aria-selected","true");
+        document.querySelectorAll(".panel").forEach(function(p){ p.classList.remove("active"); });
+        document.getElementById("panel-" + btn.dataset.panel).classList.add("active");
+      });
+    });
+  }
+
+  function initNotes(){
+    var ta = document.getElementById("notes");
+    var saveState_el = document.getElementById("saveState");
+    ta.addEventListener("input", function(){
+      STATE.notes = ta.value;
+      saveState_el.textContent = "Saving...";
+      clearTimeout(notesSaveTimer);
+      notesSaveTimer = setTimeout(function(){
+        saveState({notes: STATE.notes});
+        saveState_el.textContent = "Saved";
+        setTimeout(function(){ saveState_el.textContent = ""; }, 1500);
+      }, 700);
+    });
+  }
+
+  function boot(seed){
+    STATE = (seed && seed.checklist && seed.scores) ? seed : defaultState();
+    initTabs();
+    initNotes();
+    initExportButtons();
+    renderQuestions();
+    document.getElementById("todayDate").textContent = new Date().toISOString().slice(0,10);
+    renderAll();
+
+    if (window.claude && window.claude.hot){
+      window.claude.hot.snapshot(function(){ return STATE; });
+    }
+  }
+
+  async function start(){
+    var hotData = null;
+    try{
+      if (window.claude && window.claude.hot && window.claude.hot.data && window.claude.hot.data.checklist){
+        hotData = window.claude.hot.data;
+      }
+    }catch(e){}
+    boot(hotData);
+
+    if (window.claude && typeof window.claude.use === "function"){
+      try{
+        downloadsCap = await window.claude.use("downloads");
+      }catch(e){ downloadsCap = null; }
+      try{
+        db = await window.claude.use("db");
+      }catch(e){ db = null; }
+      if (db){
+        docRef = db.doc("app/state");
+        try{
+          var snap = await docRef.get();
+          if (snap.exists){
+            var data = snap.data();
+            STATE = {
+              checklist: Object.assign(defaultState().checklist, data.checklist || {}),
+              scores: Object.assign(JSON.parse(JSON.stringify(SEED_SCORES)), data.scores || {}),
+              notes: data.notes || ""
+            };
+            renderAll();
+          } else {
+            await docRef.set(STATE);
+          }
+        }catch(e){}
+
+        docRef.onSnapshot(function(snap){
+          if (!snap.exists) return;
+          var data = snap.data();
+          STATE.checklist = Object.assign(STATE.checklist, data.checklist || {});
+          STATE.scores = Object.assign(STATE.scores, data.scores || {});
+          if (!document.activeElement || document.activeElement.id !== "notes") STATE.notes = data.notes != null ? data.notes : STATE.notes;
+          renderAll();
+        }, function(){});
+      }
+    }
+  }
+
+  if (window.claude && window.claude.hot && window.claude.hot.ready){
+    window.claude.hot.ready(start);
+  } else {
+    start();
+  }
+
+})();
+</script>
+
+</body></html>

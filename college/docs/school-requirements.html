@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>School detail · Requirements</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f3f2f2; --ink: #201e1d; --muted: #444141; --subtle: #605d5d; --accent-text: #9e3603;
+    --accent: #e85504; --accent-100: #feeee4; --accent-200: #fdd6c0; --accent-300: #fab48e; --accent-600: #c74503;
+    --accent-800: #742703; --accent-900: #461a05;
+    --n-100: #eceaea; --n-200: #dcdada; --n-300: #c9c6c6; --n-400: #9b9797;
+    --shadow-lg: 0 18px 48px rgba(32,30,29,.16), 0 4px 12px rgba(32,30,29,.08);
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #e6e4e3; font-family: "Archivo", system-ui, sans-serif; color: var(--ink); }
+  a { color: var(--accent-text); text-decoration: none; border-bottom: 1px solid currentColor; }
+  a:hover { color: var(--accent-600); }
+  button { font-family: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .wrap { padding: 40px 24px; }
+  .modal { max-width: 1040px; margin: 0 auto; background: var(--bg); box-shadow: var(--shadow-lg); padding: 28px 40px 56px; display: flex; flex-direction: column; gap: 36px; }
+  .top { display: flex; justify-content: space-between; align-items: center; }
+  nav.tabs { display: flex; gap: 8px; align-items: flex-end; border-bottom: 1px solid var(--n-300); }
+  nav.tabs span { padding: 12px 14px; font-size: 16px; color: var(--muted); }
+  nav.tabs .on { font-weight: 600; color: var(--ink); border-bottom: 3px solid var(--accent); margin-bottom: -1px; }
+  nav.tabs .sp { flex: 1; padding: 0; }
+  .label { font-family: var(--mono); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--subtle); }
+  .label.sm { font-size: 11px; }
+  header { display: flex; flex-direction: column; gap: 12px; }
+  .kicker { display: flex; gap: 10px; align-items: center; }
+  .school { width: 24px; height: 24px; flex-shrink: 0; border-radius: 3px; background: var(--school, #2774ae); color: #fff; font-size: 12px; font-weight: 800; display: grid; place-items: center; overflow: hidden; }
+  .school img { width: 100%; height: 100%; object-fit: cover; }
+  .kicker b { font-size: 16px; }
+  .stats { display: grid; grid-template-columns: minmax(0,.8fr) minmax(0,1.5fr) minmax(0,1.1fr) minmax(0,1fr); gap: 32px; padding: 8px 0 4px; }
+  .stat { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .stat .v { font-size: 34px; line-height: 1; height: 34px; font-weight: 700; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .stat .v.hot { color: var(--accent-text); }
+  .stat .s { font-size: 14px; color: var(--muted); }
+  .progress { display: flex; gap: 16px; align-items: center; }
+  .progress .bar { width: 220px; height: 6px; background: var(--n-200); border-radius: 3px; overflow: hidden; }
+  .progress .bar i { display: block; height: 100%; background: var(--accent); transition: width .2s; }
+  .progress span { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+
+  .profile { display: flex; flex-direction: column; gap: 14px; }
+  .groups { display: grid; gap: 20px; }
+  .group { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .group h3 { margin: 0; display: flex; gap: 8px; align-items: baseline; font-size: 15px; font-weight: 700; }
+  .group h3 span { font-family: var(--mono); font-size: 13px; font-weight: 400; color: var(--subtle); }
+  .tiles { display: flex; gap: 4px; }
+  .tile { flex: 1; min-width: 0; height: 88px; padding: 12px; border-radius: 2px; display: flex; flex-direction: column; justify-content: space-between; gap: 6px; }
+  .tile b { font-size: 15px; line-height: 1.2; text-wrap: pretty; }
+  .tile small { font-size: 13px; line-height: 1.2; }
+  .g-req h3 { color: var(--accent-text); } .g-req .tile { background: var(--accent); border: 1px solid var(--accent); color: var(--accent-900); }
+  .g-mod h3 { color: var(--accent-text); } .g-mod .tile { background: repeating-linear-gradient(135deg, var(--accent-200) 0 6px, var(--accent-100) 6px 12px); border: 1px solid var(--accent); color: var(--accent-900); } .g-mod small { color: var(--accent-800); }
+  .g-no h3 { color: var(--ink); } .g-no .tile { background: var(--n-200); border: 1px solid var(--n-200); } .g-no small { color: var(--muted); }
+  .g-unk h3 { color: var(--subtle); } .g-unk .tile { background: transparent; border: 1px dashed var(--n-400); color: var(--muted); } .g-unk small { color: var(--subtle); }
+  .nomod { font-size: 14px; color: var(--subtle); }
+
+  .kit .row { display: grid; grid-template-columns: 150px minmax(0,1fr) 150px 170px; gap: 24px; align-items: center; }
+  .kit .head { padding-bottom: 10px; }
+  .kit .item { padding: 18px 0; border-top: 1px solid var(--n-200); }
+  .kit .quiet { padding: 14px 0; border-top: 1px solid var(--n-200); color: var(--subtle); font-size: 16px; }
+  .status { justify-self: start; display: flex; gap: 8px; align-items: center; padding: 6px 10px; font-size: 14px; font-weight: 600; border-radius: 2px; cursor: pointer; border: 1px solid var(--n-300); background: transparent; color: var(--muted); }
+  .status i { width: 8px; height: 8px; border-radius: 50%; background: var(--n-400); }
+  .status[data-s="1"] { border-color: var(--accent-300); background: var(--accent-100); color: var(--accent-900); } .status[data-s="1"] i { background: var(--accent); }
+  .status[data-s="2"] { background: var(--n-100); color: var(--ink); } .status[data-s="2"] i { background: var(--ink); }
+  .status:hover { border-color: var(--accent); }
+  .what { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .what b { font-size: 18px; } .what span { font-size: 15px; color: var(--muted); text-wrap: pretty; }
+  .says { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-text); }
+  .quiet .says { color: var(--subtle); }
+  .todo { justify-self: end; background: none; border: none; padding: 0; font-size: 15px; font-weight: 600; cursor: pointer; color: var(--accent-text); }
+  .todo:hover { color: var(--accent-600); } .todo:disabled { color: var(--subtle); cursor: default; }
+
+  .context { display: grid; grid-template-columns: minmax(0,1.4fr) minmax(0,1fr); gap: 56px; }
+  .context > div { display: flex; flex-direction: column; gap: 16px; }
+  .range { position: relative; height: 56px; }
+  .range .track, .range .band { position: absolute; top: 22px; height: 10px; border-radius: 2px; }
+  .range .track { left: 0; right: 0; background: var(--n-200); }
+  .range .band { background: var(--accent-300); }
+  .range .me { position: absolute; top: 12px; width: 3px; height: 30px; background: var(--ink); transform: translateX(-1px); }
+  .range .me-l { position: absolute; top: -6px; transform: translateX(-50%); font-size: 14px; font-weight: 700; white-space: nowrap; }
+  .range .tick { position: absolute; top: 40px; transform: translateX(-50%); font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .context p { margin: 0; font-size: 15px; line-height: 1.5; color: var(--muted); }
+  .context p.big { font-size: 20px; line-height: 1.4; font-weight: 500; color: var(--ink); text-wrap: pretty; }
+  .foot { display: flex; justify-content: space-between; align-items: baseline; font-size: 14px; color: var(--subtle); }
+  .foot a { font-size: 15px; }
+
+  @media (max-width: 800px) {
+    .modal { padding: 24px 20px 40px; }
+    .stats { grid-template-columns: 1fr 1fr; }
+    .groups { grid-template-columns: 1fr !important; }
+    .kit .row { grid-template-columns: 1fr auto; gap: 8px 16px; }
+    .kit .head { display: none; }
+    .kit .row > .says { display: none; }
+    .context { grid-template-columns: 1fr; gap: 32px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="modal">
+  <div class="top"><a href="#">Close</a></div>
+  <nav class="tabs"><span>Snapshot</span><span class="on">Requirements</span><span>Financials</span><span>Project Management</span><span class="sp"></span><span>Settings</span></nav>
+
+  <header>
+    <div class="kicker"><span class="school" id="schoolMark"></span><b id="schoolName"></b><span class="label">Requirements</span></div>
+    <div class="stats" id="stats"></div>
+    <div class="progress"><div class="bar"><i id="pbar"></i></div><span id="ptext"></span></div>
+  </header>
+
+  <section class="profile">
+    <span class="label">Requirement profile</span>
+    <div class="groups" id="groups"></div>
+    <span class="nomod" id="nomod" hidden>No modified requirements</span>
+  </section>
+
+  <section class="kit">
+    <div class="row head label sm"><span>Status</span><span>To submit</span><span>{School} says</span><span></span></div>
+    <div id="kit"></div>
+  </section>
+
+  <section class="context">
+    <div>
+      <span class="label" id="rangeLabel"></span>
+      <div class="range" id="range"></div>
+      <p id="mid50"></p>
+    </div>
+    <div>
+      <span class="label">Admissions context</span>
+      <p class="big" id="admCtx"></p>
+    </div>
+  </section>
+
+  <div class="foot"><span id="footFacts"></span><a href="#" id="edit">Edit requirements</a></div>
+</div>
+</div>
+
+<script>
+// ─── SAMPLE DATA ─── Replace with the school record + the signed-in student's progress.
+const SCHOOL = { id: 'ucla', name: 'UCLA', color: '#2774ae', iconUrl: null };
+const USER = { id: 'kyle', name: 'Kyle', sat: 1450 };           // sat: null hides the marker
+const REQS = {
+  testPolicy: 'Test required',
+  middle50: 'SAT reading 680–750, math 690–790',
+  satRange: [1370, 1530],
+  admissionsContext: 'Very selective, especially out-of-state',
+  platform: 'Common App',
+  // Fixed catalog, same order for every school. state: req | mod | no | unk
+  profile: [
+    { key: 'application',  label: 'Application',         state: 'req', note: 'Common App' },
+    { key: 'essay',        label: 'Personal essay',      state: 'req', note: 'Required' },
+    { key: 'supplements',  label: 'Supplemental essays', state: 'unk', note: 'Not in our data' },
+    { key: 'tests',        label: 'Test scores',         state: 'req', note: 'Test required' },
+    { key: 'teacherRecs',  label: 'Teacher recs',        state: 'no',  note: '0 needed' },
+    { key: 'counselorRec', label: 'Counselor rec',       state: 'no',  note: 'Not required' },
+    { key: 'interview',    label: 'Interview',           state: 'unk', note: 'Not in our data' }
+  ]
+};
+// Student progress per required/modified item. status: 0 Not started · 1 In progress · 2 Done
+const PROGRESS = {
+  application: { status: 1, inTodo: true },
+  essay:       { status: 1, inTodo: false },
+  tests:       { status: 0, inTodo: false }
+};
+// Kit copy per catalog key (title + detail shown in the checklist)
+const KIT_COPY = {
+  application:  { title: 'Common App application', detail: 'UCLA applies through Common App.' },
+  essay:        { title: 'Personal essay', detail: 'Common App personal essay required' },
+  supplements:  { title: 'Supplemental essays', detail: '' },
+  tests:        { title: 'SAT scores', detail: 'Test required. Send official scores.' },
+  teacherRecs:  { title: 'Teacher recommendations (0)', detail: '' },
+  counselorRec: { title: 'Counselor recommendation', detail: '' },
+  interview:    { title: 'Interview', detail: '' }
+};
+const SAT_SCALE = [1200, 1600];
+
+// ─── Integration hooks ───
+function saveStatus(key, status) { /* PATCH progress { userId, schoolId, key, status } */ }
+function addToTodo(key) {
+  /* POST todo { title: KIT_COPY[key].title, userId: USER.id, schoolId: SCHOOL.id, sourceRequirement: key } */
+}
+
+// ─── Render ───
+const $ = id => document.getElementById(id);
+const STATUS = ['Not started', 'In progress', 'Done'];
+const GROUPS = { req: 'Required', mod: 'Modified', no: 'Not required', unk: 'Not listed' };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function render() {
+  $('schoolMark').innerHTML = SCHOOL.iconUrl ? `<img src="${SCHOOL.iconUrl}" alt="">` : esc(SCHOOL.name[0]);
+  $('schoolMark').style.setProperty('--school', SCHOOL.color);
+  $('schoolMark').title = SCHOOL.name;
+  $('schoolName').textContent = SCHOOL.name;
+  document.querySelector('.kit .head span:nth-child(3)').textContent = SCHOOL.name + ' says';
+
+  const toSubmit = REQS.profile.filter(p => p.state === 'req' || p.state === 'mod');
+  const recs = REQS.profile.filter(p => (p.key === 'teacherRecs' || p.key === 'counselorRec') && p.state !== 'no').length;
+  const tests = REQS.profile.find(p => p.key === 'tests');
+  const stats = [
+    { l: 'To submit', v: toSubmit.length, s: 'items required' },
+    { l: 'Platform', v: REQS.platform, s: 'one application' },
+    { l: 'Testing', v: tests ? GROUPS[tests.state] : '—', s: 'SAT or ACT', hot: tests && tests.state === 'req' },
+    { l: 'Recommendations', v: recs, s: 'teacher or counselor' }
+  ];
+  $('stats').innerHTML = stats.map(x => `<div class="stat"><span class="label sm">${x.l}</span><span class="v${x.hot ? ' hot' : ''}" title="${esc(x.v)}">${esc(x.v)}</span><span class="s">${x.s}</span></div>`).join('');
+
+  const done = toSubmit.filter(p => (PROGRESS[p.key] || {}).status === 2).length;
+  $('pbar').style.width = (toSubmit.length ? done / toSubmit.length * 100 : 0) + '%';
+  $('ptext').textContent = `${done} of ${toSubmit.length} done`;
+
+  const groups = ['req', 'mod', 'no', 'unk'].map(k => ({ k, items: REQS.profile.filter(p => p.state === k) })).filter(g => g.items.length);
+  $('groups').style.gridTemplateColumns = groups.map(g => g.items.length + 'fr').join(' ');
+  $('groups').innerHTML = groups.map(g => `<div class="group g-${g.k}"><h3>${GROUPS[g.k]}<span>${g.items.length}</span></h3><div class="tiles">${g.items.map(p => `<div class="tile"><b>${esc(p.label)}</b><small>${esc(p.note)}</small></div>`).join('')}</div></div>`).join('');
+  $('nomod').hidden = REQS.profile.some(p => p.state === 'mod');
+
+  const kitRows = toSubmit.map(p => {
+    const pr = PROGRESS[p.key] || { status: 0, inTodo: false }, c = KIT_COPY[p.key];
+    return `<div class="row item">
+      <button class="status" data-s="${pr.status}" data-key="${p.key}" title="Click to change status"><i></i>${STATUS[pr.status]}</button>
+      <div class="what"><b>${esc(c.title)}</b>${c.detail ? `<span>${esc(c.detail)}</span>` : ''}</div>
+      <span class="says">${p.state === 'mod' ? 'Modified' : 'Required'}</span>
+      <button class="todo" data-key="${p.key}" ${pr.inTodo ? 'disabled' : ''}>${pr.inTodo ? 'In To-Do ✓' : 'Add to To-Do'}</button>
+    </div>`;
+  });
+  const quiet = REQS.profile.filter(p => p.state === 'no').map(p => `<div class="row quiet"><span>—</span><span>${esc(KIT_COPY[p.key].title)}</span><span class="says">Not required</span><span></span></div>`);
+  $('kit').innerHTML = kitRows.join('') + quiet.join('');
+
+  const pos = n => ((n - SAT_SCALE[0]) / (SAT_SCALE[1] - SAT_SCALE[0]) * 100).toFixed(1) + '%';
+  const [lo, hi] = REQS.satRange;
+  $('rangeLabel').textContent = `Where ${USER.name}'s SAT lands`;
+  $('range').innerHTML = `<div class="track"></div><div class="band" style="left:${pos(lo)};width:calc(${pos(hi)} - ${pos(lo)})"></div>
+    ${USER.sat ? `<div class="me" style="left:${pos(USER.sat)}"></div><span class="me-l" style="left:${pos(USER.sat)}">${esc(USER.name)} ${USER.sat}</span>` : ''}
+    <span class="tick" style="left:${pos(lo)}">${lo}</span><span class="tick" style="left:${pos(hi)}">${hi}</span>`;
+  $('mid50').textContent = 'Middle 50%: ' + REQS.middle50 + '.';
+  $('admCtx').textContent = REQS.admissionsContext;
+  $('footFacts').textContent = `Test policy: ${REQS.testPolicy} · Platform: ${REQS.platform}`;
+}
+
+document.addEventListener('click', e => {
+  const s = e.target.closest('.status'), t = e.target.closest('.todo');
+  if (s) { const k = s.dataset.key; PROGRESS[k] = PROGRESS[k] || { status: 0, inTodo: false }; PROGRESS[k].status = (PROGRESS[k].status + 1) % 3; saveStatus(k, PROGRESS[k].status); render(); }
+  if (t && !t.disabled) { const k = t.dataset.key; PROGRESS[k] = PROGRESS[k] || { status: 0 }; PROGRESS[k].inTodo = true; addToTodo(k); render(); }
+});
+render();
+</script>
+</body>
+</html>

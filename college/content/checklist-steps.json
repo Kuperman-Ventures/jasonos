@@ -1,0 +1,163 @@
+[
+  {
+    "parentId": "p1-1",
+    "steps": [
+      {
+        "id": "p1-1-s1",
+        "label": "Confirm PSAT/NMSQT test date and site with Columbia High",
+        "owner": "jason",
+        "dueDate": "2026-09-25",
+        "startDate": null,
+        "endDate": null
+      },
+      {
+        "id": "p1-1-s2",
+        "label": "Register Kyle for the October PSAT/NMSQT",
+        "owner": "kat",
+        "dueDate": "2026-09-30",
+        "startDate": null,
+        "endDate": null
+      },
+      {
+        "id": "p1-1-s3",
+        "label": "Complete College Board account setup if needed",
+        "owner": "kyle",
+        "dueDate": "2026-10-05",
+        "startDate": null,
+        "endDate": null
+      },
+      {
+        "id": "p1-1-s4",
+        "label": "Do one timed PSAT practice section",
+        "owner": "kyle",
+        "dueDate": "2026-10-10",
+        "startDate": "2026-10-01",
+        "endDate": "2026-10-10"
+      },
+      {
+        "id": "p1-1-s5",
+        "label": "Pack admission ticket, calculator, and pencils the night before",
+        "owner": "kyle",
+        "dueDate": "2026-10-14",
+        "startDate": null,
+        "endDate": null
+      },
+      {
+        "id": "p1-1-s6",
+        "label": "Drive Kyle to the test site",
+        "owner": "kat",
+        "dueDate": "2026-10-15",
+        "startDate": null,
+        "endDate": null
+      },
+      {
+        "id": "p1-1-s7",
+        "label": "File National Merit follow-up dates on the family calendar after scores",
+        "owner": "jason",
+        "dueDate": "2026-12-15",
+        "startDate": null,
+        "endDate": null
+      }
+    ]
+  },
+  {
+    "parentId": "p1-3",
+    "steps": [
+      {
+        "id": "p1-3-s1",
+        "label": "Create a shared activity log spreadsheet",
+        "owner": "jason",
+        "dueDate": "2026-09-22",
+        "startDate": null,
+        "endDate": null
+      },
+      {
+        "id": "p1-3-s2",
+        "label": "Fill in current activities with dates and hours",
+        "owner": "kyle",
+        "dueDate": "2026-10-01",
+        "startDate": "2026-09-22",
+        "endDate": "2026-10-01"
+      },
+      {
+        "id": "p1-3-s3",
+        "label": "Review the log monthly and nudge for missing entries",
+        "owner": "kat",
+        "dueDate": "2026-10-31",
+        "startDate": null,
+        "endDate": null
+      }
+    ]
+  },
+  {
+    "parentId": "p1-4",
+    "steps": [
+      {
+        "id": "p1-4-s1",
+        "label": "Draft a one-page budget range for college spend",
+        "owner": "jason",
+        "dueDate": "2026-10-20",
+        "startDate": null,
+        "endDate": null
+      },
+      {
+        "id": "p1-4-s2",
+        "label": "Join the family money conversation with questions ready",
+        "owner": "kyle",
+        "dueDate": "2026-11-01",
+        "startDate": null,
+        "endDate": null
+      },
+      {
+        "id": "p1-4-s3",
+        "label": "Write down reach / match / safety financial rules after the talk",
+        "owner": "kat",
+        "dueDate": "2026-11-05",
+        "startDate": null,
+        "endDate": null
+      }
+    ]
+  },
+  {
+    "parentId": "p1-5",
+    "steps": [
+      {
+        "id": "p1-5-s1",
+        "label": "Pick two college search tools and create free profiles",
+        "owner": "kyle",
+        "dueDate": "2026-09-28",
+        "startDate": null,
+        "endDate": null
+      },
+      {
+        "id": "p1-5-s2",
+        "label": "Save five interesting schools to review together",
+        "owner": "kyle",
+        "dueDate": "2026-10-12",
+        "startDate": null,
+        "endDate": null
+      }
+    ]
+  },
+  {
+    "parentId": "p1-6",
+    "steps": [
+      {
+        "id": "p1-6-s1",
+        "label": "List two service or passion-project options Kyle likes",
+        "owner": "kyle",
+        "dueDate": "2026-10-08",
+        "startDate": null,
+        "endDate": null
+      },
+      {
+        "id": "p1-6-s2",
+        "label": "Help Kyle pick one option and a weekly time block",
+        "owner": "kat",
+        "dueDate": "2026-10-15",
+        "startDate": null,
+        "endDate": null
+      }
+    ]
+  }
+]

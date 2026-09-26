@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>To-dos — projects (reference)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@300..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#f3f2f2;--surface:#e8e6e5;--chip:#e9e8e8;--chip-line:#cfcdcd;--field:#fbfbfa;
+  --text:#201e1d;--muted:#444141;--subtle:#605d5d;--faint:#8a8686;
+  --rule:rgba(32,30,29,0.14);--accent:#e85504;--accent-text:#9e3603;--accent-tint:rgba(232,85,4,0.08);
+  --danger:#b0135a;--danger-hover:#8f0f49;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Archivo",system-ui,sans-serif}
+a{color:var(--accent-text)}a:hover{color:#c74503}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1360px;margin:0 auto;padding:32px 40px 64px;display:flex;flex-direction:column;gap:26px}
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tab{padding:10px 16px;background:var(--chip);border:1px solid var(--chip-line);font-size:16px;font-weight:500}
+.tab.on{padding:9px 15px;background:var(--bg);border:2px solid var(--accent);font-weight:600}
+.add{margin-left:auto;padding:11px 20px;background:var(--chip);border:1px solid var(--chip-line);font-size:17px;font-weight:600}
+.label{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--subtle)}
+.seg{padding:8px 14px;background:var(--chip);border:1px solid var(--chip-line);font-size:15px;font-weight:500}
+.seg[aria-pressed=true]{padding:7px 13px;background:var(--field);border:2px solid var(--accent);font-weight:600}
+.seg:hover,.chip:hover,.newp:hover{background:var(--accent-tint)}
+.newp{margin-left:8px;padding:8px 14px;border:1px dashed rgba(32,30,29,.35);font-size:15px;font-weight:600;color:var(--accent-text)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:40px;row-gap:34px;align-items:start}
+.group{grid-column:1/-1;display:flex;flex-direction:column;min-width:0;transition:background .15s}
+.group.half{grid-column:auto}
+.dragging .group{outline:1px dashed rgba(32,30,29,.3);outline-offset:8px}
+.dragging .group.over{outline:2px solid var(--accent);background:rgba(232,85,4,.06)}
+.ghead{display:flex;align-items:center;gap:14px;padding-bottom:14px}
+.ghead h2{margin:0;font-size:30px;font-weight:700;letter-spacing:-.02em}
+.stat{margin-left:auto;font-family:var(--mono);font-size:13px;letter-spacing:.14em;color:var(--subtle);white-space:nowrap}
+.sw{flex:none;width:18px;height:18px;border-radius:3px}
+.sw.none{background:#d7d3d3}
+.av{flex:none;width:46px;height:46px;border-radius:50%;background:#d3dcea;color:#2f5aa0;font-size:14px;font-weight:700;display:grid;place-items:center}
+.av.sm{width:28px;height:28px;font-size:11px}
+.chip{padding:5px 10px;background:var(--chip);border:1px solid var(--chip-line);font-size:13px;font-weight:600}
+.section-head{grid-column:1/-1;display:flex;align-items:center;gap:14px;padding-top:22px}
+.section-head h2{margin:0;font-size:30px;font-weight:700;letter-spacing:-.02em}
+.row{position:relative;display:flex;align-items:center;gap:14px;padding:13px 8px;border-bottom:1px solid var(--rule)}
+.row.lifted{opacity:.4}
+.row.menu-open{background:rgba(32,30,29,.04)}
+.box{flex:none;width:18px;height:18px;border:1.5px solid var(--faint);border-radius:3px;background:var(--field)}
+.grip{flex:none;width:26px;height:30px;border-radius:2px;display:grid;place-items:center;color:var(--faint);font-size:16px;letter-spacing:-3px;cursor:grab;user-select:none;touch-action:none}
+.grip:hover,.grip[aria-expanded=true]{background:rgba(232,85,4,.12);color:var(--accent-text)}
+.grip:active{cursor:grabbing}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.title{max-width:100%;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{display:flex;align-items:center;gap:12px;max-width:100%;font-size:13px;color:var(--subtle)}
+.ptag{min-width:0;max-width:220px;display:flex;align-items:center;gap:7px;padding:4px 9px;border:1px solid rgba(32,30,29,.2);border-radius:2px;background:var(--field);font-size:13px}
+.ptag.empty{border-style:dashed;border-color:rgba(32,30,29,.25);background:transparent;color:var(--faint)}
+.ptag:hover,.ptag[aria-expanded=true]{background:var(--accent-tint)}
+.ptag span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dot{flex:none;width:9px;height:9px;border-radius:2px}
+.date{flex:none;min-width:48px;text-align:right;font-size:15px;font-weight:600;color:var(--accent-text)}
+.date.soon{color:var(--danger)}.date.none{color:var(--subtle)}
+.chev{flex:none;color:var(--subtle);font-size:20px;line-height:1}
+.empty-msg{margin:0;padding:14px 8px;border-bottom:1px solid var(--rule);font-size:15px;color:var(--subtle)}
+.menu{position:absolute;top:calc(100% - 6px);left:8px;z-index:30;width:260px;background:var(--field);border:1px solid rgba(32,30,29,.18);box-shadow:0 12px 32px rgba(32,30,29,.16);padding:8px 0;display:flex;flex-direction:column}
+.menu .label{padding:6px 14px 8px}
+.menu [role=menuitem]{display:flex;align-items:center;gap:10px;padding:8px 14px;font-size:15px;text-align:left}
+.menu [role=menuitem]:hover,.menu [role=menuitem]:focus-visible{background:var(--accent-tint);outline:none}
+.menu .sq{flex:none;width:11px;height:11px;border-radius:2px;border:1px solid transparent}
+.menu .sq.none{border:1px dashed var(--faint)}
+.menu .ck{margin-left:auto;color:var(--accent-text);font-weight:700}
+.menu hr{border:0;height:1px;background:rgba(32,30,29,.12);margin:6px 0}
+.menu .new{color:var(--accent-text);font-weight:600}
+.editor{display:flex;flex-direction:column;gap:14px;padding:18px 20px;margin-bottom:10px;background:var(--surface);border-top:3px solid var(--text)}
+.editor .kick{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-text)}
+.editor .kick small{font-family:"Archivo",sans-serif;font-size:14px;letter-spacing:0;text-transform:none;color:var(--muted);margin-left:12px}
+.erow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.erow input{flex:1;min-width:240px;font:inherit;font-size:17px;padding:10px 12px;border:1px solid rgba(32,30,29,.3);background:var(--field);border-radius:2px;color:var(--text)}
+.hues{display:flex;gap:8px}
+.hue{width:22px;height:22px;border-radius:3px;outline:2px solid transparent;outline-offset:2px}
+.hue[aria-checked=true]{outline-color:var(--text)}
+.btn-dark{padding:10px 18px;background:var(--text);color:var(--bg);font-size:15px;font-weight:600}
+.btn-dark:hover{background:var(--muted)}
+.btn-plain{padding:10px 12px;font-size:15px;font-weight:600;color:var(--muted)}
+.btn-del{margin-left:auto;padding:10px 4px;font-size:15px;font-weight:600;color:var(--danger)}
+.btn-danger{padding:10px 18px;background:var(--danger);color:#fff;font-size:15px;font-weight:600}
+.btn-danger:hover{background:var(--danger-hover)}
+.confirm-text{flex:1;min-width:280px;font-size:16px;line-height:1.5}
+.meter{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:40px;row-gap:18px}
+.mp{display:flex;flex-direction:column;gap:10px;min-width:0}
+.mp-head{display:flex;align-items:center;gap:10px}
+.mp-name{font-size:16px;font-weight:600}
+.mp-nums{margin-left:auto;display:flex;gap:14px;font-family:var(--mono);font-size:12px;letter-spacing:.12em;color:var(--subtle);white-space:nowrap}
+.mp-nums b{font-family:"Archivo",sans-serif;font-size:20px;letter-spacing:0;font-weight:700;color:var(--text);margin-right:5px}
+.mp-nums .od b{color:var(--danger)}
+.mp-nums .od.zero b{color:var(--subtle)}
+.track{height:8px;background:rgba(32,30,29,.08);display:flex}
+.track .t{height:100%;background:#b9b5b4;display:flex}
+.track .o{height:100%;background:var(--danger)}
+.date.over{color:var(--danger);font-weight:700}
+@media (max-width:900px){.meter{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}.group.half{grid-column:1/-1}.wrap{padding:24px 20px 48px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <button class="tab">Timeline</button>
+    <button class="tab on" aria-current="page">To-dos</button>
+    <button class="tab">Calendar</button>
+    <button class="add">Add a to-do</button>
+  </div>
+  <div class="bar">
+    <span class="label">Group by</span>
+    <button class="seg" data-mode="person" aria-pressed="false">Person</button>
+    <button class="seg" data-mode="project" aria-pressed="true">Project</button>
+    <button class="newp" id="newProject">＋ New project</button>
+  </div>
+  <div class="meter" id="meter" aria-label="To-dos per person"></div>
+  <div id="topEditor"></div>
+  <div class="grid" id="list"></div>
+</div>
+<script>
+const HUES=['#7a3b69','#5b4a9e','#2f6aa3','#3f7d4f','#8a5a1f'];
+const PEOPLE={ja:{name:'Jason',ini:'JA'},ky:{name:'Kyle',ini:'KY'},ka:{name:'Kat',ini:'KA'}};
+const ME='ja';
+const TODOS=[
+  {id:'t1',who:'ja',title:'Review College Coaches',date:'Sep 30',soon:true,project:null},
+  {id:'t2',who:'ja',title:'Draft a one-page budget range for college spend',date:'Oct 20',project:'p3'},
+  {id:'t3',who:'ky',title:'Ensure College Board account uses personal email',date:'Sep 18',project:null},
+  {id:'t4',who:'ky',title:'Finalize all AP exam payments',date:'Nov 8',project:'p1'},
+  {id:'t5',who:'ky',title:'Request AP testing accommodations (SSD)',date:'Jan 8',project:'p2'},
+  {id:'t6',who:'ky',title:'Contact Ms. Ambike for alternate AP test dates',project:'p1'},
+  {id:'t7',who:'ky',title:'Develop Your College List',date:'Sep 12',project:null},
+  {id:'t8',who:'ky',title:'Email Ms. Ambike if not taking an AP exam',project:'p1'},
+  {id:'t9',who:'ka',title:'Register Kyle for the next PSAT/NMSQT',date:'Sep 30',soon:true,project:'p2'},
+  {id:'t10',who:'ka',title:'Find an alternative SAT date outside Columbia’s schedule',date:'Sep 22',project:'p2'},
+  {id:'t11',who:'ka',title:'Home and School Association (HSA): no membership',project:null},
+  {id:'t12',who:'ka',title:'Pursue 504 extended-time accommodation',project:'p2'}
+];
+const S={
+  mode:'project',
+  projects:[{id:'p1',name:'AP exams',hue:0},{id:'p2',name:'Testing & accommodations',hue:1},{id:'p3',name:'Budget',hue:2}],
+  menu:null,      // to-do id whose Move menu is open
+  edit:null,      // {pid|'new', draft, hue, target:[todoIds]|null, confirm}
+  drag:null, over:null, nextId:4
+};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const proj=id=>S.projects.find(p=>p.id===id);
+// Overdue = due date before today. Demo "today" is Sep 25; Jan–Jul dates roll to next year.
+const TODAY=new Date(2026,8,25),MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const due=t=>{if(!t.date)return null;const[m,d]=t.date.split(' '),mi=MON.indexOf(m);return new Date(mi<7?2027:2026,mi,+d);};
+const overdue=t=>{const d=due(t);return !!d&&d<TODAY;};
+const plural=(n,w)=>`${n} ${w}${n===1?'':'s'}`;
+const stat=ts=>`${ts.length} OPEN · ${ts.filter(t=>t.date).length} DATED`;
+function meterHTML(){
+  const rows=Object.keys(PEOPLE).map(w=>{const ts=TODOS.filter(t=>t.who===w);return{w,n:ts.length,o:ts.filter(overdue).length};});
+  const max=Math.max(1,...rows.map(r=>r.n));
+  return rows.map(r=>`<div class="mp"><div class="mp-head"><span class="av sm">${PEOPLE[r.w].ini}</span><span class="mp-name">${PEOPLE[r.w].name}</span>
+    <span class="mp-nums"><span><b>${r.n}</b>TOTAL</span><span class="od ${r.o?'':'zero'}"><b>${r.o}</b>OVERDUE</span></span></div>
+    <div class="track" role="img" aria-label="${PEOPLE[r.w].name}: ${plural(r.n,'to-do')}, ${r.o} overdue"><span class="t" style="width:${r.n/max*100}%"><span class="o" style="width:${r.n?r.o/r.n*100:0}%"></span></span></div></div>`).join('');
+}
+
+// ---- data actions ----
+function move(ids,pid){ids.forEach(id=>{TODOS.find(t=>t.id===id).project=pid;});S.menu=null;render();}
+function startNew(target=null){S.menu=null;S.edit={pid:'new',draft:'',hue:(S.nextId-1)%HUES.length,target,confirm:false};render();}
+function startEdit(pid){const p=proj(pid);S.menu=null;S.edit={pid,draft:p.name,hue:p.hue,target:null,confirm:false};render();}
+function commit(){
+  const e=S.edit,name=e.draft.trim();if(!name)return;
+  if(e.pid==='new'){const id='p'+S.nextId++;S.projects.push({id,name,hue:e.hue});(e.target||[]).forEach(t=>{TODOS.find(x=>x.id===t).project=id;});}
+  else Object.assign(proj(e.pid),{name,hue:e.hue});
+  S.edit=null;render();
+}
+function del(){ // deleting a project never deletes to-dos
+  const pid=S.edit.pid;TODOS.forEach(t=>{if(t.project===pid)t.project=null;});
+  S.projects=S.projects.filter(p=>p.id!==pid);S.edit=null;render();
+}
+
+// ---- rendering ----
+function editorHTML(){
+  const e=S.edit,isNew=e.pid==='new',p=proj(e.pid),n=isNew?0:TODOS.filter(t=>t.project===e.pid).length,tn=(e.target||[]).length;
+  if(e.confirm) return `<div class="editor"><span class="kick">Delete project</span><div class="erow">
+    <span class="confirm-text">Delete “${esc(p.name)}”? ${n?`Its ${plural(n,'to-do')} stay on the list with no project.`:'It has no to-dos.'}</span>
+    <button class="btn-danger" data-act="doDel">Delete project</button><button class="btn-plain" data-act="cancel">Keep it</button></div></div>`;
+  return `<div class="editor"><span class="kick">${isNew?'New project':'Edit project'}${isNew&&tn?`<small>${plural(tn,'to-do')} will move into it</small>`:''}</span>
+    <div class="erow">
+      <input id="pname" value="${esc(e.draft)}" placeholder="Project name" aria-label="Project name">
+      <div class="hues" role="radiogroup" aria-label="Color">${HUES.map((h,i)=>`<button class="hue" role="radio" aria-checked="${i===e.hue}" aria-label="Color ${i+1}" data-hue="${i}" style="background:${h}"></button>`).join('')}</div>
+      <button class="btn-dark" data-act="save">${isNew?'Create':'Save'}</button>
+      <button class="btn-plain" data-act="cancel">Cancel</button>
+      ${isNew?'':'<button class="btn-del" data-act="askDel">Delete project</button>'}
+    </div></div>`;
+}
+function menuHTML(t){
+  const items=[...S.projects.map(p=>({id:p.id,name:p.name,hue:HUES[p.hue]})),{id:'',name:'No project'}];
+  return `<div class="menu" role="menu" aria-label="Move to project"><span class="label">Move to project</span>
+    ${items.map(it=>`<button role="menuitem" data-move="${it.id}" data-todo="${t.id}"><span class="sq ${it.hue?'':'none'}" style="${it.hue?`background:${it.hue}`:''}"></span>${esc(it.name)}<span class="ck">${(t.project||'')===it.id?'✓':''}</span></button>`).join('')}
+    <hr><button role="menuitem" class="new" data-newfrom="${t.id}">＋ New project…</button></div>`;
+}
+function rowHTML(t){
+  const byProject=S.mode==='project',p=proj(t.project),open=S.menu===t.id;
+  // Project view: grip dots (drag or click). Person view: project tag (click).
+  const handle=byProject
+    ? `<button class="grip" draggable="true" data-grip="${t.id}" aria-haspopup="menu" aria-expanded="${open}" aria-label="Move “${esc(t.title)}”. Drag, or press to choose a project" title="Drag to move, or click for the Move menu">⋮⋮</button>`
+    : '';
+  const tag=byProject?'':`<button class="ptag ${p?'':'empty'}" data-grip="${t.id}" aria-haspopup="menu" aria-expanded="${open}">${p?`<span class="dot" style="background:${HUES[p.hue]}"></span>`:''}<span>${p?esc(p.name):'＋ Project'}</span></button>`;
+  const who=byProject?`<span class="av sm">${PEOPLE[t.who].ini}</span>`:'';
+  const from=!byProject&&t.who!==ME?`<span>From ${PEOPLE[ME].name}</span>`:'';
+  const meta=tag||from?`<div class="meta">${tag}${from}</div>`:'';
+  return `<div class="row ${S.drag===t.id?'lifted':''} ${open?'menu-open':''}" data-row="${t.id}">
+    ${handle}<span class="box"></span>${who}
+    <div class="main"><span class="title">${esc(t.title)}</span>${meta}</div>
+    <span class="date ${overdue(t)?'over':t.soon?'soon':t.date?'':'none'}">${t.date||'—'}</span><span class="chev">›</span>
+    ${open?menuHTML(t):''}</div>`;
+}
+function projectView(){
+  const groups=[...S.projects.map(p=>({pid:p.id,name:p.name,hue:HUES[p.hue]})),{pid:null,name:'No project'}];
+  return groups.map(g=>{
+    const ts=TODOS.filter(t=>t.project===g.pid),key=g.pid||'none';
+    const editing=g.pid&&S.edit&&S.edit.pid===g.pid;
+    return `<section class="group ${S.over===key?'over':''}" data-drop="${key}" aria-label="${esc(g.name)}">
+      <div class="ghead"><span class="sw ${g.pid?'':'none'}" style="${g.hue?`background:${g.hue}`:''}"></span><h2>${esc(g.name)}</h2>
+        ${g.pid?`<button class="chip" data-edit="${g.pid}">Edit</button>`:''}<span class="stat">${stat(ts)}</span></div>
+      ${editing?editorHTML():''}
+      ${ts.map(rowHTML).join('')||'<p class="empty-msg">Drag a to-do here, or use its dots to choose this project.</p>'}
+    </section>`;
+  }).join('');
+}
+function personView(){
+  const group=(w,half)=>{const ts=TODOS.filter(t=>t.who===w);if(!ts.length)return '';
+    return `<section class="group ${half?'half':''}"><div class="ghead"><span class="av">${PEOPLE[w].ini}</span><h2>${PEOPLE[w].name}</h2><span class="stat">${stat(ts)}</span></div>${ts.map(rowHTML).join('')}</section>`;};
+  const others=TODOS.filter(t=>t.who!==ME);
+  return group(ME,false)+`<div class="section-head"><h2>Everyone else</h2><span class="stat">${stat(others)}</span></div>`+group('ky',true)+group('ka',true);
+}
+function render(){
+  document.querySelectorAll('.seg').forEach(b=>b.setAttribute('aria-pressed',b.dataset.mode===S.mode));
+  $('#newProject').hidden=S.mode!=='project';
+  const topEdit=S.edit&&(S.edit.pid==='new'||S.mode!=='project');
+  $('#topEditor').innerHTML=topEdit?editorHTML():'';
+  $('#meter').innerHTML=meterHTML();
+  $('#list').innerHTML=S.mode==='project'?projectView():personView();
+  const input=$('#pname');if(input&&document.activeElement!==input){input.focus();input.setSelectionRange(input.value.length,input.value.length);}
+  if(S.menu){const first=document.querySelector('.menu [role=menuitem]');first&&first.focus();}
+}
+
+// ---- events ----
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button');
+  if(!b){if(S.menu&&!e.target.closest('.menu')){S.menu=null;render();}return;}
+  if(b.dataset.mode){S.mode=b.dataset.mode;S.menu=null;S.edit=null;render();return;}
+  if(b.id==='newProject')return startNew();
+  if(b.dataset.grip){S.menu=S.menu===b.dataset.grip?null:b.dataset.grip;render();return;}
+  if('move' in b.dataset)return move([b.dataset.todo],b.dataset.move||null);
+  if(b.dataset.newfrom)return startNew([b.dataset.newfrom]);
+  if(b.dataset.edit)return startEdit(b.dataset.edit);
+  if(b.dataset.hue){S.edit.hue=+b.dataset.hue;render();return;}
+  const act=b.dataset.act;
+  if(act==='save')commit();
+  if(act==='cancel'){S.edit=null;render();}
+  if(act==='askDel'){S.edit.confirm=true;render();}
+  if(act==='doDel')del();
+  if(S.menu&&!b.closest('.menu')&&!b.dataset.grip){S.menu=null;render();}
+});
+document.addEventListener('input',e=>{if(e.target.id==='pname')S.edit.draft=e.target.value;});
+document.addEventListener('keydown',e=>{
+  if(e.target.id==='pname'){if(e.key==='Enter')commit();if(e.key==='Escape'){S.edit=null;render();}return;}
+  if(S.menu){
+    const items=[...document.querySelectorAll('.menu [role=menuitem]')],i=items.indexOf(document.activeElement);
+    if(e.key==='Escape'){const id=S.menu;S.menu=null;render();const g=document.querySelector(`[data-grip="${id}"]`);g&&g.focus();}
+    if(e.key==='ArrowDown'){e.preventDefault();items[(i+1)%items.length].focus();}
+    if(e.key==='ArrowUp'){e.preventDefault();items[(i-1+items.length)%items.length].focus();}
+  }
+});
+// Drag: the grip is the drag source; each project section (and No project) is a drop target.
+document.addEventListener('dragstart',e=>{
+  const g=e.target.closest('.grip');if(!g)return;
+  S.drag=g.dataset.grip;S.menu=null;e.dataTransfer.setData('text/plain',S.drag);e.dataTransfer.effectAllowed='move';
+  const row=g.closest('.row');e.dataTransfer.setDragImage(row,20,20);
+  requestAnimationFrame(()=>{document.body.classList.add('dragging');render();});
+});
+document.addEventListener('dragover',e=>{
+  const sec=e.target.closest('[data-drop]');if(!sec||!S.drag)return;e.preventDefault();
+  if(S.over!==sec.dataset.drop){S.over=sec.dataset.drop;document.querySelectorAll('[data-drop]').forEach(s=>s.classList.toggle('over',s.dataset.drop===S.over));}
+});
+document.addEventListener('drop',e=>{
+  const sec=e.target.closest('[data-drop]');if(!sec)return;e.preventDefault();
+  const id=e.dataTransfer.getData('text/plain')||S.drag,key=sec.dataset.drop;
+  S.drag=null;S.over=null;document.body.classList.remove('dragging');move([id],key==='none'?null:key);
+});
+document.addEventListener('dragend',()=>{if(S.drag){S.drag=null;S.over=null;document.body.classList.remove('dragging');render();}});
+render();
+</script>
+</body>
+</html>
