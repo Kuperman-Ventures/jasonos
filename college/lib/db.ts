@@ -250,6 +250,7 @@ export function mapSchool(row: SchoolRow): School {
         : "",
     visitDate: row.visit_date,
     visitNotes: row.visit_notes,
+    visitAddress: "",
     deadline: row.deadline,
     deadlineLabel: row.deadline_label,
     selectivityTier: isSelectivityTier(row.selectivity_tier) ? row.selectivity_tier : "",

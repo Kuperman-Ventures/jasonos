@@ -2,8 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { fromSeed, type SchoolSeed } from "./types";
 import {
+  anyFilterLevelOn,
+  buildMapRouteParts,
   buildVisitClusters,
+  defaultVisitInterestFilter,
+  filterVisitClusters,
+  nearbySchoolStats,
   parseSchoolLocation,
+  schoolMapById,
+  schoolMapLocation,
   visitInterestKey,
 } from "./visit-planning";
 
@@ -63,7 +70,6 @@ test("buildVisitClusters groups same city and same state", () => {
   assert.ok(clusters[1]?.stops.some((s) => s.schoolId === "uga"));
   assert.equal(clusters[2]?.id, "long");
   assert.ok(clusters[2]?.stops.some((s) => s.schoolId === "purdue-university"));
-  // No invented minute strings
   for (const cluster of clusters) {
     for (const stop of cluster.stops) {
       if (stop.driveFromPrev) {
@@ -73,7 +79,64 @@ test("buildVisitClusters groups same city and same state", () => {
   }
 });
 
-test("visitInterestKey maps blank to none", () => {
+test("filterVisitClusters hides peers by interest but keeps current school", () => {
+  const gt = school({
+    id: "georgia-tech",
+    name: "Georgia Institute of Technology (Georgia Tech)",
+    location: "Atlanta, GA",
+  });
+  gt.interestLevel = "top";
+  const emory = school({ id: "emory", name: "Emory University", location: "Atlanta, GA" });
+  emory.interestLevel = "high";
+  const list = [gt, emory];
+  const clusters = buildVisitClusters(gt, list);
+  const byId = schoolMapById(list);
+  const filter = { ...defaultVisitInterestFilter(), high: false };
+  const filtered = filterVisitClusters(clusters, gt, byId, filter);
+  const same = filtered[0]!;
+  assert.ok(same.stops.some((s) => s.schoolId === "georgia-tech"));
+  assert.equal(
+    same.stops.some((s) => s.schoolId === "emory"),
+    false,
+  );
+  const stats = nearbySchoolStats(clusters, filtered, gt.id);
+  assert.equal(stats.total, 1);
+  assert.equal(stats.showing, 0);
+});
+
+test("buildMapRouteParts splits long routes and encodes Google/Apple URLs", () => {
+  const stops = ["A", "B", "C", "D", "E", "F", "G"];
+  const parts = buildMapRouteParts(stops, "Home");
+  assert.ok(parts.length >= 2);
+  assert.match(parts[0]!.googleUrl, /google\.com\/maps\/dir/);
+  assert.match(parts[0]!.appleUrl, /maps\.apple\.com\/directions/);
+  assert.match(parts[0]!.googleUrl, /origin=Home/);
+  assert.match(parts[0]!.appleUrl, /source=Home/);
+});
+
+test("schoolMapLocation prefers visitAddress then name+city+state", () => {
+  const row = school({
+    id: "purdue-university",
+    name: "Purdue University",
+    location: "West Lafayette, IN",
+  });
+  assert.equal(schoolMapLocation(row), "Purdue University, West Lafayette, IN");
+  row.visitAddress = "475 Stadium Mall Dr, West Lafayette, IN";
+  assert.equal(schoolMapLocation(row), "475 Stadium Mall Dr, West Lafayette, IN");
+});
+
+test("visitInterestKey and anyFilterLevelOn", () => {
   assert.equal(visitInterestKey(""), "none");
   assert.equal(visitInterestKey("top"), "top");
+  assert.equal(anyFilterLevelOn(defaultVisitInterestFilter()), true);
+  assert.equal(
+    anyFilterLevelOn({
+      top: false,
+      high: false,
+      moderate: false,
+      safety: false,
+      none: false,
+    }),
+    false,
+  );
 });

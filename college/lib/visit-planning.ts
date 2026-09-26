@@ -6,7 +6,17 @@
 import { interestRank, type InterestLevel, type School } from "@/lib/types";
 import { listPhaseById, type ListPhaseId } from "@/lib/list-phases";
 
-export type VisitInterestKey = InterestLevel | "none";
+export type VisitInterestKey = "top" | "high" | "moderate" | "safety" | "none";
+
+export const VISIT_FILTER_LEVELS: VisitInterestKey[] = [
+  "top",
+  "high",
+  "moderate",
+  "safety",
+  "none",
+];
+
+export type VisitInterestFilter = Record<VisitInterestKey, boolean>;
 
 export type VisitStop = {
   schoolId: string;
@@ -45,14 +55,31 @@ export type ParsedLocation = {
   label: string;
 };
 
+export type MapRoutePart = {
+  label: string;
+  googleUrl: string;
+  appleUrl: string;
+};
+
 const INTEREST_CHIP_LABEL: Record<VisitInterestKey, string> = {
   top: "Top choice",
   high: "High interest",
   moderate: "Moderate interest",
   safety: "Safety / backup",
-  "": "Not on list",
   none: "Not on list",
 };
+
+export const VISIT_FILTER_STORAGE_KEY = "track-visit-interest-filter";
+
+export function defaultVisitInterestFilter(): VisitInterestFilter {
+  return {
+    top: true,
+    high: true,
+    moderate: true,
+    safety: true,
+    none: true,
+  };
+}
 
 export function visitInterestKey(level: InterestLevel | undefined): VisitInterestKey {
   if (!level) return "none";
@@ -78,7 +105,7 @@ export function parseSchoolLocation(location: string): ParsedLocation {
   };
 }
 
-function shortName(name: string): string {
+export function shortSchoolName(name: string): string {
   const paren = name.match(/\(([^)]+)\)/);
   if (paren?.[1]) return paren[1].trim();
   const dash = name.split(/[–—]/)[0]?.trim();
@@ -92,7 +119,13 @@ function sortByInterestThenName(a: School, b: School): number {
   return a.name.localeCompare(b.name);
 }
 
-function buildDayPlan(
+function driveLabel(mode: "same" | "plus1" | "long"): string {
+  if (mode === "same") return "nearby";
+  if (mode === "plus1") return "same state";
+  return "regional";
+}
+
+export function buildDayPlan(
   base: School,
   ordered: School[],
   mode: "same" | "plus1" | "long",
@@ -102,17 +135,12 @@ function buildDayPlan(
   ordered.forEach((school, index) => {
     if (index > 0) {
       const prev = ordered[index - 1]!;
-      const leg =
-        mode === "same"
-          ? "Nearby"
-          : mode === "plus1"
-            ? "Same state"
-            : "Regional";
+      const leg = driveLabel(mode);
       slots.push({
         time: `${hour}:00`,
         schoolId: null,
-        title: `Drive · ${leg}`,
-        sub: `${shortName(prev.name)} → ${shortName(school.name)}`,
+        title: `Drive · ${leg.charAt(0).toUpperCase()}${leg.slice(1)}`,
+        sub: `${shortSchoolName(prev.name)} → ${shortSchoolName(school.name)}`,
         icon: "car",
       });
       hour += 1;
@@ -131,7 +159,9 @@ function buildDayPlan(
     slots.push({
       time: `${String(Math.min(hour, 16)).padStart(2, "0")}:00`,
       schoolId: school.id,
-      title: isHere ? `${shortName(school.name)} campus visit` : `${shortName(school.name)} tour`,
+      title: isHere
+        ? `${shortSchoolName(school.name)} campus visit`
+        : `${shortSchoolName(school.name)} tour`,
       sub: isHere ? "This school" : "Placeholder until booked",
     });
     hour += 2;
@@ -145,14 +175,7 @@ function stopsFromOrdered(
 ): VisitStop[] {
   return ordered.map((school, index) => ({
     schoolId: school.id,
-    driveFromPrev:
-      index === 0
-        ? null
-        : mode === "same"
-          ? "nearby"
-          : mode === "plus1"
-            ? "same state"
-            : "regional",
+    driveFromPrev: index === 0 ? null : driveLabel(mode),
   }));
 }
 
@@ -199,7 +222,7 @@ export function buildVisitClusters(base: School, listSchools: School[]): VisitCl
     note:
       sameCity.length > 0
         ? `Other list schools in ${here.city || "this city"}. Drive times TBD until a maps source is wired.`
-        : `Start with ${shortName(base.name)}. No other list schools share this city yet.`,
+        : `Start with ${shortSchoolName(base.name)}. No other list schools share this city yet.`,
     plan: [buildDayPlan(base, sameDayOrdered, "same")],
   });
 
@@ -240,6 +263,100 @@ export function buildVisitClusters(base: School, listSchools: School[]): VisitCl
   return clusters;
 }
 
+/** Filter a cluster's stops by interest. Current school always stays. Rebuild legs + plan. */
+export function filterVisitCluster(
+  cluster: VisitCluster,
+  base: School,
+  byId: Map<string, School>,
+  filter: VisitInterestFilter,
+): VisitCluster {
+  const mode = cluster.id;
+  const kept = cluster.stops
+    .map((stop) => byId.get(stop.schoolId))
+    .filter((school): school is School => Boolean(school))
+    .filter((school) => {
+      if (school.id === base.id) return true;
+      return filter[visitInterestKey(school.interestLevel)];
+    })
+    .sort((a, b) => {
+      if (a.id === base.id) return -1;
+      if (b.id === base.id) return 1;
+      return sortByInterestThenName(a, b);
+    });
+
+  // Keep base first for same/plus1; for long, keep original relative order among filtered
+  const ordered =
+    mode === "long"
+      ? [
+          ...cluster.stops
+            .map((stop) => byId.get(stop.schoolId))
+            .filter((school): school is School => Boolean(school))
+            .filter(
+              (school) =>
+                school.id === base.id || filter[visitInterestKey(school.interestLevel)],
+            ),
+        ]
+      : kept;
+
+  const peers = ordered.filter((school) => school.id !== base.id);
+  const emptyPeers = peers.length === 0;
+
+  let plan: VisitSlot[][];
+  if (ordered.length === 0) {
+    plan = [];
+  } else if (mode === "long" && peers.length > 2) {
+    const withBase = ordered.some((s) => s.id === base.id) ? ordered : [base, ...ordered];
+    const rest = withBase.filter((s) => s.id !== base.id);
+    plan = [
+      buildDayPlan(base, [base, rest[0]!], mode),
+      buildDayPlan(base, rest.slice(1), mode),
+    ];
+  } else {
+    plan = [buildDayPlan(base, ordered, mode)];
+  }
+
+  return {
+    ...cluster,
+    stops: stopsFromOrdered(ordered, mode),
+    plan,
+    note: emptyPeers ? "" : cluster.note,
+  };
+}
+
+export function filterVisitClusters(
+  clusters: VisitCluster[],
+  base: School,
+  byId: Map<string, School>,
+  filter: VisitInterestFilter,
+): VisitCluster[] {
+  return clusters.map((cluster) => filterVisitCluster(cluster, base, byId, filter));
+}
+
+/** Nearby schools across clusters, excluding the current school. */
+export function nearbySchoolStats(
+  clusters: VisitCluster[],
+  filtered: VisitCluster[],
+  baseId: string,
+): { total: number; showing: number } {
+  const totalIds = new Set<string>();
+  for (const cluster of clusters) {
+    for (const stop of cluster.stops) {
+      if (stop.schoolId !== baseId) totalIds.add(stop.schoolId);
+    }
+  }
+  const showingIds = new Set<string>();
+  for (const cluster of filtered) {
+    for (const stop of cluster.stops) {
+      if (stop.schoolId !== baseId) showingIds.add(stop.schoolId);
+    }
+  }
+  return { total: totalIds.size, showing: showingIds.size };
+}
+
+export function anyFilterLevelOn(filter: VisitInterestFilter): boolean {
+  return VISIT_FILTER_LEVELS.some((key) => filter[key]);
+}
+
 export function buildVisitTripMeta(
   base: School,
   listPhaseId: ListPhaseId,
@@ -252,8 +369,8 @@ export function buildVisitTripMeta(
     listPhase.window.split("–")[0]?.trim() || "",
   ].filter(Boolean);
   const name = loc.state
-    ? `${loc.state} visit · ${shortName(base.name)}`
-    : `${shortName(base.name)} visit`;
+    ? `${loc.state} visit · ${shortSchoolName(base.name)}`
+    : `${shortSchoolName(base.name)} visit`;
   return {
     name,
     window: windowParts.join(" · "),
@@ -263,4 +380,119 @@ export function buildVisitTripMeta(
 
 export function schoolMapById(schools: School[]): Map<string, School> {
   return new Map(schools.map((school) => [school.id, school]));
+}
+
+/** Map stop location: visitAddress → lat,lng → "Name, City, ST". */
+export function schoolMapLocation(school: School): string {
+  const address = school.visitAddress?.trim();
+  if (address) return address;
+  const withCoords = school as School & { latitude?: number | null; longitude?: number | null };
+  const lat = withCoords.latitude;
+  const lng = withCoords.longitude;
+  if (typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng)) {
+    return `${lat},${lng}`;
+  }
+  const loc = parseSchoolLocation(school.location);
+  const parts = [school.name, loc.city, loc.state].filter(Boolean);
+  return parts.join(", ");
+}
+
+const MAX_PLACES_PER_LINK = 5; // start + 3 waypoints + destination
+
+function googleDirUrl(origin: string | null, stops: string[]): string {
+  if (stops.length === 0) return "https://www.google.com/maps/dir/?api=1&travelmode=driving";
+  const destination = stops[stops.length - 1]!;
+  const middle = stops.slice(0, -1);
+  const params = new URLSearchParams();
+  params.set("api", "1");
+  params.set("travelmode", "driving");
+  if (origin) params.set("origin", origin);
+  params.set("destination", destination);
+  if (middle.length) params.set("waypoints", middle.join("|"));
+  // URLSearchParams encodes | as %7C automatically
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+function appleDirUrl(origin: string | null, stops: string[]): string {
+  if (stops.length === 0) return "https://maps.apple.com/directions?mode=driving";
+  const destination = stops[stops.length - 1]!;
+  const middle = stops.slice(0, -1);
+  const params = new URLSearchParams();
+  params.set("mode", "driving");
+  if (origin) params.set("source", origin);
+  params.set("destination", destination);
+  for (const point of middle) params.append("waypoint", point);
+  return `https://maps.apple.com/directions?${params.toString()}`;
+}
+
+/**
+ * Build Google/Apple multi-stop links. At most 5 places per part (start + 3 mid + end).
+ * When origin is null, the first school is the start of the route for splitting.
+ */
+export function buildMapRouteParts(
+  stopLocations: string[],
+  origin: string | null,
+): MapRoutePart[] {
+  if (stopLocations.length === 0) return [];
+
+  // Capacity for school stops per part: with origin → 4 schools (3 wp + dest); without → 5 (first as origin-like)
+  const schoolCapacity = origin ? 4 : 5;
+  if (stopLocations.length <= schoolCapacity) {
+    return [
+      {
+        label: "Full route",
+        googleUrl: googleDirUrl(origin, stopLocations),
+        appleUrl: appleDirUrl(origin, stopLocations),
+      },
+    ];
+  }
+
+  const parts: MapRoutePart[] = [];
+  let index = 0;
+  let partOrigin = origin;
+  let partNum = 1;
+  while (index < stopLocations.length) {
+    const remaining = stopLocations.length - index;
+    const take = Math.min(schoolCapacity, remaining);
+    // When continuing a split, overlap: first stop of this part is last stop of previous
+    const chunk = stopLocations.slice(index, index + take);
+    parts.push({
+      label: `Part ${partNum}`,
+      googleUrl: googleDirUrl(partOrigin, chunk),
+      appleUrl: appleDirUrl(partOrigin, chunk),
+    });
+    if (index + take >= stopLocations.length) break;
+    // Next part starts at last school of this chunk
+    const last = chunk[chunk.length - 1]!;
+    partOrigin = last;
+    index = index + take - 1; // overlap last stop
+    partNum += 1;
+  }
+  return parts;
+}
+
+export function readStoredVisitFilter(): VisitInterestFilter {
+  const defaults = defaultVisitInterestFilter();
+  if (typeof window === "undefined") return defaults;
+  try {
+    const raw = window.localStorage.getItem(VISIT_FILTER_STORAGE_KEY);
+    if (!raw) return defaults;
+    const parsed = JSON.parse(raw) as Partial<VisitInterestFilter>;
+    const next = { ...defaults };
+    for (const key of VISIT_FILTER_LEVELS) {
+      if (typeof parsed[key] === "boolean") next[key] = parsed[key]!;
+    }
+    return next;
+  } catch {
+    return defaults;
+  }
+}
+
+export function writeStoredVisitFilter(filter: VisitInterestFilter): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(VISIT_FILTER_STORAGE_KEY, JSON.stringify(filter));
+  } catch {
+    /* private mode */
+  }
 }

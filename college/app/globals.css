@@ -8873,9 +8873,11 @@ html[data-mode="dark"] .school-visit-label { font-weight: 500; }
   border-radius: 3px;
   font-size: 14px;
   font-weight: 600;
+  font-family: inherit;
   background: var(--lv);
   color: var(--lv-fg);
   border: 1px solid var(--lv);
+  cursor: pointer;
 }
 .visit-stop .school-mark {
   width: 24px;
@@ -8903,11 +8905,36 @@ html[data-mode="dark"] .school-visit-label { font-weight: 500; }
 .visit-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 20px;
+  gap: 10px 12px;
   align-items: center;
   font-size: 13px;
   color: var(--text-muted);
 }
+.visit-filter {
+  margin-top: -20px;
+}
+.visit-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--color-dash, #9b9797);
+  border-radius: 3px;
+  background: none;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.visit-filter-toggle:hover { border-color: var(--color-accent); }
+.visit-filter-toggle[aria-pressed="true"] {
+  background: var(--visit-here-tint);
+  border-color: var(--visit-here-border);
+  color: var(--visit-on-tint);
+  font-weight: 600;
+}
+.visit-filter-toggle .visit-legend-sw { margin-right: 8px; }
 .visit-legend-sw {
   width: 14px;
   height: 14px;
@@ -8915,6 +8942,7 @@ html[data-mode="dark"] .school-visit-label { font-weight: 500; }
   display: inline-block;
   vertical-align: -2px;
   margin-right: 8px;
+  flex: none;
 }
 .visit-legend-sw[data-level="top"] { background: var(--lvl-4); }
 .visit-legend-sw[data-level="high"] { background: var(--lvl-3); }
@@ -8925,10 +8953,122 @@ html[data-mode="dark"] .school-visit-label { font-weight: 500; }
   border: 1px dashed var(--color-dash, #9b9797);
   box-sizing: border-box;
 }
-.visit-legend-here { margin-left: auto; }
+.visit-legend-here {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
 .visit-legend-sw-here {
   box-shadow: 0 0 0 2px var(--color-text);
   background: var(--color-surface);
+}
+.visit-filter-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-subtle);
+}
+.visit-show-all {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-accent);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.visit-show-all:hover { color: var(--color-accent); }
+.visit-chain-empty {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-subtle);
+}
+.visit-route-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 0;
+  border-top: 1px solid var(--color-dash, #9b9797);
+  border-bottom: 1px solid var(--color-dash, #9b9797);
+}
+.visit-route-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.visit-route-meta strong {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+.visit-route-path {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.visit-start-from {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 360px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.visit-start-from input {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--color-dash, #9b9797);
+  border-radius: 3px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 14px;
+}
+.visit-start-from input:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+.visit-route-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.visit-map-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+.visit-map-part-btns {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.visit-day-maps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  font-size: 13px;
+  margin-top: -4px;
+  margin-bottom: 4px;
+}
+.visit-day-maps a {
+  color: var(--text-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.visit-day-maps a:hover { color: var(--color-accent); }
+.visit-map-part {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  color: var(--text-subtle);
 }
 
 .visit-it-head {
@@ -9062,11 +9202,20 @@ html[data-mode="dark"] .school-visit-label { font-weight: 500; }
     flex-direction: column;
     align-items: flex-start;
   }
-  .visit-legend-here { margin-left: 0; }
+  .visit-filter-count { margin-left: 0; }
+  .visit-route-actions { width: 100%; }
+}
+@media (pointer: coarse) {
+  .visit-filter-toggle {
+    min-height: 44px;
+    height: auto;
+    padding: 8px 12px;
+  }
 }
 @media (forced-colors: active) {
   .visit-stop,
   .visit-include,
+  .visit-filter-toggle,
   .visit-box {
     border: 1px solid CanvasText;
   }

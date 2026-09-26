@@ -104,6 +104,8 @@ export type School = {
   visitStatus: VisitStatus;
   visitDate: string | null;
   visitNotes: string;
+  /** Optional admissions / visitor-center address for map routes. */
+  visitAddress: string;
   deadline: string | null;
   deadlineLabel: string;
   selectivityTier: SelectivityTier;
@@ -525,6 +527,7 @@ export function fromSeed(seed: SchoolSeed): School {
     visitStatus: "",
     visitDate: null,
     visitNotes: "",
+    visitAddress: "",
     deadline: null,
     deadlineLabel: "",
     selectivityTier: selectivityTierFromContext(seed.admissionsContext),
