@@ -9752,10 +9752,15 @@ html[data-mode="dark"] .trip-label { font-weight: 500; }
   color: var(--text-on-tint);
   font-weight: 600;
 }
+/* Kyle visit breaks — red to match CHS schedule PDF highlighting */
 .trip-cell.kbreak {
-  background: var(--color-accent);
-  color: var(--text-on-accent);
+  background: #c62828;
+  color: #fff;
   font-weight: 700;
+}
+html[data-mode="dark"] .trip-cell.kbreak {
+  background: #e53935;
+  color: #fff;
 }
 .trip-cell.wxc {
   font-family: var(--font-mono);

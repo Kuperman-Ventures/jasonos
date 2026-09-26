@@ -8,6 +8,7 @@ import {
   campusWeekState,
   formatWeekDate,
   isBestFitWeek,
+  kyleBreakCellLabel,
   weekDate,
   type CampusWeekState,
 } from "@/lib/trip-planning";
@@ -104,9 +105,10 @@ export function TripWhenPanel({
                   className={`trip-cell ${off ? "kbreak" : "kschool"}${
                     i === weekIndex ? " col-sel" : ""
                   }`}
+                  title={off ? kyleBreakCellLabel(i) : undefined}
                   onClick={() => onWeekIndex(i)}
                 >
-                  {off ? "Break" : "School"}
+                  {off ? kyleBreakCellLabel(i) : "School"}
                 </button>
               );
             })}

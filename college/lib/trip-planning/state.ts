@@ -1,5 +1,7 @@
 /** Persist trip membership + selected week per user/school. */
 
+import { DEFAULT_TRIP_WEEK_INDEX } from "./calendar";
+
 export const TRIP_PLAN_STORAGE_PREFIX = "track-trip-plan";
 
 export type TripPlanState = {
@@ -16,7 +18,7 @@ export function tripPlanStorageKey(userId: string, schoolId: string): string {
 export function defaultTripPlanState(clusterIds: string[] = ["same"]): TripPlanState {
   return {
     clusterIds: [...clusterIds],
-    weekIndex: 5,
+    weekIndex: DEFAULT_TRIP_WEEK_INDEX,
   };
 }
 
@@ -30,7 +32,7 @@ export function parseTripPlanState(raw: unknown): TripPlanState | null {
   const weekIndex =
     typeof row.weekIndex === "number" && Number.isFinite(row.weekIndex)
       ? Math.max(0, Math.min(8, Math.round(row.weekIndex)))
-      : 5;
+      : DEFAULT_TRIP_WEEK_INDEX;
   return { clusterIds, weekIndex };
 }
 

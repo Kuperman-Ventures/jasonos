@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  CHS_SCHEDULE,
+  DEFAULT_TRIP_WEEK_INDEX,
+  KYLE_STUDENT,
+  chsTripWindows,
+  chsVisitBreaks,
   defaultTripPlanState,
+  kyleBreakCellLabel,
   normalizeStateCode,
   parseTripPlanState,
   regionForLocation,
@@ -59,9 +65,30 @@ test("parseTripPlanState validates shape", () => {
 test("defaultTripPlanState and toggleClusterInTrip", () => {
   const base = defaultTripPlanState(["same"]);
   assert.deepEqual(base.clusterIds, ["same"]);
-  assert.equal(base.weekIndex, 5);
+  assert.equal(base.weekIndex, DEFAULT_TRIP_WEEK_INDEX);
   const added = toggleClusterInTrip(base, "plus1");
   assert.deepEqual(added.clusterIds, ["same", "plus1"]);
   const removed = toggleClusterInTrip(added, "same");
   assert.deepEqual(removed.clusterIds, ["plus1"]);
+});
+
+test("CHS schedule keeps full year data with red visit breaks", () => {
+  assert.ok(CHS_SCHEDULE.length >= 20);
+  const visits = chsVisitBreaks();
+  assert.ok(visits.some((e) => e.label === "Winter Break"));
+  assert.ok(visits.some((e) => e.label === "Spring Break"));
+  assert.ok(visits.some((e) => e.label === "Thanksgiving Break"));
+  assert.ok(visits.every((e) => e.forVisits));
+  const windows = chsTripWindows();
+  assert.deepEqual(
+    windows.map((w) => w.label),
+    ["NJEA Teachers Convention", "Thanksgiving Break", "Winter Break", "Spring Break"],
+  );
+});
+
+test("Kyle spring grid marks Spring Break week in red visit set", () => {
+  assert.deepEqual(KYLE_STUDENT.breaks, [6]);
+  assert.equal(DEFAULT_TRIP_WEEK_INDEX, 6);
+  assert.equal(kyleBreakCellLabel(6), "Spring Break");
+  assert.equal(kyleBreakCellLabel(0), "School");
 });
