@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>School detail · Project management</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,300..900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f3f2f2; --page:#e6e4e3; --text:#201e1d; --muted:#444141; --subtle:#605d5d;
+  --line:#eae7e7; --line-strong:#d7d3d3; --field:rgba(0,0,0,.03);
+  --accent:#e85504; --accent-100:#feeee4; --accent-400:#f58749; --accent-700:#9e3603; --accent-800:#742703; --accent-900:#461a05;
+  --avatar-bg:#d3dcea; --avatar-fg:#2f5aa0;
+  --shadow-lg:0 12px 32px rgba(45,43,43,.22);
+  --sans:"Archivo",system-ui,sans-serif; --mono:"IBM Plex Mono",monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);font-family:var(--sans);color:var(--text)}
+input,select,textarea,button{font-family:inherit;color:inherit}
+a{color:var(--accent-700);text-decoration:none;border-bottom:1px solid currentColor}
+a:hover{color:#c74503}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{min-height:100vh;padding:40px 24px}
+.modal{max-width:1120px;margin:0 auto;background:var(--bg);box-shadow:var(--shadow-lg);padding:28px 40px 56px;display:flex;flex-direction:column;gap:32px}
+.top{display:flex;justify-content:space-between;align-items:center}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--subtle)}
+.label{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--subtle)}
+.label.lg{font-size:12px}
+.main-tabs{display:flex;gap:8px;align-items:flex-end;border-bottom:1px solid var(--line-strong)}
+.main-tabs span{padding:12px 14px;font-size:16px;color:var(--muted)}
+.main-tabs .on{font-weight:600;color:var(--text);border-bottom:3px solid var(--accent);margin-bottom:-1px}
+.main-tabs .spacer{flex:1;padding:0}
+h1{margin:0;font-size:34px;font-weight:700;letter-spacing:-.02em}
+.lede{margin:8px 0 0;font-size:16px;line-height:1.55;color:var(--muted);max-width:62ch;text-wrap:pretty}
+
+/* Sub-tabs */
+.sub{display:flex;flex-direction:column;gap:32px;align-items:flex-start}
+.subtabs{display:flex;gap:28px;flex-wrap:wrap;width:100%}
+.subtab{background:none;border:none;padding:0 0 8px;cursor:pointer;display:flex;gap:8px;align-items:baseline;font-size:15px;color:var(--muted);border-bottom:2px solid transparent}
+.subtab:hover{color:var(--text)}
+.subtab[aria-selected="true"]{font-weight:600;color:var(--text);border-bottom-color:var(--accent)}
+.subtab .count{font-family:var(--mono);font-size:11px;color:var(--subtle);font-weight:400}
+.subtab .summary{display:none}
+/* Rail variant: add class "rail" on .sub */
+.sub.rail{flex-direction:row;gap:48px}
+.sub.rail .subtabs{flex-direction:column;gap:4px;width:200px;flex-shrink:0}
+.sub.rail .subtab{flex-direction:column;gap:3px;text-align:left;padding:10px 14px;border-bottom:none;border-left:3px solid transparent;color:var(--text)}
+.sub.rail .subtab:hover{background:var(--accent-100)}
+.sub.rail .subtab[aria-selected="true"]{background:var(--accent-100);border-left-color:var(--accent)}
+.sub.rail .subtab .count{display:none}
+.sub.rail .subtab .summary{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--subtle);font-weight:400}
+.panel{flex:1;min-width:0;width:100%}
+.panel[hidden]{display:none}
+
+/* Fields + buttons */
+.field{padding:12px 14px;font-size:16px;background:var(--field);border:1px solid var(--line-strong);border-radius:1px;min-width:0}
+textarea.field{resize:vertical;line-height:1.5}
+.btn{padding:12px 22px;font-size:16px;font-weight:700;border:none;border-radius:1px;background:var(--accent);color:var(--accent-900);cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--accent-400)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn:disabled:hover{background:var(--accent)}
+.link-btn{background:none;border:none;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer}
+.link-btn:hover{color:var(--accent-700)}
+.empty{margin:0;font-size:17px;color:var(--muted)}
+.stack{display:flex;flex-direction:column;gap:8px}
+.row{border-top:1px solid var(--line);padding:14px 0}
+
+/* Tags */
+.av{width:24px;height:24px;flex-shrink:0;border-radius:50%;background:var(--avatar-bg);color:var(--avatar-fg);font-size:11px;font-weight:700;display:grid;place-items:center;overflow:hidden}
+.av img{width:100%;height:100%;object-fit:cover}
+.school{width:24px;height:24px;flex-shrink:0;border-radius:3px;color:#fff;font-size:12px;font-weight:800;display:grid;place-items:center;overflow:hidden}
+.school img{width:100%;height:100%;object-fit:cover}
+
+/* Notes */
+.composer{display:flex;flex-direction:column;gap:14px}
+.composer textarea{width:100%;font-size:17px;padding:14px 16px}
+.controls{display:flex;flex-wrap:wrap;gap:24px 32px;align-items:flex-end}
+.controls .grow{flex:1}
+.dests{display:flex;gap:6px}
+.dest{display:flex;gap:8px;align-items:center;padding:8px 14px;font-size:15px;cursor:pointer;border-radius:1px;border:1px solid var(--line-strong);background:transparent;color:var(--muted)}
+.dest .box{width:12px;height:12px;border:1.5px solid currentColor;border-radius:2px;display:grid;place-items:center;font-size:10px;line-height:1}
+.dest[aria-pressed="true"]{border-color:var(--accent-700);background:var(--accent-100);color:var(--accent-900);font-weight:600}
+.dest[aria-pressed="true"] .box::after{content:"✓"}
+.date-field{padding:8px 12px;font-size:15px}
+.preview{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px;color:var(--subtle)}
+.log-head{display:flex;justify-content:space-between;align-items:baseline;padding-bottom:10px}
+.note{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 24px;padding:16px 0;border-top:1px solid var(--line)}
+.note p{margin:0;font-size:17px;line-height:1.5;text-wrap:pretty}
+.note .meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.note .routes{font-size:14px;color:var(--subtle);white-space:nowrap}
+.note .stamp{font-family:var(--mono);font-size:11px;color:var(--subtle);align-self:center}
+.note .link-btn{align-self:start}
+
+/* Contacts / touchpoints / deadlines */
+.contact{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1.4fr) minmax(0,1fr) auto;gap:16px;align-items:baseline;font-size:16px}
+.contact a{justify-self:start}
+.add-contact{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) auto;gap:12px}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:24px}
+.touch{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:16px;align-items:center;font-size:16px}
+.add-touch{display:grid;grid-template-columns:minmax(0,1fr) 140px auto;gap:12px}
+.dl-grid{display:grid;grid-template-columns:56px minmax(0,1.3fr) minmax(0,1fr) 90px;gap:16px;align-items:center}
+.dl-head{padding-bottom:10px}
+.dl-label{font-size:17px}
+.dl-due{font-family:var(--mono);font-size:15px}
+.dl-done .dl-label,.dl-done .dl-due{color:var(--subtle)}
+.dl-done .dl-label{text-decoration:line-through}
+.dl-grid input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent)}
+.dl-grid .link-btn{justify-self:end}
+.add-dl{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto;gap:12px;padding-top:20px;border-top:1px solid var(--line)}
+.gap20{display:flex;flex-direction:column;gap:20px}
+.gap40{display:flex;flex-direction:column;gap:40px}
+
+@media (max-width:760px){
+  .modal{padding:24px 20px 40px}
+  .sub.rail{flex-direction:column}
+  .sub.rail .subtabs{width:100%}
+  .add-contact,.contact{grid-template-columns:1fr 1fr}
+  .add-touch,.add-dl{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="modal">
+
+  <div class="top"><a href="#">Close</a><span class="eyebrow">Exploration</span></div>
+
+  <nav class="main-tabs">
+    <span>Snapshot</span><span>Requirements</span><span>Financials</span><span class="on">Project management</span><span class="spacer"></span><span>Settings</span>
+  </nav>
+
+  <header>
+    <h1>Project management</h1>
+    <p class="lede">Notes, contacts, visits, touchpoints, and deadlines for <span data-school-name>UCLA</span>. Notes can be sent to the household To-Do list, Notes board, or Calendar, tagged to the writer and this school.</p>
+  </header>
+
+  <!-- Add class="rail" to switch to the left-rail sub-nav variant -->
+  <div class="sub" id="sub">
+    <div class="subtabs" role="tablist" id="subtabs"></div>
+
+    <!-- NOTES -->
+    <section class="panel" role="tabpanel" data-panel="notes">
+      <div class="gap40">
+        <div class="composer">
+          <label class="label lg" for="noteText">New note</label>
+          <textarea id="noteText" class="field" rows="4"></textarea>
+          <div class="controls">
+            <div class="stack">
+              <span class="label">Send to</span>
+              <div class="dests" id="dests">
+                <button class="dest" data-dest="todo" aria-pressed="true"><span class="box"></span>To-Do</button>
+                <button class="dest" data-dest="notes" aria-pressed="false"><span class="box"></span>Notes</button>
+                <button class="dest" data-dest="calendar" aria-pressed="false"><span class="box"></span>Calendar</button>
+              </div>
+            </div>
+            <div class="stack" id="dateWrap">
+              <span class="label" id="dateLabel">Due (optional)</span>
+              <input type="date" id="noteDate" class="field date-field">
+            </div>
+            <span class="grow"></span>
+            <button class="btn" id="sendBtn" disabled>Send</button>
+          </div>
+          <div class="preview"><span id="previewLead"></span><span id="previewTags"></span></div>
+        </div>
+        <div>
+          <div class="log-head"><span class="label lg" id="logTitle"></span><span class="label" id="noteCount"></span></div>
+          <p class="empty" id="notesEmpty" hidden>No notes yet.</p>
+          <div id="notesList"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTACTS -->
+    <section class="panel" role="tabpanel" data-panel="contacts" hidden>
+      <div class="gap20">
+        <p class="empty" id="contactsEmpty">No contacts yet.</p>
+        <div id="contactsList"></div>
+        <form class="add-contact" id="contactForm">
+          <input class="field" name="name" placeholder="Name" required>
+          <input class="field" name="role" placeholder="Role">
+          <input class="field" name="email" type="email" placeholder="Email">
+          <input class="field" name="phone" placeholder="Phone">
+          <button class="btn">Add contact</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- VISIT -->
+    <section class="panel" role="tabpanel" data-panel="visit" hidden>
+      <div class="gap20">
+        <div class="two">
+          <label class="stack"><span class="label">Visit status</span>
+            <select class="field" id="visitStatus"><option>Not set</option><option>Planned</option><option>Visited</option><option>Virtual tour</option><option>Not visiting</option></select>
+          </label>
+          <label class="stack"><span class="label">Visit date</span><input type="date" class="field" id="visitDate"></label>
+        </div>
+        <label class="stack"><span class="label">Visit notes</span>
+          <textarea class="field" id="visitNotes" rows="6" placeholder="Tour guide, info session, what stood out"></textarea>
+        </label>
+      </div>
+    </section>
+
+    <!-- TOUCHPOINTS -->
+    <section class="panel" role="tabpanel" data-panel="touch" hidden>
+      <div class="gap20">
+        <p class="empty" id="touchEmpty">No touchpoints yet.</p>
+        <div id="touchList"></div>
+        <form class="add-touch" id="touchForm">
+          <input class="field" name="text" placeholder="Add a visit, call, or interview" required>
+          <select class="field" name="owner" id="touchOwner"></select>
+          <button class="btn">Add</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- DEADLINES -->
+    <section class="panel" role="tabpanel" data-panel="deadlines" hidden>
+      <div class="dl-grid dl-head label"><span>Done</span><span>Milestone</span><span>Due</span><span></span></div>
+      <div id="dlList"></div>
+      <form class="add-dl" id="dlForm">
+        <input class="field" name="label" placeholder="Milestone" required>
+        <input class="field" name="due" type="date" required>
+        <button class="btn">Add deadline</button>
+      </form>
+    </section>
+  </div>
+</div>
+</div>
+
+<script>
+/* ---- Sample data: replace with real app state / API ---- */
+const currentUser = { id: 'u-kyle', name: 'Kyle', photo: null };            // signed-in user; photo URL if available
+const household   = [currentUser, { id: 'u-parent', name: 'Parent', photo: null }]; // for touchpoint owner picker
+const school      = { id: 's-ucla', name: 'UCLA', icon: null, color: '#2774ae', letter: 'U' };
+
+const state = {
+  tab: 'notes',
+  dest: { todo: true, notes: false, calendar: false },
+  notes: [
+    { id: 1, text: 'Ask the Samueli admissions rep whether Materials Engineering admits direct or pre-major.', userId: 'u-kyle', schoolId: 's-ucla', dests: ['todo'], date: '2026-10-09', createdAt: '2026-09-24' },
+    { id: 2, text: 'Bruin Day registration opens in March. Hold a weekend for the trip.', userId: 'u-kyle', schoolId: 's-ucla', dests: ['calendar', 'notes'], date: '2027-03-06', createdAt: '2026-09-22' }
+  ],
+  contacts: [],
+  visit: { status: 'Not set', date: '', notes: '' },
+  touch: [],
+  deadlines: [
+    { id: 1, label: 'Early Decision', due: '2027-11-01', done: false },
+    { id: 2, label: 'Regular Decision', due: '2028-01-02', done: false }
+  ]
+};
+
+/* Hook: wire to your stores. Each destination receives the same payload with user + school tags. */
+function routeNote(note) {
+  // note = { id, text, userId, schoolId, dests:[...], date, createdAt }
+  // note.dests.includes('todo')     -> todos.add({ title: note.text, due: note.date || null, userId, schoolId, sourceNoteId: note.id })
+  // note.dests.includes('notes')    -> notesBoard.add({ body: note.text, userId, schoolId, sourceNoteId: note.id })
+  // note.dests.includes('calendar') -> calendar.add({ title: note.text, date: note.date, allDay: true, userId, schoolId, sourceNoteId: note.id })
+  console.log('routeNote', note);
+}
+
+/* ---- Helpers ---- */
+const $ = s => document.querySelector(s);
+const LABELS = { todo: 'To-Do', notes: 'Notes', calendar: 'Calendar' };
+const userById = id => household.find(u => u.id === id) || { name: '?' };
+const fmt = (d, year = true) => { if (!d) return ''; const [y, m, dd] = d.split('-').map(Number);
+  return new Date(y, m - 1, dd).toLocaleDateString('en-US', year ? { month: 'short', day: 'numeric', year: 'numeric' } : { month: 'short', day: 'numeric' }); };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const avatar = u => `<span class="av" title="${esc(u.name)}">${u.photo ? `<img src="${esc(u.photo)}" alt="">` : esc(u.name[0])}</span>`;
+const schoolMark = s => `<span class="school" title="${esc(s.name)}" style="background:${s.color}">${s.icon ? `<img src="${esc(s.icon)}" alt="">` : esc(s.letter)}</span>`;
+const listJoin = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1];
+
+/* ---- Sub-tabs ---- */
+function subtabDefs() {
+  const open = state.deadlines.filter(d => !d.done).length;
+  const v = state.visit;
+  return [
+    { key: 'notes', label: 'Notes', count: state.notes.length, summary: state.notes.length ? state.notes.length + ' sent' : 'None yet' },
+    { key: 'contacts', label: 'Contacts', count: state.contacts.length, summary: state.contacts.length ? state.contacts.length + ' people' : 'None yet' },
+    { key: 'visit', label: 'Visit', count: 0, summary: v.status + (v.date ? ' · ' + fmt(v.date) : '') },
+    { key: 'touch', label: 'Touchpoints', count: state.touch.length, summary: state.touch.length ? state.touch.length + ' logged' : 'None yet' },
+    { key: 'deadlines', label: 'Deadlines', count: open, summary: `${open} open of ${state.deadlines.length}` }
+  ];
+}
+function renderTabs() {
+  $('#subtabs').innerHTML = subtabDefs().map(t => `
+    <button class="subtab" role="tab" data-tab="${t.key}" aria-selected="${t.key === state.tab}">
+      <span>${t.label}</span>${t.count ? `<span class="count">${t.count}</span>` : ''}<span class="summary">${esc(t.summary)}</span>
+    </button>`).join('');
+  document.querySelectorAll('[data-panel]').forEach(p => p.hidden = p.dataset.panel !== state.tab);
+}
+$('#subtabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) { state.tab = b.dataset.tab; renderTabs(); } });
+
+/* ---- Notes ---- */
+function composerState() {
+  const picked = Object.keys(state.dest).filter(k => state.dest[k]);
+  const text = $('#noteText').value.trim();
+  const date = $('#noteDate').value;
+  const needsDate = state.dest.todo || state.dest.calendar;
+  const canSend = text && picked.length && (!state.dest.calendar || date);
+  return { picked, text, date, needsDate, canSend };
+}
+function renderComposer() {
+  const c = composerState();
+  document.querySelectorAll('.dest').forEach(b => b.setAttribute('aria-pressed', state.dest[b.dataset.dest]));
+  $('#dateWrap').hidden = !c.needsDate;
+  $('#dateLabel').textContent = state.dest.calendar ? (state.dest.todo ? 'Date (due + calendar)' : 'Calendar date') : 'Due (optional)';
+  $('#sendBtn').disabled = !c.canSend;
+  $('#previewLead').textContent = c.picked.length ? `Shows up in ${listJoin(c.picked.map(k => LABELS[k]))} tagged` : 'Pick at least one destination. It will be tagged';
+  $('#previewTags').outerHTML = `<span id="previewTags" style="display:flex;gap:8px">${avatar(currentUser)}${schoolMark(school)}</span>`;
+}
+function renderNotes() {
+  $('#logTitle').textContent = `${currentUser.name}'s ${school.name} Notes`;
+  $('#noteCount').textContent = state.notes.length;
+  $('#notesEmpty').hidden = state.notes.length > 0;
+  $('#notesList').innerHTML = state.notes.map(n => {
+    const routes = n.dests.map(k => LABELS[k] + ((k === 'todo' || k === 'calendar') && n.date ? ' ' + fmt(n.date, false) : '')).join(' · ');
+    return `<div class="note">
+      <p>${esc(n.text)}</p>
+      <button class="link-btn" data-remove-note="${n.id}">Remove</button>
+      <div class="meta">${avatar(userById(n.userId))}${schoolMark(school)}<span class="routes">→ ${esc(routes)}</span></div>
+      <span class="stamp">${fmt(n.createdAt, false)}</span>
+    </div>`;
+  }).join('');
+}
+$('#noteText').placeholder = `Write a note about ${school.name}`;
+$('#noteText').addEventListener('input', renderComposer);
+$('#noteDate').addEventListener('input', renderComposer);
+$('#dests').addEventListener('click', e => { const b = e.target.closest('[data-dest]'); if (!b) return; state.dest[b.dataset.dest] = !state.dest[b.dataset.dest]; renderComposer(); });
+$('#sendBtn').addEventListener('click', () => {
+  const c = composerState(); if (!c.canSend) return;
+  const note = { id: Date.now(), text: c.text, userId: currentUser.id, schoolId: school.id, dests: c.picked, date: c.needsDate ? c.date : '', createdAt: new Date().toISOString().slice(0, 10) };
+  state.notes.unshift(note); routeNote(note);
+  $('#noteText').value = ''; $('#noteDate').value = '';
+  renderAll();
+});
+$('#notesList').addEventListener('click', e => { const id = e.target.dataset.removeNote; if (id) { state.notes = state.notes.filter(n => n.id != id); renderAll(); } });
+
+/* ---- Contacts ---- */
+function renderContacts() {
+  $('#contactsEmpty').hidden = state.contacts.length > 0;
+  $('#contactsList').innerHTML = state.contacts.map(c => `<div class="row contact">
+    <strong>${esc(c.name)}</strong><span style="color:var(--muted)">${esc(c.role)}</span>
+    ${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : '<span></span>'}<span style="color:var(--muted)">${esc(c.phone)}</span>
+    <button class="link-btn" data-remove-contact="${c.id}">Remove</button></div>`).join('');
+}
+$('#contactForm').addEventListener('submit', e => { e.preventDefault(); const f = new FormData(e.target);
+  state.contacts.push({ id: Date.now(), name: f.get('name'), role: f.get('role'), email: f.get('email'), phone: f.get('phone') }); e.target.reset(); renderAll(); });
+$('#contactsList').addEventListener('click', e => { const id = e.target.dataset.removeContact; if (id) { state.contacts = state.contacts.filter(c => c.id != id); renderAll(); } });
+
+/* ---- Visit ---- */
+['status', 'date', 'notes'].forEach(k => {
+  const el = $('#visit' + k[0].toUpperCase() + k.slice(1));
+  el.value = state.visit[k];
+  el.addEventListener('input', () => { state.visit[k] = el.value; renderTabs(); });
+});
+
+/* ---- Touchpoints ---- */
+$('#touchOwner').innerHTML = household.map(u => `<option value="${u.id}" ${u.id === currentUser.id ? 'selected' : ''}>${esc(u.name)}</option>`).join('');
+function renderTouch() {
+  $('#touchEmpty').hidden = state.touch.length > 0;
+  $('#touchList').innerHTML = state.touch.map(t => `<div class="row touch"><span>${esc(t.text)}</span>${avatar(userById(t.userId))}
+    <button class="link-btn" data-remove-touch="${t.id}">Remove</button></div>`).join('');
+}
+$('#touchForm').addEventListener('submit', e => { e.preventDefault(); const f = new FormData(e.target);
+  state.touch.push({ id: Date.now(), text: f.get('text'), userId: f.get('owner') }); e.target.elements.text.value = ''; renderAll(); });
+$('#touchList').addEventListener('click', e => { const id = e.target.dataset.removeTouch; if (id) { state.touch = state.touch.filter(t => t.id != id); renderAll(); } });
+
+/* ---- Deadlines ---- */
+function renderDeadlines() {
+  $('#dlList').innerHTML = state.deadlines.map(d => `<div class="row dl-grid ${d.done ? 'dl-done' : ''}">
+    <input type="checkbox" data-toggle-dl="${d.id}" ${d.done ? 'checked' : ''} aria-label="Done">
+    <span class="dl-label">${esc(d.label)}</span><span class="dl-due">${fmt(d.due)}</span>
+    <button class="link-btn" data-remove-dl="${d.id}">Remove</button></div>`).join('');
+}
+$('#dlList').addEventListener('click', e => {
+  if (e.target.dataset.toggleDl) { const d = state.deadlines.find(x => x.id == e.target.dataset.toggleDl); d.done = e.target.checked; renderAll(); }
+  if (e.target.dataset.removeDl) { state.deadlines = state.deadlines.filter(x => x.id != e.target.dataset.removeDl); renderAll(); }
+});
+$('#dlForm').addEventListener('submit', e => { e.preventDefault(); const f = new FormData(e.target);
+  state.deadlines.push({ id: Date.now(), label: f.get('label'), due: f.get('due'), done: false });
+  state.deadlines.sort((a, b) => a.due.localeCompare(b.due)); e.target.reset(); renderAll(); });
+
+function renderAll() { renderTabs(); renderComposer(); renderNotes(); renderContacts(); renderTouch(); renderDeadlines(); }
+renderAll();
+</script>
+</body>
+</html>

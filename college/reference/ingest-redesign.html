@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ingest — reference</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@300..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#f3f2f2;--surface:#eae9e9;--text:#201e1d;--muted:#444141;--subtle:#605d5d;--accent:#e85504;--accent-600:#c74503;--text-accent:#9e3603;--divider:rgba(32,30,29,.16);--mono:"IBM Plex Mono",monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:"Archivo",system-ui,sans-serif}
+a{color:var(--text-accent)}a:hover{color:var(--accent-600)}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+input,textarea,select{font:inherit;color:var(--text);background:var(--surface);border:1px solid var(--divider);padding:9px 12px;font-size:15px}
+main{max-width:1180px;padding:56px 64px 80px;display:flex;flex-direction:column;gap:40px}
+.label{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--subtle)}
+.dateline{composes:label;font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-accent)}
+h1{margin:0;font-size:42px;line-height:1.1;font-weight:700;letter-spacing:-.02em}
+.datum{font-family:var(--mono);font-size:12px;color:var(--subtle);font-variant-numeric:tabular-nums}
+.btn-primary{padding:12px 22px;background:var(--accent);color:#fff;font-size:16px;font-weight:600}
+.btn-primary:hover{background:var(--accent-600)}
+.btn-primary:disabled{opacity:.45;cursor:default}
+.btn-ghost{padding:12px 16px;font-size:16px;font-weight:600;color:var(--text-accent)}
+.btn-ghost:hover{color:var(--accent-600)}
+/* stepper */
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.step{display:flex;flex-direction:column;gap:8px;padding:12px 0 0;border-top:4px solid #d7d3d3;text-align:left}
+.step .n{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--subtle)}
+.step .l{font-size:18px;font-weight:500}
+.step.done{border-color:var(--text)}
+.step.on{border-color:var(--accent)}.step.on .n{color:var(--text-accent)}.step.on .l{font-weight:700}
+.step:disabled{cursor:default}
+.panel{display:flex;flex-direction:column;gap:20px}
+/* step 1 */
+.drop{border:1px dashed rgba(32,30,29,.4);background:var(--surface);padding:40px 24px;display:flex;flex-direction:column;gap:8px;cursor:pointer;max-width:720px}
+.drop.over{border-color:var(--accent);background:rgba(232,85,4,.06)}
+.drop strong{font-size:18px}
+textarea{max-width:720px;min-height:150px;line-height:1.55;font-size:16px;padding:13px 16px;resize:vertical}
+.asset{display:flex;gap:16px;align-items:center;padding:16px 18px;background:var(--surface);max-width:720px}
+.kind{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;background:var(--text);color:var(--bg);padding:4px 8px}
+.asset .name{font-size:16px;font-weight:600}.asset .datum{margin-left:auto}
+.err{color:var(--text-accent);font-size:15px}
+/* step 2 */
+.jobs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;max-width:900px}
+.job{display:flex;flex-direction:column;gap:10px;padding:20px;border:1px solid rgba(32,30,29,.3);text-align:left}
+.job:hover{background:rgba(232,85,4,.06)}
+.job[aria-pressed=true]{border:2px solid var(--accent);padding:19px}
+.box{width:20px;height:20px;border:1.5px solid #7d7979;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:700}
+.job[aria-pressed=true] .box{background:var(--accent);border-color:var(--accent)}
+.job .t{font-size:18px;font-weight:600}.job .d{font-size:15px;line-height:1.5;color:var(--muted)}
+/* step 3 */
+.note-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:16px 18px;background:var(--surface)}
+.note-row input{flex:1;min-width:240px;background:var(--bg);font-size:16px;font-weight:600}
+.group-head{display:flex;align-items:baseline;gap:14px;padding-bottom:8px}
+.group-head h2{margin:0;font-size:24px;font-weight:600}
+.row{display:grid;grid-template-columns:150px minmax(0,1fr) 130px 110px 90px;gap:20px;align-items:center;padding:14px 0;border-top:1px solid var(--divider)}
+.row.skip{opacity:.45}
+.row .title{font-size:16px;font-weight:600}
+.row .q{font-size:14px;color:var(--muted);font-style:italic}
+.row input,.row select{width:100%;padding:7px;font-size:14px}
+.row .datum{text-align:right}
+.seg{display:flex;border:1px solid #9b9797}
+.seg button{flex:1;padding:6px 0;font-size:13px;font-weight:600}
+.seg button[aria-pressed=true]{background:var(--text);color:var(--bg)}
+.tag{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;background:#fdd6c0;color:#742703;padding:2px 6px}
+.actions{display:flex;gap:12px;align-items:center}
+.status{font-family:var(--mono);font-size:13px;color:var(--text-accent)}
+@media (max-width:900px){main{padding:40px 24px}.jobs{grid-template-columns:1fr}.row{grid-template-columns:1fr 1fr}.row>div:nth-child(2){grid-column:1/-1;order:-1}}
+</style>
+</head>
+<body>
+<main>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <span class="dateline">Phase 1 · Junior Fall</span>
+    <h1>Ingest</h1>
+  </div>
+  <nav class="steps" id="steps" aria-label="Ingest steps"></nav>
+  <section id="view"></section>
+</main>
+<script>
+// Sample data — replace with the parser's response.
+const TODOS=[
+ {id:'t1',title:'Register for the Nov 7 SAT',src:'Slide 6',owner:'Kyle',due:'2026-10-03',q:'Registration for the Nov 7 SAT closes Oct 3.'},
+ {id:'t2',title:'Set up the parent Naviance account',src:'Slide 9',owner:'Jason',due:'2026-10-01',q:'Parent logins arrive by email this week.'},
+ {id:'t3',title:'List teachers to ask for recommendations',src:'Slide 14',owner:'Kyle',due:'2027-01-15',updates:true,q:'Requests open in March. Start thinking about teachers now.'},
+ {id:'t4',title:'Book a meeting with the school counselor',src:'Slide 16',owner:'Kat',due:'2026-11-01',q:'Every junior family should meet their counselor before winter break.'}];
+const EVENTS=[
+ {id:'e1',title:'PSAT/NMSQT',src:'Slide 5',date:'2026-10-15',time:'07:45',where:'Columbia HS'},
+ {id:'e2',title:'Junior college night',src:'Slide 11',date:'2026-10-14',time:'19:00',where:'Auditorium'},
+ {id:'e3',title:'Financial aid night',src:'Slide 17',date:'2026-11-12',time:'18:30',where:'Library'}];
+const PEOPLE=['Kyle','Jason','Kat'];
+const JOBS=[['note','Save as a note','The whole asset, pinned to Notes as one item. Nothing to review.'],
+ ['todo','Find to-dos','Pull out tasks. You review each one before it’s added.'],
+ ['cal','Find calendar events','Pull out dates. You review each one before it’s added.']];
+
+const S={step:1,asset:null,paste:'',jobs:{note:true,todo:true,cal:true},skip:{},noteTitle:'',error:''};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pl=(n,w)=>`${n} ${w}${n===1?'':'s'}`;
+const kept=l=>l.filter(x=>!S.skip[x.id]).length;
+const hasSource=()=>!!S.asset||S.paste.trim().length>0;
+const onlyNote=()=>S.jobs.note&&!S.jobs.todo&&!S.jobs.cal;
+const anyJob=()=>S.jobs.note||S.jobs.todo||S.jobs.cal;
+const sourceName=()=>S.asset?S.asset.name:'Pasted text';
+function summary(){const p=[];if(S.jobs.note)p.push('note');const t=S.jobs.todo?kept(TODOS):0,e=S.jobs.cal?kept(EVENTS):0;
+  if(t)p.push(pl(t,'to-do'));if(e)p.push(pl(e,'event'));return p.length?'Save '+p.join(' + '):'Nothing to save';}
+
+function renderSteps(){
+  const jobsSub=JOBS.filter(([k])=>S.jobs[k]).map(j=>j[1].replace('Find ','')).join(' · ')||'None picked';
+  const st=[['01','Asset',hasSource()?sourceName():'File or pasted text'],['02','Jobs',jobsSub],['03',onlyNote()?'Save':'Review',onlyNote()?'Nothing to review':'Only what was found']];
+  $('#steps').innerHTML=st.map(([n,l,sub],i)=>{const k=i+1,reach=k===1||(k===2&&hasSource())||(k===3&&hasSource()&&anyJob());
+    return `<button class="step ${k===S.step?'on':k<S.step?'done':''}" data-go="${k}" ${reach?'':'disabled'} aria-current="${k===S.step?'step':'false'}">
+      <span class="n">${n}</span><span class="l">${l}</span><span class="datum">${esc(sub)}</span></button>`;}).join('');
+}
+function step1(){return `<div class="panel">
+  <label class="drop" id="drop"><input type="file" id="file" hidden accept=".pptx,.key,.pdf,.eml,.msg">
+    <strong>Drop a PowerPoint or an email</strong>
+    <span class="datum">.pptx · .key · .pdf · .eml · .msg · or forward to ingest@thetrack.app</span></label>
+  <span class="label">or paste text</span>
+  <textarea id="paste" placeholder="Paste an email, article, webinar notes or a transcript.">${esc(S.paste)}</textarea>
+  ${S.asset?`<div class="asset"><span class="kind">${S.asset.kind}</span><span class="name">${esc(S.asset.name)}</span><span class="datum">${esc(S.asset.meta)}</span><button class="btn-ghost" data-act="clear">Remove</button></div>`:''}
+  ${S.error?`<p class="err" role="alert">${esc(S.error)}</p>`:''}
+  <div class="actions"><button class="btn-primary" data-go="2" ${hasSource()?'':'disabled'}>Next</button></div></div>`;}
+function step2(){return `<div class="panel"><h2 style="margin:0;font-size:20px;font-weight:600">What should we do with ${esc(sourceName())}?</h2>
+  <div class="jobs">${JOBS.map(([k,t,d])=>`<button class="job" data-job="${k}" aria-pressed="${S.jobs[k]}"><span class="box">${S.jobs[k]?'✓':''}</span><span class="t">${t}</span><span class="d">${d}</span></button>`).join('')}</div>
+  <div class="actions"><button class="btn-primary" data-go="3" ${anyJob()?'':'disabled'}>${onlyNote()?'Next: save':'Find items'}</button><button class="btn-ghost" data-go="1">Back</button></div></div>`;}
+const seg=id=>`<div class="seg" role="group" aria-label="Keep or skip">${[['Keep',false],['Skip',true]].map(([l,v])=>`<button data-skip="${id}" data-v="${v}" aria-pressed="${!!S.skip[id]===v}">${l}</button>`).join('')}</div>`;
+function step3(){
+  const n=S.noteTitle||(S.asset?S.asset.name.replace(/\.[^.]+$/,''):'Pasted text');
+  return `<div class="panel" style="gap:40px">
+  ${S.jobs.note?`<div class="note-row"><span class="label">Note</span><input id="noteTitle" value="${esc(n)}" aria-label="Note title"><span class="datum">whole ${S.asset?S.asset.kind.toLowerCase():'paste'} · to Notes pinboard</span></div>`:''}
+  ${S.jobs.todo?`<div><div class="group-head"><h2>To-dos</h2><span class="datum">${kept(TODOS)} of ${TODOS.length} kept</span></div>
+    ${TODOS.map(t=>`<div class="row ${S.skip[t.id]?'skip':''}">${seg(t.id)}
+      <div style="display:flex;flex-direction:column;gap:4px;min-width:0"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="title">${esc(t.title)}</span>${t.updates?'<span class="tag">Updates existing</span>':''}</div><span class="q">“${esc(t.q)}”</span></div>
+      <select aria-label="Owner">${PEOPLE.map(p=>`<option ${p===t.owner?'selected':''}>${p}</option>`).join('')}</select>
+      <input type="date" value="${t.due}" aria-label="Due date"><span class="datum">${t.src}</span></div>`).join('')}</div>`:''}
+  ${S.jobs.cal?`<div><div class="group-head"><h2>Calendar</h2><span class="datum">${kept(EVENTS)} of ${EVENTS.length} kept</span></div>
+    ${EVENTS.map(e=>`<div class="row ${S.skip[e.id]?'skip':''}">${seg(e.id)}
+      <div style="display:flex;flex-direction:column;gap:4px"><span class="title">${esc(e.title)}</span><span class="q" style="font-style:normal">${esc(e.where)}</span></div>
+      <input type="date" value="${e.date}" aria-label="Date"><input type="time" value="${e.time}" aria-label="Time"><span class="datum">${e.src}</span></div>`).join('')}</div>`:''}
+  <div class="actions"><button class="btn-primary" data-act="save">${summary()}</button><button class="btn-ghost" data-go="2">Back to jobs</button><span class="status" aria-live="polite" id="status"></span></div></div>`;}
+
+function render(){renderSteps();$('#view').innerHTML=[step1,step2,step3][S.step-1]();bindStep();}
+function pickFile(f){
+  const ok=/\.(pptx|key|pdf|eml|msg)$/i.test(f.name);
+  if(!ok){S.error='Use a PowerPoint, Keynote, PDF or email file.';render();return;}
+  if(f.size>25*1024*1024){S.error='File is too large (max 25 MB).';render();return;}
+  const email=/\.(eml|msg)$/i.test(f.name);
+  S.error='';S.asset={name:f.name,kind:email?'Email':'Deck',meta:`${(f.size/1048576).toFixed(1)} MB`};render();
+}
+function bindStep(){
+  const d=$('#drop');if(d){
+    $('#file').onchange=e=>e.target.files[0]&&pickFile(e.target.files[0]);
+    d.ondragover=e=>{e.preventDefault();d.classList.add('over');};d.ondragleave=()=>d.classList.remove('over');
+    d.ondrop=e=>{e.preventDefault();d.classList.remove('over');e.dataTransfer.files[0]&&pickFile(e.dataTransfer.files[0]);};
+    $('#paste').oninput=e=>{S.paste=e.target.value;renderSteps();document.querySelector('[data-go="2"].btn-primary').disabled=!hasSource();};
+  }
+  const nt=$('#noteTitle');if(nt)nt.oninput=e=>S.noteTitle=e.target.value;
+}
+document.addEventListener('click',e=>{
+  const g=e.target.closest('[data-go]');if(g&&!g.disabled){S.step=+g.dataset.go;render();return;}
+  const j=e.target.closest('[data-job]');if(j){S.jobs[j.dataset.job]=!S.jobs[j.dataset.job];render();return;}
+  const k=e.target.closest('[data-skip]');if(k){S.skip[k.dataset.skip]=k.dataset.v==='true';render();return;}
+  const a=e.target.closest('[data-act]');if(!a)return;
+  if(a.dataset.act==='clear'){S.asset=null;render();}
+  if(a.dataset.act==='save'){$('#status').textContent='Saved. '+summary().replace('Save ','');}
+});
+// Demo: start at step 3 with a deck loaded, like the design. Real app starts at step 1 with empty state.
+S.asset={name:'Junior Parent Night.pptx',kind:'Deck',meta:'18 slides · 4.2 MB'};S.step=3;S.skip.t4=true;
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>School snapshot — 7b label column, set in place</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@300..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --font-body:"Archivo",system-ui,sans-serif; --font-mono:"IBM Plex Mono",monospace;
+    --color-bg:#f3f2f2; --color-text:#201e1d; --text-muted:#444141; --text-subtle:#605d5d;
+    --text-accent:#9e3603; --color-accent:#e85504; --color-accent-600:#c74503;
+    --color-divider:rgba(32,30,29,.16); --neutral-500:#9b9797;
+    --offered:oklch(0.50 0.11 150); /* same green as selectivity tier 1 */
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:56px 48px;background:var(--color-bg);color:var(--color-text);font-family:var(--font-body)}
+  a{color:var(--text-accent);text-decoration:none;border-bottom:1px solid currentColor}
+  a:hover{color:var(--color-accent-600)}
+  :focus-visible{outline:2px solid var(--color-accent);outline-offset:2px}
+
+  .areas{max-width:1100px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:64px 56px}
+  .area{display:flex;flex-direction:column;gap:14px;padding-top:16px;border-top:4px solid var(--color-text)}
+  .area-label{font-family:var(--font-mono);font-size:11px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--text-subtle)}
+  .area-head{font-size:36px;font-weight:700;letter-spacing:-.02em;line-height:1.1;padding-bottom:6px}
+  .area-head.is-status{color:var(--color-accent)}
+
+  /* 7b: label column + inset from the left rule */
+  .facts{margin:0;display:flex;flex-direction:column;border-left:1px solid var(--color-divider)}
+  .fact{display:grid;grid-template-columns:200px minmax(0,1fr);gap:20px;align-items:center;min-height:56px;padding:8px 0 8px 20px;border-bottom:1px solid var(--color-divider)}
+  .fact dt{font-size:17px;color:var(--text-muted);display:flex;flex-direction:column;gap:2px}
+  .fact dt small{font-family:var(--font-mono);font-size:11px;color:var(--text-subtle)}
+  .fact dd{margin:0;display:flex;align-items:center;gap:10px;min-width:0;font-size:17px;font-weight:600}
+
+  /* Editable value: looks like text, dashed underline, caret */
+  .set{position:relative;display:inline-flex;align-items:center;max-width:100%;min-width:0}
+  .set select,.set input{appearance:none;-webkit-appearance:none;background:transparent;border:0;border-bottom:1px dashed rgba(32,30,29,.35);padding:4px 24px 4px 0;font:inherit;font-size:17px;font-weight:600;color:var(--color-text);cursor:pointer;max-width:100%;min-width:0;text-overflow:ellipsis}
+  .set input{padding-right:0}
+  .set::after{content:"▼";position:absolute;right:4px;font-size:11px;pointer-events:none;color:currentColor}
+  .set.date::after{content:none}
+  .set.unset select,.set.unset input{color:var(--text-accent);border-bottom-color:var(--color-accent)}
+  .set.unset{color:var(--text-accent)}
+  .set select:hover,.set input:hover{border-bottom-style:solid}
+
+  /* Offered */
+  .offer{display:inline-flex;align-items:center;gap:8px;color:var(--offered)}
+  .offer i{width:22px;height:22px;border-radius:50%;background:var(--offered);color:#fff;font-style:normal;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .offer.no{color:var(--text-subtle)}.offer.no i{background:var(--neutral-500)}
+  .remove{width:28px;height:28px;border:0;background:none;color:var(--text-subtle);font-size:16px;cursor:pointer}
+  .remove:hover{color:var(--text-accent);background:rgba(232,85,4,.08)}
+  .add{display:flex;align-items:center;min-height:52px;padding:8px 0 8px 20px}
+  .add select{appearance:none;-webkit-appearance:none;background:transparent;border:0;padding:4px 0;font:inherit;font-size:16px;font-weight:600;color:var(--text-accent);cursor:pointer}
+
+  .foot{max-width:70ch;margin:40px 0 0;font-size:15px;line-height:1.55;color:var(--text-subtle)}
+  @media (max-width:1000px){.areas{grid-template-columns:minmax(0,1fr)}}
+  @media (max-width:800px){.areas{grid-template-columns:minmax(0,1fr)}.fact{grid-template-columns:minmax(0,1fr)}.fact dt{font-size:15px}}
+</style>
+</head>
+<body>
+<main>
+  <div class="areas" id="areas"></div>
+  <p class="foot">Tuition, aid and net price live in the Financials tab. Middle 50%, application platform and teacher recommendations aren't in the record yet.</p>
+</main>
+<script>
+// RECORD = read-only, from the database. MINE = owned by the family, editable in place.
+const RECORD={testPolicy:null,sat:'Test-free',pathway:'Extremely selective',degreeShape:'Standalone undergraduate',city:'Berkeley, CA',site:'berkeley.edu',
+  headline:'Extremely selective',campus:'Urban · Large',
+  offered:{'Mechanical engineering':true,'Material sciences':true,'Chemical engineering':true,'Computer science':true,'Industrial design':false,'Architecture':true,'Aerospace engineering':false}};
+const MINE={interest:'',status:'',track:'',deadline:'',testPolicy:'',programs:['Mechanical engineering','Material sciences']};
+const OPTS={interest:['Top choice','High','Medium','Low'],status:['Not started','Researching','In progress','Submitted','Decision in'],
+  track:['Early Decision','Early Action','Restrictive Early Action','Regular Decision','Rolling'],testPolicy:['Test required','Test optional','Test-free']};
+
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const plain=(label,v)=>`<div class="fact"><dt>${label}</dt><dd>${esc(v)}</dd></div>`;
+const select=(key,label,note)=>{const v=MINE[key];
+  return `<div class="fact"><dt>${label}${note?`<small>${note}</small>`:''}</dt><dd><span class="set ${v?'':'unset'}">
+  <select data-key="${key}" aria-label="${label}"><option value="">${v?'Clear':'Set'}</option>${OPTS[key].map(o=>`<option ${o===v?'selected':''}>${o}</option>`).join('')}</select></span></dd></div>`;};
+const date=(key,label)=>{const v=MINE[key];
+  return `<div class="fact"><dt>${label}</dt><dd><span class="set date ${v?'':'unset'}"><input type="date" data-key="${key}" value="${v}" aria-label="${label}"></span></dd></div>`;};
+function programsHead(){const t=MINE.programs.length,n=MINE.programs.filter(p=>RECORD.offered[p]).length;
+  if(!t)return 'None tracked';if(n===t)return t===1?'Offered':t===2?'Both offered':`All ${t} offered`;return `${n} of ${t} offered`;}
+
+function render(){
+  const testRow=RECORD.testPolicy?plain('Test policy',RECORD.testPolicy):select('testPolicy','Test policy','Missing from record');
+  const progRows=MINE.programs.map(p=>{const ok=RECORD.offered[p];
+    return `<div class="fact"><dt>${esc(p)}</dt><dd><span class="offer ${ok?'':'no'}"><i aria-hidden="true">${ok?'✓':'–'}</i>${ok?'Offered':'Not offered'}</span>
+    <button class="remove" data-remove="${esc(p)}" aria-label="Stop tracking ${esc(p)}">×</button></dd></div>`;}).join('');
+  const addable=Object.keys(RECORD.offered).filter(p=>!MINE.programs.includes(p));
+  document.getElementById('areas').innerHTML=`
+  <section class="area"><span class="area-label">Admissions</span><span class="area-head">${RECORD.headline}</span>
+    <dl class="facts">${testRow}${plain('SAT',RECORD.sat)}${plain('Pathway',RECORD.pathway)}</dl></section>
+  <section class="area"><span class="area-label">Where you stand</span><span class="area-head is-status">${esc(MINE.status||'Not started')}</span>
+    <dl class="facts">${select('interest','Interest')}${select('status','Application status')}${select('track','Admission track')}${date('deadline','Next deadline')}</dl></section>
+  <section class="area"><span class="area-label">Programs</span><span class="area-head">${programsHead()}</span>
+    <dl class="facts">${progRows}${plain('Degree shape',RECORD.degreeShape)}
+      ${addable.length?`<div class="add"><select id="add" aria-label="Track another program"><option value="">＋ Track another program</option>${addable.map(p=>`<option>${p}</option>`).join('')}</select></div>`:''}</dl></section>
+  <section class="area"><span class="area-label">Campus</span><span class="area-head">${RECORD.campus}</span>
+    <dl class="facts">${plain('City',RECORD.city)}<div class="fact"><dt>Site</dt><dd><a href="https://${RECORD.site}">${RECORD.site}</a></dd></div></dl></section>`;
+}
+// Every change saves immediately (no Save button). Replace with the real mutation.
+function save(patch){Object.assign(MINE,patch);render();/* await api.updateSchoolForFamily(schoolId, patch) */}
+document.addEventListener('change',e=>{
+  if(e.target.dataset.key)save({[e.target.dataset.key]:e.target.value});
+  if(e.target.id==='add'&&e.target.value)save({programs:[...MINE.programs,e.target.value]});
+});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-remove]');if(b)save({programs:MINE.programs.filter(p=>p!==b.dataset.remove)});});
+render();
+</script>
+</body>
+</html>
