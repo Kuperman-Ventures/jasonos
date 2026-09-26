@@ -42,8 +42,8 @@ export function LogTab({ dateline }: { dateline: string }) {
         </div>
       </header>
       <p className="section-sub">
-        A running record of what people do in Kyle&apos;s College Search — edits, deletes, ingest,
-        and more.
+        Household trail of what Jason, Kat, Kyle, and anyone else does here — college edits,
+        archives, to-dos, notes, ingest, and more. Everyone sees the same log.
       </p>
 
       {loading ? <p className="todo-empty">Loading activity…</p> : null}

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isSession, requireCollegeSession } from "@/lib/auth";
+import { recordActivity } from "@/lib/activity-log";
 import { applySchoolFacts, createSchool, listSchools, supabaseConfigured } from "@/lib/db";
 import { lookupSchool } from "@/lib/school-lookup";
 
@@ -26,17 +27,25 @@ export async function POST(request: Request) {
   const body = (await request.json()) as { name?: string };
   try {
     const school = await createSchool(body.name ?? "");
+    let result = school;
+    let researchSummary = `Added ${school.name}.`;
     try {
       const lookup = await lookupSchool(school.name);
-      const filled = await applySchoolFacts(school.id, lookup.facts);
-      return NextResponse.json({ school: filled, research: { summary: lookup.summary } });
+      result = await applySchoolFacts(school.id, lookup.facts);
+      researchSummary = lookup.summary;
     } catch (error) {
       console.error("School lookup failed", error);
-      return NextResponse.json({
-        school,
-        research: { summary: `Added ${school.name}. The lookup failed, so the record is still blank except for the name.` },
-      });
+      researchSummary = `Added ${school.name}. The lookup failed, so the record is still blank except for the name.`;
     }
+    await recordActivity({
+      actorId: session.member.id,
+      actorName: session.member.displayName,
+      action: "create",
+      entityType: "school",
+      entityId: result.id,
+      summary: `Added college “${result.name}”`,
+    });
+    return NextResponse.json({ school: result, research: { summary: researchSummary } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not add school";
     return NextResponse.json({ error: message }, { status: 400 });

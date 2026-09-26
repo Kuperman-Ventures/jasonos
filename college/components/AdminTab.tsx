@@ -389,7 +389,10 @@ export function AdminTab({ dateline }: { dateline: string }) {
 
           <section className="admin-section" aria-labelledby="admin-log-h">
             <h3 id="admin-log-h">Activity</h3>
-            <p className="section-sub">Same trail as Log, kept here for creator monitoring.</p>
+            <p className="section-sub">
+              Same household trail as Log — every member&apos;s actions, kept here for creator
+              monitoring.
+            </p>
             {!data.activity.length ? (
               <p className="todo-empty">No activity recorded yet.</p>
             ) : (
