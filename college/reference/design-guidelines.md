@@ -99,6 +99,82 @@ Elevation: `--shadow-sm/md/lg`, only on cards and dialogs. Never on buttons, inp
 
 ---
 
+## 2b. Dark mode
+
+Kyle works on a Windows PC in dark mode, so dark is a first-class mode, not an inversion. Same layout, same single orange; only grounds and text step.
+
+### Choosing the mode
+
+- Settings offers **System · Light · Dark**. Default is System, which follows Windows via `prefers-color-scheme` and updates live when Windows switches.
+- Store the choice on the user profile (fallback `localStorage`), and set `data-mode="light|dark"` on `<html>` before first paint to avoid a white flash.
+- Set `color-scheme: dark` in dark mode so Windows scrollbars, date pickers, selects and autofill render dark.
+
+### Surface ladder (dark)
+
+Elevation in dark is carried by lighter surfaces, not shadows.
+
+| Token | Dark | Light | Use |
+| --- | --- | --- | --- |
+| `--color-desk` | `#16181b` | `#e6e4e3` | Page behind modals |
+| `--color-bg` | `#1f2228` | `#f3f2f2` | Modal / main surface |
+| `--color-surface` | `#2d3139` | `#eae9e9` | Inputs, tracks, neutral fills, "Not required" tiles |
+| `--color-chip-border` | `#3d424b` | `#d7d3d3` | Outlined chips, input borders |
+| `--color-divider` | `rgba(240,238,236,.16)` | `rgba(32,30,29,.16)` | Section rules |
+| `--color-rule` | `rgba(240,238,236,.10)` | `#eae7e7` | Row hairlines in lists |
+| `--color-dash` | `#5d636c` | `#9b9797` | Dashed "unknown / not listed" outlines |
+
+Modals in dark: `#1f2228` on the `#16181b` desk, a 1px `rgba(240,238,236,.08)` edge, and a deep shadow `0 24px 64px rgba(0,0,0,.55)`. Dialog backdrop `rgba(0,0,0,.6)`.
+
+### Text (unchanged from §2, restated)
+
+`--color-text #f0eeec` · `--text-muted #c3c8cf` · `--text-subtle #9aa0a8` · `--text-accent #fab48e`. Never pure `#fff`; it glares on Windows panels.
+
+### Orange in dark
+
+| Role | Dark | Light |
+| --- | --- | --- |
+| Solid fill (primary button, Required tile, progress) | `#e85504` (same) | `#e85504` |
+| Text **on** solid orange | `#461a05` (same) | `#461a05` |
+| Tint fill (in-progress chip, highlighted row, pressed toggle) | `#3b2317` | `#feeee4` |
+| Tint 2 (stripe partner) | `#50301d` | `#fdd6c0` |
+| Tint border | `#9e3603` | `#fab48e` |
+| Text **on** tint | `#fdd6c0` | `#461a05` |
+| Accent text / links | `#fab48e`, hover `#fdd6c0` | `#9e3603`, hover `#c74503` |
+| Pressed | `#f58749` | `#c74503` |
+| Range band (middle 50%) | `#9e3603` | `#fab48e` |
+
+The solid fill and its dark text are identical in both modes. Only tints flip, because a light tint on a dark ground reads as a glowing hole.
+
+### Other spot colors
+
+- Cyan (done / submitted): fill `#0088b0` in both; cyan *text* `#5cc3e6` in dark.
+- Offered green: text `oklch(0.78 0.12 150)` in dark.
+- Brand blue (mark only): `#7ba4ee`.
+
+### Tags and avatars
+
+- **User avatar** (24px circle): light `#d3dcea` / `#2f5aa0` → dark `#26344d` / `#a9c1ec`.
+- **School mark** (24px square): keeps the school's own color in both modes. In dark add `box-shadow: inset 0 0 0 1px rgba(240,238,236,.14)` so navy or black marks don't disappear.
+
+### PC / Windows rendering
+
+- ClearType thins light-on-dark text. In dark, set small mono labels (≤12px) to weight 500, and never use Archivo below 400.
+- Keep text at `#f0eeec` or dimmer. Pure white blooms.
+- Support `forced-colors` (Windows High Contrast): any element that relies on a fill alone (tiles, chips, school mark) gets `border: 1px solid CanvasText` inside `@media (forced-colors: active)`.
+- Author with semantic tokens only. A component that hard-codes `--color-neutral-200` or `--color-accent-100` will break in dark.
+
+### Checklist before shipping a screen
+
+1. Toggle System, Light, Dark; flip Windows' setting while on System.
+2. Body and label text ≥ 4.5:1 on `#1f2228` and on `#2d3139`.
+3. No light tint (`#feeee4`, `#eceaea`) visible in dark.
+4. Native controls (scrollbars, date picker, select) are dark.
+5. Check once in Windows High Contrast.
+
+Reference: `handoff-requirements/requirements.html` has the System / Light / Dark switch and every token above wired.
+
+---
+
 ## 3. Components
 
 **Buttons** — `.btn` plus `.btn-primary` (solid orange), `.btn-secondary` (outlined), `.btn-ghost`. One primary per view. Hover, pressed, focus and disabled states are built into the classes; do not restyle them inline.

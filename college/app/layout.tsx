@@ -38,7 +38,14 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${archivo.variable} ${plexMono.variable} ${sourceSerif.variable}`}>
+    <html lang="en" className={`${archivo.variable} ${plexMono.variable} ${sourceSerif.variable}`} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var k="track-theme";var p=localStorage.getItem(k);if(p!=="light"&&p!=="dark"&&p!=="system")p="system";var dark=window.matchMedia("(prefers-color-scheme: dark)").matches;var m=p==="system"?(dark?"dark":"light"):p;document.documentElement.dataset.mode=m;document.documentElement.style.colorScheme=m;}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body>{children}</body>
     </html>
   );

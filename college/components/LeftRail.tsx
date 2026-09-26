@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import Image from "next/image";
 import { RailProfile } from "./RailProfile";
+import { ThemeModeSwitch } from "./ThemeModeSwitch";
 import {
   APPS_SECTIONS,
   type AppsSectionId,
@@ -256,6 +257,10 @@ export function LeftRail({
           ) : null}
           <div className="rail-account">
             <RailProfile member={member} onAvatarChange={onAvatarChange} />
+            <div className="rail-theme">
+              <span className="label">Appearance</span>
+              <ThemeModeSwitch />
+            </div>
           </div>
         </div>
       </aside>
