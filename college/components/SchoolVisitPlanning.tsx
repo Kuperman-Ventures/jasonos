@@ -592,7 +592,7 @@ export function SchoolVisitPlanning({
             </p>
           </section>
         </>
-      )}
+      ) : null}
 
       {toast ? (
         <div className="visit-toast" role="status">
