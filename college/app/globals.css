@@ -8911,7 +8911,7 @@ html[data-mode="dark"] .school-visit-label { font-weight: 500; }
   color: var(--text-muted);
 }
 .visit-filter {
-  margin-top: -20px;
+  margin-top: 0;
 }
 .visit-filter-toggle {
   display: inline-flex;
@@ -9008,6 +9008,11 @@ html[data-mode="dark"] .school-visit-label { font-weight: 500; }
 .visit-route-path {
   font-size: 14px;
   color: var(--text-muted);
+}
+.visit-route-leg {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-subtle);
 }
 .visit-start-from {
   display: flex;

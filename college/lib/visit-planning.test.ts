@@ -4,6 +4,7 @@ import { fromSeed, type SchoolSeed } from "./types";
 import {
   anyFilterLevelOn,
   buildMapRouteParts,
+  buildTripFromSelection,
   buildVisitClusters,
   defaultVisitInterestFilter,
   filterVisitClusters,
@@ -73,10 +74,39 @@ test("buildVisitClusters groups same city and same state", () => {
   for (const cluster of clusters) {
     for (const stop of cluster.stops) {
       if (stop.driveFromPrev) {
-        assert.equal(/min|hr|hour/i.test(stop.driveFromPrev), false);
+        assert.match(stop.driveFromPrev, /~/);
       }
     }
   }
+});
+
+test("buildTripFromSelection rebuilds route when schools are added", () => {
+  const gt = school({
+    id: "georgia-tech",
+    name: "Georgia Institute of Technology (Georgia Tech)",
+    location: "Atlanta, GA",
+  });
+  gt.interestLevel = "top";
+  const emory = school({ id: "emory", name: "Emory University", location: "Atlanta, GA" });
+  emory.interestLevel = "high";
+  const uga = school({ id: "uga", name: "University of Georgia", location: "Athens, GA" });
+  uga.interestLevel = "moderate";
+  const list = [gt, emory, uga];
+  const clusters = buildVisitClusters(gt, list);
+  const byId = schoolMapById(list);
+
+  const justBase = buildTripFromSelection(gt, clusters, ["georgia-tech"], byId);
+  assert.deepEqual(justBase.orderedIds, ["georgia-tech"]);
+  assert.equal(justBase.stops.length, 1);
+  assert.equal(justBase.totalDriveMinutes, 0);
+
+  const withPeer = buildTripFromSelection(gt, clusters, ["georgia-tech", "emory"], byId);
+  assert.equal(withPeer.orderedIds.includes("emory"), true);
+  assert.ok(withPeer.totalDriveMinutes > 0);
+  assert.ok(withPeer.stops.some((s) => s.driveFromPrev && /min|hr/.test(s.driveFromPrev)));
+
+  const withState = buildTripFromSelection(gt, clusters, ["georgia-tech", "uga"], byId);
+  assert.ok(withState.totalDriveMinutes > withPeer.totalDriveMinutes);
 });
 
 test("filterVisitClusters hides peers by interest but keeps current school", () => {

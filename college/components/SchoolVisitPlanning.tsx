@@ -13,21 +13,26 @@ import { INBOX_PARENT_ID, type PersistedProjectStep } from "@/lib/ingest";
 import { memberOwnerId } from "@/lib/project-todos";
 import type { ListPhaseId } from "@/lib/list-phases";
 import type { School } from "@/lib/types";
+import { geocodeCityState, type GeoPoint } from "@/lib/visit-geo";
 import {
   VISIT_FILTER_LEVELS,
   anyFilterLevelOn,
   buildMapRouteParts,
+  buildTripFromSelection,
   buildVisitClusters,
   buildVisitTripMeta,
   defaultVisitInterestFilter,
   filterVisitClusters,
+  legEstimatorFromCoords,
   nearbySchoolStats,
+  parseSchoolLocation,
   readStoredVisitFilter,
   schoolMapById,
   schoolMapLocation,
   shortSchoolName,
   visitInterestKey,
   visitInterestLabel,
+  withDynamicClusterLegs,
   writeStoredVisitFilter,
   type VisitCluster,
   type VisitInterestFilter,
@@ -61,13 +66,15 @@ function StopChip({
       className={`visit-stop${here ? " here" : ""}`}
       data-level={level}
       aria-pressed={selected}
-      title={`${school.name} · ${visitInterestLabel(school.interestLevel)}`}
+      title={`${school.name} · ${visitInterestLabel(school.interestLevel)}${
+        selected ? " · In trip" : " · Tap to add to trip"
+      }`}
       onClick={onToggle}
     >
       <SchoolMark name={school.name} website={school.website} />
       <span>{shortSchoolName(school.name)}</span>
       {selected ? (
-        <CheckCircle size={16} weight="duotone" aria-label="Selected" />
+        <CheckCircle size={16} weight="duotone" aria-label="In trip" />
       ) : null}
     </button>
   );
@@ -111,6 +118,14 @@ function MapLinkList({
   );
 }
 
+function formatTotalDrive(minutes: number): string {
+  if (minutes <= 0) return "";
+  if (minutes < 60) return `~${minutes} min driving`;
+  const hours = Math.floor(minutes / 60);
+  const rem = minutes % 60;
+  return rem === 0 ? `~${hours} hr driving` : `~${hours} hr ${rem} min driving`;
+}
+
 export function SchoolVisitPlanning({
   school,
   listSchools,
@@ -140,9 +155,10 @@ export function SchoolVisitPlanning({
   );
 
   const [filter, setFilter] = useState<VisitInterestFilter>(defaultVisitInterestFilter);
-  const [included, setIncluded] = useState<Record<string, boolean>>({});
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  /** Schools in the trip (individual selection). */
+  const [tripIds, setTripIds] = useState<string[]>([school.id]);
   const [startFrom, setStartFrom] = useState("");
+  const [coordsById, setCoordsById] = useState<Map<string, GeoPoint | null>>(() => new Map());
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
@@ -150,14 +166,9 @@ export function SchoolVisitPlanning({
   }, []);
 
   useEffect(() => {
-    setIncluded((prev) => {
-      const next: Record<string, boolean> = {};
-      clusters.forEach((cluster, index) => {
-        next[cluster.id] = prev[cluster.id] ?? index < 2;
-      });
-      return next;
-    });
-  }, [clusters]);
+    // Reset trip to this school when navigating between school records.
+    setTripIds([school.id]);
+  }, [school.id]);
 
   const filterOn = anyFilterLevelOn(filter);
   const filteredClusters = useMemo(
@@ -166,41 +177,73 @@ export function SchoolVisitPlanning({
   );
 
   useEffect(() => {
-    // Drop selection for schools hidden by the filter
     const visible = new Set(
       filteredClusters.flatMap((cluster) => cluster.stops.map((stop) => stop.schoolId)),
     );
-    setSelectedIds((prev) => prev.filter((id) => visible.has(id)));
-  }, [filteredClusters]);
+    setTripIds((prev) => {
+      const next = prev.filter((id) => visible.has(id));
+      // Keep the current school when it is still visible.
+      if (visible.has(school.id) && !next.includes(school.id) && prev.includes(school.id)) {
+        next.unshift(school.id);
+      }
+      return next;
+    });
+  }, [filteredClusters, school.id]);
+
+  const estimateLeg = useMemo(() => legEstimatorFromCoords(coordsById), [coordsById]);
+
+  const displayClusters = useMemo(
+    () =>
+      filteredClusters.map((cluster) => withDynamicClusterLegs(cluster, byId, estimateLeg)),
+    [filteredClusters, byId, estimateLeg],
+  );
+
+  const tripPlan = useMemo(
+    () => buildTripFromSelection(school, filteredClusters, tripIds, byId, estimateLeg),
+    [school, filteredClusters, tripIds, byId, estimateLeg],
+  );
+
+  // Geocode selected + visible stops so drive labels refine beyond the city heuristic.
+  useEffect(() => {
+    const ids = new Set<string>([
+      ...tripPlan.orderedIds,
+      ...filteredClusters.flatMap((cluster) => cluster.stops.map((stop) => stop.schoolId)),
+    ]);
+    let cancelled = false;
+    void (async () => {
+      const next = new Map(coordsById);
+      let changed = false;
+      for (const id of ids) {
+        if (next.has(id)) continue;
+        const row = byId.get(id);
+        if (!row) continue;
+        const loc = parseSchoolLocation(row.location);
+        const point = await geocodeCityState(loc.city, loc.state);
+        if (cancelled) return;
+        next.set(id, point);
+        changed = true;
+      }
+      if (changed && !cancelled) setCoordsById(new Map(next));
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // coordsById intentionally omitted — we only seed missing ids.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tripPlan.orderedIds.join("|"), filteredClusters, byId]);
 
   const stats = nearbySchoolStats(clusters, filteredClusters, school.id);
   const allLevelsOn = VISIT_FILTER_LEVELS.every((key) => filter[key]);
-
-  const activeClusters = filteredClusters.filter((cluster) => included[cluster.id]);
-  const days = activeClusters.flatMap((cluster) => cluster.plan);
-  const schoolIds = new Set(
-    days.flat().map((slot) => slot.schoolId).filter((id): id is string => Boolean(id)),
-  );
-
-  const selectedOrdered = useMemo(() => {
-    const order: string[] = [];
-    for (const cluster of filteredClusters) {
-      for (const stop of cluster.stops) {
-        if (selectedIds.includes(stop.schoolId) && !order.includes(stop.schoolId)) {
-          order.push(stop.schoolId);
-        }
-      }
-    }
-    return order;
-  }, [filteredClusters, selectedIds]);
+  const days = tripPlan.days;
+  const schoolCount = tripPlan.orderedIds.length;
 
   const routeParts = useMemo(() => {
-    const locations = selectedOrdered
+    const locations = tripPlan.orderedIds
       .map((id) => byId.get(id))
       .filter((row): row is School => Boolean(row))
       .map(schoolMapLocation);
     return buildMapRouteParts(locations, startFrom.trim() || null);
-  }, [selectedOrdered, byId, startFrom]);
+  }, [tripPlan.orderedIds, byId, startFrom]);
 
   function setFilterLevel(key: VisitInterestKey, on: boolean) {
     setFilter((prev) => {
@@ -216,14 +259,31 @@ export function SchoolVisitPlanning({
     setFilter(next);
   }
 
-  function toggleCluster(id: string) {
-    setIncluded((prev) => ({ ...prev, [id]: !prev[id] }));
+  function toggleTripSchool(id: string) {
+    setTripIds((prev) => {
+      if (prev.includes(id)) return prev.filter((row) => row !== id);
+      // Adding a peer also keeps the current school on the trip when visible.
+      const next = [...prev, id];
+      if (id !== school.id && !next.includes(school.id)) next.unshift(school.id);
+      return next;
+    });
   }
 
-  function toggleSelected(id: string) {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((row) => row !== id) : [...prev, id],
-    );
+  function toggleClusterAll(cluster: VisitCluster) {
+    const ids = cluster.stops.map((stop) => stop.schoolId);
+    const allOn = ids.every((id) => tripIds.includes(id));
+    setTripIds((prev) => {
+      if (allOn) return prev.filter((id) => !ids.includes(id));
+      const next = [...prev];
+      for (const id of ids) {
+        if (!next.includes(id)) next.push(id);
+      }
+      return next;
+    });
+  }
+
+  function clearTrip() {
+    setTripIds([]);
   }
 
   function send() {
@@ -300,6 +360,8 @@ export function SchoolVisitPlanning({
     return buildMapRouteParts(locations, origin);
   }
 
+  const driveSummary = formatTotalDrive(tripPlan.totalDriveMinutes);
+
   return (
     <section className="school-visit">
       <div className="school-visit-header">
@@ -311,6 +373,31 @@ export function SchoolVisitPlanning({
           <span className="school-visit-label">Visit planning</span>
         </div>
       </div>
+
+      {!filterOn ? (
+        <p className="visit-empty">Select at least one interest level.</p>
+      ) : (
+        <div className="visit-clusters" aria-label="Trip clusters">
+          {displayClusters.map((cluster) => {
+            const ids = cluster.stops.map((stop) => stop.schoolId);
+            const allOn = ids.length > 0 && ids.every((id) => tripIds.includes(id));
+            const someOn = ids.some((id) => tripIds.includes(id));
+            return (
+              <ClusterBlock
+                key={cluster.id}
+                cluster={cluster}
+                baseId={school.id}
+                byId={byId}
+                allOn={allOn}
+                someOn={someOn}
+                tripIds={tripIds}
+                onToggleAll={() => toggleClusterAll(cluster)}
+                onToggleSelect={toggleTripSchool}
+              />
+            );
+          })}
+        </div>
+      )}
 
       <div
         className="visit-legend visit-filter"
@@ -347,36 +434,32 @@ export function SchoolVisitPlanning({
         </span>
       </div>
 
-      {!filterOn ? (
-        <p className="visit-empty">Select at least one interest level.</p>
-      ) : (
+      {filterOn ? (
         <>
-          <div className="visit-clusters" aria-label="Trip clusters">
-            {filteredClusters.map((cluster) => (
-              <ClusterBlock
-                key={cluster.id}
-                cluster={cluster}
-                baseId={school.id}
-                byId={byId}
-                pressed={Boolean(included[cluster.id])}
-                selectedIds={selectedIds}
-                onToggleInclude={() => toggleCluster(cluster.id)}
-                onToggleSelect={toggleSelected}
-              />
-            ))}
-          </div>
-
-          {selectedOrdered.length > 0 ? (
-            <div className="visit-route-bar">
+          {schoolCount > 0 ? (
+            <div className="visit-route-bar" aria-live="polite">
               <div className="visit-route-meta">
                 <strong>
-                  {selectedOrdered.length} school
-                  {selectedOrdered.length === 1 ? "" : "s"} selected
+                  {schoolCount} school{schoolCount === 1 ? "" : "s"} in trip
+                  {driveSummary ? ` · ${driveSummary}` : ""}
                 </strong>
                 <span className="visit-route-path">
-                  {selectedOrdered
-                    .map((id) => shortSchoolName(byId.get(id)?.name ?? id))
-                    .join(" → ")}
+                  {tripPlan.stops.map((stop, index) => {
+                    const name = shortSchoolName(byId.get(stop.schoolId)?.name ?? stop.schoolId);
+                    return (
+                      <span key={`${stop.schoolId}-${index}`}>
+                        {index > 0 ? (
+                          <>
+                            {" "}
+                            <span className="visit-route-leg">
+                              →{stop.driveFromPrev ? ` ${stop.driveFromPrev} →` : " →"}
+                            </span>{" "}
+                          </>
+                        ) : null}
+                        {name}
+                      </span>
+                    );
+                  })}
                 </span>
               </div>
               <label className="visit-start-from">
@@ -435,11 +518,7 @@ export function SchoolVisitPlanning({
                     </span>
                   ))
                 )}
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  onClick={() => setSelectedIds([])}
-                >
+                <button type="button" className="btn btn-ghost" onClick={clearTrip}>
                   Clear
                 </button>
               </div>
@@ -451,8 +530,9 @@ export function SchoolVisitPlanning({
               <div>
                 <h2 id="visit-trip-title">{trip.name}</h2>
                 <p>
-                  {trip.window} · {schoolIds.size} school{schoolIds.size === 1 ? "" : "s"} ·{" "}
+                  {trip.window} · {schoolCount} school{schoolCount === 1 ? "" : "s"} ·{" "}
                   {days.length} day{days.length === 1 ? "" : "s"}
+                  {driveSummary ? ` · ${driveSummary}` : ""}
                 </p>
               </div>
               <button
@@ -504,11 +584,11 @@ export function SchoolVisitPlanning({
                 ))}
               </div>
             ) : (
-              <p className="visit-empty">Add a cluster above to start a trip.</p>
+              <p className="visit-empty">Tap schools above to build a trip.</p>
             )}
             <p className="visit-foot">
-              Tour and info session times are placeholders until booked. Drive times need a maps
-              source — legs show place only for now.
+              Tour times are placeholders until booked. Drive times are estimates from city
+              locations and update when you add or remove schools.
             </p>
           </section>
         </>
@@ -527,17 +607,19 @@ function ClusterBlock({
   cluster,
   baseId,
   byId,
-  pressed,
-  selectedIds,
-  onToggleInclude,
+  allOn,
+  someOn,
+  tripIds,
+  onToggleAll,
   onToggleSelect,
 }: {
   cluster: VisitCluster;
   baseId: string;
   byId: Map<string, School>;
-  pressed: boolean;
-  selectedIds: string[];
-  onToggleInclude: () => void;
+  allOn: boolean;
+  someOn: boolean;
+  tripIds: string[];
+  onToggleAll: () => void;
   onToggleSelect: (id: string) => void;
 }) {
   const daysLabel =
@@ -560,10 +642,11 @@ function ClusterBlock({
             <button
               type="button"
               className="visit-include"
-              aria-pressed={pressed}
-              onClick={onToggleInclude}
+              aria-pressed={allOn}
+              data-partial={someOn && !allOn ? "true" : undefined}
+              onClick={onToggleAll}
             >
-              {pressed ? "In trip ✓" : "Add to trip"}
+              {allOn ? "All in trip ✓" : someOn ? "Add remaining" : "Add all"}
             </button>
           ) : null}
         </div>
@@ -578,6 +661,7 @@ function ClusterBlock({
             {cluster.stops.map((stop) => {
               const row = byId.get(stop.schoolId);
               if (!row) return null;
+              const inTrip = tripIds.includes(stop.schoolId);
               return (
                 <span key={stop.schoolId} className="visit-chain-piece">
                   {stop.driveFromPrev ? (
@@ -586,7 +670,7 @@ function ClusterBlock({
                   <StopChip
                     school={row}
                     here={stop.schoolId === baseId}
-                    selected={selectedIds.includes(stop.schoolId)}
+                    selected={inTrip}
                     onToggle={() => onToggleSelect(stop.schoolId)}
                   />
                 </span>

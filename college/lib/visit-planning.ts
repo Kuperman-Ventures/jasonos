@@ -1,10 +1,16 @@
 /**
  * Visit planning: cluster list schools around the school being viewed.
- * Drive times are not available yet (no maps API) — legs use place labels only.
+ * Trip membership is per-school; drive legs recalculate as the selection changes.
  */
 
 import { interestRank, type InterestLevel, type School } from "@/lib/types";
 import { listPhaseById, type ListPhaseId } from "@/lib/list-phases";
+import {
+  estimateDriveByLocation,
+  estimateDriveBetweenPoints,
+  type DriveEstimate,
+  type GeoPoint,
+} from "@/lib/visit-geo";
 
 export type VisitInterestKey = "top" | "high" | "moderate" | "safety" | "none";
 
@@ -20,8 +26,19 @@ export type VisitInterestFilter = Record<VisitInterestKey, boolean>;
 
 export type VisitStop = {
   schoolId: string;
-  /** Label between this stop and the previous one (no invented minutes). */
+  /** Label between this stop and the previous one (e.g. "~25 min"). */
   driveFromPrev: string | null;
+};
+
+export type VisitTripPlan = {
+  /** Selected schools in visiting order. */
+  orderedIds: string[];
+  /** Chain legs for the full trip (same order as orderedIds). */
+  stops: VisitStop[];
+  /** Day columns for the draft itinerary. */
+  days: VisitSlot[][];
+  /** Total estimated drive minutes across consecutive legs. */
+  totalDriveMinutes: number;
 };
 
 export type VisitSlot = {
@@ -119,31 +136,44 @@ function sortByInterestThenName(a: School, b: School): number {
   return a.name.localeCompare(b.name);
 }
 
-function driveLabel(mode: "same" | "plus1" | "long"): string {
-  if (mode === "same") return "nearby";
-  if (mode === "plus1") return "same state";
-  return "regional";
+export type LegEstimator = (from: School, to: School) => DriveEstimate;
+
+/** Sync estimate from school location strings (used until coords resolve). */
+export function defaultLegEstimator(from: School, to: School): DriveEstimate {
+  return estimateDriveByLocation(from.location, to.location);
+}
+
+/** Build an estimator from a map of schoolId → coords. Falls back to location heuristic. */
+export function legEstimatorFromCoords(
+  coordsById: Map<string, GeoPoint | null>,
+): LegEstimator {
+  return (from, to) => {
+    const a = coordsById.get(from.id);
+    const b = coordsById.get(to.id);
+    if (a && b) return estimateDriveBetweenPoints(a, b);
+    return defaultLegEstimator(from, to);
+  };
 }
 
 export function buildDayPlan(
   base: School,
   ordered: School[],
-  mode: "same" | "plus1" | "long",
+  estimateLeg: LegEstimator = defaultLegEstimator,
 ): VisitSlot[] {
   const slots: VisitSlot[] = [];
   let hour = 9;
   ordered.forEach((school, index) => {
     if (index > 0) {
       const prev = ordered[index - 1]!;
-      const leg = driveLabel(mode);
+      const leg = estimateLeg(prev, school);
       slots.push({
         time: `${hour}:00`,
         schoolId: null,
-        title: `Drive · ${leg.charAt(0).toUpperCase()}${leg.slice(1)}`,
-        sub: `${shortSchoolName(prev.name)} → ${shortSchoolName(school.name)}`,
+        title: `Drive · ${leg.label}`,
+        sub: `${shortSchoolName(prev.name)} → ${shortSchoolName(school.name)} · ~${leg.miles} mi`,
         icon: "car",
       });
-      hour += 1;
+      hour += Math.max(1, Math.min(3, Math.round(leg.minutes / 60) || 1));
     }
     if (index === 1 && ordered.length > 2) {
       slots.push({
@@ -153,7 +183,7 @@ export function buildDayPlan(
         sub: "Between campuses",
         icon: "meal",
       });
-      hour = 14;
+      hour = Math.max(hour, 14);
     }
     const isHere = school.id === base.id;
     slots.push({
@@ -171,12 +201,139 @@ export function buildDayPlan(
 
 function stopsFromOrdered(
   ordered: School[],
-  mode: "same" | "plus1" | "long",
+  estimateLeg: LegEstimator = defaultLegEstimator,
 ): VisitStop[] {
-  return ordered.map((school, index) => ({
-    schoolId: school.id,
-    driveFromPrev: index === 0 ? null : driveLabel(mode),
-  }));
+  return ordered.map((school, index) => {
+    if (index === 0) return { schoolId: school.id, driveFromPrev: null };
+    const prev = ordered[index - 1]!;
+    return {
+      schoolId: school.id,
+      driveFromPrev: estimateLeg(prev, school).label,
+    };
+  });
+}
+
+/** Nearest-neighbor order starting at `start` (or first school). */
+export function optimizeStopOrder(
+  schools: School[],
+  start: School | null,
+  estimateLeg: LegEstimator = defaultLegEstimator,
+): School[] {
+  if (schools.length <= 2) return [...schools];
+  const remaining = [...schools];
+  const ordered: School[] = [];
+  let current: School;
+  if (start && remaining.some((row) => row.id === start.id)) {
+    current = remaining.find((row) => row.id === start.id)!;
+  } else {
+    current = remaining[0]!;
+  }
+  ordered.push(current);
+  remaining.splice(
+    remaining.findIndex((row) => row.id === current.id),
+    1,
+  );
+  while (remaining.length) {
+    let bestIndex = 0;
+    let bestMinutes = Number.POSITIVE_INFINITY;
+    remaining.forEach((candidate, index) => {
+      const minutes = estimateLeg(current, candidate).minutes;
+      if (minutes < bestMinutes) {
+        bestMinutes = minutes;
+        bestIndex = index;
+      }
+    });
+    current = remaining.splice(bestIndex, 1)[0]!;
+    ordered.push(current);
+  }
+  return ordered;
+}
+
+/**
+ * Build the live trip from individually selected schools.
+ * Order follows cluster rings, then nearest-neighbor within each day group.
+ */
+export function buildTripFromSelection(
+  base: School,
+  clusters: VisitCluster[],
+  selectedIds: string[],
+  byId: Map<string, School>,
+  estimateLeg: LegEstimator = defaultLegEstimator,
+): VisitTripPlan {
+  const selected = new Set(selectedIds);
+  if (selected.size === 0) {
+    return { orderedIds: [], stops: [], days: [], totalDriveMinutes: 0 };
+  }
+
+  // Collect selected schools per cluster (first membership wins), preserving ring order.
+  const perCluster: School[][] = [];
+  const seen = new Set<string>();
+  for (const cluster of clusters) {
+    const group: School[] = [];
+    for (const stop of cluster.stops) {
+      if (!selected.has(stop.schoolId) || seen.has(stop.schoolId)) continue;
+      const row = byId.get(stop.schoolId);
+      if (!row) continue;
+      seen.add(row.id);
+      group.push(row);
+    }
+    if (group.length) perCluster.push(group);
+  }
+
+  // Any selected id not in a cluster (shouldn't happen) appends at the end.
+  for (const id of selectedIds) {
+    if (seen.has(id)) continue;
+    const row = byId.get(id);
+    if (!row) continue;
+    perCluster.push([row]);
+    seen.add(id);
+  }
+
+  const days: VisitSlot[][] = [];
+  const ordered: School[] = [];
+  for (const group of perCluster) {
+    const start = group.some((row) => row.id === base.id) ? base : group[0]!;
+    const optimized = optimizeStopOrder(group, start, estimateLeg);
+    for (const row of optimized) {
+      if (!ordered.some((existing) => existing.id === row.id)) ordered.push(row);
+    }
+    // Longer groups split across two days when more than 3 stops.
+    if (optimized.length > 3) {
+      const mid = Math.ceil(optimized.length / 2);
+      days.push(buildDayPlan(base, optimized.slice(0, mid), estimateLeg));
+      days.push(buildDayPlan(base, optimized.slice(mid), estimateLeg));
+    } else {
+      days.push(buildDayPlan(base, optimized, estimateLeg));
+    }
+  }
+
+  const stops = stopsFromOrdered(ordered, estimateLeg);
+  let totalDriveMinutes = 0;
+  for (let i = 1; i < ordered.length; i++) {
+    totalDriveMinutes += estimateLeg(ordered[i - 1]!, ordered[i]!).minutes;
+  }
+
+  return {
+    orderedIds: ordered.map((row) => row.id),
+    stops,
+    days,
+    totalDriveMinutes,
+  };
+}
+
+/** Rebuild a suggestion chain so legs only connect consecutive visible stops. */
+export function withDynamicClusterLegs(
+  cluster: VisitCluster,
+  byId: Map<string, School>,
+  estimateLeg: LegEstimator = defaultLegEstimator,
+): VisitCluster {
+  const ordered = cluster.stops
+    .map((stop) => byId.get(stop.schoolId))
+    .filter((row): row is School => Boolean(row));
+  return {
+    ...cluster,
+    stops: stopsFromOrdered(ordered, estimateLeg),
+  };
 }
 
 /** Suggest visit clusters around `base` using list schools' City, ST locations. */
@@ -218,12 +375,12 @@ export function buildVisitClusters(base: School, listSchools: School[]): VisitCl
     name: "Same day",
     sub: here.city ? `${here.city} area` : "Local campus",
     days: 1,
-    stops: stopsFromOrdered(sameDayOrdered, "same"),
+    stops: stopsFromOrdered(sameDayOrdered),
     note:
       sameCity.length > 0
-        ? `Other list schools in ${here.city || "this city"}. Drive times TBD until a maps source is wired.`
+        ? `Other list schools in ${here.city || "this city"}. Tap schools to add them to the trip.`
         : `Start with ${shortSchoolName(base.name)}. No other list schools share this city yet.`,
-    plan: [buildDayPlan(base, sameDayOrdered, "same")],
+    plan: [buildDayPlan(base, sameDayOrdered)],
   });
 
   if (sameState.length > 0) {
@@ -233,9 +390,9 @@ export function buildVisitClusters(base: School, listSchools: School[]): VisitCl
       name: "+1 day",
       sub: here.state ? `${here.state} campuses` : "Nearby state",
       days: 1,
-      stops: stopsFromOrdered(plusOrdered, "plus1"),
-      note: `Same-state list schools. Order is by interest; drive times are placeholders.`,
-      plan: [buildDayPlan(base, plusOrdered, "plus1")],
+      stops: stopsFromOrdered(plusOrdered),
+      note: `Same-state list schools. Drive times update as you add or remove stops.`,
+      plan: [buildDayPlan(base, plusOrdered)],
     });
   }
 
@@ -245,17 +402,17 @@ export function buildVisitClusters(base: School, listSchools: School[]): VisitCl
     const plan: VisitSlot[][] =
       days === 2
         ? [
-            buildDayPlan(base, [base, farther[0]!], "long"),
-            buildDayPlan(base, farther.slice(1), "long"),
+            buildDayPlan(base, [base, farther[0]!]),
+            buildDayPlan(base, farther.slice(1)),
           ]
-        : [buildDayPlan(base, longOrdered, "long")];
+        : [buildDayPlan(base, longOrdered)];
     clusters.push({
       id: "long",
       name: "Longer trip",
       sub: "Beyond this state",
       days,
-      stops: stopsFromOrdered(longOrdered, "long"),
-      note: "Higher-interest schools farther out. Compare on one trip once drive times are available.",
+      stops: stopsFromOrdered(longOrdered),
+      note: "Higher-interest schools farther out. Pick the ones worth the drive.",
       plan,
     });
   }
@@ -308,16 +465,16 @@ export function filterVisitCluster(
     const withBase = ordered.some((s) => s.id === base.id) ? ordered : [base, ...ordered];
     const rest = withBase.filter((s) => s.id !== base.id);
     plan = [
-      buildDayPlan(base, [base, rest[0]!], mode),
-      buildDayPlan(base, rest.slice(1), mode),
+      buildDayPlan(base, [base, rest[0]!]),
+      buildDayPlan(base, rest.slice(1)),
     ];
   } else {
-    plan = [buildDayPlan(base, ordered, mode)];
+    plan = [buildDayPlan(base, ordered)];
   }
 
   return {
     ...cluster,
-    stops: stopsFromOrdered(ordered, mode),
+    stops: stopsFromOrdered(ordered),
     plan,
     note: emptyPeers ? "" : cluster.note,
   };
