@@ -39,6 +39,7 @@ type SchoolRow = {
   name: string;
   location: string;
   campus_size: string;
+  undergrad_enrollment?: number | null;
   mechanical_engineering: string;
   materials: string;
   materials_offering: string;
@@ -162,6 +163,10 @@ export function mapSchool(row: SchoolRow): School {
     name: row.name,
     location: row.location,
     campusSize: row.campus_size,
+    undergradEnrollment:
+      typeof row.undergrad_enrollment === "number" && Number.isFinite(row.undergrad_enrollment)
+        ? row.undergrad_enrollment
+        : null,
     mechanicalEngineering: row.mechanical_engineering,
     materials: row.materials,
     materialsOffering: row.materials_offering,
@@ -215,7 +220,7 @@ export function mapSchool(row: SchoolRow): School {
 }
 
 const SCHOOL_COLUMNS =
-  "id, name, location, campus_size, mechanical_engineering, materials, materials_offering, materials_program, materials_source_url, aerospace_engineering, aerospace_program, aerospace_notes, aerospace_source_url, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, deadline, deadline_label, selectivity_tier, interest_level, application_status, admission_track, test_policy, family_test_policy, tracked_programs, middle_50, application_platform, required_essays, teacher_recs, cost_of_attendance, net_price_estimate, merit_aid_notes, research_sources, website, list_phase, phases_participated, archived, archived_at, school_steps(id, label, owner, done, sort_order), deadlines(id, title, due_date, completed, sort_order), contacts(id, name, role, email, phone)";
+  "id, name, location, campus_size, undergrad_enrollment, mechanical_engineering, materials, materials_offering, materials_program, materials_source_url, aerospace_engineering, aerospace_program, aerospace_notes, aerospace_source_url, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, deadline, deadline_label, selectivity_tier, interest_level, application_status, admission_track, test_policy, family_test_policy, tracked_programs, middle_50, application_platform, required_essays, teacher_recs, cost_of_attendance, net_price_estimate, merit_aid_notes, research_sources, website, list_phase, phases_participated, archived, archived_at, school_steps(id, label, owner, done, sort_order), deadlines(id, title, due_date, completed, sort_order), contacts(id, name, role, email, phone)";
 
 export async function listSchools(): Promise<School[]> {
   if (!supabaseConfigured()) return seedSchools();
@@ -339,6 +344,15 @@ export function schoolPatchToRow(patch: Record<string, unknown>): Record<string,
   if (typeof patch.familyTestPolicy === "string") {
     row.family_test_policy = patch.familyTestPolicy;
   }
+  if (patch.undergradEnrollment === null) {
+    row.undergrad_enrollment = null;
+  } else if (
+    typeof patch.undergradEnrollment === "number" &&
+    Number.isFinite(patch.undergradEnrollment) &&
+    patch.undergradEnrollment >= 0
+  ) {
+    row.undergrad_enrollment = Math.round(patch.undergradEnrollment);
+  }
   if (Array.isArray(patch.trackedPrograms)) {
     row.tracked_programs = patch.trackedPrograms.filter((value): value is string => typeof value === "string");
   }
@@ -388,7 +402,7 @@ export async function applySchoolFacts(
 ): Promise<School> {
   const onlyBlank = Boolean(options?.onlyBlank);
   const current = onlyBlank ? await getSchool(id) : null;
-  const patch: Record<string, string> = {};
+  const patch: Record<string, unknown> = {};
   const fields: [keyof FoundFacts, keyof School][] = [
     ["location", "location"],
     ["campusSize", "campusSize"],
@@ -415,6 +429,13 @@ export async function applySchoolFacts(
       if (typeof existing === "string" && existing.trim()) continue;
     }
     patch[schoolKey] = value;
+  }
+  if (
+    facts.undergradEnrollment != null &&
+    Number.isFinite(facts.undergradEnrollment) &&
+    (!onlyBlank || current?.undergradEnrollment == null)
+  ) {
+    patch.undergradEnrollment = facts.undergradEnrollment;
   }
   const sources = formatSources(facts.sources);
   if (sources && (!onlyBlank || !current?.researchSources?.trim())) {

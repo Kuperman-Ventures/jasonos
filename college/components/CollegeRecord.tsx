@@ -57,6 +57,7 @@ function BlurInput({
 
 export function CollegeRecord({
   school,
+  listUndergrads,
   canAdvancePhase,
   onBack,
   onPatch,
@@ -76,6 +77,8 @@ export function CollegeRecord({
   onDeleteContact,
 }: {
   school: School;
+  /** Undergrad counts for non-archived schools on the family's list (size gauge ends). */
+  listUndergrads: number[];
   canAdvancePhase: boolean;
   onBack: () => void;
   onPatch: (patch: Partial<School>) => void;
@@ -229,6 +232,7 @@ export function CollegeRecord({
           {tab === "snapshot" ? (
             <SchoolSnapshotSummary
               school={school}
+              listUndergrads={listUndergrads}
               nextDeadline={
                 nextOpenDeadline?.dueDate
                   ? {

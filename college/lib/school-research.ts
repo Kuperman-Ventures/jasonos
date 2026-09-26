@@ -5,6 +5,8 @@ export type DeadlineFact = { title: string; dueDate: string | null };
 export type FoundFacts = {
   location: string;
   campusSize: string;
+  /** Undergrad enrollment from College Scorecard `latest.student.size`. */
+  undergradEnrollment: number | null;
   mechanicalEngineering: string;
   materials: string;
   materialsOffering: string;
@@ -69,6 +71,7 @@ export function emptyFacts(): FoundFacts {
   return {
     location: "",
     campusSize: "",
+    undergradEnrollment: null,
     mechanicalEngineering: "",
     materials: "",
     materialsOffering: "",
@@ -136,8 +139,8 @@ export function pickScorecardMatch(query: string, rows: ScorecardRow[]): Scoreca
 function localeLabel(code: number | null | undefined): string {
   if (code == null) return "";
   if (code >= 11 && code <= 13) return "Urban";
-  if (code >= 21 && code <= 23) return "Suburban";
-  if (code >= 31 && code <= 33) return "Town";
+  // Scorecard "Town" / college town → Suburban for the three Campus settings.
+  if (code >= 21 && code <= 33) return "Suburban";
   if (code >= 41 && code <= 43) return "Rural";
   return "";
 }
@@ -145,9 +148,8 @@ function localeLabel(code: number | null | undefined): string {
 function sizeLabel(count: number | null | undefined): string {
   if (count == null || !Number.isFinite(count)) return "";
   if (count < 5000) return "Small";
-  if (count < 15000) return "Medium";
-  if (count < 30000) return "Large";
-  return "Very Large";
+  if (count <= 15000) return "Medium";
+  return "Large";
 }
 
 function money(amount: number): string {
@@ -231,8 +233,13 @@ export function mapScorecard(row: ScorecardRow): FoundFacts {
   const state = row["school.state"]?.trim() ?? "";
   facts.location = [city, state].filter(Boolean).join(", ");
   const place = localeLabel(row["school.locale"]);
-  const size = sizeLabel(row["latest.student.size"]);
+  const undergrads = row["latest.student.size"];
+  const size = sizeLabel(undergrads);
   facts.campusSize = [place, size].filter(Boolean).join(" / ");
+  facts.undergradEnrollment =
+    typeof undergrads === "number" && Number.isFinite(undergrads) && undergrads >= 0
+      ? Math.round(undergrads)
+      : null;
   const rate = row["latest.admissions.admission_rate.overall"];
   if (typeof rate === "number" && rate > 0 && rate <= 1) {
     facts.admissionsContext = `Admit rate ${admitRate(rate)} in the latest College Scorecard`;

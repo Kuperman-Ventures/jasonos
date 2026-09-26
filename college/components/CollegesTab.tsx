@@ -660,6 +660,10 @@ export function CollegesTab({
         <CollegeRecord
           key={selected.id}
           school={selected}
+          listUndergrads={schools
+            .filter((row) => !row.archived)
+            .map((row) => row.undergradEnrollment)
+            .filter((n): n is number => typeof n === "number" && Number.isFinite(n))}
           canAdvancePhase={canAdvance}
           onBack={onClose}
           onPatch={(patch) => onPatch(selected.id, patch)}

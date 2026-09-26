@@ -93,6 +93,22 @@
   --tier-4-tint: oklch(0.90 0.035 350);
   --text-accent-2: #006786;
 
+  /* Campus setting — muted hues kept clear of tier, orange, and cyan */
+  --setting-urban: oklch(0.46 0.03 250);
+  --setting-urban-mark: oklch(0.50 0.03 250);
+  --setting-urban-tint: oklch(0.91 0.012 250);
+  --setting-urban-ink: oklch(0.36 0.03 250);
+  --setting-suburban: oklch(0.46 0.08 80);
+  --setting-suburban-mark: oklch(0.50 0.08 80);
+  --setting-suburban-tint: oklch(0.91 0.032 80);
+  --setting-suburban-ink: oklch(0.36 0.08 80);
+  --setting-rural: oklch(0.46 0.08 115);
+  --setting-rural-mark: oklch(0.50 0.08 115);
+  --setting-rural-tint: oklch(0.91 0.032 115);
+  --setting-rural-ink: oklch(0.36 0.08 115);
+  --gauge-track: #d7d3d3;
+  --gauge-band: #605d5d;
+
   /* dense ledger geometry */
   --months: 17;
   --row-h: 34px;
@@ -1149,6 +1165,18 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
 .snapshot .area-head.is-status {
   color: var(--color-accent);
 }
+.snapshot .area-head .sep {
+  color: var(--color-text);
+}
+.snapshot .campus-setting-word.setting-ink-urban {
+  color: var(--setting-urban);
+}
+.snapshot .campus-setting-word.setting-ink-suburban {
+  color: var(--setting-suburban);
+}
+.snapshot .campus-setting-word.setting-ink-rural {
+  color: var(--setting-rural);
+}
 .snapshot .facts {
   display: flex;
   flex-direction: column;
@@ -1298,6 +1326,106 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   font-size: 13px;
   font-weight: 400;
   line-height: 1.35;
+}
+.snapshot .setting {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 2px;
+  flex: none;
+  font-weight: 600;
+}
+.snapshot .setting i {
+  width: 10px;
+  height: 10px;
+  flex: none;
+}
+.snapshot .setting-urban {
+  background: var(--setting-urban-tint);
+  color: var(--setting-urban-ink);
+}
+.snapshot .setting-urban i {
+  background: var(--setting-urban-mark);
+}
+.snapshot .setting-suburban {
+  background: var(--setting-suburban-tint);
+  color: var(--setting-suburban-ink);
+}
+.snapshot .setting-suburban i {
+  background: var(--setting-suburban-mark);
+}
+.snapshot .setting-rural {
+  background: var(--setting-rural-tint);
+  color: var(--setting-rural-ink);
+}
+.snapshot .setting-rural i {
+  background: var(--setting-rural-mark);
+}
+.snapshot .size {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-width: 0;
+}
+.snapshot .size-word {
+  flex: none;
+  min-width: 80px;
+  font-weight: 600;
+}
+.snapshot .size-gauge {
+  flex: 1;
+  min-width: 140px;
+  max-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.snapshot .size-gauge-val {
+  position: relative;
+  height: 16px;
+}
+.snapshot .size-gauge-val span {
+  position: absolute;
+  bottom: 0;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.snapshot .size-gauge-bar {
+  position: relative;
+  height: 8px;
+  display: flex;
+}
+.snapshot .size-gauge-bar b {
+  height: 8px;
+  background: var(--gauge-track);
+  border-right: 2px solid var(--color-bg);
+}
+.snapshot .size-gauge-bar b:last-of-type {
+  border-right: 0;
+}
+.snapshot .size-gauge-bar b.on {
+  background: var(--gauge-band);
+}
+.snapshot .size-gauge-bar em {
+  position: absolute;
+  top: -5px;
+  width: 3px;
+  height: 18px;
+  margin-left: -1px;
+  background: var(--color-text);
+  box-shadow: 0 0 0 2px var(--color-bg);
+  font-style: normal;
+}
+.snapshot .size-gauge-ends {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-subtle);
 }
 .snapshot .remove {
   width: 28px;

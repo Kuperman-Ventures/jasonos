@@ -51,11 +51,13 @@ export async function POST(request: Request) {
           "website",
         ] as const
       ).filter((key) => !before[key]?.trim() && Boolean(filled[key]?.trim()));
+      const enrollmentFilled =
+        before.undergradEnrollment == null && filled.undergradEnrollment != null;
       results.push({
         id: school.id,
         name: school.name,
         status: "hit",
-        filled: [...changed],
+        filled: enrollmentFilled ? [...changed, "undergradEnrollment"] : [...changed],
       });
       await new Promise((resolve) => setTimeout(resolve, 120));
     }

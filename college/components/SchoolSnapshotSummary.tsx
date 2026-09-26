@@ -17,6 +17,14 @@ import {
   pathwayFromContext,
   type ProgramOfferStatus,
 } from "@/lib/types";
+import {
+  formatUndergrads,
+  parseCampusSize,
+  sizeGaugeModel,
+  sizeOf,
+  tierHeadlineVar,
+  type CampusSetting,
+} from "@/lib/campus-size";
 import { websiteHref, websiteHostLabel } from "@/lib/school-photo";
 import { SchoolLocationMap, SelectivityGauge } from "./SchoolSnapshotViz";
 
@@ -119,24 +127,62 @@ function SetDate({
   );
 }
 
-function campusHeadline(campusSize: string): string {
-  const trimmed = campusSize.trim();
-  if (!trimmed) return "Campus not set";
-  return trimmed.replace(/\s*\/\s*/g, " · ");
+function SettingChip({ setting }: { setting: CampusSetting }) {
+  return (
+    <span className={`setting setting-${setting.toLowerCase()}`}>
+      <i aria-hidden="true" />
+      {setting}
+    </span>
+  );
+}
+
+function SizeGauge({
+  undergrads,
+  listUndergrads,
+}: {
+  undergrads: number;
+  listUndergrads: number[];
+}) {
+  const model = sizeGaugeModel(undergrads, listUndergrads);
+  if (!model) return null;
+  return (
+    <div className="size-gauge" role="img" aria-label={model.ariaLabel}>
+      <div className="size-gauge-val">
+        <span style={{ left: `${model.pct}%`, transform: `translateX(${model.labelShift})` }}>
+          {formatUndergrads(undergrads)}
+        </span>
+      </div>
+      <div className="size-gauge-bar">
+        {model.bands.map((band) => (
+          <b key={band.name} className={band.on ? "on" : undefined} style={{ width: `${band.widthPct}%` }} />
+        ))}
+        <em style={{ left: `${model.pct}%` }} />
+      </div>
+      <div className="size-gauge-ends">
+        <span>{formatUndergrads(model.lo)}</span>
+        <span>{formatUndergrads(model.hi)}</span>
+      </div>
+    </div>
+  );
 }
 
 export function SchoolSnapshotSummary({
   school,
+  listUndergrads,
   nextDeadline,
   onPatch,
   onChangeDeadlineDate,
 }: {
   school: School;
+  /** Undergrad counts for every school on the family's current (non-archived) list. */
+  listUndergrads: number[];
   nextDeadline: { id: string; title: string; dueDate: string } | null;
   onPatch: (patch: SnapshotPatch) => void;
   onChangeDeadlineDate: (iso: string) => void;
 }) {
-  const tier = tierLabel(school.selectivityTier) || "Selectivity not set";
+  const tierName = tierLabel(school.selectivityTier);
+  const tierHead = tierName || "Tier not set";
+  const tierColor = `var(${tierHeadlineVar(school.selectivityTier)})`;
   const statusHead = school.applicationStatus
     ? statusLabel(school.applicationStatus)
     : "Not started";
@@ -147,6 +193,17 @@ export function SchoolSnapshotSummary({
   const recordTestPolicy = school.testPolicy.trim();
   const testPolicyValue = recordTestPolicy || school.familyTestPolicy.trim();
   const testPolicyMissing = !recordTestPolicy;
+
+  const { setting, size: sizeFromRecord } = parseCampusSize(school.campusSize);
+  const undergrads = school.undergradEnrollment;
+  const sizeWord =
+    undergrads != null && Number.isFinite(undergrads)
+      ? sizeOf(undergrads)
+      : sizeFromRecord;
+  const gauge =
+    undergrads != null && Number.isFinite(undergrads)
+      ? sizeGaugeModel(undergrads, listUndergrads)
+      : null;
 
   const offeredMap: Record<string, ProgramOfferStatus> = {};
   for (const program of SNAPSHOT_PROGRAMS) {
@@ -193,7 +250,9 @@ export function SchoolSnapshotSummary({
           <span className="area-label" id="snap-adm-h">
             Admissions
           </span>
-          <span className="area-head">{tier}</span>
+          <span className="area-head" style={{ color: tierColor }}>
+            {tierHead}
+          </span>
           <dl className="facts">
             {testPolicyMissing ? (
               <SetSelect
@@ -323,9 +382,38 @@ export function SchoolSnapshotSummary({
           <span className="area-label" id="snap-camp-h">
             Campus
           </span>
-          <span className="area-head">{campusHeadline(school.campusSize)}</span>
+          <span className="area-head">
+            {setting || sizeWord ? (
+              <>
+                {setting ? (
+                  <span className={`campus-setting-word setting-ink-${setting.toLowerCase()}`}>
+                    {setting}
+                  </span>
+                ) : (
+                  <span>Setting not set</span>
+                )}
+                <span className="sep"> · </span>
+                <span>{sizeWord || "Size not set"}</span>
+              </>
+            ) : (
+              "Campus not set"
+            )}
+          </span>
           <dl className="facts">
             <PlainFact label="City" value={school.location.trim() || "Not set"} />
+            <div className="fact">
+              <dt>Setting</dt>
+              <dd>{setting ? <SettingChip setting={setting} /> : "Not set"}</dd>
+            </div>
+            <div className="fact">
+              <dt>Size</dt>
+              <dd className="size">
+                <span className="size-word">{sizeWord || "Not set"}</span>
+                {gauge && undergrads != null ? (
+                  <SizeGauge undergrads={undergrads} listUndergrads={listUndergrads} />
+                ) : null}
+              </dd>
+            </div>
             <PlainFact
               label="Site"
               value={siteLabel || "Not set"}

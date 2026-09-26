@@ -61,6 +61,8 @@ export type School = {
   name: string;
   location: string;
   campusSize: string;
+  /** Undergrad enrollment from College Scorecard; null when unknown. */
+  undergradEnrollment: number | null;
   mechanicalEngineering: string;
   materials: string;
   materialsOffering: string;
@@ -457,6 +459,7 @@ export function fromSeed(seed: SchoolSeed): School {
   const aerospaceEngineering = seed.aerospaceEngineering ?? "";
   return {
     ...seed,
+    undergradEnrollment: null,
     materialsProgram: seed.materialsProgram ?? "",
     materialsSourceUrl: seed.materialsSourceUrl ?? "",
     aerospaceEngineering,
