@@ -1989,7 +1989,8 @@ table.schools .muted,
   font-weight: 600;
 }
 .rail-link[aria-current="page"] .count { color: var(--text-accent); }
-.rail-item { display: flex; flex-direction: column; }
+/* Nav row layout lives in left-rail v2 (.rail-item). Keep this for any legacy wrappers only. */
+.rail-item-legacy { display: flex; flex-direction: column; }
 .rail-subnav {
   display: flex;
   flex-direction: column;
@@ -8178,6 +8179,7 @@ html[data-mode="dark"] .rail-menu-lbl { font-weight: 500; }
 .rail-nav-block { display: flex; flex-direction: column; }
 .rail-item {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 12px;
   height: 40px;
@@ -8193,7 +8195,7 @@ html[data-mode="dark"] .rail-menu-lbl { font-weight: 500; }
   text-decoration: none;
   font-family: inherit;
 }
-.rail-item svg { flex: none; color: var(--text-subtle); }
+.rail-item svg { flex: none; width: 20px; height: 20px; color: var(--text-subtle); }
 .rail-item:hover { background: var(--rail-hover); }
 .rail-item-label { min-width: 0; }
 .rail-item-count {
