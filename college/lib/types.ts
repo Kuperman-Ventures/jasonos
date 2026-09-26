@@ -20,6 +20,9 @@ export type TabId =
 export type SelectivityTier = "" | "extremely_selective" | "very_selective" | "competitive" | "less_competitive";
 export type InterestLevel = "" | "top" | "high" | "moderate" | "safety";
 export type VisitStatus = "" | "visited" | "want" | "planned";
+export type SchoolControl = "" | "Public" | "Private";
+export type ResidencyDataStatus = "" | "Official" | "Estimated" | "Proxy" | "Not applicable";
+export type KyleResidency = "" | "In-state" | "Out-of-state" | "Not applicable";
 export type ApplicationStatus = "" | "researching" | "applying" | "submitted" | "accepted" | "enrolled";
 export type AdmissionTrack = "" | "ed1" | "ed2" | "ea" | "rea" | "rd" | "rolling";
 export type ListPhaseId = "exploration" | "consideration" | "applications";
@@ -64,6 +67,20 @@ export type School = {
   campusSize: string;
   /** Undergrad enrollment from College Scorecard; null when unknown. */
   undergradEnrollment: number | null;
+  control: SchoolControl;
+  residencyDataStatus: ResidencyDataStatus;
+  kyleResidency: KyleResidency;
+  inStateAdmitRate: number | null;
+  outOfStateAdmitRate: number | null;
+  overallAdmitRate: number | null;
+  rateThatAppliesToKyle: number | null;
+  admitDataYear: string;
+  enrolledOutOfStatePct: number | null;
+  outOfStateDefinition: string;
+  outOfStatePolicy: string;
+  engineeringResidencyNote: string;
+  residencySourceUrl: string;
+  residencyNotes: string;
   mechanicalEngineering: string;
   materials: string;
   materialsOffering: string;
@@ -477,6 +494,20 @@ export function fromSeed(seed: SchoolSeed): School {
   return {
     ...seed,
     undergradEnrollment: null,
+    control: "",
+    residencyDataStatus: "",
+    kyleResidency: "",
+    inStateAdmitRate: null,
+    outOfStateAdmitRate: null,
+    overallAdmitRate: null,
+    rateThatAppliesToKyle: null,
+    admitDataYear: "",
+    enrolledOutOfStatePct: null,
+    outOfStateDefinition: "",
+    outOfStatePolicy: "",
+    engineeringResidencyNote: "",
+    residencySourceUrl: "",
+    residencyNotes: "",
     materialsProgram: seed.materialsProgram ?? "",
     materialsSourceUrl: seed.materialsSourceUrl ?? "",
     aerospaceEngineering,

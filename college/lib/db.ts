@@ -20,6 +20,9 @@ import type {
   Step,
   ListPhaseId,
   VisitStatus,
+  SchoolControl,
+  ResidencyDataStatus,
+  KyleResidency,
 } from "./types";
 import {
   fromSeed,
@@ -42,6 +45,20 @@ type SchoolRow = {
   location: string;
   campus_size: string;
   undergrad_enrollment?: number | null;
+  control?: string | null;
+  residency_data_status?: string | null;
+  kyle_residency?: string | null;
+  in_state_admit_rate?: number | null;
+  out_of_state_admit_rate?: number | null;
+  overall_admit_rate?: number | null;
+  rate_that_applies_to_kyle?: number | null;
+  admit_data_year?: string | null;
+  enrolled_out_of_state_pct?: number | null;
+  out_of_state_definition?: string | null;
+  out_of_state_policy?: string | null;
+  engineering_residency_note?: string | null;
+  residency_source_url?: string | null;
+  residency_notes?: string | null;
   mechanical_engineering: string;
   materials: string;
   materials_offering: string;
@@ -157,6 +174,29 @@ function mapContact(row: ContactRow): SchoolContact {
   };
 }
 
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) return Number(value);
+  return null;
+}
+
+function asControl(value: string | null | undefined): SchoolControl {
+  return value === "Public" || value === "Private" ? value : "";
+}
+
+function asResidencyStatus(value: string | null | undefined): ResidencyDataStatus {
+  return value === "Official" ||
+    value === "Estimated" ||
+    value === "Proxy" ||
+    value === "Not applicable"
+    ? value
+    : "";
+}
+
+function asKyleResidency(value: string | null | undefined): KyleResidency {
+  return value === "In-state" || value === "Out-of-state" || value === "Not applicable" ? value : "";
+}
+
 export function mapSchool(row: SchoolRow): School {
   const steps = (row.school_steps ?? []).map(mapStep).sort((a, b) => a.sortOrder - b.sortOrder);
   const deadlines = (row.deadlines ?? []).map(mapDeadline).sort((a, b) => a.sortOrder - b.sortOrder || (a.dueDate ?? "").localeCompare(b.dueDate ?? ""));
@@ -170,6 +210,20 @@ export function mapSchool(row: SchoolRow): School {
       typeof row.undergrad_enrollment === "number" && Number.isFinite(row.undergrad_enrollment)
         ? row.undergrad_enrollment
         : null,
+    control: asControl(row.control),
+    residencyDataStatus: asResidencyStatus(row.residency_data_status),
+    kyleResidency: asKyleResidency(row.kyle_residency),
+    inStateAdmitRate: asFiniteNumber(row.in_state_admit_rate),
+    outOfStateAdmitRate: asFiniteNumber(row.out_of_state_admit_rate),
+    overallAdmitRate: asFiniteNumber(row.overall_admit_rate),
+    rateThatAppliesToKyle: asFiniteNumber(row.rate_that_applies_to_kyle),
+    admitDataYear: row.admit_data_year ?? "",
+    enrolledOutOfStatePct: asFiniteNumber(row.enrolled_out_of_state_pct),
+    outOfStateDefinition: row.out_of_state_definition ?? "",
+    outOfStatePolicy: row.out_of_state_policy ?? "",
+    engineeringResidencyNote: row.engineering_residency_note ?? "",
+    residencySourceUrl: row.residency_source_url ?? "",
+    residencyNotes: row.residency_notes ?? "",
     mechanicalEngineering: row.mechanical_engineering,
     materials: row.materials,
     materialsOffering: row.materials_offering,
@@ -228,7 +282,7 @@ export function mapSchool(row: SchoolRow): School {
 }
 
 const SCHOOL_COLUMNS =
-  "id, name, location, campus_size, undergrad_enrollment, mechanical_engineering, materials, materials_offering, materials_program, materials_source_url, aerospace_engineering, aerospace_program, aerospace_notes, aerospace_source_url, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, visit_status, deadline, deadline_label, selectivity_tier, interest_level, application_status, admission_track, test_policy, family_test_policy, tracked_programs, middle_50, application_platform, required_essays, teacher_recs, cost_of_attendance, net_price_estimate, merit_aid_notes, research_sources, website, list_phase, phases_participated, archived, archived_at, school_steps(id, label, owner, done, sort_order), deadlines(id, title, due_date, completed, sort_order), contacts(id, name, role, email, phone)";
+  "id, name, location, campus_size, undergrad_enrollment, control, residency_data_status, kyle_residency, in_state_admit_rate, out_of_state_admit_rate, overall_admit_rate, rate_that_applies_to_kyle, admit_data_year, enrolled_out_of_state_pct, out_of_state_definition, out_of_state_policy, engineering_residency_note, residency_source_url, residency_notes, mechanical_engineering, materials, materials_offering, materials_program, materials_source_url, aerospace_engineering, aerospace_program, aerospace_notes, aerospace_source_url, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, visit_status, deadline, deadline_label, selectivity_tier, interest_level, application_status, admission_track, test_policy, family_test_policy, tracked_programs, middle_50, application_platform, required_essays, teacher_recs, cost_of_attendance, net_price_estimate, merit_aid_notes, research_sources, website, list_phase, phases_participated, archived, archived_at, school_steps(id, label, owner, done, sort_order), deadlines(id, title, due_date, completed, sort_order), contacts(id, name, role, email, phone)";
 
 export async function listSchools(): Promise<School[]> {
   if (!supabaseConfigured()) return seedSchools();
