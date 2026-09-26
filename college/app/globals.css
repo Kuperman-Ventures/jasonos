@@ -968,6 +968,7 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   overflow: auto;
   background: var(--color-bg);
   color: var(--color-text);
+  border: 1px solid var(--color-modal-edge);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   padding: 0 var(--space-8) var(--space-8);
@@ -8029,9 +8030,6 @@ html[data-mode="dark"] .school-reqs-range .tick {
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--color-divider);
-}
-.school-modal {
-  border: 1px solid var(--color-modal-edge);
 }
 html[data-mode="dark"] .school-modal-backdrop {
   background: rgba(0, 0, 0, 0.6);
