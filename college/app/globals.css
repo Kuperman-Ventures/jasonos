@@ -8838,6 +8838,9 @@ html[data-mode="dark"] .school-visit-label { font-weight: 500; }
   color: var(--visit-on-tint);
   font-weight: 600;
 }
+.visit-include[data-partial="true"] {
+  border-style: dashed;
+}
 .visit-chain {
   display: flex;
   align-items: center;
@@ -8898,6 +8901,12 @@ html[data-mode="dark"] .school-visit-label { font-weight: 500; }
 .visit-stop.here {
   box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-text);
 }
+.visit-stop.in-trip:not(.here) {
+  box-shadow: 0 0 0 2px var(--color-bg), 0 0 0 3px var(--visit-here-border);
+}
+.visit-chain:has(.visit-stop.in-trip) .visit-stop:not(.in-trip):not(.here) {
+  opacity: 0.48;
+}
 .visit-c-note {
   font-size: 13px;
   color: var(--text-subtle);
@@ -8905,34 +8914,34 @@ html[data-mode="dark"] .school-visit-label { font-weight: 500; }
 .visit-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 12px;
+  gap: 10px 20px;
   align-items: center;
   font-size: 13px;
   color: var(--text-muted);
-}
-.visit-filter {
-  margin-top: 0;
 }
 .visit-filter-toggle {
   display: inline-flex;
   align-items: center;
   gap: 0;
-  height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--color-dash, #9b9797);
-  border-radius: 3px;
+  margin: 0;
+  padding: 0;
+  border: none;
   background: none;
   font-size: 13px;
   font-family: inherit;
   color: var(--text-muted);
   cursor: pointer;
 }
-.visit-filter-toggle:hover { border-color: var(--color-accent); }
+.visit-filter-toggle:hover { color: var(--color-text); }
+.visit-filter-toggle[aria-pressed="false"] {
+  opacity: 0.38;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
 .visit-filter-toggle[aria-pressed="true"] {
-  background: var(--visit-here-tint);
-  border-color: var(--visit-here-border);
-  color: var(--visit-on-tint);
-  font-weight: 600;
+  opacity: 1;
+  color: var(--text-muted);
+  font-weight: 400;
 }
 .visit-filter-toggle .visit-legend-sw { margin-right: 8px; }
 .visit-legend-sw {
@@ -8956,6 +8965,7 @@ html[data-mode="dark"] .school-visit-label { font-weight: 500; }
 .visit-legend-here {
   display: inline-flex;
   align-items: center;
+  margin-left: auto;
   font-size: 13px;
   color: var(--text-muted);
 }
@@ -8964,7 +8974,6 @@ html[data-mode="dark"] .school-visit-label { font-weight: 500; }
   background: var(--color-surface);
 }
 .visit-filter-count {
-  margin-left: auto;
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--text-subtle);
@@ -8987,85 +8996,83 @@ html[data-mode="dark"] .school-visit-label { font-weight: 500; }
   font-size: 14px;
   color: var(--text-subtle);
 }
-.visit-route-bar {
+.visit-map-row {
   display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 16px 0;
-  border-top: 1px solid var(--color-dash, #9b9797);
-  border-bottom: 1px solid var(--color-dash, #9b9797);
-}
-.visit-route-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.visit-route-meta strong {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--color-text);
-}
-.visit-route-path {
-  font-size: 14px;
-  color: var(--text-muted);
-}
-.visit-route-leg {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text-subtle);
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
 }
 .visit-start-from {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-width: 360px;
-  font-size: 13px;
-  color: var(--text-muted);
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
-.visit-start-from input {
-  height: 36px;
-  padding: 0 12px;
+.visit-start-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
   border: 1px solid var(--color-dash, #9b9797);
   border-radius: 3px;
-  background: var(--color-surface);
-  color: var(--color-text);
+  background: none;
   font: inherit;
-  font-size: 14px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
 }
-.visit-start-from input:focus {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
+.visit-start-choice:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+.visit-start-choice[aria-pressed="true"] {
+  background: var(--visit-here-tint);
+  border-color: var(--visit-here-border);
+  color: var(--visit-on-tint);
+  font-weight: 600;
+}
+.visit-start-choice:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 .visit-route-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px 16px;
   align-items: center;
 }
-.visit-map-btn {
+.visit-map-link {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-accent);
   text-decoration: none;
 }
-.visit-map-part-btns {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
+.visit-map-link:hover { color: var(--color-accent); }
+.visit-clear {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-subtle);
+  cursor: pointer;
 }
+.visit-clear:hover { color: var(--color-text); }
 .visit-day-maps {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 14px;
   font-size: 13px;
-  margin-top: -4px;
-  margin-bottom: 4px;
+  margin-top: -2px;
+  margin-bottom: 2px;
 }
 .visit-day-maps a {
   color: var(--text-accent);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration: none;
 }
 .visit-day-maps a:hover { color: var(--color-accent); }
 .visit-map-part {
@@ -9074,7 +9081,13 @@ html[data-mode="dark"] .school-visit-label { font-weight: 500; }
   gap: 6px 10px;
   align-items: center;
   color: var(--text-subtle);
+  font-size: 13px;
 }
+.visit-map-part a {
+  color: var(--text-accent);
+  text-decoration: none;
+}
+.visit-map-part a:hover { color: var(--color-accent); }
 
 .visit-it-head {
   display: flex;
@@ -9207,11 +9220,15 @@ html[data-mode="dark"] .school-visit-label { font-weight: 500; }
     flex-direction: column;
     align-items: flex-start;
   }
-  .visit-filter-count { margin-left: 0; }
-  .visit-route-actions { width: 100%; }
+  .visit-legend-here { margin-left: 0; }
+  .visit-map-row { width: 100%; }
 }
 @media (pointer: coarse) {
   .visit-filter-toggle {
+    min-height: 44px;
+    padding: 8px 4px;
+  }
+  .visit-start-choice {
     min-height: 44px;
     height: auto;
     padding: 8px 12px;
@@ -9220,7 +9237,7 @@ html[data-mode="dark"] .school-visit-label { font-weight: 500; }
 @media (forced-colors: active) {
   .visit-stop,
   .visit-include,
-  .visit-filter-toggle,
+  .visit-start-choice,
   .visit-box {
     border: 1px solid CanvasText;
   }

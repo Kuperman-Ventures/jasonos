@@ -74,7 +74,8 @@ test("buildVisitClusters groups same city and same state", () => {
   for (const cluster of clusters) {
     for (const stop of cluster.stops) {
       if (stop.driveFromPrev) {
-        assert.match(stop.driveFromPrev, /~/);
+        assert.match(stop.driveFromPrev, /min|hr/);
+        assert.equal(/~/.test(stop.driveFromPrev), false);
       }
     }
   }

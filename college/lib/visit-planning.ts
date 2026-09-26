@@ -170,7 +170,7 @@ export function buildDayPlan(
         time: `${hour}:00`,
         schoolId: null,
         title: `Drive · ${leg.label}`,
-        sub: `${shortSchoolName(prev.name)} → ${shortSchoolName(school.name)} · ~${leg.miles} mi`,
+                  sub: `${shortSchoolName(prev.name)} → ${shortSchoolName(school.name)} · ${leg.miles} mi`,
         icon: "car",
       });
       hour += Math.max(1, Math.min(3, Math.round(leg.minutes / 60) || 1));

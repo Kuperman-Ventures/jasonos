@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  AirplaneTilt,
   CalendarPlus,
   Car,
-  CheckCircle,
   ForkKnife,
+  MapPin,
   MapTrifold,
 } from "@phosphor-icons/react";
 import type { CalendarEvent } from "@/lib/calendar-events";
@@ -13,6 +14,7 @@ import { INBOX_PARENT_ID, type PersistedProjectStep } from "@/lib/ingest";
 import { memberOwnerId } from "@/lib/project-todos";
 import type { ListPhaseId } from "@/lib/list-phases";
 import type { School } from "@/lib/types";
+import { nearestAirport, type NearestAirport } from "@/lib/visit-airports";
 import { geocodeCityState, type GeoPoint } from "@/lib/visit-geo";
 import {
   VISIT_FILTER_LEVELS,
@@ -63,7 +65,7 @@ function StopChip({
   return (
     <button
       type="button"
-      className={`visit-stop${here ? " here" : ""}`}
+      className={`visit-stop${here ? " here" : ""}${selected ? " in-trip" : ""}`}
       data-level={level}
       aria-pressed={selected}
       title={`${school.name} · ${visitInterestLabel(school.interestLevel)}${
@@ -73,9 +75,6 @@ function StopChip({
     >
       <SchoolMark name={school.name} website={school.website} />
       <span>{shortSchoolName(school.name)}</span>
-      {selected ? (
-        <CheckCircle size={16} weight="duotone" aria-label="In trip" />
-      ) : null}
     </button>
   );
 }
@@ -120,10 +119,10 @@ function MapLinkList({
 
 function formatTotalDrive(minutes: number): string {
   if (minutes <= 0) return "";
-  if (minutes < 60) return `~${minutes} min driving`;
+  if (minutes < 60) return `${minutes} min driving`;
   const hours = Math.floor(minutes / 60);
   const rem = minutes % 60;
-  return rem === 0 ? `~${hours} hr driving` : `~${hours} hr ${rem} min driving`;
+  return rem === 0 ? `${hours} hr driving` : `${hours} hr ${rem} min driving`;
 }
 
 export function SchoolVisitPlanning({
@@ -157,7 +156,8 @@ export function SchoolVisitPlanning({
   const [filter, setFilter] = useState<VisitInterestFilter>(defaultVisitInterestFilter);
   /** Schools in the trip (individual selection). */
   const [tripIds, setTripIds] = useState<string[]>([school.id]);
-  const [startFrom, setStartFrom] = useState("");
+  /** Map directions start: device location or nearest commercial airport. */
+  const [startMode, setStartMode] = useState<"current" | "airport">("current");
   const [coordsById, setCoordsById] = useState<Map<string, GeoPoint | null>>(() => new Map());
   const [toast, setToast] = useState<string | null>(null);
 
@@ -166,8 +166,9 @@ export function SchoolVisitPlanning({
   }, []);
 
   useEffect(() => {
-    // Reset trip to this school when navigating between school records.
+    // Reset trip + start mode when navigating between school records.
     setTripIds([school.id]);
+    setStartMode("current");
   }, [school.id]);
 
   const filterOn = anyFilterLevelOn(filter);
@@ -206,6 +207,7 @@ export function SchoolVisitPlanning({
   // Geocode selected + visible stops so drive labels refine beyond the city heuristic.
   useEffect(() => {
     const ids = new Set<string>([
+      school.id,
       ...tripPlan.orderedIds,
       ...filteredClusters.flatMap((cluster) => cluster.stops.map((stop) => stop.schoolId)),
     ]);
@@ -230,20 +232,36 @@ export function SchoolVisitPlanning({
     };
     // coordsById intentionally omitted — we only seed missing ids.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tripPlan.orderedIds.join("|"), filteredClusters, byId]);
+  }, [school.id, tripPlan.orderedIds.join("|"), filteredClusters, byId]);
+
+  const schoolPoint = coordsById.get(school.id) ?? null;
+  const closestAirport: NearestAirport | null = useMemo(
+    () => (schoolPoint ? nearestAirport(schoolPoint) : null),
+    [schoolPoint],
+  );
+
+  useEffect(() => {
+    // If airport mode was on but we lost a match, fall back to current location.
+    if (startMode === "airport" && schoolPoint && !closestAirport) {
+      setStartMode("current");
+    }
+  }, [startMode, schoolPoint, closestAirport]);
 
   const stats = nearbySchoolStats(clusters, filteredClusters, school.id);
   const allLevelsOn = VISIT_FILTER_LEVELS.every((key) => filter[key]);
   const days = tripPlan.days;
   const schoolCount = tripPlan.orderedIds.length;
 
+  const mapOrigin =
+    startMode === "airport" && closestAirport ? closestAirport.mapOrigin : null;
+
   const routeParts = useMemo(() => {
     const locations = tripPlan.orderedIds
       .map((id) => byId.get(id))
       .filter((row): row is School => Boolean(row))
       .map(schoolMapLocation);
-    return buildMapRouteParts(locations, startFrom.trim() || null);
-  }, [tripPlan.orderedIds, byId, startFrom]);
+    return buildMapRouteParts(locations, mapOrigin);
+  }, [tripPlan.orderedIds, byId, mapOrigin]);
 
   function setFilterLevel(key: VisitInterestKey, on: boolean) {
     setFilter((prev) => {
@@ -356,7 +374,7 @@ export function SchoolVisitPlanning({
       .map((slot) => (slot.schoolId ? byId.get(slot.schoolId) : null))
       .filter((row): row is School => Boolean(row))
       .map(schoolMapLocation);
-    const origin = dayIndex === 0 ? startFrom.trim() || null : null;
+    const origin = dayIndex === 0 ? mapOrigin : null;
     return buildMapRouteParts(locations, origin);
   }
 
@@ -422,10 +440,10 @@ export function SchoolVisitPlanning({
           This school
         </span>
         <span className="visit-filter-count" aria-live="polite">
-          Showing {stats.showing} of {stats.total} nearby schools
+          Showing {stats.showing} of {stats.total}
           {!allLevelsOn ? (
             <>
-              {" "}
+              {" · "}
               <button type="button" className="visit-show-all" onClick={showAllLevels}>
                 Show all
               </button>
@@ -435,163 +453,145 @@ export function SchoolVisitPlanning({
       </div>
 
       {filterOn ? (
-        <>
+        <section className="visit-itinerary" aria-labelledby="visit-trip-title">
+          <div className="visit-it-head">
+            <div>
+              <h2 id="visit-trip-title">{trip.name}</h2>
+              <p>
+                {trip.window} · {schoolCount} school{schoolCount === 1 ? "" : "s"} ·{" "}
+                {days.length} day{days.length === 1 ? "" : "s"}
+                {driveSummary ? ` · ${driveSummary}` : ""}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="visit-send"
+              disabled={!days.length}
+              onClick={send}
+            >
+              <CalendarPlus size={18} weight="duotone" aria-hidden="true" />
+              Send to Calendar
+            </button>
+          </div>
+
           {schoolCount > 0 ? (
-            <div className="visit-route-bar" aria-live="polite">
-              <div className="visit-route-meta">
-                <strong>
-                  {schoolCount} school{schoolCount === 1 ? "" : "s"} in trip
-                  {driveSummary ? ` · ${driveSummary}` : ""}
-                </strong>
-                <span className="visit-route-path">
-                  {tripPlan.stops.map((stop, index) => {
-                    const name = shortSchoolName(byId.get(stop.schoolId)?.name ?? stop.schoolId);
-                    return (
-                      <span key={`${stop.schoolId}-${index}`}>
-                        {index > 0 ? (
-                          <>
-                            {" "}
-                            <span className="visit-route-leg">
-                              →{stop.driveFromPrev ? ` ${stop.driveFromPrev} →` : " →"}
-                            </span>{" "}
-                          </>
-                        ) : null}
-                        {name}
-                      </span>
-                    );
-                  })}
-                </span>
+            <div className="visit-map-row" aria-live="polite">
+              <div className="visit-start-from" role="group" aria-label="Start map route from">
+                <button
+                  type="button"
+                  className="visit-start-choice"
+                  aria-pressed={startMode === "current"}
+                  onClick={() => setStartMode("current")}
+                >
+                  <MapPin size={16} weight="duotone" aria-hidden="true" />
+                  Current location
+                </button>
+                <button
+                  type="button"
+                  className="visit-start-choice"
+                  aria-pressed={startMode === "airport"}
+                  disabled={!closestAirport}
+                  title={
+                    closestAirport
+                      ? `${closestAirport.name} · ${closestAirport.miles} mi from ${shortSchoolName(school.name)}`
+                      : "Finding nearest airport…"
+                  }
+                  onClick={() => {
+                    if (closestAirport) setStartMode("airport");
+                  }}
+                >
+                  <AirplaneTilt size={16} weight="duotone" aria-hidden="true" />
+                  {closestAirport
+                    ? `${closestAirport.buttonLabel} · ${closestAirport.miles} mi`
+                    : "Nearest airport…"}
+                </button>
               </div>
-              <label className="visit-start-from">
-                <span>Start from</span>
-                <input
-                  type="text"
-                  value={startFrom}
-                  placeholder="Current location"
-                  onChange={(event) => setStartFrom(event.target.value)}
-                />
-              </label>
               <div className="visit-route-actions">
                 {routeParts.length === 1 ? (
                   <>
                     <a
-                      className="btn btn-secondary visit-map-btn"
+                      className="visit-map-link"
                       href={routeParts[0]!.googleUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      <MapTrifold size={18} weight="duotone" aria-hidden="true" />
-                      Open in Google Maps
+                      <MapTrifold size={16} weight="duotone" aria-hidden="true" />
+                      Google Maps
                     </a>
                     <a
-                      className="btn btn-secondary visit-map-btn"
+                      className="visit-map-link"
                       href={routeParts[0]!.appleUrl}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      <MapTrifold size={18} weight="duotone" aria-hidden="true" />
-                      Open in Apple Maps
+                      <MapTrifold size={16} weight="duotone" aria-hidden="true" />
+                      Apple Maps
                     </a>
                   </>
                 ) : (
                   routeParts.map((part) => (
-                    <span key={part.label} className="visit-map-part-btns">
-                      <span className="school-visit-label school-visit-label-sm">{part.label}</span>
-                      <a
-                        className="btn btn-secondary visit-map-btn"
-                        href={part.googleUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <MapTrifold size={18} weight="duotone" aria-hidden="true" />
+                    <span key={part.label} className="visit-map-part">
+                      <span>{part.label}:</span>
+                      <a href={part.googleUrl} target="_blank" rel="noopener noreferrer">
                         Google Maps
                       </a>
-                      <a
-                        className="btn btn-secondary visit-map-btn"
-                        href={part.appleUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <MapTrifold size={18} weight="duotone" aria-hidden="true" />
+                      <a href={part.appleUrl} target="_blank" rel="noopener noreferrer">
                         Apple Maps
                       </a>
                     </span>
                   ))
                 )}
-                <button type="button" className="btn btn-ghost" onClick={clearTrip}>
-                  Clear
+                <button type="button" className="visit-clear" onClick={clearTrip}>
+                  Clear trip
                 </button>
               </div>
             </div>
           ) : null}
 
-          <section className="visit-itinerary" aria-labelledby="visit-trip-title">
-            <div className="visit-it-head">
-              <div>
-                <h2 id="visit-trip-title">{trip.name}</h2>
-                <p>
-                  {trip.window} · {schoolCount} school{schoolCount === 1 ? "" : "s"} ·{" "}
-                  {days.length} day{days.length === 1 ? "" : "s"}
-                  {driveSummary ? ` · ${driveSummary}` : ""}
-                </p>
-              </div>
-              <button
-                type="button"
-                className="visit-send"
-                disabled={!days.length}
-                onClick={send}
-              >
-                <CalendarPlus size={18} weight="duotone" aria-hidden="true" />
-                Send to Calendar
-              </button>
-            </div>
-
-            {days.length ? (
-              <div className="visit-days">
-                {days.map((slots, dayIndex) => (
-                  <div className="visit-day" key={`day-${dayIndex}`}>
-                    <span className="school-visit-label school-visit-label-sm">
-                      {dayLabel(dayIndex)}
-                    </span>
-                    <MapLinkList parts={dayMapParts(dayIndex)} className="visit-day-maps" />
-                    {slots.map((slot, slotIndex) => {
-                      const stop = slot.schoolId ? byId.get(slot.schoolId) : null;
-                      const here = slot.schoolId === school.id;
-                      return (
-                        <div className="visit-slot" key={`${dayIndex}-${slotIndex}`}>
-                          <time>{slot.time}</time>
-                          <div
-                            className={`visit-box${here ? " here" : ""}${
-                              !slot.schoolId ? " gap" : ""
-                            }`}
-                          >
-                            {stop ? (
-                              <SchoolMark name={stop.name} website={stop.website} />
-                            ) : slot.icon === "car" ? (
-                              <Car size={18} weight="duotone" aria-hidden="true" />
-                            ) : (
-                              <ForkKnife size={18} weight="duotone" aria-hidden="true" />
-                            )}
-                            <div>
-                              <b>{slot.title}</b>
-                              {slot.sub ? <small>{slot.sub}</small> : null}
-                            </div>
+          {days.length ? (
+            <div className="visit-days">
+              {days.map((slots, dayIndex) => (
+                <div className="visit-day" key={`day-${dayIndex}`}>
+                  <span className="school-visit-label school-visit-label-sm">
+                    {dayLabel(dayIndex)}
+                  </span>
+                  <MapLinkList parts={dayMapParts(dayIndex)} className="visit-day-maps" />
+                  {slots.map((slot, slotIndex) => {
+                    const stop = slot.schoolId ? byId.get(slot.schoolId) : null;
+                    const here = slot.schoolId === school.id;
+                    return (
+                      <div className="visit-slot" key={`${dayIndex}-${slotIndex}`}>
+                        <time>{slot.time}</time>
+                        <div
+                          className={`visit-box${here ? " here" : ""}${
+                            !slot.schoolId ? " gap" : ""
+                          }`}
+                        >
+                          {stop ? (
+                            <SchoolMark name={stop.name} website={stop.website} />
+                          ) : slot.icon === "car" ? (
+                            <Car size={18} weight="duotone" aria-hidden="true" />
+                          ) : (
+                            <ForkKnife size={18} weight="duotone" aria-hidden="true" />
+                          )}
+                          <div>
+                            <b>{slot.title}</b>
+                            {slot.sub ? <small>{slot.sub}</small> : null}
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="visit-empty">Tap schools above to build a trip.</p>
-            )}
-            <p className="visit-foot">
-              Tour times are placeholders until booked. Drive times are estimates from city
-              locations and update when you add or remove schools.
-            </p>
-          </section>
-        </>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="visit-empty">Add schools above to start a trip.</p>
+          )}
+          <p className="visit-foot">
+            Tour and info session times are placeholders until booked.
+          </p>
+        </section>
       ) : null}
 
       {toast ? (
@@ -642,11 +642,11 @@ function ClusterBlock({
             <button
               type="button"
               className="visit-include"
-              aria-pressed={allOn}
+              aria-pressed={allOn || someOn}
               data-partial={someOn && !allOn ? "true" : undefined}
               onClick={onToggleAll}
             >
-              {allOn ? "All in trip ✓" : someOn ? "Add remaining" : "Add all"}
+              {allOn || someOn ? "In trip ✓" : "Add to trip"}
             </button>
           ) : null}
         </div>

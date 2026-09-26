@@ -55,11 +55,12 @@ export function formatDriveEstimate(roadMiles: number): DriveEstimate {
   const minutes = Math.max(5, Math.round((roadMiles / AVG_ROAD_MPH) * 60));
   let label: string;
   if (minutes < 60) {
-    label = `~${minutes} min`;
+    label = `${minutes} min`;
   } else {
     const hours = Math.floor(minutes / 60);
     const rem = minutes % 60;
-    label = rem === 0 ? `~${hours} hr` : `~${hours} hr ${rem} min`;
+    // Match reference copy: "1 hr 45", "2 hr 30"
+    label = rem === 0 ? `${hours} hr` : `${hours} hr ${rem}`;
   }
   return { label, minutes, miles };
 }
@@ -85,12 +86,12 @@ export function estimateDriveByLocation(
   const a = parse(fromLocation);
   const b = parse(toLocation);
   if (a.city && b.city && a.city === b.city && a.state === b.state) {
-    return { label: "~20 min", minutes: 20, miles: 8 };
+    return { label: "20 min", minutes: 20, miles: 8 };
   }
   if (a.state && a.state === b.state) {
-    return { label: "~1.5 hr", minutes: 90, miles: 75 };
+    return { label: "1 hr 30", minutes: 90, miles: 75 };
   }
-  return { label: "~4 hr", minutes: 240, miles: 220 };
+  return { label: "4 hr", minutes: 240, miles: 220 };
 }
 
 export async function geocodeCityState(
