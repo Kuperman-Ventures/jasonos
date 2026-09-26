@@ -12,7 +12,8 @@ export async function middleware(request: NextRequest) {
     pathname === "/favicon.ico" ||
     pathname === "/icon.png" ||
     pathname === "/apple-icon.png" ||
-    pathname === "/logo.png"
+    pathname === "/logo.png" ||
+    pathname === "/brand-mark.svg"
   ) {
     return NextResponse.next();
   }
