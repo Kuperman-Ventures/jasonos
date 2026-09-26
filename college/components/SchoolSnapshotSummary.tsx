@@ -276,7 +276,7 @@ export function SchoolSnapshotSummary({
 
         <section className="area" aria-labelledby="snap-stand-h">
           <span className="area-label" id="snap-stand-h">
-            Where you stand
+            Project Management
           </span>
           <span className="area-head is-status">{statusHead}</span>
           <dl className="facts">
