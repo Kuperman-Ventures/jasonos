@@ -24,14 +24,22 @@ import { SchoolMark } from "./SchoolMark";
 import { SchoolSnapshotSummary } from "./SchoolSnapshotSummary";
 import { SchoolProjectManagement } from "./SchoolProjectManagement";
 import { SchoolRequirements } from "./SchoolRequirements";
+import { SchoolPhotos } from "./SchoolPhotos";
 
-type SchoolModalTab = "snapshot" | "settings" | "requirements" | "financials" | "projects";
+type SchoolModalTab =
+  | "snapshot"
+  | "settings"
+  | "requirements"
+  | "financials"
+  | "projects"
+  | "photos";
 
 const SCHOOL_MODAL_TABS: { id: SchoolModalTab; label: string }[] = [
   { id: "snapshot", label: "Snapshot" },
   { id: "requirements", label: "Requirements" },
   { id: "financials", label: "Financials" },
   { id: "projects", label: "Project Management" },
+  { id: "photos", label: "Photos" },
   { id: "settings", label: "Settings" },
 ];
 
@@ -603,6 +611,10 @@ export function CollegeRecord({
               onSendNote={onSendProjectNote}
               onRemoveNote={onRemoveProjectNote}
             />
+          ) : null}
+
+          {tab === "photos" ? (
+            <SchoolPhotos school={school} memberProfiles={memberProfiles} />
           ) : null}
         </div>
       </div>
