@@ -4780,6 +4780,53 @@ body.todos-dragging .todo-project-group.is-over {
   display: grid;
   grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
 }
+.list-dash-gauges-toggle {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 0 0 var(--space-3);
+  cursor: pointer;
+}
+.list-dash-gauges:not(.is-collapsed) .list-dash-gauges-toggle {
+  margin-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-divider);
+}
+.list-dash-gauges-toggle:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+.list-dash-gauges-toggle-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 15px;
+  min-width: 0;
+}
+.list-dash-gauges-summary {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.list-dash-gauges-caret {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  color: var(--text-subtle);
+  transition: transform 0.15s ease;
+}
+.list-dash-gauges-caret.is-open {
+  transform: rotate(90deg);
+}
+.list-dash-gauges-caret svg {
+  width: 16px;
+  height: 16px;
+}
 .list-dash-panel {
   display: flex;
   flex-direction: column;

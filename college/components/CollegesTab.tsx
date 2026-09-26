@@ -125,11 +125,34 @@ export function CollegesTab({
   const [name, setName] = useState("");
   const [adding, setAdding] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
+  const [dashOpen, setDashOpen] = useState(true);
   const columnsRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setPhaseId(currentListPhaseId());
   }, []);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem("track-list-dash-open");
+      if (raw === "0") setDashOpen(false);
+      if (raw === "1") setDashOpen(true);
+    } catch {
+      /* private mode */
+    }
+  }, []);
+
+  function toggleDashOpen() {
+    setDashOpen((current) => {
+      const next = !current;
+      try {
+        window.localStorage.setItem("track-list-dash-open", next ? "1" : "0");
+      } catch {
+        /* private mode */
+      }
+      return next;
+    });
+  }
 
   const phase = listPhaseById(phaseId);
   const columns = normalizeColumns(listPrefs.columnsByPhase[phaseId], phase);
@@ -436,7 +459,41 @@ export function CollegesTab({
 
       <div className="list-dash-body">
         <div className="list-dash">
-          <div className="list-dash-panels">
+          <div className={`list-dash-gauges${dashOpen ? "" : " is-collapsed"}`}>
+            <button
+              type="button"
+              className="list-dash-gauges-toggle"
+              aria-expanded={dashOpen}
+              aria-controls="list-dash-gauges-body"
+              onClick={toggleDashOpen}
+            >
+              <span className="list-dash-gauges-toggle-main">
+                <span className="label">List size &amp; selectivity mix</span>
+                {!dashOpen ? (
+                  <span className="list-dash-gauges-summary">
+                    {sizeBar.count} schools · {sizeBar.note}
+                  </span>
+                ) : null}
+              </span>
+              <span
+                className={`list-dash-gauges-caret${dashOpen ? " is-open" : ""}`}
+                aria-hidden="true"
+              >
+                <svg viewBox="0 0 16 16">
+                  <path
+                    d="M6 3.5 10.5 8 6 12.5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  />
+                </svg>
+              </span>
+            </button>
+            <div
+              id="list-dash-gauges-body"
+              className="list-dash-panels"
+              hidden={!dashOpen}
+            >
             <section className="list-dash-panel" aria-labelledby="list-size-h">
               <div className="panel-head">
                 <span className="label" id="list-size-h">
@@ -489,6 +546,7 @@ export function CollegesTab({
                 unsetCount={mixPie.unsetCount}
               />
             </section>
+            </div>
           </div>
         </div>
 
