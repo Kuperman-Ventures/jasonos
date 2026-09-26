@@ -270,8 +270,8 @@ header.mast {
   gap: var(--space-3);
 }
 .site-logo {
-  height: 46px;
-  width: auto;
+  height: 48px;
+  width: 48px;
   display: block;
   margin: var(--space-2) 0 var(--space-2) var(--space-2);
 }

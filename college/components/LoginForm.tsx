@@ -73,7 +73,7 @@ export function LoginForm({
   return (
     <div className="login-card">
       <div className="lockup">
-        <Image src="/logo.png" alt="" width={62} height={46} className="site-logo" priority />
+        <Image src="/logo.png" alt="" width={48} height={48} className="site-logo" priority />
         <p className="lockup-name">The Track</p>
       </div>
       <h1>Sign in</h1>

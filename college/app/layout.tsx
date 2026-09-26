@@ -30,7 +30,10 @@ export const metadata: Metadata = {
   title: "The Track",
   description: "Kyle's college search and application plan.",
   icons: {
-    icon: [{ url: "/icon.png", type: "image/png", sizes: "192x192" }],
+    icon: [
+      { url: "/brand-mark.svg", type: "image/svg+xml" },
+      { url: "/icon.png", type: "image/png", sizes: "192x192" },
+    ],
     apple: [{ url: "/apple-icon.png", type: "image/png", sizes: "180x180" }],
     shortcut: "/favicon.ico",
   },
