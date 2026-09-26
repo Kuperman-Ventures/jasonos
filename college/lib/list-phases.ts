@@ -61,7 +61,7 @@ export const LIST_PHASES: ListPhase[] = [
     startsOn: "2026-09-01",
     endsOn: "2026-12-31",
     // Status is the same for everyone here — researching — so leave it off.
-    defaultColumns: ["school", "location", "selectivity", "interest", "aerospace", "action"],
+    defaultColumns: ["school", "location", "selectivity", "interest", "action"],
   },
   {
     id: "consideration",
@@ -74,7 +74,7 @@ export const LIST_PHASES: ListPhase[] = [
     rangeLabel: "10–15",
     startsOn: "2027-01-01",
     endsOn: "2027-07-26",
-    defaultColumns: ["school", "selectivity", "interest", "aerospace", "track", "action"],
+    defaultColumns: ["school", "selectivity", "interest", "track", "action"],
   },
   {
     id: "applications",
@@ -87,7 +87,7 @@ export const LIST_PHASES: ListPhase[] = [
     rangeLabel: "8–12",
     startsOn: "2027-07-27",
     endsOn: null,
-    defaultColumns: ["school", "status", "track", "selectivity", "interest", "aerospace", "action"],
+    defaultColumns: ["school", "status", "track", "selectivity", "interest", "action"],
   },
 ];
 
