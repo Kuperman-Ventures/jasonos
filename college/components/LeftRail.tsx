@@ -13,6 +13,7 @@ import {
 } from "@/lib/project-management";
 import type { PhaseStatus } from "@/lib/phases";
 import type { Phase, TabId } from "@/lib/types";
+import { isAdminRole } from "@/lib/permissions";
 
 const PRIMARY: { id: TabId; label: string }[] = [
   { id: "dashboard", label: "Dashboard" },
@@ -28,6 +29,7 @@ const REFERENCE: { id: TabId; label: string }[] = [
   { id: "consultants", label: "Consultants" },
   { id: "faq", label: "FAQ" },
   { id: "testing", label: "Testing" },
+  { id: "admin", label: "Admin" },
 ];
 
 export function LeftRail({
@@ -84,6 +86,9 @@ export function LeftRail({
   };
   const projectsOpen = tab === "projects";
   const appsOpen = tab === "apps";
+  const referenceTabs = REFERENCE.filter(
+    (item) => item.id !== "admin" || isAdminRole(member.role),
+  );
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -196,7 +201,7 @@ export function LeftRail({
           <span className="label">Reference</span>
         </div>
         <nav className="rail-nav" aria-label="Reference">
-          {REFERENCE.map((item) => (
+          {referenceTabs.map((item) => (
             <a
               key={item.id}
               className="rail-link"
