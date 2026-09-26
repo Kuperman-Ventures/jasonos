@@ -27,6 +27,42 @@ function levelIndex(value: InterestPickerValue): number {
 
 type PopoverPos = { top: number; left: number; openUp: boolean };
 
+/** Place the chip row so its horizontal center sits on the click (or trigger center). */
+export function placeInterestPopover({
+  trigger,
+  popoverWidth,
+  popoverHeight,
+  anchorX,
+  viewportWidth = typeof window !== "undefined" ? window.innerWidth : 1280,
+  viewportHeight = typeof window !== "undefined" ? window.innerHeight : 800,
+  gap = 6,
+  edge = 8,
+}: {
+  trigger: DOMRect;
+  popoverWidth: number;
+  popoverHeight: number;
+  /** Pointer X from the open click; falls back to trigger center. */
+  anchorX?: number | null;
+  viewportWidth?: number;
+  viewportHeight?: number;
+  gap?: number;
+  edge?: number;
+}): PopoverPos {
+  const openUp =
+    trigger.bottom + gap + popoverHeight > viewportHeight - edge &&
+    trigger.top > popoverHeight + gap;
+  const top = openUp ? trigger.top - gap - popoverHeight : trigger.bottom + gap;
+  const centerX =
+    anchorX != null && Number.isFinite(anchorX)
+      ? anchorX
+      : trigger.left + trigger.width / 2;
+  const left = Math.min(
+    Math.max(edge, centerX - popoverWidth / 2),
+    Math.max(edge, viewportWidth - popoverWidth - edge),
+  );
+  return { top, left, openUp };
+}
+
 export function InterestPicker({
   value,
   schoolName,
@@ -46,6 +82,7 @@ export function InterestPicker({
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const groupRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
+  const [anchorX, setAnchorX] = useState<number | null>(null);
   const [pos, setPos] = useState<PopoverPos | null>(null);
   const [mounted, setMounted] = useState(false);
   const listId = useId();
@@ -64,16 +101,14 @@ export function InterestPicker({
       const trigger = triggerRef.current;
       if (!trigger) return;
       const rect = trigger.getBoundingClientRect();
-      const popoverHeight = popoverRef.current?.offsetHeight ?? 56;
-      const gap = 6;
-      const openUp = rect.bottom + gap + popoverHeight > window.innerHeight - 8 && rect.top > popoverHeight + gap;
-      const top = openUp ? rect.top - gap - popoverHeight : rect.bottom + gap;
-      const width = popoverRef.current?.offsetWidth ?? 320;
-      const left = Math.min(
-        Math.max(8, rect.left),
-        window.innerWidth - width - 8,
+      setPos(
+        placeInterestPopover({
+          trigger: rect,
+          popoverWidth: popoverRef.current?.offsetWidth ?? 320,
+          popoverHeight: popoverRef.current?.offsetHeight ?? 56,
+          anchorX,
+        }),
       );
-      setPos({ top, left, openUp });
     }
 
     place();
@@ -83,7 +118,7 @@ export function InterestPicker({
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", place, true);
     };
-  }, [open]);
+  }, [open, anchorX]);
 
   useEffect(() => {
     if (!open) return;
@@ -257,7 +292,14 @@ export function InterestPicker({
         title={current ? current.name : "Not set"}
         onClick={(event) => {
           event.stopPropagation();
-          setOpen((wasOpen) => !wasOpen);
+          setOpen((wasOpen) => {
+            if (wasOpen) {
+              setAnchorX(null);
+              return false;
+            }
+            setAnchorX(event.clientX);
+            return true;
+          });
         }}
       >
         <span className="meter" aria-hidden="true">
