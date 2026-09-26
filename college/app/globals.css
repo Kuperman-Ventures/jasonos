@@ -8398,3 +8398,322 @@ html[data-mode="dark"] .rail-menu-lbl { font-weight: 500; }
     width: min(280px, 86vw);
   }
 }
+
+/* ---------- school photos tab ---------- */
+.school-photos {
+  --ph-1: #dcdada;
+  --ph-2: #d2cece;
+  --ph-3: #c9c5c5;
+  --photos-dash: #9b9797;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+html[data-mode="dark"] .school-photos {
+  --ph-1: #2d3139;
+  --ph-2: #353a43;
+  --ph-3: #3d424b;
+  --photos-dash: #5d636c;
+}
+.school-photos-header { margin: 0; }
+.school-photos-kicker {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.school-photos-mark {
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  overflow: hidden;
+  flex: none;
+  display: grid;
+  place-items: center;
+}
+html[data-mode="dark"] .school-photos-mark {
+  box-shadow: inset 0 0 0 1px rgba(240, 238, 236, 0.14);
+}
+.school-photos-mark .school-mark {
+  width: 24px;
+  height: 24px;
+  font-size: 10px;
+  border-radius: 3px;
+}
+.school-photos-mark .school-mark img {
+  width: 24px;
+  height: 24px;
+}
+.school-photos-kicker b {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+.school-photos-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+html[data-mode="dark"] .school-photos-label { font-weight: 500; }
+.school-photos-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.school-photos-group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+}
+.school-photos-group-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+.school-photos-group-head h2 span {
+  font-weight: 400;
+  color: var(--text-subtle);
+}
+.school-photos-count {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-subtle);
+}
+.school-photos-count a {
+  color: var(--text-accent);
+  text-decoration: none;
+}
+.school-photos-count a:hover { color: var(--link-hover); }
+.school-photos-ours {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+.school-photos-ours figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.school-photos-ours figcaption {
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+.school-photos-theirs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 4px;
+}
+.school-photos-thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  border: none;
+  border-radius: 2px;
+  background: var(--ph-1) center / cover no-repeat;
+  cursor: zoom-in;
+}
+.school-photos-thumb:hover { outline: 2px solid var(--color-accent); }
+.school-photos-who {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #d3dcea;
+  color: #2f5aa0;
+  font-size: 11px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 0 2px var(--color-surface);
+  overflow: hidden;
+}
+html[data-mode="dark"] .school-photos-who {
+  background: #26344d;
+  color: #a9c1ec;
+}
+.school-photos-who img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.school-photos-star {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  color: var(--color-accent);
+}
+.school-photos-add {
+  aspect-ratio: 1;
+  border-radius: 2px;
+  border: 1.5px dashed var(--photos-dash);
+  background: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: var(--text-subtle);
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.school-photos-add:hover {
+  border-color: var(--color-accent);
+  color: var(--text-accent);
+}
+.school-photos-empty {
+  font-size: 15px;
+  color: var(--text-subtle);
+  grid-column: 1 / -1;
+}
+.school-photos-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-subtle);
+}
+.school-photos-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(22, 24, 27, 0.97);
+  color: #f0eeec;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 24px 22px;
+}
+.school-photos-viewer-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.school-photos-viewer-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #9aa0a8;
+}
+.school-photos-viewer-top-right {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+.school-photos-viewer-pos {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: #c3c8cf;
+}
+.school-photos-vbtn {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: #2d3139;
+  color: #f0eeec;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.school-photos-vbtn:hover { background: #3d424b; }
+.school-photos-vbtn-sq {
+  width: 36px;
+  height: 36px;
+  border-radius: 3px;
+}
+.school-photos-viewer-stage {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  gap: 12px;
+  align-items: center;
+}
+.school-photos-viewer-img {
+  height: 100%;
+  width: 100%;
+  border-radius: 2px;
+  background: #2d3139 center / contain no-repeat;
+}
+.school-photos-viewer-cap {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 0 56px;
+}
+.school-photos-viewer-cap-main {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+.school-photos-who-viewer {
+  position: static;
+  flex-shrink: 0;
+  box-shadow: none;
+  background: #26344d;
+  color: #a9c1ec;
+}
+.school-photos-viewer-cap b {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  color: #f0eeec;
+}
+.school-photos-viewer-cap small {
+  display: block;
+  font-size: 13px;
+  color: #9aa0a8;
+}
+.school-photos-viewer-cap small a {
+  color: #fab48e;
+  text-decoration: none;
+}
+.school-photos-viewer-cap small a:hover { color: #fdd6c0; }
+.school-photos-viewer-hint {
+  font-size: 12px;
+  color: #9aa0a8;
+  white-space: nowrap;
+}
+.school-photos-viewer-strip {
+  display: flex;
+  gap: 3px;
+  padding: 0 56px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.school-photos-viewer-strip button {
+  flex: 0 0 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 2px;
+  border: 2px solid transparent;
+  background: #2d3139 center / cover no-repeat;
+  opacity: 0.6;
+  cursor: pointer;
+}
+.school-photos-viewer-strip button[aria-current="true"] {
+  border-color: var(--color-accent);
+  opacity: 1;
+}
+@media (max-width: 700px) {
+  .school-photos-viewer-cap,
+  .school-photos-viewer-strip { padding: 0; }
+  .school-photos-viewer-stage { grid-template-columns: 1fr; }
+  .school-photos-viewer-stage .school-photos-vbtn-side { display: none; }
+}
+@media (forced-colors: active) {
+  .school-photos-thumb,
+  .school-photos-add { border: 1px solid CanvasText; }
+}

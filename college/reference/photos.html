@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>School detail · Photos</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<style>
+  :root {
+    --desk: #e6e4e3; --bg: #f3f2f2; --ink: #201e1d; --muted: #444141; --subtle: #605d5d;
+    --accent: #e85504; --accent-text: #9e3603; --pressed: #c74503;
+    --ph-1: #dcdada; --ph-2: #d2cece; --ph-3: #c9c5c5; --dash: #9b9797;
+    --avatar-bg: #d3dcea; --avatar-ink: #2f5aa0;
+    --shadow-lg: 0 18px 48px rgba(32,30,29,.16);
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+    color-scheme: light;
+  }
+  [data-mode="dark"] {
+    --desk: #16181b; --bg: #1f2228; --ink: #f0eeec; --muted: #c3c8cf; --subtle: #9aa0a8;
+    --accent-text: #fab48e; --pressed: #f58749;
+    --ph-1: #2d3139; --ph-2: #353a43; --ph-3: #3d424b; --dash: #5d636c;
+    --avatar-bg: #26344d; --avatar-ink: #a9c1ec;
+    --shadow-lg: 0 24px 64px rgba(0,0,0,.55), 0 0 0 1px rgba(240,238,236,.06);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--desk); font-family: "Archivo", system-ui, sans-serif; color: var(--ink); }
+  a { color: var(--accent-text); text-decoration: none; }
+  a:hover { color: var(--pressed); }
+  button { font-family: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .wrap { padding: 40px 24px; }
+  .modal { max-width: 1040px; margin: 0 auto; background: var(--bg); box-shadow: var(--shadow-lg); padding: 28px 40px 48px; display: flex; flex-direction: column; gap: 32px; }
+  .kicker { display: flex; gap: 10px; align-items: center; }
+  .school { width: 24px; height: 24px; border-radius: 3px; background: var(--school); color: #fff; font-size: 12px; font-weight: 800; display: grid; place-items: center; overflow: hidden; }
+  [data-mode="dark"] .school { box-shadow: inset 0 0 0 1px rgba(240,238,236,.14); }
+  .kicker b { font-size: 16px; }
+  .label { font-family: var(--mono); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--subtle); }
+  [data-mode="dark"] .label { font-weight: 500; }
+  .group { display: flex; flex-direction: column; gap: 12px; }
+  .group-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+  .group-head h2 { margin: 0; font-size: 16px; font-weight: 700; }
+  .group-head h2 span { font-weight: 400; color: var(--subtle); }
+  .group-head .count { font-family: var(--mono); font-size: 12px; color: var(--subtle); }
+
+  .ours { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; }
+  .ours figure { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+  .ours figcaption { font-size: 13px; line-height: 1.35; color: var(--muted); }
+  .thumb { position: relative; display: block; width: 100%; aspect-ratio: 1; padding: 0; border: none; border-radius: 2px; background: var(--ph-1) center/cover no-repeat; cursor: zoom-in; }
+  .thumb:hover { outline: 2px solid var(--accent); }
+  .thumb .who { position: absolute; left: 6px; bottom: 6px; width: 24px; height: 24px; border-radius: 50%; background: var(--avatar-bg); color: var(--avatar-ink); font-size: 11px; font-weight: 700; display: grid; place-items: center; box-shadow: 0 0 0 2px var(--bg); }
+  .thumb .star { position: absolute; right: 6px; top: 6px; font-size: 18px; color: var(--accent); }
+  .add { aspect-ratio: 1; border-radius: 2px; border: 1.5px dashed var(--dash); background: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--subtle); font-size: 13px; cursor: pointer; }
+  .add i { font-size: 24px; }
+  .add:hover { border-color: var(--accent); color: var(--accent-text); }
+  .theirs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 4px; }
+  .empty { font-size: 15px; color: var(--subtle); }
+  .note { margin: 0; font-size: 12px; color: var(--subtle); }
+  .note[hidden] { display: none; }
+
+  /* Viewer: always dark, both modes */
+  .viewer { position: fixed; inset: 0; z-index: 50; background: rgba(22,24,27,.97); color: #f0eeec; display: flex; flex-direction: column; gap: 14px; padding: 20px 24px 22px; }
+  .viewer[hidden] { display: none; }
+  .v-top { display: flex; justify-content: space-between; align-items: center; }
+  .v-top .label { color: #9aa0a8; }
+  .v-top .pos { font-family: var(--mono); font-size: 13px; color: #c3c8cf; }
+  .v-btn { width: 44px; height: 44px; border: none; border-radius: 50%; background: #2d3139; color: #f0eeec; cursor: pointer; display: grid; place-items: center; }
+  .v-btn:hover { background: #3d424b; }
+  .v-btn.sq { width: 36px; height: 36px; border-radius: 3px; }
+  .v-btn i { font-size: 20px; }
+  .v-stage { flex: 1; min-height: 0; display: grid; grid-template-columns: 44px minmax(0,1fr) 44px; gap: 12px; align-items: center; }
+  .v-img { height: 100%; width: 100%; border-radius: 2px; background: #2d3139 center/contain no-repeat; }
+  .v-cap { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 0 56px; }
+  .v-cap .who[hidden] { display: none; }
+  .v-cap .who { width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; background: #26344d; color: #a9c1ec; font-size: 11px; font-weight: 700; display: grid; place-items: center; }
+  .v-cap b { display: block; font-size: 16px; font-weight: 600; }
+  .v-cap small { font-size: 13px; color: #9aa0a8; }
+  .v-cap small a { color: #fab48e; } .v-cap small a:hover { color: #fdd6c0; }
+  .v-hint { font-size: 12px; color: #9aa0a8; white-space: nowrap; }
+  .v-strip { display: flex; gap: 3px; padding: 0 56px; overflow-x: auto; scrollbar-width: thin; }
+  .v-strip button { flex: 0 0 44px; height: 44px; padding: 0; border-radius: 2px; border: 2px solid transparent; background: #2d3139 center/cover no-repeat; opacity: .6; cursor: pointer; }
+  .v-strip button[aria-current="true"] { border-color: var(--accent); opacity: 1; }
+
+  .theme { display: flex; gap: 2px; justify-content: flex-end; }
+  .theme button { background: none; border: 1px solid transparent; color: var(--subtle); padding: 4px 10px; border-radius: 2px; cursor: pointer; font-size: 13px; }
+  .theme button[aria-pressed="true"] { border-color: var(--dash); color: var(--ink); font-weight: 600; }
+  @media (max-width: 700px) {
+    .modal { padding: 24px 20px 36px; }
+    .v-cap, .v-strip { padding: 0; }
+    .v-stage { grid-template-columns: 1fr; }
+    .v-stage .v-btn { display: none; }
+  }
+  @media (forced-colors: active) { .thumb, .add { border: 1px solid CanvasText; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="modal">
+  <div class="theme" role="group" aria-label="Theme (demo)"><button data-theme="light">Light</button><button data-theme="dark">Dark</button></div>
+  <div class="kicker"><span class="school" id="mark"></span><b id="schoolName"></b><span class="label">Photos</span></div>
+
+  <section class="group">
+    <div class="group-head"><h2 id="oursHead"></h2><span class="count" id="oursCount"></span></div>
+    <div class="ours" id="ours"></div>
+  </section>
+
+  <section class="group">
+    <div class="group-head"><h2 id="theirsHead"></h2><span class="count" id="theirsCount"></span></div>
+    <div class="theirs" id="theirs"></div>
+    <p class="note" id="theirsNote">Photos from Wikimedia Commons. Credits appear when a photo is opened.</p>
+  </section>
+</div>
+</div>
+
+<div class="viewer" id="viewer" role="dialog" aria-modal="true" aria-label="Photo viewer" hidden>
+  <div class="v-top"><span class="label" id="vSection"></span><div style="display:flex; gap:16px; align-items:center"><span class="pos" id="vPos"></span><button class="v-btn sq" id="vClose" aria-label="Close"><i class="ph-duotone ph-x"></i></button></div></div>
+  <div class="v-stage">
+    <button class="v-btn" id="vPrev" aria-label="Previous photo"><i class="ph-duotone ph-caret-left"></i></button>
+    <div class="v-img" id="vImg" role="img"></div>
+    <button class="v-btn" id="vNext" aria-label="Next photo"><i class="ph-duotone ph-caret-right"></i></button>
+  </div>
+  <div class="v-cap"><div style="display:flex; gap:10px; align-items:center; min-width:0"><span class="who" id="vWho"></span><div><b id="vCap"></b><small id="vMeta"></small></div></div><span class="v-hint">← → or scroll</span></div>
+  <div class="v-strip" id="vStrip"></div>
+</div>
+
+<script>
+// ─── SAMPLE DATA ─── Family photos are placeholders (src: null renders a gray tile).
+// School photos are real rows from data/school-photos-test.json (Purdue).
+const SCHOOL = { id: 'purdue', name: 'Purdue', color: '#8e6f3e', virtualTourUrl: "https://admissions.purdue.edu/prospectivevirtualexperience" };
+const USERS = { kyle: { name: 'Kyle', initial: 'K' }, jason: { name: 'Jason', initial: 'J' } };
+// Family photos: uploaded by a signed-in user, tagged with user + school automatically.
+const OURS = [
+  { id: 'o1', src: null, caption: 'The dorm room we saw, smaller than expected', userId: 'kyle', visitDate: '2027-04-12', starred: true },
+  { id: 'o2', src: null, caption: 'Lunch at the dining court', userId: 'jason', visitDate: '2027-04-12', starred: false },
+  { id: 'o3', src: null, caption: 'Engineering building lobby', userId: 'kyle', visitDate: '2027-04-12', starred: true }
+];
+// School photos: from Wikimedia Commons. credit, license, licenseUrl and sourceUrl are required for attribution.
+const THEIRS = [
+ {
+  "id": "t0",
+  "src": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/Gateway_to_the_Future_Arch_Purdue_University_2016_03.jpg/1920px-Gateway_to_the_Future_Arch_Purdue_University_2016_03.jpg",
+  "thumb": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/Gateway_to_the_Future_Arch_Purdue_University_2016_03.jpg/960px-Gateway_to_the_Future_Arch_Purdue_University_2016_03.jpg",
+  "caption": "Gateway to the Future Arch",
+  "credit": "Julian Herzog",
+  "license": "CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+  "sourceUrl": "https://commons.wikimedia.org/wiki/File:Gateway_to_the_Future_Arch_Purdue_University_2016_03.jpg"
+ },
+ {
+  "id": "t1",
+  "src": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Neil_Armstrong_Hall_of_Engineering_Purdue_University_2016_05.jpg/1920px-Neil_Armstrong_Hall_of_Engineering_Purdue_University_2016_05.jpg",
+  "thumb": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Neil_Armstrong_Hall_of_Engineering_Purdue_University_2016_05.jpg/960px-Neil_Armstrong_Hall_of_Engineering_Purdue_University_2016_05.jpg",
+  "caption": "Neil Armstrong Hall of Engineering, home of the School of Aeronautics and Astronautics",
+  "credit": "Julian Herzog",
+  "license": "CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+  "sourceUrl": "https://commons.wikimedia.org/wiki/File:Neil_Armstrong_Hall_of_Engineering_Purdue_University_2016_05.jpg"
+ },
+ {
+  "id": "t2",
+  "src": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Engineering_Fountain_Purdue_University_2016_03.jpg/1920px-Engineering_Fountain_Purdue_University_2016_03.jpg",
+  "thumb": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Engineering_Fountain_Purdue_University_2016_03.jpg/960px-Engineering_Fountain_Purdue_University_2016_03.jpg",
+  "caption": "Engineering Fountain, with the Purdue Bell Tower behind",
+  "credit": "Julian Herzog",
+  "license": "CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+  "sourceUrl": "https://commons.wikimedia.org/wiki/File:Engineering_Fountain_Purdue_University_2016_03.jpg"
+ },
+ {
+  "id": "t3",
+  "src": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/Lawson_Computer_Science_Building.jpg/1920px-Lawson_Computer_Science_Building.jpg",
+  "thumb": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/Lawson_Computer_Science_Building.jpg/960px-Lawson_Computer_Science_Building.jpg",
+  "caption": "Lawson Computer Science Building",
+  "credit": "Moon motif",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+  "sourceUrl": "https://commons.wikimedia.org/wiki/File:Lawson_Computer_Science_Building.jpg"
+ },
+ {
+  "id": "t4",
+  "src": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Cary_Quad_Purdue_University_2016_03.jpg/1920px-Cary_Quad_Purdue_University_2016_03.jpg",
+  "thumb": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Cary_Quad_Purdue_University_2016_03.jpg/960px-Cary_Quad_Purdue_University_2016_03.jpg",
+  "caption": "Cary Quadrangle residence hall",
+  "credit": "Julian Herzog",
+  "license": "CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+  "sourceUrl": "https://commons.wikimedia.org/wiki/File:Cary_Quad_Purdue_University_2016_03.jpg"
+ },
+ {
+  "id": "t5",
+  "src": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/61/Purdue_Memorial_Union_Purdue_University_2016_01.jpg/1920px-Purdue_Memorial_Union_Purdue_University_2016_01.jpg",
+  "thumb": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/61/Purdue_Memorial_Union_Purdue_University_2016_01.jpg/960px-Purdue_Memorial_Union_Purdue_University_2016_01.jpg",
+  "caption": "Purdue Memorial Union",
+  "credit": "Julian Herzog",
+  "license": "CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+  "sourceUrl": "https://commons.wikimedia.org/wiki/File:Purdue_Memorial_Union_Purdue_University_2016_01.jpg"
+ },
+ {
+  "id": "t6",
+  "src": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/France_A_C%C3%B3rdova_Recreational_Sports_Center_Purdue_University_2016_01.jpg/1920px-France_A_C%C3%B3rdova_Recreational_Sports_Center_Purdue_University_2016_01.jpg",
+  "thumb": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/France_A_C%C3%B3rdova_Recreational_Sports_Center_Purdue_University_2016_01.jpg/960px-France_A_C%C3%B3rdova_Recreational_Sports_Center_Purdue_University_2016_01.jpg",
+  "caption": "France A. Córdova Recreational Sports Center",
+  "credit": "Julian Herzog",
+  "license": "CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+  "sourceUrl": "https://commons.wikimedia.org/wiki/File:France_A_C%C3%B3rdova_Recreational_Sports_Center_Purdue_University_2016_01.jpg"
+ },
+ {
+  "id": "t7",
+  "src": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/32/Purdue_University_from_Hawkins_Hall.jpg/1920px-Purdue_University_from_Hawkins_Hall.jpg",
+  "thumb": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/32/Purdue_University_from_Hawkins_Hall.jpg/960px-Purdue_University_from_Hawkins_Hall.jpg",
+  "caption": "View across campus from Hawkins Hall",
+  "credit": "JMoga11",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+  "sourceUrl": "https://commons.wikimedia.org/wiki/File:Purdue_University_from_Hawkins_Hall.jpg"
+ }
+];
+
+// ─── Integration hooks ───
+function uploadPhotos(files) { /* POST photos { files, userId, schoolId, visitDate } then re-render */ }
+function toggleStar(id) { /* PATCH photo { starred } */ }
+
+// ─── Render ───
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const fmtDate = d => new Date(d + 'T12:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+const PH = ['var(--ph-1)', 'var(--ph-2)', 'var(--ph-3)'];
+// Grids and filmstrip use the smaller thumb when there is one; the viewer uses the full image.
+const bg = (p, i, full) => { const u = full ? p.src : (p.thumb || p.src); return u ? `background-image:url('${u}')` : `background-color:${PH[i % 3]}`; };
+
+// One roll: family photos first, then the school's. The viewer walks the whole roll.
+const ROLL = [
+  ...OURS.map(p => ({ ...p, section: 'Our visit', who: USERS[p.userId], meta: esc(`${USERS[p.userId].name} · ${fmtDate(p.visitDate)}`) })),
+  ...THEIRS.map(p => ({ ...p, section: 'From ' + SCHOOL.name, who: null,
+    meta: `Photo: ${esc(p.credit)} · ${p.licenseUrl ? `<a href="${esc(p.licenseUrl)}" target="_blank" rel="noopener">${esc(p.license)}</a>` : esc(p.license)} · <a href="${esc(p.sourceUrl)}" target="_blank" rel="noopener">View source</a>` }))
+];
+
+function render() {
+  $('mark').style.setProperty('--school', SCHOOL.color);
+  $('mark').textContent = SCHOOL.name[0];
+  $('schoolName').textContent = SCHOOL.name;
+  const date = OURS[0] ? fmtDate(OURS[0].visitDate) : '';
+  $('oursHead').innerHTML = `Our visit${date ? ` <span>· ${date}</span>` : ''}`;
+  $('oursCount').textContent = OURS.length + (OURS.length === 1 ? ' photo' : ' photos');
+  $('ours').innerHTML = OURS.map((p, i) => `<figure>
+      <button class="thumb" data-open="${i}" style="${bg(p, i + 1)}" aria-label="Open: ${esc(p.caption)}">
+        <span class="who" title="${esc(USERS[p.userId].name)}">${USERS[p.userId].initial}</span>
+        ${p.starred ? '<i class="ph-duotone ph-star star" aria-label="Starred"></i>' : ''}
+      </button>
+      <figcaption>${esc(p.caption)}</figcaption></figure>`).join('') +
+    `<label class="add"><i class="ph-duotone ph-upload-simple"></i>Add photos<input type="file" accept="image/*" multiple hidden id="upload"></label>`;
+  $('theirsHead').textContent = 'From ' + SCHOOL.name;
+  $('theirsCount').innerHTML = (SCHOOL.virtualTourUrl ? `<a href="${esc(SCHOOL.virtualTourUrl)}" target="_blank" rel="noopener">Virtual tour ↗</a> · ` : '') + THEIRS.length + ' photos';
+  $('theirsNote').hidden = !THEIRS.length;
+  $('theirs').innerHTML = THEIRS.length
+    ? THEIRS.map((p, i) => `<button class="thumb" data-open="${OURS.length + i}" style="${bg(p, i)}" aria-label="Open: ${esc(p.caption)}"></button>`).join('')
+    : '<span class="empty">No school photos yet.</span>';
+  $('upload').addEventListener('change', e => uploadPhotos([...e.target.files]));
+}
+
+// ─── Viewer ───
+let cur = null, lastFocus = null, lastWheel = 0;
+function open(i) { lastFocus = document.activeElement; cur = i; $('viewer').hidden = false; document.body.style.overflow = 'hidden'; paint(); $('vClose').focus(); }
+function close() { cur = null; $('viewer').hidden = true; document.body.style.overflow = ''; lastFocus && lastFocus.focus(); }
+function step(d) { cur = (cur + d + ROLL.length) % ROLL.length; paint(); }
+function paint() {
+  const p = ROLL[cur];
+  $('vSection').textContent = p.section;
+  $('vPos').textContent = `${cur + 1} / ${ROLL.length}`;
+  $('vImg').setAttribute('style', bg(p, cur, true));
+  $('vImg').setAttribute('aria-label', p.caption);
+  $('vWho').hidden = !p.who; if (p.who) $('vWho').textContent = p.who.initial;
+  $('vCap').textContent = p.caption;
+  $('vMeta').innerHTML = p.meta; // school meta contains links; family meta is plain text escaped at build
+  $('vStrip').innerHTML = ROLL.map((r, i) => `<button data-go="${i}" aria-label="${esc(r.caption)}" aria-current="${i === cur}" style="${bg(r, i)}"></button>`).join('');
+  const active = $('vStrip').children[cur];
+  if (active) $('vStrip').scrollLeft = active.offsetLeft - $('vStrip').clientWidth / 2 + active.clientWidth / 2;
+}
+document.addEventListener('click', e => {
+  const o = e.target.closest('[data-open]'), g = e.target.closest('[data-go]'), t = e.target.closest('[data-theme]');
+  if (o) open(+o.dataset.open);
+  if (g) { cur = +g.dataset.go; paint(); }
+  if (t) { document.documentElement.dataset.mode = t.dataset.theme; document.querySelectorAll('[data-theme]').forEach(b => b.setAttribute('aria-pressed', b === t)); }
+});
+$('vPrev').onclick = () => step(-1);
+$('vNext').onclick = () => step(1);
+$('vClose').onclick = close;
+document.addEventListener('keydown', e => {
+  if (cur == null) return;
+  if (e.key === 'ArrowRight') step(1);
+  if (e.key === 'ArrowLeft') step(-1);
+  if (e.key === 'Escape') close();
+});
+$('viewer').addEventListener('wheel', e => {
+  e.preventDefault();
+  const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+  if (Math.abs(d) < 8 || Date.now() - lastWheel < 280) return;
+  lastWheel = Date.now(); step(d > 0 ? 1 : -1);
+}, { passive: false });
+let touchX = null;
+$('viewer').addEventListener('touchstart', e => { touchX = e.touches[0].clientX; }, { passive: true });
+$('viewer').addEventListener('touchend', e => { if (touchX == null) return; const dx = e.changedTouches[0].clientX - touchX; if (Math.abs(dx) > 40) step(dx < 0 ? 1 : -1); touchX = null; });
+
+document.documentElement.dataset.mode = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+document.querySelector(`[data-theme="${document.documentElement.dataset.mode}"]`).setAttribute('aria-pressed', 'true');
+render();
+</script>
+</body>
+</html>
