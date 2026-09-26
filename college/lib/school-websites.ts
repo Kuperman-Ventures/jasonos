@@ -26,7 +26,7 @@ const WEBSITES: Record<string, string> = {
   "university-of-minnesota-twin-cities": "https://twin-cities.umn.edu/",
   "nc-state": "https://www.ncsu.edu/",
   "uc-davis": "https://www.ucdavis.edu/",
-  "uc-irvine": "https://www.uci.edu/",
+  "uc-irvine": "https://uci.edu/",
   "case-western-reserve-university": "https://www.case.edu/",
   rpi: "https://www.rpi.edu/",
   "rutgers-university-new-brunswick": "https://newbrunswick.rutgers.edu/",

@@ -11,6 +11,11 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
+        hostname: "icons.duckduckgo.com",
+        pathname: "/ip3/**",
+      },
+      {
+        protocol: "https",
         hostname: "www.google.com",
         pathname: "/s2/favicons",
       },

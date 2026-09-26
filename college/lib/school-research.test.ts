@@ -128,7 +128,8 @@ test("summary says what was filled and what stays blank", () => {
 test("school icons use the official site, not a branch campus", () => {
   assert.equal(knownWebsite("purdue-university"), "https://www.purdue.edu/");
   assert.equal(knownWebsite("mit"), "https://web.mit.edu/");
-  assert.match(schoolFaviconUrl("https://web.mit.edu/"), /domain=web\.mit\.edu/);
-  assert.match(schoolFaviconUrl("https://twin-cities.umn.edu/"), /domain=twin-cities\.umn\.edu/);
+  assert.match(schoolFaviconUrl("https://web.mit.edu/"), /icons\.duckduckgo\.com\/ip3\/web\.mit\.edu\.ico/);
+  assert.match(schoolFaviconUrl("https://twin-cities.umn.edu/"), /icons\.duckduckgo\.com\/ip3\/twin-cities\.umn\.edu\.ico/);
+  assert.match(schoolFaviconUrl("https://www.uci.edu/"), /icons\.duckduckgo\.com\/ip3\/uci\.edu\.ico/);
   assert.equal(schoolFaviconUrl(""), "");
 });

@@ -43,6 +43,33 @@ function escapeAttr(value: string): string {
   );
 }
 
+/** Continental US fallback so Leaflet is loaded before flyToBounds. */
+const MAP_FALLBACK_CENTER: L.LatLngExpression = [39.5, -98.35];
+const MAP_FALLBACK_ZOOM = 4;
+
+function mapIsReady(map: L.Map): boolean {
+  try {
+    map.getCenter();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function ensureMapView(map: L.Map, center: L.LatLngExpression, zoom: number) {
+  if (!mapIsReady(map)) map.setView(center, zoom, { animate: false });
+}
+
+function flyToPointBounds(
+  map: L.Map,
+  pts: Array<[number, number]>,
+  options: L.FitBoundsOptions & { duration?: number },
+) {
+  if (!pts.length) return;
+  ensureMapView(map, pts[0]!, MAP_FALLBACK_ZOOM);
+  map.flyToBounds(pts, options);
+}
+
 export function TripNearbyMap({
   schoolId,
   clusters,
@@ -96,6 +123,8 @@ export function TripNearbyMap({
       scrollWheelZoom: false,
       doubleClickZoom: false,
       zoomSnap: 0.25,
+      center: MAP_FALLBACK_CENTER,
+      zoom: MAP_FALLBACK_ZOOM,
     });
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: "© OpenStreetMap contributors",
@@ -105,7 +134,7 @@ export function TripNearbyMap({
 
     map.on("zoomend", () => {
       const air = airRef.current;
-      if (!air) return;
+      if (!air || !mapIsReady(map)) return;
       if (map.getZoom() >= 10.5) air.addTo(map);
       else air.remove();
     });
@@ -114,7 +143,9 @@ export function TripNearbyMap({
       const pts = [...propsRef.current.pointsById.values()].map(
         (p) => [p.lat, p.lng] as [number, number],
       );
-      if (pts.length) map.flyToBounds(pts, { padding: [28, 28], duration: 0.6 });
+      if (pts.length) {
+        flyToPointBounds(map, pts, { padding: [28, 28], duration: 0.6 });
+      }
     });
 
     return () => {
@@ -236,7 +267,7 @@ export function TripNearbyMap({
           }),
         );
       }
-      if (map.getZoom() >= 10.5) airRef.current.addTo(map);
+      if (mapIsReady(map) && map.getZoom() >= 10.5) airRef.current.addTo(map);
     }
 
     // Polylines
@@ -324,7 +355,11 @@ export function TripNearbyMap({
     if (active) {
       const pts = clusterPolylinePoints(active, pointsById);
       if (pts.length) {
-        map.flyToBounds(pts, { padding: [70, 70], duration: 0.6, maxZoom: 12 });
+        flyToPointBounds(map, pts, {
+          padding: [70, 70],
+          duration: 0.6,
+          maxZoom: 12,
+        });
       }
     }
   }, [activeClusterId, clusters, pointsById]);

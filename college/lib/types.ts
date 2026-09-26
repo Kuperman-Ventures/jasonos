@@ -463,9 +463,12 @@ export function schoolFaviconUrl(website: string): string {
   const trimmed = website.trim();
   if (!trimmed) return "";
   try {
-    const host = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`).hostname;
+    let host = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`).hostname;
     if (!host) return "";
-    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`;
+    // Icon CDNs often miss www.* hosts (e.g. www.uci.edu → 404); apex usually works.
+    if (host.startsWith("www.")) host = host.slice(4);
+    // DuckDuckGo’s icon CDN is more reliable than Google’s s2/favicons (which 404s for some schools).
+    return `https://icons.duckduckgo.com/ip3/${encodeURIComponent(host)}.ico`;
   } catch {
     return "";
   }
