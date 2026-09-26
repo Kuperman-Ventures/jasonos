@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { collegeDb, supabaseConfigured } from "./db";
-import { publicAvatarUrl } from "./member-avatars";
+import {
+  oauthAvatarFromMetadata,
+  resolveMemberAvatarUrl,
+  setMemberOauthAvatarUrl,
+} from "./member-avatars";
 import { createAuthServerClient } from "./supabase/server";
 
 export type MemberRole = "super_admin" | "parent" | "student" | "sibling" | "guest";
@@ -13,6 +17,7 @@ export type CollegeMember = {
   uiVisible: boolean;
   authUserId: string | null;
   avatarPath: string | null;
+  oauthAvatarUrl: string | null;
   avatarUrl: string | null;
 };
 
@@ -30,10 +35,12 @@ type MemberRow = {
   ui_visible: boolean;
   auth_user_id: string | null;
   avatar_path?: string | null;
+  oauth_avatar_url?: string | null;
 };
 
 function mapMember(row: MemberRow): CollegeMember {
   const avatarPath = row.avatar_path ?? null;
+  const oauthAvatarUrl = row.oauth_avatar_url?.trim() || null;
   return {
     id: row.id,
     email: row.email,
@@ -42,7 +49,8 @@ function mapMember(row: MemberRow): CollegeMember {
     uiVisible: row.ui_visible,
     authUserId: row.auth_user_id,
     avatarPath,
-    avatarUrl: publicAvatarUrl(avatarPath),
+    oauthAvatarUrl,
+    avatarUrl: resolveMemberAvatarUrl(avatarPath, oauthAvatarUrl),
   };
 }
 
@@ -81,6 +89,16 @@ export async function getCollegeSession(): Promise<CollegeSession | null> {
   const email = data.user.email?.trim().toLowerCase() ?? "";
   const member = await findMemberForUser(data.user.id, email || null);
   if (!member || !member.uiVisible) return null;
+
+  const oauthAvatarUrl = oauthAvatarFromMetadata(data.user.user_metadata);
+  if (oauthAvatarUrl && oauthAvatarUrl !== member.oauthAvatarUrl) {
+    await setMemberOauthAvatarUrl(member.id, oauthAvatarUrl).catch((err) => {
+      console.error("oauth avatar sync failed", err);
+    });
+    member.oauthAvatarUrl = oauthAvatarUrl;
+    member.avatarUrl = resolveMemberAvatarUrl(member.avatarPath, oauthAvatarUrl);
+  }
+
   return { userId: data.user.id, email, member };
 }
 
@@ -98,6 +116,7 @@ export async function requireCollegeSession(): Promise<CollegeSession | NextResp
         uiVisible: true,
         authUserId: null,
         avatarPath: null,
+        oauthAvatarUrl: null,
         avatarUrl: null,
       },
     };

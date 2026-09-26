@@ -19,6 +19,7 @@ type MemberAvatarRow = {
   role: MemberRole;
   ui_visible: boolean;
   avatar_path: string | null;
+  oauth_avatar_url?: string | null;
 };
 
 export function storageAdmin() {
@@ -35,6 +36,27 @@ export function publicAvatarUrl(path: string | null | undefined): string | null 
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
   if (!base) return null;
   return `${base}/storage/v1/object/public/${AVATAR_BUCKET}/${path.replace(/^\//, "")}`;
+}
+
+/** Uploaded photo wins; otherwise use the Google/OAuth profile picture. */
+export function resolveMemberAvatarUrl(
+  avatarPath: string | null | undefined,
+  oauthAvatarUrl: string | null | undefined,
+): string | null {
+  return publicAvatarUrl(avatarPath) ?? (oauthAvatarUrl?.trim() || null);
+}
+
+/** Pull a usable image URL from Supabase Auth Google (or similar) metadata. */
+export function oauthAvatarFromMetadata(meta: unknown): string | null {
+  if (!meta || typeof meta !== "object") return null;
+  const record = meta as Record<string, unknown>;
+  for (const key of ["avatar_url", "picture", "avatar"]) {
+    const value = record[key];
+    if (typeof value === "string" && /^https?:\/\//i.test(value.trim())) {
+      return value.trim();
+    }
+  }
+  return null;
 }
 
 export function avatarExtension(mime: string): string | null {
@@ -63,7 +85,7 @@ export async function listVisibleMemberProfiles(): Promise<MemberProfile[]> {
   const db = collegeDb();
   const { data, error } = await db
     .from("members")
-    .select("id, display_name, role, ui_visible, avatar_path")
+    .select("id, display_name, role, ui_visible, avatar_path, oauth_avatar_url")
     .eq("ui_visible", true)
     .order("display_name");
   if (error) throw error;
@@ -71,7 +93,7 @@ export async function listVisibleMemberProfiles(): Promise<MemberProfile[]> {
     id: row.id,
     displayName: row.display_name,
     role: row.role,
-    avatarUrl: publicAvatarUrl(row.avatar_path),
+    avatarUrl: resolveMemberAvatarUrl(row.avatar_path, row.oauth_avatar_url),
   }));
 }
 
@@ -93,6 +115,22 @@ export async function setMemberAvatarPath(memberId: string, path: string | null)
   const { error } = await db
     .from("members")
     .update({ avatar_path: path, updated_at: new Date().toISOString() })
+    .eq("id", memberId);
+  if (error) throw error;
+}
+
+export async function setMemberOauthAvatarUrl(
+  memberId: string,
+  oauthAvatarUrl: string | null,
+): Promise<void> {
+  if (!supabaseConfigured()) return;
+  const db = collegeDb();
+  const { error } = await db
+    .from("members")
+    .update({
+      oauth_avatar_url: oauthAvatarUrl,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", memberId);
   if (error) throw error;
 }

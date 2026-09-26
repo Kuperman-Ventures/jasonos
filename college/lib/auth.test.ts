@@ -14,6 +14,7 @@ test("super admin is Jason's role", () => {
       uiVisible: true,
       authUserId: "u1",
       avatarPath: null,
+      oauthAvatarUrl: null,
       avatarUrl: null,
     },
   };
@@ -32,6 +33,7 @@ test("student is not super admin", () => {
       uiVisible: true,
       authUserId: "u2",
       avatarPath: null,
+      oauthAvatarUrl: null,
       avatarUrl: null,
     },
   };
