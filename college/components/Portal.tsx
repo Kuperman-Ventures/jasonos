@@ -34,6 +34,7 @@ import {
   normalizePinNotes,
   type PinNote,
 } from "@/lib/note-board";
+import type { RoutedSchoolNotePayload } from "@/lib/school-project-notes";
 import {
   DEFAULT_ACTIVITIES_VIEW,
   DEFAULT_APPS_SECTION,
@@ -770,6 +771,40 @@ export function Portal({
     });
   }
 
+  async function sendSchoolProjectNote(schoolId: string, payload: RoutedSchoolNotePayload) {
+    const school = schools.find((row) => row.id === schoolId);
+    if (!school) return;
+    const nextNotes = [payload.note, ...school.projectNotes];
+    await patchSchool(schoolId, { projectNotes: nextNotes });
+
+    if (payload.todo) {
+      const nextSteps = [...projectSteps, payload.todo];
+      setProjectSteps(nextSteps);
+      void patchState({ projectSteps: nextSteps }).then((ok) => {
+        if (!ok) return;
+        postActivity({
+          action: "create",
+          entityType: "todo",
+          entityId: payload.todo!.id,
+          summary: `Added to-do “${payload.todo!.label}” from ${school.name}`,
+        });
+      });
+    }
+    if (payload.pin) {
+      changeNoteItems([payload.pin, ...noteItems]);
+    }
+    if (payload.calendar) {
+      changeCalendarEvents([payload.calendar, ...calendarEvents]);
+    }
+  }
+
+  async function removeSchoolProjectNote(schoolId: string, noteId: string) {
+    const school = schools.find((row) => row.id === schoolId);
+    if (!school) return;
+    const nextNotes = school.projectNotes.filter((note) => note.id !== noteId);
+    await patchSchool(schoolId, { projectNotes: nextNotes });
+  }
+
   function changeScore(firmId: string, criterionId: string, value: number) {
     const next = { ...scores, [firmId]: { ...scores[firmId], [criterionId]: value } };
     setScores(next);
@@ -1159,6 +1194,10 @@ export function Portal({
             onAddContact={(id, contact) => void addContact(id, contact)}
             onPatchContact={(id, contactId, patch) => void patchContact(id, contactId, patch)}
             onDeleteContact={(id, contactId) => void removeContact(id, contactId)}
+            memberName={member.displayName}
+            memberProfiles={memberProfiles}
+            onSendProjectNote={(id, payload) => void sendSchoolProjectNote(id, payload)}
+            onRemoveProjectNote={(id, noteId) => void removeSchoolProjectNote(id, noteId)}
           />
         ) : null}
         {tab === "projects" ? (

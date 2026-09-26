@@ -67,6 +67,10 @@ export type PersistedProjectStep = {
   sourceId: string | null;
   createdAt: string;
   assetUrl?: string | null;
+  /** School this to-do was sent from (Project Management Notes). */
+  schoolId?: string | null;
+  /** Back-link to the school project note that created this to-do. */
+  sourceNoteId?: string | null;
 };
 
 export type PersistedIngestSource = {
@@ -331,6 +335,9 @@ export function normalizePersistedSteps(raw: unknown): PersistedProjectStep[] {
       sourceId: typeof item.sourceId === "string" ? item.sourceId : null,
       createdAt: typeof item.createdAt === "string" ? item.createdAt : new Date().toISOString(),
       assetUrl: typeof item.assetUrl === "string" && item.assetUrl ? item.assetUrl : null,
+      schoolId: typeof item.schoolId === "string" && item.schoolId ? item.schoolId : null,
+      sourceNoteId:
+        typeof item.sourceNoteId === "string" && item.sourceNoteId ? item.sourceNoteId : null,
     });
   }
   return out;

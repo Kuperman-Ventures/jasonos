@@ -518,6 +518,8 @@ export function IngestPanel({
             sourceId,
             assetUrl: assetMeta?.assetUrl ?? source?.assetUrl ?? null,
             assetPath: assetMeta?.assetPath ?? source?.assetPath ?? null,
+            schoolId: null,
+            sourceNoteId: null,
           })),
           ...calendarEvents,
         ];

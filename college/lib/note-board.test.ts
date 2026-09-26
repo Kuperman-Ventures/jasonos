@@ -34,6 +34,8 @@ function sample(partial: Partial<PinNote> & Pick<PinNote, "id" | "title" | "crea
     mimeType: null,
     previewImageUrl: null,
     previewSummary: null,
+    schoolId: null,
+    sourceNoteId: null,
     ...partial,
   };
 }

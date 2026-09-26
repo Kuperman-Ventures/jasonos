@@ -7215,3 +7215,286 @@ table.schools td.visit-cell {
 .school-card-interest[data-level="moderate"] { --meter: var(--lvl-2); }
 .school-card-interest[data-level="high"] { --meter: var(--lvl-3); }
 .school-card-interest[data-level="top"] { --meter: var(--lvl-4); }
+
+/* ---------- School detail · Project Management sub-tabs ---------- */
+.school-pm-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  align-items: flex-start;
+  width: 100%;
+}
+.school-pm-subtabs {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.school-pm-subtab {
+  background: none;
+  border: none;
+  padding: 0 0 8px;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font: inherit;
+  font-size: 15px;
+  color: var(--text-muted, #444141);
+  border-bottom: 2px solid transparent;
+}
+.school-pm-subtab:hover {
+  color: var(--color-text);
+}
+.school-pm-subtab[aria-selected="true"] {
+  font-weight: 600;
+  color: var(--color-text);
+  border-bottom-color: var(--color-accent, #e85504);
+}
+.school-pm-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-subtle, #605d5d);
+  font-weight: 400;
+}
+.school-pm-panel {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+.school-pm-panel:has(.school-pm-add-contact),
+.school-pm-panel:has(.school-pm-add-touch),
+.school-pm-panel:has(.school-pm-add-dl) {
+  gap: 20px;
+}
+.school-pm-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.school-pm-composer textarea {
+  width: 100%;
+  font-size: 17px;
+  padding: 14px 16px;
+}
+.school-pm-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px 32px;
+  align-items: flex-end;
+}
+.school-pm-grow {
+  flex: 1;
+}
+.school-pm-dests {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.school-pm-dest {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+  border-radius: 1px;
+  border: 1px solid var(--color-divider, #d7d3d3);
+  background: transparent;
+  color: var(--text-muted, #444141);
+}
+.school-pm-dest-box {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  line-height: 1;
+}
+.school-pm-dest[aria-pressed="true"] {
+  border-color: #9e3603;
+  background: #feeee4;
+  color: #461a05;
+  font-weight: 600;
+}
+.school-pm-dest[aria-pressed="true"] .school-pm-dest-box::after {
+  content: "✓";
+}
+.school-pm-date {
+  padding: 8px 12px;
+  font-size: 15px;
+}
+.school-pm-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 14px;
+  color: var(--text-subtle, #605d5d);
+}
+.school-pm-school-tag {
+  display: inline-flex;
+}
+.school-pm-school-tag .school-mark {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: 3px;
+}
+.school-pm-school-tag .school-mark img {
+  width: 16px;
+  height: 16px;
+}
+.school-pm-log-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 10px;
+}
+.school-pm-empty {
+  margin: 0;
+  font-size: 17px;
+  color: var(--text-muted, #444141);
+}
+.school-pm-note {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 24px;
+  padding: 16px 0;
+  border-top: 1px solid var(--color-divider, #eae7e7);
+}
+.school-pm-note p {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.school-pm-note-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.school-pm-routes {
+  font-size: 14px;
+  color: var(--text-subtle, #605d5d);
+  white-space: nowrap;
+}
+.school-pm-stamp {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-subtle, #605d5d);
+  align-self: center;
+}
+.school-pm-note .link-btn {
+  align-self: start;
+}
+.link-btn {
+  background: none;
+  border: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-muted, #444141);
+  cursor: pointer;
+  padding: 0;
+}
+.link-btn:hover {
+  color: #9e3603;
+}
+.label.lg {
+  font-size: 12px;
+}
+.school-pm-contact {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: baseline;
+  font-size: 16px;
+  border-top: 1px solid var(--color-divider, #eae7e7);
+  padding: 14px 0;
+}
+.school-pm-contact a {
+  justify-self: start;
+  color: #9e3603;
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+.school-pm-add-contact {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  gap: 12px;
+}
+.school-pm-two {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 24px;
+}
+.school-pm-touch {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 16px;
+  align-items: center;
+  font-size: 16px;
+  border-top: 1px solid var(--color-divider, #eae7e7);
+  padding: 14px 0;
+}
+.school-pm-add-touch {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px auto;
+  gap: 12px;
+}
+.school-pm-dl-grid {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1.3fr) minmax(0, 1fr) 90px;
+  gap: 16px;
+  align-items: center;
+  border-top: 1px solid var(--color-divider, #eae7e7);
+  padding: 14px 0;
+}
+.school-pm-dl-head {
+  border-top: none;
+  padding-bottom: 10px;
+  padding-top: 0;
+}
+.school-pm-dl-grid.is-done .field,
+.school-pm-dl-grid.is-done input[type="date"] {
+  color: var(--text-subtle, #605d5d);
+  text-decoration: line-through;
+}
+.school-pm-dl-grid input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-accent, #e85504);
+}
+.school-pm-dl-grid .link-btn {
+  justify-self: end;
+}
+.school-pm-add-dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto;
+  gap: 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-divider, #eae7e7);
+}
+@media (max-width: 760px) {
+  .school-pm-add-contact,
+  .school-pm-contact {
+    grid-template-columns: 1fr 1fr;
+  }
+  .school-pm-add-touch,
+  .school-pm-add-dl,
+  .school-pm-dl-grid {
+    grid-template-columns: 1fr;
+  }
+  .school-pm-dl-head {
+    display: none;
+  }
+}
