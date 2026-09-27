@@ -1878,6 +1878,31 @@ table.schools .test-policy-fall2028-note {
   flex-direction: column;
   gap: 10px;
 }
+.snapshot-satellite-school {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.snapshot-satellite-mark {
+  width: 24px;
+  height: 24px;
+  border-radius: 3px;
+  overflow: hidden;
+  flex: none;
+  display: grid;
+  place-items: center;
+}
+.snapshot-satellite-mark .school-mark {
+  width: 24px;
+  height: 24px;
+  flex-basis: 24px;
+  font-size: 9px;
+}
+.snapshot-satellite-school b {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text);
+}
 .snapshot-satellite-head {
   display: flex;
   flex-wrap: wrap;

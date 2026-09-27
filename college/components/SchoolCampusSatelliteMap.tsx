@@ -12,6 +12,7 @@ import {
 } from "@/lib/campus-map";
 import { geocodeCityState, type GeoPoint } from "@/lib/visit-geo";
 import { parseSchoolLocation } from "@/lib/visit-planning";
+import { SchoolMark } from "./SchoolMark";
 
 type LoadState =
   | { status: "loading" }
@@ -138,6 +139,12 @@ export function SchoolCampusSatelliteMap({ school }: { school: School }) {
 
   return (
     <section className="snapshot-satellite" aria-labelledby="snap-sat-h">
+      <div className="snapshot-satellite-school">
+        <span className="snapshot-satellite-mark" title={school.name}>
+          <SchoolMark name={school.name} website={school.website} />
+        </span>
+        <b>{school.name}</b>
+      </div>
       <div className="snapshot-satellite-head">
         <span className="area-label" id="snap-sat-h">
           Around campus

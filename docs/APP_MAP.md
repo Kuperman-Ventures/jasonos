@@ -244,6 +244,7 @@ Chapters; Men who join; Women who join → `greekLife.*`
 
 ### Around campus
 
+School reminder: favicon/icon + school name (above the section heading).
 Satellite map (~7 mi radius); Open in Google Maps.
 
 Foot note: tuition/aid live in Financials; missing Middle 50% / application platform / teacher recommendations called out when blank.
