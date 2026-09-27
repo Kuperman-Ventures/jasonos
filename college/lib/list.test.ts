@@ -85,3 +85,32 @@ test("next action is the earliest unfinished deadline", () => {
   };
   assert.deepEqual(nextAction(school), { title: "Early Action", dueDate: "2027-11-01" });
 });
+
+test("adjacentInList walks previous and next in display order", async () => {
+  const { adjacentInList } = await import("./list");
+  const items = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  assert.deepEqual(adjacentInList(items, "a"), {
+    index: 0,
+    previous: null,
+    next: { id: "b" },
+    total: 3,
+  });
+  assert.deepEqual(adjacentInList(items, "b"), {
+    index: 1,
+    previous: { id: "a" },
+    next: { id: "c" },
+    total: 3,
+  });
+  assert.deepEqual(adjacentInList(items, "c"), {
+    index: 2,
+    previous: { id: "b" },
+    next: null,
+    total: 3,
+  });
+  assert.deepEqual(adjacentInList(items, "missing"), {
+    index: -1,
+    previous: null,
+    next: null,
+    total: 3,
+  });
+});

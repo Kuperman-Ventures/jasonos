@@ -1307,6 +1307,9 @@ export function Portal({
               setSchoolModalTab("snapshot");
               replaceUrl("colleges", null);
             }}
+            onNavigateSchool={(id) => {
+              replaceUrl("colleges", id);
+            }}
             onPatch={(id, patch) => {
               if (patch.choice !== undefined && !isChoice(patch.choice)) return;
               if (patch.plan !== undefined && !isPlan(patch.plan)) return;

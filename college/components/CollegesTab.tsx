@@ -24,7 +24,7 @@ import { SelectivityMixPie } from "./SelectivityMixPie";
 import { CollegeRecord } from "./CollegeRecord";
 import { InterestPicker } from "./InterestPicker";
 import { SchoolMark } from "./SchoolMark";
-import { compareSchools, nextAction, primaryDeadline, type SortKey } from "@/lib/list";
+import { adjacentInList, compareSchools, nextAction, primaryDeadline, type SortKey } from "@/lib/list";
 import { formatTravelLabel } from "@/lib/drive-matrix";
 import { canAdvanceListPhase } from "@/lib/permissions";
 import {
@@ -62,6 +62,7 @@ export function CollegesTab({
   onListPrefsChange,
   onOpen,
   onClose,
+  onNavigateSchool,
   onPatch,
   onCreate,
   onDelete,
@@ -100,6 +101,8 @@ export function CollegesTab({
   onListPrefsChange: (prefs: MemberListPrefs) => void;
   onOpen: (id: string) => void;
   onClose: () => void;
+  /** Change school in the open modal without resetting the active tab. */
+  onNavigateSchool: (id: string) => void;
   onPatch: (id: string, patch: Partial<School>) => void;
   onCreate: (name: string) => Promise<void>;
   onDelete: (id: string) => void;
@@ -233,6 +236,15 @@ export function CollegesTab({
   }, [phaseSchools, query, tier, interest, travelFilter, sort, sortDir]);
 
   const selected = schools.find((school) => school.id === selectedId) ?? null;
+  const browseList = useMemo(() => {
+    if (selected && visible.some((school) => school.id === selected.id)) return visible;
+    const sorted = [...phaseSchools].sort((a, b) => compareSchools(a, b, sort));
+    return sortDir === 1 ? sorted : sorted.reverse();
+  }, [selected, visible, phaseSchools, sort, sortDir]);
+  const listNav = useMemo(
+    () => (selected ? adjacentInList(browseList, selected.id) : null),
+    [browseList, selected],
+  );
   const archivedInPhase = schools.filter(
     (school) => school.archived && school.phasesParticipated.includes(phaseId),
   ).length;
@@ -847,7 +859,6 @@ export function CollegesTab({
 
       {selected ? (
         <CollegeRecord
-          key={selected.id}
           school={selected}
           listUndergrads={schools
             .filter((row) => !row.archived)
@@ -858,6 +869,11 @@ export function CollegesTab({
           memberName={memberName}
           memberProfiles={memberProfiles}
           onBack={onClose}
+          onNavigate={onNavigateSchool}
+          previousSchool={listNav?.previous ?? null}
+          nextSchool={listNav?.next ?? null}
+          listPosition={listNav && listNav.index >= 0 ? listNav.index + 1 : null}
+          listTotal={listNav?.total ?? browseList.length}
           onPatch={(patch) => onPatch(selected.id, patch)}
           onDelete={() => onDelete(selected.id)}
           onAdvance={() => advanceSchool(selected)}

@@ -87,3 +87,20 @@ export function planShort(plan: Plan): string {
   if (plan === "rolling") return "Rolling";
   return "";
 }
+
+/** Previous / next neighbors for school detail modal browsing. */
+export function adjacentInList<T extends { id: string }>(
+  items: T[],
+  currentId: string,
+): { index: number; previous: T | null; next: T | null; total: number } {
+  const index = items.findIndex((item) => item.id === currentId);
+  if (index < 0) {
+    return { index: -1, previous: null, next: null, total: items.length };
+  }
+  return {
+    index,
+    previous: index > 0 ? (items[index - 1] ?? null) : null,
+    next: index < items.length - 1 ? (items[index + 1] ?? null) : null,
+    total: items.length,
+  };
+}
