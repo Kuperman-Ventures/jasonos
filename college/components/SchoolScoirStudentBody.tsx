@@ -277,7 +277,6 @@ function GenderGreek({ scoir }: { scoir: ScoirRecord }) {
   const male = pctOrZero(gender?.male);
   const genderTotal = female + male || 1;
   const femaleW = (female / genderTotal) * 100;
-  const maleW = (male / genderTotal) * 100;
   const fullTime = scoir.undergradFullTimePct;
 
   const hasGreek =
@@ -295,13 +294,20 @@ function GenderGreek({ scoir }: { scoir: ScoirRecord }) {
         <div className="sb-gender">
           <h4>Gender</h4>
           <div className="sb-stack sb-stack-gender" role="img" aria-label="Gender split">
-            <div className="sb-seg sb-seg-home" style={{ width: `${femaleW}%` }}>
+            <div
+              className="sb-seg sb-seg-home"
+              style={{ width: `${femaleW}%` }}
+              title={`Female ${formatScoirPct(female)}`}
+            >
               <span className="sb-seg-inner">
                 <span className="sb-seg-name">Female</span>
                 <span className="sb-seg-pct mono">{formatScoirPct(female)}</span>
               </span>
             </div>
-            <div className="sb-seg sb-seg-other sb-seg-male" style={{ width: `${maleW}%` }}>
+            <div
+              className="sb-seg sb-seg-other sb-seg-male"
+              title={`Male ${formatScoirPct(male)}`}
+            >
               <span className="sb-seg-inner sb-seg-inner-end">
                 <span className="sb-seg-name">Male</span>
                 <span className="sb-seg-pct mono">{formatScoirPct(male)}</span>

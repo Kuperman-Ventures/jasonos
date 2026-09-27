@@ -241,14 +241,11 @@ export function climateCompareSummaryBody(
   const snow = annualSnow(compare);
   const campusSnow = annualSnow(campus);
   const delta = snow - campusSnow;
-  const snowBit = snow < 1 ? "no snow" : `${snow} in. of snow a year`;
-  let vs = "";
-  if (snow >= 1 || campusSnow >= 1) {
-    if (delta === 0) vs = `, the same as ${campusShort}`;
-    else if (delta > 0) vs = `, ${delta} in. more than ${campusShort}`;
-    else vs = `, ${Math.abs(delta)} in. less than ${campusShort}`;
-  }
-  return `Highs from ${cold.value}° to ${warm.value}°. About ${snowBit}${vs}.`;
+  const vs =
+    delta === 0
+      ? `the same as ${campusShort}`
+      : `${Math.abs(delta)} in. ${delta > 0 ? "more" : "less"} than ${campusShort}`;
+  return `Highs from ${cold.value}° to ${warm.value}°. About ${snow} in. of snow a year, ${vs}.`;
 }
 
 /** @deprecated Prefer climateSchoolSummaryBody */

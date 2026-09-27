@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   HOME_CLIMATE,
+  climateCompareSummaryBody,
   climateForCityState,
   climateSchoolSummaryBody,
   hasCityClimate,
@@ -30,6 +31,15 @@ test("summary body does not repeat the school name", () => {
   assert.ok(!/^Cornell/i.test(body));
   assert.match(body, /Highs run from/);
   assert.match(body, /snow/i);
+});
+
+test("compare summary uses snow more/less wording", () => {
+  const cornell = climateForCityState("cornell", "Cornell", "Ithaca", "NY");
+  const home = climateForCityState("home", "Home", "Maplewood", "NJ");
+  const body = climateCompareSummaryBody(home, cornell, "Cornell");
+  assert.match(body, /Highs from/);
+  assert.match(body, /in\. of snow a year,/);
+  assert.match(body, /in\. (more|less) than Cornell/);
 });
 
 test("monthlyFromAnchors hits Jan and Jul anchors", () => {
