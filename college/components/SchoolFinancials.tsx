@@ -23,7 +23,6 @@ import {
   type ScoirRecord,
 } from "@/lib/scoir";
 import type { School } from "@/lib/types";
-import { SchoolMark } from "./SchoolMark";
 
 const NET_BANDS: {
   key: Exclude<keyof NonNullable<ScoirRecord["netPriceByIncome"]>, "average">;
@@ -234,17 +233,22 @@ export function SchoolFinancials({
       label: "NJ state aid",
       value: isNjStateAidSchool(school.name) ? "Yes" : "No",
     },
+    {
+      label: "Tuition rate for Kyle",
+      value:
+        school.kyleResidency === "In-state"
+          ? "In-state"
+          : school.kyleResidency === "Out-of-state"
+            ? "Out-of-state"
+            : school.kyleResidency === "Not applicable"
+              ? "Same for all students"
+              : "Not stated",
+    },
   ];
 
   return (
     <section className="school-modal-section fin-school">
       <header className="fin-school-head">
-        <div className="fin-school-title-row">
-          <span className="fin-school-mark" title={school.name}>
-            <SchoolMark name={school.name} website={school.website} />
-          </span>
-          <h1 className="fin-detail-name">{school.name}</h1>
-        </div>
         <span className="fin-school-meta mono">
           {finance.costYear} · {residencyLabel(finance.residencyRate)} · per year
         </span>

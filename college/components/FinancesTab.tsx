@@ -20,6 +20,7 @@ import {
   moneyCompact,
   newJerseyGrantsPortable,
   newJerseyStatePrograms,
+  residencyReclassification,
   shortSchoolName,
   type FinanceRow,
   type HouseholdFinances,
@@ -461,6 +462,38 @@ export function FinancesTab({
           })}
         </div>
       </section>
+
+      <ResidencyReclassificationSection />
+    </section>
+  );
+}
+
+function ResidencyReclassificationSection() {
+  const residency = residencyReclassification();
+  return (
+    <section className="fin-nj fin-residency">
+      <h3>Changing To In-State Tuition After Enrolling</h3>
+      <p className="section-sub">{residency.summary}</p>
+      <p className="fin-residency-label">What States Usually Require</p>
+      <div className="fin-nj-list">
+        {residency.requirements.map((item) => (
+          <div key={item.label} className="fin-nj-row">
+            <div className="fin-nj-name">{item.label}</div>
+            <div>{item.detail}</div>
+          </div>
+        ))}
+      </div>
+      <p className="section-sub">{residency.tradeOff}</p>
+      <p className="fin-residency-label">Other Ways To Lower Out-Of-State Cost</p>
+      <div className="fin-nj-list">
+        {residency.alternatives.map((item) => (
+          <div key={item.label} className="fin-nj-row">
+            <div className="fin-nj-name">{item.label}</div>
+            <div>{item.detail}</div>
+          </div>
+        ))}
+      </div>
+      <p className="section-sub">{residency.whereToCheck}</p>
     </section>
   );
 }

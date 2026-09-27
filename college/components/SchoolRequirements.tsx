@@ -31,7 +31,6 @@ import {
 } from "@/lib/scoir";
 import type { Owner, School } from "@/lib/types";
 import { TEST_POLICY_OPTIONS } from "@/lib/types";
-import { SchoolMark } from "./SchoolMark";
 
 const STATE_ORDER: RequirementState[] = ["req", "mod", "no", "unk"];
 
@@ -245,13 +244,6 @@ export function SchoolRequirements({
   return (
     <section className="school-modal-section school-reqs">
       <header className="school-reqs-header">
-        <div className="school-reqs-kicker">
-          <span className="school-reqs-mark" title={school.name}>
-            <SchoolMark name={school.name} website={school.website} />
-          </span>
-          <b>{school.name}</b>
-          <span className="school-reqs-label">Requirements</span>
-        </div>
         <div className="school-reqs-stats">
           {stats.map((stat) => (
             <div className="school-reqs-stat" key={stat.label}>
