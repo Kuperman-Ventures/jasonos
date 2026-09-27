@@ -9,13 +9,13 @@ import {
   zoomForRadiusMiles,
 } from "./campus-map";
 
-test("zoomForRadiusMiles targets about 25 mi radius at mid latitudes", () => {
+test("zoomForRadiusMiles targets about 15 mi radius at mid latitudes", () => {
   const zoom = zoomForRadiusMiles(42.36, CAMPUS_MAP_RADIUS_MILES);
-  assert.ok(zoom >= 9 && zoom <= 11, `zoom=${zoom}`);
+  assert.ok(zoom >= 10 && zoom <= 12, `zoom=${zoom}`);
 });
 
 test("circlePathPoints closes the ring", () => {
-  const pts = circlePathPoints(40.73, -74.17, 25, 36);
+  const pts = circlePathPoints(40.73, -74.17, CAMPUS_MAP_RADIUS_MILES, 36);
   assert.equal(pts.length, 37);
   assert.ok(Math.abs(pts[0]!.lat - pts[pts.length - 1]!.lat) < 1e-9);
   assert.ok(Math.abs(pts[0]!.lng - pts[pts.length - 1]!.lng) < 1e-9);

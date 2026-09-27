@@ -1,9 +1,9 @@
 /**
- * Campus area map helpers — ~25-mile radius Google Satellite view for Snapshot.
+ * Campus area map helpers — ~15-mile radius Google Satellite view for Snapshot.
  */
 
 /** Miles shown as a radius around campus. */
-export const CAMPUS_MAP_RADIUS_MILES = 25;
+export const CAMPUS_MAP_RADIUS_MILES = 15;
 
 /** Static map pixel size (Google max 640 without scale=2). */
 export const CAMPUS_MAP_SIZE = { width: 640, height: 360 } as const;
