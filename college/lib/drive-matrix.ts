@@ -226,7 +226,7 @@ export function nearestSchoolsFrom(
 }
 
 export function airportsForRegion(regionId: string): TravelPoint[] {
-  return travelPoints.filter(
+  return getTravelPoints().filter(
     (p) => p.type === "airport" && (p.regions ?? []).includes(regionId),
   );
 }
