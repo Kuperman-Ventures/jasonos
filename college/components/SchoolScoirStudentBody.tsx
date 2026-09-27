@@ -52,35 +52,44 @@ function GeographyBars({ scoir }: { scoir: ScoirRecord }) {
   const otherRestW = (otherRest / total) * 100;
   const intlW = (intl / total) * 100;
 
+  const homeLeft = 0;
+  const njLeft = homeLeft + homeW;
+  const otherLeft = njLeft + njW;
+  const intlLeft = otherLeft + otherRestW;
+
   type Callout = {
     key: string;
     label: string;
     xPct: number;
     shiftLeft: boolean;
+    topPx: number;
   };
   const callouts: Callout[] = [];
   if (nj > 0 && njW < 14) {
     callouts.push({
       key: "nj",
       label: `New Jersey · your state ${formatScoirPct(nj, 1)}`,
-      xPct: homeW + njW / 2,
+      // Leader stays centered on the orange NJ slice — never nudge this.
+      xPct: njLeft + njW / 2,
       shiftLeft: true,
+      topPx: 0,
     });
   }
   if (intl > 0 && intlW < 14) {
     callouts.push({
       key: "intl",
       label: `International ${formatScoirPct(intl, 1)}`,
-      xPct: homeW + njW + otherRestW + intlW / 2,
+      xPct: intlLeft + intlW / 2,
       shiftLeft: true,
+      topPx: 0,
     });
   }
-  // Nudge callouts apart if they would collide
+  // If labels would sit on top of each other, stack the second one higher —
+  // keep leaders pinned to their slices.
   if (callouts.length === 2) {
     const [a, b] = callouts;
-    if (a && b && Math.abs(a.xPct - b.xPct) < 18) {
-      a.xPct = Math.max(8, a.xPct - 10);
-      b.xPct = Math.min(92, b.xPct + 10);
+    if (a && b && Math.abs(a.xPct - b.xPct) < 22) {
+      b.topPx = -18;
     }
   }
 
@@ -96,22 +105,80 @@ function GeographyBars({ scoir }: { scoir: ScoirRecord }) {
     .slice(0, 5);
   const topMax = Math.max(...topOutside.map((p) => p.pct), 0.01);
 
+  const segs: {
+    key: string;
+    left: number;
+    width: number;
+    className: string;
+    title: string;
+    name: string;
+    pctText: string;
+  }[] = [];
+  if (home > 0) {
+    segs.push({
+      key: "home",
+      left: homeLeft,
+      width: homeW,
+      className: "sb-seg sb-seg-home",
+      title: `${geo.homeState} ${formatScoirPct(home)}`,
+      name: geo.homeState,
+      pctText: formatScoirPct(home),
+    });
+  }
+  if (nj > 0) {
+    segs.push({
+      key: "nj",
+      left: njLeft,
+      width: njW,
+      className: "sb-seg sb-seg-nj",
+      title: `New Jersey ${formatScoirPct(nj)}`,
+      name: "New Jersey",
+      pctText: formatScoirPct(nj),
+    });
+  }
+  if (otherRest > 0) {
+    segs.push({
+      key: "other",
+      left: otherLeft,
+      width: otherRestW,
+      className: "sb-seg sb-seg-other",
+      title: `Other U.S. states ${formatScoirPct(otherRest)}`,
+      name: "Other U.S. states",
+      pctText: formatScoirPct(otherRest),
+    });
+  }
+  if (intl > 0) {
+    segs.push({
+      key: "intl",
+      left: intlLeft,
+      width: intlW,
+      className: "sb-seg sb-seg-intl",
+      title: `International ${formatScoirPct(intl)}`,
+      name: "International",
+      pctText: formatScoirPct(intl),
+    });
+  }
+
+  const calloutPad = callouts.some((c) => c.topPx < 0) ? 46 : callouts.length ? 28 : 0;
+
   return (
     <div className="sb-geo">
-      <div
-        className="sb-stack-wrap"
-        style={{ paddingTop: callouts.length ? 28 : 0 }}
-      >
+      <div className="sb-stack-wrap" style={{ paddingTop: calloutPad }}>
         {callouts.map((c) => (
           <div key={c.key} className="sb-callout-layer" aria-hidden="true">
             <div
               className="sb-leader"
-              style={{ left: `${c.xPct}%`, height: 20 }}
+              style={{
+                left: `${c.xPct}%`,
+                height: 20 - c.topPx,
+                bottom: 0,
+              }}
             />
             <div
               className="sb-callout"
               style={{
                 left: `${c.xPct}%`,
+                top: c.topPx,
                 transform: c.shiftLeft
                   ? "translateX(calc(-100% - 8px))"
                   : "translateX(8px)",
@@ -122,62 +189,21 @@ function GeographyBars({ scoir }: { scoir: ScoirRecord }) {
           </div>
         ))}
         <div className="sb-stack" role="img" aria-label="Where undergraduates come from">
-          {home > 0 ? (
+          {segs.map((seg) => (
             <div
-              className="sb-seg sb-seg-home"
-              style={{ width: `${homeW}%` }}
-              title={`${geo.homeState} ${formatScoirPct(home)}`}
+              key={seg.key}
+              className={seg.className}
+              title={seg.title}
+              style={{ left: `${seg.left}%`, width: `${seg.width}%` }}
             >
-              {homeW >= 14 ? (
+              {seg.width >= 14 ? (
                 <span className="sb-seg-inner">
-                  <span className="sb-seg-name">{geo.homeState}</span>
-                  <span className="sb-seg-pct mono">{formatScoirPct(home)}</span>
+                  <span className="sb-seg-name">{seg.name}</span>
+                  <span className="sb-seg-pct mono">{seg.pctText}</span>
                 </span>
               ) : null}
             </div>
-          ) : null}
-          {nj > 0 ? (
-            <div
-              className="sb-seg sb-seg-nj"
-              style={{ width: `${njW}%` }}
-              title={`New Jersey ${formatScoirPct(nj)}`}
-            >
-              {njW >= 14 ? (
-                <span className="sb-seg-inner">
-                  <span className="sb-seg-name">New Jersey</span>
-                  <span className="sb-seg-pct mono">{formatScoirPct(nj)}</span>
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-          {otherRest > 0 ? (
-            <div
-              className="sb-seg sb-seg-other"
-              style={{ width: `${otherRestW}%` }}
-              title={`Other U.S. states ${formatScoirPct(otherRest)}`}
-            >
-              {otherRestW >= 14 ? (
-                <span className="sb-seg-inner">
-                  <span className="sb-seg-name">Other U.S. states</span>
-                  <span className="sb-seg-pct mono">{formatScoirPct(otherRest)}</span>
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-          {intl > 0 ? (
-            <div
-              className="sb-seg sb-seg-intl"
-              style={{ width: `${intlW}%` }}
-              title={`International ${formatScoirPct(intl)}`}
-            >
-              {intlW >= 14 ? (
-                <span className="sb-seg-inner">
-                  <span className="sb-seg-name">International</span>
-                  <span className="sb-seg-pct mono">{formatScoirPct(intl)}</span>
-                </span>
-              ) : null}
-            </div>
-          ) : null}
+          ))}
         </div>
       </div>
 
