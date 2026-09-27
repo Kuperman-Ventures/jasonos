@@ -130,6 +130,18 @@ export type School = {
   testPolicy: string;
   /** Family fill when testPolicy is blank; ignored once the record has a value. */
   familyTestPolicy: string;
+  /** Covers Fall 2028 | Not yet announced for Fall 2028 | No term stated. */
+  testPolicyFall2028Status: string;
+  /** Entry terms the official statement covers. */
+  testPolicyTerm: string;
+  /** One plain sentence explaining the policy. */
+  testPolicyDetail: string;
+  /** Recent change note, or null. */
+  testPolicyChange: string | null;
+  /** Official page the policy was checked against. */
+  testPolicySourceUrl: string;
+  /** YYYY-MM-DD when the policy was last checked. */
+  testPolicyCheckedDate: string;
   /** Program labels the family is tracking on the snapshot. */
   trackedPrograms: string[];
   middle50: string;
@@ -261,7 +273,26 @@ export const SNAPSHOT_APPLICATION_STATUSES = APPLICATION_STATUSES.filter(
   (item) => item.id !== "enrolled",
 );
 
-export const TEST_POLICY_OPTIONS = ["Test required", "Test optional", "Test-free"] as const;
+export const TEST_POLICY_OPTIONS = [
+  "Required",
+  "Required for some applicants",
+  "Optional",
+  "Not considered",
+] as const;
+
+export type TestPolicy = (typeof TEST_POLICY_OPTIONS)[number] | "";
+
+export const TEST_POLICY_FALL2028_STATUSES = [
+  "Covers Fall 2028",
+  "Not yet announced for Fall 2028",
+  "No term stated",
+] as const;
+
+export type TestPolicyFall2028Status = (typeof TEST_POLICY_FALL2028_STATUSES)[number] | "";
+
+export function isTestPolicy(value: string): value is TestPolicy {
+  return value === "" || (TEST_POLICY_OPTIONS as readonly string[]).includes(value);
+}
 
 /** Programs the snapshot can track, keyed to offered fields on the school record. */
 export const SNAPSHOT_PROGRAMS: {
@@ -564,6 +595,12 @@ export function fromSeed(seed: SchoolSeed): School {
     admissionTrack: "",
     testPolicy: "",
     familyTestPolicy: "",
+    testPolicyFall2028Status: "",
+    testPolicyTerm: "",
+    testPolicyDetail: "",
+    testPolicyChange: null,
+    testPolicySourceUrl: "",
+    testPolicyCheckedDate: "",
     trackedPrograms: defaultTrackedPrograms(mechanicalEngineering, materials, aerospaceEngineering),
     middle50: "",
     applicationPlatform: "",

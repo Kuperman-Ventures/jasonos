@@ -194,10 +194,10 @@ function admitRate(rate: number): string {
 }
 
 function testPolicyLabel(code: number | null | undefined): string {
-  if (code === 1) return "Test required";
-  if (code === 2) return "Test recommended";
-  if (code === 3) return "Tests neither required nor recommended";
-  if (code === 5) return "Tests considered but not required";
+  // Scorecard codes are lagging; map only to the four tracker values when clear.
+  if (code === 1) return "Required";
+  if (code === 3) return "Not considered";
+  if (code === 5) return "Optional";
   return "";
 }
 

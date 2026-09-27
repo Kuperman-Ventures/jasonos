@@ -46,7 +46,7 @@ test("scorecard facts use published numbers and do not set a selectivity tier", 
   assert.equal(facts.admissionsContext, "Admit rate 4.6% in the latest College Scorecard");
   assert.equal(facts.satContext, "SAT reading 740-780, math 780-800");
   assert.equal(facts.middle50, facts.satContext);
-  assert.equal(facts.testPolicy, "Test required");
+  assert.equal(facts.testPolicy, "Required");
   assert.match(facts.costOfAttendance, /\$82,730/);
   assert.match(facts.netPriceEstimate, /\$19,840/);
   assert.equal(facts.website, "https://web.mit.edu/");
@@ -104,10 +104,10 @@ test("web facts are ignored unless a search returned a source, and they do not r
   );
   const blocked = mergeFacts(scorecard, search, []);
   assert.equal(blocked.applicationPlatform, "");
-  assert.equal(blocked.testPolicy, "Test required");
+  assert.equal(blocked.testPolicy, "Required");
   const merged = mergeFacts(scorecard, search, [{ title: "Admissions", url: "https://example.edu/apply" }]);
   assert.equal(merged.location, "Cambridge, MA");
-  assert.equal(merged.testPolicy, "Test required");
+  assert.equal(merged.testPolicy, "Required");
   assert.equal(merged.applicationPlatform, "Coalition");
   assert.equal(merged.costOfAttendance.includes("82,730"), true);
   assert.equal(merged.deadlines.length, 1);

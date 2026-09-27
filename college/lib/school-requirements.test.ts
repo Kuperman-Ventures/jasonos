@@ -58,8 +58,14 @@ function baseSchool(overrides: Partial<School> = {}): School {
     interestLevel: "",
     applicationStatus: "",
     admissionTrack: "",
-    testPolicy: "Test required",
+    testPolicy: "Required",
     familyTestPolicy: "",
+    testPolicyFall2028Status: "",
+    testPolicyTerm: "",
+    testPolicyDetail: "",
+    testPolicyChange: null,
+    testPolicySourceUrl: "",
+    testPolicyCheckedDate: "",
     trackedPrograms: [],
     middle50: "SAT reading 680-750, math 690-790",
     applicationPlatform: "Common App",
@@ -84,7 +90,10 @@ function baseSchool(overrides: Partial<School> = {}): School {
 }
 
 test("classifyTestPolicy maps required / optional / blind", () => {
-  assert.equal(classifyTestPolicy("Test required").state, "req");
+  assert.equal(classifyTestPolicy("Required").state, "req");
+  assert.equal(classifyTestPolicy("Required for some applicants").state, "mod");
+  assert.equal(classifyTestPolicy("Optional").state, "mod");
+  assert.equal(classifyTestPolicy("Not considered").state, "no");
   assert.equal(classifyTestPolicy("Tests considered but not required").state, "mod");
   assert.equal(classifyTestPolicy("Test-free").state, "no");
   assert.equal(classifyTestPolicy("").state, "unk");
@@ -99,7 +108,7 @@ test("parseSatRange reads composite and reading+math bands", () => {
 test("buildSchoolRequirements derives Georgia Tech profile", () => {
   const view = buildSchoolRequirements(baseSchool());
   assert.equal(view.platform, "Common App");
-  assert.equal(view.testPolicy, "Test required");
+  assert.equal(view.testPolicy, "Required");
   assert.deepEqual(view.satRange, [1370, 1540]);
 
   const byKey = Object.fromEntries(view.profile.map((item) => [item.key, item]));
@@ -118,7 +127,7 @@ test("buildSchoolRequirements derives Georgia Tech profile", () => {
 test("Stanford-style recs and modified tests", () => {
   const view = buildSchoolRequirements(
     baseSchool({
-      testPolicy: "Tests considered but not required",
+      testPolicy: "Optional",
       requiredEssays:
         "Common App personal essay required; courses and grades required; portfolio: College's own system",
       teacherRecs:

@@ -76,20 +76,21 @@ export function classifyTestPolicy(policy: string): { state: RequirementState; n
   const text = policy.trim();
   if (!text) return { state: "unk", note: UNK_NOTE };
   const lower = text.toLowerCase();
-  // Optional / considered-but-not-required before bare "not required" (test-blind).
-  if (
-    /optional|considered but not required|tests considered|recommended(?!\s+required)/.test(lower)
-  ) {
+  if (lower === "required for some applicants") {
+    return { state: "mod", note: text };
+  }
+  if (lower === "optional" || /optional|considered but not required|tests considered/.test(lower)) {
     return { state: "mod", note: text };
   }
   if (
+    lower === "not considered" ||
     /test[- ]?(free|blind)|neither required|not (required|accepted|considered)|do not consider/.test(
       lower,
     )
   ) {
     return { state: "no", note: text };
   }
-  if (/required|must (submit|send)|mandatory/.test(lower)) {
+  if (lower === "required" || /required|must (submit|send)|mandatory/.test(lower)) {
     return { state: "req", note: text };
   }
   return { state: "mod", note: text };

@@ -24,6 +24,7 @@ import {
   type RequirementState,
 } from "@/lib/school-requirements";
 import type { Owner, School } from "@/lib/types";
+import { TEST_POLICY_OPTIONS } from "@/lib/types";
 import { SchoolMark } from "./SchoolMark";
 
 const STATE_ORDER: RequirementState[] = ["req", "mod", "no", "unk"];
@@ -130,12 +131,19 @@ export function SchoolRequirements({
         <div className="school-edit-grid">
           <label className="stack-field">
             <span className="label">Test policy</span>
-            <BlurInput
+            <select
+              className="field"
+              aria-label="Test policy"
               value={school.testPolicy}
-              ariaLabel="Test policy"
-              placeholder="Not entered"
-              onCommit={(value) => onPatch({ testPolicy: value })}
-            />
+              onChange={(event) => onPatch({ testPolicy: event.target.value })}
+            >
+              <option value="">Not entered</option>
+              {TEST_POLICY_OPTIONS.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="stack-field">
             <span className="label">Middle 50%</span>

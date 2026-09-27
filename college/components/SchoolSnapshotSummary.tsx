@@ -202,6 +202,8 @@ export function SchoolSnapshotSummary({
   const recordTestPolicy = school.testPolicy.trim();
   const testPolicyValue = recordTestPolicy || school.familyTestPolicy.trim();
   const testPolicyMissing = !recordTestPolicy;
+  const fall2028NotAnnounced =
+    school.testPolicyFall2028Status.trim() === "Not yet announced for Fall 2028";
 
   const undergrads = school.undergradEnrollment;
   const sizeWord = getSchoolSize(undergrads);
@@ -289,8 +291,42 @@ export function SchoolSnapshotSummary({
                 onChange={(next) => onPatch({ familyTestPolicy: next })}
               />
             ) : (
-              <PlainFact label="Test policy" value={testPolicyValue} />
+              <div className="fact">
+                <dt>Test policy</dt>
+                <dd>
+                  {testPolicyValue}
+                  {fall2028NotAnnounced ? (
+                    <span className="test-policy-fall2028-badge">Fall 2028 not announced</span>
+                  ) : null}
+                </dd>
+              </div>
             )}
+            {recordTestPolicy ? (
+              <>
+                {school.testPolicyDetail.trim() ? (
+                  <PlainFact label="Detail" value={school.testPolicyDetail.trim()} />
+                ) : null}
+                {school.testPolicyTerm.trim() ? (
+                  <PlainFact label="Term covered" value={school.testPolicyTerm.trim()} />
+                ) : null}
+                {school.testPolicyChange?.trim() ? (
+                  <PlainFact label="Recent change" value={school.testPolicyChange.trim()} />
+                ) : null}
+                {school.testPolicySourceUrl.trim() ? (
+                  <PlainFact
+                    label="Source"
+                    value="Official policy page"
+                    href={school.testPolicySourceUrl.trim()}
+                  />
+                ) : null}
+                {school.testPolicyCheckedDate.trim() ? (
+                  <PlainFact
+                    label="Checked"
+                    value={school.testPolicyCheckedDate.trim()}
+                  />
+                ) : null}
+              </>
+            ) : null}
             <PlainFact label="SAT" value={school.satContext.trim() || "Not set"} />
             <PlainFact
               label="Pathway"

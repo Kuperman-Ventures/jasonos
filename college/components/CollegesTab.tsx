@@ -408,6 +408,19 @@ export function CollegesTab({
         );
       case "selectivity":
         return <td key={column}>{tierLabel(school.selectivityTier) || "—"}</td>;
+      case "testPolicy": {
+        const policy = school.testPolicy.trim() || school.familyTestPolicy.trim();
+        const notAnnounced =
+          school.testPolicyFall2028Status.trim() === "Not yet announced for Fall 2028";
+        return (
+          <td key={column}>
+            <div>{policy || "—"}</div>
+            {notAnnounced ? (
+              <div className="muted test-policy-fall2028-note">Fall 2028 not announced</div>
+            ) : null}
+          </td>
+        );
+      }
       case "interest":
         return (
           <td key={column} className="interest-cell" onClick={(event) => event.stopPropagation()}>
@@ -936,6 +949,14 @@ export function CollegesTab({
                   </span>
                 ) : null}
                 {columns.includes("selectivity") ? <span>{tierLabel(school.selectivityTier) || "—"}</span> : null}
+                {columns.includes("testPolicy") ? (
+                  <span>
+                    {school.testPolicy.trim() || school.familyTestPolicy.trim() || "—"}
+                    {school.testPolicyFall2028Status.trim() === "Not yet announced for Fall 2028"
+                      ? " · Fall 2028 not announced"
+                      : ""}
+                  </span>
+                ) : null}
                 {columns.includes("track") ? (
                   <span>
                     {trackLabel(school.admissionTrack) || "Track not chosen"}
