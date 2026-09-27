@@ -375,7 +375,7 @@ Family uploads. Control: **Add photos**.
 
 ### From {short school name}
 
-Catalog: [`college/data/school-photos.json`](../college/data/school-photos.json). **Virtual tour** opens in-page modal when `virtualTourEmbedUrl` is set (30 schools); otherwise **Virtual tour ↗** opens `virtualTourUrl` in a new tab (13 schools). Modal includes “Open on school site ↗”.
+Catalog: [`college/data/school-photos.json`](../college/data/school-photos.json). **Virtual tour** opens in-page modal when `virtualTourEmbedUrl` is set (29 schools); otherwise **Virtual tour ↗** opens `virtualTourUrl` in a new tab (14 schools, including Wisconsin — Circuit blocks iframe embed). Modal includes “Open on school site ↗”.
 
 ---
 

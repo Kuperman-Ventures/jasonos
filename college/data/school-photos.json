@@ -1298,7 +1298,7 @@
   {
     "school": "University of Wisconsin–Madison",
     "virtualTourUrl": "https://virtualtour.wisc.edu/",
-    "virtualTourEmbedUrl": "https://virtualtour.wisc.edu/",
+    "virtualTourEmbedUrl": null,
     "visitAddress": "1308 West Dayton Street, Madison, WI 53715",
     "visitDetails": "Union South, Campus & Community Information Welcome Desk (1st Floor), 1308 West Dayton Street, Madison, WI 53715",
     "photos": [
