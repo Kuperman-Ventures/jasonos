@@ -1,8 +1,11 @@
 @import "tailwindcss";
+@import "./tokens.css";
 
-/* The Track. Tokens live here. Do not hard-code a color, font, or space that a token already carries. */
+/* The Track. Semantic colors come from tokens.css. Ramps, type, and space stay here.
+   Do not hard-code a color, font, or space that a token already carries. */
 
 :root {
+  /* Accent ramp (raw steps — use semantic --color-accent-* / --text-* in components) */
   --color-accent-100: #feeee4;
   --color-accent-200: #fdd6c0;
   --color-accent-300: #fab48e;
@@ -12,9 +15,8 @@
   --color-accent-700: #9e3603;
   --color-accent-800: #742703;
   --color-accent-900: #461a05;
-  --color-accent: var(--color-accent-500);
   --color-cyan: #0088b0;
-  --color-on-accent: #16181b;
+  --color-on-accent: var(--text-on-accent);
 
   --color-accent-2-100: #fff1f4;
   --color-accent-2-200: #ffdee6;
@@ -27,6 +29,7 @@
   --color-accent-2-900: #4b1528;
   --color-accent-2: var(--color-accent-2-600);
 
+  /* Neutral ramp — fills/tracks/borders only; never text */
   --color-neutral-100: #f8f4f4;
   --color-neutral-200: #eae7e7;
   --color-neutral-300: #d7d3d3;
@@ -37,38 +40,20 @@
   --color-neutral-800: #444141;
   --color-neutral-900: #2d2b2b;
 
-  --color-text: #201e1d;
-  --text-muted: #444141;
-  --text-subtle: #605d5d;
-  --text-accent: #9e3603;
-  --color-bg: #f3f2f2;
-  --color-surface: #eae9e9;
-  --color-surface-2: #e0dede;
-  --color-raised: #ffffff;
-  --color-divider: rgba(32, 30, 29, 0.16);
-  --color-desk: #e6e4e3;
-  --color-chip-border: #d7d3d3;
-  --color-border: #d7d3d3;
-  --color-rule: #eae7e7;
-  --color-dash: #9b9797;
-  --color-track: #dcdada;
-  --color-tile-off: #dcdada;
-  --color-tint: var(--color-accent-100);
-  --color-tint-2: var(--color-accent-200);
-  --color-tint-border: var(--color-accent-300);
-  --color-on-tint: var(--color-accent-900);
+  /* Aliases onto tokens.css semantic set */
+  --color-chip-border: var(--color-border);
+  --color-track: var(--meter-empty);
+  --color-tile-off: var(--meter-empty);
+  --color-tint: var(--color-accent-tint);
+  --color-tint-2: var(--color-accent-tint-2);
+  --color-tint-border: var(--color-accent-border);
+  --color-on-tint: var(--text-on-tint);
   --color-on-tint-2: var(--color-accent-800);
-  --color-accent-tint: var(--color-tint);
-  --color-accent-tint-2: var(--color-tint-2);
-  --color-accent-border: var(--color-tint-border);
-  --text-on-accent: #461a05;
-  --text-on-tint: var(--color-on-tint);
   --color-band: var(--color-accent-300);
-  --color-done-fill: #eceaea;
+  --color-done-fill: var(--color-surface);
   --color-dot-off: var(--color-neutral-500);
   --color-modal-edge: transparent;
   --color-brand: #1b4ca8;
-  --color-accent-pressed: var(--color-accent-600);
   --link-hover: var(--color-accent-600);
   --color-cyan-text: #006786;
 
@@ -88,9 +73,7 @@
   --radius-md: 2px;
   --radius-lg: 4px;
 
-  --shadow-sm: 0 1px 2px rgba(32, 30, 29, 0.08);
   --shadow-md: 0 8px 24px rgba(32, 30, 29, 0.1);
-  --shadow-lg: 0 18px 40px rgba(32, 30, 29, 0.14);
 
   --accent-100: var(--color-accent-100);
   --accent-500: var(--color-accent-500);
@@ -101,19 +84,6 @@
   --rail-w: 280px;
 
   --color-hairline: rgba(32, 30, 29, 0.08);
-  --bar: #1b4aa0;
-  --bar-future: #b8c7e0;
-  --bar-fg: #ffffff;
-  --bar-future-fg: #201e1d;
-  --milestone: #d6006c;
-  --milestone-ink: #a6034f;
-  --now-band: rgba(232, 85, 4, 0.1);
-  --gridline: rgba(32, 30, 29, 0.06);
-  --color-done: #0088b0;
-  --text-done: #006a8a;
-  --text-placeholder: #7d7979;
-  --backdrop: rgba(32, 30, 29, 0.4);
-  --color-rail: #eae9e9;
 
   /* Selectivity chart palette — low → high; shared by list pie and school gauge */
   --tier-1: oklch(0.50 0.11 150);
@@ -139,8 +109,8 @@
   --setting-rural-mark: oklch(0.50 0.08 115);
   --setting-rural-tint: oklch(0.91 0.032 115);
   --setting-rural-ink: oklch(0.36 0.08 115);
-  --gauge-track: #d7d3d3;
-  --gauge-band: #605d5d;
+  --gauge-track: var(--meter-empty);
+  --gauge-band: var(--text-subtle);
 
   /* dense ledger geometry */
   --months: 17;
@@ -149,69 +119,35 @@
   --label-w: 250px;
   --span-w: 0px;
   --month-min: 34px;
-
-  color-scheme: light;
 }
 
-/* Dark mode — semantic tokens only. See reference/design-guidelines.md §2b. */
+/* Dark mode — aliases and chart tints that tokens.css does not carry. */
 html[data-mode="dark"] {
-  --color-text: #f0eeec;
-  --text-muted: #c3c8cf;
-  --text-subtle: #9aa0a8;
-  --text-accent: #fab48e;
-  --color-desk: #16181b;
-  --color-bg: #1f2228;
-  --color-surface: #2d3139;
-  --color-surface-2: #353a43;
-  --color-raised: #2d3139;
-  --color-divider: rgba(240, 238, 236, 0.16);
-  --color-chip-border: #3d424b;
-  --color-border: #3d424b;
-  --color-rule: rgba(240, 238, 236, 0.1);
-  --color-dash: #5d636c;
-  --color-track: #2d3139;
-  --color-tile-off: #2d3139;
-  --color-tint: #3b2317;
-  --color-tint-2: #50301d;
-  --color-tint-border: #9e3603;
-  --color-on-tint: #fdd6c0;
+  --color-chip-border: var(--color-border);
+  --color-track: var(--meter-empty);
+  --color-tile-off: var(--meter-empty);
+  --color-tint: var(--color-accent-tint);
+  --color-tint-2: var(--color-accent-tint-2);
+  --color-tint-border: var(--color-accent-border);
+  --color-on-tint: var(--text-on-tint);
   --color-on-tint-2: #fab48e;
-  --color-accent-tint: var(--color-tint);
-  --color-accent-tint-2: var(--color-tint-2);
-  --color-accent-border: var(--color-tint-border);
-  --text-on-accent: #461a05;
-  --text-on-tint: var(--color-on-tint);
   --color-band: #9e3603;
-  --color-done-fill: #2d3139;
+  --color-done-fill: var(--color-surface);
   --color-dot-off: #6b717a;
   --color-modal-edge: rgba(240, 238, 236, 0.08);
   --color-brand: #7ba4ee;
-  --color-accent-pressed: var(--color-accent-400);
   --link-hover: #fdd6c0;
   --color-cyan-text: #5cc3e6;
   --color-hairline: rgba(240, 238, 236, 0.08);
   --hover-fill: rgba(240, 238, 236, 0.06);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(240, 238, 236, 0.06);
-  --bar: #4a7fd4;
-  --bar-future: #39455c;
-  --bar-fg: #ffffff;
-  --bar-future-fg: #f0eeec;
-  --milestone: #ff4d9d;
-  --milestone-ink: #ff87bd;
-  --now-band: rgba(232, 85, 4, 0.14);
-  --gridline: rgba(240, 238, 236, 0.06);
-  --color-done: #0088b0;
-  --text-done: #5cc3e6;
-  --text-placeholder: #7f858e;
-  --backdrop: rgba(0, 0, 0, 0.6);
-  --color-rail: #16181b;
+  --gauge-track: var(--meter-empty);
+  --gauge-band: var(--text-subtle);
   --tier-1-tint: oklch(0.28 0.035 150);
   --tier-2-tint: oklch(0.28 0.035 250);
   --tier-3-tint: oklch(0.28 0.035 290);
   --tier-4-tint: oklch(0.28 0.035 350);
-  color-scheme: dark;
+  --text-accent-2: var(--color-cyan-text);
 }
 
 * { box-sizing: border-box; }
@@ -415,13 +351,14 @@ nav.tabs button.active:active { background: var(--color-accent-pressed); }
 .btn-primary:hover { background: var(--color-accent-400); }
 .btn-primary:active { background: var(--color-accent-pressed); }
 .btn-secondary, .print-btn {
-  border-color: var(--color-divider);
+  border-color: var(--color-border);
+  color: var(--color-text);
 }
 .btn-secondary:hover, .print-btn:hover {
-  background: var(--color-accent-100);
-  color: var(--color-accent-800);
+  background: var(--color-accent-tint);
+  color: var(--text-on-tint);
 }
-.btn-secondary:active, .print-btn:active { background: var(--color-accent-200); }
+.btn-secondary:active, .print-btn:active { background: var(--color-accent-tint-2); }
 .btn-ghost { color: var(--text-muted); }
 .btn-ghost:hover { background: var(--color-surface); color: var(--color-text); }
 
@@ -540,7 +477,7 @@ nav.tabs button.active:active { background: var(--color-accent-pressed); }
 
 .progress {
   height: 6px;
-  background: var(--color-neutral-300);
+  background: var(--meter-empty);
   border-radius: var(--radius-sm);
   margin: var(--space-3) 0 var(--space-4);
   overflow: hidden;
@@ -902,7 +839,7 @@ table.rubric tr.total td { font-weight: 500; background: var(--color-surface); }
   line-height: 1.55;
   background: var(--color-surface);
   color: var(--color-text);
-  border: 1px solid var(--color-divider);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-shadow: none;
   padding: var(--space-2) var(--space-3);
@@ -969,8 +906,9 @@ footer {
   font-size: 11px;
   letter-spacing: 0.04em;
   color: var(--text-muted);
-  background: #fff;
-  border: 1px solid var(--color-divider);
+  background: var(--logo-tile);
+  box-shadow: inset 0 0 0 1px var(--logo-ring);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   overflow: hidden;
 }
@@ -2457,12 +2395,12 @@ table.schools .muted,
   padding: var(--space-2) var(--space-3);
   background: var(--color-surface);
   color: var(--color-text);
-  border: 1px solid var(--color-divider);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   font-family: var(--font-body);
   font-size: 15px;
 }
-.toolbar .input::placeholder { color: var(--text-subtle); }
+.toolbar .input::placeholder { color: var(--text-placeholder); }
 .toolbar .input.grow { flex: 1 1 260px; }
 .testing-list { display: flex; flex-direction: column; gap: var(--space-3); }
 .testing-item {
@@ -4907,97 +4845,36 @@ body.todos-dragging .todo-project-group.is-over {
 }
 
 /* ---------- college list funnel ---------- */
-/* Deepening paper (2c): header stays on site paper; body takes viewed phase ground. */
+/* Deepening paper (2c): header stays on site paper; body takes viewed phase ground.
+   Phase grounds are derived from semantic tokens so light/dark both stay readable. */
 .colleges-list {
   margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-8)) calc(-1 * var(--space-8));
   padding: 0;
   min-height: calc(100% + var(--space-6) + var(--space-8));
   background: var(--color-bg);
   color: var(--color-text);
-  --phase-bg: #f3f2f2;
-  --phase-surface: #e8e6e5;
-  --phase-track: #d7d3d3;
-  --phase-muted: #444141;
-  --phase-subtle: #605d5d;
-  /* Chart-only selectivity hues, low → high (Less … Extremely). Shared with school snapshot. */
-  --tier-1: oklch(0.50 0.11 150);
-  --tier-1-tint: oklch(0.90 0.035 150);
-  --tier-2: oklch(0.50 0.11 250);
-  --tier-2-tint: oklch(0.90 0.035 250);
-  --tier-3: oklch(0.50 0.11 290);
-  --tier-3-tint: oklch(0.90 0.035 290);
-  --tier-4: oklch(0.50 0.11 350);
-  --tier-4-tint: oklch(0.90 0.035 350);
-  --text-accent-2: #006786;
+  --phase-bg: var(--color-bg);
+  --phase-surface: var(--color-surface);
+  --phase-track: var(--meter-empty);
+  --phase-muted: var(--text-muted);
+  --phase-subtle: var(--text-subtle);
+  --text-accent-2: var(--color-cyan-text);
 }
 
 .colleges-list[data-list-phase="exploration"] {
-  --phase-bg: #f3f2f2;
-  --phase-surface: #e8e6e5;
-  --phase-track: #d7d3d3;
-  --phase-muted: #444141;
-  --phase-subtle: #605d5d;
+  --phase-bg: var(--color-bg);
+  --phase-surface: var(--color-surface);
+  --phase-track: var(--meter-empty);
 }
 .colleges-list[data-list-phase="consideration"] {
-  --phase-bg: #e7e5e2;
-  --phase-surface: #dbd8d4;
-  --phase-track: #c5c1bc;
-  --phase-muted: #444141;
-  --phase-subtle: #605d5d;
+  --phase-bg: color-mix(in oklab, var(--color-bg) 88%, var(--color-text) 12%);
+  --phase-surface: color-mix(in oklab, var(--color-surface) 88%, var(--color-text) 12%);
+  --phase-track: color-mix(in oklab, var(--meter-empty) 85%, var(--color-text) 15%);
 }
 .colleges-list[data-list-phase="applications"] {
-  --phase-bg: #d6d9dc;
-  --phase-surface: #c9cdd1;
-  --phase-track: #b0b5bb;
-  --phase-muted: #3a3838;
-  --phase-subtle: #4f4d4d;
-}
-
-/*
- * College list hard-coded light phase grounds. In dark they must not override
- * semantic text/surface tokens with light paper — that is the Kyle-laptop break.
- */
-html[data-mode="dark"] .colleges-list {
-  --phase-bg: #1f2228;
-  --phase-surface: #2d3139;
-  --phase-track: #3d424b;
-  --phase-muted: var(--text-muted);
-  --phase-subtle: var(--text-subtle);
-  --tier-1-tint: oklch(0.28 0.035 150);
-  --tier-2-tint: oklch(0.28 0.035 250);
-  --tier-3-tint: oklch(0.28 0.035 290);
-  --tier-4-tint: oklch(0.28 0.035 350);
-  --text-accent-2: var(--color-cyan-text);
-  --lvl-1: oklch(0.80 0.07 225);
-  --lvl-1-fg: #16181b;
-  --lvl-2: oklch(0.70 0.10 225);
-  --lvl-2-fg: #16181b;
-  --lvl-3: oklch(0.58 0.12 228);
-  --lvl-3-fg: #16181b;
-  --lvl-4: oklch(0.48 0.13 232);
-  --lvl-4-fg: #ffffff;
-  --lvl-4-row: oklch(0.30 0.05 232);
-}
-html[data-mode="dark"] .colleges-list[data-list-phase="exploration"] {
-  --phase-bg: #1f2228;
-  --phase-surface: #2d3139;
-  --phase-track: #3d424b;
-  --phase-muted: var(--text-muted);
-  --phase-subtle: var(--text-subtle);
-}
-html[data-mode="dark"] .colleges-list[data-list-phase="consideration"] {
-  --phase-bg: #23262d;
-  --phase-surface: #31353e;
-  --phase-track: #454a54;
-  --phase-muted: var(--text-muted);
-  --phase-subtle: var(--text-subtle);
-}
-html[data-mode="dark"] .colleges-list[data-list-phase="applications"] {
-  --phase-bg: #262a32;
-  --phase-surface: #343945;
-  --phase-track: #4a505a;
-  --phase-muted: var(--text-muted);
-  --phase-subtle: var(--text-subtle);
+  --phase-bg: color-mix(in oklab, var(--color-bg) 78%, var(--color-text) 22%);
+  --phase-surface: color-mix(in oklab, var(--color-surface) 78%, var(--color-text) 22%);
+  --phase-track: color-mix(in oklab, var(--meter-empty) 75%, var(--color-text) 25%);
 }
 
 .list-dash-chrome {
@@ -5087,30 +4964,18 @@ html[data-mode="dark"] .colleges-list[data-list-phase="applications"] {
   color: var(--color-accent-500);
 }
 
-/* Span tones fixed per step; darker left → right. */
+/* Span tones deepen left → right; active card uses --color-raised. */
 .list-dash-step[data-step="exploration"] {
-  --step-tone: #bab6b6;
-  --step-own-bg: #f3f2f2;
+  --step-tone: var(--color-dash);
+  --step-own-bg: var(--color-raised);
 }
 .list-dash-step[data-step="consideration"] {
-  --step-tone: #a8a39d;
-  --step-own-bg: #e7e5e2;
+  --step-tone: color-mix(in oklab, var(--color-dash) 80%, var(--color-text) 20%);
+  --step-own-bg: var(--color-raised);
 }
 .list-dash-step[data-step="applications"] {
-  --step-tone: #8f969e;
-  --step-own-bg: #d6d9dc;
-}
-html[data-mode="dark"] .list-dash-step[data-step="exploration"] {
-  --step-tone: #6b717a;
-  --step-own-bg: #1f2228;
-}
-html[data-mode="dark"] .list-dash-step[data-step="consideration"] {
-  --step-tone: #7a818c;
-  --step-own-bg: #23262d;
-}
-html[data-mode="dark"] .list-dash-step[data-step="applications"] {
-  --step-tone: #8b93a0;
-  --step-own-bg: #262a32;
+  --step-tone: color-mix(in oklab, var(--color-dash) 65%, var(--color-text) 35%);
+  --step-own-bg: var(--color-raised);
 }
 
 .list-dash-stepper {
@@ -7529,21 +7394,12 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   .appq-sec-head h2 { font-size: 28px; }
 }
 
-/* ---------- College list Interest picker (ramp palette) ---------- */
+/* ---------- College list Interest picker (ramp palette from tokens.css) ---------- */
 .colleges-list {
-  /* Interest levels: safety → moderate → high → top (one blue ramp) */
-  --lvl-1: oklch(0.78 0.07 225);
-  --lvl-1-fg: var(--color-text);
+  /* Interest levels inherit --lvl-* from tokens.css; only row tints for non-top stay clear. */
   --lvl-1-row: transparent;
-  --lvl-2: oklch(0.66 0.10 225);
-  --lvl-2-fg: var(--color-text);
   --lvl-2-row: transparent;
-  --lvl-3: oklch(0.54 0.12 228);
-  --lvl-3-fg: #fff;
   --lvl-3-row: transparent;
-  --lvl-4: oklch(0.42 0.12 232);
-  --lvl-4-fg: #fff;
-  --lvl-4-row: oklch(0.95 0.02 225);
 }
 
 table.schools tbody tr.row {
@@ -7599,9 +7455,10 @@ table.schools td.visit-cell {
   max-width: 100%;
   min-width: 0;
   padding: 6px 28px 6px 8px;
-  border: 1px solid var(--color-divider);
+  border: 1px solid var(--color-border);
   border-radius: 2px;
-  background-color: var(--color-bg);
+  background-color: var(--color-surface);
+  color: var(--color-text);
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23605d5d' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 8px center;
@@ -7662,7 +7519,7 @@ html[data-mode="dark"] .visit-select {
 }
 .meter span {
   width: 6px;
-  background: var(--color-neutral-300);
+  background: var(--meter-empty);
   border-radius: var(--radius-sm);
 }
 .meter span:nth-child(1) { height: 25%; }
@@ -7670,7 +7527,7 @@ html[data-mode="dark"] .visit-select {
 .meter span:nth-child(3) { height: 75%; }
 .meter span:nth-child(4) { height: 100%; }
 .meter span.on {
-  background: var(--meter, var(--color-neutral-300));
+  background: var(--meter, var(--meter-empty));
 }
 .value-name {
   font-size: 14px;
@@ -7691,10 +7548,9 @@ html[data-mode="dark"] .visit-select {
   z-index: 80;
   padding: 8px;
   border-radius: var(--radius-sm);
-  background: var(--color-bg);
-  box-shadow:
-    0 0 0 1px rgba(32, 30, 29, 0.12),
-    0 12px 28px rgba(32, 30, 29, 0.16);
+  background: var(--color-raised);
+  color: var(--color-text);
+  box-shadow: var(--shadow-lg);
 }
 .interest-popover .chips {
   display: flex;
@@ -7720,9 +7576,9 @@ html[data-mode="dark"] .visit-select {
   padding: 8px 9px;
   border: 0;
   cursor: pointer;
-  background: var(--color-bg);
+  background: var(--color-surface);
   color: var(--text-muted);
-  box-shadow: inset 0 0 0 1px var(--color-neutral-300);
+  box-shadow: inset 0 0 0 1px var(--color-border);
   border-radius: var(--radius-sm);
 }
 .chip:hover {
@@ -7764,7 +7620,7 @@ html[data-mode="dark"] .visit-select {
 /* Mobile cards */
 .school-card-interest {
   margin-top: var(--space-2);
-  --meter: var(--color-neutral-300);
+  --meter: var(--meter-empty);
 }
 .school-card-interest[data-level="safety"] { --meter: var(--lvl-1); }
 .school-card-interest[data-level="moderate"] { --meter: var(--lvl-2); }
@@ -8535,18 +8391,18 @@ html[data-mode="dark"] .school-modal-backdrop {
 
 /* ---------- left rail v2 (process groups) ---------- */
 .rail {
-  --rail-bg: #eae9e9;
-  --rail-card: #f3f2f2;
-  --rail-hover: #e0dede;
-  --rail-menu: #ffffff;
-  --rail-line: #d7d3d3;
-  --rail-tint: var(--color-tint);
-  --rail-on-tint: var(--color-on-tint);
-  --rail-icon-on: #c74503;
-  --rail-brand: #2f5aa0;
+  --rail-bg: var(--color-rail);
+  --rail-card: var(--color-bg);
+  --rail-hover: var(--color-surface-2);
+  --rail-menu: var(--color-raised);
+  --rail-line: var(--color-border);
+  --rail-tint: var(--color-accent-tint);
+  --rail-on-tint: var(--text-on-tint);
+  --rail-icon-on: var(--color-accent-pressed);
+  --rail-brand: var(--color-brand);
   --rail-avatar-bg: #d3dcea;
   --rail-avatar-ink: #2f5aa0;
-  --rail-menu-shadow: 0 12px 32px rgba(32, 30, 29, 0.18);
+  --rail-menu-shadow: var(--shadow-lg);
   position: sticky;
   top: 0;
   align-self: start;
@@ -8561,16 +8417,9 @@ html[data-mode="dark"] .school-modal-backdrop {
   overflow-x: hidden;
 }
 html[data-mode="dark"] .rail {
-  --rail-bg: #16181b;
-  --rail-card: #1f2228;
-  --rail-hover: #2d3139;
-  --rail-menu: #2d3139;
-  --rail-line: #3d424b;
-  --rail-icon-on: #fab48e;
-  --rail-brand: #7ba4ee;
+  --rail-icon-on: var(--text-accent);
   --rail-avatar-bg: #26344d;
   --rail-avatar-ink: #a9c1ec;
-  --rail-menu-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(240, 238, 236, 0.06);
 }
 .rail-brand {
   display: flex;
@@ -8609,7 +8458,7 @@ html[data-mode="dark"] .rail {
 }
 .rail-phase-segs {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 3px;
 }
 .rail-phase-segs i { height: 5px; background: var(--rail-line); }
@@ -8648,6 +8497,9 @@ html[data-mode="dark"] .rail-menu-lbl { font-weight: 500; }
 }
 .rail-item svg { flex: none; width: 20px; height: 20px; color: var(--text-subtle); }
 .rail-item:hover { background: var(--rail-hover); }
+.rail-item:focus-visible:not([aria-current="page"]) {
+  background: transparent;
+}
 .rail-item-label { min-width: 0; }
 .rail-item-count {
   margin-left: auto;
@@ -8660,6 +8512,11 @@ html[data-mode="dark"] .rail-menu-lbl { font-weight: 500; }
   background: var(--rail-tint);
   color: var(--rail-on-tint);
   font-weight: 600;
+  border: none;
+  box-shadow: none;
+}
+.rail-item[aria-current="page"]:focus:not(:focus-visible) {
+  outline: none;
 }
 .rail-item[aria-current="page"] svg { color: var(--rail-icon-on); }
 .rail-subnav {
