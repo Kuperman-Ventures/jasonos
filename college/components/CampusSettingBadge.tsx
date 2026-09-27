@@ -40,6 +40,7 @@ export function CampusSettingBadge({
   metroPopulation,
   location,
   showLabel = true,
+  showTooltip = true,
 }: {
   campusSetting: string;
   metroArea?: string | null;
@@ -47,6 +48,8 @@ export function CampusSettingBadge({
   /** Used for college-town / small-town tooltips. */
   location?: string;
   showLabel?: boolean;
+  /** Native hover title; turn off when the detail line already shows the same copy. */
+  showTooltip?: boolean;
 }) {
   const setting = campusSetting as CampusSetting;
   const Icon = SETTING_ICONS[setting];
@@ -78,7 +81,11 @@ export function CampusSettingBadge({
   }
 
   return (
-    <span className="campus-setting-badge" title={tooltip} aria-label={ariaBits.join(". ")}>
+    <span
+      className="campus-setting-badge"
+      title={showTooltip ? tooltip : undefined}
+      aria-label={ariaBits.join(". ")}
+    >
       <Icon className="campus-setting-icon" size={16} weight="duotone" aria-hidden="true" />
       {showBars ? <MetroBars filled={bars} /> : null}
       {showLabel ? <span className="campus-setting-label">{setting}</span> : null}
