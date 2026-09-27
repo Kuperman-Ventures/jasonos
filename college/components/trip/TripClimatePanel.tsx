@@ -3,8 +3,6 @@
 import {
   CLIMATE_DISPLAY_MONTHS,
   MONTH_LABELS,
-  annualPrecip,
-  annualSnow,
   climateCompareOptions,
   climateCompareSummaryBody,
   climateSchoolSummaryBody,
@@ -23,9 +21,14 @@ function ty(t: number): number {
 }
 
 function fmtSnow(inches: number): string {
-  if (inches < 1) return "";
+  if (inches === 0) return "";
+  if (inches < 1) return `${inches.toFixed(1)}″`;
   const n = Number.isInteger(inches) ? String(inches) : String(Math.round(inches * 10) / 10);
   return `${n}″`;
+}
+
+function rainHeight(inches: number): number {
+  return (Math.min(Math.max(inches, 0), RAIN_MAX) / RAIN_MAX) * RAIN_H;
 }
 
 function fmtDelta(d: number): string {
@@ -165,11 +168,11 @@ export function TripClimatePanel({
           return (
             <div key={`r-${monthIndex}`} className={`trip-rain${off ? " is-off" : ""}`}>
               <div className="trip-rain-bars">
-                <i style={{ height: (inches / RAIN_MAX) * RAIN_H }} />
+                <i style={{ height: rainHeight(inches) }} />
                 {compare ? (
                   <i
                     className="cmp"
-                    style={{ height: (compare.precip[monthIndex]! / RAIN_MAX) * RAIN_H }}
+                    style={{ height: rainHeight(compare.precip[monthIndex]!) }}
                   />
                 ) : null}
               </div>
@@ -186,7 +189,7 @@ export function TripClimatePanel({
           return (
             <div key={`s-${monthIndex}`} className={`trip-snow${off ? " is-off" : ""}`}>
               <span>{fmtSnow(schoolSnow)}</span>
-              {compare && cmpSnow != null && cmpSnow >= 1 ? (
+              {compare && cmpSnow != null && cmpSnow > 0 ? (
                 <span className="cmp">{fmtSnow(cmpSnow)}</span>
               ) : null}
             </div>
@@ -204,18 +207,16 @@ export function TripClimatePanel({
         ))}
 
         <span />
+        <span />
         <div className="trip-sy" aria-hidden="true">
+          <i />
           <span>School year · Sep–May</span>
+          <i />
         </div>
       </div>
 
       <p className="trip-foot">
         30-year monthly normals. Hover a month for exact figures.
-        {annualPrecip(campus) > 0
-          ? ` About ${annualPrecip(campus)} in. rain`
-          : ""}
-        {annualSnow(campus) > 0 ? ` / ${annualSnow(campus)} in. snow` : ""} at{" "}
-        {campus.city}.
       </p>
     </div>
   );
