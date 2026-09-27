@@ -1,6 +1,11 @@
 /**
- * Columbia High School (Maplewood / SOMSD) 2025–26 calendar.
+ * Columbia High School (Maplewood / SOMSD) 2026–27 calendar.
  * Source: CHS Schedule Update PDF (SchoolMessenger).
+ *
+ * The PDF email header says "2025 - 2026 School Year", but every dated holiday
+ * matches 2026–27 (Labor Day Mon Sep 7 2026, Yom Kippur Sep 21 2026, Good Friday
+ * Mar 26 2027, Memorial Day Mon May 31 2027). Internal cues also say "Week of
+ * Respect for 2026", "Winter Sports 2026-2027", and "Spring Sports 2027".
  *
  * Entries marked `forVisits` were highlighted in red in that PDF — those are
  * the no-school / half-day windows useful for college visits. Spring Break was
@@ -26,169 +31,169 @@ export type ChsScheduleEntry = {
   forVisits: boolean;
 };
 
-export const CHS_SCHEDULE_YEAR = "2025-2026";
+export const CHS_SCHEDULE_YEAR = "2026-2027";
 export const CHS_SCHEDULE_SOURCE =
   "CHS Schedule Update PDF (South Orange & Maplewood School District)";
 
-/** Full district schedule kept as data for Kyle / Trip planning. */
+/** Full district schedule kept as data for Kyle / Trip planning (Sep 2026–Jun 2027). */
 export const CHS_SCHEDULE: ChsScheduleEntry[] = [
   {
-    start: "2025-08-18",
-    end: "2025-08-18",
+    start: "2026-08-18",
+    end: "2026-08-18",
     label: "Freshmen Orientation (B Day)",
     kind: "event",
     forVisits: false,
   },
   {
-    start: "2025-09-01",
-    end: "2025-09-01",
+    start: "2026-09-01",
+    end: "2026-09-01",
     label: "First day of school for students",
     kind: "event",
     forVisits: false,
   },
   {
-    start: "2025-09-07",
-    end: "2025-09-07",
+    start: "2026-09-07",
+    end: "2026-09-07",
     label: "Labor Day",
     kind: "no_school",
     forVisits: true,
   },
   {
-    start: "2025-09-21",
-    end: "2025-09-21",
+    start: "2026-09-21",
+    end: "2026-09-21",
     label: "Yom Kippur",
     kind: "no_school",
     forVisits: true,
   },
   {
-    start: "2025-10-01",
-    end: "2025-10-01",
+    start: "2026-10-01",
+    end: "2026-10-01",
     label: "Half day (Back to School Night)",
     kind: "half_day",
     forVisits: true,
   },
   {
-    start: "2025-10-12",
-    end: "2025-10-12",
+    start: "2026-10-12",
+    end: "2026-10-12",
     label: "Teacher PD / Indigenous Peoples’ Day",
     kind: "no_school",
     forVisits: true,
   },
   {
-    start: "2025-10-26",
-    end: "2025-10-26",
+    start: "2026-10-26",
+    end: "2026-10-26",
     label: "PSATs (delayed opening for 9th & 12th)",
     kind: "delayed_opening",
     forVisits: true,
   },
   {
-    start: "2025-11-03",
-    end: "2025-11-03",
+    start: "2026-11-03",
+    end: "2026-11-03",
     label: "Election Day / Teacher PD",
     kind: "no_school",
     forVisits: true,
   },
   {
-    start: "2025-11-05",
-    end: "2025-11-06",
+    start: "2026-11-05",
+    end: "2026-11-06",
     label: "NJEA Teachers Convention",
     kind: "no_school",
     forVisits: true,
   },
   {
-    start: "2025-11-25",
-    end: "2025-11-25",
+    start: "2026-11-25",
+    end: "2026-11-25",
     label: "Half day (before Thanksgiving)",
     kind: "half_day",
     forVisits: true,
   },
   {
-    start: "2025-11-26",
-    end: "2025-11-27",
+    start: "2026-11-26",
+    end: "2026-11-27",
     label: "Thanksgiving Break",
     kind: "no_school",
     forVisits: true,
   },
   {
-    start: "2025-12-23",
-    end: "2025-12-23",
+    start: "2026-12-23",
+    end: "2026-12-23",
     label: "District half day (before Winter Break)",
     kind: "half_day",
     forVisits: true,
   },
   {
-    start: "2025-12-24",
-    end: "2026-01-03",
+    start: "2026-12-24",
+    end: "2027-01-03",
     label: "Winter Break",
     kind: "no_school",
     forVisits: true,
   },
   {
-    start: "2026-01-04",
-    end: "2026-01-04",
+    start: "2027-01-04",
+    end: "2027-01-04",
     label: "Return to school",
     kind: "event",
     forVisits: false,
   },
   {
-    start: "2026-01-18",
-    end: "2026-01-18",
+    start: "2027-01-18",
+    end: "2027-01-18",
     label: "Dr. Martin Luther King, Jr. Day",
     kind: "no_school",
     forVisits: true,
   },
   {
-    start: "2026-02-15",
-    end: "2026-02-15",
+    start: "2027-02-15",
+    end: "2027-02-15",
     label: "Presidents’ Day",
     kind: "no_school",
     forVisits: true,
   },
   {
-    start: "2026-03-10",
-    end: "2026-03-10",
+    start: "2027-03-10",
+    end: "2027-03-10",
     label: "Eid al-Fitr",
     kind: "no_school",
     forVisits: true,
   },
   {
-    start: "2026-03-26",
-    end: "2026-03-26",
+    start: "2027-03-26",
+    end: "2027-03-26",
     label: "Good Friday",
     kind: "no_school",
     forVisits: true,
   },
   {
-    start: "2026-04-12",
-    end: "2026-04-16",
+    start: "2027-04-12",
+    end: "2027-04-16",
     label: "Spring Break",
     kind: "no_school",
     forVisits: true,
   },
   {
-    start: "2026-05-31",
-    end: "2026-05-31",
+    start: "2027-05-31",
+    end: "2027-05-31",
     label: "Memorial Day",
     kind: "no_school",
     forVisits: true,
   },
   {
-    start: "2026-06-01",
-    end: "2026-06-01",
+    start: "2027-06-01",
+    end: "2027-06-01",
     label: "Half day (Primary Election Day)",
     kind: "half_day",
     forVisits: true,
   },
   {
-    start: "2026-06-17",
-    end: "2026-06-17",
+    start: "2027-06-17",
+    end: "2027-06-17",
     label: "Last day of school (half day)",
     kind: "half_day",
     forVisits: true,
   },
   {
-    start: "2026-06-18",
-    end: "2026-06-18",
+    start: "2027-06-18",
+    end: "2027-06-18",
     label: "Juneteenth (district closed)",
     kind: "district_closed",
     forVisits: true,

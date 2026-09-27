@@ -1,6 +1,7 @@
 /**
  * Campus calendar stubs + Kyle's CHS visit breaks for When to go / Itinerary.
- * Kyle's off weeks come from Columbia HS 2025–26 (see chs-schedule.ts).
+ * Kyle's off weeks come from Columbia HS 2026–27 (see chs-schedule.ts).
+ * Academic year covered: September 2026 through August 2027.
  */
 
 import {
@@ -15,30 +16,30 @@ export type CampusWeekState = "session" | "break" | "finals";
 export { CHS_SCHEDULE, CHS_SCHEDULE_SOURCE, CHS_SCHEDULE_YEAR, chsVisitBreaks, chsTripWindows } from "./chs-schedule";
 
 /**
- * Nine Mondays around CHS Spring Break 2026 (Apr 12–16).
- * Week 0 = Mon Mar 2, 2026.
+ * Nine Mondays around CHS Spring Break 2027 (Apr 12–16).
+ * Week 0 = Mon Mar 1, 2027. Spring Break week = Apr 12 (index 6).
  */
 export const TRIP_WEEK_LABELS = [
-  "Mar 2",
-  "Mar 9",
-  "Mar 16",
-  "Mar 23",
-  "Mar 30",
-  "Apr 6",
-  "Apr 13",
-  "Apr 20",
-  "Apr 27",
+  "Mar 1",
+  "Mar 8",
+  "Mar 15",
+  "Mar 22",
+  "Mar 29",
+  "Apr 5",
+  "Apr 12",
+  "Apr 19",
+  "Apr 26",
 ] as const;
 
-/** Monday of TRIP_WEEK_LABELS[0]. */
-export const TRIP_WEEK0 = new Date(2026, 2, 2);
+/** Monday of TRIP_WEEK_LABELS[0] (Mar 1, 2027). */
+export const TRIP_WEEK0 = new Date(2027, 2, 1);
 
 const KYLE_BREAK_INDEXES = kyleBreakWeekIndexes(
   TRIP_WEEK0,
   TRIP_WEEK_LABELS.length,
 );
 
-/** Default selected week = CHS Spring Break week (Apr 13). */
+/** Default selected week = CHS Spring Break week (Apr 12, 2027). */
 export const DEFAULT_TRIP_WEEK_INDEX = KYLE_BREAK_INDEXES.includes(6)
   ? 6
   : (KYLE_BREAK_INDEXES[0] ?? 6);
