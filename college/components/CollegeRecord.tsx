@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { CaretLeft, CaretRight } from "@phosphor-icons/react";
 import {
   ADMISSION_TRACKS,
   APPLICATION_STATUSES,
@@ -84,6 +85,11 @@ export function CollegeRecord({
   memberName,
   memberProfiles,
   onBack,
+  onNavigate,
+  previousSchool,
+  nextSchool,
+  listPosition,
+  listTotal,
   onPatch,
   onDelete,
   onAdvance,
@@ -125,6 +131,13 @@ export function CollegeRecord({
   memberName: string;
   memberProfiles: MemberProfile[];
   onBack: () => void;
+  /** Step to another school in the current list without closing the modal. */
+  onNavigate?: (id: string) => void;
+  previousSchool?: School | null;
+  nextSchool?: School | null;
+  /** 1-based index in the browsable list, or null when the school is not in that list. */
+  listPosition?: number | null;
+  listTotal?: number;
   onPatch: (patch: Partial<School>) => void;
   onDelete: () => void;
   onAdvance: () => void;
@@ -166,13 +179,40 @@ export function CollegeRecord({
   const [photoFailed, setPhotoFailed] = useState(false);
 
   const onBackRef = useRef(onBack);
+  const onNavigateRef = useRef(onNavigate);
+  const previousIdRef = useRef(previousSchool?.id ?? null);
+  const nextIdRef = useRef(nextSchool?.id ?? null);
   useEffect(() => {
     onBackRef.current = onBack;
   }, [onBack]);
+  useEffect(() => {
+    onNavigateRef.current = onNavigate;
+  }, [onNavigate]);
+  useEffect(() => {
+    previousIdRef.current = previousSchool?.id ?? null;
+    nextIdRef.current = nextSchool?.id ?? null;
+  }, [previousSchool?.id, nextSchool?.id]);
 
   useEffect(() => {
+    function isTypingTarget(target: EventTarget | null): boolean {
+      if (!(target instanceof HTMLElement)) return false;
+      const tag = target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+      return target.isContentEditable;
+    }
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") onBackRef.current();
+      if (event.key === "Escape") {
+        onBackRef.current();
+        return;
+      }
+      if (isTypingTarget(event.target)) return;
+      if (event.key === "ArrowLeft" && previousIdRef.current) {
+        event.preventDefault();
+        onNavigateRef.current?.(previousIdRef.current);
+      } else if (event.key === "ArrowRight" && nextIdRef.current) {
+        event.preventDefault();
+        onNavigateRef.current?.(nextIdRef.current);
+      }
     }
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -187,14 +227,17 @@ export function CollegeRecord({
     let cancelled = false;
     setPhotoUrl(null);
     setPhotoFailed(false);
-    setTab(initialTab === "financials" && !canViewFinancesTab ? "snapshot" : initialTab);
     void fetchSchoolPhotoUrl(school.id, school.name).then((url) => {
       if (!cancelled) setPhotoUrl(url);
     });
     return () => {
       cancelled = true;
     };
-  }, [school.id, school.name, initialTab, canViewFinancesTab]);
+  }, [school.id, school.name]);
+
+  useEffect(() => {
+    setTab(initialTab === "financials" && !canViewFinancesTab ? "snapshot" : initialTab);
+  }, [initialTab, canViewFinancesTab]);
 
   useEffect(() => {
     if (tab === "financials" && !canViewFinancesTab) setTab("snapshot");
@@ -234,6 +277,43 @@ export function CollegeRecord({
           <button type="button" className="back-link" onClick={onBack}>
             Close
           </button>
+          {listTotal && listTotal > 0 ? (
+            <nav className="school-modal-nav" aria-label="Schools in this list">
+              <button
+                type="button"
+                className="school-modal-nav-btn"
+                disabled={!previousSchool || !onNavigate}
+                aria-label={
+                  previousSchool ? `Previous school: ${previousSchool.name}` : "No previous school"
+                }
+                onClick={() => previousSchool && onNavigate?.(previousSchool.id)}
+              >
+                <CaretLeft size={18} weight="bold" aria-hidden="true" />
+                <span className="school-modal-nav-label">
+                  {previousSchool ? previousSchool.name : "Previous"}
+                </span>
+              </button>
+              <span className="school-modal-nav-pos" aria-live="polite">
+                {listPosition != null && listPosition > 0
+                  ? `${listPosition} of ${listTotal}`
+                  : `— of ${listTotal}`}
+              </span>
+              <button
+                type="button"
+                className="school-modal-nav-btn"
+                disabled={!nextSchool || !onNavigate}
+                aria-label={nextSchool ? `Next school: ${nextSchool.name}` : "No next school"}
+                onClick={() => nextSchool && onNavigate?.(nextSchool.id)}
+              >
+                <span className="school-modal-nav-label">
+                  {nextSchool ? nextSchool.name : "Next"}
+                </span>
+                <CaretRight size={18} weight="bold" aria-hidden="true" />
+              </button>
+            </nav>
+          ) : (
+            <span className="school-modal-nav-spacer" aria-hidden="true" />
+          )}
           <span className="school-modal-phase">
             {school.archived ? "Archived" : phaseLabel}
             {school.phasesParticipated.length > 1 ? ` · ${participated}` : ""}

@@ -953,10 +953,10 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   position: sticky;
   top: 0;
   z-index: 2;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(4.5rem, auto) minmax(0, 1fr) minmax(4.5rem, auto);
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
+  gap: var(--space-3);
   padding: var(--space-4) 0;
   margin: 0 calc(-1 * var(--space-8));
   padding-left: var(--space-8);
@@ -964,13 +964,60 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   background: color-mix(in srgb, var(--color-bg) 92%, transparent);
   backdrop-filter: blur(8px);
 }
-.school-modal-chrome .back-link { margin-bottom: 0; }
+.school-modal-chrome .back-link { margin-bottom: 0; justify-self: start; }
+.school-modal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.school-modal-nav-spacer { display: block; }
+.school-modal-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 11rem;
+  min-height: 36px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.2;
+  cursor: pointer;
+}
+.school-modal-nav-btn:hover:not(:disabled) {
+  border-color: var(--accent-500);
+  color: var(--text-accent);
+}
+.school-modal-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.school-modal-nav-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.school-modal-nav-pos {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--text-subtle);
+  white-space: nowrap;
+}
 .school-modal-phase {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.08em;
   color: var(--text-subtle);
   text-align: right;
+  justify-self: end;
 }
 .school-hero {
   position: relative;
@@ -1935,6 +1982,20 @@ table.schools .muted,
   .school-modal-chrome {
     padding-left: var(--space-4);
     padding-right: var(--space-4);
+    gap: var(--space-2);
+  }
+  .school-modal-nav-btn {
+    max-width: 2.5rem;
+    padding: 0;
+    justify-content: center;
+  }
+  .school-modal-nav-label { display: none; }
+  .school-modal-phase {
+    font-size: 10px;
+    max-width: 5.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .school-hero-copy {
     padding-left: var(--space-4);
