@@ -175,9 +175,26 @@ export type SchoolResearchUpdate = {
   fields: Record<string, unknown>;
 };
 
+export type ResearchFieldDiff = {
+  field: string;
+  group: ResearchGroupName | null;
+  current: unknown;
+  next: unknown;
+};
+
+export type ResearchPreviewRow = {
+  unitId: number;
+  schoolId: string;
+  schoolName: string;
+  field: string;
+  current: string;
+  next: string;
+};
+
 export type ResearchValidationOk = {
   ok: true;
   update: SchoolResearchUpdate;
+  diffs: ResearchFieldDiff[];
 };
 
 export type ResearchValidationFail = {
@@ -186,6 +203,14 @@ export type ResearchValidationFail = {
 };
 
 export type ResearchValidationResult = ResearchValidationOk | ResearchValidationFail;
+
+export type ResearchApplyPatch = {
+  schoolId: string;
+  unitId: number;
+  schoolName: string;
+  patch: Partial<School> & Record<string, unknown>;
+  rows: ResearchPreviewRow[];
+};
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -227,11 +252,56 @@ function validateFieldValue(spec: ResearchFieldSpec, value: unknown): string | n
   return null;
 }
 
+function formatPreviewValue(value: unknown): string {
+  if (value === null || value === undefined) return "—";
+  if (typeof value === "string") return value.trim() ? value : "—";
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value === "boolean") return value ? "true" : "false";
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function schoolFieldValue(school: School, field: string): unknown {
+  return (school as Record<string, unknown>)[field];
+}
+
+/** Build field diffs for a validated update against the current school record. */
+export function researchFieldDiffs(
+  update: SchoolResearchUpdate,
+  school: School,
+): ResearchFieldDiff[] {
+  const diffs: ResearchFieldDiff[] = [];
+  for (const [field, next] of Object.entries(update.fields)) {
+    const current = schoolFieldValue(school, field);
+    if (Object.is(current, next)) continue;
+    if (
+      (current === null || current === undefined || current === "") &&
+      (next === null || next === undefined || next === "")
+    ) {
+      continue;
+    }
+    diffs.push({
+      field,
+      group: researchGroupForField(field),
+      current,
+      next,
+    });
+  }
+  return diffs;
+}
+
 /**
  * Validate a school-research JSON update (single object).
  * Does not check that unitId exists on the list — callers do that.
+ * When `school` is provided, also returns field diffs for the preview table.
  */
-export function validateSchoolResearchUpdate(json: unknown): ResearchValidationResult {
+export function validateSchoolResearchUpdate(
+  json: unknown,
+  school?: School | null,
+): ResearchValidationResult {
   const problems: string[] = [];
   if (!isPlainObject(json)) {
     return { ok: false, problems: ["Update must be a JSON object"] };
@@ -244,6 +314,16 @@ export function validateSchoolResearchUpdate(json: unknown): ResearchValidationR
   const unitId = json.unitId;
   if (typeof unitId !== "number" || !Number.isFinite(unitId) || unitId <= 0) {
     problems.push("unitId must be a positive number");
+  }
+
+  if (school && typeof unitId === "number" && Number.isFinite(unitId)) {
+    if (school.unitId == null) {
+      problems.push(`${school.name} has no unitId on file`);
+    } else if (school.unitId !== Math.round(unitId)) {
+      problems.push(
+        `unitId ${Math.round(unitId)} does not match ${school.name} (unitId ${school.unitId})`,
+      );
+    }
   }
 
   const completedRaw = json.completedGroups;
@@ -279,15 +359,104 @@ export function validateSchoolResearchUpdate(json: unknown): ResearchValidationR
 
   if (problems.length) return { ok: false, problems };
 
+  const update: SchoolResearchUpdate = {
+    updateType: "school-research",
+    unitId: Math.round(unitId as number),
+    school: typeof json.school === "string" ? json.school : undefined,
+    preparedDate: typeof json.preparedDate === "string" ? json.preparedDate : undefined,
+    completedGroups,
+    fields,
+  };
+
   return {
     ok: true,
-    update: {
-      updateType: "school-research",
-      unitId: Math.round(unitId as number),
-      school: typeof json.school === "string" ? json.school : undefined,
-      preparedDate: typeof json.preparedDate === "string" ? json.preparedDate : undefined,
-      completedGroups,
-      fields,
-    },
+    update,
+    diffs: school ? researchFieldDiffs(update, school) : [],
   };
+}
+
+/**
+ * Parse paste payload (object or array), match unitIds to the list, and
+ * build preview rows + patches ready to apply.
+ */
+export function prepareSchoolResearchUpdates(
+  json: unknown,
+  schools: School[],
+): { ok: true; patches: ResearchApplyPatch[] } | { ok: false; problems: string[] } {
+  const items = Array.isArray(json) ? json : [json];
+  if (!items.length) return { ok: false, problems: ["Paste at least one school-research update"] };
+
+  const byUnitId = new Map<number, School>();
+  for (const school of schools) {
+    if (school.unitId != null) byUnitId.set(school.unitId, school);
+  }
+
+  const problems: string[] = [];
+  const patches: ResearchApplyPatch[] = [];
+
+  for (let i = 0; i < items.length; i += 1) {
+    const label = items.length > 1 ? `Update ${i + 1}` : "Update";
+    const raw = items[i];
+    const unitIdHint =
+      isPlainObject(raw) && typeof raw.unitId === "number" ? Math.round(raw.unitId) : null;
+    const school = unitIdHint != null ? byUnitId.get(unitIdHint) ?? null : null;
+    if (unitIdHint != null && !school) {
+      problems.push(`${label}: no school on the list with unitId ${unitIdHint}`);
+      continue;
+    }
+
+    const result = validateSchoolResearchUpdate(raw, school);
+    if (!result.ok) {
+      for (const problem of result.problems) problems.push(`${label}: ${problem}`);
+      continue;
+    }
+    if (!school) {
+      problems.push(`${label}: unitId must match a school on the list`);
+      continue;
+    }
+
+    const done = new Set(school.researchCompleted ?? []);
+    for (const group of result.update.completedGroups) done.add(group);
+
+    const patch: Partial<School> & Record<string, unknown> = {
+      ...result.update.fields,
+      researchCompleted: [...done],
+    };
+
+    const rows: ResearchPreviewRow[] = result.diffs.map((diff) => ({
+      unitId: school.unitId!,
+      schoolId: school.id,
+      schoolName: school.name,
+      field: diff.field,
+      current: formatPreviewValue(diff.current),
+      next: formatPreviewValue(diff.next),
+    }));
+
+    if (result.update.completedGroups.length) {
+      const before = [...(school.researchCompleted ?? [])].sort().join(", ") || "—";
+      const after = [...done].sort().join(", ") || "—";
+      if (before !== after) {
+        rows.push({
+          unitId: school.unitId!,
+          schoolId: school.id,
+          schoolName: school.name,
+          field: "researchCompleted",
+          current: before,
+          next: after,
+        });
+      }
+    }
+
+    patches.push({
+      schoolId: school.id,
+      unitId: school.unitId!,
+      schoolName: school.name,
+      patch,
+      rows,
+    });
+  }
+
+  if (problems.length) return { ok: false, problems };
+  if (!patches.length) return { ok: false, problems: ["No field changes to apply"] };
+  return { ok: true, patches };
 }

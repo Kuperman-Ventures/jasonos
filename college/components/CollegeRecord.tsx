@@ -13,6 +13,7 @@ import {
   type School,
 } from "@/lib/types";
 import { LIST_PHASES, nextListPhaseId, previousListPhaseId, type ListPhaseId } from "@/lib/list-phases";
+import { formatResearchRequest, researchGroupsNeeded } from "@/lib/research";
 import { sourceLines } from "@/lib/school-research";
 import { fetchSchoolPhotoUrl, websiteHostLabel, websiteHref } from "@/lib/school-photo";
 import type { MemberProfile } from "@/lib/member-avatars";
@@ -177,6 +178,7 @@ export function CollegeRecord({
   const [tab, setTab] = useState<SchoolModalTab>(initialTab);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoFailed, setPhotoFailed] = useState(false);
+  const [researchCopied, setResearchCopied] = useState(false);
 
   const onBackRef = useRef(onBack);
   const onNavigateRef = useRef(onNavigate);
@@ -268,6 +270,18 @@ export function CollegeRecord({
   const siteLabel = websiteHostLabel(school.website) || "School website";
   const showPhoto = Boolean(photoUrl) && !photoFailed;
   const nextOpenDeadline = deadlines.find((item) => !item.completed && item.dueDate) ?? null;
+  const researchNeeded = researchGroupsNeeded(school);
+
+  async function copyResearchRequest() {
+    const text = formatResearchRequest(school);
+    try {
+      await navigator.clipboard.writeText(text);
+      setResearchCopied(true);
+      window.setTimeout(() => setResearchCopied(false), 2000);
+    } catch {
+      setResearchCopied(false);
+    }
+  }
 
   return (
     <div className="school-modal-root">
@@ -336,15 +350,35 @@ export function CollegeRecord({
               <div>
                 <h2>{school.name}</h2>
                 <p className="school-hero-location">{school.location || "Location not set"}</p>
+                {researchNeeded.length ? (
+                  <p className="needs-research school-hero-research">
+                    {researchNeeded.map((group) => (
+                      <small key={group} className="needs-research-tag">
+                        Needs {group}
+                      </small>
+                    ))}
+                  </p>
+                ) : null}
               </div>
             </div>
-            {siteHref ? (
-              <a className="school-hero-link" href={siteHref} target="_blank" rel="noreferrer">
-                Visit {siteLabel}
-              </a>
-            ) : (
-              <span className="school-hero-link school-hero-link-missing">No website on file</span>
-            )}
+            <div className="school-hero-actions">
+              {siteHref ? (
+                <a className="school-hero-link" href={siteHref} target="_blank" rel="noreferrer">
+                  Visit {siteLabel}
+                </a>
+              ) : (
+                <span className="school-hero-link school-hero-link-missing">No website on file</span>
+              )}
+              {school.unitId != null && researchNeeded.length ? (
+                <button
+                  type="button"
+                  className="btn btn-secondary school-research-btn"
+                  onClick={() => void copyResearchRequest()}
+                >
+                  {researchCopied ? "Copied" : "Research this school"}
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
 

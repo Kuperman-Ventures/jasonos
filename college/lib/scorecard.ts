@@ -212,3 +212,60 @@ export async function fetchScorecardByUnitId(unitId: number): Promise<ScorecardS
   }
   return mapScorecardByIdRow(row);
 }
+
+export const SCORECARD_SEARCH_FIELDS = ["id", "school.name", "school.city", "school.state"].join(",");
+
+export type ScorecardSearchHit = {
+  id: number;
+  name: string;
+  city: string;
+  state: string;
+};
+
+/**
+ * Search operating bachelor's-predominant schools by name.
+ * Strips commas — Scorecard 500s when school.name contains them.
+ */
+export async function searchScorecardSchools(
+  query: string,
+  limit = 10,
+): Promise<ScorecardSearchHit[]> {
+  const trimmed = query.replace(/,/g, " ").replace(/\s+/g, " ").trim();
+  if (!trimmed) return [];
+
+  const url = new URL(SCORECARD_API_URL);
+  url.searchParams.set("api_key", scorecardApiKey());
+  url.searchParams.set("school.name", trimmed);
+  url.searchParams.set("school.operating", "1");
+  url.searchParams.set("school.degrees_awarded.predominant", "3");
+  url.searchParams.set("per_page", String(Math.min(Math.max(1, Math.round(limit)), 20)));
+  url.searchParams.set("fields", SCORECARD_SEARCH_FIELDS);
+
+  const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
+  if (!response.ok) {
+    throw new Error(`College Scorecard returned ${response.status}`);
+  }
+  const body = (await response.json()) as {
+    results?: Array<{
+      id?: number;
+      "school.name"?: string;
+      "school.city"?: string | null;
+      "school.state"?: string | null;
+    }>;
+  };
+
+  const hits: ScorecardSearchHit[] = [];
+  for (const row of body.results ?? []) {
+    if (typeof row.id !== "number" || !Number.isFinite(row.id)) continue;
+    const name = row["school.name"]?.trim() ?? "";
+    if (!name) continue;
+    hits.push({
+      id: Math.round(row.id),
+      name,
+      city: row["school.city"]?.trim() ?? "",
+      state: row["school.state"]?.trim() ?? "",
+    });
+    if (hits.length >= limit) break;
+  }
+  return hits;
+}

@@ -428,7 +428,32 @@ const PATCH_COLUMNS: Record<string, string> = {
   website: "website",
   scorecardFetchedDate: "scorecard_fetched_date",
   driveAddress: "drive_address",
+  admitDataYear: "admit_data_year",
+  outOfStateDefinition: "out_of_state_definition",
+  outOfStatePolicy: "out_of_state_policy",
+  engineeringResidencyNote: "engineering_residency_note",
+  residencySourceUrl: "residency_source_url",
+  residencyNotes: "residency_notes",
 };
+
+function patchNullableNumber(
+  row: Record<string, unknown>,
+  patch: Record<string, unknown>,
+  key: string,
+  column: string,
+  options?: { min?: number },
+): void {
+  if (!(key in patch)) return;
+  const value = patch[key];
+  if (value === null) {
+    row[column] = null;
+    return;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) {
+    if (options?.min != null && value < options.min) return;
+    row[column] = value;
+  }
+}
 
 export function schoolPatchToRow(patch: Record<string, unknown>): Record<string, unknown> {
   const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
@@ -455,6 +480,16 @@ export function schoolPatchToRow(patch: Record<string, unknown>): Record<string,
   }
   if (typeof patch.familyTestPolicy === "string") {
     row.family_test_policy = patch.familyTestPolicy;
+  }
+  if (typeof patch.control === "string") {
+    const control = asControl(patch.control);
+    if (control) row.control = control;
+  }
+  if (typeof patch.residencyDataStatus === "string") {
+    row.residency_data_status = asResidencyStatus(patch.residencyDataStatus);
+  }
+  if (typeof patch.kyleResidency === "string") {
+    row.kyle_residency = asKyleResidency(patch.kyleResidency);
   }
   if (patch.testPolicyChange === null) {
     row.test_policy_change = null;
@@ -484,6 +519,13 @@ export function schoolPatchToRow(patch: Record<string, unknown>): Record<string,
   ) {
     row.metro_population = Math.round(patch.metroPopulation);
   }
+  patchNullableNumber(row, patch, "inStateAdmitRate", "in_state_admit_rate");
+  patchNullableNumber(row, patch, "outOfStateAdmitRate", "out_of_state_admit_rate");
+  patchNullableNumber(row, patch, "overallAdmitRate", "overall_admit_rate");
+  patchNullableNumber(row, patch, "rateThatAppliesToKyle", "rate_that_applies_to_kyle");
+  patchNullableNumber(row, patch, "enrolledOutOfStatePct", "enrolled_out_of_state_pct", {
+    min: 0,
+  });
   if (Array.isArray(patch.trackedPrograms)) {
     row.tracked_programs = patch.trackedPrograms.filter((value): value is string => typeof value === "string");
   }

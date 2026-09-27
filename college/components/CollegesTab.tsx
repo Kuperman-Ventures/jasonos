@@ -56,12 +56,16 @@ import {
   type VisitStatus,
 } from "@/lib/types";
 import { downloadSchoolsCsv } from "@/lib/college-export";
+import { researchGroupsNeeded } from "@/lib/research";
 import type { MemberProfile } from "@/lib/member-avatars";
 import type { RoutedSchoolNotePayload } from "@/lib/school-project-notes";
 import type { PersistedProjectStep } from "@/lib/ingest";
 import type { RequirementProgressMap, RequirementStatus } from "@/lib/requirement-progress";
 import type { TodoEditMap } from "@/lib/project-todos";
 import type { RequirementKey } from "@/lib/school-requirements";
+import { AddSchoolDialog } from "./AddSchoolDialog";
+import { PasteUpdateDialog } from "./PasteUpdateDialog";
+import type { ResearchApplyPatch } from "@/lib/research";
 
 export function CollegesTab({
   schools,
@@ -76,7 +80,8 @@ export function CollegesTab({
   onClose,
   onNavigateSchool,
   onPatch,
-  onCreate,
+  onAdded,
+  onApplyResearch,
   onDelete,
   onAddStep,
   onPatchStep,
@@ -116,7 +121,8 @@ export function CollegesTab({
   /** Change school in the open modal without resetting the active tab. */
   onNavigateSchool: (id: string) => void;
   onPatch: (id: string, patch: Partial<School>) => void;
-  onCreate: (name: string) => Promise<void>;
+  onAdded: (school: School) => void;
+  onApplyResearch: (updates: ResearchApplyPatch[]) => Promise<void>;
   onDelete: (id: string) => void;
   onAddStep: (id: string, label: string, owner: Owner) => void;
   onPatchStep: (id: string, stepId: string, patch: { done?: boolean; owner?: Owner; label?: string }) => void;
@@ -161,8 +167,8 @@ export function CollegesTab({
   const [travelFilter, setTravelFilter] = useState<"any" | "Drive" | "Fly">("any");
   const [sort, setSort] = useState<SortKey>("list");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
-  const [name, setName] = useState("");
-  const [adding, setAdding] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [pasteOpen, setPasteOpen] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [dashOpen, setDashOpen] = useState(true);
   const columnsRef = useRef<HTMLDivElement | null>(null);
@@ -354,6 +360,7 @@ export function CollegesTab({
               <span>
                 {school.name}
                 {school.archived ? <small className="archived-tag">Archived</small> : null}
+                <NeedsResearchLabels school={school} />
               </span>
             </div>
           </td>
@@ -674,18 +681,7 @@ export function CollegesTab({
           </div>
         </div>
 
-      <form
-        className="toolbar"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (!name.trim() || adding) return;
-          const nextName = name.trim();
-          setAdding(true);
-          void onCreate(nextName)
-            .then(() => setName(""))
-            .finally(() => setAdding(false));
-        }}
-      >
+      <div className="toolbar">
         <input
           className="input grow"
           type="search"
@@ -852,17 +848,13 @@ export function CollegesTab({
         >
           Download spreadsheet
         </button>
-        <input
-          className="input"
-          value={name}
-          placeholder="Add a school"
-          disabled={adding}
-          onChange={(event) => setName(event.target.value)}
-        />
-        <button type="submit" className="btn btn-primary" disabled={adding}>
-          {adding ? "Looking up" : "Add"}
+        <button type="button" className="btn btn-secondary" onClick={() => setPasteOpen(true)}>
+          Paste update
         </button>
-      </form>
+        <button type="button" className="btn btn-primary" onClick={() => setAddOpen(true)}>
+          Add school
+        </button>
+      </div>
 
       <div className="table-wrap schools-wrap">
         <table className="schools" style={{ minWidth: Math.max(520, columns.length * 140) }}>
@@ -925,6 +917,7 @@ export function CollegesTab({
                 <span>
                   {school.name}
                   {school.archived ? <small className="archived-tag">Archived</small> : null}
+                  <NeedsResearchLabels school={school} />
                 </span>
               </h3>
               <div className="card-meta">
@@ -1061,6 +1054,39 @@ export function CollegesTab({
           canViewFinancesTab={canViewFinancesTab}
         />
       ) : null}
+
+      {addOpen ? (
+        <AddSchoolDialog
+          schools={schools}
+          onClose={() => setAddOpen(false)}
+          onOpen={onOpen}
+          onAdded={(school) => {
+            onAdded(school);
+            setAddOpen(false);
+          }}
+        />
+      ) : null}
+      {pasteOpen ? (
+        <PasteUpdateDialog
+          schools={schools}
+          onClose={() => setPasteOpen(false)}
+          onApply={onApplyResearch}
+        />
+      ) : null}
     </section>
+  );
+}
+
+function NeedsResearchLabels({ school }: { school: School }) {
+  const needed = researchGroupsNeeded(school);
+  if (!needed.length) return null;
+  return (
+    <span className="needs-research" aria-label={`Needs research: ${needed.join(", ")}`}>
+      {needed.map((group) => (
+        <small key={group} className="needs-research-tag">
+          Needs {group}
+        </small>
+      ))}
+    </span>
   );
 }

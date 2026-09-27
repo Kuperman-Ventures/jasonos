@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   formatResearchRequest,
+  prepareSchoolResearchUpdates,
   RESEARCH_GROUPS,
   researchGroupsNeeded,
   validateSchoolResearchUpdate,
@@ -110,5 +111,92 @@ test("validateSchoolResearchUpdate rejects bad enums and unknown fields", () => 
   if (!result.ok) {
     assert.ok(result.problems.some((p) => p.includes("campusSetting")));
     assert.ok(result.problems.some((p) => p.includes("notAField")));
+  }
+});
+
+test("validateSchoolResearchUpdate returns field diffs against a school", () => {
+  const school = {
+    ...schoolStub(),
+    id: "tufts",
+    campusSetting: "Urban",
+    aerospaceEngineering: "",
+  } as School;
+  const result = validateSchoolResearchUpdate(
+    {
+      updateType: "school-research",
+      unitId: 168148,
+      completedGroups: ["Setting"],
+      fields: {
+        campusSetting: "Suburban",
+        aerospaceEngineering: "No",
+      },
+    },
+    school,
+  );
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.diffs.length, 2);
+    assert.ok(result.diffs.some((d) => d.field === "campusSetting" && d.next === "Suburban"));
+  }
+});
+
+test("prepareSchoolResearchUpdates builds preview rows", () => {
+  const school = {
+    id: "tufts",
+    name: "Tufts University",
+    unitId: 168148,
+    location: "Medford, MA",
+    website: "https://www.tufts.edu",
+    control: "Private",
+    researchCompleted: ["Admissions by residency"],
+    campusSetting: "",
+    mechanicalEngineering: "",
+    materials: "",
+    materialsOffering: "",
+    materialsProgram: "",
+    materialsSourceUrl: "",
+    aerospaceEngineering: "",
+    aerospaceProgram: "",
+    aerospaceNotes: "",
+    aerospaceSourceUrl: "",
+  } as School;
+
+  const result = prepareSchoolResearchUpdates(
+    {
+      updateType: "school-research",
+      unitId: 168148,
+      completedGroups: ["Setting", "Programs"],
+      fields: {
+        campusSetting: "Suburban",
+        mechanicalEngineering: "Yes",
+      },
+    },
+    [school],
+  );
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.patches.length, 1);
+    assert.ok(result.patches[0]!.rows.some((row) => row.field === "campusSetting"));
+    assert.deepEqual(result.patches[0]!.patch.researchCompleted, [
+      "Admissions by residency",
+      "Setting",
+      "Programs",
+    ]);
+  }
+});
+
+test("prepareSchoolResearchUpdates rejects unknown unitId", () => {
+  const result = prepareSchoolResearchUpdates(
+    {
+      updateType: "school-research",
+      unitId: 1,
+      completedGroups: [],
+      fields: { campusSetting: "Urban" },
+    },
+    [],
+  );
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.ok(result.problems.some((p) => p.includes("unitId")));
   }
 });

@@ -1159,6 +1159,124 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   color: rgba(248, 244, 244, 0.7);
   cursor: default;
 }
+.school-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.school-research-btn {
+  min-height: 36px;
+  font-size: 13px;
+}
+.school-hero-research {
+  margin: 8px 0 0;
+}
+.needs-research {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 4px;
+}
+.needs-research-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--text-muted);
+  background: transparent;
+}
+.school-hero-research .needs-research-tag {
+  color: rgba(248, 244, 244, 0.72);
+}
+
+.add-school-dialog,
+.paste-update-dialog {
+  max-width: 720px;
+}
+.add-school-search {
+  margin-top: 20px;
+}
+.add-school-results {
+  margin-top: 12px;
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+.add-school-result {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--color-divider);
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  font: inherit;
+}
+.add-school-result:last-child {
+  border-bottom: 0;
+}
+.add-school-result:hover,
+.add-school-result.active {
+  background: var(--color-surface-2, rgba(0, 0, 0, 0.04));
+}
+.add-school-result-name {
+  font-weight: 600;
+}
+.add-school-result-loc {
+  color: var(--text-muted);
+}
+.add-school-existing {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.add-school-existing .linkish {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--color-accent);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+.add-school-error,
+.paste-update-problems {
+  margin-top: 12px;
+  color: var(--color-danger, #b42318);
+  font-size: 14px;
+}
+.paste-update-problems {
+  padding-left: 18px;
+}
+.add-school-actions,
+.paste-update-actions {
+  margin-top: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.paste-update-json {
+  min-height: 180px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.paste-update-preview {
+  margin-top: 16px;
+  max-height: 320px;
+  overflow: auto;
+}
+.paste-update-preview code {
+  font-size: 12px;
+}
+
 /* School overview chrome (settings and other tabs still use these) */
 .school-overview {
   margin-bottom: var(--space-8);

@@ -88,7 +88,6 @@ import { postActivity } from "@/lib/post-activity";
 import type { MemberProfile } from "@/lib/member-avatars";
 import type { ContactPatch, DeadlinePatch, Owner, School, Scores, TabId } from "@/lib/types";
 import {
-  fromSeed,
   isAdmissionTrack,
   isApplicationStatus,
   isChoice,
@@ -999,51 +998,41 @@ export function Portal({
     setSaveState("Saved");
   }
 
-  async function createSchool(name: string) {
-    if (!pipeline.persisted) {
-      const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "school";
-      setSchools((current) => [
-        ...current,
-        fromSeed({
-          id,
-          name,
-          location: "",
-          campusSetting: "",
-          metroArea: null,
-          metroPopulation: null,
-          mechanicalEngineering: "",
-          materials: "",
-          materialsOffering: "",
-          admissionsContext: "",
-          satContext: "",
-          selectivity: "",
-          notes: "",
-          listOrder: current.length + 1,
-        }),
-      ]);
-      setSaveState("Not saved");
-      return;
-    }
-    setSaveState("Looking up this school...");
-    const response = await fetch("/api/schools", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
+  async function addSchoolFromDialog(school: School) {
+    const existing = schools.find((row) => row.id === school.id);
+    const restored = Boolean(existing);
+    setSchools((current) => {
+      const index = current.findIndex((row) => row.id === school.id);
+      if (index >= 0) {
+        const next = [...current];
+        next[index] = school;
+        return next;
+      }
+      return [...current, school];
     });
-    if (!response.ok) {
-      setSaveState("Not saved");
-      return;
-    }
-    const body = (await response.json()) as { school: School; research?: { summary?: string } };
-    setSchools((current) => [...current, body.school]);
-    replaceUrl("colleges", body.school.id);
-    setSaveState(body.research?.summary || "Saved");
+    replaceUrl("colleges", school.id);
+    setSaveState(restored ? `Restored ${school.name}.` : `Added ${school.name}.`);
     postActivity({
-      action: "create",
+      action: restored ? "restore" : "create",
       entityType: "school",
-      entityId: body.school.id,
-      summary: `Added college “${body.school.name}”`,
+      entityId: school.id,
+      summary: restored
+        ? `Restored college “${school.name}”`
+        : `Added college “${school.name}”`,
     });
+  }
+
+  async function applyResearchUpdates(
+    updates: import("@/lib/research").ResearchApplyPatch[],
+  ) {
+    for (const update of updates) {
+      await patchSchool(update.schoolId, update.patch as Partial<School>);
+    }
+    setSaveState(
+      updates.length === 1
+        ? `Updated research for ${updates[0]!.schoolName}.`
+        : `Updated research for ${updates.length} schools.`,
+    );
   }
 
   async function deleteSchool(id: string) {
@@ -1333,7 +1322,8 @@ export function Portal({
               }
               void patchSchool(id, patch);
             }}
-            onCreate={(value) => createSchool(value)}
+            onAdded={(school) => void addSchoolFromDialog(school)}
+            onApplyResearch={(updates) => applyResearchUpdates(updates)}
             onDelete={(id) => void deleteSchool(id)}
             onAddStep={(id, label, owner) => void addStep(id, label, owner)}
             onPatchStep={(id, stepId, patch) => void patchStep(id, stepId, patch)}
