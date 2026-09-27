@@ -26,9 +26,14 @@ import {
   PROJECT_SECTIONS,
   type ProjectSectionId,
 } from "@/lib/project-management";
-import type { PhaseStatus } from "@/lib/phases";
+import {
+  LIST_PHASES,
+  currentListPhaseId,
+  listPhaseById,
+  type ListPhaseId,
+} from "@/lib/list-phases";
 import { HOUSEHOLD_ROLES, isAdminRole, roleLabel } from "@/lib/permissions";
-import type { Phase, TabId } from "@/lib/types";
+import type { TabId } from "@/lib/types";
 import { ThemeModeSwitch } from "./ThemeModeSwitch";
 
 const HOUSEHOLD = {
@@ -104,9 +109,6 @@ export function LeftRail({
   consultantCount,
   faqCount,
   testingCount,
-  phases,
-  statuses,
-  phaseIndex,
   open,
   onOpenChange,
 }: {
@@ -124,9 +126,6 @@ export function LeftRail({
   consultantCount: number;
   faqCount: number;
   testingCount: number;
-  phases: Phase[];
-  statuses: PhaseStatus[];
-  phaseIndex: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -137,9 +136,19 @@ export function LeftRail({
   const [menuOpen, setMenuOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [listPhaseId, setListPhaseId] = useState<ListPhaseId>("exploration");
 
-  const current = phases[phaseIndex];
-  const next = phases[phaseIndex + 1];
+  useEffect(() => {
+    setListPhaseId(currentListPhaseId());
+  }, []);
+
+  const phaseIndex = Math.max(
+    0,
+    LIST_PHASES.findIndex((phase) => phase.id === listPhaseId),
+  );
+  const current = listPhaseById(listPhaseId);
+  const next = LIST_PHASES[phaseIndex + 1] ?? null;
+  const phaseCount = LIST_PHASES.length;
   const counts: Partial<Record<TabId, number>> = {
     colleges: schoolCount,
     projects: projectCount,
@@ -261,9 +270,9 @@ export function LeftRail({
 
         <div className="rail-phase" aria-label="Current phase">
           <div className="rail-phase-top">
-            <b>{current?.phase ?? "Phase"}</b>
+            <b>{current.label}</b>
             <span>
-              {phaseIndex + 1} / {phases.length}
+              {phaseIndex + 1} / {phaseCount}
             </span>
           </div>
           <div
@@ -271,18 +280,17 @@ export function LeftRail({
             role="progressbar"
             aria-valuenow={phaseIndex + 1}
             aria-valuemin={1}
-            aria-valuemax={phases.length}
-            aria-valuetext={`Phase ${phaseIndex + 1} of ${phases.length}${current ? `, ${current.phase}` : ""}`}
+            aria-valuemax={phaseCount}
+            aria-valuetext={`Phase ${phaseIndex + 1} of ${phaseCount}, ${current.label}`}
           >
-            {phases.map((phase, index) => {
-              const status = statuses[index]?.status ?? "upcoming";
-              const on = index <= phaseIndex || status === "done" || status === "current";
-              return <i key={phase.phase} className={on ? "on" : undefined} title={phase.phase} />;
+            {LIST_PHASES.map((phase, index) => {
+              const on = index <= phaseIndex;
+              return <i key={phase.id} className={on ? "on" : undefined} title={phase.label} />;
             })}
           </div>
           {next ? (
             <span className="rail-phase-next">
-              Next: {next.phase}
+              Next: {next.label}
               {next.window ? `, ${next.window}` : ""}
             </span>
           ) : (
@@ -307,6 +315,7 @@ export function LeftRail({
                       aria-current={active ? "page" : undefined}
                       onClick={(event) => {
                         event.preventDefault();
+                        event.currentTarget.focus();
                         select(item.id);
                       }}
                     >

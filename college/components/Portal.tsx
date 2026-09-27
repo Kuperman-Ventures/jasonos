@@ -1207,9 +1207,6 @@ export function Portal({
         consultantCount={consultantFirms.length}
         faqCount={faqCount}
         testingCount={testingCount}
-        phases={phases}
-        statuses={statuses}
-        phaseIndex={phaseIndex}
         open={railOpen}
         onOpenChange={setRailOpen}
       />
