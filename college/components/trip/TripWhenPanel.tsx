@@ -2,23 +2,19 @@
 
 import type { School } from "@/lib/types";
 import {
-  KYLE_STUDENT,
-  TRIP_WEEK_LABELS,
-  TRIP_WEEK_WEATHER,
-  campusWeekState,
-  campusWeekTooltip,
   formatWeekDate,
   isBestFitWeek,
   kyleBreakCellLabel,
   weekDate,
   type CampusWeekInfo,
   type CampusWeekState,
+  type TripWeekGrid,
 } from "@/lib/trip-planning";
 import { shortSchoolName } from "@/lib/visit-planning";
 import { SchoolMark } from "../SchoolMark";
 
 const WHY: Record<"break" | "finals", string> = {
-  break: "on spring break. Campus will be quiet, and many offices run limited tours.",
+  break: "on break. Campus will be quiet, and many offices run limited tours.",
   finals: "in finals. Tours often pause and students won't have time to talk.",
 };
 
@@ -29,6 +25,8 @@ export function TripWhenPanel({
   calendars,
   tripDayCount,
   weatherLabel,
+  grid,
+  drivePriority,
   onWeekIndex,
 }: {
   weekIndex: number;
@@ -37,23 +35,27 @@ export function TripWhenPanel({
   calendars: Map<string, Record<number, CampusWeekInfo>>;
   tripDayCount: number;
   weatherLabel: string;
+  grid: TripWeekGrid;
+  /** True when this trip is drive-range and fall is the preferred season. */
+  drivePriority: boolean;
   onWeekIndex: (index: number) => void;
 }) {
-  const best = TRIP_WEEK_LABELS.map((_, i) =>
+  const weekLabels = grid.weekLabels;
+  const best = weekLabels.map((_, i) =>
     isBestFitWeek(
       i,
-      KYLE_STUDENT.breaks,
+      grid.kyleBreaks,
       tripSchoolIds.map((id) =>
-        campusWeekState(calendars.get(id) ?? {}, i),
+        campusWeekStateLocal(calendars.get(id) ?? {}, i),
       ),
     ),
   );
-  const wx = TRIP_WEEK_WEATHER[weekIndex] ?? ["—", ""];
-  const end = weekDate(weekIndex, Math.max(tripDayCount, 1) - 1);
+  const wx = grid.weather[weekIndex] ?? ["—", ""];
+  const end = weekDate(weekIndex, Math.max(tripDayCount, 1) - 1, grid);
   const warns = tripSchoolIds.filter(
-    (id) => campusWeekState(calendars.get(id) ?? {}, weekIndex) !== "session",
+    (id) => campusWeekStateLocal(calendars.get(id) ?? {}, weekIndex) !== "session",
   );
-  const kyleOff = KYLE_STUDENT.breaks.includes(weekIndex);
+  const kyleOff = grid.kyleBreaks.includes(weekIndex);
   const bestIndex = best.indexOf(true);
 
   return (
@@ -62,12 +64,13 @@ export function TripWhenPanel({
         <div>
           <h2>When to go</h2>
           <p>
-            Week of {TRIP_WEEK_LABELS[weekIndex]} · {tripSchoolIds.length} schools
+            {grid.label} · Week of {weekLabels[weekIndex]} · {tripSchoolIds.length}{" "}
+            schools
           </p>
         </div>
         <div className="trip-wx">
           <span className="trip-label trip-label-sm">
-            {weatherLabel}, {formatWeekDate(weekDate(weekIndex))}–
+            {weatherLabel}, {formatWeekDate(weekDate(weekIndex, 0, grid))}–
             {formatWeekDate(end)}
           </span>
           <b>{wx[0]}</b>
@@ -75,13 +78,17 @@ export function TripWhenPanel({
         </div>
       </div>
 
+      {drivePriority ? (
+        <p className="trip-season-note">{grid.priorityNote}</p>
+      ) : null}
+
       {!tripSchoolIds.length ? (
         <p className="trip-empty">Add a cluster in Nearby to see its calendars.</p>
       ) : (
         <>
           <div className="trip-wk">
             <span />
-            {TRIP_WEEK_LABELS.map((label, i) => (
+            {weekLabels.map((label, i) => (
               <button
                 key={label}
                 type="button"
@@ -96,10 +103,10 @@ export function TripWhenPanel({
             ))}
 
             <div className="trip-rh">
-              {KYLE_STUDENT.name} <small>{KYLE_STUDENT.school}</small>
+              Kyle <small>Columbia HS</small>
             </div>
-            {TRIP_WEEK_LABELS.map((_, i) => {
-              const off = KYLE_STUDENT.breaks.includes(i);
+            {weekLabels.map((_, i) => {
+              const off = grid.kyleBreaks.includes(i);
               return (
                 <button
                   key={`kyle-${i}`}
@@ -107,10 +114,10 @@ export function TripWhenPanel({
                   className={`trip-cell ${off ? "kbreak" : "kschool"}${
                     i === weekIndex ? " col-sel" : ""
                   }`}
-                  title={off ? kyleBreakCellLabel(i) : undefined}
+                  title={off ? kyleBreakCellLabel(i, grid) : undefined}
                   onClick={() => onWeekIndex(i)}
                 >
-                  {off ? kyleBreakCellLabel(i) : "School"}
+                  {off ? kyleBreakCellLabel(i, grid) : "School"}
                 </button>
               );
             })}
@@ -127,8 +134,8 @@ export function TripWhenPanel({
                   ) : null}
                   {row ? shortSchoolName(row.name) : id}
                 </div>,
-                ...TRIP_WEEK_LABELS.map((_, i) => {
-                  const st = campusWeekState(cal, i);
+                ...weekLabels.map((_, i) => {
+                  const st = campusWeekStateLocal(cal, i);
                   const label =
                     st === "session" ? "Classes" : st === "break" ? "Break" : "Finals";
                   return (
@@ -136,7 +143,7 @@ export function TripWhenPanel({
                       key={`${id}-${i}`}
                       type="button"
                       className={`trip-cell ${st}${i === weekIndex ? " col-sel" : ""}`}
-                      title={campusWeekTooltip(cal, i)}
+                      title={campusWeekTooltipLocal(cal, i)}
                       onClick={() => onWeekIndex(i)}
                     >
                       {label}
@@ -149,7 +156,7 @@ export function TripWhenPanel({
             <div className="trip-rh">
               <small>{weatherLabel} weather</small>
             </div>
-            {TRIP_WEEK_WEATHER.map(([temp, rain], i) => (
+            {grid.weather.map(([temp, rain], i) => (
               <div key={`wx-${i}`} className="trip-cell wxc">
                 {temp}
                 <br />
@@ -170,7 +177,7 @@ export function TripWhenPanel({
               <ul className="trip-vlist">
                 {(warns.length ? warns : tripSchoolIds).map((id) => {
                   const row = byId.get(id);
-                  const st = campusWeekState(calendars.get(id) ?? {}, weekIndex);
+                  const st = campusWeekStateLocal(calendars.get(id) ?? {}, weekIndex);
                   const ok = st === "session";
                   return (
                     <li key={id}>
@@ -189,7 +196,7 @@ export function TripWhenPanel({
               </ul>
             </div>
             <div>
-              <h3>{KYLE_STUDENT.name}</h3>
+              <h3>Kyle</h3>
               <ul className="trip-vlist">
                 <li>
                   <span className={`trip-st ${kyleOff ? "ok" : "warn"}`}>
@@ -214,7 +221,7 @@ export function TripWhenPanel({
                         className="trip-link"
                         onClick={() => onWeekIndex(bestIndex)}
                       >
-                        week of {TRIP_WEEK_LABELS[bestIndex]}
+                        week of {weekLabels[bestIndex]}
                       </button>
                     </span>
                   </li>
@@ -227,4 +234,23 @@ export function TripWhenPanel({
       <p className="trip-foot">Click any week to move the trip. The itinerary follows.</p>
     </div>
   );
+}
+
+function campusWeekStateLocal(
+  calendar: Record<number, CampusWeekInfo | CampusWeekState>,
+  weekIndex: number,
+): CampusWeekState {
+  const entry = calendar[weekIndex];
+  if (!entry) return "session";
+  if (typeof entry === "string") return entry;
+  return entry.state;
+}
+
+function campusWeekTooltipLocal(
+  calendar: Record<number, CampusWeekInfo | CampusWeekState>,
+  weekIndex: number,
+): string | undefined {
+  const entry = calendar[weekIndex];
+  if (!entry || typeof entry === "string") return undefined;
+  return entry.tooltip;
 }

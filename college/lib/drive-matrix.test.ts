@@ -4,13 +4,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  DRIVE_ONE_WAY_MAX_MINUTES,
+  ROAD_TRIP_LOOP_MAX_MINUTES,
+  ROAD_TRIP_ONE_WAY_MAX_MINUTES,
   buildRouteFromOrder,
   driveFieldsForSchool,
   driveLeg,
+  fitsThreeDayRoadTripLoop,
   formatTravelLabel,
   nearestSchoolsFrom,
   shortestSchoolOrder,
   travelModeForMinutes,
+  travelModeForSchool,
 } from "./drive-matrix";
 
 test("home→NJIT is a short Drive", () => {
@@ -24,16 +29,44 @@ test("home→NJIT is a short Drive", () => {
 test("home→Stanford is Fly", () => {
   const fields = driveFieldsForSchool("stanford-university");
   assert.equal(fields.travelMode, "Fly");
-  assert.ok((fields.driveMinutes ?? 0) > 360);
+  assert.ok((fields.driveMinutes ?? 0) > ROAD_TRIP_ONE_WAY_MAX_MINUTES);
   assert.match(
     formatTravelLabel(fields.driveMinutes, fields.driveMiles, fields.travelMode),
     /^Fly \(/,
   );
 });
 
-test("travelModeForMinutes threshold is 360", () => {
-  assert.equal(travelModeForMinutes(360), "Drive");
-  assert.equal(travelModeForMinutes(361), "Fly");
+test("travelModeForMinutes threshold is 8 hours (480)", () => {
+  assert.equal(DRIVE_ONE_WAY_MAX_MINUTES, 480);
+  assert.equal(travelModeForMinutes(480), "Drive");
+  assert.equal(travelModeForMinutes(481), "Fly");
+});
+
+test("Virginia Tech (~7.2 hr) is Drive under the 8-hour rule", () => {
+  const fields = driveFieldsForSchool("virginia-tech");
+  assert.ok((fields.driveMinutes ?? 0) > 360);
+  assert.ok((fields.driveMinutes ?? 0) <= DRIVE_ONE_WAY_MAX_MINUTES);
+  assert.equal(fields.travelMode, "Drive");
+  assert.equal(travelModeForSchool("virginia-tech"), "Drive");
+});
+
+test("Ohio State (~8.1 hr) fits a 3-day road-trip loop as Drive", () => {
+  const fields = driveFieldsForSchool("ohio-state-university");
+  assert.ok((fields.driveMinutes ?? 0) > DRIVE_ONE_WAY_MAX_MINUTES);
+  assert.ok((fields.driveMinutes ?? 0) <= ROAD_TRIP_ONE_WAY_MAX_MINUTES);
+  assert.equal(fitsThreeDayRoadTripLoop("ohio-state-university"), true);
+  assert.equal(fields.travelMode, "Drive");
+  const round =
+    (fields.driveMinutes ?? 0) +
+    (driveLeg("school:ohio-state-university", "home")?.minutes ?? fields.driveMinutes ?? 0);
+  assert.ok(round <= ROAD_TRIP_LOOP_MAX_MINUTES);
+});
+
+test("Georgia Tech (~13 hr) is beyond a 3-day loop — Fly", () => {
+  const fields = driveFieldsForSchool("georgia-tech");
+  assert.ok((fields.driveMinutes ?? 0) > ROAD_TRIP_ONE_WAY_MAX_MINUTES);
+  assert.equal(fitsThreeDayRoadTripLoop("georgia-tech"), false);
+  assert.equal(fields.travelMode, "Fly");
 });
 
 test("nearestSchoolsFrom returns three closest", () => {
@@ -60,7 +93,6 @@ test("shortestSchoolOrder visits each school once", () => {
   assert.equal(route!.incomplete, false);
   assert.ok((route!.totalMinutes ?? 0) > 0);
   const schoolStops = route!.order.filter((id) => id.startsWith("school:"));
-  // order uses raw school ids in schoolIds path — check legs
   assert.ok(route!.legs.length >= 3);
   const manual = buildRouteFromOrder({
     startId: "home",
@@ -75,6 +107,5 @@ test("driveLeg is directed and self is zero", () => {
   const a = driveLeg("home", "school:njit");
   const b = driveLeg("school:njit", "home");
   assert.ok(a && b);
-  // Directions can differ slightly
   assert.ok(a.minutes > 0 && b.minutes > 0);
 });

@@ -21,7 +21,7 @@ export type TripRegionMeta = {
 export const TRIP_REGIONS: TripRegionMeta[] = [
   { id: "Northeast", note: "Drive from home", at: "top" },
   { id: "Mid-Atlantic", note: "Drive · 3 to 5 hr", at: "left" },
-  { id: "South", note: "Fly, or drive to UNC (8 hr)", at: "left" },
+  { id: "South", note: "Drive ≤8 hr (UNC / NC State) · farther = Fly", at: "left" },
   { id: "Midwest", note: "Fly to Chicago or Detroit", at: "top" },
   { id: "Mountain", note: "Fly · Denver, Salt Lake City", at: "top" },
   { id: "Texas", note: "Fly to Austin · Houston is 2.5 hr away", at: "bottom" },
