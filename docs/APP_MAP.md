@@ -405,7 +405,9 @@ Trip title; send visits to Calendar / to-dos.
 
 ### Climate
 
-Heading **Climate**; Compare with; **Calendar** block from campus-calendars JSON.
+Heading **Climate** (28px) + Compare with (None · Home · Maplewood · Boston). Summary sentences use swatches (no legend). Chart: Aug→Jul, 14px school/compare bars side-by-side, highs/lows outside the orange, rain 0–6″, snow values, school-year rule under Sep–May. Footnote: 30-year monthly normals.
+
+City monthly series come from NOAA 1991–2020 Jan/Jul + annual anchors in [`college/lib/trip-planning/climate.ts`](../college/lib/trip-planning/climate.ts) (expanded to 12 months). Unknown cities use a mid-Atlantic fallback — never the old SoCal mild stub. **Calendar** block from campus-calendars JSON sits below.
 
 ### All schools
 

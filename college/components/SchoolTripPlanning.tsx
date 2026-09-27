@@ -9,8 +9,6 @@ import type { School } from "@/lib/types";
 import { geocodeCityState, type GeoPoint } from "@/lib/visit-geo";
 import { parseSchoolLocation, schoolMapById, shortSchoolName } from "@/lib/visit-planning";
 import {
-  HOME_CLIMATE,
-  BOSTON_CLIMATE,
   KYLE_STUDENT,
   TRIP_INTEREST_LABEL,
   TRIP_INTEREST_ORDER,
@@ -393,8 +391,6 @@ export function SchoolTripPlanning({
             campus={campusClimate}
             compareId={cmpId}
             compare={resolveCompareClimate(cmpId)}
-            home={HOME_CLIMATE}
-            boston={BOSTON_CLIMATE}
             onCompare={setCmpId}
           />
           <TripCampusCalendarSection schoolName={school.name} />

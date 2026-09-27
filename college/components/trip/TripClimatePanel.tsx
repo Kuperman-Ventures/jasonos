@@ -3,52 +3,57 @@
 import {
   CLIMATE_DISPLAY_MONTHS,
   MONTH_LABELS,
+  annualPrecip,
+  annualSnow,
+  climateCompareOptions,
+  climateCompareSummaryBody,
+  climateSchoolSummaryBody,
+  isOffSeasonMonth,
   type ClimateNormals,
 } from "@/lib/trip-planning";
 
 const T0 = 15;
 const T1 = 95;
-const TH = 220;
+const TH = 236;
+const RAIN_H = 44;
+const RAIN_MAX = 6;
 
 function ty(t: number): number {
   return TH - ((t - T0) / (T1 - T0)) * TH;
+}
+
+function fmtSnow(inches: number): string {
+  if (inches < 1) return "";
+  const n = Number.isInteger(inches) ? String(inches) : String(Math.round(inches * 10) / 10);
+  return `${n}″`;
+}
+
+function fmtDelta(d: number): string {
+  if (d === 0) return "0°";
+  return d > 0 ? `+${d}°` : `\u2212${Math.abs(d)}°`;
 }
 
 export function TripClimatePanel({
   campus,
   compareId,
   compare,
-  home,
-  boston,
   onCompare,
 }: {
   campus: ClimateNormals;
   compareId: string;
   compare: ClimateNormals | null;
-  home: ClimateNormals;
-  boston: ClimateNormals;
   onCompare: (id: string) => void;
 }) {
-  const options = [
-    { id: "none", label: "None" },
-    { id: "home", label: home.label },
-    { id: "boston", label: boston.label },
-  ];
+  const options = climateCompareOptions();
+  const schoolBody = climateSchoolSummaryBody(campus);
+  const compareBody = compare
+    ? climateCompareSummaryBody(compare, campus, campus.name)
+    : null;
 
   return (
     <div className="trip-panel" role="tabpanel">
       <div className="trip-head-row">
-        <div className="trip-clim-sum">
-          <h2>Climate</h2>
-          <p>
-            <b>{campus.name}:</b> {campus.summary}
-          </p>
-          {compare ? (
-            <p className="cmp">
-              <b>{compare.name}:</b> {compare.summary}
-            </p>
-          ) : null}
-        </div>
+        <h2 className="trip-clim-title">Climate</h2>
         <div className="trip-cmp-wrap">
           <span className="trip-label trip-label-sm">Compare with</span>
           <div className="trip-seg" role="group" aria-label="Compare with">
@@ -67,114 +72,151 @@ export function TripClimatePanel({
         </div>
       </div>
 
-      <div className="trip-clim">
-        <div className="trip-temp">
+      <div className="trip-clim-sum">
+        <p>
+          <span className="trip-swatch trip-swatch-fill" aria-hidden="true" />
+          <b>{campus.name}:</b> {schoolBody}
+        </p>
+        {compare && compareBody ? (
+          <p className="cmp">
+            <span className="trip-swatch trip-swatch-outline" aria-hidden="true" />
+            <b>{compare.name}:</b> {compareBody}
+          </p>
+        ) : null}
+      </div>
+
+      <div className={`trip-clim${compare ? " has-cmp" : ""}`}>
+        <div className="trip-temp trip-ylab-col">
           {[30, 50, 70, 90].map((t) => (
             <span key={t} className="trip-ylab" style={{ top: ty(t) }}>
               {t}°
             </span>
           ))}
         </div>
+
         {CLIMATE_DISPLAY_MONTHS.map((monthIndex) => {
           const hi = campus.hi[monthIndex]!;
           const lo = campus.lo[monthIndex]!;
           const cmpHi = compare?.hi[monthIndex];
           const cmpLo = compare?.lo[monthIndex];
+          const off = isOffSeasonMonth(monthIndex);
+          const topHi = Math.max(hi, compare ? (cmpHi ?? hi) : hi);
+          const botLo = Math.min(lo, compare ? (cmpLo ?? lo) : lo);
+          const titleParts = [
+            `${campus.name} ${MONTH_LABELS[monthIndex]}: ${hi}° / ${lo}°, rain ${campus.precip[monthIndex]} in., snow ${campus.snow[monthIndex]} in.`,
+          ];
+          if (compare && cmpHi != null && cmpLo != null) {
+            titleParts.push(
+              `${compare.name}: ${cmpHi}° / ${cmpLo}°, rain ${compare.precip[monthIndex]} in., snow ${compare.snow[monthIndex]} in.`,
+            );
+          }
           return (
-            <div key={monthIndex} className="trip-temp">
+            <div
+              key={monthIndex}
+              className={`trip-temp${off ? " is-off" : ""}`}
+              title={titleParts.join(" · ")}
+            >
               {[30, 50, 70, 90].map((t) => (
                 <div key={t} className="trip-grid" style={{ top: ty(t) }} />
               ))}
               <div
                 className={`trip-bar main${compare ? "" : " solo"}`}
-                style={{ top: ty(hi), height: ty(lo) - ty(hi) }}
-                title={`${campus.name} ${MONTH_LABELS[monthIndex]}: ${hi}° / ${lo}°`}
+                style={{ top: ty(hi), height: Math.max(2, ty(lo) - ty(hi)) }}
               />
               {compare && cmpHi != null && cmpLo != null ? (
                 <div
                   className="trip-bar cmp"
-                  style={{ top: ty(cmpHi), height: ty(cmpLo) - ty(cmpHi) }}
-                  title={`${compare.name} ${MONTH_LABELS[monthIndex]}: ${cmpHi}° / ${cmpLo}°`}
+                  style={{ top: ty(cmpHi), height: Math.max(2, ty(cmpLo) - ty(cmpHi)) }}
                 />
               ) : null}
-              <span
-                className="trip-tnum hi"
-                style={{
-                  top:
-                    ty(Math.max(hi, compare ? (cmpHi ?? hi) : hi)) - 18,
-                }}
-              >
+              <span className="trip-tnum hi" style={{ top: ty(topHi) - 22 }}>
                 {hi}°
               </span>
-              <span
-                className="trip-tnum lo"
-                style={{
-                  top:
-                    ty(Math.min(lo, compare ? (cmpLo ?? lo) : lo)) + 4,
-                }}
-              >
+              <span className="trip-tnum lo" style={{ top: ty(botLo) + 6 }}>
                 {lo}°
               </span>
             </div>
           );
         })}
 
+        {compare ? (
+          <>
+            <span className="trip-rl">Highs vs. {compare.name}</span>
+            {CLIMATE_DISPLAY_MONTHS.map((monthIndex) => {
+              const d = campus.hi[monthIndex]! - compare.hi[monthIndex]!;
+              const off = isOffSeasonMonth(monthIndex);
+              const tone = d > 0 ? "pos" : d < 0 ? "neg" : "zero";
+              return (
+                <div
+                  key={`d-${monthIndex}`}
+                  className={`trip-delta${off ? " is-off" : ""} tone-${tone}`}
+                >
+                  {fmtDelta(d)}
+                </div>
+              );
+            })}
+          </>
+        ) : null}
+
         <span className="trip-rl">Rain</span>
-        {CLIMATE_DISPLAY_MONTHS.map((monthIndex) => (
-          <div key={`r-${monthIndex}`} className="trip-rain">
-            <i style={{ height: (campus.precip[monthIndex]! / 5) * 48 }} />
-            {compare ? (
-              <i
-                className="cmp"
-                style={{ height: (compare.precip[monthIndex]! / 5) * 48 }}
-              />
-            ) : null}
-          </div>
-        ))}
+        {CLIMATE_DISPLAY_MONTHS.map((monthIndex) => {
+          const off = isOffSeasonMonth(monthIndex);
+          const inches = campus.precip[monthIndex]!;
+          return (
+            <div key={`r-${monthIndex}`} className={`trip-rain${off ? " is-off" : ""}`}>
+              <div className="trip-rain-bars">
+                <i style={{ height: (inches / RAIN_MAX) * RAIN_H }} />
+                {compare ? (
+                  <i
+                    className="cmp"
+                    style={{ height: (compare.precip[monthIndex]! / RAIN_MAX) * RAIN_H }}
+                  />
+                ) : null}
+              </div>
+              <span className="trip-rain-n mono">{inches}</span>
+            </div>
+          );
+        })}
 
         <span className="trip-rl">Snow</span>
         {CLIMATE_DISPLAY_MONTHS.map((monthIndex) => {
-          const v = compare ? compare.snow[monthIndex]! : campus.snow[monthIndex]!;
+          const off = isOffSeasonMonth(monthIndex);
+          const schoolSnow = campus.snow[monthIndex]!;
+          const cmpSnow = compare?.snow[monthIndex];
           return (
-            <div key={`s-${monthIndex}`} className="trip-snow">
-              {v >= 1 ? `${v}″` : ""}
+            <div key={`s-${monthIndex}`} className={`trip-snow${off ? " is-off" : ""}`}>
+              <span>{fmtSnow(schoolSnow)}</span>
+              {compare && cmpSnow != null && cmpSnow >= 1 ? (
+                <span className="cmp">{fmtSnow(cmpSnow)}</span>
+              ) : null}
             </div>
           );
         })}
 
         <span />
         {CLIMATE_DISPLAY_MONTHS.map((monthIndex) => (
-          <div key={`m-${monthIndex}`} className="trip-mon">
+          <div
+            key={`m-${monthIndex}`}
+            className={`trip-mon${isOffSeasonMonth(monthIndex) ? " is-off" : ""}`}
+          >
             {MONTH_LABELS[monthIndex]}
           </div>
         ))}
+
         <span />
-        <div className="trip-sy">School year · Sep–May</div>
+        <div className="trip-sy" aria-hidden="true">
+          <span>School year · Sep–May</span>
+        </div>
       </div>
 
-      <div className="trip-legend">
-        <span>
-          <span className="trip-sw" style={{ background: "var(--color-accent)" }} />
-          {campus.name} high–low
-        </span>
-        {compare ? (
-          <>
-            <span>
-              <span
-                className="trip-sw"
-                style={{ border: "1.5px solid var(--color-text)", background: "transparent" }}
-              />
-              {compare.city} high–low
-            </span>
-            <span>Snow row shows {compare.name.toLowerCase()} snowfall</span>
-          </>
-        ) : null}
-        <span>
-          <span className="trip-sw" style={{ background: "var(--lvl-3)" }} />
-          Rain, {campus.name}
-        </span>
-      </div>
-      <p className="trip-foot">Approximate monthly averages, °F and inches.</p>
+      <p className="trip-foot">
+        30-year monthly normals. Hover a month for exact figures.
+        {annualPrecip(campus) > 0
+          ? ` About ${annualPrecip(campus)} in. rain`
+          : ""}
+        {annualSnow(campus) > 0 ? ` / ${annualSnow(campus)} in. snow` : ""} at{" "}
+        {campus.city}.
+      </p>
     </div>
   );
 }
