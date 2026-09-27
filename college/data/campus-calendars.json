@@ -1,0 +1,3264 @@
+[
+  {
+    "school": "Massachusetts Institute of Technology (MIT)",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://registrar.mit.edu/calendar-pdf",
+    "periods": [
+      {
+        "start": "2026-09-09",
+        "end": "2026-12-10",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-10-12",
+        "end": "2026-10-12",
+        "kind": "no_classes",
+        "label": "Indigenous Peoples' Day"
+      },
+      {
+        "start": "2026-11-11",
+        "end": "2026-11-11",
+        "kind": "no_classes",
+        "label": "Veterans Day"
+      },
+      {
+        "start": "2026-11-26",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-14",
+        "end": "2026-12-18",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-04",
+        "end": "2027-01-29",
+        "kind": "break",
+        "label": "Independent Activities Period (optional January term)"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-02-01",
+        "end": "2027-05-11",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-02-15",
+        "end": "2027-02-15",
+        "kind": "no_classes",
+        "label": "Presidents' Day"
+      },
+      {
+        "start": "2027-03-22",
+        "end": "2027-03-26",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-04-19",
+        "end": "2027-04-19",
+        "kind": "no_classes",
+        "label": "Patriots' Day"
+      },
+      {
+        "start": "2027-05-14",
+        "end": "2027-05-19",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "The Independent Activities Period in January is an optional term, so it is treated as a break; a Monday class schedule runs on Tuesday Oct 13 and Tuesday Feb 16."
+  },
+  {
+    "school": "Stanford University",
+    "calendarSystem": "quarter",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://studentservices.stanford.edu/calendar-events/academic-calendars/future-academic-calendars/stanford-academic-calendar-2026-2027",
+    "periods": [
+      {
+        "start": "2026-09-22",
+        "end": "2026-12-04",
+        "kind": "classes",
+        "label": "Autumn 2026 classes"
+      },
+      {
+        "start": "2026-11-03",
+        "end": "2026-11-03",
+        "kind": "no_classes",
+        "label": "Democracy Day"
+      },
+      {
+        "start": "2026-11-23",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving recess"
+      },
+      {
+        "start": "2026-12-07",
+        "end": "2026-12-11",
+        "kind": "finals",
+        "label": "Autumn 2026 final exams"
+      },
+      {
+        "start": "2027-01-04",
+        "end": "2027-03-12",
+        "kind": "classes",
+        "label": "Winter 2027 classes"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-02-15",
+        "end": "2027-02-15",
+        "kind": "no_classes",
+        "label": "Presidents' Day"
+      },
+      {
+        "start": "2027-03-15",
+        "end": "2027-03-19",
+        "kind": "finals",
+        "label": "Winter 2027 final exams"
+      },
+      {
+        "start": "2027-03-29",
+        "end": "2027-06-02",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-05-31",
+        "end": "2027-05-31",
+        "kind": "no_classes",
+        "label": "Memorial Day"
+      },
+      {
+        "start": "2027-06-03",
+        "end": "2027-06-03",
+        "kind": "no_classes",
+        "label": "Day before finals"
+      },
+      {
+        "start": "2027-06-04",
+        "end": "2027-06-09",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "The calendar does not name a winter or spring break; the gaps between quarters have no classes."
+  },
+  {
+    "school": "University of California, Berkeley (UC Berkeley)",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://registrar.berkeley.edu/wp-content/uploads/UCB_AcademicCalendar_2026-27_a11y.pdf",
+    "periods": [
+      {
+        "start": "2026-08-26",
+        "end": "2026-12-04",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-11-11",
+        "end": "2026-11-11",
+        "kind": "no_classes",
+        "label": "Veterans Day"
+      },
+      {
+        "start": "2026-11-25",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-07",
+        "end": "2026-12-11",
+        "kind": "reading",
+        "label": "Fall 2026 reading, review and recitation week"
+      },
+      {
+        "start": "2026-12-14",
+        "end": "2026-12-18",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-01-19",
+        "end": "2027-04-30",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-02-15",
+        "end": "2027-02-15",
+        "kind": "no_classes",
+        "label": "Presidents' Day"
+      },
+      {
+        "start": "2027-03-22",
+        "end": "2027-03-26",
+        "kind": "break",
+        "label": "Spring recess"
+      },
+      {
+        "start": "2027-05-03",
+        "end": "2027-05-07",
+        "kind": "reading",
+        "label": "Spring 2027 reading, review and recitation week"
+      },
+      {
+        "start": "2027-05-10",
+        "end": "2027-05-14",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "school": "Cornell University",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://registrar.cornell.edu/calendars-exams/academic-calendar/2026-2027",
+    "periods": [
+      {
+        "start": "2026-08-24",
+        "end": "2026-12-07",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-10-10",
+        "end": "2026-10-13",
+        "kind": "break",
+        "label": "Fall break"
+      },
+      {
+        "start": "2026-11-25",
+        "end": "2026-11-29",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-08",
+        "end": "2026-12-10",
+        "kind": "reading",
+        "label": "Fall 2026 study days"
+      },
+      {
+        "start": "2026-12-11",
+        "end": "2026-12-19",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-04",
+        "end": "2027-01-23",
+        "kind": "break",
+        "label": "Winter session (optional short term)"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-01-25",
+        "end": "2027-05-11",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-02-13",
+        "end": "2027-02-16",
+        "kind": "break",
+        "label": "February break"
+      },
+      {
+        "start": "2027-03-27",
+        "end": "2027-04-04",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-05-12",
+        "end": "2027-05-14",
+        "kind": "reading",
+        "label": "Spring 2027 study days"
+      },
+      {
+        "start": "2027-05-15",
+        "end": "2027-05-22",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "The January winter session is an optional short term, so it is treated as a break."
+  },
+  {
+    "school": "Northwestern University",
+    "calendarSystem": "quarter",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://catalogs.northwestern.edu/undergraduate/academic-calendar/academic-calendar.pdf",
+    "periods": [
+      {
+        "start": "2026-09-23",
+        "end": "2026-12-05",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-11-26",
+        "end": "2026-11-29",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-07",
+        "end": "2026-12-12",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-04",
+        "end": "2027-03-13",
+        "kind": "classes",
+        "label": "Winter 2027 classes"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-03-15",
+        "end": "2027-03-20",
+        "kind": "finals",
+        "label": "Winter 2027 final exams"
+      },
+      {
+        "start": "2027-03-21",
+        "end": "2027-03-29",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-03-30",
+        "end": "2027-06-05",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-05-31",
+        "end": "2027-05-31",
+        "kind": "no_classes",
+        "label": "Memorial Day"
+      },
+      {
+        "start": "2027-06-07",
+        "end": "2027-06-11",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "Thanksgiving break begins at 6 p.m. on Wednesday Nov 25."
+  },
+  {
+    "school": "Carnegie Mellon University (CMU)",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://www.cmu.edu/hub/calendar/docs/2627-academic-calendar.xlsx",
+    "periods": [
+      {
+        "start": "2026-08-24",
+        "end": "2026-12-04",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-10-12",
+        "end": "2026-10-16",
+        "kind": "break",
+        "label": "Fall break"
+      },
+      {
+        "start": "2026-11-03",
+        "end": "2026-11-03",
+        "kind": "no_classes",
+        "label": "Democracy Day"
+      },
+      {
+        "start": "2026-11-25",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-07",
+        "end": "2026-12-14",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-01-19",
+        "end": "2027-04-30",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-03-08",
+        "end": "2027-03-12",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-04-15",
+        "end": "2027-04-17",
+        "kind": "no_classes",
+        "label": "Spring Carnival"
+      },
+      {
+        "start": "2027-05-03",
+        "end": "2027-05-11",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "Reading days fall inside the final exam periods (Dec 9 and 12; May 5, 8 and 9)."
+  },
+  {
+    "school": "University of Pennsylvania (UPenn)",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://almanac.upenn.edu/uploads/media/011326-academic-calendar.pdf",
+    "periods": [
+      {
+        "start": "2026-08-25",
+        "end": "2026-12-07",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-10-01",
+        "end": "2026-10-04",
+        "kind": "break",
+        "label": "Fall term break"
+      },
+      {
+        "start": "2026-11-26",
+        "end": "2026-11-29",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-08",
+        "end": "2026-12-09",
+        "kind": "reading",
+        "label": "Fall 2026 reading days"
+      },
+      {
+        "start": "2026-12-10",
+        "end": "2026-12-17",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-01-20",
+        "end": "2027-05-04",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-03-06",
+        "end": "2027-03-14",
+        "kind": "break",
+        "label": "Spring term break"
+      },
+      {
+        "start": "2027-05-05",
+        "end": "2027-05-06",
+        "kind": "reading",
+        "label": "Spring 2027 reading days"
+      },
+      {
+        "start": "2027-05-07",
+        "end": "2027-05-17",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "Classes are held on Indigenous Peoples' Day (Oct 12)."
+  },
+  {
+    "school": "Johns Hopkins University",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://registrar.jhu.edu/academic-calendar/",
+    "periods": [
+      {
+        "start": "2026-08-31",
+        "end": "2026-12-11",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-10-22",
+        "end": "2026-10-23",
+        "kind": "break",
+        "label": "Fall break"
+      },
+      {
+        "start": "2026-11-23",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving recess"
+      },
+      {
+        "start": "2026-12-14",
+        "end": "2026-12-14",
+        "kind": "reading",
+        "label": "Fall reading day"
+      },
+      {
+        "start": "2026-12-15",
+        "end": "2026-12-23",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-25",
+        "end": "2027-04-30",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-03-22",
+        "end": "2027-03-26",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-05-03",
+        "end": "2027-05-07",
+        "kind": "reading",
+        "label": "Spring reading days"
+      },
+      {
+        "start": "2027-05-10",
+        "end": "2027-05-18",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "Dates are from the Homewood (Arts and Sciences and Engineering) column of the university calendar."
+  },
+  {
+    "school": "Georgia Institute of Technology (Georgia Tech)",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://registrar.gatech.edu/current-academic-calendar",
+    "periods": [
+      {
+        "start": "2026-08-24",
+        "end": "2026-12-08",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-10-05",
+        "end": "2026-10-06",
+        "kind": "break",
+        "label": "Fall break"
+      },
+      {
+        "start": "2026-11-25",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-09",
+        "end": "2026-12-09",
+        "kind": "reading",
+        "label": "Fall reading period"
+      },
+      {
+        "start": "2026-12-10",
+        "end": "2026-12-17",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-11",
+        "end": "2027-04-27",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-03-08",
+        "end": "2027-03-12",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-04-28",
+        "end": "2027-04-28",
+        "kind": "reading",
+        "label": "Spring reading period"
+      },
+      {
+        "start": "2027-04-29",
+        "end": "2027-05-06",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "school": "University of Michigan\u2013Ann Arbor",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://ro.umich.edu/sites/default/files/calendar/pdfs/Cal_2026-2027.pdf",
+    "periods": [
+      {
+        "start": "2026-08-31",
+        "end": "2026-12-11",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-10-19",
+        "end": "2026-10-20",
+        "kind": "break",
+        "label": "Fall study break"
+      },
+      {
+        "start": "2026-11-25",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving recess"
+      },
+      {
+        "start": "2026-12-12",
+        "end": "2026-12-13",
+        "kind": "reading",
+        "label": "Fall study days"
+      },
+      {
+        "start": "2026-12-14",
+        "end": "2026-12-21",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-13",
+        "end": "2027-04-27",
+        "kind": "classes",
+        "label": "Winter 2027 classes"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day (symposia, no regular classes)"
+      },
+      {
+        "start": "2027-03-06",
+        "end": "2027-03-14",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-04-28",
+        "end": "2027-04-28",
+        "kind": "reading",
+        "label": "Study day"
+      },
+      {
+        "start": "2027-04-29",
+        "end": "2027-05-06",
+        "kind": "finals",
+        "label": "Winter 2027 final exams"
+      }
+    ],
+    "notes": "Michigan calls its spring semester Winter Term; Saturday-Sunday May 1-2 are study days inside the exam period."
+  },
+  {
+    "school": "University of Illinois Urbana-Champaign (UIUC)",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "tentative",
+    "sourceUrl": "https://senate.illinois.edu/academic_calendars/2026-2027ac.pdf",
+    "periods": [
+      {
+        "start": "2026-08-24",
+        "end": "2026-12-09",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-11-21",
+        "end": "2026-11-29",
+        "kind": "break",
+        "label": "Fall break (Thanksgiving week)"
+      },
+      {
+        "start": "2026-12-10",
+        "end": "2026-12-10",
+        "kind": "reading",
+        "label": "Fall reading day"
+      },
+      {
+        "start": "2026-12-11",
+        "end": "2026-12-17",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-01-19",
+        "end": "2027-05-05",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-03-13",
+        "end": "2027-03-21",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-05-06",
+        "end": "2027-05-06",
+        "kind": "reading",
+        "label": "Spring reading day"
+      },
+      {
+        "start": "2027-05-07",
+        "end": "2027-05-13",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "The registrar labels dates tentative until closer to each semester, but they match the Faculty Senate-approved 2026-27 calendar."
+  },
+  {
+    "school": "University of Texas at Austin (UT Austin)",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://registrar.utexas.edu/calendars/26-27",
+    "periods": [
+      {
+        "start": "2026-08-24",
+        "end": "2026-12-07",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-11-23",
+        "end": "2026-11-28",
+        "kind": "break",
+        "label": "Fall break and Thanksgiving"
+      },
+      {
+        "start": "2026-12-08",
+        "end": "2026-12-09",
+        "kind": "reading",
+        "label": "Fall study days"
+      },
+      {
+        "start": "2026-12-10",
+        "end": "2026-12-14",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-11",
+        "end": "2027-04-26",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-03-15",
+        "end": "2027-03-20",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-04-27",
+        "end": "2027-04-28",
+        "kind": "reading",
+        "label": "Spring study days"
+      },
+      {
+        "start": "2027-04-29",
+        "end": "2027-05-03",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "school": "University of California, Los Angeles (UCLA)",
+    "calendarSystem": "quarter",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://registrar.ucla.edu/portals/50/documents/calendar/academiccalendar26-27.pdf",
+    "periods": [
+      {
+        "start": "2026-09-24",
+        "end": "2026-12-04",
+        "kind": "classes",
+        "label": "Fall Quarter 2026 classes"
+      },
+      {
+        "start": "2026-11-11",
+        "end": "2026-11-11",
+        "kind": "no_classes",
+        "label": "Veterans Day"
+      },
+      {
+        "start": "2026-11-26",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving holiday"
+      },
+      {
+        "start": "2026-12-05",
+        "end": "2026-12-11",
+        "kind": "finals",
+        "label": "Fall Quarter 2026 final exams"
+      },
+      {
+        "start": "2027-01-04",
+        "end": "2027-03-12",
+        "kind": "classes",
+        "label": "Winter Quarter 2027 classes"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-02-15",
+        "end": "2027-02-15",
+        "kind": "no_classes",
+        "label": "Presidents' Day"
+      },
+      {
+        "start": "2027-03-13",
+        "end": "2027-03-19",
+        "kind": "finals",
+        "label": "Winter Quarter 2027 final exams"
+      },
+      {
+        "start": "2027-03-29",
+        "end": "2027-06-04",
+        "kind": "classes",
+        "label": "Spring Quarter 2027 classes"
+      },
+      {
+        "start": "2027-05-31",
+        "end": "2027-05-31",
+        "kind": "no_classes",
+        "label": "Memorial Day"
+      },
+      {
+        "start": "2027-06-05",
+        "end": "2027-06-11",
+        "kind": "finals",
+        "label": "Spring Quarter 2027 final exams"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "school": "Purdue University",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://www.purdue.edu/registrar/calendars/academic/",
+    "periods": [
+      {
+        "start": "2026-08-24",
+        "end": "2026-12-12",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-10-12",
+        "end": "2026-10-13",
+        "kind": "break",
+        "label": "Fall break"
+      },
+      {
+        "start": "2026-11-25",
+        "end": "2026-11-28",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-14",
+        "end": "2026-12-19",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-11",
+        "end": "2027-05-01",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-03-15",
+        "end": "2027-03-20",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-05-03",
+        "end": "2027-05-08",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "Purdue's site blocked a direct download, so these dates come from two separate reads of the official page that matched."
+  },
+  {
+    "school": "University of Maryland, College Park",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://academiccatalog.umd.edu/about-university/academic-calendar/semester-calendar/",
+    "periods": [
+      {
+        "start": "2026-08-31",
+        "end": "2026-12-11",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-10-12",
+        "end": "2026-10-13",
+        "kind": "break",
+        "label": "Fall break"
+      },
+      {
+        "start": "2026-11-25",
+        "end": "2026-11-29",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-12",
+        "end": "2026-12-12",
+        "kind": "reading",
+        "label": "Fall reading day"
+      },
+      {
+        "start": "2026-12-14",
+        "end": "2026-12-21",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-27",
+        "end": "2027-05-11",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-03-14",
+        "end": "2027-03-21",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-05-12",
+        "end": "2027-05-12",
+        "kind": "reading",
+        "label": "Spring reading day"
+      },
+      {
+        "start": "2027-05-13",
+        "end": "2027-05-20",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "school": "University of Washington",
+    "calendarSystem": "quarter",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://www.washington.edu/students/reg/2627cal.html",
+    "periods": [
+      {
+        "start": "2026-09-30",
+        "end": "2026-12-11",
+        "kind": "classes",
+        "label": "Autumn 2026 classes"
+      },
+      {
+        "start": "2026-11-11",
+        "end": "2026-11-11",
+        "kind": "no_classes",
+        "label": "Veterans Day"
+      },
+      {
+        "start": "2026-11-26",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-12",
+        "end": "2026-12-18",
+        "kind": "finals",
+        "label": "Autumn 2026 final exams"
+      },
+      {
+        "start": "2027-01-04",
+        "end": "2027-03-12",
+        "kind": "classes",
+        "label": "Winter 2027 classes"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-02-15",
+        "end": "2027-02-15",
+        "kind": "no_classes",
+        "label": "Presidents' Day"
+      },
+      {
+        "start": "2027-03-13",
+        "end": "2027-03-19",
+        "kind": "finals",
+        "label": "Winter 2027 final exams"
+      },
+      {
+        "start": "2027-03-20",
+        "end": "2027-03-28",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-03-29",
+        "end": "2027-06-04",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-05-31",
+        "end": "2027-05-31",
+        "kind": "no_classes",
+        "label": "Memorial Day"
+      },
+      {
+        "start": "2027-06-05",
+        "end": "2027-06-11",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "school": "University of Wisconsin\u2013Madison",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://secfac.wisc.edu/academic-calendar/",
+    "periods": [
+      {
+        "start": "2026-09-02",
+        "end": "2026-12-09",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-11-26",
+        "end": "2026-11-29",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-10",
+        "end": "2026-12-10",
+        "kind": "reading",
+        "label": "Fall study day"
+      },
+      {
+        "start": "2026-12-11",
+        "end": "2026-12-17",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-01-19",
+        "end": "2027-04-30",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-03-20",
+        "end": "2027-03-28",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-05-01",
+        "end": "2027-05-01",
+        "kind": "reading",
+        "label": "Spring study day"
+      },
+      {
+        "start": "2027-05-02",
+        "end": "2027-05-07",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "school": "Virginia Polytechnic Institute and State University (Virginia Tech)",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://www.registrar.vt.edu/dates-deadlines/academic-calendar.html",
+    "periods": [
+      {
+        "start": "2026-08-24",
+        "end": "2026-12-09",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-10-09",
+        "end": "2026-10-09",
+        "kind": "break",
+        "label": "Fall break"
+      },
+      {
+        "start": "2026-11-21",
+        "end": "2026-11-29",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-10",
+        "end": "2026-12-10",
+        "kind": "reading",
+        "label": "Fall reading day"
+      },
+      {
+        "start": "2026-12-11",
+        "end": "2026-12-16",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-01-19",
+        "end": "2027-05-05",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-03-06",
+        "end": "2027-03-14",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-05-06",
+        "end": "2027-05-06",
+        "kind": "reading",
+        "label": "Spring reading day"
+      },
+      {
+        "start": "2027-05-07",
+        "end": "2027-05-12",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "school": "Pennsylvania State University (Penn State)",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://www.registrar.psu.edu/academic-calendars/2026-27.cfm",
+    "periods": [
+      {
+        "start": "2026-08-24",
+        "end": "2026-12-11",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-11-22",
+        "end": "2026-11-28",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-12",
+        "end": "2026-12-13",
+        "kind": "reading",
+        "label": "Fall study days"
+      },
+      {
+        "start": "2026-12-14",
+        "end": "2026-12-18",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-11",
+        "end": "2027-04-30",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-03-07",
+        "end": "2027-03-13",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-05-01",
+        "end": "2027-05-02",
+        "kind": "reading",
+        "label": "Spring study days"
+      },
+      {
+        "start": "2027-05-03",
+        "end": "2027-05-07",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "University Park regular session calendar."
+  },
+  {
+    "school": "Ohio State University",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://registrar.osu.edu/academic-calendar/academic-calendar-5-year-view-2023-2028/",
+    "periods": [
+      {
+        "start": "2026-08-25",
+        "end": "2026-12-09",
+        "kind": "classes",
+        "label": "Autumn 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-10-15",
+        "end": "2026-10-16",
+        "kind": "break",
+        "label": "Autumn break"
+      },
+      {
+        "start": "2026-11-11",
+        "end": "2026-11-11",
+        "kind": "no_classes",
+        "label": "Veterans Day"
+      },
+      {
+        "start": "2026-11-25",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-11",
+        "end": "2026-12-17",
+        "kind": "finals",
+        "label": "Autumn 2026 final exams"
+      },
+      {
+        "start": "2027-01-11",
+        "end": "2027-04-26",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-03-15",
+        "end": "2027-03-19",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-04-28",
+        "end": "2027-05-04",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "Columbus campus."
+  },
+  {
+    "school": "University of Minnesota Twin Cities",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://asr.umn.edu/2026-27-twin-cities-and-rochester-calendar",
+    "periods": [
+      {
+        "start": "2026-09-08",
+        "end": "2026-12-16",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-11-26",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-17",
+        "end": "2026-12-23",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-01-19",
+        "end": "2027-05-03",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-03-08",
+        "end": "2027-03-12",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-05-04",
+        "end": "2027-05-05",
+        "kind": "reading",
+        "label": "Spring study days"
+      },
+      {
+        "start": "2027-05-06",
+        "end": "2027-05-12",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "Thanksgiving, MLK Day and spring break dates come from the Twin Cities entries in the university's One Stop academic calendar (onestop.umn.edu/calendar/academic-calendar); study days fall on Dec 20 and May 9 inside the exam periods."
+  },
+  {
+    "school": "North Carolina State University (NC State)",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://studentservices.ncsu.edu/calendars/academic-calendar/",
+    "periods": [
+      {
+        "start": "2026-08-17",
+        "end": "2026-12-01",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-09-29",
+        "end": "2026-09-29",
+        "kind": "no_classes",
+        "label": "Wellness Day"
+      },
+      {
+        "start": "2026-10-19",
+        "end": "2026-10-20",
+        "kind": "break",
+        "label": "Fall break"
+      },
+      {
+        "start": "2026-11-25",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-02",
+        "end": "2026-12-02",
+        "kind": "reading",
+        "label": "Fall reading day"
+      },
+      {
+        "start": "2026-12-03",
+        "end": "2026-12-09",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-11",
+        "end": "2027-04-27",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-02-16",
+        "end": "2027-02-16",
+        "kind": "no_classes",
+        "label": "Wellness Day"
+      },
+      {
+        "start": "2027-03-15",
+        "end": "2027-03-19",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-04-28",
+        "end": "2027-04-28",
+        "kind": "reading",
+        "label": "Spring reading day"
+      },
+      {
+        "start": "2027-04-29",
+        "end": "2027-05-05",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "school": "University of California, Davis (UC Davis)",
+    "calendarSystem": "quarter",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://registrar.ucdavis.edu/calendar/quarter",
+    "periods": [
+      {
+        "start": "2026-09-23",
+        "end": "2026-12-04",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-11-11",
+        "end": "2026-11-11",
+        "kind": "no_classes",
+        "label": "Veterans Day"
+      },
+      {
+        "start": "2026-11-26",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving holiday"
+      },
+      {
+        "start": "2026-12-07",
+        "end": "2026-12-11",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-04",
+        "end": "2027-03-12",
+        "kind": "classes",
+        "label": "Winter 2027 classes"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-02-15",
+        "end": "2027-02-15",
+        "kind": "no_classes",
+        "label": "Presidents' Day"
+      },
+      {
+        "start": "2027-03-15",
+        "end": "2027-03-19",
+        "kind": "finals",
+        "label": "Winter 2027 final exams"
+      },
+      {
+        "start": "2027-03-22",
+        "end": "2027-03-26",
+        "kind": "break",
+        "label": "Spring break (includes Farmworkers Day Mar 26)"
+      },
+      {
+        "start": "2027-03-29",
+        "end": "2027-06-03",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-05-31",
+        "end": "2027-05-31",
+        "kind": "no_classes",
+        "label": "Memorial Day"
+      },
+      {
+        "start": "2027-06-04",
+        "end": "2027-06-10",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "Holiday dates come from the registrar's holidays page (registrar.ucdavis.edu/calendar/holidays)."
+  },
+  {
+    "school": "University of California, Irvine (UC Irvine)",
+    "calendarSystem": "quarter",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://www.reg.uci.edu/calendars/quarterly/2026-2027/quarterly26-27.html",
+    "periods": [
+      {
+        "start": "2026-09-24",
+        "end": "2026-12-04",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-11-11",
+        "end": "2026-11-11",
+        "kind": "no_classes",
+        "label": "Veterans Day"
+      },
+      {
+        "start": "2026-11-26",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving"
+      },
+      {
+        "start": "2026-12-05",
+        "end": "2026-12-11",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-04",
+        "end": "2027-03-12",
+        "kind": "classes",
+        "label": "Winter 2027 classes"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-02-15",
+        "end": "2027-02-15",
+        "kind": "no_classes",
+        "label": "Presidents' Day"
+      },
+      {
+        "start": "2027-03-13",
+        "end": "2027-03-19",
+        "kind": "finals",
+        "label": "Winter 2027 final exams"
+      },
+      {
+        "start": "2027-03-22",
+        "end": "2027-03-26",
+        "kind": "break",
+        "label": "Spring break (includes Farmworkers Day Mar 26)"
+      },
+      {
+        "start": "2027-03-29",
+        "end": "2027-06-04",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-05-31",
+        "end": "2027-05-31",
+        "kind": "no_classes",
+        "label": "Memorial Day"
+      },
+      {
+        "start": "2027-06-05",
+        "end": "2027-06-10",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "school": "Case Western Reserve University",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://case.edu/registrar/dates-deadlines/academic-calendar",
+    "periods": [
+      {
+        "start": "2026-08-24",
+        "end": "2026-12-04",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-10-19",
+        "end": "2026-10-20",
+        "kind": "break",
+        "label": "Fall break"
+      },
+      {
+        "start": "2026-11-26",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving holidays"
+      },
+      {
+        "start": "2026-12-07",
+        "end": "2026-12-07",
+        "kind": "reading",
+        "label": "Fall reading day"
+      },
+      {
+        "start": "2026-12-08",
+        "end": "2026-12-16",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-11",
+        "end": "2027-04-26",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-03-08",
+        "end": "2027-03-12",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-04-27",
+        "end": "2027-04-28",
+        "kind": "reading",
+        "label": "Spring reading days"
+      },
+      {
+        "start": "2027-04-29",
+        "end": "2027-05-06",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "school": "Rensselaer Polytechnic Institute (RPI)",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://registrar.rpi.edu/academic-calendar",
+    "periods": [
+      {
+        "start": "2026-08-27",
+        "end": "2026-12-11",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-10-12",
+        "end": "2026-10-12",
+        "kind": "no_classes",
+        "label": "Indigenous Peoples' Day"
+      },
+      {
+        "start": "2026-11-23",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-12",
+        "end": "2026-12-15",
+        "kind": "reading",
+        "label": "Fall reading and study days"
+      },
+      {
+        "start": "2026-12-16",
+        "end": "2026-12-22",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-11",
+        "end": "2027-04-28",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-02-15",
+        "end": "2027-02-15",
+        "kind": "no_classes",
+        "label": "Presidents' Day"
+      },
+      {
+        "start": "2027-03-01",
+        "end": "2027-03-05",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-03-24",
+        "end": "2027-03-24",
+        "kind": "no_classes",
+        "label": "Grand Marshal Week (no classes Wednesday)"
+      },
+      {
+        "start": "2027-04-29",
+        "end": "2027-05-02",
+        "kind": "reading",
+        "label": "Spring reading and study days"
+      },
+      {
+        "start": "2027-05-03",
+        "end": "2027-05-07",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "school": "Rutgers University\u2013New Brunswick",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://scheduling.rutgers.edu/academic-calendar/",
+    "periods": [
+      {
+        "start": "2026-09-01",
+        "end": "2026-12-10",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-11-26",
+        "end": "2026-11-29",
+        "kind": "break",
+        "label": "Thanksgiving recess"
+      },
+      {
+        "start": "2026-12-11",
+        "end": "2026-12-14",
+        "kind": "reading",
+        "label": "Fall reading days (Dec 11 and 14)"
+      },
+      {
+        "start": "2026-12-15",
+        "end": "2026-12-22",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-19",
+        "end": "2027-05-03",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-03-13",
+        "end": "2027-03-21",
+        "kind": "break",
+        "label": "Spring recess"
+      },
+      {
+        "start": "2027-05-04",
+        "end": "2027-05-05",
+        "kind": "reading",
+        "label": "Spring reading days"
+      },
+      {
+        "start": "2027-05-06",
+        "end": "2027-05-12",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "Monday classes meet on Tuesday Sep 8, and Friday classes meet on Wednesday Nov 25."
+  },
+  {
+    "school": "University of Florida",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://catalog.ufl.edu/UGRD/dates-deadlines/2026-2027/",
+    "periods": [
+      {
+        "start": "2026-08-20",
+        "end": "2026-12-02",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-10-09",
+        "end": "2026-10-10",
+        "kind": "break",
+        "label": "Homecoming"
+      },
+      {
+        "start": "2026-11-11",
+        "end": "2026-11-11",
+        "kind": "no_classes",
+        "label": "Veterans Day"
+      },
+      {
+        "start": "2026-11-23",
+        "end": "2026-11-28",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-03",
+        "end": "2026-12-04",
+        "kind": "reading",
+        "label": "Fall reading days"
+      },
+      {
+        "start": "2026-12-05",
+        "end": "2026-12-11",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-11",
+        "end": "2027-04-21",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-03-13",
+        "end": "2027-03-20",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-04-22",
+        "end": "2027-04-23",
+        "kind": "reading",
+        "label": "Spring reading days"
+      },
+      {
+        "start": "2027-04-24",
+        "end": "2027-04-30",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "school": "Texas A&M University",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://catalog.tamu.edu/undergraduate/academic-calendar/academic-calendar.pdf",
+    "periods": [
+      {
+        "start": "2026-08-24",
+        "end": "2026-12-03",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-11-25",
+        "end": "2026-11-25",
+        "kind": "reading",
+        "label": "Reading day before Thanksgiving"
+      },
+      {
+        "start": "2026-11-26",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-04",
+        "end": "2026-12-04",
+        "kind": "reading",
+        "label": "Fall reading day"
+      },
+      {
+        "start": "2026-12-07",
+        "end": "2026-12-10",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-01-19",
+        "end": "2027-05-04",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-03-15",
+        "end": "2027-03-19",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-03-26",
+        "end": "2027-03-26",
+        "kind": "reading",
+        "label": "Spring reading day"
+      },
+      {
+        "start": "2027-05-05",
+        "end": "2027-05-05",
+        "kind": "reading",
+        "label": "Reading day before finals"
+      },
+      {
+        "start": "2027-05-06",
+        "end": "2027-05-11",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "College Station campus; students follow a Friday class schedule on Dec 1 and May 4."
+  },
+  {
+    "school": "Colorado School of Mines",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://ms01.mines.edu/registrar/wp-content/uploads/sites/51/2026/04/2026-2027-Academic-Calendar-4-8-26.pdf",
+    "periods": [
+      {
+        "start": "2026-08-24",
+        "end": "2026-12-09",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-10-12",
+        "end": "2026-10-13",
+        "kind": "break",
+        "label": "Fall break"
+      },
+      {
+        "start": "2026-11-25",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-10",
+        "end": "2026-12-10",
+        "kind": "reading",
+        "label": "Fall review day"
+      },
+      {
+        "start": "2026-12-11",
+        "end": "2026-12-16",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-11",
+        "end": "2027-05-05",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-02-15",
+        "end": "2027-02-16",
+        "kind": "break",
+        "label": "Presidents' Day break"
+      },
+      {
+        "start": "2027-03-22",
+        "end": "2027-03-26",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-04-16",
+        "end": "2027-04-18",
+        "kind": "no_classes",
+        "label": "E-Days"
+      },
+      {
+        "start": "2027-05-06",
+        "end": "2027-05-06",
+        "kind": "reading",
+        "label": "Spring review day"
+      },
+      {
+        "start": "2027-05-07",
+        "end": "2027-05-12",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "school": "University of Virginia (UVA)",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://registrar.virginia.edu/calendar/academic/2026-2027",
+    "periods": [
+      {
+        "start": "2026-08-25",
+        "end": "2026-12-08",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-10-03",
+        "end": "2026-10-06",
+        "kind": "break",
+        "label": "Fall reading days (no classes)"
+      },
+      {
+        "start": "2026-11-03",
+        "end": "2026-11-03",
+        "kind": "no_classes",
+        "label": "Election Day"
+      },
+      {
+        "start": "2026-11-25",
+        "end": "2026-11-29",
+        "kind": "break",
+        "label": "Thanksgiving recess"
+      },
+      {
+        "start": "2026-12-10",
+        "end": "2026-12-18",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-01-20",
+        "end": "2027-05-04",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-03-06",
+        "end": "2027-03-14",
+        "kind": "break",
+        "label": "Spring recess"
+      },
+      {
+        "start": "2027-05-06",
+        "end": "2027-05-14",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "Classes meet on Labor Day; reading days fall inside both exam periods."
+  },
+  {
+    "school": "Lehigh University",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://registrar.lehigh.edu/current-students/academic-calendar",
+    "periods": [
+      {
+        "start": "2026-08-24",
+        "end": "2026-12-04",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-10-12",
+        "end": "2026-10-12",
+        "kind": "no_classes",
+        "label": "Pacing break"
+      },
+      {
+        "start": "2026-11-03",
+        "end": "2026-11-03",
+        "kind": "no_classes",
+        "label": "Civic Engagement Day"
+      },
+      {
+        "start": "2026-11-25",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-05",
+        "end": "2026-12-07",
+        "kind": "reading",
+        "label": "Fall review and consultation days"
+      },
+      {
+        "start": "2026-12-08",
+        "end": "2026-12-16",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-25",
+        "end": "2027-05-07",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-03-15",
+        "end": "2027-03-19",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-05-08",
+        "end": "2027-05-10",
+        "kind": "reading",
+        "label": "Spring review and consultation days"
+      },
+      {
+        "start": "2027-05-11",
+        "end": "2027-05-19",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "school": "University of Connecticut (UConn)",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://registrar.uconn.edu/academic-calendar/",
+    "periods": [
+      {
+        "start": "2026-08-31",
+        "end": "2026-12-11",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-11-22",
+        "end": "2026-11-29",
+        "kind": "break",
+        "label": "Thanksgiving recess"
+      },
+      {
+        "start": "2026-12-12",
+        "end": "2026-12-13",
+        "kind": "reading",
+        "label": "Fall reading days"
+      },
+      {
+        "start": "2026-12-14",
+        "end": "2026-12-20",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-19",
+        "end": "2027-04-30",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-03-14",
+        "end": "2027-03-21",
+        "kind": "break",
+        "label": "Spring recess"
+      },
+      {
+        "start": "2027-05-01",
+        "end": "2027-05-02",
+        "kind": "reading",
+        "label": "Spring reading days"
+      },
+      {
+        "start": "2027-05-03",
+        "end": "2027-05-08",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "Storrs campus; Dec 17 is a reading day inside the fall exam period."
+  },
+  {
+    "school": "University of Delaware",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://www.udel.edu/content/dam/udelImages/registrar/academic-calendar/AcadCalendar_2026-2027_08.27.26_comm.pdf",
+    "periods": [
+      {
+        "start": "2026-08-25",
+        "end": "2026-12-08",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-11-03",
+        "end": "2026-11-03",
+        "kind": "no_classes",
+        "label": "Election Day"
+      },
+      {
+        "start": "2026-11-23",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-09",
+        "end": "2026-12-09",
+        "kind": "reading",
+        "label": "Fall reading day"
+      },
+      {
+        "start": "2026-12-10",
+        "end": "2026-12-14",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-04",
+        "end": "2027-02-06",
+        "kind": "break",
+        "label": "Winter Term (optional)"
+      },
+      {
+        "start": "2027-02-08",
+        "end": "2027-05-20",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-03-27",
+        "end": "2027-04-04",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-05-21",
+        "end": "2027-05-21",
+        "kind": "reading",
+        "label": "Spring reading day"
+      },
+      {
+        "start": "2027-05-22",
+        "end": "2027-05-26",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "Spring classes start Feb 8 because Delaware runs an optional five-week Winter Term in January."
+  },
+  {
+    "school": "Drexel University",
+    "calendarSystem": "quarter",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://drexel.edu/provost/policies-calendars/academic-calendars",
+    "periods": [
+      {
+        "start": "2026-09-22",
+        "end": "2026-12-05",
+        "kind": "classes",
+        "label": "Fall quarter 2026 classes"
+      },
+      {
+        "start": "2026-10-12",
+        "end": "2026-10-12",
+        "kind": "no_classes",
+        "label": "Indigenous Peoples' Day"
+      },
+      {
+        "start": "2026-11-03",
+        "end": "2026-11-03",
+        "kind": "no_classes",
+        "label": "Election Day"
+      },
+      {
+        "start": "2026-11-25",
+        "end": "2026-11-29",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-07",
+        "end": "2026-12-12",
+        "kind": "finals",
+        "label": "Fall quarter final exams"
+      },
+      {
+        "start": "2027-01-04",
+        "end": "2027-03-13",
+        "kind": "classes",
+        "label": "Winter quarter 2027 classes"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-03-15",
+        "end": "2027-03-20",
+        "kind": "finals",
+        "label": "Winter quarter final exams"
+      },
+      {
+        "start": "2027-03-21",
+        "end": "2027-03-28",
+        "kind": "break",
+        "label": "Break between winter and spring quarters"
+      },
+      {
+        "start": "2027-03-29",
+        "end": "2027-06-05",
+        "kind": "classes",
+        "label": "Spring quarter 2027 classes"
+      },
+      {
+        "start": "2027-05-31",
+        "end": "2027-05-31",
+        "kind": "no_classes",
+        "label": "Memorial Day"
+      },
+      {
+        "start": "2027-06-07",
+        "end": "2027-06-12",
+        "kind": "finals",
+        "label": "Spring quarter final exams"
+      }
+    ],
+    "notes": "2026-27 is Drexel's last quarter-system year; the university moves to semesters in August 2027, so Kyle's class would be on semesters."
+  },
+  {
+    "school": "Iowa State University",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://www.registrar.iastate.edu/academic-calendars",
+    "periods": [
+      {
+        "start": "2026-08-24",
+        "end": "2026-12-11",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-11-23",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-14",
+        "end": "2026-12-17",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-01-19",
+        "end": "2027-05-07",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-03-15",
+        "end": "2027-03-19",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-05-10",
+        "end": "2027-05-13",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "The calendar gives no separate last day of classes, so classes end on the last day of Prep Week."
+  },
+  {
+    "school": "Clemson University",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://www.clemson.edu/registrar/academic-resources/academic-calendars.html",
+    "periods": [
+      {
+        "start": "2026-08-19",
+        "end": "2026-12-04",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-10-12",
+        "end": "2026-10-13",
+        "kind": "break",
+        "label": "Fall break"
+      },
+      {
+        "start": "2026-11-03",
+        "end": "2026-11-03",
+        "kind": "no_classes",
+        "label": "Election Day"
+      },
+      {
+        "start": "2026-11-25",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-07",
+        "end": "2026-12-11",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-06",
+        "end": "2027-04-23",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-03-15",
+        "end": "2027-03-19",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-04-26",
+        "end": "2027-04-30",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "An older PDF labels the calendar proposed; the registrar's official events calendar lists these dates, including fall break and Election Day, as confirmed."
+  },
+  {
+    "school": "University of Tennessee, Knoxville",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://registrar.utk.edu/wp-content/uploads/sites/4/2026/01/2026-2027-Academic-Calendar.pdf",
+    "periods": [
+      {
+        "start": "2026-08-17",
+        "end": "2026-12-01",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-10-05",
+        "end": "2026-10-06",
+        "kind": "break",
+        "label": "Fall break"
+      },
+      {
+        "start": "2026-11-03",
+        "end": "2026-11-03",
+        "kind": "no_classes",
+        "label": "Election Day"
+      },
+      {
+        "start": "2026-11-25",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-02",
+        "end": "2026-12-02",
+        "kind": "reading",
+        "label": "Fall study day"
+      },
+      {
+        "start": "2026-12-03",
+        "end": "2026-12-09",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-19",
+        "end": "2027-05-05",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-03-08",
+        "end": "2027-03-12",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-03-25",
+        "end": "2027-03-26",
+        "kind": "break",
+        "label": "Spring recess"
+      },
+      {
+        "start": "2027-05-06",
+        "end": "2027-05-06",
+        "kind": "reading",
+        "label": "Spring study day"
+      },
+      {
+        "start": "2027-05-07",
+        "end": "2027-05-13",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "school": "Michigan Technological University (Michigan Tech)",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://www.mtu.edu/registrar/pdfs/academic-calendars-2627-2728-2829.pdf",
+    "periods": [
+      {
+        "start": "2026-08-31",
+        "end": "2026-12-11",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-10-22",
+        "end": "2026-10-23",
+        "kind": "break",
+        "label": "October recess"
+      },
+      {
+        "start": "2026-11-21",
+        "end": "2026-11-29",
+        "kind": "break",
+        "label": "Fall break (Thanksgiving week)"
+      },
+      {
+        "start": "2026-12-14",
+        "end": "2026-12-18",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-11",
+        "end": "2027-04-23",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-02-04",
+        "end": "2027-02-05",
+        "kind": "break",
+        "label": "Winter Carnival recess"
+      },
+      {
+        "start": "2027-03-06",
+        "end": "2027-03-14",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-04-26",
+        "end": "2027-04-30",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "Classes also end at noon on Friday Sep 11 for K-Day."
+  },
+  {
+    "school": "New Jersey Institute of Technology (NJIT)",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://www.njit.edu/registrar/calendars",
+    "periods": [
+      {
+        "start": "2026-09-01",
+        "end": "2026-12-13",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-10-02",
+        "end": "2026-10-02",
+        "kind": "no_classes",
+        "label": "Wellness Day"
+      },
+      {
+        "start": "2026-11-26",
+        "end": "2026-11-29",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-14",
+        "end": "2026-12-15",
+        "kind": "reading",
+        "label": "Fall reading days"
+      },
+      {
+        "start": "2026-12-16",
+        "end": "2026-12-22",
+        "kind": "finals",
+        "label": "Fall 2026 final exams"
+      },
+      {
+        "start": "2027-01-19",
+        "end": "2027-05-03",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-03-21",
+        "end": "2027-03-27",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-05-04",
+        "end": "2027-05-05",
+        "kind": "reading",
+        "label": "Spring reading days"
+      },
+      {
+        "start": "2027-05-06",
+        "end": "2027-05-12",
+        "kind": "finals",
+        "label": "Spring 2027 final exams"
+      }
+    ],
+    "notes": "Spring 2027 dates come from the registrar's Spring 2027 calendar page (njit.edu/registrar/spring-2027-academic-calendar)."
+  },
+  {
+    "school": "Worcester Polytechnic Institute (WPI)",
+    "calendarSystem": "other",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://www.wpi.edu/academics/calendar/26-27",
+    "periods": [
+      {
+        "start": "2026-08-20",
+        "end": "2026-10-09",
+        "kind": "classes",
+        "label": "A-Term classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-09-25",
+        "end": "2026-09-25",
+        "kind": "no_classes",
+        "label": "Wellness Day"
+      },
+      {
+        "start": "2026-10-10",
+        "end": "2026-10-18",
+        "kind": "break",
+        "label": "Break between A-Term and B-Term"
+      },
+      {
+        "start": "2026-10-19",
+        "end": "2026-12-11",
+        "kind": "classes",
+        "label": "B-Term classes"
+      },
+      {
+        "start": "2026-11-03",
+        "end": "2026-11-03",
+        "kind": "no_classes",
+        "label": "Wellness Day and Election Day"
+      },
+      {
+        "start": "2026-11-25",
+        "end": "2026-11-27",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-07",
+        "end": "2026-12-07",
+        "kind": "reading",
+        "label": "Reading day and make-up day"
+      },
+      {
+        "start": "2027-01-13",
+        "end": "2027-03-05",
+        "kind": "classes",
+        "label": "C-Term classes"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-02-12",
+        "end": "2027-02-12",
+        "kind": "no_classes",
+        "label": "Wellness Day"
+      },
+      {
+        "start": "2027-02-25",
+        "end": "2027-02-25",
+        "kind": "no_classes",
+        "label": "Academic Advising Day"
+      },
+      {
+        "start": "2027-03-06",
+        "end": "2027-03-14",
+        "kind": "break",
+        "label": "Break between C-Term and D-Term"
+      },
+      {
+        "start": "2027-03-15",
+        "end": "2027-05-05",
+        "kind": "classes",
+        "label": "D-Term classes"
+      },
+      {
+        "start": "2027-03-29",
+        "end": "2027-03-29",
+        "kind": "no_classes",
+        "label": "Wellness Day"
+      },
+      {
+        "start": "2027-04-16",
+        "end": "2027-04-16",
+        "kind": "no_classes",
+        "label": "Undergraduate Research Projects Showcase"
+      },
+      {
+        "start": "2027-04-19",
+        "end": "2027-04-19",
+        "kind": "no_classes",
+        "label": "Patriots' Day"
+      }
+    ],
+    "notes": "WPI runs four 7-week terms (A, B, C and D) with no separate final exam period."
+  },
+  {
+    "school": "Stevens Institute of Technology",
+    "calendarSystem": "semester",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://www.stevens.edu/office-of-the-registrar/academic-calendar",
+    "periods": [
+      {
+        "start": "2026-09-01",
+        "end": "2026-12-14",
+        "kind": "classes",
+        "label": "Fall 2026 classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-10-12",
+        "end": "2026-10-12",
+        "kind": "no_classes",
+        "label": "Fall recess"
+      },
+      {
+        "start": "2026-11-25",
+        "end": "2026-11-29",
+        "kind": "break",
+        "label": "Thanksgiving break"
+      },
+      {
+        "start": "2026-12-15",
+        "end": "2026-12-22",
+        "kind": "finals",
+        "label": "Fall 2026 reading day and final exams"
+      },
+      {
+        "start": "2027-01-19",
+        "end": "2027-05-05",
+        "kind": "classes",
+        "label": "Spring 2027 classes"
+      },
+      {
+        "start": "2027-02-15",
+        "end": "2027-02-15",
+        "kind": "no_classes",
+        "label": "Presidents' Day"
+      },
+      {
+        "start": "2027-03-14",
+        "end": "2027-03-21",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-03-26",
+        "end": "2027-03-26",
+        "kind": "no_classes",
+        "label": "No classes"
+      },
+      {
+        "start": "2027-05-06",
+        "end": "2027-05-17",
+        "kind": "finals",
+        "label": "Spring 2027 reading day and final exams"
+      }
+    ],
+    "notes": null
+  },
+  {
+    "school": "Rose-Hulman Institute of Technology",
+    "calendarSystem": "quarter",
+    "published": true,
+    "status": "final",
+    "sourceUrl": "https://www.rose-hulman.edu/campus-life/student-services/registrar/2026-27_Academic_Year_Calendar.pdf",
+    "periods": [
+      {
+        "start": "2026-09-03",
+        "end": "2026-11-13",
+        "kind": "classes",
+        "label": "Fall Quarter classes"
+      },
+      {
+        "start": "2026-09-07",
+        "end": "2026-09-07",
+        "kind": "no_classes",
+        "label": "Labor Day"
+      },
+      {
+        "start": "2026-10-08",
+        "end": "2026-10-09",
+        "kind": "break",
+        "label": "Fall break"
+      },
+      {
+        "start": "2026-11-16",
+        "end": "2026-11-19",
+        "kind": "finals",
+        "label": "Fall Quarter final exams"
+      },
+      {
+        "start": "2026-11-20",
+        "end": "2026-11-29",
+        "kind": "break",
+        "label": "Break between Fall and Winter Quarters (includes Thanksgiving)"
+      },
+      {
+        "start": "2026-11-30",
+        "end": "2027-02-19",
+        "kind": "classes",
+        "label": "Winter Quarter classes"
+      },
+      {
+        "start": "2026-12-19",
+        "end": "2027-01-03",
+        "kind": "break",
+        "label": "Winter holiday break"
+      },
+      {
+        "start": "2027-01-18",
+        "end": "2027-01-18",
+        "kind": "no_classes",
+        "label": "Martin Luther King Jr. Day"
+      },
+      {
+        "start": "2027-02-22",
+        "end": "2027-02-25",
+        "kind": "finals",
+        "label": "Winter Quarter final exams"
+      },
+      {
+        "start": "2027-02-26",
+        "end": "2027-03-07",
+        "kind": "break",
+        "label": "Break between Winter and Spring Quarters"
+      },
+      {
+        "start": "2027-03-08",
+        "end": "2027-05-21",
+        "kind": "classes",
+        "label": "Spring Quarter classes"
+      },
+      {
+        "start": "2027-04-10",
+        "end": "2027-04-18",
+        "kind": "break",
+        "label": "Spring break"
+      },
+      {
+        "start": "2027-05-24",
+        "end": "2027-05-27",
+        "kind": "finals",
+        "label": "Spring Quarter final exams"
+      }
+    ],
+    "notes": "The calendar gives no last day of classes, so each quarter's classes end on the Friday before its final exams."
+  }
+]

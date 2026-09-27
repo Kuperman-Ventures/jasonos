@@ -6,10 +6,12 @@ import {
   TRIP_WEEK_LABELS,
   TRIP_WEEK_WEATHER,
   campusWeekState,
+  campusWeekTooltip,
   formatWeekDate,
   isBestFitWeek,
   kyleBreakCellLabel,
   weekDate,
+  type CampusWeekInfo,
   type CampusWeekState,
 } from "@/lib/trip-planning";
 import { shortSchoolName } from "@/lib/visit-planning";
@@ -32,7 +34,7 @@ export function TripWhenPanel({
   weekIndex: number;
   tripSchoolIds: string[];
   byId: Map<string, School>;
-  calendars: Map<string, Record<number, CampusWeekState>>;
+  calendars: Map<string, Record<number, CampusWeekInfo>>;
   tripDayCount: number;
   weatherLabel: string;
   onWeekIndex: (index: number) => void;
@@ -134,6 +136,7 @@ export function TripWhenPanel({
                       key={`${id}-${i}`}
                       type="button"
                       className={`trip-cell ${st}${i === weekIndex ? " col-sel" : ""}`}
+                      title={campusWeekTooltip(cal, i)}
                       onClick={() => onWeekIndex(i)}
                     >
                       {label}

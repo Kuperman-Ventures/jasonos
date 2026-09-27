@@ -1,5 +1,5 @@
 /**
- * Campus calendar stubs + Kyle's CHS visit breaks for When to go / Itinerary.
+ * Campus calendars + Kyle's CHS visit breaks for When to go / Itinerary.
  * Kyle's off weeks come from Columbia HS 2026–27 (see chs-schedule.ts).
  * Academic year covered: September 2026 through August 2027.
  */
@@ -10,10 +10,43 @@ import {
   kyleBreakLabelForWeek,
   kyleBreakWeekIndexes,
 } from "./chs-schedule";
+import {
+  getCampusDayStatus,
+  campusCalendarForSchoolName,
+  type CampusDayKind,
+  type CampusDayStatus,
+} from "./campus-calendars";
 
 export type CampusWeekState = "session" | "break" | "finals";
 
+export type CampusWeekdayDetail = {
+  iso: string;
+  /** Mon–Fri short label used in tooltips, e.g. "Mon Mar 22". */
+  dayLabel: string;
+  status: CampusDayKind | null;
+  label: string;
+};
+
+export type CampusWeekInfo = {
+  state: CampusWeekState;
+  weekdays: CampusWeekdayDetail[];
+  /** e.g. "Mon Mar 22: Spring break · Tue Mar 23: Spring break · …" */
+  tooltip: string;
+};
+
 export { CHS_SCHEDULE, CHS_SCHEDULE_SOURCE, CHS_SCHEDULE_YEAR, chsVisitBreaks, chsTripWindows } from "./chs-schedule";
+export {
+  CAMPUS_CALENDARS,
+  calendarSystemLabel,
+  campusCalendarForSchoolName,
+  getCampusDayStatus,
+  listCampusCalendarCoverage,
+  springBreakRangeLabel,
+  type CampusCalendarRecord,
+  type CampusCalendarSystem,
+  type CampusDayKind,
+  type CampusDayStatus,
+} from "./campus-calendars";
 
 /**
  * Nine Mondays around CHS Spring Break 2027 (Apr 12–16).
@@ -75,27 +108,75 @@ export const TRIP_WEEK_WEATHER: [string, string][] = [
   ["70°", "dry"],
 ];
 
-/**
- * Deterministic stub calendar per school id.
- * Week 2–3 often finals/break to match the reference sample pattern.
- */
-export function stubCampusCalendar(schoolId: string): Record<number, CampusWeekState> {
-  let hash = 0;
-  for (let i = 0; i < schoolId.length; i++) {
-    hash = (hash * 31 + schoolId.charCodeAt(i)) >>> 0;
+const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+
+function summarizeWeekdays(statuses: CampusDayStatus[]): CampusWeekState {
+  let classes = 0;
+  let finalsOrReading = 0;
+  for (const day of statuses) {
+    if (day.status === "classes") classes += 1;
+    else if (day.status === "finals" || day.status === "reading") finalsOrReading += 1;
   }
-  const pattern = hash % 4;
-  if (pattern === 0) return { 2: "finals", 3: "break" };
-  if (pattern === 1) return { 2: "break" };
-  if (pattern === 2) return { 1: "break", 2: "finals" };
-  return { 2: "finals", 3: "break", 4: "break" };
+  if (classes >= 3) return "session";
+  if (finalsOrReading >= 3) return "finals";
+  return "break";
+}
+
+function buildWeekInfo(schoolName: string, weekIndex: number): CampusWeekInfo {
+  const weekdays: CampusWeekdayDetail[] = [];
+  const dayStatuses: CampusDayStatus[] = [];
+  for (let offset = 0; offset < 5; offset++) {
+    const date = weekDate(weekIndex, offset);
+    const iso = isoDate(date);
+    const day = getCampusDayStatus(schoolName, iso);
+    dayStatuses.push(day);
+    const dayLabel = `${WEEKDAY_NAMES[date.getDay()]} ${formatWeekDate(date)}`;
+    weekdays.push({
+      iso,
+      dayLabel,
+      status: day.status,
+      label: day.label,
+    });
+  }
+  return {
+    state: summarizeWeekdays(dayStatuses),
+    weekdays,
+    tooltip: weekdays.map((d) => `${d.dayLabel}: ${d.label}`).join(" · "),
+  };
+}
+
+/**
+ * Build the Mar–Apr trip-week calendar for a school from its official 2026–27 periods.
+ * Keys are week indexes into TRIP_WEEK_LABELS. Missing weeks default to session.
+ */
+export function buildCampusCalendar(
+  schoolName: string,
+): Record<number, CampusWeekInfo> {
+  const out: Record<number, CampusWeekInfo> = {};
+  if (!campusCalendarForSchoolName(schoolName)) return out;
+  for (let i = 0; i < TRIP_WEEK_LABELS.length; i++) {
+    out[i] = buildWeekInfo(schoolName, i);
+  }
+  return out;
 }
 
 export function campusWeekState(
-  calendar: Record<number, CampusWeekState>,
+  calendar: Record<number, CampusWeekInfo | CampusWeekState>,
   weekIndex: number,
 ): CampusWeekState {
-  return calendar[weekIndex] ?? "session";
+  const entry = calendar[weekIndex];
+  if (!entry) return "session";
+  if (typeof entry === "string") return entry;
+  return entry.state;
+}
+
+export function campusWeekTooltip(
+  calendar: Record<number, CampusWeekInfo | CampusWeekState>,
+  weekIndex: number,
+): string | undefined {
+  const entry = calendar[weekIndex];
+  if (!entry || typeof entry === "string") return undefined;
+  return entry.tooltip;
 }
 
 export function weekDate(weekIndex: number, dayOffset = 0): Date {

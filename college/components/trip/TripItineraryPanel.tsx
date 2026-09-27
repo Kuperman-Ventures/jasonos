@@ -7,7 +7,7 @@ import {
   campusWeekState,
   formatWeekDate,
   weekDate,
-  type CampusWeekState,
+  type CampusWeekInfo,
 } from "@/lib/trip-planning";
 import { SchoolMark } from "../SchoolMark";
 
@@ -30,7 +30,7 @@ export function TripItineraryPanel({
   tripSchoolIds: string[];
   tripDays: VisitSlot[][];
   byId: Map<string, School>;
-  calendars: Map<string, Record<number, CampusWeekState>>;
+  calendars: Map<string, Record<number, CampusWeekInfo>>;
   onGoWhen: () => void;
   onSend: () => void;
 }) {

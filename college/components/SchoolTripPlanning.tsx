@@ -24,7 +24,7 @@ import {
   readTripPlanState,
   resolveCompareClimate,
   schoolsInTripClusters,
-  stubCampusCalendar,
+  buildCampusCalendar,
   toTripSchoolPoint,
   tripDaysFromClusters,
   tripTitle,
@@ -39,6 +39,7 @@ import { SchoolMark } from "./SchoolMark";
 import { TripWhenPanel } from "./trip/TripWhenPanel";
 import { TripItineraryPanel } from "./trip/TripItineraryPanel";
 import { TripClimatePanel } from "./trip/TripClimatePanel";
+import { TripCampusCalendarSection } from "./trip/TripCampusCalendarSection";
 import { TripAllSchoolsPanel } from "./trip/TripAllSchoolsPanel";
 import { TripNearbyList } from "./trip/TripNearbyList";
 
@@ -162,12 +163,14 @@ export function SchoolTripPlanning({
   );
 
   const calendars = useMemo(() => {
-    const map = new Map<string, ReturnType<typeof stubCampusCalendar>>();
+    const map = new Map<string, ReturnType<typeof buildCampusCalendar>>();
     for (const id of tripSchoolIds) {
-      map.set(id, stubCampusCalendar(id));
+      const row = byId.get(id);
+      if (!row) continue;
+      map.set(id, buildCampusCalendar(row.name));
     }
     return map;
-  }, [tripSchoolIds]);
+  }, [tripSchoolIds, byId]);
 
   const schoolPoint = coordsById.get(school.id) ?? null;
   const flight = useMemo(() => flightBlurb(schoolPoint), [schoolPoint]);
@@ -354,14 +357,17 @@ export function SchoolTripPlanning({
       ) : null}
 
       {subtab === "climate" ? (
-        <TripClimatePanel
-          campus={campusClimate}
-          compareId={cmpId}
-          compare={resolveCompareClimate(cmpId)}
-          home={HOME_CLIMATE}
-          boston={BOSTON_CLIMATE}
-          onCompare={setCmpId}
-        />
+        <>
+          <TripClimatePanel
+            campus={campusClimate}
+            compareId={cmpId}
+            compare={resolveCompareClimate(cmpId)}
+            home={HOME_CLIMATE}
+            boston={BOSTON_CLIMATE}
+            onCompare={setCmpId}
+          />
+          <TripCampusCalendarSection schoolName={school.name} />
+        </>
       ) : null}
 
       {subtab === "all" ? (
