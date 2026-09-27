@@ -13,7 +13,7 @@ Start with this file. It sets the build order, the data to import, and the chang
 | `reference/photos.html` | Working reference for the Photos tab and viewer. Updated to use real Purdue photos and the attribution rules below. |
 | `reference/visit-planning.html` | Working reference for the Visit planning tab. All data in it is sample data. |
 | `reference/photo-set-preview.jpg` | Preview of the 40 imported school photos, for checking the import. |
-| `data/school-photos-test.json` | School photos and virtual tour links for 5 schools. |
+| `data/school-photos.json` | School photos, virtual tour links, and visit addresses for all 43 schools. |
 
 The site-wide design file mentions `Prep Portal - Design System.dc.html`, `assets/logo.png` and `handoff-requirements/requirements.html`. They are not in this folder. Use them if they are already in the repo; otherwise ignore those references.
 
@@ -28,8 +28,8 @@ The references load Phosphor icons from a CDN. Use the app's existing icon setup
 
 ### 1.1 Import the school photo data
 
-1. Find where the app stores school records (the same data file, seed, or database table that holds `aerospaceEngineering`). Match records to `data/school-photos-test.json` by the exact school name in the `school` field.
-2. Add `virtualTourUrl` (string or `null`) to every school record. Set it for the 5 schools in the file and leave it `null` for the other 38.
+1. Find where the app stores school records (the same data file, seed, or database table that holds `aerospaceEngineering`). Match records to `data/school-photos.json` by the exact school name in the `school` field.
+2. Add `virtualTourUrl` (string or `null`) and `visitAddress` from the catalog for every school. All 43 schools in `data/school-photos.json` have both.
 3. Store each school photo as a photo row using the data model in `design/design-cursor-prompt.md`, with `kind: 'school'`. Map the JSON fields like this:
 
 | JSON field | Photo field | Use |
@@ -59,9 +59,9 @@ Build the Photos tab from `design/design-cursor-prompt.md` section 1 and `refere
 
 ### 1.3 Confirm before reporting back
 
-1. The 5 schools in the JSON each show 8 school photos (40 total). The other 38 schools show `No school photos yet.`
+1. All 43 schools show their Wikimedia photos (328 total; most have 8, a few have 6–7). None should show `No school photos yet.`
 2. Every school photo opens in the viewer with its caption and credit line, and the license and "View source" links work.
-3. The virtual tour link shows for the 5 schools and opens in a new tab.
+3. The virtual tour link shows for every school and opens in a new tab.
 4. The viewer works with the arrow buttons, the left and right arrow keys, the mouse wheel, swipe on a phone, and the filmstrip. Escape closes it and returns focus to the photo that opened it.
 5. The tab looks right in Light, Dark and System mode, following the checklist in `design/the-track-design-guidelines.md` section 2b.
 6. Below 700px wide, the side arrows are hidden and swipe works.

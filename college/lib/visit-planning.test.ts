@@ -195,9 +195,12 @@ test("schoolMapLocation prefers visitAddress then name+city+state", () => {
     name: "Purdue University",
     location: "West Lafayette, IN",
   });
-  assert.equal(schoolMapLocation(row), "Purdue University, West Lafayette, IN");
+  // Catalog fills visitAddress from school-photos.json when the name matches.
+  assert.match(schoolMapLocation(row), /West Lafayette/);
   row.visitAddress = "475 Stadium Mall Dr, West Lafayette, IN";
   assert.equal(schoolMapLocation(row), "475 Stadium Mall Dr, West Lafayette, IN");
+  row.visitAddress = "";
+  assert.equal(schoolMapLocation(row), "Purdue University, West Lafayette, IN");
 });
 
 test("visitInterestKey and anyFilterLevelOn", () => {
