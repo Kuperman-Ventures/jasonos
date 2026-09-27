@@ -4953,6 +4953,53 @@ body.todos-dragging .todo-project-group.is-over {
   --phase-subtle: #4f4d4d;
 }
 
+/*
+ * College list hard-coded light phase grounds. In dark they must not override
+ * semantic text/surface tokens with light paper — that is the Kyle-laptop break.
+ */
+html[data-mode="dark"] .colleges-list {
+  --phase-bg: #1f2228;
+  --phase-surface: #2d3139;
+  --phase-track: #3d424b;
+  --phase-muted: var(--text-muted);
+  --phase-subtle: var(--text-subtle);
+  --tier-1-tint: oklch(0.28 0.035 150);
+  --tier-2-tint: oklch(0.28 0.035 250);
+  --tier-3-tint: oklch(0.28 0.035 290);
+  --tier-4-tint: oklch(0.28 0.035 350);
+  --text-accent-2: var(--color-cyan-text);
+  --lvl-1: oklch(0.80 0.07 225);
+  --lvl-1-fg: #16181b;
+  --lvl-2: oklch(0.70 0.10 225);
+  --lvl-2-fg: #16181b;
+  --lvl-3: oklch(0.58 0.12 228);
+  --lvl-3-fg: #16181b;
+  --lvl-4: oklch(0.48 0.13 232);
+  --lvl-4-fg: #ffffff;
+  --lvl-4-row: oklch(0.30 0.05 232);
+}
+html[data-mode="dark"] .colleges-list[data-list-phase="exploration"] {
+  --phase-bg: #1f2228;
+  --phase-surface: #2d3139;
+  --phase-track: #3d424b;
+  --phase-muted: var(--text-muted);
+  --phase-subtle: var(--text-subtle);
+}
+html[data-mode="dark"] .colleges-list[data-list-phase="consideration"] {
+  --phase-bg: #23262d;
+  --phase-surface: #31353e;
+  --phase-track: #454a54;
+  --phase-muted: var(--text-muted);
+  --phase-subtle: var(--text-subtle);
+}
+html[data-mode="dark"] .colleges-list[data-list-phase="applications"] {
+  --phase-bg: #262a32;
+  --phase-surface: #343945;
+  --phase-track: #4a505a;
+  --phase-muted: var(--text-muted);
+  --phase-subtle: var(--text-subtle);
+}
+
 .list-dash-chrome {
   padding: var(--space-6) var(--space-8) 0;
   background: var(--color-bg);
@@ -5052,6 +5099,18 @@ body.todos-dragging .todo-project-group.is-over {
 .list-dash-step[data-step="applications"] {
   --step-tone: #8f969e;
   --step-own-bg: #d6d9dc;
+}
+html[data-mode="dark"] .list-dash-step[data-step="exploration"] {
+  --step-tone: #6b717a;
+  --step-own-bg: #1f2228;
+}
+html[data-mode="dark"] .list-dash-step[data-step="consideration"] {
+  --step-tone: #7a818c;
+  --step-own-bg: #23262d;
+}
+html[data-mode="dark"] .list-dash-step[data-step="applications"] {
+  --step-tone: #8b93a0;
+  --step-own-bg: #262a32;
 }
 
 .list-dash-stepper {
@@ -7542,14 +7601,18 @@ table.schools td.visit-cell {
   padding: 6px 28px 6px 8px;
   border: 1px solid var(--color-divider);
   border-radius: 2px;
-  background: var(--color-bg)
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23605d5d' d='M1 1l5 5 5-5'/%3E%3C/svg%3E")
-    no-repeat right 8px center;
+  background-color: var(--color-bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23605d5d' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
   font: inherit;
   font-size: 14px;
   font-weight: 600;
   color: var(--color-text);
   cursor: pointer;
+}
+html[data-mode="dark"] .visit-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%239aa0a8' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
 }
 .visit-select:focus-visible {
   outline: 2px solid var(--color-accent);
