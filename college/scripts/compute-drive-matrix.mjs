@@ -18,9 +18,10 @@ const ENV_PATH = path.join(ROOT, ".env.local");
 const POINTS_PATH = path.join(ROOT, "data", "travel-points.json");
 const OUT_PATH = path.join(ROOT, "data", "drive-matrix.json");
 
-const GROUP_SIZE = 25;
-const REQUEST_GAP_MS = 1000;
-const MAX_RETRIES = 3;
+/** Keep well under the 50-waypoint / 625-element address-matrix caps. */
+const GROUP_SIZE = 10;
+const REQUEST_GAP_MS = 2500;
+const MAX_RETRIES = 5;
 const MATRIX_URL =
   "https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix";
 
@@ -76,13 +77,30 @@ function waypoint(address) {
   return { waypoint: { address } };
 }
 
-function statusMessage(status) {
-  if (status == null || status === "") return "";
-  if (typeof status === "string") return status;
-  if (typeof status === "object") {
-    return status.message || status.code || JSON.stringify(status);
+/** Human-readable failure reason, or "" if the element looks usable. */
+function elementFailureReason(el) {
+  const condition = el.condition || "";
+  if (condition && condition !== "ROUTE_EXISTS") {
+    return `condition=${condition}`;
   }
-  return String(status);
+
+  const status = el.status;
+  if (typeof status === "string" && status.trim()) return status.trim();
+  if (status && typeof status === "object") {
+    const keys = Object.keys(status);
+    // Routes API returns {} on success.
+    if (keys.length > 0) {
+      if (status.message) return String(status.message);
+      if (status.code != null && status.code !== 0 && status.code !== "OK") {
+        return String(status.code);
+      }
+    }
+  }
+
+  const seconds = parseDurationSeconds(el.duration);
+  if (seconds == null) return "missing duration";
+  if (typeof el.distanceMeters !== "number") return "missing distanceMeters";
+  return "";
 }
 
 async function fetchMatrix(apiKey, origins, destinations) {
@@ -106,19 +124,39 @@ async function fetchMatrix(apiKey, origins, destinations) {
       });
       const text = await res.text();
       if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${text.slice(0, 400)}`);
+        const err = new Error(`HTTP ${res.status}: ${text.slice(0, 400)}`);
+        err.status = res.status;
+        throw err;
       }
-      const data = JSON.parse(text);
+      // Response may be a JSON array or NDJSON (one object per line).
+      let data;
+      const trimmed = text.trim();
+      if (trimmed.startsWith("[")) {
+        data = JSON.parse(trimmed);
+      } else {
+        data = trimmed
+          .split(/\n+/)
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .map((line) => JSON.parse(line));
+      }
       if (!Array.isArray(data)) {
         throw new Error(`Unexpected response shape: ${text.slice(0, 400)}`);
       }
       return data;
     } catch (err) {
       lastError = err;
+      const backoff =
+        err.status === 429
+          ? REQUEST_GAP_MS * Math.pow(2, attempt)
+          : REQUEST_GAP_MS * attempt;
       console.warn(
         `  request failed (attempt ${attempt}/${MAX_RETRIES}): ${err.message}`,
       );
-      if (attempt < MAX_RETRIES) await sleep(REQUEST_GAP_MS * attempt);
+      if (attempt < MAX_RETRIES) {
+        console.warn(`  waiting ${Math.round(backoff / 1000)}s before retry…`);
+        await sleep(backoff);
+      }
     }
   }
   throw lastError ?? new Error("Route matrix request failed");
@@ -163,7 +201,6 @@ async function main() {
   const points = rawPoints.map((p) =>
     p.id === "home" ? { ...p, address: originAddress } : p,
   );
-  const byId = new Map(points.map((p) => [p.id, p]));
 
   const pairs = {};
   for (const p of points) {
@@ -173,9 +210,10 @@ async function main() {
   const nullPairs = [];
   const groups = chunk(points, GROUP_SIZE);
   let requestCount = 0;
+  const totalRequests = groups.length * groups.length;
 
   console.log(
-    `Computing matrix for ${points.length} points in ${groups.length} groups (${groups.length * groups.length} requests)…`,
+    `Computing matrix for ${points.length} points in ${groups.length} groups (${totalRequests} requests, ${GROUP_SIZE}/group)…`,
   );
 
   for (let oi = 0; oi < groups.length; oi++) {
@@ -184,7 +222,7 @@ async function main() {
       const destinations = groups[di];
       requestCount += 1;
       console.log(
-        `Request ${requestCount}: origins ${oi + 1}/${groups.length} (${origins.length}) → destinations ${di + 1}/${groups.length} (${destinations.length})`,
+        `Request ${requestCount}/${totalRequests}: origins ${oi + 1}/${groups.length} (${origins.length}) → destinations ${di + 1}/${groups.length} (${destinations.length})`,
       );
 
       const elements = await fetchMatrix(apiKey, origins, destinations);
@@ -195,40 +233,34 @@ async function main() {
         if (from.id === to.id) continue;
 
         const key = `${from.id}|${to.id}`;
-        const condition = el.condition || "";
-        const status = statusMessage(el.status);
-        const ok = condition === "ROUTE_EXISTS" && !status;
-        if (!ok) {
+        const reason = elementFailureReason(el);
+        if (reason) {
           pairs[key] = null;
-          nullPairs.push({
-            from: from.name,
-            to: to.name,
-            condition: condition || "(empty)",
-            status: status || "(none)",
-          });
-          continue;
-        }
-
-        const seconds = parseDurationSeconds(el.duration);
-        const meters = el.distanceMeters;
-        if (seconds == null || typeof meters !== "number") {
-          pairs[key] = null;
-          nullPairs.push({
-            from: from.name,
-            to: to.name,
-            condition: condition || "(empty)",
-            status: "missing duration/distance",
-          });
+          nullPairs.push({ from: from.name, to: to.name, reason });
           continue;
         }
 
         pairs[key] = {
-          minutes: secondsToMinutes(seconds),
-          miles: metersToMiles(meters),
+          minutes: secondsToMinutes(parseDurationSeconds(el.duration)),
+          miles: metersToMiles(el.distanceMeters),
         };
       }
 
       await sleep(REQUEST_GAP_MS);
+    }
+  }
+
+  // Ensure every directed pair exists (null if the API never returned it).
+  for (const from of points) {
+    for (const to of points) {
+      const key = `${from.id}|${to.id}`;
+      if (Object.prototype.hasOwnProperty.call(pairs, key)) continue;
+      pairs[key] = null;
+      nullPairs.push({
+        from: from.name,
+        to: to.name,
+        reason: "missing from API response",
+      });
     }
   }
 
@@ -245,9 +277,7 @@ async function main() {
     console.log("  (none)");
   } else {
     for (const row of nullPairs) {
-      console.log(
-        `  ${row.from} → ${row.to}  condition=${row.condition} status=${row.status}`,
-      );
+      console.log(`  ${row.from} → ${row.to}  (${row.reason})`);
     }
   }
 
@@ -262,7 +292,9 @@ async function main() {
       };
     })
     .sort((a, b) => {
-      if (a.minutes == null && b.minutes == null) return a.school.localeCompare(b.school);
+      if (a.minutes == null && b.minutes == null) {
+        return a.school.localeCompare(b.school);
+      }
       if (a.minutes == null) return 1;
       if (b.minutes == null) return -1;
       return a.minutes - b.minutes || a.school.localeCompare(b.school);
@@ -270,16 +302,18 @@ async function main() {
 
   console.log("\nCheck table — drive from home (shortest → longest):\n");
   console.log(
-    `${"School".padEnd(72)} ${"Minutes".padStart(8)} ${"Miles".padStart(7)} ${"Display".padStart(16)}`,
+    `${"School".padEnd(72)} ${"Minutes".padStart(8)} ${"Miles".padStart(7)} ${"Display".padStart(18)}`,
   );
-  console.log("-".repeat(106));
+  console.log("-".repeat(108));
   for (const row of homeRows) {
     const mins = row.minutes == null ? "null" : String(row.minutes);
     const miles = row.miles == null ? "null" : String(row.miles);
     const display =
-      row.minutes == null ? "—" : `${formatDriveMinutes(row.minutes)} (${row.miles} mi)`;
+      row.minutes == null
+        ? "—"
+        : `${formatDriveMinutes(row.minutes)} (${row.miles} mi)`;
     console.log(
-      `${row.school.padEnd(72)} ${mins.padStart(8)} ${miles.padStart(7)} ${display.padStart(16)}`,
+      `${row.school.padEnd(72)} ${mins.padStart(8)} ${miles.padStart(7)} ${display.padStart(18)}`,
     );
   }
 
