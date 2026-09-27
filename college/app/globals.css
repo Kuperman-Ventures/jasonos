@@ -1355,6 +1355,11 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   color: var(--text-subtle);
 }
 .snapshot .area-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 0.45em;
+  row-gap: 0.12em;
   font-family: var(--font-heading);
   font-size: 36px;
   font-weight: 700;
