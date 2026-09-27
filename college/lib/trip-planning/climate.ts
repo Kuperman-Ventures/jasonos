@@ -101,8 +101,8 @@ export function monthlyFromAnchors(a: Anchors): CityNormals {
 
 export const HOME_CLIMATE: ClimateNormals = {
   id: "home",
-  name: "Home",
-  label: "Home",
+  name: "Home · Maplewood",
+  label: "Home · Maplewood",
   city: "Maplewood, NJ",
   hi: [40, 43, 51, 63, 73, 82, 87, 85, 78, 66, 55, 44],
   lo: [26, 28, 34, 44, 54, 64, 70, 68, 61, 49, 39, 31],
@@ -303,8 +303,7 @@ export function climateForCityState(
 export function climateCompareOptions(): { id: string; label: string }[] {
   return [
     { id: "none", label: "None" },
-    { id: "home", label: "Home" },
-    { id: "maplewood", label: "Maplewood" },
+    { id: "home", label: "Home · Maplewood" },
     { id: "boston", label: "Boston" },
   ];
 }
