@@ -159,3 +159,37 @@ test("empty fields stay Not listed", () => {
   assert.equal(view.profile.find((item) => item.key === "application")?.state, "unk");
   assert.equal(view.satRange, null);
 });
+
+test("platform titles do not double the word application", () => {
+  const mit = buildSchoolRequirements(baseSchool({ applicationPlatform: "MIT application" }));
+  assert.equal(mit.kit.application.title, "MIT application");
+  const uc = buildSchoolRequirements(baseSchool({ applicationPlatform: "UC Application" }));
+  assert.equal(uc.kit.application.title, "UC Application");
+});
+
+test("applyScoirRequirementGaps fills only unk essay and interview", async () => {
+  const { applyScoirRequirementGaps } = await import("@/lib/school-requirements");
+  const base = buildSchoolRequirements(
+    baseSchool({
+      requiredEssays: "",
+    }),
+  );
+  assert.equal(base.profile.find((item) => item.key === "essay")?.state, "unk");
+  assert.equal(base.profile.find((item) => item.key === "interview")?.state, "unk");
+
+  const filled = applyScoirRequirementGaps(base, {
+    essay: { state: "req", note: "Required" },
+    interview: { state: "mod", note: "Optional" },
+  });
+  assert.equal(filled.profile.find((item) => item.key === "essay")?.source, "Scoir");
+  assert.equal(filled.profile.find((item) => item.key === "interview")?.note, "Optional");
+
+  const alreadyKnown = buildSchoolRequirements(baseSchool());
+  const unchanged = applyScoirRequirementGaps(alreadyKnown, {
+    essay: { state: "mod", note: "Optional" },
+    interview: { state: "req", note: "Required" },
+  });
+  assert.equal(unchanged.profile.find((item) => item.key === "essay")?.source, undefined);
+  assert.equal(unchanged.profile.find((item) => item.key === "essay")?.state, "req");
+  assert.equal(unchanged.profile.find((item) => item.key === "interview")?.source, "Scoir");
+});

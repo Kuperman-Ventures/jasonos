@@ -39,7 +39,6 @@ import {
 import { formatTravelLabel } from "@/lib/drive-matrix";
 import { canAdvanceListPhase } from "@/lib/permissions";
 import { formatScoirPct, scoirNewJerseyPct } from "@/lib/scoir";
-import { ScoirListBadge } from "./SchoolScoirSections";
 import { CampusSettingBadge } from "./CampusSettingBadge";
 import {
   INTEREST_LEVELS,
@@ -362,7 +361,6 @@ export function CollegesTab({
               <span>
                 {school.name}
                 {school.archived ? <small className="archived-tag">Archived</small> : null}
-                <ScoirListBadge school={school} />
                 <NeedsResearchLabels school={school} />
               </span>
             </div>
@@ -802,7 +800,7 @@ export function CollegesTab({
           <option value="drive">Drive time</option>
           <option value="setting">Campus setting</option>
           <option value="size">School size</option>
-          <option value="newJerseyPct">% from NJ</option>
+          <option value="newJerseyPct">From NJ</option>
           <option value="selectivity">Selectivity</option>
           <option value="interest">Interest</option>
           <option value="status">Application status</option>
@@ -930,7 +928,6 @@ export function CollegesTab({
                 <span>
                   {school.name}
                   {school.archived ? <small className="archived-tag">Archived</small> : null}
-                  <ScoirListBadge school={school} />
                   <NeedsResearchLabels school={school} />
                 </span>
               </h3>

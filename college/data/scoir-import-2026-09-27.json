@@ -9,45 +9,11 @@
       "school": "Carnegie Mellon University (CMU)",
       "unitId": 211440,
       "scoirId": 1100264,
-      "scoirListStatus": "Applying",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": "Not required",
-      "portfolio": "Required for some applicants",
       "interview": "Not required",
-      "considersDemonstratedInterest": false,
       "applicationFee": 75,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Decision Fall 2027",
-          "roundType": "Early Decision",
-          "deadline": "11-02",
-          "binding": true
-        },
-        {
-          "roundName": "Regular Decision Fall 2027",
-          "roundType": "Regular Decision",
-          "deadline": "01-04",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 11.7,
-      "applicants": 33941,
-      "admitted": 3959,
-      "enrolled": 1808,
-      "satMid50": "1500-1570",
-      "satMathMid50": "770-800",
-      "satReadingWritingMid50": "730-770",
-      "actMid50": "34-35",
-      "firstYearRetentionPct": 98,
-      "stickerPriceInState": 91466,
-      "stickerPriceOutOfState": 91466,
-      "tuitionInState": 69702,
-      "tuitionOutOfState": 69702,
-      "roomAndBoard": 19650,
+      "considersDemonstratedInterest": false,
+      "honorsCollege": null,
       "netPriceByIncome": {
         "under30k": 9097,
         "30to48k": 6994,
@@ -59,20 +25,7 @@
       "pctReceivingAid": 48,
       "pctFederalLoans": 33,
       "medianDebtAtGraduation": 30334,
-      "honorsCollege": null,
-      "nearestAirport": "Pittsburgh",
-      "nearestAirportMiles": 20,
-      "nearestTrainStation": "Pittsburgh",
-      "nearestTrainStationMiles": 4,
-      "ncaaDivision": "3",
-      "conference": "UAA",
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 23.8,
-      "netPriceByIncomeNote": "Students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 34.2,
         "black": 4.0,
@@ -126,65 +79,18 @@
         "fraternityParticipationPct": 14.6,
         "sororities": 7,
         "sororityParticipationPct": 16.9
-      }
+      },
+      "netPriceByIncomeNote": "Average net price paid by first-year students receiving grant aid, by family income (federal data)."
     },
     {
       "school": "Case Western Reserve University",
       "unitId": 201645,
       "scoirId": 1100713,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App",
-        "Coalition",
-        "Scoir"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": "Optional",
-      "portfolio": "Optional",
       "interview": "Optional",
-      "considersDemonstratedInterest": true,
       "applicationFee": 75,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action",
-          "roundType": "Early Action",
-          "deadline": "11-01",
-          "binding": false
-        },
-        {
-          "roundName": "Early Decision",
-          "roundType": "Early Decision",
-          "deadline": "11-01",
-          "binding": true
-        },
-        {
-          "roundName": "Early Decision II",
-          "roundType": "Early Decision II",
-          "deadline": "01-15",
-          "binding": true
-        },
-        {
-          "roundName": "Regular Decision",
-          "roundType": "Regular Decision",
-          "deadline": "01-15",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 36.5,
-      "applicants": 37082,
-      "admitted": 13550,
-      "enrolled": 1619,
-      "satMid50": "1430-1540",
-      "satMathMid50": "730-780",
-      "satReadingWritingMid50": "700-760",
-      "actMid50": "32-34",
-      "firstYearRetentionPct": 92,
-      "stickerPriceInState": 93996,
-      "stickerPriceOutOfState": 93996,
-      "tuitionInState": 71410,
-      "tuitionOutOfState": 71410,
-      "roomAndBoard": 19930,
+      "considersDemonstratedInterest": true,
+      "honorsCollege": null,
       "netPriceByIncome": {
         "under30k": 19025,
         "30to48k": 18506,
@@ -196,19 +102,7 @@
       "pctReceivingAid": 84,
       "pctFederalLoans": 47,
       "medianDebtAtGraduation": 26868,
-      "honorsCollege": null,
-      "nearestAirport": "Cleveland",
-      "nearestAirportMiles": 10,
-      "nearestTrainStation": "Cleveland",
-      "nearestTrainStationMiles": 5,
-      "ncaaDivision": "3",
-      "conference": "UAA",
-      "rotc": [
-        "Air Force",
-        "Army"
-      ],
       "engineeringShareOfDegreesPct": 23.1,
-      "netPriceByIncomeNote": "Students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 30.1,
         "black": 6.2,
@@ -262,77 +156,23 @@
         "fraternityParticipationPct": null,
         "sororities": 13,
         "sororityParticipationPct": null
-      }
+      },
+      "netPriceByIncomeNote": "Average net price paid by first-year students receiving grant aid, by family income (federal data)."
     },
     {
       "school": "Clemson University",
       "unitId": 217882,
       "scoirId": 2400074,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App",
-        "Coalition",
-        "Scoir"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Optional",
-      "resume": "Optional",
-      "portfolio": "Not required",
       "interview": "Not required",
-      "considersDemonstratedInterest": false,
       "applicationFee": 70,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action",
-          "roundType": "Early Action",
-          "deadline": "10-15",
-          "binding": false
-        },
-        {
-          "roundName": "Regular Decision",
-          "roundType": "Regular Decision",
-          "deadline": "01-01",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 38.3,
-      "applicants": 61517,
-      "admitted": 23586,
-      "enrolled": 4880,
-      "satMid50": "1240-1410",
-      "satMathMid50": "620-710",
-      "satReadingWritingMid50": "620-700",
-      "actMid50": "28-32",
-      "firstYearRetentionPct": 93,
-      "stickerPriceInState": 31574,
-      "stickerPriceOutOfState": 58098,
-      "tuitionInState": 14038,
-      "tuitionOutOfState": 40562,
-      "roomAndBoard": 14224,
-      "netPriceByIncome": {
-        "under30k": 13607,
-        "30to48k": 14109,
-        "48to75k": 18851,
-        "75to110k": 24833,
-        "over110k": 27922,
-        "average": 25003
-      },
+      "considersDemonstratedInterest": false,
+      "honorsCollege": "Separate application",
+      "netPriceByIncome": null,
       "pctReceivingAid": 76,
       "pctFederalLoans": 31,
       "medianDebtAtGraduation": 21500,
-      "honorsCollege": "Apply",
-      "nearestAirport": "Greenville / Spartanburg",
-      "nearestAirportMiles": 48,
-      "nearestTrainStation": "Clemson",
-      "nearestTrainStationMiles": 1,
-      "ncaaDivision": "1",
-      "conference": "ACC",
-      "rotc": [
-        "Air Force",
-        "Army"
-      ],
       "engineeringShareOfDegreesPct": 18.0,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 2.9,
         "black": 5.0,
@@ -386,75 +226,23 @@
         "fraternityParticipationPct": 19,
         "sororities": 16,
         "sororityParticipationPct": 38
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "Colorado School of Mines",
       "unitId": 126775,
       "scoirId": 1100342,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": null,
-      "resume": null,
-      "portfolio": null,
       "interview": "Not required",
-      "considersDemonstratedInterest": true,
       "applicationFee": 60,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action Fall 2027",
-          "roundType": "Early Action",
-          "deadline": "11-01",
-          "binding": false
-        },
-        {
-          "roundName": "Regular Decision Fall 2027",
-          "roundType": "Regular Decision",
-          "deadline": "01-15",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 60.7,
-      "applicants": 11436,
-      "admitted": 6940,
-      "enrolled": 1602,
-      "satMid50": "1320-1480",
-      "satMathMid50": "670-750",
-      "satReadingWritingMid50": "650-730",
-      "actMid50": "29-33",
-      "firstYearRetentionPct": 93,
-      "stickerPriceInState": 42708,
-      "stickerPriceOutOfState": 67698,
-      "tuitionInState": 19800,
-      "tuitionOutOfState": 44790,
-      "roomAndBoard": 18202,
-      "netPriceByIncome": {
-        "under30k": 16849,
-        "30to48k": 18162,
-        "48to75k": 22192,
-        "75to110k": 28183,
-        "over110k": 35112,
-        "average": 29925
-      },
+      "considersDemonstratedInterest": true,
+      "honorsCollege": "Separate application",
+      "netPriceByIncome": null,
       "pctReceivingAid": 91,
       "pctFederalLoans": 31,
       "medianDebtAtGraduation": 31046,
-      "honorsCollege": "Apply",
-      "nearestAirport": "Denver",
-      "nearestAirportMiles": 20,
-      "nearestTrainStation": "Denver",
-      "nearestTrainStationMiles": 20,
-      "ncaaDivision": "2",
-      "conference": "RMAC",
-      "rotc": [
-        "Air Force",
-        "Army"
-      ],
       "engineeringShareOfDegreesPct": 72.1,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 6.4,
         "black": 1.4,
@@ -508,51 +296,18 @@
         "fraternityParticipationPct": 12.8,
         "sororities": 4,
         "sororityParticipationPct": 20.3
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "Cornell University",
       "unitId": 190415,
       "scoirId": 1100516,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": null,
-      "portfolio": null,
       "interview": "Required for some applicants",
-      "considersDemonstratedInterest": false,
       "applicationFee": 80,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Decision Fall 2027",
-          "roundType": "Early Decision",
-          "deadline": "11-01",
-          "binding": true
-        },
-        {
-          "roundName": "Regular Decision Fall 2027",
-          "roundType": "Regular Decision",
-          "deadline": "01-02",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 8.8,
-      "applicants": 62993,
-      "admitted": 5516,
-      "enrolled": 3525,
-      "satMid50": "1500-1570",
-      "satMathMid50": "770-800",
-      "satReadingWritingMid50": "730-770",
-      "actMid50": "33-35",
-      "firstYearRetentionPct": 98,
-      "stickerPriceInState": 97552,
-      "stickerPriceOutOfState": 97552,
-      "tuitionInState": 73946,
-      "tuitionOutOfState": 73946,
-      "roomAndBoard": 21348,
+      "considersDemonstratedInterest": false,
+      "honorsCollege": null,
       "netPriceByIncome": {
         "under30k": 1776,
         "30to48k": 4070,
@@ -564,20 +319,7 @@
       "pctReceivingAid": 50,
       "pctFederalLoans": 17,
       "medianDebtAtGraduation": 12034,
-      "honorsCollege": null,
-      "nearestAirport": "Syracuse",
-      "nearestAirportMiles": 60,
-      "nearestTrainStation": "Syracuse",
-      "nearestTrainStationMiles": 60,
-      "ncaaDivision": "1",
-      "conference": null,
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 12.4,
-      "netPriceByIncomeNote": "Students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 26.5,
         "black": 6.8,
@@ -631,59 +373,18 @@
         "fraternityParticipationPct": 22.8,
         "sororities": 20,
         "sororityParticipationPct": 19.4
-      }
+      },
+      "netPriceByIncomeNote": "Average net price paid by first-year students receiving grant aid, by family income (federal data)."
     },
     {
       "school": "Drexel University",
       "unitId": 212054,
       "scoirId": 2100315,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App",
-        "Coalition",
-        "Scoir"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": null,
-      "portfolio": "Optional",
       "interview": "Required for some applicants",
-      "considersDemonstratedInterest": true,
       "applicationFee": 50,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action",
-          "roundType": "Early Action",
-          "deadline": "11-15",
-          "binding": false
-        },
-        {
-          "roundName": "Early Decision",
-          "roundType": "Early Decision",
-          "deadline": "11-15",
-          "binding": true
-        },
-        {
-          "roundName": "Regular Decision",
-          "roundType": "Regular Decision",
-          "deadline": "01-15",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 79.4,
-      "applicants": 37314,
-      "admitted": 29642,
-      "enrolled": 2399,
-      "satMid50": "1240-1440",
-      "satMathMid50": "620-740",
-      "satReadingWritingMid50": "620-700",
-      "actMid50": "27-32",
-      "firstYearRetentionPct": 90,
-      "stickerPriceInState": 86046,
-      "stickerPriceOutOfState": 86046,
-      "tuitionInState": 63078,
-      "tuitionOutOfState": 63078,
-      "roomAndBoard": 19398,
+      "considersDemonstratedInterest": true,
+      "honorsCollege": null,
       "netPriceByIncome": {
         "under30k": 28055,
         "30to48k": 29435,
@@ -695,20 +396,7 @@
       "pctReceivingAid": 92,
       "pctFederalLoans": 49,
       "medianDebtAtGraduation": 25500,
-      "honorsCollege": null,
-      "nearestAirport": "Philadelphia",
-      "nearestAirportMiles": 9,
-      "nearestTrainStation": "Philadelphia",
-      "nearestTrainStationMiles": null,
-      "ncaaDivision": "1",
-      "conference": "CAA",
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 17.8,
-      "netPriceByIncomeNote": "Students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 24.2,
         "black": 10.2,
@@ -762,82 +450,23 @@
         "fraternityParticipationPct": 12,
         "sororities": 13,
         "sororityParticipationPct": 8
-      }
+      },
+      "netPriceByIncomeNote": "Average net price paid by first-year students receiving grant aid, by family income (federal data)."
     },
     {
       "school": "Georgia Institute of Technology (Georgia Tech)",
       "unitId": 139755,
       "scoirId": 2400089,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": "Not required",
-      "portfolio": "Optional",
       "interview": "Optional",
-      "considersDemonstratedInterest": false,
       "applicationFee": 75,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action Fall 2027",
-          "roundType": "Early Action",
-          "deadline": "10-15",
-          "binding": false
-        },
-        {
-          "roundName": "Early Action II Fall 2027",
-          "roundType": "Early Action II",
-          "deadline": "11-02",
-          "binding": false
-        },
-        {
-          "roundName": "Regular Decision Fall 2027",
-          "roundType": "Regular Decision",
-          "deadline": "01-06",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 14.1,
-      "applicants": 59789,
-      "admitted": 8413,
-      "enrolled": 3836,
-      "satMid50": "1370-1540",
-      "satMathMid50": "690-790",
-      "satReadingWritingMid50": "680-750",
-      "actMid50": "30-34",
-      "firstYearRetentionPct": 98,
-      "stickerPriceInState": 27562,
-      "stickerPriceOutOfState": 51548,
-      "tuitionInState": 10618,
-      "tuitionOutOfState": 34604,
-      "roomAndBoard": 14628,
-      "netPriceByIncome": {
-        "under30k": 7666,
-        "30to48k": 7209,
-        "48to75k": 10818,
-        "75to110k": 15088,
-        "over110k": 17396,
-        "average": 15918
-      },
+      "considersDemonstratedInterest": false,
+      "honorsCollege": "Separate application",
+      "netPriceByIncome": null,
       "pctReceivingAid": 71,
       "pctFederalLoans": 16,
       "medianDebtAtGraduation": 27451,
-      "honorsCollege": "Apply",
-      "nearestAirport": "Atlanta",
-      "nearestAirportMiles": 15,
-      "nearestTrainStation": "Atlanta",
-      "nearestTrainStationMiles": 2,
-      "ncaaDivision": "1",
-      "conference": "ACC",
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 44.5,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 36.4,
         "black": 8.2,
@@ -891,70 +520,23 @@
         "fraternityParticipationPct": 20,
         "sororities": 15,
         "sororityParticipationPct": 23
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "Iowa State University",
       "unitId": 153603,
       "scoirId": 2800102,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Not required",
-      "resume": "Not required",
-      "portfolio": "Not required",
       "interview": "Not required",
-      "considersDemonstratedInterest": false,
       "applicationFee": 55,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Rolling Admission Fall 2027",
-          "roundType": "Rolling",
-          "deadline": "07-21",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 88.7,
-      "applicants": 23095,
-      "admitted": 20475,
-      "enrolled": 5906,
-      "satMid50": "1120-1360",
-      "satMathMid50": "560-690",
-      "satReadingWritingMid50": "560-670",
-      "actMid50": "21-28",
-      "firstYearRetentionPct": 88,
-      "stickerPriceInState": 23364,
-      "stickerPriceOutOfState": 43412,
-      "tuitionInState": 9816,
-      "tuitionOutOfState": 29864,
-      "roomAndBoard": 11162,
-      "netPriceByIncome": {
-        "under30k": 10582,
-        "30to48k": 11506,
-        "48to75k": 15463,
-        "75to110k": 19605,
-        "over110k": 22496,
-        "average": 17779
-      },
+      "considersDemonstratedInterest": false,
+      "honorsCollege": "Separate application",
+      "netPriceByIncome": null,
       "pctReceivingAid": 73,
       "pctFederalLoans": 43,
       "medianDebtAtGraduation": 29454,
-      "honorsCollege": "Apply",
-      "nearestAirport": "Des Moines",
-      "nearestAirportMiles": 35,
-      "nearestTrainStation": "Osceola",
-      "nearestTrainStationMiles": 85,
-      "ncaaDivision": "1",
-      "conference": null,
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 19.8,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 4.3,
         "black": 2.4,
@@ -1008,59 +590,18 @@
         "fraternityParticipationPct": 15,
         "sororities": 18,
         "sororityParticipationPct": 15
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "Johns Hopkins University",
       "unitId": 162928,
       "scoirId": 2400120,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App",
-        "Coalition",
-        "Scoir"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": "Optional",
-      "portfolio": "Optional",
       "interview": "Not required",
-      "considersDemonstratedInterest": false,
       "applicationFee": 70,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Decision",
-          "roundType": "Early Decision",
-          "deadline": "11-01",
-          "binding": true
-        },
-        {
-          "roundName": "Early Decision II",
-          "roundType": "Early Decision II",
-          "deadline": "01-02",
-          "binding": true
-        },
-        {
-          "roundName": "Regular Decision",
-          "roundType": "Regular Decision",
-          "deadline": "01-02",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 6.4,
-      "applicants": 45895,
-      "admitted": 2954,
-      "enrolled": 1389,
-      "satMid50": "1520-1570",
-      "satMathMid50": "780-800",
-      "satReadingWritingMid50": "740-770",
-      "actMid50": "34-36",
-      "firstYearRetentionPct": 98,
-      "stickerPriceInState": 93385,
-      "stickerPriceOutOfState": 93385,
-      "tuitionInState": 68670,
-      "tuitionOutOfState": 68670,
-      "roomAndBoard": 23338,
+      "considersDemonstratedInterest": false,
+      "honorsCollege": null,
       "netPriceByIncome": {
         "under30k": 428,
         "30to48k": -213,
@@ -1072,18 +613,7 @@
       "pctReceivingAid": 69,
       "pctFederalLoans": 9,
       "medianDebtAtGraduation": 17712,
-      "honorsCollege": null,
-      "nearestAirport": "Baltimore",
-      "nearestAirportMiles": 15,
-      "nearestTrainStation": "Baltimore",
-      "nearestTrainStationMiles": 3,
-      "ncaaDivision": "3",
-      "conference": null,
-      "rotc": [
-        "Army"
-      ],
       "engineeringShareOfDegreesPct": 15.2,
-      "netPriceByIncomeNote": "Students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 27.6,
         "black": 8.8,
@@ -1137,59 +667,18 @@
         "fraternityParticipationPct": 23,
         "sororities": 9,
         "sororityParticipationPct": 15
-      }
+      },
+      "netPriceByIncomeNote": "Average net price paid by first-year students receiving grant aid, by family income (federal data)."
     },
     {
       "school": "Lehigh University",
       "unitId": 213543,
       "scoirId": 1100523,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App",
-        "Coalition",
-        "Scoir"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": "Optional",
-      "portfolio": "Optional",
       "interview": "Optional",
-      "considersDemonstratedInterest": true,
       "applicationFee": 75,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Decision",
-          "roundType": "Early Decision",
-          "deadline": "11-01",
-          "binding": true
-        },
-        {
-          "roundName": "Early Decision II",
-          "roundType": "Early Decision II",
-          "deadline": "01-01",
-          "binding": true
-        },
-        {
-          "roundName": "Regular Decision",
-          "roundType": "Regular Decision",
-          "deadline": "01-01",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 25.9,
-      "applicants": 20396,
-      "admitted": 5289,
-      "enrolled": 1501,
-      "satMid50": "1370-1500",
-      "satMathMid50": "690-770",
-      "satReadingWritingMid50": "680-730",
-      "actMid50": "31-34",
-      "firstYearRetentionPct": 94,
-      "stickerPriceInState": 90820,
-      "stickerPriceOutOfState": 90820,
-      "tuitionInState": 69420,
-      "tuitionOutOfState": 69420,
-      "roomAndBoard": 19230,
+      "considersDemonstratedInterest": true,
+      "honorsCollege": null,
       "netPriceByIncome": {
         "under30k": 16917,
         "30to48k": 17140,
@@ -1201,18 +690,7 @@
       "pctReceivingAid": 57,
       "pctFederalLoans": 36,
       "medianDebtAtGraduation": 37147,
-      "honorsCollege": null,
-      "nearestAirport": "Allentown",
-      "nearestAirportMiles": 6,
-      "nearestTrainStation": "Philadelphia",
-      "nearestTrainStationMiles": 50,
-      "ncaaDivision": "1",
-      "conference": null,
-      "rotc": [
-        "Army"
-      ],
       "engineeringShareOfDegreesPct": 20.0,
-      "netPriceByIncomeNote": "Students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 10.7,
         "black": 5.0,
@@ -1266,51 +744,18 @@
         "fraternityParticipationPct": 17.8,
         "sororities": 14,
         "sororityParticipationPct": 24.7
-      }
+      },
+      "netPriceByIncomeNote": "Average net price paid by first-year students receiving grant aid, by family income (federal data)."
     },
     {
       "school": "Massachusetts Institute of Technology (MIT)",
       "unitId": 166683,
       "scoirId": 1100243,
-      "scoirListStatus": "Applying",
-      "applicationPlatforms": [
-        "MIT application"
-      ],
-      "usesCommonApp": false,
       "essayOrStatement": "Required",
-      "resume": null,
-      "portfolio": "Optional",
       "interview": "Required for some applicants",
-      "considersDemonstratedInterest": false,
       "applicationFee": 75,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action",
-          "roundType": "Early Action",
-          "deadline": "11-01",
-          "binding": false
-        },
-        {
-          "roundName": "Regular Action",
-          "roundType": "Other",
-          "deadline": "01-04",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 4.5,
-      "applicants": 28232,
-      "admitted": 1284,
-      "enrolled": 1102,
-      "satMid50": "1520-1580",
-      "satMathMid50": "780-800",
-      "satReadingWritingMid50": "740-780",
-      "actMid50": "34-36",
-      "firstYearRetentionPct": 99,
-      "stickerPriceInState": 90264,
-      "stickerPriceOutOfState": 90264,
-      "tuitionInState": 66720,
-      "tuitionOutOfState": 66720,
-      "roomAndBoard": 22194,
+      "considersDemonstratedInterest": false,
+      "honorsCollege": null,
       "netPriceByIncome": {
         "under30k": -2533,
         "30to48k": 93,
@@ -1322,20 +767,7 @@
       "pctReceivingAid": 64,
       "pctFederalLoans": 6,
       "medianDebtAtGraduation": 25556,
-      "honorsCollege": null,
-      "nearestAirport": "Boston",
-      "nearestAirportMiles": 5,
-      "nearestTrainStation": "Boston",
-      "nearestTrainStationMiles": 3,
-      "ncaaDivision": "3",
-      "conference": "NEWMAC",
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 27.1,
-      "netPriceByIncomeNote": "Students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 35.2,
         "black": 7.7,
@@ -1389,75 +821,23 @@
         "fraternityParticipationPct": null,
         "sororities": 7,
         "sororityParticipationPct": null
-      }
+      },
+      "netPriceByIncomeNote": "Average net price paid by first-year students receiving grant aid, by family income (federal data)."
     },
     {
       "school": "Michigan Technological University (Michigan Tech)",
       "unitId": 171128,
       "scoirId": 2800087,
-      "scoirListStatus": "Applying",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Optional",
-      "resume": "Optional",
-      "portfolio": "Required for some applicants",
       "interview": "Optional",
+      "applicationFee": 0,
       "considersDemonstratedInterest": false,
-      "applicationFee": null,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action Fall 2027 (term begins in late August)",
-          "roundType": "Early Action",
-          "deadline": "11-01",
-          "binding": false
-        },
-        {
-          "roundName": "Regular Decision Fall 2027 (term begins in late August)",
-          "roundType": "Regular Decision",
-          "deadline": "04-30",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 92.4,
-      "applicants": 11491,
-      "admitted": 10621,
-      "enrolled": 1373,
-      "satMid50": "1130-1350",
-      "satMathMid50": "560-670",
-      "satReadingWritingMid50": "570-680",
-      "actMid50": "25-31",
-      "firstYearRetentionPct": 89,
-      "stickerPriceInState": 37299,
-      "stickerPriceOutOfState": 63197,
-      "tuitionInState": 20396,
-      "tuitionOutOfState": 46294,
-      "roomAndBoard": 15321,
-      "netPriceByIncome": {
-        "under30k": 2045,
-        "30to48k": 3373,
-        "48to75k": 6187,
-        "75to110k": 12813,
-        "over110k": 23107,
-        "average": 16879
-      },
+      "honorsCollege": null,
+      "netPriceByIncome": null,
       "pctReceivingAid": 91,
       "pctFederalLoans": 45,
       "medianDebtAtGraduation": 36513,
-      "honorsCollege": null,
-      "nearestAirport": "Marquette (Sawyer)",
-      "nearestAirportMiles": 106,
-      "nearestTrainStation": "N/A",
-      "nearestTrainStationMiles": 327,
-      "ncaaDivision": "2",
-      "conference": "GLIAC",
-      "rotc": [
-        "Air Force",
-        "Army"
-      ],
       "engineeringShareOfDegreesPct": 54.6,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 1.9,
         "black": 1.0,
@@ -1511,57 +891,18 @@
         "fraternityParticipationPct": 11.2,
         "sororities": 5,
         "sororityParticipationPct": 12.3
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "New Jersey Institute of Technology (NJIT)",
       "unitId": 185828,
       "scoirId": 2800141,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": "Optional",
-      "portfolio": "Required for some applicants",
       "interview": "Optional",
-      "considersDemonstratedInterest": true,
       "applicationFee": 75,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action Fall",
-          "roundType": "Early Action",
-          "deadline": "11-15",
-          "binding": false
-        },
-        {
-          "roundName": "Early Action II Fall",
-          "roundType": "Early Action II",
-          "deadline": "12-15",
-          "binding": false
-        },
-        {
-          "roundName": "Rolling Admission Fall",
-          "roundType": "Rolling",
-          "deadline": "03-01",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 65.1,
-      "applicants": 15607,
-      "admitted": 10156,
-      "enrolled": 1746,
-      "satMid50": "1210-1460",
-      "satMathMid50": "610-750",
-      "satReadingWritingMid50": "600-710",
-      "actMid50": "27-34",
-      "firstYearRetentionPct": 90,
-      "stickerPriceInState": 34770,
-      "stickerPriceOutOfState": 53520,
-      "tuitionInState": 17312,
-      "tuitionOutOfState": 36062,
-      "roomAndBoard": 13608,
+      "considersDemonstratedInterest": true,
+      "honorsCollege": null,
       "netPriceByIncome": {
         "under30k": 10138,
         "30to48k": 11165,
@@ -1573,18 +914,7 @@
       "pctReceivingAid": 70,
       "pctFederalLoans": 31,
       "medianDebtAtGraduation": 21500,
-      "honorsCollege": null,
-      "nearestAirport": "Newark",
-      "nearestAirportMiles": 5,
-      "nearestTrainStation": "Newark",
-      "nearestTrainStationMiles": 1,
-      "ncaaDivision": "1",
-      "conference": null,
-      "rotc": [
-        "Air Force"
-      ],
       "engineeringShareOfDegreesPct": 34.6,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 19.5,
         "black": 11.4,
@@ -1638,78 +968,23 @@
         "fraternityParticipationPct": 6.4,
         "sororities": 2,
         "sororityParticipationPct": 5.5
-      }
+      },
+      "netPriceByIncomeNote": "Average net price paid by first-year students receiving grant aid, by family income (federal data)."
     },
     {
       "school": "North Carolina State University (NC State)",
       "unitId": 199193,
       "scoirId": 2600066,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App",
-        "Coalition",
-        "Scoir"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": "Optional",
-      "portfolio": "Required for some applicants",
       "interview": "Not required",
-      "considersDemonstratedInterest": false,
       "applicationFee": 85,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action",
-          "roundType": "Early Action",
-          "deadline": "11-01",
-          "binding": false
-        },
-        {
-          "roundName": "Regular Decision",
-          "roundType": "Regular Decision",
-          "deadline": "01-15",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 41.7,
-      "applicants": 44047,
-      "admitted": 18385,
-      "enrolled": 5839,
-      "satMid50": "1300-1470",
-      "satMathMid50": "650-750",
-      "satReadingWritingMid50": "650-720",
-      "actMid50": "28-32",
-      "firstYearRetentionPct": 94,
-      "stickerPriceInState": 24393,
-      "stickerPriceOutOfState": 49358,
-      "tuitionInState": 6535,
-      "tuitionOutOfState": 31500,
-      "roomAndBoard": 14741,
-      "netPriceByIncome": {
-        "under30k": 6382,
-        "30to48k": 8758,
-        "48to75k": 13334,
-        "75to110k": 20087,
-        "over110k": 24652,
-        "average": 15522
-      },
+      "considersDemonstratedInterest": false,
+      "honorsCollege": "Separate application",
+      "netPriceByIncome": null,
       "pctReceivingAid": 51,
       "pctFederalLoans": 33,
       "medianDebtAtGraduation": 20403,
-      "honorsCollege": "Apply",
-      "nearestAirport": "Raleigh-Durham",
-      "nearestAirportMiles": 8,
-      "nearestTrainStation": "Raleigh",
-      "nearestTrainStationMiles": 3,
-      "ncaaDivision": "1",
-      "conference": "ACC",
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 23.8,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 10.0,
         "black": 5.9,
@@ -1763,53 +1038,18 @@
         "fraternityParticipationPct": 10.7,
         "sororities": 17,
         "sororityParticipationPct": 15.1
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "Northwestern University",
       "unitId": 147767,
       "scoirId": 2800124,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App",
-        "Coalition",
-        "Scoir"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Optional",
-      "resume": "Optional",
-      "portfolio": "Required for some applicants",
       "interview": "Optional",
-      "considersDemonstratedInterest": true,
       "applicationFee": 75,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Decision",
-          "roundType": "Early Decision",
-          "deadline": "11-01",
-          "binding": true
-        },
-        {
-          "roundName": "Regular Decision",
-          "roundType": "Regular Decision",
-          "deadline": "01-04",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 7.7,
-      "applicants": 49474,
-      "admitted": 3806,
-      "enrolled": 2105,
-      "satMid50": "1510-1570",
-      "satMathMid50": "770-800",
-      "satReadingWritingMid50": "740-770",
-      "actMid50": "33-35",
-      "firstYearRetentionPct": 98,
-      "stickerPriceInState": 97242,
-      "stickerPriceOutOfState": 97242,
-      "tuitionInState": 71802,
-      "tuitionOutOfState": 71802,
-      "roomAndBoard": 22941,
+      "considersDemonstratedInterest": true,
+      "honorsCollege": null,
       "netPriceByIncome": {
         "under30k": 1764,
         "30to48k": 6099,
@@ -1821,18 +1061,7 @@
       "pctReceivingAid": 52,
       "pctFederalLoans": 17,
       "medianDebtAtGraduation": 34309,
-      "honorsCollege": null,
-      "nearestAirport": "Chicago",
-      "nearestAirportMiles": 17,
-      "nearestTrainStation": "Chicago",
-      "nearestTrainStationMiles": 12,
-      "ncaaDivision": "1",
-      "conference": null,
-      "rotc": [
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 11.9,
-      "netPriceByIncomeNote": "Students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 20.9,
         "black": 8.3,
@@ -1886,76 +1115,23 @@
         "fraternityParticipationPct": 13.8,
         "sororities": 21,
         "sororityParticipationPct": 17.7
-      }
+      },
+      "netPriceByIncomeNote": "Average net price paid by first-year students receiving grant aid, by family income (federal data)."
     },
     {
       "school": "Ohio State University",
       "unitId": 204796,
       "scoirId": 2800128,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": "Required",
-      "portfolio": "Not required",
       "interview": "Not required",
-      "considersDemonstratedInterest": false,
       "applicationFee": 60,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action Autumn 2027 (Begins in August)",
-          "roundType": "Early Action",
-          "deadline": "11-01",
-          "binding": false
-        },
-        {
-          "roundName": "Regular Decision Autumn 2027 (Begins in August)",
-          "roundType": "Regular Decision",
-          "deadline": "01-15",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 60.6,
-      "applicants": 72829,
-      "admitted": 44116,
-      "enrolled": 9607,
-      "satMid50": "1310-1480",
-      "satMathMid50": "670-760",
-      "satReadingWritingMid50": "640-720",
-      "actMid50": "28-32",
-      "firstYearRetentionPct": 94,
-      "stickerPriceInState": 32388,
-      "stickerPriceOutOfState": 60921,
-      "tuitionInState": 15738,
-      "tuitionOutOfState": 44271,
-      "roomAndBoard": 15630,
-      "netPriceByIncome": {
-        "under30k": 4885,
-        "30to48k": 5751,
-        "48to75k": 9807,
-        "75to110k": 20461,
-        "over110k": 27359,
-        "average": 19783
-      },
+      "considersDemonstratedInterest": false,
+      "honorsCollege": "Separate application",
+      "netPriceByIncome": null,
       "pctReceivingAid": 62,
       "pctFederalLoans": 28,
       "medianDebtAtGraduation": 26722,
-      "honorsCollege": "Apply",
-      "nearestAirport": "Columbus",
-      "nearestAirportMiles": 6,
-      "nearestTrainStation": "Cincinnati",
-      "nearestTrainStationMiles": 100,
-      "ncaaDivision": "1",
-      "conference": null,
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 14.0,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 11.0,
         "black": 8.0,
@@ -2009,76 +1185,23 @@
         "fraternityParticipationPct": 9,
         "sororities": 25,
         "sororityParticipationPct": 13
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "Pennsylvania State University (Penn State)",
       "unitId": 214777,
       "scoirId": 1100101,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required for some applicants",
-      "resume": "Required for some applicants",
-      "portfolio": "Required for some applicants",
       "interview": "Required for some applicants",
-      "considersDemonstratedInterest": false,
       "applicationFee": 65,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action Fall 2027",
-          "roundType": "Early Action",
-          "deadline": "11-01",
-          "binding": false
-        },
-        {
-          "roundName": "Rolling Admission Fall 2027",
-          "roundType": "Rolling",
-          "deadline": "07-28",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 60.6,
-      "applicants": 88478,
-      "admitted": 53579,
-      "enrolled": 9169,
-      "satMid50": "1240-1420",
-      "satMathMid50": "620-720",
-      "satReadingWritingMid50": "620-700",
-      "actMid50": "27-32",
-      "firstYearRetentionPct": 93,
-      "stickerPriceInState": 37644,
-      "stickerPriceOutOfState": 60036,
-      "tuitionInState": 20468,
-      "tuitionOutOfState": 42860,
-      "roomAndBoard": 15346,
-      "netPriceByIncome": {
-        "under30k": 19845,
-        "30to48k": 20049,
-        "48to75k": 25667,
-        "75to110k": 31834,
-        "over110k": 37831,
-        "average": 27889
-      },
+      "considersDemonstratedInterest": false,
+      "honorsCollege": "Separate application",
+      "netPriceByIncome": null,
       "pctReceivingAid": 50,
       "pctFederalLoans": 39,
       "medianDebtAtGraduation": 44008,
-      "honorsCollege": "Apply",
-      "nearestAirport": "Harrisburg",
-      "nearestAirportMiles": 90,
-      "nearestTrainStation": "Lewistown",
-      "nearestTrainStationMiles": 35,
-      "ncaaDivision": "1",
-      "conference": null,
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 13.9,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 7.6,
         "black": 4.5,
@@ -2132,76 +1255,23 @@
         "fraternityParticipationPct": null,
         "sororities": 30,
         "sororityParticipationPct": null
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "Purdue University",
       "unitId": 243780,
       "scoirId": 2800070,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": null,
-      "portfolio": null,
       "interview": null,
-      "considersDemonstratedInterest": true,
       "applicationFee": 60,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action Fall 2027",
-          "roundType": "Early Action",
-          "deadline": "11-01",
-          "binding": false
-        },
-        {
-          "roundName": "Regular Decision Fall 2027",
-          "roundType": "Regular Decision",
-          "deadline": "01-15",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 49.9,
-      "applicants": 78745,
-      "admitted": 39272,
-      "enrolled": 11467,
-      "satMid50": "1200-1480",
-      "satMathMid50": "600-760",
-      "satReadingWritingMid50": "600-720",
-      "actMid50": "27-34",
-      "firstYearRetentionPct": 93,
-      "stickerPriceInState": 27816,
-      "stickerPriceOutOfState": 46618,
-      "tuitionInState": 9718,
-      "tuitionOutOfState": 28520,
-      "roomAndBoard": 16734,
-      "netPriceByIncome": {
-        "under30k": 5098,
-        "30to48k": 6241,
-        "48to75k": 9438,
-        "75to110k": 18177,
-        "over110k": 22742,
-        "average": 13722
-      },
+      "considersDemonstratedInterest": true,
+      "honorsCollege": "By invitation",
+      "netPriceByIncome": null,
       "pctReceivingAid": 43,
       "pctFederalLoans": 22,
       "medianDebtAtGraduation": 40490,
-      "honorsCollege": "Invite",
-      "nearestAirport": "Indianapolis",
-      "nearestAirportMiles": 66,
-      "nearestTrainStation": "Lafayette",
-      "nearestTrainStationMiles": 1,
-      "ncaaDivision": "1",
-      "conference": null,
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 23.3,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 15.1,
         "black": 2.7,
@@ -2255,64 +1325,18 @@
         "fraternityParticipationPct": 15,
         "sororities": 24,
         "sororityParticipationPct": 17.2
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "Rensselaer Polytechnic Institute (RPI)",
       "unitId": 194824,
       "scoirId": 1100089,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App",
-        "Coalition"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": "Optional",
-      "portfolio": "Optional",
       "interview": "Not required",
-      "considersDemonstratedInterest": true,
       "applicationFee": 70,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Decision Fall 2027",
-          "roundType": "Early Decision",
-          "deadline": "11-01",
-          "binding": true
-        },
-        {
-          "roundName": "Early Action Fall 2027",
-          "roundType": "Early Action",
-          "deadline": "12-01",
-          "binding": false
-        },
-        {
-          "roundName": "Early Decision II Fall 2027",
-          "roundType": "Early Decision II",
-          "deadline": "01-06",
-          "binding": true
-        },
-        {
-          "roundName": "Regular Decision Fall 2027",
-          "roundType": "Regular Decision",
-          "deadline": "01-15",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 63.5,
-      "applicants": 17175,
-      "admitted": 10901,
-      "enrolled": 1314,
-      "satMid50": "1375-1510",
-      "satMathMid50": "705-770",
-      "satReadingWritingMid50": "670-740",
-      "actMid50": "30-34",
-      "firstYearRetentionPct": 91,
-      "stickerPriceInState": 88256,
-      "stickerPriceOutOfState": 88256,
-      "tuitionInState": 66300,
-      "tuitionOutOfState": 66300,
-      "roomAndBoard": 18870,
+      "considersDemonstratedInterest": true,
+      "honorsCollege": null,
       "netPriceByIncome": {
         "under30k": 24078,
         "30to48k": 26289,
@@ -2324,20 +1348,7 @@
       "pctReceivingAid": 92,
       "pctFederalLoans": 50,
       "medianDebtAtGraduation": 41523,
-      "honorsCollege": null,
-      "nearestAirport": "Albany",
-      "nearestAirportMiles": 10,
-      "nearestTrainStation": "Albany",
-      "nearestTrainStationMiles": 15,
-      "ncaaDivision": "3",
-      "conference": null,
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 43.2,
-      "netPriceByIncomeNote": "Students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 21.5,
         "black": 5.0,
@@ -2391,51 +1402,18 @@
         "fraternityParticipationPct": 17,
         "sororities": 4,
         "sororityParticipationPct": 12
-      }
+      },
+      "netPriceByIncomeNote": "Average net price paid by first-year students receiving grant aid, by family income (federal data)."
     },
     {
       "school": "Rutgers University–New Brunswick",
       "unitId": 186380,
       "scoirId": 3000311,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": "Not required",
-      "portfolio": "Required for some applicants",
       "interview": "Not required",
-      "considersDemonstratedInterest": false,
       "applicationFee": 70,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action Fall",
-          "roundType": "Early Action",
-          "deadline": "11-01",
-          "binding": false
-        },
-        {
-          "roundName": "Regular Decision Fall",
-          "roundType": "Regular Decision",
-          "deadline": "12-01",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 58.1,
-      "applicants": 68614,
-      "admitted": 39899,
-      "enrolled": 8191,
-      "satMid50": "1310-1500",
-      "satMathMid50": "660-770",
-      "satReadingWritingMid50": "650-730",
-      "actMid50": "28-33",
-      "firstYearRetentionPct": 93,
-      "stickerPriceInState": 35602,
-      "stickerPriceOutOfState": 56427,
-      "tuitionInState": 14933,
-      "tuitionOutOfState": 35758,
-      "roomAndBoard": 15332,
+      "considersDemonstratedInterest": false,
+      "honorsCollege": "By invitation",
       "netPriceByIncome": {
         "under30k": 16343,
         "30to48k": 16210,
@@ -2447,20 +1425,7 @@
       "pctReceivingAid": 57,
       "pctFederalLoans": 34,
       "medianDebtAtGraduation": 21745,
-      "honorsCollege": "Invite",
-      "nearestAirport": "Newark",
-      "nearestAirportMiles": 30,
-      "nearestTrainStation": "New Brunswick",
-      "nearestTrainStationMiles": 1,
-      "ncaaDivision": "1",
-      "conference": null,
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 9.7,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 33.5,
         "black": 7.0,
@@ -2514,51 +1479,18 @@
         "fraternityParticipationPct": null,
         "sororities": 13,
         "sororityParticipationPct": null
-      }
+      },
+      "netPriceByIncomeNote": "Average net price paid by first-year students receiving grant aid, by family income (federal data)."
     },
     {
       "school": "Stanford University",
       "unitId": 243744,
       "scoirId": 1100510,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": null,
-      "portfolio": "Optional",
       "interview": "Optional",
-      "considersDemonstratedInterest": false,
       "applicationFee": 100,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Restrictive Early Action Fall 2027",
-          "roundType": "Restrictive Early Action",
-          "deadline": "11-01",
-          "binding": false
-        },
-        {
-          "roundName": "Regular Decision Fall 2027",
-          "roundType": "Regular Decision",
-          "deadline": "01-05",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 3.6,
-      "applicants": 57326,
-      "admitted": 2067,
-      "enrolled": 1693,
-      "satMid50": "1510-1580",
-      "satMathMid50": "770-800",
-      "satReadingWritingMid50": "740-780",
-      "actMid50": "34-35",
-      "firstYearRetentionPct": 98,
-      "stickerPriceInState": 92373,
-      "stickerPriceOutOfState": 92373,
-      "tuitionInState": 67731,
-      "tuitionOutOfState": 67731,
-      "roomAndBoard": 22944,
+      "considersDemonstratedInterest": false,
+      "honorsCollege": null,
       "netPriceByIncome": {
         "under30k": -2536,
         "30to48k": -193,
@@ -2570,20 +1502,7 @@
       "pctReceivingAid": 66,
       "pctFederalLoans": 6,
       "medianDebtAtGraduation": 23318,
-      "honorsCollege": null,
-      "nearestAirport": "San Jose",
-      "nearestAirportMiles": 20,
-      "nearestTrainStation": "Palo Alto",
-      "nearestTrainStationMiles": 1,
-      "ncaaDivision": "1",
-      "conference": "ACC",
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 16.1,
-      "netPriceByIncomeNote": "Students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 27.8,
         "black": 8.1,
@@ -2637,70 +1556,23 @@
         "fraternityParticipationPct": 22,
         "sororities": 11,
         "sororityParticipationPct": 28
-      }
+      },
+      "netPriceByIncomeNote": "Average net price paid by first-year students receiving grant aid, by family income (federal data)."
     },
     {
       "school": "Texas A&M University",
       "unitId": 228723,
       "scoirId": 1100485,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": "Optional",
-      "portfolio": null,
       "interview": null,
-      "considersDemonstratedInterest": true,
       "applicationFee": 75,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Regular Decision Fall 2027",
-          "roundType": "Regular Decision",
-          "deadline": "12-01",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 57.4,
-      "applicants": 54669,
-      "admitted": 31397,
-      "enrolled": 12530,
-      "satMid50": "1150-1400",
-      "satMathMid50": "570-710",
-      "satReadingWritingMid50": "580-690",
-      "actMid50": "25-31",
-      "firstYearRetentionPct": 94,
-      "stickerPriceInState": 26704,
-      "stickerPriceOutOfState": 54673,
-      "tuitionInState": 8908,
-      "tuitionOutOfState": 36877,
-      "roomAndBoard": 12944,
-      "netPriceByIncome": {
-        "under30k": 12784,
-        "30to48k": 13317,
-        "48to75k": 17435,
-        "75to110k": 26520,
-        "over110k": 30660,
-        "average": 21437
-      },
+      "considersDemonstratedInterest": true,
+      "honorsCollege": "By invitation",
+      "netPriceByIncome": null,
       "pctReceivingAid": 56,
       "pctFederalLoans": 25,
       "medianDebtAtGraduation": 19000,
-      "honorsCollege": "Invite",
-      "nearestAirport": "Houston",
-      "nearestAirportMiles": 96,
-      "nearestTrainStation": "Houston",
-      "nearestTrainStationMiles": 96,
-      "ncaaDivision": "1",
-      "conference": "SEC",
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 18.1,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 13.7,
         "black": 2.5,
@@ -2754,70 +1626,23 @@
         "fraternityParticipationPct": null,
         "sororities": 19,
         "sororityParticipationPct": null
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "University of California, Berkeley (UC Berkeley)",
       "unitId": 110635,
       "scoirId": 1100865,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "UC Application"
-      ],
-      "usesCommonApp": false,
       "essayOrStatement": "Required",
-      "resume": "Not required",
-      "portfolio": "Not required",
       "interview": "Not required",
-      "considersDemonstratedInterest": false,
       "applicationFee": 80,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Regular Decision",
-          "roundType": "Regular Decision",
-          "deadline": "11-30",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 11.0,
-      "applicants": 124242,
-      "admitted": 13639,
-      "enrolled": 6272,
-      "satMid50": null,
-      "satMathMid50": null,
-      "satReadingWritingMid50": null,
-      "actMid50": null,
-      "firstYearRetentionPct": 97,
-      "stickerPriceInState": 45740,
-      "stickerPriceOutOfState": 85010,
-      "tuitionInState": 14202,
-      "tuitionOutOfState": 53472,
-      "roomAndBoard": 25962,
-      "netPriceByIncome": {
-        "under30k": 5311,
-        "30to48k": 6501,
-        "48to75k": 9693,
-        "75to110k": 15074,
-        "over110k": 34529,
-        "average": 16538
-      },
+      "considersDemonstratedInterest": false,
+      "honorsCollege": null,
+      "netPriceByIncome": null,
       "pctReceivingAid": 60,
       "pctFederalLoans": 16,
       "medianDebtAtGraduation": 14200,
-      "honorsCollege": null,
-      "nearestAirport": "San Francisco",
-      "nearestAirportMiles": 10,
-      "nearestTrainStation": null,
-      "nearestTrainStationMiles": null,
-      "ncaaDivision": "1",
-      "conference": "ACC",
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 11.9,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 35.4,
         "black": 2.1,
@@ -2871,68 +1696,23 @@
         "fraternityParticipationPct": 2.6,
         "sororities": 17,
         "sororityParticipationPct": 6.1
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "University of California, Davis (UC Davis)",
       "unitId": 110644,
       "scoirId": 1100359,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "UC Application"
-      ],
-      "usesCommonApp": false,
       "essayOrStatement": "Required",
-      "resume": "Not required",
-      "portfolio": "Not required",
       "interview": "Not required",
-      "considersDemonstratedInterest": false,
       "applicationFee": 80,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Regular Decision",
-          "roundType": "Regular Decision",
-          "deadline": "11-30",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 41.8,
-      "applicants": 98864,
-      "admitted": 41353,
-      "enrolled": 6767,
-      "satMid50": null,
-      "satMathMid50": null,
-      "satReadingWritingMid50": null,
-      "actMid50": null,
-      "firstYearRetentionPct": 93,
-      "stickerPriceInState": 40424,
-      "stickerPriceOutOfState": 76336,
-      "tuitionInState": 13368,
-      "tuitionOutOfState": 49280,
-      "roomAndBoard": 22125,
-      "netPriceByIncome": {
-        "under30k": 9211,
-        "30to48k": 9966,
-        "48to75k": 11951,
-        "75to110k": 16294,
-        "over110k": 31272,
-        "average": 17270
-      },
+      "considersDemonstratedInterest": false,
+      "honorsCollege": null,
+      "netPriceByIncome": null,
       "pctReceivingAid": 59,
       "pctFederalLoans": 19,
       "medianDebtAtGraduation": 14833,
-      "honorsCollege": null,
-      "nearestAirport": "Sacramento",
-      "nearestAirportMiles": 18,
-      "nearestTrainStation": "Davis",
-      "nearestTrainStationMiles": 1,
-      "ncaaDivision": "1",
-      "conference": null,
-      "rotc": [
-        "Army"
-      ],
       "engineeringShareOfDegreesPct": 8.6,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 31.4,
         "black": 1.7,
@@ -2986,69 +1766,23 @@
         "fraternityParticipationPct": 5,
         "sororities": 13,
         "sororityParticipationPct": 6
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "University of California, Irvine (UC Irvine)",
       "unitId": 110653,
       "scoirId": 1100454,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "UC Application"
-      ],
-      "usesCommonApp": false,
       "essayOrStatement": "Required",
-      "resume": null,
-      "portfolio": null,
       "interview": null,
-      "considersDemonstratedInterest": false,
       "applicationFee": 80,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Regular Decision",
-          "roundType": "Regular Decision",
-          "deadline": "11-30",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 28.6,
-      "applicants": 122699,
-      "admitted": 35054,
-      "enrolled": 6736,
-      "satMid50": null,
-      "satMathMid50": null,
-      "satReadingWritingMid50": null,
-      "actMid50": null,
-      "firstYearRetentionPct": 94,
-      "stickerPriceInState": 42410,
-      "stickerPriceOutOfState": 66092,
-      "tuitionInState": 15588,
-      "tuitionOutOfState": 39270,
-      "roomAndBoard": 20926,
-      "netPriceByIncome": {
-        "under30k": 8123,
-        "30to48k": 9313,
-        "48to75k": 11642,
-        "75to110k": 15164,
-        "over110k": 30546,
-        "average": 15889
-      },
+      "considersDemonstratedInterest": false,
+      "honorsCollege": "By invitation",
+      "netPriceByIncome": null,
       "pctReceivingAid": 62,
       "pctFederalLoans": 20,
       "medianDebtAtGraduation": 17000,
-      "honorsCollege": "Invite",
-      "nearestAirport": "Los Angeles",
-      "nearestAirportMiles": 40,
-      "nearestTrainStation": null,
-      "nearestTrainStationMiles": null,
-      "ncaaDivision": "1",
-      "conference": null,
-      "rotc": [
-        "Air Force",
-        "Army"
-      ],
       "engineeringShareOfDegreesPct": 10.1,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 37.5,
         "black": 2.0,
@@ -3102,70 +1836,23 @@
         "fraternityParticipationPct": null,
         "sororities": 12,
         "sororityParticipationPct": null
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "University of California, Los Angeles (UCLA)",
       "unitId": 110662,
       "scoirId": 1100868,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "UC Application"
-      ],
-      "usesCommonApp": false,
       "essayOrStatement": "Required",
-      "resume": null,
-      "portfolio": null,
       "interview": null,
-      "considersDemonstratedInterest": false,
       "applicationFee": 80,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Regular Decision",
-          "roundType": "Regular Decision",
-          "deadline": "11-30",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 9.0,
-      "applicants": 146272,
-      "admitted": 13114,
-      "enrolled": 6610,
-      "satMid50": null,
-      "satMathMid50": null,
-      "satReadingWritingMid50": null,
-      "actMid50": null,
-      "firstYearRetentionPct": 97,
-      "stickerPriceInState": 36806,
-      "stickerPriceOutOfState": 72718,
-      "tuitionInState": 13368,
-      "tuitionOutOfState": 49280,
-      "roomAndBoard": 19779,
-      "netPriceByIncome": {
-        "under30k": 5579,
-        "30to48k": 6682,
-        "48to75k": 9811,
-        "75to110k": 14142,
-        "over110k": 29682,
-        "average": 14512
-      },
+      "considersDemonstratedInterest": false,
+      "honorsCollege": "By invitation",
+      "netPriceByIncome": null,
       "pctReceivingAid": 55,
       "pctFederalLoans": 18,
       "medianDebtAtGraduation": 13725,
-      "honorsCollege": "Invite",
-      "nearestAirport": "Los Angeles",
-      "nearestAirportMiles": 12,
-      "nearestTrainStation": "Los Angeles",
-      "nearestTrainStationMiles": 13,
-      "ncaaDivision": "1",
-      "conference": null,
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 7.5,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 29.5,
         "black": 3.4,
@@ -3219,77 +1906,23 @@
         "fraternityParticipationPct": 11,
         "sororities": 17,
         "sororityParticipationPct": 13
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "University of Connecticut (UConn)",
       "unitId": 129020,
       "scoirId": 2100309,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App",
-        "Coalition",
-        "Scoir"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": "Optional",
-      "portfolio": "Required for some applicants",
       "interview": "Not required",
-      "considersDemonstratedInterest": false,
       "applicationFee": 80,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Decision",
-          "roundType": "Early Decision",
-          "deadline": "11-01",
-          "binding": true
-        },
-        {
-          "roundName": "Fall Semester (Regular Decision)",
-          "roundType": "Regular Decision",
-          "deadline": "01-15",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 52.4,
-      "applicants": 55479,
-      "admitted": 29065,
-      "enrolled": 4478,
-      "satMid50": "1210-1440",
-      "satMathMid50": "600-730",
-      "satReadingWritingMid50": "610-710",
-      "actMid50": "28-33",
-      "firstYearRetentionPct": 92,
-      "stickerPriceInState": 37778,
-      "stickerPriceOutOfState": 60446,
-      "tuitionInState": 17010,
-      "tuitionOutOfState": 39678,
-      "roomAndBoard": 15184,
-      "netPriceByIncome": {
-        "under30k": 15193,
-        "30to48k": 16339,
-        "48to75k": 20608,
-        "75to110k": 28285,
-        "over110k": 33797,
-        "average": 25310
-      },
+      "considersDemonstratedInterest": false,
+      "honorsCollege": "By invitation",
+      "netPriceByIncome": null,
       "pctReceivingAid": 71,
       "pctFederalLoans": 41,
       "medianDebtAtGraduation": 21500,
-      "honorsCollege": "Invite",
-      "nearestAirport": "Windsor Locks",
-      "nearestAirportMiles": 40,
-      "nearestTrainStation": "Hartford",
-      "nearestTrainStationMiles": 25,
-      "ncaaDivision": "1",
-      "conference": null,
-      "rotc": [
-        "Air Force",
-        "Army"
-      ],
       "engineeringShareOfDegreesPct": 10.8,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 12.5,
         "black": 7.5,
@@ -3343,77 +1976,23 @@
         "fraternityParticipationPct": 11,
         "sororities": 20,
         "sororityParticipationPct": 13
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "University of Delaware",
       "unitId": 130943,
       "scoirId": 2600142,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App",
-        "Coalition",
-        "Scoir"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": "Optional",
-      "portfolio": "Required for some applicants",
       "interview": "Not required",
-      "considersDemonstratedInterest": true,
       "applicationFee": 75,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action",
-          "roundType": "Early Action",
-          "deadline": "11-01",
-          "binding": false
-        },
-        {
-          "roundName": "Regular Decision",
-          "roundType": "Regular Decision",
-          "deadline": "01-15",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 70.6,
-      "applicants": 39995,
-      "admitted": 28238,
-      "enrolled": 4424,
-      "satMid50": "1190-1370",
-      "satMathMid50": "590-680",
-      "satReadingWritingMid50": "600-690",
-      "actMid50": "28-32",
-      "firstYearRetentionPct": 92,
-      "stickerPriceInState": 34884,
-      "stickerPriceOutOfState": 60444,
-      "tuitionInState": 15280,
-      "tuitionOutOfState": 40840,
-      "roomAndBoard": 15974,
-      "netPriceByIncome": {
-        "under30k": 10901,
-        "30to48k": 10099,
-        "48to75k": 13225,
-        "75to110k": 17401,
-        "over110k": 25580,
-        "average": 19139
-      },
+      "considersDemonstratedInterest": true,
+      "honorsCollege": "Separate application",
+      "netPriceByIncome": null,
       "pctReceivingAid": 73,
       "pctFederalLoans": 49,
       "medianDebtAtGraduation": 24195,
-      "honorsCollege": "Apply",
-      "nearestAirport": "Philadelphia",
-      "nearestAirportMiles": 38,
-      "nearestTrainStation": "Newark",
-      "nearestTrainStationMiles": 1,
-      "ncaaDivision": "1",
-      "conference": "C-USA",
-      "rotc": [
-        "Air Force",
-        "Army"
-      ],
       "engineeringShareOfDegreesPct": 9.1,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 5.6,
         "black": 6.6,
@@ -3467,76 +2046,23 @@
         "fraternityParticipationPct": 20,
         "sororities": 21,
         "sororityParticipationPct": 25
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "University of Illinois Urbana-Champaign (UIUC)",
       "unitId": 145637,
       "scoirId": 1100729,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": "Not required",
-      "portfolio": "Required for some applicants",
       "interview": null,
-      "considersDemonstratedInterest": false,
       "applicationFee": 50,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action Fall 2027",
-          "roundType": "Early Action",
-          "deadline": "11-01",
-          "binding": false
-        },
-        {
-          "roundName": "Regular Decision Fall 2027",
-          "roundType": "Regular Decision",
-          "deadline": "01-05",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 42.4,
-      "applicants": 73742,
-      "admitted": 31247,
-      "enrolled": 9008,
-      "satMid50": "1310-1520",
-      "satMathMid50": "660-780",
-      "satReadingWritingMid50": "650-740",
-      "actMid50": "30-34",
-      "firstYearRetentionPct": 95,
-      "stickerPriceInState": 35588,
-      "stickerPriceOutOfState": 58264,
-      "tuitionInState": 13252,
-      "tuitionOutOfState": 35928,
-      "roomAndBoard": 15858,
-      "netPriceByIncome": {
-        "under30k": 2038,
-        "30to48k": 5373,
-        "48to75k": 7982,
-        "75to110k": 15152,
-        "over110k": 28761,
-        "average": 13973
-      },
+      "considersDemonstratedInterest": false,
+      "honorsCollege": "By invitation",
+      "netPriceByIncome": null,
       "pctReceivingAid": 55,
       "pctFederalLoans": 27,
       "medianDebtAtGraduation": 20500,
-      "honorsCollege": "Invite",
-      "nearestAirport": "Chicago",
-      "nearestAirportMiles": 150,
-      "nearestTrainStation": "Champaign",
-      "nearestTrainStationMiles": 1,
-      "ncaaDivision": "1",
-      "conference": null,
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 20.1,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 22.7,
         "black": 5.2,
@@ -3590,77 +2116,23 @@
         "fraternityParticipationPct": 15,
         "sororities": 33,
         "sororityParticipationPct": 21
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "University of Maryland, College Park",
       "unitId": 163286,
       "scoirId": 2400206,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App",
-        "Coalition"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": "Required",
-      "portfolio": "Not required",
       "interview": "Not required",
-      "considersDemonstratedInterest": false,
       "applicationFee": 75,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action Fall 2027",
-          "roundType": "Early Action",
-          "deadline": "11-01",
-          "binding": false
-        },
-        {
-          "roundName": "Regular Decision Fall 2027",
-          "roundType": "Regular Decision",
-          "deadline": "01-20",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 44.8,
-      "applicants": 60056,
-      "admitted": 26902,
-      "enrolled": 5818,
-      "satMid50": "1400-1530",
-      "satMathMid50": "710-780",
-      "satReadingWritingMid50": "690-750",
-      "actMid50": "32-35",
-      "firstYearRetentionPct": 96,
-      "stickerPriceInState": 31428,
-      "stickerPriceOutOfState": 61576,
-      "tuitionInState": 10908,
-      "tuitionOutOfState": 41056,
-      "roomAndBoard": 17470,
-      "netPriceByIncome": {
-        "under30k": 2962,
-        "30to48k": 6051,
-        "48to75k": 10273,
-        "75to110k": 18250,
-        "over110k": 26691,
-        "average": 16581
-      },
+      "considersDemonstratedInterest": false,
+      "honorsCollege": "By invitation",
+      "netPriceByIncome": null,
       "pctReceivingAid": 53,
       "pctFederalLoans": 21,
       "medianDebtAtGraduation": 30420,
-      "honorsCollege": "Invite",
-      "nearestAirport": "Washington",
-      "nearestAirportMiles": 9,
-      "nearestTrainStation": "New Carrollton",
-      "nearestTrainStationMiles": 5,
-      "ncaaDivision": "1",
-      "conference": null,
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 10.6,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 23.6,
         "black": 12.9,
@@ -3714,82 +2186,23 @@
         "fraternityParticipationPct": 8.5,
         "sororities": 22,
         "sororityParticipationPct": 11.9
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "University of Michigan–Ann Arbor",
       "unitId": 170976,
       "scoirId": 2100285,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": "Required for some applicants",
-      "portfolio": "Required for some applicants",
       "interview": "Required for some applicants",
-      "considersDemonstratedInterest": true,
       "applicationFee": 75,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action Fall 2027",
-          "roundType": "Early Action",
-          "deadline": "11-01",
-          "binding": false
-        },
-        {
-          "roundName": "Early Decision Fall 2027",
-          "roundType": "Early Decision",
-          "deadline": "11-01",
-          "binding": true
-        },
-        {
-          "roundName": "Regular Decision Fall 2027",
-          "roundType": "Regular Decision",
-          "deadline": "02-01",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 15.6,
-      "applicants": 98310,
-      "admitted": 15373,
-      "enrolled": 7278,
-      "satMid50": "1360-1530",
-      "satMathMid50": "680-780",
-      "satReadingWritingMid50": "680-750",
-      "actMid50": "31-34",
-      "firstYearRetentionPct": 97,
-      "stickerPriceInState": 36927,
-      "stickerPriceOutOfState": 83633,
-      "tuitionInState": 19015,
-      "tuitionOutOfState": 65721,
-      "roomAndBoard": 16246,
-      "netPriceByIncome": {
-        "under30k": 1043,
-        "30to48k": 1878,
-        "48to75k": 4895,
-        "75to110k": 10869,
-        "over110k": 26517,
-        "average": 17574
-      },
+      "considersDemonstratedInterest": true,
+      "honorsCollege": "By invitation",
+      "netPriceByIncome": null,
       "pctReceivingAid": 54,
       "pctFederalLoans": 23,
       "medianDebtAtGraduation": 20495,
-      "honorsCollege": "Invite",
-      "nearestAirport": "Detroit",
-      "nearestAirportMiles": 24,
-      "nearestTrainStation": "Ann Arbor",
-      "nearestTrainStationMiles": 2,
-      "ncaaDivision": "1",
-      "conference": null,
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 12.5,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 18.4,
         "black": 5.2,
@@ -3843,82 +2256,23 @@
         "fraternityParticipationPct": 11,
         "sororities": 24,
         "sororityParticipationPct": 16
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "University of Minnesota Twin Cities",
       "unitId": 174066,
       "scoirId": 1100741,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Optional",
-      "resume": "Optional",
-      "portfolio": "Not required",
       "interview": "Not required",
-      "considersDemonstratedInterest": false,
       "applicationFee": 55,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action Fall 2027",
-          "roundType": "Early Action",
-          "deadline": "11-01",
-          "binding": false
-        },
-        {
-          "roundName": "Early Action II Fall 2027",
-          "roundType": "Early Action II",
-          "deadline": "12-01",
-          "binding": false
-        },
-        {
-          "roundName": "Regular Decision Fall 2027",
-          "roundType": "Regular Decision",
-          "deadline": "01-01",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 79.7,
-      "applicants": 41496,
-      "admitted": 33091,
-      "enrolled": 7391,
-      "satMid50": "1300-1500",
-      "satMathMid50": "660-770",
-      "satReadingWritingMid50": "640-730",
-      "actMid50": "26-31",
-      "firstYearRetentionPct": 91,
-      "stickerPriceInState": 34304,
-      "stickerPriceOutOfState": 57190,
-      "tuitionInState": 16132,
-      "tuitionOutOfState": 39018,
-      "roomAndBoard": 14822,
-      "netPriceByIncome": {
-        "under30k": 6642,
-        "30to48k": 7283,
-        "48to75k": 9931,
-        "75to110k": 16415,
-        "over110k": 27008,
-        "average": 17209
-      },
+      "considersDemonstratedInterest": false,
+      "honorsCollege": null,
+      "netPriceByIncome": null,
       "pctReceivingAid": 51,
       "pctFederalLoans": 28,
       "medianDebtAtGraduation": 20500,
-      "honorsCollege": null,
-      "nearestAirport": "Minneapolis / St. Paul",
-      "nearestAirportMiles": 10,
-      "nearestTrainStation": "St. Paul",
-      "nearestTrainStationMiles": 5,
-      "ncaaDivision": "1",
-      "conference": null,
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 8.7,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 12.7,
         "black": 9.3,
@@ -3972,53 +2326,18 @@
         "fraternityParticipationPct": null,
         "sororities": 15,
         "sororityParticipationPct": null
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "University of Pennsylvania (UPenn)",
       "unitId": 215062,
       "scoirId": 1100110,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App",
-        "Coalition",
-        "Scoir"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": "Optional",
-      "portfolio": null,
       "interview": null,
-      "considersDemonstratedInterest": false,
       "applicationFee": 75,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Decision",
-          "roundType": "Early Decision",
-          "deadline": "11-01",
-          "binding": true
-        },
-        {
-          "roundName": "Regular Decision",
-          "roundType": "Regular Decision",
-          "deadline": "01-05",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 5.4,
-      "applicants": 65226,
-      "admitted": 3523,
-      "enrolled": 2395,
-      "satMid50": "1510-1570",
-      "satMathMid50": "770-800",
-      "satReadingWritingMid50": "740-770",
-      "actMid50": "34-36",
-      "firstYearRetentionPct": 99,
-      "stickerPriceInState": 95994,
-      "stickerPriceOutOfState": 95994,
-      "tuitionInState": 65670,
-      "tuitionOutOfState": 65670,
-      "roomAndBoard": 20604,
+      "considersDemonstratedInterest": false,
+      "honorsCollege": null,
       "netPriceByIncome": {
         "under30k": -3012,
         "30to48k": 316,
@@ -4030,20 +2349,7 @@
       "pctReceivingAid": 52,
       "pctFederalLoans": 9,
       "medianDebtAtGraduation": 27705,
-      "honorsCollege": null,
-      "nearestAirport": "Philadelphia",
-      "nearestAirportMiles": 8,
-      "nearestTrainStation": "Philadelphia",
-      "nearestTrainStationMiles": 1,
-      "ncaaDivision": "1",
-      "conference": null,
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 6.0,
-      "netPriceByIncomeNote": "Students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 27.7,
         "black": 8.9,
@@ -4097,71 +2403,23 @@
         "fraternityParticipationPct": 19.4,
         "sororities": 18,
         "sororityParticipationPct": 16.7
-      }
+      },
+      "netPriceByIncomeNote": "Average net price paid by first-year students receiving grant aid, by family income (federal data)."
     },
     {
       "school": "University of Pittsburgh",
       "unitId": 215293,
       "scoirId": 1100133,
-      "scoirListStatus": "Applying",
-      "applicationPlatforms": [
-        "Common App",
-        "Coalition"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required for some applicants",
-      "resume": "Optional",
-      "portfolio": "Optional",
       "interview": "Not required",
-      "considersDemonstratedInterest": true,
       "applicationFee": 55,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Rolling Admission Fall 2027",
-          "roundType": "Rolling",
-          "deadline": "07-14",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 58.1,
-      "applicants": 60898,
-      "admitted": 35372,
-      "enrolled": 4596,
-      "satMid50": "1280-1460",
-      "satMathMid50": "640-740",
-      "satReadingWritingMid50": "640-720",
-      "actMid50": "29-33",
-      "firstYearRetentionPct": 92,
-      "stickerPriceInState": 38032,
-      "stickerPriceOutOfState": 58728,
-      "tuitionInState": 20966,
-      "tuitionOutOfState": 41662,
-      "roomAndBoard": 14720,
-      "netPriceByIncome": {
-        "under30k": 14709,
-        "30to48k": 18371,
-        "48to75k": 23192,
-        "75to110k": 31567,
-        "over110k": 36008,
-        "average": 25223
-      },
+      "considersDemonstratedInterest": true,
+      "honorsCollege": "By invitation",
+      "netPriceByIncome": null,
       "pctReceivingAid": 47,
       "pctFederalLoans": 36,
       "medianDebtAtGraduation": 26813,
-      "honorsCollege": "Invite",
-      "nearestAirport": "Pittsburgh",
-      "nearestAirportMiles": 15,
-      "nearestTrainStation": "Pittsburgh",
-      "nearestTrainStationMiles": 3,
-      "ncaaDivision": "1",
-      "conference": "ACC",
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 10.7,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 13.3,
         "black": 5.4,
@@ -4215,75 +2473,23 @@
         "fraternityParticipationPct": 9,
         "sororities": 15,
         "sororityParticipationPct": 12
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "University of Tennessee, Knoxville",
       "unitId": 221759,
       "scoirId": 2600007,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": "Optional",
-      "portfolio": "Optional",
       "interview": "Not required",
-      "considersDemonstratedInterest": false,
       "applicationFee": 75,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action",
-          "roundType": "Early Action",
-          "deadline": "11-01",
-          "binding": false
-        },
-        {
-          "roundName": "Regular Decision",
-          "roundType": "Regular Decision",
-          "deadline": "01-05",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 47.8,
-      "applicants": 58279,
-      "admitted": 27864,
-      "enrolled": 6804,
-      "satMid50": "1200-1370",
-      "satMathMid50": "600-690",
-      "satReadingWritingMid50": "600-680",
-      "actMid50": "26-31",
-      "firstYearRetentionPct": 92,
-      "stickerPriceInState": 30360,
-      "stickerPriceOutOfState": 50814,
-      "tuitionInState": 11560,
-      "tuitionOutOfState": 31672,
-      "roomAndBoard": 14738,
-      "netPriceByIncome": {
-        "under30k": 10029,
-        "30to48k": 12162,
-        "48to75k": 18206,
-        "75to110k": 23627,
-        "over110k": 25688,
-        "average": 21648
-      },
+      "considersDemonstratedInterest": false,
+      "honorsCollege": null,
+      "netPriceByIncome": null,
       "pctReceivingAid": 84,
       "pctFederalLoans": 27,
       "medianDebtAtGraduation": 32978,
-      "honorsCollege": null,
-      "nearestAirport": "Knoxville",
-      "nearestAirportMiles": 11,
-      "nearestTrainStation": "Atlanta",
-      "nearestTrainStationMiles": 210,
-      "ncaaDivision": "1",
-      "conference": "SEC",
-      "rotc": [
-        "Air Force",
-        "Army"
-      ],
       "engineeringShareOfDegreesPct": 9.6,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 3.8,
         "black": 3.8,
@@ -4333,76 +2539,23 @@
         "fraternityParticipationPct": 19,
         "sororities": 16,
         "sororityParticipationPct": 36
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "University of Texas at Austin (UT Austin)",
       "unitId": 228778,
       "scoirId": 1100517,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": "Optional",
-      "portfolio": null,
       "interview": null,
-      "considersDemonstratedInterest": false,
       "applicationFee": 75,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action Fall 2027",
-          "roundType": "Early Action",
-          "deadline": "10-15",
-          "binding": false
-        },
-        {
-          "roundName": "Regular Decision Fall 2027",
-          "roundType": "Regular Decision",
-          "deadline": "12-01",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 26.6,
-      "applicants": 72885,
-      "admitted": 19417,
-      "enrolled": 9210,
-      "satMid50": "1250-1510",
-      "satMathMid50": "620-770",
-      "satReadingWritingMid50": "630-740",
-      "actMid50": "27-33",
-      "firstYearRetentionPct": 97,
-      "stickerPriceInState": 27800,
-      "stickerPriceOutOfState": 60960,
-      "tuitionInState": 11656,
-      "tuitionOutOfState": 44816,
-      "roomAndBoard": 15420,
-      "netPriceByIncome": {
-        "under30k": 12553,
-        "30to48k": 14297,
-        "48to75k": 17207,
-        "75to110k": 24406,
-        "over110k": 30082,
-        "average": 17942
-      },
+      "considersDemonstratedInterest": false,
+      "honorsCollege": null,
+      "netPriceByIncome": null,
       "pctReceivingAid": 50,
       "pctFederalLoans": 27,
       "medianDebtAtGraduation": 22159,
-      "honorsCollege": null,
-      "nearestAirport": "Austin",
-      "nearestAirportMiles": 10,
-      "nearestTrainStation": "Austin",
-      "nearestTrainStationMiles": 2,
-      "ncaaDivision": "1",
-      "conference": "SEC",
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 9.7,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 25.6,
         "black": 4.6,
@@ -4456,82 +2609,23 @@
         "fraternityParticipationPct": 13,
         "sororities": 20,
         "sororityParticipationPct": 17
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "University of Virginia (UVA)",
       "unitId": 234076,
       "scoirId": 2600034,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": "Not required",
-      "portfolio": "Optional",
       "interview": "Not required",
-      "considersDemonstratedInterest": false,
       "applicationFee": 75,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action Fall 2027",
-          "roundType": "Early Action",
-          "deadline": "11-01",
-          "binding": false
-        },
-        {
-          "roundName": "Early Decision Fall 2027",
-          "roundType": "Early Decision",
-          "deadline": "11-01",
-          "binding": true
-        },
-        {
-          "roundName": "Regular Decision Fall 2027",
-          "roundType": "Regular Decision",
-          "deadline": "01-05",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 16.8,
-      "applicants": 58951,
-      "admitted": 9909,
-      "enrolled": 3961,
-      "satMid50": "1410-1540",
-      "satMathMid50": "710-780",
-      "satReadingWritingMid50": "700-760",
-      "actMid50": "32-35",
-      "firstYearRetentionPct": 98,
-      "stickerPriceInState": 43621,
-      "stickerPriceOutOfState": 83997,
-      "tuitionInState": 20897,
-      "tuitionOutOfState": 61273,
-      "roomAndBoard": 17234,
-      "netPriceByIncome": {
-        "under30k": 8174,
-        "30to48k": 9696,
-        "48to75k": 13283,
-        "75to110k": 20822,
-        "over110k": 35402,
-        "average": 18427
-      },
+      "considersDemonstratedInterest": false,
+      "honorsCollege": null,
+      "netPriceByIncome": null,
       "pctReceivingAid": 49,
       "pctFederalLoans": 19,
       "medianDebtAtGraduation": 26211,
-      "honorsCollege": null,
-      "nearestAirport": "Charlottesville Albemarle",
-      "nearestAirportMiles": 8,
-      "nearestTrainStation": "Charlottesville",
-      "nearestTrainStationMiles": 1,
-      "ncaaDivision": "1",
-      "conference": "ACC",
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 8.5,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 19.7,
         "black": 7.5,
@@ -4585,70 +2679,23 @@
         "fraternityParticipationPct": 17.2,
         "sororities": 22,
         "sororityParticipationPct": 24.3
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "University of Washington",
       "unitId": 236948,
       "scoirId": 1100490,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": null,
-      "portfolio": null,
       "interview": null,
-      "considersDemonstratedInterest": false,
       "applicationFee": 80,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Regular Decision Autumn 2027",
-          "roundType": "Regular Decision",
-          "deadline": "11-15",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 39.1,
-      "applicants": 69166,
-      "admitted": 27076,
-      "enrolled": 7196,
-      "satMid50": null,
-      "satMathMid50": null,
-      "satReadingWritingMid50": null,
-      "actMid50": null,
-      "firstYearRetentionPct": 95,
-      "stickerPriceInState": 34310,
-      "stickerPriceOutOfState": 65364,
-      "tuitionInState": 13406,
-      "tuitionOutOfState": 44460,
-      "roomAndBoard": 18858,
-      "netPriceByIncome": {
-        "under30k": 6384,
-        "30to48k": 7039,
-        "48to75k": 8110,
-        "75to110k": 14328,
-        "over110k": 30019,
-        "average": 11784
-      },
+      "considersDemonstratedInterest": false,
+      "honorsCollege": null,
+      "netPriceByIncome": null,
       "pctReceivingAid": 38,
       "pctFederalLoans": 14,
       "medianDebtAtGraduation": 15797,
-      "honorsCollege": null,
-      "nearestAirport": "Seattle-Tacoma",
-      "nearestAirportMiles": 19,
-      "nearestTrainStation": "Seattle",
-      "nearestTrainStationMiles": 5,
-      "ncaaDivision": "1",
-      "conference": null,
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 9.4,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 21.7,
         "black": 3.4,
@@ -4702,76 +2749,23 @@
         "fraternityParticipationPct": 6.8,
         "sororities": 20,
         "sororityParticipationPct": 9.1
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "University of Wisconsin–Madison",
       "unitId": 240444,
       "scoirId": 2800014,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": "Required",
-      "resume": null,
-      "portfolio": null,
       "interview": null,
-      "considersDemonstratedInterest": false,
       "applicationFee": 70,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action Fall 2027",
-          "roundType": "Early Action",
-          "deadline": "11-01",
-          "binding": false
-        },
-        {
-          "roundName": "Regular Decision Fall 2027",
-          "roundType": "Regular Decision",
-          "deadline": "01-15",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 45.2,
-      "applicants": 65894,
-      "admitted": 29782,
-      "enrolled": 8514,
-      "satMid50": "1380-1520",
-      "satMathMid50": "710-780",
-      "satReadingWritingMid50": "670-740",
-      "actMid50": "29-33",
-      "firstYearRetentionPct": 96,
-      "stickerPriceInState": 12416,
-      "stickerPriceOutOfState": 45931,
-      "tuitionInState": 10717,
-      "tuitionOutOfState": 44232,
-      "roomAndBoard": null,
-      "netPriceByIncome": {
-        "under30k": 4200,
-        "30to48k": 4101,
-        "48to75k": 8134,
-        "75to110k": 17763,
-        "over110k": 27292,
-        "average": 14235
-      },
+      "considersDemonstratedInterest": false,
+      "honorsCollege": null,
+      "netPriceByIncome": null,
       "pctReceivingAid": 43,
       "pctFederalLoans": 20,
       "medianDebtAtGraduation": 22805,
-      "honorsCollege": null,
-      "nearestAirport": "Chicago",
-      "nearestAirportMiles": 130,
-      "nearestTrainStation": "Columbus",
-      "nearestTrainStationMiles": 30,
-      "ncaaDivision": "1",
-      "conference": null,
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 7.5,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 10.9,
         "black": 2.6,
@@ -4825,76 +2819,23 @@
         "fraternityParticipationPct": null,
         "sororities": 16,
         "sororityParticipationPct": null
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     },
     {
       "school": "Virginia Polytechnic Institute and State University (Virginia Tech)",
       "unitId": 233921,
       "scoirId": 2600031,
-      "scoirListStatus": "Following",
-      "applicationPlatforms": [
-        "Common App"
-      ],
-      "usesCommonApp": true,
       "essayOrStatement": null,
-      "resume": null,
-      "portfolio": null,
       "interview": null,
-      "considersDemonstratedInterest": false,
       "applicationFee": 60,
-      "fall2027EntryDeadlines": [
-        {
-          "roundName": "Early Action Fall 2027",
-          "roundType": "Early Action",
-          "deadline": "11-15",
-          "binding": false
-        },
-        {
-          "roundName": "Regular Decision Fall 2027",
-          "roundType": "Regular Decision",
-          "deadline": "01-15",
-          "binding": false
-        }
-      ],
-      "admitRatePct": 54.8,
-      "applicants": 52498,
-      "admitted": 28758,
-      "enrolled": 7289,
-      "satMid50": "1280-1450",
-      "satMathMid50": "640-740",
-      "satReadingWritingMid50": "640-710",
-      "actMid50": "28-32",
-      "firstYearRetentionPct": 93,
-      "stickerPriceInState": 34790,
-      "stickerPriceOutOfState": 56650,
-      "tuitionInState": 13548,
-      "tuitionOutOfState": 35408,
-      "roomAndBoard": 17220,
-      "netPriceByIncome": {
-        "under30k": 11689,
-        "30to48k": 11670,
-        "48to75k": 17894,
-        "75to110k": 25835,
-        "over110k": 34201,
-        "average": 24912
-      },
+      "considersDemonstratedInterest": false,
+      "honorsCollege": null,
+      "netPriceByIncome": null,
       "pctReceivingAid": 52,
       "pctFederalLoans": 33,
       "medianDebtAtGraduation": 24250,
-      "honorsCollege": null,
-      "nearestAirport": "Roanoke",
-      "nearestAirportMiles": 30,
-      "nearestTrainStation": null,
-      "nearestTrainStationMiles": null,
-      "ncaaDivision": "1",
-      "conference": "ACC",
-      "rotc": [
-        "Air Force",
-        "Army",
-        "Navy"
-      ],
       "engineeringShareOfDegreesPct": 20.2,
-      "netPriceByIncomeNote": "In-state students receiving grant aid (federal data)",
       "undergradRaceEthnicityPct": {
         "asian": 13.6,
         "black": 5.9,
@@ -4948,7 +2889,8 @@
         "fraternityParticipationPct": null,
         "sororities": 23,
         "sororityParticipationPct": null
-      }
+      },
+      "netPriceByIncomeNote": "Not shown: this figure covers in-state students only, and Kyle would pay out-of-state prices."
     }
   ]
 }

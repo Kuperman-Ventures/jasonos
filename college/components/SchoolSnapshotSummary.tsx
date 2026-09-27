@@ -33,7 +33,8 @@ import {
 import { CampusSettingBadge } from "./CampusSettingBadge";
 import { SchoolCampusSatelliteMap } from "./SchoolCampusSatelliteMap";
 import { SchoolLocationMap, SelectivityGauge } from "./SchoolSnapshotViz";
-import { SchoolScoirSections } from "./SchoolScoirSections";
+import { SchoolScoirStudentBody } from "./SchoolScoirStudentBody";
+import { formatScoirPct, scoirRecordForSchool } from "@/lib/scoir";
 
 type SnapshotPatch = Partial<
   Pick<
@@ -231,6 +232,11 @@ export function SchoolSnapshotSummary({
   if (!school.teacherRecs.trim()) missingBits.push("teacher recommendations");
 
   const residency = admitResidencyDisplay(school);
+  const scoir = scoirRecordForSchool(school);
+  const engineeringShare =
+    scoir?.engineeringShareOfDegreesPct != null
+      ? formatScoirPct(scoir.engineeringShareOfDegreesPct)
+      : null;
 
   return (
     <div className="snapshot">
@@ -447,6 +453,12 @@ export function SchoolSnapshotSummary({
               label="Degree shape"
               value={school.materialsOffering.trim() || "Not set"}
             />
+            {engineeringShare ? (
+              <PlainFact
+                label="Engineering share of bachelor's degrees"
+                value={engineeringShare}
+              />
+            ) : null}
             {addable.length ? (
               <div className="add">
                 <select
@@ -548,7 +560,7 @@ export function SchoolSnapshotSummary({
         </section>
       </div>
 
-      <SchoolScoirSections school={school} />
+      <SchoolScoirStudentBody school={school} />
 
       <SchoolCampusSatelliteMap school={school} />
 

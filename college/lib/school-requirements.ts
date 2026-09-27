@@ -18,6 +18,8 @@ export type RequirementProfileItem = {
   label: string;
   state: RequirementState;
   note: string;
+  /** Small source chip when a gap was filled from Scoir. */
+  source?: string;
 };
 
 export type KitCopy = {
@@ -204,9 +206,16 @@ function kitFor(
   supplementsNote: string,
 ): Record<RequirementKey, KitCopy> {
   const name = school.name;
+  const platformTitle = (() => {
+    const trimmed = platform.trim();
+    if (!trimmed) return "Application";
+    if (/application$/i.test(trimmed)) return trimmed;
+    return `${trimmed} application`;
+  })();
+
   return {
     application: {
-      title: platform ? `${platform} application` : "Application",
+      title: platformTitle,
       detail: platform ? `${name} applies through ${platform}.` : "",
     },
     essay: {
@@ -334,4 +343,48 @@ export function satPosition(score: number, scale: [number, number] = SAT_SCALE):
 export function firstName(displayName: string): string {
   const part = displayName.trim().split(/\s+/)[0];
   return part || "Student";
+}
+
+/** Fill essay/interview only when the tracker still says "Not in our data". */
+export function applyScoirRequirementGaps(
+  view: SchoolRequirementsView,
+  gaps: {
+    essay?: { state: RequirementState; note: string } | null;
+    interview?: { state: RequirementState; note: string } | null;
+  } | null,
+): SchoolRequirementsView {
+  if (!gaps) return view;
+
+  const profile = view.profile.map((item) => {
+    if (item.key === "essay" && item.state === "unk" && gaps.essay) {
+      return { ...item, state: gaps.essay.state, note: gaps.essay.note, source: "Scoir" };
+    }
+    if (item.key === "interview" && item.state === "unk" && gaps.interview) {
+      return {
+        ...item,
+        state: gaps.interview.state,
+        note: gaps.interview.note,
+        source: "Scoir",
+      };
+    }
+    return item;
+  });
+
+  const essay = profile.find((item) => item.key === "essay");
+  const kit = { ...view.kit };
+  if (essay?.source === "Scoir") {
+    kit.essay = {
+      ...kit.essay,
+      detail: essay.note && essay.note !== UNK_NOTE ? essay.note : kit.essay.detail,
+    };
+  }
+  const interview = profile.find((item) => item.key === "interview");
+  if (interview?.source === "Scoir") {
+    kit.interview = {
+      ...kit.interview,
+      detail: interview.note && interview.note !== UNK_NOTE ? interview.note : kit.interview.detail,
+    };
+  }
+
+  return { ...view, profile, kit };
 }
