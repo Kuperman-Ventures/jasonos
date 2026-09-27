@@ -512,7 +512,6 @@ export function SchoolSnapshotSummary({
                 ) : (
                   <span>Setting not set</span>
                 )}
-                <span className="sep"> · </span>
                 {undergrads != null && Number.isFinite(undergrads) ? (
                   <span className="campus-size-word">
                     <UsersThree
@@ -522,7 +521,7 @@ export function SchoolSnapshotSummary({
                       aria-hidden="true"
                     />
                     <span>
-                      {formatUndergradsRounded(undergrads)} undergrads
+                      {formatUndergradsRounded(undergrads)} Undergrads
                     </span>
                   </span>
                 ) : (

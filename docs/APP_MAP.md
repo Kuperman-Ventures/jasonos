@@ -207,7 +207,7 @@ Intro: **School snapshot** / “Key facts at a glance.”
 
 ### Campus
 
-Headline: setting icon + setting name · users-three icon + rounded undergrad count (“16,000 undergrads”). Round to nearest thousand at 10k+, nearest hundred below.
+Headline: setting icon + setting name, then users-three icon + rounded undergrad count (“16,000 Undergrads”). Round to nearest thousand at 10k+, nearest hundred below. No middle-dot separator.
 
 | UI label | Stored field | Source |
 | --- | --- | --- |
