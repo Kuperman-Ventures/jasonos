@@ -5,6 +5,7 @@ import {
   buildSatelliteStaticMapUrl,
   circlePathPoints,
   googleSatelliteMapsHref,
+  milesToMeters,
   parseCampusMapQuery,
   zoomForRadiusMiles,
 } from "./campus-map";
@@ -38,6 +39,10 @@ test("googleSatelliteMapsHref opens satellite basemap", () => {
   const href = googleSatelliteMapsHref(42.36, -71.09, 10);
   assert.match(href, /google\.com\/maps/);
   assert.match(href, /1e3/);
+});
+
+test("milesToMeters converts fifteen miles", () => {
+  assert.equal(Math.round(milesToMeters(15)), 24140);
 });
 
 test("parseCampusMapQuery validates coordinates", () => {

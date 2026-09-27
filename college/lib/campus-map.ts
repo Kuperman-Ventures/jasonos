@@ -8,8 +8,12 @@ export const CAMPUS_MAP_RADIUS_MILES = 15;
 /** Static map pixel size (Google max 640 without scale=2). */
 export const CAMPUS_MAP_SIZE = { width: 640, height: 360 } as const;
 
+export function milesToMeters(miles: number): number {
+  return miles * 1609.344;
+}
+
 /**
- * Zoom so the map width is roughly 2 × radius (50 mi across).
+ * Zoom so the map width is roughly 2 × radius (diameter across).
  * Uses the standard Web Mercator meters-per-pixel formula.
  */
 export function zoomForRadiusMiles(
@@ -101,4 +105,42 @@ export function parseCampusMapQuery(searchParams: URLSearchParams): CampusMapCoo
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
   return { lat, lng };
+}
+
+declare global {
+  interface Window {
+    google?: typeof google;
+    __trackMapsJsPromise?: Promise<void>;
+  }
+}
+
+/** Load the Maps JavaScript API once (satellite + interactive controls). */
+export function loadGoogleMapsJavaScript(apiKey: string): Promise<void> {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("Maps JS only runs in the browser."));
+  }
+  if (window.google?.maps?.Map) return Promise.resolve();
+  if (window.__trackMapsJsPromise) return window.__trackMapsJsPromise;
+
+  window.__trackMapsJsPromise = new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>("script[data-track-maps-js]");
+    if (existing) {
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => reject(new Error("Maps JS failed to load.")));
+      return;
+    }
+    const script = document.createElement("script");
+    script.dataset.trackMapsJs = "1";
+    script.async = true;
+    script.defer = true;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}`;
+    script.onload = () => resolve();
+    script.onerror = () => {
+      window.__trackMapsJsPromise = undefined;
+      reject(new Error("Maps JS failed to load."));
+    };
+    document.head.appendChild(script);
+  });
+
+  return window.__trackMapsJsPromise;
 }
