@@ -74,6 +74,39 @@
     }
   ],
   "newJerseyGrantsPortable": "No. New Jersey state grants such as TAG, GSG, EOF and GUS can be used only at approved New Jersey colleges, so they do not follow a student to an out-of-state college.",
+  "residencyReclassification": {
+    "summary": "A student who enrolls at a public university as an out-of-state student can apply to the university to be reclassified as an in-state resident for later years. Each state sets its own rules, and some universities add their own. For an undergraduate whose parents support them and claim them as a tax dependent, reclassification is usually denied. Plan on paying out-of-state tuition for all four years at any public school outside New Jersey.",
+    "requirements": [
+      {
+        "label": "12 months of residence",
+        "detail": "Most states require at least 12 continuous months of living in the state with the intent to stay. Many states presume that a student who moved to the state to attend college is there for school, and time spent there mainly for school may not count toward the 12 months."
+      },
+      {
+        "label": "Financial independence",
+        "detail": "Most states give a dependent student the same residency as their parents. If the parents claim the student as a dependent on their New Jersey tax return or pay most of the student's costs, the student is usually treated as a New Jersey resident no matter where they live."
+      },
+      {
+        "label": "Evidence of intent to stay",
+        "detail": "The student is typically asked for documents such as a year-round lease in their own name, a state driver's license, car registration, voter registration, a state tax return, and income earned in the state. Staying in the state over the summer supports the claim; returning home each summer weakens it."
+      }
+    ],
+    "tradeOff": "Meeting the financial independence rule usually means the parents stop claiming the student as a dependent and stop paying most of the student's costs. That can change the family's taxes and the student's financial aid. Compare those costs against the tuition savings before counting on reclassification.",
+    "alternatives": [
+      {
+        "label": "Parents move to the state",
+        "detail": "If the parents establish residence in the state, the student's residency usually follows theirs after the state's waiting period."
+      },
+      {
+        "label": "Out-of-state merit aid",
+        "detail": "Some public universities offer merit scholarships to out-of-state students that reduce the tuition difference. These are decided at admission, unlike reclassification, which is decided later. See each school's merit scholarships on this tab."
+      },
+      {
+        "label": "Regional tuition exchanges",
+        "detail": "The four regional tuition exchange programs (Western Undergraduate Exchange, Midwest Student Exchange Program, New England Tuition Break, and the Southern Academic Common Market) discount tuition only for students from member states. New Jersey is not a member of any of them."
+      }
+    ],
+    "whereToCheck": "Each university's registrar or residency office publishes its reclassification rules, deadlines and appeal process. Use that published policy for any school Kyle is seriously considering."
+  },
   "schools": [
     {
       "school": "Massachusetts Institute of Technology (MIT)",
@@ -535,7 +568,7 @@
       "housingCostIndex": 111.0
     },
     {
-      "school": "University of Michigan–Ann Arbor",
+      "school": "University of Michigan\u2013Ann Arbor",
       "costYear": "2026-27",
       "residencyRate": "out-of-state",
       "tuitionFees": 67096,
@@ -1005,7 +1038,7 @@
       "housingCostIndex": 151.3
     },
     {
-      "school": "University of Wisconsin–Madison",
+      "school": "University of Wisconsin\u2013Madison",
       "costYear": "2026-27",
       "residencyRate": "out-of-state",
       "tuitionFees": 48718,
@@ -1732,7 +1765,7 @@
       "housingCostIndex": 102.6
     },
     {
-      "school": "Rutgers University–New Brunswick",
+      "school": "Rutgers University\u2013New Brunswick",
       "costYear": "2026-27",
       "residencyRate": "in-state",
       "tuitionFees": 21704,
@@ -1764,7 +1797,7 @@
           "years": "Up to 4 years",
           "type": "competitive",
           "separateApplication": false,
-          "deadline": "Indicate interest in the Rutgers–New Brunswick application by Dec. 1",
+          "deadline": "Indicate interest in the Rutgers\u2013New Brunswick application by Dec. 1",
           "eligibility": "Considered automatically for admitted Honors College students; renewal requires a 3.5 GPA.",
           "sourceUrl": "https://honorscollege.rutgers.edu/admissions/prospective-high-school-students/scholarships-prospective-students"
         },

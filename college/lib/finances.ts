@@ -65,9 +65,23 @@ export type NjStateProgram = {
   sourceUrl: string;
 };
 
+export type ResidencyReclassificationItem = {
+  label: string;
+  detail: string;
+};
+
+export type ResidencyReclassification = {
+  summary: string;
+  requirements: ResidencyReclassificationItem[];
+  tradeOff: string;
+  alternatives: ResidencyReclassificationItem[];
+  whereToCheck: string;
+};
+
 export type FinancesFile = {
   newJerseyStatePrograms: NjStateProgram[];
   newJerseyGrantsPortable: string;
+  residencyReclassification: ResidencyReclassification;
   schools: FinanceRecord[];
 };
 
@@ -112,6 +126,10 @@ export function newJerseyStatePrograms(): NjStateProgram[] {
 
 export function newJerseyGrantsPortable(): string {
   return file.newJerseyGrantsPortable;
+}
+
+export function residencyReclassification(): ResidencyReclassification {
+  return file.residencyReclassification;
 }
 
 /** Schools in the app with no finance row, and finance rows with no app school. */

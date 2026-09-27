@@ -24,7 +24,6 @@ import {
   type SchoolPhoto,
 } from "@/lib/school-photos";
 import type { School } from "@/lib/types";
-import { SchoolMark } from "./SchoolMark";
 
 const PH_COLORS = ["var(--ph-1)", "var(--ph-2)", "var(--ph-3)"];
 const WHEEL_MS = 280;
@@ -214,16 +213,6 @@ export function SchoolPhotos({
 
   return (
     <section className="school-photos">
-      <div className="school-photos-header">
-        <div className="school-photos-kicker">
-          <span className="school-photos-mark">
-            <SchoolMark name={school.name} website={school.website} />
-          </span>
-          <b>{school.name}</b>
-          <span className="school-photos-label">Photos</span>
-        </div>
-      </div>
-
       <div className="school-photos-group">
         <div className="school-photos-group-head">
           <h2>

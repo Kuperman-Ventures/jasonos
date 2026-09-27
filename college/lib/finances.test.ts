@@ -15,6 +15,7 @@ import {
   normalizeHouseholdFinances,
   ordinalRank,
   parsePriorityAidDeadlines,
+  residencyReclassification,
   unmatchedFinanceNames,
   vsIndexPct,
 } from "./finances";
@@ -235,4 +236,13 @@ test("vsIndexPct formats relative percent", () => {
   assert.equal(vsIndexPct(115.6, 100), "+15.6%");
   assert.equal(vsIndexPct(112.6, 112.6), "0%");
   assert.equal(vsIndexPct(100, 112.6), "\u221211.2%");
+});
+
+test("residencyReclassification returns the guide copy", () => {
+  const guide = residencyReclassification();
+  assert.ok(guide.summary.length > 40);
+  assert.equal(guide.requirements.length, 3);
+  assert.equal(guide.alternatives.length, 3);
+  assert.ok(guide.tradeOff.length > 20);
+  assert.ok(guide.whereToCheck.length > 20);
 });

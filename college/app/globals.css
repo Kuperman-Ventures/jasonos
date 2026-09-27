@@ -956,71 +956,134 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   position: sticky;
   top: 0;
   z-index: 2;
-  display: grid;
-  grid-template-columns: minmax(4.5rem, auto) minmax(0, 1fr) minmax(4.5rem, auto);
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4) 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: var(--space-4) 0 0;
   margin: 0 calc(-1 * var(--space-8));
   padding-left: var(--space-8);
   padding-right: var(--space-8);
   background: color-mix(in srgb, var(--color-bg) 92%, transparent);
   backdrop-filter: blur(8px);
 }
-.school-modal-chrome .back-link { margin-bottom: 0; justify-self: start; }
+.school-modal-chrome-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) auto minmax(110px, 1fr);
+  align-items: center;
+  gap: 24px;
+  min-height: 64px;
+}
+.school-modal-chrome .back-link {
+  margin-bottom: 0;
+  justify-self: start;
+  align-self: center;
+}
+.school-modal-chrome-end {
+  display: block;
+  min-width: 110px;
+}
 .school-modal-nav {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  gap: var(--space-2);
+  gap: 4px;
+  height: 56px;
   min-width: 0;
 }
 .school-modal-nav-spacer { display: block; }
 .school-modal-nav-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   min-width: 0;
-  max-width: 11rem;
-  min-height: 36px;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-surface);
-  color: var(--color-text);
+  min-height: 44px;
+  height: 100%;
+  padding: 0 14px;
+  border: none;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--text-muted);
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.2;
+  white-space: nowrap;
   cursor: pointer;
 }
 .school-modal-nav-btn:hover:not(:disabled) {
-  border-color: var(--accent-500);
-  color: var(--text-accent);
+  background: var(--color-rule);
+  color: var(--color-text);
 }
 .school-modal-nav-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.3;
   cursor: default;
 }
-.school-modal-nav-label {
+.school-modal-nav-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.school-modal-nav-caret {
+  font-size: 20px;
+  line-height: 1;
+}
+.school-modal-nav-current {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  height: 100%;
+  padding: 0 18px;
+  border-bottom: 3px solid var(--color-accent);
+  box-sizing: border-box;
+}
+.school-modal-nav-mark {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 3px;
   overflow: hidden;
-  text-overflow: ellipsis;
+  background: var(--logo-tile, var(--color-brand));
+  box-shadow: inset 0 0 0 1px var(--logo-ring);
+  display: grid;
+  place-items: center;
+}
+.school-modal-nav-mark .school-mark {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border: 0;
+  border-radius: 3px;
+  font-size: 13px;
+  font-weight: 800;
+}
+.school-modal-nav-mark .school-mark img {
+  width: 28px !important;
+  height: 28px !important;
+}
+.school-modal-nav-name {
+  font-size: 18px;
+  font-weight: 700;
   white-space: nowrap;
+  color: var(--color-text);
 }
 .school-modal-nav-pos {
   flex: 0 0 auto;
   font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
+  font-size: 12px;
   color: var(--text-subtle);
   white-space: nowrap;
 }
 .school-modal-phase {
+  margin: 10px 0 0;
+  padding: 0 0 16px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.08em;
   color: var(--text-subtle);
-  text-align: right;
-  justify-self: end;
+  text-align: center;
+  text-wrap: balance;
+  max-width: 36rem;
+  align-self: center;
 }
 .school-hero {
   position: relative;
@@ -2601,20 +2664,28 @@ table.schools .muted,
   .school-modal-chrome {
     padding-left: var(--space-4);
     padding-right: var(--space-4);
+  }
+  .school-modal-chrome-row {
     gap: var(--space-2);
+    min-height: 56px;
+  }
+  .school-modal-nav {
+    height: 48px;
+    max-width: 100%;
   }
   .school-modal-nav-btn {
-    max-width: 2.5rem;
-    padding: 0;
-    justify-content: center;
+    padding: 0 8px;
+    font-size: 13px;
   }
-  .school-modal-nav-label { display: none; }
-  .school-modal-phase {
-    font-size: 10px;
-    max-width: 5.5rem;
+  .school-modal-nav-name {
+    font-size: 15px;
+    max-width: 12rem;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+  }
+  .school-modal-phase {
+    font-size: 12px;
+    padding-bottom: 12px;
   }
   .school-hero-copy {
     padding-left: var(--space-4);
@@ -11844,6 +11915,25 @@ html[data-mode="dark"] .trip-cell.kbreak {
   text-transform: uppercase;
   color: var(--text-subtle);
   margin-bottom: 2px;
+}
+.fin-residency {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.fin-residency-label {
+  margin: 8px 0 0;
+  font-family: var(--font-mono, "IBM Plex Mono", monospace);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+.fin-residency .fin-nj-name { margin-bottom: 0; }
+.fin-residency .fin-nj-row > div:last-child {
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--text-muted);
 }
 
 /* School detail → Financials tab */

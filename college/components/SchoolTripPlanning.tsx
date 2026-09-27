@@ -36,7 +36,6 @@ import {
   type TripSeasonId,
 } from "@/lib/trip-planning";
 import { travelModeForSchool } from "@/lib/drive-matrix";
-import { SchoolMark } from "./SchoolMark";
 import { TripWhenPanel } from "./trip/TripWhenPanel";
 import { TripItineraryPanel } from "./trip/TripItineraryPanel";
 import { TripClimatePanel } from "./trip/TripClimatePanel";
@@ -295,14 +294,6 @@ export function SchoolTripPlanning({
 
   return (
     <section className="school-trip">
-      <div className="trip-kicker">
-        <span className="trip-kicker-mark">
-          <SchoolMark name={school.name} website={school.website} />
-        </span>
-        <b>{school.name}</b>
-        <span className="trip-label">Trip planning</span>
-      </div>
-
       <div className="school-pm-subtabs" role="tablist" aria-label="Trip planning sections">
         {subtabs.map((tab) => (
           <button

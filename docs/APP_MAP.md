@@ -144,7 +144,7 @@ No Scoir badge on list rows.
 
 Visit status/notes live under Project Management → Visit. Trip planning is the live planning surface.
 
-Header chrome: prev/next school nav, school name, Visit {site} link, list-phase chip.
+Header chrome: Close · prev / current (logo + full name + n of N) / next with short names · stage breadcrumb under the orange underline. Tab kickers that repeated “{logo} {School} · Tab” are removed.
 
 ---
 
@@ -445,7 +445,7 @@ Action: **Remove school**.
 | --- | --- | --- |
 | School DB row | `/api/schools` + state | Core school fields, PM, settings, list |
 | Scoir import | `college/data/scoir-import-2026-09-27.json` | NJ %, Student Body, engineering share, app fee, essay/interview gaps, honors, DI, net price by income, aid % / debt |
-| Finances JSON | `college/data/finances.json` | School Financials published costs/aid |
+| Finances JSON | `college/data/finances.json` | School Financials published costs/aid; Finances tab NJ aid + residency reclassification guide |
 | Household finances | `/api/state` `finances` | Your Numbers |
 | Drive matrix | `college/data/drive-matrix.json` | Travel, nearest schools, trip clustering |
 | School photos | `college/data/school-photos.json` | Photos tab school images |

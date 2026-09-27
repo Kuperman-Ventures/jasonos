@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CaretLeft, CaretRight } from "@phosphor-icons/react";
 import {
   ADMISSION_TRACKS,
   APPLICATION_STATUSES,
@@ -16,6 +15,7 @@ import { LIST_PHASES, nextListPhaseId, previousListPhaseId, type ListPhaseId } f
 import { formatResearchRequest, researchGroupsNeeded } from "@/lib/research";
 import { sourceLines } from "@/lib/school-research";
 import { fetchSchoolPhotoUrl, websiteHostLabel, websiteHref } from "@/lib/school-photo";
+import { shortSchoolName } from "@/lib/visit-planning";
 import type { MemberProfile } from "@/lib/member-avatars";
 import type { RoutedSchoolNotePayload } from "@/lib/school-project-notes";
 import type { PersistedProjectStep } from "@/lib/ingest";
@@ -179,6 +179,7 @@ export function CollegeRecord({
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoFailed, setPhotoFailed] = useState(false);
   const [researchCopied, setResearchCopied] = useState(false);
+  const modalRef = useRef<HTMLDivElement | null>(null);
 
   const onBackRef = useRef(onBack);
   const onNavigateRef = useRef(onNavigate);
@@ -194,6 +195,10 @@ export function CollegeRecord({
     previousIdRef.current = previousSchool?.id ?? null;
     nextIdRef.current = nextSchool?.id ?? null;
   }, [previousSchool?.id, nextSchool?.id]);
+
+  useEffect(() => {
+    modalRef.current?.scrollTo({ top: 0 });
+  }, [school.id]);
 
   useEffect(() => {
     function isTypingTarget(target: EventTarget | null): boolean {
@@ -265,6 +270,11 @@ export function CollegeRecord({
   const participated = school.phasesParticipated
     .map((id) => LIST_PHASES.find((phase) => phase.id === id)?.label ?? id)
     .join(" → ");
+  const stageBreadcrumb = school.archived
+    ? "Archived"
+    : school.phasesParticipated.length > 1
+      ? `${phaseLabel} · ${participated}`
+      : phaseLabel;
 
   const siteHref = websiteHref(school.website);
   const siteLabel = websiteHostLabel(school.website) || "School website";
@@ -286,52 +296,70 @@ export function CollegeRecord({
   return (
     <div className="school-modal-root">
       <button type="button" className="school-modal-backdrop" aria-label="Close school" onClick={onBack} />
-      <div className="school-modal" role="dialog" aria-modal="true" aria-label={school.name}>
+      <div
+        ref={modalRef}
+        className="school-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={school.name}
+      >
         <header className="school-modal-chrome">
-          <button type="button" className="back-link" onClick={onBack}>
-            Close
-          </button>
-          {listTotal && listTotal > 0 ? (
-            <nav className="school-modal-nav" aria-label="Schools in this list">
-              <button
-                type="button"
-                className="school-modal-nav-btn"
-                disabled={!previousSchool || !onNavigate}
-                aria-label={
-                  previousSchool ? `Previous school: ${previousSchool.name}` : "No previous school"
-                }
-                onClick={() => previousSchool && onNavigate?.(previousSchool.id)}
-              >
-                <CaretLeft size={18} weight="bold" aria-hidden="true" />
-                <span className="school-modal-nav-label">
-                  {previousSchool ? previousSchool.name : "Previous"}
-                </span>
-              </button>
-              <span className="school-modal-nav-pos" aria-live="polite">
-                {listPosition != null && listPosition > 0
-                  ? `${listPosition} of ${listTotal}`
-                  : `— of ${listTotal}`}
-              </span>
-              <button
-                type="button"
-                className="school-modal-nav-btn"
-                disabled={!nextSchool || !onNavigate}
-                aria-label={nextSchool ? `Next school: ${nextSchool.name}` : "No next school"}
-                onClick={() => nextSchool && onNavigate?.(nextSchool.id)}
-              >
-                <span className="school-modal-nav-label">
-                  {nextSchool ? nextSchool.name : "Next"}
-                </span>
-                <CaretRight size={18} weight="bold" aria-hidden="true" />
-              </button>
-            </nav>
-          ) : (
-            <span className="school-modal-nav-spacer" aria-hidden="true" />
-          )}
-          <span className="school-modal-phase">
-            {school.archived ? "Archived" : phaseLabel}
-            {school.phasesParticipated.length > 1 ? ` · ${participated}` : ""}
-          </span>
+          <div className="school-modal-chrome-row">
+            <button type="button" className="back-link" onClick={onBack}>
+              Close
+            </button>
+            {listTotal && listTotal > 0 ? (
+              <nav className="school-modal-nav" aria-label="Schools on your list">
+                <button
+                  type="button"
+                  className="school-modal-nav-btn school-modal-nav-prev"
+                  disabled={!previousSchool || !onNavigate}
+                  aria-label={
+                    previousSchool
+                      ? `Previous school: ${shortSchoolName(previousSchool.name)}`
+                      : "No previous school"
+                  }
+                  onClick={() => previousSchool && onNavigate?.(previousSchool.id)}
+                >
+                  <span className="school-modal-nav-caret" aria-hidden="true">
+                    ‹
+                  </span>
+                  {previousSchool ? shortSchoolName(previousSchool.name) : "Previous"}
+                </button>
+                <div className="school-modal-nav-current" aria-current="page">
+                  <span className="school-modal-nav-mark">
+                    <SchoolMark name={school.name} website={school.website} />
+                  </span>
+                  <span className="school-modal-nav-name">{school.name}</span>
+                  <span className="school-modal-nav-pos" aria-live="polite">
+                    {listPosition != null && listPosition > 0
+                      ? `${listPosition} of ${listTotal}`
+                      : `— of ${listTotal}`}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="school-modal-nav-btn school-modal-nav-next"
+                  disabled={!nextSchool || !onNavigate}
+                  aria-label={
+                    nextSchool
+                      ? `Next school: ${shortSchoolName(nextSchool.name)}`
+                      : "No next school"
+                  }
+                  onClick={() => nextSchool && onNavigate?.(nextSchool.id)}
+                >
+                  {nextSchool ? shortSchoolName(nextSchool.name) : "Next"}
+                  <span className="school-modal-nav-caret" aria-hidden="true">
+                    ›
+                  </span>
+                </button>
+              </nav>
+            ) : (
+              <span className="school-modal-nav-spacer" aria-hidden="true" />
+            )}
+            <span className="school-modal-chrome-end" aria-hidden="true" />
+          </div>
+          <p className="school-modal-phase">{stageBreadcrumb}</p>
         </header>
 
         <div className={`school-hero${showPhoto ? "" : " school-hero-empty"}`}>
