@@ -11203,31 +11203,48 @@ html[data-mode="dark"] .trip-cell.kbreak {
 }
 
 /* Climate */
+.trip-clim-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
 .trip-clim-sum {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-}
-.trip-clim-sum h2 {
-  margin: 0;
-  font-size: 22px;
-  letter-spacing: -0.01em;
+  gap: 8px;
+  margin: 8px 0 18px;
 }
 .trip-clim-sum p {
   margin: 0;
-  font-size: 16px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 15px;
   line-height: 1.45;
-  max-width: 62ch;
+  max-width: 72ch;
+  text-wrap: pretty;
 }
 .trip-clim-sum p.cmp {
   color: var(--text-muted);
-  font-size: 15px;
+}
+.trip-swatch {
+  flex: none;
+  width: 12px;
+  height: 16px;
+  margin-top: 3px;
+  border-radius: 1px;
+}
+.trip-swatch-fill { background: var(--color-accent); }
+.trip-swatch-outline {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--color-text);
 }
 .trip-clim {
   display: grid;
-  grid-template-columns: 64px repeat(12, minmax(0, 1fr));
+  grid-template-columns: 104px repeat(12, minmax(0, 1fr));
   column-gap: 6px;
-  row-gap: 8px;
+  row-gap: 10px;
   align-items: end;
 }
 .trip-rl {
@@ -11238,7 +11255,11 @@ html[data-mode="dark"] .trip-cell.kbreak {
   color: var(--text-subtle);
   align-self: center;
 }
-.trip-temp { position: relative; height: 220px; }
+.trip-temp {
+  position: relative;
+  height: 236px;
+}
+.trip-ylab-col { pointer-events: none; }
 .trip-grid {
   position: absolute;
   left: 0;
@@ -11246,16 +11267,22 @@ html[data-mode="dark"] .trip-cell.kbreak {
   height: 1px;
   background: var(--color-rule);
 }
-.trip-bar { position: absolute; border-radius: 3px; }
+.trip-bar {
+  position: absolute;
+  width: 14px;
+  border-radius: 0;
+  box-sizing: border-box;
+}
 .trip-bar.main {
-  left: 18%;
-  width: 30%;
+  left: calc(50% - 7px);
   background: var(--color-accent);
 }
-.trip-bar.main.solo { left: 30%; width: 40%; }
+.trip-clim.has-cmp .trip-bar.main {
+  left: calc(50% - 16px);
+}
 .trip-bar.cmp {
-  left: 54%;
-  width: 26%;
+  left: calc(50% + 2px);
+  background: transparent;
   border: 1.5px solid var(--color-text);
 }
 .trip-tnum {
@@ -11264,58 +11291,121 @@ html[data-mode="dark"] .trip-cell.kbreak {
   right: 0;
   text-align: center;
   font-family: var(--font-mono);
-  font-size: 11px;
+  pointer-events: none;
 }
-.trip-tnum.hi { font-weight: 600; }
-.trip-tnum.lo { color: var(--text-subtle); }
+.trip-tnum.hi {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.trip-tnum.lo {
+  font-size: 13px;
+  color: var(--text-muted);
+}
 .trip-ylab {
   position: absolute;
   right: 6px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-subtle);
   transform: translateY(-50%);
 }
+.trip-delta {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  min-height: 18px;
+}
+.trip-delta.tone-pos { color: var(--text-accent); }
+.trip-delta.tone-neg { color: var(--color-text); }
+.trip-delta.tone-zero { color: var(--text-subtle); }
 .trip-rain {
-  height: 48px;
   display: flex;
-  gap: 3px;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 60px;
+  justify-content: flex-end;
+}
+.trip-rain-bars {
+  height: 44px;
+  display: flex;
+  gap: 4px;
   align-items: flex-end;
   justify-content: center;
 }
 .trip-rain i {
   display: block;
-  width: 30%;
+  width: 14px;
   background: var(--lvl-3);
-  border-radius: 1px 1px 0 0;
 }
 .trip-rain i.cmp {
   background: transparent;
   border: 1.5px solid var(--color-text);
   border-bottom: none;
+  box-sizing: border-box;
+}
+.trip-rain-n {
+  font-size: 12px;
+  color: var(--text-muted);
 }
 .trip-snow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
   font-family: var(--font-mono);
-  font-size: 11px;
-  text-align: center;
-  min-height: 14px;
-}
-.trip-mon {
   font-size: 13px;
   font-weight: 600;
   text-align: center;
+  min-height: 32px;
+}
+.trip-snow .cmp {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-subtle);
+}
+.trip-mon {
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+}
+.trip-mon.is-off {
+  font-weight: 400;
+  color: var(--text-subtle);
+}
+.trip-temp.is-off,
+.trip-rain.is-off,
+.trip-snow.is-off,
+.trip-delta.is-off {
+  opacity: 0.45;
 }
 .trip-sy {
   grid-column: 3 / span 9;
-  height: 26px;
-  border-radius: 2px;
-  background: var(--color-accent-tint);
-  color: var(--text-on-tint);
-  font-size: 12px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  height: 0;
+  border-top: 2px solid var(--color-accent-border);
+  position: relative;
+  margin-top: 4px;
+}
+.trip-sy span {
+  position: absolute;
+  left: 50%;
+  top: -0.7em;
+  transform: translateX(-50%);
+  padding: 0 8px;
+  background: var(--color-bg);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  white-space: nowrap;
+}
+.trip-foot {
+  margin: 14px 0 0;
+  font-size: 13px;
+  color: var(--text-subtle);
 }
 
 /* All schools */
