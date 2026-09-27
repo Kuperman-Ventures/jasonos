@@ -2,11 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   CHS_SCHEDULE,
+  CHS_SCHEDULE_YEAR,
   DEFAULT_TRIP_WEEK_INDEX,
   KYLE_STUDENT,
+  TRIP_WEEK_LABELS,
+  TRIP_WEEK0,
   chsTripWindows,
   chsVisitBreaks,
   defaultTripPlanState,
+  isoDate,
   kyleBreakCellLabel,
   normalizeStateCode,
   parseTripPlanState,
@@ -14,6 +18,7 @@ import {
   regionForState,
   toggleClusterInTrip,
   tripPlanStorageKey,
+  weekDate,
 } from "./trip-planning/index";
 
 test("regionForState maps sample states", () => {
@@ -73,6 +78,7 @@ test("defaultTripPlanState and toggleClusterInTrip", () => {
 });
 
 test("CHS schedule keeps full year data with red visit breaks", () => {
+  assert.equal(CHS_SCHEDULE_YEAR, "2026-2027");
   assert.ok(CHS_SCHEDULE.length >= 20);
   const visits = chsVisitBreaks();
   assert.ok(visits.some((e) => e.label === "Winter Break"));
@@ -84,9 +90,31 @@ test("CHS schedule keeps full year data with red visit breaks", () => {
     windows.map((w) => w.label),
     ["NJEA Teachers Convention", "Thanksgiving Break", "Winter Break", "Spring Break"],
   );
+  const labor = CHS_SCHEDULE.find((e) => e.label === "Labor Day");
+  assert.equal(labor?.start, "2026-09-07");
+  const yom = CHS_SCHEDULE.find((e) => e.label === "Yom Kippur");
+  assert.equal(yom?.start, "2026-09-21");
+  const spring = CHS_SCHEDULE.find((e) => e.label === "Spring Break");
+  assert.deepEqual([spring?.start, spring?.end], ["2027-04-12", "2027-04-16"]);
+  const memorial = CHS_SCHEDULE.find((e) => e.label === "Memorial Day");
+  assert.equal(memorial?.start, "2027-05-31");
+});
+
+test("CHS dates fall in the 2026-27 academic window (through Aug 2027)", () => {
+  for (const entry of CHS_SCHEDULE) {
+    assert.ok(entry.start >= "2026-08-01", `${entry.label} start ${entry.start}`);
+    assert.ok(entry.end <= "2027-08-31", `${entry.label} end ${entry.end}`);
+  }
+  assert.equal(KYLE_STUDENT.scheduleYear, "2026-2027");
 });
 
 test("Kyle spring grid marks Spring Break week in red visit set", () => {
+  assert.equal(TRIP_WEEK_LABELS[0], "Mar 1");
+  assert.equal(TRIP_WEEK_LABELS[6], "Apr 12");
+  assert.equal(TRIP_WEEK_LABELS[8], "Apr 26");
+  assert.equal(isoDate(TRIP_WEEK0), "2027-03-01");
+  assert.equal(isoDate(weekDate(6)), "2027-04-12");
+  assert.equal(isoDate(weekDate(8)), "2027-04-26");
   assert.deepEqual(KYLE_STUDENT.breaks, [6]);
   assert.equal(DEFAULT_TRIP_WEEK_INDEX, 6);
   assert.equal(kyleBreakCellLabel(6), "Spring Break");
