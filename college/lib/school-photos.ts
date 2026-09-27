@@ -1,9 +1,9 @@
 /**
  * School (Wikimedia) photos and virtual tour links for the Photos tab.
- * Images load from the URLs in data/school-photos-test.json — nothing is mirrored.
+ * Images load from the URLs in data/school-photos.json — nothing is mirrored.
  */
 
-import catalog from "@/data/school-photos-test.json";
+import catalog from "@/data/school-photos.json";
 
 export type SchoolPhotoKind = "family" | "school";
 
@@ -41,6 +41,8 @@ type CatalogPhoto = {
 type CatalogSchool = {
   school: string;
   virtualTourUrl: string | null;
+  visitAddress?: string;
+  visitDetails?: string;
   photos: CatalogPhoto[];
 };
 
@@ -52,8 +54,21 @@ export function catalogSchoolNames(): string[] {
   return CATALOG.map((entry) => entry.school);
 }
 
+export function catalogEntryForSchool(schoolName: string): CatalogSchool | null {
+  return BY_NAME.get(schoolName) ?? null;
+}
+
 export function virtualTourUrlForSchool(schoolName: string): string | null {
   return BY_NAME.get(schoolName)?.virtualTourUrl ?? null;
+}
+
+/** Admissions / visitor-center address from the photos catalog. */
+export function visitAddressForSchool(schoolName: string): string {
+  return BY_NAME.get(schoolName)?.visitAddress?.trim() ?? "";
+}
+
+export function visitDetailsForSchool(schoolName: string): string {
+  return BY_NAME.get(schoolName)?.visitDetails?.trim() ?? "";
 }
 
 /** School photos for this school name, in JSON order. Empty when none. */

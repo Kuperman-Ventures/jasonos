@@ -1,6 +1,7 @@
 import { knownWebsite } from "./school-websites";
 import type { SchoolProjectNote } from "./school-project-notes";
 import { driveFieldsForSchool } from "./drive-matrix";
+import { visitAddressForSchool } from "./school-photos";
 
 export type { SchoolProjectNote } from "./school-project-notes";
 
@@ -538,7 +539,7 @@ export function fromSeed(seed: SchoolSeed): School {
     visitStatus: "",
     visitDate: null,
     visitNotes: "",
-    visitAddress: "",
+    visitAddress: visitAddressForSchool(seed.name),
     ...driveFieldsForSchool(seed.id),
     deadline: null,
     deadlineLabel: "",

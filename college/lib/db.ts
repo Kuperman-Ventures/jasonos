@@ -40,6 +40,7 @@ import {
 import { normalizeSchoolProjectNotes } from "./school-project-notes";
 import schoolsFile from "@/content/schools.json";
 import { driveFieldsForSchool } from "./drive-matrix";
+import { visitAddressForSchool } from "./school-photos";
 
 type SchoolRow = {
   id: string;
@@ -251,7 +252,7 @@ export function mapSchool(row: SchoolRow): School {
         : "",
     visitDate: row.visit_date,
     visitNotes: row.visit_notes,
-    visitAddress: "",
+    visitAddress: visitAddressForSchool(row.name),
     ...driveFieldsForSchool(row.id),
     deadline: row.deadline,
     deadlineLabel: row.deadline_label,
