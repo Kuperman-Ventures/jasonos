@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   budgetSummary,
+  buildCostBar,
+  buildFinanceCompareRows,
   buildFinanceRows,
   costAfterTypicalMerit,
   financeRecordForSchoolName,
@@ -11,6 +13,7 @@ import {
   meritShareLabel,
   money,
   normalizeHouseholdFinances,
+  ordinalRank,
   unmatchedFinanceNames,
 } from "./finances";
 import { fromSeed } from "./types";
@@ -117,4 +120,51 @@ test("unmatchedFinanceNames reports gaps", () => {
   const result = unmatchedFinanceNames([{ name: "Not A Real School" }]);
   assert.deepEqual(result.missingFinance, ["Not A Real School"]);
   assert.ok(result.missingSchool.length >= 40);
+});
+
+test("compare rows hide merit metrics for no-merit schools", () => {
+  const mit = financeRecordForSchoolName("Massachusetts Institute of Technology (MIT)");
+  assert.ok(mit);
+  const rows = buildFinanceCompareRows(mit!, listFinanceRecords(), 60000);
+  assert.equal(rows.length, 3);
+  assert.equal(rows[0]!.id, "published");
+  assert.equal(rows[1]!.id, "meritShare");
+  assert.equal(rows[1]!.kind, "none");
+  assert.match(rows[1]!.noneText ?? "", /No merit aid/);
+  assert.equal(rows[2]!.id, "col");
+  assert.ok(!rows.some((r) => r.id === "avgMerit" || r.id === "afterMerit"));
+});
+
+test("compare rows show CDS not published when merit share is null", () => {
+  const peers = listFinanceRecords();
+  const rutgers = peers.find(
+    (r) => r.school.includes("Rutgers") && r.awardsMerit && r.meritSharePct == null,
+  );
+  assert.ok(rutgers, "expected a Rutgers row with null merit share");
+  const rows = buildFinanceCompareRows(rutgers!, peers, 60000);
+  const share = rows.find((r) => r.id === "meritShare");
+  assert.ok(share);
+  assert.equal(share!.kind, "none");
+  assert.match(share!.noneText ?? "", /Common Data Set/);
+  assert.ok(!rows.some((r) => r.id === "avgMerit" || r.id === "afterMerit"));
+});
+
+test("cost bar callouts for small segments and gap note", () => {
+  const cwru = financeRecordForSchoolName("Case Western Reserve University");
+  assert.ok(cwru);
+  const bar = buildCostBar(cwru!);
+  assert.ok(bar.segments.length >= 3);
+  assert.ok(bar.callouts.every((c) => c.xPct >= 0 && c.xPct <= 100));
+  const books = bar.segments.find((s) => s.key === "books");
+  if (books && books.widthPct < 16) {
+    assert.ok(bar.callouts.some((c) => c.key === "books"));
+  }
+});
+
+test("ordinal ranks", () => {
+  assert.equal(ordinalRank(1), "1st");
+  assert.equal(ordinalRank(2), "2nd");
+  assert.equal(ordinalRank(3), "3rd");
+  assert.equal(ordinalRank(11), "11th");
+  assert.equal(ordinalRank(21), "21st");
 });

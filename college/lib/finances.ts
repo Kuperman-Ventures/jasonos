@@ -392,3 +392,284 @@ export function buildFinanceRows(
   }
   return { rows, unmatched };
 }
+
+export function ordinalRank(n: number): string {
+  const a = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return `${n}${a[(v - 20) % 10] || a[v] || a[0]}`;
+}
+
+export function formatMeritSharePct(pct: number): string {
+  const rounded = Math.round(pct * 10) / 10;
+  return `${String(rounded).replace(/\.0$/, "")}%`;
+}
+
+export type FinanceCompareTick = { leftPct: number; label: string };
+
+export type FinanceCompareRow = {
+  id: string;
+  label: string;
+  valueText: string;
+  kind: "strip" | "none";
+  noneText?: string;
+  rankText?: string;
+  posPct?: number;
+  ticks?: FinanceCompareTick[];
+  minLabel?: string;
+  maxLabel?: string;
+  budgetLeftPct?: number | null;
+  budgetLabel?: string | null;
+};
+
+type CompareMetric = {
+  id: string;
+  label: string;
+  get: (rec: FinanceRecord) => number | null;
+  fmt: (v: number) => string;
+  showBudget?: boolean;
+  /** When this school's value is null: hide the row entirely. */
+  hideWhenNull?: boolean;
+  /** When this school's value is null: show a none message instead of a strip. */
+  noneMessage?: (rec: FinanceRecord) => string;
+};
+
+function compareMetrics(): CompareMetric[] {
+  return [
+    {
+      id: "published",
+      label: "Published cost",
+      get: (r) => r.totalCost,
+      fmt: (v) => moneyCompact(v),
+      showBudget: true,
+    },
+    {
+      id: "meritShare",
+      label: "First-years getting merit",
+      get: (r) => (r.awardsMerit ? r.meritSharePct : null),
+      fmt: formatMeritSharePct,
+      noneMessage: (r) =>
+        !r.awardsMerit
+          ? `No merit aid. ${shortSchoolName(r.school)} gives need-based aid only.`
+          : "Not published in the Common Data Set",
+    },
+    {
+      id: "avgMerit",
+      label: "Average merit award",
+      get: (r) => (r.awardsMerit ? r.cdsAvgNonNeedMerit : null),
+      fmt: (v) => moneyCompact(v),
+      hideWhenNull: true,
+    },
+    {
+      id: "afterMerit",
+      label: "After typical merit",
+      get: (r) => costAfterTypicalMerit(r),
+      fmt: (v) => moneyCompact(v),
+      showBudget: true,
+      hideWhenNull: true,
+    },
+    {
+      id: "col",
+      label: "Cost of living · U.S. = 100",
+      get: (r) => r.costOfLivingIndex,
+      fmt: (v) => String(v),
+    },
+  ];
+}
+
+/** Peer comparison strips for one school against the family's list. */
+export function buildFinanceCompareRows(
+  focus: FinanceRecord,
+  peers: FinanceRecord[],
+  annualBudget: number | null,
+): FinanceCompareRow[] {
+  const list = peers.length ? peers : [focus];
+  const rows: FinanceCompareRow[] = [];
+
+  for (const metric of compareMetrics()) {
+    const mine = metric.get(focus);
+    if (mine == null && metric.hideWhenNull) continue;
+
+    if (mine == null) {
+      rows.push({
+        id: metric.id,
+        label: metric.label,
+        valueText: "—",
+        kind: "none",
+        noneText: metric.noneMessage?.(focus) ?? "Not published",
+      });
+      continue;
+    }
+
+    const vals = list
+      .map((rec) => {
+        const v = metric.get(rec);
+        if (v == null) return null;
+        return { short: shortSchoolName(rec.school), v };
+      })
+      .filter((o): o is { short: string; v: number } => o != null);
+
+    if (vals.length === 0) {
+      rows.push({
+        id: metric.id,
+        label: metric.label,
+        valueText: metric.fmt(mine),
+        kind: "none",
+        noneText: "Not published",
+      });
+      continue;
+    }
+
+    const lo = Math.min(...vals.map((o) => o.v));
+    const hi = Math.max(...vals.map((o) => o.v));
+    const span = hi - lo || 1;
+    const pct = (v: number) => ((v - lo) / span) * 100;
+    const minO = vals.find((o) => o.v === lo)!;
+    const maxO = vals.find((o) => o.v === hi)!;
+    const n = vals.length;
+    const lowerRank = vals.filter((o) => o.v < mine).length + 1;
+    const higherRank = vals.filter((o) => o.v > mine).length + 1;
+    const rankText =
+      lowerRank <= higherRank
+        ? `${ordinalRank(lowerRank)} lowest of ${n}`
+        : `${ordinalRank(higherRank)} highest of ${n}`;
+
+    let budgetLeftPct: number | null = null;
+    let budgetLabel: string | null = null;
+    if (
+      metric.showBudget &&
+      annualBudget != null &&
+      annualBudget > lo &&
+      annualBudget < hi
+    ) {
+      budgetLeftPct = pct(annualBudget);
+      budgetLabel = `budget ${moneyCompact(annualBudget)}`;
+    }
+
+    rows.push({
+      id: metric.id,
+      label: metric.label,
+      valueText: metric.fmt(mine),
+      kind: "strip",
+      rankText,
+      posPct: pct(mine),
+      ticks: vals
+        .filter((o) => o.short !== shortSchoolName(focus.school))
+        .map((o) => ({
+          leftPct: pct(o.v),
+          label: `${o.short} ${metric.fmt(o.v)}`,
+        })),
+      minLabel: `${metric.fmt(lo)} · ${minO.short}`,
+      maxLabel: `${maxO.short} · ${metric.fmt(hi)}`,
+      budgetLeftPct,
+      budgetLabel,
+    });
+  }
+
+  return rows;
+}
+
+export type CostBarSegment = {
+  key: string;
+  label: string;
+  value: number;
+  leftPct: number;
+  widthPct: number;
+  inside: boolean;
+  bg: string;
+  fg: string;
+};
+
+export type CostBarCallout = {
+  key: string;
+  label: string;
+  valueText: string;
+  xPct: number;
+  leaderPx: number;
+  topPx: number;
+  shiftLeft: boolean;
+};
+
+export function buildCostBar(
+  rec: FinanceRecord,
+): {
+  segments: CostBarSegment[];
+  callouts: CostBarCallout[];
+  partsSum: number;
+  gapNote: string | null;
+  barExtraPx: number;
+} {
+  const raw: { key: string; label: string; value: number | null; bg: string; fg: string }[] = [
+    {
+      key: "tuition",
+      label: "Tuition and fees",
+      value: rec.tuitionFees,
+      bg: "var(--color-text)",
+      fg: "var(--color-bg)",
+    },
+    {
+      key: "housing",
+      label: "Housing and food",
+      value: rec.housingFood,
+      bg: "var(--text-subtle)",
+      fg: "var(--color-bg)",
+    },
+    {
+      key: "books",
+      label: "Books",
+      value: rec.booksSupplies,
+      bg: "var(--text-placeholder)",
+      fg: "var(--color-text)",
+    },
+    {
+      key: "other",
+      label: "Other",
+      value: rec.otherCosts,
+      bg: "var(--color-dash)",
+      fg: "var(--color-text)",
+    },
+  ];
+  const parts = raw.filter((p): p is typeof p & { value: number } => p.value != null && p.value > 0);
+  const partsSum = parts.reduce((t, p) => t + p.value, 0);
+  const segments: CostBarSegment[] = [];
+  const callouts: CostBarCallout[] = [];
+  let acc = 0;
+  for (const part of parts) {
+    const widthPct = partsSum > 0 ? (part.value / partsSum) * 100 : 0;
+    const inside = widthPct >= 16;
+    segments.push({
+      key: part.key,
+      label: part.label,
+      value: part.value,
+      leftPct: partsSum > 0 ? (acc / partsSum) * 100 : 0,
+      widthPct,
+      inside,
+      bg: part.bg,
+      fg: part.fg,
+    });
+    if (!inside) {
+      const i = callouts.length;
+      const xPct = partsSum > 0 ? ((acc + part.value / 2) / partsSum) * 100 : 0;
+      callouts.push({
+        key: part.key,
+        label: part.label,
+        valueText: moneyCompact(part.value),
+        xPct,
+        leaderPx: 16 + i * 26,
+        topPx: 64 + i * 26,
+        shiftLeft: xPct > 60,
+      });
+    }
+    acc += part.value;
+  }
+  const gap =
+    rec.totalCost != null && partsSum > 0 && rec.totalCost - partsSum > 0
+      ? rec.totalCost - partsSum
+      : 0;
+  return {
+    segments,
+    callouts,
+    partsSum,
+    gapNote: gap > 0 ? `+ ${moneyCompact(gap)} other fees in the published total` : null,
+    barExtraPx: callouts.length ? 16 + callouts.length * 26 : 0,
+  };
+}

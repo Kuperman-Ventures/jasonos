@@ -184,13 +184,12 @@ export function FinancesTab({
 
   return (
     <section className="finances-page">
-      <header className="page-head fin-page-head">
-        <div>
-          <div className="dateline accent">{dateline}</div>
-          <h2>Finances</h2>
-        </div>
+      <header className="fin-page-head">
+        <div className="dateline accent mono">{dateline}</div>
+        <h1 className="fin-page-title">Finances</h1>
       </header>
 
+      <div className="fin-list-block">
       <div className="fin-family-inputs">
         <label className="stack-field">
           <span className="label">Budget per year</span>
@@ -297,7 +296,11 @@ export function FinancesTab({
                   ["budget", "Budget"],
                 ] as const
               ).map(([key, label]) => (
-                <th key={key} aria-sort={sortKey === key ? (sortDir === "asc" ? "ascending" : "descending") : "none"}>
+                <th
+                  key={key}
+                  className={key === "school" ? undefined : "num"}
+                  aria-sort={sortKey === key ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+                >
                   <button type="button" onClick={() => toggleSort(key)}>
                     {label}
                     {sortKey === key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
@@ -408,6 +411,7 @@ export function FinancesTab({
           </tbody>
         </table>
       </div>
+      </div>
 
       <AdmitCostChart rows={sorted} household={household} onOpenSchool={onOpenSchool} />
 
@@ -501,19 +505,26 @@ function AdmitCostChart({
 
   return (
     <section className="fin-chart">
-      <h3>Admit Rate And Cost</h3>
+      <div className="fin-chart-head">
+        <h3>Admit Rate And Cost</h3>
+        <p className="fin-chart-sub">
+          Each point uses your estimate if entered, otherwise the cost after a typical merit award,
+          otherwise the published cost. Schools below the budget line and toward the right are
+          likely admits within budget.
+        </p>
+      </div>
       <div className="fin-chart-legend">
         <span>
-          <i style={{ background: "var(--lvl-4)" }} /> Top
+          <i style={{ background: "var(--lvl-4)" }} /> Top choice
         </span>
         <span>
-          <i style={{ background: "var(--lvl-3)" }} /> High
+          <i style={{ background: "var(--lvl-3)" }} /> High interest
         </span>
         <span>
-          <i style={{ background: "var(--lvl-2)" }} /> Moderate
+          <i style={{ background: "var(--lvl-2)" }} /> Moderate interest
         </span>
         <span>
-          <i style={{ background: "var(--lvl-1)" }} /> Safety
+          <i style={{ background: "var(--lvl-1)" }} /> Safety / backup
         </span>
       </div>
       <div className="fin-chart-scroll">

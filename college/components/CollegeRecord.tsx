@@ -746,6 +746,7 @@ export function CollegeRecord({
             householdFinances && onHouseholdFinancesChange && onAddScholarshipTodo ? (
               <SchoolFinancials
                 school={school}
+                listSchools={listSchools}
                 household={householdFinances}
                 onHouseholdChange={onHouseholdFinancesChange}
                 scholarshipTodoIds={scholarshipTodoIds}
