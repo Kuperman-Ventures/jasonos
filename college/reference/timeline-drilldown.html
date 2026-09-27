@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en" data-mode="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Track — Timeline with stage drill-down</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tokens.css">
+<style>
+/* Chart-only tokens (add to tokens.css if not already present) */
+:root, [data-mode="light"] { --bar: #1b4aa0; --bar-future: #b8c7e0; --bar-fg: #ffffff; --bar-future-fg: #201e1d; --milestone: #d6006c; --milestone-ink: #a6034f; --now-band: rgba(232,85,4,.10); --gridline: rgba(32,30,29,.06); }
+[data-mode="dark"] { --bar: #4a7fd4; --bar-future: #39455c; --bar-fg: #ffffff; --bar-future-fg: #f0eeec; --milestone: #ff4d9d; --milestone-ink: #ff87bd; --now-band: rgba(232,85,4,.14); --gridline: rgba(240,238,236,.06); }
+:root { --font: "Archivo", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, monospace; --label-w: 250px; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--color-bg); color: var(--color-text); font-family: var(--font); -webkit-font-smoothing: antialiased; }
+a { color: var(--text-accent); } a:hover { color: var(--color-accent-pressed); }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.page { padding: 40px; max-width: 1600px; }
+.kicker { font: 500 11px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--text-accent); margin-bottom: 6px; }
+h1 { margin: 0 0 40px; font-size: 40px; line-height: 1.1; font-weight: 700; letter-spacing: -.02em; }
+.mode { position: fixed; top: 16px; right: 16px; }
+.btn { font: 500 14px var(--font); padding: 8px 12px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 2px; color: var(--color-text); cursor: pointer; }
+.btn:hover { background: var(--color-surface-2); }
+.icon-btn { width: 38px; height: 38px; font-size: 16px; padding: 0; }
+
+/* main timeline */
+.tl-scroll { overflow-x: auto; padding-top: 44px; }
+.tl { position: relative; min-width: 1000px; }
+.tl-head, .tl-row { display: flex; }
+.tl-head { border-bottom: 1px solid var(--color-divider); }
+.tl-label { width: var(--label-w); flex: none; }
+.tl-track { flex: 1; position: relative; }
+.tl-head .tl-track { height: 44px; }
+.tick { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--color-rule); font: 12px var(--mono); }
+.tick .yr { height: 20px; padding-left: 2px; letter-spacing: .08em; color: var(--text-muted); }
+.tick .mo { text-align: center; color: var(--text-subtle); white-space: nowrap; overflow: hidden; }
+.tick[data-q] .mo { color: var(--color-text); font-weight: 600; }
+.tick[data-cur] .mo { color: var(--text-accent); font-weight: 600; }
+.tl-row { height: 39px; border-bottom: 1px solid var(--color-rule); }
+.tl-row .tl-label { display: flex; align-items: center; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 12px; }
+.tl-row[data-future] .tl-label { color: var(--text-subtle); }
+.tl-row .tl-track { background-image: repeating-linear-gradient(to right, var(--gridline) 0 1px, transparent 1px calc(100% / var(--months))); }
+.seg { position: absolute; top: 11px; height: 17px; border: 0; border-right: 1px solid var(--color-bg); border-radius: 1px; padding: 0; cursor: pointer; font: 600 10px var(--mono); letter-spacing: .04em; background: var(--bar); color: var(--bar-fg); z-index: 1; white-space: nowrap; overflow: hidden; }
+.seg[data-future] { background: var(--bar-future); color: var(--bar-future-fg); }
+.seg:hover { background: var(--color-accent-pressed); color: #fff; }
+.now-layer { position: absolute; top: -44px; bottom: 0; left: var(--label-w); right: 0; pointer-events: none; }
+.now-band { position: absolute; top: 44px; bottom: 0; background: var(--now-band); }
+.now-line { position: absolute; top: 34px; bottom: 0; width: 2px; margin-left: -1px; background: var(--color-accent); z-index: 2; }
+.now-cap { position: absolute; top: 0; transform: translateX(-50%); background: var(--color-accent); color: var(--text-on-accent); padding: 3px 9px 4px; font-family: var(--mono); text-align: center; white-space: nowrap; border-radius: 1px; }
+.now-cap b { display: block; font-size: 8px; letter-spacing: .16em; font-weight: 600; }
+.now-cap span { font-size: 13px; font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 22px; margin-top: 30px; padding-top: 16px; border-top: 1px solid var(--color-divider); font: 12px var(--mono); color: var(--text-subtle); }
+.legend span { display: flex; align-items: center; gap: 6px; }
+.legend i { display: block; width: 14px; height: 8px; }
+.legend .dia { width: 9px; height: 9px; background: var(--milestone); transform: rotate(45deg); }
+
+/* modal */
+.backdrop { position: fixed; inset: 0; background: var(--backdrop); z-index: 50; display: flex; align-items: flex-start; justify-content: center; padding: 6vh 24px; overflow-y: auto; }
+.backdrop[hidden] { display: none; }
+.dialog { width: 100%; max-width: 1180px; background: var(--color-bg); border-radius: 4px; box-shadow: var(--shadow-lg); padding: 32px 36px 28px; }
+.dlg-head { display: flex; align-items: flex-start; gap: 20px; }
+.dlg-head > div:first-child { flex: 1; min-width: 0; }
+.dlg-head h2 { margin: 0; font-size: 30px; line-height: 1.15; font-weight: 700; letter-spacing: -.015em; }
+.dlg-sum { margin-top: 8px; font: 12px var(--mono); color: var(--text-muted); }
+.dlg-actions { display: flex; gap: 8px; flex: none; }
+.sg-scroll { margin-top: 28px; padding-top: 18px; overflow-x: auto; }
+.sg { position: relative; min-width: 820px; }
+.sg-grid { display: grid; grid-template-columns: 280px 120px minmax(0,1fr); }
+.sg-head { border-bottom: 1px solid var(--color-divider); }
+.sg-head .col { font: 500 10px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--text-subtle); align-self: end; padding-bottom: 8px; }
+.sg-head .tl-track { height: 40px; }
+.sg-head .tick { font-size: 11px; }
+.sg-head .tick .yr { height: 18px; padding-left: 3px; }
+.sg-group { padding: 18px 0 6px; font: 600 11px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--text-muted); }
+.sg-row { height: 36px; border-bottom: 1px solid var(--color-rule); }
+.sg-name { display: flex; align-items: center; gap: 8px; font-size: 15px; white-space: nowrap; overflow: hidden; padding-right: 12px; }
+.sg-name .mk { flex: none; width: 16px; font: 12px var(--mono); }
+.sg-name .t { overflow: hidden; text-overflow: ellipsis; }
+.sg-row[data-s="done"] .mk { color: var(--text-done); }
+.sg-row[data-s="now"] .mk { color: var(--bar); }
+.sg-row[data-s="next"] .mk { color: var(--text-placeholder); }
+.sg-row[data-s="next"] .sg-name { color: var(--text-subtle); }
+.sg-row[data-ms] .sg-name { color: var(--milestone-ink); }
+.sg-row[data-ms] .mk { color: var(--milestone); }
+.sg-span { display: flex; align-items: center; font: 11px var(--mono); font-variant-numeric: tabular-nums; color: var(--text-subtle); }
+.sg-bar { position: absolute; top: 10px; height: 16px; min-width: 4px; border-radius: 1px; z-index: 1; }
+.sg-bar[data-s="done"] { background: var(--color-done); }
+.sg-bar[data-s="now"] { background: var(--bar); }
+.sg-bar[data-s="next"] { background: var(--bar-future); }
+.sg-pin { position: absolute; top: 12px; width: 12px; height: 12px; margin-left: -6px; background: var(--milestone); transform: rotate(45deg); z-index: 1; }
+.sg-overlay { position: absolute; top: 0; bottom: 0; left: 400px; right: 0; pointer-events: none; }
+.sg-line { position: absolute; top: 40px; bottom: 0; width: 1px; background: var(--gridline); }
+.sg-now { position: absolute; top: 30px; bottom: 0; width: 2px; margin-left: -1px; background: var(--color-accent); z-index: 2; }
+.sg-now-cap { position: absolute; top: -16px; transform: translateX(-50%); font: 600 9px var(--mono); letter-spacing: .14em; color: var(--text-accent); }
+.dlg-foot { margin-top: 22px; }
+.dlg-foot a { margin-left: auto; text-decoration: none; }
+@media (max-width: 900px) { :root { --label-w: 180px; } .page { padding: 20px; } .dialog { padding: 22px; } }
+</style>
+</head>
+<body>
+<button class="btn mode" id="mode" type="button">Dark mode</button>
+<div class="page">
+  <div class="kicker">Phase 1 · Junior Fall</div>
+  <h1>Project Management</h1>
+  <div class="tl-scroll"><div class="tl" id="tl"></div></div>
+  <div class="legend">
+    <span style="color:var(--text-accent)"><i style="width:3px;height:14px;background:var(--color-accent)"></i>You are here · Sep 26 2026</span>
+    <span><i style="background:var(--bar)"></i>In progress</span>
+    <span><i style="background:var(--bar-future)"></i>Not started</span>
+    <span><i class="dia"></i>Milestone</span>
+    <span style="margin-left:auto;color:var(--text-muted)">Click a bar to see its stages</span>
+  </div>
+</div>
+
+<div class="backdrop" id="backdrop" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-title" id="dialog">
+    <div class="dlg-head">
+      <div><div class="kicker" id="dlg-range"></div><h2 id="dlg-title"></h2><div class="dlg-sum" id="dlg-sum"></div></div>
+      <div class="dlg-actions">
+        <button class="btn icon-btn" id="prev" type="button" aria-label="Previous project" title="Previous project">←</button>
+        <button class="btn icon-btn" id="next" type="button" aria-label="Next project" title="Next project">→</button>
+        <button class="btn icon-btn" id="close" type="button" aria-label="Close" title="Close (Esc)">×</button>
+      </div>
+    </div>
+    <div class="sg-scroll"><div class="sg" id="sg"></div></div>
+    <div class="legend dlg-foot" style="border-top:0;padding-top:0">
+      <span><i style="background:var(--color-done)"></i>Done</span>
+      <span><i style="background:var(--bar)"></i>In progress</span>
+      <span><i style="background:var(--bar-future)"></i>Not started</span>
+      <span><i class="dia"></i>Deadline</span>
+      <a href="#" id="todos">Open in To-dos →</a>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---- SAMPLE DATA: replace with the real project + stage records ---- */
+const TODAY = new Date(2026, 8, 26);
+const d = s => { const [y, m, dd] = s.split('-').map(Number); return new Date(y, m - 1, dd); };
+const MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const fmt = (a, b) => {
+  const A = d(a), B = d(b);
+  const f = x => MO[x.getMonth()] + ' ' + x.getDate();
+  return A.getTime() === B.getTime() ? f(A) : f(A) + ' – ' + f(B);
+};
+const T = (name, start, end, group) => ({ name, start, end, group });
+const M = (name, date, group) => ({ name, start: date, end: date, group, milestone: true });
+
+const PROJECTS = [
+  { id: 'list', name: 'Complete college list', start: '2026-09-01', end: '2027-08-31',
+    phases: [['Explore', '2026-09-01', '2027-03-31'], ['Consider', '2027-04-01', '2027-06-30'], ['Apply', '2027-07-01', '2027-08-31']],
+    stages: [
+      T('Take an interest inventory', '2026-09-01', '2026-09-20', 'Explore'),
+      T('Build a long list of 25–30', '2026-09-15', '2026-11-30', 'Explore'),
+      T('Research fit: size, setting, majors', '2026-10-01', '2027-01-31', 'Explore'),
+      T('Run net-price calculators', '2026-11-01', '2026-12-20', 'Explore'),
+      T('Review the list with the GC', '2027-01-10', '2027-02-15', 'Explore'),
+      T('Cut to 15 schools', '2027-02-15', '2027-03-31', 'Explore'),
+      T('Fold visit notes into interest levels', '2027-04-01', '2027-05-15', 'Consider'),
+      T('Balance reach, target and likely', '2027-05-01', '2027-06-30', 'Consider'),
+      T('Settle the final 8–12', '2027-07-01', '2027-07-31', 'Apply'),
+      M('List locked', '2027-08-01', 'Apply'),
+      T('Set up Common App account', '2027-08-01', '2027-08-31', 'Apply'),
+    ] },
+  { id: 'visits', name: 'Visit colleges, in person & virtually', start: '2026-09-01', end: '2027-03-31',
+    stages: [
+      T('Virtual tours and info sessions', '2026-09-01', '2026-11-30'),
+      T('Local campus drive-bys', '2026-10-10', '2026-11-30'),
+      T('Plan the winter trip', '2026-11-01', '2026-12-15'),
+      T('Winter break visits', '2026-12-20', '2027-01-05'),
+      T('Log impressions after each visit', '2026-10-01', '2027-03-31'),
+      T('Spring break visits', '2027-03-15', '2027-03-28'),
+    ] },
+  { id: 'testing', name: 'Testing · PSAT → SAT / ACT', start: '2026-09-01', end: '2027-06-30',
+    stages: [
+      T('PSAT prep', '2026-09-01', '2026-10-13'),
+      M('PSAT/NMSQT', '2026-10-14'),
+      T('Review PSAT score report', '2026-12-08', '2026-12-31'),
+      T('Choose SAT or ACT', '2027-01-04', '2027-01-22'),
+      T('Prep block 1', '2027-01-18', '2027-03-12'),
+      M('First SAT sitting', '2027-03-13'),
+      T('Prep block 2', '2027-03-22', '2027-04-30'),
+      M('Second SAT sitting', '2027-05-01'),
+      T('Decide on retake and score sends', '2027-05-15', '2027-06-30'),
+    ] },
+  { id: 'recs', name: 'Bio for GC, brag sheet & teacher recs', start: '2027-01-01', end: '2027-06-30',
+    stages: [
+      T('Draft the brag sheet', '2027-01-05', '2027-02-15'),
+      T('Complete the GC bio questionnaire', '2027-02-01', '2027-03-01'),
+      T('Choose two teachers', '2027-03-01', '2027-03-19'),
+      T('Ask teachers in person', '2027-03-22', '2027-04-09'),
+      T('Send teacher packets', '2027-04-12', '2027-04-30'),
+      T('Thank-you notes', '2027-06-01', '2027-06-30'),
+    ] },
+  { id: 'service', name: 'Community service / passion project', start: '2026-09-01', end: '2027-03-31',
+    stages: [
+      T('Pick a cause', '2026-09-01', '2026-09-20'),
+      T('Commit weekly hours', '2026-09-21', '2027-03-31'),
+      T('Scope the passion project', '2026-10-15', '2026-11-30'),
+      T('Build and launch', '2026-12-01', '2027-02-28'),
+      T('Document the impact', '2027-02-15', '2027-03-31'),
+    ] },
+  { id: 'essays', name: 'Rising seniors: write your essays', start: '2027-06-01', end: '2027-06-30',
+    stages: [
+      T('Read the Common App prompts', '2027-06-01', '2027-06-06'),
+      T('Brainstorm stories', '2027-06-04', '2027-06-13'),
+      T('First draft', '2027-06-12', '2027-06-23'),
+      T('Feedback round', '2027-06-21', '2027-06-30'),
+    ] },
+  { id: 'submit', name: 'Submit applications', start: '2027-10-01', end: '2028-01-31',
+    stages: [
+      T('Early Action / Early Decision apps', '2027-10-01', '2027-10-31'),
+      M('EA / ED deadline', '2027-11-01'),
+      T('Send scores and transcripts', '2027-10-15', '2027-11-05'),
+      T('FAFSA and CSS Profile', '2027-10-01', '2027-11-15'),
+      T('Regular Decision apps', '2027-11-15', '2027-12-31'),
+      M('RD deadline', '2028-01-01'),
+      T('Confirm materials received', '2028-01-02', '2028-01-31'),
+    ] },
+];
+
+const WIN0 = new Date(2026, 8, 1), WIN_MONTHS = 17;
+const monthIdx = dt => (dt.getFullYear() - 2026) * 12 + dt.getMonth() - 8 + (dt.getDate() - 1) / new Date(dt.getFullYear(), dt.getMonth() + 1, 0).getDate();
+const endIdx = s => { const x = d(s); x.setDate(x.getDate() + 1); return monthIdx(x); };
+const pct = v => (v * 100).toFixed(3) + '%';
+const statusOf = s => d(s.end) < TODAY ? 'done' : d(s.start) <= TODAY ? 'now' : 'next';
+
+
+/* ---- render ---- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let openIdx = null, lastFocus = null;
+
+function renderMain() {
+  const tl = $('tl'); tl.style.setProperty('--months', WIN_MONTHS);
+  let ticks = '';
+  for (let i = 0; i < WIN_MONTHS; i++) {
+    const m = (8 + i) % 12, y = 2026 + Math.floor((8 + i) / 12);
+    ticks += '<div class="tick"' + (m % 3 === 0 ? ' data-q' : '') + (i === 0 ? ' data-cur' : '') + ' style="left:' + pct(i / WIN_MONTHS) + ';width:' + pct(1 / WIN_MONTHS) + '"><div class="yr">' + (m === 0 || i === 0 ? y : '') + '</div><div class="mo">' + MO[m] + '</div></div>';
+  }
+  let html = '<div class="tl-head"><div class="tl-label"></div><div class="tl-track">' + ticks + '</div></div>';
+  PROJECTS.forEach((p, idx) => {
+    const future = d(p.start) > TODAY;
+    const parts = p.phases || [[null, p.start, p.end]];
+    const segs = parts.map(([label, a, b]) => {
+      const f = d(a) > TODAY;
+      const title = p.name + (label ? ' · ' + label : '') + ' · ' + fmt(a, b) + ' · ' + (f ? 'not started' : 'in progress') + ' · open stages';
+      return '<button type="button" class="seg" data-idx="' + idx + '"' + (f ? ' data-future' : '') + ' title="' + esc(title) + '" aria-label="' + esc(title) + '" style="left:' + pct(monthIdx(d(a)) / WIN_MONTHS) + ';width:' + pct((endIdx(b) - monthIdx(d(a))) / WIN_MONTHS) + '">' + esc(label || '') + '</button>';
+    }).join('');
+    html += '<div class="tl-row"' + (future ? ' data-future' : '') + '><div class="tl-label">' + esc(p.name) + '</div><div class="tl-track">' + segs + '</div></div>';
+  });
+  const nowL = pct(monthIdx(TODAY) / WIN_MONTHS);
+  html += '<div class="now-layer"><div class="now-band" style="left:0;width:' + pct(1 / WIN_MONTHS) + '"></div><div class="now-line" style="left:' + nowL + '"></div><div class="now-cap" style="left:' + nowL + '"><b>YOU ARE HERE</b><span>' + MO[TODAY.getMonth()] + ' ' + TODAY.getDate() + '</span></div></div>';
+  tl.innerHTML = html;
+}
+
+function renderModal() {
+  const p = PROJECTS[openIdx];
+  const ps = d(p.start), pe = d(p.end);
+  const r0 = new Date(ps.getFullYear(), ps.getMonth(), 1), r1 = new Date(pe.getFullYear(), pe.getMonth() + 1, 1);
+  const span = r1 - r0, pos = dt => (dt - r0) / span;
+  const nMonths = (r1.getFullYear() - r0.getFullYear()) * 12 + r1.getMonth() - r0.getMonth();
+  const ticks = [];
+  if (nMonths <= 2) { // week resolution for short projects
+    for (let t = new Date(r0); t < r1; t.setDate(t.getDate() + 7)) {
+      if ((r1 - t) / 864e5 < 4 && ticks.length) { ticks[ticks.length - 1].w = (r1 - ticks[ticks.length - 1].t) / span; break; }
+      const nx = new Date(t); nx.setDate(nx.getDate() + 7);
+      ticks.push({ t: new Date(t), l: pos(t), w: (Math.min(nx, r1) - t) / span, label: MO[t.getMonth()] + ' ' + t.getDate(), yr: ticks.length ? '' : t.getFullYear() });
+    }
+  } else {
+    for (let i = 0; i < nMonths; i++) {
+      const t = new Date(r0.getFullYear(), r0.getMonth() + i, 1), nx = new Date(r0.getFullYear(), r0.getMonth() + i + 1, 1);
+      ticks.push({ t, l: pos(t), w: (nx - t) / span, label: MO[t.getMonth()], yr: i === 0 || t.getMonth() === 0 ? t.getFullYear() : '',
+        cur: t.getFullYear() === TODAY.getFullYear() && t.getMonth() === TODAY.getMonth() });
+    }
+  }
+  const counts = { done: 0, now: 0, next: 0 };
+  let rows = '', last = null;
+  p.stages.forEach(s => {
+    if (s.group && s.group !== last) { rows += '<div class="sg-group">' + esc(s.group) + '</div>'; last = s.group; }
+    const st = statusOf(s); if (!s.milestone) counts[st]++;
+    const a = d(s.start), e = d(s.end); e.setDate(e.getDate() + 1);
+    const stLabel = s.milestone ? (st === 'done' ? 'passed' : 'upcoming') : { done: 'done', now: 'in progress', next: 'not started' }[st];
+    const title = esc(s.name + ' · ' + fmt(s.start, s.end) + ' · ' + stLabel);
+    const mark = s.milestone ? '◆' : { done: '✓', now: '●', next: '○' }[st];
+    const mark_ = s.milestone
+      ? '<div class="sg-pin" role="img" aria-label="' + title + '" style="left:' + pct(pos(a)) + '"></div>'
+      : '<div class="sg-bar" role="img" aria-label="' + title + '" data-s="' + st + '" style="left:' + pct(pos(a)) + ';width:' + pct((e - a) / span) + '"></div>';
+    rows += '<div class="sg-grid sg-row" data-s="' + st + '"' + (s.milestone ? ' data-ms' : '') + ' title="' + title + '"><div class="sg-name"><span class="mk" aria-hidden="true">' + mark + '</span><span class="t">' + esc(s.name) + '</span></div><div class="sg-span">' + fmt(s.start, s.end) + '</div><div class="tl-track">' + mark_ + '</div></div>';
+  });
+  const head = '<div class="sg-grid sg-head"><div class="col">Stage</div><div class="col">Dates</div><div class="tl-track">' +
+    ticks.map(t => '<div class="tick"' + (t.cur ? ' data-cur' : '') + ' style="left:' + pct(t.l) + ';width:' + pct(t.w) + '"><div class="yr">' + t.yr + '</div><div class="mo">' + t.label + '</div></div>').join('') + '</div></div>';
+  let overlay = ticks.slice(1).map(t => '<div class="sg-line" style="left:' + pct(t.l) + '"></div>').join('');
+  if (TODAY >= r0 && TODAY < r1) overlay += '<div class="sg-now" style="left:' + pct(pos(TODAY)) + '"></div><div class="sg-now-cap" style="left:' + pct(pos(TODAY)) + '">NOW</div>';
+  $('sg').innerHTML = head + rows + '<div class="sg-overlay">' + overlay + '</div>';
+  $('dlg-range').textContent = MO[ps.getMonth()] + ' ' + ps.getFullYear() + ' – ' + MO[pe.getMonth()] + ' ' + pe.getFullYear() + ' · ' + (openIdx + 1) + ' of ' + PROJECTS.length;
+  $('dlg-title').textContent = p.name;
+  const total = counts.done + counts.now + counts.next;
+  $('dlg-sum').textContent = total + ' stages · ' + counts.done + ' done · ' + counts.now + ' in progress · ' + counts.next + ' not started';
+}
+
+function openModal(i) { if (openIdx == null) lastFocus = document.activeElement; openIdx = i; renderModal(); $('backdrop').hidden = false; document.body.style.overflow = 'hidden'; $('close').focus(); }
+function closeModal() { openIdx = null; $('backdrop').hidden = true; document.body.style.overflow = ''; lastFocus && lastFocus.focus(); }
+function step(n) { openModal((openIdx + n + PROJECTS.length) % PROJECTS.length); }
+
+$('tl').addEventListener('click', e => { const b = e.target.closest('.seg'); if (b) openModal(+b.dataset.idx); });
+$('backdrop').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+$('close').onclick = closeModal; $('prev').onclick = () => step(-1); $('next').onclick = () => step(1);
+$('todos').onclick = e => e.preventDefault(); // wire to To-dos filtered by project
+document.addEventListener('keydown', e => {
+  if (openIdx == null) return;
+  if (e.key === 'Escape') closeModal();
+  else if (e.key === 'ArrowRight') step(1);
+  else if (e.key === 'ArrowLeft') step(-1);
+  else if (e.key === 'Tab') { // focus trap
+    const f = [...$('dialog').querySelectorAll('button, a[href]')];
+    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+    else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+  }
+});
+$('mode').onclick = () => { const r = document.documentElement, dark = r.dataset.mode !== 'dark'; r.dataset.mode = dark ? 'dark' : 'light'; $('mode').textContent = dark ? 'Light mode' : 'Dark mode'; };
+renderMain();
+</script>
+</body>
+</html>

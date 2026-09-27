@@ -1,0 +1,482 @@
+[
+  {
+    "id": "college-list-s1",
+    "projectId": "college-list",
+    "name": "Take an interest inventory",
+    "start": "2026-09-01",
+    "end": "2026-09-20",
+    "phase": "Explore",
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "college-list-s2",
+    "projectId": "college-list",
+    "name": "Build a long list of 25–30",
+    "start": "2026-09-15",
+    "end": "2026-11-30",
+    "phase": "Explore",
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "college-list-s3",
+    "projectId": "college-list",
+    "name": "Research fit: size, setting, majors",
+    "start": "2026-10-01",
+    "end": "2027-01-31",
+    "phase": "Explore",
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "college-list-s4",
+    "projectId": "college-list",
+    "name": "Run net-price calculators",
+    "start": "2026-11-01",
+    "end": "2026-12-20",
+    "phase": "Explore",
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "college-list-s5",
+    "projectId": "college-list",
+    "name": "Review the list with the GC",
+    "start": "2027-01-10",
+    "end": "2027-02-15",
+    "phase": "Explore",
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "college-list-s6",
+    "projectId": "college-list",
+    "name": "Cut to 15 schools",
+    "start": "2027-02-15",
+    "end": "2027-03-31",
+    "phase": "Explore",
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "college-list-s7",
+    "projectId": "college-list",
+    "name": "Fold visit notes into interest levels",
+    "start": "2027-04-01",
+    "end": "2027-05-15",
+    "phase": "Consider",
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "college-list-s8",
+    "projectId": "college-list",
+    "name": "Balance reach, target and likely",
+    "start": "2027-05-01",
+    "end": "2027-06-30",
+    "phase": "Consider",
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "college-list-s9",
+    "projectId": "college-list",
+    "name": "Settle the final 8–12",
+    "start": "2027-07-01",
+    "end": "2027-07-31",
+    "phase": "Apply",
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "college-list-s10",
+    "projectId": "college-list",
+    "name": "List locked",
+    "start": "2027-08-01",
+    "end": "2027-08-01",
+    "phase": "Apply",
+    "isMilestone": true,
+    "completedAt": null
+  },
+  {
+    "id": "college-list-s11",
+    "projectId": "college-list",
+    "name": "Set up Common App account",
+    "start": "2027-08-01",
+    "end": "2027-08-31",
+    "phase": "Apply",
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "visits-s1",
+    "projectId": "visits",
+    "name": "Virtual tours and info sessions",
+    "start": "2026-09-01",
+    "end": "2026-11-30",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "visits-s2",
+    "projectId": "visits",
+    "name": "Local campus drive-bys",
+    "start": "2026-10-10",
+    "end": "2026-11-30",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "visits-s3",
+    "projectId": "visits",
+    "name": "Plan the winter trip",
+    "start": "2026-11-01",
+    "end": "2026-12-15",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "visits-s4",
+    "projectId": "visits",
+    "name": "Winter break visits",
+    "start": "2026-12-20",
+    "end": "2027-01-05",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "visits-s5",
+    "projectId": "visits",
+    "name": "Log impressions after each visit",
+    "start": "2026-10-01",
+    "end": "2027-03-31",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "visits-s6",
+    "projectId": "visits",
+    "name": "Spring break visits",
+    "start": "2027-03-15",
+    "end": "2027-03-28",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "testing-s1",
+    "projectId": "testing",
+    "name": "PSAT prep",
+    "start": "2026-09-01",
+    "end": "2026-10-13",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "testing-s2",
+    "projectId": "testing",
+    "name": "PSAT/NMSQT",
+    "start": "2026-10-14",
+    "end": "2026-10-14",
+    "phase": null,
+    "isMilestone": true,
+    "completedAt": null
+  },
+  {
+    "id": "testing-s3",
+    "projectId": "testing",
+    "name": "Review PSAT score report",
+    "start": "2026-12-08",
+    "end": "2026-12-31",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "testing-s4",
+    "projectId": "testing",
+    "name": "Choose SAT or ACT",
+    "start": "2027-01-04",
+    "end": "2027-01-22",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "testing-s5",
+    "projectId": "testing",
+    "name": "Prep block 1",
+    "start": "2027-01-18",
+    "end": "2027-03-12",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "testing-s6",
+    "projectId": "testing",
+    "name": "First SAT sitting",
+    "start": "2027-03-13",
+    "end": "2027-03-13",
+    "phase": null,
+    "isMilestone": true,
+    "completedAt": null
+  },
+  {
+    "id": "testing-s7",
+    "projectId": "testing",
+    "name": "Prep block 2",
+    "start": "2027-03-22",
+    "end": "2027-04-30",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "testing-s8",
+    "projectId": "testing",
+    "name": "Second SAT sitting",
+    "start": "2027-05-01",
+    "end": "2027-05-01",
+    "phase": null,
+    "isMilestone": true,
+    "completedAt": null
+  },
+  {
+    "id": "testing-s9",
+    "projectId": "testing",
+    "name": "Decide on retake and score sends",
+    "start": "2027-05-15",
+    "end": "2027-06-30",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "recs-s1",
+    "projectId": "recs",
+    "name": "Draft the brag sheet",
+    "start": "2027-01-05",
+    "end": "2027-02-15",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "recs-s2",
+    "projectId": "recs",
+    "name": "Complete the GC bio questionnaire",
+    "start": "2027-02-01",
+    "end": "2027-03-01",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "recs-s3",
+    "projectId": "recs",
+    "name": "Choose two teachers",
+    "start": "2027-03-01",
+    "end": "2027-03-19",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "recs-s4",
+    "projectId": "recs",
+    "name": "Ask teachers in person",
+    "start": "2027-03-22",
+    "end": "2027-04-09",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "recs-s5",
+    "projectId": "recs",
+    "name": "Send teacher packets",
+    "start": "2027-04-12",
+    "end": "2027-04-30",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "recs-s6",
+    "projectId": "recs",
+    "name": "Thank-you notes",
+    "start": "2027-06-01",
+    "end": "2027-06-30",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "passion-s1",
+    "projectId": "passion",
+    "name": "Pick a cause",
+    "start": "2026-09-01",
+    "end": "2026-09-20",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "passion-s2",
+    "projectId": "passion",
+    "name": "Commit weekly hours",
+    "start": "2026-09-21",
+    "end": "2027-03-31",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "passion-s3",
+    "projectId": "passion",
+    "name": "Scope the passion project",
+    "start": "2026-10-15",
+    "end": "2026-11-30",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "passion-s4",
+    "projectId": "passion",
+    "name": "Build and launch",
+    "start": "2026-12-01",
+    "end": "2027-02-28",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "passion-s5",
+    "projectId": "passion",
+    "name": "Document the impact",
+    "start": "2027-02-15",
+    "end": "2027-03-31",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "essays-s1",
+    "projectId": "essays",
+    "name": "Read the Common App prompts",
+    "start": "2027-06-01",
+    "end": "2027-06-06",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "essays-s2",
+    "projectId": "essays",
+    "name": "Brainstorm stories",
+    "start": "2027-06-04",
+    "end": "2027-06-13",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "essays-s3",
+    "projectId": "essays",
+    "name": "First draft",
+    "start": "2027-06-12",
+    "end": "2027-06-23",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "essays-s4",
+    "projectId": "essays",
+    "name": "Feedback round",
+    "start": "2027-06-21",
+    "end": "2027-06-30",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "applications-s1",
+    "projectId": "applications",
+    "name": "Early Action / Early Decision apps",
+    "start": "2027-10-01",
+    "end": "2027-10-31",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "applications-s2",
+    "projectId": "applications",
+    "name": "EA / ED deadline",
+    "start": "2027-11-01",
+    "end": "2027-11-01",
+    "phase": null,
+    "isMilestone": true,
+    "completedAt": null
+  },
+  {
+    "id": "applications-s3",
+    "projectId": "applications",
+    "name": "Send scores and transcripts",
+    "start": "2027-10-15",
+    "end": "2027-11-05",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "applications-s4",
+    "projectId": "applications",
+    "name": "FAFSA and CSS Profile",
+    "start": "2027-10-01",
+    "end": "2027-11-15",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "applications-s5",
+    "projectId": "applications",
+    "name": "Regular Decision apps",
+    "start": "2027-11-15",
+    "end": "2027-12-31",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
+    "id": "applications-s6",
+    "projectId": "applications",
+    "name": "RD deadline",
+    "start": "2028-01-01",
+    "end": "2028-01-01",
+    "phase": null,
+    "isMilestone": true,
+    "completedAt": null
+  },
+  {
+    "id": "applications-s7",
+    "projectId": "applications",
+    "name": "Confirm materials received",
+    "start": "2028-01-02",
+    "end": "2028-01-31",
+    "phase": null,
+    "isMilestone": false,
+    "completedAt": null
+  }
+]

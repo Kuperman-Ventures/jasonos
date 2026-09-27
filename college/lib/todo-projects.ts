@@ -87,6 +87,26 @@ export function createTodoProject(
   };
 }
 
+/** Ensure a TodoProject exists with a stable id (roadmap track id) and display name. */
+export function ensureNamedTodoProject(
+  projects: TodoProject[],
+  id: string,
+  nameInput: string,
+): { projects: TodoProject[]; created: boolean } {
+  if (projects.some((row) => row.id === id)) {
+    return { projects, created: false };
+  }
+  const name = normalizeProjectName(nameInput) ?? id;
+  const next: TodoProject = {
+    id,
+    name,
+    colorIndex: nextProjectColorIndex(projects),
+    familyId: TODO_PROJECT_FAMILY_ID,
+    createdAt: new Date().toISOString(),
+  };
+  return { projects: [...projects, next], created: true };
+}
+
 export function openDatedStats(todos: { done: boolean; dueDate?: string | null; endDate?: string | null }[]): {
   open: number;
   dated: number;
