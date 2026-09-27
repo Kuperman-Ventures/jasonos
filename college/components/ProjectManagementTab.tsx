@@ -6,13 +6,15 @@ import { TimelinePanel } from "./TimelinePanel";
 import { TodosPanel } from "./TodosPanel";
 import type { CalendarEvent } from "@/lib/calendar-events";
 import type { PersistedProjectStep } from "@/lib/ingest";
+import type { TodoProject } from "@/lib/todo-projects";
+import { ensureNamedTodoProject } from "@/lib/todo-projects";
 import {
   PROJECT_SECTIONS,
   projectSectionById,
   type ProjectSectionId,
 } from "@/lib/project-management";
 import { type TodoEdit, type TodoEditMap, type TodoSubtaskMap } from "@/lib/project-todos";
-import type { TodoProject } from "@/lib/todo-projects";
+import { TIMELINE_PROJECTS } from "@/lib/timeline-stages";
 import type { MemberProfile } from "@/lib/member-avatars";
 import type { Phase } from "@/lib/types";
 
@@ -64,6 +66,7 @@ export function ProjectManagementTab({
   const active = projectSectionById(section);
   const [addingTodo, setAddingTodo] = useState(false);
   const [newTodoLabel, setNewTodoLabel] = useState("");
+  const [focusTodoProjectId, setFocusTodoProjectId] = useState<string | null>(null);
 
   function commitNewTodo() {
     const label = newTodoLabel.trim();
@@ -81,6 +84,17 @@ export function ProjectManagementTab({
     onSectionChange(next);
     setAddingTodo(false);
     setNewTodoLabel("");
+    if (next !== "todos") setFocusTodoProjectId(null);
+  }
+
+  function openTodosForProject(projectId: string) {
+    const track = TIMELINE_PROJECTS.find((row) => row.id === projectId);
+    if (track) {
+      const ensured = ensureNamedTodoProject(todoProjects, track.id, track.name);
+      if (ensured.created) onChangeTodoProjects(ensured.projects);
+    }
+    setFocusTodoProjectId(projectId);
+    onSectionChange("todos");
   }
 
   return (
@@ -164,7 +178,13 @@ export function ProjectManagementTab({
       {active.blurb ? <p className="pm-blurb">{active.blurb}</p> : null}
 
       {active.status === "ready" && active.id === "timeline" ? (
-        <TimelinePanel phases={phases} checklist={checklist} onToggle={onToggle} />
+        <TimelinePanel
+          phases={phases}
+          checklist={checklist}
+          onToggle={onToggle}
+          subtasks={subtasks}
+          onOpenTodos={openTodosForProject}
+        />
       ) : null}
 
       {active.status === "ready" && active.id === "todos" ? (
@@ -183,6 +203,7 @@ export function ProjectManagementTab({
           onChangeTodoProjects={onChangeTodoProjects}
           onDeleteTodoProject={onDeleteTodoProject}
           onDeleteTodo={onDeleteTodo}
+          focusProjectId={focusTodoProjectId}
         />
       ) : null}
 

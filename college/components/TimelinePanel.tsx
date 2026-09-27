@@ -9,10 +9,14 @@ export function TimelinePanel({
   phases,
   checklist,
   onToggle,
+  subtasks = {},
+  onOpenTodos,
 }: {
   phases: Phase[];
   checklist: Record<string, boolean>;
   onToggle: (id: string, checked: boolean) => void;
+  subtasks?: import("@/lib/project-todos").TodoSubtaskMap;
+  onOpenTodos?: (projectId: string) => void;
 }) {
   const statuses = phaseStatuses(phases, checklist);
 
@@ -25,7 +29,12 @@ export function TimelinePanel({
       </div>
 
       <div className="timeline-roadmap">
-        <ProcessRoadmap checklist={checklist} showTitle={false} />
+        <ProcessRoadmap
+          checklist={checklist}
+          showTitle={false}
+          subtasks={subtasks}
+          onOpenTodos={onOpenTodos}
+        />
       </div>
 
       <h3 className="dash-title">Checklist</h3>

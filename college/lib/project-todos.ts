@@ -64,6 +64,15 @@ export type TodoSubtask = {
   id: string;
   label: string;
   dueDate: string | null;
+  /** Inclusive start (YYYY-MM-DD). When set with projectId, this row can drive Timeline stages. */
+  startDate: string | null;
+  endDate: string | null;
+  /** Household project this stage belongs to (roadmap track id or TodoProject id). */
+  projectId: string | null;
+  phase: string | null;
+  isMilestone: boolean;
+  /** When set, overrides date-derived status → done. */
+  completedAt: string | null;
   done: boolean;
 };
 
@@ -509,6 +518,17 @@ export function normalizeTodoSubtasks(raw: unknown): TodoSubtaskMap {
         id: row.id,
         label,
         dueDate: typeof row.dueDate === "string" && ISO_DATE.test(row.dueDate) ? row.dueDate : null,
+        startDate:
+          typeof row.startDate === "string" && ISO_DATE.test(row.startDate) ? row.startDate : null,
+        endDate: typeof row.endDate === "string" && ISO_DATE.test(row.endDate) ? row.endDate : null,
+        projectId:
+          typeof row.projectId === "string" && row.projectId.trim() ? row.projectId.trim() : null,
+        phase: typeof row.phase === "string" && row.phase.trim() ? row.phase.trim() : null,
+        isMilestone: Boolean(row.isMilestone),
+        completedAt:
+          typeof row.completedAt === "string" && ISO_DATE.test(row.completedAt)
+            ? row.completedAt
+            : null,
         done: Boolean(row.done),
       });
     }

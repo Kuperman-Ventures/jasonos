@@ -770,6 +770,7 @@ export function TodosPanel({
   onDeleteTodo,
   onChangeTodoProjects,
   onDeleteTodoProject,
+  focusProjectId = null,
 }: {
   memberId: string;
   memberProfiles: MemberProfile[];
@@ -785,6 +786,8 @@ export function TodosPanel({
   onDeleteTodo: (id: string) => void;
   onChangeTodoProjects: (next: TodoProject[]) => void;
   onDeleteTodoProject: (projectId: string) => void;
+  /** When set (e.g. from Timeline stage modal), group by project and scroll to it. */
+  focusProjectId?: string | null;
 }) {
   const focusOwner: Owner = memberOwnerId(memberId);
   const profiles = new Map(memberProfiles.map((row) => [row.id, row]));
@@ -810,6 +813,21 @@ export function TodosPanel({
       setGroupBy("person");
     }
   }, []);
+
+  useEffect(() => {
+    if (!focusProjectId) return;
+    setGroupBy("project");
+    try {
+      window.localStorage.setItem(TODO_GROUP_STORAGE_KEY, "project");
+    } catch {
+      /* ignore */
+    }
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById(`todo-project-${focusProjectId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [focusProjectId]);
 
   useEffect(() => {
     document.body.classList.toggle("todos-dragging", Boolean(dragTodoId));
@@ -876,6 +894,12 @@ export function TodosPanel({
           id: `sub-${parentId.slice(0, 12)}-${Math.random().toString(36).slice(2, 8)}`,
           label,
           dueDate: null,
+          startDate: null,
+          endDate: null,
+          projectId: null,
+          phase: null,
+          isMilestone: false,
+          completedAt: null,
           done: false,
         },
       ],
@@ -1092,7 +1116,10 @@ export function TodosPanel({
             return (
               <section
                 key={key}
-                className={`todo-project-group${dragOverKey === key ? " is-over" : ""}`}
+                id={group.projectId ? `todo-project-${group.projectId}` : "todo-project-none"}
+                className={`todo-project-group${dragOverKey === key ? " is-over" : ""}${
+                  focusProjectId && focusProjectId === group.projectId ? " is-focus" : ""
+                }`}
                 aria-label={group.name}
                 onDragOver={(event) => {
                   if (!dragTodoId) return;

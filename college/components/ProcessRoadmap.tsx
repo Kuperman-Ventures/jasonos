@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   ROADMAP_TRACKS,
   accessibleTrackName,
@@ -17,17 +17,33 @@ import {
   yearBands,
   type RoadmapTrack,
 } from "@/lib/roadmap";
+import {
+  monthEndIso,
+  monthStartIso,
+  openStagesAriaLabel,
+} from "@/lib/timeline-stages";
+import { TimelineStageModal } from "./TimelineStageModal";
+import type { TodoSubtaskMap } from "@/lib/project-todos";
+
+function trackStartIso(track: RoadmapTrack): string {
+  return monthStartIso(track.start.year, track.start.month);
+}
+function trackEndIso(track: RoadmapTrack): string {
+  return monthEndIso(track.end.year, track.end.month);
+}
 
 function TrackRow({
   track,
   row,
   checklist,
   now,
+  onOpenStages,
 }: {
   track: RoadmapTrack;
   row: number;
   checklist: Record<string, boolean>;
   now: Date;
+  onOpenStages: (projectId: string, trigger: HTMLElement) => void;
 }) {
   const state = trackState(track, checklist, now);
   const start = monthIndex(track.start.year, track.start.month);
@@ -36,6 +52,8 @@ function TrackRow({
   const span = formatSpan(track);
   const detail = `${name} · ${span}`;
   const segments = track.segments ?? [];
+  const statusWord =
+    state === "done" ? "complete" : state === "future" ? "not started" : "in progress";
 
   return (
     <>
@@ -75,22 +93,28 @@ function TrackRow({
         >
           {segments.map((segment) => {
             const segState = segmentState(segment, now);
-            const segSpan = formatSpan({
-              ...track,
-              start: segment.start,
-              end: segment.end,
-              kind: "bar",
-              label: segment.label,
-            });
-            const segDetail = `${track.label} · ${segment.label} · ${segSpan}`;
+            const segStatus =
+              segState === "done"
+                ? "complete"
+                : segState === "future"
+                  ? "not started"
+                  : "in progress";
+            const aria = openStagesAriaLabel(
+              track.label,
+              segment.label,
+              monthStartIso(segment.start.year, segment.start.month),
+              monthEndIso(segment.end.year, segment.end.month),
+              segStatus,
+            );
             return (
               <button
                 key={segment.id}
                 type="button"
                 className="bar-seg"
                 data-state={segState}
-                title={segDetail}
-                aria-label={segDetail}
+                title={aria}
+                aria-label={aria}
+                onClick={(event) => onOpenStages(track.id, event.currentTarget)}
               >
                 <span className="bar-seg-label">{segment.label}</span>
               </button>
@@ -106,8 +130,21 @@ function TrackRow({
             gridRow: row,
             gridColumn: `${gridColumnStart(start)} / span ${length}`,
           }}
-          title={detail}
-          aria-label={detail}
+          title={openStagesAriaLabel(
+            track.label,
+            null,
+            trackStartIso(track),
+            trackEndIso(track),
+            statusWord,
+          )}
+          aria-label={openStagesAriaLabel(
+            track.label,
+            null,
+            trackStartIso(track),
+            trackEndIso(track),
+            statusWord,
+          )}
+          onClick={(event) => onOpenStages(track.id, event.currentTarget)}
         />
       )}
     </>
@@ -119,11 +156,16 @@ export function ProcessRoadmap({
   title = "Timeline",
   showTitle = true,
   dateline,
+  subtasks = {},
+  onOpenTodos,
 }: {
   checklist: Record<string, boolean>;
   title?: string;
   showTitle?: boolean;
   dateline?: string;
+  /** Live to-do subtasks — when they carry projectId + startDate they drive the modal. */
+  subtasks?: TodoSubtaskMap;
+  onOpenTodos?: (projectId: string) => void;
 }) {
   const now = useMemo(() => new Date(), []);
   const cells = useMemo(() => monthCells(), []);
@@ -140,6 +182,51 @@ export function ProcessRoadmap({
   const milestones = ROADMAP_TRACKS.filter((track) => track.kind === "milestone");
   const ordered = ROADMAP_TRACKS;
   const lastTrackRow = 2 + ordered.length;
+
+  const [openProjectId, setOpenProjectId] = useState<string | null>(null);
+  const lastFocusRef = useRef<HTMLElement | null>(null);
+
+  const liveStages = useMemo(() => {
+    const rows: Array<{
+      id: string;
+      label: string;
+      startDate: string | null;
+      endDate: string | null;
+      dueDate: string | null;
+      projectId: string | null;
+      phase: string | null;
+      isMilestone: boolean;
+      completedAt: string | null;
+      done: boolean;
+    }> = [];
+    for (const list of Object.values(subtasks)) {
+      for (const row of list) {
+        rows.push({
+          id: row.id,
+          label: row.label,
+          startDate: row.startDate,
+          endDate: row.endDate,
+          dueDate: row.dueDate,
+          projectId: row.projectId,
+          phase: row.phase,
+          isMilestone: row.isMilestone,
+          completedAt: row.completedAt,
+          done: row.done,
+        });
+      }
+    }
+    return rows;
+  }, [subtasks]);
+
+  function openStages(projectId: string, trigger: HTMLElement) {
+    lastFocusRef.current = trigger;
+    setOpenProjectId(projectId);
+  }
+
+  function closeStages() {
+    setOpenProjectId(null);
+    window.requestAnimationFrame(() => lastFocusRef.current?.focus());
+  }
 
   return (
     <section className="roadmap" aria-label={title}>
@@ -214,6 +301,7 @@ export function ProcessRoadmap({
               row={3 + index}
               checklist={checklist}
               now={now}
+              onOpenStages={openStages}
             />
           ))}
         </div>
@@ -236,7 +324,21 @@ export function ProcessRoadmap({
           <i className="swatch pin" />
           Milestone
         </span>
+        <span className="legend-hint">Click a bar to see its stages</span>
       </div>
+
+      {openProjectId ? (
+        <TimelineStageModal
+          projectId={openProjectId}
+          liveStages={liveStages}
+          onClose={closeStages}
+          onSelectProject={setOpenProjectId}
+          onOpenTodos={(id) => {
+            closeStages();
+            onOpenTodos?.(id);
+          }}
+        />
+      ) : null}
     </section>
   );
 }

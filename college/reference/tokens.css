@@ -1,0 +1,138 @@
+/* The Track — color tokens, light + dark.
+   Drop in once at the app root. Set data-mode="light" | "dark" on <html> before first paint.
+   Rule: every background, border and text color in a component comes from this file.
+   Never hard-code a hex, `white`, or a raw --color-neutral-* / --color-accent-* step in a component. */
+
+:root, [data-mode="light"] {
+  color-scheme: light;
+
+  /* Surfaces, low → high */
+  --color-desk:        #e6e4e3;   /* behind modals; left rail uses --color-rail */
+  --color-rail:        #eae9e9;
+  --color-bg:          #f3f2f2;   /* page / main content / modal */
+  --color-surface:     #eae9e9;   /* cards, table header, inputs, selects, tracks */
+  --color-surface-2:   #e0dede;   /* hover on surface, pressed row */
+  --color-raised:      #ffffff;   /* popovers, menus, active step card */
+
+  /* Lines */
+  --color-border:      #d7d3d3;   /* input + chip borders */
+  --color-rule:        #eae7e7;   /* row hairlines */
+  --color-divider:     rgba(32,30,29,.16);
+  --color-dash:        #9b9797;   /* dashed "empty / unknown" outlines */
+
+  /* Text */
+  --color-text:        #201e1d;
+  --text-muted:        #444141;
+  --text-subtle:       #605d5d;
+  --text-placeholder:  #7d7979;
+  --text-accent:       #9e3603;
+  --text-on-accent:    #461a05;   /* on solid orange, both modes */
+
+  /* Accent (orange) */
+  --color-accent:          #e85504;
+  --color-accent-pressed:  #c74503;
+  --color-accent-tint:     #feeee4;  /* active nav, in-progress chip, highlighted row */
+  --color-accent-tint-2:   #fdd6c0;
+  --color-accent-border:   #fab48e;
+  --text-on-tint:          #461a05;
+
+  /* Done / submitted */
+  --color-done:        #0088b0;
+  --text-done:         #006a8a;
+
+  /* Interest ramp (Interest picker 6a · One blue). safety → top */
+  --lvl-1: oklch(0.78 0.07 225); --lvl-1-fg: #201e1d;
+  --lvl-2: oklch(0.66 0.10 225); --lvl-2-fg: #201e1d;
+  --lvl-3: oklch(0.54 0.12 228); --lvl-3-fg: #ffffff;
+  --lvl-4: oklch(0.42 0.12 232); --lvl-4-fg: #ffffff;
+  --lvl-4-row: oklch(0.95 0.02 225);  /* Top choice row tint */
+  --meter-empty: #d7d3d3;             /* unfilled interest bars, empty progress */
+
+  /* School logos on a tile */
+  --logo-tile:   #ffffff;
+  --logo-ring:   transparent;
+
+  --shadow-sm: 0 1px 2px rgba(32,30,29,.08);
+  --shadow-lg: 0 18px 48px rgba(32,30,29,.16), 0 4px 12px rgba(32,30,29,.08);
+  --backdrop:  rgba(32,30,29,.4);
+
+  /* Timeline / Gantt chart */
+  --bar: #1b4aa0;
+  --bar-future: #b8c7e0;
+  --bar-fg: #ffffff;
+  --bar-future-fg: #201e1d;
+  --milestone: #d6006c;
+  --milestone-ink: #a6034f;
+  --now-band: rgba(232,85,4,.10);
+  --gridline: rgba(32,30,29,.06);
+}
+
+[data-mode="dark"] {
+  color-scheme: dark;
+
+  --color-desk:        #16181b;
+  --color-rail:        #16181b;
+  --color-bg:          #1f2228;
+  --color-surface:     #2d3139;
+  --color-surface-2:   #353a43;
+  --color-raised:      #2d3139;
+
+  --color-border:      #3d424b;
+  --color-rule:        rgba(240,238,236,.10);
+  --color-divider:     rgba(240,238,236,.16);
+  --color-dash:        #5d636c;
+
+  --color-text:        #f0eeec;
+  --text-muted:        #c3c8cf;
+  --text-subtle:       #9aa0a8;
+  --text-placeholder:  #7f858e;
+  --text-accent:       #fab48e;
+  --text-on-accent:    #461a05;
+
+  --color-accent:          #e85504;
+  --color-accent-pressed:  #f58749;
+  --color-accent-tint:     #3b2317;
+  --color-accent-tint-2:   #50301d;
+  --color-accent-border:   #9e3603;
+  --text-on-tint:          #fdd6c0;
+
+  --color-done:        #0088b0;
+  --text-done:         #5cc3e6;
+
+  --lvl-1: oklch(0.80 0.07 225); --lvl-1-fg: #16181b;
+  --lvl-2: oklch(0.70 0.10 225); --lvl-2-fg: #16181b;
+  --lvl-3: oklch(0.58 0.12 228); --lvl-3-fg: #16181b;
+  --lvl-4: oklch(0.48 0.13 232); --lvl-4-fg: #ffffff;
+  --lvl-4-row: oklch(0.30 0.05 232);
+  --meter-empty: #3d424b;
+
+  --logo-tile:   #ffffff;                       /* logos stay on white so their colors hold */
+  --logo-ring:   rgba(240,238,236,.14);
+
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+  --shadow-lg: 0 24px 64px rgba(0,0,0,.55), 0 0 0 1px rgba(240,238,236,.06);
+  --backdrop:  rgba(0,0,0,.6);
+
+  /* Timeline / Gantt chart */
+  --bar: #4a7fd4;
+  --bar-future: #39455c;
+  --bar-fg: #ffffff;
+  --bar-future-fg: #f0eeec;
+  --milestone: #ff4d9d;
+  --milestone-ink: #ff87bd;
+  --now-band: rgba(232,85,4,.14);
+  --gridline: rgba(240,238,236,.06);
+}
+
+/* Native controls: inherit the theme instead of the browser's light defaults */
+input, select, textarea, button { color: inherit; font: inherit; }
+input, select, textarea { background: var(--color-surface); border: 1px solid var(--color-border); }
+::placeholder { color: var(--text-placeholder); opacity: 1; }
+select option { background: var(--color-raised); color: var(--color-text); }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--color-accent); }
+::selection { background: var(--color-accent-tint-2); color: var(--color-text); }
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+@media (forced-colors: active) {
+  .tile, .chip, .stop, [aria-current="page"], [aria-pressed="true"] { border: 1px solid CanvasText; }
+}
