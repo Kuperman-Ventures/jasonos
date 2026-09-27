@@ -13,7 +13,7 @@ import {
   ScorecardUnsupportedError,
 } from "@/lib/scorecard";
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const PRIVATE_RESIDENCY_NOTES =
   "Private university; admission does not depend on state residency.";
@@ -122,6 +122,7 @@ export async function POST(request: Request) {
       costOfAttendance: scorecard.costOfAttendance,
       netPriceEstimate: scorecard.netPriceEstimate,
       scorecardFetchedDate: scorecard.scorecardFetchedDate,
+      driveAddress: `${scorecard.name}, ${scorecard.location}`,
       listPhase: "exploration",
       phasesParticipated: ["exploration"],
       applicationStatus: "",
@@ -137,21 +138,35 @@ export async function POST(request: Request) {
       researchCompleted: isPrivate ? ["Admissions by residency"] : [],
     });
 
-    // TODO: kick off drive-matrix update for this school once a write path exists
-    // (lib/drive-matrix.ts is currently a static JSON reader only).
-    const driveStatus = "pending" as const;
+    let driveStatus: "ready" | "pending" | "failed" = "pending";
+    let refreshed = school;
+    try {
+      const { addSchoolDrivePoint } = await import("@/lib/driveMatrix");
+      await addSchoolDrivePoint({
+        schoolId: school.id,
+        schoolName: school.name,
+        cityState: school.location,
+        address: school.driveAddress || undefined,
+      });
+      driveStatus = "ready";
+      // Re-read so drive minutes/miles from the overlay are attached.
+      refreshed = (await listSchools()).find((row) => row.id === school.id) ?? school;
+    } catch (error) {
+      console.error("Drive matrix update failed", error);
+      driveStatus = "failed";
+    }
 
     await recordActivity({
       actorId: session.member.id,
       actorName: session.member.displayName,
       action: "create",
       entityType: "school",
-      entityId: school.id,
-      summary: `Added college “${school.name}”`,
+      entityId: refreshed.id,
+      summary: `Added college “${refreshed.name}”`,
       detail: { unitId, region, driveStatus },
     });
 
-    return NextResponse.json({ school, driveStatus, region });
+    return NextResponse.json({ school: refreshed, driveStatus, region });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not add school";
     return NextResponse.json({ error: message }, { status: 400 });

@@ -42,14 +42,31 @@ export const ROAD_TRIP_ONE_WAY_MAX_MINUTES = 10 * 60;
 export const ROAD_TRIP_LOOP_MAX_MINUTES = 18 * 60;
 
 const matrix = matrixFile as DriveMatrixFile;
-const travelPoints = (travelPointsFile as { points: TravelPoint[] }).points;
+const baseTravelPoints = (travelPointsFile as { points: TravelPoint[] }).points;
+
+/** Runtime overlay for schools added after the base JSON matrix. */
+let extraTravelPoints: TravelPoint[] = [];
+let extraPairs: Record<string, DriveLeg | null> = {};
+
+/** Replace the runtime drive overlay (loaded from college.drive_pairs_extra). */
+export function setDriveExtras(
+  points: TravelPoint[],
+  pairs: Record<string, DriveLeg | null>,
+): void {
+  extraTravelPoints = points;
+  extraPairs = pairs;
+}
 
 export function getTravelPoints(): TravelPoint[] {
-  return travelPoints;
+  if (!extraTravelPoints.length) return baseTravelPoints;
+  const byId = new Map<string, TravelPoint>();
+  for (const point of baseTravelPoints) byId.set(point.id, point);
+  for (const point of extraTravelPoints) byId.set(point.id, point);
+  return [...byId.values()];
 }
 
 export function travelPointById(id: string): TravelPoint | undefined {
-  return travelPoints.find((p) => p.id === id);
+  return getTravelPoints().find((p) => p.id === id);
 }
 
 export function schoolTravelPointId(schoolId: string): string {
@@ -63,7 +80,11 @@ export function drivePairKey(fromId: string, toId: string): string {
 /** Directed drive leg, or null if missing / unavailable. */
 export function driveLeg(fromId: string, toId: string): DriveLeg | null {
   if (fromId === toId) return { minutes: 0, miles: 0 };
-  const cell = matrix.pairs[drivePairKey(fromId, toId)];
+  const key = drivePairKey(fromId, toId);
+  if (Object.prototype.hasOwnProperty.call(extraPairs, key)) {
+    return extraPairs[key] ?? null;
+  }
+  const cell = matrix.pairs[key];
   return cell ?? null;
 }
 

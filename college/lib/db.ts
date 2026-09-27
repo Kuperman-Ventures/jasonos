@@ -323,6 +323,12 @@ const SCHOOL_COLUMNS =
 
 export async function listSchools(): Promise<School[]> {
   if (!supabaseConfigured()) return seedSchools();
+  try {
+    const { loadDriveExtras } = await import("@/lib/driveMatrix");
+    await loadDriveExtras();
+  } catch (error) {
+    console.error("Drive extras load failed", error);
+  }
   const db = collegeDb();
   const { data, error } = await db
     .from("schools")
