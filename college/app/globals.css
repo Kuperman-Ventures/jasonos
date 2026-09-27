@@ -1618,7 +1618,7 @@ table.schools .test-policy-fall2028-note {
 .snapshot .size-gauge {
   flex: none;
   width: 100%;
-  max-width: 220px;
+  max-width: 280px;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -1667,6 +1667,26 @@ table.schools .test-policy-fall2028-note {
   box-shadow: 0 0 0 2px var(--color-bg);
   font-style: normal;
 }
+.snapshot .size-gauge-cats {
+  display: flex;
+  width: 100%;
+  gap: 0;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--text-subtle);
+}
+.snapshot .size-gauge-cats span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+.snapshot .size-gauge-cats span.is-current {
+  color: var(--color-text);
+  font-weight: 600;
+}
 .snapshot .size-gauge-ends {
   display: flex;
   justify-content: space-between;
@@ -1674,6 +1694,22 @@ table.schools .test-policy-fall2028-note {
   font-size: 11px;
   font-weight: 400;
   color: var(--text-subtle);
+}
+.snapshot .campus-size-word {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.snapshot .area-head .campus-setting-badge,
+.snapshot .area-head .campus-size-word {
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+}
+.snapshot .area-head .campus-setting-label {
+  font-size: inherit;
+  font-weight: inherit;
 }
 .snapshot .fact:has(.size) {
   align-items: start;

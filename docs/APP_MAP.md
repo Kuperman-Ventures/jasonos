@@ -207,11 +207,13 @@ Intro: **School snapshot** / “Key facts at a glance.”
 
 ### Campus
 
+Headline: setting icon + setting name · users-three icon + rounded undergrad count (“16,000 undergrads”). Round to nearest thousand at 10k+, nearest hundred below.
+
 | UI label | Stored field | Source |
 | --- | --- | --- |
 | City | `location` | school row |
-| Campus Setting | `campusSetting`, `metroArea`, `metroPopulation` | school row |
-| School Size | `undergradEnrollment` | school row (Scorecard-seeded) |
+| Campus Setting | setting icon + name only (`campusSetting`; metro bars when applicable) | school row |
+| School Size | list-relative slider; exact count above marker; segment labels Small / Medium / Large / Very large; min/max at ends (`undergradEnrollment`) | school row (Scorecard-seeded) |
 | Site | `website` | school row |
 
 ### Student Body (after Campus; Scoir only; hidden if no Scoir match)

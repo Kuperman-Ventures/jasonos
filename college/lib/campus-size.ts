@@ -127,6 +127,14 @@ export function formatUndergrads(n: number): string {
   return n.toLocaleString("en-US");
 }
 
+/** Glanceable undergrad count: nearest thousand at 10k+, nearest hundred below. */
+export function formatUndergradsRounded(n: number): string {
+  if (!Number.isFinite(n) || n < 0) return formatUndergrads(n);
+  const step = n >= 10_000 ? 1000 : 100;
+  const rounded = Math.round(n / step) * step;
+  return formatUndergrads(rounded);
+}
+
 export function formatMetroPopulation(n: number): string {
   return n.toLocaleString("en-US");
 }

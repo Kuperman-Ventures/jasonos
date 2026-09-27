@@ -5,6 +5,7 @@ import {
   formatMetroPopulationShort,
   formatSchoolSizeLabel,
   formatUndergrads,
+  formatUndergradsRounded,
   getKyleResidency,
   getMetroTier,
   getRateThatAppliesToKyle,
@@ -98,6 +99,11 @@ test("metroTierBars map Major→4 through Small→1", () => {
 
 test("format helpers for list and tooltip copy", () => {
   assert.equal(formatUndergrads(33441), "33,441");
+  assert.equal(formatUndergradsRounded(15995), "16,000");
+  assert.equal(formatUndergradsRounded(10000), "10,000");
+  assert.equal(formatUndergradsRounded(9999), "10,000");
+  assert.equal(formatUndergradsRounded(4523), "4,500");
+  assert.equal(formatUndergradsRounded(2462), "2,500");
   assert.equal(formatSchoolSizeLabel(33441), "33,441 (Large)");
   assert.equal(formatSchoolSizeLabel(null), "");
   assert.equal(formatMetroPopulationShort(12844441), "12.8 million people");
