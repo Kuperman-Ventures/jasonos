@@ -32,6 +32,7 @@ import {
   formatTravelLabel,
   nearestSchoolsFrom,
 } from "@/lib/drive-matrix";
+import { SchoolCampusSatelliteMap } from "./SchoolCampusSatelliteMap";
 import { SchoolLocationMap, SelectivityGauge } from "./SchoolSnapshotViz";
 
 type SnapshotPatch = Partial<
@@ -489,6 +490,8 @@ export function SchoolSnapshotSummary({
           </dl>
         </section>
       </div>
+
+      <SchoolCampusSatelliteMap school={school} />
 
       <p className="foot">
         Tuition, aid and net price live in the Financials tab.
