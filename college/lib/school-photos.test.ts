@@ -55,16 +55,20 @@ test("schoolPhotosHeadingName prefers paren nickname", () => {
   assert.equal(schoolPhotosHeadingName("Purdue University"), "Purdue University");
 });
 
-test("virtualTourEmbedUrl covers 30 schools and null for MIT", () => {
+test("virtualTourEmbedUrl covers embeddable tours and null for MIT and Wisconsin", () => {
   const names = catalogSchoolNames();
   const withEmbed = names.filter((name) => virtualTourEmbedUrlForSchool(name) != null);
-  assert.equal(withEmbed.length, 30);
+  assert.equal(withEmbed.length, 29);
   for (const name of withEmbed) {
     const url = virtualTourEmbedUrlForSchool(name);
     assert.ok(url?.startsWith("https://"), name);
   }
   assert.equal(
     virtualTourEmbedUrlForSchool("Massachusetts Institute of Technology (MIT)"),
+    null,
+  );
+  assert.equal(
+    virtualTourEmbedUrlForSchool("University of Wisconsin–Madison"),
     null,
   );
   assert.equal(virtualTourEmbedUrlForSchool("Unknown University"), null);
