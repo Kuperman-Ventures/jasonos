@@ -218,31 +218,19 @@ Headline: setting icon + setting name, then users-three icon + rounded undergrad
 
 ### Student Body (after Campus; Scoir only; hidden if no Scoir match)
 
-Heading: **Student Body** / “% of undergraduates”. Source line: “Source: Scoir, 2026-09-27”.
+Heading: **Student body** (28px) with subhead “Share of undergraduates”. Source: “Source: Scoir, 2026-09-27”. Bar layout (no tables / left border).
 
 #### Where students come from
 
-| UI label | Scoir field |
-| --- | --- |
-| {homeState} (home state) | `undergradGeography.homeState` / `homeStatePct` |
-| New Jersey | `undergradGeography.newJerseyPct` |
-| Other U.S. states | `otherUsStatesPct` |
-| International | `internationalPct` |
-| Other origins (incomplete) | when `complete` is false |
-| States represented | `statesRepresented` |
-| Top places | `topPlaces[]` |
+Stacked bar: home state (`--color-text`) · New Jersey accent slice inside Other US · Other U.S. rest (`--text-subtle`) · International (`--color-dash`). NJ and small International use leader callouts. Ranked top-5 states outside home (NJ bold/accent). Fields: `undergradGeography.*`.
 
 #### Race and ethnicity
 
-Asian, Black, Hispanic, White, American Indian, Two or more races, international, other and not reported → `undergradRaceEthnicityPct.*`
+Sorted largest→smallest bars scaled to 40%. `undergradRaceEthnicityPct.*`.
 
-#### Gender
+#### Gender and Greek life
 
-Female, Male → `undergradGenderPct`; Full time → `undergradFullTimePct`
-
-#### Greek life
-
-Chapters; Men who join; Women who join → `greekLife.*`
+Side-by-side: gender split bar + full-time meter; greek chapter counts + men/women join meters (0–100%).
 
 ### Around campus
 
