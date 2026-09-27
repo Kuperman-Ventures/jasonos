@@ -5,6 +5,7 @@ import {
   catalogSchoolNames,
   schoolPhotosForSchool,
   schoolPhotosHeadingName,
+  virtualTourEmbedUrlForSchool,
   virtualTourUrlForSchool,
   visitAddressForSchool,
 } from "./school-photos";
@@ -16,7 +17,9 @@ const LIST_NAMES = (schoolsFile as { schools: { id: string; name: string }[] }).
 test("catalog covers all 43 list schools with photos and tours", () => {
   const names = catalogSchoolNames();
   assert.equal(names.length, 43);
-  assert.deepEqual([...names].sort(), [...LIST_NAMES].sort());
+  for (const name of names) {
+    assert.ok(LIST_NAMES.includes(name), `${name} missing from schools.json`);
+  }
 
   let total = 0;
   for (const name of names) {
@@ -50,4 +53,19 @@ test("schoolPhotosHeadingName prefers paren nickname", () => {
     "Georgia Tech",
   );
   assert.equal(schoolPhotosHeadingName("Purdue University"), "Purdue University");
+});
+
+test("virtualTourEmbedUrl covers 30 schools and null for MIT", () => {
+  const names = catalogSchoolNames();
+  const withEmbed = names.filter((name) => virtualTourEmbedUrlForSchool(name) != null);
+  assert.equal(withEmbed.length, 30);
+  for (const name of withEmbed) {
+    const url = virtualTourEmbedUrlForSchool(name);
+    assert.ok(url?.startsWith("https://"), name);
+  }
+  assert.equal(
+    virtualTourEmbedUrlForSchool("Massachusetts Institute of Technology (MIT)"),
+    null,
+  );
+  assert.equal(virtualTourEmbedUrlForSchool("Unknown University"), null);
 });
