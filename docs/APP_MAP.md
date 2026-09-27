@@ -303,11 +303,11 @@ Test policy, Middle 50%, Application platform, Teacher recommendations, SAT cont
 
 ## 6. School detail — Financials
 
-Primary record: [`college/data/finances.json`](../college/data/finances.json) matched by exact school name. Household numbers: persisted state `finances`.
+Primary record: [`college/data/finances.json`](../college/data/finances.json) matched by exact school name. Household numbers: persisted state `finances`. Federal net-price / aid-debt overlay: Scoir import.
 
 ### Where it lands among the N schools on your list
 
-Compare strips: Published cost; First-years getting merit; Average merit award; After typical merit; Cost of living · U.S. = 100.
+Compare strips: Published cost; First-years getting merit; Average merit award; After typical merit; Cost of living (shown as % vs U.S. average, with “vs. Maplewood” under it).
 
 ### What {total} covers
 
@@ -315,26 +315,23 @@ Segments: Tuition and fees; Housing and food; Books; Other — from finances JSO
 
 ### Scholarships and aid
 
-Merit / need program rows from finances JSON. Facts: Meets full need; Need-blind; CSS Profile; NJ state aid; Priority aid deadline.
+Merit / need program rows from finances JSON, ordered: apply separately → with admission → need-based → not for NJ.
 
-### Your numbers
+### Net price by family income
 
-| UI label | Stored | Source |
-| --- | --- | --- |
-| Net price estimate / yr | `household.schools[id].netPriceEstimate` | household state |
-| Date run | `netPriceDate` | household state |
-| Merit award offered / yr | `meritAwardOffered` | household state |
-| Net Price Calculator ↗ | `netPriceCalculatorUrl` | finances JSON |
+Bar chart from Scoir `netPriceByIncome` (bands vs published cost; all-aided dashed line). Empty copy when no bands. **Your estimate** lives here: collapsed prompt → Add my result form → “You” bar (household `netPriceEstimate` / `netPriceDate`). Merit award offered is not on this tab.
 
-### Net Price By Family Income (below Your Numbers; Scoir)
+### Aid and debt
 
-| UI | Scoir field |
-| --- | --- |
-| Table Family income / Net price | `netPriceByIncome` rows: Under $30,000; $30,000-$48,000; $48,000-$75,000; $75,000-$110,000; Over $110,000; All aided students |
-| (note) | `netPriceByIncomeNote` |
-| Students receiving aid | `pctReceivingAid` |
-| Students with federal loans | `pctFederalLoans` |
-| Median debt at graduation | `medianDebtAtGraduation` |
+Scoir: share getting grant aid; share with federal loans; median debt at graduation — each with a small bar. Hidden when all missing.
+
+### Aid policies
+
+Meets full need; Need-blind; CSS Profile; NJ state aid.
+
+### Priority aid deadlines
+
+Structured from `priorityAidDeadline` prose (`parsePriorityAidDeadlines`): mono round label, large date, “In N days” accent only when ≤30 days; trailing note under the row.
 
 Footer: finances notes + Cost source ↗.
 

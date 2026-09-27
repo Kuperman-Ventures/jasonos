@@ -14,7 +14,9 @@ import {
   money,
   normalizeHouseholdFinances,
   ordinalRank,
+  parsePriorityAidDeadlines,
   unmatchedFinanceNames,
+  vsIndexPct,
 } from "./finances";
 import { fromSeed } from "./types";
 
@@ -167,4 +169,50 @@ test("ordinal ranks", () => {
   assert.equal(ordinalRank(3), "3rd");
   assert.equal(ordinalRank(11), "11th");
   assert.equal(ordinalRank(21), "21st");
+});
+
+test("COL strip shows vs-U.S. percent and Maplewood sublines", () => {
+  const cwru = financeRecordForSchoolName("Case Western Reserve University");
+  assert.ok(cwru);
+  const rows = buildFinanceCompareRows(cwru!, listFinanceRecords(), 60000);
+  const col = rows.find((r) => r.id === "col");
+  assert.ok(col);
+  assert.equal(col!.label, "Cost of living");
+  assert.match(col!.valueText, /^[+\u2212]?\d+(\.\d)?%$/);
+  assert.deepEqual(col!.subLines?.[0], "vs. U.S. average");
+  assert.match(col!.subLines?.[1] ?? "", /vs\. Maplewood/);
+});
+
+test("parsePriorityAidDeadlines extracts rounds and accent within 30 days", () => {
+  const now = new Date(2026, 8, 27); // Sep 27, 2026
+  const mit = parsePriorityAidDeadlines(
+    "Early Action: November 30; Regular Action: February 15 (current cycle; the page does not state the year)",
+    now,
+  );
+  assert.equal(mit.items.length, 2);
+  assert.equal(mit.items[0]!.round, "EA");
+  assert.equal(mit.items[1]!.round, "RD");
+  assert.equal(mit.note, "current cycle; the page does not state the year");
+  assert.equal(mit.items[0]!.accentSoon, false);
+
+  const soon = parsePriorityAidDeadlines("FAFSA: October 15, 2026 (2026-27 aid year)", now);
+  assert.equal(soon.items.length, 1);
+  assert.equal(soon.items[0]!.round, "FAFSA");
+  assert.equal(soon.items[0]!.accentSoon, true);
+  assert.ok((soon.items[0]!.daysUntil ?? 99) <= 30);
+
+  const jhu = parsePriorityAidDeadlines(
+    "Early Decision I: November 15, 2026; Early Decision II and Regular Decision: January 15, 2027 (fall 2027 entry cycle)",
+    now,
+  );
+  assert.ok(jhu.items.length >= 2);
+  assert.equal(jhu.items[0]!.round, "ED I");
+  assert.match(jhu.items[1]!.round, /ED II/);
+  assert.match(jhu.items[1]!.round, /RD/);
+});
+
+test("vsIndexPct formats relative percent", () => {
+  assert.equal(vsIndexPct(115.6, 100), "+15.6%");
+  assert.equal(vsIndexPct(112.6, 112.6), "0%");
+  assert.equal(vsIndexPct(100, 112.6), "\u221211.2%");
 });

@@ -404,6 +404,205 @@ export function formatMeritSharePct(pct: number): string {
   return `${String(rounded).replace(/\.0$/, "")}%`;
 }
 
+/** Index 115.6 → "+15.6%" vs a 100 base (or vs home). Uses U+2212 minus. */
+export function vsIndexPct(index: number, base: number): string {
+  const d = Math.round((index / base - 1) * 1000) / 10;
+  if (d === 0) return "0%";
+  const sign = d > 0 ? "+" : "\u2212";
+  return `${sign}${Math.abs(d)}%`;
+}
+
+export function formatColVsUs(index: number): string {
+  return vsIndexPct(index, 100);
+}
+
+export function formatColVsHome(index: number): string {
+  return `${vsIndexPct(index, HOME_PRICE_INDEX)} vs. Maplewood`;
+}
+
+export type PriorityAidDeadlineItem = {
+  round: string;
+  dateLabel: string;
+  isoDate: string | null;
+  daysUntil: number | null;
+  accentSoon: boolean;
+};
+
+export type ParsedPriorityAidDeadlines = {
+  items: PriorityAidDeadlineItem[];
+  note: string | null;
+};
+
+const MONTHS: Record<string, number> = {
+  jan: 0,
+  january: 0,
+  feb: 1,
+  february: 1,
+  mar: 2,
+  march: 2,
+  apr: 3,
+  april: 3,
+  may: 4,
+  jun: 5,
+  june: 5,
+  jul: 6,
+  july: 6,
+  aug: 7,
+  august: 7,
+  sep: 8,
+  sept: 8,
+  september: 8,
+  oct: 9,
+  october: 9,
+  nov: 10,
+  november: 10,
+  dec: 11,
+  december: 11,
+};
+
+function roundLabelFromPhrase(phrase: string): string {
+  const p = phrase.toLowerCase();
+  const parts: string[] = [];
+  if (/early decision\s*ii|\bed\s*ii|\bed\s*2/.test(p)) parts.push("ED II");
+  else if (/early decision\s*i\b|\bed\s*i\b/.test(p)) parts.push("ED I");
+  else if (/early decision|\bed\b/.test(p)) parts.push("ED");
+  if (/restrictive early action|\brea\b/.test(p)) parts.push("REA");
+  else if (/early action|\bea\b/.test(p) && !/decision/.test(p)) parts.push("EA");
+  if (/regular (decision|action)|\brd\b/.test(p)) parts.push("RD");
+  if (/fafsa/.test(p)) parts.push("FAFSA");
+  if (/css profile/.test(p)) parts.push("CSS Profile");
+  if (parts.length) return parts.join(" · ");
+  if (/priority/.test(p)) return "Priority";
+  const cleaned = phrase.replace(/preferred deadline|deadline|filing date|due by|by/gi, "").trim();
+  return cleaned.slice(0, 28) || "Priority";
+}
+
+function parseMonthDayYear(
+  text: string,
+  now: Date,
+): { month: number; day: number; year: number | null } | null {
+  const m = text.match(
+    /\b(January|February|March|April|May|June|July|August|September|October|November|December|Jan\.?|Feb\.?|Mar\.?|Apr\.?|Jun\.?|Jul\.?|Aug\.?|Sep\.?|Sept\.?|Oct\.?|Nov\.?|Dec\.?)\s+(\d{1,2})(?:,?\s*((?:19|20)\d{2}))?\b/i,
+  );
+  if (!m) return null;
+  const month = MONTHS[m[1]!.replace(/\./g, "").toLowerCase()];
+  if (month == null) return null;
+  const day = Number(m[2]);
+  const year = m[3] ? Number(m[3]) : null;
+  if (!Number.isFinite(day) || day < 1 || day > 31) return null;
+  return { month, day, year };
+}
+
+function resolveDeadlineDate(
+  parts: { month: number; day: number; year: number | null },
+  now: Date,
+): Date {
+  const year =
+    parts.year ??
+    (() => {
+      const candidate = new Date(now.getFullYear(), parts.month, parts.day);
+      if (candidate.getTime() + 24 * 60 * 60 * 1000 < now.getTime()) {
+        return now.getFullYear() + 1;
+      }
+      return now.getFullYear();
+    })();
+  return new Date(year, parts.month, parts.day);
+}
+
+function formatDeadlineDateLabel(d: Date, hadYear: boolean): string {
+  const months = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+  const base = `${months[d.getMonth()]} ${d.getDate()}`;
+  return hadYear ? `${base}, ${d.getFullYear()}` : base;
+}
+
+function daysBetween(from: Date, to: Date): number {
+  const a = Date.UTC(from.getFullYear(), from.getMonth(), from.getDate());
+  const b = Date.UTC(to.getFullYear(), to.getMonth(), to.getDate());
+  return Math.round((b - a) / 86400000);
+}
+
+/**
+ * Turn prose `priorityAidDeadline` into structured round/date chips.
+ * Never surfaces the raw string as the primary UI.
+ */
+export function parsePriorityAidDeadlines(
+  raw: string | null | undefined,
+  now: Date = new Date(),
+): ParsedPriorityAidDeadlines {
+  if (!raw?.trim()) return { items: [], note: null };
+
+  let working = raw.trim();
+  let note: string | null = null;
+  const noteMatch = working.match(/\(([^)]+)\)\s*$/);
+  if (noteMatch) {
+    note = noteMatch[1]!.trim();
+    working = working.slice(0, noteMatch.index).trim().replace(/[;·]\s*$/, "");
+  }
+
+  const segments = working
+    .split(/\s*;\s*|\s*·\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const items: PriorityAidDeadlineItem[] = [];
+  for (const segment of segments) {
+    const parsed = parseMonthDayYear(segment, now);
+    if (!parsed) continue;
+    const beforeDate = segment.slice(0, segment.search(/\b(January|February|March|April|May|June|July|August|September|October|November|December|Jan\.?|Feb\.?|Mar\.?|Apr\.?|Jun\.?|Jul\.?|Aug\.?|Sep\.?|Sept\.?|Oct\.?|Nov\.?|Dec\.?)\b/i)).trim();
+    const date = resolveDeadlineDate(parsed, now);
+    const daysUntil = daysBetween(now, date);
+    items.push({
+      round: roundLabelFromPhrase(beforeDate || segment),
+      dateLabel: formatDeadlineDateLabel(date, parsed.year != null),
+      isoDate: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`,
+      daysUntil,
+      accentSoon: daysUntil >= 0 && daysUntil <= 30,
+    });
+  }
+
+  if (items.length === 0) {
+    // Single FAFSA-style lead date without a colon-round prefix.
+    const parsed = parseMonthDayYear(working, now);
+    if (parsed) {
+      const date = resolveDeadlineDate(parsed, now);
+      const daysUntil = daysBetween(now, date);
+      items.push({
+        round: /fafsa/i.test(working) ? "FAFSA" : "Priority",
+        dateLabel: formatDeadlineDateLabel(date, parsed.year != null),
+        isoDate: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`,
+        daysUntil,
+        accentSoon: daysUntil >= 0 && daysUntil <= 30,
+      });
+    }
+  }
+
+  // Collapse duplicate rounds that share one date phrase like "ED II and RD".
+  const merged: PriorityAidDeadlineItem[] = [];
+  for (const item of items) {
+    const prev = merged[merged.length - 1];
+    if (prev && prev.isoDate === item.isoDate && prev.round !== item.round) {
+      prev.round = `${prev.round} · ${item.round}`;
+      continue;
+    }
+    merged.push({ ...item });
+  }
+
+  return { items: merged, note };
+}
+
 export type FinanceCompareTick = { leftPct: number; label: string };
 
 export type FinanceCompareRow = {
@@ -412,6 +611,8 @@ export type FinanceCompareRow = {
   valueText: string;
   kind: "strip" | "none";
   noneText?: string;
+  /** Extra lines under the figure (e.g. COL vs U.S. / Maplewood). */
+  subLines?: string[];
   rankText?: string;
   posPct?: number;
   ticks?: FinanceCompareTick[];
@@ -426,6 +627,7 @@ type CompareMetric = {
   label: string;
   get: (rec: FinanceRecord) => number | null;
   fmt: (v: number) => string;
+  subLines?: (v: number) => string[];
   showBudget?: boolean;
   /** When this school's value is null: hide the row entirely. */
   hideWhenNull?: boolean;
@@ -469,9 +671,10 @@ function compareMetrics(): CompareMetric[] {
     },
     {
       id: "col",
-      label: "Cost of living · U.S. = 100",
+      label: "Cost of living",
       get: (r) => r.costOfLivingIndex,
-      fmt: (v) => String(v),
+      fmt: (v) => formatColVsUs(v),
+      subLines: (v) => ["vs. U.S. average", formatColVsHome(v)],
     },
   ];
 }
@@ -550,6 +753,7 @@ export function buildFinanceCompareRows(
       label: metric.label,
       valueText: metric.fmt(mine),
       kind: "strip",
+      subLines: metric.subLines?.(mine),
       rankText,
       posPct: pct(mine),
       ticks: vals

@@ -11506,6 +11506,11 @@ html[data-mode="dark"] .trip-cell.kbreak {
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
+.fin-lands-sub {
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
 .fin-lands-none {
   font-size: 15px;
   color: var(--text-subtle);
@@ -11687,40 +11692,197 @@ html[data-mode="dark"] .trip-cell.kbreak {
   color: var(--text-subtle);
   cursor: default;
 }
-.fin-aid-facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 28px;
-  padding-top: 18px;
-  border-top: 1px solid var(--color-rule);
-}
-.fin-aid-fact {
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-  font-size: 15px;
-}
-.fin-aid-fact-label {
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-subtle);
-}
-.fin-aid-fact .accent,
-.fin-aid-fact span:last-child { font-weight: 600; }
-.fin-aid-fact .accent { color: var(--text-accent); }
 
-.fin-yours {
+.fin-net {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
-.fin-yours-grid {
+.fin-net-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.fin-net-head .fin-section-kicker { padding-bottom: 0; }
+.fin-net-lede {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  text-wrap: pretty;
+  max-width: 66ch;
+}
+.fin-net-empty {
+  margin: 0;
+  font-size: 15px;
+  color: var(--text-subtle);
+}
+.fin-net-chart {
+  display: flex;
+  flex-direction: column;
+}
+.fin-net-axis {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  grid-template-columns: 180px minmax(0, 1fr) 96px;
+  gap: 20px;
+  height: 22px;
+}
+.fin-net-axis-track {
+  position: relative;
+}
+.fin-net-axis-aided {
+  position: absolute;
+  bottom: 4px;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.fin-net-axis-pub {
+  position: absolute;
+  bottom: 4px;
+  right: 0;
+  font-size: 11px;
+  color: var(--text-subtle);
+  white-space: nowrap;
+}
+.fin-net-row {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr) 96px;
+  gap: 20px;
+  align-items: center;
+}
+.fin-net-row.is-faded .fin-net-bar {
+  background: var(--color-dash);
+}
+.fin-net-row.is-faded .fin-net-band-label {
+  color: var(--text-subtle);
+  font-weight: 400;
+}
+.fin-net-row.is-yours .fin-net-band-label {
+  font-weight: 700;
+}
+.fin-net-row.is-yours .fin-net-bar {
+  background: var(--color-text);
+}
+.fin-net-band {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0;
+  min-width: 0;
+}
+.fin-net-band-label {
+  font-size: 15px;
+  color: var(--color-text);
+}
+.fin-net-band-hint {
+  font-size: 12px;
+  color: var(--text-subtle);
+}
+.fin-net-track {
+  position: relative;
+  height: 20px;
+  display: flex;
+  align-items: center;
+}
+.fin-net-track::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--color-border);
+}
+.fin-net-aided-line {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 0;
+  border-left: 1px dashed var(--text-subtle);
+  z-index: 1;
+}
+.fin-net-bar {
+  position: relative;
+  z-index: 0;
+  height: 20px;
+  background: var(--text-subtle);
+}
+.fin-net-bar.is-you {
+  background: var(--color-accent);
+}
+.fin-net-amt {
+  font-size: 15px;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.fin-estimate-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+}
+.fin-estimate-line {
+  margin: 0;
+  font-size: 15px;
+  color: var(--color-text);
+}
+.fin-estimate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+}
+.fin-estimate-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+}
+.fin-estimate-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 220px)) auto auto;
   gap: 14px;
   align-items: end;
+  justify-content: start;
+}
+.fin-estimate-done {
+  height: 44px;
+  padding: 0 16px;
+  background: var(--color-accent);
+  color: var(--text-on-accent);
+  border: none;
+  font-weight: 600;
+}
+.fin-npc-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 2px);
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: transparent;
+}
+.fin-npc-secondary:hover { background: var(--color-surface); }
+.fin-text-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  min-height: 34px;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-accent);
+  cursor: pointer;
 }
 .fin-yours-field {
   display: flex;
@@ -11737,27 +11899,120 @@ html[data-mode="dark"] .trip-cell.kbreak {
   border-radius: var(--radius-md, 2px);
   font-size: 15px;
 }
-.fin-npc-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 44px;
-  padding: 0 16px;
-  background: var(--color-accent);
-  color: var(--text-on-accent);
-  text-decoration: none;
-  font-size: 15px;
-  font-weight: 600;
-  border-radius: var(--radius-md, 2px);
-  white-space: nowrap;
-}
-.fin-npc-btn:hover { background: var(--color-accent-pressed); }
 .fin-privacy {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.5;
   color: var(--text-subtle);
 }
+
+.fin-aid-debt {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.fin-aid-debt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 24px 48px;
+}
+.fin-aid-debt-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fin-aid-debt-figure {
+  font-size: 32px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.fin-aid-debt-meter {
+  position: relative;
+  height: 10px;
+  background: var(--color-border);
+}
+.fin-aid-debt-meter > span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--color-text);
+}
+.fin-aid-debt-label {
+  font-size: 15px;
+  color: var(--color-text);
+}
+.fin-aid-debt-against {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-subtle);
+}
+
+.fin-policies {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.fin-policies-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px 28px;
+}
+.fin-policy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.fin-policy-label {
+  font-size: 15px;
+  color: var(--text-subtle);
+}
+.fin-policy-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.fin-deadlines {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.fin-deadlines-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 56px;
+}
+.fin-deadline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.fin-deadline-round {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+.fin-deadline-date {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+}
+.fin-deadline-date.is-soon { color: var(--text-accent); }
+.fin-deadline-soon {
+  font-size: 13px;
+  color: var(--text-accent);
+}
+.fin-deadline-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-subtle);
+}
+
 .fin-school-foot {
   display: flex;
   justify-content: space-between;
@@ -11809,7 +12064,9 @@ html[data-mode="dark"] .trip-cell.kbreak {
   .fin-nj-row,
   .fin-lands-row,
   .fin-aid-row,
-  .fin-yours-grid {
+  .fin-net-axis,
+  .fin-net-row,
+  .fin-estimate-fields {
     grid-template-columns: 1fr;
   }
   .fin-aid-action { justify-self: start; }

@@ -10,6 +10,7 @@ import {
   money,
   moneyCompact,
   needProgramOpenToNj,
+  parsePriorityAidDeadlines,
   residencyLabel,
   schoolFinanceEntry,
   shortSchoolName,
@@ -25,15 +26,16 @@ import {
 import type { School } from "@/lib/types";
 import { SchoolMark } from "./SchoolMark";
 
-const NET_PRICE_ROWS: { key: keyof NonNullable<ScoirRecord["netPriceByIncome"]>; label: string }[] =
-  [
-    { key: "under30k", label: "Under $30,000" },
-    { key: "30to48k", label: "$30,000-$48,000" },
-    { key: "48to75k", label: "$48,000-$75,000" },
-    { key: "75to110k", label: "$75,000-$110,000" },
-    { key: "over110k", label: "Over $110,000" },
-    { key: "average", label: "All aided students" },
-  ];
+const NET_BANDS: {
+  key: Exclude<keyof NonNullable<ScoirRecord["netPriceByIncome"]>, "average">;
+  label: string;
+}[] = [
+  { key: "under30k", label: "Under $30,000" },
+  { key: "30to48k", label: "$30,000–$48,000" },
+  { key: "48to75k", label: "$48,000–$75,000" },
+  { key: "75to110k", label: "$75,000–$110,000" },
+  { key: "over110k", label: "Over $110,000" },
+];
 
 type AidKind = "apply" | "admit" | "need" | "closed";
 
@@ -47,6 +49,13 @@ type AidRow = {
   deadline: string;
   separateApplication: boolean;
   closed: boolean;
+};
+
+const AID_KIND_ORDER: Record<AidKind, number> = {
+  apply: 0,
+  admit: 1,
+  need: 2,
+  closed: 3,
 };
 
 function parseMoneyInput(raw: string): number | null {
@@ -85,13 +94,20 @@ function aidRows(finance: NonNullable<ReturnType<typeof financeRecordForSchoolNa
       closed: !open,
     });
   }
-  return rows;
+  return rows.sort((a, b) => AID_KIND_ORDER[a.kind] - AID_KIND_ORDER[b.kind]);
 }
 
 function yn(v: boolean | null): string {
   if (v === true) return "Yes";
   if (v === false) return "No";
   return "Not stated";
+}
+
+function formatEstimateDate(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 export function SchoolFinancials({
@@ -101,6 +117,7 @@ export function SchoolFinancials({
   onHouseholdChange,
   scholarshipTodoIds,
   onAddScholarshipTodo,
+  incomeBand = null,
 }: {
   school: School;
   listSchools: School[];
@@ -108,19 +125,20 @@ export function SchoolFinancials({
   onHouseholdChange: (next: HouseholdFinances) => void;
   scholarshipTodoIds: Record<string, string>;
   onAddScholarshipTodo: (scholarshipKey: string, title: string) => void;
+  /** Optional profile income band for net-price highlight. */
+  incomeBand?: (typeof NET_BANDS)[number]["key"] | null;
 }) {
   const finance = financeRecordForSchoolName(school.name);
   const scoir = scoirRecordForSchool(school);
   const entry = schoolFinanceEntry(household, school.id);
   const rows = useMemo(() => (finance ? aidRows(finance) : []), [finance]);
+  const short = shortSchoolName(school.name);
 
   const [estimateDraft, setEstimateDraft] = useState(
     entry.netPriceEstimate != null ? String(entry.netPriceEstimate) : "",
   );
   const [dateDraft, setDateDraft] = useState(entry.netPriceDate ?? "");
-  const [meritDraft, setMeritDraft] = useState(
-    entry.meritAwardOffered != null ? String(entry.meritAwardOffered) : "",
-  );
+  const [estimateOpen, setEstimateOpen] = useState(false);
 
   const peerRecords = useMemo(() => {
     const fromList = listSchools
@@ -137,6 +155,11 @@ export function SchoolFinancials({
 
   const costBar = useMemo(() => (finance ? buildCostBar(finance) : null), [finance]);
 
+  const deadlines = useMemo(
+    () => parsePriorityAidDeadlines(finance?.priorityAidDeadline ?? null),
+    [finance?.priorityAidDeadline],
+  );
+
   if (!finance) {
     return (
       <section className="school-modal-section fin-school">
@@ -144,7 +167,33 @@ export function SchoolFinancials({
           <h3>Financials</h3>
           <p className="section-sub">No published finance record for this school yet.</p>
         </div>
-        {scoir ? <ScoirNetPriceBlock scoir={scoir} /> : null}
+        {scoir ? (
+          <NetPriceSection
+            scoir={scoir}
+            short={short}
+            totalCost={null}
+            estimate={entry.netPriceEstimate}
+            estimateDate={entry.netPriceDate}
+            estimateDraft={estimateDraft}
+            dateDraft={dateDraft}
+            estimateOpen={estimateOpen}
+            incomeBand={incomeBand}
+            npcUrl={null}
+            onEstimateDraft={setEstimateDraft}
+            onDateDraft={setDateDraft}
+            onEstimateOpen={setEstimateOpen}
+            onSaveEstimate={(patch) => {
+              const current = schoolFinanceEntry(household, school.id);
+              onHouseholdChange({
+                ...household,
+                schools: {
+                  ...household.schools,
+                  [school.id]: { ...current, ...patch },
+                },
+              });
+            }}
+          />
+        ) : null}
       </section>
     );
   }
@@ -163,7 +212,7 @@ export function SchoolFinancials({
   const listCount = peerRecords.length;
   const totalLabel = money(finance.totalCost);
 
-  const facts: { label: string; value: string; accent?: boolean }[] = [
+  const policyFacts = [
     {
       label: "Meets full need",
       value:
@@ -185,12 +234,7 @@ export function SchoolFinancials({
     },
     {
       label: "NJ state aid",
-      value: isNjStateAidSchool(school.name) ? "Eligible schools" : "No",
-    },
-    {
-      label: "Priority aid deadline",
-      value: finance.priorityAidDeadline || "Not stated",
-      accent: Boolean(finance.priorityAidDeadline),
+      value: isNjStateAidSchool(school.name) ? "Yes" : "No",
     },
   ];
 
@@ -217,6 +261,11 @@ export function SchoolFinancials({
             <div className="fin-lands-label">
               <span className="fin-lands-caption">{row.label}</span>
               <span className="fin-lands-value">{row.valueText}</span>
+              {row.subLines?.map((line) => (
+                <span key={line} className="fin-lands-sub">
+                  {line}
+                </span>
+              ))}
             </div>
             {row.kind === "none" ? (
               <span className="fin-lands-none">{row.noneText}</span>
@@ -248,7 +297,7 @@ export function SchoolFinancials({
                 <span
                   className="fin-lands-dot"
                   style={{ left: `${row.posPct}%` }}
-                  title={`${shortSchoolName(school.name)} ${row.valueText}`}
+                  title={`${short} ${row.valueText}`}
                 />
                 <div className="fin-lands-end fin-lands-end-min mono">{row.minLabel}</div>
                 <div className="fin-lands-end fin-lands-end-max mono">{row.maxLabel}</div>
@@ -350,71 +399,64 @@ export function SchoolFinancials({
             );
           })
         )}
-        <div className="fin-aid-facts">
-          {facts.map((fact) => (
-            <span key={fact.label} className="fin-aid-fact">
-              <span className="mono fin-aid-fact-label">{fact.label}</span>
-              <span className={fact.accent ? "accent" : undefined}>{fact.value}</span>
-            </span>
+      </section>
+
+      <NetPriceSection
+        scoir={scoir}
+        short={short}
+        totalCost={finance.totalCost}
+        estimate={entry.netPriceEstimate}
+        estimateDate={entry.netPriceDate}
+        estimateDraft={estimateDraft}
+        dateDraft={dateDraft}
+        estimateOpen={estimateOpen}
+        incomeBand={incomeBand}
+        npcUrl={finance.netPriceCalculatorUrl}
+        onEstimateDraft={setEstimateDraft}
+        onDateDraft={setDateDraft}
+        onEstimateOpen={setEstimateOpen}
+        onSaveEstimate={patchEntry}
+      />
+
+      {scoir ? <AidAndDebtSection scoir={scoir} totalCost={finance.totalCost} /> : null}
+
+      <section className="fin-policies" aria-label="Aid policies">
+        <span className="fin-section-kicker mono">Aid policies</span>
+        <div className="fin-policies-grid">
+          {policyFacts.map((fact) => (
+            <div key={fact.label} className="fin-policy">
+              <span className="fin-policy-label">{fact.label}</span>
+              <span className="fin-policy-value">{fact.value}</span>
+            </div>
           ))}
         </div>
       </section>
 
-      <section className="fin-yours" aria-label="Your numbers">
-        <span className="fin-section-kicker mono">Your numbers</span>
-        <div className="fin-yours-grid">
-          <label className="fin-yours-field">
-            <span>Net price estimate / yr</span>
-            <input
-              className="field mono"
-              inputMode="numeric"
-              placeholder="$0"
-              value={estimateDraft}
-              onChange={(e) => setEstimateDraft(e.target.value)}
-              onBlur={() => patchEntry({ netPriceEstimate: parseMoneyInput(estimateDraft) })}
-            />
-          </label>
-          <label className="fin-yours-field">
-            <span>Date run</span>
-            <input
-              className="field mono"
-              type="date"
-              value={dateDraft}
-              onChange={(e) => setDateDraft(e.target.value)}
-              onBlur={() => patchEntry({ netPriceDate: dateDraft || null })}
-            />
-          </label>
-          <label className="fin-yours-field">
-            <span>Merit award offered / yr</span>
-            <input
-              className="field mono"
-              inputMode="numeric"
-              placeholder="$0"
-              value={meritDraft}
-              onChange={(e) => setMeritDraft(e.target.value)}
-              onBlur={() => patchEntry({ meritAwardOffered: parseMoneyInput(meritDraft) })}
-            />
-          </label>
-          {finance.netPriceCalculatorUrl ? (
-            <a
-              className="primary-btn fin-npc-btn"
-              href={finance.netPriceCalculatorUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Net Price Calculator ↗
-            </a>
-          ) : (
-            <span />
-          )}
-        </div>
-        <p className="fin-privacy">
-          Only the result is saved. Income, assets and tax details stay in the school&apos;s
-          calculator.
-        </p>
-      </section>
-
-      {scoir ? <ScoirNetPriceBlock scoir={scoir} /> : null}
+      {(deadlines.items.length > 0 || deadlines.note) && (
+        <section className="fin-deadlines" aria-label="Priority aid deadlines">
+          <span className="fin-section-kicker mono">Priority aid deadlines</span>
+          {deadlines.items.length > 0 ? (
+            <div className="fin-deadlines-row">
+              {deadlines.items.map((item) => (
+                <div key={`${item.round}-${item.dateLabel}`} className="fin-deadline">
+                  <span className="fin-deadline-round mono">{item.round}</span>
+                  <span
+                    className={`fin-deadline-date${item.accentSoon ? " is-soon" : ""}`}
+                  >
+                    {item.dateLabel}
+                  </span>
+                  {item.accentSoon && item.daysUntil != null ? (
+                    <span className="fin-deadline-soon">
+                      In {item.daysUntil} day{item.daysUntil === 1 ? "" : "s"}
+                    </span>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {deadlines.note ? <p className="fin-deadline-note">{deadlines.note}</p> : null}
+        </section>
+      )}
 
       <footer className="fin-school-foot">
         <p className="fin-notes">{finance.notes}</p>
@@ -428,48 +470,286 @@ export function SchoolFinancials({
   );
 }
 
-function ScoirNetPriceBlock({ scoir }: { scoir: ScoirRecord }) {
-  const table = scoir.netPriceByIncome;
+function NetPriceSection({
+  scoir,
+  short,
+  totalCost,
+  estimate,
+  estimateDate,
+  estimateDraft,
+  dateDraft,
+  estimateOpen,
+  incomeBand,
+  npcUrl,
+  onEstimateDraft,
+  onDateDraft,
+  onEstimateOpen,
+  onSaveEstimate,
+}: {
+  scoir: ScoirRecord | null;
+  short: string;
+  totalCost: number | null;
+  estimate: number | null;
+  estimateDate: string | null;
+  estimateDraft: string;
+  dateDraft: string;
+  estimateOpen: boolean;
+  incomeBand: (typeof NET_BANDS)[number]["key"] | null;
+  npcUrl: string | null;
+  onEstimateDraft: (v: string) => void;
+  onDateDraft: (v: string) => void;
+  onEstimateOpen: (v: boolean) => void;
+  onSaveEstimate: (patch: Partial<HouseholdSchoolFinance>) => void;
+}) {
+  const table = scoir?.netPriceByIncome ?? null;
+  const published = totalCost ?? 0;
+  const scale = Math.max(published, table?.average ?? 0, estimate ?? 0, 1);
+  const hasBands = Boolean(table && NET_BANDS.some((b) => table[b.key] != null));
+  const hasChart = hasBands || estimate != null;
+  const aidedLeft =
+    table?.average != null ? `${Math.min(100, (table.average / scale) * 100)}%` : null;
+  const highlight = incomeBand != null && hasBands;
+
   return (
-    <section className="fin-scoir-net" aria-label="Net price by family income">
-      <span className="fin-section-kicker mono">Net Price By Family Income</span>
-      {table ? (
-        <div className="scoir-net-price">
-          <table>
-            <thead>
-              <tr>
-                <th>Family income</th>
-                <th>Net price</th>
-              </tr>
-            </thead>
-            <tbody>
-              {NET_PRICE_ROWS.map((row) => (
-                <tr key={row.key}>
-                  <td>{row.label}</td>
-                  <td className="mono">{formatScoirMoney(table[row.key])}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+    <section className="fin-net" aria-label="Net price by family income">
+      <div className="fin-net-head">
+        <span className="fin-section-kicker mono">Net price by family income</span>
+        <p className="fin-net-lede">
+          What first-year students getting grant aid paid on average, from federal data.
+        </p>
+      </div>
+
+      {hasChart ? (
+        <div className="fin-net-chart">
+          {hasBands && aidedLeft ? (
+            <div className="fin-net-axis" aria-hidden="true">
+              <span />
+              <div className="fin-net-axis-track">
+                <span className="fin-net-axis-aided mono" style={{ left: aidedLeft }}>
+                  All aided students · {formatScoirMoney(table!.average)}
+                </span>
+                {totalCost != null ? (
+                  <span className="fin-net-axis-pub mono">
+                    Published cost {moneyCompact(totalCost)}
+                  </span>
+                ) : null}
+              </div>
+              <span />
+            </div>
+          ) : null}
+
+          {hasBands
+            ? NET_BANDS.map((band) => {
+                const value = table![band.key];
+                if (value == null) return null;
+                const isYours = highlight && incomeBand === band.key;
+                const widthPct = Math.min(100, (value / scale) * 100);
+                return (
+                  <div
+                    key={band.key}
+                    className={`fin-net-row${highlight && !isYours ? " is-faded" : ""}${isYours ? " is-yours" : ""}`}
+                  >
+                    <div className="fin-net-band">
+                      <span className="fin-net-band-label">{band.label}</span>
+                      {isYours ? (
+                        <span className="fin-net-band-hint">Your income band</span>
+                      ) : null}
+                    </div>
+                    <div className="fin-net-track">
+                      {aidedLeft ? (
+                        <span className="fin-net-aided-line" style={{ left: aidedLeft }} />
+                      ) : null}
+                      <span
+                        className="fin-net-bar"
+                        style={{ width: `${widthPct}%` }}
+                      />
+                    </div>
+                    <span className="fin-net-amt mono">{formatScoirMoney(value)}</span>
+                  </div>
+                );
+              })
+            : null}
+
+          {estimate != null ? (
+            <div className="fin-net-row is-estimate">
+              <div className="fin-net-band">
+                <span className="fin-net-band-label">You</span>
+                <span className="fin-net-band-hint">
+                  Run {formatEstimateDate(estimateDate)}
+                  {" · "}
+                  <button
+                    type="button"
+                    className="fin-text-btn"
+                    onClick={() => {
+                      onEstimateDraft(String(estimate));
+                      onDateDraft(estimateDate ?? "");
+                      onEstimateOpen(true);
+                    }}
+                  >
+                    Edit
+                  </button>
+                </span>
+              </div>
+              <div className="fin-net-track">
+                {aidedLeft ? (
+                  <span className="fin-net-aided-line" style={{ left: aidedLeft }} />
+                ) : null}
+                <span
+                  className="fin-net-bar is-you"
+                  style={{ width: `${Math.min(100, (estimate / scale) * 100)}%` }}
+                />
+              </div>
+              <span className="fin-net-amt mono">{moneyCompact(estimate)}</span>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <p className="fin-net-empty">
+          No income-band figures on file for {short}.
+          {scoir?.netPriceByIncomeNote ? ` ${scoir.netPriceByIncomeNote}` : ""}
+        </p>
+      )}
+
+      {estimate == null && !estimateOpen ? (
+        <div className="fin-estimate-prompt">
+          <p className="fin-estimate-line">
+            Run {short}&apos;s calculator for your own number.
+          </p>
+          <div className="fin-estimate-actions">
+            {npcUrl ? (
+              <a
+                className="fin-npc-secondary"
+                href={npcUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Net Price Calculator ↗
+              </a>
+            ) : null}
+            <button
+              type="button"
+              className="fin-text-btn"
+              onClick={() => onEstimateOpen(true)}
+            >
+              Add my result
+            </button>
+          </div>
         </div>
       ) : null}
-      {scoir.netPriceByIncomeNote ? (
-        <p className="section-sub scoir-note">{scoir.netPriceByIncomeNote}</p>
+
+      {estimateOpen ? (
+        <div className="fin-estimate-form">
+          <div className="fin-estimate-fields">
+            <label className="fin-yours-field">
+              <span>Net price estimate / yr</span>
+              <input
+                className="field mono"
+                inputMode="numeric"
+                placeholder="$0"
+                value={estimateDraft}
+                onChange={(e) => onEstimateDraft(e.target.value)}
+              />
+            </label>
+            <label className="fin-yours-field">
+              <span>Date run</span>
+              <input
+                className="field mono"
+                type="date"
+                value={dateDraft}
+                onChange={(e) => onDateDraft(e.target.value)}
+              />
+            </label>
+            <button
+              type="button"
+              className="primary-btn fin-estimate-done"
+              onClick={() => {
+                onSaveEstimate({
+                  netPriceEstimate: parseMoneyInput(estimateDraft),
+                  netPriceDate: dateDraft || null,
+                });
+                onEstimateOpen(false);
+              }}
+            >
+              Done
+            </button>
+            {npcUrl ? (
+              <a
+                className="fin-npc-secondary"
+                href={npcUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Net Price Calculator ↗
+              </a>
+            ) : null}
+          </div>
+          <p className="fin-privacy">
+            Only the result is saved. Income, assets and tax details stay in the school&apos;s
+            calculator.
+          </p>
+        </div>
       ) : null}
-      <dl className="fin-scoir-aid-facts">
-        <div>
-          <dt>Students receiving aid</dt>
-          <dd>{formatScoirPct(scoir.pctReceivingAid, 0)}</dd>
-        </div>
-        <div>
-          <dt>Students with federal loans</dt>
-          <dd>{formatScoirPct(scoir.pctFederalLoans, 0)}</dd>
-        </div>
-        <div>
-          <dt>Median debt at graduation</dt>
-          <dd>{formatScoirMoney(scoir.medianDebtAtGraduation)}</dd>
-        </div>
-      </dl>
+    </section>
+  );
+}
+
+function AidAndDebtSection({
+  scoir,
+  totalCost,
+}: {
+  scoir: ScoirRecord;
+  totalCost: number | null;
+}) {
+  const items: {
+    value: string;
+    label: string;
+    against: string;
+    widthPct: number;
+  }[] = [];
+
+  if (scoir.pctReceivingAid != null) {
+    items.push({
+      value: formatScoirPct(scoir.pctReceivingAid, 0) ?? "—",
+      label: "Share of students getting grant aid",
+      against: "Against all students",
+      widthPct: Math.min(100, scoir.pctReceivingAid),
+    });
+  }
+  if (scoir.pctFederalLoans != null) {
+    items.push({
+      value: formatScoirPct(scoir.pctFederalLoans, 0) ?? "—",
+      label: "Share borrowing federal loans",
+      against: "Against all students",
+      widthPct: Math.min(100, scoir.pctFederalLoans),
+    });
+  }
+  if (scoir.medianDebtAtGraduation != null) {
+    const againstCost = totalCost && totalCost > 0 ? totalCost : scoir.medianDebtAtGraduation;
+    items.push({
+      value: formatScoirMoney(scoir.medianDebtAtGraduation) ?? "—",
+      label: "Median debt at graduation",
+      against: "Against one year at the published cost",
+      widthPct: Math.min(100, (scoir.medianDebtAtGraduation / againstCost) * 100),
+    });
+  }
+
+  if (items.length === 0) return null;
+
+  return (
+    <section className="fin-aid-debt" aria-label="Aid and debt">
+      <span className="fin-section-kicker mono">Aid and debt</span>
+      <div className="fin-aid-debt-grid">
+        {items.map((item) => (
+          <div key={item.label} className="fin-aid-debt-col">
+            <span className="fin-aid-debt-figure">{item.value}</span>
+            <div className="fin-aid-debt-meter" aria-hidden="true">
+              <span style={{ width: `${item.widthPct}%` }} />
+            </div>
+            <span className="fin-aid-debt-label">{item.label}</span>
+            <span className="fin-aid-debt-against">{item.against}</span>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
