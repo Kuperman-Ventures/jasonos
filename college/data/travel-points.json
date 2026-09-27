@@ -1,0 +1,376 @@
+{
+  "points": [
+    {
+      "id": "home",
+      "type": "home",
+      "name": "Home (Maplewood, NJ)",
+      "address": "Maplewood, NJ 07040"
+    },
+    {
+      "id": "school:mit",
+      "type": "school",
+      "name": "Massachusetts Institute of Technology (MIT)",
+      "address": "Massachusetts Institute of Technology, 77 Massachusetts Ave, Cambridge, MA 02139"
+    },
+    {
+      "id": "school:stanford-university",
+      "type": "school",
+      "name": "Stanford University",
+      "address": "Stanford University, 450 Jane Stanford Way, Stanford, CA 94305"
+    },
+    {
+      "id": "school:uc-berkeley",
+      "type": "school",
+      "name": "University of California, Berkeley (UC Berkeley)",
+      "address": "University of California, Berkeley, Berkeley, CA 94720"
+    },
+    {
+      "id": "school:cornell-university",
+      "type": "school",
+      "name": "Cornell University",
+      "address": "Cornell University, Ithaca, NY 14853"
+    },
+    {
+      "id": "school:northwestern-university",
+      "type": "school",
+      "name": "Northwestern University",
+      "address": "Northwestern University, 633 Clark St, Evanston, IL 60208"
+    },
+    {
+      "id": "school:cmu",
+      "type": "school",
+      "name": "Carnegie Mellon University (CMU)",
+      "address": "Carnegie Mellon University, 5000 Forbes Ave, Pittsburgh, PA 15213"
+    },
+    {
+      "id": "school:upenn",
+      "type": "school",
+      "name": "University of Pennsylvania (UPenn)",
+      "address": "University of Pennsylvania, Philadelphia, PA 19104"
+    },
+    {
+      "id": "school:johns-hopkins-university",
+      "type": "school",
+      "name": "Johns Hopkins University",
+      "address": "Johns Hopkins University Homewood Campus, 3400 N Charles St, Baltimore, MD 21218"
+    },
+    {
+      "id": "school:georgia-tech",
+      "type": "school",
+      "name": "Georgia Institute of Technology (Georgia Tech)",
+      "address": "Georgia Institute of Technology, North Ave NW, Atlanta, GA 30332"
+    },
+    {
+      "id": "school:university-of-michigan-ann-arbor",
+      "type": "school",
+      "name": "University of Michigan–Ann Arbor",
+      "address": "University of Michigan North Campus, Ann Arbor, MI 48109"
+    },
+    {
+      "id": "school:uiuc",
+      "type": "school",
+      "name": "University of Illinois Urbana-Champaign (UIUC)",
+      "address": "University of Illinois Urbana-Champaign, Urbana, IL 61801"
+    },
+    {
+      "id": "school:ut-austin",
+      "type": "school",
+      "name": "University of Texas at Austin (UT Austin)",
+      "address": "The University of Texas at Austin, Austin, TX 78712"
+    },
+    {
+      "id": "school:ucla",
+      "type": "school",
+      "name": "University of California, Los Angeles (UCLA)",
+      "address": "University of California, Los Angeles, Los Angeles, CA 90095"
+    },
+    {
+      "id": "school:purdue-university",
+      "type": "school",
+      "name": "Purdue University",
+      "address": "Purdue University, West Lafayette, IN 47907"
+    },
+    {
+      "id": "school:university-of-maryland-college-park",
+      "type": "school",
+      "name": "University of Maryland, College Park",
+      "address": "University of Maryland, College Park, MD 20742"
+    },
+    {
+      "id": "school:university-of-washington",
+      "type": "school",
+      "name": "University of Washington",
+      "address": "University of Washington, Seattle, WA 98195"
+    },
+    {
+      "id": "school:university-of-wisconsin-madison",
+      "type": "school",
+      "name": "University of Wisconsin–Madison",
+      "address": "University of Wisconsin-Madison, Madison, WI 53706"
+    },
+    {
+      "id": "school:virginia-tech",
+      "type": "school",
+      "name": "Virginia Polytechnic Institute and State University (Virginia Tech)",
+      "address": "Virginia Tech, Blacksburg, VA 24061"
+    },
+    {
+      "id": "school:penn-state",
+      "type": "school",
+      "name": "Pennsylvania State University (Penn State)",
+      "address": "Penn State University Park, State College, PA 16802"
+    },
+    {
+      "id": "school:ohio-state-university",
+      "type": "school",
+      "name": "Ohio State University",
+      "address": "The Ohio State University, Columbus, OH 43210"
+    },
+    {
+      "id": "school:university-of-minnesota-twin-cities",
+      "type": "school",
+      "name": "University of Minnesota Twin Cities",
+      "address": "University of Minnesota Twin Cities, Minneapolis, MN 55455"
+    },
+    {
+      "id": "school:nc-state",
+      "type": "school",
+      "name": "North Carolina State University (NC State)",
+      "address": "North Carolina State University, Raleigh, NC 27695"
+    },
+    {
+      "id": "school:uc-davis",
+      "type": "school",
+      "name": "University of California, Davis (UC Davis)",
+      "address": "University of California, Davis, Davis, CA 95616"
+    },
+    {
+      "id": "school:uc-irvine",
+      "type": "school",
+      "name": "University of California, Irvine (UC Irvine)",
+      "address": "University of California, Irvine, Irvine, CA 92697"
+    },
+    {
+      "id": "school:case-western-reserve-university",
+      "type": "school",
+      "name": "Case Western Reserve University",
+      "address": "Case Western Reserve University, 10900 Euclid Ave, Cleveland, OH 44106"
+    },
+    {
+      "id": "school:rpi",
+      "type": "school",
+      "name": "Rensselaer Polytechnic Institute (RPI)",
+      "address": "Rensselaer Polytechnic Institute, 110 8th St, Troy, NY 12180"
+    },
+    {
+      "id": "school:rutgers-university-new-brunswick",
+      "type": "school",
+      "name": "Rutgers University–New Brunswick",
+      "address": "Rutgers University Busch Campus, Piscataway, NJ 08854"
+    },
+    {
+      "id": "school:university-of-florida",
+      "type": "school",
+      "name": "University of Florida",
+      "address": "University of Florida, Gainesville, FL 32611"
+    },
+    {
+      "id": "school:texas-a-and-m-university",
+      "type": "school",
+      "name": "Texas A&M University",
+      "address": "Texas A&M University, College Station, TX 77843"
+    },
+    {
+      "id": "school:colorado-school-of-mines",
+      "type": "school",
+      "name": "Colorado School of Mines",
+      "address": "Colorado School of Mines, 1500 Illinois St, Golden, CO 80401"
+    },
+    {
+      "id": "school:uva",
+      "type": "school",
+      "name": "University of Virginia (UVA)",
+      "address": "University of Virginia, Charlottesville, VA 22904"
+    },
+    {
+      "id": "school:lehigh-university",
+      "type": "school",
+      "name": "Lehigh University",
+      "address": "Lehigh University, 27 Memorial Dr W, Bethlehem, PA 18015"
+    },
+    {
+      "id": "school:uconn",
+      "type": "school",
+      "name": "University of Connecticut (UConn)",
+      "address": "University of Connecticut, Storrs, CT 06269"
+    },
+    {
+      "id": "school:university-of-delaware",
+      "type": "school",
+      "name": "University of Delaware",
+      "address": "University of Delaware, Newark, DE 19716"
+    },
+    {
+      "id": "school:drexel-university",
+      "type": "school",
+      "name": "Drexel University",
+      "address": "Drexel University, 3141 Chestnut St, Philadelphia, PA 19104"
+    },
+    {
+      "id": "school:iowa-state-university",
+      "type": "school",
+      "name": "Iowa State University",
+      "address": "Iowa State University, Ames, IA 50011"
+    },
+    {
+      "id": "school:clemson-university",
+      "type": "school",
+      "name": "Clemson University",
+      "address": "Clemson University, Clemson, SC 29634"
+    },
+    {
+      "id": "school:university-of-tennessee-knoxville",
+      "type": "school",
+      "name": "University of Tennessee, Knoxville",
+      "address": "University of Tennessee, Knoxville, TN 37996"
+    },
+    {
+      "id": "school:michigan-tech",
+      "type": "school",
+      "name": "Michigan Technological University (Michigan Tech)",
+      "address": "Michigan Technological University, 1400 Townsend Dr, Houghton, MI 49931"
+    },
+    {
+      "id": "school:njit",
+      "type": "school",
+      "name": "New Jersey Institute of Technology (NJIT)",
+      "address": "New Jersey Institute of Technology, 323 Dr Martin Luther King Jr Blvd, Newark, NJ 07102"
+    },
+    {
+      "id": "school:wpi",
+      "type": "school",
+      "name": "Worcester Polytechnic Institute (WPI)",
+      "address": "Worcester Polytechnic Institute, 100 Institute Rd, Worcester, MA 01609"
+    },
+    {
+      "id": "school:stevens-institute-of-technology",
+      "type": "school",
+      "name": "Stevens Institute of Technology",
+      "address": "Stevens Institute of Technology, 1 Castle Point Terrace, Hoboken, NJ 07030"
+    },
+    {
+      "id": "school:rose-hulman-institute-of-technology",
+      "type": "school",
+      "name": "Rose-Hulman Institute of Technology",
+      "address": "Rose-Hulman Institute of Technology, 5500 Wabash Ave, Terre Haute, IN 47803"
+    },
+    {
+      "id": "airport:ORD",
+      "type": "airport",
+      "name": "Chicago O'Hare International Airport",
+      "address": "O'Hare International Airport, Chicago, IL 60666",
+      "regions": [
+        "Midwest"
+      ]
+    },
+    {
+      "id": "airport:DTW",
+      "type": "airport",
+      "name": "Detroit Metropolitan Airport",
+      "address": "Detroit Metropolitan Wayne County Airport, Detroit, MI 48242",
+      "regions": [
+        "Midwest"
+      ]
+    },
+    {
+      "id": "airport:MSP",
+      "type": "airport",
+      "name": "Minneapolis-Saint Paul International Airport",
+      "address": "Minneapolis-Saint Paul International Airport, Minneapolis, MN 55111",
+      "regions": [
+        "Midwest"
+      ]
+    },
+    {
+      "id": "airport:DEN",
+      "type": "airport",
+      "name": "Denver International Airport",
+      "address": "Denver International Airport, 8500 Pena Blvd, Denver, CO 80249",
+      "regions": [
+        "Mountain"
+      ]
+    },
+    {
+      "id": "airport:AUS",
+      "type": "airport",
+      "name": "Austin-Bergstrom International Airport",
+      "address": "Austin-Bergstrom International Airport, 3600 Presidential Blvd, Austin, TX 78719",
+      "regions": [
+        "Texas"
+      ]
+    },
+    {
+      "id": "airport:IAH",
+      "type": "airport",
+      "name": "Houston George Bush Intercontinental Airport",
+      "address": "George Bush Intercontinental Airport, 2800 N Terminal Rd, Houston, TX 77032",
+      "regions": [
+        "Texas"
+      ]
+    },
+    {
+      "id": "airport:SFO",
+      "type": "airport",
+      "name": "San Francisco International Airport",
+      "address": "San Francisco International Airport, San Francisco, CA 94128",
+      "regions": [
+        "West Coast"
+      ]
+    },
+    {
+      "id": "airport:LAX",
+      "type": "airport",
+      "name": "Los Angeles International Airport",
+      "address": "Los Angeles International Airport, 1 World Way, Los Angeles, CA 90045",
+      "regions": [
+        "West Coast"
+      ]
+    },
+    {
+      "id": "airport:SEA",
+      "type": "airport",
+      "name": "Seattle-Tacoma International Airport",
+      "address": "Seattle-Tacoma International Airport, 17801 International Blvd, SeaTac, WA 98158",
+      "regions": [
+        "West Coast"
+      ]
+    },
+    {
+      "id": "airport:ATL",
+      "type": "airport",
+      "name": "Atlanta Hartsfield-Jackson International Airport",
+      "address": "Hartsfield-Jackson Atlanta International Airport, 6000 N Terminal Pkwy, Atlanta, GA 30320",
+      "regions": [
+        "South"
+      ]
+    },
+    {
+      "id": "airport:RDU",
+      "type": "airport",
+      "name": "Raleigh-Durham International Airport",
+      "address": "Raleigh-Durham International Airport, 2400 John Brantley Blvd, Morrisville, NC 27560",
+      "regions": [
+        "South"
+      ]
+    },
+    {
+      "id": "airport:JAX",
+      "type": "airport",
+      "name": "Jacksonville International Airport",
+      "address": "Jacksonville International Airport, 2400 Yankee Clipper Rd, Jacksonville, FL 32218",
+      "regions": [
+        "South"
+      ]
+    }
+  ]
+}
