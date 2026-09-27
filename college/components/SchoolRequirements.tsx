@@ -14,8 +14,8 @@ import {
   REQUIREMENT_STATE_LABEL,
   REQUIREMENT_STATUS_LABEL,
   SAT_SCALE,
+  applyScoirRequirementGaps,
   buildSchoolRequirements,
-  firstName,
   recommendationCount,
   satPosition,
   toSubmitItems,
@@ -23,6 +23,12 @@ import {
   type RequirementProfileItem,
   type RequirementState,
 } from "@/lib/school-requirements";
+import {
+  formatApplicationFee,
+  honorsCollegeLine,
+  scoirRecordForSchool,
+  scoirRequirementState,
+} from "@/lib/scoir";
 import type { Owner, School } from "@/lib/types";
 import { TEST_POLICY_OPTIONS } from "@/lib/types";
 import { SchoolMark } from "./SchoolMark";
@@ -57,7 +63,7 @@ function BlurInput({
 export function SchoolRequirements({
   school,
   memberId,
-  memberName,
+  memberName: _memberName,
   studentSat = null,
   requirementProgress,
   projectSteps,
@@ -80,7 +86,14 @@ export function SchoolRequirements({
 }) {
   const [editing, setEditing] = useState(false);
   const userId = (["kyle", "jason", "kat"].includes(memberId) ? memberId : "jason") as Owner;
-  const view = useMemo(() => buildSchoolRequirements(school), [school]);
+  const scoir = useMemo(() => scoirRecordForSchool(school), [school]);
+  const view = useMemo(() => {
+    const base = buildSchoolRequirements(school);
+    return applyScoirRequirementGaps(base, {
+      essay: scoirRequirementState(scoir?.essayOrStatement),
+      interview: scoirRequirementState(scoir?.interview),
+    });
+  }, [school, scoir]);
   const toSubmit = useMemo(() => toSubmitItems(view.profile), [view.profile]);
   const quiet = useMemo(
     () => view.profile.filter((item) => item.state === "no"),
@@ -100,7 +113,9 @@ export function SchoolRequirements({
     return progress.status === 2;
   }).length;
   const progressPct = toSubmit.length ? (doneCount / toSubmit.length) * 100 : 0;
-  const who = firstName(memberName);
+  const who = "Kyle";
+  const honorsLine = honorsCollegeLine(scoir?.honorsCollege);
+  const tracksInterest = Boolean(scoir?.considersDemonstratedInterest);
 
   const stats: {
     label: string;
@@ -117,6 +132,11 @@ export function SchoolRequirements({
       hot: testsItem?.state === "req",
     },
     { label: "Recommendations", value: recs, sub: "teacher or counselor" },
+    {
+      label: "Application fee",
+      value: formatApplicationFee(scoir?.applicationFee),
+      sub: "first-year",
+    },
   ];
 
   if (editing) {
@@ -274,7 +294,12 @@ export function SchoolRequirements({
                 {group.items.map((item) => (
                   <div className="school-reqs-tile" key={item.key}>
                     <b>{item.label}</b>
-                    <small>{item.note}</small>
+                    <small>
+                      {item.note}
+                      {item.source ? (
+                        <span className="scoir-source-chip">{item.source}</span>
+                      ) : null}
+                    </small>
                   </div>
                 ))}
               </div>
@@ -334,6 +359,10 @@ export function SchoolRequirements({
         <div>
           <span className="school-reqs-label">Admissions context</span>
           <p className="school-reqs-adm">{view.admissionsContext}</p>
+          {honorsLine ? <p className="school-reqs-adm scoir-adm-line">{honorsLine}</p> : null}
+          {tracksInterest ? (
+            <p className="school-reqs-adm scoir-adm-line">Tracks demonstrated interest</p>
+          ) : null}
         </div>
       </div>
 

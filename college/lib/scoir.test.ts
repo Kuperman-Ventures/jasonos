@@ -1,31 +1,25 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  SCOIR_ABSENT_NAMES,
-  formatScoirSatMid50,
+  formatApplicationFee,
+  honorsCollegeLine,
   scoirNewJerseyPct,
   scoirRecordForSchool,
+  scoirRequirementState,
   scoirSchoolCount,
   scoirSummaryCounts,
-  unmatchedScoirNames,
 } from "./scoir";
 
-test("scoir import covers 40 schools", () => {
+test("scoir import covers 40 schools with revised summary counts", () => {
   assert.equal(scoirSchoolCount(), 40);
   const summary = scoirSummaryCounts();
   assert.equal(summary.schoolCount, 40);
-  assert.equal(summary.applying, 4);
-  assert.equal(summary.following, 36);
-  assert.equal(summary.usesCommonApp, 35);
-  assert.equal(summary.noCommonApp, 5);
-  assert.equal(summary.essayRequired, 31);
-  assert.equal(summary.essaySome, 2);
-  assert.equal(summary.essayOptional, 4);
-  assert.equal(summary.essayNotRequired, 1);
-  assert.equal(summary.essayEmpty, 2);
   assert.equal(summary.demonstratedInterest, 12);
-  assert.equal(summary.bindingEarlyDecision, 12);
-  assert.equal(summary.satMissing, 5);
+  assert.equal(summary.netPriceTable, 13);
+  assert.equal(summary.netPriceNoteOnly, 27);
+  assert.equal(summary.honorsSeparate, 8);
+  assert.equal(summary.honorsInvite, 10);
+  assert.equal(summary.honorsNone, 22);
 });
 
 test("match by unitId then name", () => {
@@ -35,17 +29,24 @@ test("match by unitId then name", () => {
   });
   assert.ok(byId);
   assert.match(byId!.school, /MIT/);
+  assert.equal(byId!.essayOrStatement, "Required");
 
   const byName = scoirRecordForSchool({
     name: "Carnegie Mellon University (CMU)",
     unitId: null,
   });
   assert.ok(byName);
-  assert.equal(byName!.scoirListStatus, "Applying");
+  assert.equal(byName!.considersDemonstratedInterest, false);
 });
 
-test("absent tracker schools have no Scoir row", () => {
-  for (const name of SCOIR_ABSENT_NAMES) {
+test("WPI and archived names have no Scoir row", () => {
+  for (const name of [
+    "Worcester Polytechnic Institute (WPI)",
+    "Boston University",
+    "Northeastern University",
+    "Stevens Institute of Technology",
+    "University of Connecticut",
+  ]) {
     assert.equal(scoirRecordForSchool({ name, unitId: null }), null);
   }
 });
@@ -65,11 +66,6 @@ test("New Jersey share highlights", () => {
   );
 });
 
-test("SAT mid-50 formats with tilde and en dash", () => {
-  assert.equal(formatScoirSatMid50("1500-1570"), "~1500–1570");
-  assert.equal(formatScoirSatMid50(null), "");
-});
-
 test("Tennessee geography is incomplete", () => {
   const row = scoirRecordForSchool({
     name: "University of Tennessee, Knoxville",
@@ -79,11 +75,13 @@ test("Tennessee geography is incomplete", () => {
   assert.equal(row!.undergradGeography?.complete, false);
 });
 
-test("unmatchedScoirNames reports the five absent schools", () => {
-  const all = [
-    ...SCOIR_ABSENT_NAMES.map((name) => ({ name, unitId: null as number | null })),
-    { name: "Massachusetts Institute of Technology (MIT)", unitId: 166683 },
-  ];
-  const result = unmatchedScoirNames(all);
-  assert.deepEqual(result.missingScoir.sort(), [...SCOIR_ABSENT_NAMES].sort());
+test("application fee and honors helpers", () => {
+  assert.equal(formatApplicationFee(0), "No fee");
+  assert.equal(formatApplicationFee(75), "$75");
+  assert.equal(honorsCollegeLine("Separate application"), "Honors college: separate application");
+  assert.equal(honorsCollegeLine("By invitation"), "Honors college: by invitation");
+  assert.equal(honorsCollegeLine(null), null);
+  assert.deepEqual(scoirRequirementState("Required"), { state: "req", note: "Required" });
+  assert.equal(scoirRequirementState(""), null);
+  assert.equal(scoirRequirementState(null), null);
 });

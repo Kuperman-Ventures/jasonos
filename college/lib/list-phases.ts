@@ -57,7 +57,7 @@ export const LIST_COLUMNS: { id: ListColumnId; label: string; required?: boolean
   { id: "mechanical", label: "Mechanical" },
   { id: "materials", label: "Materials" },
   { id: "aerospace", label: "Aerospace" },
-  { id: "newJerseyPct", label: "% from NJ" },
+  { id: "newJerseyPct", label: "From NJ" },
 ];
 
 export const LIST_PHASES: ListPhase[] = [

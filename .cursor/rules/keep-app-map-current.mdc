@@ -1,0 +1,16 @@
+---
+description: Keep docs/APP_MAP.md current
+alwaysApply: true
+---
+
+# Keep APP_MAP.md Current
+
+After any change that adds, removes, renames or moves a page, tab, section, field, filter, column or data source, update [docs/APP_MAP.md](docs/APP_MAP.md) in the same commit.
+
+APP_MAP.md lists, for every page and every tab in the school detail view:
+- the exact name shown in the UI
+- each section in order, with the exact heading
+- each field shown: UI label, stored field name, and where the value comes from (which import file or API)
+- list page filters, sort options and Columns picker options
+
+Keep it plain and factual. No plans, only what exists now.

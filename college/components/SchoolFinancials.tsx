@@ -16,8 +16,24 @@ import {
   type HouseholdFinances,
   type HouseholdSchoolFinance,
 } from "@/lib/finances";
+import {
+  formatScoirMoney,
+  formatScoirPct,
+  scoirRecordForSchool,
+  type ScoirRecord,
+} from "@/lib/scoir";
 import type { School } from "@/lib/types";
 import { SchoolMark } from "./SchoolMark";
+
+const NET_PRICE_ROWS: { key: keyof NonNullable<ScoirRecord["netPriceByIncome"]>; label: string }[] =
+  [
+    { key: "under30k", label: "Under $30,000" },
+    { key: "30to48k", label: "$30,000-$48,000" },
+    { key: "48to75k", label: "$48,000-$75,000" },
+    { key: "75to110k", label: "$75,000-$110,000" },
+    { key: "over110k", label: "Over $110,000" },
+    { key: "average", label: "All aided students" },
+  ];
 
 type AidKind = "apply" | "admit" | "need" | "closed";
 
@@ -94,6 +110,7 @@ export function SchoolFinancials({
   onAddScholarshipTodo: (scholarshipKey: string, title: string) => void;
 }) {
   const finance = financeRecordForSchoolName(school.name);
+  const scoir = scoirRecordForSchool(school);
   const entry = schoolFinanceEntry(household, school.id);
   const rows = useMemo(() => (finance ? aidRows(finance) : []), [finance]);
 
@@ -122,11 +139,12 @@ export function SchoolFinancials({
 
   if (!finance) {
     return (
-      <section className="school-modal-section">
+      <section className="school-modal-section fin-school">
         <div className="school-overview-head">
           <h3>Financials</h3>
           <p className="section-sub">No published finance record for this school yet.</p>
         </div>
+        {scoir ? <ScoirNetPriceBlock scoir={scoir} /> : null}
       </section>
     );
   }
@@ -396,6 +414,8 @@ export function SchoolFinancials({
         </p>
       </section>
 
+      {scoir ? <ScoirNetPriceBlock scoir={scoir} /> : null}
+
       <footer className="fin-school-foot">
         <p className="fin-notes">{finance.notes}</p>
         {finance.costSourceUrl ? (
@@ -404,6 +424,52 @@ export function SchoolFinancials({
           </a>
         ) : null}
       </footer>
+    </section>
+  );
+}
+
+function ScoirNetPriceBlock({ scoir }: { scoir: ScoirRecord }) {
+  const table = scoir.netPriceByIncome;
+  return (
+    <section className="fin-scoir-net" aria-label="Net price by family income">
+      <span className="fin-section-kicker mono">Net Price By Family Income</span>
+      {table ? (
+        <div className="scoir-net-price">
+          <table>
+            <thead>
+              <tr>
+                <th>Family income</th>
+                <th>Net price</th>
+              </tr>
+            </thead>
+            <tbody>
+              {NET_PRICE_ROWS.map((row) => (
+                <tr key={row.key}>
+                  <td>{row.label}</td>
+                  <td className="mono">{formatScoirMoney(table[row.key])}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+      {scoir.netPriceByIncomeNote ? (
+        <p className="section-sub scoir-note">{scoir.netPriceByIncomeNote}</p>
+      ) : null}
+      <dl className="fin-scoir-aid-facts">
+        <div>
+          <dt>Students receiving aid</dt>
+          <dd>{formatScoirPct(scoir.pctReceivingAid, 0)}</dd>
+        </div>
+        <div>
+          <dt>Students with federal loans</dt>
+          <dd>{formatScoirPct(scoir.pctFederalLoans, 0)}</dd>
+        </div>
+        <div>
+          <dt>Median debt at graduation</dt>
+          <dd>{formatScoirMoney(scoir.medianDebtAtGraduation)}</dd>
+        </div>
+      </dl>
     </section>
   );
 }

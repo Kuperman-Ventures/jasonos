@@ -33,6 +33,7 @@ import {
   type Owner,
   type School,
 } from "@/lib/types";
+import { scoirRecordForSchool } from "@/lib/scoir";
 
 const SUBTABS: { id: SchoolPmSubtab; label: string }[] = [
   { id: "notes", label: "Notes" },
@@ -133,6 +134,8 @@ export function SchoolProjectManagement({
   const [deadlineDate, setDeadlineDate] = useState("");
 
   const notes = school.projectNotes;
+  const scoir = scoirRecordForSchool(school);
+  const tracksInterest = Boolean(scoir?.considersDemonstratedInterest);
   const deadlines = useMemo(
     () =>
       [...school.deadlines].sort(
@@ -432,6 +435,12 @@ export function SchoolProjectManagement({
 
         {subtab === "touch" ? (
           <div className="school-pm-panel" role="tabpanel">
+            {tracksInterest ? (
+              <p className="school-pm-di-banner">
+                This school tracks demonstrated interest. Visits, info sessions and contact with
+                admissions count toward the decision.
+              </p>
+            ) : null}
             {school.steps.length === 0 ? (
               <p className="school-pm-empty">No touchpoints yet.</p>
             ) : null}

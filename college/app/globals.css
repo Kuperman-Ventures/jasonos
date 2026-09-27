@@ -1728,39 +1728,6 @@ table.schools .test-policy-fall2028-note {
   color: var(--text-subtle);
 }
 
-.scoir-list-badge {
-  display: inline-block;
-  margin-left: 8px;
-  padding: 1px 6px;
-  font-family: var(--font-mono, "IBM Plex Mono", monospace);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-subtle);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  vertical-align: middle;
-}
-.scoir-sections {
-  display: flex;
-  flex-direction: column;
-  gap: 40px;
-  margin: 40px 0;
-  padding-top: 24px;
-  border-top: 1px solid var(--color-rule);
-}
-.scoir-as-of {
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--text-subtle);
-}
-.scoir-area {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
 .scoir-sublabel {
   font-family: var(--font-mono, "IBM Plex Mono", monospace);
   font-size: 11px;
@@ -1775,7 +1742,6 @@ table.schools .test-policy-fall2028-note {
   margin: 0;
   max-width: 66ch;
 }
-.scoir-deadlines ul,
 .scoir-top-places ul {
   margin: 6px 0 0;
   padding: 0;
@@ -1783,13 +1749,8 @@ table.schools .test-policy-fall2028-note {
   display: grid;
   gap: 6px;
 }
-.scoir-deadlines li,
 .scoir-top-places li {
   font-size: 15px;
-}
-.scoir-binding {
-  color: var(--text-accent);
-  font-size: 13px;
 }
 .scoir-body-block {
   display: flex;
@@ -1801,6 +1762,61 @@ table.schools .test-policy-fall2028-note {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
+}
+.scoir-area {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 32px 0 0;
+}
+.scoir-source-chip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  font-family: var(--font-mono, "IBM Plex Mono", monospace);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  border: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+.scoir-adm-line {
+  margin-top: 6px;
+}
+.school-pm-di-banner {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  max-width: 62ch;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text);
+  background: var(--color-surface);
+  border-left: 3px solid var(--color-accent);
+}
+.fin-scoir-net {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 28px;
+}
+.fin-scoir-aid-facts {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  max-width: 42ch;
+}
+.fin-scoir-aid-facts dt {
+  font-family: var(--font-mono, "IBM Plex Mono", monospace);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+.fin-scoir-aid-facts dd {
+  margin: 2px 0 0;
+  font-size: 15px;
 }
 .scoir-net-price {
   margin-top: 8px;

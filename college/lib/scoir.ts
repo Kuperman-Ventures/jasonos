@@ -1,7 +1,6 @@
 /**
- * Scoir import overlay (2026-09-27). Matched by unitId, then exact school name.
- * Nested Scoir facts stay in data/scoir-import-2026-09-27.json — not on the school row.
- * Empty SAT / platform / essay fills are applied via migration 0033.
+ * Scoir import overlay (2026-09-27, revised). Match by unitId, then exact name.
+ * Only fills gaps the tracker does not already cover from checked sources.
  */
 
 import scoirFile from "@/data/scoir-import-2026-09-27.json";
@@ -14,12 +13,7 @@ export type ScoirRequirementLevel =
   | "Not required"
   | "";
 
-export type ScoirDeadlineRound = {
-  roundName: string;
-  roundType: string;
-  deadline: string;
-  binding: boolean;
-};
+export type ScoirHonorsCollege = "Separate application" | "By invitation" | null;
 
 export type ScoirNetPriceByIncome = {
   under30k: number | null;
@@ -71,43 +65,16 @@ export type ScoirRecord = {
   school: string;
   unitId: number;
   scoirId: number;
-  scoirListStatus: "Following" | "Applying";
-  applicationPlatforms: string[];
-  usesCommonApp: boolean;
   essayOrStatement: ScoirRequirementLevel | null;
-  resume: ScoirRequirementLevel | null;
-  portfolio: ScoirRequirementLevel | null;
   interview: ScoirRequirementLevel | null;
-  considersDemonstratedInterest: boolean;
   applicationFee: number | null;
-  fall2027EntryDeadlines: ScoirDeadlineRound[];
-  admitRatePct: number | null;
-  applicants: number | null;
-  admitted: number | null;
-  enrolled: number | null;
-  satMid50: string | null;
-  satMathMid50: string | null;
-  satReadingWritingMid50: string | null;
-  actMid50: string | null;
-  firstYearRetentionPct: number | null;
-  stickerPriceInState: number | null;
-  stickerPriceOutOfState: number | null;
-  tuitionInState: number | null;
-  tuitionOutOfState: number | null;
-  roomAndBoard: number | null;
+  considersDemonstratedInterest: boolean;
+  honorsCollege: ScoirHonorsCollege;
   netPriceByIncome: ScoirNetPriceByIncome | null;
   netPriceByIncomeNote: string | null;
   pctReceivingAid: number | null;
   pctFederalLoans: number | null;
   medianDebtAtGraduation: number | null;
-  honorsCollege: "Apply" | "Invite" | null;
-  nearestAirport: string | null;
-  nearestAirportMiles: number | null;
-  nearestTrainStation: string | null;
-  nearestTrainStationMiles: number | null;
-  ncaaDivision: string | null;
-  conference: string | null;
-  rotc: string[];
   engineeringShareOfDegreesPct: number | null;
   undergradRaceEthnicityPct: ScoirRaceEthnicity | null;
   undergradGenderPct: ScoirGender | null;
@@ -126,7 +93,7 @@ export type ScoirFile = {
 };
 
 export const SCOIR_PULLED_DATE = "2026-09-27";
-export const SCOIR_DEADLINES_LABEL = "Fall 2027 entry deadlines (last cycle)";
+export const SCOIR_SOURCE_LABEL = "Scoir";
 
 const file = scoirFile as unknown as ScoirFile;
 
@@ -136,15 +103,6 @@ for (const row of file.schools) {
   byUnitId.set(row.unitId, row);
   byName.set(row.school, row);
 }
-
-/** Tracker schools known to have no Scoir row. */
-export const SCOIR_ABSENT_NAMES = [
-  "Stevens Institute of Technology",
-  "Worcester Polytechnic Institute (WPI)",
-  "Rose-Hulman Institute of Technology",
-  "University of Florida",
-  "Vassar College",
-] as const;
 
 export function scoirSchoolCount(): number {
   return file.schoolCount;
@@ -167,16 +125,6 @@ export function scoirNewJerseyPct(school: Pick<School, "name" | "unitId">): numb
   return pct == null || !Number.isFinite(pct) ? null : pct;
 }
 
-/** Format Scoir mid-50 "1500-1570" as the tracker's "~1500–1570". */
-export function formatScoirSatMid50(mid: string | null | undefined): string {
-  if (!mid?.trim()) return "";
-  return `~${mid.trim().replace(/-/g, "–")}`;
-}
-
-export function formatScoirPlatforms(platforms: string[] | null | undefined): string {
-  return (platforms ?? []).filter(Boolean).join(", ");
-}
-
 export function formatScoirMoney(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return "—";
   return new Intl.NumberFormat("en-US", {
@@ -193,95 +141,46 @@ export function formatScoirPct(n: number | null | undefined, digits = 1): string
   return `${text}%`;
 }
 
-export function formatScoirDeadline(mmdd: string): string {
-  const m = mmdd.match(/^(\d{2})-(\d{2})$/);
-  if (!m) return mmdd;
-  const month = Number(m[1]);
-  const day = Number(m[2]);
-  const names = [
-    "",
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  return `${names[month] ?? m[1]} ${day}`;
+export function formatApplicationFee(fee: number | null | undefined): string {
+  if (fee == null || !Number.isFinite(fee)) return "—";
+  if (fee === 0) return "No fee";
+  return formatScoirMoney(fee);
 }
 
-export function scoirListStatusLabel(status: ScoirRecord["scoirListStatus"] | null | undefined): string {
-  if (!status) return "";
-  return `Scoir: ${status}`;
+export function scoirRequirementState(
+  value: ScoirRequirementLevel | null | undefined,
+): { state: "req" | "mod" | "no"; note: string } | null {
+  if (!value?.trim()) return null;
+  if (value === "Required") return { state: "req", note: value };
+  if (value === "Not required") return { state: "no", note: value };
+  return { state: "mod", note: value };
 }
 
-/** Public schools outside New Jersey — Scoir net price is in-state. */
-export function scoirNeedsOutOfStateNetPriceNote(school: Pick<School, "control" | "name" | "location">): boolean {
-  if (school.control !== "Public") return false;
-  const name = school.name.toLowerCase();
-  const loc = school.location.toLowerCase();
-  if (name.includes("rutgers") || name.includes("new jersey institute")) return false;
-  if (loc.includes(", nj") || loc.endsWith(" nj") || loc.includes("new jersey")) return false;
-  return true;
+export function honorsCollegeLine(value: ScoirHonorsCollege | undefined): string | null {
+  if (value === "Separate application") return "Honors college: separate application";
+  if (value === "By invitation") return "Honors college: by invitation";
+  return null;
 }
 
 export type ScoirSummaryCounts = {
   schoolCount: number;
-  applying: number;
-  following: number;
-  usesCommonApp: number;
-  noCommonApp: number;
-  essayRequired: number;
-  essaySome: number;
-  essayOptional: number;
-  essayNotRequired: number;
-  essayEmpty: number;
   demonstratedInterest: number;
-  bindingEarlyDecision: number;
-  satMissing: number;
+  netPriceTable: number;
+  netPriceNoteOnly: number;
+  honorsSeparate: number;
+  honorsInvite: number;
+  honorsNone: number;
 };
 
 export function scoirSummaryCounts(): ScoirSummaryCounts {
   const rows = file.schools;
   return {
     schoolCount: rows.length,
-    applying: rows.filter((r) => r.scoirListStatus === "Applying").length,
-    following: rows.filter((r) => r.scoirListStatus === "Following").length,
-    usesCommonApp: rows.filter((r) => r.usesCommonApp).length,
-    noCommonApp: rows.filter((r) => !r.usesCommonApp).length,
-    essayRequired: rows.filter((r) => r.essayOrStatement === "Required").length,
-    essaySome: rows.filter((r) => r.essayOrStatement === "Required for some applicants").length,
-    essayOptional: rows.filter((r) => r.essayOrStatement === "Optional").length,
-    essayNotRequired: rows.filter((r) => r.essayOrStatement === "Not required").length,
-    essayEmpty: rows.filter((r) => !r.essayOrStatement).length,
     demonstratedInterest: rows.filter((r) => r.considersDemonstratedInterest).length,
-    bindingEarlyDecision: rows.filter((r) =>
-      (r.fall2027EntryDeadlines ?? []).some((d) => d.binding),
-    ).length,
-    satMissing: rows.filter((r) => !r.satMid50).length,
-  };
-}
-
-export function unmatchedScoirNames(schools: { name: string; unitId: number | null }[]): {
-  missingScoir: string[];
-  missingSchool: string[];
-} {
-  const matched = new Set<string>();
-  for (const school of schools) {
-    const rec = scoirRecordForSchool(school);
-    if (rec) matched.add(rec.school);
-  }
-  return {
-    missingScoir: schools
-      .filter((s) => !scoirRecordForSchool(s))
-      .map((s) => s.name)
-      .sort(),
-    missingSchool: file.schools.filter((r) => !matched.has(r.school)).map((r) => r.school),
+    netPriceTable: rows.filter((r) => r.netPriceByIncome != null).length,
+    netPriceNoteOnly: rows.filter((r) => r.netPriceByIncome == null).length,
+    honorsSeparate: rows.filter((r) => r.honorsCollege === "Separate application").length,
+    honorsInvite: rows.filter((r) => r.honorsCollege === "By invitation").length,
+    honorsNone: rows.filter((r) => !r.honorsCollege).length,
   };
 }
