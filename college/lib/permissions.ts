@@ -63,3 +63,19 @@ export function canEditActivitiesJournal(member: RoleMember): boolean {
   if (member.id === "local") return true;
   return isStudentRole(member.role) || isAdminRole(member.role);
 }
+
+/**
+ * Finances (list page + school Financials tab).
+ * During Exploration: Parent and Admin only.
+ * After Exploration (Consideration / Applications): Parent, Admin, and Student.
+ * Local seed mode stays unlocked for testing.
+ */
+export function canViewFinances(
+  member: RoleMember,
+  listPhaseId: "exploration" | "consideration" | "applications",
+): boolean {
+  if (member.id === "local") return true;
+  if (isAdminRole(member.role) || isParentRole(member.role)) return true;
+  if (listPhaseId === "exploration") return false;
+  return isStudentRole(member.role);
+}

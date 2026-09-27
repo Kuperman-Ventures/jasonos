@@ -16,6 +16,7 @@ import {
   SquaresFour,
   TrayArrowDown,
   UsersThree,
+  Coins,
   type Icon,
 } from "@phosphor-icons/react";
 import {
@@ -32,7 +33,7 @@ import {
   listPhaseById,
   type ListPhaseId,
 } from "@/lib/list-phases";
-import { HOUSEHOLD_ROLES, isAdminRole, roleLabel } from "@/lib/permissions";
+import { HOUSEHOLD_ROLES, canViewFinances, isAdminRole, roleLabel } from "@/lib/permissions";
 import type { TabId } from "@/lib/types";
 import { ThemeModeSwitch } from "./ThemeModeSwitch";
 
@@ -68,6 +69,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "colleges", label: "Colleges", Icon: Bank },
       { id: "apps", label: "Apps & Materials", Icon: Files },
+      { id: "finances", label: "Finances", Icon: Coins },
       { id: "ingest", label: "Ingest", Icon: TrayArrowDown },
     ],
   },
@@ -118,7 +120,7 @@ export function LeftRail({
   onProjectSectionChange: (section: ProjectSectionId) => void;
   appsSection: AppsSectionId;
   onAppsSectionChange: (section: AppsSectionId) => void;
-  member: { displayName: string; role: string; avatarUrl: string | null };
+  member: { id: string; displayName: string; role: string; avatarUrl: string | null };
   onAvatarChange: (avatarUrl: string | null) => void;
   schoolCount: number;
   projectCount: number;
@@ -153,6 +155,7 @@ export function LeftRail({
     colleges: schoolCount,
     projects: projectCount,
     apps: questionCount,
+    finances: schoolCount,
     consultants: consultantCount,
     faq: faqCount,
     testing: testingCount,
@@ -161,6 +164,14 @@ export function LeftRail({
   const roleMeta = HOUSEHOLD_ROLES.find((row) => row.id === member.role);
   const heldRoles = HOUSEHOLD_ROLES.filter((row) => row.id === member.role);
   const showAdmin = isAdminRole(member.role) || member.displayName === "Local";
+  const showFinances = canViewFinances(
+    { id: member.id, role: member.role },
+    listPhaseId,
+  );
+  const navGroups = NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => item.id !== "finances" || showFinances),
+  }));
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -299,7 +310,7 @@ export function LeftRail({
         </div>
 
         <div className="rail-nav-groups">
-          {NAV_GROUPS.map((group) => (
+          {navGroups.map((group) => (
             <nav key={group.label} aria-label={group.label} className="rail-nav-group">
               <span className="rail-nav-label">{group.label}</span>
               {group.items.map((item) => {

@@ -16,6 +16,7 @@ export type TabId =
   | "ingest"
   | "faq"
   | "apps"
+  | "finances"
   | "consultants"
   | "notes"
   | "testing"
@@ -291,6 +292,7 @@ export const TABS: { id: TabId; label: string }[] = [
   { id: "ingest", label: "Ingest" },
   { id: "notes", label: "Notes" },
   { id: "apps", label: "Apps & Materials" },
+  { id: "finances", label: "Finances" },
   { id: "log", label: "Log" },
   { id: "admin", label: "Admin" },
   { id: "consultants", label: "Consultants" },

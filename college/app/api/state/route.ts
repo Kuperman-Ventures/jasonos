@@ -33,6 +33,11 @@ import {
   normalizeRequirementProgress,
   type RequirementProgressMap,
 } from "@/lib/requirement-progress";
+import {
+  emptyHouseholdFinances,
+  normalizeHouseholdFinances,
+  type HouseholdFinances,
+} from "@/lib/finances";
 
 type StateRow = {
   checklist: Record<string, boolean> | null;
@@ -47,6 +52,7 @@ type StateRow = {
   calendar_events?: unknown;
   activities_journal?: unknown;
   requirement_progress?: unknown;
+  finances?: unknown;
 };
 
 function localDemoPins(): PinNote[] {
@@ -186,6 +192,7 @@ function emptyState() {
     calendarEvents: [] as CalendarEvent[],
     activitiesJournal: emptyJournal(),
     requirementProgress: {} as RequirementProgressMap,
+    finances: emptyHouseholdFinances(),
   };
 }
 
@@ -198,7 +205,7 @@ export async function GET() {
     const { data, error } = await db
       .from("app_state")
       .select(
-        "checklist, scores, notes, project_steps, ingest_sources, todo_subtasks, todo_edits, todo_projects, note_items, calendar_events, activities_journal, requirement_progress",
+        "checklist, scores, notes, project_steps, ingest_sources, todo_subtasks, todo_edits, todo_projects, note_items, calendar_events, activities_journal, requirement_progress, finances",
       )
       .eq("id", "kyle-college")
       .maybeSingle();
@@ -218,6 +225,7 @@ export async function GET() {
       calendarEvents: normalizeCalendarEvents(row?.calendar_events),
       activitiesJournal: normalizeJournal(row?.activities_journal),
       requirementProgress: normalizeRequirementProgress(row?.requirement_progress),
+      finances: normalizeHouseholdFinances(row?.finances),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not read state";
@@ -244,6 +252,7 @@ export async function PATCH(request: Request) {
     calendarEvents?: CalendarEvent[];
     activitiesJournal?: ActivitiesJournal;
     requirementProgress?: RequirementProgressMap;
+    finances?: HouseholdFinances;
   };
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   const db = collegeDb();
@@ -332,6 +341,9 @@ export async function PATCH(request: Request) {
   }
   if (body.requirementProgress && typeof body.requirementProgress === "object") {
     patch.requirement_progress = normalizeRequirementProgress(body.requirementProgress);
+  }
+  if (body.finances !== undefined) {
+    patch.finances = normalizeHouseholdFinances(body.finances);
   }
 
   // Don't persist internal meta on the row.

@@ -24,8 +24,15 @@ import {
 import { appQuestions } from "@/lib/app-questions";
 import { currentPhaseIndex, phaseStatuses } from "@/lib/phases";
 import { useSchoolPipeline } from "@/lib/use-school-pipeline";
-import { defaultListPrefs, mergeListPrefs, isForwardListPhaseMove, type MemberListPrefs } from "@/lib/list-phases";
-import { canAdvanceListPhase, isAdminRole } from "@/lib/permissions";
+import { defaultListPrefs, mergeListPrefs, isForwardListPhaseMove, currentListPhaseId, type MemberListPrefs } from "@/lib/list-phases";
+import { canAdvanceListPhase, canEditActivitiesJournal, canViewFinances, isAdminRole } from "@/lib/permissions";
+import {
+  emptyHouseholdFinances,
+  normalizeHouseholdFinances,
+  type HouseholdFinances,
+} from "@/lib/finances";
+import { FinancesTab } from "./FinancesTab";
+import type { SchoolModalTab } from "./CollegeRecord";
 import { normalizeCalendarEvents, type CalendarEvent } from "@/lib/calendar-events";
 import type { IngestHandoff, PersistedIngestSource, PersistedProjectStep } from "@/lib/ingest";
 import { INBOX_PARENT_ID } from "@/lib/ingest";
@@ -77,7 +84,6 @@ import {
   normalizeTodoProjects,
   type TodoProject,
 } from "@/lib/todo-projects";
-import { canEditActivitiesJournal } from "@/lib/permissions";
 import { postActivity } from "@/lib/post-activity";
 import type { MemberProfile } from "@/lib/member-avatars";
 import type { ContactPatch, DeadlinePatch, Owner, School, Scores, TabId } from "@/lib/types";
@@ -206,6 +212,11 @@ export function Portal({
   const [todoEdits, setTodoEdits] = useState<TodoEditMap>({});
   const [todoProjects, setTodoProjects] = useState<TodoProject[]>([]);
   const [requirementProgress, setRequirementProgress] = useState<RequirementProgressMap>({});
+  const [householdFinances, setHouseholdFinances] = useState<HouseholdFinances>(() =>
+    emptyHouseholdFinances(),
+  );
+  const [scholarshipTodoIds, setScholarshipTodoIds] = useState<Record<string, string>>({});
+  const [schoolModalTab, setSchoolModalTab] = useState<SchoolModalTab>("snapshot");
   const pipeline = useSchoolPipeline();
   const schools = pipeline.schools;
   const setSchools = pipeline.setSchools;
@@ -252,6 +263,7 @@ export function Portal({
           calendarEvents?: CalendarEvent[];
           activitiesJournal?: ActivitiesJournal;
           requirementProgress?: RequirementProgressMap;
+          finances?: HouseholdFinances;
           persisted?: boolean;
         };
         const prefsBody = (await prefsRes.json()) as {
@@ -278,6 +290,9 @@ export function Portal({
         }
         if (state.requirementProgress && typeof state.requirementProgress === "object") {
           setRequirementProgress(normalizeRequirementProgress(state.requirementProgress));
+        }
+        if (state.finances) {
+          setHouseholdFinances(normalizeHouseholdFinances(state.finances));
         }
         const loadedNotes = typeof state.notes === "string" ? state.notes : "";
         const loadedItems = Array.isArray(state.noteItems)
@@ -386,11 +401,22 @@ export function Portal({
   );
 
   function goTab(next: TabId) {
-    const target = next === "admin" && !isAdminRole(member.role) ? "dashboard" : next;
+    const listPhase = currentListPhaseId();
+    let target = next === "admin" && !isAdminRole(member.role) ? "dashboard" : next;
+    if (target === "finances" && !canViewFinances(member, listPhase)) {
+      target = "dashboard";
+    }
     setTab(target);
     if (target !== "notes") setOpenNoteId(null);
     if (target !== "apps") setOpenActivityId(null);
-    replaceUrl(target, target === "colleges" ? schoolId : null, projectSection, null, appsSection);
+    if (target !== "finances" && target !== "colleges") setSchoolModalTab("snapshot");
+    replaceUrl(
+      target,
+      target === "colleges" || target === "finances" ? schoolId : null,
+      projectSection,
+      null,
+      appsSection,
+    );
   }
 
   useEffect(() => {
@@ -399,6 +425,13 @@ export function Portal({
     setTab("dashboard");
     replaceUrl("dashboard", null, projectSection, null, appsSection);
   }, [tab, member.role, projectSection, appsSection, replaceUrl]);
+
+  useEffect(() => {
+    if (tab !== "finances") return;
+    if (canViewFinances(member, currentListPhaseId())) return;
+    setTab("dashboard");
+    replaceUrl("dashboard", null, projectSection, null, appsSection);
+  }, [tab, member, projectSection, appsSection, replaceUrl]);
 
   function openNote(id: string | null) {
     setOpenNoteId(id);
@@ -556,6 +589,7 @@ export function Portal({
     calendarEvents?: CalendarEvent[];
     activitiesJournal?: ActivitiesJournal;
     requirementProgress?: RequirementProgressMap;
+    finances?: HouseholdFinances;
   }) {
     if (!persisted) {
       setSaveState("Not saved");
@@ -862,6 +896,47 @@ export function Portal({
         entityType: "todo",
         entityId: step.id,
         summary: `Added to-do “${trimmed}” from ${school.name} requirements`,
+      });
+    });
+  }
+
+  function changeHouseholdFinances(next: HouseholdFinances) {
+    setHouseholdFinances(next);
+    void patchState({ finances: next });
+  }
+
+  function addScholarshipTodo(scholarshipKey: string, title: string) {
+    if (scholarshipTodoIds[scholarshipKey]) return;
+    const [schoolId] = scholarshipKey.split("::");
+    const school = schools.find((row) => row.id === schoolId);
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    const owner = memberOwnerId(member.id);
+    const createdAt = new Date().toISOString();
+    const step: PersistedProjectStep = {
+      id: `todo-${Math.random().toString(36).slice(2, 10)}`,
+      label: trimmed,
+      owner,
+      assignedBy: owner,
+      parentId: INBOX_PARENT_ID,
+      dueDate: null,
+      startDate: null,
+      endDate: null,
+      sourceId: null,
+      createdAt,
+      schoolId: school?.id ?? null,
+      sourceRequirement: null,
+    };
+    const nextSteps = [...projectSteps, step];
+    setProjectSteps(nextSteps);
+    setScholarshipTodoIds((current) => ({ ...current, [scholarshipKey]: step.id }));
+    void patchState({ projectSteps: nextSteps }).then((ok) => {
+      if (!ok) return;
+      postActivity({
+        action: "create",
+        entityType: "todo",
+        entityId: step.id,
+        summary: `Added to-do “${trimmed}” from finances`,
       });
     });
   }
@@ -1236,9 +1311,11 @@ export function Portal({
             memberRole={member.role}
             onListPrefsChange={saveListPrefs}
             onOpen={(id) => {
+              setSchoolModalTab("snapshot");
               replaceUrl("colleges", id);
             }}
             onClose={() => {
+              setSchoolModalTab("snapshot");
               replaceUrl("colleges", null);
             }}
             onPatch={(id, patch) => {
@@ -1284,6 +1361,25 @@ export function Portal({
             onAddRequirementTodo={addRequirementTodo}
             processPhaseLabel={current?.phase ?? null}
             onSendVisitPlan={sendVisitPlan}
+            initialModalTab={schoolModalTab}
+            householdFinances={householdFinances}
+            onHouseholdFinancesChange={changeHouseholdFinances}
+            scholarshipTodoIds={scholarshipTodoIds}
+            onAddScholarshipTodo={addScholarshipTodo}
+            canViewFinancesTab={canViewFinances(member, currentListPhaseId())}
+          />
+        ) : null}
+        {tab === "finances" && canViewFinances(member, currentListPhaseId()) ? (
+          <FinancesTab
+            schools={schools}
+            household={householdFinances}
+            onHouseholdChange={changeHouseholdFinances}
+            dateline={`College list · ${schools.filter((s) => !s.archived).length} schools · 2026–27 costs`}
+            onOpenSchool={(id) => {
+              setSchoolModalTab("financials");
+              setTab("colleges");
+              replaceUrl("colleges", id);
+            }}
           />
         ) : null}
         {tab === "projects" ? (

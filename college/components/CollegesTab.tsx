@@ -83,6 +83,12 @@ export function CollegesTab({
   onAddRequirementTodo,
   processPhaseLabel,
   onSendVisitPlan,
+  initialModalTab = "snapshot",
+  householdFinances,
+  onHouseholdFinancesChange,
+  scholarshipTodoIds,
+  onAddScholarshipTodo,
+  canViewFinancesTab = true,
 }: {
   schools: School[];
   selectedId: string | null;
@@ -122,6 +128,12 @@ export function CollegesTab({
     events: import("@/lib/calendar-events").CalendarEvent[];
     todos: PersistedProjectStep[];
   }) => void;
+  initialModalTab?: import("./CollegeRecord").SchoolModalTab;
+  householdFinances?: import("@/lib/finances").HouseholdFinances;
+  onHouseholdFinancesChange?: (next: import("@/lib/finances").HouseholdFinances) => void;
+  scholarshipTodoIds?: Record<string, string>;
+  onAddScholarshipTodo?: (scholarshipKey: string, title: string) => void;
+  canViewFinancesTab?: boolean;
 }) {
   const canAdvance = canAdvanceListPhase({ id: memberId, role: memberRole });
   const [phaseId, setPhaseId] = useState<ListPhaseId>("exploration");
@@ -874,6 +886,12 @@ export function CollegesTab({
           listPhaseId={phaseId}
           processPhaseLabel={processPhaseLabel}
           onSendVisitPlan={onSendVisitPlan}
+          initialTab={initialModalTab}
+          householdFinances={householdFinances}
+          onHouseholdFinancesChange={onHouseholdFinancesChange}
+          scholarshipTodoIds={scholarshipTodoIds}
+          onAddScholarshipTodo={onAddScholarshipTodo}
+          canViewFinancesTab={canViewFinancesTab}
         />
       ) : null}
     </section>

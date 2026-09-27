@@ -1,0 +1,3223 @@
+{
+  "preparedDate": "2026-09-26",
+  "costOfLiving": {
+    "source": "U.S. Bureau of Economic Analysis, Regional Price Parities",
+    "year": "2024",
+    "sourceUrl": "https://apps.bea.gov/regional/zip/MARPP.zip",
+    "note": "100 = U.S. average. Housing index is the BEA housing services component.",
+    "home": {
+      "area": "New York-Newark-Jersey City, NY-NJ (MSA)",
+      "costOfLivingIndex": 112.6,
+      "housingCostIndex": 148.6
+    }
+  },
+  "newJerseyStatePrograms": [
+    {
+      "name": "Tuition Aid Grant (TAG)",
+      "eligibility": "Need-based. The student must be a New Jersey resident for at least 12 consecutive months immediately before enrollment. For a dependent student, the student and parents must meet that residency rule, or the student must have graduated from a NJ high school after attending it for at least 3 years. The student must show financial need and be a citizen, an eligible non-citizen, or eligible to file the NJ Alternative Financial Aid Application. The student must enroll full-time in an approved program at an approved NJ institution and maintain satisfactory academic progress. There is no fixed income cap: the award depends on the New Jersey Eligibility Index (NJEI), which HESAA calculates from the aid application. At public research universities the award is $0 once the NJEI reaches 9,500. At independent colleges it is $0 once the NJEI is over 10,499.",
+      "award": "2026-27 full-time awards, applied to tuition only. Public research universities (Rutgers, NJIT): $2,396 to $10,964, depending on NJEI. HESAA states that the actual award may be higher than the table value, based on the institution's tuition, but may not exceed tuition. Independent colleges (Stevens): $2,176 to $14,404, depending on NJEI.",
+      "appliesTo": [
+        "Rutgers",
+        "NJIT",
+        "Stevens"
+      ],
+      "application": "FAFSA, or the NJ Alternative Financial Aid Application for NJ Dreamers, then complete the State grant record in NJFAMS",
+      "deadline": "2026-27, new students and high school seniors: the FAFSA or NJ Alternative application must be processed by September 15, 2026 for Fall 2026 and Spring 2027, and the State record in NJFAMS must be completed by October 1, 2026. For Spring 2027 only: application by February 15, 2027 and NJFAMS record by March 1, 2027. Renewal applicants: April 15, 2026. The 2027-28 deadlines were not found.",
+      "sourceUrl": "https://www.hesaa.org/Pages/TAG.aspx ; https://www.hesaa.org/Documents/TagTable.pdf ; https://www.hesaa.org/Pages/StateDeadlinesNextAY.aspx"
+    },
+    {
+      "name": "Garden State Guarantee (GSG)",
+      "eligibility": "Need-based. Family adjusted gross income (AGI) must be between $0 and $65,000; a negative AGI is not eligible. For a dependent student, only the parents' AGI counts. The student must be a NJ resident enrolled full-time (at least 12 credits per semester) at an in-state public four-year institution and working toward a first bachelor's degree. Funding goes only to third-year students (60-89 accumulated credits) and fourth-year students (90-128 credits). First-year and second-year students are not eligible.",
+      "award": "Pays the tuition and approved educational fees that other grants do not already cover, for a net price of $0 in tuition and fees. Paid for up to 4 semesters or until the student reaches 128 credits, whichever comes first.",
+      "appliesTo": [
+        "Rutgers",
+        "NJIT"
+      ],
+      "application": "Automatic consideration after filing the FAFSA or the NJ Alternative Financial Aid Application",
+      "deadline": "Same State deadlines as TAG (for 2026-27, the application must be processed by September 15, 2026)",
+      "sourceUrl": "https://www.hesaa.org/Pages/gsg.aspx ; https://www.hesaa.org/Documents/Publications/gardenStateGuarantee_General.pdf"
+    },
+    {
+      "name": "NJ STARS (and NJ STARS II)",
+      "eligibility": "Merit. The student must be a NJ resident ranked in the top 15.0% of the high school class at the end of junior or senior year. The student must enroll full-time at their home county college. NJ STARS II is for NJ STARS recipients who earn an associate degree with a cumulative GPA of 3.25 or higher and have family income under $250,000; it pays toward transferring to a TAG-participating four-year college.",
+      "award": "NJ STARS pays tuition only, after State and federal grants are subtracted, for up to 5 semesters and up to 18 credits per semester, at the county college. It does not pay for a first year at a four-year college.",
+      "appliesTo": [],
+      "application": "Apply for admission to the home county college, file the FAFSA or NJ Alternative application within State deadlines, and complete the State record in NJFAMS",
+      "deadline": "Same State deadlines as TAG (September 15, 2026 for the application; October 1, 2026 for the NJFAMS record)",
+      "sourceUrl": "https://www.hesaa.org/Documents/FactSheets/NJSTARS/FactSheetfor2026HSGrad.pdf"
+    },
+    {
+      "name": "Educational Opportunity Fund (EOF)",
+      "eligibility": "The student must come from an educationally and economically disadvantaged background and be a NJ resident for 12 consecutive months before the award. The 2026-27 gross income limit for a household of 4 is $64,300, with an asset cap of $12,860 (household of 1: $31,300; add $11,000 for each additional family member). Each college runs its own EOF admission process, and spaces are limited.",
+      "award": "$200 to $3,050 per year for undergraduates, depending on the type of institution and financial need, plus support services such as counseling and tutoring",
+      "appliesTo": [
+        "Rutgers",
+        "NJIT",
+        "Stevens"
+      ],
+      "application": "File the FAFSA and apply through the EOF office at the college, following that college's own admission process",
+      "deadline": "Each college sets its own EOF deadline; the State site gives none",
+      "sourceUrl": "https://www.nj.gov/highereducation/EOF/EOF_Eligibility.shtml ; https://www.nj.gov/highereducation/EOF/How_To_Apply.shtml"
+    },
+    {
+      "name": "Governor's Urban Scholarship (GUS)",
+      "eligibility": "Merit and need. The student must rank in the top 5.0% of the class with a cumulative GPA of 3.0 or higher at the end of junior year. The student must live in a designated high-need community at the time of high school nomination and have an NJEI below 10,500. The student must be a NJ resident for 12 consecutive months and enroll full-time at an eligible NJ college.",
+      "award": "The published material gives no dollar amount; the award depends on annual State appropriations",
+      "appliesTo": [
+        "Rutgers",
+        "NJIT",
+        "Stevens"
+      ],
+      "application": "No application. The high school reports its top 15% to HESAA, which notifies eligible students in December of senior year. The student must also file the FAFSA or NJ Alternative application each year within State deadlines.",
+      "deadline": "Same State deadlines as TAG",
+      "sourceUrl": "https://www.hesaa.org/Pages/GUS.aspx ; https://www.hesaa.org/Documents/FactSheets/GUS/GUSHSClassof2026.pdf"
+    }
+  ],
+  "newJerseyGrantsPortable": "No. New Jersey state grants such as TAG, GSG, EOF and GUS can be used only at approved New Jersey colleges, so they do not follow a student to an out-of-state college.",
+  "schools": [
+    {
+      "school": "Massachusetts Institute of Technology (MIT)",
+      "costYear": "2026-27",
+      "residencyRate": "private",
+      "tuitionFees": 67140,
+      "housingFood": 22194,
+      "booksSupplies": 930,
+      "otherCosts": 2496,
+      "totalCost": 92760,
+      "costSourceUrl": "https://sfs.mit.edu/undergraduate-students/the-cost-of-attendance/coa/",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 1155,
+      "cdsNonNeedMeritRecipients": 0,
+      "cdsAvgNonNeedMerit": null,
+      "cdsSourceUrl": "https://ir.mit.edu/projects/2025-26-common-data-set/",
+      "awardsMerit": false,
+      "meritScholarships": [],
+      "needPrograms": [
+        {
+          "name": "MIT tuition-free threshold",
+          "incomeRange": "family income under $200,000 (income and assets are considered; no asset limit published)",
+          "covers": "full tuition (MIT says these students typically attend tuition-free)",
+          "residency": "all students, domestic and international",
+          "sourceUrl": "https://sfs.mit.edu/undergraduate-students/the-cost-of-attendance/making-mit-affordable/"
+        },
+        {
+          "name": "MIT full-cost threshold",
+          "incomeRange": "family income under $100,000 (no asset limit published)",
+          "covers": "full cost of attendance: tuition, housing, dining, fees, books and personal expenses (parents can expect to pay nothing)",
+          "residency": "all students, domestic and international",
+          "sourceUrl": "https://sfs.mit.edu/undergraduate-students/the-cost-of-attendance/making-mit-affordable/"
+        }
+      ],
+      "meetsFullNeed": "all students",
+      "needBlindUS": true,
+      "cssProfileRequired": true,
+      "priorityAidDeadline": "Early Action: November 30; Regular Action: February 15 (current cycle; the page does not state the year)",
+      "netPriceCalculatorUrl": "https://npc.collegeboard.org/app/mit",
+      "notes": "MIT awards only need-based aid; CDS row O is reported as N/App. Tuition and fees are $66,720 tuition plus the $420 student life fee; the total excludes a travel allowance, which MIT sets by home address.",
+      "meritSharePct": 0.0,
+      "costOfLivingArea": "Boston-Cambridge-Newton, MA-NH (MSA)",
+      "costOfLivingIndex": 108.3,
+      "housingCostIndex": 148.4
+    },
+    {
+      "school": "Stanford University",
+      "costYear": "2026-27",
+      "residencyRate": "private",
+      "tuitionFees": 70341,
+      "housingFood": 22944,
+      "booksSupplies": 855,
+      "otherCosts": 3405,
+      "totalCost": 97545,
+      "costSourceUrl": "https://financialaid.stanford.edu/undergrad/budget/index.html",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 1693,
+      "cdsNonNeedMeritRecipients": 3,
+      "cdsAvgNonNeedMerit": 11890,
+      "cdsSourceUrl": "https://drive.google.com/file/d/1GIPKgVj1d86dkmLkHI_mZVCk_iY6kiCp/view (linked from https://irds.stanford.edu/data-findings/cds)",
+      "awardsMerit": false,
+      "meritScholarships": [],
+      "needPrograms": [
+        {
+          "name": "Stanford parent contribution benchmark (under $150,000)",
+          "incomeRange": "parent income below $150,000 with assets typical for that income",
+          "covers": "full tuition",
+          "residency": "not restricted by residency on the source page",
+          "sourceUrl": "https://financialaid.stanford.edu/undergrad/how/parent.html"
+        },
+        {
+          "name": "Stanford parent contribution benchmark (under $100,000)",
+          "incomeRange": "parent income below $100,000 with assets typical for that income",
+          "covers": "tuition, housing and food (no parent contribution expected)",
+          "residency": "not restricted by residency on the source page",
+          "sourceUrl": "https://financialaid.stanford.edu/undergrad/how/parent.html"
+        }
+      ],
+      "meetsFullNeed": "all students",
+      "needBlindUS": true,
+      "cssProfileRequired": true,
+      "priorityAidDeadline": "Restrictive Early Action: November 15; Regular Decision: February 15 (for the 2027-28 entering year)",
+      "netPriceCalculatorUrl": "https://financialaid.stanford.edu/undergrad/how/calculator/index.html",
+      "notes": "Stanford describes its aid as need-based and publishes no merit scholarship; its financial aid FAQ says only that it does not match merit awards. Tuition and fees are $67,731 tuition plus a $2,610 student fees allowance, and travel is listed as varies and not included in the total.",
+      "meritSharePct": 0.2,
+      "costOfLivingArea": "San Jose-Sunnyvale-Santa Clara, CA (MSA)",
+      "costOfLivingIndex": 110.4,
+      "housingCostIndex": 211.9
+    },
+    {
+      "school": "University of California, Berkeley (UC Berkeley)",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 62550,
+      "housingFood": 26028,
+      "booksSupplies": 1342,
+      "otherCosts": 4024,
+      "totalCost": 93944,
+      "costSourceUrl": "https://financialaid.berkeley.edu/how-aid-works/student-budgets-cost-of-attendance/",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 6654,
+      "cdsNonNeedMeritRecipients": 233,
+      "cdsAvgNonNeedMerit": 16030,
+      "cdsSourceUrl": "https://docs.google.com/spreadsheets/d/1INsGFH6MhaO-MFMBZ1Dngcn84FeN-hc0BLS0-v8TL_k/edit (linked from https://opa.berkeley.edu/campus-data/common-data-set)",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Regents' and Chancellor's Scholarship",
+          "amount": "$2,500 per year minimum; scholars with financial need receive grant and scholarship support up to full need",
+          "years": "4 years (up to 8 semesters)",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "No separate deadline; all Berkeley applicants are considered automatically",
+          "eligibility": "All first-year applicants, including out-of-state students, are considered, and candidates are chosen from the top applicants through holistic review with faculty interviews in early March.",
+          "sourceUrl": "https://financialaid.berkeley.edu/types-of-aid-at-berkeley/scholarships/regents-and-chancellors-scholarship/"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "Blue and Gold Opportunity Plan",
+          "incomeRange": "California families earning up to $100,000",
+          "covers": "UC tuition, from grant and scholarship funds from all sources",
+          "residency": "California residents only",
+          "sourceUrl": "https://financialaid.berkeley.edu/types-of-aid-at-berkeley/innovative-berkeley-aid-programs/blue-and-gold-opportunity-plan/"
+        },
+        {
+          "name": "Middle Class Scholarship",
+          "incomeRange": "family income and assets under limits set by the California Student Aid Commission (the limits are not stated on Berkeley's page)",
+          "covers": "part of the cost of attendance, calculated after other gift aid, an $8,616 student self-help amount and a parent contribution for household income over $100,000",
+          "residency": "California residents only",
+          "sourceUrl": "https://financialaid.berkeley.edu/types-of-aid-at-berkeley/scholarships/middle-class-scholarship/"
+        }
+      ],
+      "meetsFullNeed": "no",
+      "needBlindUS": null,
+      "cssProfileRequired": false,
+      "priorityAidDeadline": "March 2, 2026 (FAFSA priority deadline for 2026-27; the 2027-28 date is not yet published)",
+      "netPriceCalculatorUrl": "https://financialaid.berkeley.edu/how-aid-works/estimate-your-financial-aid/",
+      "notes": "Berkeley states that newly admitted nonresident students are not eligible for its need-based university grants or most scholarships, so the need programs listed apply only to California residents. The out-of-state figures add the 2026-27 Nonresident Supplemental Tuition of $39,270 ($19,635 per semester) to Berkeley's published resident budget; tuition and fees also include the $5,066 student health insurance fee, which can be waived, and there is no separate undergraduate engineering tuition.",
+      "meritSharePct": 3.5,
+      "costOfLivingArea": "San Francisco-Oakland-Fremont, CA (MSA)",
+      "costOfLivingIndex": 115.6,
+      "housingCostIndex": 194.7
+    },
+    {
+      "school": "Cornell University",
+      "costYear": "2026-27",
+      "residencyRate": "private",
+      "tuitionFees": 74970,
+      "housingFood": 21348,
+      "booksSupplies": 1234,
+      "otherCosts": 2182,
+      "totalCost": 99734,
+      "costSourceUrl": "https://finaid.cornell.edu/cost-to-attend",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 3827,
+      "cdsNonNeedMeritRecipients": null,
+      "cdsAvgNonNeedMerit": null,
+      "cdsSourceUrl": "https://irp.cornell.edu/wp-content/uploads/2026/06/CDS-Cornell-2025-2026-v2.xlsx",
+      "awardsMerit": false,
+      "meritScholarships": [],
+      "needPrograms": [
+        {
+          "name": "Zero Student Loans and Zero Expected Family Contribution",
+          "incomeRange": "total family income up to $75,000 with typical assets",
+          "covers": "full cost through grants and a $5,000 work-study award, with $0 parent and student contribution and no loans",
+          "residency": "all admitted undergraduates, regardless of state residency or citizenship",
+          "sourceUrl": "https://finaid.cornell.edu/affordability"
+        },
+        {
+          "name": "Low Student Loans",
+          "incomeRange": "total family income above $75,000 with typical assets",
+          "covers": "caps loans in the aid offer at $2,000 per year for incomes of $75,001-$125,000, $4,000 for $125,001-$175,000 and $6,000 above $175,000",
+          "residency": "all admitted undergraduates, regardless of state residency or citizenship",
+          "sourceUrl": "https://finaid.cornell.edu/affordability"
+        }
+      ],
+      "meetsFullNeed": "all students",
+      "needBlindUS": true,
+      "cssProfileRequired": true,
+      "priorityAidDeadline": "Early Decision: November 15, 2025; Regular Decision: February 15, 2026 (for fall 2026 entrants; 2027-28 dates not yet published)",
+      "netPriceCalculatorUrl": "https://npc.collegeboard.org/app/cornell",
+      "notes": "Cornell states it awards no merit or athletic scholarships, and its 2025-26 CDS leaves H2A rows N and O blank. Engineering is an endowed college, so the endowed rate applies; tuition and fees are $73,946 tuition plus $1,024 mandatory fees, and transportation is listed as varies and not included in the total.",
+      "meritSharePct": null,
+      "costOfLivingArea": "Ithaca, NY (MSA)",
+      "costOfLivingIndex": 103.3,
+      "housingCostIndex": 128.4
+    },
+    {
+      "school": "Northwestern University",
+      "costYear": "2026-27",
+      "residencyRate": "private",
+      "tuitionFees": 73062,
+      "housingFood": 22941,
+      "booksSupplies": 1239,
+      "otherCosts": 2133,
+      "totalCost": 99375,
+      "costSourceUrl": "https://undergradaid.northwestern.edu/aid-basics-eligibility/cost-of-attendance.html",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 2138,
+      "cdsNonNeedMeritRecipients": 7,
+      "cdsAvgNonNeedMerit": 23571,
+      "cdsSourceUrl": "https://enrollment.northwestern.edu/data/2025-2026.pdf",
+      "awardsMerit": false,
+      "meritScholarships": [],
+      "needPrograms": [
+        {
+          "name": "Northwestern no-cost threshold",
+          "incomeRange": "most families earning less than $70,000 per year",
+          "covers": "full cost of attendance (no cost to attend)",
+          "residency": "not restricted by residency on the source page",
+          "sourceUrl": "https://undergradaid.northwestern.edu/"
+        },
+        {
+          "name": "Northwestern tuition-free threshold",
+          "incomeRange": "most families earning less than $150,000 per year",
+          "covers": "full tuition",
+          "residency": "not restricted by residency on the source page",
+          "sourceUrl": "https://undergradaid.northwestern.edu/how-aid-works/keeping-northwestern-affordable.html"
+        }
+      ],
+      "meetsFullNeed": "all students",
+      "needBlindUS": true,
+      "cssProfileRequired": true,
+      "priorityAidDeadline": "Early Decision: December 1 (FAFSA and CSS Profile); Regular Decision: February 1 (the page does not state the year)",
+      "netPriceCalculatorUrl": "https://npc.collegeboard.org/app/northwestern",
+      "notes": "Northwestern says it offers only need-based aid, apart from a very small number of music talent awards and debate support, and meets full need without loans. Other costs combine $2,079 personal expenses and $54 estimated loan fees; transportation is listed as varies and not included.",
+      "meritSharePct": 0.3,
+      "costOfLivingArea": "Chicago-Naperville-Elgin, IL-IN (MSA)",
+      "costOfLivingIndex": 103.6,
+      "housingCostIndex": 112.0
+    },
+    {
+      "school": "Carnegie Mellon University (CMU)",
+      "costYear": "2026-27",
+      "residencyRate": "private",
+      "tuitionFees": 71564,
+      "housingFood": 19650,
+      "booksSupplies": 1000,
+      "otherCosts": 1400,
+      "totalCost": 93614,
+      "costSourceUrl": "https://www.cmu.edu/sfs/tuition/undergraduate/index.html",
+      "cdsYear": "2024-25",
+      "cdsFirstYears": 1807,
+      "cdsNonNeedMeritRecipients": 32,
+      "cdsAvgNonNeedMerit": 12949,
+      "cdsSourceUrl": "https://www.cmu.edu/ira/CDS/pdf/cds_2024-25/common-data-set-2024-2025-21feb2025.pdf",
+      "awardsMerit": false,
+      "meritScholarships": [],
+      "needPrograms": [
+        {
+          "name": "CMU Pathway Program (tuition-free)",
+          "incomeRange": "family income of $75,000 or less with typical assets",
+          "covers": "full tuition",
+          "residency": "U.S. citizens and permanent residents",
+          "sourceUrl": "https://www.cmu.edu/sfs/cost-and-affordability/index.html"
+        },
+        {
+          "name": "CMU Pathway Program (no loans)",
+          "incomeRange": "family income of $100,000 or less with typical assets",
+          "covers": "100% of demonstrated need without federal loans",
+          "residency": "U.S. citizens and permanent residents",
+          "sourceUrl": "https://www.cmu.edu/sfs/cost-and-affordability/index.html"
+        }
+      ],
+      "meetsFullNeed": "all students",
+      "needBlindUS": null,
+      "cssProfileRequired": true,
+      "priorityAidDeadline": "Early Decision preferred deadline: November 15; Regular Decision preferred deadline: February 15 (the page does not state the year)",
+      "netPriceCalculatorUrl": "https://npc.collegeboard.org/app/cmu",
+      "notes": "CMU's FAQ says it does not award merit scholarships, and the H2A fields in its 2025-26 CDS are blank, so the 2024-25 CDS is used. Tuition and fees are $69,702 tuition plus $1,862 in fees (first-year experience, technology, student activities and transportation); other costs are $1,300 personal plus $100 estimated loan fees, and the transportation allowance varies by home state and is not included.",
+      "meritSharePct": 1.8,
+      "costOfLivingArea": "Pittsburgh, PA (MSA)",
+      "costOfLivingIndex": 94.7,
+      "housingCostIndex": 72.0
+    },
+    {
+      "school": "University of Pennsylvania (UPenn)",
+      "costYear": "2026-27",
+      "residencyRate": "private",
+      "tuitionFees": 73978,
+      "housingFood": 20604,
+      "booksSupplies": 1412,
+      "otherCosts": 3088,
+      "totalCost": 99082,
+      "costSourceUrl": "https://srfs.upenn.edu/costs-budgeting/undergraduate-cost-attendance",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 2393,
+      "cdsNonNeedMeritRecipients": null,
+      "cdsAvgNonNeedMerit": null,
+      "cdsSourceUrl": "https://upenn.box.com/s/woo7d85yxpol6j9e2o121aucjc6dc1k5 (linked from https://ira.upenn.edu/penn-numbers/common-data-set)",
+      "awardsMerit": false,
+      "meritScholarships": [],
+      "needPrograms": [
+        {
+          "name": "Quaker Commitment (up to $200,000)",
+          "incomeRange": "family income up to $200,000 with typical assets",
+          "covers": "at minimum full tuition",
+          "residency": "not restricted by residency on the source page",
+          "sourceUrl": "https://srfs.upenn.edu/financial-aid/undergraduate-aid-program/facts-and-figures"
+        },
+        {
+          "name": "Quaker Commitment (under $75,000)",
+          "incomeRange": "family income under $75,000 with typical assets",
+          "covers": "all billed expenses: tuition and fees, housing and dining",
+          "residency": "not restricted by residency on the source page",
+          "sourceUrl": "https://srfs.upenn.edu/financial-aid/undergraduate-aid-program/facts-and-figures"
+        }
+      ],
+      "meetsFullNeed": "all students",
+      "needBlindUS": true,
+      "cssProfileRequired": true,
+      "priorityAidDeadline": "Early Decision: November 6, 2026; Regular Decision: February 5, 2027 (2027-28 application checklist)",
+      "netPriceCalculatorUrl": "https://npc.collegeboard.org/app/upenn",
+      "notes": "Penn states it does not award academic or athletic merit scholarships, and its 2025-26 CDS leaves H2A rows N and O blank. Penn Engineering undergraduates pay the same tuition as the other undergraduate schools; other costs are $1,080 transportation plus $2,008 personal expenses.",
+      "meritSharePct": null,
+      "costOfLivingArea": "Philadelphia-Camden-Wilmington, PA-NJ-DE-MD (MSA)",
+      "costOfLivingIndex": 102.6,
+      "housingCostIndex": 113.1
+    },
+    {
+      "school": "Johns Hopkins University",
+      "costYear": "2026-27",
+      "residencyRate": "private",
+      "tuitionFees": 69170,
+      "housingFood": 21967,
+      "booksSupplies": 1377,
+      "otherCosts": 2344,
+      "totalCost": 94858,
+      "costSourceUrl": "https://sfs.jhu.edu/cost-tuition/",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 1389,
+      "cdsNonNeedMeritRecipients": 57,
+      "cdsAvgNonNeedMerit": 32669,
+      "cdsSourceUrl": "https://oira.jhu.edu/wp-content/uploads/2025-2026-CDS-Johns-Hopkins-University-v2.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Charles R. Westgate Scholarship in Engineering",
+          "amount": "Full tuition per year",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "Incoming first-year engineering students; up to two awarded each year, and all applicants are considered automatically.",
+          "sourceUrl": "https://apply.jhu.edu/tuition-aid/types-of-financial-aid/merit-scholarships/"
+        },
+        {
+          "name": "Hodson Trust Scholarship",
+          "amount": "Not published",
+          "years": "Renewable (number of years not stated)",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "Incoming first-year students chosen for academic and personal achievement and leadership, and all applicants are considered automatically.",
+          "sourceUrl": "https://apply.jhu.edu/tuition-aid/types-of-financial-aid/merit-scholarships/"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "Johns Hopkins Tuition Promise ($0 parent cost tier)",
+          "incomeRange": "Family income up to $100,000 with typical assets (generally less than three times annual income, excluding home equity and retirement accounts)",
+          "covers": "Tuition, fees, housing, dining and most personal expenses ($0 parent cost)",
+          "residency": "Domestic undergraduates in the Krieger School and Whiting School of Engineering",
+          "sourceUrl": "https://sfs.jhu.edu/tuition-promise/"
+        },
+        {
+          "name": "Johns Hopkins Tuition Promise (free tuition tier)",
+          "incomeRange": "Family income $100,001-$200,000 with typical assets",
+          "covers": "Full tuition",
+          "residency": "Domestic undergraduates in the Krieger School and Whiting School of Engineering",
+          "sourceUrl": "https://sfs.jhu.edu/tuition-promise/"
+        },
+        {
+          "name": "Johns Hopkins Tuition Promise (upper tier)",
+          "incomeRange": "Family income $200,001-$250,000",
+          "covers": "Significant financial aid, amount not specified",
+          "residency": "Domestic undergraduates in the Krieger School and Whiting School of Engineering",
+          "sourceUrl": "https://sfs.jhu.edu/tuition-promise/"
+        }
+      ],
+      "meetsFullNeed": "all students",
+      "needBlindUS": true,
+      "cssProfileRequired": true,
+      "priorityAidDeadline": "Early Decision I: November 15, 2026; Early Decision II and Regular Decision: January 15, 2027 (fall 2027 entry cycle; fall 2028 dates not yet published)",
+      "netPriceCalculatorUrl": "https://npc.collegeboard.org/app/jhu",
+      "notes": "Tuition and fees include a one-time $500 matriculation fee. Health insurance ($3,624, waivable) is not included in the total. There is no separate engineering tuition. JHU states it meets 100% of need without loans. The CDS merit figures are marked 2025-2026 Estimated.",
+      "meritSharePct": 4.1,
+      "costOfLivingArea": "Baltimore-Columbia-Towson, MD (MSA)",
+      "costOfLivingIndex": 104.5,
+      "housingCostIndex": 118.2
+    },
+    {
+      "school": "Georgia Institute of Technology (Georgia Tech)",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 36120,
+      "housingFood": 14628,
+      "booksSupplies": 800,
+      "otherCosts": 3766,
+      "totalCost": 55314,
+      "costSourceUrl": "https://finaid.gatech.edu/costs/undergraduate-costs",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 3838,
+      "cdsNonNeedMeritRecipients": 358,
+      "cdsAvgNonNeedMerit": 5332,
+      "cdsSourceUrl": "https://irp.gatech.edu/sites/default/files/CDS/CDS_2025-2026_FINAL_R4_03JUN2026.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Stamps President's Scholarship",
+          "amount": "Full ride: tuition and mandatory fees, room and board, books and personal expenses",
+          "years": "Up to 4 years (8 semesters)",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Apply through Early Action 2 (non-Georgia students) by November 2 (2026-27 admission cycle)",
+          "eligibility": "About 50 incoming first-year US citizens or permanent residents each year; renewal requires honors-level performance.",
+          "sourceUrl": "https://catalog.gatech.edu/financial/assistance/ugrad/stamps-presidents-scholarship/"
+        },
+        {
+          "name": "Gold Scholars Program",
+          "amount": "Out-of-state tuition waiver valued at about $21,000 per year",
+          "years": "Up to 8 semesters",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Apply through Early Action 2 by November 2 (2026-27 admission cycle)",
+          "eligibility": "Top 2% of first-year students, chosen from the same finalist pool as the Stamps President's Scholarship.",
+          "sourceUrl": "https://goldscholars.em.gatech.edu/about/benefits"
+        },
+        {
+          "name": "Provost Scholarship",
+          "amount": "Out-of-state tuition waiver (a discount, not cash)",
+          "years": "8 semesters",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "First-year non-resident US citizens or permanent residents with extraordinary academic achievement and significant financial need; renewal requires a 3.00 GPA.",
+          "sourceUrl": "https://scholars.em.gatech.edu/provost-scholarship"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "G. Wayne Clough Tech Promise Scholarship",
+          "incomeRange": "Family income below $55,500",
+          "covers": "Debt-free Georgia Tech degree",
+          "residency": "Georgia residents only",
+          "sourceUrl": "https://www.techpromise.em.gatech.edu/"
+        }
+      ],
+      "meetsFullNeed": "no",
+      "needBlindUS": null,
+      "cssProfileRequired": true,
+      "priorityAidDeadline": "January 31, 2026 for GT App, FAFSA and CSS Profile (2026-27 aid year; later dates not yet published)",
+      "netPriceCalculatorUrl": "https://finaid.gatech.edu/costs/net-price-calculator",
+      "notes": "Other costs are personal ($2,800) plus transportation ($966). The CSS Profile is required only for Georgia Tech institutional need-based aid. Georgia Tech does not state that it meets full need, and CDS H2 row I shows 61.2% of first-year need met. Merit consideration requires applying Early Action.",
+      "meritSharePct": 9.3,
+      "costOfLivingArea": "Atlanta-Sandy Springs-Roswell, GA (MSA)",
+      "costOfLivingIndex": 100.1,
+      "housingCostIndex": 111.0
+    },
+    {
+      "school": "University of Michigan–Ann Arbor",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 67096,
+      "housingFood": 17220,
+      "booksSupplies": 1220,
+      "otherCosts": 2858,
+      "totalCost": 88394,
+      "costSourceUrl": "https://finaid.umich.edu/getting-started/estimating-costs",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 7252,
+      "cdsNonNeedMeritRecipients": 1261,
+      "cdsAvgNonNeedMerit": 4587,
+      "cdsSourceUrl": "https://obp.umich.edu/wp-content/uploads/pubdata/cds/cds_2025-26_umaa.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Joseph M. Geisinger Scholarship",
+          "amount": "$20,000 per year",
+          "years": "4 years or through graduation, whichever is less",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "Not published for the current cycle; applicants must be admitted to the College of Engineering before the committee meets in late February",
+          "eligibility": "First-year College of Engineering students from listed states, which include New Jersey; renewal requires a 3.0 GPA.",
+          "sourceUrl": "https://scholarships.engin.umich.edu/the-joseph-m-geisinger-scholarship-program"
+        },
+        {
+          "name": "Engineering Scholarship of Honor",
+          "amount": "Not published",
+          "years": "Up to 4 years (8 terms)",
+          "type": "automatic",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "All admitted domestic College of Engineering students are considered automatically for College of Engineering merit scholarships.",
+          "sourceUrl": "https://scholarships.engin.umich.edu/undergraduate/new-students/"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "Go Blue Guarantee",
+          "incomeRange": "Family income $125,000 or less and assets below $125,000",
+          "covers": "Tuition and mandatory university fees",
+          "residency": "Michigan residents only (eligible for in-state tuition)",
+          "sourceUrl": "https://finaid.umich.edu/apply-aid/new-undergraduates/michigan-residents/go-blue-guarantee-eligibility"
+        }
+      ],
+      "meetsFullNeed": "in-state only",
+      "needBlindUS": true,
+      "cssProfileRequired": true,
+      "priorityAidDeadline": "2027-28 aid year: Early Decision November 15; Early Action and Regular Decision suggested filing date December 15, deadline March 1",
+      "netPriceCalculatorUrl": "https://npc.collegeboard.org/app/umich",
+      "notes": "The cost figures are U-M's generic out-of-state lower-division budget; housing and food is the published living-expense line, and other costs are transportation ($400) plus personal ($2,458). College of Engineering 2026-27 nonresident lower-division tuition is $33,497 per term, with fees listed separately. The CDS H2A data are for 2024-2025 (Final).",
+      "meritSharePct": 17.4,
+      "costOfLivingArea": "Ann Arbor, MI (MSA)",
+      "costOfLivingIndex": 100.9,
+      "housingCostIndex": 125.3
+    },
+    {
+      "school": "University of Illinois Urbana-Champaign (UIUC)",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 49522,
+      "housingFood": 15858,
+      "booksSupplies": 1200,
+      "otherCosts": 2840,
+      "totalCost": 69420,
+      "costSourceUrl": "https://cost.illinois.edu/Home/Cost/N/U/Compare/12/120268/120268",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 9004,
+      "cdsNonNeedMeritRecipients": 1425,
+      "cdsAvgNonNeedMerit": 6027,
+      "cdsSourceUrl": "https://uofi.box.com/shared/static/orx4vnmzkt2drmgoiksxpfs39pr42uor.xlsx",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Stamps Scholarship",
+          "amount": "Up to the cost of attendance per year",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "Incoming first-year students; renewal requires a 3.0 GPA.",
+          "sourceUrl": "https://www.osfa.illinois.edu/types-of-aid/scholarships/merit-based-scholarships/"
+        },
+        {
+          "name": "Provost Scholarship",
+          "amount": "Full tuition per year",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "Incoming first-year students; renewal requires a 3.0 GPA and full-time continuous enrollment.",
+          "sourceUrl": "https://www.osfa.illinois.edu/types-of-aid/scholarships/merit-based-scholarships/"
+        },
+        {
+          "name": "Grainger College of Engineering first-year merit scholarships",
+          "amount": "$3,000-$15,000 per year",
+          "years": "Many renewable for up to 4 years",
+          "type": "automatic",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "Admitted first-year engineering students are considered automatically; some awards have residency, GPA (for example 3.0), major or need criteria.",
+          "sourceUrl": "https://grainger.illinois.edu/admissions/undergraduate/aid"
+        },
+        {
+          "name": "Matthews Scholars",
+          "amount": "$2,000 per year",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "Incoming first-year students; renewal requires a 3.0 GPA and full-time continuous enrollment.",
+          "sourceUrl": "https://www.osfa.illinois.edu/types-of-aid/scholarships/merit-based-scholarships/"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "Illinois Commitment",
+          "incomeRange": "Family income $75,000 or less and assets $75,000 or less (effective fall 2025)",
+          "covers": "Full tuition and campus fees not covered by other awards",
+          "residency": "Illinois residents only",
+          "sourceUrl": "https://osfa.illinois.edu/illinois-commitment/"
+        },
+        {
+          "name": "Illinois Achievement Scholarship",
+          "incomeRange": "Demonstrated financial need; no income range published",
+          "covers": "$10,000 per year, renewable for 4 years while assessed non-resident tuition",
+          "residency": "Incoming non-resident first-year students only",
+          "sourceUrl": "https://www.osfa.illinois.edu/types-of-aid/scholarships/merit-based-scholarships/"
+        }
+      ],
+      "meetsFullNeed": "no",
+      "needBlindUS": null,
+      "cssProfileRequired": false,
+      "priorityAidDeadline": "March 15, 2027 FAFSA preferential filing date (2027-28 aid year)",
+      "netPriceCalculatorUrl": "https://secure.osfa.illinois.edu/NPC/NPC.asp",
+      "notes": "Tuition uses the Grainger Engineering rate ($44,340 tuition plus $5,182 fees). Base non-engineering tuition is $35,928. Grainger states that the FAFSA is the only form required for need-based aid and that the Illinois admission application is also the application for campus-wide merit scholarships. CDS H2 row I shows 82% of first-year need met.",
+      "meritSharePct": 15.8,
+      "costOfLivingArea": "Champaign-Urbana, IL (MSA)",
+      "costOfLivingIndex": 92.7,
+      "housingCostIndex": 71.6
+    },
+    {
+      "school": "University of Texas at Austin (UT Austin)",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 48394,
+      "housingFood": null,
+      "booksSupplies": 724,
+      "otherCosts": 5506,
+      "totalCost": null,
+      "costSourceUrl": "https://onestop.utexas.edu/managing-costs/cost-tuition-rates/cost-of-attendance/",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 9075,
+      "cdsNonNeedMeritRecipients": 0,
+      "cdsAvgNonNeedMerit": 0,
+      "cdsSourceUrl": "https://utexas.box.com/s/z5p8zzbr6yk4eluam3v3dt2wyaha3cja",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Cockrell School of Engineering merit scholarships",
+          "amount": "Not published (the school awarded more than $10 million in merit awards last year)",
+          "years": "Not published",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "Engineering Honors Program Application by December 1",
+          "eligibility": "Incoming engineering students must complete the Engineering Honors Program Application to be considered.",
+          "sourceUrl": "https://cockrell.utexas.edu/admissions/financial-support/scholarships-and-aid/"
+        },
+        {
+          "name": "University-wide general scholarships and college/school awards",
+          "amount": "Not published",
+          "years": "Not published",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Apply for admission by December 1; Scholarship Interest Form in MyStatus by January 15",
+          "eligibility": "Every admitted first-year student is considered, and there is no separate scholarship application.",
+          "sourceUrl": "https://admissions.utexas.edu/cost-aid/financial-aid/"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "Texas Advance Commitment",
+          "incomeRange": "Family AGI up to $100,000 (tuition covered); $100,000-$125,000 (partial tuition support); financial need required",
+          "covers": "Full tuition up to $100,000 AGI; partial tuition support from $100,000 to $125,000",
+          "residency": "Texas residents only",
+          "sourceUrl": "https://admissions.utexas.edu/cost-aid/financial-aid/texas-advance-commitment/"
+        }
+      ],
+      "meetsFullNeed": "no",
+      "needBlindUS": null,
+      "cssProfileRequired": false,
+      "priorityAidDeadline": "January 15 state priority deadline for FAFSA/TASFA (year not stated on page)",
+      "netPriceCalculatorUrl": "https://onestop.utexas.edu/managing-costs/cost-tuition-rates/cost-of-attendance/net-price-calculator/",
+      "notes": "Tuition is the Engineering nonresident 12+ hour flat rate ($24,197 per semester times 2, from UT's 2026-27 tuition PDF). Housing and food is published only as a range ($15,420-$15,580), so it and the total are null; the nonresident total range is $64,204-$72,916. Other costs are transportation ($1,840) plus personal ($3,666). The CDS reports 0 first-years receiving non-need merit (2024-2025 Final), and CDS H2 row I shows 71.3% of first-year need met.",
+      "meritSharePct": 0.0,
+      "costOfLivingArea": "Austin-Round Rock-San Marcos, TX (MSA)",
+      "costOfLivingIndex": 98.1,
+      "housingCostIndex": 120.4
+    },
+    {
+      "school": "University of California, Los Angeles (UCLA)",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 55700,
+      "housingFood": 19867,
+      "booksSupplies": 1588,
+      "otherCosts": 3730,
+      "totalCost": 84770,
+      "costSourceUrl": "https://financialaid.ucla.edu/go/coa",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 6538,
+      "cdsNonNeedMeritRecipients": 436,
+      "cdsAvgNonNeedMerit": 6201,
+      "cdsSourceUrl": "https://apb.ucla.edu/file/f8f5c864-93be-4b44-b646-7807a685749f",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "UCLA Samueli Engineering Scholarships",
+          "amount": "Not published",
+          "years": "Not published",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "Engineering Application open during June; General Application opens late March",
+          "eligibility": "Samueli School of Engineering students, including newly admitted students; minimum 3.0 GPA, with leadership and financial need considered.",
+          "sourceUrl": "https://www.seasoasa.ucla.edu/scholarships-for-undergraduates/"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "Blue and Gold Opportunity Plan",
+          "incomeRange": "Most California families earning up to $100,000",
+          "covers": "UC tuition",
+          "residency": "California residents only",
+          "sourceUrl": "https://admission.universityofcalifornia.edu/tuition-financial-aid/types-of-aid/blue-and-gold-opportunity-plan.html"
+        },
+        {
+          "name": "Middle Class Scholarship",
+          "incomeRange": "Family income and assets up to $226,000",
+          "covers": "Variable award toward cost of attendance",
+          "residency": "California residents only",
+          "sourceUrl": "https://financialaid.ucla.edu/types-of-aid/grants"
+        }
+      ],
+      "meetsFullNeed": "no",
+      "needBlindUS": null,
+      "cssProfileRequired": false,
+      "priorityAidDeadline": "March 2, 2027 priority filing deadline for FAFSA/CA Dream Act (2027-28 aid year)",
+      "netPriceCalculatorUrl": "https://admission.ucla.edu/tuition-aid/net-price-calculator",
+      "notes": "Tuition and fees are university fees ($16,430) plus Nonresident Supplemental Tuition ($39,270). The published total also includes $3,885 of waivable health insurance, which is not in the other fields. For nonresidents admitted fall 2024 or later, the UCLA University Grant is capped at $20,000 per year, and UCLA says nonresident costs are covered primarily with Parent PLUS or private loans.",
+      "meritSharePct": 6.7,
+      "costOfLivingArea": "Los Angeles-Long Beach-Anaheim, CA (MSA)",
+      "costOfLivingIndex": 113.6,
+      "housingCostIndex": 170.4
+    },
+    {
+      "school": "Purdue University",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 28794,
+      "housingFood": 16734,
+      "booksSupplies": 1090,
+      "otherCosts": 2770,
+      "totalCost": 49388,
+      "costSourceUrl": "https://www.purdue.edu/treasurer/finance/bursar-office/tuition/fee-rates-2026-2027/undergraduate-tuition-and-fees-2026-2027/",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 11339,
+      "cdsNonNeedMeritRecipients": 2358,
+      "cdsAvgNonNeedMerit": 5789,
+      "cdsSourceUrl": "https://www.purdue.edu/idata/wp-content/uploads/2026/04/CDS-2025-2026.xlsx",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Trustees Scholarship",
+          "amount": "$16,000 per year (nonresidents)",
+          "years": "Up to 4 years (8 semesters)",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "November 1 (firm)",
+          "eligibility": "Holistic review of the admission application; renewal requires a Purdue GPA of 3.00 or higher.",
+          "sourceUrl": "https://admissions.purdue.edu/cost-financial-aid/scholarships/"
+        },
+        {
+          "name": "Presidential Scholarship",
+          "amount": "$10,000 per year (nonresidents)",
+          "years": "Up to 4 years (8 semesters)",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "November 1 (firm)",
+          "eligibility": "Holistic review of the admission application; renewal requires a Purdue GPA of 3.00 or higher.",
+          "sourceUrl": "https://admissions.purdue.edu/cost-financial-aid/scholarships/"
+        },
+        {
+          "name": "Lilly Scholars at Purdue Program",
+          "amount": "Full tuition",
+          "years": "Up to 4 years (8 semesters)",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "November 1 (firm)",
+          "eligibility": "Opt-in program for students from under-resourced urban and rural populations; renewal requires a 3.00 GPA.",
+          "sourceUrl": "https://admissions.purdue.edu/cost-financial-aid/scholarships/"
+        },
+        {
+          "name": "National Recognition Programs Scholarship",
+          "amount": "$1,000 per year",
+          "years": "Up to 4 years (8 semesters)",
+          "type": "automatic",
+          "separateApplication": false,
+          "deadline": "November 1 (priority)",
+          "eligibility": "Domestic students with national recognition program honors; renewal requires good academic standing.",
+          "sourceUrl": "https://admissions.purdue.edu/cost-financial-aid/scholarships/"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "Boiler Gold Grant",
+          "incomeRange": "Individual or family income below $80,000, or Pell Grant eligible",
+          "covers": "Tuition, fees and books for up to 8 semesters",
+          "residency": "Indiana residents only",
+          "sourceUrl": "https://www.purdue.edu/dfa/cost/"
+        }
+      ],
+      "meetsFullNeed": "no",
+      "needBlindUS": null,
+      "cssProfileRequired": false,
+      "priorityAidDeadline": "FAFSA by April 15 (aid year not stated on page)",
+      "netPriceCalculatorUrl": "https://www.purdue.edu/dfa/cost/calculator/",
+      "notes": "Most engineering first-years pay no differential; only Computer Science/Data Science & Engineering and Biological Engineering add $2,025 per semester for nonresidents. Other costs are transportation ($570) plus miscellaneous including federal loan fees ($2,200). From 2024-25 the Purdue CDS covers more than the West Lafayette campus, and the H2A row O cell is $5,788.76, rounded here to $5,789.",
+      "meritSharePct": 20.8,
+      "costOfLivingArea": "Lafayette-West Lafayette, IN (MSA)",
+      "costOfLivingIndex": 93.4,
+      "housingCostIndex": 76.4
+    },
+    {
+      "school": "University of Maryland, College Park",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 44086,
+      "housingFood": 17470,
+      "booksSupplies": 1250,
+      "otherCosts": 2714,
+      "totalCost": 65520,
+      "costSourceUrl": "https://financialaid.umd.edu/resources-policies/cost-attendance",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 5795,
+      "cdsNonNeedMeritRecipients": 1276,
+      "cdsAvgNonNeedMerit": 8565,
+      "cdsSourceUrl": "https://www.irpa.umd.edu/InstitutionalData/CommonDataSet/CDS_2025-2026.xlsx",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Banneker/Key Scholarship",
+          "amount": "Up to the full cost of tuition, mandatory fees, housing and food, plus a book allowance",
+          "years": "4 years (8 semesters)",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Apply for admission by November 1 (early action); semifinalists interview late February or early March",
+          "eligibility": "Freshman applicants admitted to the Honors College who apply by November 1 are considered; finalists are chosen after an interview.",
+          "sourceUrl": "https://admissions.umd.edu/tuition/freshman-merit-scholarships"
+        },
+        {
+          "name": "President's Scholarship",
+          "amount": "$2,000-$20,000 per year",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Apply for admission by November 1 (early action)",
+          "eligibility": "In-state and out-of-state applicants are considered based on academics, activities, awards, honors and an essay; recipients must keep a 3.20 cumulative GPA to renew.",
+          "sourceUrl": "https://admissions.umd.edu/tuition/freshman-merit-scholarships"
+        },
+        {
+          "name": "A. James Clark Scholars Program",
+          "amount": "Amount not published; the award is merit- and need-based",
+          "years": "Renewable each year",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Early action admission (November 1)",
+          "eligibility": "Engineering students admitted through early action are considered automatically, and the award also depends on financial need.",
+          "sourceUrl": "https://eng.umd.edu/academics-students/scholarships"
+        },
+        {
+          "name": "Clark School of Engineering Scholarships",
+          "amount": "Amount not published",
+          "years": "Not published",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "May 31 for best consideration",
+          "eligibility": "Current and incoming engineering students apply through the Clark School's online application on umd.scholarshipuniverse.com.",
+          "sourceUrl": "https://eng.umd.edu/academics-students/scholarships"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "Terrapin Commitment",
+          "incomeRange": "Pell Grant-eligible students, expanding in fall 2026 to families earning $75,000 or less who have unmet financial need",
+          "covers": "Full tuition and fees",
+          "residency": "Maryland residents only",
+          "sourceUrl": "https://today.umd.edu/umd-to-cover-tuition-fees-for-maryland-families-making-75k-or-less"
+        }
+      ],
+      "meetsFullNeed": null,
+      "needBlindUS": null,
+      "cssProfileRequired": null,
+      "priorityAidDeadline": "March 1, 2026 FAFSA priority deadline (for 2026-27); the 2027-28 date is not yet published",
+      "netPriceCalculatorUrl": "https://financialaid.umd.edu/resources-policies/net-price-calculator",
+      "notes": "Engineering differential tuition ($1,687 per semester in 2026-27) is charged only after a student reaches 60 credits, so it is not in the first-year figure. The Dean's Scholarship is for in-state students only and is left out.",
+      "meritSharePct": 22.0,
+      "costOfLivingArea": "Washington-Arlington-Alexandria, DC-VA-MD-WV (MSA)",
+      "costOfLivingIndex": 108.9,
+      "housingCostIndex": 151.1
+    },
+    {
+      "school": "University of Washington",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 45789,
+      "housingFood": 18858,
+      "booksSupplies": 900,
+      "otherCosts": 3580,
+      "totalCost": 69129,
+      "costSourceUrl": "https://www.washington.edu/financialaid/cost-of-attendance/",
+      "cdsYear": "2024-25",
+      "cdsFirstYears": 6928,
+      "cdsNonNeedMeritRecipients": 668,
+      "cdsAvgNonNeedMerit": 4035,
+      "cdsSourceUrl": "https://cdn.uw.edu/wp-content/uploads/sites/162/2025/04/01121035/CDS_2024-2025_Seattle.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Purple & Gold Scholarship",
+          "amount": "Amount varies by recipient (not published)",
+          "years": "4 years",
+          "type": "automatic",
+          "separateApplication": false,
+          "deadline": "Admission application; recipients are notified in mid-March and must confirm enrollment by May 1",
+          "eligibility": "All admitted non-Washington-resident U.S. applicants to the Seattle campus are considered, and selection is mainly academic.",
+          "sourceUrl": "https://admit.washington.edu/costs/scholarships/"
+        },
+        {
+          "name": "UW Honors Program scholarships",
+          "amount": "Not published",
+          "years": "Not published",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "Honors Program application deadline (not stated on the aid page)",
+          "eligibility": "The Honors Program application also serves as the application for Honors scholarships for entering first-year students.",
+          "sourceUrl": "https://www.washington.edu/financialaid/non-resident-students/"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "Husky Promise",
+          "incomeRange": "Students who meet all Pell Grant eligibility criteria",
+          "covers": "Full tuition and standard fees",
+          "residency": "Washington residents only",
+          "sourceUrl": "https://www.washington.edu/huskypromise/"
+        }
+      ],
+      "meetsFullNeed": null,
+      "needBlindUS": null,
+      "cssProfileRequired": null,
+      "priorityAidDeadline": "February 1 FAFSA priority filing date (the page does not give a year; the Husky Promise page gives February 28)",
+      "netPriceCalculatorUrl": "https://www.washington.edu/financialaid/getting-started/net-price-calculator/",
+      "notes": "UW says it cannot offer state or university grants to non-residents, so non-resident aid is mostly federal aid and loans. The listed items add up to $69,127, but UW publishes a total of $69,129. The 2025-26 Seattle CDS is not posted, so the 2024-25 CDS is used.",
+      "meritSharePct": 9.6,
+      "costOfLivingArea": "Seattle-Tacoma-Bellevue, WA (MSA)",
+      "costOfLivingIndex": 111.1,
+      "housingCostIndex": 151.3
+    },
+    {
+      "school": "University of Wisconsin–Madison",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 48718,
+      "housingFood": 14994,
+      "booksSupplies": 700,
+      "otherCosts": 3840,
+      "totalCost": 68320,
+      "costSourceUrl": "https://financialaid.wisc.edu/cost-of-attendance/",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 8471,
+      "cdsNonNeedMeritRecipients": 650,
+      "cdsAvgNonNeedMerit": 7397,
+      "cdsSourceUrl": "https://uwmadison.box.com/s/ilx9kil11ninf8vwj1z87vumhuvpw4px",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Engineering Freshman Award",
+          "amount": "$1,000-$5,000",
+          "years": "1 or 2 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Admission application; notified by early March (early action) or mid-April (regular decision)",
+          "eligibility": "Students admitted to the College of Engineering are reviewed from their admission materials; the FAFSA is encouraged but not required.",
+          "sourceUrl": "https://engineering.wisc.edu/admissions/scholarships/"
+        },
+        {
+          "name": "College of Engineering Departmental Scholarships",
+          "amount": "$1,000-$5,000",
+          "years": "1 to 4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Admission application; notified by early March (early action) or mid-April (regular decision)",
+          "eligibility": "The department of the student's first-choice major on the admission application makes the award.",
+          "sourceUrl": "https://engineering.wisc.edu/admissions/scholarships/"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "BANNER (Badger Aid for Nonresidents)",
+          "incomeRange": "Incoming first-year students who are eligible for the Federal Pell Grant",
+          "covers": "Meets institutional financial need for 4 years with grants, scholarships, work-study and some loan",
+          "residency": "Non-Wisconsin residents only",
+          "sourceUrl": "https://financialaid.wisc.edu/types-of-aid/banner/"
+        },
+        {
+          "name": "Bucky's Tuition Promise",
+          "incomeRange": "Family adjusted gross income of $65,000 or less",
+          "covers": "Tuition and segregated fees",
+          "residency": "Wisconsin residents only",
+          "sourceUrl": "https://financialaid.wisc.edu/types-of-aid/"
+        },
+        {
+          "name": "Bucky's Pell Pathway",
+          "incomeRange": "Students eligible for the Federal Pell Grant",
+          "covers": "Full financial need",
+          "residency": "Wisconsin residents only",
+          "sourceUrl": "https://financialaid.wisc.edu/types-of-aid/"
+        }
+      ],
+      "meetsFullNeed": null,
+      "needBlindUS": null,
+      "cssProfileRequired": null,
+      "priorityAidDeadline": "December 1, 2026 for the 2027-28 FAFSA",
+      "netPriceCalculatorUrl": "https://npc.collegeboard.org/app/wisconsin",
+      "notes": "Tuition and fees include the College of Engineering tuition differential, which UW estimates at $3,200, and the total includes $68 in loan fees. Incoming students also get $1,100 added to books and supplies for a computer, plus a $330 new-student fee, and neither is included. The CSS Profile was required for fall 2026 entrants, but the aid page says the 2027-28 CSS Profile is 'no longer accepting', so it is unclear whether it will be needed for fall 2028.",
+      "meritSharePct": 7.7,
+      "costOfLivingArea": "Madison, WI (MSA)",
+      "costOfLivingIndex": 97.3,
+      "housingCostIndex": 99.7
+    },
+    {
+      "school": "Virginia Polytechnic Institute and State University (Virginia Tech)",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 42182,
+      "housingFood": 17220,
+      "booksSupplies": 1120,
+      "otherCosts": 6164,
+      "totalCost": 66756,
+      "costSourceUrl": "https://finaid.vt.edu/content/dam/finaid_vt_edu/Cost_of_Attendance/2627/UGNRON_UPDATED_008262026.pdf",
+      "cdsYear": null,
+      "cdsFirstYears": null,
+      "cdsNonNeedMeritRecipients": null,
+      "cdsAvgNonNeedMerit": null,
+      "cdsSourceUrl": null,
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "College of Engineering first-year scholarships",
+          "amount": "Not published",
+          "years": "Not published",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "General Scholarship Application by January 22",
+          "eligibility": "Entering engineering students must complete the General University Scholarship Application in the admissions applicant portal; the college offers both merit and need-based awards.",
+          "sourceUrl": "https://eng.vt.edu/undergraduate/admissions/scholarships-for-prospective-students.html"
+        },
+        {
+          "name": "Beyond Boundaries Scholars / VT Scholars",
+          "amount": "Not published",
+          "years": "Not published",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "FAFSA and General Scholarship Application by January 22",
+          "eligibility": "Applicants are considered automatically, based on academic merit, FAFSA financial need and the scholarship and admission applications.",
+          "sourceUrl": "https://finaid.vt.edu/university-scholarships-and-financial-aid-home-page-Virginia-Tech-Scholarships.html"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "Funds for the Future",
+          "incomeRange": "Family adjusted gross income under $115,000 with demonstrated financial need",
+          "covers": "Yearly increases in tuition and comprehensive fees, for 3 years after the first year",
+          "residency": "No residency limit is stated",
+          "sourceUrl": "https://finaid.vt.edu/undergraduate/typesofaid/grants/funds-for-the-future.html"
+        }
+      ],
+      "meetsFullNeed": "no",
+      "needBlindUS": null,
+      "cssProfileRequired": null,
+      "priorityAidDeadline": "January 22 for the FAFSA and General Scholarship Application (the page does not give a year)",
+      "netPriceCalculatorUrl": "https://tcc.ruffalonl.com/Virginia%20Polytechnic%20Institute%20and%20State%20Universit/Freshman-Students",
+      "notes": "Tuition and fees include the $2,000 College of Engineering fee, and the total is the published $64,756 plus that fee (which includes $70 in loan fees). First-year engineering students also get a $3,140 computer allowance, which is not included. Virginia Tech does not post its Common Data Set online; it is available only by email from aiesupport@vt.edu.",
+      "meritSharePct": null,
+      "costOfLivingArea": "Blacksburg-Christiansburg-Radford, VA (MSA)",
+      "costOfLivingIndex": 92.7,
+      "housingCostIndex": 74.4
+    },
+    {
+      "school": "Pennsylvania State University (Penn State)",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 45214,
+      "housingFood": null,
+      "booksSupplies": null,
+      "otherCosts": null,
+      "totalCost": null,
+      "costSourceUrl": "https://tuition.psu.edu/rates-effective-2026-fall-semester",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 9142,
+      "cdsNonNeedMeritRecipients": 552,
+      "cdsAvgNonNeedMerit": 6026,
+      "cdsSourceUrl": "https://opair.psu.edu/files/2026/09/CDS_2025_2026_UniversityPark_v3.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Schreyer Honors College Academic Excellence Scholarship",
+          "amount": "$5,300 per year",
+          "years": "4 years (8 semesters)",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "November 15 Schreyer application (Penn State early action deadline is November 1)",
+          "eligibility": "The award goes to all Schreyer Scholars admitted directly as first-year students, regardless of financial need.",
+          "sourceUrl": "https://www.shc.psu.edu/admissions/cost-aid/"
+        },
+        {
+          "name": "Provost Academic Award",
+          "amount": "Varies by academic profile and financial need (not published)",
+          "years": "Renewable each year",
+          "type": "automatic",
+          "separateApplication": false,
+          "deadline": "Considered through May 1",
+          "eligibility": "The award is for first-time, first-year non-Pennsylvania residents at University Park who file the FAFSA and show financial need.",
+          "sourceUrl": "https://www.psu.edu/costs-aid/types-of-aid/scholarships/provost-academic-award"
+        }
+      ],
+      "needPrograms": [],
+      "meetsFullNeed": null,
+      "needBlindUS": null,
+      "cssProfileRequired": null,
+      "priorityAidDeadline": "December 1, 2025 recommended FAFSA date for new students (for 2026-27)",
+      "netPriceCalculatorUrl": "https://app.meadowfi.com/pennstate",
+      "notes": "Tuition and fees are two semesters of lower-division non-resident tuition ($22,287) plus the Student Initiated Fee ($320). The higher engineering rate starts only in the upper division. Penn State does not publish a housing, books or personal-cost budget outside its interactive College Cost Calculator, so those fields and the total are null.",
+      "meritSharePct": 6.0,
+      "costOfLivingArea": "State College, PA (MSA)",
+      "costOfLivingIndex": 96.8,
+      "housingCostIndex": 85.7
+    },
+    {
+      "school": "Ohio State University",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 44254,
+      "housingFood": 15630,
+      "booksSupplies": 1020,
+      "otherCosts": 4046,
+      "totalCost": 64990,
+      "costSourceUrl": "https://sfa.osu.edu/incoming-freshmen/about-aid/financial-aid-eligibility",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 8224,
+      "cdsNonNeedMeritRecipients": 2508,
+      "cdsAvgNonNeedMerit": 7336,
+      "cdsSourceUrl": "https://irp.osu.edu/sites/default/files/documents/2026/03/CDS-2025-2026-OSU-Columbus-Campus.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Stamps Eminence Scholarship",
+          "amount": "Full cost of attendance, plus an enrichment grant of up to $5,000",
+          "years": "4 years (8 semesters)",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "Apply for admission by November 1; Stamps Eminence application by November 9",
+          "eligibility": "U.S. citizens and permanent residents who indicate interest in Honors or Scholars apply with a separate essay and video.",
+          "sourceUrl": "https://undergrad.osu.edu/cost-and-aid/merit-based-scholarships"
+        },
+        {
+          "name": "Morrill Scholarship Program (Distinction / Prominence)",
+          "amount": "Distinction: cost of attendance; Prominence: in-state tuition plus the nonresident surcharge",
+          "years": "Not stated",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "November 1 early action strongly recommended",
+          "eligibility": "Applicants to the Columbus campus mark interest in the program and write the program essay on the admission application.",
+          "sourceUrl": "https://undergrad.osu.edu/cost-and-aid/merit-based-scholarships"
+        },
+        {
+          "name": "National Buckeye Scholarship",
+          "amount": "Up to $13,500 per year ($54,000 four-year value)",
+          "years": "4 years",
+          "type": "automatic",
+          "separateApplication": false,
+          "deadline": "Apply for admission by November 1",
+          "eligibility": "Non-Ohio residents are considered based on GPA, class rank, curriculum rigor and ACT/SAT scores, and this can be combined with the Maximus, Provost or Trustees Scholarship.",
+          "sourceUrl": "https://undergrad.osu.edu/cost-and-aid/merit-based-scholarships"
+        },
+        {
+          "name": "Maximus, Provost and Trustees Scholarships",
+          "amount": "$1,000-$3,000 per year ($4,000-$12,000 four-year value)",
+          "years": "4 years",
+          "type": "automatic",
+          "separateApplication": false,
+          "deadline": "Apply for admission by November 1",
+          "eligibility": "Ohio and non-Ohio residents are considered based on GPA, class rank, curriculum rigor and ACT/SAT scores.",
+          "sourceUrl": "https://undergrad.osu.edu/cost-and-aid/merit-based-scholarships"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "Buckeye Opportunity Program",
+          "incomeRange": "Pell-eligible students with significant need (Ohio State notes 90% of Pell recipients have household income of $50,000 or less)",
+          "covers": "Tuition and mandatory fees",
+          "residency": "Ohio residents only",
+          "sourceUrl": "https://undergrad.osu.edu/cost-and-aid/ohio-state-value"
+        },
+        {
+          "name": "Land Grant Opportunity Scholarship",
+          "incomeRange": "Pell-eligible students with significant need and academic merit",
+          "covers": "Full cost of attendance (88 students per year)",
+          "residency": "Ohio residents only",
+          "sourceUrl": "https://undergrad.osu.edu/cost-and-aid/merit-based-scholarships"
+        },
+        {
+          "name": "Regional Campus Commitment",
+          "incomeRange": "Family adjusted gross income of $100,000 or less with financial need, and not Pell-eligible",
+          "covers": "Remaining tuition and mandatory fees",
+          "residency": "Ohio residents starting at a regional campus or Ohio State ATI only",
+          "sourceUrl": "https://undergrad.osu.edu/cost-and-aid/ohio-state-value"
+        }
+      ],
+      "meetsFullNeed": null,
+      "needBlindUS": null,
+      "cssProfileRequired": null,
+      "priorityAidDeadline": "February 1 priority date for the FAFSA and Scholarship Universe (the page does not give a year)",
+      "netPriceCalculatorUrl": "https://sfa.osu.edu/incoming-freshmen/about-aid/net-price-calculator",
+      "notes": "Tuition and fees are $14,034 plus the $30,220 non-resident fee, and the total includes $40 in federal loan fees. The 2026-27 undergraduate tuition page shows no separate engineering fee.",
+      "meritSharePct": 30.5,
+      "costOfLivingArea": "Columbus, OH (MSA)",
+      "costOfLivingIndex": 95.5,
+      "housingCostIndex": 87.9
+    },
+    {
+      "school": "University of Minnesota Twin Cities",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 46448,
+      "housingFood": 15552,
+      "booksSupplies": 1000,
+      "otherCosts": 3700,
+      "totalCost": 66862,
+      "costSourceUrl": "https://onestop.umn.edu/finances/costs/cost-attendance",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 7124,
+      "cdsNonNeedMeritRecipients": 953,
+      "cdsAvgNonNeedMerit": 6517,
+      "cdsSourceUrl": "https://idr.umn.edu/sites/idr.umn.edu/files/cds_2025_2026_tc.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "National Scholarship",
+          "amount": "$2,500, $5,000, $10,000 or $15,000 per year",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Complete the freshman application by the admission deadline; notified by end of March",
+          "eligibility": "Residents of any state except Minnesota, North Dakota and Wisconsin (and Manitoba) are considered through holistic review of the admission application.",
+          "sourceUrl": "https://admissions.tc.umn.edu/cost-aid/scholarships/university-wide-academic-scholarships"
+        },
+        {
+          "name": "Presidential Scholarship",
+          "amount": "$1,000-$10,000 per year",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Complete the freshman application by the admission deadline",
+          "eligibility": "Admitted freshmen are considered through holistic review of the admission application.",
+          "sourceUrl": "https://admissions.tc.umn.edu/cost-aid/scholarships/university-wide-academic-scholarships"
+        },
+        {
+          "name": "Gold Scholar Award",
+          "amount": "Up to $10,000 per year",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "List UMN Twin Cities as first-choice college by the National Merit deadline",
+          "eligibility": "Preference goes to National Merit Finalists who list UMN Twin Cities as their first-choice college.",
+          "sourceUrl": "https://admissions.tc.umn.edu/cost-aid/scholarships/university-wide-academic-scholarships"
+        },
+        {
+          "name": "Bentson Family Scholarship",
+          "amount": "$24,000 over four years",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Complete the freshman application by the admission deadline",
+          "eligibility": "Admitted freshmen are considered through holistic review of the admission application.",
+          "sourceUrl": "https://admissions.tc.umn.edu/cost-aid/scholarships/university-wide-academic-scholarships"
+        },
+        {
+          "name": "3M Impact Scholarship (College of Science and Engineering)",
+          "amount": "About $5,000-$10,000 per year",
+          "years": "2 to 4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Admission application",
+          "eligibility": "College of Science and Engineering freshman applicants are considered automatically.",
+          "sourceUrl": "https://admissions.tc.umn.edu/cost-aid/scholarships/college-specific-scholarships"
+        },
+        {
+          "name": "University Honors Program Scholarship",
+          "amount": "$2,000 per year",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Complete the freshman application by the admission deadline",
+          "eligibility": "Admitted freshmen are considered through holistic review of the admission application.",
+          "sourceUrl": "https://admissions.tc.umn.edu/cost-aid/scholarships/university-wide-academic-scholarships"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "U Promise Scholarship",
+          "incomeRange": "Family household income of $120,000 or lower",
+          "covers": "$300-$4,000 per year for 4 years (freshmen)",
+          "residency": "Minnesota residents only",
+          "sourceUrl": "https://system.umn.edu/u-promise-and-promise-plus"
+        },
+        {
+          "name": "Promise Plus Free Tuition Program",
+          "incomeRange": "Family income of $50,000 or lower with demonstrated financial need",
+          "covers": "Full tuition only (not housing, fees or books)",
+          "residency": "Minnesota residents only (new freshmen)",
+          "sourceUrl": "https://system.umn.edu/promise-plus-free-tuition-program"
+        }
+      ],
+      "meetsFullNeed": null,
+      "needBlindUS": null,
+      "cssProfileRequired": null,
+      "priorityAidDeadline": "FAFSA by March 1 of senior year for need-based academic scholarships (the page does not give a year)",
+      "netPriceCalculatorUrl": "http://z.umn.edu/netcalc",
+      "notes": "Tuition and fees include the College of Science and Engineering's extra $3,100 per year, which UMN leaves out of its chart but counts for aid. The total includes $162 in loan fees.",
+      "meritSharePct": 13.4,
+      "costOfLivingArea": "Minneapolis-St. Paul-Bloomington, MN-WI (MSA)",
+      "costOfLivingIndex": 104.8,
+      "housingCostIndex": 111.8
+    },
+    {
+      "school": "North Carolina State University (NC State)",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 36461,
+      "housingFood": 15422,
+      "booksSupplies": 642,
+      "otherCosts": 3710,
+      "totalCost": 56279,
+      "costSourceUrl": "https://studentservices.ncsu.edu/finances/estimated-cost-of-attendance/undergraduate-student-estimated-cost-of-attendance/",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 5817,
+      "cdsNonNeedMeritRecipients": 299,
+      "cdsAvgNonNeedMerit": 4921,
+      "cdsSourceUrl": "https://report.isa.ncsu.edu/ir/cds/pdfs/CDS_2025-26.v1.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Park Scholarship",
+          "amount": "Full cost of attendance, valued at about $244,000 over four years for out-of-state students (Class of 2031 figure)",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "Nov. 1, 2026 for fall 2027 entry",
+          "eligibility": "Applicants need a minimum 3.80 unweighted GPA and must be a US citizen, a permanent resident, or graduating from a US high school.",
+          "sourceUrl": "https://park.ncsu.edu/about/"
+        },
+        {
+          "name": "Shelton Scholars Program",
+          "amount": "$7,000 per year in scholarships plus up to $2,000 per year in enrichment funds",
+          "years": null,
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": null,
+          "eligibility": "The page does not publish GPA or residency requirements; details of the 2027-28 application were still pending.",
+          "sourceUrl": "https://sheltonleadership.ncsu.edu/shelton-scholars/"
+        },
+        {
+          "name": "Chancellor's Leadership Scholarship",
+          "amount": "$5,000 per year",
+          "years": null,
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "Feb. 15 PackASSIST priority deadline",
+          "eligibility": "Awarded for leadership, academics, talent and service, and requires financial need; apply through PackASSIST after admission.",
+          "sourceUrl": "https://admissions.ncsu.edu/afford/"
+        }
+      ],
+      "needPrograms": [],
+      "meetsFullNeed": null,
+      "needBlindUS": null,
+      "cssProfileRequired": false,
+      "priorityAidDeadline": "FAFSA priority filing date March 1 (the page does not state the year); PackASSIST scholarship priority deadline Feb. 15",
+      "netPriceCalculatorUrl": "http://go.ncsu.edu/net-price-calculator",
+      "notes": "Tuition and fees include the College of Engineering Program Enhancement Fee of $750 per semester ($1,500 per year), so the total is $1,500 above NC State's published total of $54,779. Other costs include $44 in loan fees. Goodnight Scholars and Pack Promise are for North Carolina residents only, and NC State publishes no income range for Pack Promise.",
+      "meritSharePct": 5.1,
+      "costOfLivingArea": "Raleigh-Cary, NC (MSA)",
+      "costOfLivingIndex": 98.2,
+      "housingCostIndex": 103.5
+    },
+    {
+      "school": "University of California, Davis (UC Davis)",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 61457,
+      "housingFood": 22157,
+      "booksSupplies": 1240,
+      "otherCosts": 3425,
+      "totalCost": 88279,
+      "costSourceUrl": "https://financialaid.ucdavis.edu/undergraduate/cost/2627-entering",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 6650,
+      "cdsNonNeedMeritRecipients": 319,
+      "cdsAvgNonNeedMerit": 7912,
+      "cdsSourceUrl": "https://aggiedata.ucdavis.edu/sites/g/files/dgvnsk1841/files/media/documents/CDS_UCD_0.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Regents Scholarship",
+          "amount": "$7,500 per year, plus a stipend for students with demonstrated need",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "UC application by Dec. 2",
+          "eligibility": "Students are selected from the UC application, need at least a 3.25 GPA, and must keep a 3.25 GPA to renew; the page does not say whether nonresidents qualify.",
+          "sourceUrl": "https://financialaid.ucdavis.edu/scholarships/campus/awards"
+        },
+        {
+          "name": "Provost Award",
+          "amount": "Not published",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "UC application by Dec. 2",
+          "eligibility": "Awarded to high-achieving admitted first-year students from outside California to help with out-of-state tuition.",
+          "sourceUrl": "https://financialaid.ucdavis.edu/scholarships/campus/awards"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "UC Blue and Gold Opportunity Plan",
+          "incomeRange": "Family income up to $100,000",
+          "covers": "Grant and scholarship aid to cover UC tuition",
+          "residency": "California students only",
+          "sourceUrl": "https://financialaid.ucdavis.edu/undergraduate/types/tuition-assistance/blue-gold"
+        },
+        {
+          "name": "Middle Class Scholarship (State of California)",
+          "incomeRange": "Income and assets up to $250,000 (2026-27 award year)",
+          "covers": "Partial scholarship; the amount varies with cost of attendance and other aid",
+          "residency": "California residents only",
+          "sourceUrl": "https://www.csac.ca.gov/middle-class-scholarship"
+        }
+      ],
+      "meetsFullNeed": null,
+      "needBlindUS": null,
+      "cssProfileRequired": false,
+      "priorityAidDeadline": "FAFSA or CADAA priority deadline March 3 for the next aid year (the page does not state which year)",
+      "netPriceCalculatorUrl": "https://myawards.ucdavis.edu/aidestimator",
+      "notes": "Tuition and fees combine systemwide tuition ($15,588), campus fees ($2,490), nonresident supplemental tuition ($39,270), health insurance ($3,924, which can be waived) and a document fee ($185). University Grants do not cover nonresident supplemental tuition.",
+      "meritSharePct": 4.8,
+      "costOfLivingArea": "Sacramento-Roseville-Folsom, CA (MSA)",
+      "costOfLivingIndex": 106.7,
+      "housingCostIndex": 130.2
+    },
+    {
+      "school": "University of California, Irvine (UC Irvine)",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 59559,
+      "housingFood": 19376,
+      "booksSupplies": 1512,
+      "otherCosts": 4029,
+      "totalCost": 84476,
+      "costSourceUrl": "https://www.ofas.uci.edu/cost/undergraduate-costs/new-students.php",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 6404,
+      "cdsNonNeedMeritRecipients": 212,
+      "cdsAvgNonNeedMerit": 10513,
+      "cdsSourceUrl": "https://sites.uci.edu/irap/files/2026/05/2025-26-CDS-PDF-Upload.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Directors' Scholarship",
+          "amount": "Not published (listed as a monetary honorarium)",
+          "years": "Renewable for the years stated in the award letter",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "UC application for fall admission by Nov. 30",
+          "eligibility": "Open only to domestic out-of-state and international students; selection is based on the UC application.",
+          "sourceUrl": "https://www.ofas.uci.edu/scholarships/uci-scholarships/directors-scholar.php"
+        },
+        {
+          "name": "Henry Samueli Endowed Scholarship",
+          "amount": "$7,500 per year",
+          "years": "Up to 4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "The School of Engineering picks outstanding incoming engineering students for academic excellence using the admission file; the page does not state residency rules.",
+          "sourceUrl": "https://engineering.uci.edu/undergrad/aid/freshmen"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "UC Blue and Gold Opportunity Plan",
+          "incomeRange": "Family income under $100,000",
+          "covers": "Tuition and fees",
+          "residency": "California residents only",
+          "sourceUrl": "https://news.uci.edu/2026/04/01/the-anteater-advantage/"
+        },
+        {
+          "name": "Middle Class Scholarship (State of California)",
+          "incomeRange": "Income and assets up to $250,000 (2026-27 award year)",
+          "covers": "Partial scholarship; the amount varies with cost of attendance and other aid",
+          "residency": "California residents only",
+          "sourceUrl": "https://www.csac.ca.gov/middle-class-scholarship"
+        }
+      ],
+      "meetsFullNeed": null,
+      "needBlindUS": null,
+      "cssProfileRequired": false,
+      "priorityAidDeadline": "FAFSA priority deadline March 2 (the catalogue does not state the year)",
+      "netPriceCalculatorUrl": "https://www.ofas.uci.edu/cost/net-price-calculator.php",
+      "notes": "UCI publishes a subtotal of $45,206 and tells nonresidents to add $39,270; the $84,476 total is that sum. The Regents' and Chancellor's Excellence scholarships are for California residents only, so they are left out.",
+      "meritSharePct": 3.3,
+      "costOfLivingArea": "Los Angeles-Long Beach-Anaheim, CA (MSA)",
+      "costOfLivingIndex": 113.6,
+      "housingCostIndex": 170.4
+    },
+    {
+      "school": "Case Western Reserve University",
+      "costYear": "2026-27",
+      "residencyRate": "private",
+      "tuitionFees": 72866,
+      "housingFood": 20288,
+      "booksSupplies": 1200,
+      "otherCosts": 1350,
+      "totalCost": 95704,
+      "costSourceUrl": "https://case.edu/financialaid/undergraduates/estimated-costs-attendance-2026-27",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 1662,
+      "cdsNonNeedMeritRecipients": 662,
+      "cdsAvgNonNeedMerit": 32560,
+      "cdsSourceUrl": "https://case.edu/ir/sites/default/files/2026-02/CDS%202025-26%20Adjusted%20Final.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Milton A. and Roslyn Z. Wolf Scholarship",
+          "amount": "Tuition, room, board, fees, books and elective summer experiences",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "Scholarship application by Feb. 15",
+          "eligibility": "Open to all first-year applicants; chosen first on character and leadership potential, then on academics.",
+          "sourceUrl": "https://case.edu/admission/tuition-aid/scholarships"
+        },
+        {
+          "name": "A.W. Smith Innovation Scholarship",
+          "amount": "Full tuition",
+          "years": null,
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "Scholarship application by Feb. 15",
+          "eligibility": "Two awards go to first-year applicants in engineering, physical sciences or math who have completed a successful hands-on engineering or science project.",
+          "sourceUrl": "https://case.edu/admission/tuition-aid/scholarships"
+        },
+        {
+          "name": "Louis Stokes Congressional Black Caucus Foundation Scholarship",
+          "amount": "Full tuition plus up to $2,500 for a computer and books",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "Scholarship application by Feb. 15",
+          "eligibility": "Open to all first-year students; the award aims to help economically and educationally disadvantaged students.",
+          "sourceUrl": "https://case.edu/admission/tuition-aid/scholarships"
+        },
+        {
+          "name": "FIRST Scholarship",
+          "amount": "$10,000 per year (up to $40,000 total)",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "Scholarship application by Feb. 15",
+          "eligibility": "High school seniors with at least one full season on a FIRST Robotics Competition or FIRST Tech Challenge team; renewal requires a 3.0 GPA.",
+          "sourceUrl": "https://case.edu/admission/tuition-aid/scholarships"
+        },
+        {
+          "name": "Michelson-Morley STEM Scholarship",
+          "amount": "Not published",
+          "years": null,
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Admission application deadline",
+          "eligibility": "US citizens and permanent residents who plan to major in science, technology, engineering or math are considered automatically.",
+          "sourceUrl": "https://case.edu/admission/tuition-aid/scholarships"
+        },
+        {
+          "name": "University Scholarship",
+          "amount": "Not published",
+          "years": null,
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Admission application deadline",
+          "eligibility": "US citizens and permanent residents are considered automatically, based on outstanding academic and personal achievement.",
+          "sourceUrl": "https://case.edu/admission/tuition-aid/scholarships"
+        }
+      ],
+      "needPrograms": [],
+      "meetsFullNeed": "all students",
+      "needBlindUS": null,
+      "cssProfileRequired": true,
+      "priorityAidDeadline": "Aid documents due Nov. 15 (Early Decision I and Early Action) or Feb. 1 (Regular Decision); the page does not state the admission cycle",
+      "netPriceCalculatorUrl": "https://case.edu/financialaid/resources/net-price-calculator-and-myintuition",
+      "notes": "CWRU lists transportation as 'varies' and prints no total, so the $95,704 total is the sum of the published items without transportation. CWRU publishes no need-based program tied to a family income range; Cleveland Scholars is based on attending a Cleveland or East Cleveland public high school.",
+      "meritSharePct": 39.8,
+      "costOfLivingArea": "Cleveland, OH (MSA)",
+      "costOfLivingIndex": 93.9,
+      "housingCostIndex": 79.4
+    },
+    {
+      "school": "Rensselaer Polytechnic Institute (RPI)",
+      "costYear": "2026-27",
+      "residencyRate": "private",
+      "tuitionFees": 67976,
+      "housingFood": 18870,
+      "booksSupplies": 1410,
+      "otherCosts": 1820,
+      "totalCost": 90076,
+      "costSourceUrl": "https://financialaid.rpi.edu/cost-attendance",
+      "cdsYear": null,
+      "cdsFirstYears": null,
+      "cdsNonNeedMeritRecipients": null,
+      "cdsAvgNonNeedMerit": null,
+      "cdsSourceUrl": null,
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Rensselaer Medal Award",
+          "amount": "$40,000 per year ($160,000 total)",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "High school nominates the student in the spring of junior year",
+          "eligibility": "Each participating high school nominates one outstanding junior in math and science; the award is guaranteed if the student is accepted and enrolls.",
+          "sourceUrl": "https://financialaid.rpi.edu/types-aid/scholarships/rensselaer-medal"
+        },
+        {
+          "name": "Rensselaer Leadership Award",
+          "amount": "Not published",
+          "years": null,
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "Recognizes an outstanding academic and personal record; all US citizen and permanent resident applicants are considered automatically.",
+          "sourceUrl": "https://financialaid.rpi.edu/types-aid/scholarships"
+        },
+        {
+          "name": "Rensselaer Garnet Baltimore Award",
+          "amount": "Not published",
+          "years": null,
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "A merit award for outstanding students; all US citizen and permanent resident applicants are considered automatically.",
+          "sourceUrl": "https://financialaid.rpi.edu/types-aid/scholarships"
+        },
+        {
+          "name": "Rensselaer Recognition Award",
+          "amount": "Not published",
+          "years": null,
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "A non-need award based on a holistic review of academic record, activities and potential for success.",
+          "sourceUrl": "https://financialaid.rpi.edu/types-aid/scholarships"
+        }
+      ],
+      "needPrograms": [],
+      "meetsFullNeed": null,
+      "needBlindUS": null,
+      "cssProfileRequired": true,
+      "priorityAidDeadline": "Priority filing deadlines: Nov. 15 (Early Decision I), Dec. 15 (Early Action), Jan. 5 (Early Decision II), Jan. 31 (Regular Decision); the page does not state the year",
+      "netPriceCalculatorUrl": "https://npc.collegeboard.org/app/rpi",
+      "notes": "RPI's Common Data Set is not posted on any public RPI page I could reach (the Fact Book requires an RPI login). RPI states that a student eligible for several merit awards receives only the highest single award, and there is no separate engineering fee.",
+      "meritSharePct": null,
+      "costOfLivingArea": "Albany-Schenectady-Troy, NY (MSA)",
+      "costOfLivingIndex": 99.6,
+      "housingCostIndex": 102.6
+    },
+    {
+      "school": "Rutgers University–New Brunswick",
+      "costYear": "2026-27",
+      "residencyRate": "in-state",
+      "tuitionFees": 21704,
+      "housingFood": 21946,
+      "booksSupplies": 1504,
+      "otherCosts": 4730,
+      "totalCost": 49994,
+      "costSourceUrl": "https://scarlethub.rutgers.edu/wp-content/uploads/In-State-New-Brunswick-Full-Time-Undergraduate-COA-2026-2027.pdf",
+      "cdsYear": null,
+      "cdsFirstYears": null,
+      "cdsNonNeedMeritRecipients": null,
+      "cdsAvgNonNeedMerit": null,
+      "cdsSourceUrl": null,
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "First-Year Student Scholarship Award",
+          "amount": "Not published",
+          "years": "Renewable",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Apply for fall admission by Dec. 1",
+          "eligibility": "Admitted students who apply by Dec. 1 are considered automatically based on academic strength; no GPA or test threshold is published.",
+          "sourceUrl": "https://admissions.rutgers.edu/new-brunswick-scholarships"
+        },
+        {
+          "name": "Rutgers Presidential Scholarship (Honors College)",
+          "amount": "Not published; varies by residency and need",
+          "years": "Up to 4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Indicate interest in the Rutgers–New Brunswick application by Dec. 1",
+          "eligibility": "Considered automatically for admitted Honors College students; renewal requires a 3.5 GPA.",
+          "sourceUrl": "https://honorscollege.rutgers.edu/admissions/prospective-high-school-students/scholarships-prospective-students"
+        },
+        {
+          "name": "Harvey Schwartz Scholarship",
+          "amount": "Full tuition",
+          "years": "Up to 4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "Honors College students are considered automatically based on academic merit and financial need (not necessarily by federal guidelines).",
+          "sourceUrl": "https://honorscollege.rutgers.edu/admissions/prospective-high-school-students/scholarships-prospective-students"
+        },
+        {
+          "name": "College-Sponsored Merit Scholarship (National Merit)",
+          "amount": "$1,000 per year",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": null,
+          "eligibility": "National Merit finalists who name Rutgers as their first choice; renewal requires a 3.0 GPA.",
+          "sourceUrl": "https://admissions.rutgers.edu/new-brunswick-scholarships"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "Scarlet Guarantee",
+          "incomeRange": "AGI $0-$65,000",
+          "covers": "$0 net cost for tuition and eligible fees",
+          "residency": "New Jersey residents eligible for in-state tuition and NJ state aid; for students enrolling fall 2026 or later",
+          "sourceUrl": "https://newbrunswick.rutgers.edu/admissions-cost/scarlet-guarantee"
+        },
+        {
+          "name": "Scarlet Guarantee",
+          "incomeRange": "AGI $65,001-$80,000",
+          "covers": "Net cost for tuition and eligible fees of no more than $3,000 per year",
+          "residency": "New Jersey residents eligible for in-state tuition and NJ state aid; for students enrolling fall 2026 or later",
+          "sourceUrl": "https://newbrunswick.rutgers.edu/admissions-cost/scarlet-guarantee"
+        },
+        {
+          "name": "Scarlet Guarantee",
+          "incomeRange": "AGI $80,001-$100,000",
+          "covers": "Net cost for tuition and eligible fees of no more than $5,000 per year",
+          "residency": "New Jersey residents eligible for in-state tuition and NJ state aid; for students enrolling fall 2026 or later",
+          "sourceUrl": "https://newbrunswick.rutgers.edu/admissions-cost/scarlet-guarantee"
+        },
+        {
+          "name": "Garden State Guarantee (State of New Jersey)",
+          "incomeRange": "AGI $0-$65,000 ($0 net price); AGI $65,001-$80,000 (net price capped at $7,500)",
+          "covers": "Tuition and fees in the third and fourth years only",
+          "residency": "New Jersey residents at NJ public four-year colleges, including Rutgers",
+          "sourceUrl": "https://www.nj.gov/highereducation/documents/pdf/gardenStateGuarantee_General.pdf"
+        }
+      ],
+      "meetsFullNeed": null,
+      "needBlindUS": null,
+      "cssProfileRequired": false,
+      "priorityAidDeadline": "Priority FAFSA filing date Jan. 15 for first-year students (the page does not state the year)",
+      "netPriceCalculatorUrl": "https://scarlethub.rutgers.edu/financial-services/tools-resources/net-price-calculator/",
+      "notes": "These costs are for the School of Engineering, whose tuition ($17,609) is higher than the School of Arts and Sciences rate ($15,381). Other costs combine travel ($1,026) and miscellaneous ($3,704), and the total also includes $110 in loan fees. The newest New Brunswick Common Data Set posted is 2023-24, which shows 7,769 first-years, 162 no-need merit recipients and a $10,071 average award. NJ's Tuition Aid Grant also applies but has no published income range.",
+      "meritSharePct": null,
+      "costOfLivingArea": "New York-Newark-Jersey City, NY-NJ (MSA)",
+      "costOfLivingIndex": 112.6,
+      "housingCostIndex": 148.6
+    },
+    {
+      "school": "University of Florida",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 34620,
+      "housingFood": 14190,
+      "booksSupplies": 1220,
+      "otherCosts": 3924,
+      "totalCost": 54010,
+      "costSourceUrl": "https://www.sfa.ufl.edu/cost/undergraduate-costs/",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 7475,
+      "cdsNonNeedMeritRecipients": 633,
+      "cdsAvgNonNeedMerit": 4033,
+      "cdsSourceUrl": "https://data-apps.ir.aa.ufl.edu/public/cds/CDS%202025-26_v8_08.14.2026.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Gator Nation Scholarship (out-of-state tuition waiver)",
+          "amount": "$20,000 per year ($80,000 total)",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Nov. 1 freshman admission priority deadline",
+          "eligibility": "A committee picks out-of-state admitted freshmen using the same holistic review as admission, with no minimum criteria.",
+          "sourceUrl": "https://admissions.ufl.edu/cost-and-aid/scholarships"
+        },
+        {
+          "name": "Sunshine Scholarship (out-of-state tuition waiver)",
+          "amount": "Up to $16,000 per year (up to $64,000 total)",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Nov. 1 freshman admission priority deadline",
+          "eligibility": "A committee picks out-of-state admitted freshmen using the same holistic review as admission, with no minimum criteria.",
+          "sourceUrl": "https://admissions.ufl.edu/cost-and-aid/scholarships"
+        },
+        {
+          "name": "Alumni Scholarship (out-of-state tuition waiver)",
+          "amount": "Up to $8,000 per year (up to $32,000 total)",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Nov. 1 freshman admission priority deadline",
+          "eligibility": "A committee picks out-of-state admitted freshmen using the same holistic review as admission, with no minimum criteria.",
+          "sourceUrl": "https://admissions.ufl.edu/cost-and-aid/scholarships"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "Machen Florida Opportunity Scholarship",
+          "incomeRange": "Parent income below $55,000 and assets below $35,000 at entry",
+          "covers": "Full demonstrated need met with grants and scholarships, with no work or loans",
+          "residency": "Florida residents who graduated from a Florida high school and are first-generation college students",
+          "sourceUrl": "https://www.sfa.ufl.edu/types-of-aid/scholarships/"
+        }
+      ],
+      "meetsFullNeed": null,
+      "needBlindUS": null,
+      "cssProfileRequired": false,
+      "priorityAidDeadline": null,
+      "netPriceCalculatorUrl": "https://npc.collegeboard.org/student/app/ufl",
+      "notes": "UF gives one budget for on- and off-campus students, and housing and food is its combined 'living expenses' line. The total includes $56 in federal loan fees. The Presidential scholarships ($5,000-$10,000 per year) are left out because the financial aid office lists them under in-state students while the admissions page does not, and Bright Futures and Benacquisto are for Florida residents only.",
+      "meritSharePct": 8.5,
+      "costOfLivingArea": "Gainesville, FL (MSA)",
+      "costOfLivingIndex": 96.7,
+      "housingCostIndex": 93.0
+    },
+    {
+      "school": "Texas A&M University",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 41827.6,
+      "housingFood": 12944,
+      "booksSupplies": 882,
+      "otherCosts": 6556,
+      "totalCost": 62271.6,
+      "costSourceUrl": "https://tuition.tamu.edu/undergraduate",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 10928,
+      "cdsNonNeedMeritRecipients": 1565,
+      "cdsAvgNonNeedMerit": 4751,
+      "cdsSourceUrl": "https://abpa.tamu.edu/_files/_documents/common-data/cds-pdf-2025-2026.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "National Merit Finalist guaranteed package (President's Endowed Scholarship, National Merit Recognition Scholarship, National Merit Sponsorship)",
+          "amount": "$10,500 per year ($3,000 + $7,000 + $500), plus a one-time $1,000 study abroad stipend",
+          "years": "4 years",
+          "type": "automatic",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "Fall College Station freshman admits who are National Merit Finalists and name Texas A&M as their first-choice school in the National Merit portal.",
+          "sourceUrl": "https://aggie.tamu.edu/paying-for-college/apply-for-scholarships/national-scholars.html"
+        },
+        {
+          "name": "President's Endowed Scholarship (National Merit Semifinalists)",
+          "amount": "$3,000 per year, plus a one-time $1,000 study abroad stipend",
+          "years": "4 years",
+          "type": "automatic",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "Fall College Station freshman admits who are National Merit Semifinalists.",
+          "sourceUrl": "https://aggie.tamu.edu/paying-for-college/apply-for-scholarships/national-scholars.html"
+        },
+        {
+          "name": "Opportunity Award",
+          "amount": "$100-$15,000 per year",
+          "years": "1 to 4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "December 1 (scholarship portion of Common App or ApplyTexas, plus STAR)",
+          "eligibility": "Entering freshmen, selected on high school record, activities and leadership, and in some cases financial need.",
+          "sourceUrl": "https://aggie.tamu.edu/paying-for-college/apply-for-scholarships/opportunity-award.html"
+        },
+        {
+          "name": "Academic Scholarships",
+          "amount": "Not published",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "December 1 (scholarship portion of Common App or ApplyTexas, plus STAR)",
+          "eligibility": "Reviewed on academic achievement, activities, leadership and employment; only the highest-value Academic Scholarship is awarded.",
+          "sourceUrl": "https://aggie.tamu.edu/paying-for-college/apply-for-scholarships/academic-scholarships.html"
+        },
+        {
+          "name": "College of Engineering scholarships",
+          "amount": "Not published",
+          "years": "Not published",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "December 1 for incoming freshmen (through Common App or ApplyTexas)",
+          "eligibility": "Selected on GPA, test scores, activities, donor requirements and/or financial need.",
+          "sourceUrl": "https://engineering.tamu.edu/admissions-and-aid/scholarships/coe-undergrad.html"
+        },
+        {
+          "name": "Competitive Scholarship Non-resident Tuition Waiver",
+          "amount": "Nonresident pays Texas-resident tuition and fees",
+          "years": "Each year the scholarship minimum is kept",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "Nonresidents holding at least $4,000 per year in competitive Texas A&M scholarships, with no single qualifying scholarship under $1,000; granted at the university's discretion within state limits.",
+          "sourceUrl": "https://aggie.tamu.edu/paying-for-college/apply-for-financial-aid/competitive-scholarship-non-resident-tuition-waiver.html"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "Aggie Assurance",
+          "incomeRange": "Family income and assets of $100,000 or less (incoming students from fall 2026), with FAFSA/TASFA filed by January 15",
+          "covers": "Full tuition and fees",
+          "residency": "Texas residents only",
+          "sourceUrl": "https://aggie.tamu.edu/paying-for-college/apply-for-financial-aid/grants.html"
+        },
+        {
+          "name": "Aggie Assurance Tuition Support Grant",
+          "incomeRange": "Family income and assets of $80,001-$130,000",
+          "covers": "$500-$1,000 grant",
+          "residency": "Texas residents only",
+          "sourceUrl": "https://aggie.tamu.edu/paying-for-college/apply-for-financial-aid/grants.html"
+        },
+        {
+          "name": "Regents' Scholarship",
+          "incomeRange": "Total family income under $50,000; first-generation students",
+          "covers": "Up to $6,000 per year for 4 years",
+          "residency": "Texas residents only",
+          "sourceUrl": "https://aggie.tamu.edu/paying-for-college/apply-for-scholarships/regents-scholars-program.html"
+        }
+      ],
+      "meetsFullNeed": "no",
+      "needBlindUS": null,
+      "cssProfileRequired": false,
+      "priorityAidDeadline": "January 15 (Texas priority date for FAFSA/TASFA; no year stated, current cycle)",
+      "netPriceCalculatorUrl": "https://www.highered.texas.gov/student-financial-aid-programs/net-price-calculator/",
+      "notes": "Costs are the official tuition calculator's per-semester figures for fall 2026/spring 2027 (nonresident, engineering major, 12+ hours, on campus) doubled to a full year. The engineering rate ($20,913.80 per semester, compared with $20,018 base) is included, and the total includes $62 in loan fees.",
+      "meritSharePct": 14.3,
+      "costOfLivingArea": "College Station-Bryan, TX (MSA)",
+      "costOfLivingIndex": 91.0,
+      "housingCostIndex": 75.1
+    },
+    {
+      "school": "Colorado School of Mines",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 47964,
+      "housingFood": 18900,
+      "booksSupplies": 1500,
+      "otherCosts": 3050,
+      "totalCost": 71470,
+      "costSourceUrl": "https://finaid.mines.edu/estimatedugcoa/",
+      "cdsYear": null,
+      "cdsFirstYears": null,
+      "cdsNonNeedMeritRecipients": null,
+      "cdsAvgNonNeedMerit": null,
+      "cdsSourceUrl": null,
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "President's Scholarship",
+          "amount": "$12,000-$16,000 per year (non-residents)",
+          "years": "4 years (8 consecutive semesters)",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "Awarded based on the admission application; renewal requires a 2.5 cumulative GPA.",
+          "sourceUrl": "https://finaid.mines.edu/firstyear/"
+        },
+        {
+          "name": "Provost Award",
+          "amount": "$8,000-$10,000 per year (non-residents)",
+          "years": "4 years (8 consecutive semesters)",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "Awarded based on the admission application; renewal requires a 2.0 cumulative GPA and passing 67% of attempted credits.",
+          "sourceUrl": "https://finaid.mines.edu/firstyear/"
+        },
+        {
+          "name": "General Scholarship Application (donor and departmental scholarships)",
+          "amount": "Not published",
+          "years": "Varies by scholarship",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "March 1 priority date (notifications mid-April)",
+          "eligibility": "Incoming students fill out this application before viewing or applying for other Mines scholarships; it is not needed for the President's or Provost awards.",
+          "sourceUrl": "https://finaid.mines.edu/firstyear/"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "Mines Promise Program",
+          "incomeRange": "Full Pell Grant eligible (FAFSA Student Aid Index between -1,500 and 0)",
+          "covers": "Full-time tuition and mandatory fees after COF stipend, Pell, Colorado Grant and any Mines admission award",
+          "residency": "Colorado residents only",
+          "sourceUrl": "https://finaid.mines.edu/firstyear/"
+        },
+        {
+          "name": "Colorado Promise",
+          "incomeRange": "Family adjusted gross income of $90,000 or less",
+          "covers": "Reimburses out-of-pocket tuition and fees for the first two years through a refundable state tax credit",
+          "residency": "Colorado residents with in-state tuition only",
+          "sourceUrl": "https://finaid.mines.edu/copromise/"
+        }
+      ],
+      "meetsFullNeed": "no",
+      "needBlindUS": null,
+      "cssProfileRequired": false,
+      "priorityAidDeadline": "March 1 (FAFSA/CASFA for Mines Promise and General Scholarship Application priority date; no year stated)",
+      "netPriceCalculatorUrl": "https://www.mines.edu/npc/",
+      "notes": "The newest Common Data Set Mines has posted is 2022-23, on both its own site and the Colorado state library, so no 2024-25 or 2025-26 figures exist. Mines has no separate engineering fee, and the total includes $56 in loan fees.",
+      "meritSharePct": null,
+      "costOfLivingArea": "Denver-Aurora-Centennial, CO (MSA)",
+      "costOfLivingIndex": 105.8,
+      "housingCostIndex": 146.9
+    },
+    {
+      "school": "University of Virginia (UVA)",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 62980,
+      "housingFood": 16070,
+      "booksSupplies": 1540,
+      "otherCosts": 3550,
+      "totalCost": 84140,
+      "costSourceUrl": "https://qlksnpn-apprd01.eservices.virginia.edu/extensions/CDS_SectionG/CDS_SectionG.html",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 3978,
+      "cdsNonNeedMeritRecipients": 88,
+      "cdsAvgNonNeedMerit": 7270,
+      "cdsSourceUrl": "https://ira.virginia.edu/common-data-set/common-data-set-2025-2026",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Jefferson Scholarship (Jefferson Scholars Foundation)",
+          "amount": "Full cost of attendance",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": null,
+          "eligibility": "Students must be nominated by their high school, then pass regional and final interviews; selection is based on leadership, scholarship and citizenship.",
+          "sourceUrl": "https://news.virginia.edu/content/jefferson-scholars-foundation-awards-record-number-full-uva-scholarships"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "AccessUVA (non-Virginians)",
+          "incomeRange": "Any family income with demonstrated need",
+          "covers": "100% of demonstrated need; need-based loans capped at $28,000 over four years",
+          "residency": "All undergraduates, including out-of-state",
+          "sourceUrl": "https://news.virginia.edu/content/uva-expands-financial-aid-program-virginia-families"
+        },
+        {
+          "name": "AccessUVA - full cost tier",
+          "incomeRange": "Family income of $50,000 or less",
+          "covers": "Grants equal to or above tuition, fees, housing and dining",
+          "residency": "Virginia residents only",
+          "sourceUrl": "https://news.virginia.edu/content/uva-expands-financial-aid-program-virginia-families"
+        },
+        {
+          "name": "AccessUVA - tuition tier",
+          "incomeRange": "Family income of $100,000 or less",
+          "covers": "Grants equal to or above tuition and fees",
+          "residency": "Virginia residents only",
+          "sourceUrl": "https://news.virginia.edu/content/uva-expands-financial-aid-program-virginia-families"
+        },
+        {
+          "name": "AccessUVA - grant tier",
+          "incomeRange": "Family income of $150,000 or less",
+          "covers": "At least $2,000 in need-based grants",
+          "residency": "Virginia residents only",
+          "sourceUrl": "https://news.virginia.edu/content/uva-expands-financial-aid-program-virginia-families"
+        }
+      ],
+      "meetsFullNeed": "all students",
+      "needBlindUS": true,
+      "cssProfileRequired": true,
+      "priorityAidDeadline": "March 1 (CDS 2025-26 item H9, for students entering fall 2026)",
+      "netPriceCalculatorUrl": "https://sfs.virginia.edu/estimate-your-costs-attend-uva",
+      "notes": "Costs are UVA's CDS 2025-26 Section G figures for first-year nonresidents in 2026-27. They leave out the higher Engineering tuition (the CDS says 26.9% of students pay more than the base rate), and the total is my sum of the CDS items because UVA's cost pages block automated access.",
+      "meritSharePct": 2.2,
+      "costOfLivingArea": "Charlottesville, VA (MSA)",
+      "costOfLivingIndex": 99.1,
+      "housingCostIndex": 107.0
+    },
+    {
+      "school": "Lehigh University",
+      "costYear": "2026-27",
+      "residencyRate": "private",
+      "tuitionFees": 71500,
+      "housingFood": 19230,
+      "booksSupplies": 1000,
+      "otherCosts": 1500,
+      "totalCost": 93230,
+      "costSourceUrl": "https://www2.lehigh.edu/admissions/tuition-affording-college",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 1535,
+      "cdsNonNeedMeritRecipients": 177,
+      "cdsAvgNonNeedMerit": 21666,
+      "cdsSourceUrl": "https://data.lehigh.edu/sites/data.lehigh.edu/files/4.6.2026_CDS_Finalized-Published_Definition%20Sheet%20Removed%20for%20Website%20Posting_0.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Founder's and Trustees' Scholarships",
+          "amount": "Full tuition or half tuition per year",
+          "years": "4 years (8 consecutive semesters)",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Admission application deadline",
+          "eligibility": "Students in the top tier of the applicant pool; renewal requires a 3.0 cumulative GPA.",
+          "sourceUrl": "https://www2.lehigh.edu/admissions/merit-scholarships"
+        },
+        {
+          "name": "Dean's Scholarship",
+          "amount": "$15,000-$25,000 per year",
+          "years": "4 years (8 consecutive semesters)",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Admission application deadline",
+          "eligibility": "Students who excel academically and show leadership; renewal requires a 3.0 cumulative GPA.",
+          "sourceUrl": "https://www2.lehigh.edu/admissions/merit-scholarships"
+        },
+        {
+          "name": "Lehigh University Merit Scholarship / National Merit Scholarship",
+          "amount": "$1,000 or $2,000 per year",
+          "years": "4 years (8 consecutive semesters)",
+          "type": "automatic",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "Applicants who are National Merit Finalists.",
+          "sourceUrl": "https://www2.lehigh.edu/admissions/merit-scholarships"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "Lehigh Commitment",
+          "incomeRange": "Total family income under $75,000 with typical assets (under $500,000 family assets and $10,000 student assets)",
+          "covers": "Full tuition",
+          "residency": "All US students (international students may also qualify)",
+          "sourceUrl": "https://www2.lehigh.edu/admissions/tuition-affording-college/lehigh-commitment"
+        }
+      ],
+      "meetsFullNeed": "no",
+      "needBlindUS": false,
+      "cssProfileRequired": true,
+      "priorityAidDeadline": "CSS Profile and FAFSA due by the admission plan deadline: Early Decision I November 1, Early Decision II January 1, Regular Decision January 15 (published for fall 2027 entry)",
+      "netPriceCalculatorUrl": "https://www2.lehigh.edu/admissions/tuition-affording-college/net-price-calculator",
+      "notes": "Tuition and fees include the $910 Engineering and Science fee. The total is Lehigh's published $89,820 direct cost plus $1,000 books, $1,500 personal and the $910 fee; Lehigh sets no transportation allowance.",
+      "meritSharePct": 11.5,
+      "costOfLivingArea": "Allentown-Bethlehem-Easton, PA-NJ (MSA)",
+      "costOfLivingIndex": 100.0,
+      "housingCostIndex": 105.5
+    },
+    {
+      "school": "University of Connecticut (UConn)",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 44242,
+      "housingFood": 17082,
+      "booksSupplies": 1020,
+      "otherCosts": 4672,
+      "totalCost": 67108,
+      "costSourceUrl": "https://financialaid.uconn.edu/cost/",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 4657,
+      "cdsNonNeedMeritRecipients": 1251,
+      "cdsAvgNonNeedMerit": 11221,
+      "cdsSourceUrl": "https://bpir.media.uconn.edu/wp-content/uploads/sites/3452/2026/08/UConn_CDS_2025_2026_WEB.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Stamps Scholarship",
+          "amount": "Full cost of attendance per year, plus a one-time $12,000 enrichment award",
+          "years": "4 years (8 semesters)",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "Admission application by November 1; supplemental application by November 8",
+          "eligibility": "Storrs campus applicants of any residency; finalists must interview.",
+          "sourceUrl": "https://admissions.uconn.edu/cost-aid/scholarship/"
+        },
+        {
+          "name": "STEM Scholarship",
+          "amount": "Not published (fixed amount set each year)",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "December 1 priority for the admission application",
+          "eligibility": "Storrs applicants in a STEM major with a very competitive academic average and exceptional STEM involvement; recipients join the Honors Program.",
+          "sourceUrl": "https://admissions.uconn.edu/cost-aid/scholarship/"
+        },
+        {
+          "name": "Academic Excellence Scholarship",
+          "amount": "Not published (fixed amount set each year)",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "December 1 priority for the admission application",
+          "eligibility": "In-state and out-of-state applicants with a very competitive high school academic average.",
+          "sourceUrl": "https://admissions.uconn.edu/cost-aid/scholarship/"
+        },
+        {
+          "name": "Husky Achievement Award",
+          "amount": "Not published (fixed amount set each year)",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "December 1 priority for the admission application",
+          "eligibility": "In-state and out-of-state applicants with a very competitive high school academic average.",
+          "sourceUrl": "https://admissions.uconn.edu/cost-aid/scholarship/"
+        },
+        {
+          "name": "Leadership Scholarship",
+          "amount": "Not published (fixed amount set each year)",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "December 1 priority for the admission application",
+          "eligibility": "In-state and out-of-state applicants with a very competitive academic average and shown commitment to opportunity and access programs.",
+          "sourceUrl": "https://admissions.uconn.edu/cost-aid/scholarship/"
+        },
+        {
+          "name": "UConn Award",
+          "amount": "Not published (fixed amount set each year)",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "December 1 priority for the admission application",
+          "eligibility": "In-state and out-of-state applicants with a very competitive high school academic average.",
+          "sourceUrl": "https://admissions.uconn.edu/cost-aid/scholarship/"
+        }
+      ],
+      "needPrograms": [],
+      "meetsFullNeed": "no",
+      "needBlindUS": null,
+      "cssProfileRequired": false,
+      "priorityAidDeadline": "February 15 FAFSA on-time deadline (November 1 for Early Decision); no year stated",
+      "netPriceCalculatorUrl": "https://financialaid.uconn.edu/pricecalc/",
+      "notes": "UConn publishes no need-based program with a family income range; University Grants are based on need and available funds. There is no separate engineering fee, and the total includes $92 in loan fees.",
+      "meritSharePct": 26.9,
+      "costOfLivingArea": "Hartford-West Hartford-East Hartford, CT (MSA)",
+      "costOfLivingIndex": 102.7,
+      "housingCostIndex": 110.2
+    },
+    {
+      "school": "University of Delaware",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 49020,
+      "housingFood": 16614,
+      "booksSupplies": 1250,
+      "otherCosts": 2942,
+      "totalCost": 69884,
+      "costSourceUrl": "https://www.udel.edu/students/student-financial-services/coa/",
+      "cdsYear": "2024-25",
+      "cdsFirstYears": 4190,
+      "cdsNonNeedMeritRecipients": 1359,
+      "cdsAvgNonNeedMerit": 9785,
+      "cdsSourceUrl": "https://ire.udel.edu/files/2025/07/CDS2425_UDelaware.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "UD Trustee Scholarship",
+          "amount": "$16,000-$17,000 per year",
+          "years": "Renewable (number of years not stated on source page)",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "All out-of-state freshmen are reviewed using an internal academic calculation of their admission materials.",
+          "sourceUrl": "https://www.udel.edu/apply/undergraduate-admissions/financing-your-degree/out-of-state-freshmen/"
+        },
+        {
+          "name": "UD Presidential Scholarship",
+          "amount": "$14,000-$16,000 per year",
+          "years": "Renewable (number of years not stated on source page)",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "All out-of-state freshmen are reviewed using an internal academic calculation of their admission materials.",
+          "sourceUrl": "https://www.udel.edu/apply/undergraduate-admissions/financing-your-degree/out-of-state-freshmen/"
+        },
+        {
+          "name": "UD Provost Scholarship",
+          "amount": "$10,000-$15,000 per year",
+          "years": "Renewable (number of years not stated on source page)",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "All out-of-state freshmen are reviewed using an internal academic calculation of their admission materials.",
+          "sourceUrl": "https://www.udel.edu/apply/undergraduate-admissions/financing-your-degree/out-of-state-freshmen/"
+        },
+        {
+          "name": "Delaware Scholar Award",
+          "amount": "$8,000-$10,000 per year",
+          "years": "Renewable (number of years not stated on source page)",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "All out-of-state freshmen are reviewed using an internal academic calculation of their admission materials.",
+          "sourceUrl": "https://www.udel.edu/apply/undergraduate-admissions/financing-your-degree/out-of-state-freshmen/"
+        },
+        {
+          "name": "Blue Hen Scholarship",
+          "amount": "$4,000-$7,000 per year",
+          "years": "Renewable (number of years not stated on source page)",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "All out-of-state freshmen are reviewed using an internal academic calculation of their admission materials.",
+          "sourceUrl": "https://www.udel.edu/apply/undergraduate-admissions/financing-your-degree/out-of-state-freshmen/"
+        },
+        {
+          "name": "Distinguished Scholar Awards (Honors College)",
+          "amount": "Not published",
+          "years": "Not published",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "By invitation only for selected Honors College admits, who interview on campus.",
+          "sourceUrl": "https://www.udel.edu/apply/undergraduate-admissions/financing-your-degree/out-of-state-freshmen/"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "First State Promise",
+          "incomeRange": "Family income under $35,000 (full package) or $35,000-$75,000 (tuition package); assets over $50,000 may affect eligibility",
+          "covers": "Under $35,000: tuition, fees, standard housing and food; $35,000-$75,000: full tuition and mandatory fees",
+          "residency": "Delaware residents only",
+          "sourceUrl": "https://www.udel.edu/apply/undergraduate-admissions/financing-your-degree/in-state-freshmen/"
+        }
+      ],
+      "meetsFullNeed": "no",
+      "needBlindUS": null,
+      "cssProfileRequired": false,
+      "priorityAidDeadline": "File the FAFSA before April 15 (recommended for institutional need-based funds; no year stated)",
+      "netPriceCalculatorUrl": "https://www.udel.edu/apply/undergraduate-admissions/financing-your-degree/net-price-calculator/",
+      "notes": "Tuition and fees include the $4,000 College of Engineering differential for students admitted from fall 2025. UD's published total of $65,884 leaves that charge out, and the total here includes $58 in loan fees.",
+      "meritSharePct": 32.4,
+      "costOfLivingArea": "Philadelphia-Camden-Wilmington, PA-NJ-DE-MD (MSA)",
+      "costOfLivingIndex": 102.6,
+      "housingCostIndex": 113.1
+    },
+    {
+      "school": "Drexel University",
+      "costYear": "2026-27",
+      "residencyRate": "private",
+      "tuitionFees": 65498,
+      "housingFood": 19398,
+      "booksSupplies": 1700,
+      "otherCosts": 1500,
+      "totalCost": 88156,
+      "costSourceUrl": "https://drexel.edu/drexelcentral/cost/undergrad",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 1918,
+      "cdsNonNeedMeritRecipients": 485,
+      "cdsAvgNonNeedMerit": 24665,
+      "cdsSourceUrl": "https://drexel.edu/institutionalresearch/~/media/Drexel/Provost-Group/InstitutionalResearch/Documents/Factbook/CDS_2025-2026.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Drexel Merit Scholarship",
+          "amount": "Early Decision/Early Action: $20,000-$35,000 per year; Regular Decision: $10,000-$35,000 per year (ranges for fall 2027 admits)",
+          "years": "Renewable for all class terms of the undergraduate program while full-time (not during co-op)",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Admission plan deadline",
+          "eligibility": "Awarded by the Admissions Committee for superior academic performance; domestic and international first-year applicants.",
+          "sourceUrl": "https://drexel.edu/drexelcentral/finaid/grants/undergraduate-scholarships"
+        },
+        {
+          "name": "FIRST Robotics Scholarship",
+          "amount": "$8,000 per year",
+          "years": "Renewable for class terms while full-time",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "November 25 (Early Decision/Early Action) or February 1 (Regular Decision)",
+          "eligibility": "First-year applicants to any major who are current or former FIRST participants.",
+          "sourceUrl": "https://drexel.edu/drexelcentral/finaid/grants/undergraduate-scholarships"
+        },
+        {
+          "name": "Dragon Alumni Scholarship",
+          "amount": "$500 per term",
+          "years": "Not stated",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "Alumni recommendation by November 25 (Early Decision/Early Action) or February 1 (Regular Decision)",
+          "eligibility": "First-year applicants endorsed by a Drexel alum.",
+          "sourceUrl": "https://drexel.edu/drexelcentral/finaid/grants/undergraduate-scholarships"
+        },
+        {
+          "name": "Materials Summer Institute Scholarship",
+          "amount": "$250 per academic quarter",
+          "years": "Renewable for class terms while full-time",
+          "type": "automatic",
+          "separateApplication": false,
+          "deadline": "Admission deadline",
+          "eligibility": "Fall-start materials science and engineering first-year students who attended the Materials Science & Engineering Summer Institute.",
+          "sourceUrl": "https://drexel.edu/drexelcentral/finaid/grants/undergraduate-scholarships"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "Drexel Liberty Scholars",
+          "incomeRange": "Demonstrated financial need; no income range published",
+          "covers": "100% of tuition and general University fees",
+          "residency": "City of Philadelphia residents only",
+          "sourceUrl": "https://drexel.edu/drexelcentral/finaid/grants/undergraduate-scholarships"
+        }
+      ],
+      "meetsFullNeed": "no",
+      "needBlindUS": null,
+      "cssProfileRequired": true,
+      "priorityAidDeadline": "CSS Profile November 25 (Early Decision/Early Action) or February 1 (Regular Decision); FAFSA priority February 1 (published for fall 2027 entry, 2027-28 forms)",
+      "netPriceCalculatorUrl": "https://drexel.edu/drexelcentral/finaid/prospective-students/net-price-calculator/",
+      "notes": "Tuition and fees include the $50 one-time immunization fee, and books include the $500 first-term computer allowance. There is no engineering tuition differential, and the total includes the $60 loan origination fee.",
+      "meritSharePct": 25.3,
+      "costOfLivingArea": "Philadelphia-Camden-Wilmington, PA-NJ-DE-MD (MSA)",
+      "costOfLivingIndex": 102.6,
+      "housingCostIndex": 113.1
+    },
+    {
+      "school": "Iowa State University",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 31450,
+      "housingFood": 11162,
+      "booksSupplies": 800,
+      "otherCosts": 3350,
+      "totalCost": 46762,
+      "costSourceUrl": "https://financialaid.iastate.edu/getting-started/cost/cost-of-attendance/undergraduate-students/",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 5883,
+      "cdsNonNeedMeritRecipients": 2537,
+      "cdsAvgNonNeedMerit": 8830,
+      "cdsSourceUrl": "https://www.ir.iastate.edu/files/documents/cds/CDS-25-26.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Academic Achievement Award",
+          "amount": "$3,000-$12,000 per year",
+          "years": "4 years",
+          "type": "automatic",
+          "separateApplication": false,
+          "deadline": "Priority date March 1, 2027 (fall 2027 entry)",
+          "eligibility": "Admitted out-of-state students get an amount set by cumulative high school GPA, from $3,000 at 3.10-3.19 up to $12,000 at 4.00 or higher (weighted GPA accepted).",
+          "sourceUrl": "https://www.iastate.edu/admission-and-aid/admissions/first-year-students/national-scholars/first-year-scholarship-awards/nj"
+        },
+        {
+          "name": "Exploration Award",
+          "amount": "$3,000 per year",
+          "years": "4 years",
+          "type": "automatic",
+          "separateApplication": false,
+          "deadline": "Priority date March 1, 2027 (fall 2027 entry)",
+          "eligibility": "Admitted residents of listed states, including New Jersey, with a GPA of 3.00 or higher; it stacks with the Academic Achievement Award.",
+          "sourceUrl": "https://www.iastate.edu/admission-and-aid/admissions/first-year-students/national-scholars/first-year-scholarship-awards/nj"
+        },
+        {
+          "name": "College of Engineering Incoming Freshman Scholarship",
+          "amount": "$5,500 per year (domestic non-Iowa residents)",
+          "years": "1 year, renewable for a second year",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "January 5, 2027 (fall 2027 entry), through OneApp",
+          "eligibility": "High school GPA of 3.6 or higher; winners are chosen by essay, and renewal requires staying in engineering with a 2.7 GPA and reapplying.",
+          "sourceUrl": "https://www.engineering.iastate.edu/scholarships/first-year-students/"
+        },
+        {
+          "name": "Generations Award",
+          "amount": "$1,500 per year",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "Priority date March 1, 2027 (fall 2027 entry)",
+          "eligibility": "Nonresident child, grandchild or great-grandchild of an Iowa State graduate who applies through OneApp.",
+          "sourceUrl": "https://www.iastate.edu/admission-and-aid/admissions/first-year-students/national-scholars/first-year-scholarship-awards/nj"
+        },
+        {
+          "name": "Nonresident National Merit Scholarship",
+          "amount": "$500 per year",
+          "years": "Not stated",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "National Merit Finalist or Scholar who lists Iowa State as first choice with the National Merit Scholarship Corporation.",
+          "sourceUrl": "https://www.iastate.edu/admission-and-aid/admissions/first-year-students/national-scholars"
+        }
+      ],
+      "needPrograms": [],
+      "meetsFullNeed": "no",
+      "needBlindUS": null,
+      "cssProfileRequired": false,
+      "priorityAidDeadline": "FAFSA by December 18, 2025 for 2026-27 first-year students (2027-28 date not yet posted)",
+      "netPriceCalculatorUrl": "https://financialaid.iastate.edu/getting-started/cost/net-price-calculator/",
+      "notes": "Iowa State publishes no single total, so the total is the sum of its published pieces (other costs are personal $2,450 plus transportation $900); the higher engineering tuition starts at sophomore level, so it is not included. The CDS aid figures are 2024-25 final data, and no income-based aid program was found.",
+      "meritSharePct": 43.1,
+      "costOfLivingArea": "Ames, IA (MSA)",
+      "costOfLivingIndex": 88.8,
+      "housingCostIndex": 69.2
+    },
+    {
+      "school": "Clemson University",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 46352,
+      "housingFood": 14880,
+      "booksSupplies": 4100,
+      "otherCosts": 5804,
+      "totalCost": 71204,
+      "costSourceUrl": "https://www.clemson.edu/financial-aid/cost/estimated-cost-of-attendance.html",
+      "cdsYear": null,
+      "cdsFirstYears": null,
+      "cdsNonNeedMeritRecipients": null,
+      "cdsAvgNonNeedMerit": null,
+      "cdsSourceUrl": "https://open.clemson.edu/cds/18/",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "National Scholars Program",
+          "amount": "Tuition, fees, housing, food and other expenses",
+          "years": "Not stated",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "Honors College Priority application October 22 and materials November 1 (fall 2027 cycle)",
+          "eligibility": "Selected from top Honors College Priority applicants after an interview.",
+          "sourceUrl": "https://www.clemson.edu/financial-aid/types-of-aid/clemson-scholarships/named-scholarships.html"
+        },
+        {
+          "name": "Lyceum Scholars Program",
+          "amount": "$60,000 over four years",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": null,
+          "eligibility": "Open to incoming first-year students of any major who apply through the Clemson admissions portal.",
+          "sourceUrl": "https://www.clemson.edu/financial-aid/types-of-aid/clemson-scholarships/named-scholarships.html"
+        },
+        {
+          "name": "Out-of-state first-year recruiting scholarship",
+          "amount": "$500 per year up to full cost of attendance (range published for all recruiting scholarships)",
+          "years": "4 years (renewable for three more years)",
+          "type": "automatic",
+          "separateApplication": false,
+          "deadline": "Apply by January 1 and submit materials by January 10",
+          "eligibility": "Domestic out-of-state students with an exceptional high school record are considered from their admission application, and renewal requires a 3.0 GPA and 24 credits a year.",
+          "sourceUrl": "https://www.clemson.edu/financial-aid/types-of-aid/clemson-scholarships/first-year-recruiting-scholarships.html"
+        },
+        {
+          "name": "Clemson-Sponsored National Merit Finalist Scholarship",
+          "amount": "$1,500 per year",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "National Merit Finalists selected by the National Merit Scholarship Corporation.",
+          "sourceUrl": "https://www.clemson.edu/financial-aid/types-of-aid/clemson-scholarships/named-scholarships.html"
+        },
+        {
+          "name": "National Merit Freshman Award",
+          "amount": "$2,500 in year one, then $1,500 per year",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "National Merit recipients selected by the National Merit Scholarship Corporation and reported to Clemson.",
+          "sourceUrl": "https://www.clemson.edu/financial-aid/types-of-aid/clemson-scholarships/named-scholarships.html"
+        }
+      ],
+      "needPrograms": [],
+      "meetsFullNeed": "no",
+      "needBlindUS": null,
+      "cssProfileRequired": null,
+      "priorityAidDeadline": "FAFSA by January 1 (current cycle; year not stated)",
+      "netPriceCalculatorUrl": "https://www.clemson.edu/financial-aid/cost/net-price-calculator.html",
+      "notes": "Tuition and fees include the $1,250-per-semester Engineering Program Fee, and books include the $2,524 first-year laptop allowance; Clemson's published first-year total with laptop is $68,704 without the engineering fee. The CDS could not be read (bot check on the 2025-26 file, form fields on 2024-25), and Clemson's aid pages list only the FAFSA without saying whether the CSS Profile is needed.",
+      "meritSharePct": null,
+      "costOfLivingArea": "Greenville-Anderson-Greer, SC (MSA)",
+      "costOfLivingIndex": 93.3,
+      "housingCostIndex": 76.8
+    },
+    {
+      "school": "University of Tennessee, Knoxville",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 34478,
+      "housingFood": 14738,
+      "booksSupplies": 1598,
+      "otherCosts": 6542,
+      "totalCost": 57448,
+      "costSourceUrl": "https://onestop.utk.edu/billing-payments/cost-of-attending-ut-undergraduate-student/",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 7133,
+      "cdsNonNeedMeritRecipients": 3749,
+      "cdsAvgNonNeedMerit": 6872,
+      "cdsSourceUrl": "https://irsa.utk.edu/wp-content/uploads/sites/5/2026/06/CDS_2025-26_H.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Out-of-State Volunteer Scholarship",
+          "amount": "$3,000, $9,000 or $18,000 per year",
+          "years": "4 years",
+          "type": "automatic",
+          "separateApplication": false,
+          "deadline": "Apply for admission by December 15 (page header) or January 15 (eligibility text); test scores received by May 15",
+          "eligibility": "Admitted out-of-state students: 3.8+ UT weighted core GPA and 28+ ACT/1300+ SAT gets $3,000; 4.0+ and 30-33/1360-1480 gets $9,000; 4.0+ and 34-36/1490-1600 gets $18,000.",
+          "sourceUrl": "https://onestop.utk.edu/scholarships-financial-aid/scholarships/out-of-state-volunteer-scholarship/"
+        },
+        {
+          "name": "Chancellor's Scholarships (Neyland, Roddy, Tennessee Scholars, Bonham, Manning)",
+          "amount": "$5,000-$10,000 per year (Neyland $7,000; Roddy, Tennessee Scholars and Bonham $5,000)",
+          "years": "1-5 years (most 4 years)",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "November 1 (early action) with the scholarship questions on the admission application",
+          "eligibility": "Minimum 31 ACT (1390 SAT) and a 4.0 UT core GPA.",
+          "sourceUrl": "https://onestop.utk.edu/scholarships-financial-aid/scholarships/chancellors-scholarships/"
+        },
+        {
+          "name": "Provost Scholarship",
+          "amount": "$2,000 per year",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Apply for admission by December 15",
+          "eligibility": "National Merit or National Achievement finalist who names UT as first-choice college.",
+          "sourceUrl": "https://onestop.utk.edu/scholarships-financial-aid/scholarships/provost-scholarship/"
+        },
+        {
+          "name": "Tickle College of Engineering scholarships",
+          "amount": "Not published",
+          "years": "Varies; some renewable up to 4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Apply by the priority admission deadline (November 1)",
+          "eligibility": "Students admitted to UT and the engineering college are judged on GPA, test scores, activities and leadership.",
+          "sourceUrl": "https://tickle.utk.edu/admissions-aid/financial-aid/"
+        },
+        {
+          "name": "Competitive Scholarships (college and department)",
+          "amount": "A few hundred to a few thousand dollars",
+          "years": "Varies",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "Admission by November 1; STARS by November 15",
+          "eligibility": "First-year applicants who complete the scholarship questions on the admission application.",
+          "sourceUrl": "https://onestop.utk.edu/scholarships-financial-aid/scholarships/competitive-scholarships/"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "UT Promise Scholarship",
+          "incomeRange": "Parent and student AGI under $75,000 and total assets under $75,000",
+          "covers": "Tuition and mandatory fees (last-dollar)",
+          "residency": "Tennessee residents eligible for the HOPE Scholarship only",
+          "sourceUrl": "https://onestop.utk.edu/scholarships-financial-aid/scholarships/tri-star-scholarships/"
+        },
+        {
+          "name": "Tennessee Pledge Scholarship",
+          "incomeRange": "Family AGI of $40,000 or less and family assets of $40,000 or less",
+          "covers": "Tuition, mandatory fees, and average on-campus housing and food (last-dollar; engineering course fees not covered)",
+          "residency": "Tennessee residents only",
+          "sourceUrl": "https://onestop.utk.edu/scholarships-financial-aid/scholarships/tri-star-scholarships/"
+        }
+      ],
+      "meetsFullNeed": "no",
+      "needBlindUS": null,
+      "cssProfileRequired": false,
+      "priorityAidDeadline": "FAFSA early action filing date December 1, 2026 (fall 2027 entry)",
+      "netPriceCalculatorUrl": "https://utk.studentaidcalculator.com/",
+      "notes": "UT charges extra engineering tuition of $252 per credit hour for engineering courses, which is not in the total because it depends on how many engineering credits are taken. The total includes $92 in loan fees, and the CDS aid figures are 2025-26 estimates.",
+      "meritSharePct": 52.6,
+      "costOfLivingArea": "Knoxville, TN (MSA)",
+      "costOfLivingIndex": 92.6,
+      "housingCostIndex": 82.8
+    },
+    {
+      "school": "Michigan Technological University (Michigan Tech)",
+      "costYear": "2026-27",
+      "residencyRate": "out-of-state",
+      "tuitionFees": 47344,
+      "housingFood": 15321,
+      "booksSupplies": 1200,
+      "otherCosts": 2114,
+      "totalCost": 66043,
+      "costSourceUrl": "https://www.mtu.edu/finaid/tuition/cost/",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 1443,
+      "cdsNonNeedMeritRecipients": 588,
+      "cdsAvgNonNeedMerit": 11689,
+      "cdsSourceUrl": "https://www.mtu.edu/institutional-research/cds/files/cds-2025-2026.xlsx",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Leading Scholar Award",
+          "amount": "Full nonresident tuition (about $46,294 per year)",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "November 15 of senior year",
+          "eligibility": "High school seniors with strong leadership and academics who submit an application and essay; renewal requires a 3.25 GPA and living on campus for two years.",
+          "sourceUrl": "https://www.mtu.edu/finaid/students/current/leading-scholar-details/index.html"
+        },
+        {
+          "name": "National Scholars Program",
+          "amount": "$12,000-$21,000 per year (2027-28 values)",
+          "years": "4 years",
+          "type": "automatic",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "Non-Michigan US students by GPA: 3.35-3.749 gets $12,000, 3.75-3.899 gets $15,000, 3.90-3.999 gets $17,000, 4.00+ gets $19,000; the $21,000 Platinum level requires official test scores.",
+          "sourceUrl": "https://www.mtu.edu/admissions/national-scholars/"
+        },
+        {
+          "name": "FIRST Scholarship (FIRST or VEX Robotics)",
+          "amount": "$1,500 or $4,000 per year",
+          "years": "Not stated",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "February 1 of senior year",
+          "eligibility": "Incoming first-year students who competed on a FIRST Robotics, FIRST Tech Challenge or VEX Robotics team.",
+          "sourceUrl": "https://www.mtu.edu/admissions/financial/scholarships/"
+        },
+        {
+          "name": "Alumni Legacy Award",
+          "amount": "Michigan resident tuition rate (valued over $25,000 per year)",
+          "years": "Not stated",
+          "type": "automatic",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "Children or grandchildren of Michigan Tech graduates; cannot be combined with the National Scholars Program.",
+          "sourceUrl": "https://www.mtu.edu/admissions/financial/scholarships/"
+        },
+        {
+          "name": "Michigan Tech National Merit Scholarship",
+          "amount": "Up to $2,000",
+          "years": "Not stated",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "National Merit finalists who list Michigan Tech as first choice with the National Merit Scholarship Corporation.",
+          "sourceUrl": "https://www.mtu.edu/admissions/financial/scholarships/"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "Thompson Scholar - Working Families Scholarship",
+          "incomeRange": "FAFSA Student Aid Index between -1,500 and 16,000, with at least one working parent",
+          "covers": "Up to $5,500 per year from the Thompson Foundation, matched by up to $5,500 in Michigan Tech aid",
+          "residency": "Michigan residents only",
+          "sourceUrl": "https://www.mtu.edu/finaid/students/prospective/"
+        },
+        {
+          "name": "Michigan Achievement Scholarship",
+          "incomeRange": "FAFSA Student Aid Index of 30,000 or less",
+          "covers": "Up to $5,500",
+          "residency": "Michigan high school graduates who have lived in Michigan at least one year",
+          "sourceUrl": "https://www.mtu.edu/admissions/financial/scholarships/"
+        }
+      ],
+      "meetsFullNeed": "no",
+      "needBlindUS": null,
+      "cssProfileRequired": false,
+      "priorityAidDeadline": "March 1 (CDS 2025-26, for fall 2026 entry)",
+      "netPriceCalculatorUrl": "https://www.mtu.edu/finaid/tuition/calculator/",
+      "notes": "Tuition and fees are lower-division tuition $46,294 plus required fees $382 and lab and course fees $668; higher engineering rates start only after 60 credits, and the total includes a $64 loan fee. The CDS average merit award is $11,688.64 in the source spreadsheet, rounded here to $11,689.",
+      "meritSharePct": 40.7,
+      "costOfLivingArea": "Michigan (Nonmetropolitan Portion) - Houghton is not in a metropolitan statistical area",
+      "costOfLivingIndex": 89.0,
+      "housingCostIndex": 61.3
+    },
+    {
+      "school": "New Jersey Institute of Technology (NJIT)",
+      "costYear": "2026-27",
+      "residencyRate": "in-state",
+      "tuitionFees": 22426,
+      "housingFood": 18900,
+      "booksSupplies": 2900,
+      "otherCosts": 5500,
+      "totalCost": 49726,
+      "costSourceUrl": "https://www.njit.edu/admissions/tuition-costs",
+      "cdsYear": "2024-25",
+      "cdsFirstYears": 1635,
+      "cdsNonNeedMeritRecipients": 288,
+      "cdsAvgNonNeedMerit": 15733,
+      "cdsSourceUrl": "https://www.njit.edu/oie/sites/njit.edu.oie/files/CDS_2024-2025_v12.xlsx",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Faculty Scholarship",
+          "amount": "Up to full tuition (minus other tuition-based awards)",
+          "years": "4 years",
+          "type": "automatic",
+          "separateApplication": false,
+          "deadline": "Submit tuition deposit by May 1 to accept",
+          "eligibility": "Freshmen are considered from their admission application, and renewal requires a 3.0 GPA (3.2 for Honors students).",
+          "sourceUrl": "https://www.njit.edu/financialaid/merit-based-scholarships"
+        },
+        {
+          "name": "Dean's Scholarship",
+          "amount": "A set portion of tuition and fees (amount not published)",
+          "years": "4 years",
+          "type": "automatic",
+          "separateApplication": false,
+          "deadline": "Submit tuition deposit by May 1 to accept",
+          "eligibility": "Awarded on academic achievement; renewal requires a 3.0 GPA and filing the FAFSA each year.",
+          "sourceUrl": "https://www.njit.edu/financialaid/merit-based-scholarships"
+        },
+        {
+          "name": "Honors Merit Award (Albert Dorman Honors College)",
+          "amount": "Up to tuition and fees",
+          "years": "Not stated",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": null,
+          "eligibility": "Must be accepted into the Albert Dorman Honors College.",
+          "sourceUrl": "https://www.njit.edu/financialaid/merit-based-scholarships"
+        },
+        {
+          "name": "Honors Residential Scholarship",
+          "amount": "$500 up to full housing and food",
+          "years": "Not stated",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": null,
+          "eligibility": "Must be accepted into the Albert Dorman Honors College and live on campus.",
+          "sourceUrl": "https://www.njit.edu/financialaid/merit-based-scholarships"
+        },
+        {
+          "name": "National Merit Scholarship (NJIT)",
+          "amount": "Tuition and fees (minus other tuition-based awards)",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "National Merit finalists selected by the National Merit Scholarship Corporation; renewal requires a 3.0 GPA.",
+          "sourceUrl": "https://www.njit.edu/financialaid/merit-based-scholarships"
+        },
+        {
+          "name": "Frederick and Florence Bauder Scholarship",
+          "amount": "$2,500 per year",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "Newly admitted Honors College students with particular ability in chemistry, mathematics or physics (all majors eligible).",
+          "sourceUrl": "https://honors.njit.edu/currentstudents/scholarships"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "Garden State Guarantee",
+          "incomeRange": "Family adjusted gross income $0-$65,000",
+          "covers": "Full tuition and mandatory fees in the third and fourth years only (last-dollar)",
+          "residency": "New Jersey residents only",
+          "sourceUrl": "https://www.njit.edu/financialaid/garden-state-guarantee"
+        },
+        {
+          "name": "Highlander Promise Scholarship Program",
+          "incomeRange": "Families in the lowest income brackets (no dollar threshold published)",
+          "covers": "Full tuition (described as 100% tuition-free)",
+          "residency": "Not stated",
+          "sourceUrl": "https://www.njit.edu/development/highlander-promise"
+        }
+      ],
+      "meetsFullNeed": "no",
+      "needBlindUS": null,
+      "cssProfileRequired": false,
+      "priorityAidDeadline": "FAFSA by March 1, 2026 for 2026-27 (CDS 2024-25 lists February 15, 2025)",
+      "netPriceCalculatorUrl": "https://njit.studentaidcalculator.com",
+      "notes": "NJIT publishes no single total, so the total is the sum of its published pieces; 'other costs' is NJIT's $5,500 on-campus 'Additional Indirect Cost', and no separate engineering fee was found. No NJIT page describing a 'Highlander Pledge' was found; the CDS figures are 2023-24 final data (2025-26 CDS not posted), with the average merit award of $15,732.87 rounded to $15,733.",
+      "meritSharePct": 17.6,
+      "costOfLivingArea": "New York-Newark-Jersey City, NY-NJ (MSA)",
+      "costOfLivingIndex": 112.6,
+      "housingCostIndex": 148.6
+    },
+    {
+      "school": "Worcester Polytechnic Institute (WPI)",
+      "costYear": "2026-27",
+      "residencyRate": "private",
+      "tuitionFees": 65438,
+      "housingFood": 19732,
+      "booksSupplies": 1200,
+      "otherCosts": 1200,
+      "totalCost": 87570,
+      "costSourceUrl": "https://www.wpi.edu/admissions/tuition-aid/cost-attendance",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 1365,
+      "cdsNonNeedMeritRecipients": 561,
+      "cdsAvgNonNeedMerit": 24266,
+      "cdsSourceUrl": "https://www.wpi.edu/sites/default/files/2026-05/WPI_CDS_2025-2026.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Presidential Scholarship",
+          "amount": "Varies (not published); IB diploma score of 40+ guarantees at least $25,000",
+          "years": "4 years",
+          "type": "automatic",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "All admitted first-year applicants are considered, based on grades, recommendations, leadership, activities and service.",
+          "sourceUrl": "https://www.wpi.edu/admissions/tuition-aid/types-of-aid/scholarships-grants/wpi-merit"
+        },
+        {
+          "name": "Regional Scholarship",
+          "amount": "Not published",
+          "years": "Not stated",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "A limited number go to incoming first-year students at high schools in listed states, including New Jersey.",
+          "sourceUrl": "https://www.wpi.edu/admissions/tuition-aid/types-of-aid/scholarships-grants/wpi-merit"
+        },
+        {
+          "name": "Robotics Engineering Scholars Program",
+          "amount": "Typically $10,000-$25,000 per year",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "Applicants who list Robotics Engineering as their intended major are considered automatically.",
+          "sourceUrl": "https://www.wpi.edu/admissions/tuition-aid/types-of-aid/scholarships-grants/wpi-merit"
+        },
+        {
+          "name": "Chemical Engineering Scholars Program (CHESP)",
+          "amount": "Typically $10,000-$25,000 per year",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "Applicants who list Chemical Engineering as their intended major are considered automatically.",
+          "sourceUrl": "https://www.wpi.edu/admissions/tuition-aid/types-of-aid/scholarships-grants/wpi-merit/chemical-engineering-scholars-program"
+        },
+        {
+          "name": "WPI FIRST Design Innovation Scholarship",
+          "amount": "Full tuition (about $220,000 over 4 years); three runner-up awards of $10,000 per year",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "February 23, 2026 (fall 2026 cycle); 2026-27 cycle reopens fall 2026",
+          "eligibility": "One team-nominated senior per FIRST FRC, FTC or FGC team who has applied for admission by February 1.",
+          "sourceUrl": "https://www.wpi.edu/admissions/tuition-aid/types-of-aid/scholarships-grants/wpi-merit/robotics-scholarships"
+        },
+        {
+          "name": "National Consortium of Specialized STEM Schools (NCSSS) Scholarship",
+          "amount": "$15,000 per year",
+          "years": "Up to 4 years",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "First-year applicants from a participating NCSSS member high school.",
+          "sourceUrl": "https://www.wpi.edu/admissions/tuition-aid/types-of-aid/scholarships-grants/wpi-merit"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "Great Minds Scholars Program",
+          "incomeRange": "Pell Grant-eligible (no dollar income range published)",
+          "covers": "Full demonstrated need up to tuition and fees",
+          "residency": "Selected Pell-eligible students who are first in their families to attend college in the United States",
+          "sourceUrl": "https://www.wpi.edu/admissions/tuition-aid/types-of-aid/scholarships-grants/wpi-merit"
+        }
+      ],
+      "meetsFullNeed": "no",
+      "needBlindUS": null,
+      "cssProfileRequired": true,
+      "priorityAidDeadline": "CSS Profile and FAFSA for fall 2027 entry: Early Decision 1 by November 1, 2026; Early Action 1 by December 1, 2026; Early Decision 2 and Early Action 2 by February 1, 2027; Regular Decision by March 1, 2027",
+      "netPriceCalculatorUrl": "https://www.wpi.edu/admissions/tuition-aid/financial-need/net-price-calculator",
+      "notes": "Tuition and fees include a one-time $200 new student orientation fee, and WPI lists transportation as not applicable for on-campus students. The CDS aid figures are 2024-25 final data.",
+      "meritSharePct": 41.1,
+      "costOfLivingArea": "Worcester, MA (MSA)",
+      "costOfLivingIndex": 102.5,
+      "housingCostIndex": 113.0
+    },
+    {
+      "school": "Stevens Institute of Technology",
+      "costYear": "2026-27",
+      "residencyRate": "private",
+      "tuitionFees": 68230,
+      "housingFood": 20744,
+      "booksSupplies": 1200,
+      "otherCosts": 1050,
+      "totalCost": 91294,
+      "costSourceUrl": "https://www.stevens.edu/admission-aid/tuition-financial-aid/undergraduate-costs-and-aid",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 1054,
+      "cdsNonNeedMeritRecipients": 364,
+      "cdsAvgNonNeedMerit": 26284,
+      "cdsSourceUrl": "https://assets.stevens.edu/mviowpldu823/3JLtvZX6pLFpRC0HPNpdiW/fa3d7b4c149e41797b0734a1a23e904b/CDS-2025-2026-PDF_Final.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Ann P. Neupauer Scholarship",
+          "amount": "Full tuition",
+          "years": "4 years (8 semesters)",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Admission application deadline",
+          "eligibility": "Stevens' top academic honor for students studying engineering, mathematics or computer science; renewal requires a 3.2 GPA.",
+          "sourceUrl": "https://www.stevens.edu/admission-aid/tuition-financial-aid/stevens-scholarships"
+        },
+        {
+          "name": "Edwin A. Stevens Scholarship",
+          "amount": "Not published (Stevens merit awards range from $2,000 to full tuition)",
+          "years": "4 years (8 semesters)",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Admission application deadline",
+          "eligibility": "Excellence in high school shown by transcripts and recommendations, plus innovation and creativity.",
+          "sourceUrl": "https://www.stevens.edu/admission-aid/tuition-financial-aid/stevens-scholarships"
+        },
+        {
+          "name": "Presidential Achievement Scholarship",
+          "amount": "Not published (Stevens merit awards range from $2,000 to full tuition)",
+          "years": "4 years (8 semesters)",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Admission application deadline",
+          "eligibility": "Outstanding academic excellence shown in the application; renewal requires a 3.2 GPA.",
+          "sourceUrl": "https://www.stevens.edu/admission-aid/tuition-financial-aid/stevens-scholarships"
+        },
+        {
+          "name": "Martha Bayard Stevens Scholarship",
+          "amount": "Not published (Stevens merit awards range from $2,000 to full tuition)",
+          "years": "4 years (8 semesters)",
+          "type": "competitive",
+          "separateApplication": false,
+          "deadline": "Admission application deadline",
+          "eligibility": "High academic achievement plus community service and leadership, open to any field of study.",
+          "sourceUrl": "https://www.stevens.edu/admission-aid/tuition-financial-aid/stevens-scholarships"
+        },
+        {
+          "name": "Stevens FIRST Scholarship",
+          "amount": "Up to $6,000 per year",
+          "years": "4 years (up to $24,000)",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "Not stated (form emailed after applying)",
+          "eligibility": "High school seniors who were on a FIRST team in junior year and submit the Stevens FIRST Scholarship form.",
+          "sourceUrl": "https://www.stevens.edu/admission-aid/tuition-financial-aid/stevens-scholarships"
+        }
+      ],
+      "needPrograms": [
+        {
+          "name": "The Stevens Investment",
+          "incomeRange": "Family income of $75,000 or less per year with typical assets for that income",
+          "covers": "Full tuition",
+          "residency": "US citizens or permanent residents (first-time, first-year, full-time, starting fall 2026)",
+          "sourceUrl": "https://www.stevens.edu/admission-aid/tuition-financial-aid/undergraduate-costs-and-aid/the-stevens-investment"
+        }
+      ],
+      "meetsFullNeed": "no",
+      "needBlindUS": null,
+      "cssProfileRequired": true,
+      "priorityAidDeadline": "FAFSA and CSS Profile for fall 2026 entry: Early Decision I by November 15; Early Action by December 15; Early Decision II and Regular Decision by January 5 (CDS 2025-26 lists February 15)",
+      "netPriceCalculatorUrl": "https://npc.collegeboard.org/app/stevens",
+      "notes": "The total includes $70 in loan fees, and 'other costs' is Stevens' miscellaneous line (no transportation is listed for on-campus students). The CDS aid figures are 2024-25 final data.",
+      "meritSharePct": 34.5,
+      "costOfLivingArea": "New York-Newark-Jersey City, NY-NJ (MSA)",
+      "costOfLivingIndex": 112.6,
+      "housingCostIndex": 148.6
+    },
+    {
+      "school": "Rose-Hulman Institute of Technology",
+      "costYear": "2026-27",
+      "residencyRate": "private",
+      "tuitionFees": 59772,
+      "housingFood": 18534,
+      "booksSupplies": 4000,
+      "otherCosts": 4038,
+      "totalCost": 86344,
+      "costSourceUrl": "https://www.rose-hulman.edu/admissions-and-aid/tuition-and-fees.html",
+      "cdsYear": "2025-26",
+      "cdsFirstYears": 484,
+      "cdsNonNeedMeritRecipients": 213,
+      "cdsAvgNonNeedMerit": 29717,
+      "cdsSourceUrl": "https://www.rose-hulman.edu/academics/academic-affairs/irpa/reports/2025-26-Academic-Year-CDS.pdf",
+      "awardsMerit": true,
+      "meritScholarships": [
+        {
+          "name": "Rose-Hulman Merit Scholarship",
+          "amount": "Not published",
+          "years": "Not stated",
+          "type": "automatic",
+          "separateApplication": false,
+          "deadline": null,
+          "eligibility": "All admitted students are considered, based on curriculum strength, class rank, test scores, activities, leadership and service.",
+          "sourceUrl": "https://www.rose-hulman.edu/admissions-and-aid/financial-aid/scholarships-and-grants/rose-hulman-scholarships/index.html"
+        },
+        {
+          "name": "Noblitt Scholars Program",
+          "amount": "Enhanced scholarships up to full tuition",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "Apply Early Action (November 1) for full consideration; selected students are then invited to apply",
+          "eligibility": "About 40 first-year students a year are chosen through a competitive invitation process.",
+          "sourceUrl": "https://www.rose-hulman.edu/admissions-and-aid/financial-aid/scholarships-and-grants/noblitt-scholars-program/index.html"
+        },
+        {
+          "name": "FIRST Robotics Scholarship",
+          "amount": "$10,000 per year (two awards)",
+          "years": "4 years (up to $40,000)",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "February 1",
+          "eligibility": "Admitted high school seniors who were on a FIRST team, applying through the applicant portal.",
+          "sourceUrl": "https://www.rose-hulman.edu/admissions-and-aid/financial-aid/scholarships-and-grants/rose-hulman-scholarships/index.html"
+        },
+        {
+          "name": "VEX Robotics Scholarship",
+          "amount": "$10,000 per year (one award)",
+          "years": "4 years (up to $40,000)",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "February 1",
+          "eligibility": "Admitted high school seniors who were on a VEX team, applying through the applicant portal.",
+          "sourceUrl": "https://www.rose-hulman.edu/admissions-and-aid/financial-aid/scholarships-and-grants/rose-hulman-scholarships/index.html"
+        },
+        {
+          "name": "Competition Teams Scholarship",
+          "amount": "$1,000-$2,500 per year",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "April 1",
+          "eligibility": "Students who were on high school design, robotics, computer or engineering teams and complete the interest form in the admission portal.",
+          "sourceUrl": "https://www.rose-hulman.edu/admissions-and-aid/financial-aid/scholarships-and-grants/rose-hulman-scholarships/index.html"
+        },
+        {
+          "name": "Conru Scholarship",
+          "amount": "$6,000 total over four years",
+          "years": "4 years",
+          "type": "competitive",
+          "separateApplication": true,
+          "deadline": "February 1",
+          "eligibility": "Admitted freshmen who showed inventive, innovative or entrepreneurial behavior in high school.",
+          "sourceUrl": "https://www.rose-hulman.edu/admissions-and-aid/financial-aid/scholarships-and-grants/rose-hulman-scholarships/index.html"
+        }
+      ],
+      "needPrograms": [],
+      "meetsFullNeed": "no",
+      "needBlindUS": null,
+      "cssProfileRequired": false,
+      "priorityAidDeadline": "March 10 (CDS 2025-26, for fall 2026 entry)",
+      "netPriceCalculatorUrl": "https://rose-hulman.clearcostcalculator.com/student",
+      "notes": "Rose-Hulman publishes separate direct ($81,106) and indirect ($5,238) totals, so the total is their sum; books include the one-time $2,800 laptop fee plus $1,200 for books and supplies. No income-based aid program was found, and the CDS aid figures are 2025-26 estimates.",
+      "meritSharePct": 44.0,
+      "costOfLivingArea": "Terre Haute, IN (MSA)",
+      "costOfLivingIndex": 87.8,
+      "housingCostIndex": 51.9
+    }
+  ]
+}

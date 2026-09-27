@@ -21,6 +21,8 @@ import type { CalendarEvent } from "@/lib/calendar-events";
 import type { RequirementProgressMap, RequirementStatus } from "@/lib/requirement-progress";
 import type { TodoEditMap } from "@/lib/project-todos";
 import type { RequirementKey } from "@/lib/school-requirements";
+import { SchoolFinancials } from "./SchoolFinancials";
+import type { HouseholdFinances } from "@/lib/finances";
 import { SchoolMark } from "./SchoolMark";
 import { SchoolSnapshotSummary } from "./SchoolSnapshotSummary";
 import { SchoolProjectManagement } from "./SchoolProjectManagement";
@@ -36,6 +38,8 @@ type SchoolModalTab =
   | "projects"
   | "photos"
   | "visit";
+
+export type { SchoolModalTab };
 
 const SCHOOL_MODAL_TABS: { id: SchoolModalTab; label: string }[] = [
   { id: "snapshot", label: "Snapshot" },
@@ -103,7 +107,15 @@ export function CollegeRecord({
   onCycleRequirementStatus,
   onAddRequirementTodo,
   listSchools,
+  listPhaseId,
+  processPhaseLabel,
   onSendVisitPlan,
+  initialTab = "snapshot",
+  householdFinances,
+  onHouseholdFinancesChange,
+  scholarshipTodoIds = {},
+  onAddScholarshipTodo,
+  canViewFinancesTab = true,
 }: {
   school: School;
   /** Undergrad counts for non-archived schools on the family's list (size gauge ends). */
@@ -142,8 +154,14 @@ export function CollegeRecord({
     events: CalendarEvent[];
     todos: PersistedProjectStep[];
   }) => void;
+  initialTab?: SchoolModalTab;
+  householdFinances?: HouseholdFinances;
+  onHouseholdFinancesChange?: (next: HouseholdFinances) => void;
+  scholarshipTodoIds?: Record<string, string>;
+  onAddScholarshipTodo?: (scholarshipKey: string, title: string) => void;
+  canViewFinancesTab?: boolean;
 }) {
-  const [tab, setTab] = useState<SchoolModalTab>("snapshot");
+  const [tab, setTab] = useState<SchoolModalTab>(initialTab);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoFailed, setPhotoFailed] = useState(false);
 
@@ -169,14 +187,18 @@ export function CollegeRecord({
     let cancelled = false;
     setPhotoUrl(null);
     setPhotoFailed(false);
-    setTab("snapshot");
+    setTab(initialTab === "financials" && !canViewFinancesTab ? "snapshot" : initialTab);
     void fetchSchoolPhotoUrl(school.id, school.name).then((url) => {
       if (!cancelled) setPhotoUrl(url);
     });
     return () => {
       cancelled = true;
     };
-  }, [school.id, school.name]);
+  }, [school.id, school.name, initialTab, canViewFinancesTab]);
+
+  useEffect(() => {
+    if (tab === "financials" && !canViewFinancesTab) setTab("snapshot");
+  }, [tab, canViewFinancesTab]);
 
   const deadlines = [...school.deadlines].sort((a, b) => {
     if (a.dueDate && b.dueDate && a.dueDate !== b.dueDate) return a.dueDate.localeCompare(b.dueDate);
@@ -247,7 +269,8 @@ export function CollegeRecord({
         </div>
 
         <div className="school-modal-tabs" role="tablist" aria-label="School detail sections">
-          {SCHOOL_MODAL_TABS.map((item) => (
+          {SCHOOL_MODAL_TABS.filter((item) => item.id !== "financials" || canViewFinancesTab).map(
+            (item) => (
             <button
               key={item.id}
               type="button"
@@ -263,7 +286,8 @@ export function CollegeRecord({
             >
               {item.label}
             </button>
-          ))}
+          ),
+          )}
         </div>
 
         <div className="school-modal-panel" role="tabpanel">
@@ -566,44 +590,22 @@ export function CollegeRecord({
           ) : null}
 
           {tab === "financials" ? (
-            <section className="school-modal-section">
-              <div className="school-overview-head">
-                <h3>Financials</h3>
-                <p className="section-sub">Sticker price, net price, and merit aid notes for this school.</p>
-              </div>
-              <div className="school-edit-grid">
-                <label className="stack-field">
-                  <span className="label">Sticker price</span>
-                  <BlurInput
-                    value={school.costOfAttendance}
-                    ariaLabel="Cost of attendance"
-                    placeholder="Not entered"
-                    onCommit={(value) => onPatch({ costOfAttendance: value })}
-                  />
-                </label>
-                <label className="stack-field">
-                  <span className="label">Net price estimate</span>
-                  <BlurInput
-                    value={school.netPriceEstimate}
-                    ariaLabel="Net price estimate"
-                    placeholder="Not entered"
-                    onCommit={(value) => onPatch({ netPriceEstimate: value })}
-                  />
-                </label>
-              </div>
-              <label className="stack-field school-edit-full">
-                <span className="label">Merit aid notes</span>
-                <textarea
-                  className="field"
-                  defaultValue={school.meritAidNotes}
-                  key={school.meritAidNotes}
-                  placeholder="Not entered"
-                  onBlur={(event) => {
-                    if (event.target.value !== school.meritAidNotes) onPatch({ meritAidNotes: event.target.value });
-                  }}
-                />
-              </label>
-            </section>
+            householdFinances && onHouseholdFinancesChange && onAddScholarshipTodo ? (
+              <SchoolFinancials
+                school={school}
+                household={householdFinances}
+                onHouseholdChange={onHouseholdFinancesChange}
+                scholarshipTodoIds={scholarshipTodoIds}
+                onAddScholarshipTodo={onAddScholarshipTodo}
+              />
+            ) : (
+              <section className="school-modal-section">
+                <div className="school-overview-head">
+                  <h3>Financials</h3>
+                  <p className="section-sub">Finance details are available on the Finances page.</p>
+                </div>
+              </section>
+            )
           ) : null}
 
           {tab === "projects" ? (
