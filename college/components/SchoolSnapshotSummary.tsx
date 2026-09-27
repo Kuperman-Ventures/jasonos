@@ -19,7 +19,7 @@ import {
 } from "@/lib/types";
 import {
   formatUndergrads,
-  getSchoolSize,
+  formatUndergradsRounded,
   sizeGaugeModel,
   tierHeadlineVar,
 } from "@/lib/campus-size";
@@ -35,6 +35,7 @@ import { SchoolCampusSatelliteMap } from "./SchoolCampusSatelliteMap";
 import { SchoolLocationMap, SelectivityGauge } from "./SchoolSnapshotViz";
 import { SchoolScoirStudentBody } from "./SchoolScoirStudentBody";
 import { formatScoirPct, scoirRecordForSchool } from "@/lib/scoir";
+import { UsersThree } from "@phosphor-icons/react";
 
 type SnapshotPatch = Partial<
   Pick<
@@ -157,6 +158,17 @@ function SizeGauge({
         ))}
         <em style={{ left: `${model.pct}%` }} />
       </div>
+      <div className="size-gauge-cats" aria-hidden="true">
+        {model.bands.map((band) => (
+          <span
+            key={band.name}
+            className={band.on ? "is-current" : undefined}
+            style={{ width: `${band.widthPct}%` }}
+          >
+            {band.name}
+          </span>
+        ))}
+      </div>
       <div className="size-gauge-ends">
         <span>{formatUndergrads(model.lo)}</span>
         <span>{formatUndergrads(model.hi)}</span>
@@ -208,7 +220,6 @@ export function SchoolSnapshotSummary({
     school.testPolicyFall2028Status.trim() === "Not yet announced for Fall 2028";
 
   const undergrads = school.undergradEnrollment;
-  const sizeWord = getSchoolSize(undergrads);
   const gauge =
     undergrads != null && Number.isFinite(undergrads)
       ? sizeGaugeModel(undergrads, listUndergrads)
@@ -487,7 +498,7 @@ export function SchoolSnapshotSummary({
             Campus
           </span>
           <span className="area-head">
-            {setting || sizeWord ? (
+            {setting || undergrads != null ? (
               <>
                 {setting ? (
                   <span className="campus-setting-word">
@@ -502,7 +513,21 @@ export function SchoolSnapshotSummary({
                   <span>Setting not set</span>
                 )}
                 <span className="sep"> · </span>
-                <span>{sizeWord || "Size not set"}</span>
+                {undergrads != null && Number.isFinite(undergrads) ? (
+                  <span className="campus-size-word">
+                    <UsersThree
+                      className="campus-setting-icon"
+                      size={16}
+                      weight="duotone"
+                      aria-hidden="true"
+                    />
+                    <span>
+                      {formatUndergradsRounded(undergrads)} undergrads
+                    </span>
+                  </span>
+                ) : (
+                  <span>Size not set</span>
+                )}
               </>
             ) : (
               "Campus not set"
@@ -514,23 +539,13 @@ export function SchoolSnapshotSummary({
               <dt>Campus Setting</dt>
               <dd className="campus-setting-detail">
                 {setting ? (
-                  <>
-                    <CampusSettingBadge
-                      campusSetting={setting}
-                      metroArea={school.metroArea}
-                      metroPopulation={school.metroPopulation}
-                      location={school.location}
-                      showTooltip={false}
-                    />
-                    {school.metroArea && school.metroPopulation != null ? (
-                      <span className="campus-metro-line">
-                        {school.metroArea} metro, {school.metroPopulation.toLocaleString("en-US")}{" "}
-                        people
-                      </span>
-                    ) : school.location.trim() ? (
-                      <span className="campus-metro-line">{school.location.trim()}</span>
-                    ) : null}
-                  </>
+                  <CampusSettingBadge
+                    campusSetting={setting}
+                    metroArea={school.metroArea}
+                    metroPopulation={school.metroPopulation}
+                    location={school.location}
+                    showTooltip={false}
+                  />
                 ) : (
                   "Not set"
                 )}
@@ -539,16 +554,13 @@ export function SchoolSnapshotSummary({
             <div className="fact">
               <dt>School Size</dt>
               <dd className="size">
-                <span className="size-word">
-                  {undergrads != null && Number.isFinite(undergrads)
-                    ? `${formatUndergrads(undergrads)} undergraduates${
-                        sizeWord ? ` (${sizeWord})` : ""
-                      }`
-                    : "Not set"}
-                </span>
                 {gauge && undergrads != null ? (
                   <SizeGauge undergrads={undergrads} listUndergrads={listUndergrads} />
-                ) : null}
+                ) : undergrads != null && Number.isFinite(undergrads) ? (
+                  <span className="size-word">{formatUndergrads(undergrads)}</span>
+                ) : (
+                  <span className="size-word">Not set</span>
+                )}
               </dd>
             </div>
             <PlainFact
