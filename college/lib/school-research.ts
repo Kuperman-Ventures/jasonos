@@ -4,7 +4,7 @@ export type DeadlineFact = { title: string; dueDate: string | null };
 
 export type FoundFacts = {
   location: string;
-  campusSize: string;
+  campusSetting: string;
   /** Undergrad enrollment from College Scorecard `latest.student.size`. */
   undergradEnrollment: number | null;
   mechanicalEngineering: string;
@@ -28,7 +28,7 @@ export type FoundFacts = {
 export type SearchFacts = {
   officialName: string;
   location: string;
-  campusSize: string;
+  campusSetting: string;
   mechanicalEngineering: string;
   materials: string;
   materialsOffering: string;
@@ -70,7 +70,7 @@ const STOP = new Set(["of", "the", "at", "and", "for", "main", "campus"]);
 export function emptyFacts(): FoundFacts {
   return {
     location: "",
-    campusSize: "",
+    campusSetting: "",
     undergradEnrollment: null,
     mechanicalEngineering: "",
     materials: "",
@@ -139,17 +139,28 @@ export function pickScorecardMatch(query: string, rows: ScorecardRow[]): Scoreca
 function localeLabel(code: number | null | undefined): string {
   if (code == null) return "";
   if (code >= 11 && code <= 13) return "Urban";
-  // Scorecard "Town" / college town → Suburban for the three Campus settings.
-  if (code >= 21 && code <= 33) return "Suburban";
-  if (code >= 41 && code <= 43) return "Rural";
+  if (code >= 21 && code <= 23) return "Suburban";
+  if (code >= 31 && code <= 33) return "College town";
+  if (code >= 41 && code <= 43) return "Small town";
   return "";
 }
 
-function sizeLabel(count: number | null | undefined): string {
-  if (count == null || !Number.isFinite(count)) return "";
-  if (count < 5000) return "Small";
-  if (count <= 15000) return "Medium";
-  return "Large";
+function settingFromText(raw: string): string {
+  const key = raw.trim().toLowerCase();
+  if (!key) return "";
+  if (key.includes("college town")) return "College town";
+  if (key.includes("small town") || key.includes("rural")) return "Small town";
+  if (key.includes("small city")) return "Small city";
+  if (key.includes("suburban") || key.includes("suburb")) return "Suburban";
+  if (key.includes("urban") || key.includes("city")) return "Urban";
+  // Legacy "Setting / Size" strings — take the left side.
+  const left = key.split(/\s*[·/]\s*/)[0]?.trim() ?? "";
+  if (left === "urban") return "Urban";
+  if (left === "suburban" || left === "town") return "Suburban";
+  if (left === "college town") return "College town";
+  if (left === "small city") return "Small city";
+  if (left === "small town" || left === "rural") return "Small town";
+  return "";
 }
 
 function money(amount: number): string {
@@ -232,10 +243,8 @@ export function mapScorecard(row: ScorecardRow): FoundFacts {
   const city = row["school.city"]?.trim() ?? "";
   const state = row["school.state"]?.trim() ?? "";
   facts.location = [city, state].filter(Boolean).join(", ");
-  const place = localeLabel(row["school.locale"]);
+  facts.campusSetting = localeLabel(row["school.locale"]);
   const undergrads = row["latest.student.size"];
-  const size = sizeLabel(undergrads);
-  facts.campusSize = [place, size].filter(Boolean).join(" / ");
   facts.undergradEnrollment =
     typeof undergrads === "number" && Number.isFinite(undergrads) && undergrads >= 0
       ? Math.round(undergrads)
@@ -311,7 +320,13 @@ export function parseSearchJson(text: string, today: string): SearchFacts | null
   return {
     officialName: clip(row.officialName, 160),
     location: clip(row.location, 80),
-    campusSize: clip(row.campusSize, 80),
+    campusSetting: settingFromText(
+      clip(
+        (row as { campusSetting?: unknown; campusSize?: unknown }).campusSetting ??
+          (row as { campusSize?: unknown }).campusSize,
+        80,
+      ),
+    ),
     mechanicalEngineering: yesNo(row.mechanicalEngineering),
     materials: yesNo(row.materials),
     materialsOffering: clip(row.materialsOffering, 180),
@@ -332,7 +347,7 @@ export function mergeFacts(scorecard: FoundFacts | null, search: SearchFacts | n
   const facts = scorecard ? { ...scorecard, deadlines: [...scorecard.deadlines], sources: [...scorecard.sources] } : emptyFacts();
   if (!search || sources.length === 0) return facts;
   facts.location = fillBlank(facts.location, search.location);
-  facts.campusSize = fillBlank(facts.campusSize, search.campusSize);
+  facts.campusSetting = fillBlank(facts.campusSetting, search.campusSetting);
   facts.mechanicalEngineering = fillBlank(facts.mechanicalEngineering, search.mechanicalEngineering);
   facts.materials = fillBlank(facts.materials, search.materials);
   facts.materialsOffering = fillBlank(facts.materialsOffering, search.materialsOffering);
@@ -395,7 +410,7 @@ export function lookupSummary(input: {
 }): string {
   const scorecardBits: string[] = [];
   if (input.facts.location) scorecardBits.push("location");
-  if (input.facts.campusSize) scorecardBits.push("campus size");
+  if (input.facts.campusSetting) scorecardBits.push("campus setting");
   if (input.facts.admissionsContext) scorecardBits.push("admit rate");
   if (input.facts.satContext || input.facts.middle50) scorecardBits.push("SAT range");
   if (input.facts.testPolicy) scorecardBits.push("test policy");

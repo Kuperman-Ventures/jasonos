@@ -70,7 +70,12 @@ export type School = {
   id: string;
   name: string;
   location: string;
-  campusSize: string;
+  /** Urban | Suburban | Small city | College town | Small town. */
+  campusSetting: string;
+  /** Census MSA name; null for College town / Small town. */
+  metroArea: string | null;
+  /** Census MSA population; null for College town / Small town. */
+  metroPopulation: number | null;
   /** Undergrad enrollment from College Scorecard; null when unknown. */
   undergradEnrollment: number | null;
   control: SchoolControl;
@@ -151,7 +156,9 @@ export type SchoolSeed = {
   id: string;
   name: string;
   location: string;
-  campusSize: string;
+  campusSetting: string;
+  metroArea: string | null;
+  metroPopulation: number | null;
   mechanicalEngineering: string;
   materials: string;
   materialsOffering: string;
@@ -514,6 +521,12 @@ export function fromSeed(seed: SchoolSeed): School {
   const aerospaceEngineering = seed.aerospaceEngineering ?? "";
   return {
     ...seed,
+    campusSetting: seed.campusSetting ?? "",
+    metroArea: seed.metroArea ?? null,
+    metroPopulation:
+      typeof seed.metroPopulation === "number" && Number.isFinite(seed.metroPopulation)
+        ? seed.metroPopulation
+        : null,
     undergradEnrollment: null,
     control: "",
     residencyDataStatus: "",

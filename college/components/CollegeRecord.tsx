@@ -459,12 +459,51 @@ export function CollegeRecord({
                   />
                 </label>
                 <label className="stack-field">
-                  <span className="label">Campus / size</span>
+                  <span className="label">Campus setting</span>
+                  <select
+                    className="field"
+                    aria-label="Campus setting"
+                    value={school.campusSetting}
+                    onChange={(event) => onPatch({ campusSetting: event.target.value })}
+                  >
+                    <option value="">Not set</option>
+                    <option value="Urban">Urban</option>
+                    <option value="Suburban">Suburban</option>
+                    <option value="Small city">Small city</option>
+                    <option value="College town">College town</option>
+                    <option value="Small town">Small town</option>
+                  </select>
+                </label>
+                <label className="stack-field">
+                  <span className="label">Metro area</span>
                   <BlurInput
-                    value={school.campusSize}
-                    ariaLabel="Campus size"
-                    placeholder="Not entered"
-                    onCommit={(value) => onPatch({ campusSize: value })}
+                    value={school.metroArea ?? ""}
+                    ariaLabel="Metro area"
+                    placeholder="Census metro name"
+                    onCommit={(value) =>
+                      onPatch({ metroArea: value.trim() ? value.trim() : null })
+                    }
+                  />
+                </label>
+                <label className="stack-field">
+                  <span className="label">Metro population</span>
+                  <BlurInput
+                    value={
+                      school.metroPopulation == null ? "" : String(school.metroPopulation)
+                    }
+                    ariaLabel="Metro population"
+                    placeholder="Whole number"
+                    onCommit={(value) => {
+                      const trimmed = value.trim();
+                      if (!trimmed) {
+                        onPatch({ metroPopulation: null });
+                        return;
+                      }
+                      const n = Number(trimmed.replace(/,/g, ""));
+                      if (Number.isFinite(n) && n >= 0) {
+                        onPatch({ metroPopulation: Math.round(n) });
+                      }
+                    }}
                   />
                 </label>
                 <label className="stack-field">

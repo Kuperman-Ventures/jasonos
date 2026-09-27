@@ -1,5 +1,6 @@
 import type { Plan, School } from "./types";
 import { interestRank, planLabel, tierRank, trackLabel } from "./types";
+import { campusSettingRank } from "./campus-size";
 
 export type SortKey =
   | "list"
@@ -8,7 +9,9 @@ export type SortKey =
   | "selectivity"
   | "interest"
   | "action"
-  | "drive";
+  | "drive"
+  | "setting"
+  | "size";
 
 export function nextOpenStep(school: School): string {
   const open = [...school.steps]
@@ -76,6 +79,20 @@ export function compareSchools(a: School, b: School, sort: SortKey): number {
     if (am == null) return 1;
     if (bm == null) return -1;
     return am - bm || a.listOrder - b.listOrder;
+  }
+  if (sort === "setting") {
+    const bySetting = campusSettingRank(a.campusSetting) - campusSettingRank(b.campusSetting);
+    const aPop = a.metroPopulation ?? -1;
+    const bPop = b.metroPopulation ?? -1;
+    return bySetting || bPop - aPop || a.listOrder - b.listOrder;
+  }
+  if (sort === "size") {
+    const ae = a.undergradEnrollment;
+    const be = b.undergradEnrollment;
+    if (ae == null && be == null) return a.listOrder - b.listOrder;
+    if (ae == null) return 1;
+    if (be == null) return -1;
+    return ae - be || a.listOrder - b.listOrder;
   }
   return a.listOrder - b.listOrder;
 }

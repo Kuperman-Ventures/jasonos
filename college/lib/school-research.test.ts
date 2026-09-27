@@ -41,7 +41,7 @@ test("scorecard match prefers Georgia Tech over technical colleges", () => {
 test("scorecard facts use published numbers and do not set a selectivity tier", () => {
   const facts = mapScorecard(mit);
   assert.equal(facts.location, "Cambridge, MA");
-  assert.equal(facts.campusSize, "Urban / Small");
+  assert.equal(facts.campusSetting, "Urban");
   assert.equal(facts.undergradEnrollment, 4535);
   assert.equal(facts.admissionsContext, "Admit rate 4.6% in the latest College Scorecard");
   assert.equal(facts.satContext, "SAT reading 740-780, math 780-800");

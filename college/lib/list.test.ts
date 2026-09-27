@@ -9,13 +9,14 @@ const file = JSON.parse(
 ) as { schools: SchoolSeed[]; selectivityGuide: { term: string; meaning: string }[] };
 
 test("spreadsheet seed has every school and the selectivity guide", () => {
-  assert.equal(file.schools.length, 43);
+  assert.equal(file.schools.length, 45);
   assert.equal(file.selectivityGuide.length, 5);
   for (const school of file.schools) {
     assert.ok(school.name);
     assert.ok(school.location);
     assert.ok(school.admissionsContext);
     assert.ok(school.notes);
+    assert.ok(school.campusSetting);
   }
   assert.equal(file.schools[0].id, "mit");
   assert.equal(file.schools[0].admissionsContext, "Extremely selective");
@@ -54,9 +55,9 @@ test("selectivity tier only uses the admissions lines that fit", () => {
   const tiers = file.schools.map((school) => selectivityTierFromContext(school.admissionsContext));
   assert.equal(tiers.filter((tier) => tier === "extremely_selective").length, 9);
   assert.equal(tiers.filter((tier) => tier === "very_selective").length, 3);
-  assert.equal(tiers.filter((tier) => tier === "competitive").length, 11);
+  assert.equal(tiers.filter((tier) => tier === "competitive").length, 12);
   assert.equal(tiers.filter((tier) => tier === "less_competitive").length, 0);
-  assert.equal(tiers.filter((tier) => tier === "").length, 20);
+  assert.equal(tiers.filter((tier) => tier === "").length, 21);
   assert.equal(fromSeed(file.schools[0]).selectivityTier, "extremely_selective");
   assert.equal(selectivityTierFromContext("Broad access"), "");
   assert.equal(selectivityTierFromContext("Selective"), "");

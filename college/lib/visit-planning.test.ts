@@ -17,7 +17,9 @@ import {
 
 function school(partial: Partial<SchoolSeed> & Pick<SchoolSeed, "id" | "name" | "location">) {
   return fromSeed({
-    campusSize: "Medium",
+    campusSetting: "Medium",
+    metroArea: null,
+    metroPopulation: null,
     mechanicalEngineering: "Yes",
     materials: "Yes",
     materialsOffering: "",

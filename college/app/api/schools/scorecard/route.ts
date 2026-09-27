@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       const changed = (
         [
           "location",
-          "campusSize",
+          "campusSetting",
           "admissionsContext",
           "satContext",
           "testPolicy",

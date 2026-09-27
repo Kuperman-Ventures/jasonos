@@ -103,7 +103,7 @@ export async function queryCollegeScorecard(name: string): Promise<ScorecardQuer
 /** Fields Scorecard can fill on a school detail record. */
 export const SCORECARD_DETAIL_KEYS = [
   "location",
-  "campusSize",
+  "campusSetting",
   "undergradEnrollment",
   "admissionsContext",
   "satContext",
@@ -118,7 +118,7 @@ export type ScorecardDetailKey = (typeof SCORECARD_DETAIL_KEYS)[number];
 
 export function schoolNeedsScorecardFill(school: {
   location?: string;
-  campusSize?: string;
+  campusSetting?: string;
   undergradEnrollment?: number | null;
   admissionsContext?: string;
   satContext?: string;
@@ -134,7 +134,7 @@ export function schoolNeedsScorecardFill(school: {
     !school.middle50?.trim() ||
     !school.satContext?.trim() ||
     !school.testPolicy?.trim() ||
-    !school.campusSize?.trim() ||
+    !school.campusSetting?.trim() ||
     school.undergradEnrollment == null ||
     !school.website?.trim()
   );
