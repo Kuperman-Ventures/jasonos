@@ -257,7 +257,34 @@ export function phaseCountGauge(count: number, phase: ListPhase): PhaseGauge {
   };
 }
 
-/** Ideal count for a tier: share × target list size, rounded, minimum 1. */
+/**
+ * Ideal school counts per tier for a target list size.
+ * Uses the largest-remainder method so counts sum exactly to the target
+ * and nearby targets (e.g. Consideration 12 vs Applications 10) diverge.
+ */
+export function allocateIdealCounts(
+  idealPercents: number[],
+  targetListSize: number,
+): number[] {
+  if (targetListSize <= 0 || idealPercents.length === 0) {
+    return idealPercents.map(() => 0);
+  }
+  const exact = idealPercents.map((percent) => (percent / 100) * targetListSize);
+  const floors = exact.map((value) => Math.floor(value));
+  let remaining = targetListSize - floors.reduce((sum, value) => sum + value, 0);
+  const byFrac = exact
+    .map((value, index) => ({ index, frac: value - Math.floor(value) }))
+    .sort((a, b) => b.frac - a.frac || a.index - b.index);
+  const out = [...floors];
+  for (const { index } of byFrac) {
+    if (remaining <= 0) break;
+    out[index] += 1;
+    remaining -= 1;
+  }
+  return out;
+}
+
+/** @deprecated Prefer allocateIdealCounts so tier ideals sum to the target. */
 export function idealTierCount(idealPercent: number, targetListSize: number): number {
   return Math.max(1, Math.round((idealPercent / 100) * targetListSize));
 }
@@ -360,11 +387,15 @@ export function selectivityPieSlices(
   const unsetCount = schools.length - setSchools.length;
   const setCount = setSchools.length;
   const basis = targetListSize > 0 ? targetListSize : 1;
+  const idealCounts = allocateIdealCounts(
+    IDEAL_SELECTIVITY_MIX.map((tier) => tier.idealPercent),
+    basis,
+  );
 
   let cursor = -90; // start at top
-  const slices = IDEAL_SELECTIVITY_MIX.map((tier) => {
+  const slices = IDEAL_SELECTIVITY_MIX.map((tier, index) => {
     const count = setSchools.filter((school) => school.selectivityTier === tier.id).length;
-    const idealCount = idealTierCount(tier.idealPercent, basis);
+    const idealCount = idealCounts[index] ?? 0;
     const fillRatio = idealCount > 0 ? count / idealCount : 0;
     const sweep = (tier.idealPercent / 100) * 360;
     const startAngle = cursor + PIE_GAP_DEG / 2;

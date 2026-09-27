@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   advanceSchoolPatch,
+  allocateIdealCounts,
   archiveSchoolPatch,
   currentListPhaseId,
+  IDEAL_SELECTIVITY_MIX,
   idealTierCount,
   listPhaseBarProgress,
   listPhaseDaySpan,
@@ -21,6 +23,8 @@ import {
   selectivityPieSlices,
 } from "./list-phases";
 import { canAdvanceListPhase } from "./permissions";
+
+const IDEAL_PERCENTS = IDEAL_SELECTIVITY_MIX.map((tier) => tier.idealPercent);
 
 const explorationPhase = {
   id: "exploration" as const,
@@ -67,6 +71,20 @@ test("idealTierCount rounds share × target with a floor of 1", () => {
   assert.equal(idealTierCount(10, 1), 1);
 });
 
+test("allocateIdealCounts sums to the phase target and diverges nearby sizes", () => {
+  // Exploration 30 → 3 / 6 / 14 / 7 (sums to 30; Math.round alone was 31)
+  assert.deepEqual(allocateIdealCounts(IDEAL_PERCENTS, 30), [3, 6, 14, 7]);
+  // Consideration 12 → 1 / 3 / 5 / 3
+  assert.deepEqual(allocateIdealCounts(IDEAL_PERCENTS, 12), [1, 3, 5, 3]);
+  // Applications 10 → 1 / 2 / 5 / 2 (must differ from Consideration)
+  assert.deepEqual(allocateIdealCounts(IDEAL_PERCENTS, 10), [1, 2, 5, 2]);
+  assert.notDeepEqual(
+    allocateIdealCounts(IDEAL_PERCENTS, 12),
+    allocateIdealCounts(IDEAL_PERCENTS, 10),
+  );
+  assert.deepEqual(allocateIdealCounts(IDEAL_PERCENTS, 0), [0, 0, 0, 0]);
+});
+
 test("listSizeBar reports over, under, and in-range notes", () => {
   const over = listSizeBar(43, explorationPhase);
   assert.equal(over.note, "+10 over range");
@@ -100,7 +118,7 @@ test("selectivityGauges uses live mix percentages", () => {
 });
 
 test("selectivityPieSlices sizes wedges by ideal mix and fills by have/ideal count", () => {
-  // Target 30 → ideals 3 / 6 / 14 / 8
+  // Target 30 → ideals 3 / 6 / 14 / 7 (largest remainder; sums to 30)
   // Have: 9 extremely (over), 3 very (under), 14 competitive (met), 0 less (under)
   const schools = [
     ...Array.from({ length: 9 }, () => ({ selectivityTier: "extremely_selective" })),
@@ -131,7 +149,7 @@ test("selectivityPieSlices sizes wedges by ideal mix and fills by have/ideal cou
   assert.equal(slices[2].statusLabel, "On ideal");
   assert.equal(slices[2].fillRatio, 1);
 
-  assert.equal(slices[3].idealCount, 8);
+  assert.equal(slices[3].idealCount, 7);
   assert.equal(slices[3].count, 0);
   assert.equal(slices[3].status, "under");
   assert.equal(slices[3].fillRatio, 0);
@@ -140,6 +158,20 @@ test("selectivityPieSlices sizes wedges by ideal mix and fills by have/ideal cou
   assert.ok(Math.abs(slices[0].startAngle - (-90 + 1.2)) < 0.01);
   assert.ok(Math.abs(slices[0].endAngle - (-90 + 36 - 1.2)) < 0.01);
   assert.ok(Math.abs(slices[1].startAngle - (-54 + 1.2)) < 0.01);
+});
+
+test("selectivityPieSlices ideals differ for Consideration vs Applications targets", () => {
+  const schools = [
+    { selectivityTier: "extremely_selective" },
+    { selectivityTier: "very_selective" },
+    { selectivityTier: "competitive" },
+    { selectivityTier: "less_competitive" },
+  ];
+  const consideration = selectivityPieSlices(schools, 12).slices.map((s) => s.idealCount);
+  const applications = selectivityPieSlices(schools, 10).slices.map((s) => s.idealCount);
+  assert.deepEqual(consideration, [1, 3, 5, 3]);
+  assert.deepEqual(applications, [1, 2, 5, 2]);
+  assert.notDeepEqual(consideration, applications);
 });
 
 test("selectivityPieSlices stays empty when no tiers are set", () => {
