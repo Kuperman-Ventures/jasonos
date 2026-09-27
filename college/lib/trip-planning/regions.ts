@@ -28,7 +28,8 @@ export const TRIP_REGIONS: TripRegionMeta[] = [
   { id: "West Coast", note: "Fly · LA and Seattle trips", at: "right" },
 ];
 
-const STATE_TO_REGION: Record<string, TripRegionId> = {
+/** Exported for data/state-regions.json and add-school region helpers. */
+export const STATE_TO_REGION: Record<string, TripRegionId> = {
   ME: "Northeast",
   NH: "Northeast",
   VT: "Northeast",

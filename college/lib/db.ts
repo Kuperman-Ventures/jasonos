@@ -45,6 +45,7 @@ import { visitAddressForSchool } from "./school-photos";
 type SchoolRow = {
   id: string;
   name: string;
+  unit_id?: number | null;
   location: string;
   campus_setting?: string | null;
   metro_area?: string | null;
@@ -108,6 +109,9 @@ type SchoolRow = {
   merit_aid_notes: string;
   research_sources?: string | null;
   website?: string | null;
+  scorecard_fetched_date?: string | null;
+  drive_address?: string | null;
+  research_completed?: string[] | null;
   list_phase?: string | null;
   phases_participated?: string[] | null;
   archived?: boolean | null;
@@ -216,6 +220,8 @@ export function mapSchool(row: SchoolRow): School {
   return {
     id: row.id,
     name: row.name,
+    unitId:
+      typeof row.unit_id === "number" && Number.isFinite(row.unit_id) ? Math.round(row.unit_id) : null,
     location: row.location,
     campusSetting: row.campus_setting ?? "",
     metroArea: row.metro_area ?? null,
@@ -296,6 +302,11 @@ export function mapSchool(row: SchoolRow): School {
     meritAidNotes: row.merit_aid_notes ?? "",
     researchSources: row.research_sources ?? "",
     website: row.website || knownWebsite(row.id),
+    scorecardFetchedDate: row.scorecard_fetched_date ?? "",
+    driveAddress: row.drive_address ?? "",
+    researchCompleted: Array.isArray(row.research_completed)
+      ? row.research_completed.filter((value): value is string => typeof value === "string")
+      : [],
     listPhase: isListPhaseId(row.list_phase ?? "") ? (row.list_phase as ListPhaseId) : "exploration",
     phasesParticipated: (row.phases_participated ?? ["exploration"]).filter(isListPhaseId),
     archived: Boolean(row.archived),
@@ -308,7 +319,7 @@ export function mapSchool(row: SchoolRow): School {
 }
 
 const SCHOOL_COLUMNS =
-  "id, name, location, campus_setting, metro_area, metro_population, undergrad_enrollment, control, residency_data_status, kyle_residency, in_state_admit_rate, out_of_state_admit_rate, overall_admit_rate, rate_that_applies_to_kyle, admit_data_year, enrolled_out_of_state_pct, out_of_state_definition, out_of_state_policy, engineering_residency_note, residency_source_url, residency_notes, mechanical_engineering, materials, materials_offering, materials_program, materials_source_url, aerospace_engineering, aerospace_program, aerospace_notes, aerospace_source_url, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, visit_status, deadline, deadline_label, selectivity_tier, interest_level, application_status, admission_track, test_policy, family_test_policy, test_policy_fall2028_status, test_policy_term, test_policy_detail, test_policy_change, test_policy_source_url, test_policy_checked_date, tracked_programs, middle_50, application_platform, required_essays, teacher_recs, cost_of_attendance, net_price_estimate, merit_aid_notes, research_sources, website, list_phase, phases_participated, archived, archived_at, project_notes, school_steps(id, label, owner, done, sort_order), deadlines(id, title, due_date, completed, sort_order), contacts(id, name, role, email, phone)";
+  "id, name, unit_id, location, campus_setting, metro_area, metro_population, undergrad_enrollment, control, residency_data_status, kyle_residency, in_state_admit_rate, out_of_state_admit_rate, overall_admit_rate, rate_that_applies_to_kyle, admit_data_year, enrolled_out_of_state_pct, out_of_state_definition, out_of_state_policy, engineering_residency_note, residency_source_url, residency_notes, mechanical_engineering, materials, materials_offering, materials_program, materials_source_url, aerospace_engineering, aerospace_program, aerospace_notes, aerospace_source_url, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, visit_status, deadline, deadline_label, selectivity_tier, interest_level, application_status, admission_track, test_policy, family_test_policy, test_policy_fall2028_status, test_policy_term, test_policy_detail, test_policy_change, test_policy_source_url, test_policy_checked_date, tracked_programs, middle_50, application_platform, required_essays, teacher_recs, cost_of_attendance, net_price_estimate, merit_aid_notes, research_sources, website, scorecard_fetched_date, drive_address, research_completed, list_phase, phases_participated, archived, archived_at, project_notes, school_steps(id, label, owner, done, sort_order), deadlines(id, title, due_date, completed, sort_order), contacts(id, name, role, email, phone)";
 
 export async function listSchools(): Promise<School[]> {
   if (!supabaseConfigured()) return seedSchools();
@@ -415,6 +426,8 @@ const PATCH_COLUMNS: Record<string, string> = {
   meritAidNotes: "merit_aid_notes",
   researchSources: "research_sources",
   website: "website",
+  scorecardFetchedDate: "scorecard_fetched_date",
+  driveAddress: "drive_address",
 };
 
 export function schoolPatchToRow(patch: Record<string, unknown>): Record<string, unknown> {
@@ -473,6 +486,20 @@ export function schoolPatchToRow(patch: Record<string, unknown>): Record<string,
   }
   if (Array.isArray(patch.trackedPrograms)) {
     row.tracked_programs = patch.trackedPrograms.filter((value): value is string => typeof value === "string");
+  }
+  if (Array.isArray(patch.researchCompleted)) {
+    row.research_completed = patch.researchCompleted.filter(
+      (value): value is string => typeof value === "string",
+    );
+  }
+  if (
+    typeof patch.unitId === "number" &&
+    Number.isFinite(patch.unitId) &&
+    patch.unitId > 0
+  ) {
+    row.unit_id = Math.round(patch.unitId);
+  } else if (patch.unitId === null) {
+    row.unit_id = null;
   }
   if (typeof patch.listPhase === "string" && isListPhaseId(patch.listPhase)) {
     row.list_phase = patch.listPhase;

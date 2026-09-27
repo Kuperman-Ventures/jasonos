@@ -69,6 +69,8 @@ export type ContactPatch = Partial<Contact>;
 export type School = {
   id: string;
   name: string;
+  /** College Scorecard / IPEDS unit ID. Null until matched. */
+  unitId: number | null;
   location: string;
   /** Urban | Suburban | Small city | College town | Small town. */
   campusSetting: string;
@@ -153,6 +155,12 @@ export type School = {
   meritAidNotes: string;
   researchSources: string;
   website: string;
+  /** YYYY-MM-DD when Scorecard fields were last fetched. */
+  scorecardFetchedDate: string;
+  /** Optional engineering / visit address used for drive-matrix legs. */
+  driveAddress: string;
+  /** Research groups marked done (Setting, Programs, …). */
+  researchCompleted: string[];
   listPhase: ListPhaseId;
   phasesParticipated: ListPhaseId[];
   archived: boolean;
@@ -552,6 +560,7 @@ export function fromSeed(seed: SchoolSeed): School {
   const aerospaceEngineering = seed.aerospaceEngineering ?? "";
   return {
     ...seed,
+    unitId: null,
     campusSetting: seed.campusSetting ?? "",
     metroArea: seed.metroArea ?? null,
     metroPopulation:
@@ -611,6 +620,9 @@ export function fromSeed(seed: SchoolSeed): School {
     meritAidNotes: "",
     researchSources: "",
     website: knownWebsite(seed.id),
+    scorecardFetchedDate: "",
+    driveAddress: "",
+    researchCompleted: [],
     listPhase: "exploration",
     phasesParticipated: ["exploration"],
     archived: false,

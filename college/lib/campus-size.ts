@@ -1,4 +1,6 @@
-import type { SelectivityTier } from "./types";
+import stateRegionsFile from "@/data/state-regions.json";
+import type { KyleResidency, SchoolControl, SelectivityTier } from "./types";
+import { normalizeStateCode } from "./trip-planning/regions";
 
 /** Campus setting (where the campus sits). */
 export const CAMPUS_SETTINGS = [
@@ -8,6 +10,54 @@ export const CAMPUS_SETTINGS = [
   "College town",
   "Small town",
 ] as const;
+
+/** Kyle's home state for residency calculations. */
+export const HOME_STATE = "NJ";
+
+const stateRegions = stateRegionsFile as Record<string, string>;
+
+/**
+ * Public + HOME_STATE → In-state; other Public → Out-of-state;
+ * Private → Not applicable.
+ */
+export function getKyleResidency(
+  control: SchoolControl | string,
+  state: string,
+): KyleResidency {
+  if (control === "Private") return "Not applicable";
+  if (control !== "Public") return "";
+  const code = normalizeStateCode(state);
+  if (!code) return "";
+  return code === HOME_STATE ? "In-state" : "Out-of-state";
+}
+
+/** Admit rate that applies to Kyle given residency. */
+export function getRateThatAppliesToKyle(record: {
+  kyleResidency?: KyleResidency | string | null;
+  inStateAdmitRate?: number | null;
+  outOfStateAdmitRate?: number | null;
+}): number | null {
+  const residency = record.kyleResidency ?? "";
+  if (residency === "In-state") {
+    const rate = record.inStateAdmitRate;
+    return typeof rate === "number" && Number.isFinite(rate) ? rate : null;
+  }
+  if (residency === "Out-of-state") {
+    const rate = record.outOfStateAdmitRate;
+    return typeof rate === "number" && Number.isFinite(rate) ? rate : null;
+  }
+  return null;
+}
+
+/**
+ * Trip-planning region for a state code. Returns "Unassigned" when the
+ * state is missing from data/state-regions.json.
+ */
+export function getRegion(state: string): string {
+  const code = normalizeStateCode(state);
+  if (!code) return "Unassigned";
+  return stateRegions[code] ?? "Unassigned";
+}
 
 export type CampusSetting = (typeof CAMPUS_SETTINGS)[number];
 

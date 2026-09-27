@@ -1,0 +1,4627 @@
+{
+  "10100": {
+    "name": "Aberdeen, SD",
+    "type": "Micropolitan",
+    "population": 41583
+  },
+  "10140": {
+    "name": "Aberdeen, WA",
+    "type": "Micropolitan",
+    "population": 78144
+  },
+  "10180": {
+    "name": "Abilene, TX",
+    "type": "Metropolitan",
+    "population": 185429
+  },
+  "10220": {
+    "name": "Ada, OK",
+    "type": "Micropolitan",
+    "population": 38528
+  },
+  "10300": {
+    "name": "Adrian, MI",
+    "type": "Micropolitan",
+    "population": 97779
+  },
+  "10420": {
+    "name": "Akron, OH",
+    "type": "Metropolitan",
+    "population": 701780
+  },
+  "10460": {
+    "name": "Alamogordo, NM",
+    "type": "Micropolitan",
+    "population": 70368
+  },
+  "10480": {
+    "name": "Alamosa, CO",
+    "type": "Micropolitan",
+    "population": 27896
+  },
+  "10500": {
+    "name": "Albany, GA",
+    "type": "Metropolitan",
+    "population": 145510
+  },
+  "10540": {
+    "name": "Albany, OR",
+    "type": "Metropolitan",
+    "population": 132843
+  },
+  "10580": {
+    "name": "Albany-Schenectady-Troy, NY",
+    "type": "Metropolitan",
+    "population": 915835
+  },
+  "10620": {
+    "name": "Albemarle, NC",
+    "type": "Micropolitan",
+    "population": 68830
+  },
+  "10660": {
+    "name": "Albert Lea, MN",
+    "type": "Micropolitan",
+    "population": 30440
+  },
+  "10700": {
+    "name": "Albertville, AL",
+    "type": "Micropolitan",
+    "population": 103537
+  },
+  "10740": {
+    "name": "Albuquerque, NM",
+    "type": "Metropolitan",
+    "population": 925279
+  },
+  "10760": {
+    "name": "Alexander City, AL",
+    "type": "Micropolitan",
+    "population": 40953
+  },
+  "10780": {
+    "name": "Alexandria, LA",
+    "type": "Metropolitan",
+    "population": 147952
+  },
+  "10820": {
+    "name": "Alexandria, MN",
+    "type": "Micropolitan",
+    "population": 40120
+  },
+  "10860": {
+    "name": "Alice, TX",
+    "type": "Micropolitan",
+    "population": 45383
+  },
+  "10900": {
+    "name": "Allentown-Bethlehem-Easton, PA-NJ",
+    "type": "Metropolitan",
+    "population": 887615
+  },
+  "10940": {
+    "name": "Alma, MI",
+    "type": "Micropolitan",
+    "population": 41190
+  },
+  "10980": {
+    "name": "Alpena, MI",
+    "type": "Micropolitan",
+    "population": 28853
+  },
+  "11020": {
+    "name": "Altoona, PA",
+    "type": "Metropolitan",
+    "population": 119541
+  },
+  "11060": {
+    "name": "Altus, OK",
+    "type": "Micropolitan",
+    "population": 24764
+  },
+  "11100": {
+    "name": "Amarillo, TX",
+    "type": "Metropolitan",
+    "population": 276235
+  },
+  "11140": {
+    "name": "Americus, GA",
+    "type": "Micropolitan",
+    "population": 33394
+  },
+  "11180": {
+    "name": "Ames, IA",
+    "type": "Metropolitan",
+    "population": 128090
+  },
+  "11200": {
+    "name": "Amherst Town-Northampton, MA",
+    "type": "Metropolitan",
+    "population": 164065
+  },
+  "11220": {
+    "name": "Amsterdam, NY",
+    "type": "Micropolitan",
+    "population": 50046
+  },
+  "11260": {
+    "name": "Anchorage, AK",
+    "type": "Metropolitan",
+    "population": 405821
+  },
+  "11360": {
+    "name": "Anderson Creek, NC",
+    "type": "Micropolitan",
+    "population": 150137
+  },
+  "11380": {
+    "name": "Andrews, TX",
+    "type": "Micropolitan",
+    "population": 18914
+  },
+  "11420": {
+    "name": "Angola, IN",
+    "type": "Micropolitan",
+    "population": 34799
+  },
+  "11460": {
+    "name": "Ann Arbor, MI",
+    "type": "Metropolitan",
+    "population": 370214
+  },
+  "11500": {
+    "name": "Anniston-Oxford, AL",
+    "type": "Metropolitan",
+    "population": 115834
+  },
+  "11540": {
+    "name": "Appleton, WI",
+    "type": "Metropolitan",
+    "population": 249876
+  },
+  "11580": {
+    "name": "Arcadia, FL",
+    "type": "Micropolitan",
+    "population": 37078
+  },
+  "11620": {
+    "name": "Ardmore, OK",
+    "type": "Micropolitan",
+    "population": 48910
+  },
+  "11660": {
+    "name": "Arkadelphia, AR",
+    "type": "Micropolitan",
+    "population": 20938
+  },
+  "11680": {
+    "name": "Arkansas City-Winfield, KS",
+    "type": "Micropolitan",
+    "population": 34382
+  },
+  "11700": {
+    "name": "Asheville, NC",
+    "type": "Metropolitan",
+    "population": 422345
+  },
+  "11740": {
+    "name": "Ashland, OH",
+    "type": "Micropolitan",
+    "population": 52523
+  },
+  "11820": {
+    "name": "Astoria, OR",
+    "type": "Micropolitan",
+    "population": 40926
+  },
+  "11860": {
+    "name": "Atchison, KS",
+    "type": "Micropolitan",
+    "population": 16172
+  },
+  "11900": {
+    "name": "Athens, OH",
+    "type": "Micropolitan",
+    "population": 63197
+  },
+  "11940": {
+    "name": "Athens, TN",
+    "type": "Micropolitan",
+    "population": 71590
+  },
+  "11980": {
+    "name": "Athens, TX",
+    "type": "Micropolitan",
+    "population": 88595
+  },
+  "12020": {
+    "name": "Athens-Clarke County, GA",
+    "type": "Metropolitan",
+    "population": 224148
+  },
+  "12060": {
+    "name": "Atlanta-Sandy Springs-Roswell, GA",
+    "type": "Metropolitan",
+    "population": 6482182
+  },
+  "12100": {
+    "name": "Atlantic City-Hammonton, NJ",
+    "type": "Metropolitan",
+    "population": 372047
+  },
+  "12140": {
+    "name": "Auburn, IN",
+    "type": "Micropolitan",
+    "population": 44535
+  },
+  "12180": {
+    "name": "Auburn, NY",
+    "type": "Micropolitan",
+    "population": 74365
+  },
+  "12220": {
+    "name": "Auburn-Opelika, AL",
+    "type": "Metropolitan",
+    "population": 208013
+  },
+  "12260": {
+    "name": "Augusta-Richmond County, GA-SC",
+    "type": "Metropolitan",
+    "population": 641231
+  },
+  "12300": {
+    "name": "Augusta-Waterville, ME",
+    "type": "Micropolitan",
+    "population": 129067
+  },
+  "12380": {
+    "name": "Austin, MN",
+    "type": "Micropolitan",
+    "population": 40971
+  },
+  "12420": {
+    "name": "Austin-Round Rock-San Marcos, TX",
+    "type": "Metropolitan",
+    "population": 2620945
+  },
+  "12460": {
+    "name": "Bainbridge, GA",
+    "type": "Micropolitan",
+    "population": 29432
+  },
+  "12520": {
+    "name": "Baker City, OR",
+    "type": "Micropolitan",
+    "population": 16658
+  },
+  "12540": {
+    "name": "Bakersfield-Delano, CA",
+    "type": "Metropolitan",
+    "population": 927068
+  },
+  "12580": {
+    "name": "Baltimore-Columbia-Towson, MD",
+    "type": "Metropolitan",
+    "population": 2857781
+  },
+  "12620": {
+    "name": "Bangor, ME",
+    "type": "Metropolitan",
+    "population": 157967
+  },
+  "12660": {
+    "name": "Baraboo, WI",
+    "type": "Micropolitan",
+    "population": 66652
+  },
+  "12700": {
+    "name": "Barnstable Town, MA",
+    "type": "Metropolitan",
+    "population": 233539
+  },
+  "12740": {
+    "name": "Barre, VT",
+    "type": "Micropolitan",
+    "population": 59652
+  },
+  "12780": {
+    "name": "Bartlesville, OK",
+    "type": "Micropolitan",
+    "population": 54037
+  },
+  "12860": {
+    "name": "Batavia, NY",
+    "type": "Micropolitan",
+    "population": 58416
+  },
+  "12900": {
+    "name": "Batesville, AR",
+    "type": "Micropolitan",
+    "population": 38785
+  },
+  "12940": {
+    "name": "Baton Rouge, LA",
+    "type": "Metropolitan",
+    "population": 888699
+  },
+  "12980": {
+    "name": "Battle Creek, MI",
+    "type": "Metropolitan",
+    "population": 133408
+  },
+  "13020": {
+    "name": "Bay City, MI",
+    "type": "Metropolitan",
+    "population": 102123
+  },
+  "13060": {
+    "name": "Bay City, TX",
+    "type": "Micropolitan",
+    "population": 36463
+  },
+  "13100": {
+    "name": "Beatrice, NE",
+    "type": "Micropolitan",
+    "population": 21711
+  },
+  "13140": {
+    "name": "Beaumont-Port Arthur, TX",
+    "type": "Metropolitan",
+    "population": 399310
+  },
+  "13180": {
+    "name": "Beaver Dam, WI",
+    "type": "Micropolitan",
+    "population": 89097
+  },
+  "13220": {
+    "name": "Beckley, WV",
+    "type": "Metropolitan",
+    "population": 109940
+  },
+  "13260": {
+    "name": "Bedford, IN",
+    "type": "Micropolitan",
+    "population": 45568
+  },
+  "13300": {
+    "name": "Beeville, TX",
+    "type": "Micropolitan",
+    "population": 32515
+  },
+  "13340": {
+    "name": "Bellefontaine, OH",
+    "type": "Micropolitan",
+    "population": 46302
+  },
+  "13380": {
+    "name": "Bellingham, WA",
+    "type": "Metropolitan",
+    "population": 236392
+  },
+  "13420": {
+    "name": "Bemidji, MN",
+    "type": "Micropolitan",
+    "population": 47055
+  },
+  "13460": {
+    "name": "Bend, OR",
+    "type": "Metropolitan",
+    "population": 266376
+  },
+  "13540": {
+    "name": "Bennington, VT",
+    "type": "Micropolitan",
+    "population": 36630
+  },
+  "13660": {
+    "name": "Big Rapids, MI",
+    "type": "Micropolitan",
+    "population": 42320
+  },
+  "13700": {
+    "name": "Big Spring, TX",
+    "type": "Micropolitan",
+    "population": 30504
+  },
+  "13740": {
+    "name": "Billings, MT",
+    "type": "Metropolitan",
+    "population": 193603
+  },
+  "13780": {
+    "name": "Binghamton, NY",
+    "type": "Metropolitan",
+    "population": 243189
+  },
+  "13820": {
+    "name": "Birmingham, AL",
+    "type": "Metropolitan",
+    "population": 1197766
+  },
+  "13860": {
+    "name": "Bishop, CA",
+    "type": "Micropolitan",
+    "population": 18158
+  },
+  "13900": {
+    "name": "Bismarck, ND",
+    "type": "Metropolitan",
+    "population": 139750
+  },
+  "13940": {
+    "name": "Blackfoot, ID",
+    "type": "Micropolitan",
+    "population": 51153
+  },
+  "13980": {
+    "name": "Blacksburg-Christiansburg-Radford, VA",
+    "type": "Metropolitan",
+    "population": 181616
+  },
+  "14010": {
+    "name": "Bloomington, IL",
+    "type": "Metropolitan",
+    "population": 171419
+  },
+  "14020": {
+    "name": "Bloomington, IN",
+    "type": "Metropolitan",
+    "population": 165231
+  },
+  "14100": {
+    "name": "Bloomsburg-Berwick, PA",
+    "type": "Micropolitan",
+    "population": 66193
+  },
+  "14140": {
+    "name": "Bluefield, WV-VA",
+    "type": "Micropolitan",
+    "population": 96138
+  },
+  "14180": {
+    "name": "Blytheville, AR",
+    "type": "Micropolitan",
+    "population": 37828
+  },
+  "14220": {
+    "name": "Bogalusa, LA",
+    "type": "Micropolitan",
+    "population": 44937
+  },
+  "14260": {
+    "name": "Boise City, ID",
+    "type": "Metropolitan",
+    "population": 864243
+  },
+  "14300": {
+    "name": "Bonham, TX",
+    "type": "Micropolitan",
+    "population": 39265
+  },
+  "14380": {
+    "name": "Boone, NC",
+    "type": "Micropolitan",
+    "population": 54786
+  },
+  "14420": {
+    "name": "Borger, TX",
+    "type": "Micropolitan",
+    "population": 19633
+  },
+  "14460": {
+    "name": "Boston-Cambridge-Newton, MA-NH",
+    "type": "Metropolitan",
+    "population": 5034221
+  },
+  "14500": {
+    "name": "Boulder, CO",
+    "type": "Metropolitan",
+    "population": 328560
+  },
+  "14540": {
+    "name": "Bowling Green, KY",
+    "type": "Metropolitan",
+    "population": 197180
+  },
+  "14580": {
+    "name": "Bozeman, MT",
+    "type": "Metropolitan",
+    "population": 128740
+  },
+  "14620": {
+    "name": "Bradford, PA",
+    "type": "Micropolitan",
+    "population": 38984
+  },
+  "14660": {
+    "name": "Brainerd, MN",
+    "type": "Micropolitan",
+    "population": 100562
+  },
+  "14700": {
+    "name": "Branson, MO",
+    "type": "Micropolitan",
+    "population": 57001
+  },
+  "14710": {
+    "name": "Brattleboro, VT",
+    "type": "Micropolitan",
+    "population": 45204
+  },
+  "14720": {
+    "name": "Breckenridge, CO",
+    "type": "Micropolitan",
+    "population": 39069
+  },
+  "14740": {
+    "name": "Bremerton-Silverdale-Port Orchard, WA",
+    "type": "Metropolitan",
+    "population": 283374
+  },
+  "14780": {
+    "name": "Brenham, TX",
+    "type": "Micropolitan",
+    "population": 38288
+  },
+  "14820": {
+    "name": "Brevard, NC",
+    "type": "Micropolitan",
+    "population": 34211
+  },
+  "14860": {
+    "name": "Bridgeport-Stamford-Danbury, CT",
+    "type": "Metropolitan",
+    "population": 978179
+  },
+  "14940": {
+    "name": "Brigham City, UT-ID",
+    "type": "Micropolitan",
+    "population": 70405
+  },
+  "15020": {
+    "name": "Brookhaven, MS",
+    "type": "Micropolitan",
+    "population": 35012
+  },
+  "15060": {
+    "name": "Brookings, OR",
+    "type": "Micropolitan",
+    "population": 22621
+  },
+  "15100": {
+    "name": "Brookings, SD",
+    "type": "Micropolitan",
+    "population": 37635
+  },
+  "15180": {
+    "name": "Brownsville-Harlingen, TX",
+    "type": "Metropolitan",
+    "population": 433946
+  },
+  "15220": {
+    "name": "Brownwood, TX",
+    "type": "Micropolitan",
+    "population": 38711
+  },
+  "15260": {
+    "name": "Brunswick-St. Simons, GA",
+    "type": "Metropolitan",
+    "population": 118524
+  },
+  "15340": {
+    "name": "Bucyrus, OH",
+    "type": "Micropolitan",
+    "population": 41896
+  },
+  "15380": {
+    "name": "Buffalo-Cheektowaga, NY",
+    "type": "Metropolitan",
+    "population": 1155653
+  },
+  "15420": {
+    "name": "Burley, ID",
+    "type": "Micropolitan",
+    "population": 49308
+  },
+  "15460": {
+    "name": "Burlington, IA-IL",
+    "type": "Micropolitan",
+    "population": 44061
+  },
+  "15500": {
+    "name": "Burlington, NC",
+    "type": "Metropolitan",
+    "population": 186177
+  },
+  "15540": {
+    "name": "Burlington-South Burlington, VT",
+    "type": "Metropolitan",
+    "population": 227803
+  },
+  "15580": {
+    "name": "Butte-Silver Bow, MT",
+    "type": "Micropolitan",
+    "population": 36118
+  },
+  "15620": {
+    "name": "Cadillac, MI",
+    "type": "Micropolitan",
+    "population": 49719
+  },
+  "15660": {
+    "name": "Calhoun, GA",
+    "type": "Micropolitan",
+    "population": 61701
+  },
+  "15700": {
+    "name": "Cambridge, MD",
+    "type": "Micropolitan",
+    "population": 33628
+  },
+  "15740": {
+    "name": "Cambridge, OH",
+    "type": "Micropolitan",
+    "population": 38379
+  },
+  "15780": {
+    "name": "Camden, AR",
+    "type": "Micropolitan",
+    "population": 26363
+  },
+  "15820": {
+    "name": "Campbellsville, KY",
+    "type": "Micropolitan",
+    "population": 38407
+  },
+  "15860": {
+    "name": "Cañon City, CO",
+    "type": "Micropolitan",
+    "population": 50039
+  },
+  "15900": {
+    "name": "Canton, IL",
+    "type": "Micropolitan",
+    "population": 32901
+  },
+  "15940": {
+    "name": "Canton-Massillon, OH",
+    "type": "Metropolitan",
+    "population": 400246
+  },
+  "15980": {
+    "name": "Cape Coral-Fort Myers, FL",
+    "type": "Metropolitan",
+    "population": 875607
+  },
+  "16020": {
+    "name": "Cape Girardeau, MO-IL",
+    "type": "Metropolitan",
+    "population": 99215
+  },
+  "16060": {
+    "name": "Carbondale, IL",
+    "type": "Micropolitan",
+    "population": 52501
+  },
+  "16100": {
+    "name": "Carlsbad-Artesia, NM",
+    "type": "Micropolitan",
+    "population": 62509
+  },
+  "16140": {
+    "name": "Carroll, IA",
+    "type": "Micropolitan",
+    "population": 20303
+  },
+  "16180": {
+    "name": "Carson City, NV",
+    "type": "Metropolitan",
+    "population": 58571
+  },
+  "16220": {
+    "name": "Casper, WY",
+    "type": "Metropolitan",
+    "population": 80526
+  },
+  "16260": {
+    "name": "Cedar City, UT",
+    "type": "Micropolitan",
+    "population": 67141
+  },
+  "16300": {
+    "name": "Cedar Rapids, IA",
+    "type": "Metropolitan",
+    "population": 279285
+  },
+  "16340": {
+    "name": "Cedartown, GA",
+    "type": "Micropolitan",
+    "population": 45514
+  },
+  "16380": {
+    "name": "Celina, OH",
+    "type": "Micropolitan",
+    "population": 42737
+  },
+  "16460": {
+    "name": "Centralia, IL",
+    "type": "Micropolitan",
+    "population": 36382
+  },
+  "16500": {
+    "name": "Centralia, WA",
+    "type": "Micropolitan",
+    "population": 88062
+  },
+  "16540": {
+    "name": "Chambersburg, PA",
+    "type": "Metropolitan",
+    "population": 160652
+  },
+  "16580": {
+    "name": "Champaign-Urbana, IL",
+    "type": "Metropolitan",
+    "population": 239979
+  },
+  "16620": {
+    "name": "Charleston, WV",
+    "type": "Metropolitan",
+    "population": 200170
+  },
+  "16660": {
+    "name": "Charleston-Mattoon, IL",
+    "type": "Micropolitan",
+    "population": 46607
+  },
+  "16700": {
+    "name": "Charleston-North Charleston, SC",
+    "type": "Metropolitan",
+    "population": 889263
+  },
+  "16740": {
+    "name": "Charlotte-Concord-Gastonia, NC-SC",
+    "type": "Metropolitan",
+    "population": 2938830
+  },
+  "16820": {
+    "name": "Charlottesville, VA",
+    "type": "Metropolitan",
+    "population": 228597
+  },
+  "16860": {
+    "name": "Chattanooga, TN-GA",
+    "type": "Metropolitan",
+    "population": 594530
+  },
+  "16940": {
+    "name": "Cheyenne, WY",
+    "type": "Metropolitan",
+    "population": 102938
+  },
+  "16980": {
+    "name": "Chicago-Naperville-Elgin, IL-IN",
+    "type": "Metropolitan",
+    "population": 9434123
+  },
+  "17020": {
+    "name": "Chico, CA",
+    "type": "Metropolitan",
+    "population": 209211
+  },
+  "17060": {
+    "name": "Chillicothe, OH",
+    "type": "Micropolitan",
+    "population": 76429
+  },
+  "17140": {
+    "name": "Cincinnati, OH-KY-IN",
+    "type": "Metropolitan",
+    "population": 2312858
+  },
+  "17220": {
+    "name": "Clarksburg, WV",
+    "type": "Micropolitan",
+    "population": 88142
+  },
+  "17260": {
+    "name": "Clarksdale, MS",
+    "type": "Micropolitan",
+    "population": 19849
+  },
+  "17300": {
+    "name": "Clarksville, TN-KY",
+    "type": "Metropolitan",
+    "population": 349001
+  },
+  "17340": {
+    "name": "Clearlake, CA",
+    "type": "Micropolitan",
+    "population": 67772
+  },
+  "17380": {
+    "name": "Cleveland, MS",
+    "type": "Micropolitan",
+    "population": 28262
+  },
+  "17410": {
+    "name": "Cleveland, OH",
+    "type": "Metropolitan",
+    "population": 2165775
+  },
+  "17420": {
+    "name": "Cleveland, TN",
+    "type": "Metropolitan",
+    "population": 134057
+  },
+  "17500": {
+    "name": "Clewiston, FL",
+    "type": "Micropolitan",
+    "population": 61546
+  },
+  "17540": {
+    "name": "Clinton, IA",
+    "type": "Micropolitan",
+    "population": 46002
+  },
+  "17580": {
+    "name": "Clovis, NM",
+    "type": "Micropolitan",
+    "population": 65270
+  },
+  "17650": {
+    "name": "Cody, WY",
+    "type": "Micropolitan",
+    "population": 31171
+  },
+  "17660": {
+    "name": "Coeur d'Alene, ID",
+    "type": "Metropolitan",
+    "population": 191864
+  },
+  "17740": {
+    "name": "Coldwater, MI",
+    "type": "Micropolitan",
+    "population": 45993
+  },
+  "17780": {
+    "name": "College Station-Bryan, TX",
+    "type": "Metropolitan",
+    "population": 287476
+  },
+  "17820": {
+    "name": "Colorado Springs, CO",
+    "type": "Metropolitan",
+    "population": 781796
+  },
+  "17860": {
+    "name": "Columbia, MO",
+    "type": "Metropolitan",
+    "population": 219062
+  },
+  "17900": {
+    "name": "Columbia, SC",
+    "type": "Metropolitan",
+    "population": 879918
+  },
+  "17980": {
+    "name": "Columbus, GA-AL",
+    "type": "Metropolitan",
+    "population": 324830
+  },
+  "18020": {
+    "name": "Columbus, IN",
+    "type": "Metropolitan",
+    "population": 85729
+  },
+  "18060": {
+    "name": "Columbus, MS",
+    "type": "Micropolitan",
+    "population": 67144
+  },
+  "18100": {
+    "name": "Columbus, NE",
+    "type": "Micropolitan",
+    "population": 46583
+  },
+  "18140": {
+    "name": "Columbus, OH",
+    "type": "Metropolitan",
+    "population": 2242028
+  },
+  "18180": {
+    "name": "Concord, NH",
+    "type": "Micropolitan",
+    "population": 158078
+  },
+  "18220": {
+    "name": "Connersville, IN",
+    "type": "Micropolitan",
+    "population": 23533
+  },
+  "18260": {
+    "name": "Cookeville, TN",
+    "type": "Micropolitan",
+    "population": 152477
+  },
+  "18300": {
+    "name": "Coos Bay-North Bend, OR",
+    "type": "Micropolitan",
+    "population": 63992
+  },
+  "18340": {
+    "name": "Corbin, KY",
+    "type": "Micropolitan",
+    "population": 150040
+  },
+  "18380": {
+    "name": "Cordele, GA",
+    "type": "Micropolitan",
+    "population": 19237
+  },
+  "18420": {
+    "name": "Corinth, MS",
+    "type": "Micropolitan",
+    "population": 34569
+  },
+  "18460": {
+    "name": "Cornelia, GA",
+    "type": "Micropolitan",
+    "population": 50416
+  },
+  "18500": {
+    "name": "Corning, NY",
+    "type": "Micropolitan",
+    "population": 91855
+  },
+  "18580": {
+    "name": "Corpus Christi, TX",
+    "type": "Metropolitan",
+    "population": 451191
+  },
+  "18620": {
+    "name": "Corsicana, TX",
+    "type": "Micropolitan",
+    "population": 57181
+  },
+  "18660": {
+    "name": "Cortland, NY",
+    "type": "Micropolitan",
+    "population": 45850
+  },
+  "18700": {
+    "name": "Corvallis, OR",
+    "type": "Metropolitan",
+    "population": 97728
+  },
+  "18740": {
+    "name": "Coshocton, OH",
+    "type": "Micropolitan",
+    "population": 37188
+  },
+  "18820": {
+    "name": "Crawfordsville, IN",
+    "type": "Micropolitan",
+    "population": 38954
+  },
+  "18860": {
+    "name": "Crescent City, CA",
+    "type": "Micropolitan",
+    "population": 26410
+  },
+  "18880": {
+    "name": "Crestview-Fort Walton Beach-Destin, FL",
+    "type": "Metropolitan",
+    "population": 315098
+  },
+  "18900": {
+    "name": "Crossville, TN",
+    "type": "Micropolitan",
+    "population": 66300
+  },
+  "18980": {
+    "name": "Cullman, AL",
+    "type": "Micropolitan",
+    "population": 94009
+  },
+  "19060": {
+    "name": "Cumberland, MD-WV",
+    "type": "Micropolitan",
+    "population": 93640
+  },
+  "19100": {
+    "name": "Dallas-Fort Worth-Arlington, TX",
+    "type": "Metropolitan",
+    "population": 8477157
+  },
+  "19140": {
+    "name": "Dalton, GA",
+    "type": "Metropolitan",
+    "population": 147819
+  },
+  "19180": {
+    "name": "Danville, IL",
+    "type": "Micropolitan",
+    "population": 71259
+  },
+  "19220": {
+    "name": "Danville, KY",
+    "type": "Micropolitan",
+    "population": 56985
+  },
+  "19260": {
+    "name": "Danville, VA",
+    "type": "Micropolitan",
+    "population": 101137
+  },
+  "19300": {
+    "name": "Daphne-Fairhope-Foley, AL",
+    "type": "Metropolitan",
+    "population": 267761
+  },
+  "19340": {
+    "name": "Davenport-Moline-Rock Island, IA-IL",
+    "type": "Metropolitan",
+    "population": 380452
+  },
+  "19430": {
+    "name": "Dayton-Kettering-Beavercreek, OH",
+    "type": "Metropolitan",
+    "population": 826554
+  },
+  "19460": {
+    "name": "Decatur, AL",
+    "type": "Metropolitan",
+    "population": 160326
+  },
+  "19500": {
+    "name": "Decatur, IL",
+    "type": "Metropolitan",
+    "population": 99300
+  },
+  "19540": {
+    "name": "Decatur, IN",
+    "type": "Micropolitan",
+    "population": 36650
+  },
+  "19580": {
+    "name": "Defiance, OH",
+    "type": "Micropolitan",
+    "population": 38292
+  },
+  "19620": {
+    "name": "Del Rio, TX",
+    "type": "Micropolitan",
+    "population": 47835
+  },
+  "19660": {
+    "name": "Deltona-Daytona Beach-Ormond Beach, FL",
+    "type": "Metropolitan",
+    "population": 746933
+  },
+  "19700": {
+    "name": "Deming, NM",
+    "type": "Micropolitan",
+    "population": 25407
+  },
+  "19740": {
+    "name": "Denver-Aurora-Centennial, CO",
+    "type": "Metropolitan",
+    "population": 3092037
+  },
+  "19760": {
+    "name": "DeRidder, LA",
+    "type": "Micropolitan",
+    "population": 36673
+  },
+  "19780": {
+    "name": "Des Moines-West Des Moines, IA",
+    "type": "Metropolitan",
+    "population": 758539
+  },
+  "19810": {
+    "name": "Detroit Lakes, MN",
+    "type": "Micropolitan",
+    "population": 35497
+  },
+  "19820": {
+    "name": "Detroit-Warren-Dearborn, MI",
+    "type": "Metropolitan",
+    "population": 4390913
+  },
+  "19860": {
+    "name": "Dickinson, ND",
+    "type": "Micropolitan",
+    "population": 39142
+  },
+  "19940": {
+    "name": "Dixon, IL",
+    "type": "Micropolitan",
+    "population": 32914
+  },
+  "19980": {
+    "name": "Dodge City, KS",
+    "type": "Micropolitan",
+    "population": 33993
+  },
+  "20020": {
+    "name": "Dothan, AL",
+    "type": "Metropolitan",
+    "population": 156266
+  },
+  "20060": {
+    "name": "Douglas, GA",
+    "type": "Micropolitan",
+    "population": 52861
+  },
+  "20100": {
+    "name": "Dover, DE",
+    "type": "Metropolitan",
+    "population": 194786
+  },
+  "20140": {
+    "name": "Dublin, GA",
+    "type": "Micropolitan",
+    "population": 60351
+  },
+  "20180": {
+    "name": "DuBois, PA",
+    "type": "Micropolitan",
+    "population": 78100
+  },
+  "20220": {
+    "name": "Dubuque, IA",
+    "type": "Metropolitan",
+    "population": 99381
+  },
+  "20260": {
+    "name": "Duluth, MN-WI",
+    "type": "Metropolitan",
+    "population": 281219
+  },
+  "20300": {
+    "name": "Dumas, TX",
+    "type": "Micropolitan",
+    "population": 21891
+  },
+  "20340": {
+    "name": "Duncan, OK",
+    "type": "Micropolitan",
+    "population": 44310
+  },
+  "20420": {
+    "name": "Durango, CO",
+    "type": "Micropolitan",
+    "population": 56898
+  },
+  "20460": {
+    "name": "Durant, OK",
+    "type": "Micropolitan",
+    "population": 51367
+  },
+  "20500": {
+    "name": "Durham-Chapel Hill, NC",
+    "type": "Metropolitan",
+    "population": 625485
+  },
+  "20540": {
+    "name": "Dyersburg, TN",
+    "type": "Micropolitan",
+    "population": 36320
+  },
+  "20580": {
+    "name": "Eagle Pass, TX",
+    "type": "Metropolitan",
+    "population": 58823
+  },
+  "20660": {
+    "name": "Easton, MD",
+    "type": "Micropolitan",
+    "population": 38238
+  },
+  "20700": {
+    "name": "East Stroudsburg, PA",
+    "type": "Micropolitan",
+    "population": 167179
+  },
+  "20740": {
+    "name": "Eau Claire, WI",
+    "type": "Metropolitan",
+    "population": 176647
+  },
+  "20780": {
+    "name": "Edwards, CO",
+    "type": "Micropolitan",
+    "population": 54291
+  },
+  "20820": {
+    "name": "Effingham, IL",
+    "type": "Micropolitan",
+    "population": 44727
+  },
+  "20900": {
+    "name": "El Campo, TX",
+    "type": "Micropolitan",
+    "population": 42060
+  },
+  "20940": {
+    "name": "El Centro, CA",
+    "type": "Metropolitan",
+    "population": 181411
+  },
+  "20980": {
+    "name": "El Dorado, AR",
+    "type": "Micropolitan",
+    "population": 36926
+  },
+  "21020": {
+    "name": "Elizabeth City, NC",
+    "type": "Micropolitan",
+    "population": 42201
+  },
+  "21060": {
+    "name": "Elizabethtown, KY",
+    "type": "Metropolitan",
+    "population": 128666
+  },
+  "21120": {
+    "name": "Elk City, OK",
+    "type": "Micropolitan",
+    "population": 22159
+  },
+  "21140": {
+    "name": "Elkhart-Goshen, IN",
+    "type": "Metropolitan",
+    "population": 208774
+  },
+  "21180": {
+    "name": "Elkins, WV",
+    "type": "Micropolitan",
+    "population": 26882
+  },
+  "21220": {
+    "name": "Elko, NV",
+    "type": "Micropolitan",
+    "population": 56682
+  },
+  "21260": {
+    "name": "Ellensburg, WA",
+    "type": "Micropolitan",
+    "population": 48803
+  },
+  "21300": {
+    "name": "Elmira, NY",
+    "type": "Metropolitan",
+    "population": 80415
+  },
+  "21340": {
+    "name": "El Paso, TX",
+    "type": "Metropolitan",
+    "population": 881291
+  },
+  "21380": {
+    "name": "Emporia, KS",
+    "type": "Micropolitan",
+    "population": 34838
+  },
+  "21420": {
+    "name": "Enid, OK",
+    "type": "Metropolitan",
+    "population": 61779
+  },
+  "21460": {
+    "name": "Enterprise, AL",
+    "type": "Micropolitan",
+    "population": 56953
+  },
+  "21500": {
+    "name": "Erie, PA",
+    "type": "Metropolitan",
+    "population": 265832
+  },
+  "21540": {
+    "name": "Escanaba, MI",
+    "type": "Micropolitan",
+    "population": 36582
+  },
+  "21580": {
+    "name": "Española, NM",
+    "type": "Micropolitan",
+    "population": 39832
+  },
+  "21640": {
+    "name": "Eufaula, AL-GA",
+    "type": "Micropolitan",
+    "population": 26861
+  },
+  "21660": {
+    "name": "Eugene-Springfield, OR",
+    "type": "Metropolitan",
+    "population": 381584
+  },
+  "21700": {
+    "name": "Eureka-Arcata, CA",
+    "type": "Micropolitan",
+    "population": 131647
+  },
+  "21740": {
+    "name": "Evanston, WY-UT",
+    "type": "Micropolitan",
+    "population": 23415
+  },
+  "21780": {
+    "name": "Evansville, IN",
+    "type": "Metropolitan",
+    "population": 273786
+  },
+  "21820": {
+    "name": "Fairbanks-College, AK",
+    "type": "Metropolitan",
+    "population": 93972
+  },
+  "21860": {
+    "name": "Fairmont, MN",
+    "type": "Micropolitan",
+    "population": 19440
+  },
+  "21900": {
+    "name": "Fairmont, WV",
+    "type": "Micropolitan",
+    "population": 55584
+  },
+  "21980": {
+    "name": "Fallon, NV",
+    "type": "Micropolitan",
+    "population": 25851
+  },
+  "22020": {
+    "name": "Fargo, ND-MN",
+    "type": "Metropolitan",
+    "population": 269528
+  },
+  "22060": {
+    "name": "Faribault-Northfield, MN",
+    "type": "Micropolitan",
+    "population": 69939
+  },
+  "22100": {
+    "name": "Farmington, MO",
+    "type": "Micropolitan",
+    "population": 67809
+  },
+  "22140": {
+    "name": "Farmington, NM",
+    "type": "Metropolitan",
+    "population": 120340
+  },
+  "22180": {
+    "name": "Fayetteville, NC",
+    "type": "Metropolitan",
+    "population": 395412
+  },
+  "22190": {
+    "name": "Fayetteville, TN",
+    "type": "Micropolitan",
+    "population": 36853
+  },
+  "22220": {
+    "name": "Fayetteville-Springdale-Rogers, AR",
+    "type": "Metropolitan",
+    "population": 622177
+  },
+  "22260": {
+    "name": "Fergus Falls, MN",
+    "type": "Micropolitan",
+    "population": 61041
+  },
+  "22300": {
+    "name": "Findlay, OH",
+    "type": "Micropolitan",
+    "population": 75034
+  },
+  "22340": {
+    "name": "Fitzgerald, GA",
+    "type": "Micropolitan",
+    "population": 17099
+  },
+  "22380": {
+    "name": "Flagstaff, AZ",
+    "type": "Metropolitan",
+    "population": 144368
+  },
+  "22420": {
+    "name": "Flint, MI",
+    "type": "Metropolitan",
+    "population": 401093
+  },
+  "22500": {
+    "name": "Florence, SC",
+    "type": "Metropolitan",
+    "population": 201392
+  },
+  "22520": {
+    "name": "Florence-Muscle Shoals, AL",
+    "type": "Metropolitan",
+    "population": 156609
+  },
+  "22540": {
+    "name": "Fond du Lac, WI",
+    "type": "Metropolitan",
+    "population": 104669
+  },
+  "22580": {
+    "name": "Forest City, NC",
+    "type": "Micropolitan",
+    "population": 65745
+  },
+  "22620": {
+    "name": "Forrest City, AR",
+    "type": "Micropolitan",
+    "population": 21800
+  },
+  "22660": {
+    "name": "Fort Collins-Loveland, CO",
+    "type": "Metropolitan",
+    "population": 377292
+  },
+  "22700": {
+    "name": "Fort Dodge, IA",
+    "type": "Micropolitan",
+    "population": 36838
+  },
+  "22780": {
+    "name": "Fort Leonard Wood, MO",
+    "type": "Micropolitan",
+    "population": 54442
+  },
+  "22800": {
+    "name": "Fort Madison, IA",
+    "type": "Micropolitan",
+    "population": 32306
+  },
+  "22820": {
+    "name": "Fort Morgan, CO",
+    "type": "Micropolitan",
+    "population": 30306
+  },
+  "22840": {
+    "name": "Fort Payne, AL",
+    "type": "Micropolitan",
+    "population": 74085
+  },
+  "22900": {
+    "name": "Fort Smith, AR-OK",
+    "type": "Metropolitan",
+    "population": 234140
+  },
+  "23060": {
+    "name": "Fort Wayne, IN",
+    "type": "Metropolitan",
+    "population": 466258
+  },
+  "23140": {
+    "name": "Frankfort, IN",
+    "type": "Micropolitan",
+    "population": 33322
+  },
+  "23180": {
+    "name": "Frankfort, KY",
+    "type": "Micropolitan",
+    "population": 77874
+  },
+  "23190": {
+    "name": "Franklin, KY",
+    "type": "Micropolitan",
+    "population": 20788
+  },
+  "23240": {
+    "name": "Fredericksburg, TX",
+    "type": "Micropolitan",
+    "population": 28527
+  },
+  "23300": {
+    "name": "Freeport, IL",
+    "type": "Micropolitan",
+    "population": 43220
+  },
+  "23340": {
+    "name": "Fremont, NE",
+    "type": "Micropolitan",
+    "population": 38057
+  },
+  "23380": {
+    "name": "Fremont, OH",
+    "type": "Micropolitan",
+    "population": 58655
+  },
+  "23420": {
+    "name": "Fresno, CA",
+    "type": "Metropolitan",
+    "population": 1203383
+  },
+  "23460": {
+    "name": "Gadsden, AL",
+    "type": "Metropolitan",
+    "population": 103886
+  },
+  "23500": {
+    "name": "Gaffney, SC",
+    "type": "Micropolitan",
+    "population": 58275
+  },
+  "23540": {
+    "name": "Gainesville, FL",
+    "type": "Metropolitan",
+    "population": 359036
+  },
+  "23580": {
+    "name": "Gainesville, GA",
+    "type": "Metropolitan",
+    "population": 226568
+  },
+  "23620": {
+    "name": "Gainesville, TX",
+    "type": "Micropolitan",
+    "population": 44461
+  },
+  "23660": {
+    "name": "Galesburg, IL",
+    "type": "Micropolitan",
+    "population": 47767
+  },
+  "23680": {
+    "name": "Gallipolis, OH",
+    "type": "Micropolitan",
+    "population": 29072
+  },
+  "23700": {
+    "name": "Gallup, NM",
+    "type": "Micropolitan",
+    "population": 68119
+  },
+  "23780": {
+    "name": "Garden City, KS",
+    "type": "Micropolitan",
+    "population": 37505
+  },
+  "23820": {
+    "name": "Gardnerville Ranchos, NV-CA",
+    "type": "Micropolitan",
+    "population": 51154
+  },
+  "23900": {
+    "name": "Gettysburg, PA",
+    "type": "Metropolitan",
+    "population": 107594
+  },
+  "23940": {
+    "name": "Gillette, WY",
+    "type": "Micropolitan",
+    "population": 48145
+  },
+  "23980": {
+    "name": "Glasgow, KY",
+    "type": "Micropolitan",
+    "population": 56224
+  },
+  "24020": {
+    "name": "Glens Falls, NY",
+    "type": "Metropolitan",
+    "population": 124373
+  },
+  "24100": {
+    "name": "Gloversville, NY",
+    "type": "Micropolitan",
+    "population": 52216
+  },
+  "24140": {
+    "name": "Goldsboro, NC",
+    "type": "Metropolitan",
+    "population": 122278
+  },
+  "24180": {
+    "name": "Granbury, TX",
+    "type": "Micropolitan",
+    "population": 70501
+  },
+  "24220": {
+    "name": "Grand Forks, ND-MN",
+    "type": "Metropolitan",
+    "population": 105046
+  },
+  "24260": {
+    "name": "Grand Island, NE",
+    "type": "Metropolitan",
+    "population": 78076
+  },
+  "24300": {
+    "name": "Grand Junction, CO",
+    "type": "Metropolitan",
+    "population": 162845
+  },
+  "24330": {
+    "name": "Grand Rapids, MN",
+    "type": "Micropolitan",
+    "population": 45404
+  },
+  "24340": {
+    "name": "Grand Rapids-Wyoming-Kentwood, MI",
+    "type": "Metropolitan",
+    "population": 1183645
+  },
+  "24420": {
+    "name": "Grants Pass, OR",
+    "type": "Metropolitan",
+    "population": 87867
+  },
+  "24460": {
+    "name": "Great Bend, KS",
+    "type": "Micropolitan",
+    "population": 24790
+  },
+  "24500": {
+    "name": "Great Falls, MT",
+    "type": "Metropolitan",
+    "population": 85029
+  },
+  "24540": {
+    "name": "Greeley, CO",
+    "type": "Metropolitan",
+    "population": 378426
+  },
+  "24580": {
+    "name": "Green Bay, WI",
+    "type": "Metropolitan",
+    "population": 336756
+  },
+  "24600": {
+    "name": "Greencastle, IN",
+    "type": "Micropolitan",
+    "population": 37876
+  },
+  "24620": {
+    "name": "Greeneville, TN",
+    "type": "Micropolitan",
+    "population": 73831
+  },
+  "24640": {
+    "name": "Greenfield, MA",
+    "type": "Micropolitan",
+    "population": 70698
+  },
+  "24660": {
+    "name": "Greensboro-High Point, NC",
+    "type": "Metropolitan",
+    "population": 805945
+  },
+  "24700": {
+    "name": "Greensburg, IN",
+    "type": "Micropolitan",
+    "population": 26576
+  },
+  "24740": {
+    "name": "Greenville, MS",
+    "type": "Micropolitan",
+    "population": 40446
+  },
+  "24780": {
+    "name": "Greenville, NC",
+    "type": "Metropolitan",
+    "population": 182936
+  },
+  "24820": {
+    "name": "Greenville, OH",
+    "type": "Micropolitan",
+    "population": 51520
+  },
+  "24860": {
+    "name": "Greenville-Anderson-Greer, SC",
+    "type": "Metropolitan",
+    "population": 1014101
+  },
+  "24900": {
+    "name": "Greenwood, MS",
+    "type": "Micropolitan",
+    "population": 34912
+  },
+  "24940": {
+    "name": "Greenwood, SC",
+    "type": "Micropolitan",
+    "population": 95215
+  },
+  "24980": {
+    "name": "Grenada, MS",
+    "type": "Micropolitan",
+    "population": 30222
+  },
+  "25060": {
+    "name": "Gulfport-Biloxi, MS",
+    "type": "Metropolitan",
+    "population": 431329
+  },
+  "25100": {
+    "name": "Guymon, OK",
+    "type": "Micropolitan",
+    "population": 20322
+  },
+  "25180": {
+    "name": "Hagerstown-Martinsburg, MD-WV",
+    "type": "Metropolitan",
+    "population": 315280
+  },
+  "25200": {
+    "name": "Hailey, ID",
+    "type": "Micropolitan",
+    "population": 32436
+  },
+  "25220": {
+    "name": "Hammond, LA",
+    "type": "Metropolitan",
+    "population": 141346
+  },
+  "25260": {
+    "name": "Hanford-Corcoran, CA",
+    "type": "Metropolitan",
+    "population": 154327
+  },
+  "25300": {
+    "name": "Hannibal, MO",
+    "type": "Micropolitan",
+    "population": 38969
+  },
+  "25420": {
+    "name": "Harrisburg-Carlisle, PA",
+    "type": "Metropolitan",
+    "population": 617427
+  },
+  "25460": {
+    "name": "Harrison, AR",
+    "type": "Micropolitan",
+    "population": 45654
+  },
+  "25500": {
+    "name": "Harrisonburg, VA",
+    "type": "Metropolitan",
+    "population": 140155
+  },
+  "25540": {
+    "name": "Hartford-West Hartford-East Hartford, CT",
+    "type": "Metropolitan",
+    "population": 1171426
+  },
+  "25580": {
+    "name": "Hastings, NE",
+    "type": "Micropolitan",
+    "population": 40577
+  },
+  "25620": {
+    "name": "Hattiesburg, MS",
+    "type": "Metropolitan",
+    "population": 158014
+  },
+  "25700": {
+    "name": "Hays, KS",
+    "type": "Micropolitan",
+    "population": 29075
+  },
+  "25720": {
+    "name": "Heber, UT",
+    "type": "Micropolitan",
+    "population": 81655
+  },
+  "25740": {
+    "name": "Helena, MT",
+    "type": "Metropolitan",
+    "population": 97153
+  },
+  "25770": {
+    "name": "Hemlock Farms, PA",
+    "type": "Micropolitan",
+    "population": 62808
+  },
+  "25775": {
+    "name": "Henderson, KY",
+    "type": "Micropolitan",
+    "population": 57184
+  },
+  "25780": {
+    "name": "Henderson, NC",
+    "type": "Micropolitan",
+    "population": 42638
+  },
+  "25820": {
+    "name": "Hereford, TX",
+    "type": "Micropolitan",
+    "population": 18626
+  },
+  "25840": {
+    "name": "Hermiston-Pendleton, OR",
+    "type": "Micropolitan",
+    "population": 93721
+  },
+  "25850": {
+    "name": "Hermitage, PA",
+    "type": "Micropolitan",
+    "population": 107860
+  },
+  "25860": {
+    "name": "Hickory-Lenoir-Morganton, NC",
+    "type": "Metropolitan",
+    "population": 376890
+  },
+  "25880": {
+    "name": "Hillsdale, MI",
+    "type": "Micropolitan",
+    "population": 45738
+  },
+  "25900": {
+    "name": "Hilo-Kailua, HI",
+    "type": "Micropolitan",
+    "population": 210043
+  },
+  "25940": {
+    "name": "Hilton Head Island-Bluffton-Port Royal, SC",
+    "type": "Metropolitan",
+    "population": 242966
+  },
+  "25980": {
+    "name": "Hinesville, GA",
+    "type": "Metropolitan",
+    "population": 91870
+  },
+  "26020": {
+    "name": "Hobbs, NM",
+    "type": "Micropolitan",
+    "population": 74749
+  },
+  "26090": {
+    "name": "Holland, MI",
+    "type": "Micropolitan",
+    "population": 123188
+  },
+  "26140": {
+    "name": "Homosassa Springs, FL",
+    "type": "Metropolitan",
+    "population": 171666
+  },
+  "26220": {
+    "name": "Hood River, OR",
+    "type": "Micropolitan",
+    "population": 23720
+  },
+  "26300": {
+    "name": "Hot Springs, AR",
+    "type": "Metropolitan",
+    "population": 99695
+  },
+  "26340": {
+    "name": "Houghton, MI",
+    "type": "Micropolitan",
+    "population": 40028
+  },
+  "26380": {
+    "name": "Houma-Bayou Cane-Thibodaux, LA",
+    "type": "Metropolitan",
+    "population": 199668
+  },
+  "26420": {
+    "name": "Houston-Pasadena-The Woodlands, TX",
+    "type": "Metropolitan",
+    "population": 7904627
+  },
+  "26460": {
+    "name": "Hudson, NY",
+    "type": "Micropolitan",
+    "population": 60168
+  },
+  "26500": {
+    "name": "Huntingdon, PA",
+    "type": "Micropolitan",
+    "population": 43001
+  },
+  "26540": {
+    "name": "Huntington, IN",
+    "type": "Micropolitan",
+    "population": 37224
+  },
+  "26580": {
+    "name": "Huntington-Ashland, WV-KY-OH",
+    "type": "Metropolitan",
+    "population": 365965
+  },
+  "26620": {
+    "name": "Huntsville, AL",
+    "type": "Metropolitan",
+    "population": 556444
+  },
+  "26660": {
+    "name": "Huntsville, TX",
+    "type": "Micropolitan",
+    "population": 83842
+  },
+  "26700": {
+    "name": "Huron, SD",
+    "type": "Micropolitan",
+    "population": 19624
+  },
+  "26740": {
+    "name": "Hutchinson, KS",
+    "type": "Micropolitan",
+    "population": 61539
+  },
+  "26780": {
+    "name": "Hutchinson, MN",
+    "type": "Micropolitan",
+    "population": 36631
+  },
+  "26820": {
+    "name": "Idaho Falls, ID",
+    "type": "Metropolitan",
+    "population": 173851
+  },
+  "26860": {
+    "name": "Indiana, PA",
+    "type": "Micropolitan",
+    "population": 82878
+  },
+  "26900": {
+    "name": "Indianapolis-Carmel-Greenwood, IN",
+    "type": "Metropolitan",
+    "population": 2205695
+  },
+  "26980": {
+    "name": "Iowa City, IA",
+    "type": "Metropolitan",
+    "population": 182711
+  },
+  "27020": {
+    "name": "Iron Mountain, MI-WI",
+    "type": "Micropolitan",
+    "population": 30575
+  },
+  "27060": {
+    "name": "Ithaca, NY",
+    "type": "Metropolitan",
+    "population": 104047
+  },
+  "27100": {
+    "name": "Jackson, MI",
+    "type": "Metropolitan",
+    "population": 159552
+  },
+  "27140": {
+    "name": "Jackson, MS",
+    "type": "Metropolitan",
+    "population": 609847
+  },
+  "27180": {
+    "name": "Jackson, TN",
+    "type": "Metropolitan",
+    "population": 184569
+  },
+  "27220": {
+    "name": "Jackson, WY-ID",
+    "type": "Micropolitan",
+    "population": 36587
+  },
+  "27260": {
+    "name": "Jacksonville, FL",
+    "type": "Metropolitan",
+    "population": 1785500
+  },
+  "27300": {
+    "name": "Jacksonville, IL",
+    "type": "Micropolitan",
+    "population": 37381
+  },
+  "27340": {
+    "name": "Jacksonville, NC",
+    "type": "Metropolitan",
+    "population": 217175
+  },
+  "27380": {
+    "name": "Jacksonville, TX",
+    "type": "Micropolitan",
+    "population": 53337
+  },
+  "27420": {
+    "name": "Jamestown, ND",
+    "type": "Micropolitan",
+    "population": 21414
+  },
+  "27460": {
+    "name": "Jamestown-Dunkirk, NY",
+    "type": "Micropolitan",
+    "population": 124126
+  },
+  "27500": {
+    "name": "Janesville-Beloit, WI",
+    "type": "Metropolitan",
+    "population": 166472
+  },
+  "27540": {
+    "name": "Jasper, IN",
+    "type": "Micropolitan",
+    "population": 44016
+  },
+  "27600": {
+    "name": "Jefferson, GA",
+    "type": "Micropolitan",
+    "population": 99265
+  },
+  "27620": {
+    "name": "Jefferson City, MO",
+    "type": "Metropolitan",
+    "population": 152712
+  },
+  "27700": {
+    "name": "Jesup, GA",
+    "type": "Micropolitan",
+    "population": 32481
+  },
+  "27740": {
+    "name": "Johnson City, TN",
+    "type": "Metropolitan",
+    "population": 216416
+  },
+  "27780": {
+    "name": "Johnstown, PA",
+    "type": "Metropolitan",
+    "population": 128968
+  },
+  "27860": {
+    "name": "Jonesboro, AR",
+    "type": "Metropolitan",
+    "population": 139440
+  },
+  "27900": {
+    "name": "Joplin, MO-KS",
+    "type": "Metropolitan",
+    "population": 208796
+  },
+  "27940": {
+    "name": "Juneau, AK",
+    "type": "Micropolitan",
+    "population": 31609
+  },
+  "27980": {
+    "name": "Kahului-Wailuku, HI",
+    "type": "Metropolitan",
+    "population": 160674
+  },
+  "28020": {
+    "name": "Kalamazoo-Portage, MI",
+    "type": "Metropolitan",
+    "population": 263795
+  },
+  "28060": {
+    "name": "Kalispell, MT",
+    "type": "Micropolitan",
+    "population": 115429
+  },
+  "28100": {
+    "name": "Kankakee, IL",
+    "type": "Metropolitan",
+    "population": 105525
+  },
+  "28140": {
+    "name": "Kansas City, MO-KS",
+    "type": "Metropolitan",
+    "population": 2270682
+  },
+  "28180": {
+    "name": "Kapaa, HI",
+    "type": "Micropolitan",
+    "population": 73400
+  },
+  "28260": {
+    "name": "Kearney, NE",
+    "type": "Micropolitan",
+    "population": 57962
+  },
+  "28300": {
+    "name": "Keene, NH",
+    "type": "Micropolitan",
+    "population": 78269
+  },
+  "28340": {
+    "name": "Kendallville, IN",
+    "type": "Micropolitan",
+    "population": 47937
+  },
+  "28380": {
+    "name": "Kennett, MO",
+    "type": "Micropolitan",
+    "population": 26855
+  },
+  "28420": {
+    "name": "Kennewick-Richland, WA",
+    "type": "Metropolitan",
+    "population": 324334
+  },
+  "28450": {
+    "name": "Kenosha, WI",
+    "type": "Metropolitan",
+    "population": 168448
+  },
+  "28500": {
+    "name": "Kerrville, TX",
+    "type": "Micropolitan",
+    "population": 54037
+  },
+  "28540": {
+    "name": "Ketchikan, AK",
+    "type": "Micropolitan",
+    "population": 13549
+  },
+  "28580": {
+    "name": "Key West-Key Largo, FL",
+    "type": "Micropolitan",
+    "population": 80406
+  },
+  "28620": {
+    "name": "Kill Devil Hills, NC",
+    "type": "Micropolitan",
+    "population": 38245
+  },
+  "28660": {
+    "name": "Killeen-Temple, TX",
+    "type": "Metropolitan",
+    "population": 511497
+  },
+  "28680": {
+    "name": "Kingsland, GA",
+    "type": "Micropolitan",
+    "population": 60143
+  },
+  "28700": {
+    "name": "Kingsport-Bristol, TN-VA",
+    "type": "Metropolitan",
+    "population": 314834
+  },
+  "28740": {
+    "name": "Kingston, NY",
+    "type": "Metropolitan",
+    "population": 183330
+  },
+  "28780": {
+    "name": "Kingsville, TX",
+    "type": "Micropolitan",
+    "population": 30315
+  },
+  "28820": {
+    "name": "Kinston, NC",
+    "type": "Micropolitan",
+    "population": 55837
+  },
+  "28860": {
+    "name": "Kirksville, MO",
+    "type": "Micropolitan",
+    "population": 29824
+  },
+  "28880": {
+    "name": "Kiryas Joel-Poughkeepsie-Newburgh, NY",
+    "type": "Metropolitan",
+    "population": 718377
+  },
+  "28900": {
+    "name": "Klamath Falls, OR",
+    "type": "Micropolitan",
+    "population": 70274
+  },
+  "28940": {
+    "name": "Knoxville, TN",
+    "type": "Metropolitan",
+    "population": 968137
+  },
+  "29020": {
+    "name": "Kokomo, IN",
+    "type": "Metropolitan",
+    "population": 83904
+  },
+  "29060": {
+    "name": "Laconia, NH",
+    "type": "Micropolitan",
+    "population": 65147
+  },
+  "29100": {
+    "name": "La Crosse-Onalaska, WI-MN",
+    "type": "Metropolitan",
+    "population": 171182
+  },
+  "29180": {
+    "name": "Lafayette, LA",
+    "type": "Metropolitan",
+    "population": 423758
+  },
+  "29200": {
+    "name": "Lafayette-West Lafayette, IN",
+    "type": "Metropolitan",
+    "population": 228468
+  },
+  "29260": {
+    "name": "La Grande, OR",
+    "type": "Micropolitan",
+    "population": 25900
+  },
+  "29300": {
+    "name": "LaGrange, GA-AL",
+    "type": "Micropolitan",
+    "population": 107097
+  },
+  "29340": {
+    "name": "Lake Charles, LA",
+    "type": "Metropolitan",
+    "population": 244655
+  },
+  "29380": {
+    "name": "Lake City, FL",
+    "type": "Micropolitan",
+    "population": 74094
+  },
+  "29420": {
+    "name": "Lake Havasu City-Kingman, AZ",
+    "type": "Metropolitan",
+    "population": 228102
+  },
+  "29460": {
+    "name": "Lakeland-Winter Haven, FL",
+    "type": "Metropolitan",
+    "population": 874790
+  },
+  "29470": {
+    "name": "Lake of the Woods, VA",
+    "type": "Micropolitan",
+    "population": 40083
+  },
+  "29540": {
+    "name": "Lancaster, PA",
+    "type": "Metropolitan",
+    "population": 563159
+  },
+  "29620": {
+    "name": "Lansing-East Lansing, MI",
+    "type": "Metropolitan",
+    "population": 479722
+  },
+  "29660": {
+    "name": "Laramie, WY",
+    "type": "Micropolitan",
+    "population": 38558
+  },
+  "29700": {
+    "name": "Laredo, TX",
+    "type": "Metropolitan",
+    "population": 281224
+  },
+  "29740": {
+    "name": "Las Cruces, NM",
+    "type": "Metropolitan",
+    "population": 229091
+  },
+  "29780": {
+    "name": "Las Vegas, NM",
+    "type": "Micropolitan",
+    "population": 30311
+  },
+  "29820": {
+    "name": "Las Vegas-Henderson-North Las Vegas, NV",
+    "type": "Metropolitan",
+    "population": 2407226
+  },
+  "29860": {
+    "name": "Laurel, MS",
+    "type": "Micropolitan",
+    "population": 82281
+  },
+  "29900": {
+    "name": "Laurinburg, NC",
+    "type": "Micropolitan",
+    "population": 33322
+  },
+  "29940": {
+    "name": "Lawrence, KS",
+    "type": "Metropolitan",
+    "population": 120920
+  },
+  "29980": {
+    "name": "Lawrenceburg, TN",
+    "type": "Micropolitan",
+    "population": 46914
+  },
+  "30020": {
+    "name": "Lawton, OK",
+    "type": "Metropolitan",
+    "population": 127590
+  },
+  "30060": {
+    "name": "Lebanon, MO",
+    "type": "Micropolitan",
+    "population": 36943
+  },
+  "30140": {
+    "name": "Lebanon, PA",
+    "type": "Metropolitan",
+    "population": 146380
+  },
+  "30150": {
+    "name": "Lebanon-Claremont, NH-VT",
+    "type": "Micropolitan",
+    "population": 224500
+  },
+  "30180": {
+    "name": "Le Mars, IA",
+    "type": "Micropolitan",
+    "population": 25697
+  },
+  "30260": {
+    "name": "Lewisburg, PA",
+    "type": "Micropolitan",
+    "population": 42313
+  },
+  "30280": {
+    "name": "Lewisburg, TN",
+    "type": "Micropolitan",
+    "population": 38071
+  },
+  "30300": {
+    "name": "Lewiston, ID-WA",
+    "type": "Metropolitan",
+    "population": 65450
+  },
+  "30340": {
+    "name": "Lewiston-Auburn, ME",
+    "type": "Metropolitan",
+    "population": 116487
+  },
+  "30380": {
+    "name": "Lewistown, PA",
+    "type": "Micropolitan",
+    "population": 46127
+  },
+  "30420": {
+    "name": "Lexington, NE",
+    "type": "Micropolitan",
+    "population": 26255
+  },
+  "30460": {
+    "name": "Lexington-Fayette, KY",
+    "type": "Metropolitan",
+    "population": 535174
+  },
+  "30500": {
+    "name": "Lexington Park, MD",
+    "type": "Metropolitan",
+    "population": 211176
+  },
+  "30580": {
+    "name": "Liberal, KS",
+    "type": "Micropolitan",
+    "population": 21073
+  },
+  "30620": {
+    "name": "Lima, OH",
+    "type": "Metropolitan",
+    "population": 100881
+  },
+  "30660": {
+    "name": "Lincoln, IL",
+    "type": "Micropolitan",
+    "population": 27182
+  },
+  "30700": {
+    "name": "Lincoln, NE",
+    "type": "Metropolitan",
+    "population": 352081
+  },
+  "30780": {
+    "name": "Little Rock-North Little Rock-Conway, AR",
+    "type": "Metropolitan",
+    "population": 777607
+  },
+  "30820": {
+    "name": "Lock Haven, PA",
+    "type": "Micropolitan",
+    "population": 37870
+  },
+  "30860": {
+    "name": "Logan, UT-ID",
+    "type": "Metropolitan",
+    "population": 160889
+  },
+  "30900": {
+    "name": "Logansport, IN",
+    "type": "Micropolitan",
+    "population": 37836
+  },
+  "30980": {
+    "name": "Longview, TX",
+    "type": "Metropolitan",
+    "population": 297315
+  },
+  "31020": {
+    "name": "Longview-Kelso, WA",
+    "type": "Metropolitan",
+    "population": 114885
+  },
+  "31060": {
+    "name": "Los Alamos, NM",
+    "type": "Micropolitan",
+    "population": 19407
+  },
+  "31080": {
+    "name": "Los Angeles-Long Beach-Anaheim, CA",
+    "type": "Metropolitan",
+    "population": 12844441
+  },
+  "31140": {
+    "name": "Louisville/Jefferson County, KY-IN",
+    "type": "Metropolitan",
+    "population": 1402509
+  },
+  "31180": {
+    "name": "Lubbock, TX",
+    "type": "Metropolitan",
+    "population": 368431
+  },
+  "31220": {
+    "name": "Ludington, MI",
+    "type": "Micropolitan",
+    "population": 29040
+  },
+  "31260": {
+    "name": "Lufkin, TX",
+    "type": "Micropolitan",
+    "population": 88154
+  },
+  "31300": {
+    "name": "Lumberton, NC",
+    "type": "Micropolitan",
+    "population": 119941
+  },
+  "31340": {
+    "name": "Lynchburg, VA",
+    "type": "Metropolitan",
+    "population": 269169
+  },
+  "31380": {
+    "name": "Macomb, IL",
+    "type": "Micropolitan",
+    "population": 25916
+  },
+  "31420": {
+    "name": "Macon-Bibb County, GA",
+    "type": "Metropolitan",
+    "population": 238553
+  },
+  "31500": {
+    "name": "Madison, IN",
+    "type": "Micropolitan",
+    "population": 33279
+  },
+  "31540": {
+    "name": "Madison, WI",
+    "type": "Metropolitan",
+    "population": 709685
+  },
+  "31580": {
+    "name": "Madisonville, KY",
+    "type": "Micropolitan",
+    "population": 45127
+  },
+  "31620": {
+    "name": "Magnolia, AR",
+    "type": "Micropolitan",
+    "population": 21894
+  },
+  "31680": {
+    "name": "Malvern, AR",
+    "type": "Micropolitan",
+    "population": 33451
+  },
+  "31700": {
+    "name": "Manchester-Nashua, NH",
+    "type": "Metropolitan",
+    "population": 433415
+  },
+  "31740": {
+    "name": "Manhattan, KS",
+    "type": "Metropolitan",
+    "population": 136122
+  },
+  "31820": {
+    "name": "Manitowoc, WI",
+    "type": "Micropolitan",
+    "population": 81710
+  },
+  "31860": {
+    "name": "Mankato, MN",
+    "type": "Metropolitan",
+    "population": 104907
+  },
+  "31900": {
+    "name": "Mansfield, OH",
+    "type": "Metropolitan",
+    "population": 124893
+  },
+  "31930": {
+    "name": "Marietta, OH",
+    "type": "Micropolitan",
+    "population": 58389
+  },
+  "31940": {
+    "name": "Marinette, WI-MI",
+    "type": "Micropolitan",
+    "population": 65515
+  },
+  "31980": {
+    "name": "Marion, IN",
+    "type": "Micropolitan",
+    "population": 66524
+  },
+  "32000": {
+    "name": "Marion, NC",
+    "type": "Micropolitan",
+    "population": 45198
+  },
+  "32020": {
+    "name": "Marion, OH",
+    "type": "Micropolitan",
+    "population": 65115
+  },
+  "32060": {
+    "name": "Marion-Herrin, IL",
+    "type": "Micropolitan",
+    "population": 67225
+  },
+  "32100": {
+    "name": "Marquette, MI",
+    "type": "Micropolitan",
+    "population": 68064
+  },
+  "32140": {
+    "name": "Marshall, MN",
+    "type": "Micropolitan",
+    "population": 25684
+  },
+  "32180": {
+    "name": "Marshall, MO",
+    "type": "Micropolitan",
+    "population": 23265
+  },
+  "32260": {
+    "name": "Marshalltown, IA",
+    "type": "Micropolitan",
+    "population": 39890
+  },
+  "32280": {
+    "name": "Martin, TN",
+    "type": "Micropolitan",
+    "population": 33261
+  },
+  "32300": {
+    "name": "Martinsville, VA",
+    "type": "Micropolitan",
+    "population": 63091
+  },
+  "32340": {
+    "name": "Maryville, MO",
+    "type": "Micropolitan",
+    "population": 20174
+  },
+  "32380": {
+    "name": "Mason City, IA",
+    "type": "Micropolitan",
+    "population": 49710
+  },
+  "32390": {
+    "name": "Massena-Ogdensburg, NY",
+    "type": "Micropolitan",
+    "population": 105488
+  },
+  "32460": {
+    "name": "Mayfield, KY",
+    "type": "Micropolitan",
+    "population": 37050
+  },
+  "32540": {
+    "name": "McAlester, OK",
+    "type": "Micropolitan",
+    "population": 43320
+  },
+  "32580": {
+    "name": "McAllen-Edinburg-Mission, TX",
+    "type": "Metropolitan",
+    "population": 921549
+  },
+  "32620": {
+    "name": "McComb, MS",
+    "type": "Micropolitan",
+    "population": 52640
+  },
+  "32660": {
+    "name": "McMinnville, TN",
+    "type": "Micropolitan",
+    "population": 43717
+  },
+  "32700": {
+    "name": "McPherson, KS",
+    "type": "Micropolitan",
+    "population": 30064
+  },
+  "32740": {
+    "name": "Meadville, PA",
+    "type": "Micropolitan",
+    "population": 81792
+  },
+  "32780": {
+    "name": "Medford, OR",
+    "type": "Metropolitan",
+    "population": 221795
+  },
+  "32820": {
+    "name": "Memphis, TN-MS-AR",
+    "type": "Metropolitan",
+    "population": 1341412
+  },
+  "32860": {
+    "name": "Menomonie, WI",
+    "type": "Micropolitan",
+    "population": 46223
+  },
+  "32900": {
+    "name": "Merced, CA",
+    "type": "Metropolitan",
+    "population": 297260
+  },
+  "32940": {
+    "name": "Meridian, MS",
+    "type": "Micropolitan",
+    "population": 85419
+  },
+  "33020": {
+    "name": "Mexico, MO",
+    "type": "Micropolitan",
+    "population": 24528
+  },
+  "33060": {
+    "name": "Miami, OK",
+    "type": "Micropolitan",
+    "population": 30438
+  },
+  "33100": {
+    "name": "Miami-Fort Lauderdale-West Palm Beach, FL",
+    "type": "Metropolitan",
+    "population": 6391072
+  },
+  "33140": {
+    "name": "Michigan City-La Porte, IN",
+    "type": "Metropolitan",
+    "population": 111294
+  },
+  "33180": {
+    "name": "Middlesborough, KY",
+    "type": "Micropolitan",
+    "population": 22829
+  },
+  "33220": {
+    "name": "Midland, MI",
+    "type": "Metropolitan",
+    "population": 83754
+  },
+  "33260": {
+    "name": "Midland, TX",
+    "type": "Metropolitan",
+    "population": 193139
+  },
+  "33300": {
+    "name": "Milledgeville, GA",
+    "type": "Micropolitan",
+    "population": 44029
+  },
+  "33340": {
+    "name": "Milwaukee-Waukesha, WI",
+    "type": "Metropolitan",
+    "population": 1575010
+  },
+  "33380": {
+    "name": "Minden, LA",
+    "type": "Micropolitan",
+    "population": 34948
+  },
+  "33420": {
+    "name": "Mineral Wells, TX",
+    "type": "Micropolitan",
+    "population": 30791
+  },
+  "33460": {
+    "name": "Minneapolis-St. Paul-Bloomington, MN-WI",
+    "type": "Metropolitan",
+    "population": 3790295
+  },
+  "33500": {
+    "name": "Minot, ND",
+    "type": "Metropolitan",
+    "population": 75694
+  },
+  "33540": {
+    "name": "Missoula, MT",
+    "type": "Metropolitan",
+    "population": 128698
+  },
+  "33580": {
+    "name": "Mitchell, SD",
+    "type": "Micropolitan",
+    "population": 25913
+  },
+  "33620": {
+    "name": "Moberly, MO",
+    "type": "Micropolitan",
+    "population": 24513
+  },
+  "33660": {
+    "name": "Mobile, AL",
+    "type": "Metropolitan",
+    "population": 411658
+  },
+  "33700": {
+    "name": "Modesto, CA",
+    "type": "Metropolitan",
+    "population": 557719
+  },
+  "33740": {
+    "name": "Monroe, LA",
+    "type": "Metropolitan",
+    "population": 222390
+  },
+  "33780": {
+    "name": "Monroe, MI",
+    "type": "Metropolitan",
+    "population": 156004
+  },
+  "33860": {
+    "name": "Montgomery, AL",
+    "type": "Metropolitan",
+    "population": 388747
+  },
+  "33900": {
+    "name": "Monticello, IN",
+    "type": "Micropolitan",
+    "population": 25164
+  },
+  "33910": {
+    "name": "Monticello, NY",
+    "type": "Micropolitan",
+    "population": 80586
+  },
+  "33940": {
+    "name": "Montrose, CO",
+    "type": "Micropolitan",
+    "population": 44591
+  },
+  "33980": {
+    "name": "Morehead City, NC",
+    "type": "Micropolitan",
+    "population": 70469
+  },
+  "34020": {
+    "name": "Morgan City, LA",
+    "type": "Micropolitan",
+    "population": 46552
+  },
+  "34060": {
+    "name": "Morgantown, WV",
+    "type": "Metropolitan",
+    "population": 141995
+  },
+  "34100": {
+    "name": "Morristown, TN",
+    "type": "Metropolitan",
+    "population": 128867
+  },
+  "34140": {
+    "name": "Moscow, ID",
+    "type": "Micropolitan",
+    "population": 41842
+  },
+  "34180": {
+    "name": "Moses Lake, WA",
+    "type": "Micropolitan",
+    "population": 105727
+  },
+  "34220": {
+    "name": "Moultrie, GA",
+    "type": "Micropolitan",
+    "population": 47438
+  },
+  "34260": {
+    "name": "Mountain Home, AR",
+    "type": "Micropolitan",
+    "population": 42982
+  },
+  "34300": {
+    "name": "Mountain Home, ID",
+    "type": "Micropolitan",
+    "population": 29465
+  },
+  "34340": {
+    "name": "Mount Airy, NC",
+    "type": "Micropolitan",
+    "population": 72287
+  },
+  "34380": {
+    "name": "Mount Pleasant, MI",
+    "type": "Micropolitan",
+    "population": 64691
+  },
+  "34420": {
+    "name": "Mount Pleasant, TX",
+    "type": "Micropolitan",
+    "population": 57076
+  },
+  "34460": {
+    "name": "Mount Sterling, KY",
+    "type": "Micropolitan",
+    "population": 48428
+  },
+  "34500": {
+    "name": "Mount Vernon, IL",
+    "type": "Micropolitan",
+    "population": 36147
+  },
+  "34540": {
+    "name": "Mount Vernon, OH",
+    "type": "Micropolitan",
+    "population": 64002
+  },
+  "34580": {
+    "name": "Mount Vernon-Anacortes, WA",
+    "type": "Metropolitan",
+    "population": 132975
+  },
+  "34620": {
+    "name": "Muncie, IN",
+    "type": "Metropolitan",
+    "population": 113106
+  },
+  "34660": {
+    "name": "Murray, KY",
+    "type": "Micropolitan",
+    "population": 39421
+  },
+  "34680": {
+    "name": "Murrells Inlet, SC",
+    "type": "Micropolitan",
+    "population": 65912
+  },
+  "34700": {
+    "name": "Muscatine, IA",
+    "type": "Micropolitan",
+    "population": 41853
+  },
+  "34740": {
+    "name": "Muskegon-Norton Shores, MI",
+    "type": "Metropolitan",
+    "population": 177901
+  },
+  "34780": {
+    "name": "Muskogee, OK",
+    "type": "Micropolitan",
+    "population": 66708
+  },
+  "34820": {
+    "name": "Myrtle Beach-Conway-North Myrtle Beach, SC",
+    "type": "Metropolitan",
+    "population": 427551
+  },
+  "34860": {
+    "name": "Nacogdoches, TX",
+    "type": "Micropolitan",
+    "population": 66035
+  },
+  "34880": {
+    "name": "Nantucket, MA",
+    "type": "Micropolitan",
+    "population": 14758
+  },
+  "34900": {
+    "name": "Napa, CA",
+    "type": "Metropolitan",
+    "population": 132949
+  },
+  "34940": {
+    "name": "Naples-Marco Island, FL",
+    "type": "Metropolitan",
+    "population": 417131
+  },
+  "34980": {
+    "name": "Nashville-Davidson--Murfreesboro--Franklin, TN",
+    "type": "Metropolitan",
+    "population": 2197416
+  },
+  "35020": {
+    "name": "Natchez, MS-LA",
+    "type": "Micropolitan",
+    "population": 54722
+  },
+  "35060": {
+    "name": "Natchitoches, LA",
+    "type": "Micropolitan",
+    "population": 36089
+  },
+  "35100": {
+    "name": "New Bern, NC",
+    "type": "Micropolitan",
+    "population": 127358
+  },
+  "35140": {
+    "name": "Newberry, SC",
+    "type": "Micropolitan",
+    "population": 39561
+  },
+  "35220": {
+    "name": "New Castle, IN",
+    "type": "Micropolitan",
+    "population": 49137
+  },
+  "35300": {
+    "name": "New Haven, CT",
+    "type": "Metropolitan",
+    "population": 578741
+  },
+  "35340": {
+    "name": "New Iberia, LA",
+    "type": "Micropolitan",
+    "population": 66846
+  },
+  "35380": {
+    "name": "New Orleans-Metairie, LA",
+    "type": "Metropolitan",
+    "population": 970849
+  },
+  "35420": {
+    "name": "New Philadelphia-Dover, OH",
+    "type": "Micropolitan",
+    "population": 92373
+  },
+  "35440": {
+    "name": "Newport, OR",
+    "type": "Micropolitan",
+    "population": 50636
+  },
+  "35460": {
+    "name": "Newport, TN",
+    "type": "Micropolitan",
+    "population": 37889
+  },
+  "35580": {
+    "name": "New Ulm, MN",
+    "type": "Micropolitan",
+    "population": 25517
+  },
+  "35620": {
+    "name": "New York-Newark-Jersey City, NY-NJ",
+    "type": "Metropolitan",
+    "population": 20112448
+  },
+  "35660": {
+    "name": "Niles, MI",
+    "type": "Metropolitan",
+    "population": 152444
+  },
+  "35700": {
+    "name": "Nogales, AZ",
+    "type": "Micropolitan",
+    "population": 50020
+  },
+  "35740": {
+    "name": "Norfolk, NE",
+    "type": "Micropolitan",
+    "population": 49228
+  },
+  "35820": {
+    "name": "North Platte, NE",
+    "type": "Micropolitan",
+    "population": 33972
+  },
+  "35840": {
+    "name": "North Port-Bradenton-Sarasota, FL",
+    "type": "Metropolitan",
+    "population": 948158
+  },
+  "35900": {
+    "name": "North Wilkesboro, NC",
+    "type": "Micropolitan",
+    "population": 66233
+  },
+  "35940": {
+    "name": "Norwalk, OH",
+    "type": "Micropolitan",
+    "population": 58250
+  },
+  "35980": {
+    "name": "Norwich-New London-Willimantic, CT",
+    "type": "Metropolitan",
+    "population": 284015
+  },
+  "36020": {
+    "name": "Oak Harbor, WA",
+    "type": "Micropolitan",
+    "population": 85657
+  },
+  "36100": {
+    "name": "Ocala, FL",
+    "type": "Metropolitan",
+    "population": 442660
+  },
+  "36180": {
+    "name": "Ocean Pines, MD",
+    "type": "Micropolitan",
+    "population": 54459
+  },
+  "36220": {
+    "name": "Odessa, TX",
+    "type": "Metropolitan",
+    "population": 173801
+  },
+  "36260": {
+    "name": "Ogden, UT",
+    "type": "Metropolitan",
+    "population": 672784
+  },
+  "36340": {
+    "name": "Oil City, PA",
+    "type": "Micropolitan",
+    "population": 49346
+  },
+  "36380": {
+    "name": "Okeechobee, FL",
+    "type": "Micropolitan",
+    "population": 42608
+  },
+  "36420": {
+    "name": "Oklahoma City, OK",
+    "type": "Metropolitan",
+    "population": 1512813
+  },
+  "36460": {
+    "name": "Olean, NY",
+    "type": "Micropolitan",
+    "population": 75390
+  },
+  "36500": {
+    "name": "Olympia-Lacey-Tumwater, WA",
+    "type": "Metropolitan",
+    "population": 304261
+  },
+  "36540": {
+    "name": "Omaha, NE-IA",
+    "type": "Metropolitan",
+    "population": 1009836
+  },
+  "36580": {
+    "name": "Oneonta, NY",
+    "type": "Micropolitan",
+    "population": 60589
+  },
+  "36620": {
+    "name": "Ontario, OR-ID",
+    "type": "Micropolitan",
+    "population": 60085
+  },
+  "36660": {
+    "name": "Opelousas, LA",
+    "type": "Micropolitan",
+    "population": 80765
+  },
+  "36700": {
+    "name": "Orangeburg, SC",
+    "type": "Micropolitan",
+    "population": 83177
+  },
+  "36740": {
+    "name": "Orlando-Kissimmee-Sanford, FL",
+    "type": "Metropolitan",
+    "population": 2957672
+  },
+  "36780": {
+    "name": "Oshkosh-Neenah, WI",
+    "type": "Metropolitan",
+    "population": 174218
+  },
+  "36820": {
+    "name": "Oskaloosa, IA",
+    "type": "Micropolitan",
+    "population": 21880
+  },
+  "36830": {
+    "name": "Othello, WA",
+    "type": "Micropolitan",
+    "population": 21488
+  },
+  "36837": {
+    "name": "Ottawa, IL",
+    "type": "Micropolitan",
+    "population": 145902
+  },
+  "36840": {
+    "name": "Ottawa, KS",
+    "type": "Micropolitan",
+    "population": 26299
+  },
+  "36900": {
+    "name": "Ottumwa, IA",
+    "type": "Micropolitan",
+    "population": 35210
+  },
+  "36940": {
+    "name": "Owatonna, MN",
+    "type": "Micropolitan",
+    "population": 37464
+  },
+  "36980": {
+    "name": "Owensboro, KY",
+    "type": "Metropolitan",
+    "population": 113962
+  },
+  "37020": {
+    "name": "Owosso, MI",
+    "type": "Micropolitan",
+    "population": 67681
+  },
+  "37060": {
+    "name": "Oxford, MS",
+    "type": "Micropolitan",
+    "population": 71972
+  },
+  "37100": {
+    "name": "Oxnard-Thousand Oaks-Ventura, CA",
+    "type": "Metropolitan",
+    "population": 830851
+  },
+  "37120": {
+    "name": "Ozark, AL",
+    "type": "Micropolitan",
+    "population": 49912
+  },
+  "37140": {
+    "name": "Paducah, KY-IL",
+    "type": "Metropolitan",
+    "population": 102259
+  },
+  "37220": {
+    "name": "Pahrump, NV",
+    "type": "Micropolitan",
+    "population": 57336
+  },
+  "37260": {
+    "name": "Palatka, FL",
+    "type": "Micropolitan",
+    "population": 77734
+  },
+  "37300": {
+    "name": "Palestine, TX",
+    "type": "Micropolitan",
+    "population": 59805
+  },
+  "37340": {
+    "name": "Palm Bay-Melbourne-Titusville, FL",
+    "type": "Metropolitan",
+    "population": 663982
+  },
+  "37420": {
+    "name": "Pampa, TX",
+    "type": "Micropolitan",
+    "population": 21786
+  },
+  "37460": {
+    "name": "Panama City-Panama City Beach, FL",
+    "type": "Metropolitan",
+    "population": 231174
+  },
+  "37500": {
+    "name": "Paragould, AR",
+    "type": "Micropolitan",
+    "population": 47411
+  },
+  "37540": {
+    "name": "Paris, TN",
+    "type": "Micropolitan",
+    "population": 32896
+  },
+  "37580": {
+    "name": "Paris, TX",
+    "type": "Micropolitan",
+    "population": 63319
+  },
+  "37620": {
+    "name": "Parkersburg-Vienna, WV",
+    "type": "Metropolitan",
+    "population": 87264
+  },
+  "37740": {
+    "name": "Payson, AZ",
+    "type": "Micropolitan",
+    "population": 53801
+  },
+  "37800": {
+    "name": "Pella, IA",
+    "type": "Micropolitan",
+    "population": 34192
+  },
+  "37860": {
+    "name": "Pensacola-Ferry Pass-Brent, FL",
+    "type": "Metropolitan",
+    "population": 544949
+  },
+  "37900": {
+    "name": "Peoria, IL",
+    "type": "Metropolitan",
+    "population": 363505
+  },
+  "37940": {
+    "name": "Peru, IN",
+    "type": "Micropolitan",
+    "population": 34487
+  },
+  "37950": {
+    "name": "Petoskey, MI",
+    "type": "Micropolitan",
+    "population": 33775
+  },
+  "37980": {
+    "name": "Philadelphia-Camden-Wilmington, PA-NJ-DE-MD",
+    "type": "Metropolitan",
+    "population": 6329118
+  },
+  "38060": {
+    "name": "Phoenix-Mesa-Chandler, AZ",
+    "type": "Metropolitan",
+    "population": 5228938
+  },
+  "38100": {
+    "name": "Picayune, MS",
+    "type": "Micropolitan",
+    "population": 59363
+  },
+  "38180": {
+    "name": "Pierre, SD",
+    "type": "Micropolitan",
+    "population": 20588
+  },
+  "38210": {
+    "name": "Pikeville, KY",
+    "type": "Micropolitan",
+    "population": 89122
+  },
+  "38220": {
+    "name": "Pine Bluff, AR",
+    "type": "Micropolitan",
+    "population": 70211
+  },
+  "38240": {
+    "name": "Pinehurst-Southern Pines, NC",
+    "type": "Metropolitan",
+    "population": 110619
+  },
+  "38260": {
+    "name": "Pittsburg, KS",
+    "type": "Micropolitan",
+    "population": 39008
+  },
+  "38300": {
+    "name": "Pittsburgh, PA",
+    "type": "Metropolitan",
+    "population": 2421992
+  },
+  "38340": {
+    "name": "Pittsfield, MA",
+    "type": "Metropolitan",
+    "population": 128224
+  },
+  "38380": {
+    "name": "Plainview, TX",
+    "type": "Micropolitan",
+    "population": 36700
+  },
+  "38420": {
+    "name": "Platteville, WI",
+    "type": "Micropolitan",
+    "population": 52446
+  },
+  "38460": {
+    "name": "Plattsburgh, NY",
+    "type": "Micropolitan",
+    "population": 78138
+  },
+  "38500": {
+    "name": "Plymouth, IN",
+    "type": "Micropolitan",
+    "population": 46599
+  },
+  "38540": {
+    "name": "Pocatello, ID",
+    "type": "Metropolitan",
+    "population": 91591
+  },
+  "38620": {
+    "name": "Ponca City, OK",
+    "type": "Micropolitan",
+    "population": 43490
+  },
+  "38700": {
+    "name": "Pontiac, IL",
+    "type": "Micropolitan",
+    "population": 35057
+  },
+  "38740": {
+    "name": "Poplar Bluff, MO",
+    "type": "Micropolitan",
+    "population": 41904
+  },
+  "38820": {
+    "name": "Port Angeles, WA",
+    "type": "Micropolitan",
+    "population": 78202
+  },
+  "38860": {
+    "name": "Portland-South Portland, ME",
+    "type": "Metropolitan",
+    "population": 577635
+  },
+  "38900": {
+    "name": "Portland-Vancouver-Hillsboro, OR-WA",
+    "type": "Metropolitan",
+    "population": 2542282
+  },
+  "38920": {
+    "name": "Port Lavaca, TX",
+    "type": "Micropolitan",
+    "population": 19599
+  },
+  "38940": {
+    "name": "Port St. Lucie, FL",
+    "type": "Metropolitan",
+    "population": 568721
+  },
+  "39020": {
+    "name": "Portsmouth, OH",
+    "type": "Micropolitan",
+    "population": 71365
+  },
+  "39040": {
+    "name": "Port Townsend, WA",
+    "type": "Micropolitan",
+    "population": 33970
+  },
+  "39060": {
+    "name": "Pottsville, PA",
+    "type": "Micropolitan",
+    "population": 145085
+  },
+  "39150": {
+    "name": "Prescott Valley-Prescott, AZ",
+    "type": "Metropolitan",
+    "population": 252552
+  },
+  "39220": {
+    "name": "Price, UT",
+    "type": "Micropolitan",
+    "population": 20680
+  },
+  "39300": {
+    "name": "Providence-Warwick, RI-MA",
+    "type": "Metropolitan",
+    "population": 1708161
+  },
+  "39340": {
+    "name": "Provo-Orem-Lehi, UT",
+    "type": "Metropolitan",
+    "population": 773426
+  },
+  "39380": {
+    "name": "Pueblo, CO",
+    "type": "Metropolitan",
+    "population": 169277
+  },
+  "39420": {
+    "name": "Pullman, WA",
+    "type": "Micropolitan",
+    "population": 48512
+  },
+  "39460": {
+    "name": "Punta Gorda, FL",
+    "type": "Metropolitan",
+    "population": 217212
+  },
+  "39480": {
+    "name": "Putnam, CT",
+    "type": "Micropolitan",
+    "population": 98096
+  },
+  "39500": {
+    "name": "Quincy, IL-MO",
+    "type": "Micropolitan",
+    "population": 74146
+  },
+  "39540": {
+    "name": "Racine-Mount Pleasant, WI",
+    "type": "Metropolitan",
+    "population": 198919
+  },
+  "39580": {
+    "name": "Raleigh-Cary, NC",
+    "type": "Metropolitan",
+    "population": 1595720
+  },
+  "39660": {
+    "name": "Rapid City, SD",
+    "type": "Metropolitan",
+    "population": 156934
+  },
+  "39700": {
+    "name": "Raymondville, TX",
+    "type": "Micropolitan",
+    "population": 19971
+  },
+  "39740": {
+    "name": "Reading, PA",
+    "type": "Metropolitan",
+    "population": 440072
+  },
+  "39780": {
+    "name": "Red Bluff, CA",
+    "type": "Micropolitan",
+    "population": 64665
+  },
+  "39820": {
+    "name": "Redding, CA",
+    "type": "Metropolitan",
+    "population": 181648
+  },
+  "39860": {
+    "name": "Red Wing, MN",
+    "type": "Micropolitan",
+    "population": 48195
+  },
+  "39900": {
+    "name": "Reno, NV",
+    "type": "Metropolitan",
+    "population": 578734
+  },
+  "39940": {
+    "name": "Rexburg, ID",
+    "type": "Micropolitan",
+    "population": 69380
+  },
+  "39960": {
+    "name": "Rice Lake, WI",
+    "type": "Micropolitan",
+    "population": 46484
+  },
+  "39980": {
+    "name": "Richmond, IN",
+    "type": "Micropolitan",
+    "population": 66169
+  },
+  "40060": {
+    "name": "Richmond, VA",
+    "type": "Metropolitan",
+    "population": 1389338
+  },
+  "40080": {
+    "name": "Richmond-Berea, KY",
+    "type": "Micropolitan",
+    "population": 131806
+  },
+  "40090": {
+    "name": "Rifle, CO",
+    "type": "Micropolitan",
+    "population": 80099
+  },
+  "40100": {
+    "name": "Rio Grande City-Roma, TX",
+    "type": "Micropolitan",
+    "population": 66319
+  },
+  "40140": {
+    "name": "Riverside-San Bernardino-Ontario, CA",
+    "type": "Metropolitan",
+    "population": 4769007
+  },
+  "40180": {
+    "name": "Riverton, WY",
+    "type": "Micropolitan",
+    "population": 39464
+  },
+  "40220": {
+    "name": "Roanoke, VA",
+    "type": "Metropolitan",
+    "population": 316547
+  },
+  "40260": {
+    "name": "Roanoke Rapids, NC",
+    "type": "Micropolitan",
+    "population": 63025
+  },
+  "40300": {
+    "name": "Rochelle, IL",
+    "type": "Micropolitan",
+    "population": 51399
+  },
+  "40340": {
+    "name": "Rochester, MN",
+    "type": "Metropolitan",
+    "population": 231184
+  },
+  "40380": {
+    "name": "Rochester, NY",
+    "type": "Metropolitan",
+    "population": 1056149
+  },
+  "40420": {
+    "name": "Rockford, IL",
+    "type": "Metropolitan",
+    "population": 337242
+  },
+  "40460": {
+    "name": "Rockingham, NC",
+    "type": "Micropolitan",
+    "population": 42041
+  },
+  "40540": {
+    "name": "Rock Springs, WY",
+    "type": "Micropolitan",
+    "population": 41267
+  },
+  "40580": {
+    "name": "Rocky Mount, NC",
+    "type": "Metropolitan",
+    "population": 148486
+  },
+  "40620": {
+    "name": "Rolla, MO",
+    "type": "Micropolitan",
+    "population": 45247
+  },
+  "40660": {
+    "name": "Rome, GA",
+    "type": "Metropolitan",
+    "population": 101378
+  },
+  "40700": {
+    "name": "Roseburg, OR",
+    "type": "Micropolitan",
+    "population": 111951
+  },
+  "40740": {
+    "name": "Roswell, NM",
+    "type": "Micropolitan",
+    "population": 63364
+  },
+  "40760": {
+    "name": "Ruidoso, NM",
+    "type": "Micropolitan",
+    "population": 19844
+  },
+  "40770": {
+    "name": "Russellville, AL",
+    "type": "Micropolitan",
+    "population": 32449
+  },
+  "40780": {
+    "name": "Russellville, AR",
+    "type": "Micropolitan",
+    "population": 84932
+  },
+  "40820": {
+    "name": "Ruston, LA",
+    "type": "Micropolitan",
+    "population": 48360
+  },
+  "40860": {
+    "name": "Rutland, VT",
+    "type": "Micropolitan",
+    "population": 59653
+  },
+  "40900": {
+    "name": "Sacramento-Roseville-Folsom, CA",
+    "type": "Metropolitan",
+    "population": 2477274
+  },
+  "40940": {
+    "name": "Safford, AZ",
+    "type": "Micropolitan",
+    "population": 40157
+  },
+  "40980": {
+    "name": "Saginaw, MI",
+    "type": "Metropolitan",
+    "population": 187688
+  },
+  "41060": {
+    "name": "St. Cloud, MN",
+    "type": "Metropolitan",
+    "population": 205854
+  },
+  "41100": {
+    "name": "St. George, UT",
+    "type": "Metropolitan",
+    "population": 213670
+  },
+  "41140": {
+    "name": "St. Joseph, MO-KS",
+    "type": "Metropolitan",
+    "population": 119170
+  },
+  "41180": {
+    "name": "St. Louis, MO-IL",
+    "type": "Metropolitan",
+    "population": 2814421
+  },
+  "41260": {
+    "name": "St. Marys, PA",
+    "type": "Micropolitan",
+    "population": 29926
+  },
+  "41400": {
+    "name": "Salem, OH",
+    "type": "Micropolitan",
+    "population": 99377
+  },
+  "41420": {
+    "name": "Salem, OR",
+    "type": "Metropolitan",
+    "population": 445814
+  },
+  "41460": {
+    "name": "Salina, KS",
+    "type": "Micropolitan",
+    "population": 59121
+  },
+  "41500": {
+    "name": "Salinas, CA",
+    "type": "Metropolitan",
+    "population": 433729
+  },
+  "41540": {
+    "name": "Salisbury, MD",
+    "type": "Metropolitan",
+    "population": 131872
+  },
+  "41620": {
+    "name": "Salt Lake City-Murray, UT",
+    "type": "Metropolitan",
+    "population": 1308377
+  },
+  "41660": {
+    "name": "San Angelo, TX",
+    "type": "Metropolitan",
+    "population": 122065
+  },
+  "41700": {
+    "name": "San Antonio-New Braunfels, TX",
+    "type": "Metropolitan",
+    "population": 2813140
+  },
+  "41740": {
+    "name": "San Diego-Chula Vista-Carlsbad, CA",
+    "type": "Metropolitan",
+    "population": 3282248
+  },
+  "41760": {
+    "name": "Sandpoint, ID",
+    "type": "Micropolitan",
+    "population": 54420
+  },
+  "41780": {
+    "name": "Sandusky, OH",
+    "type": "Metropolitan",
+    "population": 112777
+  },
+  "41820": {
+    "name": "Sanford, NC",
+    "type": "Micropolitan",
+    "population": 70258
+  },
+  "41860": {
+    "name": "San Francisco-Oakland-Fremont, CA",
+    "type": "Metropolitan",
+    "population": 4630041
+  },
+  "41940": {
+    "name": "San Jose-Sunnyvale-Santa Clara, CA",
+    "type": "Metropolitan",
+    "population": 1984473
+  },
+  "42020": {
+    "name": "San Luis Obispo-Paso Robles, CA",
+    "type": "Metropolitan",
+    "population": 282367
+  },
+  "42100": {
+    "name": "Santa Cruz-Watsonville, CA",
+    "type": "Metropolitan",
+    "population": 258852
+  },
+  "42140": {
+    "name": "Santa Fe, NM",
+    "type": "Metropolitan",
+    "population": 156907
+  },
+  "42200": {
+    "name": "Santa Maria-Santa Barbara, CA",
+    "type": "Metropolitan",
+    "population": 442065
+  },
+  "42220": {
+    "name": "Santa Rosa-Petaluma, CA",
+    "type": "Metropolitan",
+    "population": 486444
+  },
+  "42300": {
+    "name": "Sault Ste. Marie, MI",
+    "type": "Micropolitan",
+    "population": 36081
+  },
+  "42340": {
+    "name": "Savannah, GA",
+    "type": "Metropolitan",
+    "population": 438314
+  },
+  "42380": {
+    "name": "Sayre, PA",
+    "type": "Micropolitan",
+    "population": 59600
+  },
+  "42420": {
+    "name": "Scottsbluff, NE",
+    "type": "Micropolitan",
+    "population": 36272
+  },
+  "42460": {
+    "name": "Scottsboro, AL",
+    "type": "Micropolitan",
+    "population": 54281
+  },
+  "42540": {
+    "name": "Scranton--Wilkes-Barre, PA",
+    "type": "Metropolitan",
+    "population": 574418
+  },
+  "42580": {
+    "name": "Seaford, DE",
+    "type": "Micropolitan",
+    "population": 277140
+  },
+  "42620": {
+    "name": "Searcy, AR",
+    "type": "Micropolitan",
+    "population": 80085
+  },
+  "42660": {
+    "name": "Seattle-Tacoma-Bellevue, WA",
+    "type": "Metropolitan",
+    "population": 4161883
+  },
+  "42680": {
+    "name": "Sebastian-Vero Beach-West Vero Corridor, FL",
+    "type": "Metropolitan",
+    "population": 172799
+  },
+  "42700": {
+    "name": "Sebring, FL",
+    "type": "Metropolitan",
+    "population": 111122
+  },
+  "42740": {
+    "name": "Sedalia, MO",
+    "type": "Micropolitan",
+    "population": 44254
+  },
+  "42780": {
+    "name": "Selinsgrove, PA",
+    "type": "Micropolitan",
+    "population": 39655
+  },
+  "42820": {
+    "name": "Selma, AL",
+    "type": "Micropolitan",
+    "population": 35140
+  },
+  "42860": {
+    "name": "Seneca, SC",
+    "type": "Micropolitan",
+    "population": 83775
+  },
+  "42900": {
+    "name": "Seneca Falls, NY",
+    "type": "Micropolitan",
+    "population": 32883
+  },
+  "42940": {
+    "name": "Sevierville, TN",
+    "type": "Micropolitan",
+    "population": 101342
+  },
+  "42980": {
+    "name": "Seymour, IN",
+    "type": "Micropolitan",
+    "population": 47370
+  },
+  "43020": {
+    "name": "Shawano, WI",
+    "type": "Micropolitan",
+    "population": 45759
+  },
+  "43060": {
+    "name": "Shawnee, OK",
+    "type": "Micropolitan",
+    "population": 75102
+  },
+  "43100": {
+    "name": "Sheboygan, WI",
+    "type": "Metropolitan",
+    "population": 118047
+  },
+  "43140": {
+    "name": "Shelby-Kings Mountain, NC",
+    "type": "Micropolitan",
+    "population": 103325
+  },
+  "43180": {
+    "name": "Shelbyville, TN",
+    "type": "Micropolitan",
+    "population": 55273
+  },
+  "43220": {
+    "name": "Shelton, WA",
+    "type": "Micropolitan",
+    "population": 71165
+  },
+  "43260": {
+    "name": "Sheridan, WY",
+    "type": "Micropolitan",
+    "population": 33241
+  },
+  "43300": {
+    "name": "Sherman-Denison, TX",
+    "type": "Metropolitan",
+    "population": 153613
+  },
+  "43320": {
+    "name": "Show Low, AZ",
+    "type": "Micropolitan",
+    "population": 109946
+  },
+  "43340": {
+    "name": "Shreveport-Bossier City, LA",
+    "type": "Metropolitan",
+    "population": 383474
+  },
+  "43380": {
+    "name": "Sidney, OH",
+    "type": "Micropolitan",
+    "population": 48065
+  },
+  "43420": {
+    "name": "Sierra Vista-Douglas, AZ",
+    "type": "Metropolitan",
+    "population": 126332
+  },
+  "43460": {
+    "name": "Sikeston, MO",
+    "type": "Micropolitan",
+    "population": 49978
+  },
+  "43500": {
+    "name": "Silver City, NM",
+    "type": "Micropolitan",
+    "population": 27252
+  },
+  "43580": {
+    "name": "Sioux City, IA-NE-SD",
+    "type": "Metropolitan",
+    "population": 145738
+  },
+  "43620": {
+    "name": "Sioux Falls, SD-MN",
+    "type": "Metropolitan",
+    "population": 314638
+  },
+  "43640": {
+    "name": "Slidell-Mandeville-Covington, LA",
+    "type": "Metropolitan",
+    "population": 279108
+  },
+  "43660": {
+    "name": "Snyder, TX",
+    "type": "Micropolitan",
+    "population": 16162
+  },
+  "43700": {
+    "name": "Somerset, KY",
+    "type": "Micropolitan",
+    "population": 67384
+  },
+  "43740": {
+    "name": "Somerset, PA",
+    "type": "Micropolitan",
+    "population": 72004
+  },
+  "43760": {
+    "name": "Sonora, CA",
+    "type": "Micropolitan",
+    "population": 53160
+  },
+  "43780": {
+    "name": "South Bend-Mishawaka, IN-MI",
+    "type": "Metropolitan",
+    "population": 324538
+  },
+  "43890": {
+    "name": "Sparta, WI",
+    "type": "Micropolitan",
+    "population": 46572
+  },
+  "43900": {
+    "name": "Spartanburg, SC",
+    "type": "Metropolitan",
+    "population": 407656
+  },
+  "43940": {
+    "name": "Spearfish, SD",
+    "type": "Micropolitan",
+    "population": 29459
+  },
+  "43980": {
+    "name": "Spencer, IA",
+    "type": "Micropolitan",
+    "population": 16202
+  },
+  "44020": {
+    "name": "Spirit Lake, IA",
+    "type": "Micropolitan",
+    "population": 18077
+  },
+  "44060": {
+    "name": "Spokane-Spokane Valley, WA",
+    "type": "Metropolitan",
+    "population": 608012
+  },
+  "44100": {
+    "name": "Springfield, IL",
+    "type": "Metropolitan",
+    "population": 206033
+  },
+  "44140": {
+    "name": "Springfield, MA",
+    "type": "Metropolitan",
+    "population": 464338
+  },
+  "44180": {
+    "name": "Springfield, MO",
+    "type": "Metropolitan",
+    "population": 500694
+  },
+  "44220": {
+    "name": "Springfield, OH",
+    "type": "Metropolitan",
+    "population": 135340
+  },
+  "44260": {
+    "name": "Starkville, MS",
+    "type": "Micropolitan",
+    "population": 62063
+  },
+  "44300": {
+    "name": "State College, PA",
+    "type": "Metropolitan",
+    "population": 157393
+  },
+  "44340": {
+    "name": "Statesboro, GA",
+    "type": "Micropolitan",
+    "population": 97977
+  },
+  "44420": {
+    "name": "Staunton-Stuarts Draft, VA",
+    "type": "Metropolitan",
+    "population": 129692
+  },
+  "44460": {
+    "name": "Steamboat Springs, CO",
+    "type": "Micropolitan",
+    "population": 38451
+  },
+  "44500": {
+    "name": "Stephenville, TX",
+    "type": "Micropolitan",
+    "population": 43911
+  },
+  "44540": {
+    "name": "Sterling, CO",
+    "type": "Micropolitan",
+    "population": 20654
+  },
+  "44580": {
+    "name": "Sterling, IL",
+    "type": "Micropolitan",
+    "population": 54121
+  },
+  "44620": {
+    "name": "Stevens Point-Plover, WI",
+    "type": "Micropolitan",
+    "population": 71943
+  },
+  "44660": {
+    "name": "Stillwater, OK",
+    "type": "Micropolitan",
+    "population": 83889
+  },
+  "44700": {
+    "name": "Stockton-Lodi, CA",
+    "type": "Metropolitan",
+    "population": 823815
+  },
+  "44740": {
+    "name": "Storm Lake, IA",
+    "type": "Micropolitan",
+    "population": 20449
+  },
+  "44780": {
+    "name": "Sturgis, MI",
+    "type": "Micropolitan",
+    "population": 60968
+  },
+  "44860": {
+    "name": "Sulphur Springs, TX",
+    "type": "Micropolitan",
+    "population": 39063
+  },
+  "44900": {
+    "name": "Summerville, GA",
+    "type": "Micropolitan",
+    "population": 25300
+  },
+  "44940": {
+    "name": "Sumter, SC",
+    "type": "Metropolitan",
+    "population": 105067
+  },
+  "44980": {
+    "name": "Sunbury, PA",
+    "type": "Micropolitan",
+    "population": 107788
+  },
+  "45000": {
+    "name": "Susanville, CA",
+    "type": "Micropolitan",
+    "population": 28117
+  },
+  "45020": {
+    "name": "Sweetwater, TX",
+    "type": "Micropolitan",
+    "population": 14117
+  },
+  "45060": {
+    "name": "Syracuse, NY",
+    "type": "Metropolitan",
+    "population": 652273
+  },
+  "45140": {
+    "name": "Tahlequah, OK",
+    "type": "Micropolitan",
+    "population": 49196
+  },
+  "45180": {
+    "name": "Talladega-Sylacauga, AL",
+    "type": "Micropolitan",
+    "population": 91764
+  },
+  "45220": {
+    "name": "Tallahassee, FL",
+    "type": "Metropolitan",
+    "population": 397442
+  },
+  "45300": {
+    "name": "Tampa-St. Petersburg-Clearwater, FL",
+    "type": "Metropolitan",
+    "population": 3418895
+  },
+  "45340": {
+    "name": "Taos, NM",
+    "type": "Micropolitan",
+    "population": 34564
+  },
+  "45380": {
+    "name": "Taylorville, IL",
+    "type": "Micropolitan",
+    "population": 33443
+  },
+  "45460": {
+    "name": "Terre Haute, IN",
+    "type": "Metropolitan",
+    "population": 169241
+  },
+  "45500": {
+    "name": "Texarkana, TX-AR",
+    "type": "Metropolitan",
+    "population": 146816
+  },
+  "45520": {
+    "name": "The Dalles, OR",
+    "type": "Micropolitan",
+    "population": 26310
+  },
+  "45580": {
+    "name": "Thomaston, GA",
+    "type": "Micropolitan",
+    "population": 28500
+  },
+  "45620": {
+    "name": "Thomasville, GA",
+    "type": "Micropolitan",
+    "population": 72958
+  },
+  "45660": {
+    "name": "Tiffin, OH",
+    "type": "Micropolitan",
+    "population": 54522
+  },
+  "45700": {
+    "name": "Tifton, GA",
+    "type": "Micropolitan",
+    "population": 51237
+  },
+  "45740": {
+    "name": "Toccoa, GA",
+    "type": "Micropolitan",
+    "population": 27854
+  },
+  "45780": {
+    "name": "Toledo, OH",
+    "type": "Metropolitan",
+    "population": 599376
+  },
+  "45820": {
+    "name": "Topeka, KS",
+    "type": "Metropolitan",
+    "population": 233052
+  },
+  "45860": {
+    "name": "Torrington, CT",
+    "type": "Micropolitan",
+    "population": 114690
+  },
+  "45880": {
+    "name": "Town of Pecos, TX",
+    "type": "Micropolitan",
+    "population": 12138
+  },
+  "45900": {
+    "name": "Traverse City, MI",
+    "type": "Metropolitan",
+    "population": 156972
+  },
+  "45940": {
+    "name": "Trenton-Princeton, NJ",
+    "type": "Metropolitan",
+    "population": 399289
+  },
+  "45980": {
+    "name": "Troy, AL",
+    "type": "Micropolitan",
+    "population": 33688
+  },
+  "46020": {
+    "name": "Truckee-Grass Valley, CA",
+    "type": "Micropolitan",
+    "population": 101911
+  },
+  "46060": {
+    "name": "Tucson, AZ",
+    "type": "Metropolitan",
+    "population": 1074685
+  },
+  "46100": {
+    "name": "Tullahoma-Manchester, TN",
+    "type": "Micropolitan",
+    "population": 69339
+  },
+  "46140": {
+    "name": "Tulsa, OK",
+    "type": "Metropolitan",
+    "population": 1069273
+  },
+  "46180": {
+    "name": "Tupelo, MS",
+    "type": "Micropolitan",
+    "population": 133167
+  },
+  "46220": {
+    "name": "Tuscaloosa, AL",
+    "type": "Metropolitan",
+    "population": 281850
+  },
+  "46300": {
+    "name": "Twin Falls, ID",
+    "type": "Metropolitan",
+    "population": 123901
+  },
+  "46340": {
+    "name": "Tyler, TX",
+    "type": "Metropolitan",
+    "population": 252549
+  },
+  "46380": {
+    "name": "Ukiah, CA",
+    "type": "Micropolitan",
+    "population": 88122
+  },
+  "46460": {
+    "name": "Union City, TN",
+    "type": "Micropolitan",
+    "population": 30067
+  },
+  "46500": {
+    "name": "Urbana, OH",
+    "type": "Micropolitan",
+    "population": 38820
+  },
+  "46520": {
+    "name": "Urban Honolulu, HI",
+    "type": "Metropolitan",
+    "population": 988703
+  },
+  "46540": {
+    "name": "Utica-Rome, NY",
+    "type": "Metropolitan",
+    "population": 285611
+  },
+  "46620": {
+    "name": "Uvalde, TX",
+    "type": "Micropolitan",
+    "population": 24963
+  },
+  "46660": {
+    "name": "Valdosta, GA",
+    "type": "Metropolitan",
+    "population": 153276
+  },
+  "46700": {
+    "name": "Vallejo, CA",
+    "type": "Metropolitan",
+    "population": 455376
+  },
+  "46780": {
+    "name": "Van Wert, OH",
+    "type": "Micropolitan",
+    "population": 29013
+  },
+  "46820": {
+    "name": "Vermillion, SD",
+    "type": "Micropolitan",
+    "population": 15031
+  },
+  "46860": {
+    "name": "Vernal, UT",
+    "type": "Micropolitan",
+    "population": 38278
+  },
+  "46900": {
+    "name": "Vernon, TX",
+    "type": "Micropolitan",
+    "population": 12481
+  },
+  "46980": {
+    "name": "Vicksburg, MS",
+    "type": "Micropolitan",
+    "population": 41759
+  },
+  "47020": {
+    "name": "Victoria, TX",
+    "type": "Metropolitan",
+    "population": 99864
+  },
+  "47080": {
+    "name": "Vidalia, GA",
+    "type": "Micropolitan",
+    "population": 36180
+  },
+  "47180": {
+    "name": "Vincennes, IN",
+    "type": "Micropolitan",
+    "population": 35652
+  },
+  "47220": {
+    "name": "Vineland, NJ",
+    "type": "Metropolitan",
+    "population": 157148
+  },
+  "47240": {
+    "name": "Vineyard Haven, MA",
+    "type": "Micropolitan",
+    "population": 21219
+  },
+  "47260": {
+    "name": "Virginia Beach-Chesapeake-Norfolk, VA-NC",
+    "type": "Metropolitan",
+    "population": 1797213
+  },
+  "47300": {
+    "name": "Visalia, CA",
+    "type": "Metropolitan",
+    "population": 485146
+  },
+  "47340": {
+    "name": "Wabash, IN",
+    "type": "Micropolitan",
+    "population": 30713
+  },
+  "47380": {
+    "name": "Waco, TX",
+    "type": "Metropolitan",
+    "population": 308807
+  },
+  "47420": {
+    "name": "Wahpeton, ND-MN",
+    "type": "Micropolitan",
+    "population": 23019
+  },
+  "47460": {
+    "name": "Walla Walla, WA",
+    "type": "Metropolitan",
+    "population": 62361
+  },
+  "47540": {
+    "name": "Wapakoneta, OH",
+    "type": "Micropolitan",
+    "population": 45909
+  },
+  "47580": {
+    "name": "Warner Robins, GA",
+    "type": "Metropolitan",
+    "population": 208091
+  },
+  "47620": {
+    "name": "Warren, PA",
+    "type": "Micropolitan",
+    "population": 37038
+  },
+  "47660": {
+    "name": "Warrensburg, MO",
+    "type": "Micropolitan",
+    "population": 56670
+  },
+  "47700": {
+    "name": "Warsaw, IN",
+    "type": "Micropolitan",
+    "population": 80892
+  },
+  "47780": {
+    "name": "Washington, IN",
+    "type": "Micropolitan",
+    "population": 34209
+  },
+  "47820": {
+    "name": "Washington, NC",
+    "type": "Micropolitan",
+    "population": 44670
+  },
+  "47900": {
+    "name": "Washington-Arlington-Alexandria, DC-VA-MD-WV",
+    "type": "Metropolitan",
+    "population": 6465724
+  },
+  "47920": {
+    "name": "Washington Court House, OH",
+    "type": "Micropolitan",
+    "population": 28552
+  },
+  "47930": {
+    "name": "Waterbury-Shelton, CT",
+    "type": "Metropolitan",
+    "population": 463349
+  },
+  "47940": {
+    "name": "Waterloo-Cedar Falls, IA",
+    "type": "Metropolitan",
+    "population": 169189
+  },
+  "47980": {
+    "name": "Watertown, SD",
+    "type": "Micropolitan",
+    "population": 29562
+  },
+  "48020": {
+    "name": "Watertown-Fort Atkinson, WI",
+    "type": "Micropolitan",
+    "population": 86505
+  },
+  "48060": {
+    "name": "Watertown-Fort Drum, NY",
+    "type": "Metropolitan",
+    "population": 111540
+  },
+  "48140": {
+    "name": "Wausau, WI",
+    "type": "Metropolitan",
+    "population": 139432
+  },
+  "48180": {
+    "name": "Waycross, GA",
+    "type": "Micropolitan",
+    "population": 57670
+  },
+  "48200": {
+    "name": "Waynesville, NC",
+    "type": "Micropolitan",
+    "population": 63369
+  },
+  "48220": {
+    "name": "Weatherford, OK",
+    "type": "Micropolitan",
+    "population": 39059
+  },
+  "48260": {
+    "name": "Weirton-Steubenville, WV-OH",
+    "type": "Metropolitan",
+    "population": 112468
+  },
+  "48300": {
+    "name": "Wenatchee-East Wenatchee, WA",
+    "type": "Metropolitan",
+    "population": 128414
+  },
+  "48460": {
+    "name": "West Plains, MO",
+    "type": "Micropolitan",
+    "population": 40798
+  },
+  "48540": {
+    "name": "Wheeling, WV-OH",
+    "type": "Metropolitan",
+    "population": 134089
+  },
+  "48580": {
+    "name": "Whitewater-Elkhorn, WI",
+    "type": "Micropolitan",
+    "population": 106127
+  },
+  "48620": {
+    "name": "Wichita, KS",
+    "type": "Metropolitan",
+    "population": 663809
+  },
+  "48660": {
+    "name": "Wichita Falls, TX",
+    "type": "Metropolitan",
+    "population": 149448
+  },
+  "48680": {
+    "name": "Wildwood-The Villages, FL",
+    "type": "Metropolitan",
+    "population": 157772
+  },
+  "48700": {
+    "name": "Williamsport, PA",
+    "type": "Metropolitan",
+    "population": 112587
+  },
+  "48780": {
+    "name": "Williston, ND",
+    "type": "Micropolitan",
+    "population": 41767
+  },
+  "48820": {
+    "name": "Willmar, MN",
+    "type": "Micropolitan",
+    "population": 44720
+  },
+  "48900": {
+    "name": "Wilmington, NC",
+    "type": "Metropolitan",
+    "population": 492772
+  },
+  "48940": {
+    "name": "Wilmington, OH",
+    "type": "Micropolitan",
+    "population": 42301
+  },
+  "48980": {
+    "name": "Wilson, NC",
+    "type": "Micropolitan",
+    "population": 81150
+  },
+  "49010": {
+    "name": "Winchester, TN",
+    "type": "Micropolitan",
+    "population": 45579
+  },
+  "49020": {
+    "name": "Winchester, VA-WV",
+    "type": "Metropolitan",
+    "population": 152332
+  },
+  "49080": {
+    "name": "Winnemucca, NV",
+    "type": "Micropolitan",
+    "population": 17267
+  },
+  "49100": {
+    "name": "Winona, MN",
+    "type": "Micropolitan",
+    "population": 50523
+  },
+  "49180": {
+    "name": "Winston-Salem, NC",
+    "type": "Metropolitan",
+    "population": 712206
+  },
+  "49220": {
+    "name": "Wisconsin Rapids-Marshfield, WI",
+    "type": "Micropolitan",
+    "population": 74060
+  },
+  "49260": {
+    "name": "Woodward, OK",
+    "type": "Micropolitan",
+    "population": 19827
+  },
+  "49300": {
+    "name": "Wooster, OH",
+    "type": "Micropolitan",
+    "population": 116758
+  },
+  "49340": {
+    "name": "Worcester, MA",
+    "type": "Metropolitan",
+    "population": 888502
+  },
+  "49380": {
+    "name": "Worthington, MN",
+    "type": "Micropolitan",
+    "population": 22338
+  },
+  "49420": {
+    "name": "Yakima, WA",
+    "type": "Metropolitan",
+    "population": 259185
+  },
+  "49460": {
+    "name": "Yankton, SD",
+    "type": "Micropolitan",
+    "population": 23635
+  },
+  "49620": {
+    "name": "York-Hanover, PA",
+    "type": "Metropolitan",
+    "population": 473197
+  },
+  "49660": {
+    "name": "Youngstown-Warren, OH",
+    "type": "Metropolitan",
+    "population": 423678
+  },
+  "49700": {
+    "name": "Yuba City, CA",
+    "type": "Metropolitan",
+    "population": 187478
+  },
+  "49740": {
+    "name": "Yuma, AZ",
+    "type": "Metropolitan",
+    "population": 224449
+  },
+  "49780": {
+    "name": "Zanesville, OH",
+    "type": "Micropolitan",
+    "population": 87014
+  },
+  "49820": {
+    "name": "Zapata, TX",
+    "type": "Micropolitan",
+    "population": 13753
+  }
+}

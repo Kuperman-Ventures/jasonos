@@ -5,13 +5,61 @@ import {
   formatMetroPopulationShort,
   formatSchoolSizeLabel,
   formatUndergrads,
+  getKyleResidency,
   getMetroTier,
+  getRateThatAppliesToKyle,
+  getRegion,
   getSchoolSize,
+  HOME_STATE,
   metroTierBars,
   sizeGaugeModel,
   sizeOf,
   tierHeadlineVar,
 } from "./campus-size";
+
+test("HOME_STATE and getKyleResidency", () => {
+  assert.equal(HOME_STATE, "NJ");
+  assert.equal(getKyleResidency("Private", "MA"), "Not applicable");
+  assert.equal(getKyleResidency("Public", "NJ"), "In-state");
+  assert.equal(getKyleResidency("Public", "New Jersey"), "In-state");
+  assert.equal(getKyleResidency("Public", "MI"), "Out-of-state");
+  assert.equal(getKyleResidency("", "NJ"), "");
+});
+
+test("getRateThatAppliesToKyle picks in/out-state rates", () => {
+  assert.equal(
+    getRateThatAppliesToKyle({
+      kyleResidency: "In-state",
+      inStateAdmitRate: 42,
+      outOfStateAdmitRate: 18,
+    }),
+    42,
+  );
+  assert.equal(
+    getRateThatAppliesToKyle({
+      kyleResidency: "Out-of-state",
+      inStateAdmitRate: 42,
+      outOfStateAdmitRate: 18,
+    }),
+    18,
+  );
+  assert.equal(
+    getRateThatAppliesToKyle({
+      kyleResidency: "Not applicable",
+      inStateAdmitRate: 42,
+      outOfStateAdmitRate: 18,
+    }),
+    null,
+  );
+});
+
+test("getRegion reads state-regions.json", () => {
+  assert.equal(getRegion("MA"), "Northeast");
+  assert.equal(getRegion("CA"), "West Coast");
+  assert.equal(getRegion("TX"), "Texas");
+  assert.equal(getRegion("OK"), "Unassigned");
+  assert.equal(getRegion(""), "Unassigned");
+});
 
 test("getSchoolSize uses the four-band cutoffs", () => {
   assert.equal(getSchoolSize(null), null);

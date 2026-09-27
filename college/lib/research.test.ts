@@ -1,0 +1,114 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  formatResearchRequest,
+  RESEARCH_GROUPS,
+  researchGroupsNeeded,
+  validateSchoolResearchUpdate,
+} from "./research";
+import type { School } from "./types";
+
+function schoolStub(overrides: Partial<School> = {}): Pick<
+  School,
+  | "name"
+  | "unitId"
+  | "location"
+  | "website"
+  | "control"
+  | "researchCompleted"
+> {
+  return {
+    name: "Tufts University",
+    unitId: 168148,
+    location: "Medford, MA",
+    website: "https://www.tufts.edu",
+    control: "Private",
+    researchCompleted: ["Admissions by residency"],
+    ...overrides,
+  };
+}
+
+test("RESEARCH_GROUPS cover the five add-school groups", () => {
+  assert.deepEqual(
+    RESEARCH_GROUPS.map((g) => g.name),
+    [
+      "Setting",
+      "Programs",
+      "Admissions by residency",
+      "Application requirements",
+      "Aid",
+    ],
+  );
+  assert.ok(RESEARCH_GROUPS[0].fields.some((f) => f.field === "campusSetting"));
+  assert.ok(RESEARCH_GROUPS[1].fields.some((f) => f.field === "materials"));
+  assert.ok(RESEARCH_GROUPS[3].fields.some((f) => f.field === "applicationPlatform"));
+  assert.ok(RESEARCH_GROUPS[4].fields.some((f) => f.field === "meritAidNotes"));
+});
+
+test("researchGroupsNeeded skips completed groups", () => {
+  assert.deepEqual(researchGroupsNeeded(schoolStub()), [
+    "Setting",
+    "Programs",
+    "Application requirements",
+    "Aid",
+  ]);
+  assert.deepEqual(
+    researchGroupsNeeded(
+      schoolStub({
+        researchCompleted: [
+          "Setting",
+          "Programs",
+          "Admissions by residency",
+          "Application requirements",
+          "Aid",
+        ],
+      }),
+    ),
+    [],
+  );
+});
+
+test("formatResearchRequest lists needed groups and fields", () => {
+  const text = formatResearchRequest(schoolStub());
+  assert.match(text, /School: Tufts University/);
+  assert.match(text, /unitId: 168148/);
+  assert.match(text, /Groups needed: Setting, Programs, Application requirements, Aid/);
+  assert.match(text, /campusSetting/);
+  assert.doesNotMatch(text, /residencyDataStatus/);
+});
+
+test("validateSchoolResearchUpdate accepts a clean payload", () => {
+  const result = validateSchoolResearchUpdate({
+    updateType: "school-research",
+    unitId: 168148,
+    school: "Tufts University",
+    preparedDate: "2026-09-27",
+    completedGroups: ["Setting", "Programs"],
+    fields: {
+      campusSetting: "Suburban",
+      aerospaceEngineering: "No",
+    },
+  });
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.update.fields.campusSetting, "Suburban");
+    assert.deepEqual(result.update.completedGroups, ["Setting", "Programs"]);
+  }
+});
+
+test("validateSchoolResearchUpdate rejects bad enums and unknown fields", () => {
+  const result = validateSchoolResearchUpdate({
+    updateType: "school-research",
+    unitId: 168148,
+    completedGroups: ["Setting"],
+    fields: {
+      campusSetting: "Mega city",
+      notAField: "x",
+    },
+  });
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.ok(result.problems.some((p) => p.includes("campusSetting")));
+    assert.ok(result.problems.some((p) => p.includes("notAField")));
+  }
+});
