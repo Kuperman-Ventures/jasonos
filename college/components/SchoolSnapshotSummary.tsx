@@ -33,6 +33,7 @@ import {
 import { CampusSettingBadge } from "./CampusSettingBadge";
 import { SchoolCampusSatelliteMap } from "./SchoolCampusSatelliteMap";
 import { SchoolLocationMap, SelectivityGauge } from "./SchoolSnapshotViz";
+import { SchoolScoirSections } from "./SchoolScoirSections";
 
 type SnapshotPatch = Partial<
   Pick<
@@ -546,6 +547,8 @@ export function SchoolSnapshotSummary({
           </dl>
         </section>
       </div>
+
+      <SchoolScoirSections school={school} />
 
       <SchoolCampusSatelliteMap school={school} />
 

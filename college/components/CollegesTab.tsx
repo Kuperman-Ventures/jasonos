@@ -38,6 +38,8 @@ import {
 } from "@/lib/campus-size";
 import { formatTravelLabel } from "@/lib/drive-matrix";
 import { canAdvanceListPhase } from "@/lib/permissions";
+import { formatScoirPct, scoirNewJerseyPct } from "@/lib/scoir";
+import { ScoirListBadge } from "./SchoolScoirSections";
 import { CampusSettingBadge } from "./CampusSettingBadge";
 import {
   INTEREST_LEVELS,
@@ -360,6 +362,7 @@ export function CollegesTab({
               <span>
                 {school.name}
                 {school.archived ? <small className="archived-tag">Archived</small> : null}
+                <ScoirListBadge school={school} />
                 <NeedsResearchLabels school={school} />
               </span>
             </div>
@@ -478,6 +481,14 @@ export function CollegesTab({
             ) : null}
           </td>
         );
+      case "newJerseyPct": {
+        const nj = scoirNewJerseyPct(school);
+        return (
+          <td key={column} className="num mono">
+            {nj == null ? "—" : formatScoirPct(nj, 0)}
+          </td>
+        );
+      }
       default:
         return null;
     }
@@ -492,6 +503,7 @@ export function CollegesTab({
     if (column === "travel") return "drive";
     if (column === "setting") return "setting";
     if (column === "size") return "size";
+    if (column === "newJerseyPct") return "newJerseyPct";
     return null;
   }
 
@@ -790,6 +802,7 @@ export function CollegesTab({
           <option value="drive">Drive time</option>
           <option value="setting">Campus setting</option>
           <option value="size">School size</option>
+          <option value="newJerseyPct">% from NJ</option>
           <option value="selectivity">Selectivity</option>
           <option value="interest">Interest</option>
           <option value="status">Application status</option>
@@ -917,6 +930,7 @@ export function CollegesTab({
                 <span>
                   {school.name}
                   {school.archived ? <small className="archived-tag">Archived</small> : null}
+                  <ScoirListBadge school={school} />
                   <NeedsResearchLabels school={school} />
                 </span>
               </h3>
@@ -935,6 +949,15 @@ export function CollegesTab({
                 ) : null}
                 {columns.includes("size") ? (
                   <span>{formatSchoolSizeLabel(school.undergradEnrollment) || "—"}</span>
+                ) : null}
+                {columns.includes("newJerseyPct") ? (
+                  <span>
+                    NJ{" "}
+                    {(() => {
+                      const nj = scoirNewJerseyPct(school);
+                      return nj == null ? "—" : formatScoirPct(nj, 0);
+                    })()}
+                  </span>
                 ) : null}
                 {columns.includes("travel") ? (
                   <span>

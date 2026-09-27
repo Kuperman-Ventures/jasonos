@@ -17,7 +17,8 @@ export type ListColumnId =
   | "action"
   | "mechanical"
   | "materials"
-  | "aerospace";
+  | "aerospace"
+  | "newJerseyPct";
 
 export type ListPhase = {
   id: ListPhaseId;
@@ -56,6 +57,7 @@ export const LIST_COLUMNS: { id: ListColumnId; label: string; required?: boolean
   { id: "mechanical", label: "Mechanical" },
   { id: "materials", label: "Materials" },
   { id: "aerospace", label: "Aerospace" },
+  { id: "newJerseyPct", label: "% from NJ" },
 ];
 
 export const LIST_PHASES: ListPhase[] = [
