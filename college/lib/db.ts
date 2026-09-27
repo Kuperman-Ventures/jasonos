@@ -39,6 +39,7 @@ import {
 } from "./types";
 import { normalizeSchoolProjectNotes } from "./school-project-notes";
 import schoolsFile from "@/content/schools.json";
+import { driveFieldsForSchool } from "./drive-matrix";
 
 type SchoolRow = {
   id: string;
@@ -251,6 +252,7 @@ export function mapSchool(row: SchoolRow): School {
     visitDate: row.visit_date,
     visitNotes: row.visit_notes,
     visitAddress: "",
+    ...driveFieldsForSchool(row.id),
     deadline: row.deadline,
     deadlineLabel: row.deadline_label,
     selectivityTier: isSelectivityTier(row.selectivity_tier) ? row.selectivity_tier : "",

@@ -271,6 +271,7 @@ export function CollegeRecord({
             <SchoolSnapshotSummary
               school={school}
               listUndergrads={listUndergrads}
+              listSchools={listSchools}
               nextDeadline={
                 nextOpenDeadline?.dueDate
                   ? {

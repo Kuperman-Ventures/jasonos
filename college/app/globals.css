@@ -10145,6 +10145,202 @@ html[data-mode="dark"] .trip-cell.kbreak {
   font-size: 12px;
   color: var(--text-subtle);
 }
+.trip-rg-plan {
+  align-self: flex-start;
+  margin-top: 4px;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.trip-planner {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 3px;
+  background: var(--color-surface);
+}
+.trip-planner-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.trip-planner-head h3 {
+  margin: 0;
+  font-size: 18px;
+}
+.trip-planner-head p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.trip-planner-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.trip-planner-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-subtle);
+  font-family: var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.trip-planner-controls select {
+  min-width: 220px;
+  height: 34px;
+  border: 1px solid var(--color-border);
+  border-radius: 2px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 14px;
+  padding: 0 8px;
+}
+.trip-planner-schools-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.trip-planner-others {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: inherit;
+}
+.trip-planner-schools ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 4px 12px;
+  max-height: 180px;
+  overflow: auto;
+}
+.trip-planner-schools li label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.trip-planner-schools small {
+  color: var(--text-subtle);
+  font-size: 11px;
+}
+.trip-planner-warn {
+  margin: 0;
+  color: var(--color-accent);
+  font-weight: 600;
+  font-size: 14px;
+}
+.trip-planner-route-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.trip-planner-stops {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.trip-planner-stops li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  padding: 6px 8px;
+  border-radius: 2px;
+  background: var(--color-bg);
+}
+.trip-planner-stops li.draggable {
+  cursor: grab;
+}
+.trip-planner-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--text-on-accent);
+  font-size: 11px;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.trip-planner-legs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.trip-planner-legs small {
+  display: block;
+  color: var(--color-accent);
+  font-weight: 600;
+  margin-top: 2px;
+}
+.trip-planner-missing {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+.trip-planner-total {
+  margin: 12px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.travel-cell.travel-fly {
+  color: var(--text-subtle);
+}
+.snapshot-drive {
+  display: block;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.snapshot-nearest {
+  margin-top: 10px;
+}
+.snapshot-nearest-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  margin-bottom: 4px;
+}
+.snapshot-nearest ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
 
 @media (max-width: 900px) {
   .trip-map-layout,

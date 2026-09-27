@@ -5,6 +5,7 @@ export type ListPhaseId = "exploration" | "consideration" | "applications";
 export type ListColumnId =
   | "school"
   | "location"
+  | "travel"
   | "status"
   | "track"
   | "selectivity"
@@ -39,6 +40,7 @@ export type ListPhase = {
 export const LIST_COLUMNS: { id: ListColumnId; label: string; required?: boolean }[] = [
   { id: "school", label: "School", required: true },
   { id: "location", label: "Location" },
+  { id: "travel", label: "Travel" },
   { id: "status", label: "Status" },
   { id: "track", label: "Track & deadline" },
   { id: "selectivity", label: "Selectivity" },
@@ -63,7 +65,7 @@ export const LIST_PHASES: ListPhase[] = [
     startsOn: "2026-09-01",
     endsOn: "2026-12-31",
     // Status is the same for everyone here — researching — so leave it off.
-    defaultColumns: ["school", "location", "selectivity", "interest", "visit", "action"],
+    defaultColumns: ["school", "location", "travel", "selectivity", "interest", "visit", "action"],
   },
   {
     id: "consideration",

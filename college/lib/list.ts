@@ -1,7 +1,14 @@
 import type { Plan, School } from "./types";
 import { interestRank, planLabel, tierRank, trackLabel } from "./types";
 
-export type SortKey = "list" | "name" | "status" | "selectivity" | "interest" | "action";
+export type SortKey =
+  | "list"
+  | "name"
+  | "status"
+  | "selectivity"
+  | "interest"
+  | "action"
+  | "drive";
 
 export function nextOpenStep(school: School): string {
   const open = [...school.steps]
@@ -61,6 +68,14 @@ export function compareSchools(a: School, b: School, sort: SortKey): number {
   if (sort === "action") {
     const byDate = dateValue(nextAction(a).dueDate) - dateValue(nextAction(b).dueDate);
     return byDate || a.listOrder - b.listOrder;
+  }
+  if (sort === "drive") {
+    const am = a.driveMinutes;
+    const bm = b.driveMinutes;
+    if (am == null && bm == null) return a.listOrder - b.listOrder;
+    if (am == null) return 1;
+    if (bm == null) return -1;
+    return am - bm || a.listOrder - b.listOrder;
   }
   return a.listOrder - b.listOrder;
 }

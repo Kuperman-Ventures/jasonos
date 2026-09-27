@@ -27,6 +27,11 @@ import {
 } from "@/lib/campus-size";
 import { admitResidencyDisplay } from "@/lib/residency-admit";
 import { websiteHref, websiteHostLabel } from "@/lib/school-photo";
+import {
+  formatDriveDuration,
+  formatTravelLabel,
+  nearestSchoolsFrom,
+} from "@/lib/drive-matrix";
 import { SchoolLocationMap, SelectivityGauge } from "./SchoolSnapshotViz";
 
 type SnapshotPatch = Partial<
@@ -170,6 +175,7 @@ function SizeGauge({
 export function SchoolSnapshotSummary({
   school,
   listUndergrads,
+  listSchools,
   nextDeadline,
   onPatch,
   onChangeDeadlineDate,
@@ -177,6 +183,8 @@ export function SchoolSnapshotSummary({
   school: School;
   /** Undergrad counts for every school on the family's current (non-archived) list. */
   listUndergrads: number[];
+  /** Live list schools (for nearest-drive neighbors). */
+  listSchools: School[];
   nextDeadline: { id: string; title: string; dueDate: string } | null;
   onPatch: (patch: SnapshotPatch) => void;
   onChangeDeadlineDate: (iso: string) => void;
@@ -190,6 +198,15 @@ export function SchoolSnapshotSummary({
   const pathway = pathwayFromContext(school.admissionsContext);
   const siteHref = websiteHref(school.website);
   const siteLabel = websiteHostLabel(school.website);
+  const nearest = nearestSchoolsFrom(
+    school.id,
+    listSchools.filter((row) => !row.archived).map((row) => ({ id: row.id, name: row.name })),
+  );
+  const travelLabel = formatTravelLabel(
+    school.driveMinutes,
+    school.driveMiles,
+    school.travelMode,
+  );
 
   const recordTestPolicy = school.testPolicy.trim();
   const testPolicyValue = recordTestPolicy || school.familyTestPolicy.trim();
@@ -238,6 +255,23 @@ export function SchoolSnapshotSummary({
           </span>
           <SchoolLocationMap location={school.location} />
           <span>{school.location.trim() || "Add a city and state in Settings"}</span>
+          {travelLabel !== "—" ? (
+            <span className="snapshot-drive">
+              Drive from home: {travelLabel}
+            </span>
+          ) : null}
+          {nearest.length ? (
+            <div className="snapshot-nearest">
+              <span className="snapshot-nearest-label">Nearest schools on the list</span>
+              <ul>
+                {nearest.map((hit) => (
+                  <li key={hit.schoolId}>
+                    {hit.name} · {formatDriveDuration(hit.minutes)} ({hit.miles} mi)
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </section>
 
         <section className="area" aria-labelledby="snap-sel-h">

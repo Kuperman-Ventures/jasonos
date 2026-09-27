@@ -1,5 +1,6 @@
 import { knownWebsite } from "./school-websites";
 import type { SchoolProjectNote } from "./school-project-notes";
+import { driveFieldsForSchool } from "./drive-matrix";
 
 export type { SchoolProjectNote } from "./school-project-notes";
 
@@ -106,6 +107,13 @@ export type School = {
   visitNotes: string;
   /** Optional admissions / visitor-center address for map routes. */
   visitAddress: string;
+  /** Drive minutes from home (Maplewood), from data/drive-matrix.json. */
+  driveMinutes: number | null;
+  driveMiles: number | null;
+  /** Drive when ≤ 6 hr from home, otherwise Fly. */
+  travelMode: "" | "Drive" | "Fly";
+  driveOrigin: string;
+  driveCalculatedDate: string;
   deadline: string | null;
   deadlineLabel: string;
   selectivityTier: SelectivityTier;
@@ -531,6 +539,7 @@ export function fromSeed(seed: SchoolSeed): School {
     visitDate: null,
     visitNotes: "",
     visitAddress: "",
+    ...driveFieldsForSchool(seed.id),
     deadline: null,
     deadlineLabel: "",
     selectivityTier: selectivityTierFromContext(seed.admissionsContext),

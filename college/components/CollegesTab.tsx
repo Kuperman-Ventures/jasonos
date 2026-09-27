@@ -25,6 +25,7 @@ import { CollegeRecord } from "./CollegeRecord";
 import { InterestPicker } from "./InterestPicker";
 import { SchoolMark } from "./SchoolMark";
 import { compareSchools, nextAction, primaryDeadline, type SortKey } from "@/lib/list";
+import { formatTravelLabel } from "@/lib/drive-matrix";
 import { canAdvanceListPhase } from "@/lib/permissions";
 import {
   INTEREST_LEVELS,
@@ -127,6 +128,7 @@ export function CollegesTab({
   const [query, setQuery] = useState("");
   const [tier, setTier] = useState<SelectivityTier | "any">("any");
   const [interest, setInterest] = useState<InterestLevel | "any">("any");
+  const [travelFilter, setTravelFilter] = useState<"any" | "Drive" | "Fly">("any");
   const [sort, setSort] = useState<SortKey>("list");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
   const [name, setName] = useState("");
@@ -207,6 +209,7 @@ export function CollegesTab({
     const filtered = phaseSchools.filter((school) => {
       if (tier !== "any" && school.selectivityTier !== tier) return false;
       if (interest !== "any" && school.interestLevel !== interest) return false;
+      if (travelFilter !== "any" && school.travelMode !== travelFilter) return false;
       if (!q) return true;
       return [school.name, school.location, school.notes, school.admissionsContext]
         .join(" ")
@@ -215,7 +218,7 @@ export function CollegesTab({
     });
     const sorted = [...filtered].sort((a, b) => compareSchools(a, b, sort));
     return sortDir === 1 ? sorted : sorted.reverse();
-  }, [phaseSchools, query, tier, interest, sort, sortDir]);
+  }, [phaseSchools, query, tier, interest, travelFilter, sort, sortDir]);
 
   const selected = schools.find((school) => school.id === selectedId) ?? null;
   const archivedInPhase = schools.filter(
@@ -300,6 +303,18 @@ export function CollegesTab({
             <div>{school.location || "—"}</div>
           </td>
         );
+      case "travel":
+        return (
+          <td key={column}>
+            <div
+              className={
+                school.travelMode === "Fly" ? "travel-cell travel-fly" : "travel-cell"
+              }
+            >
+              {formatTravelLabel(school.driveMinutes, school.driveMiles, school.travelMode)}
+            </div>
+          </td>
+        );
       case "status":
         return <td key={column}>{statusLabel(school.applicationStatus) || "—"}</td>;
       case "track":
@@ -372,6 +387,7 @@ export function CollegesTab({
     if (column === "selectivity") return "selectivity";
     if (column === "interest") return "interest";
     if (column === "action") return "action";
+    if (column === "travel") return "drive";
     return null;
   }
 
@@ -604,6 +620,16 @@ export function CollegesTab({
         </select>
         <select
           className="select"
+          value={travelFilter}
+          aria-label="Filter by travel mode"
+          onChange={(event) => setTravelFilter(event.target.value as "any" | "Drive" | "Fly")}
+        >
+          <option value="any">Drive or fly</option>
+          <option value="Drive">Drive</option>
+          <option value="Fly">Fly</option>
+        </select>
+        <select
+          className="select"
           value={sort}
           aria-label="Sort schools"
           onChange={(event) => {
@@ -613,6 +639,7 @@ export function CollegesTab({
         >
           <option value="list">Sheet order</option>
           <option value="name">School name</option>
+          <option value="drive">Drive time</option>
           <option value="selectivity">Selectivity</option>
           <option value="interest">Interest</option>
           <option value="status">Application status</option>
@@ -749,6 +776,11 @@ export function CollegesTab({
               <div className="card-meta">
                 {columns.includes("status") ? <span>{statusLabel(school.applicationStatus) || "—"}</span> : null}
                 {columns.includes("location") ? <span>{school.location || "—"}</span> : null}
+                {columns.includes("travel") ? (
+                  <span>
+                    {formatTravelLabel(school.driveMinutes, school.driveMiles, school.travelMode)}
+                  </span>
+                ) : null}
                 {columns.includes("selectivity") ? <span>{tierLabel(school.selectivityTier) || "—"}</span> : null}
                 {columns.includes("track") ? (
                   <span>
