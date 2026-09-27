@@ -4,6 +4,7 @@ import {
   CHS_SCHEDULE,
   CHS_SCHEDULE_YEAR,
   DEFAULT_TRIP_WEEK_INDEX,
+  FALL_TRIP_GRID,
   KYLE_STUDENT,
   TRIP_WEEK_LABELS,
   TRIP_WEEK0,
@@ -14,6 +15,7 @@ import {
   kyleBreakCellLabel,
   normalizeStateCode,
   parseTripPlanState,
+  preferredTripSeason,
   regionForLocation,
   regionForState,
   toggleClusterInTrip,
@@ -119,4 +121,29 @@ test("Kyle spring grid marks Spring Break week in red visit set", () => {
   assert.equal(DEFAULT_TRIP_WEEK_INDEX, 6);
   assert.equal(kyleBreakCellLabel(6), "Spring Break");
   assert.equal(kyleBreakCellLabel(0), "School");
+});
+
+test("fall When-to-go grid covers NJEA and Thanksgiving 2026", () => {
+  assert.equal(FALL_TRIP_GRID.weekLabels[0], "Oct 26");
+  assert.equal(FALL_TRIP_GRID.weekLabels[1], "Nov 2");
+  assert.equal(FALL_TRIP_GRID.weekLabels[4], "Nov 23");
+  assert.equal(isoDate(FALL_TRIP_GRID.week0), "2026-10-26");
+  assert.ok(FALL_TRIP_GRID.kyleBreaks.includes(1), "NJEA week is a Kyle break");
+  assert.ok(FALL_TRIP_GRID.kyleBreaks.includes(4), "Thanksgiving week is a Kyle break");
+  assert.equal(FALL_TRIP_GRID.defaultWeekIndex, 1);
+  assert.match(kyleBreakCellLabel(1, FALL_TRIP_GRID), /NJEA|Teachers/);
+  assert.equal(kyleBreakCellLabel(4, FALL_TRIP_GRID), "Thanksgiving Break");
+});
+
+test("preferredTripSeason picks fall for all-Drive trips", () => {
+  assert.equal(preferredTripSeason(["Drive", "Drive"]), "fall");
+  assert.equal(preferredTripSeason(["Drive", "Fly"]), "spring");
+  assert.equal(preferredTripSeason(["Fly"]), "spring");
+  assert.equal(preferredTripSeason([]), "fall");
+});
+
+test("defaultTripPlanState can seed fall season", () => {
+  const fall = defaultTripPlanState(["same"], "fall");
+  assert.equal(fall.season, "fall");
+  assert.equal(fall.weekIndex, FALL_TRIP_GRID.defaultWeekIndex);
 });

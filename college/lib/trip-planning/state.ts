@@ -1,6 +1,10 @@
 /** Persist trip membership + selected week per user/school. */
 
-import { DEFAULT_TRIP_WEEK_INDEX } from "./calendar";
+import {
+  DEFAULT_TRIP_WEEK_INDEX,
+  type TripSeasonId,
+  tripWeekGridForSeason,
+} from "./calendar";
 
 export const TRIP_PLAN_STORAGE_PREFIX = "track-trip-plan";
 
@@ -9,16 +13,23 @@ export type TripPlanState = {
   clusterIds: string[];
   /** Index into the When-to-go week grid (0–8). */
   weekIndex: number;
+  /** Season for the When-to-go grid (fall prioritized for drive schools). */
+  season?: TripSeasonId;
 };
 
 export function tripPlanStorageKey(userId: string, schoolId: string): string {
   return `${TRIP_PLAN_STORAGE_PREFIX}:${userId}:${schoolId}`;
 }
 
-export function defaultTripPlanState(clusterIds: string[] = ["same"]): TripPlanState {
+export function defaultTripPlanState(
+  clusterIds: string[] = ["same"],
+  season: TripSeasonId = "spring",
+): TripPlanState {
+  const grid = tripWeekGridForSeason(season);
   return {
     clusterIds: [...clusterIds],
-    weekIndex: DEFAULT_TRIP_WEEK_INDEX,
+    weekIndex: grid.defaultWeekIndex,
+    season,
   };
 }
 
@@ -29,11 +40,17 @@ export function parseTripPlanState(raw: unknown): TripPlanState | null {
   const clusterIds = row.clusterIds.filter(
     (id): id is string => typeof id === "string" && id.length > 0,
   );
+  const season: TripSeasonId | undefined =
+    row.season === "fall" || row.season === "spring" ? row.season : undefined;
+  const fallbackWeek =
+    season != null
+      ? tripWeekGridForSeason(season).defaultWeekIndex
+      : DEFAULT_TRIP_WEEK_INDEX;
   const weekIndex =
     typeof row.weekIndex === "number" && Number.isFinite(row.weekIndex)
       ? Math.max(0, Math.min(8, Math.round(row.weekIndex)))
-      : DEFAULT_TRIP_WEEK_INDEX;
-  return { clusterIds, weekIndex };
+      : fallbackWeek;
+  return { clusterIds, weekIndex, ...(season ? { season } : {}) };
 }
 
 export function readTripPlanState(
@@ -62,6 +79,7 @@ export function writeTripPlanState(
       JSON.stringify({
         clusterIds: state.clusterIds,
         weekIndex: state.weekIndex,
+        ...(state.season ? { season: state.season } : {}),
       }),
     );
   } catch {

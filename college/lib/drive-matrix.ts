@@ -29,6 +29,18 @@ export type DriveMatrixFile = {
 
 export type TravelMode = "Drive" | "Fly";
 
+/** One-way home → school: Drive if at or under 8 hours. */
+export const DRIVE_ONE_WAY_MAX_MINUTES = 8 * 60;
+
+/**
+ * Outer edge of a 3-day road-trip loop from home (Maplewood).
+ * Schools farther than this one-way are always Fly.
+ */
+export const ROAD_TRIP_ONE_WAY_MAX_MINUTES = 10 * 60;
+
+/** Total driving budget for home → schools → home over a 3-day weekend (~6 hr/day). */
+export const ROAD_TRIP_LOOP_MAX_MINUTES = 18 * 60;
+
 const matrix = matrixFile as DriveMatrixFile;
 const travelPoints = (travelPointsFile as { points: TravelPoint[] }).points;
 
@@ -61,7 +73,61 @@ export function driveMatrixMeta(): { calculatedDate: string; origin: string } {
 
 export function travelModeForMinutes(minutes: number | null): TravelMode | "" {
   if (minutes == null || !Number.isFinite(minutes)) return "";
-  return minutes <= 360 ? "Drive" : "Fly";
+  return minutes <= DRIVE_ONE_WAY_MAX_MINUTES ? "Drive" : "Fly";
+}
+
+/**
+ * True when the school is within an 8-hour drive, or still reachable as a
+ * 3-day road-trip loop from home (solo round-trip or with nearby peers).
+ */
+export function fitsThreeDayRoadTripLoop(
+  schoolId: string,
+  peerSchoolIds: { id: string; name: string }[] = [],
+): boolean {
+  const toId = schoolTravelPointId(schoolId);
+  const out = driveLeg("home", toId);
+  if (!out) return false;
+  if (out.minutes <= DRIVE_ONE_WAY_MAX_MINUTES) return true;
+  if (out.minutes > ROAD_TRIP_ONE_WAY_MAX_MINUTES) return false;
+
+  const back = driveLeg(toId, "home");
+  const soloRound = out.minutes + (back?.minutes ?? out.minutes);
+  if (soloRound <= ROAD_TRIP_LOOP_MAX_MINUTES) return true;
+
+  const peers = nearestSchoolsFrom(
+    schoolId,
+    peerSchoolIds.filter((row) => row.id !== schoolId),
+    2,
+  ).filter((hit) => hit.minutes <= 4 * 60);
+
+  for (let n = 0; n <= peers.length; n++) {
+    const schoolIds = [schoolId, ...peers.slice(0, n).map((hit) => hit.schoolId)];
+    const route = shortestSchoolOrder({
+      startId: "home",
+      endId: "home",
+      schoolIds,
+    });
+    if (
+      route &&
+      !route.incomplete &&
+      route.totalMinutes != null &&
+      route.totalMinutes <= ROAD_TRIP_LOOP_MAX_MINUTES
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Drive vs Fly for a school, including 3-day loop upgrades past the 8-hour line. */
+export function travelModeForSchool(
+  schoolId: string,
+  peerSchoolIds: { id: string; name: string }[] = [],
+): TravelMode | "" {
+  const leg = driveLeg("home", schoolTravelPointId(schoolId));
+  if (!leg) return "";
+  if (leg.minutes <= DRIVE_ONE_WAY_MAX_MINUTES) return "Drive";
+  return fitsThreeDayRoadTripLoop(schoolId, peerSchoolIds) ? "Drive" : "Fly";
 }
 
 export function formatDriveDuration(minutes: number): string {
@@ -93,13 +159,16 @@ export type SchoolDriveFields = {
 };
 
 /** Fill home→school drive fields from the matrix (sole source). */
-export function driveFieldsForSchool(schoolId: string): SchoolDriveFields {
+export function driveFieldsForSchool(
+  schoolId: string,
+  peerSchoolIds: { id: string; name: string }[] = [],
+): SchoolDriveFields {
   const meta = driveMatrixMeta();
   const leg = driveLeg("home", schoolTravelPointId(schoolId));
   return {
     driveMinutes: leg?.minutes ?? null,
     driveMiles: leg?.miles ?? null,
-    travelMode: travelModeForMinutes(leg?.minutes ?? null),
+    travelMode: travelModeForSchool(schoolId, peerSchoolIds),
     driveOrigin: meta.origin,
     driveCalculatedDate: meta.calculatedDate,
   };

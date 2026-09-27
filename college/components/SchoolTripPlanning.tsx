@@ -14,13 +14,13 @@ import {
   KYLE_STUDENT,
   TRIP_INTEREST_LABEL,
   TRIP_INTEREST_ORDER,
-  TRIP_WEEK_LABELS,
   buildTripClusters,
   climateForCityState,
   computePinNudges,
   defaultTripPlanState,
   flightBlurb,
   isoDate,
+  preferredTripSeason,
   readTripPlanState,
   resolveCompareClimate,
   schoolsInTripClusters,
@@ -28,13 +28,16 @@ import {
   toTripSchoolPoint,
   tripDaysFromClusters,
   tripTitle,
+  tripWeekGridForSeason,
   toggleClusterInTrip,
   weekDate,
   writeTripPlanState,
   type TripInterestKey,
   type TripPlanState,
   type TripSchoolPoint,
+  type TripSeasonId,
 } from "@/lib/trip-planning";
+import { travelModeForSchool } from "@/lib/drive-matrix";
 import { SchoolMark } from "./SchoolMark";
 import { TripWhenPanel } from "./trip/TripWhenPanel";
 import { TripItineraryPanel } from "./trip/TripItineraryPanel";
@@ -72,10 +75,14 @@ export function SchoolTripPlanning({
     [school, listSchools],
   );
   const byId = useMemo(() => schoolMapById(listSchools), [listSchools]);
+  const peerRows = useMemo(
+    () => listSchools.filter((row) => !row.archived).map((row) => ({ id: row.id, name: row.name })),
+    [listSchools],
+  );
 
   const [subtab, setSubtab] = useState<TripSubtab>("nearby");
   const [plan, setPlan] = useState<TripPlanState>(() =>
-    defaultTripPlanState(clusters[0] ? [clusters[0].id] : ["same"]),
+    defaultTripPlanState(clusters[0] ? [clusters[0].id] : ["same"], "fall"),
   );
   const [activeClusterId, setActiveClusterId] = useState<string>(
     () => clusters[0]?.id ?? "same",
@@ -87,16 +94,16 @@ export function SchoolTripPlanning({
   useEffect(() => {
     const stored = readTripPlanState(memberId, school.id);
     const available = new Set<string>(clusters.map((c) => c.id));
+    const seedClusters = clusters[0] ? [clusters[0].id] : ["same"];
     if (stored) {
       const clusterIds = stored.clusterIds.filter((id) => available.has(id));
       setPlan({
-        clusterIds: clusterIds.length
-          ? clusterIds
-          : defaultTripPlanState(clusters[0] ? [clusters[0].id] : ["same"]).clusterIds,
+        clusterIds: clusterIds.length ? clusterIds : seedClusters,
         weekIndex: stored.weekIndex,
+        season: stored.season,
       });
     } else {
-      setPlan(defaultTripPlanState(clusters[0] ? [clusters[0].id] : ["same"]));
+      setPlan(defaultTripPlanState(seedClusters, "fall"));
     }
     setActiveClusterId(clusters[0]?.id ?? "same");
     setSubtab("nearby");
@@ -105,6 +112,31 @@ export function SchoolTripPlanning({
   useEffect(() => {
     writeTripPlanState(memberId, school.id, plan);
   }, [memberId, school.id, plan]);
+
+  const tripSchoolIds = useMemo(
+    () => schoolsInTripClusters(clusters, plan.clusterIds),
+    [clusters, plan.clusterIds],
+  );
+
+  const season = useMemo<TripSeasonId>(() => {
+    const ids = tripSchoolIds.length ? tripSchoolIds : [school.id];
+    const modes = ids.map((id) => travelModeForSchool(id, peerRows));
+    return preferredTripSeason(modes);
+  }, [tripSchoolIds, school.id, peerRows]);
+
+  const weekGrid = useMemo(() => tripWeekGridForSeason(season), [season]);
+  const drivePriority = season === "fall";
+
+  useEffect(() => {
+    setPlan((prev) => {
+      if (prev.season === season) return prev;
+      return {
+        ...prev,
+        season,
+        weekIndex: weekGrid.defaultWeekIndex,
+      };
+    });
+  }, [season, weekGrid.defaultWeekIndex]);
 
   useEffect(() => {
     const live = listSchools.filter((row) => !row.archived);
@@ -153,10 +185,6 @@ export function SchoolTripPlanning({
     return map;
   }, [coordsById, byId, nudges]);
 
-  const tripSchoolIds = useMemo(
-    () => schoolsInTripClusters(clusters, plan.clusterIds),
-    [clusters, plan.clusterIds],
-  );
   const tripDays = useMemo(
     () => tripDaysFromClusters(clusters, plan.clusterIds),
     [clusters, plan.clusterIds],
@@ -167,10 +195,10 @@ export function SchoolTripPlanning({
     for (const id of tripSchoolIds) {
       const row = byId.get(id);
       if (!row) continue;
-      map.set(id, buildCampusCalendar(row.name));
+      map.set(id, buildCampusCalendar(row.name, weekGrid));
     }
     return map;
-  }, [tripSchoolIds, byId]);
+  }, [tripSchoolIds, byId, weekGrid]);
 
   const schoolPoint = coordsById.get(school.id) ?? null;
   const flight = useMemo(() => flightBlurb(schoolPoint), [schoolPoint]);
@@ -201,7 +229,7 @@ export function SchoolTripPlanning({
     const todoSchoolIds = new Set<string>();
 
     tripDays.forEach((daySlots, dayIndex) => {
-      const date = weekDate(plan.weekIndex, dayIndex);
+      const date = weekDate(plan.weekIndex, dayIndex, weekGrid);
       const iso = isoDate(date);
       for (const slot of daySlots) {
         if (!slot.schoolId) continue;
@@ -337,6 +365,8 @@ export function SchoolTripPlanning({
           calendars={calendars}
           tripDayCount={tripDays.length}
           weatherLabel={parseSchoolLocation(school.location).city || "Campus"}
+          grid={weekGrid}
+          drivePriority={drivePriority}
           onWeekIndex={setWeekIndex}
         />
       ) : null}
@@ -345,12 +375,13 @@ export function SchoolTripPlanning({
         <TripItineraryPanel
           title={tripTitle(school)}
           weekIndex={plan.weekIndex}
-          weekLabel={TRIP_WEEK_LABELS[plan.weekIndex] ?? ""}
+          weekLabel={weekGrid.weekLabels[plan.weekIndex] ?? ""}
           schoolId={school.id}
           tripSchoolIds={tripSchoolIds}
           tripDays={tripDays}
           byId={byId}
           calendars={calendars}
+          weekGrid={weekGrid}
           onGoWhen={() => setSubtab("when")}
           onSend={sendToCalendar}
         />

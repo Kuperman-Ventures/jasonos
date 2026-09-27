@@ -8,6 +8,7 @@ import {
   formatWeekDate,
   weekDate,
   type CampusWeekInfo,
+  type TripWeekGrid,
 } from "@/lib/trip-planning";
 import { SchoolMark } from "../SchoolMark";
 
@@ -20,6 +21,7 @@ export function TripItineraryPanel({
   tripDays,
   byId,
   calendars,
+  weekGrid,
   onGoWhen,
   onSend,
 }: {
@@ -31,6 +33,7 @@ export function TripItineraryPanel({
   tripDays: VisitSlot[][];
   byId: Map<string, School>;
   calendars: Map<string, Record<number, CampusWeekInfo>>;
+  weekGrid: TripWeekGrid;
   onGoWhen: () => void;
   onSend: () => void;
 }) {
@@ -81,7 +84,7 @@ export function TripItineraryPanel({
             <div key={i} className="trip-day">
               <span className="trip-label trip-label-sm">
                 Day {i + 1} ·{" "}
-                {formatWeekDate(weekDate(weekIndex, i), {
+                {formatWeekDate(weekDate(weekIndex, i, weekGrid), {
                   weekday: "short",
                   month: "short",
                   day: "numeric",
