@@ -71,43 +71,87 @@ test("buildVisitClusters groups same city and same state", () => {
   assert.ok(clusters[1]?.stops.some((s) => s.schoolId === "uga"));
   assert.equal(clusters[2]?.id, "long");
   assert.ok(clusters[2]?.stops.some((s) => s.schoolId === "purdue-university"));
-  for (const cluster of clusters) {
-    for (const stop of cluster.stops) {
-      if (stop.driveFromPrev) {
-        assert.match(stop.driveFromPrev, /min|hr/);
-        assert.equal(/~/.test(stop.driveFromPrev), false);
-      }
-    }
-  }
 });
 
-test("buildTripFromSelection rebuilds route when schools are added", () => {
+test("buildTripFromSelection uses matrix Held-Karp order and home endpoints", () => {
   const gt = school({
     id: "georgia-tech",
     name: "Georgia Institute of Technology (Georgia Tech)",
     location: "Atlanta, GA",
   });
   gt.interestLevel = "top";
-  const emory = school({ id: "emory", name: "Emory University", location: "Atlanta, GA" });
-  emory.interestLevel = "high";
-  const uga = school({ id: "uga", name: "University of Georgia", location: "Athens, GA" });
-  uga.interestLevel = "moderate";
-  const list = [gt, emory, uga];
+  const clemson = school({
+    id: "clemson-university",
+    name: "Clemson University",
+    location: "Clemson, SC",
+  });
+  clemson.interestLevel = "high";
+  const florida = school({
+    id: "university-of-florida",
+    name: "University of Florida",
+    location: "Gainesville, FL",
+  });
+  florida.interestLevel = "moderate";
+  const list = [gt, clemson, florida];
   const clusters = buildVisitClusters(gt, list);
   const byId = schoolMapById(list);
 
-  const justBase = buildTripFromSelection(gt, clusters, ["georgia-tech"], byId);
+  const justBase = buildTripFromSelection(gt, clusters, ["georgia-tech"], byId, {
+    startId: "airport:ATL",
+    endId: "airport:ATL",
+  });
   assert.deepEqual(justBase.orderedIds, ["georgia-tech"]);
   assert.equal(justBase.stops.length, 1);
-  assert.equal(justBase.totalDriveMinutes, 0);
+  assert.ok((justBase.totalDriveMinutes ?? 0) > 0); // ATL ↔ GT round trip
+  assert.equal(justBase.tooMany, false);
+  assert.ok(justBase.route);
 
-  const withPeer = buildTripFromSelection(gt, clusters, ["georgia-tech", "emory"], byId);
-  assert.equal(withPeer.orderedIds.includes("emory"), true);
-  assert.ok(withPeer.totalDriveMinutes > 0);
+  const withPeer = buildTripFromSelection(
+    gt,
+    clusters,
+    ["georgia-tech", "clemson-university"],
+    byId,
+    { startId: "airport:ATL", endId: "airport:ATL" },
+  );
+  assert.equal(withPeer.orderedIds.includes("clemson-university"), true);
+  assert.ok(withPeer.totalDriveMinutes > justBase.totalDriveMinutes);
   assert.ok(withPeer.stops.some((s) => s.driveFromPrev && /min|hr/.test(s.driveFromPrev)));
 
-  const withState = buildTripFromSelection(gt, clusters, ["georgia-tech", "uga"], byId);
-  assert.ok(withState.totalDriveMinutes > withPeer.totalDriveMinutes);
+  const withThird = buildTripFromSelection(
+    gt,
+    clusters,
+    ["georgia-tech", "clemson-university", "university-of-florida"],
+    byId,
+    { startId: "airport:ATL", endId: "airport:ATL" },
+  );
+  assert.equal(withThird.orderedIds.length, 3);
+  assert.ok(withThird.totalDriveMinutes > withPeer.totalDriveMinutes);
+});
+
+test("buildTripFromSelection flags more than 12 schools", () => {
+  const base = school({
+    id: "georgia-tech",
+    name: "Georgia Institute of Technology (Georgia Tech)",
+    location: "Atlanta, GA",
+  });
+  const extras = Array.from({ length: 13 }, (_, i) =>
+    school({
+      id: `extra-${i}`,
+      name: `Extra ${i}`,
+      location: "Atlanta, GA",
+    }),
+  );
+  const list = [base, ...extras];
+  const byId = schoolMapById(list);
+  const plan = buildTripFromSelection(
+    base,
+    [],
+    list.map((s) => s.id),
+    byId,
+    { startId: "home", endId: "home" },
+  );
+  assert.equal(plan.tooMany, true);
+  assert.equal(plan.route, null);
 });
 
 test("filterVisitClusters hides peers by interest but keeps current school", () => {
@@ -137,7 +181,7 @@ test("filterVisitClusters hides peers by interest but keeps current school", () 
 
 test("buildMapRouteParts splits long routes and encodes Google/Apple URLs", () => {
   const stops = ["A", "B", "C", "D", "E", "F", "G"];
-  const parts = buildMapRouteParts(stops, "Home");
+  const parts = buildMapRouteParts(stops, "Home", "Home");
   assert.ok(parts.length >= 2);
   assert.match(parts[0]!.googleUrl, /google\.com\/maps\/dir/);
   assert.match(parts[0]!.appleUrl, /maps\.apple\.com\/directions/);

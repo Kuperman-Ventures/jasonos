@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as d3 from "d3";
 import { feature } from "topojson-client";
 import type { School } from "@/lib/types";
@@ -15,9 +15,6 @@ import {
   type TripInterestKey,
   type TripRegionId,
 } from "@/lib/trip-planning";
-import type { PlannedRoute } from "@/lib/drive-matrix";
-import { US_VISIT_AIRPORTS } from "@/lib/visit-airports";
-import { TripPlanner } from "./TripPlanner";
 
 const WORLD_ATLAS_URL =
   "https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json";
@@ -46,13 +43,6 @@ export function TripAllSchoolsPanel({
   );
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
-  const [planRegion, setPlanRegion] = useState<TripRegionId | null>(null);
-  const [planRoute, setPlanRoute] = useState<PlannedRoute | null>(null);
-  const projRef = useRef<d3.GeoProjection | null>(null);
-
-  const onRouteChange = useCallback((route: PlannedRoute | null) => {
-    setPlanRoute(route);
-  }, []);
 
   const live = useMemo(
     () => listSchools.filter((s) => !s.archived),
@@ -128,7 +118,6 @@ export function TripAllSchoolsPanel({
             ],
           },
         );
-      projRef.current = proj;
       const path = d3.geoPath(proj);
       const g = svg.append("g");
 
@@ -294,68 +283,6 @@ export function TripAllSchoolsPanel({
       .attr("opacity", (d) => (!focus || d.region === focus ? 1 : 0.18));
   }, [focus]);
 
-  // Draw planned route polylines + stop numbers on the US map.
-  useEffect(() => {
-    const svgEl = svgRef.current;
-    const proj = projRef.current;
-    if (!svgEl || !proj) return;
-    const svg = d3.select(svgEl);
-    svg.select("g.trip-route").remove();
-    if (!planRoute?.legs.length) return;
-
-    const g = svg.append("g").attr("class", "trip-route");
-    const pts: [number, number][] = [];
-    for (const id of planRoute.order) {
-      let ll: [number, number] | null = null;
-      if (id === "home") {
-        ll = [KYLE_STUDENT.homeLng, KYLE_STUDENT.homeLat];
-      } else if (id.startsWith("school:")) {
-        const schoolId = id.slice("school:".length);
-        const point = coordsById.get(schoolId);
-        if (point) ll = [point.lng, point.lat];
-      } else if (id.startsWith("airport:")) {
-        const iata = id.slice("airport:".length);
-        const air = US_VISIT_AIRPORTS.find((a) => a.iata === iata);
-        if (air) ll = [air.lng, air.lat];
-      }
-      if (!ll) continue;
-      const xy = proj(ll);
-      if (xy) pts.push(xy as [number, number]);
-    }
-
-    if (pts.length >= 2) {
-      g.append("path")
-        .attr(
-          "d",
-          d3.line<[number, number]>()(pts) ?? "",
-        )
-        .attr("fill", "none")
-        .attr("stroke", "#e85504")
-        .attr("stroke-width", 2.5)
-        .attr("stroke-linejoin", "round")
-        .attr("stroke-linecap", "round");
-    }
-
-    pts.forEach((xy, i) => {
-      g.append("circle")
-        .attr("cx", xy[0])
-        .attr("cy", xy[1])
-        .attr("r", 9)
-        .attr("fill", "#e85504")
-        .attr("stroke", "var(--color-bg)")
-        .attr("stroke-width", 2);
-      g.append("text")
-        .attr("x", xy[0])
-        .attr("y", xy[1])
-        .attr("text-anchor", "middle")
-        .attr("dominant-baseline", "central")
-        .attr("fill", "#fff")
-        .attr("font-size", 10)
-        .attr("font-weight", 700)
-        .text(String(i + 1));
-    });
-  }, [planRoute, coordsById, ready]);
-
   return (
     <div className="trip-panel" role="tabpanel">
       <div className="trip-head-row">
@@ -419,33 +346,10 @@ export function TripAllSchoolsPanel({
                 ))}
               </div>
               <span className="trip-rg-note">{region.note}</span>
-              <button
-                type="button"
-                className="btn btn-secondary trip-rg-plan"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setPlanRegion(region.id);
-                  setFocus(region.id);
-                }}
-              >
-                Plan Trip
-              </button>
             </div>
           ))}
         </div>
       </div>
-
-      {planRegion ? (
-        <TripPlanner
-          regionId={planRegion}
-          schools={live}
-          onRouteChange={onRouteChange}
-          onClose={() => {
-            setPlanRegion(null);
-            setPlanRoute(null);
-          }}
-        />
-      ) : null}
 
       <div className="trip-legend">
         <span className="trip-label trip-label-sm">

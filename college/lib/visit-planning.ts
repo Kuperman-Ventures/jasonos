@@ -1,16 +1,25 @@
 /**
  * Visit planning: cluster list schools around the school being viewed.
- * Trip membership is per-school; drive legs recalculate as the selection changes.
+ * Trip membership is per-school; drive legs and order come from the stored
+ * Google Routes matrix (data/drive-matrix.json) via Held-Karp.
  */
 
 import { interestRank, type InterestLevel, type School } from "@/lib/types";
 import { listPhaseById, type ListPhaseId } from "@/lib/list-phases";
 import {
-  estimateDriveByLocation,
-  estimateDriveBetweenPoints,
-  type DriveEstimate,
-  type GeoPoint,
-} from "@/lib/visit-geo";
+  airportsForRegion,
+  buildRouteFromOrder,
+  defaultTripStartId,
+  driveLeg,
+  formatDriveDuration,
+  schoolTravelPointId,
+  shortestSchoolOrder,
+  travelPointById,
+  type PlannedRoute,
+  type RouteLeg,
+} from "@/lib/drive-matrix";
+import { regionForLocation } from "@/lib/trip-planning/regions";
+import type { DriveEstimate } from "@/lib/visit-geo";
 
 export type VisitInterestKey = "top" | "high" | "moderate" | "safety" | "none";
 
@@ -26,19 +35,35 @@ export type VisitInterestFilter = Record<VisitInterestKey, boolean>;
 
 export type VisitStop = {
   schoolId: string;
-  /** Label between this stop and the previous one (e.g. "~25 min"). */
+  /** Label between this stop and the previous one (e.g. "25 min"). */
   driveFromPrev: string | null;
+  /** True when the leg into this stop is over 5 hours. */
+  longDrive?: boolean;
+};
+
+export type VisitLongDriveWarning = {
+  fromName: string;
+  toName: string;
+  minutes: number;
 };
 
 export type VisitTripPlan = {
-  /** Selected schools in visiting order. */
+  /** Selected schools in visiting order (Held-Karp). */
   orderedIds: string[];
   /** Chain legs for the full trip (same order as orderedIds). */
   stops: VisitStop[];
   /** Day columns for the draft itinerary. */
   days: VisitSlot[][];
-  /** Total estimated drive minutes across consecutive legs. */
+  /** Total estimated drive minutes across the full route (start→schools→end). */
   totalDriveMinutes: number;
+  totalMiles: number | null;
+  longDriveLegs: VisitLongDriveWarning[];
+  tooMany: boolean;
+  incomplete: boolean;
+  startId: string;
+  endId: string;
+  /** Full matrix route including start/end travel points. */
+  route: PlannedRoute | null;
 };
 
 export type VisitSlot = {
@@ -47,6 +72,7 @@ export type VisitSlot = {
   title: string;
   sub?: string;
   icon?: "car" | "meal";
+  longDrive?: boolean;
 };
 
 export type VisitCluster = {
@@ -138,27 +164,31 @@ function sortByInterestThenName(a: School, b: School): number {
 
 export type LegEstimator = (from: School, to: School) => DriveEstimate;
 
-/** Sync estimate from school location strings (used until coords resolve). */
-export function defaultLegEstimator(from: School, to: School): DriveEstimate {
-  return estimateDriveByLocation(from.location, to.location);
+/** Drive estimate from the stored Routes matrix (sole source for Visit legs). */
+export function matrixDriveEstimate(fromId: string, toId: string): DriveEstimate {
+  const leg = driveLeg(schoolTravelPointId(fromId), schoolTravelPointId(toId));
+  if (!leg) return { label: "—", minutes: 0, miles: 0 };
+  return {
+    label: formatDriveDuration(leg.minutes),
+    minutes: leg.minutes,
+    miles: leg.miles,
+  };
 }
 
-/** Build an estimator from a map of schoolId → coords. Falls back to location heuristic. */
-export function legEstimatorFromCoords(
-  coordsById: Map<string, GeoPoint | null>,
-): LegEstimator {
-  return (from, to) => {
-    const a = coordsById.get(from.id);
-    const b = coordsById.get(to.id);
-    if (a && b) return estimateDriveBetweenPoints(a, b);
-    return defaultLegEstimator(from, to);
-  };
+/** Sync estimator used by cluster chains and day plans. */
+export function matrixLegEstimator(): LegEstimator {
+  return (from, to) => matrixDriveEstimate(from.id, to.id);
+}
+
+/** Alias kept for older call sites / tests. */
+export function defaultLegEstimator(from: School, to: School): DriveEstimate {
+  return matrixDriveEstimate(from.id, to.id);
 }
 
 export function buildDayPlan(
   base: School,
   ordered: School[],
-  estimateLeg: LegEstimator = defaultLegEstimator,
+  estimateLeg: LegEstimator = matrixLegEstimator(),
 ): VisitSlot[] {
   const slots: VisitSlot[] = [];
   let hour = 9;
@@ -166,12 +196,14 @@ export function buildDayPlan(
     if (index > 0) {
       const prev = ordered[index - 1]!;
       const leg = estimateLeg(prev, school);
+      const longDrive = leg.minutes > 300;
       slots.push({
         time: `${hour}:00`,
         schoolId: null,
         title: `Drive · ${leg.label}`,
-                  sub: `${shortSchoolName(prev.name)} → ${shortSchoolName(school.name)} · ${leg.miles} mi`,
+        sub: `${shortSchoolName(prev.name)} → ${shortSchoolName(school.name)} · ${leg.miles} mi`,
         icon: "car",
+        longDrive,
       });
       hour += Math.max(1, Math.min(3, Math.round(leg.minutes / 60) || 1));
     }
@@ -201,123 +233,135 @@ export function buildDayPlan(
 
 function stopsFromOrdered(
   ordered: School[],
-  estimateLeg: LegEstimator = defaultLegEstimator,
+  estimateLeg: LegEstimator = matrixLegEstimator(),
 ): VisitStop[] {
   return ordered.map((school, index) => {
     if (index === 0) return { schoolId: school.id, driveFromPrev: null };
     const prev = ordered[index - 1]!;
+    const leg = estimateLeg(prev, school);
     return {
       schoolId: school.id,
-      driveFromPrev: estimateLeg(prev, school).label,
+      driveFromPrev: leg.label === "—" ? null : leg.label,
+      longDrive: leg.minutes > 300,
     };
   });
 }
 
-/** Nearest-neighbor order starting at `start` (or first school). */
-export function optimizeStopOrder(
-  schools: School[],
-  start: School | null,
-  estimateLeg: LegEstimator = defaultLegEstimator,
-): School[] {
-  if (schools.length <= 2) return [...schools];
-  const remaining = [...schools];
-  const ordered: School[] = [];
-  let current: School;
-  if (start && remaining.some((row) => row.id === start.id)) {
-    current = remaining.find((row) => row.id === start.id)!;
-  } else {
-    current = remaining[0]!;
-  }
-  ordered.push(current);
-  remaining.splice(
-    remaining.findIndex((row) => row.id === current.id),
-    1,
-  );
-  while (remaining.length) {
-    let bestIndex = 0;
-    let bestMinutes = Number.POSITIVE_INFINITY;
-    remaining.forEach((candidate, index) => {
-      const minutes = estimateLeg(current, candidate).minutes;
-      if (minutes < bestMinutes) {
-        bestMinutes = minutes;
-        bestIndex = index;
-      }
-    });
-    current = remaining.splice(bestIndex, 1)[0]!;
-    ordered.push(current);
-  }
-  return ordered;
+function emptyTripPlan(startId: string, endId: string): VisitTripPlan {
+  return {
+    orderedIds: [],
+    stops: [],
+    days: [],
+    totalDriveMinutes: 0,
+    totalMiles: 0,
+    longDriveLegs: [],
+    tooMany: false,
+    incomplete: false,
+    startId,
+    endId,
+    route: null,
+  };
+}
+
+function longDriveWarnings(legs: RouteLeg[]): VisitLongDriveWarning[] {
+  return legs
+    .filter((leg) => leg.longDrive && !leg.missing && leg.minutes != null)
+    .map((leg) => ({
+      fromName: leg.fromName,
+      toName: leg.toName,
+      minutes: leg.minutes!,
+    }));
 }
 
 /**
  * Build the live trip from individually selected schools.
- * Order follows cluster rings, then nearest-neighbor within each day group.
+ * Order is Held-Karp shortest path on the stored drive matrix (≤ 12 schools).
  */
 export function buildTripFromSelection(
   base: School,
-  clusters: VisitCluster[],
+  _clusters: VisitCluster[],
   selectedIds: string[],
   byId: Map<string, School>,
-  estimateLeg: LegEstimator = defaultLegEstimator,
+  opts: {
+    startId: string;
+    endId: string;
+    estimateLeg?: LegEstimator;
+  } = { startId: "home", endId: "home" },
 ): VisitTripPlan {
-  const selected = new Set(selectedIds);
-  if (selected.size === 0) {
-    return { orderedIds: [], stops: [], days: [], totalDriveMinutes: 0 };
+  const startId = opts.startId;
+  const endId = opts.endId;
+  const estimateLeg = opts.estimateLeg ?? matrixLegEstimator();
+  const selected = [...new Set(selectedIds)].filter((id) => byId.has(id));
+
+  if (selected.length === 0) return emptyTripPlan(startId, endId);
+
+  if (selected.length > 12) {
+    return {
+      ...emptyTripPlan(startId, endId),
+      orderedIds: selected,
+      tooMany: true,
+    };
   }
 
-  // Collect selected schools per cluster (first membership wins), preserving ring order.
-  const perCluster: School[][] = [];
-  const seen = new Set<string>();
-  for (const cluster of clusters) {
-    const group: School[] = [];
-    for (const stop of cluster.stops) {
-      if (!selected.has(stop.schoolId) || seen.has(stop.schoolId)) continue;
-      const row = byId.get(stop.schoolId);
-      if (!row) continue;
-      seen.add(row.id);
-      group.push(row);
+  const nameById = new Map<string, string>();
+  nameById.set("home", "Home");
+  for (const id of selected) {
+    const row = byId.get(id)!;
+    nameById.set(id, row.name);
+    nameById.set(schoolTravelPointId(id), row.name);
+  }
+  for (const point of [travelPointById(startId), travelPointById(endId)]) {
+    if (point) nameById.set(point.id, point.name);
+  }
+
+  const route =
+    shortestSchoolOrder({
+      startId,
+      endId,
+      schoolIds: selected,
+      nameById,
+    }) ??
+    buildRouteFromOrder({
+      startId,
+      endId,
+      schoolIds: selected,
+      nameById,
+    });
+
+  const ordered: School[] = [];
+  for (const pointId of route.order) {
+    if (!pointId.startsWith("school:")) continue;
+    const row = byId.get(pointId.slice("school:".length));
+    if (row) ordered.push(row);
+  }
+  if (ordered.length === 0) {
+    for (const id of selected) {
+      const row = byId.get(id);
+      if (row) ordered.push(row);
     }
-    if (group.length) perCluster.push(group);
-  }
-
-  // Any selected id not in a cluster (shouldn't happen) appends at the end.
-  for (const id of selectedIds) {
-    if (seen.has(id)) continue;
-    const row = byId.get(id);
-    if (!row) continue;
-    perCluster.push([row]);
-    seen.add(id);
   }
 
   const days: VisitSlot[][] = [];
-  const ordered: School[] = [];
-  for (const group of perCluster) {
-    const start = group.some((row) => row.id === base.id) ? base : group[0]!;
-    const optimized = optimizeStopOrder(group, start, estimateLeg);
-    for (const row of optimized) {
-      if (!ordered.some((existing) => existing.id === row.id)) ordered.push(row);
-    }
-    // Longer groups split across two days when more than 3 stops.
-    if (optimized.length > 3) {
-      const mid = Math.ceil(optimized.length / 2);
-      days.push(buildDayPlan(base, optimized.slice(0, mid), estimateLeg));
-      days.push(buildDayPlan(base, optimized.slice(mid), estimateLeg));
-    } else {
-      days.push(buildDayPlan(base, optimized, estimateLeg));
-    }
-  }
-
-  const stops = stopsFromOrdered(ordered, estimateLeg);
-  let totalDriveMinutes = 0;
-  for (let i = 1; i < ordered.length; i++) {
-    totalDriveMinutes += estimateLeg(ordered[i - 1]!, ordered[i]!).minutes;
+  if (ordered.length > 3) {
+    const mid = Math.ceil(ordered.length / 2);
+    days.push(buildDayPlan(base, ordered.slice(0, mid), estimateLeg));
+    days.push(buildDayPlan(base, ordered.slice(mid), estimateLeg));
+  } else if (ordered.length > 0) {
+    days.push(buildDayPlan(base, ordered, estimateLeg));
   }
 
   return {
     orderedIds: ordered.map((row) => row.id),
-    stops,
+    stops: stopsFromOrdered(ordered, estimateLeg),
     days,
-    totalDriveMinutes,
+    totalDriveMinutes: route.totalMinutes ?? 0,
+    totalMiles: route.totalMiles,
+    longDriveLegs: longDriveWarnings(route.legs),
+    tooMany: false,
+    incomplete: route.incomplete,
+    startId,
+    endId,
+    route,
   };
 }
 
@@ -325,7 +369,7 @@ export function buildTripFromSelection(
 export function withDynamicClusterLegs(
   cluster: VisitCluster,
   byId: Map<string, School>,
-  estimateLeg: LegEstimator = defaultLegEstimator,
+  estimateLeg: LegEstimator = matrixLegEstimator(),
 ): VisitCluster {
   const ordered = cluster.stops
     .map((stop) => byId.get(stop.schoolId))
@@ -336,11 +380,31 @@ export function withDynamicClusterLegs(
   };
 }
 
+/** Start/end choices for Visit Planning: Home plus the school's region airports. */
+export function visitEndpointOptions(school: School): { id: string; label: string }[] {
+  const region = regionForLocation(school.location);
+  const airports = region ? airportsForRegion(region) : [];
+  return [
+    { id: "home", label: "Home (Maplewood, NJ)" },
+    ...airports.map((a) => ({ id: a.id, label: a.name })),
+  ];
+}
+
+export function defaultVisitStartId(school: School): string {
+  const region = regionForLocation(school.location);
+  return region ? defaultTripStartId(region) : "home";
+}
+
+export function travelPointMapLabel(pointId: string): string | null {
+  return travelPointById(pointId)?.address ?? null;
+}
+
 /** Suggest visit clusters around `base` using list schools' City, ST locations. */
 export function buildVisitClusters(base: School, listSchools: School[]): VisitCluster[] {
   const live = listSchools.filter((school) => !school.archived);
   const here = parseSchoolLocation(base.location);
   const others = live.filter((school) => school.id !== base.id);
+  const estimateLeg = matrixLegEstimator();
 
   const sameCity = others
     .filter((school) => {
@@ -375,12 +439,12 @@ export function buildVisitClusters(base: School, listSchools: School[]): VisitCl
     name: "Same day",
     sub: here.city ? `${here.city} area` : "Local campus",
     days: 1,
-    stops: stopsFromOrdered(sameDayOrdered),
+    stops: stopsFromOrdered(sameDayOrdered, estimateLeg),
     note:
       sameCity.length > 0
         ? `Other list schools in ${here.city || "this city"}. Tap schools to add them to the trip.`
         : `Start with ${shortSchoolName(base.name)}. No other list schools share this city yet.`,
-    plan: [buildDayPlan(base, sameDayOrdered)],
+    plan: [buildDayPlan(base, sameDayOrdered, estimateLeg)],
   });
 
   if (sameState.length > 0) {
@@ -390,9 +454,9 @@ export function buildVisitClusters(base: School, listSchools: School[]): VisitCl
       name: "+1 day",
       sub: here.state ? `${here.state} campuses` : "Nearby state",
       days: 1,
-      stops: stopsFromOrdered(plusOrdered),
+      stops: stopsFromOrdered(plusOrdered, estimateLeg),
       note: `Same-state list schools. Drive times update as you add or remove stops.`,
-      plan: [buildDayPlan(base, plusOrdered)],
+      plan: [buildDayPlan(base, plusOrdered, estimateLeg)],
     });
   }
 
@@ -402,17 +466,17 @@ export function buildVisitClusters(base: School, listSchools: School[]): VisitCl
     const plan: VisitSlot[][] =
       days === 2
         ? [
-            buildDayPlan(base, [base, farther[0]!]),
-            buildDayPlan(base, farther.slice(1)),
+            buildDayPlan(base, [base, farther[0]!], estimateLeg),
+            buildDayPlan(base, farther.slice(1), estimateLeg),
           ]
-        : [buildDayPlan(base, longOrdered)];
+        : [buildDayPlan(base, longOrdered, estimateLeg)];
     clusters.push({
       id: "long",
       name: "Longer trip",
       sub: "Beyond this state",
       days,
-      stops: stopsFromOrdered(longOrdered),
-      note: "Higher-interest schools farther out. Pick the ones worth the drive.",
+      stops: stopsFromOrdered(longOrdered, estimateLeg),
+      note: "Higher-interest schools farther out. Drive times come from the stored matrix.",
       plan,
     });
   }
@@ -554,8 +618,6 @@ export function schoolMapLocation(school: School): string {
   return parts.join(", ");
 }
 
-const MAX_PLACES_PER_LINK = 5; // start + 3 waypoints + destination
-
 function googleDirUrl(origin: string | null, stops: string[]): string {
   if (stops.length === 0) return "https://www.google.com/maps/dir/?api=1&travelmode=driving";
   const destination = stops[stops.length - 1]!;
@@ -585,21 +647,29 @@ function appleDirUrl(origin: string | null, stops: string[]): string {
 /**
  * Build Google/Apple multi-stop links. At most 5 places per part (start + 3 mid + end).
  * When origin is null, the first school is the start of the route for splitting.
+ * When endLocation is set, it is appended as the final destination (return to home/airport).
  */
 export function buildMapRouteParts(
   stopLocations: string[],
   origin: string | null,
+  endLocation: string | null = null,
 ): MapRoutePart[] {
-  if (stopLocations.length === 0) return [];
+  if (stopLocations.length === 0 && !endLocation) return [];
 
-  // Capacity for school stops per part: with origin → 4 schools (3 wp + dest); without → 5 (first as origin-like)
+  const routeStops =
+    endLocation && (!stopLocations.length || stopLocations[stopLocations.length - 1] !== endLocation)
+      ? [...stopLocations, endLocation]
+      : [...stopLocations];
+  if (routeStops.length === 0) return [];
+
+  // Capacity for stops per part: with origin → 4 (3 wp + dest); without → 5
   const schoolCapacity = origin ? 4 : 5;
-  if (stopLocations.length <= schoolCapacity) {
+  if (routeStops.length <= schoolCapacity) {
     return [
       {
         label: "Full route",
-        googleUrl: googleDirUrl(origin, stopLocations),
-        appleUrl: appleDirUrl(origin, stopLocations),
+        googleUrl: googleDirUrl(origin, routeStops),
+        appleUrl: appleDirUrl(origin, routeStops),
       },
     ];
   }
@@ -608,18 +678,16 @@ export function buildMapRouteParts(
   let index = 0;
   let partOrigin = origin;
   let partNum = 1;
-  while (index < stopLocations.length) {
-    const remaining = stopLocations.length - index;
+  while (index < routeStops.length) {
+    const remaining = routeStops.length - index;
     const take = Math.min(schoolCapacity, remaining);
-    // When continuing a split, overlap: first stop of this part is last stop of previous
-    const chunk = stopLocations.slice(index, index + take);
+    const chunk = routeStops.slice(index, index + take);
     parts.push({
       label: `Part ${partNum}`,
       googleUrl: googleDirUrl(partOrigin, chunk),
       appleUrl: appleDirUrl(partOrigin, chunk),
     });
-    if (index + take >= stopLocations.length) break;
-    // Next part starts at last school of this chunk
+    if (index + take >= routeStops.length) break;
     const last = chunk[chunk.length - 1]!;
     partOrigin = last;
     index = index + take - 1; // overlap last stop

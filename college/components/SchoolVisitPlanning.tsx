@@ -2,20 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  AirplaneTilt,
   CalendarPlus,
   Car,
   ForkKnife,
-  MapPin,
   MapTrifold,
 } from "@phosphor-icons/react";
 import type { CalendarEvent } from "@/lib/calendar-events";
+import { formatDriveDuration } from "@/lib/drive-matrix";
 import { INBOX_PARENT_ID, type PersistedProjectStep } from "@/lib/ingest";
 import { memberOwnerId } from "@/lib/project-todos";
 import type { ListPhaseId } from "@/lib/list-phases";
 import type { School } from "@/lib/types";
-import { nearestAirport, type NearestAirport } from "@/lib/visit-airports";
-import { geocodeCityState, type GeoPoint } from "@/lib/visit-geo";
 import {
   VISIT_FILTER_LEVELS,
   anyFilterLevelOn,
@@ -24,14 +21,16 @@ import {
   buildVisitClusters,
   buildVisitTripMeta,
   defaultVisitInterestFilter,
+  defaultVisitStartId,
   filterVisitClusters,
-  legEstimatorFromCoords,
+  matrixLegEstimator,
   nearbySchoolStats,
-  parseSchoolLocation,
   readStoredVisitFilter,
   schoolMapById,
   schoolMapLocation,
   shortSchoolName,
+  travelPointMapLabel,
+  visitEndpointOptions,
   visitInterestKey,
   visitInterestLabel,
   withDynamicClusterLegs,
@@ -152,24 +151,35 @@ export function SchoolVisitPlanning({
     () => buildVisitTripMeta(school, listPhaseId, processPhaseLabel),
     [school, listPhaseId, processPhaseLabel],
   );
+  const endpointOptions = useMemo(() => visitEndpointOptions(school), [school]);
+  const estimateLeg = useMemo(() => matrixLegEstimator(), []);
 
   const [filter, setFilter] = useState<VisitInterestFilter>(defaultVisitInterestFilter);
   /** Schools in the trip (individual selection). */
   const [tripIds, setTripIds] = useState<string[]>([school.id]);
-  /** Map directions start: device location or nearest commercial airport. */
-  const [startMode, setStartMode] = useState<"current" | "airport">("current");
-  const [coordsById, setCoordsById] = useState<Map<string, GeoPoint | null>>(() => new Map());
+  const [startId, setStartId] = useState(() => defaultVisitStartId(school));
+  const [endChoice, setEndChoice] = useState<string>("__same__");
   const [toast, setToast] = useState<string | null>(null);
+
+  const endId = endChoice === "__same__" ? startId : endChoice;
 
   useEffect(() => {
     setFilter(readStoredVisitFilter());
   }, []);
 
   useEffect(() => {
-    // Reset trip + start mode when navigating between school records.
+    // Reset trip + endpoints when navigating between school records.
     setTripIds([school.id]);
-    setStartMode("current");
+    setStartId(defaultVisitStartId(school));
+    setEndChoice("__same__");
   }, [school.id]);
+
+  // Keep start/end valid if region airports change.
+  useEffect(() => {
+    const allowed = new Set(endpointOptions.map((opt) => opt.id));
+    if (!allowed.has(startId)) setStartId(defaultVisitStartId(school));
+    if (endChoice !== "__same__" && !allowed.has(endChoice)) setEndChoice("__same__");
+  }, [endpointOptions, startId, endChoice, school]);
 
   const filterOn = anyFilterLevelOn(filter);
   const filteredClusters = useMemo(
@@ -191,8 +201,6 @@ export function SchoolVisitPlanning({
     });
   }, [filteredClusters, school.id]);
 
-  const estimateLeg = useMemo(() => legEstimatorFromCoords(coordsById), [coordsById]);
-
   const displayClusters = useMemo(
     () =>
       filteredClusters.map((cluster) => withDynamicClusterLegs(cluster, byId, estimateLeg)),
@@ -200,68 +208,30 @@ export function SchoolVisitPlanning({
   );
 
   const tripPlan = useMemo(
-    () => buildTripFromSelection(school, filteredClusters, tripIds, byId, estimateLeg),
-    [school, filteredClusters, tripIds, byId, estimateLeg],
+    () =>
+      buildTripFromSelection(school, filteredClusters, tripIds, byId, {
+        startId,
+        endId,
+        estimateLeg,
+      }),
+    [school, filteredClusters, tripIds, byId, startId, endId, estimateLeg],
   );
-
-  // Geocode selected + visible stops so drive labels refine beyond the city heuristic.
-  useEffect(() => {
-    const ids = new Set<string>([
-      school.id,
-      ...tripPlan.orderedIds,
-      ...filteredClusters.flatMap((cluster) => cluster.stops.map((stop) => stop.schoolId)),
-    ]);
-    let cancelled = false;
-    void (async () => {
-      const next = new Map(coordsById);
-      let changed = false;
-      for (const id of ids) {
-        if (next.has(id)) continue;
-        const row = byId.get(id);
-        if (!row) continue;
-        const loc = parseSchoolLocation(row.location);
-        const point = await geocodeCityState(loc.city, loc.state);
-        if (cancelled) return;
-        next.set(id, point);
-        changed = true;
-      }
-      if (changed && !cancelled) setCoordsById(new Map(next));
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // coordsById intentionally omitted — we only seed missing ids.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [school.id, tripPlan.orderedIds.join("|"), filteredClusters, byId]);
-
-  const schoolPoint = coordsById.get(school.id) ?? null;
-  const closestAirport: NearestAirport | null = useMemo(
-    () => (schoolPoint ? nearestAirport(schoolPoint) : null),
-    [schoolPoint],
-  );
-
-  useEffect(() => {
-    // If airport mode was on but we lost a match, fall back to current location.
-    if (startMode === "airport" && schoolPoint && !closestAirport) {
-      setStartMode("current");
-    }
-  }, [startMode, schoolPoint, closestAirport]);
 
   const stats = nearbySchoolStats(clusters, filteredClusters, school.id);
   const allLevelsOn = VISIT_FILTER_LEVELS.every((key) => filter[key]);
   const days = tripPlan.days;
   const schoolCount = tripPlan.orderedIds.length;
 
-  const mapOrigin =
-    startMode === "airport" && closestAirport ? closestAirport.mapOrigin : null;
+  const mapOrigin = travelPointMapLabel(startId);
+  const mapEnd = travelPointMapLabel(endId);
 
   const routeParts = useMemo(() => {
     const locations = tripPlan.orderedIds
       .map((id) => byId.get(id))
       .filter((row): row is School => Boolean(row))
       .map(schoolMapLocation);
-    return buildMapRouteParts(locations, mapOrigin);
-  }, [tripPlan.orderedIds, byId, mapOrigin]);
+    return buildMapRouteParts(locations, mapOrigin, mapEnd);
+  }, [tripPlan.orderedIds, byId, mapOrigin, mapEnd]);
 
   function setFilterLevel(key: VisitInterestKey, on: boolean) {
     setFilter((prev) => {
@@ -375,10 +345,15 @@ export function SchoolVisitPlanning({
       .filter((row): row is School => Boolean(row))
       .map(schoolMapLocation);
     const origin = dayIndex === 0 ? mapOrigin : null;
-    return buildMapRouteParts(locations, origin);
+    const end = dayIndex === days.length - 1 ? mapEnd : null;
+    return buildMapRouteParts(locations, origin, end);
   }
 
   const driveSummary = formatTotalDrive(tripPlan.totalDriveMinutes);
+  const milesSummary =
+    tripPlan.totalMiles != null && Number.isFinite(tripPlan.totalMiles)
+      ? `${tripPlan.totalMiles} mi`
+      : "";
 
   return (
     <section className="school-visit">
@@ -461,12 +436,13 @@ export function SchoolVisitPlanning({
                 {trip.window} · {schoolCount} school{schoolCount === 1 ? "" : "s"} ·{" "}
                 {days.length} day{days.length === 1 ? "" : "s"}
                 {driveSummary ? ` · ${driveSummary}` : ""}
+                {milesSummary ? ` · ${milesSummary}` : ""}
               </p>
             </div>
             <button
               type="button"
               className="visit-send"
-              disabled={!days.length}
+              disabled={!days.length || tripPlan.tooMany}
               onClick={send}
             >
               <CalendarPlus size={18} weight="duotone" aria-hidden="true" />
@@ -476,35 +452,34 @@ export function SchoolVisitPlanning({
 
           {schoolCount > 0 ? (
             <div className="visit-map-row" aria-live="polite">
-              <div className="visit-start-from" role="group" aria-label="Start map route from">
-                <button
-                  type="button"
-                  className="visit-start-choice"
-                  aria-pressed={startMode === "current"}
-                  onClick={() => setStartMode("current")}
-                >
-                  <MapPin size={16} weight="duotone" aria-hidden="true" />
-                  Current location
-                </button>
-                <button
-                  type="button"
-                  className="visit-start-choice"
-                  aria-pressed={startMode === "airport"}
-                  disabled={!closestAirport}
-                  title={
-                    closestAirport
-                      ? `${closestAirport.name} · ${closestAirport.miles} mi from ${shortSchoolName(school.name)}`
-                      : "Finding nearest airport…"
-                  }
-                  onClick={() => {
-                    if (closestAirport) setStartMode("airport");
-                  }}
-                >
-                  <AirplaneTilt size={16} weight="duotone" aria-hidden="true" />
-                  {closestAirport
-                    ? `${closestAirport.buttonLabel} · ${closestAirport.miles} mi`
-                    : "Nearest airport…"}
-                </button>
+              <div className="visit-endpoints" role="group" aria-label="Trip start and end">
+                <label>
+                  Start
+                  <select
+                    value={startId}
+                    onChange={(event) => setStartId(event.target.value)}
+                  >
+                    {endpointOptions.map((opt) => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  End
+                  <select
+                    value={endChoice}
+                    onChange={(event) => setEndChoice(event.target.value)}
+                  >
+                    <option value="__same__">Same as start</option>
+                    {endpointOptions.map((opt) => (
+                      <option key={opt.id} value={opt.id}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </div>
               <div className="visit-route-actions">
                 {routeParts.length === 1 ? (
@@ -548,6 +523,29 @@ export function SchoolVisitPlanning({
             </div>
           ) : null}
 
+          {tripPlan.tooMany ? (
+            <p className="visit-long-warn">
+              Select 12 or fewer schools to plan a route.
+            </p>
+          ) : null}
+
+          {tripPlan.longDriveLegs.length > 0 ? (
+            <ul className="visit-long-warns" aria-label="Long drive warnings">
+              {tripPlan.longDriveLegs.map((leg) => (
+                <li key={`${leg.fromName}|${leg.toName}`}>
+                  Long drive — {leg.fromName} to {leg.toName}:{" "}
+                  {formatDriveDuration(leg.minutes)}. Consider splitting across two days.
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
+          {tripPlan.incomplete ? (
+            <p className="visit-long-warn">
+              Some drive times are missing from the stored matrix for this route.
+            </p>
+          ) : null}
+
           {days.length ? (
             <div className="visit-days">
               {days.map((slots, dayIndex) => (
@@ -565,7 +563,7 @@ export function SchoolVisitPlanning({
                         <div
                           className={`visit-box${here ? " here" : ""}${
                             !slot.schoolId ? " gap" : ""
-                          }`}
+                          }${slot.longDrive ? " long-drive" : ""}`}
                         >
                           {stop ? (
                             <SchoolMark name={stop.name} website={stop.website} />
@@ -577,6 +575,11 @@ export function SchoolVisitPlanning({
                           <div>
                             <b>{slot.title}</b>
                             {slot.sub ? <small>{slot.sub}</small> : null}
+                            {slot.longDrive ? (
+                              <small className="visit-slot-long">
+                                Long drive — consider splitting across two days.
+                              </small>
+                            ) : null}
                           </div>
                         </div>
                       </div>
@@ -589,7 +592,8 @@ export function SchoolVisitPlanning({
             <p className="visit-empty">Add schools above to start a trip.</p>
           )}
           <p className="visit-foot">
-            Tour and info session times are placeholders until booked.
+            Tour and info session times are placeholders until booked. Drive times are from
+            the stored Google Routes matrix.
           </p>
         </section>
       ) : null}
@@ -665,7 +669,16 @@ function ClusterBlock({
               return (
                 <span key={stop.schoolId} className="visit-chain-piece">
                   {stop.driveFromPrev ? (
-                    <span className="visit-leg">{stop.driveFromPrev}</span>
+                    <span
+                      className={`visit-leg${stop.longDrive ? " long-drive" : ""}`}
+                      title={
+                        stop.longDrive
+                          ? "Long drive — consider splitting across two days."
+                          : undefined
+                      }
+                    >
+                      {stop.driveFromPrev}
+                    </span>
                   ) : null}
                   <StopChip
                     school={row}
