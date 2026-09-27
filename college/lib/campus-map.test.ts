@@ -10,9 +10,10 @@ import {
   zoomForRadiusMiles,
 } from "./campus-map";
 
-test("zoomForRadiusMiles targets about 15 mi radius at mid latitudes", () => {
+test("zoomForRadiusMiles targets about 7 mi radius at mid latitudes", () => {
+  assert.equal(CAMPUS_MAP_RADIUS_MILES, 7);
   const zoom = zoomForRadiusMiles(42.36, CAMPUS_MAP_RADIUS_MILES);
-  assert.ok(zoom >= 10 && zoom <= 12, `zoom=${zoom}`);
+  assert.ok(zoom >= 11 && zoom <= 13, `zoom=${zoom}`);
 });
 
 test("circlePathPoints closes the ring", () => {
@@ -41,8 +42,8 @@ test("googleSatelliteMapsHref opens satellite basemap", () => {
   assert.match(href, /1e3/);
 });
 
-test("milesToMeters converts fifteen miles", () => {
-  assert.equal(Math.round(milesToMeters(15)), 24140);
+test("milesToMeters converts seven miles", () => {
+  assert.equal(Math.round(milesToMeters(7)), 11265);
 });
 
 test("parseCampusMapQuery validates coordinates", () => {
