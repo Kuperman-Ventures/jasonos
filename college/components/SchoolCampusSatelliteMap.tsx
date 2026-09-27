@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import type { School } from "@/lib/types";
 import {
   CAMPUS_MAP_RADIUS_MILES,
   googleSatelliteMapsHref,
-  loadGoogleMapsJavaScript,
   milesToMeters,
   zoomForRadiusMiles,
 } from "@/lib/campus-map";
@@ -15,8 +16,11 @@ import { parseSchoolLocation } from "@/lib/visit-planning";
 type LoadState =
   | { status: "loading" }
   | { status: "ready"; coords: GeoPoint }
-  | { status: "needs_api"; coords: GeoPoint; message: string }
   | { status: "error"; message: string };
+
+/** Esri World Imagery — no Google Maps JS key required; zoom & pan work. */
+const SATELLITE_TILE_URL =
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 
 async function resolveCampusPoint(school: School): Promise<GeoPoint | null> {
   const address = school.visitAddress?.trim();
@@ -39,29 +43,14 @@ async function resolveCampusPoint(school: School): Promise<GeoPoint | null> {
   return geocodeCityState(loc.city, loc.state);
 }
 
-async function fetchBrowserMapsKey(): Promise<string> {
-  const res = await fetch("/api/maps/browser-key");
-  if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as {
-      error?: string;
-      message?: string;
-    } | null;
-    throw new Error(body?.message || "Could not load Maps API key.");
-  }
-  const body = (await res.json()) as { key?: string };
-  if (!body.key) throw new Error("Maps API key missing from server.");
-  return body.key;
-}
-
 export function SchoolCampusSatelliteMap({ school }: { school: School }) {
   const mapNode = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<google.maps.Map | null>(null);
+  const leafletRef = useRef<L.Map | null>(null);
   const [state, setState] = useState<LoadState>({ status: "loading" });
 
   useEffect(() => {
     let cancelled = false;
     setState({ status: "loading" });
-    mapRef.current = null;
 
     void (async () => {
       const coords = await resolveCampusPoint(school);
@@ -73,35 +62,7 @@ export function SchoolCampusSatelliteMap({ school }: { school: School }) {
         });
         return;
       }
-
-      try {
-        const key = await fetchBrowserMapsKey();
-        if (cancelled) return;
-        await loadGoogleMapsJavaScript(key);
-        if (cancelled) return;
-        if (!window.google?.maps?.Map) {
-          throw new Error("Google Maps failed to initialize.");
-        }
-        setState({ status: "ready", coords });
-      } catch (error) {
-        if (cancelled) return;
-        const message =
-          error instanceof Error ? error.message : "Satellite map could not load.";
-        const needsApi =
-          /not authorized|ApiNotActivated|Maps JavaScript API|REQUEST_DENIED/i.test(
-            message,
-          );
-        if (needsApi) {
-          setState({
-            status: "needs_api",
-            coords,
-            message:
-              "Enable Maps JavaScript API on this Google Cloud key (keep Maps Static + Routes too) to use zoom and pan here.",
-          });
-          return;
-        }
-        setState({ status: "error", message });
-      }
+      setState({ status: "ready", coords });
     })();
 
     return () => {
@@ -110,64 +71,64 @@ export function SchoolCampusSatelliteMap({ school }: { school: School }) {
   }, [school.id, school.location, school.visitAddress]);
 
   useEffect(() => {
-    if (state.status !== "ready" || !mapNode.current || !window.google?.maps) return;
+    if (state.status !== "ready" || !mapNode.current) return;
+
+    if (leafletRef.current) {
+      leafletRef.current.remove();
+      leafletRef.current = null;
+    }
+
+    // Leaflet requires a clean container (no leftover Google Maps DOM).
+    mapNode.current.innerHTML = "";
 
     const { coords } = state;
     const zoom = zoomForRadiusMiles(coords.lat, CAMPUS_MAP_RADIUS_MILES, 720);
-    const center = { lat: coords.lat, lng: coords.lng };
-
-    const map = new google.maps.Map(mapNode.current, {
-      center,
+    const map = L.map(mapNode.current, {
+      center: [coords.lat, coords.lng],
       zoom,
-      mapTypeId: google.maps.MapTypeId.SATELLITE,
-      mapTypeControl: true,
-      mapTypeControlOptions: {
-        style: google.maps.MapTypeControlStyle.DROPDOWN_MENU,
-        mapTypeIds: [
-          google.maps.MapTypeId.SATELLITE,
-          google.maps.MapTypeId.HYBRID,
-          google.maps.MapTypeId.ROADMAP,
-        ],
-      },
       zoomControl: true,
-      zoomControlOptions: {
-        position: google.maps.ControlPosition.RIGHT_BOTTOM,
-      },
-      streetViewControl: false,
-      fullscreenControl: true,
-      scaleControl: true,
-      rotateControl: false,
-      gestureHandling: "greedy",
-      clickableIcons: false,
+      attributionControl: true,
+      scrollWheelZoom: true,
     });
 
-    new google.maps.Marker({
-      map,
-      position: center,
-      title: school.name,
-    });
+    L.tileLayer(SATELLITE_TILE_URL, {
+      attribution:
+        "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+      maxZoom: 18,
+    }).addTo(map);
 
-    new google.maps.Circle({
-      map,
-      center,
+    L.circle([coords.lat, coords.lng], {
       radius: milesToMeters(CAMPUS_MAP_RADIUS_MILES),
-      strokeColor: "#e85504",
-      strokeOpacity: 0.9,
-      strokeWeight: 2,
+      color: "#e85504",
+      weight: 2,
       fillColor: "#e85504",
       fillOpacity: 0.08,
-      clickable: false,
-    });
+    }).addTo(map);
 
-    mapRef.current = map;
+    L.circleMarker([coords.lat, coords.lng], {
+      radius: 6,
+      color: "#fff",
+      weight: 2,
+      fillColor: "#e85504",
+      fillOpacity: 1,
+    })
+      .bindTooltip(school.name, { direction: "top", offset: [0, -8] })
+      .addTo(map);
+
+    leafletRef.current = map;
+    const t1 = window.setTimeout(() => map.invalidateSize(), 50);
+    const t2 = window.setTimeout(() => map.invalidateSize(), 300);
 
     return () => {
-      mapRef.current = null;
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      map.remove();
+      leafletRef.current = null;
     };
   }, [state, school.name]);
 
   const openHref =
-    state.status === "ready" || state.status === "needs_api"
+    state.status === "ready"
       ? googleSatelliteMapsHref(
           state.coords.lat,
           state.coords.lng,
@@ -182,7 +143,7 @@ export function SchoolCampusSatelliteMap({ school }: { school: School }) {
           Around campus
         </span>
         <span className="snapshot-satellite-meta">
-          Google Satellite · about {CAMPUS_MAP_RADIUS_MILES} mi radius · zoom &amp; pan
+          Satellite · about {CAMPUS_MAP_RADIUS_MILES} mi radius · zoom &amp; pan
         </span>
       </div>
 
@@ -208,17 +169,6 @@ export function SchoolCampusSatelliteMap({ school }: { school: School }) {
               rel="noreferrer"
             >
               Open in Google Maps
-            </a>
-          ) : null}
-        </div>
-      ) : null}
-
-      {state.status === "needs_api" ? (
-        <div className="snapshot-satellite-frame is-fallback">
-          <p>{state.message}</p>
-          {openHref ? (
-            <a href={openHref} target="_blank" rel="noreferrer">
-              Open satellite view in Google Maps
             </a>
           ) : null}
         </div>
