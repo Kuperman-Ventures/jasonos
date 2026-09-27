@@ -471,6 +471,7 @@ export function SchoolSnapshotSummary({
                       metroArea={school.metroArea}
                       metroPopulation={school.metroPopulation}
                       location={school.location}
+                      showTooltip={false}
                     />
                     {school.metroArea && school.metroPopulation != null ? (
                       <span className="campus-metro-line">

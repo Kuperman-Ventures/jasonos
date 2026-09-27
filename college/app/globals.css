@@ -1463,28 +1463,36 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
 }
 .snapshot .size {
   display: flex;
-  align-items: center;
-  gap: 24px;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
   min-width: 0;
 }
 .snapshot .size-word {
   flex: none;
-  min-width: 80px;
+  min-width: 0;
   font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 .snapshot .size-gauge {
-  flex: 1;
-  min-width: 140px;
-  max-width: 240px;
+  flex: none;
+  width: 100%;
+  max-width: 220px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 5px;
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+  overflow: hidden;
 }
 .snapshot .size-gauge-val {
   position: relative;
   height: 16px;
+  overflow: hidden;
 }
 .snapshot .size-gauge-val span {
   position: absolute;
@@ -1497,6 +1505,8 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   position: relative;
   height: 8px;
   display: flex;
+  width: 100%;
+  overflow: hidden;
 }
 .snapshot .size-gauge-bar b {
   height: 8px;
@@ -1522,9 +1532,22 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
 .snapshot .size-gauge-ends {
   display: flex;
   justify-content: space-between;
+  gap: 8px;
   font-size: 11px;
   font-weight: 400;
   color: var(--text-subtle);
+}
+.snapshot .fact:has(.size) {
+  align-items: start;
+}
+.snapshot .fact:has(.size) dd {
+  align-items: stretch;
+}
+.snapshot .fact:has(.campus-setting-detail) {
+  align-items: start;
+}
+.snapshot .fact:has(.campus-setting-detail) dd {
+  align-items: stretch;
 }
 .snapshot .remove {
   width: 28px;
