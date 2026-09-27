@@ -203,7 +203,13 @@ export function SchoolTripPlanning({
 
   const campusClimate = useMemo(() => {
     const loc = parseSchoolLocation(school.location);
-    return climateForCityState(school.id, shortSchoolName(school.name), loc.city, loc.state);
+    const short = shortSchoolName(school.name);
+    // Prefer "University of Maryland" over "University of Maryland, College Park"
+    const display =
+      loc.city && short.toLowerCase().endsWith(`, ${loc.city.toLowerCase()}`)
+        ? short.slice(0, -(loc.city.length + 2)).trim()
+        : short;
+    return climateForCityState(school.id, display, loc.city, loc.state);
   }, [school]);
 
   const inTripCount = plan.clusterIds.filter((id) =>
