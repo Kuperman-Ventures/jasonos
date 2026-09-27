@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Archivo, IBM_Plex_Mono, Source_Serif_4 } from "next/font/google";
+import { COLOR_MODE_BOOT_SCRIPT } from "@/lib/color-mode";
+import { RAIL_DENSITY_BOOT_SCRIPT } from "@/lib/rail-collapse";
 import "./globals.css";
 
 const archivo = Archivo({
@@ -41,11 +43,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${archivo.variable} ${plexMono.variable} ${sourceSerif.variable}`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${archivo.variable} ${plexMono.variable} ${sourceSerif.variable}`}
+      suppressHydrationWarning
+    >
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var k="track-theme";var p=localStorage.getItem(k);if(p!=="light"&&p!=="dark"&&p!=="system")p="system";var dark=window.matchMedia("(prefers-color-scheme: dark)").matches;var m=p==="system"?(dark?"dark":"light"):p;document.documentElement.dataset.mode=m;document.documentElement.style.colorScheme=m;}catch(e){}})();`,
+            __html: `${COLOR_MODE_BOOT_SCRIPT}${RAIL_DENSITY_BOOT_SCRIPT}`,
           }}
         />
       </head>

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   Bank,
   ClockCounterClockwise,
+  Coins,
   DotsThree,
   Exam,
   Files,
@@ -12,11 +13,11 @@ import {
   Kanban,
   NotePencil,
   Question,
+  SidebarSimple,
   SignOut,
   SquaresFour,
   TrayArrowDown,
   UsersThree,
-  Coins,
   type Icon,
 } from "@phosphor-icons/react";
 import {
@@ -27,18 +28,26 @@ import {
   PROJECT_SECTIONS,
   type ProjectSectionId,
 } from "@/lib/project-management";
-import {
-  LIST_PHASES,
-  currentListPhaseId,
-  listPhaseById,
-  type ListPhaseId,
-} from "@/lib/list-phases";
+import { phases as processPhases } from "@/lib/content";
+import { currentPhaseIndex, phaseStatuses } from "@/lib/phases";
+import { currentListPhaseId } from "@/lib/list-phases";
 import { HOUSEHOLD_ROLES, canViewFinances, isAdminRole, roleLabel } from "@/lib/permissions";
-import type { TabId } from "@/lib/types";
+import {
+  RAIL_EXPANDED_WIDTH,
+  RAIL_SHORT_LABELS,
+  RAIL_SLIM_WIDTH,
+  readStoredRailDensity,
+  resolveRailDensity,
+  shortProcessPhaseName,
+  writeStoredRailDensity,
+  type RailDensity,
+} from "@/lib/rail-collapse";
+import type { Phase, TabId } from "@/lib/types";
 import { ThemeModeSwitch } from "./ThemeModeSwitch";
 
 const HOUSEHOLD = {
   name: "Kyle's College Search",
+  student: "Kyle",
   grade: "Junior",
   school: "Columbia High School",
 };
@@ -96,6 +105,19 @@ function avatarInitial(name: string): string {
   return (name.trim()[0] || "?").toUpperCase();
 }
 
+function applyRailWidth(density: RailDensity) {
+  if (typeof document === "undefined") return;
+  const width = density === "slim" ? RAIL_SLIM_WIDTH : RAIL_EXPANDED_WIDTH;
+  document.documentElement.dataset.rail = density;
+  document.documentElement.style.setProperty("--rail-w", `${width}px`);
+}
+
+function shortcutLabel(): string {
+  if (typeof navigator === "undefined") return "Ctrl+\\";
+  const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+  return mac ? "⌘\\" : "Ctrl+\\";
+}
+
 export function LeftRail({
   tab,
   onChange,
@@ -111,8 +133,8 @@ export function LeftRail({
   consultantCount,
   faqCount,
   testingCount,
-  open,
-  onOpenChange,
+  checklist = {},
+  processPhaseList = processPhases,
 }: {
   tab: TabId;
   onChange: (tab: TabId) => void;
@@ -128,29 +150,43 @@ export function LeftRail({
   consultantCount: number;
   faqCount: number;
   testingCount: number;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  checklist?: Record<string, boolean>;
+  processPhaseList?: Phase[];
 }) {
   const railRef = useRef<HTMLElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
   const meRef = useRef<HTMLButtonElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [listPhaseId, setListPhaseId] = useState<ListPhaseId>("exploration");
+  const [density, setDensity] = useState<RailDensity>("expanded");
+  const [densityReady, setDensityReady] = useState(false);
+  const [listPhaseId, setListPhaseId] = useState(currentListPhaseId());
+  const [tip, setTip] = useState<{ label: string; top: number } | null>(null);
 
   useEffect(() => {
+    const stored = readStoredRailDensity();
+    const next = resolveRailDensity(stored, window.innerWidth);
+    setDensity(next);
+    applyRailWidth(next);
+    setDensityReady(true);
     setListPhaseId(currentListPhaseId());
   }, []);
 
-  const phaseIndex = Math.max(
-    0,
-    LIST_PHASES.findIndex((phase) => phase.id === listPhaseId),
-  );
-  const current = listPhaseById(listPhaseId);
-  const next = LIST_PHASES[phaseIndex + 1] ?? null;
-  const phaseCount = LIST_PHASES.length;
+  useEffect(() => {
+    if (!densityReady) return;
+    applyRailWidth(density);
+    writeStoredRailDensity(density);
+  }, [density, densityReady]);
+
+  const statuses = phaseStatuses(processPhaseList, checklist);
+  const phaseIndex = currentPhaseIndex(statuses);
+  const currentPhase = processPhaseList[phaseIndex];
+  const nextPhase = processPhaseList[phaseIndex + 1] ?? null;
+  const phaseCount = processPhaseList.length;
+
   const counts: Partial<Record<TabId, number>> = {
     colleges: schoolCount,
     projects: projectCount,
@@ -172,6 +208,19 @@ export function LeftRail({
     ...group,
     items: group.items.filter((item) => item.id !== "finances" || showFinances),
   }));
+  const slim = density === "slim";
+  const shortcut = shortcutLabel();
+
+  function setRailDensity(next: RailDensity) {
+    setDensity(next);
+    applyRailWidth(next);
+    writeStoredRailDensity(next);
+    window.requestAnimationFrame(() => toggleRef.current?.focus());
+  }
+
+  function toggleDensity() {
+    setRailDensity(density === "slim" ? "expanded" : "slim");
+  }
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -181,12 +230,24 @@ export function LeftRail({
           meRef.current?.focus();
           return;
         }
-        if (open) onOpenChange(false);
       }
+      if (event.key !== "\\" || !(event.metaKey || event.ctrlKey)) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      setRailDensity(density === "slim" ? "expanded" : "slim");
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [menuOpen, open, onOpenChange]);
+  }, [menuOpen, density]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -199,15 +260,10 @@ export function LeftRail({
     return () => document.removeEventListener("mousedown", onPointer);
   }, [menuOpen]);
 
-  useEffect(() => {
-    if (!open) return;
-    railRef.current?.querySelector<HTMLElement>("a, button")?.focus();
-  }, [open]);
-
   function select(nextTab: TabId) {
     onChange(nextTab);
-    onOpenChange(false);
     setMenuOpen(false);
+    setTip(null);
   }
 
   function hrefFor(id: TabId): string {
@@ -260,81 +316,140 @@ export function LeftRail({
     }
   }
 
+  function showTooltip(label: string, el: HTMLElement) {
+    if (!slim) return;
+    const rect = el.getBoundingClientRect();
+    setTip({ label, top: rect.top + rect.height / 2 });
+  }
+
+  const collapseLabel = slim ? "Expand menu" : "Collapse menu";
+  const phaseTitle = currentPhase
+    ? `Phase ${phaseIndex + 1} of ${phaseCount} · ${currentPhase.phase}`
+    : "";
+  const phaseNextLine = nextPhase
+    ? `Next: ${nextPhase.phase}${nextPhase.window ? `, ${nextPhase.window}` : ""}`
+    : "Final phase";
+
   return (
-    <>
-      <div
-        className="rail-scrim"
-        data-open={open ? "true" : "false"}
-        onClick={() => onOpenChange(false)}
-        aria-hidden="true"
-      />
-      <aside className="rail" id="app-rail" ref={railRef} data-open={open ? "true" : "false"} aria-label="Main">
+    <aside
+      className="rail"
+      id="app-rail"
+      ref={railRef}
+      data-density={density}
+      aria-label="Main"
+    >
+      <div className="rail-scroll">
         <div className="rail-brand">
           <GraduationCap className="rail-brand-icon" weight="duotone" size={30} aria-hidden="true" />
-          <div>
-            <b>{HOUSEHOLD.name}</b>
-            <span>
-              {HOUSEHOLD.grade} · {HOUSEHOLD.school}
-            </span>
-          </div>
-        </div>
-
-        <div className="rail-phase" aria-label="Current phase">
-          <div className="rail-phase-top">
-            <b>{current.label}</b>
-            <span>
-              {phaseIndex + 1} / {phaseCount}
-            </span>
-          </div>
-          <div
-            className="rail-phase-segs"
-            role="progressbar"
-            aria-valuenow={phaseIndex + 1}
-            aria-valuemin={1}
-            aria-valuemax={phaseCount}
-            aria-valuetext={`Phase ${phaseIndex + 1} of ${phaseCount}, ${current.label}`}
-          >
-            {LIST_PHASES.map((phase, index) => {
-              const on = index <= phaseIndex;
-              return <i key={phase.id} className={on ? "on" : undefined} title={phase.label} />;
-            })}
-          </div>
-          {next ? (
-            <span className="rail-phase-next">
-              Next: {next.label}
-              {next.window ? `, ${next.window}` : ""}
-            </span>
+          {slim ? (
+            <b className="rail-brand-student">{HOUSEHOLD.student}</b>
           ) : (
-            <span className="rail-phase-next">Final phase</span>
+            <div>
+              <b>{HOUSEHOLD.name}</b>
+              <span>
+                {HOUSEHOLD.grade} · {HOUSEHOLD.school}
+              </span>
+            </div>
           )}
+          {!slim ? (
+            <button
+              ref={toggleRef}
+              type="button"
+              className="rail-density-toggle"
+              aria-expanded={!slim}
+              aria-controls="app-rail-nav"
+              title={`${collapseLabel} (${shortcut})`}
+              aria-label={`${collapseLabel} (${shortcut})`}
+              onClick={toggleDensity}
+            >
+              <SidebarSimple weight="duotone" size={20} aria-hidden="true" />
+            </button>
+          ) : null}
         </div>
 
-        <div className="rail-nav-groups">
-          {navGroups.map((group) => (
+        {slim ? (
+          <button
+            ref={toggleRef}
+            type="button"
+            className="rail-density-toggle slim"
+            aria-expanded={!slim}
+            aria-controls="app-rail-nav"
+            title={`${collapseLabel} (${shortcut})`}
+            aria-label={`${collapseLabel} (${shortcut})`}
+            onClick={toggleDensity}
+          >
+            <SidebarSimple
+              weight="duotone"
+              size={20}
+              aria-hidden="true"
+              style={{ transform: "scaleX(-1)" }}
+            />
+          </button>
+        ) : null}
+
+        {!slim ? (
+          <div className="rail-phase" aria-label="Current phase">
+            <div className="rail-phase-top">
+              <b>{currentPhase?.phase ?? "—"}</b>
+              <span>
+                {phaseIndex + 1} / {phaseCount}
+              </span>
+            </div>
+            <div
+              className="rail-phase-segs"
+              role="progressbar"
+              aria-valuenow={phaseIndex + 1}
+              aria-valuemin={1}
+              aria-valuemax={phaseCount}
+              aria-valuetext={`Phase ${phaseIndex + 1} of ${phaseCount}, ${currentPhase?.phase ?? ""}`}
+            >
+              {processPhaseList.map((phase, index) => (
+                <i
+                  key={phase.phase}
+                  className={index <= phaseIndex ? "on" : undefined}
+                  title={phase.phase}
+                />
+              ))}
+            </div>
+            <span className="rail-phase-next">{phaseNextLine}</span>
+          </div>
+        ) : null}
+
+        <div id="app-rail-nav" className="rail-nav-groups">
+          {navGroups.map((group, groupIndex) => (
             <nav key={group.label} aria-label={group.label} className="rail-nav-group">
-              <span className="rail-nav-label">{group.label}</span>
+              {slim && groupIndex > 0 ? <hr className="rail-group-rule" /> : null}
+              {!slim ? <span className="rail-nav-label">{group.label}</span> : null}
               {group.items.map((item) => {
                 const count = counts[item.id];
                 const showCount = typeof count === "number" && count > 0;
                 const Icon = item.Icon;
                 const active = tab === item.id;
+                const short = RAIL_SHORT_LABELS[item.id] ?? item.label;
+                const tipLabel = showCount ? `${item.label} · ${count}` : item.label;
                 return (
                   <div key={item.id} className="rail-nav-block">
                     <a
                       className="rail-item"
                       href={hrefFor(item.id)}
                       aria-current={active ? "page" : undefined}
+                      aria-label={item.label}
+                      title={slim ? undefined : item.label}
+                      onMouseEnter={(e) => showTooltip(tipLabel, e.currentTarget)}
+                      onMouseLeave={() => setTip(null)}
+                      onFocus={(e) => showTooltip(tipLabel, e.currentTarget)}
+                      onBlur={() => setTip(null)}
                       onClick={(event) => {
                         event.preventDefault();
                         event.currentTarget.focus();
                         select(item.id);
                       }}
                     >
-                      <Icon weight="duotone" size={20} aria-hidden="true" />
-                      <span className="rail-item-label">{item.label}</span>
+                      <Icon weight="duotone" size={slim ? 22 : 20} aria-hidden="true" />
+                      <span className="rail-item-label">{slim ? short : item.label}</span>
                       {showCount ? <span className="rail-item-count">{count}</span> : null}
                     </a>
-                    {item.id === "projects" && active ? (
+                    {!slim && item.id === "projects" && active ? (
                       <div className="rail-subnav" aria-label="Project Management sections">
                         {PROJECT_SECTIONS.map((section) => (
                           <button
@@ -348,7 +463,6 @@ export function LeftRail({
                             onClick={() => {
                               if (section.status !== "ready") return;
                               onProjectSectionChange(section.id);
-                              onOpenChange(false);
                             }}
                           >
                             <span>{section.label}</span>
@@ -357,7 +471,7 @@ export function LeftRail({
                         ))}
                       </div>
                     ) : null}
-                    {item.id === "apps" && active ? (
+                    {!slim && item.id === "apps" && active ? (
                       <div className="rail-subnav" aria-label="Apps and Materials sections">
                         {APPS_SECTIONS.map((section) => (
                           <button
@@ -371,7 +485,6 @@ export function LeftRail({
                             onClick={() => {
                               if (section.status !== "ready") return;
                               onAppsSectionChange(section.id);
-                              onOpenChange(false);
                             }}
                           >
                             <span>{section.label}</span>
@@ -389,96 +502,34 @@ export function LeftRail({
 
         <div className="rail-spacer" />
 
-        <div className="rail-account" ref={accountRef}>
+        {slim ? (
           <div
-            className="rail-account-menu"
-            id="rail-account-menu"
-            role="dialog"
-            aria-label="Account"
-            hidden={!menuOpen}
+            className="rail-phase-slim"
+            title={`${phaseTitle}\n${phaseNextLine}`}
+            aria-label={phaseTitle}
           >
-            <div className="rail-account-who">
-              <span className="rail-avatar lg" aria-hidden="true">
-                {member.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={member.avatarUrl} alt="" />
-                ) : (
-                  avatarInitial(member.displayName)
-                )}
-              </span>
-              <div>
-                <b>{member.displayName}</b>
-                <div className="rail-account-photo-links">
-                  <button
-                    type="button"
-                    className="rail-text-link"
-                    disabled={busy}
-                    onClick={() => fileRef.current?.click()}
-                  >
-                    {busy ? "Working…" : "Change photo"}
-                  </button>
-                  {member.avatarUrl ? (
-                    <button
-                      type="button"
-                      className="rail-text-link"
-                      disabled={busy}
-                      onClick={() => void clearAvatar()}
-                    >
-                      Remove
-                    </button>
-                  ) : null}
-                </div>
-              </div>
+            <div className="rail-phase-dots" aria-hidden="true">
+              {processPhaseList.map((phase, index) => (
+                <i key={phase.phase} className={index === phaseIndex ? "on" : undefined} />
+              ))}
             </div>
-
-            <div>
-              <span className="rail-menu-lbl">View as</span>
-              <div className="rail-seg" role="group" aria-label="View as">
-                {heldRoles.map((row) => (
-                  <button key={row.id} type="button" aria-pressed="true">
-                    {row.label}
-                  </button>
-                ))}
-              </div>
-              {roleMeta ? <p className="rail-role-note">{roleMeta.blurb}</p> : null}
-            </div>
-
-            <div>
-              <span className="rail-menu-lbl">Appearance</span>
-              <ThemeModeSwitch className="rail-seg rail-seg-neutral" />
-            </div>
-
-            <div className="rail-account-links">
-              {showAdmin ? (
-                <button
-                  type="button"
-                  className="rail-item"
-                  onClick={() => select("admin")}
-                >
-                  <GearSix weight="duotone" size={18} aria-hidden="true" />
-                  Admin
-                </button>
-              ) : null}
-              <form action="/auth/signout" method="post">
-                <button type="submit" className="rail-item">
-                  <SignOut weight="duotone" size={18} aria-hidden="true" />
-                  Sign out
-                </button>
-              </form>
-            </div>
-            {error ? <p className="rail-account-error">{error}</p> : null}
+            <span className="rail-phase-slim-name">
+              {currentPhase ? shortProcessPhaseName(currentPhase.phase) : ""}
+            </span>
           </div>
+        ) : null}
+      </div>
 
-          <button
-            type="button"
-            className="rail-me"
-            id="rail-me"
-            ref={meRef}
-            aria-expanded={menuOpen}
-            aria-controls="rail-account-menu"
-            onClick={() => setMenuOpen((value) => !value)}
-          >
-            <span className="rail-avatar" aria-hidden="true">
+      <div className={`rail-foot${slim ? " is-slim" : ""}`} ref={accountRef}>
+        <div
+          className={`rail-account-menu${slim ? " slim-side" : ""}`}
+          id="rail-account-menu"
+          role="dialog"
+          aria-label="Account"
+          hidden={!menuOpen}
+        >
+          <div className="rail-account-who">
+            <span className="rail-avatar lg" aria-hidden="true">
               {member.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={member.avatarUrl} alt="" />
@@ -486,24 +537,111 @@ export function LeftRail({
                 avatarInitial(member.displayName)
               )}
             </span>
-            <span className="rail-me-name">
-              {member.displayName} <span>· {viewLabel}</span>
-            </span>
-            <DotsThree weight="duotone" size={22} aria-hidden="true" />
-          </button>
+            <div>
+              <b>{member.displayName}</b>
+              <div className="rail-account-photo-links">
+                <button
+                  type="button"
+                  className="rail-text-link"
+                  disabled={busy}
+                  onClick={() => fileRef.current?.click()}
+                >
+                  {busy ? "Working…" : "Change photo"}
+                </button>
+                {member.avatarUrl ? (
+                  <button
+                    type="button"
+                    className="rail-text-link"
+                    disabled={busy}
+                    onClick={() => void clearAvatar()}
+                  >
+                    Remove
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
 
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            hidden
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) void upload(file);
-            }}
-          />
+          <div>
+            <span className="rail-menu-lbl">View as</span>
+            <div className="rail-seg" role="group" aria-label="View as">
+              {heldRoles.map((row) => (
+                <button key={row.id} type="button" aria-pressed="true">
+                  {row.label}
+                </button>
+              ))}
+            </div>
+            {roleMeta ? <p className="rail-role-note">{roleMeta.blurb}</p> : null}
+          </div>
+
+          <div>
+            <span className="rail-menu-lbl">Appearance</span>
+            <ThemeModeSwitch className="rail-seg rail-seg-neutral" />
+          </div>
+
+          <div className="rail-account-links">
+            {showAdmin ? (
+              <button type="button" className="rail-item" onClick={() => select("admin")}>
+                <GearSix weight="duotone" size={18} aria-hidden="true" />
+                Admin
+              </button>
+            ) : null}
+            <form action="/auth/signout" method="post">
+              <button type="submit" className="rail-item">
+                <SignOut weight="duotone" size={18} aria-hidden="true" />
+                Sign out
+              </button>
+            </form>
+          </div>
+          {error ? <p className="rail-account-error">{error}</p> : null}
         </div>
-      </aside>
-    </>
+
+        <button
+          type="button"
+          className="rail-me"
+          id="rail-me"
+          ref={meRef}
+          aria-expanded={menuOpen}
+          aria-controls="rail-account-menu"
+          title={slim ? `${member.displayName} · ${viewLabel}` : undefined}
+          aria-label={slim ? `${member.displayName} · ${viewLabel}` : undefined}
+          onClick={() => setMenuOpen((value) => !value)}
+        >
+          <span className="rail-avatar" aria-hidden="true">
+            {member.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={member.avatarUrl} alt="" />
+            ) : (
+              avatarInitial(member.displayName)
+            )}
+          </span>
+          {!slim ? (
+            <>
+              <span className="rail-me-name">
+                {member.displayName} <span>· {viewLabel}</span>
+              </span>
+              <DotsThree weight="duotone" size={22} aria-hidden="true" />
+            </>
+          ) : null}
+        </button>
+
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          hidden
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void upload(file);
+          }}
+        />
+      </div>
+
+      {slim && tip ? (
+        <div className="rail-tooltip" style={{ top: tip.top }} role="tooltip">
+          {tip.label}
+        </div>
+      ) : null}
+    </aside>
   );
 }

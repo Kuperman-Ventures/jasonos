@@ -223,7 +223,6 @@ export function Portal({
   const [persisted, setPersisted] = useState(false);
   const [saveState, setSaveState] = useState("");
   const [loaded, setLoaded] = useState(false);
-  const [railOpen, setRailOpen] = useState(false);
   const [listPrefs, setListPrefs] = useState<MemberListPrefs>(() => defaultListPrefs());
   const prefsTimer = useRef<number | undefined>(undefined);
   const urlBootstrapped = useRef(false);
@@ -1282,19 +1281,9 @@ export function Portal({
         consultantCount={consultantFirms.length}
         faqCount={faqCount}
         testingCount={testingCount}
-        open={railOpen}
-        onOpenChange={setRailOpen}
+        checklist={checklist}
       />
       <main className="main">
-        <button
-          className="rail-toggle"
-          type="button"
-          aria-expanded={railOpen}
-          aria-controls="app-rail"
-          onClick={() => setRailOpen((value) => !value)}
-        >
-          Menu
-        </button>
         {tab === "dashboard" ? (
           <DashboardTab
             schools={schools}
