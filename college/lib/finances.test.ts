@@ -161,6 +161,26 @@ test("cost bar callouts for small segments and gap note", () => {
   if (books && books.widthPct < 16) {
     assert.ok(bar.callouts.some((c) => c.key === "books"));
   }
+  assert.match(bar.coverTitle, /^What \$/);
+  assert.equal(bar.incompleteNote, null);
+});
+
+test("UT Austin incomplete total does not say What Not published covers", () => {
+  const ut = financeRecordForSchoolName("University of Texas at Austin (UT Austin)");
+  assert.ok(ut);
+  assert.equal(ut!.totalCost, null);
+  const bar = buildCostBar(ut!);
+  assert.match(bar.coverTitle, /^Known cost parts/);
+  assert.ok(!/not published/i.test(bar.coverTitle));
+  assert.ok(bar.incompleteNote);
+  assert.match(bar.incompleteNote!, /housing and food/i);
+
+  const rows = buildFinanceCompareRows(ut!, listFinanceRecords(), 60000);
+  const share = rows.find((r) => r.id === "meritShare");
+  assert.ok(share);
+  assert.equal(share!.kind, "none");
+  assert.match(share!.noneText ?? "", /no non-need merit/i);
+  assert.ok(!rows.some((r) => r.id === "avgMerit" || r.id === "afterMerit"));
 });
 
 test("ordinal ranks", () => {

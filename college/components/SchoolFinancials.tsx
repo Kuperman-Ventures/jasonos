@@ -7,7 +7,6 @@ import {
   financeRecordForSchoolName,
   isNjStateAidSchool,
   listFinanceRecords,
-  money,
   moneyCompact,
   needProgramOpenToNj,
   parsePriorityAidDeadlines,
@@ -210,7 +209,6 @@ export function SchoolFinancials({
   }
 
   const listCount = peerRecords.length;
-  const totalLabel = money(finance.totalCost);
 
   const policyFacts = [
     {
@@ -310,7 +308,7 @@ export function SchoolFinancials({
 
       {costBar && costBar.partsSum > 0 ? (
         <section className="fin-cost-cover" aria-label="Cost breakdown">
-          <span className="fin-section-kicker mono">What {totalLabel} covers</span>
+          <span className="fin-section-kicker mono">{costBar.coverTitle}</span>
           <div
             className="fin-cost-bar-wrap"
             style={{ height: 56 + costBar.barExtraPx }}
@@ -356,6 +354,9 @@ export function SchoolFinancials({
             ))}
           </div>
           {costBar.gapNote ? <p className="fin-cost-gap">{costBar.gapNote}</p> : null}
+          {costBar.incompleteNote ? (
+            <p className="fin-cost-gap">{costBar.incompleteNote}</p>
+          ) : null}
         </section>
       ) : null}
 

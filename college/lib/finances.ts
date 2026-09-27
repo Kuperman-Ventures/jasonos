@@ -213,7 +213,9 @@ export function residencyLabel(rate: string): string {
  */
 export function costAfterTypicalMerit(rec: FinanceRecord): number | null {
   if (!rec.awardsMerit) return null;
-  if (rec.totalCost == null || rec.cdsAvgNonNeedMerit == null) return null;
+  if (rec.totalCost == null || rec.cdsAvgNonNeedMerit == null || rec.cdsAvgNonNeedMerit === 0) {
+    return null;
+  }
   return rec.totalCost - rec.cdsAvgNonNeedMerit;
 }
 
@@ -635,6 +637,14 @@ type CompareMetric = {
   noneMessage?: (rec: FinanceRecord) => string;
 };
 
+function cdsReportsNoNonNeedMerit(r: FinanceRecord): boolean {
+  return (
+    r.awardsMerit &&
+    r.meritSharePct === 0 &&
+    (r.cdsAvgNonNeedMerit === 0 || r.cdsAvgNonNeedMerit == null)
+  );
+}
+
 function compareMetrics(): CompareMetric[] {
   return [
     {
@@ -647,17 +657,27 @@ function compareMetrics(): CompareMetric[] {
     {
       id: "meritShare",
       label: "First-years getting merit",
-      get: (r) => (r.awardsMerit ? r.meritSharePct : null),
+      get: (r) => {
+        if (!r.awardsMerit) return null;
+        if (cdsReportsNoNonNeedMerit(r)) return null;
+        return r.meritSharePct;
+      },
       fmt: formatMeritSharePct,
       noneMessage: (r) =>
         !r.awardsMerit
           ? `No merit aid. ${shortSchoolName(r.school)} gives need-based aid only.`
-          : "Not published in the Common Data Set",
+          : cdsReportsNoNonNeedMerit(r)
+            ? `Common Data Set reports no non-need merit for first-years.`
+            : "Not published in the Common Data Set",
     },
     {
       id: "avgMerit",
       label: "Average merit award",
-      get: (r) => (r.awardsMerit ? r.cdsAvgNonNeedMerit : null),
+      get: (r) => {
+        if (!r.awardsMerit) return null;
+        if (r.cdsAvgNonNeedMerit == null || r.cdsAvgNonNeedMerit === 0) return null;
+        return r.cdsAvgNonNeedMerit;
+      },
       fmt: (v) => moneyCompact(v),
       hideWhenNull: true,
     },
@@ -800,6 +820,8 @@ export function buildCostBar(
   callouts: CostBarCallout[];
   partsSum: number;
   gapNote: string | null;
+  incompleteNote: string | null;
+  coverTitle: string;
   barExtraPx: number;
 } {
   const raw: { key: string; label: string; value: number | null; bg: string; fg: string }[] = [
@@ -869,11 +891,30 @@ export function buildCostBar(
     rec.totalCost != null && partsSum > 0 && rec.totalCost - partsSum > 0
       ? rec.totalCost - partsSum
       : 0;
+
+  const missingParts = raw.filter((p) => p.value == null).map((p) => p.label.toLowerCase());
+  let incompleteNote: string | null = null;
+  if (rec.totalCost == null && partsSum > 0) {
+    incompleteNote =
+      missingParts.length > 0
+        ? `No single published total — ${missingParts.join(" and ")} ${missingParts.length === 1 ? "is" : "are"} not a fixed figure on the cost page.`
+        : "No single published total for this school.";
+  }
+
+  const coverTitle =
+    rec.totalCost != null
+      ? `What ${money(rec.totalCost)} covers`
+      : partsSum > 0
+        ? `Known cost parts · ${moneyCompact(partsSum)}`
+        : "Cost parts";
+
   return {
     segments,
     callouts,
     partsSum,
     gapNote: gap > 0 ? `+ ${moneyCompact(gap)} other fees in the published total` : null,
+    incompleteNote,
+    coverTitle,
     barExtraPx: callouts.length ? 16 + callouts.length * 26 : 0,
   };
 }
