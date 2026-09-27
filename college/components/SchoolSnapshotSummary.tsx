@@ -19,11 +19,9 @@ import {
 } from "@/lib/types";
 import {
   formatUndergrads,
-  parseCampusSize,
+  getSchoolSize,
   sizeGaugeModel,
-  sizeOf,
   tierHeadlineVar,
-  type CampusSetting,
 } from "@/lib/campus-size";
 import { admitResidencyDisplay } from "@/lib/residency-admit";
 import { websiteHref, websiteHostLabel } from "@/lib/school-photo";
@@ -32,6 +30,7 @@ import {
   formatTravelLabel,
   nearestSchoolsFrom,
 } from "@/lib/drive-matrix";
+import { CampusSettingBadge } from "./CampusSettingBadge";
 import { SchoolCampusSatelliteMap } from "./SchoolCampusSatelliteMap";
 import { SchoolLocationMap, SelectivityGauge } from "./SchoolSnapshotViz";
 
@@ -134,15 +133,6 @@ function SetDate({
   );
 }
 
-function SettingChip({ setting }: { setting: CampusSetting }) {
-  return (
-    <span className={`setting setting-${setting.toLowerCase()}`}>
-      <i aria-hidden="true" />
-      {setting}
-    </span>
-  );
-}
-
 function SizeGauge({
   undergrads,
   listUndergrads,
@@ -213,16 +203,13 @@ export function SchoolSnapshotSummary({
   const testPolicyValue = recordTestPolicy || school.familyTestPolicy.trim();
   const testPolicyMissing = !recordTestPolicy;
 
-  const { setting, size: sizeFromRecord } = parseCampusSize(school.campusSize);
   const undergrads = school.undergradEnrollment;
-  const sizeWord =
-    undergrads != null && Number.isFinite(undergrads)
-      ? sizeOf(undergrads)
-      : sizeFromRecord;
+  const sizeWord = getSchoolSize(undergrads);
   const gauge =
     undergrads != null && Number.isFinite(undergrads)
       ? sizeGaugeModel(undergrads, listUndergrads)
       : null;
+  const setting = school.campusSetting.trim();
 
   const offeredMap: Record<string, ProgramOfferStatus> = {};
   for (const program of SNAPSHOT_PROGRAMS) {
@@ -454,8 +441,13 @@ export function SchoolSnapshotSummary({
             {setting || sizeWord ? (
               <>
                 {setting ? (
-                  <span className={`campus-setting-word setting-ink-${setting.toLowerCase()}`}>
-                    {setting}
+                  <span className="campus-setting-word">
+                    <CampusSettingBadge
+                      campusSetting={setting}
+                      metroArea={school.metroArea}
+                      metroPopulation={school.metroPopulation}
+                      location={school.location}
+                    />
                   </span>
                 ) : (
                   <span>Setting not set</span>
@@ -470,13 +462,40 @@ export function SchoolSnapshotSummary({
           <dl className="facts">
             <PlainFact label="City" value={school.location.trim() || "Not set"} />
             <div className="fact">
-              <dt>Setting</dt>
-              <dd>{setting ? <SettingChip setting={setting} /> : "Not set"}</dd>
+              <dt>Campus Setting</dt>
+              <dd className="campus-setting-detail">
+                {setting ? (
+                  <>
+                    <CampusSettingBadge
+                      campusSetting={setting}
+                      metroArea={school.metroArea}
+                      metroPopulation={school.metroPopulation}
+                      location={school.location}
+                    />
+                    {school.metroArea && school.metroPopulation != null ? (
+                      <span className="campus-metro-line">
+                        {school.metroArea} metro, {school.metroPopulation.toLocaleString("en-US")}{" "}
+                        people
+                      </span>
+                    ) : school.location.trim() ? (
+                      <span className="campus-metro-line">{school.location.trim()}</span>
+                    ) : null}
+                  </>
+                ) : (
+                  "Not set"
+                )}
+              </dd>
             </div>
             <div className="fact">
-              <dt>Size</dt>
+              <dt>School Size</dt>
               <dd className="size">
-                <span className="size-word">{sizeWord || "Not set"}</span>
+                <span className="size-word">
+                  {undergrads != null && Number.isFinite(undergrads)
+                    ? `${formatUndergrads(undergrads)} undergraduates${
+                        sizeWord ? ` (${sizeWord})` : ""
+                      }`
+                    : "Not set"}
+                </span>
                 {gauge && undergrads != null ? (
                   <SizeGauge undergrads={undergrads} listUndergrads={listUndergrads} />
                 ) : null}

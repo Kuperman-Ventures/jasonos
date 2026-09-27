@@ -46,7 +46,9 @@ type SchoolRow = {
   id: string;
   name: string;
   location: string;
-  campus_size: string;
+  campus_setting?: string | null;
+  metro_area?: string | null;
+  metro_population?: number | null;
   undergrad_enrollment?: number | null;
   control?: string | null;
   residency_data_status?: string | null;
@@ -209,7 +211,12 @@ export function mapSchool(row: SchoolRow): School {
     id: row.id,
     name: row.name,
     location: row.location,
-    campusSize: row.campus_size,
+    campusSetting: row.campus_setting ?? "",
+    metroArea: row.metro_area ?? null,
+    metroPopulation:
+      typeof row.metro_population === "number" && Number.isFinite(row.metro_population)
+        ? row.metro_population
+        : null,
     undergradEnrollment:
       typeof row.undergrad_enrollment === "number" && Number.isFinite(row.undergrad_enrollment)
         ? row.undergrad_enrollment
@@ -289,7 +296,7 @@ export function mapSchool(row: SchoolRow): School {
 }
 
 const SCHOOL_COLUMNS =
-  "id, name, location, campus_size, undergrad_enrollment, control, residency_data_status, kyle_residency, in_state_admit_rate, out_of_state_admit_rate, overall_admit_rate, rate_that_applies_to_kyle, admit_data_year, enrolled_out_of_state_pct, out_of_state_definition, out_of_state_policy, engineering_residency_note, residency_source_url, residency_notes, mechanical_engineering, materials, materials_offering, materials_program, materials_source_url, aerospace_engineering, aerospace_program, aerospace_notes, aerospace_source_url, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, visit_status, deadline, deadline_label, selectivity_tier, interest_level, application_status, admission_track, test_policy, family_test_policy, tracked_programs, middle_50, application_platform, required_essays, teacher_recs, cost_of_attendance, net_price_estimate, merit_aid_notes, research_sources, website, list_phase, phases_participated, archived, archived_at, project_notes, school_steps(id, label, owner, done, sort_order), deadlines(id, title, due_date, completed, sort_order), contacts(id, name, role, email, phone)";
+  "id, name, location, campus_setting, metro_area, metro_population, undergrad_enrollment, control, residency_data_status, kyle_residency, in_state_admit_rate, out_of_state_admit_rate, overall_admit_rate, rate_that_applies_to_kyle, admit_data_year, enrolled_out_of_state_pct, out_of_state_definition, out_of_state_policy, engineering_residency_note, residency_source_url, residency_notes, mechanical_engineering, materials, materials_offering, materials_program, materials_source_url, aerospace_engineering, aerospace_program, aerospace_notes, aerospace_source_url, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, visit_status, deadline, deadline_label, selectivity_tier, interest_level, application_status, admission_track, test_policy, family_test_policy, tracked_programs, middle_50, application_platform, required_essays, teacher_recs, cost_of_attendance, net_price_estimate, merit_aid_notes, research_sources, website, list_phase, phases_participated, archived, archived_at, project_notes, school_steps(id, label, owner, done, sort_order), deadlines(id, title, due_date, completed, sort_order), contacts(id, name, role, email, phone)";
 
 export async function listSchools(): Promise<School[]> {
   if (!supabaseConfigured()) return seedSchools();
@@ -322,7 +329,9 @@ export async function createSchool(name: string): Promise<School> {
       id: slugify(trimmed) || "school",
       name: trimmed,
       location: "",
-      campusSize: "",
+      campusSetting: "",
+      metroArea: null,
+      metroPopulation: null,
       mechanicalEngineering: "",
       materials: "",
       materialsOffering: "",
@@ -363,7 +372,7 @@ export async function createSchool(name: string): Promise<School> {
 const PATCH_COLUMNS: Record<string, string> = {
   name: "name",
   location: "location",
-  campusSize: "campus_size",
+  campusSetting: "campus_setting",
   mechanicalEngineering: "mechanical_engineering",
   materials: "materials",
   materialsOffering: "materials_offering",
@@ -426,6 +435,20 @@ export function schoolPatchToRow(patch: Record<string, unknown>): Record<string,
   ) {
     row.undergrad_enrollment = Math.round(patch.undergradEnrollment);
   }
+  if (patch.metroArea === null) {
+    row.metro_area = null;
+  } else if (typeof patch.metroArea === "string") {
+    row.metro_area = patch.metroArea;
+  }
+  if (patch.metroPopulation === null) {
+    row.metro_population = null;
+  } else if (
+    typeof patch.metroPopulation === "number" &&
+    Number.isFinite(patch.metroPopulation) &&
+    patch.metroPopulation >= 0
+  ) {
+    row.metro_population = Math.round(patch.metroPopulation);
+  }
   if (Array.isArray(patch.trackedPrograms)) {
     row.tracked_programs = patch.trackedPrograms.filter((value): value is string => typeof value === "string");
   }
@@ -481,7 +504,7 @@ export async function applySchoolFacts(
   const patch: Record<string, unknown> = {};
   const fields: [keyof FoundFacts, keyof School][] = [
     ["location", "location"],
-    ["campusSize", "campusSize"],
+    ["campusSetting", "campusSetting"],
     ["mechanicalEngineering", "mechanicalEngineering"],
     ["materials", "materials"],
     ["materialsOffering", "materialsOffering"],

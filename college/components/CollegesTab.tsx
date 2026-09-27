@@ -25,8 +25,20 @@ import { CollegeRecord } from "./CollegeRecord";
 import { InterestPicker } from "./InterestPicker";
 import { SchoolMark } from "./SchoolMark";
 import { adjacentInList, compareSchools, nextAction, primaryDeadline, type SortKey } from "@/lib/list";
+import {
+  CAMPUS_SETTINGS,
+  METRO_TIERS,
+  SCHOOL_SIZES,
+  formatSchoolSizeLabel,
+  getMetroTier,
+  getSchoolSize,
+  type CampusSetting,
+  type MetroTier,
+  type SchoolSize,
+} from "@/lib/campus-size";
 import { formatTravelLabel } from "@/lib/drive-matrix";
 import { canAdvanceListPhase } from "@/lib/permissions";
+import { CampusSettingBadge } from "./CampusSettingBadge";
 import {
   INTEREST_LEVELS,
   SELECTIVITY_TIERS,
@@ -142,6 +154,9 @@ export function CollegesTab({
   const [phaseId, setPhaseId] = useState<ListPhaseId>("exploration");
   const [query, setQuery] = useState("");
   const [tier, setTier] = useState<SelectivityTier | "any">("any");
+  const [settingFilters, setSettingFilters] = useState<CampusSetting[]>([]);
+  const [metroFilters, setMetroFilters] = useState<MetroTier[]>([]);
+  const [schoolSizeFilters, setSchoolSizeFilters] = useState<SchoolSize[]>([]);
   const [interest, setInterest] = useState<InterestLevel | "any">("any");
   const [travelFilter, setTravelFilter] = useState<"any" | "Drive" | "Fly">("any");
   const [sort, setSort] = useState<SortKey>("list");
@@ -225,6 +240,17 @@ export function CollegesTab({
       if (tier !== "any" && school.selectivityTier !== tier) return false;
       if (interest !== "any" && school.interestLevel !== interest) return false;
       if (travelFilter !== "any" && school.travelMode !== travelFilter) return false;
+      if (settingFilters.length && !settingFilters.includes(school.campusSetting as CampusSetting)) {
+        return false;
+      }
+      if (metroFilters.length) {
+        const metro = getMetroTier(school.metroPopulation);
+        if (!metro || !metroFilters.includes(metro)) return false;
+      }
+      if (schoolSizeFilters.length) {
+        const size = getSchoolSize(school.undergradEnrollment);
+        if (!size || !schoolSizeFilters.includes(size)) return false;
+      }
       if (!q) return true;
       return [school.name, school.location, school.notes, school.admissionsContext]
         .join(" ")
@@ -233,7 +259,18 @@ export function CollegesTab({
     });
     const sorted = [...filtered].sort((a, b) => compareSchools(a, b, sort));
     return sortDir === 1 ? sorted : sorted.reverse();
-  }, [phaseSchools, query, tier, interest, travelFilter, sort, sortDir]);
+  }, [
+    phaseSchools,
+    query,
+    tier,
+    interest,
+    travelFilter,
+    settingFilters,
+    metroFilters,
+    schoolSizeFilters,
+    sort,
+    sortDir,
+  ]);
 
   const selected = schools.find((school) => school.id === selectedId) ?? null;
   const browseList = useMemo(() => {
@@ -327,6 +364,27 @@ export function CollegesTab({
             <div>{school.location || "—"}</div>
           </td>
         );
+      case "setting":
+        return (
+          <td key={column}>
+            {school.campusSetting ? (
+              <CampusSettingBadge
+                campusSetting={school.campusSetting}
+                metroArea={school.metroArea}
+                metroPopulation={school.metroPopulation}
+                location={school.location}
+              />
+            ) : (
+              "—"
+            )}
+          </td>
+        );
+      case "size":
+        return (
+          <td key={column} className="muted">
+            {formatSchoolSizeLabel(school.undergradEnrollment) || "—"}
+          </td>
+        );
       case "travel":
         return (
           <td key={column}>
@@ -412,7 +470,13 @@ export function CollegesTab({
     if (column === "interest") return "interest";
     if (column === "action") return "action";
     if (column === "travel") return "drive";
+    if (column === "setting") return "setting";
+    if (column === "size") return "size";
     return null;
+  }
+
+  function toggleMulti<T extends string>(current: T[], value: T): T[] {
+    return current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
   }
 
   const calendarPhaseId = currentListPhaseId();
@@ -629,6 +693,57 @@ export function CollegesTab({
             </option>
           ))}
         </select>
+        <details className="multi-filter">
+          <summary>
+            Setting{settingFilters.length ? ` · ${settingFilters.length}` : ""}
+          </summary>
+          <div className="multi-filter-menu" role="group" aria-label="Filter by campus setting">
+            {CAMPUS_SETTINGS.map((item) => (
+              <label key={item}>
+                <input
+                  type="checkbox"
+                  checked={settingFilters.includes(item)}
+                  onChange={() => setSettingFilters((current) => toggleMulti(current, item))}
+                />
+                {item}
+              </label>
+            ))}
+          </div>
+        </details>
+        <details className="multi-filter">
+          <summary>
+            Metro size{metroFilters.length ? ` · ${metroFilters.length}` : ""}
+          </summary>
+          <div className="multi-filter-menu" role="group" aria-label="Filter by metro size">
+            {METRO_TIERS.map((item) => (
+              <label key={item}>
+                <input
+                  type="checkbox"
+                  checked={metroFilters.includes(item)}
+                  onChange={() => setMetroFilters((current) => toggleMulti(current, item))}
+                />
+                {item}
+              </label>
+            ))}
+          </div>
+        </details>
+        <details className="multi-filter">
+          <summary>
+            School size{schoolSizeFilters.length ? ` · ${schoolSizeFilters.length}` : ""}
+          </summary>
+          <div className="multi-filter-menu" role="group" aria-label="Filter by school size">
+            {SCHOOL_SIZES.map((item) => (
+              <label key={item}>
+                <input
+                  type="checkbox"
+                  checked={schoolSizeFilters.includes(item)}
+                  onChange={() => setSchoolSizeFilters((current) => toggleMulti(current, item))}
+                />
+                {item}
+              </label>
+            ))}
+          </div>
+        </details>
         <select
           className="select"
           value={interest}
@@ -664,6 +779,8 @@ export function CollegesTab({
           <option value="list">Sheet order</option>
           <option value="name">School name</option>
           <option value="drive">Drive time</option>
+          <option value="setting">Campus setting</option>
+          <option value="size">School size</option>
           <option value="selectivity">Selectivity</option>
           <option value="interest">Interest</option>
           <option value="status">Application status</option>
@@ -800,6 +917,19 @@ export function CollegesTab({
               <div className="card-meta">
                 {columns.includes("status") ? <span>{statusLabel(school.applicationStatus) || "—"}</span> : null}
                 {columns.includes("location") ? <span>{school.location || "—"}</span> : null}
+                {columns.includes("setting") && school.campusSetting ? (
+                  <span>
+                    <CampusSettingBadge
+                      campusSetting={school.campusSetting}
+                      metroArea={school.metroArea}
+                      metroPopulation={school.metroPopulation}
+                      location={school.location}
+                    />
+                  </span>
+                ) : null}
+                {columns.includes("size") ? (
+                  <span>{formatSchoolSizeLabel(school.undergradEnrollment) || "—"}</span>
+                ) : null}
                 {columns.includes("travel") ? (
                   <span>
                     {formatTravelLabel(school.driveMinutes, school.driveMiles, school.travelMode)}

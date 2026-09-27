@@ -1,33 +1,61 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  campusSettingRank,
+  formatMetroPopulationShort,
+  formatSchoolSizeLabel,
   formatUndergrads,
-  normalizeCampusSetting,
-  parseCampusSize,
+  getMetroTier,
+  getSchoolSize,
+  metroTierBars,
   sizeGaugeModel,
   sizeOf,
   tierHeadlineVar,
 } from "./campus-size";
 
-test("sizeOf uses the three-band cutoffs", () => {
-  assert.equal(sizeOf(0), "Small");
-  assert.equal(sizeOf(4999), "Small");
-  assert.equal(sizeOf(5000), "Medium");
-  assert.equal(sizeOf(15000), "Medium");
-  assert.equal(sizeOf(15001), "Large");
+test("getSchoolSize uses the four-band cutoffs", () => {
+  assert.equal(getSchoolSize(null), null);
+  assert.equal(getSchoolSize(2462), "Small");
+  assert.equal(getSchoolSize(7999), "Small");
+  assert.equal(getSchoolSize(8000), "Medium");
+  assert.equal(getSchoolSize(19835), "Medium");
+  assert.equal(getSchoolSize(20000), "Large");
+  assert.equal(getSchoolSize(33441), "Large");
+  assert.equal(getSchoolSize(34999), "Large");
+  assert.equal(getSchoolSize(35000), "Very large");
+  assert.equal(sizeOf(45638), "Very large");
 });
 
-test("parseCampusSize maps Town and Very Large", () => {
-  assert.deepEqual(parseCampusSize("Urban / Small"), { setting: "Urban", size: "Small" });
-  assert.deepEqual(parseCampusSize("Town · Medium"), { setting: "Suburban", size: "Medium" });
-  assert.deepEqual(parseCampusSize("Rural / Very Large"), { setting: "Rural", size: "Large" });
-  assert.deepEqual(parseCampusSize(""), { setting: "", size: "" });
+test("getMetroTier uses Census population bands", () => {
+  assert.equal(getMetroTier(null), null);
+  assert.equal(getMetroTier(169241), "Small metro");
+  assert.equal(getMetroTier(499999), "Small metro");
+  assert.equal(getMetroTier(500000), "Mid-size metro");
+  assert.equal(getMetroTier(968137), "Mid-size metro");
+  assert.equal(getMetroTier(1499999), "Mid-size metro");
+  assert.equal(getMetroTier(1500000), "Large metro");
+  assert.equal(getMetroTier(1984473), "Large metro");
+  assert.equal(getMetroTier(3999999), "Large metro");
+  assert.equal(getMetroTier(4000000), "Major metro");
+  assert.equal(getMetroTier(12844441), "Major metro");
 });
 
-test("normalizeCampusSetting collapses college town wording", () => {
-  assert.equal(normalizeCampusSetting("College town"), "Suburban");
-  assert.equal(normalizeCampusSetting("Suburban"), "Suburban");
-  assert.equal(normalizeCampusSetting("Coastal"), "");
+test("metroTierBars map Major→4 through Small→1", () => {
+  assert.equal(metroTierBars("Major metro"), 4);
+  assert.equal(metroTierBars("Large metro"), 3);
+  assert.equal(metroTierBars("Mid-size metro"), 2);
+  assert.equal(metroTierBars("Small metro"), 1);
+  assert.equal(metroTierBars(null), 0);
+});
+
+test("format helpers for list and tooltip copy", () => {
+  assert.equal(formatUndergrads(33441), "33,441");
+  assert.equal(formatSchoolSizeLabel(33441), "33,441 (Large)");
+  assert.equal(formatSchoolSizeLabel(null), "");
+  assert.equal(formatMetroPopulationShort(12844441), "12.8 million people");
+  assert.equal(formatMetroPopulationShort(5034221), "5 million people");
+  assert.equal(campusSettingRank("Urban"), 0);
+  assert.equal(campusSettingRank("Small town"), 4);
 });
 
 test("tierHeadlineVar follows the pie low→high tokens", () => {

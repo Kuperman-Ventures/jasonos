@@ -1,68 +1,116 @@
 import type { SelectivityTier } from "./types";
 
-/** Small under 5k · Medium 5k–15k · Large over 15k. */
-export const SIZE_BANDS = [
-  ["Small", 0, 5000],
-  ["Medium", 5000, 15000],
-  ["Large", 15000, Number.POSITIVE_INFINITY],
+/** Campus setting (where the campus sits). */
+export const CAMPUS_SETTINGS = [
+  "Urban",
+  "Suburban",
+  "Small city",
+  "College town",
+  "Small town",
 ] as const;
 
-export type CampusSetting = "Urban" | "Suburban" | "Rural";
-export type CampusSizeBand = "Small" | "Medium" | "Large";
+export type CampusSetting = (typeof CAMPUS_SETTINGS)[number];
 
-export function sizeOf(n: number): CampusSizeBand {
-  if (n < 5000) return "Small";
-  if (n <= 15000) return "Medium";
-  return "Large";
+/** School size label derived from undergrad enrollment. */
+export const SCHOOL_SIZES = ["Small", "Medium", "Large", "Very large"] as const;
+export type SchoolSize = (typeof SCHOOL_SIZES)[number];
+
+/** Metro size label derived from Census metro population. */
+export const METRO_TIERS = [
+  "Major metro",
+  "Large metro",
+  "Mid-size metro",
+  "Small metro",
+] as const;
+export type MetroTier = (typeof METRO_TIERS)[number];
+
+/** @deprecated Prefer SchoolSize — kept for size-gauge band typing. */
+export type CampusSizeBand = SchoolSize;
+
+/** Small under 8k · Medium 8k–19,999 · Large 20k–34,999 · Very large 35k+. */
+export const SIZE_BANDS = [
+  ["Small", 0, 8000],
+  ["Medium", 8000, 20000],
+  ["Large", 20000, 35000],
+  ["Very large", 35000, Number.POSITIVE_INFINITY],
+] as const;
+
+export function isCampusSetting(value: string): value is CampusSetting {
+  return (CAMPUS_SETTINGS as readonly string[]).includes(value);
+}
+
+export function getSchoolSize(
+  undergradEnrollment: number | null | undefined,
+): SchoolSize | null {
+  if (undergradEnrollment == null || !Number.isFinite(undergradEnrollment)) return null;
+  if (undergradEnrollment < 8000) return "Small";
+  if (undergradEnrollment < 20000) return "Medium";
+  if (undergradEnrollment < 35000) return "Large";
+  return "Very large";
+}
+
+/** Alias used by the list-relative size gauge. */
+export function sizeOf(n: number): SchoolSize {
+  return getSchoolSize(n) ?? "Small";
+}
+
+export function getMetroTier(
+  metroPopulation: number | null | undefined,
+): MetroTier | null {
+  if (metroPopulation == null || !Number.isFinite(metroPopulation)) return null;
+  if (metroPopulation >= 4_000_000) return "Major metro";
+  if (metroPopulation >= 1_500_000) return "Large metro";
+  if (metroPopulation >= 500_000) return "Mid-size metro";
+  return "Small metro";
+}
+
+/** Filled bars for the signal-style metro indicator (Major=4 … Small=1). */
+export function metroTierBars(tier: MetroTier | null): number {
+  if (tier === "Major metro") return 4;
+  if (tier === "Large metro") return 3;
+  if (tier === "Mid-size metro") return 2;
+  if (tier === "Small metro") return 1;
+  return 0;
 }
 
 export function formatUndergrads(n: number): string {
   return n.toLocaleString("en-US");
 }
 
-/** Map Scorecard / stored locale words onto the three Campus settings. */
-export function normalizeCampusSetting(raw: string): CampusSetting | "" {
-  const key = raw.trim().toLowerCase();
-  if (!key) return "";
-  if (key === "urban" || key === "city") return "Urban";
-  if (key === "suburban" || key === "suburb" || key === "town" || key === "college town") {
-    return "Suburban";
-  }
-  if (key === "rural") return "Rural";
-  return "";
+export function formatMetroPopulation(n: number): string {
+  return n.toLocaleString("en-US");
 }
 
-export function normalizeCampusSizeBand(raw: string): CampusSizeBand | "" {
-  const key = raw.trim().toLowerCase();
-  if (!key) return "";
-  if (key === "small") return "Small";
-  if (key === "medium") return "Medium";
-  if (key === "large" || key === "very large") return "Large";
-  return "";
+/** Compact population for tooltips, e.g. "12.8 million people". */
+export function formatMetroPopulationShort(n: number): string {
+  if (n >= 1_000_000) {
+    const millions = Math.round((n / 1_000_000) * 10) / 10;
+    const label = Number.isInteger(millions) ? String(millions) : millions.toFixed(1);
+    return `${label} million people`;
+  }
+  if (n >= 1000) {
+    return `${Math.round(n / 1000).toLocaleString("en-US")} thousand people`;
+  }
+  return `${formatMetroPopulation(n)} people`;
 }
 
-/** Parse `Setting / Size` (or `Setting · Size`) from the campusSize record field. */
-export function parseCampusSize(campusSize: string): {
-  setting: CampusSetting | "";
-  size: CampusSizeBand | "";
-} {
-  const trimmed = campusSize.trim();
-  if (!trimmed) return { setting: "", size: "" };
-  const parts = trimmed.split(/\s*[·/]\s*/).map((part) => part.trim()).filter(Boolean);
-  if (parts.length === 1) {
-    const asSetting = normalizeCampusSetting(parts[0]);
-    if (asSetting) return { setting: asSetting, size: "" };
-    return { setting: "", size: normalizeCampusSizeBand(parts[0]) };
-  }
-  return {
-    setting: normalizeCampusSetting(parts[0]),
-    size: normalizeCampusSizeBand(parts[1] ?? ""),
-  };
+export function formatSchoolSizeLabel(
+  undergradEnrollment: number | null | undefined,
+): string {
+  if (undergradEnrollment == null || !Number.isFinite(undergradEnrollment)) return "";
+  const size = getSchoolSize(undergradEnrollment);
+  return size ? `${formatUndergrads(undergradEnrollment)} (${size})` : formatUndergrads(undergradEnrollment);
+}
+
+/** Sort order for campus setting type (Urban first → Small town last). */
+export function campusSettingRank(setting: string): number {
+  const index = (CAMPUS_SETTINGS as readonly string[]).indexOf(setting);
+  return index >= 0 ? index : 99;
 }
 
 /**
  * CSS var for the Admissions headline. Matches the dashboard selectivity pie
- * (Less=1 … Extremely=4), not the inverted sample table in the HTML prompt.
+ * (Less=1 … Extremely=4).
  */
 export function tierHeadlineVar(tier: SelectivityTier): string {
   if (tier === "less_competitive") return "--tier-1";
@@ -77,7 +125,7 @@ export type SizeGaugeModel = {
   hi: number;
   pct: number;
   labelShift: string;
-  bands: { name: CampusSizeBand; widthPct: number; on: boolean }[];
+  bands: { name: SchoolSize; widthPct: number; on: boolean }[];
   ariaLabel: string;
 };
 
