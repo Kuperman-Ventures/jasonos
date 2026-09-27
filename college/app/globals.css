@@ -1816,6 +1816,254 @@ table.schools .test-policy-fall2028-note {
   gap: 12px;
   margin: 32px 0 0;
 }
+
+/* Snapshot → Student body (bar layout) */
+.sb-area {
+  gap: 28px;
+}
+.sb-area .facts,
+.sb-area .scoir-geo-facts,
+.sb-area .scoir-top-places {
+  display: none;
+}
+.sb-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text);
+}
+.sb-subhead {
+  margin: -18px 0 0;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+.sb-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.sb-block h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text);
+}
+.sb-stack-wrap {
+  position: relative;
+}
+.sb-stack {
+  display: flex;
+  width: 100%;
+  height: 52px;
+  gap: 2px;
+  background: var(--color-bg);
+}
+.sb-seg {
+  position: relative;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-bg);
+}
+.sb-seg-home { background: var(--color-text); }
+.sb-seg-other { background: var(--text-subtle); }
+.sb-seg-nj { background: var(--color-accent); color: var(--text-on-accent); }
+.sb-seg-intl { background: var(--color-dash); color: var(--color-text); }
+.sb-seg-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  white-space: nowrap;
+}
+.sb-seg-inner-end {
+  align-items: flex-end;
+  text-align: right;
+  margin-left: auto;
+}
+.sb-seg-name { font-size: 13px; }
+.sb-seg-pct {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.sb-callout-layer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 28px;
+  pointer-events: none;
+}
+.sb-leader {
+  position: absolute;
+  bottom: 0;
+  width: 1px;
+  background: var(--text-subtle);
+}
+.sb-callout {
+  position: absolute;
+  top: 0;
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.sb-geo-note {
+  margin: 10px 0 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.sb-geo-note b { color: var(--color-text); font-weight: 700; }
+.sb-rank {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.sb-rank-row {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr) 52px;
+  gap: 12px;
+  align-items: center;
+}
+.sb-rank-label {
+  font-size: 14px;
+  color: var(--text-subtle);
+}
+.sb-rank-row.is-nj .sb-rank-label {
+  font-weight: 700;
+  color: var(--color-text);
+}
+.sb-rank-track {
+  height: 14px;
+  background: var(--color-rule);
+}
+.sb-rank-bar {
+  display: block;
+  height: 100%;
+  background: var(--text-subtle);
+}
+.sb-rank-row.is-nj .sb-rank-bar {
+  background: var(--color-accent);
+}
+.sb-rank-pct {
+  font-size: 14px;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.sb-race {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sb-race-row {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 52px;
+  gap: 14px;
+  align-items: center;
+}
+.sb-race-label {
+  font-size: 14px;
+  color: var(--color-text);
+  line-height: 1.3;
+}
+.sb-race-track {
+  height: 20px;
+  background: var(--color-rule);
+}
+.sb-race-bar {
+  display: block;
+  height: 100%;
+  min-width: 3px;
+  background: var(--text-subtle);
+}
+.sb-race-pct {
+  font-size: 14px;
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.sb-side {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 32px 48px;
+}
+.sb-gender,
+.sb-greek {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.sb-stack-gender { gap: 2px; }
+.sb-ft {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) 48px;
+  gap: 10px;
+  align-items: center;
+}
+.sb-ft-label {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.sb-ft-track {
+  height: 14px;
+  background: var(--color-rule);
+}
+.sb-ft-bar {
+  display: block;
+  height: 100%;
+  background: var(--text-subtle);
+}
+.sb-ft-pct {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+}
+.sb-greek-counts {
+  display: flex;
+  gap: 28px;
+}
+.sb-greek-counts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sb-greek-n {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.sb-greek-l {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.sb-greek-foot {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-subtle);
+}
+.sb-source {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-subtle);
+}
+@media (max-width: 900px) {
+  .sb-side,
+  .sb-race-row,
+  .sb-rank-row,
+  .sb-ft {
+    grid-template-columns: 1fr;
+  }
+  .sb-race-pct,
+  .sb-rank-pct,
+  .sb-ft-pct { text-align: left; }
+}
+
 .scoir-source-chip {
   display: inline-block;
   margin-left: 6px;
