@@ -9563,6 +9563,47 @@ html[data-mode="dark"] .school-photos-who {
   border-radius: 2px;
   background: #2d3139 center / contain no-repeat;
 }
+.school-photos-tour-btn {
+  font: inherit;
+  color: var(--text-accent);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.school-photos-tour-btn:hover { color: var(--link-hover); }
+.school-tour-modal-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.school-tour-modal-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 2px;
+  background: #2d3139;
+}
+.school-tour-modal-status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  font-size: 14px;
+  color: #c3c8cf;
+  pointer-events: none;
+}
+.school-tour-modal-external {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: #c3c8cf;
+  text-decoration: none;
+}
+.school-tour-modal-external:hover { color: #f0eeec; }
+@media (max-width: 640px) {
+  .school-tour-modal { padding: 12px; gap: 10px; }
+}
 .school-photos-viewer-cap {
   display: flex;
   justify-content: space-between;

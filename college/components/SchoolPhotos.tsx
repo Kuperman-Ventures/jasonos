@@ -19,6 +19,7 @@ import {
   formatVisitDate,
   schoolPhotosForSchool,
   schoolPhotosHeadingName,
+  virtualTourEmbedUrlForSchool,
   virtualTourUrlForSchool,
   type SchoolPhoto,
 } from "@/lib/school-photos";
@@ -87,6 +88,7 @@ export function SchoolPhotos({
   const headingName = schoolPhotosHeadingName(school.name);
   const schoolPhotos = schoolPhotosForSchool(school.id, school.name);
   const virtualTourUrl = virtualTourUrlForSchool(school.name);
+  const virtualTourEmbedUrl = virtualTourEmbedUrlForSchool(school.name);
   // Family uploads need image storage tagged like Notes — not wired yet.
   const [familyPhotos] = useState<SchoolPhoto[]>([]);
   const uploadInputRef = useRef<HTMLInputElement>(null);
@@ -113,14 +115,21 @@ export function SchoolPhotos({
   ];
 
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [tourOpen, setTourOpen] = useState(false);
+  const [tourLoaded, setTourLoaded] = useState(false);
   const openerRef = useRef<HTMLElement | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const tourCloseBtnRef = useRef<HTMLButtonElement>(null);
+  const tourOpenerRef = useRef<HTMLButtonElement>(null);
   const stripRef = useRef<HTMLDivElement>(null);
   const lastWheel = useRef(0);
   const touchX = useRef<number | null>(null);
   const titleId = useId();
+  const tourTitleId = useId();
 
   const openViewer = useCallback((index: number, opener: HTMLElement | null) => {
+    setTourOpen(false);
+    setTourLoaded(false);
     openerRef.current = opener;
     setViewerIndex(index);
   }, []);
@@ -128,6 +137,18 @@ export function SchoolPhotos({
   const closeViewer = useCallback(() => {
     setViewerIndex(null);
     queueMicrotask(() => openerRef.current?.focus());
+  }, []);
+
+  const openTour = useCallback(() => {
+    setViewerIndex(null);
+    setTourLoaded(false);
+    setTourOpen(true);
+  }, []);
+
+  const closeTour = useCallback(() => {
+    setTourOpen(false);
+    setTourLoaded(false);
+    queueMicrotask(() => tourOpenerRef.current?.focus());
   }, []);
 
   const step = useCallback(
@@ -142,6 +163,13 @@ export function SchoolPhotos({
   );
 
   const onKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    if (tourOpen) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeTour();
+      }
+      return;
+    }
     if (viewerIndex == null) return;
     if (event.key === "ArrowRight") {
       event.preventDefault();
@@ -156,16 +184,20 @@ export function SchoolPhotos({
   });
 
   useEffect(() => {
-    if (viewerIndex == null) return;
+    if (viewerIndex == null && !tourOpen) return;
     document.body.style.overflow = "hidden";
-    closeBtnRef.current?.focus();
+    if (tourOpen) {
+      tourCloseBtnRef.current?.focus();
+    } else {
+      closeBtnRef.current?.focus();
+    }
     const onKey = (event: KeyboardEvent) => onKeyDown(event);
     document.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = "";
       document.removeEventListener("keydown", onKey);
     };
-  }, [viewerIndex, onKeyDown]);
+  }, [viewerIndex, tourOpen, onKeyDown]);
 
   useEffect(() => {
     if (viewerIndex == null || !stripRef.current) return;
@@ -262,7 +294,19 @@ export function SchoolPhotos({
         <div className="school-photos-group-head">
           <h2>From {headingName}</h2>
           <span className="school-photos-count">
-            {virtualTourUrl ? (
+            {virtualTourEmbedUrl ? (
+              <>
+                <button
+                  ref={tourOpenerRef}
+                  type="button"
+                  className="school-photos-tour-btn"
+                  onClick={openTour}
+                >
+                  Virtual tour
+                </button>
+                {" · "}
+              </>
+            ) : virtualTourUrl ? (
               <>
                 <a href={virtualTourUrl} target="_blank" rel="noopener noreferrer">
                   Virtual tour ↗
@@ -411,6 +455,58 @@ export function SchoolPhotos({
                 onClick={() => setViewerIndex(index)}
               />
             ))}
+          </div>
+        </div>
+      ) : null}
+
+      {tourOpen && virtualTourEmbedUrl ? (
+        <div
+          className="school-photos-viewer school-tour-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={tourTitleId}
+        >
+          <div className="school-photos-viewer-top">
+            <span className="school-photos-viewer-label" id={tourTitleId}>
+              {headingName} virtual tour
+            </span>
+            <div className="school-photos-viewer-top-right">
+              {virtualTourUrl ? (
+                <a
+                  className="school-tour-modal-external"
+                  href={virtualTourUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Open on school site ↗
+                </a>
+              ) : null}
+              <button
+                ref={tourCloseBtnRef}
+                type="button"
+                className="school-photos-vbtn school-photos-vbtn-sq"
+                aria-label="Close"
+                onClick={closeTour}
+              >
+                <X size={20} weight="duotone" aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+          <div className="school-tour-modal-stage">
+            {!tourLoaded ? (
+              <p className="school-tour-modal-status">
+                Loading tour. If it does not appear, use &quot;Open on school site&quot;.
+              </p>
+            ) : null}
+            <iframe
+              className="school-tour-modal-frame"
+              src={virtualTourEmbedUrl}
+              title={`${school.name} virtual tour`}
+              allow="fullscreen; autoplay; gyroscope; accelerometer; xr-spatial-tracking"
+              allowFullScreen
+              referrerPolicy="strict-origin-when-cross-origin"
+              onLoad={() => setTourLoaded(true)}
+            />
           </div>
         </div>
       ) : null}

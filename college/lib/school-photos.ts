@@ -41,6 +41,7 @@ type CatalogPhoto = {
 type CatalogSchool = {
   school: string;
   virtualTourUrl: string | null;
+  virtualTourEmbedUrl: string | null;
   visitAddress?: string;
   visitDetails?: string;
   photos: CatalogPhoto[];
@@ -60,6 +61,11 @@ export function catalogEntryForSchool(schoolName: string): CatalogSchool | null 
 
 export function virtualTourUrlForSchool(schoolName: string): string | null {
   return BY_NAME.get(schoolName)?.virtualTourUrl ?? null;
+}
+
+/** Tour URL that can be shown inside our modal. Null when the tour must open on the school's site. */
+export function virtualTourEmbedUrlForSchool(schoolName: string): string | null {
+  return BY_NAME.get(schoolName)?.virtualTourEmbedUrl ?? null;
 }
 
 /** Admissions / visitor-center address from the photos catalog. */

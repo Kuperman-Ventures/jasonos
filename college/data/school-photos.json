@@ -2,6 +2,7 @@
   {
     "school": "Massachusetts Institute of Technology (MIT)",
     "virtualTourUrl": "https://mitadmissions.org/explore-on-your-own/",
+    "virtualTourEmbedUrl": null,
     "visitAddress": "77 Massachusetts Avenue, Cambridge, MA 02139",
     "visitDetails": "MIT Admissions, 77 Massachusetts Avenue, Room E38-200, Cambridge, MA 02139",
     "photos": [
@@ -82,6 +83,7 @@
   {
     "school": "Stanford University",
     "virtualTourUrl": "https://visit.stanford.edu/tours/virtual",
+    "virtualTourEmbedUrl": "https://lbre-sites-prod.stanford.edu/Story_Map/campustour/index-no-banner.html",
     "visitAddress": "295 Galvez Street, Stanford, CA 94305",
     "visitDetails": "Stanford Visitor Center, 295 Galvez Street, Stanford, CA 94305",
     "photos": [
@@ -162,6 +164,7 @@
   {
     "school": "University of California, Berkeley (UC Berkeley)",
     "virtualTourUrl": "https://visit.berkeley.edu/campus-tours/virtual-engagements",
+    "virtualTourEmbedUrl": null,
     "visitAddress": "2227 Piedmont Avenue, Berkeley, CA 94720",
     "visitDetails": "Koret Visitor Center, California Memorial Stadium, 2227 Piedmont Avenue, Berkeley, CA 94720",
     "photos": [
@@ -242,6 +245,7 @@
   {
     "school": "Cornell University",
     "virtualTourUrl": "https://www.cornell.edu/visit/virtual-tour/",
+    "virtualTourEmbedUrl": "https://visitour.io/cornell-university",
     "visitAddress": "616 Thurston Avenue, Ithaca, NY 14850",
     "visitDetails": "Martin Y. Tang Welcome Center, 616 Thurston Avenue, Ithaca, NY 14850",
     "photos": [
@@ -322,6 +326,7 @@
   {
     "school": "Northwestern University",
     "virtualTourUrl": "https://admissions.northwestern.edu/visit/experience/virtual-tour.html",
+    "virtualTourEmbedUrl": null,
     "visitAddress": "1841 Sheridan Road, Evanston, IL 60208",
     "visitDetails": "Segal Visitors Center, 1841 Sheridan Road, Evanston, IL 60208",
     "photos": [
@@ -402,6 +407,7 @@
   {
     "school": "Carnegie Mellon University (CMU)",
     "virtualTourUrl": "https://tour.concept3d.com/share/tt6vvyRbxi/stop/1",
+    "virtualTourEmbedUrl": "https://tour.concept3d.com/share/tt6vvyRbxi/stop/1",
     "visitAddress": "4765 Forbes Avenue, Pittsburgh, PA 15213",
     "visitDetails": "David and Susan Coulter Welcome Center, Tepper Quad (ground level), 4765 Forbes Avenue, Pittsburgh, PA 15213",
     "photos": [
@@ -482,6 +488,7 @@
   {
     "school": "University of Pennsylvania (UPenn)",
     "virtualTourUrl": "https://admissions.upenn.edu/visit-connect/visit-penn/on-campus",
+    "virtualTourEmbedUrl": "https://www.youvisit.com/tour/63613",
     "visitAddress": "249 South 36th Street, Philadelphia, PA 19104",
     "visitDetails": "Undergraduate Admissions Visitor Center, Cohen Hall, 249 South 36th Street, Philadelphia, PA 19104",
     "photos": [
@@ -562,6 +569,7 @@
   {
     "school": "Johns Hopkins University",
     "virtualTourUrl": "https://apply.jhu.edu/tours-and-events/",
+    "virtualTourEmbedUrl": "https://www.youvisit.com/tour/109075",
     "visitAddress": "3101 Wyman Park Drive, Baltimore, MD 21218",
     "visitDetails": "Mason Hall, 3101 Wyman Park Drive, Baltimore, MD 21218",
     "photos": [
@@ -642,6 +650,7 @@
   {
     "school": "Georgia Institute of Technology (Georgia Tech)",
     "virtualTourUrl": "https://admission.gatech.edu/visit/",
+    "virtualTourEmbedUrl": "https://www.youvisit.com/tour/60161",
     "visitAddress": "219 Uncle Heinie Way, Atlanta, GA 30332-0320",
     "visitDetails": "Office of Undergraduate Admission, 219 Uncle Heinie Way, Atlanta, GA 30332-0320",
     "photos": [
@@ -722,6 +731,7 @@
   {
     "school": "University of Michigan–Ann Arbor",
     "virtualTourUrl": "https://tour.umich.edu/",
+    "virtualTourEmbedUrl": "https://tour.umich.edu/",
     "visitAddress": "515 E. Jefferson St., Ann Arbor, MI 48109",
     "visitDetails": "Office of Undergraduate Admissions, 1220 Student Activities Building, 515 E. Jefferson St., Ann Arbor, MI 48109",
     "photos": [
@@ -802,6 +812,7 @@
   {
     "school": "University of Illinois Urbana-Champaign (UIUC)",
     "virtualTourUrl": "https://www.admissions.illinois.edu/virtual-visit-options/",
+    "virtualTourEmbedUrl": null,
     "visitAddress": "901 West Illinois Street, Urbana, IL 61801",
     "visitDetails": "Undergraduate Admissions, 901 West Illinois Street, Urbana, IL 61801",
     "photos": [
@@ -882,6 +893,7 @@
   {
     "school": "University of Texas at Austin (UT Austin)",
     "virtualTourUrl": "https://www.youvisit.com/tour/utexas/university_of_texas",
+    "virtualTourEmbedUrl": "https://www.youvisit.com/tour/utexas/university_of_texas",
     "visitAddress": "101 E. 21st St., Austin, TX 78712",
     "visitDetails": "Rox, Duke and Danay Covert Admissions Welcome Center, Perry-Castañeda Library (ground floor), 101 E. 21st St., Austin, TX 78712",
     "photos": [
@@ -962,6 +974,7 @@
   {
     "school": "University of California, Los Angeles (UCLA)",
     "virtualTourUrl": "https://www.youvisit.com/tour/ucla",
+    "virtualTourEmbedUrl": "https://www.youvisit.com/tour/ucla",
     "visitAddress": "Murphy Hall, Los Angeles, CA 90095",
     "visitDetails": "UCLA Undergraduate Admission, 1147 Murphy Hall, Los Angeles, CA 90095-1436",
     "photos": [
@@ -1042,6 +1055,7 @@
   {
     "school": "Purdue University",
     "virtualTourUrl": "https://admissions.purdue.edu/prospectivevirtualexperience",
+    "virtualTourEmbedUrl": null,
     "visitAddress": "128 Memorial Mall, West Lafayette, IN 47907",
     "visitDetails": "Office of Admissions, 128 Memorial Mall, West Lafayette, IN 47907",
     "photos": [
@@ -1122,6 +1136,7 @@
   {
     "school": "University of Maryland, College Park",
     "virtualTourUrl": "https://admissions.umd.edu/visit",
+    "virtualTourEmbedUrl": null,
     "visitAddress": "7777 Baltimore Avenue, College Park, MD 20740",
     "visitDetails": "Visitor Center at The Hotel at the University of Maryland, 7777 Baltimore Avenue, College Park, MD 20740",
     "photos": [
@@ -1202,6 +1217,7 @@
   {
     "school": "University of Washington",
     "virtualTourUrl": "https://tour.concept3d.com/share/T_MRB88GI/stop/1",
+    "virtualTourEmbedUrl": "https://tour.concept3d.com/share/T_MRB88GI/stop/1",
     "visitAddress": "4001 E. Stevens Way NE, Seattle, WA 98195",
     "visitDetails": "Husky Union Building (HUB), 4001 E. Stevens Way NE, Seattle, WA 98195",
     "photos": [
@@ -1282,6 +1298,7 @@
   {
     "school": "University of Wisconsin–Madison",
     "virtualTourUrl": "https://virtualtour.wisc.edu/",
+    "virtualTourEmbedUrl": "https://virtualtour.wisc.edu/",
     "visitAddress": "1308 West Dayton Street, Madison, WI 53715",
     "visitDetails": "Union South, Campus & Community Information Welcome Desk (1st Floor), 1308 West Dayton Street, Madison, WI 53715",
     "photos": [
@@ -1362,6 +1379,7 @@
   {
     "school": "Virginia Polytechnic Institute and State University (Virginia Tech)",
     "virtualTourUrl": "https://www.vt.edu/admissions/undergraduate/visit/virtual-vt-visit.html",
+    "virtualTourEmbedUrl": "https://campus360.org/Virginia-Tech/virginia-tech-3",
     "visitAddress": "925 Prices Fork Road, Blacksburg, VA 24061",
     "visitDetails": "Visitor and Undergraduate Admissions Center, 925 Prices Fork Road, Blacksburg, VA 24061",
     "photos": [
@@ -1442,6 +1460,7 @@
   {
     "school": "Pennsylvania State University (Penn State)",
     "virtualTourUrl": "https://tour.concept3d.com/share/r1RpGxHj7/stop/1",
+    "virtualTourEmbedUrl": "https://tour.concept3d.com/share/r1RpGxHj7/stop/1",
     "visitAddress": "664 Curtin Road, University Park, PA 16802",
     "visitDetails": "Penn State Undergraduate Admissions, 201 Shields Building, 664 Curtin Road, University Park, PA 16802",
     "photos": [
@@ -1522,6 +1541,7 @@
   {
     "school": "Ohio State University",
     "virtualTourUrl": "https://www.osu.edu/tour/#virtualtour",
+    "virtualTourEmbedUrl": "https://www.youvisit.com/tour/59943",
     "visitAddress": "1739 North High Street, Columbus, OH 43210",
     "visitDetails": "Undergraduate Admissions Welcome Center, Ohio Union (Third Floor), 1739 North High Street, Columbus, OH 43210",
     "photos": [
@@ -1602,6 +1622,7 @@
   {
     "school": "University of Minnesota Twin Cities",
     "virtualTourUrl": "https://admissions.tc.umn.edu/visit/virtual-tours-and-visits",
+    "virtualTourEmbedUrl": "https://www.youvisit.com/tour/60288",
     "visitAddress": "231 Pillsbury Drive SE, Minneapolis, MN 55455",
     "visitDetails": "Admissions Welcome Center, 240 Williamson Hall, 231 Pillsbury Drive SE, Minneapolis, MN 55455",
     "photos": [
@@ -1682,6 +1703,7 @@
   {
     "school": "North Carolina State University (NC State)",
     "virtualTourUrl": "https://visit.ncsu.edu/main-campus",
+    "virtualTourEmbedUrl": null,
     "visitAddress": "Talley Student Union, 2610 Cates Avenue, Raleigh, NC",
     "visitDetails": "Talley Student Union, 2610 Cates Avenue, Raleigh, NC",
     "photos": [
@@ -1744,6 +1766,7 @@
   {
     "school": "University of California, Davis (UC Davis)",
     "virtualTourUrl": "https://www.ucdavis.edu/about/visit/campus-virtual-tour",
+    "virtualTourEmbedUrl": "https://tour.concept3d.com/share/hAQHIrMsL/stop/1",
     "visitAddress": "550 Alumni Lane, Davis, CA 95616",
     "visitDetails": "Walter A. Robinson Welcome Center, UC Davis Conference Center, 550 Alumni Lane, Davis, CA 95616",
     "photos": [
@@ -1824,6 +1847,7 @@
   {
     "school": "University of California, Irvine (UC Irvine)",
     "virtualTourUrl": "https://tour.admissions.uci.edu/",
+    "virtualTourEmbedUrl": "https://tour.admissions.uci.edu/",
     "visitAddress": "Aldrich Hall, Irvine, CA 92697",
     "visitDetails": "Office of Undergraduate Admissions, 260 Aldrich Hall, Irvine, CA 92697-1075",
     "photos": [
@@ -1886,6 +1910,7 @@
   {
     "school": "Case Western Reserve University",
     "virtualTourUrl": "https://case.edu/admission/visit/virtual-tour",
+    "virtualTourEmbedUrl": "https://www.youvisit.com/tour/60771",
     "visitAddress": "11402 Bellflower Road, Cleveland, OH 44106",
     "visitDetails": "Undergraduate Admission Welcome Center (Mandel Community Studies Center), 11402 Bellflower Road, Cleveland, OH 44106",
     "photos": [
@@ -1957,6 +1982,7 @@
   {
     "school": "Rensselaer Polytechnic Institute (RPI)",
     "virtualTourUrl": "https://undergrad.admissions.rpi.edu/visit-and-events/virtual-tour",
+    "virtualTourEmbedUrl": "https://www.youvisit.com/tour/62877",
     "visitAddress": "2 Eaton Road, Troy, NY 12180",
     "visitDetails": "Fitzroy Admissions Building, 2 Eaton Road, Troy, NY 12180",
     "photos": [
@@ -2019,6 +2045,7 @@
   {
     "school": "Rutgers University–New Brunswick",
     "virtualTourUrl": "https://admissions.rutgers.edu/TourRutgersNB",
+    "virtualTourEmbedUrl": null,
     "visitAddress": "100 Sutphen Road, Piscataway, NJ 08854",
     "visitDetails": "Rutgers Visitor Center, 100 Sutphen Road, Piscataway, NJ 08854",
     "photos": [
@@ -2099,6 +2126,7 @@
   {
     "school": "University of Florida",
     "virtualTourUrl": "https://www.admissions.ufl.edu/visit-and-events/",
+    "virtualTourEmbedUrl": null,
     "visitAddress": "Criser Hall, Gainesville, FL 32611",
     "visitDetails": "Office of Admissions, 201 Criser Hall, Gainesville, FL 32611-4000",
     "photos": [
@@ -2170,6 +2198,7 @@
   {
     "school": "Texas A&M University",
     "virtualTourUrl": "https://virtualtour.tamu.edu/",
+    "virtualTourEmbedUrl": "https://virtualtour.tamu.edu/",
     "visitAddress": "401 Joe Routt Blvd., College Station, TX 77840",
     "visitDetails": "Appelt Aggieland Visitor Center, Rudder Tower, 401 Joe Routt Blvd., College Station, TX 77840",
     "photos": [
@@ -2250,6 +2279,7 @@
   {
     "school": "Colorado School of Mines",
     "virtualTourUrl": "https://tour.mines.edu/visits/virtual-campus-tour/",
+    "virtualTourEmbedUrl": "https://www.youvisit.com/tour/120317",
     "visitAddress": "1812 Illinois St., Golden, CO 80401",
     "visitDetails": "Starzer Welcome Center, 1812 Illinois St., Golden, CO 80401",
     "photos": [
@@ -2330,6 +2360,7 @@
   {
     "school": "University of Virginia (UVA)",
     "virtualTourUrl": "https://admission.virginia.edu/events/take-virtual-tour-uva-grounds",
+    "virtualTourEmbedUrl": "https://www.youvisit.com/tour/uva",
     "visitAddress": "Peabody Hall, Charlottesville, VA 22904",
     "visitDetails": "Peabody Hall (front entrance facing the Lawn), Office of Undergraduate Admission, Charlottesville, VA 22904",
     "photos": [
@@ -2401,6 +2432,7 @@
   {
     "school": "Lehigh University",
     "virtualTourUrl": "https://www2.lehigh.edu/admissions/virtual-tour",
+    "virtualTourEmbedUrl": "https://www.youvisit.com/tour/62054",
     "visitAddress": "27 Memorial Drive West, Bethlehem, PA 18015",
     "visitDetails": "Alumni Memorial Building, 27 Memorial Drive West, Bethlehem, PA 18015",
     "photos": [
@@ -2463,6 +2495,7 @@
   {
     "school": "University of Connecticut (UConn)",
     "virtualTourUrl": "https://admissions.uconn.edu/visit/storrs-main-campus/",
+    "virtualTourEmbedUrl": null,
     "visitAddress": "2131 Hillside Road, Storrs, CT 06269",
     "visitDetails": "Office of Undergraduate Admissions, 2131 Hillside Road, Unit 3088, Storrs, CT 06269-3088",
     "photos": [
@@ -2543,6 +2576,7 @@
   {
     "school": "University of Delaware",
     "virtualTourUrl": "https://visitour.io/university-of-delaware",
+    "virtualTourEmbedUrl": "https://visitour.io/university-of-delaware",
     "visitAddress": "210 South College Ave, Newark, DE 19716",
     "visitDetails": "University Visitor Center, 210 South College Ave, Newark, DE 19716",
     "photos": [
@@ -2614,6 +2648,7 @@
   {
     "school": "Drexel University",
     "virtualTourUrl": "https://drexel.edu/admissions/virtual-tour",
+    "virtualTourEmbedUrl": null,
     "visitAddress": "3141 Chestnut Street, Philadelphia, PA 19104",
     "visitDetails": "Admissions, Main Building, Room 212, 3141 Chestnut Street, Philadelphia, PA 19104",
     "photos": [
@@ -2694,6 +2729,7 @@
   {
     "school": "Iowa State University",
     "virtualTourUrl": "https://www.youvisit.com/tour/iastate",
+    "virtualTourEmbedUrl": "https://www.youvisit.com/tour/iastate",
     "visitAddress": "2229 Lincoln Way, Ames, IA 50014",
     "visitDetails": "Soults Family Visitor Center, Memorial Union, 2229 Lincoln Way, Ames, IA 50014",
     "photos": [
@@ -2774,6 +2810,7 @@
   {
     "school": "Clemson University",
     "virtualTourUrl": "https://www.clemson.edu/admissions/undergraduate-admissions/visit/choose-your-tour/virtual-tour.html",
+    "virtualTourEmbedUrl": null,
     "visitAddress": "220 Madren Center Drive, Clemson, SC 29634",
     "visitDetails": "Nieri Family Alumni and Visitors Center, 220 Madren Center Drive, Clemson, SC 29634",
     "photos": [
@@ -2854,6 +2891,7 @@
   {
     "school": "University of Tennessee, Knoxville",
     "virtualTourUrl": "https://www.youvisit.com/tour/120216",
+    "virtualTourEmbedUrl": "https://www.youvisit.com/tour/120216",
     "visitAddress": "1502 Cumberland Avenue, Knoxville, TN 37996",
     "visitDetails": "UT Visitors Center, Student Union (second floor), 1502 Cumberland Avenue, Suite 282, Knoxville, TN 37996",
     "photos": [
@@ -2925,6 +2963,7 @@
   {
     "school": "Michigan Technological University (Michigan Tech)",
     "virtualTourUrl": "https://www.mtu.edu/maps/campus-tour/",
+    "virtualTourEmbedUrl": "https://map.mtu.edu/?id=1308",
     "visitAddress": "1400 Townsend Drive, Houghton, MI 49931",
     "visitDetails": "John Edgar McAllister Welcome Center, Memorial Union Building, 1400 Townsend Drive, Houghton, MI 49931",
     "photos": [
@@ -3005,6 +3044,7 @@
   {
     "school": "New Jersey Institute of Technology (NJIT)",
     "virtualTourUrl": "https://www.njit.edu/tour",
+    "virtualTourEmbedUrl": "https://www.youvisit.com/tour/njit",
     "visitAddress": "Fenster Hall, Newark, NJ 07102",
     "visitDetails": "Office of University Admissions, Fenster Hall, Room 100, University Heights, Newark, NJ 07102-1982",
     "photos": [
@@ -3076,6 +3116,7 @@
   {
     "school": "Worcester Polytechnic Institute (WPI)",
     "virtualTourUrl": "https://www.wpi.edu/admissions/undergraduate/visit/virtual-visits",
+    "virtualTourEmbedUrl": "https://www.youvisit.com/tour/60012",
     "visitAddress": "100 Institute Road, Worcester, MA 01609",
     "visitDetails": "Bartlett Center, 100 Institute Road, Worcester, MA 01609",
     "photos": [
@@ -3156,6 +3197,7 @@
   {
     "school": "Stevens Institute of Technology",
     "virtualTourUrl": "https://tour.stevens.edu/",
+    "virtualTourEmbedUrl": "https://www.youvisit.com/tour/stevens",
     "visitAddress": "1 Castle Point Terrace, Hoboken, NJ 07030",
     "visitDetails": "Ruesterholz Admissions Center, 1 Castle Point Terrace, Hoboken, NJ 07030",
     "photos": [
@@ -3236,6 +3278,7 @@
   {
     "school": "Rose-Hulman Institute of Technology",
     "virtualTourUrl": "https://www.rose-hulman.edu/virtual-tour.html",
+    "virtualTourEmbedUrl": null,
     "visitAddress": "5500 Wabash Avenue, Terre Haute, IN 47803",
     "visitDetails": "Office of Admissions, 5500 Wabash Avenue, Terre Haute, IN 47803",
     "photos": [
