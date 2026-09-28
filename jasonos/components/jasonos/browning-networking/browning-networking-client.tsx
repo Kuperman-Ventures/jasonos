@@ -10,13 +10,14 @@ import {
   replySubject,
   schedulingDraft,
 } from "@/lib/browning-networking/draft";
+import { handoffLane, type HandoffLane } from "@/lib/browning-networking/lanes";
 import { addCalendarDays } from "@/lib/browning-networking/slots";
 import { TRACY_EMAIL, type HandoffSlot } from "@/lib/browning-networking/types";
 import { CADENCE_LABELS, type CadenceInterval } from "@/lib/outreach/types";
 import {
   checkBrowningHandoffs,
-  dismissHandoff,
   draftThankYouFromNotes,
+  markHandoffActedOn,
   openHandoffReply,
   saveHandoffSlots,
   setHandoffCadence,
@@ -39,15 +40,18 @@ export function BrowningNetworkingClient({
   );
   const selected = page.handoffs.find((row) => row.id === selectedId) ?? null;
   const [pending, start] = useTransition();
+  const replyRows = page.handoffs.filter((row) => handoffLane(row) === "reply");
+  const waitingRows = page.handoffs.filter((row) => handoffLane(row) === "waiting");
+  const scheduledRows = page.handoffs.filter((row) => handoffLane(row) === "scheduled");
 
   return (
-    <div className="mx-auto grid max-w-[1400px] gap-4 px-4 py-4 lg:grid-cols-[280px_minmax(0,1fr)]">
-      <aside className="space-y-3">
+    <div className="mx-auto grid max-w-[1400px] gap-4 px-4 py-4 lg:grid-cols-[300px_minmax(0,1fr)]">
+      <aside className="space-y-4">
         <div className="flex items-center justify-between gap-2">
           <h1 className="font-heading text-xl font-semibold">Browning Networking</h1>
         </div>
         <p className="text-xs text-muted-foreground">
-          Tracy&apos;s handoff emails from Gmail and Outlook. You reply to each one the same way. Nothing sends on its own.
+          Reply, then mark Acted On. They stay on this page until the meeting is on your calendar.
         </p>
         <Button
           size="sm"
@@ -65,27 +69,35 @@ export function BrowningNetworkingClient({
           Check for new handoffs
         </Button>
         {page.error ? <p className="text-xs text-red-400">{page.error}</p> : null}
-        <ul className="space-y-1">
-          {page.handoffs.length === 0 ? (
-            <li className="rounded-md border border-dashed px-3 py-6 text-xs text-muted-foreground">
-              No handoffs yet. The check looks in Gmail and Outlook for Tracy&apos;s copy-you email.
-            </li>
-          ) : null}
-          {page.handoffs.map((row) => (
-            <li key={row.id}>
-              <button
-                type="button"
-                onClick={() => setSelectedId(row.id)}
-                className={`w-full rounded-md border px-3 py-2 text-left ${
-                  row.id === selectedId ? "border-foreground bg-muted" : "border-transparent hover:bg-muted/60"
-                }`}
-              >
-                <div className="text-sm font-medium">{row.contactName || "Unparsed contact"}</div>
-                <div className="text-[11px] text-muted-foreground">{statusLabel(row)}</div>
-              </button>
-            </li>
-          ))}
-        </ul>
+        {page.handoffs.length === 0 ? (
+          <p className="rounded-md border border-dashed px-3 py-6 text-xs text-muted-foreground">
+            No handoffs yet. The check looks in Gmail and Outlook for Tracy&apos;s copy-you email.
+          </p>
+        ) : (
+          <>
+            <HandoffLaneList
+              title="To reply"
+              empty="Nobody left to reply to."
+              rows={replyRows}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
+            <HandoffLaneList
+              title="Waiting for them to schedule"
+              empty="Nobody is waiting yet. Acted On moves someone here after you send."
+              rows={waitingRows}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
+            <HandoffLaneList
+              title="Meeting set"
+              empty="Nobody is on the calendar yet."
+              rows={scheduledRows}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+            />
+          </>
+        )}
       </aside>
       {selected ? (
         <HandoffDetail
@@ -145,19 +157,26 @@ function HandoffDetail({
             </a>
           ) : null}
         </div>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() =>
-            start(async () => {
-              const result = await dismissHandoff(handoff.id);
-              if (!result.ok) toast.error(result.error);
-            })
-          }
-        >
-          Dismiss
-        </Button>
+        {handoffLane(handoff) === "reply" ? (
+          <Button
+            onClick={() =>
+              start(async () => {
+                const result = await markHandoffActedOn(handoff.id);
+                if (!result.ok) toast.error(result.error);
+                else toast("Acted on. They're in the waiting list until the meeting is on your calendar.");
+              })
+            }
+            disabled={pending}
+          >
+            Acted On
+          </Button>
+        ) : null}
       </header>
+      {handoffLane(handoff) === "waiting" ? (
+        <p className="rounded-md border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-sm">
+          Waiting for them to schedule. They stay in that list until the meeting shows up on your calendar.
+        </p>
+      ) : null}
 
       {handoff.existingContactId ? (
         <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs">
@@ -373,11 +392,55 @@ function BriefLine({ label, text }: { label: string; text: string }) {
   );
 }
 
+function HandoffLaneList({
+  title,
+  empty,
+  rows,
+  selectedId,
+  onSelect,
+}: {
+  title: string;
+  empty: string;
+  rows: HandoffRecord[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <section className="space-y-1">
+      <h2 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+        <span className="ml-1.5 font-normal">{rows.length}</span>
+      </h2>
+      {rows.length === 0 ? (
+        <p className="rounded-md border border-dashed px-3 py-3 text-[11px] text-muted-foreground">{empty}</p>
+      ) : (
+        <ul className="space-y-1">
+          {rows.map((row) => (
+            <li key={row.id}>
+              <button
+                type="button"
+                onClick={() => onSelect(row.id)}
+                className={`w-full rounded-md border px-3 py-2 text-left ${
+                  row.id === selectedId ? "border-foreground bg-muted" : "border-transparent hover:bg-muted/60"
+                }`}
+              >
+                <div className="text-sm font-medium">{row.contactName || "Unparsed contact"}</div>
+                <div className="text-[11px] text-muted-foreground">{statusLabel(row)}</div>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 function statusLabel(row: HandoffRecord): string {
+  const lane: HandoffLane = handoffLane(row);
   if (row.status === "thank_you_ready") return "Thank-you draft ready";
   if (row.status === "brief_ready") return "Brief ready";
-  if (row.callStartsAt) return "On your calendar";
+  if (lane === "scheduled") return "On your calendar";
+  if (lane === "waiting") return "Waiting for them to schedule";
   if (row.status === "draft_ready") return "Reply ready";
-  if (row.existingContactId) return "Already a contact";
   return "Pick times";
 }

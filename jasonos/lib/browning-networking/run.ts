@@ -266,7 +266,7 @@ async function followBookedCalls(sb: Sb): Promise<{
   const { data, error } = await sb
     .from("browning_handoffs")
     .select("*")
-    .in("status", ["times_ready", "draft_ready", "booked", "brief_ready"]);
+    .in("status", ["times_ready", "draft_ready", "acted_on", "booked", "brief_ready"]);
   if (error || !data?.length) return { booked: 0, briefs: 0, thankYous: 0 };
 
   const events = await upcomingEvents();
