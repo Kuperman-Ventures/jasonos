@@ -1,6 +1,7 @@
 import "server-only";
 
 import { etToday, etYmd } from "@/lib/dates";
+import { BROWNING_SOURCE_NAME, findReferralSourceId } from "@/lib/referral-sources";
 import { createGmailDraft, downloadGmailResume, getGmailMessagesFull, listGmailMessages } from "@/lib/integrations/gmail";
 import { downloadOutlookResume, latestOutlookSentTo, listOutlookTracyMessages, searchOutlookMessages } from "@/lib/integrations/outlook";
 import { getOutlookAccountAccess } from "@/lib/integrations/outlook-tokens";
@@ -94,6 +95,7 @@ export async function runBrowningNetworking(): Promise<BrowningRunResult> {
     result.booked = followed.booked;
     result.briefs = followed.briefs;
     result.thankYous = followed.thankYous;
+    await linkBrowningReferrals(sb);
     result.ok = true;
     return result;
   } catch (err) {
@@ -397,20 +399,37 @@ async function writeMeetingBriefs(
         candidate.gmail_account === item.mail.accountEmail &&
         candidate.gmail_message_id === item.mail.messageId
     );
-    if (!row?.id || row.meeting_brief) continue;
-    const resumeText = await loadResumeText(item.mail.accountEmail, item.resumeMessageId || item.mail.messageId);
+    if (!row?.id) continue;
+    const previousBrief = row.meeting_brief ?? "";
+    if (previousBrief.startsWith("Who they are")) continue;
+    const messageId = item.resumeMessageId || item.mail.messageId;
+    const file = await loadResumeFile(item.mail.accountEmail, messageId);
     const brief = meetingBrief({
       name: item.parsed.name,
       tracyBody: item.mail.body,
-      resumeText,
+      resumeText: file?.text ?? null,
       whyTheyReplied: item.parsed.whyTheyReplied,
     });
     if (!brief) continue;
     row.meeting_brief = brief;
-    await sb.from("browning_handoffs").update({ meeting_brief: brief }).eq("id", row.id);
+    await sb
+      .from("browning_handoffs")
+      .update({
+        meeting_brief: brief,
+        resume_message_id: messageId,
+        resume_filename: file?.filename ?? null,
+      })
+      .eq("id", row.id);
     const contactId = row.created_contact_id || row.existing_contact_id;
     if (contactId) {
       await sb.from("contacts").update({ browning_prep: brief }).eq("id", contactId);
+      if (previousBrief) {
+        await sb
+          .from("meetings")
+          .update({ prep_notes: brief })
+          .eq("contact_id", contactId)
+          .eq("prep_notes", previousBrief);
+      }
       await sb
         .from("meetings")
         .update({ prep_notes: brief })
@@ -423,19 +442,49 @@ async function writeMeetingBriefs(
   return wrote;
 }
 
-async function loadResumeText(accountEmail: string, messageId: string): Promise<string | null> {
+async function loadResumeFile(
+  accountEmail: string,
+  messageId: string
+): Promise<{ text: string; filename: string } | null> {
   try {
     const file = /@(outlook|hotmail|live)\.com$/i.test(accountEmail)
       ? await outlookResume(messageId)
       : await gmailResume(accountEmail, messageId);
     if (!file) return null;
     const name = file.filename.toLowerCase();
-    if (name.endsWith(".pdf")) return extractPdfText(file.bytes);
-    return extractDocxText(file.bytes);
+    const text = name.endsWith(".pdf")
+      ? await extractPdfText(file.bytes)
+      : await extractDocxText(file.bytes);
+    return { text, filename: file.filename };
   } catch (err) {
     console.error("[browning-networking] resume", err);
     return null;
   }
+}
+
+const CONTACT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function downloadHandoffResume(contactId: string): Promise<{
+  filename: string;
+  bytes: Buffer;
+} | null> {
+  if (!CONTACT_ID.test(contactId)) return null;
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("browning_handoffs")
+    .select("gmail_account, gmail_message_id, resume_message_id, resume_filename")
+    .or(`created_contact_id.eq.${contactId},existing_contact_id.eq.${contactId}`)
+    .order("received_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+  const accountEmail = data.gmail_account as string;
+  const messageId = (data.resume_message_id as string | null) || (data.gmail_message_id as string);
+  if (!messageId) return null;
+  const file = /@(outlook|hotmail|live)\.com$/i.test(accountEmail)
+    ? await outlookResume(messageId)
+    : await gmailResume(accountEmail, messageId);
+  return file;
 }
 
 async function outlookResume(messageId: string) {
@@ -710,6 +759,79 @@ function linkedInSlug(url: string | null | undefined): string | null {
   return match?.[1]?.toLowerCase() ?? null;
 }
 
+async function browningReferrerId(sb: Sb): Promise<string | null> {
+  const { data, error } = await sb
+    .from("contacts")
+    .select("id,name,tags")
+    .contains("tags", ["referral_source"]);
+  if (error) {
+    console.error("[browning-networking] referral source", error);
+    return null;
+  }
+  return findReferralSourceId(
+    (data ?? []).map((row) => ({
+      id: row.id as string,
+      name: (row.name as string) ?? "",
+      tags: (row.tags as string[] | null) ?? null,
+    })),
+    BROWNING_SOURCE_NAME
+  );
+}
+
+async function browningReferralFields(sb: Sb): Promise<{
+  referred_by_contact_id: string;
+  referred_at: string;
+  network_degree: number;
+} | Record<string, never>> {
+  const id = await browningReferrerId(sb);
+  if (!id) return {};
+  return {
+    referred_by_contact_id: id,
+    referred_at: etToday(),
+    network_degree: 2,
+  };
+}
+
+async function linkBrowningReferrals(sb: Sb): Promise<void> {
+  const browningId = await browningReferrerId(sb);
+  if (!browningId) return;
+  const { data, error } = await sb
+    .from("browning_handoffs")
+    .select("created_contact_id, existing_contact_id");
+  if (error) {
+    console.error("[browning-networking] referral handoffs", error);
+    return;
+  }
+  const ids = new Set<string>();
+  for (const row of data ?? []) {
+    const created = row.created_contact_id as string | null;
+    const existing = row.existing_contact_id as string | null;
+    if (created && created !== browningId) ids.add(created);
+    if (existing && existing !== browningId) ids.add(existing);
+  }
+  if (!ids.size) return;
+  const contacts = await sb
+    .from("contacts")
+    .select("id, referred_by_contact_id, network_degree, browning_source")
+    .in("id", [...ids]);
+  if (contacts.error) {
+    console.error("[browning-networking] referral contacts", contacts.error);
+    return;
+  }
+  for (const contact of contacts.data ?? []) {
+    if (contact.referred_by_contact_id) continue;
+    await sb
+      .from("contacts")
+      .update({
+        referred_by_contact_id: browningId,
+        referred_at: etToday(),
+        network_degree: (contact.network_degree as number | null) ?? 2,
+        ...(contact.browning_source ? {} : { browning_source: "browning_referral" }),
+      })
+      .eq("id", contact.id as string);
+  }
+}
+
 async function insertContact(sb: Sb, parsed: ParsedHandoff): Promise<string | null> {
   if (!parsed.name) return null;
   const title = [parsed.title, parsed.company].filter(Boolean).join(" at ") || null;
@@ -723,6 +845,7 @@ async function insertContact(sb: Sb, parsed: ParsedHandoff): Promise<string | nu
       linkedin_url: parsed.linkedinUrl,
       tags: ["source:browning"],
       browning_source: "browning_referral",
+      ...(await browningReferralFields(sb)),
       cadence_interval: "none",
       is_networking: true,
       vip: false,

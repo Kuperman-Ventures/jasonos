@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { syncOutreachAll } from "@/lib/server-actions/outreach-sync";
+import { checkBrowningHandoffs } from "@/lib/server-actions/browning-networking";
 import { captureEmailCandidates } from "@/lib/server-actions/contact-candidates";
 import { captureSentEmailFollowups } from "@/lib/server-actions/sent-followups";
 import {
@@ -31,7 +32,7 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
     setRunning(true);
     try {
       const runId = crypto.randomUUID();
-      const [result, suggested, sentFollowups] = await Promise.all([
+      const [result, suggested, sentFollowups, browning] = await Promise.all([
         syncOutreachAll({
           daysBack: SUGGESTED_SCAN_DAYS_BACK,
           daysForward: SUGGESTED_SCAN_DAYS_FORWARD,
@@ -46,6 +47,7 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
           daysBack: SUGGESTED_SCAN_DAYS_BACK,
           runId,
         }),
+        checkBrowningHandoffs(runId),
       ]);
 
       const messages: string[] = [];
@@ -117,6 +119,19 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
       } else if (suggestedFatal) {
         messages.push(`Suggested failed: ${suggested.error}`);
       }
+      let browningFatal = false;
+      if (browning.ok) {
+        const bits = [`+${browning.created} handoff${browning.created === 1 ? "" : "s"}`];
+        if (browning.followUps) {
+          bits.push(`${browning.followUps} follow-up${browning.followUps === 1 ? "" : "s"}`);
+        }
+        if (browning.preps) bits.push(`${browning.preps} meeting prep`);
+        messages.push(`Browning ${bits.join(", ")}`);
+      } else {
+        browningFatal = true;
+        messages.push(`Browning failed: ${browning.error}`);
+      }
+
       let sentFatal = false;
       if (sentFollowups.ok) {
         messages.push(
@@ -138,7 +153,7 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
         result.outlook && !result.outlook.ok && !result.outlook.unavailable
       );
       const allOk =
-        result.ok && !suggestedFatal && !beeperFatal && !outlookFatal && !sentFatal;
+        result.ok && !suggestedFatal && !beeperFatal && !outlookFatal && !sentFatal && !browningFatal;
       const mailboxWarning = Boolean(
         result.gcal?.warnings?.length ||
           result.gmail?.warnings?.length ||
@@ -156,6 +171,7 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
         !outlookFatal &&
         !suggestedFatal &&
         !sentFatal &&
+        !browningFatal &&
         anyMailboxOk;
       if ((allOk || softOnlyMiss) && mailboxWarning) {
         toast.warning(messages.join(" · ") || "Sync finished with a warning");
@@ -188,8 +204,8 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
       disabled={running}
       title={
         lastSynced
-          ? `Last synced ${fmtRelative(lastSynced)} — Gmail, Outlook, Calendar, Beeper (when open) & suggested contacts`
-          : "Sync Gmail, Outlook, Calendar, Beeper (when Desktop is open) & suggested contacts"
+          ? `Last synced ${fmtRelative(lastSynced)} — Gmail, Outlook, Calendar, Browning handoffs, Beeper (when open) & suggested contacts`
+          : "Sync Gmail, Outlook, Calendar, Browning handoffs, Beeper (when Desktop is open) & suggested contacts"
       }
     >
       {running ? (

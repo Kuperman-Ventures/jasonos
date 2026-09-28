@@ -16,7 +16,8 @@ export type SyncLogSource =
   | "beeper"
   | "hubspot"
   | "suggested"
-  | "sent-followups";
+  | "sent-followups"
+  | "browning";
 
 export const SYNC_LOG_SOURCE_LABELS: Record<string, string> = {
   gmail: "Gmail",
@@ -26,6 +27,7 @@ export const SYNC_LOG_SOURCE_LABELS: Record<string, string> = {
   hubspot: "HubSpot",
   suggested: "Suggested",
   "sent-followups": "Sent follow-ups",
+  browning: "Browning",
   "job-alerts": "Job Alerts",
 };
 
