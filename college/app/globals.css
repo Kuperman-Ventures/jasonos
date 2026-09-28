@@ -1789,7 +1789,9 @@ table.schools .test-policy-fall2028-note {
   align-items: center;
 }
 .snapshot .fact:has(.campus-setting-detail) dd {
-  align-items: center;
+  /* Keep row vertically centered; left-justify badge in the value column. */
+  align-items: flex-start;
+  justify-content: center;
 }
 .snapshot .fact:has(.campus-setting-detail) dt {
   align-self: center;
