@@ -12075,6 +12075,10 @@ html[data-mode="dark"] .trip-cell.kbreak {
   line-height: 1.55;
   color: var(--text-muted);
 }
+.fin-chart-missing {
+  margin: 6px 0 0;
+  font-size: 13px;
+}
 .fin-chart-legend {
   display: flex;
   flex-wrap: wrap;

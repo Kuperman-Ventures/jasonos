@@ -625,7 +625,7 @@ export function FinancesTab({
       </div>
       </div>
 
-      <AdmitCostChart rows={sorted} household={household} onOpenSchool={onOpenSchool} />
+      <AdmitCostChart rows={rows} household={household} onOpenSchool={onOpenSchool} />
 
       <section className="fin-nj">
         <h3>New Jersey state aid</h3>
@@ -745,17 +745,25 @@ function AdmitCostChart({
         row.school.id,
       );
       if (admit == null || cost == null) return null;
+      const interest = row.school.interestLevel;
+      const rank = interestLevelRank(interest);
       return {
         id: row.school.id,
         name: shortSchoolName(row.school.name),
         admit,
         cost,
-        color: interestCssVar(row.school.interestLevel),
+        interest,
+        rank,
+        color: interestCssVar(interest),
         x: pad.left + (admit / 100) * plotW,
         y: pad.top + (1 - Math.min(cost, 100_000) / 100_000) * plotH,
       };
     })
-    .filter((p): p is NonNullable<typeof p> => p != null);
+    .filter((p): p is NonNullable<typeof p> => p != null)
+    // Lower interest first so top/high paint on top when dots overlap.
+    .sort((a, b) => a.rank - b.rank);
+
+  const missingCount = rows.length - points.length;
 
   const budgetY =
     household.annualBudget != null
@@ -769,8 +777,14 @@ function AdmitCostChart({
         <p className="fin-chart-sub">
           Each point uses your estimate if entered, otherwise the cost after a typical merit award,
           otherwise the published cost. Schools below the budget line and toward the right are
-          likely admits within budget.
+          likely admits within budget. Dot color is Kyle&apos;s interest level.
         </p>
+        {missingCount > 0 ? (
+          <p className="fin-chart-missing subtle">
+            {missingCount} school{missingCount === 1 ? "" : "s"} missing from the chart (no admit
+            rate or cost published yet).
+          </p>
+        ) : null}
       </div>
       <div className="fin-chart-legend">
         <span>
@@ -878,52 +892,58 @@ function AdmitCostChart({
               Likely admit · within budget
             </text>
           ) : null}
-          {points.map((p) => (
-            <g key={p.id}>
-              <circle
-                cx={p.x}
-                cy={p.y}
-                r={7}
-                fill={p.color}
-                stroke="var(--color-bg)"
-                strokeWidth={2}
-                tabIndex={0}
-                role="button"
-                aria-label={`${p.name}, ${p.admit}% admit, ${moneyCompact(p.cost)}`}
-                onMouseEnter={() => setHover(p.id)}
-                onMouseLeave={() => setHover(null)}
-                onFocus={() => setHover(p.id)}
-                onBlur={() => setHover(null)}
-                onClick={() => onOpenSchool(p.id)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onOpenSchool(p.id);
-                  }
-                }}
-                style={{ cursor: "pointer" }}
-              />
-              {hover === p.id ? (
-                <g>
-                  <rect
-                    x={p.x + 10}
-                    y={p.y - 28}
-                    width={140}
-                    height={36}
-                    rx={2}
-                    fill="var(--color-raised)"
-                    stroke="var(--color-border)"
-                  />
-                  <text x={p.x + 18} y={p.y - 12} className="fin-axis">
-                    {p.name}
-                  </text>
-                  <text x={p.x + 18} y={p.y + 2} className="fin-axis">
-                    {Math.round(p.admit)}% · {moneyCompact(p.cost)}
-                  </text>
-                </g>
-              ) : null}
-            </g>
-          ))}
+          {points.map((p) => {
+            const showLabel = hover === p.id || p.interest === "top" || p.interest === "high";
+            const labelW = Math.min(160, Math.max(72, p.name.length * 7.2 + 16));
+            return (
+              <g key={p.id}>
+                <circle
+                  cx={p.x}
+                  cy={p.y}
+                  r={p.rank >= 3 ? 8 : 7}
+                  fill={p.color}
+                  stroke="var(--color-bg)"
+                  strokeWidth={2}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`${p.name}, ${p.admit}% admit, ${moneyCompact(p.cost)}`}
+                  onMouseEnter={() => setHover(p.id)}
+                  onMouseLeave={() => setHover(null)}
+                  onFocus={() => setHover(p.id)}
+                  onBlur={() => setHover(null)}
+                  onClick={() => onOpenSchool(p.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onOpenSchool(p.id);
+                    }
+                  }}
+                  style={{ cursor: "pointer" }}
+                />
+                {showLabel ? (
+                  <g className="fin-chart-label" pointerEvents="none">
+                    <rect
+                      x={p.x + 10}
+                      y={p.y - (hover === p.id ? 28 : 10)}
+                      width={labelW}
+                      height={hover === p.id ? 36 : 18}
+                      rx={2}
+                      fill="var(--color-raised)"
+                      stroke="var(--color-border)"
+                    />
+                    <text x={p.x + 18} y={p.y - (hover === p.id ? 12 : 0) + 2} className="fin-axis">
+                      {p.name}
+                    </text>
+                    {hover === p.id ? (
+                      <text x={p.x + 18} y={p.y + 2} className="fin-axis">
+                        {Math.round(p.admit)}% · {moneyCompact(p.cost)}
+                      </text>
+                    ) : null}
+                  </g>
+                ) : null}
+              </g>
+            );
+          })}
         </svg>
       </div>
     </section>
