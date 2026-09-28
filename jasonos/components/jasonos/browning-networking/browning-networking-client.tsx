@@ -6,8 +6,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { BrowningNetworkingPage, HandoffRecord } from "@/lib/browning-networking/types";
 import {
-  isOutlookMailbox,
   replyComposeUrl,
+  replySubject,
   schedulingDraft,
 } from "@/lib/browning-networking/draft";
 import { addCalendarDays } from "@/lib/browning-networking/slots";
@@ -111,7 +111,6 @@ function HandoffDetail({
   eligibleYmd: string;
 }) {
   const [slots, setSlots] = useState<HandoffSlot[]>(handoff.slots);
-  const outlook = isOutlookMailbox(handoff.gmailAccount);
   const [weekMonday, setWeekMonday] = useState(mondayOf(eligibleYmd));
   const [notes, setNotes] = useState("");
   const [cadence, setCadence] = useState<CadenceInterval>("none");
@@ -214,18 +213,12 @@ function HandoffDetail({
                   toast.error(result.error);
                   return;
                 }
-                window.open(result.url, "_blank", "noopener,noreferrer");
-                toast(
-                  result.savedInGmail
-                    ? "Draft saved in Gmail. It is not sent."
-                    : outlook
-                      ? "Opened in Outlook. It is not sent."
-                      : "Opened in Gmail. It is not sent."
-                );
+                window.location.href = result.url;
+                toast.success("Opening Mail… finish the send there. Tracy is on Bcc.");
               })
             }
           >
-            {outlook ? "Open reply in Outlook" : "Open reply in Gmail"}
+            Open reply in Apple Mail
           </Button>
           <Button
             size="sm"
@@ -235,25 +228,24 @@ function HandoffDetail({
                 ? replyComposeUrl({
                     to: handoff.contactEmail,
                     bcc: TRACY_EMAIL,
-                    subject: handoff.subject ? `Re: ${handoff.subject.replace(/^re:\s*/i, "")}` : "Re: Executive Networking",
+                    subject: replySubject(handoff.subject),
                     body: draft,
-                    accountEmail: handoff.gmailAccount,
                   })
                 : "";
               void navigator.clipboard.writeText(draft);
-              if (url) window.open(url, "_blank", "noopener,noreferrer");
-              toast(
-                outlook
-                  ? "Reply copied. Tracy is on Bcc in the Outlook window."
-                  : "Reply copied. Tracy is on Bcc in the Gmail window."
-              );
+              if (url) {
+                window.location.href = url;
+                toast.success("Reply copied. Opening Mail… Tracy is on Bcc.");
+                return;
+              }
+              toast.success("Reply copied.");
             }}
           >
             Copy reply
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Tracy is on Bcc. Nothing sends until you send it. If the handoff came from Outlook, the reply opens there.
+          Tracy is on Bcc. Apple Mail opens with the reply filled in. Nothing sends until you send it.
         </p>
       </section>
 
@@ -288,7 +280,24 @@ function HandoffDetail({
       <section className="space-y-2">
         <h3 className="text-sm font-semibold">After the call</h3>
         {handoff.thankYouBody ? (
-          <pre className="whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-sm">{handoff.thankYouBody}</pre>
+          <>
+            <pre className="whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-sm">{handoff.thankYouBody}</pre>
+            {handoff.contactEmail ? (
+              <Button
+                size="sm"
+                onClick={() => {
+                  window.location.href = replyComposeUrl({
+                    to: handoff.contactEmail ?? "",
+                    subject: replySubject(handoff.subject),
+                    body: handoff.thankYouBody ?? "",
+                  });
+                  toast.success("Opening Mail… finish the send there.");
+                }}
+              >
+                Open thank-you in Apple Mail
+              </Button>
+            ) : null}
+          </>
         ) : (
           <>
             <p className="text-xs text-muted-foreground">

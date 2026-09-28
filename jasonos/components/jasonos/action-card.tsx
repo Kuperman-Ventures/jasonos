@@ -158,7 +158,7 @@ export function ActionCardItem({
       {card.body?.links?.length ? (
         <div className="flex flex-wrap gap-2">
           {card.body.links.map((link) =>
-            link.href.startsWith("/") ? (
+            link.href.startsWith("/") || link.href.startsWith("mailto:") ? (
               <a key={link.href} href={link.href} className="text-[11px] underline">
                 {link.label}
               </a>

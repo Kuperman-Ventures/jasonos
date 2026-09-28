@@ -116,11 +116,19 @@ export function missingRequiredFields(
 
 export function buildMailtoUrl(opts: {
   to: string;
+  cc?: string;
+  bcc?: string;
   subject: string;
   body: string;
 }): string {
   const to = opts.to.trim();
-  const subject = encodeURIComponent(opts.subject);
-  const body = encodeURIComponent(opts.body);
-  return `mailto:${to}?subject=${subject}&body=${body}`;
+  const parts = [
+    `subject=${encodeURIComponent(opts.subject)}`,
+    `body=${encodeURIComponent(opts.body)}`,
+  ];
+  const cc = opts.cc?.trim();
+  const bcc = opts.bcc?.trim();
+  if (cc) parts.push(`cc=${encodeURIComponent(cc)}`);
+  if (bcc) parts.push(`bcc=${encodeURIComponent(bcc)}`);
+  return `mailto:${to}?${parts.join("&")}`;
 }
