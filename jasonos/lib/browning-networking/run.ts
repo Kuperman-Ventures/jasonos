@@ -2,6 +2,8 @@ import "server-only";
 
 import { etToday, etYmd } from "@/lib/dates";
 import { createGmailDraft, getGmailMessagesFull, listGmailMessages } from "@/lib/integrations/gmail";
+import { searchOutlookMessages } from "@/lib/integrations/outlook";
+import { getOutlookAccountAccess } from "@/lib/integrations/outlook-tokens";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import {
   fetchAccountCalendarEvents,
@@ -16,13 +18,14 @@ import { findBookedCall, type CalendarGuestEvent } from "./booking";
 import {
   briefFromHandoff,
   callHasEnded,
-  gmailComposeUrl,
   isCallMorning,
+  isOutlookMailbox,
+  replyComposeUrl,
   replySubject,
   schedulingDraft,
   thankYouDraft,
 } from "./draft";
-import { isTracyHandoff, parseHandoff } from "./parse";
+import { chooseHandoffs, handoffKind, type HandoffMail } from "./parse";
 import { loadBusy } from "./data";
 import { firstEligibleYmd, lastEligibleYmd, proposeSlots } from "./slots";
 import { HANDOFF_OPENING, TRACY_EMAIL, type HandoffSlot, type ParsedHandoff } from "./types";
@@ -41,7 +44,15 @@ export type BrowningRunResult = {
   error?: string;
 };
 
-const SEARCH = `from:${TRACY_EMAIL} "${HANDOFF_OPENING}" newer_than:30d`;
+const GMAIL_SEARCHES = [
+  `from:${TRACY_EMAIL} newer_than:30d`,
+  `"${HANDOFF_OPENING}" newer_than:30d`,
+  `"Attached please find the resume for" newer_than:30d`,
+];
+const OUTLOOK_SEARCHES = [
+  `"${HANDOFF_OPENING}"`,
+  `"Attached please find the resume for"`,
+];
 
 export async function runBrowningNetworking(): Promise<BrowningRunResult> {
   const result: BrowningRunResult = {
@@ -84,102 +95,169 @@ async function harvestHandoffs(sb: Sb): Promise<{
   created: number;
   skippedExisting: number;
 }> {
-  const tokens = await listGoogleAccessTokens();
+  const collected = await collectHandoffMail();
   let found = 0;
   let created = 0;
   let skippedExisting = 0;
-  if (!tokens.length) return { found, created, skippedExisting };
+  if (!collected.searched) {
+    if (collected.error) throw new Error(collected.error);
+    return { found, created, skippedExisting };
+  }
 
   const contacts = await loadContacts(sb);
   const now = new Date();
   const busy = await loadBusy(firstEligibleYmd(now), lastEligibleYmd(now));
+  const chosen = chooseHandoffs(collected.messages);
 
-  for (const account of tokens) {
-    const listed = await listGmailMessages({
-      query: SEARCH,
-      max: 40,
-      accessToken: account.token,
-    });
-    if (!listed.length) continue;
-    const messages = await getGmailMessagesFull(
-      listed.map((item) => item.id),
-      account.token
-    );
-    for (const message of messages) {
-      const body = message.plaintextBody || message.htmlBody || message.snippet || "";
-      if (!isTracyHandoff(message.from || TRACY_EMAIL, body)) continue;
-      found += 1;
-      const existing = await sb
-        .from("browning_handoffs")
-        .select("id")
-        .eq("gmail_account", account.accountEmail)
-        .eq("gmail_message_id", message.id)
-        .maybeSingle();
-      if (existing.data?.id) continue;
+  for (const item of chosen) {
+    found += 1;
+    const mail = item.mail;
+    const parsed = item.parsed;
+    const existing = await sb
+      .from("browning_handoffs")
+      .select("id")
+      .eq("gmail_account", mail.accountEmail)
+      .eq("gmail_message_id", mail.messageId)
+      .maybeSingle();
+    if (existing.data?.id) continue;
 
-      const parsed = parseHandoff(body);
-      const match = matchExistingContact(contacts, parsed);
-      let createdContactId: string | null = null;
-      if (!match && parsed.name) {
-        createdContactId = await insertContact(sb, parsed);
-      }
-      if (match) skippedExisting += 1;
-
-      const slots = proposeSlots({
-        now,
-        busy,
-        availabilityNote: parsed.availabilityNote,
-      });
-      const draft = schedulingDraft({ name: parsed.name, slots });
-      const receivedAt = message.internalDate
-        ? new Date(message.internalDate).toISOString()
-        : new Date().toISOString();
-
-      const inserted = await sb
-        .from("browning_handoffs")
-        .insert({
-          gmail_account: account.accountEmail,
-          gmail_message_id: message.id,
-          gmail_thread_id: message.threadId,
-          rfc822_message_id: message.rfc822MessageId ?? null,
-          received_at: receivedAt,
-          subject: message.subject ?? null,
-          contact_name: parsed.name,
-          contact_email: parsed.email,
-          contact_phone: parsed.phone,
-          linkedin_url: parsed.linkedinUrl,
-          contact_title: parsed.title,
-          contact_company: parsed.company,
-          availability_note: parsed.availabilityNote,
-          quoted_reply: parsed.quotedReply,
-          why_they_replied: parsed.whyTheyReplied,
-          existing_contact_id: match?.id ?? null,
-          created_contact_id: createdContactId,
-          slots,
-          draft_body: draft,
-          status: "times_ready",
-        })
-        .select("id")
-        .single();
-      if (inserted.error || !inserted.data) {
-        console.error("[browning-networking] insert", inserted.error);
-        continue;
-      }
-      const handoffId = inserted.data.id as string;
-      const cardId = await insertCard(sb, {
-        title: `Reply to ${parsed.name ?? "Browning contact"}`,
-        subtitle: parsed.availabilityNote || "Pick times, then open the reply.",
-        why: "Tracy's handoff is in. Nothing sends until you do.",
-        draft,
-        href: `/outreach/browning-networking?id=${handoffId}`,
-      });
-      if (cardId) {
-        await sb.from("browning_handoffs").update({ card_id: cardId }).eq("id", handoffId);
-      }
-      created += 1;
+    const match = matchExistingContact(contacts, parsed);
+    let createdContactId: string | null = null;
+    if (!match && parsed.name) {
+      createdContactId = await insertContact(sb, parsed);
     }
+    if (match) skippedExisting += 1;
+
+    const slots = proposeSlots({
+      now,
+      busy,
+      availabilityNote: parsed.availabilityNote,
+    });
+    const draft = schedulingDraft({ name: parsed.name, slots });
+
+    const inserted = await sb
+      .from("browning_handoffs")
+      .insert({
+        gmail_account: mail.accountEmail,
+        gmail_message_id: mail.messageId,
+        gmail_thread_id: mail.threadId,
+        rfc822_message_id: mail.rfc822MessageId,
+        received_at: mail.receivedAt,
+        subject: mail.subject,
+        contact_name: parsed.name,
+        contact_email: parsed.email,
+        contact_phone: parsed.phone,
+        linkedin_url: parsed.linkedinUrl,
+        contact_title: parsed.title,
+        contact_company: parsed.company,
+        availability_note: parsed.availabilityNote,
+        quoted_reply: parsed.quotedReply,
+        why_they_replied: parsed.whyTheyReplied,
+        existing_contact_id: match?.id ?? null,
+        created_contact_id: createdContactId,
+        slots,
+        draft_body: draft,
+        status: "times_ready",
+      })
+      .select("id")
+      .single();
+    if (inserted.error || !inserted.data) {
+      console.error("[browning-networking] insert", inserted.error);
+      continue;
+    }
+    const handoffId = inserted.data.id as string;
+    const cardId = await insertCard(sb, {
+      title: `Reply to ${parsed.name ?? "Browning contact"}`,
+      subtitle: parsed.availabilityNote || "Pick times, then open the reply.",
+      why: "Tracy's handoff is in. Nothing sends until you do.",
+      draft,
+      href: `/outreach/browning-networking?id=${handoffId}`,
+    });
+    if (cardId) {
+      await sb.from("browning_handoffs").update({ card_id: cardId }).eq("id", handoffId);
+    }
+    created += 1;
   }
   return { found, created, skippedExisting };
+}
+
+async function collectHandoffMail(): Promise<{
+  searched: boolean;
+  messages: HandoffMail[];
+  error?: string;
+}> {
+  const messages: HandoffMail[] = [];
+  const problems: string[] = [];
+  let searched = false;
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  const google = await listGoogleAccessTokens();
+  for (const account of google) {
+    searched = true;
+    const ids = new Set<string>();
+    for (const query of GMAIL_SEARCHES) {
+      const listed = await listGmailMessages({
+        query,
+        max: 40,
+        accessToken: account.token,
+      });
+      for (const item of listed) ids.add(item.id);
+    }
+    if (!ids.size) continue;
+    const full = await getGmailMessagesFull([...ids], account.token);
+    for (const message of full) {
+      const body = message.plaintextBody || message.htmlBody || message.snippet || "";
+      if (!handoffKind(body) || !message.from) continue;
+      messages.push({
+        accountEmail: account.accountEmail,
+        messageId: message.id,
+        threadId: message.threadId,
+        rfc822MessageId: message.rfc822MessageId ?? null,
+        receivedAt: message.internalDate
+          ? new Date(message.internalDate).toISOString()
+          : new Date().toISOString(),
+        subject: message.subject ?? null,
+        from: message.from,
+        to: message.to ?? "",
+        body,
+      });
+    }
+  }
+
+  const outlook = await getOutlookAccountAccess();
+  if (outlook.token) {
+    searched = true;
+    try {
+      const found = await searchOutlookMessages(
+        outlook.token,
+        OUTLOOK_SEARCHES,
+        since
+      );
+      for (const message of found) {
+        if (!handoffKind(message.body)) continue;
+        messages.push({
+          accountEmail: outlook.accountEmail,
+          messageId: message.id,
+          threadId: message.conversationId,
+          rfc822MessageId: message.internetMessageId,
+          receivedAt: message.receivedAt,
+          subject: message.subject,
+          from: message.from,
+          to: message.to,
+          body: message.body,
+        });
+      }
+    } catch (err) {
+      problems.push(err instanceof Error ? err.message : "Outlook search failed.");
+    }
+  } else if (outlook.configured && outlook.error) {
+    problems.push(outlook.error);
+  }
+
+  if (!searched && problems.length) {
+    return { searched: false, messages, error: problems[0] };
+  }
+  return { searched, messages };
 }
 
 async function followBookedCalls(sb: Sb): Promise<{
@@ -460,15 +538,18 @@ export async function persistDraft(input: {
   const to = (data.contact_email as string | null) || "";
   const subject = replySubject(data.subject as string | null);
   const accountEmail = data.gmail_account as string;
+  const outlook = isOutlookMailbox(accountEmail);
   const url = to
-    ? gmailComposeUrl({
+    ? replyComposeUrl({
         to,
         cc: TRACY_EMAIL,
         subject,
         body,
         accountEmail,
       })
-    : gmailThreadUrl((data.gmail_thread_id as string) || "", accountEmail);
+    : outlook
+      ? "https://outlook.live.com/mail/"
+      : gmailThreadUrl((data.gmail_thread_id as string) || "", accountEmail);
 
   let gmailDraftId: string | null = (data.gmail_draft_id as string | null) ?? null;
   let savedInGmail = false;
@@ -513,7 +594,14 @@ export async function persistDraft(input: {
           draft: body,
           links: [
             { label: "Open Browning Networking", href: `/outreach/browning-networking?id=${input.handoffId}` },
-            { label: savedInGmail ? "Open Gmail draft" : "Open reply in Gmail", href: url },
+            {
+              label: savedInGmail
+                ? "Open Gmail draft"
+                : outlook
+                  ? "Open reply in Outlook"
+                  : "Open reply in Gmail",
+              href: url,
+            },
           ],
         },
       })

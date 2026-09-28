@@ -69,6 +69,36 @@ export function gmailComposeUrl(input: {
   return `https://mail.google.com/mail/u/${account}/?${params.toString()}`;
 }
 
+export function isOutlookMailbox(accountEmail: string | null | undefined): boolean {
+  return /@(outlook|hotmail|live)\.com$/i.test(accountEmail ?? "");
+}
+
+export function outlookComposeUrl(input: {
+  to: string;
+  cc: string;
+  subject: string;
+  body: string;
+}): string {
+  const params = new URLSearchParams({
+    to: input.to,
+    cc: input.cc,
+    subject: input.subject,
+    body: input.body,
+  });
+  return `https://outlook.live.com/mail/0/deeplink/compose?${params.toString()}`;
+}
+
+export function replyComposeUrl(input: {
+  to: string;
+  cc: string;
+  subject: string;
+  body: string;
+  accountEmail?: string;
+}): string {
+  if (isOutlookMailbox(input.accountEmail)) return outlookComposeUrl(input);
+  return gmailComposeUrl(input);
+}
+
 export function replySubject(subject: string | null | undefined): string {
   const clean = (subject ?? "").replace(/^\s*re:\s*/i, "").trim();
   if (!clean) return "Re: Executive Networking";

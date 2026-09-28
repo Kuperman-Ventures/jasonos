@@ -49,8 +49,10 @@ export type AvailabilityWindow = {
 };
 
 export const TRACY_EMAIL = "traceys@executivejobsearch.net";
+// Tracy writes "Executive Networking with Jason Kuperman" and does not put a
+// period right after Networking. Match the phrase, not one exact sentence.
 export const HANDOFF_OPENING =
-  "Thank you for your reply and interest in Executive Networking.";
+  "Thank you for your reply and interest in Executive Networking";
 
 export const SLOT_MINUTES = 30;
 export const BUSINESS_DAY_BUFFER = 3;

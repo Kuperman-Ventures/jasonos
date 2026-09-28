@@ -5,7 +5,11 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { BrowningNetworkingPage, HandoffRecord } from "@/lib/browning-networking/types";
-import { gmailComposeUrl, schedulingDraft } from "@/lib/browning-networking/draft";
+import {
+  isOutlookMailbox,
+  replyComposeUrl,
+  schedulingDraft,
+} from "@/lib/browning-networking/draft";
 import { addCalendarDays } from "@/lib/browning-networking/slots";
 import { TRACY_EMAIL, type HandoffSlot } from "@/lib/browning-networking/types";
 import { CADENCE_LABELS, type CadenceInterval } from "@/lib/outreach/types";
@@ -43,7 +47,7 @@ export function BrowningNetworkingClient({
           <h1 className="font-heading text-xl font-semibold">Browning Networking</h1>
         </div>
         <p className="text-xs text-muted-foreground">
-          Tracy&apos;s handoff emails. You reply to each one the same way. Nothing sends on its own.
+          Tracy&apos;s handoff emails from Gmail and Outlook. You reply to each one the same way. Nothing sends on its own.
         </p>
         <Button
           size="sm"
@@ -64,7 +68,7 @@ export function BrowningNetworkingClient({
         <ul className="space-y-1">
           {page.handoffs.length === 0 ? (
             <li className="rounded-md border border-dashed px-3 py-6 text-xs text-muted-foreground">
-              No handoffs yet. The weekday morning check looks for Tracy&apos;s copy-you email.
+              No handoffs yet. The check looks in Gmail and Outlook for Tracy&apos;s copy-you email.
             </li>
           ) : null}
           {page.handoffs.map((row) => (
@@ -107,6 +111,7 @@ function HandoffDetail({
   eligibleYmd: string;
 }) {
   const [slots, setSlots] = useState<HandoffSlot[]>(handoff.slots);
+  const outlook = isOutlookMailbox(handoff.gmailAccount);
   const [weekMonday, setWeekMonday] = useState(mondayOf(eligibleYmd));
   const [notes, setNotes] = useState("");
   const [cadence, setCadence] = useState<CadenceInterval>("none");
@@ -213,19 +218,21 @@ function HandoffDetail({
                 toast(
                   result.savedInGmail
                     ? "Draft saved in Gmail. It is not sent."
-                    : "Opened in Gmail. It is not sent."
+                    : outlook
+                      ? "Opened in Outlook. It is not sent."
+                      : "Opened in Gmail. It is not sent."
                 );
               })
             }
           >
-            Open reply in Gmail
+            {outlook ? "Open reply in Outlook" : "Open reply in Gmail"}
           </Button>
           <Button
             size="sm"
             variant="secondary"
             onClick={() => {
               const url = handoff.contactEmail
-                ? gmailComposeUrl({
+                ? replyComposeUrl({
                     to: handoff.contactEmail,
                     cc: TRACY_EMAIL,
                     subject: handoff.subject ? `Re: ${handoff.subject.replace(/^re:\s*/i, "")}` : "Re: Executive Networking",
@@ -235,14 +242,18 @@ function HandoffDetail({
                 : "";
               void navigator.clipboard.writeText(draft);
               if (url) window.open(url, "_blank", "noopener,noreferrer");
-              toast("Reply copied. Tracy is copied on the Gmail window.");
+              toast(
+                outlook
+                  ? "Reply copied. Tracy is copied on the Outlook window."
+                  : "Reply copied. Tracy is copied on the Gmail window."
+              );
             }}
           >
             Copy reply
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Tracy is copied. Google&apos;s connection can read mail. If it cannot save a draft, this opens the reply ready for you to send.
+          Tracy is copied. Nothing sends until you send it. If the handoff came from Outlook, the reply opens there.
         </p>
       </section>
 
