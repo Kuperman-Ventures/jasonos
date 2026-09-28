@@ -880,3 +880,46 @@ export async function createGmailDraft(input: {
   if (!json.id) return { ok: false, error: "Gmail draft response had no id." };
   return { ok: true, id: json.id };
 }
+
+type GmailFilePart = {
+  filename?: string;
+  mimeType?: string;
+  body?: { attachmentId?: string; data?: string };
+  parts?: GmailFilePart[];
+};
+
+export async function downloadGmailResume(
+  accessToken: string,
+  messageId: string
+): Promise<{ filename: string; bytes: Buffer } | null> {
+  const message = await gmailFetch<GmailMsgResp & { payload?: GmailFilePart }>(
+    `/users/me/messages/${encodeURIComponent(messageId)}?format=full`,
+    accessToken
+  );
+  const part = findResumePart(message.payload);
+  if (!part) return null;
+  const filename = part.filename || "resume.docx";
+  if (part.body?.data) {
+    return { filename, bytes: Buffer.from(part.body.data.replace(/-/g, "+").replace(/_/g, "/"), "base64") };
+  }
+  if (!part.body?.attachmentId) return null;
+  const file = await gmailFetch<{ data?: string }>(
+    `/users/me/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(part.body.attachmentId)}`,
+    accessToken
+  );
+  if (!file.data) return null;
+  return { filename, bytes: Buffer.from(file.data.replace(/-/g, "+").replace(/_/g, "/"), "base64") };
+}
+
+function findResumePart(part: GmailFilePart | undefined): GmailFilePart | null {
+  if (!part) return null;
+  const name = `${part.filename ?? ""} ${part.mimeType ?? ""}`.toLowerCase();
+  if (part.filename && (name.includes(".docx") || name.includes(".pdf") || name.includes("wordprocessingml"))) {
+    return part;
+  }
+  for (const child of part.parts ?? []) {
+    const found = findResumePart(child);
+    if (found) return found;
+  }
+  return null;
+}

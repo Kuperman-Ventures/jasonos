@@ -83,6 +83,22 @@ function rowToMeeting(row: Record<string, unknown>): Meeting {
   };
 }
 
+export async function getBrowningPrep(contactId: string): Promise<string | null> {
+  if (!hasConfig() || !contactId) return null;
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("contacts")
+    .select("browning_prep")
+    .eq("id", contactId)
+    .maybeSingle();
+  if (error) {
+    console.error("[meetings.getBrowningPrep]", error);
+    return null;
+  }
+  const text = (data?.browning_prep as string | null)?.trim();
+  return text || null;
+}
+
 export async function getMeetingsForContact(contactId: string): Promise<Meeting[]> {
   if (!hasConfig() || !contactId) return [];
   const sb = createServiceRoleClient();

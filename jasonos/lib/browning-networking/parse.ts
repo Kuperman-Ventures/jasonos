@@ -313,6 +313,7 @@ export type HandoffMail = {
 export type ChosenHandoff = {
   mail: HandoffMail;
   parsed: ParsedHandoff;
+  resumeMessageId: string | null;
 };
 
 type Bucket = {
@@ -399,7 +400,11 @@ export function chooseHandoffs(messages: HandoffMail[]): ChosenHandoff[] {
       bucket.resumeName.length > parsed.name.length
         ? bucket.resumeName
         : parsed.name ?? bucket.resumeName;
-    return [{ mail, parsed: { ...parsed, name } }];
+    return [{
+      mail,
+      parsed: { ...parsed, name },
+      resumeMessageId: bucket.resume?.messageId ?? null,
+    }];
   });
 }
 

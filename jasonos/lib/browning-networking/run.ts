@@ -1,8 +1,8 @@
 import "server-only";
 
 import { etToday, etYmd } from "@/lib/dates";
-import { createGmailDraft, getGmailMessagesFull, listGmailMessages } from "@/lib/integrations/gmail";
-import { latestOutlookSentTo, searchOutlookMessages } from "@/lib/integrations/outlook";
+import { createGmailDraft, downloadGmailResume, getGmailMessagesFull, listGmailMessages } from "@/lib/integrations/gmail";
+import { downloadOutlookResume, latestOutlookSentTo, listOutlookTracyMessages, searchOutlookMessages } from "@/lib/integrations/outlook";
 import { getOutlookAccountAccess } from "@/lib/integrations/outlook-tokens";
 import {
   fetchAccountCalendarEvents,
@@ -28,6 +28,8 @@ import { chooseHandoffs, handoffKind, type HandoffMail } from "./parse";
 import { loadBusy } from "./data";
 import { firstEligibleYmd, lastEligibleYmd, proposeSlots } from "./slots";
 import { isAlreadyTracked, FOLLOW_UP_LOOKBACK_DAYS, shouldQueueFollowUp } from "./follow-up";
+import { meetingBrief } from "./meeting-brief";
+import { extractDocxText, extractPdfText } from "@/lib/resume-customizer/extract";
 import { HANDOFF_OPENING, TRACY_EMAIL, type HandoffSlot, type ParsedHandoff } from "./types";
 
 type Sb = ReturnType<typeof createServiceRoleClient>;
@@ -42,6 +44,8 @@ export type BrowningRunResult = {
   briefs: number;
   thankYous: number;
   followUps: number;
+  olderFound: number;
+  preps: number;
   error?: string;
 };
 
@@ -68,6 +72,8 @@ export async function runBrowningNetworking(): Promise<BrowningRunResult> {
     briefs: 0,
     thankYous: 0,
     followUps: 0,
+    olderFound: 0,
+    preps: 0,
   };
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return { ...result, error: "Supabase is not configured." };
@@ -81,7 +87,9 @@ export async function runBrowningNetworking(): Promise<BrowningRunResult> {
     result.created = harvested.created;
     result.skippedExisting = harvested.skippedExisting;
     const followedUp = await harvestFollowUps(sb);
-    result.followUps = followedUp;
+    result.followUps = followedUp.created;
+    result.olderFound = followedUp.found;
+    result.preps = followedUp.preps;
     const followed = await followBookedCalls(sb);
     result.booked = followed.booked;
     result.briefs = followed.briefs;
@@ -235,12 +243,9 @@ async function collectHandoffMail(lookbackDays = 30): Promise<{
   if (outlook.token) {
     searched = true;
     try {
-      const found = await searchOutlookMessages(
-        outlook.token,
-        OUTLOOK_SEARCHES,
-        since,
-        lookbackDays > 30 ? 6 : 2
-      );
+      const found = lookbackDays > 30
+        ? await listOutlookTracyMessages(outlook.token, since)
+        : await searchOutlookMessages(outlook.token, OUTLOOK_SEARCHES, since, 2);
       for (const message of found) {
         if (!handoffKind(message.body)) continue;
         messages.push({
@@ -268,21 +273,22 @@ async function collectHandoffMail(lookbackDays = 30): Promise<{
   return { searched, messages };
 }
 
-async function harvestFollowUps(sb: Sb): Promise<number> {
+async function harvestFollowUps(sb: Sb): Promise<{ created: number; found: number; preps: number }> {
   const collected = await collectHandoffMail(FOLLOW_UP_LOOKBACK_DAYS);
-  if (!collected.searched) return 0;
+  if (!collected.searched) return { created: 0, found: 0, preps: 0 };
   const chosen = chooseHandoffs(collected.messages);
   const { data: existingRows, error } = await sb
     .from("browning_handoffs")
-    .select("gmail_account, gmail_message_id, contact_email, contact_name");
+    .select("id, gmail_account, gmail_message_id, contact_email, contact_name, meeting_brief, created_contact_id, existing_contact_id");
   if (error) {
     console.error("[browning-networking] follow-up existing", error);
-    return 0;
+    return { created: 0, found: 0, preps: 0 };
   }
+  const rows = [...(existingRows ?? [])];
   const seenMessages = new Set(
-    (existingRows ?? []).map((row) => `${row.gmail_account}:${row.gmail_message_id}`)
+    rows.map((row) => `${row.gmail_account}:${row.gmail_message_id}`)
   );
-  const tracked = (existingRows ?? []).map((row) => ({
+  const tracked = rows.map((row) => ({
     email: (row.contact_email as string | null) ?? null,
     name: (row.contact_name as string | null) ?? null,
   }));
@@ -292,6 +298,7 @@ async function harvestFollowUps(sb: Sb): Promise<number> {
     new Date(Date.now() + 60 * 24 * 60 * 60 * 1000)
   );
   let created = 0;
+  let preps = await writeMeetingBriefs(sb, chosen, rows, 12);
 
   for (const item of chosen) {
     const mail = item.mail;
@@ -303,11 +310,13 @@ async function harvestFollowUps(sb: Sb): Promise<number> {
       findBookedCall(events, { email: parsed.email, name: parsed.name }, new Date(), true)
     );
     const outreach = alreadyTracked || hasMeeting ? null : await lastOutreachTo(parsed.email, mail.receivedAt);
+    const introAgeDays = Math.floor((Date.now() - Date.parse(mail.receivedAt)) / 86_400_000);
     if (
       !shouldQueueFollowUp({
         alreadyTracked,
         hasMeeting,
         hasOutreach: Boolean(outreach),
+        introAgeDays,
       })
     ) {
       continue;
@@ -351,9 +360,95 @@ async function harvestFollowUps(sb: Sb): Promise<number> {
     }
     tracked.push({ email: parsed.email, name: parsed.name });
     seenMessages.add(`${mail.accountEmail}:${mail.messageId}`);
+    rows.push({
+      id: inserted.data.id,
+      gmail_account: mail.accountEmail,
+      gmail_message_id: mail.messageId,
+      contact_email: parsed.email,
+      contact_name: parsed.name,
+      meeting_brief: null,
+      created_contact_id: createdContactId,
+      existing_contact_id: match?.id ?? null,
+    });
     created += 1;
   }
-  return created;
+  preps += await writeMeetingBriefs(sb, chosen, rows, Math.max(0, 12 - preps));
+  return { created, found: chosen.length, preps };
+}
+
+async function writeMeetingBriefs(
+  sb: Sb,
+  chosen: { mail: HandoffMail; parsed: ParsedHandoff; resumeMessageId: string | null }[],
+  rows: {
+    id?: string;
+    gmail_account?: string;
+    gmail_message_id?: string;
+    meeting_brief?: string | null;
+    created_contact_id?: string | null;
+    existing_contact_id?: string | null;
+  }[],
+  max: number
+): Promise<number> {
+  let wrote = 0;
+  for (const item of chosen) {
+    if (wrote >= max) break;
+    const row = rows.find(
+      (candidate) =>
+        candidate.gmail_account === item.mail.accountEmail &&
+        candidate.gmail_message_id === item.mail.messageId
+    );
+    if (!row?.id || row.meeting_brief) continue;
+    const resumeText = await loadResumeText(item.mail.accountEmail, item.resumeMessageId || item.mail.messageId);
+    const brief = meetingBrief({
+      name: item.parsed.name,
+      tracyBody: item.mail.body,
+      resumeText,
+      whyTheyReplied: item.parsed.whyTheyReplied,
+    });
+    if (!brief) continue;
+    row.meeting_brief = brief;
+    await sb.from("browning_handoffs").update({ meeting_brief: brief }).eq("id", row.id);
+    const contactId = row.created_contact_id || row.existing_contact_id;
+    if (contactId) {
+      await sb.from("contacts").update({ browning_prep: brief }).eq("id", contactId);
+      await sb
+        .from("meetings")
+        .update({ prep_notes: brief })
+        .eq("contact_id", contactId)
+        .eq("status", "scheduled")
+        .is("prep_notes", null);
+    }
+    wrote += 1;
+  }
+  return wrote;
+}
+
+async function loadResumeText(accountEmail: string, messageId: string): Promise<string | null> {
+  try {
+    const file = /@(outlook|hotmail|live)\.com$/i.test(accountEmail)
+      ? await outlookResume(messageId)
+      : await gmailResume(accountEmail, messageId);
+    if (!file) return null;
+    const name = file.filename.toLowerCase();
+    if (name.endsWith(".pdf")) return extractPdfText(file.bytes);
+    return extractDocxText(file.bytes);
+  } catch (err) {
+    console.error("[browning-networking] resume", err);
+    return null;
+  }
+}
+
+async function outlookResume(messageId: string) {
+  const outlook = await getOutlookAccountAccess();
+  if (!outlook.token) return null;
+  return downloadOutlookResume(outlook.token, messageId);
+}
+
+async function gmailResume(accountEmail: string, messageId: string) {
+  const google = await listGoogleAccessTokens();
+  const token = google.find((account) => account.accountEmail === accountEmail)?.token;
+  if (!token) return null;
+  return downloadGmailResume(token, messageId);
 }
 
 async function lastOutreachTo(

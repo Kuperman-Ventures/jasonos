@@ -21,6 +21,15 @@ describe("follow-up queue", () => {
       shouldQueueFollowUp({ alreadyTracked: false, hasMeeting: false, hasOutreach: false }),
       false
     );
+    assert.equal(
+      shouldQueueFollowUp({
+        alreadyTracked: false,
+        hasMeeting: false,
+        hasOutreach: false,
+        introAgeDays: 30,
+      }),
+      true
+    );
   });
 
   it("treats Matt and Matthew as the same person already on the page", () => {
