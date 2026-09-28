@@ -52,6 +52,7 @@ const NAV: NavItem[] = [
       { href: "/outreach/suggested", label: "Suggested" },
       { href: "/outreach/sent", label: "Sent" },
       { href: "/outreach/firms", label: "Firms" },
+      { href: "/outreach/browning-networking", label: "Browning Networking" },
     ],
   },
   {

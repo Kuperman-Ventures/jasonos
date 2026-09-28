@@ -35,6 +35,7 @@ export const config: VercelConfig = {
     "app/api/inbox-dispatch/route.ts": { maxDuration: 60 },
     // Job Alerts harvest opens Gmail threads from a labeled folder.
     "app/api/job-alerts/harvest/route.ts": { maxDuration: 60 },
+    "app/api/browning-networking/run/route.ts": { maxDuration: 60 },
     // Suggested Scan: 90-day Gmail + calendar + Beeper. Needs a long window.
     "app/api/outreach/scan-suggested/route.ts": { maxDuration: 300 },
     // Home Overdue "Draft email" reads multiple Gmail threads then calls Claude.
@@ -57,6 +58,12 @@ export const config: VercelConfig = {
     {
       path: "/api/job-alerts/harvest?source=cron",
       schedule: "15 11,16,21 * * 1-5",
+    },
+    // Browning Networking — weekday 7:30am ET (EDT). Tracy handoffs, call
+    // briefs, and thank-you drafts.
+    {
+      path: "/api/browning-networking/run?source=cron",
+      schedule: "30 11 * * 1-5",
     },
   ],
 };

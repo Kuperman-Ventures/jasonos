@@ -822,3 +822,59 @@ function extractMimePart(
 function decodeBase64Url(value: string) {
   return Buffer.from(value.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
 }
+
+function encodeBase64Url(value: string): string {
+  return Buffer.from(value, "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+/**
+ * Save a reply in Gmail Drafts. The connected Google account is read-only
+ * today, so this returns ok:false and the caller opens a prefilled compose
+ * window instead. Nothing is sent either way.
+ */
+export async function createGmailDraft(input: {
+  accessToken: string;
+  to: string;
+  cc?: string;
+  subject: string;
+  body: string;
+  threadId?: string | null;
+  inReplyTo?: string | null;
+}): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const headers = [
+    `To: ${input.to}`,
+    input.cc ? `Cc: ${input.cc}` : null,
+    `Subject: ${input.subject}`,
+    "MIME-Version: 1.0",
+    "Content-Type: text/plain; charset=utf-8",
+    input.inReplyTo ? `In-Reply-To: ${input.inReplyTo}` : null,
+    input.inReplyTo ? `References: ${input.inReplyTo}` : null,
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join("\r\n");
+  const raw = encodeBase64Url(`${headers}\r\n\r\n${input.body}`);
+  const payload: { message: { raw: string; threadId?: string } } = {
+    message: { raw },
+  };
+  if (input.threadId) payload.message.threadId = input.threadId;
+
+  const res = await fetch(`${GMAIL_BASE}/users/me/drafts`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${input.accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    return { ok: false, error: `Gmail draft ${res.status}: ${txt.slice(0, 180)}` };
+  }
+  const json = (await res.json()) as { id?: string };
+  if (!json.id) return { ok: false, error: "Gmail draft response had no id." };
+  return { ok: true, id: json.id };
+}
