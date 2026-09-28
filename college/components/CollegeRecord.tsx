@@ -324,7 +324,9 @@ export function CollegeRecord({
                   <span className="school-modal-nav-caret" aria-hidden="true">
                     ‹
                   </span>
-                  {previousSchool ? shortSchoolName(previousSchool.name) : "Previous"}
+                  <span className="school-modal-nav-side-name">
+                    {previousSchool ? shortSchoolName(previousSchool.name) : "Previous"}
+                  </span>
                 </button>
                 <div className="school-modal-nav-current" aria-current="page">
                   <span className="school-modal-nav-mark">
@@ -343,7 +345,9 @@ export function CollegeRecord({
                   }
                   onClick={() => nextSchool && onNavigate?.(nextSchool.id)}
                 >
-                  {nextSchool ? shortSchoolName(nextSchool.name) : "Next"}
+                  <span className="school-modal-nav-side-name">
+                    {nextSchool ? shortSchoolName(nextSchool.name) : "Next"}
+                  </span>
                   <span className="school-modal-nav-caret" aria-hidden="true">
                     ›
                   </span>
