@@ -5,8 +5,10 @@ import {
   OUTLOOK_MAX_PAGES,
   OUTLOOK_PAGE_SIZE,
   dedupeOutlookMessages,
+  formatGraphAddress,
   graphSinceTimestamp,
   inferOutlookWellKnownName,
+  joinGraphAddresses,
   mapGraphMessage,
   rankOutlookFolders,
   type GraphMessage,
@@ -38,13 +40,15 @@ function graphErrorMessage(status: number, body: GraphList<unknown> | null): str
 
 async function graphGet(
   token: string,
-  url: string
+  url: string,
+  extraHeaders?: Record<string, string>
 ): Promise<{ status: number; body: GraphList<never> | null }> {
   const full = url.startsWith("http") ? url : `https://graph.microsoft.com/v1.0${url}`;
   const res = await fetch(full, {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/json",
+      ...extraHeaders,
     },
   });
   const text = await res.text();
@@ -217,4 +221,74 @@ export async function listOutlookMessages(
   }
 
   return { messages: dedupeOutlookMessages(collected), warnings };
+}
+
+export interface OutlookSearchedMessage {
+  id: string;
+  from: string;
+  to: string;
+  cc: string;
+  subject: string | null;
+  receivedAt: string;
+  body: string;
+  conversationId: string | null;
+  internetMessageId: string | null;
+}
+
+interface GraphSearchedMessage extends GraphMessage {
+  body?: { content?: string | null } | null;
+  conversationId?: string | null;
+  internetMessageId?: string | null;
+}
+
+/**
+ * Find recent messages whose text matches any of the queries.
+ * Graph $search looks across the mailbox, not only the inbox.
+ */
+export async function searchOutlookMessages(
+  accessToken: string,
+  queries: string[],
+  sinceIso: string
+): Promise<OutlookSearchedMessage[]> {
+  const sinceMs = new Date(sinceIso).getTime();
+  const byId = new Map<string, OutlookSearchedMessage>();
+
+  for (const query of queries) {
+    const params = new URLSearchParams({
+      $search: query,
+      $top: "25",
+      $select:
+        "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,body,conversationId,internetMessageId,isDraft",
+    });
+    const { status, body } = await graphGet(
+      accessToken,
+      `/me/messages?${params}`,
+      { ConsistencyLevel: "eventual", Prefer: 'outlook.body-content-type="text"' }
+    );
+    if (status < 200 || status >= 300) {
+      throw new Error(graphErrorMessage(status, body));
+    }
+    for (const raw of (body?.value ?? []) as GraphSearchedMessage[]) {
+      if (!raw.id || raw.isDraft || byId.has(raw.id)) continue;
+      const received = raw.receivedDateTime || raw.sentDateTime;
+      if (!received) continue;
+      const receivedMs = new Date(received).getTime();
+      if (!Number.isFinite(receivedMs) || receivedMs < sinceMs) continue;
+      const from = formatGraphAddress(raw.from);
+      if (!from) continue;
+      byId.set(raw.id, {
+        id: raw.id,
+        from,
+        to: joinGraphAddresses(raw.toRecipients),
+        cc: joinGraphAddresses(raw.ccRecipients),
+        subject: raw.subject?.trim() || null,
+        receivedAt: new Date(received).toISOString(),
+        body: raw.body?.content ?? raw.bodyPreview ?? "",
+        conversationId: raw.conversationId ?? null,
+        internetMessageId: raw.internetMessageId ?? null,
+      });
+    }
+  }
+
+  return [...byId.values()];
 }

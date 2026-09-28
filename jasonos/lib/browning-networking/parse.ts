@@ -13,8 +13,27 @@ const SAFELINK_HOST = "safelinks.protection.outlook.com";
 
 export function isTracyHandoff(from: string, body: string): boolean {
   if (canonicalEmail(from) !== TRACY_EMAIL) return false;
+  return handoffKind(body) !== null;
+}
+
+export function handoffKind(body: string): "intro" | "resume" | null {
   const text = stripHtml(body).replace(/\s+/g, " ").trim();
-  return text.includes(HANDOFF_OPENING);
+  if (text.includes(HANDOFF_OPENING)) return "intro";
+  if (/attached please find the resume for\s+[A-Za-z]/i.test(text)) return "resume";
+  return null;
+}
+
+export function sameCandidate(a: string, b: string): boolean {
+  const left = a.toLowerCase().split(/\s+/).filter(Boolean);
+  const right = b.toLowerCase().split(/\s+/).filter(Boolean);
+  if (left.length < 2 || right.length < 2) return false;
+  if (left[left.length - 1] !== right[right.length - 1]) return false;
+  const aFirst = left[0];
+  const bFirst = right[0];
+  if (aFirst === bFirst) return true;
+  const [shorter, longer] =
+    aFirst.length <= bFirst.length ? [aFirst, bFirst] : [bFirst, aFirst];
+  return shorter.length >= 3 && longer.startsWith(shorter);
 }
 
 export function decodeOutlookSafelink(rawUrl: string): string {
@@ -48,7 +67,7 @@ export function parseHandoff(body: string): ParsedHandoff {
   const quoted = extractQuotedReply(text);
   const scan = `${quoted}\n${text}`;
   const email = firstOtherEmail(scan);
-  const phone = firstPhone(quoted || text);
+  const phone = firstPhone(text);
   const linkedinUrl = linkedInUrlFromText(scan);
   const name = extractName(quoted, text, email);
   const availabilityNote = availabilitySentence(quoted || text);
@@ -277,4 +296,142 @@ function clip(value: string, max: number): string {
 
 function escapeReg(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export type HandoffMail = {
+  accountEmail: string;
+  messageId: string;
+  threadId: string | null;
+  rfc822MessageId: string | null;
+  receivedAt: string;
+  subject: string | null;
+  from: string;
+  to: string;
+  body: string;
+};
+
+export type ChosenHandoff = {
+  mail: HandoffMail;
+  parsed: ParsedHandoff;
+};
+
+type Bucket = {
+  intro: HandoffMail | null;
+  introParsed: ParsedHandoff | null;
+  resume: HandoffMail | null;
+  resumeName: string | null;
+};
+
+/**
+ * Tracy sends two notes per person: a copy-you intro, and a resume packet
+ * addressed to Jason. One handoff per person. The intro is the one to reply to.
+ */
+export function chooseHandoffs(messages: HandoffMail[]): ChosenHandoff[] {
+  const seen = new Set<string>();
+  const buckets: Bucket[] = [];
+  const ordered = [...messages].sort(
+    (a, b) => Date.parse(b.receivedAt) - Date.parse(a.receivedAt)
+  );
+
+  for (const mail of ordered) {
+    if (canonicalEmail(mail.from) !== TRACY_EMAIL) continue;
+    const kind = handoffKind(mail.body);
+    if (!kind) continue;
+    const key = `${mail.accountEmail}:${mail.messageId}`;
+    if (seen.has(key)) continue;
+    if (mail.rfc822MessageId && seen.has(mail.rfc822MessageId)) continue;
+    seen.add(key);
+    if (mail.rfc822MessageId) seen.add(mail.rfc822MessageId);
+
+    if (kind === "intro") {
+      const parsed = withToEmail(parseHandoff(mail.body), mail.to);
+      const bucket = findBucket(buckets, parsed.name, parsed.email);
+      if (bucket) {
+        if (!bucket.intro) {
+          bucket.intro = mail;
+          bucket.introParsed = parsed;
+        }
+        continue;
+      }
+      buckets.push({
+        intro: mail,
+        introParsed: parsed,
+        resume: null,
+        resumeName: null,
+      });
+      continue;
+    }
+
+    const resumeName =
+      resumeCandidateName(mail.body) ?? candidateNameFromSubject(mail.subject);
+    const bucket = findBucket(buckets, resumeName, null);
+    if (bucket) {
+      if (!bucket.resume) bucket.resume = mail;
+      if (!bucket.resumeName && resumeName) bucket.resumeName = resumeName;
+      continue;
+    }
+    buckets.push({
+      intro: null,
+      introParsed: null,
+      resume: mail,
+      resumeName,
+    });
+  }
+
+  return buckets.flatMap((bucket) => {
+    const mail = bucket.intro ?? bucket.resume;
+    if (!mail) return [];
+    const parsed = bucket.introParsed ?? {
+      name: bucket.resumeName,
+      email: null,
+      phone: null,
+      linkedinUrl: null,
+      availabilityNote: null,
+      quotedReply: null,
+      whyTheyReplied: null,
+      title: null,
+      company: null,
+    };
+    const name =
+      bucket.resumeName &&
+      parsed.name &&
+      sameCandidate(bucket.resumeName, parsed.name) &&
+      bucket.resumeName.length > parsed.name.length
+        ? bucket.resumeName
+        : parsed.name ?? bucket.resumeName;
+    return [{ mail, parsed: { ...parsed, name } }];
+  });
+}
+
+function withToEmail(parsed: ParsedHandoff, to: string): ParsedHandoff {
+  if (parsed.email) return parsed;
+  const email = firstOtherEmail(to);
+  return email ? { ...parsed, email } : parsed;
+}
+
+function findBucket(
+  buckets: Bucket[],
+  name: string | null,
+  email: string | null
+): Bucket | undefined {
+  return buckets.find((bucket) => {
+    const bucketEmail = bucket.introParsed?.email ?? null;
+    const bucketName = bucket.introParsed?.name ?? bucket.resumeName;
+    if (email && bucketEmail && email === bucketEmail) return true;
+    if (name && bucketName && sameCandidate(name, bucketName)) return true;
+    return false;
+  });
+}
+
+function resumeCandidateName(body: string): string | null {
+  const text = stripHtml(body).replace(/\s+/g, " ");
+  const match = text.match(
+    /attached please find the resume for\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})/i
+  );
+  return cleanName(match?.[1]);
+}
+
+function candidateNameFromSubject(subject: string | null): string | null {
+  const match = subject?.match(/&\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\s*$/);
+  return cleanName(match?.[1]);
 }

@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  chooseHandoffs,
   decodeOutlookSafelink,
   isTracyHandoff,
   linkedInUrlFromText,
   parseAvailabilityWindow,
   parseHandoff,
+  sameCandidate,
+  type HandoffMail,
 } from "./parse";
 import { HANDOFF_OPENING, TRACY_EMAIL } from "./types";
 
@@ -80,4 +83,62 @@ describe("handoff parse", () => {
     assert.equal(parsed.title, "VP Marketing");
     assert.equal(parsed.company, "Northline");
   });
+
+  it("accepts Tracy's real copy-you wording and the resume packet", () => {
+    const intro = `Good Morning Matt,
+(551-427-6711)
+Thank you for your reply and interest in Executive Networking with Jason Kuperman.
+** https://na01.safelinks.protection.outlook.com/?url=http%3A%2F%2Flinkedin.com%2Fin%2Fmbd74&data=05
+On 2026-09-23 12:53, Matt Deutsch wrote:
+I am happy to connect with Jason. I am available Thursday, or Friday after 5pm or any day next week after 5.
+Thanks`;
+    assert.equal(isTracyHandoff(TRACY_EMAIL, intro), true);
+    const parsed = parseHandoff(intro);
+    assert.equal(parsed.name, "Matt Deutsch");
+    assert.equal(parsed.phone, "(551) 427-6711");
+    assert.equal(parsed.linkedinUrl, "https://www.linkedin.com/in/mbd74");
+    assert.match(parsed.availabilityNote ?? "", /after 5pm/i);
+
+    const resume = `Dear Jason,\nAttached please find the resume for Matthew Deutsch.`;
+    assert.equal(isTracyHandoff(TRACY_EMAIL, resume), true);
+    assert.equal(sameCandidate("Matt Deutsch", "Matthew Deutsch"), true);
+    assert.equal(sameCandidate("Tim Serewicz", "Timothy Serewicz"), true);
+  });
+
+  it("keeps one handoff when Tracy also sends the resume", () => {
+    const intro = mail({
+      messageId: "intro",
+      receivedAt: "2026-09-28T14:06:00Z",
+      subject: "Re: Introduction to Senior Marketing Executive",
+      to: "deutsch74@gmail.com",
+      body: `Thank you for your reply and interest in Executive Networking with Jason Kuperman.
+On 2026-09-23 12:53, Matt Deutsch wrote:
+I am available Thursday after 5pm.`,
+    });
+    const resume = mail({
+      messageId: "resume",
+      receivedAt: "2026-09-28T14:10:00Z",
+      subject: "Jason Kuperman & Matthew Deutsch",
+      to: "jason.kuperman@outlook.com",
+      body: "Dear Jason, Attached please find the resume for Matthew Deutsch.",
+    });
+    const chosen = chooseHandoffs([resume, intro]);
+    assert.equal(chosen.length, 1);
+    assert.equal(chosen[0].mail.messageId, "intro");
+    assert.equal(chosen[0].parsed.name, "Matthew Deutsch");
+    assert.equal(chosen[0].parsed.email, "deutsch74@gmail.com");
+  });
 });
+
+function mail(overrides: Partial<HandoffMail> & Pick<HandoffMail, "messageId" | "body">): HandoffMail {
+  return {
+    accountEmail: "jason.kuperman@outlook.com",
+    threadId: null,
+    rfc822MessageId: null,
+    receivedAt: "2026-09-28T14:00:00Z",
+    subject: null,
+    from: TRACY_EMAIL,
+    to: "",
+    ...overrides,
+  };
+}
