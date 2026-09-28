@@ -1,11 +1,18 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 
+// JasonOS lives in a subfolder of the CoSA repo. Next requires
+// outputFileTracingRoot and turbopack.root to be the same path. On Vercel
+// that path is the repo root (NEXT_PRIVATE_OUTPUT_TRACE_ROOT). Pointing
+// Turbopack there breaks Google fonts, so the Vercel build uses webpack.
+// Locally there is no override, and the root stays this folder.
+const projectRoot =
+  process.env.NEXT_PRIVATE_OUTPUT_TRACE_ROOT || path.join(import.meta.dirname);
+
 const nextConfig: NextConfig = {
-  // Pin Turbopack root to this folder so it doesn't pick up the parent CoSA
-  // lockfile and infer the workspace as the repo root.
+  outputFileTracingRoot: projectRoot,
   turbopack: {
-    root: path.join(import.meta.dirname),
+    root: projectRoot,
   },
   // Post Machine → Post Master rename
   async redirects() {

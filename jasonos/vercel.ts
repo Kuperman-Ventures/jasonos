@@ -6,7 +6,11 @@ import { type VercelConfig } from "@vercel/config/v1";
 // set to `jasonos/` (configured via API on 2026-04-22).
 export const config: VercelConfig = {
   framework: "nextjs",
-  buildCommand: "next build",
+  // Turbopack's Google font loader fails on Vercel when this app sits in a
+  // subfolder: the build root becomes the CoSA repo, and next/font/google
+  // then errors with "queries have exactly one entry". Webpack loads those
+  // fonts normally.
+  buildCommand: "next build --webpack",
   // Skip preview builds if the commit didn't touch the jasonos/ subfolder.
   // Always build `main` so production deploys don't get skipped when a push
   // contains JasonOS changes followed by a repo-level docs/config commit.
@@ -35,6 +39,7 @@ export const config: VercelConfig = {
     "app/api/inbox-dispatch/route.ts": { maxDuration: 60 },
     // Job Alerts harvest opens Gmail threads from a labeled folder.
     "app/api/job-alerts/harvest/route.ts": { maxDuration: 60 },
+    "app/api/browning-networking/run/route.ts": { maxDuration: 60 },
     // Suggested Scan: 90-day Gmail + calendar + Beeper. Needs a long window.
     "app/api/outreach/scan-suggested/route.ts": { maxDuration: 300 },
     // Home Overdue "Draft email" reads multiple Gmail threads then calls Claude.
@@ -57,6 +62,12 @@ export const config: VercelConfig = {
     {
       path: "/api/job-alerts/harvest?source=cron",
       schedule: "15 11,16,21 * * 1-5",
+    },
+    // Browning Networking — weekday 7:30am ET (EDT). Tracy handoffs, call
+    // briefs, and thank-you drafts.
+    {
+      path: "/api/browning-networking/run?source=cron",
+      schedule: "30 11 * * 1-5",
     },
   ],
 };

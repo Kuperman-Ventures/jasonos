@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   Mail,
   Share2,
+  Handshake,
 } from "lucide-react";
 
 // The Schedule tab was retired once its buckets moved into the Queue page;
@@ -23,6 +24,7 @@ const TABS = [
   { href: "/outreach/suggested", label: "Suggested", icon: UserPlus },
   { href: "/outreach/sent", label: "Sent", icon: Mail },
   { href: "/outreach/firms", label: "Firms", icon: Building2 },
+  { href: "/outreach/browning-networking", label: "Browning Networking", icon: Handshake },
 ] as const;
 
 export function OutreachTabs({

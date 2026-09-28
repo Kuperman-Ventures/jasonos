@@ -155,6 +155,28 @@ export function ActionCardItem({
         </p>
       ) : null}
 
+      {card.body?.links?.length ? (
+        <div className="flex flex-wrap gap-2">
+          {card.body.links.map((link) =>
+            link.href.startsWith("/") ? (
+              <a key={link.href} href={link.href} className="text-[11px] underline">
+                {link.label}
+              </a>
+            ) : (
+              <a
+                key={link.href}
+                href={link.href}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[11px] underline"
+              >
+                {link.label}
+              </a>
+            )
+          )}
+        </div>
+      ) : null}
+
       <footer className="flex flex-wrap items-center gap-1.5">
         {primary ? (
           <Button size="sm" className="h-7 gap-1.5 px-2.5 text-[11px]" onClick={() => fire(primary)}>
