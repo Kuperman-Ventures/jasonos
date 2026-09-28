@@ -4,7 +4,6 @@ import { etToday, etYmd } from "@/lib/dates";
 import { createGmailDraft, getGmailMessagesFull, listGmailMessages } from "@/lib/integrations/gmail";
 import { searchOutlookMessages } from "@/lib/integrations/outlook";
 import { getOutlookAccountAccess } from "@/lib/integrations/outlook-tokens";
-import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import {
   fetchAccountCalendarEvents,
   type CalendarApiEvent,
@@ -19,7 +18,6 @@ import {
   briefFromHandoff,
   callHasEnded,
   isCallMorning,
-  isOutlookMailbox,
   replyComposeUrl,
   replySubject,
   schedulingDraft,
@@ -538,18 +536,12 @@ export async function persistDraft(input: {
   const to = (data.contact_email as string | null) || "";
   const subject = replySubject(data.subject as string | null);
   const accountEmail = data.gmail_account as string;
-  const outlook = isOutlookMailbox(accountEmail);
-  const url = to
-    ? replyComposeUrl({
-        to,
-        bcc: TRACY_EMAIL,
-        subject,
-        body,
-        accountEmail,
-      })
-    : outlook
-      ? "https://outlook.live.com/mail/"
-      : gmailThreadUrl((data.gmail_thread_id as string) || "", accountEmail);
+  const url = replyComposeUrl({
+    to,
+    bcc: TRACY_EMAIL,
+    subject,
+    body,
+  });
 
   let gmailDraftId: string | null = (data.gmail_draft_id as string | null) ?? null;
   let savedInGmail = false;
@@ -595,11 +587,7 @@ export async function persistDraft(input: {
           links: [
             { label: "Open Browning Networking", href: `/outreach/browning-networking?id=${input.handoffId}` },
             {
-              label: savedInGmail
-                ? "Open Gmail draft"
-                : outlook
-                  ? "Open reply in Outlook"
-                  : "Open reply in Gmail",
+              label: "Open reply in Apple Mail",
               href: url,
             },
           ],

@@ -2,7 +2,7 @@
 // or the transcript. Nothing here is sent.
 
 import { etYmd } from "@/lib/dates";
-import { gmailAccount } from "@/lib/integrations/gmail-links";
+import { buildMailtoUrl } from "@/lib/email-templates/render";
 import type { HandoffBrief, HandoffSlot, ParsedHandoff } from "./types";
 
 const ET = "America/New_York";
@@ -59,58 +59,15 @@ Looking forward to speaking,
 Jason`;
 }
 
-export function gmailComposeUrl(input: {
-  to: string;
-  cc?: string;
-  bcc?: string;
-  subject: string;
-  body: string;
-  accountEmail?: string;
-}): string {
-  const account = encodeURIComponent(input.accountEmail || gmailAccount());
-  const params = new URLSearchParams({
-    view: "cm",
-    fs: "1",
-    to: input.to,
-    su: input.subject,
-    body: input.body,
-  });
-  if (input.cc) params.set("cc", input.cc);
-  if (input.bcc) params.set("bcc", input.bcc);
-  return `https://mail.google.com/mail/u/${account}/?${params.toString()}`;
-}
-
-export function isOutlookMailbox(accountEmail: string | null | undefined): boolean {
-  return /@(outlook|hotmail|live)\.com$/i.test(accountEmail ?? "");
-}
-
-export function outlookComposeUrl(input: {
-  to: string;
-  cc?: string;
-  bcc?: string;
-  subject: string;
-  body: string;
-}): string {
-  const params = new URLSearchParams({
-    to: input.to,
-    subject: input.subject,
-    body: input.body,
-  });
-  if (input.cc) params.set("cc", input.cc);
-  if (input.bcc) params.set("bcc", input.bcc);
-  return `https://outlook.live.com/mail/0/deeplink/compose?${params.toString()}`;
-}
-
+/** mailto: so the Mac opens Apple Mail with To, subject, body, and Bcc filled in. */
 export function replyComposeUrl(input: {
   to: string;
   cc?: string;
   bcc?: string;
   subject: string;
   body: string;
-  accountEmail?: string;
 }): string {
-  if (isOutlookMailbox(input.accountEmail)) return outlookComposeUrl(input);
-  return gmailComposeUrl(input);
+  return buildMailtoUrl(input);
 }
 
 export function replySubject(subject: string | null | undefined): string {

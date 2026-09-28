@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { findBookedCall } from "./booking";
 import {
   briefFromHandoff,
-  gmailComposeUrl,
+  replyComposeUrl,
   schedulingDraft,
   thankYouDraft,
 } from "./draft";
@@ -29,16 +29,17 @@ describe("drafts and booking", () => {
     assert.match(body, /Thu\. Oct 1 @ 10:00am ET/);
     assert.match(body, /Looking forward to speaking,\nJason$/);
     assert.doesNotMatch(body, /!/);
-    const url = gmailComposeUrl({
+    const url = replyComposeUrl({
       to: "matt.brennan@example.com",
       bcc: "traceys@executivejobsearch.net",
       subject: "Re: Executive Networking",
       body,
-      accountEmail: "jason@kupermanadvisors.com",
     });
-    assert.match(url, /bcc=traceys%40executivejobsearch.net/);
+    assert.match(url, /^mailto:matt\.brennan@example\.com\?/);
+    assert.match(url, /bcc=traceys%40executivejobsearch\.net/);
+    assert.match(url, new RegExp(encodeURIComponent("Thu. Oct 1 @ 10:00am ET")));
     assert.doesNotMatch(url, /[?&]cc=/);
-    assert.match(url, /mail\/u\/jason%40kupermanadvisors.com/);
+    assert.doesNotMatch(url, /outlook\.live\.com|mail\.google\.com/);
   });
 
   it("builds a job-networking brief from what they wrote", () => {
