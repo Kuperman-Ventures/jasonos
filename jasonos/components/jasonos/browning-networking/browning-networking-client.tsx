@@ -33,16 +33,22 @@ export function BrowningNetworkingClient({
   page: BrowningNetworkingPage;
   initialId?: string;
 }) {
-  const [selectedId, setSelectedId] = useState(
-    initialId && page.handoffs.some((row) => row.id === initialId)
-      ? initialId
-      : page.handoffs[0]?.id ?? ""
-  );
+  const [actedIds, setActedIds] = useState<string[]>([]);
+  const [selectedId, setSelectedId] = useState(() => {
+    const requested = initialId
+      ? page.handoffs.find((row) => row.id === initialId)
+      : undefined;
+    if (requested && handoffLane(requested) !== "waiting") return requested.id;
+    return page.handoffs.find((row) => handoffLane(row) !== "waiting")?.id ?? "";
+  });
+  const laneFor = (row: HandoffRecord): HandoffLane =>
+    actedIds.includes(row.id) && handoffLane(row) === "reply" ? "waiting" : handoffLane(row);
   const selected = page.handoffs.find((row) => row.id === selectedId) ?? null;
+  const selectedLane = selected ? laneFor(selected) : null;
   const [pending, start] = useTransition();
-  const replyRows = page.handoffs.filter((row) => handoffLane(row) === "reply");
-  const waitingRows = page.handoffs.filter((row) => handoffLane(row) === "waiting");
-  const scheduledRows = page.handoffs.filter((row) => handoffLane(row) === "scheduled");
+  const replyRows = page.handoffs.filter((row) => laneFor(row) === "reply");
+  const waitingRows = page.handoffs.filter((row) => laneFor(row) === "waiting");
+  const scheduledRows = page.handoffs.filter((row) => laneFor(row) === "scheduled");
 
   return (
     <div className="mx-auto grid max-w-[1400px] gap-4 px-4 py-4 lg:grid-cols-[300px_minmax(0,1fr)]">
@@ -86,8 +92,8 @@ export function BrowningNetworkingClient({
               title="Waiting for them to schedule"
               empty="Nobody is waiting yet. Acted On moves someone here after you send."
               rows={waitingRows}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
+              selectable={false}
+              lane="waiting"
             />
             <HandoffLaneList
               title="Meeting set"
@@ -99,13 +105,21 @@ export function BrowningNetworkingClient({
           </>
         )}
       </aside>
-      {selected ? (
+      {selected && selectedLane !== "waiting" ? (
         <HandoffDetail
           key={selected.id}
           handoff={selected}
           busy={page.busy}
           eligibleYmd={page.eligibleYmd}
+          onActedOn={() => {
+            setActedIds((ids) => (ids.includes(selected.id) ? ids : [...ids, selected.id]));
+            setSelectedId("");
+          }}
         />
+      ) : waitingRows.length > 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Waiting for them to schedule. Nothing to send from here.
+        </p>
       ) : (
         <div />
       )}
@@ -117,10 +131,12 @@ function HandoffDetail({
   handoff,
   busy,
   eligibleYmd,
+  onActedOn,
 }: {
   handoff: HandoffRecord;
   busy: BrowningNetworkingPage["busy"];
   eligibleYmd: string;
+  onActedOn: () => void;
 }) {
   const [slots, setSlots] = useState<HandoffSlot[]>(handoff.slots);
   const [weekMonday, setWeekMonday] = useState(mondayOf(eligibleYmd));
@@ -163,7 +179,10 @@ function HandoffDetail({
               start(async () => {
                 const result = await markHandoffActedOn(handoff.id);
                 if (!result.ok) toast.error(result.error);
-                else toast("Acted on. They're in the waiting list until the meeting is on your calendar.");
+                else {
+                  onActedOn();
+                  toast("Acted on. They're in the waiting list until the meeting is on your calendar.");
+                }
               })
             }
             disabled={pending}
@@ -172,12 +191,6 @@ function HandoffDetail({
           </Button>
         ) : null}
       </header>
-      {handoffLane(handoff) === "waiting" ? (
-        <p className="rounded-md border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-sm">
-          Waiting for them to schedule. They stay in that list until the meeting shows up on your calendar.
-        </p>
-      ) : null}
-
       {handoff.existingContactId ? (
         <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs">
           This person is already in your contacts. This page will not change that record.
@@ -398,12 +411,16 @@ function HandoffLaneList({
   rows,
   selectedId,
   onSelect,
+  selectable = true,
+  lane,
 }: {
   title: string;
   empty: string;
   rows: HandoffRecord[];
-  selectedId: string;
-  onSelect: (id: string) => void;
+  selectedId?: string;
+  onSelect?: (id: string) => void;
+  selectable?: boolean;
+  lane?: HandoffLane;
 }) {
   return (
     <section className="space-y-1">
@@ -417,16 +434,21 @@ function HandoffLaneList({
         <ul className="space-y-1">
           {rows.map((row) => (
             <li key={row.id}>
-              <button
-                type="button"
-                onClick={() => onSelect(row.id)}
-                className={`w-full rounded-md border px-3 py-2 text-left ${
-                  row.id === selectedId ? "border-foreground bg-muted" : "border-transparent hover:bg-muted/60"
-                }`}
-              >
-                <div className="text-sm font-medium">{row.contactName || "Unparsed contact"}</div>
-                <div className="text-[11px] text-muted-foreground">{statusLabel(row)}</div>
-              </button>
+              {selectable ? (
+                <button
+                  type="button"
+                  onClick={() => onSelect?.(row.id)}
+                  className={`w-full rounded-md border px-3 py-2 text-left ${
+                    row.id === selectedId ? "border-foreground bg-muted" : "border-transparent hover:bg-muted/60"
+                  }`}
+                >
+                  <HandoffLaneLabel row={row} lane={lane} />
+                </button>
+              ) : (
+                <div className="w-full rounded-md border border-transparent px-3 py-2 text-left">
+                  <HandoffLaneLabel row={row} lane={lane} />
+                </div>
+              )}
             </li>
           ))}
         </ul>
@@ -435,8 +457,16 @@ function HandoffLaneList({
   );
 }
 
-function statusLabel(row: HandoffRecord): string {
-  const lane: HandoffLane = handoffLane(row);
+function HandoffLaneLabel({ row, lane }: { row: HandoffRecord; lane?: HandoffLane }) {
+  return (
+    <>
+      <div className="text-sm font-medium">{row.contactName || "Unparsed contact"}</div>
+      <div className="text-[11px] text-muted-foreground">{statusLabel(row, lane)}</div>
+    </>
+  );
+}
+
+function statusLabel(row: HandoffRecord, lane: HandoffLane = handoffLane(row)): string {
   if (row.status === "thank_you_ready") return "Thank-you draft ready";
   if (row.status === "brief_ready") return "Brief ready";
   if (lane === "scheduled") return "On your calendar";
