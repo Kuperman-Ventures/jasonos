@@ -7,9 +7,10 @@ import { downloadOutlookResume, latestOutlookSentTo, listOutlookTracyMessages, s
 import { getOutlookAccountAccess } from "@/lib/integrations/outlook-tokens";
 import {
   fetchAccountCalendarEvents,
+  renameGoogleCalendarEvent,
   type CalendarApiEvent,
 } from "@/lib/integrations/google-calendar";
-import { listGoogleAccessTokens } from "@/lib/integrations/google-tokens";
+import { ADVISORS_ACCOUNT_EMAIL, listGoogleAccessTokens } from "@/lib/integrations/google-tokens";
 import { searchFirefliesForContact } from "@/lib/integrations/fireflies";
 import { searchGranolaForContact } from "@/lib/integrations/granola";
 import { canonicalEmail } from "@/lib/outreach/contact-lookup";
@@ -18,6 +19,7 @@ import { findBookedCall, type CalendarGuestEvent } from "./booking";
 import {
   briefFromHandoff,
   callHasEnded,
+  connectMeetingTitle,
   isCallMorning,
   replyComposeUrl,
   followUpDraft,
@@ -84,6 +86,7 @@ export async function runBrowningNetworking(): Promise<BrowningRunResult> {
   const sb = createServiceRoleClient();
 
   try {
+    await renameConnectTitles(sb);
     const harvested = await harvestHandoffs(sb);
     result.found = harvested.found;
     result.created = harvested.created;
@@ -759,6 +762,38 @@ function linkedInSlug(url: string | null | undefined): string | null {
   if (!url) return null;
   const match = url.match(/linkedin\.com\/in\/([^/?#]+)/i);
   return match?.[1]?.toLowerCase() ?? null;
+}
+
+async function renameConnectTitles(sb: Sb): Promise<void> {
+  const { data, error } = await sb
+    .from("browning_handoffs")
+    .select("id, contact_name, call_title, call_event_id")
+    .not("call_event_id", "is", null);
+  if (error || !data?.length) return;
+  const pending = data.filter((row) => {
+    const name = ((row.contact_name as string | null) ?? "").trim();
+    const title = ((row.call_title as string | null) ?? "").trim();
+    return Boolean(name) && title === `Call with ${name}`;
+  });
+  if (!pending.length) return;
+  const tokens = await listGoogleAccessTokens();
+  const token = tokens.find((account) => account.accountEmail === ADVISORS_ACCOUNT_EMAIL)?.token;
+  if (!token) return;
+  for (const row of pending) {
+    const name = ((row.contact_name as string | null) ?? "").trim();
+    const oldTitle = `Call with ${name}`;
+    const nextTitle = connectMeetingTitle(name);
+    const eventId = row.call_event_id as string;
+    const renamed = await renameGoogleCalendarEvent({ token, eventId, summary: nextTitle });
+    if (!renamed.ok) continue;
+    await sb.from("browning_handoffs").update({ call_title: nextTitle }).eq("id", row.id as string);
+    await sb.from("meetings").update({ title: nextTitle }).eq("gcal_event_id", eventId).eq("title", oldTitle);
+    await sb
+      .from("meetings")
+      .update({ prep_goal: nextTitle })
+      .eq("gcal_event_id", eventId)
+      .eq("prep_goal", oldTitle);
+  }
 }
 
 async function detectChosenTimes(sb: Sb): Promise<void> {

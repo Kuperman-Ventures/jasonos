@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import { findBookedCall } from "./booking";
 import {
   briefFromHandoff,
+  connectMeetingTitle,
   replyComposeUrl,
   schedulingDraft,
   thankYouDraft,
@@ -11,6 +12,17 @@ import { parseHandoff } from "./parse";
 import { HANDOFF_OPENING } from "./types";
 
 describe("drafts and booking", () => {
+  it("names the invite so both calendars show both people", () => {
+    assert.equal(
+      connectMeetingTitle("Matthew Deutsch"),
+      "Jason Kuperman/Matthew Deutsch: Connect"
+    );
+    assert.equal(
+      connectMeetingTitle("  Timothy Serewicz  "),
+      "Jason Kuperman/Timothy Serewicz: Connect"
+    );
+  });
+
   it("writes the same short reply for every contact", () => {
     const body = schedulingDraft({
       name: "Matt Brennan",

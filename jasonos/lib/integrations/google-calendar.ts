@@ -532,6 +532,30 @@ export async function createGoogleMeetInvite(input: {
   return { ok: true, eventId: json.id, meetUrl };
 }
 
+export async function renameGoogleCalendarEvent(input: {
+  token: string;
+  eventId: string;
+  summary: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const params = new URLSearchParams({ sendUpdates: "all" });
+  const res = await fetch(
+    `${CAL_BASE}/calendars/primary/events/${encodeURIComponent(input.eventId)}?${params}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${input.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ summary: input.summary }),
+      cache: "no-store",
+    }
+  );
+  if (!res.ok) {
+    return { ok: false, error: `Google Calendar could not rename the invite (${res.status}).` };
+  }
+  return { ok: true };
+}
+
 export async function deleteGCalEvent(token: string, eventId: string): Promise<boolean> {
   const result = await gcalFetch(COSA_CALENDAR_ID, `/${eventId}`, "DELETE", token);
   return result === true;

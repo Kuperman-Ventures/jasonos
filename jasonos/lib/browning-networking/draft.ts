@@ -12,6 +12,12 @@ export function firstName(name: string | null | undefined): string {
   return part || "there";
 }
 
+/** Calendar title both people see. "Call with Matthew" reads as a call with himself on his calendar. */
+export function connectMeetingTitle(contactName: string): string {
+  const name = contactName.trim();
+  return name ? `Jason Kuperman/${name}: Connect` : "Jason Kuperman: Connect";
+}
+
 export function formatSlotLabel(iso: string): string {
   const date = new Date(iso);
   const weekday = date.toLocaleDateString("en-US", {
