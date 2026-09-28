@@ -1,12 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { FamilyFinancesModal } from "@/components/FamilyFinancesModal";
+import {
+  cssNoteForProfile,
+  formatEnteredDate,
+  formatRangeK,
+  incomeBandToScoirKey,
+} from "@/lib/familyFinances";
 import {
   buildCostBar,
   buildFinanceCompareRows,
   financeRecordForSchoolName,
   isNjStateAidSchool,
   listFinanceRecords,
+  money,
   moneyCompact,
   needProgramOpenToNj,
   parsePriorityAidDeadlines,
@@ -177,6 +185,23 @@ export function SchoolFinancials({
   const entry = schoolFinanceEntry(household, school.id);
   const rows = useMemo(() => (finance ? aidRows(finance) : []), [finance]);
   const short = shortSchoolName(school.name);
+  const profile = household.familyProfile;
+  const familyEst = profile?.schools[school.id] ?? null;
+  const resolvedIncomeBand =
+    incomeBand ?? (profile ? incomeBandToScoirKey(profile.incomeBand) : null);
+  const [familyModalOpen, setFamilyModalOpen] = useState(false);
+
+  const modalSchools = useMemo(
+    () =>
+      listSchools
+        .filter((s) => !s.archived)
+        .map((s) => ({
+          id: s.id,
+          name: s.name,
+          finance: financeRecordForSchoolName(s.name),
+        })),
+    [listSchools],
+  );
 
   const [estimateDraft, setEstimateDraft] = useState(
     entry.netPriceEstimate != null ? String(entry.netPriceEstimate) : "",
@@ -226,7 +251,7 @@ export function SchoolFinancials({
             estimateDraft={estimateDraft}
             dateDraft={dateDraft}
             estimateOpen={estimateOpen}
-            incomeBand={incomeBand}
+            incomeBand={resolvedIncomeBand}
             npcUrl={null}
             onEstimateDraft={setEstimateDraft}
             onDateDraft={setDateDraft}
@@ -243,6 +268,15 @@ export function SchoolFinancials({
             }}
           />
         ) : null}
+        <FamilyFinancesModal
+          open={familyModalOpen}
+          onClose={() => setFamilyModalOpen(false)}
+          schools={modalSchools}
+          onSave={(next) => {
+            onHouseholdChange({ ...household, familyProfile: next });
+            setFamilyModalOpen(false);
+          }}
+        />
       </section>
     );
   }
@@ -461,6 +495,15 @@ export function SchoolFinancials({
         )}
       </section>
 
+      <FamilyEstimateBlock
+        profile={profile}
+        estimate={familyEst}
+        finance={finance}
+        schoolName={school.name}
+        annualBudget={household.annualBudget}
+        onOpenModal={() => setFamilyModalOpen(true)}
+      />
+
       <NetPriceSection
         scoir={scoir}
         short={short}
@@ -470,7 +513,7 @@ export function SchoolFinancials({
         estimateDraft={estimateDraft}
         dateDraft={dateDraft}
         estimateOpen={estimateOpen}
-        incomeBand={incomeBand}
+        incomeBand={resolvedIncomeBand}
         npcUrl={finance.netPriceCalculatorUrl}
         onEstimateDraft={setEstimateDraft}
         onDateDraft={setDateDraft}
@@ -550,6 +593,132 @@ export function SchoolFinancials({
           </a>
         ) : null}
       </footer>
+
+      <FamilyFinancesModal
+        open={familyModalOpen}
+        onClose={() => setFamilyModalOpen(false)}
+        schools={modalSchools}
+        onSave={(next) => {
+          onHouseholdChange({ ...household, familyProfile: next });
+          setFamilyModalOpen(false);
+        }}
+      />
+    </section>
+  );
+}
+
+function FamilyEstimateBlock({
+  profile,
+  estimate,
+  finance,
+  schoolName,
+  annualBudget,
+  onOpenModal,
+}: {
+  profile: NonNullable<HouseholdFinances["familyProfile"]> | null;
+  estimate: NonNullable<NonNullable<HouseholdFinances["familyProfile"]>["schools"][string]> | null;
+  finance: NonNullable<ReturnType<typeof financeRecordForSchoolName>>;
+  schoolName: string;
+  annualBudget: number | null;
+  onOpenModal: () => void;
+}) {
+  const within =
+    estimate != null && annualBudget != null && estimate.high <= annualBudget;
+
+  const applyingPrograms: string[] = [];
+  if (profile) {
+    if (profile.pell > 0) applyingPrograms.push(`Pell up to ${money(profile.pell)}`);
+    for (const p of profile.programs) {
+      if (p.key === "pell") continue;
+      if (p.status === "not-eligible" || p.status === "unlikely") continue;
+      if (p.key.startsWith("school:")) {
+        if (!estimate?.programTag || p.label !== estimate.programTag) continue;
+      }
+      if ((p.key === "tag" || p.key === "gsg" || p.key === "eof") && !isNjStateAidSchool(schoolName)) {
+        continue;
+      }
+      applyingPrograms.push(p.label);
+    }
+    if (estimate?.programTag && !applyingPrograms.includes(estimate.programTag)) {
+      applyingPrograms.push(estimate.programTag);
+    }
+  }
+
+  const cssLine = finance.cssProfileRequired
+    ? `Required.${profile ? ` ${cssNoteForProfile(profile, 1).replace(/^At the 1 CSS Profile schools, the estimate also counts /, " It counts ")}` : ""}`
+    : "Not required. The estimate uses your Student Aid Index.";
+
+  return (
+    <section className="fin-family-est" aria-label="Your family's estimate">
+      <span className="fin-section-kicker mono">Your family&apos;s estimate</span>
+      {!profile ? (
+        <div className="fin-family-est-empty">
+          <p>Enter your family&apos;s finances once to see an estimate for every school.</p>
+          <button type="button" className="fin-family-enter" onClick={onOpenModal}>
+            Enter family finances
+          </button>
+        </div>
+      ) : (
+        <>
+          <p className="fin-family-est-meta">
+            From family finances · entered {formatEnteredDate(profile.enteredAt)} ·{" "}
+            <button type="button" className="text-link" onClick={onOpenModal}>
+              Update
+            </button>
+          </p>
+          <div className="fin-family-est-grid">
+            <div className="fin-family-est-figure">
+              <div className={`fin-family-est-amount${within ? " is-within" : ""}`}>
+                {estimate
+                  ? estimate.low === estimate.high
+                    ? money(estimate.low)
+                    : formatRangeK(estimate.low, estimate.high)
+                  : "Not published"}
+              </div>
+              <div className="fin-family-est-per">per year, after grants, before loans</div>
+              <div className="fin-family-est-published mono">
+                Published cost {money(finance.totalCost)}
+              </div>
+            </div>
+            <p className="fin-family-est-basis">
+              {estimate?.basis ?? "No published cost for this school."}
+            </p>
+          </div>
+          <div className="fin-family-est-rows">
+            <div className="fin-family-est-row">
+              <span className="fin-family-est-label">Programs that apply</span>
+              <span className="fin-family-est-value">
+                {applyingPrograms.length ? applyingPrograms.join(" · ") : "None found for your figures"}
+              </span>
+            </div>
+            <div className="fin-family-est-row">
+              <span className="fin-family-est-label">CSS Profile</span>
+              <span className="fin-family-est-value">{cssLine}</span>
+            </div>
+            <div className="fin-family-est-row">
+              <span className="fin-family-est-label">Income band</span>
+              <span className="fin-family-est-value">
+                {profile.incomeBand}. This band is highlighted in Net price by family income below.
+              </span>
+            </div>
+          </div>
+          <div className="fin-family-est-npc">
+            <p>
+              For a firmer number, run the school&apos;s own calculator and add the result below.
+            </p>
+            {finance.netPriceCalculatorUrl ? (
+              <a
+                className="fin-outline-btn"
+                href={finance.netPriceCalculatorUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Net Price Calculator ↗
+              </a>
+            ) : null}
+          </div>
+        </>
+      )}
     </section>
   );
 }
