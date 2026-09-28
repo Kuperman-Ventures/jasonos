@@ -1,6 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { FamilyFinancesModal } from "@/components/FamilyFinancesModal";
+import {
+  cssNoteForProfile,
+  formatEnteredDate,
+  formatRangeK,
+  type FamilyProfile,
+  type ProgramStatus,
+} from "@/lib/familyFinances";
 import {
   admitRateForChart,
   budgetCompareCost,
@@ -9,6 +17,7 @@ import {
   buildFinanceRows,
   chartCost,
   costAfterTypicalMerit,
+  financeRecordForSchoolName,
   financesSchoolCount,
   fourYearEstimate,
   interestCssVar,
@@ -33,6 +42,7 @@ type SortKey =
   | "meritShare"
   | "avgMerit"
   | "afterMerit"
+  | "familyEstimate"
   | "estimate"
   | "fourYear"
   | "col"
@@ -53,8 +63,41 @@ function parseMoneyInput(raw: string): number | null {
   return Number.isFinite(n) ? Math.round(n) : null;
 }
 
+function programListTone(
+  status: ProgramStatus,
+): "accent" | "ink" | "subtle" {
+  if (status === "qualifies" || status === "likely") return "accent";
+  if (status === "possible") return "ink";
+  return "subtle";
+}
+
+function programListParts(detail: string): { statusText: string; detailText: string } {
+  const [head, ...rest] = detail.split(". ");
+  return {
+    statusText: head?.trim() || detail,
+    detailText: rest.join(". ").trim(),
+  };
+}
+
+function familyBudgetFitCounts(
+  rows: FinanceRow[],
+  profile: FamilyProfile,
+  annualBudget: number,
+): { fit: number; maybe: number } {
+  let fit = 0;
+  let maybe = 0;
+  for (const { school } of rows) {
+    const est = profile.schools[school.id];
+    if (!est) continue;
+    if (est.high <= annualBudget) fit += 1;
+    else if (est.low <= annualBudget && annualBudget < est.high) maybe += 1;
+  }
+  return { fit, maybe };
+}
+
 function sortValue(row: FinanceRow, key: SortKey, household: HouseholdFinances): number | string {
   const { finance, entry, school } = row;
+  const profile = household.familyProfile;
   switch (key) {
     case "school":
       return school.name.toLowerCase();
@@ -66,14 +109,21 @@ function sortValue(row: FinanceRow, key: SortKey, household: HouseholdFinances):
       return finance.awardsMerit ? (finance.cdsAvgNonNeedMerit ?? -1) : -2;
     case "afterMerit":
       return costAfterTypicalMerit(finance) ?? -1;
+    case "familyEstimate":
+      return profile?.schools[school.id]?.high ?? -1;
     case "estimate":
       return entry.netPriceEstimate ?? -1;
     case "fourYear":
-      return fourYearEstimate(finance, entry, household.costIncreasePct) ?? -1;
+      return (
+        fourYearEstimate(finance, entry, household.costIncreasePct, profile, school.id) ?? -1
+      );
     case "col":
       return finance.costOfLivingIndex;
     case "budget": {
-      const status = budgetStatus(budgetCompareCost(finance, entry), household.annualBudget);
+      const status = budgetStatus(
+        budgetCompareCost(finance, entry, profile, school.id),
+        household.annualBudget,
+      );
       if (status.kind === "within") return 0;
       if (status.kind === "over") return status.overBy;
       return Number.POSITIVE_INFINITY;
@@ -110,6 +160,7 @@ export function FinancesTab({
   );
   const [increaseDraft, setIncreaseDraft] = useState(String(household.costIncreasePct));
   const [openNj, setOpenNj] = useState<string | null>(null);
+  const [familyModalOpen, setFamilyModalOpen] = useState(false);
 
   const { rows } = useMemo(() => buildFinanceRows(schools, household), [schools, household]);
   const schoolIdByName = useMemo(() => {
@@ -118,6 +169,17 @@ export function FinancesTab({
     return map;
   }, [schools]);
 
+  const familyProfile = household.familyProfile;
+  const modalSchools = useMemo(
+    () =>
+      schools.map((s) => ({
+        id: s.id,
+        name: s.name,
+        finance: financeRecordForSchoolName(s.name),
+      })),
+    [schools],
+  );
+
   const summary = useMemo(
     () =>
       budgetSummary(
@@ -125,8 +187,19 @@ export function FinancesTab({
         household.annualBudget,
         household.schools,
         schoolIdByName,
+        familyProfile,
       ),
-    [rows, household, schoolIdByName],
+    [rows, household, schoolIdByName, familyProfile],
+  );
+
+  const familyFit = useMemo(() => {
+    if (!familyProfile || household.annualBudget == null) return null;
+    return familyBudgetFitCounts(rows, familyProfile, household.annualBudget);
+  }, [familyProfile, household.annualBudget, rows]);
+
+  const cssSchoolCount = useMemo(
+    () => rows.filter((r) => r.finance.cssProfileRequired).length,
+    [rows],
   );
 
   const filtered = useMemo(() => {
@@ -136,12 +209,15 @@ export function FinancesTab({
       if (filters.noCss && finance.cssProfileRequired) return false;
       if (filters.interest && school.interestLevel !== filters.interest) return false;
       if (filters.withinBudget) {
-        const status = budgetStatus(budgetCompareCost(finance, entry), household.annualBudget);
+        const status = budgetStatus(
+          budgetCompareCost(finance, entry, household.familyProfile, school.id),
+          household.annualBudget,
+        );
         if (status.kind !== "within") return false;
       }
       return true;
     });
-  }, [rows, filters, household.annualBudget]);
+  }, [rows, filters, household.annualBudget, household.familyProfile]);
 
   const sorted = useMemo(() => {
     const next = [...filtered];
@@ -182,6 +258,12 @@ export function FinancesTab({
 
   const njPrograms = newJerseyStatePrograms();
   const count = financesSchoolCount();
+  const familyCssNote = familyProfile
+    ? cssNoteForProfile(familyProfile, cssSchoolCount)
+    : "";
+  const programsNoPell = familyProfile
+    ? familyProfile.programs.filter((p) => p.key !== "pell")
+    : [];
 
   return (
     <section className="finances-page">
@@ -219,11 +301,49 @@ export function FinancesTab({
             <span aria-hidden="true">%</span>
           </div>
         </label>
+        <div className="stack-field">
+          <span className="label">Family finances</span>
+          {familyProfile ? (
+            <div className="fin-family-entered">
+              <button
+                type="button"
+                className="fin-family-date"
+                onClick={() => setFamilyModalOpen(true)}
+              >
+                Entered {formatEnteredDate(familyProfile.enteredAt)}
+              </button>
+              <button
+                type="button"
+                className="text-link fin-family-update"
+                onClick={() => setFamilyModalOpen(true)}
+              >
+                Update
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="fin-family-enter"
+              onClick={() => setFamilyModalOpen(true)}
+            >
+              Enter family finances
+            </button>
+          )}
+        </div>
       </div>
 
       <p className="fin-summary">
         {household.annualBudget == null ? (
           <>Set a yearly budget to see how many of the {count} schools fit.</>
+        ) : familyProfile && familyFit ? (
+          <>
+            <strong className="accent">
+              {familyFit.fit} of {count} schools
+            </strong>{" "}
+            fit your budget using your family&apos;s figures.{" "}
+            <strong>{familyFit.maybe} more</strong> could, depending on how much of your need
+            they meet.
+          </>
         ) : (
           <>
             <strong className="accent">{summary.withinBudget} of {count} schools</strong> have a
@@ -233,6 +353,59 @@ export function FinancesTab({
           </>
         )}
       </p>
+
+      {familyProfile ? (
+        <section className="fin-figures" aria-label="What your family's figures show">
+          <span className="fin-figures-label">What your family&apos;s figures show</span>
+          <div className="fin-figures-grid">
+            <div className="fin-figures-fig">
+              <span className="fin-figures-caption">Student Aid Index</span>
+              <span className="fin-figures-value mono">
+                {formatRangeK(familyProfile.saiLow, familyProfile.saiHigh)}
+              </span>
+              <span className="fin-figures-sub">
+                From the FAFSA. Schools that use only the FAFSA expect roughly this much per year.
+              </span>
+            </div>
+            <div className="fin-figures-fig">
+              <span className="fin-figures-caption">CSS Profile schools</span>
+              <span className="fin-figures-value mono">
+                {formatRangeK(familyProfile.imLow, familyProfile.imHigh)}
+              </span>
+              <span className="fin-figures-sub">
+                {cssSchoolCount} schools on your list use the CSS Profile.
+              </span>
+            </div>
+            <div className="fin-figures-fig">
+              <span className="fin-figures-caption">Pell Grant</span>
+              <span className="fin-figures-value mono">
+                {familyProfile.pell > 0 ? money(familyProfile.pell) : "$0"}
+              </span>
+              <span className="fin-figures-sub">
+                {familyProfile.pell > 0
+                  ? "Federal grant, any school"
+                  : "Aid index above the Pell range"}
+              </span>
+            </div>
+          </div>
+          {programsNoPell.length > 0 ? (
+            <div className="fin-figures-progs">
+              {programsNoPell.map((p) => {
+                const parts = programListParts(p.detail);
+                const tone = programListTone(p.status);
+                return (
+                  <div key={p.key} className="fin-figures-prog">
+                    <span className="fin-figures-prog-name">{p.label}</span>
+                    <span className={`fin-figures-prog-status ${tone}`}>{parts.statusText}</span>
+                    <span className="fin-figures-prog-detail">{parts.detailText}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+          {familyCssNote ? <p className="fin-figures-note">{familyCssNote}</p> : null}
+        </section>
+      ) : null}
 
       <div className="fin-filters">
         {(
@@ -286,20 +459,23 @@ export function FinancesTab({
             <tr>
               {(
                 [
-                  ["school", "School"],
-                  ["cost", "Published cost"],
-                  ["meritShare", "Merit share"],
-                  ["avgMerit", "Average merit"],
-                  ["afterMerit", "After typical merit"],
-                  ["estimate", "Your estimate"],
-                  ["fourYear", "4-year estimate"],
-                  ["col", "Cost of living"],
-                  ["budget", "Budget"],
+                  ["school", "School", false],
+                  ["cost", "Published cost", false],
+                  ["meritShare", "Merit share", false],
+                  ["avgMerit", "Average merit", false],
+                  ["afterMerit", "After typical merit", false],
+                  ["familyEstimate", "Family estimate", true],
+                  ["estimate", "Your estimate", false],
+                  ["fourYear", "4-year estimate", false],
+                  ["col", "Cost of living", false],
+                  ["budget", "Budget", false],
                 ] as const
-              ).map(([key, label]) => (
+              ).map(([key, label, accent]) => (
                 <th
                   key={key}
-                  className={key === "school" ? undefined : "num"}
+                  className={[key === "school" ? undefined : "num", accent ? "accent" : undefined]
+                    .filter(Boolean)
+                    .join(" ") || undefined}
                   aria-sort={sortKey === key ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
                 >
                   <button type="button" onClick={() => toggleSort(key)}>
@@ -313,8 +489,22 @@ export function FinancesTab({
           <tbody>
             {sorted.map(({ school, finance, entry }) => {
               const after = costAfterTypicalMerit(finance);
-              const status = budgetStatus(budgetCompareCost(finance, entry), household.annualBudget);
-              const four = fourYearEstimate(finance, entry, household.costIncreasePct);
+              const status = budgetStatus(
+                budgetCompareCost(finance, entry, familyProfile, school.id),
+                household.annualBudget,
+              );
+              const four = fourYearEstimate(
+                finance,
+                entry,
+                household.costIncreasePct,
+                familyProfile,
+                school.id,
+              );
+              const famEst = familyProfile?.schools[school.id] ?? null;
+              const famInBudget =
+                famEst != null &&
+                household.annualBudget != null &&
+                famEst.high <= household.annualBudget;
               return (
                 <tr
                   key={school.id}
@@ -352,6 +542,9 @@ export function FinancesTab({
                           {isNjStateAidSchool(school.name) ? (
                             <span className="fin-badge accent">NJ state aid</span>
                           ) : null}
+                          {famEst?.programTag ? (
+                            <span className="fin-badge accent">{famEst.programTag}</span>
+                          ) : null}
                         </div>
                       </div>
                     </div>
@@ -373,6 +566,24 @@ export function FinancesTab({
                         : money(finance.cdsAvgNonNeedMerit)}
                   </td>
                   <td className="num mono">{after == null ? "—" : money(after)}</td>
+                  <td className={`num mono${famInBudget ? " accent" : ""}`}>
+                    {!familyProfile ? (
+                      <span className="subtle">Enter finances</span>
+                    ) : famEst == null ? (
+                      "—"
+                    ) : (
+                      <>
+                        <div className={famInBudget ? "accent" : undefined}>
+                          {formatRangeK(famEst.low, famEst.high)}
+                        </div>
+                        <div className="fin-sub">
+                          {famEst.low === famEst.high
+                            ? "Meets full need"
+                            : "Depends on need met"}
+                        </div>
+                      </>
+                    )}
+                  </td>
                   <td className="num mono">
                     {entry.netPriceEstimate != null ? (
                       <>
@@ -464,6 +675,16 @@ export function FinancesTab({
       </section>
 
       <ResidencyReclassificationSection />
+
+      <FamilyFinancesModal
+        open={familyModalOpen}
+        onClose={() => setFamilyModalOpen(false)}
+        onSave={(profile) => {
+          onHouseholdChange({ ...household, familyProfile: profile });
+          setFamilyModalOpen(false);
+        }}
+        schools={modalSchools}
+      />
     </section>
   );
 }
@@ -517,7 +738,12 @@ function AdmitCostChart({
   const points = rows
     .map((row) => {
       const admit = admitRateForChart(row.school);
-      const cost = chartCost(row.finance, row.entry);
+      const cost = chartCost(
+        row.finance,
+        row.entry,
+        household.familyProfile,
+        row.school.id,
+      );
       if (admit == null || cost == null) return null;
       return {
         id: row.school.id,
