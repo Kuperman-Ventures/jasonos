@@ -248,7 +248,8 @@ interface GraphSearchedMessage extends GraphMessage {
 export async function searchOutlookMessages(
   accessToken: string,
   queries: string[],
-  sinceIso: string
+  sinceIso: string,
+  maxPages = 4
 ): Promise<OutlookSearchedMessage[]> {
   const sinceMs = new Date(sinceIso).getTime();
   const byId = new Map<string, OutlookSearchedMessage>();
@@ -260,35 +261,73 @@ export async function searchOutlookMessages(
       $select:
         "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,body,conversationId,internetMessageId,isDraft",
     });
-    const { status, body } = await graphGet(
-      accessToken,
-      `/me/messages?${params}`,
-      { ConsistencyLevel: "eventual", Prefer: 'outlook.body-content-type="text"' }
-    );
-    if (status < 200 || status >= 300) {
-      throw new Error(graphErrorMessage(status, body));
-    }
-    for (const raw of (body?.value ?? []) as GraphSearchedMessage[]) {
-      if (!raw.id || raw.isDraft || byId.has(raw.id)) continue;
-      const received = raw.receivedDateTime || raw.sentDateTime;
-      if (!received) continue;
-      const receivedMs = new Date(received).getTime();
-      if (!Number.isFinite(receivedMs) || receivedMs < sinceMs) continue;
-      const from = formatGraphAddress(raw.from);
-      if (!from) continue;
-      byId.set(raw.id, {
-        id: raw.id,
-        from,
-        to: joinGraphAddresses(raw.toRecipients),
-        cc: joinGraphAddresses(raw.ccRecipients),
-        subject: raw.subject?.trim() || null,
-        receivedAt: new Date(received).toISOString(),
-        body: raw.body?.content ?? raw.bodyPreview ?? "",
-        conversationId: raw.conversationId ?? null,
-        internetMessageId: raw.internetMessageId ?? null,
+    let url: string | null = `/me/messages?${params}`;
+    for (let page = 0; page < maxPages && url; page += 1) {
+      const { status, body } = await graphGet(accessToken, url, {
+        ConsistencyLevel: "eventual",
+        Prefer: 'outlook.body-content-type="text"',
       });
+      if (status < 200 || status >= 300) {
+        throw new Error(graphErrorMessage(status, body));
+      }
+      for (const raw of (body?.value ?? []) as GraphSearchedMessage[]) {
+        if (!raw.id || raw.isDraft || byId.has(raw.id)) continue;
+        const received = raw.receivedDateTime || raw.sentDateTime;
+        if (!received) continue;
+        const receivedMs = new Date(received).getTime();
+        if (!Number.isFinite(receivedMs) || receivedMs < sinceMs) continue;
+        const from = formatGraphAddress(raw.from);
+        if (!from) continue;
+        byId.set(raw.id, {
+          id: raw.id,
+          from,
+          to: joinGraphAddresses(raw.toRecipients),
+          cc: joinGraphAddresses(raw.ccRecipients),
+          subject: raw.subject?.trim() || null,
+          receivedAt: new Date(received).toISOString(),
+          body: raw.body?.content ?? raw.bodyPreview ?? "",
+          conversationId: raw.conversationId ?? null,
+          internetMessageId: raw.internetMessageId ?? null,
+        });
+      }
+      url = body?.["@odata.nextLink"] ?? null;
     }
   }
 
   return [...byId.values()];
+}
+
+export async function latestOutlookSentTo(
+  accessToken: string,
+  email: string,
+  sinceIso: string
+): Promise<{ subject: string | null; sentAt: string } | null> {
+  const want = email.trim().toLowerCase();
+  if (!want) return null;
+  const sinceMs = new Date(sinceIso).getTime();
+  const params = new URLSearchParams({
+    $search: `"${want}"`,
+    $top: "15",
+    $select: "subject,sentDateTime,toRecipients,ccRecipients,isDraft",
+  });
+  const { status, body } = await graphGet(
+    accessToken,
+    `/me/mailFolders/sentitems/messages?${params}`,
+    { ConsistencyLevel: "eventual" }
+  );
+  if (status < 200 || status >= 300) return null;
+  let best: { subject: string | null; sentAt: string } | null = null;
+  for (const raw of (body?.value ?? []) as GraphSearchedMessage[]) {
+    if (raw.isDraft) continue;
+    const sent = raw.sentDateTime;
+    if (!sent) continue;
+    const sentMs = new Date(sent).getTime();
+    if (!Number.isFinite(sentMs) || sentMs < sinceMs) continue;
+    const recipients = `${joinGraphAddresses(raw.toRecipients)} ${joinGraphAddresses(raw.ccRecipients)}`.toLowerCase();
+    if (!recipients.includes(want)) continue;
+    if (!best || sentMs > Date.parse(best.sentAt)) {
+      best = { subject: raw.subject?.trim() || null, sentAt: new Date(sent).toISOString() };
+    }
+  }
+  return best;
 }

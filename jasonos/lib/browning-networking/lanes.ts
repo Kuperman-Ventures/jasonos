@@ -14,6 +14,10 @@ export function handoffLane(row: {
   ) {
     return "scheduled";
   }
-  if (row.status === "acted_on") return "waiting";
+  if (row.status === "acted_on" || row.status === "follow_up") return "waiting";
   return "reply";
+}
+
+export function isFollowUp(row: { status: HandoffStatus; callStartsAt: string | null }): boolean {
+  return row.status === "follow_up" && !row.callStartsAt;
 }

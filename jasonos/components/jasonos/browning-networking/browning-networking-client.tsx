@@ -6,11 +6,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { BrowningNetworkingPage, HandoffRecord } from "@/lib/browning-networking/types";
 import {
+  followUpDraft,
   replyComposeUrl,
   replySubject,
   schedulingDraft,
 } from "@/lib/browning-networking/draft";
-import { handoffLane, type HandoffLane } from "@/lib/browning-networking/lanes";
+import { handoffLane, isFollowUp, type HandoffLane } from "@/lib/browning-networking/lanes";
 import { addCalendarDays } from "@/lib/browning-networking/slots";
 import { TRACY_EMAIL, type HandoffSlot } from "@/lib/browning-networking/types";
 import { CADENCE_LABELS, type CadenceInterval } from "@/lib/outreach/types";
@@ -57,7 +58,7 @@ export function BrowningNetworkingClient({
           <h1 className="font-heading text-xl font-semibold">Browning Networking</h1>
         </div>
         <p className="text-xs text-muted-foreground">
-          Reply, then mark Acted On. They stay on this page until the meeting is on your calendar.
+          Reply, then mark Acted On. The check also looks back a year for intros that never made your calendar. Those can be followed up.
         </p>
         <Button
           size="sm"
@@ -67,8 +68,17 @@ export function BrowningNetworkingClient({
             start(async () => {
               const result = await checkBrowningHandoffs();
               if (!result.ok) toast.error(result.error);
-              else if (result.created === 0) toast("No new handoffs.");
-              else toast(`Added ${result.created} handoff${result.created === 1 ? "" : "s"}.`);
+              else if (result.created === 0 && result.followUps === 0) toast("No new handoffs.");
+              else {
+                const parts = [];
+                if (result.created > 0) {
+                  parts.push(`Added ${result.created} handoff${result.created === 1 ? "" : "s"}.`);
+                }
+                if (result.followUps > 0) {
+                  parts.push(`Added ${result.followUps} follow-up${result.followUps === 1 ? "" : "s"}.`);
+                }
+                toast(parts.join(" "));
+              }
             })
           }
         >
@@ -92,7 +102,9 @@ export function BrowningNetworkingClient({
               title="Waiting for them to schedule"
               empty="Nobody is waiting yet. Acted On moves someone here after you send."
               rows={waitingRows}
-              selectable={false}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              openRow={(row) => isFollowUp(row)}
               lane="waiting"
             />
             <HandoffLaneList
@@ -105,7 +117,9 @@ export function BrowningNetworkingClient({
           </>
         )}
       </aside>
-      {selected && selectedLane !== "waiting" ? (
+      {selected && isFollowUp(selected) ? (
+        <FollowUpPanel key={selected.id} handoff={selected} />
+      ) : selected && selectedLane !== "waiting" ? (
         <HandoffDetail
           key={selected.id}
           handoff={selected}
@@ -116,6 +130,10 @@ export function BrowningNetworkingClient({
             setSelectedId("");
           }}
         />
+      ) : waitingRows.some((row) => isFollowUp(row)) ? (
+        <p className="text-sm text-muted-foreground">
+          Select a follow-up on the left. Follow Up opens a reply to the last note you sent.
+        </p>
       ) : waitingRows.length > 0 ? (
         <p className="text-sm text-muted-foreground">
           Waiting for them to schedule. Nothing to send from here.
@@ -412,6 +430,7 @@ function HandoffLaneList({
   selectedId,
   onSelect,
   selectable = true,
+  openRow,
   lane,
 }: {
   title: string;
@@ -420,6 +439,7 @@ function HandoffLaneList({
   selectedId?: string;
   onSelect?: (id: string) => void;
   selectable?: boolean;
+  openRow?: (row: HandoffRecord) => boolean;
   lane?: HandoffLane;
 }) {
   return (
@@ -432,9 +452,11 @@ function HandoffLaneList({
         <p className="rounded-md border border-dashed px-3 py-3 text-[11px] text-muted-foreground">{empty}</p>
       ) : (
         <ul className="space-y-1">
-          {rows.map((row) => (
+          {rows.map((row) => {
+            const open = selectable && (openRow ? openRow(row) : true);
+            return (
             <li key={row.id}>
-              {selectable ? (
+              {open ? (
                 <button
                   type="button"
                   onClick={() => onSelect?.(row.id)}
@@ -450,7 +472,8 @@ function HandoffLaneList({
                 </div>
               )}
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </section>
@@ -466,7 +489,51 @@ function HandoffLaneLabel({ row, lane }: { row: HandoffRecord; lane?: HandoffLan
   );
 }
 
+function FollowUpPanel({ handoff }: { handoff: HandoffRecord }) {
+  const body = followUpDraft(handoff.contactName);
+  const subject = replySubject(handoff.lastOutreachSubject || handoff.subject);
+  const sent = handoff.lastOutreachSentAt
+    ? new Date(handoff.lastOutreachSentAt).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        timeZone: "America/New_York",
+      })
+    : null;
+  return (
+    <div className="space-y-4">
+      <header>
+        <h2 className="text-lg font-semibold">{handoff.contactName || "This contact"}</h2>
+        <p className="text-xs text-muted-foreground">
+          {sent ? `You wrote them ${sent}.` : "You already wrote them."} No meeting is on your calendar.
+        </p>
+      </header>
+      <section className="space-y-2">
+        <h3 className="text-sm font-semibold">Follow up</h3>
+        <pre className="whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-sm">{body}</pre>
+        <Button
+          disabled={!handoff.contactEmail}
+          onClick={() => {
+            if (!handoff.contactEmail) return;
+            window.location.href = replyComposeUrl({
+              to: handoff.contactEmail,
+              subject,
+              body,
+            });
+            toast.success("Opening Mail… finish the send there.");
+          }}
+        >
+          Follow Up
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          This replies to the last note you sent. Nothing sends until you send it from Apple Mail.
+        </p>
+      </section>
+    </div>
+  );
+}
+
 function statusLabel(row: HandoffRecord, lane: HandoffLane = handoffLane(row)): string {
+  if (row.status === "follow_up" && lane !== "scheduled") return "Follow up";
   if (row.status === "thank_you_ready") return "Thank-you draft ready";
   if (row.status === "brief_ready") return "Brief ready";
   if (lane === "scheduled") return "On your calendar";
