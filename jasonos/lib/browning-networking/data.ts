@@ -82,6 +82,8 @@ function mapRow(row: Record<string, unknown>): HandoffRecord {
     thankYouSource: (row.thank_you_source as string | null) ?? null,
     lastOutreachSubject: (row.last_outreach_subject as string | null) ?? null,
     lastOutreachSentAt: (row.last_outreach_sent_at as string | null) ?? null,
+    replyExcerpt: (row.reply_excerpt as string | null) ?? null,
+    chosenSlotStart: (row.chosen_slot_start as string | null) ?? null,
     status: (row.status as HandoffStatus) ?? "times_ready",
   };
 }

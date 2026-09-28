@@ -1,6 +1,6 @@
 // GET /api/auth/google
 // Redirects to Google OAuth consent screen.
-// Scopes: Gmail read + Calendar read (covers both gmail.ts + google-calendar.ts).
+// Scopes: Gmail read, Calendar read, and Calendar events so a Meet invite can be created.
 // ?account=gmail stores a second token for jskuperman@gmail.com (provider=google_gmail).
 
 import { cookies } from "next/headers";
@@ -19,6 +19,7 @@ export const runtime = "nodejs";
 const SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
   "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/calendar.events",
   "email",
   "profile",
 ].join(" ");
