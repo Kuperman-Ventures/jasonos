@@ -331,11 +331,6 @@ export function CollegeRecord({
                     <SchoolMark name={school.name} website={school.website} />
                   </span>
                   <span className="school-modal-nav-name">{school.name}</span>
-                  <span className="school-modal-nav-pos" aria-live="polite">
-                    {listPosition != null && listPosition > 0
-                      ? `${listPosition} of ${listTotal}`
-                      : `— of ${listTotal}`}
-                  </span>
                 </div>
                 <button
                   type="button"
@@ -359,7 +354,19 @@ export function CollegeRecord({
             )}
             <span className="school-modal-chrome-end" aria-hidden="true" />
           </div>
-          <p className="school-modal-phase">{stageBreadcrumb}</p>
+          <p className="school-modal-phase" aria-live="polite">
+            <span>{stageBreadcrumb}</span>
+            {listTotal && listTotal > 0 ? (
+              <>
+                <span aria-hidden="true"> · </span>
+                <span>
+                  {listPosition != null && listPosition > 0
+                    ? `${listPosition} of ${listTotal}`
+                    : `— of ${listTotal}`}
+                </span>
+              </>
+            ) : null}
+          </p>
         </header>
 
         <div className={`school-hero${showPhoto ? "" : " school-hero-empty"}`}>

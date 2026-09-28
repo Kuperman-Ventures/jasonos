@@ -212,15 +212,21 @@ test("parsePriorityAidDeadlines extracts rounds and accent within 30 days", () =
   );
   assert.equal(mit.items.length, 2);
   assert.equal(mit.items[0]!.round, "EA");
+  assert.equal(mit.items[0]!.who, "Applying Early Action");
+  assert.equal(mit.items[0]!.monthDay, "Nov 30");
   assert.equal(mit.items[1]!.round, "RD");
   assert.equal(mit.note, "current cycle; the page does not state the year");
   assert.equal(mit.items[0]!.accentSoon, false);
+  assert.match(mit.items[0]!.submitLine, /Submit the FAFSA by this date/);
 
   const soon = parsePriorityAidDeadlines("FAFSA: October 15, 2026 (2026-27 aid year)", now);
   assert.equal(soon.items.length, 1);
-  assert.equal(soon.items[0]!.round, "FAFSA");
+  assert.equal(soon.items[0]!.allApplicants, true);
+  assert.equal(soon.items[0]!.who, "Every applicant");
+  assert.equal(soon.items[0]!.round, "");
   assert.equal(soon.items[0]!.accentSoon, true);
   assert.ok((soon.items[0]!.daysUntil ?? 99) <= 30);
+  assert.equal(soon.items[0]!.note, "2026-27 aid year");
 
   const jhu = parsePriorityAidDeadlines(
     "Early Decision I: November 15, 2026; Early Decision II and Regular Decision: January 15, 2027 (fall 2027 entry cycle)",
@@ -230,6 +236,13 @@ test("parsePriorityAidDeadlines extracts rounds and accent within 30 days", () =
   assert.equal(jhu.items[0]!.round, "ED I");
   assert.match(jhu.items[1]!.round, /ED II/);
   assert.match(jhu.items[1]!.round, /RD/);
+
+  const cwru = parsePriorityAidDeadlines("Nov. 15 (ED I, EA) · Feb. 1 (RD)", now, true);
+  assert.equal(cwru.items.length, 2);
+  assert.equal(cwru.items[0]!.round, "ED I · EA");
+  assert.equal(cwru.items[0]!.who, "Applying Early Decision I and Early Action");
+  assert.match(cwru.items[0]!.submitLine, /FAFSA and CSS Profile/);
+  assert.equal(cwru.items[1]!.round, "RD");
 });
 
 test("vsIndexPct formats relative percent", () => {

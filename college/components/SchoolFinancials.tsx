@@ -56,6 +56,65 @@ const AID_KIND_ORDER: Record<AidKind, number> = {
   closed: 3,
 };
 
+const POLICY_EXPLAIN: Record<string, Record<string, string>> = {
+  "Meets full need": {
+    Yes: "Aid covers the whole gap between the cost and what the FAFSA or CSS Profile says the family can pay.",
+    No: "Aid can fall short of demonstrated need. The family covers the gap or borrows.",
+    "in-state only": "Full need is met for residents only. Out-of-state students can be left with a gap.",
+    _: "The school does not say whether it covers full need. Plan for a possible gap.",
+  },
+  "Need-blind": {
+    Yes: "Ability to pay is not considered when the school decides on admission.",
+    No: "Financial need can factor into the admission decision.",
+    _: "The school does not say whether ability to pay affects admission.",
+  },
+  "CSS Profile": {
+    Required:
+      "A second aid form from the College Board, filed alongside the FAFSA. The school uses it to award its own grants. It charges a fee per school, with waivers for lower-income families.",
+    "Not required": "The FAFSA alone is enough to be considered for aid.",
+    _: "The school does not say whether it needs the CSS Profile.",
+  },
+  "NJ state aid": {
+    Yes: "New Jersey grants such as the Tuition Aid Grant can be used here.",
+    No: "New Jersey grants such as the Tuition Aid Grant only apply at New Jersey colleges.",
+  },
+  "Tuition rate for Kyle": {
+    "In-state": "As a New Jersey resident, Kyle pays the resident rate.",
+    "Out-of-state":
+      'A public school outside New Jersey. Kyle pays the non-resident rate for all four years. Switching to in-state after enrolling is usually denied for students whose parents support them; see "Changing To In-State Tuition After Enrolling" on the Finances tab.',
+    "Same for all students": "Private schools charge everyone the same tuition, wherever they live.",
+    _: "The school's residency rules for Kyle are not on file yet.",
+  },
+};
+
+function policyExplanation(label: string, value: string): string {
+  const map = POLICY_EXPLAIN[label];
+  if (!map) return "";
+  return map[value] ?? map._ ?? "";
+}
+
+function formatEstimateDate(iso: string | null | undefined): string {
+  if (!iso) return "Date not set";
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function yn(v: boolean | null | undefined): string {
+  if (v === true) return "Yes";
+  if (v === false) return "No";
+  return "Not stated";
+}
+
+function netBandsHiddenForOos(note: string | null | undefined): boolean {
+  if (!note) return false;
+  return /in-state students only|out-of-state/i.test(note);
+}
+
 function parseMoneyInput(raw: string): number | null {
   const cleaned = raw.replace(/[$,\s]/g, "");
   if (!cleaned) return null;
@@ -93,19 +152,6 @@ function aidRows(finance: NonNullable<ReturnType<typeof financeRecordForSchoolNa
     });
   }
   return rows.sort((a, b) => AID_KIND_ORDER[a.kind] - AID_KIND_ORDER[b.kind]);
-}
-
-function yn(v: boolean | null): string {
-  if (v === true) return "Yes";
-  if (v === false) return "No";
-  return "Not stated";
-}
-
-function formatEstimateDate(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(`${iso}T12:00:00`);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 export function SchoolFinancials({
@@ -154,8 +200,13 @@ export function SchoolFinancials({
   const costBar = useMemo(() => (finance ? buildCostBar(finance) : null), [finance]);
 
   const deadlines = useMemo(
-    () => parsePriorityAidDeadlines(finance?.priorityAidDeadline ?? null),
-    [finance?.priorityAidDeadline],
+    () =>
+      parsePriorityAidDeadlines(
+        finance?.priorityAidDeadline ?? null,
+        new Date(),
+        finance?.cssProfileRequired ?? null,
+      ),
+    [finance?.priorityAidDeadline, finance?.cssProfileRequired],
   );
 
   if (!finance) {
@@ -244,7 +295,11 @@ export function SchoolFinancials({
               ? "Same for all students"
               : "Not stated",
     },
-  ];
+  ].map((fact) => ({
+    ...fact,
+    explanation: policyExplanation(fact.label, fact.value),
+    muted: /not stated/i.test(fact.value),
+  }));
 
   return (
     <section className="school-modal-section fin-school">
@@ -427,11 +482,14 @@ export function SchoolFinancials({
 
       <section className="fin-policies" aria-label="Aid policies">
         <span className="fin-section-kicker mono">Aid policies</span>
-        <div className="fin-policies-grid">
+        <div className="fin-policies-list">
           {policyFacts.map((fact) => (
-            <div key={fact.label} className="fin-policy">
+            <div key={fact.label} className="fin-policy-row">
               <span className="fin-policy-label">{fact.label}</span>
-              <span className="fin-policy-value">{fact.value}</span>
+              <span className={`fin-policy-value${fact.muted ? " is-muted" : ""}`}>
+                {fact.value}
+              </span>
+              <span className="fin-policy-explain">{fact.explanation}</span>
             </div>
           ))}
         </div>
@@ -439,27 +497,48 @@ export function SchoolFinancials({
 
       {(deadlines.items.length > 0 || deadlines.note) && (
         <section className="fin-deadlines" aria-label="Priority aid deadlines">
-          <span className="fin-section-kicker mono">Priority aid deadlines</span>
+          <div className="fin-deadlines-head">
+            <span className="fin-section-kicker mono">Priority aid deadlines</span>
+            <p className="fin-deadlines-lede">
+              Aid forms filed by the priority date get first claim on the school&apos;s grant money.
+              Filing later can mean a smaller package, even if Kyle is admitted. The date that
+              applies depends on the round he applies in.
+            </p>
+          </div>
           {deadlines.items.length > 0 ? (
-            <div className="fin-deadlines-row">
+            <div className="fin-deadlines-list">
               {deadlines.items.map((item) => (
-                <div key={`${item.round}-${item.dateLabel}`} className="fin-deadline">
-                  <span className="fin-deadline-round mono">{item.round}</span>
-                  <span
-                    className={`fin-deadline-date${item.accentSoon ? " is-soon" : ""}`}
-                  >
-                    {item.dateLabel}
+                <div
+                  key={`${item.round}-${item.isoDate ?? item.monthDay}`}
+                  className={`fin-deadline-row${item.accentSoon ? " is-soon" : ""}`}
+                >
+                  <div className="fin-deadline-when">
+                    <span className="fin-deadline-md">{item.monthDay}</span>
+                    <span className="fin-deadline-year mono">{item.year}</span>
+                  </div>
+                  <div className="fin-deadline-mid">
+                    <div className="fin-deadline-who-row">
+                      <b className="fin-deadline-who">{item.who}</b>
+                      {item.round ? (
+                        <span className="fin-deadline-round mono">{item.round}</span>
+                      ) : null}
+                    </div>
+                    <span className="fin-deadline-what">{item.submitLine}</span>
+                    {item.note ? (
+                      <span className="fin-deadline-note">{item.note}</span>
+                    ) : null}
+                  </div>
+                  <span className="fin-deadline-rel">
+                    {item.daysUntil != null
+                      ? `In ${item.daysUntil} day${item.daysUntil === 1 ? "" : "s"}`
+                      : "—"}
                   </span>
-                  {item.accentSoon && item.daysUntil != null ? (
-                    <span className="fin-deadline-soon">
-                      In {item.daysUntil} day{item.daysUntil === 1 ? "" : "s"}
-                    </span>
-                  ) : null}
                 </div>
               ))}
             </div>
+          ) : deadlines.note ? (
+            <p className="fin-deadline-note">{deadlines.note}</p>
           ) : null}
-          {deadlines.note ? <p className="fin-deadline-note">{deadlines.note}</p> : null}
         </section>
       )}
 
@@ -508,139 +587,178 @@ function NetPriceSection({
 }) {
   const table = scoir?.netPriceByIncome ?? null;
   const published = totalCost ?? 0;
-  const scale = Math.max(published, table?.average ?? 0, estimate ?? 0, 1);
+  const scale = Math.max(published, 1);
   const hasBands = Boolean(table && NET_BANDS.some((b) => table[b.key] != null));
-  const hasChart = hasBands || estimate != null;
+  const hiddenOos = !hasBands && netBandsHiddenForOos(scoir?.netPriceByIncomeNote);
+  const noNetText = hiddenOos
+    ? `Federal figures for ${short} cover in-state students only. Kyle would pay the out-of-state rate, so they would understate his cost.`
+    : `No income-band figures are on file for ${short}.`;
   const aidedLeft =
-    table?.average != null ? `${Math.min(100, (table.average / scale) * 100)}%` : null;
+    table?.average != null
+      ? `${Math.min(100, (table.average / scale) * 100)}%`
+      : null;
   const highlight = incomeBand != null && hasBands;
+  const hasEstimate = estimate != null && !estimateOpen;
+  const showPrompt = estimate == null && !estimateOpen;
+  const estPct =
+    estimate != null && published > 0
+      ? `${Math.round((estimate / published) * 100)}% of cost`
+      : "";
 
   return (
     <section className="fin-net" aria-label="Net price by family income">
       <div className="fin-net-head">
         <span className="fin-section-kicker mono">Net price by family income</span>
         <p className="fin-net-lede">
-          What first-year students getting grant aid paid on average, from federal data.
+          Net price is the published cost minus grants and scholarships: what a family pays
+          before loans. Each bar is the average for {short} first-years who got grant aid, by
+          family income, from federal data.
         </p>
       </div>
 
-      {hasChart ? (
-        <div className="fin-net-chart">
-          {hasBands && aidedLeft ? (
-            <div className="fin-net-axis" aria-hidden="true">
-              <span />
-              <div className="fin-net-axis-track">
-                <span className="fin-net-axis-aided mono" style={{ left: aidedLeft }}>
-                  All aided students · {formatScoirMoney(table!.average)}
-                </span>
-                {totalCost != null ? (
-                  <span className="fin-net-axis-pub mono">
-                    Published cost {moneyCompact(totalCost)}
-                  </span>
-                ) : null}
-              </div>
-              <span />
-            </div>
-          ) : null}
-
-          {hasBands
-            ? NET_BANDS.map((band) => {
-                const value = table![band.key];
-                if (value == null) return null;
-                const isYours = highlight && incomeBand === band.key;
-                const widthPct = Math.min(100, (value / scale) * 100);
-                return (
-                  <div
-                    key={band.key}
-                    className={`fin-net-row${highlight && !isYours ? " is-faded" : ""}${isYours ? " is-yours" : ""}`}
-                  >
-                    <div className="fin-net-band">
-                      <span className="fin-net-band-label">{band.label}</span>
-                      {isYours ? (
-                        <span className="fin-net-band-hint">Your income band</span>
-                      ) : null}
-                    </div>
-                    <div className="fin-net-track">
-                      {aidedLeft ? (
-                        <span className="fin-net-aided-line" style={{ left: aidedLeft }} />
-                      ) : null}
-                      <span
-                        className="fin-net-bar"
-                        style={{ width: `${widthPct}%` }}
-                      />
-                    </div>
-                    <span className="fin-net-amt mono">{formatScoirMoney(value)}</span>
-                  </div>
-                );
-              })
-            : null}
-
-          {estimate != null ? (
-            <div className="fin-net-row is-estimate">
-              <div className="fin-net-band">
-                <span className="fin-net-band-label">You</span>
-                <span className="fin-net-band-hint">
-                  Run {formatEstimateDate(estimateDate)}
-                  {" · "}
-                  <button
-                    type="button"
-                    className="fin-text-btn"
-                    onClick={() => {
-                      onEstimateDraft(String(estimate));
-                      onDateDraft(estimateDate ?? "");
-                      onEstimateOpen(true);
-                    }}
-                  >
-                    Edit
-                  </button>
-                </span>
-              </div>
-              <div className="fin-net-track">
-                {aidedLeft ? (
-                  <span className="fin-net-aided-line" style={{ left: aidedLeft }} />
-                ) : null}
-                <span
-                  className="fin-net-bar is-you"
-                  style={{ width: `${Math.min(100, (estimate / scale) * 100)}%` }}
-                />
-              </div>
-              <span className="fin-net-amt mono">{moneyCompact(estimate)}</span>
-            </div>
-          ) : null}
+      <div className="fin-net-chart">
+        <div className="fin-net-cols-head mono" aria-hidden="true">
+          <span>Family income</span>
+          <span className="fin-net-cols-mid">
+            <span>Net price</span>
+            <span>
+              Published cost {totalCost != null ? moneyCompact(totalCost) : "—"}
+            </span>
+          </span>
+          <span className="fin-net-cols-per">Per year</span>
         </div>
-      ) : (
-        <p className="fin-net-empty">
-          No income-band figures on file for {short}.
-          {scoir?.netPriceByIncomeNote ? ` ${scoir.netPriceByIncomeNote}` : ""}
-        </p>
-      )}
 
-      {estimate == null && !estimateOpen ? (
-        <div className="fin-estimate-prompt">
-          <p className="fin-estimate-line">
-            Run {short}&apos;s calculator for your own number.
-          </p>
-          <div className="fin-estimate-actions">
-            {npcUrl ? (
-              <a
-                className="fin-npc-secondary"
-                href={npcUrl}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Net Price Calculator ↗
-              </a>
+        {hasBands
+          ? NET_BANDS.map((band) => {
+              const value = table![band.key];
+              if (value == null) return null;
+              const isYours = highlight && incomeBand === band.key;
+              const widthPct = Math.min(100, (value / scale) * 100);
+              const pctOfCost =
+                published > 0 ? `${Math.round((value / published) * 100)}% of cost` : "";
+              return (
+                <div
+                  key={band.key}
+                  className={`fin-net-row${highlight && !isYours ? " is-faded" : ""}${isYours ? " is-yours" : ""}`}
+                >
+                  <div className="fin-net-band">
+                    <span className="fin-net-band-label">{band.label}</span>
+                    {isYours ? (
+                      <span className="fin-net-band-hint">Your income band</span>
+                    ) : null}
+                  </div>
+                  <div className="fin-net-track">
+                    <span
+                      className="fin-net-bar"
+                      style={{ width: `${widthPct}%` }}
+                    />
+                    {aidedLeft ? (
+                      <span className="fin-net-aided-line" style={{ left: aidedLeft }} />
+                    ) : null}
+                  </div>
+                  <div className="fin-net-amt-col">
+                    <span className="fin-net-amt mono">{formatScoirMoney(value)}</span>
+                    {pctOfCost ? (
+                      <span className="fin-net-pct">{pctOfCost}</span>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })
+          : (
+            <div className="fin-net-row fin-net-hidden">
+              <span className="fin-net-hidden-label">Not shown</span>
+              <span className="fin-net-hidden-text">{noNetText}</span>
+              <span />
+            </div>
+          )}
+
+        {hasBands && aidedLeft && table?.average != null ? (
+          <div className="fin-net-avg" aria-hidden="true">
+            <span />
+            <div className="fin-net-avg-track">
+              <span className="fin-net-avg-label mono" style={{ left: aidedLeft }}>
+                Average, all aided · {formatScoirMoney(table.average)}
+              </span>
+            </div>
+            <span />
+          </div>
+        ) : null}
+
+        <div className="fin-net-row fin-net-estimate">
+          <div className="fin-net-band">
+            <span className="fin-net-band-label is-estimate-title">Your estimate</span>
+            <div className="fin-net-est-sub">
+              <span className="fin-net-band-hint">
+                {hasEstimate
+                  ? estimateDate
+                    ? `Run ${formatEstimateDate(estimateDate)}`
+                    : "Date not set"
+                  : "Not run yet"}
+              </span>
+              {hasEstimate ? (
+                <button
+                  type="button"
+                  className="fin-text-btn"
+                  onClick={() => {
+                    onEstimateDraft(String(estimate));
+                    onDateDraft(estimateDate ?? "");
+                    onEstimateOpen(true);
+                  }}
+                >
+                  Edit
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          {hasEstimate ? (
+            <div className="fin-net-track">
+              <span
+                className="fin-net-bar is-you"
+                style={{ width: `${Math.min(100, (estimate! / scale) * 100)}%` }}
+              />
+            </div>
+          ) : showPrompt ? (
+            <div className="fin-estimate-prompt-inline">
+              <span className="fin-estimate-line">
+                Enter your family&apos;s income and assets in {short}&apos;s calculator for a
+                personal figure, then add the result here.
+              </span>
+              <div className="fin-estimate-actions">
+                {npcUrl ? (
+                  <a
+                    className="fin-npc-outline"
+                    href={npcUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Net Price Calculator ↗
+                  </a>
+                ) : null}
+                <button
+                  type="button"
+                  className="fin-text-btn"
+                  onClick={() => onEstimateOpen(true)}
+                >
+                  Add my result
+                </button>
+              </div>
+            </div>
+          ) : (
+            <span className="fin-estimate-entering">Entering result below</span>
+          )}
+
+          <div className="fin-net-amt-col">
+            <span className={`fin-net-amt mono${hasEstimate ? "" : " is-empty"}`}>
+              {hasEstimate ? moneyCompact(estimate!) : "—"}
+            </span>
+            {hasEstimate && estPct ? (
+              <span className="fin-net-pct">{estPct}</span>
             ) : null}
-            <button
-              type="button"
-              className="fin-text-btn"
-              onClick={() => onEstimateOpen(true)}
-            >
-              Add my result
-            </button>
           </div>
         </div>
-      ) : null}
+      </div>
 
       {estimateOpen ? (
         <div className="fin-estimate-form">

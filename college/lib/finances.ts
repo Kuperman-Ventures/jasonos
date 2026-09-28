@@ -441,11 +441,24 @@ export function formatColVsHome(index: number): string {
 }
 
 export type PriorityAidDeadlineItem = {
+  /** Short code(s), e.g. "ED I · EA". Empty when every applicant. */
   round: string;
+  /** Legacy single-line label kept for older callers. */
   dateLabel: string;
+  /** e.g. "Nov 15" */
+  monthDay: string;
+  /** e.g. "2026" */
+  year: string;
+  /** "Applying Early Decision I and Early Action" or "Every applicant" */
+  who: string;
+  /** "Submit the FAFSA… by this date…" */
+  submitLine: string;
   isoDate: string | null;
   daysUntil: number | null;
   accentSoon: boolean;
+  allApplicants: boolean;
+  /** Optional per-row note (aid year, missing year, etc.). */
+  note: string | null;
 };
 
 export type ParsedPriorityAidDeadlines = {
@@ -489,12 +502,51 @@ function roundLabelFromPhrase(phrase: string): string {
   if (/restrictive early action|\brea\b/.test(p)) parts.push("REA");
   else if (/early action|\bea\b/.test(p) && !/decision/.test(p)) parts.push("EA");
   if (/regular (decision|action)|\brd\b/.test(p)) parts.push("RD");
-  if (/fafsa/.test(p)) parts.push("FAFSA");
-  if (/css profile/.test(p)) parts.push("CSS Profile");
+  if (/fafsa/.test(p) && parts.length === 0) parts.push("FAFSA");
+  if (/css profile/.test(p) && parts.length === 0) parts.push("CSS Profile");
   if (parts.length) return parts.join(" · ");
-  if (/priority/.test(p)) return "Priority";
+  if (/priority|every applicant|all applicants|all rounds/.test(p)) return "Priority";
   const cleaned = phrase.replace(/preferred deadline|deadline|filing date|due by|by/gi, "").trim();
   return cleaned.slice(0, 28) || "Priority";
+}
+
+const ROUND_FULL: Record<string, string> = {
+  "ED I": "Early Decision I",
+  "ED II": "Early Decision II",
+  ED: "Early Decision",
+  EA: "Early Action",
+  REA: "Restrictive Early Action",
+  RD: "Regular Decision",
+};
+
+function whoLabelFromRound(round: string): { who: string; allApplicants: boolean; roundCode: string } {
+  if (!round || round === "Priority" || round === "FAFSA" || round === "CSS Profile") {
+    return { who: "Every applicant", allApplicants: true, roundCode: "" };
+  }
+  const codes = round.split(/\s*·\s*/).map((c) => c.trim()).filter(Boolean);
+  const names = codes.map((c) => ROUND_FULL[c] ?? c);
+  let whoNames: string;
+  if (names.length === 1) whoNames = names[0]!;
+  else if (names.length === 2) whoNames = `${names[0]} and ${names[1]}`;
+  else whoNames = `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+  return { who: `Applying ${whoNames}`, allApplicants: false, roundCode: round };
+}
+
+function submitLineFor(
+  cssRequired: boolean | null | undefined,
+  allApplicants: boolean,
+  who: string,
+): string {
+  const forms = cssRequired ? "the FAFSA and CSS Profile" : "the FAFSA";
+  const base = `Submit ${forms} by this date`;
+  if (allApplicants) return `${base}, whichever round Kyle applies in.`;
+  if (/early/i.test(who)) return `${base} to get an aid offer alongside the early admission decision.`;
+  return `${base}.`;
+}
+
+function formatMonthDay(d: Date): string {
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${months[d.getMonth()]} ${d.getDate()}`;
 }
 
 function parseMonthDayYear(
@@ -554,22 +606,56 @@ function daysBetween(from: Date, to: Date): number {
   return Math.round((b - a) / 86400000);
 }
 
+function buildDeadlineItem(
+  roundPhrase: string,
+  date: Date,
+  hadYear: boolean,
+  cssRequired: boolean | null | undefined,
+  rowNote: string | null,
+): PriorityAidDeadlineItem {
+  const rawRound = roundLabelFromPhrase(roundPhrase);
+  const { who, allApplicants, roundCode } = whoLabelFromRound(rawRound);
+  const daysUntil = daysBetween(new Date(), date);
+  // daysUntil recalculated by caller with `now` — placeholder overwritten below
+  return {
+    round: roundCode,
+    dateLabel: formatDeadlineDateLabel(date, hadYear),
+    monthDay: formatMonthDay(date),
+    year: String(date.getFullYear()),
+    who,
+    submitLine: submitLineFor(cssRequired, allApplicants, who),
+    isoDate: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`,
+    daysUntil: null,
+    accentSoon: false,
+    allApplicants,
+    note: rowNote,
+  };
+}
+
 /**
- * Turn prose `priorityAidDeadline` into structured round/date chips.
+ * Turn prose `priorityAidDeadline` into structured deadline rows.
  * Never surfaces the raw string as the primary UI.
  */
 export function parsePriorityAidDeadlines(
   raw: string | null | undefined,
   now: Date = new Date(),
+  cssRequired: boolean | null | undefined = null,
 ): ParsedPriorityAidDeadlines {
   if (!raw?.trim()) return { items: [], note: null };
 
   let working = raw.trim();
   let note: string | null = null;
+
+  // Trailing note in parens that is NOT a round code (aid year, cycle note, etc.)
   const noteMatch = working.match(/\(([^)]+)\)\s*$/);
   if (noteMatch) {
-    note = noteMatch[1]!.trim();
-    working = working.slice(0, noteMatch.index).trim().replace(/[;·]\s*$/, "");
+    const candidate = noteMatch[1]!.trim();
+    const looksLikeRound = /^(ED|EA|REA|RD|FAFSA|CSS)/i.test(candidate) ||
+      /early decision|early action|regular/i.test(candidate);
+    if (!looksLikeRound) {
+      note = candidate;
+      working = working.slice(0, noteMatch.index).trim().replace(/[;·]\s*$/, "");
+    }
   }
 
   const segments = working
@@ -581,43 +667,73 @@ export function parsePriorityAidDeadlines(
   for (const segment of segments) {
     const parsed = parseMonthDayYear(segment, now);
     if (!parsed) continue;
-    const beforeDate = segment.slice(0, segment.search(/\b(January|February|March|April|May|June|July|August|September|October|November|December|Jan\.?|Feb\.?|Mar\.?|Apr\.?|Jun\.?|Jul\.?|Aug\.?|Sep\.?|Sept\.?|Oct\.?|Nov\.?|Dec\.?)\b/i)).trim();
+    const dateIdx = segment.search(
+      /\b(January|February|March|April|May|June|July|August|September|October|November|December|Jan\.?|Feb\.?|Mar\.?|Apr\.?|Jun\.?|Jul\.?|Aug\.?|Sep\.?|Sept\.?|Oct\.?|Nov\.?|Dec\.?)\b/i,
+    );
+    const beforeDate = dateIdx >= 0 ? segment.slice(0, dateIdx).trim() : "";
+    // Round may sit in a parenthetical after the date: "Nov. 15 (ED I, EA)"
+    const afterParen = segment.match(/\(([^)]+)\)\s*$/);
+    const roundPhrase = beforeDate || (afterParen ? afterParen[1]! : segment);
     const date = resolveDeadlineDate(parsed, now);
     const daysUntil = daysBetween(now, date);
-    items.push({
-      round: roundLabelFromPhrase(beforeDate || segment),
-      dateLabel: formatDeadlineDateLabel(date, parsed.year != null),
-      isoDate: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`,
-      daysUntil,
-      accentSoon: daysUntil >= 0 && daysUntil <= 30,
-    });
+    const item = buildDeadlineItem(
+      roundPhrase,
+      date,
+      parsed.year != null,
+      cssRequired,
+      null,
+    );
+    item.daysUntil = daysUntil;
+    item.accentSoon = daysUntil >= 0 && daysUntil <= 30;
+    // Missing explicit year → subtle note when no section note
+    if (parsed.year == null && !note) {
+      item.note = "Year not stated on the school's page";
+    }
+    items.push(item);
   }
 
   if (items.length === 0) {
-    // Single FAFSA-style lead date without a colon-round prefix.
     const parsed = parseMonthDayYear(working, now);
     if (parsed) {
       const date = resolveDeadlineDate(parsed, now);
       const daysUntil = daysBetween(now, date);
-      items.push({
-        round: /fafsa/i.test(working) ? "FAFSA" : "Priority",
-        dateLabel: formatDeadlineDateLabel(date, parsed.year != null),
-        isoDate: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`,
-        daysUntil,
-        accentSoon: daysUntil >= 0 && daysUntil <= 30,
-      });
+      const item = buildDeadlineItem(
+        /fafsa/i.test(working) ? "FAFSA" : working,
+        date,
+        parsed.year != null,
+        cssRequired,
+        null,
+      );
+      item.daysUntil = daysUntil;
+      item.accentSoon = daysUntil >= 0 && daysUntil <= 30;
+      if (parsed.year == null && !note) {
+        item.note = "Year not stated on the school's page";
+      }
+      items.push(item);
     }
   }
 
-  // Collapse duplicate rounds that share one date phrase like "ED II and RD".
+  // Collapse duplicate rounds that share one date.
   const merged: PriorityAidDeadlineItem[] = [];
   for (const item of items) {
     const prev = merged[merged.length - 1];
     if (prev && prev.isoDate === item.isoDate && prev.round !== item.round) {
-      prev.round = `${prev.round} · ${item.round}`;
+      const combined = [prev.round, item.round].filter(Boolean).join(" · ");
+      const { who, allApplicants, roundCode } = whoLabelFromRound(combined || "Priority");
+      prev.round = roundCode;
+      prev.who = who;
+      prev.allApplicants = allApplicants;
+      prev.submitLine = submitLineFor(cssRequired, allApplicants, who);
       continue;
     }
     merged.push({ ...item });
+  }
+
+  // Attach section note to each row when present (e.g. aid year).
+  if (note) {
+    for (const item of merged) {
+      if (!item.note) item.note = note;
+    }
   }
 
   return { items: merged, note };
