@@ -1,11 +1,17 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 
+// JasonOS lives in a subfolder of the CoSA repo, which has its own lockfile.
+// Next 16 treats that parent lockfile as the file-tracing root, then forces
+// Turbopack to use it too. Google fonts then fail to resolve
+// ("next/font/google queries have exactly one entry"). Both roots have to be
+// this folder, and they have to be the same path.
+const projectRoot = path.join(import.meta.dirname);
+
 const nextConfig: NextConfig = {
-  // Pin Turbopack root to this folder so it doesn't pick up the parent CoSA
-  // lockfile and infer the workspace as the repo root.
+  outputFileTracingRoot: projectRoot,
   turbopack: {
-    root: path.join(import.meta.dirname),
+    root: projectRoot,
   },
   // Post Machine → Post Master rename
   async redirects() {
