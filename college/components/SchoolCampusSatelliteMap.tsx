@@ -89,7 +89,7 @@ export function SchoolCampusSatelliteMap({ school }: { school: School }) {
       zoom,
       zoomControl: true,
       attributionControl: true,
-      scrollWheelZoom: true,
+      scrollWheelZoom: false,
     });
 
     L.tileLayer(SATELLITE_TILE_URL, {
