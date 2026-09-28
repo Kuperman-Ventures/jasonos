@@ -131,14 +131,20 @@
           "incomeRange": "family income under $200,000 (income and assets are considered; no asset limit published)",
           "covers": "full tuition (MIT says these students typically attend tuition-free)",
           "residency": "all students, domestic and international",
-          "sourceUrl": "https://sfs.mit.edu/undergraduate-students/the-cost-of-attendance/making-mit-affordable/"
+          "sourceUrl": "https://sfs.mit.edu/undergraduate-students/the-cost-of-attendance/making-mit-affordable/",
+          "agiMax": 199999,
+          "residencyState": null,
+          "effect": "tuition-free"
         },
         {
           "name": "MIT full-cost threshold",
           "incomeRange": "family income under $100,000 (no asset limit published)",
           "covers": "full cost of attendance: tuition, housing, dining, fees, books and personal expenses (parents can expect to pay nothing)",
           "residency": "all students, domestic and international",
-          "sourceUrl": "https://sfs.mit.edu/undergraduate-students/the-cost-of-attendance/making-mit-affordable/"
+          "sourceUrl": "https://sfs.mit.edu/undergraduate-students/the-cost-of-attendance/making-mit-affordable/",
+          "agiMax": 99999,
+          "residencyState": null,
+          "effect": "full-cost"
         }
       ],
       "meetsFullNeed": "all students",
@@ -175,14 +181,20 @@
           "incomeRange": "parent income below $150,000 with assets typical for that income",
           "covers": "full tuition",
           "residency": "not restricted by residency on the source page",
-          "sourceUrl": "https://financialaid.stanford.edu/undergrad/how/parent.html"
+          "sourceUrl": "https://financialaid.stanford.edu/undergrad/how/parent.html",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Stanford parent contribution benchmark (under $100,000)",
           "incomeRange": "parent income below $100,000 with assets typical for that income",
           "covers": "tuition, housing and food (no parent contribution expected)",
           "residency": "not restricted by residency on the source page",
-          "sourceUrl": "https://financialaid.stanford.edu/undergrad/how/parent.html"
+          "sourceUrl": "https://financialaid.stanford.edu/undergrad/how/parent.html",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "all students",
@@ -230,14 +242,20 @@
           "incomeRange": "California families earning up to $100,000",
           "covers": "UC tuition, from grant and scholarship funds from all sources",
           "residency": "California residents only",
-          "sourceUrl": "https://financialaid.berkeley.edu/types-of-aid-at-berkeley/innovative-berkeley-aid-programs/blue-and-gold-opportunity-plan/"
+          "sourceUrl": "https://financialaid.berkeley.edu/types-of-aid-at-berkeley/innovative-berkeley-aid-programs/blue-and-gold-opportunity-plan/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Middle Class Scholarship",
           "incomeRange": "family income and assets under limits set by the California Student Aid Commission (the limits are not stated on Berkeley's page)",
           "covers": "part of the cost of attendance, calculated after other gift aid, an $8,616 student self-help amount and a parent contribution for household income over $100,000",
           "residency": "California residents only",
-          "sourceUrl": "https://financialaid.berkeley.edu/types-of-aid-at-berkeley/scholarships/middle-class-scholarship/"
+          "sourceUrl": "https://financialaid.berkeley.edu/types-of-aid-at-berkeley/scholarships/middle-class-scholarship/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "no",
@@ -274,14 +292,20 @@
           "incomeRange": "total family income up to $75,000 with typical assets",
           "covers": "full cost through grants and a $5,000 work-study award, with $0 parent and student contribution and no loans",
           "residency": "all admitted undergraduates, regardless of state residency or citizenship",
-          "sourceUrl": "https://finaid.cornell.edu/affordability"
+          "sourceUrl": "https://finaid.cornell.edu/affordability",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Low Student Loans",
           "incomeRange": "total family income above $75,000 with typical assets",
           "covers": "caps loans in the aid offer at $2,000 per year for incomes of $75,001-$125,000, $4,000 for $125,001-$175,000 and $6,000 above $175,000",
           "residency": "all admitted undergraduates, regardless of state residency or citizenship",
-          "sourceUrl": "https://finaid.cornell.edu/affordability"
+          "sourceUrl": "https://finaid.cornell.edu/affordability",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "all students",
@@ -318,14 +342,20 @@
           "incomeRange": "most families earning less than $70,000 per year",
           "covers": "full cost of attendance (no cost to attend)",
           "residency": "not restricted by residency on the source page",
-          "sourceUrl": "https://undergradaid.northwestern.edu/"
+          "sourceUrl": "https://undergradaid.northwestern.edu/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Northwestern tuition-free threshold",
           "incomeRange": "most families earning less than $150,000 per year",
           "covers": "full tuition",
           "residency": "not restricted by residency on the source page",
-          "sourceUrl": "https://undergradaid.northwestern.edu/how-aid-works/keeping-northwestern-affordable.html"
+          "sourceUrl": "https://undergradaid.northwestern.edu/how-aid-works/keeping-northwestern-affordable.html",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "all students",
@@ -362,14 +392,20 @@
           "incomeRange": "family income of $75,000 or less with typical assets",
           "covers": "full tuition",
           "residency": "U.S. citizens and permanent residents",
-          "sourceUrl": "https://www.cmu.edu/sfs/cost-and-affordability/index.html"
+          "sourceUrl": "https://www.cmu.edu/sfs/cost-and-affordability/index.html",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "CMU Pathway Program (no loans)",
           "incomeRange": "family income of $100,000 or less with typical assets",
           "covers": "100% of demonstrated need without federal loans",
           "residency": "U.S. citizens and permanent residents",
-          "sourceUrl": "https://www.cmu.edu/sfs/cost-and-affordability/index.html"
+          "sourceUrl": "https://www.cmu.edu/sfs/cost-and-affordability/index.html",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "all students",
@@ -406,14 +442,20 @@
           "incomeRange": "family income up to $200,000 with typical assets",
           "covers": "at minimum full tuition",
           "residency": "not restricted by residency on the source page",
-          "sourceUrl": "https://srfs.upenn.edu/financial-aid/undergraduate-aid-program/facts-and-figures"
+          "sourceUrl": "https://srfs.upenn.edu/financial-aid/undergraduate-aid-program/facts-and-figures",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Quaker Commitment (under $75,000)",
           "incomeRange": "family income under $75,000 with typical assets",
           "covers": "all billed expenses: tuition and fees, housing and dining",
           "residency": "not restricted by residency on the source page",
-          "sourceUrl": "https://srfs.upenn.edu/financial-aid/undergraduate-aid-program/facts-and-figures"
+          "sourceUrl": "https://srfs.upenn.edu/financial-aid/undergraduate-aid-program/facts-and-figures",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "all students",
@@ -471,21 +513,30 @@
           "incomeRange": "Family income up to $100,000 with typical assets (generally less than three times annual income, excluding home equity and retirement accounts)",
           "covers": "Tuition, fees, housing, dining and most personal expenses ($0 parent cost)",
           "residency": "Domestic undergraduates in the Krieger School and Whiting School of Engineering",
-          "sourceUrl": "https://sfs.jhu.edu/tuition-promise/"
+          "sourceUrl": "https://sfs.jhu.edu/tuition-promise/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Johns Hopkins Tuition Promise (free tuition tier)",
           "incomeRange": "Family income $100,001-$200,000 with typical assets",
           "covers": "Full tuition",
           "residency": "Domestic undergraduates in the Krieger School and Whiting School of Engineering",
-          "sourceUrl": "https://sfs.jhu.edu/tuition-promise/"
+          "sourceUrl": "https://sfs.jhu.edu/tuition-promise/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Johns Hopkins Tuition Promise (upper tier)",
           "incomeRange": "Family income $200,001-$250,000",
           "covers": "Significant financial aid, amount not specified",
           "residency": "Domestic undergraduates in the Krieger School and Whiting School of Engineering",
-          "sourceUrl": "https://sfs.jhu.edu/tuition-promise/"
+          "sourceUrl": "https://sfs.jhu.edu/tuition-promise/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "all students",
@@ -553,7 +604,10 @@
           "incomeRange": "Family income below $55,500",
           "covers": "Debt-free Georgia Tech degree",
           "residency": "Georgia residents only",
-          "sourceUrl": "https://www.techpromise.em.gatech.edu/"
+          "sourceUrl": "https://www.techpromise.em.gatech.edu/",
+          "agiMax": 55500,
+          "residencyState": "GA",
+          "effect": "full-cost"
         }
       ],
       "meetsFullNeed": "no",
@@ -611,7 +665,10 @@
           "incomeRange": "Family income $125,000 or less and assets below $125,000",
           "covers": "Tuition and mandatory university fees",
           "residency": "Michigan residents only (eligible for in-state tuition)",
-          "sourceUrl": "https://finaid.umich.edu/apply-aid/new-undergraduates/michigan-residents/go-blue-guarantee-eligibility"
+          "sourceUrl": "https://finaid.umich.edu/apply-aid/new-undergraduates/michigan-residents/go-blue-guarantee-eligibility",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "in-state only",
@@ -689,14 +746,20 @@
           "incomeRange": "Family income $75,000 or less and assets $75,000 or less (effective fall 2025)",
           "covers": "Full tuition and campus fees not covered by other awards",
           "residency": "Illinois residents only",
-          "sourceUrl": "https://osfa.illinois.edu/illinois-commitment/"
+          "sourceUrl": "https://osfa.illinois.edu/illinois-commitment/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Illinois Achievement Scholarship",
           "incomeRange": "Demonstrated financial need; no income range published",
           "covers": "$10,000 per year, renewable for 4 years while assessed non-resident tuition",
           "residency": "Incoming non-resident first-year students only",
-          "sourceUrl": "https://www.osfa.illinois.edu/types-of-aid/scholarships/merit-based-scholarships/"
+          "sourceUrl": "https://www.osfa.illinois.edu/types-of-aid/scholarships/merit-based-scholarships/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "no",
@@ -754,7 +817,10 @@
           "incomeRange": "Family AGI up to $100,000 (tuition covered); $100,000-$125,000 (partial tuition support); financial need required",
           "covers": "Full tuition up to $100,000 AGI; partial tuition support from $100,000 to $125,000",
           "residency": "Texas residents only",
-          "sourceUrl": "https://admissions.utexas.edu/cost-aid/financial-aid/texas-advance-commitment/"
+          "sourceUrl": "https://admissions.utexas.edu/cost-aid/financial-aid/texas-advance-commitment/",
+          "agiMax": 90000,
+          "residencyState": "TX",
+          "effect": "tuition-free"
         }
       ],
       "meetsFullNeed": "no",
@@ -802,14 +868,20 @@
           "incomeRange": "Most California families earning up to $100,000",
           "covers": "UC tuition",
           "residency": "California residents only",
-          "sourceUrl": "https://admission.universityofcalifornia.edu/tuition-financial-aid/types-of-aid/blue-and-gold-opportunity-plan.html"
+          "sourceUrl": "https://admission.universityofcalifornia.edu/tuition-financial-aid/types-of-aid/blue-and-gold-opportunity-plan.html",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Middle Class Scholarship",
           "incomeRange": "Family income and assets up to $226,000",
           "covers": "Variable award toward cost of attendance",
           "residency": "California residents only",
-          "sourceUrl": "https://financialaid.ucla.edu/types-of-aid/grants"
+          "sourceUrl": "https://financialaid.ucla.edu/types-of-aid/grants",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "no",
@@ -887,7 +959,10 @@
           "incomeRange": "Individual or family income below $80,000, or Pell Grant eligible",
           "covers": "Tuition, fees and books for up to 8 semesters",
           "residency": "Indiana residents only",
-          "sourceUrl": "https://www.purdue.edu/dfa/cost/"
+          "sourceUrl": "https://www.purdue.edu/dfa/cost/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "no",
@@ -965,7 +1040,10 @@
           "incomeRange": "Pell Grant-eligible students, expanding in fall 2026 to families earning $75,000 or less who have unmet financial need",
           "covers": "Full tuition and fees",
           "residency": "Maryland residents only",
-          "sourceUrl": "https://today.umd.edu/umd-to-cover-tuition-fees-for-maryland-families-making-75k-or-less"
+          "sourceUrl": "https://today.umd.edu/umd-to-cover-tuition-fees-for-maryland-families-making-75k-or-less",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": null,
@@ -1023,7 +1101,10 @@
           "incomeRange": "Students who meet all Pell Grant eligibility criteria",
           "covers": "Full tuition and standard fees",
           "residency": "Washington residents only",
-          "sourceUrl": "https://www.washington.edu/huskypromise/"
+          "sourceUrl": "https://www.washington.edu/huskypromise/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": null,
@@ -1081,21 +1162,30 @@
           "incomeRange": "Incoming first-year students who are eligible for the Federal Pell Grant",
           "covers": "Meets institutional financial need for 4 years with grants, scholarships, work-study and some loan",
           "residency": "Non-Wisconsin residents only",
-          "sourceUrl": "https://financialaid.wisc.edu/types-of-aid/banner/"
+          "sourceUrl": "https://financialaid.wisc.edu/types-of-aid/banner/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Bucky's Tuition Promise",
           "incomeRange": "Family adjusted gross income of $65,000 or less",
           "covers": "Tuition and segregated fees",
           "residency": "Wisconsin residents only",
-          "sourceUrl": "https://financialaid.wisc.edu/types-of-aid/"
+          "sourceUrl": "https://financialaid.wisc.edu/types-of-aid/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Bucky's Pell Pathway",
           "incomeRange": "Students eligible for the Federal Pell Grant",
           "covers": "Full financial need",
           "residency": "Wisconsin residents only",
-          "sourceUrl": "https://financialaid.wisc.edu/types-of-aid/"
+          "sourceUrl": "https://financialaid.wisc.edu/types-of-aid/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": null,
@@ -1153,7 +1243,10 @@
           "incomeRange": "Family adjusted gross income under $115,000 with demonstrated financial need",
           "covers": "Yearly increases in tuition and comprehensive fees, for 3 years after the first year",
           "residency": "No residency limit is stated",
-          "sourceUrl": "https://finaid.vt.edu/undergraduate/typesofaid/grants/funds-for-the-future.html"
+          "sourceUrl": "https://finaid.vt.edu/undergraduate/typesofaid/grants/funds-for-the-future.html",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "no",
@@ -1281,21 +1374,30 @@
           "incomeRange": "Pell-eligible students with significant need (Ohio State notes 90% of Pell recipients have household income of $50,000 or less)",
           "covers": "Tuition and mandatory fees",
           "residency": "Ohio residents only",
-          "sourceUrl": "https://undergrad.osu.edu/cost-and-aid/ohio-state-value"
+          "sourceUrl": "https://undergrad.osu.edu/cost-and-aid/ohio-state-value",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Land Grant Opportunity Scholarship",
           "incomeRange": "Pell-eligible students with significant need and academic merit",
           "covers": "Full cost of attendance (88 students per year)",
           "residency": "Ohio residents only",
-          "sourceUrl": "https://undergrad.osu.edu/cost-and-aid/merit-based-scholarships"
+          "sourceUrl": "https://undergrad.osu.edu/cost-and-aid/merit-based-scholarships",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Regional Campus Commitment",
           "incomeRange": "Family adjusted gross income of $100,000 or less with financial need, and not Pell-eligible",
           "covers": "Remaining tuition and mandatory fees",
           "residency": "Ohio residents starting at a regional campus or Ohio State ATI only",
-          "sourceUrl": "https://undergrad.osu.edu/cost-and-aid/ohio-state-value"
+          "sourceUrl": "https://undergrad.osu.edu/cost-and-aid/ohio-state-value",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": null,
@@ -1393,14 +1495,20 @@
           "incomeRange": "Family household income of $120,000 or lower",
           "covers": "$300-$4,000 per year for 4 years (freshmen)",
           "residency": "Minnesota residents only",
-          "sourceUrl": "https://system.umn.edu/u-promise-and-promise-plus"
+          "sourceUrl": "https://system.umn.edu/u-promise-and-promise-plus",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Promise Plus Free Tuition Program",
           "incomeRange": "Family income of $50,000 or lower with demonstrated financial need",
           "covers": "Full tuition only (not housing, fees or books)",
           "residency": "Minnesota residents only (new freshmen)",
-          "sourceUrl": "https://system.umn.edu/promise-plus-free-tuition-program"
+          "sourceUrl": "https://system.umn.edu/promise-plus-free-tuition-program",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": null,
@@ -1518,14 +1626,20 @@
           "incomeRange": "Family income up to $100,000",
           "covers": "Grant and scholarship aid to cover UC tuition",
           "residency": "California students only",
-          "sourceUrl": "https://financialaid.ucdavis.edu/undergraduate/types/tuition-assistance/blue-gold"
+          "sourceUrl": "https://financialaid.ucdavis.edu/undergraduate/types/tuition-assistance/blue-gold",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Middle Class Scholarship (State of California)",
           "incomeRange": "Income and assets up to $250,000 (2026-27 award year)",
           "covers": "Partial scholarship; the amount varies with cost of attendance and other aid",
           "residency": "California residents only",
-          "sourceUrl": "https://www.csac.ca.gov/middle-class-scholarship"
+          "sourceUrl": "https://www.csac.ca.gov/middle-class-scholarship",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": null,
@@ -1583,14 +1697,20 @@
           "incomeRange": "Family income under $100,000",
           "covers": "Tuition and fees",
           "residency": "California residents only",
-          "sourceUrl": "https://news.uci.edu/2026/04/01/the-anteater-advantage/"
+          "sourceUrl": "https://news.uci.edu/2026/04/01/the-anteater-advantage/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Middle Class Scholarship (State of California)",
           "incomeRange": "Income and assets up to $250,000 (2026-27 award year)",
           "covers": "Partial scholarship; the amount varies with cost of attendance and other aid",
           "residency": "California residents only",
-          "sourceUrl": "https://www.csac.ca.gov/middle-class-scholarship"
+          "sourceUrl": "https://www.csac.ca.gov/middle-class-scholarship",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": null,
@@ -1828,28 +1948,46 @@
           "incomeRange": "AGI $0-$65,000",
           "covers": "$0 net cost for tuition and eligible fees",
           "residency": "New Jersey residents eligible for in-state tuition and NJ state aid; for students enrolling fall 2026 or later",
-          "sourceUrl": "https://newbrunswick.rutgers.edu/admissions-cost/scarlet-guarantee"
+          "sourceUrl": "https://newbrunswick.rutgers.edu/admissions-cost/scarlet-guarantee",
+          "agiMax": 65000,
+          "residencyState": "NJ",
+          "effect": {
+            "tuitionCap": 0
+          }
         },
         {
           "name": "Scarlet Guarantee",
           "incomeRange": "AGI $65,001-$80,000",
           "covers": "Net cost for tuition and eligible fees of no more than $3,000 per year",
           "residency": "New Jersey residents eligible for in-state tuition and NJ state aid; for students enrolling fall 2026 or later",
-          "sourceUrl": "https://newbrunswick.rutgers.edu/admissions-cost/scarlet-guarantee"
+          "sourceUrl": "https://newbrunswick.rutgers.edu/admissions-cost/scarlet-guarantee",
+          "agiMax": 80000,
+          "residencyState": "NJ",
+          "effect": {
+            "tuitionCap": 3000
+          }
         },
         {
           "name": "Scarlet Guarantee",
           "incomeRange": "AGI $80,001-$100,000",
           "covers": "Net cost for tuition and eligible fees of no more than $5,000 per year",
           "residency": "New Jersey residents eligible for in-state tuition and NJ state aid; for students enrolling fall 2026 or later",
-          "sourceUrl": "https://newbrunswick.rutgers.edu/admissions-cost/scarlet-guarantee"
+          "sourceUrl": "https://newbrunswick.rutgers.edu/admissions-cost/scarlet-guarantee",
+          "agiMax": 100000,
+          "residencyState": "NJ",
+          "effect": {
+            "tuitionCap": 5000
+          }
         },
         {
           "name": "Garden State Guarantee (State of New Jersey)",
           "incomeRange": "AGI $0-$65,000 ($0 net price); AGI $65,001-$80,000 (net price capped at $7,500)",
           "covers": "Tuition and fees in the third and fourth years only",
           "residency": "New Jersey residents at NJ public four-year colleges, including Rutgers",
-          "sourceUrl": "https://www.nj.gov/highereducation/documents/pdf/gardenStateGuarantee_General.pdf"
+          "sourceUrl": "https://www.nj.gov/highereducation/documents/pdf/gardenStateGuarantee_General.pdf",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": null,
@@ -1917,7 +2055,10 @@
           "incomeRange": "Parent income below $55,000 and assets below $35,000 at entry",
           "covers": "Full demonstrated need met with grants and scholarships, with no work or loans",
           "residency": "Florida residents who graduated from a Florida high school and are first-generation college students",
-          "sourceUrl": "https://www.sfa.ufl.edu/types-of-aid/scholarships/"
+          "sourceUrl": "https://www.sfa.ufl.edu/types-of-aid/scholarships/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": null,
@@ -2015,21 +2156,30 @@
           "incomeRange": "Family income and assets of $100,000 or less (incoming students from fall 2026), with FAFSA/TASFA filed by January 15",
           "covers": "Full tuition and fees",
           "residency": "Texas residents only",
-          "sourceUrl": "https://aggie.tamu.edu/paying-for-college/apply-for-financial-aid/grants.html"
+          "sourceUrl": "https://aggie.tamu.edu/paying-for-college/apply-for-financial-aid/grants.html",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Aggie Assurance Tuition Support Grant",
           "incomeRange": "Family income and assets of $80,001-$130,000",
           "covers": "$500-$1,000 grant",
           "residency": "Texas residents only",
-          "sourceUrl": "https://aggie.tamu.edu/paying-for-college/apply-for-financial-aid/grants.html"
+          "sourceUrl": "https://aggie.tamu.edu/paying-for-college/apply-for-financial-aid/grants.html",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Regents' Scholarship",
           "incomeRange": "Total family income under $50,000; first-generation students",
           "covers": "Up to $6,000 per year for 4 years",
           "residency": "Texas residents only",
-          "sourceUrl": "https://aggie.tamu.edu/paying-for-college/apply-for-scholarships/regents-scholars-program.html"
+          "sourceUrl": "https://aggie.tamu.edu/paying-for-college/apply-for-scholarships/regents-scholars-program.html",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "no",
@@ -2097,14 +2247,20 @@
           "incomeRange": "Full Pell Grant eligible (FAFSA Student Aid Index between -1,500 and 0)",
           "covers": "Full-time tuition and mandatory fees after COF stipend, Pell, Colorado Grant and any Mines admission award",
           "residency": "Colorado residents only",
-          "sourceUrl": "https://finaid.mines.edu/firstyear/"
+          "sourceUrl": "https://finaid.mines.edu/firstyear/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Colorado Promise",
           "incomeRange": "Family adjusted gross income of $90,000 or less",
           "covers": "Reimburses out-of-pocket tuition and fees for the first two years through a refundable state tax credit",
           "residency": "Colorado residents with in-state tuition only",
-          "sourceUrl": "https://finaid.mines.edu/copromise/"
+          "sourceUrl": "https://finaid.mines.edu/copromise/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "no",
@@ -2152,28 +2308,40 @@
           "incomeRange": "Any family income with demonstrated need",
           "covers": "100% of demonstrated need; need-based loans capped at $28,000 over four years",
           "residency": "All undergraduates, including out-of-state",
-          "sourceUrl": "https://news.virginia.edu/content/uva-expands-financial-aid-program-virginia-families"
+          "sourceUrl": "https://news.virginia.edu/content/uva-expands-financial-aid-program-virginia-families",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "AccessUVA - full cost tier",
           "incomeRange": "Family income of $50,000 or less",
           "covers": "Grants equal to or above tuition, fees, housing and dining",
           "residency": "Virginia residents only",
-          "sourceUrl": "https://news.virginia.edu/content/uva-expands-financial-aid-program-virginia-families"
+          "sourceUrl": "https://news.virginia.edu/content/uva-expands-financial-aid-program-virginia-families",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "AccessUVA - tuition tier",
           "incomeRange": "Family income of $100,000 or less",
           "covers": "Grants equal to or above tuition and fees",
           "residency": "Virginia residents only",
-          "sourceUrl": "https://news.virginia.edu/content/uva-expands-financial-aid-program-virginia-families"
+          "sourceUrl": "https://news.virginia.edu/content/uva-expands-financial-aid-program-virginia-families",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "AccessUVA - grant tier",
           "incomeRange": "Family income of $150,000 or less",
           "covers": "At least $2,000 in need-based grants",
           "residency": "Virginia residents only",
-          "sourceUrl": "https://news.virginia.edu/content/uva-expands-financial-aid-program-virginia-families"
+          "sourceUrl": "https://news.virginia.edu/content/uva-expands-financial-aid-program-virginia-families",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "all students",
@@ -2241,7 +2409,10 @@
           "incomeRange": "Total family income under $75,000 with typical assets (under $500,000 family assets and $10,000 student assets)",
           "covers": "Full tuition",
           "residency": "All US students (international students may also qualify)",
-          "sourceUrl": "https://www2.lehigh.edu/admissions/tuition-affording-college/lehigh-commitment"
+          "sourceUrl": "https://www2.lehigh.edu/admissions/tuition-affording-college/lehigh-commitment",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "no",
@@ -2429,7 +2600,10 @@
           "incomeRange": "Family income under $35,000 (full package) or $35,000-$75,000 (tuition package); assets over $50,000 may affect eligibility",
           "covers": "Under $35,000: tuition, fees, standard housing and food; $35,000-$75,000: full tuition and mandatory fees",
           "residency": "Delaware residents only",
-          "sourceUrl": "https://www.udel.edu/apply/undergraduate-admissions/financing-your-degree/in-state-freshmen/"
+          "sourceUrl": "https://www.udel.edu/apply/undergraduate-admissions/financing-your-degree/in-state-freshmen/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "no",
@@ -2507,7 +2681,10 @@
           "incomeRange": "Demonstrated financial need; no income range published",
           "covers": "100% of tuition and general University fees",
           "residency": "City of Philadelphia residents only",
-          "sourceUrl": "https://drexel.edu/drexelcentral/finaid/grants/undergraduate-scholarships"
+          "sourceUrl": "https://drexel.edu/drexelcentral/finaid/grants/undergraduate-scholarships",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "no",
@@ -2755,14 +2932,20 @@
           "incomeRange": "Parent and student AGI under $75,000 and total assets under $75,000",
           "covers": "Tuition and mandatory fees (last-dollar)",
           "residency": "Tennessee residents eligible for the HOPE Scholarship only",
-          "sourceUrl": "https://onestop.utk.edu/scholarships-financial-aid/scholarships/tri-star-scholarships/"
+          "sourceUrl": "https://onestop.utk.edu/scholarships-financial-aid/scholarships/tri-star-scholarships/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Tennessee Pledge Scholarship",
           "incomeRange": "Family AGI of $40,000 or less and family assets of $40,000 or less",
           "covers": "Tuition, mandatory fees, and average on-campus housing and food (last-dollar; engineering course fees not covered)",
           "residency": "Tennessee residents only",
-          "sourceUrl": "https://onestop.utk.edu/scholarships-financial-aid/scholarships/tri-star-scholarships/"
+          "sourceUrl": "https://onestop.utk.edu/scholarships-financial-aid/scholarships/tri-star-scholarships/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "no",
@@ -2850,14 +3033,20 @@
           "incomeRange": "FAFSA Student Aid Index between -1,500 and 16,000, with at least one working parent",
           "covers": "Up to $5,500 per year from the Thompson Foundation, matched by up to $5,500 in Michigan Tech aid",
           "residency": "Michigan residents only",
-          "sourceUrl": "https://www.mtu.edu/finaid/students/prospective/"
+          "sourceUrl": "https://www.mtu.edu/finaid/students/prospective/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Michigan Achievement Scholarship",
           "incomeRange": "FAFSA Student Aid Index of 30,000 or less",
           "covers": "Up to $5,500",
           "residency": "Michigan high school graduates who have lived in Michigan at least one year",
-          "sourceUrl": "https://www.mtu.edu/admissions/financial/scholarships/"
+          "sourceUrl": "https://www.mtu.edu/admissions/financial/scholarships/",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "no",
@@ -2955,14 +3144,20 @@
           "incomeRange": "Family adjusted gross income $0-$65,000",
           "covers": "Full tuition and mandatory fees in the third and fourth years only (last-dollar)",
           "residency": "New Jersey residents only",
-          "sourceUrl": "https://www.njit.edu/financialaid/garden-state-guarantee"
+          "sourceUrl": "https://www.njit.edu/financialaid/garden-state-guarantee",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         },
         {
           "name": "Highlander Promise Scholarship Program",
           "incomeRange": "Families in the lowest income brackets (no dollar threshold published)",
           "covers": "Full tuition (described as 100% tuition-free)",
           "residency": "Not stated",
-          "sourceUrl": "https://www.njit.edu/development/highlander-promise"
+          "sourceUrl": "https://www.njit.edu/development/highlander-promise",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "no",
@@ -3060,7 +3255,10 @@
           "incomeRange": "Pell Grant-eligible (no dollar income range published)",
           "covers": "Full demonstrated need up to tuition and fees",
           "residency": "Selected Pell-eligible students who are first in their families to attend college in the United States",
-          "sourceUrl": "https://www.wpi.edu/admissions/tuition-aid/types-of-aid/scholarships-grants/wpi-merit"
+          "sourceUrl": "https://www.wpi.edu/admissions/tuition-aid/types-of-aid/scholarships-grants/wpi-merit",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "no",
@@ -3148,7 +3346,10 @@
           "incomeRange": "Family income of $75,000 or less per year with typical assets for that income",
           "covers": "Full tuition",
           "residency": "US citizens or permanent residents (first-time, first-year, full-time, starting fall 2026)",
-          "sourceUrl": "https://www.stevens.edu/admission-aid/tuition-financial-aid/undergraduate-costs-and-aid/the-stevens-investment"
+          "sourceUrl": "https://www.stevens.edu/admission-aid/tuition-financial-aid/undergraduate-costs-and-aid/the-stevens-investment",
+          "agiMax": null,
+          "residencyState": null,
+          "effect": null
         }
       ],
       "meetsFullNeed": "no",

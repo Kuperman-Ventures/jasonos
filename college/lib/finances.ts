@@ -6,6 +6,9 @@
 import financesFile from "@/data/finances.json";
 import type { InterestLevel, School } from "@/lib/types";
 
+import type { FamilyProfile } from "@/lib/familyFinances";
+import { normalizeFamilyProfile } from "@/lib/familyFinances";
+
 export type MeritScholarship = {
   name: string;
   amount: string;
@@ -23,6 +26,12 @@ export type NeedProgram = {
   covers: string;
   residency: string;
   sourceUrl: string;
+  /** Structured income ceiling for family-estimate matching. Additive; null = unknown. */
+  agiMax?: number | null;
+  /** State abbreviation when residency-limited (e.g. "NJ"), or null for all. */
+  residencyState?: string | null;
+  /** How the program caps what the family pays. */
+  effect?: "tuition-free" | "full-cost" | { tuitionCap: number } | null;
 };
 
 export type FinanceRecord = {
@@ -95,6 +104,7 @@ export type HouseholdFinances = {
   annualBudget: number | null;
   costIncreasePct: number;
   schools: Record<string, HouseholdSchoolFinance>;
+  familyProfile: FamilyProfile | null;
 };
 
 export const DEFAULT_COST_INCREASE_PCT = 4;
@@ -150,6 +160,7 @@ export function emptyHouseholdFinances(): HouseholdFinances {
     annualBudget: null,
     costIncreasePct: DEFAULT_COST_INCREASE_PCT,
     schools: {},
+    familyProfile: null,
   };
 }
 
@@ -185,6 +196,7 @@ export function normalizeHouseholdFinances(raw: unknown): HouseholdFinances {
       };
     }
   }
+  out.familyProfile = normalizeFamilyProfile(row.familyProfile);
   return out;
 }
 
@@ -243,18 +255,33 @@ export function meritShareLabel(rec: FinanceRecord): string {
   return `${Math.round(rec.meritSharePct)}%`;
 }
 
-/** Compare-to-budget figure: family NPC estimate if set, else published sticker. */
+/** Compare-to-budget figure: NPC estimate → family estimate high → sticker. */
 export function budgetCompareCost(
   rec: FinanceRecord,
   entry: HouseholdSchoolFinance,
+  familyProfile: FamilyProfile | null = null,
+  schoolId: string | null = null,
 ): number | null {
   if (entry.netPriceEstimate != null) return entry.netPriceEstimate;
+  if (familyProfile && schoolId) {
+    const est = familyProfile.schools[schoolId];
+    if (est) return est.high;
+  }
   return rec.totalCost;
 }
 
-/** Chart / scatter cost: estimate → after typical merit → sticker. */
-export function chartCost(rec: FinanceRecord, entry: HouseholdSchoolFinance): number | null {
+/** Chart / scatter cost: NPC → family high → after typical merit → sticker. */
+export function chartCost(
+  rec: FinanceRecord,
+  entry: HouseholdSchoolFinance,
+  familyProfile: FamilyProfile | null = null,
+  schoolId: string | null = null,
+): number | null {
   if (entry.netPriceEstimate != null) return entry.netPriceEstimate;
+  if (familyProfile && schoolId) {
+    const est = familyProfile.schools[schoolId];
+    if (est) return est.high;
+  }
   const after = costAfterTypicalMerit(rec);
   if (after != null) return after;
   return rec.totalCost;
@@ -275,8 +302,13 @@ export function fourYearEstimate(
   rec: FinanceRecord,
   entry: HouseholdSchoolFinance,
   costIncreasePct: number,
+  familyProfile: FamilyProfile | null = null,
+  schoolId: string | null = null,
 ): number | null {
-  const base = entry.netPriceEstimate ?? rec.totalCost;
+  const base =
+    entry.netPriceEstimate ??
+    (familyProfile && schoolId ? familyProfile.schools[schoolId]?.high : null) ??
+    rec.totalCost;
   if (base == null) return null;
   return fourYearTotal(base, costIncreasePct);
 }
@@ -305,6 +337,7 @@ export function budgetSummary(
   annualBudget: number | null,
   entries: Record<string, HouseholdSchoolFinance>,
   schoolIdByName: Map<string, string>,
+  familyProfile: FamilyProfile | null = null,
 ): BudgetSummary {
   const total = records.length;
   if (annualBudget == null) {
@@ -319,7 +352,7 @@ export function budgetSummary(
       netPriceDate: null,
       meritAwardOffered: null,
     };
-    const compare = budgetCompareCost(rec, entry);
+    const compare = budgetCompareCost(rec, entry, familyProfile, id || null);
     if (compare != null && compare <= annualBudget) {
       withinBudget += 1;
       continue;
