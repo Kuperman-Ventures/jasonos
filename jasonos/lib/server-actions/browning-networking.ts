@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { etYmd } from "@/lib/dates";
 import { loadBusy } from "@/lib/browning-networking/data";
-import { thankYouDraft } from "@/lib/browning-networking/draft";
+import { connectMeetingTitle, thankYouDraft } from "@/lib/browning-networking/draft";
 import { persistDraft, runBrowningNetworking } from "@/lib/browning-networking/run";
 import { createGoogleMeetInvite } from "@/lib/integrations/google-calendar";
 import { ADVISORS_ACCOUNT_EMAIL, listGoogleAccessTokens } from "@/lib/integrations/google-tokens";
@@ -203,10 +203,11 @@ export async function sendMeetInvite(
   const tokens = await listGoogleAccessTokens();
   const token = tokens.find((account) => account.accountEmail === ADVISORS_ACCOUNT_EMAIL)?.token;
   if (!token) return { ok: false, error: "Advisors Google is not connected." };
-  const name = (data.contact_name as string | null) || "this contact";
+  const name = ((data.contact_name as string | null) ?? "").trim();
+  const title = connectMeetingTitle(name);
   const created = await createGoogleMeetInvite({
     token,
-    summary: `Call with ${name}`,
+    summary: title,
     startIso: new Date(slot.start).toISOString(),
     endIso: new Date(slot.end).toISOString(),
     attendeeEmail: email,
@@ -216,7 +217,7 @@ export async function sendMeetInvite(
     .from("browning_handoffs")
     .update({
       call_event_id: created.eventId,
-      call_title: `Call with ${name}`,
+      call_title: title,
       call_starts_at: new Date(slot.start).toISOString(),
       call_ends_at: new Date(slot.end).toISOString(),
       status: data.brief ? "brief_ready" : "booked",
