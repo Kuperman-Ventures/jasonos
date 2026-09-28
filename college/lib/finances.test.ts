@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  admitRateForChart,
   budgetSummary,
   buildCostBar,
   buildFinanceCompareRows,
@@ -258,4 +259,17 @@ test("residencyReclassification returns the guide copy", () => {
   assert.equal(guide.alternatives.length, 3);
   assert.ok(guide.tradeOff.length > 20);
   assert.ok(guide.whereToCheck.length > 20);
+});
+
+test("admitRateForChart prefers Kyle's rate, then overall", () => {
+  const base = {
+    rateThatAppliesToKyle: null as number | null,
+    overallAdmitRate: null as number | null,
+  };
+  assert.equal(admitRateForChart(base as never), null);
+  assert.equal(admitRateForChart({ ...base, overallAdmitRate: 4.5 } as never), 4.5);
+  assert.equal(
+    admitRateForChart({ ...base, rateThatAppliesToKyle: 11.7, overallAdmitRate: 4.5 } as never),
+    11.7,
+  );
 });
