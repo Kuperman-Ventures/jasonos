@@ -68,7 +68,13 @@ export function BrowningNetworkingClient({
             start(async () => {
               const result = await checkBrowningHandoffs();
               if (!result.ok) toast.error(result.error);
-              else if (result.created === 0 && result.followUps === 0) toast("No new handoffs.");
+              else if (result.created === 0 && result.followUps === 0 && result.preps === 0) {
+                toast(
+                  result.olderFound > 0
+                    ? `Found ${result.olderFound} older intros. They already have a meeting or are already on this page.`
+                    : "No older Tracy intros found in the last year."
+                );
+              }
               else {
                 const parts = [];
                 if (result.created > 0) {
@@ -76,6 +82,11 @@ export function BrowningNetworkingClient({
                 }
                 if (result.followUps > 0) {
                   parts.push(`Added ${result.followUps} follow-up${result.followUps === 1 ? "" : "s"}.`);
+                }
+                if (result.preps > 0) {
+                  parts.push(
+                    `Meeting prep is on ${result.preps} contact${result.preps === 1 ? "" : "s"}, under Meetings.`
+                  );
                 }
                 toast(parts.join(" "));
               }

@@ -68,6 +68,38 @@ async function graphGet(
   return { status: res.status, body };
 }
 
+async function graphPost(
+  token: string,
+  url: string,
+  payload: unknown
+): Promise<{ status: number; body: unknown }> {
+  const full = url.startsWith("http") ? url : `https://graph.microsoft.com/v1.0${url}`;
+  const res = await fetch(full, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  const text = await res.text();
+  let body: unknown = null;
+  if (text) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = { error: { message: text.slice(0, 180) } };
+    }
+  }
+  if (res.status === 401) {
+    throw new Error(
+      `${OUTLOOK_WRAP_EMAIL}: sign-in expired. Reconnect Outlook in Settings.`
+    );
+  }
+  return { status: res.status, body };
+}
+
 async function listChildFolders(
   token: string,
   parentId: string
@@ -330,4 +362,246 @@ export async function latestOutlookSentTo(
     }
   }
   return best;
+}
+
+const TRACY_FROM = "traceys@executivejobsearch.net";
+const TRACY_TEXT_PHRASES = [
+  "Thank you for your reply and interest in Executive Networking",
+  "Attached please find the resume for",
+];
+
+/**
+ * Tracy's notes for the lookback window.
+ * A mailbox-wide keyword search only returns the newest hits, so a year
+ * check was missing everyone except the last two. This asks Outlook's
+ * search for her address and pages through the results, then reads each note.
+ */
+export async function listOutlookTracyMessages(
+  accessToken: string,
+  sinceIso: string
+): Promise<OutlookSearchedMessage[]> {
+  const sinceMs = new Date(sinceIso).getTime();
+  const ids = await searchTracyMessageIds(accessToken, sinceIso).catch(rethrowAuth);
+  if (ids.length) {
+    const hydrated = await hydrateOutlookMessages(accessToken, ids).catch(rethrowAuth);
+    const kept = hydrated.filter((message) => Date.parse(message.receivedAt) >= sinceMs);
+    if (kept.length) return kept;
+  }
+  const bySender = await listTracyBySender(accessToken, sinceIso).catch(rethrowAuth);
+  if (bySender.length) return bySender;
+  return searchOutlookMessages(
+    accessToken,
+    [`"${TRACY_FROM}"`, ...TRACY_TEXT_PHRASES.map((phrase) => `"${phrase}"`)],
+    sinceIso,
+    6
+  ).catch(rethrowAuth);
+}
+
+function rethrowAuth(err: unknown): never[] {
+  const message = err instanceof Error ? err.message : String(err);
+  if (/sign-in expired/i.test(message)) throw err;
+  return [];
+}
+
+async function searchTracyMessageIds(accessToken: string, sinceIso: string): Promise<string[]> {
+  const day = new Date(sinceIso).toISOString().slice(0, 10);
+  const fromHits = await pageMessageSearch(
+    accessToken,
+    `from:${TRACY_FROM} AND received>=${day}`
+  );
+  if (fromHits.length) return fromHits;
+  const quoted = await pageMessageSearch(
+    accessToken,
+    `from:"${TRACY_FROM}" AND received>=${day}`
+  );
+  if (quoted.length) return quoted;
+  const ids = new Set<string>();
+  for (const phrase of TRACY_TEXT_PHRASES) {
+    for (const id of await pageMessageSearch(accessToken, `"${phrase}" AND received>=${day}`)) {
+      ids.add(id);
+    }
+  }
+  return [...ids];
+}
+
+async function pageMessageSearch(accessToken: string, queryString: string): Promise<string[]> {
+  const ids: string[] = [];
+  let from = 0;
+  let allowTopFlag = true;
+  while (from < 150 && ids.length < 120) {
+    const request: Record<string, unknown> = {
+      entityTypes: ["message"],
+      query: { queryString },
+      from,
+      size: 25,
+    };
+    if (allowTopFlag) request.enableTopResults = false;
+    const { status, body } = await graphPost(accessToken, "/search/query", {
+      requests: [request],
+    });
+    if (status === 400 && allowTopFlag && from === 0) {
+      allowTopFlag = false;
+      continue;
+    }
+    if (status < 200 || status >= 300) return ids;
+    const container = searchHits(body);
+    if (!container) return ids;
+    for (const id of container.ids) {
+      if (!ids.includes(id)) ids.push(id);
+    }
+    if (!container.more || container.ids.length === 0) break;
+    from += 25;
+  }
+  return ids;
+}
+
+function searchHits(body: unknown): { ids: string[]; more: boolean } | null {
+  const value = (body as { value?: unknown[] } | null)?.value?.[0] as
+    | { error?: { message?: string }; hitsContainers?: Array<{
+        moreResultsAvailable?: boolean;
+        hits?: Array<{ hitId?: string }>;
+      }> }
+    | undefined;
+  if (!value || value.error) return null;
+  const container = value.hitsContainers?.[0];
+  if (!container) return { ids: [], more: false };
+  const ids = (container.hits ?? [])
+    .map((hit) => hit.hitId)
+    .filter((id): id is string => Boolean(id));
+  return { ids, more: container.moreResultsAvailable === true };
+}
+
+async function hydrateOutlookMessages(
+  accessToken: string,
+  ids: string[]
+): Promise<OutlookSearchedMessage[]> {
+  const unique = [...new Set(ids)].slice(0, 120);
+  const out: OutlookSearchedMessage[] = [];
+  for (let i = 0; i < unique.length; i += 15) {
+    const slice = unique.slice(i, i + 15);
+    const { status, body } = await graphPost(accessToken, "/$batch", {
+      requests: slice.map((id, index) => ({
+        id: String(index),
+        method: "GET",
+        url: `/me/messages/${encodeURIComponent(id)}?$select=id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,body,conversationId,internetMessageId,isDraft`,
+        headers: { Prefer: 'outlook.body-content-type="text"' },
+      })),
+    });
+    const responses = (body as { responses?: Array<{ status?: number; body?: GraphSearchedMessage }> } | null)
+      ?.responses;
+    if (status < 200 || status >= 300 || !responses) {
+      for (const id of slice) {
+        const one = await readOutlookMessage(accessToken, id);
+        if (one) out.push(one);
+      }
+      continue;
+    }
+    for (const response of responses) {
+      if ((response.status ?? 500) >= 300) continue;
+      const mapped = mapSearchedMessage(response.body);
+      if (mapped) out.push(mapped);
+    }
+  }
+  return out;
+}
+
+async function readOutlookMessage(
+  accessToken: string,
+  messageId: string
+): Promise<OutlookSearchedMessage | null> {
+  const { status, body } = await graphGet(
+    accessToken,
+    `/me/messages/${encodeURIComponent(messageId)}?$select=id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,body,conversationId,internetMessageId,isDraft`,
+    { Prefer: 'outlook.body-content-type="text"' }
+  );
+  if (status < 200 || status >= 300) return null;
+  return mapSearchedMessage(body as GraphSearchedMessage | null);
+}
+
+async function listTracyBySender(
+  accessToken: string,
+  sinceIso: string
+): Promise<OutlookSearchedMessage[]> {
+  const sinceMs = new Date(sinceIso).getTime();
+  const select =
+    "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,body,conversationId,internetMessageId,isDraft";
+  let url: string | null = `/me/messages?${new URLSearchParams({
+    $filter: `from/emailAddress/address eq '${TRACY_FROM}'`,
+    $top: "50",
+    $select: select,
+  })}`;
+  const headers = {
+    ConsistencyLevel: "eventual",
+    Prefer: 'outlook.body-content-type="text"',
+  };
+  const out: OutlookSearchedMessage[] = [];
+  for (let page = 0; page < 8 && url; page += 1) {
+    const { status, body } = await graphGet(accessToken, url, headers);
+    if (status < 200 || status >= 300) return out;
+    for (const raw of (body?.value ?? []) as GraphSearchedMessage[]) {
+      const mapped = mapSearchedMessage(raw);
+      if (!mapped || Date.parse(mapped.receivedAt) < sinceMs) continue;
+      if (!mapped.from.toLowerCase().includes(TRACY_FROM)) continue;
+      out.push(mapped);
+    }
+    url = body?.["@odata.nextLink"] ?? null;
+  }
+  return out;
+}
+
+function mapSearchedMessage(raw: GraphSearchedMessage | null | undefined): OutlookSearchedMessage | null {
+  if (!raw?.id || raw.isDraft) return null;
+  const received = raw.receivedDateTime || raw.sentDateTime;
+  if (!received) return null;
+  const from = formatGraphAddress(raw.from);
+  if (!from) return null;
+  return {
+    id: raw.id,
+    from,
+    to: joinGraphAddresses(raw.toRecipients),
+    cc: joinGraphAddresses(raw.ccRecipients),
+    subject: raw.subject?.trim() || null,
+    receivedAt: new Date(received).toISOString(),
+    body: raw.body?.content ?? raw.bodyPreview ?? "",
+    conversationId: raw.conversationId ?? null,
+    internetMessageId: raw.internetMessageId ?? null,
+  };
+}
+
+export async function downloadOutlookResume(
+  accessToken: string,
+  messageId: string
+): Promise<{ filename: string; bytes: Buffer } | null> {
+  const { status, body } = await graphGet(
+    accessToken,
+    `/me/messages/${encodeURIComponent(messageId)}/attachments?$top=20`
+  );
+  if (status < 200 || status >= 300) return null;
+  const files = (body?.value ?? []) as {
+    id?: string;
+    name?: string;
+    contentType?: string;
+    contentBytes?: string;
+  }[];
+  const resumes = files.filter((item) => isResumeFile(item.name, item.contentType));
+  const file =
+    resumes.find((item) => `${item.name ?? ""} ${item.contentType ?? ""}`.toLowerCase().includes("word")) ??
+    resumes[0];
+  if (!file) return null;
+  if (file.contentBytes) {
+    return { filename: file.name || "resume.docx", bytes: Buffer.from(file.contentBytes, "base64") };
+  }
+  if (!file.id) return null;
+  const one = await graphGet(
+    accessToken,
+    `/me/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(file.id)}`
+  );
+  const full = one.body as { contentBytes?: string } | null;
+  if (!full?.contentBytes) return null;
+  return { filename: file.name || "resume.docx", bytes: Buffer.from(full.contentBytes, "base64") };
+}
+
+function isResumeFile(name?: string, contentType?: string): boolean {
+  const label = `${name ?? ""} ${contentType ?? ""}`.toLowerCase();
+  return label.includes(".docx") || label.includes(".pdf") || label.includes("wordprocessingml") || label.includes("pdf");
 }

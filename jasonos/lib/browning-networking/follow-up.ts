@@ -7,8 +7,11 @@ export function shouldQueueFollowUp(input: {
   alreadyTracked: boolean;
   hasMeeting: boolean;
   hasOutreach: boolean;
+  introAgeDays?: number;
 }): boolean {
-  return !input.alreadyTracked && !input.hasMeeting && input.hasOutreach;
+  if (input.alreadyTracked || input.hasMeeting) return false;
+  if (input.hasOutreach) return true;
+  return (input.introAgeDays ?? 0) >= 21;
 }
 
 export function isAlreadyTracked(

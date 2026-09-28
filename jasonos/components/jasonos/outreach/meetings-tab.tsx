@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import {
   createMeeting,
   deleteMeeting,
+  getBrowningPrep,
   getMeetingsForContact,
   markMeetingHeld,
   updateMeetingPrep,
@@ -93,6 +94,7 @@ export function MeetingsTab({
   const [research, setResearch] = useState<string | null>(null);
   const [researchAt, setResearchAt] = useState<string | null>(null);
   const [scheduling, setScheduling] = useState(false);
+  const [browningPrep, setBrowningPrep] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -103,6 +105,13 @@ export function MeetingsTab({
       .catch((err) => {
         console.error("[MeetingsTab] meetings", err);
         if (!cancelled) setMeetings([]);
+      });
+    getBrowningPrep(contactId)
+      .then((text) => {
+        if (!cancelled) setBrowningPrep(text);
+      })
+      .catch((err) => {
+        console.error("[MeetingsTab] browning prep", err);
       });
     fetch(`/api/contact-research?contactId=${encodeURIComponent(contactId)}`)
       .then((res) => res.json())
@@ -149,6 +158,16 @@ export function MeetingsTab({
           </Button>
         ) : null}
       </div>
+
+      {browningPrep ? (
+        <section className="space-y-2 rounded-lg border bg-card/40 p-3">
+          <span className={fieldLabel}>Meeting prep</span>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{browningPrep}</p>
+          <p className="text-[11px] text-muted-foreground">
+            From Tracy&apos;s note and the resume she attached.
+          </p>
+        </section>
+      ) : null}
 
       <ContactResearchPanel
         contactId={contactId}
