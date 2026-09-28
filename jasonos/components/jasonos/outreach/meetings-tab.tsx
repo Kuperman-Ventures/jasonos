@@ -10,6 +10,7 @@ import {
   CalendarPlus,
   CheckCircle2,
   ExternalLink,
+  FileText,
   Loader2,
   Pencil,
   Search,
@@ -34,6 +35,7 @@ import {
 import { addReferredContact } from "@/lib/server-actions/outreach";
 import type { TouchObjective } from "@/lib/outreach/types";
 import { ResearchBriefView } from "@/components/jasonos/research-brief";
+import { prepSections } from "@/lib/browning-networking/meeting-brief";
 
 const CHANNELS: { value: MeetingChannel; label: string }[] = [
   { value: "video", label: "Video" },
@@ -95,6 +97,7 @@ export function MeetingsTab({
   const [researchAt, setResearchAt] = useState<string | null>(null);
   const [scheduling, setScheduling] = useState(false);
   const [browningPrep, setBrowningPrep] = useState<string | null>(null);
+  const [resumeFilename, setResumeFilename] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -107,8 +110,10 @@ export function MeetingsTab({
         if (!cancelled) setMeetings([]);
       });
     getBrowningPrep(contactId)
-      .then((text) => {
-        if (!cancelled) setBrowningPrep(text);
+      .then((prep) => {
+        if (cancelled) return;
+        setBrowningPrep(prep.brief);
+        setResumeFilename(prep.resumeFilename);
       })
       .catch((err) => {
         console.error("[MeetingsTab] browning prep", err);
@@ -160,11 +165,33 @@ export function MeetingsTab({
       </div>
 
       {browningPrep ? (
-        <section className="space-y-2 rounded-lg border bg-card/40 p-3">
+        <section className="space-y-3 rounded-lg border bg-card/40 p-3">
           <span className={fieldLabel}>Meeting prep</span>
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{browningPrep}</p>
+          {prepSections(browningPrep).length ? (
+            prepSections(browningPrep).map((section) => (
+              <div key={section.heading} className="space-y-1">
+                <p className="text-xs font-medium text-foreground">{section.heading}</p>
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+                  {section.body}
+                </p>
+              </div>
+            ))
+          ) : (
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+              {browningPrep}
+            </p>
+          )}
+          {resumeFilename ? (
+            <a
+              href={`/api/browning-networking/resume?contactId=${encodeURIComponent(contactId)}`}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground underline underline-offset-2"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Open {resumeFilename}
+            </a>
+          ) : null}
           <p className="text-[11px] text-muted-foreground">
-            From Tracy&apos;s note and the resume she attached.
+            From the Word document Tracy attached.
           </p>
         </section>
       ) : null}

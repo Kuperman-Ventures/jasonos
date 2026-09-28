@@ -61,6 +61,18 @@ describe("formatSyncSummary", () => {
     );
   });
 
+  it("summarizes a Browning handoff check", () => {
+    assert.equal(
+      formatSyncSummary("browning", {
+        ok: true,
+        created: 1,
+        followUps: 2,
+        preps: 3,
+      }),
+      "+1 handoff · 2 follow-ups · 3 meeting prep"
+    );
+  });
+
   it("still appends soft warnings on a successful run", () => {
     assert.equal(
       formatSyncSummary("outlook", {

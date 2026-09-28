@@ -109,6 +109,17 @@ export function formatSyncSummary(
     return issues.length ? `failed: ${issues.join(" · ")}` : "failed";
   }
 
+  if (source === "browning") {
+    const created = num(payload, "created");
+    const followUps = num(payload, "followUps");
+    const preps = num(payload, "preps");
+    const parts = [`+${created} handoff${created === 1 ? "" : "s"}`];
+    if (followUps) parts.push(`${followUps} follow-up${followUps === 1 ? "" : "s"}`);
+    if (preps) parts.push(`${preps} meeting prep`);
+    if (issues.length) parts.push(issues.join(" · "));
+    return parts.join(" · ");
+  }
+
   if (source === "sent-followups") {
     const created = num(payload, "created");
     const updated = num(payload, "updated");

@@ -8,6 +8,7 @@ import { persistDraft, runBrowningNetworking } from "@/lib/browning-networking/r
 import { addCalendarDays, firstEligibleYmd } from "@/lib/browning-networking/slots";
 import type { HandoffSlot } from "@/lib/browning-networking/types";
 import { setCadence } from "@/lib/server-actions/outreach";
+import { appendSyncLog } from "@/lib/outreach/sync-log";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import type { CadenceInterval } from "@/lib/outreach/types";
 
@@ -25,10 +26,22 @@ function revalidate() {
   revalidatePath("/");
 }
 
-export async function checkBrowningHandoffs(): Promise<
+export async function checkBrowningHandoffs(runId?: string): Promise<
   { ok: true; created: number; found: number; followUps: number; olderFound: number; preps: number } | { ok: false; error: string }
 > {
   const result = await runBrowningNetworking();
+  await appendSyncLog(
+    "browning",
+    {
+      ok: result.ok,
+      created: result.created,
+      followUps: result.followUps,
+      preps: result.preps,
+      found: result.found,
+      error: result.error,
+    },
+    runId
+  );
   revalidate();
   if (!result.ok) return { ok: false, error: result.error || "Check failed." };
   return {

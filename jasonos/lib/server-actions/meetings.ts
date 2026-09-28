@@ -83,8 +83,14 @@ function rowToMeeting(row: Record<string, unknown>): Meeting {
   };
 }
 
-export async function getBrowningPrep(contactId: string): Promise<string | null> {
-  if (!hasConfig() || !contactId) return null;
+export type BrowningPrepView = {
+  brief: string | null;
+  resumeFilename: string | null;
+};
+
+export async function getBrowningPrep(contactId: string): Promise<BrowningPrepView> {
+  const empty: BrowningPrepView = { brief: null, resumeFilename: null };
+  if (!hasConfig() || !contactId) return empty;
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("contacts")
@@ -93,10 +99,24 @@ export async function getBrowningPrep(contactId: string): Promise<string | null>
     .maybeSingle();
   if (error) {
     console.error("[meetings.getBrowningPrep]", error);
-    return null;
+    return empty;
   }
-  const text = (data?.browning_prep as string | null)?.trim();
-  return text || null;
+  const text = (data?.browning_prep as string | null)?.trim() || null;
+  if (!/^[0-9a-f-]{36}$/i.test(contactId)) return { brief: text, resumeFilename: null };
+  const handoff = await sb
+    .from("browning_handoffs")
+    .select("resume_filename")
+    .or(`created_contact_id.eq.${contactId},existing_contact_id.eq.${contactId}`)
+    .order("received_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (handoff.error) {
+    console.error("[meetings.getBrowningPrep.file]", handoff.error);
+  }
+  return {
+    brief: text,
+    resumeFilename: (handoff.data?.resume_filename as string | null) ?? null,
+  };
 }
 
 export async function getMeetingsForContact(contactId: string): Promise<Meeting[]> {
