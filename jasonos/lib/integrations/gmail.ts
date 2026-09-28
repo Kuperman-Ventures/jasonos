@@ -840,6 +840,7 @@ export async function createGmailDraft(input: {
   accessToken: string;
   to: string;
   cc?: string;
+  bcc?: string;
   subject: string;
   body: string;
   threadId?: string | null;
@@ -848,6 +849,7 @@ export async function createGmailDraft(input: {
   const headers = [
     `To: ${input.to}`,
     input.cc ? `Cc: ${input.cc}` : null,
+    input.bcc ? `Bcc: ${input.bcc}` : null,
     `Subject: ${input.subject}`,
     "MIME-Version: 1.0",
     "Content-Type: text/plain; charset=utf-8",

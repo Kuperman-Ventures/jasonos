@@ -14,45 +14,55 @@ export function firstName(name: string | null | undefined): string {
 
 export function formatSlotLabel(iso: string): string {
   const date = new Date(iso);
-  const day = date.toLocaleDateString("en-US", {
+  const weekday = date.toLocaleDateString("en-US", {
     timeZone: ET,
     weekday: "short",
+  });
+  const monthDay = date.toLocaleDateString("en-US", {
+    timeZone: ET,
     month: "short",
     day: "numeric",
   });
-  const time = date.toLocaleTimeString("en-US", {
-    timeZone: ET,
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  return `${day}, ${time.replace(/\s/g, "").toLowerCase()} ET`;
+  const time = date
+    .toLocaleTimeString("en-US", {
+      timeZone: ET,
+      hour: "numeric",
+      minute: "2-digit",
+    })
+    .replace(/\s/g, "")
+    .toLowerCase();
+  return `${weekday}. ${monthDay} @ ${time} ET`;
 }
 
 export function schedulingDraft(input: {
   name: string | null;
   slots: HandoffSlot[];
 }): string {
+  const who = firstName(input.name);
+  const connected =
+    who === "there" ? "Good to be connected." : `Good to be connected to ${who}.`;
   const lines = [...input.slots]
     .sort((a, b) => Date.parse(a.start) - Date.parse(b.start))
-    .map((slot) => `- ${formatSlotLabel(slot.start)}`);
-  const times = lines.length
-    ? lines.join("\n")
-    : "- (add times on the calendar)";
-  return `${firstName(input.name)},
+    .map((slot) => formatSlotLabel(slot.start));
+  const times = lines.length ? lines.join("\n") : "(add times on the calendar)";
+  return `Thank you Tracy - moving you to Bcc
 
-Tracy copied me on your note. I would like to set a call.
+${connected}
 
-I can do:
+Let me know what might work for a call in the next few weeks.
+
+Some options from my side would be:
+
 ${times}
 
-If none of those work, send a couple of times that do.
-
+Looking forward to speaking,
 Jason`;
 }
 
 export function gmailComposeUrl(input: {
   to: string;
-  cc: string;
+  cc?: string;
+  bcc?: string;
   subject: string;
   body: string;
   accountEmail?: string;
@@ -62,10 +72,11 @@ export function gmailComposeUrl(input: {
     view: "cm",
     fs: "1",
     to: input.to,
-    cc: input.cc,
     su: input.subject,
     body: input.body,
   });
+  if (input.cc) params.set("cc", input.cc);
+  if (input.bcc) params.set("bcc", input.bcc);
   return `https://mail.google.com/mail/u/${account}/?${params.toString()}`;
 }
 
@@ -75,22 +86,25 @@ export function isOutlookMailbox(accountEmail: string | null | undefined): boole
 
 export function outlookComposeUrl(input: {
   to: string;
-  cc: string;
+  cc?: string;
+  bcc?: string;
   subject: string;
   body: string;
 }): string {
   const params = new URLSearchParams({
     to: input.to,
-    cc: input.cc,
     subject: input.subject,
     body: input.body,
   });
+  if (input.cc) params.set("cc", input.cc);
+  if (input.bcc) params.set("bcc", input.bcc);
   return `https://outlook.live.com/mail/0/deeplink/compose?${params.toString()}`;
 }
 
 export function replyComposeUrl(input: {
   to: string;
-  cc: string;
+  cc?: string;
+  bcc?: string;
   subject: string;
   body: string;
   accountEmail?: string;
