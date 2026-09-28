@@ -26,12 +26,12 @@ function revalidate() {
 }
 
 export async function checkBrowningHandoffs(): Promise<
-  { ok: true; created: number; found: number } | { ok: false; error: string }
+  { ok: true; created: number; found: number; followUps: number } | { ok: false; error: string }
 > {
   const result = await runBrowningNetworking();
   revalidate();
   if (!result.ok) return { ok: false, error: result.error || "Check failed." };
-  return { ok: true, created: result.created, found: result.found };
+  return { ok: true, created: result.created, found: result.found, followUps: result.followUps };
 }
 
 export async function saveHandoffSlots(

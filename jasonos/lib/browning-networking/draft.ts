@@ -59,6 +59,16 @@ Looking forward to speaking,
 Jason`;
 }
 
+export function followUpDraft(name: string | null): string {
+  const who = firstName(name);
+  const hello = who === "there" ? "Following up." : `Following up, ${who}.`;
+  return `${hello}
+
+Let me know if any of the times I sent still work, or if another window in the next few weeks is better.
+
+Jason`;
+}
+
 /** mailto: so the Mac opens Apple Mail with To, subject, body, and Bcc filled in. */
 export function replyComposeUrl(input: {
   to: string;

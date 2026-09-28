@@ -26,6 +26,7 @@ export type HandoffStatus =
   | "times_ready"
   | "draft_ready"
   | "acted_on"
+  | "follow_up"
   | "booked"
   | "brief_ready"
   | "thank_you_ready"
@@ -85,6 +86,8 @@ export type HandoffRecord = {
   brief: HandoffBrief | null;
   thankYouBody: string | null;
   thankYouSource: string | null;
+  lastOutreachSubject: string | null;
+  lastOutreachSentAt: string | null;
   status: HandoffStatus;
 };
 

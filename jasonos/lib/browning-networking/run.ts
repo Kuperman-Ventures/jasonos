@@ -2,7 +2,7 @@ import "server-only";
 
 import { etToday, etYmd } from "@/lib/dates";
 import { createGmailDraft, getGmailMessagesFull, listGmailMessages } from "@/lib/integrations/gmail";
-import { searchOutlookMessages } from "@/lib/integrations/outlook";
+import { latestOutlookSentTo, searchOutlookMessages } from "@/lib/integrations/outlook";
 import { getOutlookAccountAccess } from "@/lib/integrations/outlook-tokens";
 import {
   fetchAccountCalendarEvents,
@@ -19,6 +19,7 @@ import {
   callHasEnded,
   isCallMorning,
   replyComposeUrl,
+  followUpDraft,
   replySubject,
   schedulingDraft,
   thankYouDraft,
@@ -26,6 +27,7 @@ import {
 import { chooseHandoffs, handoffKind, type HandoffMail } from "./parse";
 import { loadBusy } from "./data";
 import { firstEligibleYmd, lastEligibleYmd, proposeSlots } from "./slots";
+import { isAlreadyTracked, FOLLOW_UP_LOOKBACK_DAYS, shouldQueueFollowUp } from "./follow-up";
 import { HANDOFF_OPENING, TRACY_EMAIL, type HandoffSlot, type ParsedHandoff } from "./types";
 
 type Sb = ReturnType<typeof createServiceRoleClient>;
@@ -39,14 +41,17 @@ export type BrowningRunResult = {
   booked: number;
   briefs: number;
   thankYous: number;
+  followUps: number;
   error?: string;
 };
 
-const GMAIL_SEARCHES = [
-  `from:${TRACY_EMAIL} newer_than:30d`,
-  `"${HANDOFF_OPENING}" newer_than:30d`,
-  `"Attached please find the resume for" newer_than:30d`,
-];
+function gmailSearches(days: number): string[] {
+  return [
+    `from:${TRACY_EMAIL} newer_than:${days}d`,
+    `"${HANDOFF_OPENING}" newer_than:${days}d`,
+    `"Attached please find the resume for" newer_than:${days}d`,
+  ];
+}
 const OUTLOOK_SEARCHES = [
   `"${HANDOFF_OPENING}"`,
   `"Attached please find the resume for"`,
@@ -62,6 +67,7 @@ export async function runBrowningNetworking(): Promise<BrowningRunResult> {
     booked: 0,
     briefs: 0,
     thankYous: 0,
+    followUps: 0,
   };
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return { ...result, error: "Supabase is not configured." };
@@ -74,6 +80,8 @@ export async function runBrowningNetworking(): Promise<BrowningRunResult> {
     result.found = harvested.found;
     result.created = harvested.created;
     result.skippedExisting = harvested.skippedExisting;
+    const followedUp = await harvestFollowUps(sb);
+    result.followUps = followedUp;
     const followed = await followBookedCalls(sb);
     result.booked = followed.booked;
     result.briefs = followed.briefs;
@@ -179,7 +187,7 @@ async function harvestHandoffs(sb: Sb): Promise<{
   return { found, created, skippedExisting };
 }
 
-async function collectHandoffMail(): Promise<{
+async function collectHandoffMail(lookbackDays = 30): Promise<{
   searched: boolean;
   messages: HandoffMail[];
   error?: string;
@@ -187,16 +195,17 @@ async function collectHandoffMail(): Promise<{
   const messages: HandoffMail[] = [];
   const problems: string[] = [];
   let searched = false;
-  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const since = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000).toISOString();
+  const listMax = lookbackDays > 30 ? 80 : 40;
 
   const google = await listGoogleAccessTokens();
   for (const account of google) {
     searched = true;
     const ids = new Set<string>();
-    for (const query of GMAIL_SEARCHES) {
+    for (const query of gmailSearches(lookbackDays)) {
       const listed = await listGmailMessages({
         query,
-        max: 40,
+        max: listMax,
         accessToken: account.token,
       });
       for (const item of listed) ids.add(item.id);
@@ -229,7 +238,8 @@ async function collectHandoffMail(): Promise<{
       const found = await searchOutlookMessages(
         outlook.token,
         OUTLOOK_SEARCHES,
-        since
+        since,
+        lookbackDays > 30 ? 6 : 2
       );
       for (const message of found) {
         if (!handoffKind(message.body)) continue;
@@ -258,6 +268,155 @@ async function collectHandoffMail(): Promise<{
   return { searched, messages };
 }
 
+async function harvestFollowUps(sb: Sb): Promise<number> {
+  const collected = await collectHandoffMail(FOLLOW_UP_LOOKBACK_DAYS);
+  if (!collected.searched) return 0;
+  const chosen = chooseHandoffs(collected.messages);
+  const { data: existingRows, error } = await sb
+    .from("browning_handoffs")
+    .select("gmail_account, gmail_message_id, contact_email, contact_name");
+  if (error) {
+    console.error("[browning-networking] follow-up existing", error);
+    return 0;
+  }
+  const seenMessages = new Set(
+    (existingRows ?? []).map((row) => `${row.gmail_account}:${row.gmail_message_id}`)
+  );
+  const tracked = (existingRows ?? []).map((row) => ({
+    email: (row.contact_email as string | null) ?? null,
+    name: (row.contact_name as string | null) ?? null,
+  }));
+  const contacts = await loadContacts(sb);
+  const events = await calendarEventsBetween(
+    new Date(Date.now() - FOLLOW_UP_LOOKBACK_DAYS * 24 * 60 * 60 * 1000),
+    new Date(Date.now() + 60 * 24 * 60 * 60 * 1000)
+  );
+  let created = 0;
+
+  for (const item of chosen) {
+    const mail = item.mail;
+    const parsed = item.parsed;
+    if (!parsed.email || !parsed.name) continue;
+    if (seenMessages.has(`${mail.accountEmail}:${mail.messageId}`)) continue;
+    const alreadyTracked = isAlreadyTracked(tracked, { email: parsed.email, name: parsed.name });
+    const hasMeeting = Boolean(
+      findBookedCall(events, { email: parsed.email, name: parsed.name }, new Date(), true)
+    );
+    const outreach = alreadyTracked || hasMeeting ? null : await lastOutreachTo(parsed.email, mail.receivedAt);
+    if (
+      !shouldQueueFollowUp({
+        alreadyTracked,
+        hasMeeting,
+        hasOutreach: Boolean(outreach),
+      })
+    ) {
+      continue;
+    }
+
+    const match = matchExistingContact(contacts, parsed);
+    let createdContactId: string | null = null;
+    if (!match) createdContactId = await insertContact(sb, parsed);
+    const body = followUpDraft(parsed.name);
+    const inserted = await sb
+      .from("browning_handoffs")
+      .insert({
+        gmail_account: mail.accountEmail,
+        gmail_message_id: mail.messageId,
+        gmail_thread_id: mail.threadId,
+        rfc822_message_id: mail.rfc822MessageId,
+        received_at: mail.receivedAt,
+        subject: mail.subject,
+        contact_name: parsed.name,
+        contact_email: parsed.email,
+        contact_phone: parsed.phone,
+        linkedin_url: parsed.linkedinUrl,
+        contact_title: parsed.title,
+        contact_company: parsed.company,
+        availability_note: parsed.availabilityNote,
+        quoted_reply: parsed.quotedReply,
+        why_they_replied: parsed.whyTheyReplied,
+        existing_contact_id: match?.id ?? null,
+        created_contact_id: createdContactId,
+        slots: [],
+        draft_body: body,
+        last_outreach_subject: outreach?.subject ?? mail.subject,
+        last_outreach_sent_at: outreach?.sentAt ?? null,
+        status: "follow_up",
+      })
+      .select("id")
+      .single();
+    if (inserted.error || !inserted.data) {
+      console.error("[browning-networking] follow-up insert", inserted.error);
+      continue;
+    }
+    tracked.push({ email: parsed.email, name: parsed.name });
+    seenMessages.add(`${mail.accountEmail}:${mail.messageId}`);
+    created += 1;
+  }
+  return created;
+}
+
+async function lastOutreachTo(
+  email: string,
+  afterIso: string
+): Promise<{ subject: string | null; sentAt: string } | null> {
+  const after = new Date(afterIso);
+  const slash = `${after.getUTCFullYear()}/${after.getUTCMonth() + 1}/${after.getUTCDate()}`;
+  let best: { subject: string | null; sentAt: string } | null = null;
+  const google = await listGoogleAccessTokens();
+  for (const account of google) {
+    const listed = await listGmailMessages({
+      query: `in:sent to:${email} after:${slash}`,
+      max: 5,
+      accessToken: account.token,
+    });
+    if (!listed.length) continue;
+    const full = await getGmailMessagesFull(listed.slice(0, 3).map((item) => item.id), account.token);
+    for (const message of full) {
+      const sentAt = message.internalDate
+        ? new Date(message.internalDate).toISOString()
+        : null;
+      if (!sentAt || Date.parse(sentAt) < after.getTime()) continue;
+      if (!best || Date.parse(sentAt) > Date.parse(best.sentAt)) {
+        best = { subject: message.subject ?? null, sentAt };
+      }
+    }
+  }
+  const outlook = await getOutlookAccountAccess();
+  if (outlook.token) {
+    const sent = await latestOutlookSentTo(outlook.token, email, afterIso).catch(() => null);
+    if (sent && (!best || Date.parse(sent.sentAt) > Date.parse(best.sentAt))) best = sent;
+  }
+  return best;
+}
+
+async function calendarEventsBetween(start: Date, end: Date): Promise<CalendarGuestEvent[]> {
+  const tokens = await listGoogleAccessTokens();
+  const lists = await Promise.all(
+    tokens.map((account) =>
+      fetchAccountCalendarEvents({
+        token: account.token,
+        timeMin: start.toISOString(),
+        timeMax: end.toISOString(),
+      }).catch(() => ({ events: [] as CalendarApiEvent[] }))
+    )
+  );
+  const out: CalendarGuestEvent[] = [];
+  for (const list of lists) {
+    for (const event of list.events) {
+      out.push({
+        id: event.id,
+        summary: event.summary,
+        start: event.start?.dateTime || event.start?.date,
+        end: event.end?.dateTime || event.end?.date,
+        status: event.status,
+        attendees: event.attendees,
+      });
+    }
+  }
+  return out;
+}
+
 async function followBookedCalls(sb: Sb): Promise<{
   booked: number;
   briefs: number;
@@ -266,7 +425,7 @@ async function followBookedCalls(sb: Sb): Promise<{
   const { data, error } = await sb
     .from("browning_handoffs")
     .select("*")
-    .in("status", ["times_ready", "draft_ready", "acted_on", "booked", "brief_ready"]);
+    .in("status", ["times_ready", "draft_ready", "acted_on", "follow_up", "booked", "brief_ready"]);
   if (error || !data?.length) return { booked: 0, briefs: 0, thankYous: 0 };
 
   const events = await upcomingEvents();

@@ -23,7 +23,8 @@ export type BookedCall = {
 export function findBookedCall(
   events: CalendarGuestEvent[],
   contact: { email?: string | null; name?: string | null },
-  now: Date = new Date()
+  now: Date = new Date(),
+  includePast = false
 ): BookedCall | null {
   const want = contact.email ? canonicalEmail(contact.email) : "";
   const name = (contact.name ?? "").trim().toLowerCase();
@@ -34,7 +35,7 @@ export function findBookedCall(
     if (event.status === "cancelled") continue;
     const starts = Date.parse(event.start);
     if (!Number.isFinite(starts)) continue;
-    if (starts < now.getTime() - 12 * 60 * 60 * 1000) continue;
+    if (!includePast && starts < now.getTime() - 12 * 60 * 60 * 1000) continue;
 
     const guestHit = (event.attendees ?? []).some((guest) => {
       if (!guest.email || guest.self) return false;
