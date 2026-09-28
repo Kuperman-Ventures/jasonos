@@ -22,18 +22,22 @@ describe("drafts and booking", () => {
         },
       ],
     });
-    assert.match(body, /^Matt,/);
-    assert.match(body, /Thu, Oct 1, 10:00am ET/);
-    assert.match(body, /Tracy copied me/);
+    assert.match(body, /Thank you Tracy - moving you to Bcc/);
+    assert.match(body, /Good to be connected to Matt\./);
+    assert.match(body, /Let me know what might work for a call in the next few weeks\./);
+    assert.match(body, /Some options from my side would be:/);
+    assert.match(body, /Thu\. Oct 1 @ 10:00am ET/);
+    assert.match(body, /Looking forward to speaking,\nJason$/);
     assert.doesNotMatch(body, /!/);
     const url = gmailComposeUrl({
       to: "matt.brennan@example.com",
-      cc: "traceys@executivejobsearch.net",
+      bcc: "traceys@executivejobsearch.net",
       subject: "Re: Executive Networking",
       body,
       accountEmail: "jason@kupermanadvisors.com",
     });
-    assert.match(url, /cc=traceys%40executivejobsearch.net/);
+    assert.match(url, /bcc=traceys%40executivejobsearch.net/);
+    assert.doesNotMatch(url, /[?&]cc=/);
     assert.match(url, /mail\/u\/jason%40kupermanadvisors.com/);
   });
 

@@ -542,7 +542,7 @@ export async function persistDraft(input: {
   const url = to
     ? replyComposeUrl({
         to,
-        cc: TRACY_EMAIL,
+        bcc: TRACY_EMAIL,
         subject,
         body,
         accountEmail,
@@ -560,7 +560,7 @@ export async function persistDraft(input: {
       const drafted = await createGmailDraft({
         accessToken: token,
         to,
-        cc: TRACY_EMAIL,
+        bcc: TRACY_EMAIL,
         subject,
         body,
         threadId: (data.gmail_thread_id as string | null) ?? null,

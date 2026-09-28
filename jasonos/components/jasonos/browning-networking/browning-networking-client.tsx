@@ -234,7 +234,7 @@ function HandoffDetail({
               const url = handoff.contactEmail
                 ? replyComposeUrl({
                     to: handoff.contactEmail,
-                    cc: TRACY_EMAIL,
+                    bcc: TRACY_EMAIL,
                     subject: handoff.subject ? `Re: ${handoff.subject.replace(/^re:\s*/i, "")}` : "Re: Executive Networking",
                     body: draft,
                     accountEmail: handoff.gmailAccount,
@@ -244,8 +244,8 @@ function HandoffDetail({
               if (url) window.open(url, "_blank", "noopener,noreferrer");
               toast(
                 outlook
-                  ? "Reply copied. Tracy is copied on the Outlook window."
-                  : "Reply copied. Tracy is copied on the Gmail window."
+                  ? "Reply copied. Tracy is on Bcc in the Outlook window."
+                  : "Reply copied. Tracy is on Bcc in the Gmail window."
               );
             }}
           >
@@ -253,7 +253,7 @@ function HandoffDetail({
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Tracy is copied. Nothing sends until you send it. If the handoff came from Outlook, the reply opens there.
+          Tracy is on Bcc. Nothing sends until you send it. If the handoff came from Outlook, the reply opens there.
         </p>
       </section>
 
