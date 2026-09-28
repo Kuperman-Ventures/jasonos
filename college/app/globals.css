@@ -969,7 +969,7 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
 }
 .school-modal-chrome-row {
   display: grid;
-  grid-template-columns: minmax(110px, 1fr) auto minmax(110px, 1fr);
+  grid-template-columns: minmax(110px, auto) minmax(0, 1fr) minmax(110px, auto);
   align-items: center;
   gap: 24px;
   min-height: 64px;
@@ -984,12 +984,13 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   min-width: 110px;
 }
 .school-modal-nav {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: stretch;
-  justify-content: center;
   gap: 4px;
   height: 56px;
   min-width: 0;
+  width: 100%;
 }
 .school-modal-nav-spacer { display: block; }
 .school-modal-nav-btn {
@@ -997,6 +998,7 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   align-items: center;
   gap: 8px;
   min-width: 0;
+  max-width: 100%;
   min-height: 44px;
   height: 100%;
   padding: 0 14px;
@@ -1008,7 +1010,17 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   font-size: 15px;
   line-height: 1.2;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
+}
+.school-modal-nav-prev {
+  justify-self: end;
+  justify-content: flex-end;
+}
+.school-modal-nav-next {
+  justify-self: start;
+  justify-content: flex-start;
 }
 .school-modal-nav-btn:hover:not(:disabled) {
   background: var(--color-rule);
@@ -1023,13 +1035,21 @@ table.schools tbody tr.selected td { background: var(--color-surface); }
   outline-offset: 2px;
 }
 .school-modal-nav-caret {
+  flex: none;
   font-size: 20px;
   line-height: 1;
+}
+.school-modal-nav-side-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .school-modal-nav-current {
   display: flex;
   align-items: center;
+  justify-self: center;
   gap: 12px;
+  min-width: 0;
   min-height: 44px;
   height: 100%;
   padding: 0 18px;
