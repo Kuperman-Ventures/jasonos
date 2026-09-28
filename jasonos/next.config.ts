@@ -1,12 +1,13 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 
-// JasonOS lives in a subfolder of the CoSA repo, which has its own lockfile.
-// Next 16 treats that parent lockfile as the file-tracing root, then forces
-// Turbopack to use it too. Google fonts then fail to resolve
-// ("next/font/google queries have exactly one entry"). Both roots have to be
-// this folder, and they have to be the same path.
-const projectRoot = path.join(import.meta.dirname);
+// JasonOS lives in a subfolder of the CoSA repo. Next requires
+// outputFileTracingRoot and turbopack.root to be the same path. On Vercel
+// that path is the repo root (NEXT_PRIVATE_OUTPUT_TRACE_ROOT). Pointing
+// Turbopack there breaks Google fonts, so the Vercel build uses webpack.
+// Locally there is no override, and the root stays this folder.
+const projectRoot =
+  process.env.NEXT_PRIVATE_OUTPUT_TRACE_ROOT || path.join(import.meta.dirname);
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: projectRoot,

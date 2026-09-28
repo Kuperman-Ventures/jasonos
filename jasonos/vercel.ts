@@ -6,7 +6,11 @@ import { type VercelConfig } from "@vercel/config/v1";
 // set to `jasonos/` (configured via API on 2026-04-22).
 export const config: VercelConfig = {
   framework: "nextjs",
-  buildCommand: "next build",
+  // Turbopack's Google font loader fails on Vercel when this app sits in a
+  // subfolder: the build root becomes the CoSA repo, and next/font/google
+  // then errors with "queries have exactly one entry". Webpack loads those
+  // fonts normally.
+  buildCommand: "next build --webpack",
   // Skip preview builds if the commit didn't touch the jasonos/ subfolder.
   // Always build `main` so production deploys don't get skipped when a push
   // contains JasonOS changes followed by a repo-level docs/config commit.
