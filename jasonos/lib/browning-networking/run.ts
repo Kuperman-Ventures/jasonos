@@ -30,6 +30,7 @@ import { loadBusy } from "./data";
 import { firstEligibleYmd, lastEligibleYmd, proposeSlots } from "./slots";
 import { isAlreadyTracked, FOLLOW_UP_LOOKBACK_DAYS, shouldQueueFollowUp } from "./follow-up";
 import { meetingBrief } from "./meeting-brief";
+import { matchOfferedSlot, replyWords } from "./chosen-time";
 import { extractDocxText, extractPdfText } from "@/lib/resume-customizer/extract";
 import { HANDOFF_OPENING, TRACY_EMAIL, type HandoffSlot, type ParsedHandoff } from "./types";
 
@@ -96,6 +97,7 @@ export async function runBrowningNetworking(): Promise<BrowningRunResult> {
     result.briefs = followed.briefs;
     result.thankYous = followed.thankYous;
     await linkBrowningReferrals(sb);
+    await detectChosenTimes(sb);
     result.ok = true;
     return result;
   } catch (err) {
@@ -757,6 +759,86 @@ function linkedInSlug(url: string | null | undefined): string | null {
   if (!url) return null;
   const match = url.match(/linkedin\.com\/in\/([^/?#]+)/i);
   return match?.[1]?.toLowerCase() ?? null;
+}
+
+async function detectChosenTimes(sb: Sb): Promise<void> {
+  const { data, error } = await sb
+    .from("browning_handoffs")
+    .select("id, contact_email, received_at, slots, status, call_starts_at")
+    .is("call_starts_at", null)
+    .in("status", ["times_ready", "draft_ready", "acted_on", "follow_up"])
+    .limit(12);
+  if (error || !data?.length) return;
+  for (const row of data) {
+    const email = (row.contact_email as string | null) ?? "";
+    const since = (row.received_at as string | null) ?? "";
+    const slots = asStoredSlots(row.slots);
+    if (!email || !since || !slots.length) continue;
+    const reply = await latestReplyFrom(email, since);
+    if (!reply) continue;
+    const words = replyWords(reply.body);
+    const chosen = matchOfferedSlot(slots, reply.body);
+    await sb
+      .from("browning_handoffs")
+      .update({
+        reply_excerpt: words.slice(0, 500) || null,
+        chosen_slot_start: chosen?.start ?? null,
+      })
+      .eq("id", row.id as string);
+  }
+}
+
+function asStoredSlots(value: unknown): { id: string; start: string; end: string }[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const row = item as Record<string, unknown>;
+    if (typeof row.id !== "string" || typeof row.start !== "string" || typeof row.end !== "string") return [];
+    return [{ id: row.id, start: row.start, end: row.end }];
+  });
+}
+
+async function latestReplyFrom(
+  email: string,
+  sinceIso: string
+): Promise<{ body: string; receivedAt: string } | null> {
+  const want = canonicalEmail(email);
+  const sinceMs = Date.parse(sinceIso);
+  let best: { body: string; receivedAt: string } | null = null;
+  const consider = (from: string, body: string, receivedAt: string) => {
+    if (canonicalEmail(from) !== want) return;
+    const ms = Date.parse(receivedAt);
+    if (!Number.isFinite(ms) || ms < sinceMs) return;
+    if (!replyWords(body)) return;
+    if (!best || ms > Date.parse(best.receivedAt)) best = { body, receivedAt };
+  };
+
+  const since = new Date(sinceIso);
+  const slash = `${since.getUTCFullYear()}/${since.getUTCMonth() + 1}/${since.getUTCDate()}`;
+  const google = await listGoogleAccessTokens();
+  for (const account of google) {
+    const listed = await listGmailMessages({
+      query: `from:${want} after:${slash}`,
+      max: 5,
+      accessToken: account.token,
+    });
+    if (!listed.length) continue;
+    const full = await getGmailMessagesFull(listed.slice(0, 3).map((item) => item.id), account.token);
+    for (const message of full) {
+      const receivedAt = message.internalDate ? new Date(message.internalDate).toISOString() : "";
+      if (!receivedAt || !message.from) continue;
+      consider(message.from, message.plaintextBody || message.snippet || "", receivedAt);
+    }
+  }
+
+  const outlook = await getOutlookAccountAccess();
+  if (outlook.token) {
+    const found = await searchOutlookMessages(outlook.token, [`"${want}"`], sinceIso, 2).catch(() => []);
+    for (const message of found) {
+      consider(message.from, message.body, message.receivedAt);
+    }
+  }
+  return best;
 }
 
 async function browningReferrerId(sb: Sb): Promise<string | null> {

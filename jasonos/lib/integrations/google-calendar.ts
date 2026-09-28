@@ -469,6 +469,69 @@ export async function updateGCalEvent(input: { token: string; eventId: string; n
   return (data as GCalEvent | null) ?? null;
 }
 
+export async function createGoogleMeetInvite(input: {
+  token: string;
+  summary: string;
+  startIso: string;
+  endIso: string;
+  attendeeEmail: string;
+}): Promise<
+  | { ok: true; eventId: string; meetUrl: string | null }
+  | { ok: false; error: string; needsReconnect: boolean }
+> {
+  const requestId = `browning-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const params = new URLSearchParams({
+    conferenceDataVersion: "1",
+    sendUpdates: "all",
+  });
+  const res = await fetch(`${CAL_BASE}/calendars/primary/events?${params}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${input.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      summary: input.summary,
+      description: "Job networking call.",
+      start: { dateTime: input.startIso, timeZone: "America/New_York" },
+      end: { dateTime: input.endIso, timeZone: "America/New_York" },
+      attendees: [{ email: input.attendeeEmail }],
+      conferenceData: {
+        createRequest: {
+          requestId,
+          conferenceSolutionKey: { type: "hangoutsMeet" },
+        },
+      },
+    }),
+    cache: "no-store",
+  });
+  const text = await res.text();
+  if (!res.ok) {
+    const needsReconnect = res.status === 403 || /insufficient/i.test(text);
+    return {
+      ok: false,
+      needsReconnect,
+      error: needsReconnect
+        ? "Reconnect Advisors Google in Settings and allow adding events. This connection can only read the calendar."
+        : `Google Calendar could not create the invite (${res.status}).`,
+    };
+  }
+  let json: { id?: string; hangoutLink?: string; conferenceData?: { entryPoints?: { uri?: string; entryPointType?: string }[] } } = {};
+  try {
+    json = JSON.parse(text) as typeof json;
+  } catch {
+    return { ok: false, needsReconnect: false, error: "Google Calendar returned an unreadable invite." };
+  }
+  if (!json.id) {
+    return { ok: false, needsReconnect: false, error: "Google Calendar did not return the new event." };
+  }
+  const meetUrl =
+    json.hangoutLink ??
+    json.conferenceData?.entryPoints?.find((point) => point.entryPointType === "video")?.uri ??
+    null;
+  return { ok: true, eventId: json.id, meetUrl };
+}
+
 export async function deleteGCalEvent(token: string, eventId: string): Promise<boolean> {
   const result = await gcalFetch(COSA_CALENDAR_ID, `/${eventId}`, "DELETE", token);
   return result === true;

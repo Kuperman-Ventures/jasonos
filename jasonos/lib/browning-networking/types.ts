@@ -88,6 +88,8 @@ export type HandoffRecord = {
   thankYouSource: string | null;
   lastOutreachSubject: string | null;
   lastOutreachSentAt: string | null;
+  replyExcerpt: string | null;
+  chosenSlotStart: string | null;
   status: HandoffStatus;
 };
 

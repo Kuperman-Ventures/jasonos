@@ -5,6 +5,8 @@ import { etYmd } from "@/lib/dates";
 import { loadBusy } from "@/lib/browning-networking/data";
 import { thankYouDraft } from "@/lib/browning-networking/draft";
 import { persistDraft, runBrowningNetworking } from "@/lib/browning-networking/run";
+import { createGoogleMeetInvite } from "@/lib/integrations/google-calendar";
+import { ADVISORS_ACCOUNT_EMAIL, listGoogleAccessTokens } from "@/lib/integrations/google-tokens";
 import { addCalendarDays, firstEligibleYmd } from "@/lib/browning-networking/slots";
 import type { HandoffSlot } from "@/lib/browning-networking/types";
 import { setCadence } from "@/lib/server-actions/outreach";
@@ -174,6 +176,55 @@ export async function draftThankYouFromNotes(
   if (updateError) return { ok: false, error: updateError.message };
   revalidate();
   return { ok: true };
+}
+
+export async function sendMeetInvite(
+  handoffId: string,
+  slotStart: string
+): Promise<{ ok: true; meetUrl: string | null } | { ok: false; error: string }> {
+  const guard = configured();
+  if (guard) return guard;
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("browning_handoffs")
+    .select("contact_name, contact_email, slots, call_starts_at, brief")
+    .eq("id", handoffId)
+    .maybeSingle();
+  if (error || !data) return { ok: false, error: error?.message || "Handoff not found." };
+  if (data.call_starts_at) return { ok: false, error: "This meeting is already on the calendar." };
+  const email = (data.contact_email as string | null) ?? "";
+  if (!email) return { ok: false, error: "No email address for this person." };
+  const slots = Array.isArray(data.slots) ? (data.slots as HandoffSlot[]) : [];
+  const slot = slots.find((item) => item?.start && Date.parse(item.start) === Date.parse(slotStart));
+  if (!slot?.start || !slot.end) return { ok: false, error: "Pick one of the times you offered." };
+  if (Date.parse(slot.start) < Date.now() - 5 * 60 * 1000) {
+    return { ok: false, error: "That time has already passed." };
+  }
+  const tokens = await listGoogleAccessTokens();
+  const token = tokens.find((account) => account.accountEmail === ADVISORS_ACCOUNT_EMAIL)?.token;
+  if (!token) return { ok: false, error: "Advisors Google is not connected." };
+  const name = (data.contact_name as string | null) || "this contact";
+  const created = await createGoogleMeetInvite({
+    token,
+    summary: `Call with ${name}`,
+    startIso: new Date(slot.start).toISOString(),
+    endIso: new Date(slot.end).toISOString(),
+    attendeeEmail: email,
+  });
+  if (!created.ok) return { ok: false, error: created.error };
+  const { error: updateError } = await sb
+    .from("browning_handoffs")
+    .update({
+      call_event_id: created.eventId,
+      call_title: `Call with ${name}`,
+      call_starts_at: new Date(slot.start).toISOString(),
+      call_ends_at: new Date(slot.end).toISOString(),
+      status: data.brief ? "brief_ready" : "booked",
+    })
+    .eq("id", handoffId);
+  if (updateError) return { ok: false, error: updateError.message };
+  revalidate();
+  return { ok: true, meetUrl: created.meetUrl };
 }
 
 export async function loadCalendarBusy(fromYmd: string, toYmd: string) {

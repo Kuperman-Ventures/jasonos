@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { BrowningNetworkingPage, HandoffRecord } from "@/lib/browning-networking/types";
 import {
   followUpDraft,
+  formatSlotLabel,
   replyComposeUrl,
   replySubject,
   schedulingDraft,
@@ -21,6 +23,7 @@ import {
   markHandoffActedOn,
   openHandoffReply,
   saveHandoffSlots,
+  sendMeetInvite,
   setHandoffCadence,
 } from "@/lib/server-actions/browning-networking";
 import { SlotCalendar, mondayOf } from "./slot-calendar";
@@ -115,7 +118,7 @@ export function BrowningNetworkingClient({
               rows={waitingRows}
               selectedId={selectedId}
               onSelect={setSelectedId}
-              openRow={(row) => isFollowUp(row)}
+              openRow={(row) => isFollowUp(row) || Boolean(row.replyExcerpt)}
               lane="waiting"
             />
             <HandoffLaneList
@@ -128,7 +131,9 @@ export function BrowningNetworkingClient({
           </>
         )}
       </aside>
-      {selected && isFollowUp(selected) ? (
+      {selected && selected.replyExcerpt && selectedLane === "waiting" ? (
+        <InvitePanel key={selected.id} handoff={selected} />
+      ) : selected && isFollowUp(selected) ? (
         <FollowUpPanel key={selected.id} handoff={selected} />
       ) : selected && selectedLane !== "waiting" ? (
         <HandoffDetail
@@ -543,7 +548,76 @@ function FollowUpPanel({ handoff }: { handoff: HandoffRecord }) {
   );
 }
 
+function InvitePanel({ handoff }: { handoff: HandoffRecord }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const offered = [...handoff.slots].sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
+  const preset =
+    offered.find(
+      (slot) =>
+        handoff.chosenSlotStart && Date.parse(slot.start) === Date.parse(handoff.chosenSlotStart)
+    )?.start ??
+    offered[0]?.start ??
+    "";
+  const [startIso, setStartIso] = useState(preset ?? "");
+  const picked = offered.find((slot) => slot.start === startIso) ?? null;
+
+  return (
+    <div className="space-y-4">
+      <header>
+        <h2 className="text-lg font-semibold">{handoff.contactName || "This contact"}</h2>
+        <p className="text-xs text-muted-foreground">
+          They replied. Send a Google Meet invite from jason@kupermanadvisors.com. Google emails it. Apple Mail is not involved.
+        </p>
+      </header>
+      {handoff.replyExcerpt ? (
+        <section className="space-y-1">
+          <h3 className="text-sm font-semibold">What they wrote</h3>
+          <p className="whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-sm">{handoff.replyExcerpt}</p>
+        </section>
+      ) : null}
+      <section className="space-y-2">
+        <h3 className="text-sm font-semibold">Time for the invite</h3>
+        <div className="flex flex-col gap-1">
+          {offered.map((slot) => (
+            <label key={slot.id} className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name={`invite-${handoff.id}`}
+                checked={slot.start === startIso}
+                onChange={() => setStartIso(slot.start)}
+              />
+              {formatSlotLabel(slot.start)}
+            </label>
+          ))}
+        </div>
+        <Button
+          disabled={pending || !picked || !handoff.contactEmail}
+          onClick={() => {
+            if (!picked) return;
+            start(async () => {
+              const result = await sendMeetInvite(handoff.id, picked.start);
+              if (!result.ok) toast.error(result.error);
+              else {
+                toast.success(`Google is emailing ${handoff.contactName || "them"} the Meet invite.`);
+                router.refresh();
+              }
+            });
+          }}
+        >
+          Send Meet invite
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          If Google says the connection can only read the calendar, reconnect Advisors Google in Settings and allow adding events.
+        </p>
+      </section>
+    </div>
+  );
+}
+
 function statusLabel(row: HandoffRecord, lane: HandoffLane = handoffLane(row)): string {
+  if (row.chosenSlotStart && lane === "waiting") return `Picked ${formatSlotLabel(row.chosenSlotStart)}`;
+  if (row.replyExcerpt && lane === "waiting") return "Replied — pick the time";
   if (row.status === "follow_up" && lane !== "scheduled") return "Follow up";
   if (row.status === "thank_you_ready") return "Thank-you draft ready";
   if (row.status === "brief_ready") return "Brief ready";
