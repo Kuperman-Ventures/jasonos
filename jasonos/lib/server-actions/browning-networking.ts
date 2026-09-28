@@ -65,19 +65,31 @@ export async function openHandoffReply(
   return result;
 }
 
-export async function dismissHandoff(handoffId: string): Promise<ActionResult> {
+export async function markHandoffActedOn(handoffId: string): Promise<ActionResult> {
   const guard = configured();
   if (guard) return guard;
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("browning_handoffs")
-    .update({ status: "dismissed" })
+    .select("status, call_starts_at, card_id")
     .eq("id", handoffId)
-    .select("card_id")
     .maybeSingle();
-  if (error) return { ok: false, error: error.message };
-  if (data?.card_id) {
-    await sb.from("cards").update({ state: "dismissed" }).eq("id", data.card_id as string);
+  if (error || !data) return { ok: false, error: error?.message || "Handoff not found." };
+  const alreadyBooked =
+    Boolean(data.call_starts_at) ||
+    data.status === "booked" ||
+    data.status === "brief_ready" ||
+    data.status === "thank_you_ready";
+  if (alreadyBooked) {
+    return { ok: false, error: "This meeting is already on your calendar." };
+  }
+  const { error: updateError } = await sb
+    .from("browning_handoffs")
+    .update({ status: "acted_on" })
+    .eq("id", handoffId);
+  if (updateError) return { ok: false, error: updateError.message };
+  if (data.card_id) {
+    await sb.from("cards").update({ state: "actioned" }).eq("id", data.card_id as string);
   }
   revalidate();
   return { ok: true };

@@ -25,6 +25,7 @@ export type HandoffBrief = {
 export type HandoffStatus =
   | "times_ready"
   | "draft_ready"
+  | "acted_on"
   | "booked"
   | "brief_ready"
   | "thank_you_ready"
