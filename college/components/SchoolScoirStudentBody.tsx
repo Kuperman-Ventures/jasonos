@@ -249,6 +249,9 @@ function RaceBars({ scoir }: { scoir: ScoirRecord }) {
     ...r,
     pct: pctOrZero(race[r.key]),
   })).sort((a, b) => b.pct - a.pct);
+  // Design scale: 40% fills the track. If any share is larger, expand the
+  // scale so the longest bar fits instead of overflowing the row.
+  const scale = Math.max(40, ...rows.map((r) => r.pct), 1);
 
   return (
     <div className="sb-race">
@@ -259,7 +262,7 @@ function RaceBars({ scoir }: { scoir: ScoirRecord }) {
             <span
               className="sb-race-bar"
               style={{
-                width: `${Math.max(0.8, (row.pct / 40) * 100)}%`,
+                width: `${Math.min(100, Math.max(0.8, (row.pct / scale) * 100))}%`,
               }}
             />
           </div>

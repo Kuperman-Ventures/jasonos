@@ -2042,6 +2042,8 @@ table.schools .test-policy-fall2028-note {
 .sb-race-track {
   height: 20px;
   background: var(--color-rule);
+  overflow: hidden;
+  min-width: 0;
 }
 .sb-race-bar {
   display: block;
