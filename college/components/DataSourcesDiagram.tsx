@@ -30,10 +30,14 @@ const COLUMN_LABELS: { type: SourceType; label: string; left: number; top: numbe
   { type: "outbound", label: "Outbound", left: 1030, top: 686 },
 ];
 
+const APP_COLUMN_TOP = 110;
+
 export function DataSourcesDiagram({ sources, matches, feature, onFeature, selectedId, onSelect }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [hoverId, setHoverId] = useState<string | null>(null);
+  const [hoverFeature, setHoverFeature] = useState<Feature | null>(null);
+  const [hoverApp, setHoverApp] = useState(false);
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -52,12 +56,20 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
   const platform = sources.filter((s) => s.type === "platform");
   const active = hoverId ?? selectedId;
   const activeSource = active ? byId.get(active) ?? null : null;
-  const anyOn = Boolean(active || feature);
+  /** Feature emphasized by chip hover, else sticky click — unless the whole app column is hovered without a chip. */
+  const emphasizeFeature = hoverFeature ?? (hoverApp ? null : feature);
+  const emphasizeAllCenter = hoverApp && !hoverFeature;
+  const anyOn = Boolean(active || emphasizeFeature || emphasizeAllCenter);
   const now = new Date();
 
   function nodeState(s: DataSource) {
-    const dim = !matches(s) || (feature != null && !s.feeds.includes(feature));
-    const highlighted = active === s.id || (feature != null && s.feeds.includes(feature) && !dim);
+    const dim =
+      !matches(s) ||
+      (emphasizeFeature != null && !s.feeds.includes(emphasizeFeature));
+    const highlighted =
+      active === s.id ||
+      (emphasizeFeature != null && s.feeds.includes(emphasizeFeature) && !dim) ||
+      (emphasizeAllCenter && s.type !== "platform" && s.feeds.length > 0 && matches(s));
     return { dim, highlighted, selected: selectedId === s.id };
   }
 
@@ -80,7 +92,7 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
     onBlur: () => setHoverId((current) => (current === id ? null : current)),
   });
 
-  const platformOn = activeSource?.type === "platform";
+  const platformOn = activeSource?.type === "platform" || emphasizeAllCenter;
 
   return (
     <div ref={wrapRef} className="ds-diagram-wrap" style={{ height: DIAGRAM_HEIGHT * scale }}>
@@ -97,7 +109,12 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
         >
           {lines.map((line) => {
             const source = byId.get(line.sourceId)!;
-            const on = (feature != null && feature === line.feature && matches(source)) || active === line.sourceId;
+            const on =
+              active === line.sourceId ||
+              (emphasizeFeature != null &&
+                emphasizeFeature === line.feature &&
+                matches(source)) ||
+              (emphasizeAllCenter && matches(source));
             const opacity = on ? 1 : anyOn ? 0.12 : matches(source) ? 0.45 : 0.12;
             return (
               <path
@@ -136,32 +153,59 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
           </span>
         ))}
 
-        <div className="ds-app-card">
-          <div className="ds-app-title">Kyle College</div>
-          <div className="ds-app-sub">{FEATURES.length} features · select one</div>
-        </div>
+        <div
+          className={`ds-app-column${hoverApp ? " is-hot" : ""}`}
+          onMouseEnter={() => setHoverApp(true)}
+          onMouseLeave={() => {
+            setHoverApp(false);
+            setHoverFeature(null);
+          }}
+        >
+          <div className="ds-app-card">
+            <div className="ds-app-title">Kyle College</div>
+            <div className="ds-app-sub">{FEATURES.length} features · select one</div>
+          </div>
 
-        {FEATURES.map((f, i) => {
-          const feeding = sources.filter((s) => s.type !== "platform" && s.feeds.includes(f.id));
-          const on = feature === f.id;
-          const lit = Boolean(activeSource?.feeds.includes(f.id));
-          return (
-            <button
-              key={f.id}
-              type="button"
-              aria-pressed={on}
-              className={["ds-chip", on ? "is-on" : "", lit ? "is-lit" : "", feature && !on ? "is-faded" : ""]
-                .filter(Boolean)
-                .join(" ")}
-              style={{ top: chipY(i) }}
-              onClick={() => onFeature(on ? null : f.id)}
-            >
-              <span className={`ds-dot ds-dot--${statusTone(worstStatus(feeding))}`} aria-hidden="true" />
-              <span className="ds-chip-name">{f.name}</span>
-              <span className="ds-chip-count">{feeding.length}</span>
-            </button>
-          );
-        })}
+          {FEATURES.map((f, i) => {
+            const feeding = sources.filter((s) => s.type !== "platform" && s.feeds.includes(f.id));
+            const selected = feature === f.id;
+            const lit =
+              selected ||
+              hoverFeature === f.id ||
+              emphasizeAllCenter ||
+              Boolean(activeSource?.feeds.includes(f.id));
+            const faded =
+              emphasizeFeature != null && emphasizeFeature !== f.id && !emphasizeAllCenter;
+            return (
+              <button
+                key={f.id}
+                type="button"
+                aria-pressed={selected}
+                className={["ds-chip", selected ? "is-on" : "", lit ? "is-lit" : "", faded ? "is-faded" : ""]
+                  .filter(Boolean)
+                  .join(" ")}
+                style={{ top: chipY(i) - APP_COLUMN_TOP }}
+                onClick={() => onFeature(selected ? null : f.id)}
+                onMouseEnter={() => setHoverFeature(f.id)}
+                onMouseLeave={() =>
+                  setHoverFeature((current) => (current === f.id ? null : current))
+                }
+                onFocus={() => {
+                  setHoverApp(true);
+                  setHoverFeature(f.id);
+                }}
+                onBlur={() => {
+                  setHoverFeature((current) => (current === f.id ? null : current));
+                  setHoverApp(false);
+                }}
+              >
+                <span className={`ds-dot ds-dot--${statusTone(worstStatus(feeding))}`} aria-hidden="true" />
+                <span className="ds-chip-name">{f.name}</span>
+                <span className="ds-chip-count">{feeding.length}</span>
+              </button>
+            );
+          })}
+        </div>
 
         {sources
           .filter((s) => positions[s.id])
