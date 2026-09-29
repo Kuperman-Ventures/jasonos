@@ -146,6 +146,52 @@ export function isListColumnId(value: string): value is ListColumnId {
   return LIST_COLUMNS.some((column) => column.id === value);
 }
 
+/**
+ * Toolbar filters that only make sense when their matching column is visible.
+ * Metro size rides on Setting (CampusSettingBadge shows metro bars there).
+ */
+export type ListToolbarFilterId =
+  | "selectivity"
+  | "setting"
+  | "metro"
+  | "schoolSize"
+  | "interest"
+  | "travel";
+
+export const LIST_FILTER_COLUMN: Record<ListToolbarFilterId, ListColumnId> = {
+  selectivity: "selectivity",
+  setting: "setting",
+  metro: "setting",
+  schoolSize: "size",
+  interest: "interest",
+  travel: "travel",
+};
+
+export function listFilterVisible(
+  filter: ListToolbarFilterId,
+  columns: readonly ListColumnId[],
+): boolean {
+  return columns.includes(LIST_FILTER_COLUMN[filter]);
+}
+
+/** Sort keys tied to a column — hide the option when that column is off. */
+export const LIST_SORT_COLUMN: Partial<Record<string, ListColumnId>> = {
+  drive: "travel",
+  setting: "setting",
+  size: "size",
+  newJerseyPct: "newJerseyPct",
+  selectivity: "selectivity",
+  interest: "interest",
+  status: "status",
+  action: "action",
+};
+
+export function listSortVisible(sortKey: string, columns: readonly ListColumnId[]): boolean {
+  const column = LIST_SORT_COLUMN[sortKey];
+  if (!column) return true;
+  return columns.includes(column);
+}
+
 /** Calendar phase for “where the list is now.” */
 export function currentListPhaseId(now = new Date()): ListPhaseId {
   const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;

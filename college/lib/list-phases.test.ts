@@ -13,6 +13,8 @@ import {
   LIST_PHASES,
   listSizeBar,
   mergeListPrefs,
+  listFilterVisible,
+  listSortVisible,
   normalizeColumns,
   phaseCountGauge,
   previousListPhaseId,
@@ -21,6 +23,7 @@ import {
   isForwardListPhaseMove,
   selectivityGauges,
   selectivityPieSlices,
+  type ListColumnId,
 } from "./list-phases";
 import { canAdvanceListPhase } from "./permissions";
 
@@ -199,6 +202,27 @@ test("normalizeColumns keeps school and falls back to phase defaults", () => {
     }),
     ["school", "selectivity"],
   );
+});
+
+test("listFilterVisible follows the matching column", () => {
+  const cols: ListColumnId[] = ["school", "selectivity", "interest", "setting"];
+  assert.equal(listFilterVisible("selectivity", cols), true);
+  assert.equal(listFilterVisible("interest", cols), true);
+  assert.equal(listFilterVisible("setting", cols), true);
+  assert.equal(listFilterVisible("metro", cols), true);
+  assert.equal(listFilterVisible("schoolSize", cols), false);
+  assert.equal(listFilterVisible("travel", cols), false);
+  assert.equal(listFilterVisible("metro", ["school", "size"]), false);
+});
+
+test("listSortVisible hides sorts for off columns", () => {
+  const cols: ListColumnId[] = ["school", "selectivity", "interest"];
+  assert.equal(listSortVisible("list", cols), true);
+  assert.equal(listSortVisible("name", cols), true);
+  assert.equal(listSortVisible("selectivity", cols), true);
+  assert.equal(listSortVisible("size", cols), false);
+  assert.equal(listSortVisible("drive", cols), false);
+  assert.equal(listSortVisible("setting", cols), false);
 });
 
 test("mergeListPrefs fills missing phases", () => {

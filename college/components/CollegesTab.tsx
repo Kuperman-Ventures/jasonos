@@ -7,11 +7,13 @@ import {
   advanceSchoolPatch,
   archiveSchoolPatch,
   currentListPhaseId,
+  listFilterVisible,
   listPhaseBarProgress,
   listPhaseById,
   listPhaseDaySpan,
   listPhaseEyebrow,
   listSizeBar,
+  listSortVisible,
   normalizeColumns,
   retreatSchoolPatch,
   schoolOnListPhase,
@@ -203,6 +205,41 @@ export function CollegesTab({
   const phase = listPhaseById(phaseId);
   const columns = normalizeColumns(listPrefs.columnsByPhase[phaseId], phase);
   const showArchived = listPrefs.showArchived;
+  const showSelectivityFilter = listFilterVisible("selectivity", columns);
+  const showSettingFilter = listFilterVisible("setting", columns);
+  const showMetroFilter = listFilterVisible("metro", columns);
+  const showSchoolSizeFilter = listFilterVisible("schoolSize", columns);
+  const showInterestFilter = listFilterVisible("interest", columns);
+  const showTravelFilter = listFilterVisible("travel", columns);
+
+  // Drop filter/sort state that no longer matches a visible column.
+  useEffect(() => {
+    if (!showSelectivityFilter && tier !== "any") setTier("any");
+    if (!showSettingFilter && settingFilters.length) setSettingFilters([]);
+    if (!showMetroFilter && metroFilters.length) setMetroFilters([]);
+    if (!showSchoolSizeFilter && schoolSizeFilters.length) setSchoolSizeFilters([]);
+    if (!showInterestFilter && interest !== "any") setInterest("any");
+    if (!showTravelFilter && travelFilter !== "any") setTravelFilter("any");
+    if (!listSortVisible(sort, columns) && sort !== "list") {
+      setSort("list");
+      setSortDir(1);
+    }
+  }, [
+    columns,
+    showSelectivityFilter,
+    showSettingFilter,
+    showMetroFilter,
+    showSchoolSizeFilter,
+    showInterestFilter,
+    showTravelFilter,
+    tier,
+    settingFilters.length,
+    metroFilters.length,
+    schoolSizeFilters.length,
+    interest,
+    travelFilter,
+    sort,
+  ]);
 
   useEffect(() => {
     if (!columnsOpen) return;
@@ -699,96 +736,108 @@ export function CollegesTab({
           placeholder="Search schools"
           onChange={(event) => setQuery(event.target.value)}
         />
-        <select
-          className="select"
-          value={tier}
-          aria-label="Filter by selectivity"
-          onChange={(event) => setTier(event.target.value as SelectivityTier | "any")}
-        >
-          <option value="any">All selectivity</option>
-          {SELECTIVITY_TIERS.map((item) => (
-            <option key={item.id || "unset"} value={item.id}>
-              {item.label}
-            </option>
-          ))}
-        </select>
-        <details className="multi-filter">
-          <summary>
-            Setting{settingFilters.length ? ` · ${settingFilters.length}` : ""}
-          </summary>
-          <div className="multi-filter-menu" role="group" aria-label="Filter by campus setting">
-            {CAMPUS_SETTINGS.map((item) => (
-              <label key={item}>
-                <input
-                  type="checkbox"
-                  checked={settingFilters.includes(item)}
-                  onChange={() => setSettingFilters((current) => toggleMulti(current, item))}
-                />
-                {item}
-              </label>
+        {showSelectivityFilter ? (
+          <select
+            className="select"
+            value={tier}
+            aria-label="Filter by selectivity"
+            onChange={(event) => setTier(event.target.value as SelectivityTier | "any")}
+          >
+            <option value="any">All selectivity</option>
+            {SELECTIVITY_TIERS.map((item) => (
+              <option key={item.id || "unset"} value={item.id}>
+                {item.label}
+              </option>
             ))}
-          </div>
-        </details>
-        <details className="multi-filter">
-          <summary>
-            Metro size{metroFilters.length ? ` · ${metroFilters.length}` : ""}
-          </summary>
-          <div className="multi-filter-menu" role="group" aria-label="Filter by metro size">
-            {METRO_TIERS.map((item) => (
-              <label key={item}>
-                <input
-                  type="checkbox"
-                  checked={metroFilters.includes(item)}
-                  onChange={() => setMetroFilters((current) => toggleMulti(current, item))}
-                />
-                {item}
-              </label>
+          </select>
+        ) : null}
+        {showSettingFilter ? (
+          <details className="multi-filter">
+            <summary>
+              Setting{settingFilters.length ? ` · ${settingFilters.length}` : ""}
+            </summary>
+            <div className="multi-filter-menu" role="group" aria-label="Filter by campus setting">
+              {CAMPUS_SETTINGS.map((item) => (
+                <label key={item}>
+                  <input
+                    type="checkbox"
+                    checked={settingFilters.includes(item)}
+                    onChange={() => setSettingFilters((current) => toggleMulti(current, item))}
+                  />
+                  {item}
+                </label>
+              ))}
+            </div>
+          </details>
+        ) : null}
+        {showMetroFilter ? (
+          <details className="multi-filter">
+            <summary>
+              Metro size{metroFilters.length ? ` · ${metroFilters.length}` : ""}
+            </summary>
+            <div className="multi-filter-menu" role="group" aria-label="Filter by metro size">
+              {METRO_TIERS.map((item) => (
+                <label key={item}>
+                  <input
+                    type="checkbox"
+                    checked={metroFilters.includes(item)}
+                    onChange={() => setMetroFilters((current) => toggleMulti(current, item))}
+                  />
+                  {item}
+                </label>
+              ))}
+            </div>
+          </details>
+        ) : null}
+        {showSchoolSizeFilter ? (
+          <details className="multi-filter">
+            <summary>
+              School size{schoolSizeFilters.length ? ` · ${schoolSizeFilters.length}` : ""}
+            </summary>
+            <div className="multi-filter-menu" role="group" aria-label="Filter by school size">
+              {SCHOOL_SIZES.map((item) => (
+                <label key={item}>
+                  <input
+                    type="checkbox"
+                    checked={schoolSizeFilters.includes(item)}
+                    onChange={() => setSchoolSizeFilters((current) => toggleMulti(current, item))}
+                  />
+                  {item}
+                </label>
+              ))}
+            </div>
+          </details>
+        ) : null}
+        {showInterestFilter ? (
+          <select
+            className="select"
+            value={interest}
+            aria-label="Filter by interest"
+            onChange={(event) => setInterest(event.target.value as InterestLevel | "any")}
+          >
+            <option value="any">All interest</option>
+            {INTEREST_LEVELS.map((item) => (
+              <option key={item.id || "unset"} value={item.id}>
+                {item.label}
+              </option>
             ))}
-          </div>
-        </details>
-        <details className="multi-filter">
-          <summary>
-            School size{schoolSizeFilters.length ? ` · ${schoolSizeFilters.length}` : ""}
-          </summary>
-          <div className="multi-filter-menu" role="group" aria-label="Filter by school size">
-            {SCHOOL_SIZES.map((item) => (
-              <label key={item}>
-                <input
-                  type="checkbox"
-                  checked={schoolSizeFilters.includes(item)}
-                  onChange={() => setSchoolSizeFilters((current) => toggleMulti(current, item))}
-                />
-                {item}
-              </label>
-            ))}
-          </div>
-        </details>
+          </select>
+        ) : null}
+        {showTravelFilter ? (
+          <select
+            className="select"
+            value={travelFilter}
+            aria-label="Filter by travel mode"
+            onChange={(event) => setTravelFilter(event.target.value as "any" | "Drive" | "Fly")}
+          >
+            <option value="any">Drive or fly</option>
+            <option value="Drive">Drive</option>
+            <option value="Fly">Fly</option>
+          </select>
+        ) : null}
         <select
           className="select"
-          value={interest}
-          aria-label="Filter by interest"
-          onChange={(event) => setInterest(event.target.value as InterestLevel | "any")}
-        >
-          <option value="any">All interest</option>
-          {INTEREST_LEVELS.map((item) => (
-            <option key={item.id || "unset"} value={item.id}>
-              {item.label}
-            </option>
-          ))}
-        </select>
-        <select
-          className="select"
-          value={travelFilter}
-          aria-label="Filter by travel mode"
-          onChange={(event) => setTravelFilter(event.target.value as "any" | "Drive" | "Fly")}
-        >
-          <option value="any">Drive or fly</option>
-          <option value="Drive">Drive</option>
-          <option value="Fly">Fly</option>
-        </select>
-        <select
-          className="select"
-          value={sort}
+          value={listSortVisible(sort, columns) ? sort : "list"}
           aria-label="Sort schools"
           onChange={(event) => {
             setSort(event.target.value as SortKey);
@@ -797,14 +846,22 @@ export function CollegesTab({
         >
           <option value="list">Sheet order</option>
           <option value="name">School name</option>
-          <option value="drive">Drive time</option>
-          <option value="setting">Campus setting</option>
-          <option value="size">School size</option>
-          <option value="newJerseyPct">From NJ</option>
-          <option value="selectivity">Selectivity</option>
-          <option value="interest">Interest</option>
-          <option value="status">Application status</option>
-          <option value="action">Next action</option>
+          {listSortVisible("drive", columns) ? <option value="drive">Drive time</option> : null}
+          {listSortVisible("setting", columns) ? (
+            <option value="setting">Campus setting</option>
+          ) : null}
+          {listSortVisible("size", columns) ? <option value="size">School size</option> : null}
+          {listSortVisible("newJerseyPct", columns) ? (
+            <option value="newJerseyPct">From NJ</option>
+          ) : null}
+          {listSortVisible("selectivity", columns) ? (
+            <option value="selectivity">Selectivity</option>
+          ) : null}
+          {listSortVisible("interest", columns) ? <option value="interest">Interest</option> : null}
+          {listSortVisible("status", columns) ? (
+            <option value="status">Application status</option>
+          ) : null}
+          {listSortVisible("action", columns) ? <option value="action">Next action</option> : null}
         </select>
         <div className="columns-menu" ref={columnsRef}>
           <button
