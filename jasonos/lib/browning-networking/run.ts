@@ -651,7 +651,12 @@ async function followBookedCalls(sb: Sb): Promise<{
       callHasEnded(endsAt, startsAt, now) &&
       etYmd(startsAt) <= today
     ) {
-      const summary = await transcriptSummary(name, email);
+      const summary = await transcriptSummary(
+        name,
+        email,
+        startsAt,
+        (row.call_event_id as string | null) ?? null
+      );
       if (summary) {
         const body = thankYouDraft({ name, summary: summary.text });
         const cardId = await insertCard(sb, {
@@ -679,11 +684,15 @@ async function followBookedCalls(sb: Sb): Promise<{
 
 async function transcriptSummary(
   name: string | null,
-  email: string | null
+  email: string | null,
+  aroundIso: string | null,
+  calendarEventId: string | null
 ): Promise<{ text: string; source: string } | null> {
   if (!name) return null;
   const [granola, fireflies] = await Promise.all([
-    searchGranolaForContact({ contactName: name, email }).catch(() => ({ found: false as const })),
+    searchGranolaForContact({ contactName: name, email, aroundIso, calendarEventId }).catch(() => ({
+      found: false as const,
+    })),
     searchFirefliesForContact({ contactName: name }).catch(() => ({ found: false as const })),
   ]);
   if (granola.found && granola.summary) {

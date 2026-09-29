@@ -20,6 +20,7 @@ import { CADENCE_LABELS, type CadenceInterval } from "@/lib/outreach/types";
 import {
   checkBrowningHandoffs,
   draftThankYouFromNotes,
+  pullGranolaThankYou,
   markHandoffActedOn,
   openHandoffReply,
   saveHandoffSlots,
@@ -178,6 +179,7 @@ function HandoffDetail({
 }) {
   const [slots, setSlots] = useState<HandoffSlot[]>(handoff.slots);
   const [weekMonday, setWeekMonday] = useState(mondayOf(eligibleYmd));
+  const router = useRouter();
   const [notes, setNotes] = useState("");
   const [cadence, setCadence] = useState<CadenceInterval>("none");
   const [pending, start] = useTransition();
@@ -385,7 +387,26 @@ function HandoffDetail({
         ) : (
           <>
             <p className="text-xs text-muted-foreground">
-              Paste the Granola or Fireflies notes and this writes a thank-you draft. The morning check also looks for a transcript. Nothing sends.
+              Get the Granola note for this call. That writes the thank-you. Nothing sends. The morning check does the same after the call.
+            </p>
+            <Button
+              size="sm"
+              disabled={pending}
+              onClick={() =>
+                start(async () => {
+                  const result = await pullGranolaThankYou(handoff.id);
+                  if (!result.ok) toast.error(result.error);
+                  else {
+                    toast("Thank-you draft is ready from Granola. It is not sent.");
+                    router.refresh();
+                  }
+                })
+              }
+            >
+              Get the Granola note
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              If Granola does not have the note yet, paste it here.
             </p>
             <textarea
               value={notes}

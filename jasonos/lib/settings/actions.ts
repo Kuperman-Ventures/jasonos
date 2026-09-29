@@ -155,7 +155,8 @@ export async function testServiceConnection(
     !key &&
     serviceName !== "beeper" &&
     serviceName !== "jasonos_mcp" &&
-    serviceName !== "firecrawl"
+    serviceName !== "firecrawl" &&
+    serviceName !== "granola"
   ) {
     return { success: false, message: "API key is required.", health_status: "down" };
   }
@@ -270,6 +271,61 @@ export async function testServiceConnection(
         health_status: "degraded",
         metadata: { base_url: base },
       };
+    }
+  }
+
+  if (serviceName === "granola") {
+    let granolaKey = stringCredential(credentials.api_key);
+    if (!granolaKey) {
+      try {
+        const publicDb = createPublicServiceRoleClient();
+        const { data } = await publicDb
+          .from("service_connections")
+          .select("config")
+          .eq("service_name", "granola")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const cfg = (data?.config ?? {}) as { access_token?: string };
+        granolaKey = cfg.access_token?.trim() || undefined;
+      } catch {
+        // ignore
+      }
+    }
+    granolaKey = granolaKey || process.env.GRANOLA_API_KEY?.trim() || undefined;
+    if (!granolaKey) {
+      return {
+        success: false,
+        message: "Paste a Granola API key. In the Granola app: Settings → Connectors → API keys. Include Personal notes.",
+        health_status: "down",
+      };
+    }
+    try {
+      const res = await fetch("https://public-api.granola.ai/v1/notes?page_size=1", {
+        headers: { Authorization: `Bearer ${granolaKey}`, Accept: "application/json" },
+        cache: "no-store",
+      });
+      if (res.status === 401 || res.status === 403) {
+        return {
+          success: false,
+          message: "Granola rejected the API key. Create a new one in Granola and paste it here.",
+          health_status: "down",
+        };
+      }
+      if (!res.ok) {
+        return {
+          success: false,
+          message: `Granola returned ${res.status}.`,
+          health_status: "down",
+        };
+      }
+      return {
+        success: true,
+        message: "Granola is connected. Browning can read meeting notes.",
+        health_status: "healthy",
+      };
+    } catch (error) {
+      return failed(error, "Granola verification failed.");
     }
   }
 
@@ -430,7 +486,8 @@ export async function saveServiceConnection(input: z.infer<typeof SaveConnection
   if (
     (service.name === "beeper" ||
       service.name === "jasonos_mcp" ||
-      service.name === "firecrawl") &&
+      service.name === "firecrawl" ||
+      service.name === "granola") &&
     !key
   ) {
     const { data: existing } = await supabase
@@ -545,7 +602,7 @@ function sanitizeConfig(credentials: Record<string, string | number | boolean>, 
     if (token) out.access_token = token;
     return out;
   }
-  if (serviceName === "jasonos_mcp" || serviceName === "firecrawl") {
+  if (serviceName === "jasonos_mcp" || serviceName === "firecrawl" || serviceName === "granola") {
     const out: Record<string, string> = {};
     const token = stringCredential(credentials.api_key);
     if (token) out.access_token = token;
