@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import {
   type AdmissionTrack,
   type ApplicationStatus,
@@ -31,11 +32,18 @@ import {
   nearestSchoolsFrom,
 } from "@/lib/drive-matrix";
 import { CampusSettingBadge } from "./CampusSettingBadge";
-import { SchoolCampusSatelliteMap } from "./SchoolCampusSatelliteMap";
 import { SchoolLocationMap, SelectivityGauge } from "./SchoolSnapshotViz";
 import { SchoolScoirStudentBody } from "./SchoolScoirStudentBody";
 import { formatScoirPct, scoirRecordForSchool } from "@/lib/scoir";
 import { UsersThree } from "@phosphor-icons/react";
+
+const SchoolCampusSatelliteMap = dynamic(
+  () => import("./SchoolCampusSatelliteMap").then((mod) => mod.SchoolCampusSatelliteMap),
+  {
+    ssr: false,
+    loading: () => <section className="snapshot-satellite" aria-hidden="true" />,
+  },
+);
 
 type SnapshotPatch = Partial<
   Pick<
