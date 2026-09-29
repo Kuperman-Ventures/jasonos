@@ -3,7 +3,6 @@
 import { useEffect, useId, useMemo, useRef } from "react";
 import { MemberBadge } from "@/components/MemberBadge";
 import type { MemberProfile } from "@/lib/member-avatars";
-import { memberOwnerId } from "@/lib/project-todos";
 import {
   TIMELINE_PROJECTS,
   buildStageTicks,
