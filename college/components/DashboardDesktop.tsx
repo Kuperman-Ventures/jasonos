@@ -142,11 +142,26 @@ export function DashboardDesktop({
   checklist,
   dateline,
   onToggle,
+  projectSteps = [],
+  todoEdits = {},
+  memberId,
+  memberProfiles = [],
+  onAssignStage,
+  onOpenTodos,
 }: {
   schools: School[];
   checklist: Record<string, boolean>;
   dateline: string;
   onToggle?: (id: string, checked: boolean) => void;
+  projectSteps?: import("@/lib/ingest").PersistedProjectStep[];
+  todoEdits?: import("@/lib/project-todos").TodoEditMap;
+  memberId?: string;
+  memberProfiles?: import("@/lib/member-avatars").MemberProfile[];
+  onAssignStage?: (
+    stage: import("./TimelineStageModal").StageAssignPayload,
+    owner: import("@/lib/types").Owner | null,
+  ) => void;
+  onOpenTodos?: (projectId: string) => void;
 }) {
   const stats = useDashboardStats(schools);
 
@@ -178,6 +193,12 @@ export function DashboardDesktop({
           checklist={checklist}
           title="College Process Timeline"
           onToggle={onToggle}
+          projectSteps={projectSteps}
+          todoEdits={todoEdits}
+          memberId={memberId}
+          memberProfiles={memberProfiles}
+          onAssignStage={onAssignStage}
+          onOpenTodos={onOpenTodos}
         />
       </div>
 

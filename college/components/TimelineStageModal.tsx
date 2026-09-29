@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef } from "react";
+import { MemberBadge } from "@/components/MemberBadge";
+import type { MemberProfile } from "@/lib/member-avatars";
+import { memberOwnerId } from "@/lib/project-todos";
 import {
   TIMELINE_PROJECTS,
   buildStageTicks,
@@ -18,6 +21,7 @@ import {
   type TimelineProject,
   type TimelineStage,
 } from "@/lib/timeline-stages";
+import { OWNERS, ownerLabel, type Owner } from "@/lib/types";
 
 type LiveStageRow = {
   id: string;
@@ -32,29 +36,51 @@ type LiveStageRow = {
   done: boolean;
 };
 
+export type StageAssignPayload = {
+  id: string;
+  name: string;
+  start: string;
+  end: string;
+  projectId: string;
+};
+
 export function TimelineStageModal({
   projectId,
   liveStages = [],
   stageCompletions = {},
+  memberId,
+  memberProfiles = [],
+  stageOwners = {},
   onClose,
   onSelectProject,
   onOpenTodos,
   onMarkStageDone,
+  onAssignStage,
 }: {
   projectId: string;
   liveStages?: LiveStageRow[];
   /** Checklist-style completions for seed stages (stage id → done). */
   stageCompletions?: Record<string, boolean>;
+  memberId?: string;
+  memberProfiles?: MemberProfile[];
+  /** Current assignee per stage/todo id. */
+  stageOwners?: Record<string, Owner>;
   onClose: () => void;
   onSelectProject: (id: string) => void;
   onOpenTodos: (projectId: string) => void;
   onMarkStageDone?: (stageId: string) => void;
+  onAssignStage?: (stage: StageAssignPayload, owner: Owner | null) => void;
 }) {
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const index = TIMELINE_PROJECTS.findIndex((project) => project.id === projectId);
   const project = TIMELINE_PROJECTS[index] ?? null;
+  const viewer = memberId ? memberOwnerId(memberId) : null;
+  const profiles = useMemo(
+    () => new Map(memberProfiles.map((row) => [row.id, row])),
+    [memberProfiles],
+  );
 
   const stages = useMemo(
     () => (project ? resolveProjectStages(project.id, liveStages, stageCompletions) : []),
@@ -238,10 +264,13 @@ export function TimelineStageModal({
         ) : null}
 
         <div className="tl-sg-scroll">
-          <div className="tl-sg">
+          <div className={`tl-sg${onAssignStage ? " tl-sg-assignable" : ""}`}>
             <div className="tl-sg-grid tl-sg-head">
               <div className="tl-sg-col mono">Stage</div>
               <div className="tl-sg-col mono">Dates</div>
+              {onAssignStage ? (
+                <div className="tl-sg-col tl-sg-col-assign mono">Assign</div>
+              ) : null}
               <div className="tl-sg-track">
                 {ticks.map((tick, i) => (
                   <div
@@ -264,9 +293,27 @@ export function TimelineStageModal({
                 project={project}
                 today={today}
                 phaseHeading={row.phaseHeading}
+                owner={stageOwners[row.stage.id] ?? null}
+                profiles={profiles}
+                viewer={viewer}
                 onMarkDone={
                   onMarkStageDone && stageStatus(row.stage, today) === "overdue"
                     ? () => onMarkStageDone(row.stage.id)
+                    : undefined
+                }
+                onAssign={
+                  onAssignStage
+                    ? (owner) =>
+                        onAssignStage(
+                          {
+                            id: row.stage.id,
+                            name: row.stage.name,
+                            start: row.stage.start,
+                            end: row.stage.end,
+                            projectId: row.stage.projectId,
+                          },
+                          owner,
+                        )
                     : undefined
                 }
               />
@@ -331,17 +378,36 @@ function StageRow({
   project,
   today,
   phaseHeading,
+  owner,
+  profiles,
+  viewer,
   onMarkDone,
+  onAssign,
 }: {
   stage: TimelineStage;
   project: TimelineProject;
   today: Date;
   phaseHeading: string | null;
+  owner: Owner | null;
+  profiles: Map<string, MemberProfile>;
+  viewer: Owner | null;
   onMarkDone?: () => void;
+  onAssign?: (owner: Owner | null) => void;
 }) {
   const status = stageStatus(stage, today);
   const statusLabel = stageStatusLabel(stage, status);
-  const title = `${stage.name} · ${formatStageRange(stage.start, stage.end)} · ${statusLabel}`;
+  const ownerProfile = owner ? profiles.get(owner) : null;
+  const ownerName = owner
+    ? (ownerProfile?.displayName ?? ownerLabel(owner))
+    : null;
+  const title = [
+    stage.name,
+    formatStageRange(stage.start, stage.end),
+    statusLabel,
+    ownerName ? `Assigned to ${ownerName}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const geo = stageBarGeometry(stage, project);
   const mark = stageMark(stage, status);
 
@@ -354,6 +420,7 @@ function StageRow({
         className="tl-sg-grid tl-sg-row"
         data-s={status}
         data-ms={stage.isMilestone ? "true" : undefined}
+        data-assigned={owner ? "true" : undefined}
         title={title}
       >
         <div className="tl-sg-name">
@@ -361,6 +428,17 @@ function StageRow({
             {mark}
           </span>
           <span className="tl-sg-t">{stage.name}</span>
+          {ownerName ? (
+            <span className="tl-sg-owner">
+              <MemberBadge
+                name={ownerName}
+                avatarUrl={ownerProfile?.avatarUrl}
+                size="sm"
+                showName={false}
+                title={`Assigned to ${ownerName}`}
+              />
+            </span>
+          ) : null}
           {status === "overdue" && onMarkDone ? (
             <button
               type="button"
@@ -374,6 +452,16 @@ function StageRow({
         <div className="tl-sg-span mono">
           {formatStageRange(stage.start, stage.end)}
         </div>
+        {onAssign ? (
+          <StageAssignSelect
+            stageId={stage.id}
+            stageName={stage.name}
+            owner={owner}
+            profiles={profiles}
+            viewer={viewer}
+            onAssign={onAssign}
+          />
+        ) : null}
         <div className="tl-sg-track">
           {stage.isMilestone ? (
             <div
@@ -394,5 +482,84 @@ function StageRow({
         </div>
       </div>
     </>
+  );
+}
+
+function StageAssignSelect({
+  stageId,
+  stageName,
+  owner,
+  profiles,
+  viewer,
+  onAssign,
+}: {
+  stageId: string;
+  stageName: string;
+  owner: Owner | null;
+  profiles: Map<string, MemberProfile>;
+  viewer: Owner | null;
+  onAssign: (owner: Owner | null) => void;
+}) {
+  const labelId = `tl-assign-${stageId}`;
+  return (
+    <div className="tl-sg-assign">
+      <span className="sr-only" id={labelId}>
+        Assign {stageName}
+      </span>
+      <div
+        className="tl-assign-picker"
+        role="radiogroup"
+        aria-labelledby={labelId}
+      >
+        <button
+          type="button"
+          role="radio"
+          className={`tl-assign-choice${!owner ? " is-selected" : ""}`}
+          aria-checked={!owner}
+          aria-label="Unassigned"
+          title="Unassigned"
+          onClick={() => onAssign(null)}
+        >
+          <span className="tl-assign-avatar tl-assign-unclaimed" aria-hidden="true">
+            ?
+          </span>
+        </button>
+        {OWNERS.map((row) => {
+          const profile = profiles.get(row.id);
+          const selected = owner === row.id;
+          const name = profile?.displayName ?? row.label;
+          return (
+            <button
+              key={row.id}
+              type="button"
+              role="radio"
+              className={`tl-assign-choice${selected ? " is-selected" : ""}`}
+              aria-checked={selected}
+              aria-label={name}
+              title={name}
+              onClick={() => onAssign(row.id)}
+            >
+              <span className="tl-assign-avatar" aria-hidden="true">
+                <MemberBadge
+                  name={name}
+                  avatarUrl={profile?.avatarUrl}
+                  size="sm"
+                  showName={false}
+                />
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {viewer && owner !== viewer ? (
+        <button
+          type="button"
+          className="tl-assign-claim"
+          onClick={() => onAssign(viewer)}
+        >
+          Me
+        </button>
+      ) : null}
+    </div>
   );
 }

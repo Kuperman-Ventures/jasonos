@@ -664,3 +664,101 @@ export function openListStats(todos: ProjectTodo[]): { open: number; dated: numb
     label: `${openTodos.length} open · ${dated} dated`,
   };
 }
+
+/**
+ * Put a timeline stage on someone's to-do list (or reassign / clear it).
+ * Uses the stage id as the to-do id so checklist completion stays in sync.
+ * Pass `owner: null` to remove the stage from every list.
+ */
+export function upsertStageAssignment(
+  stage: {
+    id: string;
+    name: string;
+    start: string;
+    end: string;
+    projectId: string;
+  },
+  owner: Owner | null,
+  assignedBy: Owner,
+  projectSteps: PersistedProjectStep[],
+  edits: TodoEditMap,
+): { projectSteps: PersistedProjectStep[]; todoEdits: TodoEditMap } {
+  const existing = projectSteps.find((step) => step.id === stage.id);
+  const prior = edits[stage.id] ?? {};
+
+  if (owner == null) {
+    if (!existing && !edits[stage.id]) {
+      return { projectSteps, todoEdits: edits };
+    }
+    const nextSteps = projectSteps.filter((row) => row.id !== stage.id);
+    const nextEdits = normalizeTodoEdits({
+      ...edits,
+      [stage.id]: {
+        ...prior,
+        deleted: true,
+        owner: null,
+        assignedBy: null,
+      },
+    });
+    return { projectSteps: nextSteps, todoEdits: nextEdits };
+  }
+
+  const assignMeta = assignmentPatch(assignedBy, owner);
+  const step: PersistedProjectStep = {
+    id: stage.id,
+    label: stage.name,
+    owner,
+    assignedBy: assignMeta.assignedBy ?? null,
+    parentId: INBOX_PARENT_ID,
+    dueDate: stage.end,
+    startDate: stage.start,
+    endDate: stage.end,
+    sourceId: null,
+    createdAt: existing?.createdAt ?? new Date().toISOString(),
+  };
+  const nextSteps = existing
+    ? projectSteps.map((row) => (row.id === stage.id ? step : row))
+    : [...projectSteps, step];
+  const nextEdits = normalizeTodoEdits({
+    ...edits,
+    [stage.id]: {
+      ...prior,
+      deleted: false,
+      owner,
+      assignedBy: assignMeta.assignedBy ?? null,
+      dueDate: stage.end,
+      startDate: stage.start,
+      endDate: stage.end,
+      projectId: stage.projectId,
+      label: stage.name,
+    },
+  });
+  return { projectSteps: nextSteps, todoEdits: nextEdits };
+}
+
+/** Owner currently assigned to a stage to-do, if any. */
+export function stageOwnerFromTodos(
+  stageId: string,
+  checklist: Record<string, boolean>,
+  projectSteps: PersistedProjectStep[],
+  edits: TodoEditMap,
+): Owner | null {
+  const todo = listProjectTodos(checklist, phases, projectSteps, edits).find(
+    (row) => row.id === stageId,
+  );
+  return todo?.owner ?? null;
+}
+
+/** Map of stage/todo id → current owner for timeline assign UI. */
+export function stageOwnerMap(
+  checklist: Record<string, boolean>,
+  projectSteps: PersistedProjectStep[],
+  edits: TodoEditMap,
+): Record<string, Owner> {
+  const out: Record<string, Owner> = {};
+  for (const todo of listProjectTodos(checklist, phases, projectSteps, edits)) {
+    if (todo.owner) out[todo.id] = todo.owner;
+  }
+  return out;
+}
+

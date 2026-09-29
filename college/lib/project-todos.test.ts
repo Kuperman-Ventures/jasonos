@@ -18,8 +18,11 @@ import {
   sanitizeChecklistForViewer,
   sanitizeSubtasksForViewer,
   shortDueLabel,
+  stageOwnerFromTodos,
+  stageOwnerMap,
   todoOwnerIndex,
   todoPrimaryDate,
+  upsertStageAssignment,
   type ProjectTodo,
 } from "./project-todos";
 
@@ -378,4 +381,57 @@ test("personMeterRows is me-first, open-only, and keeps zero members", () => {
   );
   assert.equal(personMeterMax(rows), 2);
   assert.equal(personMeterMax([{ owner: "jason", label: "Jason", total: 0, overdue: 0 }]), 1);
+});
+
+test("upsertStageAssignment puts a stage on the assignee's to-do list", () => {
+  const stage = {
+    id: "college-list-s1",
+    name: "Take an interest inventory",
+    start: "2026-09-01",
+    end: "2026-09-20",
+    projectId: "college-list",
+  };
+  const assigned = upsertStageAssignment(stage, "kyle", "jason", [], {});
+  assert.equal(assigned.projectSteps.length, 1);
+  assert.equal(assigned.projectSteps[0]?.id, "college-list-s1");
+  assert.equal(assigned.projectSteps[0]?.owner, "kyle");
+  assert.equal(assigned.projectSteps[0]?.assignedBy, "jason");
+  assert.equal(assigned.projectSteps[0]?.dueDate, "2026-09-20");
+  assert.equal(assigned.todoEdits["college-list-s1"]?.projectId, "college-list");
+  assert.equal(assigned.todoEdits["college-list-s1"]?.owner, "kyle");
+
+  const listed = listProjectTodos({}, undefined, assigned.projectSteps, assigned.todoEdits);
+  const todo = listed.find((row) => row.id === "college-list-s1");
+  assert.equal(todo?.owner, "kyle");
+  assert.equal(todo?.projectId, "college-list");
+  assert.equal(todo?.label, "Take an interest inventory");
+  assert.equal(stageOwnerFromTodos("college-list-s1", {}, assigned.projectSteps, assigned.todoEdits), "kyle");
+  assert.equal(stageOwnerMap({}, assigned.projectSteps, assigned.todoEdits)["college-list-s1"], "kyle");
+
+  const reassigned = upsertStageAssignment(
+    stage,
+    "kat",
+    "jason",
+    assigned.projectSteps,
+    assigned.todoEdits,
+  );
+  assert.equal(reassigned.projectSteps.length, 1);
+  assert.equal(reassigned.projectSteps[0]?.owner, "kat");
+  assert.equal(stageOwnerFromTodos("college-list-s1", {}, reassigned.projectSteps, reassigned.todoEdits), "kat");
+
+  const cleared = upsertStageAssignment(
+    stage,
+    null,
+    "jason",
+    reassigned.projectSteps,
+    reassigned.todoEdits,
+  );
+  assert.equal(cleared.projectSteps.length, 0);
+  assert.equal(cleared.todoEdits["college-list-s1"]?.deleted, true);
+  assert.equal(stageOwnerFromTodos("college-list-s1", {}, cleared.projectSteps, cleared.todoEdits), null);
+
+  const restored = upsertStageAssignment(stage, "kyle", "kyle", cleared.projectSteps, cleared.todoEdits);
+  assert.equal(restored.projectSteps.length, 1);
+  assert.equal(restored.todoEdits["college-list-s1"]?.deleted, undefined);
+  assert.equal(stageOwnerFromTodos("college-list-s1", {}, restored.projectSteps, restored.todoEdits), "kyle");
 });

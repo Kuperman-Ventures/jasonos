@@ -22,8 +22,15 @@ import {
   monthStartIso,
   openStagesAriaLabel,
 } from "@/lib/timeline-stages";
-import { TimelineStageModal } from "./TimelineStageModal";
-import type { TodoSubtaskMap } from "@/lib/project-todos";
+import { TimelineStageModal, type StageAssignPayload } from "./TimelineStageModal";
+import type { MemberProfile } from "@/lib/member-avatars";
+import type { PersistedProjectStep } from "@/lib/ingest";
+import {
+  stageOwnerMap,
+  type TodoEditMap,
+  type TodoSubtaskMap,
+} from "@/lib/project-todos";
+import type { Owner } from "@/lib/types";
 
 function trackStartIso(track: RoadmapTrack): string {
   return monthStartIso(track.start.year, track.start.month);
@@ -157,8 +164,13 @@ export function ProcessRoadmap({
   showTitle = true,
   dateline,
   subtasks = {},
+  projectSteps = [],
+  todoEdits = {},
+  memberId,
+  memberProfiles = [],
   onOpenTodos,
   onToggle,
+  onAssignStage,
 }: {
   checklist: Record<string, boolean>;
   title?: string;
@@ -166,9 +178,14 @@ export function ProcessRoadmap({
   dateline?: string;
   /** Live to-do subtasks — when they carry projectId + startDate they drive the modal. */
   subtasks?: TodoSubtaskMap;
+  projectSteps?: PersistedProjectStep[];
+  todoEdits?: TodoEditMap;
+  memberId?: string;
+  memberProfiles?: MemberProfile[];
   onOpenTodos?: (projectId: string) => void;
   /** Persist stage completion (checklist key = stage id). */
   onToggle?: (id: string, checked: boolean) => void;
+  onAssignStage?: (stage: StageAssignPayload, owner: Owner | null) => void;
 }) {
   const now = useMemo(() => new Date(), []);
   const cells = useMemo(() => monthCells(), []);
@@ -220,6 +237,11 @@ export function ProcessRoadmap({
     }
     return rows;
   }, [subtasks]);
+
+  const stageOwners = useMemo(
+    () => stageOwnerMap(checklist, projectSteps, todoEdits),
+    [checklist, projectSteps, todoEdits],
+  );
 
   function openStages(projectId: string, trigger: HTMLElement) {
     lastFocusRef.current = trigger;
@@ -335,6 +357,9 @@ export function ProcessRoadmap({
           projectId={openProjectId}
           liveStages={liveStages}
           stageCompletions={checklist}
+          memberId={memberId}
+          memberProfiles={memberProfiles}
+          stageOwners={stageOwners}
           onClose={closeStages}
           onSelectProject={setOpenProjectId}
           onOpenTodos={(id) => {
@@ -348,6 +373,7 @@ export function ProcessRoadmap({
                 }
               : undefined
           }
+          onAssignStage={onAssignStage}
         />
       ) : null}
     </section>
