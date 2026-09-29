@@ -10,7 +10,7 @@ import {
   type CSSProperties,
   type ReactNode,
 } from "react";
-import { CaretLeft, CaretRight, Star, UploadSimple, X } from "@phosphor-icons/react";
+import { CaretLeft, CaretRight, MonitorPlay, Star, UploadSimple, X } from "@phosphor-icons/react";
 import type { MemberProfile } from "@/lib/member-avatars";
 import { memberInitials } from "@/lib/member-avatars";
 import {
@@ -265,6 +265,27 @@ export function SchoolPhotos({
             <UploadSimple size={24} weight="duotone" aria-hidden="true" />
             Add photos
           </button>
+          {virtualTourEmbedUrl ? (
+            <button
+              ref={tourOpenerRef}
+              type="button"
+              className="school-photos-add school-photos-tour-cta"
+              onClick={openTour}
+            >
+              <MonitorPlay size={24} weight="duotone" aria-hidden="true" />
+              Virtual tour
+            </button>
+          ) : virtualTourUrl ? (
+            <a
+              className="school-photos-add school-photos-tour-cta"
+              href={virtualTourUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <MonitorPlay size={24} weight="duotone" aria-hidden="true" />
+              Virtual tour ↗
+            </a>
+          ) : null}
           <input
             ref={uploadInputRef}
             type="file"
@@ -283,27 +304,7 @@ export function SchoolPhotos({
         <div className="school-photos-group-head">
           <h2>From {headingName}</h2>
           <span className="school-photos-count">
-            {virtualTourEmbedUrl ? (
-              <>
-                <button
-                  ref={tourOpenerRef}
-                  type="button"
-                  className="school-photos-tour-btn"
-                  onClick={openTour}
-                >
-                  Virtual tour
-                </button>
-                {" · "}
-              </>
-            ) : virtualTourUrl ? (
-              <>
-                <a href={virtualTourUrl} target="_blank" rel="noopener noreferrer">
-                  Virtual tour ↗
-                </a>
-                {" · "}
-              </>
-            ) : null}
-            {schoolPhotos.length} photos
+            {schoolPhotos.length} {schoolPhotos.length === 1 ? "photo" : "photos"}
           </span>
         </div>
         <div className="school-photos-theirs">

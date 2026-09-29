@@ -9897,6 +9897,19 @@ html[data-mode="dark"] .school-photos-who {
   border-color: var(--color-accent);
   color: var(--text-accent);
 }
+.school-photos-tour-cta {
+  border-style: solid;
+  border-color: var(--color-accent);
+  background: var(--color-accent-tint);
+  color: var(--text-accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+.school-photos-tour-cta:hover {
+  border-color: var(--color-accent-pressed, var(--color-accent));
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface));
+  color: var(--text-accent);
+}
 .school-photos-empty {
   font-size: 15px;
   color: var(--text-subtle);
