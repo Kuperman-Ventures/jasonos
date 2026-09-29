@@ -22,7 +22,7 @@ const TABS = [
   { href: "/outreach/people", label: "People", icon: Users },
   { href: "/outreach/network-map", label: "Network Map", icon: Share2 },
   { href: "/outreach/suggested", label: "Suggested", icon: UserPlus },
-  { href: "/outreach/sent", label: "Sent", icon: Mail },
+  { href: "/outreach/sent", label: "Follow Up", icon: Mail },
   { href: "/outreach/firms", label: "Firms", icon: Building2 },
   { href: "/outreach/browning-networking", label: "Browning Networking", icon: Handshake },
 ] as const;

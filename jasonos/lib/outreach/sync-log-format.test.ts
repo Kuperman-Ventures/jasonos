@@ -73,6 +73,19 @@ describe("formatSyncSummary", () => {
     );
   });
 
+  it("summarizes meeting follow-up capture", () => {
+    assert.equal(
+      formatSyncSummary("meeting-followups", {
+        ok: true,
+        created: 2,
+        updated: 1,
+        resolved: 3,
+        scanned: 12,
+      }),
+      "+2 follow-ups · 1 refreshed · 3 cleared · 12 meetings"
+    );
+  });
+
   it("still appends soft warnings on a successful run", () => {
     assert.equal(
       formatSyncSummary("outlook", {

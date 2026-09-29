@@ -17,6 +17,7 @@ export type SyncLogSource =
   | "hubspot"
   | "suggested"
   | "sent-followups"
+  | "meeting-followups"
   | "browning";
 
 export const SYNC_LOG_SOURCE_LABELS: Record<string, string> = {
@@ -27,6 +28,7 @@ export const SYNC_LOG_SOURCE_LABELS: Record<string, string> = {
   hubspot: "HubSpot",
   suggested: "Suggested",
   "sent-followups": "Sent follow-ups",
+  "meeting-followups": "Follow Up",
   browning: "Browning",
   "job-alerts": "Job Alerts",
 };
@@ -66,6 +68,7 @@ const SOURCE_ORDER = [
   "beeper",
   "suggested",
   "sent-followups",
+  "meeting-followups",
   "hubspot",
   "browning",
   "job-alerts",

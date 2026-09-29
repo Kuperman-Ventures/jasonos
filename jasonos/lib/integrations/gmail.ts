@@ -22,6 +22,7 @@ import {
   qualifySentMessage,
   type SentMailHit,
 } from "@/lib/outreach/sent-followups";
+import type { SentRecipientTouch } from "@/lib/outreach/meeting-followups";
 import {
   isCalendarInviteSubject,
   isCalendarProxyAddress,
@@ -453,6 +454,7 @@ export async function listRecentCounterparties(opts?: {
 }
 
 export const SENT_FOLLOWUP_SCAN_MAX = 200;
+export const MEETING_FOLLOWUP_SENT_SCAN_MAX = 400;
 
 /**
  * Sent mail from the Advisors mailbox only. Newest messages, one hit per
@@ -509,6 +511,63 @@ export async function listAdvisorsSentMail(opts?: {
       err instanceof Error ? err.message : String(err)
     );
   }
+}
+
+/**
+ * Outbound recipient touches from every connected Google mailbox.
+ * Used to clear calendar meeting follow-ups once Jason emailed an attendee.
+ */
+export async function listSentRecipientTouches(opts?: {
+  daysBack?: number;
+  max?: number;
+}): Promise<IntegrationResult<SentRecipientTouch[]>> {
+  const tokens = await listGoogleAccessTokens();
+  if (!tokens.length) return emptyResult([], false);
+
+  const daysBack = opts?.daysBack ?? 30;
+  const max = opts?.max ?? MEETING_FOLLOWUP_SENT_SCAN_MAX;
+  const after = gmailAfterSlashDate(daysBack);
+  const touches: SentRecipientTouch[] = [];
+  const errors: string[] = [];
+
+  for (const { token, accountEmail } of tokens) {
+    try {
+      const messages = await listMessageIds(
+        token,
+        `in:sent -in:drafts -in:chats after:${after}`,
+        max
+      );
+      const detailed = await mapWithConcurrency(messages, 4, (m) =>
+        gmailFetch<GmailMsgResp>(
+          `/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Subject&metadataHeaders=Date`,
+          token
+        )
+      );
+      for (const message of detailed) {
+        const mapped = mapGmailMessage(message);
+        const qualified = qualifySentMessage({
+          labelIds: mapped.labelIds,
+          subject: mapped.subject,
+          to: mapped.to,
+          cc: mapped.cc,
+        });
+        if (!qualified.ok) continue;
+        const sentAt = messageCommunicationIso(mapped);
+        for (const recipient of qualified.recipients) {
+          touches.push({ email: recipient.email, sentAt });
+        }
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[gmail] sent recipient scan failed for ${accountEmail}:`, err);
+      errors.push(`${accountEmail}: ${msg}`);
+    }
+  }
+
+  if (!touches.length && errors.length) {
+    return emptyResult([], true, errors.join(" · "));
+  }
+  return emptyResult(touches, true, errors.length ? errors.join(" · ") : undefined);
 }
 
 export async function listGmailLabels(
