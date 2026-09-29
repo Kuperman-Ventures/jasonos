@@ -138,7 +138,7 @@ export function TimelineStageModal({
       if (event.key !== "Tab" || !dialogRef.current) return;
       const focusable = [
         ...dialogRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])',
+          'button:not([disabled]), a[href], select:not([disabled]), [tabindex]:not([tabindex="-1"])',
         ),
       ].filter((node) => !node.hasAttribute("disabled"));
       if (!focusable.length) return;
@@ -503,54 +503,31 @@ function StageAssignSelect({
   const labelId = `tl-assign-${stageId}`;
   return (
     <div className="tl-sg-assign">
-      <span className="sr-only" id={labelId}>
-        Assign {stageName}
-      </span>
-      <div
-        className="tl-assign-picker"
-        role="radiogroup"
-        aria-labelledby={labelId}
-      >
-        <button
-          type="button"
-          role="radio"
-          className={`tl-assign-choice${!owner ? " is-selected" : ""}`}
-          aria-checked={!owner}
-          aria-label="Unassigned"
-          title="Unassigned"
-          onClick={() => onAssign(null)}
+      <label className="tl-assign-label" htmlFor={labelId}>
+        <span className="sr-only">Assign {stageName} to</span>
+        <select
+          id={labelId}
+          className="tl-assign-select"
+          value={owner ?? ""}
+          aria-label={`Assign ${stageName}`}
+          onChange={(event) => {
+            const value = event.target.value;
+            if (!value) onAssign(null);
+            else onAssign(value as Owner);
+          }}
         >
-          <span className="tl-assign-avatar tl-assign-unclaimed" aria-hidden="true">
-            ?
-          </span>
-        </button>
-        {OWNERS.map((row) => {
-          const profile = profiles.get(row.id);
-          const selected = owner === row.id;
-          const name = profile?.displayName ?? row.label;
-          return (
-            <button
-              key={row.id}
-              type="button"
-              role="radio"
-              className={`tl-assign-choice${selected ? " is-selected" : ""}`}
-              aria-checked={selected}
-              aria-label={name}
-              title={name}
-              onClick={() => onAssign(row.id)}
-            >
-              <span className="tl-assign-avatar" aria-hidden="true">
-                <MemberBadge
-                  name={name}
-                  avatarUrl={profile?.avatarUrl}
-                  size="sm"
-                  showName={false}
-                />
-              </span>
-            </button>
-          );
-        })}
-      </div>
+          <option value="">Unassigned</option>
+          {OWNERS.map((row) => {
+            const profile = profiles.get(row.id);
+            const name = profile?.displayName ?? row.label;
+            return (
+              <option key={row.id} value={row.id}>
+                {name}
+              </option>
+            );
+          })}
+        </select>
+      </label>
       {viewer && owner !== viewer ? (
         <button
           type="button"

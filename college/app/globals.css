@@ -3715,7 +3715,7 @@ table.schools .muted,
   grid-template-columns: 280px 120px minmax(0, 1fr);
 }
 .tl-sg.tl-sg-assignable .tl-sg-grid {
-  grid-template-columns: 220px 100px 148px minmax(0, 1fr);
+  grid-template-columns: 200px 96px 168px minmax(0, 1fr);
 }
 .tl-sg-head {
   border-bottom: 1px solid var(--color-divider);
@@ -3851,58 +3851,26 @@ table.schools .muted,
   min-width: 0;
   padding-right: 8px;
 }
-.tl-assign-picker {
-  display: flex;
-  align-items: center;
-  gap: 2px;
+.tl-assign-label {
+  display: block;
+  min-width: 0;
+  flex: 1;
 }
-.tl-assign-choice {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: transparent;
+.tl-assign-select {
+  width: 100%;
+  max-width: 148px;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--text);
+  font: 12px var(--font-sans, inherit);
   cursor: pointer;
 }
-.tl-assign-choice:focus-visible {
+.tl-assign-select:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 1px;
-}
-.tl-assign-avatar {
-  display: inline-flex;
-  width: 22px;
-  height: 22px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  overflow: hidden;
-}
-.tl-assign-avatar .member-badge,
-.tl-assign-avatar .member-badge-avatar {
-  width: 22px;
-  height: 22px;
-}
-.tl-assign-avatar .member-badge-sm .member-badge-avatar {
-  width: 22px;
-  height: 22px;
-  font-size: 9px;
-}
-.tl-assign-unclaimed {
-  background: var(--color-surface-2, #ece8e1);
-  color: var(--text-muted);
-  font: 700 11px var(--font-mono);
-}
-.tl-assign-choice.is-selected {
-  border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-}
-.tl-assign-choice:not(.is-selected):hover {
-  border-color: var(--color-rule);
-  background: var(--color-surface-2, #f4f1ea);
 }
 .tl-assign-claim {
   flex: none;
@@ -3919,7 +3887,7 @@ table.schools .muted,
   color: var(--color-accent-pressed);
 }
 .tl-sg.tl-sg-assignable .tl-sg-overlay {
-  left: 468px;
+  left: 464px;
 }
 .tl-sg-pin {
   position: absolute;
@@ -4010,10 +3978,10 @@ table.schools .muted,
   .tl-dialog { padding: 22px; }
   .tl-sg-grid { grid-template-columns: 200px 100px minmax(0, 1fr); }
   .tl-sg.tl-sg-assignable .tl-sg-grid {
-    grid-template-columns: 160px 88px 132px minmax(0, 1fr);
+    grid-template-columns: 150px 80px 140px minmax(0, 1fr);
   }
   .tl-sg-overlay { left: 300px; }
-  .tl-sg.tl-sg-assignable .tl-sg-overlay { left: 380px; }
+  .tl-sg.tl-sg-assignable .tl-sg-overlay { left: 370px; }
   .tl-assign-claim { display: none; }
 }
 
