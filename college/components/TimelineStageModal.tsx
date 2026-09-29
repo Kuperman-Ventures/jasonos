@@ -3,7 +3,6 @@
 import { useEffect, useId, useMemo, useRef } from "react";
 import { MemberBadge } from "@/components/MemberBadge";
 import type { MemberProfile } from "@/lib/member-avatars";
-import { memberOwnerId } from "@/lib/project-todos";
 import {
   TIMELINE_PROJECTS,
   buildStageTicks,
@@ -76,7 +75,6 @@ export function TimelineStageModal({
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const index = TIMELINE_PROJECTS.findIndex((project) => project.id === projectId);
   const project = TIMELINE_PROJECTS[index] ?? null;
-  const viewer = memberId ? memberOwnerId(memberId) : null;
   const profiles = useMemo(
     () => new Map(memberProfiles.map((row) => [row.id, row])),
     [memberProfiles],
@@ -244,10 +242,30 @@ export function TimelineStageModal({
             <ul className="tl-overdue-list">
               {overdue.map((stage) => (
                 <li key={stage.id}>
-                  <div>
+                  <div className="tl-overdue-stage">
                     <b>{stage.name}</b>
                     <span className="mono">{formatStageRange(stage.start, stage.end)}</span>
                   </div>
+                  {onAssignStage ? (
+                    <StageAssignCircles
+                      stageId={`overdue-${stage.id}`}
+                      stageName={stage.name}
+                      owner={stageOwners[stage.id] ?? null}
+                      profiles={profiles}
+                      onAssign={(owner) =>
+                        onAssignStage(
+                          {
+                            id: stage.id,
+                            name: stage.name,
+                            start: stage.start,
+                            end: stage.end,
+                            projectId: stage.projectId,
+                          },
+                          owner,
+                        )
+                      }
+                    />
+                  ) : null}
                   {onMarkStageDone ? (
                     <button
                       type="button"
@@ -295,7 +313,6 @@ export function TimelineStageModal({
                 phaseHeading={row.phaseHeading}
                 owner={stageOwners[row.stage.id] ?? null}
                 profiles={profiles}
-                viewer={viewer}
                 onMarkDone={
                   onMarkStageDone && stageStatus(row.stage, today) === "overdue"
                     ? () => onMarkStageDone(row.stage.id)
@@ -380,7 +397,6 @@ function StageRow({
   phaseHeading,
   owner,
   profiles,
-  viewer,
   onMarkDone,
   onAssign,
 }: {
@@ -390,7 +406,6 @@ function StageRow({
   phaseHeading: string | null;
   owner: Owner | null;
   profiles: Map<string, MemberProfile>;
-  viewer: Owner | null;
   onMarkDone?: () => void;
   onAssign?: (owner: Owner | null) => void;
 }) {
@@ -453,12 +468,11 @@ function StageRow({
           {formatStageRange(stage.start, stage.end)}
         </div>
         {onAssign ? (
-          <StageAssignSelect
+          <StageAssignCircles
             stageId={stage.id}
             stageName={stage.name}
             owner={owner}
             profiles={profiles}
-            viewer={viewer}
             onAssign={onAssign}
           />
         ) : null}
@@ -485,58 +499,55 @@ function StageRow({
   );
 }
 
-function StageAssignSelect({
+function StageAssignCircles({
   stageId,
   stageName,
   owner,
   profiles,
-  viewer,
   onAssign,
 }: {
   stageId: string;
   stageName: string;
   owner: Owner | null;
   profiles: Map<string, MemberProfile>;
-  viewer: Owner | null;
   onAssign: (owner: Owner | null) => void;
 }) {
   const labelId = `tl-assign-${stageId}`;
   return (
     <div className="tl-sg-assign">
-      <label className="tl-assign-label" htmlFor={labelId}>
-        <span className="sr-only">Assign {stageName} to</span>
-        <select
-          id={labelId}
-          className="tl-assign-select"
-          value={owner ?? ""}
-          aria-label={`Assign ${stageName}`}
-          onChange={(event) => {
-            const value = event.target.value;
-            if (!value) onAssign(null);
-            else onAssign(value as Owner);
-          }}
-        >
-          <option value="">Unassigned</option>
-          {OWNERS.map((row) => {
-            const profile = profiles.get(row.id);
-            const name = profile?.displayName ?? row.label;
-            return (
-              <option key={row.id} value={row.id}>
-                {name}
-              </option>
-            );
-          })}
-        </select>
-      </label>
-      {viewer && owner !== viewer ? (
-        <button
-          type="button"
-          className="tl-assign-claim"
-          onClick={() => onAssign(viewer)}
-        >
-          Me
-        </button>
-      ) : null}
+      <span className="sr-only" id={labelId}>
+        Assign {stageName}
+      </span>
+      <div
+        className="tl-assign-circles"
+        role="radiogroup"
+        aria-labelledby={labelId}
+      >
+        {OWNERS.map((row) => {
+          const profile = profiles.get(row.id);
+          const selected = owner === row.id;
+          const name = profile?.displayName ?? row.label;
+          return (
+            <button
+              key={row.id}
+              type="button"
+              role="radio"
+              className={`tl-assign-circle${selected ? " is-selected" : ""}`}
+              aria-checked={selected}
+              aria-label={name}
+              title={name}
+              onClick={() => onAssign(selected ? null : row.id)}
+            >
+              <MemberBadge
+                name={name}
+                avatarUrl={profile?.avatarUrl}
+                size="md"
+                showName={false}
+              />
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
