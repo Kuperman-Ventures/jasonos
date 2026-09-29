@@ -136,3 +136,47 @@ export function entityTypeLabel(type: ActivityEntityType): string {
       return "System";
   }
 }
+
+export type ActivityLogSort = "recency" | "person";
+
+export type ActivityPersonGroup = {
+  actorId: string;
+  actorName: string;
+  entries: ActivityEntry[];
+};
+
+/** Newest first. When sorting by person, alphabetize by name then newest within that person. */
+export function sortActivityEntries(
+  entries: ActivityEntry[],
+  sort: ActivityLogSort,
+): ActivityEntry[] {
+  const next = [...entries];
+  if (sort === "recency") {
+    next.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return next;
+  }
+  next.sort((a, b) => {
+    const byName = a.actorName.localeCompare(b.actorName, undefined, { sensitivity: "base" });
+    if (byName !== 0) return byName;
+    return b.createdAt.localeCompare(a.createdAt);
+  });
+  return next;
+}
+
+/** Group a person-sorted list into contiguous actor sections. */
+export function groupActivityByPerson(entries: ActivityEntry[]): ActivityPersonGroup[] {
+  const groups: ActivityPersonGroup[] = [];
+  for (const entry of entries) {
+    const last = groups[groups.length - 1];
+    if (last && last.actorId === entry.actorId) {
+      last.entries.push(entry);
+      continue;
+    }
+    groups.push({
+      actorId: entry.actorId,
+      actorName: entry.actorName,
+      entries: [entry],
+    });
+  }
+  return groups;
+}

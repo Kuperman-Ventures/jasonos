@@ -1466,7 +1466,9 @@ export function Portal({
         {tab === "testing" ? (
           <TestingTab phases={phases} checklist={checklist} onToggle={toggleItem} dateline={phaseLabel} />
         ) : null}
-        {tab === "log" ? <LogTab dateline={phaseLabel} /> : null}
+        {tab === "log" ? (
+          <LogTab dateline={phaseLabel} memberProfiles={memberProfiles} />
+        ) : null}
         {tab === "admin" && isAdminRole(member.role) ? <AdminTab dateline={phaseLabel} /> : null}
         <div className="save-state">{loaded && pipeline.loaded ? saveState : "Loading..."}</div>
       </main>
