@@ -16,9 +16,9 @@ const STAGES: FunnelStage[] = ["not_contacted", "contacted", "replied", "meeting
 
 const BAR_COLORS: Record<FunnelStage, string> = {
   not_contacted: "bg-muted",
-  contacted: "bg-sky-400/70",
-  replied: "bg-emerald-400/70",
-  meeting: "bg-violet-400/70",
+  contacted: "bg-rung-3",
+  replied: "bg-rung-4",
+  meeting: "bg-rung-idle",
   closed: "bg-slate-500/40",
 };
 

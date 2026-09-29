@@ -610,9 +610,9 @@ function StatusBadge({
   children: React.ReactNode;
 }) {
   const styles = {
-    success: "bg-green-500/15 text-green-400",
-    warning: "bg-amber-500/15 text-amber-400",
-    danger: "bg-red-500/15 text-red-400",
+    success: "bg-rung-4 ",
+    warning: "bg-rung-2 ",
+    danger: "bg-rung-1 ",
     neutral: "bg-muted text-muted-foreground",
   };
   return (
@@ -634,8 +634,8 @@ function WarningBanner({
   children?: React.ReactNode;
 }) {
   const styles = {
-    warning: "bg-amber-500/10 border-amber-500/30 text-amber-300",
-    danger: "bg-red-500/10 border-red-500/30 text-red-300",
+    warning: "bg-rung-2 border-[var(--jos-line)] ",
+    danger: "bg-rung-1 border-rung-1 ",
   };
   return (
     <div className={`rounded-lg border p-3 mt-3 ${styles[variant]}`}>
@@ -657,9 +657,9 @@ function ProgressBar({
 }) {
   const colors = {
     default: "bg-foreground",
-    success: "bg-green-500",
-    warning: "bg-amber-500",
-    danger: "bg-red-500",
+    success: "bg-rung-4",
+    warning: "bg-rung-2",
+    danger: "bg-rung-1",
   };
   return (
     <div className="h-3 w-full rounded-full bg-muted overflow-hidden">
@@ -1197,7 +1197,7 @@ function NYUIDashboard({
         </div>
 
         {workSearches.length > 0 && uniqueDays < workSearches.length && (
-          <p className="mt-3 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded px-3 py-2">
+          <p className="mt-3 text-xs  bg-rung-2 border border-[var(--jos-line)] rounded px-3 py-2">
             {workSearches.length - uniqueDays} activit
             {workSearches.length - uniqueDays !== 1 ? "ies" : "y"} logged on a day already counted
             — only unique days count toward the 3-day goal.
@@ -1384,9 +1384,9 @@ function NYUIDashboard({
                 <td
                   className={`px-4 py-3 text-right tabular-nums font-semibold ${
                     totalMins >= WEEKLY_LIMIT
-                      ? "text-red-400"
+                      ? "text-rung-1"
                       : totalMins >= WARN_THRESHOLD
-                      ? "text-amber-400"
+                      ? "text-rung-ink"
                       : "text-foreground"
                   }`}
                 >
@@ -1652,7 +1652,7 @@ function WorkSearchForm({
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
         {done ? (
           <div className="py-8 text-center">
-            <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto mb-3" />
+            <CheckCircle2 className="h-10 w-10 text-rung-ink mx-auto mb-3" />
             <p className="font-semibold text-foreground">
               {isEdit ? "Changes saved" : "Activity logged successfully"}
             </p>
@@ -1661,12 +1661,12 @@ function WorkSearchForm({
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
             {isEdit && (
-              <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-200">
+              <div className="rounded-md border border-[var(--jos-line)] bg-rung-2 px-3 py-2 text-xs ">
                 Editing a previously logged activity. Saving updates this entry in place.
               </div>
             )}
             {!isEdit && parentActivityId && (
-              <div className="rounded-md border border-sky-500/30 bg-sky-500/5 px-3 py-2 text-xs text-sky-200">
+              <div className="rounded-md border border-rung-3 bg-rung-3 px-3 py-2 text-xs ">
                 Adding a follow-up stage to an existing opportunity — employer details are
                 pre-filled. This still counts as its own activity toward the weekly requirement.
               </div>
@@ -2035,7 +2035,7 @@ function BusinessHoursForm({
       <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
           <form onSubmit={handleSubmit} className="space-y-5">
             {saveNotice && (
-              <div className="rounded-md bg-green-500/10 border border-green-500/30 px-3 py-2 text-sm text-green-400 flex items-start gap-2">
+              <div className="rounded-md bg-rung-4 border border-[var(--jos-line)] px-3 py-2 text-sm  flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>{saveNotice}</span>
               </div>

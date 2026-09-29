@@ -4,19 +4,19 @@ import type { Intent } from "@/lib/triage/types";
 const INTENT_BADGE: Record<Intent, { label: string; className: string }> = {
   door: {
     label: "Door",
-    className: "border-sky-400/30 bg-sky-400/15 text-sky-200",
+    className: "border-rung-3 bg-rung-3 ",
   },
   pipeline: {
     label: "Pipeline",
-    className: "border-emerald-400/30 bg-emerald-400/15 text-emerald-200",
+    className: "border-[var(--jos-line)] bg-rung-4 ",
   },
   role_inquiry: {
     label: "Role",
-    className: "border-violet-400/30 bg-violet-400/15 text-violet-200",
+    className: "border-[var(--jos-line)] bg-rung-idle ",
   },
   intel: {
     label: "Intel",
-    className: "border-amber-400/30 bg-amber-400/15 text-amber-200",
+    className: "border-[var(--jos-line)] bg-rung-2 ",
   },
   warm: {
     label: "Warm",

@@ -14,6 +14,8 @@ import { toast } from "sonner";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import { TierDegreeBadge } from "@/components/jasonos/outreach/tier-degree-badge";
 import { Logo } from "@/components/jasonos/logo";
+import { PageHeader } from "@/components/jasonos/brand/page-header";
+import { StatusBand, StatusPill } from "@/components/jasonos/brand/status";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -207,8 +209,8 @@ export function HomeClient({
             <span
               className={
                 timing.kind === "overdue"
-                  ? "ml-1.5 text-[var(--color-accent-2-700)]"
-                  : "ml-1.5 text-[var(--jos-ink)]"
+                  ? "ml-1.5 text-rung-1"
+                  : "ml-1.5 text-rung-ink"
               }
             >
               {timing.kind === "overdue"
@@ -253,26 +255,22 @@ export function HomeClient({
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-6">
-      <header className="flex items-center gap-3">
-        <Logo size={40} />
-        <div>
-          <h1 className="text-[36px] font-bold leading-none tracking-[-0.02em]">Home</h1>
-          <p className="mt-2 text-[17px] text-[var(--jos-muted)]">
-            Due this week, overdue outreach, sent-mail follow-ups, and site traffic.
-          </p>
-        </div>
-      </header>
+      <PageHeader
+        mark={<Logo size={40} />}
+        title="Home"
+        description="Due this week, overdue outreach, sent-mail follow-ups, and site traffic."
+      />
 
       {children}
 
       <section className="overflow-hidden">
-        <div className="flex items-center gap-2 bg-[var(--jos-warn-tint)] px-4 py-3 text-[var(--jos-ink)]">
+        <StatusBand rung={2}>
           <Clock className="h-5 w-5" />
-          <h2 className="text-[17px] font-semibold tracking-tight">Due This Week</h2>
-          <span className="ml-auto rounded-full bg-[var(--jos-ink)] px-2 py-0.5 text-[12px] font-semibold tabular-nums text-[var(--jos-bg)]">
+          <h2 className="text-[17px] font-bold tracking-tight">Due This Week</h2>
+          <StatusPill rung={4} className="ml-auto">
             {data.dueThisWeek.length}
-          </span>
-        </div>
+          </StatusPill>
+        </StatusBand>
         <p className="border-b px-4 py-1.5 text-[11px] text-muted-foreground">
           Due today or by Friday. Open, draft, text, or log from here.
         </p>
@@ -293,13 +291,13 @@ export function HomeClient({
       </section>
 
       <section className="overflow-hidden">
-        <div className="flex items-center gap-2 bg-[var(--jos-danger-tint)] px-4 py-3 text-[var(--color-accent-2-900)]">
+        <StatusBand rung={1}>
           <AlertCircle className="h-5 w-5" />
-          <h2 className="text-[17px] font-semibold tracking-tight">Overdue</h2>
-          <span className="ml-auto rounded-full bg-[var(--jos-ink)] px-2 py-0.5 text-[12px] font-semibold tabular-nums text-[var(--jos-bg)]">
+          <h2 className="text-[17px] font-bold tracking-tight">Overdue</h2>
+          <StatusPill rung={4} className="ml-auto">
             {data.overdue.length}
-          </span>
-        </div>
+          </StatusPill>
+        </StatusBand>
         <p className="border-b px-4 py-1.5 text-[11px] text-muted-foreground">
           Past their next-touch date. Open, draft, text, or log from here.
         </p>
@@ -373,7 +371,7 @@ export function HomeClient({
               Reading emails with them and their company…
             </p>
           ) : draftError ? (
-            <p className="py-4 text-sm text-red-300">{draftError}</p>
+            <p className="py-4 text-sm text-rung-1">{draftError}</p>
           ) : draftText ? (
             <div className="space-y-3">
               <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg border bg-background/60 p-3 text-sm">
@@ -440,7 +438,7 @@ function TrafficPanel({ site }: { site: SitePanel }) {
         </div>
       ) : !t.ok ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-1.5 px-4 py-8 text-center">
-          <AlertCircle className="h-6 w-6 text-amber-400/70" />
+          <AlertCircle className="h-6 w-6 text-rung-ink" />
           <p className="text-[11px] text-muted-foreground">{t.error}</p>
         </div>
       ) : (
@@ -480,7 +478,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-lg border bg-background/60 p-2.5">
       <p className="flex items-center gap-1 text-xl font-semibold tabular-nums leading-none">
-        <ArrowUpRight className="h-3.5 w-3.5 text-emerald-400" />
+        <ArrowUpRight className="h-3.5 w-3.5 text-rung-ink" />
         {value.toLocaleString()}
       </p>
       <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">

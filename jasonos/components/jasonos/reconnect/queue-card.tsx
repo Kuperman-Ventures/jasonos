@@ -47,7 +47,7 @@ export function ReconnectQueueCard({
       onKeyDown={(e) => {
         if (e.key === "Enter") onOpen(contact);
       }}
-      className="group rounded-xl border bg-card p-4 text-left transition-colors hover:border-orange-400/40 hover:bg-card/90"
+      className="group rounded-xl border bg-card p-4 text-left transition-colors hover:border-[var(--jos-line)] hover:bg-card/90"
     >
       <div className="flex flex-wrap items-start gap-3">
         <div className="min-w-0 flex-1">
@@ -94,7 +94,7 @@ export function ReconnectQueueCard({
               e.stopPropagation();
               setExpanded((v) => !v);
             }}
-            className="mt-1 text-xs font-medium text-orange-300 hover:text-orange-200"
+            className="mt-1 text-xs font-medium text-rung-ink hover:text-rung-ink"
           >
             {expanded ? "less" : "more"}
           </button>

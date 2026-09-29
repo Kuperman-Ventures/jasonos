@@ -221,7 +221,7 @@ export function EmailBuilderClient() {
               Pick someone from your contact list. Next you&rsquo;ll choose what
               kind of email this is (catch-up, pitch, thanks, etc.) so the draft
               matches — not a generic reconnect. If they have no email, click{" "}
-              <span className="text-amber-300">Needs email</span> and add it on
+              <span className="text-rung-ink">Needs email</span> and add it on
               their card.
             </p>
           </div>
@@ -278,7 +278,7 @@ function StepRail({ step }: { step: Step }) {
             className={cn(
               "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 font-medium tabular-nums",
               i < idx
-                ? "bg-emerald-500/20 text-emerald-300"
+                ? "bg-rung-4 "
                 : i === idx
                   ? "bg-foreground text-background"
                   : "bg-muted text-muted-foreground"
@@ -356,7 +356,7 @@ function Chip({
       className={cn(
         "rounded-full border px-3 py-1 text-xs transition-colors",
         active
-          ? "border-orange-300/50 bg-orange-500/15 text-orange-100"
+          ? "border-[var(--jos-line)] bg-rung-2 "
           : "border-border bg-background/60 text-muted-foreground hover:border-foreground/30 hover:text-foreground"
       )}
     >
@@ -438,7 +438,7 @@ function QuestionsStep({
           ))}
         </div>
         {!canGenerate ? (
-          <p className="text-[11px] text-amber-200/90">
+          <p className="text-[11px] text-rung-ink">
             Pick at least one so the draft isn&rsquo;t a generic reconnect.
           </p>
         ) : null}
@@ -632,7 +632,7 @@ function PreviewStep({
             Edit answers
           </button>
           <h2 className="flex items-center gap-1.5 text-sm font-semibold tracking-tight">
-            <Sparkles className="h-3.5 w-3.5 text-orange-300" />
+            <Sparkles className="h-3.5 w-3.5 text-rung-ink" />
             Your draft
           </h2>
           <p className="mt-0.5 max-w-xl text-xs text-muted-foreground">
@@ -663,7 +663,7 @@ function PreviewStep({
             onClick={() => setSaveOpen((o) => !o)}
           >
             {saved ? (
-              <Check className="mr-1.5 h-3.5 w-3.5 text-emerald-400" />
+              <Check className="mr-1.5 h-3.5 w-3.5 text-rung-ink" />
             ) : (
               <BookmarkPlus className="mr-1.5 h-3.5 w-3.5" />
             )}
@@ -681,7 +681,7 @@ function PreviewStep({
       </div>
 
       {saveOpen ? (
-        <div className="flex flex-wrap items-end gap-2 rounded-lg border border-orange-300/30 bg-orange-500/5 p-3">
+        <div className="flex flex-wrap items-end gap-2 rounded-lg border border-[var(--jos-line)] bg-rung-2 p-3">
           <label className="min-w-[220px] flex-1 space-y-1">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Template name

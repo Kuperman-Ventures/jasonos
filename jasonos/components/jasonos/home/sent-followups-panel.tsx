@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mail } from "lucide-react";
+import { StatusBand, StatusPill } from "@/components/jasonos/brand/status";
 import { toast } from "sonner";
 import { SentFollowupControls } from "@/components/jasonos/outreach/sent-followup-controls";
 import { SentThreadPanel } from "@/components/jasonos/outreach/sent-thread-panel";
@@ -48,13 +49,13 @@ export function SentFollowupsPanel({ rows }: { rows: SentEmailFollowup[] }) {
 
   return (
     <section className="overflow-hidden">
-      <div className="flex items-center gap-2 bg-[var(--jos-info-tint)] px-4 py-3 text-[var(--color-accent-900)]">
+      <StatusBand rung={3}>
         <Mail className="h-5 w-5" />
-        <h2 className="text-[17px] font-semibold tracking-tight">Email follow-ups</h2>
-        <span className="ml-auto rounded-full bg-[var(--jos-ink)] px-2 py-0.5 text-[12px] font-semibold tabular-nums text-[var(--jos-bg)]">
+        <h2 className="text-[17px] font-bold tracking-tight">Email follow-ups</h2>
+        <StatusPill rung={4} className="ml-auto">
           {visible.length}
-        </span>
-      </div>
+        </StatusPill>
+      </StatusBand>
       <p className="border-b px-4 py-1.5 text-[11px] text-muted-foreground">
         Sent from jason@kupermanadvisors.com and due for a follow-up. Open the
         thread, mark it done, or push the date.
@@ -70,7 +71,7 @@ export function SentFollowupsPanel({ rows }: { rows: SentEmailFollowup[] }) {
               <p className="truncate text-sm font-medium">{row.subject}</p>
               <p className="truncate text-[11px] text-muted-foreground">
                 To {row.toLine}
-                <span className={row.daysOverdue > 0 ? "ml-1.5 text-[var(--color-accent-2-700)]" : "ml-1.5 text-[var(--jos-ink)]"}>
+                <span className={row.daysOverdue > 0 ? "ml-1.5 text-rung-1" : "ml-1.5 text-rung-ink"}>
                   {dueText(row)}
                 </span>
               </p>

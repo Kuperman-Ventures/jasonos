@@ -69,7 +69,8 @@
   --color-accent-900: #00384a;
   --color-accent-2: #d6006c;
   --color-accent-2-100: #f8d6e6;
-  --color-accent-2-700: #a30054;
+  --color-accent-2-text: #a3004f;
+  --color-accent-2-700: #a3004f;
   --color-accent-2-800: #7a003f;
   --color-accent-2-900: #5c0030;
   --color-process-yellow: #edbb00;
@@ -182,28 +183,34 @@
 }
 .jos-card-enter { animation: jos-fade-in .25s ease-out both; }
 
-/* Pale text colors were chosen for the old dark theme. On paper they
-   become the brand ramps: cyan for links and info, magenta for errors,
-   ink for success and caution (yellow is never text). */
-[class*="text-sky-2"],
-[class*="text-sky-3"],
-[class*="text-sky-4"],
-[class*="text-blue-3"],
-[class*="text-blue-4"] {
-  color: var(--color-accent-700);
+/* Solid status rungs. Color is the fill. Text is white on magenta and cyan,
+   ink on yellow, paper on ink. Never yellow text. Never white text on yellow. */
+.bg-rung-1,
+.hover\:bg-rung-1:hover {
+  background-color: var(--color-accent-2);
+  color: var(--color-on-action);
 }
-[class*="text-red-2"],
-[class*="text-red-3"],
-[class*="text-rose-2"],
-[class*="text-rose-3"] {
-  color: var(--color-accent-2-700);
-}
-[class*="text-amber-1"],
-[class*="text-amber-2"],
-[class*="text-amber-3"],
-[class*="text-emerald-2"],
-[class*="text-emerald-3"],
-[class*="text-green-2"],
-[class*="text-green-3"] {
+.hover\:bg-rung-1:hover { background-color: var(--color-accent-2-800); }
+.bg-rung-2,
+.hover\:bg-rung-2:hover {
+  background-color: var(--color-process-yellow);
   color: var(--color-text);
 }
+.bg-rung-3,
+.hover\:bg-rung-3:hover {
+  background-color: var(--color-accent-700);
+  color: var(--color-on-action);
+}
+.hover\:bg-rung-3:hover { background-color: var(--color-accent-800); }
+.bg-rung-4,
+.hover\:bg-rung-4:hover {
+  background-color: var(--color-text);
+  color: var(--color-bg);
+}
+.bg-rung-idle { background-color: var(--color-surface); color: var(--color-text); }
+.bg-rung-next { background-color: var(--color-accent); color: var(--color-on-action); }
+.text-rung-1 { color: var(--color-accent-2-text); }
+.text-rung-3 { color: var(--color-accent-700); }
+.text-rung-ink { color: var(--color-text); }
+.border-rung-1 { border-color: var(--color-accent-2); }
+.border-rung-3 { border-color: var(--color-accent-700); }

@@ -372,8 +372,8 @@ export function RecruiterPipelinePanel({
         </blockquote>
       ) : null}
 
-      <section className="rounded-xl border border-orange-400/20 bg-orange-400/5 p-4">
-        <h3 className="text-sm font-semibold tracking-tight text-orange-200">
+      <section className="rounded-xl border border-[var(--jos-line)] bg-rung-2 p-4">
+        <h3 className="text-sm font-semibold tracking-tight text-rung-ink">
           Strategic Recommendation
         </h3>
         <p className="mt-2 text-sm leading-relaxed text-foreground/90">
@@ -455,7 +455,7 @@ export function RecruiterPipelinePanel({
 
       {contact.first_contact ? (
         contact.first_contact.stage === "completed" ? (
-          <div className="flex items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
+          <div className="flex items-center gap-2 rounded-md border border-[var(--jos-line)] bg-rung-4 px-3 py-2 text-sm ">
             <CheckCircle2 className="h-4 w-4 shrink-0" />
             Relationship established — cadence-driven follow-up below.
           </div>
@@ -551,7 +551,7 @@ export function RecruiterPipelinePanel({
               </div>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
                 <div
-                  className="h-full bg-orange-400"
+                  className="h-full bg-rung-2"
                   style={{ width: `${Math.min(100, (value / max) * 100)}%` }}
                 />
               </div>
@@ -626,7 +626,7 @@ export function RecruiterPipelinePanel({
             })}
           </ul>
           {firmmates.some((m) => (m.firm_focus_rank ?? 0) > 3) ? (
-            <p className="text-xs text-amber-300/80">
+            <p className="text-xs text-rung-ink">
               Don&rsquo;t reach the bench independently — search firms log all
               touches in shared CRMs (Invenias, Clockwork, Thrive). Let the
               anchor loop them in.

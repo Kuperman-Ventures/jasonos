@@ -23,31 +23,31 @@ const THEME_CARD_STYLES: Record<
   { ring: string; bg: string; accent: string; progressBar: string; checkbox: string }
 > = {
   venture: {
-    ring: "border-emerald-400/40",
-    bg: "bg-emerald-400/[0.03]",
-    accent: "text-emerald-300",
-    progressBar: "bg-emerald-400/80",
+    ring: "border-[var(--jos-line)]",
+    bg: "bg-rung-4/[0.03]",
+    accent: "text-rung-ink",
+    progressBar: "bg-rung-4",
     checkbox: "accent-emerald-400",
   },
   advisors: {
-    ring: "border-sky-400/40",
-    bg: "bg-sky-400/[0.03]",
-    accent: "text-sky-300",
-    progressBar: "bg-sky-400/80",
+    ring: "border-rung-3",
+    bg: "bg-rung-3/[0.03]",
+    accent: "text-rung-3",
+    progressBar: "bg-rung-3",
     checkbox: "accent-sky-400",
   },
   job_search: {
-    ring: "border-violet-400/40",
-    bg: "bg-violet-400/[0.03]",
-    accent: "text-violet-300",
-    progressBar: "bg-violet-400/80",
+    ring: "border-[var(--jos-line)]",
+    bg: "bg-rung-idle/[0.03]",
+    accent: "text-rung-ink",
+    progressBar: "bg-rung-idle",
     checkbox: "accent-violet-400",
   },
   personal: {
-    ring: "border-amber-400/40",
-    bg: "bg-amber-400/[0.03]",
-    accent: "text-amber-300",
-    progressBar: "bg-amber-400/80",
+    ring: "border-[var(--jos-line)]",
+    bg: "bg-rung-2/[0.03]",
+    accent: "text-rung-ink",
+    progressBar: "bg-rung-2",
     checkbox: "accent-amber-400",
   },
 };
@@ -121,7 +121,7 @@ export function InitiativeDashboard() {
     <div className="space-y-4">
       <section className="rounded-xl border bg-card">
         <header className="flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
-          <Target className="h-4 w-4 text-amber-400" />
+          <Target className="h-4 w-4 text-rung-ink" />
           <h2 className="text-sm font-semibold tracking-tight">Initiative Dashboard</h2>
           <span className="text-[11px] text-muted-foreground">
             · {INITIATIVE_STATS.themes} themes · {INITIATIVE_STATS.initiatives} initiatives ·{" "}
@@ -144,7 +144,7 @@ export function InitiativeDashboard() {
           <div className="flex items-center gap-3">
             <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
               <div
-                className="absolute inset-y-0 left-0 bg-amber-400/80 transition-[width] duration-300"
+                className="absolute inset-y-0 left-0 bg-rung-2 transition-[width] duration-300"
                 style={{ width: `${progressPct}%` }}
               />
             </div>

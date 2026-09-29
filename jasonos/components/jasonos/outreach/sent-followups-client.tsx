@@ -62,13 +62,13 @@ export function SentFollowupsClient({
       </header>
 
       {!advisorsConnected ? (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-          <p className="text-xs text-amber-200">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--jos-line)] bg-rung-2 px-4 py-3">
+          <p className="text-xs text-rung-ink">
             Advisors Google isn&rsquo;t connected, so Sync can&rsquo;t read sent mail.
           </p>
           <a
             href="/api/auth/google"
-            className="shrink-0 rounded-md border border-amber-400/40 bg-amber-500/20 px-3 py-1 text-[11px] font-medium text-amber-100 hover:bg-amber-500/30"
+            className="shrink-0 rounded-md border border-[var(--jos-line)] bg-rung-2 px-3 py-1 text-[11px] font-medium  hover:bg-rung-2"
           >
             Connect Advisors Google →
           </a>

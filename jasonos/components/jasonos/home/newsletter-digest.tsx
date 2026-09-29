@@ -75,7 +75,7 @@ export function NewsletterDigest({ groups }: { groups: NewsletterGroup[] }) {
                           </span>
                         ) : null}
                         {href ? (
-                          <span className="mt-0.5 block text-[10px] font-medium text-sky-300/90">
+                          <span className="mt-0.5 block text-[10px] font-medium text-rung-3">
                             Read full summary · open article
                           </span>
                         ) : (
@@ -112,7 +112,7 @@ export function NewsletterDigest({ groups }: { groups: NewsletterGroup[] }) {
                       href={articleHref}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-start gap-1.5 font-semibold text-sky-300 underline decoration-sky-400/40 underline-offset-2 hover:text-sky-200"
+                      className="inline-flex items-start gap-1.5 font-semibold text-rung-3 underline decoration-[var(--jos-line)] underline-offset-2 hover:text-rung-3"
                     >
                       <span>{selected.story.title}</span>
                       <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0" />

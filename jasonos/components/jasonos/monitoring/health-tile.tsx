@@ -8,9 +8,9 @@ import type { HealthStatus } from "@/lib/monitoring/targets";
 import type { HealthSummaryEntry } from "./types";
 
 const STATUS_TONE: Record<HealthStatus, { dot: string; ring: string; text: string }> = {
-  green: { dot: "bg-emerald-400", ring: "ring-emerald-400/30", text: "text-emerald-400" },
-  yellow: { dot: "bg-amber-400", ring: "ring-amber-400/30", text: "text-amber-400" },
-  red: { dot: "bg-rose-400", ring: "ring-rose-400/30", text: "text-rose-400" },
+  green: { dot: "bg-rung-4", ring: "ring-[var(--jos-focus)]", text: "text-rung-ink" },
+  yellow: { dot: "bg-rung-2", ring: "ring-[var(--jos-focus)]", text: "text-rung-ink" },
+  red: { dot: "bg-rung-1", ring: "ring-[var(--jos-focus)]", text: "text-rung-1" },
   unknown: { dot: "bg-muted-foreground/40", ring: "ring-muted/30", text: "text-muted-foreground" },
 };
 
@@ -33,8 +33,8 @@ export function HealthTile({
       onClick={onOpen}
       className={cn(
         "jos-card-enter group relative flex flex-col rounded-lg border bg-card p-3 text-left transition-colors hover:border-foreground/20",
-        isFailing && entry.status === "red" && "border-rose-500/30",
-        isFailing && entry.status === "yellow" && "border-amber-500/30"
+        isFailing && entry.status === "red" && "border-rung-1",
+        isFailing && entry.status === "yellow" && "border-[var(--jos-line)]"
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -88,14 +88,14 @@ export function HealthTile({
           className={cn(
             "mt-2 flex items-start gap-1.5 rounded-md border px-2 py-1.5 text-[11px]",
             entry.status === "red"
-              ? "border-rose-500/30 bg-rose-500/10 text-rose-200/90"
-              : "border-amber-500/30 bg-amber-500/10 text-amber-200/90"
+              ? "border-rung-1 bg-rung-1 "
+              : "border-[var(--jos-line)] bg-rung-2 "
           )}
         >
           <AlertTriangle
             className={cn(
               "mt-0.5 h-3 w-3 shrink-0",
-              entry.status === "red" ? "text-rose-400" : "text-amber-400"
+              entry.status === "red" ? "text-rung-1" : "text-rung-ink"
             )}
           />
           <span className="flex-1 leading-snug">

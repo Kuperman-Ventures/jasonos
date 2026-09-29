@@ -15,7 +15,7 @@ export function MonitoringTileCard({ tile }: { tile: Tile }) {
     <div
       className={cn(
         "jos-card-enter group relative flex flex-col rounded-lg border bg-card p-3 transition-colors hover:border-foreground/20",
-        tile.alert && "border-amber-500/30"
+        tile.alert && "border-[var(--jos-line)]"
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -34,7 +34,7 @@ export function MonitoringTileCard({ tile }: { tile: Tile }) {
           <div
             className={cn(
               "num-mono text-xl font-semibold leading-none tracking-tight",
-              tile.alert?.tone === "critical" && "text-rose-400"
+              tile.alert?.tone === "critical" && "text-rung-1"
             )}
           >
             {tile.value}
@@ -62,14 +62,14 @@ export function MonitoringTileCard({ tile }: { tile: Tile }) {
       </div>
 
       {tile.alert ? (
-        <div className="mt-2 flex items-start gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[11px] text-amber-200/90">
-          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-amber-400" />
+        <div className="mt-2 flex items-start gap-1.5 rounded-md border border-[var(--jos-line)] bg-rung-2 px-2 py-1.5 text-[11px] ">
+          <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-rung-ink" />
           <span className="flex-1 leading-snug">{tile.alert.message}</span>
           {tile.alert.verb ? (
             <Button
               size="sm"
               variant="ghost"
-              className="-my-0.5 h-6 px-1.5 text-[10px] text-amber-200 hover:bg-amber-500/20 hover:text-amber-100"
+              className="-my-0.5 h-6 px-1.5 text-[10px]  hover:bg-rung-2 "
               onClick={() =>
                 toast.success(tile.alert!.verb!, {
                   description: "Stub action — wire to integration in v1.",

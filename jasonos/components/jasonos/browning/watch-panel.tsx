@@ -180,9 +180,9 @@ function DeliverableRow({
       </td>
       <td className="px-3 py-2 align-top">
         {deliverable.quality !== null ? (
-          <span className="inline-flex items-center gap-0.5 text-amber-300">
+          <span className="inline-flex items-center gap-0.5 text-rung-ink">
             {Array.from({ length: deliverable.quality }).map((_, i) => (
-              <Star key={i} className="h-3 w-3 fill-amber-300" />
+              <Star key={i} className="h-3 w-3 fill-[var(--jos-line)]" />
             ))}
           </span>
         ) : (
@@ -202,7 +202,7 @@ function DeliverableRow({
           className={cn(
             "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] transition-colors",
             deliverable.escalate
-              ? "border-amber-500/50 bg-amber-500/15 text-amber-200"
+              ? "border-[var(--jos-line)] bg-rung-2 "
               : "border-border text-muted-foreground hover:text-foreground"
           )}
           disabled={pending}

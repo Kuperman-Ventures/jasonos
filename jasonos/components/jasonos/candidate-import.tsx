@@ -430,12 +430,12 @@ export function CandidateImport({ open, onOpenChange }: Props) {
         )}
 
         {errorMsg ? (
-          <div className="rounded-md border border-red-500/30 bg-red-500/5 px-2 py-1.5 text-[11px] text-red-300">
+          <div className="rounded-md border border-rung-1 bg-rung-1 px-2 py-1.5 text-[11px] ">
             {errorMsg}
           </div>
         ) : null}
         {statusMsg ? (
-          <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 px-2 py-1.5 text-[11px] text-emerald-300">
+          <div className="rounded-md border border-[var(--jos-line)] bg-rung-4 px-2 py-1.5 text-[11px] ">
             {statusMsg}
           </div>
         ) : null}
@@ -453,7 +453,7 @@ export function CandidateImport({ open, onOpenChange }: Props) {
             size="sm"
             onClick={handleImport}
             disabled={rows.length === 0 || isImporting}
-            className="bg-sky-500 hover:bg-sky-400 text-white"
+            className="bg-rung-3 hover:bg-rung-3 text-white"
           >
             {isImporting ? "Importing…" : `Import ${rows.length} contacts`}
           </Button>

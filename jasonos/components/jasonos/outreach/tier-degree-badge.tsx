@@ -45,9 +45,9 @@ export function TierDegreeBadge({
 
   const tone =
     tier === "A"
-      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+      ? "border-[var(--jos-line)] bg-rung-4 "
       : tier === "B"
-      ? "border-sky-500/40 bg-sky-500/10 text-sky-300"
+      ? "border-rung-3 bg-rung-3 "
       : tier === "C"
       ? "border-muted-foreground/30 bg-muted text-muted-foreground"
       : "border-border bg-muted text-muted-foreground";

@@ -62,9 +62,9 @@ const KPI_DEFINITIONS: KpiDef[] = [
 const KPI_TRACK_GROUPS = ["Kuperman Advisors", "Job Search", "Kuperman Ventures"] as const;
 
 const SCORE_CONFIG = {
-  green:  { label: "Green",  desc: "7+ KPIs hit — strong week",     bg: "bg-emerald-950/40", text: "text-emerald-300", border: "border-emerald-800" },
-  yellow: { label: "Yellow", desc: "4–6 KPIs hit — room to improve", bg: "bg-amber-950/40",   text: "text-amber-300",   border: "border-amber-800"   },
-  red:    { label: "Red",    desc: "3 or fewer KPIs hit — regroup",  bg: "bg-rose-950/40",    text: "text-rose-300",    border: "border-rose-800"    },
+  green:  { label: "Green",  desc: "7+ KPIs hit — strong week",     bg: "bg-rung-4", text: "text-rung-ink", border: "border-[var(--jos-line)]" },
+  yellow: { label: "Yellow", desc: "4–6 KPIs hit — room to improve", bg: "bg-rung-2",   text: "text-rung-ink",   border: "border-[var(--jos-line)]"   },
+  red:    { label: "Red",    desc: "3 or fewer KPIs hit — regroup",  bg: "bg-rung-1",    text: "text-rung-1",    border: "border-rung-1"    },
 } as const;
 type WeekScore = keyof typeof SCORE_CONFIG;
 
@@ -423,9 +423,9 @@ export function KpiDashboardClient({
                     </td>
                     <td className="px-3 py-2.5 text-center">
                       {kpi.hit ? (
-                        <span className="inline-block rounded-full bg-emerald-900/60 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">✓ Hit</span>
+                        <span className="inline-block rounded-full bg-rung-4 px-2 py-0.5 text-[11px] font-semibold ">✓ Hit</span>
                       ) : (
-                        <span className="inline-block rounded-full bg-rose-900/60 px-2 py-0.5 text-[11px] font-semibold text-rose-300">✗ Miss</span>
+                        <span className="inline-block rounded-full bg-rung-1 px-2 py-0.5 text-[11px] font-semibold ">✗ Miss</span>
                       )}
                     </td>
                   </tr>
@@ -473,7 +473,7 @@ export function KpiDashboardClient({
           <button
             type="button"
             onClick={() => { setReconcileExpandedTracks({}); setShowReconcile(true); }}
-            className="rounded-md border border-amber-800 bg-amber-950/40 px-3 py-1 text-sm text-amber-300 hover:bg-amber-950/70"
+            className="rounded-md border border-[var(--jos-line)] bg-rung-2 px-3 py-1 text-sm  hover:bg-rung-2"
           >
             ⚖ Reconcile
           </button>
@@ -518,7 +518,7 @@ export function KpiDashboardClient({
                   >
                     <div className="mb-1 flex items-center justify-between text-xs gap-2">
                       <span className="font-medium text-foreground">{td.track.label}</span>
-                      <span className={`shrink-0 font-semibold ${td.pct >= 100 ? "text-emerald-400" : td.pct >= 60 ? "text-amber-400" : "text-muted-foreground"}`}>
+                      <span className={`shrink-0 font-semibold ${td.pct >= 100 ? "text-rung-ink" : td.pct >= 60 ? "text-rung-ink" : "text-muted-foreground"}`}>
                         {td.minutesLogged}m{" "}
                         <span className="font-normal text-muted-foreground">/ {td.targetMins}m target</span>
                       </span>
@@ -659,7 +659,7 @@ export function KpiDashboardClient({
               <p className="text-xs text-muted-foreground">{formatWeekLabel(weekStart, weekEnd)}</p>
             </div>
             {savedReview && (
-              <span className="rounded-full bg-emerald-900/60 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">Saved</span>
+              <span className="rounded-full bg-rung-4 px-2 py-0.5 text-[11px] font-semibold ">Saved</span>
             )}
           </div>
 
@@ -759,7 +759,7 @@ export function KpiDashboardClient({
               <div className="flex items-center gap-2">
                 <span className="text-2xl font-bold text-foreground">{kpiDetailOpen.count}</span>
                 <span className="text-sm text-muted-foreground">/ {kpiDetailOpen.target} target</span>
-                <span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-semibold ${kpiDetailOpen.hit ? "bg-emerald-900/60 text-emerald-300" : "bg-rose-900/60 text-rose-300"}`}>
+                <span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-semibold ${kpiDetailOpen.hit ? "bg-rung-4 " : "bg-rung-1 "}`}>
                   {kpiDetailOpen.hit ? "✓ Hit" : "✗ Miss"}
                 </span>
               </div>

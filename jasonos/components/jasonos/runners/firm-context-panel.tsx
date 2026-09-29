@@ -26,12 +26,12 @@ export function FirmContextPanel({ context }: { context: FirmContext | null }) {
 
       {context.already_engaged.length > 0 ? (
         <div>
-          <div className="mb-0.5 text-[11px] uppercase tracking-wide text-emerald-300/80">
+          <div className="mb-0.5 text-[11px] uppercase tracking-wide text-rung-ink">
             Already engaged
           </div>
           {context.already_engaged.map((peer) => (
             <div key={peer.name} className="text-xs">
-              <span className="text-emerald-300">✓</span>{" "}
+              <span className="text-rung-ink">✓</span>{" "}
               <span className="font-medium">{peer.name}</span>
               <span className="text-muted-foreground">
                 {" "}— {peer.practice} · {STATUS_LABELS[peer.status] ?? peer.status}
@@ -43,12 +43,12 @@ export function FirmContextPanel({ context }: { context: FirmContext | null }) {
 
       {context.triaged_not_sent.length > 0 ? (
         <div>
-          <div className="mb-0.5 text-[11px] uppercase tracking-wide text-amber-300/80">
+          <div className="mb-0.5 text-[11px] uppercase tracking-wide text-rung-ink">
             Triaged, not sent
           </div>
           {context.triaged_not_sent.map((peer) => (
             <div key={peer.name} className="text-xs">
-              <span className="text-amber-300">●</span>{" "}
+              <span className="text-rung-ink">●</span>{" "}
               <span className="font-medium">{peer.name}</span>
               <span className="text-muted-foreground">
                 {" "}— {peer.practice} · {peer.intent}

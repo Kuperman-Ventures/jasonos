@@ -91,8 +91,8 @@ export function PipelinePanel({ contacts }: Props) {
   return (
     <div className="space-y-3">
       {draftCount > 0 ? (
-        <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
-          <span className="font-medium text-amber-200/90">
+        <div className="rounded-md border border-[var(--jos-line)] bg-rung-2 px-3 py-2 text-xs text-muted-foreground">
+          <span className="font-medium text-rung-ink">
             {draftCount} {draftCount === 1 ? "contact has" : "contacts have"} a
             draft ready.
           </span>{" "}
@@ -227,8 +227,8 @@ export function PipelinePanel({ contacts }: Props) {
                       variant="outline"
                       className={cn(
                         c.browning_source === "browning_referral"
-                          ? "border-amber-500/40 text-amber-200"
-                          : "border-sky-500/40 text-sky-200"
+                          ? "border-[var(--jos-line)] text-rung-ink"
+                          : "border-rung-3 text-rung-3"
                       )}
                     >
                       {BROWNING_SOURCE_LABELS[c.browning_source]}

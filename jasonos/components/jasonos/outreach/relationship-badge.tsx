@@ -7,12 +7,12 @@ import {
 } from "@/lib/outreach/types";
 
 const STYLES: Record<RelationshipType | "unclassified", string> = {
-  recruiter: "border-amber-500/40 bg-amber-500/10 text-amber-300",
-  hiring_manager: "border-sky-500/40 bg-sky-500/10 text-sky-300",
-  operator_peer: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
-  mentor_advisor: "border-violet-500/40 bg-violet-500/10 text-violet-300",
+  recruiter: "border-[var(--jos-line)] bg-rung-2 ",
+  hiring_manager: "border-rung-3 bg-rung-3 ",
+  operator_peer: "border-[var(--jos-line)] bg-rung-4 ",
+  mentor_advisor: "border-[var(--jos-line)] bg-rung-idle ",
   prospect: "border-pink-500/40 bg-pink-500/10 text-pink-300",
-  personal: "border-blue-500/40 bg-blue-500/10 text-blue-300",
+  personal: "border-rung-3 bg-rung-3 ",
   unclassified: "border-border bg-muted/40 text-muted-foreground",
 };
 

@@ -70,21 +70,21 @@ const COLUMNS: ColumnDef[] = [
     title: "Network Growth",
     helper: "building / deepening",
     icon: Sparkles,
-    accent: "text-[var(--jos-ink)]",
+    accent: "text-inherit",
   },
   {
     key: "network_maintenance",
     title: "Network Maintenance",
     helper: "keep warm",
     icon: Flame,
-    accent: "text-[var(--jos-ink)]",
+    accent: "text-inherit",
   },
   {
     key: "browning_cold",
     title: "Cold",
     helper: "cold outreach",
     icon: Snowflake,
-    accent: "text-[var(--jos-ink)]",
+    accent: "text-inherit",
   },
 ];
 
@@ -112,7 +112,7 @@ const BANDS: BandDef[] = [
     helper: "Outbound touches recorded today",
     icon: Mail,
     textColor: "text-[var(--jos-ink)]",
-    headerBg: "bg-[var(--jos-surface)]",
+    headerBg: "bg-rung-idle",
     defaultCollapsed: false,
   },
   {
@@ -120,8 +120,8 @@ const BANDS: BandDef[] = [
     label: "Overdue",
     helper: "Past next-touch date",
     icon: AlertCircle,
-    textColor: "text-[var(--color-accent-2-900)]",
-    headerBg: "bg-[var(--jos-danger-tint)]",
+    textColor: "text-inherit",
+    headerBg: "bg-rung-1",
     defaultCollapsed: false,
   },
   {
@@ -129,8 +129,8 @@ const BANDS: BandDef[] = [
     label: "Due This Week",
     helper: "Due today or by the end of this week (Fri)",
     icon: Clock,
-    textColor: "text-[var(--jos-ink)]",
-    headerBg: "bg-[var(--jos-warn-tint)]",
+    textColor: "text-inherit",
+    headerBg: "bg-rung-2",
     defaultCollapsed: false,
   },
   {
@@ -138,8 +138,8 @@ const BANDS: BandDef[] = [
     label: "Scheduled",
     helper: "Next touch set after this week",
     icon: Calendar,
-    textColor: "text-[var(--color-accent-900)]",
-    headerBg: "bg-[var(--jos-info-tint)]",
+    textColor: "text-inherit",
+    headerBg: "bg-rung-3",
     defaultCollapsed: false,
   },
 ];
@@ -496,7 +496,7 @@ export function ThreeColumnQueueClient({
     <div className="mx-auto max-w-[1500px] space-y-4 px-4 py-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-orange-300">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-rung-ink">
             <Radar className="h-4 w-4" />
             Outreach
           </div>
@@ -537,7 +537,7 @@ export function ThreeColumnQueueClient({
       </div>
 
       {buckets.caveats.length ? (
-        <div className="rounded-[2px] bg-[var(--jos-warn-tint)] px-4 py-3 text-[14px] text-[var(--jos-ink)]">
+        <div className="bg-rung-2 px-4 py-3 text-[14px]">
           <strong className="font-semibold">Heads up:</strong>{" "}
           {buckets.caveats.join(" · ")}
         </div>
@@ -623,11 +623,11 @@ function QueueColumn({
 }) {
   const Icon = def.icon;
   return (
-    <section className="flex flex-col overflow-hidden rounded-[2px] bg-[var(--jos-surface)]">
-      <header className="flex items-center gap-2 px-3 py-2.5">
+    <section className="flex flex-col overflow-hidden rounded-[2px]">
+      <header className="bg-rung-4 flex items-center gap-2 px-3 py-2.5">
         <Icon className={cn("h-4 w-4", def.accent)} />
-        <h2 className="text-sm font-semibold tracking-tight">{def.title}</h2>
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+        <h2 className="text-sm font-bold tracking-tight">{def.title}</h2>
+        <span className="text-[12px] font-bold tracking-[0.08em] uppercase opacity-80">
           · {count} · {def.helper}
         </span>
       </header>
@@ -689,21 +689,21 @@ function ColumnUrgencySection({
             <div className={cn("text-xs font-semibold", def.textColor)}>
               {def.label}
             </div>
-            <div className="truncate text-[12px] text-[var(--jos-muted)]">
+            <div className="truncate text-[12px] opacity-80">
               {def.helper}
             </div>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {cards.length > 0 ? (
-            <span className="text-xs font-medium tabular-nums text-[var(--jos-ink)]">
+            <span className="text-xs font-bold tabular-nums">
               {cards.length}
             </span>
           ) : null}
           {collapsed ? (
-            <ChevronDown className="h-4 w-4 text-[var(--jos-muted)]" />
+            <ChevronDown className="h-4 w-4" />
           ) : (
-            <ChevronUp className="h-4 w-4 text-[var(--jos-muted)]" />
+            <ChevronUp className="h-4 w-4" />
           )}
         </div>
       </button>
@@ -746,9 +746,9 @@ function ColumnUrgencySection({
 // ---------------------------------------------------------------------------
 
 const COLUMN_TAG_COLORS: Record<QueueColumnKey, string> = {
-  network_growth: "text-amber-300",
-  network_maintenance: "text-rose-300",
-  browning_cold: "text-sky-300",
+  network_growth: "text-rung-ink",
+  network_maintenance: "text-rung-1",
+  browning_cold: "text-rung-3",
 };
 
 function BandContactRow({
@@ -808,7 +808,7 @@ function BandContactRow({
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {nextDate ? (
-          <span className="text-[10px] text-sky-400">{fmtDate(nextDate)}</span>
+          <span className="text-[10px] text-rung-3">{fmtDate(nextDate)}</span>
         ) : lastTouch ? (
           <span className="text-[10px] text-muted-foreground">
             {CHANNEL_LABELS[lastTouch.channel]} · {fmtDate(lastTouch.touched_at)}
@@ -870,10 +870,10 @@ function ReconnectSummaryStrip({
 }) {
   return (
     <p className="text-[11px] text-muted-foreground">
-      <span className="font-medium text-amber-300">{network_growth}</span> growth ·{" "}
-      <span className="font-medium text-rose-300">{network_maintenance}</span>{" "}
+      <span className="font-medium text-rung-ink">{network_growth}</span> growth ·{" "}
+      <span className="font-medium text-rung-1">{network_maintenance}</span>{" "}
       maintenance ·{" "}
-      <span className="font-medium text-sky-300">{browning_cold}</span> Cold
+      <span className="font-medium text-rung-3">{browning_cold}</span> Cold
     </p>
   );
 }

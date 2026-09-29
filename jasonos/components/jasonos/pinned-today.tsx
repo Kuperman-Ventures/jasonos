@@ -22,10 +22,10 @@ export function PinnedToday({ cards }: { cards: ActionCard[] }) {
   };
 
   return (
-    <Card className="border-amber-400/30 bg-amber-400/5">
+    <Card className="border-[var(--jos-line)] bg-rung-2">
       <CardContent className="space-y-2">
         <div className="flex items-center gap-2">
-          <Pin className="h-3.5 w-3.5 text-amber-400" />
+          <Pin className="h-3.5 w-3.5 text-rung-ink" />
           <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Pinned today
           </span>

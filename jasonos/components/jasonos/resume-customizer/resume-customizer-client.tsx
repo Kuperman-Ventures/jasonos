@@ -104,15 +104,15 @@ const PRIORITY_META: Record<
 > = {
   critical: {
     label: "Critical · ATS / AI screening",
-    className: "border-red-500/40 bg-red-500/10 text-red-300",
+    className: "border-rung-1 bg-rung-1 ",
   },
   important: {
     label: "Important · Recruiter-focused",
-    className: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+    className: "border-[var(--jos-line)] bg-rung-2 ",
   },
   optional: {
     label: "Optional enhancement",
-    className: "border-sky-500/40 bg-sky-500/10 text-sky-300",
+    className: "border-rung-3 bg-rung-3 ",
   },
 };
 
@@ -336,7 +336,7 @@ export function ResumeCustomizerClient({
         </div>
 
         {!activeCore && (
-          <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-200">
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-[var(--jos-line)] bg-rung-2 p-3 text-xs ">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>
               No core resume selected yet. Add one in the{" "}
@@ -599,7 +599,7 @@ export function ResumeCustomizerClient({
                 key={r.id}
                 className={`flex items-center gap-3 rounded-lg border p-3 text-sm ${
                   r.is_core
-                    ? "border-emerald-500/40 bg-emerald-500/5"
+                    ? "border-[var(--jos-line)] bg-rung-4"
                     : "border-border"
                 }`}
               >
@@ -611,14 +611,14 @@ export function ResumeCustomizerClient({
                   aria-label="Set as core"
                 >
                   {r.is_core && (
-                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-rung-4" />
                   )}
                 </button>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">
                     {r.label}
                     {r.is_core && (
-                      <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
+                      <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-[var(--jos-line)] bg-rung-4 px-1.5 py-0.5 text-[10px] font-medium ">
                         <Star className="h-2.5 w-2.5" />
                         Core
                       </span>
@@ -677,7 +677,7 @@ export function ResumeCustomizerClient({
 function CoreStatus({ core }: { core: ResumeRow | null }) {
   if (!core) return null;
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-300">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--jos-line)] bg-rung-4 px-2.5 py-1 text-[11px] font-medium ">
       <CheckCircle2 className="h-3 w-3" />
       Core: {core.label}
     </span>
@@ -772,22 +772,22 @@ function ResultPanel({
   > = {
     applied: {
       label: "Applied",
-      badge: "border-emerald-500/40 bg-emerald-500/15 text-emerald-300",
+      badge: "border-[var(--jos-line)] bg-rung-4 ",
       accent: "border-l-emerald-400/60",
     },
     forced: {
       label: "Applied (added length)",
-      badge: "border-emerald-500/40 bg-emerald-500/15 text-emerald-300",
+      badge: "border-[var(--jos-line)] bg-rung-4 ",
       accent: "border-l-emerald-400/60",
     },
     skipped: {
       label: "Not applied — would add length",
-      badge: "border-amber-500/40 bg-amber-500/15 text-amber-300",
+      badge: "border-[var(--jos-line)] bg-rung-2 ",
       accent: "border-l-amber-400/60",
     },
     unmatched: {
       label: "Not applied — couldn't locate in the doc",
-      badge: "border-red-500/40 bg-red-500/15 text-red-300",
+      badge: "border-rung-1 bg-rung-1 ",
       accent: "border-l-red-400/60",
     },
     reorder: {
@@ -821,20 +821,20 @@ function ResultPanel({
         </Button>
       </div>
 
-      <div className="rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs">
-        <p className="font-semibold text-emerald-300">
+      <div className="rounded-md border border-[var(--jos-line)] bg-rung-4 p-3 text-xs">
+        <p className="font-semibold text-rung-ink">
           {appliedCount} of {totalTextEdits} suggested rewrites are in your
           downloaded resume.
         </p>
         <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
           {skipped.size > 0 && (
-            <span className="text-amber-300">
+            <span className="text-rung-ink">
               {skipped.size} held back to keep the page count — use &ldquo;Apply
               anyway&rdquo;
             </span>
           )}
           {unmatchedCount > 0 && (
-            <span className="text-red-300">
+            <span className="text-rung-1">
               {unmatchedCount} couldn&rsquo;t be located in the document
             </span>
           )}
@@ -865,7 +865,7 @@ function ResultPanel({
           {present.map((k) => (
             <span
               key={`p-${k.keyword}`}
-              className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300"
+              className="rounded-full border border-[var(--jos-line)] bg-rung-4 px-2 py-0.5 text-[11px] "
             >
               {k.keyword}
             </span>
@@ -873,7 +873,7 @@ function ResultPanel({
           {missing.map((k) => (
             <span
               key={`m-${k.keyword}`}
-              className="rounded-full border border-red-500/40 bg-red-500/10 px-2 py-0.5 text-[11px] text-red-300"
+              className="rounded-full border border-rung-1 bg-rung-1 px-2 py-0.5 text-[11px] "
             >
               {k.keyword}
             </span>
@@ -942,12 +942,12 @@ function ResultPanel({
                         {c.jobRequirement}
                       </p>
                       {c.before && (
-                        <p className="mt-2 rounded bg-red-500/5 px-2 py-1 text-[11px] text-red-200/90 line-through decoration-red-400/40">
+                        <p className="mt-2 rounded bg-rung-1 px-2 py-1 text-[11px]  line-through decoration-[var(--jos-line)]">
                           {c.before}
                         </p>
                       )}
                       {c.after && (
-                        <p className="mt-1 rounded bg-emerald-500/5 px-2 py-1 text-[11px] text-emerald-200/90">
+                        <p className="mt-1 rounded bg-rung-4 px-2 py-1 text-[11px] ">
                           {c.after}
                         </p>
                       )}

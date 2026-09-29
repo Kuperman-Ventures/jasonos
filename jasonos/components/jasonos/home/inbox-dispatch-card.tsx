@@ -50,17 +50,17 @@ const URGENCY: Record<
 > = {
   now: {
     label: "Today",
-    cls: "border-red-400/40 bg-red-500/15 text-red-200",
+    cls: "border-rung-1 bg-rung-1 ",
     icon: <Clock3 className="h-3 w-3" />,
   },
   paid: {
     label: "Paid call",
-    cls: "border-emerald-400/40 bg-emerald-500/15 text-emerald-200",
+    cls: "border-[var(--jos-line)] bg-rung-4 ",
     icon: <CircleDollarSign className="h-3 w-3" />,
   },
   soon: {
     label: "Reply soon",
-    cls: "border-amber-400/40 bg-amber-500/15 text-amber-200",
+    cls: "border-[var(--jos-line)] bg-rung-2 ",
   },
   normal: {
     label: "Reply",
@@ -289,7 +289,7 @@ function SavedSection({
   return (
     <div className="border-b border-border">
       <p className="flex items-center gap-1.5 px-4 pt-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        <BookmarkCheck className="h-3 w-3 text-sky-300" />
+        <BookmarkCheck className="h-3 w-3 text-rung-3" />
         Saved for later ({count})
       </p>
       {entries.length > 0 ? (
@@ -536,7 +536,7 @@ export function InboxDispatchCard() {
           }
           className="flex min-w-0 flex-1 items-center gap-2 text-left transition-colors hover:opacity-90"
         >
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-amber-500/15 text-amber-300">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-rung-2 ">
             <Inbox className="h-3.5 w-3.5" />
           </span>
           <div className="min-w-0">
@@ -545,12 +545,12 @@ export function InboxDispatchCard() {
                 Inbox Dispatch
               </h2>
               {!loading && data?.configured && headerCount > 0 ? (
-                <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-amber-200">
+                <span className="rounded-full bg-rung-2 px-1.5 py-0.5 text-[10px] font-medium tabular-nums ">
                   {headerCount}
                 </span>
               ) : null}
               {!loading && visibleSaved.length > 0 ? (
-                <span className="rounded-full border border-sky-400/40 bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-sky-200">
+                <span className="rounded-full border border-rung-3 bg-rung-3 px-1.5 py-0.5 text-[10px] font-medium tabular-nums ">
                   {visibleSaved.length} saved
                 </span>
               ) : null}
@@ -668,7 +668,7 @@ export function InboxDispatchCard() {
             ) : null}
 
             {data.error ? (
-              <p className="px-4 py-2 text-[11px] text-amber-300/80">
+              <p className="px-4 py-2 text-[11px] text-rung-ink">
                 Partial result: {data.error}
               </p>
             ) : null}
@@ -738,12 +738,12 @@ function BoardingRow({
         className={cn(
           "absolute inset-y-0 left-0 w-[3px]",
           saved
-            ? "bg-sky-400/80"
+            ? "bg-rung-3"
             : item.urgency === "now"
-              ? "bg-red-400"
+              ? "bg-rung-1"
               : item.urgency === "paid"
-                ? "bg-emerald-400"
-                : "bg-amber-400/80"
+                ? "bg-rung-4"
+                : "bg-rung-2"
         )}
       />
       <div className="flex items-start gap-1 pl-5">
@@ -756,7 +756,7 @@ function BoardingRow({
             <div className="flex items-center gap-2">
               <span className="truncate text-sm font-medium">{item.name}</span>
               {saved ? (
-                <span className="flex shrink-0 items-center gap-1 rounded-full border border-sky-400/40 bg-sky-500/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-sky-200">
+                <span className="flex shrink-0 items-center gap-1 rounded-full border border-rung-3 bg-rung-3 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ">
                   <BookmarkCheck className="h-3 w-3" />
                   Saved
                 </span>
@@ -781,7 +781,7 @@ function BoardingRow({
             <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Summary
             </p>
-            <p className="mt-0.5 border-l-2 border-amber-500/25 pl-2 text-[12.5px] leading-snug text-foreground/90">
+            <p className="mt-0.5 border-l-2 border-[var(--jos-line)] pl-2 text-[12.5px] leading-snug text-foreground/90">
               {item.elevator}
             </p>
           </div>
@@ -802,7 +802,7 @@ function BoardingRow({
           }
         >
           {saved ? (
-            <BookmarkCheck className="h-3.5 w-3.5 text-sky-300" />
+            <BookmarkCheck className="h-3.5 w-3.5 text-rung-3" />
           ) : (
             <Bookmark className="h-3.5 w-3.5" />
           )}
@@ -836,7 +836,7 @@ function BoardingRow({
             )}
           </div>
           {item.draft ? (
-            <p className="flex items-center gap-1.5 text-[11px] text-emerald-300/90">
+            <p className="flex items-center gap-1.5 text-[11px] text-rung-ink">
               <Check className="h-3 w-3 shrink-0" />
               Draft ready — review and send it from Apple Mail.
             </p>
@@ -860,7 +860,7 @@ function BoardingRow({
               type="button"
               onClick={copy}
               disabled={!item.draft}
-              className="flex items-center gap-1.5 rounded-md bg-amber-500/90 px-2.5 py-1.5 text-[12px] font-medium text-amber-950 transition hover:bg-amber-400 disabled:opacity-40"
+              className="flex items-center gap-1.5 rounded-md bg-rung-2 px-2.5 py-1.5 text-[12px] font-medium  transition hover:bg-rung-2 disabled:opacity-40"
             >
               {copied ? (
                 <Check className="h-3.5 w-3.5" />
@@ -873,7 +873,7 @@ function BoardingRow({
               <button
                 type="button"
                 onClick={() => openDraftInAppleMail(item)}
-                className="flex items-center gap-1.5 rounded-md border border-emerald-400/40 bg-emerald-500/10 px-2.5 py-1.5 text-[12px] font-medium text-emerald-200 transition-colors hover:bg-emerald-500/20"
+                className="flex items-center gap-1.5 rounded-md border border-[var(--jos-line)] bg-rung-4 px-2.5 py-1.5 text-[12px] font-medium  transition-colors hover:bg-rung-4"
                 title="Open Apple Mail with To, subject, and this draft filled in"
               >
                 <Mail className="h-3.5 w-3.5" />
@@ -939,7 +939,7 @@ function HoldingRow({
         <span className="font-medium">{item.name}</span>
         <span className="ml-1.5 text-muted-foreground">{item.subject}</span>
         {saved ? (
-          <span className="ml-1.5 text-[10px] uppercase tracking-wide text-sky-300">
+          <span className="ml-1.5 text-[10px] uppercase tracking-wide text-rung-3">
             saved
           </span>
         ) : null}
@@ -978,7 +978,7 @@ function HoldingRow({
         }
       >
         {saved ? (
-          <BookmarkCheck className="h-3 w-3 text-sky-300" />
+          <BookmarkCheck className="h-3 w-3 text-rung-3" />
         ) : (
           <Bookmark className="h-3 w-3" />
         )}

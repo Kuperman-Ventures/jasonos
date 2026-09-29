@@ -52,7 +52,7 @@ export function BriefSection({
             ) : null}
             {liveBadge ? (
               <span
-                className="inline-block h-1 w-1 rounded-full bg-emerald-400"
+                className="inline-block h-1 w-1 rounded-full bg-rung-4"
                 title="Live source"
               />
             ) : null}

@@ -873,14 +873,14 @@ export function OutreachModal({
                   className={cn(
                     "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors",
                     vipState
-                      ? "border-amber-400/60 bg-amber-400/15 text-amber-300"
-                      : "border-border text-muted-foreground hover:border-amber-400/60 hover:text-amber-300"
+                      ? "border-[var(--jos-line)] bg-rung-2 "
+                      : "border-border text-muted-foreground hover:border-[var(--jos-line)] hover:text-rung-ink"
                   )}
                 >
                   <Star
                     className={cn(
                       "h-3 w-3",
-                      vipState ? "fill-amber-400 text-amber-400" : ""
+                      vipState ? "fill-[var(--jos-line)] text-rung-ink" : ""
                     )}
                   />
                 </button>
@@ -1030,7 +1030,7 @@ export function OutreachModal({
         {/* BODY */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
           {card.status === "error" ? (
-            <div className="mb-4 rounded-md border border-red-500/40 bg-red-500/5 p-3 text-xs text-red-300">
+            <div className="mb-4 rounded-md border border-rung-1 bg-rung-1 p-3 text-xs ">
               {card.message}
             </div>
           ) : null}
@@ -1436,7 +1436,7 @@ function ReferralsCard({
                           disabled={refPending || selected}
                           className={
                             selected
-                              ? "rounded-md border border-sky-400/40 bg-sky-500/15 px-2 py-1 text-[11px] font-medium text-sky-200"
+                              ? "rounded-md border border-rung-3 bg-rung-3 px-2 py-1 text-[11px] font-medium "
                               : "rounded-md border border-border bg-background/60 px-2 py-1 text-[11px] font-medium text-foreground/90 hover:bg-muted"
                           }
                         >
@@ -2020,9 +2020,9 @@ function Monogram({ name }: { name: string }) {
 }
 
 const INTENT_DOT: Record<ContactIntent, string> = {
-  network_growth: "bg-amber-400",
-  network_maintenance: "bg-rose-400",
-  browning_cold: "bg-sky-400",
+  network_growth: "bg-rung-2",
+  network_maintenance: "bg-rung-1",
+  browning_cold: "bg-rung-3",
   backrow: "bg-muted-foreground",
 };
 
@@ -2040,21 +2040,21 @@ function nextTouchPill(
   if (days < 0)
     return {
       label: `Overdue ${Math.abs(days)}d`,
-      cls: "border-red-500/40 bg-red-500/10 text-red-300",
+      cls: "border-rung-1 bg-rung-1 ",
     };
   if (days === 0)
     return {
       label: "Due today",
-      cls: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+      cls: "border-[var(--jos-line)] bg-rung-2 ",
     };
   if (days <= 7)
     return {
       label: `Due in ${days}d`,
-      cls: "border-amber-500/40 bg-amber-500/10 text-amber-300",
+      cls: "border-[var(--jos-line)] bg-rung-2 ",
     };
   return {
     label: `In ${days}d`,
-    cls: "border-sky-500/40 bg-sky-500/10 text-sky-300",
+    cls: "border-rung-3 bg-rung-3 ",
   };
 }
 
@@ -2493,7 +2493,7 @@ function LogTouchPanel({
         </div>
 
         {tooLong && (
-          <p className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1.5 text-[10px] text-amber-300">
+          <p className="rounded-md border border-[var(--jos-line)] bg-rung-2 px-2.5 py-1.5 text-[10px] ">
             Heads up: this next-touch date is later than your{" "}
             {CADENCE_LABELS[cadenceInterval]?.toLowerCase()} cadence
             ({autoNext}). That&rsquo;s a longer gap than intended — you can still
@@ -2516,9 +2516,9 @@ function LogTouchPanel({
                   "rounded-md border px-2 py-1.5 text-left text-[11px] transition-colors",
                   objective === value
                     ? value === "yes"
-                      ? "border-emerald-500/60 bg-emerald-500/15 text-emerald-300"
+                      ? "border-[var(--jos-line)] bg-rung-4 "
                       : value === "no"
-                      ? "border-amber-500/60 bg-amber-500/15 text-amber-300"
+                      ? "border-[var(--jos-line)] bg-rung-2 "
                       : "border-border bg-muted text-foreground"
                     : "border-border text-muted-foreground hover:text-foreground"
                 )}
@@ -2680,7 +2680,7 @@ function SourceCard({ source }: { source: DraftSource }) {
           {source.source.replace("_", " ")}
         </span>
         {source.found ? (
-          <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+          <CheckCircle2 className="h-3 w-3 text-rung-ink" />
         ) : (
           <span className="text-[9px] uppercase text-muted-foreground/60">
             none

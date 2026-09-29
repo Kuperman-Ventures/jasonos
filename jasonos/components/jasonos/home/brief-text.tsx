@@ -18,7 +18,7 @@ import {
 // render as plain text — no hyperlink.
 
 const linkClass =
-  "font-medium text-sky-300 underline decoration-sky-400/40 underline-offset-2 hover:text-sky-200 hover:decoration-sky-300";
+  "font-medium text-rung-3 underline decoration-[var(--jos-line)] underline-offset-2 hover:text-rung-3 hover:decoration-[var(--jos-line)]";
 
 export function BriefText({
   text,

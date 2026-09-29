@@ -146,7 +146,7 @@ export function FirstContactSequence({
             className={cn(
               "h-2.5 w-2.5 rounded-full border",
               index <= stageIndex || state.stage === "completed"
-                ? "border-orange-300 bg-orange-300"
+                ? "border-[var(--jos-line)] bg-rung-2"
                 : "border-muted-foreground/40"
             )}
           />
@@ -170,7 +170,7 @@ export function FirstContactSequence({
               />
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 {charLimit ? (
-                  <span className={overLimit ? "text-rose-400" : ""}>
+                  <span className={overLimit ? "text-rung-1" : ""}>
                     {draft.length} / {charLimit} chars
                   </span>
                 ) : null}
@@ -221,7 +221,7 @@ function StageActions({
 }) {
   if (stage === "completed") {
     return (
-      <div className="mt-4 flex items-center gap-2 text-sm text-emerald-300">
+      <div className="mt-4 flex items-center gap-2 text-sm text-rung-ink">
         <CheckCircle2 className="h-4 w-4" />
         First contact complete
       </div>

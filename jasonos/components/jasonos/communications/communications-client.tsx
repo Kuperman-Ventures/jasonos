@@ -81,29 +81,29 @@ const URGENCY_CONFIG: Record<
     label: "Sent Today",
     helper: "Outbound touches recorded today from your accounts",
     icon: <Mail className="h-4 w-4" />,
-    textColor: "text-emerald-300",
-    headerBg: "bg-emerald-700/70",
+    textColor: "text-rung-ink",
+    headerBg: "bg-rung-4",
   },
   due_today: {
     label: "Due Now",
     helper: "Past their scheduled next-touch date — reach out today",
     icon: <AlertCircle className="h-4 w-4" />,
-    textColor: "text-red-300",
-    headerBg: "bg-red-700/80",
+    textColor: "text-rung-1",
+    headerBg: "bg-rung-1",
   },
   this_week: {
     label: "This Week",
     helper: "Scheduled for outreach in the next 7 days",
     icon: <Clock className="h-4 w-4" />,
-    textColor: "text-amber-300",
-    headerBg: "bg-amber-600/70",
+    textColor: "text-rung-ink",
+    headerBg: "bg-rung-2",
   },
   scheduled: {
     label: "Scheduled",
     helper: "Next touch set — coming up after this week",
     icon: <Calendar className="h-4 w-4" />,
-    textColor: "text-sky-300",
-    headerBg: "bg-sky-800/50",
+    textColor: "text-rung-3",
+    headerBg: "bg-rung-3",
   },
   needs_scheduling: {
     label: "Needs Scheduling",
@@ -465,14 +465,14 @@ export function CommunicationsClient({
                 <button
                   type="button"
                   onClick={() => setSentTodayOpen((v) => !v)}
-                  className="w-full flex items-center justify-between px-3 py-2 bg-emerald-900/20 hover:bg-emerald-900/30 transition-colors"
+                  className="w-full flex items-center justify-between px-3 py-2 bg-rung-4 hover:bg-rung-4 transition-colors"
                 >
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400/80">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-rung-ink">
                     Sent Today · {bucket.length}
                   </span>
                   {sentTodayOpen
-                    ? <ChevronUp className="h-3.5 w-3.5 text-emerald-400/60" />
-                    : <ChevronDown className="h-3.5 w-3.5 text-emerald-400/60" />}
+                    ? <ChevronUp className="h-3.5 w-3.5 text-rung-ink" />
+                    : <ChevronDown className="h-3.5 w-3.5 text-rung-ink" />}
                 </button>
                 {sentTodayOpen && (
                   <div className="divide-y divide-border/40">
@@ -501,14 +501,14 @@ export function CommunicationsClient({
                 <button
                   type="button"
                   onClick={() => setScheduledOpen((v) => !v)}
-                  className="w-full flex items-center justify-between px-3 py-2 bg-sky-900/20 hover:bg-sky-900/30 transition-colors"
+                  className="w-full flex items-center justify-between px-3 py-2 bg-rung-3 hover:bg-rung-3 transition-colors"
                 >
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-sky-400/80">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-rung-3">
                     Scheduled · {bucket.length}
                   </span>
                   {scheduledOpen
-                    ? <ChevronUp className="h-3.5 w-3.5 text-sky-400/60" />
-                    : <ChevronDown className="h-3.5 w-3.5 text-sky-400/60" />}
+                    ? <ChevronUp className="h-3.5 w-3.5 text-rung-3" />
+                    : <ChevronDown className="h-3.5 w-3.5 text-rung-3" />}
                 </button>
                 {scheduledOpen && (
                   <div className="max-h-64 overflow-y-auto divide-y divide-border/40">
@@ -560,26 +560,26 @@ export function CommunicationsClient({
         </div>
 
         {gmailNotConnected ? (
-          <div className="flex items-center justify-between gap-3 border-b bg-amber-500/10 px-4 py-2.5 shrink-0">
-            <div className="text-xs text-amber-300">
+          <div className="flex items-center justify-between gap-3 border-b bg-rung-2 px-4 py-2.5 shrink-0">
+            <div className="text-xs text-rung-ink">
               Gmail not connected — sync returned 0 emails.
             </div>
             <a
               href="/api/auth/google"
-              className="shrink-0 rounded-md border border-amber-400/40 bg-amber-500/20 px-3 py-1 text-[11px] font-medium text-amber-200 hover:bg-amber-500/30 transition-colors"
+              className="shrink-0 rounded-md border border-[var(--jos-line)] bg-rung-2 px-3 py-1 text-[11px] font-medium  hover:bg-rung-2 transition-colors"
             >
               Connect Advisors Google →
             </a>
           </div>
         ) : !gmailPersonalConnected ? (
-          <div className="flex items-center justify-between gap-3 border-b bg-amber-500/10 px-4 py-2.5 shrink-0">
-            <div className="text-xs text-amber-300">
+          <div className="flex items-center justify-between gap-3 border-b bg-rung-2 px-4 py-2.5 shrink-0">
+            <div className="text-xs text-rung-ink">
               Personal Gmail is not connected — sent mail and calendar on
               jskuperman@gmail.com will not sync.
             </div>
             <a
               href="/api/auth/google?account=gmail"
-              className="shrink-0 rounded-md border border-amber-400/40 bg-amber-500/20 px-3 py-1 text-[11px] font-medium text-amber-200 hover:bg-amber-500/30 transition-colors"
+              className="shrink-0 rounded-md border border-[var(--jos-line)] bg-rung-2 px-3 py-1 text-[11px] font-medium  hover:bg-rung-2 transition-colors"
             >
               Connect personal Gmail →
             </a>
@@ -707,7 +707,7 @@ function ContactDetailPanel({
           </div>
         ) : null}
         {contact.source === "cadence" && contact.cadenceInterval && contact.cadenceInterval !== "none" ? (
-          <div className="inline-flex items-center gap-1.5 rounded-md border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-medium text-sky-300">
+          <div className="inline-flex items-center gap-1.5 rounded-md border border-rung-3 bg-rung-3 px-2 py-0.5 text-[10px] font-medium ">
             <RefreshCw className="h-3 w-3" />
             {cadenceLabel(contact.cadenceInterval)} cadence
           </div>
@@ -748,8 +748,8 @@ function ContactDetailPanel({
                 <span
                   className={`ml-auto text-[10px] px-1.5 py-0.5 rounded border ${
                     contact.lastTouch.direction === "inbound"
-                      ? "border-blue-500/40 text-blue-400"
-                      : "border-emerald-500/40 text-emerald-400"
+                      ? "border-rung-3 text-rung-3"
+                      : "border-[var(--jos-line)] text-rung-ink"
                   }`}
                 >
                   {contact.lastTouch.direction === "inbound" ? "Inbound" : "Outbound"}
@@ -808,13 +808,13 @@ function ContactDetailPanel({
               })}
             </ul>
             {firmmates.some((m) => (m.firm_focus_rank ?? 0) > 1) ? (
-              <p className="text-xs text-amber-300/80">
+              <p className="text-xs text-rung-ink">
                 Don&rsquo;t reach bench contacts independently — search firms share notes in their internal CRMs. Let the anchor loop them in.
               </p>
             ) : null}
           </section>
         ) : contact.firm_focus_rank === 1 ? (
-          <p className="text-xs text-emerald-300/70 italic">
+          <p className="text-xs text-rung-ink italic">
             Solo anchor — this contact IS the firm relationship.
           </p>
         ) : null}
@@ -862,7 +862,7 @@ function ContactDetailPanel({
           <p className="text-[11px] text-muted-foreground">{scheduledLine}</p>
 
           {saved ? (
-            <div className="w-full rounded-md border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-center text-xs text-emerald-400">
+            <div className="w-full rounded-md border border-[var(--jos-line)] bg-rung-4 px-3 py-2 text-center text-xs ">
               Saved ✓
             </div>
           ) : (
@@ -963,24 +963,24 @@ function UrgencySection({
         className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left ${cfg.headerBg}`}
       >
         <div className="flex items-center gap-2">
-          <span className={cfg.textColor}>{cfg.icon}</span>
+          <span>{cfg.icon}</span>
           <div>
-            <div className={`text-sm font-semibold ${cfg.textColor}`}>
+            <div className="text-sm font-bold">
               {cfg.label}
             </div>
-            <div className="text-[11px] text-white/60">{cfg.helper}</div>
+            <div className="text-[11px] opacity-80">{cfg.helper}</div>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {contacts.length > 0 ? (
-            <span className="text-xs font-medium text-white/80">
+            <span className="text-xs font-bold tabular-nums">
               {contacts.length}
             </span>
           ) : null}
           {collapsed ? (
-            <ChevronDown className="h-4 w-4 text-white/60" />
+            <ChevronDown className="h-4 w-4" />
           ) : (
-            <ChevronUp className="h-4 w-4 text-white/60" />
+            <ChevronUp className="h-4 w-4" />
           )}
         </div>
       </button>
@@ -1055,7 +1055,7 @@ function ContactRow({
       </div>
       <div className="shrink-0 flex items-center gap-2">
         {contact.nextActionDueDate ? (
-          <span className="text-[10px] text-sky-400">{fmtDate(contact.nextActionDueDate)}</span>
+          <span className="text-[10px] text-rung-3">{fmtDate(contact.nextActionDueDate)}</span>
         ) : contact.lastTouch ? (
           <span className="text-[10px] text-muted-foreground">
             {CHANNEL_LABELS[contact.lastTouch.channel]} · {fmtDate(contact.lastTouch.touched_at)}
@@ -1151,7 +1151,7 @@ function LeftListRow({
               {CHANNEL_LABELS[contact.lastTouch.channel]} · {fmtDate(contact.lastTouch.touched_at)}
             </span>
           ) : contact.nextActionDueDate ? (
-            <span className="text-[10px] text-sky-400">{fmtDate(contact.nextActionDueDate)}</span>
+            <span className="text-[10px] text-rung-3">{fmtDate(contact.nextActionDueDate)}</span>
           ) : null}
         </div>
       </div>
@@ -1205,8 +1205,8 @@ function LastContactContentsSection({ contactId }: { contactId: string }) {
               <span
                 className={`text-[9px] px-1 py-0.5 rounded border ${
                   content.direction === "inbound"
-                    ? "border-blue-500/40 text-blue-400"
-                    : "border-emerald-500/40 text-emerald-400"
+                    ? "border-rung-3 text-rung-3"
+                    : "border-[var(--jos-line)] text-rung-ink"
                 }`}
               >
                 {content.direction}
@@ -1352,9 +1352,9 @@ function ContactTimeline({ contact }: { contact: CommunicationsContact }) {
               <div
                 className={`relative z-10 mt-[3px] h-3 w-3 shrink-0 rounded-full border-2 ${
                   node.status === "done"
-                    ? "border-emerald-400 bg-emerald-400/30"
+                    ? "border-[var(--jos-line)] bg-rung-4"
                     : node.status === "upcoming"
-                    ? "border-sky-400 bg-sky-400/20"
+                    ? "border-rung-3 bg-rung-3"
                     : "border-border bg-background"
                 }`}
               />
@@ -1362,9 +1362,9 @@ function ContactTimeline({ contact }: { contact: CommunicationsContact }) {
                 <div
                   className={`text-[11px] font-semibold uppercase tracking-wider ${
                     node.status === "done"
-                      ? "text-emerald-400/80"
+                      ? "text-rung-ink"
                       : node.status === "upcoming"
-                      ? "text-sky-400/80"
+                      ? "text-rung-3"
                       : "text-muted-foreground/50"
                   }`}
                 >

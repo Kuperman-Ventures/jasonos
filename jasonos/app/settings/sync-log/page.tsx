@@ -35,7 +35,7 @@ export default async function SyncLogPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
       <header className="flex items-start gap-3">
-        <div className="mt-0.5 rounded-lg border bg-card p-2 text-sky-300">
+        <div className="mt-0.5 rounded-lg border bg-card p-2 text-rung-3">
           <RefreshCw className="h-5 w-5" />
         </div>
         <div className="min-w-0">
@@ -70,10 +70,10 @@ export default async function SyncLogPage() {
                       className={cn(
                         "mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full",
                         instance.hasError
-                          ? "bg-red-400"
+                          ? "bg-rung-1"
                           : instance.hasUnavailable
-                            ? "bg-amber-400"
-                            : "bg-emerald-400"
+                            ? "bg-rung-2"
+                            : "bg-rung-4"
                       )}
                       aria-hidden
                     />
@@ -104,10 +104,10 @@ export default async function SyncLogPage() {
                               className={cn(
                                 "h-1.5 w-1.5 shrink-0 rounded-full",
                                 row.unavailable
-                                  ? "bg-amber-400"
+                                  ? "bg-rung-2"
                                   : row.ok
-                                    ? "bg-emerald-400"
-                                    : "bg-red-400"
+                                    ? "bg-rung-4"
+                                    : "bg-rung-1"
                               )}
                               aria-hidden
                             />

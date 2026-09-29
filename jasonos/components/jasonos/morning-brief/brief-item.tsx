@@ -14,11 +14,11 @@ export interface BriefItemProps {
 }
 
 const ACCENT: Record<NonNullable<BriefItemProps["accent"]>, string> = {
-  amber: "border-amber-500/30",
-  emerald: "border-emerald-500/30",
-  sky: "border-sky-500/30",
-  violet: "border-violet-500/30",
-  rose: "border-rose-500/30",
+  amber: "border-[var(--jos-line)]",
+  emerald: "border-[var(--jos-line)]",
+  sky: "border-rung-3",
+  violet: "border-[var(--jos-line)]",
+  rose: "border-rung-1",
   muted: "",
 };
 

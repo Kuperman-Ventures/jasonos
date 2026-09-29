@@ -28,12 +28,7 @@ export function HeroStrip({
               active && cn("ring-1", meta.ring, "border-transparent")
             )}
           >
-            <div
-              className={cn(
-                "absolute inset-x-0 top-0 h-px",
-                meta.tint.replace("bg-", "bg-").replace("/10", "/40")
-              )}
-            />
+            <div className="absolute inset-x-0 top-0 h-px bg-[var(--jos-line)]" />
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div
@@ -47,7 +42,7 @@ export function HeroStrip({
                 <div className="mt-1 text-[11px] text-muted-foreground">
                   {h.metric}
                   {h.source === "live" ? (
-                    <span className="ml-1.5 inline-block h-1 w-1 rounded-full bg-emerald-400 align-middle" />
+                    <span className="ml-1.5 inline-block h-1 w-1 rounded-full bg-rung-4 align-middle" />
                   ) : null}
                 </div>
               </div>

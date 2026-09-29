@@ -102,18 +102,18 @@ export function ProductHealth() {
   return (
     <section className="rounded-xl border bg-card">
       <header className="flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
-        <Activity className="h-3.5 w-3.5 text-emerald-400" />
+        <Activity className="h-3.5 w-3.5 text-rung-ink" />
         <h2 className="text-sm font-semibold tracking-tight">Product Health</h2>
         <span className="text-[11px] text-muted-foreground">
           · {entries.length} target{entries.length === 1 ? "" : "s"}
         </span>
         {payload && !payload.configured ? (
-          <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0 text-[9px] uppercase tracking-wider text-amber-300">
+          <span className="rounded border border-[var(--jos-line)] bg-rung-2 px-1.5 py-0 text-[9px] uppercase tracking-wider ">
             Supabase pending
           </span>
         ) : null}
         {error ? (
-          <span className="text-[10px] text-rose-400">· {error}</span>
+          <span className="text-[10px] text-rung-1">· {error}</span>
         ) : null}
 
         <div className="ml-auto flex items-center gap-1">
@@ -152,7 +152,7 @@ export function ProductHealth() {
 
       {collapsed ? (
         <div className="flex flex-wrap items-center gap-1.5 px-3 py-2">
-          <span className="text-[11px] font-medium text-emerald-400">
+          <span className="text-[11px] font-medium text-rung-ink">
             All systems green
           </span>
           <span className="text-[10px] text-muted-foreground">
@@ -175,7 +175,7 @@ export function ProductHealth() {
           ) : (
             <>
               {(counts.red > 0 || counts.yellow > 0) && (
-                <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-200/90">
+                <div className="rounded-md border border-[var(--jos-line)] bg-rung-2 px-3 py-2 text-[11px] ">
                   {counts.red > 0
                     ? `${counts.red} target${counts.red === 1 ? "" : "s"} down`
                     : null}
