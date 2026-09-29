@@ -199,6 +199,26 @@ export const SERVICE_DEFINITIONS: ServiceDefinition[] = [
     ],
   },
   {
+    name: "granola",
+    label: "Granola",
+    connectionType: "api_key",
+    description:
+      "Meeting notes for Browning thank-you drafts. In the Granola app: Settings → Connectors → API keys. Include Personal notes, then paste the key here. It starts with grn_. Settings is used first, then GRANOLA_API_KEY.",
+    features: ["Meeting notes", "Browning thank-you"],
+    configurable: true,
+    disconnectable: true,
+    envVars: ["GRANOLA_API_KEY"],
+    fields: [
+      {
+        name: "api_key",
+        label: "API Key",
+        type: "password",
+        required: true,
+        placeholder: "grn_…",
+      },
+    ],
+  },
+  {
     name: "firecrawl",
     label: "Firecrawl",
     connectionType: "api_key",

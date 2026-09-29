@@ -5,6 +5,7 @@ import { etYmd } from "@/lib/dates";
 import { loadBusy } from "@/lib/browning-networking/data";
 import { canEditOfferedTimes } from "@/lib/browning-networking/lanes";
 import { connectMeetingTitle, thankYouDraft } from "@/lib/browning-networking/draft";
+import { searchGranolaForContact } from "@/lib/integrations/granola";
 import { persistDraft, runBrowningNetworking } from "@/lib/browning-networking/run";
 import { createGoogleMeetInvite } from "@/lib/integrations/google-calendar";
 import { ADVISORS_ACCOUNT_EMAIL, listGoogleAccessTokens } from "@/lib/integrations/google-tokens";
@@ -187,6 +188,43 @@ export async function draftThankYouFromNotes(
     .update({
       thank_you_body: body,
       thank_you_source: "notes",
+      status: "thank_you_ready",
+    })
+    .eq("id", handoffId);
+  if (updateError) return { ok: false, error: updateError.message };
+  revalidate();
+  return { ok: true };
+}
+
+export async function pullGranolaThankYou(
+  handoffId: string
+): Promise<ActionResult> {
+  const guard = configured();
+  if (guard) return guard;
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("browning_handoffs")
+    .select("contact_name, contact_email, call_starts_at, call_event_id")
+    .eq("id", handoffId)
+    .maybeSingle();
+  if (error || !data) return { ok: false, error: error?.message || "Handoff not found." };
+  const name = ((data.contact_name as string | null) ?? "").trim();
+  if (!name) return { ok: false, error: "This handoff has no name to match in Granola." };
+  const note = await searchGranolaForContact({
+    contactName: name,
+    email: (data.contact_email as string | null) ?? null,
+    aroundIso: (data.call_starts_at as string | null) ?? null,
+    calendarEventId: (data.call_event_id as string | null) ?? null,
+  });
+  if (!note.found || !note.summary) {
+    return { ok: false, error: note.error || "No Granola note for this call yet." };
+  }
+  const body = thankYouDraft({ name, summary: note.summary });
+  const { error: updateError } = await sb
+    .from("browning_handoffs")
+    .update({
+      thank_you_body: body,
+      thank_you_source: "granola",
       status: "thank_you_ready",
     })
     .eq("id", handoffId);
