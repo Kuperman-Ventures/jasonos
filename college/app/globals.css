@@ -3366,9 +3366,21 @@ html[data-mode="dark"] .multi-filter > summary {
   box-shadow: var(--shadow-md);
 }
 .multi-filter-menu--tall {
-  min-width: 16rem;
-  max-height: min(70vh, 28rem);
-  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(11rem, 1fr));
+  column-gap: var(--space-4);
+  row-gap: 6px;
+  width: min(42rem, 92vw);
+  min-width: min(36rem, 92vw);
+  max-height: min(70vh, 22rem);
+  overflow: auto;
+}
+@media (max-width: 720px) {
+  .multi-filter-menu--tall {
+    grid-template-columns: repeat(2, minmax(10rem, 1fr));
+    width: min(28rem, 92vw);
+    min-width: 0;
+  }
 }
 .multi-filter-menu label {
   display: flex;
@@ -6483,17 +6495,25 @@ body.todos-dragging .todo-project-group.is-over {
   top: calc(100% + 6px);
   right: 0;
   z-index: 40;
-  width: min(260px, 80vw);
+  width: min(36rem, 92vw);
   padding: var(--space-3);
   background: var(--color-bg);
   border: 1px solid var(--color-divider);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: var(--space-4);
+  row-gap: var(--space-2);
+}
+@media (max-width: 720px) {
+  .columns-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: min(24rem, 92vw);
+  }
 }
 .columns-hint {
+  grid-column: 1 / -1;
   margin: 0 0 var(--space-1);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -6507,7 +6527,11 @@ body.todos-dragging .todo-project-group.is-over {
   font-size: 14px;
   cursor: pointer;
 }
-.columns-reset { align-self: flex-start; margin-top: var(--space-1); }
+.columns-reset {
+  grid-column: 1 / -1;
+  justify-self: start;
+  margin-top: var(--space-1);
+}
 .archive-view-banner {
   display: flex;
   flex-wrap: wrap;
