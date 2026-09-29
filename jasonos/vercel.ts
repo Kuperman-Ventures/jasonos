@@ -1,6 +1,7 @@
 import { type VercelConfig } from "@vercel/config/v1";
 
 // JasonOS — Vercel project config (typed replacement for vercel.json).
+// Redeploy trigger for brand v2 solid status colors.
 // Lives at the repo root of the deployed project. Because JasonOS is a
 // subfolder of the CoSA repo, the Vercel project's "Root Directory" is
 // set to `jasonos/` (configured via API on 2026-04-22).
