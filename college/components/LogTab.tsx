@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { CaretDown, CaretRight } from "@phosphor-icons/react";
 import { MemberBadge } from "@/components/MemberBadge";
 import {
   entityTypeLabel,
@@ -38,6 +39,8 @@ export function LogTab({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sort, setSort] = useState<ActivityLogSort>("recency");
+  /** Actor ids that are collapsed when sorting by person. Empty = all expanded. */
+  const [collapsedActors, setCollapsedActors] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -66,6 +69,15 @@ export function LogTab({
     [sorted, sort],
   );
 
+  function togglePerson(actorId: string) {
+    setCollapsedActors((prev) => {
+      const next = new Set(prev);
+      if (next.has(actorId)) next.delete(actorId);
+      else next.add(actorId);
+      return next;
+    });
+  }
+
   return (
     <section className="log-panel">
       <header className="page-head log-head">
@@ -86,10 +98,6 @@ export function LogTab({
           </select>
         </label>
       </header>
-      <p className="section-sub">
-        Household trail of what Jason, Kat, Kyle, and anyone else does here — college edits,
-        archives, to-dos, notes, ingest, and more. Everyone sees the same log.
-      </p>
 
       {loading ? <p className="todo-empty">Loading activity…</p> : null}
       {error ? <p className="ingest-error">{error}</p> : null}
@@ -114,29 +122,50 @@ export function LogTab({
             const profile =
               memberProfiles.find((p) => p.id === group.actorId) ??
               profileForActor(memberProfiles, group.entries[0]!);
+            const expanded = !collapsedActors.has(group.actorId);
+            const panelId = `log-person-${group.actorId}`;
             return (
               <section key={group.actorId} className="log-person-group">
-                <header className="log-person-head">
-                  <MemberBadge
-                    name={group.actorName}
-                    avatarUrl={profile?.avatarUrl}
-                    size="md"
-                  />
+                <button
+                  type="button"
+                  className="log-person-head"
+                  aria-expanded={expanded}
+                  aria-controls={panelId}
+                  onClick={() => togglePerson(group.actorId)}
+                >
+                  <span className="log-person-head-main">
+                    <span className="log-person-caret" aria-hidden="true">
+                      {expanded ? (
+                        <CaretDown size={16} weight="bold" />
+                      ) : (
+                        <CaretRight size={16} weight="bold" />
+                      )}
+                    </span>
+                    <MemberBadge
+                      name={group.actorName}
+                      avatarUrl={profile?.avatarUrl}
+                      size="md"
+                    />
+                  </span>
                   <span className="log-person-count mono">
                     {group.entries.length}{" "}
                     {group.entries.length === 1 ? "entry" : "entries"}
                   </span>
-                </header>
-                <ol className="log-list">
-                  {group.entries.map((entry) => (
-                    <LogEntryRow
-                      key={entry.id}
-                      entry={entry}
-                      profile={profile}
-                      hideActorName
-                    />
-                  ))}
-                </ol>
+                </button>
+                {expanded ? (
+                  <ol className="log-list" id={panelId}>
+                    {group.entries.map((entry) => (
+                      <LogEntryRow
+                        key={entry.id}
+                        entry={entry}
+                        profile={profile}
+                        hideActorName
+                      />
+                    ))}
+                  </ol>
+                ) : (
+                  <div id={panelId} hidden />
+                )}
               </section>
             );
           })
