@@ -21,3 +21,11 @@ export function handoffLane(row: {
 export function isFollowUp(row: { status: HandoffStatus; callStartsAt: string | null }): boolean {
   return row.status === "follow_up" && !row.callStartsAt;
 }
+
+/** Times can be moved only while the scheduling reply is still unsent. */
+export function canEditOfferedTimes(row: {
+  status: HandoffStatus;
+  callStartsAt: string | null;
+}): boolean {
+  return handoffLane(row) === "reply";
+}

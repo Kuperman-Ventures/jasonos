@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { etYmd } from "@/lib/dates";
 import { loadBusy } from "@/lib/browning-networking/data";
+import { canEditOfferedTimes } from "@/lib/browning-networking/lanes";
 import { connectMeetingTitle, thankYouDraft } from "@/lib/browning-networking/draft";
 import { persistDraft, runBrowningNetworking } from "@/lib/browning-networking/run";
 import { createGoogleMeetInvite } from "@/lib/integrations/google-calendar";
 import { ADVISORS_ACCOUNT_EMAIL, listGoogleAccessTokens } from "@/lib/integrations/google-tokens";
 import { addCalendarDays, firstEligibleYmd } from "@/lib/browning-networking/slots";
-import type { HandoffSlot } from "@/lib/browning-networking/types";
+import type { HandoffSlot, HandoffStatus } from "@/lib/browning-networking/types";
 import { setCadence } from "@/lib/server-actions/outreach";
 import { appendSyncLog } from "@/lib/outreach/sync-log";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -65,6 +66,22 @@ export async function saveHandoffSlots(
   const cleaned = sanitizeSlots(slots);
   if (!cleaned.ok) return cleaned;
   const sb = createServiceRoleClient();
+  const { data: existing, error: existingError } = await sb
+    .from("browning_handoffs")
+    .select("status, call_starts_at")
+    .eq("id", handoffId)
+    .maybeSingle();
+  if (existingError || !existing) {
+    return { ok: false, error: existingError?.message || "Handoff not found." };
+  }
+  if (
+    !canEditOfferedTimes({
+      status: existing.status as HandoffStatus,
+      callStartsAt: (existing.call_starts_at as string | null) ?? null,
+    })
+  ) {
+    return { ok: false, error: "This meeting is already set." };
+  }
   const { error } = await sb
     .from("browning_handoffs")
     .update({ slots: cleaned.slots })

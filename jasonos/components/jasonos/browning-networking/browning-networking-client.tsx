@@ -43,7 +43,11 @@ export function BrowningNetworkingClient({
       ? page.handoffs.find((row) => row.id === initialId)
       : undefined;
     if (requested && handoffLane(requested) !== "waiting") return requested.id;
-    return page.handoffs.find((row) => handoffLane(row) !== "waiting")?.id ?? "";
+    return (
+      page.handoffs.find((row) => handoffLane(row) === "reply")?.id ??
+      page.handoffs.find((row) => handoffLane(row) === "scheduled")?.id ??
+      ""
+    );
   });
   const laneFor = (row: HandoffRecord): HandoffLane =>
     actedIds.includes(row.id) && handoffLane(row) === "reply" ? "waiting" : handoffLane(row);
@@ -177,6 +181,7 @@ function HandoffDetail({
   const [notes, setNotes] = useState("");
   const [cadence, setCadence] = useState<CadenceInterval>("none");
   const [pending, start] = useTransition();
+  const meetingSet = handoffLane(handoff) === "scheduled";
   const draft = useMemo(
     () => schedulingDraft({ name: handoff.contactName, slots }),
     [handoff.contactName, slots]
@@ -234,6 +239,16 @@ function HandoffDetail({
         <p className="text-sm">They said: {handoff.availabilityNote}</p>
       ) : null}
 
+      {meetingSet ? (
+        <section className="rounded-md border px-3 py-2">
+          <h3 className="text-sm font-semibold">Meeting set</h3>
+          <p className="text-sm">
+            {handoff.callTitle ? `${handoff.callTitle}. ` : ""}
+            {handoff.callStartsAt ? formatSlotLabel(handoff.callStartsAt) : "On your calendar."}
+          </p>
+          <p className="text-xs text-muted-foreground">This time stays as it is.</p>
+        </section>
+      ) : (
       <section className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -314,6 +329,7 @@ function HandoffDetail({
           Tracy is on Bcc. Apple Mail opens with the reply filled in. Nothing sends until you send it.
         </p>
       </section>
+      )}
 
       {handoff.brief ? (
         <section className="space-y-2 rounded-md border p-3">
