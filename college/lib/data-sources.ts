@@ -44,7 +44,7 @@ export type ApiKeyStatus = "set" | "missing" | "not_needed";
 
 export type SourceLink = { label: string; url?: string | null };
 export type SourceHistory = { date: string; note: string };
-export type SourceCoverage = { have: number; total: number; label?: string };
+export type SourceCoverage = { have: number; total: number; label?: string; missing?: string[] };
 export type BrokenOrBlockedLink = {
   schoolId?: string;
   schoolName?: string;
@@ -66,6 +66,7 @@ export type DataSourceSetting = {
   label: string;
   options: string[];
   value: string;
+  optionLabels?: Record<string, string>;
 };
 
 export type DataSource = {
@@ -103,7 +104,7 @@ export type DataSource = {
 };
 
 /** Env vars that decide `apiKey`. Omit for sources that never use a key. */
-export type DataSourceEnv = { keys: string[]; anyOf?: boolean };
+export type DataSourceEnv = { keys?: string[]; anyOf?: boolean; notNeeded?: boolean };
 
 export type DataSourceDef = Omit<
   DataSource,
@@ -225,17 +226,17 @@ export const SOURCE_REGISTRY: DataSourceDef[] = [
     feeds: ALL_FEATURES,
     provider: "Vercel",
     docsUrl: "https://vercel.com/docs",
-    testable: false,
+    testable: true,
   },
 
   {
     id: "college-scorecard",
     type: "live",
     name: "College Scorecard",
-    feeds: ["schools", "finances"],
+    feeds: ["schools"],
     provider: "U.S. Department of Education",
     docsUrl: "https://collegescorecard.ed.gov/data/documentation/",
-    notes: "Without a key the app falls back to DEMO_KEY, which is rate-limited.",
+    notes: "Without a key the app falls back to DEMO_KEY, which is rate-limited. Treat missing key as failing.",
     env: { keys: ["COLLEGE_SCORECARD_API_KEY", "SCORECARD_API_KEY"], anyOf: true },
     testable: true,
     perSchool: true,
@@ -245,9 +246,10 @@ export const SOURCE_REGISTRY: DataSourceDef[] = [
     type: "live",
     name: "Google Routes",
     subtitle: "drive legs for added schools",
-    feeds: ["trip"],
+    feeds: ["schools", "trip"],
     provider: GOOGLE_MAPS,
     docsUrl: "https://developers.google.com/maps/documentation/routes",
+    notes: "Each test is one billed Routes call.",
     env: { keys: ["GOOGLE_MAPS_API_KEY"] },
     testable: true,
   },
@@ -256,7 +258,7 @@ export const SOURCE_REGISTRY: DataSourceDef[] = [
     type: "live",
     name: "Google Maps",
     subtitle: "Maps JavaScript key",
-    feeds: ["trip", "schools"],
+    feeds: ["schools"],
     provider: GOOGLE_MAPS,
     docsUrl: "https://developers.google.com/maps/documentation/javascript",
     env: { keys: ["NEXT_PUBLIC_GOOGLE_MAPS_API_KEY", "GOOGLE_MAPS_API_KEY"], anyOf: true },
@@ -276,14 +278,15 @@ export const SOURCE_REGISTRY: DataSourceDef[] = [
   {
     id: "perplexity",
     type: "live",
-    name: "Perplexity search",
+    name: "Perplexity lookup",
     subtitle: "through AI Gateway",
     feeds: ["schools"],
     provider: "Perplexity",
-    docsUrl: "https://vercel.com/docs/ai-gateway",
-    notes: "Called as the perplexitySearch tool on AI Gateway, so it uses the gateway key.",
-    env: GATEWAY_ENV,
-    testable: true,
+    docsUrl: "https://docs.perplexity.ai",
+    notes:
+      "Runs as an AI Gateway tool (gateway.tools.perplexitySearch). No key of its own and no Test connection — every call is billed. Status comes from recorded real calls.",
+    env: { notNeeded: true },
+    testable: false,
   },
   {
     id: "open-meteo",
@@ -318,7 +321,7 @@ export const SOURCE_REGISTRY: DataSourceDef[] = [
     id: "link-preview",
     type: "live",
     name: "Link preview fetcher",
-    feeds: ["ingest"],
+    feeds: ["ingest", "calendar"],
     provider: "App server function",
     testable: true,
   },
@@ -331,13 +334,13 @@ export const SOURCE_REGISTRY: DataSourceDef[] = [
     provider: "Tesseract.js",
     docsUrl: "https://tesseract.projectnaptha.com",
     notes: "Tesseract downloads eng language data from jsDelivr at runtime.",
-    testable: false,
+    testable: true,
   },
   {
     id: "map-tiles",
     type: "live",
     name: "Map tiles (Esri, OSM)",
-    feeds: ["trip", "schools"],
+    feeds: ["schools", "trip"],
     provider: "Esri, OpenStreetMap",
     docsUrl: "https://operations.osmfoundation.org/policies/tiles/",
     testable: true,
@@ -385,18 +388,18 @@ export const SOURCE_REGISTRY: DataSourceDef[] = [
     id: "common-app-grid",
     type: "snapshot",
     name: "Common App grid",
-    feeds: ["applications", "calendar"],
+    feeds: ["applications", "schools"],
     importedAt: "2026-09-24",
     dataCovers:
-      `${cycleLabel(COMMON_APP_GRID_CYCLE_START)} requirements grid; deadlines shifted to ` +
-      `Kyle's ${cycleLabel(KYLE_APPLICATION_CYCLE_START)} cycle`,
+      `${cycleLabel(COMMON_APP_GRID_CYCLE_START)} grid. Deadlines shifted forward 1 year to Kyle's ` +
+      `${cycleLabel(KYLE_APPLICATION_CYCLE_START)} cycle, so they are estimates.`,
     sourceLinks: [
       {
         label: "Common App requirements grid",
         url: "https://www.commonapp.org/counselors-and-recommenders/requirements-grid",
       },
     ],
-    staleAfter: "Common App publishes the next grid (Aug 1)",
+    staleAfter: "When the 2027-28 Common App grid is published",
     staleAfterDate: "2027-08-01",
     howToUpdate:
       "Download the new grid, replace content/commonapp-grid-YYYY-YY.json, and bump " +
@@ -408,12 +411,12 @@ export const SOURCE_REGISTRY: DataSourceDef[] = [
   {
     id: "cds-residency",
     type: "snapshot",
-    name: "CDS residency admit rates",
+    name: "CDS / IR / UC data",
     subtitle: "public schools",
-    feeds: ["schools", "finances"],
+    feeds: ["schools"],
     importedAt: "2026-09-26",
     dataCovers: "In-state and out-of-state admit rates from each school's CDS or IR office",
-    staleAfter: "Schools publish the next Common Data Set (spring)",
+    staleAfter: "No expiry",
     staleAfterDate: null,
     howToUpdate:
       "Update content/residency-admit-import.json and add a migration like 0024_residency_admit_rates.sql.",
@@ -686,33 +689,28 @@ function checkIsOld(check: DataSourceCheckState, now: Date): boolean {
 }
 
 /**
- * Status rules, in order:
- *
- * platform / live
- *   key missing                      → failing "Key missing"
- *   not testable                     → ok (label "Working" after a recorded success, else "No server test")
- *   never checked                    → untested
- *   last error newer than success    → failing
- *   last check older than 7 days     → untested "Not checked in 7+ days"
- *   otherwise                        → ok
+ * Status rules (server decides; UI only renders):
  *
  * snapshot
- *   no importedAt                    → no_date
- *   today is past staleAfterDate     → stale
- *   drive-matrix missing schools     → stale "Missing N schools"
- *   otherwise                        → ok "Current"
+ *   importedAt null                  → no_date
+ *   past staleAfterDate              → stale
+ *   drive-matrix coverage incomplete → stale
+ *   otherwise                        → ok
  *
- * linkout
- *   not testable (URL pattern)       → ok
+ * live / platform
+ *   apiKey missing                   → failing "Key missing"
+ *   last recorded call/test failed   → failing
+ *   no recorded call or test         → untested
+ *   otherwise                        → ok
+ *
+ * link-out
+ *   broken links found               → stale "Broken link"
  *   never checked                    → untested
- *   checker error newer than success → failing
- *   broken links found               → stale "N broken links"
- *   last check older than 7 days     → untested
  *   otherwise                        → ok
  *
  * outbound
- *   feed token missing               → untested "No feed token"
- *   last error newer than success    → failing
+ *   no feed token                    → failing "No token"
+ *   never checked                    → untested
  *   otherwise                        → ok
  */
 export function computeStatus(
@@ -721,19 +719,10 @@ export function computeStatus(
   check: DataSourceCheckState | null,
   now: Date,
 ): { status: Status; statusLabel: string } {
-  const result = (status: Status, statusLabel: string = STATUS_LABELS[status]) => ({ status, statusLabel });
-
-  if (source.type === "platform" || source.type === "live") {
-    if (source.apiKey === "missing") return result("failing", "Key missing");
-    if (!source.testable) {
-      if (check && errorIsCurrent(check)) return result("failing");
-      return result("ok", check?.lastSuccessAt ? STATUS_LABELS.ok : "No server test");
-    }
-    if (!check || !check.lastCheckedAt) return result("untested");
-    if (errorIsCurrent(check)) return result("failing");
-    if (checkIsOld(check, now)) return result("untested", `Not checked in ${CHECK_MAX_AGE_DAYS}+ days`);
-    return result("ok");
-  }
+  const result = (status: Status, statusLabel: string = STATUS_LABELS[status]) => ({
+    status,
+    statusLabel,
+  });
 
   if (source.type === "snapshot") {
     if (!source.importedAt) return result("no_date");
@@ -742,51 +731,45 @@ export function computeStatus(
     if (STALE_WHEN_INCOMPLETE.has(source.id) && cov && cov.have < cov.total) {
       return result("stale", `Missing ${plural(cov.total - cov.have, "school")}`);
     }
-    return result("ok", "Current");
-  }
-
-  if (source.type === "linkout") {
-    if (!source.testable) return result("ok");
-    if (!check || !check.lastCheckedAt) return result("untested");
-    if (errorIsCurrent(check)) return result("failing");
-    const broken = check.brokenLinks?.length ?? 0;
-    if (broken > 0) return result("stale", plural(broken, "broken link"));
-    if (checkIsOld(check, now)) return result("untested", `Not checked in ${CHECK_MAX_AGE_DAYS}+ days`);
     return result("ok");
   }
 
-  if (source.tokenStatus === "missing") return result("untested", "No feed token");
-  if (check && errorIsCurrent(check)) return result("failing");
+  if (source.type === "platform" || source.type === "live") {
+    if (source.apiKey === "missing") return result("failing", "Key missing");
+    if (check && errorIsCurrent(check)) return result("failing");
+    if (!check || !check.lastCheckedAt) return result("untested");
+    return result("ok");
+  }
+
+  if (source.type === "linkout") {
+    if (check && (check.brokenLinks?.length ?? 0) > 0) {
+      return result("stale", "Broken link");
+    }
+    if (!check || !check.lastCheckedAt) return result("untested");
+    return result("ok");
+  }
+
+  // outbound
+  if (source.tokenStatus === "missing") return result("failing", "No token");
+  if (!check || !check.lastCheckedAt) return result("untested");
+  if (errorIsCurrent(check)) return result("failing");
   return result("ok");
 }
 
 const STATUS_ORDER: Record<Status, number> = {
   failing: 0,
   stale: 1,
-  untested: 2,
-  no_date: 3,
-  ok: 4,
+  untested: 1,
+  no_date: 2,
+  ok: 3,
 };
 
-const TYPE_ORDER: Record<SourceType, number> = {
-  platform: 0,
-  live: 1,
-  snapshot: 2,
-  linkout: 3,
-  outbound: 4,
-};
-
-/** Worst status first, then by type, then registry order. */
+/** Failing first, then stale/untested, then no_date, then ok; within a band, by name. */
 export function sortForList(sources: DataSource[]): DataSource[] {
-  return sources
-    .map((source, index) => ({ source, index }))
-    .sort(
-      (a, b) =>
-        STATUS_ORDER[a.source.status] - STATUS_ORDER[b.source.status] ||
-        TYPE_ORDER[a.source.type] - TYPE_ORDER[b.source.type] ||
-        a.index - b.index,
-    )
-    .map(({ source }) => source);
+  return [...sources].sort(
+    (a, b) =>
+      STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.name.localeCompare(b.name),
+  );
 }
 
 /** Failing, stale and untested sources. No-date snapshots are shown but not counted. */
@@ -804,7 +787,7 @@ export function diagramPositions(
     pos[s.id] = { x: 0, y: 110 + i * 40, w: 290 };
   });
   byType("snapshot").forEach((s, i) => {
-    pos[s.id] = { x: 1030, y: 110 + i * 40, w: 290 };
+    pos[s.id] = { x: 1030, y: 130 + i * 40, w: 290 };
   });
   byType("linkout").forEach((s, i) => {
     pos[s.id] = { x: i * 232, y: 712, w: 220 };
@@ -831,9 +814,11 @@ function schoolCoverage(
   has: (school: School) => boolean,
   label?: string,
 ): SourceCoverage {
+  const missing = schools.filter((school) => !safe(() => has(school), false)).map((s) => s.name);
   return {
-    have: schools.filter((school) => safe(() => has(school), false)).length,
+    have: schools.length - missing.length,
     total: schools.length,
+    missing,
     ...(label ? { label } : {}),
   };
 }
@@ -951,7 +936,7 @@ export function buildDataSources(input: {
   checks: Record<string, DataSourceCheckState>;
   now?: Date;
   calendarTokenSet?: boolean;
-  aiModelSetting?: { options: string[]; value: string } | null;
+  aiModelSetting?: { options: string[]; value: string; optionLabels?: Record<string, string> } | null;
   linkOverrides?: Record<string, Record<string, string>>;
 }): DataSource[] {
   const now = input.now ?? new Date();
@@ -960,7 +945,9 @@ export function buildDataSources(input: {
   return SOURCE_REGISTRY.map((def) => {
     const { env, ...rest } = def;
     const check = input.checks[def.id] ?? null;
-    const apiKey = env ? envKeyStatus(env.keys, { anyOf: env.anyOf }) : "not_needed";
+    const apiKey = env
+      ? envKeyStatus(env.keys ?? [], { anyOf: env.anyOf, notNeeded: env.notNeeded })
+      : "not_needed";
     const coverage = def.perSchool
       ? safe(() => coverageFor(def.id, schools, input.linkOverrides), null)
       : null;
@@ -968,7 +955,12 @@ export function buildDataSources(input: {
 
     const setting: DataSourceSetting | null =
       def.id === "ai-gateway" && input.aiModelSetting
-        ? { label: "AI model", options: input.aiModelSetting.options, value: input.aiModelSetting.value }
+        ? {
+            label: "AI model",
+            options: input.aiModelSetting.options,
+            value: input.aiModelSetting.value,
+            ...(input.aiModelSetting.optionLabels ? { optionLabels: input.aiModelSetting.optionLabels } : {}),
+          }
         : null;
 
     const tokenStatus: DataSource["tokenStatus"] =
