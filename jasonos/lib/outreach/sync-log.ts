@@ -67,6 +67,8 @@ const SOURCE_ORDER = [
   "suggested",
   "sent-followups",
   "hubspot",
+  "browning",
+  "job-alerts",
 ];
 const CLUSTER_MS = 90_000;
 
