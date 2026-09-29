@@ -3664,13 +3664,17 @@ table.schools .muted,
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 8px 16px;
+  gap: 10px 16px;
   padding-top: 8px;
   border-top: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
 }
 .tl-overdue-list li:first-child {
   border-top: 0;
   padding-top: 0;
+}
+.tl-overdue-stage {
+  flex: 1 1 160px;
+  min-width: 0;
 }
 .tl-overdue-list b {
   display: block;
@@ -3680,6 +3684,10 @@ table.schools .muted,
 .tl-overdue-list .mono {
   font-size: 12px;
   color: var(--text-subtle);
+}
+.tl-overdue-list .tl-sg-assign {
+  flex: none;
+  padding-right: 0;
 }
 .tl-overdue-resolve {
   flex: none;
@@ -3715,7 +3723,7 @@ table.schools .muted,
   grid-template-columns: 280px 120px minmax(0, 1fr);
 }
 .tl-sg.tl-sg-assignable .tl-sg-grid {
-  grid-template-columns: 200px 96px 168px minmax(0, 1fr);
+  grid-template-columns: 200px 96px 132px minmax(0, 1fr);
 }
 .tl-sg-head {
   border-bottom: 1px solid var(--color-divider);
@@ -3851,43 +3859,47 @@ table.schools .muted,
   min-width: 0;
   padding-right: 8px;
 }
-.tl-assign-label {
-  display: block;
-  min-width: 0;
-  flex: 1;
+.tl-assign-circles {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
-.tl-assign-select {
-  width: 100%;
-  max-width: 148px;
-  height: 30px;
-  padding: 0 8px;
-  border: 1px solid var(--color-rule);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg);
-  color: var(--text);
-  font: 12px var(--font-sans, inherit);
+.tl-assign-circle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: transparent;
   cursor: pointer;
 }
-.tl-assign-select:focus-visible {
+.tl-assign-circle:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 1px;
 }
-.tl-assign-claim {
-  flex: none;
-  border: 0;
-  padding: 0;
-  background: none;
-  font: 600 10px var(--font-mono);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-accent);
-  cursor: pointer;
+.tl-assign-circle .member-badge,
+.tl-assign-circle .member-badge-avatar {
+  width: 28px;
+  height: 28px;
 }
-.tl-assign-claim:hover {
-  color: var(--color-accent-pressed);
+.tl-assign-circle .member-badge-md .member-badge-avatar {
+  width: 28px;
+  height: 28px;
+  font-size: 11px;
+}
+.tl-assign-circle.is-selected {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+.tl-assign-circle:not(.is-selected):hover {
+  border-color: var(--color-rule);
+  background: var(--color-surface-2, #f4f1ea);
 }
 .tl-sg.tl-sg-assignable .tl-sg-overlay {
-  left: 464px;
+  left: 428px;
 }
 .tl-sg-pin {
   position: absolute;
@@ -3978,11 +3990,10 @@ table.schools .muted,
   .tl-dialog { padding: 22px; }
   .tl-sg-grid { grid-template-columns: 200px 100px minmax(0, 1fr); }
   .tl-sg.tl-sg-assignable .tl-sg-grid {
-    grid-template-columns: 150px 80px 140px minmax(0, 1fr);
+    grid-template-columns: 150px 80px 118px minmax(0, 1fr);
   }
   .tl-sg-overlay { left: 300px; }
-  .tl-sg.tl-sg-assignable .tl-sg-overlay { left: 370px; }
-  .tl-assign-claim { display: none; }
+  .tl-sg.tl-sg-assignable .tl-sg-overlay { left: 348px; }
 }
 
 @media (max-width: 900px) {
