@@ -74,6 +74,23 @@ export const METRO_TIERS = [
 ] as const;
 export type MetroTier = (typeof METRO_TIERS)[number];
 
+/** Setting × metro pairs for the college-list Setting filter. */
+export type SettingMetroCombo = {
+  id: string;
+  setting: CampusSetting;
+  metro: MetroTier;
+  label: string;
+};
+
+export const SETTING_METRO_COMBOS: SettingMetroCombo[] = CAMPUS_SETTINGS.flatMap((setting) =>
+  METRO_TIERS.map((metro) => ({
+    id: `${setting}::${metro}`,
+    setting,
+    metro,
+    label: `${setting} · ${metro}`,
+  })),
+);
+
 /** @deprecated Prefer SchoolSize — kept for size-gauge band typing. */
 export type CampusSizeBand = SchoolSize;
 

@@ -209,10 +209,9 @@ test("listFilterVisible follows the matching column", () => {
   assert.equal(listFilterVisible("selectivity", cols), true);
   assert.equal(listFilterVisible("interest", cols), true);
   assert.equal(listFilterVisible("setting", cols), true);
-  assert.equal(listFilterVisible("metro", cols), true);
   assert.equal(listFilterVisible("schoolSize", cols), false);
   assert.equal(listFilterVisible("travel", cols), false);
-  assert.equal(listFilterVisible("metro", ["school", "size"]), false);
+  assert.equal(listFilterVisible("setting", ["school", "size"]), false);
 });
 
 test("listSortVisible hides sorts for off columns", () => {

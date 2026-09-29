@@ -13,6 +13,7 @@ import {
   getSchoolSize,
   HOME_STATE,
   metroTierBars,
+  SETTING_METRO_COMBOS,
   sizeGaugeModel,
   sizeOf,
   tierHeadlineVar,
@@ -95,6 +96,13 @@ test("metroTierBars map Major→4 through Small→1", () => {
   assert.equal(metroTierBars("Mid-size metro"), 2);
   assert.equal(metroTierBars("Small metro"), 1);
   assert.equal(metroTierBars(null), 0);
+});
+
+test("SETTING_METRO_COMBOS is every setting × metro pair", () => {
+  assert.equal(SETTING_METRO_COMBOS.length, 20);
+  assert.equal(SETTING_METRO_COMBOS[0]?.label, "Urban · Major metro");
+  assert.equal(SETTING_METRO_COMBOS.at(-1)?.label, "Small town · Small metro");
+  assert.equal(new Set(SETTING_METRO_COMBOS.map((row) => row.id)).size, 20);
 });
 
 test("format helpers for list and tooltip copy", () => {

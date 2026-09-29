@@ -150,12 +150,11 @@ export function isListColumnId(value: string): value is ListColumnId {
 
 /**
  * Toolbar filters that only make sense when their matching column is visible.
- * Metro size rides on Setting (CampusSettingBadge shows metro bars there).
+ * Setting includes metro size (shown together on CampusSettingBadge).
  */
 export type ListToolbarFilterId =
   | "selectivity"
   | "setting"
-  | "metro"
   | "schoolSize"
   | "interest"
   | "travel";
@@ -163,7 +162,6 @@ export type ListToolbarFilterId =
 export const LIST_FILTER_COLUMN: Record<ListToolbarFilterId, ListColumnId> = {
   selectivity: "selectivity",
   setting: "setting",
-  metro: "setting",
   schoolSize: "size",
   interest: "interest",
   travel: "travel",

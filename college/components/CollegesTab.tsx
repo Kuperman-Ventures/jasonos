@@ -28,14 +28,11 @@ import { InterestPicker } from "./InterestPicker";
 import { SchoolMark } from "./SchoolMark";
 import { adjacentInList, compareSchools, nextAction, primaryDeadline, type SortKey } from "@/lib/list";
 import {
-  CAMPUS_SETTINGS,
-  METRO_TIERS,
   SCHOOL_SIZES,
+  SETTING_METRO_COMBOS,
   formatSchoolSizeLabel,
   getMetroTier,
   getSchoolSize,
-  type CampusSetting,
-  type MetroTier,
   type SchoolSize,
 } from "@/lib/campus-size";
 import { formatTravelLabel } from "@/lib/drive-matrix";
@@ -158,8 +155,7 @@ export function CollegesTab({
   const [phaseId, setPhaseId] = useState<ListPhaseId>("exploration");
   const [query, setQuery] = useState("");
   const [tier, setTier] = useState<SelectivityTier | "any">("any");
-  const [settingFilters, setSettingFilters] = useState<CampusSetting[]>([]);
-  const [metroFilters, setMetroFilters] = useState<MetroTier[]>([]);
+  const [settingMetroFilters, setSettingMetroFilters] = useState<string[]>([]);
   const [schoolSizeFilters, setSchoolSizeFilters] = useState<SchoolSize[]>([]);
   const [interest, setInterest] = useState<InterestLevel | "any">("any");
   const [travelFilter, setTravelFilter] = useState<"any" | "Drive" | "Fly">("any");
@@ -204,7 +200,6 @@ export function CollegesTab({
   const sortDir = sort === preferredSort ? preferredSortDir : 1;
   const showSelectivityFilter = listFilterVisible("selectivity", columns);
   const showSettingFilter = listFilterVisible("setting", columns);
-  const showMetroFilter = listFilterVisible("metro", columns);
   const showSchoolSizeFilter = listFilterVisible("schoolSize", columns);
   const showInterestFilter = listFilterVisible("interest", columns);
   const showTravelFilter = listFilterVisible("travel", columns);
@@ -212,21 +207,18 @@ export function CollegesTab({
   // Drop filter state that no longer matches a visible column.
   useEffect(() => {
     if (!showSelectivityFilter && tier !== "any") setTier("any");
-    if (!showSettingFilter && settingFilters.length) setSettingFilters([]);
-    if (!showMetroFilter && metroFilters.length) setMetroFilters([]);
+    if (!showSettingFilter && settingMetroFilters.length) setSettingMetroFilters([]);
     if (!showSchoolSizeFilter && schoolSizeFilters.length) setSchoolSizeFilters([]);
     if (!showInterestFilter && interest !== "any") setInterest("any");
     if (!showTravelFilter && travelFilter !== "any") setTravelFilter("any");
   }, [
     showSelectivityFilter,
     showSettingFilter,
-    showMetroFilter,
     showSchoolSizeFilter,
     showInterestFilter,
     showTravelFilter,
     tier,
-    settingFilters.length,
-    metroFilters.length,
+    settingMetroFilters.length,
     schoolSizeFilters.length,
     interest,
     travelFilter,
@@ -249,8 +241,10 @@ export function CollegesTab({
 
   const phaseSchools = useMemo(() => {
     return schools.filter((school) => {
-      if (school.archived) return showArchived && school.phasesParticipated.includes(phaseId);
-      return schoolOnListPhase(school, phaseId);
+      if (showArchived) {
+        return school.archived && school.phasesParticipated.includes(phaseId);
+      }
+      return !school.archived && schoolOnListPhase(school, phaseId);
     });
   }, [schools, phaseId, showArchived]);
 
@@ -275,12 +269,11 @@ export function CollegesTab({
       if (tier !== "any" && school.selectivityTier !== tier) return false;
       if (interest !== "any" && school.interestLevel !== interest) return false;
       if (travelFilter !== "any" && school.travelMode !== travelFilter) return false;
-      if (settingFilters.length && !settingFilters.includes(school.campusSetting as CampusSetting)) {
-        return false;
-      }
-      if (metroFilters.length) {
+      if (settingMetroFilters.length) {
         const metro = getMetroTier(school.metroPopulation);
-        if (!metro || !metroFilters.includes(metro)) return false;
+        if (!metro) return false;
+        const comboId = `${school.campusSetting}::${metro}`;
+        if (!settingMetroFilters.includes(comboId)) return false;
       }
       if (schoolSizeFilters.length) {
         const size = getSchoolSize(school.undergradEnrollment);
@@ -300,8 +293,7 @@ export function CollegesTab({
     tier,
     interest,
     travelFilter,
-    settingFilters,
-    metroFilters,
+    settingMetroFilters,
     schoolSizeFilters,
     sort,
     sortDir,
@@ -395,6 +387,18 @@ export function CollegesTab({
                 {school.archived ? <small className="archived-tag">Archived</small> : null}
                 <NeedsResearchLabels school={school} />
               </span>
+              {school.archived ? (
+                <button
+                  type="button"
+                  className="btn btn-secondary restore-inline"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    restoreSchool(school);
+                  }}
+                >
+                  Restore
+                </button>
+              ) : null}
             </div>
           </td>
         );
@@ -749,36 +753,23 @@ export function CollegesTab({
         {showSettingFilter ? (
           <details className="multi-filter">
             <summary>
-              Setting{settingFilters.length ? ` · ${settingFilters.length}` : ""}
+              Setting{settingMetroFilters.length ? ` · ${settingMetroFilters.length}` : ""}
             </summary>
-            <div className="multi-filter-menu" role="group" aria-label="Filter by campus setting">
-              {CAMPUS_SETTINGS.map((item) => (
-                <label key={item}>
+            <div
+              className="multi-filter-menu multi-filter-menu--tall"
+              role="group"
+              aria-label="Filter by campus setting and metro size"
+            >
+              {SETTING_METRO_COMBOS.map((item) => (
+                <label key={item.id}>
                   <input
                     type="checkbox"
-                    checked={settingFilters.includes(item)}
-                    onChange={() => setSettingFilters((current) => toggleMulti(current, item))}
+                    checked={settingMetroFilters.includes(item.id)}
+                    onChange={() =>
+                      setSettingMetroFilters((current) => toggleMulti(current, item.id))
+                    }
                   />
-                  {item}
-                </label>
-              ))}
-            </div>
-          </details>
-        ) : null}
-        {showMetroFilter ? (
-          <details className="multi-filter">
-            <summary>
-              Metro size{metroFilters.length ? ` · ${metroFilters.length}` : ""}
-            </summary>
-            <div className="multi-filter-menu" role="group" aria-label="Filter by metro size">
-              {METRO_TIERS.map((item) => (
-                <label key={item}>
-                  <input
-                    type="checkbox"
-                    checked={metroFilters.includes(item)}
-                    onChange={() => setMetroFilters((current) => toggleMulti(current, item))}
-                  />
-                  {item}
+                  {item.label}
                 </label>
               ))}
             </div>
@@ -884,18 +875,16 @@ export function CollegesTab({
             </div>
           ) : null}
         </div>
-        <label className="archive-toggle">
-          <input
-            type="checkbox"
-            checked={showArchived}
-            onChange={(event) =>
-              onListPrefsChange({ ...listPrefs, showArchived: event.target.checked })
-            }
-          />
-          <span>
-            Archived{archivedInPhase ? ` (${archivedInPhase})` : ""}
-          </span>
-        </label>
+        <button
+          type="button"
+          className={`btn btn-secondary${showArchived ? " is-pressed" : ""}`}
+          aria-pressed={showArchived}
+          onClick={() =>
+            onListPrefsChange({ ...listPrefs, showArchived: !showArchived })
+          }
+        >
+          Archived{archivedInPhase ? ` (${archivedInPhase})` : ""}
+        </button>
         <button
           type="button"
           className="btn btn-secondary"
@@ -912,6 +901,19 @@ export function CollegesTab({
           Add school
         </button>
       </div>
+
+      {showArchived ? (
+        <div className="archive-view-banner">
+          <span>Archived schools — restore any you want back on the list.</span>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => onListPrefsChange({ ...listPrefs, showArchived: false })}
+          >
+            Back to list
+          </button>
+        </div>
+      ) : null}
 
       <div className="table-wrap schools-wrap">
         <table className="schools" style={{ minWidth: Math.max(520, columns.length * 140) }}>
@@ -959,7 +961,11 @@ export function CollegesTab({
           </tbody>
         </table>
         {visible.length === 0 ? (
-          <p className="empty-list">No schools in {phase.label} yet.</p>
+          <p className="empty-list">
+            {showArchived
+              ? `No archived schools in ${phase.label}.`
+              : `No schools in ${phase.label} yet.`}
+          </p>
         ) : null}
       </div>
 
@@ -976,6 +982,18 @@ export function CollegesTab({
                   {school.archived ? <small className="archived-tag">Archived</small> : null}
                   <NeedsResearchLabels school={school} />
                 </span>
+                {school.archived ? (
+                  <button
+                    type="button"
+                    className="btn btn-secondary restore-inline"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      restoreSchool(school);
+                    }}
+                  >
+                    Restore
+                  </button>
+                ) : null}
               </h3>
               <div className="card-meta">
                 {columns.includes("status") ? <span>{statusLabel(school.applicationStatus) || "—"}</span> : null}

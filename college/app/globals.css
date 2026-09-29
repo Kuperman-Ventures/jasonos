@@ -3221,7 +3221,13 @@ table.schools .muted,
   font-size: 12px;
   color: var(--text-subtle);
 }
-.toolbar { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-6); }
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
 .toolbar .input,
 .toolbar .select {
   min-height: 44px;
@@ -3232,6 +3238,22 @@ table.schools .muted,
   border-radius: var(--radius-md);
   font-family: var(--font-body);
   font-size: 15px;
+}
+.toolbar .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+.toolbar .btn-secondary {
+  background-color: var(--color-surface);
+}
+.toolbar .btn-secondary.is-pressed,
+.toolbar .btn-secondary[aria-pressed="true"] {
+  background: var(--color-accent-tint);
+  border-color: var(--color-accent);
+  color: var(--text-on-tint);
 }
 .toolbar .input::placeholder { color: var(--text-placeholder); }
 .toolbar .input.grow { flex: 1 1 260px; }
@@ -3284,6 +3306,11 @@ html[data-mode="dark"] .multi-filter > summary {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
+}
+.multi-filter-menu--tall {
+  min-width: 16rem;
+  max-height: min(70vh, 28rem);
+  overflow-y: auto;
 }
 .multi-filter-menu label {
   display: flex;
@@ -6388,7 +6415,11 @@ body.todos-dragging .todo-project-group.is-over {
   display: block;
 }
 
-.columns-menu { position: relative; }
+.columns-menu {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
 .columns-panel {
   position: absolute;
   top: calc(100% + 6px);
@@ -6419,15 +6450,29 @@ body.todos-dragging .todo-project-group.is-over {
   cursor: pointer;
 }
 .columns-reset { align-self: flex-start; margin-top: var(--space-1); }
-.archive-toggle {
-  display: inline-flex;
+.archive-view-banner {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  padding: 0 var(--space-2);
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   font-size: 14px;
   color: var(--text-muted);
-  cursor: pointer;
+}
+.restore-inline {
+  flex: none;
+  min-height: 32px !important;
+  padding: 0 10px !important;
+  font-size: 13px !important;
+  margin-left: auto;
+}
+.school-id {
+  gap: 8px;
 }
 .archived-tag {
   display: inline-block;
