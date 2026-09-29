@@ -249,6 +249,7 @@ function HandoffDetail({
           <p className="text-xs text-muted-foreground">This time stays as it is.</p>
         </section>
       ) : (
+      <>
       <section className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -329,6 +330,7 @@ function HandoffDetail({
           Tracy is on Bcc. Apple Mail opens with the reply filled in. Nothing sends until you send it.
         </p>
       </section>
+      </>
       )}
 
       {handoff.brief ? (
