@@ -291,7 +291,9 @@ async function listFolderMessages(
   return { listed: wider, lookbackDays: FALLBACK_LOOKBACK_DAYS };
 }
 
-export async function harvestJobAlertsFromGmail(): Promise<JobAlertHarvestResult> {
+export async function harvestJobAlertsFromGmail(
+  runId?: string | null
+): Promise<JobAlertHarvestResult> {
   if (!hasConfig()) {
     return emptyResult(false, { error: "Supabase is not configured." });
   }
@@ -334,12 +336,16 @@ export async function harvestJobAlertsFromGmail(): Promise<JobAlertHarvestResult
       last_result: result,
       error: hint,
     });
-    await appendSyncLog("job-alerts", {
-      ok: false,
-      error: hint,
-      inserted: 0,
-      skipped: 0,
-    });
+    await appendSyncLog(
+      "job-alerts",
+      {
+        ok: false,
+        error: hint,
+        inserted: 0,
+        skipped: 0,
+      },
+      runId
+    );
     return result;
   }
 
@@ -512,16 +518,20 @@ export async function harvestJobAlertsFromGmail(): Promise<JobAlertHarvestResult
     last_result: result,
     error: null,
   });
-  await appendSyncLog("job-alerts", {
-    ok: true,
-    inserted,
-    duplicates,
-    skipped,
-    scanned: scannedTotal,
-    listed: listedTotal,
-    label: result.labelName,
-    account: result.accountEmail,
-    mailboxes,
-  });
+  await appendSyncLog(
+    "job-alerts",
+    {
+      ok: true,
+      inserted,
+      duplicates,
+      skipped,
+      scanned: scannedTotal,
+      listed: listedTotal,
+      label: result.labelName,
+      account: result.accountEmail,
+      mailboxes,
+    },
+    runId
+  );
   return result;
 }

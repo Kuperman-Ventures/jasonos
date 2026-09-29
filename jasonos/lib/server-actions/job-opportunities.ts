@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { harvestJobAlertsFromGmail } from "@/lib/data/job-alert-harvest";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
 type Result = { ok: true } | { ok: false; error: string };
@@ -12,6 +13,21 @@ function hasConfig() {
   return Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
   );
+}
+
+export async function scanJobAlerts(runId?: string): Promise<
+  | { ok: true; inserted: number; scanned: number; listed: number }
+  | { ok: false; error: string }
+> {
+  const result = await harvestJobAlertsFromGmail(runId);
+  revalidatePath("/job-alerts");
+  if (!result.ok) return { ok: false, error: result.error || "Job alert scan failed." };
+  return {
+    ok: true,
+    inserted: result.inserted,
+    scanned: result.scanned,
+    listed: result.listed,
+  };
 }
 
 export async function deleteJobOpportunity(id: string): Promise<Result> {
