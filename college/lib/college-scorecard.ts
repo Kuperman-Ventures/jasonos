@@ -84,9 +84,9 @@ export function scorecardApiKey(): string {
 
 export function scorecardKeyInvalidMessage(): string {
   return (
-    "COLLEGE_SCORECARD_API_KEY in the environment is invalid (api.data.gov rejected it). " +
-    "In Vercel → kyle-college → Settings → Environment Variables, fix or delete that key. " +
-    "Free key: https://api.data.gov/signup/. Until then the app falls back to DEMO_KEY."
+    "COLLEGE_SCORECARD_API_KEY was rejected by api.data.gov. " +
+    "Fix or delete it in Vercel (see this connector’s API key section). " +
+    "Until then the app falls back to DEMO_KEY."
   );
 }
 

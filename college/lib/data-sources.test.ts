@@ -37,6 +37,7 @@ function source(partial: Partial<StatusInput> & Pick<StatusInput, "type">): Stat
     name: "X",
     feeds: ["schools"],
     apiKey: "not_needed",
+    envKeys: [],
     testable: true,
     ...partial,
   };
@@ -211,6 +212,11 @@ test("buildDataSources returns every registry entry with a status", () => {
   const perplexity = sources.find((s) => s.id === "perplexity")!;
   assert.equal(perplexity.apiKey, "not_needed");
   assert.equal(perplexity.testable, false);
+  assert.deepEqual(perplexity.envKeys, []);
+  const scorecard = sources.find((s) => s.id === "college-scorecard")!;
+  assert.deepEqual(scorecard.envKeys, ["COLLEGE_SCORECARD_API_KEY", "SCORECARD_API_KEY"]);
+  assert.match(scorecard.setupHint ?? "", /api\.data\.gov\/signup/);
+  assert.match(scorecard.setupHint ?? "", /DEMO_KEY/);
   const feed = sources.find((s) => s.id === "calendar-feed")!;
   assert.equal(feed.tokenStatus, "set");
 });

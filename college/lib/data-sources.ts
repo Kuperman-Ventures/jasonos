@@ -91,6 +91,13 @@ export type DataSource = {
   provider?: string | null;
   docsUrl?: string | null;
   notes?: string | null;
+  /** Env var names that gate this source (shown on the detail page). */
+  envKeys: string[];
+  /**
+   * How to get or fix the key / config. Shown on the connector detail page
+   * under API key — not something to repeat in chat.
+   */
+  setupHint?: string | null;
   apiKey: ApiKeyStatus;
   testable: boolean;
   importedAt?: string | null;
@@ -125,6 +132,7 @@ export type DataSourceDef = Omit<
   | "statusLabel"
   | "coverage"
   | "apiKey"
+  | "envKeys"
   | "lastCheckedAt"
   | "lastSuccessAt"
   | "lastErrorAt"
@@ -135,6 +143,9 @@ export type DataSourceDef = Omit<
   | "setting"
   | "tokenStatus"
 > & { env?: DataSourceEnv };
+
+/** Where Jason sets keys for kyle-college. Shown on every keyed connector detail. */
+export const VERCEL_ENV_WHERE = "Vercel → kyle-college → Settings → Environment Variables";
 
 
 /** A live check older than this counts as untested. */
@@ -216,7 +227,9 @@ export const SOURCE_REGISTRY: DataSourceDef[] = [
     feeds: ["schools"],
     provider: "U.S. Department of Education",
     docsUrl: "https://collegescorecard.ed.gov/data/documentation/",
-    notes: "Without a key the app falls back to DEMO_KEY (rate-limited). An invalid COLLEGE_SCORECARD_API_KEY in Vercel is rejected by api.data.gov — fix or delete it; Test Connection will fall back to DEMO_KEY and warn.",
+    notes: "Without a valid key the app falls back to DEMO_KEY (rate-limited).",
+    setupHint:
+      "Set COLLEGE_SCORECARD_API_KEY (or SCORECARD_API_KEY). Free key: https://api.data.gov/signup/. If the stored key is rejected by api.data.gov, fix or delete it — until then Scorecard runs on DEMO_KEY.",
     env: { keys: ["COLLEGE_SCORECARD_API_KEY", "SCORECARD_API_KEY"], anyOf: true },
     testable: true,
     perSchool: true,
@@ -909,6 +922,7 @@ export function buildDataSources(input: {
       ...rest,
       sourceLinks,
       apiKey,
+      envKeys: env?.keys ?? [],
       coverage,
       setting,
       tokenStatus,

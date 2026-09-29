@@ -174,12 +174,12 @@ const TESTS: Record<string, (ctx: SourceTestContext) => Promise<string>> = {
     const count = body.results?.length ?? 0;
     if (liveKeyRejected) {
       return (
-        `${count} result for ${SAMPLE_SCHOOL} via DEMO_KEY. ` +
-        `COLLEGE_SCORECARD_API_KEY in Vercel is invalid — fix or delete it (api.data.gov signup for a free key).`
+        `${count} result for ${SAMPLE_SCHOOL} via DEMO_KEY — live key rejected. ` +
+        `See this connector’s API key section to fix COLLEGE_SCORECARD_API_KEY.`
       );
     }
     if (usedKey === "DEMO_KEY" || resolved.mode === "demo") {
-      return `${count} result for ${SAMPLE_SCHOOL} (DEMO_KEY — set COLLEGE_SCORECARD_API_KEY in Vercel for production rates)`;
+      return `${count} result for ${SAMPLE_SCHOOL} (DEMO_KEY — see API key section to set a live key)`;
     }
     return `${count} result for ${SAMPLE_SCHOOL}`;
   },

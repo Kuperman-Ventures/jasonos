@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Copy, PencilSimple, PlugsConnected, X } from "@phosphor-icons/react";
 import type { DataSource, Feature } from "@/lib/data-sources";
+import { VERCEL_ENV_WHERE } from "@/lib/data-sources";
 import type { DataSourcesPayload } from "@/lib/data-sources-server";
 import {
   FEATURES,
@@ -25,6 +26,20 @@ type Props = {
 };
 
 const KEY_LABELS = { set: "Set", missing: "Missing", not_needed: "Not needed" } as const;
+
+/** Turn bare https URLs in setup hints into clickable links. */
+function linkifyText(text: string): React.ReactNode {
+  const parts = text.split(/(https?:\/\/[^\s]+)/g);
+  return parts.map((part, index) =>
+    /^https?:\/\//.test(part) ? (
+      <a key={index} href={part} target="_blank" rel="noreferrer">
+        {part}
+      </a>
+    ) : (
+      <span key={index}>{part}</span>
+    ),
+  );
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -212,11 +227,39 @@ export function DataSourceDrawer({ source, canEdit, schools, linkOverrides, onCl
           ) : null}
           <Field label="API key">
             <span className="ds-strong">{KEY_LABELS[source.apiKey]}</span>
-            <span className="ds-subtle">
-              {source.apiKey === "not_needed"
-                ? "This source does not use a key of its own."
-                : "Stored in Vercel environment variables. Not editable here."}
-            </span>
+            {source.apiKey === "not_needed" ? (
+              <span className="ds-subtle">This source does not use a key of its own.</span>
+            ) : (
+              <>
+                {source.envKeys.length > 0 ? (
+                  <span className="ds-subtle">
+                    Variable{source.envKeys.length > 1 ? "s" : ""}:{" "}
+                    {source.envKeys.map((key, index) => (
+                      <span key={key}>
+                        {index > 0 ? " or " : ""}
+                        <code className="ds-code">{key}</code>
+                      </span>
+                    ))}
+                  </span>
+                ) : null}
+                <span className="ds-subtle">
+                  Set in {VERCEL_ENV_WHERE}. Not editable here.
+                </span>
+                {source.setupHint ? (
+                  <span className="ds-muted">{linkifyText(source.setupHint)}</span>
+                ) : null}
+                {source.apiKey === "missing" ? (
+                  <span className="ds-broken">Key missing — add it in Vercel, then Test connection.</span>
+                ) : null}
+                {source.apiKey === "set" &&
+                source.lastErrorMessage &&
+                /invalid api_key|API_KEY_INVALID|rejected/i.test(source.lastErrorMessage) ? (
+                  <span className="ds-broken">
+                    The stored key was rejected. Fix or delete it in Vercel (details above).
+                  </span>
+                ) : null}
+              </>
+            )}
           </Field>
         </>
       ) : null}
