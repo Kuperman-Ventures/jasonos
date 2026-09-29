@@ -26,7 +26,7 @@ test("every roadmap bar project has stages", () => {
   }
 });
 
-test("MIT-style status: past end is done, current span is now", () => {
+test("status: past end without confirmation is overdue, not done", () => {
   const today = new Date(2026, 8, 26); // Sep 26 2026
   const stage = {
     id: "x",
@@ -41,7 +41,7 @@ test("MIT-style status: past end is done, current span is now", () => {
   assert.equal(stageStatus(stage, today), "now");
   assert.equal(
     stageStatus({ ...stage, end: "2026-09-01", completedAt: null }, today),
-    "done",
+    "overdue",
   );
   assert.equal(
     stageStatus({ ...stage, start: "2027-01-01", end: "2027-01-15" }, today),
@@ -51,6 +51,22 @@ test("MIT-style status: past end is done, current span is now", () => {
     stageStatus({ ...stage, start: "2027-01-01", end: "2027-01-15", completedAt: "2026-09-01" }, today),
     "done",
   );
+  assert.equal(
+    stageStatus({ ...stage, end: "2026-09-01", completedAt: "2026-09-20" }, today),
+    "done",
+  );
+});
+
+test("checklist completions mark seed stages done", () => {
+  const open = resolveProjectStages("passion", [], {});
+  const pick = open.find((row) => row.id === "passion-s1");
+  assert.ok(pick);
+  assert.equal(stageStatus(pick!, new Date(2026, 8, 26)), "overdue");
+
+  const closed = resolveProjectStages("passion", [], { "passion-s1": true });
+  const done = closed.find((row) => row.id === "passion-s1");
+  assert.ok(done?.completedAt);
+  assert.equal(stageStatus(done!, new Date(2026, 8, 26)), "done");
 });
 
 test("essays project uses week ticks", () => {

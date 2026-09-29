@@ -35,7 +35,7 @@ export type TimelineStage = {
   completedAt: string | null;
 };
 
-export type StageStatus = "done" | "now" | "next";
+export type StageStatus = "done" | "overdue" | "now" | "next";
 
 export type StageTick = {
   start: Date;
@@ -71,6 +71,7 @@ export function parseIsoDate(iso: string): Date {
   const [y, m, d] = iso.split("-").map(Number);
   return new Date(y!, m! - 1, d!);
 }
+
 
 export function toIsoDate(date: Date): string {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
@@ -131,6 +132,7 @@ export function stagesForProject(
 /**
  * Prefer live to-do subtasks that carry projectId + startDate (one source with To-dos).
  * Fall back to the seeded stage catalog when none are linked yet.
+ * `completions` marks seed stages done via checklist keys (stage id → true).
  */
 export function resolveProjectStages(
   projectId: string,
@@ -146,6 +148,7 @@ export function resolveProjectStages(
     completedAt: string | null;
     done: boolean;
   }> = [],
+  completions: Record<string, boolean> = {},
 ): TimelineStage[] {
   const fromLive = live
     .filter((row) => row.projectId === projectId && row.startDate)
@@ -165,19 +168,28 @@ export function resolveProjectStages(
     })
     .sort((a, b) => a.start.localeCompare(b.start) || a.name.localeCompare(b.name));
   if (fromLive.length) return fromLive;
-  return stagesForProject(projectId);
+
+  const overrides: Record<string, Pick<TimelineStage, "completedAt">> = {};
+  for (const [id, done] of Object.entries(completions)) {
+    if (done) overrides[id] = { completedAt: toIsoDate(new Date()) };
+  }
+  return stagesForProject(projectId, overrides);
 }
 
 export function allTimelineStages(): TimelineStage[] {
   return SEED_STAGES.slice();
 }
 
+/**
+ * Done only when the user confirmed completion (`completedAt`).
+ * Past end date without confirmation is overdue — not done.
+ */
 export function stageStatus(stage: TimelineStage, today = new Date()): StageStatus {
   if (stage.completedAt) return "done";
   const end = parseIsoDate(stage.end);
   const start = parseIsoDate(stage.start);
   const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  if (end < todayStart) return "done";
+  if (end < todayStart) return "overdue";
   if (start <= todayStart) return "now";
   return "next";
 }
@@ -186,8 +198,13 @@ export function stageStatusLabel(
   stage: TimelineStage,
   status: StageStatus,
 ): string {
-  if (stage.isMilestone) return status === "done" ? "passed" : "upcoming";
+  if (stage.isMilestone) {
+    if (status === "done") return "passed";
+    if (status === "overdue") return "overdue";
+    return "upcoming";
+  }
   if (status === "done") return "done";
+  if (status === "overdue") return "overdue";
   if (status === "now") return "in progress";
   return "not started";
 }
@@ -195,6 +212,7 @@ export function stageStatusLabel(
 export function stageMark(stage: TimelineStage, status: StageStatus): string {
   if (stage.isMilestone) return "◆";
   if (status === "done") return "✓";
+  if (status === "overdue") return "!";
   if (status === "now") return "●";
   return "○";
 }
@@ -220,25 +238,45 @@ export function formatProjectRangeKicker(
 export function summarizeStages(
   stages: TimelineStage[],
   today = new Date(),
-): { total: number; done: number; now: number; next: number; label: string } {
+): {
+  total: number;
+  done: number;
+  overdue: number;
+  now: number;
+  next: number;
+  label: string;
+} {
   let done = 0;
+  let overdue = 0;
   let now = 0;
   let next = 0;
   for (const stage of stages) {
     if (stage.isMilestone) continue;
     const status = stageStatus(stage, today);
     if (status === "done") done += 1;
+    else if (status === "overdue") overdue += 1;
     else if (status === "now") now += 1;
     else next += 1;
   }
-  const total = done + now + next;
+  const total = done + overdue + now + next;
+  const overdueBit = overdue ? ` · ${overdue} overdue` : "";
   return {
     total,
     done,
+    overdue,
     now,
     next,
-    label: `${total} stages · ${done} done · ${now} in progress · ${next} not started`,
+    label: `${total} stages · ${done} done${overdueBit} · ${now} in progress · ${next} not started`,
   };
+}
+
+export function overdueStages(
+  stages: TimelineStage[],
+  today = new Date(),
+): TimelineStage[] {
+  return stages.filter(
+    (stage) => !stage.isMilestone && stageStatus(stage, today) === "overdue",
+  );
 }
 
 /** Inclusive end → exclusive day for width math. */
@@ -356,7 +394,7 @@ export function openStagesAriaLabel(
   phaseLabel: string | null,
   startIso: string,
   endIso: string,
-  status: "in progress" | "not started" | "complete",
+  status: "in progress" | "not started" | "complete" | "overdue",
 ): string {
   const phase = phaseLabel ? ` · ${phaseLabel}` : "";
   return `${projectName}${phase} · ${formatStageRange(startIso, endIso)} · ${status} · open stages`;

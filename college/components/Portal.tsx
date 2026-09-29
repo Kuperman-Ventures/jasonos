@@ -1280,6 +1280,7 @@ export function Portal({
             schools={schools}
             checklist={checklist}
             dateline={phaseLabel}
+            onToggle={toggleItem}
           />
         ) : null}
         {tab === "colleges" ? (
