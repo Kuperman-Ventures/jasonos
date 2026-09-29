@@ -1052,7 +1052,7 @@ function MetricRows({ rows }: { rows: [string, string][] }) {
 
 function StatusBadge({ status }: { status: ServiceConnection["status"] }) {
   const classes = {
-    connected: "border-[var(--jos-line)] bg-rung-4 ",
+    connected: "border-[var(--jos-line)] bg-rung-ok",
     not_configured: "border-[var(--jos-line)] bg-rung-2 ",
     error: "border-rung-1 bg-rung-1 ",
     expired: "border-[var(--jos-line)] bg-rung-2 ",
