@@ -31,6 +31,7 @@ import {
   type ScoirRecord,
 } from "@/lib/scoir";
 import type { School } from "@/lib/types";
+import { withNpcOverride } from "@/lib/link-overrides";
 
 const NET_BANDS: {
   key: Exclude<keyof NonNullable<ScoirRecord["netPriceByIncome"]>, "average">;
@@ -180,7 +181,7 @@ export function SchoolFinancials({
   /** Optional profile income band for net-price highlight. */
   incomeBand?: (typeof NET_BANDS)[number]["key"] | null;
 }) {
-  const finance = financeRecordForSchoolName(school.name);
+  const finance = withNpcOverride(financeRecordForSchoolName(school.name), school.id);
   const scoir = scoirRecordForSchool(school);
   const entry = schoolFinanceEntry(household, school.id);
   const rows = useMemo(() => (finance ? aidRows(finance) : []), [finance]);

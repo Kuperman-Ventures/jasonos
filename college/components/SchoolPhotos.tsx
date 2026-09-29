@@ -24,6 +24,7 @@ import {
   type SchoolPhoto,
 } from "@/lib/school-photos";
 import type { School } from "@/lib/types";
+import { linkOverrideFor } from "@/lib/link-overrides";
 
 const PH_COLORS = ["var(--ph-1)", "var(--ph-2)", "var(--ph-3)"];
 const WHEEL_MS = 280;
@@ -86,7 +87,7 @@ export function SchoolPhotos({
 }) {
   const headingName = schoolPhotosHeadingName(school.name);
   const schoolPhotos = schoolPhotosForSchool(school.id, school.name);
-  const virtualTourUrl = virtualTourUrlForSchool(school.name);
+  const virtualTourUrl = linkOverrideFor("virtual-tours", school.id) ?? virtualTourUrlForSchool(school.name);
   const virtualTourEmbedUrl = virtualTourEmbedUrlForSchool(school.name);
   // Family uploads need image storage tagged like Notes — not wired yet.
   const [familyPhotos] = useState<SchoolPhoto[]>([]);

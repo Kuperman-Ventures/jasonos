@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isSession, requireCollegeSession } from "@/lib/auth";
 import { seedScores } from "@/lib/content";
+import { loadLinkOverrides } from "@/lib/data-source-settings";
 import { collegeDb, supabaseConfigured } from "@/lib/db";
 import {
   normalizeIngestSources,
@@ -193,6 +194,7 @@ function emptyState() {
     activitiesJournal: emptyJournal(),
     requirementProgress: {} as RequirementProgressMap,
     finances: emptyHouseholdFinances(),
+    linkOverrides: {},
   };
 }
 
@@ -202,13 +204,16 @@ export async function GET() {
   if (!supabaseConfigured()) return NextResponse.json(emptyState());
   try {
     const db = collegeDb();
-    const { data, error } = await db
-      .from("app_state")
-      .select(
-        "checklist, scores, notes, project_steps, ingest_sources, todo_subtasks, todo_edits, todo_projects, note_items, calendar_events, activities_journal, requirement_progress, finances",
-      )
-      .eq("id", "kyle-college")
-      .maybeSingle();
+    const [{ data, error }, linkOverrides] = await Promise.all([
+      db
+        .from("app_state")
+        .select(
+          "checklist, scores, notes, project_steps, ingest_sources, todo_subtasks, todo_edits, todo_projects, note_items, calendar_events, activities_journal, requirement_progress, finances",
+        )
+        .eq("id", "kyle-college")
+        .maybeSingle(),
+      loadLinkOverrides(),
+    ]);
     if (error) throw error;
     const row = data as StateRow | null;
     return NextResponse.json({
@@ -226,6 +231,7 @@ export async function GET() {
       activitiesJournal: normalizeJournal(row?.activities_journal),
       requirementProgress: normalizeRequirementProgress(row?.requirement_progress),
       finances: normalizeHouseholdFinances(row?.finances),
+      linkOverrides,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not read state";

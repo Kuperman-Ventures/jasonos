@@ -35,6 +35,7 @@ import {
   type HouseholdFinances,
 } from "@/lib/finances";
 import type { InterestLevel, School } from "@/lib/types";
+import { linkOverrideFor } from "@/lib/link-overrides";
 
 type SortKey =
   | "school"
@@ -488,6 +489,7 @@ export function FinancesTab({
           </thead>
           <tbody>
             {sorted.map(({ school, finance, entry }) => {
+              const npcUrl = linkOverrideFor("npc", school.id) ?? finance.netPriceCalculatorUrl;
               const after = costAfterTypicalMerit(finance);
               const status = budgetStatus(
                 budgetCompareCost(finance, entry, familyProfile, school.id),
@@ -592,10 +594,10 @@ export function FinancesTab({
                           <div className="fin-sub">run {entry.netPriceDate}</div>
                         ) : null}
                       </>
-                    ) : finance.netPriceCalculatorUrl ? (
+                    ) : npcUrl ? (
                       <a
                         className="text-link"
-                        href={finance.netPriceCalculatorUrl}
+                        href={npcUrl}
                         target="_blank"
                         rel="noreferrer"
                         onClick={(e) => e.stopPropagation()}

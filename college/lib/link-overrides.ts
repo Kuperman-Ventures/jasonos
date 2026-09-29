@@ -73,3 +73,12 @@ export function linkOverrideFor(sourceId: OverrideSourceId, schoolId: string | n
   if (!schoolId) return null;
   return clientOverrides[sourceId]?.[schoolId] ?? null;
 }
+
+/** Finance record with the NPC override applied. Returns the same object when there is no override. */
+export function withNpcOverride<T extends { netPriceCalculatorUrl: string | null }>(
+  record: T | null,
+  schoolId: string,
+): T | null {
+  const url = linkOverrideFor("npc", schoolId);
+  return record && url ? { ...record, netPriceCalculatorUrl: url } : record;
+}

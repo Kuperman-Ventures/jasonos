@@ -10,6 +10,7 @@ import { LeftRail } from "./LeftRail";
 import { LogTab } from "./LogTab";
 import { AdminTab } from "./AdminTab";
 import { DataSourcesTab } from "./DataSourcesTab";
+import { setClientLinkOverrides } from "@/lib/link-overrides";
 import { NotesTab } from "./NotesTab";
 import { IngestPanel } from "./IngestPanel";
 import { ProjectManagementTab } from "./ProjectManagementTab";
@@ -272,6 +273,7 @@ export function Portal({
           activitiesJournal?: ActivitiesJournal;
           requirementProgress?: RequirementProgressMap;
           finances?: HouseholdFinances;
+          linkOverrides?: unknown;
           persisted?: boolean;
         };
         const prefsBody = (await prefsRes.json()) as {
@@ -282,6 +284,7 @@ export function Portal({
           members?: MemberProfile[];
         };
         if (cancelled) return;
+        setClientLinkOverrides(state.linkOverrides);
         if (state.checklist) setChecklist(state.checklist);
         if (state.scores) setScores({ ...seedScores, ...state.scores });
         if (typeof state.notes === "string") setNotes(state.notes);
