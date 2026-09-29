@@ -234,6 +234,17 @@ const TESTS: Record<string, (ctx: SourceTestContext) => Promise<string>> = {
     return "Esri and OpenStreetMap tiles served";
   },
 
+  async helpers() {
+    await fetchOk("https://icons.duckduckgo.com/ip3/mit.edu.ico");
+    await fetchOk("https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json", { method: "HEAD" });
+    return "Icon service and world-atlas shapes reachable";
+  },
+
+  async "apple-maps"() {
+    await fetchOk("https://maps.apple.com/", { redirect: "follow" });
+    return "maps.apple.com reachable. Directions links are built from each school's address.";
+  },
+
   async "calendar-feed"() {
     const { loadCalendarEventsForFeed, resolveCalendarFeedToken } = await import("./calendar-feed");
     const token = await resolveCalendarFeedToken();

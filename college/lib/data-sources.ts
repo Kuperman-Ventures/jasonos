@@ -340,8 +340,8 @@ export const SOURCE_REGISTRY: DataSourceDef[] = [
     type: "live",
     name: "Favicons, map shapes",
     feeds: ["schools", "trip"],
-    provider: "Google favicon service, world-atlas on jsDelivr",
-    testable: false,
+    provider: "DuckDuckGo icon service, world-atlas on jsDelivr",
+    testable: true,
   },
 
   {
@@ -610,7 +610,7 @@ export const SOURCE_REGISTRY: DataSourceDef[] = [
     provider: "Apple",
     docsUrl: "https://developer.apple.com/library/archive/featuredarticles/iPhoneURLScheme_Reference/MapLinks/MapLinks.html",
     notes: "Built from the school's visit address: maps.apple.com/directions?destination=…",
-    testable: false,
+    testable: true,
     perSchool: true,
   },
 
