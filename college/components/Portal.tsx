@@ -76,17 +76,20 @@ import {
   normalizeTodoEdits,
   removeProjectTodoState,
   todoOwnerIndex,
+  upsertStageAssignment,
   type TodoEdit,
   type TodoEditMap,
   type TodoSubtaskMap,
 } from "@/lib/project-todos";
 import {
+  ensureNamedTodoProject,
   normalizeTodoProjects,
   type TodoProject,
 } from "@/lib/todo-projects";
 import { postActivity } from "@/lib/post-activity";
 import type { MemberProfile } from "@/lib/member-avatars";
-import type { ContactPatch, DeadlinePatch, Owner, School, Scores, TabId } from "@/lib/types";
+import { TIMELINE_PROJECTS } from "@/lib/timeline-stages";
+import type { StageAssignPayload } from "./TimelineStageModal";
 import {
   isAdmissionTrack,
   isApplicationStatus,
@@ -98,6 +101,12 @@ import {
   isSelectivityTier,
   normalizeTabId,
   ownerLabel,
+  type ContactPatch,
+  type DeadlinePatch,
+  type Owner,
+  type School,
+  type Scores,
+  type TabId,
 } from "@/lib/types";
 
 const schoolListeners = new Set<() => void>();
@@ -717,6 +726,40 @@ export function Portal({
     });
   }
 
+  function assignTimelineStage(stage: StageAssignPayload, owner: Owner | null) {
+    const assignedBy = memberOwnerId(member.id);
+    const next = upsertStageAssignment(stage, owner, assignedBy, projectSteps, todoEdits);
+    const track = TIMELINE_PROJECTS.find((row) => row.id === stage.projectId);
+    let nextProjects = todoProjects;
+    if (owner && track) {
+      const ensured = ensureNamedTodoProject(todoProjects, track.id, track.name);
+      if (ensured.created) nextProjects = ensured.projects;
+    }
+    setProjectSteps(next.projectSteps);
+    setTodoEdits(next.todoEdits);
+    if (nextProjects !== todoProjects) setTodoProjects(nextProjects);
+    const payload: {
+      projectSteps: PersistedProjectStep[];
+      todoEdits: TodoEditMap;
+      todoProjects?: TodoProject[];
+    } = {
+      projectSteps: next.projectSteps,
+      todoEdits: next.todoEdits,
+    };
+    if (nextProjects !== todoProjects) payload.todoProjects = nextProjects;
+    void patchState(payload).then((ok) => {
+      if (!ok) return;
+      const who = owner ? ownerLabel(owner) : "Unassigned";
+      postActivity({
+        action: "assign",
+        entityType: "todo",
+        entityId: stage.id,
+        summary: `Assigned timeline stage “${stage.name}” to ${who}`,
+        detail: { owner: owner ?? null, projectId: stage.projectId },
+      });
+    });
+  }
+
   async function confirmIngest(payload: {
     steps: PersistedProjectStep[];
     source: PersistedIngestSource;
@@ -1281,6 +1324,19 @@ export function Portal({
             checklist={checklist}
             dateline={phaseLabel}
             onToggle={toggleItem}
+            projectSteps={projectSteps}
+            todoEdits={todoEdits}
+            memberId={member.id}
+            memberProfiles={memberProfiles}
+            onAssignStage={assignTimelineStage}
+            onOpenTodos={(projectId) => {
+              const track = TIMELINE_PROJECTS.find((row) => row.id === projectId);
+              if (track) {
+                const ensured = ensureNamedTodoProject(todoProjects, track.id, track.name);
+                if (ensured.created) changeTodoProjects(ensured.projects);
+              }
+              goProjectSection("todos");
+            }}
           />
         ) : null}
         {tab === "colleges" ? (
@@ -1389,6 +1445,7 @@ export function Portal({
             onDeleteTodo={deleteTodo}
             onAddTodo={addTodo}
             onChangeCalendarEvents={changeCalendarEvents}
+            onAssignStage={assignTimelineStage}
             dateline={phaseLabel}
           />
         ) : null}

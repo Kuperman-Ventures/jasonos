@@ -2,7 +2,11 @@
 
 import { ProcessRoadmap } from "./ProcessRoadmap";
 import { phaseStatuses } from "@/lib/phases";
-import type { Phase } from "@/lib/types";
+import type { MemberProfile } from "@/lib/member-avatars";
+import type { PersistedProjectStep } from "@/lib/ingest";
+import type { StageAssignPayload } from "./TimelineStageModal";
+import type { TodoEditMap, TodoSubtaskMap } from "@/lib/project-todos";
+import type { Owner, Phase } from "@/lib/types";
 
 /** Process timeline + checklist — lives under Project Management → Timeline. */
 export function TimelinePanel({
@@ -10,13 +14,23 @@ export function TimelinePanel({
   checklist,
   onToggle,
   subtasks = {},
+  projectSteps = [],
+  todoEdits = {},
+  memberId,
+  memberProfiles = [],
   onOpenTodos,
+  onAssignStage,
 }: {
   phases: Phase[];
   checklist: Record<string, boolean>;
   onToggle: (id: string, checked: boolean) => void;
-  subtasks?: import("@/lib/project-todos").TodoSubtaskMap;
+  subtasks?: TodoSubtaskMap;
+  projectSteps?: PersistedProjectStep[];
+  todoEdits?: TodoEditMap;
+  memberId?: string;
+  memberProfiles?: MemberProfile[];
   onOpenTodos?: (projectId: string) => void;
+  onAssignStage?: (stage: StageAssignPayload, owner: Owner | null) => void;
 }) {
   const statuses = phaseStatuses(phases, checklist);
 
@@ -33,8 +47,13 @@ export function TimelinePanel({
           checklist={checklist}
           showTitle={false}
           subtasks={subtasks}
+          projectSteps={projectSteps}
+          todoEdits={todoEdits}
+          memberId={memberId}
+          memberProfiles={memberProfiles}
           onOpenTodos={onOpenTodos}
           onToggle={onToggle}
+          onAssignStage={onAssignStage}
         />
       </div>
 

@@ -16,7 +16,8 @@ import {
 import { type TodoEdit, type TodoEditMap, type TodoSubtaskMap } from "@/lib/project-todos";
 import { TIMELINE_PROJECTS } from "@/lib/timeline-stages";
 import type { MemberProfile } from "@/lib/member-avatars";
-import type { Phase } from "@/lib/types";
+import type { Owner, Phase } from "@/lib/types";
+import type { StageAssignPayload } from "./TimelineStageModal";
 
 export function ProjectManagementTab({
   section,
@@ -39,6 +40,7 @@ export function ProjectManagementTab({
   onDeleteTodo,
   onAddTodo,
   onChangeCalendarEvents,
+  onAssignStage,
   dateline,
 }: {
   section: ProjectSectionId;
@@ -61,6 +63,7 @@ export function ProjectManagementTab({
   onDeleteTodo: (id: string) => void;
   onAddTodo: (label: string) => void;
   onChangeCalendarEvents: (next: CalendarEvent[]) => void;
+  onAssignStage?: (stage: StageAssignPayload, owner: Owner | null) => void;
   dateline: string;
 }) {
   const active = projectSectionById(section);
@@ -183,7 +186,12 @@ export function ProjectManagementTab({
           checklist={checklist}
           onToggle={onToggle}
           subtasks={subtasks}
+          projectSteps={projectSteps}
+          todoEdits={todoEdits}
+          memberId={memberId}
+          memberProfiles={memberProfiles}
           onOpenTodos={openTodosForProject}
+          onAssignStage={onAssignStage}
         />
       ) : null}
 
