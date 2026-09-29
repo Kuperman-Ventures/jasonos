@@ -1,10 +1,10 @@
 import { knownWebsite } from "./school-websites";
-import type { AdditionalProgram } from "./additional-programs";
+import type { AdditionalProgram, ProgramOption } from "./additional-programs";
 import type { SchoolProjectNote } from "./school-project-notes";
 import { driveFieldsForSchool } from "./drive-matrix";
 import { visitAddressForSchool } from "./school-photos";
 
-export type { AdditionalProgram } from "./additional-programs";
+export type { AdditionalProgram, ProgramOption } from "./additional-programs";
 export type { SchoolProjectNote } from "./school-project-notes";
 
 export type Choice = "top" | "middle" | "low" | "backup" | "unsure";
@@ -149,6 +149,10 @@ export type School = {
   testPolicyCheckedDate: string;
   /** Extra engineering programs beyond the three core snapshot programs. */
   additionalPrograms: AdditionalProgram[];
+  /** Checklist of engineering majors (catalog research or Scorecard). */
+  programOptions: ProgramOption[];
+  /** YYYY-MM-DD when programOptions were last checked, or "" if never. */
+  programOptionsCheckedDate: string;
   middle50: string;
   applicationPlatform: string;
   requiredEssays: string;
@@ -615,6 +619,8 @@ export function fromSeed(seed: SchoolSeed): School {
     testPolicySourceUrl: "",
     testPolicyCheckedDate: "",
     additionalPrograms: [],
+    programOptions: [],
+    programOptionsCheckedDate: "",
     middle50: "",
     applicationPlatform: "",
     requiredEssays: "",

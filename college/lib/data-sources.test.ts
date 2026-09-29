@@ -51,12 +51,12 @@ function fakeSource(id: string, status: Status, name = id): DataSource {
   };
 }
 
-test("registry has 34 unique sources with the expected type counts", () => {
-  assert.equal(SOURCE_REGISTRY.length, 34);
-  assert.equal(new Set(SOURCE_REGISTRY.map((s) => s.id)).size, 34);
+test("registry has 35 unique sources with the expected type counts", () => {
+  assert.equal(SOURCE_REGISTRY.length, 35);
+  assert.equal(new Set(SOURCE_REGISTRY.map((s) => s.id)).size, 35);
   const counts: Record<string, number> = {};
   for (const s of SOURCE_REGISTRY) counts[s.type] = (counts[s.type] ?? 0) + 1;
-  assert.deepEqual(counts, { platform: 4, live: 13, snapshot: 12, linkout: 4, outbound: 1 });
+  assert.deepEqual(counts, { platform: 4, live: 13, snapshot: 13, linkout: 4, outbound: 1 });
 });
 
 test("every source feeds at least one known feature", () => {
@@ -207,7 +207,7 @@ test("buildDataSources returns every registry entry with a status", () => {
     now: NOW,
     calendarTokenSet: true,
   });
-  assert.equal(sources.length, 34);
+  assert.equal(sources.length, 35);
   for (const s of sources) assert.ok(s.status && s.statusLabel, s.id);
   const perplexity = sources.find((s) => s.id === "perplexity")!;
   assert.equal(perplexity.apiKey, "not_needed");
@@ -224,5 +224,5 @@ test("buildDataSources returns every registry entry with a status", () => {
 test("diagramPositions places every non-platform source", () => {
   const sources = buildDataSources({ schools: seedSchools(), checks: {}, now: NOW });
   const pos = diagramPositions(sources);
-  assert.equal(Object.keys(pos).length, 30);
+  assert.equal(Object.keys(pos).length, 31);
 });

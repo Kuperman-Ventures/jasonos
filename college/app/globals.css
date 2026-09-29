@@ -1875,6 +1875,64 @@ table.schools .test-policy-fall2028-note {
   min-width: 0;
   font-weight: 600;
 }
+.snapshot .add-program-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 4px 0 8px;
+}
+.snapshot .add-program-panel-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.snapshot .add-program-panel-header strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+.snapshot .add-program-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.snapshot .add-program-check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  cursor: pointer;
+}
+.snapshot .add-program-check-row input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+.snapshot .add-program-check-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.snapshot .add-program-check-name {
+  font-weight: 600;
+  font-size: 15px;
+}
+.snapshot .add-program-check-name a {
+  font-weight: 500;
+  font-size: 13px;
+}
+.snapshot .add-program-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+.snapshot .add-program-manual-label {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-subtle);
+}
 .snapshot .add-program-form {
   display: flex;
   flex-direction: column;

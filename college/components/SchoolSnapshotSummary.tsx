@@ -36,6 +36,7 @@ import { CampusSettingBadge } from "./CampusSettingBadge";
 import { SchoolLocationMap, SelectivityGauge } from "./SchoolSnapshotViz";
 import { SchoolScoirStudentBody } from "./SchoolScoirStudentBody";
 import { formatScoirPct, scoirRecordForSchool } from "@/lib/scoir";
+import type { AdditionalProgram } from "@/lib/additional-programs";
 import { UsersThree } from "@phosphor-icons/react";
 
 const SchoolCampusSatelliteMap = dynamic(
@@ -55,8 +56,22 @@ type SnapshotPatch = Partial<
     | "testPolicy"
     | "familyTestPolicy"
     | "additionalPrograms"
+    | "programOptions"
+    | "programOptionsCheckedDate"
   >
 >;
+
+function formatProgramCheckedDate(iso: string): string {
+  const trimmed = iso.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return "";
+  const date = new Date(`${trimmed}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
 function PlainFact({ label, value, href }: { label: string; value: string; href?: string }) {
   const empty = !value.trim() || value === "Not set";
@@ -207,6 +222,8 @@ export function SchoolSnapshotSummary({
   const [programName, setProgramName] = useState("");
   const [programUrl, setProgramUrl] = useState("");
   const [programError, setProgramError] = useState("");
+  const [checkedOptionIds, setCheckedOptionIds] = useState<string[]>([]);
+  const [lookingUpPrograms, setLookingUpPrograms] = useState(false);
 
   const tierName = tierLabel(school.selectivityTier);
   const tierHead = tierName || "Tier not set";
@@ -246,33 +263,114 @@ export function SchoolSnapshotSummary({
   }
   const coreLabels = SNAPSHOT_PROGRAMS.map((row) => row.label);
   const additionalPrograms = school.additionalPrograms;
+  const programOptions = [...school.programOptions].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
+  );
+  const optionsSource = programOptions[0]?.source ?? null;
+  const checkedDateLabel = formatProgramCheckedDate(school.programOptionsCheckedDate);
+
+  function openAddProgram() {
+    setCheckedOptionIds(
+      additionalPrograms
+        .filter((row) => programOptions.some((option) => option.id === row.id))
+        .map((row) => row.id),
+    );
+    setProgramName("");
+    setProgramUrl("");
+    setProgramError("");
+    setAddingProgram(true);
+  }
 
   function closeAddProgram() {
     setAddingProgram(false);
     setProgramName("");
     setProgramUrl("");
     setProgramError("");
+    setCheckedOptionIds([]);
+    setLookingUpPrograms(false);
+  }
+
+  function toggleOption(optionId: string) {
+    setCheckedOptionIds((current) =>
+      current.includes(optionId)
+        ? current.filter((id) => id !== optionId)
+        : [...current, optionId],
+    );
+  }
+
+  async function lookupPrograms() {
+    setLookingUpPrograms(true);
+    setProgramError("");
+    try {
+      const response = await fetch(`/api/schools/${school.id}/program-options`, {
+        method: "POST",
+      });
+      const body = (await response.json().catch(() => ({}))) as {
+        school?: School;
+        error?: string;
+      };
+      if (!response.ok || !body.school) {
+        setProgramError(body.error || "Could not look up programs.");
+        return;
+      }
+      onPatch({
+        programOptions: body.school.programOptions,
+        programOptionsCheckedDate: body.school.programOptionsCheckedDate,
+        additionalPrograms: body.school.additionalPrograms,
+      });
+      setCheckedOptionIds(
+        body.school.additionalPrograms
+          .filter((row) =>
+            body.school!.programOptions.some((option) => option.id === row.id),
+          )
+          .map((row) => row.id),
+      );
+    } catch {
+      setProgramError("Could not look up programs.");
+    } finally {
+      setLookingUpPrograms(false);
+    }
   }
 
   function saveAdditionalProgram() {
     const name = programName.trim();
     const sourceUrl = programUrl.trim();
-    if (!name) return;
-    const lowered = name.toLowerCase();
-    if (coreLabels.some((label) => label.toLowerCase() === lowered)) {
-      setProgramError("That’s one of the three core programs already listed.");
-      return;
+    if (name) {
+      const lowered = name.toLowerCase();
+      if (coreLabels.some((label) => label.toLowerCase() === lowered)) {
+        setProgramError("That’s one of the three core programs already listed.");
+        return;
+      }
+      if (
+        additionalPrograms.some((row) => row.name.toLowerCase() === lowered) ||
+        programOptions.some((row) => row.name.toLowerCase() === lowered)
+      ) {
+        setProgramError("That program is already on this school.");
+        return;
+      }
     }
-    if (additionalPrograms.some((row) => row.name.toLowerCase() === lowered)) {
-      setProgramError("That program is already on this school.");
-      return;
+
+    const checkedOptions: AdditionalProgram[] = programOptions
+      .filter((option) => checkedOptionIds.includes(option.id))
+      .map((option) => ({
+        id: option.id,
+        name: option.name,
+        sourceUrl: option.sourceUrl,
+        category: option.category,
+        source: option.source,
+      }));
+    const manuals = additionalPrograms.filter((row) => row.source === "manual");
+    const next: AdditionalProgram[] = [...checkedOptions, ...manuals];
+    if (name) {
+      next.push({
+        id: crypto.randomUUID(),
+        name,
+        sourceUrl,
+        category: "",
+        source: "manual",
+      });
     }
-    onPatch({
-      additionalPrograms: [
-        ...additionalPrograms,
-        { id: crypto.randomUUID(), name, sourceUrl },
-      ],
-    });
+    onPatch({ additionalPrograms: next });
     closeAddProgram();
   }
 
@@ -538,46 +636,116 @@ export function SchoolSnapshotSummary({
                     ))
                   )}
                   {addingProgram ? (
-                    <div className="add-program-form">
-                      <label>
-                        Program name
-                        <input
-                          value={programName}
-                          placeholder="e.g. Robotics Engineering (BS)"
-                          onChange={(event) => {
-                            setProgramName(event.target.value);
-                            setProgramError("");
-                          }}
-                        />
-                      </label>
-                      <label>
-                        Source link
-                        <input
-                          value={programUrl}
-                          placeholder="https://"
-                          onChange={(event) => setProgramUrl(event.target.value)}
-                        />
-                      </label>
-                      {programError ? (
-                        <p className="add-program-error" role="alert">
-                          {programError}
+                    <div className="add-program-panel">
+                      <div className="add-program-panel-header">
+                        <strong>Engineering majors at {school.name}</strong>
+                        {programOptions.length > 0 && optionsSource === "catalog" && checkedDateLabel ? (
+                          <span className="offer-meta">
+                            From the official catalog, checked {checkedDateLabel}
+                          </span>
+                        ) : null}
+                        {programOptions.length > 0 && optionsSource === "scorecard" && checkedDateLabel ? (
+                          <span className="offer-meta">
+                            From College Scorecard degree data, checked {checkedDateLabel}.
+                            Program names are federal category names, not the school&apos;s own.
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {programOptions.length > 0 ? (
+                        <div className="add-program-checklist">
+                          {programOptions.map((option) => (
+                            <label className="add-program-check-row" key={option.id}>
+                              <input
+                                type="checkbox"
+                                checked={checkedOptionIds.includes(option.id)}
+                                onChange={() => toggleOption(option.id)}
+                              />
+                              <span className="add-program-check-body">
+                                <span className="add-program-check-name">
+                                  {option.name}
+                                  {option.sourceUrl ? (
+                                    <>
+                                      {" "}
+                                      <a
+                                        href={option.sourceUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        onClick={(event) => event.stopPropagation()}
+                                      >
+                                        Source
+                                      </a>
+                                    </>
+                                  ) : null}
+                                </span>
+                                {option.notes.trim() ? (
+                                  <span className="offer-meta">{option.notes}</span>
+                                ) : null}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      ) : school.programOptionsCheckedDate.trim() ? (
+                        <p className="offer-meta">
+                          No engineering majors found
+                          {checkedDateLabel ? ` (checked ${checkedDateLabel}).` : "."}
                         </p>
-                      ) : null}
-                      <div className="add-program-actions">
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          onClick={saveAdditionalProgram}
-                        >
-                          Save
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          onClick={closeAddProgram}
-                        >
-                          Cancel
-                        </button>
+                      ) : (
+                        <div className="add-program-empty">
+                          <p className="offer-meta">No program list for this school yet.</p>
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            disabled={lookingUpPrograms}
+                            onClick={() => void lookupPrograms()}
+                          >
+                            {lookingUpPrograms ? "Looking up…" : "Look up programs"}
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="add-program-form">
+                        <p className="add-program-manual-label">Program not listed?</p>
+                        <label>
+                          Program name
+                          <input
+                            value={programName}
+                            placeholder="e.g. Robotics Engineering (BS)"
+                            onChange={(event) => {
+                              setProgramName(event.target.value);
+                              setProgramError("");
+                            }}
+                          />
+                        </label>
+                        <label>
+                          Source link
+                          <input
+                            value={programUrl}
+                            placeholder="https://"
+                            onChange={(event) => setProgramUrl(event.target.value)}
+                          />
+                        </label>
+                        {programError ? (
+                          <p className="add-program-error" role="alert">
+                            {programError}
+                          </p>
+                        ) : null}
+                        <div className="add-program-actions">
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={saveAdditionalProgram}
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            onClick={closeAddProgram}
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -585,7 +753,7 @@ export function SchoolSnapshotSummary({
                       <button
                         type="button"
                         className="add-program-btn"
-                        onClick={() => setAddingProgram(true)}
+                        onClick={openAddProgram}
                       >
                         ＋ Add program
                       </button>
