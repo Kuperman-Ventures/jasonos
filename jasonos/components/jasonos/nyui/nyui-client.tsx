@@ -610,9 +610,9 @@ function StatusBadge({
   children: React.ReactNode;
 }) {
   const styles = {
-    success: "bg-rung-4 ",
-    warning: "bg-rung-2 ",
-    danger: "bg-rung-1 ",
+    success: "bg-rung-ok",
+    warning: "bg-rung-2",
+    danger: "bg-rung-1",
     neutral: "bg-muted text-muted-foreground",
   };
   return (
@@ -657,7 +657,7 @@ function ProgressBar({
 }) {
   const colors = {
     default: "bg-foreground",
-    success: "bg-rung-4",
+    success: "bg-rung-ok",
     warning: "bg-rung-2",
     danger: "bg-rung-1",
   };
