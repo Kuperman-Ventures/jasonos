@@ -1,33 +1,30 @@
-/* Post Master — editorial dark (scoped to the route shell) */
+/* Post Master — paper and ink, same type as the rest of JasonOS. */
 .post-master {
-  --pm-bg: #0b0e14;
-  --pm-bg-elevated: #121722;
-  --pm-bg-soft: #181e2b;
-  --pm-border: rgba(201, 162, 39, 0.18);
-  --pm-border-strong: rgba(201, 162, 39, 0.4);
-  --pm-gold: #c9a227;
-  --pm-gold-soft: #e0c56a;
-  --pm-ink: #e8e6df;
-  --pm-muted: #9a9588;
-  --pm-danger: #d47b6a;
+  --pm-bg: var(--color-bg);
+  --pm-bg-elevated: var(--color-surface);
+  --pm-bg-soft: var(--color-surface);
+  --pm-border: transparent;
+  --pm-border-strong: var(--color-text);
+  --pm-gold: var(--color-accent-700);
+  --pm-gold-soft: var(--color-accent-800);
+  --pm-ink: var(--color-text);
+  --pm-muted: var(--color-neutral-700);
+  --pm-danger: var(--color-accent-2);
 
-  min-height: calc(100vh - 3rem);
-  background:
-    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(201, 162, 39, 0.08), transparent 55%),
-    radial-gradient(ellipse 60% 40% at 90% 0%, rgba(80, 110, 160, 0.12), transparent 50%),
-    var(--pm-bg);
+  min-height: calc(100vh - var(--jos-nav-h));
+  background: var(--pm-bg);
   color: var(--pm-ink);
-  font-family: var(--font-pm-sans), "IBM Plex Sans", ui-sans-serif, sans-serif;
+  font-family: var(--jos-font);
 }
 
 .post-master .pm-display {
-  font-family: var(--font-pm-display), Fraunces, Georgia, serif;
+  font-family: var(--jos-font);
   font-optical-sizing: auto;
   letter-spacing: -0.02em;
 }
 
 .post-master .pm-mono {
-  font-family: var(--font-pm-mono), "JetBrains Mono", ui-monospace, monospace;
+  font-family: var(--jos-font); font-variant-numeric: tabular-nums;
   font-variant-numeric: tabular-nums;
 }
 
@@ -41,7 +38,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
+  font-family: var(--jos-font);
   font-size: 0.68rem;
   font-weight: 500;
   letter-spacing: 0.16em;
@@ -51,9 +48,10 @@
 
 .post-master .pm-title {
   margin-top: 0.85rem;
-  font-size: clamp(2.4rem, 4vw, 3.4rem);
-  font-weight: 500;
+  font-size: 44px;
+  font-weight: 700;
   line-height: 1.05;
+  letter-spacing: -0.02em;
   color: var(--pm-ink);
 }
 
@@ -75,7 +73,7 @@
 }
 
 .post-master .pm-step {
-  font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
+  font-family: var(--jos-font);
   font-size: 0.72rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -91,7 +89,7 @@
 }
 
 .post-master .pm-panel {
-  background: linear-gradient(180deg, var(--pm-bg-elevated), var(--pm-bg-soft));
+  background: var(--color-surface);
   border: 1px solid var(--pm-border);
   border-radius: 2px;
   padding: 1.75rem;
@@ -99,7 +97,7 @@
 
 .post-master .pm-label {
   display: block;
-  font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
+  font-family: var(--jos-font);
   font-size: 0.72rem;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -110,7 +108,7 @@
 .post-master .pm-textarea,
 .post-master .pm-select {
   width: 100%;
-  background: rgba(11, 14, 20, 0.65);
+  background: var(--color-surface);
   border: 1px solid var(--pm-border);
   border-radius: 2px;
   color: var(--pm-ink);
@@ -129,7 +127,7 @@
 .post-master .pm-textarea:focus,
 .post-master .pm-select:focus {
   border-color: var(--pm-border-strong);
-  box-shadow: 0 0 0 1px rgba(201, 162, 39, 0.25);
+  outline: 2px solid var(--color-accent); outline-offset: 2px;
 }
 
 .post-master .pm-select {
@@ -151,8 +149,8 @@
   gap: 0.5rem;
   border: 1px solid var(--pm-gold);
   background: var(--pm-gold);
-  color: #0b0e14;
-  font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
+  color: var(--color-on-action);
+  font-family: var(--jos-font);
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -179,7 +177,7 @@
 }
 
 .post-master .pm-btn-ghost:hover:not(:disabled) {
-  background: rgba(201, 162, 39, 0.1);
+  background: var(--color-surface);
   color: var(--pm-gold-soft);
 }
 
@@ -214,7 +212,7 @@
 }
 
 .post-master .pm-dial-value {
-  font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
+  font-family: var(--jos-font);
   font-size: 0.78rem;
   color: var(--pm-gold);
 }
@@ -260,7 +258,7 @@
 .post-master .pm-hook-card {
   text-align: left;
   width: 100%;
-  background: rgba(11, 14, 20, 0.45);
+  background: var(--color-surface);
   border: 1px solid var(--pm-border);
   border-radius: 2px;
   padding: 1.2rem 1.25rem;
@@ -271,17 +269,17 @@
 
 .post-master .pm-hook-card:hover {
   border-color: var(--pm-border-strong);
-  background: rgba(201, 162, 39, 0.06);
-  transform: translateY(-1px);
+  background: var(--color-surface);
+  transform: none;
 }
 
 .post-master .pm-hook-card[data-selected="true"] {
   border-color: var(--pm-gold);
-  background: rgba(201, 162, 39, 0.1);
+  background: var(--color-surface);
 }
 
 .post-master .pm-hook-angle {
-  font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
+  font-family: var(--jos-font);
   font-size: 0.68rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -304,7 +302,7 @@
   display: flex;
   flex-direction: column;
   min-height: 280px;
-  background: rgba(11, 14, 20, 0.45);
+  background: var(--color-surface);
   border: 1px solid var(--pm-border);
   border-radius: 2px;
   padding: 1.15rem;
@@ -319,12 +317,12 @@
 }
 
 .post-master .pm-output-title {
-  font-family: var(--font-pm-display), Fraunces, Georgia, serif;
+  font-family: var(--jos-font);
   font-size: 1.35rem;
 }
 
 .post-master .pm-counts {
-  font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
+  font-family: var(--jos-font);
   font-size: 0.68rem;
   letter-spacing: 0.06em;
   color: var(--pm-muted);
@@ -341,7 +339,7 @@
 }
 
 .post-master .pm-section-title {
-  font-family: var(--font-pm-display), Fraunces, Georgia, serif;
+  font-family: var(--jos-font);
   font-size: 1.65rem;
   margin-bottom: 0.35rem;
 }
@@ -359,14 +357,14 @@
   margin-bottom: 1.4rem;
   padding: 0.25rem;
   border: 1px solid var(--pm-border);
-  background: rgba(11, 14, 20, 0.45);
+  background: var(--color-surface);
 }
 
 .post-master .pm-mode-btn {
   border: 0;
   background: transparent;
   color: var(--pm-muted);
-  font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
+  font-family: var(--jos-font);
   font-size: 0.72rem;
   font-weight: 500;
   letter-spacing: 0.08em;
@@ -376,8 +374,8 @@
 }
 
 .post-master .pm-mode-btn[data-active="true"] {
-  background: rgba(201, 162, 39, 0.16);
-  color: var(--pm-gold-soft);
+  background: var(--color-text);
+  color: var(--color-bg);
 }
 
 .post-master .pm-mode-btn:disabled {
@@ -387,7 +385,7 @@
 
 .post-master .pm-input {
   width: 100%;
-  background: rgba(11, 14, 20, 0.65);
+  background: var(--color-surface);
   border: 1px solid var(--pm-border);
   border-radius: 2px;
   color: var(--pm-ink);
@@ -399,7 +397,7 @@
 
 .post-master .pm-input:focus {
   border-color: var(--pm-border-strong);
-  box-shadow: 0 0 0 1px rgba(201, 162, 39, 0.25);
+  outline: 2px solid var(--color-accent); outline-offset: 2px;
 }
 
 .post-master .pm-research-meta {
@@ -428,7 +426,7 @@
 }
 
 .post-master .pm-research-heading {
-  font-family: var(--font-pm-mono), "JetBrains Mono", monospace;
+  font-family: var(--jos-font);
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -437,7 +435,7 @@
 }
 
 .post-master .pm-research-card {
-  background: rgba(11, 14, 20, 0.45);
+  background: var(--color-surface);
   border: 1px solid var(--pm-border);
   border-radius: 2px;
   padding: 1rem 1.1rem;
@@ -445,7 +443,7 @@
 }
 
 .post-master .pm-research-card h4 {
-  font-family: var(--font-pm-display), Fraunces, Georgia, serif;
+  font-family: var(--jos-font);
   font-size: 1.15rem;
   margin-bottom: 0.45rem;
 }
@@ -495,7 +493,7 @@
   margin: 1.75rem 0 1.5rem;
   padding: 1.15rem 1.25rem;
   border: 1px solid var(--pm-border);
-  background: rgba(11, 14, 20, 0.45);
+  background: var(--color-surface);
 }
 
 @media (min-width: 840px) {
@@ -544,7 +542,7 @@
   gap: 0.85rem;
   padding: 1rem 1.1rem;
   border: 1px solid var(--pm-border);
-  background: rgba(11, 14, 20, 0.45);
+  background: var(--color-surface);
 }
 
 @media (min-width: 800px) {
@@ -556,11 +554,11 @@
 
 .post-master .pm-library-item[data-active="true"] {
   border-color: var(--pm-border-strong);
-  background: rgba(201, 162, 39, 0.08);
+  background: var(--color-surface);
 }
 
 .post-master .pm-library-item h3 {
-  font-family: var(--font-pm-display), Fraunces, Georgia, serif;
+  font-family: var(--jos-font);
   font-size: 1.2rem;
   margin-bottom: 0.3rem;
 }

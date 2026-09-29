@@ -23,8 +23,7 @@ type NavGroupItem = {
   label: string;
   children: { href: string; label: string }[];
 };
-type NavDivider = { kind: "divider" };
-type NavItem = NavLinkItem | NavGroupItem | NavDivider;
+type NavItem = NavLinkItem | NavGroupItem;
 
 const NAV: NavItem[] = [
   { kind: "link", href: "/", label: "Home" },
@@ -39,8 +38,6 @@ const NAV: NavItem[] = [
       { href: "/nyui", label: "NYUI" },
     ],
   },
-  { kind: "divider" },
-
   {
     kind: "group",
     label: "Networking",
@@ -66,8 +63,6 @@ const NAV: NavItem[] = [
       { href: "/activity", label: "Weekly Report" },
     ],
   },
-
-  { kind: "divider" },
 
   {
     kind: "group",
@@ -99,8 +94,6 @@ const NAV: NavItem[] = [
     ],
   },
 
-  { kind: "divider" },
-
   {
     kind: "group",
     label: "Settings",
@@ -127,10 +120,10 @@ function NavLink({
     <Link
       href={href}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm transition-colors",
+        "inline-flex h-10 items-center gap-1.5 rounded-[2px] px-3 text-[16px] font-medium text-[var(--jos-ink)] transition-colors",
         active
-          ? "bg-muted text-foreground"
-          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+          ? "bg-[var(--jos-surface)] font-semibold"
+          : "hover:bg-[var(--jos-surface)]"
       )}
     >
       {label}
@@ -155,14 +148,14 @@ function NavGroup({
     <DropdownMenu>
       <DropdownMenuTrigger
         className={cn(
-          "inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-sm transition-colors outline-none",
+          "inline-flex h-10 items-center gap-1 rounded-[2px] px-3 text-[16px] font-medium text-[var(--jos-ink)] transition-colors",
           active
-            ? "bg-muted text-foreground"
-            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+            ? "bg-[var(--jos-surface)] font-semibold"
+            : "hover:bg-[var(--jos-surface)]"
         )}
       >
         {label}
-        <ChevronDown className="h-3 w-3 opacity-60" />
+        <ChevronDown className="h-5 w-5" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-40">
         {items.map((item) => (
@@ -176,15 +169,6 @@ function NavGroup({
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
-  );
-}
-
-function NavDivider() {
-  return (
-    <span
-      aria-hidden
-      className="mx-1.5 h-4 w-px shrink-0 bg-border/70"
-    />
   );
 }
 
@@ -203,21 +187,18 @@ export function TopNav() {
   }
 
   return (
-    <header className="app-top-nav sticky top-0 z-40 glass hairline border-b print:hidden">
-      <div className="mx-auto flex h-12 max-w-[1800px] items-center gap-5 px-4">
+    <header className="app-top-nav sticky top-0 z-40 border-b border-[var(--jos-ink)] bg-[var(--jos-bg)] print:hidden">
+      <div className="flex h-14 items-center gap-5 px-4">
         <Link
           href="/"
-          className="flex shrink-0 items-center gap-2 font-semibold tracking-tight"
+          className="flex shrink-0 items-center gap-2 text-[16px] font-semibold tracking-tight text-[var(--jos-ink)]"
         >
           <Logo size={24} priority />
-          <span className="text-sm">JasonOS</span>
+          <span>JasonOS</span>
         </Link>
 
-        <nav className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
-          {NAV.map((item, i) => {
-            if (item.kind === "divider") {
-              return <NavDivider key={`divider-${i}`} />;
-            }
+        <nav className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
+          {NAV.map((item) => {
             if (item.kind === "link") {
               return (
                 <NavLink

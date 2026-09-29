@@ -233,7 +233,7 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
       <header className="flex items-start gap-3">
         <Logo size={40} className="mt-0.5" />
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Settings</h1>
+          <h1 className="text-[36px] font-bold leading-none tracking-[-0.02em]">Settings</h1>
           <p className="mt-1 max-w-3xl text-xs text-muted-foreground">
             Manage JasonOS integrations, Dispatch, alert thresholds, and model routing from one control panel.
           </p>
@@ -241,7 +241,7 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
       </header>
 
       {settings.authRequired ? (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-100">
+        <div className="rounded-[2px] bg-[var(--jos-warn-tint)] px-4 py-3 text-[16px] text-[var(--jos-ink)]">
           Sign in to persist Settings changes. Mail account status below is live —
           you can reconnect Gmail or Outlook without signing in first.
         </div>

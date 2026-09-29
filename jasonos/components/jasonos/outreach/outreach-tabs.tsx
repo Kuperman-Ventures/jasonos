@@ -39,8 +39,8 @@ export function OutreachTabs({
   const pathname = usePathname() ?? "";
 
   return (
-    <nav className="flex items-center gap-1 border-b bg-card/40 px-4">
-      <div className="flex flex-1 items-center gap-1">
+    <nav className="flex h-12 items-stretch gap-1 overflow-x-auto border-b border-[var(--jos-line)] bg-[var(--jos-bg)] px-4">
+      <div className="flex min-w-0 flex-1 items-stretch">
         {TABS.map((tab) => {
           const active = pathname.startsWith(tab.href);
           const Icon = tab.icon;
@@ -56,16 +56,16 @@ export function OutreachTabs({
               key={tab.href}
               href={tab.href}
               className={cn(
-                "inline-flex items-center gap-1.5 border-b-2 px-3 py-2.5 text-sm transition-colors",
+                "inline-flex items-center gap-1.5 border-b-[3px] px-3 text-[15px] font-medium text-[var(--jos-ink)] transition-colors",
                 active
-                  ? "border-foreground text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+                  ? "border-[var(--jos-focus)] font-semibold"
+                  : "border-transparent hover:bg-[color-mix(in_srgb,var(--jos-surface)_50%,transparent)]"
               )}
             >
-              <Icon className="h-3.5 w-3.5" />
+              <Icon className="h-5 w-5" />
               {tab.label}
               {showBadge ? (
-                <span className="ml-0.5 rounded-full bg-foreground px-1.5 py-0.5 text-[10px] font-medium leading-none text-background">
+                <span className="ml-0.5 rounded-full bg-[var(--jos-ink)] px-1.5 py-0.5 text-[12px] font-semibold leading-none text-[var(--jos-bg)] tabular-nums">
                   {badgeCount}
                 </span>
               ) : null}
@@ -74,10 +74,10 @@ export function OutreachTabs({
         })}
       </div>
       {!gmailPersonalConnected ? (
-        <div className="flex items-center gap-2 py-1.5">
+        <div className="flex items-center gap-2">
           <a
             href="/api/auth/google?account=gmail"
-            className="hidden sm:inline-flex rounded-md border border-amber-400/40 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-100 hover:bg-amber-500/20"
+            className="hidden rounded-[2px] bg-[var(--jos-warn-tint)] px-2.5 py-1 text-[13px] font-medium text-[var(--jos-ink)] sm:inline-flex"
           >
             Connect personal Gmail
           </a>

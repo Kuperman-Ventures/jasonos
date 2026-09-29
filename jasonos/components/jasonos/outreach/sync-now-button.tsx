@@ -215,8 +215,7 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
   return (
     <Button
       variant="outline"
-      size="sm"
-      className="h-8 gap-1.5"
+      className="h-10 gap-1.5"
       onClick={handleSync}
       disabled={running}
       title={
@@ -226,9 +225,9 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
       }
     >
       {running ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        <Loader2 className="h-5 w-5 animate-spin" />
       ) : (
-        <RefreshCw className={cn("h-3.5 w-3.5")} />
+        <RefreshCw className={cn("h-5 w-5")} />
       )}
       {running ? "Syncing…" : "Sync"}
     </Button>

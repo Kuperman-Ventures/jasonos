@@ -7,9 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-heading: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-hanken), "Hanken Grotesk", system-ui, sans-serif;
+  --font-mono: var(--font-hanken), "Hanken Grotesk", system-ui, sans-serif;
+  --font-heading: var(--font-hanken), "Hanken Grotesk", system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,83 +49,115 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
+  /* Named ramps from the brand guideline. Steps without a published hex
+     are mixes of the named colors, until Broadsheet styles.css is in the repo. */
+  --color-bg: #f3f2f2;
+  --color-surface: #eae9e9;
+  --color-text: #201e1d;
+  --color-on-action: #ffffff;
+  --color-neutral-300: #d4d2d2;
+  --color-neutral-400: #b5b2b2;
+  --color-neutral-500: #8a8686;
+  --color-neutral-600: #6e6a6a;
+  --color-neutral-700: #605d5d;
+  --color-divider: color-mix(in srgb, var(--color-text) 16%, transparent);
+  --color-accent: #0088b0;
+  --color-accent-100: #d7eef5;
+  --color-accent-400: #3aa3c4;
+  --color-accent-700: #006786;
+  --color-accent-800: #004e66;
+  --color-accent-900: #00384a;
+  --color-accent-2: #d6006c;
+  --color-accent-2-100: #f8d6e6;
+  --color-accent-2-700: #a30054;
+  --color-accent-2-800: #7a003f;
+  --color-accent-2-900: #5c0030;
+  --color-process-yellow: #edbb00;
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --jos-bg: var(--color-bg);
+  --jos-surface: var(--color-surface);
+  --jos-ink: var(--color-text);
+  --jos-muted: var(--color-neutral-700);
+  --jos-line: var(--color-divider);
+  --jos-action: var(--color-accent-700);
+  --jos-action-hover: var(--color-accent-800);
+  --jos-focus: var(--color-accent);
+  --jos-ok: var(--color-text);
+  --jos-info: var(--color-accent);
+  --jos-info-tint: var(--color-accent-100);
+  --jos-info-ink: var(--color-accent-800);
+  --jos-warn: var(--color-process-yellow);
+  --jos-warn-tint: color-mix(in srgb, var(--color-process-yellow) 30%, var(--color-bg));
+  --jos-danger: var(--color-accent-2);
+  --jos-danger-tint: var(--color-accent-2-100);
+  --jos-danger-ink: var(--color-accent-2-800);
+  --jos-font: var(--font-hanken), "Hanken Grotesk", system-ui, sans-serif;
+  --font-heading: var(--jos-font);
+  --font-body: var(--jos-font);
+  --jos-radius: 2px;
+  --jos-nav-h: 56px;
+  --jos-subnav-h: 48px;
+  --jos-rail-w: 320px;
+  --space-1: 5px;
+  --space-2: 10px;
+  --space-3: 15px;
+  --space-4: 20px;
+  --space-5: 30px;
+  --space-6: 40px;
+  --space-7: 48px;
+  --space-8: 56px;
+  --shadow-sm: 0 1px 2px color-mix(in srgb, var(--color-text) 12%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, var(--color-text) 16%, transparent);
+
+  --background: var(--color-bg);
+  --foreground: var(--color-text);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-text);
+  --popover: var(--color-bg);
+  --popover-foreground: var(--color-text);
+  --primary: var(--color-accent-700);
+  --primary-foreground: var(--color-on-action);
+  --secondary: var(--color-surface);
+  --secondary-foreground: var(--color-text);
+  --muted: var(--color-surface);
+  --muted-foreground: var(--color-neutral-700);
+  --accent: var(--color-accent-100);
+  --accent-foreground: var(--color-accent-800);
+  --destructive: var(--color-accent-2-700);
+  --border: var(--color-divider);
+  --input: var(--color-surface);
+  --ring: var(--color-accent);
+  --chart-1: var(--color-text);
+  --chart-2: var(--color-accent);
+  --chart-3: var(--color-process-yellow);
+  --chart-4: var(--color-accent-2);
+  --chart-5: var(--color-neutral-500);
+  --radius: 2px;
+  --sidebar: var(--color-bg);
+  --sidebar-foreground: var(--color-text);
+  --sidebar-primary: var(--color-accent-700);
+  --sidebar-primary-foreground: var(--color-on-action);
+  --sidebar-accent: var(--color-surface);
+  --sidebar-accent-foreground: var(--color-text);
+  --sidebar-border: var(--color-divider);
+  --sidebar-ring: var(--color-accent);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    font: 400 16px/1.5 var(--jos-font);
+    background: var(--jos-bg);
+    color: var(--jos-ink);
   }
   html {
     @apply font-sans;
+  }
+  :focus-visible {
+    outline: 2px solid var(--jos-focus);
+    outline-offset: 2px;
   }
 }
 
@@ -149,3 +181,29 @@
   to   { opacity: 1; transform: none; }
 }
 .jos-card-enter { animation: jos-fade-in .25s ease-out both; }
+
+/* Pale text colors were chosen for the old dark theme. On paper they
+   become the brand ramps: cyan for links and info, magenta for errors,
+   ink for success and caution (yellow is never text). */
+[class*="text-sky-2"],
+[class*="text-sky-3"],
+[class*="text-sky-4"],
+[class*="text-blue-3"],
+[class*="text-blue-4"] {
+  color: var(--color-accent-700);
+}
+[class*="text-red-2"],
+[class*="text-red-3"],
+[class*="text-rose-2"],
+[class*="text-rose-3"] {
+  color: var(--color-accent-2-700);
+}
+[class*="text-amber-1"],
+[class*="text-amber-2"],
+[class*="text-amber-3"],
+[class*="text-emerald-2"],
+[class*="text-emerald-3"],
+[class*="text-green-2"],
+[class*="text-green-3"] {
+  color: var(--color-text);
+}

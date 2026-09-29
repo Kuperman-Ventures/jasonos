@@ -62,7 +62,6 @@ interface ColumnDef {
   helper: string;
   icon: React.ComponentType<{ className?: string }>;
   accent: string;
-  stripe: string;
 }
 
 const COLUMNS: ColumnDef[] = [
@@ -71,24 +70,21 @@ const COLUMNS: ColumnDef[] = [
     title: "Network Growth",
     helper: "building / deepening",
     icon: Sparkles,
-    accent: "text-amber-300",
-    stripe: "from-amber-500/15",
+    accent: "text-[var(--jos-ink)]",
   },
   {
     key: "network_maintenance",
     title: "Network Maintenance",
     helper: "keep warm",
     icon: Flame,
-    accent: "text-rose-300",
-    stripe: "from-rose-500/15",
+    accent: "text-[var(--jos-ink)]",
   },
   {
     key: "browning_cold",
     title: "Cold",
     helper: "cold outreach",
     icon: Snowflake,
-    accent: "text-sky-300",
-    stripe: "from-sky-500/15",
+    accent: "text-[var(--jos-ink)]",
   },
 ];
 
@@ -115,8 +111,8 @@ const BANDS: BandDef[] = [
     label: "Engaged Today",
     helper: "Outbound touches recorded today",
     icon: Mail,
-    textColor: "text-emerald-300",
-    headerBg: "bg-emerald-700/70",
+    textColor: "text-[var(--jos-ink)]",
+    headerBg: "bg-[var(--jos-surface)]",
     defaultCollapsed: false,
   },
   {
@@ -124,8 +120,8 @@ const BANDS: BandDef[] = [
     label: "Overdue",
     helper: "Past next-touch date",
     icon: AlertCircle,
-    textColor: "text-red-300",
-    headerBg: "bg-red-700/80",
+    textColor: "text-[var(--color-accent-2-900)]",
+    headerBg: "bg-[var(--jos-danger-tint)]",
     defaultCollapsed: false,
   },
   {
@@ -133,8 +129,8 @@ const BANDS: BandDef[] = [
     label: "Due This Week",
     helper: "Due today or by the end of this week (Fri)",
     icon: Clock,
-    textColor: "text-amber-300",
-    headerBg: "bg-amber-600/70",
+    textColor: "text-[var(--jos-ink)]",
+    headerBg: "bg-[var(--jos-warn-tint)]",
     defaultCollapsed: false,
   },
   {
@@ -142,8 +138,8 @@ const BANDS: BandDef[] = [
     label: "Scheduled",
     helper: "Next touch set after this week",
     icon: Calendar,
-    textColor: "text-sky-300",
-    headerBg: "bg-sky-800/50",
+    textColor: "text-[var(--color-accent-900)]",
+    headerBg: "bg-[var(--jos-info-tint)]",
     defaultCollapsed: false,
   },
 ];
@@ -541,7 +537,7 @@ export function ThreeColumnQueueClient({
       </div>
 
       {buckets.caveats.length ? (
-        <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[11px] text-amber-200/90">
+        <div className="rounded-[2px] bg-[var(--jos-warn-tint)] px-4 py-3 text-[14px] text-[var(--jos-ink)]">
           <strong className="font-semibold">Heads up:</strong>{" "}
           {buckets.caveats.join(" · ")}
         </div>
@@ -627,14 +623,8 @@ function QueueColumn({
 }) {
   const Icon = def.icon;
   return (
-    <section className="flex flex-col overflow-hidden rounded-xl border bg-card/40">
-      <header
-        className={cn(
-          "flex items-center gap-2 border-b bg-gradient-to-b px-3 py-2.5",
-          def.stripe,
-          "to-transparent"
-        )}
-      >
+    <section className="flex flex-col overflow-hidden rounded-[2px] bg-[var(--jos-surface)]">
+      <header className="flex items-center gap-2 px-3 py-2.5">
         <Icon className={cn("h-4 w-4", def.accent)} />
         <h2 className="text-sm font-semibold tracking-tight">{def.title}</h2>
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -699,21 +689,21 @@ function ColumnUrgencySection({
             <div className={cn("text-xs font-semibold", def.textColor)}>
               {def.label}
             </div>
-            <div className="truncate text-[10px] text-white/60">
+            <div className="truncate text-[12px] text-[var(--jos-muted)]">
               {def.helper}
             </div>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {cards.length > 0 ? (
-            <span className="text-xs font-medium text-white/80">
+            <span className="text-xs font-medium tabular-nums text-[var(--jos-ink)]">
               {cards.length}
             </span>
           ) : null}
           {collapsed ? (
-            <ChevronDown className="h-4 w-4 text-white/60" />
+            <ChevronDown className="h-4 w-4 text-[var(--jos-muted)]" />
           ) : (
-            <ChevronUp className="h-4 w-4 text-white/60" />
+            <ChevronUp className="h-4 w-4 text-[var(--jos-muted)]" />
           )}
         </div>
       </button>
