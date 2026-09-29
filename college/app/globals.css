@@ -7967,17 +7967,25 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   white-space: nowrap;
   color: var(--text-subtle);
 }
-.ds-app-card {
+.ds-app-column {
   position: absolute;
   left: 515px;
   top: 110px;
   width: 290px;
   height: 514px;
+}
+.ds-app-card {
+  position: absolute;
+  inset: 0;
   padding: 18px 20px;
   background: var(--color-raised);
   border: 1px solid var(--color-border);
   border-radius: 2px;
   box-shadow: var(--shadow-sm);
+  pointer-events: none;
+}
+.ds-app-column.is-hot .ds-app-card {
+  border-color: var(--color-accent);
 }
 .ds-app-title {
   font-family: var(--font-heading);
@@ -7993,7 +8001,7 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
 }
 .ds-chip {
   position: absolute;
-  left: 535px;
+  left: 20px;
   width: 250px;
   height: 44px;
   display: flex;
