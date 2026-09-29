@@ -6466,13 +6466,11 @@ body.todos-dragging .todo-project-group.is-over {
 }
 .restore-inline {
   flex: none;
+  align-self: center;
   min-height: 32px !important;
   padding: 0 10px !important;
   font-size: 13px !important;
   margin-left: auto;
-}
-.school-id {
-  gap: 8px;
 }
 .archived-tag {
   display: inline-block;
