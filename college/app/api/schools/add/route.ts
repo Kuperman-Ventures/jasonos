@@ -10,8 +10,13 @@ import { createSchool, listSchools, supabaseConfigured, updateSchool } from "@/l
 import { lookupMetro } from "@/lib/metro";
 import {
   fetchScorecardByUnitId,
+  fetchScorecardEngineeringPrograms,
   ScorecardUnsupportedError,
 } from "@/lib/scorecard";
+
+function todayIsoDate(now = new Date()): string {
+  return now.toISOString().slice(0, 10);
+}
 
 export const maxDuration = 300;
 
@@ -111,7 +116,7 @@ export async function POST(request: Request) {
       outOfStateAdmitRate: null,
     });
 
-    const school = await updateSchool(created.id, {
+    let school = await updateSchool(created.id, {
       unitId: scorecard.unitId,
       location: scorecard.location,
       website: scorecard.website,
@@ -138,6 +143,19 @@ export async function POST(request: Request) {
       researchCompleted: isPrivate ? ["Admissions by residency"] : [],
     });
 
+    try {
+      const programOptions = await fetchScorecardEngineeringPrograms(
+        scorecard.unitId,
+        school.id,
+      );
+      school = await updateSchool(school.id, {
+        programOptions,
+        programOptionsCheckedDate: todayIsoDate(),
+      });
+    } catch (error) {
+      console.error("Scorecard engineering programs lookup failed", error);
+    }
+
     let driveStatus: "ready" | "pending" | "failed" = "pending";
     let refreshed = school;
     try {
@@ -149,12 +167,13 @@ export async function POST(request: Request) {
         address: school.driveAddress || undefined,
       });
       driveStatus = "ready";
-      // Re-read so drive minutes/miles from the overlay are attached.
-      refreshed = (await listSchools()).find((row) => row.id === school.id) ?? school;
     } catch (error) {
       console.error("Drive matrix update failed", error);
       driveStatus = "failed";
     }
+
+    // Re-read so drive minutes/miles and program options are attached.
+    refreshed = (await listSchools()).find((row) => row.id === school.id) ?? school;
 
     await recordActivity({
       actorId: session.member.id,

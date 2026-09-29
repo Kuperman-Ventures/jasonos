@@ -3,12 +3,91 @@
  * Prefer this over lib/college-scorecard.ts for the add-by-id path.
  */
 
+import type { ProgramOption } from "./additional-programs";
 import {
   SCORECARD_API_URL,
   resolveScorecardApiKey,
   isScorecardKeyInvalidError,
   scorecardKeyInvalidMessage,
 } from "./college-scorecard";
+
+/** CIP codes dropped because they match the three core snapshot programs (or materials). */
+const EXCLUDED_ENGINEERING_CIPS = new Set(["1402", "1406", "1418", "1419", "1420"]);
+
+const CIP_CATEGORY: Record<string, string> = {
+  "1401": "General Engineering",
+  "1403": "Biological and Agricultural Engineering",
+  "1404": "Architectural Engineering",
+  "1405": "Biomedical Engineering",
+  "1407": "Chemical Engineering",
+  "1408": "Civil Engineering",
+  "1409": "Computer Engineering",
+  "1410": "Electrical Engineering",
+  "1411": "Engineering Mechanics",
+  "1412": "Engineering Physics",
+  "1413": "Engineering Science",
+  "1414": "Environmental Engineering",
+  "1421": "Mining Engineering",
+  "1422": "Ocean and Naval Engineering",
+  "1423": "Nuclear Engineering",
+  "1424": "Ocean and Naval Engineering",
+  "1425": "Petroleum Engineering",
+  "1427": "Industrial and Systems Engineering",
+  "1433": "Construction Engineering",
+  "1435": "Industrial and Systems Engineering",
+  "1436": "Manufacturing Engineering",
+  "1437": "Operations Research and Engineering",
+  "1439": "Geological Engineering",
+  "1441": "Mechatronics Engineering",
+  "1442": "Robotics Engineering",
+  "1443": "Biomolecular and Bioprocess Engineering",
+  "1445": "Biological and Agricultural Engineering",
+  "1447": "Electrical and Computer Engineering",
+};
+
+export type ScorecardCipRow = {
+  code?: string | null;
+  title?: string | null;
+  credential?: { level?: number | null } | null;
+};
+
+/** Map Scorecard CIP-4 rows to engineering ProgramOption entries. */
+export function scorecardProgramsToOptions(
+  schoolId: string,
+  unitId: number,
+  rows: unknown,
+): ProgramOption[] {
+  if (!Array.isArray(rows)) return [];
+  const seen = new Set<string>();
+  const out: ProgramOption[] = [];
+  const sourceUrl = `https://collegescorecard.ed.gov/school/?${Math.round(unitId)}`;
+
+  for (const row of rows) {
+    if (!row || typeof row !== "object") continue;
+    const item = row as ScorecardCipRow;
+    const codeRaw = typeof item.code === "string" ? item.code.trim() : "";
+    const code = codeRaw.padStart(4, "0").slice(-4);
+    if (!/^\d{4}$/.test(code) || !code.startsWith("14")) continue;
+    const level = item.credential?.level;
+    if (level !== 3) continue;
+    if (EXCLUDED_ENGINEERING_CIPS.has(code)) continue;
+    if (seen.has(code)) continue;
+    seen.add(code);
+
+    const title = typeof item.title === "string" ? item.title.trim() : "";
+    if (!title) continue;
+    const name = title.replace(/\.+$/, "");
+    out.push({
+      id: `${schoolId}--cip-${code}`,
+      name,
+      category: CIP_CATEGORY[code] ?? "Other",
+      sourceUrl,
+      notes: "",
+      source: "scorecard",
+    });
+  }
+  return out;
+}
 
 export const SCORECARD_BY_ID_FIELDS = [
   "id",
@@ -203,6 +282,30 @@ export function mapScorecardByIdRow(
     lon,
     scorecardFetchedDate: fetchedDate,
   };
+}
+
+/** Bachelor's engineering CIP programs from College Scorecard for one school. */
+export async function fetchScorecardEngineeringPrograms(
+  unitId: number,
+  schoolId: string,
+): Promise<ProgramOption[]> {
+  if (!Number.isFinite(unitId) || unitId <= 0) {
+    throw new Error("unitId must be a positive number");
+  }
+  const id = schoolId.trim();
+  if (!id) throw new Error("schoolId is required");
+
+  const url = new URL(SCORECARD_API_URL);
+  url.searchParams.set("id", String(Math.round(unitId)));
+  url.searchParams.set("per_page", "1");
+  url.searchParams.set("fields", "id,latest.programs.cip_4_digit");
+
+  const response = await fetchScorecardResponse(url);
+  const body = (await response.json()) as {
+    results?: Array<{ "latest.programs.cip_4_digit"?: unknown }>;
+  };
+  const rows = body.results?.[0]?.["latest.programs.cip_4_digit"];
+  return scorecardProgramsToOptions(id, Math.round(unitId), rows);
 }
 
 /** Fetch one operating school by College Scorecard / IPEDS unit ID. */

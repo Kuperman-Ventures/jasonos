@@ -227,7 +227,8 @@ export const SOURCE_REGISTRY: DataSourceDef[] = [
     feeds: ["schools"],
     provider: "U.S. Department of Education",
     docsUrl: "https://collegescorecard.ed.gov/data/documentation/",
-    notes: "Without a valid key the app falls back to DEMO_KEY (rate-limited).",
+    notes:
+      "Without a valid key the app falls back to DEMO_KEY (rate-limited). College Scorecard programs for newly added schools.",
     setupHint:
       "Set COLLEGE_SCORECARD_API_KEY (or SCORECARD_API_KEY). Free key: https://api.data.gov/signup/. If the stored key is rejected by api.data.gov, fix or delete it — until then Scorecard runs on DEMO_KEY.",
     env: { keys: ["COLLEGE_SCORECARD_API_KEY", "SCORECARD_API_KEY"], anyOf: true },
@@ -373,6 +374,24 @@ export const SOURCE_REGISTRY: DataSourceDef[] = [
     history: [
       { date: "2026-09-27", note: "Revised import to fill existing tabs only" },
       { date: "2026-09-27", note: "First import: application, admit, cost and student-body data" },
+    ],
+    perSchool: true,
+    testable: false,
+  },
+  {
+    id: "engineering-programs",
+    type: "snapshot",
+    name: "Engineering programs (catalog research)",
+    feeds: ["schools"],
+    importedAt: "2026-09-29",
+    dataCovers: "Engineering majors for the 45 schools on the list as of Sept 29, 2026",
+    sourceLinks: [{ label: "Official school catalogs" }],
+    staleAfter: "Each fall, when schools publish the next catalog",
+    staleAfterDate: addDaysIso("2026-09-29", 365),
+    howToUpdate:
+      "Re-run the catalog research, save it as data/engineering-programs.json, and add a migration like 0040_seed_program_options.sql.",
+    history: [
+      { date: "2026-09-29", note: "First import: 426 engineering majors across 45 schools" },
     ],
     perSchool: true,
     testable: false,
@@ -819,6 +838,8 @@ function coverageFor(
       return schoolCoverage(schools, (s) => Boolean(virtualTourEmbedUrlForSchool(s.name)));
     case "scoir":
       return schoolCoverage(schools, (s) => scoirRecordForSchool(s) != null);
+    case "engineering-programs":
+      return schoolCoverage(schools, (s) => Boolean(s.programOptionsCheckedDate?.trim()));
     case "common-app-grid":
       return schoolCoverage(schools, (s) => queryCommonAppGrid(s.name).status === "hit");
     case "cds-residency": {

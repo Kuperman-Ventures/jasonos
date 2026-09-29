@@ -5,6 +5,7 @@ import {
   formatScorecardNetPrice,
   formatScorecardSat,
   mapScorecardByIdRow,
+  scorecardProgramsToOptions,
   ScorecardUnsupportedError,
   type ScorecardByIdRow,
 } from "./scorecard";
@@ -111,4 +112,35 @@ test("mapScorecardByIdRow maps fields and rejects for-profit", () => {
       error instanceof ScorecardUnsupportedError &&
       error.message === "For-profit schools are not supported",
   );
+});
+
+test("scorecardProgramsToOptions keeps bachelor's 14xx and drops excluded codes", () => {
+  const options = scorecardProgramsToOptions("tufts-university", 168148, [
+    { code: "1442", title: "Robotics Engineering.", credential: { level: 3 } },
+    { code: "1419", title: "Mechanical Engineering.", credential: { level: 3 } },
+    { code: "1402", title: "Aerospace.", credential: { level: 3 } },
+    { code: "1418", title: "Materials.", credential: { level: 3 } },
+    { code: "1499", title: "Weird Engineering.", credential: { level: 3 } },
+    { code: "1407", title: "Chemical Engineering.", credential: { level: 5 } },
+    { code: "1107", title: "Computer Science.", credential: { level: 3 } },
+    { code: "1442", title: "Robotics Engineering duplicate.", credential: { level: 3 } },
+  ]);
+  assert.deepEqual(
+    options.map((row) => ({ id: row.id, name: row.name, category: row.category, source: row.source })),
+    [
+      {
+        id: "tufts-university--cip-1442",
+        name: "Robotics Engineering",
+        category: "Robotics Engineering",
+        source: "scorecard",
+      },
+      {
+        id: "tufts-university--cip-1499",
+        name: "Weird Engineering",
+        category: "Other",
+        source: "scorecard",
+      },
+    ],
+  );
+  assert.equal(options[0]?.sourceUrl, "https://collegescorecard.ed.gov/school/?168148");
 });
