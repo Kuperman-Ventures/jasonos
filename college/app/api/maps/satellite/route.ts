@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isSession, requireCollegeSession } from "@/lib/auth";
+import { recordSourceCall } from "@/lib/data-source-checks";
 import {
   buildSatelliteStaticMapUrl,
   parseCampusMapQuery,
@@ -41,10 +42,16 @@ export async function GET(request: Request) {
     apiKey: key,
   });
 
+  const started = Date.now();
   let upstream: Response;
   try {
     upstream = await fetch(url, { cache: "force-cache" });
-  } catch {
+  } catch (error) {
+    recordSourceCall("google-static-maps", {
+      ok: false,
+      ms: Date.now() - started,
+      error: error instanceof Error ? error.message : "Could not reach Google Maps",
+    });
     return NextResponse.json(
       { error: "upstream", message: "Could not reach Google Maps." },
       { status: 502 },
@@ -56,6 +63,11 @@ export async function GET(request: Request) {
     const body = await upstream.text();
     const denied =
       /not authorized|REQUEST_DENIED|ApiNotActivated|STATIC_MAPS/i.test(body);
+    recordSourceCall("google-static-maps", {
+      ok: false,
+      ms: Date.now() - started,
+      error: `HTTP ${upstream.status}: ${body.slice(0, 200)}`,
+    });
     return NextResponse.json(
       {
         error: denied ? "api_not_enabled" : "upstream",
@@ -67,6 +79,7 @@ export async function GET(request: Request) {
     );
   }
 
+  recordSourceCall("google-static-maps", { ok: true, ms: Date.now() - started });
   const bytes = await upstream.arrayBuffer();
   return new NextResponse(bytes, {
     status: 200,
