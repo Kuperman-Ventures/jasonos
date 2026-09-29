@@ -31,10 +31,11 @@ import { chooseHandoffs, handoffKind, type HandoffMail } from "./parse";
 import { loadBusy } from "./data";
 import { firstEligibleYmd, lastEligibleYmd, proposeSlots } from "./slots";
 import { isAlreadyTracked, FOLLOW_UP_LOOKBACK_DAYS, shouldQueueFollowUp } from "./follow-up";
+import { canEditOfferedTimes } from "./lanes";
 import { meetingBrief } from "./meeting-brief";
 import { matchOfferedSlot, replyWords } from "./chosen-time";
 import { extractDocxText, extractPdfText } from "@/lib/resume-customizer/extract";
-import { HANDOFF_OPENING, TRACY_EMAIL, type HandoffSlot, type ParsedHandoff } from "./types";
+import { HANDOFF_OPENING, TRACY_EMAIL, type HandoffSlot, type HandoffStatus, type ParsedHandoff } from "./types";
 
 type Sb = ReturnType<typeof createServiceRoleClient>;
 
@@ -1021,6 +1022,14 @@ export async function persistDraft(input: {
     .eq("id", input.handoffId)
     .maybeSingle();
   if (error || !data) return { ok: false, error: error?.message || "Handoff not found." };
+  if (
+    !canEditOfferedTimes({
+      status: data.status as HandoffStatus,
+      callStartsAt: (data.call_starts_at as string | null) ?? null,
+    })
+  ) {
+    return { ok: false, error: "This meeting is already set." };
+  }
   if (!input.slots.length) return { ok: false, error: "Add at least one time first." };
 
   const body = schedulingDraft({
