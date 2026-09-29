@@ -216,7 +216,7 @@ export const SOURCE_REGISTRY: DataSourceDef[] = [
     feeds: ["schools"],
     provider: "U.S. Department of Education",
     docsUrl: "https://collegescorecard.ed.gov/data/documentation/",
-    notes: "Without a key the app falls back to DEMO_KEY, which is rate-limited. Treat missing key as failing.",
+    notes: "Without a key the app falls back to DEMO_KEY (rate-limited). An invalid COLLEGE_SCORECARD_API_KEY in Vercel is rejected by api.data.gov — fix or delete it; Test Connection will fall back to DEMO_KEY and warn.",
     env: { keys: ["COLLEGE_SCORECARD_API_KEY", "SCORECARD_API_KEY"], anyOf: true },
     testable: true,
     perSchool: true,

@@ -134,15 +134,54 @@ const TESTS: Record<string, (ctx: SourceTestContext) => Promise<string>> = {
   },
 
   async "college-scorecard"() {
-    const key = env("COLLEGE_SCORECARD_API_KEY", "SCORECARD_API_KEY");
-    if (!key) throw new Error("COLLEGE_SCORECARD_API_KEY is not set (the app falls back to DEMO_KEY)");
-    const url = new URL("https://api.data.gov/ed/collegescorecard/v1/schools.json");
-    url.searchParams.set("api_key", key);
-    url.searchParams.set("school.name", SAMPLE_SCHOOL);
-    url.searchParams.set("fields", "id,school.name");
-    url.searchParams.set("per_page", "1");
-    const body = (await (await fetchOk(url.toString())).json()) as { results?: unknown[] };
-    return `${body.results?.length ?? 0} result for ${SAMPLE_SCHOOL}`;
+    const {
+      resolveScorecardApiKey,
+      isScorecardKeyInvalidError,
+      scorecardKeyInvalidMessage,
+    } = await import("./college-scorecard");
+    const resolved = resolveScorecardApiKey();
+    const attempt = async (key: string) => {
+      const url = new URL("https://api.data.gov/ed/collegescorecard/v1/schools.json");
+      url.searchParams.set("api_key", key);
+      url.searchParams.set("school.name", SAMPLE_SCHOOL);
+      url.searchParams.set("fields", "id,school.name");
+      url.searchParams.set("per_page", "1");
+      const response = await fetch(url.toString(), {
+        headers: { "User-Agent": USER_AGENT },
+        signal: AbortSignal.timeout(SOURCE_TEST_TIMEOUT_MS),
+      });
+      const text = await response.text().catch(() => "");
+      return { response, text };
+    };
+
+    let usedKey = resolved.key;
+    let { response, text } = await attempt(resolved.key);
+    let liveKeyRejected = false;
+    if (!response.ok && resolved.mode === "live" && isScorecardKeyInvalidError(text)) {
+      liveKeyRejected = true;
+      usedKey = "DEMO_KEY";
+      ({ response, text } = await attempt("DEMO_KEY"));
+    }
+    if (!response.ok) {
+      if (liveKeyRejected || isScorecardKeyInvalidError(text)) {
+        throw new Error(scorecardKeyInvalidMessage());
+      }
+      throw new Error(
+        `HTTP ${response.status}${text ? `: ${text.replace(/\s+/g, " ").slice(0, 200)}` : ""}`,
+      );
+    }
+    const body = JSON.parse(text) as { results?: unknown[] };
+    const count = body.results?.length ?? 0;
+    if (liveKeyRejected) {
+      return (
+        `${count} result for ${SAMPLE_SCHOOL} via DEMO_KEY. ` +
+        `COLLEGE_SCORECARD_API_KEY in Vercel is invalid — fix or delete it (api.data.gov signup for a free key).`
+      );
+    }
+    if (usedKey === "DEMO_KEY" || resolved.mode === "demo") {
+      return `${count} result for ${SAMPLE_SCHOOL} (DEMO_KEY — set COLLEGE_SCORECARD_API_KEY in Vercel for production rates)`;
+    }
+    return `${count} result for ${SAMPLE_SCHOOL}`;
   },
 
   async "google-routes"() {

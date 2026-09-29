@@ -4,6 +4,7 @@ import {
   COMMON_APP_GRID_CYCLE_START,
   KYLE_APPLICATION_CYCLE_START,
 } from "@/lib/common-app-grid";
+import { resolveScorecardApiKey, cleanScorecardApiKey } from "@/lib/college-scorecard";
 import { LIST_PHASES, type ListPhaseId } from "@/lib/list-phases";
 import { roleLabel } from "@/lib/permissions";
 import type { School } from "@/lib/types";
@@ -54,8 +55,15 @@ export type AdminHygiene = {
   phaseCounts: AdminPhaseCount[];
 };
 
-export function scorecardKeyMode(apiKey = process.env.COLLEGE_SCORECARD_API_KEY): "live" | "demo" {
-  return apiKey?.trim() ? "live" : "demo";
+export function scorecardKeyMode(
+  envOrKey: NodeJS.ProcessEnv | string | undefined = process.env,
+): "live" | "demo" {
+  // Back-compat: older callers passed the raw COLLEGE_SCORECARD_API_KEY string.
+  if (typeof envOrKey === "string" || envOrKey == null) {
+    const cleaned = cleanScorecardApiKey(envOrKey);
+    return cleaned && cleaned !== "DEMO_KEY" ? "live" : "demo";
+  }
+  return resolveScorecardApiKey(envOrKey).mode;
 }
 
 export function adminSiteUrl(env: NodeJS.ProcessEnv = process.env): string {

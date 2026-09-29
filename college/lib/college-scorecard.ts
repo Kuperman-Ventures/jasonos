@@ -50,8 +50,48 @@ export type ScorecardQueryResult = {
   error?: string;
 };
 
-function scorecardApiKey(): string {
-  return process.env.COLLEGE_SCORECARD_API_KEY?.trim() || "DEMO_KEY";
+export type ScorecardApiKeyMode = "live" | "demo";
+
+/** Clean env values — Vercel UI sometimes stores keys wrapped in quotes. */
+export function cleanScorecardApiKey(raw: string | null | undefined): string {
+  let value = raw?.trim() ?? "";
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    value = value.slice(1, -1).trim();
+  }
+  return value;
+}
+
+/**
+ * Resolve the College Scorecard api_key the same way everywhere.
+ * Prefers COLLEGE_SCORECARD_API_KEY, then SCORECARD_API_KEY, then DEMO_KEY.
+ */
+export function resolveScorecardApiKey(
+  env: NodeJS.ProcessEnv = process.env,
+): { key: string; mode: ScorecardApiKeyMode } {
+  const live =
+    cleanScorecardApiKey(env.COLLEGE_SCORECARD_API_KEY) ||
+    cleanScorecardApiKey(env.SCORECARD_API_KEY);
+  if (live && live !== "DEMO_KEY") return { key: live, mode: "live" };
+  return { key: "DEMO_KEY", mode: "demo" };
+}
+
+export function scorecardApiKey(): string {
+  return resolveScorecardApiKey().key;
+}
+
+export function scorecardKeyInvalidMessage(): string {
+  return (
+    "COLLEGE_SCORECARD_API_KEY in the environment is invalid (api.data.gov rejected it). " +
+    "In Vercel → kyle-college → Settings → Environment Variables, fix or delete that key. " +
+    "Free key: https://api.data.gov/signup/. Until then the app falls back to DEMO_KEY."
+  );
+}
+
+export function isScorecardKeyInvalidError(message: string): boolean {
+  return /API_KEY_INVALID|invalid api_key/i.test(message);
 }
 
 /** Strip nickname parentheses so "MIT (MIT)" / "Georgia Tech (Georgia Tech)" search cleanly. */
@@ -63,19 +103,34 @@ export function scorecardSearchName(name: string): string {
 export async function fetchScorecardRows(name: string): Promise<ScorecardRow[]> {
   const trimmed = scorecardSearchName(name);
   if (!trimmed) return [];
-  const url = new URL(SCORECARD_API_URL);
-  url.searchParams.set("api_key", scorecardApiKey());
-  url.searchParams.set("school.name", trimmed);
-  url.searchParams.set("school.operating", "1");
-  url.searchParams.set("school.main_campus", "1");
-  url.searchParams.set("per_page", "20");
-  url.searchParams.set("fields", SCORECARD_FIELDS);
   return timeSourceCall("college-scorecard", async () => {
-    const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const attempt = async (key: string) => {
+      const url = new URL(SCORECARD_API_URL);
+      url.searchParams.set("api_key", key);
+      url.searchParams.set("school.name", trimmed);
+      url.searchParams.set("school.operating", "1");
+      url.searchParams.set("school.main_campus", "1");
+      url.searchParams.set("per_page", "20");
+      url.searchParams.set("fields", SCORECARD_FIELDS);
+      const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+      const text = await response.text().catch(() => "");
+      return { response, text };
+    };
+
+    const resolved = resolveScorecardApiKey();
+    let { response, text } = await attempt(resolved.key);
+    if (
+      !response.ok &&
+      resolved.mode === "live" &&
+      isScorecardKeyInvalidError(text || String(response.status))
+    ) {
+      ({ response, text } = await attempt("DEMO_KEY"));
+    }
     if (!response.ok) {
+      if (isScorecardKeyInvalidError(text)) throw new Error(scorecardKeyInvalidMessage());
       throw new Error(`College Scorecard returned ${response.status}`);
     }
-    const body = (await response.json()) as { results?: ScorecardRow[] };
+    const body = JSON.parse(text) as { results?: ScorecardRow[] };
     return body.results ?? [];
   });
 }

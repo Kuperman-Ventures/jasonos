@@ -3,7 +3,12 @@
  * Prefer this over lib/college-scorecard.ts for the add-by-id path.
  */
 
-import { SCORECARD_API_URL } from "./college-scorecard";
+import {
+  SCORECARD_API_URL,
+  resolveScorecardApiKey,
+  isScorecardKeyInvalidError,
+  scorecardKeyInvalidMessage,
+} from "./college-scorecard";
 
 export const SCORECARD_BY_ID_FIELDS = [
   "id",
@@ -70,12 +75,24 @@ export class ScorecardUnsupportedError extends Error {
   }
 }
 
-function scorecardApiKey(): string {
-  return (
-    process.env.COLLEGE_SCORECARD_API_KEY?.trim() ||
-    process.env.SCORECARD_API_KEY?.trim() ||
-    "DEMO_KEY"
-  );
+async function fetchScorecardResponse(url: URL): Promise<Response> {
+  const resolved = resolveScorecardApiKey();
+  url.searchParams.set("api_key", resolved.key);
+  let response = await fetch(url, { signal: AbortSignal.timeout(12000) });
+  if (
+    !response.ok &&
+    resolved.mode === "live" &&
+    isScorecardKeyInvalidError(await response.clone().text().catch(() => String(response.status)))
+  ) {
+    url.searchParams.set("api_key", "DEMO_KEY");
+    response = await fetch(url, { signal: AbortSignal.timeout(12000) });
+  }
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    if (isScorecardKeyInvalidError(text)) throw new Error(scorecardKeyInvalidMessage());
+    throw new Error(`College Scorecard returned ${response.status}`);
+  }
+  return response;
 }
 
 function todayIsoDate(now = new Date()): string {
@@ -195,16 +212,12 @@ export async function fetchScorecardByUnitId(unitId: number): Promise<ScorecardS
   }
 
   const url = new URL(SCORECARD_API_URL);
-  url.searchParams.set("api_key", scorecardApiKey());
   url.searchParams.set("id", String(Math.round(unitId)));
   url.searchParams.set("school.operating", "1");
   url.searchParams.set("per_page", "1");
   url.searchParams.set("fields", SCORECARD_BY_ID_FIELDS);
 
-  const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
-  if (!response.ok) {
-    throw new Error(`College Scorecard returned ${response.status}`);
-  }
+  const response = await fetchScorecardResponse(url);
   const body = (await response.json()) as { results?: ScorecardByIdRow[] };
   const row = body.results?.[0];
   if (!row) {
@@ -234,17 +247,13 @@ export async function searchScorecardSchools(
   if (!trimmed) return [];
 
   const url = new URL(SCORECARD_API_URL);
-  url.searchParams.set("api_key", scorecardApiKey());
   url.searchParams.set("school.name", trimmed);
   url.searchParams.set("school.operating", "1");
   url.searchParams.set("school.degrees_awarded.predominant", "3");
   url.searchParams.set("per_page", String(Math.min(Math.max(1, Math.round(limit)), 20)));
   url.searchParams.set("fields", SCORECARD_SEARCH_FIELDS);
 
-  const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
-  if (!response.ok) {
-    throw new Error(`College Scorecard returned ${response.status}`);
-  }
+  const response = await fetchScorecardResponse(url);
   const body = (await response.json()) as {
     results?: Array<{
       id?: number;
