@@ -67,9 +67,6 @@ import type { RequirementProgressMap, RequirementStatus } from "@/lib/requiremen
 import type { TodoEditMap } from "@/lib/project-todos";
 import type { RequirementKey } from "@/lib/school-requirements";
 import { AddSchoolDialog } from "./AddSchoolDialog";
-import { PasteUpdateDialog } from "./PasteUpdateDialog";
-import type { ResearchApplyPatch } from "@/lib/research";
-
 export function CollegesTab({
   schools,
   selectedId,
@@ -84,7 +81,6 @@ export function CollegesTab({
   onNavigateSchool,
   onPatch,
   onAdded,
-  onApplyResearch,
   onDelete,
   onAddStep,
   onPatchStep,
@@ -125,7 +121,6 @@ export function CollegesTab({
   onNavigateSchool: (id: string) => void;
   onPatch: (id: string, patch: Partial<School>) => void;
   onAdded: (school: School) => void;
-  onApplyResearch: (updates: ResearchApplyPatch[]) => Promise<void>;
   onDelete: (id: string) => void;
   onAddStep: (id: string, label: string, owner: Owner) => void;
   onPatchStep: (id: string, stepId: string, patch: { done?: boolean; owner?: Owner; label?: string }) => void;
@@ -171,7 +166,6 @@ export function CollegesTab({
   const [sort, setSort] = useState<SortKey>("list");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
   const [addOpen, setAddOpen] = useState(false);
-  const [pasteOpen, setPasteOpen] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [dashOpen, setDashOpen] = useState(true);
   const columnsRef = useRef<HTMLDivElement | null>(null);
@@ -866,7 +860,7 @@ export function CollegesTab({
         <div className="columns-menu" ref={columnsRef}>
           <button
             type="button"
-            className="btn btn-ghost"
+            className="btn btn-secondary"
             aria-expanded={columnsOpen}
             onClick={() => setColumnsOpen((open) => !open)}
           >
@@ -915,9 +909,6 @@ export function CollegesTab({
           }
         >
           Download spreadsheet
-        </button>
-        <button type="button" className="btn btn-secondary" onClick={() => setPasteOpen(true)}>
-          Paste update
         </button>
         <button type="button" className="btn btn-primary" onClick={() => setAddOpen(true)}>
           Add school
@@ -1141,13 +1132,6 @@ export function CollegesTab({
             onAdded(school);
             setAddOpen(false);
           }}
-        />
-      ) : null}
-      {pasteOpen ? (
-        <PasteUpdateDialog
-          schools={schools}
-          onClose={() => setPasteOpen(false)}
-          onApply={onApplyResearch}
         />
       ) : null}
     </section>

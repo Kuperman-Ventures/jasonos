@@ -1069,19 +1069,6 @@ export function Portal({
     });
   }
 
-  async function applyResearchUpdates(
-    updates: import("@/lib/research").ResearchApplyPatch[],
-  ) {
-    for (const update of updates) {
-      await patchSchool(update.schoolId, update.patch as Partial<School>);
-    }
-    setSaveState(
-      updates.length === 1
-        ? `Updated research for ${updates[0]!.schoolName}.`
-        : `Updated research for ${updates.length} schools.`,
-    );
-  }
-
   async function deleteSchool(id: string) {
     const name = schools.find((school) => school.id === id)?.name ?? id;
     setSchools((current) => current.filter((school) => school.id !== id));
@@ -1384,7 +1371,6 @@ export function Portal({
               void patchSchool(id, patch);
             }}
             onAdded={(school) => void addSchoolFromDialog(school)}
-            onApplyResearch={(updates) => applyResearchUpdates(updates)}
             onDelete={(id) => void deleteSchool(id)}
             onAddStep={(id, label, owner) => void addStep(id, label, owner)}
             onPatchStep={(id, stepId, patch) => void patchStep(id, stepId, patch)}
