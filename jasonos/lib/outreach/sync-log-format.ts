@@ -131,6 +131,19 @@ export function formatSyncSummary(
     return parts.join(" · ");
   }
 
+  if (source === "meeting-followups") {
+    const created = num(payload, "created");
+    const updated = num(payload, "updated");
+    const resolved = num(payload, "resolved");
+    const scanned = num(payload, "scanned");
+    const parts = [`+${created} follow-up${created === 1 ? "" : "s"}`];
+    if (updated) parts.push(`${updated} refreshed`);
+    if (resolved) parts.push(`${resolved} cleared`);
+    if (scanned) parts.push(`${scanned} meetings`);
+    if (issues.length) parts.push(issues.join(" · "));
+    return parts.join(" · ");
+  }
+
   if (source === "suggested") {
     const created = num(payload, "created");
     const updated = num(payload, "updated");

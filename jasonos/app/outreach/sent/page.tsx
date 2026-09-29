@@ -1,21 +1,24 @@
 import { Suspense } from "react";
-import { SentFollowupsClient } from "@/components/jasonos/outreach/sent-followups-client";
+import { MeetingFollowupsClient } from "@/components/jasonos/outreach/meeting-followups-client";
 import { getGoogleConnectionStatus } from "@/lib/integrations/google-tokens";
-import { getSentEmailFollowups } from "@/lib/server-actions/sent-followups";
+import { getOpenMeetingFollowups } from "@/lib/server-actions/meeting-followups";
 
-export const metadata = { title: "Outreach · Sent" };
+export const metadata = { title: "Outreach · Follow Up" };
 export const dynamic = "force-dynamic";
 
-export default async function OutreachSentPage() {
+export default async function OutreachFollowUpPage() {
   const [rows, google] = await Promise.all([
-    getSentEmailFollowups(),
+    getOpenMeetingFollowups(),
     getGoogleConnectionStatus(),
   ]);
+  const calendarConnected =
+    (google.advisorsConnected && !google.advisorsNeedsReconnect) ||
+    (google.gmailConnected && !google.gmailNeedsReconnect);
   return (
     <Suspense>
-      <SentFollowupsClient
+      <MeetingFollowupsClient
         rows={rows}
-        advisorsConnected={google.advisorsConnected && !google.advisorsNeedsReconnect}
+        calendarConnected={calendarConnected}
       />
     </Suspense>
   );
