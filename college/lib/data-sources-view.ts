@@ -104,7 +104,7 @@ export function matchesFilter(source: DataSource, filter: DsFilter): boolean {
 
 export const DIAGRAM_WIDTH = 1320;
 export const DIAGRAM_HEIGHT = 770;
-const CHIP_TOP = 172;
+const CHIP_TOP = 192;
 const CHIP_GAP = 70;
 
 export function chipY(index: number): number {
