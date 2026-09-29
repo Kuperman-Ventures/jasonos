@@ -3,6 +3,7 @@
  */
 
 import metroPopulations from "@/data/metro-populations.json";
+import { timeSourceCall } from "./data-source-checks";
 
 export type MetroLookup = {
   metroArea: string | null;
@@ -63,14 +64,15 @@ export async function lookupMetro(lat: number, lon: number): Promise<MetroLookup
   );
   url.searchParams.set("format", "json");
 
-  const response = await fetch(url.toString(), {
-    signal: AbortSignal.timeout(12000),
+  const body = await timeSourceCall("census-geocoder", async () => {
+    const response = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!response.ok) {
+      throw new Error(`Census geocoder returned ${response.status}`);
+    }
+    return (await response.json()) as CensusGeocoderResponse;
   });
-  if (!response.ok) {
-    throw new Error(`Census geocoder returned ${response.status}`);
-  }
-
-  const body = (await response.json()) as CensusGeocoderResponse;
   const geos = body.result?.geographies ?? {};
   const metro = geos["Metropolitan Statistical Areas"]?.[0];
   if (metro?.GEOID) return fromGeoid(metro.GEOID);

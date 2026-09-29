@@ -244,11 +244,15 @@ async function callModelOnce(
 ): Promise<ExtractionResult> {
   const { generateText } = await import("ai");
   const { resolveCollegeModel } = await import("@/lib/ai-model");
-  const result = await generateText({
-    model: await resolveCollegeModel(modelOverride),
-    system: EXTRACT_TODOS_SYSTEM_PROMPT,
-    prompt: buildUserPrompt(text, context),
-  });
+  const { timeSourceCall } = await import("@/lib/data-source-checks");
+  const model = await resolveCollegeModel(modelOverride);
+  const result = await timeSourceCall("ai-gateway", () =>
+    generateText({
+      model,
+      system: EXTRACT_TODOS_SYSTEM_PROMPT,
+      prompt: buildUserPrompt(text, context),
+    }),
+  );
   const parsed = parseJsonObject(result.text);
   return extractionResultSchema.parse(parsed);
 }

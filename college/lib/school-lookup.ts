@@ -49,6 +49,26 @@ function collectSources(result: {
   return out;
 }
 
+/** Perplexity result for a finished run: null when the model never called the search tool. */
+export function perplexityOutcome(steps: ReadonlyArray<{ content?: ReadonlyArray<unknown> }>): {
+  ok: boolean;
+  error?: string;
+} | null {
+  let called = false;
+  for (const step of steps) {
+    for (const part of step.content ?? []) {
+      const row = part as { type?: string; toolName?: string; error?: unknown };
+      if (row.toolName !== "perplexity_search") continue;
+      if (row.type === "tool-error") {
+        const error = row.error instanceof Error ? row.error.message : String(row.error ?? "Search tool failed");
+        return { ok: false, error };
+      }
+      if (row.type === "tool-result") called = true;
+    }
+  }
+  return called ? { ok: true } : null;
+}
+
 async function searchWeb(
   name: string,
   today: string,
@@ -63,9 +83,13 @@ async function searchWeb(
       resolveCollegeModel,
     } = await import("./ai-model");
 
+    const { recordSourceCall, timeSourceCall } = await import("./data-source-checks");
+
     const runSearch = async (modelOverride?: string | null) => {
-      const result = await generateText({
-        model: await resolveCollegeModel(modelOverride),
+      const model = await resolveCollegeModel(modelOverride);
+      const started = Date.now();
+      const result = await timeSourceCall("ai-gateway", () => generateText({
+        model,
         tools: {
           perplexity_search: gateway.tools.perplexitySearch({
             maxResults: 6,
@@ -85,7 +109,11 @@ campusSetting is one of Urban, Suburban, Small city, College town, Small town, o
 dueDate is YYYY-MM-DD only when the result states that exact date, including the year. If the year is missing, put the month and day in the title and leave dueDate empty.
 Do not include SAT scores, admit rates, or prices. Do not choose a plan for the family.`,
         prompt: `Look up undergraduate admissions facts for ${name}. Kyle is a junior at Columbia High School in Maplewood, NJ, interested in mechanical engineering and materials, enrolling in fall 2028. Find the application platform, required essays, teacher recommendation count, whether mechanical engineering and materials are offered, merit scholarships that are publicly described, and application deadline dates.`,
-      });
+      }));
+      const searchOutcome = perplexityOutcome(result.steps ?? []);
+      if (searchOutcome) {
+        recordSourceCall("perplexity", { ...searchOutcome, ms: Date.now() - started });
+      }
       const sources = collectSources(result);
       const facts = parseSearchJson(result.text ?? "", today);
       if (!facts || sources.length === 0) return { facts: null, sources, status: "empty" as const };

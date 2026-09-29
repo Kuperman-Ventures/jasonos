@@ -1,5 +1,7 @@
 /** Open Graph / meta link previews for URL ingest and Notes. */
 
+import { recordSourceCall } from "./data-source-checks";
+
 export type LinkPreview = {
   title: string | null;
   description: string | null;
@@ -108,14 +110,27 @@ export async function fetchLinkPreview(url: string): Promise<LinkPreview> {
     throw new Error("URL must start with http:// or https://");
   }
 
-  const response = await fetch(trimmed, {
-    signal: AbortSignal.timeout(12000),
-    headers: {
-      "User-Agent": "KyleCollegePortal/0.1 (+link-preview)",
-      Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
-    },
-    redirect: "follow",
-  });
+  // An HTTP error from the target site is not a fetcher failure; only network errors count.
+  const started = Date.now();
+  let response: Response;
+  try {
+    response = await fetch(trimmed, {
+      signal: AbortSignal.timeout(12000),
+      headers: {
+        "User-Agent": "KyleCollegePortal/0.1 (+link-preview)",
+        Accept: "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
+      },
+      redirect: "follow",
+    });
+  } catch (error) {
+    recordSourceCall("link-preview", {
+      ok: false,
+      ms: Date.now() - started,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+  recordSourceCall("link-preview", { ok: true, ms: Date.now() - started });
   if (!response.ok) throw new Error(`Could not fetch URL (${response.status})`);
 
   const finalUrl = response.url || trimmed;

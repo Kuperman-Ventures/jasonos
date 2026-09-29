@@ -21,6 +21,7 @@ export type TabId =
   | "notes"
   | "testing"
   | "log"
+  | "sources"
   | "admin";
 
 export type SelectivityTier = "" | "extremely_selective" | "very_selective" | "competitive" | "less_competitive";
@@ -344,6 +345,7 @@ export const TABS: { id: TabId; label: string }[] = [
   { id: "consultants", label: "Consultants" },
   { id: "faq", label: "FAQ" },
   { id: "testing", label: "Testing" },
+  { id: "sources", label: "Data Sources" },
 ];
 
 /** Normalize legacy tab ids (e.g. timeline → projects, questions → apps). */

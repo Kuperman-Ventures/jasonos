@@ -4,6 +4,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { timeSourceCall } from "./data-source-checks";
 import {
   drivePairKey,
   getTravelPoints,
@@ -90,7 +91,15 @@ function elementFailureReason(el: MatrixElement): string {
   return "";
 }
 
-async function fetchMatrix(
+function fetchMatrix(
+  apiKey: string,
+  origins: TravelPoint[],
+  destinations: TravelPoint[],
+): Promise<MatrixElement[]> {
+  return timeSourceCall("google-routes", () => fetchMatrixWithRetries(apiKey, origins, destinations));
+}
+
+async function fetchMatrixWithRetries(
   apiKey: string,
   origins: TravelPoint[],
   destinations: TravelPoint[],

@@ -3,6 +3,7 @@
  * Docs: https://collegescorecard.ed.gov/data/api/
  */
 
+import { timeSourceCall } from "./data-source-checks";
 import {
   mapScorecard,
   pickScorecardMatch,
@@ -69,12 +70,14 @@ export async function fetchScorecardRows(name: string): Promise<ScorecardRow[]> 
   url.searchParams.set("school.main_campus", "1");
   url.searchParams.set("per_page", "20");
   url.searchParams.set("fields", SCORECARD_FIELDS);
-  const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
-  if (!response.ok) {
-    throw new Error(`College Scorecard returned ${response.status}`);
-  }
-  const body = (await response.json()) as { results?: ScorecardRow[] };
-  return body.results ?? [];
+  return timeSourceCall("college-scorecard", async () => {
+    const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!response.ok) {
+      throw new Error(`College Scorecard returned ${response.status}`);
+    }
+    const body = (await response.json()) as { results?: ScorecardRow[] };
+    return body.results ?? [];
+  });
 }
 
 /**

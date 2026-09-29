@@ -12,6 +12,7 @@ import {
   GraduationCap,
   Kanban,
   NotePencil,
+  PlugsConnected,
   Question,
   SidebarSimple,
   SignOut,
@@ -88,6 +89,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: "consultants", label: "Consultants", Icon: UsersThree },
       { id: "faq", label: "FAQ", Icon: Question },
       { id: "testing", label: "Testing", Icon: Exam },
+      { id: "sources", label: "Data Sources", Icon: PlugsConnected },
     ],
   },
 ];
