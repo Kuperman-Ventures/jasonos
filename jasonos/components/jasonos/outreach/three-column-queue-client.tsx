@@ -111,8 +111,8 @@ const BANDS: BandDef[] = [
     label: "Engaged Today",
     helper: "Outbound touches recorded today",
     icon: Mail,
-    textColor: "text-[var(--jos-ink)]",
-    headerBg: "bg-rung-idle",
+    textColor: "text-inherit",
+    headerBg: "bg-rung-ok",
     defaultCollapsed: false,
   },
   {

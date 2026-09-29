@@ -81,8 +81,8 @@ const URGENCY_CONFIG: Record<
     label: "Sent Today",
     helper: "Outbound touches recorded today from your accounts",
     icon: <Mail className="h-4 w-4" />,
-    textColor: "text-rung-ink",
-    headerBg: "bg-rung-4",
+    textColor: "text-inherit",
+    headerBg: "bg-rung-ok",
   },
   due_today: {
     label: "Due Now",
