@@ -7,11 +7,11 @@ type LogoProps = {
   priority?: boolean;
 };
 
-/** JasonOS brand mark — geometric play/D on dark squircle. */
+/** JasonOS play mark: cyan and ink on paper. */
 export function Logo({ className, size = 24, priority = false }: LogoProps) {
   return (
     <Image
-      src="/logo.png"
+      src="/logo.svg"
       alt="JasonOS"
       width={size}
       height={size}

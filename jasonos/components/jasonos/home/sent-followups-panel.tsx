@@ -47,11 +47,11 @@ export function SentFollowupsPanel({ rows }: { rows: SentEmailFollowup[] }) {
   };
 
   return (
-    <section className="overflow-hidden rounded-xl border bg-card">
-      <div className="flex items-center gap-2 bg-sky-700/80 px-4 py-2.5 text-white">
-        <Mail className="h-4 w-4" />
-        <h2 className="text-sm font-semibold tracking-tight">Email follow-ups</h2>
-        <span className="ml-auto rounded-full bg-black/20 px-2 py-0.5 text-[11px] font-medium tabular-nums">
+    <section className="overflow-hidden">
+      <div className="flex items-center gap-2 bg-[var(--jos-info-tint)] px-4 py-3 text-[var(--color-accent-900)]">
+        <Mail className="h-5 w-5" />
+        <h2 className="text-[17px] font-semibold tracking-tight">Email follow-ups</h2>
+        <span className="ml-auto rounded-full bg-[var(--jos-ink)] px-2 py-0.5 text-[12px] font-semibold tabular-nums text-[var(--jos-bg)]">
           {visible.length}
         </span>
       </div>
@@ -70,7 +70,7 @@ export function SentFollowupsPanel({ rows }: { rows: SentEmailFollowup[] }) {
               <p className="truncate text-sm font-medium">{row.subject}</p>
               <p className="truncate text-[11px] text-muted-foreground">
                 To {row.toLine}
-                <span className={row.daysOverdue > 0 ? "ml-1.5 text-red-300" : "ml-1.5 text-amber-300"}>
+                <span className={row.daysOverdue > 0 ? "ml-1.5 text-[var(--color-accent-2-700)]" : "ml-1.5 text-[var(--jos-ink)]"}>
                   {dueText(row)}
                 </span>
               </p>

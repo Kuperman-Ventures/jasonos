@@ -207,8 +207,8 @@ export function HomeClient({
             <span
               className={
                 timing.kind === "overdue"
-                  ? "ml-1.5 text-red-300"
-                  : "ml-1.5 text-amber-300"
+                  ? "ml-1.5 text-[var(--color-accent-2-700)]"
+                  : "ml-1.5 text-[var(--jos-ink)]"
               }
             >
               {timing.kind === "overdue"
@@ -254,10 +254,10 @@ export function HomeClient({
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-6">
       <header className="flex items-center gap-3">
-        <Logo size={36} />
+        <Logo size={40} />
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">Home</h1>
-          <p className="text-xs text-muted-foreground">
+          <h1 className="text-[36px] font-bold leading-none tracking-[-0.02em]">Home</h1>
+          <p className="mt-2 text-[17px] text-[var(--jos-muted)]">
             Due this week, overdue outreach, sent-mail follow-ups, and site traffic.
           </p>
         </div>
@@ -265,11 +265,11 @@ export function HomeClient({
 
       {children}
 
-      <section className="overflow-hidden rounded-xl border bg-card">
-        <div className="flex items-center gap-2 bg-amber-600/70 px-4 py-2.5 text-white">
-          <Clock className="h-4 w-4" />
-          <h2 className="text-sm font-semibold tracking-tight">Due This Week</h2>
-          <span className="ml-auto rounded-full bg-black/20 px-2 py-0.5 text-[11px] font-medium tabular-nums">
+      <section className="overflow-hidden">
+        <div className="flex items-center gap-2 bg-[var(--jos-warn-tint)] px-4 py-3 text-[var(--jos-ink)]">
+          <Clock className="h-5 w-5" />
+          <h2 className="text-[17px] font-semibold tracking-tight">Due This Week</h2>
+          <span className="ml-auto rounded-full bg-[var(--jos-ink)] px-2 py-0.5 text-[12px] font-semibold tabular-nums text-[var(--jos-bg)]">
             {data.dueThisWeek.length}
           </span>
         </div>
@@ -292,11 +292,11 @@ export function HomeClient({
         )}
       </section>
 
-      <section className="overflow-hidden rounded-xl border bg-card">
-        <div className="flex items-center gap-2 bg-red-700/70 px-4 py-2.5 text-white">
-          <AlertCircle className="h-4 w-4" />
-          <h2 className="text-sm font-semibold tracking-tight">Overdue</h2>
-          <span className="ml-auto rounded-full bg-black/20 px-2 py-0.5 text-[11px] font-medium tabular-nums">
+      <section className="overflow-hidden">
+        <div className="flex items-center gap-2 bg-[var(--jos-danger-tint)] px-4 py-3 text-[var(--color-accent-2-900)]">
+          <AlertCircle className="h-5 w-5" />
+          <h2 className="text-[17px] font-semibold tracking-tight">Overdue</h2>
+          <span className="ml-auto rounded-full bg-[var(--jos-ink)] px-2 py-0.5 text-[12px] font-semibold tabular-nums text-[var(--jos-bg)]">
             {data.overdue.length}
           </span>
         </div>
