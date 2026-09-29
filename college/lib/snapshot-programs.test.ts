@@ -1,41 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  defaultTrackedPrograms,
-  normalizeTrackedPrograms,
   programOfferStatus,
   programOfferedFromRecord,
   programsOfferedHeadline,
 } from "./types";
 
-test("defaultTrackedPrograms prefers filled offered fields", () => {
-  assert.deepEqual(defaultTrackedPrograms("Yes", ""), ["Mechanical engineering"]);
-  assert.deepEqual(defaultTrackedPrograms("", "No"), ["Material sciences"]);
-  assert.deepEqual(defaultTrackedPrograms("Yes", "Yes", "Partial"), [
-    "Mechanical engineering",
-    "Material sciences",
-    "Aerospace engineering",
-  ]);
-  assert.deepEqual(defaultTrackedPrograms("", ""), [
-    "Mechanical engineering",
-    "Material sciences",
-    "Aerospace engineering",
-  ]);
-});
-
-test("normalizeTrackedPrograms keeps known labels only", () => {
-  assert.deepEqual(normalizeTrackedPrograms(["Material sciences", "Bogus"], "Yes", "Yes"), [
-    "Material sciences",
-  ]);
-  assert.deepEqual(normalizeTrackedPrograms([], "Yes", "", "Yes"), [
-    "Mechanical engineering",
-    "Aerospace engineering",
-  ]);
-  assert.deepEqual(
-    normalizeTrackedPrograms(["Aerospace engineering"], "Yes", "Yes", "Yes"),
-    ["Aerospace engineering"],
-  );
-});
+const CORE = [
+  "Mechanical engineering",
+  "Material sciences",
+  "Aerospace engineering",
+] as const;
 
 test("programsOfferedHeadline matches snapshot copy", () => {
   assert.equal(programsOfferedHeadline([], {}), "None tracked");
@@ -62,15 +37,31 @@ test("programsOfferedHeadline matches snapshot copy", () => {
     "Partial",
   );
   assert.equal(
-    programsOfferedHeadline(
-      ["Mechanical engineering", "Aerospace engineering", "Material sciences"],
-      {
-        "Mechanical engineering": "yes",
-        "Aerospace engineering": "yes",
-        "Material sciences": "yes",
-      },
-    ),
+    programsOfferedHeadline([...CORE], {
+      "Mechanical engineering": "yes",
+      "Aerospace engineering": "yes",
+      "Material sciences": "yes",
+    }),
     "All 3 offered",
+  );
+});
+
+test("programsOfferedHeadline counts blank statuses as not checked", () => {
+  assert.equal(
+    programsOfferedHeadline([...CORE], {
+      "Mechanical engineering": "yes",
+      "Material sciences": "yes",
+      "Aerospace engineering": null,
+    }),
+    "2 of 3 offered, 1 not checked",
+  );
+  assert.equal(
+    programsOfferedHeadline([...CORE], {
+      "Mechanical engineering": null,
+      "Material sciences": null,
+      "Aerospace engineering": null,
+    }),
+    "0 of 3 offered, 3 not checked",
   );
 });
 

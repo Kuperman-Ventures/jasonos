@@ -35,8 +35,8 @@ import {
   isPlan,
   isSelectivityTier,
   isVisitStatus,
-  normalizeTrackedPrograms,
 } from "./types";
+import { normalizeAdditionalPrograms } from "./additional-programs";
 import { normalizeSchoolProjectNotes } from "./school-project-notes";
 import schoolsFile from "@/content/schools.json";
 import { driveFieldsForSchool } from "./drive-matrix";
@@ -99,7 +99,7 @@ type SchoolRow = {
   test_policy_change?: string | null;
   test_policy_source_url?: string | null;
   test_policy_checked_date?: string | null;
-  tracked_programs?: unknown;
+  additional_programs?: unknown;
   middle_50: string;
   application_platform: string;
   required_essays: string;
@@ -287,12 +287,7 @@ export function mapSchool(row: SchoolRow): School {
     testPolicyChange: row.test_policy_change ?? null,
     testPolicySourceUrl: row.test_policy_source_url ?? "",
     testPolicyCheckedDate: row.test_policy_checked_date ?? "",
-    trackedPrograms: normalizeTrackedPrograms(
-      row.tracked_programs,
-      row.mechanical_engineering ?? "",
-      row.materials ?? "",
-      row.aerospace_engineering ?? "",
-    ),
+    additionalPrograms: normalizeAdditionalPrograms(row.additional_programs),
     middle50: row.middle_50 ?? "",
     applicationPlatform: row.application_platform ?? "",
     requiredEssays: row.required_essays ?? "",
@@ -319,7 +314,7 @@ export function mapSchool(row: SchoolRow): School {
 }
 
 const SCHOOL_COLUMNS =
-  "id, name, unit_id, location, campus_setting, metro_area, metro_population, undergrad_enrollment, control, residency_data_status, kyle_residency, in_state_admit_rate, out_of_state_admit_rate, overall_admit_rate, rate_that_applies_to_kyle, admit_data_year, enrolled_out_of_state_pct, out_of_state_definition, out_of_state_policy, engineering_residency_note, residency_source_url, residency_notes, mechanical_engineering, materials, materials_offering, materials_program, materials_source_url, aerospace_engineering, aerospace_program, aerospace_notes, aerospace_source_url, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, visit_status, deadline, deadline_label, selectivity_tier, interest_level, application_status, admission_track, test_policy, family_test_policy, test_policy_fall2028_status, test_policy_term, test_policy_detail, test_policy_change, test_policy_source_url, test_policy_checked_date, tracked_programs, middle_50, application_platform, required_essays, teacher_recs, cost_of_attendance, net_price_estimate, merit_aid_notes, research_sources, website, scorecard_fetched_date, drive_address, research_completed, list_phase, phases_participated, archived, archived_at, project_notes, school_steps(id, label, owner, done, sort_order), deadlines(id, title, due_date, completed, sort_order), contacts(id, name, role, email, phone)";
+  "id, name, unit_id, location, campus_setting, metro_area, metro_population, undergrad_enrollment, control, residency_data_status, kyle_residency, in_state_admit_rate, out_of_state_admit_rate, overall_admit_rate, rate_that_applies_to_kyle, admit_data_year, enrolled_out_of_state_pct, out_of_state_definition, out_of_state_policy, engineering_residency_note, residency_source_url, residency_notes, mechanical_engineering, materials, materials_offering, materials_program, materials_source_url, aerospace_engineering, aerospace_program, aerospace_notes, aerospace_source_url, admissions_context, sat_context, selectivity, notes, list_order, choice, plan, visited, visit_date, visit_notes, visit_status, deadline, deadline_label, selectivity_tier, interest_level, application_status, admission_track, test_policy, family_test_policy, test_policy_fall2028_status, test_policy_term, test_policy_detail, test_policy_change, test_policy_source_url, test_policy_checked_date, additional_programs, middle_50, application_platform, required_essays, teacher_recs, cost_of_attendance, net_price_estimate, merit_aid_notes, research_sources, website, scorecard_fetched_date, drive_address, research_completed, list_phase, phases_participated, archived, archived_at, project_notes, school_steps(id, label, owner, done, sort_order), deadlines(id, title, due_date, completed, sort_order), contacts(id, name, role, email, phone)";
 
 export async function listSchools(): Promise<School[]> {
   if (!supabaseConfigured()) return seedSchools();
@@ -532,8 +527,8 @@ export function schoolPatchToRow(patch: Record<string, unknown>): Record<string,
   patchNullableNumber(row, patch, "enrolledOutOfStatePct", "enrolled_out_of_state_pct", {
     min: 0,
   });
-  if (Array.isArray(patch.trackedPrograms)) {
-    row.tracked_programs = patch.trackedPrograms.filter((value): value is string => typeof value === "string");
+  if (Array.isArray(patch.additionalPrograms)) {
+    row.additional_programs = normalizeAdditionalPrograms(patch.additionalPrograms);
   }
   if (Array.isArray(patch.researchCompleted)) {
     row.research_completed = patch.researchCompleted.filter(

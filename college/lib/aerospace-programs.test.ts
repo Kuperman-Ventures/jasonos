@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { fromSeed, type SchoolSeed } from "./types";
+import type { SchoolSeed } from "./types";
 
 const schoolsFile = JSON.parse(
   readFileSync(new URL("../content/schools.json", import.meta.url), "utf8"),
@@ -32,12 +32,4 @@ test("aerospace catalog import matches summary counts", () => {
   }
   assert.deepEqual(aero, { Yes: 30, Partial: 9, No: 4 });
   assert.deepEqual(materials, { Yes: 40, Partial: 3, No: 0 });
-});
-
-test("seeded schools track aerospace by default when filled", () => {
-  const mit = schoolsFile.schools.find((school) => school.id === "mit");
-  assert.ok(mit);
-  const school = fromSeed(mit);
-  assert.ok(school.trackedPrograms.includes("Aerospace engineering"));
-  assert.equal(school.aerospaceEngineering, "Yes");
 });

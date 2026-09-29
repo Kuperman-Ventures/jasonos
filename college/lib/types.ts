@@ -1,8 +1,10 @@
 import { knownWebsite } from "./school-websites";
+import type { AdditionalProgram } from "./additional-programs";
 import type { SchoolProjectNote } from "./school-project-notes";
 import { driveFieldsForSchool } from "./drive-matrix";
 import { visitAddressForSchool } from "./school-photos";
 
+export type { AdditionalProgram } from "./additional-programs";
 export type { SchoolProjectNote } from "./school-project-notes";
 
 export type Choice = "top" | "middle" | "low" | "backup" | "unsure";
@@ -145,8 +147,8 @@ export type School = {
   testPolicySourceUrl: string;
   /** YYYY-MM-DD when the policy was last checked. */
   testPolicyCheckedDate: string;
-  /** Program labels the family is tracking on the snapshot. */
-  trackedPrograms: string[];
+  /** Extra engineering programs beyond the three core snapshot programs. */
+  additionalPrograms: AdditionalProgram[];
   middle50: string;
   applicationPlatform: string;
   requiredEssays: string;
@@ -612,7 +614,7 @@ export function fromSeed(seed: SchoolSeed): School {
     testPolicyChange: null,
     testPolicySourceUrl: "",
     testPolicyCheckedDate: "",
-    trackedPrograms: defaultTrackedPrograms(mechanicalEngineering, materials, aerospaceEngineering),
+    additionalPrograms: [],
     middle50: "",
     applicationPlatform: "",
     requiredEssays: "",
@@ -636,33 +638,6 @@ export function fromSeed(seed: SchoolSeed): School {
   };
 }
 
-/** Default tracked list: programs that already have an offered answer, else all known programs. */
-export function defaultTrackedPrograms(
-  mechanical: string,
-  materials: string,
-  aerospace = "",
-): string[] {
-  const tracked: string[] = [];
-  if (mechanical.trim()) tracked.push("Mechanical engineering");
-  if (materials.trim()) tracked.push("Material sciences");
-  if (aerospace.trim()) tracked.push("Aerospace engineering");
-  return tracked.length ? tracked : SNAPSHOT_PROGRAMS.map((row) => row.label);
-}
-
-export function normalizeTrackedPrograms(
-  raw: unknown,
-  mechanical: string,
-  materials: string,
-  aerospace = "",
-): string[] {
-  if (Array.isArray(raw)) {
-    const labels = new Set(SNAPSHOT_PROGRAMS.map((row) => row.label));
-    const out = raw.filter((value): value is string => typeof value === "string" && labels.has(value));
-    if (out.length) return out;
-  }
-  return defaultTrackedPrograms(mechanical, materials, aerospace);
-}
-
 export function programsOfferedHeadline(
   tracked: string[],
   offered: Record<string, ProgramOfferStatus | boolean | null>,
@@ -678,16 +653,20 @@ export function programsOfferedHeadline(
   });
   const yes = statuses.filter((status) => status === "yes").length;
   const partial = statuses.filter((status) => status === "partial").length;
+  const unchecked = statuses.filter((status) => status == null).length;
+  let base: string;
   if (yes === total) {
-    if (total === 1) return "Offered";
-    if (total === 2) return "Both offered";
-    return `All ${total} offered`;
+    if (total === 1) base = "Offered";
+    else if (total === 2) base = "Both offered";
+    else base = `All ${total} offered`;
+  } else if (yes + partial === total && partial > 0) {
+    if (yes === 0) base = total === 1 ? "Partial" : "Partial only";
+    else base = `${yes} offered, ${partial} partial`;
+  } else {
+    base = `${yes} of ${total} offered`;
   }
-  if (yes + partial === total && partial > 0) {
-    if (yes === 0) return total === 1 ? "Partial" : "Partial only";
-    return `${yes} offered, ${partial} partial`;
-  }
-  return `${yes} of ${total} offered`;
+  if (unchecked > 0) return `${base}, ${unchecked} not checked`;
+  return base;
 }
 
 export function programOfferStatus(value: string): ProgramOfferStatus {

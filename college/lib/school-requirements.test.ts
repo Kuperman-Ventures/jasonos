@@ -66,7 +66,7 @@ function baseSchool(overrides: Partial<School> = {}): School {
     testPolicyChange: null,
     testPolicySourceUrl: "",
     testPolicyCheckedDate: "",
-    trackedPrograms: [],
+    additionalPrograms: [],
     middle50: "SAT reading 680-750, math 690-790",
     applicationPlatform: "Common App",
     requiredEssays: "Common App personal essay required",

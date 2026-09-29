@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useState } from "react";
 import {
   type AdmissionTrack,
   type ApplicationStatus,
@@ -53,7 +54,7 @@ type SnapshotPatch = Partial<
     | "admissionTrack"
     | "testPolicy"
     | "familyTestPolicy"
-    | "trackedPrograms"
+    | "additionalPrograms"
   >
 >;
 
@@ -202,6 +203,11 @@ export function SchoolSnapshotSummary({
   onPatch: (patch: SnapshotPatch) => void;
   onChangeDeadlineDate: (iso: string) => void;
 }) {
+  const [addingProgram, setAddingProgram] = useState(false);
+  const [programName, setProgramName] = useState("");
+  const [programUrl, setProgramUrl] = useState("");
+  const [programError, setProgramError] = useState("");
+
   const tierName = tierLabel(school.selectivityTier);
   const tierHead = tierName || "Tier not set";
   const tierColor = `var(${tierHeadlineVar(school.selectivityTier)})`;
@@ -238,12 +244,37 @@ export function SchoolSnapshotSummary({
   for (const program of SNAPSHOT_PROGRAMS) {
     offeredMap[program.label] = programOfferStatus(school[program.offeredField]);
   }
-  const tracked = school.trackedPrograms.filter((label) =>
-    SNAPSHOT_PROGRAMS.some((row) => row.label === label),
-  );
-  const addable = SNAPSHOT_PROGRAMS.map((row) => row.label).filter(
-    (label) => !tracked.includes(label),
-  );
+  const coreLabels = SNAPSHOT_PROGRAMS.map((row) => row.label);
+  const additionalPrograms = school.additionalPrograms;
+
+  function closeAddProgram() {
+    setAddingProgram(false);
+    setProgramName("");
+    setProgramUrl("");
+    setProgramError("");
+  }
+
+  function saveAdditionalProgram() {
+    const name = programName.trim();
+    const sourceUrl = programUrl.trim();
+    if (!name) return;
+    const lowered = name.toLowerCase();
+    if (coreLabels.some((label) => label.toLowerCase() === lowered)) {
+      setProgramError("That’s one of the three core programs already listed.");
+      return;
+    }
+    if (additionalPrograms.some((row) => row.name.toLowerCase() === lowered)) {
+      setProgramError("That program is already on this school.");
+      return;
+    }
+    onPatch({
+      additionalPrograms: [
+        ...additionalPrograms,
+        { id: crypto.randomUUID(), name, sourceUrl },
+      ],
+    });
+    closeAddProgram();
+  }
 
   const missingBits: string[] = [];
   if (!school.middle50.trim()) missingBits.push("Middle 50%");
@@ -429,45 +460,140 @@ export function SchoolSnapshotSummary({
           <span className="area-label" id="snap-prog-h">
             Programs
           </span>
-          <span className="area-head">{programsOfferedHeadline(tracked, offeredMap)}</span>
+          <span className="area-head">{programsOfferedHeadline(coreLabels, offeredMap)}</span>
           <dl className="facts">
-            {tracked.map((label) => {
+            {SNAPSHOT_PROGRAMS.map((program) => {
+              const label = program.label;
               const status = offeredMap[label];
-              const offered = status === "yes";
-              const partial = status === "partial";
               const programMeta =
                 label === "Aerospace engineering"
                   ? school.aerospaceProgram.trim() || school.aerospaceNotes.trim()
                   : label === "Material sciences"
                     ? school.materialsProgram.trim() || school.materialsOffering.trim()
                     : "";
+              const offerClass =
+                status === "yes"
+                  ? "offer"
+                  : status === "partial"
+                    ? "offer partial"
+                    : status === "no"
+                      ? "offer no"
+                      : "offer unknown";
+              const offerLabel =
+                status === "yes"
+                  ? "Offered"
+                  : status === "partial"
+                    ? "Partial"
+                    : status === "no"
+                      ? "Not offered"
+                      : "Not checked";
+              const offerIcon =
+                status === "yes" ? "✓" : status === "partial" ? "·" : status === "no" ? "–" : null;
               return (
                 <div className="fact" key={label}>
                   <dt>{label}</dt>
                   <dd>
                     <div className="offer-stack">
-                      <span className={`offer${offered ? "" : partial ? " partial" : " no"}`}>
-                        <i aria-hidden="true">{offered ? "✓" : partial ? "·" : "–"}</i>
-                        {offered ? "Offered" : partial ? "Partial" : "Not offered"}
+                      <span className={offerClass}>
+                        {offerIcon ? <i aria-hidden="true">{offerIcon}</i> : null}
+                        {offerLabel}
                       </span>
                       {programMeta ? <span className="offer-meta">{programMeta}</span> : null}
                     </div>
-                    <button
-                      type="button"
-                      className="remove"
-                      aria-label={`Stop tracking ${label}`}
-                      onClick={() =>
-                        onPatch({
-                          trackedPrograms: tracked.filter((item) => item !== label),
-                        })
-                      }
-                    >
-                      ×
-                    </button>
                   </dd>
                 </div>
               );
             })}
+            <div className="fact">
+              <dt>Additional engineering programs</dt>
+              <dd>
+                <div className="add-program-list">
+                  {additionalPrograms.length === 0 ? (
+                    <span className="offer-meta">None added</span>
+                  ) : (
+                    additionalPrograms.map((row) => (
+                      <div className="add-program-row" key={row.id}>
+                        {row.sourceUrl ? (
+                          <a href={row.sourceUrl} target="_blank" rel="noreferrer">
+                            {row.name}
+                          </a>
+                        ) : (
+                          <span>{row.name}</span>
+                        )}
+                        <button
+                          type="button"
+                          className="remove"
+                          aria-label={`Remove ${row.name}`}
+                          onClick={() =>
+                            onPatch({
+                              additionalPrograms: additionalPrograms.filter(
+                                (item) => item.id !== row.id,
+                              ),
+                            })
+                          }
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))
+                  )}
+                  {addingProgram ? (
+                    <div className="add-program-form">
+                      <label>
+                        Program name
+                        <input
+                          value={programName}
+                          placeholder="e.g. Robotics Engineering (BS)"
+                          onChange={(event) => {
+                            setProgramName(event.target.value);
+                            setProgramError("");
+                          }}
+                        />
+                      </label>
+                      <label>
+                        Source link
+                        <input
+                          value={programUrl}
+                          placeholder="https://"
+                          onChange={(event) => setProgramUrl(event.target.value)}
+                        />
+                      </label>
+                      {programError ? (
+                        <p className="add-program-error" role="alert">
+                          {programError}
+                        </p>
+                      ) : null}
+                      <div className="add-program-actions">
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          onClick={saveAdditionalProgram}
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          onClick={closeAddProgram}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="add">
+                      <button
+                        type="button"
+                        className="add-program-btn"
+                        onClick={() => setAddingProgram(true)}
+                      >
+                        ＋ Add program
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </dd>
+            </div>
             <PlainFact
               label="Degree shape"
               value={school.materialsOffering.trim() || "Not set"}
@@ -477,26 +603,6 @@ export function SchoolSnapshotSummary({
                 label="Engineering share of bachelor's degrees"
                 value={engineeringShare}
               />
-            ) : null}
-            {addable.length ? (
-              <div className="add">
-                <select
-                  aria-label="Track another program"
-                  value=""
-                  onChange={(event) => {
-                    const next = event.target.value;
-                    if (!next) return;
-                    onPatch({ trackedPrograms: [...tracked, next] });
-                  }}
-                >
-                  <option value="">＋ Track another program</option>
-                  {addable.map((label) => (
-                    <option key={label} value={label}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
             ) : null}
           </dl>
         </section>
