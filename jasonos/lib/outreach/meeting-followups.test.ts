@@ -4,7 +4,9 @@ import {
   attendeeLine,
   isMeetingFollowupDue,
   isMeetingPastForFollowup,
+  isUnacceptableFollowupBody,
   latestSentByEmail,
+  looksLikeGranolaNoteFragment,
   meetingEndIso,
   meetingFollowupDraft,
   meetingHasKnownContact,
@@ -209,7 +211,7 @@ describe("meetingHasKnownContact", () => {
 });
 
 describe("helpers", () => {
-  it("formats attendee lines and drafts from Granola facts", () => {
+  it("formats attendee lines and keeps the local draft free of note paste", () => {
     assert.equal(
       attendeeLine([
         { name: "Ada", email: "a@x.com" },
@@ -219,14 +221,32 @@ describe("helpers", () => {
       ]),
       "Ada, b@x.com, C +1"
     );
+    const note =
+      "Shawn to reciprocate with relevant introductions (Shawn) Committed to looking through his network for people useful to Jason.";
     const draft = meetingFollowupDraft({
-      name: "Ada Lovelace",
+      name: "Shawn Example",
       title: "Catch up",
-      summary: "Ada offered two introductions in retail media. She asked for a short note next week.",
+      summary: note,
     });
     assert.match(draft.subject, /Catch up/);
-    assert.match(draft.body, /^Ada,/);
-    assert.match(draft.body, /retail media/);
+    assert.match(draft.body, /^Shawn,/);
+    assert.equal(draft.body.includes(note), false);
+    assert.equal(draft.body.includes("(Shawn)"), false);
+    assert.equal(looksLikeGranolaNoteFragment(note), true);
+    assert.equal(
+      isUnacceptableFollowupBody(
+        `Hi,\n\nThanks again for the conversation. ${note}\n\nJason`,
+        note
+      ),
+      true
+    );
+    assert.equal(
+      isUnacceptableFollowupBody(
+        `Shawn,\n\nThanks for the conversation. Good to hear you'll look through your network for useful intros. I'll do the same on my side.\n\nJason`,
+        note
+      ),
+      false
+    );
     assert.equal(snoozeUntilYmd("2026-09-22", 3), "2026-09-25");
     assert.equal(isMeetingFollowupDue("open", null, "2026-09-22"), true);
     assert.equal(isMeetingFollowupDue("snoozed", "2026-09-25", "2026-09-22"), false);

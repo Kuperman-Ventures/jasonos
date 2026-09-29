@@ -84,8 +84,8 @@ export function MeetingFollowupsPanel({ rows }: { rows: MeetingFollowup[] }) {
     window.location.href = result.mailtoUrl;
     toast.success(
       result.granola
-        ? "Draft ready from Granola — review in Apple Mail"
-        : "Draft ready — add notes from the call, then send from Apple Mail"
+        ? "Draft ready from the Granola note — review in Apple Mail"
+        : "Draft ready — review in Apple Mail before you send"
     );
     router.refresh();
   };
