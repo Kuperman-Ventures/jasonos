@@ -231,8 +231,27 @@ test("mergeListPrefs fills missing phases", () => {
     showArchived: true,
   });
   assert.equal(prefs.showArchived, true);
+  assert.equal(prefs.sortKey, "list");
+  assert.equal(prefs.sortDir, 1);
   assert.deepEqual(prefs.columnsByPhase.exploration, ["school", "action"]);
   assert.ok((prefs.columnsByPhase.consideration ?? []).includes("school"));
+});
+
+test("mergeListPrefs keeps list sort key and direction", () => {
+  const prefs = mergeListPrefs({
+    sortKey: "selectivity",
+    sortDir: -1,
+  });
+  assert.equal(prefs.sortKey, "selectivity");
+  assert.equal(prefs.sortDir, -1);
+  const nested = mergeListPrefs({
+    collegesSort: { key: "interest", dir: -1 },
+  });
+  assert.equal(nested.sortKey, "interest");
+  assert.equal(nested.sortDir, -1);
+  const bad = mergeListPrefs({ sortKey: "nope", sortDir: 99 });
+  assert.equal(bad.sortKey, "list");
+  assert.equal(bad.sortDir, 1);
 });
 
 test("advance and archive keep phase participation", () => {

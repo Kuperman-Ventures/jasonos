@@ -15,6 +15,23 @@ export type SortKey =
   | "size"
   | "newJerseyPct";
 
+export const SORT_KEYS: readonly SortKey[] = [
+  "list",
+  "name",
+  "status",
+  "selectivity",
+  "interest",
+  "action",
+  "drive",
+  "setting",
+  "size",
+  "newJerseyPct",
+] as const;
+
+export function isSortKey(value: string): value is SortKey {
+  return (SORT_KEYS as readonly string[]).includes(value);
+}
+
 export function nextOpenStep(school: School): string {
   const open = [...school.steps]
     .sort((a, b) => a.sortOrder - b.sortOrder)

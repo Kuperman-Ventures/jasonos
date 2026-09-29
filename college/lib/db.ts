@@ -788,17 +788,28 @@ export function seedById(id: string): School | undefined {
   return seed ? fromSeed(seed) : undefined;
 }
 
-export async function getMemberPrefs(memberId: string): Promise<{
+export type MemberPrefsRow = {
   collegesColumns: Record<string, string[]>;
   showArchived: boolean;
-}> {
+  collegesSort: { key: string; dir: 1 | -1 };
+};
+
+function parseCollegesSort(raw: unknown): { key: string; dir: 1 | -1 } {
+  if (!raw || typeof raw !== "object") return { key: "list", dir: 1 };
+  const input = raw as { key?: unknown; dir?: unknown };
+  const key = typeof input.key === "string" && input.key.trim() ? input.key.trim() : "list";
+  const dir = input.dir === -1 || input.dir === "-1" ? (-1 as const) : (1 as const);
+  return { key, dir };
+}
+
+export async function getMemberPrefs(memberId: string): Promise<MemberPrefsRow> {
   if (!supabaseConfigured() || memberId === "local") {
-    return { collegesColumns: {}, showArchived: false };
+    return { collegesColumns: {}, showArchived: false, collegesSort: { key: "list", dir: 1 } };
   }
   const db = collegeDb();
   const { data, error } = await db
     .from("member_prefs")
-    .select("colleges_columns, show_archived")
+    .select("colleges_columns, show_archived, colleges_sort")
     .eq("member_id", memberId)
     .maybeSingle();
   if (error) throw error;
@@ -809,17 +820,23 @@ export async function getMemberPrefs(memberId: string): Promise<{
   return {
     collegesColumns: columns,
     showArchived: Boolean(data?.show_archived),
+    collegesSort: parseCollegesSort(data?.colleges_sort),
   };
 }
 
 export async function upsertMemberPrefs(
   memberId: string,
-  patch: { collegesColumns?: Record<string, string[]>; showArchived?: boolean },
-): Promise<{ collegesColumns: Record<string, string[]>; showArchived: boolean }> {
+  patch: {
+    collegesColumns?: Record<string, string[]>;
+    showArchived?: boolean;
+    collegesSort?: { key: string; dir: 1 | -1 };
+  },
+): Promise<MemberPrefsRow> {
   if (!supabaseConfigured() || memberId === "local") {
     return {
       collegesColumns: patch.collegesColumns ?? {},
       showArchived: Boolean(patch.showArchived),
+      collegesSort: patch.collegesSort ?? { key: "list", dir: 1 },
     };
   }
   const current = await getMemberPrefs(memberId);
@@ -827,13 +844,14 @@ export async function upsertMemberPrefs(
     member_id: memberId,
     colleges_columns: patch.collegesColumns ?? current.collegesColumns,
     show_archived: patch.showArchived ?? current.showArchived,
+    colleges_sort: patch.collegesSort ?? current.collegesSort,
     updated_at: new Date().toISOString(),
   };
   const db = collegeDb();
   const { data, error } = await db
     .from("member_prefs")
     .upsert(next, { onConflict: "member_id" })
-    .select("colleges_columns, show_archived")
+    .select("colleges_columns, show_archived, colleges_sort")
     .single();
   if (error) throw error;
   return {
@@ -842,5 +860,6 @@ export async function upsertMemberPrefs(
         ? (data.colleges_columns as Record<string, string[]>)
         : {},
     showArchived: Boolean(data.show_archived),
+    collegesSort: parseCollegesSort(data.colleges_sort),
   };
 }

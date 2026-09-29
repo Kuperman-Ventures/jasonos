@@ -1,5 +1,7 @@
 /** College-list funnel phases (separate from the checklist timeline). */
 
+import { isSortKey, type SortKey } from "@/lib/list";
+
 export type ListPhaseId = "exploration" | "consideration" | "applications";
 
 export type ListColumnId =
@@ -537,7 +539,27 @@ export function normalizeColumns(columns: string[] | undefined, phase: ListPhase
 export type MemberListPrefs = {
   columnsByPhase: Partial<Record<ListPhaseId, ListColumnId[]>>;
   showArchived: boolean;
+  /** Preferred list sort — kept even when the matching column is temporarily hidden. */
+  sortKey: SortKey;
+  sortDir: 1 | -1;
 };
+
+export function normalizeListSortKey(value: unknown): SortKey {
+  return typeof value === "string" && isSortKey(value) ? value : "list";
+}
+
+export function normalizeListSortDir(value: unknown): 1 | -1 {
+  return value === -1 || value === "-1" ? -1 : 1;
+}
+
+export function parseListSort(raw: unknown): { key: SortKey; dir: 1 | -1 } {
+  if (!raw || typeof raw !== "object") return { key: "list", dir: 1 };
+  const input = raw as { key?: unknown; dir?: unknown };
+  return {
+    key: normalizeListSortKey(input.key),
+    dir: normalizeListSortDir(input.dir),
+  };
+}
 
 export function defaultListPrefs(): MemberListPrefs {
   return {
@@ -545,6 +567,8 @@ export function defaultListPrefs(): MemberListPrefs {
       LIST_PHASES.map((phase) => [phase.id, [...phase.defaultColumns]]),
     ) as MemberListPrefs["columnsByPhase"],
     showArchived: false,
+    sortKey: "list",
+    sortDir: 1,
   };
 }
 
@@ -554,14 +578,24 @@ export function mergeListPrefs(raw: unknown): MemberListPrefs {
   const input = raw as {
     columnsByPhase?: Partial<Record<string, string[]>>;
     showArchived?: boolean;
+    sortKey?: unknown;
+    sortDir?: unknown;
+    collegesSort?: unknown;
   };
   const columnsByPhase = { ...base.columnsByPhase };
   for (const phase of LIST_PHASES) {
     const next = input.columnsByPhase?.[phase.id];
     if (Array.isArray(next)) columnsByPhase[phase.id] = normalizeColumns(next, phase);
   }
+  const fromNested = parseListSort(input.collegesSort);
+  const sortKey =
+    input.sortKey !== undefined ? normalizeListSortKey(input.sortKey) : fromNested.key;
+  const sortDir =
+    input.sortDir !== undefined ? normalizeListSortDir(input.sortDir) : fromNested.dir;
   return {
     columnsByPhase,
     showArchived: Boolean(input.showArchived),
+    sortKey,
+    sortDir,
   };
 }

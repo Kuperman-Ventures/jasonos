@@ -163,8 +163,6 @@ export function CollegesTab({
   const [schoolSizeFilters, setSchoolSizeFilters] = useState<SchoolSize[]>([]);
   const [interest, setInterest] = useState<InterestLevel | "any">("any");
   const [travelFilter, setTravelFilter] = useState<"any" | "Drive" | "Fly">("any");
-  const [sort, setSort] = useState<SortKey>("list");
-  const [sortDir, setSortDir] = useState<1 | -1>(1);
   const [addOpen, setAddOpen] = useState(false);
   const [columnsOpen, setColumnsOpen] = useState(false);
   const [dashOpen, setDashOpen] = useState(true);
@@ -199,6 +197,11 @@ export function CollegesTab({
   const phase = listPhaseById(phaseId);
   const columns = normalizeColumns(listPrefs.columnsByPhase[phaseId], phase);
   const showArchived = listPrefs.showArchived;
+  const preferredSort = listPrefs.sortKey;
+  const preferredSortDir = listPrefs.sortDir;
+  // Fall back for display when the preferred sort's column is hidden — keep the preference.
+  const sort = listSortVisible(preferredSort, columns) ? preferredSort : "list";
+  const sortDir = sort === preferredSort ? preferredSortDir : 1;
   const showSelectivityFilter = listFilterVisible("selectivity", columns);
   const showSettingFilter = listFilterVisible("setting", columns);
   const showMetroFilter = listFilterVisible("metro", columns);
@@ -206,7 +209,7 @@ export function CollegesTab({
   const showInterestFilter = listFilterVisible("interest", columns);
   const showTravelFilter = listFilterVisible("travel", columns);
 
-  // Drop filter/sort state that no longer matches a visible column.
+  // Drop filter state that no longer matches a visible column.
   useEffect(() => {
     if (!showSelectivityFilter && tier !== "any") setTier("any");
     if (!showSettingFilter && settingFilters.length) setSettingFilters([]);
@@ -214,12 +217,7 @@ export function CollegesTab({
     if (!showSchoolSizeFilter && schoolSizeFilters.length) setSchoolSizeFilters([]);
     if (!showInterestFilter && interest !== "any") setInterest("any");
     if (!showTravelFilter && travelFilter !== "any") setTravelFilter("any");
-    if (!listSortVisible(sort, columns) && sort !== "list") {
-      setSort("list");
-      setSortDir(1);
-    }
   }, [
-    columns,
     showSelectivityFilter,
     showSettingFilter,
     showMetroFilter,
@@ -232,7 +230,6 @@ export function CollegesTab({
     schoolSizeFilters.length,
     interest,
     travelFilter,
-    sort,
   ]);
 
   useEffect(() => {
@@ -324,11 +321,15 @@ export function CollegesTab({
     (school) => school.archived && school.phasesParticipated.includes(phaseId),
   ).length;
 
+  function setSortPrefs(key: SortKey, dir: 1 | -1 = 1) {
+    onListPrefsChange({ ...listPrefs, sortKey: key, sortDir: dir });
+  }
+
   function toggleSort(next: SortKey) {
-    if (sort === next) setSortDir((dir) => (dir === 1 ? -1 : 1));
-    else {
-      setSort(next);
-      setSortDir(1);
+    if (preferredSort === next && listSortVisible(next, columns)) {
+      setSortPrefs(next, preferredSortDir === 1 ? -1 : 1);
+    } else {
+      setSortPrefs(next, 1);
     }
   }
 
@@ -831,12 +832,9 @@ export function CollegesTab({
         ) : null}
         <select
           className="select"
-          value={listSortVisible(sort, columns) ? sort : "list"}
+          value={sort}
           aria-label="Sort schools"
-          onChange={(event) => {
-            setSort(event.target.value as SortKey);
-            setSortDir(1);
-          }}
+          onChange={(event) => setSortPrefs(event.target.value as SortKey, 1)}
         >
           <option value="list">Sheet order</option>
           <option value="name">School name</option>
