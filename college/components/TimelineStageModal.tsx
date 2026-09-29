@@ -7,6 +7,7 @@ import {
   formatProjectRangeKicker,
   formatStageRange,
   nowLinePosition,
+  overdueStages,
   pct,
   resolveProjectStages,
   stageBarGeometry,
@@ -34,15 +35,20 @@ type LiveStageRow = {
 export function TimelineStageModal({
   projectId,
   liveStages = [],
+  stageCompletions = {},
   onClose,
   onSelectProject,
   onOpenTodos,
+  onMarkStageDone,
 }: {
   projectId: string;
   liveStages?: LiveStageRow[];
+  /** Checklist-style completions for seed stages (stage id → done). */
+  stageCompletions?: Record<string, boolean>;
   onClose: () => void;
   onSelectProject: (id: string) => void;
   onOpenTodos: (projectId: string) => void;
+  onMarkStageDone?: (stageId: string) => void;
 }) {
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement | null>(null);
@@ -51,11 +57,12 @@ export function TimelineStageModal({
   const project = TIMELINE_PROJECTS[index] ?? null;
 
   const stages = useMemo(
-    () => (project ? resolveProjectStages(project.id, liveStages) : []),
-    [project, liveStages],
+    () => (project ? resolveProjectStages(project.id, liveStages, stageCompletions) : []),
+    [project, liveStages, stageCompletions],
   );
   const today = useMemo(() => new Date(), []);
   const summary = useMemo(() => summarizeStages(stages, today), [stages, today]);
+  const overdue = useMemo(() => overdueStages(stages, today), [stages, today]);
   const ticks = useMemo(
     () => (project ? buildStageTicks(project, today) : []),
     [project, today],
@@ -198,6 +205,38 @@ export function TimelineStageModal({
           </div>
         </div>
 
+        {overdue.length ? (
+          <div className="tl-overdue-alert" role="alert">
+            <div className="tl-overdue-alert-head">
+              <strong>
+                {overdue.length} overdue stage{overdue.length === 1 ? "" : "s"}
+              </strong>
+              <span>
+                The scheduled window passed. Confirm each one when the work is actually done.
+              </span>
+            </div>
+            <ul className="tl-overdue-list">
+              {overdue.map((stage) => (
+                <li key={stage.id}>
+                  <div>
+                    <b>{stage.name}</b>
+                    <span className="mono">{formatStageRange(stage.start, stage.end)}</span>
+                  </div>
+                  {onMarkStageDone ? (
+                    <button
+                      type="button"
+                      className="btn btn-primary tl-overdue-resolve"
+                      onClick={() => onMarkStageDone(stage.id)}
+                    >
+                      Mark done
+                    </button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
         <div className="tl-sg-scroll">
           <div className="tl-sg">
             <div className="tl-sg-grid tl-sg-head">
@@ -225,6 +264,11 @@ export function TimelineStageModal({
                 project={project}
                 today={today}
                 phaseHeading={row.phaseHeading}
+                onMarkDone={
+                  onMarkStageDone && stageStatus(row.stage, today) === "overdue"
+                    ? () => onMarkStageDone(row.stage.id)
+                    : undefined
+                }
               />
             ))}
 
@@ -252,6 +296,10 @@ export function TimelineStageModal({
           <span>
             <i className="tl-swatch" style={{ background: "var(--color-done)" }} />
             Done
+          </span>
+          <span>
+            <i className="tl-swatch" style={{ background: "var(--color-accent)" }} />
+            Overdue
           </span>
           <span>
             <i className="tl-swatch" style={{ background: "var(--bar)" }} />
@@ -283,11 +331,13 @@ function StageRow({
   project,
   today,
   phaseHeading,
+  onMarkDone,
 }: {
   stage: TimelineStage;
   project: TimelineProject;
   today: Date;
   phaseHeading: string | null;
+  onMarkDone?: () => void;
 }) {
   const status = stageStatus(stage, today);
   const statusLabel = stageStatusLabel(stage, status);
@@ -311,6 +361,15 @@ function StageRow({
             {mark}
           </span>
           <span className="tl-sg-t">{stage.name}</span>
+          {status === "overdue" && onMarkDone ? (
+            <button
+              type="button"
+              className="tl-sg-mark-done"
+              onClick={onMarkDone}
+            >
+              Mark done
+            </button>
+          ) : null}
         </div>
         <div className="tl-sg-span mono">
           {formatStageRange(stage.start, stage.end)}

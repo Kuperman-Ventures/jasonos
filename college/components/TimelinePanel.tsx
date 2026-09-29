@@ -34,6 +34,7 @@ export function TimelinePanel({
           showTitle={false}
           subtasks={subtasks}
           onOpenTodos={onOpenTodos}
+          onToggle={onToggle}
         />
       </div>
 

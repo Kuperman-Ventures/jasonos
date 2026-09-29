@@ -158,6 +158,7 @@ export function ProcessRoadmap({
   dateline,
   subtasks = {},
   onOpenTodos,
+  onToggle,
 }: {
   checklist: Record<string, boolean>;
   title?: string;
@@ -166,6 +167,8 @@ export function ProcessRoadmap({
   /** Live to-do subtasks — when they carry projectId + startDate they drive the modal. */
   subtasks?: TodoSubtaskMap;
   onOpenTodos?: (projectId: string) => void;
+  /** Persist stage completion (checklist key = stage id). */
+  onToggle?: (id: string, checked: boolean) => void;
 }) {
   const now = useMemo(() => new Date(), []);
   const cells = useMemo(() => monthCells(), []);
@@ -331,12 +334,20 @@ export function ProcessRoadmap({
         <TimelineStageModal
           projectId={openProjectId}
           liveStages={liveStages}
+          stageCompletions={checklist}
           onClose={closeStages}
           onSelectProject={setOpenProjectId}
           onOpenTodos={(id) => {
             closeStages();
             onOpenTodos?.(id);
           }}
+          onMarkStageDone={
+            onToggle
+              ? (stageId) => {
+                  onToggle(stageId, true);
+                }
+              : undefined
+          }
         />
       ) : null}
     </section>

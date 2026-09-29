@@ -141,10 +141,12 @@ export function DashboardDesktop({
   schools,
   checklist,
   dateline,
+  onToggle,
 }: {
   schools: School[];
   checklist: Record<string, boolean>;
   dateline: string;
+  onToggle?: (id: string, checked: boolean) => void;
 }) {
   const stats = useDashboardStats(schools);
 
@@ -172,7 +174,11 @@ export function DashboardDesktop({
       </header>
 
       <div className="dash-block">
-        <ProcessRoadmap checklist={checklist} title="College Process Timeline" />
+        <ProcessRoadmap
+          checklist={checklist}
+          title="College Process Timeline"
+          onToggle={onToggle}
+        />
       </div>
 
       <div className="dash-block">

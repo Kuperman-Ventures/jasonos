@@ -3627,6 +3627,66 @@ table.schools .muted,
   font-variant-numeric: tabular-nums;
   color: var(--text-muted);
 }
+.tl-overdue-alert {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  background: var(--color-accent-tint);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.tl-overdue-alert-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tl-overdue-alert-head strong {
+  font-size: 15px;
+  color: var(--text-accent);
+}
+.tl-overdue-alert-head span {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.tl-overdue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tl-overdue-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+.tl-overdue-list li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.tl-overdue-list b {
+  display: block;
+  font-size: 14px;
+  color: var(--color-text);
+}
+.tl-overdue-list .mono {
+  font-size: 12px;
+  color: var(--text-subtle);
+}
+.tl-overdue-resolve {
+  flex: none;
+  height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+}
 .tl-dlg-actions {
   display: flex;
   gap: 8px;
@@ -3727,9 +3787,11 @@ table.schools .muted,
   text-overflow: ellipsis;
 }
 .tl-sg-row[data-s="done"] .tl-sg-mk { color: var(--text-done); }
+.tl-sg-row[data-s="overdue"] .tl-sg-mk { color: var(--text-accent); }
 .tl-sg-row[data-s="now"] .tl-sg-mk { color: var(--bar); }
 .tl-sg-row[data-s="next"] .tl-sg-mk { color: var(--text-placeholder); }
 .tl-sg-row[data-s="next"] .tl-sg-name { color: var(--text-subtle); }
+.tl-sg-row[data-s="overdue"] .tl-sg-t { color: var(--text-accent); font-weight: 600; }
 .tl-sg-row[data-ms] .tl-sg-name { color: var(--milestone-ink); }
 .tl-sg-row[data-ms] .tl-sg-mk { color: var(--milestone); }
 .tl-sg-span {
@@ -3748,8 +3810,24 @@ table.schools .muted,
   z-index: 1;
 }
 .tl-sg-bar[data-s="done"] { background: var(--color-done); }
+.tl-sg-bar[data-s="overdue"] { background: var(--color-accent); }
 .tl-sg-bar[data-s="now"] { background: var(--bar); }
 .tl-sg-bar[data-s="next"] { background: var(--bar-future); }
+.tl-sg-mark-done {
+  flex: none;
+  margin-left: auto;
+  font: 600 11px var(--font-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-accent);
+  background: none;
+  border: 0;
+  padding: 2px 0;
+  cursor: pointer;
+}
+.tl-sg-mark-done:hover {
+  color: var(--color-accent-pressed);
+}
 .tl-sg-pin {
   position: absolute;
   top: 12px;
