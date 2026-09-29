@@ -544,7 +544,7 @@ function MailAccountRow({
               sign-in expired
             </Badge>
           ) : health === "connected" ? (
-            <Badge variant="outline" className="border-[var(--jos-line)] bg-rung-4 ">
+            <Badge variant="outline" className="border-[var(--jos-line)] bg-rung-ok">
               connected
             </Badge>
           ) : (
