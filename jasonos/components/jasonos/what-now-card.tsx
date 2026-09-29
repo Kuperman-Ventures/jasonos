@@ -28,7 +28,7 @@ export function WhatNowCard({ initial }: { initial: WhatNowAdvice }) {
       <CardContent className="space-y-3">
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-amber-400" />
+            <Sparkles className="h-4 w-4 text-rung-ink" />
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               What now
             </span>

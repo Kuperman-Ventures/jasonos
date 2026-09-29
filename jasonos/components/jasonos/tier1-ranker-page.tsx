@@ -66,22 +66,22 @@ import { ContactCreateModal } from "@/components/jasonos/outreach/contact-create
 
 const CLUSTER_CHIP: Record<AlumniCluster | "all", string> = {
   all: "bg-muted text-foreground",
-  tbwa: "bg-amber-500/15 text-amber-300 border border-amber-500/30",
+  tbwa: "bg-rung-2  border border-[var(--jos-line)]",
   agency: "bg-pink-500/15 text-pink-300 border border-pink-500/30",
-  omnicom: "bg-blue-500/15 text-blue-300 border border-blue-500/30",
-  videri: "bg-indigo-500/15 text-indigo-300 border border-indigo-500/30",
-  outfront: "bg-orange-500/15 text-orange-300 border border-orange-500/30",
-  industry: "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30",
+  omnicom: "bg-rung-3  border border-rung-3",
+  videri: "bg-rung-3  border border-rung-3",
+  outfront: "bg-rung-2  border border-[var(--jos-line)]",
+  industry: "bg-rung-4  border border-[var(--jos-line)]",
   other: "bg-muted text-muted-foreground border",
 };
 
-const TIER_BG = "bg-sky-400/[0.06] border-l-[3px] border-l-sky-400";
+const TIER_BG = "bg-rung-3/[0.06] border-l-[3px] border-l-sky-400";
 
 const RECENCY_TIER_DOT: Record<string, string> = {
-  fresh: "bg-emerald-400",
+  fresh: "bg-rung-4",
   ok: "bg-muted-foreground",
-  stale: "bg-amber-400",
-  cold: "bg-red-400",
+  stale: "bg-rung-2",
+  cold: "bg-rung-1",
 };
 
 const TARGET_SIZE = 30;
@@ -365,7 +365,7 @@ export function Tier1RankerPage({
           </Button>
           <div className="flex flex-col items-end gap-1">
             <span className="text-xs text-muted-foreground">
-              <span className={cn("font-mono text-sm", selectedCount === TARGET_SIZE ? "text-sky-400" : "text-foreground")}>
+              <span className={cn("font-mono text-sm", selectedCount === TARGET_SIZE ? "text-rung-3" : "text-foreground")}>
                 {selectedCount}
               </span>
               <span className="mx-1">/</span>
@@ -374,7 +374,7 @@ export function Tier1RankerPage({
             </span>
             <div className="h-1 w-48 overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full bg-sky-400 transition-all"
+                className="h-full bg-rung-3 transition-all"
                 style={{ width: `${progress * 100}%` }}
               />
             </div>
@@ -459,7 +459,7 @@ export function Tier1RankerPage({
 
 function NotConfiguredBanner() {
   return (
-    <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-200/90">
+    <div className="flex items-start gap-2 rounded-lg border border-[var(--jos-line)] bg-rung-2 px-3 py-2 text-xs ">
       <CircleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
       <div>
         <strong className="font-semibold">Read-only preview.</strong> Supabase
@@ -560,8 +560,8 @@ function WeightSlider({
 function StrategyExplainer({ strategy }: { strategy: RankStrategy }) {
   const info = STRATEGY_INFO[strategy];
   return (
-    <div className="rounded-lg border border-sky-400/30 bg-sky-400/5 px-3 py-2 text-xs">
-      <span className="font-semibold text-sky-300">{info.label}.</span>{" "}
+    <div className="rounded-lg border border-rung-3 bg-rung-3 px-3 py-2 text-xs">
+      <span className="font-semibold text-rung-3">{info.label}.</span>{" "}
       <span className="text-muted-foreground">{info.description}</span>
     </div>
   );
@@ -633,7 +633,7 @@ function ControlsRow({
           size="sm"
           onClick={onFinish}
           disabled={!finishEnabled || isFinishing}
-          className="h-8 gap-1.5 bg-sky-500 hover:bg-sky-400 text-white"
+          className="h-8 gap-1.5 bg-rung-3 hover:bg-rung-3 text-white"
         >
           {isFinishing ? (
             <>Saving…</>
@@ -697,7 +697,7 @@ function ChipButton({
       className={cn(
         "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] transition-colors",
         cls,
-        active ? "ring-2 ring-offset-1 ring-offset-background ring-sky-400" : "opacity-90 hover:opacity-100"
+        active ? "ring-2 ring-offset-1 ring-offset-background ring-[var(--jos-focus)]" : "opacity-90 hover:opacity-100"
       )}
     >
       {label}
@@ -1011,8 +1011,8 @@ function PipsCell({
               className={cn(
                 "h-3 w-3 rounded-full border transition-colors",
                 filled
-                  ? "border-sky-400 bg-sky-400"
-                  : "border-border hover:border-sky-400/60 hover:bg-sky-400/20"
+                  ? "border-rung-3 bg-rung-3"
+                  : "border-border hover:border-rung-3 hover:bg-rung-3"
               )}
             />
           );

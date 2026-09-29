@@ -134,21 +134,21 @@ export function SuggestedClient({
       </header>
 
       {!gmailConnected ? (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
-          <div className="text-xs text-amber-200">
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--jos-line)] bg-rung-2 px-4 py-3">
+          <div className="text-xs text-rung-ink">
             Gmail isn&rsquo;t connected — connect it so Sync can find suggested
             contacts.
           </div>
           <div className="flex shrink-0 gap-2">
             <a
               href="/api/auth/google"
-              className="rounded-md border border-amber-400/40 bg-amber-500/20 px-3 py-1 text-[11px] font-medium text-amber-100 hover:bg-amber-500/30"
+              className="rounded-md border border-[var(--jos-line)] bg-rung-2 px-3 py-1 text-[11px] font-medium  hover:bg-rung-2"
             >
               Connect Advisors Google →
             </a>
             <a
               href="/api/auth/google?account=gmail"
-              className="rounded-md border border-amber-400/40 bg-amber-500/20 px-3 py-1 text-[11px] font-medium text-amber-100 hover:bg-amber-500/30"
+              className="rounded-md border border-[var(--jos-line)] bg-rung-2 px-3 py-1 text-[11px] font-medium  hover:bg-rung-2"
             >
               Connect personal Gmail →
             </a>
@@ -276,7 +276,7 @@ function CandidateRow({
             {candidate.name || (beeper ? "Beeper chat" : candidate.email)}
           </span>
           {twoWay ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-emerald-300">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--jos-line)] bg-rung-4 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider ">
               <ArrowLeftRight className="h-2.5 w-2.5" />
               Two-way
             </span>
@@ -309,7 +309,7 @@ function CandidateRow({
           </span>
         </div>
         {match ? (
-          <div className="mt-1 text-[11px] text-sky-200/90">
+          <div className="mt-1 text-[11px] text-rung-3">
             {match.kind === "close"
               ? `Looks like ${match.name} in People`
               : `Already in People as ${match.name}`}

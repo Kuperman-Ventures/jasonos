@@ -30,7 +30,7 @@ export function MustDos({
       {showHeader ? (
         <header className="flex items-center justify-between gap-2 border-b px-4 py-2.5">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+            <Sparkles className="h-3.5 w-3.5 text-rung-ink" />
             <h2 className="text-sm font-semibold tracking-tight">Today&rsquo;s Must-Dos</h2>
             <span className="text-[11px] text-muted-foreground">
               · {items.length} ranked by Claude
@@ -69,7 +69,7 @@ export function MustDos({
           <div key={it.card.id} className="relative">
             {it.pinned ? (
               <div className="absolute -left-1 top-3 z-10">
-                <Pin className="h-3 w-3 fill-amber-400 text-amber-400" />
+                <Pin className="h-3 w-3 fill-[var(--jos-line)] text-rung-ink" />
               </div>
             ) : null}
             <ActionCardItem

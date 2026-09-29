@@ -33,44 +33,44 @@ const TRACK_STYLES: Record<
   { ringPrimary: string; ringParallel: string; bg: string; accent: string; bar: string; checkbox: string; pill: string; pillText: string }
 > = {
   venture: {
-    ringPrimary: "border-2 border-emerald-400/50",
-    ringParallel: "border border-emerald-400/30",
-    bg: "bg-emerald-400/[0.03]",
-    accent: "text-emerald-300",
-    bar: "bg-emerald-400/80",
+    ringPrimary: "border-2 border-[var(--jos-line)]",
+    ringParallel: "border border-[var(--jos-line)]",
+    bg: "bg-rung-4/[0.03]",
+    accent: "text-rung-ink",
+    bar: "bg-rung-4",
     checkbox: "accent-emerald-400",
-    pill: "bg-emerald-400/10 border-emerald-400/30",
-    pillText: "text-emerald-300",
+    pill: "bg-rung-4 border-[var(--jos-line)]",
+    pillText: "text-rung-ink",
   },
   advisors: {
-    ringPrimary: "border-2 border-sky-400/50",
-    ringParallel: "border border-sky-400/30",
-    bg: "bg-sky-400/[0.05]",
-    accent: "text-sky-300",
-    bar: "bg-sky-400/80",
+    ringPrimary: "border-2 border-rung-3",
+    ringParallel: "border border-rung-3",
+    bg: "bg-rung-3/[0.05]",
+    accent: "text-rung-3",
+    bar: "bg-rung-3",
     checkbox: "accent-sky-400",
-    pill: "bg-sky-400/10 border-sky-400/30",
-    pillText: "text-sky-300",
+    pill: "bg-rung-3 border-rung-3",
+    pillText: "text-rung-3",
   },
   job_search: {
-    ringPrimary: "border-2 border-violet-400/50",
-    ringParallel: "border border-violet-400/30",
-    bg: "bg-violet-400/[0.03]",
-    accent: "text-violet-300",
-    bar: "bg-violet-400/80",
+    ringPrimary: "border-2 border-[var(--jos-line)]",
+    ringParallel: "border border-[var(--jos-line)]",
+    bg: "bg-rung-idle/[0.03]",
+    accent: "text-rung-ink",
+    bar: "bg-rung-idle",
     checkbox: "accent-violet-400",
-    pill: "bg-violet-400/10 border-violet-400/30",
-    pillText: "text-violet-300",
+    pill: "bg-rung-idle border-[var(--jos-line)]",
+    pillText: "text-rung-ink",
   },
   personal: {
-    ringPrimary: "border-2 border-amber-400/50",
-    ringParallel: "border border-amber-400/30",
-    bg: "bg-amber-400/[0.03]",
-    accent: "text-amber-300",
-    bar: "bg-amber-400/80",
+    ringPrimary: "border-2 border-[var(--jos-line)]",
+    ringParallel: "border border-[var(--jos-line)]",
+    bg: "bg-rung-2/[0.03]",
+    accent: "text-rung-ink",
+    bar: "bg-rung-2",
     checkbox: "accent-amber-400",
-    pill: "bg-amber-400/10 border-amber-400/30",
-    pillText: "text-amber-300",
+    pill: "bg-rung-2 border-[var(--jos-line)]",
+    pillText: "text-rung-ink",
   },
 };
 
@@ -239,7 +239,7 @@ export function Plan90Roadmap() {
   return (
     <section className="rounded-xl border bg-card">
       <header className="flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
-        <MapIcon className="h-4 w-4 text-amber-400" />
+        <MapIcon className="h-4 w-4 text-rung-ink" />
         <h2 className="text-sm font-semibold tracking-tight">90-Day Plan</h2>
         <span className="text-[11px] text-muted-foreground">
           · {PLAN90.startDate} → {PLAN90.endDate} · {PLAN90_STATS.tracks} tracks ·{" "}
@@ -257,7 +257,7 @@ export function Plan90Roadmap() {
         <div className="flex items-center gap-3">
           <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
             <div
-              className="absolute inset-y-0 left-0 bg-amber-400/80 transition-[width] duration-300"
+              className="absolute inset-y-0 left-0 bg-rung-2 transition-[width] duration-300"
               style={{ width: `${progressPct}%` }}
             />
           </div>
@@ -324,7 +324,7 @@ export function Plan90Roadmap() {
                     isCurrent
                       ? "font-semibold text-foreground"
                       : "text-muted-foreground",
-                    isDisrupted ? "bg-amber-400/10" : "bg-card"
+                    isDisrupted ? "bg-rung-2" : "bg-card"
                   )}
                 >
                   W{w}
@@ -335,7 +335,7 @@ export function Plan90Roadmap() {
                     })}
                   </div>
                   {(note || isDisrupted) && (
-                    <div className="truncate text-[9px] text-amber-300">
+                    <div className="truncate text-[9px] text-rung-ink">
                       {isDisrupted ? "⚠ " : ""}
                       {note}
                     </div>
@@ -528,7 +528,7 @@ function TrackLane({
                                 >
                                   {t.text}
                                   {pushed ? (
-                                    <span className="ml-1 text-amber-300">
+                                    <span className="ml-1 text-rung-ink">
                                       (moved to W{effectiveWeek})
                                     </span>
                                   ) : null}

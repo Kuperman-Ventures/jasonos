@@ -117,9 +117,9 @@ export function ActionCardItem({
             {card.vip ? (
               <Badge
                 variant="outline"
-                className="gap-1 border-amber-500/30 bg-amber-500/10 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wider text-amber-300"
+                className="gap-1 border-[var(--jos-line)] bg-rung-2 px-1.5 py-0 text-[9px] font-semibold uppercase tracking-wider "
               >
-                <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
+                <Star className="h-2.5 w-2.5 fill-[var(--jos-line)] text-rung-ink" />
                 VIP
               </Badge>
             ) : null}
@@ -136,15 +136,15 @@ export function ActionCardItem({
           onClick={handleTogglePin}
           disabled={pinPending}
           aria-label={isPinnedToday ? "Unpin from today" : "Pin to today"}
-          className={isPinnedToday ? "text-amber-400 hover:text-amber-300" : "text-muted-foreground"}
+          className={isPinnedToday ? "text-rung-ink hover:text-rung-ink" : "text-muted-foreground"}
         >
           {isPinnedToday ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
         </Button>
       </header>
 
       {why ? (
-        <div className="flex items-start gap-1.5 rounded-md border border-amber-500/15 bg-amber-500/5 px-2 py-1.5 text-[11px] text-amber-200/90">
-          <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-amber-400" />
+        <div className="flex items-start gap-1.5 rounded-md border border-[var(--jos-line)] bg-rung-2 px-2 py-1.5 text-[11px] ">
+          <Sparkles className="mt-0.5 h-3 w-3 shrink-0 text-rung-ink" />
           <span className="leading-snug">{why}</span>
         </div>
       ) : null}
@@ -200,7 +200,7 @@ export function ActionCardItem({
           className="ml-auto h-7 gap-1 px-2 text-[11px] text-muted-foreground hover:text-foreground"
           onClick={() => fire("tell_claude")}
         >
-          <Sparkles className="h-3 w-3 text-amber-400" />
+          <Sparkles className="h-3 w-3 text-rung-ink" />
           Tell Claude
         </Button>
       </footer>

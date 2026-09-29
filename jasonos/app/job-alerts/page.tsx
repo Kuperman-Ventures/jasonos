@@ -47,15 +47,15 @@ function LastSyncStatus({ data }: { data: JobAlertsData }) {
     <div
       className={
         failed
-          ? "rounded-lg border border-amber-400/30 bg-amber-500/10 px-4 py-3"
+          ? "rounded-lg border border-[var(--jos-line)] bg-rung-2 px-4 py-3"
           : "rounded-lg border bg-card px-4 py-3"
       }
     >
       <div className="flex items-start gap-2">
         {failed ? (
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rung-ink" />
         ) : (
-          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-rung-ink" />
         )}
         <div className="min-w-0 text-[12px] leading-relaxed">
           <p className="font-medium text-foreground">
@@ -63,7 +63,7 @@ function LastSyncStatus({ data }: { data: JobAlertsData }) {
             {data.lastScanDate ? ` · ${formatScanTime(data.lastScanDate)}` : ""}
           </p>
           {failed && data.harvestError ? (
-            <p className="mt-1 text-amber-100/90">{data.harvestError}</p>
+            <p className="mt-1 text-rung-ink">{data.harvestError}</p>
           ) : (
             <>
               <p className="mt-1 text-muted-foreground">
@@ -99,7 +99,7 @@ export default async function JobAlertsPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
       <header className="flex items-start gap-3">
-        <div className="mt-0.5 rounded-lg border bg-card p-2 text-amber-300">
+        <div className="mt-0.5 rounded-lg border bg-card p-2 text-rung-ink">
           <Briefcase className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
@@ -134,7 +134,7 @@ export default async function JobAlertsPage() {
           <section className="overflow-hidden rounded-xl border bg-card">
             <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
               <div className="flex items-center gap-1.5 text-muted-foreground">
-                <Briefcase className="h-4 w-4 text-amber-300" />
+                <Briefcase className="h-4 w-4 text-rung-ink" />
                 <h2 className="text-sm font-semibold tracking-tight text-foreground">
                   Opportunities
                 </h2>

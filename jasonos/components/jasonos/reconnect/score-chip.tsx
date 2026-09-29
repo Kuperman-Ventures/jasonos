@@ -12,9 +12,9 @@ export function ScoreChip({
       className={cn(
         "num-mono inline-flex h-7 items-center rounded-md border bg-background px-2 text-xs font-semibold",
         score >= 95
-          ? "border-red-500/30 text-red-300"
+          ? "border-rung-1 text-rung-1"
           : score >= 90
-          ? "border-orange-400/30 text-orange-300"
+          ? "border-[var(--jos-line)] text-rung-ink"
           : "border-border text-foreground",
         className
       )}

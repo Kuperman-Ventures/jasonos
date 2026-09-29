@@ -420,7 +420,7 @@ function TaskEditor({
           disabled={isPending || saveStatus === "saving" || !draft.name.trim()}
           className={`rounded-md px-4 py-2 text-sm font-semibold transition ${
             saveStatus === "saved"
-              ? "bg-green-600 text-white"
+              ? "bg-rung-4 text-white"
               : saveStatus === "error"
               ? "bg-destructive text-destructive-foreground"
               : "bg-foreground text-background hover:bg-foreground/90 active:scale-95"
@@ -577,7 +577,7 @@ export function TaskLibraryClient({
                                 <span className="min-w-0 truncate font-medium">{task.name}</span>
                                 <div className="flex shrink-0 items-center gap-1">
                                   {task.status === "Paused" && !selected && (
-                                    <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-400">
+                                    <span className="rounded bg-rung-2 px-1.5 py-0.5 text-[9px] font-semibold ">
                                       Paused
                                     </span>
                                   )}

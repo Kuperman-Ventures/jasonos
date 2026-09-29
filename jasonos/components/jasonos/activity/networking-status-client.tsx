@@ -249,7 +249,7 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
     <div className="mx-auto max-w-3xl space-y-5 px-4 py-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-emerald-300">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-rung-ink">
             <Network className="h-4 w-4" />
             Networking Activity
           </div>
@@ -305,7 +305,7 @@ function FunnelSummary({ data }: { data: NetworkingActivity }) {
   return (
     <section className="space-y-4 rounded-xl border bg-card p-4">
       <div>
-        <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
+        <p className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-rung-ink">
           <GitBranch className="h-3.5 w-3.5" />
           The path that matters
         </p>
@@ -343,7 +343,7 @@ function FunnelSummary({ data }: { data: NetworkingActivity }) {
 
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-border">
         <div
-          className={`h-full rounded-full ${goalMet ? "bg-emerald-400" : "bg-sky-400"}`}
+          className={`h-full rounded-full ${goalMet ? "bg-rung-4" : "bg-rung-3"}`}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -374,14 +374,14 @@ function PathStat({
     <div
       className={
         emphasize
-          ? "rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2.5"
+          ? "rounded-lg border border-[var(--jos-line)] bg-rung-4 px-3 py-2.5"
           : "rounded-lg border border-border bg-muted/20 px-3 py-2.5"
       }
     >
       <p
         className={
           emphasize
-            ? "text-[10px] font-semibold uppercase tracking-wider text-emerald-300"
+            ? "text-[10px] font-semibold uppercase tracking-wider text-rung-ink"
             : "text-[10px] font-medium uppercase tracking-wider text-muted-foreground"
         }
       >
@@ -504,7 +504,7 @@ function WeekCard({
             {fmtShort(w.weekStart)} – {fmt(w.weekEnd)}
           </span>
           {w.isCurrent ? (
-            <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-emerald-300">
+            <span className="rounded-full bg-rung-4 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ">
               Current
             </span>
           ) : null}
@@ -571,7 +571,7 @@ function FreshOutreachPanel({
   if (rows.length === 0) return null;
   return (
     <div className="border-t px-4 py-3">
-      <p className="mb-1 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-sky-300">
+      <p className="mb-1 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-rung-3">
         <Send className="h-3 w-3" />
         Fresh outreach ({rows.length})
       </p>
@@ -607,7 +607,7 @@ function FreshOutreachPanel({
                   {channelLabel(r.channel)} · {fmtShort(r.date)}
                 </span>
                 {r.ledToMeeting ? (
-                  <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+                  <span className="rounded-full border border-[var(--jos-line)] bg-rung-4 px-1.5 py-0.5 text-[10px] font-semibold ">
                     → meeting
                   </span>
                 ) : null}
@@ -639,7 +639,7 @@ function NewNetworkPanel({
     <div className="space-y-3 border-t px-4 py-3">
       {referrals.length > 0 ? (
         <div>
-          <p className="mb-1 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-emerald-300">
+          <p className="mb-1 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-rung-ink">
             <GitBranch className="h-3 w-3" />
             New referrals — network expansion ({referrals.length})
           </p>
@@ -647,7 +647,7 @@ function NewNetworkPanel({
             Furthest new introduction this week, as the chain from someone you
             know through to them.
           </p>
-          <ul className="divide-y divide-emerald-500/20 rounded-lg border border-emerald-500/30 bg-emerald-500/5">
+          <ul className="divide-y divide-[var(--jos-line)] rounded-lg border border-[var(--jos-line)] bg-rung-4">
             {referrals.map((r) => {
               const { names, browning, jobApplication } = referralChainParts(r);
               return (
@@ -728,11 +728,11 @@ function NyuiPanel({ nyui }: { nyui: NyuiWeekSummary }) {
   return (
     <div className="border-t bg-muted/10 px-4 py-3">
       <div className="mb-2 flex items-center gap-2">
-        <Briefcase className="h-3.5 w-3.5 text-violet-300" />
+        <Briefcase className="h-3.5 w-3.5 text-rung-ink" />
         <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           Search Activity
         </h3>
-        <span className="rounded-full bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-violet-300">
+        <span className="rounded-full bg-rung-idle px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ">
           {nyui.applicationCount}
         </span>
       </div>
@@ -776,8 +776,8 @@ function NyuiPanel({ nyui }: { nyui: NyuiWeekSummary }) {
 // ---------------------------------------------------------------------------
 
 const TIER_META: Record<string, { label: string; text: string }> = {
-  A: { label: "A", text: "text-emerald-300" },
-  B: { label: "B", text: "text-sky-300" },
+  A: { label: "A", text: "text-rung-ink" },
+  B: { label: "B", text: "text-rung-3" },
   C: { label: "C", text: "text-slate-300" },
   "—": { label: "Unclass.", text: "text-muted-foreground" },
 };
@@ -964,9 +964,9 @@ function resultTone(result: string): ResultTone {
   return "neutral";
 }
 const RESULT_PILL: Record<ResultTone, string> = {
-  ok: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
-  warn: "border-amber-500/40 bg-amber-500/10 text-amber-300",
-  bad: "border-rose-500/40 bg-rose-500/10 text-rose-300",
+  ok: "border-[var(--jos-line)] bg-rung-4 ",
+  warn: "border-[var(--jos-line)] bg-rung-2 ",
+  bad: "border-rung-1 bg-rung-1 ",
   neutral: "border-border text-muted-foreground",
 };
 
@@ -1050,7 +1050,7 @@ function WeekHeatmap({
                   onClick={() => setSel(isSel ? null : { tier: r, deg: d })}
                   className={`relative flex h-8 items-center justify-center rounded-sm text-[11px] font-medium tabular-nums transition-[box-shadow,transform] disabled:cursor-default ${
                     count > 0 ? "cursor-pointer hover:brightness-125" : ""
-                  } ${isSel ? "ring-2 ring-emerald-300 ring-offset-1 ring-offset-card" : ""}`}
+                  } ${isSel ? "ring-2 ring-[var(--jos-focus)] ring-offset-1 ring-offset-card" : ""}`}
                   style={{ backgroundColor: cellBg(count, max) }}
                   title={
                     count > 0
@@ -1061,7 +1061,7 @@ function WeekHeatmap({
                   {count > 0 ? count : ""}
                   {newCount > 0 ? (
                     <span
-                      className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-amber-400 ring-1 ring-card"
+                      className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-rung-2 ring-1 ring-card"
                       aria-hidden
                     />
                   ) : null}
@@ -1151,11 +1151,11 @@ function NewRepeatSummary({ conversations }: { conversations: NsConversation[] }
   return (
     <div className="mt-3 rounded-lg border border-border bg-muted/20 p-2.5">
       <div className="flex flex-wrap items-center gap-3 text-[11px]">
-        <span className="inline-flex items-center gap-1.5 font-medium text-amber-300">
+        <span className="inline-flex items-center gap-1.5 font-medium text-rung-ink">
           <Sparkles className="h-3.5 w-3.5" />
           {newCount} new contact{newCount === 1 ? "" : "s"}
         </span>
-        <span className="inline-flex items-center gap-1.5 font-medium text-sky-300">
+        <span className="inline-flex items-center gap-1.5 font-medium text-rung-3">
           <Repeat className="h-3.5 w-3.5" />
           {repeatCount} repeat conversation{repeatCount === 1 ? "" : "s"}
         </span>
@@ -1164,17 +1164,17 @@ function NewRepeatSummary({ conversations }: { conversations: NsConversation[] }
       {/* Split bar: amber = new, sky = repeat */}
       <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-border">
         {newCount > 0 ? (
-          <div className="h-full bg-amber-400" style={{ width: `${newPct}%` }} />
+          <div className="h-full bg-rung-2" style={{ width: `${newPct}%` }} />
         ) : null}
         {repeatCount > 0 ? (
-          <div className="h-full bg-sky-400" style={{ width: `${100 - newPct}%` }} />
+          <div className="h-full bg-rung-3" style={{ width: `${100 - newPct}%` }} />
         ) : null}
       </div>
 
       {/* Names of the new contacts reached this week */}
       {newContacts.length > 0 ? (
         <div className="mt-2.5">
-          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-amber-300/90">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-rung-ink">
             New contacts
           </p>
           <ul className="divide-y divide-border/40 rounded-lg border border-border bg-background/40">
@@ -1221,7 +1221,7 @@ function ContactKindBadge({
 }) {
   if (isFirstContact) {
     return (
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-amber-300">
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-[var(--jos-line)] bg-rung-2 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ">
         <Sparkles className="h-2.5 w-2.5" />
         New
       </span>
@@ -1229,7 +1229,7 @@ function ContactKindBadge({
   }
   return (
     <span
-      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-sky-400/40 bg-sky-400/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-sky-300"
+      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-rung-3 bg-rung-3 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider "
       title={`You've communicated with this contact ${priorContactCount} time${priorContactCount === 1 ? "" : "s"} before — this is the ${ordinal(priorContactCount + 1)} touch.`}
     >
       <Repeat className="h-2.5 w-2.5" />

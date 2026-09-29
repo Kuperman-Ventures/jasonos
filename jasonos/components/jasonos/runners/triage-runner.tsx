@@ -271,7 +271,7 @@ export function TriageRunner(props: TriageRunnerProps) {
 
             {suggestedAngle ? (
               <ContextBlock
-                icon={<Lightbulb className="h-4 w-4 text-amber-400" />}
+                icon={<Lightbulb className="h-4 w-4 text-rung-ink" />}
                 title="Suggested angle"
                 accent
               >
@@ -389,7 +389,7 @@ function ContextBlock({
     <div
       className={`rounded-lg border p-3 text-sm ${
         accent
-          ? "border-amber-500/40 bg-amber-500/8"
+          ? "border-[var(--jos-line)] bg-rung-2"
           : emphasis
             ? "bg-background"
             : muted
@@ -399,7 +399,7 @@ function ContextBlock({
     >
       <div
         className={`mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide ${
-          accent ? "text-amber-400" : "text-muted-foreground"
+          accent ? "text-rung-ink" : "text-muted-foreground"
         }`}
       >
         {icon}

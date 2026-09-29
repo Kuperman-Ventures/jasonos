@@ -57,7 +57,7 @@ export function MorningBrief() {
           onClick={() => setCollapsed(false)}
           className="h-8 gap-2 text-xs"
         >
-          <Sunrise className="h-3.5 w-3.5 text-amber-400" />
+          <Sunrise className="h-3.5 w-3.5 text-rung-ink" />
           View morning brief
           <kbd className="ml-1 inline-flex items-center rounded border bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
             ⌘M
@@ -106,7 +106,7 @@ export function MorningBrief() {
       className="rounded-xl border bg-card"
     >
       <header className="flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
-        <Sunrise className="h-4 w-4 text-amber-400" />
+        <Sunrise className="h-4 w-4 text-rung-ink" />
         <h2 className="text-sm font-semibold tracking-tight">Morning Brief</h2>
         <span className="text-[11px] text-muted-foreground">· {today}</span>
         {status === "ready" ? (
@@ -115,7 +115,7 @@ export function MorningBrief() {
           </span>
         ) : null}
         {status === "error" ? (
-          <span className="text-[10px] text-rose-400">· {error}</span>
+          <span className="text-[10px] text-rung-1">· {error}</span>
         ) : null}
         <div className="ml-auto flex items-center gap-1">
           <Button

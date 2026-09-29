@@ -26,7 +26,7 @@ export function BrowningMark({
     <span
       className={
         className ??
-        "ml-1.5 text-[10px] font-semibold uppercase tracking-wider text-sky-400/90"
+        "ml-1.5 text-[10px] font-semibold uppercase tracking-wider text-rung-3"
       }
     >
       Browning
@@ -52,7 +52,7 @@ export function JobApplicationMark({
     <span
       className={
         className ??
-        "ml-1.5 text-[10px] font-semibold uppercase tracking-wider text-violet-400/90"
+        "ml-1.5 text-[10px] font-semibold uppercase tracking-wider text-rung-ink"
       }
     >
       Job app
@@ -62,7 +62,7 @@ export function JobApplicationMark({
 
 export function BrowningBadge() {
   return (
-    <span className="ml-1 shrink-0 rounded-full border border-sky-500/30 bg-sky-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-sky-300">
+    <span className="ml-1 shrink-0 rounded-full border border-rung-3 bg-rung-3 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ">
       Browning
     </span>
   );
@@ -70,7 +70,7 @@ export function BrowningBadge() {
 
 export function JobApplicationBadge() {
   return (
-    <span className="ml-1 shrink-0 rounded-full border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-violet-300">
+    <span className="ml-1 shrink-0 rounded-full border border-[var(--jos-line)] bg-rung-idle px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider ">
       Job app
     </span>
   );

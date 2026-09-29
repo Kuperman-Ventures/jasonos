@@ -69,10 +69,10 @@ export function MorningBriefAttention({
   const doneCount = items.filter((item) => done.has(item)).length;
 
   return (
-    <div className="rounded-lg border border-amber-400/25 bg-amber-500/10 p-3">
+    <div className="rounded-lg border border-[var(--jos-line)] bg-rung-2 p-3">
       <div className="mb-2 flex flex-wrap items-center gap-2">
         <div className="flex items-center gap-1.5 text-muted-foreground">
-          <AlertTriangle className="h-3.5 w-3.5 text-amber-300" />
+          <AlertTriangle className="h-3.5 w-3.5 text-rung-ink" />
           <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/80">
             Needs your attention
           </h3>
@@ -100,8 +100,8 @@ export function MorningBriefAttention({
                 title={isDone ? "Mark incomplete" : "Mark complete"}
                 className={
                   isDone
-                    ? "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-emerald-400/40 bg-emerald-500/20 text-emerald-200 transition-colors hover:bg-emerald-500/30"
-                    : "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-[11px] font-semibold tabular-nums text-amber-200 transition-colors hover:bg-amber-500/35"
+                    ? "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-[var(--jos-line)] bg-rung-4  transition-colors hover:bg-rung-4"
+                    : "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-rung-2 text-[11px] font-semibold tabular-nums  transition-colors hover:bg-rung-2"
                 }
               >
                 {isDone ? <Check className="h-3 w-3" strokeWidth={3} /> : i + 1}

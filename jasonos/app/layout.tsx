@@ -7,7 +7,7 @@ import { JasonOsChrome } from "@/components/jasonos/jasonos-chrome";
 
 const hanken = Hanken_Grotesk({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500", "600", "700", "800", "900"],
   variable: "--font-hanken",
   display: "swap",
 });
@@ -34,7 +34,7 @@ export default function RootLayout({
       className={`${hanken.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      <body className="min-h-full flex flex-col bg-background text-foreground max-[900px]:pr-[72px]">
         <TooltipProvider delay={150}>
           <JasonOsChrome />
           <main className="flex-1">{children}</main>

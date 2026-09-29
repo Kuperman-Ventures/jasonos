@@ -9,9 +9,9 @@ import {
 import { focusBadgeText, focusLabel } from "@/lib/reconnect/firm-focus";
 
 const STYLE_MAP: Record<string, string> = {
-  anchor:    "bg-red-600/15 text-red-300 border-red-600/30 font-semibold tracking-wide",
-  secondary: "bg-amber-500/15 text-amber-300 border-amber-500/30",
-  tertiary:  "bg-amber-500/10 text-amber-200/70 border-amber-500/20",
+  anchor:    "bg-rung-1  border-rung-1 font-semibold tracking-wide",
+  secondary: "bg-rung-2  border-[var(--jos-line)]",
+  tertiary:  "bg-rung-2  border-[var(--jos-line)]",
   bench:     "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",
 };
 

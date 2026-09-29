@@ -67,20 +67,20 @@ function fmtUsd(n: number) {
 
 function statusColor(s: ServiceStatus) {
   switch (s) {
-    case "ok":           return "text-emerald-400";
-    case "warning":      return "text-amber-400";
-    case "critical":     return "text-red-400";
-    case "error":        return "text-red-500";
+    case "ok":           return "text-rung-ink";
+    case "warning":      return "text-rung-ink";
+    case "critical":     return "text-rung-1";
+    case "error":        return "text-rung-1";
     case "unconfigured": return "text-muted-foreground";
   }
 }
 
 function statusBg(s: ServiceStatus) {
   switch (s) {
-    case "ok":           return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-    case "warning":      return "bg-amber-500/10 text-amber-400 border-amber-500/20";
-    case "critical":     return "bg-red-500/10 text-red-400 border-red-500/20";
-    case "error":        return "bg-red-500/10 text-red-500 border-red-500/20";
+    case "ok":           return "bg-rung-4  border-[var(--jos-line)]";
+    case "warning":      return "bg-rung-2  border-[var(--jos-line)]";
+    case "critical":     return "bg-rung-1  border-rung-1";
+    case "error":        return "bg-rung-1  border-rung-1";
     case "unconfigured": return "bg-muted/60 text-muted-foreground border-border";
   }
 }
@@ -106,9 +106,9 @@ function apiStatus(d: ApiServiceData, budget?: number): ServiceStatus {
 }
 
 function progressBarColor(pct: number) {
-  if (pct >= 90) return "bg-red-500";
-  if (pct >= 70) return "bg-amber-500";
-  return "bg-emerald-500";
+  if (pct >= 90) return "bg-rung-1";
+  if (pct >= 70) return "bg-rung-2";
+  return "bg-rung-4";
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -222,8 +222,8 @@ function ApiServiceCard({
   return (
     <div className={cn(
       "rounded-xl border p-4 flex flex-col gap-3 transition-colors",
-      status === "critical" ? "border-red-500/30 bg-red-500/5"
-        : status === "warning" ? "border-amber-500/30 bg-amber-500/5"
+      status === "critical" ? "border-rung-1 bg-rung-1"
+        : status === "warning" ? "border-[var(--jos-line)] bg-rung-2"
         : "border-border bg-card/40"
     )}>
       {/* Header */}
@@ -272,7 +272,7 @@ function ApiServiceCard({
 
       {/* Error state */}
       {data.configured && data.error && (
-        <p className="text-xs text-red-400/80 rounded-lg bg-red-500/10 px-3 py-2">
+        <p className="text-xs  rounded-lg bg-rung-1 px-3 py-2">
           {data.error}
         </p>
       )}
@@ -298,7 +298,7 @@ function ApiServiceCard({
               <StatCell
                 label="Credit balance"
                 value={
-                  <span className={data.creditBalanceUsd < 5 ? "text-red-400" : data.creditBalanceUsd < 20 ? "text-amber-400" : "text-foreground"}>
+                  <span className={data.creditBalanceUsd < 5 ? "text-rung-1" : data.creditBalanceUsd < 20 ? "text-rung-ink" : "text-foreground"}>
                     {fmtUsd(data.creditBalanceUsd)}
                   </span>
                 }
@@ -448,7 +448,7 @@ function EditDialog({ serviceKey, serviceName, config, hasUsageTracking, onSave,
               onClick={() => set("enabled", !form.enabled)}
               className={cn(
                 "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
-                form.enabled ? "bg-emerald-500" : "bg-muted"
+                form.enabled ? "bg-rung-4" : "bg-muted"
               )}
             >
               <span className={cn(
@@ -575,10 +575,10 @@ function EditDialog({ serviceKey, serviceName, config, hasUsageTracking, onSave,
 // ─── Subscription Card ────────────────────────────────────────────────────────
 
 const SERVICE_META: Record<SubscriptionKey, { name: string; href: string; color: string }> = {
-  claudeAi:   { name: "Claude.ai",   href: "https://claude.ai",      color: "text-orange-400" },
-  chatgpt:    { name: "ChatGPT",     href: "https://chat.openai.com", color: "text-emerald-400" },
-  cursor:     { name: "Cursor",      href: "https://cursor.sh",       color: "text-blue-400" },
-  perplexity: { name: "Perplexity",  href: "https://perplexity.ai",   color: "text-purple-400" },
+  claudeAi:   { name: "Claude.ai",   href: "https://claude.ai",      color: "text-rung-ink" },
+  chatgpt:    { name: "ChatGPT",     href: "https://chat.openai.com", color: "text-rung-ink" },
+  cursor:     { name: "Cursor",      href: "https://cursor.sh",       color: "text-rung-3" },
+  perplexity: { name: "Perplexity",  href: "https://perplexity.ai",   color: "text-rung-ink" },
 };
 
 function SubscriptionCard({
@@ -607,8 +607,8 @@ function SubscriptionCard({
     <div className={cn(
       "rounded-xl border p-4 flex flex-col gap-3",
       !config.enabled ? "border-border/40 bg-card/20 opacity-60"
-        : status === "critical" ? "border-red-500/30 bg-red-500/5"
-        : status === "warning" ? "border-amber-500/30 bg-amber-500/5"
+        : status === "critical" ? "border-rung-1 bg-rung-1"
+        : status === "warning" ? "border-[var(--jos-line)] bg-rung-2"
         : "border-border bg-card/40"
     )}>
       <div className="flex items-start justify-between gap-2">
@@ -672,9 +672,9 @@ function SubscriptionCard({
                 value={
                   <span className={
                     daysUntilRenewal !== null && daysUntilRenewal <= 3
-                      ? "text-red-400"
+                      ? "text-rung-1"
                       : daysUntilRenewal !== null && daysUntilRenewal <= 7
-                      ? "text-amber-400"
+                      ? "text-rung-ink"
                       : "text-foreground"
                   }>
                     {renewalLabel}
@@ -742,9 +742,9 @@ function OverallStatusBanner({ payload }: { payload: AiUsagePayload }) {
 
   if (criticals.length > 0) {
     return (
-      <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 flex items-center gap-3">
-        <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
-        <p className="text-sm text-red-300">
+      <div className="rounded-lg border border-rung-1 bg-rung-1 px-4 py-3 flex items-center gap-3">
+        <AlertCircle className="h-4 w-4 text-rung-1 shrink-0" />
+        <p className="text-sm text-rung-1">
           <span className="font-semibold">Action needed:</span>{" "}
           {criticals.join(", ")} {criticals.length === 1 ? "needs" : "need"} attention.
         </p>
@@ -754,9 +754,9 @@ function OverallStatusBanner({ payload }: { payload: AiUsagePayload }) {
 
   if (warnings.length > 0) {
     return (
-      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 flex items-center gap-3">
-        <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
-        <p className="text-sm text-amber-300">
+      <div className="rounded-lg border border-[var(--jos-line)] bg-rung-2 px-4 py-3 flex items-center gap-3">
+        <AlertTriangle className="h-4 w-4 text-rung-ink shrink-0" />
+        <p className="text-sm text-rung-ink">
           <span className="font-semibold">Heads up:</span>{" "}
           {warnings.join(", ")} {warnings.length === 1 ? "is" : "are"} approaching limits.
         </p>
@@ -765,9 +765,9 @@ function OverallStatusBanner({ payload }: { payload: AiUsagePayload }) {
   }
 
   return (
-    <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 flex items-center gap-3">
-      <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-      <p className="text-sm text-emerald-300">All AI services are within normal usage levels.</p>
+    <div className="rounded-lg border border-[var(--jos-line)] bg-rung-4 px-4 py-3 flex items-center gap-3">
+      <CheckCircle2 className="h-4 w-4 text-rung-ink shrink-0" />
+      <p className="text-sm text-rung-ink">All AI services are within normal usage levels.</p>
     </div>
   );
 }

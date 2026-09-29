@@ -302,14 +302,14 @@ export function ActivityLogClient({ data }: { data: WeeklyActivityLog }) {
     <div className="mx-auto max-w-4xl space-y-5 px-4 py-6">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-orange-300">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-rung-ink">
             <Radar className="h-4 w-4" />
             Networking Status Report
           </div>
           <h1 className="mt-2 text-2xl font-semibold tracking-tight">
             {fmtRange(data.weekStart, data.weekEnd)}
             {data.isCurrentWeek ? (
-              <span className="ml-2 align-middle text-[11px] font-medium uppercase tracking-wider text-emerald-300">
+              <span className="ml-2 align-middle text-[11px] font-medium uppercase tracking-wider text-rung-ink">
                 Latest week
               </span>
             ) : null}
@@ -345,7 +345,7 @@ export function ActivityLogClient({ data }: { data: WeeklyActivityLog }) {
       {/* Outreach */}
       <section className="rounded-xl border bg-card/40">
         <header className="flex items-center gap-2 border-b px-4 py-2.5">
-          <Radar className="h-4 w-4 text-sky-300" />
+          <Radar className="h-4 w-4 text-rung-3" />
           <h2 className="text-sm font-semibold tracking-tight">Outreach</h2>
         </header>
         <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
@@ -407,7 +407,7 @@ export function ActivityLogClient({ data }: { data: WeeklyActivityLog }) {
                       <span className="text-xs text-muted-foreground">· {c.firm}</span>
                     ) : null}
                     {c.referredBy ? (
-                      <span className="text-[11px] text-emerald-300/90">
+                      <span className="text-[11px] text-rung-ink">
                         · introduced by {c.referredBy}
                       </span>
                     ) : null}
@@ -422,7 +422,7 @@ export function ActivityLogClient({ data }: { data: WeeklyActivityLog }) {
       {/* Browning */}
       <section className="rounded-xl border bg-card/40">
         <header className="flex items-center gap-2 border-b px-4 py-2.5">
-          <Flame className="h-4 w-4 text-rose-300" />
+          <Flame className="h-4 w-4 text-rung-1" />
           <h2 className="text-sm font-semibold tracking-tight">Browning coaching loop</h2>
         </header>
         <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-4">
@@ -458,7 +458,7 @@ export function ActivityLogClient({ data }: { data: WeeklyActivityLog }) {
                   {r.firm ? (
                     <span className="text-xs text-muted-foreground">· {r.firm}</span>
                   ) : null}
-                  <span className="text-[11px] text-emerald-300/90">
+                  <span className="text-[11px] text-rung-ink">
                     · introduced by {r.referredBy}
                   </span>
                   <span className="text-[11px] text-muted-foreground">· {r.referredAt}</span>

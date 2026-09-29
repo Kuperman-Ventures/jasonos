@@ -103,7 +103,7 @@ export function BrowningNetworkingClient({
         >
           Check for new handoffs
         </Button>
-        {page.error ? <p className="text-xs text-red-400">{page.error}</p> : null}
+        {page.error ? <p className="text-xs text-rung-1">{page.error}</p> : null}
         {page.handoffs.length === 0 ? (
           <p className="rounded-md border border-dashed px-3 py-6 text-xs text-muted-foreground">
             No handoffs yet. The check looks in Gmail and Outlook for Tracy&apos;s copy-you email.
@@ -233,7 +233,7 @@ function HandoffDetail({
         ) : null}
       </header>
       {handoff.existingContactId ? (
-        <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs">
+        <p className="rounded-md border border-[var(--jos-line)] bg-rung-2 px-3 py-2 text-xs">
           This person is already in your contacts. This page will not change that record.
         </p>
       ) : null}

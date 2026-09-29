@@ -22,7 +22,7 @@ export function CrossTrackKpis({
           <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
             {k.label}
             {k.source === "live" ? (
-              <span className="inline-block h-1 w-1 rounded-full bg-emerald-400" />
+              <span className="inline-block h-1 w-1 rounded-full bg-rung-4" />
             ) : null}
           </div>
           {k.empty ? (
@@ -32,7 +32,7 @@ export function CrossTrackKpis({
               <div
                 className={cn(
                   "num-mono text-lg font-semibold tracking-tight",
-                  k.alarm && "text-rose-400"
+                  k.alarm && "text-rung-1"
                 )}
               >
                 {k.value}

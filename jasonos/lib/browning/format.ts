@@ -18,9 +18,9 @@ import type {
  */
 export function warmthColorClass(value: number | null): string {
   if (value === null || Number.isNaN(value)) return "text-muted-foreground";
-  if (value <= 2.9) return "text-red-400";
-  if (value < 4.0) return "text-amber-300";
-  return "text-emerald-300";
+  if (value <= 2.9) return "text-rung-1";
+  if (value < 4.0) return "text-rung-ink";
+  return "text-rung-ink";
 }
 
 /** Background-tinted variant for chips/pills. */
@@ -29,12 +29,12 @@ export function warmthBgClass(value: number | null): string {
     return "bg-muted/40 text-muted-foreground border-border";
   }
   if (value <= 2.9) {
-    return "bg-red-500/15 text-red-300 border-red-500/30";
+    return "bg-rung-1  border-rung-1";
   }
   if (value < 4.0) {
-    return "bg-amber-500/15 text-amber-200 border-amber-500/30";
+    return "bg-rung-2  border-[var(--jos-line)]";
   }
-  return "bg-emerald-500/15 text-emerald-200 border-emerald-500/30";
+  return "bg-rung-4  border-[var(--jos-line)]";
 }
 
 /** Single-score (1–5) color for the toggle group buttons. */
@@ -43,12 +43,12 @@ export function scoreButtonClass(value: number, active: boolean): string {
     return "border-border text-muted-foreground hover:text-foreground";
   }
   if (value <= 2) {
-    return "border-red-500/60 bg-red-500/15 text-red-300";
+    return "border-rung-1 bg-rung-1 ";
   }
   if (value === 3) {
-    return "border-amber-500/60 bg-amber-500/15 text-amber-200";
+    return "border-[var(--jos-line)] bg-rung-2 ";
   }
-  return "border-emerald-500/60 bg-emerald-500/15 text-emerald-200";
+  return "border-[var(--jos-line)] bg-rung-4 ";
 }
 
 export const GATE_STATUS_TONE: Record<
@@ -60,20 +60,20 @@ export const GATE_STATUS_TONE: Record<
     chip: "bg-muted/40 text-muted-foreground border-border",
   },
   in_progress: {
-    dot: "bg-sky-400",
-    chip: "bg-sky-500/15 text-sky-300 border-sky-500/30",
+    dot: "bg-rung-3",
+    chip: "bg-rung-3  border-rung-3",
   },
   blocked_browning: {
-    dot: "bg-amber-400",
-    chip: "bg-amber-500/15 text-amber-200 border-amber-500/30",
+    dot: "bg-rung-2",
+    chip: "bg-rung-2  border-[var(--jos-line)]",
   },
   blocked_me: {
-    dot: "bg-orange-400",
-    chip: "bg-orange-500/15 text-orange-200 border-orange-500/30",
+    dot: "bg-rung-2",
+    chip: "bg-rung-2  border-[var(--jos-line)]",
   },
   completed: {
-    dot: "bg-emerald-400",
-    chip: "bg-emerald-500/15 text-emerald-200 border-emerald-500/30",
+    dot: "bg-rung-4",
+    chip: "bg-rung-4  border-[var(--jos-line)]",
   },
 };
 
@@ -82,10 +82,10 @@ export const DELIVERED_STATUS_TONE: Record<
   string
 > = {
   yes_on_time:
-    "bg-emerald-500/15 text-emerald-200 border-emerald-500/30",
-  yes_late: "bg-sky-500/15 text-sky-200 border-sky-500/30",
-  partial: "bg-amber-500/15 text-amber-200 border-amber-500/30",
-  no: "bg-red-500/15 text-red-300 border-red-500/30",
+    "bg-rung-4  border-[var(--jos-line)]",
+  yes_late: "bg-rung-3  border-rung-3",
+  partial: "bg-rung-2  border-[var(--jos-line)]",
+  no: "bg-rung-1  border-rung-1",
   na: "bg-muted/40 text-muted-foreground border-border",
 };
 

@@ -116,7 +116,7 @@ export function ResearchBriefLayout({
                       href={s.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex max-w-full items-start gap-1.5 text-xs text-sky-300 underline decoration-sky-400/40 underline-offset-2 hover:text-sky-200"
+                      className="inline-flex max-w-full items-start gap-1.5 text-xs text-rung-3 underline decoration-[var(--jos-line)] underline-offset-2 hover:text-rung-3"
                     >
                       <span className="min-w-0 break-words">
                         {s.title?.trim() || s.url}

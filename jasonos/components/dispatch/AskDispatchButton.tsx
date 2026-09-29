@@ -61,11 +61,11 @@ export function AskDispatchButton({
       disabled={sending}
       onClick={send}
       className={cn(
-        "gap-1.5 border-indigo-400/40 bg-indigo-500/10 text-indigo-100 hover:border-indigo-300/70 hover:bg-indigo-500/20",
+        "gap-1.5 border-rung-3 bg-rung-3  hover:border-rung-3 hover:bg-rung-3",
         className
       )}
     >
-      <Radio className="h-3.5 w-3.5 text-violet-300" />
+      <Radio className="h-3.5 w-3.5 text-rung-ink" />
       {sending ? "Sending..." : label}
     </Button>
   );

@@ -2,9 +2,9 @@ import { cn } from "@/lib/utils";
 import type { RecruiterTier } from "@/lib/reconnect/types";
 
 const TIER_CLASS: Record<RecruiterTier, string> = {
-  "TIER 1": "bg-red-600 text-white",
-  "TIER 2": "bg-orange-500 text-white",
-  "TIER 3": "bg-yellow-400 text-zinc-900",
+  "TIER 1": "bg-rung-1 text-white",
+  "TIER 2": "bg-rung-2 ",
+  "TIER 3": "bg-rung-2 text-zinc-900",
   "TIER 4": "bg-zinc-700 text-zinc-300",
 };
 

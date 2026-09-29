@@ -13,9 +13,9 @@ import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-ba
 import type { OutreachPerson, WarmthReminder, WarmthUrgency } from "@/lib/outreach/data";
 
 const URGENCY_CLASS: Record<WarmthUrgency, string> = {
-  critical: "border-red-500/40 bg-red-500/10 text-red-300",
-  high: "border-amber-500/40 bg-amber-500/10 text-amber-300",
-  medium: "border-yellow-500/30 bg-yellow-500/5 text-yellow-300",
+  critical: "border-rung-1 bg-rung-1 ",
+  high: "border-[var(--jos-line)] bg-rung-2 ",
+  medium: "border-[var(--jos-line)] bg-rung-2 ",
 };
 
 const URGENCY_LABEL: Record<WarmthUrgency, string> = {
@@ -50,10 +50,10 @@ export function WarmthWidget({ reminders, initialLimit = 4 }: WarmthWidgetProps)
 
   return (
     <>
-      <section className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+      <section className="rounded-xl border border-[var(--jos-line)] bg-rung-2 px-4 py-3">
         <header className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-400" />
+            <AlertTriangle className="h-4 w-4 text-rung-ink" />
             <h2 className="text-sm font-semibold tracking-tight">
               Cadence drift
             </h2>
@@ -65,7 +65,7 @@ export function WarmthWidget({ reminders, initialLimit = 4 }: WarmthWidgetProps)
           </div>
         </header>
 
-        <ul className="mt-2 divide-y divide-amber-500/15">
+        <ul className="mt-2 divide-y divide-[var(--jos-line)]">
           {visible.map((r) => (
             <WarmthRow
               key={r.person.id}
@@ -133,7 +133,7 @@ function WarmthRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           {reminder.person.vip ? (
-            <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" />
+            <Star className="h-3 w-3 shrink-0 fill-[var(--jos-line)] text-rung-ink" />
           ) : null}
           <span className="truncate text-sm font-medium">
             {reminder.person.name}

@@ -233,7 +233,7 @@ export function EngagementsList({
                   type="button"
                   disabled={pending}
                   onClick={() => remove(t)}
-                  className="inline-flex items-center gap-1 rounded border border-red-500/40 px-1.5 py-1 text-[10px] text-red-300 hover:bg-red-500/10 disabled:opacity-50"
+                  className="inline-flex items-center gap-1 rounded border border-rung-1 px-1.5 py-1 text-[10px]  hover:bg-rung-1 disabled:opacity-50"
                 >
                   <Trash2 className="h-3 w-3" />
                   Delete
@@ -252,7 +252,7 @@ export function EngagementsList({
                     type="button"
                     disabled={pending}
                     onClick={() => save(t)}
-                    className="inline-flex items-center gap-1 rounded border border-emerald-500/40 px-1.5 py-1 text-[10px] text-emerald-300 hover:bg-emerald-500/10 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded border border-[var(--jos-line)] px-1.5 py-1 text-[10px]  hover:bg-rung-4 disabled:opacity-50"
                   >
                     {pending ? (
                       <Loader2 className="h-3 w-3 animate-spin" />
@@ -276,8 +276,8 @@ export function EngagementsList({
               className={cn(
                 "mt-[1px] shrink-0 rounded-sm border px-1 py-0.5 text-[9px] uppercase",
                 t.direction === "outbound"
-                  ? "border-emerald-500/40 text-emerald-300"
-                  : "border-sky-500/40 text-sky-300"
+                  ? "border-[var(--jos-line)] text-rung-ink"
+                  : "border-rung-3 text-rung-3"
               )}
             >
               {channelLabel(t.channel)}

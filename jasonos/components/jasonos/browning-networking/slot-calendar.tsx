@@ -193,8 +193,8 @@ function SlotBlock({
   return (
     <div
       data-slot
-      className={`absolute inset-x-1 z-10 cursor-grab rounded border px-1 py-0.5 text-[10px] leading-tight text-amber-950 ${
-        conflict ? "border-red-700 bg-red-200" : "border-amber-700 bg-amber-300"
+      className={`absolute inset-x-1 z-10 cursor-grab rounded border px-1 py-0.5 text-[10px] leading-tight text-rung-ink ${
+        conflict ? "border-rung-1 bg-rung-1" : "border-[var(--jos-line)] bg-rung-2"
       } ${dragging ? "opacity-80" : ""}`}
       style={{ top, height }}
       onPointerDown={(event) => {

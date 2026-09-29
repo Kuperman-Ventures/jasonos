@@ -34,7 +34,7 @@ function OpportunityRow({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="font-medium text-sky-300 underline decoration-sky-400/40 underline-offset-2 hover:text-sky-200"
+      className="font-medium text-rung-3 underline decoration-[var(--jos-line)] underline-offset-2 hover:text-rung-3"
     >
       {job.title}
       <ExternalLink className="ml-1 inline h-3.5 w-3.5 opacity-70" />
@@ -53,7 +53,7 @@ function OpportunityRow({
         ) : null}
         <p className="text-sm leading-snug text-foreground/90">{titleNode}</p>
         {job.compensation ? (
-          <p className="text-xs tabular-nums text-amber-200/90">
+          <p className="text-xs tabular-nums text-rung-ink">
             {job.compensation}
           </p>
         ) : null}
@@ -68,7 +68,7 @@ function OpportunityRow({
           aria-label={`Delete ${label}`}
           disabled={pending}
           onClick={() => onDelete(job.id, label)}
-          className="rounded p-1 text-muted-foreground hover:bg-rose-500/15 hover:text-rose-300 disabled:opacity-40"
+          className="rounded p-1 text-muted-foreground hover:bg-rung-1  disabled:opacity-40"
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>

@@ -160,7 +160,7 @@ export function PhraseMemoryField({
                 className={cn(
                   "max-w-full truncate rounded-full border px-2.5 py-0.5 text-[11px] transition-colors",
                   active
-                    ? "border-orange-300/50 bg-orange-500/15 text-orange-100"
+                    ? "border-[var(--jos-line)] bg-rung-2 "
                     : "border-border bg-background/60 text-muted-foreground hover:border-foreground/30 hover:text-foreground"
                 )}
               >
@@ -194,7 +194,7 @@ export function PhraseMemoryField({
       )}
 
       {confirmOpen ? (
-        <div className="space-y-2 rounded-lg border border-orange-300/30 bg-orange-500/5 p-2.5">
+        <div className="space-y-2 rounded-lg border border-[var(--jos-line)] bg-rung-2 p-2.5">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -225,7 +225,7 @@ export function PhraseMemoryField({
                   className={cn(
                     "rounded-full border px-2.5 py-0.5 text-[11px] transition-colors",
                     on
-                      ? "border-orange-300/50 bg-orange-500/15 text-orange-100"
+                      ? "border-[var(--jos-line)] bg-rung-2 "
                       : "border-border bg-background/60 text-muted-foreground hover:border-foreground/30 hover:text-foreground"
                   )}
                 >

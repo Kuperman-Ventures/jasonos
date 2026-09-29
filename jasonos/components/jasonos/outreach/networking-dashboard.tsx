@@ -43,7 +43,7 @@ function ContactName({
       <button
         type="button"
         onClick={() => onOpen(id, name)}
-        className="font-medium text-sky-300 underline decoration-sky-400/30 underline-offset-2 hover:text-sky-200 hover:decoration-sky-300"
+        className="font-medium text-rung-3 underline decoration-[var(--jos-line)] underline-offset-2 hover:text-rung-3 hover:decoration-[var(--jos-line)]"
       >
         {name}
       </button>
@@ -108,7 +108,7 @@ function FigureCard({
       </p>
       <p
         className={`mt-1 text-4xl font-semibold tabular-nums leading-none ${
-          zeroHot ? "text-rose-300" : value > 0 && hotZero ? "text-emerald-300" : ""
+          zeroHot ? "text-rung-1" : value > 0 && hotZero ? "text-rung-ink" : ""
         }`}
       >
         {value}
@@ -244,7 +244,7 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
                         {o.company}
                         {o.company && o.role ? " · " : ""}
                         {o.role ? (
-                          <span className="text-sky-300/90">{o.role}</span>
+                          <span className="text-rung-3">{o.role}</span>
                         ) : null}
                       </p>
                     )}
@@ -315,7 +315,7 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
               {report.meetings.map((m) => (
                 <li
                   key={m.contactId}
-                  className="rounded-lg border-l-2 border-sky-400/40 pl-3"
+                  className="rounded-lg border-l-2 border-rung-3 pl-3"
                 >
                   <div className="text-sm">
                     <ContactName
@@ -341,7 +341,7 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
                     </p>
                   ) : null}
                   {m.referralsProduced > 0 ? (
-                    <p className="mt-1 text-[12px] text-sky-300/90">
+                    <p className="mt-1 text-[12px] text-rung-3">
                       Gave {m.referralsProduced} referral
                       {m.referralsProduced === 1 ? "" : "s"}
                     </p>
@@ -379,7 +379,7 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
                         {r.company}
                         {r.company && r.role ? " · " : ""}
                         {r.role ? (
-                          <span className="text-sky-300/90">{r.role}</span>
+                          <span className="text-rung-3">{r.role}</span>
                         ) : null}
                       </p>
                     ) : null}
@@ -410,7 +410,7 @@ export function NetworkingDashboard({ report }: { report: NetworkingReport }) {
                         ))}
                       </p>
                     ) : null}
-                    <p className="mt-0.5 text-[11px] text-amber-200/90">
+                    <p className="mt-0.5 text-[11px] text-rung-ink">
                       {r.followUpText}
                     </p>
                   </div>

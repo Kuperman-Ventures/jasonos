@@ -64,10 +64,10 @@ const CHECKBOX_BY_TRACK: Record<RepoTrack, string> = {
 };
 
 const ACCENT_BY_TRACK: Record<RepoTrack, string> = {
-  venture: "text-emerald-300",
-  advisors: "text-sky-300",
-  job_search: "text-violet-300",
-  personal: "text-amber-300",
+  venture: "text-rung-ink",
+  advisors: "text-rung-3",
+  job_search: "text-rung-ink",
+  personal: "text-rung-ink",
 };
 
 export function ThisWeekCard() {
@@ -217,7 +217,7 @@ export function ThisWeekCard() {
     return (
       <section className="rounded-xl border bg-card">
         <header className="flex items-center gap-2 border-b px-4 py-2.5">
-          <Target className="h-4 w-4 text-amber-400" />
+          <Target className="h-4 w-4 text-rung-ink" />
           <h2 className="text-sm font-semibold tracking-tight">This Week</h2>
         </header>
         <div className="px-4 py-3 text-[12px] text-muted-foreground">
@@ -230,9 +230,9 @@ export function ThisWeekCard() {
   }
 
   return (
-    <section className="rounded-xl border-2 border-sky-400/40 bg-card">
+    <section className="rounded-xl border-2 border-rung-3 bg-card">
       <header className="flex flex-wrap items-center gap-2 border-b px-4 py-2.5">
-        <Target className="h-4 w-4 text-sky-300" />
+        <Target className="h-4 w-4 text-rung-3" />
         <h2 className="text-sm font-semibold tracking-tight">
           This Week · W{displayWeek} of 12
         </h2>
@@ -266,7 +266,7 @@ export function ThisWeekCard() {
       </header>
 
       {(disrupted || note) ? (
-        <div className="border-b bg-amber-400/5 px-4 py-1.5 text-[11px] font-medium text-amber-300">
+        <div className="border-b bg-rung-2 px-4 py-1.5 text-[11px] font-medium ">
           {disrupted ? "⚠ Week marked disrupted" : ""}
           {disrupted && note ? " · " : ""}
           {note}
@@ -277,7 +277,7 @@ export function ThisWeekCard() {
         <div className="flex items-center gap-3">
           <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
             <div
-              className="absolute inset-y-0 left-0 bg-sky-400/80 transition-[width] duration-300"
+              className="absolute inset-y-0 left-0 bg-rung-3 transition-[width] duration-300"
               style={{ width: `${progressPct}%` }}
             />
           </div>
@@ -350,7 +350,7 @@ export function ThisWeekCard() {
                         >
                           {task.text}
                           {task.pushedFrom != null ? (
-                            <span className="ml-1 text-[11px] text-amber-300">
+                            <span className="ml-1 text-[11px] text-rung-ink">
                               (pushed from W{task.pushedFrom})
                             </span>
                           ) : null}

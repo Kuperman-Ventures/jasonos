@@ -100,8 +100,8 @@ export function HealthDetailSheet({
                         className={cn(
                           "rounded px-1.5 py-0.5 num-mono text-[10px]",
                           r.ok
-                            ? "bg-emerald-500/10 text-emerald-300"
-                            : "bg-rose-500/10 text-rose-300"
+                            ? "bg-rung-4 "
+                            : "bg-rung-1 "
                         )}
                       >
                         {r.status_code ?? "—"}
@@ -111,7 +111,7 @@ export function HealthDetailSheet({
                       className={cn(
                         "num-mono whitespace-nowrap px-2 py-1.5 text-right",
                         r.response_time_ms != null && r.response_time_ms > 2000
-                          ? "text-amber-400"
+                          ? "text-rung-ink"
                           : "text-muted-foreground"
                       )}
                     >

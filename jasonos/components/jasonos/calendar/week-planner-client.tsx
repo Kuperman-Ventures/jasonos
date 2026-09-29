@@ -175,7 +175,7 @@ function AllocationEditor({
           {Object.entries(draft).map(([track, cfg]) => {
             const total = pctTotal(track);
             const hasSubs = Object.keys(cfg.subTracks).length > 0;
-            const totalCls = total > 100 ? "text-destructive" : total === 100 ? "text-green-500" : "text-amber-400";
+            const totalCls = total > 100 ? "text-destructive" : total === 100 ? "text-rung-ink" : "text-rung-ink";
             return (
               <div key={track} className="rounded-lg border border-border p-3">
                 <div className="flex items-center justify-between mb-2">
@@ -253,7 +253,7 @@ function HealthDetailModal({ detail, onClose }: { detail: { title: string; targe
                       <p className="truncate text-xs font-semibold text-foreground">{it.title}</p>
                       <p className="mt-0.5 text-[11px] text-muted-foreground">{it.source === "cosa-calendar" ? "CoSA calendar" : "Personal calendar · tagged"}</p>
                       {it.rawSubTrack && <p className="mt-0.5 text-[11px] text-muted-foreground">Sub-track: &quot;{it.rawSubTrack}&quot;</p>}
-                      {it.splitNote && <p className="mt-0.5 text-[11px] text-amber-400">{it.splitNote}</p>}
+                      {it.splitNote && <p className="mt-0.5 text-[11px] text-rung-ink">{it.splitNote}</p>}
                     </div>
                     <div className="shrink-0 text-right">
                       <p className="text-[11px] font-medium text-foreground">{it.minutes}m</p>
@@ -300,8 +300,8 @@ function HealthBars({
         const scheduled = totals[track]?.total ?? 0;
         const color = healthColor(scheduled, cfg.weekly);
         const pct = cfg.weekly > 0 ? Math.min(100, (scheduled / cfg.weekly) * 100) : 0;
-        const barCls = color === "green" ? "bg-green-500" : color === "yellow" ? "bg-amber-400" : "bg-red-400";
-        const textCls = color === "green" ? "text-green-400" : color === "yellow" ? "text-amber-400" : "text-red-400";
+        const barCls = color === "green" ? "bg-rung-4" : color === "yellow" ? "bg-rung-2" : "bg-rung-1";
+        const textCls = color === "green" ? "text-rung-ink" : color === "yellow" ? "text-rung-ink" : "text-rung-1";
         return (
           <div key={track}>
             <button type="button" onClick={() => onOpenDetail({ title: `${TRACK_LABELS[track]} — all calendar time`, targetMins: cfg.weekly, items: contributors[track]?.all ?? [] })}
@@ -318,7 +318,7 @@ function HealthBars({
               const stSched = totals[track]?.sub[st] ?? 0;
               const stColor = healthColor(stSched, tgt);
               const stPct = tgt > 0 ? Math.min(100, (stSched / tgt) * 100) : 0;
-              const stBar = stColor === "green" ? "bg-green-400" : stColor === "yellow" ? "bg-amber-300" : "bg-red-300";
+              const stBar = stColor === "green" ? "bg-rung-4" : stColor === "yellow" ? "bg-rung-2" : "bg-rung-1";
               return (
                 <div key={st} className="ml-2 mt-1">
                   <button type="button" onClick={() => onOpenDetail({ title: `${TRACK_LABELS[track]} — ${st}`, targetMins: tgt, items: contributors[track]?.bySub[st] ?? [] })}
@@ -429,7 +429,7 @@ function CalendarEventBlock({
   }
 
   const baseCls = isUntaggedCosa
-    ? "border border-dashed border-amber-400/60 bg-amber-500/10 hover:bg-amber-500/20"
+    ? "border border-dashed border-[var(--jos-line)] bg-rung-2 hover:bg-rung-2"
     : needsTag
     ? "border border-dashed border-border bg-muted hover:bg-muted/80"
     : "border-l-2 shadow-sm hover:brightness-95";
@@ -439,7 +439,7 @@ function CalendarEventBlock({
       style={{ top, height, borderColor: needsTag ? undefined : color, backgroundColor: needsTag ? undefined : (isUntaggedCosa ? undefined : `${color}22`) }}
       onClick={handleClick}>
       <div className="flex items-start justify-between gap-0.5">
-        <span className={`leading-tight font-medium truncate ${needsTag ? (isUntaggedCosa ? "text-amber-400" : "text-muted-foreground") : "text-foreground"}`}>
+        <span className={`leading-tight font-medium truncate ${needsTag ? (isUntaggedCosa ? "text-rung-ink" : "text-muted-foreground") : "text-foreground"}`}>
           {ev.summary ?? "(no title)"}
         </span>
         {(isPersonal || isUntaggedCosa) && (
@@ -449,7 +449,7 @@ function CalendarEventBlock({
         )}
       </div>
       {height >= 32 && (
-        <div className={`leading-none ${isUntaggedCosa ? "text-amber-400" : "text-muted-foreground"}`}>
+        <div className={`leading-none ${isUntaggedCosa ? "text-rung-ink" : "text-muted-foreground"}`}>
           {minsToTimeStr(startMins)} · {dur}m
         </div>
       )}
@@ -1008,7 +1008,7 @@ export function WeekPlannerClient({
           {(loading || isPending) && <Loader2 size={14} className="animate-spin text-muted-foreground" />}
           {error && <span className="text-xs text-destructive">{error}</span>}
           {!weekData.googleConnected && (
-            <a href="/settings" className="text-xs text-amber-400 hover:underline">Connect Google to sync calendar</a>
+            <a href="/settings" className="text-xs text-rung-ink hover:underline">Connect Google to sync calendar</a>
           )}
           <button type="button" onClick={refresh} className="rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-muted">Refresh</button>
           <button type="button" onClick={() => setLogModal({ date: weekDates[0].date, startMins: 9 * 60 })}

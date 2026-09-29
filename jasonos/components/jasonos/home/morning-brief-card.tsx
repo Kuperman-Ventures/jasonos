@@ -113,7 +113,7 @@ function CalendarBlock({
         <ul className="min-w-0 divide-y divide-border overflow-hidden rounded-lg border bg-background/40">
           {items.map((ev, i) => (
             <li key={i} className="flex min-w-0 items-start gap-3 px-3 py-2.5">
-              <span className="w-[7.25rem] shrink-0 pt-0.5 text-[12px] font-medium tabular-nums leading-snug text-sky-200/90 sm:w-[8.5rem]">
+              <span className="w-[7.25rem] shrink-0 pt-0.5 text-[12px] font-medium tabular-nums leading-snug text-rung-3 sm:w-[8.5rem]">
                 {ev.time || "—"}
               </span>
               <div className="min-w-0 flex-1 space-y-0.5 [overflow-wrap:anywhere]">
@@ -134,8 +134,8 @@ function CalendarBlock({
       ) : null}
       {note ? (
         /conflict/i.test(note) ? (
-          <p className="mt-2 min-w-0 rounded-md border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-[12px] leading-snug text-amber-100/90 [overflow-wrap:anywhere]">
-            <span className="font-semibold text-amber-200">Conflict · </span>
+          <p className="mt-2 min-w-0 rounded-md border border-[var(--jos-line)] bg-rung-2 px-3 py-2 text-[12px] leading-snug  [overflow-wrap:anywhere]">
+            <span className="font-semibold text-rung-ink">Conflict · </span>
             <BriefText text={note.replace(/^conflict:\s*/i, "")} />
           </p>
         ) : (
@@ -165,7 +165,7 @@ function NewsletterBlock({
 }
 
 const briefMarkdownLinkClass =
-  "font-medium text-sky-300 underline decoration-sky-400/40 underline-offset-2 hover:text-sky-200";
+  "font-medium text-rung-3 underline decoration-[var(--jos-line)] underline-offset-2 hover:text-rung-3";
 
 function BriefMarkdownLink({
   href,
@@ -301,7 +301,7 @@ function DayNav({ brief }: { brief: PublishedMorningBrief }) {
       {brief.isStale ? (
         <Link
           href={TODAY_HREF}
-          className="rounded-md px-2 py-1 text-[11px] font-medium text-sky-300 transition-colors hover:text-sky-200"
+          className="rounded-md px-2 py-1 text-[11px] font-medium text-rung-3 transition-colors hover:text-rung-3"
         >
           Jump to latest
         </Link>
@@ -342,7 +342,7 @@ export async function MorningBriefCard({
       <h2 className="text-sm font-semibold tracking-tight">Morning Brief</h2>
       {brief ? (
         brief.isStale ? (
-          <span className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-rose-400/40 bg-rose-500/15 px-2 py-0.5 text-[11px] font-medium text-rose-200">
+          <span className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-rung-1 bg-rung-1 px-2 py-0.5 text-[11px] font-medium ">
             <AlertTriangle className="h-3 w-3" />
             {formatAsOf(brief.briefDate)}
           </span>
@@ -358,17 +358,17 @@ export async function MorningBriefCard({
   return (
     <MorningBriefCollapse header={header}>
       {brief?.isStale ? (
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-rose-400/30 bg-rose-500/15 px-4 py-2 text-[12px] leading-snug text-rose-100/90">
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-rose-300" />
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-rung-1 bg-rung-1 px-4 py-2 text-[12px] leading-snug ">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-rung-1" />
           <span>
-            <span className="font-semibold text-rose-200">Out of date · </span>
+            <span className="font-semibold text-rung-1">Out of date · </span>
             Showing {formatTodayLabel(brief.briefDate)}
             {staleDays > 0 ? ` (${stalenessLabel(staleDays)})` : ""}. Today&rsquo;s
             brief hasn&rsquo;t published yet.
           </span>
           <Link
             href={TODAY_HREF}
-            className="font-medium text-sky-300 underline decoration-sky-400/40 underline-offset-2 hover:text-sky-200"
+            className="font-medium text-rung-3 underline decoration-[var(--jos-line)] underline-offset-2 hover:text-rung-3"
           >
             Back to latest
           </Link>

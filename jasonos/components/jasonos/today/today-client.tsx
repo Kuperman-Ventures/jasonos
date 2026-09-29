@@ -391,7 +391,7 @@ export function TodayClient({ initialTasks, initialSessions, date }: Props) {
               type="button"
               onClick={handleStart}
               disabled={isTerminal}
-              className="flex items-center justify-center gap-1 rounded-md bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-40"
+              className="flex items-center justify-center gap-1 rounded-md bg-rung-4 px-3 py-2 text-sm font-medium text-white hover:bg-rung-4 disabled:opacity-40"
             >
               ▶ Start
             </button>
@@ -399,7 +399,7 @@ export function TodayClient({ initialTasks, initialSessions, date }: Props) {
               type="button"
               onClick={handlePause}
               disabled={isTerminal || !isRunning}
-              className="flex items-center justify-center gap-1 rounded-md bg-amber-500 px-3 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:opacity-40"
+              className="flex items-center justify-center gap-1 rounded-md bg-rung-2 px-3 py-2 text-sm font-medium hover:bg-rung-2 disabled:opacity-40"
             >
               ⏸ Pause
             </button>
@@ -407,7 +407,7 @@ export function TodayClient({ initialTasks, initialSessions, date }: Props) {
               type="button"
               onClick={handleComplete}
               disabled={isTerminal || activeSession?.timerState === "notStarted"}
-              className="flex items-center justify-center gap-1 rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+              className="flex items-center justify-center gap-1 rounded-md bg-rung-3 px-3 py-2 text-sm font-medium text-white hover:bg-rung-3 disabled:opacity-40"
             >
               ✓ Done
             </button>
@@ -415,7 +415,7 @@ export function TodayClient({ initialTasks, initialSessions, date }: Props) {
               type="button"
               onClick={handleFullCredit}
               disabled={isTerminal || activeSession?.timerState === "notStarted"}
-              className="flex items-center justify-center gap-1 rounded-md border border-blue-600/40 bg-blue-900/30 px-3 py-2 text-sm font-medium text-blue-300 hover:bg-blue-900/60 disabled:opacity-40"
+              className="flex items-center justify-center gap-1 rounded-md border border-rung-3 bg-rung-3 px-3 py-2 text-sm font-medium  hover:bg-rung-3 disabled:opacity-40"
               title="Credit full estimate regardless of elapsed time"
             >
               ✓ Full
@@ -424,7 +424,7 @@ export function TodayClient({ initialTasks, initialSessions, date }: Props) {
               type="button"
               onClick={handleCancel}
               disabled={isTerminal || activeSession?.timerState === "notStarted"}
-              className="flex items-center justify-center gap-1 rounded-md bg-rose-600 px-3 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-40"
+              className="flex items-center justify-center gap-1 rounded-md bg-rung-1 px-3 py-2 text-sm font-medium text-white hover:bg-rung-1 disabled:opacity-40"
             >
               ✕ Cancel
             </button>
@@ -475,7 +475,7 @@ export function TodayClient({ initialTasks, initialSessions, date }: Props) {
                         <button
                           type="button"
                           onClick={() => setKpiVal(activeTask.id, kpi.id, val === true ? null : true)}
-                          className={`rounded px-3 py-1 text-xs font-semibold transition ${val === true ? "bg-emerald-600 text-white" : "border border-border bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                          className={`rounded px-3 py-1 text-xs font-semibold transition ${val === true ? "bg-rung-4 text-white" : "border border-border bg-muted text-muted-foreground hover:bg-muted/80"}`}
                         >YES</button>
                       </div>
                     );
@@ -550,11 +550,11 @@ export function TodayClient({ initialTasks, initialSessions, date }: Props) {
                     const cardCls = selected
                       ? "border-foreground bg-foreground text-background"
                       : isDone
-                      ? "border-emerald-800 bg-emerald-950/30 text-muted-foreground"
+                      ? "border-[var(--jos-line)] bg-rung-4 text-muted-foreground"
                       : isCxled
                       ? "border-border/50 bg-muted/20 text-muted-foreground/50"
                       : isTaskRunning
-                      ? "border-emerald-600/60 bg-card text-foreground"
+                      ? "border-[var(--jos-line)] bg-card text-foreground"
                       : "border-border bg-card hover:bg-muted/30";
 
                     return (
@@ -568,14 +568,14 @@ export function TodayClient({ initialTasks, initialSessions, date }: Props) {
                             <div className="flex items-center gap-2 overflow-hidden">
                               <span className={`truncate flex-1 ${isDone || isCxled ? "line-through" : ""}`}>{task.name}</span>
                               {isTaskRunning && !selected && (
-                                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500 animate-pulse" />
+                                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-rung-4 animate-pulse" />
                               )}
                               {!isTaskRunning && !selected && (
                                 <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: group.track.color }} />
                               )}
                             </div>
                             <div className="mt-1 flex items-center justify-between text-xs opacity-70">
-                              <span className={isTaskRunning && !selected ? "text-emerald-400 font-semibold" : ""}>
+                              <span className={isTaskRunning && !selected ? "text-rung-ink font-semibold" : ""}>
                                 {isTaskRunning && !selected ? "● Running" : (session?.timerState ?? "Not Started")}
                               </span>
                               <span>{task.estimateMinutes}m</span>
@@ -588,7 +588,7 @@ export function TodayClient({ initialTasks, initialSessions, date }: Props) {
                               type="button"
                               onClick={() => handleCompleteTask(task.id)}
                               title="Mark complete"
-                              className="shrink-0 rounded-md border border-border bg-card px-2 text-emerald-500 hover:bg-emerald-950/30 hover:border-emerald-700 text-base"
+                              className="shrink-0 rounded-md border border-border bg-card px-2  hover:bg-rung-4 hover:border-[var(--jos-line)] text-base"
                             >
                               ✓
                             </button>

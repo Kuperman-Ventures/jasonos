@@ -40,9 +40,9 @@ export const REPLY_STATUS_OVERRIDE_HELPERS: Record<
 };
 
 export const REPLY_STATUS_DOT_CLASS: Record<ReplyStatus, string> = {
-  replied: "bg-emerald-400",
-  waiting: "bg-amber-400",
-  overdue: "bg-red-400",
+  replied: "bg-rung-4",
+  waiting: "bg-rung-2",
+  overdue: "bg-rung-1",
   none: "bg-muted-foreground/25",
 };
 

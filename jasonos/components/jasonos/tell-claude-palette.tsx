@@ -106,7 +106,7 @@ export function TellClaudePalette() {
         {value.trim() ? (
           <CommandGroup heading="Send">
             <CommandItem onSelect={() => ask(value)} className="gap-3">
-              <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+              <Sparkles className="h-3.5 w-3.5 text-rung-ink" />
               <span className="flex-1">Ask: {value.trim()}</span>
               <ArrowRight className="h-3 w-3 opacity-40" />
             </CommandItem>

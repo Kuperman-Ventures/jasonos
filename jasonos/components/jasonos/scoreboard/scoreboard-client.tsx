@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { Search } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/jasonos/brand/page-header";
 import { cn } from "@/lib/utils";
 import {
   SCOREBOARD_STATUSES,
@@ -99,13 +100,10 @@ export function ScoreboardClient({
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
-      <header className="space-y-1">
-        <h1 className="text-xl font-semibold tracking-tight">Scoreboard</h1>
-        <p className="text-sm text-muted-foreground">
-          Track where each submitted application stands. Blues age to orange
-          after {SCOREBOARD_SUBMITTED_STALE_DAYS} days unless you move them.
-        </p>
-      </header>
+      <PageHeader
+        title="Scoreboard"
+        description={`Track where each submitted application stands. Submitted moves to No reply after ${SCOREBOARD_SUBMITTED_STALE_DAYS} days unless you move it.`}
+      />
 
       <StatusSummary
         total={rows.length}
@@ -229,7 +227,7 @@ function StatusSummary({
   const max = Math.max(1, ...SCOREBOARD_STATUSES.map((s) => counts[s]));
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-muted/30">
+    <section className="overflow-hidden rounded-[2px] bg-[var(--jos-surface)]">
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-border/70 px-5 py-5">
         <button
           type="button"
@@ -242,7 +240,7 @@ function StatusSummary({
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             Pipeline
           </p>
-          <p className="mt-1 font-heading text-5xl font-semibold tracking-tight tabular-nums text-foreground">
+          <p className="mt-1 text-[96px] leading-none font-black tracking-tight tabular-nums text-foreground">
             {total}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -251,7 +249,7 @@ function StatusSummary({
         </button>
 
         <div className="flex min-w-[12rem] flex-1 flex-col justify-end gap-2 pb-1 sm:max-w-xs">
-          <div className="flex h-3 overflow-hidden rounded-full bg-muted">
+          <div className="flex h-2.5 overflow-hidden bg-[var(--jos-bg)]">
             {SCOREBOARD_STATUSES.map((status) => {
               const n = counts[status];
               if (!n) return null;
@@ -297,7 +295,7 @@ function StatusSummary({
                   SCOREBOARD_STATUS_DOT[status]
                 )}
               />
-              <span className="font-heading text-3xl font-semibold tabular-nums tracking-tight text-foreground">
+              <span className="text-[64px] leading-none font-black tracking-tight tabular-nums text-foreground">
                 {n}
               </span>
               <span className="text-[11px] font-medium leading-tight text-muted-foreground">

@@ -203,7 +203,7 @@ export function DeliverableDialog({ open, onOpenChange, deliverable }: Props) {
                     className={cn(
                       "rounded-md p-1 transition-colors",
                       quality !== null && v <= quality
-                        ? "text-amber-300"
+                        ? "text-rung-ink"
                         : "text-muted-foreground hover:text-foreground"
                     )}
                   >
@@ -211,7 +211,7 @@ export function DeliverableDialog({ open, onOpenChange, deliverable }: Props) {
                       className={cn(
                         "h-4 w-4",
                         quality !== null && v <= quality
-                          ? "fill-amber-300"
+                          ? "fill-[var(--jos-line)]"
                           : ""
                       )}
                     />
@@ -234,7 +234,7 @@ export function DeliverableDialog({ open, onOpenChange, deliverable }: Props) {
                 checked={escalate}
                 onCheckedChange={(v) => setEscalate(Boolean(v))}
               />
-              <span className="text-amber-300">Escalate</span>
+              <span className="text-rung-ink">Escalate</span>
             </label>
           </div>
 

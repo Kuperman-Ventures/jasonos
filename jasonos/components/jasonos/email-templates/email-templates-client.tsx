@@ -236,7 +236,7 @@ function StepRail({ step }: { step: Step }) {
             className={cn(
               "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 font-medium tabular-nums",
               i < idx
-                ? "bg-emerald-500/20 text-emerald-300"
+                ? "bg-rung-4 "
                 : i === idx
                   ? "bg-foreground text-background"
                   : "bg-muted text-muted-foreground"
@@ -274,7 +274,7 @@ function TemplatePicker({
       {custom.length > 0 ? (
         <div>
           <div className="mb-2 flex items-center gap-1.5 text-muted-foreground">
-            <Sparkles className="h-3.5 w-3.5 text-orange-300" />
+            <Sparkles className="h-3.5 w-3.5 text-rung-ink" />
             <h3 className="text-[11px] font-semibold uppercase tracking-wider text-foreground/80">
               Your saved templates
             </h3>
@@ -290,7 +290,7 @@ function TemplatePicker({
                   onClick={() => onSelect(t)}
                   className="block w-full text-left"
                 >
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-orange-300">
+                  <span className="text-[10px] font-semibold uppercase tracking-widest text-rung-ink">
                     Custom
                   </span>
                   <h3 className="mt-1 pr-7 text-sm font-semibold tracking-tight">
@@ -311,7 +311,7 @@ function TemplatePicker({
                   onClick={() => onDeleteCustom(t.id)}
                   aria-label="Delete template"
                   title="Delete template"
-                  className="absolute right-2.5 top-2.5 rounded-md p-1 text-muted-foreground/60 opacity-0 transition-opacity hover:bg-muted hover:text-rose-300 group-hover:opacity-100"
+                  className="absolute right-2.5 top-2.5 rounded-md p-1 text-muted-foreground/60 opacity-0 transition-opacity hover:bg-muted hover:text-rung-1 group-hover:opacity-100"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -330,7 +330,7 @@ function TemplatePicker({
             className="rounded-xl border bg-card p-4 text-left transition-colors hover:border-foreground/30 hover:bg-muted/30"
           >
             <div className="flex items-baseline gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-orange-300">
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-rung-ink">
                 Option {String(t.optionNumber).padStart(2, "0")}
               </span>
               {t.fields.length > 1 ? (
@@ -387,7 +387,7 @@ function RecipientStep({
             </span>
             . Pick someone from your contact list - their email will be the
             recipient in Mail. If they have no email, click{" "}
-            <span className="text-amber-300">Needs email</span> and add it on
+            <span className="text-rung-ink">Needs email</span> and add it on
             their card.
           </p>
         </div>
@@ -439,7 +439,7 @@ function FillStep({
       </div>
 
       {template.warning ? (
-        <div className="flex gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+        <div className="flex gap-2 rounded-md border border-[var(--jos-line)] bg-rung-2 px-3 py-2 text-xs ">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <p>{template.warning}</p>
         </div>

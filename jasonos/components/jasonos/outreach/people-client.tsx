@@ -219,7 +219,7 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
                 type="button"
                 onClick={clearFirmFilter}
                 title="Clear firm filter"
-                className="inline-flex items-center gap-1 rounded-full border border-sky-500/60 bg-sky-500/15 px-2.5 py-1 text-xs text-sky-200 transition-colors hover:bg-sky-500/25"
+                className="inline-flex items-center gap-1 rounded-full border border-rung-3 bg-rung-3 px-2.5 py-1 text-xs  transition-colors hover:bg-rung-3"
               >
                 <span>
                   Firm: <span className="font-medium">{firmFilter}</span>
@@ -366,7 +366,7 @@ function PersonRow({
             degree={person.network_degree}
           />
           {person.vip ? (
-            <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" />
+            <Star className="h-3 w-3 shrink-0 fill-[var(--jos-line)] text-rung-ink" />
           ) : null}
           {person.intent === "backrow" ? (
             <span
@@ -384,7 +384,7 @@ function PersonRow({
           {person.title && person.firm ? <span>·</span> : null}
           {person.firm ? <span className="truncate">{person.firm}</span> : null}
           <span>·</span>
-          <span className={cn(scheduleIsPast(person) ? "text-amber-400" : "")}>
+          <span className={cn(scheduleIsPast(person) ? "text-rung-ink" : "")}>
             {scheduleHint(person)}
           </span>
         </div>

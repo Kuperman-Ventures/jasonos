@@ -150,7 +150,7 @@ export function KeywordCapsules({
               editingId === k.id ? (
                 <span
                   key={k.id}
-                  className="inline-flex items-center gap-1 rounded-md border border-sky-400/40 bg-sky-500/10 px-1.5 py-0.5"
+                  className="inline-flex items-center gap-1 rounded-md border border-rung-3 bg-rung-3 px-1.5 py-0.5"
                 >
                   <input
                     autoFocus
@@ -168,7 +168,7 @@ export function KeywordCapsules({
                     title="Save"
                     disabled={pending}
                     onClick={() => onSaveEdit(k.id)}
-                    className="rounded p-0.5 text-emerald-300 hover:bg-emerald-500/20"
+                    className="rounded p-0.5  hover:bg-rung-4"
                   >
                     <Check className="h-3 w-3" />
                   </button>
@@ -205,7 +205,7 @@ export function KeywordCapsules({
                     title="Remove"
                     disabled={pending}
                     onClick={() => onRemove(k.id, k.keyword)}
-                    className="rounded p-0.5 text-muted-foreground opacity-60 hover:bg-rose-500/20 hover:text-rose-300 hover:opacity-100 group-hover:opacity-100"
+                    className="rounded p-0.5 text-muted-foreground opacity-60 hover:bg-rung-1  hover:opacity-100 group-hover:opacity-100"
                   >
                     <X className="h-2.5 w-2.5" />
                   </button>
@@ -214,7 +214,7 @@ export function KeywordCapsules({
             )}
 
             {adding ? (
-              <span className="inline-flex items-center gap-1 rounded-md border border-sky-400/40 bg-sky-500/10 px-1.5 py-0.5">
+              <span className="inline-flex items-center gap-1 rounded-md border border-rung-3 bg-rung-3 px-1.5 py-0.5">
                 <input
                   autoFocus
                   value={draft}
@@ -235,7 +235,7 @@ export function KeywordCapsules({
                   title="Add"
                   disabled={pending || !draft.trim()}
                   onClick={onAdd}
-                  className="rounded p-0.5 text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-40"
+                  className="rounded p-0.5  hover:bg-rung-4 disabled:opacity-40"
                 >
                   <Check className="h-3 w-3" />
                 </button>

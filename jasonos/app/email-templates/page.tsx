@@ -9,7 +9,7 @@ export default function EmailPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 py-6">
       <header>
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-orange-300">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-rung-ink">
           <Mail className="h-4 w-4" />
           Custom Comms
         </div>

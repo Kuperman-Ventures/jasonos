@@ -45,7 +45,7 @@ export default async function ProjectsPage() {
           </p>
         </div>
         <Button size="sm" className="gap-2">
-          <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+          <Sparkles className="h-3.5 w-3.5 text-rung-ink" />
           New project from goal
         </Button>
       </header>

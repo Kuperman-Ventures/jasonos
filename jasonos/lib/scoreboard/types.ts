@@ -26,13 +26,14 @@ export const SCOREBOARD_STATUS_LABELS: Record<ScoreboardStatus, string> = {
   offer: "Offer",
 };
 
-/** Tailwind background classes for the status dots. */
+/** Solid status fills. Submitted cyan, no reply yellow, next steps cyan,
+ *  rejected magenta, offer ink. */
 export const SCOREBOARD_STATUS_DOT: Record<ScoreboardStatus, string> = {
-  submitted: "bg-sky-400",
-  no_reply: "bg-orange-400",
-  next_steps: "bg-amber-300",
-  rejected: "bg-red-400",
-  offer: "bg-emerald-400",
+  submitted: "bg-rung-3",
+  no_reply: "bg-rung-2",
+  next_steps: "bg-rung-next",
+  rejected: "bg-rung-1",
+  offer: "bg-rung-4",
 };
 
 export function isScoreboardStatus(value: unknown): value is ScoreboardStatus {

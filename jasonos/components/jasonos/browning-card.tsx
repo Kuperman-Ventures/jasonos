@@ -110,7 +110,7 @@ export function BrowningCard({ summary }: Props) {
                   <span
                     className={cn(
                       "inline-flex items-center text-[10px]",
-                      delta > 0 ? "text-emerald-300" : "text-red-300"
+                      delta > 0 ? "text-rung-ink" : "text-rung-1"
                     )}
                   >
                     {delta > 0 ? (
@@ -182,7 +182,7 @@ export function BrowningCard({ summary }: Props) {
             <button
               type="button"
               onClick={() => setUnscoredOpen(true)}
-              className="flex w-full items-center gap-2 rounded-md border border-red-500/50 bg-red-500/10 px-2 py-1.5 text-left text-xs text-red-200 transition-colors hover:bg-red-500/15"
+              className="flex w-full items-center gap-2 rounded-md border border-rung-1 bg-rung-1 px-2 py-1.5 text-left text-xs  transition-colors hover:bg-rung-1"
             >
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
               <span className="flex-1">
@@ -198,7 +198,7 @@ export function BrowningCard({ summary }: Props) {
           {summary.pending_deliverables.length > 0 ? (
             <Link
               href="/browning?tab=watch"
-              className="flex w-full items-center gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 px-2 py-1.5 text-left text-xs text-amber-100 transition-colors hover:bg-amber-500/15"
+              className="flex w-full items-center gap-2 rounded-md border border-[var(--jos-line)] bg-rung-2 px-2 py-1.5 text-left text-xs  transition-colors hover:bg-rung-2"
             >
               <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
               <span className="flex-1 truncate">
@@ -207,7 +207,7 @@ export function BrowningCard({ summary }: Props) {
                   {summary.pending_deliverables[0].promised}
                 </span>
                 {summary.pending_deliverables.length > 1 ? (
-                  <span className="text-[10px] text-amber-200/70">
+                  <span className="text-[10px] text-rung-ink">
                     {" "}
                     + {summary.pending_deliverables.length - 1} more
                   </span>

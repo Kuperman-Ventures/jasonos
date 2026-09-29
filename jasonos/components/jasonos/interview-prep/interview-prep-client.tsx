@@ -375,7 +375,7 @@ export function InterviewPrepClient({
                         {targetLabel(t)}
                       </div>
                       {t.hasSavedPrep ? (
-                        <BookmarkCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-300" />
+                        <BookmarkCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rung-ink" />
                       ) : null}
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
@@ -571,7 +571,7 @@ function PrepResults({
                       href={s.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-start gap-1.5 text-xs text-sky-300 underline decoration-sky-400/40 underline-offset-2 hover:text-sky-200"
+                      className="inline-flex items-start gap-1.5 text-xs text-rung-3 underline decoration-[var(--jos-line)] underline-offset-2 hover:text-rung-3"
                     >
                       <span>{s.title?.trim() || s.url}</span>
                       <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 opacity-70" />
@@ -656,10 +656,10 @@ function PrepSection({
 }) {
   const toneClass =
     tone === "sky"
-      ? "text-sky-300"
+      ? "text-rung-3"
       : tone === "amber"
-        ? "text-amber-300"
-        : "text-emerald-300";
+        ? "text-rung-ink"
+        : "text-rung-ink";
 
   return (
     <div className="space-y-3">

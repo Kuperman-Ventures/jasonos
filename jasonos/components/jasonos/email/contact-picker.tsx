@@ -105,7 +105,7 @@ export function ContactPicker({
                     type="button"
                     onClick={() => openContactCard(r)}
                     title="Open their contact card and add an email"
-                    className="shrink-0 px-3 py-2.5 text-[10px] uppercase tracking-wider text-amber-300 underline decoration-amber-300/60 underline-offset-2 transition-colors hover:bg-amber-300/10 hover:text-amber-200"
+                    className="shrink-0 px-3 py-2.5 text-[10px] uppercase tracking-wider  underline decoration-[var(--jos-line)] underline-offset-2 transition-colors hover:bg-rung-2 "
                   >
                     Needs email
                   </button>

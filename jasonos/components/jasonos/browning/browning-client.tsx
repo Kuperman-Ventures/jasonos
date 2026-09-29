@@ -138,7 +138,7 @@ function BrowningKpiStrip({
             <span
               className={cn(
                 "inline-flex items-center text-[10px]",
-                delta > 0 ? "text-emerald-300" : "text-red-300"
+                delta > 0 ? "text-rung-ink" : "text-rung-1"
               )}
             >
               {delta > 0 ? (
@@ -183,7 +183,7 @@ function BrowningKpiStrip({
             </span>
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 text-sm text-emerald-300">
+          <div className="flex items-center gap-1.5 text-sm text-rung-ink">
             <Flame className="h-3.5 w-3.5" />
             All gates complete
           </div>
@@ -199,7 +199,7 @@ function BrowningKpiStrip({
         >
           <span className="relative">
             <AlertCircle className="h-3.5 w-3.5" />
-            <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-red-400" />
+            <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-rung-1" />
           </span>
           {summary.unscored_count} unscored
         </Button>

@@ -25,7 +25,7 @@ export function Delta({ value, className }: { value?: number; className?: string
     <span
       className={cn(
         "num-mono text-[11px] font-medium",
-        up ? "text-emerald-400" : "text-rose-400",
+        up ? "text-rung-ink" : "text-rung-1",
         className
       )}
     >

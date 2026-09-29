@@ -270,11 +270,11 @@ export function ClassifyMenu({ open, onOpenChange, contact }: ClassifyMenuProps)
                   className={cn(
                     "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
                     vip
-                      ? "border-amber-500/60 bg-amber-500/15 text-amber-300"
+                      ? "border-[var(--jos-line)] bg-rung-2 "
                       : "border-border text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  <Star className={cn("h-3.5 w-3.5", vip ? "fill-amber-400" : "")} />
+                  <Star className={cn("h-3.5 w-3.5", vip ? "fill-[var(--jos-line)]" : "")} />
                   {vip ? "VIP" : "Mark as VIP"}
                 </button>
               </Section>

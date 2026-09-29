@@ -32,6 +32,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/jasonos/logo";
+import { Banner } from "@/components/jasonos/brand/status";
+import { PageHeader } from "@/components/jasonos/brand/page-header";
 import {
   AVAILABLE_MODELS,
   SERVICE_DEFINITIONS,
@@ -230,21 +232,17 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
 
   return (
     <div className="mx-auto max-w-[1200px] space-y-6 px-4 py-6">
-      <header className="flex items-start gap-3">
-        <Logo size={40} className="mt-0.5" />
-        <div>
-          <h1 className="text-[36px] font-bold leading-none tracking-[-0.02em]">Settings</h1>
-          <p className="mt-1 max-w-3xl text-xs text-muted-foreground">
-            Manage JasonOS integrations, Dispatch, alert thresholds, and model routing from one control panel.
-          </p>
-        </div>
-      </header>
+      <PageHeader
+        mark={<Logo size={40} className="mt-1" />}
+        title="Settings"
+        description="Manage JasonOS integrations, Dispatch, alert thresholds, and model routing from one control panel."
+      />
 
       {settings.authRequired ? (
-        <div className="rounded-[2px] bg-[var(--jos-warn-tint)] px-4 py-3 text-[16px] text-[var(--jos-ink)]">
+        <Banner rung={2}>
           Sign in to persist Settings changes. Mail account status below is live —
           you can reconnect Gmail or Outlook without signing in first.
-        </div>
+        </Banner>
       ) : null}
 
       <HealthBar
@@ -404,7 +402,7 @@ function MailAccountsCard({
     <section id="google-accounts" className="rounded-xl border bg-card p-4">
       <div className="flex items-start gap-3">
         <div className="grid h-10 w-10 place-items-center rounded-lg border bg-background/60">
-          <Mail className="h-4 w-4 text-sky-300" />
+          <Mail className="h-4 w-4 text-rung-3" />
         </div>
         <div className="min-w-0 flex-1">
           <h2 className="text-sm font-semibold tracking-tight">Mail accounts</h2>
@@ -425,21 +423,21 @@ function MailAccountsCard({
       </div>
 
       {expiredLabels.length ? (
-        <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+        <div className="mt-4 rounded-lg border border-[var(--jos-line)] bg-rung-2 px-3 py-2 text-sm ">
           <div className="flex items-start gap-2">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             <div>
               <p className="font-medium">
                 {expiredLabels.join(" and ")} sign-in expired
               </p>
-              <p className="mt-1 text-xs text-amber-100/80">
+              <p className="mt-1 text-xs text-rung-ink">
                 Sync cannot read {expiredEmails.join(" or ")} until you reconnect below.
               </p>
             </div>
           </div>
         </div>
       ) : advisorsHealth === "not_connected" && gmailHealth === "not_connected" ? (
-        <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm text-amber-100">
+        <div className="mt-4 rounded-lg border border-[var(--jos-line)] bg-rung-2 px-3 py-2 text-sm ">
           Neither Google account is connected. Sync cannot read Gmail or Google
           Calendar until you connect them below.
         </div>
@@ -533,20 +531,20 @@ function MailAccountRow({
       id={id}
       className={cn(
         "flex flex-col gap-3 rounded-lg border bg-background/40 px-3 py-3 sm:flex-row sm:items-center sm:justify-between",
-        health === "expired" && "border-amber-500/50 bg-amber-500/10",
+        health === "expired" && "border-[var(--jos-line)] bg-rung-2",
         health === "not_connected" && "border-border",
-        health === "connected" && "border-emerald-500/20"
+        health === "connected" && "border-[var(--jos-line)]"
       )}
     >
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <div className="text-sm font-medium">{label}</div>
           {health === "expired" ? (
-            <Badge variant="outline" className="border-amber-400/40 bg-amber-400/10 text-amber-200">
+            <Badge variant="outline" className="border-[var(--jos-line)] bg-rung-2 ">
               sign-in expired
             </Badge>
           ) : health === "connected" ? (
-            <Badge variant="outline" className="border-emerald-400/40 bg-emerald-400/10 text-emerald-200">
+            <Badge variant="outline" className="border-[var(--jos-line)] bg-rung-4 ">
               connected
             </Badge>
           ) : (
@@ -558,7 +556,7 @@ function MailAccountRow({
         <div className="mt-1 truncate text-xs text-foreground/80">
           {connectedEmail ?? email}
         </div>
-        <p className={cn("mt-1 text-xs", health === "expired" ? "text-amber-100" : "text-muted-foreground")}>
+        <p className={cn("mt-1 text-xs", health === "expired" ? "text-rung-ink" : "text-muted-foreground")}>
           {health === "expired"
             ? error ??
               "Sign-in expired. Mail on this account will not sync until you reconnect."
@@ -577,7 +575,7 @@ function MailAccountRow({
           className={cn(
             "shrink-0 rounded-md px-3 py-1.5 text-center text-[11px] font-medium",
             health === "expired"
-              ? "bg-amber-300 text-black hover:bg-amber-200"
+              ? "bg-rung-2  hover:bg-rung-2"
               : health === "connected"
                 ? "text-muted-foreground hover:text-foreground hover:underline"
                 : "border hover:bg-muted"
@@ -612,9 +610,9 @@ function HealthBar({
           <div
             className={cn(
               "grid h-10 w-10 place-items-center rounded-full border",
-              status === "healthy" && "border-emerald-400/40 bg-emerald-400/10 text-emerald-300",
-              status === "issues" && "border-amber-400/40 bg-amber-400/10 text-amber-300",
-              status === "critical" && "border-red-400/40 bg-red-400/10 text-red-300"
+              status === "healthy" && "border-[var(--jos-line)] bg-rung-4 ",
+              status === "issues" && "border-[var(--jos-line)] bg-rung-2 ",
+              status === "critical" && "border-rung-1 bg-rung-1 "
             )}
           >
             {status === "critical" ? <XCircle /> : status === "issues" ? <AlertTriangle /> : <CheckCircle2 />}
@@ -650,7 +648,7 @@ function LiveDataPreview({ billing, onRefresh }: { billing: BillingPreview; onRe
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold">
-                <Database className="h-4 w-4 text-sky-300" />
+                <Database className="h-4 w-4 text-rung-3" />
                 Stripe Revenue
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -676,7 +674,7 @@ function LiveDataPreview({ billing, onRefresh }: { billing: BillingPreview; onRe
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold">
-                <Database className="h-4 w-4 text-emerald-300" />
+                <Database className="h-4 w-4 text-rung-ink" />
                 Lemon Squeezy
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -793,7 +791,7 @@ function ServiceCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 gap-3">
           <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border bg-background/60">
-            <Icon className="h-4 w-4 text-violet-300" />
+            <Icon className="h-4 w-4 text-rung-ink" />
           </div>
           <div className="min-w-0">
             <h3 className="text-sm font-semibold tracking-tight">{definition.label}</h3>
@@ -830,7 +828,7 @@ function ServiceCard({
           className={cn(
             "mt-2 text-xs",
             connection.status === "expired" || connection.health_status === "down"
-              ? "text-amber-200"
+              ? "text-rung-ink"
               : "text-muted-foreground"
           )}
         >
@@ -842,7 +840,7 @@ function ServiceCard({
         connection.status === "expired" || connection.status === "not_configured" ? (
           <a
             href="#google-accounts"
-            className="mt-2 inline-block text-xs font-medium text-amber-200 hover:underline"
+            className="mt-2 inline-block text-xs font-medium text-rung-ink hover:underline"
           >
             Fix this in Mail accounts
           </a>
@@ -1054,10 +1052,10 @@ function MetricRows({ rows }: { rows: [string, string][] }) {
 
 function StatusBadge({ status }: { status: ServiceConnection["status"] }) {
   const classes = {
-    connected: "border-emerald-400/40 bg-emerald-400/10 text-emerald-200",
-    not_configured: "border-amber-400/40 bg-amber-400/10 text-amber-200",
-    error: "border-red-400/40 bg-red-400/10 text-red-200",
-    expired: "border-orange-400/40 bg-orange-400/10 text-orange-200",
+    connected: "border-[var(--jos-line)] bg-rung-4 ",
+    not_configured: "border-[var(--jos-line)] bg-rung-2 ",
+    error: "border-rung-1 bg-rung-1 ",
+    expired: "border-[var(--jos-line)] bg-rung-2 ",
   }[status];
   return (
     <Badge variant="outline" className={classes}>

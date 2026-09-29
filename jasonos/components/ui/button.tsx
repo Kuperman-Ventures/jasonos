@@ -9,16 +9,19 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default:
-          "bg-primary font-semibold text-primary-foreground hover:bg-[var(--color-accent-800)]",
+          "bg-primary font-bold text-primary-foreground hover:bg-[var(--color-accent-800)]",
         outline:
-          "border-[var(--color-text)] bg-transparent font-medium text-[var(--color-text)] hover:bg-[var(--color-surface)] aria-expanded:bg-[var(--color-surface)]",
+          "border-2 border-[var(--color-text)] bg-transparent font-bold text-[var(--color-text)] hover:bg-[var(--color-surface)] aria-expanded:bg-[var(--color-surface)]",
         secondary:
-          "border-[var(--color-text)] bg-transparent font-medium text-[var(--color-text)] hover:bg-[var(--color-surface)] aria-expanded:bg-[var(--color-surface)]",
+          "border-2 border-[var(--color-text)] bg-transparent font-bold text-[var(--color-text)] hover:bg-[var(--color-surface)] aria-expanded:bg-[var(--color-surface)]",
         ghost:
-          "font-medium hover:bg-[var(--color-surface)] hover:text-[var(--color-text)] aria-expanded:bg-[var(--color-surface)]",
+          "font-bold hover:bg-[var(--color-surface)] hover:text-[var(--color-text)] aria-expanded:bg-[var(--color-surface)]",
         destructive:
-          "bg-[var(--color-accent-2-700)] font-semibold text-white hover:bg-[var(--color-accent-2-800)]",
-        link: "font-medium text-[var(--color-accent-700)] underline underline-offset-2 hover:text-[var(--color-accent-800)]",
+          "bg-rung-1 font-bold hover:bg-[var(--color-accent-2-800)]",
+        urgent: "bg-rung-1 font-bold hover:bg-[var(--color-accent-2-800)]",
+        soon: "bg-rung-2 font-bold",
+        done: "bg-rung-4 font-bold hover:bg-[var(--color-neutral-700)]",
+        link: "font-bold text-[var(--color-accent-700)] underline underline-offset-2 hover:text-[var(--color-accent-800)]",
       },
       size: {
         default: "h-10 gap-1.5 px-3",

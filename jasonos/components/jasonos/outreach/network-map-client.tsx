@@ -83,12 +83,12 @@ function savePinnedPositions(map: PinnedMap) {
 
 // Theme tokens are oklch() values — use var(...) directly, never hsl(var(...)).
 const DEGREE_COLOR: Record<string, string> = {
-  you: "var(--foreground)",
-  "1": "#2f9d5d",
-  "2": "#3b82f6",
-  "3": "#e09b24",
-  channel: "#8b6bb5",
-  "?": "var(--muted-foreground)",
+  you: "var(--color-text)",
+  "1": "var(--color-text)",
+  "2": "var(--color-accent)",
+  "3": "var(--color-process-yellow)",
+  channel: "var(--color-neutral-500)",
+  "?": "var(--color-neutral-500)",
 };
 
 const NODE_W = 132;
@@ -820,7 +820,7 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                 markerHeight="6"
                 orient="auto-start-reverse"
               >
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6" fillOpacity="0.85" />
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-accent)" />
               </marker>
               <radialGradient id="youGlow" cx="50%" cy="50%" r="50%">
                 <stop offset="0%" stopColor="var(--foreground)" stopOpacity="0.22" />
@@ -887,7 +887,7 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                     x2={x2}
                     y2={y2}
                     stroke={
-                      isReferral ? "#3b82f6" : "var(--muted-foreground)"
+                      isReferral ? "var(--color-accent)" : "var(--color-neutral-500)"
                     }
                     strokeWidth={
                       active && dimmed && isReferral ? 2.2 : isReferral ? 1.6 : 1
@@ -957,14 +957,14 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                       y={-h / 2}
                       width={w}
                       height={h}
-                      rx={8}
-                      ry={8}
+                      rx={2}
+                      ry={2}
                       fill={
                         n.isYou
-                          ? "var(--background)"
+                          ? "var(--color-text)"
                           : n.isChannel
-                            ? "color-mix(in oklch, #8b6bb5 16%, var(--card))"
-                            : "var(--card)"
+                            ? "var(--color-surface)"
+                            : "var(--color-bg)"
                       }
                       stroke={
                         selected || n.isYou ? "var(--foreground)" : color
@@ -972,23 +972,12 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
                       strokeWidth={selected || n.isYou || n.isChannel ? 2 : 1.5}
                       strokeDasharray={n.isChannel ? "4 2" : undefined}
                     />
-                    {!n.isYou ? (
-                      <rect
-                        x={-w / 2}
-                        y={-h / 2}
-                        width={4}
-                        height={h}
-                        rx={2}
-                        fill={color}
-                        className="pointer-events-none"
-                      />
-                    ) : null}
                     <text
                       textAnchor="middle"
                       x={0}
                       y={n.isYou ? 1 : -5}
                       dominantBaseline="middle"
-                      fill="var(--foreground)"
+                      fill={n.isYou ? "var(--color-bg)" : "var(--color-text)"}
                       fontSize={n.isYou ? 12 : 11}
                       fontWeight={650}
                       style={{ pointerEvents: "none" }}

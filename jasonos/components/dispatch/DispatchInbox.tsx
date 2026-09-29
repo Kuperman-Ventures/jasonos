@@ -111,10 +111,10 @@ export function DispatchInbox() {
         className="relative h-8 gap-2 text-xs text-muted-foreground hover:text-foreground"
         onClick={() => onOpenChange(true)}
       >
-        <Inbox className="h-3.5 w-3.5 text-violet-300" />
+        <Inbox className="h-3.5 w-3.5 text-rung-ink" />
         Dispatch
         {unviewedCount > 0 ? (
-          <Badge className="absolute -right-2 -top-2 h-5 min-w-5 rounded-full bg-violet-500 px-1 text-[10px] text-white">
+          <Badge className="absolute -right-2 -top-2 h-5 min-w-5 rounded-full bg-rung-idle px-1 text-[10px] text-white">
             {unviewedCount}
           </Badge>
         ) : null}
@@ -123,7 +123,7 @@ export function DispatchInbox() {
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent className="w-full overflow-hidden p-0 sm:max-w-md">
           <SheetHeader className="border-b p-5">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-violet-300">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-rung-ink">
               <Radio className="h-4 w-4" />
               Dispatch
             </div>
@@ -151,7 +151,7 @@ export function DispatchInbox() {
                           )}
                         </p>
                       </div>
-                      <Badge variant="outline" className="border-violet-400/40 text-violet-200">
+                      <Badge variant="outline" className="border-[var(--jos-line)] text-rung-ink">
                         completed
                       </Badge>
                     </div>

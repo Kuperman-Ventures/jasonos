@@ -172,7 +172,7 @@ export function AddToBrowningDialog({ open, onOpenChange }: Props) {
                             </div>
                           </div>
                           {r.browning_source ? (
-                            <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-emerald-300">
+                            <span className="rounded-full border border-[var(--jos-line)] bg-rung-4 px-1.5 py-0.5 text-[9px] uppercase tracking-wider ">
                               In Browning
                             </span>
                           ) : null}

@@ -42,7 +42,7 @@ export function GatesPanel({ gates }: Props) {
       <div className="relative">
         <div className="absolute inset-y-0 left-1/2 w-[3px] -translate-x-1/2 rounded-full bg-border" />
         <div
-          className="absolute left-1/2 top-0 w-[3px] -translate-x-1/2 rounded-full bg-emerald-400 transition-all"
+          className="absolute left-1/2 top-0 w-[3px] -translate-x-1/2 rounded-full bg-rung-4 transition-all"
           style={{ height: `${pct}%` }}
         />
       </div>
@@ -66,13 +66,13 @@ export function GatesPanel({ gates }: Props) {
                     >
                       <div className="mt-0.5 flex items-center gap-2">
                         {completed ? (
-                          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                          <CheckCircle2 className="h-4 w-4 text-rung-ink" />
                         ) : (
                           <Circle
                             className={cn(
                               "h-4 w-4",
                               g.status === "in_progress"
-                                ? "text-sky-400"
+                                ? "text-rung-3"
                                 : "text-muted-foreground/60"
                             )}
                           />
