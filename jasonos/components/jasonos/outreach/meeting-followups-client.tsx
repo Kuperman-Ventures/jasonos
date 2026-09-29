@@ -87,8 +87,9 @@ export function MeetingFollowupsClient({
       <div className="mb-4">
         <h1 className="text-lg font-semibold tracking-tight">Follow Up</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Past calendar meetings where one or more attendees still need an
-          email. Draft uses the Granola note when one exists.
+          Past calendar meetings with a JasonOS contact where one or more
+          attendees still need an email. Draft uses the Granola note when one
+          exists.
         </p>
       </div>
       {visible.length === 0 ? (

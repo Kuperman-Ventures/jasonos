@@ -7,6 +7,7 @@ import {
   latestSentByEmail,
   meetingEndIso,
   meetingFollowupDraft,
+  meetingHasKnownContact,
   pendingAttendeesForMeeting,
   planMeetingFollowup,
   qualifyMeetingAttendees,
@@ -145,6 +146,7 @@ describe("qualifyPastMeeting", () => {
         startsAt: "2026-09-01T12:00:00.000Z",
         endsAt: "2026-09-01T13:00:00.000Z",
         guests: [{ email: "ada@example.com" }],
+        hasKnownContact: true,
         now: new Date("2026-09-22T12:00:00.000Z"),
       }),
       null
@@ -155,9 +157,53 @@ describe("qualifyPastMeeting", () => {
         startsAt: "2026-09-22T18:00:00.000Z",
         endsAt: "2026-09-22T19:00:00.000Z",
         guests: [{ email: "ada@example.com" }],
+        hasKnownContact: true,
         now: new Date("2026-09-22T12:00:00.000Z"),
       }),
       null
+    );
+  });
+
+  it("rejects meetings with no JasonOS contact (webinars)", () => {
+    assert.equal(
+      qualifyPastMeeting({
+        gcalEventId: "ev1",
+        startsAt: "2026-09-01T12:00:00.000Z",
+        endsAt: "2026-09-01T13:00:00.000Z",
+        guests: [{ email: "webinar@example.com", name: "Webinar Host" }],
+        knownEmails: new Set(["ada@example.com"]),
+        now: new Date("2026-09-22T12:00:00.000Z"),
+      }),
+      null
+    );
+    assert.ok(
+      qualifyPastMeeting({
+        gcalEventId: "ev1",
+        startsAt: "2026-09-01T12:00:00.000Z",
+        endsAt: "2026-09-01T13:00:00.000Z",
+        guests: [{ email: "ada@example.com", name: "Ada" }],
+        knownEmails: new Set(["ada@example.com"]),
+        now: new Date("2026-09-22T12:00:00.000Z"),
+      })
+    );
+  });
+});
+
+describe("meetingHasKnownContact", () => {
+  it("matches canonical emails", () => {
+    assert.equal(
+      meetingHasKnownContact(
+        [{ email: "ada@example.com", name: "Ada" }],
+        new Set(["ada@example.com"])
+      ),
+      true
+    );
+    assert.equal(
+      meetingHasKnownContact(
+        [{ email: "other@example.com", name: "Other" }],
+        new Set(["ada@example.com"])
+      ),
+      false
     );
   });
 });

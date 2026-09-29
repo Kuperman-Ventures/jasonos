@@ -167,6 +167,20 @@ export function pendingAttendeesForMeeting(
   });
 }
 
+/**
+ * Webinars and blast invites stay out: the meeting must include at least one
+ * person already in JasonOS (matched by email or name).
+ */
+export function meetingHasKnownContact(
+  attendees: MeetingAttendee[],
+  knownEmails: ReadonlySet<string>
+): boolean {
+  if (!knownEmails.size) return false;
+  return attendees.some((attendee) =>
+    knownEmails.has(canonicalEmail(attendee.email))
+  );
+}
+
 export function qualifyPastMeeting(input: {
   gcalEventId?: string | null;
   icalUid?: string | null;
@@ -177,6 +191,10 @@ export function qualifyPastMeeting(input: {
   calendarUrl?: string | null;
   guests: { email?: string | null; name?: string | null }[];
   now?: Date;
+  /** Canonical emails (and any aliases) for people in JasonOS. */
+  knownEmails?: ReadonlySet<string>;
+  /** True when title/guest matching already found a JasonOS contact. */
+  hasKnownContact?: boolean;
 }): PastMeetingCandidate | null {
   if (!input.gcalEventId?.trim()) return null;
   if (input.status === "cancelled") return null;
@@ -187,6 +205,12 @@ export function qualifyPastMeeting(input: {
   const attendees = qualifyMeetingAttendees(input.guests);
   if (!attendees.length) return null;
   if (attendees.length > MEETING_FOLLOWUP_MAX_GUESTS) return null;
+  const known =
+    input.hasKnownContact === true ||
+    (input.knownEmails
+      ? meetingHasKnownContact(attendees, input.knownEmails)
+      : false);
+  if (!known) return null;
   return {
     gcalEventId: input.gcalEventId,
     icalUid: input.icalUid?.trim() || null,
