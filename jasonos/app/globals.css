@@ -74,6 +74,10 @@
   --color-accent-2-800: #7a003f;
   --color-accent-2-900: #5c0030;
   --color-process-yellow: #edbb00;
+  /* Solid green for Goal Met / success. Not in the four-rung strip;
+     used when a completed goal needs to read as green. */
+  --color-success: #0b7a3e;
+  --color-success-800: #085c2f;
 
   --jos-bg: var(--color-bg);
   --jos-surface: var(--color-surface);
@@ -83,7 +87,7 @@
   --jos-action: var(--color-accent-700);
   --jos-action-hover: var(--color-accent-800);
   --jos-focus: var(--color-accent);
-  --jos-ok: var(--color-text);
+  --jos-ok: var(--color-success);
   --jos-info: var(--color-accent);
   --jos-info-tint: var(--color-accent-100);
   --jos-info-ink: var(--color-accent-800);
@@ -207,6 +211,12 @@
   background-color: var(--color-text);
   color: var(--color-bg);
 }
+.bg-rung-ok,
+.hover\:bg-rung-ok:hover {
+  background-color: var(--color-success);
+  color: var(--color-on-action);
+}
+.hover\:bg-rung-ok:hover { background-color: var(--color-success-800); }
 .bg-rung-idle { background-color: var(--color-surface); color: var(--color-text); }
 .bg-rung-next { background-color: var(--color-accent); color: var(--color-on-action); }
 .text-rung-1 { color: var(--color-accent-2-text); }

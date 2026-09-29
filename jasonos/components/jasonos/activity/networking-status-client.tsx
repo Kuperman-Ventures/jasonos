@@ -343,7 +343,7 @@ function FunnelSummary({ data }: { data: NetworkingActivity }) {
 
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-border">
         <div
-          className={`h-full rounded-full ${goalMet ? "bg-rung-4" : "bg-rung-3"}`}
+          className={`h-full rounded-full ${goalMet ? "bg-rung-ok" : "bg-rung-3"}`}
           style={{ width: `${pct}%` }}
         />
       </div>
