@@ -3315,6 +3315,28 @@ table.schools .muted,
 }
 .toolbar .input::placeholder { color: var(--text-placeholder); }
 .toolbar .input.grow { flex: 1 1 260px; }
+.toolbar-sort {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.toolbar-sort-icon {
+  position: absolute;
+  left: 10px;
+  z-index: 1;
+  pointer-events: none;
+  color: var(--text-muted);
+}
+.toolbar-sort .select {
+  padding-left: 2rem;
+}
+.toolbar .columns-trigger {
+  gap: 6px;
+}
+.toolbar .columns-trigger svg {
+  flex: none;
+  color: var(--text-muted);
+}
 /* Custom chevron so text→arrow spacing matches across browsers. */
 .toolbar .select,
 .multi-filter > summary {
