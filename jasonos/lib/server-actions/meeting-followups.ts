@@ -9,6 +9,8 @@ import {
 } from "@/lib/integrations/google-calendar";
 import { listSentRecipientTouches } from "@/lib/integrations/gmail";
 import { searchGranolaForContact } from "@/lib/integrations/granola";
+import { matchCalendarEventToContacts } from "@/lib/outreach/calendar-matching";
+import { buildContactLookup } from "@/lib/outreach/email-matching";
 import { appendSyncLog } from "@/lib/outreach/sync-log";
 import {
   attendeeLine,
@@ -202,9 +204,10 @@ async function captureMeetingFollowupsInner(opts?: {
   const timeMin = new Date(now.getTime() - daysBack * 86_400_000).toISOString();
   const timeMax = now.toISOString();
 
-  const [cal, sent] = await Promise.all([
+  const [cal, sent, lookup] = await Promise.all([
     fetchAllPersonalCalendarEvents({ timeMin, timeMax }),
     listSentRecipientTouches({ daysBack: daysBack + 2 }),
+    buildContactLookup(),
   ]);
 
   if (cal.error && !cal.events.length) {
@@ -224,8 +227,17 @@ async function captureMeetingFollowupsInner(opts?: {
   const sentByEmail = latestSentByEmail(sent.data);
   const today = etToday();
   const meetings: PastMeetingCandidate[] = [];
+  /** Past meetings that look real but have no JasonOS contact — dismiss if queued. */
+  const noContactEventIds: string[] = [];
   for (const ev of cal.events) {
-    const qualified = qualifyPastMeeting({
+    const guests = calendarEventGuests(ev);
+    const { matches } = matchCalendarEventToContacts({
+      title: ev.summary,
+      guests,
+      lookup,
+    });
+    const hasKnownContact = matches.length > 0;
+    const base = {
       gcalEventId: ev.id,
       icalUid: ev.iCalUID,
       title: ev.summary,
@@ -233,8 +245,21 @@ async function captureMeetingFollowupsInner(opts?: {
       startsAt: meetingStartIso(ev),
       endsAt: meetingEndIso(ev),
       calendarUrl: ev.htmlLink ?? null,
-      guests: calendarEventGuests(ev),
+      guests,
       now,
+    };
+    // Detect webinars / blast invites we may have queued before the contact filter.
+    if (
+      ev.id &&
+      qualifyPastMeeting({ ...base, hasKnownContact: true }) &&
+      !hasKnownContact
+    ) {
+      noContactEventIds.push(ev.id);
+    }
+    const qualified = qualifyPastMeeting({
+      ...base,
+      // Require a JasonOS contact so webinars / blast invites stay out.
+      hasKnownContact,
     });
     if (qualified) meetings.push(qualified);
   }
@@ -305,6 +330,22 @@ async function captureMeetingFollowupsInner(opts?: {
       .eq("gcal_event_id", plan.meeting.gcalEventId);
     if (error) return { ok: false, error: error.message };
     updated += 1;
+  }
+
+  // Drop open rows for webinars / blast invites (no JasonOS contact).
+  if (noContactEventIds.length) {
+    const { data: dropped, error } = await sb
+      .from("meeting_followups")
+      .update({
+        status: "dismissed",
+        decided_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .in("gcal_event_id", noContactEventIds)
+      .in("status", ["open", "snoozed"])
+      .select("id");
+    if (error) return { ok: false, error: error.message };
+    resolved += dropped?.length ?? 0;
   }
 
   revalidate();
