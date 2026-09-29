@@ -64,6 +64,8 @@ import type { RequirementProgressMap, RequirementStatus } from "@/lib/requiremen
 import type { TodoEditMap } from "@/lib/project-todos";
 import type { RequirementKey } from "@/lib/school-requirements";
 import { AddSchoolDialog } from "./AddSchoolDialog";
+import { ArrowsDownUp, Columns } from "@phosphor-icons/react";
+
 export function CollegesTab({
   schools,
   selectedId,
@@ -821,39 +823,44 @@ export function CollegesTab({
             <option value="Fly">Fly</option>
           </select>
         ) : null}
-        <select
-          className="select"
-          value={sort}
-          aria-label="Sort schools"
-          onChange={(event) => setSortPrefs(event.target.value as SortKey, 1)}
-        >
-          <option value="list">Sheet order</option>
-          <option value="name">School name</option>
-          {listSortVisible("drive", columns) ? <option value="drive">Drive time</option> : null}
-          {listSortVisible("setting", columns) ? (
-            <option value="setting">Campus setting</option>
-          ) : null}
-          {listSortVisible("size", columns) ? <option value="size">School size</option> : null}
-          {listSortVisible("newJerseyPct", columns) ? (
-            <option value="newJerseyPct">From NJ</option>
-          ) : null}
-          {listSortVisible("selectivity", columns) ? (
-            <option value="selectivity">Selectivity</option>
-          ) : null}
-          {listSortVisible("interest", columns) ? <option value="interest">Interest</option> : null}
-          {listSortVisible("status", columns) ? (
-            <option value="status">Application status</option>
-          ) : null}
-          {listSortVisible("action", columns) ? <option value="action">Next action</option> : null}
-        </select>
+        <div className="toolbar-sort">
+          <ArrowsDownUp className="toolbar-sort-icon" size={16} weight="bold" aria-hidden />
+          <select
+            className="select"
+            value={sort}
+            aria-label="Sort schools"
+            onChange={(event) => setSortPrefs(event.target.value as SortKey, 1)}
+          >
+            <option value="list">Sheet order</option>
+            <option value="name">School name</option>
+            {listSortVisible("drive", columns) ? <option value="drive">Drive time</option> : null}
+            {listSortVisible("setting", columns) ? (
+              <option value="setting">Campus setting</option>
+            ) : null}
+            {listSortVisible("size", columns) ? <option value="size">School size</option> : null}
+            {listSortVisible("newJerseyPct", columns) ? (
+              <option value="newJerseyPct">From NJ</option>
+            ) : null}
+            {listSortVisible("selectivity", columns) ? (
+              <option value="selectivity">Selectivity</option>
+            ) : null}
+            {listSortVisible("interest", columns) ? <option value="interest">Interest</option> : null}
+            {listSortVisible("status", columns) ? (
+              <option value="status">Application status</option>
+            ) : null}
+            {listSortVisible("action", columns) ? <option value="action">Next action</option> : null}
+          </select>
+        </div>
         <div className="columns-menu" ref={columnsRef}>
           <button
             type="button"
-            className="btn btn-secondary"
+            className="btn btn-secondary columns-trigger"
             aria-expanded={columnsOpen}
+            aria-label="Show or hide columns"
             onClick={() => setColumnsOpen((open) => !open)}
           >
-            Columns
+            <Columns size={16} weight="bold" aria-hidden />
+            Show columns
           </button>
           {columnsOpen ? (
             <div className="columns-panel" role="dialog" aria-label="Visible columns">
