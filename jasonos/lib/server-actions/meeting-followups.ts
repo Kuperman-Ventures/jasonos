@@ -12,13 +12,13 @@ import { searchGranolaForContact } from "@/lib/integrations/granola";
 import { matchCalendarEventToContacts } from "@/lib/outreach/calendar-matching";
 import { buildContactLookup } from "@/lib/outreach/email-matching";
 import { appendSyncLog } from "@/lib/outreach/sync-log";
+import { composeMeetingFollowupDraft } from "@/lib/outreach/meeting-followup-compose";
 import {
   attendeeLine,
   isMeetingFollowupDue,
   latestSentByEmail,
   meetingEndIso,
   meetingFollowupDaysAgo,
-  meetingFollowupDraft,
   meetingStartIso,
   MEETING_FOLLOWUP_SCAN_DAYS_BACK,
   planMeetingFollowup,
@@ -504,7 +504,7 @@ export async function draftMeetingFollowupMailto(
     }
   }
 
-  const draft = meetingFollowupDraft({
+  const draft = await composeMeetingFollowupDraft({
     name: primary.name,
     title: row.title?.trim() || "Meeting",
     summary,
@@ -534,6 +534,6 @@ export async function draftMeetingFollowupMailto(
     mailtoUrl,
     subject: draft.subject,
     body: draft.body,
-    granola: fromGranola,
+    granola: fromGranola && draft.source === "ai",
   };
 }

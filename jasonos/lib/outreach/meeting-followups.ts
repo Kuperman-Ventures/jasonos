@@ -307,39 +307,79 @@ export function attendeeLine(attendees: MeetingAttendee[], limit = 3): string {
   return `${labels.slice(0, limit).join(", ")} +${labels.length - limit}`;
 }
 
+/**
+ * Safe local draft when Claude is unavailable. Never pastes Granola note
+ * fragments into the body — those read like action items, not email.
+ */
 export function meetingFollowupDraft(input: {
   name: string | null;
   title: string;
-  summary: string | null;
+  summary?: string | null;
 }): { subject: string; body: string } {
   const who = firstName(input.name);
   const hello = who === "there" ? "Hi," : `${who},`;
-  const fact = firstUsefulSentence(input.summary ?? "");
-  const middle = fact
-    ? `Thanks again for the conversation. ${fact}`
-    : `Thanks again for taking the time${input.title && input.title !== "Meeting" ? ` on ${input.title}` : ""}.`;
-  return {
-    subject: input.title && input.title !== "Meeting"
+  const subject =
+    input.title && input.title !== "Meeting"
       ? `Following up: ${input.title}`
-      : "Following up",
+      : "Following up";
+  return {
+    subject,
     body: `${hello}
 
-${middle}
+Thanks again for the conversation. I'll follow up on what we covered.
 
 Jason`,
   };
 }
 
-function firstName(name: string | null | undefined): string {
-  const part = (name ?? "").trim().split(/\s+/)[0];
-  return part || "there";
+/** True when text looks like meeting notes / action items, not sendable prose. */
+export function looksLikeGranolaNoteFragment(text: string): boolean {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (!t) return true;
+  if (
+    /\([^)]{1,40}\)/.test(t) &&
+    /\b(committed|to reciprocate|action items?|next steps?)\b/i.test(t)
+  ) {
+    return true;
+  }
+  // "Shawn to reciprocate…" / "Committed to looking…" note cadence
+  if (/^[A-Z][a-z]+ to [a-z]/.test(t)) return true;
+  if (/\bCommitted to\b/.test(t) && !/[.!?]$/.test(t)) return true;
+  if ((t.match(/\b[A-Z][a-z]+ to\b/g) ?? []).length >= 1 && !/[.!?]/.test(t)) {
+    return true;
+  }
+  // Bullet / heading residue
+  if (/^[-*•]|\b(Action items?|Next steps?|Summary)\b:/i.test(t)) return true;
+  return false;
 }
 
-function firstUsefulSentence(summary: string): string | null {
-  const sentence = summary
-    .replace(/\s+/g, " ")
-    .split(/(?<=[.!?])\s+/)
-    .map((part) => part.trim())
-    .find((part) => part.length >= 24 && part.length <= 220);
-  return sentence ?? null;
+/**
+ * Reject drafts that still dump Granola notes: parenthetical name tags,
+ * third-person action items, or a large verbatim paste of the note.
+ */
+export function isUnacceptableFollowupBody(
+  body: string,
+  summary: string | null
+): boolean {
+  const text = body.replace(/\s+/g, " ").trim();
+  if (!text) return true;
+  if (looksLikeGranolaNoteFragment(text)) return true;
+  // "Name to verb … (Name)" is the exact failure mode from raw Granola paste.
+  if (/\b[A-Z][a-z]+ to [a-z][\s\S]{0,80}\([A-Z][a-z]+\)/.test(text)) {
+    return true;
+  }
+  if (/\bCommitted to looking through (his|her|their) network\b/i.test(text)) {
+    return true;
+  }
+  const note = (summary ?? "").replace(/\s+/g, " ").trim();
+  if (note.length >= 40) {
+    const slice = note.slice(0, Math.min(80, note.length));
+    if (text.includes(slice)) return true;
+  }
+  return false;
+}
+
+export function firstName(name: string | null | undefined): string {
+  const part = (name ?? "").trim().split(/\s+/)[0];
+  return part || "there";
 }
