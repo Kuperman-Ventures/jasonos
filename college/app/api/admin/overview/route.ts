@@ -9,7 +9,7 @@ import {
   type AdminMemberRow,
 } from "@/lib/admin";
 import { listActivity } from "@/lib/activity-log";
-import { aiGatewayAvailable, collegeAiModelId } from "@/lib/ai-model";
+import { aiGatewayAvailable, collegeAiModelId, savedCollegeAiModel } from "@/lib/ai-model";
 import { authConfigured, isSession, isSuperAdmin, requireCollegeSession } from "@/lib/auth";
 import { schoolNeedsCommonAppFill } from "@/lib/common-app-grid";
 import { listSchools, supabaseConfigured } from "@/lib/db";
@@ -87,10 +87,11 @@ export async function GET() {
   }
 
   try {
-    const [schools, activity, members] = await Promise.all([
+    const [schools, activity, members, savedModel] = await Promise.all([
       listSchools(),
       listActivity(150),
       listAdminMembers(),
+      savedCollegeAiModel(),
     ]);
     const schoolActivity = activity.find((entry) => entry.entityType === "school");
     const needsCommonApp = schools.filter(
@@ -105,7 +106,7 @@ export async function GET() {
       supabase: supabaseConfigured(),
       auth: authConfigured(),
       aiGateway: aiGatewayAvailable(),
-      aiModel: collegeAiModelId(),
+      aiModel: collegeAiModelId(null, savedModel),
       scorecard: scorecardKeyMode(),
     });
     const hygiene = buildAdminHygiene(schools);
