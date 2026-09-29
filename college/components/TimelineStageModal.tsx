@@ -282,13 +282,10 @@ export function TimelineStageModal({
         ) : null}
 
         <div className="tl-sg-scroll">
-          <div className={`tl-sg${onAssignStage ? " tl-sg-assignable" : ""}`}>
+          <div className="tl-sg">
             <div className="tl-sg-grid tl-sg-head">
               <div className="tl-sg-col mono">Stage</div>
               <div className="tl-sg-col mono">Dates</div>
-              {onAssignStage ? (
-                <div className="tl-sg-col tl-sg-col-assign mono">Assign</div>
-              ) : null}
               <div className="tl-sg-track">
                 {ticks.map((tick, i) => (
                   <div
@@ -316,21 +313,6 @@ export function TimelineStageModal({
                 onMarkDone={
                   onMarkStageDone && stageStatus(row.stage, today) === "overdue"
                     ? () => onMarkStageDone(row.stage.id)
-                    : undefined
-                }
-                onAssign={
-                  onAssignStage
-                    ? (owner) =>
-                        onAssignStage(
-                          {
-                            id: row.stage.id,
-                            name: row.stage.name,
-                            start: row.stage.start,
-                            end: row.stage.end,
-                            projectId: row.stage.projectId,
-                          },
-                          owner,
-                        )
                     : undefined
                 }
               />
@@ -398,7 +380,6 @@ function StageRow({
   owner,
   profiles,
   onMarkDone,
-  onAssign,
 }: {
   stage: TimelineStage;
   project: TimelineProject;
@@ -407,7 +388,6 @@ function StageRow({
   owner: Owner | null;
   profiles: Map<string, MemberProfile>;
   onMarkDone?: () => void;
-  onAssign?: (owner: Owner | null) => void;
 }) {
   const status = stageStatus(stage, today);
   const statusLabel = stageStatusLabel(stage, status);
@@ -467,15 +447,6 @@ function StageRow({
         <div className="tl-sg-span mono">
           {formatStageRange(stage.start, stage.end)}
         </div>
-        {onAssign ? (
-          <StageAssignCircles
-            stageId={stage.id}
-            stageName={stage.name}
-            owner={owner}
-            profiles={profiles}
-            onAssign={onAssign}
-          />
-        ) : null}
         <div className="tl-sg-track">
           {stage.isMilestone ? (
             <div
