@@ -6990,12 +6990,6 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
 }
 
 /* Activity log */
-.log-panel .section-sub {
-  margin: 0 0 var(--space-6);
-  max-width: 62ch;
-  color: var(--color-neutral-700);
-  line-height: 1.45;
-}
 .log-head {
   display: flex;
   flex-wrap: wrap;
