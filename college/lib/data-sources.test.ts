@@ -129,6 +129,15 @@ test("computeStatus: live source whose last error is newer than last success is 
   assert.equal(r.status, "failing");
 });
 
+test("computeStatus: live source last checked over 7 days ago is untested", () => {
+  const r = computeStatus(
+    source({ type: "live" }),
+    check({ lastCheckedAt: "2026-09-10T10:00:00Z", lastSuccessAt: "2026-09-10T10:00:00Z" }),
+    NOW,
+  );
+  assert.equal(r.status, "untested");
+});
+
 test("computeStatus: live source that recovered after an error is ok", () => {
   const r = computeStatus(
     source({ type: "live" }),

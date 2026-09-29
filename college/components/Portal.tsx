@@ -9,6 +9,7 @@ import { FaqTab } from "./FaqTab";
 import { LeftRail } from "./LeftRail";
 import { LogTab } from "./LogTab";
 import { AdminTab } from "./AdminTab";
+import { DataSourcesTab } from "./DataSourcesTab";
 import { NotesTab } from "./NotesTab";
 import { IngestPanel } from "./IngestPanel";
 import { ProjectManagementTab } from "./ProjectManagementTab";
@@ -1528,6 +1529,7 @@ export function Portal({
           <LogTab dateline={phaseLabel} memberProfiles={memberProfiles} />
         ) : null}
         {tab === "admin" && isAdminRole(member.role) ? <AdminTab dateline={phaseLabel} /> : null}
+        {tab === "sources" ? <DataSourcesTab /> : null}
         <div className="save-state">{loaded && pipeline.loaded ? saveState : "Loading..."}</div>
       </main>
     </div>

@@ -36,6 +36,19 @@ import { scoirRecordForSchool, scoirSchoolCount } from "@/lib/scoir";
 import { campusCalendarForSchoolName } from "@/lib/trip-planning/campus-calendars";
 import type { School } from "@/lib/types";
 import residencyImport from "@/content/residency-admit-import.json";
+import { FEATURES, STATUS_LABELS } from "@/lib/data-sources-view";
+
+export {
+  FEATURES,
+  FEATURE_LABELS,
+  SOURCE_TYPE_LABELS,
+  STATUS_LABELS,
+  diagramPositions,
+  needAttentionCount,
+  sortForList,
+  statusTone,
+  type StatusTone,
+} from "@/lib/data-sources-view";
 
 export type Feature = "schools" | "finances" | "applications" | "trip" | "ingest" | "calendar";
 export type SourceType = "platform" | "live" | "snapshot" | "linkout" | "outbound";
@@ -123,39 +136,6 @@ export type DataSourceDef = Omit<
   | "tokenStatus"
 > & { env?: DataSourceEnv };
 
-export const FEATURES: { id: Feature; name: string }[] = [
-  { id: "schools", name: "Schools" },
-  { id: "finances", name: "Finances" },
-  { id: "applications", name: "Applications" },
-  { id: "trip", name: "Trip" },
-  { id: "ingest", name: "Ingest" },
-  { id: "calendar", name: "Calendar" },
-];
-
-export const FEATURE_LABELS: Record<Feature, string> = {
-  schools: "Schools",
-  finances: "Finances",
-  applications: "Applications",
-  trip: "Trip",
-  ingest: "Ingest",
-  calendar: "Calendar",
-};
-
-export const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
-  platform: "Platform",
-  live: "Live API",
-  snapshot: "Snapshot",
-  linkout: "Link-out",
-  outbound: "Outbound",
-};
-
-export const STATUS_LABELS: Record<Status, string> = {
-  ok: "Working",
-  stale: "Stale",
-  failing: "Failing",
-  untested: "Untested",
-  no_date: "No date",
-};
 
 /** A live check older than this counts as untested. */
 export const CHECK_MAX_AGE_DAYS = 7;
@@ -700,7 +680,7 @@ function checkIsOld(check: DataSourceCheckState, now: Date): boolean {
  * live / platform
  *   apiKey missing                   → failing "Key missing"
  *   last recorded call/test failed   → failing
- *   no recorded call or test         → untested
+ *   no call or test in 7 days        → untested
  *   otherwise                        → ok
  *
  * link-out
@@ -737,7 +717,7 @@ export function computeStatus(
   if (source.type === "platform" || source.type === "live") {
     if (source.apiKey === "missing") return result("failing", "Key missing");
     if (check && errorIsCurrent(check)) return result("failing");
-    if (!check || !check.lastCheckedAt) return result("untested");
+    if (!check || checkIsOld(check, now)) return result("untested");
     return result("ok");
   }
 
@@ -756,47 +736,6 @@ export function computeStatus(
   return result("ok");
 }
 
-const STATUS_ORDER: Record<Status, number> = {
-  failing: 0,
-  stale: 1,
-  untested: 1,
-  no_date: 2,
-  ok: 3,
-};
-
-/** Failing first, then stale/untested, then no_date, then ok; within a band, by name. */
-export function sortForList(sources: DataSource[]): DataSource[] {
-  return [...sources].sort(
-    (a, b) =>
-      STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.name.localeCompare(b.name),
-  );
-}
-
-/** Failing, stale and untested sources. No-date snapshots are shown but not counted. */
-export function needAttentionCount(sources: DataSource[]): number {
-  return sources.filter((s) => s.status === "failing" || s.status === "stale" || s.status === "untested")
-    .length;
-}
-
-export function diagramPositions(
-  sources: DataSource[],
-): Record<string, { x: number; y: number; w: number }> {
-  const pos: Record<string, { x: number; y: number; w: number }> = {};
-  const byType = (type: SourceType) => sources.filter((s) => s.type === type);
-  byType("live").forEach((s, i) => {
-    pos[s.id] = { x: 0, y: 110 + i * 40, w: 290 };
-  });
-  byType("snapshot").forEach((s, i) => {
-    pos[s.id] = { x: 1030, y: 130 + i * 40, w: 290 };
-  });
-  byType("linkout").forEach((s, i) => {
-    pos[s.id] = { x: i * 232, y: 712, w: 220 };
-  });
-  byType("outbound").forEach((s) => {
-    pos[s.id] = { x: 1030, y: 712, w: 290 };
-  });
-  return pos;
-}
 
 type ResidencyRow = { school: string; control: string };
 const RESIDENCY_CONTROL = new Map(

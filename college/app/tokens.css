@@ -64,6 +64,11 @@
   --milestone-ink: #a6034f;
   --now-band: rgba(232,85,4,.10);
   --gridline: rgba(32,30,29,.06);
+  /* Data Sources status dots */
+  --status-ok:      oklch(0.62 0.13 150);
+  --status-stale:   oklch(0.76 0.15 75);
+  --status-failing: oklch(0.56 0.19 28);
+  --status-nodate:  #9b9797;
 }
 
 [data-mode="dark"] {
@@ -120,6 +125,11 @@
   --milestone-ink: #ff87bd;
   --now-band: rgba(232,85,4,.14);
   --gridline: rgba(240,238,236,.06);
+  /* Data Sources status dots */
+  --status-ok:      oklch(0.72 0.13 150);
+  --status-stale:   oklch(0.80 0.14 75);
+  --status-failing: oklch(0.66 0.18 28);
+  --status-nodate:  #7f858e;
 }
 
 /* Native controls: inherit the theme instead of the browser's light defaults */

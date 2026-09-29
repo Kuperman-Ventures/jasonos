@@ -56,6 +56,7 @@ export const RAIL_SHORT_LABELS: Partial<Record<string, string>> = {
   consultants: "Consultants",
   faq: "FAQ",
   testing: "Testing",
+  sources: "Sources",
 };
 
 /** Compact process-phase names for the slim rail dots. */
