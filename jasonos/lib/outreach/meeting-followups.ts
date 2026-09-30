@@ -8,8 +8,8 @@ import { isNoiseEmail } from "./mail-noise";
 
 export const MEETING_FOLLOWUP_SCAN_DAYS_BACK = 21;
 export const MEETING_FOLLOWUP_MAX_GUESTS = 8;
-/** Wait a bit after the meeting ends so the reminder is not instant. */
-export const MEETING_FOLLOWUP_GRACE_MS = 2 * 60 * 60 * 1000;
+/** Brief pause after the meeting ends so Sync does not fire mid-wrap-up. */
+export const MEETING_FOLLOWUP_GRACE_MS = 15 * 60 * 1000;
 export const MEETING_FOLLOWUP_SNOOZE_PRESETS = [1, 3, 5] as const;
 export const MEETING_FOLLOWUP_MAX_SNOOZE_DAYS = 365;
 
@@ -418,7 +418,7 @@ export function firstName(name: string | null | undefined): string {
 }
 
 const TITLE_NAME_STOP =
-  /^(jason|k|kuperman|catch|catch-up|catchup|up|ii|iii|iv|chat|call|meet|meeting|sync|zoom|intro|follow|follow-up|followup|with|and|the|a|an|if|you|can|make|this|recurring|weekly|biweekly)$/i;
+  /^(jason|k|kuperman|catch|catch-up|catchup|up|ii|iii|iv|chat|call|meet|meeting|sync|quick|zoom|intro|follow|follow-up|followup|with|and|the|a|an|if|you|can|make|this|recurring|weekly|biweekly)$/i;
 
 /**
  * When calendar guests lack a display name (common on GCal), pull a first
