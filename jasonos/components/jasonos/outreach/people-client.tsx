@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
 import { TierDegreeBadge } from "@/components/jasonos/outreach/tier-degree-badge";
+import { ContactAvatar } from "@/components/jasonos/outreach/contact-avatar";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import {
   CADENCE_INTERVALS,
@@ -356,72 +357,94 @@ function PersonRow({
           onOpen();
         }
       }}
-      className="flex flex-wrap items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40 focus:bg-muted/40 focus:outline-none cursor-pointer"
+      className="grid grid-cols-1 items-end gap-x-3 gap-y-2 px-4 py-3 transition-colors hover:bg-muted/40 focus:bg-muted/40 focus:outline-none cursor-pointer xl:grid-cols-[minmax(14rem,1fr)_auto_9.5rem]"
     >
-      <div className="min-w-0 flex-1 basis-52">
-        <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-medium">{person.name}</span>
-          <TierDegreeBadge
-            tier={person.relevance_tier}
-            degree={person.network_degree}
-          />
-          {person.vip ? (
-            <Star className="h-3 w-3 shrink-0 fill-[var(--jos-line)] text-rung-ink" />
-          ) : null}
-          {person.intent === "backrow" ? (
-            <span
-              title="Removed from queue — kept in your contacts list."
-              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-dashed border-border bg-muted/40 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-muted-foreground"
-            >
-              <Archive className="h-2.5 w-2.5" />
-              Backrow
+      <div className="flex min-w-0 items-center gap-3">
+        <ContactAvatar
+          name={person.name}
+          photoUrl={person.photo_url}
+          size="md"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="truncate text-sm font-medium">{person.name}</span>
+            <TierDegreeBadge
+              tier={person.relevance_tier}
+              degree={person.network_degree}
+            />
+            {person.vip ? (
+              <Star className="h-3 w-3 shrink-0 fill-[var(--jos-line)] text-rung-ink" />
+            ) : null}
+            {person.intent === "backrow" ? (
+              <span
+                title="Removed from queue — kept in your contacts list."
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-dashed border-border bg-muted/40 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-muted-foreground"
+              >
+                <Archive className="h-2.5 w-2.5" />
+                Backrow
+              </span>
+            ) : null}
+            <RelationshipBadge type={person.relationship_type} />
+          </div>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+            {person.title ? (
+              <span className="truncate">{person.title}</span>
+            ) : null}
+            {person.title && person.firm ? <span>·</span> : null}
+            {person.firm ? (
+              <span className="truncate">{person.firm}</span>
+            ) : null}
+            <span>·</span>
+            <span className={cn(scheduleIsPast(person) ? "text-rung-ink" : "")}>
+              {scheduleHint(person)}
             </span>
-          ) : null}
-          <RelationshipBadge type={person.relationship_type} />
-        </div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
-          {person.title ? <span className="truncate">{person.title}</span> : null}
-          {person.title && person.firm ? <span>·</span> : null}
-          {person.firm ? <span className="truncate">{person.firm}</span> : null}
-          <span>·</span>
-          <span className={cn(scheduleIsPast(person) ? "text-rung-ink" : "")}>
-            {scheduleHint(person)}
-          </span>
+          </div>
         </div>
       </div>
 
       <PersonControls person={person} onSaved={onSaved} onStop={stop} />
 
-      <div className="flex items-center gap-1 shrink-0" onClick={stop}>
-        {person.linkedin_url ? (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            title="Open LinkedIn"
-            render={
-              <a
-                href={person.linkedin_url}
-                target="_blank"
-                rel="noopener noreferrer"
-              />
-            }
-          >
-            <Link2 className="h-3.5 w-3.5" />
-          </Button>
-        ) : null}
-        {person.primary_email ? (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            title="Email"
-            render={<a href={`mailto:${person.primary_email}`} />}
-          >
-            <Mail className="h-3.5 w-3.5" />
-          </Button>
-        ) : null}
+      {/* Fixed-width actions so Open stays in one column across rows. */}
+      <div
+        className="flex h-7 items-center justify-end gap-0.5"
+        onClick={stop}
+      >
+        <div className="flex w-14 items-center justify-end">
+          {person.linkedin_url ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title="Open LinkedIn"
+              render={
+                <a
+                  href={person.linkedin_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                />
+              }
+            >
+              <Link2 className="h-3.5 w-3.5" />
+            </Button>
+          ) : (
+            <span className="inline-block h-7 w-7" aria-hidden />
+          )}
+          {person.primary_email ? (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title="Email"
+              render={<a href={`mailto:${person.primary_email}`} />}
+            >
+              <Mail className="h-3.5 w-3.5" />
+            </Button>
+          ) : (
+            <span className="inline-block h-7 w-7" aria-hidden />
+          )}
+        </div>
         <Button
           variant="outline"
           size="sm"
+          className="w-[4.25rem] justify-center"
           onClick={(e) => {
             e.stopPropagation();
             onOpen();
@@ -443,14 +466,16 @@ const SELECT_CLS =
 function ControlField({
   label,
   title,
+  className,
   children,
 }: {
   label: string;
   title?: string;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <label className="flex flex-col gap-0.5" title={title}>
+    <label className={cn("flex min-w-0 flex-col gap-0.5", className)} title={title}>
       <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
         {label}
       </span>
@@ -496,12 +521,15 @@ function PersonControls({
 
   return (
     <div
-      className={cn("flex flex-wrap items-end gap-1.5", pending && "opacity-60")}
+      className={cn(
+        "grid w-full max-w-[34rem] grid-cols-[2.75rem_2.75rem_minmax(6.5rem,1fr)_minmax(5.5rem,0.9fr)_minmax(7rem,1.1fr)] items-end gap-x-2",
+        pending && "opacity-60"
+      )}
       onClick={onStop}
     >
       <ControlField label="A/B/C" title="Relevance — A most relevant → C least">
         <select
-          className={SELECT_CLS}
+          className={cn(SELECT_CLS, "w-full")}
           value={relevance}
           disabled={pending}
           onChange={(e) => {
@@ -527,9 +555,12 @@ function PersonControls({
         </select>
       </ControlField>
 
-      <ControlField label="1/2/3" title="Network degree — 1 know well, 2 intro'd by a 1, 3 by a 2">
+      <ControlField
+        label="1/2/3"
+        title="Network degree — 1 know well, 2 intro'd by a 1, 3 by a 2"
+      >
         <select
-          className={SELECT_CLS}
+          className={cn(SELECT_CLS, "w-full")}
           value={degree}
           disabled={pending}
           onChange={(e) => {
@@ -557,7 +588,7 @@ function PersonControls({
 
       <ControlField label="Intent">
         <select
-          className={SELECT_CLS}
+          className={cn(SELECT_CLS, "w-full")}
           value={intent}
           disabled={pending}
           onChange={(e) => {
@@ -585,7 +616,7 @@ function PersonControls({
 
       <ControlField label="Cadence">
         <select
-          className={SELECT_CLS}
+          className={cn(SELECT_CLS, "w-full")}
           value={cadence}
           disabled={pending}
           onChange={(e) => {
@@ -608,7 +639,7 @@ function PersonControls({
 
       <ControlField label="Classification">
         <select
-          className={SELECT_CLS}
+          className={cn(SELECT_CLS, "w-full")}
           value={rel}
           disabled={pending}
           onChange={(e) => {

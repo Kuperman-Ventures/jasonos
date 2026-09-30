@@ -89,6 +89,8 @@ export interface QueueCard {
   primary_email: string | null;
   phone: string | null;
   linkedin_url: string | null;
+  /** LeadDelta / CRM profile image when available. */
+  photo_url: string | null;
 
   // ---- Cadence / dates ----
   cadence_interval: CadenceInterval;
@@ -457,6 +459,7 @@ function makeCard(
     primary_email: person.primary_email,
     phone: person.phone,
     linkedin_url: person.linkedin_url ?? reconnect?.linkedin_url ?? null,
+    photo_url: person.photo_url ?? null,
     cadence_interval: person.cadence_interval,
     cadence_stage: person.cadence_stage,
     next_touch_date: person.next_touch_date,
@@ -501,6 +504,7 @@ function makeCardFromReconnect(
     primary_email: null,
     phone: null,
     linkedin_url: r.linkedin_url ?? null,
+    photo_url: null,
     cadence_interval: "none",
     cadence_stage: null,
     next_touch_date: null,

@@ -36,6 +36,7 @@ export interface AttentionContact {
   daysUntilDue: number;
   email: string | null;
   phone: string | null;
+  photoUrl: string | null;
 }
 
 export interface SitePanel {
@@ -85,6 +86,7 @@ function cardToAttention(
     daysUntilDue,
     email: c.primary_email,
     phone: c.phone,
+    photoUrl: c.photo_url ?? null,
   };
 }
 

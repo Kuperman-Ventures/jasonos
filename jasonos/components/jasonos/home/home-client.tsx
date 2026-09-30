@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
+import { ContactAvatar } from "@/components/jasonos/outreach/contact-avatar";
 import { TierDegreeBadge } from "@/components/jasonos/outreach/tier-degree-badge";
 import { Logo } from "@/components/jasonos/logo";
 import { PageHeader } from "@/components/jasonos/brand/page-header";
@@ -192,12 +193,13 @@ export function HomeClient({
       className="flex min-h-[4.125rem] flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3"
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <TierDegreeBadge tier={c.tier} degree={c.degree} />
+        <ContactAvatar name={c.name} photoUrl={c.photoUrl} size="md" />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium">
-            {c.name}
+          <p className="flex min-w-0 items-center gap-1.5 truncate font-medium">
+            <span className="truncate">{c.name}</span>
+            <TierDegreeBadge tier={c.tier} degree={c.degree} />
             {c.firm ? (
-              <span className="ml-1.5 text-[11px] text-muted-foreground">
+              <span className="truncate text-[11px] font-normal text-muted-foreground">
                 · {c.firm}
               </span>
             ) : null}

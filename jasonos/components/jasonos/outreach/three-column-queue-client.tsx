@@ -38,6 +38,7 @@ import {
   type QueueUrgencyKey,
 } from "@/lib/outreach/queue-urgency";
 import { ContactCreateModal } from "@/components/jasonos/outreach/contact-create-modal";
+import { ContactAvatar } from "@/components/jasonos/outreach/contact-avatar";
 import { TierDegreeBadge } from "@/components/jasonos/outreach/tier-degree-badge";
 import { ReplyStatusLight } from "@/components/jasonos/outreach/reply-status-light";
 import { RELATIONSHIP_TYPE_LABELS } from "@/lib/outreach/types";
@@ -192,6 +193,7 @@ function personToCard(p: OutreachPerson): QueueCard {
     primary_email: p.primary_email,
     phone: p.phone,
     linkedin_url: p.linkedin_url,
+    photo_url: p.photo_url,
     cadence_interval: p.cadence_interval,
     cadence_stage: p.cadence_stage,
     next_touch_date: p.next_touch_date,
@@ -772,8 +774,9 @@ function BandContactRow({
     <button
       type="button"
       onClick={() => onOpen(card)}
-      className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/30"
+      className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-muted/30"
     >
+      <ContactAvatar name={card.name} photoUrl={card.photo_url} size="sm" />
       <div className="min-w-0 flex-1">
         {showColumn ? (
           <span

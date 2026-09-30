@@ -43,6 +43,7 @@ export type QueueUnionPerson = {
   primary_email?: string | null;
   phone?: string | null;
   linkedin_url?: string | null;
+  photo_url?: string | null;
   cadence_interval?: QueueCard["cadence_interval"];
   cadence_stage?: QueueCard["cadence_stage"];
   next_touch_date?: string | null;
@@ -129,6 +130,7 @@ export function unionScheduleIntoQueueColumns(
       primary_email: person?.primary_email ?? null,
       phone: person?.phone ?? null,
       linkedin_url: person?.linkedin_url ?? null,
+      photo_url: person?.photo_url ?? null,
       cadence_interval: person?.cadence_interval ?? "none",
       cadence_stage: person?.cadence_stage ?? null,
       next_touch_date: person?.next_touch_date ?? cc.nextActionDueDate,
