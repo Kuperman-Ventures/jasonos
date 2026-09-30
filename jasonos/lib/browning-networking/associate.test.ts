@@ -24,4 +24,14 @@ describe("associate waiting meeting", () => {
       "scheduled"
     );
   });
+
+  it("treats a past linked call as Meeting set too", () => {
+    assert.equal(
+      handoffLane({
+        status: "booked",
+        callStartsAt: "2026-09-28T18:00:00.000Z",
+      }),
+      "scheduled"
+    );
+  });
 });
