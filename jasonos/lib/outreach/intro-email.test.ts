@@ -23,6 +23,23 @@ describe("intro wishlist", () => {
     assert.equal(wish.name, "Ed Engels");
     assert.equal(wish.linkedinUrl, "https://www.linkedin.com/in/ed");
     assert.equal(wish.agreed, true);
+    assert.equal(wish.requestEmailSent, false);
+    assert.equal(wish.introMade, false);
+  });
+
+  it("persists request sent and intro made flags", () => {
+    const rows = serializeIntroWishlist([
+      {
+        name: "Ed",
+        company: "",
+        linkedinUrl: "",
+        rationale: "",
+        requestEmailSent: true,
+        introMade: true,
+      },
+    ]);
+    assert.equal(rows[0]?.requestEmailSent, true);
+    assert.equal(rows[0]?.introMade, true);
   });
 
   it("drops empty wishlist rows on serialize", () => {

@@ -16,7 +16,12 @@ export type IntroWishFields = {
   company: string;
   linkedinUrl: string;
   rationale: string;
+  /** Meeting contact agreed to make the intro. */
   agreed?: boolean;
+  /** Jason sent the intro-request email to the meeting contact. */
+  requestEmailSent?: boolean;
+  /** The intro to the target was actually made. */
+  introMade?: boolean;
   targetOverview?: string;
   introDraft?: string;
   introDraftAt?: string;
@@ -41,6 +46,8 @@ export function normalizeIntroWish(raw: unknown): IntroWishFields | null {
     linkedinUrl,
     rationale,
     agreed: o.agreed === true,
+    requestEmailSent: o.requestEmailSent === true,
+    introMade: o.introMade === true,
     targetOverview:
       typeof o.targetOverview === "string" ? o.targetOverview.trim() : undefined,
     introDraft: typeof o.introDraft === "string" ? o.introDraft : undefined,
@@ -56,6 +63,8 @@ export function serializeIntroWishlist(items: IntroWishFields[]): IntroWishField
       linkedinUrl: (w.linkedinUrl ?? "").trim(),
       rationale: (w.rationale ?? "").trim(),
       ...(w.agreed ? { agreed: true } : {}),
+      ...(w.requestEmailSent ? { requestEmailSent: true } : {}),
+      ...(w.introMade ? { introMade: true } : {}),
       ...(w.targetOverview?.trim()
         ? { targetOverview: w.targetOverview.trim() }
         : {}),

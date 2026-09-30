@@ -970,6 +970,22 @@ function PrepForm({
   );
 }
 
+function patchIntroFlag(
+  meeting: Meeting,
+  introIndex: number,
+  field: "agreed" | "requestEmailSent" | "introMade",
+  checked: boolean,
+  onChange: (m: Meeting) => void
+) {
+  const next = meeting.introWishlist.map((item, i) =>
+    i === introIndex ? { ...item, [field]: checked } : item
+  );
+  void updateMeetingPrep(meeting.id, { introWishlist: next }).then((res) => {
+    if (!res.ok) toast.error(res.error);
+    else onChange(res.meeting);
+  });
+}
+
 function HeldIntroActions({
   meeting,
   onChange,
@@ -1005,24 +1021,56 @@ function HeldIntroActions({
                   <span className="text-muted-foreground"> · {w.company}</span>
                 ) : null}
               </div>
-              <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={Boolean(w.agreed)}
-                  onChange={(e) => {
-                    const next = meeting.introWishlist.map((item, i) =>
-                      i === index ? { ...item, agreed: e.target.checked } : item
-                    );
-                    void updateMeetingPrep(meeting.id, { introWishlist: next }).then(
-                      (res) => {
-                        if (!res.ok) toast.error(res.error);
-                        else onChange(res.meeting);
-                      }
-                    );
-                  }}
-                />
-                They agreed
-              </label>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(w.agreed)}
+                    onChange={(e) =>
+                      patchIntroFlag(
+                        meeting,
+                        index,
+                        "agreed",
+                        e.target.checked,
+                        onChange
+                      )
+                    }
+                  />
+                  They agreed
+                </label>
+                <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(w.requestEmailSent)}
+                    onChange={(e) =>
+                      patchIntroFlag(
+                        meeting,
+                        index,
+                        "requestEmailSent",
+                        e.target.checked,
+                        onChange
+                      )
+                    }
+                  />
+                  Request email sent
+                </label>
+                <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(w.introMade)}
+                    onChange={(e) =>
+                      patchIntroFlag(
+                        meeting,
+                        index,
+                        "introMade",
+                        e.target.checked,
+                        onChange
+                      )
+                    }
+                  />
+                  Intro made
+                </label>
+              </div>
             </div>
             <div className="mt-1.5">
               <IntroLinkedInField
