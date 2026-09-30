@@ -172,8 +172,9 @@ export const SERVICE_DEFINITIONS: ServiceDefinition[] = [
     name: "leaddelta",
     label: "LeadDelta",
     connectionType: "api_key",
-    description: "LinkedIn network intelligence and recruiter identification.",
-    features: ["Network graph", "Recruiter ID", "231 synced recruiters"],
+    description:
+      "LinkedIn CRM for contact photos and network context. Paste the API key from LeadDelta → Integrations. JasonOS does not scrape LinkedIn.",
+    features: ["Contact photos", "Profile lookup", "Network CRM"],
     configurable: true,
     disconnectable: true,
     envVars: ["LEADDELTA_API_KEY"],

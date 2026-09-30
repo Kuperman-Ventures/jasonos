@@ -1123,7 +1123,11 @@ export async function getOutreachContactByRecruiterId(
   }
 
   const sb = createServiceRoleClient();
-  const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,is_networking,
+  const fullColumns = `id,name,emails,phone,linkedin_url,photo_url,title,vip,tags,is_networking,
+     relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
+     network_degree,next_touch_date,next_touch_is_manual,last_touch_date,last_touch_channel,
+     reply_status_override,reply_status_override_at,created_at`;
+  const noPhotoColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,is_networking,
      relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
      network_degree,next_touch_date,next_touch_is_manual,last_touch_date,last_touch_channel,
      reply_status_override,reply_status_override_at,created_at`;
@@ -1144,6 +1148,15 @@ export async function getOutreachContactByRecruiterId(
     .filter("source_ids->>recruiter_pipeline_id", "eq", recruiterId)
     .limit(1)
     .maybeSingle();
+
+  if (result.error && /photo_url/i.test(result.error.message)) {
+    result = (await sb
+      .from("contacts")
+      .select(noPhotoColumns)
+      .filter("source_ids->>recruiter_pipeline_id", "eq", recruiterId)
+      .limit(1)
+      .maybeSingle()) as typeof result;
+  }
 
   if (result.error && /next_touch_is_manual/i.test(result.error.message)) {
     result = (await sb
@@ -1209,6 +1222,8 @@ export async function getOutreachContactByRecruiterId(
     firm,
     firm_normalized: firmNormalized,
     linkedin_url: (data.linkedin_url as string) ?? null,
+    photo_url:
+      ((data as { photo_url?: string | null }).photo_url as string | null) ?? null,
     primary_email: emails[0] ?? null,
     phone: ((data as { phone?: string | null }).phone as string | null) ?? null,
     vip: Boolean(data.vip),
@@ -1385,7 +1400,11 @@ async function loadContactCardData(input: {
 
   // 2. Load the canonical contact row. Mirrors getOutreachContactByRecruiterId
   // schema fallbacks so this works even when migration 0017 hasn't shipped.
-  const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,referred_by_contact_id,
+  const fullColumns = `id,name,emails,phone,linkedin_url,photo_url,title,vip,tags,source_ids,company_id,is_networking,referred_by_contact_id,
+     relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
+     network_degree,network_role,next_touch_date,next_touch_is_manual,last_touch_date,last_touch_channel,
+     reply_status_override,reply_status_override_at,created_at`;
+  const noPhotoColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,referred_by_contact_id,
      relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
      network_degree,network_role,next_touch_date,next_touch_is_manual,last_touch_date,last_touch_channel,
      reply_status_override,reply_status_override_at,created_at`;
@@ -1409,6 +1428,14 @@ async function loadContactCardData(input: {
     .select(fullColumns)
     .eq("id", resolvedContactId)
     .maybeSingle();
+
+  if (contactResult.error && /photo_url/i.test(contactResult.error.message)) {
+    contactResult = (await sb
+      .from("contacts")
+      .select(noPhotoColumns)
+      .eq("id", resolvedContactId)
+      .maybeSingle()) as typeof contactResult;
+  }
 
   if (contactResult.error && /network_role/i.test(contactResult.error.message)) {
     contactResult = (await sb
@@ -1506,6 +1533,8 @@ async function loadContactCardData(input: {
     firm,
     firm_normalized: firmNormalized,
     linkedin_url: (row.linkedin_url as string) ?? null,
+    photo_url:
+      ((row as { photo_url?: string | null }).photo_url as string | null) ?? null,
     primary_email: emails[0] ?? null,
     phone: ((row as { phone?: string | null }).phone as string | null) ?? null,
     vip: Boolean(row.vip),

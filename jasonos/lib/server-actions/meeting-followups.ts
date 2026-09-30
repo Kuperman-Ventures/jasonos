@@ -54,6 +54,7 @@ type ActionResult = { ok: true } | { ok: false; error: string };
 interface FollowupRow {
   id: string;
   gcal_event_id: string;
+  ical_uid?: string | null;
   title: string;
   starts_at: string;
   ends_at: string;
@@ -484,25 +485,33 @@ export async function draftMeetingFollowupMailto(
     return { ok: false, error: "Everyone on this meeting already got an email." };
   }
 
-  const primary = pending[0]!;
+  const primary = pickPrimaryFollowupAttendee(
+    pending,
+    asAttendees(row.attendees),
+    row.title
+  );
   const contactName = primary.name || primary.email.split("@")[0] || row.title;
-  let summary = row.granola_summary?.trim() || null;
-  let granolaUrl = row.granola_url;
-  let fromGranola = Boolean(summary);
-
-  if (!summary) {
-    const note = await searchGranolaForContact({
-      contactName,
-      email: primary.email,
-      aroundIso: row.starts_at,
-      calendarEventId: row.gcal_event_id,
-    });
-    if (note.found && note.summary) {
-      summary = note.summary;
-      granolaUrl = note.url ?? null;
-      fromGranola = true;
-    }
-  }
+  // Always re-fetch Granola for this calendar event. A cached summary from a
+  // bad match must not keep powering the wrong draft.
+  const calendarEventIds = [
+    row.gcal_event_id,
+    typeof row.ical_uid === "string" ? row.ical_uid : null,
+  ].filter((value): value is string => Boolean(value?.trim()));
+  const note = await searchGranolaForContact({
+    contactName,
+    email: primary.email,
+    emails: [
+      ...pending.map((a) => a.email),
+      ...asAttendees(row.attendees).map((a) => a.email),
+    ],
+    aroundIso: row.starts_at,
+    calendarEventId: row.gcal_event_id,
+    calendarEventIds,
+    meetingTitle: row.title,
+  });
+  const summary = note.found && note.summary ? note.summary : null;
+  const granolaUrl = note.found ? note.url ?? null : null;
+  const fromGranola = Boolean(summary);
 
   const draft = await composeMeetingFollowupDraft({
     name: primary.name,
@@ -536,4 +545,24 @@ export async function draftMeetingFollowupMailto(
     body: draft.body,
     granola: fromGranola && draft.source === "ai",
   };
+}
+
+/** Prefer the attendee named in the meeting title; else first pending. */
+function pickPrimaryFollowupAttendee(
+  pending: MeetingAttendee[],
+  attendees: MeetingAttendee[],
+  title: string | null | undefined
+): MeetingAttendee {
+  const hay = (title ?? "").toLowerCase();
+  const pool = pending.length ? pending : attendees;
+  const named = pool.find((person) => {
+    const name = (person.name ?? "").trim().toLowerCase();
+    if (!name || name.length < 2) return false;
+    const parts = name.split(/\s+/).filter((part) => part.length > 1);
+    if (parts.length >= 2) {
+      return parts.every((part) => hay.includes(part));
+    }
+    return hay.includes(name);
+  });
+  return named ?? pool[0]!;
 }
