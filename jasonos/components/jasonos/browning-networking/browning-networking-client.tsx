@@ -230,9 +230,9 @@ function WaitingAssociatePanel({
         <div>
           <h2 className="text-lg font-semibold">{displayHandoffName(handoff)}</h2>
           <p className="text-xs text-muted-foreground">
-            Amber blocks are the times you offered. Gray is already on your calendar. Click a gray
-            meeting to link it to {displayHandoffName(handoff)} and clear Waiting — nothing else on
-            this calendar can be changed.
+            Amber blocks are the times you offered. Gray is already on your calendar — past or
+            future. Click a gray meeting to link it to {displayHandoffName(handoff)} and clear
+            Waiting. Nothing else on this calendar can be changed.
           </p>
         </div>
         <div className="flex items-center gap-2">

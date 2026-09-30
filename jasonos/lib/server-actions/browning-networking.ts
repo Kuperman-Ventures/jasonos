@@ -154,9 +154,6 @@ export async function associateHandoffMeeting(
   if (!Number.isFinite(startsAt) || !Number.isFinite(endsAt) || endsAt <= startsAt) {
     return { ok: false, error: "That calendar block has no usable time." };
   }
-  if (startsAt < Date.now() - 12 * 60 * 60 * 1000) {
-    return { ok: false, error: "Pick a future meeting (or one from earlier today)." };
-  }
 
   const sb = createServiceRoleClient();
   const { data, error } = await sb
