@@ -364,22 +364,12 @@ function testPolicyLine(row: CommonAppGridRow): string {
   return policy || used;
 }
 
-function feeLine(row: CommonAppGridRow): string {
-  const parts: string[] = [];
-  if (typeof row.feeUS === "number" && Number.isFinite(row.feeUS)) {
-    parts.push(row.feeUS === 0 ? "US application fee $0" : `US application fee $${row.feeUS}`);
-  }
-  if (row.feeWaiver?.trim()) parts.push(`fee waiver: ${row.feeWaiver.trim()}`);
-  return parts.join("; ");
-}
-
 export function mapCommonAppRow(row: CommonAppGridRow): FoundFacts {
   const facts = emptyFacts();
   facts.applicationPlatform = row.platform?.trim() || "Common App";
   facts.requiredEssays = essayLine(row);
   facts.teacherRecs = recsLine(row);
   facts.testPolicy = testPolicyLine(row);
-  facts.meritAidNotes = feeLine(row);
   facts.deadlines = deadlineFacts(row);
   facts.sources = [
     {
@@ -415,7 +405,6 @@ export const COMMON_APP_DETAIL_KEYS = [
   "requiredEssays",
   "teacherRecs",
   "testPolicy",
-  "meritAidNotes",
 ] as const satisfies ReadonlyArray<keyof FoundFacts>;
 
 export function schoolNeedsCommonAppFill(school: {
@@ -423,7 +412,6 @@ export function schoolNeedsCommonAppFill(school: {
   requiredEssays?: string;
   teacherRecs?: string;
   testPolicy?: string;
-  meritAidNotes?: string;
   deadlines?: Array<{ title: string }>;
 }): boolean {
   return (
@@ -431,7 +419,6 @@ export function schoolNeedsCommonAppFill(school: {
     !school.requiredEssays?.trim() ||
     !school.teacherRecs?.trim() ||
     !school.testPolicy?.trim() ||
-    !school.meritAidNotes?.trim() ||
     !(school.deadlines && school.deadlines.length > 0)
   );
 }
@@ -443,7 +430,6 @@ export function applyCommonAppFactsLocal<T extends {
   requiredEssays: string;
   teacherRecs: string;
   testPolicy: string;
-  meritAidNotes: string;
   researchSources: string;
   deadlines: Array<{ id: string; title: string; dueDate: string | null; completed: boolean; sortOrder: number }>;
 }>(school: T, facts: FoundFacts): T {
@@ -452,7 +438,6 @@ export function applyCommonAppFactsLocal<T extends {
   if (!next.requiredEssays.trim() && facts.requiredEssays) next.requiredEssays = facts.requiredEssays;
   if (!next.teacherRecs.trim() && facts.teacherRecs) next.teacherRecs = facts.teacherRecs;
   if (!next.testPolicy.trim() && facts.testPolicy) next.testPolicy = facts.testPolicy;
-  if (!next.meritAidNotes.trim() && facts.meritAidNotes) next.meritAidNotes = facts.meritAidNotes;
   if (!next.researchSources.trim() && facts.sources.length) {
     next.researchSources = facts.sources.map((s) => `${s.title}: ${s.url}`).join("\n");
   }

@@ -91,7 +91,7 @@ test("mapCommonAppRow fills platform, essays, recs, test policy, and deadlines",
   assert.match(facts.teacherRecs, /2 teacher recommendations/);
   assert.match(facts.teacherRecs, /counselor recommendation required/);
   assert.match(facts.testPolicy, /Required/);
-  assert.match(facts.meritAidNotes, /\$100/);
+  assert.equal(facts.meritAidNotes, "");
   assert.equal(facts.deadlines.length, 2);
   assert.equal(facts.deadlines[0]?.title, "Restrictive Early Action");
   // Grid is 2026-27 (current seniors); Kyle applies 2027-28 → +1 year.
@@ -114,7 +114,6 @@ test("schoolNeedsCommonAppFill detects blank application fields", () => {
       requiredEssays: "",
       teacherRecs: "",
       testPolicy: "Test optional",
-      meritAidNotes: "",
       deadlines: [],
     }),
     true,
@@ -125,7 +124,6 @@ test("schoolNeedsCommonAppFill detects blank application fields", () => {
       requiredEssays: "Common App personal essay required",
       teacherRecs: "2 teacher recommendations",
       testPolicy: "Required",
-      meritAidNotes: "US application fee $100",
       deadlines: [{ title: "Regular Decision" }],
     }),
     false,

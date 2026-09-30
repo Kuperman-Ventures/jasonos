@@ -34,6 +34,7 @@ import {
   isOwner,
   isPlan,
   isSelectivityTier,
+  selectivityTierFromRate,
   isVisitStatus,
 } from "./types";
 import {
@@ -280,7 +281,13 @@ export function mapSchool(row: SchoolRow): School {
     ...driveFieldsForSchool(row.id),
     deadline: row.deadline,
     deadlineLabel: row.deadline_label,
-    selectivityTier: isSelectivityTier(row.selectivity_tier) ? row.selectivity_tier : "",
+    selectivityTier: (() => {
+      const stored = isSelectivityTier(row.selectivity_tier) ? row.selectivity_tier : "";
+      if (stored) return stored;
+      const rateThatApplies = asFiniteNumber(row.rate_that_applies_to_kyle);
+      const overall = asFiniteNumber(row.overall_admit_rate);
+      return selectivityTierFromRate(rateThatApplies ?? overall);
+    })(),
     interestLevel: isInterestLevel(row.interest_level) ? row.interest_level : "",
     applicationStatus: isApplicationStatus(row.application_status) ? row.application_status : "",
     admissionTrack: isAdmissionTrack(row.admission_track) ? row.admission_track : "",

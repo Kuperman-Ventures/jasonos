@@ -2,7 +2,14 @@ import fs from "node:fs";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { compareSchools, nextAction, nextDate, nextOpenStep } from "./list";
-import { fromSeed, selectivityTierFromContext, type School, type SchoolSeed } from "./types";
+import {
+  fromSeed,
+  selectivityTierFromContext,
+  selectivityTierFromRate,
+  type School,
+  type SchoolSeed,
+} from "./types";
+import { mapSchool } from "./db";
 
 const file = JSON.parse(
   fs.readFileSync(new URL("../content/schools.json", import.meta.url), "utf8"),
@@ -61,6 +68,56 @@ test("selectivity tier only uses the admissions lines that fit", () => {
   assert.equal(fromSeed(file.schools[0]).selectivityTier, "extremely_selective");
   assert.equal(selectivityTierFromContext("Broad access"), "");
   assert.equal(selectivityTierFromContext("Selective"), "");
+});
+
+test("selectivityTierFromRate buckets admit rates", () => {
+  assert.equal(selectivityTierFromRate(null), "");
+  assert.equal(selectivityTierFromRate(11.9), "extremely_selective");
+  assert.equal(selectivityTierFromRate(12), "very_selective");
+  assert.equal(selectivityTierFromRate(30), "very_selective");
+  assert.equal(selectivityTierFromRate(30.1), "competitive");
+  assert.equal(selectivityTierFromRate(60), "competitive");
+  assert.equal(selectivityTierFromRate(60.1), "less_competitive");
+  assert.equal(selectivityTierFromRate(90), "less_competitive");
+});
+
+test("mapSchool keeps a stored selectivity tier over a derived one", () => {
+  const base = {
+    id: "test-school",
+    name: "Test School",
+    location: "Test, NJ",
+    mechanical_engineering: "Yes",
+    materials: "Yes",
+    materials_offering: "",
+    admissions_context: "",
+    sat_context: "",
+    selectivity: "",
+    notes: "",
+    list_order: 1,
+    choice: "unsure",
+    plan: "",
+    visited: false,
+    visit_date: null,
+    visit_notes: "",
+    deadline: null,
+    deadline_label: "",
+    selectivity_tier: "competitive",
+    interest_level: "",
+    application_status: "",
+    admission_track: "",
+    test_policy: "",
+    middle_50: "",
+    application_platform: "",
+    required_essays: "",
+    teacher_recs: "",
+    cost_of_attendance: "",
+    net_price_estimate: "",
+    merit_aid_notes: "",
+    rate_that_applies_to_kyle: 5,
+    overall_admit_rate: 5,
+  };
+  assert.equal(mapSchool(base).selectivityTier, "competitive");
+  assert.equal(mapSchool({ ...base, selectivity_tier: "" }).selectivityTier, "extremely_selective");
 });
 
 test("pathwayFromContext strips tier prefixes for the snapshot card", async () => {
