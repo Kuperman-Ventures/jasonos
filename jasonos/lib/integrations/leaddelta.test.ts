@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   extractLeadDeltaPhotoUrl,
+  firstConnectionFromMcp,
   normalizeLeadDeltaConnection,
   normalizeLinkedInUrl,
 } from "./leaddelta-parse.ts";
@@ -55,5 +56,28 @@ describe("normalizeLeadDeltaConnection", () => {
     assert.equal(connection?.company, "Analytical Engines");
     assert.equal(connection?.photoUrl, "https://cdn.example.com/ada.jpg");
     assert.deepEqual(connection?.emails, ["ada@example.com"]);
+  });
+
+  it("maps get_connection profilePicture + publicIdentifier", () => {
+    const connection = firstConnectionFromMcp({
+      connection: {
+        id: "692f717613175fe9e500de02",
+        name: "John Tilbury",
+        firstName: "John",
+        lastName: "Tilbury",
+        publicIdentifier: "johntilbury",
+        profilePicture:
+          "https://media.licdn.com/dms/image/v2/D5603AQFuiZxBpOCD2Q/profile-displayphoto-scale_400_400/B56Z.jpg",
+      },
+    });
+    assert.equal(connection?.fullName, "John Tilbury");
+    assert.equal(
+      connection?.linkedinUrl,
+      "https://www.linkedin.com/in/johntilbury"
+    );
+    assert.equal(
+      connection?.photoUrl,
+      "https://media.licdn.com/dms/image/v2/D5603AQFuiZxBpOCD2Q/profile-displayphoto-scale_400_400/B56Z.jpg"
+    );
   });
 });

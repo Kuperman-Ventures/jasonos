@@ -66,14 +66,24 @@ export function normalizeLeadDeltaConnection(
     str(root, ["fullName", "full_name", "name", "displayName", "display_name"]) ||
     [firstName, lastName].filter(Boolean).join(" ") ||
     null;
-  const linkedinUrl = str(root, [
-    "linkedinUrl",
-    "linkedin_url",
-    "profileUrl",
-    "profile_url",
-    "url",
-    "linkedin",
+  const publicIdentifier = str(root, [
+    "publicIdentifier",
+    "public_identifier",
+    "vanityName",
+    "vanity_name",
   ]);
+  const linkedinUrl =
+    str(root, [
+      "linkedinUrl",
+      "linkedin_url",
+      "profileUrl",
+      "profile_url",
+      "url",
+      "linkedin",
+    ]) ||
+    (publicIdentifier
+      ? `https://www.linkedin.com/in/${publicIdentifier}`
+      : null);
   const headline = str(root, ["headline", "title", "jobTitle", "job_title"]);
   const company = str(root, [
     "company",
