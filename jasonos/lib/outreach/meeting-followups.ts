@@ -2,7 +2,7 @@
 // A past meeting with external guests needs a follow-up when Jason has not
 // emailed one or more of those guests since the meeting ended.
 
-import { daysBetweenYmd, etYmd } from "../dates";
+import { daysBetweenYmd, etToday, etYmd } from "../dates";
 import { canonicalEmail, isMyOwnAddress } from "./contact-lookup";
 import { isNoiseEmail } from "./mail-noise";
 
@@ -315,14 +315,22 @@ export function meetingFollowupDraft(input: {
   name: string | null;
   title: string;
   summary?: string | null;
+  startsAt?: string | null;
 }): { subject: string; body: string } {
   const who = firstName(input.name);
   const hello = who === "there" ? "Hi," : `${who},`;
+  const when = meetingWhenPhrase(input.startsAt);
+  const lead =
+    when === "today"
+      ? "It was good to reconnect today."
+      : when === "yesterday"
+        ? "It was good to reconnect yesterday."
+        : `It was good to reconnect ${when}.`;
   return {
     subject: "Good catching up",
     body: `${hello}
 
-It was good to reconnect. Thanks again for the conversation.
+${lead} Thanks again for the conversation.
 
 Jason`,
   };
@@ -399,4 +407,37 @@ export function firstName(name: string | null | undefined): string {
     return given || "there";
   }
   return trimmed.split(/\s+/)[0] || "there";
+}
+
+/**
+ * How to refer to when the meeting happened, in Eastern calendar days.
+ * Keeps drafts from saying "today" for a call last week.
+ */
+export function meetingWhenPhrase(
+  startsAtIso: string | null | undefined,
+  todayYmd: string = etToday()
+): string {
+  if (!startsAtIso?.trim()) return "recently";
+  const meetingYmd = etYmd(startsAtIso);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(meetingYmd)) return "recently";
+  const daysAgo = daysBetweenYmd(meetingYmd, todayYmd);
+  if (daysAgo <= 0) return "today";
+  if (daysAgo === 1) return "yesterday";
+  if (daysAgo <= 6) return "earlier this week";
+  if (daysAgo <= 13) return "last week";
+  if (daysAgo <= 45) return "a few weeks ago";
+  return "a while back";
+}
+
+/** True when the body claims "today" / "this morning" for an older meeting. */
+export function hasWrongMeetingDayLanguage(
+  body: string,
+  whenPhrase: string
+): boolean {
+  if (whenPhrase === "today") return false;
+  const t = body.replace(/\s+/g, " ");
+  return (
+    /\b(today|this morning|this afternoon|this evening)\b/i.test(t) ||
+    (whenPhrase !== "yesterday" && /\byesterday\b/i.test(t))
+  );
 }

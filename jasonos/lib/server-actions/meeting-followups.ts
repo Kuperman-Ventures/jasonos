@@ -517,6 +517,7 @@ export async function draftMeetingFollowupMailto(
     name: primary.name,
     title: row.title?.trim() || "Meeting",
     summary,
+    startsAt: row.starts_at,
   });
   const to = pending.map((a) => a.email).join(", ");
   const mailtoUrl = buildMailtoUrl({

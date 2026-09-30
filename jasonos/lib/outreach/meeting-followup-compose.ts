@@ -11,8 +11,10 @@ import { NO_AI_SLOP_WRITING_RULES } from "@/lib/ai/no-ai-slop";
 import { stripEmDashes } from "@/lib/email-templates/render";
 import {
   firstName,
+  hasWrongMeetingDayLanguage,
   isUnacceptableFollowupBody,
   meetingFollowupDraft,
+  meetingWhenPhrase,
   soundsLikePitchFollowup,
 } from "@/lib/outreach/meeting-followups";
 
@@ -22,6 +24,8 @@ export type MeetingFollowupComposeInput = {
   name: string | null;
   title: string;
   summary: string | null;
+  /** Meeting start ISO — used so drafts do not say "today" for older calls. */
+  startsAt?: string | null;
 };
 
 export type MeetingFollowupComposeResult = {
@@ -63,11 +67,13 @@ function polish(draft: { subject: string; body: string }): {
 export async function composeMeetingFollowupDraft(
   input: MeetingFollowupComposeInput
 ): Promise<MeetingFollowupComposeResult> {
+  const whenPhrase = meetingWhenPhrase(input.startsAt);
   const fallback = polish(
     meetingFollowupDraft({
       name: input.name,
       title: input.title,
       summary: input.summary,
+      startsAt: input.startsAt,
     })
   );
   const summary = input.summary?.trim() || "";
@@ -101,6 +107,7 @@ Hard rules:
 - Use the person's first name. Never greet with a last name alone.
 - Open with "${greeting}" on its own line (comma is fine; no em dash).
 - 3-5 short sentences across 2-3 short paragraphs.
+- DATE AWARENESS (critical): the meeting was ${whenPhrase}. Never say "today", "this morning", "this afternoon", or "this evening" unless WHEN is exactly "today". Prefer natural phrasing that matches WHEN (e.g. "yesterday", "earlier this week", "last week", "the other day", or just "good to catch up" with no day word).
 - Lead with warmth: glad to reconnect / catch up. If the notes mention shared history (old firm, years apart), reference that lightly.
 - Then one human takeaway THEY said or that came out of the conversation - their work, a view they shared, something personal from the notes. Not a thesis pitch about Jason's business.
 - Soft close: personal detail from the notes when present (city, family, "let's not wait N years"). Only add a concrete next step if the notes clearly support one both people owned.
@@ -111,6 +118,7 @@ Hard rules:
 
   const user = `Recipient first name: ${who === "there" ? "(unknown)" : who}
 Meeting title: ${input.title || "Meeting"}
+WHEN the meeting happened (use this; do not invent a different day): ${whenPhrase}
 
 MEETING NOTES (Granola — rewrite into a warm email, do not paste, do not pitch):
 ${summary.slice(0, 6000)}
@@ -137,7 +145,8 @@ Write the follow-up email JSON now.`;
     });
     if (
       isUnacceptableFollowupBody(draft.body, summary) ||
-      soundsLikePitchFollowup(draft.body)
+      soundsLikePitchFollowup(draft.body) ||
+      hasWrongMeetingDayLanguage(draft.body, whenPhrase)
     ) {
       // One retry with an explicit ban on the bad shape.
       const { text: retryText } = await generateText({
@@ -152,8 +161,7 @@ Write the follow-up email JSON now.`;
           },
           {
             role: "user",
-            content:
-              "Rewrite. Keep it warm and personal like a real reconnect note. Do not paste meeting notes. Do not pitch Jason's work or clients. First name greeting. JSON only.",
+            content: `Rewrite. Keep it warm and personal like a real reconnect note. The meeting was ${whenPhrase} — do not say today/this morning unless that is exact. Do not paste meeting notes. Do not pitch Jason's work or clients. First name greeting. JSON only.`,
           },
         ],
         providerOptions,
@@ -162,7 +170,8 @@ Write the follow-up email JSON now.`;
       if (
         !retry ||
         isUnacceptableFollowupBody(retry.body, summary) ||
-        soundsLikePitchFollowup(retry.body)
+        soundsLikePitchFollowup(retry.body) ||
+        hasWrongMeetingDayLanguage(retry.body, whenPhrase)
       ) {
         return { ...fallback, source: "fallback" };
       }
