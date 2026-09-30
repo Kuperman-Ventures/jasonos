@@ -40,10 +40,13 @@ function GeographyBars({ scoir }: { scoir: ScoirRecord }) {
     );
   }
 
+  const homeIsNj = /^new jersey$/i.test(geo.homeState.trim());
   const home = pctOrZero(geo.homeStatePct);
   const other = pctOrZero(geo.otherUsStatesPct);
   const intl = pctOrZero(geo.internationalPct);
-  const nj = Math.min(pctOrZero(geo.newJerseyPct), other);
+  // Carve NJ out of "other U.S." only when the school is outside NJ. For Rutgers /
+  // NJIT the home-state slice already is New Jersey — a second NJ slice double-counts.
+  const nj = homeIsNj ? 0 : Math.min(pctOrZero(geo.newJerseyPct), other);
   const otherRest = Math.max(0, other - nj);
   const total = home + other + intl || 1;
 
@@ -65,12 +68,30 @@ function GeographyBars({ scoir }: { scoir: ScoirRecord }) {
     topPx: number;
   };
   const callouts: Callout[] = [];
+  if (homeIsNj && home > 0 && homeW < 14) {
+    callouts.push({
+      key: "home-nj",
+      label: `New Jersey · your state ${formatScoirPct(home, 1)}`,
+      xPct: homeLeft + homeW / 2,
+      shiftLeft: true,
+      topPx: 0,
+    });
+  }
   if (nj > 0 && njW < 14) {
     callouts.push({
       key: "nj",
       label: `New Jersey · your state ${formatScoirPct(nj, 1)}`,
       // Leader stays centered on the orange NJ slice — never nudge this.
       xPct: njLeft + njW / 2,
+      shiftLeft: true,
+      topPx: 0,
+    });
+  }
+  if (otherRest > 0 && otherRestW < 14) {
+    callouts.push({
+      key: "other",
+      label: `Other U.S. states ${formatScoirPct(otherRest, 1)}`,
+      xPct: otherLeft + otherRestW / 2,
       shiftLeft: true,
       topPx: 0,
     });
@@ -86,10 +107,13 @@ function GeographyBars({ scoir }: { scoir: ScoirRecord }) {
   }
   // If labels would sit on top of each other, stack the second one higher —
   // keep leaders pinned to their slices.
-  if (callouts.length === 2) {
-    const [a, b] = callouts;
-    if (a && b && Math.abs(a.xPct - b.xPct) < 22) {
-      b.topPx = -18;
+  if (callouts.length >= 2) {
+    for (let i = 1; i < callouts.length; i++) {
+      const prev = callouts[i - 1]!;
+      const cur = callouts[i]!;
+      if (Math.abs(cur.xPct - prev.xPct) < 22) {
+        cur.topPx = prev.topPx - 18;
+      }
     }
   }
 
@@ -119,9 +143,11 @@ function GeographyBars({ scoir }: { scoir: ScoirRecord }) {
       key: "home",
       left: homeLeft,
       width: homeW,
-      className: "sb-seg sb-seg-home",
-      title: `${geo.homeState} ${formatScoirPct(home)}`,
-      name: geo.homeState,
+      className: homeIsNj ? "sb-seg sb-seg-nj" : "sb-seg sb-seg-home",
+      title: homeIsNj
+        ? `New Jersey · your state ${formatScoirPct(home)}`
+        : `${geo.homeState} ${formatScoirPct(home)}`,
+      name: homeIsNj ? "New Jersey · your state" : geo.homeState,
       pctText: formatScoirPct(home),
     });
   }
@@ -131,8 +157,8 @@ function GeographyBars({ scoir }: { scoir: ScoirRecord }) {
       left: njLeft,
       width: njW,
       className: "sb-seg sb-seg-nj",
-      title: `New Jersey ${formatScoirPct(nj)}`,
-      name: "New Jersey",
+      title: `New Jersey · your state ${formatScoirPct(nj)}`,
+      name: "New Jersey · your state",
       pctText: formatScoirPct(nj),
     });
   }
