@@ -68,11 +68,11 @@ describe("isMeetingPastForFollowup", () => {
   it("waits for the grace window after the meeting ends", () => {
     const endsAt = "2026-09-20T15:30:00.000Z";
     assert.equal(
-      isMeetingPastForFollowup(endsAt, new Date("2026-09-20T16:00:00.000Z"), 2 * 3600_000),
+      isMeetingPastForFollowup(endsAt, new Date("2026-09-20T15:40:00.000Z")),
       false
     );
     assert.equal(
-      isMeetingPastForFollowup(endsAt, new Date("2026-09-20T18:00:00.000Z"), 2 * 3600_000),
+      isMeetingPastForFollowup(endsAt, new Date("2026-09-20T15:45:00.000Z")),
       true
     );
   });
