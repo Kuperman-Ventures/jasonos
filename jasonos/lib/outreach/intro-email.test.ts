@@ -23,6 +23,23 @@ describe("intro wishlist", () => {
     assert.equal(wish.name, "Ed Engels");
     assert.equal(wish.linkedinUrl, "https://www.linkedin.com/in/ed");
     assert.equal(wish.agreed, true);
+    assert.equal(wish.requestEmailSent, false);
+    assert.equal(wish.introMade, false);
+  });
+
+  it("persists request sent and intro made flags", () => {
+    const rows = serializeIntroWishlist([
+      {
+        name: "Ed",
+        company: "",
+        linkedinUrl: "",
+        rationale: "",
+        requestEmailSent: true,
+        introMade: true,
+      },
+    ]);
+    assert.equal(rows[0]?.requestEmailSent, true);
+    assert.equal(rows[0]?.introMade, true);
   });
 
   it("drops empty wishlist rows on serialize", () => {
@@ -36,27 +53,47 @@ describe("intro wishlist", () => {
 });
 
 describe("forward block", () => {
-  it("extracts the fenced paste section", () => {
+  it("extracts the dashed paste section", () => {
     const body = `Hi Andrew,
 
-Thanks for offering an intro to Ed.
+Thanks for offering to intro me to Ed. His profile is here:
+https://www.linkedin.com/in/ed-engles/
 
 ${INTRO_FORWARD_START}
 Hi Ed,
 
-Wanted to intro you to Jason Kuperman. He runs Kuperman Advisors. Worth a short Zoom.
+I wanted to connect you with Jason Kuperman. Would you be open to a Zoom?
 
 Andrew
 ${INTRO_FORWARD_END}
 
 Thanks,
 Jason`;
+    assert.equal(INTRO_FORWARD_START, "--------------------");
+    assert.equal(INTRO_FORWARD_END, "--------------------");
     const block = extractForwardBlock(body);
     assert.match(block ?? "", /^Hi Ed,/);
-    assert.match(block ?? "", /Wanted to intro you to Jason/);
+    assert.match(block ?? "", /connect you with Jason/);
     assert.match(block ?? "", /Andrew$/);
     assert.doesNotMatch(block ?? "", /Forward this/);
-    assert.doesNotMatch(block ?? "", /Jason Kuperman\n*$/);
+    assert.doesNotMatch(block ?? "", /Thanks for offering/);
+  });
+
+  it("still extracts legacy Forward this markers", () => {
+    const body = `Hi Andrew,
+
+---------- Forward this ----------
+Hi Ed,
+
+Legacy block.
+
+Andrew
+---------- End forward ----------
+
+Thanks,
+Jason`;
+    const block = extractForwardBlock(body);
+    assert.equal(block, "Hi Ed,\n\nLegacy block.\n\nAndrew");
   });
 
   it("builds a clear subject", () => {
