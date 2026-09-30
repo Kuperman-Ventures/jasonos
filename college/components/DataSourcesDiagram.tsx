@@ -37,7 +37,6 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
   const [scale, setScale] = useState(1);
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [hoverFeature, setHoverFeature] = useState<Feature | null>(null);
-  const [hoverApp, setHoverApp] = useState(false);
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -56,10 +55,9 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
   const platform = sources.filter((s) => s.type === "platform");
   const active = hoverId ?? selectedId;
   const activeSource = active ? byId.get(active) ?? null : null;
-  /** Feature emphasized by chip hover, else sticky click — unless the whole app column is hovered without a chip. */
-  const emphasizeFeature = hoverFeature ?? (hoverApp ? null : feature);
-  const emphasizeAllCenter = hoverApp && !hoverFeature;
-  const anyOn = Boolean(active || emphasizeFeature || emphasizeAllCenter);
+  /** Feature chip hover takes precedence over a sticky click selection. */
+  const emphasizeFeature = hoverFeature ?? feature;
+  const anyOn = Boolean(active || emphasizeFeature);
   const now = new Date();
 
   function nodeState(s: DataSource) {
@@ -68,8 +66,7 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
       (emphasizeFeature != null && !s.feeds.includes(emphasizeFeature));
     const highlighted =
       active === s.id ||
-      (emphasizeFeature != null && s.feeds.includes(emphasizeFeature) && !dim) ||
-      (emphasizeAllCenter && s.type !== "platform" && s.feeds.length > 0 && matches(s));
+      (emphasizeFeature != null && s.feeds.includes(emphasizeFeature) && !dim);
     return { dim, highlighted, selected: selectedId === s.id };
   }
 
@@ -92,7 +89,7 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
     onBlur: () => setHoverId((current) => (current === id ? null : current)),
   });
 
-  const platformOn = activeSource?.type === "platform" || emphasizeAllCenter;
+  const platformOn = activeSource?.type === "platform";
 
   return (
     <div ref={wrapRef} className="ds-diagram-wrap" style={{ height: DIAGRAM_HEIGHT * scale }}>
@@ -113,8 +110,7 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
               active === line.sourceId ||
               (emphasizeFeature != null &&
                 emphasizeFeature === line.feature &&
-                matches(source)) ||
-              (emphasizeAllCenter && matches(source));
+                matches(source));
             const opacity = on ? 1 : anyOn ? 0.12 : matches(source) ? 0.45 : 0.12;
             return (
               <path
@@ -153,14 +149,7 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
           </span>
         ))}
 
-        <div
-          className={`ds-app-column${hoverApp ? " is-hot" : ""}`}
-          onMouseEnter={() => setHoverApp(true)}
-          onMouseLeave={() => {
-            setHoverApp(false);
-            setHoverFeature(null);
-          }}
-        >
+        <div className="ds-app-column">
           <div className="ds-app-card">
             <div className="ds-app-title">Kyle College</div>
             <div className="ds-app-sub">{FEATURES.length} features · select one</div>
@@ -172,10 +161,8 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
             const lit =
               selected ||
               hoverFeature === f.id ||
-              emphasizeAllCenter ||
               Boolean(activeSource?.feeds.includes(f.id));
-            const faded =
-              emphasizeFeature != null && emphasizeFeature !== f.id && !emphasizeAllCenter;
+            const faded = emphasizeFeature != null && emphasizeFeature !== f.id;
             return (
               <button
                 key={f.id}
@@ -190,14 +177,10 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
                 onMouseLeave={() =>
                   setHoverFeature((current) => (current === f.id ? null : current))
                 }
-                onFocus={() => {
-                  setHoverApp(true);
-                  setHoverFeature(f.id);
-                }}
-                onBlur={() => {
-                  setHoverFeature((current) => (current === f.id ? null : current));
-                  setHoverApp(false);
-                }}
+                onFocus={() => setHoverFeature(f.id)}
+                onBlur={() =>
+                  setHoverFeature((current) => (current === f.id ? null : current))
+                }
               >
                 <span className={`ds-dot ds-dot--${statusTone(worstStatus(feeding))}`} aria-hidden="true" />
                 <span className="ds-chip-name">{f.name}</span>
