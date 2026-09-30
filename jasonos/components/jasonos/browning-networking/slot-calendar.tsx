@@ -22,19 +22,34 @@ type Props = {
   busy: BusyBlock[];
   eligibleYmd: string;
   weekMonday: string;
-  onChange: (slots: HandoffSlot[]) => void;
+  onChange?: (slots: HandoffSlot[]) => void;
+  /** Offered times stay visible; no add/move/remove. Click a meeting to associate. */
+  readOnly?: boolean;
+  onSelectMeeting?: (block: BusyBlock) => void;
+  selectedEventId?: string | null;
 };
 
-export function SlotCalendar({ slots, busy, eligibleYmd, weekMonday, onChange }: Props) {
+export function SlotCalendar({
+  slots,
+  busy,
+  eligibleYmd,
+  weekMonday,
+  onChange,
+  readOnly = false,
+  onSelectMeeting,
+  selectedEventId = null,
+}: Props) {
   const days = useMemo(() => weekdaysOf(weekMonday), [weekMonday]);
   const [local, setLocal] = useState(slots);
 
   function commit(next: HandoffSlot[]) {
+    if (readOnly || !onChange) return;
     setLocal(next);
     onChange(next);
   }
 
   function addAt(ymd: string, startMin: number) {
+    if (readOnly || !onChange) return;
     if (ymd < eligibleYmd) return;
     const start = etIso(ymd, startMin);
     const end = new Date(Date.parse(start) + SLOT_MINUTES * 60_000).toISOString();
@@ -43,6 +58,7 @@ export function SlotCalendar({ slots, busy, eligibleYmd, weekMonday, onChange }:
   }
 
   function previewMove(id: string, ymd: string, startMin: number) {
+    if (readOnly) return;
     if (ymd < eligibleYmd) return;
     const start = etIso(ymd, startMin);
     const end = new Date(Date.parse(start) + SLOT_MINUTES * 60_000).toISOString();
@@ -80,12 +96,17 @@ export function SlotCalendar({ slots, busy, eligibleYmd, weekMonday, onChange }:
             key={day.ymd}
             ymd={day.ymd}
             locked={day.ymd < eligibleYmd}
-            slots={local.filter((slot) => etYmd(slot.start) === day.ymd)}
+            readOnly={readOnly}
+            slots={(readOnly ? slots : local).filter((slot) => etYmd(slot.start) === day.ymd)}
             busy={busy.filter((block) => blockHitsDay(block, day.ymd))}
+            selectedEventId={selectedEventId}
             onAdd={(min) => addAt(day.ymd, min)}
             onPreviewMove={(id, min) => previewMove(id, day.ymd, min)}
-            onCommitMove={() => onChange(local)}
+            onCommitMove={() => {
+              if (!readOnly && onChange) onChange(local);
+            }}
             onRemove={(id) => commit(local.filter((slot) => slot.id !== id))}
+            onSelectMeeting={onSelectMeeting}
           />
         ))}
       </div>
@@ -96,21 +117,27 @@ export function SlotCalendar({ slots, busy, eligibleYmd, weekMonday, onChange }:
 function DayColumn({
   ymd,
   locked,
+  readOnly,
   slots,
   busy,
+  selectedEventId,
   onAdd,
   onPreviewMove,
   onCommitMove,
   onRemove,
+  onSelectMeeting,
 }: {
   ymd: string;
   locked: boolean;
+  readOnly: boolean;
   slots: HandoffSlot[];
   busy: BusyBlock[];
+  selectedEventId: string | null;
   onAdd: (startMin: number) => void;
   onPreviewMove: (id: string, startMin: number) => void;
   onCommitMove: () => void;
   onRemove: (id: string) => void;
+  onSelectMeeting?: (block: BusyBlock) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const height = (END_HOUR - START_HOUR) * PX_PER_HOUR;
@@ -130,8 +157,9 @@ function DayColumn({
       className={`relative border-l ${locked ? "bg-muted/40" : "bg-background"}`}
       style={{ height }}
       onClick={(event) => {
-        if (locked) return;
+        if (readOnly || locked) return;
         if ((event.target as HTMLElement).closest("[data-slot]")) return;
+        if ((event.target as HTMLElement).closest("[data-meeting]")) return;
         onAdd(minutesAt(event.clientY));
       }}
     >
@@ -145,28 +173,88 @@ function DayColumn({
       {busy.map((block) => {
         const pos = blockPosition(block, ymd);
         if (!pos) return null;
+        const canPick =
+          readOnly &&
+          Boolean(onSelectMeeting) &&
+          Boolean(block.eventId) &&
+          !block.allDay;
+        const selected = Boolean(block.eventId && block.eventId === selectedEventId);
         return (
-          <div
-            key={`${block.title}-${block.start}`}
-            className="pointer-events-none absolute inset-x-1 overflow-hidden rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground"
+          <button
+            key={`${block.eventId ?? block.title}-${block.start}`}
+            type="button"
+            data-meeting
+            disabled={!canPick}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (!canPick || !block.eventId) return;
+              onSelectMeeting?.(block);
+            }}
+            className={`absolute inset-x-1 z-[5] overflow-hidden rounded px-1 py-0.5 text-left text-[10px] ${
+              canPick
+                ? selected
+                  ? "border border-foreground bg-foreground text-background"
+                  : "cursor-pointer border border-transparent bg-muted text-muted-foreground hover:border-foreground/40 hover:bg-muted/80"
+                : "pointer-events-none border border-transparent bg-muted text-muted-foreground"
+            }`}
             style={{ top: pos.top, height: pos.height }}
-            title={block.title}
+            title={
+              canPick
+                ? `Link “${block.title}” to this person`
+                : block.title
+            }
           >
             {block.title}
-          </div>
+          </button>
         );
       })}
-      {slots.map((slot) => (
-        <SlotBlock
-          key={slot.id}
-          slot={slot}
-          conflict={busy.some((block) => rangesOverlap(slot.start, slot.end, block, ymd))}
-          onPreviewMove={(min) => onPreviewMove(slot.id, min)}
-          onCommitMove={onCommitMove}
-          onRemove={() => onRemove(slot.id)}
-          minutesAt={minutesAt}
-        />
-      ))}
+      {slots.map((slot) =>
+        readOnly ? (
+          <OfferedSlotBlock
+            key={slot.id}
+            slot={slot}
+            conflict={busy.some((block) => rangesOverlap(slot.start, slot.end, block, ymd))}
+          />
+        ) : (
+          <SlotBlock
+            key={slot.id}
+            slot={slot}
+            conflict={busy.some((block) => rangesOverlap(slot.start, slot.end, block, ymd))}
+            onPreviewMove={(min) => onPreviewMove(slot.id, min)}
+            onCommitMove={onCommitMove}
+            onRemove={() => onRemove(slot.id)}
+            minutesAt={minutesAt}
+          />
+        )
+      )}
+    </div>
+  );
+}
+
+function OfferedSlotBlock({
+  slot,
+  conflict,
+}: {
+  slot: HandoffSlot;
+  conflict: boolean;
+}) {
+  const top = minutesToPx(etMinutes(slot.start));
+  const height = Math.max(
+    22,
+    ((Date.parse(slot.end) - Date.parse(slot.start)) / 3600000) * PX_PER_HOUR
+  );
+  return (
+    <div
+      data-slot
+      className={`pointer-events-none absolute inset-x-1 z-10 rounded border px-1 py-0.5 text-[10px] leading-tight text-rung-ink ${
+        conflict
+          ? "border-rung-1/60 bg-rung-1/70"
+          : "border-[var(--jos-line)] bg-rung-2/90"
+      }`}
+      style={{ top, height }}
+      title={`Offered ${formatSlotLabel(slot.start)}`}
+    >
+      <span>{formatSlotLabel(slot.start).replace(" ET", "")}</span>
     </div>
   );
 }

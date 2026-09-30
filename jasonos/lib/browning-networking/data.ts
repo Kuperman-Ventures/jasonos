@@ -91,7 +91,8 @@ function mapRow(row: Record<string, unknown>): HandoffRecord {
 export async function getBrowningNetworkingPage(): Promise<BrowningNetworkingPage> {
   const now = new Date();
   const eligibleYmd = firstEligibleYmd(now);
-  const lastYmd = addCalendarDays(lastEligibleYmd(now), 7);
+  // Wide enough for Waiting associate: offered slots + near-term mystery meetings.
+  const lastYmd = addCalendarDays(lastEligibleYmd(now), 21);
   const empty: BrowningNetworkingPage = {
     configured: hasConfig(),
     handoffs: [],
@@ -114,7 +115,7 @@ export async function getBrowningNetworkingPage(): Promise<BrowningNetworkingPag
     return { ...empty, error: error.message };
   }
 
-  const busy = await loadBusy(eligibleYmd, lastYmd);
+  const busy = await loadBusy(etYmd(now), lastYmd);
   return {
     ...empty,
     handoffs: (data ?? []).map((row) => mapRow(row as Record<string, unknown>)),
@@ -154,16 +155,23 @@ export async function loadBusy(fromYmd: string, toYmd: string): Promise<BusyBloc
 function eventToBusy(event: CalendarApiEvent): BusyBlock | null {
   if (event.status === "cancelled") return null;
   const title = event.summary?.trim() || "Busy";
+  const eventId = event.id?.trim() || null;
   if (event.start?.date && !event.start.dateTime) {
     return {
       title,
       start: event.start.date,
       end: event.end?.date || event.start.date,
       allDay: true,
+      eventId,
     };
   }
   if (!event.start?.dateTime || !event.end?.dateTime) return null;
-  return { title, start: event.start.dateTime, end: event.end.dateTime };
+  return {
+    title,
+    start: event.start.dateTime,
+    end: event.end.dateTime,
+    eventId,
+  };
 }
 
 export function schedulingWindowYmd(now = new Date()): { fromYmd: string; toYmd: string } {
