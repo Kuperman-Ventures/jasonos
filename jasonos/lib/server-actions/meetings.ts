@@ -11,10 +11,20 @@ import { insertContactTouches, type TouchChannel } from "@/lib/outreach/touch-ca
 import type { TouchObjective } from "@/lib/outreach/types";
 import { getContactResearch } from "@/lib/outreach/contact-research-store";
 
-export interface IntroWish {
-  name: string;
-  company: string;
-}
+export type {
+  IntroWishFields as IntroWish,
+} from "@/lib/outreach/intro-email";
+
+import {
+  extractForwardBlock,
+  introEmailSubject,
+  introEmailSystemPrompt,
+  introMailtoUrl,
+  normalizeIntroWish,
+  rationaleSystemPrompt,
+  serializeIntroWishlist,
+  type IntroWishFields,
+} from "@/lib/outreach/intro-email";
 
 export type MeetingChannel = "call" | "video" | "in_person" | "coffee_chat";
 export type MeetingStatus = "scheduled" | "held" | "cancelled";
@@ -27,6 +37,8 @@ export interface Meeting {
   status: MeetingStatus;
   prepGoal: string | null;
   prepNotes: string | null;
+  /** Meeting-scoped soft ask for forwardable intro emails. */
+  prepShortAsk: string | null;
   debriefNotes: string | null;
   objectiveAchieved: TouchObjective | null;
   thankYouSent: boolean;
@@ -34,7 +46,9 @@ export interface Meeting {
   heldAt: string | null;
   prepResearch: string | null;
   prepResearchAt: string | null;
-  introWishlist: IntroWish[];
+  introWishlist: IntroWishFields[];
+  granolaNoteId: string | null;
+  granolaUrl: string | null;
   /** Google Calendar event id when this row was created/updated by calendar sync. */
   gcalEventId: string | null;
   calendarUrl: string | null;
@@ -59,6 +73,7 @@ function rowToMeeting(row: Record<string, unknown>): Meeting {
     status: ((row.status as string) ?? "scheduled") as MeetingStatus,
     prepGoal: (row.prep_goal as string | null) ?? null,
     prepNotes: (row.prep_notes as string | null) ?? null,
+    prepShortAsk: (row.prep_short_ask as string | null) ?? null,
     debriefNotes: (row.debrief_notes as string | null) ?? null,
     objectiveAchieved: (row.objective_achieved as TouchObjective | null) ?? null,
     thankYouSent: Boolean(row.thank_you_sent),
@@ -68,15 +83,11 @@ function rowToMeeting(row: Record<string, unknown>): Meeting {
     prepResearchAt: (row.prep_research_at as string | null) ?? null,
     introWishlist: Array.isArray(row.intro_wishlist)
       ? (row.intro_wishlist as unknown[])
-          .map((x) => {
-            const o = (x ?? {}) as { name?: unknown; company?: unknown };
-            return {
-              name: typeof o.name === "string" ? o.name : "",
-              company: typeof o.company === "string" ? o.company : "",
-            };
-          })
-          .filter((w) => w.name || w.company)
+          .map((x) => normalizeIntroWish(x))
+          .filter((w): w is IntroWishFields => Boolean(w))
       : [],
+    granolaNoteId: (row.granola_note_id as string | null) ?? null,
+    granolaUrl: (row.granola_url as string | null) ?? null,
     gcalEventId: (row.gcal_event_id as string | null) ?? null,
     calendarUrl: (row.calendar_url as string | null) ?? null,
     title: (row.title as string | null) ?? null,
@@ -174,7 +185,8 @@ export async function updateMeetingPrep(
     channel?: MeetingChannel;
     prepGoal?: string | null;
     prepNotes?: string | null;
-    introWishlist?: IntroWish[];
+    prepShortAsk?: string | null;
+    introWishlist?: IntroWishFields[];
   }
 ): Promise<Result<{ meeting: Meeting }>> {
   if (!hasConfig()) return { ok: false, error: "Not configured." };
@@ -186,10 +198,10 @@ export async function updateMeetingPrep(
   if (patch.prepGoal !== undefined) payload.prep_goal = patch.prepGoal?.trim() || null;
   if (patch.prepNotes !== undefined)
     payload.prep_notes = patch.prepNotes?.trim() || null;
+  if (patch.prepShortAsk !== undefined)
+    payload.prep_short_ask = patch.prepShortAsk?.trim() || null;
   if (patch.introWishlist !== undefined) {
-    payload.intro_wishlist = patch.introWishlist
-      .map((w) => ({ name: (w.name ?? "").trim(), company: (w.company ?? "").trim() }))
-      .filter((w) => w.name || w.company);
+    payload.intro_wishlist = serializeIntroWishlist(patch.introWishlist);
   }
 
   const sb = createServiceRoleClient();
@@ -336,4 +348,315 @@ export async function deleteMeeting(id: string): Promise<OkResult> {
   if (error) return { ok: false, error: error.message };
   revalidatePath("/activity");
   return { ok: true };
+}
+
+async function loadAboutJason(): Promise<string> {
+  const { createPublicClient } = await import("@/lib/supabase/server");
+  const { normalizeAboutJason } = await import("@/lib/outreach/about-jason");
+  try {
+    const supabase = await createPublicClient();
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) return "";
+    const { data } = await supabase
+      .from("user_preferences")
+      .select("about_jason")
+      .eq("user_id", userId)
+      .maybeSingle();
+    return normalizeAboutJason(data?.about_jason) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+async function buildTargetOverview(wish: IntroWishFields): Promise<string> {
+  const bits: string[] = [];
+  if (wish.linkedinUrl) {
+    try {
+      const { getConnectionByLinkedInUrl } = await import(
+        "@/lib/integrations/leaddelta"
+      );
+      const hit = await getConnectionByLinkedInUrl(wish.linkedinUrl);
+      if (hit.data) {
+        const c = hit.data;
+        bits.push(
+          [
+            c.fullName,
+            c.headline,
+            c.company,
+            c.linkedinUrl,
+          ]
+            .filter(Boolean)
+            .join(" · ")
+        );
+      }
+    } catch {
+      /* optional */
+    }
+  }
+  if (wish.name) {
+    try {
+      const { researchPersonNews } = await import("@/lib/ai/research");
+      const news = await researchPersonNews({
+        name: wish.name,
+        firm: wish.company || null,
+      });
+      if (news.text?.trim()) bits.push(news.text.trim().slice(0, 1200));
+    } catch {
+      /* optional */
+    }
+  }
+  if (!bits.length) {
+    bits.push(
+      [wish.name, wish.company, wish.linkedinUrl].filter(Boolean).join(" · ") ||
+        "No overview available."
+    );
+  }
+  return bits.join("\n\n");
+}
+
+/** AI: 1-2 sentence rationale for one intro wishlist row. */
+export async function draftIntroRationale(
+  meetingId: string,
+  introIndex: number
+): Promise<Result<{ meeting: Meeting; rationale: string }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured." };
+  const sb = createServiceRoleClient();
+  const { data: row, error } = await sb
+    .from("meetings")
+    .select("*")
+    .eq("id", meetingId)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!row) return { ok: false, error: "Meeting not found." };
+
+  const meeting = rowToMeeting(row as Record<string, unknown>);
+  const wish = meeting.introWishlist[introIndex];
+  if (!wish?.name && !wish?.linkedinUrl) {
+    return { ok: false, error: "Add a name or LinkedIn URL first." };
+  }
+
+  const aboutJason = await loadAboutJason();
+  if (!aboutJason) {
+    return {
+      ok: false,
+      error: "Add About Jason in Settings before drafting a rationale.",
+    };
+  }
+
+  const overview = await buildTargetOverview(wish);
+  const { generateText } = await import("ai");
+  const { fastModel } = await import("@/lib/ai/models");
+  const result = await generateText({
+    model: fastModel(),
+    system: rationaleSystemPrompt(),
+    prompt: `ABOUT JASON:\n${aboutJason}\n\nTARGET:\nName: ${wish.name || "—"}\nCompany: ${wish.company || "—"}\nLinkedIn: ${wish.linkedinUrl || "—"}\n\nTARGET OVERVIEW:\n${overview}`,
+  });
+  const rationale = (result.text ?? "").trim();
+  if (!rationale) return { ok: false, error: "Could not draft a rationale." };
+
+  const next = meeting.introWishlist.map((item, i) =>
+    i === introIndex
+      ? { ...item, rationale, targetOverview: overview.slice(0, 2000) }
+      : item
+  );
+  while (next.length <= introIndex) {
+    next.push({ name: "", company: "", linkedinUrl: "", rationale: "" });
+  }
+  next[introIndex] = {
+    ...(next[introIndex] ?? { name: "", company: "", linkedinUrl: "", rationale: "" }),
+    name: wish.name,
+    company: wish.company,
+    linkedinUrl: wish.linkedinUrl,
+    rationale,
+    targetOverview: overview.slice(0, 2000),
+    agreed: wish.agreed,
+  };
+
+  const { data, error: upErr } = await sb
+    .from("meetings")
+    .update({
+      intro_wishlist: serializeIntroWishlist(next),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", meetingId)
+    .select("*")
+    .single();
+  if (upErr) return { ok: false, error: upErr.message };
+  revalidatePath("/activity");
+  return { ok: true, meeting: rowToMeeting(data), rationale };
+}
+
+/** AI: full forwardable intro email for one agreed wishlist row. */
+export async function generateIntroEmail(
+  meetingId: string,
+  introIndex: number
+): Promise<
+  Result<{
+    meeting: Meeting;
+    subject: string;
+    body: string;
+    forwardBlock: string | null;
+    mailtoUrl: string | null;
+    toEmail: string | null;
+  }>
+> {
+  if (!hasConfig()) return { ok: false, error: "Not configured." };
+  const sb = createServiceRoleClient();
+  const { data: row, error } = await sb
+    .from("meetings")
+    .select("*")
+    .eq("id", meetingId)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!row) return { ok: false, error: "Meeting not found." };
+
+  const meeting = rowToMeeting(row as Record<string, unknown>);
+  if (meeting.status !== "held") {
+    return { ok: false, error: "Import the Granola call (mark held) before generating intro emails." };
+  }
+  const wish = meeting.introWishlist[introIndex];
+  if (!wish?.name) return { ok: false, error: "That intro row has no name." };
+  if (!wish.agreed) {
+    return { ok: false, error: "Mark They agreed on that intro first." };
+  }
+  if (!wish.linkedinUrl) {
+    return { ok: false, error: "Add a LinkedIn URL for that person first." };
+  }
+
+  const aboutJason = await loadAboutJason();
+  if (!aboutJason) {
+    return { ok: false, error: "Add About Jason in Settings first." };
+  }
+
+  const { data: contact } = await sb
+    .from("contacts")
+    .select("name,emails")
+    .eq("id", meeting.contactId)
+    .maybeSingle();
+  const contactName = (contact?.name as string | null) ?? "there";
+  const emails = Array.isArray(contact?.emails) ? (contact!.emails as string[]) : [];
+  const toEmail = emails.find((e) => e?.includes("@")) ?? null;
+  const firstName = contactName.trim().split(/\s+/)[0] || "there";
+  const targetFirst = wish.name.trim().split(/\s+/)[0] || wish.name;
+  const shortAsk =
+    meeting.prepShortAsk?.trim() ||
+    "a 20–30 minute Zoom to compare notes";
+
+  const overview =
+    wish.targetOverview?.trim() || (await buildTargetOverview(wish));
+
+  const { generateText } = await import("ai");
+  const { heavyModel } = await import("@/lib/ai/models");
+  const result = await generateText({
+    model: heavyModel(),
+    system: introEmailSystemPrompt(),
+    prompt: `MEETING CONTACT: ${contactName} (first name ${firstName})
+TARGET: ${wish.name} (first name ${targetFirst}) at ${wish.company || "—"}
+LINKEDIN: ${wish.linkedinUrl}
+RATIONALE: ${wish.rationale || "(none saved — infer carefully from overview + About Jason only)"}
+SHORT ASK: ${shortAsk}
+
+ABOUT JASON:
+${aboutJason}
+
+TARGET OVERVIEW:
+${overview}`,
+  });
+  const body = (result.text ?? "").trim();
+  if (!body) return { ok: false, error: "Could not draft the intro email." };
+  const subject = introEmailSubject(wish.name);
+  const forwardBlock = extractForwardBlock(body);
+  const mailtoUrl = toEmail
+    ? introMailtoUrl({ to: toEmail, subject, body })
+    : null;
+
+  const next = meeting.introWishlist.map((item, i) =>
+    i === introIndex
+      ? {
+          ...item,
+          introDraft: body,
+          introDraftAt: new Date().toISOString(),
+          targetOverview: overview.slice(0, 2000),
+        }
+      : item
+  );
+  const { data, error: upErr } = await sb
+    .from("meetings")
+    .update({
+      intro_wishlist: serializeIntroWishlist(next),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", meetingId)
+    .select("*")
+    .single();
+  if (upErr) return { ok: false, error: upErr.message };
+  revalidatePath("/activity");
+  return {
+    ok: true,
+    meeting: rowToMeeting(data),
+    subject,
+    body,
+    forwardBlock,
+    mailtoUrl,
+    toEmail,
+  };
+}
+
+/** Import Granola call notes for this meeting and mark it held. */
+export async function importMeetingGranola(
+  meetingId: string
+): Promise<Result<{ meeting: Meeting }>> {
+  if (!hasConfig()) return { ok: false, error: "Not configured." };
+  const sb = createServiceRoleClient();
+  const { data: row, error } = await sb
+    .from("meetings")
+    .select("*")
+    .eq("id", meetingId)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!row) return { ok: false, error: "Meeting not found." };
+
+  const meeting = rowToMeeting(row as Record<string, unknown>);
+  const { data: contact } = await sb
+    .from("contacts")
+    .select("name,emails")
+    .eq("id", meeting.contactId)
+    .maybeSingle();
+  const contactName = ((contact?.name as string | null) ?? "").trim();
+  if (!contactName) return { ok: false, error: "Contact has no name to match in Granola." };
+  const emails = Array.isArray(contact?.emails) ? (contact!.emails as string[]) : [];
+
+  const { searchGranolaForContact } = await import("@/lib/integrations/granola");
+  const note = await searchGranolaForContact({
+    contactName,
+    emails,
+    aroundIso: meeting.scheduledAt,
+    calendarEventId: meeting.gcalEventId,
+    meetingTitle: meeting.title,
+  });
+  if (!note.found || !note.summary) {
+    return { ok: false, error: note.error || "No Granola note for this call yet." };
+  }
+
+  const granolaId = note.meetings?.[0]?.id ?? null;
+  const granolaUrl = note.url ?? note.meetings?.[0]?.notesUrl ?? null;
+
+  // Persist Granola link fields, then reuse markMeetingHeld for touch + status.
+  const { error: linkErr } = await sb
+    .from("meetings")
+    .update({
+      granola_note_id: granolaId,
+      granola_url: granolaUrl,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", meetingId);
+  if (linkErr) return { ok: false, error: linkErr.message };
+
+  return markMeetingHeld(meetingId, {
+    debriefNotes: note.summary,
+    objectiveAchieved: null,
+    thankYouSent: false,
+    nextStep: null,
+  });
 }
