@@ -113,6 +113,7 @@ import {
   type ContactCardDataResult,
 } from "@/lib/server-actions/outreach";
 import { refreshContactPhotoFromLeadDelta } from "@/lib/server-actions/contact-photo";
+import { ContactAvatar } from "@/components/jasonos/outreach/contact-avatar";
 import type { OutreachPerson } from "@/lib/outreach/data";
 import {
   LOG_TOUCH_CHANNELS,
@@ -881,11 +882,13 @@ export function OutreachModal({
         {/* HEADER */}
         <DialogHeader className="shrink-0 border-b px-5 py-4 pr-12">
           <div className="flex items-start gap-3">
-            <Monogram
+            <ContactAvatar
               name={header.name}
               photoUrl={
                 card.status === "ready" ? card.contact.photo_url : null
               }
+              size="md"
+              className="mt-0.5"
             />
             <div className="min-w-0 flex-1">
               <DialogTitle className="flex flex-wrap items-center gap-2">
@@ -2030,38 +2033,6 @@ function IntentControl({
 // ---------------------------------------------------------------------------
 // Header pieces — monogram avatar, at-a-glance status bar, tab button
 // ---------------------------------------------------------------------------
-
-function Monogram({
-  name,
-  photoUrl,
-}: {
-  name: string;
-  photoUrl?: string | null;
-}) {
-  const initials =
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((w) => w[0]?.toUpperCase() ?? "")
-      .join("") || "?";
-  if (photoUrl) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element -- remote LeadDelta / CDN URLs vary by host
-      <img
-        src={photoUrl}
-        alt=""
-        className="mt-0.5 h-9 w-9 shrink-0 rounded-full border border-border object-cover"
-        referrerPolicy="no-referrer"
-      />
-    );
-  }
-  return (
-    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-xs font-semibold text-muted-foreground">
-      {initials}
-    </div>
-  );
-}
 
 const INTENT_DOT: Record<ContactIntent, string> = {
   network_growth: "bg-rung-2",

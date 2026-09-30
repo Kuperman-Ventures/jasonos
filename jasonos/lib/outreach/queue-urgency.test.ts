@@ -25,6 +25,7 @@ function card(partial: Partial<QueueCard> & Pick<QueueCard, "name">): QueueCard 
     primary_email: null,
     phone: null,
     linkedin_url: null,
+    photo_url: null,
     cadence_interval: "monthly",
     cadence_stage: "ongoing",
     next_touch_date: partial.next_touch_date ?? null,
