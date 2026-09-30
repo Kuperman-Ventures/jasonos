@@ -381,9 +381,6 @@ function GenderGreek({ scoir }: { scoir: ScoirRecord }) {
               </span>
             </div>
           ) : null}
-          <p className="sb-greek-foot">
-            Bars show the share of all men and all women, out of 100%.
-          </p>
         </div>
       ) : null}
     </div>
