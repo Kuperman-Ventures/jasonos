@@ -1,10 +1,15 @@
-// Forwardable intro emails: note to the person you met + fenced block they
-// can paste to the intro target.
+// Intro emails: short note to the person you met + dashed block they paste
+// to the intro target (in their voice).
 
 import { NO_AI_SLOP_WRITING_RULES } from "@/lib/ai/no-ai-slop";
 
-export const INTRO_FORWARD_START = "---------- Forward this ----------";
-export const INTRO_FORWARD_END = "---------- End forward ----------";
+/** Dashed fence around the paste-ready intro note. */
+export const INTRO_FORWARD_START = "--------------------";
+export const INTRO_FORWARD_END = "--------------------";
+
+/** Legacy markers from earlier drafts (still extractable). */
+const LEGACY_FORWARD_START = "---------- Forward this ----------";
+const LEGACY_FORWARD_END = "---------- End forward ----------";
 
 export type IntroWishFields = {
   name: string;
@@ -60,15 +65,28 @@ export function serializeIntroWishlist(items: IntroWishFields[]): IntroWishField
     .filter((w) => w.name || w.company || w.linkedinUrl || w.rationale);
 }
 
-export function extractForwardBlock(body: string): string | null {
-  const start = body.indexOf(INTRO_FORWARD_START);
-  const end = body.indexOf(INTRO_FORWARD_END);
-  if (start < 0 || end < 0 || end <= start) return null;
+function sliceBetween(
+  body: string,
+  startMarker: string,
+  endMarker: string
+): string | null {
+  const start = body.indexOf(startMarker);
+  if (start < 0) return null;
+  const afterStart = start + startMarker.length;
+  const end = body.indexOf(endMarker, afterStart);
+  if (end < 0) return null;
   return body
-    .slice(start + INTRO_FORWARD_START.length, end)
+    .slice(afterStart, end)
     .replace(/^\s*\n/, "")
     .replace(/\n\s*$/, "")
     .trim();
+}
+
+export function extractForwardBlock(body: string): string | null {
+  return (
+    sliceBetween(body, INTRO_FORWARD_START, INTRO_FORWARD_END) ??
+    sliceBetween(body, LEGACY_FORWARD_START, LEGACY_FORWARD_END)
+  );
 }
 
 export function introMailtoUrl(input: {
@@ -97,21 +115,20 @@ Rules:
 export function introEmailSystemPrompt(): string {
   return `You draft an email Jason sends to someone he just met ({meetingContactFirstName}), asking them to intro him to a third person ({targetName}).
 
-The fenced block is what {meetingContactFirstName} will copy-paste and send as THEIR OWN email to {targetName}. It must read in first person as {meetingContactFirstName} writing to {targetName} — never as Jason writing about himself, and never as a forwarded note from Jason.
+Between the dashed lines is what {meetingContactFirstName} will copy-paste and send as THEIR OWN email to {targetName}. It must read in first person as {meetingContactFirstName} writing to {targetName} — never as Jason writing about himself.
 ${NO_AI_SLOP_WRITING_RULES}
 
-Structure EXACTLY:
+Structure EXACTLY (match this shape and tone — keep it short):
 
 Hi {meetingContactFirstName},
 
-{1-2 short sentences thanking them for offering the intro to {targetName}. Put the LinkedIn URL on its own line if provided.}
-
-If you're willing, paste the note below to {targetFirstName} (edit freely) — written as if from you.
+Thanks for offering to intro me to {targetFirstName}. {His/Her/Their} profile is here:
+{linkedinUrl}
 
 ${INTRO_FORWARD_START}
 Hi {targetFirstName},
 
-{2-4 short sentences in {meetingContactFirstName}'s voice: they are introducing Jason Kuperman; who Jason is (from ABOUT JASON); why the connect makes sense (from RATIONALE); soft ask (from SHORT ASK). Use "I" for the introducer and "Jason" / "he" for Jason — never "I" as Jason.}
+{2-3 sentences in {meetingContactFirstName}'s voice introducing Jason Kuperman: who he is (from ABOUT JASON, compressed), why the connect makes sense (from RATIONALE), soft ask for a Zoom to compare notes (from SHORT ASK). Use "I" for the introducer and "Jason" / "he" for Jason — never "I" as Jason. End the ask as a question when natural.}
 
 {meetingContactFirstName}
 ${INTRO_FORWARD_END}
@@ -121,8 +138,9 @@ Jason
 
 Rules:
 - Output the email body only. No subject line. No markdown fences.
-- Keep the Forward this / End forward markers exactly as given.
-- Inside the markers: first person = {meetingContactFirstName}. Do not sign as Jason. Do not say "Jason asked me to forward" or "see note below from Jason".
+- Use exactly twenty hyphens (${INTRO_FORWARD_START}) as the open and close fence — nothing else on those lines (no "Forward this" labels).
+- Outer note: one short thanks line + LinkedIn URL on its own line. No "paste the note below" instruction.
+- Inside the dashes: first person = {meetingContactFirstName}. Sign with their first name only. Do not sign as Jason.
 - Do not invent facts beyond ABOUT JASON, RATIONALE, SHORT ASK, and TARGET OVERVIEW.
 - Direct voice. No exclamation points. No "hope you're well".`;
 }
