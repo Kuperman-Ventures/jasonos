@@ -5,6 +5,7 @@ import {
   INTRO_FORWARD_START,
   extractForwardBlock,
   introEmailSubject,
+  introMailtoUrl,
   normalizeIntroWish,
   serializeIntroWishlist,
 } from "./intro-email";
@@ -60,5 +61,17 @@ Jason`;
 
   it("builds a clear subject", () => {
     assert.equal(introEmailSubject("Ed Engels"), "Intro to Ed Engels");
+  });
+
+  it("encodes mailto spaces as %20 so Apple Mail does not show pluses", () => {
+    const url = introMailtoUrl({
+      to: "andrew@example.com",
+      subject: "Intro to Ed",
+      body: "Hi Andrew,\n\nPaste this note.",
+    });
+    assert.match(url, /^mailto:andrew@example\.com\?/);
+    assert.match(url, /body=Hi%20Andrew/);
+    assert.doesNotMatch(url, /body=Hi\+/);
+    assert.doesNotMatch(url, /\+Paste\+/);
   });
 });
