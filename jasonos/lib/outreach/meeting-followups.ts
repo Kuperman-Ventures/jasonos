@@ -318,15 +318,11 @@ export function meetingFollowupDraft(input: {
 }): { subject: string; body: string } {
   const who = firstName(input.name);
   const hello = who === "there" ? "Hi," : `${who},`;
-  const subject =
-    input.title && input.title !== "Meeting"
-      ? `Following up: ${input.title}`
-      : "Following up";
   return {
-    subject,
+    subject: "Good catching up",
     body: `${hello}
 
-Thanks again for the conversation. I'll follow up on what we covered.
+It was good to reconnect. Thanks again for the conversation.
 
 Jason`,
   };
@@ -379,7 +375,28 @@ export function isUnacceptableFollowupBody(
   return false;
 }
 
+/** Catch-up follow-ups that pivot into pitching Jason's work. */
+export function soundsLikePitchFollowup(body: string): boolean {
+  const t = body.replace(/\s+/g, " ").trim();
+  if (!t) return false;
+  return (
+    /\bI'?ll keep\b.+\bin mind\b/i.test(t) ||
+    /\bworth a more targeted conversation\b/i.test(t) ||
+    /\bthesis playing out\b/i.test(t) ||
+    /\b(Refactor Sprint|Equity Labs)\b/i.test(t) ||
+    /\bgiven .+ role as a major\b/i.test(t)
+  );
+}
+
+/** Greeting name. Handles "First Last" and Outlook-style "Last, First". */
 export function firstName(name: string | null | undefined): string {
-  const part = (name ?? "").trim().split(/\s+/)[0];
-  return part || "there";
+  const trimmed = (name ?? "").trim().replace(/\s+/g, " ");
+  if (!trimmed) return "there";
+  const comma = trimmed.match(/^([^,]+),\s*(.+)$/);
+  if (comma) {
+    // "Peltoniemi, Tuomas" → Tuomas
+    const given = comma[2]!.trim().split(/\s+/)[0];
+    return given || "there";
+  }
+  return trimmed.split(/\s+/)[0] || "there";
 }
