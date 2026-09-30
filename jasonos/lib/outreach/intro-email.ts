@@ -76,10 +76,10 @@ export function introMailtoUrl(input: {
   subject: string;
   body: string;
 }): string {
-  const params = new URLSearchParams();
-  params.set("subject", input.subject);
-  params.set("body", input.body);
-  return `mailto:${encodeURIComponent(input.to)}?${params.toString()}`;
+  // encodeURIComponent → %20 for spaces. URLSearchParams uses +, which Apple
+  // Mail often pastes literally into the compose body.
+  const to = input.to.trim();
+  return `mailto:${to}?subject=${encodeURIComponent(input.subject)}&body=${encodeURIComponent(input.body)}`;
 }
 
 export function rationaleSystemPrompt(): string {
