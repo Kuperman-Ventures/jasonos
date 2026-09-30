@@ -7984,9 +7984,6 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   box-shadow: var(--shadow-sm);
   pointer-events: none;
 }
-.ds-app-column.is-hot .ds-app-card {
-  border-color: var(--color-accent);
-}
 .ds-app-title {
   font-family: var(--font-heading);
   font-size: 22px;
