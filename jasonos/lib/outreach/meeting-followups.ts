@@ -383,6 +383,14 @@ export function isUnacceptableFollowupBody(
   return false;
 }
 
+export {
+  DEFAULT_MEETING_FOLLOWUP_PROMPT,
+  fillMeetingFollowupPrompt,
+  isHollowFollowupBody,
+  normalizeMeetingFollowupPrompt,
+  resolveMeetingFollowupPrompt,
+} from "@/lib/outreach/meeting-followup-prompt";
+
 /** Catch-up follow-ups that pivot into pitching Jason's work. */
 export function soundsLikePitchFollowup(body: string): boolean {
   const t = body.replace(/\s+/g, " ").trim();

@@ -13,6 +13,11 @@ import {
 } from "@/lib/integrations/outlook-tokens";
 import { overlayGoogleOauthOntoServices } from "./google-status";
 import {
+  DEFAULT_MEETING_FOLLOWUP_PROMPT,
+  normalizeMeetingFollowupPrompt,
+  resolveMeetingFollowupPrompt,
+} from "@/lib/outreach/meeting-followup-prompt";
+import {
   DEFAULT_ALERT_THRESHOLDS,
   DEFAULT_MODEL_PREFERENCES,
   SERVICE_DEFINITIONS,
@@ -41,6 +46,12 @@ export interface SettingsPayload {
   services: ServiceConnection[];
   thresholds: AlertThresholds;
   models: ModelPreferences;
+  /** Effective Follow Up guidance (stored override or default). */
+  meetingFollowupPrompt: string;
+  /** True when meetingFollowupPrompt is a saved override, not the default. */
+  meetingFollowupPromptCustom: boolean;
+  /** In-code default, for Reset. */
+  meetingFollowupPromptDefault: string;
   lastChecked: string | null;
   authRequired: boolean;
   supabaseConfigured: boolean;
@@ -95,7 +106,7 @@ export async function getSettingsPayload(): Promise<SettingsPayload> {
       .eq("user_id", user.id),
     supabase
       .from("user_preferences")
-      .select("alert_thresholds,model_preferences")
+      .select("alert_thresholds,model_preferences,meeting_followup_prompt")
       .eq("user_id", user.id)
       .maybeSingle(),
     getDispatchSummary(user.id),
@@ -123,11 +134,18 @@ export async function getSettingsPayload(): Promise<SettingsPayload> {
     } satisfies ServiceConnection;
   });
 
+  const storedPrompt = normalizeMeetingFollowupPrompt(
+    (prefs as PreferencesRow | null)?.meeting_followup_prompt
+  );
+
   return attachMailboxStatus(
     {
       services,
       thresholds: normalizeThresholds((prefs as PreferencesRow | null)?.alert_thresholds),
       models: normalizeModels((prefs as PreferencesRow | null)?.model_preferences),
+      meetingFollowupPrompt: resolveMeetingFollowupPrompt(storedPrompt),
+      meetingFollowupPromptCustom: Boolean(storedPrompt),
+      meetingFollowupPromptDefault: DEFAULT_MEETING_FOLLOWUP_PROMPT,
       lastChecked: services
         .map((service) => service.last_health_check)
         .filter((value): value is string => !!value)
@@ -160,6 +178,7 @@ function attachMailboxStatus(
 interface PreferencesRow {
   alert_thresholds: unknown;
   model_preferences: unknown;
+  meeting_followup_prompt?: string | null;
 }
 
 async function seedConnections(userId: string) {
@@ -231,6 +250,9 @@ function fallbackPayload(authRequired: boolean): SettingsPayload {
     services,
     thresholds: DEFAULT_ALERT_THRESHOLDS,
     models: DEFAULT_MODEL_PREFERENCES,
+    meetingFollowupPrompt: DEFAULT_MEETING_FOLLOWUP_PROMPT,
+    meetingFollowupPromptCustom: false,
+    meetingFollowupPromptDefault: DEFAULT_MEETING_FOLLOWUP_PROMPT,
     lastChecked: null,
     authRequired,
     supabaseConfigured: publicSupabaseConfigured(),
