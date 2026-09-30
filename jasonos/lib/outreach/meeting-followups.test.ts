@@ -4,6 +4,7 @@ import {
   attendeeLine,
   fillMeetingFollowupPrompt,
   firstName,
+  guessFollowupDisplayName,
   hasWrongMeetingDayLanguage,
   isHollowFollowupBody,
   isMeetingFollowupDue,
@@ -267,6 +268,35 @@ describe("firstName", () => {
     assert.equal(firstName("Peltoniemi, Tuomas"), "Tuomas");
     assert.equal(firstName("Matthew Deutsch"), "Matthew");
     assert.equal(firstName(null), "there");
+  });
+});
+
+describe("guessFollowupDisplayName", () => {
+  it("pulls Simon from title or email when guest name is missing", () => {
+    assert.equal(
+      guessFollowupDisplayName({
+        name: null,
+        email: "simon@betaevolution.com.au",
+        title: "Jason K/ Simon B Catch-Up II [if you can make this]",
+      }),
+      "Simon"
+    );
+    assert.equal(
+      guessFollowupDisplayName({
+        name: null,
+        email: "simon@betaevolution.com.au",
+        title: "Quick sync",
+      }),
+      "Simon"
+    );
+    assert.equal(
+      guessFollowupDisplayName({
+        name: "Tuomas Peltoniemi",
+        email: "x@y.com",
+        title: "Catch up",
+      }),
+      "Tuomas"
+    );
   });
 });
 

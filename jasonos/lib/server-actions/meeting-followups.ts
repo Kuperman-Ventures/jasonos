@@ -6,15 +6,21 @@ import { buildMailtoUrl } from "@/lib/email-templates/render";
 import {
   calendarEventGuests,
   fetchAllPersonalCalendarEvents,
+  mergeCalendarEvents,
 } from "@/lib/integrations/google-calendar";
 import { listSentRecipientTouches } from "@/lib/integrations/gmail";
 import { searchGranolaForContact } from "@/lib/integrations/granola";
+import {
+  listOutlookCalendarEvents,
+  listOutlookSentRecipientTouches,
+} from "@/lib/integrations/outlook";
 import { matchCalendarEventToContacts } from "@/lib/outreach/calendar-matching";
 import { buildContactLookup } from "@/lib/outreach/email-matching";
 import { appendSyncLog } from "@/lib/outreach/sync-log";
 import { composeMeetingFollowupDraft } from "@/lib/outreach/meeting-followup-compose";
 import {
   attendeeLine,
+  guessFollowupDisplayName,
   isMeetingFollowupDue,
   latestSentByEmail,
   meetingEndIso,
@@ -27,6 +33,7 @@ import {
   type MeetingAttendee,
   type MeetingFollowupStatus,
   type PastMeetingCandidate,
+  type SentRecipientTouch,
 } from "@/lib/outreach/meeting-followups";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
@@ -205,32 +212,50 @@ async function captureMeetingFollowupsInner(opts?: {
   const timeMin = new Date(now.getTime() - daysBack * 86_400_000).toISOString();
   const timeMax = now.toISOString();
 
-  const [cal, sent, lookup] = await Promise.all([
+  const [cal, sent, outlookSent, outlookCal, lookup] = await Promise.all([
     fetchAllPersonalCalendarEvents({ timeMin, timeMax }),
     listSentRecipientTouches({ daysBack: daysBack + 2 }),
+    listOutlookSentRecipientTouches({ daysBack: daysBack + 2 }),
+    listOutlookCalendarEvents({ timeMin, timeMax }),
     buildContactLookup(),
   ]);
 
-  if (cal.error && !cal.events.length) {
+  const events = mergeCalendarEvents([
+    cal.events,
+    outlookCal.events,
+  ]);
+
+  if (cal.error && !events.length && !outlookCal.events.length) {
     return { ok: false, unavailable: true, error: cal.error };
   }
-  if (!sent.configured) {
+  if (!sent.configured && !outlookSent.configured) {
     return {
       ok: false,
       unavailable: true,
-      error: "Gmail is not connected.",
+      error: "No mail account connected for sent-mail follow-up checks.",
     };
   }
-  if (sent.error && !sent.data.length) {
-    return { ok: false, error: sent.error };
+  const sentTouches: SentRecipientTouch[] = [
+    ...(sent.data ?? []),
+    ...(outlookSent.data ?? []),
+  ];
+  if (
+    !sentTouches.length &&
+    ((sent.error && sent.configured) || (outlookSent.error && outlookSent.configured)) &&
+    !events.length
+  ) {
+    return {
+      ok: false,
+      error: [sent.error, outlookSent.error].filter(Boolean).join(" · "),
+    };
   }
 
-  const sentByEmail = latestSentByEmail(sent.data);
+  const sentByEmail = latestSentByEmail(sentTouches);
   const today = etToday();
   const meetings: PastMeetingCandidate[] = [];
   /** Past meetings that look real but have no JasonOS contact — dismiss if queued. */
   const noContactEventIds: string[] = [];
-  for (const ev of cal.events) {
+  for (const ev of events) {
     const guests = calendarEventGuests(ev);
     const { matches } = matchCalendarEventToContacts({
       title: ev.summary,
@@ -490,7 +515,14 @@ export async function draftMeetingFollowupMailto(
     asAttendees(row.attendees),
     row.title
   );
-  const contactName = primary.name || primary.email.split("@")[0] || row.title;
+  const displayName =
+    guessFollowupDisplayName({
+      name: primary.name,
+      email: primary.email,
+      title: row.title,
+    }) ?? primary.name;
+  const contactName =
+    displayName || primary.email.split("@")[0] || row.title;
   // Always re-fetch Granola for this calendar event. A cached summary from a
   // bad match must not keep powering the wrong draft.
   const calendarEventIds = [
@@ -514,7 +546,8 @@ export async function draftMeetingFollowupMailto(
   const fromGranola = Boolean(summary);
 
   const draft = await composeMeetingFollowupDraft({
-    name: primary.name,
+    name: displayName,
+    email: primary.email,
     title: row.title?.trim() || "Meeting",
     summary,
     startsAt: row.starts_at,
@@ -565,5 +598,27 @@ function pickPrimaryFollowupAttendee(
     }
     return hay.includes(name);
   });
-  return named ?? pool[0]!;
+  if (named) return named;
+
+  // Title may name them when the guest card has no display name.
+  const guessed = guessFollowupDisplayName({ title, email: pool[0]?.email });
+  if (guessed) {
+    const byLocal = pool.find((person) => {
+      const local = person.email.split("@")[0]?.toLowerCase() ?? "";
+      return local.startsWith(guessed.toLowerCase());
+    });
+    if (byLocal) {
+      return { ...byLocal, name: byLocal.name ?? guessed };
+    }
+  }
+  const first = pool[0]!;
+  return {
+    ...first,
+    name:
+      first.name ??
+      guessFollowupDisplayName({
+        email: first.email,
+        title,
+      }),
+  };
 }

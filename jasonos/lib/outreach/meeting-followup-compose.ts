@@ -16,6 +16,7 @@ import {
 import { loadMeetingFollowupPromptGuidance } from "@/lib/outreach/meeting-followup-prompt-store";
 import {
   firstName,
+  guessFollowupDisplayName,
   hasWrongMeetingDayLanguage,
   isUnacceptableFollowupBody,
   meetingFollowupDraft,
@@ -31,6 +32,8 @@ export type MeetingFollowupComposeInput = {
   summary: string | null;
   /** Meeting start ISO — used so drafts do not say "today" for older calls. */
   startsAt?: string | null;
+  /** Fallback when guest display name is missing (e.g. simon@…). */
+  email?: string | null;
 };
 
 export type MeetingFollowupComposeResult = {
@@ -69,7 +72,7 @@ function polish(draft: { subject: string; body: string }): {
   };
 }
 
-function draftFailsChecks(
+function hardFail(
   body: string,
   summary: string,
   whenPhrase: string
@@ -77,18 +80,31 @@ function draftFailsChecks(
   return (
     isUnacceptableFollowupBody(body, summary) ||
     soundsLikePitchFollowup(body) ||
-    hasWrongMeetingDayLanguage(body, whenPhrase) ||
-    isHollowFollowupBody(body)
+    hasWrongMeetingDayLanguage(body, whenPhrase)
   );
+}
+
+function draftFailsChecks(
+  body: string,
+  summary: string,
+  whenPhrase: string
+): boolean {
+  return hardFail(body, summary, whenPhrase) || isHollowFollowupBody(body);
 }
 
 export async function composeMeetingFollowupDraft(
   input: MeetingFollowupComposeInput
 ): Promise<MeetingFollowupComposeResult> {
   const whenPhrase = meetingWhenPhrase(input.startsAt);
+  const resolvedName =
+    guessFollowupDisplayName({
+      name: input.name,
+      email: input.email,
+      title: input.title,
+    }) ?? input.name;
   const fallback = polish(
     meetingFollowupDraft({
-      name: input.name,
+      name: resolvedName,
       title: input.title,
       summary: input.summary,
       startsAt: input.startsAt,
@@ -99,7 +115,7 @@ export async function composeMeetingFollowupDraft(
     return { ...fallback, source: "fallback" };
   }
 
-  const who = firstName(input.name);
+  const who = firstName(resolvedName);
   const greeting = who === "there" ? "Hi," : `${who},`;
   const displayName = who === "there" ? "Name" : who;
   const guidance = fillMeetingFollowupPrompt(
@@ -126,11 +142,13 @@ WHEN the meeting happened (use this; do not invent a different day): ${whenPhras
 MEETING NOTES (Granola — rewrite into a warm email, do not paste, do not pitch):
 ${summary.slice(0, 6000)}
 
-Write the follow-up email JSON now.`;
+Write the follow-up email JSON now. Include one concrete takeaway from the notes.`;
 
   const providerOptions = hasDirectAnthropicKey()
     ? { anthropic: { thinking: { type: "disabled" as const } } }
     : undefined;
+
+  const rewriteHint = `Rewrite. Keep it warm and personal like a real reconnect note. The meeting was ${whenPhrase} — do not say today/this morning unless that is exact. Include one concrete takeaway from the meeting notes (something they said or that came up — for example a project, offer, or next step in the notes). Do not send hollow "good to reconnect / thanks for the conversation" fluff. Do not paste meeting notes. Do not pitch Jason's work or clients. First name greeting ("${greeting}"). JSON only.`;
 
   try {
     const { text } = await generateText({
@@ -142,12 +160,18 @@ Write the follow-up email JSON now.`;
     });
     const parsed = safeParseDraft(text);
     if (!parsed) return { ...fallback, source: "fallback" };
-    const draft = polish({
+    let draft = polish({
       subject: parsed.subject || fallback.subject,
       body: parsed.body,
     });
-    if (draftFailsChecks(draft.body, summary, whenPhrase)) {
-      // One retry with an explicit ban on the bad shape.
+    if (!draftFailsChecks(draft.body, summary, whenPhrase)) {
+      return { ...draft, source: "ai" };
+    }
+
+    // Up to two rewrites when notes exist — never hand back the empty template
+    // just because the first pass was hollow.
+    let lastParsed = parsed;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
       const { text: retryText } = await generateText({
         model: heavyModel(),
         maxOutputTokens: 600,
@@ -156,28 +180,43 @@ Write the follow-up email JSON now.`;
           { role: "user", content: user },
           {
             role: "assistant",
-            content: JSON.stringify(parsed),
+            content: JSON.stringify(lastParsed),
           },
-          {
-            role: "user",
-            content: `Rewrite. Keep it warm and personal like a real reconnect note. The meeting was ${whenPhrase} — do not say today/this morning unless that is exact. Include one concrete takeaway from the meeting notes (something they said or that came up). Do not send hollow "good to reconnect / thanks for the conversation" fluff. Do not paste meeting notes. Do not pitch Jason's work or clients. First name greeting. JSON only.`,
-          },
+          { role: "user", content: rewriteHint },
         ],
         providerOptions,
       });
       const retry = safeParseDraft(retryText);
-      if (!retry || draftFailsChecks(retry.body, summary, whenPhrase)) {
-        return { ...fallback, source: "fallback" };
+      if (!retry) continue;
+      lastParsed = retry;
+      draft = polish({
+        subject: retry.subject || fallback.subject,
+        body: retry.body,
+      });
+      if (!draftFailsChecks(draft.body, summary, whenPhrase)) {
+        return { ...draft, source: "ai" };
       }
-      return {
-        ...polish({
-          subject: retry.subject || fallback.subject,
-          body: retry.body,
-        }),
-        source: "ai",
-      };
+      // Hard failures (paste / pitch / wrong day) keep rewriting.
+      // Hollow-only: accept if the body has more substance than the template.
+      if (
+        !hardFail(draft.body, summary, whenPhrase) &&
+        draft.body.trim().length > fallback.body.trim().length + 40
+      ) {
+        return { ...draft, source: "ai" };
+      }
     }
-    return { ...draft, source: "ai" };
+
+    // Last resort with notes: still prefer a non-hard-fail AI body over fluff.
+    if (!hardFail(draft.body, summary, whenPhrase) && !isHollowFollowupBody(draft.body)) {
+      return { ...draft, source: "ai" };
+    }
+    if (
+      !hardFail(draft.body, summary, whenPhrase) &&
+      draft.body.trim().length > fallback.body.trim().length
+    ) {
+      return { ...draft, source: "ai" };
+    }
+    return { ...fallback, source: "fallback" };
   } catch (err) {
     console.error("[meeting-followup-compose]", err);
     return { ...fallback, source: "fallback" };

@@ -1,6 +1,10 @@
 import "server-only";
 
+import type { CalendarApiEvent } from "@/lib/integrations/google-calendar";
+import { getOutlookAccountAccess } from "@/lib/integrations/outlook-tokens";
 import { OUTLOOK_WRAP_EMAIL } from "@/lib/integrations/unwrap-forwarded-mail";
+import type { SentRecipientTouch } from "@/lib/outreach/meeting-followups";
+import { qualifySentMessage } from "@/lib/outreach/sent-followups";
 import {
   OUTLOOK_MAX_PAGES,
   OUTLOOK_PAGE_SIZE,
@@ -327,6 +331,196 @@ export async function searchOutlookMessages(
   }
 
   return [...byId.values()];
+}
+
+/**
+ * Outbound recipient touches from Outlook Sent Items — used with Gmail sent
+ * scans so meeting Follow Ups clear when Jason emailed an attendee from
+ * jason.kuperman@outlook.com.
+ */
+export async function listOutlookSentRecipientTouches(opts?: {
+  daysBack?: number;
+  max?: number;
+}): Promise<{
+  configured: boolean;
+  data: SentRecipientTouch[];
+  error?: string;
+}> {
+  const account = await getOutlookAccountAccess();
+  if (!account.configured || !account.token) {
+    return {
+      configured: false,
+      data: [],
+      error: account.error,
+    };
+  }
+
+  const daysBack = Math.max(1, Math.min(90, opts?.daysBack ?? 30));
+  const max = opts?.max ?? 400;
+  const sinceIso = new Date(Date.now() - daysBack * 86_400_000).toISOString();
+  const touches: SentRecipientTouch[] = [];
+
+  try {
+    const folder: OutlookFolderRef = {
+      id: "sentitems",
+      displayName: "Sent Items",
+      wellKnownName: "sentitems",
+    };
+    const messages = await listFolderMessages(account.token, folder, sinceIso);
+    for (const message of messages.slice(0, max)) {
+      if (message.isDraft) continue;
+      const mapped = mapGraphMessage(message);
+      if (!mapped) continue;
+      const qualified = qualifySentMessage({
+        subject: mapped.subject,
+        to: mapped.to,
+        cc: mapped.cc,
+      });
+      if (!qualified.ok) continue;
+      const sentAt = mapped.date;
+      for (const recipient of qualified.recipients) {
+        touches.push({ email: recipient.email, sentAt });
+      }
+    }
+    return { configured: true, data: touches };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[outlook] sent recipient scan failed:", err);
+    return { configured: true, data: [], error: msg };
+  }
+}
+
+type GraphCalendarAttendee = {
+  emailAddress?: { address?: string | null; name?: string | null } | null;
+  status?: { response?: string | null } | null;
+  type?: string | null;
+};
+
+type GraphCalendarEvent = {
+  id?: string;
+  iCalUId?: string | null;
+  subject?: string | null;
+  start?: { dateTime?: string | null; timeZone?: string | null } | null;
+  end?: { dateTime?: string | null; timeZone?: string | null } | null;
+  isCancelled?: boolean | null;
+  isAllDay?: boolean | null;
+  webLink?: string | null;
+  organizer?: {
+    emailAddress?: { address?: string | null; name?: string | null } | null;
+  } | null;
+  attendees?: GraphCalendarAttendee[] | null;
+};
+
+function outlookDateParts(
+  value: { dateTime?: string | null; timeZone?: string | null } | null | undefined,
+  allDay: boolean
+): { dateTime?: string; date?: string } | undefined {
+  const raw = value?.dateTime?.trim();
+  if (!raw) return undefined;
+  if (allDay) {
+    return { date: raw.slice(0, 10) };
+  }
+  // Graph returns local wall time without Z; append Z when no offset so Date.parse works.
+  const hasZone = /([zZ]|[+-]\d{2}:\d{2})$/.test(raw);
+  const iso = hasZone ? raw : `${raw}Z`;
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return { dateTime: raw };
+  return { dateTime: new Date(ms).toISOString() };
+}
+
+function mapOutlookCalendarEvent(raw: GraphCalendarEvent): CalendarApiEvent | null {
+  if (!raw.id) return null;
+  const allDay = Boolean(raw.isAllDay);
+  const start = outlookDateParts(raw.start, allDay);
+  const end = outlookDateParts(raw.end, allDay);
+  if (!start) return null;
+  const attendees = (raw.attendees ?? []).map((a) => {
+    const email = a.emailAddress?.address?.trim().toLowerCase() || undefined;
+    const displayName = a.emailAddress?.name?.trim() || undefined;
+    const response = (a.status?.response ?? "").toLowerCase();
+    return {
+      email,
+      displayName,
+      responseStatus:
+        response === "declined"
+          ? "declined"
+          : response === "accepted"
+            ? "accepted"
+            : response === "tentativelyaccepted"
+              ? "tentative"
+              : "needsAction",
+    };
+  });
+  const orgEmail = raw.organizer?.emailAddress?.address?.trim().toLowerCase();
+  return {
+    id: `outlook:${raw.id}`,
+    iCalUID: raw.iCalUId?.trim() || undefined,
+    summary: raw.subject?.trim() || "Meeting",
+    start,
+    end,
+    htmlLink: raw.webLink ?? undefined,
+    status: raw.isCancelled ? "cancelled" : "confirmed",
+    organizer: orgEmail
+      ? {
+          email: orgEmail,
+          displayName: raw.organizer?.emailAddress?.name?.trim() || undefined,
+        }
+      : undefined,
+    attendees,
+  };
+}
+
+/**
+ * Past/upcoming events from the Outlook.com calendar (Calendars.Read already
+ * on the OAuth consent). Mapped into CalendarApiEvent so Follow Up capture
+ * can merge with Google calendars.
+ */
+export async function listOutlookCalendarEvents(opts: {
+  timeMin: string;
+  timeMax: string;
+  maxPages?: number;
+}): Promise<{ events: CalendarApiEvent[]; configured: boolean; error?: string }> {
+  const account = await getOutlookAccountAccess();
+  if (!account.configured || !account.token) {
+    return { events: [], configured: false, error: account.error };
+  }
+
+  const maxPages = opts.maxPages ?? 10;
+  const events: CalendarApiEvent[] = [];
+  const params = new URLSearchParams({
+    startDateTime: opts.timeMin,
+    endDateTime: opts.timeMax,
+    $top: "50",
+    $select:
+      "id,iCalUId,subject,start,end,isCancelled,isAllDay,webLink,organizer,attendees",
+    $orderby: "start/dateTime",
+  });
+  let url: string | null = `/me/calendarView?${params}`;
+
+  try {
+    for (let page = 0; page < maxPages && url; page += 1) {
+      const { status, body } = await graphGet(account.token, url, {
+        Prefer: 'outlook.timezone="UTC"',
+      });
+      if (status < 200 || status >= 300) {
+        return {
+          events,
+          configured: true,
+          error: graphErrorMessage(status, body),
+        };
+      }
+      for (const raw of (body?.value ?? []) as GraphCalendarEvent[]) {
+        const mapped = mapOutlookCalendarEvent(raw);
+        if (mapped) events.push(mapped);
+      }
+      url = body?.["@odata.nextLink"] ?? null;
+    }
+    return { events, configured: true };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[outlook] calendar scan failed:", err);
+    return { events, configured: true, error: msg };
+  }
 }
 
 export async function latestOutlookSentTo(

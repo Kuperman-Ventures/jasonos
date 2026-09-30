@@ -417,6 +417,53 @@ export function firstName(name: string | null | undefined): string {
   return trimmed.split(/\s+/)[0] || "there";
 }
 
+const TITLE_NAME_STOP =
+  /^(jason|k|kuperman|catch|catch-up|catchup|up|ii|iii|iv|chat|call|meet|meeting|sync|zoom|intro|follow|follow-up|followup|with|and|the|a|an|if|you|can|make|this|recurring|weekly|biweekly)$/i;
+
+/**
+ * When calendar guests lack a display name (common on GCal), pull a first
+ * name from the meeting title or email local-part so drafts do not open "Hi,".
+ * Titles like "Jason K/ Simon B Catch-Up II" → "Simon".
+ */
+export function guessFollowupDisplayName(input: {
+  name?: string | null;
+  email?: string | null;
+  title?: string | null;
+}): string | null {
+  const fromGuest = firstName(input.name);
+  if (fromGuest !== "there") return fromGuest;
+
+  const title = (input.title ?? "").replace(/\[[^\]]*]/g, " ").trim();
+  if (title) {
+    const slash = title.match(/\/\s*([A-Za-z][A-Za-z'’.-]*(?:\s+[A-Za-z])?)\b/);
+    if (slash?.[1]) {
+      const first = slash[1].split(/\s+/)[0]!;
+      if (!TITLE_NAME_STOP.test(first)) {
+        return first[0]!.toUpperCase() + first.slice(1);
+      }
+    }
+    const withName = title.match(
+      /\b(?:with|and|\/)\s+([A-Za-z][A-Za-z'’.-]+)\b/i
+    );
+    if (withName?.[1] && !TITLE_NAME_STOP.test(withName[1])) {
+      const first = withName[1];
+      return first[0]!.toUpperCase() + first.slice(1);
+    }
+    // "Simon B <> Jason" / "Simon - Jason"
+    const leading = title.match(/^([A-Za-z][A-Za-z'’.-]+)(?:\s+[A-Za-z])?\b/);
+    if (leading?.[1] && !TITLE_NAME_STOP.test(leading[1])) {
+      const first = leading[1];
+      return first[0]!.toUpperCase() + first.slice(1);
+    }
+  }
+
+  const local = (input.email ?? "").split("@")[0]?.split(/[._+-]/)[0] ?? "";
+  if (local.length >= 2 && !TITLE_NAME_STOP.test(local)) {
+    return local[0]!.toUpperCase() + local.slice(1).toLowerCase();
+  }
+  return null;
+}
+
 /**
  * How to refer to when the meeting happened, in Eastern calendar days.
  * Keeps drafts from saying "today" for a call last week.
