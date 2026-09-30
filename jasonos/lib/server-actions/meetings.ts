@@ -351,22 +351,10 @@ export async function deleteMeeting(id: string): Promise<OkResult> {
 }
 
 async function loadAboutJason(): Promise<string> {
-  const { createPublicClient } = await import("@/lib/supabase/server");
-  const { normalizeAboutJason } = await import("@/lib/outreach/about-jason");
-  try {
-    const supabase = await createPublicClient();
-    const { data: userData } = await supabase.auth.getUser();
-    const userId = userData.user?.id;
-    if (!userId) return "";
-    const { data } = await supabase
-      .from("user_preferences")
-      .select("about_jason")
-      .eq("user_id", userId)
-      .maybeSingle();
-    return normalizeAboutJason(data?.about_jason) ?? "";
-  } catch {
-    return "";
-  }
+  const { loadStoredAboutJason } = await import(
+    "@/lib/outreach/about-jason-store"
+  );
+  return loadStoredAboutJason();
 }
 
 async function buildTargetOverview(wish: IntroWishFields): Promise<string> {
