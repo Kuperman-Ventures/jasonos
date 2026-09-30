@@ -106,13 +106,19 @@ export async function getOvernightGranola(): Promise<IntegrationResult<GranolaMe
 export async function searchGranolaForContact({
   contactName,
   email,
+  emails,
   aroundIso,
   calendarEventId,
+  calendarEventIds,
+  meetingTitle,
 }: {
   contactName: string;
   email?: string | null;
+  emails?: string[] | null;
   aroundIso?: string | null;
   calendarEventId?: string | null;
+  calendarEventIds?: string[] | null;
+  meetingTitle?: string | null;
 }): Promise<GranolaSearchResult> {
   const name = contactName.trim();
   if (!name) return { found: false };
@@ -126,14 +132,25 @@ export async function searchGranolaForContact({
   const createdBefore = new Date(
     (Number.isFinite(around) ? around : Date.now()) + 24 * 60 * 60 * 1000
   ).toISOString();
+  const eventIds = [calendarEventId, ...(calendarEventIds ?? [])].filter(
+    (value): value is string => Boolean(value?.trim())
+  );
 
   try {
     const listed = await listNotes(key, createdAfter, createdBefore);
     if (!listed.ok) return { found: false, error: keyError(listed.status) };
+    // Prefer notes closest in time; title rank is a tie-breaker only.
+    // Pull enough detail pages that a calendar-linked note is not dropped
+    // just because its title is generic ("Meeting with…").
     const shortlist = listed.notes
       .filter((note) => note.id)
-      .sort((a, b) => titleRank(b, name) - titleRank(a, name) || timeRank(a, around) - timeRank(b, around))
-      .slice(0, 6);
+      .sort(
+        (a, b) =>
+          timeRank(a, around) - timeRank(b, around) ||
+          titleRank(b, name) - titleRank(a, name) ||
+          titleRank(b, meetingTitle ?? "") - titleRank(a, meetingTitle ?? "")
+      )
+      .slice(0, eventIds.length ? 16 : 10);
 
     const details: GranolaNoteCandidate[] = [];
     for (const note of shortlist) {
@@ -145,7 +162,15 @@ export async function searchGranolaForContact({
       details.push(toCandidate(detail.json as NoteDetail, note));
     }
 
-    const match = pickGranolaNote(details, { name, email, aroundIso, calendarEventId });
+    const match = pickGranolaNote(details, {
+      name,
+      email,
+      emails,
+      aroundIso,
+      calendarEventId: eventIds[0] ?? null,
+      calendarEventIds: eventIds,
+      meetingTitle,
+    });
     const summary = match?.summaryText?.trim();
     if (!match || !summary) {
       return { found: false, error: "No Granola note for this call yet." };

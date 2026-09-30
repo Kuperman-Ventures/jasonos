@@ -27,6 +27,8 @@ export interface OutreachPerson {
   firm: string | null;
   firm_normalized: string | null;
   linkedin_url: string | null;
+  /** LeadDelta / CRM profile image URL when available. */
+  photo_url: string | null;
   primary_email: string | null;
   phone: string | null;
   vip: boolean;
@@ -151,7 +153,11 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
     //   - intent missing (migration 0017 not applied) -> drop intent
     //   - cadence_stage missing (migration 0015 not applied) -> drop both
     // Either way the People list keeps rendering instead of disappearing.
-    const fullColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
+    const fullColumns = `id,name,emails,phone,linkedin_url,photo_url,title,vip,tags,source_ids,company_id,is_networking,
+       relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
+       network_degree,network_role,next_touch_date,next_touch_is_manual,last_touch_date,last_touch_channel,
+       reply_status_override,reply_status_override_at,created_at`;
+    const noPhotoColumns = `id,name,emails,phone,linkedin_url,title,vip,tags,source_ids,company_id,is_networking,
        relationship_type,cadence_interval,cadence_stage,intent,relevance_tier,
        network_degree,network_role,next_touch_date,next_touch_is_manual,last_touch_date,last_touch_channel,
        reply_status_override,reply_status_override_at,created_at`;
@@ -177,6 +183,16 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
       .from("contacts")
       .select(fullColumns)
       .order("name", { ascending: true });
+
+    if (result.error && /photo_url/i.test(result.error.message)) {
+      console.warn(
+        "[outreach.getOutreachPeople] photo_url missing — run migration 0077. Falling back."
+      );
+      result = (await sb
+        .from("contacts")
+        .select(noPhotoColumns)
+        .order("name", { ascending: true })) as typeof result;
+    }
 
     if (result.error && /network_role/i.test(result.error.message)) {
       console.warn(
@@ -288,6 +304,9 @@ export async function getOutreachPeople(): Promise<OutreachPerson[]> {
         firm,
         firm_normalized: firmNormalized,
         linkedin_url: (row.linkedin_url as string) ?? null,
+        photo_url:
+          ((row as { photo_url?: string | null }).photo_url as string | null) ??
+          null,
         primary_email: emails[0] ?? null,
         phone: ((row as { phone?: string | null }).phone as string | null) ?? null,
         vip: Boolean(row.vip),

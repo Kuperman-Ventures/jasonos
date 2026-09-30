@@ -112,6 +112,7 @@ import {
   updateContactIdentity,
   type ContactCardDataResult,
 } from "@/lib/server-actions/outreach";
+import { refreshContactPhotoFromLeadDelta } from "@/lib/server-actions/contact-photo";
 import type { OutreachPerson } from "@/lib/outreach/data";
 import {
   LOG_TOUCH_CHANNELS,
@@ -330,6 +331,26 @@ export function OutreachModal({
       });
       if (cancelled) return;
       applyFetchResult(result);
+      if (
+        result.ok &&
+        result.contact.linkedin_url &&
+        !result.contact.photo_url
+      ) {
+        void refreshContactPhotoFromLeadDelta(result.contact.id).then(
+          (photo) => {
+            if (cancelled || !photo.ok || !photo.photoUrl) return;
+            setCard((prev) => {
+              if (prev.status !== "ready" || prev.contact.id !== result.contact.id) {
+                return prev;
+              }
+              return {
+                ...prev,
+                contact: { ...prev.contact, photo_url: photo.photoUrl },
+              };
+            });
+          }
+        );
+      }
     };
 
     const applyFetchResult = (result: ContactCardDataResult) => {
@@ -443,6 +464,7 @@ export function OutreachModal({
           firm: stub.firm,
           firm_normalized: null,
           linkedin_url: null,
+          photo_url: null,
           primary_email: null,
           phone: null,
           vip: false,
@@ -859,7 +881,12 @@ export function OutreachModal({
         {/* HEADER */}
         <DialogHeader className="shrink-0 border-b px-5 py-4 pr-12">
           <div className="flex items-start gap-3">
-            <Monogram name={header.name} />
+            <Monogram
+              name={header.name}
+              photoUrl={
+                card.status === "ready" ? card.contact.photo_url : null
+              }
+            />
             <div className="min-w-0 flex-1">
               <DialogTitle className="flex flex-wrap items-center gap-2">
                 <span className="truncate">{header.name}</span>
@@ -2004,7 +2031,13 @@ function IntentControl({
 // Header pieces — monogram avatar, at-a-glance status bar, tab button
 // ---------------------------------------------------------------------------
 
-function Monogram({ name }: { name: string }) {
+function Monogram({
+  name,
+  photoUrl,
+}: {
+  name: string;
+  photoUrl?: string | null;
+}) {
   const initials =
     name
       .split(/\s+/)
@@ -2012,6 +2045,17 @@ function Monogram({ name }: { name: string }) {
       .slice(0, 2)
       .map((w) => w[0]?.toUpperCase() ?? "")
       .join("") || "?";
+  if (photoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- remote LeadDelta / CDN URLs vary by host
+      <img
+        src={photoUrl}
+        alt=""
+        className="mt-0.5 h-9 w-9 shrink-0 rounded-full border border-border object-cover"
+        referrerPolicy="no-referrer"
+      />
+    );
+  }
   return (
     <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-xs font-semibold text-muted-foreground">
       {initials}

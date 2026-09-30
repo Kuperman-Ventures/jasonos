@@ -402,11 +402,45 @@ export async function testServiceConnection(
   }
 
   if (serviceName === "leaddelta") {
+    let leadDeltaKey = stringCredential(credentials.api_key);
+    if (!leadDeltaKey) {
+      try {
+        const publicDb = createPublicServiceRoleClient();
+        const { data } = await publicDb
+          .from("service_connections")
+          .select("config")
+          .eq("service_name", "leaddelta")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const cfg = (data?.config ?? {}) as { access_token?: string };
+        leadDeltaKey = cfg.access_token?.trim() || undefined;
+      } catch {
+        // ignore
+      }
+    }
+    if (!leadDeltaKey) leadDeltaKey = process.env.LEADDELTA_API_KEY?.trim() || undefined;
+    if (!leadDeltaKey) {
+      return {
+        success: false,
+        message: "Paste a LeadDelta API key from Integrations → API Key.",
+        health_status: "down",
+      };
+    }
+    const { verifyLeadDeltaKey } = await import("@/lib/integrations/leaddelta");
+    const verified = await verifyLeadDeltaKey(leadDeltaKey);
+    if (!verified.ok) {
+      return {
+        success: false,
+        message: verified.error,
+        health_status: "down",
+      };
+    }
     return {
       success: true,
-      message: "LeadDelta key saved. 231 recruiters are already synced in rr_recruiters.",
+      message:
+        "LeadDelta connected. Contact photos can load from LinkedIn profile URLs.",
       health_status: "healthy",
-      metadata: { synced_recruiters: 231 },
     };
   }
 
@@ -487,7 +521,8 @@ export async function saveServiceConnection(input: z.infer<typeof SaveConnection
     (service.name === "beeper" ||
       service.name === "jasonos_mcp" ||
       service.name === "firecrawl" ||
-      service.name === "granola") &&
+      service.name === "granola" ||
+      service.name === "leaddelta") &&
     !key
   ) {
     const { data: existing } = await supabase
@@ -602,7 +637,12 @@ function sanitizeConfig(credentials: Record<string, string | number | boolean>, 
     if (token) out.access_token = token;
     return out;
   }
-  if (serviceName === "jasonos_mcp" || serviceName === "firecrawl" || serviceName === "granola") {
+  if (
+    serviceName === "jasonos_mcp" ||
+    serviceName === "firecrawl" ||
+    serviceName === "granola" ||
+    serviceName === "leaddelta"
+  ) {
     const out: Record<string, string> = {};
     const token = stringCredential(credentials.api_key);
     if (token) out.access_token = token;
