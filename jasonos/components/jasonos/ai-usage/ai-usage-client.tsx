@@ -77,7 +77,7 @@ function statusColor(s: ServiceStatus) {
 
 function statusBg(s: ServiceStatus) {
   switch (s) {
-    case "ok":           return "bg-rung-4  border-[var(--jos-line)]";
+    case "ok":           return "bg-rung-ok  border-[var(--jos-line)]";
     case "warning":      return "bg-rung-2  border-[var(--jos-line)]";
     case "critical":     return "bg-rung-1  border-rung-1";
     case "error":        return "bg-rung-1  border-rung-1";
@@ -108,7 +108,7 @@ function apiStatus(d: ApiServiceData, budget?: number): ServiceStatus {
 function progressBarColor(pct: number) {
   if (pct >= 90) return "bg-rung-1";
   if (pct >= 70) return "bg-rung-2";
-  return "bg-rung-4";
+  return "bg-rung-ok";
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────

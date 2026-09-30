@@ -8,7 +8,7 @@ import type { HealthStatus } from "@/lib/monitoring/targets";
 import type { HealthSummaryEntry } from "./types";
 
 const STATUS_TONE: Record<HealthStatus, { dot: string; ring: string; text: string }> = {
-  green: { dot: "bg-rung-4", ring: "ring-[var(--jos-focus)]", text: "text-rung-ink" },
+  green: { dot: "bg-rung-ok", ring: "ring-[var(--jos-focus)]", text: "text-rung-ink" },
   yellow: { dot: "bg-rung-2", ring: "ring-[var(--jos-focus)]", text: "text-rung-ink" },
   red: { dot: "bg-rung-1", ring: "ring-[var(--jos-focus)]", text: "text-rung-1" },
   unknown: { dot: "bg-muted-foreground/40", ring: "ring-muted/30", text: "text-muted-foreground" },

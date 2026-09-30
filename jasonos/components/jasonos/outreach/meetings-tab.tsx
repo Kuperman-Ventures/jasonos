@@ -447,7 +447,7 @@ function MeetingRow({
               className={cn(
                 "rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider",
                 held
-                  ? "bg-rung-4 "
+                  ? "bg-rung-ok "
                   : meeting.status === "cancelled"
                   ? "bg-muted text-muted-foreground"
                   : "bg-rung-3 "

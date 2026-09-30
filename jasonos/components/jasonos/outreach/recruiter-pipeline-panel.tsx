@@ -455,7 +455,7 @@ export function RecruiterPipelinePanel({
 
       {contact.first_contact ? (
         contact.first_contact.stage === "completed" ? (
-          <div className="flex items-center gap-2 rounded-md border border-[var(--jos-line)] bg-rung-4 px-3 py-2 text-sm ">
+          <div className="flex items-center gap-2 rounded-md border border-[var(--jos-line)] bg-rung-ok px-3 py-2 text-sm ">
             <CheckCircle2 className="h-4 w-4 shrink-0" />
             Relationship established — cadence-driven follow-up below.
           </div>

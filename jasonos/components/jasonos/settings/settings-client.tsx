@@ -610,7 +610,7 @@ function HealthBar({
           <div
             className={cn(
               "grid h-10 w-10 place-items-center rounded-full border",
-              status === "healthy" && "border-[var(--jos-line)] bg-rung-4 ",
+              status === "healthy" && "border-[var(--jos-line)] bg-rung-ok ",
               status === "issues" && "border-[var(--jos-line)] bg-rung-2 ",
               status === "critical" && "border-rung-1 bg-rung-1 "
             )}

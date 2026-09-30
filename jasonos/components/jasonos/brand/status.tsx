@@ -1,13 +1,14 @@
 import { cn } from "@/lib/utils";
 
-/** 1 magenta, 2 yellow, 3 cyan, 4 ink. Idle is surface. */
-export type StatusRung = 1 | 2 | 3 | 4 | "idle" | "next";
+/** 1 magenta, 2 yellow, 3 cyan, 4 ink, ok success green. Idle is surface. */
+export type StatusRung = 1 | 2 | 3 | 4 | "ok" | "idle" | "next";
 
 const RUNG_CLASS: Record<StatusRung, string> = {
   1: "bg-rung-1",
   2: "bg-rung-2",
   3: "bg-rung-3",
   4: "bg-rung-4",
+  ok: "bg-rung-ok",
   idle: "bg-rung-idle",
   next: "bg-rung-next",
 };

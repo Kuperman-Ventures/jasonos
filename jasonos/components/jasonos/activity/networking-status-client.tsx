@@ -964,7 +964,7 @@ function resultTone(result: string): ResultTone {
   return "neutral";
 }
 const RESULT_PILL: Record<ResultTone, string> = {
-  ok: "border-[var(--jos-line)] bg-rung-4 ",
+  ok: "border-[var(--jos-line)] bg-rung-ok ",
   warn: "border-[var(--jos-line)] bg-rung-2 ",
   bad: "border-rung-1 bg-rung-1 ",
   neutral: "border-border text-muted-foreground",

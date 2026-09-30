@@ -475,7 +475,7 @@ export function TodayClient({ initialTasks, initialSessions, date }: Props) {
                         <button
                           type="button"
                           onClick={() => setKpiVal(activeTask.id, kpi.id, val === true ? null : true)}
-                          className={`rounded px-3 py-1 text-xs font-semibold transition ${val === true ? "bg-rung-4 text-white" : "border border-border bg-muted text-muted-foreground hover:bg-muted/80"}`}
+                          className={`rounded px-3 py-1 text-xs font-semibold transition ${val === true ? "bg-rung-ok text-white" : "border border-border bg-muted text-muted-foreground hover:bg-muted/80"}`}
                         >YES</button>
                       </div>
                     );

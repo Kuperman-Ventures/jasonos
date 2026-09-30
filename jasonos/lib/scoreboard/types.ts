@@ -27,13 +27,13 @@ export const SCOREBOARD_STATUS_LABELS: Record<ScoreboardStatus, string> = {
 };
 
 /** Solid status fills. Submitted cyan, no reply yellow, next steps cyan,
- *  rejected magenta, offer ink. */
+ *  rejected magenta, offer success green. */
 export const SCOREBOARD_STATUS_DOT: Record<ScoreboardStatus, string> = {
   submitted: "bg-rung-3",
   no_reply: "bg-rung-2",
   next_steps: "bg-rung-next",
   rejected: "bg-rung-1",
-  offer: "bg-rung-4",
+  offer: "bg-rung-ok",
 };
 
 export function isScoreboardStatus(value: unknown): value is ScoreboardStatus {
