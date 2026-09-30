@@ -5,20 +5,21 @@ import { etToday } from "@/lib/dates";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import {
   getGmailThread,
-  listAdvisorsSentMail,
+  listGoogleSentMailHits,
   type GmailThreadMessage,
 } from "@/lib/integrations/gmail";
-import { ADVISORS_ACCOUNT_EMAIL } from "@/lib/integrations/google-tokens";
+import { listOutlookSentMailHits } from "@/lib/integrations/outlook";
+import { OUTLOOK_ACCOUNT_EMAIL } from "@/lib/integrations/outlook-tokens";
 import { isFromMe } from "@/lib/outreach/contact-lookup";
 import { appendSyncLog } from "@/lib/outreach/sync-log";
-import {
-  SUGGESTED_SCAN_DAYS_BACK,
-} from "@/lib/outreach/suggested-scan";
+import { SUGGESTED_SCAN_DAYS_BACK } from "@/lib/outreach/suggested-scan";
 import {
   followUpDueYmd,
   followupDaysOverdue,
   isFollowupDue,
+  latestHitPerThread,
   planSentFollowupUpsert,
+  sentFollowupKey,
   type ExistingSentFollowup,
   type MailAddress,
   type SentFollowupStatus,
@@ -38,6 +39,7 @@ export interface SentEmailFollowup {
   followUpDue: string | null;
   gmailThreadId: string;
   gmailUrl: string;
+  accountEmail: string;
   daysOverdue: number;
 }
 
@@ -72,6 +74,7 @@ interface FollowupRow {
   status: SentFollowupStatus;
   follow_up_days: number | null;
   follow_up_due: string | null;
+  thread_url?: string | null;
 }
 
 function asRecipients(value: unknown): MailAddress[] {
@@ -90,6 +93,16 @@ function asRecipients(value: unknown): MailAddress[] {
   return out;
 }
 
+function threadUrlFor(row: FollowupRow): string {
+  const stored = row.thread_url?.trim();
+  if (stored) return stored;
+  const account = (row.account_email || "").toLowerCase();
+  if (account === OUTLOOK_ACCOUNT_EMAIL.toLowerCase()) {
+    return "https://outlook.live.com/mail/0/";
+  }
+  return gmailThreadUrl(row.gmail_thread_id, row.account_email);
+}
+
 function toView(row: FollowupRow, today = etToday()): SentEmailFollowup {
   const due = row.follow_up_due?.slice(0, 10) ?? null;
   return {
@@ -103,14 +116,15 @@ function toView(row: FollowupRow, today = etToday()): SentEmailFollowup {
     followUpDays: row.follow_up_days,
     followUpDue: due,
     gmailThreadId: row.gmail_thread_id,
-    gmailUrl: gmailThreadUrl(row.gmail_thread_id, row.account_email),
+    gmailUrl: threadUrlFor(row),
+    accountEmail: row.account_email,
     daysOverdue: due ? followupDaysOverdue(due, today) : 0,
   };
 }
 
 function rowPayload(hit: SentMailHit, status: SentFollowupStatus) {
   return {
-    account_email: ADVISORS_ACCOUNT_EMAIL,
+    account_email: hit.accountEmail,
     gmail_thread_id: hit.threadId,
     gmail_message_id: hit.messageId,
     subject: hit.subject,
@@ -118,6 +132,7 @@ function rowPayload(hit: SentMailHit, status: SentFollowupStatus) {
     to_line: hit.toLine,
     sent_at: hit.sentAt,
     snippet: hit.snippet || null,
+    thread_url: hit.webLink?.trim() || null,
     status,
     follow_up_days: null,
     follow_up_due: null,
@@ -139,7 +154,6 @@ export async function captureSentEmailFollowups(opts?: {
       "sent-followups",
       {
         ok: true,
-        accountEmail: ADVISORS_ACCOUNT_EMAIL,
         scanned: result.scanned,
         created: result.created,
         updated: result.updated,
@@ -154,7 +168,6 @@ export async function captureSentEmailFollowups(opts?: {
       {
         ok: false,
         unavailable: result.unavailable === true,
-        accountEmail: ADVISORS_ACCOUNT_EMAIL,
         error: result.error,
       },
       opts?.runId
@@ -170,33 +183,49 @@ async function captureSentEmailFollowupsInner(opts?: {
   | { ok: false; error: string; unavailable?: boolean }
 > {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
-  const scan = await listAdvisorsSentMail({
-    daysBack: opts?.daysBack ?? SUGGESTED_SCAN_DAYS_BACK,
-  });
-  if (!scan.configured) {
+  const daysBack = opts?.daysBack ?? SUGGESTED_SCAN_DAYS_BACK;
+
+  const [google, outlook] = await Promise.all([
+    listGoogleSentMailHits({ daysBack }),
+    listOutlookSentMailHits({ daysBack }),
+  ]);
+
+  if (!google.configured && !outlook.configured) {
     return {
       ok: false,
       unavailable: true,
-      error: `${ADVISORS_ACCOUNT_EMAIL} is not connected.`,
+      error: "No mail account connected for sent follow-ups.",
     };
   }
-  if (scan.error && !scan.data.length) {
-    return { ok: false, error: scan.error };
+
+  const hits = latestHitPerThread([
+    ...(google.data ?? []),
+    ...(outlook.data ?? []),
+  ]);
+  if (
+    !hits.length &&
+    ((google.error && google.configured) || (outlook.error && outlook.configured))
+  ) {
+    return {
+      ok: false,
+      error: [google.error, outlook.error].filter(Boolean).join(" · "),
+    };
   }
 
   const sb = createServiceRoleClient();
-  const threadIds = scan.data.map((hit) => hit.threadId);
+  const threadIds = [...new Set(hits.map((hit) => hit.threadId))];
   const existing = new Map<string, ExistingSentFollowup>();
   if (threadIds.length) {
     const { data, error } = await sb
       .from("sent_email_followups")
-      .select("gmail_thread_id, gmail_message_id, sent_at, status")
-      .eq("account_email", ADVISORS_ACCOUNT_EMAIL)
+      .select("account_email, gmail_thread_id, gmail_message_id, sent_at, status")
       .in("gmail_thread_id", threadIds);
     if (error) return { ok: false, error: error.message };
     for (const row of data ?? []) {
-      existing.set(row.gmail_thread_id as string, {
-        threadId: row.gmail_thread_id as string,
+      const account = row.account_email as string;
+      const threadId = row.gmail_thread_id as string;
+      existing.set(sentFollowupKey(account, threadId), {
+        threadId,
         messageId: row.gmail_message_id as string,
         sentAt: row.sent_at as string,
         status: row.status as SentFollowupStatus,
@@ -207,8 +236,9 @@ async function captureSentEmailFollowupsInner(opts?: {
   let created = 0;
   let updated = 0;
   let skipped = 0;
-  for (const hit of scan.data) {
-    const plan = planSentFollowupUpsert(existing.get(hit.threadId), hit);
+  for (const hit of hits) {
+    const key = sentFollowupKey(hit.accountEmail, hit.threadId);
+    const plan = planSentFollowupUpsert(existing.get(key), hit);
     if (plan.action === "skip") {
       skipped += 1;
       continue;
@@ -224,7 +254,7 @@ async function captureSentEmailFollowupsInner(opts?: {
     const { error } = await sb
       .from("sent_email_followups")
       .update(rowPayload(hit, "new"))
-      .eq("account_email", ADVISORS_ACCOUNT_EMAIL)
+      .eq("account_email", hit.accountEmail)
       .eq("gmail_thread_id", hit.threadId);
     if (error) return { ok: false, error: error.message };
     updated += 1;
@@ -234,7 +264,7 @@ async function captureSentEmailFollowupsInner(opts?: {
   revalidatePath("/");
   return {
     ok: true,
-    scanned: scan.data.length,
+    scanned: hits.length,
     created,
     updated,
     skipped,
@@ -247,7 +277,6 @@ export async function getSentEmailFollowups(): Promise<SentEmailFollowup[]> {
   const { data, error } = await sb
     .from("sent_email_followups")
     .select("*")
-    .eq("account_email", ADVISORS_ACCOUNT_EMAIL)
     .eq("status", "new")
     .order("sent_at", { ascending: false });
   if (error) {
@@ -269,7 +298,6 @@ export async function getDueSentEmailFollowups(): Promise<SentEmailFollowup[]> {
   const { data, error } = await sb
     .from("sent_email_followups")
     .select("*")
-    .eq("account_email", ADVISORS_ACCOUNT_EMAIL)
     .eq("status", "scheduled")
     .lte("follow_up_due", today)
     .order("follow_up_due", { ascending: true });
@@ -378,11 +406,20 @@ export async function getSentEmailThread(
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("sent_email_followups")
-    .select("gmail_thread_id")
+    .select("gmail_thread_id, account_email, thread_url")
     .eq("id", id)
     .maybeSingle();
   if (error) return { ok: false, error: error.message };
   if (!data?.gmail_thread_id) return { ok: false, error: "That email is gone." };
+
+  const account = ((data.account_email as string) || "").toLowerCase();
+  if (account === OUTLOOK_ACCOUNT_EMAIL.toLowerCase()) {
+    return {
+      ok: false,
+      error:
+        "Open this thread in Outlook (link above). Inline Outlook preview is not wired yet.",
+    };
+  }
 
   const thread = await getGmailThread(data.gmail_thread_id as string);
   if (!thread) {

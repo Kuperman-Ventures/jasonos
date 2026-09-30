@@ -21,6 +21,7 @@ const hit = (overrides: Partial<SentMailHit> = {}): SentMailHit => ({
   snippet: "Hi",
   toLine: "Ada Lovelace",
   recipients: [{ name: "Ada Lovelace", email: "ada@example.com" }],
+  accountEmail: "jason@kupermanadvisors.com",
   ...overrides,
 });
 

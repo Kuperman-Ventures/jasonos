@@ -1,6 +1,6 @@
-// Pure rules for the sent-mail follow-up queue. No DB, no Gmail.
-// Sync stages one row per thread from jason@kupermanadvisors.com.
-// Jason picks a day count; Home shows the thread once that day arrives.
+// Pure rules for the sent-mail follow-up queue. No DB, no network.
+// Sync stages one row per thread from Advisors Gmail, personal Gmail, and
+// Outlook. Jason picks a day count; Home shows the thread once that day arrives.
 
 import { daysBetweenYmd } from "../dates";
 import { isGmailDraftMessage, isGmailSentMessage } from "../integrations/gmail-labels";
@@ -25,6 +25,14 @@ export interface SentMailHit {
   snippet: string;
   toLine: string;
   recipients: MailAddress[];
+  /** Mailbox that sent it (Advisors, personal Gmail, or Outlook). */
+  accountEmail: string;
+  /** Provider deep link when available (Outlook webLink, etc.). */
+  webLink?: string | null;
+}
+
+export function sentFollowupKey(accountEmail: string, threadId: string): string {
+  return `${accountEmail.trim().toLowerCase()}::${threadId}`;
 }
 
 export interface ExistingSentFollowup {
@@ -140,13 +148,14 @@ export function qualifySentMessage(msg: {
   return { ok: true, recipients, toLine: recipientLine(recipients) };
 }
 
-/** Latest sent hit per thread. Later sentAt wins; ties keep the first seen. */
+/** Latest sent hit per mailbox thread. Later sentAt wins; ties keep the first seen. */
 export function latestHitPerThread(hits: SentMailHit[]): SentMailHit[] {
   const byThread = new Map<string, SentMailHit>();
   for (const hit of hits) {
-    const prev = byThread.get(hit.threadId);
+    const key = sentFollowupKey(hit.accountEmail || "", hit.threadId);
+    const prev = byThread.get(key);
     if (!prev || Date.parse(hit.sentAt) > Date.parse(prev.sentAt)) {
-      byThread.set(hit.threadId, hit);
+      byThread.set(key, hit);
     }
   }
   return [...byThread.values()];

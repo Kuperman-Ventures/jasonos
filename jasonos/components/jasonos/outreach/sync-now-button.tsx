@@ -27,8 +27,8 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
   const router = useRouter();
   const [running, setRunning] = useState(false);
 
-  // One click runs the full capture: Gmail sent + Calendar meetings, meeting
-  // Follow Up, Sent Follow Up, and the suggested-contacts email scan.
+  // One click runs the full capture: mailboxes, calendar Meeting Follow Up,
+  // Sent Follow Up, Suggested contacts, Browning, and job alerts.
   const handleSync = async () => {
     if (running) return;
     setRunning(true);
@@ -172,12 +172,13 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
       let sentFollowUpFatal = false;
       if (sentFollowups.ok) {
         const bits = [
-          `+${sentFollowups.created} follow-up${sentFollowups.created === 1 ? "" : "s"}`,
+          `+${sentFollowups.created} to review`,
+          `${sentFollowups.scanned} threads`,
         ];
-        if (sentFollowups.updated) {
-          bits.push(`${sentFollowups.updated} updated`);
+        if ("resolved" in sentFollowups && sentFollowups.resolved) {
+          bits.push(`${sentFollowups.resolved} cleared`);
         }
-        messages.push(`Sent Follow Up ${bits.join(", ")}`);
+        messages.push(`Sent Follow Up ${bits.join(" · ")}`);
       } else if (sentFollowups.unavailable) {
         messages.push(sentFollowups.error);
       } else {
