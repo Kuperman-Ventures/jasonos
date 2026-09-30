@@ -38,22 +38,24 @@ describe("forward block", () => {
   it("extracts the fenced paste section", () => {
     const body = `Hi Andrew,
 
-Thanks for the intro offer.
+Thanks for offering an intro to Ed.
 
 ${INTRO_FORWARD_START}
 Hi Ed,
 
-Jason here. Short note.
+Wanted to intro you to Jason Kuperman. He runs Kuperman Advisors. Worth a short Zoom.
 
-Jason Kuperman
+Andrew
 ${INTRO_FORWARD_END}
 
 Thanks,
 Jason`;
     const block = extractForwardBlock(body);
     assert.match(block ?? "", /^Hi Ed,/);
-    assert.match(block ?? "", /Jason Kuperman/);
+    assert.match(block ?? "", /Wanted to intro you to Jason/);
+    assert.match(block ?? "", /Andrew$/);
     assert.doesNotMatch(block ?? "", /Forward this/);
+    assert.doesNotMatch(block ?? "", /Jason Kuperman\n*$/);
   });
 
   it("builds a clear subject", () => {
