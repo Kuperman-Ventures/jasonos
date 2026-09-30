@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   attendeeLine,
+  firstName,
+  hasWrongMeetingDayLanguage,
   isMeetingFollowupDue,
   isMeetingPastForFollowup,
   isUnacceptableFollowupBody,
@@ -10,11 +12,13 @@ import {
   meetingEndIso,
   meetingFollowupDraft,
   meetingHasKnownContact,
+  meetingWhenPhrase,
   pendingAttendeesForMeeting,
   planMeetingFollowup,
   qualifyMeetingAttendees,
   qualifyPastMeeting,
   snoozeUntilYmd,
+  soundsLikePitchFollowup,
   type PastMeetingCandidate,
 } from "./meeting-followups";
 
@@ -228,7 +232,7 @@ describe("helpers", () => {
       title: "Catch up",
       summary: note,
     });
-    assert.match(draft.subject, /Catch up/);
+    assert.match(draft.subject, /catching up/i);
     assert.match(draft.body, /^Shawn,/);
     assert.equal(draft.body.includes(note), false);
     assert.equal(draft.body.includes("(Shawn)"), false);
@@ -251,5 +255,78 @@ describe("helpers", () => {
     assert.equal(isMeetingFollowupDue("open", null, "2026-09-22"), true);
     assert.equal(isMeetingFollowupDue("snoozed", "2026-09-25", "2026-09-22"), false);
     assert.equal(isMeetingFollowupDue("snoozed", "2026-09-22", "2026-09-22"), true);
+  });
+});
+
+describe("firstName", () => {
+  it("handles First Last and Last, First", () => {
+    assert.equal(firstName("Tuomas Peltoniemi"), "Tuomas");
+    assert.equal(firstName("Peltoniemi, Tuomas"), "Tuomas");
+    assert.equal(firstName("Matthew Deutsch"), "Matthew");
+    assert.equal(firstName(null), "there");
+  });
+});
+
+describe("soundsLikePitchFollowup", () => {
+  it("flags Equity Labs / thesis pivots after a catch-up", () => {
+    assert.equal(
+      soundsLikePitchFollowup(
+        "Peltoniemi,\n\nGood to reconnect. I'll keep Equity Labs in mind given Accenture's role as a major implementer there; worth a more targeted conversation.\n\nJason"
+      ),
+      true
+    );
+    assert.equal(
+      soundsLikePitchFollowup(
+        "Tuomas,\n\nIt was so good to catch up after all these years. Hard to believe it has been a decade since the TBWA days.\n\nJason"
+      ),
+      false
+    );
+  });
+});
+
+describe("meetingWhenPhrase", () => {
+  it("labels today / yesterday / last week correctly in ET", () => {
+    assert.equal(
+      meetingWhenPhrase("2026-09-30T16:00:00.000Z", "2026-09-30"),
+      "today"
+    );
+    assert.equal(
+      meetingWhenPhrase("2026-09-29T16:00:00.000Z", "2026-09-30"),
+      "yesterday"
+    );
+    assert.equal(
+      meetingWhenPhrase("2026-09-23T16:00:00.000Z", "2026-09-30"),
+      "last week"
+    );
+    assert.equal(
+      meetingWhenPhrase("2026-09-28T16:00:00.000Z", "2026-09-30"),
+      "earlier this week"
+    );
+  });
+});
+
+describe("hasWrongMeetingDayLanguage", () => {
+  it("flags today-language when the meeting was last week", () => {
+    assert.equal(
+      hasWrongMeetingDayLanguage(
+        "Tuomas,\n\nIt was good to talk to you today.\n\nJason",
+        "last week"
+      ),
+      true
+    );
+    assert.equal(
+      hasWrongMeetingDayLanguage(
+        "Tuomas,\n\nIt was good to catch up last week.\n\nJason",
+        "last week"
+      ),
+      false
+    );
+    assert.equal(
+      hasWrongMeetingDayLanguage(
+        "Tuomas,\n\nGood talking today.\n\nJason",
+        "today"
+      ),
+      false
+    );
   });
 });
