@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   attendeeLine,
+  fillMeetingFollowupPrompt,
   firstName,
   hasWrongMeetingDayLanguage,
+  isHollowFollowupBody,
   isMeetingFollowupDue,
   isMeetingPastForFollowup,
   isUnacceptableFollowupBody,
@@ -17,6 +19,7 @@ import {
   planMeetingFollowup,
   qualifyMeetingAttendees,
   qualifyPastMeeting,
+  resolveMeetingFollowupPrompt,
   snoozeUntilYmd,
   soundsLikePitchFollowup,
   type PastMeetingCandidate,
@@ -328,5 +331,37 @@ describe("hasWrongMeetingDayLanguage", () => {
       ),
       false
     );
+  });
+});
+
+describe("isHollowFollowupBody", () => {
+  it("flags empty reconnect fluff", () => {
+    assert.equal(
+      isHollowFollowupBody(
+        "Hi,\n\nIt was good to reconnect last week. Thanks again for the conversation.\n\nJason"
+      ),
+      true
+    );
+    assert.equal(
+      isHollowFollowupBody(
+        "Tuomas,\n\nIt was good to catch up last week. I liked hearing how Accenture is approaching the Equity Labs work — especially the implementer angle.\n\nLet's not wait another decade.\n\nJason"
+      ),
+      false
+    );
+  });
+});
+
+describe("resolveMeetingFollowupPrompt", () => {
+  it("fills placeholders and falls back to default", () => {
+    const filled = fillMeetingFollowupPrompt(
+      "Open with {{greeting}}. Meeting was {{whenPhrase}}. Hi {{firstName}}.",
+      { firstName: "Tuomas", greeting: "Tuomas,", whenPhrase: "last week" }
+    );
+    assert.equal(
+      filled,
+      "Open with Tuomas,. Meeting was last week. Hi Tuomas."
+    );
+    assert.ok(resolveMeetingFollowupPrompt(null).includes("DATE AWARENESS"));
+    assert.ok(resolveMeetingFollowupPrompt("  Custom rules  ").startsWith("Custom"));
   });
 });

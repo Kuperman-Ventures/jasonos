@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -130,8 +131,15 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
   const [settings, setSettings] = useState(initialSettings);
   const [thresholds, setThresholds] = useState(initialSettings.thresholds);
   const [models, setModels] = useState(initialSettings.models);
+  const [followupPrompt, setFollowupPrompt] = useState(
+    initialSettings.meetingFollowupPrompt
+  );
+  const [followupPromptCustom, setFollowupPromptCustom] = useState(
+    initialSettings.meetingFollowupPromptCustom
+  );
   const [isChecking, startChecking] = useTransition();
   const [isSavingPrefs, startSavingPrefs] = useTransition();
+  const [isSavingFollowupPrompt, startSavingFollowupPrompt] = useTransition();
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -227,6 +235,37 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
       if (payload.thresholds) setThresholds(payload.thresholds);
       if (payload.models) setModels(payload.models);
       toast.success("Settings saved");
+    });
+  };
+
+  const saveFollowupPrompt = (opts?: { reset?: boolean }) => {
+    startSavingFollowupPrompt(async () => {
+      const res = await fetch("/api/settings/save-meeting-followup-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          opts?.reset
+            ? { prompt: "", reset: true }
+            : { prompt: followupPrompt }
+        ),
+      });
+      const payload = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        prompt?: string;
+        custom?: boolean;
+        error?: string;
+      };
+      if (!res.ok || !payload.ok || !payload.prompt) {
+        toast.error("Follow Up prompt save failed", {
+          description: payload.error ?? "Please try again.",
+        });
+        return;
+      }
+      setFollowupPrompt(payload.prompt);
+      setFollowupPromptCustom(Boolean(payload.custom));
+      toast.success(
+        opts?.reset ? "Follow Up prompt reset to default" : "Follow Up prompt saved"
+      );
     });
   };
 
@@ -343,6 +382,75 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
             value={models.tell_claude_goal_plan}
             onChange={(value) => setModels((current) => ({ ...current, tell_claude_goal_plan: value }))}
           />
+        </div>
+      </section>
+
+      <section id="follow-up-prompt" className="rounded-xl border bg-card">
+        <header className="flex flex-wrap items-start justify-between gap-3 border-b px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-sm font-semibold tracking-tight">
+                Follow Up draft prompt
+              </h2>
+              {followupPromptCustom ? (
+                <Badge variant="outline" className="border-[var(--jos-line)] bg-rung-ok">
+                  Custom
+                </Badge>
+              ) : (
+                <Badge variant="outline">Default</Badge>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Guidance for meeting Follow Up emails on the Follow Up tab. Jason
+              identity and no-AI-slop rules still wrap this. Placeholders filled
+              at draft time:{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+                {"{{firstName}}"}
+              </code>
+              ,{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+                {"{{greeting}}"}
+              </code>
+              ,{" "}
+              <code className="rounded bg-muted px-1 py-0.5 text-[11px]">
+                {"{{whenPhrase}}"}
+              </code>
+              .
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setFollowupPrompt(initialSettings.meetingFollowupPromptDefault);
+                saveFollowupPrompt({ reset: true });
+              }}
+              disabled={isSavingFollowupPrompt || !followupPromptCustom}
+            >
+              Reset default
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => saveFollowupPrompt()}
+              disabled={isSavingFollowupPrompt}
+            >
+              {isSavingFollowupPrompt ? "Saving..." : "Save prompt"}
+            </Button>
+          </div>
+        </header>
+        <div className="p-4">
+          <Textarea
+            value={followupPrompt}
+            onChange={(event) => setFollowupPrompt(event.target.value)}
+            spellCheck
+            className="min-h-[320px] font-mono text-[12px] leading-relaxed"
+            aria-label="Follow Up draft prompt"
+          />
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Next Draft on a Follow Up card uses whatever is saved here. Empty
+            save restores the default.
+          </p>
         </div>
       </section>
 

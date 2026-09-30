@@ -4,6 +4,11 @@ import { z } from "zod";
 import { createPublicClient, createPublicServiceRoleClient } from "@/lib/supabase/server";
 import { getGoogleConnectionStatus } from "@/lib/integrations/google-tokens";
 import {
+  DEFAULT_MEETING_FOLLOWUP_PROMPT,
+  normalizeMeetingFollowupPrompt,
+  resolveMeetingFollowupPrompt,
+} from "@/lib/outreach/meeting-followup-prompt";
+import {
   DEFAULT_ALERT_THRESHOLDS,
   DEFAULT_MODEL_PREFERENCES,
   SERVICE_DEFINITIONS,
@@ -45,6 +50,12 @@ export const SaveThresholdsSchema = z.object({
       tell_claude_goal_plan: z.string().min(1),
     })
     .optional(),
+});
+
+export const SaveMeetingFollowupPromptSchema = z.object({
+  /** Empty / whitespace clears the override and restores the default. */
+  prompt: z.string().max(20_000),
+  reset: z.boolean().optional(),
 });
 
 export interface ConnectionTestResult {
@@ -618,6 +629,29 @@ export async function saveUserSettings(input: z.infer<typeof SaveThresholdsSchem
   );
   if (error) throw new Error(error.message);
   return { thresholds, models };
+}
+
+export async function saveMeetingFollowupPrompt(
+  input: z.infer<typeof SaveMeetingFollowupPromptSchema>
+) {
+  const { supabase, userId } = await getUserContext();
+  const stored = input.reset
+    ? null
+    : normalizeMeetingFollowupPrompt(input.prompt);
+  const { error } = await supabase.from("user_preferences").upsert(
+    {
+      user_id: userId,
+      meeting_followup_prompt: stored,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" }
+  );
+  if (error) throw new Error(error.message);
+  return {
+    prompt: resolveMeetingFollowupPrompt(stored),
+    custom: Boolean(stored),
+    defaultPrompt: DEFAULT_MEETING_FOLLOWUP_PROMPT,
+  };
 }
 
 function sanitizeConfig(credentials: Record<string, string | number | boolean>, serviceName: string) {

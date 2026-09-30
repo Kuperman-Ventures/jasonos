@@ -10,6 +10,11 @@ import { JASON_IDENTITY } from "@/lib/ai/jason-identity";
 import { NO_AI_SLOP_WRITING_RULES } from "@/lib/ai/no-ai-slop";
 import { stripEmDashes } from "@/lib/email-templates/render";
 import {
+  fillMeetingFollowupPrompt,
+  isHollowFollowupBody,
+} from "@/lib/outreach/meeting-followup-prompt";
+import { loadMeetingFollowupPromptGuidance } from "@/lib/outreach/meeting-followup-prompt-store";
+import {
   firstName,
   hasWrongMeetingDayLanguage,
   isUnacceptableFollowupBody,
@@ -64,6 +69,19 @@ function polish(draft: { subject: string; body: string }): {
   };
 }
 
+function draftFailsChecks(
+  body: string,
+  summary: string,
+  whenPhrase: string
+): boolean {
+  return (
+    isUnacceptableFollowupBody(body, summary) ||
+    soundsLikePitchFollowup(body) ||
+    hasWrongMeetingDayLanguage(body, whenPhrase) ||
+    isHollowFollowupBody(body)
+  );
+}
+
 export async function composeMeetingFollowupDraft(
   input: MeetingFollowupComposeInput
 ): Promise<MeetingFollowupComposeResult> {
@@ -83,38 +101,23 @@ export async function composeMeetingFollowupDraft(
 
   const who = firstName(input.name);
   const greeting = who === "there" ? "Hi," : `${who},`;
+  const displayName = who === "there" ? "Name" : who;
+  const guidance = fillMeetingFollowupPrompt(
+    await loadMeetingFollowupPromptGuidance(),
+    {
+      firstName: displayName,
+      greeting,
+      whenPhrase,
+    }
+  );
   // Deliberately NOT JASON_CORE_VOICE outreach rules (metric asks / Architect
   // framing). Catch-up follow-ups should sound like a person, not a pipeline.
+  // Guidance text is editable in Settings → General.
   const system = `${JASON_IDENTITY}
 
 ${NO_AI_SLOP_WRITING_RULES}
 
-You write a short post-meeting follow-up email for Jason to send in Apple Mail.
-
-This is usually a reconnect / catch-up note, not a sales email.
-
-Tone target (match this energy, do not copy wording):
-"${who === "there" ? "Name" : who}, it was so good to catch up after all these years. Hard to believe it has been a decade since we last worked together.
-
-I really enjoyed hearing about what you are building, and your perspective on where things are headed. Our conversation left me with a lot to think about.
-
-More than anything, it was just great to reconnect. Let's not wait another ten years to do this again.
-
-Jason"
-
-Hard rules:
-- Use ONLY facts present in MEETING NOTES. Do not invent intros, firms, roles, asks, beers, cities, or commitments.
-- Use the person's first name. Never greet with a last name alone.
-- Open with "${greeting}" on its own line (comma is fine; no em dash).
-- 3-5 short sentences across 2-3 short paragraphs.
-- DATE AWARENESS (critical): the meeting was ${whenPhrase}. Never say "today", "this morning", "this afternoon", or "this evening" unless WHEN is exactly "today". Prefer natural phrasing that matches WHEN (e.g. "yesterday", "earlier this week", "last week", "the other day", or just "good to catch up" with no day word).
-- Lead with warmth: glad to reconnect / catch up. If the notes mention shared history (old firm, years apart), reference that lightly.
-- Then one human takeaway THEY said or that came out of the conversation - their work, a view they shared, something personal from the notes. Not a thesis pitch about Jason's business.
-- Soft close: personal detail from the notes when present (city, family, "let's not wait N years"). Only add a concrete next step if the notes clearly support one both people owned.
-- Do NOT pivot into Jason's clients, products, Equity Labs, Refactor Sprint, or "I'll keep X in mind given your role…" unless the notes show they asked for that or agreed a specific follow-up.
-- Sign off with "Jason" on its own line. No exclamation points. No em dashes.
-- Return JSON only: {"subject":"...","body":"..."}
-- Subject: warm and short (e.g. "Good catching up", "Great to reconnect"). Avoid "Following up:" plus the calendar title.`;
+${guidance}`;
 
   const user = `Recipient first name: ${who === "there" ? "(unknown)" : who}
 Meeting title: ${input.title || "Meeting"}
@@ -143,11 +146,7 @@ Write the follow-up email JSON now.`;
       subject: parsed.subject || fallback.subject,
       body: parsed.body,
     });
-    if (
-      isUnacceptableFollowupBody(draft.body, summary) ||
-      soundsLikePitchFollowup(draft.body) ||
-      hasWrongMeetingDayLanguage(draft.body, whenPhrase)
-    ) {
+    if (draftFailsChecks(draft.body, summary, whenPhrase)) {
       // One retry with an explicit ban on the bad shape.
       const { text: retryText } = await generateText({
         model: heavyModel(),
@@ -161,18 +160,13 @@ Write the follow-up email JSON now.`;
           },
           {
             role: "user",
-            content: `Rewrite. Keep it warm and personal like a real reconnect note. The meeting was ${whenPhrase} — do not say today/this morning unless that is exact. Do not paste meeting notes. Do not pitch Jason's work or clients. First name greeting. JSON only.`,
+            content: `Rewrite. Keep it warm and personal like a real reconnect note. The meeting was ${whenPhrase} — do not say today/this morning unless that is exact. Include one concrete takeaway from the meeting notes (something they said or that came up). Do not send hollow "good to reconnect / thanks for the conversation" fluff. Do not paste meeting notes. Do not pitch Jason's work or clients. First name greeting. JSON only.`,
           },
         ],
         providerOptions,
       });
       const retry = safeParseDraft(retryText);
-      if (
-        !retry ||
-        isUnacceptableFollowupBody(retry.body, summary) ||
-        soundsLikePitchFollowup(retry.body) ||
-        hasWrongMeetingDayLanguage(retry.body, whenPhrase)
-      ) {
+      if (!retry || draftFailsChecks(retry.body, summary, whenPhrase)) {
         return { ...fallback, source: "fallback" };
       }
       return {
