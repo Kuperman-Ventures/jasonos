@@ -869,7 +869,7 @@ function PrepForm({
           placeholder="e.g. 20–30 min Zoom to compare notes on GEO / AdTech"
         />
         <span className="text-[10px] text-muted-foreground">
-          Used in every forwardable intro email for this meeting. About Jason stays in Settings.
+          Soft ask used in the paste-ready intro note (written in their voice). About Jason stays in Settings.
         </span>
       </label>
 
@@ -1104,15 +1104,15 @@ function HeldIntroActions({
                     onClick={() => {
                       const block = extractForwardBlock(draft.body);
                       if (!block) {
-                        toast.error("No forward block found in the draft.");
+                        toast.error("No paste block found in the draft.");
                         return;
                       }
                       void navigator.clipboard.writeText(block).then(() => {
-                        toast.success("Forward block copied.");
+                        toast.success("Intro note copied (their voice).");
                       });
                     }}
                   >
-                    <Copy className="h-3 w-3" /> Copy forward block
+                    <Copy className="h-3 w-3" /> Copy intro note
                   </Button>
                 </div>
               </div>

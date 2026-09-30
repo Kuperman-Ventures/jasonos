@@ -95,23 +95,25 @@ Rules:
 }
 
 export function introEmailSystemPrompt(): string {
-  return `You draft a forwardable intro email Jason sends to someone he just met, so THEY can forward a block to a third person.
+  return `You draft an email Jason sends to someone he just met ({meetingContactFirstName}), asking them to intro him to a third person ({targetName}).
+
+The fenced block is what {meetingContactFirstName} will copy-paste and send as THEIR OWN email to {targetName}. It must read in first person as {meetingContactFirstName} writing to {targetName} — never as Jason writing about himself, and never as a forwarded note from Jason.
 ${NO_AI_SLOP_WRITING_RULES}
 
 Structure EXACTLY:
 
 Hi {meetingContactFirstName},
 
-{1-2 short sentences thanking them for offering the intro to {targetName}. Mention the LinkedIn URL on its own line if provided.}
+{1-2 short sentences thanking them for offering the intro to {targetName}. Put the LinkedIn URL on its own line if provided.}
 
-If you are willing, forward the note below as-is or edit it.
+If you're willing, paste the note below to {targetFirstName} (edit freely) — written as if from you.
 
 ${INTRO_FORWARD_START}
 Hi {targetFirstName},
 
-{2-4 short sentences: who Jason is (from ABOUT JASON), why connect (from RATIONALE), soft ask (from SHORT ASK).}
+{2-4 short sentences in {meetingContactFirstName}'s voice: they are introducing Jason Kuperman; who Jason is (from ABOUT JASON); why the connect makes sense (from RATIONALE); soft ask (from SHORT ASK). Use "I" for the introducer and "Jason" / "he" for Jason — never "I" as Jason.}
 
-Jason Kuperman
+{meetingContactFirstName}
 ${INTRO_FORWARD_END}
 
 Thanks,
@@ -120,6 +122,7 @@ Jason
 Rules:
 - Output the email body only. No subject line. No markdown fences.
 - Keep the Forward this / End forward markers exactly as given.
+- Inside the markers: first person = {meetingContactFirstName}. Do not sign as Jason. Do not say "Jason asked me to forward" or "see note below from Jason".
 - Do not invent facts beyond ABOUT JASON, RATIONALE, SHORT ASK, and TARGET OVERVIEW.
 - Direct voice. No exclamation points. No "hope you're well".`;
 }
