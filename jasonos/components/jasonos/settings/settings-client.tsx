@@ -137,9 +137,11 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
   const [followupPromptCustom, setFollowupPromptCustom] = useState(
     initialSettings.meetingFollowupPromptCustom
   );
+  const [aboutJason, setAboutJason] = useState(initialSettings.aboutJason ?? "");
   const [isChecking, startChecking] = useTransition();
   const [isSavingPrefs, startSavingPrefs] = useTransition();
   const [isSavingFollowupPrompt, startSavingFollowupPrompt] = useTransition();
+  const [isSavingAboutJason, startSavingAboutJason] = useTransition();
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -381,6 +383,57 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
             label="Tell Claude / Goal to Plan"
             value={models.tell_claude_goal_plan}
             onChange={(value) => setModels((current) => ({ ...current, tell_claude_goal_plan: value }))}
+          />
+        </div>
+      </section>
+
+      <section id="about-jason" className="rounded-xl border bg-card">
+        <header className="flex flex-wrap items-start justify-between gap-3 border-b px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm font-semibold tracking-tight">About Jason</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Freeform blurb used for intro rationales and forwardable intro emails
+              on the contact Meetings tab. Keep it concrete: who you are, what you
+              are looking for, what you bring.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            onClick={() =>
+              startSavingAboutJason(async () => {
+                const res = await fetch("/api/settings/save-about-jason", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ aboutJason }),
+                });
+                const payload = (await res.json().catch(() => ({}))) as {
+                  ok?: boolean;
+                  aboutJason?: string;
+                  error?: string;
+                };
+                if (!res.ok || !payload.ok) {
+                  toast.error("About Jason save failed", {
+                    description: payload.error ?? "Please try again.",
+                  });
+                  return;
+                }
+                setAboutJason(payload.aboutJason ?? "");
+                toast.success("About Jason saved");
+              })
+            }
+            disabled={isSavingAboutJason}
+          >
+            {isSavingAboutJason ? "Saving..." : "Save"}
+          </Button>
+        </header>
+        <div className="p-4">
+          <Textarea
+            value={aboutJason}
+            onChange={(event) => setAboutJason(event.target.value)}
+            spellCheck
+            className="min-h-[160px] text-[13px] leading-relaxed"
+            aria-label="About Jason"
+            placeholder="e.g. Fractional CMO / job-searching CMO seats in B2B SaaS and AdTech. 25+ years digital marketing; OUTFRONT, Omnicom, Apple."
           />
         </div>
       </section>

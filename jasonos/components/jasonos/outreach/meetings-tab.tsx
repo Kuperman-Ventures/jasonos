@@ -9,9 +9,11 @@ import { toast } from "sonner";
 import {
   CalendarPlus,
   CheckCircle2,
+  Copy,
   ExternalLink,
   FileText,
   Loader2,
+  Mail,
   Pencil,
   Search,
   Trash2,
@@ -24,18 +26,20 @@ import { cn } from "@/lib/utils";
 import {
   createMeeting,
   deleteMeeting,
+  draftIntroRationale,
+  generateIntroEmail,
   getBrowningPrep,
   getMeetingsForContact,
-  markMeetingHeld,
+  importMeetingGranola,
   updateMeetingPrep,
   type IntroWish,
   type Meeting,
   type MeetingChannel,
 } from "@/lib/server-actions/meetings";
 import { addReferredContact } from "@/lib/server-actions/outreach";
-import type { TouchObjective } from "@/lib/outreach/types";
 import { ResearchBriefView } from "@/components/jasonos/research-brief";
 import { prepSections } from "@/lib/browning-networking/meeting-brief";
+import { extractForwardBlock } from "@/lib/outreach/intro-email";
 
 const CHANNELS: { value: MeetingChannel; label: string }[] = [
   { value: "video", label: "Video" },
@@ -44,11 +48,12 @@ const CHANNELS: { value: MeetingChannel; label: string }[] = [
   { value: "coffee_chat", label: "Coffee" },
 ];
 
-const OBJECTIVES: { value: TouchObjective; label: string }[] = [
-  { value: "yes", label: "Achieved goal" },
-  { value: "no", label: "Not yet" },
-  { value: "neutral", label: "Just connected" },
-];
+const emptyIntro = (): IntroWish => ({
+  name: "",
+  company: "",
+  linkedinUrl: "",
+  rationale: "",
+});
 
 const fieldLabel =
   "text-[10px] font-medium uppercase tracking-wider text-muted-foreground";
@@ -426,7 +431,9 @@ function MeetingRow({
   onChange: (m: Meeting) => void;
   onDeleted: () => void;
 }) {
-  const [mode, setMode] = useState<"view" | "prep" | "debrief">("view");
+  const [mode, setMode] = useState<"view" | "prep">("view");
+  const [importing, startImport] = useTransition();
+  const [referrals, setReferrals] = useState<string[]>([]);
   const held = meeting.status === "held";
 
   return (
@@ -484,8 +491,27 @@ function MeetingRow({
               >
                 <Pencil className="h-3 w-3" /> Meeting Prep
               </button>
-              <Button size="sm" onClick={() => setMode("debrief")}>
-                <CheckCircle2 className="h-3 w-3" /> Log debrief
+              <Button
+                size="sm"
+                disabled={importing}
+                onClick={() =>
+                  startImport(async () => {
+                    const res = await importMeetingGranola(meeting.id);
+                    if (!res.ok) {
+                      toast.error(res.error);
+                      return;
+                    }
+                    toast.success("Granola notes imported. Meeting marked held.");
+                    onChange(res.meeting);
+                  })
+                }
+              >
+                {importing ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <FileText className="h-3 w-3" />
+                )}
+                Import Granola
               </Button>
             </>
           ) : null}
@@ -508,40 +534,47 @@ function MeetingRow({
         </div>
       </div>
 
-      {mode === "view" ? <PrepReadout meeting={meeting} /> : null}
+      {mode === "view" ? (
+        <PrepReadout
+          meeting={meeting}
+          contactId={contactId}
+          contactName={contactName}
+          onChange={onChange}
+        />
+      ) : null}
 
       {held ? (
         <div className="mt-2 space-y-1 border-t pt-2 text-xs text-muted-foreground">
-          {meeting.objectiveAchieved ? (
+          {meeting.granolaUrl ? (
             <p>
-              Outcome:{" "}
-              <span className="text-foreground">
-                {OBJECTIVES.find((o) => o.value === meeting.objectiveAchieved)?.label}
-              </span>
+              <a
+                href={meeting.granolaUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-foreground underline"
+              >
+                Granola notes <ExternalLink className="h-3 w-3" />
+              </a>
             </p>
           ) : null}
-          {meeting.debriefNotes ? <p>↳ {meeting.debriefNotes}</p> : null}
-          {meeting.nextStep ? <p>Next: {meeting.nextStep}</p> : null}
-          <p>Thank-you sent: {meeting.thankYouSent ? "Yes" : "No"}</p>
+          {meeting.debriefNotes ? (
+            <p className="whitespace-pre-wrap text-foreground/90">↳ {meeting.debriefNotes}</p>
+          ) : null}
+          <HeldIntroActions meeting={meeting} onChange={onChange} />
+          <div className="pt-2">
+            <DebriefReferrals
+              contactId={contactId}
+              contactName={contactName}
+              added={referrals}
+              onAdded={(name) => setReferrals((prev) => [...prev, name])}
+            />
+          </div>
         </div>
       ) : null}
 
       {mode === "prep" && !held ? (
         <PrepForm
           meeting={meeting}
-          onCancel={() => setMode("view")}
-          onSaved={(m) => {
-            onChange(m);
-            setMode("view");
-          }}
-        />
-      ) : null}
-
-      {mode === "debrief" && !held ? (
-        <DebriefForm
-          meeting={meeting}
-          contactId={contactId}
-          contactName={contactName}
           onCancel={() => setMode("view")}
           onSaved={(m) => {
             onChange(m);
@@ -556,12 +589,26 @@ function MeetingRow({
 // Read-only prep sheet shown on the meeting card — everything you want in front
 // of you during the call. Research is collapsible (it can be long); intros and
 // notes stay visible.
-function PrepReadout({ meeting }: { meeting: Meeting }) {
-  const intros = meeting.introWishlist.filter((w) => w.name || w.company);
+function PrepReadout({
+  meeting,
+  contactId: _contactId,
+  contactName: _contactName,
+  onChange,
+}: {
+  meeting: Meeting;
+  contactId: string;
+  contactName: string;
+  onChange: (m: Meeting) => void;
+}) {
+  const intros = meeting.introWishlist.filter(
+    (w) => w.name || w.company || w.linkedinUrl || w.rationale
+  );
   const hasNotes = Boolean(meeting.prepNotes);
   const hasGoal = Boolean(meeting.prepGoal);
+  const hasAsk = Boolean(meeting.prepShortAsk);
+  const [drafting, startDraft] = useTransition();
 
-  if (!hasNotes && !hasGoal && intros.length === 0) return null;
+  if (!hasNotes && !hasGoal && !hasAsk && intros.length === 0) return null;
 
   return (
     <div className="mt-2 space-y-2.5 border-t pt-2 text-xs">
@@ -572,22 +619,74 @@ function PrepReadout({ meeting }: { meeting: Meeting }) {
         </p>
       ) : null}
 
+      {hasAsk ? (
+        <p className="text-muted-foreground">
+          <span className="font-medium text-foreground/80">Short ask:</span>{" "}
+          {meeting.prepShortAsk}
+        </p>
+      ) : null}
+
       {intros.length > 0 ? (
         <div>
           <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Intros to ask for
           </p>
           <ul className="divide-y divide-border/40 rounded-md border">
-            {intros.map((w, i) => (
-              <li key={i} className="px-2.5 py-1.5">
-                <span className="font-medium text-foreground">
-                  {w.name || "—"}
-                </span>
-                {w.company ? (
-                  <span className="text-muted-foreground"> · {w.company}</span>
-                ) : null}
-              </li>
-            ))}
+            {intros.map((w, i) => {
+              const idx = meeting.introWishlist.findIndex(
+                (row) =>
+                  row.name === w.name &&
+                  row.company === w.company &&
+                  row.linkedinUrl === w.linkedinUrl
+              );
+              const introIndex = idx >= 0 ? idx : i;
+              return (
+                <li key={`${w.name}-${i}`} className="space-y-1 px-2.5 py-2">
+                  <div>
+                    <span className="font-medium text-foreground">{w.name || "—"}</span>
+                    {w.company ? (
+                      <span className="text-muted-foreground"> · {w.company}</span>
+                    ) : null}
+                  </div>
+                  {w.linkedinUrl ? (
+                    <a
+                      href={w.linkedinUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] text-muted-foreground underline hover:text-foreground"
+                    >
+                      LinkedIn <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : null}
+                  {w.rationale ? (
+                    <p className="text-muted-foreground">{w.rationale}</p>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[11px]"
+                      disabled={drafting || !w.name}
+                      onClick={() =>
+                        startDraft(async () => {
+                          const res = await draftIntroRationale(meeting.id, introIndex);
+                          if (!res.ok) {
+                            toast.error(res.error);
+                            return;
+                          }
+                          toast.success("Rationale drafted.");
+                          onChange(res.meeting);
+                        })
+                      }
+                    >
+                      {drafting ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : null}
+                      Draft rationale
+                    </Button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       ) : null}
@@ -617,22 +716,29 @@ function PrepForm({
 }) {
   const [when, setWhen] = useState(toLocalInput(meeting.scheduledAt));
   const [notes, setNotes] = useState(meeting.prepNotes ?? "");
-  // Always three intro rows, seeded from what's saved.
+  const [shortAsk, setShortAsk] = useState(meeting.prepShortAsk ?? "");
   const [intros, setIntros] = useState<IntroWish[]>(() => {
-    const seed = meeting.introWishlist.slice(0, 3);
-    while (seed.length < 3) seed.push({ name: "", company: "" });
+    const seed = meeting.introWishlist.slice(0, 3).map((w) => ({
+      ...emptyIntro(),
+      ...w,
+    }));
+    while (seed.length < 3) seed.push(emptyIntro());
     return seed;
   });
   const [saving, startSaving] = useTransition();
+  const [draftingIdx, setDraftingIdx] = useState<number | null>(null);
 
-  const setIntro = (i: number, field: keyof IntroWish, value: string) =>
-    setIntros((prev) => prev.map((w, idx) => (idx === i ? { ...w, [field]: value } : w)));
+  const setIntro = (i: number, field: keyof IntroWish, value: string | boolean) =>
+    setIntros((prev) =>
+      prev.map((w, idx) => (idx === i ? { ...w, [field]: value } : w))
+    );
 
   const save = () => {
     startSaving(async () => {
       const res = await updateMeetingPrep(meeting.id, {
         scheduledAt: when ? fromLocalInput(when) : undefined,
         prepNotes: notes,
+        prepShortAsk: shortAsk,
         introWishlist: intros,
       });
       if (!res.ok) {
@@ -656,24 +762,87 @@ function PrepForm({
         />
       </label>
 
-      {/* Intro wishlist */}
+      <label className="flex flex-col gap-1">
+        <span className={fieldLabel}>Short ask</span>
+        <Input
+          value={shortAsk}
+          onChange={(e) => setShortAsk(e.target.value)}
+          className="h-8 w-full text-xs"
+          placeholder="e.g. 20–30 min Zoom to compare notes on GEO / AdTech"
+        />
+        <span className="text-[10px] text-muted-foreground">
+          Used in every forwardable intro email for this meeting. About Jason stays in Settings.
+        </span>
+      </label>
+
       <div>
         <span className={fieldLabel}>Intros to ask for</span>
-        <div className="mt-1 space-y-1.5">
+        <div className="mt-1 space-y-3">
           {intros.map((w, i) => (
-            <div key={i} className="flex gap-2">
+            <div key={i} className="space-y-1.5 rounded-md border p-2">
+              <div className="flex gap-2">
+                <Input
+                  value={w.name}
+                  onChange={(e) => setIntro(i, "name", e.target.value)}
+                  className="h-8 flex-1 text-xs"
+                  placeholder={`Person ${i + 1}`}
+                />
+                <Input
+                  value={w.company}
+                  onChange={(e) => setIntro(i, "company", e.target.value)}
+                  className="h-8 flex-1 text-xs"
+                  placeholder="Company"
+                />
+              </div>
               <Input
-                value={w.name}
-                onChange={(e) => setIntro(i, "name", e.target.value)}
-                className="h-8 flex-1 text-xs"
-                placeholder={`Person ${i + 1}`}
+                value={w.linkedinUrl}
+                onChange={(e) => setIntro(i, "linkedinUrl", e.target.value)}
+                className="h-8 w-full text-xs"
+                placeholder="LinkedIn URL"
               />
-              <Input
-                value={w.company}
-                onChange={(e) => setIntro(i, "company", e.target.value)}
-                className="h-8 flex-1 text-xs"
-                placeholder="Company"
+              <Textarea
+                value={w.rationale}
+                onChange={(e) => setIntro(i, "rationale", e.target.value)}
+                rows={2}
+                className="text-xs"
+                placeholder="Rationale for connection"
               />
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px]"
+                disabled={draftingIdx !== null || !w.name}
+                onClick={() => {
+                  setDraftingIdx(i);
+                  void (async () => {
+                    const saved = await updateMeetingPrep(meeting.id, {
+                      prepNotes: notes,
+                      prepShortAsk: shortAsk,
+                      introWishlist: intros,
+                    });
+                    if (!saved.ok) {
+                      toast.error(saved.error);
+                      setDraftingIdx(null);
+                      return;
+                    }
+                    const res = await draftIntroRationale(meeting.id, i);
+                    setDraftingIdx(null);
+                    if (!res.ok) {
+                      toast.error(res.error);
+                      return;
+                    }
+                    const next = res.meeting.introWishlist[i];
+                    if (next?.rationale) setIntro(i, "rationale", next.rationale);
+                    toast.success("Rationale drafted — review and save prep.");
+                  })();
+                }}
+              >
+                {draftingIdx === i ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : null}
+                Draft rationale
+              </Button>
             </div>
           ))}
         </div>
@@ -703,114 +872,152 @@ function PrepForm({
   );
 }
 
-function DebriefForm({
+function HeldIntroActions({
   meeting,
-  contactId,
-  contactName,
-  onCancel,
-  onSaved,
+  onChange,
 }: {
   meeting: Meeting;
-  contactId: string;
-  contactName: string;
-  onCancel: () => void;
-  onSaved: (m: Meeting) => void;
+  onChange: (m: Meeting) => void;
 }) {
-  const [objective, setObjective] = useState<TouchObjective | null>(
-    meeting.objectiveAchieved
-  );
-  const [notes, setNotes] = useState(meeting.debriefNotes ?? "");
-  const [nextStep, setNextStep] = useState(meeting.nextStep ?? "");
-  const [thankYou, setThankYou] = useState(meeting.thankYouSent);
-  const [referrals, setReferrals] = useState<string[]>([]);
-  const [saving, startSaving] = useTransition();
+  const intros = meeting.introWishlist
+    .map((w, index) => ({ w, index }))
+    .filter(({ w }) => w.name || w.linkedinUrl);
+  const [busyIndex, setBusyIndex] = useState<number | null>(null);
+  const [draft, setDraft] = useState<{
+    index: number;
+    subject: string;
+    body: string;
+    mailtoUrl: string | null;
+  } | null>(null);
 
-  const save = () => {
-    startSaving(async () => {
-      const res = await markMeetingHeld(meeting.id, {
-        debriefNotes: notes,
-        objectiveAchieved: objective,
-        thankYouSent: thankYou,
-        nextStep,
-      });
-      if (!res.ok) {
-        toast.error(res.error);
-        return;
-      }
-      toast.success("Meeting logged.");
-      onSaved(res.meeting);
-    });
-  };
+  if (!intros.length) return null;
 
   return (
-    <div className="mt-2 space-y-3 border-t pt-2">
-      <div>
-        <span className={fieldLabel}>How did it go?</span>
-        <div className="mt-1 flex flex-wrap gap-1.5">
-          {OBJECTIVES.map((o) => (
-            <button
-              key={o.value}
-              type="button"
-              onClick={() => setObjective(o.value)}
-              className={cn(
-                "rounded-full border px-2 py-1 text-[11px] transition-colors",
-                objective === o.value
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-border text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {o.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <label className="flex flex-col gap-1">
-        <span className={fieldLabel}>What happened</span>
-        <Textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={2}
-          className="text-xs"
-          placeholder="Debrief notes"
-        />
-      </label>
-
-      <label className="flex flex-col gap-1">
-        <span className={fieldLabel}>Next step</span>
-        <Input
-          value={nextStep}
-          onChange={(e) => setNextStep(e.target.value)}
-          className="h-8 text-xs"
-          placeholder="e.g. send deck, intro to X"
-        />
-      </label>
-
-      <label className="flex items-center gap-2 text-xs text-muted-foreground">
-        <input
-          type="checkbox"
-          checked={thankYou}
-          onChange={(e) => setThankYou(e.target.checked)}
-        />
-        Thank-you sent
-      </label>
-
-      <DebriefReferrals
-        contactId={contactId}
-        contactName={contactName}
-        added={referrals}
-        onAdded={(name) => setReferrals((prev) => [...prev, name])}
-      />
-
-      <div className="flex items-center justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={onCancel} disabled={saving}>
-          Cancel
-        </Button>
-        <Button size="sm" onClick={save} disabled={saving}>
-          {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
-          Save debrief
-        </Button>
-      </div>
+    <div className="space-y-2 pt-2">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        Intro emails
+      </p>
+      <ul className="space-y-2">
+        {intros.map(({ w, index }) => (
+          <li key={`${w.name}-${index}`} className="rounded-md border px-2.5 py-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span className="font-medium text-foreground">{w.name || "—"}</span>
+                {w.company ? (
+                  <span className="text-muted-foreground"> · {w.company}</span>
+                ) : null}
+              </div>
+              <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={Boolean(w.agreed)}
+                  onChange={(e) => {
+                    const next = meeting.introWishlist.map((item, i) =>
+                      i === index ? { ...item, agreed: e.target.checked } : item
+                    );
+                    void updateMeetingPrep(meeting.id, { introWishlist: next }).then(
+                      (res) => {
+                        if (!res.ok) toast.error(res.error);
+                        else onChange(res.meeting);
+                      }
+                    );
+                  }}
+                />
+                They agreed
+              </label>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                className="h-7 text-[11px]"
+                disabled={!w.agreed || busyIndex !== null}
+                onClick={() => {
+                  setBusyIndex(index);
+                  void generateIntroEmail(meeting.id, index).then((res) => {
+                    setBusyIndex(null);
+                    if (!res.ok) {
+                      toast.error(res.error);
+                      return;
+                    }
+                    onChange(res.meeting);
+                    setDraft({
+                      index,
+                      subject: res.subject,
+                      body: res.body,
+                      mailtoUrl: res.mailtoUrl,
+                    });
+                    toast.success("Intro email drafted.");
+                  });
+                }}
+              >
+                {busyIndex === index ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Mail className="h-3 w-3" />
+                )}
+                Generate intro email
+              </Button>
+            </div>
+            {draft?.index === index ? (
+              <div className="mt-2 space-y-2">
+                <p className="text-[11px] font-medium text-foreground">
+                  Subject: {draft.subject}
+                </p>
+                <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md border bg-muted/40 p-2 text-[11px]">
+                  {draft.body}
+                </pre>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[11px]"
+                    disabled={!draft.mailtoUrl}
+                    onClick={() => {
+                      if (!draft.mailtoUrl) return;
+                      window.location.href = draft.mailtoUrl;
+                    }}
+                  >
+                    <Mail className="h-3 w-3" /> Open in Apple Mail
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[11px]"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(draft.body).then(() => {
+                        toast.success("Full email copied.");
+                      });
+                    }}
+                  >
+                    <Copy className="h-3 w-3" /> Copy full
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[11px]"
+                    onClick={() => {
+                      const block = extractForwardBlock(draft.body);
+                      if (!block) {
+                        toast.error("No forward block found in the draft.");
+                        return;
+                      }
+                      void navigator.clipboard.writeText(block).then(() => {
+                        toast.success("Forward block copied.");
+                      });
+                    }}
+                  >
+                    <Copy className="h-3 w-3" /> Copy forward block
+                  </Button>
+                </div>
+              </div>
+            ) : w.introDraft ? (
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Draft saved — generate again to refresh.
+              </p>
+            ) : null}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

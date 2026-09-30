@@ -17,6 +17,7 @@ import {
   normalizeMeetingFollowupPrompt,
   resolveMeetingFollowupPrompt,
 } from "@/lib/outreach/meeting-followup-prompt";
+import { normalizeAboutJason } from "@/lib/outreach/about-jason";
 import {
   DEFAULT_ALERT_THRESHOLDS,
   DEFAULT_MODEL_PREFERENCES,
@@ -52,6 +53,8 @@ export interface SettingsPayload {
   meetingFollowupPromptCustom: boolean;
   /** In-code default, for Reset. */
   meetingFollowupPromptDefault: string;
+  /** Freeform About Jason for intro emails (Settings). */
+  aboutJason: string;
   lastChecked: string | null;
   authRequired: boolean;
   supabaseConfigured: boolean;
@@ -106,7 +109,7 @@ export async function getSettingsPayload(): Promise<SettingsPayload> {
       .eq("user_id", user.id),
     supabase
       .from("user_preferences")
-      .select("alert_thresholds,model_preferences,meeting_followup_prompt")
+      .select("alert_thresholds,model_preferences,meeting_followup_prompt,about_jason")
       .eq("user_id", user.id)
       .maybeSingle(),
     getDispatchSummary(user.id),
@@ -146,6 +149,7 @@ export async function getSettingsPayload(): Promise<SettingsPayload> {
       meetingFollowupPrompt: resolveMeetingFollowupPrompt(storedPrompt),
       meetingFollowupPromptCustom: Boolean(storedPrompt),
       meetingFollowupPromptDefault: DEFAULT_MEETING_FOLLOWUP_PROMPT,
+      aboutJason: normalizeAboutJason((prefs as PreferencesRow | null)?.about_jason) ?? "",
       lastChecked: services
         .map((service) => service.last_health_check)
         .filter((value): value is string => !!value)
@@ -179,6 +183,7 @@ interface PreferencesRow {
   alert_thresholds: unknown;
   model_preferences: unknown;
   meeting_followup_prompt?: string | null;
+  about_jason?: string | null;
 }
 
 async function seedConnections(userId: string) {
@@ -253,6 +258,7 @@ function fallbackPayload(authRequired: boolean): SettingsPayload {
     meetingFollowupPrompt: DEFAULT_MEETING_FOLLOWUP_PROMPT,
     meetingFollowupPromptCustom: false,
     meetingFollowupPromptDefault: DEFAULT_MEETING_FOLLOWUP_PROMPT,
+    aboutJason: "",
     lastChecked: null,
     authRequired,
     supabaseConfigured: publicSupabaseConfigured(),

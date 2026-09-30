@@ -58,6 +58,10 @@ export const SaveMeetingFollowupPromptSchema = z.object({
   reset: z.boolean().optional(),
 });
 
+export const SaveAboutJasonSchema = z.object({
+  aboutJason: z.string().max(20_000),
+});
+
 export interface ConnectionTestResult {
   success: boolean;
   message: string;
@@ -652,6 +656,22 @@ export async function saveMeetingFollowupPrompt(
     custom: Boolean(stored),
     defaultPrompt: DEFAULT_MEETING_FOLLOWUP_PROMPT,
   };
+}
+
+export async function saveAboutJason(input: z.infer<typeof SaveAboutJasonSchema>) {
+  const { supabase, userId } = await getUserContext();
+  const { normalizeAboutJason } = await import("@/lib/outreach/about-jason");
+  const stored = normalizeAboutJason(input.aboutJason);
+  const { error } = await supabase.from("user_preferences").upsert(
+    {
+      user_id: userId,
+      about_jason: stored,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" }
+  );
+  if (error) throw new Error(error.message);
+  return { aboutJason: stored ?? "" };
 }
 
 function sanitizeConfig(credentials: Record<string, string | number | boolean>, serviceName: string) {
