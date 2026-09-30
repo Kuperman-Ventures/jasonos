@@ -1,6 +1,9 @@
 // LeadDelta — LinkedIn CRM enrichment (profile photo + headline).
 // Uses the LeadDelta MCP HTTP endpoint with the Settings / env API key.
 // JasonOS does not scrape LinkedIn.
+//
+// Streamable HTTP requires: initialize → Mcp-Session-Id → tools/call.
+// Calling tools without a session returns HTTP 400.
 
 import "server-only";
 import { emptyResult, type IntegrationResult } from "./_base";
@@ -91,14 +94,17 @@ export async function getConnectionByLinkedInUrl(
   if (!key) return emptyResult(null, false);
   const url = normalizeLinkedInUrl(linkedinUrl);
   if (!url) return emptyResult(null, true, "Not a LinkedIn profile URL.");
+  const publicIdentifier = publicIdentifierFromLinkedInUrl(url);
+  if (!publicIdentifier) {
+    return emptyResult(null, true, "Not a LinkedIn profile URL.");
+  }
 
   try {
+    // LeadDelta get_connection wants publicIdentifier or connectionId —
+    // not a raw LinkedIn URL.
     const result = await mcpCall(key, "get_connection", {
-      linkedinUrl: url,
-      linkedin_url: url,
-      url,
-      profileUrl: url,
-      profile_url: url,
+      publicIdentifier,
+      connectionId: publicIdentifier,
     });
     if (!result.ok) return emptyResult(null, true, result.error);
     const connection =
@@ -155,38 +161,140 @@ function toLinkedInProfile(connection: LeadDeltaConnection): LinkedInProfile {
   };
 }
 
+function publicIdentifierFromLinkedInUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    const match = parsed.pathname.match(/\/in\/([^/?#]+)/i);
+    if (!match?.[1]) return null;
+    return decodeURIComponent(match[1]).replace(/\/$/, "") || null;
+  } catch {
+    return null;
+  }
+}
+
 async function mcpCall(
   key: string,
   toolName: string,
   args: Record<string, unknown>
 ): Promise<{ ok: true; data: unknown } | { ok: false; error: string }> {
-  const body = {
+  const session = await openMcpSession(key);
+  if (!session.ok) return session;
+  try {
+    // Required by Streamable HTTP; ignore notify failures.
+    await mcpFetch(key, session.id, {
+      jsonrpc: "2.0",
+      method: "notifications/initialized",
+    });
+    const res = await mcpFetch(key, session.id, {
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: toolName, arguments: args },
+    });
+    if (!res.ok) {
+      return { ok: false, error: formatHttpError(res.status, res.text) };
+    }
+    return parseMcpResponse(res.text);
+  } finally {
+    // Best-effort session cleanup.
+    void mcpFetch(key, session.id, null, "DELETE").catch(() => undefined);
+  }
+}
+
+async function openMcpSession(
+  key: string
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  const res = await mcpFetch(key, null, {
     jsonrpc: "2.0",
     id: 1,
-    method: "tools/call",
-    params: { name: toolName, arguments: args },
-  };
-  const res = await fetch(MCP_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-      Accept: "application/json, text/event-stream",
+    method: "initialize",
+    params: {
+      protocolVersion: "2025-03-26",
+      capabilities: {},
+      clientInfo: { name: "jasonos", version: "1.0.0" },
     },
-    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    return { ok: false, error: formatHttpError(res.status, res.text) };
+  }
+  const sessionId = res.headers.get("mcp-session-id")?.trim();
+  if (!sessionId) {
+    return {
+      ok: false,
+      error: "LeadDelta did not return an MCP session id.",
+    };
+  }
+  const parsed = parseMcpResponse(res.text);
+  if (!parsed.ok) return parsed;
+  return { ok: true, id: sessionId };
+}
+
+async function mcpFetch(
+  key: string,
+  sessionId: string | null,
+  body: Record<string, unknown> | null,
+  method: "POST" | "DELETE" = "POST"
+): Promise<{ ok: boolean; status: number; text: string; headers: Headers }> {
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${key}`,
+    Accept: "application/json, text/event-stream",
+  };
+  if (method === "POST") {
+    headers["Content-Type"] = "application/json";
+  }
+  if (sessionId) headers["Mcp-Session-Id"] = sessionId;
+
+  const res = await fetch(MCP_URL, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
     cache: "no-store",
   });
   const text = await res.text();
-  if (!res.ok) {
-    if (res.status === 401 || res.status === 403) {
-      return {
-        ok: false,
-        error: "LeadDelta rejected the API key. Paste a new key in Settings.",
-      };
-    }
-    return { ok: false, error: `LeadDelta returned ${res.status}.` };
+  return { ok: res.ok, status: res.status, text, headers: res.headers };
+}
+
+function formatHttpError(status: number, text: string): string {
+  if (status === 401 || status === 403) {
+    return "LeadDelta rejected the API key. Paste a new key in Settings.";
   }
-  return parseMcpResponse(text);
+  const fromBody = extractErrorMessage(text);
+  if (fromBody) {
+    if (/session/i.test(fromBody)) {
+      return "LeadDelta MCP session failed. Try Verify again.";
+    }
+    if (/business plan|subscription|plan/i.test(fromBody)) {
+      return "LeadDelta MCP needs a Business plan workspace.";
+    }
+    return fromBody;
+  }
+  return `LeadDelta returned ${status}.`;
+}
+
+function extractErrorMessage(text: string): string | null {
+  const jsonText = extractJsonPayload(text);
+  if (!jsonText) return null;
+  try {
+    const envelope = JSON.parse(jsonText) as {
+      error?: { message?: string };
+      result?: {
+        isError?: boolean;
+        content?: Array<{ type?: string; text?: string }>;
+      };
+    };
+    if (envelope.error?.message) return envelope.error.message;
+    if (envelope.result?.isError) {
+      return (
+        envelope.result.content
+          ?.map((part) => part.text)
+          .filter(Boolean)
+          .join(" ") || null
+      );
+    }
+  } catch {
+    // ignore
+  }
+  return null;
 }
 
 function parseMcpResponse(
