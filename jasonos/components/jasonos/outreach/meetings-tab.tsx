@@ -481,38 +481,36 @@ function MeetingRow({
               Calendar
             </a>
           ) : null}
+          <button
+            type="button"
+            onClick={() => setMode(mode === "prep" ? "view" : "prep")}
+            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+          >
+            <Pencil className="h-3 w-3" /> Meeting Prep
+          </button>
           {!held ? (
-            <>
-              <button
-                type="button"
-                onClick={() => setMode(mode === "prep" ? "view" : "prep")}
-                className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-              >
-                <Pencil className="h-3 w-3" /> Meeting Prep
-              </button>
-              <Button
-                size="sm"
-                disabled={importing}
-                onClick={() =>
-                  startImport(async () => {
-                    const res = await importMeetingGranola(meeting.id);
-                    if (!res.ok) {
-                      toast.error(res.error);
-                      return;
-                    }
-                    toast.success("Granola notes imported. Meeting marked held.");
-                    onChange(res.meeting);
-                  })
-                }
-              >
-                {importing ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <FileText className="h-3 w-3" />
-                )}
-                Import Granola
-              </Button>
-            </>
+            <Button
+              size="sm"
+              disabled={importing}
+              onClick={() =>
+                startImport(async () => {
+                  const res = await importMeetingGranola(meeting.id);
+                  if (!res.ok) {
+                    toast.error(res.error);
+                    return;
+                  }
+                  toast.success("Granola notes imported. Meeting marked held.");
+                  onChange(res.meeting);
+                })
+              }
+            >
+              {importing ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <FileText className="h-3 w-3" />
+              )}
+              Import Granola
+            </Button>
           ) : null}
           <button
             type="button"
@@ -571,7 +569,7 @@ function MeetingRow({
         </div>
       ) : null}
 
-      {mode === "prep" && !held ? (
+      {mode === "prep" ? (
         <PrepForm
           meeting={meeting}
           onCancel={() => setMode("view")}
@@ -585,9 +583,105 @@ function MeetingRow({
   );
 }
 
-// Read-only prep sheet shown on the meeting card — everything you want in front
-// of you during the call. Research is collapsible (it can be long); intros and
-// notes stay visible.
+/** Inline LinkedIn URL for an intro wish — covers people added before the field existed. */
+function IntroLinkedInField({
+  meeting,
+  introIndex,
+  linkedinUrl,
+  onChange,
+}: {
+  meeting: Meeting;
+  introIndex: number;
+  linkedinUrl: string;
+  onChange: (m: Meeting) => void;
+}) {
+  const [value, setValue] = useState(linkedinUrl);
+  const [editing, setEditing] = useState(!linkedinUrl);
+  const [saving, startSaving] = useTransition();
+
+  useEffect(() => {
+    setValue(linkedinUrl);
+    setEditing(!linkedinUrl);
+  }, [linkedinUrl, meeting.id, introIndex]);
+
+  const save = () => {
+    const nextUrl = value.trim();
+    startSaving(async () => {
+      const next = meeting.introWishlist.map((item, i) =>
+        i === introIndex ? { ...item, linkedinUrl: nextUrl } : item
+      );
+      const res = await updateMeetingPrep(meeting.id, { introWishlist: next });
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success(nextUrl ? "LinkedIn saved." : "LinkedIn cleared.");
+      onChange(res.meeting);
+      setEditing(!nextUrl);
+    });
+  };
+
+  if (!editing && linkedinUrl) {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <a
+          href={linkedinUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground underline hover:text-foreground"
+        >
+          LinkedIn <ExternalLink className="h-3 w-3" />
+        </a>
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="text-[11px] text-muted-foreground hover:text-foreground"
+        >
+          Edit
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Input
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        className="h-7 min-w-[12rem] flex-1 text-[11px]"
+        placeholder="LinkedIn URL"
+        disabled={saving}
+      />
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="h-7 text-[11px]"
+        disabled={saving || value.trim() === linkedinUrl.trim()}
+        onClick={save}
+      >
+        {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+        Save
+      </Button>
+      {linkedinUrl ? (
+        <button
+          type="button"
+          onClick={() => {
+            setValue(linkedinUrl);
+            setEditing(false);
+          }}
+          className="text-[11px] text-muted-foreground hover:text-foreground"
+          disabled={saving}
+        >
+          Cancel
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+// Prep sheet shown on the meeting card — everything you want in front of you
+// during the call. Intros stay editable for LinkedIn (added after names were saved).
 function PrepReadout({
   meeting,
   contactId: _contactId,
@@ -599,12 +693,13 @@ function PrepReadout({
   contactName: string;
   onChange: (m: Meeting) => void;
 }) {
-  const intros = meeting.introWishlist.filter(
-    (w) => w.name || w.company || w.linkedinUrl || w.rationale
-  );
+  const intros = meeting.introWishlist
+    .map((w, index) => ({ w, index }))
+    .filter(({ w }) => w.name || w.company || w.linkedinUrl || w.rationale);
   const hasNotes = Boolean(meeting.prepNotes);
   const hasGoal = Boolean(meeting.prepGoal);
   const hasAsk = Boolean(meeting.prepShortAsk);
+  const held = meeting.status === "held";
   const [drafting, startDraft] = useTransition();
 
   if (!hasNotes && !hasGoal && !hasAsk && intros.length === 0) return null;
@@ -631,23 +726,16 @@ function PrepReadout({
             Intros to ask for
           </p>
           <ul className="divide-y divide-border/40 rounded-md border">
-            {intros.map((w, i) => {
-              const idx = meeting.introWishlist.findIndex(
-                (row) =>
-                  row.name === w.name &&
-                  row.company === w.company &&
-                  row.linkedinUrl === w.linkedinUrl
-              );
-              const introIndex = idx >= 0 ? idx : i;
-              return (
-                <li key={`${w.name}-${i}`} className="space-y-1 px-2.5 py-2">
-                  <div>
-                    <span className="font-medium text-foreground">{w.name || "—"}</span>
-                    {w.company ? (
-                      <span className="text-muted-foreground"> · {w.company}</span>
-                    ) : null}
-                  </div>
-                  {w.linkedinUrl ? (
+            {intros.map(({ w, index }) => (
+              <li key={`${w.name}-${index}`} className="space-y-1 px-2.5 py-2">
+                <div>
+                  <span className="font-medium text-foreground">{w.name || "—"}</span>
+                  {w.company ? (
+                    <span className="text-muted-foreground"> · {w.company}</span>
+                  ) : null}
+                </div>
+                {held ? (
+                  w.linkedinUrl ? (
                     <a
                       href={w.linkedinUrl}
                       target="_blank"
@@ -656,36 +744,47 @@ function PrepReadout({
                     >
                       LinkedIn <ExternalLink className="h-3 w-3" />
                     </a>
-                  ) : null}
-                  {w.rationale ? (
-                    <p className="text-muted-foreground">{w.rationale}</p>
                   ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-[11px]"
-                      disabled={drafting || !w.name}
-                      onClick={() =>
-                        startDraft(async () => {
-                          const res = await draftIntroRationale(meeting.id, introIndex);
-                          if (!res.ok) {
-                            toast.error(res.error);
-                            return;
-                          }
-                          toast.success("Rationale drafted.");
-                          onChange(res.meeting);
-                        })
-                      }
-                    >
-                      {drafting ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : null}
-                      Draft rationale
-                    </Button>
-                  )}
-                </li>
-              );
-            })}
+                    <p className="text-[11px] text-muted-foreground">
+                      LinkedIn missing — add it under Intro emails below.
+                    </p>
+                  )
+                ) : (
+                  <IntroLinkedInField
+                    meeting={meeting}
+                    introIndex={index}
+                    linkedinUrl={w.linkedinUrl}
+                    onChange={onChange}
+                  />
+                )}
+                {w.rationale ? (
+                  <p className="text-muted-foreground">{w.rationale}</p>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-[11px]"
+                    disabled={drafting || !w.name}
+                    onClick={() =>
+                      startDraft(async () => {
+                        const res = await draftIntroRationale(meeting.id, index);
+                        if (!res.ok) {
+                          toast.error(res.error);
+                          return;
+                        }
+                        toast.success("Rationale drafted.");
+                        onChange(res.meeting);
+                      })
+                    }
+                  >
+                    {drafting ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : null}
+                    Draft rationale
+                  </Button>
+                )}
+              </li>
+            ))}
           </ul>
         </div>
       ) : null}
@@ -925,11 +1024,19 @@ function HeldIntroActions({
                 They agreed
               </label>
             </div>
+            <div className="mt-1.5">
+              <IntroLinkedInField
+                meeting={meeting}
+                introIndex={index}
+                linkedinUrl={w.linkedinUrl}
+                onChange={onChange}
+              />
+            </div>
             <div className="mt-2 flex flex-wrap gap-2">
               <Button
                 size="sm"
                 className="h-7 text-[11px]"
-                disabled={!w.agreed || busyIndex !== null}
+                disabled={!w.agreed || !w.linkedinUrl || busyIndex !== null}
                 onClick={() => {
                   setBusyIndex(index);
                   void generateIntroEmail(meeting.id, index).then((res) => {
