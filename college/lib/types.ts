@@ -473,6 +473,15 @@ export function selectivityTierFromContext(context: string): SelectivityTier {
   return "";
 }
 
+/** Tier from Kyle's admit rate: under 12% / 12–30% / 30–60% / over 60%. */
+export function selectivityTierFromRate(rate: number | null): SelectivityTier {
+  if (rate == null || !Number.isFinite(rate)) return "";
+  if (rate < 12) return "extremely_selective";
+  if (rate <= 30) return "very_selective";
+  if (rate <= 60) return "competitive";
+  return "less_competitive";
+}
+
 /** Short pathway line for the snapshot card, stripped of tier prefixes. */
 export function pathwayFromContext(context: string): string {
   const trimmed = context.trim();
