@@ -8,7 +8,6 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   CalendarPlus,
-  CheckCircle2,
   Copy,
   ExternalLink,
   FileText,
