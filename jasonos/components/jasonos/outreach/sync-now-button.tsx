@@ -10,6 +10,7 @@ import { checkBrowningHandoffs } from "@/lib/server-actions/browning-networking"
 import { scanJobAlerts } from "@/lib/server-actions/job-opportunities";
 import { captureEmailCandidates } from "@/lib/server-actions/contact-candidates";
 import { captureMeetingFollowups } from "@/lib/server-actions/meeting-followups";
+import { captureSentEmailFollowups } from "@/lib/server-actions/sent-followups";
 import {
   SUGGESTED_SCAN_DAYS_BACK,
   SUGGESTED_SCAN_DAYS_FORWARD,
@@ -33,7 +34,8 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
     setRunning(true);
     try {
       const runId = crypto.randomUUID();
-      const [result, suggested, meetingFollowups, browning, jobAlerts] = await Promise.all([
+      const [result, suggested, meetingFollowups, sentFollowups, browning, jobAlerts] =
+        await Promise.all([
         syncOutreachAll({
           daysBack: SUGGESTED_SCAN_DAYS_BACK,
           daysForward: SUGGESTED_SCAN_DAYS_FORWARD,
@@ -45,6 +47,10 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
           runId,
         }),
         captureMeetingFollowups({
+          runId,
+        }),
+        captureSentEmailFollowups({
+          daysBack: SUGGESTED_SCAN_DAYS_BACK,
           runId,
         }),
         checkBrowningHandoffs(runId),
@@ -143,16 +149,27 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
 
       let followUpFatal = false;
       if (meetingFollowups.ok) {
-        const bits = [`+${meetingFollowups.created} follow-up${meetingFollowups.created === 1 ? "" : "s"}`];
+        const bits = [`+${meetingFollowups.created} meeting${meetingFollowups.created === 1 ? "" : "s"}`];
         if (meetingFollowups.resolved) {
           bits.push(`${meetingFollowups.resolved} cleared`);
         }
-        messages.push(`Follow Up ${bits.join(", ")}`);
+        messages.push(`Meeting Follow Up ${bits.join(", ")}`);
       } else if (meetingFollowups.unavailable) {
         messages.push(meetingFollowups.error);
       } else {
         followUpFatal = true;
-        messages.push(`Follow Up failed: ${meetingFollowups.error}`);
+        messages.push(`Meeting Follow Up failed: ${meetingFollowups.error}`);
+      }
+
+      if (sentFollowups.ok) {
+        messages.push(
+          `Sent Follow Up +${sentFollowups.created} to review · ${sentFollowups.scanned} threads`
+        );
+      } else if (sentFollowups.unavailable) {
+        messages.push(sentFollowups.error);
+      } else {
+        followUpFatal = true;
+        messages.push(`Sent Follow Up failed: ${sentFollowups.error}`);
       }
 
       const beeperFatal = Boolean(

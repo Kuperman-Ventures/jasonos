@@ -51,6 +51,7 @@ export interface GraphMessage {
   sentDateTime?: string | null;
   webLink?: string | null;
   isDraft?: boolean | null;
+  conversationId?: string | null;
   from?: GraphRecipient | null;
   toRecipients?: GraphRecipient[] | null;
   ccRecipients?: GraphRecipient[] | null;
@@ -65,6 +66,7 @@ export interface OutlookMessage {
   date: string;
   snippet: string;
   webLink: string | null;
+  conversationId: string | null;
 }
 
 /**
@@ -189,6 +191,7 @@ export function mapGraphMessage(raw: GraphMessage): OutlookMessage | null {
     date: parsed.toISOString(),
     snippet: (raw.bodyPreview ?? "").replace(/\s+/g, " ").trim(),
     webLink: raw.webLink?.trim() || null,
+    conversationId: raw.conversationId?.trim() || null,
   };
 }
 

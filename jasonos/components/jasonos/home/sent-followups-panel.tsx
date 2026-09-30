@@ -57,7 +57,7 @@ export function SentFollowupsPanel({ rows }: { rows: SentEmailFollowup[] }) {
         </StatusPill>
       </StatusBand>
       <p className="border-b px-4 py-1.5 text-[11px] text-muted-foreground">
-        Sent from jason@kupermanadvisors.com and due for a follow-up. Open the
+        Sent mail (Advisors, Gmail, or Outlook) due for a follow-up. Open the
         thread, mark it done, or push the date.
       </p>
       {visible.length === 0 ? (
