@@ -34,7 +34,7 @@ export function warmthBgClass(value: number | null): string {
   if (value < 4.0) {
     return "bg-rung-2  border-[var(--jos-line)]";
   }
-  return "bg-rung-4  border-[var(--jos-line)]";
+  return "bg-rung-ok  border-[var(--jos-line)]";
 }
 
 /** Single-score (1–5) color for the toggle group buttons. */
@@ -48,7 +48,7 @@ export function scoreButtonClass(value: number, active: boolean): string {
   if (value === 3) {
     return "border-[var(--jos-line)] bg-rung-2 ";
   }
-  return "border-[var(--jos-line)] bg-rung-4 ";
+  return "border-[var(--jos-line)] bg-rung-ok ";
 }
 
 export const GATE_STATUS_TONE: Record<
@@ -72,8 +72,8 @@ export const GATE_STATUS_TONE: Record<
     chip: "bg-rung-2  border-[var(--jos-line)]",
   },
   completed: {
-    dot: "bg-rung-4",
-    chip: "bg-rung-4  border-[var(--jos-line)]",
+    dot: "bg-rung-ok",
+    chip: "bg-rung-ok  border-[var(--jos-line)]",
   },
 };
 
@@ -82,7 +82,7 @@ export const DELIVERED_STATUS_TONE: Record<
   string
 > = {
   yes_on_time:
-    "bg-rung-4  border-[var(--jos-line)]",
+    "bg-rung-ok  border-[var(--jos-line)]",
   yes_late: "bg-rung-3  border-rung-3",
   partial: "bg-rung-2  border-[var(--jos-line)]",
   no: "bg-rung-1  border-rung-1",

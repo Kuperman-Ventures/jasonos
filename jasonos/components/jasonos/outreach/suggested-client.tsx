@@ -276,7 +276,7 @@ function CandidateRow({
             {candidate.name || (beeper ? "Beeper chat" : candidate.email)}
           </span>
           {twoWay ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--jos-line)] bg-rung-4 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider ">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--jos-line)] bg-rung-ok px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider ">
               <ArrowLeftRight className="h-2.5 w-2.5" />
               Two-way
             </span>

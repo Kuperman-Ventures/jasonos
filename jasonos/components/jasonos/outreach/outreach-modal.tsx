@@ -2531,7 +2531,7 @@ function LogTouchPanel({
                   "rounded-md border px-2 py-1.5 text-left text-[11px] transition-colors",
                   objective === value
                     ? value === "yes"
-                      ? "border-[var(--jos-line)] bg-rung-4 "
+                      ? "border-[var(--jos-line)] bg-rung-ok "
                       : value === "no"
                       ? "border-[var(--jos-line)] bg-rung-2 "
                       : "border-border bg-muted text-foreground"

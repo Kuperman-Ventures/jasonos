@@ -62,7 +62,7 @@ const KPI_DEFINITIONS: KpiDef[] = [
 const KPI_TRACK_GROUPS = ["Kuperman Advisors", "Job Search", "Kuperman Ventures"] as const;
 
 const SCORE_CONFIG = {
-  green:  { label: "Green",  desc: "7+ KPIs hit — strong week",     bg: "bg-rung-4", text: "text-rung-ink", border: "border-[var(--jos-line)]" },
+  green:  { label: "Green",  desc: "7+ KPIs hit — strong week",     bg: "bg-rung-ok", text: "text-inherit", border: "border-[var(--jos-line)]" },
   yellow: { label: "Yellow", desc: "4–6 KPIs hit — room to improve", bg: "bg-rung-2",   text: "text-rung-ink",   border: "border-[var(--jos-line)]"   },
   red:    { label: "Red",    desc: "3 or fewer KPIs hit — regroup",  bg: "bg-rung-1",    text: "text-rung-1",    border: "border-rung-1"    },
 } as const;
@@ -423,7 +423,7 @@ export function KpiDashboardClient({
                     </td>
                     <td className="px-3 py-2.5 text-center">
                       {kpi.hit ? (
-                        <span className="inline-block rounded-full bg-rung-4 px-2 py-0.5 text-[11px] font-semibold ">✓ Hit</span>
+                        <span className="inline-block rounded-full bg-rung-ok px-2 py-0.5 text-[11px] font-semibold ">✓ Hit</span>
                       ) : (
                         <span className="inline-block rounded-full bg-rung-1 px-2 py-0.5 text-[11px] font-semibold ">✗ Miss</span>
                       )}
@@ -759,7 +759,7 @@ export function KpiDashboardClient({
               <div className="flex items-center gap-2">
                 <span className="text-2xl font-bold text-foreground">{kpiDetailOpen.count}</span>
                 <span className="text-sm text-muted-foreground">/ {kpiDetailOpen.target} target</span>
-                <span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-semibold ${kpiDetailOpen.hit ? "bg-rung-4 " : "bg-rung-1 "}`}>
+                <span className={`ml-auto rounded-full px-2 py-0.5 text-xs font-semibold ${kpiDetailOpen.hit ? "bg-rung-ok " : "bg-rung-1 "}`}>
                   {kpiDetailOpen.hit ? "✓ Hit" : "✗ Miss"}
                 </span>
               </div>

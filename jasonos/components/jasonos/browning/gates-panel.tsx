@@ -42,7 +42,7 @@ export function GatesPanel({ gates }: Props) {
       <div className="relative">
         <div className="absolute inset-y-0 left-1/2 w-[3px] -translate-x-1/2 rounded-full bg-border" />
         <div
-          className="absolute left-1/2 top-0 w-[3px] -translate-x-1/2 rounded-full bg-rung-4 transition-all"
+          className="absolute left-1/2 top-0 w-[3px] -translate-x-1/2 rounded-full bg-rung-ok transition-all"
           style={{ height: `${pct}%` }}
         />
       </div>

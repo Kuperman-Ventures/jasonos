@@ -100,7 +100,7 @@ export function HealthDetailSheet({
                         className={cn(
                           "rounded px-1.5 py-0.5 num-mono text-[10px]",
                           r.ok
-                            ? "bg-rung-4 "
+                            ? "bg-rung-ok "
                             : "bg-rung-1 "
                         )}
                       >
