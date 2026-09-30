@@ -13,6 +13,7 @@ import {
   replySubject,
   schedulingDraft,
 } from "@/lib/browning-networking/draft";
+import { displayHandoffName } from "@/lib/browning-networking/dedupe";
 import { handoffLane, isFollowUp, type HandoffLane } from "@/lib/browning-networking/lanes";
 import { addCalendarDays } from "@/lib/browning-networking/slots";
 import { TRACY_EMAIL, type HandoffSlot } from "@/lib/browning-networking/types";
@@ -201,7 +202,7 @@ function HandoffDetail({
     <div className="space-y-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">{handoff.contactName || "Unparsed contact"}</h2>
+          <h2 className="text-lg font-semibold">{displayHandoffName(handoff)}</h2>
           <p className="text-xs text-muted-foreground">
             {[handoff.contactTitle, handoff.contactCompany].filter(Boolean).join(" at ") ||
               "Job networking call"}
@@ -538,7 +539,7 @@ function HandoffLaneList({
 function HandoffLaneLabel({ row, lane }: { row: HandoffRecord; lane?: HandoffLane }) {
   return (
     <>
-      <div className="text-sm font-medium">{row.contactName || "Unparsed contact"}</div>
+      <div className="text-sm font-medium">{displayHandoffName(row)}</div>
       <div className="text-[11px] text-muted-foreground">{statusLabel(row, lane)}</div>
     </>
   );

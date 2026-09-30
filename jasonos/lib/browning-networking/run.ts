@@ -17,6 +17,10 @@ import { canonicalEmail } from "@/lib/outreach/contact-lookup";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { findBookedCall, type CalendarGuestEvent } from "./booking";
 import {
+  planDuplicateDismissals,
+  type DedupeHandoff,
+} from "./dedupe";
+import {
   briefFromHandoff,
   callHasEnded,
   connectMeetingTitle,
@@ -100,6 +104,7 @@ export async function runBrowningNetworking(): Promise<BrowningRunResult> {
     result.booked = followed.booked;
     result.briefs = followed.briefs;
     result.thankYous = followed.thankYous;
+    await collapseDuplicateHandoffs(sb);
     await linkBrowningReferrals(sb);
     await detectChosenTimes(sb);
     result.ok = true;
@@ -130,25 +135,53 @@ async function harvestHandoffs(sb: Sb): Promise<{
   const now = new Date();
   const busy = await loadBusy(firstEligibleYmd(now), lastEligibleYmd(now));
   const chosen = chooseHandoffs(collected.messages);
+  const { data: openRows } = await sb
+    .from("browning_handoffs")
+    .select(
+      "id, gmail_account, gmail_message_id, rfc822_message_id, contact_email, contact_name, existing_contact_id, created_contact_id"
+    )
+    .neq("status", "dismissed");
+  const tracked = (openRows ?? []).map((row) => ({
+    email: (row.contact_email as string | null) ?? null,
+    name: (row.contact_name as string | null) ?? null,
+  }));
+  const seenMessages = new Set(
+    (openRows ?? []).map((row) => `${row.gmail_account}:${row.gmail_message_id}`)
+  );
+  const seenRfc = new Set(
+    (openRows ?? [])
+      .map((row) => (row.rfc822_message_id as string | null) ?? "")
+      .filter(Boolean)
+      .map((id) => id.toLowerCase())
+  );
 
   for (const item of chosen) {
     found += 1;
     const mail = item.mail;
     const parsed = item.parsed;
-    const existing = await sb
-      .from("browning_handoffs")
-      .select("id")
-      .eq("gmail_account", mail.accountEmail)
-      .eq("gmail_message_id", mail.messageId)
-      .maybeSingle();
-    if (existing.data?.id) continue;
+    if (seenMessages.has(`${mail.accountEmail}:${mail.messageId}`)) {
+      skippedExisting += 1;
+      continue;
+    }
+    if (mail.rfc822MessageId && seenRfc.has(mail.rfc822MessageId.toLowerCase())) {
+      skippedExisting += 1;
+      continue;
+    }
+    if (
+      isAlreadyTracked(tracked, {
+        email: parsed.email,
+        name: parsed.name,
+      })
+    ) {
+      skippedExisting += 1;
+      continue;
+    }
 
     const match = matchExistingContact(contacts, parsed);
     let createdContactId: string | null = null;
     if (!match && parsed.name) {
       createdContactId = await insertContact(sb, parsed);
     }
-    if (match) skippedExisting += 1;
 
     const slots = proposeSlots({
       now,
@@ -188,6 +221,9 @@ async function harvestHandoffs(sb: Sb): Promise<{
       continue;
     }
     const handoffId = inserted.data.id as string;
+    tracked.push({ email: parsed.email, name: parsed.name });
+    seenMessages.add(`${mail.accountEmail}:${mail.messageId}`);
+    if (mail.rfc822MessageId) seenRfc.add(mail.rfc822MessageId.toLowerCase());
     const cardId = await insertCard(sb, {
       title: `Reply to ${parsed.name ?? "Browning contact"}`,
       subtitle: parsed.availabilityNote || "Pick times, then open the reply.",
@@ -578,6 +614,8 @@ async function followBookedCalls(sb: Sb): Promise<{
     .in("status", ["times_ready", "draft_ready", "acted_on", "follow_up", "booked", "brief_ready"]);
   if (error || !data?.length) return { booked: 0, briefs: 0, thankYous: 0 };
 
+  const contacts = await loadContacts(sb);
+  const contactsById = new Map(contacts.map((row) => [row.id, row]));
   const events = await upcomingEvents();
   const now = new Date();
   const today = etToday();
@@ -587,14 +625,30 @@ async function followBookedCalls(sb: Sb): Promise<{
 
   for (const row of data) {
     const id = row.id as string;
-    const name = (row.contact_name as string | null) ?? null;
-    const email = (row.contact_email as string | null) ?? null;
+    const contactId =
+      ((row.existing_contact_id as string | null) ?? null) ||
+      ((row.created_contact_id as string | null) ?? null);
+    const linked = contactId ? contactsById.get(contactId) : null;
+    let name = (row.contact_name as string | null) ?? linked?.name ?? null;
+    let email = (row.contact_email as string | null) ?? null;
+    const emails = [
+      email,
+      ...((linked?.emails ?? []) as string[]),
+    ].filter((value): value is string => Boolean(value?.includes("@")));
+    if (!email && emails[0]) email = emails[0];
     let startsAt = (row.call_starts_at as string | null) ?? null;
     let endsAt = (row.call_ends_at as string | null) ?? null;
     let status = row.status as string;
 
+    const identityPatch: Record<string, string> = {};
+    if (!(row.contact_name as string | null) && name) identityPatch.contact_name = name;
+    if (!(row.contact_email as string | null) && email) identityPatch.contact_email = email;
+    if (Object.keys(identityPatch).length) {
+      await sb.from("browning_handoffs").update(identityPatch).eq("id", id);
+    }
+
     if (!startsAt) {
-      const match = findBookedCall(events, { email, name }, now);
+      const match = findBookedCall(events, { email, emails, name }, now);
       if (match) {
         startsAt = match.startsAt;
         endsAt = match.endsAt;
@@ -607,6 +661,8 @@ async function followBookedCalls(sb: Sb): Promise<{
             call_starts_at: match.startsAt,
             call_ends_at: match.endsAt,
             status,
+            ...(name ? { contact_name: name } : {}),
+            ...(email ? { contact_email: email } : {}),
           })
           .eq("id", id);
         booked += 1;
@@ -734,6 +790,7 @@ async function upcomingEvents(): Promise<CalendarGuestEvent[]> {
 
 type ContactRow = {
   id: string;
+  name: string | null;
   emails: string[] | null;
   linkedin_url: string | null;
 };
@@ -741,13 +798,59 @@ type ContactRow = {
 async function loadContacts(sb: Sb): Promise<ContactRow[]> {
   const { data, error } = await sb
     .from("contacts")
-    .select("id,emails,linkedin_url")
+    .select("id,name,emails,linkedin_url")
     .limit(5000);
   if (error) {
     console.error("[browning-networking] contacts", error);
     return [];
   }
   return (data ?? []) as ContactRow[];
+}
+
+async function collapseDuplicateHandoffs(sb: Sb): Promise<number> {
+  const { data, error } = await sb
+    .from("browning_handoffs")
+    .select(
+      "id, contact_name, contact_email, existing_contact_id, created_contact_id, call_starts_at, call_event_id, status, received_at, created_at"
+    )
+    .neq("status", "dismissed");
+  if (error || !data?.length) return 0;
+
+  const rows: DedupeHandoff[] = data.map((row) => ({
+    id: row.id as string,
+    contactName: (row.contact_name as string | null) ?? null,
+    contactEmail: (row.contact_email as string | null) ?? null,
+    existingContactId: (row.existing_contact_id as string | null) ?? null,
+    createdContactId: (row.created_contact_id as string | null) ?? null,
+    callStartsAt: (row.call_starts_at as string | null) ?? null,
+    callEventId: (row.call_event_id as string | null) ?? null,
+    status: row.status as HandoffStatus,
+    receivedAt: (row.received_at as string | null) ?? null,
+    createdAt: (row.created_at as string | null) ?? null,
+  }));
+
+  const plan = planDuplicateDismissals(rows);
+  for (const merge of plan.merges) {
+    const patch: Record<string, string | null> = {};
+    if (merge.patch.contactName) patch.contact_name = merge.patch.contactName;
+    if (merge.patch.contactEmail) patch.contact_email = merge.patch.contactEmail;
+    if (merge.patch.existingContactId) {
+      patch.existing_contact_id = merge.patch.existingContactId;
+    }
+    if (merge.patch.callStartsAt) patch.call_starts_at = merge.patch.callStartsAt;
+    if (merge.patch.callEventId) patch.call_event_id = merge.patch.callEventId;
+    if (merge.patch.status) patch.status = merge.patch.status;
+    if (Object.keys(patch).length) {
+      await sb.from("browning_handoffs").update(patch).eq("id", merge.keepId);
+    }
+  }
+  if (plan.dismissIds.length) {
+    await sb
+      .from("browning_handoffs")
+      .update({ status: "dismissed" })
+      .in("id", plan.dismissIds);
+  }
+  return plan.dismissIds.length;
 }
 
 function matchExistingContact(

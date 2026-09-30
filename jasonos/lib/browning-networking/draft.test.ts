@@ -112,4 +112,24 @@ I replied because your note on commercialization and GTM matched the work we are
     );
     assert.equal(declined?.id, "evt-2");
   });
+
+  it("matches Matt/Jason Connect to Matt Ramerman by first-name title", () => {
+    const hit = findBookedCall(
+      [
+        {
+          id: "evt-matt",
+          summary: "Matt/Jason Connect",
+          start: "2026-10-06T18:00:00.000Z",
+          end: "2026-10-06T18:45:00.000Z",
+          attendees: [
+            { email: "jason@kupermanadvisors.com", self: true },
+            { email: "matt@ramermancommunications.com", responseStatus: "needsAction" },
+          ],
+        },
+      ],
+      { email: null, name: "Matt Ramerman" },
+      new Date("2026-09-30T17:00:00.000Z")
+    );
+    assert.equal(hit?.id, "evt-matt");
+  });
 });
