@@ -135,6 +135,64 @@ export async function markHandoffActedOn(handoffId: string): Promise<ActionResul
   return { ok: true };
 }
 
+/** Link an existing calendar event to a waiting handoff — moves them to Meeting set. */
+export async function associateHandoffMeeting(
+  handoffId: string,
+  meeting: {
+    eventId: string;
+    title: string;
+    start: string;
+    end: string;
+  }
+): Promise<ActionResult> {
+  const guard = configured();
+  if (guard) return guard;
+  const eventId = meeting.eventId?.trim();
+  if (!eventId) return { ok: false, error: "Pick a calendar meeting." };
+  const startsAt = Date.parse(meeting.start);
+  const endsAt = Date.parse(meeting.end);
+  if (!Number.isFinite(startsAt) || !Number.isFinite(endsAt) || endsAt <= startsAt) {
+    return { ok: false, error: "That calendar block has no usable time." };
+  }
+  if (startsAt < Date.now() - 12 * 60 * 60 * 1000) {
+    return { ok: false, error: "Pick a future meeting (or one from earlier today)." };
+  }
+
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("browning_handoffs")
+    .select("id, status, call_starts_at, brief")
+    .eq("id", handoffId)
+    .maybeSingle();
+  if (error || !data) return { ok: false, error: error?.message || "Handoff not found." };
+  if (
+    data.call_starts_at ||
+    data.status === "booked" ||
+    data.status === "brief_ready" ||
+    data.status === "thank_you_ready"
+  ) {
+    return { ok: false, error: "This person is already on Meeting set." };
+  }
+  if (data.status !== "acted_on" && data.status !== "follow_up" && data.status !== "times_ready" && data.status !== "draft_ready") {
+    return { ok: false, error: "Only waiting handoffs can be linked to a meeting." };
+  }
+
+  const title = meeting.title?.trim() || "Networking call";
+  const { error: updateError } = await sb
+    .from("browning_handoffs")
+    .update({
+      call_event_id: eventId,
+      call_title: title,
+      call_starts_at: new Date(startsAt).toISOString(),
+      call_ends_at: new Date(endsAt).toISOString(),
+      status: data.brief ? "brief_ready" : "booked",
+    })
+    .eq("id", handoffId);
+  if (updateError) return { ok: false, error: updateError.message };
+  revalidate();
+  return { ok: true };
+}
+
 export async function setHandoffCadence(
   handoffId: string,
   cadence: CadenceInterval

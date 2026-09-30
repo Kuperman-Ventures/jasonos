@@ -1,11 +1,16 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import type { BrowningNetworkingPage, HandoffRecord } from "@/lib/browning-networking/types";
+import type {
+  BrowningNetworkingPage,
+  BusyBlock,
+  HandoffRecord,
+  HandoffSlot,
+} from "@/lib/browning-networking/types";
 import {
   followUpDraft,
   formatSlotLabel,
@@ -16,11 +21,13 @@ import {
 import { displayHandoffName } from "@/lib/browning-networking/dedupe";
 import { handoffLane, isFollowUp, type HandoffLane } from "@/lib/browning-networking/lanes";
 import { addCalendarDays } from "@/lib/browning-networking/slots";
-import { TRACY_EMAIL, type HandoffSlot } from "@/lib/browning-networking/types";
+import { TRACY_EMAIL } from "@/lib/browning-networking/types";
 import { CADENCE_LABELS, type CadenceInterval } from "@/lib/outreach/types";
 import {
+  associateHandoffMeeting,
   checkBrowningHandoffs,
   draftThankYouFromNotes,
+  loadCalendarBusy,
   pullGranolaThankYou,
   markHandoffActedOn,
   openHandoffReply,
@@ -28,6 +35,7 @@ import {
   sendMeetInvite,
   setHandoffCadence,
 } from "@/lib/server-actions/browning-networking";
+import { etYmd } from "@/lib/dates";
 import { SlotCalendar, mondayOf } from "./slot-calendar";
 
 const CADENCES: CadenceInterval[] = ["biweekly", "triweekly", "monthly", "quarterly", "none"];
@@ -44,9 +52,10 @@ export function BrowningNetworkingClient({
     const requested = initialId
       ? page.handoffs.find((row) => row.id === initialId)
       : undefined;
-    if (requested && handoffLane(requested) !== "waiting") return requested.id;
+    if (requested) return requested.id;
     return (
       page.handoffs.find((row) => handoffLane(row) === "reply")?.id ??
+      page.handoffs.find((row) => handoffLane(row) === "waiting")?.id ??
       page.handoffs.find((row) => handoffLane(row) === "scheduled")?.id ??
       ""
     );
@@ -59,6 +68,7 @@ export function BrowningNetworkingClient({
   const replyRows = page.handoffs.filter((row) => laneFor(row) === "reply");
   const waitingRows = page.handoffs.filter((row) => laneFor(row) === "waiting");
   const scheduledRows = page.handoffs.filter((row) => laneFor(row) === "scheduled");
+  const router = useRouter();
 
   return (
     <div className="mx-auto grid max-w-[1400px] gap-4 px-4 py-4 lg:grid-cols-[300px_minmax(0,1fr)]">
@@ -124,7 +134,6 @@ export function BrowningNetworkingClient({
               rows={waitingRows}
               selectedId={selectedId}
               onSelect={setSelectedId}
-              openRow={(row) => isFollowUp(row) || Boolean(row.replyExcerpt)}
               lane="waiting"
             />
             <HandoffLaneList
@@ -139,9 +148,18 @@ export function BrowningNetworkingClient({
       </aside>
       {selected && selected.replyExcerpt && selectedLane === "waiting" ? (
         <InvitePanel key={selected.id} handoff={selected} />
-      ) : selected && isFollowUp(selected) ? (
-        <FollowUpPanel key={selected.id} handoff={selected} />
-      ) : selected && selectedLane !== "waiting" ? (
+      ) : selected && selectedLane === "waiting" ? (
+        <WaitingAssociatePanel
+          key={selected.id}
+          handoff={selected}
+          busy={page.busy}
+          eligibleYmd={page.eligibleYmd}
+          onLinked={() => {
+            setSelectedId("");
+            router.refresh();
+          }}
+        />
+      ) : selected ? (
         <HandoffDetail
           key={selected.id}
           handoff={selected}
@@ -152,17 +170,160 @@ export function BrowningNetworkingClient({
             setSelectedId("");
           }}
         />
-      ) : waitingRows.some((row) => isFollowUp(row)) ? (
-        <p className="text-sm text-muted-foreground">
-          Select a follow-up on the left. Follow Up opens a reply to the last note you sent.
-        </p>
       ) : waitingRows.length > 0 ? (
         <p className="text-sm text-muted-foreground">
-          Waiting for them to schedule. Nothing to send from here.
+          Select someone waiting on the left. Offered times stay highlighted — click an existing
+          calendar meeting to link it and move them to Meeting set.
         </p>
       ) : (
         <div />
       )}
+    </div>
+  );
+}
+
+function WaitingAssociatePanel({
+  handoff,
+  busy,
+  eligibleYmd,
+  onLinked,
+}: {
+  handoff: HandoffRecord;
+  busy: BrowningNetworkingPage["busy"];
+  eligibleYmd: string;
+  onLinked: () => void;
+}) {
+  const firstSlotYmd = [...handoff.slots]
+    .map((slot) => etYmd(slot.start))
+    .filter(Boolean)
+    .sort()[0];
+  const [weekMonday, setWeekMonday] = useState(mondayOf(firstSlotYmd || eligibleYmd));
+  const [weekBusy, setWeekBusy] = useState<BusyBlock[]>(busy);
+  const [picked, setPicked] = useState<BusyBlock | null>(null);
+  const [pending, start] = useTransition();
+  const followUp = isFollowUp(handoff);
+  const followBody = followUp ? followUpDraft(handoff.contactName) : null;
+  const followSubject = replySubject(handoff.lastOutreachSubject || handoff.subject);
+
+  useEffect(() => {
+    let cancelled = false;
+    const toYmd = addCalendarDays(weekMonday, 4);
+    void loadCalendarBusy(weekMonday, toYmd).then((rows) => {
+      if (!cancelled && Array.isArray(rows) && rows.length) setWeekBusy(rows);
+      else if (!cancelled) {
+        setWeekBusy(
+          busy.filter((block) => {
+            const day = block.start.includes("T") ? etYmd(block.start) : block.start.slice(0, 10);
+            return day >= weekMonday && day <= toYmd;
+          })
+        );
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [weekMonday, busy]);
+
+  return (
+    <div className="space-y-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">{displayHandoffName(handoff)}</h2>
+          <p className="text-xs text-muted-foreground">
+            Amber blocks are the times you offered. Gray is already on your calendar. Click a gray
+            meeting to link it to {displayHandoffName(handoff)} and clear Waiting — nothing else on
+            this calendar can be changed.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setWeekMonday(addCalendarDays(weekMonday, -7))}
+            aria-label="Previous week"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setWeekMonday(addCalendarDays(weekMonday, 7))}
+            aria-label="Next week"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </header>
+
+      {followUp ? (
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold">Follow up</h3>
+          <pre className="whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-sm">
+            {followBody}
+          </pre>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={!handoff.contactEmail}
+            onClick={() => {
+              if (!handoff.contactEmail || !followBody) return;
+              window.location.href = replyComposeUrl({
+                to: handoff.contactEmail,
+                subject: followSubject,
+                body: followBody,
+              });
+              toast.success("Opening Mail… finish the send there.");
+            }}
+          >
+            Follow Up in Apple Mail
+          </Button>
+        </section>
+      ) : null}
+
+      <SlotCalendar
+        slots={handoff.slots}
+        busy={weekBusy}
+        eligibleYmd={eligibleYmd}
+        weekMonday={weekMonday}
+        readOnly
+        selectedEventId={picked?.eventId ?? null}
+        onSelectMeeting={(block) => setPicked(block)}
+      />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          disabled={pending || !picked?.eventId}
+          onClick={() => {
+            if (!picked?.eventId) return;
+            start(async () => {
+              const result = await associateHandoffMeeting(handoff.id, {
+                eventId: picked.eventId!,
+                title: picked.title,
+                start: picked.start,
+                end: picked.end,
+              });
+              if (!result.ok) toast.error(result.error);
+              else {
+                toast.success(
+                  `Linked “${picked.title}” — ${displayHandoffName(handoff)} is on Meeting set.`
+                );
+                onLinked();
+              }
+            });
+          }}
+        >
+          Link selected meeting
+        </Button>
+        {picked ? (
+          <p className="text-xs text-muted-foreground">
+            Selected: {picked.title} · {formatSlotLabel(picked.start)}
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Select a gray meeting on the calendar, then link it.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -542,49 +703,6 @@ function HandoffLaneLabel({ row, lane }: { row: HandoffRecord; lane?: HandoffLan
       <div className="text-sm font-medium">{displayHandoffName(row)}</div>
       <div className="text-[11px] text-muted-foreground">{statusLabel(row, lane)}</div>
     </>
-  );
-}
-
-function FollowUpPanel({ handoff }: { handoff: HandoffRecord }) {
-  const body = followUpDraft(handoff.contactName);
-  const subject = replySubject(handoff.lastOutreachSubject || handoff.subject);
-  const sent = handoff.lastOutreachSentAt
-    ? new Date(handoff.lastOutreachSentAt).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        timeZone: "America/New_York",
-      })
-    : null;
-  return (
-    <div className="space-y-4">
-      <header>
-        <h2 className="text-lg font-semibold">{handoff.contactName || "This contact"}</h2>
-        <p className="text-xs text-muted-foreground">
-          {sent ? `You wrote them ${sent}.` : "You already wrote them."} No meeting is on your calendar.
-        </p>
-      </header>
-      <section className="space-y-2">
-        <h3 className="text-sm font-semibold">Follow up</h3>
-        <pre className="whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-sm">{body}</pre>
-        <Button
-          disabled={!handoff.contactEmail}
-          onClick={() => {
-            if (!handoff.contactEmail) return;
-            window.location.href = replyComposeUrl({
-              to: handoff.contactEmail,
-              subject,
-              body,
-            });
-            toast.success("Opening Mail… finish the send there.");
-          }}
-        >
-          Follow Up
-        </Button>
-        <p className="text-xs text-muted-foreground">
-          This replies to the last note you sent. Nothing sends until you send it from Apple Mail.
-        </p>
-      </section>
-    </div>
   );
 }
 

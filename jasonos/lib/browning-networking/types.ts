@@ -12,6 +12,8 @@ export type BusyBlock = {
   end: string;
   allDay?: boolean;
   title: string;
+  /** Google Calendar event id when this block is a real meeting (not free/busy). */
+  eventId?: string | null;
 };
 
 export type HandoffBrief = {
