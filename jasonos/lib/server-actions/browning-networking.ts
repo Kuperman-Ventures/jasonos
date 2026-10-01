@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { etYmd } from "@/lib/dates";
 import { loadBusy } from "@/lib/browning-networking/data";
 import { canEditOfferedTimes } from "@/lib/browning-networking/lanes";
-import { connectMeetingTitle, thankYouDraft } from "@/lib/browning-networking/draft";
+import { connectMeetingTitle } from "@/lib/browning-networking/draft";
+import { composeThankYouDraft } from "@/lib/browning-networking/thank-you-compose";
 import { searchGranolaForContact } from "@/lib/integrations/granola";
 import { persistDraft, runBrowningNetworking } from "@/lib/browning-networking/run";
 import { createGoogleMeetInvite } from "@/lib/integrations/google-calendar";
@@ -234,14 +235,14 @@ export async function draftThankYouFromNotes(
     .eq("id", handoffId)
     .maybeSingle();
   if (error || !data) return { ok: false, error: error?.message || "Handoff not found." };
-  const body = thankYouDraft({
+  const composed = await composeThankYouDraft({
     name: (data.contact_name as string | null) ?? null,
     summary,
   });
   const { error: updateError } = await sb
     .from("browning_handoffs")
     .update({
-      thank_you_body: body,
+      thank_you_body: composed.body,
       thank_you_source: "notes",
       status: "thank_you_ready",
     })
@@ -274,11 +275,11 @@ export async function pullGranolaThankYou(
   if (!note.found || !note.summary) {
     return { ok: false, error: note.error || "No Granola note for this call yet." };
   }
-  const body = thankYouDraft({ name, summary: note.summary });
+  const composed = await composeThankYouDraft({ name, summary: note.summary });
   const { error: updateError } = await sb
     .from("browning_handoffs")
     .update({
-      thank_you_body: body,
+      thank_you_body: composed.body,
       thank_you_source: "granola",
       status: "thank_you_ready",
     })
