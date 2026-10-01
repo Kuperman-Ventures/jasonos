@@ -10,6 +10,7 @@ import { checkBrowningHandoffs } from "@/lib/server-actions/browning-networking"
 import { scanJobAlerts } from "@/lib/server-actions/job-opportunities";
 import { captureEmailCandidates } from "@/lib/server-actions/contact-candidates";
 import { captureMeetingFollowups } from "@/lib/server-actions/meeting-followups";
+import { captureSentEmailFollowups } from "@/lib/server-actions/sent-followups";
 import {
   SUGGESTED_SCAN_DAYS_BACK,
   SUGGESTED_SCAN_DAYS_FORWARD,
@@ -26,14 +27,21 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
   const router = useRouter();
   const [running, setRunning] = useState(false);
 
-  // One click runs the full capture: Gmail sent + Calendar meetings, and the
-  // suggested-contacts email scan — no confirmation modal.
+  // One click runs the full capture: Gmail sent + Calendar meetings, meeting
+  // Follow Up, Sent Follow Up, and the suggested-contacts email scan.
   const handleSync = async () => {
     if (running) return;
     setRunning(true);
     try {
       const runId = crypto.randomUUID();
-      const [result, suggested, meetingFollowups, browning, jobAlerts] = await Promise.all([
+      const [
+        result,
+        suggested,
+        meetingFollowups,
+        sentFollowups,
+        browning,
+        jobAlerts,
+      ] = await Promise.all([
         syncOutreachAll({
           daysBack: SUGGESTED_SCAN_DAYS_BACK,
           daysForward: SUGGESTED_SCAN_DAYS_FORWARD,
@@ -45,6 +53,10 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
           runId,
         }),
         captureMeetingFollowups({
+          runId,
+        }),
+        captureSentEmailFollowups({
+          daysBack: SUGGESTED_SCAN_DAYS_BACK,
           runId,
         }),
         checkBrowningHandoffs(runId),
@@ -141,18 +153,36 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
         messages.push(`Browning failed: ${browning.error}`);
       }
 
-      let followUpFatal = false;
+      let meetingFollowUpFatal = false;
       if (meetingFollowups.ok) {
-        const bits = [`+${meetingFollowups.created} follow-up${meetingFollowups.created === 1 ? "" : "s"}`];
+        const bits = [
+          `+${meetingFollowups.created} follow-up${meetingFollowups.created === 1 ? "" : "s"}`,
+        ];
         if (meetingFollowups.resolved) {
           bits.push(`${meetingFollowups.resolved} cleared`);
         }
-        messages.push(`Follow Up ${bits.join(", ")}`);
+        messages.push(`Meeting Follow Up ${bits.join(", ")}`);
       } else if (meetingFollowups.unavailable) {
         messages.push(meetingFollowups.error);
       } else {
-        followUpFatal = true;
-        messages.push(`Follow Up failed: ${meetingFollowups.error}`);
+        meetingFollowUpFatal = true;
+        messages.push(`Meeting Follow Up failed: ${meetingFollowups.error}`);
+      }
+
+      let sentFollowUpFatal = false;
+      if (sentFollowups.ok) {
+        const bits = [
+          `+${sentFollowups.created} follow-up${sentFollowups.created === 1 ? "" : "s"}`,
+        ];
+        if (sentFollowups.updated) {
+          bits.push(`${sentFollowups.updated} updated`);
+        }
+        messages.push(`Sent Follow Up ${bits.join(", ")}`);
+      } else if (sentFollowups.unavailable) {
+        messages.push(sentFollowups.error);
+      } else {
+        sentFollowUpFatal = true;
+        messages.push(`Sent Follow Up failed: ${sentFollowups.error}`);
       }
 
       const beeperFatal = Boolean(
@@ -166,7 +196,8 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
         !suggestedFatal &&
         !beeperFatal &&
         !outlookFatal &&
-        !followUpFatal &&
+        !meetingFollowUpFatal &&
+        !sentFollowUpFatal &&
         !browningFatal &&
         !jobAlertsFatal;
       const mailboxWarning = Boolean(
@@ -185,7 +216,8 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
         !beeperFatal &&
         !outlookFatal &&
         !suggestedFatal &&
-        !followUpFatal &&
+        !meetingFollowUpFatal &&
+        !sentFollowUpFatal &&
         !browningFatal &&
         !jobAlertsFatal &&
         anyMailboxOk;
@@ -219,8 +251,8 @@ export function SyncNowButton({ initial = [] }: SyncNowButtonProps) {
       disabled={running}
       title={
         lastSynced
-          ? `Last synced ${fmtRelative(lastSynced)} — Gmail, Outlook, Calendar, Follow Up, job alerts, Browning handoffs, Beeper (when open) & suggested contacts`
-          : "Sync Gmail, Outlook, Calendar, Follow Up, job alerts, Browning handoffs, Beeper (when Desktop is open) & suggested contacts"
+          ? `Last synced ${fmtRelative(lastSynced)} — Gmail, Outlook, Calendar, Meeting Follow Up, Sent Follow Up, job alerts, Browning handoffs, Beeper (when open) & suggested contacts`
+          : "Sync Gmail, Outlook, Calendar, Meeting Follow Up, Sent Follow Up, job alerts, Browning handoffs, Beeper (when Desktop is open) & suggested contacts"
       }
     >
       {running ? (
