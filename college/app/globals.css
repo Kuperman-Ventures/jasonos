@@ -883,6 +883,104 @@ footer {
 
 .school-cards { display: none; }
 .school-card { margin-bottom: var(--space-3); cursor: pointer; }
+
+/* Mobile college list: view-only name · selectivity · interest; tap opens website. */
+.colleges-mobile {
+  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-4)) calc(-1 * var(--space-8));
+  padding: var(--space-5) var(--space-4) var(--space-8);
+  min-height: calc(100% + var(--space-6) + var(--space-8));
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+.colleges-mobile-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+.colleges-mobile-head h1 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.colleges-mobile-count {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-subtle);
+}
+.colleges-mobile-empty {
+  margin: var(--space-6) 0 0;
+  color: var(--text-muted);
+  font-size: 15px;
+}
+.colleges-mobile-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--color-border);
+}
+.colleges-mobile-list > li {
+  border-bottom: 1px solid var(--color-border);
+}
+.colleges-mobile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 56px;
+  padding: 12px 2px;
+  color: inherit;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+a.colleges-mobile-row:active {
+  background: var(--hover-fill);
+}
+.colleges-mobile-row.is-static {
+  cursor: default;
+}
+.colleges-mobile-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.colleges-mobile-name > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.colleges-mobile-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex: none;
+  text-align: right;
+}
+.colleges-mobile-tier {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.colleges-mobile-interest {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--color-text);
+}
+.colleges-mobile-interest[data-level="top"] { color: var(--lvl-4-fg, var(--text-accent)); }
+.colleges-mobile-interest[data-level="high"] { color: var(--lvl-3-fg, var(--text-accent)); }
+.colleges-mobile-interest[data-level="moderate"] { color: var(--lvl-2-fg, var(--text-muted)); }
+.colleges-mobile-interest[data-level="safety"] { color: var(--lvl-1-fg, var(--text-muted)); }
 .school-card h3 { font-size: 22px; margin-bottom: var(--space-2); }
 .card-meta {
   display: flex;
@@ -2838,7 +2936,8 @@ table.schools .muted,
     white-space: nowrap;
   }
   .table-wrap.schools-wrap { display: none; }
-  .school-cards { display: block; }
+  /* Mobile uses CollegesMobileList instead of the old editable school cards. */
+  .school-cards { display: none; }
   .track-item {
     grid-template-columns: 28px minmax(0, 1fr);
     column-gap: var(--space-3);

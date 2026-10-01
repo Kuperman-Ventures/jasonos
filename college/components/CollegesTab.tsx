@@ -64,6 +64,8 @@ import type { RequirementProgressMap, RequirementStatus } from "@/lib/requiremen
 import type { TodoEditMap } from "@/lib/project-todos";
 import type { RequirementKey } from "@/lib/school-requirements";
 import { AddSchoolDialog } from "./AddSchoolDialog";
+import { CollegesMobileList } from "./CollegesMobileList";
+import { useViewportMode } from "@/lib/use-viewport-mode";
 import { ArrowsDownUp, Columns } from "@phosphor-icons/react";
 
 export function CollegesTab({
@@ -154,6 +156,7 @@ export function CollegesTab({
   canViewFinancesTab?: boolean;
 }) {
   const canAdvance = canAdvanceListPhase({ id: memberId, role: memberRole });
+  const viewport = useViewportMode();
   const [phaseId, setPhaseId] = useState<ListPhaseId>("exploration");
   const [query, setQuery] = useState("");
   const [tier, setTier] = useState<SelectivityTier | "any">("any");
@@ -560,6 +563,10 @@ export function CollegesTab({
     const index = LIST_PHASES.findIndex((item) => item.id === phaseId);
     const next = LIST_PHASES[index + delta];
     if (next) setPhaseId(next.id);
+  }
+
+  if (viewport === "mobile") {
+    return <CollegesMobileList schools={schools} />;
   }
 
   return (
