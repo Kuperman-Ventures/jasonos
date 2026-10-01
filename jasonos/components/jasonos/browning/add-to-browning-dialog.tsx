@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Loader2, Search } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import {
   Select,
   SelectContent,
@@ -125,15 +125,13 @@ export function AddToBrowningDialog({ open, onOpenChange }: Props) {
             <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Find contact
             </label>
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="h-8 pl-8 text-xs"
-                placeholder="Type a name…"
-              />
-            </div>
+            <SearchInput
+              value={query}
+              onValueChange={setQuery}
+              inputClassName="h-8 text-xs"
+              placeholder="Type a name…"
+              aria-label="Find contact"
+            />
             <div className="mt-2 max-h-56 overflow-y-auto rounded-md border bg-card/40">
               {searching && filteredResults.length === 0 ? (
                 <div className="flex items-center gap-2 p-3 text-xs text-muted-foreground">

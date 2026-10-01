@@ -9,7 +9,6 @@ import {
   useTransition,
 } from "react";
 import {
-  Search,
   ArrowDownUp,
   ChevronDown,
   ChevronRight,
@@ -21,7 +20,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Slider } from "@/components/ui/slider";
 import {
   Select,
@@ -595,15 +594,14 @@ function ControlsRow({
   const pickWord = selectedCount === 1 ? "pick" : "picks";
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative flex-1 min-w-[200px]">
-        <Search className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => onSearch(e.target.value)}
-          placeholder="Search name, title, email…"
-          className="h-8 pl-7 text-xs"
-        />
-      </div>
+      <SearchInput
+        value={search}
+        onValueChange={onSearch}
+        placeholder="Search name, title, email…"
+        className="min-w-[200px] flex-1"
+        inputClassName="h-8 text-xs"
+        aria-label="Search ranker"
+      />
 
       <Select value={strategy} onValueChange={(v) => onStrategy(v as RankStrategy)}>
         <SelectTrigger className="h-8 w-[180px] text-xs">

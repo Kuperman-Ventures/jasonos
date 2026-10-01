@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
-  Search,
   Link2,
   Mail,
   Star,
@@ -15,8 +14,8 @@ import {
   Archive,
   X,
 } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { SearchInput } from "@/components/ui/search-input";
 import { cn } from "@/lib/utils";
 import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
 import { TierDegreeBadge } from "@/components/jasonos/outreach/tier-degree-badge";
@@ -190,15 +189,13 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
         </header>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-full max-w-xs">
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search name, firm, title, email…"
-              className="h-9 pl-8"
-            />
-          </div>
+          <SearchInput
+            value={query}
+            onValueChange={setQuery}
+            placeholder="Search name, firm, title, email…"
+            className="w-full max-w-xs"
+            aria-label="Search people"
+          />
           <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <ArrowDownWideNarrow className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Sort</span>

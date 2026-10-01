@@ -24,12 +24,11 @@ import {
   Mail,
   Plus,
   Radar,
-  Search,
   Snowflake,
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { cn } from "@/lib/utils";
 import { etToday } from "@/lib/dates";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
@@ -522,16 +521,13 @@ export function ThreeColumnQueueClient({
       </header>
 
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search name or firm…"
-            className="h-9 pl-8"
-          />
-        </div>
+        <SearchInput
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          placeholder="Search name or firm…"
+          className="w-full max-w-xs"
+          aria-label="Search queue"
+        />
         <ReconnectSummaryStrip
           network_growth={counts.network_growth}
           network_maintenance={counts.network_maintenance}

@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { FileText, Plus, Search, Sparkles } from "lucide-react";
+import { FileText, Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -107,15 +107,13 @@ export function PipelinePanel({ contacts }: Props) {
           <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Search
           </label>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="h-8 pl-8 text-xs"
-              placeholder="Name, title, company…"
-            />
-          </div>
+          <SearchInput
+            value={query}
+            onValueChange={setQuery}
+            inputClassName="h-8 text-xs"
+            placeholder="Name, title, company…"
+            aria-label="Search Browning contacts"
+          />
         </div>
         <div>
           <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">

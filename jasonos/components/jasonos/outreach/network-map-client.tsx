@@ -21,13 +21,13 @@ import {
   type RelevanceTier,
 } from "@/lib/outreach/types";
 import {
-  Search,
   ZoomIn,
   ZoomOut,
   Maximize2,
   Crosshair,
   RotateCcw,
 } from "lucide-react";
+import { SearchInput } from "@/components/ui/search-input";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 
 type SimNode = NetworkMapNode & {
@@ -688,15 +688,14 @@ export function NetworkMapClient({ data }: { data: NetworkMapData }) {
       {/* Canvas */}
       <div className="relative min-h-0 min-w-0 flex-1">
         <div className="absolute inset-x-0 top-0 z-10 flex flex-wrap items-center gap-2 border-b bg-background/85 px-3 py-2 backdrop-blur">
-          <div className="relative min-w-[180px] flex-1 max-w-xs">
-            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search people or firms…"
-              className="h-8 w-full rounded-md border bg-background pl-7 pr-2 text-sm outline-none focus:border-foreground/40"
-            />
-          </div>
+          <SearchInput
+            value={query}
+            onValueChange={setQuery}
+            placeholder="Search people or firms…"
+            className="min-w-[180px] max-w-xs flex-1"
+            inputClassName="h-8 text-sm"
+            aria-label="Search network map"
+          />
           <div className="flex flex-wrap items-center gap-1">
             <span className="px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Deg

@@ -30,6 +30,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1476,12 +1477,13 @@ function ReferralsCard({
                     })}
                 </div>
               ) : null}
-              <Input
+              <SearchInput
                 value={refQuery}
-                onChange={(e) => setRefQuery(e.target.value)}
-                className="h-8 text-xs"
+                onValueChange={setRefQuery}
+                inputClassName="h-8 text-xs"
                 placeholder="Or search your contacts by name…"
                 autoFocus
+                aria-label="Search contacts for referrer"
               />
               {refResults.length > 0 ? (
                 <ul className="max-h-44 overflow-auto rounded-md border border-border bg-popover">
