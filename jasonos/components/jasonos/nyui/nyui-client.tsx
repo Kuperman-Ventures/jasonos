@@ -15,10 +15,11 @@ import {
   Trash2,
   Info,
   Loader2,
-  Search,
   ExternalLink,
+  Search,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { DatePickerField } from "@/components/ui/date-picker";
 import {
   addWorkSearch,
@@ -2423,17 +2424,13 @@ function AllActivity({
         </StatusBadge>
       </div>
 
-      <div className="relative w-full max-w-sm">
-        <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search activity…"
-          className="h-9 pl-8"
-          aria-label="Search activity"
-        />
-      </div>
+      <SearchInput
+        value={query}
+        onValueChange={setQuery}
+        placeholder="Search activity…"
+        className="w-full max-w-sm"
+        aria-label="Search activity"
+      />
 
       {matchCount === 0 ? (
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm text-center py-12">

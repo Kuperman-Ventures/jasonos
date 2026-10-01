@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { CheckCircle2, Plus, Radar, Search } from "lucide-react";
+import { CheckCircle2, Plus, Radar } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { AskDispatchButton } from "@/components/dispatch/AskDispatchButton";
 import type { Intent } from "@/lib/triage/types";
 import type {
@@ -254,16 +254,13 @@ export function ReconnectClient({
       </header>
 
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search name or firm…"
-            className="h-9 pl-8"
-          />
-        </div>
+        <SearchInput
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          placeholder="Search name or firm…"
+          className="w-full max-w-xs"
+          aria-label="Search reconnect"
+        />
         <IntentFilterChips
           selected={intentFilter}
           counts={intentCounts}

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Mail, Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Loader2, Mail } from "lucide-react";
+import { SearchInput } from "@/components/ui/search-input";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import {
   searchContactsForEmailTemplate,
@@ -51,16 +51,14 @@ export function ContactPicker({
 
   return (
     <div className="space-y-3">
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="h-9 pl-8 text-sm"
-          placeholder="Search contacts by name…"
-          autoFocus={autoFocus}
-        />
-      </div>
+      <SearchInput
+        value={query}
+        onValueChange={setQuery}
+        inputClassName="text-sm"
+        placeholder="Search contacts by name…"
+        autoFocus={autoFocus}
+        aria-label="Search contacts"
+      />
 
       <div className="max-h-80 overflow-y-auto rounded-md border bg-background/40">
         {searching && results.length === 0 ? (

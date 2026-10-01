@@ -20,7 +20,6 @@ import {
   Phone,
   RefreshCw,
   RotateCcw,
-  Search,
   SlidersHorizontal,
   Trash2,
   User,
@@ -29,7 +28,7 @@ import {
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import type {
   CommunicationsContact,
   CommChannel,
@@ -361,15 +360,13 @@ export function CommunicationsClient({
             </div>
           </div>
 
-          <div className="relative">
-            <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search name or company…"
-              className="pl-7 h-8 text-xs"
-            />
-          </div>
+          <SearchInput
+            value={query}
+            onValueChange={setQuery}
+            placeholder="Search name or company…"
+            inputClassName="h-8 text-xs"
+            aria-label="Search schedule"
+          />
 
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />

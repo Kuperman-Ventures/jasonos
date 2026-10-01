@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Search, X } from "lucide-react";
+import { X } from "lucide-react";
 import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import { PageHeader } from "@/components/jasonos/brand/page-header";
 import { cn } from "@/lib/utils";
 import {
@@ -159,17 +159,13 @@ export function ScoreboardClient({
             </p>
           </div>
 
-          <div className="relative w-full max-w-xs">
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search company or role…"
-              className="h-9 pl-8"
-              aria-label="Search applications"
-            />
-          </div>
+          <SearchInput
+            value={query}
+            onValueChange={setQuery}
+            placeholder="Search company or role…"
+            className="w-full max-w-xs"
+            aria-label="Search applications"
+          />
         </div>
 
         <div className="overflow-hidden rounded-xl border border-border bg-card">

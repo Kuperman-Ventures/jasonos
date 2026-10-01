@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
-import { ArrowLeft, ChevronDown, ChevronRight, Search } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/ui/search-input";
 import type { Intent } from "@/lib/triage/types";
 import type {
   ReconnectContact,
@@ -125,15 +125,12 @@ export function ReconnectContactsClient({
 
       <section className="rounded-xl border bg-card p-3">
         <div className="grid gap-3 lg:grid-cols-[minmax(220px,1fr)_auto_auto_auto]">
-          <div className="relative">
-            <Search className="absolute left-2 top-2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search name, firm, specialty, summary..."
-              className="pl-8"
-            />
-          </div>
+          <SearchInput
+            value={query}
+            onValueChange={setQuery}
+            placeholder="Search name, firm, specialty, summary..."
+            aria-label="Search contacts"
+          />
           <FilterGroup values={TIERS} selected={tiers} onToggle={toggle(tiers, setTiers)} />
           <FilterGroup
             values={STATUSES}
