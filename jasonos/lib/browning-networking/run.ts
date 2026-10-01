@@ -36,7 +36,12 @@ import { loadBusy } from "./data";
 import { firstEligibleYmd, lastEligibleYmd, proposeSlots } from "./slots";
 import { isAlreadyTracked, FOLLOW_UP_LOOKBACK_DAYS, shouldQueueFollowUp } from "./follow-up";
 import { canEditOfferedTimes } from "./lanes";
-import { meetingBrief } from "./meeting-brief";
+import {
+  BROWNING_PREP_GOAL,
+  isConnectTitleGoal,
+  isPollutedMeetingBrief,
+  meetingBrief,
+} from "./meeting-brief";
 import { matchOfferedSlot, replyWords } from "./chosen-time";
 import { extractDocxText, extractPdfText } from "@/lib/resume-customizer/extract";
 import { HANDOFF_OPENING, TRACY_EMAIL, type HandoffSlot, type HandoffStatus, type ParsedHandoff } from "./types";
@@ -443,7 +448,13 @@ async function writeMeetingBriefs(
     );
     if (!row?.id) continue;
     const previousBrief = row.meeting_brief ?? "";
-    if (previousBrief.startsWith("Who they are")) continue;
+    // Keep clean structured briefs; rewrite ones polluted by signatures/quotes.
+    if (
+      previousBrief.startsWith("Who they are") &&
+      !isPollutedMeetingBrief(previousBrief)
+    ) {
+      continue;
+    }
     const messageId = item.resumeMessageId || item.mail.messageId;
     const file = await loadResumeFile(item.mail.accountEmail, messageId);
     const brief = meetingBrief({
@@ -478,6 +489,21 @@ async function writeMeetingBriefs(
         .eq("contact_id", contactId)
         .eq("status", "scheduled")
         .is("prep_notes", null);
+      // Connect calendar titles are not useful Meeting Prep goals.
+      const { data: goals } = await sb
+        .from("meetings")
+        .select("id, prep_goal")
+        .eq("contact_id", contactId)
+        .eq("status", "scheduled");
+      for (const meeting of goals ?? []) {
+        if (!isConnectTitleGoal(meeting.prep_goal as string | null, item.parsed.name)) {
+          continue;
+        }
+        await sb
+          .from("meetings")
+          .update({ prep_goal: BROWNING_PREP_GOAL })
+          .eq("id", meeting.id as string);
+      }
     }
     wrote += 1;
   }

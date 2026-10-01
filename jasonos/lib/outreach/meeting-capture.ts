@@ -90,6 +90,8 @@ export async function upsertMeetingsFromCalendar(
     const existing = existingByKey.get(key);
     if (!existing) {
       const research = researchByContact.get(row.contactId);
+      // Browning "Jason/Name: Connect" calendar titles are labels, not goals.
+      const connectTitle = /^Jason Kuperman\/.+: Connect$/i.test(row.title ?? "");
       toInsert.push({
         contact_id: row.contactId,
         scheduled_at: row.scheduledAt,
@@ -98,7 +100,7 @@ export async function upsertMeetingsFromCalendar(
         title: row.title,
         calendar_url: row.calendarUrl,
         gcal_event_id: row.gcalEventId,
-        prep_goal: row.title,
+        prep_goal: connectTitle ? null : row.title,
         held_at: row.status === "held" ? row.scheduledAt : null,
         prep_research: research?.brief ?? null,
         prep_research_at: research?.researchedAt ?? null,
@@ -114,7 +116,8 @@ export async function upsertMeetingsFromCalendar(
     };
     if (row.title) {
       payload.title = row.title;
-      if (!(existing.prep_goal as string | null)) {
+      const connectTitle = /^Jason Kuperman\/.+: Connect$/i.test(row.title);
+      if (!(existing.prep_goal as string | null) && !connectTitle) {
         payload.prep_goal = row.title;
       }
     }

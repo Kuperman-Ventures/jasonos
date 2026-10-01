@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { meetingBrief, prepSections } from "./meeting-brief";
+import {
+  isConnectTitleGoal,
+  isPollutedMeetingBrief,
+  meetingBrief,
+  prepSections,
+} from "./meeting-brief";
 import { HANDOFF_OPENING } from "./types";
 
 describe("meeting brief", () => {
@@ -63,5 +68,38 @@ Managed a global team of 17 project managers delivering over 2,350 projects a ye
     assert.doesNotMatch(brief ?? "", /What to talk about/);
     assert.doesNotMatch(brief ?? "", /mutually beneficial/);
     assert.doesNotMatch(brief ?? "", /LinkedIn/);
+  });
+
+  it("drops Tracy's signature and Matt's scheduling quote from Why", () => {
+    const brief = meetingBrief({
+      name: "Matthew Deutsch",
+      whyTheyReplied: null,
+      tracyBody: `Good Morning Matt,
+(551-427-6711)
+Thank you for your reply and interest in Executive Networking with Jason Kuperman.
+Best Wishes, Tracy --- Tracy SantaMaria Browning Associates On 2026-09-23 12:53, Matt Deutsch wrote: > Hi Tracery, > > I am happy to connect with Jason. I am available Thursday, or Friday > after 5pm or any day next week after 5.`,
+      resumeText: `Chaos (Cylindo), Boston MA Nov 2021 – Feb 2025 Director Project Management
+Directed the Project Management department, overseeing the timely delivery of 3D assets and projects for 150+ B2B and B2C furniture retailers.
+Managed a global team of 17 project managers delivering over 2,350 projects and 42,760 assets annually.`,
+    });
+    assert.match(brief ?? "", /Who they are/);
+    assert.match(brief ?? "", /Chaos \(Cylindo\)/);
+    assert.match(brief ?? "", /Resume/);
+    assert.doesNotMatch(brief ?? "", /Why Tracy thinks you should talk/);
+    assert.doesNotMatch(brief ?? "", /Best Wishes/);
+    assert.doesNotMatch(brief ?? "", /Tracy SantaMaria/);
+    assert.doesNotMatch(brief ?? "", /after 5pm/);
+    assert.doesNotMatch(brief ?? "", /wrote:/);
+    assert.equal(isPollutedMeetingBrief(brief), false);
+    assert.equal(
+      isPollutedMeetingBrief(
+        "Who they are\nChaos\n\nWhy Tracy thinks you should talk\nBest Wishes, Tracy --- Tracy SantaMaria"
+      ),
+      true
+    );
+    assert.equal(
+      isConnectTitleGoal("Jason Kuperman/Matthew Deutsch: Connect", "Matthew Deutsch"),
+      true
+    );
   });
 });
