@@ -146,6 +146,8 @@ describe("dedupeOutlookMessages", () => {
       date: "2026-03-01T00:00:00.000Z",
       snippet: "",
       webLink: null,
+      conversationId: null,
+      internetMessageId: null,
     };
     const second = { ...first, subject: "second" };
     assert.deepEqual(dedupeOutlookMessages([first, second]).map((m) => m.subject), ["first"]);

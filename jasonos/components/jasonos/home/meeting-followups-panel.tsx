@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, Mail } from "lucide-react";
+import { Calendar, ChevronDown } from "lucide-react";
 import { StatusBand, StatusPill } from "@/components/jasonos/brand/status";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -100,7 +100,7 @@ export function MeetingFollowupsPanel({ rows }: { rows: MeetingFollowup[] }) {
         className="w-full text-left"
       >
         <StatusBand rung={3}>
-          <Mail className="h-5 w-5" />
+          <Calendar className="h-5 w-5" />
           <h2 className="text-[17px] font-bold tracking-tight">Follow Up</h2>
           <StatusPill rung={4} className="ml-auto">
             {visible.length}

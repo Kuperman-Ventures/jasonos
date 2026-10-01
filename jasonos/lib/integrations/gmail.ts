@@ -482,7 +482,7 @@ export async function listGoogleSentMailHits(opts?: {
       );
       const detailed = await mapWithConcurrency(messages, 4, (m) =>
         gmailFetch<GmailMsgResp>(
-          `/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Subject&metadataHeaders=Date`,
+          `/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=Message-ID`,
           token
         )
       );
@@ -504,6 +504,7 @@ export async function listGoogleSentMailHits(opts?: {
           toLine: qualified.toLine,
           recipients: qualified.recipients,
           accountEmail,
+          rfc822MessageId: mapped.rfc822MessageId ?? null,
         });
       }
     } catch (err) {

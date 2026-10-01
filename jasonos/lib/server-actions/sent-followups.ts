@@ -2,9 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { etToday } from "@/lib/dates";
-import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
+import { appleMailMessageUrl } from "@/lib/integrations/apple-mail-links";
 import {
-  getGmailThread,
   getGmailThreadForAccount,
   listGoogleSentMailHits,
   type GmailThreadMessage,
@@ -45,7 +44,8 @@ export interface SentEmailFollowup {
   followUpDays: number | null;
   followUpDue: string | null;
   gmailThreadId: string;
-  gmailUrl: string;
+  /** Apple Mail message:// URL when RFC 822 Message-ID is known. */
+  appleMailUrl: string | null;
   accountEmail: string;
   daysOverdue: number;
 }
@@ -82,6 +82,7 @@ interface FollowupRow {
   follow_up_days: number | null;
   follow_up_due: string | null;
   thread_url?: string | null;
+  rfc822_message_id?: string | null;
 }
 
 function asRecipients(value: unknown): MailAddress[] {
@@ -100,16 +101,6 @@ function asRecipients(value: unknown): MailAddress[] {
   return out;
 }
 
-function threadUrlFor(row: FollowupRow): string {
-  const stored = row.thread_url?.trim();
-  if (stored) return stored;
-  const account = (row.account_email || "").toLowerCase();
-  if (account === OUTLOOK_ACCOUNT_EMAIL.toLowerCase()) {
-    return "https://outlook.live.com/mail/0/";
-  }
-  return gmailThreadUrl(row.gmail_thread_id, row.account_email);
-}
-
 function toView(row: FollowupRow, today = etToday()): SentEmailFollowup {
   const due = row.follow_up_due?.slice(0, 10) ?? null;
   return {
@@ -123,7 +114,7 @@ function toView(row: FollowupRow, today = etToday()): SentEmailFollowup {
     followUpDays: row.follow_up_days,
     followUpDue: due,
     gmailThreadId: row.gmail_thread_id,
-    gmailUrl: threadUrlFor(row),
+    appleMailUrl: appleMailMessageUrl(row.rfc822_message_id),
     accountEmail: row.account_email,
     daysOverdue: due ? followupDaysOverdue(due, today) : 0,
   };
@@ -140,6 +131,7 @@ function rowPayload(hit: SentMailHit, status: SentFollowupStatus) {
     sent_at: hit.sentAt,
     snippet: hit.snippet || null,
     thread_url: hit.webLink?.trim() || null,
+    rfc822_message_id: hit.rfc822MessageId?.trim() || null,
     status,
     follow_up_days: null,
     follow_up_due: null,
@@ -302,6 +294,18 @@ async function captureSentEmailFollowupsInner(opts?: {
     const plan = planSentFollowupUpsert(existing.get(key), hit);
     if (plan.action === "skip") {
       skipped += 1;
+      // Backfill Apple Mail Message-ID on rows staged before we stored it.
+      if (hit.rfc822MessageId?.trim()) {
+        await sb
+          .from("sent_email_followups")
+          .update({
+            rfc822_message_id: hit.rfc822MessageId.trim(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("account_email", hit.accountEmail)
+          .eq("gmail_thread_id", hit.threadId)
+          .is("rfc822_message_id", null);
+      }
       continue;
     }
     if (plan.action === "insert") {
