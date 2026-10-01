@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/jasonos/brand/page-header";
@@ -15,7 +15,10 @@ import {
   type ScoreboardApplication,
   type ScoreboardStatus,
 } from "@/lib/scoreboard/types";
-import { setScoreboardStatus } from "@/lib/server-actions/scoreboard";
+import {
+  deleteScoreboardApplication,
+  setScoreboardStatus,
+} from "@/lib/server-actions/scoreboard";
 
 function fmtDate(dateStr: string) {
   return new Date(`${dateStr}T12:00:00`).toLocaleDateString("en-US", {
@@ -95,6 +98,32 @@ export function ScoreboardClient({
         toast.error(result.error ?? "Couldn't update status");
         return;
       }
+    });
+  };
+
+  const onDelete = (app: ScoreboardApplication) => {
+    const label = [app.company_name, app.position_applied]
+      .filter(Boolean)
+      .join(" · ");
+    if (
+      !window.confirm(
+        `Delete ${label || "this application"} from the scoreboard?`
+      )
+    ) {
+      return;
+    }
+    const prev = rows;
+    setRows((current) => current.filter((row) => row.id !== app.id));
+    setPendingId(app.id);
+    startTransition(async () => {
+      const result = await deleteScoreboardApplication(app.id);
+      setPendingId(null);
+      if (!result.ok) {
+        setRows(prev);
+        toast.error(result.error ?? "Couldn't delete application");
+        return;
+      }
+      toast.success("Removed from scoreboard.");
     });
   };
 
@@ -201,6 +230,16 @@ export function ScoreboardClient({
                     disabled={pendingId === app.id}
                     onSelect={(status) => onSelect(app.id, status)}
                   />
+                  <button
+                    type="button"
+                    title="Delete from scoreboard"
+                    aria-label={`Delete ${app.company_name}`}
+                    disabled={pendingId === app.id}
+                    onClick={() => onDelete(app)}
+                    className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </li>
               ))}
             </ul>
