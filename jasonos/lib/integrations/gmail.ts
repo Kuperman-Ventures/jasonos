@@ -700,6 +700,18 @@ export async function getGmailThread(
   }
 }
 
+/** Load a thread from the mailbox that owns it (Advisors vs personal). */
+export async function getGmailThreadForAccount(
+  threadId: string,
+  accountEmail: string
+): Promise<GmailThreadFull | null> {
+  const want = accountEmail.trim().toLowerCase();
+  const tokens = await listGoogleAccessTokens();
+  const match = tokens.find((t) => t.accountEmail.toLowerCase() === want);
+  if (match) return getGmailThread(threadId, match.token);
+  return getGmailThread(threadId);
+}
+
 /**
  * Resolve a Gmail permalink id (thread *or* message) to a stable thread URL
  * plus, when possible, the actual job-listing URL inside the alert email.

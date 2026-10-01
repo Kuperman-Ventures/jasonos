@@ -62,9 +62,10 @@ export function SentFollowupsClient({
       <header className="mb-4">
         <h2 className="text-lg font-semibold tracking-tight">Sent mail</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Outbound from Advisors Gmail, personal Gmail, and Outlook with no
-          follow-up day set yet. Sync pulls new ones. Set 1 / 3 / 5 days (or a
-          custom number); Home shows it when due.
+          Outbound from Advisors Gmail, personal Gmail, and Outlook to a JasonOS
+          contact, with no follow-up day set yet. Sync pulls new ones and clears
+          threads that already got a reply. Set 1 / 3 / 5 days (or a custom
+          number); Home shows it when due.
         </p>
       </header>
 

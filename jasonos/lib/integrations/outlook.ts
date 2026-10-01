@@ -407,6 +407,50 @@ export async function listOutlookSentMailHits(opts?: {
 }
 
 /**
+ * Lightweight conversation scan for inbound replies after an Outlook send.
+ * Returns message from/date pairs for threadHasInboundReply.
+ */
+export async function listOutlookConversationMessages(
+  conversationId: string
+): Promise<{ id: string; from: string; date: string }[]> {
+  const account = await getOutlookAccountAccess();
+  if (!account.configured || !account.token || !conversationId.trim()) {
+    return [];
+  }
+  const escaped = conversationId.replace(/'/g, "''");
+  const select =
+    "id,from,sentDateTime,receivedDateTime,isDraft,conversationId";
+  const filter = encodeURIComponent(
+    `conversationId eq '${escaped}' and isDraft eq false`
+  );
+  const url =
+    `/me/messages?$select=${select}&$filter=${filter}&$top=50` +
+    `&$orderby=receivedDateTime desc`;
+  try {
+    const { status, body } = await graphGet(account.token, url);
+    if (status >= 400 || !body || !Array.isArray(body.value)) return [];
+    const out: { id: string; from: string; date: string }[] = [];
+    for (const raw of body.value as Array<{
+      id?: string;
+      from?: { emailAddress?: { address?: string; name?: string } };
+      sentDateTime?: string;
+      receivedDateTime?: string;
+    }>) {
+      const addr = raw.from?.emailAddress?.address?.trim() || "";
+      const name = raw.from?.emailAddress?.name?.trim() || "";
+      const from = name && addr ? `${name} <${addr}>` : addr || name;
+      const date = raw.sentDateTime || raw.receivedDateTime || "";
+      if (!raw.id || !from || !date) continue;
+      out.push({ id: raw.id, from, date });
+    }
+    return out;
+  } catch (err) {
+    console.error("[outlook] conversation scan failed:", err);
+    return [];
+  }
+}
+
+/**
  * Outbound recipient touches from Outlook Sent Items — used with Gmail sent
  * scans so meeting Follow Ups clear when Jason emailed an attendee from
  * jason.kuperman@outlook.com.

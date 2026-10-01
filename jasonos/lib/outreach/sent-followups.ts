@@ -148,6 +148,36 @@ export function qualifySentMessage(msg: {
   return { ok: true, recipients, toLine: recipientLine(recipients) };
 }
 
+/** Sent Follow Up only stages mail that reached a JasonOS People contact. */
+export function recipientsIncludeContact(
+  recipients: MailAddress[],
+  isContactEmail: (email: string) => boolean
+): boolean {
+  return recipients.some((addr) => isContactEmail(addr.email));
+}
+
+/**
+ * True when the thread has a non-Jason message at or after our outbound send.
+ * Used on Sync to auto-clear sent Follow Ups that already got a reply.
+ */
+export function threadHasInboundReply(opts: {
+  messages: { id?: string; from: string; date: string }[];
+  afterSentAt: string;
+  sentMessageId?: string | null;
+  isFromMe: (fromHeader: string) => boolean;
+}): boolean {
+  const after = Date.parse(opts.afterSentAt);
+  if (!Number.isFinite(after)) return false;
+  for (const msg of opts.messages) {
+    if (opts.sentMessageId && msg.id && msg.id === opts.sentMessageId) continue;
+    if (opts.isFromMe(msg.from)) continue;
+    const t = Date.parse(msg.date);
+    if (!Number.isFinite(t)) continue;
+    if (t >= after) return true;
+  }
+  return false;
+}
+
 /** Latest sent hit per mailbox thread. Later sentAt wins; ties keep the first seen. */
 export function latestHitPerThread(hits: SentMailHit[]): SentMailHit[] {
   const byThread = new Map<string, SentMailHit>();

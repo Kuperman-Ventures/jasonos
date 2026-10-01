@@ -101,9 +101,6 @@ export function MeetingFollowupsClient({
                 <p className="text-sm font-medium">{row.title}</p>
                 <p className="text-[11px] text-muted-foreground">
                   {agoLabel(row.endsAt)}
-                  {row.status === "snoozed" && row.snoozeUntil
-                    ? ` · snoozed to ${row.snoozeUntil}`
-                    : ""}
                 </p>
               </div>
               <p className="mt-0.5 text-[12px] text-muted-foreground">

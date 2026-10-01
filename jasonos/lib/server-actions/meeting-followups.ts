@@ -22,6 +22,7 @@ import {
   attendeeLine,
   guessFollowupDisplayName,
   isMeetingFollowupDue,
+  expandSentTouchesAcrossContactAliases,
   latestSentByEmail,
   meetingEndIso,
   meetingFollowupDaysAgo,
@@ -250,7 +251,10 @@ async function captureMeetingFollowupsInner(opts?: {
     };
   }
 
-  const sentByEmail = latestSentByEmail(sentTouches);
+  const sentByEmail = expandSentTouchesAcrossContactAliases(
+    latestSentByEmail(sentTouches),
+    (email) => lookup.resolveEmail(email)?.emails ?? []
+  );
   const today = etToday();
   const meetings: PastMeetingCandidate[] = [];
   /** Past meetings that look real but have no JasonOS contact — dismiss if queued. */
@@ -386,19 +390,9 @@ async function captureMeetingFollowupsInner(opts?: {
 }
 
 export async function getOpenMeetingFollowups(): Promise<MeetingFollowup[]> {
-  if (!hasConfig()) return [];
-  const today = etToday();
-  const sb = createServiceRoleClient();
-  const { data, error } = await sb
-    .from("meeting_followups")
-    .select("*")
-    .in("status", ["open", "snoozed"])
-    .order("ends_at", { ascending: false });
-  if (error) {
-    console.error("[meeting-followups.list]", error);
-    return [];
-  }
-  return ((data ?? []) as FollowupRow[]).map((row) => toView(row, today));
+  // Follow Up tab = due queue: open now, or snoozed whose date has arrived.
+  // Future snoozes stay hidden until that day.
+  return getDueMeetingFollowups();
 }
 
 export async function getDueMeetingFollowups(): Promise<MeetingFollowup[]> {

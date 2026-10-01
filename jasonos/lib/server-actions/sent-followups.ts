@@ -5,12 +5,17 @@ import { etToday } from "@/lib/dates";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import {
   getGmailThread,
+  getGmailThreadForAccount,
   listGoogleSentMailHits,
   type GmailThreadMessage,
 } from "@/lib/integrations/gmail";
-import { listOutlookSentMailHits } from "@/lib/integrations/outlook";
+import {
+  listOutlookConversationMessages,
+  listOutlookSentMailHits,
+} from "@/lib/integrations/outlook";
 import { OUTLOOK_ACCOUNT_EMAIL } from "@/lib/integrations/outlook-tokens";
 import { isFromMe } from "@/lib/outreach/contact-lookup";
+import { buildContactLookup } from "@/lib/outreach/email-matching";
 import { appendSyncLog } from "@/lib/outreach/sync-log";
 import { SUGGESTED_SCAN_DAYS_BACK } from "@/lib/outreach/suggested-scan";
 import {
@@ -19,7 +24,9 @@ import {
   isFollowupDue,
   latestHitPerThread,
   planSentFollowupUpsert,
+  recipientsIncludeContact,
   sentFollowupKey,
+  threadHasInboundReply,
   type ExistingSentFollowup,
   type MailAddress,
   type SentFollowupStatus,
@@ -145,7 +152,14 @@ export async function captureSentEmailFollowups(opts?: {
   daysBack?: number;
   runId?: string;
 }): Promise<
-  | { ok: true; scanned: number; created: number; updated: number; skipped: number }
+  | {
+      ok: true;
+      scanned: number;
+      created: number;
+      updated: number;
+      skipped: number;
+      resolved: number;
+    }
   | { ok: false; error: string; unavailable?: boolean }
 > {
   const result = await captureSentEmailFollowupsInner(opts);
@@ -158,6 +172,7 @@ export async function captureSentEmailFollowups(opts?: {
         created: result.created,
         updated: result.updated,
         skipped: result.skipped,
+        resolved: result.resolved,
         inserted: result.created,
       },
       opts?.runId
@@ -176,18 +191,59 @@ export async function captureSentEmailFollowups(opts?: {
   return result;
 }
 
+async function openRowHasInboundReply(row: {
+  account_email: string;
+  gmail_thread_id: string;
+  gmail_message_id: string;
+  sent_at: string;
+}): Promise<boolean> {
+  const account = (row.account_email || "").toLowerCase();
+  if (account === OUTLOOK_ACCOUNT_EMAIL.toLowerCase()) {
+    const messages = await listOutlookConversationMessages(row.gmail_thread_id);
+    return threadHasInboundReply({
+      messages,
+      afterSentAt: row.sent_at,
+      sentMessageId: row.gmail_message_id,
+      isFromMe,
+    });
+  }
+  const thread = await getGmailThreadForAccount(
+    row.gmail_thread_id,
+    row.account_email
+  );
+  if (!thread?.messages?.length) return false;
+  return threadHasInboundReply({
+    messages: thread.messages.map((msg) => ({
+      id: msg.id,
+      from: msg.from ?? "",
+      date: msg.date ?? "",
+    })),
+    afterSentAt: row.sent_at,
+    sentMessageId: row.gmail_message_id,
+    isFromMe,
+  });
+}
+
 async function captureSentEmailFollowupsInner(opts?: {
   daysBack?: number;
 }): Promise<
-  | { ok: true; scanned: number; created: number; updated: number; skipped: number }
+  | {
+      ok: true;
+      scanned: number;
+      created: number;
+      updated: number;
+      skipped: number;
+      resolved: number;
+    }
   | { ok: false; error: string; unavailable?: boolean }
 > {
   if (!hasConfig()) return { ok: false, error: "Not configured" };
   const daysBack = opts?.daysBack ?? SUGGESTED_SCAN_DAYS_BACK;
 
-  const [google, outlook] = await Promise.all([
+  const [google, outlook, lookup] = await Promise.all([
     listGoogleSentMailHits({ daysBack }),
     listOutlookSentMailHits({ daysBack }),
+    buildContactLookup(),
   ]);
 
   if (!google.configured && !outlook.configured) {
@@ -198,12 +254,17 @@ async function captureSentEmailFollowupsInner(opts?: {
     };
   }
 
-  const hits = latestHitPerThread([
+  const isContactEmail = (email: string) => Boolean(lookup.resolveEmail(email));
+  const allHits = latestHitPerThread([
     ...(google.data ?? []),
     ...(outlook.data ?? []),
   ]);
+  // Only stage outbound that reached someone already in People.
+  const hits = allHits.filter((hit) =>
+    recipientsIncludeContact(hit.recipients, isContactEmail)
+  );
   if (
-    !hits.length &&
+    !allHits.length &&
     ((google.error && google.configured) || (outlook.error && outlook.configured))
   ) {
     return {
@@ -235,7 +296,7 @@ async function captureSentEmailFollowupsInner(opts?: {
 
   let created = 0;
   let updated = 0;
-  let skipped = 0;
+  let skipped = allHits.length - hits.length;
   for (const hit of hits) {
     const key = sentFollowupKey(hit.accountEmail, hit.threadId);
     const plan = planSentFollowupUpsert(existing.get(key), hit);
@@ -260,14 +321,82 @@ async function captureSentEmailFollowupsInner(opts?: {
     updated += 1;
   }
 
+  // Drop open review rows that are no longer in-scope (not a JasonOS contact).
+  const { data: openRows, error: openErr } = await sb
+    .from("sent_email_followups")
+    .select(
+      "id, account_email, gmail_thread_id, gmail_message_id, sent_at, status, recipients"
+    )
+    .in("status", ["new", "scheduled"]);
+  if (openErr) return { ok: false, error: openErr.message };
+
+  let resolved = 0;
+  const now = new Date().toISOString();
+  const replyChecks: {
+    id: string;
+    account_email: string;
+    gmail_thread_id: string;
+    gmail_message_id: string;
+    sent_at: string;
+  }[] = [];
+
+  for (const row of openRows ?? []) {
+    const recipients = asRecipients(row.recipients);
+    if (!recipientsIncludeContact(recipients, isContactEmail)) {
+      const { error } = await sb
+        .from("sent_email_followups")
+        .update({
+          status: "dismissed",
+          follow_up_days: null,
+          follow_up_due: null,
+          decided_at: now,
+          updated_at: now,
+        })
+        .eq("id", row.id)
+        .in("status", ["new", "scheduled"]);
+      if (error) return { ok: false, error: error.message };
+      resolved += 1;
+      continue;
+    }
+    replyChecks.push({
+      id: row.id as string,
+      account_email: row.account_email as string,
+      gmail_thread_id: row.gmail_thread_id as string,
+      gmail_message_id: row.gmail_message_id as string,
+      sent_at: row.sent_at as string,
+    });
+  }
+
+  // Cap reply scans so Sync stays responsive on large queues.
+  const replyBatch = replyChecks.slice(0, 40);
+  for (let i = 0; i < replyBatch.length; i += 4) {
+    const chunk = replyBatch.slice(i, i + 4);
+    const flags = await Promise.all(chunk.map((row) => openRowHasInboundReply(row)));
+    for (let j = 0; j < chunk.length; j += 1) {
+      if (!flags[j]) continue;
+      const { error } = await sb
+        .from("sent_email_followups")
+        .update({
+          status: "done",
+          decided_at: now,
+          updated_at: now,
+        })
+        .eq("id", chunk[j]!.id)
+        .in("status", ["new", "scheduled"]);
+      if (error) return { ok: false, error: error.message };
+      resolved += 1;
+    }
+  }
+
   revalidatePath("/outreach/sent");
   revalidatePath("/");
   return {
     ok: true,
-    scanned: hits.length,
+    scanned: allHits.length,
     created,
     updated,
     skipped,
+    resolved,
   };
 }
 
@@ -421,7 +550,10 @@ export async function getSentEmailThread(
     };
   }
 
-  const thread = await getGmailThread(data.gmail_thread_id as string);
+  const thread = await getGmailThreadForAccount(
+    data.gmail_thread_id as string,
+    (data.account_email as string) || ""
+  );
   if (!thread) {
     return { ok: false, error: "Couldn't load that thread from Gmail." };
   }

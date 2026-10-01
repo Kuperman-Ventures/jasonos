@@ -57,8 +57,8 @@ export function SentFollowupsPanel({ rows }: { rows: SentEmailFollowup[] }) {
         </StatusPill>
       </StatusBand>
       <p className="border-b px-4 py-1.5 text-[11px] text-muted-foreground">
-        Sent mail (Advisors, Gmail, or Outlook) due for a follow-up. Open the
-        thread, mark it done, or push the date.
+        Sent to a JasonOS contact and due for a follow-up. Open the thread, mark
+        it done, or push the date. Sync clears rows when a reply is detected.
       </p>
       {visible.length === 0 ? (
         <p className="px-4 py-8 text-center text-xs text-muted-foreground">
