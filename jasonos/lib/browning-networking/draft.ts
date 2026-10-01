@@ -124,8 +124,11 @@ export function thankYouDraft(input: {
   name: string | null;
   summary: string;
 }): string {
-  const fact = firstUsefulSentence(input.summary);
-  const middle = fact ?? "I appreciated the time.";
+  const takeaway = pickThankYouTakeaway(input.summary);
+  const next = pickThankYouNextStep(input.summary);
+  const middle = [takeaway ?? "Good to meet you and compare notes.", next]
+    .filter(Boolean)
+    .join(" ");
   return `${firstName(input.name)},
 
 Thanks for the call. ${middle}
@@ -155,13 +158,85 @@ function topicFrom(parsed: ParsedHandoff): string | null {
   return null;
 }
 
-function firstUsefulSentence(summary: string): string | null {
-  const sentence = summary
+/** Drop Next Steps / action-item blocks so we do not thank them with Jason's todos. */
+function contentWithoutActionItems(summary: string): string {
+  return summary
+    .replace(/\r/g, "")
+    .replace(/#{0,3}\s*next steps?[\s\S]*$/i, "\n")
+    .replace(/^\s*[-*•]\s*\*?\*?connect on linkedin[\s\S]*$/gim, "\n")
+    .replace(/^\s*[-*•]\s*\*?\*?intro\b[\s\S]*$/gim, "\n");
+}
+
+function looksLikeNoteFragment(sentence: string): boolean {
+  const t = sentence.replace(/\s+/g, " ").trim();
+  if (!t) return true;
+  if (/\([^)]{0,40}\bJason\b[^)]{0,40}\)/i.test(t)) return true;
+  if (/\bJason (hadn'?t|had not|will|should|to)\b/i.test(t)) return true;
+  if (/\bConnect on LinkedIn with\b/i.test(t)) return true;
+  if (/^(Action items?|Next steps?|Summary)\b/i.test(t)) return true;
+  if (/^[-*•]/.test(t)) return true;
+  if (/^[A-Z][a-z]+ to [a-z]/.test(t)) return true;
+  // Third-person note voice about the recipient.
+  if (/\b(Matt|Matthew|Tim|Timothy|Brad)\b.+\b(said|suggested|doubts)\b/i.test(t) &&
+      /\bJason\b/i.test(t)) {
+    return true;
+  }
+  return false;
+}
+
+function candidateLines(summary: string): string[] {
+  const content = contentWithoutActionItems(summary)
+    .replace(/[#*_`]/g, " ")
+    .replace(/\r/g, "");
+  const fromSentences = content
     .replace(/\s+/g, " ")
     .split(/(?<=[.!?])\s+/)
-    .map((part) => part.trim())
-    .find((part) => part.length >= 24 && part.length <= 220);
-  return sentence ?? null;
+    .map((part) => part.trim());
+  const fromBullets = content
+    .split("\n")
+    .map((line) => line.replace(/^\s*[-•]+\s*/, "").trim())
+    .filter(Boolean);
+  return [...fromSentences, ...fromBullets]
+    .map((part) => part.replace(/\s+/g, " ").trim())
+    .filter((part) => part.length >= 28 && part.length <= 200)
+    .filter((part) => !looksLikeNoteFragment(part));
+}
+
+/** One concrete line from the call — never an action-item paste. */
+export function pickThankYouTakeaway(summary: string): string | null {
+  const lines = candidateLines(summary);
+  const preferred = lines.find((part) =>
+    /\b(AI|3D|visualization|market|team|background|Air Force|Wayfair|Chaos|Cylindo|commercial|GTM|product)\b/i.test(
+      part
+    )
+  );
+  const picked = preferred ?? lines[0];
+  if (!picked) return null;
+  // Soften leftover third-person "Matt's take:" labels into sendable prose.
+  const cleaned = picked
+    .replace(/^(Matt|Matthew|Tim|Timothy|Brad)'s take:\s*/i, "")
+    .replace(/^(Matt|Matthew|Tim|Timothy|Brad) (said|noted|shared) that\s+/i, "")
+    .trim();
+  if (!cleaned || looksLikeNoteFragment(cleaned)) return null;
+  return cleaned.endsWith(".") || cleaned.endsWith("?") || cleaned.endsWith("!")
+    ? cleaned
+    : `${cleaned}.`;
+}
+
+/** First-person next step only when the notes clearly assign it to Jason. */
+export function pickThankYouNextStep(summary: string): string | null {
+  const text = summary.replace(/\s+/g, " ");
+  const parts: string[] = [];
+  const intro = text.match(
+    /intro(?:duce)?\s+(?:matt|matthew|tim|timothy|brad|[A-Za-z]+)\s+to\s+([A-Z][a-zA-Z]+)/i
+  );
+  if (intro?.[1] && /\(Jason\)/i.test(summary)) {
+    parts.push(`I'll make the intro to ${intro[1]}.`);
+  }
+  if (/connect on linkedin/i.test(text) && /\(Jason\)/i.test(summary)) {
+    parts.push("I'll connect on LinkedIn.");
+  }
+  return parts.length ? parts.join(" ") : null;
 }
 
 export function isCallMorning(startsAt: string, todayYmd: string): boolean {

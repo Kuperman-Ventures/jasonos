@@ -29,8 +29,8 @@ import {
   followUpDraft,
   replySubject,
   schedulingDraft,
-  thankYouDraft,
 } from "./draft";
+import { composeThankYouDraft } from "./thank-you-compose";
 import { chooseHandoffs, handoffKind, type HandoffMail } from "./parse";
 import { loadBusy } from "./data";
 import { firstEligibleYmd, lastEligibleYmd, proposeSlots } from "./slots";
@@ -714,7 +714,11 @@ async function followBookedCalls(sb: Sb): Promise<{
         (row.call_event_id as string | null) ?? null
       );
       if (summary) {
-        const body = thankYouDraft({ name, summary: summary.text });
+        const composed = await composeThankYouDraft({
+          name,
+          summary: summary.text,
+        });
+        const body = composed.body;
         const cardId = await insertCard(sb, {
           title: `Thank-you draft for ${name ?? "the call"}`,
           subtitle: summary.source,

@@ -79,6 +79,32 @@ I replied because your note on commercialization and GTM matched the work we are
     assert.doesNotMatch(draft, /delighted|circle back|synergy/i);
   });
 
+  it("skips Granola next-step paste and writes a first-person LinkedIn close", () => {
+    const draft = thankYouDraft({
+      name: "Matthew Deutsch",
+      summary: `# Matt Deutsch: Background
+- 10 years Air Force project management, then Wayfair 3D department (product imagery)
+- Director of PM at a 3D visualization company, led 17-person international team for 3 years
+
+# 3D Visualization and AI Disruption
+- Matt's take: AI is faster, cheaper, and improving; humans are "fixed".
+- Matt's former 3D company: clients paying hundreds of thousands/year; he doubts it survives 2 more years.
+
+# Next Steps
+- **Intro Matt to Eddie (custom sunglass startup founder)** (Jason)
+  Matt's 3D and product visualization background is directly relevant.
+- **Connect on LinkedIn with Matt** (Jason)
+  Matt suggested checking his profile; Jason hadn't connected yet by end of call.`,
+    });
+    assert.match(draft, /^Matthew,/);
+    assert.match(draft, /Thanks for the call\./);
+    assert.match(draft, /I'll connect on LinkedIn\./);
+    assert.match(draft, /I'll make the intro to Eddie\./);
+    assert.doesNotMatch(draft, /Connect on LinkedIn with Matt \(Jason\)/i);
+    assert.doesNotMatch(draft, /Jason hadn't connected/i);
+    assert.doesNotMatch(draft, /Next Steps/i);
+  });
+
   it("treats a calendar guest with their email as booked", () => {
     const hit = findBookedCall(
       [
