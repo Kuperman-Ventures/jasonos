@@ -3,7 +3,7 @@
 Attach with this prompt:
 
 - `timeline-drilldown.html` — working reference (light + dark, sample data)
-- `tokens.css` — The Track color tokens, light + dark
+- `tokens.css` — College Launch Plan color tokens, light + dark
 - `the-track-design-guidelines.md` — site-wide style guide
 - `design-guidelines.md` — rules specific to this view
 

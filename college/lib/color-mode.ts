@@ -1,4 +1,4 @@
-/** Appearance mode for The Track (System / Light / Dark). */
+/** Appearance mode for College Launch Plan (System / Light / Dark). */
 
 export type ColorModePreference = "system" | "light" | "dark";
 export type ResolvedColorMode = "light" | "dark";

@@ -1,4 +1,4 @@
-# The Track — design guidelines
+# College Launch Plan — design guidelines
 
 A design system for a college-prep portal. Give this file to Cursor as the single source of truth for look and feel. Reference implementation: `Prep Portal - Design System.dc.html`. Logo asset: `assets/logo.png` (transparent PNG, 900×660).
 
@@ -223,7 +223,7 @@ File: `assets/logo.png` — transparent background, works on both grounds.
 
 - Clear space on all four sides equals the height of the tassel knot.
 - Minimum height 28px. Below that the tassel fills in.
-- Lockup: mark at 46px beside "THE TRACK" at 30px/800 Archivo, wdth 118%, uppercase, `--space-3` gap, cap heights aligned.
+- Lockup: mark at 46px beside "COLLEGE LAUNCH PLAN" at 30px/800 Archivo, wdth 118%, uppercase, `--space-3` gap, cap heights aligned.
 - Do not recolor it, outline it, shadow it, place it on a photograph, or scale it larger than the wordmark beside it.
 
 ---
