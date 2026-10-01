@@ -187,10 +187,16 @@ export function HomeClient({
   const renderRow = (
     c: AttentionContact,
     timing: { kind: "overdue" } | { kind: "due"; label: string }
-  ) => (
+  ) => {
+    const dueToday = timing.kind === "due" && c.daysUntilDue <= 0;
+    return (
     <li
       key={c.id}
-      className="flex min-h-[4.125rem] flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3"
+      className={
+        dueToday
+          ? "flex min-h-[4.125rem] flex-col gap-2 border-l-[3px] border-l-[var(--color-process-yellow)] bg-[var(--color-process-yellow)]/20 px-4 py-3 sm:flex-row sm:items-center sm:gap-3"
+          : "flex min-h-[4.125rem] flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3"
+      }
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <ContactAvatar name={c.name} photoUrl={c.photoUrl} size="md" />
@@ -208,17 +214,17 @@ export function HomeClient({
             <span className="rounded-sm border border-border px-1 py-0.5 text-[9px] uppercase tracking-wider">
               {COLUMN_LABEL[c.column] ?? c.column}
             </span>
-            <span
-              className={
-                timing.kind === "overdue"
-                  ? "ml-1.5 text-rung-1"
-                  : "ml-1.5 text-rung-ink"
-              }
-            >
-              {timing.kind === "overdue"
-                ? `${c.daysOverdue}d overdue`
-                : timing.label}
-            </span>
+            {timing.kind === "overdue" ? (
+              <span className="ml-1.5 text-rung-1">
+                {`${c.daysOverdue}d overdue`}
+              </span>
+            ) : dueToday ? (
+              <span className="ml-1.5 inline-flex items-center rounded-sm bg-[var(--color-process-yellow)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text)]">
+                Due today
+              </span>
+            ) : (
+              <span className="ml-1.5 text-rung-ink">{timing.label}</span>
+            )}
           </p>
         </div>
       </div>
@@ -253,7 +259,8 @@ export function HomeClient({
         </Button>
       </div>
     </li>
-  );
+    );
+  };
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-6">

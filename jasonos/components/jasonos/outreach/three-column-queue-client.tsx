@@ -31,6 +31,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { etToday } from "@/lib/dates";
 import { OutreachModal } from "@/components/jasonos/outreach/outreach-modal";
 import {
   deriveQueueUrgency,
@@ -726,6 +727,7 @@ function ColumnUrgencySection({
               <BandContactRow
                 key={c.key}
                 card={c}
+                bandKey={def.key}
                 comm={
                   c.contactId ? commByContactId.get(c.contactId) ?? null : null
                 }
@@ -755,12 +757,14 @@ const COLUMN_TAG_COLORS: Record<QueueColumnKey, string> = {
 
 function BandContactRow({
   card,
+  bandKey,
   comm,
   onOpen,
   showColumn = false,
   showRelationship = false,
 }: {
   card: QueueCard;
+  bandKey: QueueUrgencyKey;
   comm: CommunicationsContact | null;
   onOpen: (card: QueueCard) => void;
   showColumn?: boolean;
@@ -769,12 +773,21 @@ function BandContactRow({
   const nextDate = comm?.nextActionDueDate ?? card.next_touch_date;
   const lastTouch = comm?.lastTouch ?? null;
   const lastDate = lastTouch?.touched_at ?? card.last_touch_date;
+  const dueToday =
+    bandKey === "due_this_week" &&
+    Boolean(nextDate) &&
+    nextDate!.slice(0, 10) === etToday();
 
   return (
     <button
       type="button"
       onClick={() => onOpen(card)}
-      className="flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-muted/30"
+      className={cn(
+        "flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors",
+        dueToday
+          ? "border-l-[3px] border-l-[var(--color-process-yellow)] bg-[var(--color-process-yellow)]/20 hover:bg-[var(--color-process-yellow)]/30"
+          : "hover:bg-muted/30"
+      )}
     >
       <ContactAvatar name={card.name} photoUrl={card.photo_url} size="sm" />
       <div className="min-w-0 flex-1">
@@ -810,7 +823,11 @@ function BandContactRow({
         ) : null}
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        {nextDate ? (
+        {dueToday ? (
+          <span className="rounded-sm bg-[var(--color-process-yellow)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text)]">
+            Due today
+          </span>
+        ) : nextDate ? (
           <span className="text-[10px] text-rung-3">{fmtDate(nextDate)}</span>
         ) : lastTouch ? (
           <span className="text-[10px] text-muted-foreground">

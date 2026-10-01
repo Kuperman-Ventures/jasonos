@@ -208,3 +208,20 @@ export async function setScoreboardStatus(
   revalidatePath("/nyui");
   return { ok: true };
 }
+
+/** Remove a duplicate / wrong scoreboard application row from NYUI. */
+export async function deleteScoreboardApplication(
+  id: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!hasConfig()) return { ok: false, error: "Not configured" };
+  if (!id) return { ok: false, error: "Missing application id." };
+
+  const db = createPublicServiceRoleClient();
+  // parent_activity_id is ON DELETE SET NULL — follow-ups unlink, not cascade.
+  const { error } = await db.from("work_searches").delete().eq("id", id);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/scoreboard");
+  revalidatePath("/nyui");
+  return { ok: true };
+}
