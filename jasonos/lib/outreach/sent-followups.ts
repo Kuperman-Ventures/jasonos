@@ -29,6 +29,8 @@ export interface SentMailHit {
   accountEmail: string;
   /** Provider deep link when available (Outlook webLink, etc.). */
   webLink?: string | null;
+  /** RFC 822 Message-ID for Apple Mail message:// links. */
+  rfc822MessageId?: string | null;
 }
 
 export function sentFollowupKey(accountEmail: string, threadId: string): string {

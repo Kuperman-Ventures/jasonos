@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mail } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { MeetingFollowupControls } from "@/components/jasonos/outreach/meeting-followup-controls";
@@ -72,17 +72,20 @@ export function MeetingFollowupsClient({
   return (
     <div className="mx-auto max-w-3xl px-4 pt-6">
       <div className="mb-4">
-        <h1 className="text-lg font-semibold tracking-tight">Follow Up</h1>
+        <div className="flex items-center gap-2">
+          <Calendar className="h-5 w-5 shrink-0" />
+          <h1 className="text-lg font-semibold tracking-tight">Follow Up</h1>
+        </div>
         <p className="mt-1 text-sm text-muted-foreground">
           Past calendar meetings (Google + Outlook) with a JasonOS contact where
           one or more attendees still need an email. Draft uses the Granola note
-          when one exists. Unanswered outbound without a meeting is under Sent
-          mail below.
+          when one exists. Unanswered outbound without a meeting is under Email
+          follow-ups below.
         </p>
       </div>
       {!calendarConnected ? (
         <div className="mb-4 flex items-start gap-3 rounded-lg border border-[var(--jos-line)] bg-rung-2 px-4 py-3">
-          <Mail className="mt-0.5 h-4 w-4 shrink-0 text-rung-ink" />
+          <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-rung-ink" />
           <p className="text-xs text-rung-ink">
             Connect Google or Outlook calendar in Settings, then hit Sync. Past
             meetings without a post-meeting email show up here.

@@ -52,6 +52,7 @@ export interface GraphMessage {
   webLink?: string | null;
   isDraft?: boolean | null;
   conversationId?: string | null;
+  internetMessageId?: string | null;
   from?: GraphRecipient | null;
   toRecipients?: GraphRecipient[] | null;
   ccRecipients?: GraphRecipient[] | null;
@@ -67,6 +68,7 @@ export interface OutlookMessage {
   snippet: string;
   webLink: string | null;
   conversationId: string | null;
+  internetMessageId: string | null;
 }
 
 /**
@@ -192,6 +194,7 @@ export function mapGraphMessage(raw: GraphMessage): OutlookMessage | null {
     snippet: (raw.bodyPreview ?? "").replace(/\s+/g, " ").trim(),
     webLink: raw.webLink?.trim() || null,
     conversationId: raw.conversationId?.trim() || null,
+    internetMessageId: raw.internetMessageId?.trim() || null,
   };
 }
 

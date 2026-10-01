@@ -183,7 +183,7 @@ function messagesPath(folderId: string, sinceIso: string, useFilter: boolean): s
   const params = new URLSearchParams({
     $top: String(OUTLOOK_PAGE_SIZE),
     $select:
-      "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,bodyPreview,webLink,isDraft,conversationId",
+      "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,bodyPreview,webLink,isDraft,conversationId,internetMessageId",
     $orderby: "receivedDateTime desc",
   });
   if (useFilter) {
@@ -396,6 +396,7 @@ export async function listOutlookSentMailHits(opts?: {
         recipients: qualified.recipients,
         accountEmail: account.accountEmail,
         webLink: mapped.webLink,
+        rfc822MessageId: mapped.internetMessageId,
       });
     }
     return { configured: true, data: latestHitPerThread(hits) };

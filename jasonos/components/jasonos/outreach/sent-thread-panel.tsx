@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, ExternalLink, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { getSentEmailThread } from "@/lib/server-actions/sent-followups";
 import type { SentThreadMessageView } from "@/lib/server-actions/sent-followups";
@@ -18,12 +18,23 @@ function formatWhen(raw: string): string {
   });
 }
 
+function openInAppleMail(appleMailUrl: string | null) {
+  if (!appleMailUrl) {
+    toast.error(
+      "No Apple Mail link for this message. Sync again, and make sure the mailbox is in Mail."
+    );
+    return;
+  }
+  toast.message("Opening in Apple Mail…");
+  window.location.href = appleMailUrl;
+}
+
 export function SentThreadPanel({
   followupId,
-  gmailUrl,
+  appleMailUrl,
 }: {
   followupId: string;
-  gmailUrl: string;
+  appleMailUrl: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -45,25 +56,30 @@ export function SentThreadPanel({
 
   return (
     <div className="mt-2">
-      <button
-        type="button"
-        onClick={() => void toggle()}
-        className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-      >
-        {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-        {open ? "Hide thread" : "Show thread"}
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={() => void toggle()}
+          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+        >
+          {open ? (
+            <ChevronDown className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronRight className="h-3.5 w-3.5" />
+          )}
+          {open ? "Hide thread" : "Show thread"}
+        </button>
+        <button
+          type="button"
+          onClick={() => openInAppleMail(appleMailUrl)}
+          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+        >
+          <Mail className="h-3 w-3" />
+          Open in Apple Mail
+        </button>
+      </div>
       {open ? (
         <div className="mt-2 space-y-2 rounded-md border bg-background/50 p-3">
-          <a
-            href={gmailUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-          >
-            Open in Gmail
-            <ExternalLink className="h-3 w-3" />
-          </a>
           {loading ? (
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -88,7 +104,9 @@ export function SentThreadPanel({
               {msg.to ? (
                 <p className="truncate text-[11px] text-muted-foreground">To {msg.to}</p>
               ) : null}
-              <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed">{msg.body || "(no body)"}</p>
+              <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed">
+                {msg.body || "(no body)"}
+              </p>
             </article>
           ))}
         </div>

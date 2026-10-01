@@ -75,7 +75,7 @@ export function SentFollowupsPanel({ rows }: { rows: SentEmailFollowup[] }) {
                   {dueText(row)}
                 </span>
               </p>
-              <SentThreadPanel followupId={row.id} gmailUrl={row.gmailUrl} />
+              <SentThreadPanel followupId={row.id} appleMailUrl={row.appleMailUrl} />
               <div className="mt-2">
                 <SentFollowupControls
                   busy={busyId === row.id}
