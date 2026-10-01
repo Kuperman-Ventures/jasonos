@@ -1,4 +1,4 @@
-# Cursor prompt — The Track timeline (dense ledger, month resolution)
+# Cursor prompt — College Launch Plan timeline (dense ledger, month resolution)
 
 Attach with this prompt:
 

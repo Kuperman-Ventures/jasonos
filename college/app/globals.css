@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "./tokens.css";
 
-/* The Track. Semantic colors come from tokens.css. Ramps, type, and space stay here.
+/* College Launch Plan. Semantic colors come from tokens.css. Ramps, type, and space stay here.
    Do not hard-code a color, font, or space that a token already carries. */
 
 :root {

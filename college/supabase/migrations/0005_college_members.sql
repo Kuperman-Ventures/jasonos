@@ -1,4 +1,4 @@
--- Household members for The Track.
+-- Household members for College Launch Plan.
 -- Browser clients never query this schema. The Next server checks membership,
 -- then reads and writes with the service role.
 

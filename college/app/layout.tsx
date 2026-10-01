@@ -29,7 +29,7 @@ const sourceSerif = Source_Serif_4({
 });
 
 export const metadata: Metadata = {
-  title: "The Track",
+  title: "College Launch Plan",
   description: "Kyle's college search and application plan.",
   icons: {
     icon: [

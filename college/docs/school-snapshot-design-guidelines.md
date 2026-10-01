@@ -1,6 +1,6 @@
 # School snapshot v2: design guidelines
 
-These rules are specific to the snapshot facts panel. The project-wide rules (tokens, type, states) are in The Track `design-guidelines.md`, and they apply here too.
+These rules are specific to the snapshot facts panel. The project-wide rules (tokens, type, states) are in College Launch Plan `design-guidelines.md`, and they apply here too.
 
 ## Tokens
 

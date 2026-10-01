@@ -19,7 +19,7 @@ export function LoginForm({
     errorCode === "auth_not_configured"
       ? "Login is not fully configured on this deployment yet."
       : errorCode === "not_a_member"
-        ? "That account is not on the household list for The Track."
+        ? "That account is not on the household list for College Launch Plan."
         : errorCode === "not_active"
           ? "That account exists but is not turned on for this site yet."
           : errorCode === "auth"
@@ -74,7 +74,7 @@ export function LoginForm({
     <div className="login-card">
       <div className="lockup">
         <Image src="/logo.png" alt="" width={48} height={48} className="site-logo" priority />
-        <p className="lockup-name">The Track</p>
+        <p className="lockup-name">College Launch Plan</p>
       </div>
       <h1>Sign in</h1>
       <p className="section-sub">Kyle, Jason, and Kat share this plan. Sign in with your household account.</p>

@@ -1,4 +1,4 @@
-/* The Track — color tokens, light + dark.
+/* College Launch Plan — color tokens, light + dark.
    Drop in once at the app root. Set data-mode="light" | "dark" on <html> before first paint.
    Rule: every background, border and text color in a component comes from this file.
    Never hard-code a hex, `white`, or a raw --color-neutral-* / --color-accent-* step in a component. */

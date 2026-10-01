@@ -1,4 +1,4 @@
-# Kyle's College Search (The Track)
+# Kyle's College Search (College Launch Plan)
 
 A separate site from JasonOS for Kyle, Jason, and Kat. The college list is the front door. Timeline, FAQ, application questions, consultant scores, and notes sit behind it.
 

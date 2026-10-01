@@ -79,7 +79,7 @@ export function buildSatelliteStaticMapUrl(opts: {
     maptype: "satellite",
     key: opts.apiKey,
   });
-  // Soft orange ring matching The Track accent — outline only so campus stays clear.
+  // Soft orange ring matching College Launch Plan accent — outline only so campus stays clear.
   params.append(
     "path",
     `color:0xE85504CC|weight:2|${circle}`,

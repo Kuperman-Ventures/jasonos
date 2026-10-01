@@ -1,4 +1,4 @@
-/** Creator-only admin helpers for The Track (Jason / super_admin). */
+/** Creator-only admin helpers for College Launch Plan (Jason / super_admin). */
 
 import {
   COMMON_APP_GRID_CYCLE_START,
