@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AppsMaterialsTab } from "./AppsMaterialsTab";
+import { CollegesMobileList } from "./CollegesMobileList";
 import { CollegesTab } from "./CollegesTab";
 import { ConsultantsTab } from "./ConsultantsTab";
 import { DashboardTab } from "./DashboardTab";
 import { FaqTab } from "./FaqTab";
 import { LeftRail } from "./LeftRail";
+import { useViewportMode } from "@/lib/use-viewport-mode";
 import { LogTab } from "./LogTab";
 import { AdminTab } from "./AdminTab";
 import { DataSourcesTab } from "./DataSourcesTab";
@@ -237,6 +239,7 @@ export function Portal({
   const prefsTimer = useRef<number | undefined>(undefined);
   const urlBootstrapped = useRef(false);
   const legacyNotesMigrated = useRef(false);
+  const viewport = useViewportMode();
 
   useEffect(() => {
     if (urlBootstrapped.current) return;
@@ -1282,6 +1285,11 @@ export function Portal({
     if (!response.ok) return;
     const body = (await response.json()) as { school: School };
     replaceSchool(body.school);
+  }
+
+  // Mobile is list-only: no left rail, no other tabs/chrome.
+  if (viewport === "mobile") {
+    return <CollegesMobileList schools={schools} />;
   }
 
   return (
