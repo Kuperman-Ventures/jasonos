@@ -834,7 +834,7 @@ function ResultPanel({
             </span>
           )}
           {unmatchedCount > 0 && (
-            <span className="text-rung-1">
+            <span>
               {unmatchedCount} couldn&rsquo;t be located in the document
             </span>
           )}
@@ -847,7 +847,7 @@ function ResultPanel({
             </span>
           )}
         </div>
-        <p className="mt-1.5 text-[11px] text-muted-foreground">
+        <p className="mt-1.5 text-[11px] opacity-90">
           Every rewrite below is tagged with whether it made it into the file.
         </p>
       </div>
