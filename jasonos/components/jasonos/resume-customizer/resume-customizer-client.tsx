@@ -599,7 +599,7 @@ export function ResumeCustomizerClient({
                 key={r.id}
                 className={`flex items-center gap-3 rounded-lg border p-3 text-sm ${
                   r.is_core
-                    ? "border-[var(--jos-line)] bg-rung-4"
+                    ? "border-[var(--jos-line)] bg-rung-ok"
                     : "border-border"
                 }`}
               >
@@ -611,14 +611,14 @@ export function ResumeCustomizerClient({
                   aria-label="Set as core"
                 >
                   {r.is_core && (
-                    <span className="h-2.5 w-2.5 rounded-full bg-rung-4" />
+                    <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-on-action)]" />
                   )}
                 </button>
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">
                     {r.label}
                     {r.is_core && (
-                      <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-[var(--jos-line)] bg-rung-4 px-1.5 py-0.5 text-[10px] font-medium ">
+                      <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-[var(--jos-line)] bg-rung-ok px-1.5 py-0.5 text-[10px] font-medium ">
                         <Star className="h-2.5 w-2.5" />
                         Core
                       </span>
@@ -677,7 +677,7 @@ export function ResumeCustomizerClient({
 function CoreStatus({ core }: { core: ResumeRow | null }) {
   if (!core) return null;
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--jos-line)] bg-rung-4 px-2.5 py-1 text-[11px] font-medium ">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--jos-line)] bg-rung-ok px-2.5 py-1 text-[11px] font-medium ">
       <CheckCircle2 className="h-3 w-3" />
       Core: {core.label}
     </span>
@@ -772,13 +772,13 @@ function ResultPanel({
   > = {
     applied: {
       label: "Applied",
-      badge: "border-[var(--jos-line)] bg-rung-4 ",
-      accent: "border-l-emerald-400/60",
+      badge: "border-[var(--jos-line)] bg-rung-ok ",
+      accent: "border-l-[var(--color-success)]",
     },
     forced: {
       label: "Applied (added length)",
-      badge: "border-[var(--jos-line)] bg-rung-4 ",
-      accent: "border-l-emerald-400/60",
+      badge: "border-[var(--jos-line)] bg-rung-ok ",
+      accent: "border-l-[var(--color-success)]",
     },
     skipped: {
       label: "Not applied — would add length",
@@ -821,20 +821,20 @@ function ResultPanel({
         </Button>
       </div>
 
-      <div className="rounded-md border border-[var(--jos-line)] bg-rung-4 p-3 text-xs">
-        <p className="font-semibold text-rung-ink">
+      <div className="rounded-md border border-[var(--jos-line)] bg-rung-ok p-3 text-xs">
+        <p className="font-semibold">
           {appliedCount} of {totalTextEdits} suggested rewrites are in your
           downloaded resume.
         </p>
-        <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
+        <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 opacity-90">
           {skipped.size > 0 && (
-            <span className="text-rung-ink">
+            <span>
               {skipped.size} held back to keep the page count — use &ldquo;Apply
               anyway&rdquo;
             </span>
           )}
           {unmatchedCount > 0 && (
-            <span className="text-rung-1">
+            <span>
               {unmatchedCount} couldn&rsquo;t be located in the document
             </span>
           )}
@@ -847,7 +847,7 @@ function ResultPanel({
             </span>
           )}
         </div>
-        <p className="mt-1.5 text-[11px] text-muted-foreground">
+        <p className="mt-1.5 text-[11px] opacity-90">
           Every rewrite below is tagged with whether it made it into the file.
         </p>
       </div>
@@ -865,7 +865,7 @@ function ResultPanel({
           {present.map((k) => (
             <span
               key={`p-${k.keyword}`}
-              className="rounded-full border border-[var(--jos-line)] bg-rung-4 px-2 py-0.5 text-[11px] "
+              className="rounded-full border border-[var(--jos-line)] bg-rung-ok px-2 py-0.5 text-[11px] "
             >
               {k.keyword}
             </span>
@@ -947,7 +947,7 @@ function ResultPanel({
                         </p>
                       )}
                       {c.after && (
-                        <p className="mt-1 rounded bg-rung-4 px-2 py-1 text-[11px] ">
+                        <p className="mt-1 rounded bg-rung-ok px-2 py-1 text-[11px] ">
                           {c.after}
                         </p>
                       )}
