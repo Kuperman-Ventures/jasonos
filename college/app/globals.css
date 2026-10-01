@@ -884,13 +884,15 @@ footer {
 .school-cards { display: none; }
 .school-card { margin-bottom: var(--space-3); cursor: pointer; }
 
-/* Mobile college list: view-only name · selectivity · interest; tap opens website. */
+/* Mobile college list: full-screen only view (no rail / portal chrome). */
 .colleges-mobile {
-  margin: calc(-1 * var(--space-6)) calc(-1 * var(--space-4)) calc(-1 * var(--space-8));
-  padding: var(--space-5) var(--space-4) var(--space-8);
-  min-height: calc(100% + var(--space-6) + var(--space-8));
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: max(var(--space-5), env(safe-area-inset-top)) max(var(--space-4), env(safe-area-inset-right))
+    max(var(--space-8), env(safe-area-inset-bottom)) max(var(--space-4), env(safe-area-inset-left));
   background: var(--color-bg);
   color: var(--color-text);
+  box-sizing: border-box;
 }
 .colleges-mobile-head {
   display: flex;
