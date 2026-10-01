@@ -599,7 +599,24 @@ export async function syncOutreachFromCalendar(opts?: {
       }
 
       for (const match of matches) {
-        if (match.email) recordEnrich(enrich, match.contact, match.email);
+        if (match.email) {
+          const alreadyOnContact = match.contact.emails.some(
+            (e) => canonicalEmail(e) === canonicalEmail(match.email!)
+          );
+          if (alreadyOnContact) {
+            // Address already on the People row — nothing to stage.
+          } else {
+            // Name-matched a contact but this address is new: offer Merge in
+            // Suggested instead of silently writing the email onto the row.
+            sightings.push({
+              email: match.email,
+              name: match.name ?? match.contact.name,
+              dateIso: startISO,
+              subject: ev.summary?.trim() || "Meeting",
+              direction: "inbound",
+            });
+          }
+        }
         const title = ev.summary?.trim() || "Meeting";
         meetingRows.push({
           contactId: match.contact.id,

@@ -10,6 +10,8 @@ import {
   planSentFollowupUpsert,
   qualifySentMessage,
   recipientLine,
+  recipientsIncludeContact,
+  threadHasInboundReply,
   type SentMailHit,
 } from "./sent-followups";
 
@@ -21,6 +23,7 @@ const hit = (overrides: Partial<SentMailHit> = {}): SentMailHit => ({
   snippet: "Hi",
   toLine: "Ada Lovelace",
   recipients: [{ name: "Ada Lovelace", email: "ada@example.com" }],
+  accountEmail: "jason@kupermanadvisors.com",
   ...overrides,
 });
 
@@ -172,5 +175,72 @@ describe("latestHitPerThread", () => {
     ]);
     assert.equal(latest.length, 2);
     assert.equal(latest.find((row) => row.threadId === "t1")?.messageId, "new");
+  });
+});
+
+describe("recipientsIncludeContact", () => {
+  it("requires at least one JasonOS contact on To/Cc", () => {
+    const recipients = [
+      { name: "Ada", email: "ada@example.com" },
+      { name: "Bob", email: "bob@example.com" },
+    ];
+    assert.equal(
+      recipientsIncludeContact(recipients, (e) => e === "bob@example.com"),
+      true
+    );
+    assert.equal(
+      recipientsIncludeContact(recipients, () => false),
+      false
+    );
+  });
+});
+
+describe("threadHasInboundReply", () => {
+  const isFromMe = (from: string) => /jason@/i.test(from);
+
+  it("detects a reply after the outbound send", () => {
+    assert.equal(
+      threadHasInboundReply({
+        afterSentAt: "2026-09-20T15:00:00.000Z",
+        sentMessageId: "m1",
+        isFromMe,
+        messages: [
+          {
+            id: "m1",
+            from: "Jason <jason@kupermanadvisors.com>",
+            date: "2026-09-20T15:00:00.000Z",
+          },
+          {
+            id: "m2",
+            from: "Ada <ada@example.com>",
+            date: "2026-09-21T10:00:00.000Z",
+          },
+        ],
+      }),
+      true
+    );
+  });
+
+  it("ignores Jason-only threads and earlier inbound", () => {
+    assert.equal(
+      threadHasInboundReply({
+        afterSentAt: "2026-09-20T15:00:00.000Z",
+        sentMessageId: "m1",
+        isFromMe,
+        messages: [
+          {
+            id: "m0",
+            from: "Ada <ada@example.com>",
+            date: "2026-09-19T10:00:00.000Z",
+          },
+          {
+            id: "m1",
+            from: "Jason <jason@kupermanadvisors.com>",
+            date: "2026-09-20T15:00:00.000Z",
+          },
+        ],
+      }),
+      false
+    );
   });
 });

@@ -10,6 +10,7 @@ import {
   isMeetingFollowupDue,
   isMeetingPastForFollowup,
   isUnacceptableFollowupBody,
+  expandSentTouchesAcrossContactAliases,
   latestSentByEmail,
   looksLikeGranolaNoteFragment,
   meetingEndIso,
@@ -93,6 +94,35 @@ describe("pendingAttendeesForMeeting", () => {
       sent
     );
     assert.deepEqual(pending, [{ email: "ada@example.com", name: "Ada" }]);
+  });
+
+  it("clears a calendar guest when Jason emailed another address on the same contact", () => {
+    const sent = expandSentTouchesAcrossContactAliases(
+      latestSentByEmail([
+        {
+          email: "andrew.romano@strategiesforwealth.com",
+          sentAt: "2026-09-30T21:39:12.000Z",
+        },
+      ]),
+      (email) =>
+        email.includes("romano") || email.includes("guardian")
+          ? [
+              "andrew.romano@strategiesforwealth.com",
+              "strategiesforwealth8@guardianlife.com",
+            ]
+          : []
+    );
+    const pending = pendingAttendeesForMeeting(
+      [
+        {
+          email: "strategiesforwealth8@guardianlife.com",
+          name: "Andrew Romano",
+        },
+      ],
+      "2026-09-30T20:00:00.000Z",
+      sent
+    );
+    assert.deepEqual(pending, []);
   });
 });
 

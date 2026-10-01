@@ -21,12 +21,19 @@ function sentLabel(iso: string): string {
   });
 }
 
+function accountShort(email: string): string {
+  if (email.includes("kupermanadvisors")) return "Advisors";
+  if (email.includes("jskuperman")) return "Gmail";
+  if (email.includes("outlook")) return "Outlook";
+  return email;
+}
+
 export function SentFollowupsClient({
   rows,
-  advisorsConnected,
+  mailConnected,
 }: {
   rows: SentEmailFollowup[];
-  advisorsConnected: boolean;
+  mailConnected: boolean;
 }) {
   const router = useRouter();
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
@@ -51,36 +58,29 @@ export function SentFollowupsClient({
   };
 
   return (
-    <div className="mx-auto max-w-[1100px] space-y-4 px-4 py-6">
-      <header>
-        <h1 className="text-xl font-semibold tracking-tight">Sent mail</h1>
-        <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
-          Emails sent from jason@kupermanadvisors.com. Sync in the top bar
-          pulls new ones. Open a row to read the thread, then set a follow-up
-          for 1, 3, or 5 days, or type your own number. Home shows it on that day.
+    <div className="mx-auto max-w-3xl px-4">
+      <header className="mb-4">
+        <h2 className="text-lg font-semibold tracking-tight">Sent mail</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Outbound from Advisors Gmail, personal Gmail, and Outlook to a JasonOS
+          contact, with no follow-up day set yet. Sync pulls new ones and clears
+          threads that already got a reply. Set 1 / 3 / 5 days (or a custom
+          number); Home shows it when due.
         </p>
       </header>
 
-      {!advisorsConnected ? (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-[var(--jos-line)] bg-rung-2 px-4 py-3">
-          <p className="text-xs text-rung-ink">
-            Advisors Google isn&rsquo;t connected, so Sync can&rsquo;t read sent mail.
-          </p>
-          <a
-            href="/api/auth/google"
-            className="shrink-0 rounded-md border border-[var(--jos-line)] bg-rung-2 px-3 py-1 text-[11px] font-medium  hover:bg-rung-2"
-          >
-            Connect Advisors Google →
-          </a>
+      {!mailConnected ? (
+        <div className="mb-4 rounded-lg border border-[var(--jos-line)] bg-rung-2 px-4 py-3 text-xs text-rung-ink">
+          Connect a mail account in Settings, then hit Sync to stage sent mail.
         </div>
       ) : null}
 
       <div className="rounded-lg border bg-card">
         {visible.length === 0 ? (
           <div className="px-4 py-12 text-center text-sm text-muted-foreground">
-            {advisorsConnected
-              ? "No sent emails waiting. Hit Sync in the top bar to look for new ones."
-              : "Connect Advisors Google, then hit Sync to see sent mail."}
+            {mailConnected
+              ? "No sent emails waiting for a follow-up day. Hit Sync to look again."
+              : "Connect mail, then hit Sync."}
           </div>
         ) : (
           <ul className="divide-y">
@@ -93,9 +93,14 @@ export function SentFollowupsClient({
                     <p className="truncate text-[11px] text-muted-foreground">
                       To {row.toLine}
                       {row.sentAt ? ` · sent ${sentLabel(row.sentAt)}` : ""}
+                      {row.accountEmail
+                        ? ` · ${accountShort(row.accountEmail)}`
+                        : ""}
                     </p>
                     {row.snippet ? (
-                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{row.snippet}</p>
+                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                        {row.snippet}
+                      </p>
                     ) : null}
                     <SentThreadPanel followupId={row.id} gmailUrl={row.gmailUrl} />
                     <div className="mt-2">

@@ -69,34 +69,31 @@ export function MeetingFollowupsClient({
     router.refresh();
   };
 
-  if (!calendarConnected) {
-    return (
-      <div className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <Mail className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-        <h1 className="text-lg font-semibold">Follow Up</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Connect Google Calendar in Settings, then hit Sync. Past meetings
-          without a post-meeting email show up here.
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
+    <div className="mx-auto max-w-3xl px-4 pt-6">
       <div className="mb-4">
         <h1 className="text-lg font-semibold tracking-tight">Follow Up</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Past calendar meetings with a JasonOS contact where one or more
-          attendees still need an email. Draft uses the Granola note when one
-          exists.
+          Past calendar meetings (Google + Outlook) with a JasonOS contact where
+          one or more attendees still need an email. Draft uses the Granola note
+          when one exists. Unanswered outbound without a meeting is under Sent
+          mail below.
         </p>
       </div>
-      {visible.length === 0 ? (
-        <p className="py-12 text-center text-sm text-muted-foreground">
+      {!calendarConnected ? (
+        <div className="mb-4 flex items-start gap-3 rounded-lg border border-[var(--jos-line)] bg-rung-2 px-4 py-3">
+          <Mail className="mt-0.5 h-4 w-4 shrink-0 text-rung-ink" />
+          <p className="text-xs text-rung-ink">
+            Connect Google or Outlook calendar in Settings, then hit Sync. Past
+            meetings without a post-meeting email show up here.
+          </p>
+        </div>
+      ) : null}
+      {calendarConnected && visible.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">
           No open meeting follow-ups. Sync again after your next call.
         </p>
-      ) : (
+      ) : !calendarConnected ? null : (
         <ul className="divide-y divide-border border-y">
           {visible.map((row) => (
             <li key={row.id} className="py-4">
@@ -104,9 +101,6 @@ export function MeetingFollowupsClient({
                 <p className="text-sm font-medium">{row.title}</p>
                 <p className="text-[11px] text-muted-foreground">
                   {agoLabel(row.endsAt)}
-                  {row.status === "snoozed" && row.snoozeUntil
-                    ? ` · snoozed to ${row.snoozeUntil}`
-                    : ""}
                 </p>
               </div>
               <p className="mt-0.5 text-[12px] text-muted-foreground">

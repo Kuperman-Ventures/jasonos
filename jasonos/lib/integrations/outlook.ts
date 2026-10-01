@@ -4,7 +4,11 @@ import type { CalendarApiEvent } from "@/lib/integrations/google-calendar";
 import { getOutlookAccountAccess } from "@/lib/integrations/outlook-tokens";
 import { OUTLOOK_WRAP_EMAIL } from "@/lib/integrations/unwrap-forwarded-mail";
 import type { SentRecipientTouch } from "@/lib/outreach/meeting-followups";
-import { qualifySentMessage } from "@/lib/outreach/sent-followups";
+import {
+  latestHitPerThread,
+  qualifySentMessage,
+  type SentMailHit,
+} from "@/lib/outreach/sent-followups";
 import {
   OUTLOOK_MAX_PAGES,
   OUTLOOK_PAGE_SIZE,
@@ -14,6 +18,7 @@ import {
   inferOutlookWellKnownName,
   joinGraphAddresses,
   mapGraphMessage,
+  outlookTouchExternalId,
   rankOutlookFolders,
   type GraphMessage,
   type OutlookFolderRef,
@@ -178,7 +183,7 @@ function messagesPath(folderId: string, sinceIso: string, useFilter: boolean): s
   const params = new URLSearchParams({
     $top: String(OUTLOOK_PAGE_SIZE),
     $select:
-      "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,bodyPreview,webLink,isDraft",
+      "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,bodyPreview,webLink,isDraft,conversationId",
     $orderby: "receivedDateTime desc",
   });
   if (useFilter) {
@@ -190,14 +195,15 @@ function messagesPath(folderId: string, sinceIso: string, useFilter: boolean): s
 async function listFolderMessages(
   token: string,
   folder: OutlookFolderRef,
-  sinceIso: string
+  sinceIso: string,
+  maxPages = OUTLOOK_MAX_PAGES
 ): Promise<GraphMessage[]> {
   const sinceMs = new Date(sinceIso).getTime();
   let url = messagesPath(folder.id, sinceIso, true);
   let allowFilterRetry = true;
   const out: GraphMessage[] = [];
 
-  for (let page = 0; page < OUTLOOK_MAX_PAGES; page += 1) {
+  for (let page = 0; page < maxPages; page += 1) {
     const { status, body } = await graphGet(token, url);
     if ((status === 400 || status === 404) && allowFilterRetry) {
       allowFilterRetry = false;
@@ -331,6 +337,117 @@ export async function searchOutlookMessages(
   }
 
   return [...byId.values()];
+}
+
+/**
+ * Sent-mail follow-up hits from Outlook Sent Items (one per conversation).
+ */
+export async function listOutlookSentMailHits(opts?: {
+  daysBack?: number;
+  max?: number;
+}): Promise<{
+  configured: boolean;
+  data: SentMailHit[];
+  error?: string;
+}> {
+  const account = await getOutlookAccountAccess();
+  if (!account.configured || !account.token) {
+    return { configured: false, data: [], error: account.error };
+  }
+
+  const daysBack = Math.max(1, Math.min(90, opts?.daysBack ?? 90));
+  const max = opts?.max ?? 200;
+  const sinceIso = new Date(Date.now() - daysBack * 86_400_000).toISOString();
+  const hits: SentMailHit[] = [];
+
+  try {
+    const folder: OutlookFolderRef = {
+      id: "sentitems",
+      displayName: "Sent Items",
+      wellKnownName: "sentitems",
+    };
+    // Deeper page than the default mail sync — 9/18-style sends still need
+    // to land in Follow Up after a busy couple of weeks.
+    const messages = await listFolderMessages(
+      account.token,
+      folder,
+      sinceIso,
+      10
+    );
+    for (const message of messages.slice(0, max)) {
+      if (message.isDraft) continue;
+      const mapped = mapGraphMessage(message);
+      if (!mapped) continue;
+      const qualified = qualifySentMessage({
+        subject: mapped.subject,
+        to: mapped.to,
+        cc: mapped.cc,
+      });
+      if (!qualified.ok) continue;
+      const threadId =
+        mapped.conversationId || outlookTouchExternalId(mapped.id);
+      hits.push({
+        threadId,
+        messageId: outlookTouchExternalId(mapped.id),
+        subject: (mapped.subject ?? "").trim() || "(no subject)",
+        sentAt: mapped.date,
+        snippet: mapped.snippet.slice(0, 240),
+        toLine: qualified.toLine,
+        recipients: qualified.recipients,
+        accountEmail: account.accountEmail,
+        webLink: mapped.webLink,
+      });
+    }
+    return { configured: true, data: latestHitPerThread(hits) };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[outlook] sent follow-up scan failed:", err);
+    return { configured: true, data: [], error: msg };
+  }
+}
+
+/**
+ * Lightweight conversation scan for inbound replies after an Outlook send.
+ * Returns message from/date pairs for threadHasInboundReply.
+ */
+export async function listOutlookConversationMessages(
+  conversationId: string
+): Promise<{ id: string; from: string; date: string }[]> {
+  const account = await getOutlookAccountAccess();
+  if (!account.configured || !account.token || !conversationId.trim()) {
+    return [];
+  }
+  const escaped = conversationId.replace(/'/g, "''");
+  const select =
+    "id,from,sentDateTime,receivedDateTime,isDraft,conversationId";
+  const filter = encodeURIComponent(
+    `conversationId eq '${escaped}' and isDraft eq false`
+  );
+  const url =
+    `/me/messages?$select=${select}&$filter=${filter}&$top=50` +
+    `&$orderby=receivedDateTime desc`;
+  try {
+    const { status, body } = await graphGet(account.token, url);
+    if (status >= 400 || !body || !Array.isArray(body.value)) return [];
+    const out: { id: string; from: string; date: string }[] = [];
+    for (const raw of body.value as Array<{
+      id?: string;
+      from?: { emailAddress?: { address?: string; name?: string } };
+      sentDateTime?: string;
+      receivedDateTime?: string;
+    }>) {
+      const addr = raw.from?.emailAddress?.address?.trim() || "";
+      const name = raw.from?.emailAddress?.name?.trim() || "";
+      const from = name && addr ? `${name} <${addr}>` : addr || name;
+      const date = raw.sentDateTime || raw.receivedDateTime || "";
+      if (!raw.id || !from || !date) continue;
+      out.push({ id: raw.id, from, date });
+    }
+    return out;
+  } catch (err) {
+    console.error("[outlook] conversation scan failed:", err);
+    return [];
+  }
 }
 
 /**

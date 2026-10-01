@@ -457,60 +457,78 @@ export const SENT_FOLLOWUP_SCAN_MAX = 200;
 export const MEETING_FOLLOWUP_SENT_SCAN_MAX = 400;
 
 /**
- * Sent mail from the Advisors mailbox only. Newest messages, one hit per
- * thread, ready for the follow-up review list.
+ * Sent mail from every connected Google mailbox (Advisors + personal).
+ * Newest messages, one hit per thread per account, for the follow-up list.
  */
+export async function listGoogleSentMailHits(opts?: {
+  daysBack?: number;
+  max?: number;
+}): Promise<IntegrationResult<SentMailHit[]>> {
+  const tokens = await listGoogleAccessTokens();
+  if (!tokens.length) return emptyResult([], false);
+
+  const daysBack = opts?.daysBack ?? 90;
+  const max = opts?.max ?? SENT_FOLLOWUP_SCAN_MAX;
+  const after = gmailAfterSlashDate(daysBack);
+  const hits: SentMailHit[] = [];
+  const errors: string[] = [];
+
+  for (const { token, accountEmail } of tokens) {
+    try {
+      const messages = await listMessageIds(
+        token,
+        `in:sent -in:drafts -in:chats after:${after}`,
+        max
+      );
+      const detailed = await mapWithConcurrency(messages, 4, (m) =>
+        gmailFetch<GmailMsgResp>(
+          `/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Subject&metadataHeaders=Date`,
+          token
+        )
+      );
+      for (const message of detailed) {
+        const mapped = mapGmailMessage(message);
+        const qualified = qualifySentMessage({
+          labelIds: mapped.labelIds,
+          subject: mapped.subject,
+          to: mapped.to,
+          cc: mapped.cc,
+        });
+        if (!qualified.ok) continue;
+        hits.push({
+          threadId: mapped.threadId,
+          messageId: mapped.id,
+          subject: (mapped.subject ?? "").trim() || "(no subject)",
+          sentAt: messageCommunicationIso(mapped),
+          snippet: (mapped.snippet ?? "").replace(/\s+/g, " ").trim().slice(0, 240),
+          toLine: qualified.toLine,
+          recipients: qualified.recipients,
+          accountEmail,
+        });
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[gmail] sent follow-up scan failed (${accountEmail}):`, err);
+      errors.push(`${accountEmail}: ${msg}`);
+    }
+  }
+
+  if (!hits.length && errors.length) {
+    return emptyResult([], true, errors.join(" · "));
+  }
+  return emptyResult(
+    latestHitPerThread(hits),
+    true,
+    errors.length ? errors.join(" · ") : undefined
+  );
+}
+
+/** @deprecated Prefer listGoogleSentMailHits — kept for call-site compatibility. */
 export async function listAdvisorsSentMail(opts?: {
   daysBack?: number;
   max?: number;
 }): Promise<IntegrationResult<SentMailHit[]>> {
-  const token = await getGoogleAccessToken();
-  if (!token) return emptyResult([], false);
-
-  try {
-    const daysBack = opts?.daysBack ?? 90;
-    const max = opts?.max ?? SENT_FOLLOWUP_SCAN_MAX;
-    const after = gmailAfterSlashDate(daysBack);
-    const messages = await listMessageIds(
-      token,
-      `in:sent -in:drafts -in:chats after:${after}`,
-      max
-    );
-    const detailed = await mapWithConcurrency(messages, 4, (m) =>
-      gmailFetch<GmailMsgResp>(
-        `/users/me/messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Subject&metadataHeaders=Date`,
-        token
-      )
-    );
-    const hits: SentMailHit[] = [];
-    for (const message of detailed) {
-      const mapped = mapGmailMessage(message);
-      const qualified = qualifySentMessage({
-        labelIds: mapped.labelIds,
-        subject: mapped.subject,
-        to: mapped.to,
-        cc: mapped.cc,
-      });
-      if (!qualified.ok) continue;
-      hits.push({
-        threadId: mapped.threadId,
-        messageId: mapped.id,
-        subject: (mapped.subject ?? "").trim() || "(no subject)",
-        sentAt: messageCommunicationIso(mapped),
-        snippet: (mapped.snippet ?? "").replace(/\s+/g, " ").trim().slice(0, 240),
-        toLine: qualified.toLine,
-        recipients: qualified.recipients,
-      });
-    }
-    return emptyResult(latestHitPerThread(hits), true);
-  } catch (err) {
-    console.error("[gmail] advisors sent scan failed:", err);
-    return emptyResult(
-      [],
-      true,
-      err instanceof Error ? err.message : String(err)
-    );
-  }
+  return listGoogleSentMailHits(opts);
 }
 
 /**
@@ -680,6 +698,18 @@ export async function getGmailThread(
     console.error("[gmail] thread fetch failed:", err);
     return null;
   }
+}
+
+/** Load a thread from the mailbox that owns it (Advisors vs personal). */
+export async function getGmailThreadForAccount(
+  threadId: string,
+  accountEmail: string
+): Promise<GmailThreadFull | null> {
+  const want = accountEmail.trim().toLowerCase();
+  const tokens = await listGoogleAccessTokens();
+  const match = tokens.find((t) => t.accountEmail.toLowerCase() === want);
+  if (match) return getGmailThread(threadId, match.token);
+  return getGmailThread(threadId);
 }
 
 /**

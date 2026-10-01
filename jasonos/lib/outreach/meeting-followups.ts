@@ -148,6 +148,29 @@ export function latestSentByEmail(
 }
 
 /**
+ * If Jason emailed any address on a JasonOS contact, treat every address on
+ * that contact as emailed at the same time. Clears meeting Follow Ups when
+ * the calendar guest used a different work email than the People row.
+ */
+export function expandSentTouchesAcrossContactAliases(
+  sentByEmail: Map<string, string>,
+  aliasesFor: (email: string) => readonly string[]
+): Map<string, string> {
+  const out = new Map(sentByEmail);
+  for (const [email, sentAt] of sentByEmail) {
+    for (const alias of aliasesFor(email)) {
+      const key = canonicalEmail(alias);
+      if (!key.includes("@")) continue;
+      const prev = out.get(key);
+      if (!prev || Date.parse(sentAt) > Date.parse(prev)) {
+        out.set(key, sentAt);
+      }
+    }
+  }
+  return out;
+}
+
+/**
  * Attendees with no sent mail at or after the meeting end.
  * Same-day mail after the meeting clears the reminder.
  */
