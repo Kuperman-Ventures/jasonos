@@ -139,13 +139,16 @@ async function loadOutlookToken(): Promise<LoadedToken> {
     const sb = createServiceRoleClient();
     const { data } = await sb
       .from("user_integrations")
-      .select("access_token, refresh_token, expires_at, metadata")
+      .select("id, access_token, refresh_token, expires_at, metadata")
       .eq("provider", OUTLOOK_PROVIDER)
+      .order("updated_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
     if (!data) {
       return { configured: false, token: null, email: null, oauthConfigured };
     }
 
+    const rowId = data.id as string;
     const email = emailFromMetadata(data.metadata) ?? OUTLOOK_ACCOUNT_EMAIL;
     if (data.access_token && tokenStillValid(data.expires_at)) {
       return { configured: true, token: data.access_token, email, oauthConfigured };
@@ -185,7 +188,7 @@ async function loadOutlookToken(): Promise<LoadedToken> {
           refresh_token: refreshed.refresh_token ?? data.refresh_token,
           expires_at: expiresAt,
         })
-        .eq("provider", OUTLOOK_PROVIDER);
+        .eq("id", rowId);
       return {
         configured: true,
         token: refreshed.access_token,

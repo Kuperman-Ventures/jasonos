@@ -7,6 +7,7 @@ const OUTLOOK_WRAP_EMAIL = "jason.kuperman@outlook.com";
 /** Known outbound email addresses (v1 hardcode — keep in sync if these change). */
 export const MY_EMAILS = [
   "jason@kupermanadvisors.com",
+  "jasonkuperman@gmail.com",
   "jskuperman@gmail.com",
   OUTLOOK_WRAP_EMAIL,
 ];

@@ -9,8 +9,20 @@ export const GOOGLE_PROVIDERS = [GOOGLE_ADVISORS, GOOGLE_GMAIL] as const;
 
 export type GoogleProvider = (typeof GOOGLE_PROVIDERS)[number];
 
-export const GMAIL_ACCOUNT_EMAIL = "jskuperman@gmail.com";
+/** Preferred personal Gmail address shown in Settings / login hints. */
+export const GMAIL_ACCOUNT_EMAIL = "jasonkuperman@gmail.com";
+/** Older personal Gmail that still holds mail history — accept either. */
+export const GMAIL_ACCOUNT_EMAIL_ALIASES = [
+  "jasonkuperman@gmail.com",
+  "jskuperman@gmail.com",
+] as const;
 export const ADVISORS_ACCOUNT_EMAIL = "jason@kupermanadvisors.com";
+
+export function isPersonalGmailAccount(email: string | null | undefined): boolean {
+  const e = (email ?? "").trim().toLowerCase();
+  if (!e) return false;
+  return (GMAIL_ACCOUNT_EMAIL_ALIASES as readonly string[]).includes(e);
+}
 
 export interface GoogleAccessToken {
   provider: GoogleProvider;
@@ -48,7 +60,7 @@ export const EMPTY_GOOGLE_CONNECTION_STATUS: GoogleConnectionStatus = {
 };
 
 export function googleSignInExpiredMessage(accountEmail: string): string {
-  if (accountEmail === GMAIL_ACCOUNT_EMAIL) {
+  if (isPersonalGmailAccount(accountEmail)) {
     return `${accountEmail}: sign-in expired. Reconnect personal Gmail in Settings.`;
   }
   return `${accountEmail}: sign-in expired. Reconnect Advisors Google in Settings.`;
@@ -111,13 +123,18 @@ async function loadAccessTokenDetailed(
   }
   try {
     const sb = createServiceRoleClient();
-    const { data } = await sb
+    // Multiple Auth users can leave duplicate provider rows; always take the
+    // freshest grant. maybeSingle() alone errors when >1 row matches.
+    const { data, error } = await sb
       .from("user_integrations")
-      .select("access_token, refresh_token, expires_at, metadata")
+      .select("id, access_token, refresh_token, expires_at, metadata")
       .eq("provider", provider)
+      .order("updated_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
-    if (!data) return emptyLoadedToken();
+    if (error || !data) return emptyLoadedToken();
 
+    const rowId = data.id as string;
     const email =
       emailFromMetadata(data.metadata) ?? accountEmailFor(provider);
     const withEmail = (loaded: Omit<LoadedToken, "email">): LoadedToken => ({
@@ -141,7 +158,7 @@ async function loadAccessTokenDetailed(
             access_token: refreshed.access_token,
             expires_at: expiresAt,
           })
-          .eq("provider", provider);
+          .eq("id", rowId);
         return withEmail({ configured: true, token: refreshed.access_token });
       }
       if (data.access_token && tokenStillValid(data.expires_at)) {
@@ -155,7 +172,7 @@ async function loadAccessTokenDetailed(
       return withEmail({
         configured: true,
         token: null,
-        error: googleSignInExpiredMessage(accountEmailFor(provider)),
+        error: googleSignInExpiredMessage(email || accountEmailFor(provider)),
       });
     }
 
@@ -165,7 +182,7 @@ async function loadAccessTokenDetailed(
     return withEmail({
       configured: Boolean(data.access_token || data.refresh_token),
       token: null,
-      error: googleSignInExpiredMessage(accountEmailFor(provider)),
+      error: googleSignInExpiredMessage(email || accountEmailFor(provider)),
     });
   } catch {
     return emptyLoadedToken();
@@ -191,7 +208,7 @@ export async function listGoogleAccountAccess(): Promise<GoogleAccountAccess[]> 
     if (!loaded.configured && !loaded.token) continue;
     out.push({
       provider,
-      accountEmail: accountEmailFor(provider),
+      accountEmail: loaded.email ?? accountEmailFor(provider),
       token: loaded.token,
       error: loaded.error,
     });
