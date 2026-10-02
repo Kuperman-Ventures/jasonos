@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createServiceRoleClient } from "@/lib/supabase/server";
 
 const ADVISORS_OWNER_EMAIL = "jason@kupermanadvisors.com";
 
@@ -11,9 +11,9 @@ const ADVISORS_OWNER_EMAIL = "jason@kupermanadvisors.com";
  * unstable first page and has written personal-Gmail tokens onto the wrong
  * Auth user when family accounts exist in the same project.
  */
-export async function resolveJasonosOwnerUserId(
-  sb: SupabaseClient
-): Promise<string | null> {
+export async function resolveJasonosOwnerUserId(): Promise<string | null> {
+  const sb = createServiceRoleClient();
+
   // Prefer whoever already holds Advisors Google — that's the live operator.
   const { data: advisorsRow } = await sb
     .from("user_integrations")

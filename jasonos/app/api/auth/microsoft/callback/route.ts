@@ -110,7 +110,7 @@ export async function GET(req: Request) {
     { db: { schema: "jasonos" }, auth: { persistSession: false } }
   );
 
-  const ownerId = await resolveJasonosOwnerUserId(sb);
+  const ownerId = await resolveJasonosOwnerUserId();
   if (!ownerId) {
     return NextResponse.json(
       { error: "No user found in Supabase Auth. Create a user first." },
