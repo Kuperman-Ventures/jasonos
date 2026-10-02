@@ -68,7 +68,8 @@ export function SentFollowupsClient({
           Outbound from Advisors Gmail, personal Gmail, and Outlook to a JasonOS
           contact, with no follow-up day set yet. Sync pulls new ones and clears
           threads that already got a reply. Open in Apple Mail — set 1 / 3 / 5
-          days (or a custom number); Home shows it when due.
+          days (or a custom number). Home shows new sends here too, plus ones
+          whose day has arrived.
         </p>
       </header>
 
