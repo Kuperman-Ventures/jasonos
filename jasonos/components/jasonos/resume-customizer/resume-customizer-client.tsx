@@ -93,6 +93,7 @@ function announceCustomization(res: CustomizeResult) {
         match_score: res.analysis.matchScore,
         created_at: new Date().toISOString(),
         has_job_description: true,
+        job_description: null,
       },
     })
   );
@@ -426,10 +427,10 @@ export function ResumeCustomizerClient({
       </section>
 
       {/* ---------------------------------------------------------------- */}
-      {/* Recent customizations                                            */}
+      {/* Recent customizations — resume + matching JD side by side        */}
       {/* ---------------------------------------------------------------- */}
       {customizations.length > 0 && (
-        <details className="group rounded-xl border bg-card/40 p-5">
+        <details className="group rounded-xl border bg-card/40 p-5" open>
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
             <h2 className="text-sm font-semibold tracking-tight">
               Recent tailored resumes{" "}
@@ -437,110 +438,143 @@ export function ResumeCustomizerClient({
             </h2>
             <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
           </summary>
-          <ul className="mt-3 divide-y divide-border/60">
+          <p className="mt-2 text-xs text-muted-foreground">
+            Each tailored resume sits next to the job description that was pasted
+            or uploaded for that run.
+          </p>
+          <ul className="mt-3 space-y-3">
             {customizations.map((c) => {
               const editing = renamingId === c.id;
               return (
               <li
                 key={c.id}
-                className="flex items-center gap-3 py-2 text-sm"
+                className="rounded-lg border border-border/70 bg-background/40 p-3"
               >
-                <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  {editing ? (
-                    <input
-                      value={renameDraft}
-                      onChange={(e) => setRenameDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          commitRename(c.id);
-                        } else if (e.key === "Escape") {
-                          e.preventDefault();
-                          cancelRename();
-                        }
-                      }}
-                      autoFocus
-                      disabled={busy}
-                      className="h-8 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
-                      aria-label="Resume name"
-                    />
-                  ) : (
-                    <p className="truncate font-medium">{c.filename}</p>
-                  )}
-                  <p className="text-[11px] text-muted-foreground">
-                    {c.company ?? "—"}
-                    {typeof c.match_score === "number" &&
-                      ` · Match ${c.match_score}/100`}{" "}
-                    · {new Date(c.created_at).toLocaleDateString()}
-                  </p>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {/* Resume column */}
+                  <div className="min-w-0">
+                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Tailored resume
+                    </p>
+                    <div className="flex items-start gap-2">
+                      <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0 flex-1">
+                        {editing ? (
+                          <input
+                            value={renameDraft}
+                            onChange={(e) => setRenameDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                commitRename(c.id);
+                              } else if (e.key === "Escape") {
+                                e.preventDefault();
+                                cancelRename();
+                              }
+                            }}
+                            autoFocus
+                            disabled={busy}
+                            className="h-8 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/40"
+                            aria-label="Resume name"
+                          />
+                        ) : (
+                          <p className="truncate text-sm font-medium">{c.filename}</p>
+                        )}
+                        <p className="text-[11px] text-muted-foreground">
+                          {c.company ?? "—"}
+                          {typeof c.match_score === "number" &&
+                            ` · Match ${c.match_score}/100`}{" "}
+                          · {new Date(c.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-1">
+                      {editing ? (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            disabled={busy}
+                            onClick={() => commitRename(c.id)}
+                            aria-label="Save name"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            disabled={busy}
+                            onClick={cancelRename}
+                            aria-label="Cancel rename"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            disabled={busy}
+                            onClick={() => startRename(c)}
+                            aria-label="Rename"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="xs"
+                            disabled={busy}
+                            onClick={() => handleDownloadPast(c.id)}
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                            Resume
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            disabled={busy}
+                            onClick={() => handleDeletePast(c.id)}
+                            aria-label="Delete"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Job description column */}
+                  <div className="min-w-0 border-t border-border/60 pt-3 md:border-l md:border-t-0 md:pl-3 md:pt-0">
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Job description
+                      </p>
+                      {c.has_job_description && (
+                        <Button
+                          variant="ghost"
+                          size="xs"
+                          disabled={busy}
+                          onClick={() => handleDownloadJd(c.id)}
+                          title="Download the saved job description"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          JD
+                        </Button>
+                      )}
+                    </div>
+                    {c.job_description ? (
+                      <pre className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-border/50 bg-muted/20 px-2.5 py-2 font-sans text-[11px] leading-relaxed text-foreground/85">
+                        {c.job_description}
+                      </pre>
+                    ) : (
+                      <p className="rounded-md border border-dashed border-border/60 px-2.5 py-3 text-[11px] text-muted-foreground">
+                        No job description was saved for this one (older runs
+                        before JD storage).
+                      </p>
+                    )}
+                  </div>
                 </div>
-                {editing ? (
-                  <>
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      disabled={busy}
-                      onClick={() => commitRename(c.id)}
-                      aria-label="Save name"
-                    >
-                      <Check className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      disabled={busy}
-                      onClick={cancelRename}
-                      aria-label="Cancel rename"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      disabled={busy}
-                      onClick={() => startRename(c)}
-                      aria-label="Rename"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      disabled={busy}
-                      onClick={() => handleDownloadPast(c.id)}
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      Resume
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      disabled={busy || !c.has_job_description}
-                      onClick={() => handleDownloadJd(c.id)}
-                      title={
-                        c.has_job_description
-                          ? "Download the saved job description"
-                          : "No job description was saved for this one"
-                      }
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      JD
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon-xs"
-                      disabled={busy}
-                      onClick={() => handleDeletePast(c.id)}
-                      aria-label="Delete"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </>
-                )}
               </li>
               );
             })}

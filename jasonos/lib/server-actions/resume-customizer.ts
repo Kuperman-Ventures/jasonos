@@ -37,6 +37,8 @@ export interface CustomizationRow {
   created_at: string;
   /** True when a usable job description was saved with this customization. */
   has_job_description: boolean;
+  /** Pasted / uploaded / URL-fetched job description text used for this run. */
+  job_description: string | null;
 }
 
 export interface CustomizeResult {
@@ -500,14 +502,18 @@ export async function listCustomizations(): Promise<CustomizationRow[]> {
     match_score: number | null;
     created_at: string;
     job_description: string | null;
-  }>).map((row) => ({
-    id: row.id,
-    company: row.company,
-    filename: row.filename,
-    match_score: row.match_score,
-    created_at: row.created_at,
-    has_job_description: (row.job_description?.trim().length ?? 0) >= 20,
-  }));
+  }>).map((row) => {
+    const jd = row.job_description?.trim() || null;
+    return {
+      id: row.id,
+      company: row.company,
+      filename: row.filename,
+      match_score: row.match_score,
+      created_at: row.created_at,
+      job_description: jd && jd.length >= 20 ? jd : null,
+      has_job_description: (jd?.length ?? 0) >= 20,
+    };
+  });
 }
 
 export async function getCustomizationDownload(
