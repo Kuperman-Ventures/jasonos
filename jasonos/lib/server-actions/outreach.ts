@@ -24,8 +24,13 @@ import {
   insertContactTouches,
   type TouchChannel,
 } from "@/lib/outreach/touch-capture";
+import { refreshContactPhotoFromLeadDelta } from "@/lib/server-actions/contact-photo";
+import { normalizeLinkedInUrl } from "@/lib/integrations/leaddelta";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
+type IdentityUpdateResult =
+  | { ok: true; photoUrl?: string | null }
+  | { ok: false; error: string };
 
 function ensureConfigured(): ActionResult | null {
   if (
@@ -398,7 +403,7 @@ export async function updateContactIdentity(
     phone: string | null;
     linkedinUrl: string | null;
   }
-): Promise<ActionResult> {
+): Promise<IdentityUpdateResult> {
   const guard = ensureConfigured();
   if (guard) return guard;
   if (!contactId) return { ok: false, error: "contactId is required." };
@@ -410,7 +415,7 @@ export async function updateContactIdentity(
 
   const { data: existing, error: readError } = await sb
     .from("contacts")
-    .select("tags,emails")
+    .select("tags,emails,linkedin_url,photo_url")
     .eq("id", contactId)
     .maybeSingle();
   if (readError) return { ok: false, error: readError.message };
@@ -442,6 +447,12 @@ export async function updateContactIdentity(
   const phone = input.phone?.trim() || null;
   const title = input.title?.trim() || null;
   const linkedinUrl = input.linkedinUrl?.trim() || null;
+  const previousLinkedin = normalizeLinkedInUrl(
+    ((existing.linkedin_url as string | null) ?? "").trim()
+  );
+  const nextLinkedin = linkedinUrl ? normalizeLinkedInUrl(linkedinUrl) : null;
+  const linkedinChanged = previousLinkedin !== nextLinkedin;
+  const hadPhoto = Boolean((existing.photo_url as string | null)?.trim());
 
   const payload: Record<string, unknown> = {
     name,
@@ -462,8 +473,18 @@ export async function updateContactIdentity(
 
   if (error) return { ok: false, error: error.message };
 
+  // Pull Lead Delta photo when LinkedIn is saved — so it is ready without
+  // reopening the card. Never fail the identity save if the photo pull fails.
+  let photoUrl: string | null | undefined;
+  if (nextLinkedin && (linkedinChanged || !hadPhoto)) {
+    const photo = await refreshContactPhotoFromLeadDelta(contactId, {
+      force: linkedinChanged && hadPhoto,
+    });
+    if (photo.ok) photoUrl = photo.photoUrl;
+  }
+
   revalidate();
-  return { ok: true };
+  return { ok: true, photoUrl };
 }
 
 // ---------------------------------------------------------------------------
