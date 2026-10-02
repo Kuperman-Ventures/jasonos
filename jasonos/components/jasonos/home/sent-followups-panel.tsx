@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import { SentFollowupControls } from "@/components/jasonos/outreach/sent-followup-controls";
 import { SentThreadPanel } from "@/components/jasonos/outreach/sent-thread-panel";
 import {
-  completeSentEmailFollowup,
   dismissSentEmailFollowup,
   scheduleSentEmailFollowup,
   type SentEmailFollowup,
@@ -16,13 +15,26 @@ import {
 
 const STORAGE_KEY = "jasonos.sent-followups.collapsed";
 
-function statusText(row: SentEmailFollowup): string {
-  if (row.status === "new") return "pick a follow-up day";
-  if (row.daysOverdue <= 0) return "due today";
-  if (row.daysOverdue === 1) return "1 day overdue";
-  return `${row.daysOverdue} days overdue`;
+function sentLabel(iso: string): string {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return "";
+  return new Date(t).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
 }
 
+function accountShort(email: string): string {
+  if (email.includes("kupermanadvisors")) return "Advisors";
+  if (email.includes("jskuperman")) return "Gmail";
+  if (email.includes("outlook")) return "Outlook";
+  return email;
+}
+
+/**
+ * Home mirror of Networking → Follow Up email queue.
+ * Same rows (status=new), same schedule / dismiss actions.
+ */
 export function SentFollowupsPanel({ rows }: { rows: SentEmailFollowup[] }) {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
@@ -31,14 +43,18 @@ export function SentFollowupsPanel({ rows }: { rows: SentEmailFollowup[] }) {
   const visible = rows.filter((row) => !hidden.has(row.id));
 
   useEffect(() => {
-    // Read after mount so SSR and first paint match (expanded).
-    try {
+    // Keep the queue open when there are items so Home matches Follow Up.
+    if (rows.length > 0) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCollapsed(false);
+      return;
+    }
+    try {
       if (window.localStorage.getItem(STORAGE_KEY) === "1") setCollapsed(true);
     } catch {
       // private mode / quota
     }
-  }, []);
+  }, [rows.length]);
 
   const toggleCollapsed = () => {
     setCollapsed((prev) => {
@@ -102,65 +118,57 @@ export function SentFollowupsPanel({ rows }: { rows: SentEmailFollowup[] }) {
       {!collapsed ? (
         <>
           <p className="border-b px-4 py-1.5 text-[11px] text-muted-foreground">
-            New sends waiting for a follow-up day, plus ones whose day has
-            arrived. Open the thread, set 1 / 3 / 5 days, mark done, or skip.
-            Sync clears rows when a reply is detected.
+            Same queue as Networking → Follow Up. Set 1 / 3 / 5 days, or skip.
+            Sync clears threads that already got a reply.
           </p>
           {visible.length === 0 ? (
             <p className="px-4 py-8 text-center text-xs text-muted-foreground">
-              No sent emails waiting for a follow-up.
+              No sent emails waiting for a follow-up day.
             </p>
           ) : (
             <ul className="max-h-[calc(10*5.5rem)] divide-y divide-border overflow-y-auto overscroll-contain">
               {visible.map((row) => (
                 <li key={row.id} className="px-4 py-3">
-                  <p className="truncate text-sm font-medium">{row.subject}</p>
-                  <p className="truncate text-[11px] text-muted-foreground">
-                    To {row.toLine}
-                    <span
-                      className={
-                        row.status !== "new" && row.daysOverdue > 0
-                          ? "ml-1.5 text-rung-1"
-                          : "ml-1.5 text-rung-ink"
-                      }
-                    >
-                      {statusText(row)}
-                    </span>
-                  </p>
-                  <SentThreadPanel
-                    followupId={row.id}
-                    appleMailUrl={row.appleMailUrl}
-                  />
-                  <div className="mt-2">
-                    <SentFollowupControls
-                      busy={busyId === row.id}
-                      onDone={() =>
-                        void run(
-                          row.id,
-                          () => completeSentEmailFollowup(row.id),
-                          "Follow-up marked done"
-                        )
-                      }
-                      onDismiss={
-                        row.status === "new"
-                          ? () =>
-                              void run(
-                                row.id,
-                                () => dismissSentEmailFollowup(row.id),
-                                "No follow-up"
-                              )
-                          : undefined
-                      }
-                      onSchedule={(days) =>
-                        void run(
-                          row.id,
-                          () => scheduleSentEmailFollowup(row.id, days),
-                          row.status === "new"
-                            ? `Follow-up set for ${days} day${days === 1 ? "" : "s"}`
-                            : `Follow-up moved to ${days} day${days === 1 ? "" : "s"}`
-                        )
-                      }
-                    />
+                  <div className="flex items-start gap-3">
+                    <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{row.subject}</p>
+                      <p className="truncate text-[11px] text-muted-foreground">
+                        To {row.toLine}
+                        {row.sentAt ? ` · sent ${sentLabel(row.sentAt)}` : ""}
+                        {row.accountEmail
+                          ? ` · ${accountShort(row.accountEmail)}`
+                          : ""}
+                      </p>
+                      {row.snippet ? (
+                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                          {row.snippet}
+                        </p>
+                      ) : null}
+                      <SentThreadPanel
+                        followupId={row.id}
+                        appleMailUrl={row.appleMailUrl}
+                      />
+                      <div className="mt-2">
+                        <SentFollowupControls
+                          busy={busyId === row.id}
+                          onSchedule={(days) =>
+                            void run(
+                              row.id,
+                              () => scheduleSentEmailFollowup(row.id, days),
+                              `Follow-up set for ${days} day${days === 1 ? "" : "s"}`
+                            )
+                          }
+                          onDismiss={() =>
+                            void run(
+                              row.id,
+                              () => dismissSentEmailFollowup(row.id),
+                              "No follow-up"
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
                   </div>
                 </li>
               ))}

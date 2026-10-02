@@ -443,25 +443,9 @@ export async function getDueSentEmailFollowups(): Promise<SentEmailFollowup[]> {
     .filter((row) => isFollowupDue(row.followUpDue, today));
 }
 
-/**
- * Home "Email follow-ups": newly synced sends waiting for a day, plus
- * scheduled rows whose follow-up day has arrived.
- */
+/** @deprecated Use getSentEmailFollowups — Home mirrors Networking → Follow Up. */
 export async function getHomeSentEmailFollowups(): Promise<SentEmailFollowup[]> {
-  if (!hasConfig()) return [];
-  const [needsDay, due] = await Promise.all([
-    getSentEmailFollowups(),
-    getDueSentEmailFollowups(),
-  ]);
-  // New first (most recent send), then due by follow-up date.
-  const seen = new Set<string>();
-  const out: SentEmailFollowup[] = [];
-  for (const row of [...needsDay, ...due]) {
-    if (seen.has(row.id)) continue;
-    seen.add(row.id);
-    out.push(row);
-  }
-  return out;
+  return getSentEmailFollowups();
 }
 
 export async function scheduleSentEmailFollowup(
