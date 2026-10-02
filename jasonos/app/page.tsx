@@ -5,7 +5,7 @@ import { SentFollowupsPanel } from "@/components/jasonos/home/sent-followups-pan
 import { MorningBriefCard } from "@/components/jasonos/home/morning-brief-card";
 import { InboxDispatchCard } from "@/components/jasonos/home/inbox-dispatch-card";
 import { getDueMeetingFollowups } from "@/lib/server-actions/meeting-followups";
-import { getHomeSentEmailFollowups } from "@/lib/server-actions/sent-followups";
+import { getSentEmailFollowups } from "@/lib/server-actions/sent-followups";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -15,10 +15,11 @@ export default async function Dashboard({
 }: {
   searchParams: Promise<{ brief?: string }>;
 }) {
-  const [data, dueMeetings, homeSent, { brief }] = await Promise.all([
+  // Email follow-ups on Home use the same loader as Networking → Follow Up.
+  const [data, dueMeetings, sentFollowups, { brief }] = await Promise.all([
     getHomeData(),
     getDueMeetingFollowups(),
-    getHomeSentEmailFollowups(),
+    getSentEmailFollowups(),
     searchParams,
   ]);
   return (
@@ -26,7 +27,7 @@ export default async function Dashboard({
       <MorningBriefCard selectedDate={brief} />
       <InboxDispatchCard />
       <MeetingFollowupsPanel rows={dueMeetings} />
-      <SentFollowupsPanel rows={homeSent} />
+      <SentFollowupsPanel rows={sentFollowups} />
     </HomeClient>
   );
 }
