@@ -12,6 +12,7 @@ import {
   OUTLOOK_PROVIDER,
   microsoftOAuthBase,
 } from "@/lib/integrations/outlook-tokens";
+import { resolveJasonosOwnerUserId } from "@/lib/integrations/owner";
 
 export const runtime = "nodejs";
 
@@ -109,8 +110,7 @@ export async function GET(req: Request) {
     { db: { schema: "jasonos" }, auth: { persistSession: false } }
   );
 
-  const { data: users } = await sb.auth.admin.listUsers({ perPage: 1 });
-  const ownerId = users?.users?.[0]?.id ?? null;
+  const ownerId = await resolveJasonosOwnerUserId();
   if (!ownerId) {
     return NextResponse.json(
       { error: "No user found in Supabase Auth. Create a user first." },
@@ -149,6 +149,12 @@ export async function GET(req: Request) {
     console.error("[microsoft/callback] upsert failed:", upsertError);
     return NextResponse.json({ error: upsertError.message }, { status: 500 });
   }
+
+  await sb
+    .from("user_integrations")
+    .delete()
+    .eq("provider", OUTLOOK_PROVIDER)
+    .neq("user_id", ownerId);
 
   return NextResponse.redirect(`${origin}/settings?outlook_connected=1`);
 }

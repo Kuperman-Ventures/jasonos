@@ -23,7 +23,7 @@ function sentLabel(iso: string): string {
 
 function accountShort(email: string): string {
   if (email.includes("kupermanadvisors")) return "Advisors";
-  if (email.includes("jskuperman")) return "Gmail";
+  if (email.includes("jasonkuperman") || email.includes("jskuperman")) return "Gmail";
   if (email.includes("outlook")) return "Outlook";
   return email;
 }

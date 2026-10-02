@@ -572,7 +572,7 @@ export function CommunicationsClient({
           <div className="flex items-center justify-between gap-3 border-b bg-rung-2 px-4 py-2.5 shrink-0">
             <div className="text-xs text-rung-ink">
               Personal Gmail is not connected — sent mail and calendar on
-              jskuperman@gmail.com will not sync.
+              jasonkuperman@gmail.com will not sync.
             </div>
             <a
               href="/api/auth/google?account=gmail"

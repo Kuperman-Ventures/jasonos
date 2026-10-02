@@ -1,7 +1,7 @@
 // GET /api/auth/google
 // Redirects to Google OAuth consent screen.
 // Scopes: Gmail read, Calendar read, and Calendar events so a Meet invite can be created.
-// ?account=gmail stores a second token for jskuperman@gmail.com (provider=google_gmail).
+// ?account=gmail stores a second token for personal Gmail (provider=google_gmail).
 
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";

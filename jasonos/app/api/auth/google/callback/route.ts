@@ -1,6 +1,5 @@
 // GET /api/auth/google/callback
 // Exchanges the OAuth code for tokens and stores them in jasonos.user_integrations.
-// Single-user app: uses auth.admin.listUsers() to find the owner_id.
 // state=google_gmail:... stores a second row (provider=google_gmail) for personal Gmail.
 
 import { cookies } from "next/headers";
@@ -11,8 +10,10 @@ import {
   GMAIL_ACCOUNT_EMAIL,
   GOOGLE_ADVISORS,
   GOOGLE_GMAIL,
+  isPersonalGmailAccount,
   type GoogleProvider,
 } from "@/lib/integrations/google-tokens";
+import { resolveJasonosOwnerUserId } from "@/lib/integrations/owner";
 
 export const runtime = "nodejs";
 
@@ -97,10 +98,10 @@ export async function GET(req: Request) {
     : {};
   const email = (userInfo.email ?? "").trim().toLowerCase();
 
-  if (provider === GOOGLE_GMAIL && email !== GMAIL_ACCOUNT_EMAIL.toLowerCase()) {
+  if (provider === GOOGLE_GMAIL && !isPersonalGmailAccount(email)) {
     return settingsError(
       origin,
-      `Signed in as ${userInfo.email ?? "another account"}. Pick ${GMAIL_ACCOUNT_EMAIL}.`
+      `Signed in as ${userInfo.email ?? "another account"}. Pick ${GMAIL_ACCOUNT_EMAIL} (or jskuperman@gmail.com).`
     );
   }
   if (provider === GOOGLE_ADVISORS && email && email !== ADVISORS_ACCOUNT_EMAIL.toLowerCase()) {
@@ -116,8 +117,7 @@ export async function GET(req: Request) {
     { db: { schema: "jasonos" }, auth: { persistSession: false } }
   );
 
-  const { data: users } = await sb.auth.admin.listUsers({ perPage: 1 });
-  const ownerId = users?.users?.[0]?.id ?? null;
+  const ownerId = await resolveJasonosOwnerUserId();
   if (!ownerId) {
     return NextResponse.json(
       { error: "No user found in Supabase Auth. Create a user first." },
@@ -151,6 +151,14 @@ export async function GET(req: Request) {
     console.error("[google/callback] upsert failed:", upsertError);
     return NextResponse.json({ error: upsertError.message }, { status: 500 });
   }
+
+  // Drop stray duplicate grants left on other Auth users so status reads stay
+  // single-row.
+  await sb
+    .from("user_integrations")
+    .delete()
+    .eq("provider", provider)
+    .neq("user_id", ownerId);
 
   if (provider === GOOGLE_GMAIL) {
     return NextResponse.redirect(`${origin}/settings?google_gmail_connected=1`);
