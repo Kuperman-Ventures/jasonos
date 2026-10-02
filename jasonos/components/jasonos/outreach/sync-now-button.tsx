@@ -786,12 +786,6 @@ function SyncStepRow({ step }: { step: SyncStep }) {
           </div>
         )}
       </div>
-      <style>{`
-        @keyframes jos-sync-slide {
-          0% { transform: translateX(-120%); }
-          100% { transform: translateX(240%); }
-        }
-      `}</style>
     </li>
   );
 }
