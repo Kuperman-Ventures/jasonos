@@ -38,9 +38,9 @@ export function LogTab({
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [sort, setSort] = useState<ActivityLogSort>("recency");
-  /** Actor ids that are collapsed when sorting by person. Empty = all expanded. */
-  const [collapsedActors, setCollapsedActors] = useState<Set<string>>(() => new Set());
+  const [sort, setSort] = useState<ActivityLogSort>("person");
+  /** Actor ids that are expanded when sorting by person. Empty = all collapsed (default). */
+  const [expandedActors, setExpandedActors] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -70,7 +70,7 @@ export function LogTab({
   );
 
   function togglePerson(actorId: string) {
-    setCollapsedActors((prev) => {
+    setExpandedActors((prev) => {
       const next = new Set(prev);
       if (next.has(actorId)) next.delete(actorId);
       else next.add(actorId);
@@ -122,7 +122,7 @@ export function LogTab({
             const profile =
               memberProfiles.find((p) => p.id === group.actorId) ??
               profileForActor(memberProfiles, group.entries[0]!);
-            const expanded = !collapsedActors.has(group.actorId);
+            const expanded = expandedActors.has(group.actorId);
             const panelId = `log-person-${group.actorId}`;
             return (
               <section key={group.actorId} className="log-person-group">
