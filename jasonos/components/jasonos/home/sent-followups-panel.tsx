@@ -9,13 +9,15 @@ import { SentFollowupControls } from "@/components/jasonos/outreach/sent-followu
 import { SentThreadPanel } from "@/components/jasonos/outreach/sent-thread-panel";
 import {
   completeSentEmailFollowup,
+  dismissSentEmailFollowup,
   scheduleSentEmailFollowup,
   type SentEmailFollowup,
 } from "@/lib/server-actions/sent-followups";
 
 const STORAGE_KEY = "jasonos.sent-followups.collapsed";
 
-function dueText(row: SentEmailFollowup): string {
+function statusText(row: SentEmailFollowup): string {
+  if (row.status === "new") return "pick a follow-up day";
   if (row.daysOverdue <= 0) return "due today";
   if (row.daysOverdue === 1) return "1 day overdue";
   return `${row.daysOverdue} days overdue`;
@@ -100,13 +102,13 @@ export function SentFollowupsPanel({ rows }: { rows: SentEmailFollowup[] }) {
       {!collapsed ? (
         <>
           <p className="border-b px-4 py-1.5 text-[11px] text-muted-foreground">
-            Sent to a JasonOS contact and due for a follow-up. Open the thread,
-            mark it done, or push the date. Sync clears rows when a reply is
-            detected.
+            New sends waiting for a follow-up day, plus ones whose day has
+            arrived. Open the thread, set 1 / 3 / 5 days, mark done, or skip.
+            Sync clears rows when a reply is detected.
           </p>
           {visible.length === 0 ? (
             <p className="px-4 py-8 text-center text-xs text-muted-foreground">
-              No sent emails due for a follow-up.
+              No sent emails waiting for a follow-up.
             </p>
           ) : (
             <ul className="max-h-[calc(10*5.5rem)] divide-y divide-border overflow-y-auto overscroll-contain">
@@ -117,12 +119,12 @@ export function SentFollowupsPanel({ rows }: { rows: SentEmailFollowup[] }) {
                     To {row.toLine}
                     <span
                       className={
-                        row.daysOverdue > 0
+                        row.status !== "new" && row.daysOverdue > 0
                           ? "ml-1.5 text-rung-1"
                           : "ml-1.5 text-rung-ink"
                       }
                     >
-                      {dueText(row)}
+                      {statusText(row)}
                     </span>
                   </p>
                   <SentThreadPanel
@@ -139,11 +141,23 @@ export function SentFollowupsPanel({ rows }: { rows: SentEmailFollowup[] }) {
                           "Follow-up marked done"
                         )
                       }
+                      onDismiss={
+                        row.status === "new"
+                          ? () =>
+                              void run(
+                                row.id,
+                                () => dismissSentEmailFollowup(row.id),
+                                "No follow-up"
+                              )
+                          : undefined
+                      }
                       onSchedule={(days) =>
                         void run(
                           row.id,
                           () => scheduleSentEmailFollowup(row.id, days),
-                          `Follow-up moved to ${days} day${days === 1 ? "" : "s"}`
+                          row.status === "new"
+                            ? `Follow-up set for ${days} day${days === 1 ? "" : "s"}`
+                            : `Follow-up moved to ${days} day${days === 1 ? "" : "s"}`
                         )
                       }
                     />
