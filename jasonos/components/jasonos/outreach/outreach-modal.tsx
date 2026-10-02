@@ -586,6 +586,7 @@ export function OutreachModal({
     email: string | null;
     phone: string | null;
     linkedinUrl: string | null;
+    photoUrl?: string | null;
   }) => {
     setCard((prev) => {
       if (prev.status !== "ready") return prev;
@@ -599,6 +600,7 @@ export function OutreachModal({
           primary_email: v.email,
           phone: v.phone,
           linkedin_url: v.linkedinUrl,
+          ...(v.photoUrl !== undefined ? { photo_url: v.photoUrl } : {}),
         },
       };
     });
@@ -1678,6 +1680,7 @@ function IdentityCard({
     email: string | null;
     phone: string | null;
     linkedinUrl: string | null;
+    photoUrl?: string | null;
   }) => void;
 }) {
   const [name, setName] = useState(initialName);
@@ -1717,7 +1720,10 @@ function IdentityCard({
         return;
       }
       toast.success("Contact details saved.");
-      onSaved(payload);
+      onSaved({
+        ...payload,
+        photoUrl: res.photoUrl,
+      });
     });
   };
 

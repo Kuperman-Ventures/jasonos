@@ -20,6 +20,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import type { BrowningSource } from "@/lib/browning/types";
 import { canonicalEmail } from "@/lib/outreach/email-matching";
 import type { NetworkDegree, RelevanceTier } from "@/lib/outreach/types";
+import { refreshContactPhotoFromLeadDelta } from "@/lib/server-actions/contact-photo";
 
 interface CreateContactUnclassifiedInput {
   name: string;
@@ -137,14 +138,24 @@ export async function createContactUnclassified(
         .select("id")
         .single();
       if (fallback.error) return { ok: false, error: fallback.error.message };
+      const contactId = fallback.data.id as string;
+      if (linkedinUrl) {
+        // Best-effort: never block create if Lead Delta photo pull fails.
+        await refreshContactPhotoFromLeadDelta(contactId);
+      }
       revalidate();
-      return { ok: true, contactId: fallback.data.id as string };
+      return { ok: true, contactId };
     }
     return { ok: false, error: error.message };
   }
 
+  const contactId = data.id as string;
+  if (linkedinUrl) {
+    // Best-effort: never block create if Lead Delta photo pull fails.
+    await refreshContactPhotoFromLeadDelta(contactId);
+  }
   revalidate();
-  return { ok: true, contactId: data.id as string };
+  return { ok: true, contactId };
 }
 
 type DeleteContactResult = { ok: true } | { ok: false; error: string };
