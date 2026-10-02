@@ -12,7 +12,10 @@ import {
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
 import { OUTLOOK_WRAP_EMAIL } from "@/lib/integrations/unwrap-forwarded-mail";
 import { listOutlookMessages } from "@/lib/integrations/outlook";
-import { getOutlookAccountAccess } from "@/lib/integrations/outlook-tokens";
+import {
+  getOutlookAccountAccess,
+  getOutlookConnectionStatus,
+} from "@/lib/integrations/outlook-tokens";
 import { outlookTouchExternalId } from "@/lib/integrations/outlook-mail";
 import {
   calendarEventGuests,
@@ -306,6 +309,8 @@ function splitRecipientHeaders(...headers: (string | undefined)[]): string[] {
 export async function syncOutreachFromGmail(opts?: {
   daysBack?: number;
   runId?: string;
+  /** When set, only sync this mailbox (for per-account progress UI). */
+  accountEmail?: string;
 }): Promise<SyncResult> {
   const daysBack = Math.max(1, Math.min(90, opts?.daysBack ?? 7));
   const log = (payload: Record<string, unknown>) =>
@@ -314,13 +319,21 @@ export async function syncOutreachFromGmail(opts?: {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return errorResult("gmail", "Supabase service role is not configured.");
   }
-  const mailboxTokens = await listGoogleAccountAccess();
+  const allMailboxes = await listGoogleAccountAccess();
+  const wanted = opts?.accountEmail?.trim().toLowerCase();
+  const mailboxTokens = wanted
+    ? allMailboxes.filter((m) => m.accountEmail.toLowerCase() === wanted)
+    : allMailboxes;
   if (!mailboxTokens.length) {
+    const msg = wanted
+      ? `${opts?.accountEmail}: not connected.`
+      : "Gmail is not connected.";
     await log({
       ok: false,
-      error: "Gmail is not connected.",
+      error: msg,
+      accountEmail: opts?.accountEmail,
     });
-    return errorResult("gmail", "Gmail is not connected.");
+    return errorResult("gmail", msg);
   }
 
   const lookup = await buildContactLookup();
@@ -1278,4 +1291,30 @@ function revalidatePaths() {
   revalidatePath("/outreach/people");
   revalidatePath("/outreach/suggested");
   revalidatePath("/settings/sync-log");
+}
+
+/** Connected mailboxes the Sync UI can show as live progress steps. */
+export async function listSyncTargets(): Promise<{
+  gmailAccounts: Array<{ email: string; label: string }>;
+  outlook: { email: string; connected: boolean } | null;
+}> {
+  const [mailboxes, outlook] = await Promise.all([
+    listGoogleAccountAccess(),
+    getOutlookConnectionStatus(),
+  ]);
+  return {
+    gmailAccounts: mailboxes.map((m) => ({
+      email: m.accountEmail,
+      label:
+        m.provider === GOOGLE_GMAIL
+          ? "Personal Gmail"
+          : "Advisors Gmail",
+    })),
+    outlook: outlook.oauthConfigured
+      ? {
+          email: outlook.email ?? "Outlook",
+          connected: outlook.connected,
+        }
+      : null,
+  };
 }
