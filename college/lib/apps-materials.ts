@@ -35,11 +35,10 @@ export const APPS_SECTIONS: AppsSection[] = [
 export const DEFAULT_APPS_SECTION: AppsSectionId = "activities";
 
 /** In-page views inside Activities. */
-export type ActivitiesViewId = "my" | "awards" | "prep";
+export type ActivitiesViewId = "my" | "prep";
 
 export const ACTIVITIES_VIEWS: { id: ActivitiesViewId; label: string }[] = [
-  { id: "my", label: "My Activities" },
-  { id: "awards", label: "Awards & Milestones" },
+  { id: "my", label: "My Record" },
   { id: "prep", label: "Application Prep" },
 ];
 

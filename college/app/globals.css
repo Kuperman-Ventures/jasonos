@@ -9083,106 +9083,314 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   color: var(--text-subtle);
   margin: 0;
 }
-.aj-recall-review-wrap {
-  overflow-x: auto;
-  margin-top: 28px;
-}
-.aj-recall-review {
-  width: 100%;
-  min-width: 560px;
-  border-collapse: collapse;
-}
-.aj-recall-review th,
-.aj-recall-review td {
-  padding: 0;
-}
-.aj-recall-review thead th {
-  font-family: var(--font-mono);
-  font-weight: 400;
-  font-size: 11px;
-  color: var(--text-subtle);
-  text-align: center;
-  padding-bottom: 6px;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.aj-recall-review thead th.aj-recall-review-nameh {
-  text-align: left;
-  text-transform: none;
-}
-.aj-recall-review thead tr.aj-recall-review-groups th {
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-size: 10px;
-  padding-bottom: 2px;
-}
-.aj-recall-review thead th.is-now {
+.aj-text-btn.strong {
   color: var(--text-accent);
-  font-weight: 500;
-  text-transform: none;
-}
-.aj-recall-review tbody th {
-  text-align: left;
+  text-decoration-color: var(--color-accent-tint-2);
   font-weight: 600;
-  font-size: 15px;
-  padding: 10px 16px 10px 0;
-  border-top: 1px solid var(--color-rule);
-  white-space: nowrap;
-  color: var(--color-text);
 }
-.aj-recall-review tbody td {
-  border-top: 1px solid var(--color-rule);
-  padding: 10px 0;
+.aj-grade-strip--row .aj-grade-cells {
+  grid-template-columns: repeat(3, 1fr) 8px repeat(4, 1fr);
 }
-.aj-recall-review-gap {
-  width: 10px;
+.aj-grade-strip--row .aj-grade-gap {
+  width: 8px;
 }
-.aj-recall-seg {
-  height: 22px;
-  background: transparent;
-}
-.aj-recall-seg.is-on {
+.aj-grade-strip--row .aj-grade-gap.is-on {
   background: var(--color-accent-tint-2);
 }
-.aj-recall-seg.is-on.is-now {
+.aj-grade-strip--row .aj-grade-cell {
+  height: 22px;
+  font-size: 0;
+  cursor: default;
+  pointer-events: none;
+  background: transparent;
+  border-right: 0;
+}
+.aj-grade-strip--row .aj-grade-cell.is-on {
+  background: var(--color-accent-tint-2);
+}
+.aj-grade-strip--row .aj-grade-cell.is-on.is-now {
   background: var(--color-accent);
 }
-.aj-recall-seg.is-start {
+.aj-grade-strip--row .aj-grade-cell.is-start {
   border-radius: 3px 0 0 3px;
 }
-.aj-recall-seg.is-end {
+.aj-grade-strip--row .aj-grade-cell.is-end {
   border-radius: 0 3px 3px 0;
 }
-.aj-recall-seg.is-start.is-end {
+.aj-grade-strip--row .aj-grade-cell.is-start.is-end {
   border-radius: 3px;
 }
-.aj-recall-span-note {
-  font-size: 13px;
-  color: var(--text-subtle);
-  padding-left: 14px;
-  white-space: nowrap;
+.aj-grade-strip--row .aj-grade-cell.is-planned {
+  box-shadow: inset 0 0 0 1px var(--color-dash);
+  background: repeating-linear-gradient(
+    135deg,
+    transparent 0 4px,
+    var(--color-surface) 4px 6px
+  );
 }
-.aj-recall-missing {
-  font-size: 13px;
-  color: var(--text-subtle);
-  font-style: normal;
+.aj-grade-strip--row .aj-grade-cell.is-track {
+  background: var(--color-surface);
 }
-.aj-recall-already {
-  display: block;
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--text-subtle);
-  margin-top: 4px;
+.aj-grade-strip--row .aj-grade-cell.is-future {
+  background: transparent;
+  box-shadow: none;
 }
-.aj-recall-review tbody th.is-existing {
-  color: var(--text-subtle);
+.aj-grade-strip--row .aj-grade-cell.is-award::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  background: var(--milestone);
+  transform: rotate(45deg);
+  outline: 2px solid var(--color-bg);
 }
-.aj-recall-next-note {
-  margin: 22px 0 0;
-  font-size: 15px;
+.rec {
+  --rec-strip-w: 300px;
+}
+.rec-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px 24px;
+  padding-top: 30px;
+}
+.rec-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(26px, 4vw, 34px);
+  font-variation-settings: "opsz" auto;
+  line-height: 1.15;
+  margin: 0;
+}
+.rec-sum {
+  margin: 8px 0 0;
   color: var(--text-muted);
-  max-width: 58ch;
+  font-size: 16px;
+  max-width: 60ch;
+}
+.rec-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.rec-find {
+  display: block;
+  margin-top: 18px;
+  max-width: 420px;
+}
+.rec-list {
+  margin-top: 26px;
+}
+.rec-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--rec-strip-w) 64px 120px;
+  gap: 0 20px;
+  align-items: center;
+}
+.rec-colhead {
+  padding-bottom: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+.rec-gradehead {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr) 8px repeat(4, 1fr);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.rec-grade-grp {
+  grid-row: 1;
+  letter-spacing: 0.08em;
+}
+.rec-grade-grp.rec-ms {
+  grid-column: 1 / 4;
+}
+.rec-grade-grp.rec-hs {
+  grid-column: 5 / 9;
+}
+.rec-g {
+  grid-row: 2;
+  font-size: 11px;
+  letter-spacing: 0;
+  padding-top: 2px;
+  text-transform: none;
+}
+.rec-g.is-now {
+  color: var(--text-accent);
+  font-weight: 500;
+}
+.rec-row {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+.rec-row.is-new {
+  background: linear-gradient(90deg, var(--color-accent-tint), transparent 70%);
+}
+.rec-name {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.rec-name button {
+  all: unset;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--color-text);
+}
+.rec-name button:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.rec-name button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.rec-meta {
+  font-size: 13px;
+  color: var(--text-subtle);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+}
+.rec-new-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-accent);
+}
+.rec-years {
+  font-size: 13px;
+  color: var(--text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+.rec-act {
+  justify-self: end;
+}
+.rec-no-grades {
+  justify-self: start;
+}
+.rec-qa {
+  padding: 16px 0 4px;
+}
+.rec-qa-card {
+  margin-top: 10px;
+  background: var(--color-raised);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 16px 18px;
+  display: grid;
+  gap: 14px;
+  max-width: 640px;
+}
+.rec-archived {
+  margin-top: 16px;
+}
+.rec-archived ul {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  color: var(--text-subtle);
+}
+.rec-archived li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-rule);
+}
+.rec-awards {
+  margin-top: 44px;
+}
+.rec-awards-h {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  border-bottom: 2px solid var(--color-text);
+  padding-bottom: 6px;
+}
+.rec-awards-h h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 22px;
+  font-variation-settings: "opsz" auto;
+}
+.rec-awards ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.rec-awards li {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--color-rule);
+  align-items: baseline;
+}
+.rec-diamond {
+  width: 8px;
+  height: 8px;
+  background: var(--milestone);
+  transform: rotate(45deg);
+  margin-top: 6px;
+}
+.rec-award-name {
+  font-weight: 600;
+}
+.rec-award-meta,
+.rec-award-note,
+.rec-awards-empty {
+  font-size: 13px;
+  color: var(--text-subtle);
+}
+.rec-award-note {
+  margin: 10px 0 0;
+}
+.rec-awards-empty {
+  margin: 12px 0 0;
+}
+@media (max-width: 760px) {
+  .rec-cols {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 12px;
+  }
+  .rec-cols > .aj-grade-strip,
+  .rec-cols > .rec-no-grades {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .rec-cols > .rec-years {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+  .rec-cols > .rec-act {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    justify-self: start;
+  }
+  .rec-colhead.rec-cols > span:not(.rec-gradehead) {
+    display: none;
+  }
+  .rec-colhead.rec-cols .rec-gradehead {
+    grid-column: 1 / -1;
+  }
+  .rec-head {
+    align-items: flex-start;
+  }
 }
 @media (max-width: 860px) {
   .aj-recall-grid {

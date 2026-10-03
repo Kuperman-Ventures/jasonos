@@ -239,6 +239,11 @@ export function Portal({
   const prefsTimer = useRef<number | undefined>(undefined);
   const urlBootstrapped = useRef(false);
   const legacyNotesMigrated = useRef(false);
+  const pendingJournal = useRef<ActivitiesJournal | null>(null);
+  const journalSaveTimer = useRef<number | undefined>(undefined);
+  const patchStateRef = useRef<(
+    body: { activitiesJournal: ActivitiesJournal },
+  ) => Promise<boolean>>(async () => false);
   const viewport = useViewportMode();
 
   useEffect(() => {
@@ -574,12 +579,30 @@ export function Portal({
     replaceUrl("apps", null, projectSection, null, "activities", "my", id);
   }
 
-  function changeJournal(next: ActivitiesJournal) {
-    setActivitiesJournal(next);
+  function flushJournalSave() {
+    if (journalSaveTimer.current != null) {
+      window.clearTimeout(journalSaveTimer.current);
+      journalSaveTimer.current = undefined;
+    }
+    const payload = pendingJournal.current;
+    if (!payload) return;
+    pendingJournal.current = null;
     setSaveState("Saving...");
-    void patchState({ activitiesJournal: next }).then((ok) => {
+    void patchStateRef.current({ activitiesJournal: payload }).then((ok) => {
+      if (pendingJournal.current) return;
       setSaveState(ok ? "Saved" : "Not saved");
     });
+  }
+
+  function changeJournal(next: ActivitiesJournal) {
+    setActivitiesJournal(next);
+    pendingJournal.current = next;
+    setSaveState("Saving...");
+    if (journalSaveTimer.current != null) window.clearTimeout(journalSaveTimer.current);
+    journalSaveTimer.current = window.setTimeout(() => {
+      journalSaveTimer.current = undefined;
+      flushJournalSave();
+    }, 500);
   }
 
   const statuses = useMemo(() => phaseStatuses(phases, checklist), [checklist]);
@@ -621,6 +644,21 @@ export function Portal({
     }
     return response.ok;
   }
+
+  patchStateRef.current = (body) => patchState(body);
+
+  useEffect(() => {
+    function onVis() {
+      if (document.visibilityState === "hidden") flushJournalSave();
+    }
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      flushJournalSave();
+    };
+    // flushJournalSave reads refs; patchState is rebound each render via patchStateRef.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function toggleItem(id: string, checked: boolean) {
     const owners = todoOwnerIndex(projectSteps, todoEdits);

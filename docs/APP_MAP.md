@@ -47,7 +47,7 @@ Slim-rail short labels: Dashboard, Projects, Notes, Log, Colleges, Apps, Finance
 
 | UI label | Section id |
 | --- | --- |
-| Activities | `activities` (default; `av=` for My Activities / Awards & Milestones / Application Prep). Empty list (after load, editors only) opens **Start Your Activities List** Recall and hides the list header and filters. **Add more with questions** is in the header when Recall is closed. |
+| Activities | `activities` (default; `av=` for My Record / Application Prep). Empty list (after load, editors only) opens **Start Your Activities List** Recall. **Add with questions** is in the My Record header when Recall is closed. Old `av=awards` links land on My Record. |
 | App Questions | `questions` |
 | Materials | `materials` (soon) |
 

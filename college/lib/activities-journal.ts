@@ -782,6 +782,24 @@ export function archiveActivity(journal: ActivitiesJournal, activityId: string):
   };
 }
 
+/** Hard-delete an activity. Only used for activities created in the current Recall or quick-add session. */
+export function removeActivity(journal: ActivitiesJournal, activityId: string): ActivitiesJournal {
+  return {
+    ...journal,
+    activities: journal.activities.filter((a) => a.id !== activityId),
+  };
+}
+
+export function restoreActivity(journal: ActivitiesJournal, activityId: string): ActivitiesJournal {
+  const stamp = nowIso();
+  return {
+    ...journal,
+    activities: journal.activities.map((a) =>
+      a.id === activityId ? { ...a, archived: false, updatedAt: stamp } : a,
+    ),
+  };
+}
+
 export function addPeriod(
   journal: ActivitiesJournal,
   activityId: string,
@@ -1144,24 +1162,25 @@ export function activityNeedsDetails(a: Activity): boolean {
   return !a.role?.trim() && !a.responsibilities?.trim();
 }
 
-export function activityFromRecall(
-  input: {
-    name: string;
-    category: ActivityCategoryId;
-    sinceGrade?: number;
-    untilGrade?: number;
-    stillDoing: boolean;
-  },
+export type RecallSpan = {
+  sinceGrade?: number;
+  untilGrade?: number;
+  stillDoing: boolean;
+};
+
+/** The periods Recall creates for a span. */
+export function recallPeriods(
   classOf: number,
+  span: RecallSpan,
   now: Date = new Date(),
-): Activity {
+): ParticipationPeriod[] {
   const current = currentGrade(classOf, now);
-  const since = input.sinceGrade;
-  const stillDoing = input.stillDoing;
+  const since = span.sinceGrade;
+  const stillDoing = span.stillDoing;
   const stamp = now.toISOString();
   const periods: ParticipationPeriod[] = [];
   if (since != null && current != null && since <= current) {
-    const last = stillDoing ? current : Math.min(input.untilGrade ?? since, current);
+    const last = stillDoing ? current : Math.min(span.untilGrade ?? since, current);
     if (last >= since) {
       for (let g = since; g <= last; g++) {
         periods.push({
@@ -1176,14 +1195,147 @@ export function activityFromRecall(
       }
     }
   }
+  return periods;
+}
+
+function startYearFromPeriods(periods: ParticipationPeriod[]): number | undefined {
   const startYear = periods[0] ? Number.parseInt(periods[0].schoolYear.slice(0, 4), 10) : undefined;
+  return Number.isFinite(startYear) ? startYear : undefined;
+}
+
+export function activityFromRecall(
+  input: {
+    name: string;
+    category: ActivityCategoryId;
+    sinceGrade?: number;
+    untilGrade?: number;
+    stillDoing: boolean;
+  },
+  classOf: number,
+  now: Date = new Date(),
+): Activity {
+  const periods = recallPeriods(
+    classOf,
+    {
+      sinceGrade: input.sinceGrade,
+      untilGrade: input.untilGrade,
+      stillDoing: input.stillDoing,
+    },
+    now,
+  );
   return createActivity({
     name: input.name,
     category: input.category,
-    ongoing: stillDoing,
+    ongoing: input.stillDoing,
     periods,
-    startYear: Number.isFinite(startYear) ? startYear : undefined,
+    startYear: startYearFromPeriods(periods),
     recallSource: true,
+  });
+}
+
+/** Replace an activity's periods with the Recall span. Sets ongoing, startYear, updatedAt. */
+export function applyRecallSpan(
+  journal: ActivitiesJournal,
+  activityId: string,
+  classOf: number,
+  span: RecallSpan,
+  now: Date = new Date(),
+): ActivitiesJournal {
+  const stamp = now.toISOString();
+  const periods = recallPeriods(classOf, span, now);
+  const startYear = startYearFromPeriods(periods);
+  return {
+    ...journal,
+    activities: journal.activities.map((a) => {
+      if (a.id !== activityId) return a;
+      return {
+        ...a,
+        periods,
+        ongoing: span.stillDoing,
+        startYear,
+        updatedAt: stamp,
+      };
+    }),
+  };
+}
+
+const GRADE_STATE_RANK: Record<PeriodStatus, number> = {
+  in_progress: 3,
+  completed: 2,
+  planned: 1,
+};
+
+export type GradeCellState = PeriodStatus | null;
+
+/** Strongest period status per numeric grade. Ignores post and other. */
+export function gradeCells(activity: Activity): Record<number, GradeCellState> {
+  const cells: Record<number, GradeCellState> = {};
+  for (const period of activity.periods) {
+    if (period.grade === "post" || period.grade === "other") continue;
+    const grade = Number(period.grade);
+    if (!Number.isInteger(grade) || grade < 6 || grade > 12) continue;
+    const current = cells[grade];
+    if (!current || GRADE_STATE_RANK[period.status] > GRADE_STATE_RANK[current]) {
+      cells[grade] = period.status;
+    }
+  }
+  return cells;
+}
+
+function filledNumericGrades(activity: Activity): number[] {
+  const grades = new Set<number>();
+  for (const period of activity.periods) {
+    if (period.status !== "completed" && period.status !== "in_progress") continue;
+    if (period.grade === "post" || period.grade === "other") continue;
+    const grade = Number(period.grade);
+    if (Number.isInteger(grade) && grade >= 6 && grade <= 12) grades.add(grade);
+  }
+  return [...grades].sort((a, b) => a - b);
+}
+
+export function recordSchoolYears(activity: Activity): number {
+  return filledNumericGrades(activity).length;
+}
+
+export function recordSpanText(activity: Activity, gradeNow: number | null): string {
+  const grades = filledNumericGrades(activity);
+  if (!grades.length) return "Start grade not set";
+  const first = grades[0]!;
+  const last = grades[grades.length - 1]!;
+  const hasCurrent = gradeNow != null && grades.includes(gradeNow);
+  if (activity.ongoing && hasCurrent) return `Since ${first}th grade · still doing it`;
+  if (first === last) return `${first}th grade`;
+  return `${first}th to ${last}th grade`;
+}
+
+export function recordSummary(journal: ActivitiesJournal, _gradeNow?: number | null): string {
+  const activities = journal.activities.filter((a) => !a.archived);
+  const n = activities.length;
+  const noun = n === 1 ? "activity" : "activities";
+  const ranked = activities
+    .map((a) => ({ name: a.name, years: recordSchoolYears(a) }))
+    .filter((a) => a.years > 0);
+  if (!ranked.length) return `${n} ${noun}.`;
+  const max = Math.max(...ranked.map((a) => a.years));
+  const tied = ranked.filter((a) => a.years === max).sort((a, b) => a.name.localeCompare(b.name));
+  const yearWord = max === 1 ? "school year" : "school years";
+  if (tied.length === 1) {
+    return `${n} ${noun}. Your longest is ${tied[0]!.name}, at ${max} ${yearWord}.`;
+  }
+  const named = tied.slice(0, 2).map((a) => a.name);
+  const extra = tied.length - 2;
+  if (extra > 0) {
+    return `${n} ${noun}. Your longest are ${named[0]} and ${named[1]}, and ${extra} more, at ${max} ${yearWord} each.`;
+  }
+  return `${n} ${noun}. Your longest are ${named[0]} and ${named[1]}, at ${max} ${yearWord} each.`;
+}
+
+export function sortRecordActivities(activities: Activity[]): Activity[] {
+  return [...activities].sort((a, b) => {
+    const ag = filledNumericGrades(a)[0] ?? 99;
+    const bg = filledNumericGrades(b)[0] ?? 99;
+    if (ag !== bg) return ag - bg;
+    return a.name.localeCompare(b.name);
   });
 }
 

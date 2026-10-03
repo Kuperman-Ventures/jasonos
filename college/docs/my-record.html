@@ -1,0 +1,287 @@
+<title>My Record Redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&display=swap">
+<style>
+/* Layout: app page chrome, then My Record as a grade-aligned list of rows, awards below.
+   Tokens copied from college/app/tokens.css (light) and [data-mode="dark"]. */
+:root {
+  --bg: #f3f2f2; --surface: #eae9e9; --surface-2: #e0dede; --raised: #ffffff;
+  --border: #d7d3d3; --rule: #eae7e7; --dash: #9b9797;
+  --text: #201e1d; --muted: #444141; --subtle: #605d5d; --placeholder: #7d7979;
+  --accent: #e85504; --accent-pressed: #c74503; --accent-tint: #feeee4; --accent-tint-2: #fdd6c0;
+  --text-accent: #9e3603; --on-accent: #ffffff; --milestone: #d6006c;
+  --proto: #1b4ca8; --proto-tint: #e7edf8;
+  --font-display: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-body: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --strip-w: 300px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1f2228; --surface: #2d3139; --surface-2: #353a43; --raised: #2d3139;
+    --border: #3d424b; --rule: rgba(240,238,236,.10); --dash: #5d636c;
+    --text: #f0eeec; --muted: #c3c8cf; --subtle: #9aa0a8; --placeholder: #7f858e;
+    --accent: #e85504; --accent-pressed: #f58749; --accent-tint: #3b2317; --accent-tint-2: #50301d;
+    --text-accent: #fab48e; --on-accent: #ffffff; --milestone: #ff5fa8;
+    --proto: #8fb0ef; --proto-tint: #24304a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1f2228; --surface: #2d3139; --surface-2: #353a43; --raised: #2d3139;
+  --border: #3d424b; --rule: rgba(240,238,236,.10); --dash: #5d636c;
+  --text: #f0eeec; --muted: #c3c8cf; --subtle: #9aa0a8; --placeholder: #7f858e;
+  --accent: #e85504; --accent-pressed: #f58749; --accent-tint: #3b2317; --accent-tint-2: #50301d;
+  --text-accent: #fab48e; --on-accent: #ffffff; --milestone: #ff5fa8;
+  --proto: #8fb0ef; --proto-tint: #24304a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 15px; line-height: 1.5; padding-inline: 16px; padding-block: 0 56px; }
+button { font: inherit; color: inherit; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.proto { max-width: 1040px; margin: 0 auto; padding-block: 10px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-family: var(--font-mono); font-size: 12px; color: var(--proto); border-bottom: 1px dashed var(--proto); }
+.proto strong { font-weight: 500; letter-spacing: .06em; text-transform: uppercase; }
+.proto button { background: var(--proto-tint); color: var(--proto); border: 1px solid transparent; padding: 3px 10px; border-radius: 2px; cursor: pointer; font-family: var(--font-mono); font-size: 12px; }
+.proto button[aria-pressed="true"] { border-color: var(--proto); }
+.proto .note { color: var(--subtle); }
+
+.page { max-width: 1040px; margin: 0 auto; padding-top: 28px; }
+.eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-accent); }
+.page h1 { font-weight: 700; font-size: 30px; margin: 2px 0 14px; letter-spacing: -.01em; }
+.tabs { display: flex; gap: 22px; border-bottom: 1px solid var(--border); font-size: 13px; overflow-x: auto; }
+.tabs span { padding: 8px 0; white-space: nowrap; color: var(--subtle); }
+.tabs span.on { color: var(--text); border-bottom: 2px solid var(--accent); font-weight: 600; }
+
+/* Record header */
+.rec-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px 24px; padding-top: 30px; }
+.rec-title { font-family: var(--font-display); font-weight: 500; font-size: clamp(26px, 4vw, 34px); line-height: 1.15; margin: 0; }
+.rec-sum { margin: 8px 0 0; color: var(--muted); font-size: 16px; max-width: 60ch; }
+.rec-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.primary { border: 0; background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: 14px; padding: 10px 16px; border-radius: 2px; cursor: pointer; }
+.primary:hover { background: var(--accent-pressed); }
+.secondary { border: 1px solid var(--border); background: var(--raised); font-weight: 600; font-size: 14px; padding: 9px 15px; border-radius: 2px; cursor: pointer; }
+.secondary:hover { border-color: var(--text); }
+.link-btn { background: none; border: 0; padding: 2px 0; cursor: pointer; color: var(--subtle); font-size: 13px; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border); }
+.link-btn:hover { color: var(--text); text-decoration-color: var(--text); }
+.link-btn.strong { color: var(--text-accent); text-decoration-color: var(--accent-tint-2); font-weight: 600; }
+
+/* Grid header and rows share one column template */
+.rec { margin-top: 26px; }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) var(--strip-w) 64px 120px; gap: 0 20px; align-items: center; }
+.colhead { padding-bottom: 6px; font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--subtle); }
+.gradehead { display: grid; grid-template-columns: repeat(3, 1fr) 8px repeat(4, 1fr); text-align: center; font-variant-numeric: tabular-nums; }
+.gradehead .grp { grid-row: 1; letter-spacing: .08em; }
+.gradehead .grp.ms { grid-column: 1 / 4; } .gradehead .grp.hs { grid-column: 5 / 9; }
+.gradehead .g { grid-row: 2; font-size: 11px; letter-spacing: 0; padding-top: 2px; }
+.gradehead .g.now { color: var(--text-accent); font-weight: 500; }
+
+.group-h { display: flex; align-items: baseline; gap: 12px; padding: 22px 0 6px; border-bottom: 2px solid var(--text); }
+.group-h h3 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 20px; }
+.group-h .count { font-size: 13px; color: var(--subtle); }
+.group-h .tools { margin-left: auto; display: flex; gap: 14px; }
+.group-h.loose { border-bottom-color: var(--border); }
+.group-h.loose h3 { font-family: var(--font-body); font-weight: 600; font-size: 14px; color: var(--subtle); }
+
+.row { padding: 12px 0; border-bottom: 1px solid var(--rule); }
+.row.new { background: linear-gradient(90deg, var(--accent-tint), transparent 70%); }
+.row-name { min-width: 0; display: grid; gap: 2px; }
+.row-name button { all: unset; cursor: pointer; font-weight: 600; font-size: 16px; }
+.row-name button:hover { text-decoration: underline; text-underline-offset: 3px; }
+.row-name button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row-meta { font-size: 13px; color: var(--subtle); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.new-tag { font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-accent); }
+.span { font-size: 13px; color: var(--subtle); font-variant-numeric: tabular-nums; }
+.row-act { justify-self: end; }
+.thread-pick { font-size: 13px; }
+
+/* Strip (row size) */
+.strip { display: grid; grid-template-columns: repeat(3, 1fr) 8px repeat(4, 1fr); height: 22px; }
+.strip span { position: relative; background: transparent; }
+.strip .gap { }
+.strip .on { background: var(--accent-tint-2); }
+.strip .on.now { background: var(--accent); }
+.strip .gap.on { background: var(--accent-tint-2); }
+.strip .start { border-radius: 3px 0 0 3px; } .strip .end { border-radius: 0 3px 3px 0; } .strip .start.end { border-radius: 3px; }
+.strip .planned { box-shadow: inset 0 0 0 1px var(--dash); background: repeating-linear-gradient(135deg, transparent 0 4px, var(--surface) 4px 6px); }
+.strip .track { background: var(--surface); }
+.strip .award::after { content: ""; position: absolute; top: 50%; left: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px; background: var(--milestone); transform: rotate(45deg); outline: 2px solid var(--bg); }
+.no-grades { font-size: 13px; color: var(--subtle); }
+
+/* Quick add */
+.qa { padding: 16px 0 4px; }
+.qa-open { margin-top: 10px; background: var(--raised); border: 1px solid var(--border); border-radius: 4px; padding: 16px 18px; display: grid; gap: 14px; max-width: 640px; }
+.cap { display: flex; gap: 10px; align-items: center; border-bottom: 2px solid var(--text); padding-bottom: 6px; }
+.cap:focus-within { border-bottom-color: var(--accent); }
+.cap input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text); font-size: 18px; padding: 4px 0; }
+.cap input:focus-visible { outline: none; }
+.cap input::placeholder { color: var(--placeholder); }
+.ask { margin: 0; font-size: 14px; color: var(--muted); }
+.pick { display: grid; grid-template-columns: repeat(3, 1fr) 10px repeat(4, 1fr); }
+.pick button { height: 40px; border: 0; background: var(--surface); border-right: 1px solid var(--bg); cursor: pointer; font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+.pick button:hover { background: var(--surface-2); }
+.pick button.first { border-radius: 3px 0 0 3px; } .pick button.last { border-radius: 0 3px 3px 0; border-right: 0; }
+.pick button.future { background: transparent; box-shadow: inset 0 0 0 1px var(--dash); cursor: default; }
+.pickgroups { display: grid; grid-template-columns: 3fr 4fr; gap: 10px; font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--subtle); }
+
+/* Thread prompt */
+.hint { margin: 18px 0 0; padding: 14px 16px; border-left: 3px solid var(--accent); background: var(--raised); font-size: 14px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; max-width: 760px; }
+
+/* Awards */
+.awards { margin-top: 44px; }
+.awards-h { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border-bottom: 2px solid var(--text); padding-bottom: 6px; }
+.awards-h h3 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 22px; }
+.awards ul { list-style: none; margin: 0; padding: 0; }
+.awards li { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
+.diamond { width: 8px; height: 8px; background: var(--milestone); transform: rotate(45deg); margin-top: 6px; }
+.aw-name { font-weight: 600; }
+.aw-meta { font-size: 13px; color: var(--subtle); }
+.aw-note { font-size: 13px; color: var(--subtle); margin: 10px 0 0; }
+
+@media (max-width: 760px) {
+  .cols { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; }
+  .cols > .strip, .cols > .no-grades { grid-column: 1 / -1; grid-row: 2; }
+  .cols > .span { grid-column: 2; grid-row: 1; justify-self: end; }
+  .cols > .row-act { grid-column: 1 / -1; grid-row: 3; justify-self: start; }
+  .colhead.cols > span:not(.gradehead) { display: none; }
+  .colhead.cols .gradehead { grid-column: 1 / -1; }
+  .rec-head { align-items: flex-start; }
+}
+</style>
+
+<div class="proto" role="region" aria-label="Prototype controls">
+  <strong>Mockup</strong>
+  <button type="button" data-view="after" aria-pressed="true">Right after Recall</button>
+  <button type="button" data-view="threads" aria-pressed="false">With threads (Part B)</button>
+  <span class="note">Kyle's activities from our conversation. The award and the thread names are examples. Nothing saves.</span>
+</div>
+
+<div class="page">
+  <div class="eyebrow">Phase 1 · Junior Fall</div>
+  <h1>Apps &amp; Materials</h1>
+  <nav class="tabs" aria-label="Activities views"><span class="on">My Record</span><span>Application Prep</span></nav>
+  <div id="app"></div>
+</div>
+
+<script>
+(function () {
+  const NOW = 11;
+  const GRADES = [6, 7, 8, 9, 10, 11, 12];
+  const ord = (g) => g + "th";
+  let view = "after";
+  let qaOpen = false, qaName = "", qaItem = null;
+  const acts = [
+    { id: 1, name: "Trumpet", since: 6, still: true, isNew: true, thread: "Music" },
+    { id: 2, name: "Band", since: 6, still: true, isNew: true, thread: "Music", award: 10 },
+    { id: 3, name: "Robotics club", since: 8, still: true, isNew: true, thread: "Building things" },
+    { id: 4, name: "Marching band", since: 9, still: true, isNew: true, thread: "Music" },
+    { id: 5, name: "Taekwondo", since: null, still: true, isNew: true, thread: null }
+  ];
+  const app = document.getElementById("app");
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const yrs = (a) => (a.since == null ? 0 : NOW - a.since + 1);
+
+  function strip(a) {
+    if (a.since == null) return `<span class="no-grades"><button type="button" class="link-btn strong">Add the grades you did this</button></span>`;
+    const end = a.still ? NOW : a.until;
+    let html = "";
+    GRADES.forEach((g) => {
+      const on = g >= a.since && g <= end;
+      if (g === 9) html += `<span class="gap${on && a.since < 9 ? " on" : ""}"></span>`;
+      let c = on ? "on" : "track";
+      if (on && g === NOW && a.still) c += " now";
+      if (on && g === a.since) c += " start";
+      if (on && g === end) c += " end";
+      if (!on && g > NOW) c = "future";
+      if (a.award === g) c += " award";
+      html += `<span class="${c}" ${a.award === g ? 'title="Example award, 10th grade"' : ""}></span>`;
+    });
+    return `<div class="strip" role="img" aria-label="${esc(a.name)}: ${a.still ? "since " + ord(a.since) + " grade, still doing it" : ""}">${html}</div>`;
+  }
+
+  function row(a, showThreadPick) {
+    return `<div class="row cols${a.isNew && view === "after" ? " new" : ""}">
+      <div class="row-name"><button type="button">${esc(a.name)}</button>
+        <span class="row-meta">${a.isNew && view === "after" ? '<span class="new-tag">New</span>' : ""}<span>${a.since == null ? "Start grade not set" : a.still ? "Since " + ord(a.since) + " grade · still doing it" : ""}</span></span></div>
+      ${strip(a)}
+      <span class="span">${a.since == null ? "" : yrs(a) + " yrs"}</span>
+      <span class="row-act">${showThreadPick ? `<button type="button" class="link-btn">Move</button>` : `<button type="button" class="link-btn strong">Add details</button>`}</span>
+    </div>`;
+  }
+
+  function header() {
+    return `<div class="colhead cols" aria-hidden="true"><span></span>
+      <span class="gradehead"><span class="grp ms">Middle school</span><span class="grp hs">High school</span>
+      ${GRADES.map((g, i) => `<span class="g${g === NOW ? " now" : ""}" style="grid-column:${i < 3 ? i + 1 : i + 2}">${g === NOW ? "11 now" : g}</span>`).join("")}</span>
+      <span></span><span></span></div>`;
+  }
+
+  function quickAdd() {
+    if (!qaOpen) return `<div class="qa"><button type="button" class="link-btn strong" data-act="qa">+ Add one activity</button></div>`;
+    const pick = GRADES.map((g, i) => (g === 9 ? "<span></span>" : "") + `<button type="button" class="${i === 0 ? "first" : ""}${i === 6 ? " last" : ""}${g > NOW ? " future" : ""}"${g > NOW ? " disabled" : ""} data-act="qa-grade" data-g="${g}" aria-label="${ord(g)} grade">${g}</button>`).join("");
+    return `<div class="qa"><div class="qa-open">
+      <form class="cap" data-act="qa-form"><label for="qa-in" style="position:absolute;left:-9999px">Activity name</label>
+        <input id="qa-in" placeholder="What's the activity?" value="${esc(qaName)}" autocomplete="off">
+        <button type="submit" class="primary" style="padding:7px 14px">Add</button></form>
+      <p class="ask">Then tap the grade you started.</p>
+      <div class="pickgroups"><span>Middle school</span><span>High school</span></div>
+      <div class="pick">${pick}</div>
+      <div><button type="button" class="link-btn" data-act="qa-close">Cancel</button></div>
+    </div></div>`;
+  }
+
+  function awards() {
+    return `<section class="awards" aria-labelledby="aw-h">
+      <div class="awards-h"><h3 id="aw-h">Awards and Recognition</h3><button type="button" class="link-btn strong">+ Add an award</button></div>
+      <ul><li><span class="diamond" aria-hidden="true"></span>
+        <span><span class="aw-name">Example award</span><br><span class="aw-meta">10th grade · Band · Regional</span></span>
+        <button type="button" class="link-btn">Remove</button></li></ul>
+      <p class="aw-note">Awards linked to an activity also show as a marker on that activity's row.</p>
+    </section>`;
+  }
+
+  function render() {
+    document.querySelectorAll("[data-view]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.view === view)));
+    const withGrades = acts.filter((a) => a.since != null);
+    const longest = Math.max(...withGrades.map(yrs));
+    const tops = withGrades.filter((a) => yrs(a) === longest).map((a) => a.name);
+    const sum = `${acts.length} activities. Your longest ${tops.length > 1 ? "are " + tops.join(" and ") + ", at " : "is " + tops[0] + ", at "}${longest} school years${tops.length > 1 ? " each" : ""}.`;
+    let body;
+    if (view === "after") {
+      body = header() + acts.map((a) => row(a, false)).join("") + quickAdd() +
+        `<div class="hint"><span>Some of these go together. Group them into threads, like everything you do with music.</span><button type="button" class="link-btn strong" data-view-btn="threads">Group into threads</button></div>`;
+    } else {
+      const groups = [["Music", acts.filter((a) => a.thread === "Music")], ["Building things", acts.filter((a) => a.thread === "Building things")]];
+      body = header() + groups.map(([name, list]) => `<div class="group-h"><h3>${name}</h3><span class="count">${list.length} ${list.length === 1 ? "activity" : "activities"}</span><span class="tools"><button type="button" class="link-btn">Rename</button></span></div>` + list.map((a) => row(a, false)).join("")).join("") +
+        `<div class="group-h loose"><h3>Not in a thread</h3><span class="count">1 activity</span><span class="tools"><button type="button" class="link-btn strong">+ New thread</button></span></div>` + acts.filter((a) => !a.thread).map((a) => row(a, false)).join("") + quickAdd();
+    }
+    app.innerHTML = `
+      <div class="rec-head"><div><h2 class="rec-title">My Record</h2><p class="rec-sum">${sum}</p></div>
+        <div class="rec-actions"><button type="button" class="secondary">Add with questions</button></div></div>
+      <div class="rec">${body}</div>${awards()}`;
+  }
+
+  document.addEventListener("click", (e) => {
+    const v = e.target.closest("[data-view],[data-view-btn]");
+    if (v) { view = v.dataset.view || v.dataset.viewBtn; qaOpen = false; render(); return; }
+    const t = e.target.closest("[data-act]");
+    if (!t || t.tagName === "FORM") return;
+    if (t.dataset.act === "qa") { qaOpen = true; render(); document.getElementById("qa-in")?.focus(); }
+    if (t.dataset.act === "qa-close") { qaOpen = false; qaName = ""; render(); }
+    if (t.dataset.act === "qa-grade") {
+      const name = (document.getElementById("qa-in")?.value || "").trim();
+      if (!name) { document.getElementById("qa-in")?.focus(); return; }
+      acts.push({ id: Date.now(), name, since: Number(t.dataset.g), still: true, isNew: true, thread: null });
+      qaOpen = false; qaName = ""; render();
+    }
+  });
+  document.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const inp = document.getElementById("qa-in");
+    qaName = inp ? inp.value : "";
+    const ask = document.querySelector(".ask");
+    if (ask && qaName.trim()) ask.textContent = "Now tap the grade you started " + qaName.trim() + ".";
+  });
+  render();
+})();
+</script>

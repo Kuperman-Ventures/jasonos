@@ -1,35 +1,44 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivitiesRecall } from "./ActivitiesRecall";
+import { GradeStrip } from "./GradeStrip";
+import { RecallAnswerCard, type RecallAnswerState } from "./RecallAnswerCard";
 import { ACTIVITIES_VIEWS, type ActivitiesViewId } from "@/lib/apps-materials";
 import {
   ACTIVITY_CATEGORIES,
   APP_DRAFT_LIMITS,
+  activityFromRecall,
   activityNeedsDetails,
   activityStatusLabel,
   addPeriod,
   addUpdate,
+  applyRecallSpan,
   archiveActivity,
   archiveAward,
   charCount,
-  createActivity,
   createApplicationList,
+  currentGrade,
   estimatedHours,
   exportListMarkdown,
-  filterActivities,
+  gradeCells,
   latestPeriod,
   latestUpdate,
   newId,
+  recordSchoolYears,
+  recordSpanText,
+  recordSummary,
+  removeActivity,
   removeDraftFromList,
   reorderDraft,
+  restoreActivity,
+  sortRecordActivities,
   upsertActivity,
   upsertAward,
   upsertDraft,
   type ActivitiesJournal as Journal,
   type Activity,
   type ActivityCategoryId,
-  type ActivityStatusFilter,
   type ActivityUpdate,
   type ApplicationDraft,
   type Award,
@@ -137,19 +146,6 @@ function formatShortDate(iso: string | undefined): string {
   });
 }
 
-function snippet(text: string | undefined, max = 120): string {
-  if (!text) return "";
-  const trimmed = text.trim();
-  if (trimmed.length <= max) return trimmed;
-  return `${trimmed.slice(0, max - 1)}…`;
-}
-
-function activityGrades(activity: Activity): string {
-  const grades = [...new Set(activity.periods.map((p) => p.grade))];
-  if (!grades.length) return "—";
-  return grades.map(gradeLabel).join(", ");
-}
-
 function periodHoursLabel(period: ParticipationPeriod | null): string | null {
   if (!period) return null;
   const year = period.schoolYear || "—";
@@ -205,13 +201,21 @@ export function ActivitiesJournal({
   openActivityId: string | null;
   onOpenActivity: (id: string | null) => void;
 }) {
-  const [showAddActivity, setShowAddActivity] = useState(false);
-  const [showAddUpdate, setShowAddUpdate] = useState(false);
-  const [updatePrefillId, setUpdatePrefillId] = useState<string | undefined>(undefined);
+  const [highlightIds, setHighlightIds] = useState<string[]>([]);
+  const [detailTab, setDetailTab] = useState<DetailTab | undefined>(undefined);
+
+  useEffect(() => {
+    if (view !== "my") setHighlightIds([]);
+  }, [view]);
 
   const openActivity = openActivityId
     ? journal.activities.find((a) => a.id === openActivityId) ?? null
     : null;
+
+  function openActivityAt(id: string | null, tab?: DetailTab) {
+    setDetailTab(tab);
+    onOpenActivity(id);
+  }
 
   return (
     <div className="aj">
@@ -238,33 +242,25 @@ export function ActivitiesJournal({
       {view === "my" ? (
         openActivity ? (
           <ActivityDetail
+            key={openActivity.id}
             journal={journal}
             activity={openActivity}
             canEdit={canEdit}
+            initialTab={detailTab}
             onChange={onChange}
-            onBack={() => onOpenActivity(null)}
+            onBack={() => openActivityAt(null)}
           />
         ) : (
           <MyActivitiesView
             journal={journal}
             canEdit={canEdit}
             loaded={loaded}
-            showAddActivity={showAddActivity}
-            showAddUpdate={showAddUpdate}
-            updatePrefillId={updatePrefillId}
-            onShowAddActivity={setShowAddActivity}
-            onShowAddUpdate={(open, activityId) => {
-              setUpdatePrefillId(activityId);
-              setShowAddUpdate(open);
-            }}
+            highlightIds={highlightIds}
+            onHighlightIds={setHighlightIds}
             onChange={onChange}
-            onOpenActivity={onOpenActivity}
+            onOpenActivity={openActivityAt}
           />
         )
-      ) : null}
-
-      {view === "awards" ? (
-        <AwardsView journal={journal} canEdit={canEdit} onChange={onChange} />
       ) : null}
 
       {view === "prep" ? (
@@ -274,54 +270,134 @@ export function ActivitiesJournal({
   );
 }
 
+function namesMatch(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
+
+function stripAriaLabel(name: string, span: string): string {
+  const clause = span.replace(/ · /g, ", ").replace(/^Since /, "since ").replace(/^Start /, "start ");
+  return `${name}: ${clause}`;
+}
+
+function awardGradeNumber(grade: GradeLevel | undefined): number | null {
+  if (!grade || grade === "post" || grade === "other") return null;
+  const n = Number(grade);
+  return Number.isInteger(n) && n >= 6 && n <= 12 ? n : null;
+}
+
 function MyActivitiesView({
   journal,
   canEdit,
   loaded,
-  showAddActivity,
-  showAddUpdate,
-  updatePrefillId,
-  onShowAddActivity,
-  onShowAddUpdate,
+  highlightIds,
+  onHighlightIds,
   onChange,
   onOpenActivity,
 }: {
   journal: Journal;
   canEdit: boolean;
   loaded: boolean;
-  showAddActivity: boolean;
-  showAddUpdate: boolean;
-  updatePrefillId?: string;
-  onShowAddActivity: (v: boolean) => void;
-  onShowAddUpdate: (open: boolean, activityId?: string) => void;
+  highlightIds: string[];
+  onHighlightIds: (ids: string[]) => void;
   onChange: (next: Journal) => void;
-  onOpenActivity: (id: string | null) => void;
+  onOpenActivity: (id: string | null, tab?: DetailTab) => void;
 }) {
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("");
-  const [grade, setGrade] = useState("");
-  const [status, setStatus] = useState<ActivityStatusFilter>("all");
   const [recallOpen, setRecallOpen] = useState(false);
   const [recallDismissed, setRecallDismissed] = useState(false);
+  const [query, setQuery] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [quickDraft, setQuickDraft] = useState("");
+  const [quickDup, setQuickDup] = useState("");
+  const [quickId, setQuickId] = useState<string | null>(null);
+  const [quickState, setQuickState] = useState<RecallAnswerState>({
+    editing: true,
+    pickMode: "start",
+    since: null,
+    until: null,
+    stillDoing: true,
+  });
+  const [showAddAward, setShowAddAward] = useState(false);
 
-  const filtered = useMemo(
-    () =>
-      filterActivities(journal.activities, {
-        query,
-        category: category || undefined,
-        grade: grade || undefined,
-        status,
-      }),
-    [journal.activities, query, category, grade, status],
-  );
+  const active = journal.activities.filter((a) => !a.archived);
+  const archived = journal.activities.filter((a) => a.archived);
+  const activeCount = active.length;
+  const showRecall = canEdit && loaded && (recallOpen || (!activeCount && !recallDismissed));
+  const classOf = journal.profile?.classOf;
+  const gradeNow = currentGrade(classOf);
+  const needle = query.trim().toLowerCase();
+  const searched = needle
+    ? active.filter((a) =>
+        [a.name, a.organization, a.role].filter(Boolean).join(" ").toLowerCase().includes(needle),
+      )
+    : active;
+  const rows = sortRecordActivities(searched);
+  const awards = journal.awards.filter((a) => !a.archived);
+  const activityById = useMemo(() => {
+    const map = new Map<string, Activity>();
+    for (const a of journal.activities) map.set(a.id, a);
+    return map;
+  }, [journal.activities]);
 
-  const activeCount = journal.activities.filter((a) => !a.archived).length;
-  const showRecall =
-    canEdit && loaded && (recallOpen || (!activeCount && !recallDismissed));
-
-  function closeRecall() {
+  function closeRecall(ids: string[]) {
     setRecallOpen(false);
     setRecallDismissed(true);
+    if (ids.length) onHighlightIds([...new Set([...highlightIds, ...ids])]);
+  }
+
+  function spanComplete(state: RecallAnswerState): boolean {
+    if (state.since == null) return false;
+    return state.stillDoing || state.until != null;
+  }
+
+  function saveQuickSpan(id: string, next: RecallAnswerState) {
+    if (classOf == null || !spanComplete(next)) return;
+    onChange(
+      applyRecallSpan(journal, id, classOf, {
+        sinceGrade: next.since ?? undefined,
+        untilGrade: next.until ?? undefined,
+        stillDoing: next.stillDoing,
+      }),
+    );
+    onHighlightIds([...new Set([...highlightIds, id])]);
+    setQuickOpen(false);
+    setQuickId(null);
+    setQuickDraft("");
+    setQuickDup("");
+    setQuickState({
+      editing: true,
+      pickMode: "start",
+      since: null,
+      until: null,
+      stillDoing: true,
+    });
+  }
+
+  function addQuick(event?: { preventDefault(): void }) {
+    event?.preventDefault();
+    const name = quickDraft.trim();
+    if (!name) return;
+    if (journal.activities.some((a) => !a.archived && namesMatch(a.name, name))) {
+      setQuickDup(name);
+      setQuickDraft("");
+      return;
+    }
+    const year = classOf ?? 2028;
+    const activity = activityFromRecall(
+      { name, category: "other", stillDoing: true },
+      year,
+    );
+    onChange(upsertActivity(journal, activity));
+    setQuickId(activity.id);
+    setQuickState({
+      editing: true,
+      pickMode: "start",
+      since: null,
+      until: null,
+      stillDoing: true,
+    });
+    setQuickDraft("");
+    setQuickDup("");
   }
 
   if (showRecall) {
@@ -337,354 +413,327 @@ function MyActivitiesView({
     );
   }
 
+  if (!loaded) {
+    return <div className="aj-view" />;
+  }
+
+  if (!canEdit && !activeCount) {
+    return (
+      <div className="aj-view">
+        <p className="board-empty">No activities yet.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="aj-view">
-      <header className="aj-head">
+    <div className="aj-view rec">
+      <header className="rec-head">
         <div>
-          <h3 className="aj-title">My Activities</h3>
+          <h3 className="rec-title">My Record</h3>
+          <p className="rec-sum">{recordSummary(journal, gradeNow)}</p>
         </div>
-        <div className="aj-actions">
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={!canEdit}
-            onClick={() => onShowAddActivity(true)}
-          >
-            Add activity
-          </button>
+        {canEdit ? (
+          <div className="rec-actions">
+            <button type="button" className="btn btn-secondary" onClick={() => setRecallOpen(true)}>
+              Add with questions
+            </button>
+          </div>
+        ) : null}
+      </header>
+
+      {activeCount > 12 ? (
+        <label className="rec-find">
+          <span className="sr-only">Find an activity</span>
+          <input
+            className="field"
+            type="search"
+            value={query}
+            placeholder="Find an activity"
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </label>
+      ) : null}
+
+      <div className="rec-list">
+        <div className="rec-cols rec-colhead" aria-hidden="true">
+          <span />
+          <div className="rec-gradehead">
+            <span className="rec-grade-grp rec-ms">Middle school</span>
+            <span className="rec-grade-grp rec-hs">High school</span>
+            {[6, 7, 8, 9, 10, 11, 12].map((g, i) => (
+              <span
+                key={g}
+                className={g === gradeNow ? "rec-g is-now" : "rec-g"}
+                style={{ gridColumn: i < 3 ? i + 1 : i + 2 }}
+              >
+                {g === gradeNow ? `${g} now` : g}
+              </span>
+            ))}
+          </div>
+          <span />
+          <span />
+        </div>
+
+        {rows.map((activity) => {
+          const cells = gradeCells(activity);
+          const years = recordSchoolYears(activity);
+          const span = recordSpanText(activity, gradeNow);
+          const isNew = highlightIds.includes(activity.id);
+          const needsDetails = activityNeedsDetails(activity);
+          const markers = awards
+            .filter((award) => award.activityId === activity.id && awardGradeNumber(award.grade) != null)
+            .map((award) => ({
+              grade: awardGradeNumber(award.grade)!,
+              title: award.title,
+            }));
+          const metaBits = [activity.role, activity.organization].filter(Boolean) as string[];
+          return (
+            <div key={activity.id} className={isNew ? "rec-row rec-cols is-new" : "rec-row rec-cols"}>
+              <div className="rec-name">
+                <button type="button" onClick={() => onOpenActivity(activity.id)}>
+                  {activity.name}
+                </button>
+                <span className="rec-meta">
+                  {isNew ? <span className="rec-new-tag">New</span> : null}
+                  <span>
+                    {span}
+                    {metaBits.length ? ` · ${metaBits.join(", ")}` : ""}
+                  </span>
+                </span>
+              </div>
+              <GradeStrip
+                size="row"
+                currentGrade={gradeNow}
+                cells={cells}
+                markers={markers}
+                label={stripAriaLabel(activity.name, span)}
+                onEmptyClick={
+                  canEdit && years === 0 ? () => onOpenActivity(activity.id, "periods") : undefined
+                }
+              />
+              <span className="rec-years">
+                {years ? `${years} ${years === 1 ? "yr" : "yrs"}` : ""}
+              </span>
+              <span className="rec-act">
+                {canEdit && needsDetails ? (
+                  <button
+                    type="button"
+                    className="aj-text-btn strong"
+                    onClick={() => onOpenActivity(activity.id)}
+                  >
+                    Add details
+                  </button>
+                ) : null}
+              </span>
+            </div>
+          );
+        })}
+
+        {canEdit ? (
+          <div className="rec-qa">
+            {quickOpen ? (
+              <div className="rec-qa-card">
+                <form className="aj-recall-capture" onSubmit={addQuick}>
+                  <label htmlFor="rec-qa-input" className="sr-only">
+                    Activity name
+                  </label>
+                  <input
+                    id="rec-qa-input"
+                    autoComplete="off"
+                    placeholder="What's the activity?"
+                    value={quickDraft}
+                    onChange={(e) => setQuickDraft(e.target.value)}
+                  />
+                  <button type="submit" className="aj-recall-add" disabled={!quickDraft.trim()}>
+                    Add
+                  </button>
+                </form>
+                <p className="aj-recall-dup" aria-live="polite">
+                  {quickDup ? `${quickDup} is already in My Record.` : ""}
+                </p>
+                {quickId ? (
+                  <ul className="aj-recall-items">
+                    <RecallAnswerCard
+                      name={
+                        journal.activities.find((a) => a.id === quickId)?.name ?? "Activity"
+                      }
+                      state={quickState}
+                      currentGrade={gradeNow}
+                      prompt="Then tap the grade you started."
+                      onRemove={() => {
+                        onChange(removeActivity(journal, quickId));
+                        setQuickId(null);
+                        setQuickState({
+                          editing: true,
+                          pickMode: "start",
+                          since: null,
+                          until: null,
+                          stillDoing: true,
+                        });
+                      }}
+                      onPick={(g) => {
+                        let next: RecallAnswerState = quickState;
+                        if (!quickState.stillDoing && quickState.pickMode === "end" && quickState.since != null) {
+                          next =
+                            g >= quickState.since
+                              ? { ...quickState, until: g, editing: false }
+                              : { ...quickState, since: g };
+                        } else if (quickState.stillDoing) {
+                          next = { ...quickState, since: g, until: null, editing: false };
+                        } else {
+                          next = { ...quickState, since: g, pickMode: "end" };
+                        }
+                        setQuickState(next);
+                        saveQuickSpan(quickId, next);
+                      }}
+                      onStill={() => {
+                        const next: RecallAnswerState = {
+                          ...quickState,
+                          stillDoing: true,
+                          until: null,
+                          pickMode: "start",
+                        };
+                        setQuickState(next);
+                        saveQuickSpan(quickId, next);
+                      }}
+                      onStopped={() => {
+                        const next: RecallAnswerState = {
+                          ...quickState,
+                          stillDoing: false,
+                          pickMode: quickState.since == null ? "start" : "end",
+                          editing: true,
+                        };
+                        setQuickState(next);
+                        saveQuickSpan(quickId, next);
+                      }}
+                      onDone={() => setQuickState((s) => ({ ...s, editing: false }))}
+                      onChangeClick={() =>
+                        setQuickState((s) => ({
+                          ...s,
+                          editing: true,
+                          pickMode: s.stillDoing ? "start" : "end",
+                        }))
+                      }
+                    />
+                  </ul>
+                ) : null}
+                <button
+                  type="button"
+                  className="aj-text-btn"
+                  onClick={() => {
+                    setQuickOpen(false);
+                    setQuickDraft("");
+                    setQuickDup("");
+                    setQuickId(null);
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button type="button" className="aj-text-btn strong" onClick={() => setQuickOpen(true)}>
+                + Add one activity
+              </button>
+            )}
+          </div>
+        ) : null}
+
+        {archived.length ? (
+          <div className="rec-archived">
+            <button
+              type="button"
+              className="aj-text-btn"
+              onClick={() => setShowArchived((v) => !v)}
+            >
+              {showArchived ? "Hide archived" : `Show archived (${archived.length})`}
+            </button>
+            {showArchived ? (
+              <ul>
+                {archived.map((activity) => (
+                  <li key={activity.id}>
+                    <span>{activity.name}</span>
+                    {canEdit ? (
+                      <button
+                        type="button"
+                        className="aj-text-btn"
+                        onClick={() => onChange(restoreActivity(journal, activity.id))}
+                      >
+                        Restore
+                      </button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+
+      <section className="rec-awards" aria-labelledby="rec-awards-h">
+        <div className="rec-awards-h">
+          <h3 id="rec-awards-h">Awards and Recognition</h3>
           {canEdit ? (
             <button
               type="button"
-              className="btn btn-secondary"
-              onClick={() => setRecallOpen(true)}
+              className="aj-text-btn strong"
+              onClick={() => setShowAddAward((v) => !v)}
             >
-              Add more with questions
+              + Add an award
             </button>
           ) : null}
-          <button
-            type="button"
-            className="btn btn-secondary"
-            disabled={!canEdit || !activeCount}
-            onClick={() => onShowAddUpdate(true)}
-          >
-            Add update
-          </button>
         </div>
-      </header>
-
-      {!loaded ? null : (
-        <>
-          <div className="aj-filters">
-            <label className="stack-field aj-filter-grow">
-              <span className="label">Search</span>
-              <input
-                className="field"
-                type="search"
-                value={query}
-                placeholder="Name, org, role…"
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </label>
-            <label className="stack-field">
-              <span className="label">Category</span>
-              <select className="field" value={category} onChange={(e) => setCategory(e.target.value)}>
-                <option value="">All</option>
-                {ACTIVITY_CATEGORIES.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="stack-field">
-              <span className="label">Grade</span>
-              <select className="field" value={grade} onChange={(e) => setGrade(e.target.value)}>
-                <GradeGroupedOptions includeBlank blankLabel="All" />
-              </select>
-            </label>
-            <label className="stack-field">
-              <span className="label">Status</span>
-              <select
-                className="field"
-                value={status}
-                onChange={(e) => setStatus(e.target.value as ActivityStatusFilter)}
-              >
-                <option value="all">All</option>
-                <option value="ongoing">Ongoing</option>
-                <option value="completed">Completed</option>
-              </select>
-            </label>
-          </div>
-
-          {showAddActivity && canEdit ? (
-            <AddActivityForm
-              onCancel={() => onShowAddActivity(false)}
-              onSave={(input) => {
-                const activity = createActivity(input);
-                onChange(upsertActivity(journal, activity));
-                onShowAddActivity(false);
-                onOpenActivity(activity.id);
-              }}
-            />
-          ) : null}
-
-          {showAddUpdate && canEdit ? (
-            <AddUpdateForm
-              key={updatePrefillId ?? "global-update"}
-              activities={journal.activities.filter((a) => !a.archived)}
-              initialActivityId={updatePrefillId}
-              onCancel={() => onShowAddUpdate(false)}
-              onSave={(activityId, fields) => {
-                onChange(addUpdate(journal, activityId, fields));
-                onShowAddUpdate(false);
-              }}
-            />
-          ) : null}
-
-          {!activeCount ? (
-            <div className="aj-empty board-empty">
-              <p>No activities yet.</p>
-            </div>
-          ) : !filtered.length && activeCount ? (
-            <p className="board-empty">No activities match these filters.</p>
-          ) : filtered.length ? (
-            <ul className="aj-card-list">
-              {filtered.map((activity) => {
-                const period = latestPeriod(activity);
-                const update = latestUpdate(activity);
-                const hours = periodHoursLabel(period);
-                const needsDetails = activityNeedsDetails(activity);
-                return (
-                  <li key={activity.id} className="aj-card">
-                    <div className="aj-card-main">
-                      <div className="aj-card-top">
-                        <h4 className="aj-card-name">{activity.name}</h4>
-                        <span className="aj-pill">{activityStatusLabel(activity)}</span>
-                      </div>
-                      <p className="aj-card-meta">
-                        {(
-                          [
-                            activity.category !== "other" ? categoryLabel(activity.category) : "",
-                            activity.organization,
-                            activity.role,
-                          ] as string[]
-                        )
-                          .filter(Boolean)
-                          .map((part, i) => (
-                            <span key={`${i}-${part}`}>{i ? `· ${part}` : part}</span>
-                          ))}
-                      </p>
-                      <p className="aj-card-meta">
-                        <span>Grades: {activityGrades(activity)}</span>
-                        {hours ? <span>· {hours}</span> : null}
-                      </p>
-                      {update ? (
-                        <p className="aj-card-update">
-                          <span className="aj-card-update-date">{formatShortDate(update.date)}</span>
-                          {snippet(update.whatHappened)}
-                        </p>
-                      ) : (
-                        <p className="aj-card-update aj-muted">No updates yet</p>
-                      )}
-                    </div>
-                    <div className="aj-card-actions">
-                      {canEdit && needsDetails ? (
-                        <button
-                          type="button"
-                          className="aj-text-btn"
-                          onClick={() => onOpenActivity(activity.id)}
-                        >
-                          Add details
-                        </button>
-                      ) : null}
-                      {canEdit ? (
-                        <button
-                          type="button"
-                          className="btn btn-secondary compact"
-                          onClick={() => onShowAddUpdate(true, activity.id)}
-                        >
-                          Add update
-                        </button>
-                      ) : null}
-                      <button
-                        type="button"
-                        className="btn btn-secondary compact"
-                        onClick={() => onOpenActivity(activity.id)}
-                      >
-                        Edit activity
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          ) : null}
-        </>
-      )}
-    </div>
-  );
-}
-
-function AddActivityForm({
-  onCancel,
-  onSave,
-}: {
-  onCancel: () => void;
-  onSave: (input: {
-    name: string;
-    category: ActivityCategoryId;
-    organization?: string;
-    startMonth?: number;
-    startYear?: number;
-    endMonth?: number;
-    endYear?: number;
-    ongoing?: boolean;
-    role?: string;
-    responsibilities?: string;
-  }) => void;
-}) {
-  const [name, setName] = useState("");
-  const [category, setCategory] = useState<ActivityCategoryId>("school-club");
-  const [organization, setOrganization] = useState("");
-  const [startMonth, setStartMonth] = useState("");
-  const [startYear, setStartYear] = useState("");
-  const [endMonth, setEndMonth] = useState("");
-  const [endYear, setEndYear] = useState("");
-  const [ongoing, setOngoing] = useState(true);
-  const [role, setRole] = useState("");
-  const [responsibilities, setResponsibilities] = useState("");
-  const [error, setError] = useState("");
-
-  return (
-    <form
-      className="aj-panel"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (!name.trim()) {
-          setError("Name is required.");
-          return;
-        }
-        onSave({
-          name: name.trim(),
-          category,
-          organization: organization.trim() || undefined,
-          startMonth: startMonth ? Number(startMonth) : undefined,
-          startYear: startYear ? Number(startYear) : undefined,
-          endMonth: !ongoing && endMonth ? Number(endMonth) : undefined,
-          endYear: !ongoing && endYear ? Number(endYear) : undefined,
-          ongoing,
-          role: role.trim() || undefined,
-          responsibilities: responsibilities.trim() || undefined,
-        });
-      }}
-    >
-      <h4>Add activity</h4>
-      <div className="aj-form-grid">
-        <label className="stack-field">
-          <span className="label">Name *</span>
-          <input className="field" value={name} onChange={(e) => setName(e.target.value)} required />
-        </label>
-        <label className="stack-field">
-          <span className="label">Category *</span>
-          <select
-            className="field"
-            value={category}
-            onChange={(e) => setCategory(e.target.value as ActivityCategoryId)}
-          >
-            {ACTIVITY_CATEGORIES.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="stack-field">
-          <span className="label">Organization</span>
-          <input
-            className="field"
-            value={organization}
-            onChange={(e) => setOrganization(e.target.value)}
+        {showAddAward && canEdit ? (
+          <AddAwardForm
+            activities={active}
+            onCancel={() => setShowAddAward(false)}
+            onSave={(award) => {
+              onChange(upsertAward(journal, award));
+              setShowAddAward(false);
+            }}
           />
-        </label>
-        <label className="stack-field">
-          <span className="label">Role</span>
-          <input className="field" value={role} onChange={(e) => setRole(e.target.value)} />
-        </label>
-        <label className="stack-field">
-          <span className="label">Start month</span>
-          <select className="field" value={startMonth} onChange={(e) => setStartMonth(e.target.value)}>
-            <option value="">—</option>
-            {MONTHS.map((m) => (
-              <option key={m.value} value={m.value}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="stack-field">
-          <span className="label">Start year</span>
-          <input
-            className="field"
-            type="number"
-            inputMode="numeric"
-            placeholder="2024"
-            value={startYear}
-            onChange={(e) => setStartYear(e.target.value)}
-          />
-        </label>
-        <label className="stack-field aj-check">
-          <span className="label">Ongoing</span>
-          <input
-            type="checkbox"
-            checked={ongoing}
-            onChange={(e) => setOngoing(e.target.checked)}
-          />
-        </label>
-        {!ongoing ? (
-          <>
-            <label className="stack-field">
-              <span className="label">End month</span>
-              <select className="field" value={endMonth} onChange={(e) => setEndMonth(e.target.value)}>
-                <option value="">—</option>
-                {MONTHS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="stack-field">
-              <span className="label">End year</span>
-              <input
-                className="field"
-                type="number"
-                inputMode="numeric"
-                value={endYear}
-                onChange={(e) => setEndYear(e.target.value)}
-              />
-            </label>
-          </>
         ) : null}
-        <label className="stack-field aj-span-2">
-          <span className="label">What do you do?</span>
-          <textarea
-            className="field"
-            rows={3}
-            value={responsibilities}
-            onChange={(e) => setResponsibilities(e.target.value)}
-          />
-        </label>
-      </div>
-      {error ? <p className="aj-error">{error}</p> : null}
-      <div className="aj-actions">
-        <button type="submit" className="btn btn-primary">
-          Save activity
-        </button>
-        <button type="button" className="btn btn-secondary" onClick={onCancel}>
-          Cancel
-        </button>
-      </div>
-    </form>
+        {!awards.length ? (
+          <p className="rec-awards-empty">No awards yet.</p>
+        ) : (
+          <ul>
+            {awards.map((award) => {
+              const linked = award.activityId ? activityById.get(award.activityId) : null;
+              const meta = [
+                award.grade ? gradeLabel(award.grade) + " grade" : "",
+                linked?.name,
+                award.recognitionLevel,
+              ].filter(Boolean);
+              return (
+                <li key={award.id}>
+                  <span className="rec-diamond" aria-hidden="true" />
+                  <span>
+                    <span className="rec-award-name">{award.title}</span>
+                    {meta.length ? (
+                      <>
+                        <br />
+                        <span className="rec-award-meta">{meta.join(" · ")}</span>
+                      </>
+                    ) : null}
+                  </span>
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      className="aj-text-btn"
+                      onClick={() => onChange(archiveAward(journal, award.id))}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <p className="rec-award-note">
+          Awards linked to an activity also show as a marker on that activity&apos;s row.
+        </p>
+      </section>
+    </div>
   );
 }
 
@@ -820,16 +869,18 @@ function ActivityDetail({
   journal,
   activity,
   canEdit,
+  initialTab,
   onChange,
   onBack,
 }: {
   journal: Journal;
   activity: Activity;
   canEdit: boolean;
+  initialTab?: DetailTab;
   onChange: (next: Journal) => void;
   onBack: () => void;
 }) {
-  const [tab, setTab] = useState<DetailTab>("overview");
+  const [tab, setTab] = useState<DetailTab>(initialTab ?? "overview");
   const [showAddUpdate, setShowAddUpdate] = useState(false);
   const [showAddPeriod, setShowAddPeriod] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
@@ -1369,143 +1420,6 @@ function AddLinkForm({
         </button>
       </div>
     </form>
-  );
-}
-
-function AwardsView({
-  journal,
-  canEdit,
-  onChange,
-}: {
-  journal: Journal;
-  canEdit: boolean;
-  onChange: (next: Journal) => void;
-}) {
-  const [showAdd, setShowAdd] = useState(false);
-  const awards = journal.awards.filter((a) => !a.archived);
-  const activityById = useMemo(() => {
-    const map = new Map<string, Activity>();
-    for (const a of journal.activities) map.set(a.id, a);
-    return map;
-  }, [journal.activities]);
-
-  const milestones = useMemo(() => {
-    const rows: { activity: Activity; update: ActivityUpdate }[] = [];
-    for (const activity of journal.activities) {
-      if (activity.archived) continue;
-      for (const update of activity.updates) {
-        if (update.recognition?.trim()) {
-          rows.push({ activity, update });
-        }
-      }
-    }
-    rows.sort((a, b) => (b.update.date || "").localeCompare(a.update.date || ""));
-    return rows;
-  }, [journal.activities]);
-
-  return (
-    <div className="aj-view">
-      <header className="aj-head">
-        <div>
-          <h3 className="aj-title">Awards &amp; Milestones</h3>
-          <p className="aj-support">Honors, awards, and recognition from activity updates.</p>
-        </div>
-        {canEdit ? (
-          <div className="aj-actions">
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => setShowAdd((v) => !v)}
-            >
-              {showAdd ? "Close form" : "Add award"}
-            </button>
-          </div>
-        ) : null}
-      </header>
-
-      {showAdd && canEdit ? (
-        <AddAwardForm
-          activities={journal.activities.filter((a) => !a.archived)}
-          onCancel={() => setShowAdd(false)}
-          onSave={(award) => {
-            onChange(upsertAward(journal, award));
-            setShowAdd(false);
-          }}
-        />
-      ) : null}
-
-      <h4 className="aj-subhead">Awards</h4>
-      {!awards.length ? (
-        <p className="board-empty">No awards yet.</p>
-      ) : (
-        <ul className="aj-card-list">
-          {awards.map((award) => {
-            const linked = award.activityId ? activityById.get(award.activityId) : null;
-            return (
-              <li key={award.id} className="aj-card">
-                <div className="aj-card-main">
-                  <div className="aj-card-top">
-                    <h4 className="aj-card-name">{award.title}</h4>
-                    {award.academic ? <span className="aj-pill">Academic</span> : null}
-                  </div>
-                  <p className="aj-card-meta">
-                    {award.organization ? <span>{award.organization}</span> : null}
-                    {award.date ? <span>· {formatShortDate(award.date)}</span> : null}
-                    {award.grade ? <span>· {gradeLabel(award.grade)}</span> : null}
-                    {award.recognitionLevel ? <span>· {award.recognitionLevel}</span> : null}
-                  </p>
-                  {linked ? (
-                    <p className="aj-card-meta">Linked activity: {linked.name}</p>
-                  ) : null}
-                  {award.whatDid ? <p className="aj-card-update">{award.whatDid}</p> : null}
-                  {award.linkUrl ? (
-                    <p className="aj-card-meta">
-                      <a href={award.linkUrl} target="_blank" rel="noreferrer">
-                        Link
-                      </a>
-                    </p>
-                  ) : null}
-                </div>
-                {canEdit ? (
-                  <div className="aj-card-actions">
-                    <button
-                      type="button"
-                      className="btn btn-secondary compact"
-                      onClick={() => onChange(archiveAward(journal, award.id))}
-                    >
-                      Archive
-                    </button>
-                  </div>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      <h4 className="aj-subhead">Milestones from updates</h4>
-      <p className="aj-muted">
-        Recent activity updates with recognition — not duplicated as awards.
-      </p>
-      {!milestones.length ? (
-        <p className="board-empty">No recognition notes in updates yet.</p>
-      ) : (
-        <ul className="aj-card-list">
-          {milestones.map(({ activity, update }) => (
-            <li key={update.id} className="aj-card aj-card-compact">
-              <div className="aj-card-main">
-                <div className="aj-card-top">
-                  <strong>{activity.name}</strong>
-                  <span className="aj-muted">{formatShortDate(update.date)}</span>
-                </div>
-                <p className="aj-card-update">{update.recognition}</p>
-                <p className="aj-card-meta">{snippet(update.whatHappened, 100)}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
   );
 }
 

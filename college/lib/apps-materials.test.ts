@@ -20,10 +20,11 @@ test("Activities is the default Apps & Materials section", () => {
   assert.equal(resolveAppsSection("legacy"), "activities");
 });
 
-test("Activities views resolve to My Activities by default", () => {
+test("Activities views resolve to My Record by default", () => {
   assert.equal(DEFAULT_ACTIVITIES_VIEW, "my");
   assert.equal(resolveActivitiesView(null), "my");
-  assert.equal(resolveActivitiesView("awards"), "awards");
+  assert.equal(resolveActivitiesView("awards"), "my");
   assert.equal(resolveActivitiesView("prep"), "prep");
   assert.equal(resolveActivitiesView("nope"), "my");
+  assert.equal(resolveActivitiesView("my"), "my");
 });

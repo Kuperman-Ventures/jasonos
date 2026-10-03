@@ -7,6 +7,7 @@ import {
   APP_DRAFT_LIMITS,
   activityStatusLabel,
   addPeriod,
+  applyRecallSpan,
   archiveActivity,
   charCount,
   createActivity,
@@ -18,10 +19,16 @@ import {
   exportListMarkdown,
   filterActivities,
   formatSchoolYear,
+  gradeCells,
   isHighSchoolGrade,
   markDraftsStaleForActivity,
   normalizeJournal,
+  recallPeriods,
   recallSpanText,
+  recordSpanText,
+  recordSummary,
+  removeActivity,
+  restoreActivity,
   schoolYearForGrade,
   upsertActivity,
   upsertAward,
@@ -463,4 +470,226 @@ test("activityNeedsDetails when role and responsibilities are blank", () => {
   assert.equal(activityNeedsDetails(blank), true);
   assert.equal(activityNeedsDetails({ ...blank, role: "Builder" }), false);
   assert.equal(activityNeedsDetails({ ...blank, responsibilities: "Build robots" }), false);
+});
+
+test("recallPeriods matches activityFromRecall periods", () => {
+  const now = new Date(2026, 9, 3);
+  const span = { sinceGrade: 6, stillDoing: true };
+  const fromActivity = activityFromRecall(
+    { name: "Trumpet", category: "arts-music-theater", ...span },
+    2028,
+    now,
+  );
+  const periods = recallPeriods(2028, span, now);
+  assert.equal(periods.length, fromActivity.periods.length);
+  assert.deepEqual(
+    periods.map((p) => p.grade),
+    fromActivity.periods.map((p) => p.grade),
+  );
+  assert.deepEqual(
+    periods.map((p) => p.status),
+    fromActivity.periods.map((p) => p.status),
+  );
+});
+
+test("applyRecallSpan since 6 still doing then stopped at 9", () => {
+  const now = new Date(2026, 9, 3);
+  let journal = emptyJournal();
+  const activity = activityFromRecall(
+    { name: "Band", category: "arts-music-theater", stillDoing: true },
+    2028,
+    now,
+  );
+  journal = upsertActivity(journal, activity);
+  journal = applyRecallSpan(
+    journal,
+    activity.id,
+    2028,
+    { sinceGrade: 6, stillDoing: true },
+    now,
+  );
+  const first = journal.activities[0]!;
+  assert.equal(first.periods.length, 6);
+  assert.equal(first.ongoing, true);
+  assert.deepEqual(
+    first.periods.map((p) => p.grade),
+    ["6", "7", "8", "9", "10", "11"],
+  );
+  journal = applyRecallSpan(
+    journal,
+    activity.id,
+    2028,
+    { sinceGrade: 6, untilGrade: 9, stillDoing: false },
+    now,
+  );
+  const stopped = journal.activities[0]!;
+  assert.equal(stopped.periods.length, 4);
+  assert.equal(stopped.ongoing, false);
+  assert.deepEqual(
+    stopped.periods.map((p) => p.grade),
+    ["6", "7", "8", "9"],
+  );
+  assert.equal(stopped.periods.every((p) => p.status === "completed"), true);
+});
+
+test("removeActivity hard-deletes and restoreActivity unarchives", () => {
+  let journal = emptyJournal();
+  const keep = createActivity({ name: "Band", category: "arts-music-theater" });
+  const drop = createActivity({ name: "Temp", category: "other" });
+  journal = upsertActivity(journal, keep);
+  journal = upsertActivity(journal, drop);
+  journal = removeActivity(journal, drop.id);
+  assert.equal(journal.activities.length, 1);
+  assert.equal(journal.activities[0]!.id, keep.id);
+
+  journal = archiveActivity(journal, keep.id);
+  assert.equal(journal.activities[0]!.archived, true);
+  journal = restoreActivity(journal, keep.id);
+  assert.equal(journal.activities[0]!.archived, false);
+});
+
+test("gradeCells uses strongest state and ignores post and other", () => {
+  const stamp = "2026-10-03T00:00:00.000Z";
+  const activity = createActivity({ name: "Robotics", category: "school-club" });
+  activity.periods = [
+    {
+      id: "p1",
+      schoolYear: "2024–25",
+      grade: "10",
+      periodKind: "school_year",
+      status: "planned",
+      createdAt: stamp,
+      updatedAt: stamp,
+    },
+    {
+      id: "p2",
+      schoolYear: "2024–25",
+      grade: "10",
+      periodKind: "summer",
+      status: "completed",
+      createdAt: stamp,
+      updatedAt: stamp,
+    },
+    {
+      id: "p3",
+      schoolYear: "2025–26",
+      grade: "11",
+      periodKind: "school_year",
+      status: "in_progress",
+      createdAt: stamp,
+      updatedAt: stamp,
+    },
+    {
+      id: "p4",
+      schoolYear: "2026–27",
+      grade: "post",
+      periodKind: "custom",
+      status: "completed",
+      createdAt: stamp,
+      updatedAt: stamp,
+    },
+    {
+      id: "p5",
+      schoolYear: "2023–24",
+      grade: "other",
+      periodKind: "custom",
+      status: "completed",
+      createdAt: stamp,
+      updatedAt: stamp,
+    },
+  ];
+  const cells = gradeCells(activity);
+  assert.equal(cells[10], "completed");
+  assert.equal(cells[11], "in_progress");
+  assert.equal(Object.keys(cells).length, 2);
+});
+
+test("recordSpanText still doing, stopped span, one year, and no periods", () => {
+  const now = new Date(2026, 9, 3);
+  const trumpet = activityFromRecall(
+    { name: "Trumpet", category: "arts-music-theater", sinceGrade: 6, stillDoing: true },
+    2028,
+    now,
+  );
+  assert.equal(recordSpanText(trumpet, 11), "Since 6th grade · still doing it");
+
+  const camp = activityFromRecall(
+    {
+      name: "Summer camp",
+      category: "academic-enrichment",
+      sinceGrade: 9,
+      untilGrade: 10,
+      stillDoing: false,
+    },
+    2028,
+    now,
+  );
+  assert.equal(recordSpanText(camp, 11), "9th to 10th grade");
+
+  const job = activityFromRecall(
+    {
+      name: "Cafe",
+      category: "paid-work",
+      sinceGrade: 10,
+      untilGrade: 10,
+      stillDoing: false,
+    },
+    2028,
+    now,
+  );
+  assert.equal(recordSpanText(job, 11), "10th grade");
+
+  const blank = createActivity({ name: "Taekwondo", category: "other" });
+  assert.equal(recordSpanText(blank, 11), "Start grade not set");
+});
+
+test("recordSummary one longest, two tied, three tied, and no grades", () => {
+  const now = new Date(2026, 9, 3);
+  const trumpet = activityFromRecall(
+    { name: "Trumpet", category: "arts-music-theater", sinceGrade: 6, stillDoing: true },
+    2028,
+    now,
+  );
+  const band = activityFromRecall(
+    { name: "Band", category: "arts-music-theater", sinceGrade: 6, stillDoing: true },
+    2028,
+    now,
+  );
+  const marching = activityFromRecall(
+    { name: "Marching band", category: "arts-music-theater", sinceGrade: 6, stillDoing: true },
+    2028,
+    now,
+  );
+  const robotics = activityFromRecall(
+    { name: "Robotics club", category: "school-club", sinceGrade: 8, stillDoing: true },
+    2028,
+    now,
+  );
+  const blank = createActivity({ name: "Taekwondo", category: "other" });
+
+  let journal = emptyJournal();
+  journal = upsertActivity(journal, trumpet);
+  journal = upsertActivity(journal, robotics);
+  journal = upsertActivity(journal, blank);
+  assert.equal(
+    recordSummary(journal, 11),
+    "3 activities. Your longest is Trumpet, at 6 school years.",
+  );
+
+  journal = upsertActivity(journal, band);
+  assert.equal(
+    recordSummary(journal, 11),
+    "4 activities. Your longest are Band and Trumpet, at 6 school years each.",
+  );
+
+  journal = upsertActivity(journal, marching);
+  assert.equal(
+    recordSummary(journal, 11),
+    "5 activities. Your longest are Band and Marching band, and 1 more, at 6 school years each.",
+  );
+
+  journal = emptyJournal();
+  journal = upsertActivity(journal, blank);
+  journal = upsertActivity(journal, createActivity({ name: "Chess", category: "hobby-personal-pursuit" }));
+  assert.equal(recordSummary(journal, 11), "2 activities.");
 });
