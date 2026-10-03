@@ -334,6 +334,19 @@ export function schoolYearForGrade(classOf: number, grade: number): string {
   return formatSchoolYear(endYear - 1);
 }
 
+export function recallSpanText(
+  since: number,
+  until: number | null,
+  stillDoing: boolean,
+  currentGrade: number,
+): string {
+  const end = stillDoing ? currentGrade : (until ?? currentGrade);
+  const n = Math.max(1, end - since + 1);
+  const yrs = n === 1 ? "1 school year" : `${n} school years`;
+  if (stillDoing) return `Since ${since}th grade · still doing it · ${yrs}`;
+  return `${since}th to ${end}th grade · ${yrs}`;
+}
+
 function normalizeProfile(raw: unknown): JournalProfile | undefined {
   const row = asRecord(raw);
   if (!row) return undefined;

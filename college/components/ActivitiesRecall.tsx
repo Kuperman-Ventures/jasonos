@@ -1,24 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { GradeStrip } from "./GradeStrip";
 import {
-  ACTIVITY_CATEGORIES,
   activityFromRecall,
+  currentGrade,
+  currentSchoolYearEnd,
   newId,
+  recallSpanText,
   upsertActivity,
   type ActivitiesJournal as Journal,
   type ActivityCategoryId,
 } from "@/lib/activities-journal";
-
-const SINCE_GRADES = [
-  { id: "6", label: "6th" },
-  { id: "7", label: "7th" },
-  { id: "8", label: "8th" },
-  { id: "9", label: "9th" },
-  { id: "10", label: "10th" },
-  { id: "11", label: "11th" },
-  { id: "12", label: "12th" },
-] as const;
 
 type RecallQuestion = {
   question: string;
@@ -77,111 +70,103 @@ export const RECALL_QUESTIONS: RecallQuestion[] = [
 type Capture = {
   key: string;
   name: string;
-  sinceGrade: string;
+  since: number | null;
+  until: number | null;
   stillDoing: boolean;
-  untilGrade: string;
   category: ActivityCategoryId | "";
   question: number;
+  editing: boolean;
+  pickMode: "start" | "end";
 };
 
 function namesMatch(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
-function graduationYearOptions(now = new Date()): number[] {
-  const start = now.getFullYear();
-  return Array.from({ length: 7 }, (_, i) => start + i);
+function yearButtons(now = new Date()): number[] {
+  const start = currentSchoolYearEnd(now);
+  return [start, start + 1, start + 2, start + 3];
 }
 
-function Grade6to12Select({
-  value,
-  onChange,
-  allowBlank,
-  label,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  allowBlank?: boolean;
-  label: string;
-}) {
-  return (
-    <label className="stack-field">
-      <span className="label">{label}</span>
-      <select className="field" value={value} onChange={(e) => onChange(e.target.value)}>
-        {allowBlank ? <option value="">—</option> : null}
-        <optgroup label="Middle school">
-          {SINCE_GRADES.filter((g) => g.id === "6" || g.id === "7" || g.id === "8").map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.label}
-            </option>
-          ))}
-        </optgroup>
-        <optgroup label="High school">
-          {SINCE_GRADES.filter((g) => Number(g.id) >= 9).map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.label}
-            </option>
-          ))}
-        </optgroup>
-      </select>
-    </label>
-  );
+function standingLabel(grade: number | null): string {
+  if (grade === 9) return "freshman";
+  if (grade === 10) return "sophomore";
+  if (grade === 11) return "junior";
+  if (grade === 12) return "senior";
+  if (grade != null) return `${grade}th grader`;
+  return "";
+}
+
+function schoolYearsCount(
+  since: number,
+  until: number | null,
+  stillDoing: boolean,
+  current: number | null,
+): number {
+  const end = stillDoing ? (current ?? since) : (until ?? since);
+  return Math.max(1, end - since + 1);
 }
 
 export function ActivitiesRecall({
   journal,
   onChange,
   onDone,
+  onExit,
 }: {
   journal: Journal;
   onChange: (next: Journal) => void;
   onDone: () => void;
+  onExit: () => void;
 }) {
-  const [showedYear] = useState(!journal.profile?.classOf);
+  const showedYear = useMemo(() => !journal.profile?.classOf, []);
   const [step, setStep] = useState(showedYear ? 0 : 1);
-  const [classOf, setClassOf] = useState(
-    journal.profile?.classOf ? String(journal.profile.classOf) : "",
-  );
+  const [classOf, setClassOf] = useState<number | null>(journal.profile?.classOf ?? null);
   const [captures, setCaptures] = useState<Capture[]>([]);
   const [draft, setDraft] = useState("");
-  const [dupNote, setDupNote] = useState(false);
-
-  useEffect(() => {
-    if (!dupNote) return;
-    const t = window.setTimeout(() => setDupNote(false), 3000);
-    return () => window.clearTimeout(t);
-  }, [dupNote]);
+  const [dupName, setDupName] = useState("");
+  const [leavePrompt, setLeavePrompt] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const questionIndex = step >= 1 && step <= 9 ? step - 1 : -1;
   const question = questionIndex >= 0 ? RECALL_QUESTIONS[questionIndex] : null;
-  const yearOptions = useMemo(() => graduationYearOptions(), []);
+  const years = useMemo(() => yearButtons(), []);
+  const gradeNow = currentGrade(classOf ?? undefined);
+  const existingNames = journal.activities.filter((a) => !a.archived).map((a) => a.name);
 
-  const existingNames = journal.activities
-    .filter((a) => !a.archived)
-    .map((a) => a.name);
+  useEffect(() => {
+    if (step >= 1 && step <= 9) inputRef.current?.focus();
+  }, [step]);
 
-  function addDraft() {
+  function requestExit() {
+    if (captures.length) setLeavePrompt(true);
+    else onExit();
+  }
+
+  function addDraft(event?: { preventDefault(): void }) {
+    event?.preventDefault();
     const name = draft.trim();
     if (!name || !question) return;
     if (captures.some((row) => namesMatch(row.name, name))) {
-      setDupNote(true);
+      setDupName(name);
       setDraft("");
       return;
     }
     setCaptures((rows) => [
-      ...rows,
+      ...rows.map((row) => ({ ...row, editing: false })),
       {
         key: newId("recall"),
         name,
-        sinceGrade: "",
+        since: null,
+        until: null,
         stillDoing: true,
-        untilGrade: "",
         category: question.defaultCategory,
         question: step,
+        editing: true,
+        pickMode: "start",
       },
     ]);
     setDraft("");
-    setDupNote(false);
+    setDupName("");
   }
 
   function patchCapture(key: string, patch: Partial<Capture>) {
@@ -192,47 +177,71 @@ export function ActivitiesRecall({
     setCaptures((rows) => rows.filter((row) => row.key !== key));
   }
 
+  function reopenCapture(key: string) {
+    setCaptures((rows) =>
+      rows.map((row) =>
+        row.key === key
+          ? { ...row, editing: true, pickMode: row.stillDoing ? "start" : "end" }
+          : { ...row, editing: false },
+      ),
+    );
+  }
+
+  function pickGrade(row: Capture, g: number) {
+    if (!row.stillDoing && row.pickMode === "end" && row.since != null) {
+      if (g >= row.since) patchCapture(row.key, { until: g, editing: false });
+      else patchCapture(row.key, { since: g });
+      return;
+    }
+    if (row.stillDoing) patchCapture(row.key, { since: g, until: null, editing: false });
+    else patchCapture(row.key, { since: g, pickMode: "end" });
+  }
+
   function goNext() {
     setDraft("");
-    setDupNote(false);
+    setDupName("");
+    setCaptures((rows) => rows.map((row) => ({ ...row, editing: false })));
     setStep((n) => Math.min(10, n + 1));
   }
 
   function goBack() {
     setDraft("");
-    setDupNote(false);
-    setStep((n) => {
-      if (n <= 1) return showedYear ? 0 : 1;
-      return n - 1;
-    });
+    setDupName("");
+    if (step <= 1) {
+      if (showedYear) setStep(0);
+      else requestExit();
+      return;
+    }
+    setStep((n) => n - 1);
   }
 
-  function saveClassOf() {
-    const year = Number(classOf);
-    if (!Number.isFinite(year)) return;
-    onChange({ ...journal, profile: { ...journal.profile, classOf: year } });
+  function startQuestions() {
+    if (classOf == null) return;
+    onChange({ ...journal, profile: { ...journal.profile, classOf } });
     setStep(1);
   }
 
   function createActivities() {
-    const year = journal.profile?.classOf ?? Number(classOf);
-    if (!Number.isFinite(year)) return;
+    const year = journal.profile?.classOf ?? classOf;
+    if (year == null) return;
     const toCreate = captures.filter(
       (row) => !existingNames.some((name) => namesMatch(name, row.name)),
     );
     let next: Journal = { ...journal, profile: { ...journal.profile, classOf: year } };
     for (const row of toCreate) {
-      const activity = activityFromRecall(
-        {
-          name: row.name,
-          category: row.category || "other",
-          sinceGrade: row.sinceGrade ? Number(row.sinceGrade) : undefined,
-          untilGrade: row.untilGrade ? Number(row.untilGrade) : undefined,
-          stillDoing: row.stillDoing,
-        },
-        year,
+      next = upsertActivity(
+        next,
+        activityFromRecall(
+          {
+            name: row.name,
+            category: row.category || "other",
+            sinceGrade: row.since ?? undefined,
+            untilGrade: row.until ?? undefined,
+            stillDoing: row.stillDoing,
+          },
+          year,
+        ),
       );
-      next = upsertActivity(next, activity);
     }
     onChange(next);
     onDone();
@@ -241,147 +250,280 @@ export function ActivitiesRecall({
   const createCount = captures.filter(
     (row) => !existingNames.some((name) => namesMatch(name, row.name)),
   ).length;
-
   const rowsThisQuestion = captures.filter((row) => row.question === step);
+  const standing = standingLabel(gradeNow);
 
-  if (step === 0) {
+  if (leavePrompt) {
     return (
       <section className="aj-recall">
-        <h3 className="aj-title">Build Your Activities List</h3>
-        <p className="aj-support">
-          This takes about 10 minutes. You&apos;ll answer a few short questions, and each answer
-          becomes an activity you can fill in later.
-        </p>
-        <label className="stack-field">
-          <span className="label">What year do you graduate from high school?</span>
-          <select className="field" value={classOf} onChange={(e) => setClassOf(e.target.value)}>
-            <option value="">Choose a year</option>
-            {yearOptions.map((year) => (
-              <option key={year} value={year}>
-                {year}
-              </option>
-            ))}
-          </select>
-        </label>
+        <p className="aj-recall-q">You have {captures.length} answers that aren&apos;t saved yet.</p>
         <div className="aj-recall-foot">
-          <button type="button" className="btn btn-primary" disabled={!classOf} onClick={saveClassOf}>
-            Start
+          <button type="button" className="btn btn-primary" onClick={() => setLeavePrompt(false)}>
+            Keep going
+          </button>
+          <button type="button" className="aj-text-btn" onClick={onExit}>
+            Leave without saving
           </button>
         </div>
       </section>
     );
   }
 
-  if (step === 10) {
+  const backLink =
+    step === 0 || step === 1 ? (
+      <button type="button" className="aj-text-btn" onClick={step === 0 || !showedYear ? requestExit : goBack}>
+        {step === 1 && showedYear ? "← Back" : "← Back to My Activities"}
+      </button>
+    ) : step === 10 ? (
+      <button type="button" className="aj-text-btn" onClick={() => setStep(9)}>
+        ← Back to the questions
+      </button>
+    ) : (
+      <button type="button" className="aj-text-btn" onClick={goBack}>
+        ← Previous question
+      </button>
+    );
+
+  const counter =
+    step === 10 ? (
+      <span className="aj-recall-count">Review</span>
+    ) : step >= 1 && step <= 9 ? (
+      <span className="aj-recall-count">
+        Question {step} of 9
+      </span>
+    ) : (
+      <span />
+    );
+
+  function tray() {
+    return (
+      <aside className="aj-recall-tray" aria-label="Your list so far">
+        <h2>
+          <span>Your list so far</span>
+          <span>{captures.length}</span>
+        </h2>
+        {captures.length ? (
+          <ul>
+            {captures.map((row) => (
+              <li key={row.key}>
+                <span className="aj-recall-tray-name">{row.name}</span>
+                <GradeStrip
+                  since={row.since}
+                  until={row.until}
+                  stillDoing={row.stillDoing}
+                  currentGrade={gradeNow}
+                  size="mini"
+                  label={row.name}
+                />
+                <span className="aj-recall-tray-meta">
+                  {row.since == null || gradeNow == null
+                    ? "Start grade not set yet"
+                    : recallSpanText(row.since, row.until, row.stillDoing, gradeNow)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="aj-recall-tray-empty">Everything you add shows up here.</p>
+        )}
+      </aside>
+    );
+  }
+
+  if (step === 0) {
     return (
       <section className="aj-recall">
-        <h3 className="aj-title">Review Your List</h3>
-        <p className="aj-support">Choose a type for each one. You can add details later.</p>
-        {captures.length ? (
-          <div className="aj-recall-table-wrap">
-            <table className="aj-recall-table">
-              <thead>
-                <tr>
-                  <th scope="col">Name</th>
-                  <th scope="col">Type</th>
-                  <th scope="col">Since</th>
-                  <th scope="col">Still doing this</th>
-                  <th scope="col">Until</th>
-                </tr>
-              </thead>
-              <tbody>
-                {captures.map((row) => {
-                  const already = existingNames.some((name) => namesMatch(name, row.name));
-                  return (
-                    <tr key={row.key} className={already ? "is-existing" : undefined}>
-                      <td>
-                        {row.name}
-                        {already ? (
-                          <span className="aj-recall-existing">Already in your activities</span>
-                        ) : null}
-                      </td>
-                      <td>
-                        <select
-                          className="field"
-                          value={row.category}
-                          disabled={already}
-                          onChange={(e) =>
-                            patchCapture(row.key, {
-                              category: e.target.value as ActivityCategoryId | "",
-                            })
-                          }
-                        >
-                          <option value="">Choose a type</option>
-                          {ACTIVITY_CATEGORIES.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.label}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <select
-                          className="field"
-                          value={row.sinceGrade}
-                          disabled={already}
-                          onChange={(e) => patchCapture(row.key, { sinceGrade: e.target.value })}
-                          aria-label={`Since grade for ${row.name}`}
-                        >
-                          <option value="">—</option>
-                          {SINCE_GRADES.map((g) => (
-                            <option key={g.id} value={g.id}>
-                              {g.label}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={row.stillDoing}
-                          disabled={already}
-                          onChange={(e) =>
-                            patchCapture(row.key, { stillDoing: e.target.checked })
-                          }
-                          aria-label={`Still doing ${row.name}`}
-                        />
-                      </td>
-                      <td>
-                        {row.stillDoing ? (
-                          "—"
-                        ) : (
-                          <select
-                            className="field"
-                            value={row.untilGrade}
-                            disabled={already}
-                            onChange={(e) => patchCapture(row.key, { untilGrade: e.target.value })}
-                            aria-label={`Until grade for ${row.name}`}
-                          >
-                            <option value="">—</option>
-                            {SINCE_GRADES.map((g) => (
-                              <option key={g.id} value={g.id}>
-                                {g.label}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        <div className="aj-recall-bar">
+          {backLink}
+          <span />
+        </div>
+        <div className="aj-recall-grid is-single">
+          <div className="aj-recall-main">
+            <h3 className="aj-recall-q">Start Your Activities List</h3>
+            <p className="aj-recall-lede">
+              You&apos;ll answer nine short questions about what you do. A few words per answer is
+              enough. You can add details like your role and hours later.
+            </p>
+            <ol className="aj-recall-how">
+              <li>Type anything that comes to mind. Small things count.</li>
+              <li>Tap the grade you started. That&apos;s the only detail we ask for now.</li>
+              <li>At the end you&apos;ll see everything laid out grade by grade.</li>
+            </ol>
+            <p className="aj-recall-year-q" id="aj-recall-year-q">
+              What year do you graduate from high school?
+            </p>
+            <div className="aj-recall-years" role="group" aria-labelledby="aj-recall-year-q">
+              {years.map((year) => (
+                <button
+                  key={year}
+                  type="button"
+                  aria-pressed={classOf === year}
+                  onClick={() => setClassOf(year)}
+                >
+                  {year}
+                </button>
+              ))}
+            </div>
+            {classOf && standing ? (
+              <p className="aj-recall-year-note">That makes you a {standing} this year.</p>
+            ) : (
+              <p className="aj-recall-year-note" />
+            )}
+            <div className="aj-recall-foot">
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={classOf == null}
+                onClick={startQuestions}
+              >
+                Start with question 1
+              </button>
+            </div>
           </div>
-        ) : (
-          <p className="aj-muted">No new activities from these questions.</p>
-        )}
-        <div className="aj-recall-foot">
-          <button type="button" className="btn btn-secondary" onClick={goBack}>
-            Back
-          </button>
-          <button type="button" className="btn btn-primary" onClick={createActivities}>
-            Add {createCount} {createCount === 1 ? "activity" : "activities"}
-          </button>
+        </div>
+      </section>
+    );
+  }
+
+  if (step === 10) {
+    const ranked = [...captures].sort((a, b) => {
+      const as = a.since ?? 99;
+      const bs = b.since ?? 99;
+      if (as !== bs) return as - bs;
+      return a.name.localeCompare(b.name);
+    });
+    const longest = captures
+      .filter((row) => row.since != null)
+      .reduce<Capture | null>((best, row) => {
+        if (!best || row.since == null) return best ?? row;
+        const bn = schoolYearsCount(best.since!, best.until, best.stillDoing, gradeNow);
+        const rn = schoolYearsCount(row.since, row.until, row.stillDoing, gradeNow);
+        return rn > bn ? row : best;
+      }, null);
+    const grades = [6, 7, 8, 9, 10, 11, 12];
+    const helper =
+      longest && longest.since != null && gradeNow != null
+        ? `You've done ${longest.name} for ${schoolYearsCount(longest.since, longest.until, longest.stillDoing, gradeNow)} school years. Check the grades, then add these to your list.`
+        : "Check the grades, then add these to your list.";
+
+    return (
+      <section className="aj-recall">
+        <div className="aj-recall-bar">
+          {backLink}
+          {counter}
+        </div>
+        <div className="aj-recall-grid is-single">
+          <div className="aj-recall-main is-wide">
+            <h3 className="aj-recall-q">Your Activities, Grade by Grade</h3>
+            <p className="aj-recall-help">{helper}</p>
+            <div className="aj-recall-review-wrap">
+              <table className="aj-recall-review">
+                <thead>
+                  <tr className="aj-recall-review-groups">
+                    <th scope="col" />
+                    <th scope="colgroup" colSpan={3}>
+                      Middle school
+                    </th>
+                    <th scope="col" className="aj-recall-review-gap" />
+                    <th scope="colgroup" colSpan={4}>
+                      High school
+                    </th>
+                    <th scope="col" />
+                  </tr>
+                  <tr>
+                    <th scope="col" className="aj-recall-review-nameh" />
+                    {grades.map((g) => (
+                      <th
+                        key={g}
+                        scope="col"
+                        className={g === gradeNow ? "is-now" : undefined}
+                      >
+                        {g === gradeNow ? `${g} · now` : g}
+                      </th>
+                    )).reduce<ReactNode[]>((acc, cell, i) => {
+                      if (grades[i] === 9) {
+                        acc.push(<th key="gap-h" className="aj-recall-review-gap" />);
+                      }
+                      acc.push(cell);
+                      return acc;
+                    }, [])}
+                    <th scope="col" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {ranked.map((row) => {
+                    const already = existingNames.some((name) => namesMatch(name, row.name));
+                    const end =
+                      row.since == null
+                        ? null
+                        : row.stillDoing
+                          ? gradeNow
+                          : (row.until ?? row.since);
+                    return (
+                      <tr key={row.key}>
+                        <th scope="row" className={already ? "is-existing" : undefined}>
+                          {row.name}
+                          {already ? (
+                            <span className="aj-recall-already">Already in My Activities</span>
+                          ) : null}
+                        </th>
+                        {already || row.since == null ? (
+                          <td colSpan={8}>
+                            <span className="aj-recall-missing">
+                              {already
+                                ? ""
+                                : "Start grade not set - you can add it later."}
+                            </span>
+                          </td>
+                        ) : (
+                          grades.flatMap((g) => {
+                            const on = end != null && g >= row.since! && g <= end;
+                            const cls = [
+                              "aj-recall-seg",
+                              on ? "is-on" : "",
+                              on && g === gradeNow && row.stillDoing ? "is-now" : "",
+                              on && g === row.since ? "is-start" : "",
+                              on && g === end ? "is-end" : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" ");
+                            const td = (
+                              <td key={g}>
+                                <div className={cls} />
+                              </td>
+                            );
+                            if (g === 9) {
+                              return [
+                                <td key="gap" className="aj-recall-review-gap">
+                                  <div className={on && g > row.since! ? "aj-recall-seg is-on" : "aj-recall-seg"} />
+                                </td>,
+                                td,
+                              ];
+                            }
+                            return [td];
+                          })
+                        )}
+                        <td className="aj-recall-span-note">
+                          {already || row.since == null || gradeNow == null
+                            ? ""
+                            : `${schoolYearsCount(row.since, row.until, row.stillDoing, gradeNow)} ${schoolYearsCount(row.since, row.until, row.stillDoing, gradeNow) === 1 ? "yr" : "yrs"}`}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="aj-recall-foot">
+              <button type="button" className="btn btn-primary" onClick={createActivities}>
+                Add {createCount} {createCount === 1 ? "activity" : "activities"} to My Activities
+              </button>
+            </div>
+            <p className="aj-recall-next-note">
+              Next, each one gets an &quot;Add details&quot; button for your role, what you do, and
+              hours. Nothing else is required now.
+            </p>
+          </div>
         </div>
       </section>
     );
@@ -389,83 +531,154 @@ export function ActivitiesRecall({
 
   return (
     <section className="aj-recall">
-      <p className="aj-recall-step">Question {step} of 9</p>
-      <h3 className="aj-title">{question?.question}</h3>
-      <p className="aj-recall-helper">{question?.helper}</p>
-      <label className="stack-field">
-        <span className="label">Type one thing and press Enter</span>
-        <input
-          className="field"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              addDraft();
-            }
-          }}
-        />
-      </label>
-      {dupNote ? <p className="aj-recall-dup">Already on your list</p> : null}
-      {rowsThisQuestion.length ? (
-        <ul className="aj-recall-rows">
-          {rowsThisQuestion.map((row) => (
-            <li key={row.key} className="aj-recall-row">
-              <input
-                className="field"
-                value={row.name}
-                aria-label="Name"
-                onChange={(e) => patchCapture(row.key, { name: e.target.value })}
-              />
-              <Grade6to12Select
-                label="Since"
-                allowBlank
-                value={row.sinceGrade}
-                onChange={(value) => patchCapture(row.key, { sinceGrade: value })}
-              />
-              <label className="aj-check">
-                <input
-                  type="checkbox"
-                  checked={row.stillDoing}
-                  onChange={(e) => patchCapture(row.key, { stillDoing: e.target.checked })}
-                />
-                <span>Still doing this</span>
-              </label>
-              {!row.stillDoing ? (
-                <Grade6to12Select
-                  label="Until"
-                  allowBlank
-                  value={row.untilGrade}
-                  onChange={(value) => patchCapture(row.key, { untilGrade: value })}
-                />
-              ) : null}
-              <button
-                type="button"
-                className="aj-recall-remove"
-                onClick={() => removeCapture(row.key)}
-                aria-label={`Remove ${row.name}`}
-              >
-                ×
+      <div className="aj-recall-bar">
+        {backLink}
+        {counter}
+      </div>
+      <div className="aj-recall-grid">
+        <div className="aj-recall-main">
+          <h3 className="aj-recall-q">{question?.question}</h3>
+          <p className="aj-recall-help">
+            <em>For example:</em> {question?.helper}
+          </p>
+          <form className="aj-recall-capture" onSubmit={addDraft}>
+            <label htmlFor="aj-recall-input" className="sr-only">
+              Your answer
+            </label>
+            <input
+              id="aj-recall-input"
+              ref={inputRef}
+              autoComplete="off"
+              placeholder="Type one thing, then press Enter"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+            />
+            <button type="submit" className="aj-recall-add" disabled={!draft.trim()}>
+              Add
+            </button>
+          </form>
+          <p className="aj-recall-dup" aria-live="polite">
+            {dupName ? `${dupName} is already on your list.` : ""}
+          </p>
+          <ul className="aj-recall-items">
+            {rowsThisQuestion.map((row) => {
+              const open = row.editing || row.since == null;
+              let ask = "Tap a different grade to change when you started.";
+              if (row.since == null) ask = "What grade did you start?";
+              else if (!row.stillDoing && row.pickMode === "end") ask = "What grade did you stop?";
+              if (!open) {
+                return (
+                  <li key={row.key} className="aj-recall-item is-closed">
+                    <div className="aj-recall-item-head">
+                      <span className="aj-recall-item-name">{row.name}</span>
+                      <button
+                        type="button"
+                        className="aj-text-btn"
+                        onClick={() => removeCapture(row.key)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <GradeStrip
+                      since={row.since}
+                      until={row.until}
+                      stillDoing={row.stillDoing}
+                      currentGrade={gradeNow}
+                      size="mini"
+                      label={row.name}
+                    />
+                    <p className="aj-recall-summary">
+                      <span>
+                        {row.since != null && gradeNow != null
+                          ? recallSpanText(row.since, row.until, row.stillDoing, gradeNow)
+                          : ""}
+                      </span>
+                      <button
+                        type="button"
+                        className="aj-text-btn"
+                        onClick={() => reopenCapture(row.key)}
+                      >
+                        Change
+                      </button>
+                    </p>
+                  </li>
+                );
+              }
+              return (
+                <li key={row.key} className="aj-recall-item">
+                  <div className="aj-recall-item-head">
+                    <span className="aj-recall-item-name">{row.name}</span>
+                    <button
+                      type="button"
+                      className="aj-text-btn"
+                      onClick={() => removeCapture(row.key)}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <p className="aj-recall-ask">{ask}</p>
+                  <GradeStrip
+                    since={row.since}
+                    until={row.until}
+                    stillDoing={row.stillDoing}
+                    currentGrade={gradeNow}
+                    size="pick"
+                    label={row.name}
+                    onPick={(g) => pickGrade(row, g)}
+                  />
+                  <div className="aj-recall-pills" role="group" aria-label="Still doing it?">
+                    <button
+                      type="button"
+                      aria-pressed={row.stillDoing}
+                      onClick={() =>
+                        patchCapture(row.key, {
+                          stillDoing: true,
+                          until: null,
+                          pickMode: "start",
+                        })
+                      }
+                    >
+                      Still doing it
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={!row.stillDoing}
+                      onClick={() =>
+                        patchCapture(row.key, {
+                          stillDoing: false,
+                          pickMode: row.since == null ? "start" : "end",
+                          editing: true,
+                        })
+                      }
+                    >
+                      I stopped
+                    </button>
+                    {row.since != null ? (
+                      <button
+                        type="button"
+                        className="aj-text-btn"
+                        onClick={() => patchCapture(row.key, { editing: false })}
+                      >
+                        Done
+                      </button>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="aj-recall-foot">
+            <button type="button" className="btn btn-primary" onClick={goNext}>
+              {step === 9 ? "See your list" : "Next question"}
+            </button>
+            {rowsThisQuestion.length ? null : (
+              <button type="button" className="aj-text-btn" onClick={goNext}>
+                Nothing for this one
               </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      <div className="aj-recall-foot">
-        <button
-          type="button"
-          className="btn btn-secondary"
-          onClick={goBack}
-          disabled={step === 1 && !showedYear}
-        >
-          Back
-        </button>
-        <button type="button" className="btn btn-secondary" onClick={goNext}>
-          Skip
-        </button>
-        <button type="button" className="btn btn-primary" onClick={goNext}>
-          Next
-        </button>
+            )}
+          </div>
+        </div>
+        {tray()}
       </div>
     </section>
   );
