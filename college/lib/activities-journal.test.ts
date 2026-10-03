@@ -12,9 +12,11 @@ import {
   charCount,
   createActivity,
   createApplicationList,
+  classStanding,
   currentGrade,
   currentSchoolYearEnd,
   emptyJournal,
+  graduationYearOptions,
   estimatedHours,
   exportListMarkdown,
   filterActivities,
@@ -29,7 +31,9 @@ import {
   recordSummary,
   removeActivity,
   restoreActivity,
+  resolveClassOf,
   schoolYearForGrade,
+  setClassOf,
   upsertActivity,
   upsertAward,
   upsertDraft,
@@ -377,6 +381,52 @@ test("currentSchoolYearEnd maps Aug-Dec to the next June", () => {
 test("currentGrade from classOf", () => {
   assert.equal(currentGrade(2028, new Date(2026, 9, 3)), 11);
   assert.equal(currentGrade(undefined), null);
+  assert.equal(currentGrade(0, new Date(2026, 9, 3)), null);
+});
+
+test("graduationYearOptions covers this June through three years out", () => {
+  assert.deepEqual(graduationYearOptions(new Date(2026, 9, 3)), [2027, 2028, 2029, 2030]);
+});
+
+test("classStanding names high-school years", () => {
+  assert.equal(classStanding(11), "junior");
+  assert.equal(classStanding(null), "");
+});
+
+test("setClassOf stores the graduation year", () => {
+  const next = setClassOf(emptyJournal(), 2028);
+  assert.equal(next.profile?.classOf, 2028);
+  assert.equal(normalizeJournal(JSON.parse(JSON.stringify(next))).profile?.classOf, 2028);
+});
+
+test("resolveClassOf falls back to 2028 when the year was never saved", () => {
+  const now = new Date(2026, 9, 3);
+  assert.equal(resolveClassOf(undefined, now), 2028);
+  assert.equal(resolveClassOf(0, now), 2028);
+  assert.equal(resolveClassOf(2028, now), 2028);
+});
+
+test("tapping a start grade without saved classOf fills through junior year", () => {
+  const now = new Date(2026, 9, 3);
+  const year = resolveClassOf(undefined, now);
+  const periods = recallPeriods(year, { sinceGrade: 9, stillDoing: true }, now);
+  assert.deepEqual(
+    periods.map((p) => p.grade),
+    ["9", "10", "11"],
+  );
+  let journal = emptyJournal();
+  const activity = activityFromRecall(
+    { name: "Marching Band", category: "other", stillDoing: true },
+    year,
+    now,
+  );
+  journal = upsertActivity(journal, activity);
+  journal = applyRecallSpan(journal, activity.id, year, { sinceGrade: 9, stillDoing: true }, now);
+  assert.deepEqual(
+    journal.activities[0]!.periods.map((p) => p.grade),
+    ["9", "10", "11"],
+  );
+  assert.equal(recordSpanText(journal.activities[0]!, 11), "Since 9th grade · still doing it");
 });
 
 test("schoolYearForGrade uses classOf", () => {
@@ -490,6 +540,38 @@ test("recallPeriods matches activityFromRecall periods", () => {
     periods.map((p) => p.status),
     fromActivity.periods.map((p) => p.status),
   );
+});
+
+test("recallPeriods still writes the start grade when classOf is missing", () => {
+  const now = new Date(2026, 9, 3);
+  const periods = recallPeriods(0, { sinceGrade: 9, stillDoing: true }, now);
+  assert.equal(periods.length, 1);
+  assert.equal(periods[0]!.grade, "9");
+  assert.equal(periods[0]!.status, "in_progress");
+  const stopped = recallPeriods(0, { sinceGrade: 9, untilGrade: 10, stillDoing: false }, now);
+  assert.deepEqual(
+    stopped.map((p) => p.grade),
+    ["9", "10"],
+  );
+  assert.equal(stopped.every((p) => p.status === "completed"), true);
+});
+
+test("applyRecallSpan with no classOf keeps the tapped start grade", () => {
+  const now = new Date(2026, 9, 3);
+  let journal = emptyJournal();
+  const activity = activityFromRecall(
+    { name: "Marching Band", category: "other", stillDoing: true },
+    0,
+    now,
+  );
+  assert.equal(activity.periods.length, 0);
+  journal = upsertActivity(journal, activity);
+  journal = applyRecallSpan(journal, activity.id, 0, { sinceGrade: 9, stillDoing: true }, now);
+  const saved = journal.activities[0]!;
+  assert.equal(saved.periods.length, 1);
+  assert.equal(saved.periods[0]!.grade, "9");
+  assert.equal(saved.ongoing, true);
+  assert.equal(recordSpanText(saved, null), "9th grade");
 });
 
 test("applyRecallSpan since 6 still doing then stopped at 9", () => {

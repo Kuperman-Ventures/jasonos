@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivitiesRecall } from "./ActivitiesRecall";
 import { GradeStrip } from "./GradeStrip";
-import { RecallAnswerCard, type RecallAnswerState } from "./RecallAnswerCard";
+import { GraduationYearPicker } from "./GraduationYearPicker";
+import { RecallAnswerCard, emptyRecallState, nextRecallPick, recallSpanComplete, type RecallAnswerState } from "./RecallAnswerCard";
 import { ACTIVITIES_VIEWS, type ActivitiesViewId } from "@/lib/apps-materials";
 import {
   ACTIVITY_CATEGORIES,
@@ -32,6 +33,8 @@ import {
   removeDraftFromList,
   reorderDraft,
   restoreActivity,
+  resolveClassOf,
+  setClassOf,
   sortRecordActivities,
   upsertActivity,
   upsertAward,
@@ -303,20 +306,15 @@ function MyActivitiesView({
   onOpenActivity: (id: string | null, tab?: DetailTab) => void;
 }) {
   const [recallOpen, setRecallOpen] = useState(false);
-  const [recallDismissed, setRecallDismissed] = useState(false);
   const [query, setQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
   const [quickDraft, setQuickDraft] = useState("");
   const [quickDup, setQuickDup] = useState("");
   const [quickId, setQuickId] = useState<string | null>(null);
-  const [quickState, setQuickState] = useState<RecallAnswerState>({
-    editing: true,
-    pickMode: "start",
-    since: null,
-    until: null,
-    stillDoing: true,
-  });
+  const [quickState, setQuickState] = useState<RecallAnswerState>(emptyRecallState);
+  const [spanEditId, setSpanEditId] = useState<string | null>(null);
+  const [spanEditState, setSpanEditState] = useState<RecallAnswerState>(emptyRecallState);
   const [showAddAward, setShowAddAward] = useState(false);
   const journalRef = useRef(journal);
 
@@ -327,8 +325,9 @@ function MyActivitiesView({
   const active = journal.activities.filter((a) => !a.archived);
   const archived = journal.activities.filter((a) => a.archived);
   const activeCount = active.length;
-  const showRecall = canEdit && loaded && (recallOpen || (!activeCount && !recallDismissed));
-  const classOf = journal.profile?.classOf;
+  const showRecall = canEdit && loaded && recallOpen;
+  const savedClassOf = journal.profile?.classOf;
+  const classOf = resolveClassOf(savedClassOf);
   const gradeNow = currentGrade(classOf);
   const needle = query.trim().toLowerCase();
   const searched = needle
@@ -346,7 +345,6 @@ function MyActivitiesView({
 
   function closeRecall(ids: string[]) {
     setRecallOpen(false);
-    setRecallDismissed(true);
     if (ids.length) onHighlightIds([...new Set([...highlightIds, ...ids])]);
   }
 
@@ -355,33 +353,30 @@ function MyActivitiesView({
     onChange(next);
   }
 
-  function spanComplete(state: RecallAnswerState): boolean {
-    if (state.since == null) return false;
-    return state.stillDoing || state.until != null;
-  }
-
-  function saveQuickSpan(id: string, next: RecallAnswerState) {
-    const year = journalRef.current.profile?.classOf ?? classOf;
-    if (year == null || !spanComplete(next)) return;
-    commit(
-      applyRecallSpan(journalRef.current, id, year, {
-        sinceGrade: next.since ?? undefined,
-        untilGrade: next.until ?? undefined,
-        stillDoing: next.stillDoing,
-      }),
-    );
-    onHighlightIds([...new Set([...highlightIds, id])]);
-    setQuickOpen(false);
-    setQuickId(null);
-    setQuickDraft("");
-    setQuickDup("");
-    setQuickState({
-      editing: true,
-      pickMode: "start",
-      since: null,
-      until: null,
-      stillDoing: true,
+  function saveSpan(id: string, next: RecallAnswerState, closeQuick: boolean) {
+    if (!recallSpanComplete(next)) return false;
+    const year = resolveClassOf(journalRef.current.profile?.classOf ?? classOf);
+    let saved = journalRef.current;
+    if (saved.profile?.classOf == null) saved = setClassOf(saved, year);
+    saved = applyRecallSpan(saved, id, year, {
+      sinceGrade: next.since ?? undefined,
+      untilGrade: next.until ?? undefined,
+      stillDoing: next.stillDoing,
     });
+    const activity = saved.activities.find((a) => a.id === id);
+    if (!activity || activity.periods.length === 0) return false;
+    commit(saved);
+    onHighlightIds([...new Set([...highlightIds, id])]);
+    setSpanEditId(null);
+    setSpanEditState(emptyRecallState());
+    if (closeQuick) {
+      setQuickOpen(false);
+      setQuickId(null);
+      setQuickDraft("");
+      setQuickDup("");
+      setQuickState(emptyRecallState());
+    }
+    return true;
   }
 
   function addQuick(event?: { preventDefault(): void }) {
@@ -393,20 +388,16 @@ function MyActivitiesView({
       setQuickDraft("");
       return;
     }
-    const year = journalRef.current.profile?.classOf ?? classOf ?? 0;
+    const year = resolveClassOf(journalRef.current.profile?.classOf ?? classOf);
+    let next = journalRef.current;
+    if (next.profile?.classOf == null) next = setClassOf(next, year);
     const activity = activityFromRecall(
       { name, category: "other", stillDoing: true },
       year,
     );
-    commit(upsertActivity(journalRef.current, activity));
+    commit(upsertActivity(next, activity));
     setQuickId(activity.id);
-    setQuickState({
-      editing: true,
-      pickMode: "start",
-      since: null,
-      until: null,
-      stillDoing: true,
-    });
+    setQuickState(emptyRecallState());
     setQuickDraft("");
     setQuickDup("");
   }
@@ -451,6 +442,14 @@ function MyActivitiesView({
           </div>
         ) : null}
       </header>
+
+      {canEdit && savedClassOf == null ? (
+        <GraduationYearPicker
+          compact
+          classOf={savedClassOf}
+          onPick={(year) => commit(setClassOf(journalRef.current, year))}
+        />
+      ) : null}
 
       {activeCount > 12 ? (
         <label className="rec-find">
@@ -498,6 +497,7 @@ function MyActivitiesView({
               title: award.title,
             }));
           const metaBits = [activity.role, activity.organization].filter(Boolean) as string[];
+          const editingSpan = spanEditId === activity.id;
           return (
             <div key={activity.id} className={isNew ? "rec-row rec-cols is-new" : "rec-row rec-cols"}>
               <div className="rec-name">
@@ -512,16 +512,74 @@ function MyActivitiesView({
                   </span>
                 </span>
               </div>
-              <GradeStrip
-                size="row"
-                currentGrade={gradeNow}
-                cells={cells}
-                markers={markers}
-                label={stripAriaLabel(activity.name, span)}
-                onEmptyClick={
-                  canEdit && years === 0 ? () => onOpenActivity(activity.id, "periods") : undefined
-                }
-              />
+              {editingSpan ? (
+                <ul className="aj-recall-items rec-span-edit">
+                  <RecallAnswerCard
+                    name={activity.name}
+                    state={spanEditState}
+                    currentGrade={gradeNow}
+                    prompt="Tap the grade you started."
+                    removeLabel="Cancel"
+                    onRemove={() => {
+                      setSpanEditId(null);
+                      setSpanEditState(emptyRecallState());
+                    }}
+                    onPick={(g) => {
+                      const next = nextRecallPick(spanEditState, g);
+                      setSpanEditState(next);
+                      saveSpan(activity.id, next, false);
+                    }}
+                    onStill={() => {
+                      const next: RecallAnswerState = {
+                        ...spanEditState,
+                        stillDoing: true,
+                        until: null,
+                        pickMode: "start",
+                      };
+                      setSpanEditState(next);
+                      saveSpan(activity.id, next, false);
+                    }}
+                    onStopped={() => {
+                      const next: RecallAnswerState = {
+                        ...spanEditState,
+                        stillDoing: false,
+                        pickMode: spanEditState.since == null ? "start" : "end",
+                        editing: true,
+                      };
+                      setSpanEditState(next);
+                      saveSpan(activity.id, next, false);
+                    }}
+                    onDone={() => {
+                      const next = { ...spanEditState, editing: false };
+                      setSpanEditState(next);
+                      saveSpan(activity.id, next, false);
+                    }}
+                    onChangeClick={() =>
+                      setSpanEditState((s) => ({
+                        ...s,
+                        editing: true,
+                        pickMode: s.stillDoing ? "start" : "end",
+                      }))
+                    }
+                  />
+                </ul>
+              ) : (
+                <GradeStrip
+                  size="row"
+                  currentGrade={gradeNow}
+                  cells={cells}
+                  markers={markers}
+                  label={stripAriaLabel(activity.name, span)}
+                  onEmptyClick={
+                    canEdit && years === 0 && activity.id !== quickId
+                      ? () => {
+                          setSpanEditId(activity.id);
+                          setSpanEditState(emptyRecallState());
+                        }
+                      : undefined
+                  }
+                />
+              )}
               <span className="rec-years">
                 {years ? `${years} ${years === 1 ? "yr" : "yrs"}` : ""}
               </span>
@@ -574,28 +632,12 @@ function MyActivitiesView({
                       onRemove={() => {
                         onChange(removeActivity(journalRef.current, quickId));
                         setQuickId(null);
-                        setQuickState({
-                          editing: true,
-                          pickMode: "start",
-                          since: null,
-                          until: null,
-                          stillDoing: true,
-                        });
+                        setQuickState(emptyRecallState());
                       }}
                       onPick={(g) => {
-                        let next: RecallAnswerState = quickState;
-                        if (!quickState.stillDoing && quickState.pickMode === "end" && quickState.since != null) {
-                          next =
-                            g >= quickState.since
-                              ? { ...quickState, until: g, editing: false }
-                              : { ...quickState, since: g };
-                        } else if (quickState.stillDoing) {
-                          next = { ...quickState, since: g, until: null, editing: false };
-                        } else {
-                          next = { ...quickState, since: g, pickMode: "end" };
-                        }
+                        const next = nextRecallPick(quickState, g);
                         setQuickState(next);
-                        saveQuickSpan(quickId, next);
+                        saveSpan(quickId, next, true);
                       }}
                       onStill={() => {
                         const next: RecallAnswerState = {
@@ -605,7 +647,7 @@ function MyActivitiesView({
                           pickMode: "start",
                         };
                         setQuickState(next);
-                        saveQuickSpan(quickId, next);
+                        saveSpan(quickId, next, true);
                       }}
                       onStopped={() => {
                         const next: RecallAnswerState = {
@@ -615,9 +657,13 @@ function MyActivitiesView({
                           editing: true,
                         };
                         setQuickState(next);
-                        saveQuickSpan(quickId, next);
+                        saveSpan(quickId, next, false);
                       }}
-                      onDone={() => setQuickState((s) => ({ ...s, editing: false }))}
+                      onDone={() => {
+                        const next = { ...quickState, editing: false };
+                        setQuickState(next);
+                        saveSpan(quickId, next, true);
+                      }}
                       onChangeClick={() =>
                         setQuickState((s) => ({
                           ...s,
@@ -636,6 +682,7 @@ function MyActivitiesView({
                     setQuickDraft("");
                     setQuickDup("");
                     setQuickId(null);
+                    setQuickState(emptyRecallState());
                   }}
                 >
                   Cancel

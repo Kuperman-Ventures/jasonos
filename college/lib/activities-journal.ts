@@ -218,6 +218,9 @@ export type JournalProfile = {
   classOf?: number; // high school graduation year, e.g. 2028
 };
 
+/** This portal's student enrolls Fall 2028. Used when profile.classOf was never saved. */
+export const DEFAULT_CLASS_OF = 2028;
+
 export type ActivitiesJournal = {
   activities: Activity[];
   awards: Award[];
@@ -326,6 +329,32 @@ export function currentGrade(classOf: number | undefined, now: Date = new Date()
   const g = 12 - (Math.trunc(classOf) - currentSchoolYearEnd(now));
   if (g < 6 || g > 12) return null;
   return g;
+}
+
+/** Graduation years a student still in grades 9-12 could pick. */
+export function graduationYearOptions(now: Date = new Date()): number[] {
+  const start = currentSchoolYearEnd(now);
+  return [start, start + 1, start + 2, start + 3];
+}
+
+/** "junior" for 11, empty when grade is unknown. */
+export function classStanding(grade: number | null): string {
+  if (grade === 9) return "freshman";
+  if (grade === 10) return "sophomore";
+  if (grade === 11) return "junior";
+  if (grade === 12) return "senior";
+  if (grade != null) return `${grade}th grader`;
+  return "";
+}
+
+export function setClassOf(journal: ActivitiesJournal, classOf: number): ActivitiesJournal {
+  return { ...journal, profile: { ...journal.profile, classOf: Math.trunc(classOf) } };
+}
+
+/** Saved graduation year, or this portal's default when that was never set. */
+export function resolveClassOf(classOf: number | undefined, now: Date = new Date()): number {
+  if (currentGrade(classOf, now) != null) return Math.trunc(classOf!);
+  return DEFAULT_CLASS_OF;
 }
 
 /** "2021–22" for grade 6 when classOf is 2028. Uses the existing formatSchoolYear(). */
@@ -1174,26 +1203,28 @@ export function recallPeriods(
   span: RecallSpan,
   now: Date = new Date(),
 ): ParticipationPeriod[] {
-  const current = currentGrade(classOf, now);
   const since = span.sinceGrade;
+  if (since == null) return [];
+  const current = currentGrade(Number.isFinite(classOf) ? classOf : undefined, now);
   const stillDoing = span.stillDoing;
+  const last = stillDoing
+    ? (current ?? since)
+    : Math.min(span.untilGrade ?? since, current ?? span.untilGrade ?? since);
+  if (current != null && since > current) return [];
+  if (last < since) return [];
   const stamp = now.toISOString();
+  const yearForLabel = current != null ? Math.trunc(classOf) : undefined;
   const periods: ParticipationPeriod[] = [];
-  if (since != null && current != null && since <= current) {
-    const last = stillDoing ? current : Math.min(span.untilGrade ?? since, current);
-    if (last >= since) {
-      for (let g = since; g <= last; g++) {
-        periods.push({
-          id: newId("period"),
-          schoolYear: schoolYearForGrade(classOf, g),
-          grade: String(g) as GradeLevel,
-          periodKind: "school_year",
-          status: stillDoing && g === current ? "in_progress" : "completed",
-          createdAt: stamp,
-          updatedAt: stamp,
-        });
-      }
-    }
+  for (let g = since; g <= last; g++) {
+    periods.push({
+      id: newId("period"),
+      schoolYear: yearForLabel != null ? schoolYearForGrade(yearForLabel, g) : "",
+      grade: String(g) as GradeLevel,
+      periodKind: "school_year",
+      status: stillDoing && g === (current ?? last) ? "in_progress" : "completed",
+      createdAt: stamp,
+      updatedAt: stamp,
+    });
   }
   return periods;
 }

@@ -9293,6 +9293,19 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   gap: 14px;
   max-width: 640px;
 }
+.rec-span-edit {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rec-year.is-compact {
+  margin: 18px 0 0;
+  max-width: 640px;
+}
+.rec-year.is-compact .aj-recall-year-q {
+  margin-top: 0;
+}
 .rec-archived {
   margin-top: 16px;
 }

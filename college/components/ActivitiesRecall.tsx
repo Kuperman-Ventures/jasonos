@@ -2,14 +2,22 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { GradeStrip } from "./GradeStrip";
-import { RecallAnswerCard, type RecallAnswerState } from "./RecallAnswerCard";
+import { GraduationYearPicker } from "./GraduationYearPicker";
+import {
+  RecallAnswerCard,
+  emptyRecallState,
+  nextRecallPick,
+  recallSpanComplete,
+  type RecallAnswerState,
+} from "./RecallAnswerCard";
 import {
   activityFromRecall,
   applyRecallSpan,
   currentGrade,
-  currentSchoolYearEnd,
   recallSpanText,
   removeActivity,
+  resolveClassOf,
+  setClassOf as setJournalClassOf,
   upsertActivity,
   type ActivitiesJournal as Journal,
   type ActivityCategoryId,
@@ -78,26 +86,6 @@ function namesMatch(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
-function yearButtons(now = new Date()): number[] {
-  const start = currentSchoolYearEnd(now);
-  return [start, start + 1, start + 2, start + 3];
-}
-
-function standingLabel(grade: number | null): string {
-  if (grade === 9) return "freshman";
-  if (grade === 10) return "sophomore";
-  if (grade === 11) return "junior";
-  if (grade === 12) return "senior";
-  if (grade != null) return `${grade}th grader`;
-  return "";
-}
-
-function spanComplete(row: RecallAnswerState): boolean {
-  if (row.since == null) return false;
-  if (row.stillDoing) return true;
-  return row.until != null;
-}
-
 export function ActivitiesRecall({
   journal,
   onChange,
@@ -120,9 +108,8 @@ export function ActivitiesRecall({
 
   const questionIndex = step >= 1 && step <= 9 ? step - 1 : -1;
   const question = questionIndex >= 0 ? RECALL_QUESTIONS[questionIndex] : null;
-  const years = useMemo(() => yearButtons(), []);
-  const year = journal.profile?.classOf ?? classOf;
-  const gradeNow = currentGrade(year ?? undefined);
+  const year = resolveClassOf(journal.profile?.classOf ?? classOf ?? undefined);
+  const gradeNow = currentGrade(year);
   const sessionIds = session.map((row) => row.id);
 
   useEffect(() => {
@@ -143,9 +130,12 @@ export function ActivitiesRecall({
   }
 
   function saveSpan(row: SessionRow, next: RecallAnswerState) {
-    if (year == null || !spanComplete(next)) return;
+    if (!recallSpanComplete(next)) return;
+    const savedYear = resolveClassOf(journalRef.current.profile?.classOf ?? classOf ?? undefined);
+    let nextJournal = journalRef.current;
+    if (nextJournal.profile?.classOf == null) nextJournal = setJournalClassOf(nextJournal, savedYear);
     commit(
-      applyRecallSpan(journalRef.current, row.id, year, {
+      applyRecallSpan(nextJournal, row.id, savedYear, {
         sinceGrade: next.since ?? undefined,
         untilGrade: next.until ?? undefined,
         stillDoing: next.stillDoing,
@@ -156,31 +146,30 @@ export function ActivitiesRecall({
   function addDraft(event?: { preventDefault(): void }) {
     event?.preventDefault();
     const name = draft.trim();
-    if (!name || !question || year == null) return;
+    if (!name || !question) return;
     if (journalRef.current.activities.some((a) => !a.archived && namesMatch(a.name, name))) {
       setDupName(name);
       setDraft("");
       return;
     }
+    const savedYear = resolveClassOf(journalRef.current.profile?.classOf ?? classOf ?? undefined);
+    let nextJournal = journalRef.current;
+    if (nextJournal.profile?.classOf == null) nextJournal = setJournalClassOf(nextJournal, savedYear);
     const activity = activityFromRecall(
       {
         name,
         category: question.defaultCategory || "other",
         stillDoing: true,
       },
-      year,
+      savedYear,
     );
-    commit(upsertActivity(journalRef.current, activity));
+    commit(upsertActivity(nextJournal, activity));
     setSession((rows) => [
       ...rows.map((row) => ({ ...row, editing: false })),
       {
         id: activity.id,
         question: step,
-        editing: true,
-        pickMode: "start",
-        since: null,
-        until: null,
-        stillDoing: true,
+        ...emptyRecallState(),
       },
     ]);
     setDraft("");
@@ -193,14 +182,7 @@ export function ActivitiesRecall({
   }
 
   function pickGrade(row: SessionRow, g: number) {
-    let next: RecallAnswerState = row;
-    if (!row.stillDoing && row.pickMode === "end" && row.since != null) {
-      next = g >= row.since ? { ...row, until: g, editing: false } : { ...row, since: g };
-    } else if (row.stillDoing) {
-      next = { ...row, since: g, until: null, editing: false };
-    } else {
-      next = { ...row, since: g, pickMode: "end" };
-    }
+    const next = nextRecallPick(row, g);
     patchRow(row.id, next);
     saveSpan(row, next);
   }
@@ -229,12 +211,11 @@ export function ActivitiesRecall({
 
   function startQuestions() {
     if (classOf == null) return;
-    commit({ ...journalRef.current, profile: { ...journalRef.current.profile, classOf } });
+    commit(setJournalClassOf(journalRef.current, classOf));
     setStep(1);
   }
 
   const rowsThisQuestion = session.filter((row) => row.question === step);
-  const standing = standingLabel(gradeNow);
 
   const backLink =
     step === 0 || step === 1 ? (
@@ -312,26 +293,14 @@ export function ActivitiesRecall({
               <li>Tap the grade you started. That&apos;s the only detail we ask for now.</li>
               <li>Each answer is saved as you go. At the end you&apos;ll land on My Record.</li>
             </ol>
-            <p className="aj-recall-year-q" id="aj-recall-year-q">
-              What year do you graduate from high school?
-            </p>
-            <div className="aj-recall-years" role="group" aria-labelledby="aj-recall-year-q">
-              {years.map((y) => (
-                <button
-                  key={y}
-                  type="button"
-                  aria-pressed={classOf === y}
-                  onClick={() => setClassOf(y)}
-                >
-                  {y}
-                </button>
-              ))}
-            </div>
-            {classOf && standing ? (
-              <p className="aj-recall-year-note">That makes you a {standing} this year.</p>
-            ) : (
-              <p className="aj-recall-year-note" />
-            )}
+            <GraduationYearPicker
+              headingId="aj-recall-year-q"
+              classOf={classOf}
+              onPick={(y) => {
+                setClassOf(y);
+                commit(setJournalClassOf(journalRef.current, y));
+              }}
+            />
             <div className="aj-recall-foot">
               <button
                 type="button"
@@ -341,6 +310,11 @@ export function ActivitiesRecall({
               >
                 Start with question 1
               </button>
+              {classOf != null ? (
+                <button type="button" className="aj-text-btn" onClick={() => onExit(sessionIds)}>
+                  Skip questions and add them on My Record
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
@@ -411,7 +385,10 @@ export function ActivitiesRecall({
                     patchRow(row.id, next);
                     saveSpan(row, next);
                   }}
-                  onDone={() => patchRow(row.id, { editing: false })}
+                  onDone={() => {
+                    patchRow(row.id, { editing: false });
+                    saveSpan(row, { ...row, editing: false });
+                  }}
                   onChangeClick={() =>
                     patchRow(row.id, {
                       editing: true,

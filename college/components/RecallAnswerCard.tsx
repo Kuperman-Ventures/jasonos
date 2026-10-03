@@ -11,6 +11,33 @@ export type RecallAnswerState = {
   stillDoing: boolean;
 };
 
+export function emptyRecallState(): RecallAnswerState {
+  return {
+    editing: true,
+    pickMode: "start",
+    since: null,
+    until: null,
+    stillDoing: true,
+  };
+}
+
+export function recallSpanComplete(state: RecallAnswerState): boolean {
+  if (state.since == null) return false;
+  return state.stillDoing || state.until != null;
+}
+
+export function nextRecallPick(state: RecallAnswerState, g: number): RecallAnswerState {
+  if (!state.stillDoing && state.pickMode === "end" && state.since != null) {
+    return g >= state.since
+      ? { ...state, until: g, editing: false }
+      : { ...state, since: g };
+  }
+  if (state.stillDoing) {
+    return { ...state, since: g, until: null, editing: false };
+  }
+  return { ...state, since: g, pickMode: "end" };
+}
+
 export function recallAsk(state: RecallAnswerState): string {
   if (state.since == null) return "What grade did you start?";
   if (!state.stillDoing && state.pickMode === "end") return "What grade did you stop?";
@@ -28,17 +55,19 @@ export function RecallAnswerCard({
   onStopped,
   onDone,
   onChangeClick,
+  removeLabel = "Remove",
 }: {
   name: string;
   state: RecallAnswerState;
   currentGrade: number | null;
   prompt?: string;
-  onRemove: () => void;
+  onRemove?: () => void;
   onPick: (grade: number) => void;
   onStill: () => void;
   onStopped: () => void;
   onDone?: () => void;
   onChangeClick: () => void;
+  removeLabel?: string;
 }) {
   const open = state.editing || state.since == null;
   const ask = prompt ?? recallAsk(state);
@@ -48,9 +77,11 @@ export function RecallAnswerCard({
       <li className="aj-recall-item is-closed">
         <div className="aj-recall-item-head">
           <span className="aj-recall-item-name">{name}</span>
-          <button type="button" className="aj-text-btn" onClick={onRemove}>
-            Remove
-          </button>
+          {onRemove ? (
+            <button type="button" className="aj-text-btn" onClick={onRemove}>
+              {removeLabel}
+            </button>
+          ) : null}
         </div>
         <GradeStrip
           since={state.since}
@@ -78,9 +109,11 @@ export function RecallAnswerCard({
     <li className="aj-recall-item">
       <div className="aj-recall-item-head">
         <span className="aj-recall-item-name">{name}</span>
-        <button type="button" className="aj-text-btn" onClick={onRemove}>
-          Remove
-        </button>
+        {onRemove ? (
+          <button type="button" className="aj-text-btn" onClick={onRemove}>
+            {removeLabel}
+          </button>
+        ) : null}
       </div>
       <p className="aj-recall-ask">{ask}</p>
       <GradeStrip
