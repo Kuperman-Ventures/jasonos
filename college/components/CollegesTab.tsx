@@ -38,6 +38,12 @@ import {
 import { formatTravelLabel } from "@/lib/drive-matrix";
 import { canAdvanceListPhase } from "@/lib/permissions";
 import { formatScoirPct, scoirNewJerseyPct } from "@/lib/scoir";
+import {
+  ACCENT_SUBMISSION_TYPES,
+  extraSubmissionTypes,
+  selfReportListLabel,
+  SUBMISSION_TYPE_LABEL,
+} from "@/lib/school-submissions";
 import { CampusSettingBadge } from "./CampusSettingBadge";
 import {
   INTEREST_LEVELS,
@@ -522,6 +528,30 @@ export function CollegesTab({
         return (
           <td key={column} className="num mono">
             {nj == null ? "—" : formatScoirPct(nj, 0)}
+          </td>
+        );
+      }
+      case "selfReport": {
+        const label = selfReportListLabel(school.submissions);
+        return <td key={column}>{label}</td>;
+      }
+      case "extras": {
+        const types = extraSubmissionTypes(school.submissions);
+        if (!types.length) return <td key={column} />;
+        return (
+          <td key={column}>
+            <div className="school-sub-chips">
+              {types.map((type) => (
+                <span
+                  key={type}
+                  className={
+                    ACCENT_SUBMISSION_TYPES.has(type) ? "school-sub-chip is-accent" : "school-sub-chip"
+                  }
+                >
+                  {SUBMISSION_TYPE_LABEL[type]}
+                </span>
+              ))}
+            </div>
           </td>
         );
       }
@@ -1056,6 +1086,16 @@ export function CollegesTab({
                 ) : null}
                 {columns.includes("aerospace") ? (
                   <span>Aero {school.aerospaceEngineering.trim() || "—"}</span>
+                ) : null}
+                {columns.includes("selfReport") ? (
+                  <span>{selfReportListLabel(school.submissions)}</span>
+                ) : null}
+                {columns.includes("extras") ? (
+                  <span>
+                    {extraSubmissionTypes(school.submissions)
+                      .map((type) => SUBMISSION_TYPE_LABEL[type])
+                      .join(", ")}
+                  </span>
                 ) : null}
                 {columns.includes("visit") ? (
                   <span onClick={(event) => event.stopPropagation()}>

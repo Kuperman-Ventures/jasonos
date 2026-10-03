@@ -20,6 +20,7 @@ export type RequirementProgressMap = Record<string, RequirementProgressEntry>;
 
 const KEYS = new Set<string>([
   "application",
+  "selfReport",
   "essay",
   "supplements",
   "tests",

@@ -1,11 +1,13 @@
 import { knownWebsite } from "./school-websites";
 import type { AdditionalProgram, ProgramOption } from "./additional-programs";
 import type { SchoolProjectNote } from "./school-project-notes";
+import type { SchoolSubmissions } from "./school-submissions";
 import { driveFieldsForSchool } from "./drive-matrix";
 import { visitAddressForSchool } from "./school-photos";
 
 export type { AdditionalProgram, ProgramOption } from "./additional-programs";
 export type { SchoolProjectNote } from "./school-project-notes";
+export type { SchoolSubmissions } from "./school-submissions";
 
 export type Choice = "top" | "middle" | "low" | "backup" | "unsure";
 export type Plan = "" | "ed" | "ea" | "rd" | "rolling";
@@ -154,6 +156,10 @@ export type School = {
   programOptions: ProgramOption[];
   /** YYYY-MM-DD when programOptions were last checked, or "" if never. */
   programOptionsCheckedDate: string;
+  /** Extra submissions beyond the standard application pieces. Null until researched. */
+  submissions: SchoolSubmissions | null;
+  /** YYYY-MM-DD when submissions were last checked, or "" if never. */
+  submissionsCheckedDate: string;
   middle50: string;
   applicationPlatform: string;
   requiredEssays: string;
@@ -632,6 +638,8 @@ export function fromSeed(seed: SchoolSeed): School {
     additionalPrograms: [],
     programOptions: [],
     programOptionsCheckedDate: "",
+    submissions: null,
+    submissionsCheckedDate: "",
     middle50: "",
     applicationPlatform: "",
     requiredEssays: "",
