@@ -5,6 +5,9 @@ import { ActivitiesRecall } from "./ActivitiesRecall";
 import { GradeStrip } from "./GradeStrip";
 import { GraduationYearPicker } from "./GraduationYearPicker";
 import { RecallAnswerCard, emptyRecallState, nextRecallPick, recallSpanComplete, type RecallAnswerState } from "./RecallAnswerCard";
+import { ActivityIcon } from "./ActivityIcon";
+import { useEnsureActivityIcons } from "./use-activity-icons";
+import { pickActivityIcon } from "@/lib/activity-icons";
 import { ACTIVITIES_VIEWS, type ActivitiesViewId } from "@/lib/apps-materials";
 import {
   ACTIVITY_CATEGORIES,
@@ -211,6 +214,8 @@ export function ActivitiesJournal({
     if (view !== "my") setHighlightIds([]);
   }, [view]);
 
+  useEnsureActivityIcons(journal, onChange, canEdit && loaded);
+
   const openActivity = openActivityId
     ? journal.activities.find((a) => a.id === openActivityId) ?? null
     : null;
@@ -337,6 +342,7 @@ function MyActivitiesView({
     : active;
   const rows = sortRecordActivities(searched);
   const awards = journal.awards.filter((a) => !a.archived);
+  const quickActivity = quickId ? journal.activities.find((a) => a.id === quickId) : undefined;
   const activityById = useMemo(() => {
     const map = new Map<string, Activity>();
     for (const a of journal.activities) map.set(a.id, a);
@@ -502,7 +508,8 @@ function MyActivitiesView({
             <div key={activity.id} className={isNew ? "rec-row rec-cols is-new" : "rec-row rec-cols"}>
               <div className="rec-name">
                 <button type="button" onClick={() => onOpenActivity(activity.id)}>
-                  {activity.name}
+                  <ActivityIcon activity={activity} size={20} />
+                  <span>{activity.name}</span>
                 </button>
                 <span className="rec-meta">
                   {isNew ? <span className="rec-new-tag">New</span> : null}
@@ -516,6 +523,7 @@ function MyActivitiesView({
                 <ul className="aj-recall-items rec-span-edit">
                   <RecallAnswerCard
                     name={activity.name}
+                    leading={<ActivityIcon activity={activity} size={20} />}
                     state={spanEditState}
                     currentGrade={gradeNow}
                     prompt="Tap the grade you started."
@@ -623,9 +631,8 @@ function MyActivitiesView({
                 {quickId ? (
                   <ul className="aj-recall-items">
                     <RecallAnswerCard
-                      name={
-                        journal.activities.find((a) => a.id === quickId)?.name ?? "Activity"
-                      }
+                      name={quickActivity?.name ?? "Activity"}
+                      leading={quickActivity ? <ActivityIcon activity={quickActivity} size={20} /> : null}
                       state={quickState}
                       currentGrade={gradeNow}
                       prompt="Then tap the grade you started."
@@ -709,7 +716,10 @@ function MyActivitiesView({
               <ul>
                 {archived.map((activity) => (
                   <li key={activity.id}>
-                    <span>{activity.name}</span>
+                    <span className="aj-activity-label">
+                      <ActivityIcon activity={activity} size={16} />
+                      <span>{activity.name}</span>
+                    </span>
                     {canEdit ? (
                       <button
                         type="button"
@@ -758,7 +768,6 @@ function MyActivitiesView({
               const linked = award.activityId ? activityById.get(award.activityId) : null;
               const meta = [
                 award.grade ? gradeLabel(award.grade) + " grade" : "",
-                linked?.name,
                 award.recognitionLevel,
               ].filter(Boolean);
               return (
@@ -766,10 +775,19 @@ function MyActivitiesView({
                   <span className="rec-diamond" aria-hidden="true" />
                   <span>
                     <span className="rec-award-name">{award.title}</span>
-                    {meta.length ? (
+                    {linked || meta.length ? (
                       <>
                         <br />
-                        <span className="rec-award-meta">{meta.join(" · ")}</span>
+                        <span className="rec-award-meta">
+                          {linked ? (
+                            <span className="aj-activity-label">
+                              <ActivityIcon activity={linked} size={14} />
+                              {linked.name}
+                            </span>
+                          ) : null}
+                          {linked && meta.length ? " · " : null}
+                          {meta.join(" · ")}
+                        </span>
                       </>
                     ) : null}
                   </span>
@@ -944,7 +962,11 @@ function ActivityDetail({
   const [confirmArchive, setConfirmArchive] = useState(false);
 
   function patchActivity(patch: Partial<Activity>) {
-    onChange(upsertActivity(journal, { ...activity, ...patch }));
+    const next = { ...activity, ...patch };
+    if (patch.name != null && patch.name.trim() !== activity.name) {
+      next.icon = pickActivityIcon({ ...next, icon: undefined });
+    }
+    onChange(upsertActivity(journal, next));
   }
 
   const tabs: { id: DetailTab; label: string }[] = [
@@ -962,7 +984,10 @@ function ActivityDetail({
           ← Back
         </button>
         <div className="aj-detail-title-wrap">
-          <h3 className="aj-title">{activity.name}</h3>
+          <h3 className="aj-title">
+            <ActivityIcon activity={activity} size={26} />
+            <span>{activity.name}</span>
+          </h3>
           <span className="aj-pill">{activityStatusLabel(activity)}</span>
         </div>
         {canEdit ? (
@@ -1826,7 +1851,10 @@ function PrepView({
                         onClick={() => setSelectedDraftId(draft.id)}
                       >
                         <span className="aj-draft-num">{index + 1}</span>
-                        <span>{act?.name ?? draft.activityId}</span>
+                        <span className="aj-activity-label">
+                          {act ? <ActivityIcon activity={act} size={18} /> : null}
+                          {act?.name ?? draft.activityId}
+                        </span>
                       </button>
                       {canEdit ? (
                         <div className="aj-draft-move">
@@ -1872,7 +1900,8 @@ function PrepView({
                       <h4 className="aj-subhead">Source notes</h4>
                       {sourceActivity ? (
                         <>
-                          <p>
+                          <p className="aj-activity-label">
+                            <ActivityIcon activity={sourceActivity} size={18} />
                             <strong>{sourceActivity.name}</strong>
                           </p>
                           <p className="aj-card-meta">

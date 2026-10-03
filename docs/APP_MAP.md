@@ -47,7 +47,7 @@ Slim-rail short labels: Dashboard, Projects, Notes, Log, Colleges, Apps, Finance
 
 | UI label | Section id |
 | --- | --- |
-| Activities | `activities` (default; `av=` for My Record / Application Prep). Empty list (after load, editors only) opens **Start Your Activities List** Recall. **Add with questions** is in the My Record header when Recall is closed. Old `av=awards` links land on My Record. |
+| Activities | `activities` (default; `av=` for My Record / Application Prep). Empty list (after load, editors only) opens **Start Your Activities List** Recall. **Add with questions** is in the My Record header when Recall is closed. Old `av=awards` links land on My Record. Each activity stores a Phosphor icon (`Activity.icon`) picked by AI with a name/category fallback, shown next to the name on My Record, Recall, detail, archive, awards, and Application Prep. |
 | App Questions | `questions` |
 | Materials | `materials` (soon) |
 

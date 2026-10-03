@@ -1,5 +1,7 @@
 /** Student Activities journal — persisted as one JSON blob on app_state. */
 
+import { isActivityIconId, pickActivityIcon } from "./activity-icons";
+
 export type ActivityCategoryId =
   | "school-club"
   | "athletics"
@@ -166,6 +168,8 @@ export type Activity = {
   updatedAt: string;
   createdBy?: string;
   recallSource?: boolean;
+  /** Phosphor icon id from the activity-icons allowlist. */
+  icon?: string;
 };
 
 export type Award = {
@@ -583,6 +587,7 @@ function normalizeActivity(raw: unknown): Activity | null {
   const stillParticipating = asOptionalBool(row.stillParticipating);
   const archived = asOptionalBool(row.archived);
   const recallSource = asOptionalBool(row.recallSource);
+  const icon = asOptionalString(row.icon);
   const categoryExtras = normalizeCategoryExtras(row.categoryExtras);
   const reflections = normalizeReflections(row.reflections);
   if (organization !== undefined) activity.organization = organization;
@@ -601,6 +606,7 @@ function normalizeActivity(raw: unknown): Activity | null {
   if (stillParticipating !== undefined) activity.stillParticipating = stillParticipating;
   if (archived !== undefined) activity.archived = archived;
   if (recallSource !== undefined) activity.recallSource = recallSource;
+  if (icon && isActivityIconId(icon)) activity.icon = icon;
   if (categoryExtras) activity.categoryExtras = categoryExtras;
   if (reflections) activity.reflections = reflections;
   if (Array.isArray(row.links)) {
@@ -752,6 +758,7 @@ export type CreateActivityInput = {
   createdBy?: string;
   id?: string;
   recallSource?: boolean;
+  icon?: string;
 };
 
 export function createActivity(input: CreateActivityInput): Activity {
@@ -787,6 +794,12 @@ export function createActivity(input: CreateActivityInput): Activity {
   if (input.links) activity.links = [...input.links];
   if (input.createdBy) activity.createdBy = input.createdBy;
   if (input.recallSource !== undefined) activity.recallSource = input.recallSource;
+  activity.icon = pickActivityIcon({
+    name,
+    category,
+    organization: input.organization,
+    icon: input.icon,
+  });
   return activity;
 }
 
