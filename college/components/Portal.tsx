@@ -241,6 +241,9 @@ export function Portal({
   const legacyNotesMigrated = useRef(false);
   const pendingJournal = useRef<ActivitiesJournal | null>(null);
   const journalSaveTimer = useRef<number | undefined>(undefined);
+  const journalInFlight = useRef(false);
+  const journalDirty = useRef(false);
+  const persistedRef = useRef(false);
   const patchStateRef = useRef<(
     body: { activitiesJournal: ActivitiesJournal },
   ) => Promise<boolean>>(async () => false);
@@ -340,7 +343,9 @@ export function Portal({
           setCalendarEvents(normalizeCalendarEvents(state.calendarEvents));
         }
         if (state.activitiesJournal !== undefined) {
-          setActivitiesJournal(normalizeJournal(state.activitiesJournal));
+          if (!journalDirty.current && !pendingJournal.current && !journalInFlight.current) {
+            setActivitiesJournal(normalizeJournal(state.activitiesJournal));
+          }
         }
         if (Array.isArray(membersBody.members)) {
           setMemberProfiles(membersBody.members);
@@ -355,6 +360,7 @@ export function Portal({
           }
         }
         setPersisted(Boolean(state.persisted));
+        persistedRef.current = Boolean(state.persisted);
         if (prefsBody.prefs) setListPrefs(mergeListPrefs(prefsBody.prefs));
       } catch {
         if (!cancelled) setSaveState("Not saved");
@@ -584,17 +590,26 @@ export function Portal({
       window.clearTimeout(journalSaveTimer.current);
       journalSaveTimer.current = undefined;
     }
+    if (journalInFlight.current) return;
     const payload = pendingJournal.current;
     if (!payload) return;
+    if (!persistedRef.current) return;
     pendingJournal.current = null;
+    journalInFlight.current = true;
     setSaveState("Saving...");
     void patchStateRef.current({ activitiesJournal: payload }).then((ok) => {
-      if (pendingJournal.current) return;
+      journalInFlight.current = false;
+      if (pendingJournal.current) {
+        flushJournalSave();
+        return;
+      }
+      if (ok) journalDirty.current = false;
       setSaveState(ok ? "Saved" : "Not saved");
     });
   }
 
   function changeJournal(next: ActivitiesJournal) {
+    journalDirty.current = true;
     setActivitiesJournal(next);
     pendingJournal.current = next;
     setSaveState("Saving...");
@@ -659,6 +674,14 @@ export function Portal({
     // flushJournalSave reads refs; patchState is rebound each render via patchStateRef.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (persisted) {
+      persistedRef.current = true;
+      flushJournalSave();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persisted]);
 
   function toggleItem(id: string, checked: boolean) {
     const owners = todoOwnerIndex(projectSteps, todoEdits);

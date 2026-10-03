@@ -116,6 +116,7 @@ export function ActivitiesRecall({
   const [draft, setDraft] = useState("");
   const [dupName, setDupName] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const journalRef = useRef(journal);
 
   const questionIndex = step >= 1 && step <= 9 ? step - 1 : -1;
   const question = questionIndex >= 0 ? RECALL_QUESTIONS[questionIndex] : null;
@@ -125,8 +126,17 @@ export function ActivitiesRecall({
   const sessionIds = session.map((row) => row.id);
 
   useEffect(() => {
+    journalRef.current = journal;
+  }, [journal]);
+
+  useEffect(() => {
     if (step >= 1 && step <= 9) inputRef.current?.focus();
   }, [step]);
+
+  function commit(next: Journal) {
+    journalRef.current = next;
+    onChange(next);
+  }
 
   function patchRow(id: string, patch: Partial<SessionRow>) {
     setSession((rows) => rows.map((row) => (row.id === id ? { ...row, ...patch } : row)));
@@ -134,8 +144,8 @@ export function ActivitiesRecall({
 
   function saveSpan(row: SessionRow, next: RecallAnswerState) {
     if (year == null || !spanComplete(next)) return;
-    onChange(
-      applyRecallSpan(journal, row.id, year, {
+    commit(
+      applyRecallSpan(journalRef.current, row.id, year, {
         sinceGrade: next.since ?? undefined,
         untilGrade: next.until ?? undefined,
         stillDoing: next.stillDoing,
@@ -147,7 +157,7 @@ export function ActivitiesRecall({
     event?.preventDefault();
     const name = draft.trim();
     if (!name || !question || year == null) return;
-    if (journal.activities.some((a) => !a.archived && namesMatch(a.name, name))) {
+    if (journalRef.current.activities.some((a) => !a.archived && namesMatch(a.name, name))) {
       setDupName(name);
       setDraft("");
       return;
@@ -160,7 +170,7 @@ export function ActivitiesRecall({
       },
       year,
     );
-    onChange(upsertActivity(journal, activity));
+    commit(upsertActivity(journalRef.current, activity));
     setSession((rows) => [
       ...rows.map((row) => ({ ...row, editing: false })),
       {
@@ -178,7 +188,7 @@ export function ActivitiesRecall({
   }
 
   function removeRow(id: string) {
-    onChange(removeActivity(journal, id));
+    commit(removeActivity(journalRef.current, id));
     setSession((rows) => rows.filter((row) => row.id !== id));
   }
 
@@ -219,7 +229,7 @@ export function ActivitiesRecall({
 
   function startQuestions() {
     if (classOf == null) return;
-    onChange({ ...journal, profile: { ...journal.profile, classOf } });
+    commit({ ...journalRef.current, profile: { ...journalRef.current.profile, classOf } });
     setStep(1);
   }
 

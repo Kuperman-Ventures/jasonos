@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivitiesRecall } from "./ActivitiesRecall";
 import { GradeStrip } from "./GradeStrip";
 import { RecallAnswerCard, type RecallAnswerState } from "./RecallAnswerCard";
@@ -318,6 +318,11 @@ function MyActivitiesView({
     stillDoing: true,
   });
   const [showAddAward, setShowAddAward] = useState(false);
+  const journalRef = useRef(journal);
+
+  useEffect(() => {
+    journalRef.current = journal;
+  }, [journal]);
 
   const active = journal.activities.filter((a) => !a.archived);
   const archived = journal.activities.filter((a) => a.archived);
@@ -345,15 +350,21 @@ function MyActivitiesView({
     if (ids.length) onHighlightIds([...new Set([...highlightIds, ...ids])]);
   }
 
+  function commit(next: Journal) {
+    journalRef.current = next;
+    onChange(next);
+  }
+
   function spanComplete(state: RecallAnswerState): boolean {
     if (state.since == null) return false;
     return state.stillDoing || state.until != null;
   }
 
   function saveQuickSpan(id: string, next: RecallAnswerState) {
-    if (classOf == null || !spanComplete(next)) return;
-    onChange(
-      applyRecallSpan(journal, id, classOf, {
+    const year = journalRef.current.profile?.classOf ?? classOf;
+    if (year == null || !spanComplete(next)) return;
+    commit(
+      applyRecallSpan(journalRef.current, id, year, {
         sinceGrade: next.since ?? undefined,
         untilGrade: next.until ?? undefined,
         stillDoing: next.stillDoing,
@@ -377,17 +388,17 @@ function MyActivitiesView({
     event?.preventDefault();
     const name = quickDraft.trim();
     if (!name) return;
-    if (journal.activities.some((a) => !a.archived && namesMatch(a.name, name))) {
+    if (journalRef.current.activities.some((a) => !a.archived && namesMatch(a.name, name))) {
       setQuickDup(name);
       setQuickDraft("");
       return;
     }
-    const year = classOf ?? 2028;
+    const year = journalRef.current.profile?.classOf ?? classOf ?? 0;
     const activity = activityFromRecall(
       { name, category: "other", stillDoing: true },
       year,
     );
-    onChange(upsertActivity(journal, activity));
+    commit(upsertActivity(journalRef.current, activity));
     setQuickId(activity.id);
     setQuickState({
       editing: true,
@@ -561,7 +572,7 @@ function MyActivitiesView({
                       currentGrade={gradeNow}
                       prompt="Then tap the grade you started."
                       onRemove={() => {
-                        onChange(removeActivity(journal, quickId));
+                        onChange(removeActivity(journalRef.current, quickId));
                         setQuickId(null);
                         setQuickState({
                           editing: true,
@@ -656,7 +667,7 @@ function MyActivitiesView({
                       <button
                         type="button"
                         className="aj-text-btn"
-                        onClick={() => onChange(restoreActivity(journal, activity.id))}
+                        onClick={() => commit(restoreActivity(journalRef.current, activity.id))}
                       >
                         Restore
                       </button>
@@ -687,7 +698,7 @@ function MyActivitiesView({
             activities={active}
             onCancel={() => setShowAddAward(false)}
             onSave={(award) => {
-              onChange(upsertAward(journal, award));
+              commit(upsertAward(journalRef.current, award));
               setShowAddAward(false);
             }}
           />
@@ -719,7 +730,7 @@ function MyActivitiesView({
                     <button
                       type="button"
                       className="aj-text-btn"
-                      onClick={() => onChange(archiveAward(journal, award.id))}
+                      onClick={() => commit(archiveAward(journalRef.current, award.id))}
                     >
                       Remove
                     </button>
