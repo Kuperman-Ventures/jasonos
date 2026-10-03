@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ChevronDown, ExternalLink } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -15,25 +15,63 @@ import { BriefText } from "@/components/jasonos/home/brief-text";
 import { normalizeGmailUrl } from "@/lib/integrations/gmail-links";
 import {
   newsletterStoryUrl,
-  type NewsletterGroup,
   type NewsletterStory,
 } from "@/lib/data/parse-morning-brief";
+import type { CityAlertGroup } from "@/lib/data/city-alert-digest";
 
-// Three-column newsletter digest. Each story shows a short teaser; click
-// opens the full published summary in a modal, with a link out to the article.
+// Monitored topics on Home. The morning brief fills three columns. The Oct 3
+// Google Alert fills San Francisco, Boston, and Smart cities beside them.
+// The whole block collapses. Each story still opens a full summary.
+
+const COLLAPSE_KEY = "jasonos.monitored-topics.collapsed";
+
+export type DigestColumn = {
+  id: string;
+  title: string;
+  stories: NewsletterStory[];
+  emptyNote?: string;
+};
 
 function storyArticleHref(story: NewsletterStory): string | null {
   const url = newsletterStoryUrl(story);
   return url ? normalizeGmailUrl(url) : null;
 }
 
-export function NewsletterDigest({ groups }: { groups: NewsletterGroup[] }) {
+export function NewsletterDigest({
+  groups,
+  places = [],
+}: {
+  groups: DigestColumn[];
+  places?: CityAlertGroup[];
+}) {
   const [selected, setSelected] = useState<{
     groupTitle: string;
     story: NewsletterStory;
   } | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
 
-  if (!groups.some((g) => g.stories.length > 0)) return null;
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(COLLAPSE_KEY) === "1") setCollapsed(true);
+    } catch {
+      // ignore private-mode / quota errors
+    }
+  }, []);
+
+  const columns: DigestColumn[] = [...groups, ...places];
+  if (!columns.some((g) => g.stories.length > 0 || g.emptyNote)) return null;
+
+  const toggle = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
 
   const articleHref = selected ? storyArticleHref(selected.story) : null;
   const summaryIsLonger =
@@ -43,14 +81,35 @@ export function NewsletterDigest({ groups }: { groups: NewsletterGroup[] }) {
 
   return (
     <>
-      <div className="grid gap-3 md:grid-cols-3">
-        {groups.map((g) => (
+      <button
+        type="button"
+        onClick={toggle}
+        aria-expanded={!collapsed}
+        className="mb-2 flex w-full items-center gap-2 text-left"
+      >
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground/80">
+          Monitored topics
+        </span>
+        <span className="text-[11px] text-muted-foreground">
+          {columns.length} topics
+        </span>
+        <ChevronDown
+          className={`ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+            collapsed ? "-rotate-90" : ""
+          }`}
+        />
+      </button>
+      {collapsed ? null : (
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {columns.map((g) => (
           <div key={g.id} className="rounded-lg border bg-background/40 p-3">
             <h4 className="mb-2 text-[12px] font-semibold tracking-tight">
               {g.title}
             </h4>
             {g.stories.length === 0 ? (
-              <p className="text-[12px] text-muted-foreground">None today.</p>
+              <p className="text-[12px] text-muted-foreground">
+                {g.emptyNote ?? "None today."}
+              </p>
             ) : (
               <ul className="space-y-1">
                 {g.stories.map((story, j) => {
@@ -92,6 +151,7 @@ export function NewsletterDigest({ groups }: { groups: NewsletterGroup[] }) {
           </div>
         ))}
       </div>
+      )}
 
       <Dialog
         open={selected !== null}

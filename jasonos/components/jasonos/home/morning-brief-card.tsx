@@ -5,7 +5,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Newspaper,
-  Sparkles,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -22,6 +21,7 @@ import { MorningBriefAttention } from "@/components/jasonos/home/morning-brief-a
 import { BriefText } from "@/components/jasonos/home/brief-text";
 import { MorningBriefCollapse } from "@/components/jasonos/home/morning-brief-collapse";
 import { NewsletterDigest } from "@/components/jasonos/home/newsletter-digest";
+import { CITY_ALERT_GROUPS } from "@/lib/data/city-alert-digest";
 import { isAllowedBriefHref } from "@/lib/data/brief-outbound";
 import { normalizeGmailUrl } from "@/lib/integrations/gmail-links";
 
@@ -153,13 +153,9 @@ function NewsletterBlock({
 }: {
   groups: ParsedMorningBrief["newsletters"];
 }) {
-  if (!groups.some((g) => g.stories.length > 0)) return null;
   return (
     <div>
-      <SectionLabel icon={<Sparkles className="h-3.5 w-3.5" />}>
-        Newsletter digest
-      </SectionLabel>
-      <NewsletterDigest groups={groups} />
+      <NewsletterDigest groups={groups} places={CITY_ALERT_GROUPS} />
     </div>
   );
 }
