@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { GradeStrip } from "./GradeStrip";
 import { recallSpanText } from "@/lib/activities-journal";
 
@@ -46,6 +47,7 @@ export function recallAsk(state: RecallAnswerState): string {
 
 export function RecallAnswerCard({
   name,
+  leading,
   state,
   currentGrade,
   prompt,
@@ -58,6 +60,7 @@ export function RecallAnswerCard({
   removeLabel = "Remove",
 }: {
   name: string;
+  leading?: ReactNode;
   state: RecallAnswerState;
   currentGrade: number | null;
   prompt?: string;
@@ -76,7 +79,10 @@ export function RecallAnswerCard({
     return (
       <li className="aj-recall-item is-closed">
         <div className="aj-recall-item-head">
-          <span className="aj-recall-item-name">{name}</span>
+          <span className="aj-recall-item-name">
+            {leading}
+            {name}
+          </span>
           {onRemove ? (
             <button type="button" className="aj-text-btn" onClick={onRemove}>
               {removeLabel}
@@ -108,7 +114,10 @@ export function RecallAnswerCard({
   return (
     <li className="aj-recall-item">
       <div className="aj-recall-item-head">
-        <span className="aj-recall-item-name">{name}</span>
+        <span className="aj-recall-item-name">
+          {leading}
+          {name}
+        </span>
         {onRemove ? (
           <button type="button" className="aj-text-btn" onClick={onRemove}>
             {removeLabel}

@@ -8532,6 +8532,20 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   font-size: 22px;
   font-weight: 600;
   letter-spacing: -0.02em;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.aj-activity-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.aj-activity-icon {
+  flex: 0 0 auto;
+  color: var(--color-accent);
 }
 .aj-support {
   margin: 4px 0 0;
@@ -8908,6 +8922,10 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
 .aj-recall-item-name {
   font-weight: 600;
   font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 .aj-recall-ask {
   font-size: 14px;
@@ -9073,6 +9091,10 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
 .aj-recall-tray-name {
   font-size: 14px;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 .aj-recall-tray-meta {
   font-size: 12px;
@@ -9245,6 +9267,10 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   font-weight: 600;
   font-size: 16px;
   color: var(--color-text);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 .rec-name button:hover {
   text-decoration: underline;
@@ -9368,6 +9394,12 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
 .rec-awards-empty {
   font-size: 13px;
   color: var(--text-subtle);
+}
+.rec-award-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 6px;
 }
 .rec-award-note {
   margin: 10px 0 0;

@@ -64,6 +64,7 @@ test("create minimal activity with name and category only", () => {
   const activity = createActivity({ name: "Robotics", category: "school-club" });
   assert.equal(activity.name, "Robotics");
   assert.equal(activity.category, "school-club");
+  assert.equal(activity.icon, "Robot");
   assert.equal(activity.organization, undefined);
   assert.equal(activity.periods.length, 0);
   assert.equal(activity.updates.length, 0);
@@ -470,6 +471,7 @@ test("activityFromRecall since 6 still doing fills 6-11", () => {
   );
   assert.equal(again.activities[0]!.recallSource, true);
   assert.equal(again.activities[0]!.periods.length, 6);
+  assert.equal(again.activities[0]!.icon, activity.icon);
 });
 
 test("activityFromRecall since 9 until 10 not still doing", () => {

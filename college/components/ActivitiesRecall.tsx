@@ -10,6 +10,7 @@ import {
   recallSpanComplete,
   type RecallAnswerState,
 } from "./RecallAnswerCard";
+import { ActivityIcon } from "./ActivityIcon";
 import {
   activityFromRecall,
   applyRecallSpan,
@@ -249,7 +250,10 @@ export function ActivitiesRecall({
               const name = activity?.name ?? "Activity";
               return (
                 <li key={row.id}>
-                  <span className="aj-recall-tray-name">{name}</span>
+                  <span className="aj-recall-tray-name">
+                    {activity ? <ActivityIcon activity={activity} size={16} /> : null}
+                    {name}
+                  </span>
                   <GradeStrip
                     since={row.since}
                     until={row.until}
@@ -361,6 +365,7 @@ export function ActivitiesRecall({
                 <RecallAnswerCard
                   key={row.id}
                   name={name}
+                  leading={activity ? <ActivityIcon activity={activity} size={20} /> : null}
                   state={row}
                   currentGrade={gradeNow}
                   onRemove={() => removeRow(row.id)}
