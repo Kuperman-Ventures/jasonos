@@ -84,7 +84,7 @@ export type ActivityLink = {
   dated?: string;
 };
 
-export type GradeLevel = "9" | "10" | "11" | "12" | "post" | "other";
+export type GradeLevel = "6" | "7" | "8" | "9" | "10" | "11" | "12" | "post" | "other";
 
 export type PeriodKind = "school_year" | "summer" | "all_year" | "custom";
 
@@ -165,6 +165,7 @@ export type Activity = {
   createdAt: string;
   updatedAt: string;
   createdBy?: string;
+  recallSource?: boolean;
 };
 
 export type Award = {
@@ -213,10 +214,15 @@ export type ApplicationList = {
   entries: ApplicationDraft[];
 };
 
+export type JournalProfile = {
+  classOf?: number; // high school graduation year, e.g. 2028
+};
+
 export type ActivitiesJournal = {
   activities: Activity[];
   awards: Award[];
   applicationLists: ApplicationList[];
+  profile?: JournalProfile;
 };
 
 export const APP_DRAFT_LIMITS = {
@@ -235,7 +241,7 @@ export type ActivityFilter = {
   status?: ActivityStatusFilter;
 };
 
-const GRADE_LEVELS = new Set<string>(["9", "10", "11", "12", "post", "other"]);
+const GRADE_LEVELS = new Set<string>(["6", "7", "8", "9", "10", "11", "12", "post", "other"]);
 const PERIOD_KINDS = new Set<string>(["school_year", "summer", "all_year", "custom"]);
 const HOURS_BASES = new Set<string>(["estimate", "schedule", "calendar", "timesheet", "other"]);
 const PERIOD_STATUSES = new Set<string>(["completed", "in_progress", "planned"]);
@@ -301,6 +307,41 @@ export function formatSchoolYear(startYear: number): string {
   const year = Math.trunc(startYear);
   const next = String((year + 1) % 100).padStart(2, "0");
   return `${year}–${next}`;
+}
+
+export function isHighSchoolGrade(grade: GradeLevel | string): boolean {
+  return grade === "9" || grade === "10" || grade === "11" || grade === "12";
+}
+
+/** School year that ends in June. Aug-Dec count toward the next calendar year. */
+export function currentSchoolYearEnd(now: Date = new Date()): number {
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  return month >= 8 ? year + 1 : year;
+}
+
+/** 6-12 for a student in school, null if classOf is missing or the grade is outside 6-12. */
+export function currentGrade(classOf: number | undefined, now: Date = new Date()): number | null {
+  if (classOf == null || !Number.isFinite(classOf)) return null;
+  const g = 12 - (Math.trunc(classOf) - currentSchoolYearEnd(now));
+  if (g < 6 || g > 12) return null;
+  return g;
+}
+
+/** "2021–22" for grade 6 when classOf is 2028. Uses the existing formatSchoolYear(). */
+export function schoolYearForGrade(classOf: number, grade: number): string {
+  const endYear = Math.trunc(classOf) - (12 - grade);
+  return formatSchoolYear(endYear - 1);
+}
+
+function normalizeProfile(raw: unknown): JournalProfile | undefined {
+  const row = asRecord(raw);
+  if (!row) return undefined;
+  const n = asOptionalNumber(row.classOf);
+  if (n === undefined) return undefined;
+  const classOf = Math.trunc(n);
+  if (classOf < 2020 || classOf > 2040) return undefined;
+  return { classOf };
 }
 
 export function charCount(text: string | null | undefined): number {
@@ -499,6 +540,7 @@ function normalizeActivity(raw: unknown): Activity | null {
   const endYear = asOptionalNumber(row.endYear);
   const stillParticipating = asOptionalBool(row.stillParticipating);
   const archived = asOptionalBool(row.archived);
+  const recallSource = asOptionalBool(row.recallSource);
   const categoryExtras = normalizeCategoryExtras(row.categoryExtras);
   const reflections = normalizeReflections(row.reflections);
   if (organization !== undefined) activity.organization = organization;
@@ -516,6 +558,7 @@ function normalizeActivity(raw: unknown): Activity | null {
   if (endYear !== undefined) activity.endYear = endYear;
   if (stillParticipating !== undefined) activity.stillParticipating = stillParticipating;
   if (archived !== undefined) activity.archived = archived;
+  if (recallSource !== undefined) activity.recallSource = recallSource;
   if (categoryExtras) activity.categoryExtras = categoryExtras;
   if (reflections) activity.reflections = reflections;
   if (Array.isArray(row.links)) {
@@ -625,6 +668,7 @@ export function normalizeJournal(raw: unknown): ActivitiesJournal {
   const empty = emptyJournal();
   const row = asRecord(raw);
   if (!row) return empty;
+  const profile = normalizeProfile(row.profile);
   return {
     activities: Array.isArray(row.activities)
       ? row.activities.map(normalizeActivity).filter((a): a is Activity => Boolean(a))
@@ -637,6 +681,7 @@ export function normalizeJournal(raw: unknown): ActivitiesJournal {
           .map(normalizeApplicationList)
           .filter((a): a is ApplicationList => Boolean(a))
       : [],
+    ...(profile ? { profile } : {}),
   };
 }
 
@@ -664,6 +709,7 @@ export type CreateActivityInput = {
   updates?: ActivityUpdate[];
   createdBy?: string;
   id?: string;
+  recallSource?: boolean;
 };
 
 export function createActivity(input: CreateActivityInput): Activity {
@@ -698,6 +744,7 @@ export function createActivity(input: CreateActivityInput): Activity {
   if (input.mentorEmail !== undefined) activity.mentorEmail = input.mentorEmail;
   if (input.links) activity.links = [...input.links];
   if (input.createdBy) activity.createdBy = input.createdBy;
+  if (input.recallSource !== undefined) activity.recallSource = input.recallSource;
   return activity;
 }
 
@@ -1078,6 +1125,53 @@ export function markDraftsStaleForActivity(
       return { ...list, entries, updatedAt: nowIso() };
     }),
   };
+}
+
+export function activityNeedsDetails(a: Activity): boolean {
+  return !a.role?.trim() && !a.responsibilities?.trim();
+}
+
+export function activityFromRecall(
+  input: {
+    name: string;
+    category: ActivityCategoryId;
+    sinceGrade?: number;
+    untilGrade?: number;
+    stillDoing: boolean;
+  },
+  classOf: number,
+  now: Date = new Date(),
+): Activity {
+  const current = currentGrade(classOf, now);
+  const since = input.sinceGrade;
+  const stillDoing = input.stillDoing;
+  const stamp = now.toISOString();
+  const periods: ParticipationPeriod[] = [];
+  if (since != null && current != null && since <= current) {
+    const last = stillDoing ? current : Math.min(input.untilGrade ?? since, current);
+    if (last >= since) {
+      for (let g = since; g <= last; g++) {
+        periods.push({
+          id: newId("period"),
+          schoolYear: schoolYearForGrade(classOf, g),
+          grade: String(g) as GradeLevel,
+          periodKind: "school_year",
+          status: stillDoing && g === current ? "in_progress" : "completed",
+          createdAt: stamp,
+          updatedAt: stamp,
+        });
+      }
+    }
+  }
+  const startYear = periods[0] ? Number.parseInt(periods[0].schoolYear.slice(0, 4), 10) : undefined;
+  return createActivity({
+    name: input.name,
+    category: input.category,
+    ongoing: stillDoing,
+    periods,
+    startYear: Number.isFinite(startYear) ? startYear : undefined,
+    recallSource: true,
+  });
 }
 
 function categoryLabel(id: ActivityCategoryId): string {

@@ -21,6 +21,7 @@ export function AppsMaterialsTab({
   onJournalChange,
   openActivityId,
   onOpenActivity,
+  loaded,
 }: {
   section: AppsSectionId;
   onSectionChange: (section: AppsSectionId) => void;
@@ -32,6 +33,7 @@ export function AppsMaterialsTab({
   onJournalChange: (next: Journal) => void;
   openActivityId: string | null;
   onOpenActivity: (id: string | null) => void;
+  loaded: boolean;
 }) {
   const active = appsSectionById(section);
 
@@ -72,6 +74,7 @@ export function AppsMaterialsTab({
         <ActivitiesJournal
           journal={journal}
           canEdit={canEditJournal}
+          loaded={loaded}
           view={activitiesView}
           onViewChange={onActivitiesViewChange}
           onChange={onJournalChange}
