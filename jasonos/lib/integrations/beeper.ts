@@ -220,11 +220,15 @@ async function throwIfAuthFailed(res: Response): Promise<void> {
 /** Probe Desktop API. Throws BeeperUnavailableError when closed / unreachable. */
 export async function probeBeeperDesktop(): Promise<{ ok: true; baseUrl: string }> {
   const baseUrl = await resolveBaseUrl();
-  const res = await beeperFetch("/v1/info", { timeoutMs: 5_000 });
-  await throwIfAuthFailed(res);
-  if (!res.ok) {
+  const info = await beeperFetch("/v1/info", { timeoutMs: 5_000 });
+  await throwIfAuthFailed(info);
+  if (!info.ok) {
     throw new BeeperUnavailableError(BEEPER_UNAVAILABLE_MESSAGE);
   }
+  // /v1/info is discovery and can 200 with a dead token. Accounts is what Sync
+  // actually needs, and is where a 401 shows up.
+  const accounts = await beeperFetch("/v1/accounts", { timeoutMs: 8_000 });
+  await throwIfAuthFailed(accounts);
   return { ok: true, baseUrl };
 }
 

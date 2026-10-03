@@ -19,6 +19,7 @@ import {
   type ServiceStatus,
 } from "./services";
 import { summarizeGoogleMailboxes } from "./google-status";
+import { interpretBeeperAuthStatuses, isAuthDeniedStatus } from "@/lib/integrations/beeper-health";
 
 const CredentialsSchema = z.record(z.string(), z.union([z.string(), z.number(), z.boolean()]));
 const ServiceNameSchema = z.enum(SERVICE_DEFINITIONS.map((service) => service.name) as [string, ...string[]]);
@@ -217,7 +218,8 @@ export async function testServiceConnection(
 
   if (serviceName === "beeper") {
     let beeperKey = stringCredential(credentials.api_key);
-    if (!beeperKey) {
+    let savedBase: string | undefined;
+    if (!beeperKey || !stringCredential(credentials.base_url)) {
       try {
         const publicDb = createPublicServiceRoleClient();
         const { data } = await publicDb
@@ -227,8 +229,12 @@ export async function testServiceConnection(
           .order("updated_at", { ascending: false })
           .limit(1)
           .maybeSingle();
-        const cfg = (data?.config ?? {}) as { access_token?: string };
-        beeperKey = cfg.access_token?.trim() || undefined;
+        const cfg = (data?.config ?? {}) as {
+          access_token?: string;
+          base_url?: string;
+        };
+        if (!beeperKey) beeperKey = cfg.access_token?.trim() || undefined;
+        savedBase = cfg.base_url?.trim().replace(/\/$/, "") || undefined;
       } catch {
         // ignore
       }
@@ -244,48 +250,49 @@ export async function testServiceConnection(
     const base =
       stringCredential(credentials.base_url)?.replace(/\/$/, "") ||
       process.env.BEEPER_DESKTOP_BASE_URL?.trim().replace(/\/$/, "") ||
+      savedBase ||
       "http://127.0.0.1:23373";
+    const expiredResult = {
+      success: false as const,
+      message:
+        "Beeper token expired. In Beeper Desktop → Settings → Integrations → Approved connections, create a new token, paste it here, click Save, then Test Connection.",
+      health_status: "down" as const,
+    };
+    const unreachableResult = {
+      success: true as const,
+      message:
+        "Token saved. Beeper Desktop isn’t reachable from this server right now (closed, or needs a tunnel URL on Vercel). Sync will soft-skip with “No Beeper data synced” until it’s open and reachable.",
+      health_status: "degraded" as const,
+      metadata: { base_url: base },
+    };
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 2_500);
-      const res = await fetch(`${base}/v1/info`, {
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${beeperKey}`,
-        },
-        cache: "no-store",
-        signal: controller.signal,
-      }).finally(() => clearTimeout(timer));
-      if (res.status === 401 || res.status === 403) {
+      const info = await beeperGet(base, "/v1/info", beeperKey, 2_500);
+      const accounts =
+        info.ok && !isAuthDeniedStatus(info.status)
+          ? await beeperGet(base, "/v1/accounts", beeperKey, 2_500)
+          : null;
+      const probe = interpretBeeperAuthStatuses(
+        info.status,
+        accounts?.status ?? null
+      );
+      if (probe.kind === "expired") return expiredResult;
+      if (probe.kind === "unreachable") return unreachableResult;
+      if (probe.kind === "bad_response") {
         return {
           success: false,
-          message:
-            "Beeper token expired. In Beeper Desktop → Settings → Integrations → Approved connections, create a new token, paste it here, then Test Connection.",
-          health_status: "down",
-        };
-      }
-      if (!res.ok) {
-        return {
-          success: false,
-          message: `Beeper responded ${res.status}. Check the token and that Desktop API is enabled.`,
+          message: `Beeper responded ${probe.status}. Check the token and that Desktop API is enabled.`,
           health_status: "down",
         };
       }
       return {
         success: true,
         message:
-          "Beeper Desktop reachable. Leave it open when you hit Sync; otherwise Sync reports “No Beeper data synced”.",
+          "Beeper token works. Click Save if you just pasted a new one. Leave Desktop open when you hit Sync.",
         health_status: "healthy",
         metadata: { base_url: base },
       };
     } catch {
-      return {
-        success: true,
-        message:
-          "Token saved. Beeper Desktop isn’t reachable from this server right now (closed, or needs a tunnel URL on Vercel). Sync will soft-skip with “No Beeper data synced” until it’s open and reachable.",
-        health_status: "degraded",
-        metadata: { base_url: base },
-      };
+      return unreachableResult;
     }
   }
 
@@ -705,6 +712,28 @@ function sanitizeConfig(credentials: Record<string, string | number | boolean>, 
   const rest = { ...credentials };
   delete rest.api_key;
   return rest;
+}
+
+async function beeperGet(
+  base: string,
+  path: string,
+  token: string,
+  timeoutMs: number
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(`${base}${path}`, {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function fetchJsonApi(base: string, path: string, key: string, label: string) {
