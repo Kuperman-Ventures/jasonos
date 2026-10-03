@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ActivitiesRecall } from "./ActivitiesRecall";
 import { ACTIVITIES_VIEWS, type ActivitiesViewId } from "@/lib/apps-materials";
 import {
   ACTIVITY_CATEGORIES,
   APP_DRAFT_LIMITS,
+  activityNeedsDetails,
   activityStatusLabel,
   addPeriod,
   addUpdate,
@@ -38,6 +40,9 @@ import {
 } from "@/lib/activities-journal";
 
 const GRADE_OPTIONS: { id: GradeLevel; label: string }[] = [
+  { id: "6", label: "6th" },
+  { id: "7", label: "7th" },
+  { id: "8", label: "8th" },
   { id: "9", label: "9th" },
   { id: "10", label: "10th" },
   { id: "11", label: "11th" },
@@ -82,6 +87,42 @@ function categoryLabel(id: ActivityCategoryId | string): string {
 
 function gradeLabel(grade: GradeLevel | string): string {
   return GRADE_OPTIONS.find((g) => g.id === grade)?.label ?? grade;
+}
+
+function GradeGroupedOptions({
+  includeBlank,
+  blankLabel = "—",
+}: {
+  includeBlank?: boolean;
+  blankLabel?: string;
+}) {
+  const middle = GRADE_OPTIONS.filter((g) => g.id === "6" || g.id === "7" || g.id === "8");
+  const high = GRADE_OPTIONS.filter((g) => g.id === "9" || g.id === "10" || g.id === "11" || g.id === "12");
+  const rest = GRADE_OPTIONS.filter((g) => g.id === "post" || g.id === "other");
+  return (
+    <>
+      {includeBlank ? <option value="">{blankLabel}</option> : null}
+      <optgroup label="Middle school">
+        {middle.map((g) => (
+          <option key={g.id} value={g.id}>
+            {g.label}
+          </option>
+        ))}
+      </optgroup>
+      <optgroup label="High school">
+        {high.map((g) => (
+          <option key={g.id} value={g.id}>
+            {g.label}
+          </option>
+        ))}
+      </optgroup>
+      {rest.map((g) => (
+        <option key={g.id} value={g.id}>
+          {g.label}
+        </option>
+      ))}
+    </>
+  );
 }
 
 function formatShortDate(iso: string | undefined): string {
@@ -148,6 +189,7 @@ function CharCounter({ value, limit }: { value: string | undefined; limit: numbe
 export function ActivitiesJournal({
   journal,
   canEdit,
+  loaded = true,
   view,
   onViewChange,
   onChange,
@@ -156,6 +198,7 @@ export function ActivitiesJournal({
 }: {
   journal: Journal;
   canEdit: boolean;
+  loaded?: boolean;
   view: ActivitiesViewId;
   onViewChange: (view: ActivitiesViewId) => void;
   onChange: (next: Journal) => void;
@@ -205,6 +248,7 @@ export function ActivitiesJournal({
           <MyActivitiesView
             journal={journal}
             canEdit={canEdit}
+            loaded={loaded}
             showAddActivity={showAddActivity}
             showAddUpdate={showAddUpdate}
             updatePrefillId={updatePrefillId}
@@ -233,6 +277,7 @@ export function ActivitiesJournal({
 function MyActivitiesView({
   journal,
   canEdit,
+  loaded,
   showAddActivity,
   showAddUpdate,
   updatePrefillId,
@@ -243,6 +288,7 @@ function MyActivitiesView({
 }: {
   journal: Journal;
   canEdit: boolean;
+  loaded: boolean;
   showAddActivity: boolean;
   showAddUpdate: boolean;
   updatePrefillId?: string;
@@ -255,6 +301,8 @@ function MyActivitiesView({
   const [category, setCategory] = useState("");
   const [grade, setGrade] = useState("");
   const [status, setStatus] = useState<ActivityStatusFilter>("all");
+  const [recallOpen, setRecallOpen] = useState(false);
+  const [recallDismissed, setRecallDismissed] = useState(false);
 
   const filtered = useMemo(
     () =>
@@ -268,6 +316,8 @@ function MyActivitiesView({
   );
 
   const activeCount = journal.activities.filter((a) => !a.archived).length;
+  const showRecall =
+    canEdit && loaded && (recallOpen || (!activeCount && !recallDismissed));
 
   return (
     <div className="aj-view">
@@ -284,6 +334,15 @@ function MyActivitiesView({
           >
             Add activity
           </button>
+          {canEdit ? (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setRecallOpen(true)}
+            >
+              Add more with questions
+            </button>
+          ) : null}
           <button
             type="button"
             className="btn btn-secondary"
@@ -295,146 +354,157 @@ function MyActivitiesView({
         </div>
       </header>
 
-      <div className="aj-filters">
-        <label className="stack-field aj-filter-grow">
-          <span className="label">Search</span>
-          <input
-            className="field"
-            type="search"
-            value={query}
-            placeholder="Name, org, role…"
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </label>
-        <label className="stack-field">
-          <span className="label">Category</span>
-          <select className="field" value={category} onChange={(e) => setCategory(e.target.value)}>
-            <option value="">All</option>
-            {ACTIVITY_CATEGORIES.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="stack-field">
-          <span className="label">Grade</span>
-          <select className="field" value={grade} onChange={(e) => setGrade(e.target.value)}>
-            <option value="">All</option>
-            {GRADE_OPTIONS.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="stack-field">
-          <span className="label">Status</span>
-          <select
-            className="field"
-            value={status}
-            onChange={(e) => setStatus(e.target.value as ActivityStatusFilter)}
-          >
-            <option value="all">All</option>
-            <option value="ongoing">Ongoing</option>
-            <option value="completed">Completed</option>
-          </select>
-        </label>
-      </div>
+      {!loaded ? null : (
+        <>
+          <div className="aj-filters">
+            <label className="stack-field aj-filter-grow">
+              <span className="label">Search</span>
+              <input
+                className="field"
+                type="search"
+                value={query}
+                placeholder="Name, org, role…"
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </label>
+            <label className="stack-field">
+              <span className="label">Category</span>
+              <select className="field" value={category} onChange={(e) => setCategory(e.target.value)}>
+                <option value="">All</option>
+                {ACTIVITY_CATEGORIES.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="stack-field">
+              <span className="label">Grade</span>
+              <select className="field" value={grade} onChange={(e) => setGrade(e.target.value)}>
+                <GradeGroupedOptions includeBlank blankLabel="All" />
+              </select>
+            </label>
+            <label className="stack-field">
+              <span className="label">Status</span>
+              <select
+                className="field"
+                value={status}
+                onChange={(e) => setStatus(e.target.value as ActivityStatusFilter)}
+              >
+                <option value="all">All</option>
+                <option value="ongoing">Ongoing</option>
+                <option value="completed">Completed</option>
+              </select>
+            </label>
+          </div>
 
-      {showAddActivity && canEdit ? (
-        <AddActivityForm
-          onCancel={() => onShowAddActivity(false)}
-          onSave={(input) => {
-            const activity = createActivity(input);
-            onChange(upsertActivity(journal, activity));
-            onShowAddActivity(false);
-            onOpenActivity(activity.id);
-          }}
-        />
-      ) : null}
-
-      {showAddUpdate && canEdit ? (
-        <AddUpdateForm
-          key={updatePrefillId ?? "global-update"}
-          activities={journal.activities.filter((a) => !a.archived)}
-          initialActivityId={updatePrefillId}
-          onCancel={() => onShowAddUpdate(false)}
-          onSave={(activityId, fields) => {
-            onChange(addUpdate(journal, activityId, fields));
-            onShowAddUpdate(false);
-          }}
-        />
-      ) : null}
-
-      {!activeCount ? (
-        <div className="aj-empty board-empty">
-          <p>No activities yet.</p>
-          {canEdit ? (
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => onShowAddActivity(true)}
-            >
-              Add your first activity
-            </button>
+          {showAddActivity && canEdit ? (
+            <AddActivityForm
+              onCancel={() => onShowAddActivity(false)}
+              onSave={(input) => {
+                const activity = createActivity(input);
+                onChange(upsertActivity(journal, activity));
+                onShowAddActivity(false);
+                onOpenActivity(activity.id);
+              }}
+            />
           ) : null}
-        </div>
-      ) : !filtered.length ? (
-        <p className="board-empty">No activities match these filters.</p>
-      ) : (
-        <ul className="aj-card-list">
-          {filtered.map((activity) => {
-            const period = latestPeriod(activity);
-            const update = latestUpdate(activity);
-            const hours = periodHoursLabel(period);
-            return (
-              <li key={activity.id} className="aj-card">
-                <div className="aj-card-main">
-                  <div className="aj-card-top">
-                    <h4 className="aj-card-name">{activity.name}</h4>
-                    <span className="aj-pill">{activityStatusLabel(activity)}</span>
-                  </div>
-                  <p className="aj-card-meta">
-                    <span>{categoryLabel(activity.category)}</span>
-                    {activity.organization ? <span>· {activity.organization}</span> : null}
-                    {activity.role ? <span>· {activity.role}</span> : null}
-                  </p>
-                  <p className="aj-card-meta">
-                    <span>Grades: {activityGrades(activity)}</span>
-                    {hours ? <span>· {hours}</span> : null}
-                  </p>
-                  {update ? (
-                    <p className="aj-card-update">
-                      <span className="aj-card-update-date">{formatShortDate(update.date)}</span>
-                      {snippet(update.whatHappened)}
-                    </p>
-                  ) : (
-                    <p className="aj-card-update aj-muted">No updates yet</p>
-                  )}
-                </div>
-                <div className="aj-card-actions">
-                  {canEdit ? (
-                    <button
-                      type="button"
-                      className="btn btn-secondary compact"
-                      onClick={() => onShowAddUpdate(true, activity.id)}
-                    >
-                      Add update
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    className="btn btn-secondary compact"
-                    onClick={() => onOpenActivity(activity.id)}
-                  >
-                    Edit activity
-                  </button>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+
+          {showAddUpdate && canEdit ? (
+            <AddUpdateForm
+              key={updatePrefillId ?? "global-update"}
+              activities={journal.activities.filter((a) => !a.archived)}
+              initialActivityId={updatePrefillId}
+              onCancel={() => onShowAddUpdate(false)}
+              onSave={(activityId, fields) => {
+                onChange(addUpdate(journal, activityId, fields));
+                onShowAddUpdate(false);
+              }}
+            />
+          ) : null}
+
+          {showRecall ? (
+            <ActivitiesRecall
+              journal={journal}
+              onChange={onChange}
+              onDone={() => {
+                setRecallOpen(false);
+                setRecallDismissed(true);
+              }}
+            />
+          ) : null}
+
+          {!activeCount && !showRecall ? (
+            <div className="aj-empty board-empty">
+              <p>No activities yet.</p>
+            </div>
+          ) : !showRecall && !filtered.length && activeCount ? (
+            <p className="board-empty">No activities match these filters.</p>
+          ) : !showRecall && filtered.length ? (
+            <ul className="aj-card-list">
+              {filtered.map((activity) => {
+                const period = latestPeriod(activity);
+                const update = latestUpdate(activity);
+                const hours = periodHoursLabel(period);
+                const needsDetails = activityNeedsDetails(activity);
+                return (
+                  <li key={activity.id} className="aj-card">
+                    <div className="aj-card-main">
+                      <div className="aj-card-top">
+                        <h4 className="aj-card-name">{activity.name}</h4>
+                        <span className="aj-pill">{activityStatusLabel(activity)}</span>
+                      </div>
+                      <p className="aj-card-meta">
+                        <span>{categoryLabel(activity.category)}</span>
+                        {activity.organization ? <span>· {activity.organization}</span> : null}
+                        {activity.role ? <span>· {activity.role}</span> : null}
+                      </p>
+                      <p className="aj-card-meta">
+                        <span>Grades: {activityGrades(activity)}</span>
+                        {hours ? <span>· {hours}</span> : null}
+                      </p>
+                      {update ? (
+                        <p className="aj-card-update">
+                          <span className="aj-card-update-date">{formatShortDate(update.date)}</span>
+                          {snippet(update.whatHappened)}
+                        </p>
+                      ) : (
+                        <p className="aj-card-update aj-muted">No updates yet</p>
+                      )}
+                    </div>
+                    <div className="aj-card-actions">
+                      {canEdit && needsDetails ? (
+                        <button
+                          type="button"
+                          className="aj-text-btn"
+                          onClick={() => onOpenActivity(activity.id)}
+                        >
+                          Add details
+                        </button>
+                      ) : null}
+                      {canEdit ? (
+                        <button
+                          type="button"
+                          className="btn btn-secondary compact"
+                          onClick={() => onShowAddUpdate(true, activity.id)}
+                        >
+                          Add update
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        className="btn btn-secondary compact"
+                        onClick={() => onOpenActivity(activity.id)}
+                      >
+                        Edit activity
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : null}
+        </>
       )}
     </div>
   );
@@ -1153,11 +1223,7 @@ function AddPeriodForm({
             value={grade}
             onChange={(e) => setGrade(e.target.value as GradeLevel)}
           >
-            {GRADE_OPTIONS.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.label}
-              </option>
-            ))}
+            <GradeGroupedOptions />
           </select>
         </label>
         <label className="stack-field">
@@ -1499,12 +1565,7 @@ function AddAwardForm({
             value={grade}
             onChange={(e) => setGrade(e.target.value as GradeLevel | "")}
           >
-            <option value="">—</option>
-            {GRADE_OPTIONS.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.label}
-              </option>
-            ))}
+            <GradeGroupedOptions includeBlank blankLabel="—" />
           </select>
         </label>
         <label className="stack-field">
@@ -1919,6 +1980,10 @@ function PrepView({
                             disabled={!canEdit}
                             onChange={(e) => patchDraft({ gradesReviewed: e.target.value })}
                           />
+                          <span className="aj-field-hint">
+                            The Common App only lists grades 9-12. Earlier years belong in your essays
+                            and interviews.
+                          </span>
                         </label>
                         <label className="stack-field">
                           <span className="label">Time commitment</span>

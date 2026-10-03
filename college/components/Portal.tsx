@@ -1494,6 +1494,7 @@ export function Portal({
             onJournalChange={changeJournal}
             openActivityId={openActivityId}
             onOpenActivity={openActivity}
+            loaded={loaded}
           />
         ) : null}
         {tab === "consultants" ? (

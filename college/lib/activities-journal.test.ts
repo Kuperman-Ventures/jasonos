@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  activityFromRecall,
+  activityNeedsDetails,
   ACTIVITY_CATEGORIES,
   APP_DRAFT_LIMITS,
   activityStatusLabel,
@@ -9,13 +11,17 @@ import {
   charCount,
   createActivity,
   createApplicationList,
+  currentGrade,
+  currentSchoolYearEnd,
   emptyJournal,
   estimatedHours,
   exportListMarkdown,
   filterActivities,
   formatSchoolYear,
+  isHighSchoolGrade,
   markDraftsStaleForActivity,
   normalizeJournal,
+  schoolYearForGrade,
   upsertActivity,
   upsertAward,
   upsertDraft,
@@ -279,4 +285,169 @@ test("activityStatusLabel and archiveActivity", () => {
   let journal = upsertActivity(emptyJournal(), ongoing);
   journal = archiveActivity(journal, ongoing.id);
   assert.equal(activityStatusLabel(journal.activities[0]!), "Archived");
+});
+
+test("normalizeJournal keeps profile.classOf, middle-school grades, and recallSource", () => {
+  const stamp = "2026-10-03T12:00:00.000Z";
+  const journal: ActivitiesJournal = {
+    activities: [
+      {
+        id: "activity_band",
+        name: "Band",
+        category: "arts-music-theater",
+        ongoing: true,
+        recallSource: true,
+        periods: [
+          {
+            id: "p6",
+            schoolYear: "2021–22",
+            grade: "6",
+            periodKind: "school_year",
+            status: "completed",
+            createdAt: stamp,
+            updatedAt: stamp,
+          },
+          {
+            id: "p7",
+            schoolYear: "2022–23",
+            grade: "7",
+            periodKind: "school_year",
+            status: "completed",
+            createdAt: stamp,
+            updatedAt: stamp,
+          },
+          {
+            id: "p8",
+            schoolYear: "2023–24",
+            grade: "8",
+            periodKind: "school_year",
+            status: "completed",
+            createdAt: stamp,
+            updatedAt: stamp,
+          },
+        ],
+        updates: [],
+        createdAt: stamp,
+        updatedAt: stamp,
+      },
+    ],
+    awards: [
+      {
+        id: "award_ms",
+        title: "Beginner belt",
+        grade: "6",
+        createdAt: stamp,
+        updatedAt: stamp,
+      },
+    ],
+    applicationLists: [],
+    profile: { classOf: 2028 },
+  };
+  const again = normalizeJournal(JSON.parse(JSON.stringify(journal)));
+  assert.equal(again.profile?.classOf, 2028);
+  assert.equal(again.activities[0]!.recallSource, true);
+  assert.deepEqual(
+    again.activities[0]!.periods.map((p) => p.grade),
+    ["6", "7", "8"],
+  );
+  assert.equal(again.awards[0]!.grade, "6");
+});
+
+test("normalizeJournal drops invalid classOf", () => {
+  assert.equal(normalizeJournal({ profile: { classOf: 2019 } }).profile, undefined);
+  assert.equal(normalizeJournal({ profile: { classOf: 2041 } }).profile, undefined);
+  assert.equal(normalizeJournal({ profile: { classOf: 2020 } }).profile?.classOf, 2020);
+  assert.equal(normalizeJournal({ profile: { classOf: 2040 } }).profile?.classOf, 2040);
+});
+
+test("currentSchoolYearEnd maps Aug-Dec to the next June", () => {
+  assert.equal(currentSchoolYearEnd(new Date(2026, 9, 3)), 2027);
+  assert.equal(currentSchoolYearEnd(new Date(2027, 4, 15)), 2027);
+  assert.equal(currentSchoolYearEnd(new Date(2027, 7, 1)), 2028);
+});
+
+test("currentGrade from classOf", () => {
+  assert.equal(currentGrade(2028, new Date(2026, 9, 3)), 11);
+  assert.equal(currentGrade(undefined), null);
+});
+
+test("schoolYearForGrade uses classOf", () => {
+  assert.equal(schoolYearForGrade(2028, 6), "2021–22");
+  assert.equal(schoolYearForGrade(2028, 11), "2026–27");
+});
+
+test("isHighSchoolGrade is 9-12 only", () => {
+  assert.equal(isHighSchoolGrade("8"), false);
+  assert.equal(isHighSchoolGrade("9"), true);
+  assert.equal(isHighSchoolGrade("12"), true);
+  assert.equal(isHighSchoolGrade("post"), false);
+});
+
+test("activityFromRecall since 6 still doing fills 6-11", () => {
+  const now = new Date(2026, 9, 3);
+  const activity = activityFromRecall(
+    {
+      name: "Trumpet",
+      category: "arts-music-theater",
+      sinceGrade: 6,
+      stillDoing: true,
+    },
+    2028,
+    now,
+  );
+  assert.equal(activity.recallSource, true);
+  assert.equal(activity.ongoing, true);
+  assert.equal(activity.startYear, 2021);
+  assert.equal(activity.periods.length, 6);
+  assert.deepEqual(
+    activity.periods.map((p) => p.grade),
+    ["6", "7", "8", "9", "10", "11"],
+  );
+  assert.deepEqual(
+    activity.periods.map((p) => p.status),
+    ["completed", "completed", "completed", "completed", "completed", "in_progress"],
+  );
+  const again = normalizeJournal(
+    JSON.parse(JSON.stringify(upsertActivity(emptyJournal(), activity))),
+  );
+  assert.equal(again.activities[0]!.recallSource, true);
+  assert.equal(again.activities[0]!.periods.length, 6);
+});
+
+test("activityFromRecall since 9 until 10 not still doing", () => {
+  const activity = activityFromRecall(
+    {
+      name: "Summer camp",
+      category: "academic-enrichment",
+      sinceGrade: 9,
+      untilGrade: 10,
+      stillDoing: false,
+    },
+    2028,
+    new Date(2026, 9, 3),
+  );
+  assert.equal(activity.ongoing, false);
+  assert.equal(activity.periods.length, 2);
+  assert.equal(activity.periods.every((p) => p.status === "completed"), true);
+  assert.deepEqual(
+    activity.periods.map((p) => p.grade),
+    ["9", "10"],
+  );
+});
+
+test("activityFromRecall with no since grade has no periods", () => {
+  const activity = activityFromRecall(
+    { name: "Babysitting", category: "paid-work", stillDoing: true },
+    2028,
+    new Date(2026, 9, 3),
+  );
+  assert.equal(activity.periods.length, 0);
+  assert.equal(activity.startYear, undefined);
+});
+
+test("activityNeedsDetails when role and responsibilities are blank", () => {
+  const blank = createActivity({ name: "Robotics", category: "school-club" });
+  assert.equal(activityNeedsDetails(blank), true);
+  assert.equal(activityNeedsDetails({ ...blank, role: "Builder" }), false);
+  assert.equal(activityNeedsDetails({ ...blank, responsibilities: "Build robots" }), false);
 });
