@@ -241,11 +241,12 @@ export function Portal({
   const legacyNotesMigrated = useRef(false);
   const pendingJournal = useRef<ActivitiesJournal | null>(null);
   const journalSaveTimer = useRef<number | undefined>(undefined);
-  const journalInFlight = useRef(false);
+  const journalSaveInFlight = useRef(false);
   const journalDirty = useRef(false);
   const persistedRef = useRef(false);
   const patchStateRef = useRef<(
     body: { activitiesJournal: ActivitiesJournal },
+    opts?: { keepalive?: boolean },
   ) => Promise<boolean>>(async () => false);
   const viewport = useViewportMode();
 
@@ -343,7 +344,7 @@ export function Portal({
           setCalendarEvents(normalizeCalendarEvents(state.calendarEvents));
         }
         if (state.activitiesJournal !== undefined) {
-          if (!journalDirty.current && !pendingJournal.current && !journalInFlight.current) {
+          if (!journalDirty.current && !pendingJournal.current && !journalSaveInFlight.current) {
             setActivitiesJournal(normalizeJournal(state.activitiesJournal));
           }
         }
@@ -585,22 +586,22 @@ export function Portal({
     replaceUrl("apps", null, projectSection, null, "activities", "my", id);
   }
 
-  function flushJournalSave() {
+  function flushJournalSave(opts?: { keepalive?: boolean }) {
     if (journalSaveTimer.current != null) {
       window.clearTimeout(journalSaveTimer.current);
       journalSaveTimer.current = undefined;
     }
-    if (journalInFlight.current) return;
+    if (journalSaveInFlight.current) return;
     const payload = pendingJournal.current;
     if (!payload) return;
     if (!persistedRef.current) return;
     pendingJournal.current = null;
-    journalInFlight.current = true;
+    journalSaveInFlight.current = true;
     setSaveState("Saving...");
-    void patchStateRef.current({ activitiesJournal: payload }).then((ok) => {
-      journalInFlight.current = false;
+    void patchStateRef.current({ activitiesJournal: payload }, opts).then((ok) => {
+      journalSaveInFlight.current = false;
       if (pendingJournal.current) {
-        flushJournalSave();
+        flushJournalSave(opts);
         return;
       }
       if (ok) journalDirty.current = false;
@@ -628,21 +629,24 @@ export function Portal({
   const testingCount = testingItems(phases).length;
   const canEditJournal = canEditActivitiesJournal(member);
 
-  async function patchState(body: {
-    checklist?: Record<string, boolean>;
-    scores?: Scores;
-    notes?: string;
-    projectSteps?: PersistedProjectStep[];
-    ingestSources?: PersistedIngestSource[];
-    todoSubtasks?: TodoSubtaskMap;
-    todoEdits?: TodoEditMap;
-    todoProjects?: TodoProject[];
-    noteItems?: PinNote[];
-    calendarEvents?: CalendarEvent[];
-    activitiesJournal?: ActivitiesJournal;
-    requirementProgress?: RequirementProgressMap;
-    finances?: HouseholdFinances;
-  }) {
+  async function patchState(
+    body: {
+      checklist?: Record<string, boolean>;
+      scores?: Scores;
+      notes?: string;
+      projectSteps?: PersistedProjectStep[];
+      ingestSources?: PersistedIngestSource[];
+      todoSubtasks?: TodoSubtaskMap;
+      todoEdits?: TodoEditMap;
+      todoProjects?: TodoProject[];
+      noteItems?: PinNote[];
+      calendarEvents?: CalendarEvent[];
+      activitiesJournal?: ActivitiesJournal;
+      requirementProgress?: RequirementProgressMap;
+      finances?: HouseholdFinances;
+    },
+    opts?: { keepalive?: boolean },
+  ) {
     if (!persisted) {
       setSaveState("Not saved");
       return false;
@@ -652,24 +656,28 @@ export function Portal({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      keepalive: opts?.keepalive === true,
     });
-    setSaveState(response.ok ? "Saved" : "Not saved");
-    if (response.ok && body.notes !== undefined) {
-      window.setTimeout(() => setSaveState(""), 1500);
+    // Journal flushes own the indicator until in-flight and pending saves both finish.
+    if (!body.activitiesJournal) {
+      setSaveState(response.ok ? "Saved" : "Not saved");
+      if (response.ok && body.notes !== undefined) {
+        window.setTimeout(() => setSaveState(""), 1500);
+      }
     }
     return response.ok;
   }
 
-  patchStateRef.current = (body) => patchState(body);
+  patchStateRef.current = (body, opts) => patchState(body, opts);
 
   useEffect(() => {
     function onVis() {
-      if (document.visibilityState === "hidden") flushJournalSave();
+      if (document.visibilityState === "hidden") flushJournalSave({ keepalive: true });
     }
     document.addEventListener("visibilitychange", onVis);
     return () => {
       document.removeEventListener("visibilitychange", onVis);
-      flushJournalSave();
+      flushJournalSave({ keepalive: true });
     };
     // flushJournalSave reads refs; patchState is rebound each render via patchStateRef.
     // eslint-disable-next-line react-hooks/exhaustive-deps
