@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Activities Recall Redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&display=swap">
+<style>
+/* Layout: the app's page chrome, then Recall as one focused column with a running list beside it.
+   Tokens copied from college/app/tokens.css (light) and [data-mode="dark"]. */
+:root {
+  --bg: #f3f2f2;
+  --surface: #eae9e9;
+  --surface-2: #e0dede;
+  --raised: #ffffff;
+  --border: #d7d3d3;
+  --rule: #eae7e7;
+  --dash: #9b9797;
+  --text: #201e1d;
+  --muted: #444141;
+  --subtle: #605d5d;
+  --placeholder: #7d7979;
+  --accent: #e85504;
+  --accent-pressed: #c74503;
+  --accent-tint: #feeee4;
+  --accent-tint-2: #fdd6c0;
+  --accent-border: #fab48e;
+  --text-accent: #9e3603;
+  --on-accent: #ffffff;
+  --done: #0088b0;
+  --proto: #1b4ca8;
+  --proto-tint: #e7edf8;
+  --font-display: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-body: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1f2228; --surface: #2d3139; --surface-2: #353a43; --raised: #2d3139;
+    --border: #3d424b; --rule: rgba(240,238,236,.10); --dash: #5d636c;
+    --text: #f0eeec; --muted: #c3c8cf; --subtle: #9aa0a8; --placeholder: #7f858e;
+    --accent: #e85504; --accent-pressed: #f58749; --accent-tint: #3b2317; --accent-tint-2: #50301d;
+    --accent-border: #9e3603; --text-accent: #fab48e; --on-accent: #ffffff; --done: #5cc3e6;
+    --proto: #8fb0ef; --proto-tint: #24304a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1f2228; --surface: #2d3139; --surface-2: #353a43; --raised: #2d3139;
+  --border: #3d424b; --rule: rgba(240,238,236,.10); --dash: #5d636c;
+  --text: #f0eeec; --muted: #c3c8cf; --subtle: #9aa0a8; --placeholder: #7f858e;
+  --accent: #e85504; --accent-pressed: #f58749; --accent-tint: #3b2317; --accent-tint-2: #50301d;
+  --accent-border: #9e3603; --text-accent: #fab48e; --on-accent: #ffffff; --done: #5cc3e6;
+  --proto: #8fb0ef; --proto-tint: #24304a;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  padding-inline: 16px;
+  padding-block: 0 48px;
+}
+button { font: inherit; color: inherit; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Prototype controls - not part of the design */
+.proto {
+  max-width: 1040px; margin: 0 auto; padding-block: 10px;
+  display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+  font-family: var(--font-mono); font-size: 12px; color: var(--proto);
+  border-bottom: 1px dashed var(--proto);
+}
+.proto strong { font-weight: 500; letter-spacing: .06em; text-transform: uppercase; }
+.proto button {
+  background: var(--proto-tint); color: var(--proto); border: 1px solid transparent;
+  padding: 3px 10px; border-radius: 2px; cursor: pointer; font-family: var(--font-mono); font-size: 12px;
+}
+.proto button[aria-pressed="true"] { border-color: var(--proto); }
+.proto .note { color: var(--subtle); }
+
+/* App chrome (simplified) */
+.page { max-width: 1040px; margin: 0 auto; padding-top: 28px; }
+.eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-accent); }
+.page h1 { font-family: var(--font-body); font-weight: 700; font-size: 30px; margin: 2px 0 14px; letter-spacing: -.01em; }
+.tabs { display: flex; gap: 22px; border-bottom: 1px solid var(--border); font-size: 13px; overflow-x: auto; }
+.tabs span { padding: 8px 0; white-space: nowrap; color: var(--subtle); }
+.tabs span.on { color: var(--text); border-bottom: 2px solid var(--accent); font-weight: 600; }
+
+/* Recall shell */
+.recall-bar {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding-block: 18px 0; font-size: 13px;
+}
+.link-btn {
+  background: none; border: 0; padding: 4px 0; cursor: pointer; color: var(--subtle);
+  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border);
+}
+.link-btn:hover { color: var(--text); text-decoration-color: var(--text); }
+.step-count { font-family: var(--font-mono); font-size: 12px; color: var(--subtle); font-variant-numeric: tabular-nums; }
+
+.recall {
+  display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 48px;
+  padding-top: 36px; align-items: start;
+}
+.recall.single { grid-template-columns: minmax(0, 1fr); }
+.main { min-width: 0; max-width: 640px; }
+
+.q-title {
+  font-family: var(--font-display); font-weight: 500; font-size: clamp(26px, 4vw, 36px);
+  line-height: 1.18; letter-spacing: -.005em; margin: 0; text-wrap: balance;
+}
+.q-help { margin: 12px 0 0; color: var(--muted); font-size: 16px; max-width: 52ch; }
+.q-help em { font-style: normal; color: var(--subtle); }
+
+/* Capture line */
+.capture {
+  margin-top: 30px; display: flex; gap: 10px; align-items: center;
+  border-bottom: 2px solid var(--text); padding-bottom: 6px;
+}
+.capture input {
+  flex: 1; min-width: 0; border: 0; background: transparent; color: var(--text);
+  font-family: var(--font-body); font-size: 20px; padding: 6px 0;
+}
+.capture input::placeholder { color: var(--placeholder); }
+.capture input:focus-visible { outline: none; }
+.capture:focus-within { border-bottom-color: var(--accent); }
+.add-btn {
+  border: 0; background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: 14px;
+  padding: 8px 14px; border-radius: 2px; cursor: pointer;
+}
+.add-btn[disabled] { background: var(--surface-2); color: var(--placeholder); cursor: default; }
+.dup { margin: 8px 0 0; font-size: 13px; color: var(--subtle); min-height: 20px; }
+
+/* Answer items */
+.items { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 12px; }
+.item {
+  background: var(--raised); border: 1px solid var(--border); border-radius: 4px;
+  padding: 16px 18px; display: grid; gap: 12px;
+}
+.item.done { gap: 8px; }
+.item-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.item-name { font-weight: 600; font-size: 18px; }
+.item-x {
+  background: none; border: 0; color: var(--subtle); cursor: pointer; font-size: 13px; padding: 2px 4px;
+  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border);
+}
+.ask { font-size: 14px; color: var(--muted); margin: 0; }
+.summary { font-size: 14px; color: var(--muted); margin: 0; display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.summary b { color: var(--text); font-weight: 600; }
+
+/* Grade strip */
+.strip-wrap { display: grid; gap: 6px; }
+.strip-groups {
+  display: grid; grid-template-columns: 3fr 4fr; gap: 10px;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--subtle);
+}
+.strip { display: grid; grid-template-columns: repeat(3, 1fr) 10px repeat(4, 1fr); }
+.strip .gap { }
+.cell {
+  height: 40px; border: 0; background: var(--surface); cursor: pointer; position: relative;
+  font-family: var(--font-mono); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums;
+  border-right: 1px solid var(--bg);
+}
+.cell:hover { background: var(--surface-2); color: var(--text); }
+.cell.first { border-radius: 3px 0 0 3px; }
+.cell.last { border-radius: 0 3px 3px 0; border-right: 0; }
+.cell.on { background: var(--accent-tint-2); color: var(--text-accent); font-weight: 500; }
+.cell.on.now { background: var(--accent); color: var(--on-accent); }
+.cell.future { background: transparent; box-shadow: inset 0 0 0 1px var(--dash); }
+.cell.now::after {
+  content: "NOW"; position: absolute; left: 0; right: 0; bottom: -17px;
+  font-size: 9px; letter-spacing: .1em; color: var(--text-accent);
+}
+.strip.readonly .cell { cursor: default; height: 10px; font-size: 0; }
+.strip.readonly .cell.now::after { display: none; }
+.strip.readonly .cell:hover { background: var(--surface); }
+.strip.readonly .cell.on:hover { background: var(--accent-tint-2); }
+.strip.readonly .cell.on.now:hover { background: var(--accent); }
+
+.seg { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.seg button {
+  border: 1px solid var(--border); background: transparent; color: var(--muted);
+  padding: 5px 12px; border-radius: 999px; font-size: 13px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { border-color: var(--text); color: var(--text); background: var(--raised); font-weight: 600; }
+.edit-link { margin-left: auto; }
+
+/* Footer */
+.foot { margin-top: 36px; display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; }
+.primary {
+  border: 0; background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: 15px;
+  padding: 12px 20px; border-radius: 2px; cursor: pointer;
+}
+.primary:hover { background: var(--accent-pressed); }
+.primary[disabled] { background: var(--surface-2); color: var(--placeholder); cursor: default; }
+
+/* Running list */
+.tray { position: sticky; top: 20px; border-top: 2px solid var(--text); padding-top: 12px; }
+.tray h2 {
+  margin: 0 0 10px; font-family: var(--font-mono); font-weight: 500; font-size: 11px;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--subtle);
+  display: flex; justify-content: space-between;
+}
+.tray ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.tray li { display: grid; gap: 5px; }
+.tray .t-name { font-size: 14px; font-weight: 600; }
+.tray .t-meta { font-size: 12px; color: var(--subtle); }
+.tray .empty { font-size: 14px; color: var(--subtle); }
+
+/* Intro */
+.intro-lede { font-size: 17px; color: var(--muted); max-width: 54ch; margin: 16px 0 0; }
+.how { list-style: none; padding: 0; margin: 28px 0 0; display: grid; gap: 10px; max-width: 560px; }
+.how li { display: grid; grid-template-columns: 28px 1fr; gap: 8px; font-size: 15px; }
+.how li span:first-child { font-family: var(--font-mono); font-size: 12px; color: var(--text-accent); padding-top: 3px; }
+.year-q { margin: 34px 0 10px; font-weight: 600; font-size: 16px; }
+.years { display: flex; flex-wrap: wrap; gap: 10px; }
+.years button {
+  border: 1px solid var(--border); background: var(--raised); border-radius: 4px; cursor: pointer;
+  font-family: var(--font-display); font-size: 22px; padding: 10px 22px; font-variant-numeric: tabular-nums;
+}
+.years button:hover { border-color: var(--text); }
+.years button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-tint); color: var(--text-accent); }
+.year-note { font-size: 13px; color: var(--subtle); margin: 10px 0 0; min-height: 20px; }
+
+/* Review */
+.review-wrap { overflow-x: auto; margin-top: 28px; }
+.review { width: 100%; min-width: 560px; border-collapse: collapse; }
+.review th, .review td { padding: 0; }
+.review thead th {
+  font-family: var(--font-mono); font-weight: 400; font-size: 11px; color: var(--subtle);
+  text-align: center; padding-bottom: 6px; font-variant-numeric: tabular-nums;
+}
+.review thead th.name-h { text-align: left; }
+.review thead tr.groups th { letter-spacing: .08em; text-transform: uppercase; font-size: 10px; padding-bottom: 2px; }
+.review thead th.now-h { color: var(--text-accent); font-weight: 500; }
+.review tbody th {
+  text-align: left; font-weight: 600; font-size: 15px; padding: 10px 16px 10px 0;
+  border-top: 1px solid var(--rule); white-space: nowrap;
+}
+.review tbody td { border-top: 1px solid var(--rule); padding: 10px 0; }
+.review tbody td.div { width: 10px; }
+.bar { height: 22px; background: transparent; }
+.bar.on { background: var(--accent-tint-2); }
+.bar.on.now { background: var(--accent); }
+.bar.start { border-radius: 3px 0 0 3px; }
+.bar.end { border-radius: 0 3px 3px 0; }
+.bar.start.end { border-radius: 3px; }
+.review td.span-note { font-size: 13px; color: var(--subtle); padding-left: 14px; white-space: nowrap; }
+.review .missing { font-size: 13px; color: var(--subtle); font-style: normal; }
+.next-note { margin: 22px 0 0; color: var(--muted); max-width: 58ch; }
+
+@media (max-width: 860px) {
+  .recall { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  .tray { position: static; }
+}
+@media (max-width: 480px) {
+  .cell { height: 44px; font-size: 12px; }
+  .page h1 { font-size: 24px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .item { animation: rise .18s ease-out; }
+  @keyframes rise { from { transform: translateY(4px); opacity: .6; } to { transform: none; opacity: 1; }   }
+}
+</style>
+</head>
+<body>
+
+<div class="proto" role="region" aria-label="Prototype controls">
+  <strong>Mockup</strong>
+  <span>Jump to:</span>
+  <button type="button" data-jump="intro">Start screen</button>
+  <button type="button" data-jump="q">Question screen</button>
+  <button type="button" data-jump="review">Review screen</button>
+  <span class="note">Example answers based on Kyle's activities. Nothing here saves.</span>
+</div>
+
+<div class="page">
+  <div class="eyebrow">Phase 1 · Junior Fall</div>
+  <h1>Apps &amp; Materials</h1>
+  <nav class="tabs" aria-label="Activities views">
+    <span class="on">My Activities</span><span>Awards &amp; Milestones</span><span>Application Prep</span>
+  </nav>
+  <div id="app"></div>
+</div>
+
+<script>
+(function () {
+  const CLASS_OF = 2028;
+  const NOW = 11; // current grade for class of 2028 in fall 2026
+  const GRADES = [6, 7, 8, 9, 10, 11, 12];
+  const QUESTIONS = [
+    ["What do you do most weeks after school or on weekends?", "Practices, rehearsals, club meetings, lessons, games."],
+    ["What have you been doing the longest - since middle school or earlier?", "An instrument, a sport, a club, a skill you started young."],
+    ["What shows up on your calendar every year?", "Concerts, competitions, tournaments, meets, shows, tests for a new rank or level."],
+    ["What do you build, make, play or practice on your own, without anyone asking you to?", "Things you do in your free time because you want to."],
+    ["What did you do last summer? The summer before that?", "Camps, jobs, programs, trips with a purpose, projects."],
+    ["Have you had a job, paid or unpaid, or regular responsibilities at home?", "Part-time work, babysitting, helping run a family business, caring for a sibling."],
+    ["Have you helped out in your community?", "Volunteering, a faith group, a neighborhood or school event."],
+    ["What classes, programs or courses have you taken outside your regular school day?", "Online courses, summer programs, weekend classes, certifications."],
+    ["What do friends, family or teachers ask you to help with?", "It's fine if this repeats something you already listed."]
+  ];
+  const ord = (g) => g + "th";
+
+  let uid = 0;
+  const mk = (name, q, since, until, still) => ({ id: ++uid, name, q, since, until, still, mode: "start", editing: false });
+  const state = {
+    screen: "q",
+    q: 1,
+    year: CLASS_OF,
+    draft: "",
+    dup: "",
+    items: [
+      mk("Marching band", 0, 9, null, true),
+      mk("Robotics club", 0, 8, null, true),
+      mk("Taekwondo", 0, null, null, true),
+      mk("Trumpet", 1, 6, null, true),
+      mk("Band", 1, 6, null, true)
+    ]
+  };
+  // Show one item mid-edit on the default screen
+  state.items[4].editing = true;
+
+  const app = document.getElementById("app");
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function endGrade(it) { return it.still ? NOW : (it.until ?? NOW); }
+  function years(it) { return it.since == null ? 0 : endGrade(it) - it.since + 1; }
+  function spanText(it) {
+    if (it.since == null) return "";
+    const n = years(it);
+    const yrs = n + (n === 1 ? " school year" : " school years");
+    if (it.still) return "Since " + ord(it.since) + " grade · still doing it · " + yrs;
+    return ord(it.since) + " to " + ord(endGrade(it)) + " grade · " + yrs;
+  }
+
+  function cellClass(it, g, i) {
+    let c = "cell";
+    if (i === 0) c += " first";
+    if (i === GRADES.length - 1) c += " last";
+    if (g === NOW) c += " now";
+    if (it.since != null && g >= it.since && g <= endGrade(it)) c += " on";
+    else if (g > NOW) c += " future";
+    return c;
+  }
+  function strip(it, readonly) {
+    const cells = GRADES.map((g, i) => {
+      const cls = cellClass(it, g, i);
+      const label = ord(g) + " grade";
+      const btn = readonly
+        ? `<span class="${cls}" aria-hidden="true"></span>`
+        : `<button type="button" class="${cls}" data-act="grade" data-id="${it.id}" data-g="${g}" aria-label="${label}"${g > NOW ? " disabled" : ""}>${g}</button>`;
+      return (g === 9 ? '<span class="gap"></span>' : "") + btn;
+    }).join("");
+    return `<div class="strip${readonly ? " readonly" : ""}">${cells}</div>`;
+  }
+
+  function itemCard(it) {
+    const open = it.editing || it.since == null;
+    if (!open) {
+      return `<li class="item done">
+        <div class="item-head"><span class="item-name">${esc(it.name)}</span>
+          <button type="button" class="item-x" data-act="remove" data-id="${it.id}">Remove</button></div>
+        ${strip(it, true)}
+        <p class="summary"><span>${spanText(it)}</span>
+          <button type="button" class="link-btn edit-link" data-act="edit" data-id="${it.id}">Change</button></p>
+      </li>`;
+    }
+    let ask;
+    if (it.since == null) ask = "What grade did you start?";
+    else if (!it.still && it.mode === "end") ask = "What grade did you stop?";
+    else ask = "Tap a different grade to change when you started.";
+    return `<li class="item">
+      <div class="item-head"><span class="item-name">${esc(it.name)}</span>
+        <button type="button" class="item-x" data-act="remove" data-id="${it.id}">Remove</button></div>
+      <div class="strip-wrap">
+        <p class="ask">${ask}</p>
+        <div class="strip-groups"><span>Middle school</span><span>High school</span></div>
+        ${strip(it, false)}
+      </div>
+      <div class="seg" role="group" aria-label="Still doing it?">
+        <button type="button" data-act="still" data-id="${it.id}" aria-pressed="${it.still}">Still doing it</button>
+        <button type="button" data-act="stopped" data-id="${it.id}" aria-pressed="${!it.still}">I stopped</button>
+        ${it.since != null ? `<button type="button" class="link-btn edit-link" data-act="close" data-id="${it.id}" style="border:0;padding:5px 0">Done</button>` : ""}
+      </div>
+    </li>`;
+  }
+
+  function tray() {
+    const list = state.items;
+    const rows = list.length
+      ? `<ul>${list.map((it) => `<li><span class="t-name">${esc(it.name)}</span>${strip(it, true)}<span class="t-meta">${it.since == null ? "Start grade not set yet" : spanText(it)}</span></li>`).join("")}</ul>`
+      : `<p class="empty">Everything you add shows up here.</p>`;
+    return `<aside class="tray" aria-label="Your list so far"><h2><span>Your list so far</span><span>${list.length}</span></h2>${rows}</aside>`;
+  }
+
+  function renderIntro() {
+    const yrs = [2027, 2028, 2029, 2030];
+    app.innerHTML = `
+      <div class="recall-bar"><button type="button" class="link-btn" data-act="exit">← Back to My Activities</button><span></span></div>
+      <div class="recall single"><div class="main">
+        <h2 class="q-title">Start Your Activities List</h2>
+        <p class="intro-lede">You'll answer nine short questions about what you do. A few words per answer is enough. You can add details like your role and hours later.</p>
+        <ul class="how">
+          <li><span>1</span><span>Type anything that comes to mind. Small things count.</span></li>
+          <li><span>2</span><span>Tap the grade you started. That's the only detail we ask for now.</span></li>
+          <li><span>3</span><span>At the end you'll see everything laid out grade by grade.</span></li>
+        </ul>
+        <p class="year-q" id="yq">What year do you graduate from high school?</p>
+        <div class="years" role="group" aria-labelledby="yq">
+          ${yrs.map((y) => `<button type="button" data-act="year" data-y="${y}" aria-pressed="${state.year === y}">${y}</button>`).join("")}
+        </div>
+        <p class="year-note">${state.year ? "That makes you a " + (state.year === 2028 ? "junior" : state.year === 2027 ? "senior" : state.year === 2029 ? "sophomore" : "freshman") + " this year." : ""}</p>
+        <div class="foot"><button type="button" class="primary" data-act="begin"${state.year ? "" : " disabled"}>Start with question 1</button></div>
+      </div></div>`;
+  }
+
+  function renderQuestion() {
+    const [q, help] = QUESTIONS[state.q];
+    const mine = state.items.filter((it) => it.q === state.q);
+    const last = state.q === QUESTIONS.length - 1;
+    app.innerHTML = `
+      <div class="recall-bar">
+        <button type="button" class="link-btn" data-act="${state.q === 0 ? "intro" : "prev"}">← ${state.q === 0 ? "Back" : "Previous question"}</button>
+        <span class="step-count">Question ${state.q + 1} of ${QUESTIONS.length}</span>
+      </div>
+      <div class="recall"><div class="main">
+        <h2 class="q-title">${esc(q)}</h2>
+        <p class="q-help"><em>For example:</em> ${esc(help)}</p>
+        <form class="capture" data-act="addform">
+          <label for="cap" class="sr" style="position:absolute;left:-9999px">Your answer</label>
+          <input id="cap" autocomplete="off" placeholder="Type one thing, then press Enter" value="${esc(state.draft)}">
+          <button type="submit" class="add-btn"${state.draft.trim() ? "" : " disabled"}>Add</button>
+        </form>
+        <p class="dup" aria-live="polite">${esc(state.dup)}</p>
+        <ul class="items">${mine.map(itemCard).join("")}</ul>
+        <div class="foot">
+          <button type="button" class="primary" data-act="next">${last ? "See your list" : "Next question"}</button>
+          ${mine.length ? "" : `<button type="button" class="link-btn" data-act="next">Nothing for this one</button>`}
+        </div>
+      </div>${tray()}</div>`;
+  }
+
+  function renderReview() {
+    const rows = [...state.items].sort((a, b) => (a.since ?? 99) - (b.since ?? 99) || a.name.localeCompare(b.name));
+    const head = GRADES.map((g) => (g === 9 ? '<th class="div"></th>' : "") + `<th class="${g === NOW ? "now-h" : ""}">${g === NOW ? g + " · now" : g}</th>`).join("");
+    const body = rows.map((it) => {
+      const cells = it.since == null
+        ? `<td colspan="8"><span class="missing">Start grade not set - you can add it later.</span></td>`
+        : GRADES.map((g) => {
+            const on = g >= it.since && g <= endGrade(it);
+            let c = "bar";
+            if (on) { c += " on"; if (g === NOW && it.still) c += " now"; if (g === it.since) c += " start"; if (g === endGrade(it)) c += " end"; }
+            return (g === 9 ? '<td class="div"><div class="' + (on && g > it.since ? "bar on" : "bar") + '"></div></td>' : "") + `<td><div class="${c}"></div></td>`;
+          }).join("");
+      const note = it.since == null ? "<td></td>" : `<td class="span-note">${years(it)} ${years(it) === 1 ? "yr" : "yrs"}</td>`;
+      return `<tr><th scope="row">${esc(it.name)}</th>${cells}${note}</tr>`;
+    }).join("");
+    const longest = rows.filter((r) => r.since != null).sort((a, b) => years(b) - years(a))[0];
+    app.innerHTML = `
+      <div class="recall-bar"><button type="button" class="link-btn" data-act="back-q">← Back to the questions</button><span class="step-count">Review</span></div>
+      <div class="recall single"><div class="main" style="max-width:none">
+        <h2 class="q-title">Your Activities, Grade by Grade</h2>
+        <p class="q-help">${longest ? "You've done " + esc(longest.name.toLowerCase()) + " for " + years(longest) + " school years. " : ""}Check the grades, then add these to your list.</p>
+        <div class="review-wrap"><table class="review">
+          <thead>
+            <tr class="groups"><th></th><th colspan="3">Middle school</th><th></th><th colspan="4">High school</th><th></th></tr>
+            <tr><th class="name-h"></th>${head}<th></th></tr>
+          </thead>
+          <tbody>${body}</tbody>
+        </table></div>
+        <div class="foot"><button type="button" class="primary" data-act="finish">Add ${rows.length} activities to My Activities</button></div>
+        <p class="next-note">Next, each one gets an "Add details" button for your role, what you do, and hours. Nothing else is required now.</p>
+      </div></div>`;
+  }
+
+  function render() {
+    document.querySelectorAll("[data-jump]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.jump === state.screen)));
+    if (state.screen === "intro") renderIntro();
+    else if (state.screen === "review") renderReview();
+    else renderQuestion();
+  }
+
+  const byId = (id) => state.items.find((it) => it.id === Number(id));
+
+  document.addEventListener("click", (e) => {
+    const j = e.target.closest("[data-jump]");
+    if (j) { state.screen = j.dataset.jump; render(); return; }
+    const t = e.target.closest("[data-act]");
+    if (!t || t.tagName === "FORM") return;
+    const act = t.dataset.act, it = byId(t.dataset.id);
+    switch (act) {
+      case "year": state.year = Number(t.dataset.y); break;
+      case "begin": state.screen = "q"; state.q = 0; break;
+      case "intro": case "exit": state.screen = "intro"; break;
+      case "prev": state.q = Math.max(0, state.q - 1); state.dup = ""; break;
+      case "next":
+        state.items.forEach((x) => (x.editing = false));
+        state.dup = ""; state.draft = "";
+        if (state.q === QUESTIONS.length - 1) state.screen = "review"; else state.q += 1;
+        break;
+      case "back-q": state.screen = "q"; state.q = QUESTIONS.length - 1; break;
+      case "finish": t.textContent = "Added (mockup - nothing saved)"; t.disabled = true; return;
+      case "remove": state.items = state.items.filter((x) => x !== it); break;
+      case "edit": it.editing = true; it.mode = it.still ? "start" : "end"; break;
+      case "close": it.editing = false; break;
+      case "still": it.still = true; it.until = null; it.mode = "start"; break;
+      case "stopped": it.still = false; it.mode = it.since == null ? "start" : "end"; it.editing = true; break;
+      case "grade": {
+        const g = Number(t.dataset.g);
+        if (!it.still && it.mode === "end" && it.since != null) {
+          if (g >= it.since) { it.until = g; it.editing = false; }
+          else { it.since = g; }
+        } else {
+          it.since = g;
+          if (it.still) it.editing = false; else it.mode = "end";
+        }
+        break;
+      }
+      default: return;
+    }
+    render();
+  });
+
+  document.addEventListener("input", (e) => {
+    if (e.target.id !== "cap") return;
+    state.draft = e.target.value;
+    const btn = app.querySelector(".add-btn");
+    if (btn) btn.disabled = !state.draft.trim();
+  });
+
+  document.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = state.draft.trim();
+    if (!name) return;
+    if (state.items.some((x) => x.name.toLowerCase() === name.toLowerCase())) {
+      state.dup = name + " is already on your list.";
+      state.draft = "";
+    } else {
+      state.items.forEach((x) => (x.editing = false));
+      state.items.push(mk(name, state.q, null, null, true));
+      state.dup = ""; state.draft = "";
+    }
+    render();
+    const inp = document.getElementById("cap");
+    if (inp) inp.focus();
+  });
+
+  render();
+})();
+</script>
+
+</body>
+</html>

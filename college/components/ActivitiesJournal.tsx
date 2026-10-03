@@ -319,6 +319,24 @@ function MyActivitiesView({
   const showRecall =
     canEdit && loaded && (recallOpen || (!activeCount && !recallDismissed));
 
+  function closeRecall() {
+    setRecallOpen(false);
+    setRecallDismissed(true);
+  }
+
+  if (showRecall) {
+    return (
+      <div className="aj-view">
+        <ActivitiesRecall
+          journal={journal}
+          onChange={onChange}
+          onDone={closeRecall}
+          onExit={closeRecall}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="aj-view">
       <header className="aj-head">
@@ -423,24 +441,13 @@ function MyActivitiesView({
             />
           ) : null}
 
-          {showRecall ? (
-            <ActivitiesRecall
-              journal={journal}
-              onChange={onChange}
-              onDone={() => {
-                setRecallOpen(false);
-                setRecallDismissed(true);
-              }}
-            />
-          ) : null}
-
-          {!activeCount && !showRecall ? (
+          {!activeCount ? (
             <div className="aj-empty board-empty">
               <p>No activities yet.</p>
             </div>
-          ) : !showRecall && !filtered.length && activeCount ? (
+          ) : !filtered.length && activeCount ? (
             <p className="board-empty">No activities match these filters.</p>
-          ) : !showRecall && filtered.length ? (
+          ) : filtered.length ? (
             <ul className="aj-card-list">
               {filtered.map((activity) => {
                 const period = latestPeriod(activity);
@@ -455,9 +462,17 @@ function MyActivitiesView({
                         <span className="aj-pill">{activityStatusLabel(activity)}</span>
                       </div>
                       <p className="aj-card-meta">
-                        <span>{categoryLabel(activity.category)}</span>
-                        {activity.organization ? <span>· {activity.organization}</span> : null}
-                        {activity.role ? <span>· {activity.role}</span> : null}
+                        {(
+                          [
+                            activity.category !== "other" ? categoryLabel(activity.category) : "",
+                            activity.organization,
+                            activity.role,
+                          ] as string[]
+                        )
+                          .filter(Boolean)
+                          .map((part, i) => (
+                            <span key={`${i}-${part}`}>{i ? `· ${part}` : part}</span>
+                          ))}
                       </p>
                       <p className="aj-card-meta">
                         <span>Grades: {activityGrades(activity)}</span>

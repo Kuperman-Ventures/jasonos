@@ -21,6 +21,7 @@ import {
   isHighSchoolGrade,
   markDraftsStaleForActivity,
   normalizeJournal,
+  recallSpanText,
   schoolYearForGrade,
   upsertActivity,
   upsertAward,
@@ -443,6 +444,18 @@ test("activityFromRecall with no since grade has no periods", () => {
   );
   assert.equal(activity.periods.length, 0);
   assert.equal(activity.startYear, undefined);
+});
+
+test("recallSpanText still doing, stopped, and one year", () => {
+  assert.equal(
+    recallSpanText(6, null, true, 11),
+    "Since 6th grade · still doing it · 6 school years",
+  );
+  assert.equal(recallSpanText(9, 10, false, 11), "9th to 10th grade · 2 school years");
+  assert.equal(
+    recallSpanText(11, null, true, 11),
+    "Since 11th grade · still doing it · 1 school year",
+  );
 });
 
 test("activityNeedsDetails when role and responsibilities are blank", () => {

@@ -47,7 +47,7 @@ Slim-rail short labels: Dashboard, Projects, Notes, Log, Colleges, Apps, Finance
 
 | UI label | Section id |
 | --- | --- |
-| Activities | `activities` (default; `av=` for My Activities / Awards & Milestones / Application Prep). My Activities empty state (after load, editors only) is **Build Your Activities List** Recall questions; **Add more with questions** is always in the header. |
+| Activities | `activities` (default; `av=` for My Activities / Awards & Milestones / Application Prep). Empty list (after load, editors only) opens **Start Your Activities List** Recall and hides the list header and filters. **Add more with questions** is in the header when Recall is closed. |
 | App Questions | `questions` |
 | Materials | `materials` (soon) |
 
