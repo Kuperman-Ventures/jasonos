@@ -22,7 +22,8 @@ const plexMono = IBM_Plex_Mono({
 
 const sourceSerif = Source_Serif_4({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: "variable",
+  axes: ["opsz"],
   style: ["normal", "italic"],
   display: "swap",
   variable: "--font-source-serif",

@@ -60,7 +60,9 @@
   --font-heading: var(--font-archivo), system-ui, sans-serif;
   --font-body: var(--font-archivo), system-ui, sans-serif;
   --font-mono: var(--font-plex-mono), ui-monospace, monospace;
-  --font-serif: var(--font-source-serif), Georgia, "Times New Roman", serif;
+  /* Display serif for Recall questions. Named --font-display so Tailwind's
+     --font-serif (Georgia / ui-serif) cannot override it. */
+  --font-display: var(--font-source-serif), Georgia, "Times New Roman", serif;
 
   --space-1: 5px;
   --space-2: 10px;
@@ -8736,7 +8738,8 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   max-width: none;
 }
 .aj-recall-q {
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
   font-weight: 500;
   font-size: clamp(26px, 4vw, 36px);
   line-height: 1.18;
@@ -8801,7 +8804,8 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   color: var(--color-text);
   border-radius: 4px;
   cursor: pointer;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
   font-size: 22px;
   font-weight: 500;
   padding: 10px 22px;
