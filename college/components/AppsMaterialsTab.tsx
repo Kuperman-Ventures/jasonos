@@ -1,7 +1,6 @@
 "use client";
 
 import { ActivitiesJournal } from "./ActivitiesJournal";
-import { AppQuestionsTab } from "./AppQuestionsTab";
 import {
   APPS_SECTIONS,
   appsSectionById,
@@ -82,8 +81,6 @@ export function AppsMaterialsTab({
           onOpenActivity={onOpenActivity}
         />
       ) : null}
-
-      {active.status === "ready" && active.id === "questions" ? <AppQuestionsTab /> : null}
     </section>
   );
 }

@@ -22,6 +22,7 @@ Rendered by `Portal` → `LeftRail`. Brand: **Kyle's College Search** (Junior ·
 | Schools | Apps & Materials | `apps` | `/?tab=apps&am=activities` (default `am`) |
 | Schools | Finances | `finances` | `/?tab=finances` (hidden when role/phase cannot view finances) |
 | Schools | Ingest | `ingest` | `/?tab=ingest` |
+| Reference | Common App Guide | `guide` | `/?tab=guide` (legacy `tab=questions` and `am=questions` land here) |
 | Reference | Consultants | `consultants` | `/?tab=consultants` |
 | Reference | FAQ | `faq` | `/?tab=faq` |
 | Reference | Testing | `testing` | `/?tab=testing` |
@@ -33,7 +34,7 @@ Account menu (not in nav groups):
 | Admin | `admin` | Admin role (or display name Local) |
 | Sign out | — | POST `/auth/signout` |
 
-Slim-rail short labels: Dashboard, Projects, Notes, Log, Colleges, Apps, Finances, Ingest, Consultants, FAQ, Testing.
+Slim-rail short labels: Dashboard, Projects, Notes, Log, Colleges, Apps, Finances, Ingest, Guide, Consultants, FAQ, Testing.
 
 ### Project Management subnav (`pm=`)
 
@@ -48,8 +49,9 @@ Slim-rail short labels: Dashboard, Projects, Notes, Log, Colleges, Apps, Finance
 | UI label | Section id |
 | --- | --- |
 | Activities | `activities` (default; `av=` for My Record / Application Prep). Empty list (after load, editors only) opens **Start Your Activities List** Recall. **Add with questions** is in the My Record header when Recall is closed. Old `av=awards` links land on My Record. |
-| App Questions | `questions` |
 | Materials | `materials` (soon) |
+
+Legacy `am=questions` (and `tab=questions`) opens the **Common App Guide** tab instead.
 
 ### School deep link
 
@@ -457,4 +459,4 @@ Action: **Remove school**.
 
 ## Related top-level pages (brief)
 
-Dashboard; Project Management (Timeline / To-dos / Calendar); Notes; Log; Apps & Materials; Finances (household + list); Ingest; Consultants; FAQ; Testing; Admin.
+Dashboard; Project Management (Timeline / To-dos / Calendar); Notes; Log; Apps & Materials; Finances (household + list); Ingest; Common App Guide; Consultants; FAQ; Testing; Admin.

@@ -53,6 +53,7 @@ export const RAIL_SHORT_LABELS: Partial<Record<string, string>> = {
   apps: "Apps",
   finances: "Finances",
   ingest: "Ingest",
+  guide: "Guide",
   consultants: "Consultants",
   faq: "FAQ",
   testing: "Testing",

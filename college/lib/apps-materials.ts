@@ -1,6 +1,6 @@
 /** Apps & Materials — parent nav with subsections. */
 
-export type AppsSectionId = "activities" | "questions" | "materials";
+export type AppsSectionId = "activities" | "materials";
 
 export type AppsSection = {
   id: AppsSectionId;
@@ -15,12 +15,6 @@ export const APPS_SECTIONS: AppsSection[] = [
   {
     id: "activities",
     label: "Activities",
-    blurb: "",
-    status: "ready",
-  },
-  {
-    id: "questions",
-    label: "App Questions",
     blurb: "",
     status: "ready",
   },
@@ -52,7 +46,7 @@ export function appsSectionById(id: AppsSectionId): AppsSection {
   return APPS_SECTIONS.find((section) => section.id === id) ?? APPS_SECTIONS[0];
 }
 
-/** Map ?am=… (and legacy bare ?tab=questions) onto a live section. */
+/** Map ?am=… onto a live section. Legacy am=questions is handled in Portal as the Guide tab. */
 export function resolveAppsSection(raw: string | null): AppsSectionId {
   if (raw && isAppsSectionId(raw)) return raw;
   return DEFAULT_APPS_SECTION;

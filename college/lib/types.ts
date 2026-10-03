@@ -17,6 +17,7 @@ export type TabId =
   | "timeline"
   | "ingest"
   | "faq"
+  | "guide"
   | "apps"
   | "finances"
   | "consultants"
@@ -350,15 +351,16 @@ export const TABS: { id: TabId; label: string }[] = [
   { id: "admin", label: "Admin" },
   { id: "consultants", label: "Consultants" },
   { id: "faq", label: "FAQ" },
+  { id: "guide", label: "Common App Guide" },
   { id: "testing", label: "Testing" },
   { id: "sources", label: "Data Sources" },
 ];
 
-/** Normalize legacy tab ids (e.g. timeline → projects, questions → apps). */
+/** Normalize legacy tab ids (e.g. timeline → projects, questions → guide). */
 export function normalizeTabId(value: string | null): TabId | null {
   if (!value) return null;
   if (value === "timeline") return "projects";
-  if (value === "questions") return "apps";
+  if (value === "questions") return "guide";
   return TABS.some((item) => item.id === value) ? (value as TabId) : null;
 }
 const CHOICE_RANK: Record<Choice, number> = {

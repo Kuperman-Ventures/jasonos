@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { AppsMaterialsTab } from "./AppsMaterialsTab";
+import { AppQuestionsTab } from "./AppQuestionsTab";
 import { CollegesMobileList } from "./CollegesMobileList";
 import { CollegesTab } from "./CollegesTab";
 import { ConsultantsTab } from "./ConsultantsTab";
@@ -156,7 +157,8 @@ function readStart(): {
   const school = params.get("school");
   const pmRaw = params.get("pm");
   const projectSection = resolveProjectSection(pmRaw);
-  const appsSection = resolveAppsSection(params.get("am"));
+  const amRaw = params.get("am");
+  const appsSection = resolveAppsSection(amRaw);
   const activitiesView = resolveActivitiesView(params.get("av"));
   const noteId = params.get("note");
   const activityId = params.get("activity");
@@ -178,6 +180,18 @@ function readStart(): {
       schoolId: null,
       projectSection: DEFAULT_PROJECT_SECTION,
       appsSection,
+      activitiesView,
+      noteId: null,
+      activityId: null,
+    };
+  }
+  // Legacy Apps & Materials → App Questions
+  if (amRaw === "questions") {
+    return {
+      tab: "guide",
+      schoolId: null,
+      projectSection,
+      appsSection: DEFAULT_APPS_SECTION,
       activitiesView,
       noteId: null,
       activityId: null,
@@ -1551,6 +1565,17 @@ export function Portal({
           </section>
         ) : null}
         {tab === "faq" ? <FaqTab categories={faqCategories} dateline={phaseLabel} /> : null}
+        {tab === "guide" ? (
+          <section>
+            <header className="page-head">
+              <div>
+                <div className="dateline">{phaseLabel}</div>
+                <h2>Common App Guide</h2>
+              </div>
+            </header>
+            <AppQuestionsTab />
+          </section>
+        ) : null}
         {tab === "apps" ? (
           <AppsMaterialsTab
             section={appsSection}
