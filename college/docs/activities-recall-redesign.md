@@ -40,14 +40,16 @@ Recall should feel like a short conversation that builds a picture of what the s
 In `app/globals.css`, next to `--font-heading` (line ~60), add:
 
 ```css
---font-serif: var(--font-source-serif), Georgia, "Times New Roman", serif;
+--font-display: var(--font-source-serif), Georgia, "Times New Roman", serif;
 ```
+
+(Named `--font-display` rather than `--font-serif` because Tailwind v4 already defines `--font-serif` as Georgia / ui-serif.)
 
 Type scale for Recall:
 
 | Element | Font | Size | Weight |
 |---|---|---|---|
-| Question and screen headings | `--font-serif` | `clamp(26px, 4vw, 36px)`, line-height 1.18, `text-wrap: balance` | 500 |
+| Question and screen headings | `--font-display` | `clamp(26px, 4vw, 36px)`, line-height 1.18, `text-wrap: balance` | 500 |
 | Helper line under the question | `--font-body` | 16px, `--text-muted`, max 52ch | 400 |
 | Answer input | `--font-body` | 20px | 400 |
 | Answer name on a card | `--font-body` | 18px | 600 |
