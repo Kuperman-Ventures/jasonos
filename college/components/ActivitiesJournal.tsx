@@ -20,9 +20,12 @@ import {
   applyRecallSpan,
   archiveActivity,
   archiveAward,
+  assignActivityToThread,
   charCount,
   createApplicationList,
+  createThread,
   currentGrade,
+  deleteThread,
   estimatedHours,
   exportListMarkdown,
   gradeCells,
@@ -34,6 +37,7 @@ import {
   recordSummary,
   removeActivity,
   removeDraftFromList,
+  renameThread,
   reorderDraft,
   restoreActivity,
   resolveClassOf,
@@ -45,6 +49,7 @@ import {
   type ActivitiesJournal as Journal,
   type Activity,
   type ActivityCategoryId,
+  type ActivityThread,
   type ActivityUpdate,
   type ApplicationDraft,
   type Award,
@@ -321,15 +326,35 @@ function MyActivitiesView({
   const [spanEditId, setSpanEditId] = useState<string | null>(null);
   const [spanEditState, setSpanEditState] = useState<RecallAnswerState>(emptyRecallState);
   const [showAddAward, setShowAddAward] = useState(false);
+  const [groupingMode, setGroupingMode] = useState(false);
+  const [newThreadOpen, setNewThreadOpen] = useState(false);
+  const [newThreadName, setNewThreadName] = useState("");
+  const [renameThreadId, setRenameThreadId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
+  const [deleteThreadId, setDeleteThreadId] = useState<string | null>(null);
+  const [moveMenuId, setMoveMenuId] = useState<string | null>(null);
   const journalRef = useRef(journal);
+  const moveMenuRef = useRef<HTMLSpanElement | null>(null);
 
   useEffect(() => {
     journalRef.current = journal;
   }, [journal]);
 
+  useEffect(() => {
+    if (!moveMenuId) return;
+    function onDoc(event: MouseEvent) {
+      if (!moveMenuRef.current?.contains(event.target as Node)) setMoveMenuId(null);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [moveMenuId]);
+
   const active = journal.activities.filter((a) => !a.archived);
   const archived = journal.activities.filter((a) => a.archived);
   const activeCount = active.length;
+  const threads = journal.threads ?? [];
+  const hasThreads = threads.length > 0;
+  const showGrouped = hasThreads || groupingMode;
   const showRecall = canEdit && loaded && recallOpen;
   const savedClassOf = journal.profile?.classOf;
   const classOf = resolveClassOf(savedClassOf);
@@ -406,6 +431,316 @@ function MyActivitiesView({
     setQuickState(emptyRecallState());
     setQuickDraft("");
     setQuickDup("");
+  }
+
+  function addNamedThread(event?: { preventDefault(): void }) {
+    event?.preventDefault();
+    const name = newThreadName.trim();
+    if (!name) return;
+    const { journal: next, thread } = createThread(journalRef.current, name);
+    commit(next);
+    setNewThreadName("");
+    setNewThreadOpen(false);
+    setGroupingMode(true);
+    return thread;
+  }
+
+  function renderRecordRow(activity: Activity) {
+    const cells = gradeCells(activity);
+    const years = recordSchoolYears(activity);
+    const span = recordSpanText(activity, gradeNow);
+    const isNew = highlightIds.includes(activity.id);
+    const needsDetails = activityNeedsDetails(activity);
+    const markers = awards
+      .filter((award) => award.activityId === activity.id && awardGradeNumber(award.grade) != null)
+      .map((award) => ({
+        grade: awardGradeNumber(award.grade)!,
+        title: award.title,
+      }));
+    const metaBits = [activity.role, activity.organization].filter(Boolean) as string[];
+    const editingSpan = spanEditId === activity.id;
+    const moveOpen = moveMenuId === activity.id;
+    return (
+      <div key={activity.id} className={isNew ? "rec-row rec-cols is-new" : "rec-row rec-cols"}>
+        <div className="rec-name">
+          <button type="button" onClick={() => onOpenActivity(activity.id)}>
+            <ActivityIcon activity={activity} size={20} />
+            <span>{activity.name}</span>
+          </button>
+          <span className="rec-meta">
+            {isNew ? <span className="rec-new-tag">New</span> : null}
+            <span>
+              {span}
+              {metaBits.length ? ` · ${metaBits.join(", ")}` : ""}
+            </span>
+          </span>
+        </div>
+        {editingSpan ? (
+          <ul className="aj-recall-items rec-span-edit">
+            <RecallAnswerCard
+              name={activity.name}
+              leading={<ActivityIcon activity={activity} size={20} />}
+              state={spanEditState}
+              currentGrade={gradeNow}
+              prompt="Tap the grade you started."
+              removeLabel="Cancel"
+              onRemove={() => {
+                setSpanEditId(null);
+                setSpanEditState(emptyRecallState());
+              }}
+              onPick={(g) => {
+                const next = nextRecallPick(spanEditState, g);
+                setSpanEditState(next);
+                saveSpan(activity.id, next, false);
+              }}
+              onStill={() => {
+                const next: RecallAnswerState = {
+                  ...spanEditState,
+                  stillDoing: true,
+                  until: null,
+                  pickMode: "start",
+                };
+                setSpanEditState(next);
+                saveSpan(activity.id, next, false);
+              }}
+              onStopped={() => {
+                const next: RecallAnswerState = {
+                  ...spanEditState,
+                  stillDoing: false,
+                  pickMode: spanEditState.since == null ? "start" : "end",
+                  editing: true,
+                };
+                setSpanEditState(next);
+                saveSpan(activity.id, next, false);
+              }}
+              onDone={() => {
+                const next = { ...spanEditState, editing: false };
+                setSpanEditState(next);
+                saveSpan(activity.id, next, false);
+              }}
+              onChangeClick={() =>
+                setSpanEditState((s) => ({
+                  ...s,
+                  editing: true,
+                  pickMode: s.stillDoing ? "start" : "end",
+                }))
+              }
+            />
+          </ul>
+        ) : (
+          <GradeStrip
+            size="row"
+            currentGrade={gradeNow}
+            cells={cells}
+            markers={markers}
+            label={stripAriaLabel(activity.name, span)}
+            onEmptyClick={
+              canEdit && years === 0 && activity.id !== quickId
+                ? () => {
+                    setSpanEditId(activity.id);
+                    setSpanEditState(emptyRecallState());
+                  }
+                : undefined
+            }
+          />
+        )}
+        <span className="rec-years">
+          {years ? `${years} ${years === 1 ? "yr" : "yrs"}` : ""}
+        </span>
+        <span className="rec-act" ref={moveOpen ? moveMenuRef : undefined}>
+          {canEdit && showGrouped ? (
+            <span className="rec-move-wrap">
+              <button
+                type="button"
+                className="aj-text-btn"
+                onClick={() => setMoveMenuId(moveOpen ? null : activity.id)}
+              >
+                Move
+              </button>
+              {moveOpen ? (
+                <div className="rec-move-menu" role="menu">
+                  {threads.map((thread) => (
+                    <button
+                      key={thread.id}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        commit(assignActivityToThread(journalRef.current, activity.id, thread.id));
+                        setMoveMenuId(null);
+                      }}
+                    >
+                      {thread.name}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      commit(assignActivityToThread(journalRef.current, activity.id, null));
+                      setMoveMenuId(null);
+                    }}
+                  >
+                    Not in a thread
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="is-new"
+                    onClick={() => {
+                      setMoveMenuId(null);
+                      setNewThreadOpen(true);
+                      setGroupingMode(true);
+                    }}
+                  >
+                    + New thread
+                  </button>
+                </div>
+              ) : null}
+            </span>
+          ) : null}
+          {canEdit && needsDetails ? (
+            <button
+              type="button"
+              className="aj-text-btn strong"
+              onClick={() => onOpenActivity(activity.id)}
+            >
+              Add details
+            </button>
+          ) : null}
+        </span>
+      </div>
+    );
+  }
+
+  function renderNewThreadForm(key: string) {
+    if (!canEdit || !newThreadOpen) return null;
+    return (
+      <form key={key} className="rec-thread-new" onSubmit={addNamedThread}>
+        <label htmlFor={`rec-thread-name-${key}`} className="sr-only">
+          Thread name
+        </label>
+        <input
+          id={`rec-thread-name-${key}`}
+          autoComplete="off"
+          autoFocus
+          placeholder="Name the thread"
+          value={newThreadName}
+          onChange={(e) => setNewThreadName(e.target.value)}
+        />
+        <button type="submit" className="aj-recall-add" disabled={!newThreadName.trim()}>
+          Add
+        </button>
+        <button
+          type="button"
+          className="aj-text-btn"
+          onClick={() => {
+            setNewThreadOpen(false);
+            setNewThreadName("");
+            if (!(journalRef.current.threads?.length)) setGroupingMode(false);
+          }}
+        >
+          Cancel
+        </button>
+      </form>
+    );
+  }
+
+  function renderThreadHeader(thread: ActivityThread, count: number) {
+    if (deleteThreadId === thread.id) {
+      return (
+        <div key={`del-${thread.id}`} className="rec-group-h">
+          <p className="rec-group-confirm">
+            Delete the {thread.name} thread? The activities stay in My Record.
+          </p>
+          <span className="rec-group-tools">
+            <button
+              type="button"
+              className="aj-text-btn strong"
+              onClick={() => {
+                commit(deleteThread(journalRef.current, thread.id));
+                setDeleteThreadId(null);
+              }}
+            >
+              Delete
+            </button>
+            <button type="button" className="aj-text-btn" onClick={() => setDeleteThreadId(null)}>
+              Cancel
+            </button>
+          </span>
+        </div>
+      );
+    }
+    if (renameThreadId === thread.id) {
+      return (
+        <form
+          key={`ren-${thread.id}`}
+          className="rec-group-h"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!renameDraft.trim()) return;
+            commit(renameThread(journalRef.current, thread.id, renameDraft));
+            setRenameThreadId(null);
+            setRenameDraft("");
+          }}
+        >
+          <input
+            className="rec-group-rename"
+            value={renameDraft}
+            autoFocus
+            onChange={(e) => setRenameDraft(e.target.value)}
+            aria-label="Thread name"
+          />
+          <span className="rec-group-tools">
+            <button type="submit" className="aj-text-btn strong" disabled={!renameDraft.trim()}>
+              Save
+            </button>
+            <button
+              type="button"
+              className="aj-text-btn"
+              onClick={() => {
+                setRenameThreadId(null);
+                setRenameDraft("");
+              }}
+            >
+              Cancel
+            </button>
+          </span>
+        </form>
+      );
+    }
+    return (
+      <div key={`h-${thread.id}`} className="rec-group-h">
+        <h3>{thread.name}</h3>
+        <span className="rec-group-count">
+          {count} {count === 1 ? "activity" : "activities"}
+        </span>
+        {canEdit ? (
+          <span className="rec-group-tools">
+            <button
+              type="button"
+              className="aj-text-btn"
+              onClick={() => {
+                setRenameThreadId(thread.id);
+                setRenameDraft(thread.name);
+                setDeleteThreadId(null);
+              }}
+            >
+              Rename
+            </button>
+            <button
+              type="button"
+              className="aj-text-btn"
+              onClick={() => {
+                setDeleteThreadId(thread.id);
+                setRenameThreadId(null);
+              }}
+            >
+              Delete
+            </button>
+          </span>
+        ) : null}
+      </div>
+    );
   }
 
   if (showRecall) {
@@ -490,121 +825,68 @@ function MyActivitiesView({
           <span />
         </div>
 
-        {rows.map((activity) => {
-          const cells = gradeCells(activity);
-          const years = recordSchoolYears(activity);
-          const span = recordSpanText(activity, gradeNow);
-          const isNew = highlightIds.includes(activity.id);
-          const needsDetails = activityNeedsDetails(activity);
-          const markers = awards
-            .filter((award) => award.activityId === activity.id && awardGradeNumber(award.grade) != null)
-            .map((award) => ({
-              grade: awardGradeNumber(award.grade)!,
-              title: award.title,
-            }));
-          const metaBits = [activity.role, activity.organization].filter(Boolean) as string[];
-          const editingSpan = spanEditId === activity.id;
-          return (
-            <div key={activity.id} className={isNew ? "rec-row rec-cols is-new" : "rec-row rec-cols"}>
-              <div className="rec-name">
-                <button type="button" onClick={() => onOpenActivity(activity.id)}>
-                  <ActivityIcon activity={activity} size={20} />
-                  <span>{activity.name}</span>
-                </button>
-                <span className="rec-meta">
-                  {isNew ? <span className="rec-new-tag">New</span> : null}
-                  <span>
-                    {span}
-                    {metaBits.length ? ` · ${metaBits.join(", ")}` : ""}
-                  </span>
-                </span>
-              </div>
-              {editingSpan ? (
-                <ul className="aj-recall-items rec-span-edit">
-                  <RecallAnswerCard
-                    name={activity.name}
-                    leading={<ActivityIcon activity={activity} size={20} />}
-                    state={spanEditState}
-                    currentGrade={gradeNow}
-                    prompt="Tap the grade you started."
-                    removeLabel="Cancel"
-                    onRemove={() => {
-                      setSpanEditId(null);
-                      setSpanEditState(emptyRecallState());
-                    }}
-                    onPick={(g) => {
-                      const next = nextRecallPick(spanEditState, g);
-                      setSpanEditState(next);
-                      saveSpan(activity.id, next, false);
-                    }}
-                    onStill={() => {
-                      const next: RecallAnswerState = {
-                        ...spanEditState,
-                        stillDoing: true,
-                        until: null,
-                        pickMode: "start",
-                      };
-                      setSpanEditState(next);
-                      saveSpan(activity.id, next, false);
-                    }}
-                    onStopped={() => {
-                      const next: RecallAnswerState = {
-                        ...spanEditState,
-                        stillDoing: false,
-                        pickMode: spanEditState.since == null ? "start" : "end",
-                        editing: true,
-                      };
-                      setSpanEditState(next);
-                      saveSpan(activity.id, next, false);
-                    }}
-                    onDone={() => {
-                      const next = { ...spanEditState, editing: false };
-                      setSpanEditState(next);
-                      saveSpan(activity.id, next, false);
-                    }}
-                    onChangeClick={() =>
-                      setSpanEditState((s) => ({
-                        ...s,
-                        editing: true,
-                        pickMode: s.stillDoing ? "start" : "end",
-                      }))
-                    }
-                  />
-                </ul>
-              ) : (
-                <GradeStrip
-                  size="row"
-                  currentGrade={gradeNow}
-                  cells={cells}
-                  markers={markers}
-                  label={stripAriaLabel(activity.name, span)}
-                  onEmptyClick={
-                    canEdit && years === 0 && activity.id !== quickId
-                      ? () => {
-                          setSpanEditId(activity.id);
-                          setSpanEditState(emptyRecallState());
-                        }
-                      : undefined
-                  }
-                />
-              )}
-              <span className="rec-years">
-                {years ? `${years} ${years === 1 ? "yr" : "yrs"}` : ""}
-              </span>
-              <span className="rec-act">
-                {canEdit && needsDetails ? (
-                  <button
-                    type="button"
-                    className="aj-text-btn strong"
-                    onClick={() => onOpenActivity(activity.id)}
-                  >
-                    Add details
-                  </button>
-                ) : null}
-              </span>
-            </div>
-          );
-        })}
+        {showGrouped
+          ? (
+              <>
+                {threads.map((thread) => {
+                  const groupRows = sortRecordActivities(
+                    rows.filter((a) => a.threadId === thread.id),
+                  );
+                  return (
+                    <div key={thread.id} className="rec-group">
+                      {renderThreadHeader(thread, groupRows.length)}
+                      {groupRows.map((activity) => renderRecordRow(activity))}
+                    </div>
+                  );
+                })}
+                <div className="rec-group">
+                  <div className="rec-group-h is-loose">
+                    <h3>Not in a thread</h3>
+                    <span className="rec-group-count">
+                      {rows.filter((a) => !a.threadId).length}{" "}
+                      {rows.filter((a) => !a.threadId).length === 1 ? "activity" : "activities"}
+                    </span>
+                    {canEdit ? (
+                      <span className="rec-group-tools">
+                        <button
+                          type="button"
+                          className="aj-text-btn strong"
+                          onClick={() => {
+                            setNewThreadOpen(true);
+                            setGroupingMode(true);
+                          }}
+                        >
+                          + New thread
+                        </button>
+                      </span>
+                    ) : null}
+                  </div>
+                  {renderNewThreadForm("loose")}
+                  {sortRecordActivities(rows.filter((a) => !a.threadId)).map((activity) =>
+                    renderRecordRow(activity),
+                  )}
+                </div>
+              </>
+            )
+          : rows.map((activity) => renderRecordRow(activity))}
+
+        {!showGrouped && canEdit && activeCount >= 3 ? (
+          <div className="rec-thread-hint">
+            <span>
+              Some of these go together. Group them into threads, like everything you do with music.
+            </span>
+            <button
+              type="button"
+              className="aj-text-btn strong"
+              onClick={() => {
+                setGroupingMode(true);
+                setNewThreadOpen(true);
+              }}
+            >
+              Group into threads
+            </button>
+          </div>
+        ) : null}
 
         {canEdit ? (
           <div className="rec-qa">

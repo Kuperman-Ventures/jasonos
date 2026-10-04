@@ -170,6 +170,24 @@ export type Activity = {
   recallSource?: boolean;
   /** Phosphor icon id from the activity-icons allowlist. */
   icon?: string;
+  /** Thread this activity belongs to, if any. */
+  threadId?: string;
+};
+
+export type ThreadPlan = {
+  deeper?: string;
+  lead?: string;
+  outsideSchool?: string;
+  makeSomething?: string;
+  connect?: string;
+};
+
+export type ActivityThread = {
+  id: string;
+  name: string;
+  plan?: ThreadPlan; // used by Plan in step 2
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type Award = {
@@ -229,6 +247,7 @@ export type ActivitiesJournal = {
   activities: Activity[];
   awards: Award[];
   applicationLists: ApplicationList[];
+  threads?: ActivityThread[];
   profile?: JournalProfile;
 };
 
@@ -607,6 +626,8 @@ function normalizeActivity(raw: unknown): Activity | null {
   if (archived !== undefined) activity.archived = archived;
   if (recallSource !== undefined) activity.recallSource = recallSource;
   if (icon && isActivityIconId(icon)) activity.icon = icon;
+  const threadId = asOptionalString(row.threadId);
+  if (threadId) activity.threadId = threadId;
   if (categoryExtras) activity.categoryExtras = categoryExtras;
   if (reflections) activity.reflections = reflections;
   if (Array.isArray(row.links)) {
@@ -712,15 +733,60 @@ function normalizeApplicationList(raw: unknown): ApplicationList | null {
   };
 }
 
+function normalizeThreadPlan(raw: unknown): ThreadPlan | undefined {
+  const row = asRecord(raw);
+  if (!row) return undefined;
+  const out: ThreadPlan = {};
+  const deeper = asString(row.deeper);
+  const lead = asString(row.lead);
+  const outsideSchool = asString(row.outsideSchool);
+  const makeSomething = asString(row.makeSomething);
+  const connect = asString(row.connect);
+  if (deeper !== undefined) out.deeper = deeper;
+  if (lead !== undefined) out.lead = lead;
+  if (outsideSchool !== undefined) out.outsideSchool = outsideSchool;
+  if (makeSomething !== undefined) out.makeSomething = makeSomething;
+  if (connect !== undefined) out.connect = connect;
+  return Object.keys(out).length ? out : undefined;
+}
+
+function normalizeThread(raw: unknown): ActivityThread | null {
+  const row = asRecord(raw);
+  if (!row) return null;
+  const name = asOptionalString(row.name);
+  if (!name) return null;
+  const stamp = nowIso();
+  const thread: ActivityThread = {
+    id: asOptionalString(row.id) ?? newId("thread"),
+    name,
+    createdAt: asOptionalString(row.createdAt) ?? stamp,
+    updatedAt: asOptionalString(row.updatedAt) ?? stamp,
+  };
+  const plan = normalizeThreadPlan(row.plan);
+  if (plan) thread.plan = plan;
+  return thread;
+}
+
 export function normalizeJournal(raw: unknown): ActivitiesJournal {
   const empty = emptyJournal();
   const row = asRecord(raw);
   if (!row) return empty;
   const profile = normalizeProfile(row.profile);
-  return {
-    activities: Array.isArray(row.activities)
+  const threads = Array.isArray(row.threads)
+    ? row.threads.map(normalizeThread).filter((t): t is ActivityThread => Boolean(t))
+    : [];
+  const threadIds = new Set(threads.map((t) => t.id));
+  const activities = (
+    Array.isArray(row.activities)
       ? row.activities.map(normalizeActivity).filter((a): a is Activity => Boolean(a))
-      : [],
+      : []
+  ).map((activity) => {
+    if (!activity.threadId || threadIds.has(activity.threadId)) return activity;
+    const { threadId: _drop, ...rest } = activity;
+    return rest;
+  });
+  return {
+    activities,
     awards: Array.isArray(row.awards)
       ? row.awards.map(normalizeAward).filter((a): a is Award => Boolean(a))
       : [],
@@ -729,6 +795,7 @@ export function normalizeJournal(raw: unknown): ActivitiesJournal {
           .map(normalizeApplicationList)
           .filter((a): a is ApplicationList => Boolean(a))
       : [],
+    ...(threads.length ? { threads } : {}),
     ...(profile ? { profile } : {}),
   };
 }
@@ -839,6 +906,73 @@ export function restoreActivity(journal: ActivitiesJournal, activityId: string):
     activities: journal.activities.map((a) =>
       a.id === activityId ? { ...a, archived: false, updatedAt: stamp } : a,
     ),
+  };
+}
+
+export function createThread(
+  journal: ActivitiesJournal,
+  name: string,
+): { journal: ActivitiesJournal; thread: ActivityThread } {
+  const stamp = nowIso();
+  const thread: ActivityThread = {
+    id: newId("thread"),
+    name: name.trim() || "Thread",
+    createdAt: stamp,
+    updatedAt: stamp,
+  };
+  return {
+    journal: { ...journal, threads: [...(journal.threads ?? []), thread] },
+    thread,
+  };
+}
+
+export function renameThread(
+  journal: ActivitiesJournal,
+  threadId: string,
+  name: string,
+): ActivitiesJournal {
+  const trimmed = name.trim();
+  if (!trimmed) return journal;
+  const stamp = nowIso();
+  return {
+    ...journal,
+    threads: (journal.threads ?? []).map((t) =>
+      t.id === threadId ? { ...t, name: trimmed, updatedAt: stamp } : t,
+    ),
+  };
+}
+
+export function deleteThread(journal: ActivitiesJournal, threadId: string): ActivitiesJournal {
+  const stamp = nowIso();
+  return {
+    ...journal,
+    threads: (journal.threads ?? []).filter((t) => t.id !== threadId),
+    activities: journal.activities.map((a) => {
+      if (a.threadId !== threadId) return a;
+      const { threadId: _drop, ...rest } = a;
+      return { ...rest, updatedAt: stamp };
+    }),
+  };
+}
+
+export function assignActivityToThread(
+  journal: ActivitiesJournal,
+  activityId: string,
+  threadId: string | null,
+): ActivitiesJournal {
+  const stamp = nowIso();
+  const valid =
+    threadId == null || (journal.threads ?? []).some((t) => t.id === threadId) ? threadId : null;
+  return {
+    ...journal,
+    activities: journal.activities.map((a) => {
+      if (a.id !== activityId) return a;
+      if (valid == null) {
+        const { threadId: _drop, ...rest } = a;
+        return { ...rest, updatedAt: stamp };
+      }
+      return { ...a, threadId: valid, updatedAt: stamp };
+    }),
   };
 }
 

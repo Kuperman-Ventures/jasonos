@@ -9,12 +9,15 @@ import {
   addPeriod,
   applyRecallSpan,
   archiveActivity,
+  assignActivityToThread,
   charCount,
   createActivity,
   createApplicationList,
+  createThread,
   classStanding,
   currentGrade,
   currentSchoolYearEnd,
+  deleteThread,
   emptyJournal,
   graduationYearOptions,
   estimatedHours,
@@ -30,6 +33,7 @@ import {
   recordSpanText,
   recordSummary,
   removeActivity,
+  renameThread,
   restoreActivity,
   resolveClassOf,
   schoolYearForGrade,
@@ -776,4 +780,72 @@ test("recordSummary one longest, two tied, three tied, and no grades", () => {
   journal = upsertActivity(journal, blank);
   journal = upsertActivity(journal, createActivity({ name: "Chess", category: "hobby-personal-pursuit" }));
   assert.equal(recordSummary(journal, 11), "2 activities.");
+});
+
+test("normalizeJournal round-trips threads and drops orphan threadId", () => {
+  const stamp = "2026-10-04T00:00:00.000Z";
+  const journal: ActivitiesJournal = {
+    activities: [
+      {
+        ...createActivity({ name: "Trumpet", category: "arts-music-theater" }),
+        threadId: "thread_music",
+      },
+      {
+        ...createActivity({ name: "Orphan", category: "other" }),
+        threadId: "missing",
+      },
+    ],
+    awards: [],
+    applicationLists: [],
+    threads: [
+      {
+        id: "thread_music",
+        name: "Music",
+        plan: { deeper: "More repertoire" },
+        createdAt: stamp,
+        updatedAt: stamp,
+      },
+      {
+        id: "thread_blank",
+        name: "   ",
+        createdAt: stamp,
+        updatedAt: stamp,
+      },
+    ],
+  };
+  const again = normalizeJournal(JSON.parse(JSON.stringify(journal)));
+  assert.equal(again.threads?.length, 1);
+  assert.equal(again.threads?.[0]!.name, "Music");
+  assert.equal(again.threads?.[0]!.plan?.deeper, "More repertoire");
+  assert.equal(again.activities.find((a) => a.name === "Trumpet")?.threadId, "thread_music");
+  assert.equal(again.activities.find((a) => a.name === "Orphan")?.threadId, undefined);
+});
+
+test("createThread, renameThread, assignActivityToThread, and deleteThread", () => {
+  let journal = emptyJournal();
+  const trumpet = createActivity({ name: "Trumpet", category: "arts-music-theater" });
+  const band = createActivity({ name: "Band", category: "arts-music-theater" });
+  journal = upsertActivity(journal, trumpet);
+  journal = upsertActivity(journal, band);
+
+  const created = createThread(journal, "Music");
+  journal = created.journal;
+  assert.equal(journal.threads?.length, 1);
+  assert.equal(created.thread.name, "Music");
+
+  journal = renameThread(journal, created.thread.id, "Music and performance");
+  assert.equal(journal.threads?.[0]!.name, "Music and performance");
+
+  journal = assignActivityToThread(journal, trumpet.id, created.thread.id);
+  journal = assignActivityToThread(journal, band.id, created.thread.id);
+  assert.equal(journal.activities.find((a) => a.id === trumpet.id)?.threadId, created.thread.id);
+  assert.equal(journal.activities.find((a) => a.id === band.id)?.threadId, created.thread.id);
+
+  journal = assignActivityToThread(journal, band.id, null);
+  assert.equal(journal.activities.find((a) => a.id === band.id)?.threadId, undefined);
+
+  journal = assignActivityToThread(journal, band.id, created.thread.id);
+  journal = deleteThread(journal, created.thread.id);
+  assert.equal(journal.threads?.length ?? 0, 0);
+  assert.equal(journal.activities.every((a) => a.threadId == null), true);
 });
