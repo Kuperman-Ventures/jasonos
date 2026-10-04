@@ -334,7 +334,6 @@ export function ActivitiesJournal({
               aria-current={selected ? "page" : undefined}
               onClick={() => {
                 onViewChange(item.id);
-                if (item.id !== "my") onOpenActivity(null);
               }}
             >
               {item.label}

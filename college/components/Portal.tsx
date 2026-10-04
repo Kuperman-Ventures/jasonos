@@ -627,6 +627,10 @@ export function Portal({
     journalDirty.current = true;
     setActivitiesJournal(next);
     pendingJournal.current = next;
+    if (!persistedRef.current) {
+      setSaveState("Not saved");
+      return;
+    }
     setSaveState("Saving...");
     if (journalSaveTimer.current != null) window.clearTimeout(journalSaveTimer.current);
     journalSaveTimer.current = window.setTimeout(() => {
