@@ -388,6 +388,8 @@ export type ActivitiesJournal = {
   applicationLists: ApplicationList[];
   threads?: ActivityThread[];
   profile?: JournalProfile;
+  /** Four-stage Activities track (Gather / Shape / Plan / Prep). Opaque blob; normalized in activities-track. */
+  track?: unknown;
 };
 
 export type ActivityStatusFilter = "all" | "ongoing" | "completed";
@@ -1158,6 +1160,7 @@ export function normalizeJournal(raw: unknown): ActivitiesJournal {
       : [],
     ...(threads.length ? { threads } : {}),
     ...(profile ? { profile } : {}),
+    ...(row.track !== undefined ? { track: row.track } : {}),
   };
 }
 

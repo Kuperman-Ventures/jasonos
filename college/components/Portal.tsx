@@ -585,7 +585,7 @@ export function Portal({
     setActivitiesView(next);
     setTab("apps");
     setAppsSection("activities");
-    if (next !== "my") setOpenActivityId(null);
+    if (next !== "prep") setOpenActivityId(null);
     replaceUrl(
       "apps",
       null,
@@ -593,7 +593,7 @@ export function Portal({
       null,
       "activities",
       next,
-      next === "my" ? openActivityId : null,
+      next === "prep" ? openActivityId : null,
     );
   }
 
@@ -601,8 +601,8 @@ export function Portal({
     setOpenActivityId(id);
     setTab("apps");
     setAppsSection("activities");
-    setActivitiesView("my");
-    replaceUrl("apps", null, projectSection, null, "activities", "my", id);
+    setActivitiesView("prep");
+    replaceUrl("apps", null, projectSection, null, "activities", "prep", id);
   }
 
   function flushJournalSave(opts?: { keepalive?: boolean }) {
