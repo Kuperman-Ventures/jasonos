@@ -454,14 +454,24 @@ export function Portal({
     }
     setTab(target);
     if (target !== "notes") setOpenNoteId(null);
-    if (target !== "apps") setOpenActivityId(null);
     if (target !== "finances" && target !== "colleges") setSchoolModalTab("snapshot");
+    const nextAppsSection = target === "apps" ? DEFAULT_APPS_SECTION : appsSection;
+    const nextActivitiesView = target === "apps" ? DEFAULT_ACTIVITIES_VIEW : activitiesView;
+    if (target === "apps") {
+      setAppsSection(nextAppsSection);
+      setActivitiesView(nextActivitiesView);
+      setOpenActivityId(null);
+    } else {
+      setOpenActivityId(null);
+    }
     replaceUrl(
       target,
       target === "colleges" || target === "finances" ? schoolId : null,
       projectSection,
       null,
-      appsSection,
+      nextAppsSection,
+      nextActivitiesView,
+      null,
     );
   }
 
@@ -578,8 +588,10 @@ export function Portal({
   function goAppsSection(next: AppsSectionId) {
     setAppsSection(next);
     setTab("apps");
-    if (next !== "activities") setOpenActivityId(null);
-    replaceUrl("apps", null, projectSection, null, next, activitiesView, next === "activities" ? openActivityId : null);
+    const nextView = next === "activities" ? DEFAULT_ACTIVITIES_VIEW : activitiesView;
+    if (next === "activities") setActivitiesView(nextView);
+    setOpenActivityId(null);
+    replaceUrl("apps", null, projectSection, null, next, nextView, null);
   }
 
   function goActivitiesView(next: ActivitiesViewId) {
