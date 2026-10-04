@@ -17180,15 +17180,27 @@ html[data-mode="dark"] .trip-cell.kbreak {
 /* scatter admit-rate labels */
 
 /* ---------- Activities four-stage track (Gather / Shape / Plan / Prep) ---------- */
+.at-apps-head {
+  margin-bottom: var(--space-2);
+}
 .at {
   max-width: 1040px;
-  margin: 0 auto;
-  padding: 8px 0 120px;
+  margin: 0;
+  padding: 12px 0 80px;
   color: var(--color-text);
   font-family: var(--font-body);
 }
+.main .at h2,
+.main .at h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+}
 .at a,
-.at-link {
+.at-link,
+button.at-link {
+  appearance: none;
   color: var(--text-accent);
   text-decoration: underline;
   text-decoration-thickness: 1px;
@@ -17198,7 +17210,6 @@ html[data-mode="dark"] .trip-cell.kbreak {
   border: 0;
   padding: 0;
   font: inherit;
-  color: var(--text-accent);
 }
 .at a:hover,
 .at-link:hover {
@@ -17221,6 +17232,7 @@ html[data-mode="dark"] .trip-cell.kbreak {
   color: var(--text-subtle);
 }
 .at-pill {
+  appearance: none;
   height: 32px;
   padding: 0 15px;
   border-radius: 16px;
@@ -17331,6 +17343,7 @@ html[data-mode="dark"] .trip-cell.kbreak {
   border-bottom-color: var(--color-accent);
 }
 .at-tab {
+  appearance: none;
   white-space: nowrap;
   background: none;
   border: 0;
@@ -17353,6 +17366,10 @@ html[data-mode="dark"] .trip-cell.kbreak {
 .at-rib {
   display: flex;
   gap: 3px;
+  align-items: stretch;
+}
+.at-rib > * {
+  flex: 0 0 auto;
 }
 .at-rw {
   display: grid;
@@ -17422,6 +17439,12 @@ html[data-mode="dark"] .trip-cell.kbreak {
   align-items: center;
   margin-top: 8px;
   max-width: 600px;
+}
+.at-lane-meta > div:last-child {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+  align-items: center;
 }
 .at-lenbar {
   height: 26px;

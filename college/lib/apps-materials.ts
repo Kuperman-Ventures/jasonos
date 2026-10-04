@@ -69,3 +69,11 @@ export function resolveActivitiesView(raw: string | null): ActivitiesViewId {
   if (raw && raw in LEGACY_ACTIVITIES_VIEW) return LEGACY_ACTIVITIES_VIEW[raw]!;
   return DEFAULT_ACTIVITIES_VIEW;
 }
+
+/** Opening an activity goes to Application Prep. Clearing it must not change the current stage. */
+export function viewForOpenedActivity(
+  current: ActivitiesViewId,
+  activityId: string | null,
+): ActivitiesViewId {
+  return activityId ? "prep" : current;
+}

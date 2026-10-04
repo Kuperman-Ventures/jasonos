@@ -38,10 +38,10 @@ export function AppsMaterialsTab({
 
   return (
     <section className="pm">
-      <header className="page-head">
+      <header className={section === "activities" ? "page-head at-apps-head" : "page-head"}>
         <div>
           <div className="dateline">{dateline}</div>
-          <h2>Apps &amp; Materials</h2>
+          {section !== "activities" ? <h2>Apps &amp; Materials</h2> : null}
         </div>
       </header>
 

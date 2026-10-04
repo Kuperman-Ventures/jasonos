@@ -6,6 +6,7 @@ import {
   isAppsSectionId,
   resolveAppsSection,
   resolveActivitiesView,
+  viewForOpenedActivity,
 } from "./apps-materials";
 import { normalizeTabId } from "./types";
 
@@ -37,4 +38,11 @@ test("Activities views default to Plan and map the old My Record URL", () => {
   assert.equal(resolveActivitiesView("nope"), "plan");
   assert.equal(resolveActivitiesView("my"), "shape");
   assert.equal(resolveActivitiesView("write"), "prep");
+});
+
+test("opening an activity goes to Application Prep; clearing it keeps the current stage", () => {
+  assert.equal(viewForOpenedActivity("plan", "a1"), "prep");
+  assert.equal(viewForOpenedActivity("shape", "a1"), "prep");
+  assert.equal(viewForOpenedActivity("plan", null), "plan");
+  assert.equal(viewForOpenedActivity("gather", null), "gather");
 });

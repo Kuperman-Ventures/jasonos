@@ -59,6 +59,7 @@ import {
   DEFAULT_ACTIVITIES_VIEW,
   DEFAULT_APPS_SECTION,
   resolveActivitiesView,
+  viewForOpenedActivity,
   resolveAppsSection,
   type ActivitiesViewId,
   type AppsSectionId,
@@ -601,8 +602,13 @@ export function Portal({
     setOpenActivityId(id);
     setTab("apps");
     setAppsSection("activities");
-    setActivitiesView("prep");
-    replaceUrl("apps", null, projectSection, null, "activities", "prep", id);
+    if (id) {
+      const nextView = viewForOpenedActivity(activitiesView, id);
+      setActivitiesView(nextView);
+      replaceUrl("apps", null, projectSection, null, "activities", nextView, id);
+      return;
+    }
+    replaceUrl("apps", null, projectSection, null, "activities", activitiesView, null);
   }
 
   function flushJournalSave(opts?: { keepalive?: boolean }) {
