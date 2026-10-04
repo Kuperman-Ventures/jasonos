@@ -12,6 +12,9 @@ import { ACTIVITIES_VIEWS, type ActivitiesViewId } from "@/lib/apps-materials";
 import {
   ACTIVITY_CATEGORIES,
   APP_DRAFT_LIMITS,
+  COMMON_APP_LIST_ID,
+  HONOR_LEVEL_LABEL,
+  HONOR_LIMITS,
   activityFromRecall,
   activityNeedsDetails,
   activityStatusLabel,
@@ -22,21 +25,27 @@ import {
   archiveAward,
   assignActivityToThread,
   charCount,
-  createApplicationList,
+  commonAppCopyText,
+  commonAppGrades,
+  commonAppTime,
+  commonAppTiming,
   createThread,
   currentGrade,
   deleteThread,
+  ensureCommonAppList,
   estimatedHours,
-  exportListMarkdown,
+  getCommonAppList,
   gradeCells,
-  latestPeriod,
-  latestUpdate,
+  inferHonorLevel,
+  isDraftStale,
   newId,
+  prepSummary,
   recordSchoolYears,
   recordSpanText,
   recordSummary,
   removeActivity,
   removeDraftFromList,
+  removeHonorFromList,
   renameThread,
   reorderDraft,
   restoreActivity,
@@ -46,6 +55,7 @@ import {
   upsertActivity,
   upsertAward,
   upsertDraft,
+  upsertHonor,
   type ActivitiesJournal as Journal,
   type Activity,
   type ActivityCategoryId,
@@ -54,6 +64,8 @@ import {
   type ApplicationDraft,
   type Award,
   type GradeLevel,
+  type HonorDraft,
+  type HonorLevel,
   type ParticipationPeriod,
   type PeriodKind,
   type PeriodStatus,
@@ -100,10 +112,6 @@ const PERIOD_STATUSES: { id: PeriodStatus; label: string }[] = [
 ];
 
 type DetailTab = "overview" | "periods" | "updates" | "reflections" | "people";
-
-function categoryLabel(id: ActivityCategoryId | string): string {
-  return ACTIVITY_CATEGORIES.find((c) => c.id === id)?.label ?? id;
-}
 
 function gradeLabel(grade: GradeLevel | string): string {
   return GRADE_OPTIONS.find((g) => g.id === grade)?.label ?? grade;
@@ -173,24 +181,92 @@ function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-function downloadMarkdown(filename: string, content: string) {
-  const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 function CharCounter({ value, limit }: { value: string | undefined; limit: number }) {
   const n = charCount(value);
   const over = n > limit;
   return (
     <span className={over ? "aj-char aj-char-over" : "aj-char"}>
-      {n}/{limit}
+      {n} / {limit}
     </span>
   );
+}
+
+function clipChars(value: string | undefined, limit: number): string | undefined {
+  if (!value) return undefined;
+  const chars = [...value];
+  if (chars.length <= limit) return value;
+  return chars.slice(0, limit).join("");
+}
+
+function ordinalGrade(n: number): string {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
+}
+
+function gradeRangeLabel(grades: number[]): string | null {
+  if (!grades.length) return null;
+  if (grades.length === 1) return ordinalGrade(grades[0]!);
+  return `${ordinalGrade(grades[0]!)}-${ordinalGrade(grades[grades.length - 1]!)}`;
+}
+
+function middleSchoolGrades(activity: Activity): number[] {
+  const grades = new Set<number>();
+  for (const period of activity.periods) {
+    if (period.status !== "completed" && period.status !== "in_progress") continue;
+    const grade = Number(period.grade);
+    if (Number.isInteger(grade) && grade >= 6 && grade <= 8) grades.add(grade);
+  }
+  return [...grades].sort((a, b) => a - b);
+}
+
+function chosenActivitySub(activity: Activity): string {
+  const high = commonAppGrades(activity);
+  const middle = middleSchoolGrades(activity);
+  const range = gradeRangeLabel(high);
+  const since = middle.length ? `since ${ordinalGrade(middle[0]!)}` : null;
+  if (range && since) return `${range} · ${since}`;
+  if (range) return range;
+  if (since) return since;
+  return "Grades not set";
+}
+
+function poolActivityFact(activity: Activity): string {
+  const high = commonAppGrades(activity);
+  if (high.length) {
+    const range = gradeRangeLabel(high)!;
+    const yrs = high.length;
+    return `${range} · ${yrs} yr${yrs === 1 ? "" : "s"}`;
+  }
+  if (middleSchoolGrades(activity).length) return "Middle school only";
+  return "Grades not set";
+}
+
+function draftIsOverLimit(draft: ApplicationDraft): boolean {
+  return (
+    charCount(draft.draftRole) > APP_DRAFT_LIMITS.role ||
+    charCount(draft.draftOrg) > APP_DRAFT_LIMITS.org ||
+    charCount(draft.shortDescription) > APP_DRAFT_LIMITS.short
+  );
+}
+
+function draftStateLabel(
+  draft: ApplicationDraft,
+  activity: Activity | undefined,
+): { kind: "draft" | "ready" | "over" | "changed"; label: string } {
+  if (draftIsOverLimit(draft)) return { kind: "over", label: "Over limit" };
+  if (activity && isDraftStale(draft, activity)) return { kind: "changed", label: "Changed" };
+  if (draft.reviewStatus === "reviewed") return { kind: "ready", label: "Ready" };
+  return { kind: "draft", label: "Draft" };
 }
 
 export function ActivitiesJournal({
@@ -214,6 +290,7 @@ export function ActivitiesJournal({
 }) {
   const [highlightIds, setHighlightIds] = useState<string[]>([]);
   const [detailTab, setDetailTab] = useState<DetailTab | undefined>(undefined);
+  const [focusAwards, setFocusAwards] = useState(false);
 
   useEffect(() => {
     if (view !== "my") setHighlightIds([]);
@@ -228,6 +305,20 @@ export function ActivitiesJournal({
   function openActivityAt(id: string | null, tab?: DetailTab) {
     setDetailTab(tab);
     onOpenActivity(id);
+  }
+
+  function goToMyRecord(activityId?: string | null, tab?: DetailTab) {
+    onViewChange("my");
+    if (activityId) openActivityAt(activityId, tab);
+    else {
+      openActivityAt(null);
+    }
+  }
+
+  function goToAwards() {
+    setFocusAwards(true);
+    onViewChange("my");
+    openActivityAt(null);
   }
 
   return (
@@ -272,12 +363,21 @@ export function ActivitiesJournal({
             onHighlightIds={setHighlightIds}
             onChange={onChange}
             onOpenActivity={openActivityAt}
+            focusAwards={focusAwards}
+            onFocusAwardsHandled={() => setFocusAwards(false)}
           />
         )
       ) : null}
 
       {view === "prep" ? (
-        <PrepView journal={journal} canEdit={canEdit} onChange={onChange} />
+        <PrepView
+          journal={journal}
+          canEdit={canEdit}
+          onChange={onChange}
+          onOpenActivity={(id) => goToMyRecord(id, "periods")}
+          onGoToMyRecord={() => goToMyRecord(null)}
+          onGoToAwards={goToAwards}
+        />
       ) : null}
     </div>
   );
@@ -306,6 +406,8 @@ function MyActivitiesView({
   onHighlightIds,
   onChange,
   onOpenActivity,
+  focusAwards = false,
+  onFocusAwardsHandled,
 }: {
   journal: Journal;
   canEdit: boolean;
@@ -314,6 +416,8 @@ function MyActivitiesView({
   onHighlightIds: (ids: string[]) => void;
   onChange: (next: Journal) => void;
   onOpenActivity: (id: string | null, tab?: DetailTab) => void;
+  focusAwards?: boolean;
+  onFocusAwardsHandled?: () => void;
 }) {
   const [recallOpen, setRecallOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -339,6 +443,12 @@ function MyActivitiesView({
   useEffect(() => {
     journalRef.current = journal;
   }, [journal]);
+
+  useEffect(() => {
+    if (!focusAwards) return;
+    document.getElementById("rec-awards-h")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    onFocusAwardsHandled?.();
+  }, [focusAwards, onFocusAwardsHandled]);
 
   useEffect(() => {
     if (!moveMenuId) return;
@@ -1931,387 +2041,789 @@ function PrepView({
   journal,
   canEdit,
   onChange,
+  onOpenActivity,
+  onGoToMyRecord,
+  onGoToAwards,
 }: {
   journal: Journal;
   canEdit: boolean;
   onChange: (next: Journal) => void;
+  onOpenActivity: (id: string) => void;
+  onGoToMyRecord: () => void;
+  onGoToAwards: () => void;
 }) {
-  const [selectedListId, setSelectedListId] = useState<string | null>(
-    journal.applicationLists[0]?.id ?? null,
-  );
-  const [newListName, setNewListName] = useState("");
-  const [addActivityId, setAddActivityId] = useState("");
+  const [section, setSection] = useState<"activities" | "honors">("activities");
   const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
+  const [selectedHonorId, setSelectedHonorId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [copyFallback, setCopyFallback] = useState<string | null>(null);
+  const ensuredRef = useRef(false);
 
-  const list =
-    journal.applicationLists.find((l) => l.id === selectedListId) ??
-    journal.applicationLists[0] ??
-    null;
+  useEffect(() => {
+    if (!canEdit || ensuredRef.current) return;
+    if (journal.applicationLists.some((l) => l.id === COMMON_APP_LIST_ID)) {
+      ensuredRef.current = true;
+      return;
+    }
+    ensuredRef.current = true;
+    onChange(ensureCommonAppList(journal));
+  }, [canEdit, journal, onChange]);
+
+  const list = canEdit
+    ? journal.applicationLists.find((l) => l.id === COMMON_APP_LIST_ID) ?? null
+    : getCommonAppList(journal);
 
   const ordered = list
     ? [...list.entries].sort((a, b) => a.sortOrder - b.sortOrder)
     : [];
+  const honors = list
+    ? [...(list.honors ?? [])].sort((a, b) => a.sortOrder - b.sortOrder)
+    : [];
 
   const selectedDraft =
     ordered.find((d) => d.id === selectedDraftId) ?? ordered[0] ?? null;
-
-  const sourceActivity = selectedDraft
+  const selectedActivity = selectedDraft
     ? journal.activities.find((a) => a.id === selectedDraft.activityId)
     : null;
 
-  const availableActivities = journal.activities.filter((a) => {
-    if (a.archived) return false;
-    if (!list) return true;
-    return !list.entries.some((e) => e.activityId === a.id);
-  });
+  const activeActivities = journal.activities.filter((a) => !a.archived);
+  const chosenIds = new Set(ordered.map((d) => d.activityId));
+  const poolActivities = activeActivities
+    .filter((a) => !chosenIds.has(a.id))
+    .sort((a, b) => {
+      const ga = commonAppGrades(a).length;
+      const gb = commonAppGrades(b).length;
+      if (gb !== ga) return gb - ga;
+      return a.name.localeCompare(b.name);
+    });
+
+  const activeAwards = journal.awards.filter((a) => !a.archived);
+  const chosenAwardIds = new Set(honors.map((h) => h.awardId));
+  const poolAwards = activeAwards
+    .filter((a) => !chosenAwardIds.has(a.id))
+    .sort((a, b) => a.title.localeCompare(b.title));
+
+  const summary = list
+    ? prepSummary(list, journal)
+    : "0 of 10 activities chosen, 0 ready. 0 of 5 honors chosen. Built from My Record, in Common App fields.";
 
   function moveDraft(draftId: string, direction: -1 | 1) {
     if (!list || !canEdit) return;
     const idx = ordered.findIndex((d) => d.id === draftId);
     const swapIdx = idx + direction;
     if (idx < 0 || swapIdx < 0 || swapIdx >= ordered.length) return;
-    const a = ordered[idx];
-    const b = ordered[swapIdx];
+    const a = ordered[idx]!;
+    const b = ordered[swapIdx]!;
     let next = reorderDraft(journal, list.id, a.id, b.sortOrder);
     next = reorderDraft(next, list.id, b.id, a.sortOrder);
     onChange(next);
   }
 
-  function patchDraft(patch: Partial<ApplicationDraft>) {
-    if (!list || !selectedDraft || !canEdit) return;
-    onChange(
-      upsertDraft(journal, list.id, {
-        ...selectedDraft,
-        ...patch,
-      }),
-    );
+  function patchDraft(patch: Partial<ApplicationDraft>, draft = selectedDraft) {
+    if (!list || !draft || !canEdit) return;
+    const nextPatch = { ...patch };
+    if (
+      draft.reviewStatus === "reviewed" &&
+      ("draftRole" in patch ||
+        "draftOrg" in patch ||
+        "shortDescription" in patch ||
+        "continueInCollegeChoice" in patch)
+    ) {
+      nextPatch.reviewStatus = "draft";
+      nextPatch.reviewedAt = undefined;
+    }
+    onChange(upsertDraft(journal, list.id, { ...draft, ...nextPatch }));
   }
 
+  function addActivity(activity: Activity) {
+    if (!list || !canEdit || ordered.length >= 10) return;
+    const maxOrder = ordered.reduce((m, d) => Math.max(m, d.sortOrder), -1);
+    const draft: ApplicationDraft = {
+      id: newId("draft"),
+      activityId: activity.id,
+      sortOrder: maxOrder + 1,
+      reviewStatus: "draft",
+      draftRole: clipChars(activity.role, APP_DRAFT_LIMITS.role),
+      draftOrg: clipChars(activity.organization, APP_DRAFT_LIMITS.org),
+    };
+    onChange(upsertDraft(journal, list.id, draft));
+    setSelectedDraftId(draft.id);
+    setSection("activities");
+  }
+
+  function moveHonor(honorId: string, direction: -1 | 1) {
+    if (!list || !canEdit) return;
+    const idx = honors.findIndex((h) => h.id === honorId);
+    const swapIdx = idx + direction;
+    if (idx < 0 || swapIdx < 0 || swapIdx >= honors.length) return;
+    const a = honors[idx]!;
+    const b = honors[swapIdx]!;
+    let next = upsertHonor(journal, list.id, { ...a, sortOrder: b.sortOrder });
+    next = upsertHonor(next, list.id, { ...b, sortOrder: a.sortOrder });
+    onChange(next);
+  }
+
+  function patchHonor(honor: HonorDraft, patch: Partial<HonorDraft>) {
+    if (!list || !canEdit) return;
+    const nextPatch = { ...patch };
+    if (
+      honor.reviewStatus === "reviewed" &&
+      ("title" in patch || "grades" in patch || "level" in patch)
+    ) {
+      nextPatch.reviewStatus = "draft";
+    }
+    onChange(upsertHonor(journal, list.id, { ...honor, ...nextPatch }));
+  }
+
+  function addHonor(award: Award) {
+    if (!list || !canEdit || honors.length >= HONOR_LIMITS.count) return;
+    const gradeNum =
+      award.grade && award.grade !== "post" && award.grade !== "other"
+        ? Number(award.grade)
+        : NaN;
+    const grades =
+      Number.isInteger(gradeNum) && gradeNum >= 9 && gradeNum <= 12 ? [gradeNum] : [];
+    const maxOrder = honors.reduce((m, h) => Math.max(m, h.sortOrder), -1);
+    const honor: HonorDraft = {
+      id: newId("honor"),
+      awardId: award.id,
+      sortOrder: maxOrder + 1,
+      title: clipChars(award.title, HONOR_LIMITS.title) ?? "",
+      grades,
+      level: inferHonorLevel(award.recognitionLevel),
+      reviewStatus: "draft",
+    };
+    onChange(upsertHonor(journal, list.id, honor));
+    setSelectedHonorId(honor.id);
+    setSection("honors");
+  }
+
+  async function copyAll() {
+    if (!list) return;
+    const text = commonAppCopyText(list, journal);
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyFallback(null);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+      setCopyFallback(text);
+    }
+  }
+
+  const emptyRecord = !activeActivities.length;
+
   return (
-    <div className="aj-view">
-      <header className="aj-head">
+    <div className="aj-view prep">
+      <header className="prep-head">
         <div>
-          <h3 className="aj-title">Application Prep</h3>
-          <p className="aj-support">
-            Build named lists and draft Common App–style activity blurbs.
-          </p>
+          <h3 className="prep-title">Application Prep</h3>
+          <p className="prep-sum">{summary}</p>
         </div>
+        <button type="button" className="btn btn-secondary" onClick={() => void copyAll()}>
+          {copied ? "Copied" : "Copy all for the Common App"}
+        </button>
       </header>
 
-      <p className="aj-reminder">Verify character limits for the application year.</p>
+      {copyFallback ? (
+        <div className="prep-copy-fallback">
+          <p>Copy failed. Select the text and copy it yourself.</p>
+          <textarea
+            readOnly
+            rows={12}
+            value={copyFallback}
+            onFocus={(e) => e.currentTarget.select()}
+            ref={(el) => el?.select()}
+          />
+        </div>
+      ) : null}
 
-      <div className="aj-prep-lists">
-        <label className="stack-field">
-          <span className="label">Application list</span>
-          <select
-            className="field"
-            value={list?.id ?? ""}
-            onChange={(e) => {
-              setSelectedListId(e.target.value || null);
-              setSelectedDraftId(null);
-            }}
-          >
-            {!journal.applicationLists.length ? (
-              <option value="">No lists yet</option>
-            ) : null}
-            {journal.applicationLists.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        {canEdit ? (
-          <form
-            className="aj-prep-create"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!newListName.trim()) return;
-              const { journal: next, list: created } = createApplicationList(
-                journal,
-                newListName.trim(),
-              );
-              onChange(next);
-              setSelectedListId(created.id);
-              setNewListName("");
-            }}
-          >
-            <label className="stack-field">
-              <span className="label">New list</span>
-              <input
-                className="field"
-                value={newListName}
-                onChange={(e) => setNewListName(e.target.value)}
-                placeholder="Early Decision shortlist"
-              />
-            </label>
-            <button type="submit" className="btn btn-primary">
-              Create list
-            </button>
-          </form>
-        ) : null}
-        {list ? (
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => {
-              const md = exportListMarkdown(list, journal);
-              const safe = list.name.replace(/[^\w.-]+/g, "-").toLowerCase() || "list";
-              downloadMarkdown(`${safe}.md`, md);
-            }}
-          >
-            Export .md
-          </button>
-        ) : null}
+      <div className="prep-seg" role="group" aria-label="Section">
+        <button
+          type="button"
+          aria-pressed={section === "activities"}
+          onClick={() => setSection("activities")}
+        >
+          Activities
+        </button>
+        <button
+          type="button"
+          aria-pressed={section === "honors"}
+          onClick={() => setSection("honors")}
+        >
+          Honors
+        </button>
       </div>
 
-      {!list ? (
-        <p className="board-empty">Create an application list to start drafting.</p>
-      ) : (
-        <>
-          {canEdit ? (
-            <form
-              className="aj-prep-add"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!addActivityId) return;
-                const maxOrder = ordered.reduce((m, d) => Math.max(m, d.sortOrder), -1);
-                const draft: ApplicationDraft = {
-                  id: newId("draft"),
-                  activityId: addActivityId,
-                  sortOrder: maxOrder + 1,
-                  reviewStatus: "draft",
-                };
-                const activity = journal.activities.find((a) => a.id === addActivityId);
-                if (activity) {
-                  draft.draftRole = activity.role;
-                  draft.draftOrg = activity.organization;
-                }
-                onChange(upsertDraft(journal, list.id, draft));
-                setAddActivityId("");
-                setSelectedDraftId(draft.id);
-              }}
-            >
-              <label className="stack-field aj-filter-grow">
-                <span className="label">Add activity to list</span>
-                <select
-                  className="field"
-                  value={addActivityId}
-                  onChange={(e) => setAddActivityId(e.target.value)}
-                >
-                  <option value="">Choose…</option>
-                  {availableActivities.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                type="submit"
-                className="btn btn-secondary"
-                disabled={!addActivityId}
-              >
-                Add
-              </button>
-            </form>
-          ) : null}
+      {section === "activities" ? (
+        emptyRecord ? (
+          <p className="board-empty">
+            Your list is empty because My Record is empty.{" "}
+            <button type="button" className="aj-text-btn strong" onClick={onGoToMyRecord}>
+              Go to My Record
+            </button>
+          </p>
+        ) : (
+          <div className="prep-layout">
+            <div className="prep-col">
+              <div className="prep-col-h">
+                <h3>Your list</h3>
+                <span className="prep-count">{ordered.length} / 10</span>
+              </div>
+              {ordered.length ? (
+                <ol className="prep-chosen">
+                  {ordered.map((draft, index) => {
+                    const act = journal.activities.find((a) => a.id === draft.activityId);
+                    const state = draftStateLabel(draft, act);
+                    const selected = selectedDraft?.id === draft.id;
+                    return (
+                      <li
+                        key={draft.id}
+                        className={selected ? "is-selected" : undefined}
+                      >
+                        <button
+                          type="button"
+                          className="prep-chosen-btn"
+                          onClick={() => setSelectedDraftId(draft.id)}
+                        >
+                          <span className="prep-num">{index + 1}</span>
+                          <span className="prep-c-name">
+                            {act?.name ?? draft.activityId}
+                            {act ? <span className="prep-c-sub">{chosenActivitySub(act)}</span> : null}
+                          </span>
+                          <span className={`prep-state is-${state.kind}`}>{state.label}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ol>
+              ) : (
+                <p className="prep-hint">No activities on the list yet.</p>
+              )}
+              <p className="prep-hint">
+                Colleges see them in this order. Put the ones that matter most to you first.
+              </p>
+              {poolActivities.length ? (
+                <>
+                  <p className="prep-pool-h">From My Record, not on the list</p>
+                  <ul className="prep-pool">
+                    {poolActivities.map((activity) => {
+                      const atLimit = ordered.length >= 10;
+                      return (
+                        <li key={activity.id}>
+                          <span>
+                            {activity.name}{" "}
+                            <span className="prep-why">{poolActivityFact(activity)}</span>
+                          </span>
+                          {canEdit ? (
+                            atLimit ? (
+                              <span className="prep-why">The Common App holds 10. Remove one to add another.</span>
+                            ) : (
+                              <button
+                                type="button"
+                                className="aj-text-btn strong"
+                                onClick={() => addActivity(activity)}
+                              >
+                                Add
+                              </button>
+                            )
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              ) : null}
+            </div>
 
-          {!ordered.length ? (
-            <p className="board-empty">No activities in this list yet.</p>
-          ) : (
-            <div className="aj-prep-layout">
-              <ol className="aj-draft-order">
-                {ordered.map((draft, index) => {
-                  const act = journal.activities.find((a) => a.id === draft.activityId);
-                  const selected = selectedDraft?.id === draft.id;
-                  return (
-                    <li key={draft.id} className={selected ? "is-selected" : ""}>
+            {selectedDraft && selectedActivity ? (
+              <section className="prep-editor" aria-labelledby="prep-entry-h">
+                <div className="prep-e-head">
+                  <h3 id="prep-entry-h" className="aj-activity-label">
+                    <ActivityIcon activity={selectedActivity} size={22} />
+                    {selectedActivity.name}
+                  </h3>
+                  {canEdit ? (
+                    <span className="prep-e-tools">
                       <button
                         type="button"
-                        className="aj-draft-pick"
-                        onClick={() => setSelectedDraftId(draft.id)}
+                        className="aj-text-btn"
+                        disabled={ordered[0]?.id === selectedDraft.id}
+                        onClick={() => moveDraft(selectedDraft.id, -1)}
                       >
-                        <span className="aj-draft-num">{index + 1}</span>
-                        <span className="aj-activity-label">
-                          {act ? <ActivityIcon activity={act} size={18} /> : null}
-                          {act?.name ?? draft.activityId}
-                        </span>
+                        Move up
                       </button>
-                      {canEdit ? (
-                        <div className="aj-draft-move">
-                          <button
-                            type="button"
-                            className="btn btn-secondary compact"
-                            disabled={index === 0}
-                            onClick={() => moveDraft(draft.id, -1)}
-                            aria-label="Move up"
-                          >
-                            ↑
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-secondary compact"
-                            disabled={index === ordered.length - 1}
-                            onClick={() => moveDraft(draft.id, 1)}
-                            aria-label="Move down"
-                          >
-                            ↓
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-secondary compact"
-                            onClick={() => {
-                              onChange(removeDraftFromList(journal, list.id, draft.id));
-                              if (selectedDraftId === draft.id) setSelectedDraftId(null);
-                            }}
-                          >
-                            Remove
-                          </button>
+                      {" · "}
+                      <button
+                        type="button"
+                        className="aj-text-btn"
+                        disabled={ordered[ordered.length - 1]?.id === selectedDraft.id}
+                        onClick={() => moveDraft(selectedDraft.id, 1)}
+                      >
+                        Move down
+                      </button>
+                      {" · "}
+                      <button
+                        type="button"
+                        className="aj-text-btn"
+                        onClick={() => {
+                          onChange(removeDraftFromList(journal, list!.id, selectedDraft.id));
+                          setSelectedDraftId(null);
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </span>
+                  ) : null}
+                </div>
+
+                {(() => {
+                  const grades = commonAppGrades(selectedActivity);
+                  const timing = commonAppTiming(selectedActivity);
+                  const time = commonAppTime(selectedActivity);
+                  const gradeText = grades.length ? grades.join(", ") : null;
+                  return (
+                    <>
+                      <div className="prep-facts">
+                        <div className="prep-fact">
+                          <span>Grades</span>
+                          {gradeText ? (
+                            <b>{gradeText}</b>
+                          ) : (
+                            <button
+                              type="button"
+                              className="prep-missing"
+                              onClick={() => onOpenActivity(selectedActivity.id)}
+                            >
+                              Add in My Record
+                            </button>
+                          )}
                         </div>
+                        <div className="prep-fact">
+                          <span>Timing</span>
+                          {timing ? (
+                            <b>{timing}</b>
+                          ) : (
+                            <button
+                              type="button"
+                              className="prep-missing"
+                              onClick={() => onOpenActivity(selectedActivity.id)}
+                            >
+                              Add in My Record
+                            </button>
+                          )}
+                        </div>
+                        <div className="prep-fact">
+                          <span>Hours per week</span>
+                          {time.hoursPerWeek != null ? (
+                            <b>{time.hoursPerWeek}</b>
+                          ) : (
+                            <button
+                              type="button"
+                              className="prep-missing"
+                              onClick={() => onOpenActivity(selectedActivity.id)}
+                            >
+                              Add in My Record
+                            </button>
+                          )}
+                        </div>
+                        <div className="prep-fact">
+                          <span>Weeks per year</span>
+                          {time.weeksPerYear != null ? (
+                            <b>{time.weeksPerYear}</b>
+                          ) : (
+                            <button
+                              type="button"
+                              className="prep-missing"
+                              onClick={() => onOpenActivity(selectedActivity.id)}
+                            >
+                              Add in My Record
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <p className="prep-facts-note">
+                        These come from My Record. Change them there and they update here.
+                      </p>
+                      {middleSchoolGrades(selectedActivity).length ? (
+                        <p className="prep-facts-note">
+                          The Common App lists grades 9-12. Your earlier years belong in your essays.
+                        </p>
+                      ) : null}
+                    </>
+                  );
+                })()}
+
+                <PrepField
+                  id="prep-role"
+                  label="Position or leadership"
+                  value={selectedDraft.draftRole ?? ""}
+                  limit={APP_DRAFT_LIMITS.role}
+                  disabled={!canEdit}
+                  onChange={(value) => patchDraft({ draftRole: value })}
+                />
+                <PrepField
+                  id="prep-org"
+                  label="Organization"
+                  value={selectedDraft.draftOrg ?? ""}
+                  limit={APP_DRAFT_LIMITS.org}
+                  disabled={!canEdit}
+                  onChange={(value) => patchDraft({ draftOrg: value })}
+                />
+                <PrepField
+                  id="prep-desc"
+                  label="Description"
+                  note="about 20-25 words"
+                  value={selectedDraft.shortDescription ?? ""}
+                  limit={APP_DRAFT_LIMITS.short}
+                  disabled={!canEdit}
+                  multiline
+                  onChange={(value) => patchDraft({ shortDescription: value })}
+                />
+
+                <div className="prep-field">
+                  <span className="prep-f-label">Do you plan to do this in college?</span>
+                  <div className="prep-pills" role="group" aria-label="Continue in college">
+                    <button
+                      type="button"
+                      aria-pressed={selectedDraft.continueInCollegeChoice === true}
+                      disabled={!canEdit}
+                      onClick={() => patchDraft({ continueInCollegeChoice: true })}
+                    >
+                      Yes
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={selectedDraft.continueInCollegeChoice === false}
+                      disabled={!canEdit}
+                      onClick={() => patchDraft({ continueInCollegeChoice: false })}
+                    >
+                      No
+                    </button>
+                  </div>
+                </div>
+
+                {isDraftStale(selectedDraft, selectedActivity) ? (
+                  <p className="prep-stale">
+                    My Record changed after you marked this ready. Check the facts and text, then mark it ready again.
+                  </p>
+                ) : null}
+
+                {canEdit ? (
+                  <div className="prep-foot">
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={draftIsOverLimit(selectedDraft)}
+                      onClick={() => {
+                        if (selectedDraft.reviewStatus === "reviewed") {
+                          patchDraft({ reviewStatus: "draft", reviewedAt: undefined }, selectedDraft);
+                        } else {
+                          patchDraft(
+                            {
+                              reviewStatus: "reviewed",
+                              reviewedAt: new Date().toISOString(),
+                            },
+                            selectedDraft,
+                          );
+                        }
+                      }}
+                    >
+                      {selectedDraft.reviewStatus === "reviewed"
+                        ? "Ready - mark as draft"
+                        : "Mark as ready"}
+                    </button>
+                    {draftIsOverLimit(selectedDraft) ? (
+                      <span className="prep-over-note">Shorten the fields in red first.</span>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                <PrepSourceNotes
+                  activity={selectedActivity}
+                  awards={activeAwards.filter((a) => a.activityId === selectedActivity.id)}
+                  onOpenActivity={() => onOpenActivity(selectedActivity.id)}
+                />
+              </section>
+            ) : ordered.length ? (
+              <p className="prep-hint">Pick an activity from your list.</p>
+            ) : null}
+          </div>
+        )
+      ) : (
+        <div className="prep-honors">
+          <div className="prep-col-h">
+            <h3>Honors</h3>
+            <span className="prep-count">{honors.length} / {HONOR_LIMITS.count}</span>
+          </div>
+          <p className="prep-hint">
+            The Common App asks for up to 5 academic honors from high school. Other recognition can go in an activity&apos;s description.
+          </p>
+
+          {honors.map((honor, index) => {
+            const titleOver = charCount(honor.title) > HONOR_LIMITS.title;
+            const canReady =
+              !titleOver && honor.grades.length > 0 && honor.level != null;
+            return (
+              <div
+                key={honor.id}
+                className={
+                  selectedHonorId === honor.id ? "prep-honor is-selected" : "prep-honor"
+                }
+              >
+                <PrepField
+                  id={`honor-title-${honor.id}`}
+                  label="Honor title"
+                  value={honor.title}
+                  limit={HONOR_LIMITS.title}
+                  disabled={!canEdit}
+                  onChange={(value) => patchHonor(honor, { title: value })}
+                  onFocus={() => setSelectedHonorId(honor.id)}
+                />
+                <div className="prep-honor-row">
+                  <span className="prep-honor-lbl">Grades</span>
+                  <div className="prep-pills" role="group" aria-label="Honor grades">
+                    {[9, 10, 11, 12].map((g) => {
+                      const on = honor.grades.includes(g);
+                      return (
+                        <button
+                          key={g}
+                          type="button"
+                          aria-pressed={on}
+                          disabled={!canEdit}
+                          onClick={() => {
+                            const grades = on
+                              ? honor.grades.filter((x) => x !== g)
+                              : [...honor.grades, g].sort((a, b) => a - b);
+                            patchHonor(honor, { grades });
+                          }}
+                        >
+                          {g}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="prep-honor-row">
+                  <span className="prep-honor-lbl">Level</span>
+                  <div className="prep-pills" role="group" aria-label="Honor level">
+                    {(Object.keys(HONOR_LEVEL_LABEL) as HonorLevel[]).map((level) => (
+                      <button
+                        key={level}
+                        type="button"
+                        aria-pressed={honor.level === level}
+                        disabled={!canEdit}
+                        onClick={() => patchHonor(honor, { level })}
+                      >
+                        {HONOR_LEVEL_LABEL[level]}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {canEdit ? (
+                  <div className="prep-honor-row prep-e-tools">
+                    <button
+                      type="button"
+                      className="aj-text-btn"
+                      disabled={index === 0}
+                      onClick={() => moveHonor(honor.id, -1)}
+                    >
+                      Move up
+                    </button>
+                    {" · "}
+                    <button
+                      type="button"
+                      className="aj-text-btn"
+                      disabled={index === honors.length - 1}
+                      onClick={() => moveHonor(honor.id, 1)}
+                    >
+                      Move down
+                    </button>
+                    {" · "}
+                    <button
+                      type="button"
+                      className="aj-text-btn"
+                      onClick={() => onChange(removeHonorFromList(journal, list!.id, honor.id))}
+                    >
+                      Remove
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      disabled={!canReady && honor.reviewStatus !== "reviewed"}
+                      onClick={() => {
+                        if (honor.reviewStatus === "reviewed") {
+                          patchHonor(honor, { reviewStatus: "draft" });
+                        } else if (canReady) {
+                          patchHonor(honor, { reviewStatus: "reviewed" });
+                        }
+                      }}
+                    >
+                      {honor.reviewStatus === "reviewed"
+                        ? "Ready - mark as draft"
+                        : "Mark as ready"}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+
+          {!activeAwards.length ? (
+            <div className="prep-empty-box">
+              No awards in My Record yet.{" "}
+              <button type="button" className="aj-text-btn strong" onClick={onGoToAwards}>
+                Add an award in My Record
+              </button>
+            </div>
+          ) : poolAwards.length ? (
+            <>
+              <p className="prep-pool-h">From My Record, not on the list</p>
+              <ul className="prep-pool">
+                {poolAwards.map((award) => {
+                  const atLimit = honors.length >= HONOR_LIMITS.count;
+                  return (
+                    <li key={award.id}>
+                      <span>
+                        {award.title}
+                        {award.academic === false ? (
+                          <span className="prep-why"> Not marked academic</span>
+                        ) : null}
+                      </span>
+                      {canEdit ? (
+                        atLimit ? (
+                          <span className="prep-why">The Common App holds 5. Remove one to add another.</span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="aj-text-btn strong"
+                            onClick={() => addHonor(award)}
+                          >
+                            Add
+                          </button>
+                        )
                       ) : null}
                     </li>
                   );
                 })}
-              </ol>
-
-              {selectedDraft ? (
-                <div className="aj-prep-editor">
-                  <div className="aj-prep-split">
-                    <aside className="aj-prep-source">
-                      <h4 className="aj-subhead">Source notes</h4>
-                      {sourceActivity ? (
-                        <>
-                          <p className="aj-activity-label">
-                            <ActivityIcon activity={sourceActivity} size={18} />
-                            <strong>{sourceActivity.name}</strong>
-                          </p>
-                          <p className="aj-card-meta">
-                            {categoryLabel(sourceActivity.category)}
-                            {sourceActivity.organization
-                              ? ` · ${sourceActivity.organization}`
-                              : ""}
-                            {sourceActivity.role ? ` · ${sourceActivity.role}` : ""}
-                          </p>
-                          {sourceActivity.responsibilities ? (
-                            <p>{sourceActivity.responsibilities}</p>
-                          ) : null}
-                          {sourceActivity.reflections?.whyMatters ? (
-                            <p>
-                              <em>Why it matters:</em> {sourceActivity.reflections.whyMatters}
-                            </p>
-                          ) : null}
-                          {latestUpdate(sourceActivity) ? (
-                            <p>
-                              <em>Latest update:</em>{" "}
-                              {latestUpdate(sourceActivity)?.whatHappened}
-                            </p>
-                          ) : null}
-                        </>
-                      ) : (
-                        <p className="aj-muted">Activity not found.</p>
-                      )}
-                    </aside>
-                    <div className="aj-prep-draft">
-                      <h4 className="aj-subhead">Draft</h4>
-                      <div className="aj-form-grid">
-                        <label className="stack-field">
-                          <span className="label">
-                            Role <CharCounter value={selectedDraft.draftRole} limit={APP_DRAFT_LIMITS.role} />
-                          </span>
-                          <input
-                            className="field"
-                            value={selectedDraft.draftRole ?? ""}
-                            disabled={!canEdit}
-                            onChange={(e) => patchDraft({ draftRole: e.target.value })}
-                          />
-                        </label>
-                        <label className="stack-field">
-                          <span className="label">
-                            Organization{" "}
-                            <CharCounter value={selectedDraft.draftOrg} limit={APP_DRAFT_LIMITS.org} />
-                          </span>
-                          <input
-                            className="field"
-                            value={selectedDraft.draftOrg ?? ""}
-                            disabled={!canEdit}
-                            onChange={(e) => patchDraft({ draftOrg: e.target.value })}
-                          />
-                        </label>
-                        <label className="stack-field aj-span-2">
-                          <span className="label">
-                            Short description{" "}
-                            <CharCounter
-                              value={selectedDraft.shortDescription}
-                              limit={APP_DRAFT_LIMITS.short}
-                            />
-                          </span>
-                          <textarea
-                            className="field"
-                            rows={3}
-                            value={selectedDraft.shortDescription ?? ""}
-                            disabled={!canEdit}
-                            onChange={(e) => patchDraft({ shortDescription: e.target.value })}
-                          />
-                        </label>
-                        <label className="stack-field aj-span-2">
-                          <span className="label">
-                            Long description{" "}
-                            <CharCounter
-                              value={selectedDraft.longDescription}
-                              limit={APP_DRAFT_LIMITS.long}
-                            />
-                          </span>
-                          <textarea
-                            className="field"
-                            rows={5}
-                            value={selectedDraft.longDescription ?? ""}
-                            disabled={!canEdit}
-                            onChange={(e) => patchDraft({ longDescription: e.target.value })}
-                          />
-                        </label>
-                        <label className="stack-field">
-                          <span className="label">Grades reviewed</span>
-                          <input
-                            className="field"
-                            value={selectedDraft.gradesReviewed ?? ""}
-                            disabled={!canEdit}
-                            onChange={(e) => patchDraft({ gradesReviewed: e.target.value })}
-                          />
-                          <span className="aj-field-hint">
-                            The Common App only lists grades 9-12. Earlier years belong in your essays
-                            and interviews.
-                          </span>
-                        </label>
-                        <label className="stack-field">
-                          <span className="label">Time commitment</span>
-                          <input
-                            className="field"
-                            value={selectedDraft.timeCommitmentReviewed ?? ""}
-                            disabled={!canEdit}
-                            onChange={(e) =>
-                              patchDraft({ timeCommitmentReviewed: e.target.value })
-                            }
-                          />
-                        </label>
-                        <label className="stack-field aj-span-2">
-                          <span className="label">Continue in college?</span>
-                          <input
-                            className="field"
-                            value={selectedDraft.continueInCollege ?? ""}
-                            disabled={!canEdit}
-                            onChange={(e) => patchDraft({ continueInCollege: e.target.value })}
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          )}
-        </>
+              </ul>
+            </>
+          ) : null}
+        </div>
       )}
+    </div>
+  );
+}
+
+function PrepField({
+  id,
+  label,
+  note,
+  value,
+  limit,
+  disabled,
+  multiline,
+  onChange,
+  onFocus,
+}: {
+  id: string;
+  label: string;
+  note?: string;
+  value: string;
+  limit: number;
+  disabled?: boolean;
+  multiline?: boolean;
+  onChange: (value: string) => void;
+  onFocus?: () => void;
+}) {
+  const n = charCount(value);
+  const over = n > limit;
+  return (
+    <div className={over ? "prep-field is-over" : "prep-field"}>
+      <div className="prep-f-top">
+        <label className="prep-f-label" htmlFor={id}>
+          {label}
+          {note ? <small> {note}</small> : null}
+        </label>
+        <span className={over ? "prep-counter is-over" : "prep-counter"}>
+          {n} / {limit}
+        </span>
+      </div>
+      {multiline ? (
+        <textarea
+          id={id}
+          rows={3}
+          value={value}
+          disabled={disabled}
+          onFocus={onFocus}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      ) : (
+        <input
+          id={id}
+          value={value}
+          disabled={disabled}
+          onFocus={onFocus}
+          onChange={(e) => onChange(e.target.value)}
+          autoComplete="off"
+        />
+      )}
+    </div>
+  );
+}
+
+function PrepSourceNotes({
+  activity,
+  awards,
+  onOpenActivity,
+}: {
+  activity: Activity;
+  awards: Award[];
+  onOpenActivity: () => void;
+}) {
+  const updates = [...activity.updates]
+    .sort((a, b) => {
+      const da = Date.parse(a.date) || 0;
+      const db = Date.parse(b.date) || 0;
+      if (db !== da) return db - da;
+      return Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
+    })
+    .slice(0, 3);
+  const role = activity.role?.trim();
+  const what = activity.responsibilities?.trim();
+  const why = activity.reflections?.whyMatters?.trim();
+  const allEmpty = !role && !what && !why && !updates.length && !awards.length;
+
+  return (
+    <div className="prep-notes">
+      <h4>From My Record</h4>
+      <dl>
+        <dt>Role</dt>
+        <dd className={role ? undefined : "is-empty"}>{role || "Not added yet"}</dd>
+        <dt>What you do</dt>
+        <dd className={what ? undefined : "is-empty"}>{what || "Not added yet"}</dd>
+        <dt>Why it matters</dt>
+        <dd className={why ? undefined : "is-empty"}>{why || "Not added yet"}</dd>
+        <dt>Updates</dt>
+        <dd className={updates.length ? undefined : "is-empty"}>
+          {updates.length
+            ? updates.map((u) => `${formatShortDate(u.date)}: ${u.whatHappened}`).join(" · ")
+            : "None yet"}
+        </dd>
+        <dt>Awards</dt>
+        <dd className={awards.length ? undefined : "is-empty"}>
+          {awards.length ? awards.map((a) => a.title).join(", ") : "None yet"}
+        </dd>
+      </dl>
+      {allEmpty ? (
+        <p className="prep-hint">
+          <button type="button" className="aj-text-btn strong" onClick={onOpenActivity}>
+            Add details in My Record
+          </button>{" "}
+          to have more to draft from.
+        </p>
+      ) : null}
     </div>
   );
 }

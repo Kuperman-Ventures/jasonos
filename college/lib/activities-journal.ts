@@ -223,9 +223,32 @@ export type ApplicationDraft = {
   gradesReviewed?: string;
   timeCommitmentReviewed?: string;
   continueInCollege?: string;
+  /** Yes / No for the Common App college question. Replaces free-text continueInCollege in the UI. */
+  continueInCollegeChoice?: boolean | null;
   reviewStatus?: DraftReviewStatus;
   reviewedAt?: string;
   sourceUpdatedAtSnapshot?: string;
+};
+
+export type HonorLevel = "school" | "state_regional" | "national" | "international";
+
+export type HonorDraft = {
+  id: string;
+  awardId: string;
+  sortOrder: number;
+  title: string;
+  grades: number[];
+  level: HonorLevel | null;
+  reviewStatus?: "draft" | "reviewed";
+};
+
+export const HONOR_LIMITS = { count: 5, title: 100 } as const;
+
+export const HONOR_LEVEL_LABEL: Record<HonorLevel, string> = {
+  school: "School",
+  state_regional: "State or regional",
+  national: "National",
+  international: "International",
 };
 
 export type ApplicationList = {
@@ -234,7 +257,17 @@ export type ApplicationList = {
   createdAt: string;
   updatedAt: string;
   entries: ApplicationDraft[];
+  honors?: HonorDraft[];
 };
+
+export const COMMON_APP_LIST_ID = "common-app";
+
+export const APP_DRAFT_LIMITS = {
+  role: 50,
+  org: 100,
+  short: 150,
+  long: 350,
+} as const;
 
 export type JournalProfile = {
   classOf?: number; // high school graduation year, e.g. 2028
@@ -250,13 +283,6 @@ export type ActivitiesJournal = {
   threads?: ActivityThread[];
   profile?: JournalProfile;
 };
-
-export const APP_DRAFT_LIMITS = {
-  role: 50,
-  org: 100,
-  short: 150,
-  long: 350,
-} as const;
 
 export type ActivityStatusFilter = "all" | "ongoing" | "completed";
 
@@ -707,6 +733,12 @@ function normalizeDraft(raw: unknown): ApplicationDraft | null {
   if (gradesReviewed !== undefined) draft.gradesReviewed = gradesReviewed;
   if (timeCommitmentReviewed !== undefined) draft.timeCommitmentReviewed = timeCommitmentReviewed;
   if (continueInCollege !== undefined) draft.continueInCollege = continueInCollege;
+  if ("continueInCollegeChoice" in row) {
+    if (row.continueInCollegeChoice === null) draft.continueInCollegeChoice = null;
+    else if (typeof row.continueInCollegeChoice === "boolean") {
+      draft.continueInCollegeChoice = row.continueInCollegeChoice;
+    }
+  }
   if (typeof row.reviewStatus === "string" && DRAFT_STATUSES.has(row.reviewStatus)) {
     draft.reviewStatus = row.reviewStatus as DraftReviewStatus;
   }
@@ -715,7 +747,40 @@ function normalizeDraft(raw: unknown): ApplicationDraft | null {
   return draft;
 }
 
-function normalizeApplicationList(raw: unknown): ApplicationList | null {
+const HONOR_LEVELS = new Set<string>(["school", "state_regional", "national", "international"]);
+
+function normalizeHonor(raw: unknown): HonorDraft | null {
+  const row = asRecord(raw);
+  if (!row) return null;
+  const awardId = asOptionalString(row.awardId);
+  if (!awardId) return null;
+  const title = asString(row.title) ?? "";
+  const grades = Array.isArray(row.grades)
+    ? row.grades
+        .map((g) => (typeof g === "number" ? g : Number(g)))
+        .filter((g) => Number.isInteger(g) && g >= 9 && g <= 12)
+    : [];
+  let level: HonorLevel | null = null;
+  if (typeof row.level === "string" && HONOR_LEVELS.has(row.level)) {
+    level = row.level as HonorLevel;
+  } else if (row.level === null) {
+    level = null;
+  }
+  const honor: HonorDraft = {
+    id: asOptionalString(row.id) ?? newId("honor"),
+    awardId,
+    sortOrder: asOptionalNumber(row.sortOrder) ?? 0,
+    title,
+    grades: [...new Set(grades)].sort((a, b) => a - b),
+    level,
+  };
+  if (row.reviewStatus === "draft" || row.reviewStatus === "reviewed") {
+    honor.reviewStatus = row.reviewStatus;
+  }
+  return honor;
+}
+
+function normalizeApplicationList(raw: unknown, awardIds?: Set<string>): ApplicationList | null {
   const row = asRecord(raw);
   if (!row) return null;
   const name = asOptionalString(row.name);
@@ -724,13 +789,21 @@ function normalizeApplicationList(raw: unknown): ApplicationList | null {
   const entries = Array.isArray(row.entries)
     ? row.entries.map(normalizeDraft).filter((d): d is ApplicationDraft => Boolean(d))
     : [];
-  return {
+  const list: ApplicationList = {
     id: asOptionalString(row.id) ?? newId("applist"),
     name,
     createdAt: asOptionalString(row.createdAt) ?? stamp,
     updatedAt: asOptionalString(row.updatedAt) ?? stamp,
     entries,
   };
+  if (Array.isArray(row.honors)) {
+    const honors = row.honors
+      .map(normalizeHonor)
+      .filter((h): h is HonorDraft => Boolean(h))
+      .filter((h) => !awardIds || awardIds.has(h.awardId));
+    if (honors.length) list.honors = honors;
+  }
+  return list;
 }
 
 function normalizeThreadPlan(raw: unknown): ThreadPlan | undefined {
@@ -785,14 +858,16 @@ export function normalizeJournal(raw: unknown): ActivitiesJournal {
     const { threadId: _drop, ...rest } = activity;
     return rest;
   });
+  const awards = Array.isArray(row.awards)
+    ? row.awards.map(normalizeAward).filter((a): a is Award => Boolean(a))
+    : [];
+  const awardIds = new Set(awards.map((a) => a.id));
   return {
     activities,
-    awards: Array.isArray(row.awards)
-      ? row.awards.map(normalizeAward).filter((a): a is Award => Boolean(a))
-      : [],
+    awards,
     applicationLists: Array.isArray(row.applicationLists)
       ? row.applicationLists
-          .map(normalizeApplicationList)
+          .map((list) => normalizeApplicationList(list, awardIds))
           .filter((a): a is ApplicationList => Boolean(a))
       : [],
     ...(threads.length ? { threads } : {}),
@@ -1220,6 +1295,45 @@ export function removeDraftFromList(
   };
 }
 
+export function upsertHonor(
+  journal: ActivitiesJournal,
+  listId: string,
+  honor: HonorDraft,
+): ActivitiesJournal {
+  const stamp = nowIso();
+  return {
+    ...journal,
+    applicationLists: journal.applicationLists.map((list) => {
+      if (list.id !== listId) return list;
+      const current = list.honors ?? [];
+      const idx = current.findIndex((h) => h.id === honor.id);
+      const honors =
+        idx >= 0 ? current.map((h, i) => (i === idx ? honor : h)) : [...current, honor];
+      honors.sort((a, b) => a.sortOrder - b.sortOrder);
+      return { ...list, honors, updatedAt: stamp };
+    }),
+  };
+}
+
+export function removeHonorFromList(
+  journal: ActivitiesJournal,
+  listId: string,
+  honorId: string,
+): ActivitiesJournal {
+  const stamp = nowIso();
+  return {
+    ...journal,
+    applicationLists: journal.applicationLists.map((list) => {
+      if (list.id !== listId) return list;
+      return {
+        ...list,
+        updatedAt: stamp,
+        honors: (list.honors ?? []).filter((h) => h.id !== honorId),
+      };
+    }),
+  };
+}
+
 export function estimatedHours(period: ParticipationPeriod): number | null {
   const hours = period.hoursPerWeek;
   const weeks = period.weeksActive;
@@ -1304,34 +1418,147 @@ export function filterActivities(
   });
 }
 
-export function markDraftsStaleForActivity(
-  journal: ActivitiesJournal,
-  activityId: string,
-  sourceUpdatedAt: string,
-): ActivitiesJournal {
+/** Returns the journal with a "Common App" list, creating it if missing. Pure. */
+export function ensureCommonAppList(journal: ActivitiesJournal): ActivitiesJournal {
+  if (journal.applicationLists.some((list) => list.id === COMMON_APP_LIST_ID)) return journal;
+  const stamp = nowIso();
   return {
     ...journal,
-    applicationLists: journal.applicationLists.map((list) => {
-      let changed = false;
-      const entries = list.entries.map((entry) => {
-        if (entry.activityId !== activityId) return entry;
-        if (entry.reviewStatus === "draft" && !entry.reviewedAt) {
-          return {
-            ...entry,
-            sourceUpdatedAtSnapshot: sourceUpdatedAt,
-          };
-        }
-        changed = true;
-        return {
-          ...entry,
-          reviewStatus: "stale" as const,
-          sourceUpdatedAtSnapshot: sourceUpdatedAt,
-        };
-      });
-      if (!changed && entries.every((e, i) => e === list.entries[i])) return list;
-      return { ...list, entries, updatedAt: nowIso() };
-    }),
+    applicationLists: [
+      ...journal.applicationLists,
+      {
+        id: COMMON_APP_LIST_ID,
+        name: "Common App",
+        createdAt: stamp,
+        updatedAt: stamp,
+        entries: [],
+      },
+    ],
   };
+}
+
+export function getCommonAppList(journal: ActivitiesJournal): ApplicationList {
+  const ensured = ensureCommonAppList(journal);
+  return ensured.applicationLists.find((list) => list.id === COMMON_APP_LIST_ID)!;
+}
+
+/** Distinct grades 9-12 with a completed or in_progress period, ascending. */
+export function commonAppGrades(activity: Activity): number[] {
+  const grades = new Set<number>();
+  for (const period of activity.periods) {
+    if (period.status !== "completed" && period.status !== "in_progress") continue;
+    if (period.grade === "post" || period.grade === "other") continue;
+    const grade = Number(period.grade);
+    if (Number.isInteger(grade) && grade >= 9 && grade <= 12) grades.add(grade);
+  }
+  return [...grades].sort((a, b) => a - b);
+}
+
+/** "School year", "School break" or "All year", from the periods' periodKind. */
+export function commonAppTiming(activity: Activity): string | null {
+  const kinds = new Set<PeriodKind>();
+  for (const period of activity.periods) {
+    if (period.status !== "completed" && period.status !== "in_progress") continue;
+    kinds.add(period.periodKind);
+  }
+  const useful = [...kinds].filter((k) => k !== "custom");
+  if (!useful.length) return null;
+  if (useful.includes("all_year") || (useful.includes("school_year") && useful.includes("summer"))) {
+    return "All year";
+  }
+  if (useful.length === 1 && useful[0] === "school_year") return "School year";
+  if (useful.length === 1 && useful[0] === "summer") return "School break";
+  if (useful.includes("school_year")) return "School year";
+  if (useful.includes("summer")) return "School break";
+  return null;
+}
+
+/** Hours per week and weeks per year from the latest period that has them. */
+export function commonAppTime(activity: Activity): {
+  hoursPerWeek: number | null;
+  weeksPerYear: number | null;
+} {
+  const candidates = [...activity.periods]
+    .filter(
+      (p) =>
+        (p.status === "completed" || p.status === "in_progress") &&
+        (p.hoursPerWeek != null || p.weeksActive != null),
+    )
+    .sort((a, b) => periodRecency(b) - periodRecency(a));
+  const latest = candidates[0];
+  if (!latest) return { hoursPerWeek: null, weeksPerYear: null };
+  return {
+    hoursPerWeek: latest.hoursPerWeek ?? null,
+    weeksPerYear: latest.weeksActive ?? null,
+  };
+}
+
+/** True when the activity changed after the draft was marked ready. */
+export function isDraftStale(draft: ApplicationDraft, activity: Activity): boolean {
+  if (draft.reviewStatus !== "reviewed" || !draft.reviewedAt) return false;
+  const reviewed = Date.parse(draft.reviewedAt);
+  const updated = Date.parse(activity.updatedAt);
+  if (Number.isNaN(reviewed) || Number.isNaN(updated)) return false;
+  return updated > reviewed;
+}
+
+export function prepSummary(list: ApplicationList, journal: ActivitiesJournal): string {
+  const entries = [...list.entries].sort((a, b) => a.sortOrder - b.sortOrder);
+  const ready = entries.filter((draft) => {
+    const activity = journal.activities.find((a) => a.id === draft.activityId);
+    if (!activity) return false;
+    if (isDraftStale(draft, activity)) return false;
+    const roleOver = charCount(draft.draftRole) > APP_DRAFT_LIMITS.role;
+    const orgOver = charCount(draft.draftOrg) > APP_DRAFT_LIMITS.org;
+    const descOver = charCount(draft.shortDescription) > APP_DRAFT_LIMITS.short;
+    return draft.reviewStatus === "reviewed" && !roleOver && !orgOver && !descOver;
+  }).length;
+  const honors = [...(list.honors ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
+  return `${entries.length} of 10 activities chosen, ${ready} ready. ${honors.length} of 5 honors chosen. Built from My Record, in Common App fields.`;
+}
+
+export function inferHonorLevel(recognitionLevel: string | undefined): HonorLevel | null {
+  if (!recognitionLevel) return null;
+  const text = recognitionLevel.toLowerCase();
+  if (text.includes("international")) return "international";
+  if (text.includes("national")) return "national";
+  if (text.includes("state") || text.includes("regional")) return "state_regional";
+  if (text.includes("school")) return "school";
+  return null;
+}
+
+export function commonAppCopyText(list: ApplicationList, journal: ActivitiesJournal): string {
+  const lines: string[] = ["ACTIVITIES", ""];
+  const entries = [...list.entries].sort((a, b) => a.sortOrder - b.sortOrder);
+  entries.forEach((draft, index) => {
+    const activity = journal.activities.find((a) => a.id === draft.activityId);
+    const name = activity?.name ?? draft.activityId;
+    lines.push(`${index + 1}. ${name}`);
+    if (draft.draftRole?.trim()) lines.push(`Position or leadership: ${draft.draftRole.trim()}`);
+    if (draft.draftOrg?.trim()) lines.push(`Organization: ${draft.draftOrg.trim()}`);
+    if (draft.shortDescription?.trim()) lines.push(`Description: ${draft.shortDescription.trim()}`);
+    if (activity) {
+      const grades = commonAppGrades(activity);
+      if (grades.length) lines.push(`Grades: ${grades.join(", ")}`);
+      const timing = commonAppTiming(activity);
+      if (timing) lines.push(`Timing: ${timing}`);
+      const time = commonAppTime(activity);
+      if (time.hoursPerWeek != null) lines.push(`Hours per week: ${time.hoursPerWeek}`);
+      if (time.weeksPerYear != null) lines.push(`Weeks per year: ${time.weeksPerYear}`);
+    }
+    if (draft.continueInCollegeChoice === true) lines.push("Plan to continue in college: Yes");
+    if (draft.continueInCollegeChoice === false) lines.push("Plan to continue in college: No");
+    lines.push("");
+  });
+  lines.push("HONORS", "");
+  const honors = [...(list.honors ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
+  honors.forEach((honor, index) => {
+    lines.push(`${index + 1}. ${honor.title.trim() || "Honor"}`);
+    if (honor.grades.length) lines.push(`Grades: ${honor.grades.join(", ")}`);
+    if (honor.level) lines.push(`Level: ${HONOR_LEVEL_LABEL[honor.level]}`);
+    lines.push("");
+  });
+  return lines.join("\n").trimEnd() + "\n";
 }
 
 export function activityNeedsDetails(a: Activity): boolean {

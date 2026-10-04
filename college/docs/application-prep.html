@@ -1,0 +1,273 @@
+<title>Application Prep Redesign</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&display=swap">
+<style>
+/* Layout: chosen-entries column on the left, the open entry's Common App fields on the right with My Record notes beneath.
+   Tokens copied from college/app/tokens.css (light) and [data-mode="dark"]. */
+:root {
+  --bg: #f3f2f2; --surface: #eae9e9; --surface-2: #e0dede; --raised: #ffffff;
+  --border: #d7d3d3; --rule: #eae7e7; --dash: #9b9797;
+  --text: #201e1d; --muted: #444141; --subtle: #605d5d; --placeholder: #7d7979;
+  --accent: #e85504; --accent-pressed: #c74503; --accent-tint: #feeee4; --accent-tint-2: #fdd6c0;
+  --text-accent: #9e3603; --on-accent: #ffffff; --done: #006a8a; --done-tint: #e1f1f6; --danger: #b42318; --milestone: #d6006c;
+  --proto: #1b4ca8; --proto-tint: #e7edf8;
+  --font-display: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-body: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1f2228; --surface: #2d3139; --surface-2: #353a43; --raised: #2d3139;
+    --border: #3d424b; --rule: rgba(240,238,236,.10); --dash: #5d636c;
+    --text: #f0eeec; --muted: #c3c8cf; --subtle: #9aa0a8; --placeholder: #7f858e;
+    --accent: #e85504; --accent-pressed: #f58749; --accent-tint: #3b2317; --accent-tint-2: #50301d;
+    --text-accent: #fab48e; --on-accent: #ffffff; --done: #5cc3e6; --done-tint: #1d3440; --danger: #ff8a7a; --milestone: #ff4d9d;
+    --proto: #8fb0ef; --proto-tint: #24304a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1f2228; --surface: #2d3139; --surface-2: #353a43; --raised: #2d3139;
+  --border: #3d424b; --rule: rgba(240,238,236,.10); --dash: #5d636c;
+  --text: #f0eeec; --muted: #c3c8cf; --subtle: #9aa0a8; --placeholder: #7f858e;
+  --accent: #e85504; --accent-pressed: #f58749; --accent-tint: #3b2317; --accent-tint-2: #50301d;
+  --text-accent: #fab48e; --on-accent: #ffffff; --done: #5cc3e6; --done-tint: #1d3440; --danger: #ff8a7a; --milestone: #ff4d9d;
+  --proto: #8fb0ef; --proto-tint: #24304a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 15px; line-height: 1.5; padding-inline: 16px; padding-block: 0 56px; }
+button { font: inherit; color: inherit; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.proto { max-width: 1080px; margin: 0 auto; padding-block: 10px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-family: var(--font-mono); font-size: 12px; color: var(--proto); border-bottom: 1px dashed var(--proto); }
+.proto strong { font-weight: 500; letter-spacing: .06em; text-transform: uppercase; }
+.proto .note { color: var(--subtle); }
+
+.page { max-width: 1080px; margin: 0 auto; padding-top: 28px; }
+.eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-accent); }
+.page h1 { font-weight: 700; font-size: 30px; margin: 2px 0 14px; letter-spacing: -.01em; }
+.tabs { display: flex; gap: 22px; border-bottom: 1px solid var(--border); font-size: 13px; overflow-x: auto; }
+.tabs span { padding: 8px 0; white-space: nowrap; color: var(--subtle); }
+.tabs span.on { color: var(--text); border-bottom: 2px solid var(--accent); font-weight: 600; }
+
+.head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 14px 24px; padding-top: 30px; }
+.title { font-family: var(--font-display); font-weight: 500; font-size: clamp(26px, 4vw, 34px); line-height: 1.15; margin: 0; }
+.sum { margin: 8px 0 0; color: var(--muted); font-size: 16px; max-width: 62ch; }
+.secondary { border: 1px solid var(--border); background: var(--raised); font-weight: 600; font-size: 14px; padding: 9px 15px; border-radius: 2px; cursor: pointer; }
+.secondary:hover { border-color: var(--text); }
+.link-btn { background: none; border: 0; padding: 2px 0; cursor: pointer; color: var(--subtle); font-size: 13px; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border); }
+.link-btn:hover { color: var(--text); }
+.link-btn.strong { color: var(--text-accent); text-decoration-color: var(--accent-tint-2); font-weight: 600; }
+
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; padding: 3px; margin-top: 22px; background: var(--raised); }
+.seg button { border: 0; background: transparent; padding: 6px 14px; border-radius: 999px; cursor: pointer; font-size: 14px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--text); color: var(--bg); font-weight: 600; }
+
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 36px; margin-top: 24px; align-items: start; }
+
+/* Chosen list */
+.col-h { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid var(--text); padding-bottom: 6px; }
+.col-h h3 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 20px; }
+.count { font-family: var(--font-mono); font-size: 12px; color: var(--subtle); font-variant-numeric: tabular-nums; }
+.chosen { list-style: none; margin: 0; padding: 0; }
+.chosen li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 8px; border-bottom: 1px solid var(--rule); cursor: pointer; }
+.chosen li.sel { background: var(--raised); box-shadow: inset 3px 0 0 var(--accent); }
+.num { font-family: var(--font-mono); font-size: 12px; color: var(--subtle); text-align: right; }
+.c-name { font-weight: 600; font-size: 15px; min-width: 0; }
+.c-sub { display: block; font-size: 12px; color: var(--subtle); font-weight: 400; }
+.state { font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; padding: 2px 6px; border-radius: 2px; white-space: nowrap; }
+.state.ready { background: var(--done-tint); color: var(--done); }
+.state.draft { background: var(--surface); color: var(--subtle); }
+.state.over { background: var(--accent-tint); color: var(--text-accent); }
+.pool-h { margin: 22px 0 6px; font-family: var(--font-mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--subtle); }
+.pool { list-style: none; margin: 0; padding: 0; }
+.pool li { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--rule); font-size: 14px; }
+.pool .why { font-size: 12px; color: var(--subtle); }
+.hint { font-size: 13px; color: var(--subtle); margin: 10px 0 0; }
+
+/* Editor */
+.editor { min-width: 0; }
+.e-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 10px; border-bottom: 2px solid var(--text); padding-bottom: 6px; }
+.e-head h3 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 24px; }
+.facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin-top: 16px; border: 1px solid var(--border); border-radius: 4px; background: var(--raised); }
+.fact { padding: 10px 12px; border-right: 1px solid var(--rule); min-width: 0; }
+.fact:last-child { border-right: 0; }
+.fact span { display: block; font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--subtle); }
+.fact b { font-weight: 600; font-size: 15px; font-variant-numeric: tabular-nums; }
+.fact .missing { font-weight: 400; font-size: 13px; color: var(--text-accent); }
+.facts-note { font-size: 12px; color: var(--subtle); margin: 6px 0 0; }
+
+.field { margin-top: 20px; }
+.f-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.f-label { font-weight: 600; font-size: 15px; }
+.f-label small { font-weight: 400; color: var(--subtle); font-size: 13px; margin-left: 6px; }
+.counter { font-family: var(--font-mono); font-size: 12px; color: var(--subtle); font-variant-numeric: tabular-nums; }
+.counter.over { color: var(--danger); font-weight: 500; }
+.field input, .field textarea { width: 100%; margin-top: 6px; border: 0; border-bottom: 2px solid var(--text); background: transparent; color: var(--text); font-family: var(--font-body); font-size: 17px; padding: 6px 0; resize: vertical; }
+.field textarea { line-height: 1.45; }
+.field input:focus-visible, .field textarea:focus-visible { outline: none; border-bottom-color: var(--accent); }
+.field.over input, .field.over textarea { border-bottom-color: var(--danger); }
+.pills { display: flex; gap: 8px; margin-top: 8px; }
+.pills button { border: 1px solid var(--border); background: transparent; color: var(--muted); padding: 5px 14px; border-radius: 999px; font-size: 13px; cursor: pointer; }
+.pills button[aria-pressed="true"] { border-color: var(--text); color: var(--text); background: var(--raised); font-weight: 600; }
+.e-foot { display: flex; flex-wrap: wrap; gap: 14px 20px; align-items: center; margin-top: 24px; }
+.primary { border: 0; background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: 14px; padding: 10px 16px; border-radius: 2px; cursor: pointer; }
+.primary[disabled] { background: var(--surface-2); color: var(--placeholder); cursor: default; }
+
+.notes { margin-top: 30px; border-top: 1px solid var(--border); padding-top: 14px; }
+.notes h4 { margin: 0 0 8px; font-family: var(--font-mono); font-weight: 500; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--subtle); }
+.notes dl { margin: 0; display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 8px 16px; font-size: 14px; }
+.notes dt { color: var(--subtle); }
+.notes dd { margin: 0; }
+.notes dd.empty { color: var(--subtle); }
+
+/* Honors */
+.honor { background: var(--raised); border: 1px solid var(--border); border-radius: 4px; padding: 16px 18px; margin-top: 14px; display: grid; gap: 12px; }
+.honor .row { display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; }
+.honor .lbl { font-size: 13px; color: var(--subtle); min-width: 70px; }
+.empty-box { margin-top: 16px; padding: 18px; border: 1px dashed var(--dash); border-radius: 4px; color: var(--muted); font-size: 14px; }
+
+@media (max-width: 820px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fact:nth-child(2) { border-right: 0; }
+  .fact:nth-child(-n+2) { border-bottom: 1px solid var(--rule); }
+  .notes dl { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .notes dd { margin-bottom: 8px; }
+}
+</style>
+
+<div class="proto" role="region" aria-label="Prototype controls">
+  <strong>Mockup</strong>
+  <span class="note">Kyle's activities as examples. Draft text, hours and the robotics role are placeholders, not his. Nothing saves.</span>
+</div>
+
+<div class="page">
+  <div class="eyebrow">Phase 1 · Junior Fall</div>
+  <h1>Apps &amp; Materials</h1>
+  <nav class="tabs" aria-label="Activities views"><span>My Record</span><span class="on">Application Prep</span></nav>
+  <div id="app"></div>
+</div>
+
+<script>
+(function () {
+  const LIM = { role: 50, org: 100, desc: 150, honor: 100 };
+  let view = "activities";
+  let selected = 2;
+  const entries = [
+    { id: 1, name: "Trumpet", sub: "9th-11th · since 6th", grades: "9, 10, 11", timing: "All year", hours: "5 hrs/wk", weeks: "48 wks/yr", role: "", org: "", desc: "", college: null, ready: false, notes: { role: "", what: "", why: "", updates: "", awards: "" } },
+    { id: 2, name: "Marching band", sub: "9th-11th", grades: "9, 10, 11", timing: "School year", hours: null, weeks: null, role: "Trumpet section", org: "Columbia High School Marching Band", desc: "Example draft: perform at football games and competitions; learn new show music each season.", college: true, ready: false, notes: { role: "", what: "", why: "", updates: "", awards: "" } },
+    { id: 3, name: "Robotics club", sub: "9th-11th · since 8th", grades: "9, 10, 11", timing: "School year", hours: "6 hrs/wk", weeks: "30 wks/yr", role: "Example role", org: "Example organization", desc: "Example draft text.", college: true, ready: true, notes: { role: "", what: "", why: "", updates: "", awards: "" } }
+  ];
+  const pool = [
+    { name: "Band", why: "9th-11th · 3 yrs" },
+    { name: "Taekwondo", why: "Grades not set" }
+  ];
+  const app = document.getElementById("app");
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const len = (s) => [...(s || "")].length;
+  const over = (e) => len(e.role) > LIM.role || len(e.org) > LIM.org || len(e.desc) > LIM.desc;
+  const stateOf = (e) => (over(e) ? ["over", "Over limit"] : e.ready ? ["ready", "Ready"] : ["draft", "Draft"]);
+
+  function field(key, label, limit, value, multi) {
+    const n = len(value), isOver = n > limit;
+    const ctrl = multi
+      ? `<textarea id="f-${key}" rows="3" data-k="${key}">${esc(value)}</textarea>`
+      : `<input id="f-${key}" data-k="${key}" value="${esc(value)}" autocomplete="off">`;
+    return `<div class="field${isOver ? " over" : ""}"><div class="f-top"><label class="f-label" for="f-${key}">${label}</label><span class="counter${isOver ? " over" : ""}" data-c="${key}">${n} / ${limit}</span></div>${ctrl}</div>`;
+  }
+
+  function activities() {
+    const e = entries.find((x) => x.id === selected);
+    const readyN = entries.filter((x) => x.ready && !over(x)).length;
+    const list = entries.map((x, i) => {
+      const [cls, lab] = stateOf(x);
+      return `<li class="${x.id === selected ? "sel" : ""}" data-pick="${x.id}"><span class="num">${i + 1}</span><span class="c-name">${esc(x.name)}<span class="c-sub">${esc(x.sub)}</span></span><span class="state ${cls}">${lab}</span></li>`;
+    }).join("");
+    const fact = (k, v, miss) => `<div class="fact"><span>${k}</span>${v ? `<b>${esc(v)}</b>` : `<span class="missing">${miss}</span>`}</div>`;
+    const blocked = over(e);
+    return `
+      <div class="head"><div><h2 class="title">Application Prep</h2>
+        <p class="sum">${entries.length} of 10 activities chosen, ${readyN} ready. 0 of 5 honors chosen. Built from My Record, in Common App fields.</p></div>
+        <button type="button" class="secondary">Copy all for the Common App</button></div>
+      <div class="seg" role="group" aria-label="Section"><button type="button" data-view="activities" aria-pressed="true">Activities</button><button type="button" data-view="honors" aria-pressed="false">Honors</button></div>
+      <div class="layout">
+        <div>
+          <div class="col-h"><h3>Your list</h3><span class="count">${entries.length} / 10</span></div>
+          <ol class="chosen">${list}</ol>
+          <p class="hint">Colleges see them in this order. Put the ones that matter most to you first.</p>
+          <p class="pool-h">From My Record, not on the list</p>
+          <ul class="pool">${pool.map((p) => `<li><span>${esc(p.name)} <span class="why">${esc(p.why)}</span></span><button type="button" class="link-btn strong">Add</button></li>`).join("")}</ul>
+        </div>
+        <section class="editor" aria-labelledby="e-h">
+          <div class="e-head"><h3 id="e-h">${esc(e.name)}</h3><span><button type="button" class="link-btn">Move up</button> · <button type="button" class="link-btn">Move down</button> · <button type="button" class="link-btn">Remove</button></span></div>
+          <div class="facts">${fact("Grades", e.grades)}${fact("Timing", e.timing)}${fact("Hours", e.hours, "Add in My Record")}${fact("Weeks", e.weeks, "Add in My Record")}</div>
+          <p class="facts-note">These come from My Record. Change them there and they update here.</p>
+          ${field("role", "Position or leadership", LIM.role, e.role)}
+          ${field("org", "Organization", LIM.org, e.org)}
+          ${field("desc", "Description <small>about 20-25 words</small>", LIM.desc, e.desc, true)}
+          <div class="field"><span class="f-label">Do you plan to do this in college?</span>
+            <div class="pills" role="group" aria-label="Continue in college"><button type="button" data-col="yes" aria-pressed="${e.college === true}">Yes</button><button type="button" data-col="no" aria-pressed="${e.college === false}">No</button></div></div>
+          <div class="e-foot"><button type="button" class="primary" data-act="ready"${blocked ? " disabled" : ""}>${e.ready ? "Ready - mark as draft" : "Mark as ready"}</button>${blocked ? '<span class="counter over">Shorten the fields in red first.</span>' : ""}</div>
+          <div class="notes"><h4>From My Record</h4><dl>
+            <dt>Role</dt><dd class="empty">Not added yet</dd>
+            <dt>What you do</dt><dd class="empty">Not added yet</dd>
+            <dt>Why it matters</dt><dd class="empty">Not added yet</dd>
+            <dt>Updates</dt><dd class="empty">None yet</dd>
+            <dt>Awards</dt><dd class="empty">None linked</dd>
+          </dl><p class="hint"><button type="button" class="link-btn strong">Add details in My Record</button> to have more to draft from.</p></div>
+        </section>
+      </div>`;
+  }
+
+  function honors() {
+    return `
+      <div class="head"><div><h2 class="title">Application Prep</h2>
+        <p class="sum">${entries.length} of 10 activities chosen. 0 of 5 honors chosen. Built from My Record, in Common App fields.</p></div>
+        <button type="button" class="secondary">Copy all for the Common App</button></div>
+      <div class="seg" role="group" aria-label="Section"><button type="button" data-view="activities" aria-pressed="false">Activities</button><button type="button" data-view="honors" aria-pressed="true">Honors</button></div>
+      <div style="max-width:720px">
+        <div class="col-h" style="margin-top:24px"><h3>Honors</h3><span class="count">0 / 5</span></div>
+        <p class="hint">The Common App asks for up to 5 academic honors from high school. Other recognition can go in an activity's description.</p>
+        <div class="empty-box">No awards in My Record yet. <button type="button" class="link-btn strong">Add an award in My Record</button> and it will show here to choose.</div>
+        <p class="pool-h" style="margin-top:28px">How a chosen honor looks</p>
+        <div class="honor">
+          ${field("honor", "Honor title", LIM.honor, "Example: an academic award")}
+          <div class="row"><span class="lbl">Grades</span><span class="pills" style="margin:0"><button type="button" aria-pressed="false">9</button><button type="button" aria-pressed="true">10</button><button type="button" aria-pressed="false">11</button><button type="button" aria-pressed="false">12</button></span></div>
+          <div class="row"><span class="lbl">Level</span><span class="pills" style="margin:0"><button type="button" aria-pressed="false">School</button><button type="button" aria-pressed="true">State or regional</button><button type="button" aria-pressed="false">National</button><button type="button" aria-pressed="false">International</button></span></div>
+        </div>
+      </div>`;
+  }
+
+  function render() { app.innerHTML = view === "activities" ? activities() : honors(); }
+
+  document.addEventListener("click", (ev) => {
+    const v = ev.target.closest("[data-view]");
+    if (v) { view = v.dataset.view; render(); return; }
+    const p = ev.target.closest("[data-pick]");
+    if (p) { selected = Number(p.dataset.pick); render(); return; }
+    const c = ev.target.closest("[data-col]");
+    if (c) { entries.find((x) => x.id === selected).college = c.dataset.col === "yes"; render(); return; }
+    const r = ev.target.closest("[data-act='ready']");
+    if (r) { const e = entries.find((x) => x.id === selected); e.ready = !e.ready; render(); return; }
+    const pl = ev.target.closest(".pills button");
+    if (pl && !pl.dataset.col) { pl.setAttribute("aria-pressed", String(pl.getAttribute("aria-pressed") !== "true")); }
+  });
+  document.addEventListener("input", (ev) => {
+    const k = ev.target.dataset.k;
+    if (!k) return;
+    const lim = { role: LIM.role, org: LIM.org, desc: LIM.desc, honor: LIM.honor }[k];
+    if (k !== "honor") entries.find((x) => x.id === selected)[k] = ev.target.value;
+    const n = len(ev.target.value), cnt = document.querySelector(`[data-c="${k}"]`);
+    if (cnt) { cnt.textContent = `${n} / ${lim}`; cnt.classList.toggle("over", n > lim); }
+    ev.target.closest(".field").classList.toggle("over", n > lim);
+    if (k !== "honor") {
+      const e = entries.find((x) => x.id === selected);
+      const li = document.querySelector(`[data-pick="${selected}"] .state`);
+      const [cls, lab] = stateOf(e); li.className = "state " + cls; li.textContent = lab;
+      const btn = document.querySelector("[data-act='ready']"); if (btn) btn.disabled = over(e);
+    }
+  });
+  render();
+})();
+</script>

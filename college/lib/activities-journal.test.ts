@@ -12,9 +12,18 @@ import {
   assignActivityToThread,
   charCount,
   createActivity,
+  classStanding,
   createApplicationList,
   createThread,
-  classStanding,
+  COMMON_APP_LIST_ID,
+  commonAppCopyText,
+  commonAppGrades,
+  commonAppTime,
+  commonAppTiming,
+  ensureCommonAppList,
+  HONOR_LIMITS,
+  HONOR_LEVEL_LABEL,
+  inferHonorLevel,
   currentGrade,
   currentSchoolYearEnd,
   deleteThread,
@@ -25,9 +34,10 @@ import {
   filterActivities,
   formatSchoolYear,
   gradeCells,
+  isDraftStale,
   isHighSchoolGrade,
-  markDraftsStaleForActivity,
   normalizeJournal,
+  prepSummary,
   recallPeriods,
   recallSpanText,
   recordSpanText,
@@ -186,49 +196,307 @@ test("filterActivities by query, category, grade, status", () => {
   assert.equal(filterActivities(list, {}).every((a) => !a.archived), true);
 });
 
-test("updating activity marks draft stale without overwriting draft text", () => {
+test("ensureCommonAppList creates once and Application Prep helpers", () => {
   let journal = emptyJournal();
-  const activity = createActivity({
-    name: "Orchestra",
-    category: "arts-music-theater",
-    role: "Violin section",
-    organization: "School Orchestra",
-  });
-  journal = upsertActivity(journal, activity);
-  const created = createApplicationList(journal, "Common App top 10");
-  journal = created.journal;
-  const listId = created.list.id;
+  journal = ensureCommonAppList(journal);
+  assert.equal(journal.applicationLists.length, 1);
+  assert.equal(journal.applicationLists[0]!.id, COMMON_APP_LIST_ID);
+  assert.equal(journal.applicationLists[0]!.name, "Common App");
+  const again = ensureCommonAppList(journal);
+  assert.equal(again.applicationLists.length, 1);
+  assert.equal(again, journal);
+
+  const now = new Date(2026, 9, 3);
+  const stamp = "2026-10-03T00:00:00.000Z";
+  const activity = createActivity({ name: "Marching band", category: "arts-music-theater" });
+  activity.periods = [
+    {
+      id: "p6",
+      schoolYear: "2021–22",
+      grade: "6",
+      periodKind: "school_year",
+      status: "completed",
+      createdAt: stamp,
+      updatedAt: stamp,
+    },
+    {
+      id: "p9",
+      schoolYear: "2024–25",
+      grade: "9",
+      periodKind: "school_year",
+      status: "completed",
+      hoursPerWeek: 6,
+      weeksActive: 30,
+      createdAt: stamp,
+      updatedAt: stamp,
+    },
+    {
+      id: "p10",
+      schoolYear: "2025–26",
+      grade: "10",
+      periodKind: "summer",
+      status: "completed",
+      createdAt: stamp,
+      updatedAt: stamp,
+    },
+    {
+      id: "p11",
+      schoolYear: "2026–27",
+      grade: "11",
+      periodKind: "school_year",
+      status: "in_progress",
+      hoursPerWeek: 5,
+      weeksActive: 20,
+      startDate: "2026-09-01",
+      createdAt: stamp,
+      updatedAt: stamp,
+    },
+    {
+      id: "p12",
+      schoolYear: "2027–28",
+      grade: "12",
+      periodKind: "school_year",
+      status: "planned",
+      createdAt: stamp,
+      updatedAt: stamp,
+    },
+  ];
+  assert.deepEqual(commonAppGrades(activity), [9, 10, 11]);
+  assert.equal(commonAppTiming(activity), "All year");
+  assert.deepEqual(commonAppTime(activity), { hoursPerWeek: 5, weeksPerYear: 20 });
+
+  const schoolOnly = {
+    ...activity,
+    periods: activity.periods.filter((p) => p.periodKind === "school_year" && p.status !== "planned"),
+  };
+  assert.equal(commonAppTiming(schoolOnly), "School year");
+  assert.equal(
+    commonAppTiming({
+      ...activity,
+      periods: [{ ...activity.periods[2]!, periodKind: "summer" }],
+    }),
+    "School break",
+  );
+  assert.equal(
+    commonAppTiming({
+      ...activity,
+      periods: [{ ...activity.periods[1]!, periodKind: "custom" }],
+    }),
+    null,
+  );
+
   const draft: ApplicationDraft = {
     id: "draft_1",
     activityId: activity.id,
     sortOrder: 0,
-    draftRole: "First violin",
-    draftOrg: "HS Orchestra (draft)",
-    shortDescription: "Led sectionals and performed at regionals.",
-    longDescription: "Longer draft text stays put.",
+    reviewStatus: "draft",
+  };
+  assert.equal(isDraftStale(draft, activity), false);
+  const ready: ApplicationDraft = {
+    ...draft,
     reviewStatus: "reviewed",
-    reviewedAt: activity.createdAt,
-    sourceUpdatedAtSnapshot: activity.updatedAt,
+    reviewedAt: "2026-10-01T00:00:00.000Z",
   };
-  journal = upsertDraft(journal, listId, draft);
+  assert.equal(isDraftStale(ready, { ...activity, updatedAt: "2026-09-01T00:00:00.000Z" }), false);
+  assert.equal(isDraftStale(ready, { ...activity, updatedAt: "2026-10-02T00:00:00.000Z" }), true);
 
-  const updated = {
-    ...activity,
-    role: "Concertmaster",
-    responsibilities: "Lead rehearsals",
-    updatedAt: new Date().toISOString(),
+  journal = upsertActivity(journal, activity);
+  const savedActivity = journal.activities[0]!;
+  const list = journal.applicationLists[0]!;
+  assert.equal(
+    prepSummary(list, journal),
+    "0 of 10 activities chosen, 0 ready. 0 of 5 honors chosen. Built from My Record, in Common App fields.",
+  );
+  journal = upsertDraft(journal, COMMON_APP_LIST_ID, {
+    id: "draft_1",
+    activityId: savedActivity.id,
+    sortOrder: 0,
+    draftRole: "Section",
+    reviewStatus: "reviewed",
+    reviewedAt: savedActivity.updatedAt,
+  });
+  assert.match(prepSummary(journal.applicationLists[0]!, journal), /^1 of 10 activities chosen, 1 ready/);
+
+  const withChoice = normalizeJournal({
+    activities: [savedActivity],
+    awards: [],
+    applicationLists: [
+      {
+        id: COMMON_APP_LIST_ID,
+        name: "Common App",
+        createdAt: stamp,
+        updatedAt: stamp,
+        entries: [
+          {
+            id: "d1",
+            activityId: savedActivity.id,
+            sortOrder: 0,
+            continueInCollegeChoice: true,
+          },
+        ],
+      },
+    ],
+  });
+  assert.equal(withChoice.applicationLists[0]!.entries[0]!.continueInCollegeChoice, true);
+  void now;
+});
+
+test("honor normalize, inferHonorLevel, and commonAppCopyText", () => {
+  const stamp = "2026-10-03T00:00:00.000Z";
+  const band = createActivity({
+    name: "Marching band",
+    category: "arts-music-theater",
+    role: "Trumpet section",
+    organization: "Columbia High School Marching Band",
+  });
+  band.periods = [
+    {
+      id: "p9",
+      schoolYear: "2024–25",
+      grade: "9",
+      periodKind: "school_year",
+      status: "completed",
+      hoursPerWeek: 6,
+      weeksActive: 30,
+      createdAt: stamp,
+      updatedAt: stamp,
+    },
+    {
+      id: "p10",
+      schoolYear: "2025–26",
+      grade: "10",
+      periodKind: "school_year",
+      status: "completed",
+      hoursPerWeek: 6,
+      weeksActive: 30,
+      createdAt: stamp,
+      updatedAt: stamp,
+    },
+  ];
+  const robotics = createActivity({
+    name: "Robotics",
+    category: "school-club",
+  });
+  robotics.periods = [
+    {
+      id: "r11",
+      schoolYear: "2026–27",
+      grade: "11",
+      periodKind: "all_year",
+      status: "in_progress",
+      hoursPerWeek: 8,
+      weeksActive: 40,
+      createdAt: stamp,
+      updatedAt: stamp,
+    },
+  ];
+  const award: Award = {
+    id: "award_1",
+    title: "State science fair",
+    grade: "10",
+    recognitionLevel: "State Regional Finalist",
+    academic: true,
+    createdAt: stamp,
+    updatedAt: stamp,
   };
-  journal = upsertActivity(journal, updated);
-  journal = markDraftsStaleForActivity(journal, activity.id, updated.updatedAt);
+  const journal = normalizeJournal({
+    activities: [band, robotics],
+    awards: [award],
+    applicationLists: [
+      {
+        id: COMMON_APP_LIST_ID,
+        name: "Common App",
+        createdAt: stamp,
+        updatedAt: stamp,
+        entries: [
+          {
+            id: "d1",
+            activityId: band.id,
+            sortOrder: 0,
+            draftRole: "Trumpet section",
+            draftOrg: "Columbia High School Marching Band",
+            shortDescription: "Perform at games and competitions.",
+            continueInCollegeChoice: true,
+          },
+          {
+            id: "d2",
+            activityId: robotics.id,
+            sortOrder: 1,
+            draftRole: "Builder",
+            shortDescription: "",
+          },
+        ],
+        honors: [
+          {
+            id: "h1",
+            awardId: award.id,
+            sortOrder: 0,
+            title: "State science fair",
+            grades: [10, 8, 13],
+            level: "not_a_level",
+            reviewStatus: "draft",
+          },
+          {
+            id: "h-missing",
+            awardId: "gone",
+            sortOrder: 1,
+            title: "Orphan",
+            grades: [11],
+            level: "national",
+          },
+        ],
+      },
+    ],
+  });
 
-  const entry = journal.applicationLists[0]!.entries[0]!;
-  assert.equal(entry.reviewStatus, "stale");
-  assert.equal(entry.draftRole, "First violin");
-  assert.equal(entry.draftOrg, "HS Orchestra (draft)");
-  assert.equal(entry.shortDescription, "Led sectionals and performed at regionals.");
-  assert.equal(entry.longDescription, "Longer draft text stays put.");
-  assert.equal(entry.sourceUpdatedAtSnapshot, updated.updatedAt);
-  assert.notEqual(journal.activities[0]!.role, entry.draftRole);
+  const list = journal.applicationLists[0]!;
+  assert.equal(list.honors?.length, 1);
+  assert.deepEqual(list.honors![0]!.grades, [10]);
+  assert.equal(list.honors![0]!.level, null);
+  assert.equal(HONOR_LIMITS.count, 5);
+  assert.equal(HONOR_LIMITS.title, 100);
+  assert.equal(inferHonorLevel("State Regional Finalist"), "state_regional");
+  assert.equal(inferHonorLevel("National Merit"), "national");
+  assert.equal(inferHonorLevel("International Olympiad"), "international");
+  assert.equal(inferHonorLevel("School award"), "school");
+  assert.equal(inferHonorLevel("Other"), null);
+  assert.equal(HONOR_LEVEL_LABEL.state_regional, "State or regional");
+
+  const withLevel = {
+    ...list,
+    honors: [{ ...list.honors![0]!, level: "state_regional" as const, grades: [10] }],
+  };
+  const text = commonAppCopyText(withLevel, journal);
+  assert.equal(
+    text,
+    [
+      "ACTIVITIES",
+      "",
+      "1. Marching band",
+      "Position or leadership: Trumpet section",
+      "Organization: Columbia High School Marching Band",
+      "Description: Perform at games and competitions.",
+      "Grades: 9, 10",
+      "Timing: School year",
+      "Hours per week: 6",
+      "Weeks per year: 30",
+      "Plan to continue in college: Yes",
+      "",
+      "2. Robotics",
+      "Position or leadership: Builder",
+      "Grades: 11",
+      "Timing: All year",
+      "Hours per week: 8",
+      "Weeks per year: 40",
+      "",
+      "HONORS",
+      "",
+      "1. State science fair",
+      "Grades: 10",
+      "Level: State or regional",
+      "",
+    ].join("\n"),
+  );
 });
 
 test("estimatedHours multiplies hours and weeks", () => {
