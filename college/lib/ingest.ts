@@ -1,6 +1,7 @@
 /** Ingest → suggested checklist steps. */
 
 import { phases } from "@/lib/content";
+import { isTodoKind, normalizeDoneBy, type TodoKind } from "@/lib/family-meeting";
 import { isOwner, type Owner, type Phase } from "@/lib/types";
 
 export type IngestRoute = "todo" | "note" | "calendar" | "drop";
@@ -73,6 +74,10 @@ export type PersistedProjectStep = {
   sourceNoteId?: string | null;
   /** Requirements checklist key that spawned this to-do. */
   sourceRequirement?: string | null;
+  /** Family-meeting items appear on every list and the family agenda. */
+  kind?: TodoKind;
+  /** Who has marked a family-meeting item discussed. */
+  doneBy?: Owner[];
 };
 
 export type PersistedIngestSource = {
@@ -344,6 +349,8 @@ export function normalizePersistedSteps(raw: unknown): PersistedProjectStep[] {
         typeof item.sourceRequirement === "string" && item.sourceRequirement
           ? item.sourceRequirement
           : null,
+      kind: isTodoKind(item.kind) ? item.kind : undefined,
+      doneBy: "doneBy" in item ? normalizeDoneBy(item.doneBy) : undefined,
     });
   }
   return out;

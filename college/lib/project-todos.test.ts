@@ -5,6 +5,8 @@ import {
   assignedByBadge,
   canMarkTodoDone,
   dueTone,
+  familyMeetingIdSet,
+  familyMeetingKindPatch,
   formatTodoWhen,
   groupTodosByOwner,
   isTodoOverdue,
@@ -17,6 +19,7 @@ import {
   removeProjectTodoState,
   sanitizeChecklistForViewer,
   sanitizeSubtasksForViewer,
+  sanitizeTodoEditsForViewer,
   shortDueLabel,
   stageOwnerFromTodos,
   stageOwnerMap,
@@ -38,6 +41,7 @@ test("only the list owner can mark a to-do done", () => {
   assert.equal(canMarkTodoDone("jason", "kat"), false);
   assert.equal(canMarkTodoDone("kyle", "kyle"), true);
   assert.equal(canMarkTodoDone("jason", null), false);
+  assert.equal(canMarkTodoDone("jason", null, "family_meeting"), true);
 });
 
 test("assignedByBadge only shows when someone else assigned it", () => {
@@ -335,7 +339,10 @@ function meterTodo(
     phase: "Junior Fall",
     phaseWindow: "now",
     projectId: null,
+    schoolId: null,
     description: "",
+    kind: "normal",
+    doneBy: [],
     ...partial,
   };
 }
@@ -435,3 +442,88 @@ test("upsertStageAssignment puts a stage on the assignee's to-do list", () => {
   assert.equal(restored.todoEdits["college-list-s1"]?.deleted, undefined);
   assert.equal(stageOwnerFromTodos("college-list-s1", {}, restored.projectSteps, restored.todoEdits), "kyle");
 });
+
+test("family-meeting to-dos appear on every list with per-person done", () => {
+  const now = new Date(2026, 9, 4);
+  const step = {
+    id: "fam-1",
+    label: "Pick a November visit window",
+    owner: "jason" as const,
+    assignedBy: "jason" as const,
+    parentId: "inbox",
+    dueDate: "2026-10-04",
+    startDate: null,
+    endDate: "2026-10-04",
+    sourceId: null,
+    createdAt: "2026-10-04T12:00:00.000Z",
+    kind: "family_meeting" as const,
+    doneBy: ["kyle"] as const,
+  };
+  const todos = listProjectTodos({}, undefined, [step], {}, now);
+  const item = todos.find((todo) => todo.id === "fam-1");
+  assert.ok(item);
+  assert.equal(item?.kind, "family_meeting");
+  assert.equal(item?.owner, null);
+  assert.equal(item?.done, false);
+  assert.deepEqual(item?.doneBy, ["kyle"]);
+  assert.equal(item?.dueDate, "2026-10-04");
+
+  const grouped = groupTodosByOwner(todos, "jason");
+  assert.ok(grouped.mine.open.some((todo) => todo.id === "fam-1"));
+  assert.ok(grouped.others.find((bucket) => bucket.owner === "kyle")?.done.some((todo) => todo.id === "fam-1"));
+  assert.ok(grouped.others.find((bucket) => bucket.owner === "kat")?.open.some((todo) => todo.id === "fam-1"));
+  assert.equal(grouped.unclaimed.open.some((todo) => todo.id === "fam-1"), false);
+
+  const familyOnly = todos.filter((todo) => todo.id === "fam-1");
+  const meters = personMeterRows(familyOnly, "jason", now);
+  assert.equal(meters.find((row) => row.owner === "kyle")?.total, 0);
+  assert.equal(meters.find((row) => row.owner === "jason")?.total, 1);
+  assert.equal(meters.find((row) => row.owner === "kat")?.total, 1);
+});
+
+test("family-meeting kind patch stamps the next meeting and converts back to a person", () => {
+  const now = new Date(2026, 9, 5);
+  const toFamily = familyMeetingKindPatch("kat", "family_meeting", now);
+  assert.equal(toFamily.kind, "family_meeting");
+  assert.equal(toFamily.owner, null);
+  assert.equal(toFamily.dueDate, "2026-10-18");
+  const toPerson = familyMeetingKindPatch("kat", "normal", now);
+  assert.equal(toPerson.kind, "normal");
+  assert.equal(toPerson.owner, "kat");
+  assert.deepEqual(toPerson.doneBy, []);
+});
+
+test("sanitizeTodoEditsForViewer only lets the viewer flip their own family ack", () => {
+  const current = { "fam-1": { kind: "family_meeting" as const, doneBy: ["kyle"] } };
+  const incoming = { "fam-1": { kind: "family_meeting" as const, doneBy: ["kyle", "jason", "kat"] } };
+  const saved = sanitizeTodoEditsForViewer(current, incoming, "jason");
+  assert.deepEqual(saved["fam-1"]?.doneBy, ["kyle", "jason"]);
+});
+
+test("family-meeting ids skip the owner map and block checklist flips", () => {
+  const step = {
+    id: "fam-2",
+    label: "ED vs EA",
+    owner: "jason" as const,
+    assignedBy: "jason" as const,
+    parentId: "inbox",
+    dueDate: null,
+    startDate: null,
+    endDate: null,
+    sourceId: null,
+    createdAt: "2026-10-04T12:00:00.000Z",
+    kind: "family_meeting" as const,
+  };
+  assert.equal(familyMeetingIdSet([step], {}).has("fam-2"), true);
+  assert.equal(todoOwnerIndex([step], {}).has("fam-2"), false);
+  const { checklist, blocked } = sanitizeChecklistForViewer(
+    {},
+    { "fam-2": true },
+    "jason",
+    todoOwnerIndex([step], {}),
+    familyMeetingIdSet([step], {}),
+  );
+  assert.deepEqual(blocked, ["fam-2"]);
+  assert.equal(checklist["fam-2"], undefined);
+});
+

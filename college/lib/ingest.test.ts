@@ -93,6 +93,28 @@ test("normalizePersistedSteps keeps valid rows only", () => {
   assert.equal(steps[0]?.owner, "jason");
   assert.equal(steps[0]?.assignedBy, "kat");
   assert.equal(steps[0]?.dueDate, "2026-10-01");
+  assert.equal(steps[0]?.kind, undefined);
+});
+
+test("normalizePersistedSteps keeps family-meeting kind and doneBy", () => {
+  const steps = normalizePersistedSteps([
+    {
+      id: "fam-1",
+      label: "Discuss visit window",
+      owner: "jason",
+      assignedBy: "jason",
+      parentId: "inbox",
+      dueDate: "2026-10-18",
+      startDate: null,
+      endDate: "2026-10-18",
+      sourceId: null,
+      createdAt: "2026-10-04T12:00:00.000Z",
+      kind: "family_meeting",
+      doneBy: ["kyle", "nope", "kat"],
+    },
+  ]);
+  assert.equal(steps[0]?.kind, "family_meeting");
+  assert.deepEqual(steps[0]?.doneBy, ["kyle", "kat"]);
 });
 
 test("normalizeIngestSources maps history rows", () => {

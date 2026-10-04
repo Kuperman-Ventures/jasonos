@@ -76,8 +76,15 @@ import {
   type ProjectSectionId,
 } from "@/lib/project-management";
 import {
+  FAMILY_MEETING_KIND,
+  familyMeetingFullyDone,
+  nextFamilyMeetingDate,
+  toggleFamilyMeetingAck,
+} from "@/lib/family-meeting";
+import {
   canMarkTodoDone,
   clearProjectIdFromEdits,
+  isFamilyMeetingTodo,
   listProjectTodos,
   memberOwnerId,
   normalizeTodoEdits,
@@ -86,6 +93,7 @@ import {
   upsertStageAssignment,
   type TodoEdit,
   type TodoEditMap,
+  type TodoKind,
   type TodoSubtaskMap,
 } from "@/lib/project-todos";
 import {
@@ -742,17 +750,47 @@ export function Portal({
   }, [persisted]);
 
   function toggleItem(id: string, checked: boolean) {
+    const viewer = memberOwnerId(member.id);
+    const todos = listProjectTodos(checklist, phases, projectSteps, todoEdits);
+    const todo = todos.find((row) => row.id === id) ?? null;
+    if (todo && isFamilyMeetingTodo(todo)) {
+      const nextDoneBy = toggleFamilyMeetingAck(todo.doneBy, viewer, checked);
+      const meeting = nextFamilyMeetingDate();
+      const fully = familyMeetingFullyDone(nextDoneBy);
+      const nextEdits = normalizeTodoEdits({
+        ...todoEdits,
+        [id]: {
+          ...todoEdits[id],
+          doneBy: nextDoneBy,
+          dueDate: fully ? meeting : meeting,
+          endDate: fully ? meeting : meeting,
+        },
+      });
+      setTodoEdits(nextEdits);
+      void patchState({ todoEdits: nextEdits }).then((ok) => {
+        if (!ok) return;
+        const who = ownerLabel(viewer);
+        postActivity({
+          action: fully ? "complete" : checked ? "update" : "reopen",
+          entityType: "todo",
+          entityId: id,
+          summary: fully
+            ? `Family marked “${todo.label}” discussed`
+            : checked
+              ? `${who} marked “${todo.label}” discussed`
+              : `${who} reopened “${todo.label}”`,
+        });
+      });
+      return;
+    }
     const owners = todoOwnerIndex(projectSteps, todoEdits);
     const owner = owners.get(id);
-    const viewer = memberOwnerId(member.id);
     if (owner && !canMarkTodoDone(viewer, owner)) {
       setSaveState("Only the list owner can check that off");
       window.setTimeout(() => setSaveState(""), 2000);
       return;
     }
-    const label =
-      listProjectTodos(checklist, phases, projectSteps, todoEdits).find((todo) => todo.id === id)
-        ?.label ?? id;
+    const label = todo?.label ?? id;
     const next = { ...checklist, [id]: checked };
     setChecklist(next);
     void patchState({ checklist: next }).then((ok) => {
@@ -956,22 +994,25 @@ export function Portal({
     sendNoteToIngest(note, "calendar");
   }
 
-  function addTodo(label: string) {
+  function addTodo(label: string, kind: TodoKind = "normal") {
     const trimmed = label.trim();
     if (!trimmed) return;
     const createdAt = new Date().toISOString();
     const owner = memberOwnerId(member.id);
+    const meeting = kind === FAMILY_MEETING_KIND ? nextFamilyMeetingDate() : null;
     const step: PersistedProjectStep = {
       id: `todo-${Math.random().toString(36).slice(2, 10)}`,
       label: trimmed,
       owner,
       assignedBy: owner,
       parentId: INBOX_PARENT_ID,
-      dueDate: null,
+      dueDate: meeting,
       startDate: null,
-      endDate: null,
+      endDate: meeting,
       sourceId: null,
       createdAt,
+      kind: kind === FAMILY_MEETING_KIND ? FAMILY_MEETING_KIND : undefined,
+      doneBy: kind === FAMILY_MEETING_KIND ? [] : undefined,
     };
     const next = [...projectSteps, step];
     setProjectSteps(next);
@@ -981,7 +1022,10 @@ export function Portal({
         action: "create",
         entityType: "todo",
         entityId: step.id,
-        summary: `Added to-do “${trimmed}”`,
+        summary:
+          kind === FAMILY_MEETING_KIND
+            ? `Added family meeting item “${trimmed}”`
+            : `Added to-do “${trimmed}”`,
       });
     });
   }

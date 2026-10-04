@@ -4,6 +4,7 @@ import {
   resolveCalendarFeedToken,
   tokensMatch,
 } from "@/lib/calendar-feed";
+import { familyMeetingCalendarEvents } from "@/lib/family-meeting";
 import { buildIcsCalendar } from "@/lib/ical";
 
 export const runtime = "nodejs";
@@ -18,7 +19,10 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Invalid or missing calendar token." }, { status: 401 });
     }
 
-    const events = await loadCalendarEventsForFeed();
+    const events = [
+      ...(await loadCalendarEventsForFeed()),
+      ...familyMeetingCalendarEvents(),
+    ];
     const ics = buildIcsCalendar(events, { calendarName: "Kyle College Search" });
     return new NextResponse(ics, {
       status: 200,

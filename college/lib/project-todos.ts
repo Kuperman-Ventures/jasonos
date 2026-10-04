@@ -2,8 +2,20 @@
 
 import stepsFile from "@/content/checklist-steps.json";
 import { phases } from "@/lib/content";
+import {
+  FAMILY_MEETING_KIND,
+  familyMeetingFullyDone,
+  isFamilyMeetingKind,
+  isTodoKind,
+  nextFamilyMeetingDate,
+  normalizeDoneBy,
+  type TodoKind,
+} from "@/lib/family-meeting";
 import { INBOX_PARENT_ID, type PersistedProjectStep } from "@/lib/ingest";
 import { OWNERS, formatDate, isOwner, ownerLabel, type Owner, type Phase } from "@/lib/types";
+
+export type { TodoKind } from "@/lib/family-meeting";
+export { FAMILY_MEETING_KIND } from "@/lib/family-meeting";
 
 export type ChecklistStepSeed = {
   id: string;
@@ -40,6 +52,10 @@ export type ProjectTodo = {
   projectId: string | null;
   /** School this to-do was sent from (Project Management Notes). */
   schoolId: string | null;
+  /** Household category. Family-meeting rows appear on every person's list. */
+  kind: TodoKind;
+  /** Who has marked a family-meeting item discussed. Empty for normal to-dos. */
+  doneBy: Owner[];
 };
 
 /** Household overrides for seed and ingested to-dos. Missing keys keep the original. */
@@ -56,6 +72,10 @@ export type TodoEdit = {
   deleted?: boolean;
   /** Household project id, or null for "No project". */
   projectId?: string | null;
+  /** Set to family_meeting to put it on every list and the next family agenda. */
+  kind?: TodoKind;
+  /** Per-person acks for family-meeting items. */
+  doneBy?: Owner[];
 };
 
 export type TodoEditMap = Record<string, TodoEdit>;
@@ -109,8 +129,26 @@ export function memberOwnerId(memberId: string): Owner {
 }
 
 /** Only the person whose list it is can mark a to-do done. Unclaimed items must be claimed first. */
-export function canMarkTodoDone(viewer: Owner, todoOwner: Owner | null): boolean {
+export function canMarkTodoDone(
+  viewer: Owner,
+  todoOwner: Owner | null,
+  kind: TodoKind = "normal",
+): boolean {
+  if (kind === FAMILY_MEETING_KIND) return true;
   return todoOwner != null && viewer === todoOwner;
+}
+
+export function isFamilyMeetingTodo(todo: { kind?: TodoKind | string | null }): boolean {
+  return isFamilyMeetingKind(todo.kind);
+}
+
+/** Family-meeting items count as done on a person's list only after that person acks. */
+export function todoDoneForOwner(
+  todo: Pick<ProjectTodo, "kind" | "done" | "doneBy">,
+  owner: Owner,
+): boolean {
+  if (todo.kind === FAMILY_MEETING_KIND) return todo.doneBy.includes(owner);
+  return todo.done;
 }
 
 /** Badge text when someone else put the item on this list. */
@@ -119,27 +157,59 @@ export function assignedByBadge(todo: Pick<ProjectTodo, "owner" | "assignedBy">)
   return `From ${ownerLabel(todo.assignedBy)}`;
 }
 
-/** Owner lookup for seed + dynamic to-dos (used for check-off ACL). */
+function resolveTodoKind(
+  stepKind: unknown,
+  edit: TodoEdit | undefined,
+): TodoKind {
+  if (edit?.kind && isTodoKind(edit.kind)) return edit.kind;
+  if (isTodoKind(stepKind)) return stepKind;
+  return "normal";
+}
+
+/** Owner lookup for seed + dynamic to-dos (used for check-off ACL). Family-meeting ids are omitted. */
 export function todoOwnerIndex(
   dynamicSteps: PersistedProjectStep[] = [],
   edits: TodoEditMap = {},
 ): Map<string, Owner> {
+  const familyIds = familyMeetingIdSet(dynamicSteps, edits);
   const map = new Map<string, Owner>();
   const groups = stepsFile as ChecklistStepGroupSeed[];
   for (const group of groups) {
     for (const step of group.steps) {
+      if (familyIds.has(step.id)) continue;
       if (isOwner(step.owner)) map.set(step.id, step.owner);
     }
   }
   for (const step of dynamicSteps) {
+    if (familyIds.has(step.id)) continue;
     map.set(step.id, step.owner);
   }
   for (const [id, edit] of Object.entries(edits)) {
+    if (familyIds.has(id)) {
+      map.delete(id);
+      continue;
+    }
     if (!("owner" in edit)) continue;
     if (edit.owner == null) map.delete(id);
     else if (isOwner(edit.owner)) map.set(id, edit.owner);
   }
   return map;
+}
+
+/** Ids whose current kind is family meeting (step or edit). */
+export function familyMeetingIdSet(
+  dynamicSteps: PersistedProjectStep[] = [],
+  edits: TodoEditMap = {},
+): Set<string> {
+  const ids = new Set<string>();
+  for (const step of dynamicSteps) {
+    if (resolveTodoKind(step.kind, edits[step.id]) === FAMILY_MEETING_KIND) ids.add(step.id);
+  }
+  for (const [id, edit] of Object.entries(edits)) {
+    if (edit.kind === FAMILY_MEETING_KIND) ids.add(id);
+    if (edit.kind === "normal") ids.delete(id);
+  }
+  return ids;
 }
 
 /**
@@ -151,6 +221,7 @@ export function sanitizeChecklistForViewer(
   next: Record<string, boolean>,
   viewer: Owner,
   owners: Map<string, Owner>,
+  familyIds: Set<string> = new Set(),
 ): { checklist: Record<string, boolean>; blocked: string[] } {
   const checklist = { ...next };
   const blocked: string[] = [];
@@ -159,6 +230,12 @@ export function sanitizeChecklistForViewer(
     const before = Boolean(current[id]);
     const after = Boolean(next[id]);
     if (before === after) continue;
+    if (familyIds.has(id)) {
+      blocked.push(id);
+      if (before) checklist[id] = true;
+      else delete checklist[id];
+      continue;
+    }
     const owner = owners.get(id);
     if (owner && !canMarkTodoDone(viewer, owner)) {
       blocked.push(id);
@@ -167,6 +244,33 @@ export function sanitizeChecklistForViewer(
     }
   }
   return { checklist, blocked };
+}
+
+/**
+ * Anyone can retitle/assign, but only the viewer may flip their own family-meeting ack.
+ */
+export function sanitizeTodoEditsForViewer(
+  current: TodoEditMap,
+  next: TodoEditMap,
+  viewer: Owner,
+): TodoEditMap {
+  const out: TodoEditMap = { ...next };
+  const ids = new Set([...Object.keys(current), ...Object.keys(next)]);
+  for (const id of ids) {
+    const before = current[id];
+    const after = next[id];
+    if (!after) continue;
+    const prevDone = new Set(normalizeDoneBy(before?.doneBy));
+    const nextDone = new Set(normalizeDoneBy(after.doneBy ?? before?.doneBy));
+    const merged = OWNERS.map((owner) => owner.id).filter((ownerId) => {
+      if (ownerId === viewer) return nextDone.has(ownerId);
+      return prevDone.has(ownerId);
+    });
+    if (after.doneBy !== undefined || before?.doneBy !== undefined) {
+      out[id] = { ...after, doneBy: merged };
+    }
+  }
+  return normalizeTodoEdits(out);
 }
 
 export function formatTodoWhen(todo: Pick<ProjectTodo, "dueDate" | "startDate" | "endDate">): string {
@@ -223,6 +327,8 @@ export function normalizeTodoEdits(raw: unknown): TodoEditMap {
         edit.projectId = row.projectId.trim();
       }
     }
+    if (isTodoKind(row.kind)) edit.kind = row.kind;
+    if ("doneBy" in row) edit.doneBy = normalizeDoneBy(row.doneBy);
     if (Object.keys(edit).length) out[id] = edit;
   }
   return out;
@@ -238,16 +344,22 @@ function withEdit(
     startDate: string | null;
     endDate: string | null;
     parentId: string;
+    kind?: TodoKind;
+    doneBy?: Owner[];
   },
   edits: TodoEditMap,
 ) {
   const edit = edits[step.id];
+  const kind = resolveTodoKind(step.kind, edit);
+  const doneBy = normalizeDoneBy(edit?.doneBy ?? step.doneBy);
   if (!edit) {
     return {
       ...step,
       description: "",
       owner: step.owner as Owner | null,
       projectId: null as string | null,
+      kind,
+      doneBy,
     };
   }
   return {
@@ -260,6 +372,8 @@ function withEdit(
     startDate: "startDate" in edit ? (edit.startDate ?? null) : step.startDate,
     endDate: "endDate" in edit ? (edit.endDate ?? null) : step.endDate,
     projectId: "projectId" in edit ? (edit.projectId ?? null) : null,
+    kind,
+    doneBy,
   };
 }
 
@@ -276,33 +390,42 @@ function pushTodo(
     endDate: string | null;
     parentId: string;
     schoolId?: string | null;
+    kind?: TodoKind;
+    doneBy?: Owner[];
   },
   checklist: Record<string, boolean>,
   parents: Map<string, ParentLookup>,
   edits: TodoEditMap,
+  now: Date,
 ) {
   if (seen.has(step.id)) return;
   if (edits[step.id]?.deleted) return;
   const parent = parents.get(step.parentId) ?? parents.get(INBOX_PARENT_ID);
   if (!parent) return;
   const edited = withEdit(step, edits);
+  const isFamily = edited.kind === FAMILY_MEETING_KIND;
+  const doneBy = isFamily ? edited.doneBy : [];
+  const fullyDone = isFamily ? familyMeetingFullyDone(doneBy) : Boolean(checklist[step.id]);
+  const meetingDate = isFamily ? (fullyDone ? edited.dueDate : nextFamilyMeetingDate(now)) : null;
   seen.add(step.id);
   todos.push({
     id: edited.id,
     label: edited.label,
     description: edited.description,
-    owner: edited.owner,
+    owner: isFamily ? null : edited.owner,
     assignedBy: edited.assignedBy,
-    dueDate: edited.dueDate,
-    startDate: edited.startDate,
-    endDate: edited.endDate,
-    done: Boolean(checklist[step.id]),
+    dueDate: isFamily ? meetingDate : edited.dueDate,
+    startDate: isFamily ? null : edited.startDate,
+    endDate: isFamily ? meetingDate : edited.endDate,
+    done: fullyDone,
     parentId: edited.parentId,
     parentText: parent.parentText,
     phase: parent.phase,
     phaseWindow: parent.phaseWindow,
     projectId: edited.projectId,
     schoolId: step.schoolId ?? null,
+    kind: edited.kind,
+    doneBy,
   });
 }
 
@@ -311,6 +434,7 @@ export function listProjectTodos(
   phaseList: Phase[] = phases,
   dynamicSteps: PersistedProjectStep[] = [],
   edits: TodoEditMap = {},
+  now: Date = new Date(),
 ): ProjectTodo[] {
   const parents = parentIndex(phaseList);
   const groups = stepsFile as ChecklistStepGroupSeed[];
@@ -336,6 +460,7 @@ export function listProjectTodos(
         checklist,
         parents,
         edits,
+        now,
       );
     }
   }
@@ -354,10 +479,13 @@ export function listProjectTodos(
         endDate: step.endDate,
         parentId: step.parentId,
         schoolId: step.schoolId ?? null,
+        kind: step.kind,
+        doneBy: step.doneBy,
       },
       checklist,
       parents,
       edits,
+      now,
     );
   }
 
@@ -387,6 +515,29 @@ export function assignmentPatch(
   if (nextOwner == null) return { owner: null, assignedBy: null };
   if (nextOwner === viewer) return { owner: nextOwner, assignedBy: null };
   return { owner: nextOwner, assignedBy: viewer };
+}
+
+/** Convert a to-do to or from the family-meeting category. */
+export function familyMeetingKindPatch(
+  viewer: Owner,
+  kind: TodoKind,
+  now: Date = new Date(),
+): TodoEdit {
+  if (kind === FAMILY_MEETING_KIND) {
+    const meeting = nextFamilyMeetingDate(now);
+    return {
+      kind: FAMILY_MEETING_KIND,
+      owner: null,
+      assignedBy: viewer,
+      dueDate: meeting,
+      endDate: meeting,
+    };
+  }
+  return {
+    kind: "normal",
+    doneBy: [],
+    ...assignmentPatch(viewer, viewer),
+  };
 }
 
 /** Remove a dynamic step and clear related maps; soft-delete seed rows via edits. */
@@ -424,6 +575,14 @@ export function groupTodosByOwner(
   for (const owner of OWNERS) byOwner.set(owner.id, []);
   const unclaimedRows: ProjectTodo[] = [];
   for (const todo of todos) {
+    if (todo.kind === FAMILY_MEETING_KIND) {
+      for (const owner of OWNERS) {
+        const list = byOwner.get(owner.id) ?? [];
+        list.push(todo);
+        byOwner.set(owner.id, list);
+      }
+      continue;
+    }
     if (!todo.owner) {
       unclaimedRows.push(todo);
       continue;
@@ -438,8 +597,8 @@ export function groupTodosByOwner(
     return {
       owner,
       label: ownerLabel(owner),
-      open: all.filter((todo) => !todo.done),
-      done: all.filter((todo) => todo.done),
+      open: all.filter((todo) => !todoDoneForOwner(todo, owner)),
+      done: all.filter((todo) => todoDoneForOwner(todo, owner)),
     };
   }
 
@@ -640,7 +799,10 @@ export function personMeterRows(
 ): PersonMeterRow[] {
   const order: Owner[] = [focusOwner, ...OWNERS.filter((owner) => owner.id !== focusOwner).map((o) => o.id)];
   return order.map((owner) => {
-    const open = todos.filter((todo) => !todo.done && todo.owner === owner);
+    const open = todos.filter((todo) => {
+      if (todo.kind === FAMILY_MEETING_KIND) return !todo.doneBy.includes(owner);
+      return !todo.done && todo.owner === owner;
+    });
     return {
       owner,
       label: ownerLabel(owner),

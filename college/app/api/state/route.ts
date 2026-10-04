@@ -19,11 +19,13 @@ import { normalizeCalendarEvents, type CalendarEvent } from "@/lib/calendar-even
 import { normalizePinNotes, type PinNote } from "@/lib/note-board";
 import { canEditActivitiesJournal } from "@/lib/permissions";
 import {
+  familyMeetingIdSet,
   memberOwnerId,
   normalizeTodoEdits,
   normalizeTodoSubtasks,
   sanitizeChecklistForViewer,
   sanitizeSubtasksForViewer,
+  sanitizeTodoEditsForViewer,
   todoOwnerIndex,
   type TodoEditMap,
   type TodoSubtaskMap,
@@ -293,7 +295,8 @@ export async function PATCH(request: Request) {
 
   const needsOwnerRead =
     (body.checklist && typeof body.checklist === "object") ||
-    (body.todoSubtasks && typeof body.todoSubtasks === "object");
+    (body.todoSubtasks && typeof body.todoSubtasks === "object") ||
+    (body.todoEdits && typeof body.todoEdits === "object");
 
   if (needsOwnerRead) {
     const { data: currentRow, error: readError } = await db
@@ -308,12 +311,14 @@ export async function PATCH(request: Request) {
     const projectSteps = Array.isArray(body.projectSteps)
       ? normalizePersistedSteps(body.projectSteps)
       : normalizePersistedSteps(row?.project_steps);
+    const storedEdits = normalizeTodoEdits(row?.todo_edits);
     const todoEdits =
       body.todoEdits && typeof body.todoEdits === "object"
-        ? normalizeTodoEdits(body.todoEdits)
-        : normalizeTodoEdits(row?.todo_edits);
+        ? sanitizeTodoEditsForViewer(storedEdits, normalizeTodoEdits(body.todoEdits), memberOwnerId(session.member.id))
+        : storedEdits;
     const viewer = memberOwnerId(session.member.id);
     const owners = todoOwnerIndex(projectSteps, todoEdits);
+    const familyIds = familyMeetingIdSet(projectSteps, todoEdits);
 
     if (body.checklist && typeof body.checklist === "object") {
       const currentChecklist =
@@ -323,6 +328,7 @@ export async function PATCH(request: Request) {
         body.checklist,
         viewer,
         owners,
+        familyIds,
       );
       patch.checklist = checklist;
       if (blocked.length) patch._blocked_todo_checks = blocked.length;
@@ -335,6 +341,10 @@ export async function PATCH(request: Request) {
         viewer,
         owners,
       );
+    }
+
+    if (body.todoEdits && typeof body.todoEdits === "object") {
+      patch.todo_edits = todoEdits;
     }
   }
 
@@ -351,9 +361,6 @@ export async function PATCH(request: Request) {
   if (typeof body.notes === "string") patch.notes = body.notes;
   if (Array.isArray(body.projectSteps)) patch.project_steps = normalizePersistedSteps(body.projectSteps);
   if (Array.isArray(body.ingestSources)) patch.ingest_sources = normalizeIngestSources(body.ingestSources);
-  if (body.todoEdits && typeof body.todoEdits === "object") {
-    patch.todo_edits = normalizeTodoEdits(body.todoEdits);
-  }
   if (Array.isArray(body.todoProjects)) {
     patch.todo_projects = normalizeTodoProjects(body.todoProjects);
   }
