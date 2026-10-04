@@ -4577,12 +4577,21 @@ html[data-mode="dark"] .multi-filter > summary {
 .pm-toolbar .todo-add {
   margin-bottom: 0;
 }
+.pm-toolbar .todo-add:has(.todo-add-draft) {
+  flex: 1 1 100%;
+  margin-left: 0;
+}
 .pm-toolbar .todo-add-draft {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
   align-items: center;
-  max-width: min(640px, 100%);
+  width: 100%;
+  max-width: none;
+}
+.pm-toolbar .todo-add-draft .field {
+  flex: 1 1 240px;
+  min-width: 0;
 }
 .pm-toolbar .todo-add-buttons {
   display: flex;
