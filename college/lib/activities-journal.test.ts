@@ -41,6 +41,7 @@ import {
   needsGrouping,
   normalizeJournal,
   normalizeSelfStartedProject,
+  ongoingFromPeriods,
   overdueMilestones,
   plannedStepsForThread,
   prepSummary,
@@ -55,6 +56,7 @@ import {
   resolveClassOf,
   schoolYearForGrade,
   setClassOf,
+  updatePeriod,
   upsertActivity,
   upsertAward,
   upsertDraft,
@@ -1268,4 +1270,21 @@ test("groupableActivities excludes self-started projects", () => {
   assert.equal(chips.length, 1);
   assert.equal(chips[0]!.name, "Band");
   assert.equal(chips.every((a) => !isSelfStartedProject(a)), true);
+});
+
+test("ongoingFromPeriods follows in_progress in the current grade", () => {
+  const activity = createActivity({ name: "Band", category: "arts-music-theater" });
+  assert.equal(ongoingFromPeriods(activity, 11), false);
+  let journal = upsertActivity(emptyJournal(), activity);
+  journal = addPeriod(journal, activity.id, {
+    schoolYear: schoolYearForGrade(2028, 11),
+    grade: "11",
+    periodKind: "school_year",
+    status: "in_progress",
+  });
+  const withNow = journal.activities[0]!;
+  assert.equal(ongoingFromPeriods(withNow, 11), true);
+  assert.equal(ongoingFromPeriods(withNow, 10), false);
+  journal = updatePeriod(journal, activity.id, withNow.periods[0]!.id, { status: "completed" });
+  assert.equal(ongoingFromPeriods(journal.activities[0]!, 11), false);
 });

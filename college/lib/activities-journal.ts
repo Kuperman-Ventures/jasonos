@@ -1992,6 +1992,16 @@ export function recordSchoolYears(activity: Activity): number {
   return filledNumericGrades(activity).length;
 }
 
+/** True when there is an in-progress period for the student's current grade. */
+export function ongoingFromPeriods(
+  activity: Pick<Activity, "periods">,
+  gradeNow: number | null,
+): boolean {
+  if (gradeNow == null) return false;
+  const key = String(gradeNow);
+  return activity.periods.some((p) => p.status === "in_progress" && p.grade === key);
+}
+
 export function recordSpanText(activity: Activity, gradeNow: number | null): string {
   const grades = filledNumericGrades(activity);
   if (!grades.length) return "Start grade not set";

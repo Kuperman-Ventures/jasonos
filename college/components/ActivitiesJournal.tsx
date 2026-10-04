@@ -39,6 +39,7 @@ import {
   isDraftStale,
   isSelfStartedProject,
   newId,
+  ongoingFromPeriods,
   prepSummary,
   recordSchoolYears,
   recordSpanText,
@@ -46,11 +47,14 @@ import {
   removeActivity,
   removeDraftFromList,
   removeHonorFromList,
+  removePeriod,
   reorderDraft,
   restoreActivity,
   resolveClassOf,
+  schoolYearForGrade,
   setClassOf,
   sortRecordActivities,
+  updatePeriod,
   upsertActivity,
   upsertAward,
   upsertDraft,
@@ -1209,497 +1213,892 @@ function ActivityDetail({
   onChange: (next: Journal) => void;
   onBack: () => void;
 }) {
-  const [tab, setTab] = useState<DetailTab>(initialTab ?? "overview");
-  const [showAddUpdate, setShowAddUpdate] = useState(false);
-  const [showAddPeriod, setShowAddPeriod] = useState(false);
+  const journalRef = useRef(journal);
+  useEffect(() => {
+    journalRef.current = journal;
+  }, [journal]);
+
+  const classOf = resolveClassOf(journal.profile?.classOf);
+  const gradeNow = currentGrade(classOf);
+  const thread = (journal.threads ?? []).find((t) => t.id === activity.threadId);
+  const span = recordSpanText(activity, gradeNow);
+  const awards = journal.awards.filter((a) => !a.archived && a.activityId === activity.id);
+
+  const [renaming, setRenaming] = useState(false);
+  const [nameDraft, setNameDraft] = useState(activity.name);
   const [confirmArchive, setConfirmArchive] = useState(false);
+  const [removePeriodId, setRemovePeriodId] = useState<string | null>(null);
+  const [addYearPills, setAddYearPills] = useState(false);
+  const [planYearPills, setPlanYearPills] = useState(false);
+  const [showMoment, setShowMoment] = useState(false);
+  const [momentDate, setMomentDate] = useState(todayIsoDate());
+  const [momentWhat, setMomentWhat] = useState("");
+  const [momentRecognition, setMomentRecognition] = useState("");
+  const [momentLearned, setMomentLearned] = useState("");
+  const [showAward, setShowAward] = useState(false);
+  const [showPerson, setShowPerson] = useState(false);
+  const [showLink, setShowLink] = useState(false);
+  const [moreTypes, setMoreTypes] = useState(false);
+  const moreRef = useRef<HTMLSpanElement | null>(null);
+
+  useEffect(() => {
+    setNameDraft(activity.name);
+  }, [activity.name]);
+
+  useEffect(() => {
+    const map: Record<DetailTab, string> = {
+      overview: "detail-what",
+      periods: "detail-years",
+      updates: "detail-moments",
+      reflections: "detail-why",
+      people: "detail-people",
+    };
+    const id = initialTab ? map[initialTab] : null;
+    if (!id) return;
+    const t = window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+    return () => window.clearTimeout(t);
+  }, [initialTab, activity.id]);
+
+  useEffect(() => {
+    if (!moreTypes) return;
+    function onDoc(event: MouseEvent) {
+      if (!moreRef.current?.contains(event.target as Node)) setMoreTypes(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [moreTypes]);
+
+  function commit(next: Journal) {
+    journalRef.current = next;
+    onChange(next);
+  }
+
+  function withOngoing(nextActivity: Activity): Activity {
+    return { ...nextActivity, ongoing: ongoingFromPeriods(nextActivity, gradeNow) };
+  }
 
   function patchActivity(patch: Partial<Activity>) {
-    const next = { ...activity, ...patch };
+    let next = { ...activity, ...patch };
     if (patch.name != null && patch.name.trim() !== activity.name) {
       next.icon = pickActivityIcon({ ...next, icon: undefined });
     }
-    onChange(upsertActivity(journal, next));
+    if (patch.periods) next = withOngoing(next);
+    commit(upsertActivity(journalRef.current, next));
   }
 
-  const tabs: { id: DetailTab; label: string }[] = [
-    { id: "overview", label: "Overview" },
-    { id: "periods", label: "Participation & Roles" },
-    { id: "updates", label: "Updates" },
-    { id: "reflections", label: "Reflections" },
-    { id: "people", label: "People & Files" },
-  ];
+  function applyPeriodMutation(mutator: (j: Journal) => Journal) {
+    let next = mutator(journalRef.current);
+    const updated = next.activities.find((a) => a.id === activity.id);
+    if (updated) {
+      next = upsertActivity(next, withOngoing(updated));
+    }
+    commit(next);
+  }
+
+  const periodsNewestFirst = [...activity.periods].sort((a, b) => {
+    const ag = a.grade === "post" || a.grade === "other" ? -1 : Number(a.grade);
+    const bg = b.grade === "post" || b.grade === "other" ? -1 : Number(b.grade);
+    if (bg !== ag) return bg - ag;
+    return (b.schoolYear || "").localeCompare(a.schoolYear || "");
+  });
+
+  const gradesWithPeriods = new Set(
+    activity.periods
+      .map((p) => (p.grade === "post" || p.grade === "other" ? null : Number(p.grade)))
+      .filter((g): g is number => g != null && g >= 6 && g <= 12),
+  );
+
+  function missingPastGrades(): number[] {
+    const end = gradeNow ?? 12;
+    const missing: number[] = [];
+    for (let g = 6; g <= end; g++) {
+      if (!gradesWithPeriods.has(g)) missing.push(g);
+    }
+    return missing;
+  }
+
+  function futureGrades(): number[] {
+    if (gradeNow == null) return [10, 11, 12].filter((g) => !gradesWithPeriods.has(g));
+    const out: number[] = [];
+    for (let g = gradeNow + 1; g <= 12; g++) {
+      if (!gradesWithPeriods.has(g)) out.push(g);
+    }
+    return out;
+  }
+
+  function addYearForGrade(grade: number, status: PeriodStatus) {
+    applyPeriodMutation((j) =>
+      addPeriod(j, activity.id, {
+        schoolYear: schoolYearForGrade(classOf, grade),
+        grade: String(grade) as GradeLevel,
+        periodKind: "school_year",
+        status,
+      }),
+    );
+    setAddYearPills(false);
+    setPlanYearPills(false);
+  }
+
+  function onAddYear() {
+    const missing = missingPastGrades();
+    if (!missing.length) {
+      setAddYearPills(true);
+      return;
+    }
+    if (missing.length === 1) {
+      addYearForGrade(missing[0]!, gradeNow != null && missing[0] === gradeNow ? "in_progress" : "completed");
+      return;
+    }
+    setAddYearPills(true);
+    setPlanYearPills(false);
+  }
+
+  const likelyCategories: ActivityCategoryId[] = (() => {
+    const set = new Set<ActivityCategoryId>([activity.category]);
+    if (activity.category !== "school-club") set.add("school-club");
+    if (activity.category !== "arts-music-theater") set.add("arts-music-theater");
+    return [...set];
+  })();
+
+  const updatesNewest = [...activity.updates].sort((a, b) =>
+    (b.date || "").localeCompare(a.date || ""),
+  );
+
+  const metaLine = thread ? `${span} · ${thread.name} thread` : span;
 
   return (
-    <div className="aj-detail">
-      <div className="aj-detail-bar">
-        <button type="button" className="btn btn-secondary compact" onClick={onBack}>
-          ← Back
+    <div className="aj-detail det">
+      <p className="det-back">
+        <button type="button" className="aj-text-btn" onClick={onBack}>
+          ← My Record
         </button>
-        <div className="aj-detail-title-wrap">
-          <h3 className="aj-title">
-            <ActivityIcon activity={activity} size={26} />
-            <span>{activity.name}</span>
-          </h3>
-          <span className="aj-pill">{activityStatusLabel(activity)}</span>
+      </p>
+
+      <header className="det-head">
+        <div className="det-head-main">
+          {renaming && canEdit ? (
+            <form
+              className="det-rename"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const name = nameDraft.trim();
+                if (!name) return;
+                patchActivity({ name });
+                setRenaming(false);
+              }}
+            >
+              <input
+                autoFocus
+                value={nameDraft}
+                aria-label="Activity name"
+                onChange={(e) => setNameDraft(e.target.value)}
+              />
+              <button type="submit" className="aj-text-btn strong" disabled={!nameDraft.trim()}>
+                Save
+              </button>
+              <button
+                type="button"
+                className="aj-text-btn"
+                onClick={() => {
+                  setRenaming(false);
+                  setNameDraft(activity.name);
+                }}
+              >
+                Cancel
+              </button>
+            </form>
+          ) : (
+            <h2 className="det-name">
+              <ActivityIcon activity={activity} size={28} />
+              <span>{activity.name}</span>
+            </h2>
+          )}
+          <p className="det-meta">{metaLine}</p>
         </div>
         {canEdit ? (
           confirmArchive ? (
-            <div className="aj-actions">
-              <span className="aj-muted">Archive this activity?</span>
+            <span className="det-tools">
+              <span className="det-confirm">Archive this activity?</span>
               <button
                 type="button"
-                className="btn btn-primary compact"
+                className="aj-text-btn strong"
                 onClick={() => {
-                  onChange(archiveActivity(journal, activity.id));
+                  commit(archiveActivity(journalRef.current, activity.id));
                   onBack();
                 }}
               >
                 Archive
               </button>
-              <button
-                type="button"
-                className="btn btn-secondary compact"
-                onClick={() => setConfirmArchive(false)}
-              >
+              <button type="button" className="aj-text-btn" onClick={() => setConfirmArchive(false)}>
                 Cancel
               </button>
-            </div>
+            </span>
           ) : (
-            <button
-              type="button"
-              className="btn btn-secondary compact"
-              onClick={() => setConfirmArchive(true)}
-            >
-              Archive
-            </button>
+            <span className="det-tools">
+              <button
+                type="button"
+                className="aj-text-btn"
+                onClick={() => {
+                  setRenaming(true);
+                  setNameDraft(activity.name);
+                }}
+              >
+                Rename
+              </button>
+              <button type="button" className="aj-text-btn" onClick={() => setConfirmArchive(true)}>
+                Archive
+              </button>
+            </span>
           )
         ) : null}
-      </div>
+      </header>
 
-      <nav className="aj-tabs" aria-label="Activity sections">
-        {tabs.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={tab === item.id ? "active" : ""}
-            onClick={() => setTab(item.id)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </nav>
-
-      {tab === "overview" ? (
-        <div className="aj-section">
-          <div className="aj-form-grid">
-            <label className="stack-field">
-              <span className="label">Name</span>
-              <input
-                className="field"
-                value={activity.name}
-                disabled={!canEdit}
-                onChange={(e) => patchActivity({ name: e.target.value })}
-              />
-            </label>
-            <label className="stack-field">
-              <span className="label">Category</span>
-              <select
-                className="field"
-                value={activity.category}
-                disabled={!canEdit}
-                onChange={(e) =>
-                  patchActivity({ category: e.target.value as ActivityCategoryId })
-                }
-              >
-                {ACTIVITY_CATEGORIES.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="stack-field">
-              <span className="label">Organization</span>
-              <input
-                className="field"
-                value={activity.organization ?? ""}
-                disabled={!canEdit}
-                onChange={(e) => patchActivity({ organization: e.target.value })}
-              />
-            </label>
-            <label className="stack-field">
-              <span className="label">Role</span>
-              <input
-                className="field"
-                value={activity.role ?? ""}
-                disabled={!canEdit}
-                onChange={(e) => patchActivity({ role: e.target.value })}
-              />
-            </label>
-            <label className="stack-field aj-check">
-              <span className="label">Ongoing</span>
-              <input
-                type="checkbox"
-                checked={activity.ongoing}
-                disabled={!canEdit}
-                onChange={(e) => patchActivity({ ongoing: e.target.checked })}
-              />
-            </label>
-            <label className="stack-field aj-span-2">
-              <span className="label">What do you do?</span>
-              <textarea
-                className="field"
-                rows={3}
-                value={activity.responsibilities ?? ""}
-                disabled={!canEdit}
-                onChange={(e) => patchActivity({ responsibilities: e.target.value })}
-              />
-            </label>
-            <label className="stack-field aj-span-2">
-              <span className="label">Organization purpose</span>
-              <textarea
-                className="field"
-                rows={2}
-                value={activity.orgPurpose ?? ""}
-                disabled={!canEdit}
-                onChange={(e) => patchActivity({ orgPurpose: e.target.value })}
-              />
-            </label>
-          </div>
-        </div>
-      ) : null}
-
-      {tab === "periods" ? (
-        <div className="aj-section">
-          {canEdit ? (
-            <div className="aj-section-actions">
-              <button
-                type="button"
-                className="btn btn-secondary compact"
-                onClick={() => setShowAddPeriod((v) => !v)}
-              >
-                {showAddPeriod ? "Close form" : "Add period"}
-              </button>
-            </div>
-          ) : null}
-          {showAddPeriod && canEdit ? (
-            <AddPeriodForm
-              onCancel={() => setShowAddPeriod(false)}
-              onSave={(period) => {
-                onChange(addPeriod(journal, activity.id, period));
-                setShowAddPeriod(false);
-              }}
-            />
-          ) : null}
-          {!activity.periods.length ? (
-            <p className="board-empty">No participation periods yet.</p>
-          ) : (
-            <ul className="aj-card-list">
-              {[...activity.periods]
-                .sort((a, b) => (b.schoolYear || "").localeCompare(a.schoolYear || ""))
-                .map((period) => {
-                  const hours = periodHoursLabel(period);
+      <section className="det-sec" id="detail-years">
+        <h3>Each Year</h3>
+        <p className="det-sub">Hours and weeks feed your Common App entry. Fill in your best estimate.</p>
+        {periodsNewestFirst.length ? (
+          <div className="det-wrap-x">
+            <table className="det-years">
+              <thead>
+                <tr>
+                  <th>Grade</th>
+                  <th>When</th>
+                  <th>Hours per week</th>
+                  <th>Weeks per year</th>
+                  <th>Your role that year</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {periodsNewestFirst.map((period) => {
+                  const gradeNum =
+                    period.grade === "post" || period.grade === "other"
+                      ? null
+                      : Number(period.grade);
+                  const missingHours =
+                    (period.status === "completed" || period.status === "in_progress") &&
+                    (period.hoursPerWeek == null || period.weeksActive == null);
+                  const confirming = removePeriodId === period.id;
                   return (
-                    <li key={period.id} className="aj-card aj-card-compact">
-                      <div className="aj-card-main">
-                        <div className="aj-card-top">
-                          <strong>{period.schoolYear || "Period"}</strong>
-                          <span className="aj-pill">{period.status.replace("_", " ")}</span>
-                        </div>
-                        <p className="aj-card-meta">
-                          <span>{gradeLabel(period.grade)}</span>
-                          <span>· {PERIOD_KINDS.find((k) => k.id === period.periodKind)?.label}</span>
-                          {period.role ? <span>· {period.role}</span> : null}
-                          {hours ? <span>· {hours}</span> : null}
-                        </p>
-                        {period.responsibilities ? (
-                          <p className="aj-card-update">{period.responsibilities}</p>
+                    <tr key={period.id}>
+                      <td>
+                        <b>
+                          {gradeNum != null
+                            ? `${gradeNum}th`
+                            : gradeLabel(period.grade)}
+                        </b>
+                        {gradeNum != null && gradeNum === gradeNow ? (
+                          <span className="det-now"> now</span>
                         ) : null}
-                      </div>
-                    </li>
+                        {period.status === "planned" ? (
+                          <span className="det-planned"> planned</span>
+                        ) : null}
+                      </td>
+                      <td>
+                        <span className="plan-pills">
+                          {(
+                            [
+                              ["school_year", "School year"],
+                              ["summer", "Summer"],
+                              ["all_year", "All year"],
+                            ] as const
+                          ).map(([kind, label]) => (
+                            <button
+                              key={kind}
+                              type="button"
+                              aria-pressed={period.periodKind === kind}
+                              disabled={!canEdit}
+                              onClick={() =>
+                                applyPeriodMutation((j) =>
+                                  updatePeriod(j, activity.id, period.id, { periodKind: kind }),
+                                )
+                              }
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </span>
+                      </td>
+                      <td>
+                        <input
+                          className={missingHours && period.hoursPerWeek == null ? "det-miss" : "det-num"}
+                          inputMode="numeric"
+                          aria-label={`Hours per week in ${gradeLabel(period.grade)}`}
+                          value={period.hoursPerWeek ?? ""}
+                          disabled={!canEdit}
+                          onChange={(e) => {
+                            const raw = e.target.value.trim();
+                            applyPeriodMutation((j) =>
+                              updatePeriod(j, activity.id, period.id, {
+                                hoursPerWeek: raw === "" ? undefined : Number(raw),
+                              }),
+                            );
+                          }}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          className={missingHours && period.weeksActive == null ? "det-miss" : "det-num"}
+                          inputMode="numeric"
+                          aria-label={`Weeks per year in ${gradeLabel(period.grade)}`}
+                          value={period.weeksActive ?? ""}
+                          disabled={!canEdit}
+                          onChange={(e) => {
+                            const raw = e.target.value.trim();
+                            applyPeriodMutation((j) =>
+                              updatePeriod(j, activity.id, period.id, {
+                                weeksActive: raw === "" ? undefined : Number(raw),
+                              }),
+                            );
+                          }}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          className="det-wide"
+                          placeholder="Member"
+                          aria-label={`Role in ${gradeLabel(period.grade)}`}
+                          value={period.role ?? ""}
+                          disabled={!canEdit}
+                          onChange={(e) =>
+                            applyPeriodMutation((j) =>
+                              updatePeriod(j, activity.id, period.id, {
+                                role: e.target.value || undefined,
+                              }),
+                            )
+                          }
+                        />
+                      </td>
+                      <td>
+                        {canEdit ? (
+                          confirming ? (
+                            <span className="det-inline-confirm">
+                              Remove this year?
+                              <button
+                                type="button"
+                                className="aj-text-btn strong"
+                                onClick={() => {
+                                  applyPeriodMutation((j) =>
+                                    removePeriod(j, activity.id, period.id),
+                                  );
+                                  setRemovePeriodId(null);
+                                }}
+                              >
+                                Remove
+                              </button>
+                              <button
+                                type="button"
+                                className="aj-text-btn"
+                                onClick={() => setRemovePeriodId(null)}
+                              >
+                                Cancel
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              className="aj-text-btn"
+                              onClick={() => {
+                                if (activity.periods.length <= 1) setRemovePeriodId(period.id);
+                                else
+                                  applyPeriodMutation((j) =>
+                                    removePeriod(j, activity.id, period.id),
+                                  );
+                              }}
+                            >
+                              Remove
+                            </button>
+                          )
+                        ) : null}
+                      </td>
+                    </tr>
                   );
                 })}
-            </ul>
-          )}
-        </div>
-      ) : null}
-
-      {tab === "updates" ? (
-        <div className="aj-section">
-          {canEdit ? (
-            <div className="aj-section-actions">
-              <button
-                type="button"
-                className="btn btn-secondary compact"
-                onClick={() => setShowAddUpdate((v) => !v)}
-              >
-                {showAddUpdate ? "Close form" : "Add update"}
-              </button>
-            </div>
-          ) : null}
-          {showAddUpdate && canEdit ? (
-            <AddUpdateForm
-              activities={[activity]}
-              fixedActivityId={activity.id}
-              onCancel={() => setShowAddUpdate(false)}
-              onSave={(activityId, fields) => {
-                onChange(addUpdate(journal, activityId, fields));
-                setShowAddUpdate(false);
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="det-empty">No years yet.</p>
+        )}
+        {canEdit ? (
+          <p className="det-sub det-year-actions">
+            <button type="button" className="aj-text-btn strong" onClick={onAddYear}>
+              + Add a year
+            </button>
+            {" · "}
+            <button
+              type="button"
+              className="aj-text-btn"
+              onClick={() => {
+                setPlanYearPills(true);
+                setAddYearPills(false);
               }}
-            />
-          ) : null}
-          {!activity.updates.length ? (
-            <p className="board-empty">No updates yet.</p>
-          ) : (
-            <ul className="aj-card-list">
-              {[...activity.updates]
-                .sort((a, b) => (b.date || "").localeCompare(a.date || ""))
-                .map((update) => (
-                  <UpdateCard key={update.id} update={update} />
-                ))}
-            </ul>
-          )}
-        </div>
-      ) : null}
-
-      {tab === "reflections" ? (
-        <div className="aj-section">
-          <div className="aj-form-grid">
-            {(
-              [
-                ["whyMatters", "Why it matters"],
-                ["skills", "Skills"],
-                ["growth", "Growth"],
-                ["memorable", "Memorable moment"],
-              ] as const
-            ).map(([key, label]) => (
-              <label key={key} className="stack-field aj-span-2">
-                <span className="label">{label}</span>
-                <textarea
-                  className="field"
-                  rows={3}
-                  value={activity.reflections?.[key] ?? ""}
-                  disabled={!canEdit}
-                  onChange={(e) =>
-                    patchActivity({
-                      reflections: {
-                        ...activity.reflections,
-                        [key]: e.target.value,
-                      },
-                    })
-                  }
-                />
-              </label>
+            >
+              + Plan a future year
+            </button>
+          </p>
+        ) : null}
+        {canEdit && addYearPills ? (
+          <div className="plan-pills det-grade-pills" role="group" aria-label="Add a year">
+            {missingPastGrades().map((g) => (
+              <button
+                key={g}
+                type="button"
+                onClick={() =>
+                  addYearForGrade(
+                    g,
+                    gradeNow != null && g === gradeNow ? "in_progress" : "completed",
+                  )
+                }
+              >
+                {g}th
+              </button>
             ))}
+            <button type="button" className="aj-text-btn" onClick={() => setAddYearPills(false)}>
+              Cancel
+            </button>
+          </div>
+        ) : null}
+        {canEdit && planYearPills ? (
+          <div className="plan-pills det-grade-pills" role="group" aria-label="Plan a future year">
+            {futureGrades().map((g) => (
+              <button key={g} type="button" onClick={() => addYearForGrade(g, "planned")}>
+                {g}th
+              </button>
+            ))}
+            <button type="button" className="aj-text-btn" onClick={() => setPlanYearPills(false)}>
+              Cancel
+            </button>
+          </div>
+        ) : null}
+      </section>
+
+      <section className="det-sec" id="detail-what">
+        <h3>What You Do</h3>
+        <div className="det-qa">
+          <div>
+            <label htmlFor="det-role">
+              What&apos;s your role?
+              <span className="det-help">Your title or position now, if you have one.</span>
+            </label>
+            <input
+              id="det-role"
+              placeholder="For example: section member"
+              value={activity.role ?? ""}
+              disabled={!canEdit}
+              onChange={(e) => patchActivity({ role: e.target.value })}
+            />
+          </div>
+          <div>
+            <label htmlFor="det-org">Which group or organization?</label>
+            <input
+              id="det-org"
+              placeholder="For example: your school's band program"
+              value={activity.organization ?? ""}
+              disabled={!canEdit}
+              onChange={(e) => patchActivity({ organization: e.target.value })}
+            />
+          </div>
+          <div>
+            <label htmlFor="det-do">
+              What do you actually do?
+              <span className="det-help">
+                A few sentences in your own words. You&apos;ll shorten it for the Common App later.
+              </span>
+            </label>
+            <textarea
+              id="det-do"
+              rows={3}
+              value={activity.responsibilities ?? ""}
+              disabled={!canEdit}
+              onChange={(e) => patchActivity({ responsibilities: e.target.value })}
+            />
+          </div>
+          <div>
+            <span className="det-q-label">What type of activity is it?</span>
+            <span className="plan-pills" style={{ marginTop: 6 }}>
+              {likelyCategories.map((id) => {
+                const label = ACTIVITY_CATEGORIES.find((c) => c.id === id)?.label ?? id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-pressed={activity.category === id}
+                    disabled={!canEdit}
+                    onClick={() => patchActivity({ category: id })}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+              <span className="det-more-wrap" ref={moreRef}>
+                <button
+                  type="button"
+                  aria-pressed={moreTypes}
+                  disabled={!canEdit}
+                  onClick={() => setMoreTypes((v) => !v)}
+                >
+                  More types
+                </button>
+                {moreTypes ? (
+                  <div className="det-more-menu" role="menu">
+                    {ACTIVITY_CATEGORIES.map((cat) => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          patchActivity({ category: cat.id });
+                          setMoreTypes(false);
+                        }}
+                      >
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </span>
+            </span>
+          </div>
+          <div>
+            <label htmlFor="det-purpose">What does the group do?</label>
+            <input
+              id="det-purpose"
+              value={activity.orgPurpose ?? ""}
+              disabled={!canEdit}
+              onChange={(e) => patchActivity({ orgPurpose: e.target.value })}
+            />
           </div>
         </div>
-      ) : null}
+      </section>
 
-      {tab === "people" ? (
-        <div className="aj-section">
-          <div className="aj-form-grid">
-            <label className="stack-field">
-              <span className="label">Mentor name</span>
-              <input
-                className="field"
-                value={activity.mentorName ?? ""}
+      <section className="det-sec" id="detail-why">
+        <h3>Why It Matters</h3>
+        <p className="det-sub">
+          These are notes for your essays. Nobody else sees them unless you share them.
+        </p>
+        <div className="det-qa">
+          {(
+            [
+              ["whyMatters", "Why does this matter to you?"],
+              ["skills", "What have you gotten better at?"],
+              ["growth", "How have you changed since you started?"],
+              ["memorable", "What's one moment you remember?"],
+            ] as const
+          ).map(([key, label]) => (
+            <div key={key}>
+              <label htmlFor={`det-r-${key}`}>{label}</label>
+              <textarea
+                id={`det-r-${key}`}
+                rows={2}
+                value={activity.reflections?.[key] ?? ""}
                 disabled={!canEdit}
-                onChange={(e) => patchActivity({ mentorName: e.target.value })}
+                onBlur={(e) =>
+                  patchActivity({
+                    reflections: { ...activity.reflections, [key]: e.target.value },
+                  })
+                }
+                onChange={(e) =>
+                  patchActivity({
+                    reflections: { ...activity.reflections, [key]: e.target.value },
+                  })
+                }
               />
-            </label>
-            <label className="stack-field">
-              <span className="label">Mentor role</span>
-              <input
-                className="field"
-                value={activity.mentorRole ?? ""}
-                disabled={!canEdit}
-                onChange={(e) => patchActivity({ mentorRole: e.target.value })}
-              />
-            </label>
-            <label className="stack-field aj-span-2">
-              <span className="label">Mentor email</span>
-              <input
-                className="field"
-                type="email"
-                value={activity.mentorEmail ?? ""}
-                disabled={!canEdit}
-                onChange={(e) => patchActivity({ mentorEmail: e.target.value })}
-              />
-            </label>
-          </div>
-          <h4 className="aj-subhead">Links &amp; files</h4>
-          <p className="aj-muted">Add URLs only — no uploads.</p>
-          <ul className="aj-link-list">
-            {(activity.links ?? []).map((link) => (
-              <li key={link.id}>
-                <a href={link.url} target="_blank" rel="noreferrer">
-                  {link.label || link.url}
-                </a>
-                {link.note ? <span className="aj-muted"> — {link.note}</span> : null}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="det-sec" id="detail-moments">
+        <h3>Moments</h3>
+        <p className="det-sub">
+          Things that happened: a show, a competition, a new role, something you learned.
+        </p>
+        {updatesNewest.length ? (
+          <ul className="det-moments">
+            {updatesNewest.map((update) => (
+              <li key={update.id}>
+                <span className="det-moment-date">{formatShortDate(update.date)}</span>
+                <span>
+                  <span className="det-moment-what">{update.whatHappened}</span>
+                  {update.recognition ? (
+                    <span className="det-moment-meta">Recognition: {update.recognition}</span>
+                  ) : null}
+                  {update.learned ? (
+                    <span className="det-moment-meta">Learned: {update.learned}</span>
+                  ) : null}
+                </span>
               </li>
             ))}
           </ul>
-          {canEdit ? (
-            <AddLinkForm
-              onAdd={(link) =>
-                patchActivity({ links: [...(activity.links ?? []), link] })
-              }
-            />
-          ) : null}
-        </div>
-      ) : null}
+        ) : !showMoment ? (
+          <p className="det-empty">
+            No moments yet.
+            {canEdit ? (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  className="aj-text-btn strong"
+                  onClick={() => setShowMoment(true)}
+                >
+                  + Add a moment
+                </button>
+              </>
+            ) : null}
+          </p>
+        ) : null}
+        {canEdit && showMoment ? (
+          <form
+            className="det-moment-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!momentWhat.trim()) return;
+              commit(
+                addUpdate(journalRef.current, activity.id, {
+                  date: momentDate || todayIsoDate(),
+                  whatHappened: momentWhat.trim(),
+                  recognition: momentRecognition.trim() || undefined,
+                  learned: momentLearned.trim() || undefined,
+                }),
+              );
+              setShowMoment(false);
+              setMomentWhat("");
+              setMomentRecognition("");
+              setMomentLearned("");
+              setMomentDate(todayIsoDate());
+            }}
+          >
+            <label>
+              Date
+              <input
+                type="date"
+                value={momentDate}
+                onChange={(e) => setMomentDate(e.target.value)}
+              />
+            </label>
+            <label>
+              What happened?
+              <textarea
+                rows={2}
+                required
+                value={momentWhat}
+                onChange={(e) => setMomentWhat(e.target.value)}
+              />
+            </label>
+            <label>
+              Any recognition?
+              <input
+                value={momentRecognition}
+                onChange={(e) => setMomentRecognition(e.target.value)}
+              />
+            </label>
+            <label>
+              What did you learn?
+              <input value={momentLearned} onChange={(e) => setMomentLearned(e.target.value)} />
+            </label>
+            <div className="det-form-actions">
+              <button type="submit" className="aj-recall-add" disabled={!momentWhat.trim()}>
+                Save moment
+              </button>
+              <button type="button" className="aj-text-btn" onClick={() => setShowMoment(false)}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : null}
+        {canEdit && updatesNewest.length && !showMoment ? (
+          <p className="det-sub">
+            <button type="button" className="aj-text-btn strong" onClick={() => setShowMoment(true)}>
+              + Add a moment
+            </button>
+          </p>
+        ) : null}
+      </section>
+
+      <section className="det-sec" id="detail-awards">
+        <h3>Awards</h3>
+        {awards.length ? (
+          <ul className="det-awards">
+            {awards.map((award) => (
+              <li key={award.id}>
+                <span className="rec-award-name">{award.title}</span>
+                <span className="rec-award-meta">
+                  {[award.organization, award.date, award.grade ? gradeLabel(award.grade) : null]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="det-empty">
+            None linked to this activity.
+            {canEdit ? (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  className="aj-text-btn strong"
+                  onClick={() => setShowAward(true)}
+                >
+                  + Add an award
+                </button>
+              </>
+            ) : null}
+          </p>
+        )}
+        {canEdit && showAward ? (
+          <AddAwardForm
+            activities={[activity]}
+            presetActivityId={activity.id}
+            onCancel={() => setShowAward(false)}
+            onSave={(award) => {
+              commit(upsertAward(journalRef.current, { ...award, activityId: activity.id }));
+              setShowAward(false);
+            }}
+          />
+        ) : null}
+        {canEdit && awards.length && !showAward ? (
+          <p className="det-sub">
+            <button type="button" className="aj-text-btn strong" onClick={() => setShowAward(true)}>
+              + Add an award
+            </button>
+          </p>
+        ) : null}
+      </section>
+
+      <section className="det-sec" id="detail-people">
+        <h3>People and Links</h3>
+        {(activity.mentorName || activity.mentorRole || activity.mentorEmail || (activity.links ?? []).length) ? (
+          <>
+            {(activity.mentorName || activity.mentorRole || activity.mentorEmail || showPerson) && (
+              <div className="det-qa">
+                <div>
+                  <label htmlFor="det-mentor-name">Who knows your work?</label>
+                  <input
+                    id="det-mentor-name"
+                    placeholder="Name"
+                    value={activity.mentorName ?? ""}
+                    disabled={!canEdit}
+                    onChange={(e) => patchActivity({ mentorName: e.target.value || undefined })}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="det-mentor-role">Their role</label>
+                  <input
+                    id="det-mentor-role"
+                    value={activity.mentorRole ?? ""}
+                    disabled={!canEdit}
+                    onChange={(e) => patchActivity({ mentorRole: e.target.value || undefined })}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="det-mentor-email">Email</label>
+                  <input
+                    id="det-mentor-email"
+                    type="email"
+                    value={activity.mentorEmail ?? ""}
+                    disabled={!canEdit}
+                    onChange={(e) => patchActivity({ mentorEmail: e.target.value || undefined })}
+                  />
+                </div>
+              </div>
+            )}
+            <ul className="det-links">
+              {(activity.links ?? []).map((link) => (
+                <li key={link.id}>
+                  <a href={link.url} target="_blank" rel="noreferrer">
+                    {link.label || link.url}
+                  </a>
+                  {link.note ? <span className="det-moment-meta"> {link.note}</span> : null}
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="det-empty">
+            A coach, director or mentor who knows your work, and links to recordings or photos.
+            {canEdit ? (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  className="aj-text-btn strong"
+                  onClick={() => setShowPerson(true)}
+                >
+                  + Add a person
+                </button>
+                {" · "}
+                <button
+                  type="button"
+                  className="aj-text-btn strong"
+                  onClick={() => setShowLink(true)}
+                >
+                  + Add a link
+                </button>
+              </>
+            ) : null}
+          </p>
+        )}
+        {canEdit && showPerson && !(activity.mentorName || activity.mentorRole || activity.mentorEmail) ? (
+          <div className="det-qa">
+            <div>
+              <label htmlFor="det-mentor-name-new">Who knows your work?</label>
+              <input
+                id="det-mentor-name-new"
+                placeholder="Name"
+                value={activity.mentorName ?? ""}
+                onChange={(e) => patchActivity({ mentorName: e.target.value || undefined })}
+              />
+            </div>
+            <div>
+              <label htmlFor="det-mentor-role-new">Their role</label>
+              <input
+                id="det-mentor-role-new"
+                value={activity.mentorRole ?? ""}
+                onChange={(e) => patchActivity({ mentorRole: e.target.value || undefined })}
+              />
+            </div>
+            <div>
+              <label htmlFor="det-mentor-email-new">Email</label>
+              <input
+                id="det-mentor-email-new"
+                type="email"
+                value={activity.mentorEmail ?? ""}
+                onChange={(e) => patchActivity({ mentorEmail: e.target.value || undefined })}
+              />
+            </div>
+          </div>
+        ) : null}
+        {canEdit && showLink ? (
+          <AddLinkForm
+            onAdd={(link) => {
+              patchActivity({ links: [...(activity.links ?? []), link] });
+              setShowLink(false);
+            }}
+          />
+        ) : null}
+        {canEdit &&
+        (activity.mentorName ||
+          activity.mentorRole ||
+          activity.mentorEmail ||
+          (activity.links ?? []).length) &&
+        !showLink ? (
+          <p className="det-sub">
+            <button type="button" className="aj-text-btn strong" onClick={() => setShowPerson(true)}>
+              + Add a person
+            </button>
+            {" · "}
+            <button type="button" className="aj-text-btn strong" onClick={() => setShowLink(true)}>
+              + Add a link
+            </button>
+          </p>
+        ) : null}
+      </section>
     </div>
-  );
-}
-
-function UpdateCard({ update }: { update: ActivityUpdate }) {
-  return (
-    <li className="aj-card aj-card-compact">
-      <div className="aj-card-main">
-        <div className="aj-card-top">
-          <strong>{formatShortDate(update.date)}</strong>
-        </div>
-        <p className="aj-card-update">{update.whatHappened}</p>
-        {update.outcomes ? (
-          <p className="aj-card-meta">Outcomes: {update.outcomes}</p>
-        ) : null}
-        {update.recognition ? (
-          <p className="aj-card-meta">Recognition: {update.recognition}</p>
-        ) : null}
-        {update.learned ? <p className="aj-card-meta">Learned: {update.learned}</p> : null}
-      </div>
-    </li>
-  );
-}
-
-function AddPeriodForm({
-  onCancel,
-  onSave,
-}: {
-  onCancel: () => void;
-  onSave: (period: Omit<ParticipationPeriod, "id" | "createdAt" | "updatedAt">) => void;
-}) {
-  const year = new Date().getFullYear();
-  const [schoolYear, setSchoolYear] = useState(`${year}–${String((year + 1) % 100).padStart(2, "0")}`);
-  const [grade, setGrade] = useState<GradeLevel>("11");
-  const [periodKind, setPeriodKind] = useState<PeriodKind>("school_year");
-  const [status, setStatus] = useState<PeriodStatus>("in_progress");
-  const [role, setRole] = useState("");
-  const [hoursPerWeek, setHoursPerWeek] = useState("");
-  const [weeksActive, setWeeksActive] = useState("");
-  const [responsibilities, setResponsibilities] = useState("");
-
-  return (
-    <form
-      className="aj-panel"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSave({
-          schoolYear: schoolYear.trim(),
-          grade,
-          periodKind,
-          status,
-          role: role.trim() || undefined,
-          hoursPerWeek: hoursPerWeek ? Number(hoursPerWeek) : undefined,
-          weeksActive: weeksActive ? Number(weeksActive) : undefined,
-          responsibilities: responsibilities.trim() || undefined,
-        });
-      }}
-    >
-      <h4>Add period</h4>
-      <div className="aj-form-grid">
-        <label className="stack-field">
-          <span className="label">School year</span>
-          <input
-            className="field"
-            value={schoolYear}
-            onChange={(e) => setSchoolYear(e.target.value)}
-            placeholder="2024–25"
-          />
-        </label>
-        <label className="stack-field">
-          <span className="label">Grade</span>
-          <select
-            className="field"
-            value={grade}
-            onChange={(e) => setGrade(e.target.value as GradeLevel)}
-          >
-            <GradeGroupedOptions />
-          </select>
-        </label>
-        <label className="stack-field">
-          <span className="label">Kind</span>
-          <select
-            className="field"
-            value={periodKind}
-            onChange={(e) => setPeriodKind(e.target.value as PeriodKind)}
-          >
-            {PERIOD_KINDS.map((k) => (
-              <option key={k.id} value={k.id}>
-                {k.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="stack-field">
-          <span className="label">Status</span>
-          <select
-            className="field"
-            value={status}
-            onChange={(e) => setStatus(e.target.value as PeriodStatus)}
-          >
-            {PERIOD_STATUSES.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="stack-field">
-          <span className="label">Role</span>
-          <input className="field" value={role} onChange={(e) => setRole(e.target.value)} />
-        </label>
-        <label className="stack-field">
-          <span className="label">Hours / week</span>
-          <input
-            className="field"
-            type="number"
-            min={0}
-            step="0.5"
-            value={hoursPerWeek}
-            onChange={(e) => setHoursPerWeek(e.target.value)}
-          />
-        </label>
-        <label className="stack-field">
-          <span className="label">Weeks active</span>
-          <input
-            className="field"
-            type="number"
-            min={0}
-            value={weeksActive}
-            onChange={(e) => setWeeksActive(e.target.value)}
-          />
-        </label>
-        <label className="stack-field aj-span-2">
-          <span className="label">Responsibilities</span>
-          <textarea
-            className="field"
-            rows={2}
-            value={responsibilities}
-            onChange={(e) => setResponsibilities(e.target.value)}
-          />
-        </label>
-      </div>
-      <div className="aj-actions">
-        <button type="submit" className="btn btn-primary">
-          Save period
-        </button>
-        <button type="button" className="btn btn-secondary" onClick={onCancel}>
-          Cancel
-        </button>
-      </div>
-    </form>
   );
 }
 
@@ -1761,10 +2160,12 @@ function AddLinkForm({
 
 function AddAwardForm({
   activities,
+  presetActivityId,
   onCancel,
   onSave,
 }: {
   activities: Activity[];
+  presetActivityId?: string;
   onCancel: () => void;
   onSave: (award: Award) => void;
 }) {
@@ -1772,7 +2173,7 @@ function AddAwardForm({
   const [organization, setOrganization] = useState("");
   const [date, setDate] = useState("");
   const [grade, setGrade] = useState<GradeLevel | "">("");
-  const [activityId, setActivityId] = useState("");
+  const [activityId, setActivityId] = useState(presetActivityId ?? "");
   const [academic, setAcademic] = useState(false);
   const [recognitionLevel, setRecognitionLevel] = useState("");
   const [whatDid, setWhatDid] = useState("");
@@ -1835,18 +2236,26 @@ function AddAwardForm({
         </label>
         <label className="stack-field">
           <span className="label">Linked activity</span>
-          <select
-            className="field"
-            value={activityId}
-            onChange={(e) => setActivityId(e.target.value)}
-          >
-            <option value="">None</option>
-            {activities.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
+          {presetActivityId ? (
+            <input
+              className="field"
+              value={activities.find((a) => a.id === presetActivityId)?.name ?? "This activity"}
+              disabled
+            />
+          ) : (
+            <select
+              className="field"
+              value={activityId}
+              onChange={(e) => setActivityId(e.target.value)}
+            >
+              <option value="">None</option>
+              {activities.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          )}
         </label>
         <label className="stack-field aj-check">
           <span className="label">Academic</span>
