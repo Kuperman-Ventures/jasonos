@@ -372,6 +372,7 @@ export function ActivitiesJournal({
         <PrepView
           journal={journal}
           canEdit={canEdit}
+          loaded={loaded}
           onChange={onChange}
           onOpenActivity={(id) => goToMyRecord(id, "periods")}
           onGoToMyRecord={() => goToMyRecord(null)}
@@ -2036,9 +2037,10 @@ function AddAwardForm({
   );
 }
 
-function PrepView({
+export function PrepView({
   journal,
   canEdit,
+  loaded = true,
   onChange,
   onOpenActivity,
   onGoToMyRecord,
@@ -2046,6 +2048,7 @@ function PrepView({
 }: {
   journal: Journal;
   canEdit: boolean;
+  loaded?: boolean;
   onChange: (next: Journal) => void;
   onOpenActivity: (id: string) => void;
   onGoToMyRecord: () => void;
@@ -2059,14 +2062,14 @@ function PrepView({
   const ensuredRef = useRef(false);
 
   useEffect(() => {
-    if (!canEdit || ensuredRef.current) return;
+    if (!loaded || !canEdit || ensuredRef.current) return;
     if (journal.applicationLists.some((l) => l.id === COMMON_APP_LIST_ID)) {
       ensuredRef.current = true;
       return;
     }
     ensuredRef.current = true;
     onChange(ensureCommonAppList(journal));
-  }, [canEdit, journal, onChange]);
+  }, [loaded, canEdit, journal, onChange]);
 
   const list = canEdit
     ? journal.applicationLists.find((l) => l.id === COMMON_APP_LIST_ID) ?? null
@@ -2225,6 +2228,8 @@ function PrepView({
         </button>
       </header>
 
+      {!loaded ? null : (
+        <>
       {copyFallback ? (
         <div className="prep-copy-fallback">
           <p>Copy failed. Select the text and copy it yourself.</p>
@@ -2710,6 +2715,8 @@ function PrepView({
             </>
           ) : null}
         </div>
+      )}
+        </>
       )}
     </div>
   );
