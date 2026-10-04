@@ -33,7 +33,6 @@ import {
 import {
   currentListPhaseId,
   LIST_PHASES,
-  listPhaseById,
   listPhaseNextLine,
   listPhaseRailTitle,
 } from "@/lib/list-phases";
@@ -184,7 +183,6 @@ export function LeftRail({
     writeStoredRailDensity(density);
   }, [density, densityReady]);
 
-  const listPhase = listPhaseById(listPhaseId);
   const listPhaseIndex = LIST_PHASES.findIndex((phase) => phase.id === listPhaseId);
   const phaseCount = LIST_PHASES.length;
 
@@ -387,10 +385,7 @@ export function LeftRail({
         {!slim ? (
           <div className="rail-phase" aria-label="Current phase">
             <div className="rail-phase-top">
-              <b>{listPhase.label}</b>
-              <span>
-                {listPhaseIndex + 1} / {phaseCount}
-              </span>
+              <b>{phaseTitle}</b>
             </div>
             <div
               className="rail-phase-segs"
@@ -511,7 +506,7 @@ export function LeftRail({
               ))}
             </div>
             <span className="rail-phase-slim-name">
-              {listPhase.label}
+              {phaseTitle}
             </span>
           </div>
         ) : null}
