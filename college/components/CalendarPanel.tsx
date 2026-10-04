@@ -19,6 +19,7 @@ import {
   type ProcessCalendarEntry,
 } from "@/lib/calendar-sources";
 import type { ProjectTodo } from "@/lib/project-todos";
+import { ownerLabel } from "@/lib/types";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 

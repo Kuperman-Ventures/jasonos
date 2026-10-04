@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { processCalendarEntries } from "./calendar-sources";
 import type { ProjectTodo } from "./project-todos";
-import type { TimelineStage } from "./timeline-stages";
+import { allTimelineStages, type TimelineStage } from "./timeline-stages";
 
 function todo(partial: Partial<ProjectTodo> & Pick<ProjectTodo, "id" | "label">): ProjectTodo {
   return {
@@ -124,6 +124,18 @@ test("milestone stages appear; non-milestones do not", () => {
   assert.equal(
     entries.filter((row) => row.source === "todo").length,
     0,
+  );
+});
+
+test("PSAT and SAT seed milestones appear on the calendar", () => {
+  const entries = processCalendarEntries({ stages: allTimelineStages() });
+  const ids = entries.filter((row) => row.source === "stage").map((row) => row.id);
+  assert.ok(ids.includes("stage-testing-s2"));
+  assert.ok(ids.includes("stage-testing-s6"));
+  assert.ok(ids.includes("stage-testing-s8"));
+  assert.equal(
+    entries.find((row) => row.id === "stage-testing-s2")?.title,
+    "PSAT/NMSQT",
   );
 });
 
