@@ -172,6 +172,8 @@ export type Activity = {
   icon?: string;
   /** Thread this activity belongs to, if any. */
   threadId?: string;
+  /** Kindergarten through 5th when the activity started before 6th grade. */
+  earliestGrade?: number;
   /** Self-started project answers (category independent-project-business). */
   project?: SelfStartedProject;
 };
@@ -940,6 +942,10 @@ function normalizeActivity(raw: unknown): Activity | null {
   if (icon && isActivityIconId(icon)) activity.icon = icon;
   const threadId = asOptionalString(row.threadId);
   if (threadId) activity.threadId = threadId;
+  const earliestRaw = asOptionalNumber(row.earliestGrade);
+  if (earliestRaw !== undefined && Number.isInteger(earliestRaw) && earliestRaw >= 0 && earliestRaw <= 5) {
+    activity.earliestGrade = earliestRaw;
+  }
   if (categoryExtras) activity.categoryExtras = categoryExtras;
   if (reflections) activity.reflections = reflections;
   if (Array.isArray(row.links)) {
@@ -1190,6 +1196,7 @@ export type CreateActivityInput = {
   id?: string;
   recallSource?: boolean;
   icon?: string;
+  earliestGrade?: number;
   project?: SelfStartedProject;
 };
 
@@ -1226,6 +1233,9 @@ export function createActivity(input: CreateActivityInput): Activity {
   if (input.links) activity.links = [...input.links];
   if (input.createdBy) activity.createdBy = input.createdBy;
   if (input.recallSource !== undefined) activity.recallSource = input.recallSource;
+  if (input.earliestGrade != null && Number.isInteger(input.earliestGrade) && input.earliestGrade >= 0 && input.earliestGrade <= 5) {
+    activity.earliestGrade = input.earliestGrade;
+  }
   if (input.project) {
     activity.project = normalizeSelfStartedProject(input.project) ?? emptySelfStartedProject();
   }

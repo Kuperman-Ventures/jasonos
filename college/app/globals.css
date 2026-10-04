@@ -17371,6 +17371,9 @@ button.at-link {
 .at-rib > * {
   flex: 0 0 auto;
 }
+.at-rib-early > :first-child {
+  margin-right: 3px;
+}
 .at-rw {
   display: grid;
   align-items: center;

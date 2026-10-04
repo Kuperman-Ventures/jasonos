@@ -7,16 +7,23 @@ import {
   INTENT_PILLS,
   TRACK_GRADES,
   TRACK_TYPES,
+  EARLY_GRADES,
   activityStates,
   activitySpanText,
+  activityYears,
   applyTrackToJournal,
   answeredCount,
   cellStyle,
+  commonAppSpanText,
   copyTrackNotes,
+  earlyPillLabel,
   gradeHeaders,
+  gradeName,
+  gridStates,
+  hasEarlierStart,
   lensesForIntent,
   lensLabel,
-  longestActivityStates,
+  longestActivity,
   migrateTrackFromJournal,
   nextBand,
   nowGrade,
@@ -25,7 +32,6 @@ import {
   questionsFor,
   stageMarks,
   threadLengthBar,
-  yearsInStates,
   type ActivitiesTrack,
   type TrackActivity,
   type TrackCell,
@@ -77,9 +83,19 @@ const WHENS = [
   { id: "12" as const, label: "Senior year (12th)" },
 ];
 
-function Rib({ states, width, height }: { states: TrackCell[]; width: number; height: number }) {
+function Rib({
+  states,
+  width,
+  height,
+  earlier,
+}: {
+  states: TrackCell[];
+  width: number;
+  height: number;
+  earlier?: boolean;
+}) {
   return (
-    <div className="at-rib">
+    <div className={earlier ? "at-rib at-rib-early" : "at-rib"}>
       {states.map((c, i) => {
         const s = cellStyle(c);
         return (
@@ -96,6 +112,175 @@ function Rib({ states, width, height }: { states: TrackCell[]; width: number; he
           />
         );
       })}
+    </div>
+  );
+}
+
+type SpanValue = {
+  start: number | null;
+  still: boolean;
+  end: number | null;
+  earlier: boolean;
+};
+
+function GradeSpanEditor({
+  value,
+  now,
+  canEdit,
+  onChange,
+}: {
+  value: SpanValue;
+  now: number;
+  canEdit: boolean;
+  onChange: (next: SpanValue) => void;
+}) {
+  const G = value;
+  const startGrades = TRACK_GRADES.filter((g) => g <= now);
+  const earlierOpen = G.earlier;
+  const startKnown = G.start != null;
+
+  function pickStart(y: number, earlier: boolean) {
+    const end = G.still ? null : Math.max(y, G.end ?? y);
+    onChange({ ...G, start: y, earlier, end });
+  }
+
+  function pickEnd(y: number) {
+    onChange({ ...G, still: false, end: y });
+  }
+
+  const lastSquares = startKnown
+    ? TRACK_GRADES.filter((g) => g <= now && g >= Math.max(G.start!, 6))
+    : [];
+  const lastPills = startKnown && G.start! < 6 ? EARLY_GRADES.filter((g) => g >= G.start!) : [];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div className="at-rib" style={{ gap: 6 }}>
+        <button
+          type="button"
+          className="at-m"
+          disabled={!canEdit}
+          onClick={() => onChange({ ...G, earlier: true, start: G.start != null && G.start < 6 ? G.start : null })}
+          style={{
+            width: 56,
+            height: 46,
+            border: 0,
+            marginRight: 3,
+            background: earlierOpen ? "var(--color-text)" : "var(--color-surface)",
+            color: earlierOpen ? "var(--color-bg)" : "var(--color-text)",
+            cursor: "pointer",
+            letterSpacing: "0.08em",
+            fontSize: 9,
+          }}
+        >
+          Earlier
+        </button>
+        {startGrades.map((y) => (
+          <button
+            key={y}
+            type="button"
+            className="at-m"
+            disabled={!canEdit}
+            onClick={() => pickStart(y, false)}
+            style={{
+              width: 56,
+              height: 46,
+              border: 0,
+              background: !earlierOpen && G.start === y ? "var(--color-text)" : "var(--color-surface)",
+              color: !earlierOpen && G.start === y ? "var(--color-bg)" : "var(--color-text)",
+              cursor: "pointer",
+            }}
+          >
+            {y}th
+          </button>
+        ))}
+      </div>
+      {earlierOpen ? (
+        <div>
+          <div className="at-hint" style={{ marginBottom: 8 }}>
+            About what grade?
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {EARLY_GRADES.map((y) => (
+              <button
+                key={y}
+                type="button"
+                className={G.start === y ? "at-pill on" : "at-pill"}
+                disabled={!canEdit}
+                onClick={() => pickStart(y, true)}
+              >
+                {earlyPillLabel(y)}
+              </button>
+            ))}
+          </div>
+          <div className="at-hint" style={{ marginTop: 8 }}>
+            Your best guess is fine.
+          </div>
+        </div>
+      ) : null}
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          type="button"
+          className={G.still ? "at-pill on" : "at-pill"}
+          disabled={!canEdit}
+          onClick={() => onChange({ ...G, still: true, end: null })}
+        >
+          Still doing it
+        </button>
+        <button
+          type="button"
+          className={!G.still ? "at-pill on" : "at-pill"}
+          disabled={!canEdit}
+          onClick={() => onChange({ ...G, still: false, end: G.start })}
+        >
+          I stopped
+        </button>
+      </div>
+      {!G.still && startKnown ? (
+        <div>
+          <div className="at-hint" style={{ marginBottom: 6 }}>
+            Last grade
+          </div>
+          {lastPills.length ? (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+              {lastPills.map((y) => (
+                <button
+                  key={y}
+                  type="button"
+                  className={G.end === y ? "at-pill on" : "at-pill"}
+                  disabled={!canEdit}
+                  onClick={() => pickEnd(y)}
+                >
+                  {earlyPillLabel(y)}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {lastSquares.length ? (
+            <div className="at-rib" style={{ gap: 6 }}>
+              {lastSquares.map((y) => (
+                <button
+                  key={y}
+                  type="button"
+                  className="at-m"
+                  disabled={!canEdit}
+                  onClick={() => pickEnd(y)}
+                  style={{
+                    width: 56,
+                    height: 40,
+                    border: 0,
+                    background: G.end === y ? "var(--color-text)" : "var(--color-surface)",
+                    color: G.end === y ? "var(--color-bg)" : "var(--color-text)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {y}th
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -123,6 +308,7 @@ type GatherState = {
   end: number | null;
   threadSel: string | null;
   newThread: string;
+  earlier: boolean;
 };
 
 const EMPTY_GATHER: GatherState = {
@@ -133,6 +319,7 @@ const EMPTY_GATHER: GatherState = {
   end: null,
   threadSel: null,
   newThread: "",
+  earlier: false,
 };
 
 export function ActivitiesTrackView({
@@ -173,6 +360,7 @@ export function ActivitiesTrackView({
   const [lastAdded, setLastAdded] = useState<string | null>(null);
   const [moveOpen, setMoveOpen] = useState<string | null>(null);
   const [editT, setEditT] = useState<string | null>(null);
+  const [yearsOpen, setYearsOpen] = useState<string | null>(null);
   const [fo, setFo] = useState<{ actId: string; qi: number; nudge: string | null; seen: string } | null>(
     null,
   );
@@ -229,6 +417,7 @@ export function ActivitiesTrackView({
 
   function go(next: ActivitiesViewId) {
     setMoveOpen(null);
+    setYearsOpen(null);
     if (next !== "prep") setEntryId(null);
     onViewChange(next);
   }
@@ -240,7 +429,8 @@ export function ActivitiesTrackView({
     { id: "plan", label: "3 Plan", mark: marks.plan },
     { id: "prep", label: "4 Application Prep", mark: marks.prep },
   ];
-  const headers = gradeHeaders(now);
+  const showEarlier = hasEarlierStart(track.acts);
+  const headers = gradeHeaders(now, showEarlier);
   const band = nextBand(track);
   const nChoices = Object.keys(track.intents).length;
   const nProj = track.projects.length;
@@ -338,6 +528,7 @@ export function ActivitiesTrackView({
           setGather={setGather}
           lastAdded={lastAdded}
           canEdit={canEdit}
+          showEarlier={showEarlier}
           onSkip={() => go("shape")}
           onAdd={(next, name, id) => {
             persist(next);
@@ -356,6 +547,8 @@ export function ActivitiesTrackView({
           canEdit={canEdit}
           moveOpen={moveOpen}
           setMoveOpen={setMoveOpen}
+          yearsOpen={yearsOpen}
+          setYearsOpen={setYearsOpen}
           editT={editT}
           setEditT={setEditT}
           fo={fo}
@@ -363,6 +556,7 @@ export function ActivitiesTrackView({
           persist={persist}
           patchAct={patchAct}
           say={say}
+          showEarlier={showEarlier}
           onAddActivity={() => go("gather")}
           onContinue={() => go("plan")}
         />
@@ -386,6 +580,7 @@ export function ActivitiesTrackView({
           setComp={setComp}
           projId={projId}
           setProjId={setProjId}
+          showEarlier={showEarlier}
         />
       ) : null}
 
@@ -533,6 +728,7 @@ function GatherStage({
   setGather,
   lastAdded,
   canEdit,
+  showEarlier,
   onSkip,
   onAdd,
 }: {
@@ -543,6 +739,7 @@ function GatherStage({
   setGather: (g: GatherState) => void;
   lastAdded: string | null;
   canEdit: boolean;
+  showEarlier: boolean;
   onSkip: () => void;
   onAdd: (next: ActivitiesTrack, name: string, id: string) => void;
 }) {
@@ -557,12 +754,11 @@ function GatherStage({
     "Your best guess is fine.",
     "A thread groups things that belong together, like everything you do with music.",
   ][G.step];
-  const startGrades = [6, 7, 8, 9, 10, 11].filter((g) => g <= Math.max(now, 11) && g <= 11);
-  const endGrades = startGrades.filter((g) => g >= (G.start || 6));
   const noThread = !G.threadSel || (G.threadSel === "__new" && !G.newThread.trim());
+  const noStart = G.start == null || (!G.still && G.end == null);
 
   function add() {
-    if (!canEdit || !G.name.trim() || !G.start) return;
+    if (!canEdit || !G.name.trim() || G.start == null) return;
     const id = journalNewId("activity");
     let tid = G.threadSel;
     let threads = track.threads;
@@ -635,78 +831,17 @@ function GatherStage({
         ) : null}
         {G.step === 1 ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div className="at-rib" style={{ gap: 6 }}>
-              {startGrades.map((y) => (
-                <button
-                  key={y}
-                  type="button"
-                  className="at-m"
-                  disabled={!canEdit}
-                  onClick={() => setGather({ ...G, start: y, end: G.still ? null : Math.max(y, G.end || y) })}
-                  style={{
-                    width: 56,
-                    height: 46,
-                    border: 0,
-                    background: G.start === y ? "var(--color-text)" : "var(--color-surface)",
-                    color: G.start === y ? "var(--color-bg)" : "var(--color-text)",
-                    cursor: "pointer",
-                  }}
-                >
-                  {y}th
-                </button>
-              ))}
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                type="button"
-                className={G.still ? "at-pill on" : "at-pill"}
-                disabled={!canEdit}
-                onClick={() => setGather({ ...G, still: true, end: null })}
-              >
-                Still doing it
-              </button>
-              <button
-                type="button"
-                className={!G.still ? "at-pill on" : "at-pill"}
-                disabled={!canEdit}
-                onClick={() => setGather({ ...G, still: false, end: G.start })}
-              >
-                I stopped
-              </button>
-            </div>
-            {!G.still ? (
-              <div>
-                <div className="at-hint" style={{ marginBottom: 6 }}>
-                  Last grade
-                </div>
-                <div className="at-rib" style={{ gap: 6 }}>
-                  {endGrades.map((y) => (
-                    <button
-                      key={y}
-                      type="button"
-                      className="at-m"
-                      disabled={!canEdit}
-                      onClick={() => setGather({ ...G, end: y })}
-                      style={{
-                        width: 56,
-                        height: 40,
-                        border: 0,
-                        background: G.end === y ? "var(--color-text)" : "var(--color-surface)",
-                        color: G.end === y ? "var(--color-bg)" : "var(--color-text)",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {y}th
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
+            <GradeSpanEditor
+              value={{ start: G.start, still: G.still, end: G.end, earlier: G.earlier }}
+              now={now}
+              canEdit={canEdit}
+              onChange={(next) => setGather({ ...G, ...next })}
+            />
             <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
               <button
                 type="button"
                 className="at-btn"
-                disabled={!canEdit || !G.start || (!G.still && !G.end)}
+                disabled={!canEdit || noStart}
                 onClick={() => setGather({ ...G, step: 2 })}
               >
                 Next
@@ -747,7 +882,7 @@ function GatherStage({
               />
             ) : null}
             <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-              <button type="button" className="at-btn" disabled={!canEdit || noThread} onClick={add}>
+              <button type="button" className="at-btn" disabled={!canEdit || noThread || G.start == null} onClick={add}>
                 Add to my record
               </button>
               <button type="button" className="at-link" onClick={() => setGather({ ...G, step: 1 })}>
@@ -766,7 +901,7 @@ function GatherStage({
         <div className="at-m" style={{ marginBottom: 10 }}>
           Your record
         </div>
-        <div className="at-rib" style={{ marginBottom: 6 }}>
+        <div className={showEarlier ? "at-rib at-rib-early" : "at-rib"} style={{ marginBottom: 6 }}>
           {headers.map((g) => (
             <span
               key={g.n}
@@ -775,8 +910,8 @@ function GatherStage({
                 width: 24,
                 flex: "0 0 24px",
                 textAlign: "center",
-                letterSpacing: "0.04em",
-                fontSize: 10,
+                letterSpacing: g.earlier ? 0 : "0.04em",
+                fontSize: g.earlier ? 8 : 10,
                 color: g.fg,
               }}
             >
@@ -786,9 +921,8 @@ function GatherStage({
         </div>
         {miniBlocks.map(({ thread, list }) => {
           const hl = list.some((a) => a.id === lastAdded);
-          const len = list.length
-            ? Math.max(...list.map((a) => yearsInStates(activityStates(a, track.plans, track.intents, now))))
-            : 0;
+          const longest = longestActivity(list, now);
+          const len = longest ? activityYears(longest, now) : 0;
           return (
             <div
               key={thread?.id ?? "loose"}
@@ -812,7 +946,12 @@ function GatherStage({
               {list.map((a) => (
                 <div key={a.id}>
                   <div style={{ marginTop: 8 }}>
-                    <Rib states={activityStates(a, track.plans, track.intents, now)} width={24} height={6} />
+                    <Rib
+                      states={gridStates(activityStates(a, track.plans, track.intents, now), showEarlier)}
+                      width={24}
+                      height={6}
+                      earlier={showEarlier}
+                    />
                   </div>
                   <div className="at-hint" style={{ fontSize: 12, marginTop: 2, display: "flex", gap: 6, alignItems: "center" }}>
                     <Icon activity={a} size={14} />
@@ -836,6 +975,8 @@ function ShapeStage({
   canEdit,
   moveOpen,
   setMoveOpen,
+  yearsOpen,
+  setYearsOpen,
   editT,
   setEditT,
   fo,
@@ -843,6 +984,7 @@ function ShapeStage({
   persist,
   patchAct,
   say,
+  showEarlier,
   onAddActivity,
   onContinue,
 }: {
@@ -852,6 +994,8 @@ function ShapeStage({
   canEdit: boolean;
   moveOpen: string | null;
   setMoveOpen: (id: string | null) => void;
+  yearsOpen: string | null;
+  setYearsOpen: (id: string | null) => void;
   editT: string | null;
   setEditT: (id: string | null) => void;
   fo: { actId: string; qi: number; nudge: string | null; seen: string } | null;
@@ -859,6 +1003,7 @@ function ShapeStage({
   persist: (next: ActivitiesTrack) => void;
   patchAct: (id: string, patch: Partial<TrackActivity>) => void;
   say: (m: string) => void;
+  showEarlier: boolean;
   onAddActivity: () => void;
   onContinue: () => void;
 }) {
@@ -881,7 +1026,7 @@ function ShapeStage({
       </div>
       <div className="at-shape-grid" style={{ marginTop: 34 }}>
         <span />
-        <div className="at-rib">
+        <div className={showEarlier ? "at-rib at-rib-early" : "at-rib"}>
           {headers.map((g) => (
             <span
               key={g.n}
@@ -895,9 +1040,15 @@ function ShapeStage({
                 gap: 2,
               }}
             >
-              <span className="at-ser" style={{ fontSize: 26, lineHeight: 1, fontWeight: 600, color: g.num }}>
-                {g.n}
-              </span>
+              {g.earlier ? (
+                <span className="at-m" style={{ fontSize: 9, lineHeight: "26px", height: 26, letterSpacing: "0.08em" }}>
+                  EARLIER
+                </span>
+              ) : (
+                <span className="at-ser" style={{ fontSize: 26, lineHeight: 1, fontWeight: 600, color: g.num }}>
+                  {g.n}
+                </span>
+              )}
               <span className="at-m" style={{ fontSize: 9, height: 12, color: "var(--text-accent)" }}>
                 {g.tag}
               </span>
@@ -906,8 +1057,12 @@ function ShapeStage({
         </div>
       </div>
       {blocks.map(({ thread, list }) => {
-        const best = longestActivityStates(list, track.plans, track.intents, now);
+        const longest = longestActivity(list, now);
+        const best = longest
+          ? gridStates(activityStates(longest, track.plans, track.intents, now), showEarlier)
+          : null;
         const bar = best ? threadLengthBar(best) : null;
+        const barYears = longest ? activityYears(longest, now) : 0;
         return (
           <div
             key={thread?.id ?? "loose"}
@@ -989,7 +1144,7 @@ function ShapeStage({
             <div>
               {thread && bar && list.length ? (
                 <div className="at-lenbar" style={{ marginLeft: bar.left, width: bar.width }}>
-                  {bar.years} {bar.years === 1 ? "year" : "years"}
+                  {barYears} {barYears === 1 ? "year" : "years"}
                 </div>
               ) : null}
               {list.length === 0 && thread ? (
@@ -1006,9 +1161,30 @@ function ShapeStage({
                   canEdit={canEdit}
                   cur={thread?.id ?? null}
                   moveOpen={moveOpen === a.id}
+                  yearsOpen={yearsOpen === a.id}
                   fo={fo?.actId === a.id ? fo : null}
-                  setMoveOpen={setMoveOpen}
-                  setFo={setFo}
+                  showEarlier={showEarlier}
+                  setMoveOpen={(id) => {
+                    setMoveOpen(id);
+                    if (id) {
+                      setYearsOpen(null);
+                      setFo(null);
+                    }
+                  }}
+                  setYearsOpen={(id) => {
+                    setYearsOpen(id);
+                    if (id) {
+                      setMoveOpen(null);
+                      setFo(null);
+                    }
+                  }}
+                  setFo={(v) => {
+                    setFo(v);
+                    if (v) {
+                      setMoveOpen(null);
+                      setYearsOpen(null);
+                    }
+                  }}
                   persist={persist}
                   patchAct={patchAct}
                   say={say}
@@ -1061,8 +1237,11 @@ function ShapeLane({
   canEdit,
   cur,
   moveOpen,
+  yearsOpen,
   fo,
+  showEarlier,
   setMoveOpen,
+  setYearsOpen,
   setFo,
   persist,
   patchAct,
@@ -1074,16 +1253,19 @@ function ShapeLane({
   canEdit: boolean;
   cur: string | null;
   moveOpen: boolean;
+  yearsOpen: boolean;
   fo: { actId: string; qi: number; nudge: string | null; seen: string } | null;
+  showEarlier: boolean;
   setMoveOpen: (id: string | null) => void;
+  setYearsOpen: (id: string | null) => void;
   setFo: (v: { actId: string; qi: number; nudge: string | null; seen: string } | null) => void;
   persist: (next: ActivitiesTrack) => void;
   patchAct: (id: string, patch: Partial<TrackActivity>) => void;
   say: (m: string) => void;
 }) {
   const a = activity;
-  const sts = activityStates(a, track.plans, track.intents, now);
-  const yrs = yearsInStates(sts);
+  const sts = gridStates(activityStates(a, track.plans, track.intents, now), showEarlier);
+  const yrs = activityYears(a, now);
   const qs = questionsFor(a, now);
   const answered = answeredCount(a, now);
   const qi = fo ? Math.min(fo.qi, Math.max(0, qs.length - 1)) : 0;
@@ -1091,6 +1273,12 @@ function ShapeLane({
   const ans = a.answers ?? {};
   const text = q ? (ans[q.id] ?? "") : "";
   const labels = [...new Set(qs.map((x) => x.layer))];
+  const [yearsDraft, setYearsDraft] = useState<SpanValue>({
+    start: a.start,
+    still: a.still,
+    end: a.end,
+    earlier: a.start < 6,
+  });
 
   function moveTo(tid: string | null, label: string) {
     persist({
@@ -1101,9 +1289,19 @@ function ShapeLane({
     say(`${a.name} moved to ${label}`);
   }
 
+  function commitSpan(next: SpanValue) {
+    setYearsDraft(next);
+    if (next.start == null) return;
+    patchAct(a.id, {
+      start: next.start,
+      still: next.still,
+      end: next.still ? now : (next.end ?? next.start),
+    });
+  }
+
   return (
     <div style={{ marginTop: 20 }}>
-      <Rib states={sts} width={56} height={12} />
+      <Rib states={sts} width={56} height={12} earlier={showEarlier} />
       <div className="at-lane-meta">
         <Icon activity={a} size={24} />
         <div style={{ minWidth: 0 }}>
@@ -1115,7 +1313,7 @@ function ShapeLane({
             onChange={(e) => patchAct(a.id, { name: e.target.value })}
           />
           <div className="at-hint" style={{ marginTop: 1 }}>
-            {yrs} {yrs === 1 ? "yr" : "yrs"} · Since {a.start}th grade · {activitySpanText(a)}
+            {yrs} {yrs === 1 ? "yr" : "yrs"} · Since {gradeName(a.start)} · {activitySpanText(a)}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -1125,6 +1323,20 @@ function ShapeLane({
             onClick={() => setMoveOpen(moveOpen ? null : a.id)}
           >
             {moveOpen ? "Close" : "Move"}
+          </button>
+          <button
+            type="button"
+            className="at-pill sm"
+            onClick={() => {
+              if (yearsOpen) {
+                setYearsOpen(null);
+                return;
+              }
+              setYearsDraft({ start: a.start, still: a.still, end: a.end, earlier: a.start < 6 });
+              setYearsOpen(a.id);
+            }}
+          >
+            {yearsOpen ? "Close" : "Years"}
           </button>
           <button
             type="button"
@@ -1167,6 +1379,21 @@ function ShapeLane({
           >
             + New thread
           </button>
+        </div>
+      ) : null}
+      {yearsOpen ? (
+        <div
+          style={{
+            marginTop: 14,
+            padding: "22px 24px",
+            background: "var(--color-surface)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 14,
+            maxWidth: 640,
+          }}
+        >
+          <GradeSpanEditor value={yearsDraft} now={now} canEdit={canEdit} onChange={commitSpan} />
         </div>
       ) : null}
       {fo && q ? (
@@ -1304,6 +1531,7 @@ function PlanStage({
   setComp,
   projId,
   setProjId,
+  showEarlier,
 }: {
   track: ActivitiesTrack;
   now: number;
@@ -1321,6 +1549,7 @@ function PlanStage({
   setComp: (c: { open: { actId: string; year: 11 | 12 } | null; lens: string; text: string }) => void;
   projId: string | null;
   setProjId: (id: string | null) => void;
+  showEarlier: boolean;
 }) {
   const modes = [
     {
@@ -1467,7 +1696,12 @@ function PlanStage({
                 <div className="at-hint" style={{ margin: "2px 0 8px 32px" }}>
                   {threadName(track, a.thread)}
                 </div>
-                <Rib states={activityStates(a, track.plans, track.intents, now)} width={20} height={10} />
+                <Rib
+                  states={gridStates(activityStates(a, track.plans, track.intents, now), showEarlier)}
+                  width={20}
+                  height={10}
+                  earlier={showEarlier}
+                />
               </div>
               <PlanCell
                 activity={a}
@@ -1957,7 +2191,9 @@ function PrepEntry({
       .map((p) => ({ lens: `${lensLabel(p.lens)} · ${p.year}th`, text: p.text })),
     ...qs.filter((q) => (aans[q.id] ?? "").trim()).map((q) => ({ lens: `${q.layer} ·`, text: aans[q.id] })),
   ];
-  const span = `${A.start}th–${A.still ? now : A.end}th grade${A.hours ? `, ${A.hours} hours a week` : ""}${A.weeks ? `, ${A.weeks} weeks a year` : ""}.`;
+  const span = `${commonAppSpanText(A, now)}${A.hours ? `, ${A.hours} hours a week` : ""}${A.weeks ? `, ${A.weeks} weeks a year` : ""}.`;
+  const prepEarlier = A.start < 6;
+  const prepStates = gridStates(activityStates(A, track.plans, track.intents, now), prepEarlier);
 
   return (
     <div style={{ maxWidth: 780, display: "flex", flexDirection: "column", gap: 26 }}>
@@ -1974,6 +2210,14 @@ function PrepEntry({
         </h2>
         <div className="at-ser" style={{ fontSize: 20, lineHeight: 1.5, color: "var(--text-muted)" }}>
           {span}
+        </div>
+        {A.start < 6 ? (
+          <div className="at-hint" style={{ marginTop: 6, lineHeight: 1.45 }}>
+            Started in {gradeName(A.start)}. The Common App lists grades 9-12. Your earlier years belong in your essays.
+          </div>
+        ) : null}
+        <div style={{ marginTop: 14 }}>
+          <Rib states={prepStates} width={24} height={10} earlier={prepEarlier} />
         </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 26 }}>

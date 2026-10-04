@@ -13,10 +13,51 @@ import {
   type Activity,
   type ActivityCategoryId,
   type ActivityThread,
+  type ParticipationPeriod,
 } from "./activities-journal";
 
 export const TRACK_GRADES = [6, 7, 8, 9, 10, 11, 12] as const;
 export type TrackGrade = (typeof TRACK_GRADES)[number];
+
+/** Kindergarten through 5th. One "Earlier" grid column covers all of these. */
+export const EARLY_GRADES = [0, 1, 2, 3, 4, 5] as const;
+export type EarlyGrade = (typeof EARLY_GRADES)[number];
+
+export const GRID_CELL = 56;
+export const GRID_GAP = 3;
+/** Extra space after the Earlier column (on top of GRID_GAP). */
+export const EARLIER_EXTRA_GAP = 3;
+
+export function gradeName(g: number): string {
+  if (g === 0) return "kindergarten";
+  if (g === 1) return "1st grade";
+  if (g === 2) return "2nd grade";
+  if (g === 3) return "3rd grade";
+  if (Number.isInteger(g) && g >= 4 && g <= 12) return `${g}th grade`;
+  return `${g}th grade`;
+}
+
+export function earlyPillLabel(g: number): string {
+  if (g === 0) return "K";
+  if (g === 1) return "1st";
+  if (g === 2) return "2nd";
+  if (g === 3) return "3rd";
+  return `${g}th`;
+}
+
+export function activityYears(activity: TrackActivity, now: number): number {
+  const last = activity.still ? now : activity.end;
+  return Math.max(1, last - activity.start + 1);
+}
+
+export function hasEarlierStart(acts: TrackActivity[]): boolean {
+  return acts.some((a) => a.start < 6);
+}
+
+/** activityStates always includes the Earlier cell at index 0. Slice it off when the column is hidden. */
+export function gridStates(states: TrackCell[], showEarlier: boolean): TrackCell[] {
+  return showEarlier ? states : states.slice(1);
+}
 
 export type TrackCell = "e" | "d" | "n" | "p";
 
@@ -267,7 +308,8 @@ export function activityStates(
 ): TrackCell[] {
   const i12 = intents[`${activity.id}:12`];
   const has12 = steps.some((p) => p.actId === activity.id && p.year === 12);
-  return TRACK_GRADES.map((g) => {
+  const earlier: TrackCell = activity.start < 6 ? "d" : "e";
+  const grades = TRACK_GRADES.map((g) => {
     if (g < activity.start) return "e";
     if (g <= now) {
       if (activity.still) return g === now ? "n" : "d";
@@ -275,11 +317,13 @@ export function activityStates(
     }
     return activity.still && i12 !== "finish" && (i12 || has12) ? "p" : "e";
   });
+  return [earlier, ...grades];
 }
 
 export function mergeStates(list: TrackCell[][]): TrackCell[] {
   const rank: Record<TrackCell, number> = { e: 0, p: 1, d: 2, n: 3 };
-  return TRACK_GRADES.map((_, i) =>
+  const len = list[0]?.length ?? 0;
+  return Array.from({ length: len }, (_, i) =>
     list.reduce<TrackCell>((best, st) => (rank[st[i]!] > rank[best] ? st[i]! : best), "e"),
   );
 }
@@ -288,27 +332,35 @@ export function yearsInStates(st: TrackCell[]): number {
   return st.filter((c) => c === "d" || c === "n").length;
 }
 
+function colOffset(i: number, cell: number, gap: number, hasEarlier: boolean, extra = EARLIER_EXTRA_GAP): number {
+  if (!hasEarlier) return i * (cell + gap);
+  if (i === 0) return 0;
+  return cell + gap + extra + (i - 1) * (cell + gap);
+}
+
 export function threadLengthBar(
   states: TrackCell[],
-  cell = 56,
-  gap = 3,
+  cell = GRID_CELL,
+  gap = GRID_GAP,
 ): { left: number; width: number; years: number } {
-  const pitch = cell + gap;
+  const hasEarlier = states.length === TRACK_GRADES.length + 1;
   const idx = states
     .map((c, i) => (c === "d" || c === "n" ? i : -1))
     .filter((i) => i >= 0);
   if (!idx.length) return { left: 0, width: 0, years: 0 };
   const first = idx[0]!;
   const last = idx[idx.length - 1]!;
+  const left = colOffset(first, cell, gap, hasEarlier);
+  const right = colOffset(last, cell, gap, hasEarlier) + cell;
   return {
-    left: first * pitch,
-    width: (last - first + 1) * pitch - gap,
+    left,
+    width: right - left,
     years: idx.length,
   };
 }
 
 export function questionsFor(activity: TrackActivity, now: number): TrackQuestion[] {
-  const yrs = (activity.still ? now : activity.end) - activity.start + 1;
+  const yrs = activityYears(activity, now);
   const q: TrackQuestion[] = [];
   const add = (layer: string, id: string, text: string, ex: string) =>
     q.push({ layer, id, q: text, ex });
@@ -457,7 +509,7 @@ export function lensLabel(id: string): string {
 
 export function copyTrackNotes(acts: TrackActivity[]): string {
   return acts
-    .map((a, i) => `${i + 1}. ${a.name}\n${a.role} | ${a.org}\n${a.desc}`)
+    .map((a, i) => `${i + 1}. ${a.name}\nStarted: ${gradeName(a.start)}\n${a.role} | ${a.org}\n${a.desc}`)
     .join("\n\n");
 }
 
@@ -485,10 +537,11 @@ function normalizeAct(raw: unknown, now: number): TrackActivity | null {
   const name = asOptionalString(row.name);
   if (!name) return null;
   const startRaw = typeof row.start === "number" ? row.start : Number(row.start);
-  const start = Number.isInteger(startRaw) && startRaw >= 6 && startRaw <= 11 ? startRaw : 9;
+  const start = Number.isInteger(startRaw) && startRaw >= 0 && startRaw <= now ? startRaw : 9;
   const still = row.still !== false;
   const endRaw = typeof row.end === "number" ? row.end : Number(row.end);
-  const end = Number.isInteger(endRaw) && endRaw >= 6 && endRaw <= 12 ? endRaw : still ? now : start;
+  let end = Number.isInteger(endRaw) && endRaw >= 0 && endRaw <= 12 ? endRaw : still ? now : start;
+  if (!still && end < start) end = start;
   const type: TrackType = typeof row.type === "string" && TYPES.has(row.type) ? (row.type as TrackType) : "other";
   const answers: Record<string, string> = {};
   const rawAnswers = asRecord(row.answers);
@@ -610,9 +663,15 @@ function startEndFromActivity(activity: Activity, now: number): { start: number;
   const cells = gradeCells(activity);
   const grades = TRACK_GRADES.filter((g) => cells[g]);
   if (!grades.length) {
+    const early = activity.earliestGrade;
+    if (early != null && early >= 0 && early <= 5) {
+      return { start: early, still: activity.ongoing, end: activity.ongoing ? now : early };
+    }
     return { start: 9, still: activity.ongoing, end: activity.ongoing ? now : 9 };
   }
-  const start = grades[0]!;
+  const start = activity.earliestGrade != null && activity.earliestGrade >= 0 && activity.earliestGrade <= 5
+    ? activity.earliestGrade
+    : grades[0]!;
   const last = grades[grades.length - 1]!;
   const still = activity.ongoing && last >= now;
   return { start, still, end: still ? now : last };
@@ -638,11 +697,15 @@ export function migrateTrackFromJournal(
       const desc = (a.responsibilities ?? "").slice(0, 150);
       const hours = time.hoursPerWeek != null ? String(Math.round(time.hoursPerWeek)) : "";
       const weeks = time.weeksPerYear != null ? String(Math.round(time.weeksPerYear)) : "";
+      const start =
+        a.earliestGrade != null && Number.isInteger(a.earliestGrade) && a.earliestGrade >= 0 && a.earliestGrade <= 5
+          ? a.earliestGrade
+          : span.start;
       return {
         id: a.id,
         name: a.name,
         thread: a.threadId ?? null,
-        start: span.start,
+        start,
         still: span.still,
         end: span.end,
         type: CATEGORY_TO_TYPE[a.category] ?? "other",
@@ -691,24 +754,64 @@ export function cellStyle(cell: TrackCell): { background: string; border: string
   return { background: "var(--color-surface)", border: "0" };
 }
 
-export function gradeHeaders(now: number): {
+export function gradeHeaders(
+  now: number,
+  showEarlier = false,
+): {
   n: string;
   tag: string;
   num: string;
   fg: string;
   l: string;
+  earlier?: boolean;
 }[] {
-  return TRACK_GRADES.map((g) => ({
+  const grades = TRACK_GRADES.map((g) => ({
     n: String(g),
     tag: g === now ? "NOW" : "",
     num: g === now ? "var(--text-accent)" : "var(--color-text)",
     fg: g === now ? "var(--text-accent)" : "var(--text-subtle)",
     l: g === now ? `${g} now` : String(g),
   }));
+  if (!showEarlier) return grades;
+  return [
+    {
+      n: "earlier",
+      tag: "",
+      num: "var(--text-subtle)",
+      fg: "var(--text-subtle)",
+      l: "Earlier",
+      earlier: true,
+    },
+    ...grades,
+  ];
 }
 
 export function activitySpanText(activity: TrackActivity): string {
-  return activity.still ? `still doing it` : `through ${activity.end}th`;
+  return activity.still ? "still doing it" : `through ${gradeName(activity.end)}`;
+}
+
+export function commonAppSpanText(activity: TrackActivity, now: number): string {
+  const from = Math.max(activity.start, 9);
+  const to = activity.still ? Math.min(now, 12) : Math.min(Math.max(activity.end, 9), 12);
+  const lo = Math.min(from, to);
+  const hi = Math.max(from, to);
+  return `${lo}th–${hi}th grade`;
+}
+
+export function longestActivity(
+  acts: TrackActivity[],
+  now: number,
+): TrackActivity | null {
+  let best: TrackActivity | null = null;
+  let bestYears = -1;
+  for (const activity of acts) {
+    const y = activityYears(activity, now);
+    if (y > bestYears) {
+      bestYears = y;
+      best = activity;
+    }
+  }
+  return best;
 }
 
 export function longestActivityStates(
@@ -717,17 +820,54 @@ export function longestActivityStates(
   intents: TrackIntents,
   now: number,
 ): TrackCell[] | null {
-  let best: TrackCell[] | null = null;
-  let bestYears = -1;
-  for (const activity of acts) {
-    const st = activityStates(activity, steps, intents, now);
-    const y = yearsInStates(st);
-    if (y > bestYears) {
-      bestYears = y;
-      best = st;
-    }
+  const longest = longestActivity(acts, now);
+  return longest ? activityStates(longest, steps, intents, now) : null;
+}
+
+export type TrackSpan = { start: number; still: boolean; end: number };
+
+export function rebuildPeriodsForSpan(
+  activity: Activity,
+  classOf: number,
+  span: TrackSpan,
+  now: Date = new Date(),
+): ParticipationPeriod[] {
+  const fresh = recallPeriods(
+    classOf,
+    {
+      sinceGrade: Math.max(span.start, 6),
+      untilGrade: span.still ? undefined : span.end,
+      stillDoing: span.still,
+    },
+    now,
+  );
+  const byGrade = new Map<number, ParticipationPeriod>();
+  for (const period of activity.periods) {
+    if (period.grade === "post" || period.grade === "other") continue;
+    const grade = Number(period.grade);
+    if (!Number.isInteger(grade) || grade < 6 || grade > 12) continue;
+    if (!byGrade.has(grade)) byGrade.set(grade, period);
   }
-  return best;
+  return fresh.map((period) => {
+    const grade = Number(period.grade);
+    const prev = byGrade.get(grade);
+    if (!prev) return period;
+    return {
+      ...prev,
+      status: period.status,
+      schoolYear: prev.schoolYear || period.schoolYear,
+      updatedAt: period.updatedAt,
+    };
+  });
+}
+
+function applyEarliestGrade(activity: Activity, start: number): Activity {
+  if (start < 6) {
+    return { ...activity, earliestGrade: start };
+  }
+  const next = { ...activity };
+  delete next.earliestGrade;
+  return next;
 }
 
 export function stageMarks(track: ActivitiesTrack): { shape: string; plan: string; prep: string } {
@@ -776,13 +916,15 @@ export function applyTrackToJournal(
   const byId = new Map(journal.activities.map((a) => [a.id, a]));
   const activities = [...journal.activities];
   for (const act of track.acts) {
+    const span: TrackSpan = { start: act.start, still: act.still, end: act.end };
     const prev = byId.get(act.id);
     if (prev) {
-      const next: Activity = {
+      let next: Activity = {
         ...prev,
         name: act.name,
         ongoing: act.still,
         updatedAt: stamp,
+        periods: rebuildPeriodsForSpan(prev, classOf, span, clock),
       };
       next.role = act.role || undefined;
       next.organization = act.org || undefined;
@@ -790,6 +932,7 @@ export function applyTrackToJournal(
       if (act.icon) next.icon = act.icon;
       if (act.thread) next.threadId = act.thread;
       else delete next.threadId;
+      next = applyEarliestGrade(next, act.start);
       const idx = activities.findIndex((a) => a.id === act.id);
       if (idx >= 0) activities[idx] = next;
     } else {
@@ -804,16 +947,17 @@ export function applyTrackToJournal(
         periods: recallPeriods(
           classOf,
           {
-            sinceGrade: act.start,
+            sinceGrade: Math.max(act.start, 6),
             untilGrade: act.still ? undefined : act.end,
             stillDoing: act.still,
           },
           clock,
         ),
         icon: act.icon,
+        earliestGrade: act.start < 6 ? act.start : undefined,
       });
       if (act.thread) created.threadId = act.thread;
-      activities.push(created);
+      activities.push(applyEarliestGrade(created, act.start));
     }
   }
   return {
