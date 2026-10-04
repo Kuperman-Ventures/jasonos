@@ -64,3 +64,44 @@ export function tokensMatch(provided: string | null, expected: string): boolean 
   }
   return ok === 0;
 }
+
+export async function loadProcessCalendarForFeed(): Promise<
+  import("@/lib/calendar-events").CalendarEvent[]
+> {
+  const { processCalendarEntries } = await import("@/lib/calendar-sources");
+  const { allTimelineStages } = await import("@/lib/timeline-stages");
+  const { listProjectTodos, normalizeTodoEdits } = await import("@/lib/project-todos");
+  const { normalizePersistedSteps } = await import("@/lib/ingest");
+  const { phases } = await import("@/lib/content");
+  const { listSchools } = await import("@/lib/db");
+
+  const stages = allTimelineStages();
+  let checklist: Record<string, boolean> = {};
+  let projectSteps: import("@/lib/ingest").PersistedProjectStep[] = [];
+  let todoEdits: import("@/lib/project-todos").TodoEditMap = {};
+
+  if (supabaseConfigured()) {
+    const db = collegeDb();
+    const { data, error } = await db
+      .from("app_state")
+      .select("project_steps, todo_edits, checklist")
+      .eq("id", STATE_ID)
+      .maybeSingle();
+    if (error) throw error;
+    const row = data as {
+      project_steps?: unknown;
+      todo_edits?: unknown;
+      checklist?: unknown;
+    } | null;
+    projectSteps = normalizePersistedSteps(row?.project_steps);
+    todoEdits = normalizeTodoEdits(row?.todo_edits);
+    checklist =
+      row?.checklist && typeof row.checklist === "object" && !Array.isArray(row.checklist)
+        ? (row.checklist as Record<string, boolean>)
+        : {};
+  }
+
+  const todos = listProjectTodos(checklist, phases, projectSteps, todoEdits);
+  const schools = await listSchools();
+  return processCalendarEntries({ stages, todos, schools });
+}

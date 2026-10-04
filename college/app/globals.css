@@ -7297,6 +7297,26 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   font-size: 13px;
   color: var(--text-muted);
 }
+.cal-source-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+.cal-source-link {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.cal-source-link:hover strong,
+.cal-source-link:focus-visible strong {
+  text-decoration: underline;
+}
 .calendar-event-thumb {
   margin-top: var(--space-2);
   max-width: 220px;

@@ -33,6 +33,8 @@ export type TimelineStage = {
   phase: string | null;
   isMilestone: boolean;
   completedAt: string | null;
+  /** True when the matching to-do is checked, even if completedAt was never stored. */
+  done?: boolean;
 };
 
 export type StageStatus = "done" | "overdue" | "now" | "next";
@@ -130,50 +132,37 @@ export function stagesForProject(
 }
 
 /**
- * Prefer live to-do subtasks that carry projectId + startDate (one source with To-dos).
- * Fall back to the seeded stage catalog when none are linked yet.
- * `completions` marks seed stages done via checklist keys (stage id → true).
+ * Seed stages for a project, overlaid with matching to-dos (same id).
+ * A stage is done when `completions[stage.id]` is true; `completedAt` comes
+ * from the to-do, not today's date.
  */
 export function resolveProjectStages(
   projectId: string,
-  live: Array<{
+  todos: Array<{
     id: string;
     label: string;
     startDate: string | null;
     endDate: string | null;
     dueDate: string | null;
-    projectId: string | null;
-    phase: string | null;
-    isMilestone: boolean;
-    completedAt: string | null;
-    done: boolean;
+    completedAt?: string | null;
   }> = [],
   completions: Record<string, boolean> = {},
 ): TimelineStage[] {
-  const fromLive = live
-    .filter((row) => row.projectId === projectId && row.startDate)
-    .map((row) => {
-      const start = row.startDate!;
-      const end = row.endDate || row.dueDate || start;
-      return {
-        id: row.id,
-        projectId,
-        name: row.label,
-        start,
-        end: row.isMilestone ? start : end,
-        phase: row.phase,
-        isMilestone: row.isMilestone,
-        completedAt: row.completedAt || (row.done ? toIsoDate(new Date()) : null),
-      } satisfies TimelineStage;
-    })
-    .sort((a, b) => a.start.localeCompare(b.start) || a.name.localeCompare(b.name));
-  if (fromLive.length) return fromLive;
-
-  const overrides: Record<string, Pick<TimelineStage, "completedAt">> = {};
-  for (const [id, done] of Object.entries(completions)) {
-    if (done) overrides[id] = { completedAt: toIsoDate(new Date()) };
-  }
-  return stagesForProject(projectId, overrides);
+  const byId = new Map(todos.map((row) => [row.id, row]));
+  return stagesForProject(projectId).map((seed) => {
+    const todo = byId.get(seed.id);
+    const done = Boolean(completions[seed.id]);
+    const start = todo?.startDate || seed.start;
+    const end = todo ? todo.endDate || todo.dueDate || seed.end : seed.end;
+    return {
+      ...seed,
+      name: todo?.label || seed.name,
+      start,
+      end: seed.isMilestone ? start : end,
+      completedAt: done ? (todo?.completedAt ?? seed.completedAt ?? null) : null,
+      done,
+    };
+  });
 }
 
 export function allTimelineStages(): TimelineStage[] {
@@ -185,7 +174,7 @@ export function allTimelineStages(): TimelineStage[] {
  * Past end date without confirmation is overdue — not done.
  */
 export function stageStatus(stage: TimelineStage, today = new Date()): StageStatus {
-  if (stage.completedAt) return "done";
+  if (stage.completedAt || stage.done) return "done";
   const end = parseIsoDate(stage.end);
   const start = parseIsoDate(stage.start);
   const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());

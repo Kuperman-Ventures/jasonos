@@ -13,10 +13,11 @@ import {
   projectSectionById,
   type ProjectSectionId,
 } from "@/lib/project-management";
+import { processCalendarEntries } from "@/lib/calendar-sources";
 import { listProjectTodos, type TodoEdit, type TodoEditMap, type TodoKind, type TodoSubtaskMap } from "@/lib/project-todos";
-import { TIMELINE_PROJECTS } from "@/lib/timeline-stages";
+import { TIMELINE_PROJECTS, allTimelineStages } from "@/lib/timeline-stages";
 import type { MemberProfile } from "@/lib/member-avatars";
-import type { Owner, Phase } from "@/lib/types";
+import type { Owner, Phase, School } from "@/lib/types";
 import type { StageAssignPayload } from "./TimelineStageModal";
 
 export function ProjectManagementTab({
@@ -42,6 +43,8 @@ export function ProjectManagementTab({
   onChangeCalendarEvents,
   onAssignStage,
   dateline,
+  schools = [],
+  onOpenSchool,
 }: {
   section: ProjectSectionId;
   onSectionChange: (section: ProjectSectionId) => void;
@@ -65,12 +68,21 @@ export function ProjectManagementTab({
   onChangeCalendarEvents: (next: CalendarEvent[]) => void;
   onAssignStage?: (stage: StageAssignPayload, owner: Owner | null) => void;
   dateline: string;
+  schools?: School[];
+  onOpenSchool?: (schoolId: string) => void;
 }) {
   const active = projectSectionById(section);
   const [addingTodo, setAddingTodo] = useState(false);
   const [newTodoLabel, setNewTodoLabel] = useState("");
   const [newTodoKind, setNewTodoKind] = useState<TodoKind>("normal");
   const [focusTodoProjectId, setFocusTodoProjectId] = useState<string | null>(null);
+  const [focusStageProjectId, setFocusStageProjectId] = useState<string | null>(null);
+  const projectTodos = listProjectTodos(checklist, phases, projectSteps, todoEdits);
+  const processEntries = processCalendarEntries({
+    stages: allTimelineStages(),
+    todos: projectTodos,
+    schools,
+  });
 
   function startAdd(kind: TodoKind) {
     setNewTodoKind(kind);
@@ -97,6 +109,7 @@ export function ProjectManagementTab({
     setNewTodoLabel("");
     setNewTodoKind("normal");
     if (next !== "todos") setFocusTodoProjectId(null);
+    if (next !== "timeline") setFocusStageProjectId(null);
   }
 
   function openTodosForProject(projectId: string) {
@@ -227,13 +240,13 @@ export function ProjectManagementTab({
           phases={phases}
           checklist={checklist}
           onToggle={onToggle}
-          subtasks={subtasks}
           projectSteps={projectSteps}
           todoEdits={todoEdits}
           memberId={memberId}
           memberProfiles={memberProfiles}
           onOpenTodos={openTodosForProject}
           onAssignStage={onAssignStage}
+          focusProjectId={focusStageProjectId}
         />
       ) : null}
 
@@ -260,12 +273,26 @@ export function ProjectManagementTab({
       {active.status === "ready" && active.id === "calendar" ? (
         <CalendarPanel
           events={calendarEvents}
-          familyTodos={listProjectTodos(checklist, phases, projectSteps, todoEdits).filter(
-            (todo) => todo.kind === "family_meeting",
-          )}
+          processEntries={processEntries}
+          familyTodos={projectTodos.filter((todo) => todo.kind === "family_meeting")}
           dateline={dateline}
           focusDate={calendarFocusDate}
           onChangeEvents={onChangeCalendarEvents}
+          onOpenProcessEntry={(entry) => {
+            if (entry.source === "todo") {
+              setFocusTodoProjectId(entry.projectId ?? null);
+              onSectionChange("todos");
+              return;
+            }
+            if (entry.source === "stage" && entry.projectId) {
+              setFocusStageProjectId(entry.projectId);
+              onSectionChange("timeline");
+              return;
+            }
+            if ((entry.source === "deadline" || entry.source === "visit") && entry.schoolId) {
+              onOpenSchool?.(entry.schoolId);
+            }
+          }}
         />
       ) : null}
     </section>

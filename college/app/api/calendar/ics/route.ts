@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   loadCalendarEventsForFeed,
+  loadProcessCalendarForFeed,
   resolveCalendarFeedToken,
   tokensMatch,
 } from "@/lib/calendar-feed";
@@ -21,6 +22,7 @@ export async function GET(request: Request) {
 
     const events = [
       ...(await loadCalendarEventsForFeed()),
+      ...(await loadProcessCalendarForFeed()),
       ...familyMeetingCalendarEvents(),
     ];
     const ics = buildIcsCalendar(events, { calendarName: "Kyle College Search" });

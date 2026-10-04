@@ -1,16 +1,13 @@
 /** Family meeting cadence and agenda for household to-dos. */
 
 import type { CalendarEvent } from "@/lib/calendar-events";
-import { currentListPhaseId, type ListPhaseId } from "@/lib/list-phases";
+import { currentListPhaseId, listPhaseById, type ListPhaseId } from "@/lib/list-phases";
 import { OWNERS, isOwner, type Owner } from "@/lib/types";
 
 export const FAMILY_MEETING_KIND = "family_meeting" as const;
 export type TodoKind = "normal" | typeof FAMILY_MEETING_KIND;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const EXPLORATION_START = "2026-09-01";
-const EXPLORATION_END = "2026-12-31";
-const WEEKLY_START = "2027-01-01";
 const FEED_MONTHS = 18;
 
 export function isTodoKind(value: unknown): value is TodoKind {
@@ -77,20 +74,22 @@ export function familyMeetingCadenceLabel(phase: ListPhaseId): string {
 }
 
 /**
- * Sundays: every 14 days in Exploration (from 6 Sep 2026), then weekly
- * from the first Sunday of Consideration (3 Jan 2027) through Applications.
+ * Sundays: every 14 days through Exploration (6 Sep 2026 – 18 Apr 2027),
+ * then weekly from the first Sunday of Consideration (2 May 2027).
  */
 export function familyMeetingDates(fromIso: string, toIso: string): string[] {
   if (!ISO_DATE.test(fromIso) || !ISO_DATE.test(toIso) || fromIso > toIso) return [];
+  const exploration = listPhaseById("exploration");
+  const consideration = listPhaseById("consideration");
   const out: string[] = [];
 
-  let biweekly = sundayOnOrAfter(EXPLORATION_START);
-  while (biweekly <= EXPLORATION_END && biweekly <= toIso) {
+  let biweekly = sundayOnOrAfter(exploration.startsOn);
+  while (exploration.endsOn && biweekly <= exploration.endsOn && biweekly <= toIso) {
     if (biweekly >= fromIso) out.push(biweekly);
     biweekly = addDaysIso(biweekly, 14);
   }
 
-  let weekly = sundayOnOrAfter(WEEKLY_START);
+  let weekly = sundayOnOrAfter(consideration.startsOn);
   while (weekly <= toIso) {
     if (weekly >= fromIso) out.push(weekly);
     weekly = addDaysIso(weekly, 7);

@@ -30,9 +30,13 @@ import {
   PROJECT_SECTIONS,
   type ProjectSectionId,
 } from "@/lib/project-management";
-import { phases as processPhases } from "@/lib/content";
-import { currentPhaseIndex, phaseStatuses } from "@/lib/phases";
-import { currentListPhaseId } from "@/lib/list-phases";
+import {
+  currentListPhaseId,
+  LIST_PHASES,
+  listPhaseById,
+  listPhaseNextLine,
+  listPhaseRailTitle,
+} from "@/lib/list-phases";
 import { HOUSEHOLD_ROLES, canViewFinances, isAdminRole, roleLabel } from "@/lib/permissions";
 import {
   RAIL_EXPANDED_WIDTH,
@@ -40,11 +44,10 @@ import {
   RAIL_SLIM_WIDTH,
   readStoredRailDensity,
   resolveRailDensity,
-  shortProcessPhaseName,
   writeStoredRailDensity,
   type RailDensity,
 } from "@/lib/rail-collapse";
-import type { Phase, TabId } from "@/lib/types";
+import type { TabId } from "@/lib/types";
 import { ThemeModeSwitch } from "./ThemeModeSwitch";
 
 const HOUSEHOLD = {
@@ -137,8 +140,6 @@ export function LeftRail({
   consultantCount,
   faqCount,
   testingCount,
-  checklist = {},
-  processPhaseList = processPhases,
 }: {
   tab: TabId;
   onChange: (tab: TabId) => void;
@@ -154,8 +155,6 @@ export function LeftRail({
   consultantCount: number;
   faqCount: number;
   testingCount: number;
-  checklist?: Record<string, boolean>;
-  processPhaseList?: Phase[];
 }) {
   const railRef = useRef<HTMLElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
@@ -185,11 +184,9 @@ export function LeftRail({
     writeStoredRailDensity(density);
   }, [density, densityReady]);
 
-  const statuses = phaseStatuses(processPhaseList, checklist);
-  const phaseIndex = currentPhaseIndex(statuses);
-  const currentPhase = processPhaseList[phaseIndex];
-  const nextPhase = processPhaseList[phaseIndex + 1] ?? null;
-  const phaseCount = processPhaseList.length;
+  const listPhase = listPhaseById(listPhaseId);
+  const listPhaseIndex = LIST_PHASES.findIndex((phase) => phase.id === listPhaseId);
+  const phaseCount = LIST_PHASES.length;
 
   const counts: Partial<Record<TabId, number>> = {
     colleges: schoolCount,
@@ -327,12 +324,8 @@ export function LeftRail({
   }
 
   const collapseLabel = slim ? "Expand menu" : "Collapse menu";
-  const phaseTitle = currentPhase
-    ? `Phase ${phaseIndex + 1} of ${phaseCount} · ${currentPhase.phase}`
-    : "";
-  const phaseNextLine = nextPhase
-    ? `Next: ${nextPhase.phase}${nextPhase.window ? `, ${nextPhase.window}` : ""}`
-    : "Final phase";
+  const phaseTitle = listPhaseRailTitle(listPhaseId);
+  const phaseNextLine = listPhaseNextLine(listPhaseId);
 
   return (
     <aside
@@ -394,24 +387,24 @@ export function LeftRail({
         {!slim ? (
           <div className="rail-phase" aria-label="Current phase">
             <div className="rail-phase-top">
-              <b>{currentPhase?.phase ?? "—"}</b>
+              <b>{listPhase.label}</b>
               <span>
-                {phaseIndex + 1} / {phaseCount}
+                {listPhaseIndex + 1} / {phaseCount}
               </span>
             </div>
             <div
               className="rail-phase-segs"
               role="progressbar"
-              aria-valuenow={phaseIndex + 1}
+              aria-valuenow={listPhaseIndex + 1}
               aria-valuemin={1}
               aria-valuemax={phaseCount}
-              aria-valuetext={`Phase ${phaseIndex + 1} of ${phaseCount}, ${currentPhase?.phase ?? ""}`}
+              aria-valuetext={phaseTitle}
             >
-              {processPhaseList.map((phase, index) => (
+              {LIST_PHASES.map((phase, index) => (
                 <i
-                  key={phase.phase}
-                  className={index <= phaseIndex ? "on" : undefined}
-                  title={phase.phase}
+                  key={phase.id}
+                  className={index <= listPhaseIndex ? "on" : undefined}
+                  title={phase.label}
                 />
               ))}
             </div>
@@ -513,12 +506,12 @@ export function LeftRail({
             aria-label={phaseTitle}
           >
             <div className="rail-phase-dots" aria-hidden="true">
-              {processPhaseList.map((phase, index) => (
-                <i key={phase.phase} className={index === phaseIndex ? "on" : undefined} />
+              {LIST_PHASES.map((phase, index) => (
+                <i key={phase.id} className={index === listPhaseIndex ? "on" : undefined} />
               ))}
             </div>
             <span className="rail-phase-slim-name">
-              {currentPhase ? shortProcessPhaseName(currentPhase.phase) : ""}
+              {listPhase.label}
             </span>
           </div>
         ) : null}

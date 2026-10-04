@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AppsMaterialsTab } from "./AppsMaterialsTab";
 import { AppQuestionsTab } from "./AppQuestionsTab";
 import { CollegesMobileList } from "./CollegesMobileList";
@@ -27,9 +27,8 @@ import {
   seedScores,
 } from "@/lib/content";
 import { appQuestions } from "@/lib/app-questions";
-import { currentPhaseIndex, phaseStatuses } from "@/lib/phases";
 import { useSchoolPipeline } from "@/lib/use-school-pipeline";
-import { defaultListPrefs, mergeListPrefs, isForwardListPhaseMove, currentListPhaseId, type MemberListPrefs } from "@/lib/list-phases";
+import { defaultListPrefs, mergeListPrefs, isForwardListPhaseMove, currentListPhaseId, listPhaseById, listPhaseHeadline, type MemberListPrefs } from "@/lib/list-phases";
 import { canAdvanceListPhase, canEditActivitiesJournal, canViewFinances, isAdminRole } from "@/lib/permissions";
 import {
   emptyHouseholdFinances,
@@ -78,12 +77,14 @@ import {
 import {
   FAMILY_MEETING_KIND,
   familyMeetingFullyDone,
+  isoDay,
   nextFamilyMeetingDate,
   toggleFamilyMeetingAck,
 } from "@/lib/family-meeting";
 import {
   canMarkTodoDone,
   clearProjectIdFromEdits,
+  ensureStageTodos,
   isFamilyMeetingTodo,
   listProjectTodos,
   memberOwnerId,
@@ -103,7 +104,7 @@ import {
 } from "@/lib/todo-projects";
 import { postActivity } from "@/lib/post-activity";
 import type { MemberProfile } from "@/lib/member-avatars";
-import { TIMELINE_PROJECTS } from "@/lib/timeline-stages";
+import { TIMELINE_PROJECTS, allTimelineStages } from "@/lib/timeline-stages";
 import type { StageAssignPayload } from "./TimelineStageModal";
 import {
   isAdmissionTrack,
@@ -325,16 +326,58 @@ export function Portal({
         if (state.checklist) setChecklist(state.checklist);
         if (state.scores) setScores({ ...seedScores, ...state.scores });
         if (typeof state.notes === "string") setNotes(state.notes);
-        if (Array.isArray(state.projectSteps)) setProjectSteps(state.projectSteps);
+        const loadedSteps = Array.isArray(state.projectSteps) ? state.projectSteps : [];
+        const loadedEdits =
+          state.todoEdits && typeof state.todoEdits === "object"
+            ? normalizeTodoEdits(state.todoEdits)
+            : {};
+        const loadedChecklist = state.checklist ?? {};
+        const loadedProjects = Array.isArray(state.todoProjects)
+          ? normalizeTodoProjects(state.todoProjects)
+          : [];
+        const ensured = ensureStageTodos(
+          allTimelineStages(),
+          loadedSteps,
+          loadedEdits,
+          loadedChecklist,
+          new Date(),
+        );
+        let nextSteps = loadedSteps;
+        let nextEdits = loadedEdits;
+        let nextProjects = loadedProjects;
+        if (ensured) {
+          nextSteps = ensured.projectSteps;
+          nextEdits = ensured.todoEdits;
+          const priorIds = new Set(loadedSteps.map((row) => row.id));
+          for (const step of ensured.projectSteps) {
+            if (priorIds.has(step.id)) continue;
+            const projectId = ensured.todoEdits[step.id]?.projectId;
+            const track = TIMELINE_PROJECTS.find((row) => row.id === projectId);
+            if (!track) continue;
+            nextProjects = ensureNamedTodoProject(nextProjects, track.id, track.name).projects;
+          }
+        }
+        if (Array.isArray(state.projectSteps) || ensured) setProjectSteps(nextSteps);
         if (Array.isArray(state.ingestSources)) setIngestSources(state.ingestSources);
         if (state.todoSubtasks && typeof state.todoSubtasks === "object") {
           setTodoSubtasks(state.todoSubtasks);
         }
-        if (state.todoEdits && typeof state.todoEdits === "object") {
-          setTodoEdits(normalizeTodoEdits(state.todoEdits));
+        if ((state.todoEdits && typeof state.todoEdits === "object") || ensured) {
+          setTodoEdits(nextEdits);
         }
-        if (Array.isArray(state.todoProjects)) {
-          setTodoProjects(normalizeTodoProjects(state.todoProjects));
+        if (Array.isArray(state.todoProjects) || (ensured && nextProjects !== loadedProjects)) {
+          setTodoProjects(nextProjects);
+        }
+        if (ensured && state.persisted) {
+          void fetch("/api/state", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectSteps: nextSteps,
+              todoEdits: nextEdits,
+              todoProjects: nextProjects,
+            }),
+          });
         }
         if (state.requirementProgress && typeof state.requirementProgress === "object") {
           setRequirementProgress(normalizeRequirementProgress(state.requirementProgress));
@@ -679,10 +722,7 @@ export function Portal({
     if (!proceeded) return;
   }
 
-  const statuses = useMemo(() => phaseStatuses(phases, checklist), [checklist]);
-  const phaseIndex = currentPhaseIndex(statuses);
-  const current = phases[phaseIndex];
-  const phaseLabel = current ? `Phase ${phaseIndex + 1} · ${current.phase}` : "";
+  const phaseLabel = listPhaseHeadline(currentListPhaseId());
   const faqCount = faqCategories.reduce((sum, category) => sum + category.items.length, 0);
   const testingCount = testingItems(phases).length;
   const canEditJournal = canEditActivitiesJournal(member);
@@ -784,16 +824,35 @@ export function Portal({
       return;
     }
     const owners = todoOwnerIndex(projectSteps, todoEdits);
-    const owner = owners.get(id);
-    if (owner && !canMarkTodoDone(viewer, owner)) {
+    const owner = todo?.owner ?? owners.get(id) ?? null;
+    if (todo && !canMarkTodoDone(viewer, owner, todo.kind)) {
+      setSaveState(owner ? "Only the list owner can check that off" : "Claim it before marking it done");
+      window.setTimeout(() => setSaveState(""), 2000);
+      return;
+    }
+    if (!todo && owner && !canMarkTodoDone(viewer, owner)) {
       setSaveState("Only the list owner can check that off");
       window.setTimeout(() => setSaveState(""), 2000);
       return;
     }
     const label = todo?.label ?? id;
     const next = { ...checklist, [id]: checked };
+    const nextEdits = todo
+      ? normalizeTodoEdits({
+          ...todoEdits,
+          [id]: {
+            ...todoEdits[id],
+            completedAt: checked ? isoDay(new Date()) : null,
+          },
+        })
+      : todoEdits;
     setChecklist(next);
-    void patchState({ checklist: next }).then((ok) => {
+    if (todo) setTodoEdits(nextEdits);
+    const payload: { checklist: Record<string, boolean>; todoEdits?: TodoEditMap } = {
+      checklist: next,
+    };
+    if (todo) payload.todoEdits = nextEdits;
+    void patchState(payload).then((ok) => {
       if (!ok) return;
       postActivity({
         action: checked ? "complete" : "reopen",
@@ -1477,7 +1536,6 @@ export function Portal({
         consultantCount={consultantFirms.length}
         faqCount={faqCount}
         testingCount={testingCount}
-        checklist={checklist}
       />
       <main className="main">
         {tab === "dashboard" ? (
@@ -1561,7 +1619,7 @@ export function Portal({
             todoEdits={todoEdits}
             onCycleRequirementStatus={cycleRequirementStatus}
             onAddRequirementTodo={addRequirementTodo}
-            processPhaseLabel={current?.phase ?? null}
+            processPhaseLabel={listPhaseById(currentListPhaseId()).season}
             onSendVisitPlan={sendVisitPlan}
             initialModalTab={schoolModalTab}
             householdFinances={householdFinances}
@@ -1608,6 +1666,12 @@ export function Portal({
             onChangeCalendarEvents={changeCalendarEvents}
             onAssignStage={assignTimelineStage}
             dateline={phaseLabel}
+            schools={schools}
+            onOpenSchool={(id) => {
+              setSchoolModalTab("projects");
+              setTab("colleges");
+              replaceUrl("colleges", id);
+            }}
           />
         ) : null}
         {tab === "ingest" ? (

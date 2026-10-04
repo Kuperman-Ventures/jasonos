@@ -8,6 +8,7 @@ import {
   selectivityBreakdown,
   stateFillStrength,
 } from "@/lib/dashboard";
+import { currentListPhaseId, listPhaseHeadline } from "@/lib/list-phases";
 import { formatNowDay, formatTodayLong } from "@/lib/roadmap";
 import type { School, SelectivityTier } from "@/lib/types";
 import { ProcessRoadmap } from "./ProcessRoadmap";
@@ -203,7 +204,7 @@ export function DashboardDesktop({
       </div>
 
       <div className="dash-block">
-        <h3 className="dash-title">Phase 1 · Build the list</h3>
+        <h3 className="dash-title">{listPhaseHeadline(currentListPhaseId())}</h3>
         <div className="dash-grid">
           <DashboardSelectivityPanel
             schools={schools}

@@ -57,16 +57,21 @@ test("status: past end without confirmation is overdue, not done", () => {
   );
 });
 
-test("checklist completions mark seed stages done", () => {
+test("checklist completions mark seed stages done without stamping today", () => {
   const open = resolveProjectStages("passion", [], {});
   const pick = open.find((row) => row.id === "passion-s1");
   assert.ok(pick);
   assert.equal(stageStatus(pick!, new Date(2026, 8, 26)), "overdue");
 
-  const closed = resolveProjectStages("passion", [], { "passion-s1": true });
+  const closed = resolveProjectStages(
+    "passion",
+    [{ id: "passion-s1", label: "Pick a cause", startDate: "2026-09-01", endDate: "2026-09-15", dueDate: "2026-09-15", completedAt: "2026-09-10" }],
+    { "passion-s1": true },
+  );
   const done = closed.find((row) => row.id === "passion-s1");
-  assert.ok(done?.completedAt);
+  assert.equal(done?.completedAt, "2026-09-10");
   assert.equal(stageStatus(done!, new Date(2026, 8, 26)), "done");
+  assert.equal(stageStatus(done!, new Date(2026, 9, 5)), "done");
 });
 
 test("essays project uses week ticks", () => {
@@ -86,23 +91,24 @@ test("milestones are excluded from stage totals", () => {
   assert.equal(summary.total + milestones, list.length);
 });
 
-test("live subtasks with projectId override seed stages", () => {
+test("resolveProjectStages uses an edited to-do's dates and label", () => {
+  const seed = stagesForProject("visits").find((row) => row.id === "visits-s1");
+  assert.ok(seed);
   const live = resolveProjectStages("visits", [
     {
-      id: "live-1",
-      label: "Custom visit stage",
-      startDate: "2026-10-01",
-      endDate: "2026-10-15",
-      dueDate: null,
-      projectId: "visits",
-      phase: null,
-      isMilestone: false,
+      id: "visits-s1",
+      label: "Tours moved up",
+      startDate: "2026-10-05",
+      endDate: "2026-10-20",
+      dueDate: "2026-10-20",
       completedAt: null,
-      done: false,
     },
   ]);
-  assert.equal(live.length, 1);
-  assert.equal(live[0]!.name, "Custom visit stage");
+  const row = live.find((item) => item.id === "visits-s1");
+  assert.equal(row?.name, "Tours moved up");
+  assert.equal(row?.start, "2026-10-05");
+  assert.equal(row?.end, "2026-10-20");
+  assert.ok(live.length > 1);
 });
 
 test("stage bar geometry is within 0–1 for mid-month stage", () => {
