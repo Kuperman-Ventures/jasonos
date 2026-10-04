@@ -28,7 +28,7 @@ import {
 } from "@/lib/content";
 import { appQuestions } from "@/lib/app-questions";
 import { useSchoolPipeline } from "@/lib/use-school-pipeline";
-import { defaultListPrefs, mergeListPrefs, isForwardListPhaseMove, currentListPhaseId, listPhaseHeadline, type MemberListPrefs } from "@/lib/list-phases";
+import { defaultListPrefs, mergeListPrefs, isForwardListPhaseMove, currentListPhaseId, listPhaseById, listPhaseHeadline, type MemberListPrefs } from "@/lib/list-phases";
 import { canAdvanceListPhase, canEditActivitiesJournal, canViewFinances, isAdminRole } from "@/lib/permissions";
 import {
   emptyHouseholdFinances,
@@ -1619,7 +1619,7 @@ export function Portal({
             todoEdits={todoEdits}
             onCycleRequirementStatus={cycleRequirementStatus}
             onAddRequirementTodo={addRequirementTodo}
-            processPhaseLabel={current?.phase ?? null}
+            processPhaseLabel={listPhaseById(currentListPhaseId()).season}
             onSendVisitPlan={sendVisitPlan}
             initialModalTab={schoolModalTab}
             householdFinances={householdFinances}
@@ -1666,6 +1666,12 @@ export function Portal({
             onChangeCalendarEvents={changeCalendarEvents}
             onAssignStage={assignTimelineStage}
             dateline={phaseLabel}
+            schools={schools}
+            onOpenSchool={(id) => {
+              setSchoolModalTab("projects");
+              setTab("colleges");
+              replaceUrl("colleges", id);
+            }}
           />
         ) : null}
         {tab === "ingest" ? (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ROADMAP_TRACKS,
   accessibleTrackName,
@@ -171,6 +171,7 @@ export function ProcessRoadmap({
   onOpenTodos,
   onToggle,
   onAssignStage,
+  focusProjectId = null,
 }: {
   checklist: Record<string, boolean>;
   title?: string;
@@ -184,6 +185,7 @@ export function ProcessRoadmap({
   /** Persist stage completion (checklist key = stage id). */
   onToggle?: (id: string, checked: boolean) => void;
   onAssignStage?: (stage: StageAssignPayload, owner: Owner | null) => void;
+  focusProjectId?: string | null;
 }) {
   const now = useMemo(() => new Date(), []);
   const cells = useMemo(() => monthCells(), []);
@@ -203,6 +205,10 @@ export function ProcessRoadmap({
 
   const [openProjectId, setOpenProjectId] = useState<string | null>(null);
   const lastFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (focusProjectId) setOpenProjectId(focusProjectId);
+  }, [focusProjectId]);
 
   const projectTodos = useMemo(
     () => listProjectTodos(checklist, phases, projectSteps, todoEdits),

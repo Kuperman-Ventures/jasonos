@@ -14,8 +14,11 @@ import {
   familyMeetingCadenceLabel,
   familyMeetingsInMonth,
 } from "@/lib/family-meeting";
+import {
+  PROCESS_SOURCE_LABEL,
+  type ProcessCalendarEntry,
+} from "@/lib/calendar-sources";
 import type { ProjectTodo } from "@/lib/project-todos";
-import { ownerLabel } from "@/lib/types";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
@@ -198,21 +201,60 @@ function EventRow({
   );
 }
 
+function isProcessEntry(event: CalendarEvent | ProcessCalendarEntry): event is ProcessCalendarEntry {
+  return "source" in event && Boolean((event as ProcessCalendarEntry).source);
+}
+
+function ProcessEventRow({
+  event,
+  showWhen,
+  onOpen,
+}: {
+  event: ProcessCalendarEntry;
+  showWhen?: boolean;
+  onOpen?: (event: ProcessCalendarEntry) => void;
+}) {
+  const label = PROCESS_SOURCE_LABEL[event.source];
+  return (
+    <li className="calendar-event is-readonly">
+      {showWhen ? (
+        <div className="calendar-event-when mono">{shortEventDate(event.date)}</div>
+      ) : null}
+      <div className="calendar-event-body">
+        <span className="cal-source-label mono">{label}</span>
+        {onOpen ? (
+          <button type="button" className="cal-source-link" onClick={() => onOpen(event)}>
+            <strong>{event.title}</strong>
+          </button>
+        ) : (
+          <strong>{event.title}</strong>
+        )}
+      </div>
+    </li>
+  );
+}
+
 export function CalendarPanel({
   events,
+  processEntries = [],
   familyTodos = [],
   dateline,
   focusDate,
   onChangeEvents,
+  onOpenProcessEntry,
 }: {
   events: CalendarEvent[];
+  processEntries?: ProcessCalendarEntry[];
   familyTodos?: ProjectTodo[];
   dateline: string;
   /** When set (YYYY-MM-DD), open the month that contains this date. */
   focusDate?: string | null;
   onChangeEvents: (next: CalendarEvent[]) => void;
+  onOpenProcessEntry?: (entry: ProcessCalendarEntry) => void;
 }) {
-  const [cursor, setCursor] = useState(() => cursorFromDate(focusDate) ?? initialCursor(events));
+  const [cursor, setCursor] = useState(
+    () => cursorFromDate(focusDate) ?? initialCursor([...events, ...processEntries]),
+  );
   const [selectedKey, setSelectedKey] = useState<string | null>(focusDate ?? null);
   const [subscribeHttps, setSubscribeHttps] = useState<string | null>(null);
   const [subscribeWebcal, setSubscribeWebcal] = useState<string | null>(null);
@@ -253,6 +295,11 @@ export function CalendarPanel({
   const startWeekday = start.getDay();
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
 
+  const mergedEvents = useMemo(
+    () => [...events, ...processEntries],
+    [events, processEntries],
+  );
+
   const familyMeetings = useMemo(
     () => familyMeetingsInMonth(year, monthIndex),
     [year, monthIndex],
@@ -265,17 +312,17 @@ export function CalendarPanel({
 
   const byDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
-    for (const event of events) {
+    for (const event of mergedEvents) {
       if (!event.date) continue;
       const list = map.get(event.date) ?? [];
       list.push(event);
       map.set(event.date, list);
     }
     return map;
-  }, [events]);
+  }, [mergedEvents]);
 
-  const undated = events.filter((event) => !event.date);
-  const monthEvents = events
+  const undated = mergedEvents.filter((event) => !event.date);
+  const monthEvents = mergedEvents
     .filter((event) => event.date?.startsWith(`${year}-${pad2(monthIndex + 1)}`))
     .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""));
 
@@ -327,6 +374,28 @@ export function CalendarPanel({
 
   function deleteEvent(id: string) {
     onChangeEvents(removeCalendarEvent(events, id));
+  }
+
+  function renderEvent(event: CalendarEvent | ProcessCalendarEntry, showWhen?: boolean) {
+    if (isProcessEntry(event)) {
+      return (
+        <ProcessEventRow
+          key={event.id}
+          event={event}
+          showWhen={showWhen}
+          onOpen={onOpenProcessEntry}
+        />
+      );
+    }
+    return (
+      <EventRow
+        key={event.id}
+        event={event}
+        showWhen={showWhen}
+        onChange={patchEvent}
+        onDelete={deleteEvent}
+      />
+    );
   }
 
   async function copySubscribeLink() {
@@ -463,14 +532,7 @@ export function CalendarPanel({
               <p className="todo-empty">No events on this day.</p>
             ) : selectedEvents.length ? (
               <ul className="calendar-event-list">
-                {selectedEvents.map((event) => (
-                  <EventRow
-                    key={event.id}
-                    event={event}
-                    onChange={patchEvent}
-                    onDelete={deleteEvent}
-                  />
-                ))}
+                {selectedEvents.map((event) => renderEvent(event))}
               </ul>
             ) : null}
           </>
@@ -504,15 +566,7 @@ export function CalendarPanel({
                 ) : null}
                 {monthEvents.length ? (
               <ul className="calendar-event-list">
-                {monthEvents.map((event) => (
-                  <EventRow
-                    key={event.id}
-                    event={event}
-                    showWhen
-                    onChange={patchEvent}
-                    onDelete={deleteEvent}
-                  />
-                ))}
+                {monthEvents.map((event) => renderEvent(event, true))}
               </ul>
                 ) : null}
               </>
@@ -525,15 +579,7 @@ export function CalendarPanel({
         <div className="cal-undated">
           <h4 className="cal-detail-heading">Undated</h4>
           <ul className="calendar-event-list">
-            {undated.map((event) => (
-              <EventRow
-                key={event.id}
-                event={event}
-                showWhen
-                onChange={patchEvent}
-                onDelete={deleteEvent}
-              />
-            ))}
+            {undated.map((event) => renderEvent(event, true))}
           </ul>
         </div>
       ) : null}

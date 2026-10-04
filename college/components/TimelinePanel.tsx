@@ -19,6 +19,7 @@ export function TimelinePanel({
   memberProfiles = [],
   onOpenTodos,
   onAssignStage,
+  focusProjectId = null,
 }: {
   phases: Phase[];
   checklist: Record<string, boolean>;
@@ -29,6 +30,7 @@ export function TimelinePanel({
   memberProfiles?: MemberProfile[];
   onOpenTodos?: (projectId: string) => void;
   onAssignStage?: (stage: StageAssignPayload, owner: Owner | null) => void;
+  focusProjectId?: string | null;
 }) {
   const statuses = phaseStatuses(phases, checklist);
 
@@ -51,6 +53,7 @@ export function TimelinePanel({
           onOpenTodos={onOpenTodos}
           onToggle={onToggle}
           onAssignStage={onAssignStage}
+          focusProjectId={focusProjectId}
         />
       </div>
 
