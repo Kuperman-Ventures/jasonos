@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ActivitiesTrackView } from "./ActivitiesTrackView";
 import { ActivitiesRecall } from "./ActivitiesRecall";
 import { GradeStrip } from "./GradeStrip";
 import { GraduationYearPicker } from "./GraduationYearPicker";
-import { PlanView } from "./PlanView";
 import { RecallAnswerCard, emptyRecallState, nextRecallPick, recallSpanComplete, type RecallAnswerState } from "./RecallAnswerCard";
 import { ActivityIcon } from "./ActivityIcon";
 import { useEnsureActivityIcons } from "./use-activity-icons";
 import { pickActivityIcon } from "@/lib/activity-icons";
-import { ACTIVITIES_VIEWS, type ActivitiesViewId } from "@/lib/apps-materials";
+import { type ActivitiesViewId } from "@/lib/apps-materials";
 import {
   ACTIVITY_CATEGORIES,
   APP_DRAFT_LIMITS,
@@ -291,128 +291,19 @@ export function ActivitiesJournal({
   openActivityId: string | null;
   onOpenActivity: (id: string | null) => void;
 }) {
-  const [highlightIds, setHighlightIds] = useState<string[]>([]);
-  const [detailTab, setDetailTab] = useState<DetailTab | undefined>(undefined);
-  const [focusAwards, setFocusAwards] = useState(false);
-  const [recallOpen, setRecallOpen] = useState(false);
-  const [forcePlanGroup, setForcePlanGroup] = useState(false);
-
-  useEffect(() => {
-    if (view !== "my") setHighlightIds([]);
-  }, [view]);
-
   useEnsureActivityIcons(journal, onChange, canEdit && loaded);
 
-  const openActivity = openActivityId
-    ? journal.activities.find((a) => a.id === openActivityId) ?? null
-    : null;
-
-  function openActivityAt(id: string | null, tab?: DetailTab) {
-    setDetailTab(tab);
-    onOpenActivity(id);
-  }
-
-  function goToMyRecord(activityId?: string | null, tab?: DetailTab) {
-    onViewChange("my");
-    if (activityId) openActivityAt(activityId, tab);
-    else {
-      openActivityAt(null);
-    }
-  }
-
-  function goToAwards() {
-    setFocusAwards(true);
-    onViewChange("my");
-    openActivityAt(null);
-  }
-
-  function startRecallFromPlan() {
-    setRecallOpen(true);
-    onViewChange("my");
-    openActivityAt(null);
-  }
-
-  function editThreadsInPlan() {
-    setForcePlanGroup(true);
-    onViewChange("plan");
-    openActivityAt(null);
-  }
-
   return (
-    <div className="aj">
-      <nav className="aj-view-nav" aria-label="Activities views">
-        {ACTIVITIES_VIEWS.map((item) => {
-          const selected = item.id === view;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              className={selected ? "aj-view-tab active" : "aj-view-tab"}
-              aria-current={selected ? "page" : undefined}
-              onClick={() => {
-                onViewChange(item.id);
-              }}
-            >
-              {item.label}
-            </button>
-          );
-        })}
-      </nav>
-
-      {view === "my" ? (
-        openActivity ? (
-          <ActivityDetail
-            key={openActivity.id}
-            journal={journal}
-            activity={openActivity}
-            canEdit={canEdit}
-            initialTab={detailTab}
-            onChange={onChange}
-            onBack={() => openActivityAt(null)}
-          />
-        ) : (
-          <MyActivitiesView
-            journal={journal}
-            canEdit={canEdit}
-            loaded={loaded}
-            highlightIds={highlightIds}
-            onHighlightIds={setHighlightIds}
-            onChange={onChange}
-            onOpenActivity={openActivityAt}
-            focusAwards={focusAwards}
-            onFocusAwardsHandled={() => setFocusAwards(false)}
-            recallOpen={recallOpen}
-            onRecallOpenChange={setRecallOpen}
-            onEditThreadsInPlan={editThreadsInPlan}
-          />
-        )
-      ) : null}
-
-      {view === "plan" ? (
-        <PlanView
-          journal={journal}
-          canEdit={canEdit}
-          loaded={loaded}
-          forceGroupOpen={forcePlanGroup}
-          onForceGroupOpenHandled={() => setForcePlanGroup(false)}
-          onChange={onChange}
-          onOpenActivity={(id, tab) => goToMyRecord(id, tab ?? "overview")}
-          onStartRecall={startRecallFromPlan}
-        />
-      ) : null}
-
-      {view === "prep" ? (
-        <PrepView
-          journal={journal}
-          canEdit={canEdit}
-          loaded={loaded}
-          onChange={onChange}
-          onOpenActivity={(id) => goToMyRecord(id, "periods")}
-          onGoToMyRecord={() => goToMyRecord(null)}
-          onGoToAwards={goToAwards}
-        />
-      ) : null}
-    </div>
+    <ActivitiesTrackView
+      journal={journal}
+      canEdit={canEdit}
+      loaded={loaded}
+      view={view}
+      onViewChange={onViewChange}
+      onChange={onChange}
+      openActivityId={openActivityId}
+      onOpenActivity={onOpenActivity}
+    />
   );
 }
 

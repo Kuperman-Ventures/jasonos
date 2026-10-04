@@ -29,15 +29,22 @@ export const APPS_SECTIONS: AppsSection[] = [
 export const DEFAULT_APPS_SECTION: AppsSectionId = "activities";
 
 /** In-page views inside Activities. */
-export type ActivitiesViewId = "my" | "plan" | "prep";
+export type ActivitiesViewId = "gather" | "shape" | "plan" | "prep";
 
 export const ACTIVITIES_VIEWS: { id: ActivitiesViewId; label: string }[] = [
-  { id: "my", label: "My Record" },
-  { id: "plan", label: "Plan" },
-  { id: "prep", label: "Application Prep" },
+  { id: "gather", label: "1 Gather" },
+  { id: "shape", label: "2 Shape" },
+  { id: "plan", label: "3 Plan" },
+  { id: "prep", label: "4 Application Prep" },
 ];
 
-export const DEFAULT_ACTIVITIES_VIEW: ActivitiesViewId = "my";
+export const DEFAULT_ACTIVITIES_VIEW: ActivitiesViewId = "plan";
+
+const LEGACY_ACTIVITIES_VIEW: Record<string, ActivitiesViewId> = {
+  my: "shape",
+  write: "prep",
+  entry: "prep",
+};
 
 export function isAppsSectionId(value: string): value is AppsSectionId {
   return APPS_SECTIONS.some((section) => section.id === value);
@@ -59,5 +66,6 @@ export function isActivitiesViewId(value: string): value is ActivitiesViewId {
 
 export function resolveActivitiesView(raw: string | null): ActivitiesViewId {
   if (raw && isActivitiesViewId(raw)) return raw;
+  if (raw && raw in LEGACY_ACTIVITIES_VIEW) return LEGACY_ACTIVITIES_VIEW[raw]!;
   return DEFAULT_ACTIVITIES_VIEW;
 }

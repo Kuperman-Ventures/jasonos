@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en" data-mode="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Activities section: visual reference</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+<link rel="stylesheet" href="./prototype/tokens.css">
+<script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+<style>
+/* ===== Shared primitives. Every value here is used by the prototype. ===== */
+*{box-sizing:border-box}
+body{margin:0;background:var(--color-desk);color:var(--color-text);font-family:Archivo,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:var(--text-accent);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:2px;cursor:pointer}
+a:hover{color:var(--color-accent-pressed)}
+.m{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-subtle)}
+.ser{font-family:'Source Serif 4',Georgia,serif;font-weight:400;letter-spacing:-.01em}
+.hint{font-size:13px;color:var(--text-subtle)}
+.pill{height:32px;padding:0 15px;border-radius:16px;border:1px solid var(--color-border);display:inline-flex;align-items:center;font:14px Archivo,sans-serif;background:transparent;color:var(--color-text);cursor:pointer;white-space:nowrap}
+.pill:hover{background:var(--color-surface)}
+.pill.on{background:var(--color-text);color:var(--color-bg);border-color:var(--color-text)}
+.pill.sm{height:28px;font-size:13px;padding:0 12px}
+.pill.xs{height:26px;font-size:12px;padding:0 10px}
+.btn{height:42px;padding:0 20px;border:0;border-radius:3px;background:var(--color-accent);color:var(--text-on-accent);font:600 15px Archivo,sans-serif;display:inline-flex;align-items:center;cursor:pointer}
+.btn:hover{background:var(--color-accent-pressed)}
+.btn[disabled]{opacity:.4;cursor:default}
+.btn2{height:42px;padding:0 18px;border:1px solid var(--color-border);border-radius:3px;background:transparent;color:var(--color-text);font:600 15px Archivo,sans-serif;display:inline-flex;align-items:center;cursor:pointer}
+.btn2:hover{background:var(--color-surface)}
+.btn.sm,.btn2.sm{height:34px;font-size:14px}
+.ul{display:block;width:100%;border:0;border-bottom:2px solid var(--color-text);background:transparent;padding:6px 0;font:16px Archivo,sans-serif;color:var(--color-text);outline:none;resize:none;border-radius:0}
+.ul:focus{border-bottom-color:var(--color-accent)}
+.nm{border:0;border-bottom:1px solid transparent;background:transparent;outline:none;padding:2px 0;color:var(--color-text);border-radius:0;min-width:0}
+.nm:hover{border-bottom-color:var(--color-border)}
+.tab{white-space:nowrap;background:none;border:0;padding:6px 0;font:500 11px 'IBM Plex Mono',monospace;letter-spacing:.16em;text-transform:uppercase;cursor:pointer;color:var(--text-muted)}
+.tab.on{color:var(--text-accent);box-shadow:inset 0 -2px 0 var(--color-accent)}
+.rib{display:flex;gap:3px}
+.rw{display:grid;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--color-rule)}
+.dot{width:10px;height:10px;padding:0;border-radius:50%;border:1px solid var(--color-border);background:transparent;display:inline-block}
+.dot.done{background:var(--color-accent);border-color:var(--color-accent)}
+.dot.cur{box-shadow:0 0 0 2px var(--color-bg),0 0 0 3px var(--color-text)}
+.lenbar{height:26px;margin-bottom:8px;background:var(--color-accent);color:var(--text-on-accent);display:flex;align-items:center;justify-content:center;font:600 14px Archivo,sans-serif;white-space:nowrap}
+
+/* ===== Board layout (not part of the product) ===== */
+.board{max-width:1180px;margin:0 auto;padding:40px 24px 80px;display:flex;flex-direction:column;gap:48px}
+.note{max-width:760px;font-size:14px;line-height:1.55;color:var(--text-muted)}
+.note b{color:var(--color-text)}
+.spec{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-subtle);letter-spacing:.04em;margin-bottom:10px}
+.frame{background:var(--color-bg);box-shadow:var(--shadow-lg);padding:36px 48px 48px;width:1040px;max-width:100%}
+.frame.narrow{width:780px}
+h1{margin:0;font-size:30px;font-weight:700;letter-spacing:-.02em}
+</style>
+</head>
+<body>
+<div class="board">
+
+<div>
+<h1>Activities section: visual reference</h1>
+<p class="note">Static snapshots of every distinct component in the prototype, written as plain HTML and CSS using the app's <code>tokens.css</code>. Dimensions, colours and copy match <code>prototype/Activities Prototype.dc.html</code>. Behaviour is specified in <code>cursor-prompt.md</code>. Ribbon cells are drawn by a six-line helper at the bottom of this file; in the product they come from the <code>states()</code> and <code>cells()</code> functions described in the spec.</p>
+</div>
+
+<!-- 1. STAGE NAV + EXPLAINER -->
+<section>
+<div class="spec">01 · PAGE HEADER, STAGE NAV, EXPLAINER (expanded). Container max-width 1040, padding 36 48 120.</div>
+<div class="frame">
+<div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-size:34px;font-weight:700;letter-spacing:-.02em">Activities</div><div style="display:flex;gap:18px"><a class="hint">Hide how this works</a></div></div>
+<div style="margin:20px 0 10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px">
+ <div style="display:flex;flex-direction:column;gap:12px;padding:16px 16px 20px;box-shadow:inset 0 1px 0 var(--color-border)">
+  <span class="ser" style="font-size:30px;line-height:1;color:var(--text-subtle)">1</span>
+  <div style="height:116px;display:flex;align-items:flex-end"><div style="display:flex;flex-direction:column;gap:8px;width:100%"><div class="ser" style="font-size:13px;color:var(--text-muted)">What do you do?</div><div style="font-size:14px;border-bottom:2px solid var(--color-accent);padding-bottom:2px;width:150px">Trumpet</div><div class="rib" style="gap:3px"><span class="m" style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:10px;letter-spacing:0;background:var(--color-text);color:var(--color-bg)">6</span><span class="m" style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:10px;letter-spacing:0;background:var(--color-surface);color:var(--color-text)">7</span><span class="m" style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:10px;letter-spacing:0;background:var(--color-surface);color:var(--color-text)">8</span></div></div></div>
+  <div class="ser" style="font-size:20px">Gather</div><div style="font-size:15px;line-height:1.4">Get everything you do onto one record.</div><div class="hint" style="line-height:1.4">Name each activity and the grade you started.</div></div>
+ <div style="display:flex;flex-direction:column;gap:12px;padding:16px 16px 20px;background:var(--color-accent-tint);box-shadow:inset 0 3px 0 var(--color-accent)">
+  <span class="ser" style="font-size:30px;line-height:1;color:var(--text-accent)">2</span>
+  <div style="height:116px;display:flex;align-items:center;gap:12px"><div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start"><span class="pill xs">Trumpet</span><span class="pill xs">Band</span><span class="pill xs">Robotics</span></div><span style="color:var(--text-subtle);font-size:18px">→</span><div><div class="ser" style="font-size:13px;margin-bottom:3px">Music</div><i data-rib="dddddns,11,6"></i><div style="height:2px"></div><i data-rib="sssddns,11,6"></i><div class="ser" style="font-size:13px;margin:8px 0 3px">Engineering</div><i data-rib="sssddns,11,6"></i></div></div>
+  <div class="ser" style="font-size:20px">Shape</div><div style="font-size:15px;line-height:1.4">Group related activities into threads.</div><div class="hint" style="line-height:1.4">Rename threads and move activities between them.</div></div>
+ <div style="display:flex;flex-direction:column;gap:12px;padding:16px 16px 20px;box-shadow:inset 0 1px 0 var(--color-border)">
+  <span class="ser" style="font-size:30px;line-height:1;color:var(--text-subtle)">3</span>
+  <div style="height:116px;display:flex;align-items:flex-end"><div style="display:flex;flex-direction:column;gap:8px;width:100%"><i data-rib="dddddnp,26,10"></i><div style="display:flex;gap:4px"><span class="pill xs">Keep going</span><span class="pill xs on">Step up</span><span class="pill xs">Finish</span></div><div style="border:1px dashed var(--color-dash);padding:6px 9px;font-size:12px;line-height:1.35;color:var(--text-muted)">Your own project<br>with an outside partner</div></div></div>
+  <div class="ser" style="font-size:20px">Plan</div><div style="font-size:15px;line-height:1.4">Decide the rest of high school, and start a project of your own.</div><div class="hint" style="line-height:1.4">Choose what to keep, step up or finish. Sketch a project with an outside partner.</div></div>
+ <div style="display:flex;flex-direction:column;gap:12px;padding:16px 16px 20px;box-shadow:inset 0 1px 0 var(--color-border)">
+  <span class="ser" style="font-size:30px;line-height:1;color:var(--text-subtle)">4</span>
+  <div style="height:116px;display:flex;align-items:flex-end"><div style="width:100%;background:var(--color-surface);padding:9px 12px"><div class="ser" style="font-size:14px;margin-bottom:2px">Trumpet</div><div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0"><span style="color:var(--text-muted)">Hours and weeks</span><span style="color:var(--text-accent)">✓</span></div><div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0"><span style="color:var(--text-muted)">Role and group</span><span style="color:var(--text-accent)">✓</span></div><div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0"><span style="color:var(--text-muted)">Your own notes</span><span style="color:var(--text-accent)">✓</span></div></div></div>
+  <div class="ser" style="font-size:20px">Application Prep</div><div style="font-size:15px;line-height:1.4">Bring what you have built into one place, ready for when you fill out your applications.</div><div class="hint" style="line-height:1.4">You write your own answers. Nothing here is written for you.</div></div>
+</div>
+<div style="display:flex;gap:28px;margin:16px 0 0"><button class="tab">1 Gather</button><button class="tab on">2 Shape</button><button class="tab">3 Plan</button><button class="tab">4 Application Prep</button></div>
+<p class="hint" style="margin:14px 0 0">The explainer is collapsed by default (link text "How this works"). The active stage column gets the tint and a 3px inset top bar; the others get a 1px inset top border. No "You are here" text.</p>
+</div>
+</section>
+
+<!-- 2. GATHER -->
+<section>
+<div class="spec">02 · GATHER. Two columns 1fr / 360, gap 56. Three questions, one at a time.</div>
+<div class="frame">
+<div style="display:grid;grid-template-columns:1fr 360px;gap:56px">
+ <div style="display:flex;flex-direction:column;gap:18px">
+  <span class="m">Question 2 of 3</span>
+  <div class="ser" style="font-size:34px;line-height:1.2">When did you start Robotics Club?</div>
+  <div class="hint" style="font-size:15px">Your best guess is fine.</div>
+  <div class="rib" style="gap:6px"><button class="m" style="width:56px;height:46px;border:0;background:var(--color-surface);color:var(--color-text)">6th</button><button class="m" style="width:56px;height:46px;border:0;background:var(--color-surface);color:var(--color-text)">7th</button><button class="m" style="width:56px;height:46px;border:0;background:var(--color-surface);color:var(--color-text)">8th</button><button class="m" style="width:56px;height:46px;border:0;background:var(--color-text);color:var(--color-bg)">9th</button><button class="m" style="width:56px;height:46px;border:0;background:var(--color-surface);color:var(--color-text)">10th</button><button class="m" style="width:56px;height:46px;border:0;background:var(--color-surface);color:var(--color-text)">11th</button></div>
+  <div style="display:flex;gap:8px"><span class="pill on">Still doing it</span><span class="pill">I stopped</span></div>
+  <div style="display:flex;gap:14px;align-items:center"><button class="btn">Next</button><a>← Back</a></div>
+  <div style="margin-top:8px"><a>Skip the questions and shape my threads</a></div>
+ </div>
+ <div><div class="m" style="margin-bottom:10px">Your record</div>
+  <div class="rib" style="margin-bottom:6px"><span class="m" style="width:24px;text-align:center;letter-spacing:.04em;font-size:10px">6</span><span class="m" style="width:24px;text-align:center;letter-spacing:.04em;font-size:10px">7</span><span class="m" style="width:24px;text-align:center;letter-spacing:.04em;font-size:10px">8</span><span class="m" style="width:24px;text-align:center;letter-spacing:.04em;font-size:10px">9</span><span class="m" style="width:24px;text-align:center;letter-spacing:.04em;font-size:10px">10</span><span class="m" style="width:24px;text-align:center;letter-spacing:.04em;font-size:10px;color:var(--text-accent)">11 now</span><span class="m" style="width:24px;text-align:center;letter-spacing:.04em;font-size:10px">12</span></div>
+  <div style="padding:12px 8px;margin:0 -8px"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><span class="ser" style="font-size:20px">Music</span><span class="m" style="color:var(--color-text)">6 yrs</span></div>
+   <i data-rib="dddddns,24,6" style="display:block;margin-top:8px"></i><div class="hint" style="font-size:12px;margin-top:2px;display:flex;gap:6px;align-items:center"><i class="ph ph-music-notes" style="font-size:14px"></i>Trumpet</div>
+   <i data-rib="sssddns,24,6" style="display:block;margin-top:8px"></i><div class="hint" style="font-size:12px;margin-top:2px;display:flex;gap:6px;align-items:center"><i class="ph ph-flag-pennant" style="font-size:14px"></i>Marching Band</div></div>
+  <div style="padding:12px 8px;margin:0 -8px;background:var(--color-accent-tint)"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><span class="ser" style="font-size:20px">Engineering</span><span class="m" style="color:var(--color-text)">3 yrs</span></div>
+   <i data-rib="sssdnns,24,6" style="display:block;margin-top:8px"></i><div class="hint" style="font-size:12px;margin-top:2px;display:flex;gap:6px;align-items:center"><i class="ph ph-robot" style="font-size:14px"></i>Robotics Club  ·  new</div></div>
+ </div>
+</div>
+<p class="hint" style="margin:18px 0 0">Newly added activity's thread block gets <code>--color-accent-tint</code> background and a "· new" tag until the next add. Thread length here is plain mono text ("6 yrs"), no bar.</p>
+</div>
+</section>
+
+<!-- 3. SHAPE -->
+<section>
+<div class="spec">03 · SHAPE. Grid 260px / 1fr, gap 28. Blocks separated by a 1px --color-rule top border, padding 24 12, margin 0 -12.</div>
+<div class="frame">
+<h2 class="ser" style="margin:0;font-size:40px">Shape</h2>
+<p style="margin:8px 0 0;max-width:660px;font-size:16px;line-height:1.5;color:var(--text-muted)">A thread groups activities that belong together. Use Edit thread to rename or remove a thread. Type in an activity name to rename it. Use Move to put an activity in a different thread.</p>
+
+<!-- grade header: 56px columns, 26px serif numbers -->
+<div style="display:grid;grid-template-columns:260px 1fr;gap:28px;margin-top:34px"><span></span>
+ <div class="rib" id="gradeHdr"></div></div>
+
+<!-- tinted unassigned block (shown only when something is unassigned) -->
+<div style="display:grid;grid-template-columns:260px 1fr;gap:28px;padding:24px 12px;margin:0 -12px;background:var(--color-accent-tint);border-top:1px solid var(--color-rule)">
+ <div style="display:flex;flex-direction:column;gap:6px"><h3 class="ser" style="margin:0;font-size:28px;color:var(--text-muted)">Not in a thread</h3><div class="hint">1 activity to place</div></div>
+ <div><div style="margin-top:0"><i data-rib="ssssdns,56,12"></i>
+  <div style="display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:12px;align-items:center;margin-top:8px;max-width:600px"><i class="ph ph-chalkboard-teacher" style="font-size:24px;color:var(--text-accent)"></i><div><input class="nm" style="font-size:16px;font-weight:600;width:100%" value="Peer tutoring"><div class="hint" style="margin-top:1px">2 yrs · Since 10th grade · still doing it</div></div><div style="display:flex;gap:8px"><span class="pill sm">Close</span><span class="pill sm">Add detail</span></div></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center"><span class="hint">Move to</span><span class="pill sm">Music</span><span class="pill sm">Engineering</span><span class="pill sm">+ New thread</span></div></div></div></div>
+
+<!-- thread block -->
+<div style="display:grid;grid-template-columns:260px 1fr;gap:28px;padding:24px 12px;margin:0 -12px;border-top:1px solid var(--color-rule)">
+ <div style="display:flex;flex-direction:column;gap:6px"><h3 class="ser" style="margin:0;font-size:28px">Music</h3><div class="hint">2 activities</div><a class="hint" style="align-self:flex-start;font-size:14px">Edit thread</a>
+  <div style="display:flex;flex-direction:column;gap:12px;padding:14px 16px;background:var(--color-surface)"><input class="ul" value="Music"><div class="hint" style="line-height:1.4">Removing a thread keeps all its activities. They simply stay unassigned.</div><div style="display:flex;gap:10px"><button class="btn2 sm">Remove thread</button><button class="btn sm">Done</button></div></div></div>
+ <div>
+  <!-- THREAD LENGTH BAR: margin-left = firstYearIdx*59, width = spanYears*59-3 -->
+  <div class="lenbar" style="margin-left:0;width:410px">6 years</div>
+  <div><i data-rib="dddddns,56,12"></i>
+   <div style="display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:12px;align-items:center;margin-top:8px;max-width:600px"><i class="ph ph-music-notes" style="font-size:24px;color:var(--text-accent)"></i><div><input class="nm" style="font-size:16px;font-weight:600;width:100%" value="Trumpet"><div class="hint" style="margin-top:1px">6 yrs · Since 6th grade · still doing it</div></div><div style="display:flex;gap:8px"><span class="pill sm">Move</span><span class="pill sm">Add detail · 4 answered</span></div></div></div>
+  <div style="margin-top:20px"><i data-rib="sssddns,56,12"></i>
+   <div style="display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:12px;align-items:center;margin-top:8px;max-width:600px"><i class="ph ph-flag-pennant" style="font-size:24px;color:var(--text-accent)"></i><div><input class="nm" style="font-size:16px;font-weight:600;width:100%" value="Marching Band"><div class="hint" style="margin-top:1px">3 yrs · Since 9th grade · still doing it</div></div><div style="display:flex;gap:8px"><span class="pill sm">Move</span><span class="pill sm">Close</span></div></div>
+
+   <!-- DETAIL PANEL -->
+   <div style="margin-top:14px;padding:22px 24px;background:var(--color-surface);display:flex;flex-direction:column;gap:14px;max-width:640px">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="hint">Add extra questions about</span><select style="height:32px;border:1px solid var(--color-border);border-radius:3px;background:var(--color-bg);color:var(--color-text);font:14px Archivo,sans-serif;padding:0 10px"><option>Performing or creating</option></select></div>
+    <div style="display:flex;gap:18px;flex-wrap:wrap">
+     <div style="display:flex;flex-direction:column;gap:7px;align-items:flex-start"><button class="tab" style="font-size:10px;padding:0">What you do</button><div style="display:flex;gap:5px"><span class="dot done"></span><span class="dot done"></span><span class="dot"></span></div></div>
+     <div style="display:flex;flex-direction:column;gap:7px;align-items:flex-start"><button class="tab on" style="font-size:10px;padding:0;box-shadow:none">What changed</button><div style="display:flex;gap:5px"><span class="dot done"></span><span class="dot cur"></span><span class="dot"></span></div></div>
+     <div style="display:flex;flex-direction:column;gap:7px;align-items:flex-start"><button class="tab" style="font-size:10px;padding:0">A few more</button><div style="display:flex;gap:5px"><span class="dot"></span><span class="dot"></span></div></div>
+     <div style="display:flex;flex-direction:column;gap:7px;align-items:flex-start"><button class="tab" style="font-size:10px;padding:0">Growth</button><div style="display:flex;gap:5px"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div>
+     <div style="display:flex;flex-direction:column;gap:7px;align-items:flex-start"><button class="tab" style="font-size:10px;padding:0">Things you started</button><div style="display:flex;gap:5px"><span class="dot"></span><span class="dot"></span></div></div>
+     <div style="display:flex;flex-direction:column;gap:7px;align-items:flex-start"><button class="tab" style="font-size:10px;padding:0">Why it matters</button><div style="display:flex;gap:5px"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></div></div></div>
+    <span class="m" style="color:var(--text-accent)">Question 5 of 16</span>
+    <div class="ser" style="font-size:24px;line-height:1.25">Any numbers?</div>
+    <div class="hint">For example: A placement, a score, a record, how many people, how much money, how many hours.</div>
+    <textarea class="ul" rows="3" style="background:transparent" placeholder="A phrase is fine. You can come back to it.">We placed in the top ten</textarea>
+    <div style="font-size:14px;color:var(--text-accent)">What was your part? <a class="hint">Dismiss</a></div>
+    <div style="display:flex;gap:14px;align-items:center"><button class="btn">Continue anyway</button><a>← Back</a><span class="hint" style="margin-left:auto">Saves as you type. Every question can be skipped.</span></div>
+   </div>
+  </div>
+ </div>
+</div>
+<div style="display:flex;gap:16px;align-items:center;margin-top:18px;padding-top:20px;border-top:1px dashed var(--color-dash)"><button class="btn2">+ New thread</button><a>+ Add an activity</a><span style="flex:1"></span><button class="btn">Continue to Plan</button></div>
+</div>
+</section>
+
+<!-- 4. PLAN -->
+<section>
+<div class="spec">04 · PLAN. Next band, then two mode cards, then the selected mode's content.</div>
+<div class="frame">
+ <div style="padding:22px 26px;background:var(--color-accent-tint);display:flex;justify-content:space-between;align-items:center;gap:30px"><div style="display:flex;flex-direction:column;gap:8px;max-width:620px"><span class="m" style="color:var(--text-on-tint)">Next · A project of your own</span><div class="ser" style="font-size:24px;line-height:1.25;color:var(--text-on-tint)">Is there something you could start yourself, with a partner outside school?</div></div><button class="btn" style="flex:none">Think about it</button></div>
+
+ <!-- MODE CARDS: selected = tint + inset 4px accent top; unselected = transparent + inset 1px border top -->
+ <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:20px;margin:34px 0 0">
+  <div style="padding:22px 26px 24px;background:var(--color-accent-tint);box-shadow:inset 0 4px 0 var(--color-accent);display:flex;flex-direction:column;gap:12px">
+   <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px 16px"><span class="m" style="color:var(--text-accent)">Mode 1 · What you already do</span><span class="m">2 choices made</span></div>
+   <div class="ser" style="font-size:28px;line-height:1.1">The rest of high school</div>
+   <div style="font-size:15px;line-height:1.4;color:var(--text-muted)">Decide what to do with each of your activities in 11th and 12th grade.</div>
+   <div style="height:76px;display:flex;align-items:flex-end"><div style="display:flex;flex-direction:column;gap:8px"><i data-rib="dddddnp,26,10"></i><i data-rib="sssddnp,26,10"></i><div style="display:flex;gap:6px;margin-top:4px"><span class="pill xs">Keep going</span><span class="pill xs on">Step up</span><span class="pill xs">Finish</span></div></div></div></div>
+  <div style="padding:22px 26px 24px;box-shadow:inset 0 1px 0 var(--color-border);display:flex;flex-direction:column;gap:12px">
+   <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:4px 16px"><span class="m">Mode 2 · Something new</span><span class="m">No ideas yet</span></div>
+   <div class="ser" style="font-size:28px;line-height:1.1">A project of your own</div>
+   <div style="font-size:15px;line-height:1.4;color:var(--text-muted)">Start something yourself, with a partner outside your school.</div>
+   <div style="height:76px;display:flex;align-items:flex-end"><div style="display:flex;align-items:center;gap:8px"><span class="pill xs" style="border-style:dashed">Idea</span><span style="width:16px;border-top:2px dashed var(--color-accent-border)"></span><span class="pill xs" style="border-style:dashed">Partner</span><span style="width:16px;border-top:2px dashed var(--color-accent-border)"></span><span class="pill xs" style="border-style:dashed">Result</span></div></div></div>
+ </div>
+
+ <!-- MODE 1 CONTENT -->
+ <div style="margin-top:34px">
+  <div class="m" style="color:var(--text-accent);margin-bottom:8px">Mode 1 · What you already do</div>
+  <h2 class="ser" style="margin:0;font-size:40px">The rest of high school</h2>
+  <p style="margin:8px 0 0;max-width:640px;font-size:16px;line-height:1.5;color:var(--text-muted)">You have this year and senior year. For each activity, choose what you want to do in each year. If you keep going or step up, add steps that would make it stronger.</p>
+  <div style="display:grid;grid-template-columns:260px 1fr 1fr;gap:26px;margin-top:30px;padding-bottom:8px"><span></span><span class="m" style="color:var(--text-accent)">11th grade · now</span><span class="m">12th grade</span></div>
+  <div class="rw" style="grid-template-columns:260px 1fr 1fr;gap:26px;align-items:start;padding:18px 0;border-top:1px solid var(--color-rule)">
+   <div><div style="font-weight:600;font-size:17px;display:flex;gap:10px;align-items:center"><i class="ph ph-music-notes" style="font-size:22px;color:var(--text-accent)"></i>Trumpet</div><div class="hint" style="margin:2px 0 8px 32px">Music</div><i data-rib="dddddnp,20,10"></i></div>
+   <div style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill sm on" style="padding:0 11px">Keep going</span><span class="pill sm" style="padding:0 11px">Step up</span><span class="pill sm" style="padding:0 11px">Finish</span></div><a style="font-size:14px;align-self:flex-start">+ Add a step</a></div>
+   <div style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill sm" style="padding:0 11px">Keep going</span><span class="pill sm on" style="padding:0 11px">Step up</span><span class="pill sm" style="padding:0 11px">Finish</span></div>
+    <div style="font-size:14px;line-height:1.4"><span class="m" style="letter-spacing:.06em;color:var(--text-accent)">Go deeper</span> Audition for All-State <button style="background:none;border:0;color:var(--text-subtle);font-size:16px;padding:0 4px">×</button></div>
+    <!-- composer: prompt set depends on the choice. Step up = 5 prompts, Keep going = 3, Finish = 4 -->
+    <div style="padding:14px 16px;background:var(--color-surface);display:flex;flex-direction:column;gap:10px"><span class="m" style="color:var(--text-accent)">Stepping up</span>
+     <div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill xs">Go deeper</span><span class="pill xs on">Lead</span><span class="pill xs">Outside school</span><span class="pill xs">Make something</span><span class="pill xs">Connect</span></div>
+     <div class="ser" style="font-size:18px;line-height:1.25">What role could you take on, or who could you teach?</div><div class="hint">For example: section leader, or teaching younger members what you wish you had known.</div>
+     <input class="ul" style="background:transparent" placeholder="Write your idea" value="Teach the incoming freshman trumpets">
+     <div style="display:flex;gap:12px;align-items:center"><button class="btn sm">Add step</button><a>Cancel</a></div></div></div>
+  </div>
+  <div class="rw" style="grid-template-columns:260px 1fr 1fr;gap:26px;align-items:start;padding:18px 0">
+   <div><div style="font-weight:600;font-size:17px;display:flex;gap:10px;align-items:center"><i class="ph ph-robot" style="font-size:22px;color:var(--text-accent)"></i>Robotics Club</div><div class="hint" style="margin:2px 0 8px 32px">Engineering</div><i data-rib="sssdnnp,20,10"></i></div>
+   <div style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;gap:6px"><span class="pill sm" style="padding:0 11px">Keep going</span><span class="pill sm" style="padding:0 11px">Step up</span><span class="pill sm" style="padding:0 11px">Finish</span></div><span class="hint">Choose one to add steps</span></div>
+   <div style="display:flex;flex-direction:column;gap:10px"><div style="display:flex;gap:6px"><span class="pill sm" style="padding:0 11px">Keep going</span><span class="pill sm" style="padding:0 11px">Step up</span><span class="pill sm" style="padding:0 11px">Finish</span></div><span class="hint">Choose one to add steps</span></div>
+  </div>
+ </div>
+
+ <!-- MODE 2 CONTENT: raised panel -->
+ <div style="margin-top:48px;padding:30px 34px 36px;background:var(--color-raised);box-shadow:var(--shadow-sm)">
+  <div class="m" style="color:var(--text-accent);margin-bottom:8px">Mode 2 · Something new</div>
+  <h2 class="ser" style="margin:0;font-size:40px">A project of your own</h2>
+  <p style="margin:8px 0 0;max-width:660px;font-size:16px;line-height:1.5;color:var(--text-muted)">Colleges notice what you start, not only what you join. A self-started project is something you organize yourself, with a partner outside your school. It can come from anything you care about.</p>
+  <div style="display:grid;grid-template-columns:280px 1fr;gap:48px;margin-top:30px">
+   <div style="display:flex;flex-direction:column;gap:6px"><div class="m" style="margin-bottom:6px">Your ideas</div>
+    <button style="text-align:left;border:0;background:var(--color-accent-tint);padding:12px;display:flex;flex-direction:column;gap:3px;font:inherit;color:inherit"><span style="font-weight:600;font-size:15px">Teach a younger group what you know about music</span><span class="hint">Planned for 12th grade</span></button>
+    <div style="margin-top:10px"><button class="btn2">+ New idea</button></div>
+    <div style="margin-top:22px" class="m">Not sure where to start?</div>
+    <a style="font-size:14px;line-height:1.4;text-decoration:none">+ Make something in engineering and show it publicly</a>
+    <a style="font-size:14px;line-height:1.4;text-decoration:none">+ Start a small service or event for your community</a>
+    <a style="font-size:14px;line-height:1.4;text-decoration:none">+ Organize a drive or fundraiser with a local group</a></div>
+   <div style="display:flex;flex-direction:column;gap:26px;max-width:640px">
+    <div><div class="m" style="margin-bottom:4px">The idea in a few words</div><input class="ul" style="font-size:20px" value="Teach a younger group what you know about music"></div>
+    <div><div class="m" style="margin-bottom:4px">Who outside your school could be your partner?</div><input class="ul" placeholder="A library, a business, a nonprofit, a mentor"></div>
+    <div><div class="m" style="margin-bottom:4px">What will exist at the end, and who will see it?</div><input class="ul" placeholder="A workshop, a show, a website, a donation total"></div>
+    <div><div class="m" style="margin-bottom:8px">When could you do it?</div><div style="display:flex;gap:8px"><span class="pill">This year (11th)</span><span class="pill on">Senior year (12th)</span></div></div>
+    <div><div class="m" style="margin-bottom:4px">Why does it matter to you?</div><textarea class="ul" rows="2" placeholder="In your own words"></textarea></div>
+    <div><div class="rib" style="margin-bottom:6px" id="projHdr"></div><i data-rib="ssssssp,44,18"></i></div>
+    <div style="display:flex;gap:18px;align-items:center"><span class="hint">2 of 4 parts filled in</span><a class="hint">Remove this idea</a></div></div></div>
+ </div>
+</div>
+</section>
+
+<!-- 5. APPLICATION PREP -->
+<section>
+<div class="spec">05 · APPLICATION PREP. List (max-width 780) and an activity page. Wording always frames the tool as gathering the student's own material.</div>
+<div style="display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap">
+<div class="frame narrow">
+ <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:20px"><div><h2 class="ser" style="margin:0;font-size:40px">Application Prep</h2><p style="margin:8px 0 0;font-size:16px;color:var(--text-muted)">1 of 4 activities prepared. Gather what you have built here so it is on hand when you fill out your applications. Everything is your own words and facts. Nothing here is written for you.</p></div><button class="btn2">Copy my notes</button></div>
+ <div style="margin-top:24px">
+  <div class="rw" style="grid-template-columns:24px 1fr 60px 110px 74px;padding-left:4px;padding-right:4px"><span class="m">1</span><div style="display:grid;grid-template-columns:28px 1fr;column-gap:12px;align-items:center"><i class="ph ph-music-notes" style="font-size:24px;color:var(--text-accent);grid-row:1/3"></i><div style="font-weight:600;font-size:16px">Trumpet</div><div class="hint">Music</div></div><span style="display:flex;gap:4px"><span class="pill" style="width:28px;height:28px;padding:0;justify-content:center">↑</span><span class="pill" style="width:28px;height:28px;padding:0;justify-content:center">↓</span></span><span class="m" style="letter-spacing:.06em;color:var(--text-done)">Prepared</span><a>Open</a></div>
+  <div class="rw" style="grid-template-columns:24px 1fr 60px 110px 74px;padding-left:4px;padding-right:4px"><span class="m">2</span><div style="display:grid;grid-template-columns:28px 1fr;column-gap:12px;align-items:center"><i class="ph ph-flag-pennant" style="font-size:24px;color:var(--text-accent);grid-row:1/3"></i><div style="font-weight:600;font-size:16px">Marching Band</div><div class="hint">Music</div></div><span style="display:flex;gap:4px"><span class="pill" style="width:28px;height:28px;padding:0;justify-content:center">↑</span><span class="pill" style="width:28px;height:28px;padding:0;justify-content:center">↓</span></span><span class="m" style="letter-spacing:.06em">In progress</span><a>Open</a></div>
+ </div>
+</div>
+<div class="frame narrow">
+ <div style="display:flex;flex-direction:column;gap:26px">
+  <div><a style="font-size:14px">← Application Prep</a><div class="m" style="margin-top:12px">Activity 2 of 4 · In progress</div>
+   <h2 class="ser" style="margin:6px 0 8px;font-size:44px;display:flex;gap:16px;align-items:center"><i class="ph ph-flag-pennant" style="font-size:40px;color:var(--text-accent)"></i>Marching Band</h2>
+   <div class="ser" style="font-size:20px;line-height:1.5;color:var(--text-muted)">9th–11th grade, 8 hours a week.</div></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:26px"><div><div class="m" style="margin-bottom:4px">Hours a week</div><input class="ul" value="8"></div><div><div class="m" style="margin-bottom:4px">Weeks a year</div><input class="ul" placeholder="e.g. 36"></div></div>
+  <div><div style="display:flex;justify-content:space-between"><span class="m">Position or leadership</span><span class="m">0 / 50</span></div><input class="ul" placeholder="Your role or title"></div>
+  <div><div style="display:flex;justify-content:space-between"><span class="m">Organization</span><span class="m">22 / 100</span></div><input class="ul" value="Kyle High School Band"></div>
+  <div><div style="display:flex;justify-content:space-between"><span class="m">Your notes</span><span class="m">0 / 150</span></div><textarea class="ul" rows="3" placeholder="Jot down what you do, how often, and what you are responsible for. You will write your own version when you apply."></textarea></div>
+  <div style="background:var(--color-surface);padding:16px 18px"><div class="m" style="margin-bottom:8px">From your plan and notes, for reference</div><div style="font-size:15px;line-height:1.5;color:var(--text-muted)"><b style="font-weight:600;color:var(--color-text)">What you do ·</b> Rehearsals twice a week plus Friday games</div></div>
+  <div style="display:flex;gap:10px;align-items:center"><span class="hint">Do you plan to do this in college?</span><span class="pill">Yes</span><span class="pill">No</span></div>
+  <div style="display:flex;align-items:center;gap:16px;padding-top:6px"><button class="btn" disabled>Mark as prepared</button><span class="hint">Still needs weeks a year, some notes.</span></div>
+ </div>
+</div>
+</div>
+</section>
+
+</div>
+<script>
+const C={e:'background:var(--color-surface)',s:'background:var(--color-surface)',d:'background:var(--color-accent-tint-2)',n:'background:var(--color-accent)',p:'background:repeating-linear-gradient(135deg,transparent 0 3px,var(--color-accent-border) 3px 4px);border:1px dashed var(--color-accent-border)'};
+document.querySelectorAll('[data-rib]').forEach(el=>{const [s,w,h]=el.dataset.rib.split(',');const d=document.createElement('div');d.className='rib';d.style.cssText=el.getAttribute('style')||'';d.style.display=el.style.display==='none'?'none':'flex';d.innerHTML=[...s].map(c=>`<span style="width:${w}px;height:${h}px;${C[c]||C.e}"></span>`).join('');el.replaceWith(d)});
+document.getElementById('gradeHdr').innerHTML=[6,7,8,9,10,11,12].map(g=>`<span style="width:56px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:2px"><span class="ser" style="font-size:26px;line-height:1;font-weight:600;color:${g==11?'var(--text-accent)':'var(--color-text)'}">${g}</span><span class="m" style="font-size:9px;height:12px;color:var(--text-accent)">${g==11?'NOW':''}</span></span>`).join('');
+document.getElementById('projHdr').innerHTML=[6,7,8,9,10,11,12].map(g=>`<span class="m" style="width:44px;text-align:center;font-size:10px;letter-spacing:.04em;color:${g==11?'var(--text-accent)':'var(--text-subtle)'}">${g==11?'11 now':g}</span>`).join('');
+</script>
+</body>
+</html>
