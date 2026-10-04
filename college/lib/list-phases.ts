@@ -1,6 +1,7 @@
 /** College-list funnel phases (separate from the checklist timeline). */
 
 import { isSortKey, type SortKey } from "@/lib/list";
+import { ROADMAP_TRACKS, type RoadmapSegment } from "@/lib/roadmap";
 
 export type ListPhaseId = "exploration" | "consideration" | "applications";
 
@@ -66,18 +67,64 @@ export const LIST_COLUMNS: { id: ListColumnId; label: string; required?: boolean
   { id: "extras", label: "Optional submissions" },
 ];
 
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+/** First calendar day of a 0-indexed month. */
+function firstDayIso(year: number, month: number): string {
+  return `${year}-${pad2(month + 1)}-01`;
+}
+
+/** Last calendar day of a 0-indexed month. */
+function lastDayIso(year: number, month: number): string {
+  const date = new Date(year, month + 1, 0);
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
+function formatMonthYear(year: number, month: number): string {
+  return `${MONTH_SHORT[month]} ${year}`;
+}
+
+function formatOpenDay(iso: string): string {
+  const [, month, day] = iso.split("-").map(Number);
+  return `${MONTH_SHORT[month - 1]} ${day}`;
+}
+
+function collegeListSegment(id: string): RoadmapSegment {
+  const track = ROADMAP_TRACKS.find((item) => item.id === "college-list");
+  const segment = track?.segments?.find((item) => item.id === id);
+  if (!segment) throw new Error(`college-list segment "${id}" is missing`);
+  return segment;
+}
+
+function datesFromSegment(segment: RoadmapSegment, openEnded: boolean) {
+  const startsOn = firstDayIso(segment.start.year, segment.start.month);
+  const endsOn = openEnded ? null : lastDayIso(segment.end.year, segment.end.month);
+  const window = openEnded
+    ? `${formatMonthYear(segment.start.year, segment.start.month)} onward`
+    : `${formatMonthYear(segment.start.year, segment.start.month)} – ${formatMonthYear(segment.end.year, segment.end.month)}`;
+  return { startsOn, endsOn, window };
+}
+
+const exploreDates = datesFromSegment(collegeListSegment("explore"), false);
+const considerDates = datesFromSegment(collegeListSegment("consider"), false);
+const applyDates = datesFromSegment(collegeListSegment("apply"), true);
+
 export const LIST_PHASES: ListPhase[] = [
   {
     id: "exploration",
     label: "Exploration",
-    window: "Sep 2026 – Dec 2026",
-    season: "Junior fall",
+    window: exploreDates.window,
+    season: "Junior fall to spring",
     target: 30,
     rangeLo: 27,
     rangeHi: 33,
     rangeLabel: "27–33",
-    startsOn: "2026-09-01",
-    endsOn: "2026-12-31",
+    startsOn: exploreDates.startsOn,
+    endsOn: exploreDates.endsOn,
     // Status is the same for everyone here — researching — so leave it off.
     defaultColumns: [
       "school",
@@ -95,14 +142,14 @@ export const LIST_PHASES: ListPhase[] = [
   {
     id: "consideration",
     label: "Consideration",
-    window: "Jan 2027 – Jul 2027",
-    season: "Junior spring",
+    window: considerDates.window,
+    season: "Junior spring and summer",
     target: 12,
     rangeLo: 10,
     rangeHi: 15,
     rangeLabel: "10–15",
-    startsOn: "2027-01-01",
-    endsOn: "2027-07-26",
+    startsOn: considerDates.startsOn,
+    endsOn: considerDates.endsOn,
     defaultColumns: [
       "school",
       "setting",
@@ -118,14 +165,14 @@ export const LIST_PHASES: ListPhase[] = [
   {
     id: "applications",
     label: "Applications",
-    window: "Jul 2027 onward",
+    window: applyDates.window,
     season: "Senior fall",
     target: 10,
     rangeLo: 8,
     rangeHi: 12,
     rangeLabel: "8–12",
-    startsOn: "2027-07-27",
-    endsOn: null,
+    startsOn: applyDates.startsOn,
+    endsOn: applyDates.endsOn,
     defaultColumns: [
       "school",
       "setting",
@@ -253,6 +300,25 @@ export function listPhaseEyebrow(phaseId: ListPhaseId): string {
   const index = LIST_PHASES.findIndex((phase) => phase.id === phaseId);
   const phase = listPhaseById(phaseId);
   return `Phase ${index + 1} of 3 · ${phase.season}`;
+}
+
+/** Rail header: Phase N of 3 · Exploration. */
+export function listPhaseRailTitle(phaseId: ListPhaseId): string {
+  const index = LIST_PHASES.findIndex((phase) => phase.id === phaseId);
+  return `Phase ${index + 1} of 3 · ${listPhaseById(phaseId).label}`;
+}
+
+/** Page dateline / dashboard heading: Phase N · Exploration. */
+export function listPhaseHeadline(phaseId: ListPhaseId): string {
+  const index = LIST_PHASES.findIndex((phase) => phase.id === phaseId);
+  return `Phase ${index + 1} · ${listPhaseById(phaseId).label}`;
+}
+
+export function listPhaseNextLine(phaseId: ListPhaseId): string {
+  const next = nextListPhaseId(phaseId);
+  if (!next) return "Final phase";
+  const phase = listPhaseById(next);
+  return `Next: ${phase.label}, ${phase.window}`;
 }
 
 export function nextListPhaseId(id: ListPhaseId): ListPhaseId | null {
@@ -404,7 +470,7 @@ export function listSizeBar(count: number, phase: ListPhase, scaleMax = 50): Lis
   if (overRange) {
     prose =
       phase.id === "exploration"
-        ? `${count} active against a target of about ${target}. Trim ${over} to reach the top of the range before Consideration opens in January.`
+        ? `${count} active against a target of about ${target}. Trim ${over} to reach the top of the range before Consideration opens on ${formatOpenDay(listPhaseById("consideration").startsOn)}.`
         : `${count} active against a target of about ${target}. Trim ${over} to reach the top of the range.`;
   } else if (underRange) {
     prose = `${count} active against a target of about ${target}. Add ${under} more to reach the bottom of the range.`;

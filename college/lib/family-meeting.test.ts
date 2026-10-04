@@ -27,23 +27,33 @@ test("exploration meetings are Sundays every two weeks from 6 Sep 2026", () => {
   assert.equal(isFamilyMeetingDate("2026-10-04"), true);
   assert.equal(isFamilyMeetingDate("2026-10-05"), false);
   assert.equal(isFamilyMeetingDate("2026-12-27"), true);
-  assert.equal(isFamilyMeetingDate("2027-01-03"), true);
+  assert.equal(isFamilyMeetingDate("2027-01-03"), false);
+  assert.equal(isFamilyMeetingDate("2027-04-18"), true);
+  assert.equal(isFamilyMeetingDate("2027-05-02"), true);
 });
 
 test("consideration and applications meetings are weekly Sundays", () => {
   assert.equal(familyMeetingIntervalDays("consideration"), 7);
   assert.equal(familyMeetingIntervalDays("applications"), 7);
   assert.equal(familyMeetingCadenceLabel("consideration"), "weekly");
-  const january = familyMeetingDates("2027-01-01", "2027-01-24");
-  assert.deepEqual(january, ["2027-01-03", "2027-01-10", "2027-01-17", "2027-01-24"]);
-  assert.equal(familyMeetingOccurrence("2027-01-03").cadence, "weekly");
+  const spring = familyMeetingDates("2027-04-01", "2027-05-31");
+  assert.deepEqual(spring, [
+    "2027-04-04",
+    "2027-04-18",
+    "2027-05-02",
+    "2027-05-09",
+    "2027-05-16",
+    "2027-05-23",
+    "2027-05-30",
+  ]);
+  assert.equal(familyMeetingOccurrence("2027-05-02").cadence, "weekly");
   assert.equal(familyMeetingOccurrence("2026-10-04").cadence, "biweekly");
 });
 
 test("nextFamilyMeetingDate includes today when today is a meeting Sunday", () => {
   assert.equal(nextFamilyMeetingDate(new Date(2026, 9, 4)), "2026-10-04");
   assert.equal(nextFamilyMeetingDate(new Date(2026, 9, 5)), "2026-10-18");
-  assert.equal(nextFamilyMeetingDate(new Date(2026, 11, 28)), "2027-01-03");
+  assert.equal(nextFamilyMeetingDate(new Date(2026, 11, 28)), "2027-01-10");
 });
 
 test("doneBy helpers keep household order and require every owner", () => {

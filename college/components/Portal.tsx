@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { AppsMaterialsTab } from "./AppsMaterialsTab";
 import { AppQuestionsTab } from "./AppQuestionsTab";
 import { CollegesMobileList } from "./CollegesMobileList";
@@ -27,9 +27,8 @@ import {
   seedScores,
 } from "@/lib/content";
 import { appQuestions } from "@/lib/app-questions";
-import { currentPhaseIndex, phaseStatuses } from "@/lib/phases";
 import { useSchoolPipeline } from "@/lib/use-school-pipeline";
-import { defaultListPrefs, mergeListPrefs, isForwardListPhaseMove, currentListPhaseId, type MemberListPrefs } from "@/lib/list-phases";
+import { defaultListPrefs, mergeListPrefs, isForwardListPhaseMove, currentListPhaseId, listPhaseHeadline, type MemberListPrefs } from "@/lib/list-phases";
 import { canAdvanceListPhase, canEditActivitiesJournal, canViewFinances, isAdminRole } from "@/lib/permissions";
 import {
   emptyHouseholdFinances,
@@ -679,10 +678,7 @@ export function Portal({
     if (!proceeded) return;
   }
 
-  const statuses = useMemo(() => phaseStatuses(phases, checklist), [checklist]);
-  const phaseIndex = currentPhaseIndex(statuses);
-  const current = phases[phaseIndex];
-  const phaseLabel = current ? `Phase ${phaseIndex + 1} · ${current.phase}` : "";
+  const phaseLabel = listPhaseHeadline(currentListPhaseId());
   const faqCount = faqCategories.reduce((sum, category) => sum + category.items.length, 0);
   const testingCount = testingItems(phases).length;
   const canEditJournal = canEditActivitiesJournal(member);
@@ -1477,7 +1473,6 @@ export function Portal({
         consultantCount={consultantFirms.length}
         faqCount={faqCount}
         testingCount={testingCount}
-        checklist={checklist}
       />
       <main className="main">
         {tab === "dashboard" ? (

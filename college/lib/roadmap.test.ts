@@ -66,9 +66,13 @@ test("reference tracks land on the example spans", () => {
   assert.equal(spanLength(essays.start, essays.end), 1);
   assert.equal(list.segments?.length, 3);
   assert.equal(list.segments?.[0]?.label, "Explore");
-  assert.equal(spanLength(list.segments![0].start, list.segments![0].end), 7);
+  assert.equal(spanLength(list.segments![0].start, list.segments![0].end), 8);
   assert.equal(spanLength(list.segments![1].start, list.segments![1].end), 3);
-  assert.equal(spanLength(list.segments![2].start, list.segments![2].end), 2);
+  assert.equal(spanLength(list.segments![2].start, list.segments![2].end), 1);
+  const visits = ROADMAP_TRACKS.find((track) => track.id === "visits");
+  assert.ok(visits);
+  assert.equal(visits.end.month, 3);
+  assert.equal(visits.end.year, 2027);
   assert.equal(monthIndex(essays.start.year, essays.start.month), 9);
 });
 
@@ -79,8 +83,8 @@ test("segmentState colors Explore as active before Consider starts", () => {
   assert.equal(segmentState(explore, new Date("2026-11-15T12:00:00Z")), "active");
   assert.equal(segmentState(consider, new Date("2026-11-15T12:00:00Z")), "future");
   assert.equal(segmentState(apply, new Date("2026-11-15T12:00:00Z")), "future");
-  assert.equal(segmentState(explore, new Date("2027-04-15T12:00:00Z")), "done");
-  assert.equal(segmentState(consider, new Date("2027-04-15T12:00:00Z")), "active");
+  assert.equal(segmentState(explore, new Date("2027-04-15T12:00:00Z")), "active");
+  assert.equal(segmentState(consider, new Date("2027-04-15T12:00:00Z")), "future");
 });
 
 test("trackState marks future work past the current month", () => {

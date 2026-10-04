@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { canViewFinances } from "./permissions";
+import { currentListPhaseId } from "./list-phases";
 
 test("Exploration finances: parent and admin only", () => {
   assert.equal(canViewFinances({ id: "p1", role: "parent" }, "exploration"), true);
@@ -14,4 +15,12 @@ test("After Exploration, student can view finances", () => {
   assert.equal(canViewFinances({ id: "s1", role: "student" }, "consideration"), true);
   assert.equal(canViewFinances({ id: "s1", role: "student" }, "applications"), true);
   assert.equal(canViewFinances({ id: "g1", role: "sibling" }, "consideration"), false);
+  assert.equal(
+    canViewFinances({ id: "s1", role: "student" }, currentListPhaseId(new Date(2027, 3, 30))),
+    false,
+  );
+  assert.equal(
+    canViewFinances({ id: "s1", role: "student" }, currentListPhaseId(new Date(2027, 4, 1))),
+    true,
+  );
 });

@@ -10,6 +10,9 @@ import {
   listPhaseBarProgress,
   listPhaseDaySpan,
   listPhaseEyebrow,
+  listPhaseHeadline,
+  listPhaseNextLine,
+  listPhaseRailTitle,
   LIST_PHASES,
   listSizeBar,
   mergeListPrefs,
@@ -25,6 +28,7 @@ import {
   selectivityPieSlices,
   type ListColumnId,
 } from "./list-phases";
+import { ROADMAP_TRACKS } from "./roadmap";
 import { canAdvanceListPhase } from "./permissions";
 
 const IDEAL_PERCENTS = IDEAL_SELECTIVITY_MIX.map((tier) => tier.idealPercent);
@@ -43,22 +47,61 @@ const explorationPhase = {
   defaultColumns: ["school", "selectivity", "interest", "action"] as const,
 };
 
+test("LIST_PHASES dates match the college-list track segments", () => {
+  const track = ROADMAP_TRACKS.find((item) => item.id === "college-list");
+  assert.ok(track?.segments);
+  const explore = track.segments.find((item) => item.id === "explore");
+  const consider = track.segments.find((item) => item.id === "consider");
+  const apply = track.segments.find((item) => item.id === "apply");
+  assert.ok(explore && consider && apply);
+
+  assert.equal(LIST_PHASES[0].startsOn, "2026-09-01");
+  assert.equal(LIST_PHASES[0].endsOn, "2027-04-30");
+  assert.equal(LIST_PHASES[0].window, "Sep 2026 – Apr 2027");
+  assert.equal(LIST_PHASES[0].season, "Junior fall to spring");
+  assert.equal(explore.start.year, 2026);
+  assert.equal(explore.start.month, 8);
+  assert.equal(explore.end.year, 2027);
+  assert.equal(explore.end.month, 3);
+
+  assert.equal(LIST_PHASES[1].startsOn, "2027-05-01");
+  assert.equal(LIST_PHASES[1].endsOn, "2027-07-31");
+  assert.equal(LIST_PHASES[1].window, "May 2027 – Jul 2027");
+  assert.equal(LIST_PHASES[1].season, "Junior spring and summer");
+  assert.equal(consider.start.year, 2027);
+  assert.equal(consider.start.month, 4);
+  assert.equal(consider.end.month, 6);
+
+  assert.equal(LIST_PHASES[2].startsOn, "2027-08-01");
+  assert.equal(LIST_PHASES[2].endsOn, null);
+  assert.equal(LIST_PHASES[2].window, "Aug 2027 onward");
+  assert.equal(apply.start.month, 7);
+  assert.equal(apply.end.month, 7);
+});
+
 test("currentListPhaseId follows the funnel calendar", () => {
-  assert.equal(currentListPhaseId(new Date("2026-09-20T12:00:00Z")), "exploration");
-  assert.equal(currentListPhaseId(new Date("2026-12-31T12:00:00Z")), "exploration");
-  assert.equal(currentListPhaseId(new Date("2027-01-01T12:00:00Z")), "consideration");
-  assert.equal(currentListPhaseId(new Date("2027-07-26T12:00:00Z")), "consideration");
-  assert.equal(currentListPhaseId(new Date("2027-07-27T12:00:00Z")), "applications");
+  assert.equal(currentListPhaseId(new Date(2026, 8, 20)), "exploration");
+  assert.equal(currentListPhaseId(new Date(2026, 11, 31)), "exploration");
+  assert.equal(currentListPhaseId(new Date(2027, 0, 1)), "exploration");
+  assert.equal(currentListPhaseId(new Date(2027, 3, 30)), "exploration");
+  assert.equal(currentListPhaseId(new Date(2027, 4, 1)), "consideration");
+  assert.equal(currentListPhaseId(new Date(2027, 6, 31)), "consideration");
+  assert.equal(currentListPhaseId(new Date(2027, 7, 1)), "applications");
 });
 
 test("list phase calendar bar spans, progress, and eyebrow", () => {
   assert.ok(listPhaseDaySpan(LIST_PHASES[0]) > 100);
-  assert.ok(listPhaseDaySpan(LIST_PHASES[1]) > listPhaseDaySpan(LIST_PHASES[0]));
+  assert.ok(listPhaseDaySpan(LIST_PHASES[0]) > listPhaseDaySpan(LIST_PHASES[1]));
   const midExploration = listPhaseBarProgress(LIST_PHASES[0], new Date(2026, 9, 15));
   assert.ok(midExploration > 0 && midExploration < 1);
   assert.equal(listPhaseBarProgress(LIST_PHASES[1], new Date(2026, 9, 15)), 0);
-  assert.equal(listPhaseBarProgress(LIST_PHASES[0], new Date(2027, 2, 1)), 1);
-  assert.equal(listPhaseEyebrow("consideration"), "Phase 2 of 3 · Junior spring");
+  assert.ok(listPhaseBarProgress(LIST_PHASES[0], new Date(2027, 2, 1)) < 1);
+  assert.equal(listPhaseBarProgress(LIST_PHASES[0], new Date(2027, 4, 1)), 1);
+  assert.equal(listPhaseEyebrow("consideration"), "Phase 2 of 3 · Junior spring and summer");
+  assert.equal(listPhaseRailTitle("exploration"), "Phase 1 of 3 · Exploration");
+  assert.equal(listPhaseHeadline("exploration"), "Phase 1 · Exploration");
+  assert.equal(listPhaseNextLine("exploration"), "Next: Consideration, May 2027 – Jul 2027");
+  assert.equal(listPhaseNextLine("applications"), "Final phase");
 });
 
 test("phaseCountGauge can read over 100%", () => {
@@ -92,6 +135,7 @@ test("listSizeBar reports over, under, and in-range notes", () => {
   const over = listSizeBar(43, explorationPhase);
   assert.equal(over.note, "+10 over range");
   assert.match(over.prose, /Trim 10/);
+  assert.match(over.prose, /before Consideration opens on May 1/);
   assert.equal(over.overRange, true);
 
   const under = listSizeBar(20, explorationPhase);
