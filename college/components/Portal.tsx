@@ -68,6 +68,7 @@ import {
   normalizeJournal,
   type ActivitiesJournal,
 } from "@/lib/activities-journal";
+import { applyJournalClientWrite } from "@/lib/journal-guard";
 import {
   DEFAULT_PROJECT_SECTION,
   resolveProjectSection,
@@ -258,6 +259,7 @@ export function Portal({
   const journalSaveInFlight = useRef(false);
   const journalDirty = useRef(false);
   const persistedRef = useRef(false);
+  const loadedRef = useRef(false);
   const patchStateRef = useRef<(
     body: { activitiesJournal: ActivitiesJournal },
     opts?: { keepalive?: boolean },
@@ -380,7 +382,10 @@ export function Portal({
       } catch {
         if (!cancelled) setSaveState("Not saved");
       } finally {
-        if (!cancelled) setLoaded(true);
+        if (!cancelled) {
+          loadedRef.current = true;
+          setLoaded(true);
+        }
       }
     }
     void load();
@@ -624,19 +629,28 @@ export function Portal({
   }
 
   function changeJournal(next: ActivitiesJournal) {
-    journalDirty.current = true;
-    setActivitiesJournal(next);
-    pendingJournal.current = next;
-    if (!persistedRef.current) {
-      setSaveState("Not saved");
-      return;
-    }
-    setSaveState("Saving...");
-    if (journalSaveTimer.current != null) window.clearTimeout(journalSaveTimer.current);
-    journalSaveTimer.current = window.setTimeout(() => {
-      journalSaveTimer.current = undefined;
-      flushJournalSave();
-    }, 500);
+    const proceeded = applyJournalClientWrite({
+      loaded: loadedRef.current,
+      next,
+      applyLocal: (journal) => {
+        journalDirty.current = true;
+        setActivitiesJournal(journal);
+      },
+      scheduleSave: (journal) => {
+        pendingJournal.current = journal;
+        if (!persistedRef.current) {
+          setSaveState("Not saved");
+          return;
+        }
+        setSaveState("Saving...");
+        if (journalSaveTimer.current != null) window.clearTimeout(journalSaveTimer.current);
+        journalSaveTimer.current = window.setTimeout(() => {
+          journalSaveTimer.current = undefined;
+          flushJournalSave();
+        }, 500);
+      },
+    });
+    if (!proceeded) return;
   }
 
   const statuses = useMemo(() => phaseStatuses(phases, checklist), [checklist]);

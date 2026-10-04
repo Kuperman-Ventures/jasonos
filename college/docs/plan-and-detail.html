@@ -1,0 +1,319 @@
+<title>Plan and Activity Detail</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600&display=swap">
+<style>
+/* Layout: app chrome, then either the Plan tab (threads with questions, then the project planner) or one activity's detail page as a single scrolling page.
+   Tokens copied from college/app/tokens.css (light) and [data-mode="dark"]. */
+:root {
+  --bg: #f3f2f2; --surface: #eae9e9; --surface-2: #e0dede; --raised: #ffffff;
+  --border: #d7d3d3; --rule: #eae7e7; --dash: #9b9797;
+  --text: #201e1d; --muted: #444141; --subtle: #605d5d; --placeholder: #7d7979;
+  --accent: #e85504; --accent-pressed: #c74503; --accent-tint: #feeee4; --accent-tint-2: #fdd6c0;
+  --text-accent: #9e3603; --on-accent: #ffffff; --done: #0088b0; --text-done: #006a8a; --milestone: #d6006c; --failing: oklch(0.56 0.19 28);
+  --proto: #1b4ca8; --proto-tint: #e7edf8;
+  --font-display: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-body: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1f2228; --surface: #2d3139; --surface-2: #353a43; --raised: #2d3139;
+    --border: #3d424b; --rule: rgba(240,238,236,.10); --dash: #5d636c;
+    --text: #f0eeec; --muted: #c3c8cf; --subtle: #9aa0a8; --placeholder: #7f858e;
+    --accent: #e85504; --accent-pressed: #f58749; --accent-tint: #3b2317; --accent-tint-2: #50301d;
+    --text-accent: #fab48e; --on-accent: #ffffff; --done: #0088b0; --text-done: #5cc3e6; --milestone: #ff4d9d; --failing: oklch(0.66 0.18 28);
+    --proto: #8fb0ef; --proto-tint: #24304a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1f2228; --surface: #2d3139; --surface-2: #353a43; --raised: #2d3139;
+  --border: #3d424b; --rule: rgba(240,238,236,.10); --dash: #5d636c;
+  --text: #f0eeec; --muted: #c3c8cf; --subtle: #9aa0a8; --placeholder: #7f858e;
+  --accent: #e85504; --accent-pressed: #f58749; --accent-tint: #3b2317; --accent-tint-2: #50301d;
+  --text-accent: #fab48e; --on-accent: #ffffff; --done: #0088b0; --text-done: #5cc3e6; --milestone: #ff4d9d; --failing: oklch(0.66 0.18 28);
+  --proto: #8fb0ef; --proto-tint: #24304a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font-body); font-size: 15px; line-height: 1.5; padding-inline: 16px; padding-block: 0 56px; }
+button { font: inherit; color: inherit; }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.proto { max-width: 1040px; margin: 0 auto; padding-block: 10px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-family: var(--font-mono); font-size: 12px; color: var(--proto); border-bottom: 1px dashed var(--proto); }
+.proto strong { font-weight: 500; letter-spacing: .06em; text-transform: uppercase; }
+.proto button { background: var(--proto-tint); color: var(--proto); border: 1px solid transparent; padding: 3px 10px; border-radius: 2px; cursor: pointer; font-family: var(--font-mono); font-size: 12px; }
+.proto button[aria-pressed="true"] { border-color: var(--proto); }
+.proto .note { color: var(--subtle); }
+
+.page { max-width: 1040px; margin: 0 auto; padding-top: 28px; }
+.eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-accent); }
+.page h1 { font-weight: 700; font-size: 30px; margin: 2px 0 14px; letter-spacing: -.01em; }
+.tabs { display: flex; gap: 22px; border-bottom: 1px solid var(--border); font-size: 13px; overflow-x: auto; }
+.tabs span { padding: 8px 0; white-space: nowrap; color: var(--subtle); }
+.tabs span.on { color: var(--text); border-bottom: 2px solid var(--accent); font-weight: 600; }
+
+.head { padding-top: 30px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 14px 24px; }
+.title { font-family: var(--font-display); font-weight: 500; font-size: clamp(26px, 4vw, 34px); line-height: 1.15; margin: 0; }
+.sum { margin: 8px 0 0; color: var(--muted); font-size: 16px; max-width: 62ch; }
+.link-btn { background: none; border: 0; padding: 2px 0; cursor: pointer; color: var(--subtle); font-size: 13px; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border); }
+.link-btn:hover { color: var(--text); }
+.link-btn.strong { color: var(--text-accent); text-decoration-color: var(--accent-tint-2); font-weight: 600; }
+.primary { border: 0; background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: 14px; padding: 10px 16px; border-radius: 2px; cursor: pointer; }
+.sec-h { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border-bottom: 2px solid var(--text); padding-bottom: 6px; margin-top: 40px; }
+.sec-h h3 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 24px; }
+.sec-h .meta { font-size: 13px; color: var(--subtle); }
+.intro { color: var(--muted); max-width: 62ch; margin: 10px 0 0; }
+
+/* Strip rows */
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) 280px 56px; gap: 0 18px; align-items: center; }
+.gh { font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--subtle); padding: 12px 0 4px; }
+.gnums { display: grid; grid-template-columns: repeat(3, 1fr) 8px repeat(4, 1fr); text-align: center; font-size: 11px; letter-spacing: 0; }
+.gnums .now { color: var(--text-accent); font-weight: 500; }
+.row { padding: 8px 0; border-bottom: 1px solid var(--rule); }
+.row .n { font-weight: 600; }
+.strip { display: grid; grid-template-columns: repeat(3, 1fr) 8px repeat(4, 1fr); height: 18px; }
+.strip span { background: transparent; }
+.strip .on { background: var(--accent-tint-2); } .strip .now { background: var(--accent); }
+.strip .track { background: var(--surface); }
+.strip .plan { box-shadow: inset 0 0 0 1px var(--dash); background: repeating-linear-gradient(135deg, transparent 0 4px, var(--surface) 4px 6px); }
+.strip .s { border-radius: 3px 0 0 3px; } .strip .e { border-radius: 0 3px 3px 0; }
+.yrs { font-size: 13px; color: var(--subtle); text-align: right; }
+
+/* Thread questions */
+.thread { margin-top: 28px; }
+.thread-h { display: flex; align-items: baseline; gap: 12px; }
+.thread-h h4 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 20px; }
+.qs { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 10px; }
+.q { background: var(--raised); border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px; }
+.q-top { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.q-k { font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-accent); }
+.q-t { font-weight: 600; margin: 2px 0 0; }
+.q-help { font-size: 13px; color: var(--subtle); margin: 4px 0 0; }
+.q textarea, .q input { width: 100%; margin-top: 8px; border: 0; border-bottom: 2px solid var(--text); background: transparent; color: var(--text); font-family: var(--font-body); font-size: 16px; padding: 6px 0; resize: vertical; }
+.q textarea:focus-visible, .q input:focus-visible { outline: none; border-bottom-color: var(--accent); }
+.q.closed { padding: 10px 16px; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.q.closed .q-t { margin: 0; font-weight: 500; color: var(--muted); }
+.stepnote { margin-top: 10px; font-size: 13px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; }
+.planned { margin: 14px 0 0; padding: 0; list-style: none; font-size: 14px; }
+.planned li { display: flex; gap: 10px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--rule); }
+.hatch { width: 18px; height: 10px; box-shadow: inset 0 0 0 1px var(--dash); background: repeating-linear-gradient(135deg, transparent 0 4px, var(--surface) 4px 6px); border-radius: 2px; flex: none; }
+
+/* Project */
+.proj { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 40px; margin-top: 20px; align-items: start; }
+.p-step { font-family: var(--font-mono); font-size: 12px; color: var(--subtle); }
+.p-q { font-family: var(--font-display); font-weight: 500; font-size: 26px; line-height: 1.2; margin: 6px 0 0; }
+.p-help { color: var(--muted); margin: 10px 0 0; max-width: 52ch; }
+.p-help em { font-style: normal; color: var(--subtle); }
+.p-in { width: 100%; margin-top: 18px; border: 0; border-bottom: 2px solid var(--text); background: transparent; color: var(--text); font-size: 18px; padding: 6px 0; font-family: var(--font-body); resize: vertical; }
+.p-in::placeholder { color: var(--placeholder); }
+.p-foot { margin-top: 26px; display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+.side { border-top: 2px solid var(--text); padding-top: 10px; }
+.side h5 { margin: 0 0 8px; font-family: var(--font-mono); font-weight: 500; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--subtle); }
+.side ol { margin: 0; padding-left: 18px; font-size: 13px; color: var(--muted); display: grid; gap: 6px; }
+.side li.done { color: var(--text); }
+.side li.cur { color: var(--text-accent); font-weight: 600; }
+.partner { display: grid; gap: 8px; margin-top: 14px; padding: 12px 14px; background: var(--raised); border: 1px solid var(--border); border-radius: 4px; }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pills button { border: 1px solid var(--border); background: transparent; color: var(--muted); padding: 4px 11px; border-radius: 999px; font-size: 12px; cursor: pointer; }
+.pills button[aria-pressed="true"] { border-color: var(--text); color: var(--text); background: var(--raised); font-weight: 600; }
+.ms { list-style: none; margin: 14px 0 0; padding: 0; }
+.ms li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--rule); }
+.chip { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; background: var(--raised); color: var(--muted); cursor: pointer; }
+.chip.late { border-color: var(--failing); color: var(--failing); }
+.chk { width: 18px; height: 18px; border: 1.5px solid var(--dash); border-radius: 3px; display: inline-block; }
+.chk.on { background: var(--done); border-color: var(--done); }
+
+/* Detail */
+.back { margin-top: 18px; }
+.d-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px; padding-top: 8px; }
+.d-name { font-family: var(--font-display); font-weight: 500; font-size: clamp(28px, 4vw, 36px); margin: 0; }
+.d-meta { color: var(--subtle); font-size: 14px; margin: 6px 0 0; }
+.d-sec { margin-top: 34px; }
+.d-sec h3 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 22px; border-bottom: 2px solid var(--text); padding-bottom: 6px; }
+.d-sec .sub { font-size: 13px; color: var(--subtle); margin: 8px 0 0; }
+.years { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+.years th { text-align: left; font-family: var(--font-mono); font-weight: 400; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--subtle); padding: 0 10px 6px 0; }
+.years td { padding: 10px 10px 10px 0; border-top: 1px solid var(--rule); vertical-align: middle; }
+.years input { width: 56px; border: 0; border-bottom: 1.5px solid var(--border); background: transparent; color: var(--text); font-size: 15px; padding: 2px 0; font-variant-numeric: tabular-nums; }
+.years input.wide { width: 100%; min-width: 140px; }
+.years .miss { border-bottom-color: var(--accent); }
+.wrap-x { overflow-x: auto; }
+.qa { display: grid; gap: 18px; margin-top: 14px; max-width: 680px; }
+.qa label { display: block; font-weight: 600; }
+.qa .help { display: block; font-size: 13px; color: var(--subtle); font-weight: 400; margin-top: 2px; }
+.qa input, .qa textarea { width: 100%; margin-top: 6px; border: 0; border-bottom: 2px solid var(--text); background: transparent; color: var(--text); font-family: var(--font-body); font-size: 16px; padding: 6px 0; resize: vertical; }
+.qa input::placeholder, .qa textarea::placeholder { color: var(--placeholder); }
+.moments { list-style: none; margin: 12px 0 0; padding: 0; }
+.moments li { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+.moments .dt { font-family: var(--font-mono); font-size: 12px; color: var(--subtle); }
+.empty { color: var(--subtle); font-size: 14px; margin-top: 10px; }
+
+@media (max-width: 780px) {
+  .cols { grid-template-columns: minmax(0, 1fr) auto; }
+  .cols > .strip { grid-column: 1 / -1; grid-row: 2; }
+  .gh.cols > :first-child, .gh.cols > :last-child { display: none; }
+  .gh.cols .gnums { grid-column: 1 / -1; }
+  .proj { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+
+<div class="proto" role="region" aria-label="Prototype controls">
+  <strong>Mockup</strong>
+  <button type="button" data-v="plan" aria-pressed="true">Plan tab</button>
+  <button type="button" data-v="project" aria-pressed="false">Project planner</button>
+  <button type="button" data-v="projectSaved" aria-pressed="false">Saved project</button>
+  <button type="button" data-v="detail" aria-pressed="false">Activity detail</button>
+  <span class="note">Kyle's activities; thread names, answers, project and partner are placeholders. Nothing saves.</span>
+</div>
+
+<div class="page">
+  <div class="eyebrow">Phase 1 · Junior Fall</div>
+  <h1>Apps &amp; Materials</h1>
+  <nav class="tabs" aria-label="Activities views" id="tabs"></nav>
+  <div id="app"></div>
+</div>
+
+<script>
+(function () {
+  let v = "plan";
+  let open = "deeper";
+  let pStep = 3;
+  const app = document.getElementById("app");
+  const tabs = document.getElementById("tabs");
+  const NOW = 11, G = [6,7,8,9,10,11,12];
+
+  function strip(since, plannedTo) {
+    let h = "";
+    G.forEach((g) => {
+      if (g === 9) h += `<span class="${since < 9 && since != null ? "on" : ""}"></span>`;
+      let c;
+      if (since != null && g >= since && g <= NOW) { c = "on" + (g === NOW ? " now" : ""); if (g === since) c += " s"; if (g === NOW && !plannedTo) c += " e"; }
+      else if (plannedTo && g > NOW && g <= plannedTo) c = "plan" + (g === plannedTo ? " e" : "");
+      else c = g > NOW ? "" : "track";
+      h += `<span class="${c}"></span>`;
+    });
+    return `<div class="strip" aria-hidden="true">${h}</div>`;
+  }
+  const header = `<div class="gh cols"><span></span><div class="gnums">${G.map((g, i) => (g === 9 ? "<span></span>" : "") + `<span class="${g === NOW ? "now" : ""}">${g === NOW ? "11 now" : g}</span>`).join("")}</div><span></span></div>`;
+  const row = (n, s, p) => `<div class="row cols"><span class="n">${n}</span>${strip(s, p)}<span class="yrs">${NOW - s + 1} yrs</span></div>`;
+
+  const Q = [
+    ["deeper", "Deeper", "What skill level could you reach by the end of senior year?", "Move up a chair or section, earn the next rank or level, make a higher team, pass the next certification."],
+    ["lead", "Lead", "What role could you take on, or who could you teach?", "Section leader, captain, officer, mentoring newer members, running a practice or workshop."],
+    ["outsideSchool", "Outside school", "Where else does this happen beyond your school?", "Regional or state competitions, community groups, summer programs, college or industry events."],
+    ["makeSomething", "Make something", "What could you build, record or show?", "A recording, a design you can share, a written guide, a portfolio, a performance you organize."],
+    ["connect", "Connect", "Does this thread overlap with another one?", "A skill from one thread used to solve a problem in another."]
+  ];
+
+  function plan() {
+    const qs = Q.map(([k, lab, q, help]) => k === open
+      ? `<li class="q"><div class="q-top"><span class="q-k">${lab}</span><span class="link-btn">Saves as you type</span></div><p class="q-t">${q}</p><p class="q-help">For example: ${help}</p><textarea rows="2" placeholder="Your answer">Example answer: audition for a regional ensemble next spring.</textarea>
+          <div class="stepnote"><button type="button" class="link-btn strong">Add as a planned step</button><span>Puts it on Marching Band's row as a planned grade.</span></div></li>`
+      : `<li class="q closed" data-q="${k}"><span><span class="q-k">${lab}</span> <span class="q-t">${q}</span></span><button type="button" class="link-btn">${k === "lead" ? "Answered" : "Answer"}</button></li>`).join("");
+    return `
+      <div class="head"><div><h2 class="title">Plan</h2><p class="sum">What you plan to do between now and graduation. Your threads come first, because sticking with things is what colleges notice most.</p></div></div>
+      <div class="sec-h"><h3>Your Threads</h3><span class="meta">2 threads</span></div>
+      <div class="thread">
+        <div class="thread-h"><h4>Music</h4><span class="meta" style="font-size:13px;color:var(--subtle)">Example thread</span></div>
+        ${header}${row("Trumpet", 6)}${row("Band", 6)}${row("Marching Band", 9, 12)}
+        <ul class="qs">${qs}</ul>
+        <ul class="planned"><li><span class="hatch" aria-hidden="true"></span><span><b>Marching Band</b> · 12th grade · Example planned step</span></li></ul>
+      </div>
+      <div class="thread">
+        <div class="thread-h"><h4>Building things</h4><span class="meta" style="font-size:13px;color:var(--subtle)">Example thread · 1 of 5 answered</span></div>
+        <p class="intro"><button type="button" class="link-btn strong">Open this thread's questions</button></p>
+      </div>
+      <div class="sec-h"><h3>Self-Started Project</h3></div>
+      <p class="intro">Something you organize and create yourself, from an idea to a finished result. It usually needs help or permission from someone outside your school. It sits alongside your long-term activities and does not replace them.</p>
+      <p style="margin-top:16px"><button type="button" class="primary" data-v="project">Plan a project</button></p>`;
+  }
+
+  const PQ = [
+    ["Name", "What's a working title?", "A working title is fine. You can change it later."],
+    ["Need", "What problem or need are you addressing?", "Something you noticed that isn't working, is missing, or could be better - at school, in your town, or for a group you belong to."],
+    ["Who benefits", "Who or what benefits?", "A group of people, a place, an organization, or the environment."],
+    ["Builds on", "Which of your activities does it build on?", "Projects that use skills from your long-term activities are easier to explain in your application."],
+    ["Partners", "Who has to say yes?", "A town office, a school department, a local nonprofit, a business."],
+    ["Deliverable", "What will you make or deliver?", "The finished thing someone can see, use or visit."],
+    ["Milestones", "What are the steps, and when?", "Steps that need someone else's approval usually take longer than you expect."],
+    ["Evidence", "How will you show it worked?", "Photos, measurements or data, a letter from a partner, a news story, people who used it."],
+    ["After you graduate", "What happens after you graduate?", "Who keeps it going, maintains it, or takes it over."]
+  ];
+  function project() {
+    const [, q, help] = PQ[pStep];
+    let body;
+    if (pStep === 3) body = `<div class="pills" style="margin-top:18px"><button type="button" aria-pressed="false">Trumpet</button><button type="button" aria-pressed="false">Band</button><button type="button" aria-pressed="false">Marching Band</button><button type="button" aria-pressed="true">Robotics club</button><button type="button" aria-pressed="false">Taekwondo</button></div>`;
+    else if (pStep === 4) body = `<input class="p-in" placeholder="Organization, then press Enter">
+        <div class="partner"><b>Example partner organization</b><span style="font-size:13px;color:var(--subtle)">Contact: not added</span>
+        <div class="pills"><button type="button" aria-pressed="false">Not contacted</button><button type="button" aria-pressed="true">Contacted</button><button type="button" aria-pressed="false">Meeting held</button><button type="button" aria-pressed="false">Approved</button><button type="button" aria-pressed="false">Declined</button></div></div>`;
+    else body = `<textarea class="p-in" rows="2" placeholder="Your answer"></textarea>`;
+    return `
+      <div class="head"><div><h2 class="title">Plan</h2></div></div>
+      <p class="back"><button type="button" class="link-btn" data-v="plan">← Back to Plan</button></p>
+      <div class="proj"><div>
+        <span class="p-step">Question ${pStep + 1} of ${PQ.length}</span>
+        <h3 class="p-q">${q}</h3>
+        <p class="p-help"><em>For example:</em> ${help}</p>
+        ${body}
+        <div class="p-foot"><button type="button" class="primary" data-next>Next question</button>${pStep > 0 ? '<button type="button" class="link-btn" data-prev>Previous question</button>' : ""}<button type="button" class="link-btn">Skip for now</button></div>
+      </div>
+      <aside class="side"><h5>Your project so far</h5><ol>${PQ.map(([lab], i) => `<li class="${i < pStep ? "done" : i === pStep ? "cur" : ""}">${lab}${i < pStep ? " - answered" : ""}</li>`).join("")}</ol></aside></div>`;
+  }
+
+  function projectSaved() {
+    const ms = [["Research", "Nov 2026", true], ["Design", "Jan 2027", true], ["Get approval", "Sep 2026", false, true], ["Build or create", "Apr 2027", false], ["Launch or install", "May 2027", false], ["Follow up", "Oct 2027", false]];
+    return `
+      <div class="head"><div><h2 class="title">Plan</h2></div></div>
+      <div class="sec-h"><h3>Example Project Title</h3><span class="meta"><button type="button" class="link-btn">Edit answers</button> · <button type="button" class="link-btn">Open in My Record</button></span></div>
+      <p class="intro">Builds on Robotics club. Partner: Example partner organization, contacted.</p>
+      <ul class="ms" aria-label="Milestones">${ms.map(([s, m, d, late]) => `<li><span class="chk${d ? " on" : ""}" aria-hidden="true"></span><span>${s}${late ? ' <span style="font-size:12px;color:var(--failing)">Past target month</span>' : ""}${d ? ' <button type="button" class="link-btn strong" style="margin-left:8px">Log a moment</button>' : ""}</span><span class="chip${late ? " late" : ""}">${m}</span></li>`).join("")}</ul>
+      <p class="intro" style="font-size:13px;color:var(--subtle)">Tap a month to change it. Checking a step off adds a dated moment you can fill in later.</p>`;
+  }
+
+  function detail() {
+    return `
+      <p class="back"><button type="button" class="link-btn">← My Record</button></p>
+      <div class="d-head"><div><h2 class="d-name">Marching Band</h2><p class="d-meta">Since 9th grade · still doing it · Music thread (example)</p></div>
+        <span><button type="button" class="link-btn">Rename</button> · <button type="button" class="link-btn">Archive</button></span></div>
+      <section class="d-sec"><h3>Each Year</h3><p class="sub">Hours and weeks feed your Common App entry. Fill in your best estimate.</p>
+        <div class="wrap-x"><table class="years"><thead><tr><th>Grade</th><th>When</th><th>Hours per week</th><th>Weeks per year</th><th>Your role that year</th><th></th></tr></thead><tbody>
+          ${[[11, "now"], [10, ""], [9, ""]].map(([g]) => `<tr><td><b>${g}th</b>${g === 11 ? ' <span style="font-size:12px;color:var(--text-accent)">now</span>' : ""}</td>
+            <td><span class="pills"><button type="button" aria-pressed="true">School year</button><button type="button" aria-pressed="false">Summer</button><button type="button" aria-pressed="false">All year</button></span></td>
+            <td><input class="miss" inputmode="numeric" aria-label="Hours per week in ${g}th"></td><td><input class="miss" inputmode="numeric" aria-label="Weeks per year in ${g}th"></td>
+            <td><input class="wide" placeholder="Member" aria-label="Role in ${g}th"></td><td><button type="button" class="link-btn">Remove</button></td></tr>`).join("")}
+        </tbody></table></div>
+        <p class="sub"><button type="button" class="link-btn strong">+ Add a year</button> &nbsp; <button type="button" class="link-btn">+ Plan a future year</button></p></section>
+      <section class="d-sec"><h3>What You Do</h3><div class="qa">
+        <div><label for="d1">What's your role?<span class="help">Your title or position now, if you have one.</span></label><input id="d1" placeholder="For example: section member"></div>
+        <div><label for="d2">Which group or organization?</label><input id="d2" placeholder="For example: your school's band program"></div>
+        <div><label for="d3">What do you actually do?<span class="help">A few sentences in your own words. You'll shorten it for the Common App later.</span></label><textarea id="d3" rows="3"></textarea></div>
+        <div><label>What type of activity is it?</label><span class="pills" style="margin-top:6px"><button type="button" aria-pressed="false">School club</button><button type="button" aria-pressed="true">Arts, music or theater</button><button type="button" aria-pressed="false">Athletics</button><button type="button" aria-pressed="false">More types</button></span></div>
+      </div></section>
+      <section class="d-sec"><h3>Why It Matters</h3><p class="sub">These are notes for your essays. Nobody else sees them unless you share them.</p><div class="qa">
+        <div><label for="r1">Why does this matter to you?</label><textarea id="r1" rows="2"></textarea></div>
+        <div><label for="r2">What have you gotten better at?</label><textarea id="r2" rows="2"></textarea></div>
+        <div><label for="r3">How have you changed since you started?</label><textarea id="r3" rows="2"></textarea></div>
+        <div><label for="r4">What's one moment you remember?</label><textarea id="r4" rows="2"></textarea></div>
+      </div></section>
+      <section class="d-sec"><h3>Moments</h3><p class="sub">Things that happened: a show, a competition, a new role, something you learned.</p>
+        <p class="empty">No moments yet. <button type="button" class="link-btn strong">+ Add a moment</button></p></section>
+      <section class="d-sec"><h3>Awards</h3><p class="empty">None linked to this activity. <button type="button" class="link-btn strong">+ Add an award</button></p></section>
+      <section class="d-sec"><h3>People and Links</h3><p class="empty">A coach, director or mentor who knows your work, and links to recordings or photos. <button type="button" class="link-btn strong">+ Add a person</button> · <button type="button" class="link-btn strong">+ Add a link</button></p></section>`;
+  }
+
+  function render() {
+    document.querySelectorAll("[data-v]").forEach((b) => b.closest(".proto") && b.setAttribute("aria-pressed", String(b.dataset.v === v)));
+    const onTab = v === "detail" ? "My Record" : "Plan";
+    tabs.innerHTML = ["My Record", "Plan", "Application Prep"].map((t) => `<span class="${t === onTab ? "on" : ""}">${t}</span>`).join("");
+    app.innerHTML = v === "plan" ? plan() : v === "project" ? project() : v === "projectSaved" ? projectSaved() : detail();
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-v]"); if (b) { v = b.dataset.v; if (v === "project") pStep = 3; render(); return; }
+    const q = e.target.closest("[data-q]"); if (q) { open = q.dataset.q; render(); return; }
+    if (e.target.closest("[data-next]")) { pStep = Math.min(PQ.length - 1, pStep + 1); render(); return; }
+    if (e.target.closest("[data-prev]")) { pStep = Math.max(0, pStep - 1); render(); return; }
+    const p = e.target.closest(".pills button"); if (p) { const grp = p.parentElement; if (pStep !== 3 || v !== "project") grp.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", "false")); p.setAttribute("aria-pressed", String(p.getAttribute("aria-pressed") !== "true")); }
+  });
+  render();
+})();
+</script>

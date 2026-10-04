@@ -14,6 +14,7 @@ import {
   normalizeJournal,
   type ActivitiesJournal,
 } from "@/lib/activities-journal";
+import { isDestructiveJournalWrite } from "@/lib/journal-guard";
 import { normalizeCalendarEvents, type CalendarEvent } from "@/lib/calendar-events";
 import { normalizePinNotes, type PinNote } from "@/lib/note-board";
 import { canEditActivitiesJournal } from "@/lib/permissions";
@@ -268,6 +269,24 @@ export async function PATCH(request: Request) {
       return NextResponse.json(
         { error: "Only the Student or Admin can edit the activities journal." },
         { status: 403 },
+      );
+    }
+    const { data: journalRow, error: journalReadError } = await db
+      .from("app_state")
+      .select("activities_journal")
+      .eq("id", "kyle-college")
+      .maybeSingle();
+    if (journalReadError) {
+      return NextResponse.json({ error: journalReadError.message }, { status: 400 });
+    }
+    const storedJournal = normalizeJournal(
+      (journalRow as { activities_journal?: unknown } | null)?.activities_journal,
+    );
+    const incomingJournal = normalizeJournal(body.activitiesJournal);
+    if (isDestructiveJournalWrite(storedJournal, incomingJournal)) {
+      return NextResponse.json(
+        { error: "Refusing to replace a loaded journal with an empty one." },
+        { status: 409 },
       );
     }
   }
