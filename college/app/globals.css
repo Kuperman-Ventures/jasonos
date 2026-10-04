@@ -17497,7 +17497,7 @@ button.at-link {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 .at-prep-head h2 {
   margin: 0;
