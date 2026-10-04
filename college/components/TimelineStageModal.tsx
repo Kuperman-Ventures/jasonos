@@ -21,19 +21,7 @@ import {
   type TimelineStage,
 } from "@/lib/timeline-stages";
 import { OWNERS, ownerLabel, type Owner } from "@/lib/types";
-
-type LiveStageRow = {
-  id: string;
-  label: string;
-  startDate: string | null;
-  endDate: string | null;
-  dueDate: string | null;
-  projectId: string | null;
-  phase: string | null;
-  isMilestone: boolean;
-  completedAt: string | null;
-  done: boolean;
-};
+import type { ProjectTodo } from "@/lib/project-todos";
 
 export type StageAssignPayload = {
   id: string;
@@ -45,7 +33,7 @@ export type StageAssignPayload = {
 
 export function TimelineStageModal({
   projectId,
-  liveStages = [],
+  todos = [],
   stageCompletions = {},
   memberId,
   memberProfiles = [],
@@ -57,7 +45,7 @@ export function TimelineStageModal({
   onAssignStage,
 }: {
   projectId: string;
-  liveStages?: LiveStageRow[];
+  todos?: ProjectTodo[];
   /** Checklist-style completions for seed stages (stage id → done). */
   stageCompletions?: Record<string, boolean>;
   memberId?: string;
@@ -81,8 +69,8 @@ export function TimelineStageModal({
   );
 
   const stages = useMemo(
-    () => (project ? resolveProjectStages(project.id, liveStages, stageCompletions) : []),
-    [project, liveStages, stageCompletions],
+    () => (project ? resolveProjectStages(project.id, todos, stageCompletions) : []),
+    [project, todos, stageCompletions],
   );
   const today = useMemo(() => new Date(), []);
   const summary = useMemo(() => summarizeStages(stages, today), [stages, today]);
@@ -266,7 +254,7 @@ export function TimelineStageModal({
                       }
                     />
                   ) : null}
-                  {onMarkStageDone ? (
+                  {onMarkStageDone && stageOwners[stage.id] ? (
                     <button
                       type="button"
                       className="btn btn-primary tl-overdue-resolve"
@@ -310,8 +298,25 @@ export function TimelineStageModal({
                 phaseHeading={row.phaseHeading}
                 owner={stageOwners[row.stage.id] ?? null}
                 profiles={profiles}
+                onAssign={
+                  onAssignStage && !stageOwners[row.stage.id]
+                    ? (owner) =>
+                        onAssignStage(
+                          {
+                            id: row.stage.id,
+                            name: row.stage.name,
+                            start: row.stage.start,
+                            end: row.stage.end,
+                            projectId: row.stage.projectId,
+                          },
+                          owner,
+                        )
+                    : undefined
+                }
                 onMarkDone={
-                  onMarkStageDone && stageStatus(row.stage, today) === "overdue"
+                  onMarkStageDone &&
+                  stageOwners[row.stage.id] &&
+                  stageStatus(row.stage, today) === "overdue"
                     ? () => onMarkStageDone(row.stage.id)
                     : undefined
                 }
@@ -379,6 +384,7 @@ function StageRow({
   phaseHeading,
   owner,
   profiles,
+  onAssign,
   onMarkDone,
 }: {
   stage: TimelineStage;
@@ -387,6 +393,7 @@ function StageRow({
   phaseHeading: string | null;
   owner: Owner | null;
   profiles: Map<string, MemberProfile>;
+  onAssign?: (owner: Owner | null) => void;
   onMarkDone?: () => void;
 }) {
   const status = stageStatus(stage, today);
@@ -433,6 +440,14 @@ function StageRow({
                 title={`Assigned to ${ownerName}`}
               />
             </span>
+          ) : onAssign ? (
+            <StageAssignCircles
+              stageId={stage.id}
+              stageName={stage.name}
+              owner={owner}
+              profiles={profiles}
+              onAssign={onAssign}
+            />
           ) : null}
           {status === "overdue" && onMarkDone ? (
             <button

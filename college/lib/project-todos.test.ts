@@ -26,8 +26,11 @@ import {
   todoOwnerIndex,
   todoPrimaryDate,
   upsertStageAssignment,
+  ensureStageTodos,
   type ProjectTodo,
 } from "./project-todos";
+import { INBOX_PARENT_ID } from "./ingest";
+import { allTimelineStages } from "./timeline-stages";
 
 test("memberOwnerId maps household ids onto owners", () => {
   assert.equal(memberOwnerId("jason"), "jason");
@@ -343,6 +346,7 @@ function meterTodo(
     description: "",
     kind: "normal",
     doneBy: [],
+    completedAt: null,
     ...partial,
   };
 }
@@ -525,5 +529,88 @@ test("family-meeting ids skip the owner map and block checklist flips", () => {
   );
   assert.deepEqual(blocked, ["fam-2"]);
   assert.equal(checklist["fam-2"], undefined);
+});
+
+test("ensureStageTodos adds stages starting within 60 days and skips completed, existing, and deleted", () => {
+  const today = new Date(2026, 9, 4);
+  const stages = allTimelineStages();
+  const due = stages.filter((stage) => stage.start <= "2026-12-03");
+  assert.equal(due.length, 14);
+
+  const existing = [
+    {
+      id: "college-list-s1",
+      label: "Take an interest inventory",
+      owner: "kyle" as const,
+      assignedBy: "jason" as const,
+      parentId: INBOX_PARENT_ID,
+      dueDate: "2026-09-20",
+      startDate: "2026-09-01",
+      endDate: "2026-09-20",
+      sourceId: null,
+      createdAt: "2026-09-01T12:00:00.000Z",
+    },
+    {
+      id: "passion-s1",
+      label: "Pick a cause",
+      owner: "kyle" as const,
+      assignedBy: null,
+      parentId: INBOX_PARENT_ID,
+      dueDate: "2026-09-30",
+      startDate: "2026-09-01",
+      endDate: "2026-09-30",
+      sourceId: null,
+      createdAt: "2026-09-01T12:00:00.000Z",
+    },
+  ];
+  const created = ensureStageTodos(stages, existing, {}, {}, today);
+  assert.ok(created);
+  assert.equal(created.projectSteps.length, existing.length + 12);
+  const added = created.projectSteps.filter(
+    (step) => step.id !== "college-list-s1" && step.id !== "passion-s1",
+  );
+  assert.equal(added.length, 12);
+  assert.ok(added.every((step) => step.parentId === INBOX_PARENT_ID));
+  assert.ok(added.every((step) => created.todoEdits[step.id]?.owner === null));
+  assert.ok(added.every((step) => created.todoEdits[step.id]?.projectId));
+
+  const listed = listProjectTodos({}, undefined, created.projectSteps, created.todoEdits);
+  assert.ok(added.every((step) => listed.find((todo) => todo.id === step.id)?.owner === null));
+
+  const completed = ensureStageTodos(
+    stages,
+    existing,
+    {},
+    { [due.find((stage) => stage.id !== "college-list-s1" && stage.id !== "passion-s1")!.id]: true },
+    today,
+  );
+  assert.equal(completed?.projectSteps.length, existing.length + 11);
+
+  const deletedId = added[0]!.id;
+  const skippedDeleted = ensureStageTodos(
+    stages,
+    existing,
+    { [deletedId]: { deleted: true } },
+    {},
+    today,
+  );
+  assert.equal(skippedDeleted?.todoEdits[deletedId]?.deleted, true);
+  assert.equal(
+    skippedDeleted?.projectSteps.some((step) => step.id === deletedId),
+    false,
+  );
+
+  assert.equal(ensureStageTodos(stages, created.projectSteps, created.todoEdits, {}, today), null);
+});
+
+test("completedAt survives normalizeTodoEdits", () => {
+  const loaded = normalizeTodoEdits({
+    "visits-s1": { owner: "kyle", completedAt: "2026-10-04", projectId: "visits" },
+  });
+  assert.equal(loaded["visits-s1"]?.completedAt, "2026-10-04");
+  const cleared = normalizeTodoEdits({
+    "visits-s1": { ...loaded["visits-s1"], completedAt: null },
+  });
+  assert.equal(cleared["visits-s1"]?.completedAt, null);
 });
 

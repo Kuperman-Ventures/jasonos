@@ -5,7 +5,7 @@ import { phaseStatuses } from "@/lib/phases";
 import type { MemberProfile } from "@/lib/member-avatars";
 import type { PersistedProjectStep } from "@/lib/ingest";
 import type { StageAssignPayload } from "./TimelineStageModal";
-import type { TodoEditMap, TodoSubtaskMap } from "@/lib/project-todos";
+import type { TodoEditMap } from "@/lib/project-todos";
 import type { Owner, Phase } from "@/lib/types";
 
 /** Process timeline + checklist — lives under Project Management → Timeline. */
@@ -13,7 +13,6 @@ export function TimelinePanel({
   phases,
   checklist,
   onToggle,
-  subtasks = {},
   projectSteps = [],
   todoEdits = {},
   memberId,
@@ -24,7 +23,6 @@ export function TimelinePanel({
   phases: Phase[];
   checklist: Record<string, boolean>;
   onToggle: (id: string, checked: boolean) => void;
-  subtasks?: TodoSubtaskMap;
   projectSteps?: PersistedProjectStep[];
   todoEdits?: TodoEditMap;
   memberId?: string;
@@ -46,7 +44,6 @@ export function TimelinePanel({
         <ProcessRoadmap
           checklist={checklist}
           showTitle={false}
-          subtasks={subtasks}
           projectSteps={projectSteps}
           todoEdits={todoEdits}
           memberId={memberId}

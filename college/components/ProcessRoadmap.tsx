@@ -25,10 +25,11 @@ import {
 import { TimelineStageModal, type StageAssignPayload } from "./TimelineStageModal";
 import type { MemberProfile } from "@/lib/member-avatars";
 import type { PersistedProjectStep } from "@/lib/ingest";
+import { phases } from "@/lib/content";
 import {
+  listProjectTodos,
   stageOwnerMap,
   type TodoEditMap,
-  type TodoSubtaskMap,
 } from "@/lib/project-todos";
 import type { Owner } from "@/lib/types";
 
@@ -163,7 +164,6 @@ export function ProcessRoadmap({
   title = "Timeline",
   showTitle = true,
   dateline,
-  subtasks = {},
   projectSteps = [],
   todoEdits = {},
   memberId,
@@ -176,8 +176,6 @@ export function ProcessRoadmap({
   title?: string;
   showTitle?: boolean;
   dateline?: string;
-  /** Live to-do subtasks — when they carry projectId + startDate they drive the modal. */
-  subtasks?: TodoSubtaskMap;
   projectSteps?: PersistedProjectStep[];
   todoEdits?: TodoEditMap;
   memberId?: string;
@@ -206,37 +204,10 @@ export function ProcessRoadmap({
   const [openProjectId, setOpenProjectId] = useState<string | null>(null);
   const lastFocusRef = useRef<HTMLElement | null>(null);
 
-  const liveStages = useMemo(() => {
-    const rows: Array<{
-      id: string;
-      label: string;
-      startDate: string | null;
-      endDate: string | null;
-      dueDate: string | null;
-      projectId: string | null;
-      phase: string | null;
-      isMilestone: boolean;
-      completedAt: string | null;
-      done: boolean;
-    }> = [];
-    for (const list of Object.values(subtasks)) {
-      for (const row of list) {
-        rows.push({
-          id: row.id,
-          label: row.label,
-          startDate: row.startDate,
-          endDate: row.endDate,
-          dueDate: row.dueDate,
-          projectId: row.projectId,
-          phase: row.phase,
-          isMilestone: row.isMilestone,
-          completedAt: row.completedAt,
-          done: row.done,
-        });
-      }
-    }
-    return rows;
-  }, [subtasks]);
+  const projectTodos = useMemo(
+    () => listProjectTodos(checklist, phases, projectSteps, todoEdits),
+    [checklist, projectSteps, todoEdits],
+  );
 
   const stageOwners = useMemo(
     () => stageOwnerMap(checklist, projectSteps, todoEdits),
@@ -355,7 +326,7 @@ export function ProcessRoadmap({
       {openProjectId ? (
         <TimelineStageModal
           projectId={openProjectId}
-          liveStages={liveStages}
+          todos={projectTodos}
           stageCompletions={checklist}
           memberId={memberId}
           memberProfiles={memberProfiles}

@@ -7,6 +7,7 @@ import {
   familyMeetingFullyDone,
   isFamilyMeetingKind,
   isTodoKind,
+  isoDay,
   nextFamilyMeetingDate,
   normalizeDoneBy,
   type TodoKind,
@@ -56,6 +57,8 @@ export type ProjectTodo = {
   kind: TodoKind;
   /** Who has marked a family-meeting item discussed. Empty for normal to-dos. */
   doneBy: Owner[];
+  /** YYYY-MM-DD the to-do was checked off. Null while open. */
+  completedAt: string | null;
 };
 
 /** Household overrides for seed and ingested to-dos. Missing keys keep the original. */
@@ -76,6 +79,8 @@ export type TodoEdit = {
   kind?: TodoKind;
   /** Per-person acks for family-meeting items. */
   doneBy?: Owner[];
+  /** YYYY-MM-DD the to-do was marked done. Cleared when reopened. */
+  completedAt?: string | null;
 };
 
 export type TodoEditMap = Record<string, TodoEdit>;
@@ -329,6 +334,10 @@ export function normalizeTodoEdits(raw: unknown): TodoEditMap {
     }
     if (isTodoKind(row.kind)) edit.kind = row.kind;
     if ("doneBy" in row) edit.doneBy = normalizeDoneBy(row.doneBy);
+    if ("completedAt" in row) {
+      const completedAt = cleanDate(row.completedAt);
+      if (completedAt !== undefined) edit.completedAt = completedAt;
+    }
     if (Object.keys(edit).length) out[id] = edit;
   }
   return out;
@@ -426,6 +435,7 @@ function pushTodo(
     schoolId: step.schoolId ?? null,
     kind: edited.kind,
     doneBy,
+    completedAt: fullyDone ? (edits[step.id]?.completedAt ?? null) : null,
   });
 }
 
@@ -896,6 +906,84 @@ export function upsertStageAssignment(
     },
   });
   return { projectSteps: nextSteps, todoEdits: nextEdits };
+}
+
+const STAGE_TODO_HORIZON_DAYS = 60;
+
+function addDaysIso(iso: string, days: number): string {
+  const [year, month, day] = iso.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + days);
+  return isoDay(date);
+}
+
+/**
+ * Create unclaimed to-dos for seed stages whose start is within 60 days.
+ * Returns null when nothing needs to be added.
+ */
+export function ensureStageTodos(
+  stages: Array<{
+    id: string;
+    name: string;
+    start: string;
+    end: string;
+    projectId: string;
+  }>,
+  projectSteps: PersistedProjectStep[],
+  todoEdits: TodoEditMap,
+  checklist: Record<string, boolean>,
+  today: Date = new Date(),
+): { projectSteps: PersistedProjectStep[]; todoEdits: TodoEditMap } | null {
+  const todayIso = isoDay(today);
+  const horizon = addDaysIso(todayIso, STAGE_TODO_HORIZON_DAYS);
+  const existing = new Set(projectSteps.map((step) => step.id));
+  const createdAt = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12).toISOString();
+  let nextSteps = projectSteps;
+  let nextEdits = todoEdits;
+  let changed = false;
+
+  for (const stage of stages) {
+    if (stage.start > horizon) continue;
+    if (checklist[stage.id]) continue;
+    if (existing.has(stage.id)) continue;
+    if (todoEdits[stage.id]?.deleted) continue;
+
+    const step: PersistedProjectStep = {
+      id: stage.id,
+      label: stage.name,
+      owner: "jason",
+      assignedBy: null,
+      parentId: INBOX_PARENT_ID,
+      dueDate: stage.end,
+      startDate: stage.start,
+      endDate: stage.end,
+      sourceId: null,
+      createdAt,
+    };
+    nextSteps = [...nextSteps, step];
+    existing.add(stage.id);
+    nextEdits = {
+      ...nextEdits,
+      [stage.id]: {
+        ...nextEdits[stage.id],
+        owner: null,
+        assignedBy: null,
+        projectId: stage.projectId,
+        dueDate: stage.end,
+        startDate: stage.start,
+        endDate: stage.end,
+        label: stage.name,
+        deleted: false,
+      },
+    };
+    changed = true;
+  }
+
+  if (!changed) return null;
+  return {
+    projectSteps: nextSteps,
+    todoEdits: normalizeTodoEdits(nextEdits),
+  };
 }
 
 /** Owner currently assigned to a stage to-do, if any. */

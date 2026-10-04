@@ -227,7 +227,6 @@ export function ProjectManagementTab({
           phases={phases}
           checklist={checklist}
           onToggle={onToggle}
-          subtasks={subtasks}
           projectSteps={projectSteps}
           todoEdits={todoEdits}
           memberId={memberId}
