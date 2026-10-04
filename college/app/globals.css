@@ -10415,6 +10415,171 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
 .plan-project-cta {
   margin: 18px 0 8px;
 }
+.plan-group {
+  margin: 8px 0 24px;
+  display: grid;
+  gap: 18px;
+}
+.plan-group-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 500;
+}
+.plan-group-thread {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-rule);
+}
+.plan-group-thread-h {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+.plan-group-name {
+  flex: 1 1 160px;
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px solid var(--color-rule);
+  background: transparent;
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--color-text);
+  padding: 4px 0;
+}
+.plan-group-name:focus-visible {
+  outline: none;
+  border-bottom-color: var(--color-accent);
+}
+.plan-group-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.plan-group-loose h5 {
+  margin: 0 0 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-subtle);
+  font-weight: 500;
+}
+.plan-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+}
+.plan-chip-wrap {
+  position: relative;
+}
+.plan-chip-act {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--color-rule);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 10px;
+  border-radius: 999px;
+}
+.plan-chip-act.is-pick {
+  cursor: pointer;
+}
+.plan-chip-act.is-pick:hover,
+.plan-chip-act.is-pick[aria-expanded="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-tint);
+}
+.plan-chip-x {
+  all: unset;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--text-subtle);
+  padding: 0 2px;
+}
+.plan-chip-x:hover {
+  color: var(--color-text);
+}
+.plan-chip-menu {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 160px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-rule);
+  border-radius: 4px;
+  padding: 6px;
+  display: grid;
+  gap: 2px;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-text) 12%, transparent);
+}
+.plan-chip-menu button {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 7px 8px;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.plan-chip-menu button:hover,
+.plan-chip-menu button:focus-visible {
+  background: var(--color-accent-tint);
+}
+.plan-chip-menu button.is-new {
+  color: var(--text-accent);
+  font-weight: 600;
+}
+.plan-chip-new {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 4px;
+}
+.plan-chip-new input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px solid var(--color-rule);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  color: var(--color-text);
+  padding: 4px 0;
+}
+.plan-group-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.plan-group-add input {
+  flex: 1 1 200px;
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px solid var(--color-rule);
+  background: transparent;
+  font: inherit;
+  font-size: 15px;
+  color: var(--color-text);
+  padding: 6px 0;
+}
+.plan-group-add input:focus-visible {
+  outline: none;
+  border-bottom-color: var(--color-accent);
+}
+.plan-group-empty {
+  margin-bottom: 8px;
+}
 .plan-saved {
   margin-bottom: 28px;
 }

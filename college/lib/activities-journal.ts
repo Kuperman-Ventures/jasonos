@@ -737,6 +737,23 @@ export function answeredPlanCount(plan: ThreadPlan | undefined): number {
   return THREAD_PLAN_QUESTIONS.filter((q) => (plan[q.key] ?? "").trim().length > 0).length;
 }
 
+/** True when Plan should open the grouping step: no threads, or none with 2+ activities. */
+export function needsGrouping(journal: ActivitiesJournal): boolean {
+  const threads = journal.threads ?? [];
+  if (threads.length === 0) return true;
+  return !threads.some(
+    (thread) =>
+      journal.activities.filter((a) => !a.archived && a.threadId === thread.id).length >= 2,
+  );
+}
+
+/** Non-archived, non-project activities available to put in threads. */
+export function groupableActivities(journal: ActivitiesJournal): Activity[] {
+  return sortRecordActivities(
+    journal.activities.filter((a) => !a.archived && !isSelfStartedProject(a)),
+  );
+}
+
 function normalizeLink(raw: unknown): ActivityLink | null {
   const row = asRecord(raw);
   if (!row) return null;

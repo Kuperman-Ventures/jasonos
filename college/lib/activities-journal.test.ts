@@ -37,6 +37,8 @@ import {
   isDraftStale,
   isHighSchoolGrade,
   isSelfStartedProject,
+  groupableActivities,
+  needsGrouping,
   normalizeJournal,
   normalizeSelfStartedProject,
   overdueMilestones,
@@ -1230,4 +1232,40 @@ test("plannedStepsForThread and addPeriod planned status", () => {
 
   journal = removePeriod(journal, band.id, period.id);
   assert.equal(plannedStepsForThread(journal, thread.id).length, 0);
+});
+
+test("needsGrouping is true with no threads or no thread with 2+ activities", () => {
+  let journal = emptyJournal();
+  assert.equal(needsGrouping(journal), true);
+
+  const a = createActivity({ name: "Trumpet", category: "arts-music-theater" });
+  const b = createActivity({ name: "Band", category: "arts-music-theater" });
+  journal = upsertActivity(journal, a);
+  journal = upsertActivity(journal, b);
+  assert.equal(needsGrouping(journal), true);
+
+  const created = createThread(journal, "Music");
+  journal = created.journal;
+  journal = assignActivityToThread(journal, a.id, created.thread.id);
+  assert.equal(needsGrouping(journal), true);
+
+  journal = assignActivityToThread(journal, b.id, created.thread.id);
+  assert.equal(needsGrouping(journal), false);
+});
+
+test("groupableActivities excludes self-started projects", () => {
+  let journal = emptyJournal();
+  const band = createActivity({ name: "Band", category: "arts-music-theater" });
+  const project = createActivity({
+    name: "STEM Club",
+    category: "independent-project-business",
+    ongoing: true,
+    project: { partners: [], milestones: [] },
+  });
+  journal = upsertActivity(journal, band);
+  journal = upsertActivity(journal, project);
+  const chips = groupableActivities(journal);
+  assert.equal(chips.length, 1);
+  assert.equal(chips[0]!.name, "Band");
+  assert.equal(chips.every((a) => !isSelfStartedProject(a)), true);
 });

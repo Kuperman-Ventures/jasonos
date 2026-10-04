@@ -8,13 +8,19 @@ import {
   THREAD_PLAN_QUESTIONS,
   addPeriod,
   answeredPlanCount,
+  assignActivityToThread,
+  createThread,
   currentGrade,
+  deleteThread,
   gradeCells,
+  groupableActivities,
   isSelfStartedProject,
+  needsGrouping,
   overdueMilestones,
   plannedStepsForThread,
   recordSchoolYears,
   removePeriod,
+  renameThread,
   resolveClassOf,
   schoolYearForGrade,
   setThreadPlan,
@@ -74,16 +80,20 @@ export function PlanView({
   journal,
   canEdit,
   loaded = true,
+  forceGroupOpen = false,
+  onForceGroupOpenHandled,
   onChange,
   onOpenActivity,
-  onGoToMyRecord,
+  onStartRecall,
 }: {
   journal: Journal;
   canEdit: boolean;
   loaded?: boolean;
+  forceGroupOpen?: boolean;
+  onForceGroupOpenHandled?: () => void;
   onChange: (next: Journal) => void;
   onOpenActivity: (id: string, tab?: "updates") => void;
-  onGoToMyRecord: () => void;
+  onStartRecall: () => void;
 }) {
   const journalRef = useRef(journal);
   useEffect(() => {
@@ -91,11 +101,29 @@ export function PlanView({
   }, [journal]);
 
   const threads = journal.threads ?? [];
+  const groupingNeeded = needsGrouping(journal);
+  const [groupOpen, setGroupOpen] = useState(groupingNeeded);
   const [openThreadId, setOpenThreadId] = useState<string | null>(threads[0]?.id ?? null);
   const [openQuestion, setOpenQuestion] = useState<ThreadPlanKey>("deeper");
   const [stepDraft, setStepDraft] = useState<StepDraft | null>(null);
   const [planning, setPlanning] = useState(false);
   const [editProjectId, setEditProjectId] = useState<string | null>(null);
+  const [newThreadName, setNewThreadName] = useState("");
+  const [deleteThreadId, setDeleteThreadId] = useState<string | null>(null);
+  const [assignChipId, setAssignChipId] = useState<string | null>(null);
+  const [newThreadForChip, setNewThreadForChip] = useState(false);
+  const [chipThreadName, setChipThreadName] = useState("");
+  const assignRef = useRef<HTMLSpanElement | null>(null);
+
+  useEffect(() => {
+    if (!forceGroupOpen) return;
+    setGroupOpen(true);
+    onForceGroupOpenHandled?.();
+  }, [forceGroupOpen, onForceGroupOpenHandled]);
+
+  useEffect(() => {
+    if (groupingNeeded) setGroupOpen(true);
+  }, [groupingNeeded]);
 
   useEffect(() => {
     if (!openThreadId && threads[0]) setOpenThreadId(threads[0].id);
@@ -104,14 +132,38 @@ export function PlanView({
     }
   }, [threads, openThreadId]);
 
+  useEffect(() => {
+    if (!assignChipId) return;
+    function onDoc(event: MouseEvent) {
+      if (!assignRef.current?.contains(event.target as Node)) {
+        setAssignChipId(null);
+        setNewThreadForChip(false);
+        setChipThreadName("");
+      }
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [assignChipId]);
+
   const classOf = resolveClassOf(journal.profile?.classOf);
   const gradeNow = currentGrade(classOf);
   const projects = journal.activities.filter((a) => !a.archived && isSelfStartedProject(a));
   const overdueIds = new Set(
     projects.flatMap((p) => (p.project ? overdueMilestones(p.project).map((m) => m.id) : [])),
   );
+  const groupables = groupableActivities(journal);
+  const activeNonArchived = journal.activities.filter((a) => !a.archived);
+  const tooFewForThreads = activeNonArchived.length < 2;
+  const threadsWithActivities = threads.filter((thread) =>
+    journal.activities.some((a) => !a.archived && a.threadId === thread.id),
+  );
+  const unassigned = groupables.filter((a) => !a.threadId);
+  const hasThreadWithActivity = threads.some((thread) =>
+    journal.activities.some((a) => !a.archived && a.threadId === thread.id),
+  );
 
   function commit(next: Journal) {
+    if (!loaded || !canEdit) return;
     journalRef.current = next;
     onChange(next);
   }
@@ -180,6 +232,7 @@ export function PlanView({
     const activities = sortRecordActivities(
       journal.activities.filter((a) => !a.archived && a.threadId === thread.id),
     );
+    if (!activities.length) return null;
     const answered = answeredPlanCount(thread.plan);
     const steps = plannedStepsForThread(journal, thread.id);
 
@@ -223,9 +276,7 @@ export function PlanView({
             {gradeHeader(gradeNow)}
             {activities.map(renderActivityRow)}
           </>
-        ) : (
-          <p className="plan-intro">No activities in this thread yet.</p>
-        )}
+        ) : null}
 
         <ul className="plan-qs">
           {THREAD_PLAN_QUESTIONS.map((q) => {
@@ -570,19 +621,263 @@ export function PlanView({
       <div className="plan-sec-h">
         <h3>Your Threads</h3>
         <span className="plan-meta">
-          {threads.length} {threads.length === 1 ? "thread" : "threads"}
+          {threadsWithActivities.length}{" "}
+          {threadsWithActivities.length === 1 ? "thread" : "threads"}
+          {canEdit && !tooFewForThreads && !groupOpen ? (
+            <>
+              {" · "}
+              <button type="button" className="aj-text-btn" onClick={() => setGroupOpen(true)}>
+                Edit threads
+              </button>
+            </>
+          ) : null}
         </span>
       </div>
-      {threads.length === 0 ? (
-        <p className="plan-intro">
-          Group your activities into threads first.{" "}
-          <button type="button" className="aj-text-btn strong" onClick={onGoToMyRecord}>
-            Go to My Record
-          </button>
-        </p>
-      ) : (
-        threads.map(renderThreadBlock)
-      )}
+
+      {tooFewForThreads ? (
+        <div className="plan-group-empty">
+          <p className="plan-intro">
+            Add more of what you do first. Threads need something to group.
+          </p>
+          {canEdit && loaded ? (
+            <p className="plan-project-cta">
+              <button type="button" className="aj-recall-add" onClick={onStartRecall}>
+                Add with questions
+              </button>
+            </p>
+          ) : null}
+        </div>
+      ) : groupOpen && canEdit ? (
+        <div className="plan-group">
+          <h4 className="plan-group-title">Group Your Activities</h4>
+          <p className="plan-intro">
+            A thread is a set of activities that go together, like everything you do with music.
+            Your plan builds on each one.
+          </p>
+
+          {threads.map((thread) => {
+            const members = groupables.filter((a) => a.threadId === thread.id);
+            if (deleteThreadId === thread.id) {
+              return (
+                <div key={thread.id} className="plan-group-thread">
+                  <p className="plan-intro">
+                    Delete the {thread.name} thread? The activities stay in My Record.
+                  </p>
+                  <span className="plan-group-tools">
+                    <button
+                      type="button"
+                      className="aj-text-btn strong"
+                      onClick={() => {
+                        commit(deleteThread(journalRef.current, thread.id));
+                        setDeleteThreadId(null);
+                      }}
+                    >
+                      Delete
+                    </button>
+                    <button
+                      type="button"
+                      className="aj-text-btn"
+                      onClick={() => setDeleteThreadId(null)}
+                    >
+                      Cancel
+                    </button>
+                  </span>
+                </div>
+              );
+            }
+            return (
+              <div key={thread.id} className="plan-group-thread">
+                <div className="plan-group-thread-h">
+                  <input
+                    className="plan-group-name"
+                    defaultValue={thread.name}
+                    key={`${thread.id}-${thread.updatedAt}`}
+                    aria-label="Thread name"
+                    onBlur={(e) => {
+                      const name = e.target.value.trim();
+                      if (!name) {
+                        e.target.value = thread.name;
+                        return;
+                      }
+                      if (name !== thread.name) {
+                        commit(renameThread(journalRef.current, thread.id, name));
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="aj-text-btn"
+                    onClick={() => setDeleteThreadId(thread.id)}
+                  >
+                    Delete
+                  </button>
+                </div>
+                <div className="plan-chips">
+                  {members.map((activity) => (
+                    <span key={activity.id} className="plan-chip-act">
+                      {activity.name}
+                      <button
+                        type="button"
+                        className="plan-chip-x"
+                        aria-label={`Remove ${activity.name} from thread`}
+                        onClick={() =>
+                          commit(
+                            assignActivityToThread(journalRef.current, activity.id, null),
+                          )
+                        }
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+
+          <div className="plan-group-loose">
+            <h5>Not in a thread yet</h5>
+            <div className="plan-chips">
+              {unassigned.length === 0 ? (
+                <span className="plan-hint">Every activity is in a thread.</span>
+              ) : (
+                unassigned.map((activity) => {
+                  const open = assignChipId === activity.id;
+                  return (
+                    <span
+                      key={activity.id}
+                      className="plan-chip-wrap"
+                      ref={open ? assignRef : undefined}
+                    >
+                      <button
+                        type="button"
+                        className="plan-chip-act is-pick"
+                        aria-expanded={open}
+                        onClick={() => {
+                          setAssignChipId(open ? null : activity.id);
+                          setNewThreadForChip(false);
+                          setChipThreadName("");
+                        }}
+                      >
+                        {activity.name}
+                      </button>
+                      {open ? (
+                        <div className="plan-chip-menu" role="menu">
+                          {threads.map((thread) => (
+                            <button
+                              key={thread.id}
+                              type="button"
+                              role="menuitem"
+                              onClick={() => {
+                                commit(
+                                  assignActivityToThread(
+                                    journalRef.current,
+                                    activity.id,
+                                    thread.id,
+                                  ),
+                                );
+                                setAssignChipId(null);
+                              }}
+                            >
+                              {thread.name}
+                            </button>
+                          ))}
+                          {newThreadForChip ? (
+                            <form
+                              className="plan-chip-new"
+                              onSubmit={(e) => {
+                                e.preventDefault();
+                                const name = chipThreadName.trim();
+                                if (!name) return;
+                                const created = createThread(journalRef.current, name);
+                                let next = created.journal;
+                                next = assignActivityToThread(
+                                  next,
+                                  activity.id,
+                                  created.thread.id,
+                                );
+                                commit(next);
+                                setAssignChipId(null);
+                                setNewThreadForChip(false);
+                                setChipThreadName("");
+                              }}
+                            >
+                              <input
+                                autoFocus
+                                value={chipThreadName}
+                                placeholder="Thread name"
+                                onChange={(e) => setChipThreadName(e.target.value)}
+                              />
+                              <button
+                                type="submit"
+                                className="aj-text-btn strong"
+                                disabled={!chipThreadName.trim()}
+                              >
+                                Add
+                              </button>
+                            </form>
+                          ) : (
+                            <button
+                              type="button"
+                              role="menuitem"
+                              className="is-new"
+                              onClick={() => setNewThreadForChip(true)}
+                            >
+                              + New thread
+                            </button>
+                          )}
+                        </div>
+                      ) : null}
+                    </span>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          <form
+            className="plan-group-add"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const name = newThreadName.trim();
+              if (!name || !loaded) return;
+              const created = createThread(journalRef.current, name);
+              commit(created.journal);
+              setNewThreadName("");
+            }}
+          >
+            <label htmlFor="plan-thread-name" className="sr-only">
+              Name a thread
+            </label>
+            <input
+              id="plan-thread-name"
+              value={newThreadName}
+              placeholder="For example: Music"
+              autoComplete="off"
+              disabled={!loaded}
+              onChange={(e) => setNewThreadName(e.target.value)}
+            />
+            <button type="submit" className="aj-recall-add" disabled={!newThreadName.trim() || !loaded}>
+              Add
+            </button>
+          </form>
+
+          <p className="plan-project-cta">
+            <button
+              type="button"
+              className="aj-recall-add"
+              disabled={!hasThreadWithActivity}
+              onClick={() => setGroupOpen(false)}
+            >
+              Done grouping
+            </button>
+          </p>
+        </div>
+      ) : null}
+
+      {!tooFewForThreads && !groupOpen
+        ? threadsWithActivities.map(renderThreadBlock)
+        : null}
 
       <div className="plan-sec-h">
         <h3>Self-Started Project</h3>

@@ -30,9 +30,7 @@ import {
   commonAppGrades,
   commonAppTime,
   commonAppTiming,
-  createThread,
   currentGrade,
-  deleteThread,
   ensureCommonAppList,
   estimatedHours,
   getCommonAppList,
@@ -48,7 +46,6 @@ import {
   removeActivity,
   removeDraftFromList,
   removeHonorFromList,
-  renameThread,
   reorderDraft,
   restoreActivity,
   resolveClassOf,
@@ -293,6 +290,8 @@ export function ActivitiesJournal({
   const [highlightIds, setHighlightIds] = useState<string[]>([]);
   const [detailTab, setDetailTab] = useState<DetailTab | undefined>(undefined);
   const [focusAwards, setFocusAwards] = useState(false);
+  const [recallOpen, setRecallOpen] = useState(false);
+  const [forcePlanGroup, setForcePlanGroup] = useState(false);
 
   useEffect(() => {
     if (view !== "my") setHighlightIds([]);
@@ -320,6 +319,18 @@ export function ActivitiesJournal({
   function goToAwards() {
     setFocusAwards(true);
     onViewChange("my");
+    openActivityAt(null);
+  }
+
+  function startRecallFromPlan() {
+    setRecallOpen(true);
+    onViewChange("my");
+    openActivityAt(null);
+  }
+
+  function editThreadsInPlan() {
+    setForcePlanGroup(true);
+    onViewChange("plan");
     openActivityAt(null);
   }
 
@@ -366,6 +377,9 @@ export function ActivitiesJournal({
             onOpenActivity={openActivityAt}
             focusAwards={focusAwards}
             onFocusAwardsHandled={() => setFocusAwards(false)}
+            recallOpen={recallOpen}
+            onRecallOpenChange={setRecallOpen}
+            onEditThreadsInPlan={editThreadsInPlan}
           />
         )
       ) : null}
@@ -375,9 +389,11 @@ export function ActivitiesJournal({
           journal={journal}
           canEdit={canEdit}
           loaded={loaded}
+          forceGroupOpen={forcePlanGroup}
+          onForceGroupOpenHandled={() => setForcePlanGroup(false)}
           onChange={onChange}
           onOpenActivity={(id, tab) => goToMyRecord(id, tab ?? "overview")}
-          onGoToMyRecord={() => goToMyRecord(null)}
+          onStartRecall={startRecallFromPlan}
         />
       ) : null}
 
@@ -421,6 +437,9 @@ function MyActivitiesView({
   onOpenActivity,
   focusAwards = false,
   onFocusAwardsHandled,
+  recallOpen,
+  onRecallOpenChange,
+  onEditThreadsInPlan,
 }: {
   journal: Journal;
   canEdit: boolean;
@@ -431,8 +450,10 @@ function MyActivitiesView({
   onOpenActivity: (id: string | null, tab?: DetailTab) => void;
   focusAwards?: boolean;
   onFocusAwardsHandled?: () => void;
+  recallOpen: boolean;
+  onRecallOpenChange: (open: boolean) => void;
+  onEditThreadsInPlan: () => void;
 }) {
-  const [recallOpen, setRecallOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
@@ -443,12 +464,6 @@ function MyActivitiesView({
   const [spanEditId, setSpanEditId] = useState<string | null>(null);
   const [spanEditState, setSpanEditState] = useState<RecallAnswerState>(emptyRecallState);
   const [showAddAward, setShowAddAward] = useState(false);
-  const [groupingMode, setGroupingMode] = useState(false);
-  const [newThreadOpen, setNewThreadOpen] = useState(false);
-  const [newThreadName, setNewThreadName] = useState("");
-  const [renameThreadId, setRenameThreadId] = useState<string | null>(null);
-  const [renameDraft, setRenameDraft] = useState("");
-  const [deleteThreadId, setDeleteThreadId] = useState<string | null>(null);
   const [moveMenuId, setMoveMenuId] = useState<string | null>(null);
   const journalRef = useRef(journal);
   const moveMenuRef = useRef<HTMLSpanElement | null>(null);
@@ -477,7 +492,7 @@ function MyActivitiesView({
   const activeCount = active.length;
   const threads = journal.threads ?? [];
   const hasThreads = threads.length > 0;
-  const showGrouped = hasThreads || groupingMode;
+  const showGrouped = hasThreads;
   const showRecall = canEdit && loaded && recallOpen;
   const savedClassOf = journal.profile?.classOf;
   const classOf = resolveClassOf(savedClassOf);
@@ -498,7 +513,7 @@ function MyActivitiesView({
   }, [journal.activities]);
 
   function closeRecall(ids: string[]) {
-    setRecallOpen(false);
+    onRecallOpenChange(false);
     if (ids.length) onHighlightIds([...new Set([...highlightIds, ...ids])]);
   }
 
@@ -554,18 +569,6 @@ function MyActivitiesView({
     setQuickState(emptyRecallState());
     setQuickDraft("");
     setQuickDup("");
-  }
-
-  function addNamedThread(event?: { preventDefault(): void }) {
-    event?.preventDefault();
-    const name = newThreadName.trim();
-    if (!name) return;
-    const { journal: next, thread } = createThread(journalRef.current, name);
-    commit(next);
-    setNewThreadName("");
-    setNewThreadOpen(false);
-    setGroupingMode(true);
-    return thread;
   }
 
   function renderRecordRow(activity: Activity) {
@@ -708,18 +711,6 @@ function MyActivitiesView({
                   >
                     Not in a thread
                   </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="is-new"
-                    onClick={() => {
-                      setMoveMenuId(null);
-                      setNewThreadOpen(true);
-                      setGroupingMode(true);
-                    }}
-                  >
-                    + New thread
-                  </button>
                 </div>
               ) : null}
             </span>
@@ -738,130 +729,17 @@ function MyActivitiesView({
     );
   }
 
-  function renderNewThreadForm(key: string) {
-    if (!canEdit || !newThreadOpen) return null;
-    return (
-      <form key={key} className="rec-thread-new" onSubmit={addNamedThread}>
-        <label htmlFor={`rec-thread-name-${key}`} className="sr-only">
-          Thread name
-        </label>
-        <input
-          id={`rec-thread-name-${key}`}
-          autoComplete="off"
-          autoFocus
-          placeholder="Name the thread"
-          value={newThreadName}
-          onChange={(e) => setNewThreadName(e.target.value)}
-        />
-        <button type="submit" className="aj-recall-add" disabled={!newThreadName.trim()}>
-          Add
-        </button>
-        <button
-          type="button"
-          className="aj-text-btn"
-          onClick={() => {
-            setNewThreadOpen(false);
-            setNewThreadName("");
-            if (!(journalRef.current.threads?.length)) setGroupingMode(false);
-          }}
-        >
-          Cancel
-        </button>
-      </form>
-    );
-  }
-
-  function renderThreadHeader(thread: ActivityThread, count: number) {
-    if (deleteThreadId === thread.id) {
-      return (
-        <div key={`del-${thread.id}`} className="rec-group-h">
-          <p className="rec-group-confirm">
-            Delete the {thread.name} thread? The activities stay in My Record.
-          </p>
-          <span className="rec-group-tools">
-            <button
-              type="button"
-              className="aj-text-btn strong"
-              onClick={() => {
-                commit(deleteThread(journalRef.current, thread.id));
-                setDeleteThreadId(null);
-              }}
-            >
-              Delete
-            </button>
-            <button type="button" className="aj-text-btn" onClick={() => setDeleteThreadId(null)}>
-              Cancel
-            </button>
-          </span>
-        </div>
-      );
-    }
-    if (renameThreadId === thread.id) {
-      return (
-        <form
-          key={`ren-${thread.id}`}
-          className="rec-group-h"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!renameDraft.trim()) return;
-            commit(renameThread(journalRef.current, thread.id, renameDraft));
-            setRenameThreadId(null);
-            setRenameDraft("");
-          }}
-        >
-          <input
-            className="rec-group-rename"
-            value={renameDraft}
-            autoFocus
-            onChange={(e) => setRenameDraft(e.target.value)}
-            aria-label="Thread name"
-          />
-          <span className="rec-group-tools">
-            <button type="submit" className="aj-text-btn strong" disabled={!renameDraft.trim()}>
-              Save
-            </button>
-            <button
-              type="button"
-              className="aj-text-btn"
-              onClick={() => {
-                setRenameThreadId(null);
-                setRenameDraft("");
-              }}
-            >
-              Cancel
-            </button>
-          </span>
-        </form>
-      );
-    }
+  function renderThreadHeader(thread: ActivityThread, count: number, isFirst: boolean) {
     return (
       <div key={`h-${thread.id}`} className="rec-group-h">
         <h3>{thread.name}</h3>
         <span className="rec-group-count">
           {count} {count === 1 ? "activity" : "activities"}
         </span>
-        {canEdit ? (
+        {canEdit && isFirst ? (
           <span className="rec-group-tools">
-            <button
-              type="button"
-              className="aj-text-btn"
-              onClick={() => {
-                setRenameThreadId(thread.id);
-                setRenameDraft(thread.name);
-                setDeleteThreadId(null);
-              }}
-            >
-              Rename
-            </button>
-            <button
-              type="button"
-              className="aj-text-btn"
-              onClick={() => {
-                setDeleteThreadId(thread.id);
-                setRenameThreadId(null);
-              }}
-            >
-              Delete
+            <button type="button" className="aj-text-btn" onClick={onEditThreadsInPlan}>
+              Edit threads in Plan
             </button>
           </span>
         ) : null}
@@ -903,7 +781,7 @@ function MyActivitiesView({
         </div>
         {canEdit ? (
           <div className="rec-actions">
-            <button type="button" className="btn btn-secondary" onClick={() => setRecallOpen(true)}>
+            <button type="button" className="btn btn-secondary" onClick={() => onRecallOpenChange(true)}>
               Add with questions
             </button>
           </div>
@@ -954,13 +832,13 @@ function MyActivitiesView({
         {showGrouped
           ? (
               <>
-                {threads.map((thread) => {
+                {threads.map((thread, index) => {
                   const groupRows = sortRecordActivities(
                     rows.filter((a) => a.threadId === thread.id),
                   );
                   return (
                     <div key={thread.id} className="rec-group">
-                      {renderThreadHeader(thread, groupRows.length)}
+                      {renderThreadHeader(thread, groupRows.length, index === 0)}
                       {groupRows.map((activity) => renderRecordRow(activity))}
                     </div>
                   );
@@ -972,22 +850,7 @@ function MyActivitiesView({
                       {rows.filter((a) => !a.threadId).length}{" "}
                       {rows.filter((a) => !a.threadId).length === 1 ? "activity" : "activities"}
                     </span>
-                    {canEdit ? (
-                      <span className="rec-group-tools">
-                        <button
-                          type="button"
-                          className="aj-text-btn strong"
-                          onClick={() => {
-                            setNewThreadOpen(true);
-                            setGroupingMode(true);
-                          }}
-                        >
-                          + New thread
-                        </button>
-                      </span>
-                    ) : null}
                   </div>
-                  {renderNewThreadForm("loose")}
                   {sortRecordActivities(rows.filter((a) => !a.threadId)).map((activity) =>
                     renderRecordRow(activity),
                   )}
@@ -995,24 +858,6 @@ function MyActivitiesView({
               </>
             )
           : rows.map((activity) => renderRecordRow(activity))}
-
-        {!showGrouped && canEdit && activeCount >= 3 ? (
-          <div className="rec-thread-hint">
-            <span>
-              Some of these go together. Group them into threads, like everything you do with music.
-            </span>
-            <button
-              type="button"
-              className="aj-text-btn strong"
-              onClick={() => {
-                setGroupingMode(true);
-                setNewThreadOpen(true);
-              }}
-            >
-              Group into threads
-            </button>
-          </div>
-        ) : null}
 
         {canEdit ? (
           <div className="rec-qa">
