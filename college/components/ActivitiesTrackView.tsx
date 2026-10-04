@@ -85,7 +85,14 @@ function Rib({ states, width, height }: { states: TrackCell[]; width: number; he
         return (
           <span
             key={i}
-            style={{ width, height, background: s.background, border: s.border, boxSizing: "border-box" }}
+            style={{
+              width,
+              height,
+              flex: `0 0 ${width}px`,
+              background: s.background,
+              border: s.border,
+              boxSizing: "border-box",
+            }}
           />
         );
       })}
@@ -222,11 +229,8 @@ export function ActivitiesTrackView({
 
   function go(next: ActivitiesViewId) {
     setMoveOpen(null);
+    if (next !== "prep") setEntryId(null);
     onViewChange(next);
-    if (next !== "prep") {
-      setEntryId(null);
-      onOpenActivity(null);
-    }
   }
 
   const marks = stageMarks(track);
@@ -767,7 +771,14 @@ function GatherStage({
             <span
               key={g.n}
               className="at-m"
-              style={{ width: 24, textAlign: "center", letterSpacing: "0.04em", fontSize: 10, color: g.fg }}
+              style={{
+                width: 24,
+                flex: "0 0 24px",
+                textAlign: "center",
+                letterSpacing: "0.04em",
+                fontSize: 10,
+                color: g.fg,
+              }}
             >
               {g.l}
             </span>
@@ -874,7 +885,15 @@ function ShapeStage({
           {headers.map((g) => (
             <span
               key={g.n}
-              style={{ width: 56, textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}
+              style={{
+                width: 56,
+                flex: "0 0 56px",
+                textAlign: "center",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 2,
+              }}
             >
               <span className="at-ser" style={{ fontSize: 26, lineHeight: 1, fontWeight: 600, color: g.num }}>
                 {g.n}
@@ -1615,7 +1634,14 @@ function PlanStage({
                         <span
                           key={g.n}
                           className="at-m"
-                          style={{ width: 44, textAlign: "center", fontSize: 10, letterSpacing: "0.04em", color: g.fg }}
+                          style={{
+                            width: 44,
+                            flex: "0 0 44px",
+                            textAlign: "center",
+                            fontSize: 10,
+                            letterSpacing: "0.04em",
+                            color: g.fg,
+                          }}
                         >
                           {g.l}
                         </span>
