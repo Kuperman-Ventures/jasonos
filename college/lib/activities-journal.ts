@@ -172,7 +172,69 @@ export type Activity = {
   icon?: string;
   /** Thread this activity belongs to, if any. */
   threadId?: string;
+  /** Self-started project answers (category independent-project-business). */
+  project?: SelfStartedProject;
 };
+
+export type PartnerStatus =
+  | "not_contacted"
+  | "contacted"
+  | "meeting_held"
+  | "approved"
+  | "declined";
+
+export type ProjectPartner = {
+  id: string;
+  organization: string;
+  contactName?: string;
+  contactRole?: string;
+  status: PartnerStatus;
+  notes?: string;
+};
+
+export type ProjectMilestone = {
+  id: string;
+  label: string;
+  targetMonth?: string;
+  done: boolean;
+  doneDate?: string;
+};
+
+export type SelfStartedProject = {
+  need?: string;
+  beneficiaries?: string;
+  buildsOnActivityIds?: string[];
+  partners: ProjectPartner[];
+  deliverable?: string;
+  milestones: ProjectMilestone[];
+  evidencePlan?: string;
+  afterGraduation?: string;
+};
+
+export const PARTNER_STATUSES: PartnerStatus[] = [
+  "not_contacted",
+  "contacted",
+  "meeting_held",
+  "approved",
+  "declined",
+];
+
+export const PARTNER_STATUS_LABEL: Record<PartnerStatus, string> = {
+  not_contacted: "Not contacted",
+  contacted: "Contacted",
+  meeting_held: "Meeting held",
+  approved: "Approved",
+  declined: "Declined",
+};
+
+export const DEFAULT_PROJECT_MILESTONE_LABELS = [
+  "Research",
+  "Design",
+  "Get approval",
+  "Build or create",
+  "Launch or install",
+  "Follow up",
+] as const;
 
 export type ThreadPlan = {
   deeper?: string;
@@ -181,6 +243,50 @@ export type ThreadPlan = {
   makeSomething?: string;
   connect?: string;
 };
+
+export type ThreadPlanKey = keyof ThreadPlan;
+
+export const THREAD_PLAN_QUESTIONS: {
+  key: ThreadPlanKey;
+  label: string;
+  question: string;
+  helper: string;
+}[] = [
+  {
+    key: "deeper",
+    label: "Deeper",
+    question: "What skill level could you reach by the end of senior year?",
+    helper:
+      "Move up a chair or section, earn the next rank or level, make a higher team, pass the next certification.",
+  },
+  {
+    key: "lead",
+    label: "Lead",
+    question: "What role could you take on, or who could you teach?",
+    helper:
+      "Section leader, captain, officer, mentoring newer members, running a practice or workshop.",
+  },
+  {
+    key: "outsideSchool",
+    label: "Outside school",
+    question: "Where else does this happen beyond your school?",
+    helper:
+      "Regional or state competitions, community groups, summer programs, college or industry events.",
+  },
+  {
+    key: "makeSomething",
+    label: "Make something",
+    question: "What could you build, record or show?",
+    helper:
+      "A recording, a design you can share, a written guide, a portfolio, a performance you organize.",
+  },
+  {
+    key: "connect",
+    label: "Connect",
+    question: "Does this thread overlap with another one?",
+    helper: "A skill from one thread used to solve a problem in another.",
+  },
+];
 
 export type ActivityThread = {
   id: string;
@@ -299,6 +405,7 @@ const HOURS_BASES = new Set<string>(["estimate", "schedule", "calendar", "timesh
 const PERIOD_STATUSES = new Set<string>(["completed", "in_progress", "planned"]);
 const DRAFT_STATUSES = new Set<string>(["draft", "reviewed", "stale"]);
 const METRIC_ATTRS = new Set<string>(["individual", "team"]);
+const PARTNER_STATUS_IDS = new Set<string>(PARTNER_STATUSES);
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -468,6 +575,166 @@ function normalizeReflections(raw: unknown): ActivityReflections | undefined {
   if (growth !== undefined) out.growth = growth;
   if (memorable !== undefined) out.memorable = memorable;
   return Object.keys(out).length ? out : undefined;
+}
+
+function normalizePartnerStatus(value: unknown): PartnerStatus {
+  if (typeof value === "string" && PARTNER_STATUS_IDS.has(value)) {
+    return value as PartnerStatus;
+  }
+  return "not_contacted";
+}
+
+function normalizeProjectPartner(raw: unknown): ProjectPartner | null {
+  const row = asRecord(raw);
+  if (!row) return null;
+  const organization = asOptionalString(row.organization);
+  if (!organization) return null;
+  const partner: ProjectPartner = {
+    id: asOptionalString(row.id) ?? newId("partner"),
+    organization,
+    status: normalizePartnerStatus(row.status),
+  };
+  const contactName = asOptionalString(row.contactName);
+  const contactRole = asOptionalString(row.contactRole);
+  const notes = asString(row.notes);
+  if (contactName) partner.contactName = contactName;
+  if (contactRole) partner.contactRole = contactRole;
+  if (notes !== undefined) partner.notes = notes;
+  return partner;
+}
+
+function normalizeProjectMilestone(raw: unknown): ProjectMilestone | null {
+  const row = asRecord(raw);
+  if (!row) return null;
+  const label = asOptionalString(row.label);
+  if (!label) return null;
+  const milestone: ProjectMilestone = {
+    id: asOptionalString(row.id) ?? newId("milestone"),
+    label,
+    done: asBool(row.done, false),
+  };
+  const targetMonth = asOptionalString(row.targetMonth);
+  const doneDate = asOptionalString(row.doneDate);
+  if (targetMonth && /^\d{4}-\d{2}$/.test(targetMonth)) milestone.targetMonth = targetMonth;
+  if (doneDate) milestone.doneDate = doneDate;
+  return milestone;
+}
+
+export function normalizeSelfStartedProject(raw: unknown): SelfStartedProject | undefined {
+  const row = asRecord(raw);
+  if (!row) return undefined;
+  const project: SelfStartedProject = {
+    partners: Array.isArray(row.partners)
+      ? row.partners
+          .map(normalizeProjectPartner)
+          .filter((p): p is ProjectPartner => Boolean(p))
+      : [],
+    milestones: Array.isArray(row.milestones)
+      ? row.milestones
+          .map(normalizeProjectMilestone)
+          .filter((m): m is ProjectMilestone => Boolean(m))
+      : [],
+  };
+  const need = asString(row.need);
+  const beneficiaries = asString(row.beneficiaries);
+  const deliverable = asString(row.deliverable);
+  const evidencePlan = asString(row.evidencePlan);
+  const afterGraduation = asString(row.afterGraduation);
+  if (need !== undefined) project.need = need;
+  if (beneficiaries !== undefined) project.beneficiaries = beneficiaries;
+  if (deliverable !== undefined) project.deliverable = deliverable;
+  if (evidencePlan !== undefined) project.evidencePlan = evidencePlan;
+  if (afterGraduation !== undefined) project.afterGraduation = afterGraduation;
+  if (Array.isArray(row.buildsOnActivityIds)) {
+    const ids = row.buildsOnActivityIds
+      .map((id) => asOptionalString(id))
+      .filter((id): id is string => Boolean(id));
+    if (ids.length) project.buildsOnActivityIds = [...new Set(ids)];
+  }
+  return project;
+}
+
+export function emptySelfStartedProject(): SelfStartedProject {
+  return { partners: [], milestones: [] };
+}
+
+export function defaultProjectMilestones(): ProjectMilestone[] {
+  return DEFAULT_PROJECT_MILESTONE_LABELS.map((label) => ({
+    id: newId("milestone"),
+    label,
+    done: false,
+  }));
+}
+
+export function isSelfStartedProject(activity: Activity): boolean {
+  return activity.category === "independent-project-business";
+}
+
+/** Unfinished milestones whose target month is before the current calendar month. */
+export function overdueMilestones(
+  project: SelfStartedProject,
+  now: Date = new Date(),
+): ProjectMilestone[] {
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const current = `${year}-${String(month).padStart(2, "0")}`;
+  return project.milestones.filter(
+    (m) => !m.done && m.targetMonth != null && m.targetMonth < current,
+  );
+}
+
+export type PlannedStep = {
+  activityId: string;
+  activityName: string;
+  periodId: string;
+  grade: GradeLevel;
+  text: string;
+};
+
+/** Planned periods on activities in a thread, newest-first by grade then name. */
+export function plannedStepsForThread(
+  journal: ActivitiesJournal,
+  threadId: string,
+): PlannedStep[] {
+  const steps: PlannedStep[] = [];
+  for (const activity of journal.activities) {
+    if (activity.archived || activity.threadId !== threadId) continue;
+    for (const period of activity.periods) {
+      if (period.status !== "planned") continue;
+      steps.push({
+        activityId: activity.id,
+        activityName: activity.name,
+        periodId: period.id,
+        grade: period.grade,
+        text: (period.responsibilities ?? "").trim(),
+      });
+    }
+  }
+  return steps.sort((a, b) => {
+    const ag = a.grade === "post" || a.grade === "other" ? 99 : Number(a.grade);
+    const bg = b.grade === "post" || b.grade === "other" ? 99 : Number(b.grade);
+    if (ag !== bg) return ag - bg;
+    return a.activityName.localeCompare(b.activityName);
+  });
+}
+
+export function setThreadPlan(
+  journal: ActivitiesJournal,
+  threadId: string,
+  plan: ThreadPlan,
+): ActivitiesJournal {
+  const stamp = nowIso();
+  return {
+    ...journal,
+    threads: (journal.threads ?? []).map((t) =>
+      t.id === threadId ? { ...t, plan: { ...plan }, updatedAt: stamp } : t,
+    ),
+  };
+}
+
+export function answeredPlanCount(plan: ThreadPlan | undefined): number {
+  if (!plan) return 0;
+  return THREAD_PLAN_QUESTIONS.filter((q) => (plan[q.key] ?? "").trim().length > 0).length;
 }
 
 function normalizeLink(raw: unknown): ActivityLink | null {
@@ -660,6 +927,8 @@ function normalizeActivity(raw: unknown): Activity | null {
     const links = row.links.map(normalizeLink).filter((l): l is ActivityLink => Boolean(l));
     if (links.length) activity.links = links;
   }
+  const project = normalizeSelfStartedProject(row.project);
+  if (project) activity.project = project;
   return activity;
 }
 
@@ -901,6 +1170,7 @@ export type CreateActivityInput = {
   id?: string;
   recallSource?: boolean;
   icon?: string;
+  project?: SelfStartedProject;
 };
 
 export function createActivity(input: CreateActivityInput): Activity {
@@ -936,6 +1206,9 @@ export function createActivity(input: CreateActivityInput): Activity {
   if (input.links) activity.links = [...input.links];
   if (input.createdBy) activity.createdBy = input.createdBy;
   if (input.recallSource !== undefined) activity.recallSource = input.recallSource;
+  if (input.project) {
+    activity.project = normalizeSelfStartedProject(input.project) ?? emptySelfStartedProject();
+  }
   activity.icon = pickActivityIcon({
     name,
     category,

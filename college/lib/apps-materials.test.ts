@@ -31,6 +31,7 @@ test("Activities views resolve to My Record by default", () => {
   assert.equal(resolveActivitiesView(null), "my");
   assert.equal(resolveActivitiesView("awards"), "my");
   assert.equal(resolveActivitiesView("prep"), "prep");
+  assert.equal(resolveActivitiesView("plan"), "plan");
   assert.equal(resolveActivitiesView("nope"), "my");
   assert.equal(resolveActivitiesView("my"), "my");
 });

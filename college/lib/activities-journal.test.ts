@@ -36,13 +36,18 @@ import {
   gradeCells,
   isDraftStale,
   isHighSchoolGrade,
+  isSelfStartedProject,
   normalizeJournal,
+  normalizeSelfStartedProject,
+  overdueMilestones,
+  plannedStepsForThread,
   prepSummary,
   recallPeriods,
   recallSpanText,
   recordSpanText,
   recordSummary,
   removeActivity,
+  removePeriod,
   renameThread,
   restoreActivity,
   resolveClassOf,
@@ -55,6 +60,7 @@ import {
   type ApplicationDraft,
   type Award,
   type ParticipationPeriod,
+  type SelfStartedProject,
 } from "./activities-journal";
 
 test("normalize empty / invalid yields empty journal", () => {
@@ -1116,4 +1122,112 @@ test("createThread, renameThread, assignActivityToThread, and deleteThread", () 
   journal = deleteThread(journal, created.thread.id);
   assert.equal(journal.threads?.length ?? 0, 0);
   assert.equal(journal.activities.every((a) => a.threadId == null), true);
+});
+
+test("self-started project round-trips through normalizeJournal", () => {
+  let journal = emptyJournal();
+  const project: SelfStartedProject = {
+    need: "Missing STEM exposure",
+    beneficiaries: "Middle schoolers",
+    buildsOnActivityIds: ["act_robotics"],
+    partners: [
+      {
+        id: "partner_1",
+        organization: "Town library",
+        contactName: "Alex",
+        contactRole: "Director",
+        status: "contacted",
+        notes: "Follow up Friday",
+      },
+    ],
+    deliverable: "After-school club",
+    milestones: [
+      { id: "ms_1", label: "Research", targetMonth: "2026-09", done: true, doneDate: "2026-09-10" },
+      { id: "ms_2", label: "Launch", targetMonth: "2027-01", done: false },
+    ],
+    evidencePlan: "Attendance logs",
+    afterGraduation: "Club officers continue it",
+  };
+  const activity = createActivity({
+    name: "STEM Club Launch",
+    category: "independent-project-business",
+    ongoing: true,
+    project,
+  });
+  journal = upsertActivity(journal, activity);
+  const again = normalizeJournal(JSON.parse(JSON.stringify(journal)));
+  const saved = again.activities[0]!;
+  assert.equal(isSelfStartedProject(saved), true);
+  assert.deepEqual(saved.project, project);
+});
+
+test("project partner and milestone normalizing", () => {
+  const project = normalizeSelfStartedProject({
+    partners: [
+      { organization: "Valid Org", status: "approved" },
+      { organization: "  ", status: "contacted" },
+      { organization: "Unknown status", status: "weird" },
+      { contactName: "No org" },
+    ],
+    milestones: [
+      { label: "Research", targetMonth: "2026-09", done: false },
+      { label: "  ", done: true },
+      { label: "Bad month", targetMonth: "Sept 2026", done: false },
+      { done: true },
+    ],
+  });
+  assert.ok(project);
+  assert.equal(project!.partners.length, 2);
+  assert.equal(project!.partners[0]!.status, "approved");
+  assert.equal(project!.partners[1]!.organization, "Unknown status");
+  assert.equal(project!.partners[1]!.status, "not_contacted");
+  assert.equal(project!.milestones.length, 2);
+  assert.equal(project!.milestones[0]!.targetMonth, "2026-09");
+  assert.equal(project!.milestones[1]!.targetMonth, undefined);
+});
+
+test("overdueMilestones marks past unfinished months only", () => {
+  const project: SelfStartedProject = {
+    partners: [],
+    milestones: [
+      { id: "a", label: "Research", targetMonth: "2026-09", done: false },
+      { id: "b", label: "Design", targetMonth: "2026-10", done: false },
+      { id: "c", label: "Done past", targetMonth: "2026-08", done: true, doneDate: "2026-08-01" },
+      { id: "d", label: "No month", done: false },
+    ],
+  };
+  const overdue = overdueMilestones(project, new Date("2026-10-03T12:00:00Z"));
+  assert.deepEqual(
+    overdue.map((m) => m.id),
+    ["a"],
+  );
+});
+
+test("plannedStepsForThread and addPeriod planned status", () => {
+  let journal = emptyJournal();
+  const { journal: withThread, thread } = createThread(journal, "Music");
+  journal = withThread;
+  const band = createActivity({ name: "Marching Band", category: "arts-music-theater" });
+  journal = upsertActivity(journal, band);
+  journal = assignActivityToThread(journal, band.id, thread.id);
+  journal = setClassOf(journal, 2028);
+  journal = addPeriod(journal, band.id, {
+    schoolYear: schoolYearForGrade(2028, 12),
+    grade: "12",
+    periodKind: "school_year",
+    status: "planned",
+    responsibilities: "Audition for a regional ensemble",
+  });
+  const steps = plannedStepsForThread(journal, thread.id);
+  assert.equal(steps.length, 1);
+  assert.equal(steps[0]!.activityName, "Marching Band");
+  assert.equal(steps[0]!.grade, "12");
+  assert.equal(steps[0]!.text, "Audition for a regional ensemble");
+  assert.equal(schoolYearForGrade(2028, 12), "2027–28");
+  const period = journal.activities[0]!.periods[0]!;
+  assert.equal(period.status, "planned");
+  assert.equal(period.schoolYear, "2027–28");
+
+  journal = removePeriod(journal, band.id, period.id);
+  assert.equal(plannedStepsForThread(journal, thread.id).length, 0);
 });

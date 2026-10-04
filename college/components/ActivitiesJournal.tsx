@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivitiesRecall } from "./ActivitiesRecall";
 import { GradeStrip } from "./GradeStrip";
 import { GraduationYearPicker } from "./GraduationYearPicker";
+import { PlanView } from "./PlanView";
 import { RecallAnswerCard, emptyRecallState, nextRecallPick, recallSpanComplete, type RecallAnswerState } from "./RecallAnswerCard";
 import { ActivityIcon } from "./ActivityIcon";
 import { useEnsureActivityIcons } from "./use-activity-icons";
@@ -38,6 +39,7 @@ import {
   gradeCells,
   inferHonorLevel,
   isDraftStale,
+  isSelfStartedProject,
   newId,
   prepSummary,
   recordSchoolYears,
@@ -368,6 +370,17 @@ export function ActivitiesJournal({
         )
       ) : null}
 
+      {view === "plan" ? (
+        <PlanView
+          journal={journal}
+          canEdit={canEdit}
+          loaded={loaded}
+          onChange={onChange}
+          onOpenActivity={(id, tab) => goToMyRecord(id, tab ?? "overview")}
+          onGoToMyRecord={() => goToMyRecord(null)}
+        />
+      ) : null}
+
       {view === "prep" ? (
         <PrepView
           journal={journal}
@@ -577,6 +590,9 @@ function MyActivitiesView({
             <ActivityIcon activity={activity} size={20} />
             <span>{activity.name}</span>
           </button>
+          {isSelfStartedProject(activity) ? (
+            <span className="rec-project-pill">Self-started project</span>
+          ) : null}
           <span className="rec-meta">
             {isNew ? <span className="rec-new-tag">New</span> : null}
             <span>
