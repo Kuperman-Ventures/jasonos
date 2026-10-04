@@ -29,7 +29,7 @@ function schoolStub(overrides: Partial<School> = {}): Pick<
   };
 }
 
-test("RESEARCH_GROUPS cover the five add-school groups", () => {
+test("RESEARCH_GROUPS cover the six add-school groups", () => {
   assert.deepEqual(
     RESEARCH_GROUPS.map((g) => g.name),
     [
@@ -38,12 +38,14 @@ test("RESEARCH_GROUPS cover the five add-school groups", () => {
       "Admissions by residency",
       "Application requirements",
       "Aid",
+      "Submissions",
     ],
   );
   assert.ok(RESEARCH_GROUPS[0].fields.some((f) => f.field === "campusSetting"));
   assert.ok(RESEARCH_GROUPS[1].fields.some((f) => f.field === "materials"));
   assert.ok(RESEARCH_GROUPS[3].fields.some((f) => f.field === "applicationPlatform"));
   assert.ok(RESEARCH_GROUPS[4].fields.some((f) => f.field === "meritAidNotes"));
+  assert.ok(RESEARCH_GROUPS[5].fields.some((f) => f.field === "submissions"));
 });
 
 test("researchGroupsNeeded skips completed groups", () => {
@@ -52,6 +54,7 @@ test("researchGroupsNeeded skips completed groups", () => {
     "Programs",
     "Application requirements",
     "Aid",
+    "Submissions",
   ]);
   assert.deepEqual(
     researchGroupsNeeded(
@@ -62,6 +65,7 @@ test("researchGroupsNeeded skips completed groups", () => {
           "Admissions by residency",
           "Application requirements",
           "Aid",
+          "Submissions",
         ],
       }),
     ),
@@ -73,8 +77,9 @@ test("formatResearchRequest lists needed groups and fields", () => {
   const text = formatResearchRequest(schoolStub());
   assert.match(text, /School: Tufts University/);
   assert.match(text, /unitId: 168148/);
-  assert.match(text, /Groups needed: Setting, Programs, Application requirements, Aid/);
+  assert.match(text, /Groups needed: Setting, Programs, Application requirements, Aid, Submissions/);
   assert.match(text, /campusSetting/);
+  assert.match(text, /normalizeSubmissions/);
   assert.doesNotMatch(text, /residencyDataStatus/);
 });
 
@@ -94,6 +99,41 @@ test("validateSchoolResearchUpdate accepts a clean payload", () => {
   if (result.ok) {
     assert.equal(result.update.fields.campusSetting, "Suburban");
     assert.deepEqual(result.update.completedGroups, ["Setting", "Programs"]);
+  }
+});
+
+test("validateSchoolResearchUpdate accepts submissions JSON", () => {
+  const result = validateSchoolResearchUpdate({
+    updateType: "school-research",
+    unitId: 168148,
+    completedGroups: ["Submissions"],
+    fields: {
+      submissions: {
+        cycle: "2026-27",
+        selfReport: { state: "no", note: "None found" },
+        required: [],
+        optional: [],
+        notAccepted: [],
+        notes: "",
+      },
+      submissionsCheckedDate: "2026-10-03",
+    },
+  });
+  assert.equal(result.ok, true);
+});
+
+test("validateSchoolResearchUpdate rejects a bad submissions object", () => {
+  const result = validateSchoolResearchUpdate({
+    updateType: "school-research",
+    unitId: 168148,
+    completedGroups: ["Submissions"],
+    fields: {
+      submissions: "not-an-object",
+    },
+  });
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.ok(result.problems.some((p) => p.includes("submissions")));
   }
 });
 

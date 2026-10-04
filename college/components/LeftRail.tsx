@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Bank,
+  BookOpenText,
   ClockCounterClockwise,
   Coins,
   DotsThree,
@@ -86,6 +87,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: "Reference",
     items: [
+      { id: "guide", label: "Common App Guide", Icon: BookOpenText },
       { id: "consultants", label: "Consultants", Icon: UsersThree },
       { id: "faq", label: "FAQ", Icon: Question },
       { id: "testing", label: "Testing", Icon: Exam },

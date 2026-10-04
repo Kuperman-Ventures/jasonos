@@ -20,7 +20,9 @@ export type ListColumnId =
   | "mechanical"
   | "materials"
   | "aerospace"
-  | "newJerseyPct";
+  | "newJerseyPct"
+  | "selfReport"
+  | "extras";
 
 export type ListPhase = {
   id: ListPhaseId;
@@ -60,6 +62,8 @@ export const LIST_COLUMNS: { id: ListColumnId; label: string; required?: boolean
   { id: "materials", label: "Materials" },
   { id: "aerospace", label: "Aerospace" },
   { id: "newJerseyPct", label: "From NJ" },
+  { id: "selfReport", label: "Self-reported grades" },
+  { id: "extras", label: "Optional submissions" },
 ];
 
 export const LIST_PHASES: ListPhase[] = [

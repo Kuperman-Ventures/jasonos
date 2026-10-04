@@ -27,6 +27,14 @@ test("normalizeRequirementProgress accepts array and map shapes", () => {
   assert.equal(fromMap[progressKey("kyle", "mit", "tests")]?.status, 2);
 });
 
+test("normalizeRequirementProgress keeps a selfReport entry", () => {
+  const map = normalizeRequirementProgress([
+    { userId: "kyle", schoolId: "tamu", key: "selfReport", status: 1, todoId: null },
+  ]);
+  assert.equal(map[progressKey("kyle", "tamu", "selfReport")]?.status, 1);
+  assert.equal(map[progressKey("kyle", "tamu", "selfReport")]?.key, "selfReport");
+});
+
 test("setRequirementStatus and cycle", () => {
   assert.equal(cycleRequirementStatus(0), 1);
   assert.equal(cycleRequirementStatus(2), 0);

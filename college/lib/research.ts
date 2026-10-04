@@ -4,6 +4,7 @@
  */
 
 import { CAMPUS_SETTINGS } from "./campus-size";
+import { normalizeSubmissions, SUBMISSIONS_RESEARCH_SHAPE } from "./school-submissions";
 import {
   TEST_POLICY_FALL2028_STATUSES,
   TEST_POLICY_OPTIONS,
@@ -16,6 +17,7 @@ export const RESEARCH_GROUP_NAMES = [
   "Admissions by residency",
   "Application requirements",
   "Aid",
+  "Submissions",
 ] as const;
 
 export type ResearchGroupName = (typeof RESEARCH_GROUP_NAMES)[number];
@@ -97,6 +99,13 @@ export const RESEARCH_GROUPS: ResearchGroup[] = [
     name: "Aid",
     fields: [{ field: "meritAidNotes", type: "string" }],
   },
+  {
+    name: "Submissions",
+    fields: [
+      { field: "submissions", type: "submissions" },
+      { field: "submissionsCheckedDate", type: "date" },
+    ],
+  },
 ];
 
 const FIELD_TO_GROUP = new Map<string, ResearchGroupName>();
@@ -124,6 +133,9 @@ export function researchGroupsNeeded(
 }
 
 function formatFieldLine(spec: ResearchFieldSpec): string {
+  if (spec.type === "submissions") {
+    return `${spec.field}: JSON object matching normalizeSubmissions ${SUBMISSIONS_RESEARCH_SHAPE}`;
+  }
   if (spec.allowed?.length) {
     return `${spec.field}: one of ${spec.allowed.map((v) => JSON.stringify(v)).join(" | ")}`;
   }
@@ -249,6 +261,12 @@ function validateFieldValue(spec: ResearchFieldSpec, value: unknown): string | n
     }
     return null;
   }
+  if (spec.type === "submissions") {
+    if (normalizeSubmissions(value) == null) {
+      return `${spec.field} must match the SchoolSubmissions JSON shape`;
+    }
+    return null;
+  }
   return null;
 }
 
@@ -353,7 +371,7 @@ export function validateSchoolResearchUpdate(
       }
       const err = validateFieldValue(spec, value);
       if (err) problems.push(err);
-      else fields[key] = value;
+      else fields[key] = spec.type === "submissions" ? normalizeSubmissions(value) : value;
     }
   }
 

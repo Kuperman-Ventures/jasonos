@@ -29,6 +29,13 @@ import {
   scoirRecordForSchool,
   scoirRequirementState,
 } from "@/lib/scoir";
+import {
+  ACCENT_SUBMISSION_TYPES,
+  formatCheckedDate,
+  optionalDetailLine,
+  sortOptionalSubmissions,
+  SUBMISSION_TYPE_LABEL,
+} from "@/lib/school-submissions";
 import type { Owner, School } from "@/lib/types";
 import { TEST_POLICY_OPTIONS } from "@/lib/types";
 
@@ -95,7 +102,10 @@ export function SchoolRequirements({
   }, [school, scoir]);
   const toSubmit = useMemo(() => toSubmitItems(view.profile), [view.profile]);
   const quiet = useMemo(
-    () => view.profile.filter((item) => item.state === "no"),
+    () =>
+      view.profile.filter(
+        (item) => item.state === "no" || (item.key === "selfReport" && item.state === "mod"),
+      ),
     [view.profile],
   );
   const groups = useMemo(() => {
@@ -332,11 +342,15 @@ export function SchoolRequirements({
           <div className="school-reqs-kit-row school-reqs-kit-quiet" key={item.key}>
             <span>—</span>
             <span>{view.kit[item.key].title}</span>
-            <span className="school-reqs-says">Not required</span>
+            <span className="school-reqs-says">
+              {item.key === "selfReport" ? item.note : "Not required"}
+            </span>
             <span />
           </div>
         ))}
       </div>
+
+      <BeyondSubmissions school={school} />
 
       <div className="school-reqs-context">
         <div>
@@ -456,6 +470,117 @@ function SatRangeBand({
         {studentSat != null ? `. ${studentName} scored ${studentSat}.` : ""} on a scale of{" "}
         {SAT_SCALE[0]} to {SAT_SCALE[1]}.
       </span>
+    </div>
+  );
+}
+
+function SourceLink({ href }: { href: string }) {
+  if (!href.trim()) return null;
+  return (
+    <a className="school-reqs-source" href={href} target="_blank" rel="noreferrer">
+      Source
+    </a>
+  );
+}
+
+function SubmissionChip({ type }: { type: keyof typeof SUBMISSION_TYPE_LABEL }) {
+  const accent = ACCENT_SUBMISSION_TYPES.has(type);
+  return (
+    <span className={accent ? "school-sub-chip is-accent" : "school-sub-chip"}>
+      {SUBMISSION_TYPE_LABEL[type]}
+    </span>
+  );
+}
+
+function BeyondSubmissions({ school }: { school: School }) {
+  const submissions = school.submissions;
+  const checked = formatCheckedDate(school.submissionsCheckedDate);
+  const footer = submissions ? (
+    <p className="school-reqs-beyond-foot">
+      From {school.name}&apos;s admissions pages ({submissions.cycle || "cycle not stated"}), checked{" "}
+      {checked || "date not stated"}. Rules can change each year; recheck in August 2027.
+    </p>
+  ) : null;
+
+  if (!submissions) {
+    return (
+      <div className="school-reqs-beyond">
+        <span className="school-reqs-label">Beyond the standard application</span>
+        <p className="school-reqs-beyond-empty">Not checked yet.</p>
+      </div>
+    );
+  }
+
+  const optional = sortOptionalSubmissions(submissions.optional);
+  const hasLists =
+    submissions.required.length > 0 || optional.length > 0 || submissions.notAccepted.length > 0;
+  const notes = submissions.notes.trim();
+
+  return (
+    <div className="school-reqs-beyond">
+      <span className="school-reqs-label">Beyond the standard application</span>
+      {!hasLists && !notes ? (
+        <p className="school-reqs-beyond-empty">
+          Nothing beyond the standard application found on the school&apos;s site.
+        </p>
+      ) : null}
+      {submissions.required.length > 0 ? (
+        <div className="school-reqs-beyond-block">
+          <h3 className="school-reqs-beyond-h">Also required</h3>
+          {submissions.required.map((item) => (
+            <div className="school-reqs-beyond-row" key={`${item.name}-${item.sourceUrl}`}>
+              <div className="school-reqs-beyond-main">
+                <b>{item.name}</b>
+                <p className="school-reqs-beyond-muted">
+                  {[item.description, item.how].filter((part) => part.trim()).join(" ")}
+                </p>
+              </div>
+              <SourceLink href={item.sourceUrl} />
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {optional.length > 0 ? (
+        <div className="school-reqs-beyond-block">
+          <h3 className="school-reqs-beyond-h">You may also send</h3>
+          {optional.map((item) => {
+            const detail = optionalDetailLine(item);
+            return (
+              <div className="school-reqs-beyond-row" key={`${item.type}-${item.name}-${item.sourceUrl}`}>
+                <div className="school-reqs-beyond-main">
+                  <div className="school-reqs-beyond-title">
+                    <SubmissionChip type={item.type} />
+                    <b>{item.name}</b>
+                  </div>
+                  {detail ? <p className="school-reqs-beyond-muted">{detail}.</p> : null}
+                </div>
+                <SourceLink href={item.sourceUrl} />
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+      {submissions.notAccepted.length > 0 ? (
+        <div className="school-reqs-beyond-block">
+          <h3 className="school-reqs-beyond-h">Not accepted</h3>
+          {submissions.notAccepted.map((item) => (
+            <div
+              className="school-reqs-beyond-row school-reqs-beyond-quiet"
+              key={`${item.item}-${item.sourceUrl}`}
+            >
+              <p className="school-reqs-beyond-muted">{item.item}</p>
+              <SourceLink href={item.sourceUrl} />
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {notes ? (
+        <div className="school-reqs-beyond-block">
+          <h3 className="school-reqs-beyond-h">Notes</h3>
+          <p className="school-reqs-beyond-muted">{notes}</p>
+        </div>
+      ) : null}
+      {footer}
     </div>
   );
 }

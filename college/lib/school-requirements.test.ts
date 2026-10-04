@@ -195,3 +195,57 @@ test("applyScoirRequirementGaps fills only unk essay and interview", async () =>
   assert.equal(unchanged.profile.find((item) => item.key === "essay")?.state, "req");
   assert.equal(unchanged.profile.find((item) => item.key === "interview")?.source, "Scoir");
 });
+
+test("self-report STARS is a to-submit item", () => {
+  const view = buildSchoolRequirements(
+    baseSchool({
+      submissions: {
+        cycle: "2026-27",
+        selfReport: {
+          state: "req",
+          name: "STARS",
+          note: "STARS self-reported record, required of all first-year applicants.",
+          sourceUrl: "https://example.edu/stars",
+        },
+        required: [],
+        optional: [],
+        notAccepted: [],
+        notes: "",
+      },
+      submissionsCheckedDate: "2026-10-03",
+    }),
+  );
+  const item = view.profile.find((row) => row.key === "selfReport");
+  assert.equal(item?.state, "req");
+  assert.equal(item?.note, "STARS, filed separately");
+  assert.equal(view.kit.selfReport.title, "Self-reported grades (STARS)");
+  assert.ok(toSubmitItems(view.profile).some((row) => row.key === "selfReport"));
+});
+
+test("self-report in the application uses the short note", () => {
+  const view = buildSchoolRequirements(
+    baseSchool({
+      submissions: {
+        cycle: "2026-27",
+        selfReport: { state: "mod", note: "Grades are self-reported inside the UC Application." },
+        required: [],
+        optional: [],
+        notAccepted: [],
+        notes: "",
+      },
+      submissionsCheckedDate: "2026-10-03",
+    }),
+  );
+  assert.equal(view.profile.find((row) => row.key === "selfReport")?.note, "Entered in the application");
+  assert.equal(
+    toSubmitItems(view.profile).some((row) => row.key === "selfReport"),
+    false,
+  );
+});
+
+test("missing submissions stay unknown", () => {
+  const view = buildSchoolRequirements(baseSchool({ submissions: null }));
+  const item = view.profile.find((row) => row.key === "selfReport");
+  assert.equal(item?.state, "unk");
+  assert.equal(item?.note, "Not in our data");
+});

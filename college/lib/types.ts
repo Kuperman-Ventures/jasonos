@@ -1,11 +1,13 @@
 import { knownWebsite } from "./school-websites";
 import type { AdditionalProgram, ProgramOption } from "./additional-programs";
 import type { SchoolProjectNote } from "./school-project-notes";
+import type { SchoolSubmissions } from "./school-submissions";
 import { driveFieldsForSchool } from "./drive-matrix";
 import { visitAddressForSchool } from "./school-photos";
 
 export type { AdditionalProgram, ProgramOption } from "./additional-programs";
 export type { SchoolProjectNote } from "./school-project-notes";
+export type { SchoolSubmissions } from "./school-submissions";
 
 export type Choice = "top" | "middle" | "low" | "backup" | "unsure";
 export type Plan = "" | "ed" | "ea" | "rd" | "rolling";
@@ -17,6 +19,7 @@ export type TabId =
   | "timeline"
   | "ingest"
   | "faq"
+  | "guide"
   | "apps"
   | "finances"
   | "consultants"
@@ -153,6 +156,10 @@ export type School = {
   programOptions: ProgramOption[];
   /** YYYY-MM-DD when programOptions were last checked, or "" if never. */
   programOptionsCheckedDate: string;
+  /** Extra submissions beyond the standard application pieces. Null until researched. */
+  submissions: SchoolSubmissions | null;
+  /** YYYY-MM-DD when submissions were last checked, or "" if never. */
+  submissionsCheckedDate: string;
   middle50: string;
   applicationPlatform: string;
   requiredEssays: string;
@@ -350,15 +357,16 @@ export const TABS: { id: TabId; label: string }[] = [
   { id: "admin", label: "Admin" },
   { id: "consultants", label: "Consultants" },
   { id: "faq", label: "FAQ" },
+  { id: "guide", label: "Common App Guide" },
   { id: "testing", label: "Testing" },
   { id: "sources", label: "Data Sources" },
 ];
 
-/** Normalize legacy tab ids (e.g. timeline → projects, questions → apps). */
+/** Normalize legacy tab ids (e.g. timeline → projects, questions → guide). */
 export function normalizeTabId(value: string | null): TabId | null {
   if (!value) return null;
   if (value === "timeline") return "projects";
-  if (value === "questions") return "apps";
+  if (value === "questions") return "guide";
   return TABS.some((item) => item.id === value) ? (value as TabId) : null;
 }
 const CHOICE_RANK: Record<Choice, number> = {
@@ -630,6 +638,8 @@ export function fromSeed(seed: SchoolSeed): School {
     additionalPrograms: [],
     programOptions: [],
     programOptionsCheckedDate: "",
+    submissions: null,
+    submissionsCheckedDate: "",
     middle50: "",
     applicationPlatform: "",
     requiredEssays: "",

@@ -22,6 +22,7 @@ Rendered by `Portal` → `LeftRail`. Brand: **Kyle's College Search** (Junior ·
 | Schools | Apps & Materials | `apps` | `/?tab=apps&am=activities` (default `am`) |
 | Schools | Finances | `finances` | `/?tab=finances` (hidden when role/phase cannot view finances) |
 | Schools | Ingest | `ingest` | `/?tab=ingest` |
+| Reference | Common App Guide | `guide` | `/?tab=guide` (legacy `tab=questions` and `am=questions` land here) |
 | Reference | Consultants | `consultants` | `/?tab=consultants` |
 | Reference | FAQ | `faq` | `/?tab=faq` |
 | Reference | Testing | `testing` | `/?tab=testing` |
@@ -33,7 +34,7 @@ Account menu (not in nav groups):
 | Admin | `admin` | Admin role (or display name Local) |
 | Sign out | — | POST `/auth/signout` |
 
-Slim-rail short labels: Dashboard, Projects, Notes, Log, Colleges, Apps, Finances, Ingest, Consultants, FAQ, Testing.
+Slim-rail short labels: Dashboard, Projects, Notes, Log, Colleges, Apps, Finances, Ingest, Guide, Consultants, FAQ, Testing.
 
 ### Project Management subnav (`pm=`)
 
@@ -48,8 +49,9 @@ Slim-rail short labels: Dashboard, Projects, Notes, Log, Colleges, Apps, Finance
 | UI label | Section id |
 | --- | --- |
 | Activities | `activities` (default; `av=` for My Record / Application Prep). Empty list (after load, editors only) opens **Start Your Activities List** Recall. **Add with questions** is in the My Record header when Recall is closed. Old `av=awards` links land on My Record. Each activity stores a Phosphor icon (`Activity.icon`) picked by AI with a name/category fallback, shown next to the name on My Record, Recall, detail, archive, awards, and Application Prep. |
-| App Questions | `questions` |
 | Materials | `materials` (soon) |
+
+Legacy `am=questions` (and `tab=questions`) opens the **Common App Guide** tab instead.
 
 ### School deep link
 
@@ -123,8 +125,10 @@ Hint: “Saved for your login on this phase.” Reset: **Reset to {phase} defaul
 | Materials | `materials` | | off |
 | Aerospace | `aerospace` | | off |
 | From NJ | `newJerseyPct` | | **off by default** (all phases) |
+| Self-reported grades | `selfReport` | | off |
+| Optional submissions | `extras` | | off |
 
-**From NJ** cell: Scoir `undergradGeography.newJerseyPct` (formatted %).
+**From NJ** cell: Scoir `undergradGeography.newJerseyPct` (formatted %). Self-reported grades: STARS/SRAR name for `req`, **In app** for `mod`, — for `no`. Optional submissions: chips for arts / maker / research / resume / extra letter / video.
 
 No Scoir badge on list rows.
 
@@ -260,6 +264,7 @@ Group headings: **Required**, **Modified**, **Not required**, **Not listed**.
 | UI label | Key | Primary source |
 | --- | --- | --- |
 | Application | `application` | school row (`applicationPlatform`) |
+| Self-reported grades | `selfReport` | `schools.submissions.selfReport` (STARS/SRAR `req`, in-app `mod`, none `no`) |
 | Personal essay | `essay` | school row (`requiredEssays`); Scoir `essayOrStatement` only if still “Not in our data” (chip **Scoir**) |
 | Supplemental essays | `supplements` | school row |
 | Test scores | `tests` | school row (`testPolicy` / `familyTestPolicy`) |
@@ -270,6 +275,12 @@ Group headings: **Required**, **Modified**, **Not required**, **Not listed**.
 ### Kit table
 
 Columns: **Status**, **To submit**, **{school} says**, Add to To-Do.
+
+Self-reported grades with `req` sit in To submit. `mod` and `no` sit in the quiet list.
+
+### Beyond the standard application
+
+From `schools.submissions` (researched 2026-10-03). Blocks, each only when it has items: **Also required**, **You may also send** (type chips), **Not accepted**, **Notes**. Empty research: **Not checked yet.** No extras found: **Nothing beyond the standard application found on the school's site.**
 
 ### Context
 
@@ -452,9 +463,10 @@ Action: **Remove school**.
 | Campus calendars | `college/data/campus-calendars.json` | Trip When / Climate calendar |
 | College Scorecard | Scorecard API (add-school / seeded fields) | `undergradEnrollment`, `unitId`, some cost seeds |
 | Common App | school-row text | `applicationPlatform`, `requiredEssays` feeding Requirements |
+| School submissions | `college/data/school-submissions-2026-10-03.json` + `schools.submissions` | Requirements extras, self-report row, list columns |
 
 ---
 
 ## Related top-level pages (brief)
 
-Dashboard; Project Management (Timeline / To-dos / Calendar); Notes; Log; Apps & Materials; Finances (household + list); Ingest; Consultants; FAQ; Testing; Admin.
+Dashboard; Project Management (Timeline / To-dos / Calendar); Notes; Log; Apps & Materials; Finances (household + list); Ingest; Common App Guide; Consultants; FAQ; Testing; Admin.

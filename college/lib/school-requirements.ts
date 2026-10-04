@@ -6,6 +6,7 @@ export type RequirementState = "req" | "mod" | "no" | "unk";
 
 export type RequirementKey =
   | "application"
+  | "selfReport"
   | "essay"
   | "supplements"
   | "tests"
@@ -39,6 +40,7 @@ export type SchoolRequirementsView = {
 
 export const REQUIREMENT_CATALOG: { key: RequirementKey; label: string }[] = [
   { key: "application", label: "Application" },
+  { key: "selfReport", label: "Self-reported grades" },
   { key: "essay", label: "Personal essay" },
   { key: "supplements", label: "Supplemental essays" },
   { key: "tests", label: "Test scores" },
@@ -197,6 +199,31 @@ export function parseSatRange(...sources: string[]): [number, number] | null {
   return null;
 }
 
+function selfReportProfile(school: School): RequirementProfileItem {
+  const submissions = school.submissions;
+  if (!submissions) {
+    return { key: "selfReport", label: "Self-reported grades", state: "unk", note: UNK_NOTE };
+  }
+  const { state, name } = submissions.selfReport;
+  let note = UNK_NOTE;
+  if (state === "req") {
+    note = name?.trim() ? `${name.trim()}, filed separately` : "Filed separately";
+  } else if (state === "mod") {
+    note = "Entered in the application";
+  } else if (state === "no") {
+    note = "Not required";
+  }
+  return { key: "selfReport", label: "Self-reported grades", state, note };
+}
+
+function selfReportKit(school: School): KitCopy {
+  const name = school.submissions?.selfReport.name?.trim();
+  return {
+    title: name ? `Self-reported grades (${name})` : "Self-reported grades",
+    detail: school.submissions?.selfReport.note ?? "",
+  };
+}
+
 function kitFor(
   school: School,
   platform: string,
@@ -218,6 +245,7 @@ function kitFor(
       title: platformTitle,
       detail: platform ? `${name} applies through ${platform}.` : "",
     },
+    selfReport: selfReportKit(school),
     essay: {
       title: "Personal essay",
       detail: essayNote && essayNote !== UNK_NOTE ? essayNote : "",
@@ -285,6 +313,7 @@ export function buildSchoolRequirements(school: School): SchoolRequirementsView 
 
   const profile: RequirementProfileItem[] = [
     application,
+    selfReportProfile(school),
     { key: "essay", label: "Personal essay", state: essays.essay.state, note: essays.essay.note },
     {
       key: "supplements",
@@ -322,7 +351,10 @@ export function buildSchoolRequirements(school: School): SchoolRequirementsView 
 }
 
 export function toSubmitItems(profile: RequirementProfileItem[]): RequirementProfileItem[] {
-  return profile.filter((item) => item.state === "req" || item.state === "mod");
+  return profile.filter((item) => {
+    if (item.key === "selfReport") return item.state === "req";
+    return item.state === "req" || item.state === "mod";
+  });
 }
 
 export function recommendationCount(profile: RequirementProfileItem[]): number {
