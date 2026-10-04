@@ -38,7 +38,8 @@ export const ACTIVITIES_VIEWS: { id: ActivitiesViewId; label: string }[] = [
   { id: "prep", label: "4 Application Prep" },
 ];
 
-export const DEFAULT_ACTIVITIES_VIEW: ActivitiesViewId = "plan";
+/** Apps & Materials opens on Gather. Stage tabs still deep-link via ?av=. */
+export const DEFAULT_ACTIVITIES_VIEW: ActivitiesViewId = "gather";
 
 const LEGACY_ACTIVITIES_VIEW: Record<string, ActivitiesViewId> = {
   my: "shape",

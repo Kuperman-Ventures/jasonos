@@ -27,15 +27,15 @@ test("legacy tab=questions opens the Common App Guide", () => {
   assert.equal(normalizeTabId("guide"), "guide");
 });
 
-test("Activities views default to Plan and map the old My Record URL", () => {
-  assert.equal(DEFAULT_ACTIVITIES_VIEW, "plan");
-  assert.equal(resolveActivitiesView(null), "plan");
-  assert.equal(resolveActivitiesView("awards"), "plan");
+test("Activities views default to Gather and map the old My Record URL", () => {
+  assert.equal(DEFAULT_ACTIVITIES_VIEW, "gather");
+  assert.equal(resolveActivitiesView(null), "gather");
+  assert.equal(resolveActivitiesView("awards"), "gather");
   assert.equal(resolveActivitiesView("prep"), "prep");
   assert.equal(resolveActivitiesView("plan"), "plan");
   assert.equal(resolveActivitiesView("gather"), "gather");
   assert.equal(resolveActivitiesView("shape"), "shape");
-  assert.equal(resolveActivitiesView("nope"), "plan");
+  assert.equal(resolveActivitiesView("nope"), "gather");
   assert.equal(resolveActivitiesView("my"), "shape");
   assert.equal(resolveActivitiesView("write"), "prep");
 });

@@ -100,7 +100,7 @@ Explainer: 4 columns (`repeat(auto-fit, minmax(210px, 1fr))`, gap 12). Each colu
 
 Stage tabs below it: `1 Gather`, `2 Shape`, `3 Plan`, `4 Application Prep`. A check mark is appended to **Shape** when nothing is unassigned, **Plan** when there is any rest-of-high-school choice and at least one project, **Application Prep** when every activity is Prepared.
 
-Default landing view: Plan. Application Prep has a list view and an activity view.
+Default landing view: Gather. Application Prep has a list view and an activity view.
 
 ## Stage 1: Gather
 
