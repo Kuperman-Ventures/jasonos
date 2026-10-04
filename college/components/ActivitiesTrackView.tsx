@@ -2070,22 +2070,18 @@ function PrepList({
 }) {
   const ready = track.acts.filter((a) => a.status === "ready").length;
   return (
-    <div style={{ maxWidth: 780 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 20 }}>
-        <div>
-          <h2 className="at-ser" style={{ margin: 0, fontSize: 40 }}>
-            Application Prep
-          </h2>
-          <p style={{ margin: "8px 0 0", fontSize: 16, color: "var(--text-muted)" }}>
-            {ready} of {track.acts.length} activities prepared. Gather what you have built here so it is on hand when you
-            fill out your applications. Everything is your own words and facts. Nothing here is written for you.
-          </p>
-        </div>
+    <div>
+      <div className="at-prep-head">
+        <h2 className="at-ser">Application Prep</h2>
         <button type="button" className="at-btn2" onClick={onCopy}>
           Copy my notes
         </button>
       </div>
-      <div style={{ marginTop: 24 }}>
+      <p className="at-prep-lede">
+        {ready} of {track.acts.length} activities prepared. Gather what you have built here so it is on hand when you
+        fill out your applications. Everything is your own words and facts. Nothing here is written for you.
+      </p>
+      <div className="at-prep-list">
         {track.acts.map((a, i) => (
           <div key={a.id} className="at-rw at-prep-row">
             <span className="at-m">{i + 1}</span>

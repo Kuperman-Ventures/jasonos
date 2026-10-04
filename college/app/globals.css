@@ -17298,6 +17298,8 @@ button.at-link {
   font-size: 15px;
   display: inline-flex;
   align-items: center;
+  flex: none;
+  white-space: nowrap;
   cursor: pointer;
 }
 .at-btn2:hover {
@@ -17490,6 +17492,26 @@ button.at-link {
   grid-template-columns: 280px 1fr;
   gap: 48px;
   margin-top: 30px;
+}
+.at-prep-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-5);
+}
+.at-prep-head h2 {
+  margin: 0;
+  font-size: 40px;
+}
+.at-prep-lede {
+  margin: 8px 0 0;
+  font-size: 16px;
+  color: var(--text-muted);
+  max-width: 780px;
+}
+.at-prep-list {
+  max-width: 780px;
+  margin-top: 24px;
 }
 .at-prep-row {
   grid-template-columns: 24px 1fr 60px 110px 74px;
