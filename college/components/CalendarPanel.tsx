@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { UsersThree } from "@phosphor-icons/react";
 import {
   removeCalendarEvent,
   shortEventDate,
@@ -8,6 +9,12 @@ import {
   type CalendarEvent,
   type CalendarEventEdit,
 } from "@/lib/calendar-events";
+import {
+  agendaForMeetingDate,
+  familyMeetingCadenceLabel,
+  familyMeetingsInMonth,
+} from "@/lib/family-meeting";
+import type { ProjectTodo } from "@/lib/project-todos";
 import { ownerLabel } from "@/lib/types";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
@@ -193,11 +200,13 @@ function EventRow({
 
 export function CalendarPanel({
   events,
+  familyTodos = [],
   dateline,
   focusDate,
   onChangeEvents,
 }: {
   events: CalendarEvent[];
+  familyTodos?: ProjectTodo[];
   dateline: string;
   /** When set (YYYY-MM-DD), open the month that contains this date. */
   focusDate?: string | null;
@@ -244,6 +253,16 @@ export function CalendarPanel({
   const startWeekday = start.getDay();
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
 
+  const familyMeetings = useMemo(
+    () => familyMeetingsInMonth(year, monthIndex),
+    [year, monthIndex],
+  );
+  const familyByDay = useMemo(() => {
+    const map = new Map<string, (typeof familyMeetings)[number]>();
+    for (const meeting of familyMeetings) map.set(meeting.date, meeting);
+    return map;
+  }, [familyMeetings]);
+
   const byDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
     for (const event of events) {
@@ -261,6 +280,11 @@ export function CalendarPanel({
     .sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""));
 
   const selectedEvents = selectedKey ? byDay.get(selectedKey) ?? [] : [];
+  const selectedMeeting = selectedKey ? familyByDay.get(selectedKey) ?? null : null;
+  const selectedAgenda = selectedMeeting
+    ? agendaForMeetingDate(selectedMeeting.date, familyTodos)
+    : [];
+  const monthHasFamily = familyMeetings.length > 0;
 
   const cells: Array<{ key: string; day: number | null; inMonth: boolean }> = [];
   for (let i = 0; i < startWeekday; i += 1) {
@@ -362,15 +386,17 @@ export function CalendarPanel({
           }
           const key = cell.key;
           const dayEvents = byDay.get(key) ?? [];
+          const family = familyByDay.get(key);
           const selected = selectedKey === key;
           const isToday = key === today;
+          const marked = dayEvents.length > 0 || Boolean(family);
           return (
             <button
               key={key}
               type="button"
               role="gridcell"
-              className={`cal-cell${dayEvents.length ? " has-events" : ""}${selected ? " is-selected" : ""}${isToday ? " is-today" : ""}`}
-              aria-label={`${shortEventDate(key)}${isToday ? ", today" : ""}${dayEvents.length ? `, ${dayEvents.length} event${dayEvents.length === 1 ? "" : "s"}` : ""}`}
+              className={`cal-cell${marked ? " has-events" : ""}${family ? " has-family" : ""}${selected ? " is-selected" : ""}${isToday ? " is-today" : ""}`}
+              aria-label={`${shortEventDate(key)}${isToday ? ", today" : ""}${family ? ", family meeting" : ""}${dayEvents.length ? `, ${dayEvents.length} event${dayEvents.length === 1 ? "" : "s"}` : ""}`}
               aria-pressed={selected}
               aria-current={isToday ? "date" : undefined}
               onClick={() => setSelectedKey(key)}
@@ -379,14 +405,17 @@ export function CalendarPanel({
                 <span className={`cal-day mono${isToday ? " is-today" : ""}`}>{cell.day}</span>
                 {isToday ? <span className="cal-today-mark mono">Today</span> : null}
               </span>
-              {dayEvents.length ? (
+              {marked ? (
                 <span className="cal-dots" aria-hidden="true">
-                  {dayEvents.slice(0, 3).map((row) => (
+                  {family ? <i className="is-family" /> : null}
+                  {dayEvents.slice(0, family ? 2 : 3).map((row) => (
                     <i key={row.id} />
                   ))}
                 </span>
               ) : null}
-              {dayEvents[0] ? (
+              {family ? (
+                <span className="cal-cell-title">Family meeting</span>
+              ) : dayEvents[0] ? (
                 <span className="cal-cell-title">{dayEvents[0].title}</span>
               ) : null}
             </button>
@@ -398,9 +427,41 @@ export function CalendarPanel({
         {selectedKey ? (
           <>
             <h4 className="cal-detail-heading">{shortEventDate(selectedKey)}</h4>
-            {!selectedEvents.length ? (
+            {selectedMeeting ? (
+              <div className="cal-family">
+                <div className="cal-family-head">
+                  <UsersThree size={20} weight="bold" aria-hidden="true" />
+                  <div>
+                    <strong>Family meeting</strong>
+                    <span>
+                      {selectedMeeting.phase === "exploration"
+                        ? "Exploration"
+                        : selectedMeeting.phase === "consideration"
+                          ? "Consideration"
+                          : "Applications"}{" "}
+                      · {familyMeetingCadenceLabel(selectedMeeting.phase)}
+                    </span>
+                  </div>
+                </div>
+                {selectedAgenda.length ? (
+                  <ul className="cal-agenda">
+                    {selectedAgenda.map((item) => (
+                      <li key={item.id}>
+                        <span>{item.label}</span>
+                        <span className="cal-agenda-acks">
+                          {item.doneBy.length}/3 ready
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="todo-empty">No open family-meeting items on this agenda.</p>
+                )}
+              </div>
+            ) : null}
+            {!selectedEvents.length && !selectedMeeting ? (
               <p className="todo-empty">No events on this day.</p>
-            ) : (
+            ) : selectedEvents.length ? (
               <ul className="calendar-event-list">
                 {selectedEvents.map((event) => (
                   <EventRow
@@ -411,14 +472,37 @@ export function CalendarPanel({
                   />
                 ))}
               </ul>
-            )}
+            ) : null}
           </>
         ) : (
           <>
             <h4 className="cal-detail-heading">This month</h4>
-            {!monthEvents.length ? (
+            {!monthEvents.length && !monthHasFamily ? (
               <p className="todo-empty">No dated events in {monthLabel(year, monthIndex)}.</p>
             ) : (
+              <>
+                {familyMeetings.length ? (
+                  <ul className="calendar-event-list cal-family-month">
+                    {familyMeetings.map((meeting) => {
+                      const agenda = agendaForMeetingDate(meeting.date, familyTodos);
+                      return (
+                        <li key={meeting.id} className="calendar-event">
+                          <div className="calendar-event-when mono">{shortEventDate(meeting.date)}</div>
+                          <div className="calendar-event-body">
+                            <strong>Family meeting</strong>
+                            <span>
+                              {familyMeetingCadenceLabel(meeting.phase)}
+                              {agenda.length
+                                ? ` · ${agenda.length} agenda item${agenda.length === 1 ? "" : "s"}`
+                                : ""}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : null}
+                {monthEvents.length ? (
               <ul className="calendar-event-list">
                 {monthEvents.map((event) => (
                   <EventRow
@@ -430,6 +514,8 @@ export function CalendarPanel({
                   />
                 ))}
               </ul>
+                ) : null}
+              </>
             )}
           </>
         )}

@@ -1,18 +1,26 @@
 "use client";
 
 import { useEffect, useRef, useState, type DragEvent } from "react";
+import { UsersThree } from "@phosphor-icons/react";
 import { MemberBadge } from "./MemberBadge";
 import { TodoMoveMenu } from "./TodoMoveMenu";
 import { TodoProjectEditor, type ProjectEditorState } from "./TodoProjectEditor";
 import type { PersistedProjectStep } from "@/lib/ingest";
 import { type MemberProfile } from "@/lib/member-avatars";
 import {
+  FAMILY_MEETING_KIND,
+  familyMeetingCadenceLabel,
+  familyMeetingPhaseForDate,
+} from "@/lib/family-meeting";
+import {
   assignmentPatch,
   assignedByBadge,
   canMarkTodoDone,
   dueTone,
+  familyMeetingKindPatch,
   groupTodosByOwner,
   groupTodosByProject,
+  isFamilyMeetingTodo,
   listProjectTodos,
   memberOwnerId,
   openListStats,
@@ -66,6 +74,7 @@ function TaskRow({
   subtasks,
   open,
   viewer,
+  listOwner,
   profiles,
   drafting,
   draftLabel,
@@ -94,6 +103,7 @@ function TaskRow({
   subtasks: TodoSubtask[];
   open: boolean;
   viewer: Owner;
+  listOwner: Owner | null;
   profiles: Map<string, MemberProfile>;
   drafting: boolean;
   draftLabel: string;
@@ -118,7 +128,12 @@ function TaskRow({
   onCloseMenu: () => void;
   onGripDragStart: (event: DragEvent<HTMLElement>) => void;
 }) {
-  const canToggle = canMarkTodoDone(viewer, todo.owner);
+  const isFamily = isFamilyMeetingTodo(todo);
+  const ackOwner = listOwner ?? viewer;
+  const checked = isFamily ? todo.doneBy.includes(ackOwner) : todo.done;
+  const canToggle = isFamily
+    ? listOwner == null || listOwner === viewer
+    : canMarkTodoDone(viewer, todo.owner);
   const fromOwner = todo.assignedBy && todo.owner && todo.assignedBy !== todo.owner ? todo.assignedBy : null;
   const fromProfile = fromOwner ? profiles.get(fromOwner) : null;
   const fromLabel = assignedByBadge(todo);
@@ -126,9 +141,20 @@ function TaskRow({
   const tone = dueTone(date);
   const showCountInColumn = subtasks.length > 0 && !date;
   const bodyId = `b-${todo.id}`;
-  const ownerLockLabel = todo.owner
-    ? `Only ${ownerLabel(todo.owner)} can check this off`
-    : "Claim this to-do before checking it off";
+  const ownerLockLabel = isFamily
+    ? listOwner && listOwner !== viewer
+      ? `Only ${ownerLabel(listOwner)} can mark this discussed on their list`
+      : "Mark when you consider this discussed"
+    : todo.owner
+      ? `Only ${ownerLabel(todo.owner)} can check this off`
+      : "Claim this to-do before checking it off";
+  const meetingDate = isFamily ? todoPrimaryDate(todo) : null;
+  const meetingPhase = meetingDate ? familyMeetingPhaseForDate(meetingDate) : null;
+  const familyMeta = isFamily
+    ? meetingDate && meetingPhase
+      ? `Family meeting · ${shortDueLabel(meetingDate)} · ${familyMeetingCadenceLabel(meetingPhase)}`
+      : "Family meeting"
+    : null;
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editing, setEditing] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -139,7 +165,9 @@ function TaskRow({
   const byProject = groupBy === "project";
   const project = projects.find((row) => row.id === todo.projectId) ?? null;
   const ownerProfile = todo.owner ? profiles.get(todo.owner) : null;
-  const showMeta = !byProject && Boolean(project || (fromOwner && fromLabel));
+  const showMeta = Boolean(
+    familyMeta || (!byProject && (project || (fromOwner && fromLabel))),
+  );
 
   useEffect(() => {
     if (!open) {
@@ -203,9 +231,15 @@ function TaskRow({
         <input
           className="task-check"
           type="checkbox"
-          checked={todo.done}
+          checked={checked}
           disabled={!canToggle}
-          aria-label={canToggle ? `Complete: ${todo.label}` : `${todo.label} (${ownerLockLabel})`}
+          aria-label={
+            canToggle
+              ? isFamily
+                ? `Discussed for me: ${todo.label}`
+                : `Complete: ${todo.label}`
+              : `${todo.label} (${ownerLockLabel})`
+          }
           title={canToggle ? undefined : ownerLockLabel}
           onChange={(event) => {
             if (!canToggle) return;
@@ -214,7 +248,12 @@ function TaskRow({
         />
         {byProject ? (
           <span className="task-owner">
-            {todo.owner ? (
+            {isFamily ? (
+              <span className="task-owner-family" title="Family meeting">
+                <UsersThree size={18} weight="bold" aria-hidden="true" />
+                <span className="sr-only">Family meeting</span>
+              </span>
+            ) : todo.owner ? (
               <MemberBadge
                 name={ownerProfile?.displayName ?? ownerLabel(todo.owner)}
                 avatarUrl={ownerProfile?.avatarUrl}
@@ -237,10 +276,42 @@ function TaskRow({
             aria-controls={bodyId}
             onClick={onToggleOpen}
           >
+            {isFamily ? (
+              <UsersThree className="task-fam-icon" size={18} weight="bold" aria-hidden="true" />
+            ) : null}
             <span className="task-title-text">{todo.label}</span>
           </button>
           {showMeta ? (
             <div className="task-meta">
+              {isFamily ? (
+                <span className="task-fam-label">{familyMeta}</span>
+              ) : null}
+              {isFamily ? (
+                <span className="task-acks" aria-label="Who considers this discussed">
+                  {OWNERS.map((owner) => {
+                    const profile = profiles.get(owner.id);
+                    const acked = todo.doneBy.includes(owner.id);
+                    return (
+                      <span
+                        key={owner.id}
+                        className={`task-ack${acked ? " is-done" : ""}`}
+                        title={
+                          acked
+                            ? `${profile?.displayName ?? owner.label} considers this discussed`
+                            : `${profile?.displayName ?? owner.label} has not marked this discussed`
+                        }
+                      >
+                        <MemberBadge
+                          name={profile?.displayName ?? owner.label}
+                          avatarUrl={profile?.avatarUrl}
+                          size="sm"
+                          showName={false}
+                        />
+                      </span>
+                    );
+                  })}
+                </span>
+              ) : null}
               {project ? (
                 <button
                   ref={tagRef}
@@ -387,13 +458,27 @@ function TaskRow({
             <div className="todo-assign-row">
               <div className="todo-assign-field">
                 <span className="label" id={`assign-label-${todo.id}`}>
-                  Assigned to
+                  {isFamily ? "On every list" : "Assigned to"}
                 </span>
                 <div
                   className="todo-assign-picker"
                   role="radiogroup"
                   aria-labelledby={`assign-label-${todo.id}`}
                 >
+                  <button
+                    type="button"
+                    role="radio"
+                    className={`todo-assign-choice${isFamily ? " is-selected" : ""}`}
+                    aria-checked={isFamily}
+                    aria-label="Family meeting"
+                    onClick={() => onEdit(familyMeetingKindPatch(viewer, FAMILY_MEETING_KIND))}
+                  >
+                    <span className="todo-assign-avatar todo-assign-family" aria-hidden="true">
+                      <UsersThree size={18} weight="bold" />
+                    </span>
+                    <span className="todo-assign-choice-name">Family</span>
+                  </button>
+                  {!isFamily ? (
                   <button
                     type="button"
                     role="radio"
@@ -407,9 +492,10 @@ function TaskRow({
                     </span>
                     <span className="todo-assign-choice-name">Unclaimed</span>
                   </button>
+                  ) : null}
                   {OWNERS.map((owner) => {
                     const profile = profiles.get(owner.id);
-                    const selected = todo.owner === owner.id;
+                    const selected = !isFamily && todo.owner === owner.id;
                     return (
                       <button
                         key={owner.id}
@@ -436,7 +522,7 @@ function TaskRow({
                   })}
                 </div>
               </div>
-              {todo.owner !== viewer ? (
+              {!isFamily && todo.owner !== viewer ? (
                 <button
                   type="button"
                   className="btn btn-secondary todo-claim-btn"
@@ -476,6 +562,9 @@ function TaskRow({
                   }}
                 />
               </label>
+              {isFamily ? (
+                <p className="todo-fam-agenda">{familyMeta}. It stays on the next meeting until everyone marks it discussed.</p>
+              ) : (
               <div className="todo-edit-dates">
                 <label className="todo-edit-field">
                   <span className="label">Due date</span>
@@ -501,6 +590,7 @@ function TaskRow({
                   />
                 </label>
               </div>
+              )}
               <div className="todo-delete-row">
                 {confirmDelete ? (
                   <>
@@ -560,7 +650,7 @@ type SharedTodoProps = TodoProjectProps & {
   onDelete: (id: string) => void;
 };
 
-function renderTaskRow(todo: ProjectTodo, shared: SharedTodoProps) {
+function renderTaskRow(todo: ProjectTodo, shared: SharedTodoProps, listOwner: Owner | null = null) {
   return (
     <TaskRow
       key={todo.id}
@@ -568,6 +658,7 @@ function renderTaskRow(todo: ProjectTodo, shared: SharedTodoProps) {
       subtasks={shared.subtasks[todo.id] ?? []}
       open={shared.openIds.has(todo.id)}
       viewer={shared.viewer}
+      listOwner={listOwner}
       profiles={shared.profiles}
       drafting={shared.draftParent === todo.id}
       draftLabel={shared.draftParent === todo.id ? shared.draftLabel : ""}
@@ -605,7 +696,10 @@ function TaskList({
 }) {
   const { profiles } = shared;
   const todos = [...bucket.open, ...bucket.done];
-  const stats = openListStats(todos);
+  const stats = openListStats([
+    ...bucket.open.map((todo) => ({ ...todo, done: false })),
+    ...bucket.done.map((todo) => ({ ...todo, done: true })),
+  ]);
   const listClass = emphasis === "focus" ? "list list-focus" : "list list-other";
   const profile = profiles.get(bucket.owner);
 
@@ -622,7 +716,7 @@ function TaskList({
         <span className="list-count">{stats.label}</span>
       </div>
       {todos.length ? (
-        todos.map((todo) => renderTaskRow(todo, shared))
+        todos.map((todo) => renderTaskRow(todo, shared, bucket.owner))
       ) : (
         <p className="todo-empty">No to-dos assigned yet.</p>
       )}
@@ -645,8 +739,12 @@ function OthersSection({
 }) {
   if (!buckets.length) return null;
 
-  const allTodos = buckets.flatMap((bucket) => [...bucket.open, ...bucket.done]);
-  const stats = openListStats(allTodos);
+  const allOpen = buckets.flatMap((bucket) => bucket.open);
+  const allDone = buckets.flatMap((bucket) => bucket.done);
+  const stats = openListStats([
+    ...allOpen.map((todo) => ({ ...todo, done: false })),
+    ...allDone.map((todo) => ({ ...todo, done: true })),
+  ]);
 
   return (
     <div className={`todos-others${expanded ? "" : " is-collapsed"}`}>
@@ -908,7 +1006,8 @@ export function TodosPanel({
 
   function toggleSub(parentId: string, subId: string, checked: boolean) {
     const ownerTodo = todos.find((todo) => todo.id === parentId);
-    if (!ownerTodo || !canMarkTodoDone(focusOwner, ownerTodo.owner)) return;
+    if (!ownerTodo) return;
+    if (!isFamilyMeetingTodo(ownerTodo) && !canMarkTodoDone(focusOwner, ownerTodo.owner)) return;
     onChangeSubtasks({
       ...subtasks,
       [parentId]: (subtasks[parentId] ?? []).map((row) =>
@@ -931,6 +1030,12 @@ export function TodosPanel({
   }
 
   function assignTodo(id: string, owner: Owner | null) {
+    const todo = todos.find((row) => row.id === id);
+    if (todo && isFamilyMeetingTodo(todo)) {
+      if (owner == null) return;
+      onEditTodo(id, { kind: "normal", doneBy: [], ...assignmentPatch(focusOwner, owner) });
+      return;
+    }
     onEditTodo(id, assignmentPatch(focusOwner, owner));
   }
 

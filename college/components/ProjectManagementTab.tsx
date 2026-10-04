@@ -13,7 +13,7 @@ import {
   projectSectionById,
   type ProjectSectionId,
 } from "@/lib/project-management";
-import { type TodoEdit, type TodoEditMap, type TodoSubtaskMap } from "@/lib/project-todos";
+import { listProjectTodos, type TodoEdit, type TodoEditMap, type TodoKind, type TodoSubtaskMap } from "@/lib/project-todos";
 import { TIMELINE_PROJECTS } from "@/lib/timeline-stages";
 import type { MemberProfile } from "@/lib/member-avatars";
 import type { Owner, Phase } from "@/lib/types";
@@ -61,7 +61,7 @@ export function ProjectManagementTab({
   onChangeTodoProjects: (next: TodoProject[]) => void;
   onDeleteTodoProject: (projectId: string) => void;
   onDeleteTodo: (id: string) => void;
-  onAddTodo: (label: string) => void;
+  onAddTodo: (label: string, kind?: TodoKind) => void;
   onChangeCalendarEvents: (next: CalendarEvent[]) => void;
   onAssignStage?: (stage: StageAssignPayload, owner: Owner | null) => void;
   dateline: string;
@@ -69,7 +69,14 @@ export function ProjectManagementTab({
   const active = projectSectionById(section);
   const [addingTodo, setAddingTodo] = useState(false);
   const [newTodoLabel, setNewTodoLabel] = useState("");
+  const [newTodoKind, setNewTodoKind] = useState<TodoKind>("normal");
   const [focusTodoProjectId, setFocusTodoProjectId] = useState<string | null>(null);
+
+  function startAdd(kind: TodoKind) {
+    setNewTodoKind(kind);
+    setAddingTodo(true);
+    setNewTodoLabel("");
+  }
 
   function commitNewTodo() {
     const label = newTodoLabel.trim();
@@ -78,15 +85,17 @@ export function ProjectManagementTab({
       setNewTodoLabel("");
       return;
     }
-    onAddTodo(label);
+    onAddTodo(label, newTodoKind);
     setNewTodoLabel("");
     setAddingTodo(false);
+    setNewTodoKind("normal");
   }
 
   function changeSection(next: ProjectSectionId) {
     onSectionChange(next);
     setAddingTodo(false);
     setNewTodoLabel("");
+    setNewTodoKind("normal");
     if (next !== "todos") setFocusTodoProjectId(null);
   }
 
@@ -136,12 +145,34 @@ export function ProjectManagementTab({
           <div className="todo-add pm-toolbar-action">
             {addingTodo ? (
               <div className="todo-add-draft">
+                <div className="todos-rocker todo-add-kind" role="group" aria-label="To-do type">
+                  <button
+                    type="button"
+                    className="todos-rocker-opt"
+                    aria-pressed={newTodoKind === "normal"}
+                    onClick={() => setNewTodoKind("normal")}
+                  >
+                    To-do
+                  </button>
+                  <button
+                    type="button"
+                    className="todos-rocker-opt"
+                    aria-pressed={newTodoKind === "family_meeting"}
+                    onClick={() => setNewTodoKind("family_meeting")}
+                  >
+                    Family meeting
+                  </button>
+                </div>
                 <input
                   className="field"
                   autoFocus
                   value={newTodoLabel}
-                  aria-label="New to-do"
-                  placeholder="What needs doing?"
+                  aria-label={newTodoKind === "family_meeting" ? "Family meeting topic" : "New to-do"}
+                  placeholder={
+                    newTodoKind === "family_meeting"
+                      ? "What should the family discuss?"
+                      : "What needs doing?"
+                  }
                   onChange={(event) => setNewTodoLabel(event.target.value)}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
@@ -152,6 +183,7 @@ export function ProjectManagementTab({
                       event.preventDefault();
                       setAddingTodo(false);
                       setNewTodoLabel("");
+                      setNewTodoKind("normal");
                     }
                   }}
                 />
@@ -164,15 +196,25 @@ export function ProjectManagementTab({
                   onClick={() => {
                     setAddingTodo(false);
                     setNewTodoLabel("");
+                    setNewTodoKind("normal");
                   }}
                 >
                   Cancel
                 </button>
               </div>
             ) : (
-              <button type="button" className="btn btn-secondary" onClick={() => setAddingTodo(true)}>
-                Add a to-do
-              </button>
+              <div className="todo-add-buttons">
+                <button type="button" className="btn btn-secondary" onClick={() => startAdd("normal")}>
+                  Add a to-do
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => startAdd("family_meeting")}
+                >
+                  Family meeting
+                </button>
+              </div>
             )}
           </div>
         ) : null}
@@ -218,6 +260,9 @@ export function ProjectManagementTab({
       {active.status === "ready" && active.id === "calendar" ? (
         <CalendarPanel
           events={calendarEvents}
+          familyTodos={listProjectTodos(checklist, phases, projectSteps, todoEdits).filter(
+            (todo) => todo.kind === "family_meeting",
+          )}
           dateline={dateline}
           focusDate={calendarFocusDate}
           onChangeEvents={onChangeCalendarEvents}
