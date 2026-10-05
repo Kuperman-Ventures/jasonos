@@ -990,9 +990,9 @@ function unavailableBeeperResult(
     cadenceUpdates: 0,
     skipped: 0,
     unavailable: true,
-    error: message.includes("No Beeper")
-      ? BEEPER_UNAVAILABLE_MESSAGE
-      : message,
+    // Keep the detailed message (includes the URL we tried) so Sync Log
+    // can show whether Settings/env tunnel or localhost was used.
+    error: message || BEEPER_UNAVAILABLE_MESSAGE,
   };
 }
 
