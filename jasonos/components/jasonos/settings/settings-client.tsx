@@ -38,8 +38,10 @@ import { PageHeader } from "@/components/jasonos/brand/page-header";
 import {
   AVAILABLE_MODELS,
   SERVICE_DEFINITIONS,
+  serviceLogoUrl,
   type AlertThresholds,
   type ModelPreferences,
+  type ServiceDefinition,
 } from "@/lib/settings/services";
 import type { SettingsPayload, ServiceConnection } from "@/lib/settings/data";
 import { googleMailboxHealth } from "@/lib/settings/google-status";
@@ -892,7 +894,7 @@ function ServiceCard({
   });
   const [isPending, startTransition] = useTransition();
   const [mcpPassword, setMcpPassword] = useState("");
-  const Icon = CONNECTION_ICONS[definition.connectionType];
+  const FallbackIcon = CONNECTION_ICONS[definition.connectionType];
 
   const test = () => {
     startTransition(async () => {
@@ -958,13 +960,15 @@ function ServiceCard({
     <article className="rounded-xl border bg-card p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 gap-3">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border bg-background/60">
-            <Icon className="h-4 w-4 text-rung-ink" />
-          </div>
+          <ServiceMark definition={definition} FallbackIcon={FallbackIcon} />
           <div className="min-w-0">
             <h3 className="text-sm font-semibold tracking-tight">{definition.label}</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Connection type: {labelConnectionType(definition.connectionType)}
+              <span className="font-medium text-foreground/70">Needs:</span>{" "}
+              {definition.setup}
+            </p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground/80">
+              {labelConnectionType(definition.connectionType)}
             </p>
           </div>
         </div>
@@ -1233,10 +1237,58 @@ function StatusBadge({ status }: { status: ServiceConnection["status"] }) {
 }
 
 function labelConnectionType(type: string) {
-  return type
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+  switch (type) {
+    case "api_key":
+      return "Auth: secret / token pasted in Settings (or Vercel env)";
+    case "oauth":
+      return "Auth: browser sign-in (OAuth)";
+    case "env_var":
+      return "Auth: Vercel environment variables only";
+    case "mcp":
+      return "Auth: Cursor MCP connector";
+    case "webhook":
+      return "Auth: in-app webhook settings";
+    default:
+      return type
+        .split("_")
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ");
+  }
+}
+
+function ServiceMark({
+  definition,
+  FallbackIcon,
+}: {
+  definition: ServiceDefinition;
+  FallbackIcon: (typeof CONNECTION_ICONS)[keyof typeof CONNECTION_ICONS];
+}) {
+  const [failed, setFailed] = useState(false);
+  const domain = definition.logoDomain;
+  const showLogo = Boolean(domain) && !failed;
+
+  return (
+    <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg border bg-background/60">
+      {showLogo && domain ? (
+        // Brand favicon for quick scanning; falls back to connection-type icon.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={serviceLogoUrl(domain, 64)}
+          alt=""
+          width={22}
+          height={22}
+          className="h-[22px] w-[22px] object-contain"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+        />
+      ) : definition.name === "jasonos_mcp" ? (
+        <Logo size={22} />
+      ) : (
+        <FallbackIcon className="h-4 w-4 text-rung-ink" />
+      )}
+    </div>
+  );
 }
 
 function fmtUsd(n: number) {
