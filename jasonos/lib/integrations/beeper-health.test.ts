@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { interpretBeeperAuthStatuses } from "./beeper-health.ts";
+import {
+  describeBeeperTokenProblem,
+  interpretBeeperAuthStatuses,
+} from "./beeper-health.ts";
 
 describe("interpretBeeperAuthStatuses", () => {
   it("treats info 200 + accounts 401 as expired, not healthy", () => {
@@ -36,5 +39,22 @@ describe("interpretBeeperAuthStatuses", () => {
       kind: "bad_response",
       status: 502,
     });
+  });
+});
+
+describe("describeBeeperTokenProblem", () => {
+  it("rejects a pasted Sync 401 toast", () => {
+    const pasted =
+      "failed: Beeper API 401: Beeper token expired. In Beeper Desktop → Settings → Integrations → Approved connections, create a new token, then paste it in JasonOS Settings → Beeper (or update BEEPER_ACCESS_TOKEN) and hit Test Connection";
+    const problem = describeBeeperTokenProblem(pasted);
+    assert.ok(problem);
+    assert.match(problem, /error message|not a Beeper token/i);
+  });
+
+  it("accepts a normal opaque token", () => {
+    assert.equal(
+      describeBeeperTokenProblem("bp_live_abc123XYZ-_~"),
+      null
+    );
   });
 });

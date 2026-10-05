@@ -5,6 +5,7 @@ import {
   beeperHrefStrings,
   toE164,
 } from "@/lib/integrations/beeper-links";
+import { describeBeeperTokenProblem } from "@/lib/integrations/beeper-health";
 import { beeperTextNetworkRank } from "@/lib/integrations/beeper-text-pref";
 import {
   isUsablePhone,
@@ -157,6 +158,10 @@ async function beeperFetch(
     throw new BeeperUnavailableError(
       "Beeper access token is not configured. Paste a new token in Settings → Beeper (or set BEEPER_ACCESS_TOKEN)."
     );
+  }
+  const tokenProblem = describeBeeperTokenProblem(token);
+  if (tokenProblem) {
+    throw new BeeperApiError(401, tokenProblem);
   }
 
   const timeoutMs = init?.timeoutMs ?? 8_000;
