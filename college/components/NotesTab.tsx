@@ -639,7 +639,7 @@ export function NotesTab({
       {!noteItems.length ? (
         <p className="board-empty">
           Nothing here yet. Route a paste, URL, or PDF to Note in{" "}
-          <a href="/?tab=ingest">Ingest</a>.
+          <a href="/?tab=projects&pm=ingest">Ingest</a>.
         </p>
       ) : !bands.length ? (
         <p className="board-empty">No items match this filter.</p>

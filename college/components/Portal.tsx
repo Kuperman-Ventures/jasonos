@@ -15,7 +15,6 @@ import { AdminTab } from "./AdminTab";
 import { DataSourcesTab } from "./DataSourcesTab";
 import { setClientLinkOverrides } from "@/lib/link-overrides";
 import { NotesTab } from "./NotesTab";
-import { IngestPanel } from "./IngestPanel";
 import { ProjectManagementTab } from "./ProjectManagementTab";
 import { TestingTab, testingItems } from "./TestingTab";
 import {
@@ -184,12 +183,12 @@ function readStart(): {
       activityId: null,
     };
   }
-  // Legacy Project Management → Ingest deep link
-  if (params.get("tab") === "projects" && pmRaw === "ingest") {
+  // Legacy standalone Ingest tab → Project Management · Ingest
+  if (params.get("tab") === "ingest") {
     return {
-      tab: "ingest",
+      tab: "projects",
       schoolId: null,
-      projectSection: DEFAULT_PROJECT_SECTION,
+      projectSection: "ingest",
       appsSection,
       activitiesView,
       noteId: null,
@@ -502,6 +501,10 @@ export function Portal({
     let target = next === "admin" && !isAdminRole(member.role) ? "dashboard" : next;
     if (target === "finances" && !canViewFinances(member, listPhase)) {
       target = "dashboard";
+    }
+    if (target === "ingest") {
+      goProjectSection("ingest");
+      return;
     }
     setTab(target);
     if (target !== "notes") setOpenNoteId(null);
@@ -1041,8 +1044,7 @@ export function Portal({
     };
     setIngestHandoff(handoff);
     setOpenNoteId(null);
-    setTab("ingest");
-    replaceUrl("ingest", null, projectSection, null, appsSection);
+    goProjectSection("ingest");
   }
 
   function makeTodoFromNote(note: PinNote) {
@@ -1672,41 +1674,14 @@ export function Portal({
               setTab("colleges");
               replaceUrl("colleges", id);
             }}
+            ingestSources={ingestSources}
+            notes={notes}
+            noteItems={noteItems}
+            assignedBy={memberOwnerId(member.id)}
+            ingestHandoff={ingestHandoff}
+            onIngestHandoffConsumed={() => setIngestHandoff(null)}
+            onConfirmIngest={confirmIngest}
           />
-        ) : null}
-        {tab === "ingest" ? (
-          <section className="pm">
-            <header className="page-head">
-              <div>
-                <div className="dateline">{phaseLabel}</div>
-                <h2>Ingest</h2>
-              </div>
-            </header>
-            <p className="pm-blurb">
-              Drop a deck or email, or paste text. Choose whether to save a note, find to-dos,
-              find calendar events — then review and save.
-            </p>
-            <IngestPanel
-              phases={phases}
-              projectSteps={projectSteps}
-              ingestSources={ingestSources}
-              notes={notes}
-              noteItems={noteItems}
-              calendarEvents={calendarEvents}
-              assignedBy={memberOwnerId(member.id)}
-              schoolNames={schools.map((school) => school.name)}
-              openTodos={listProjectTodos(checklist, phases, projectSteps, todoEdits)
-                .filter((todo) => !todo.done)
-                .map((todo) => ({
-                  title: todo.label,
-                  school: null,
-                  dueDate: todo.dueDate,
-                }))}
-              handoff={ingestHandoff}
-              onHandoffConsumed={() => setIngestHandoff(null)}
-              onConfirm={confirmIngest}
-            />
-          </section>
         ) : null}
         {tab === "faq" ? <FaqTab categories={faqCategories} dateline={phaseLabel} /> : null}
         {tab === "guide" ? (

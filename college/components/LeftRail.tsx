@@ -18,7 +18,6 @@ import {
   SidebarSimple,
   SignOut,
   SquaresFour,
-  TrayArrowDown,
   UsersThree,
   type Icon,
 } from "@phosphor-icons/react";
@@ -83,7 +82,6 @@ const NAV_GROUPS: NavGroup[] = [
       { id: "colleges", label: "Colleges", Icon: Bank },
       { id: "apps", label: "Apps & Materials", Icon: Files },
       { id: "finances", label: "Finances", Icon: Coins },
-      { id: "ingest", label: "Ingest", Icon: TrayArrowDown },
     ],
   },
   {
