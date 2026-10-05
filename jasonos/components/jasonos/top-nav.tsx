@@ -12,16 +12,20 @@ import {
 import { Logo } from "@/components/jasonos/logo";
 import { ChevronDown } from "lucide-react";
 import { SyncNowButton } from "@/components/jasonos/outreach/sync-now-button";
+import type { NetworkingNavCounts } from "@/lib/data/networking-nav-counts";
 
 // ─── Nav structure ─────────────────────────────────────────────────────────
 // Clusters (with hairline dividers between them):
 //   Daily → Networking / Job Search → Tools → System
 
 type NavLinkItem = { kind: "link"; href: string; label: string };
+type NavChild = { href: string; label: string; badgeKey?: keyof NetworkingNavCounts };
 type NavGroupItem = {
   kind: "group";
   label: string;
-  children: { href: string; label: string }[];
+  /** When set, top-level badge is the sum of these count keys. */
+  badgeKeys?: (keyof NetworkingNavCounts)[];
+  children: NavChild[];
 };
 type NavItem = NavLinkItem | NavGroupItem;
 
@@ -41,13 +45,14 @@ const NAV: NavItem[] = [
   {
     kind: "group",
     label: "Networking",
+    badgeKeys: ["suggested", "followUp"],
     children: [
       { href: "/outreach/dashboard", label: "Dashboard" },
       { href: "/outreach/queue", label: "Queue" },
       { href: "/outreach/people", label: "People" },
       { href: "/outreach/network-map", label: "Network Map" },
-      { href: "/outreach/suggested", label: "Suggested" },
-      { href: "/outreach/sent", label: "Follow Up" },
+      { href: "/outreach/suggested", label: "Suggested", badgeKey: "suggested" },
+      { href: "/outreach/sent", label: "Follow Up", badgeKey: "followUp" },
       { href: "/outreach/firms", label: "Firms" },
       { href: "/outreach/browning-networking", label: "Browning Networking" },
     ],
@@ -105,6 +110,23 @@ const NAV: NavItem[] = [
   },
 ];
 
+function NavBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <span className="ml-0.5 rounded-full bg-[var(--jos-ink)] px-1.5 py-0.5 text-[11px] font-semibold leading-none text-[var(--jos-bg)] tabular-nums">
+      {count}
+    </span>
+  );
+}
+
+function sumBadgeKeys(
+  counts: NetworkingNavCounts | undefined,
+  keys: (keyof NetworkingNavCounts)[] | undefined
+): number {
+  if (!counts || !keys?.length) return 0;
+  return keys.reduce((sum, key) => sum + (counts[key] ?? 0), 0);
+}
+
 // ─── NavLink ──────────────────────────────────────────────────────────────
 
 function NavLink({
@@ -137,10 +159,14 @@ function NavGroup({
   label,
   items,
   active,
+  badgeCount = 0,
+  counts,
 }: {
   label: string;
-  items: { href: string; label: string }[];
+  items: NavChild[];
   active: boolean;
+  badgeCount?: number;
+  counts?: NetworkingNavCounts;
 }) {
   const router = useRouter();
 
@@ -155,18 +181,23 @@ function NavGroup({
         )}
       >
         {label}
+        <NavBadge count={badgeCount} />
         <ChevronDown className="h-5 w-5" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-40">
-        {items.map((item) => (
-          <DropdownMenuItem
-            key={item.href}
-            className="cursor-pointer"
-            onClick={() => router.push(item.href)}
-          >
-            <span className="flex-1">{item.label}</span>
-          </DropdownMenuItem>
-        ))}
+        {items.map((item) => {
+          const itemCount = item.badgeKey ? counts?.[item.badgeKey] ?? 0 : 0;
+          return (
+            <DropdownMenuItem
+              key={item.href}
+              className="cursor-pointer gap-2"
+              onClick={() => router.push(item.href)}
+            >
+              <span className="flex-1">{item.label}</span>
+              <NavBadge count={itemCount} />
+            </DropdownMenuItem>
+          );
+        })}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -174,7 +205,11 @@ function NavGroup({
 
 // ─── TopNav ───────────────────────────────────────────────────────────────
 
-export function TopNav() {
+export function TopNav({
+  networkingCounts,
+}: {
+  networkingCounts?: NetworkingNavCounts;
+}) {
   const pathname = usePathname();
 
   function isActive(item: NavLinkItem | NavGroupItem): boolean {
@@ -215,6 +250,8 @@ export function TopNav() {
                 label={item.label}
                 items={item.children}
                 active={isActive(item)}
+                badgeCount={sumBadgeKeys(networkingCounts, item.badgeKeys)}
+                counts={networkingCounts}
               />
             );
           })}

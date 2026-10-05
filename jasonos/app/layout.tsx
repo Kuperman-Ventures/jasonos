@@ -4,6 +4,7 @@ import "./globals.css";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { JasonOsChrome } from "@/components/jasonos/jasonos-chrome";
+import { getNetworkingNavCounts } from "@/lib/data/networking-nav-counts";
 
 const hanken = Hanken_Grotesk({
   subsets: ["latin"],
@@ -25,9 +26,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export const dynamic = "force-dynamic";
+
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const networkingCounts = await getNetworkingNavCounts();
   return (
     <html
       lang="en"
@@ -36,7 +40,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-background text-foreground max-[900px]:pr-[72px]">
         <TooltipProvider delay={150}>
-          <JasonOsChrome />
+          <JasonOsChrome networkingCounts={networkingCounts} />
           <main className="flex-1">{children}</main>
           <Toaster position="bottom-right" />
         </TooltipProvider>
