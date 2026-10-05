@@ -19,7 +19,11 @@ import {
   type ServiceStatus,
 } from "./services";
 import { summarizeGoogleMailboxes } from "./google-status";
-import { interpretBeeperAuthStatuses, isAuthDeniedStatus } from "@/lib/integrations/beeper-health";
+import {
+  describeBeeperTokenProblem,
+  interpretBeeperAuthStatuses,
+  isAuthDeniedStatus,
+} from "@/lib/integrations/beeper-health";
 
 const CredentialsSchema = z.record(z.string(), z.union([z.string(), z.number(), z.boolean()]));
 const ServiceNameSchema = z.enum(SERVICE_DEFINITIONS.map((service) => service.name) as [string, ...string[]]);
@@ -247,6 +251,14 @@ export async function testServiceConnection(
         health_status: "down",
       };
     }
+    const tokenProblem = describeBeeperTokenProblem(beeperKey);
+    if (tokenProblem) {
+      return {
+        success: false,
+        message: tokenProblem,
+        health_status: "down",
+      };
+    }
     const base =
       stringCredential(credentials.base_url)?.replace(/\/$/, "") ||
       process.env.BEEPER_DESKTOP_BASE_URL?.trim().replace(/\/$/, "") ||
@@ -291,7 +303,16 @@ export async function testServiceConnection(
         health_status: "healthy",
         metadata: { base_url: base },
       };
-    } catch {
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "";
+      if (/ByteString|Invalid character in header/i.test(detail)) {
+        return {
+          success: false,
+          message:
+            "That looks like a Sync error message pasted into the token field. Create a new Desktop API token in Beeper → Settings → Integrations → Approved connections and paste only the token.",
+          health_status: "down",
+        };
+      }
       return unreachableResult;
     }
   }

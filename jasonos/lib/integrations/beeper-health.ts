@@ -12,6 +12,30 @@ export function isAuthDeniedStatus(status: number): boolean {
   return status === 401 || status === 403;
 }
 
+/** Reject Sync-toast paste-ins and other non-token junk before fetch. */
+export function describeBeeperTokenProblem(token: string): string | null {
+  const value = token.trim();
+  if (!value) return "Paste a Desktop API access token.";
+  // People paste the Sync failure toast into the token field. That string
+  // includes a unicode arrow and makes fetch throw "couldn't reach…".
+  if (
+    /failed:\s*beeper|beeper api\s*401|token expired|hit test connection|approved connections/i.test(
+      value
+    )
+  ) {
+    return "That looks like a Sync error message, not a Beeper token. In Beeper Desktop → Settings → Integrations → Approved connections, create a new token and paste only that token here.";
+  }
+  for (let i = 0; i < value.length; i += 1) {
+    if (value.charCodeAt(i) > 255) {
+      return "That token has invalid characters (often from pasting an error toast). Create a new Desktop API token in Beeper and paste only the token.";
+    }
+  }
+  if (/\s/.test(value)) {
+    return "Beeper tokens don’t contain spaces. Paste only the token from Approved connections.";
+  }
+  return null;
+}
+
 /**
  * `null` status = network/timeout (never got an HTTP code).
  * Info 200 + accounts 401 is the false-green Test Connection case.
