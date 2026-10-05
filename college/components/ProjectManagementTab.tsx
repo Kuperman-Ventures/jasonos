@@ -2,10 +2,15 @@
 
 import { useState } from "react";
 import { CalendarPanel } from "./CalendarPanel";
+import { IngestPanel, type IngestConfirmPayload } from "./IngestPanel";
 import { TimelinePanel } from "./TimelinePanel";
 import { TodosPanel } from "./TodosPanel";
 import type { CalendarEvent } from "@/lib/calendar-events";
-import type { PersistedProjectStep } from "@/lib/ingest";
+import type {
+  IngestHandoff,
+  PersistedIngestSource,
+  PersistedProjectStep,
+} from "@/lib/ingest";
 import type { TodoProject } from "@/lib/todo-projects";
 import { ensureNamedTodoProject } from "@/lib/todo-projects";
 import {
@@ -17,6 +22,7 @@ import { processCalendarEntries } from "@/lib/calendar-sources";
 import { listProjectTodos, type TodoEdit, type TodoEditMap, type TodoKind, type TodoSubtaskMap } from "@/lib/project-todos";
 import { TIMELINE_PROJECTS, allTimelineStages } from "@/lib/timeline-stages";
 import type { MemberProfile } from "@/lib/member-avatars";
+import type { PinNote } from "@/lib/note-board";
 import type { Owner, Phase, School } from "@/lib/types";
 import type { StageAssignPayload } from "./TimelineStageModal";
 
@@ -45,6 +51,13 @@ export function ProjectManagementTab({
   dateline,
   schools = [],
   onOpenSchool,
+  ingestSources = [],
+  notes = "",
+  noteItems = [],
+  assignedBy = "jason",
+  ingestHandoff = null,
+  onIngestHandoffConsumed,
+  onConfirmIngest,
 }: {
   section: ProjectSectionId;
   onSectionChange: (section: ProjectSectionId) => void;
@@ -70,6 +83,13 @@ export function ProjectManagementTab({
   dateline: string;
   schools?: School[];
   onOpenSchool?: (schoolId: string) => void;
+  ingestSources?: PersistedIngestSource[];
+  notes?: string;
+  noteItems?: PinNote[];
+  assignedBy?: Owner;
+  ingestHandoff?: IngestHandoff | null;
+  onIngestHandoffConsumed?: () => void;
+  onConfirmIngest?: (payload: IngestConfirmPayload) => Promise<void>;
 }) {
   const active = projectSectionById(section);
   const [addingTodo, setAddingTodo] = useState(false);
@@ -293,6 +313,29 @@ export function ProjectManagementTab({
               onOpenSchool?.(entry.schoolId);
             }
           }}
+        />
+      ) : null}
+
+      {active.status === "ready" && active.id === "ingest" && onConfirmIngest ? (
+        <IngestPanel
+          phases={phases}
+          projectSteps={projectSteps}
+          ingestSources={ingestSources}
+          notes={notes}
+          noteItems={noteItems}
+          calendarEvents={calendarEvents}
+          assignedBy={assignedBy}
+          schoolNames={schools.map((school) => school.name)}
+          openTodos={projectTodos
+            .filter((todo) => !todo.done)
+            .map((todo) => ({
+              title: todo.label,
+              school: null,
+              dueDate: todo.dueDate,
+            }))}
+          handoff={ingestHandoff}
+          onHandoffConsumed={onIngestHandoffConsumed}
+          onConfirm={onConfirmIngest}
         />
       ) : null}
     </section>

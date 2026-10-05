@@ -1,6 +1,6 @@
 /** Project Management section — parent nav with submenus. */
 
-export type ProjectSectionId = "timeline" | "todos" | "calendar";
+export type ProjectSectionId = "timeline" | "todos" | "calendar" | "ingest";
 
 export type ProjectSection = {
   id: ProjectSectionId;
@@ -30,6 +30,13 @@ export const PROJECT_SECTIONS: ProjectSection[] = [
     blurb: "",
     status: "ready",
   },
+  {
+    id: "ingest",
+    label: "Ingest",
+    blurb:
+      "Drop a deck or email, or paste text. Choose whether to save a note, find to-dos, find calendar events — then review and save.",
+    status: "ready",
+  },
 ];
 
 export const DEFAULT_PROJECT_SECTION: ProjectSectionId = "timeline";
@@ -42,7 +49,7 @@ export function projectSectionById(id: ProjectSectionId): ProjectSection {
   return PROJECT_SECTIONS.find((section) => section.id === id) ?? PROJECT_SECTIONS[0];
 }
 
-/** Map legacy ?tab=timeline / pm=ingest|board onto a live section. */
+/** Map ?pm= and legacy aliases onto a live section. */
 export function resolveProjectSection(raw: string | null): ProjectSectionId {
   if (raw && isProjectSectionId(raw)) return raw;
   return DEFAULT_PROJECT_SECTION;
