@@ -881,6 +881,13 @@ function ServiceCard({
         polling_interval_minutes: String(connection.config.polling_interval_minutes ?? 2),
       };
     }
+    if (connection.service_name === "beeper") {
+      const base =
+        typeof connection.config?.base_url === "string"
+          ? connection.config.base_url.trim()
+          : "";
+      return base ? { base_url: base } : {};
+    }
     return {} as Record<string, string>;
   });
   const [isPending, startTransition] = useTransition();

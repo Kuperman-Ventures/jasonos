@@ -260,16 +260,16 @@ export async function testServiceConnection(
     };
     const unreachableResult = {
       success: true as const,
-      message:
-        "Token saved. Beeper Desktop isn’t reachable from this server right now (closed, or needs a tunnel URL on Vercel). Sync will soft-skip with “No Beeper data synced” until it’s open and reachable.",
+      message: `Token saved, but this server couldn’t reach ${base}. Keep Beeper Desktop open and Tailscale Funnel up, paste that Funnel URL in Desktop base URL, Save, then Test again.`,
       health_status: "degraded" as const,
       metadata: { base_url: base },
     };
     try {
-      const info = await beeperGet(base, "/v1/info", beeperKey, 2_500);
+      // Tailscale Funnel / Cloudflare tunnels are often slower than localhost.
+      const info = await beeperGet(base, "/v1/info", beeperKey, 8_000);
       const accounts =
         info.ok && !isAuthDeniedStatus(info.status)
-          ? await beeperGet(base, "/v1/accounts", beeperKey, 2_500)
+          ? await beeperGet(base, "/v1/accounts", beeperKey, 10_000)
           : null;
       const probe = interpretBeeperAuthStatuses(
         info.status,
@@ -537,15 +537,15 @@ export async function saveServiceConnection(input: z.infer<typeof SaveConnection
   const key = stringCredential(credentials.api_key);
   let safeConfig = sanitizeConfig(credentials, service.name);
 
-  // Beeper / JasonOS MCP / Firecrawl: keep the previous access_token when the
-  // password field is blank (e.g. user only hits Test, or re-saves without retyping).
+  // Keep prior secrets / tunnel URL when the form omits them. Especially
+  // important for Beeper: pasting a new token used to wipe base_url because
+  // the Configure form starts with an empty tunnel field.
   if (
-    (service.name === "beeper" ||
-      service.name === "jasonos_mcp" ||
-      service.name === "firecrawl" ||
-      service.name === "granola" ||
-      service.name === "leaddelta") &&
-    !key
+    service.name === "beeper" ||
+    service.name === "jasonos_mcp" ||
+    service.name === "firecrawl" ||
+    service.name === "granola" ||
+    service.name === "leaddelta"
   ) {
     const { data: existing } = await supabase
       .from("service_connections")

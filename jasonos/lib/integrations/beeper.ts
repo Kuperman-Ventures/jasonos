@@ -131,6 +131,11 @@ async function resolveBaseUrl(): Promise<string> {
   return "http://127.0.0.1:23373";
 }
 
+/** URL Sync / Test will hit (Vercel env, then Settings tunnel, then localhost). */
+export async function getBeeperDesktopBaseUrl(): Promise<string> {
+  return resolveBaseUrl();
+}
+
 /** Prefer Settings → Beeper token; fall back to Vercel env. */
 async function resolveAccessToken(): Promise<string | null> {
   const cfg = await loadBeeperConnectionConfig();
@@ -220,16 +225,31 @@ async function throwIfAuthFailed(res: Response): Promise<void> {
 /** Probe Desktop API. Throws BeeperUnavailableError when closed / unreachable. */
 export async function probeBeeperDesktop(): Promise<{ ok: true; baseUrl: string }> {
   const baseUrl = await resolveBaseUrl();
-  const info = await beeperFetch("/v1/info", { timeoutMs: 5_000 });
-  await throwIfAuthFailed(info);
-  if (!info.ok) {
-    throw new BeeperUnavailableError(BEEPER_UNAVAILABLE_MESSAGE);
+  try {
+    const info = await beeperFetch("/v1/info", { timeoutMs: 8_000 });
+    await throwIfAuthFailed(info);
+    if (!info.ok) {
+      throw new BeeperUnavailableError(
+        `No Beeper data synced (Desktop at ${baseUrl} returned ${info.status}).`
+      );
+    }
+    // /v1/info is discovery and can 200 with a dead token. Accounts is what Sync
+    // actually needs, and is where a 401 shows up.
+    const accounts = await beeperFetch("/v1/accounts", { timeoutMs: 10_000 });
+    await throwIfAuthFailed(accounts);
+    return { ok: true, baseUrl };
+  } catch (err) {
+    if (err instanceof BeeperApiError) throw err;
+    if (err instanceof BeeperUnavailableError) {
+      if (err.message.includes(baseUrl)) throw err;
+      throw new BeeperUnavailableError(
+        `No Beeper data synced (couldn’t reach ${baseUrl}). Keep Beeper Desktop open and Tailscale Funnel up, or paste the Funnel URL in Settings → Beeper.`
+      );
+    }
+    throw new BeeperUnavailableError(
+      `No Beeper data synced (couldn’t reach ${baseUrl}). Keep Beeper Desktop open and Tailscale Funnel up, or paste the Funnel URL in Settings → Beeper.`
+    );
   }
-  // /v1/info is discovery and can 200 with a dead token. Accounts is what Sync
-  // actually needs, and is where a 401 shows up.
-  const accounts = await beeperFetch("/v1/accounts", { timeoutMs: 8_000 });
-  await throwIfAuthFailed(accounts);
-  return { ok: true, baseUrl };
 }
 
 function peerFromChat(chat: BeeperChat): BeeperPeer {
