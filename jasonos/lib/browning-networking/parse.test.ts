@@ -243,6 +243,41 @@ Tracy`,
     assert.equal(chosen[0].resumeMessageId, "packet");
     assert.equal(chosen[0].parsed.linkedinUrl, "https://www.linkedin.com/in/sarahchenpm");
   });
+
+  it("reads Tracy's Client to Client Outlook packet with safelink profiles", () => {
+    const body = `Good Morning Jason,
+Jerry wanted me to send the attached client information to you so that you may connect with them.
+
+Please call & email at your earliest convenience.
+
+Jon Crispin: https://na01.safelinks.protection.outlook.com/?url=http%3A%2F%2Flinkedin.com%2Fin%2FJoncrispin%2F&data=05%7C02%7C
+Hardik Patel: https://na01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Fhardik-patel-4161a7128%2F&data=05%7C02%7C
+
+Have a great day!
+Tracy`;
+    assert.equal(isTracyHandoff(TRACY_EMAIL, body, "Client to Client"), true);
+    const chosen = chooseHandoffs([
+      mail({
+        messageId: "client-to-client",
+        receivedAt: "2026-10-06T14:54:00Z",
+        subject: "Client to Client",
+        to: "jason.kuperman@outlook.com",
+        body,
+      }),
+    ]);
+    assert.equal(chosen.length, 2);
+    assert.equal(chosen.every((item) => item.kind === "packet"), true);
+    const names = chosen.map((item) => item.parsed.name).sort();
+    assert.deepEqual(names, ["Hardik Patel", "Jon Crispin"]);
+    assert.equal(
+      chosen.find((item) => item.parsed.name === "Jon Crispin")?.parsed.linkedinUrl,
+      "https://www.linkedin.com/in/Joncrispin"
+    );
+    assert.equal(
+      chosen.find((item) => item.parsed.name === "Hardik Patel")?.parsed.linkedinUrl,
+      "https://www.linkedin.com/in/hardik-patel-4161a7128"
+    );
+  });
 });
 
 function mail(overrides: Partial<HandoffMail> & Pick<HandoffMail, "messageId" | "body">): HandoffMail {

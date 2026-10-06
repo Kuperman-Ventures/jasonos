@@ -680,6 +680,8 @@ const TRACY_FROM = "traceys@executivejobsearch.net";
 const TRACY_TEXT_PHRASES = [
   "Thank you for your reply and interest in Executive Networking",
   "Attached please find the resume for",
+  "Client to Client",
+  "attached client information",
 ];
 
 /**

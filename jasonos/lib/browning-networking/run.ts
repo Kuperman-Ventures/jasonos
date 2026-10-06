@@ -75,14 +75,9 @@ function gmailSearches(days: number): string[] {
     `"Attached please find the resume for" newer_than:${days}d`,
     `"Jason Kuperman &" newer_than:${days}d`,
     `from:${TRACY_EMAIL} linkedin.com/in newer_than:${days}d`,
+    `from:${TRACY_EMAIL} "Client to Client" newer_than:${days}d`,
   ];
 }
-const OUTLOOK_SEARCHES = [
-  `"${HANDOFF_OPENING}"`,
-  `"Attached please find the resume for"`,
-  `"Jason Kuperman &"`,
-  `"linkedin.com/in"`,
-];
 
 export async function runBrowningNetworking(): Promise<BrowningRunResult> {
   const result: BrowningRunResult = {
@@ -370,9 +365,7 @@ async function collectHandoffMail(lookbackDays = 30): Promise<{
   if (outlook.token) {
     searched = true;
     try {
-      const found = lookbackDays > 30
-        ? await listOutlookTracyMessages(outlook.token, since)
-        : await searchOutlookMessages(outlook.token, OUTLOOK_SEARCHES, since, 2);
+      const found = await listOutlookTracyMessages(outlook.token, since);
       for (const message of found) {
         if (!handoffKind(message.body, message.subject)) continue;
         messages.push({

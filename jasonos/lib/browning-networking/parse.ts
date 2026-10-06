@@ -33,7 +33,7 @@ export function handoffKind(
   const links = linkedInUrlsFromText(stripHtml(body));
   if (
     links.length >= 1 &&
-    /dear jason|please find|attached|resume|\.docx|linkedin profile/i.test(
+    /dear jason|good morning jason|please find|attached|resume|\.docx|linkedin profile|client to client|connect with them|call\s*(?:&|and)\s*email/i.test(
       `${subject ?? ""} ${text}`
     )
   ) {
@@ -74,12 +74,20 @@ export function linkedInUrlFromText(text: string): string | null {
 
 /** Every LinkedIn /in/ URL in the note, Outlook safelinks decoded. */
 export function linkedInUrlsFromText(text: string): string[] {
-  const decoded = text.replace(/https?:\/\/[^\s<>"']+/gi, (raw) =>
-    decodeOutlookSafelink(raw)
-  );
-  const found: string[] = [];
+  return linkedInMatches(text).map((item) => item.url);
+}
+
+function expandLinkedInText(text: string): string {
+  return text
+    .replace(/https?:\/\/[^\s<>"']+/gi, (raw) => decodeOutlookSafelink(raw))
+    .replace(/linkedin\.com%2Fin%2F/gi, "linkedin.com/in/");
+}
+
+function linkedInMatches(text: string): { url: string; index: number; length: number }[] {
+  const decoded = expandLinkedInText(text);
+  const found: { url: string; index: number; length: number }[] = [];
   const seen = new Set<string>();
-  const re = /https?:\/\/(?:[\w.-]+\.)?linkedin\.com\/in\/([A-Za-z0-9_%-]+)/gi;
+  const re = /(?:https?:\/\/(?:[\w.-]+\.)?)?linkedin\.com\/in\/([A-Za-z0-9_%-]+)/gi;
   let match: RegExpExecArray | null;
   while ((match = re.exec(decoded))) {
     let slug = match[1] ?? "";
@@ -89,11 +97,14 @@ export function linkedInUrlsFromText(text: string): string[] {
       slug = slug.replace(/\/+$/, "");
     }
     if (!slug) continue;
-    const url = `https://www.linkedin.com/in/${slug}`;
     const key = slug.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    found.push(url);
+    found.push({
+      url: `https://www.linkedin.com/in/${slug}`,
+      index: match.index ?? 0,
+      length: match[0].length,
+    });
   }
   return found;
 }
@@ -523,34 +534,21 @@ export function parsePacketContacts(
   subject?: string | null
 ): ParsedHandoff[] {
   const text = stripHtml(body);
-  const decoded = text.replace(/https?:\/\/[^\s<>"']+/gi, (raw) =>
-    decodeOutlookSafelink(raw)
-  );
+  const decoded = expandLinkedInText(text);
   const people: ParsedHandoff[] = [];
-  const re = /https?:\/\/(?:[\w.-]+\.)?linkedin\.com\/in\/([A-Za-z0-9_%-]+)/gi;
-  let match: RegExpExecArray | null;
   const seenSlug = new Set<string>();
-  while ((match = re.exec(decoded))) {
-    let slug = match[1] ?? "";
-    try {
-      slug = decodeURIComponent(slug).replace(/\/+$/, "");
-    } catch {
-      slug = slug.replace(/\/+$/, "");
-    }
-    if (!slug) continue;
-    const key = slug.toLowerCase();
+  for (const hit of linkedInMatches(decoded)) {
+    const key = hit.url.toLowerCase();
     if (seenSlug.has(key)) continue;
     seenSlug.add(key);
-    const url = `https://www.linkedin.com/in/${slug}`;
-    const index = match.index ?? 0;
-    const window = decoded.slice(Math.max(0, index - 220), index + match[0].length + 80);
-    const name = nameNearUrl(decoded, index, match[0].length);
+    const window = decoded.slice(Math.max(0, hit.index - 220), hit.index + hit.length + 80);
+    const name = nameNearUrl(decoded, hit.index, hit.length);
     const role = titleAndCompany(window);
     people.push({
       name,
       email: firstOtherEmail(window),
       phone: firstPhone(window),
-      linkedinUrl: url,
+      linkedinUrl: hit.url,
       availabilityNote: null,
       quotedReply: null,
       whyTheyReplied: null,
