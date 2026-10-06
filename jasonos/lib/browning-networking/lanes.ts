@@ -1,10 +1,11 @@
 import type { HandoffStatus } from "./types";
 
-export type HandoffLane = "reply" | "waiting" | "scheduled";
+export type HandoffLane = "reply" | "outreach" | "waiting" | "scheduled";
 
 export function handoffLane(row: {
   status: HandoffStatus;
   callStartsAt: string | null;
+  sourceKind?: string | null;
 }): HandoffLane {
   if (
     row.callStartsAt ||
@@ -15,6 +16,7 @@ export function handoffLane(row: {
     return "scheduled";
   }
   if (row.status === "acted_on" || row.status === "follow_up") return "waiting";
+  if (row.sourceKind === "packet") return "outreach";
   return "reply";
 }
 
@@ -27,5 +29,5 @@ export function canEditOfferedTimes(row: {
   status: HandoffStatus;
   callStartsAt: string | null;
 }): boolean {
-  return handoffLane(row) === "reply";
+  return handoffLane(row) === "reply" || handoffLane(row) === "outreach";
 }

@@ -8,6 +8,17 @@ describe("handoff lanes", () => {
     assert.equal(handoffLane({ status: "draft_ready", callStartsAt: null }), "reply");
   });
 
+  it("puts a resume packet in the reach-out list until they act", () => {
+    assert.equal(
+      handoffLane({ status: "times_ready", callStartsAt: null, sourceKind: "packet" }),
+      "outreach"
+    );
+    assert.equal(
+      canEditOfferedTimes({ status: "times_ready", callStartsAt: null, sourceKind: "packet" }),
+      true
+    );
+  });
+
   it("puts an acted-on handoff in the waiting list until a call exists", () => {
     assert.equal(handoffLane({ status: "acted_on", callStartsAt: null }), "waiting");
   });

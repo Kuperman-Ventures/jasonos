@@ -4,6 +4,9 @@ import { findBookedCall } from "./booking";
 import {
   briefFromHandoff,
   connectMeetingTitle,
+  packetEmailDraft,
+  packetEmailSubject,
+  packetLinkedInDraft,
   replyComposeUrl,
   schedulingDraft,
   thankYouDraft,
@@ -66,6 +69,27 @@ I replied because your note on commercialization and GTM matched the work we are
     assert.match(brief.overlap, /OUTFRONT/);
     assert.equal(brief.questions.length, 3);
     assert.match(brief.ask, /Two names/);
+  });
+
+  it("writes a first-touch note when Tracy did not CC the person", () => {
+    const body = packetEmailDraft({
+      name: "Sarah Chen",
+      slots: [
+        {
+          id: "a",
+          start: "2026-10-15T14:00:00.000Z",
+          end: "2026-10-15T14:30:00.000Z",
+        },
+      ],
+    });
+    assert.match(body, /^Sarah,/);
+    assert.match(body, /Tracy at Browning suggested we connect/);
+    assert.doesNotMatch(body, /Thank you Tracy/);
+    assert.doesNotMatch(body, /Good to be connected/);
+    const li = packetLinkedInDraft("Sarah Chen");
+    assert.match(li, /^Sarah,/);
+    assert.match(li, /Tracy at Browning/);
+    assert.equal(packetEmailSubject("Sarah Chen"), "Jason Kuperman / Sarah Chen");
   });
 
   it("thanks them with a line from the transcript and nothing invented", () => {

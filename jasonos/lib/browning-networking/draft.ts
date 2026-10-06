@@ -65,6 +65,46 @@ Looking forward to speaking,
 Jason`;
 }
 
+export function packetEmailSubject(name: string | null): string {
+  const who = (name ?? "").trim();
+  return who ? `Jason Kuperman / ${who}` : "Connecting";
+}
+
+/** First-touch email when Tracy sent a resume packet and did not CC the person. */
+export function packetEmailDraft(input: {
+  name: string | null;
+  slots: HandoffSlot[];
+}): string {
+  const who = firstName(input.name);
+  const hello = who === "there" ? "Hello," : `${who},`;
+  const lines = [...input.slots]
+    .sort((a, b) => Date.parse(a.start) - Date.parse(b.start))
+    .map((slot) => formatSlotLabel(slot.start));
+  const times = lines.length
+    ? `
+
+Some options from my side would be:
+
+${lines.join("\n")}`
+    : "";
+  return `${hello}
+
+Tracy at Browning suggested we connect. I'd like a short call in the next few weeks if you are open to it.${times}
+
+Jason`;
+}
+
+/** Short LinkedIn note. Copy, then open their profile. */
+export function packetLinkedInDraft(name: string | null): string {
+  const who = firstName(name);
+  const hello = who === "there" ? "Hello," : `${who},`;
+  return `${hello}
+
+Tracy at Browning suggested we connect. Open to a short call in the next few weeks?
+
+Jason`;
+}
+
 export function followUpDraft(name: string | null): string {
   const who = firstName(name);
   const hello = who === "there" ? "Following up." : `Following up, ${who}.`;

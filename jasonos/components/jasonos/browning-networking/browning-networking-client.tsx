@@ -14,6 +14,9 @@ import type {
 import {
   followUpDraft,
   formatSlotLabel,
+  packetEmailDraft,
+  packetEmailSubject,
+  packetLinkedInDraft,
   replyComposeUrl,
   replySubject,
   schedulingDraft,
@@ -31,6 +34,7 @@ import {
   pullGranolaThankYou,
   markHandoffActedOn,
   openHandoffReply,
+  saveHandoffContactEmail,
   saveHandoffSlots,
   sendMeetInvite,
   setHandoffCadence,
@@ -54,6 +58,7 @@ export function BrowningNetworkingClient({
       : undefined;
     if (requested) return requested.id;
     return (
+      page.handoffs.find((row) => handoffLane(row) === "outreach")?.id ??
       page.handoffs.find((row) => handoffLane(row) === "reply")?.id ??
       page.handoffs.find((row) => handoffLane(row) === "waiting")?.id ??
       page.handoffs.find((row) => handoffLane(row) === "scheduled")?.id ??
@@ -61,10 +66,14 @@ export function BrowningNetworkingClient({
     );
   });
   const laneFor = (row: HandoffRecord): HandoffLane =>
-    actedIds.includes(row.id) && handoffLane(row) === "reply" ? "waiting" : handoffLane(row);
+    actedIds.includes(row.id) &&
+    (handoffLane(row) === "reply" || handoffLane(row) === "outreach")
+      ? "waiting"
+      : handoffLane(row);
   const selected = page.handoffs.find((row) => row.id === selectedId) ?? null;
   const selectedLane = selected ? laneFor(selected) : null;
   const [pending, start] = useTransition();
+  const outreachRows = page.handoffs.filter((row) => laneFor(row) === "outreach");
   const replyRows = page.handoffs.filter((row) => laneFor(row) === "reply");
   const waitingRows = page.handoffs.filter((row) => laneFor(row) === "waiting");
   const scheduledRows = page.handoffs.filter((row) => laneFor(row) === "scheduled");
@@ -73,12 +82,12 @@ export function BrowningNetworkingClient({
   return (
     <div className="mx-auto grid max-w-[1400px] gap-4 px-4 py-4 lg:grid-cols-[300px_minmax(0,1fr)]">
       <aside className="space-y-4">
-        <div className="flex items-center justify-between gap-2">
+        <div>
           <h1 className="font-heading text-xl font-semibold">Browning Networking</h1>
+          <p className="text-xs text-muted-foreground">
+            Reply when Tracy copied you on the intro. Reach out when she only sent names, resumes, and LinkedIn.
+          </p>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Reply, then mark Acted On. The check also looks back a year for intros that never made your calendar. Those can be followed up.
-        </p>
         <Button
           size="sm"
           variant="secondary"
@@ -117,10 +126,19 @@ export function BrowningNetworkingClient({
         {page.error ? <p className="text-xs text-rung-1">{page.error}</p> : null}
         {page.handoffs.length === 0 ? (
           <p className="rounded-md border border-dashed px-3 py-6 text-xs text-muted-foreground">
-            No handoffs yet. The check looks in Gmail and Outlook for Tracy&apos;s copy-you email.
+            No handoffs yet. The check looks in Gmail and Outlook for Tracy&apos;s
+            copy-you intros and for resume packets with names and LinkedIn.
           </p>
         ) : (
           <>
+            <HandoffLaneList
+              title="Reach out"
+              empty="No resume packets waiting. These are people Tracy sent you without putting them on the email."
+              rows={outreachRows}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              lane="outreach"
+            />
             <HandoffLaneList
               title="To reply"
               empty="Nobody left to reply to."
@@ -346,10 +364,20 @@ function HandoffDetail({
   const [cadence, setCadence] = useState<CadenceInterval>("none");
   const [pending, start] = useTransition();
   const meetingSet = handoffLane(handoff) === "scheduled";
+  const isPacket = handoff.sourceKind === "packet" && !meetingSet;
   const draft = useMemo(
-    () => schedulingDraft({ name: handoff.contactName, slots }),
-    [handoff.contactName, slots]
+    () =>
+      isPacket
+        ? packetEmailDraft({ name: handoff.contactName, slots })
+        : schedulingDraft({ name: handoff.contactName, slots }),
+    [handoff.contactName, isPacket, slots]
   );
+  const linkedInNote = packetLinkedInDraft(handoff.contactName);
+  const [emailDraft, setEmailDraft] = useState(handoff.contactEmail ?? "");
+  const resumeHref =
+    handoff.createdContactId || handoff.existingContactId
+      ? `/api/browning-networking/resume?contactId=${handoff.createdContactId || handoff.existingContactId}`
+      : null;
 
   function persist(next: HandoffSlot[]) {
     setSlots(next);
@@ -376,7 +404,7 @@ function HandoffDetail({
             </a>
           ) : null}
         </div>
-        {handoffLane(handoff) === "reply" ? (
+        {handoffLane(handoff) === "reply" || handoffLane(handoff) === "outreach" ? (
           <Button
             onClick={() =>
               start(async () => {
@@ -394,6 +422,12 @@ function HandoffDetail({
           </Button>
         ) : null}
       </header>
+      {isPacket ? (
+        <p className="rounded-md border border-[var(--jos-line)] bg-rung-2 px-3 py-2 text-xs">
+          Tracy sent a resume packet. This person is not on the email. Message them on
+          LinkedIn, or email if we found an address in the resume.
+        </p>
+      ) : null}
       {handoff.existingContactId ? (
         <p className="rounded-md border border-[var(--jos-line)] bg-rung-2 px-3 py-2 text-xs">
           This person is already in your contacts. This page will not change that record.
@@ -402,7 +436,6 @@ function HandoffDetail({
       {handoff.availabilityNote ? (
         <p className="text-sm">They said: {handoff.availabilityNote}</p>
       ) : null}
-
       {meetingSet ? (
         <section className="rounded-md border px-3 py-2">
           <h3 className="text-sm font-semibold">Meeting set</h3>
@@ -419,8 +452,9 @@ function HandoffDetail({
           <div>
             <h3 className="text-sm font-semibold">Times you can offer</h3>
             <p className="text-xs text-muted-foreground">
-              Amber blocks are the times in the reply. Gray is already on your calendar. Nothing before{" "}
-              {eligibleYmd}. Click an open spot to add a time. Drag a time to move it. The X removes it.
+              {isPacket
+                ? "Optional. If you email them, these times go in the note."
+                : `Amber blocks are the times in the reply. Gray is already on your calendar. Nothing before ${eligibleYmd}. Click an open spot to add a time. Drag a time to move it. The X removes it.`}
             </p>
           </div>
           <div className="flex items-center gap-1">
@@ -446,7 +480,133 @@ function HandoffDetail({
       </section>
 
       <section className="space-y-2">
-        <h3 className="text-sm font-semibold">Reply</h3>
+        <h3 className="text-sm font-semibold">{isPacket ? "Reach out" : "Reply"}</h3>
+        {isPacket ? (
+          <>
+            {resumeHref ? (
+              <a className="text-xs underline" href={resumeHref}>
+                Download resume
+              </a>
+            ) : null}
+            {handoff.linkedinUrl ? (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Open their LinkedIn, then paste this note.
+                </p>
+                <pre className="whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-sm">
+                  {linkedInNote}
+                </pre>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      window.open(handoff.linkedinUrl ?? "", "_blank", "noopener,noreferrer");
+                    }}
+                  >
+                    Open LinkedIn
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(linkedInNote);
+                      toast.success("LinkedIn note copied.");
+                    }}
+                  >
+                    Copy LinkedIn note
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                No LinkedIn URL in Tracy&apos;s note. Check the resume.
+              </p>
+            )}
+            <div className="space-y-2 pt-2">
+              <p className="text-xs font-medium">Email</p>
+              {handoff.contactEmail ? (
+                <p className="text-xs text-muted-foreground">
+                  Found {handoff.contactEmail}. New message, Tracy on Bcc. This is not a reply
+                  on her thread.
+                </p>
+              ) : (
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    value={emailDraft}
+                    onChange={(event) => setEmailDraft(event.target.value)}
+                    placeholder="email from the resume"
+                    className="min-w-[220px] flex-1 rounded-md border bg-background px-2 py-1 text-sm"
+                  />
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={pending || !emailDraft.trim()}
+                    onClick={() =>
+                      start(async () => {
+                        const result = await saveHandoffContactEmail(
+                          handoff.id,
+                          emailDraft
+                        );
+                        if (!result.ok) toast.error(result.error);
+                        else {
+                          toast("Email saved. You can send from Apple Mail.");
+                          router.refresh();
+                        }
+                      })
+                    }
+                  >
+                    Save email
+                  </Button>
+                </div>
+              )}
+              <pre className="whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-sm">{draft}</pre>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  disabled={pending || !handoff.contactEmail}
+                  onClick={() =>
+                    start(async () => {
+                      const result = await openHandoffReply(handoff.id, slots);
+                      if (!result.ok) {
+                        toast.error(result.error);
+                        return;
+                      }
+                      window.location.href = result.url;
+                      toast.success("Opening Mail… finish the send there. Tracy is on Bcc.");
+                    })
+                  }
+                >
+                  Open email in Apple Mail
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    const subject = packetEmailSubject(handoff.contactName);
+                    const url = handoff.contactEmail
+                      ? replyComposeUrl({
+                          to: handoff.contactEmail,
+                          bcc: TRACY_EMAIL,
+                          subject,
+                          body: draft,
+                        })
+                      : "";
+                    void navigator.clipboard.writeText(draft);
+                    if (url) {
+                      window.location.href = url;
+                      toast.success("Email copied. Opening Mail… Tracy is on Bcc.");
+                      return;
+                    }
+                    toast.success("Email copied.");
+                  }}
+                >
+                  Copy email
+                </Button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
         <pre className="whitespace-pre-wrap rounded-md border bg-muted/40 p-3 text-sm">{draft}</pre>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -493,6 +653,8 @@ function HandoffDetail({
         <p className="text-xs text-muted-foreground">
           Tracy is on Bcc. Apple Mail opens with the reply filled in. Nothing sends until you send it.
         </p>
+          </>
+        )}
       </section>
       </>
       )}
@@ -781,6 +943,11 @@ function statusLabel(row: HandoffRecord, lane: HandoffLane = handoffLane(row)): 
   if (row.status === "brief_ready") return "Brief ready";
   if (lane === "scheduled") return "On your calendar";
   if (lane === "waiting") return "Waiting for them to schedule";
+  if (lane === "outreach") {
+    if (row.linkedinUrl && !row.contactEmail) return "LinkedIn — no email yet";
+    if (row.contactEmail) return "Email found — send or LinkedIn";
+    return "Resume packet";
+  }
   if (row.status === "draft_ready") return "Reply ready";
   return "Pick times";
 }

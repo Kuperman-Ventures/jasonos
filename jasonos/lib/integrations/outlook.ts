@@ -882,7 +882,8 @@ function mapSearchedMessage(raw: GraphSearchedMessage | null | undefined): Outlo
 
 export async function downloadOutlookResume(
   accessToken: string,
-  messageId: string
+  messageId: string,
+  nameHint?: string | null
 ): Promise<{ filename: string; bytes: Buffer } | null> {
   const { status, body } = await graphGet(
     accessToken,
@@ -896,7 +897,13 @@ export async function downloadOutlookResume(
     contentBytes?: string;
   }[];
   const resumes = files.filter((item) => isResumeFile(item.name, item.contentType));
+  const needle = (nameHint ?? "").trim().split(/\s+/).filter(Boolean).pop()?.toLowerCase();
+  const named =
+    needle && needle.length >= 3
+      ? resumes.find((item) => (item.name ?? "").toLowerCase().includes(needle))
+      : null;
   const file =
+    named ??
     resumes.find((item) => `${item.name ?? ""} ${item.contentType ?? ""}`.toLowerCase().includes("word")) ??
     resumes[0];
   if (!file) return null;

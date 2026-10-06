@@ -980,13 +980,15 @@ type GmailFilePart = {
 
 export async function downloadGmailResume(
   accessToken: string,
-  messageId: string
+  messageId: string,
+  nameHint?: string | null
 ): Promise<{ filename: string; bytes: Buffer } | null> {
   const message = await gmailFetch<GmailMsgResp & { payload?: GmailFilePart }>(
     `/users/me/messages/${encodeURIComponent(messageId)}?format=full`,
     accessToken
   );
-  const part = findResumePart(message.payload);
+  const parts = collectResumeParts(message.payload);
+  const part = pickResumePart(parts, nameHint);
   if (!part) return null;
   const filename = part.filename || "resume.docx";
   if (part.body?.data) {
@@ -1001,15 +1003,35 @@ export async function downloadGmailResume(
   return { filename, bytes: Buffer.from(file.data.replace(/-/g, "+").replace(/_/g, "/"), "base64") };
 }
 
-function findResumePart(part: GmailFilePart | undefined): GmailFilePart | null {
-  if (!part) return null;
+function collectResumeParts(part: GmailFilePart | undefined): GmailFilePart[] {
+  if (!part) return [];
+  const out: GmailFilePart[] = [];
   const name = `${part.filename ?? ""} ${part.mimeType ?? ""}`.toLowerCase();
   if (part.filename && (name.includes(".docx") || name.includes(".pdf") || name.includes("wordprocessingml"))) {
-    return part;
+    out.push(part);
   }
   for (const child of part.parts ?? []) {
-    const found = findResumePart(child);
-    if (found) return found;
+    out.push(...collectResumeParts(child));
   }
-  return null;
+  return out;
+}
+
+function pickResumePart(
+  parts: GmailFilePart[],
+  nameHint?: string | null
+): GmailFilePart | null {
+  if (!parts.length) return null;
+  const needle = lastNameNeedle(nameHint);
+  if (needle) {
+    const hit = parts.find((part) => (part.filename ?? "").toLowerCase().includes(needle));
+    if (hit) return hit;
+  }
+  return parts[0] ?? null;
+}
+
+function lastNameNeedle(nameHint?: string | null): string | null {
+  const parts = (nameHint ?? "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return null;
+  const last = parts[parts.length - 1]?.toLowerCase() ?? "";
+  return last.length >= 3 ? last : null;
 }

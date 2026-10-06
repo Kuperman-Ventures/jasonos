@@ -29,9 +29,19 @@ import {
   followUpDraft,
   replySubject,
   schedulingDraft,
+  packetEmailDraft,
+  packetEmailSubject,
 } from "./draft";
 import { composeThankYouDraft } from "./thank-you-compose";
-import { chooseHandoffs, handoffKind, type HandoffMail } from "./parse";
+import {
+  chooseHandoffs,
+  emailFromText,
+  handoffKind,
+  linkedInUrlFromText,
+  phoneFromText,
+  sameCandidate,
+  type HandoffMail,
+} from "./parse";
 import { loadBusy } from "./data";
 import { firstEligibleYmd, lastEligibleYmd, proposeSlots } from "./slots";
 import { isAlreadyTracked, FOLLOW_UP_LOOKBACK_DAYS, shouldQueueFollowUp } from "./follow-up";
@@ -63,11 +73,15 @@ function gmailSearches(days: number): string[] {
     `from:${TRACY_EMAIL} newer_than:${days}d`,
     `"${HANDOFF_OPENING}" newer_than:${days}d`,
     `"Attached please find the resume for" newer_than:${days}d`,
+    `"Jason Kuperman &" newer_than:${days}d`,
+    `from:${TRACY_EMAIL} linkedin.com/in newer_than:${days}d`,
   ];
 }
 const OUTLOOK_SEARCHES = [
   `"${HANDOFF_OPENING}"`,
   `"Attached please find the resume for"`,
+  `"Jason Kuperman &"`,
+  `"linkedin.com/in"`,
 ];
 
 export async function runBrowningNetworking(): Promise<BrowningRunResult> {
@@ -135,6 +149,15 @@ async function harvestHandoffs(sb: Sb): Promise<{
   const now = new Date();
   const busy = await loadBusy(firstEligibleYmd(now), lastEligibleYmd(now));
   const chosen = chooseHandoffs(collected.messages);
+  const createdRows: {
+    id: string;
+    gmail_account: string;
+    gmail_message_id: string;
+    contact_name: string | null;
+    meeting_brief: string | null;
+    created_contact_id: string | null;
+    existing_contact_id: string | null;
+  }[] = [];
   const { data: openRows } = await sb
     .from("browning_handoffs")
     .select(
@@ -154,16 +177,34 @@ async function harvestHandoffs(sb: Sb): Promise<{
       .filter(Boolean)
       .map((id) => id.toLowerCase())
   );
+  const seenPeople = new Set(
+    (openRows ?? []).map((row) =>
+      personKey(
+        row.gmail_account as string,
+        row.gmail_message_id as string,
+        (row.contact_name as string | null) ?? null
+      )
+    )
+  );
 
   for (const item of chosen) {
     found += 1;
     const mail = item.mail;
     const parsed = item.parsed;
-    if (seenMessages.has(`${mail.accountEmail}:${mail.messageId}`)) {
+    const isPacket = item.kind === "packet";
+    if (isPacket && seenPeople.has(personKey(mail.accountEmail, mail.messageId, parsed.name))) {
       skippedExisting += 1;
       continue;
     }
-    if (mail.rfc822MessageId && seenRfc.has(mail.rfc822MessageId.toLowerCase())) {
+    if (!isPacket && seenMessages.has(`${mail.accountEmail}:${mail.messageId}`)) {
+      skippedExisting += 1;
+      continue;
+    }
+    if (
+      !isPacket &&
+      mail.rfc822MessageId &&
+      seenRfc.has(mail.rfc822MessageId.toLowerCase())
+    ) {
       skippedExisting += 1;
       continue;
     }
@@ -177,18 +218,32 @@ async function harvestHandoffs(sb: Sb): Promise<{
       continue;
     }
 
-    const match = matchExistingContact(contacts, parsed);
+    const filled = isPacket
+      ? await enrichParsedFromResume(mail, item.resumeMessageId, parsed)
+      : parsed;
+
+    const match = matchExistingContact(contacts, filled);
     let createdContactId: string | null = null;
-    if (!match && parsed.name) {
-      createdContactId = await insertContact(sb, parsed);
+    if (!match && filled.name) {
+      createdContactId = await insertContact(sb, filled);
     }
 
-    const slots = proposeSlots({
-      now,
-      busy,
-      availabilityNote: parsed.availabilityNote,
-    });
-    const draft = schedulingDraft({ name: parsed.name, slots });
+    const slots = isPacket
+      ? filled.email
+        ? proposeSlots({
+            now,
+            busy,
+            availabilityNote: filled.availabilityNote,
+          })
+        : []
+      : proposeSlots({
+          now,
+          busy,
+          availabilityNote: filled.availabilityNote,
+        });
+    const draft = isPacket
+      ? packetEmailDraft({ name: filled.name, slots })
+      : schedulingDraft({ name: filled.name, slots });
 
     const inserted = await sb
       .from("browning_handoffs")
@@ -199,19 +254,20 @@ async function harvestHandoffs(sb: Sb): Promise<{
         rfc822_message_id: mail.rfc822MessageId,
         received_at: mail.receivedAt,
         subject: mail.subject,
-        contact_name: parsed.name,
-        contact_email: parsed.email,
-        contact_phone: parsed.phone,
-        linkedin_url: parsed.linkedinUrl,
-        contact_title: parsed.title,
-        contact_company: parsed.company,
-        availability_note: parsed.availabilityNote,
-        quoted_reply: parsed.quotedReply,
-        why_they_replied: parsed.whyTheyReplied,
+        contact_name: filled.name,
+        contact_email: filled.email,
+        contact_phone: filled.phone,
+        linkedin_url: filled.linkedinUrl,
+        contact_title: filled.title,
+        contact_company: filled.company,
+        availability_note: filled.availabilityNote,
+        quoted_reply: filled.quotedReply,
+        why_they_replied: filled.whyTheyReplied,
         existing_contact_id: match?.id ?? null,
         created_contact_id: createdContactId,
         slots,
         draft_body: draft,
+        source_kind: isPacket ? "packet" : "intro",
         status: "times_ready",
       })
       .select("id")
@@ -221,13 +277,31 @@ async function harvestHandoffs(sb: Sb): Promise<{
       continue;
     }
     const handoffId = inserted.data.id as string;
-    tracked.push({ email: parsed.email, name: parsed.name });
+    tracked.push({ email: filled.email, name: filled.name });
     seenMessages.add(`${mail.accountEmail}:${mail.messageId}`);
+    seenPeople.add(personKey(mail.accountEmail, mail.messageId, filled.name));
     if (mail.rfc822MessageId) seenRfc.add(mail.rfc822MessageId.toLowerCase());
+    createdRows.push({
+      id: handoffId,
+      gmail_account: mail.accountEmail,
+      gmail_message_id: mail.messageId,
+      contact_name: filled.name,
+      meeting_brief: null,
+      created_contact_id: createdContactId,
+      existing_contact_id: match?.id ?? null,
+    });
     const cardId = await insertCard(sb, {
-      title: `Reply to ${parsed.name ?? "Browning contact"}`,
-      subtitle: parsed.availabilityNote || "Pick times, then open the reply.",
-      why: "Tracy's handoff is in. Nothing sends until you do.",
+      title: isPacket
+        ? `Reach out to ${filled.name ?? "Browning contact"}`
+        : `Reply to ${filled.name ?? "Browning contact"}`,
+      subtitle: isPacket
+        ? filled.linkedinUrl
+          ? "LinkedIn first. Email if the resume has an address."
+          : "Find email in the resume, or message them on LinkedIn."
+        : filled.availabilityNote || "Pick times, then open the reply.",
+      why: isPacket
+        ? "Tracy sent a resume packet. They are not on the email. Nothing sends until you do."
+        : "Tracy's handoff is in. Nothing sends until you do.",
       draft,
       href: `/outreach/browning-networking?id=${handoffId}`,
     });
@@ -236,7 +310,16 @@ async function harvestHandoffs(sb: Sb): Promise<{
     }
     created += 1;
   }
+  await writeMeetingBriefs(sb, chosen, createdRows, 12);
   return { found, created, skippedExisting };
+}
+
+function personKey(
+  accountEmail: string,
+  messageId: string,
+  name: string | null
+): string {
+  return `${accountEmail}:${messageId}:${(name ?? "").trim().toLowerCase()}`;
 }
 
 async function collectHandoffMail(lookbackDays = 30): Promise<{
@@ -266,7 +349,7 @@ async function collectHandoffMail(lookbackDays = 30): Promise<{
     const full = await getGmailMessagesFull([...ids], account.token);
     for (const message of full) {
       const body = message.plaintextBody || message.htmlBody || message.snippet || "";
-      if (!handoffKind(body) || !message.from) continue;
+      if (!handoffKind(body, message.subject) || !message.from) continue;
       messages.push({
         accountEmail: account.accountEmail,
         messageId: message.id,
@@ -291,7 +374,7 @@ async function collectHandoffMail(lookbackDays = 30): Promise<{
         ? await listOutlookTracyMessages(outlook.token, since)
         : await searchOutlookMessages(outlook.token, OUTLOOK_SEARCHES, since, 2);
       for (const message of found) {
-        if (!handoffKind(message.body)) continue;
+        if (!handoffKind(message.body, message.subject)) continue;
         messages.push({
           accountEmail: outlook.accountEmail,
           messageId: message.id,
@@ -347,6 +430,7 @@ async function harvestFollowUps(sb: Sb): Promise<{ created: number; found: numbe
   for (const item of chosen) {
     const mail = item.mail;
     const parsed = item.parsed;
+    if (item.kind === "packet") continue;
     if (!parsed.email || !parsed.name) continue;
     if (seenMessages.has(`${mail.accountEmail}:${mail.messageId}`)) continue;
     const alreadyTracked = isAlreadyTracked(tracked, { email: parsed.email, name: parsed.name });
@@ -427,6 +511,7 @@ async function writeMeetingBriefs(
     id?: string;
     gmail_account?: string;
     gmail_message_id?: string;
+    contact_name?: string | null;
     meeting_brief?: string | null;
     created_contact_id?: string | null;
     existing_contact_id?: string | null;
@@ -436,16 +521,23 @@ async function writeMeetingBriefs(
   let wrote = 0;
   for (const item of chosen) {
     if (wrote >= max) break;
-    const row = rows.find(
-      (candidate) =>
-        candidate.gmail_account === item.mail.accountEmail &&
-        candidate.gmail_message_id === item.mail.messageId
-    );
+    const row = rows.find((candidate) => {
+      if (candidate.gmail_account !== item.mail.accountEmail) return false;
+      if (candidate.gmail_message_id !== item.mail.messageId) return false;
+      const rowName = candidate.contact_name ?? null;
+      const want = item.parsed.name;
+      if (rowName && want && !sameCandidate(rowName, want)) return false;
+      return true;
+    });
     if (!row?.id) continue;
     const previousBrief = row.meeting_brief ?? "";
     if (previousBrief.startsWith("Who they are")) continue;
     const messageId = item.resumeMessageId || item.mail.messageId;
-    const file = await loadResumeFile(item.mail.accountEmail, messageId);
+    const file = await loadResumeFile(
+      item.mail.accountEmail,
+      messageId,
+      item.parsed.name
+    );
     const brief = meetingBrief({
       name: item.parsed.name,
       tracyBody: item.mail.body,
@@ -486,12 +578,13 @@ async function writeMeetingBriefs(
 
 async function loadResumeFile(
   accountEmail: string,
-  messageId: string
+  messageId: string,
+  contactName?: string | null
 ): Promise<{ text: string; filename: string } | null> {
   try {
     const file = /@(outlook|hotmail|live)\.com$/i.test(accountEmail)
-      ? await outlookResume(messageId)
-      : await gmailResume(accountEmail, messageId);
+      ? await outlookResume(messageId, contactName)
+      : await gmailResume(accountEmail, messageId, contactName);
     if (!file) return null;
     const name = file.filename.toLowerCase();
     const text = name.endsWith(".pdf")
@@ -502,6 +595,22 @@ async function loadResumeFile(
     console.error("[browning-networking] resume", err);
     return null;
   }
+}
+
+async function enrichParsedFromResume(
+  mail: HandoffMail,
+  resumeMessageId: string | null,
+  parsed: ParsedHandoff
+): Promise<ParsedHandoff> {
+  const messageId = resumeMessageId || mail.messageId;
+  const file = await loadResumeFile(mail.accountEmail, messageId, parsed.name);
+  if (!file?.text) return parsed;
+  return {
+    ...parsed,
+    email: parsed.email || emailFromText(file.text),
+    phone: parsed.phone || phoneFromText(file.text),
+    linkedinUrl: parsed.linkedinUrl || linkedInUrlFromText(file.text),
+  };
 }
 
 const CONTACT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -529,17 +638,21 @@ export async function downloadHandoffResume(contactId: string): Promise<{
   return file;
 }
 
-async function outlookResume(messageId: string) {
+async function outlookResume(messageId: string, contactName?: string | null) {
   const outlook = await getOutlookAccountAccess();
   if (!outlook.token) return null;
-  return downloadOutlookResume(outlook.token, messageId);
+  return downloadOutlookResume(outlook.token, messageId, contactName);
 }
 
-async function gmailResume(accountEmail: string, messageId: string) {
+async function gmailResume(
+  accountEmail: string,
+  messageId: string,
+  contactName?: string | null
+) {
   const google = await listGoogleAccessTokens();
   const token = google.find((account) => account.accountEmail === accountEmail)?.token;
   if (!token) return null;
-  return downloadGmailResume(token, messageId);
+  return downloadGmailResume(token, messageId, contactName);
 }
 
 async function lastOutreachTo(
@@ -1142,18 +1255,24 @@ export async function persistDraft(input: {
     !canEditOfferedTimes({
       status: data.status as HandoffStatus,
       callStartsAt: (data.call_starts_at as string | null) ?? null,
+      sourceKind: (data.source_kind as string | null) ?? "intro",
     })
   ) {
     return { ok: false, error: "This meeting is already set." };
   }
-  if (!input.slots.length) return { ok: false, error: "Add at least one time first." };
+  const isPacket = data.source_kind === "packet";
+  if (!isPacket && !input.slots.length) {
+    return { ok: false, error: "Add at least one time first." };
+  }
 
-  const body = schedulingDraft({
-    name: (data.contact_name as string | null) ?? null,
-    slots: input.slots,
-  });
+  const name = (data.contact_name as string | null) ?? null;
+  const body = isPacket
+    ? packetEmailDraft({ name, slots: input.slots })
+    : schedulingDraft({ name, slots: input.slots });
   const to = (data.contact_email as string | null) || "";
-  const subject = replySubject(data.subject as string | null);
+  const subject = isPacket
+    ? packetEmailSubject(name)
+    : replySubject(data.subject as string | null);
   const accountEmail = data.gmail_account as string;
   const url = replyComposeUrl({
     to,
@@ -1174,8 +1293,8 @@ export async function persistDraft(input: {
         bcc: TRACY_EMAIL,
         subject,
         body,
-        threadId: (data.gmail_thread_id as string | null) ?? null,
-        inReplyTo: (data.rfc822_message_id as string | null) ?? null,
+        threadId: isPacket ? null : (data.gmail_thread_id as string | null) ?? null,
+        inReplyTo: isPacket ? null : (data.rfc822_message_id as string | null) ?? null,
       });
       if (drafted.ok) {
         gmailDraftId = drafted.id;
