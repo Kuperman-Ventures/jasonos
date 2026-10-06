@@ -80,17 +80,24 @@ export function packetEmailDraft(input: {
   const lines = [...input.slots]
     .sort((a, b) => Date.parse(a.start) - Date.parse(b.start))
     .map((slot) => formatSlotLabel(slot.start));
-  const times = lines.length
+  const middle = lines.length
     ? `
 
 Some options from my side would be:
 
-${lines.join("\n")}`
-    : "";
+${lines.join("\n")}
+
+Let me know if any of those are good or days/times that would work for you.`
+    : `
+
+Let me know days/times that would work for you.`;
   return `${hello}
 
-Tracy at Browning suggested we connect. I'd like a short call in the next few weeks if you are open to it.${times}
+Tracy at Browning suggested we connect. A short call in the next few weeks would be great if you are open to it.${middle}
 
+Looking forward to speak.
+
+Best,
 Jason`;
 }
 
