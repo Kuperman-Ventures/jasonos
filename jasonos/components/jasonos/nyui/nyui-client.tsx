@@ -445,7 +445,10 @@ function buildLedgerHtml(
   }
   const weekKeys = [...weeks.keys()].sort();
 
-  const rowHtml = (ws: LedgerActivity, showContact: boolean) => {
+  const rowHtml = (
+    ws: LedgerActivity,
+    opts: { showContact: boolean; showResult: boolean }
+  ) => {
     const contact = ws.contact_person ? escHtml(ws.contact_person) : "—";
     const where = escHtml(ws.company_location || "number withheld");
     const next = [
@@ -460,11 +463,15 @@ function buildLedgerHtml(
     return `<tr class="${ws.from_networking ? "from-net" : ""}">
       <td class="date">${escHtml(ws.date)}</td>
       <td>${escHtml(ws.company_name)}</td>
-      ${showContact ? `<td>${contact}</td>` : ""}
+      ${opts.showContact ? `<td>${contact}</td>` : ""}
       <td>${escHtml(ws.position_applied)}</td>
       <td>${escHtml(ws.contact_method)}</td>
       <td class="loc">${where}</td>
-      <td>${escHtml(ws.result)}${next ? `<div class="next">${next}</div>` : ""}</td>
+      ${
+        opts.showResult
+          ? `<td>${escHtml(ws.result)}${next ? `<div class="next">${next}</div>` : ""}</td>`
+          : ""
+      }
       <td class="src-cell">${source}</td>
     </tr>`;
   };
@@ -473,9 +480,10 @@ function buildLedgerHtml(
     title: string,
     rows: LedgerActivity[],
     emptyNote: string,
-    opts: { showContact?: boolean } = {}
+    opts: { showContact?: boolean; showResult?: boolean } = {}
   ) => {
     const showContact = opts.showContact ?? true;
+    const showResult = opts.showResult ?? true;
     const netCount = rows.filter((r) => r.from_networking).length;
     const countNote =
       netCount > 0
@@ -493,9 +501,12 @@ function buildLedgerHtml(
                   showContact ? "<th>Contact + Title</th>" : ""
                 }
                 <th>Position</th><th>Method</th><th>Address / URL / Phone</th>
-                <th>Result · Outcome / Next Step</th><th>Source</th>
+                ${showResult ? "<th>Result · Outcome / Next Step</th>" : ""}
+                <th>Source</th>
               </tr></thead>
-              <tbody>${rows.map((r) => rowHtml(r, showContact)).join("")}</tbody>
+              <tbody>${rows
+                .map((r) => rowHtml(r, { showContact, showResult }))
+                .join("")}</tbody>
             </table>`
       }
     </div>`;
@@ -581,13 +592,13 @@ function buildLedgerHtml(
           "Tier A — Employer Contacts",
           tierA,
           "No employer contacts logged this week.",
-          { showContact: false }
+          { showContact: false, showResult: true }
         )}
         ${sectionHtml(
           "Tier B — Networking / Fruitful Activities",
           tierB,
           "No networking activity this week (NYUI log or JasonOS).",
-          { showContact: true }
+          { showContact: true, showResult: false }
         )}
         ${businessHoursHtml(bhWeek)}
       </section>`;
