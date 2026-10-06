@@ -430,7 +430,7 @@ function networkingToLedger(row: AuditNetworkingRow): LedgerActivity {
 // Build the audit-ready, per-claim-week ledger (Gap 5) as a standalone
 // printable HTML document. Tier A (Employer Contacts), Tier B (Networking —
 // NYUI log + JasonOS networking fill), then Business Hours when logged.
-// Stamped with the Work Search ID (never the SSN).
+// Stamped with the claimant name (never the SSN).
 function buildLedgerHtml(
   workSearches: WorkSearch[],
   businessHours: BusinessHour[],
@@ -634,10 +634,11 @@ function buildLedgerHtml(
     })
     .join("");
 
-  const CLAIMANT_NAME = "Jason Kuperman";
+  // Identity stamp for the auditor — name, not SSN. Optional Work Search ID
+  // env still appends when configured.
   const idStamp = workSearchId
-    ? `Work Search ID: ${workSearchId}`
-    : CLAIMANT_NAME;
+    ? `Jason Kuperman · Work Search ID: ${workSearchId}`
+    : "Jason Kuperman";
 
   return `<!doctype html><html lang="en"><head><meta charset="utf-8" />
     <title>NYS DOL Work Search Ledger</title>
@@ -1020,7 +1021,7 @@ function ExportModal({
       const bhEntries = result.businessHours;
       const bh = bhEntries as unknown as Record<string, unknown>[];
       const workSearchIdLine = result.workSearchId
-        ? `"Work Search ID: ${result.workSearchId}"`
+        ? `"Claimant: Jason Kuperman · Work Search ID: ${result.workSearchId}"`
         : `"Claimant: Jason Kuperman"`;
       const entityTotals = entityMinutes(bhEntries);
       const entitySummaryRows = ENTITIES.map((entity) => ({
