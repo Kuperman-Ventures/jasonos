@@ -29,6 +29,7 @@ import { CADENCE_LABELS, type CadenceInterval } from "@/lib/outreach/types";
 import {
   associateHandoffMeeting,
   checkBrowningHandoffs,
+  dismissHandoff,
   draftThankYouFromNotes,
   loadCalendarBusy,
   pullGranolaThankYou,
@@ -165,7 +166,14 @@ export function BrowningNetworkingClient({
         )}
       </aside>
       {selected && selected.replyExcerpt && selectedLane === "waiting" ? (
-        <InvitePanel key={selected.id} handoff={selected} />
+        <InvitePanel
+          key={selected.id}
+          handoff={selected}
+          onCleared={() => {
+            setSelectedId("");
+            router.refresh();
+          }}
+        />
       ) : selected && selectedLane === "waiting" ? (
         <WaitingAssociatePanel
           key={selected.id}
@@ -173,6 +181,10 @@ export function BrowningNetworkingClient({
           busy={page.busy}
           eligibleYmd={page.eligibleYmd}
           onLinked={() => {
+            setSelectedId("");
+            router.refresh();
+          }}
+          onCleared={() => {
             setSelectedId("");
             router.refresh();
           }}
@@ -186,6 +198,10 @@ export function BrowningNetworkingClient({
           onActedOn={() => {
             setActedIds((ids) => (ids.includes(selected.id) ? ids : [...ids, selected.id]));
             setSelectedId("");
+          }}
+          onCleared={() => {
+            setSelectedId("");
+            router.refresh();
           }}
         />
       ) : waitingRows.length > 0 ? (
@@ -205,11 +221,13 @@ function WaitingAssociatePanel({
   busy,
   eligibleYmd,
   onLinked,
+  onCleared,
 }: {
   handoff: HandoffRecord;
   busy: BrowningNetworkingPage["busy"];
   eligibleYmd: string;
   onLinked: () => void;
+  onCleared: () => void;
 }) {
   const firstSlotYmd = [...handoff.slots]
     .map((slot) => etYmd(slot.start))
@@ -253,7 +271,24 @@ function WaitingAssociatePanel({
             Waiting. Nothing else on this calendar can be changed.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={pending}
+            onClick={() =>
+              start(async () => {
+                const result = await dismissHandoff(handoff.id);
+                if (!result.ok) toast.error(result.error);
+                else {
+                  onCleared();
+                  toast("Cleared. Check will not add them again from that email.");
+                }
+              })
+            }
+          >
+            Clear
+          </Button>
           <Button
             size="sm"
             variant="ghost"
@@ -351,11 +386,13 @@ function HandoffDetail({
   busy,
   eligibleYmd,
   onActedOn,
+  onCleared,
 }: {
   handoff: HandoffRecord;
   busy: BrowningNetworkingPage["busy"];
   eligibleYmd: string;
   onActedOn: () => void;
+  onCleared: () => void;
 }) {
   const [slots, setSlots] = useState<HandoffSlot[]>(handoff.slots);
   const [weekMonday, setWeekMonday] = useState(mondayOf(eligibleYmd));
@@ -405,21 +442,41 @@ function HandoffDetail({
           ) : null}
         </div>
         {handoffLane(handoff) === "reply" || handoffLane(handoff) === "outreach" ? (
-          <Button
-            onClick={() =>
-              start(async () => {
-                const result = await markHandoffActedOn(handoff.id);
-                if (!result.ok) toast.error(result.error);
-                else {
-                  onActedOn();
-                  toast("Acted on. They're in the waiting list until the meeting is on your calendar.");
-                }
-              })
-            }
-            disabled={pending}
-          >
-            Acted On
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={() =>
+                start(async () => {
+                  const result = await markHandoffActedOn(handoff.id);
+                  if (!result.ok) toast.error(result.error);
+                  else {
+                    onActedOn();
+                    toast(
+                      "Acted on. They're in the waiting list until the meeting is on your calendar."
+                    );
+                  }
+                })
+              }
+              disabled={pending}
+            >
+              Acted On
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() =>
+                start(async () => {
+                  const result = await dismissHandoff(handoff.id);
+                  if (!result.ok) toast.error(result.error);
+                  else {
+                    onCleared();
+                    toast("Cleared. Check will not add them again from that email.");
+                  }
+                })
+              }
+              disabled={pending}
+            >
+              Clear
+            </Button>
+          </div>
         ) : null}
       </header>
       {isPacket ? (
@@ -868,7 +925,13 @@ function HandoffLaneLabel({ row, lane }: { row: HandoffRecord; lane?: HandoffLan
   );
 }
 
-function InvitePanel({ handoff }: { handoff: HandoffRecord }) {
+function InvitePanel({
+  handoff,
+  onCleared,
+}: {
+  handoff: HandoffRecord;
+  onCleared: () => void;
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const offered = [...handoff.slots].sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
@@ -884,11 +947,30 @@ function InvitePanel({ handoff }: { handoff: HandoffRecord }) {
 
   return (
     <div className="space-y-4">
-      <header>
-        <h2 className="text-lg font-semibold">{handoff.contactName || "This contact"}</h2>
-        <p className="text-xs text-muted-foreground">
-          They replied. Send a Google Meet invite from jason@kupermanadvisors.com. Google emails it. Apple Mail is not involved.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">{handoff.contactName || "This contact"}</h2>
+          <p className="text-xs text-muted-foreground">
+            They replied. Send a Google Meet invite from jason@kupermanadvisors.com. Google emails it. Apple Mail is not involved.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              const result = await dismissHandoff(handoff.id);
+              if (!result.ok) toast.error(result.error);
+              else {
+                onCleared();
+                toast("Cleared. Check will not add them again from that email.");
+              }
+            })
+          }
+        >
+          Clear
+        </Button>
       </header>
       {handoff.replyExcerpt ? (
         <section className="space-y-1">

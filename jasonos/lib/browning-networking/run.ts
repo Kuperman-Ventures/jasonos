@@ -157,27 +157,27 @@ async function harvestHandoffs(sb: Sb): Promise<{
     created_contact_id: string | null;
     existing_contact_id: string | null;
   }[] = [];
-  const { data: openRows } = await sb
+  // Include dismissed so Clear does not bring the same false positive back.
+  const { data: knownRows } = await sb
     .from("browning_handoffs")
     .select(
-      "id, gmail_account, gmail_message_id, rfc822_message_id, contact_email, contact_name, existing_contact_id, created_contact_id"
-    )
-    .neq("status", "dismissed");
-  const tracked = (openRows ?? []).map((row) => ({
+      "id, gmail_account, gmail_message_id, rfc822_message_id, contact_email, contact_name, existing_contact_id, created_contact_id, status"
+    );
+  const tracked = (knownRows ?? []).map((row) => ({
     email: (row.contact_email as string | null) ?? null,
     name: (row.contact_name as string | null) ?? null,
   }));
   const seenMessages = new Set(
-    (openRows ?? []).map((row) => `${row.gmail_account}:${row.gmail_message_id}`)
+    (knownRows ?? []).map((row) => `${row.gmail_account}:${row.gmail_message_id}`)
   );
   const seenRfc = new Set(
-    (openRows ?? [])
+    (knownRows ?? [])
       .map((row) => (row.rfc822_message_id as string | null) ?? "")
       .filter(Boolean)
       .map((id) => id.toLowerCase())
   );
   const seenPeople = new Set(
-    (openRows ?? []).map((row) =>
+    (knownRows ?? []).map((row) =>
       personKey(
         row.gmail_account as string,
         row.gmail_message_id as string,
