@@ -1,9 +1,12 @@
-/** Ingest file assets — decks, PDFs, and email files stored in Supabase Storage. */
+/** Ingest file assets — decks, PDFs, email, and rich-text files stored in Supabase Storage. */
 
 import { createClient } from "@supabase/supabase-js";
+import { isRtfFile } from "@/lib/rtf";
 
 export const INGEST_BUCKET = "college-ingest";
 export const INGEST_MAX_BYTES = 25 * 1024 * 1024;
+export const INGEST_FILE_HINT =
+  "Use a PowerPoint, Keynote, PDF, email, or rich-text file (.rtf or .rtfd).";
 
 /** MIME types we store. Extension fallback covers browsers that omit type. */
 export const INGEST_MIME = new Set([
@@ -14,17 +17,22 @@ export const INGEST_MIME = new Set([
   "application/octet-stream",
   "message/rfc822",
   "application/vnd.ms-outlook",
+  "application/rtf",
+  "text/rtf",
+  "application/x-rtf",
+  "application/rtfd",
 ]);
 
-export type IngestAssetKind = "pdf" | "deck" | "email";
+export type IngestAssetKind = "pdf" | "deck" | "email" | "rtf";
 
-const EXT_RE = /\.(pptx|key|pdf|eml|msg)$/i;
+const EXT_RE = /\.(pptx|key|pdf|eml|msg|rtf|rtfd)$/i;
 
 export function ingestFileKind(file: { name?: string; type?: string }): IngestAssetKind | null {
   const name = (file.name ?? "").toLowerCase();
   const type = (file.type ?? "").toLowerCase();
   if (name.endsWith(".pdf") || type === "application/pdf") return "pdf";
   if (name.endsWith(".eml") || name.endsWith(".msg") || type === "message/rfc822") return "email";
+  if (isRtfFile(file)) return "rtf";
   if (
     name.endsWith(".pptx") ||
     name.endsWith(".key") ||
@@ -41,6 +49,14 @@ export function ingestAssetKind(mime: string): IngestAssetKind | null {
   if (mime === "application/pdf") return "pdf";
   if (mime === "message/rfc822" || mime === "application/vnd.ms-outlook") return "email";
   if (
+    mime === "application/rtf" ||
+    mime === "text/rtf" ||
+    mime === "application/x-rtf" ||
+    mime === "application/rtfd"
+  ) {
+    return "rtf";
+  }
+  if (
     mime.includes("presentation") ||
     mime.includes("powerpoint") ||
     mime.includes("keynote")
@@ -52,12 +68,22 @@ export function ingestAssetKind(mime: string): IngestAssetKind | null {
 
 export function ingestExtension(mime: string, fileName?: string): string | null {
   const fromName = fileName?.split(".").pop()?.toLowerCase();
-  if (fromName && ["pdf", "pptx", "key", "eml", "msg"].includes(fromName)) return fromName;
+  if (fromName && ["pdf", "pptx", "key", "eml", "msg", "rtf", "rtfd"].includes(fromName)) {
+    return fromName === "rtfd" ? "rtf" : fromName;
+  }
   if (mime === "application/pdf") return "pdf";
   if (mime === "message/rfc822") return "eml";
   if (mime.includes("presentation") || mime.includes("powerpoint")) return "pptx";
   if (mime.includes("keynote")) return "key";
   if (mime === "application/vnd.ms-outlook") return "msg";
+  if (
+    mime === "application/rtf" ||
+    mime === "text/rtf" ||
+    mime === "application/x-rtf" ||
+    mime === "application/rtfd"
+  ) {
+    return "rtf";
+  }
   return null;
 }
 
@@ -65,6 +91,7 @@ export function isIngestFile(file: { name?: string; type?: string }): boolean {
   if (ingestFileKind(file)) return true;
   const type = (file.type ?? "").toLowerCase();
   if (type === "application/pdf" || type === "message/rfc822") return true;
+  if (isRtfFile(file)) return true;
   return EXT_RE.test(file.name ?? "");
 }
 
@@ -91,9 +118,13 @@ export function acceptIngestAttr(): string {
     ".pdf",
     ".eml",
     ".msg",
+    ".rtf",
+    ".rtfd",
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
     "message/rfc822",
+    "application/rtf",
+    "text/rtf",
   ].join(",");
 }
 

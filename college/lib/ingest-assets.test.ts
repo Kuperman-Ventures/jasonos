@@ -6,13 +6,17 @@ import {
   ingestAssetKind,
   ingestExtension,
   ingestFileKind,
+  INGEST_FILE_HINT,
   isIngestFile,
 } from "./ingest-assets";
 
-test("isIngestFile accepts decks, pdf, and email", () => {
+test("isIngestFile accepts decks, pdf, email, and rich text", () => {
   assert.equal(isIngestFile({ name: "deck.pdf", type: "application/pdf" }), true);
   assert.equal(isIngestFile({ name: "Junior Night.pptx", type: "" }), true);
   assert.equal(isIngestFile({ name: "Counselor.eml", type: "message/rfc822" }), true);
+  assert.equal(isIngestFile({ name: "Notes.rtfd", type: "" }), true);
+  assert.equal(isIngestFile({ name: "Notes.rtf", type: "application/rtf" }), true);
+  assert.equal(isIngestFile({ name: "TXT.rtf", type: "" }), true);
   assert.equal(isIngestFile({ name: "scan.png", type: "image/png" }), false);
   assert.equal(isIngestFile({ name: "notes.txt", type: "text/plain" }), false);
 });
@@ -21,17 +25,25 @@ test("ingestFileKind and extension", () => {
   assert.equal(ingestFileKind({ name: "a.pdf" }), "pdf");
   assert.equal(ingestFileKind({ name: "a.pptx" }), "deck");
   assert.equal(ingestFileKind({ name: "a.eml" }), "email");
+  assert.equal(ingestFileKind({ name: "a.rtfd" }), "rtf");
+  assert.equal(ingestFileKind({ name: "a.rtf" }), "rtf");
   assert.equal(ingestAssetKind("application/pdf"), "pdf");
+  assert.equal(ingestAssetKind("application/rtf"), "rtf");
   assert.equal(ingestExtension("application/pdf", "x.pdf"), "pdf");
   assert.equal(ingestExtension("", "talk.pptx"), "pptx");
+  assert.equal(ingestExtension("", "Notes.rtfd"), "rtf");
+  assert.equal(ingestExtension("application/rtf", "letter.rtf"), "rtf");
 });
 
-test("accept attr lists pptx pdf eml", () => {
+test("accept attr lists pptx pdf eml rtf rtfd", () => {
   const accept = acceptIngestAttr();
   assert.match(accept, /pptx/i);
   assert.match(accept, /pdf/i);
   assert.match(accept, /eml/i);
+  assert.match(accept, /\.rtf/i);
+  assert.match(accept, /\.rtfd/i);
   assert.doesNotMatch(accept, /png/i);
+  assert.match(INGEST_FILE_HINT, /rtfd/i);
 });
 
 test("formatBytes", () => {

@@ -3,6 +3,7 @@ import { isSession, requireCollegeSession } from "@/lib/auth";
 import { supabaseConfigured } from "@/lib/db";
 import {
   INGEST_BUCKET,
+  INGEST_FILE_HINT,
   INGEST_MAX_BYTES,
   ingestExtension,
   ingestFileKind,
@@ -22,6 +23,7 @@ function resolveMime(file: File): string {
   if (name.endsWith(".key")) return "application/vnd.apple.keynote";
   if (name.endsWith(".eml")) return "message/rfc822";
   if (name.endsWith(".msg")) return "application/vnd.ms-outlook";
+  if (name.endsWith(".rtf") || name.endsWith(".rtfd")) return "application/rtf";
   return type || "application/octet-stream";
 }
 
@@ -42,7 +44,7 @@ export async function POST(request: Request) {
   }
   if (!isIngestFile(file) || !ingestFileKind(file)) {
     return NextResponse.json(
-      { error: "Use a PowerPoint, Keynote, PDF or email file." },
+      { error: INGEST_FILE_HINT },
       { status: 400 },
     );
   }

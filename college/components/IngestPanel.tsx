@@ -15,11 +15,13 @@ import {
 import {
   acceptIngestAttr,
   formatBytes,
+  INGEST_FILE_HINT,
   INGEST_MAX_BYTES,
   ingestFileKind,
   isIngestFile,
   type IngestAssetKind,
 } from "@/lib/ingest-assets";
+import { extractRtfText, isRtfFile } from "@/lib/rtf";
 import { buildPinNotesFromIngest, type PinNote } from "@/lib/note-board";
 import { OWNERS, type Owner, type Phase } from "@/lib/types";
 
@@ -91,7 +93,76 @@ function plural(n: number, word: string): string {
 function kindLabel(kind: IngestAssetKind): string {
   if (kind === "email") return "Email";
   if (kind === "pdf") return "PDF";
+  if (kind === "rtf") return "Rich text";
   return "Deck";
+}
+
+function asFileSystemEntry(item: DataTransferItem): FileSystemEntry | null {
+  const withEntry = item as DataTransferItem & {
+    webkitGetAsEntry?: () => FileSystemEntry | null;
+  };
+  return withEntry.webkitGetAsEntry?.() ?? null;
+}
+
+function readDirectoryEntries(reader: FileSystemDirectoryReader): Promise<FileSystemEntry[]> {
+  return new Promise((resolve, reject) => {
+    const all: FileSystemEntry[] = [];
+    const next = () => {
+      reader.readEntries((batch) => {
+        if (!batch.length) {
+          resolve(all);
+          return;
+        }
+        all.push(...batch);
+        next();
+      }, reject);
+    };
+    next();
+  });
+}
+
+function fileFromFileEntry(entry: FileSystemFileEntry): Promise<File> {
+  return new Promise((resolve, reject) => entry.file(resolve, reject));
+}
+
+async function rtfFileFromRtfdDirectory(entry: FileSystemDirectoryEntry): Promise<File | null> {
+  const children = await readDirectoryEntries(entry.createReader());
+  const rtfEntry = children.find((child) => {
+    if (!child.isFile) return false;
+    const name = child.name.toLowerCase();
+    return name === "txt.rtf" || name.endsWith(".rtf");
+  }) as FileSystemFileEntry | undefined;
+  if (!rtfEntry) return null;
+  const inner = await fileFromFileEntry(rtfEntry);
+  const base = entry.name.replace(/\.rtfd$/i, "").trim() || "Notes";
+  return new File([inner], `${base}.rtf`, {
+    type: inner.type || "application/rtf",
+    lastModified: inner.lastModified,
+  });
+}
+
+async function fileFromDrop(event: DragEvent<HTMLLabelElement>): Promise<File | null> {
+  const items = event.dataTransfer?.items;
+  if (items?.length) {
+    for (const item of items) {
+      const entry = asFileSystemEntry(item);
+      if (!entry) continue;
+      if (entry.isDirectory) {
+        const name = entry.name.toLowerCase();
+        if (name.endsWith(".rtfd")) {
+          const fromPackage = await rtfFileFromRtfdDirectory(entry as FileSystemDirectoryEntry);
+          if (fromPackage) return fromPackage;
+        }
+        continue;
+      }
+      if (entry.isFile) {
+        const file = await fileFromFileEntry(entry as FileSystemFileEntry);
+        if (isIngestFile(file) || isRtfFile(file)) return file;
+      }
+    }
+  }
+  const fallback = event.dataTransfer?.files?.[0];
+  return fallback ?? null;
 }
 
 function defaultNoteTitle(asset: AssetInfo | null, paste: string): string {
@@ -233,7 +304,7 @@ export function IngestPanel({
   function pickFile(file: File) {
     setError("");
     if (!isIngestFile(file)) {
-      setError("Use a PowerPoint, Keynote, PDF or email file.");
+      setError(INGEST_FILE_HINT);
       return;
     }
     if (file.size > INGEST_MAX_BYTES) {
@@ -242,7 +313,7 @@ export function IngestPanel({
     }
     const kind = ingestFileKind(file);
     if (!kind) {
-      setError("Use a PowerPoint, Keynote, PDF or email file.");
+      setError(INGEST_FILE_HINT);
       return;
     }
     setAsset({
@@ -255,11 +326,15 @@ export function IngestPanel({
     setUploadedAsset(null);
   }
 
-  function onDrop(event: DragEvent<HTMLLabelElement>) {
+  async function onDrop(event: DragEvent<HTMLLabelElement>) {
     event.preventDefault();
     setDropOver(false);
-    const file = event.dataTransfer.files?.[0];
-    if (file) pickFile(file);
+    try {
+      const file = await fileFromDrop(event);
+      if (file) pickFile(file);
+    } catch {
+      setError("Could not read that file.");
+    }
   }
 
   async function uploadAsset(file: File) {
@@ -301,6 +376,11 @@ export function IngestPanel({
     if (info.kind === "email" && info.name.toLowerCase().endsWith(".eml")) {
       setStatus("Reading email…");
       return await info.file.text();
+    }
+    if (info.kind === "rtf") {
+      setStatus("Reading rich text…");
+      const bytes = new Uint8Array(await info.file.arrayBuffer());
+      return await extractRtfText(bytes);
     }
     throw new Error(
       "Can’t extract text from this file yet. Paste the text, or save as a note only.",
@@ -645,8 +725,8 @@ export function IngestPanel({
                 if (file) pickFile(file);
               }}
             />
-            <strong>Drop a PowerPoint or an email</strong>
-            <span className="ingest-datum">.pptx · .key · .pdf · .eml · .msg</span>
+            <strong>Drop a PowerPoint, email, or rich-text note</strong>
+            <span className="ingest-datum">.pptx · .key · .pdf · .eml · .msg · .rtf · .rtfd</span>
           </label>
 
           <span className="label">or paste text</span>

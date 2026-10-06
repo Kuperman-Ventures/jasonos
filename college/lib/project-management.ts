@@ -34,7 +34,7 @@ export const PROJECT_SECTIONS: ProjectSection[] = [
     id: "ingest",
     label: "Ingest",
     blurb:
-      "Drop a deck or email, or paste text. Choose whether to save a note, find to-dos, find calendar events — then review and save.",
+      "Drop a deck, email, or rich-text note, or paste text. Choose whether to save a note, find to-dos, find calendar events — then review and save.",
     status: "ready",
   },
 ];
