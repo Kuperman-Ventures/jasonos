@@ -361,18 +361,6 @@ function entityMinutes(entries: BusinessHour[]): Record<string, number> {
   return totals;
 }
 
-function summarizeEntityHours(entries: BusinessHour[]): string[] {
-  const totals = entityMinutes(entries);
-  const lines: string[] = [];
-  for (const entity of ENTITIES) {
-    const mins = totals[entity] ?? 0;
-    if (mins > 0) lines.push(`${entity}: ${fmtHm(mins)}`);
-  }
-  const combined = entries.reduce((s, e) => s + entryMins(e), 0);
-  if (combined > 0) lines.push(`Combined total: ${fmtHm(combined)}`);
-  return lines;
-}
-
 /** Unified activity row for the printable / CSV ledger tables. */
 type LedgerActivity = {
   date: string;
@@ -551,7 +539,6 @@ function buildLedgerHtml(
       </div>`;
   };
 
-  const rangeTotals = summarizeEntityHours(businessHours);
   const tierAAll = workSearches.filter((w) => tierOf(w) === "employer_contact");
   const tierBLogged = workSearches.filter((w) => tierOf(w) === "networking");
   const tierBTotal = tierBLogged.length + networkingTierB.length;
@@ -602,8 +589,6 @@ function buildLedgerHtml(
     .join("");
 
   const idStamp = workSearchId || "—— set NYUI_WORK_SEARCH_ID to stamp ——";
-  const hoursLine =
-    rangeTotals.length > 0 ? rangeTotals.join(" · ") : "none logged";
 
   return `<!doctype html><html lang="en"><head><meta charset="utf-8" />
     <title>NYS DOL Work Search Ledger</title>
@@ -706,7 +691,6 @@ function buildLedgerHtml(
         <div class="meta-grid">
           <p class="meta"><strong>Range</strong> ${escHtml(fmtLong(startDate))} – ${escHtml(fmtLong(endDate))}</p>
           <p class="meta"><strong>Generated</strong> ${escHtml(new Date().toLocaleString())}</p>
-          <p class="meta"><strong>Business hours</strong> ${escHtml(hoursLine)}</p>
           <p class="meta"><strong>Claim weeks</strong> Monday–Sunday</p>
         </div>
         <div class="id-stamp">Work Search ID: ${escHtml(idStamp)}</div>
