@@ -303,16 +303,17 @@ function escHtml(v: unknown): string {
     .replace(/"/g, "&quot;");
 }
 
-// Claim-week bounds for a given date. Uses the SAME Sunday-start boundary as
-// the dashboard so grouping stays consistent.
+// Claim-week bounds for a given date. Universal Monday→Sunday reporting week
+// (same boundary as the dashboard / networking / KPI views).
 function weekRangeOf(dateStr: string): { start: string; end: string } {
-  const d = new Date(dateStr + "T12:00:00");
-  const sunday = new Date(d);
-  sunday.setDate(d.getDate() - d.getDay());
-  const saturday = new Date(sunday);
-  saturday.setDate(sunday.getDate() + 6);
-  const fmt = (x: Date) => x.toISOString().split("T")[0];
-  return { start: fmt(sunday), end: fmt(saturday) };
+  const d = new Date(dateStr + "T12:00:00Z");
+  const back = (d.getUTCDay() + 6) % 7; // Mon = 0 … Sun = 6
+  const monday = new Date(d);
+  monday.setUTCDate(d.getUTCDate() - back);
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+  const fmt = (x: Date) => x.toISOString().slice(0, 10);
+  return { start: fmt(monday), end: fmt(sunday) };
 }
 
 function fmtLong(dateStr: string) {
@@ -407,7 +408,7 @@ function buildLedgerHtml(
     networking: AuditNetworkingRow[];
     businessHours: BusinessHour[];
   };
-  // Group by Sunday-start claim week. Include weeks that have work-search,
+  // Group by Monday-start claim week. Include weeks that have work-search,
   // networking fill, or business-hours entries.
   const weeks = new Map<string, WeekBucket>();
   const ensureWeek = (key: string) => {
@@ -679,7 +680,7 @@ function buildLedgerHtml(
           <p class="meta"><strong>Range</strong> ${escHtml(fmtLong(startDate))} – ${escHtml(fmtLong(endDate))}</p>
           <p class="meta"><strong>Generated</strong> ${escHtml(new Date().toLocaleString())}</p>
           <p class="meta"><strong>Business hours</strong> ${escHtml(hoursLine)}</p>
-          <p class="meta"><strong>Claim weeks</strong> Sunday–Saturday</p>
+          <p class="meta"><strong>Claim weeks</strong> Monday–Sunday</p>
         </div>
         <div class="id-stamp">Work Search ID: ${escHtml(idStamp)}</div>
       </header>
@@ -999,7 +1000,7 @@ function ExportModal({
         });
       }
       const weeklySummaryCols = [
-        { key: "week", label: "Claim Week (Sun–Sat)" },
+        { key: "week", label: "Claim Week (Mon–Sun)" },
         { key: "ventures", label: "Kuperman Ventures LLC" },
         { key: "advisors", label: "Kuperman Advisors LLC" },
         { key: "combined", label: "Combined" },
@@ -2581,7 +2582,7 @@ function AllActivity({
       )
     : businessHours;
 
-  // Group into Sunday-start claim weeks (same boundary as dashboard / audit).
+  // Group into Monday-start claim weeks (same boundary as dashboard / audit).
   // Weeks with only hours (no applications) still appear.
   type WeekBucket = { workSearches: WorkSearch[]; businessHours: BusinessHour[] };
   const weeks = new Map<string, WeekBucket>();

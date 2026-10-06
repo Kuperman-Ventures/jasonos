@@ -8,9 +8,8 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 // (scored conversations, reflections, gates, deliverables). Read-only, derived
 // entirely from data already captured elsewhere; nothing new to log.
 //
-// Weeks run Saturday → Friday (ending Friday) to match the Browning module's
-// week_ending_friday KPI bucketing and a "send the advisor a Friday recap"
-// rhythm.
+// Weeks run Monday → Sunday (universal JasonOS reporting week). Browning's
+// separate week_ending_friday KPI bucketing is unchanged.
 // ---------------------------------------------------------------------------
 
 export interface EngagedTouch {
@@ -39,11 +38,11 @@ export interface GateMoved {
 }
 
 export interface WeeklyActivityLog {
-  weekStart: string; // last Tuesday (YYYY-MM-DD) — first day covered
-  weekEnd: string; // the following Monday (YYYY-MM-DD) — last day covered
-  /** The Tuesday this report is anchored to ("this Tuesday"). */
+  weekStart: string; // Monday (YYYY-MM-DD), inclusive
+  weekEnd: string; // Sunday (YYYY-MM-DD), inclusive
+  /** Monday this report is anchored to (passed as ?week=). */
   anchor: string;
-  /** Anchor Tuesdays for navigation (passed as ?week=). */
+  /** Neighboring Mondays for navigation (passed as ?week=). */
   prevWeek: string;
   nextWeek: string;
   isCurrentWeek: boolean;
@@ -100,12 +99,10 @@ function addDays(base: string, days: number): string {
   return ymd(d);
 }
 
-// The most recent Tuesday on or before `ref`. The report is "Tuesday to
-// Tuesday": generated on a Tuesday, it covers the 7 days ending the day
-// before (last Tue → this Mon), i.e. the week that just completed.
-function tuesdayAnchor(ref: string): string {
-  const d = new Date(`${ref}T00:00:00Z`);
-  const back = (d.getUTCDay() - 2 + 7) % 7; // Tue = 2
+// Monday of the reporting week containing `ref` (Monday → Sunday).
+function mondayAnchor(ref: string): string {
+  const d = new Date(`${ref}T12:00:00Z`);
+  const back = (d.getUTCDay() + 6) % 7; // Mon = 0 … Sun = 6
   d.setUTCDate(d.getUTCDate() - back);
   return ymd(d);
 }
@@ -133,12 +130,12 @@ export async function getWeeklyActivityLog(
 ): Promise<WeeklyActivityLog> {
   const todayYmd = ymd(new Date());
   const ref = weekParam && /^\d{4}-\d{2}-\d{2}$/.test(weekParam) ? weekParam : todayYmd;
-  const anchor = tuesdayAnchor(ref); // "this Tuesday"
-  const weekStart = addDays(anchor, -7); // last Tuesday (first day covered)
-  const weekEnd = addDays(anchor, -1); // Monday (last day covered)
+  const anchor = mondayAnchor(ref); // Monday of this reporting week
+  const weekStart = anchor;
+  const weekEnd = addDays(anchor, 6); // Sunday
   const prevWeek = addDays(anchor, -7);
   const nextWeek = addDays(anchor, 7);
-  const isCurrentWeek = anchor === tuesdayAnchor(todayYmd);
+  const isCurrentWeek = anchor === mondayAnchor(todayYmd);
 
   const empty: WeeklyActivityLog = {
     weekStart,

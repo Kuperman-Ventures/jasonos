@@ -1,7 +1,7 @@
 "use server";
 
 // Networking Activity — a thin, activity-only report broken out by week
-// (Wednesday to Tuesday). Shows what you DID: conversations had, new contacts
+// (Monday to Sunday). Shows what you DID: conversations had, new contacts
 // added, thank-yous sent, referrals received. No "what you didn't do" — no
 // awaiting/overdue/drift. Current week on top, history below. Derived entirely
 // from data already collected; nothing new to log.
@@ -24,6 +24,11 @@ import type {
   NetworkRole,
   RelevanceTier,
 } from "@/lib/outreach/types";
+import {
+  addDaysYmd,
+  formatMonSunWeekLabel,
+  mondayStartOfWeekYmd,
+} from "@/lib/dates";
 
 // "Real conversation" channels — email/LinkedIn/text land the meeting, they
 // aren't networking conversations, so they never appear as conversations.
@@ -140,9 +145,8 @@ export interface NsFreshOutreach {
 }
 
 /** Job applications (NYUI work searches) logged inside this reporting week.
- *  Aligned to the report's Wednesday→Tuesday week, not the official
- *  Sunday–Saturday claim week, so it reads on one timeline with the
- *  networking activity. Business hours are intentionally excluded. */
+ *  Aligned to the universal Monday→Sunday reporting week so it reads on one
+ *  timeline with networking activity. Business hours are intentionally excluded. */
 export interface NyuiWeekSummary {
   applicationCount: number;
   applications: {
@@ -191,8 +195,8 @@ export interface CumulativeFunnel {
 }
 
 export interface WeekActivity {
-  weekStart: string; // Wednesday (YYYY-MM-DD), inclusive
-  weekEnd: string; // Tuesday (YYYY-MM-DD), inclusive
+  weekStart: string; // Monday (YYYY-MM-DD), inclusive
+  weekEnd: string; // Sunday (YYYY-MM-DD), inclusive
   isCurrent: boolean;
   conversations: NsConversation[];
   newContacts: NsNewContact[];
@@ -232,20 +236,13 @@ function ymd(d: Date): string {
   return d.toISOString().split("T")[0];
 }
 
-// Wednesday-start week for any YYYY-MM-DD: the most recent Wednesday on/before
-// it. Weeks run Wednesday → Tuesday, so Tuesday is the LAST day of the week
-// that began the prior Wednesday.
+/** Universal Monday→Sunday reporting week. */
 function weekStartOf(dateStr: string): string {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  const back = (d.getUTCDay() - 3 + 7) % 7; // Wed = 3
-  d.setUTCDate(d.getUTCDate() - back);
-  return ymd(d);
+  return mondayStartOfWeekYmd(dateStr);
 }
 
 function addDaysStr(dateStr: string, days: number): string {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return ymd(d);
+  return addDaysYmd(dateStr, days);
 }
 
 function firmFromTags(tags: string[] | null): string | null {
@@ -707,7 +704,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
     wk.stats.referrals += (r.referrals_received as number | null) ?? 0;
   }
 
-  // ── Job applications (NYUI work searches), bucketed into Wed→Tue weeks ─────
+  // ── Job applications (NYUI work searches), bucketed into Mon→Sun weeks ─────
   // Only the count + the company/position for each logged application; no
   // business hours, no tier split (per the networking report's scope).
   // Future-dated apps are excluded — this report is what already happened.
@@ -822,7 +819,7 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
 //
 // Distinct from getNetworkingActivity above (which powers the multi-week
 // heatmap/funnel view): this returns exactly the slots the report layout needs
-// for the CURRENT Wednesday→Tuesday week. Same underlying data, presentation
+// for the CURRENT Monday→Sunday week. Same underlying data, presentation
 // shaped for the report. It answers, in order:
 //   1. Who did I freshly reach out to this week (against a 10-person goal)?
 //      Fresh = no prior touch with that person in the last 90 days. Ongoing
@@ -914,21 +911,9 @@ function daysBetween(a: string, b: string): number {
   );
 }
 
-// "Wednesday 22 – Tuesday 28 July 2026" — weeks always run Wed→Tue.
+// "Monday 30 March – Sunday 5 April 2026" — weeks always run Mon→Sun.
 function formatWeekLabel(weekStart: string, weekEnd: string): string {
-  const s = new Date(`${weekStart}T12:00:00Z`);
-  const e = new Date(`${weekEnd}T12:00:00Z`);
-  const sMonth = s.toLocaleDateString("en-US", { month: "long", timeZone: "UTC" });
-  const eMonth = e.toLocaleDateString("en-US", { month: "long", timeZone: "UTC" });
-  const sDay = s.getUTCDate();
-  const eDay = e.getUTCDate();
-  const sYear = s.getUTCFullYear();
-  const eYear = e.getUTCFullYear();
-  if (sMonth === eMonth && sYear === eYear)
-    return `Wednesday ${sDay} \u2013 Tuesday ${eDay} ${eMonth} ${eYear}`;
-  if (sYear === eYear)
-    return `Wednesday ${sDay} ${sMonth} \u2013 Tuesday ${eDay} ${eMonth} ${eYear}`;
-  return `Wednesday ${sDay} ${sMonth} ${sYear} \u2013 Tuesday ${eDay} ${eMonth} ${eYear}`;
+  return formatMonSunWeekLabel(weekStart, weekEnd);
 }
 
 export interface ReportOutreach {
@@ -1013,13 +998,13 @@ export interface ReportApplication {
 export interface NetworkingReport {
   weekStart: string;
   weekEnd: string;
-  weekLabel: string; // "Wednesday 22 – Tuesday 28 July 2026"
+  weekLabel: string; // "Monday 30 March – Sunday 5 April 2026"
   issueNumber: number; // ISO week number, shown as "No. 30"
-  /** True when this is the Wednesday→Tuesday week that contains "today" (ET). */
+  /** True when this is the Monday→Sunday week that contains "today" (ET). */
   isCurrentWeek: boolean;
-  /** Wednesday of the prior reporting week (for ← navigation). */
+  /** Monday of the prior reporting week (for ← navigation). */
   prevWeekStart: string;
-  /** Wednesday of the next reporting week, or null when already on the current week. */
+  /** Monday of the next reporting week, or null when already on the current week. */
   nextWeekStart: string | null;
   goalTarget: number;
   reachedOut: number;
@@ -1051,7 +1036,7 @@ function isYmd(s: string): boolean {
 
 /**
  * Single-week networking report. Pass `week` as any date in the desired
- * Wednesday→Tuesday window (usually the Wednesday); it is normalized and
+ * Monday→Sunday window (usually the Monday); it is normalized and
  * clamped so you cannot navigate past the current week.
  */
 export async function getNetworkingReport(opts?: {

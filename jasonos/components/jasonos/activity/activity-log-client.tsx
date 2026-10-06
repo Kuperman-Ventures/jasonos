@@ -262,7 +262,7 @@ function buildReportHtml(data: WeeklyActivityLog): string {
     <h3 style="font-size:12px;margin:14px 0 4px;text-transform:uppercase;letter-spacing:.05em;color:#334155">Coaching reflections</h3>
     ${coaching}
 
-    <div class="foot">JasonOS · Networking status report · ${esc(range)}. Reporting week runs Tuesday to Tuesday.</div>
+    <div class="foot">JasonOS · Networking status report · ${esc(range)}. Reporting week runs Monday to Sunday.</div>
     </body></html>`;
 }
 
@@ -316,7 +316,7 @@ export function ActivityLogClient({ data }: { data: WeeklyActivityLog }) {
           </h1>
           <p className="mt-1 text-xs text-muted-foreground">
             All networking activity + the Browning coaching loop, for the
-            Browning advisor. Reporting week runs Tuesday to Tuesday.
+            Browning advisor. Reporting week runs Monday to Sunday.
           </p>
         </div>
         <div className="flex items-center gap-1.5">

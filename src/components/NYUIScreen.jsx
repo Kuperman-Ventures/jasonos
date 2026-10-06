@@ -5,15 +5,17 @@ import { AlertTriangle, Clock, FileDown, X, CheckCircle2, ChevronRight } from 'l
 // ─── Date & Math Utilities ────────────────────────────────────────────────────
 
 function getWeekBounds() {
+  // Universal JasonOS reporting week: Monday → Sunday.
   const now = new Date()
-  const sunday = new Date(now)
-  sunday.setDate(now.getDate() - now.getDay())
-  const saturday = new Date(sunday)
-  saturday.setDate(sunday.getDate() + 6)
+  const monday = new Date(now)
+  const back = (now.getDay() + 6) % 7 // Mon = 0 … Sun = 6
+  monday.setDate(now.getDate() - back)
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
   const fmt = (d) => d.toISOString().split('T')[0]
   const disp = (d, year = false) =>
     d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', ...(year ? { year: 'numeric' } : {}) })
-  return { start: fmt(sunday), end: fmt(saturday), startDisplay: disp(sunday), endDisplay: disp(saturday, true) }
+  return { start: fmt(monday), end: fmt(sunday), startDisplay: disp(monday), endDisplay: disp(sunday, true) }
 }
 
 function todayStr() {

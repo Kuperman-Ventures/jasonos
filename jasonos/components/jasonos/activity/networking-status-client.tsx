@@ -2,7 +2,7 @@
 
 // Networking Activity — a thin, week-by-week feed of what you DID: conversations
 // had, new contacts added, thank-yous sent, referrals received. Current week
-// (Wednesday to Tuesday) on top, history scrolling below. No "what wasn't done".
+// (Monday to Sunday) on top, history scrolling below. No "what wasn't done".
 // The "Weekly PDF" prints the current week for the advisor hand-off.
 
 import { useState } from "react";
@@ -208,7 +208,7 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
       <div class="head">
         <div class="eyebrow">Jason Kuperman's Networking Activity</div>
         <h1>${escHtml(title)}</h1>
-        <p class="sub">Week of ${escHtml(range)} · Wednesday to Tuesday</p>
+        <p class="sub">Week of ${escHtml(range)} · Monday to Sunday</p>
       </div>
       ${chips ? `<div class="chips">${chips}</div>` : ""}
       ${goalCard}
@@ -236,7 +236,7 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
           ? `<section class="card"><div class="card-h">Search Activity (${current.nyui.applicationCount})</div><div class="card-b">${apps}</div></section>`
           : ""
       }
-      <div class="foot">JasonOS &middot; Networking activity &middot; ${escHtml(range)}. Reporting week runs Wednesday to Tuesday.</div>
+      <div class="foot">JasonOS &middot; Networking activity &middot; ${escHtml(range)}. Reporting week runs Monday to Sunday.</div>
       <script>window.onload=function(){window.print();}</script>
       </body></html>`;
     const w = window.open("", "_blank");
@@ -257,7 +257,7 @@ export function NetworkingActivityClient({ data }: { data: NetworkingActivity })
             Expanding the network through referrals
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Wednesday to Tuesday. Track the path: fresh outreach → calls and
+            Monday to Sunday. Track the path: fresh outreach → calls and
             meetings → referrals (who introduced you to whom).
           </p>
         </div>
@@ -720,7 +720,7 @@ function NewNetworkPanel({
 }
 
 // Job applications (NYUI work searches) logged inside this reporting week.
-// Aligned to the Wed→Tue reporting week — count + the company/position for
+// Aligned to the Mon→Sun reporting week — count + the company/position for
 // each. Business hours are intentionally excluded from this report.
 function NyuiPanel({ nyui }: { nyui: NyuiWeekSummary }) {
   if (nyui.applicationCount === 0) return null;
