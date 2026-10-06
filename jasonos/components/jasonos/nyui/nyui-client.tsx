@@ -754,9 +754,11 @@ function buildLedgerHtml(
         .next{margin-top:1px; font-size:7.5px}
         .src{font-size:6.5px; padding:0 2px}
         .src-cell{width:48px}
-        .summary-table{max-width:200px}
+        .summary-table{display:none !important}
         .empty{margin:1px 0 4px; font-size:8px}
         .foot{margin-top:6px; font-size:6.5px; padding-top:3px; line-height:1.3}
+        .foot-screen{display:none !important}
+        .foot-print{display:block !important}
         tr{page-break-inside:avoid; break-inside:avoid}
       }
     </style></head><body>
@@ -778,11 +780,14 @@ function buildLedgerHtml(
         <div class="fig"><span class="n">${businessHours.length}</span><span class="l">Hours entries</span></div>
       </div>
       ${weeksHtml || `<p class="empty">No work-search, networking, or business-hours activity in this range.</p>`}
-      <p class="foot">
+      <p class="foot foot-screen">
         Tier B includes activities logged in NYUI plus qualifying JasonOS networking activity
         (held conversations and fresh outreach to industry contacts not already logged).
         Source column marks each row. Business hours shown for Kuperman Ventures LLC /
         Kuperman Advisors LLC when logged. SSN intentionally omitted.
+      </p>
+      <p class="foot foot-print">
+        Tier B = NYUI log + JasonOS networking. Source marks each row. SSN omitted.
       </p>
     </div>
     </body></html>`;
