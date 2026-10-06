@@ -83,7 +83,7 @@ I replied because your note on commercialization and GTM matched the work we are
       ],
     });
     assert.match(body, /^Sarah,/);
-    assert.match(body, /Tracy at Browning suggested we connect/);
+    assert.match(body, /Tracy at Browning suggested we connect\. A short call in the next few weeks would be great if you are open to it\./);
     assert.match(body, /Some options from my side would be:/);
     assert.match(body, /Let me know if any of those are good or days\/times that would work for you\./);
     assert.match(body, /Looking forward to speak\.\n\nBest,\nJason$/);
