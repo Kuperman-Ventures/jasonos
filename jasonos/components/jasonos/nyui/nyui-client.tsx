@@ -580,12 +580,14 @@ function buildLedgerHtml(
         ${sectionHtml(
           "Tier A — Employer Contacts",
           tierA,
-          "No employer contacts logged this week."
+          "No employer contacts logged this week.",
+          { showContact: false }
         )}
         ${sectionHtml(
           "Tier B — Networking / Fruitful Activities",
           tierB,
-          "No networking activity this week (NYUI log or JasonOS)."
+          "No networking activity this week (NYUI log or JasonOS).",
+          { showContact: true }
         )}
         ${businessHoursHtml(bhWeek)}
       </section>`;
