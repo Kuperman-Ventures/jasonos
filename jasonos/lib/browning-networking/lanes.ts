@@ -28,6 +28,7 @@ export function isFollowUp(row: { status: HandoffStatus; callStartsAt: string | 
 export function canEditOfferedTimes(row: {
   status: HandoffStatus;
   callStartsAt: string | null;
+  sourceKind?: string | null;
 }): boolean {
   return handoffLane(row) === "reply" || handoffLane(row) === "outreach";
 }
