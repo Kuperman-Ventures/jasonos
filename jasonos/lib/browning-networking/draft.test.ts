@@ -84,6 +84,9 @@ I replied because your note on commercialization and GTM matched the work we are
     });
     assert.match(body, /^Sarah,/);
     assert.match(body, /Tracy at Browning suggested we connect/);
+    assert.match(body, /Some options from my side would be:/);
+    assert.match(body, /Let me know if any of those are good or days\/times that would work for you\./);
+    assert.match(body, /Looking forward to speak\.\n\nBest,\nJason$/);
     assert.doesNotMatch(body, /Thank you Tracy/);
     assert.doesNotMatch(body, /Good to be connected/);
     const li = packetLinkedInDraft("Sarah Chen");
