@@ -430,7 +430,7 @@ function networkingToLedger(row: AuditNetworkingRow): LedgerActivity {
 // Build the audit-ready, per-claim-week ledger (Gap 5) as a standalone
 // printable HTML document. Tier A (Employer Contacts), Tier B (Networking —
 // NYUI log + JasonOS networking fill), then Business Hours when logged.
-// Stamped with the Work Search ID (never the SSN).
+// Stamped with the claimant name (never the SSN).
 function buildLedgerHtml(
   workSearches: WorkSearch[],
   businessHours: BusinessHour[],
@@ -634,7 +634,11 @@ function buildLedgerHtml(
     })
     .join("");
 
-  const idStamp = workSearchId || "—— set NYUI_WORK_SEARCH_ID to stamp ——";
+  // Identity stamp for the auditor — name, not SSN. Optional Work Search ID
+  // env still appends when configured.
+  const idStamp = workSearchId
+    ? `Jason Kuperman · Work Search ID: ${workSearchId}`
+    : "Jason Kuperman";
 
   return `<!doctype html><html lang="en"><head><meta charset="utf-8" />
     <title>NYS DOL Work Search Ledger</title>
@@ -739,7 +743,7 @@ function buildLedgerHtml(
           <p class="meta"><strong>Generated</strong> ${escHtml(new Date().toLocaleString())}</p>
           <p class="meta"><strong>Claim weeks</strong> Monday–Sunday</p>
         </div>
-        <div class="id-stamp">Work Search ID: ${escHtml(idStamp)}</div>
+        <div class="id-stamp">${escHtml(idStamp)}</div>
       </header>
       <div class="range-band">
         <div class="fig"><span class="n">${tierAAll.length}</span><span class="l">Tier A</span></div>
@@ -752,8 +756,7 @@ function buildLedgerHtml(
         Tier B includes activities logged in NYUI plus qualifying JasonOS networking activity
         (held conversations and fresh outreach to industry contacts not already logged).
         Source column marks each row. Business hours shown for Kuperman Ventures LLC /
-        Kuperman Advisors LLC when logged. SSN intentionally omitted — identity is matched
-        by Work Search ID only.
+        Kuperman Advisors LLC when logged. SSN intentionally omitted.
       </p>
     </div>
     </body></html>`;
@@ -1018,8 +1021,8 @@ function ExportModal({
       const bhEntries = result.businessHours;
       const bh = bhEntries as unknown as Record<string, unknown>[];
       const workSearchIdLine = result.workSearchId
-        ? `"Work Search ID: ${result.workSearchId}"`
-        : `"Work Search ID: (set NYUI_WORK_SEARCH_ID env to stamp)"`;
+        ? `"Claimant: Jason Kuperman · Work Search ID: ${result.workSearchId}"`
+        : `"Claimant: Jason Kuperman"`;
       const entityTotals = entityMinutes(bhEntries);
       const entitySummaryRows = ENTITIES.map((entity) => ({
         entity,
@@ -1250,7 +1253,7 @@ function ExportModal({
             <p className="text-[11px] text-muted-foreground pt-0.5">
               One claim week per report. Tier A (Employer Contacts), Tier B
               (NYUI log + JasonOS networking), and Business Hours when present,
-              stamped with your Work Search ID. Use your browser&apos;s
+              stamped with your name. Use your browser&apos;s
               &ldquo;Save as PDF&rdquo;.
             </p>
           </div>
