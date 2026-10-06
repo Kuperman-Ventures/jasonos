@@ -445,7 +445,7 @@ function buildLedgerHtml(
   }
   const weekKeys = [...weeks.keys()].sort();
 
-  const rowHtml = (ws: LedgerActivity) => {
+  const rowHtml = (ws: LedgerActivity, showContact: boolean) => {
     const contact = ws.contact_person ? escHtml(ws.contact_person) : "—";
     const where = escHtml(ws.company_location || "number withheld");
     const next = [
@@ -460,7 +460,7 @@ function buildLedgerHtml(
     return `<tr class="${ws.from_networking ? "from-net" : ""}">
       <td class="date">${escHtml(ws.date)}</td>
       <td>${escHtml(ws.company_name)}</td>
-      <td>${contact}</td>
+      ${showContact ? `<td>${contact}</td>` : ""}
       <td>${escHtml(ws.position_applied)}</td>
       <td>${escHtml(ws.contact_method)}</td>
       <td class="loc">${where}</td>
@@ -472,8 +472,10 @@ function buildLedgerHtml(
   const sectionHtml = (
     title: string,
     rows: LedgerActivity[],
-    emptyNote: string
+    emptyNote: string,
+    opts: { showContact?: boolean } = {}
   ) => {
+    const showContact = opts.showContact ?? true;
     const netCount = rows.filter((r) => r.from_networking).length;
     const countNote =
       netCount > 0
@@ -487,11 +489,13 @@ function buildLedgerHtml(
           ? `<p class="empty">${escHtml(emptyNote)}</p>`
           : `<table>
               <thead><tr>
-                <th>Date</th><th>Company / Org</th><th>Contact + Title</th>
+                <th>Date</th><th>Company / Org</th>${
+                  showContact ? "<th>Contact + Title</th>" : ""
+                }
                 <th>Position</th><th>Method</th><th>Address / URL / Phone</th>
                 <th>Result · Outcome / Next Step</th><th>Source</th>
               </tr></thead>
-              <tbody>${rows.map(rowHtml).join("")}</tbody>
+              <tbody>${rows.map((r) => rowHtml(r, showContact)).join("")}</tbody>
             </table>`
       }
     </div>`;
