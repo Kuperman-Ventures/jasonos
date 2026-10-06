@@ -308,6 +308,27 @@ function fmtWeekRange(start: string, end: string): string {
   return `${weekday2(start)} ${startPart} – ${weekday2(end)} ${endPart}`;
 }
 
+type AuditPeriod = { start: string; end: string; label: string };
+
+/** Monday–Sunday claim weeks for the audit modal, newest first. */
+function buildAuditPeriods(
+  dates: string[],
+  preferStart?: string
+): AuditPeriod[] {
+  const starts = new Set<string>();
+  for (const d of dates) {
+    if (d) starts.add(weekRangeOf(d).start);
+  }
+  if (preferStart) starts.add(weekRangeOf(preferStart).start);
+  starts.add(weekRangeOf(todayStr()).start);
+  return [...starts]
+    .sort((a, b) => b.localeCompare(a))
+    .map((start) => {
+      const { end } = weekRangeOf(start);
+      return { start, end, label: fmtWeekRange(start, end) };
+    });
+}
+
 function todayStr() {
   return new Date().toISOString().split("T")[0];
 }
@@ -917,25 +938,28 @@ function ProgressBar({
 
 function ExportModal({
   onClose,
-  defaultStart = "",
-  defaultEnd = "",
+  periods,
+  defaultPeriodStart = "",
 }: {
   onClose: () => void;
-  defaultStart?: string;
-  defaultEnd?: string;
+  periods: AuditPeriod[];
+  defaultPeriodStart?: string;
 }) {
-  const [startDate, setStartDate] = useState(defaultStart);
-  const [endDate, setEndDate] = useState(defaultEnd);
+  const initialStart =
+    periods.find((p) => p.start === defaultPeriodStart)?.start ??
+    periods[0]?.start ??
+    "";
+  const [periodStart, setPeriodStart] = useState(initialStart);
+  const selected =
+    periods.find((p) => p.start === periodStart) ?? periods[0] ?? null;
+  const startDate = selected?.start ?? "";
+  const endDate = selected?.end ?? "";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleExport() {
     if (!startDate || !endDate) {
-      setError("Please select both dates.");
-      return;
-    }
-    if (endDate < startDate) {
-      setError("End date must be on or after start date.");
+      setError("Please select a claim week.");
       return;
     }
     setError(null);
@@ -1093,11 +1117,7 @@ function ExportModal({
 
   async function handleLedger() {
     if (!startDate || !endDate) {
-      setError("Please select both dates.");
-      return;
-    }
-    if (endDate < startDate) {
-      setError("End date must be on or after start date.");
+      setError("Please select a claim week.");
       return;
     }
     setError(null);
@@ -1161,7 +1181,7 @@ function ExportModal({
           <div>
             <h3 className="font-semibold text-foreground">Generate NYS DOL Audit Report</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Dates default to this claim week. Includes work searches, JasonOS
+              Pick a Monday–Sunday claim week. Includes work searches, JasonOS
               networking for Tier B, and Kuperman Ventures / Advisors hours when logged.
             </p>
           </div>
@@ -1174,24 +1194,25 @@ function ExportModal({
           </button>
         </div>
         <div className="px-6 py-5 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Start Date" required>
-              <input
-                type="date"
-                className={inputCls}
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </Field>
-            <Field label="End Date" required>
-              <input
-                type="date"
-                className={inputCls}
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </Field>
-          </div>
+          <Field label="Claim week" required>
+            <select
+              className={selectCls}
+              value={periodStart}
+              onChange={(e) => setPeriodStart(e.target.value)}
+              disabled={periods.length === 0}
+            >
+              {periods.length === 0 ? (
+                <option value="">No claim weeks available</option>
+              ) : (
+                periods.map((p) => (
+                  <option key={p.start} value={p.start}>
+                    {p.label}
+                    {p.start === defaultPeriodStart ? " (this week)" : ""}
+                  </option>
+                ))
+              )}
+            </select>
+          </Field>
           {error && (
             <p className="text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded px-3 py-2">
               {error}
@@ -1227,10 +1248,10 @@ function ExportModal({
               Cancel
             </button>
             <p className="text-[11px] text-muted-foreground pt-0.5">
-              The printable ledger groups by claim week with Tier A (Employer Contacts), Tier B
-              (NYUI networking log plus JasonOS meetings / fresh outreach), and Business Hours
-              when present, stamped with your Work Search ID. Use your browser&apos;s
-              &ldquo;Save as PDF&rdquo; for a one-week audit.
+              One claim week per report. Tier A (Employer Contacts), Tier B
+              (NYUI log + JasonOS networking), and Business Hours when present,
+              stamped with your Work Search ID. Use your browser&apos;s
+              &ldquo;Save as PDF&rdquo;.
             </p>
           </div>
         </div>
@@ -1246,6 +1267,7 @@ function NYUIDashboard({
   businessHours,
   weekStart,
   weekEnd,
+  auditPeriods,
   onNavigate,
   onFollowUp,
   applicationQueue,
@@ -1256,6 +1278,7 @@ function NYUIDashboard({
   businessHours: BusinessHour[];
   weekStart: string;
   weekEnd: string;
+  auditPeriods: AuditPeriod[];
   onNavigate: (screen: SubScreen) => void;
   onFollowUp: (ws: WorkSearch) => void;
   applicationQueue: ResumeApplication[];
@@ -1752,8 +1775,8 @@ function NYUIDashboard({
       {showExport && (
         <ExportModal
           onClose={() => setShowExport(false)}
-          defaultStart={weekStart}
-          defaultEnd={weekEnd}
+          periods={auditPeriods}
+          defaultPeriodStart={weekStart}
         />
       )}
     </div>
@@ -3190,6 +3213,13 @@ export function NyuiClient({
           businessHours={initialData.businessHours}
           weekStart={weekStart}
           weekEnd={weekEnd}
+          auditPeriods={buildAuditPeriods(
+            [
+              ...allWorkSearches.map((w) => w.date),
+              ...allBusinessHours.map((h) => h.date),
+            ],
+            weekStart
+          )}
           onNavigate={goToScreen}
           onFollowUp={handleFollowUp}
           applicationQueue={applicationQueue}
