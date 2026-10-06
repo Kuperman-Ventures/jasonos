@@ -24,6 +24,13 @@ export function looksLikeRtf(raw: string): boolean {
   return RTF_OPEN.test(raw.trimStart());
 }
 
+/** First bytes of a TextEdit / Word RTF file. */
+export function looksLikeRtfBytes(bytes: Uint8Array): boolean {
+  if (bytes.byteLength < 5) return false;
+  const head = new TextDecoder("latin1").decode(bytes.slice(0, 24));
+  return looksLikeRtf(head);
+}
+
 function decodeHexByte(hh: string): string {
   const code = Number.parseInt(hh, 16);
   if (Number.isNaN(code)) return "";

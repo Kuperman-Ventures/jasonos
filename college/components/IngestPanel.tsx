@@ -21,7 +21,7 @@ import {
   isIngestFile,
   type IngestAssetKind,
 } from "@/lib/ingest-assets";
-import { extractRtfText, isRtfFile } from "@/lib/rtf";
+import { extractRtfText, isRtfFile, looksLikeRtfBytes } from "@/lib/rtf";
 import { buildPinNotesFromIngest, type PinNote } from "@/lib/note-board";
 import { OWNERS, type Owner, type Phase } from "@/lib/types";
 
@@ -366,21 +366,20 @@ export function IngestPanel({
   }
 
   async function extractTextFromAsset(info: AssetInfo): Promise<string> {
-    if (info.kind === "pdf") {
-      setStatus("Reading PDF…");
-      const { readPdfForIngest } = await import("@/lib/pdf-ocr");
-      const bytes = new Uint8Array(await info.file.arrayBuffer());
-      const result = await readPdfForIngest(bytes, (progress) => setStatus(progress.detail));
-      return result.text;
-    }
     if (info.kind === "email" && info.name.toLowerCase().endsWith(".eml")) {
       setStatus("Reading email…");
       return await info.file.text();
     }
-    if (info.kind === "rtf") {
+    const bytes = new Uint8Array(await info.file.arrayBuffer());
+    if (info.kind === "rtf" || looksLikeRtfBytes(bytes)) {
       setStatus("Reading rich text…");
-      const bytes = new Uint8Array(await info.file.arrayBuffer());
       return await extractRtfText(bytes);
+    }
+    if (info.kind === "pdf") {
+      setStatus("Reading PDF…");
+      const { readPdfForIngest } = await import("@/lib/pdf-ocr");
+      const result = await readPdfForIngest(bytes, (progress) => setStatus(progress.detail));
+      return result.text;
     }
     throw new Error(
       "Can’t extract text from this file yet. Paste the text, or save as a note only.",
@@ -422,10 +421,16 @@ export function IngestPanel({
       let text = paste.trim();
       let uploaded = uploadedAsset;
       if (asset) {
-        setStatus(asset.kind === "deck" ? "Reading deck…" : "Uploading file…");
-        uploaded = await uploadAsset(asset.file);
-        setUploadedAsset(uploaded);
+        setStatus(asset.kind === "deck" ? "Reading deck…" : "Reading file…");
         text = await extractTextFromAsset(asset);
+        setStatus("Uploading file…");
+        try {
+          uploaded = await uploadAsset(asset.file);
+          setUploadedAsset(uploaded);
+        } catch (uploadErr) {
+          if (!text.trim()) throw uploadErr;
+          // Text is already extracted — keep going even if storage rejects the file.
+        }
       }
       if (!text.trim()) {
         throw new Error("No text found. Paste the contents, or save as a note only.");

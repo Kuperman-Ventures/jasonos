@@ -30,9 +30,10 @@ const EXT_RE = /\.(pptx|key|pdf|eml|msg|rtf|rtfd)$/i;
 export function ingestFileKind(file: { name?: string; type?: string }): IngestAssetKind | null {
   const name = (file.name ?? "").toLowerCase();
   const type = (file.type ?? "").toLowerCase();
+  // Name/type RTF before PDF: some browsers label .rtf as application/pdf.
+  if (isRtfFile(file)) return "rtf";
   if (name.endsWith(".pdf") || type === "application/pdf") return "pdf";
   if (name.endsWith(".eml") || name.endsWith(".msg") || type === "message/rfc822") return "email";
-  if (isRtfFile(file)) return "rtf";
   if (
     name.endsWith(".pptx") ||
     name.endsWith(".key") ||

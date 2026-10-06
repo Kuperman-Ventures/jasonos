@@ -27,6 +27,7 @@ test("ingestFileKind and extension", () => {
   assert.equal(ingestFileKind({ name: "a.eml" }), "email");
   assert.equal(ingestFileKind({ name: "a.rtfd" }), "rtf");
   assert.equal(ingestFileKind({ name: "a.rtf" }), "rtf");
+  assert.equal(ingestFileKind({ name: "Notes.rtf", type: "application/pdf" }), "rtf");
   assert.equal(ingestAssetKind("application/pdf"), "pdf");
   assert.equal(ingestAssetKind("application/rtf"), "rtf");
   assert.equal(ingestExtension("application/pdf", "x.pdf"), "pdf");

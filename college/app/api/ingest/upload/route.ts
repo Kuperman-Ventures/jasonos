@@ -66,7 +66,10 @@ export async function POST(request: Request) {
     upsert: false,
   });
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    const message = /mime type .+ is not supported/i.test(error.message)
+      ? `Storage does not allow ${resolvedMime} yet. The file can still be read as text in Ingest.`
+      : error.message;
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 
   return NextResponse.json({

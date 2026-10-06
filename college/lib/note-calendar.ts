@@ -3,6 +3,7 @@
 import { parseEventDateFromText } from "@/lib/event-date";
 import { fetchLinkPreview, summarizeLinkPreview } from "@/lib/link-preview";
 import { extractPdfText } from "@/lib/pdf";
+import { extractRtfText, looksLikeRtfBytes } from "@/lib/rtf";
 
 export type NoteCalendarScanInput = {
   title: string;
@@ -19,7 +20,7 @@ export type NoteCalendarScanResult = {
   source: "local" | "url" | "asset" | "mixed";
 };
 
-async function textFromAsset(assetUrl: string): Promise<string> {
+async function textFromAsset(assetUrl: string, mimeType?: string | null): Promise<string> {
   try {
     const response = await fetch(assetUrl, {
       signal: AbortSignal.timeout(20000),
@@ -27,8 +28,15 @@ async function textFromAsset(assetUrl: string): Promise<string> {
       redirect: "follow",
     });
     if (!response.ok) return "";
-    const contentType = response.headers.get("content-type") ?? "";
+    const contentType = (mimeType || response.headers.get("content-type") || "").toLowerCase();
     const bytes = new Uint8Array(await response.arrayBuffer());
+    if (
+      contentType.includes("rtf") ||
+      assetUrl.toLowerCase().includes(".rtf") ||
+      looksLikeRtfBytes(bytes)
+    ) {
+      return await extractRtfText(bytes);
+    }
     if (
       contentType.includes("pdf") ||
       assetUrl.toLowerCase().includes(".pdf") ||
@@ -77,7 +85,7 @@ export async function scanNoteForEventDate(
 
     const drive = driveDownloadUrl(input.url.trim());
     if (drive) {
-      const driveText = await textFromAsset(drive);
+      const driveText = await textFromAsset(drive, input.mimeType);
       if (driveText) {
         scanned = [scanned, driveText].filter(Boolean).join("\n");
         source = source === "local" ? "asset" : "mixed";
@@ -86,7 +94,7 @@ export async function scanNoteForEventDate(
   }
 
   if (input.assetUrl?.trim()) {
-    const assetText = await textFromAsset(input.assetUrl.trim());
+    const assetText = await textFromAsset(input.assetUrl.trim(), input.mimeType);
     if (assetText) {
       scanned = [scanned, assetText].filter(Boolean).join("\n");
       source = source === "local" ? "asset" : "mixed";

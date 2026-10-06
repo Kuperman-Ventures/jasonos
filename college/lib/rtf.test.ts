@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { extractRtfText, isRtfFile, looksLikeRtf, rtfToPlainText } from "./rtf";
+import { extractRtfText, isRtfFile, looksLikeRtf, looksLikeRtfBytes, rtfToPlainText } from "./rtf";
 
 const sample = String.raw`{\rtf1\ansi\ansicpg1252{\fonttbl{\f0 Times;}}\f0\fs24 Register Kyle for the October PSAT\par Complete the counselor packet}`;
 
@@ -30,4 +30,12 @@ test("extractRtfText reads latin1 bytes", async () => {
   const bytes = new TextEncoder().encode(sample);
   const text = await extractRtfText(bytes);
   assert.match(text, /PSAT/);
+});
+
+test("looksLikeRtfBytes sniffs the RTF header", () => {
+  const rtf = new TextEncoder().encode(sample);
+  const pdf = new TextEncoder().encode("%PDF-1.4");
+  assert.equal(looksLikeRtfBytes(rtf), true);
+  assert.equal(looksLikeRtfBytes(pdf), false);
+  assert.equal(looksLikeRtfBytes(new Uint8Array()), false);
 });
