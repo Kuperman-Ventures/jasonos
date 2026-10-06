@@ -361,18 +361,6 @@ function entityMinutes(entries: BusinessHour[]): Record<string, number> {
   return totals;
 }
 
-function summarizeEntityHours(entries: BusinessHour[]): string[] {
-  const totals = entityMinutes(entries);
-  const lines: string[] = [];
-  for (const entity of ENTITIES) {
-    const mins = totals[entity] ?? 0;
-    if (mins > 0) lines.push(`${entity}: ${fmtHm(mins)}`);
-  }
-  const combined = entries.reduce((s, e) => s + entryMins(e), 0);
-  if (combined > 0) lines.push(`Combined total: ${fmtHm(combined)}`);
-  return lines;
-}
-
 /** Unified activity row for the printable / CSV ledger tables. */
 type LedgerActivity = {
   date: string;
@@ -457,7 +445,10 @@ function buildLedgerHtml(
   }
   const weekKeys = [...weeks.keys()].sort();
 
-  const rowHtml = (ws: LedgerActivity) => {
+  const rowHtml = (
+    ws: LedgerActivity,
+    opts: { showContact: boolean; showResult: boolean }
+  ) => {
     const contact = ws.contact_person ? escHtml(ws.contact_person) : "—";
     const where = escHtml(ws.company_location || "number withheld");
     const next = [
@@ -472,11 +463,15 @@ function buildLedgerHtml(
     return `<tr class="${ws.from_networking ? "from-net" : ""}">
       <td class="date">${escHtml(ws.date)}</td>
       <td>${escHtml(ws.company_name)}</td>
-      <td>${contact}</td>
+      ${opts.showContact ? `<td>${contact}</td>` : ""}
       <td>${escHtml(ws.position_applied)}</td>
       <td>${escHtml(ws.contact_method)}</td>
       <td class="loc">${where}</td>
-      <td>${escHtml(ws.result)}${next ? `<div class="next">${next}</div>` : ""}</td>
+      ${
+        opts.showResult
+          ? `<td>${escHtml(ws.result)}${next ? `<div class="next">${next}</div>` : ""}</td>`
+          : ""
+      }
       <td class="src-cell">${source}</td>
     </tr>`;
   };
@@ -484,8 +479,11 @@ function buildLedgerHtml(
   const sectionHtml = (
     title: string,
     rows: LedgerActivity[],
-    emptyNote: string
+    emptyNote: string,
+    opts: { showContact?: boolean; showResult?: boolean } = {}
   ) => {
+    const showContact = opts.showContact ?? true;
+    const showResult = opts.showResult ?? true;
     const netCount = rows.filter((r) => r.from_networking).length;
     const countNote =
       netCount > 0
@@ -499,11 +497,16 @@ function buildLedgerHtml(
           ? `<p class="empty">${escHtml(emptyNote)}</p>`
           : `<table>
               <thead><tr>
-                <th>Date</th><th>Company / Org</th><th>Contact + Title</th>
+                <th>Date</th><th>Company / Org</th>${
+                  showContact ? "<th>Contact + Title</th>" : ""
+                }
                 <th>Position</th><th>Method</th><th>Address / URL / Phone</th>
-                <th>Result · Outcome / Next Step</th><th>Source</th>
+                ${showResult ? "<th>Result · Outcome / Next Step</th>" : ""}
+                <th>Source</th>
               </tr></thead>
-              <tbody>${rows.map(rowHtml).join("")}</tbody>
+              <tbody>${rows
+                .map((r) => rowHtml(r, { showContact, showResult }))
+                .join("")}</tbody>
             </table>`
       }
     </div>`;
@@ -551,7 +554,6 @@ function buildLedgerHtml(
       </div>`;
   };
 
-  const rangeTotals = summarizeEntityHours(businessHours);
   const tierAAll = workSearches.filter((w) => tierOf(w) === "employer_contact");
   const tierBLogged = workSearches.filter((w) => tierOf(w) === "networking");
   const tierBTotal = tierBLogged.length + networkingTierB.length;
@@ -589,12 +591,14 @@ function buildLedgerHtml(
         ${sectionHtml(
           "Tier A — Employer Contacts",
           tierA,
-          "No employer contacts logged this week."
+          "No employer contacts logged this week.",
+          { showContact: false, showResult: true }
         )}
         ${sectionHtml(
           "Tier B — Networking / Fruitful Activities",
           tierB,
-          "No networking activity this week (NYUI log or JasonOS)."
+          "No networking activity this week (NYUI log or JasonOS).",
+          { showContact: true, showResult: false }
         )}
         ${businessHoursHtml(bhWeek)}
       </section>`;
@@ -602,8 +606,6 @@ function buildLedgerHtml(
     .join("");
 
   const idStamp = workSearchId || "—— set NYUI_WORK_SEARCH_ID to stamp ——";
-  const hoursLine =
-    rangeTotals.length > 0 ? rangeTotals.join(" · ") : "none logged";
 
   return `<!doctype html><html lang="en"><head><meta charset="utf-8" />
     <title>NYS DOL Work Search Ledger</title>
@@ -706,7 +708,6 @@ function buildLedgerHtml(
         <div class="meta-grid">
           <p class="meta"><strong>Range</strong> ${escHtml(fmtLong(startDate))} – ${escHtml(fmtLong(endDate))}</p>
           <p class="meta"><strong>Generated</strong> ${escHtml(new Date().toLocaleString())}</p>
-          <p class="meta"><strong>Business hours</strong> ${escHtml(hoursLine)}</p>
           <p class="meta"><strong>Claim weeks</strong> Monday–Sunday</p>
         </div>
         <div class="id-stamp">Work Search ID: ${escHtml(idStamp)}</div>
