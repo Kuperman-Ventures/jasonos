@@ -275,12 +275,37 @@ function fmtHm(totalMinutes: number) {
   return `${h}h ${m}m`;
 }
 
+/** Two-letter weekday (Mo, Tu, … Su) for a YYYY-MM-DD calendar day. */
+const DOW2 = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as const;
+
+function weekday2(dateStr: string): string {
+  const d = new Date(dateStr + "T12:00:00Z");
+  return DOW2[d.getUTCDay()] ?? "";
+}
+
 function fmtDate(dateStr: string) {
-  return new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", {
-    weekday: "short",
+  const rest = new Date(dateStr + "T12:00:00Z").toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
+    timeZone: "UTC",
   });
+  return `${weekday2(dateStr)} ${rest}`;
+}
+
+/** Week range with day abbrevs, e.g. "Mo Sep 28 – Su Oct 4, 2026". */
+function fmtWeekRange(start: string, end: string): string {
+  const startPart = new Date(start + "T12:00:00Z").toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+  const endPart = new Date(end + "T12:00:00Z").toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  return `${weekday2(start)} ${startPart} – ${weekday2(end)} ${endPart}`;
 }
 
 function todayStr() {
@@ -317,11 +342,13 @@ function weekRangeOf(dateStr: string): { start: string; end: string } {
 }
 
 function fmtLong(dateStr: string) {
-  return new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", {
+  const rest = new Date(dateStr + "T12:00:00Z").toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   });
+  return `${weekday2(dateStr)} ${rest}`;
 }
 
 /** Minutes logged per known business entity (Ventures / Advisors). */
@@ -1247,15 +1274,7 @@ function NYUIDashboard({
     onLogApplication({ ...app, url: res.ok ? res.url : null });
   }
 
-  const startDisplay = new Date(weekStart + "T12:00:00").toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-  });
-  const endDisplay = new Date(weekEnd + "T12:00:00").toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const weekRangeDisplay = fmtWeekRange(weekStart, weekEnd);
 
   // Work search analysis
   const uniqueDays = new Set(workSearches.map((w) => w.date)).size;
@@ -1295,7 +1314,7 @@ function NYUIDashboard({
         <div>
           <h2 className="text-lg font-bold text-foreground">NYS DOL — Weekly Dashboard</h2>
           <p className="text-sm text-muted-foreground">
-            {startDisplay} – {endDisplay}
+            {weekRangeDisplay}
           </p>
         </div>
         <button
@@ -2698,22 +2717,12 @@ function AllActivity({
           .slice()
           .sort((a, b) => a.date.localeCompare(b.date) || a.created_at.localeCompare(b.created_at));
 
-        const startShort = new Date(start + "T12:00:00").toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        });
-        const endShort = new Date(end + "T12:00:00").toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        });
-
         return (
           <div key={key} className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <div className="flex items-start justify-between gap-3 mb-3">
               <div>
                 <h3 className="font-semibold text-foreground flex items-center gap-2">
-                  Week of {startShort} – {endShort}
+                  Week of {fmtWeekRange(start, end)}
                   {isCurrent && (
                     <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-foreground text-background">
                       This week
