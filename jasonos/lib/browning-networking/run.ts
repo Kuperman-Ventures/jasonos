@@ -105,6 +105,7 @@ export async function runBrowningNetworking(): Promise<BrowningRunResult> {
     result.found = harvested.found;
     result.created = harvested.created;
     result.skippedExisting = harvested.skippedExisting;
+    await reshuffleDuplicateOffers(sb);
     const followedUp = await harvestFollowUps(sb);
     result.followUps = followedUp.created;
     result.olderFound = followedUp.found;
@@ -142,7 +143,10 @@ async function harvestHandoffs(sb: Sb): Promise<{
 
   const contacts = await loadContacts(sb);
   const now = new Date();
-  const busy = await loadBusy(firstEligibleYmd(now), lastEligibleYmd(now));
+  const busy = [
+    ...(await loadBusy(firstEligibleYmd(now), lastEligibleYmd(now))),
+    ...(await loadOfferedSlotBusy(sb)),
+  ];
   const chosen = chooseHandoffs(collected.messages);
   const createdRows: {
     id: string;
@@ -236,6 +240,9 @@ async function harvestHandoffs(sb: Sb): Promise<{
           busy,
           availabilityNote: filled.availabilityNote,
         });
+    for (const slot of slots) {
+      busy.push({ start: slot.start, end: slot.end });
+    }
     const draft = isPacket
       ? packetEmailDraft({ name: filled.name, slots })
       : schedulingDraft({ name: filled.name, slots });
@@ -315,6 +322,90 @@ function personKey(
   name: string | null
 ): string {
   return `${accountEmail}:${messageId}:${(name ?? "").trim().toLowerCase()}`;
+}
+
+/** Times already offered on open handoffs — do not suggest them again. */
+async function loadOfferedSlotBusy(sb: Sb): Promise<{ start: string; end: string }[]> {
+  const { data, error } = await sb
+    .from("browning_handoffs")
+    .select("slots")
+    .in("status", ["times_ready", "draft_ready", "acted_on", "follow_up"])
+    .is("call_starts_at", null);
+  if (error) {
+    console.error("[browning-networking] offered slots", error);
+    return [];
+  }
+  const out: { start: string; end: string }[] = [];
+  for (const row of data ?? []) {
+    for (const slot of asStoredSlots(row.slots)) {
+      out.push({ start: slot.start, end: slot.end });
+    }
+  }
+  return out;
+}
+
+/**
+ * If two open handoffs still share the same offered times, give the newer
+ * one a fresh set. Keeps the earliest handoff's times as-is.
+ */
+async function reshuffleDuplicateOffers(sb: Sb): Promise<number> {
+  const { data, error } = await sb
+    .from("browning_handoffs")
+    .select("id, slots, status, source_kind, contact_name, availability_note, received_at, created_at")
+    .in("status", ["times_ready", "draft_ready"])
+    .is("call_starts_at", null)
+    .order("received_at", { ascending: true });
+  if (error || !data?.length) {
+    if (error) console.error("[browning-networking] reshuffle load", error);
+    return 0;
+  }
+  const now = new Date();
+  const calendarBusy = await loadBusy(firstEligibleYmd(now), lastEligibleYmd(now));
+  const reserved: { start: string; end: string }[] = [];
+  let changed = 0;
+  for (const row of data) {
+    const current = asStoredSlots(row.slots);
+    if (!current.length) continue;
+    const clash = current.some((slot) => {
+      const start = Date.parse(slot.start);
+      const end = Date.parse(slot.end);
+      return reserved.some((block) => {
+        const blockStart = Date.parse(block.start);
+        const blockEnd = Date.parse(block.end);
+        return start < blockEnd && end > blockStart;
+      });
+    });
+    if (!clash) {
+      for (const slot of current) reserved.push({ start: slot.start, end: slot.end });
+      continue;
+    }
+    const next = proposeSlots({
+      now,
+      busy: [...calendarBusy, ...reserved],
+      availabilityNote: (row.availability_note as string | null) ?? null,
+    });
+    if (!next.length) {
+      for (const slot of current) reserved.push({ start: slot.start, end: slot.end });
+      continue;
+    }
+    const name = (row.contact_name as string | null) ?? null;
+    const draft =
+      row.source_kind === "packet"
+        ? packetEmailDraft({ name, slots: next })
+        : schedulingDraft({ name, slots: next });
+    const { error: updateError } = await sb
+      .from("browning_handoffs")
+      .update({ slots: next, draft_body: draft, status: "times_ready" })
+      .eq("id", row.id as string);
+    if (updateError) {
+      console.error("[browning-networking] reshuffle", updateError);
+      for (const slot of current) reserved.push({ start: slot.start, end: slot.end });
+      continue;
+    }
+    for (const slot of next) reserved.push({ start: slot.start, end: slot.end });
+    changed += 1;
+  }
+  return changed;
 }
 
 async function collectHandoffMail(lookbackDays = 30): Promise<{

@@ -76,7 +76,7 @@ export function packetEmailDraft(input: {
   slots: HandoffSlot[];
 }): string {
   const who = firstName(input.name);
-  const hello = who === "there" ? "Hello," : `${who},`;
+  const hello = who === "there" ? "Hello," : `Hello ${who},`;
   const lines = [...input.slots]
     .sort((a, b) => Date.parse(a.start) - Date.parse(b.start))
     .map((slot) => formatSlotLabel(slot.start));
@@ -93,9 +93,9 @@ Let me know if any of those are good or days/times that would work for you.`
 Let me know days/times that would work for you.`;
   return `${hello}
 
-Tracy at Browning suggested we connect. A short call in the next few weeks would be great if you are open to it.${middle}
+Tracy at Browning suggested we connect. A short call in the next few weeks would be great.${middle}
 
-Looking forward to speak.
+Looking forward to speaking.
 
 Best,
 Jason`;
