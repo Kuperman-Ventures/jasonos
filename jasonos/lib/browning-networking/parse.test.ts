@@ -125,8 +125,158 @@ I am available Thursday after 5pm.`,
     const chosen = chooseHandoffs([resume, intro]);
     assert.equal(chosen.length, 1);
     assert.equal(chosen[0].mail.messageId, "intro");
+    assert.equal(chosen[0].kind, "intro");
     assert.equal(chosen[0].parsed.name, "Matthew Deutsch");
     assert.equal(chosen[0].parsed.email, "deutsch74@gmail.com");
+  });
+
+  it("turns a names-and-LinkedIn packet into first-touch handoffs, not a reply thread", () => {
+    const packet = mail({
+      messageId: "packet",
+      receivedAt: "2026-10-06T14:00:00Z",
+      subject: "Networking contacts",
+      to: "jason.kuperman@outlook.com",
+      body: `Dear Jason,
+Attached are the resumes and LinkedIn profiles.
+
+Sarah Chen
+https://www.linkedin.com/in/sarahchenpm
+
+Robert Hale
+https://linkedin.com/in/roberthale
+
+Tracy`,
+    });
+    const chosen = chooseHandoffs([packet]);
+    assert.equal(chosen.length, 2);
+    assert.equal(chosen[0].kind, "packet");
+    assert.equal(chosen[1].kind, "packet");
+    const names = chosen.map((item) => item.parsed.name).sort();
+    assert.deepEqual(names, ["Robert Hale", "Sarah Chen"]);
+    assert.equal(
+      chosen.find((item) => item.parsed.name === "Sarah Chen")?.parsed.linkedinUrl,
+      "https://www.linkedin.com/in/sarahchenpm"
+    );
+    assert.equal(
+      chosen.every((item) => item.parsed.email === null),
+      true
+    );
+  });
+
+  it("treats a Jason Kuperman & Name resume with no intro CC as a packet", () => {
+    const resume = mail({
+      messageId: "resume-only",
+      receivedAt: "2026-10-06T15:00:00Z",
+      subject: "Jason Kuperman & Jane Smith",
+      to: "jason.kuperman@outlook.com",
+      body: "Please see the attached resume and LinkedIn.\nhttps://www.linkedin.com/in/jane-smith-pm",
+    });
+    const chosen = chooseHandoffs([resume]);
+    assert.equal(chosen.length, 1);
+    assert.equal(chosen[0].kind, "packet");
+    assert.equal(chosen[0].parsed.name, "Jane Smith");
+    assert.equal(chosen[0].parsed.linkedinUrl, "https://www.linkedin.com/in/jane-smith-pm");
+  });
+
+  it("ignores a Tracy check-in that is not an intro or a packet", () => {
+    assert.equal(
+      isTracyHandoff(TRACY_EMAIL, "Just checking you saw my last note.", "Checking in"),
+      false
+    );
+  });
+
+  it("reads names and LinkedIn when Tracy wraps profiles in HTML links", () => {
+    const packet = mail({
+      messageId: "html-packet",
+      receivedAt: "2026-10-06T16:00:00Z",
+      subject: "Networking contacts",
+      to: "jason.kuperman@outlook.com",
+      body: `<p>Dear Jason,</p>
+<p>Please find the attached resumes and LinkedIn profiles.</p>
+<p><a href="https://www.linkedin.com/in/sarahchenpm">Sarah Chen</a></p>
+<p><a href="https://nam12.safelinks.protection.outlook.com/?url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Froberthale">Robert Hale</a></p>
+<p>Tracy</p>`,
+    });
+    assert.equal(isTracyHandoff(TRACY_EMAIL, packet.body, packet.subject), true);
+    const chosen = chooseHandoffs([packet]);
+    assert.equal(chosen.length, 2);
+    assert.equal(chosen.every((item) => item.kind === "packet"), true);
+    const names = chosen.map((item) => item.parsed.name).sort();
+    assert.deepEqual(names, ["Robert Hale", "Sarah Chen"]);
+    assert.equal(
+      chosen.find((item) => item.parsed.name === "Sarah Chen")?.parsed.linkedinUrl,
+      "https://www.linkedin.com/in/sarahchenpm"
+    );
+    assert.equal(
+      chosen.find((item) => item.parsed.name === "Robert Hale")?.parsed.linkedinUrl,
+      "https://www.linkedin.com/in/roberthale"
+    );
+  });
+
+  it("keeps the intro reply when Tracy also sends a LinkedIn packet for the same person", () => {
+    const intro = mail({
+      messageId: "intro",
+      receivedAt: "2026-10-06T14:00:00Z",
+      subject: "Re: Introduction to Senior Marketing Executive",
+      to: "sarah.chen@example.com",
+      body: `Thank you for your reply and interest in Executive Networking with Jason Kuperman.
+On 2026-10-01, Sarah Chen wrote:
+I am available Thursday after 5pm.`,
+    });
+    const packet = mail({
+      messageId: "packet",
+      receivedAt: "2026-10-06T14:10:00Z",
+      subject: "Networking contacts",
+      to: "jason.kuperman@outlook.com",
+      body: `Dear Jason,
+Attached are the resume and LinkedIn profile.
+
+Sarah Chen
+https://www.linkedin.com/in/sarahchenpm
+
+Tracy`,
+    });
+    const chosen = chooseHandoffs([packet, intro]);
+    assert.equal(chosen.length, 1);
+    assert.equal(chosen[0].kind, "intro");
+    assert.equal(chosen[0].mail.messageId, "intro");
+    assert.equal(chosen[0].resumeMessageId, "packet");
+    assert.equal(chosen[0].parsed.linkedinUrl, "https://www.linkedin.com/in/sarahchenpm");
+  });
+
+  it("reads Tracy's Client to Client Outlook packet with safelink profiles", () => {
+    const body = `Good Morning Jason,
+Jerry wanted me to send the attached client information to you so that you may connect with them.
+
+Please call & email at your earliest convenience.
+
+Jon Crispin: https://na01.safelinks.protection.outlook.com/?url=http%3A%2F%2Flinkedin.com%2Fin%2FJoncrispin%2F&data=05%7C02%7C
+Hardik Patel: https://na01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fwww.linkedin.com%2Fin%2Fhardik-patel-4161a7128%2F&data=05%7C02%7C
+
+Have a great day!
+Tracy`;
+    assert.equal(isTracyHandoff(TRACY_EMAIL, body, "Client to Client"), true);
+    const chosen = chooseHandoffs([
+      mail({
+        messageId: "client-to-client",
+        receivedAt: "2026-10-06T14:54:00Z",
+        subject: "Client to Client",
+        to: "jason.kuperman@outlook.com",
+        body,
+      }),
+    ]);
+    assert.equal(chosen.length, 2);
+    assert.equal(chosen.every((item) => item.kind === "packet"), true);
+    const names = chosen.map((item) => item.parsed.name).sort();
+    assert.deepEqual(names, ["Hardik Patel", "Jon Crispin"]);
+    assert.equal(
+      chosen.find((item) => item.parsed.name === "Jon Crispin")?.parsed.linkedinUrl,
+      "https://www.linkedin.com/in/Joncrispin"
+    );
+    assert.equal(
+      chosen.find((item) => item.parsed.name === "Hardik Patel")?.parsed.linkedinUrl,
+      "https://www.linkedin.com/in/hardik-patel-4161a7128"
+    );
   });
 });
 

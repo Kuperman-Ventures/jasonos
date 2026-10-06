@@ -11,15 +11,34 @@ import {
 
 const SAFELINK_HOST = "safelinks.protection.outlook.com";
 
-export function isTracyHandoff(from: string, body: string): boolean {
+export type HandoffKind = "intro" | "resume" | "packet";
+
+export function isTracyHandoff(
+  from: string,
+  body: string,
+  subject?: string | null
+): boolean {
   if (canonicalEmail(from) !== TRACY_EMAIL) return false;
-  return handoffKind(body) !== null;
+  return handoffKind(body, subject) !== null;
 }
 
-export function handoffKind(body: string): "intro" | "resume" | null {
+export function handoffKind(
+  body: string,
+  subject?: string | null
+): HandoffKind | null {
   const text = stripHtml(body).replace(/\s+/g, " ").trim();
   if (text.includes(HANDOFF_OPENING)) return "intro";
   if (/attached please find the resume for\s+[A-Za-z]/i.test(text)) return "resume";
+  if (/jason kuperman\s*&\s*[A-Z][a-zA-Z]/i.test(subject ?? "")) return "packet";
+  const links = linkedInUrlsFromText(stripHtml(body));
+  if (
+    links.length >= 1 &&
+    /dear jason|good morning jason|please find|attached|resume|\.docx|linkedin profile|client to client|connect with them|call\s*(?:&|and)\s*email/i.test(
+      `${subject ?? ""} ${text}`
+    )
+  ) {
+    return "packet";
+  }
   return null;
 }
 
@@ -50,16 +69,52 @@ export function decodeOutlookSafelink(rawUrl: string): string {
 }
 
 export function linkedInUrlFromText(text: string): string | null {
-  const decoded = text.replace(/https?:\/\/[^\s<>"']+/gi, (raw) =>
-    decodeOutlookSafelink(raw)
-  );
-  const match = decoded.match(
-    /https?:\/\/(?:[\w.-]+\.)?linkedin\.com\/in\/([A-Za-z0-9_%-]+)/i
-  );
-  if (!match?.[1]) return null;
-  const slug = decodeURIComponent(match[1]).replace(/\/+$/, "");
-  if (!slug) return null;
-  return `https://www.linkedin.com/in/${slug}`;
+  return linkedInUrlsFromText(text)[0] ?? null;
+}
+
+/** Every LinkedIn /in/ URL in the note, Outlook safelinks decoded. */
+export function linkedInUrlsFromText(text: string): string[] {
+  return linkedInMatches(text).map((item) => item.url);
+}
+
+function expandLinkedInText(text: string): string {
+  return text
+    .replace(/https?:\/\/[^\s<>"']+/gi, (raw) => decodeOutlookSafelink(raw))
+    .replace(/linkedin\.com%2Fin%2F/gi, "linkedin.com/in/");
+}
+
+function linkedInMatches(text: string): { url: string; index: number; length: number }[] {
+  const decoded = expandLinkedInText(text);
+  const found: { url: string; index: number; length: number }[] = [];
+  const seen = new Set<string>();
+  const re = /(?:https?:\/\/(?:[\w.-]+\.)?)?linkedin\.com\/in\/([A-Za-z0-9_%-]+)/gi;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(decoded))) {
+    let slug = match[1] ?? "";
+    try {
+      slug = decodeURIComponent(slug).replace(/\/+$/, "");
+    } catch {
+      slug = slug.replace(/\/+$/, "");
+    }
+    if (!slug) continue;
+    const key = slug.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    found.push({
+      url: `https://www.linkedin.com/in/${slug}`,
+      index: match.index ?? 0,
+      length: match[0].length,
+    });
+  }
+  return found;
+}
+
+export function emailFromText(text: string): string | null {
+  return firstOtherEmail(text);
+}
+
+export function phoneFromText(text: string): string | null {
+  return firstPhone(text);
 }
 
 export function parseHandoff(body: string): ParsedHandoff {
@@ -135,6 +190,8 @@ function stripHtml(body: string): string {
   return body
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    // Pull href targets out of the tag so the later tag strip does not delete them.
+    .replace(/<a\b[^>]*href=["']([^"']+)["'][^>]*>/gi, " $1 ")
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>/gi, "\n")
     .replace(/<\/?[a-z][a-z0-9]*(\s[^<>]*)?>/gi, " ")
@@ -232,7 +289,8 @@ function cleanName(raw: string | undefined): string | null {
   const name = raw.replace(/["']/g, "").replace(/\s+/g, " ").trim();
   if (!/[A-Za-z]/.test(name)) return null;
   if (name.length < 3 || name.length > 80) return null;
-  if (/executive networking|thank you|tracy/i.test(name)) return null;
+  if (/executive networking|thank you|tracy|jason kuperman|^dear\b|^hi\b|^hello\b/i.test(name)) return null;
+  if (/\bjason\b/i.test(name)) return null;
   const parts = name.split(" ");
   if (parts.length < 2) return null;
   return parts
@@ -314,6 +372,7 @@ export type ChosenHandoff = {
   mail: HandoffMail;
   parsed: ParsedHandoff;
   resumeMessageId: string | null;
+  kind: "intro" | "packet";
 };
 
 type Bucket = {
@@ -326,23 +385,32 @@ type Bucket = {
 /**
  * Tracy sends two notes per person: a copy-you intro, and a resume packet
  * addressed to Jason. One handoff per person. The intro is the one to reply to.
+ *
+ * She also sends packets with names, LinkedIn, and Word docs and nobody else
+ * on the thread. Those become first-touch handoffs, one row per person.
  */
 export function chooseHandoffs(messages: HandoffMail[]): ChosenHandoff[] {
   const seen = new Set<string>();
   const buckets: Bucket[] = [];
+  const packetMails: HandoffMail[] = [];
   const ordered = [...messages].sort(
     (a, b) => Date.parse(b.receivedAt) - Date.parse(a.receivedAt)
   );
 
   for (const mail of ordered) {
     if (canonicalEmail(mail.from) !== TRACY_EMAIL) continue;
-    const kind = handoffKind(mail.body);
+    const kind = handoffKind(mail.body, mail.subject);
     if (!kind) continue;
     const key = `${mail.accountEmail}:${mail.messageId}`;
     if (seen.has(key)) continue;
     if (mail.rfc822MessageId && seen.has(mail.rfc822MessageId)) continue;
     seen.add(key);
     if (mail.rfc822MessageId) seen.add(mail.rfc822MessageId);
+
+    if (kind === "packet") {
+      packetMails.push(mail);
+      continue;
+    }
 
     if (kind === "intro") {
       const parsed = withToEmail(parseHandoff(mail.body), mail.to);
@@ -379,20 +447,47 @@ export function chooseHandoffs(messages: HandoffMail[]): ChosenHandoff[] {
     });
   }
 
-  return buckets.flatMap((bucket) => {
+  const packetChosen: ChosenHandoff[] = [];
+  for (const mail of packetMails) {
+    const contacts = parsePacketContacts(mail.body, mail.subject);
+    const parsedList = contacts.length
+      ? contacts
+      : (() => {
+          const fallback = parseHandoff(mail.body);
+          const name = fallback.name ?? candidateNameFromSubject(mail.subject);
+          return name ? [{ ...fallback, name }] : [];
+        })();
+    for (const parsed of parsedList) {
+      const bucket = findBucket(buckets, parsed.name, parsed.email);
+      if (bucket) {
+        if (!bucket.resume) bucket.resume = mail;
+        if (!bucket.resumeName && parsed.name) bucket.resumeName = parsed.name;
+        if (bucket.introParsed) {
+          bucket.introParsed = {
+            ...bucket.introParsed,
+            linkedinUrl: bucket.introParsed.linkedinUrl || parsed.linkedinUrl,
+            email: bucket.introParsed.email || parsed.email,
+            phone: bucket.introParsed.phone || parsed.phone,
+          };
+        }
+        continue;
+      }
+      packetChosen.push({
+        mail,
+        parsed,
+        resumeMessageId: mail.messageId,
+        kind: "packet",
+      });
+    }
+  }
+
+  const fromBuckets: ChosenHandoff[] = buckets.flatMap((bucket) => {
     const mail = bucket.intro ?? bucket.resume;
     if (!mail) return [];
-    const parsed = bucket.introParsed ?? {
-      name: bucket.resumeName,
-      email: null,
-      phone: null,
-      linkedinUrl: null,
-      availabilityNote: null,
-      quotedReply: null,
-      whyTheyReplied: null,
-      title: null,
-      company: null,
-    };
+    const resumeParsed = bucket.resume
+      ? parseHandoff(bucket.resume.body)
+      : emptyParsed();
+    const parsed = bucket.introParsed ?? resumeParsed;
     const name =
       bucket.resumeName &&
       parsed.name &&
@@ -402,10 +497,114 @@ export function chooseHandoffs(messages: HandoffMail[]): ChosenHandoff[] {
         : parsed.name ?? bucket.resumeName;
     return [{
       mail,
-      parsed: { ...parsed, name },
+      parsed: {
+        ...parsed,
+        name,
+        linkedinUrl: parsed.linkedinUrl || resumeParsed.linkedinUrl,
+        email: parsed.email || resumeParsed.email,
+        phone: parsed.phone || resumeParsed.phone,
+      },
       resumeMessageId: bucket.resume?.messageId ?? null,
+      kind: bucket.intro ? "intro" : "packet",
     }];
   });
+
+  return [...fromBuckets, ...packetChosen];
+}
+
+const EMPTY_PARSED: ParsedHandoff = {
+  name: null,
+  email: null,
+  phone: null,
+  linkedinUrl: null,
+  availabilityNote: null,
+  quotedReply: null,
+  whyTheyReplied: null,
+  title: null,
+  company: null,
+};
+
+function emptyParsed(): ParsedHandoff {
+  return { ...EMPTY_PARSED };
+}
+
+/** Names + LinkedIn (+ email if present) from a Tracy packet with no intro CC. */
+export function parsePacketContacts(
+  body: string,
+  subject?: string | null
+): ParsedHandoff[] {
+  const text = stripHtml(body);
+  const decoded = expandLinkedInText(text);
+  const people: ParsedHandoff[] = [];
+  const seenSlug = new Set<string>();
+  for (const hit of linkedInMatches(decoded)) {
+    const key = hit.url.toLowerCase();
+    if (seenSlug.has(key)) continue;
+    seenSlug.add(key);
+    const window = decoded.slice(Math.max(0, hit.index - 220), hit.index + hit.length + 80);
+    const name = nameNearUrl(decoded, hit.index, hit.length);
+    const role = titleAndCompany(window);
+    people.push({
+      name,
+      email: firstOtherEmail(window),
+      phone: firstPhone(window),
+      linkedinUrl: hit.url,
+      availabilityNote: null,
+      quotedReply: null,
+      whyTheyReplied: null,
+      title: role.title,
+      company: role.company,
+    });
+  }
+
+  if (!people.length) {
+    const name =
+      resumeCandidateName(body) ?? candidateNameFromSubject(subject ?? null);
+    if (name) {
+      const role = titleAndCompany(decoded);
+      people.push({
+        name,
+        email: firstOtherEmail(decoded),
+        phone: firstPhone(decoded),
+        linkedinUrl: linkedInUrlFromText(decoded),
+        availabilityNote: null,
+        quotedReply: null,
+        whyTheyReplied: null,
+        title: role.title,
+        company: role.company,
+      });
+    }
+  } else if (people.length === 1) {
+    const only = people[0];
+    if (only && !only.name) {
+      only.name =
+        resumeCandidateName(body) ?? candidateNameFromSubject(subject ?? null);
+    }
+  }
+
+  return people.filter((person) => Boolean(person.name));
+}
+
+function nameNearUrl(text: string, urlIndex: number, urlLength: number): string | null {
+  const nameRe = () => /([A-Z][a-z]+(?:[ \t]+[A-Z][a-z]+){1,2})/g;
+  const hits: { name: string; distance: number }[] = [];
+
+  const before = text.slice(Math.max(0, urlIndex - 180), urlIndex);
+  for (const hit of before.matchAll(nameRe())) {
+    const name = cleanName(hit[1]);
+    if (!name || hit.index == null) continue;
+    hits.push({ name, distance: before.length - (hit.index + hit[0].length) });
+  }
+
+  const after = text.slice(urlIndex + urlLength, urlIndex + urlLength + 180);
+  for (const hit of after.matchAll(nameRe())) {
+    const name = cleanName(hit[1]);
+    if (!name || hit.index == null) continue;
+    hits.push({ name, distance: hit.index });
+  }
+
+  hits.sort((a, b) => a.distance - b.distance);
+  return hits[0]?.name ?? null;
 }
 
 function withToEmail(parsed: ParsedHandoff, to: string): ParsedHandoff {

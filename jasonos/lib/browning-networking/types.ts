@@ -92,6 +92,7 @@ export type HandoffRecord = {
   lastOutreachSentAt: string | null;
   replyExcerpt: string | null;
   chosenSlotStart: string | null;
+  sourceKind: "intro" | "packet";
   status: HandoffStatus;
 };
 

@@ -70,7 +70,7 @@ export async function saveHandoffSlots(
   const sb = createServiceRoleClient();
   const { data: existing, error: existingError } = await sb
     .from("browning_handoffs")
-    .select("status, call_starts_at")
+    .select("status, call_starts_at, source_kind")
     .eq("id", handoffId)
     .maybeSingle();
   if (existingError || !existing) {
@@ -80,6 +80,7 @@ export async function saveHandoffSlots(
     !canEditOfferedTimes({
       status: existing.status as HandoffStatus,
       callStartsAt: (existing.call_starts_at as string | null) ?? null,
+      sourceKind: (existing.source_kind as string | null) ?? "intro",
     })
   ) {
     return { ok: false, error: "This meeting is already set." };
@@ -131,6 +132,51 @@ export async function markHandoffActedOn(handoffId: string): Promise<ActionResul
   if (updateError) return { ok: false, error: updateError.message };
   if (data.card_id) {
     await sb.from("cards").update({ state: "actioned" }).eq("id", data.card_id as string);
+  }
+  revalidate();
+  return { ok: true };
+}
+
+export async function saveHandoffContactEmail(
+  handoffId: string,
+  email: string
+): Promise<ActionResult> {
+  const guard = configured();
+  if (guard) return guard;
+  const cleaned = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleaned)) {
+    return { ok: false, error: "That does not look like an email address." };
+  }
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("browning_handoffs")
+    .select("id, created_contact_id, existing_contact_id")
+    .eq("id", handoffId)
+    .maybeSingle();
+  if (error || !data) return { ok: false, error: error?.message || "Handoff not found." };
+  const { error: updateError } = await sb
+    .from("browning_handoffs")
+    .update({ contact_email: cleaned })
+    .eq("id", handoffId);
+  if (updateError) return { ok: false, error: updateError.message };
+  const contactId =
+    (data.created_contact_id as string | null) ||
+    (data.existing_contact_id as string | null);
+  if (contactId) {
+    const { data: contact } = await sb
+      .from("contacts")
+      .select("emails")
+      .eq("id", contactId)
+      .maybeSingle();
+    const emails = Array.isArray(contact?.emails)
+      ? (contact.emails as string[]).filter(Boolean)
+      : [];
+    if (!emails.some((item) => item.toLowerCase() === cleaned)) {
+      await sb
+        .from("contacts")
+        .update({ emails: [...emails, cleaned] })
+        .eq("id", contactId);
+    }
   }
   revalidate();
   return { ok: true };
