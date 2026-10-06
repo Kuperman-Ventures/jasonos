@@ -727,12 +727,40 @@ function buildLedgerHtml(
         margin-top:32px; color:var(--muted); font-size:10px; border-top:1px solid var(--line);
         padding-top:10px; line-height:1.5;
       }
+      .foot-print{display:none}
+      /* Letter (8.5×11) — keep a one-week audit on a single printed page. */
+      @page{size:letter; margin:0.35in}
       @media print{
-        body{background:#fff; margin:0}
+        *{-webkit-print-color-adjust:exact; print-color-adjust:exact}
+        html,body{background:#fff !important; margin:0; font-size:8.5px; line-height:1.25}
         .sheet{margin:0; box-shadow:none; max-width:none; padding:0}
         a{color:inherit; text-decoration:none}
+        .masthead{padding-bottom:5px; margin-bottom:6px; border-bottom-width:1.5px}
+        .eyebrow{font-size:7.5px; margin:0 0 2px; letter-spacing:.12em}
+        h1{font-size:14px; margin:0 0 4px}
+        .meta-grid{gap:1px 12px}
+        .meta{font-size:8px}
+        .meta-print-hide{display:none !important}
+        .id-stamp{margin-top:3px; padding:1px 5px; font-size:8.5px}
+        .range-band{display:none !important}
+        .week{margin-top:6px; page-break-inside:auto; break-inside:auto}
+        .week-head{display:none !important}
+        .section{margin-top:5px; page-break-inside:avoid; break-inside:avoid}
+        h3.tier{font-size:7.5px; margin:0 0 2px; letter-spacing:.06em}
+        table{margin-bottom:3px; font-size:8px}
+        th,td{padding:2px 3px}
+        th{font-size:7px; letter-spacing:.02em}
+        td.loc{max-width:110px}
+        .next{margin-top:1px; font-size:7.5px}
+        .src{font-size:6.5px; padding:0 2px}
+        .src-cell{width:48px}
+        .summary-table{display:none !important}
+        .empty{margin:1px 0 4px; font-size:8px}
+        .foot{margin-top:6px; font-size:6.5px; padding-top:3px; line-height:1.3}
+        .foot-screen{display:none !important}
+        .foot-print{display:block !important}
+        tr{page-break-inside:avoid; break-inside:avoid}
       }
-      @page{margin:12mm}
     </style></head><body>
     <div class="sheet">
       <header class="masthead">
@@ -740,8 +768,8 @@ function buildLedgerHtml(
         <h1>Work Search Proof-of-Effort Ledger</h1>
         <div class="meta-grid">
           <p class="meta"><strong>Range</strong> ${escHtml(fmtLong(startDate))} – ${escHtml(fmtLong(endDate))}</p>
-          <p class="meta"><strong>Generated</strong> ${escHtml(new Date().toLocaleString())}</p>
-          <p class="meta"><strong>Claim weeks</strong> Monday–Sunday</p>
+          <p class="meta meta-print-hide"><strong>Generated</strong> ${escHtml(new Date().toLocaleString())}</p>
+          <p class="meta meta-print-hide"><strong>Claim weeks</strong> Monday–Sunday</p>
         </div>
         <div class="id-stamp">${escHtml(idStamp)}</div>
       </header>
@@ -752,11 +780,14 @@ function buildLedgerHtml(
         <div class="fig"><span class="n">${businessHours.length}</span><span class="l">Hours entries</span></div>
       </div>
       ${weeksHtml || `<p class="empty">No work-search, networking, or business-hours activity in this range.</p>`}
-      <p class="foot">
+      <p class="foot foot-screen">
         Tier B includes activities logged in NYUI plus qualifying JasonOS networking activity
         (held conversations and fresh outreach to industry contacts not already logged).
         Source column marks each row. Business hours shown for Kuperman Ventures LLC /
         Kuperman Advisors LLC when logged. SSN intentionally omitted.
+      </p>
+      <p class="foot foot-print">
+        Tier B = NYUI log + JasonOS networking. Source marks each row. SSN omitted.
       </p>
     </div>
     </body></html>`;
