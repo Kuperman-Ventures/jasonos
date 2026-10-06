@@ -1,7 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createPublicServiceRoleClient } from "@/lib/supabase/server";
+import {
+  createPublicServiceRoleClient,
+  createServiceRoleClient,
+} from "@/lib/supabase/server";
+import { getOutreachPeople } from "@/lib/outreach/data";
+import {
+  buildAuditNetworkingRows,
+  type AuditNetworkingRow,
+  type NetworkingContactInput,
+  type NetworkingTouchInput,
+} from "@/lib/nyui/audit-networking";
 import {
   applicationKey,
   defaultStatusFromResult,
@@ -114,15 +124,115 @@ export async function getWorkSearchId(): Promise<string | null> {
   return process.env.NYUI_WORK_SEARCH_ID?.trim() || null;
 }
 
+/**
+ * Pull JasonOS networking activity (meetings + fresh outreach) into Tier B
+ * shapes for the audit ledger. Dedupes against work_searches already logged
+ * as Tier B in the same range. Failures here never block the rest of the
+ * export — networking is additive fill.
+ */
+async function loadNetworkingTierB(
+  startDate: string,
+  endDate: string,
+  workSearches: WorkSearch[]
+): Promise<AuditNetworkingRow[]> {
+  try {
+    const sb = createServiceRoleClient();
+    // Pad lookback so the 90-day "fresh outreach" window is accurate.
+    const lookback = new Date(`${startDate}T12:00:00Z`);
+    lookback.setUTCDate(lookback.getUTCDate() - 100);
+    const touchSince = lookback.toISOString();
+
+    // getOutreachPeople already resolves firm / title / LinkedIn / intent with
+    // schema fallbacks — reuse it instead of a fragile parallel contacts select.
+    const [people, touchesRes] = await Promise.all([
+      getOutreachPeople(),
+      sb
+        .from("contact_touches")
+        .select("id,contact_id,channel,direction,touched_at,brief,outcome")
+        .gte("touched_at", touchSince)
+        .order("touched_at", { ascending: false })
+        .limit(12000),
+    ]);
+
+    if (touchesRes.error) {
+      console.error(
+        "[nyui.loadNetworkingTierB] contact_touches",
+        touchesRes.error.message
+      );
+      return [];
+    }
+
+    const contactsById = new Map<string, NetworkingContactInput>();
+    for (const p of people) {
+      contactsById.set(p.id, {
+        id: p.id,
+        name: p.name,
+        title: p.title,
+        firm: p.firm,
+        linkedin_url: p.linkedin_url,
+        phone: p.phone,
+        primary_email: p.primary_email,
+        intent: p.intent,
+        is_networking: p.is_networking,
+      });
+    }
+
+    const touches: NetworkingTouchInput[] = (touchesRes.data ?? []).map(
+      (t) => ({
+        id: t.id as string,
+        contact_id: t.contact_id as string,
+        channel: (t.channel as string | null) ?? null,
+        direction: (t.direction as string | null) ?? null,
+        touched_at: (t.touched_at as string) ?? "",
+        brief: (t.brief as string | null) ?? null,
+        outcome: (t.outcome as string | null) ?? null,
+      })
+    );
+
+    const existingTierB = workSearches
+      .filter(
+        (w) =>
+          w.activity_tier === "networking" ||
+          ["LinkedIn", "Networking Event", "Networking Contact", "Career-Center Advisor Meeting"].includes(
+            w.contact_method
+          )
+      )
+      .map((w) => ({
+        date: w.date,
+        contact_person: w.contact_person,
+        company_name: w.company_name,
+      }));
+
+    return buildAuditNetworkingRows({
+      startDate,
+      endDate,
+      touches,
+      contactsById,
+      existingTierB,
+    });
+  } catch (err) {
+    console.error("[nyui.loadNetworkingTierB]", err);
+    return [];
+  }
+}
+
 export async function getExportData(startDate: string, endDate: string): Promise<{
   workSearches: WorkSearch[];
   businessHours: BusinessHour[];
+  /** JasonOS networking activity shaped as Tier B rows (additive fill). */
+  networkingTierB: AuditNetworkingRow[];
   workSearchId: string | null;
   error?: string;
 }> {
   const workSearchId = await getWorkSearchId();
   if (!hasConfig())
-    return { workSearches: [], businessHours: [], workSearchId, error: "Not configured" };
+    return {
+      workSearches: [],
+      businessHours: [],
+      networkingTierB: [],
+      workSearchId,
+      error: "Not configured",
+    };
 
   const db = createPublicServiceRoleClient();
   const [wsRes, bhRes] = await Promise.all([
@@ -131,13 +241,33 @@ export async function getExportData(startDate: string, endDate: string): Promise
   ]);
 
   if (wsRes.error)
-    return { workSearches: [], businessHours: [], workSearchId, error: wsRes.error.message };
+    return {
+      workSearches: [],
+      businessHours: [],
+      networkingTierB: [],
+      workSearchId,
+      error: wsRes.error.message,
+    };
   if (bhRes.error)
-    return { workSearches: [], businessHours: [], workSearchId, error: bhRes.error.message };
+    return {
+      workSearches: [],
+      businessHours: [],
+      networkingTierB: [],
+      workSearchId,
+      error: bhRes.error.message,
+    };
+
+  const workSearches = (wsRes.data ?? []) as WorkSearch[];
+  const networkingTierB = await loadNetworkingTierB(
+    startDate,
+    endDate,
+    workSearches
+  );
 
   return {
-    workSearches: (wsRes.data ?? []) as WorkSearch[],
+    workSearches,
     businessHours: (bhRes.data ?? []) as BusinessHour[],
+    networkingTierB,
     workSearchId,
   };
 }

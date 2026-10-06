@@ -33,6 +33,7 @@ import {
   type WorkSearch,
   type BusinessHour,
 } from "@/lib/server-actions/nyui";
+import type { AuditNetworkingRow } from "@/lib/nyui/audit-networking";
 import {
   dismissResumeApplication,
   findCompanyUrl,
@@ -274,12 +275,37 @@ function fmtHm(totalMinutes: number) {
   return `${h}h ${m}m`;
 }
 
+/** Two-letter weekday (Mo, Tu, … Su) for a YYYY-MM-DD calendar day. */
+const DOW2 = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"] as const;
+
+function weekday2(dateStr: string): string {
+  const d = new Date(dateStr + "T12:00:00Z");
+  return DOW2[d.getUTCDay()] ?? "";
+}
+
 function fmtDate(dateStr: string) {
-  return new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", {
-    weekday: "short",
+  const rest = new Date(dateStr + "T12:00:00Z").toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
+    timeZone: "UTC",
   });
+  return `${weekday2(dateStr)} ${rest}`;
+}
+
+/** Week range with day abbrevs, e.g. "Mo Sep 28 – Su Oct 4, 2026". */
+function fmtWeekRange(start: string, end: string): string {
+  const startPart = new Date(start + "T12:00:00Z").toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+  const endPart = new Date(end + "T12:00:00Z").toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  return `${weekday2(start)} ${startPart} – ${weekday2(end)} ${endPart}`;
 }
 
 function todayStr() {
@@ -302,24 +328,27 @@ function escHtml(v: unknown): string {
     .replace(/"/g, "&quot;");
 }
 
-// Claim-week bounds for a given date. Uses the SAME Sunday-start boundary as
-// the dashboard so grouping stays consistent.
+// Claim-week bounds for a given date. Universal Monday→Sunday reporting week
+// (same boundary as the dashboard / networking / KPI views).
 function weekRangeOf(dateStr: string): { start: string; end: string } {
-  const d = new Date(dateStr + "T12:00:00");
-  const sunday = new Date(d);
-  sunday.setDate(d.getDate() - d.getDay());
-  const saturday = new Date(sunday);
-  saturday.setDate(sunday.getDate() + 6);
-  const fmt = (x: Date) => x.toISOString().split("T")[0];
-  return { start: fmt(sunday), end: fmt(saturday) };
+  const d = new Date(dateStr + "T12:00:00Z");
+  const back = (d.getUTCDay() + 6) % 7; // Mon = 0 … Sun = 6
+  const monday = new Date(d);
+  monday.setUTCDate(d.getUTCDate() - back);
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+  const fmt = (x: Date) => x.toISOString().slice(0, 10);
+  return { start: fmt(monday), end: fmt(sunday) };
 }
 
 function fmtLong(dateStr: string) {
-  return new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", {
+  const rest = new Date(dateStr + "T12:00:00Z").toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   });
+  return `${weekday2(dateStr)} ${rest}`;
 }
 
 /** Minutes logged per known business entity (Ventures / Advisors). */
@@ -344,24 +373,75 @@ function summarizeEntityHours(entries: BusinessHour[]): string[] {
   return lines;
 }
 
+/** Unified activity row for the printable / CSV ledger tables. */
+type LedgerActivity = {
+  date: string;
+  company_name: string;
+  company_location: string;
+  contact_method: string;
+  contact_person: string | null;
+  position_applied: string;
+  result: string;
+  outcome_next_step: string | null;
+  next_contact_date: string | null;
+  /** True when pulled from JasonOS networking (not the NYUI log). */
+  from_networking?: boolean;
+};
+
+function workSearchToLedger(ws: WorkSearch): LedgerActivity {
+  return {
+    date: ws.date,
+    company_name: ws.company_name,
+    company_location: ws.company_location,
+    contact_method: ws.contact_method,
+    contact_person: ws.contact_person,
+    position_applied: ws.position_applied,
+    result: ws.result,
+    outcome_next_step: ws.outcome_next_step,
+    next_contact_date: ws.next_contact_date,
+    from_networking: false,
+  };
+}
+
+function networkingToLedger(row: AuditNetworkingRow): LedgerActivity {
+  return {
+    date: row.date,
+    company_name: row.company_name,
+    company_location: row.company_location,
+    contact_method: row.contact_method,
+    contact_person: row.contact_person,
+    position_applied: row.position_applied,
+    result: row.result,
+    outcome_next_step: row.outcome_next_step,
+    next_contact_date: row.next_contact_date,
+    from_networking: true,
+  };
+}
+
 // Build the audit-ready, per-claim-week ledger (Gap 5) as a standalone
-// printable HTML document. Tier A (Employer Contacts), Tier B (Networking),
-// then Business Hours (Kuperman Ventures / Kuperman Advisors) when logged.
+// printable HTML document. Tier A (Employer Contacts), Tier B (Networking —
+// NYUI log + JasonOS networking fill), then Business Hours when logged.
 // Stamped with the Work Search ID (never the SSN).
 function buildLedgerHtml(
   workSearches: WorkSearch[],
   businessHours: BusinessHour[],
+  networkingTierB: AuditNetworkingRow[],
   startDate: string,
   endDate: string,
   workSearchId: string | null
 ): string {
-  // Group by Sunday-start claim week. Include weeks that have either
-  // work-search activity or business-hours entries.
-  const weeks = new Map<string, { workSearches: WorkSearch[]; businessHours: BusinessHour[] }>();
+  type WeekBucket = {
+    workSearches: WorkSearch[];
+    networking: AuditNetworkingRow[];
+    businessHours: BusinessHour[];
+  };
+  // Group by Monday-start claim week. Include weeks that have work-search,
+  // networking fill, or business-hours entries.
+  const weeks = new Map<string, WeekBucket>();
   const ensureWeek = (key: string) => {
     let bucket = weeks.get(key);
     if (!bucket) {
-      bucket = { workSearches: [], businessHours: [] };
+      bucket = { workSearches: [], networking: [], businessHours: [] };
       weeks.set(key, bucket);
     }
     return bucket;
@@ -369,12 +449,15 @@ function buildLedgerHtml(
   for (const ws of workSearches) {
     ensureWeek(weekRangeOf(ws.date).start).workSearches.push(ws);
   }
+  for (const n of networkingTierB) {
+    ensureWeek(weekRangeOf(n.date).start).networking.push(n);
+  }
   for (const bh of businessHours) {
     ensureWeek(weekRangeOf(bh.date).start).businessHours.push(bh);
   }
   const weekKeys = [...weeks.keys()].sort();
 
-  const rowHtml = (ws: WorkSearch) => {
+  const rowHtml = (ws: LedgerActivity) => {
     const contact = ws.contact_person ? escHtml(ws.contact_person) : "—";
     const where = escHtml(ws.company_location || "number withheld");
     const next = [
@@ -383,35 +466,52 @@ function buildLedgerHtml(
     ]
       .filter(Boolean)
       .join(" ");
-    return `<tr>
-      <td>${escHtml(ws.date)}</td>
+    const source = ws.from_networking
+      ? `<span class="src src-net" title="Pulled from JasonOS networking activity">Networking</span>`
+      : `<span class="src src-log" title="Logged in NYUI">NYUI</span>`;
+    return `<tr class="${ws.from_networking ? "from-net" : ""}">
+      <td class="date">${escHtml(ws.date)}</td>
       <td>${escHtml(ws.company_name)}</td>
       <td>${contact}</td>
       <td>${escHtml(ws.position_applied)}</td>
       <td>${escHtml(ws.contact_method)}</td>
-      <td>${where}</td>
-      <td>${escHtml(ws.result)}${next ? ` — ${next}` : ""}</td>
+      <td class="loc">${where}</td>
+      <td>${escHtml(ws.result)}${next ? `<div class="next">${next}</div>` : ""}</td>
+      <td class="src-cell">${source}</td>
     </tr>`;
   };
 
-  const sectionHtml = (title: string, rows: WorkSearch[]) => `
-    <h3 class="tier">${escHtml(title)} <span class="count">(${rows.length})</span></h3>
-    ${
-      rows.length === 0
-        ? `<p class="empty">No activities in this section.</p>`
-        : `<table>
-            <thead><tr>
-              <th>Date</th><th>Company / Org</th><th>Contact + Title</th>
-              <th>Position</th><th>Method</th><th>Address / URL / Phone</th>
-              <th>Result · Outcome / Next Step</th>
-            </tr></thead>
-            <tbody>${rows.map(rowHtml).join("")}</tbody>
-          </table>`
-    }`;
+  const sectionHtml = (
+    title: string,
+    rows: LedgerActivity[],
+    emptyNote: string
+  ) => {
+    const netCount = rows.filter((r) => r.from_networking).length;
+    const countNote =
+      netCount > 0
+        ? `${rows.length} · ${netCount} from JasonOS networking`
+        : `${rows.length}`;
+    return `
+    <div class="section">
+      <h3 class="tier">${escHtml(title)} <span class="count">(${escHtml(countNote)})</span></h3>
+      ${
+        rows.length === 0
+          ? `<p class="empty">${escHtml(emptyNote)}</p>`
+          : `<table>
+              <thead><tr>
+                <th>Date</th><th>Company / Org</th><th>Contact + Title</th>
+                <th>Position</th><th>Method</th><th>Address / URL / Phone</th>
+                <th>Result · Outcome / Next Step</th><th>Source</th>
+              </tr></thead>
+              <tbody>${rows.map(rowHtml).join("")}</tbody>
+            </table>`
+      }
+    </div>`;
+  };
 
   const businessHoursHtml = (entries: BusinessHour[]) => {
     if (entries.length === 0) {
-      return `<h3 class="tier">Business Hours</h3><p class="empty">No business hours logged this week.</p>`;
+      return `<div class="section"><h3 class="tier">Business Hours</h3><p class="empty">No business hours logged this week.</p></div>`;
     }
     const sorted = entries.slice().sort((a, b) => a.date.localeCompare(b.date));
     const totals = entityMinutes(sorted);
@@ -423,7 +523,7 @@ function buildLedgerHtml(
     const detailRows = sorted
       .map(
         (e) => `<tr>
-          <td>${escHtml(e.date)}</td>
+          <td class="date">${escHtml(e.date)}</td>
           <td>${escHtml(e.entity)}</td>
           <td>${escHtml(e.client_name || "—")}</td>
           <td>${escHtml(e.activity_category || "—")}</td>
@@ -433,71 +533,199 @@ function buildLedgerHtml(
       )
       .join("");
     return `
-      <h3 class="tier">Business Hours <span class="count">(${sorted.length} entr${sorted.length === 1 ? "y" : "ies"} · ${escHtml(fmtHm(combined))})</span></h3>
-      <table>
-        <thead><tr><th>Entity</th><th>Hours This Week</th></tr></thead>
-        <tbody>
-          ${summaryRows}
-          <tr><td><strong>Combined Total</strong></td><td><strong>${escHtml(fmtHm(combined))}</strong></td></tr>
-        </tbody>
-      </table>
-      <table>
-        <thead><tr>
-          <th>Date</th><th>Entity</th><th>Client</th><th>Category</th><th>Note / Description</th><th>Duration</th>
-        </tr></thead>
-        <tbody>${detailRows}</tbody>
-      </table>`;
+      <div class="section">
+        <h3 class="tier">Business Hours <span class="count">(${sorted.length} entr${sorted.length === 1 ? "y" : "ies"} · ${escHtml(fmtHm(combined))})</span></h3>
+        <table class="summary-table">
+          <thead><tr><th>Entity</th><th>Hours This Week</th></tr></thead>
+          <tbody>
+            ${summaryRows}
+            <tr class="total-row"><td>Combined Total</td><td>${escHtml(fmtHm(combined))}</td></tr>
+          </tbody>
+        </table>
+        <table>
+          <thead><tr>
+            <th>Date</th><th>Entity</th><th>Client</th><th>Category</th><th>Note / Description</th><th>Duration</th>
+          </tr></thead>
+          <tbody>${detailRows}</tbody>
+        </table>
+      </div>`;
   };
 
   const rangeTotals = summarizeEntityHours(businessHours);
-  const rangeSummaryHtml =
-    rangeTotals.length > 0
-      ? `<p class="meta"><strong>Business Hours (range):</strong> ${escHtml(rangeTotals.join(" · "))}</p>`
-      : `<p class="meta"><strong>Business Hours (range):</strong> none logged</p>`;
+  const tierAAll = workSearches.filter((w) => tierOf(w) === "employer_contact");
+  const tierBLogged = workSearches.filter((w) => tierOf(w) === "networking");
+  const tierBTotal = tierBLogged.length + networkingTierB.length;
 
   const weeksHtml = weekKeys
     .map((key) => {
       const { start, end } = weekRangeOf(key);
       const bucket = weeks.get(key)!;
-      const inWeek = bucket.workSearches.slice().sort((a, b) => a.date.localeCompare(b.date));
+      const inWeek = bucket.workSearches
+        .slice()
+        .sort((a, b) => a.date.localeCompare(b.date));
       const bhWeek = bucket.businessHours;
-      const tierA = inWeek.filter((w) => tierOf(w) === "employer_contact");
-      const tierB = inWeek.filter((w) => tierOf(w) === "networking");
+      const tierA = inWeek
+        .filter((w) => tierOf(w) === "employer_contact")
+        .map(workSearchToLedger);
+      const tierB = [
+        ...inWeek.filter((w) => tierOf(w) === "networking").map(workSearchToLedger),
+        ...bucket.networking
+          .slice()
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .map(networkingToLedger),
+      ].sort((a, b) => a.date.localeCompare(b.date));
       const bhMins = bhWeek.reduce((s, e) => s + entryMins(e), 0);
-      const activityLabel = `${inWeek.length} activit${inWeek.length === 1 ? "y" : "ies"}`;
-      const hoursLabel = bhMins > 0 ? ` · ${fmtHm(bhMins)} business hours` : "";
+      const activityCount = tierA.length + tierB.length;
       return `<section class="week">
-        <h2>Claim Week: ${escHtml(fmtLong(start))} – ${escHtml(fmtLong(end))}
-          <span class="count">· ${escHtml(activityLabel)}${escHtml(hoursLabel)}</span>
-        </h2>
-        ${sectionHtml("Tier A — Employer Contacts", tierA)}
-        ${sectionHtml("Tier B — Networking / Fruitful Activities", tierB)}
+        <header class="week-head">
+          <h2>Claim Week <span class="week-dates">${escHtml(fmtLong(start))} – ${escHtml(fmtLong(end))}</span></h2>
+          <div class="week-stats">
+            <span><strong>${tierA.length}</strong> Tier A</span>
+            <span><strong>${tierB.length}</strong> Tier B</span>
+            ${bhMins > 0 ? `<span><strong>${escHtml(fmtHm(bhMins))}</strong> hours</span>` : ""}
+            <span class="muted">${activityCount} activit${activityCount === 1 ? "y" : "ies"}</span>
+          </div>
+        </header>
+        ${sectionHtml(
+          "Tier A — Employer Contacts",
+          tierA,
+          "No employer contacts logged this week."
+        )}
+        ${sectionHtml(
+          "Tier B — Networking / Fruitful Activities",
+          tierB,
+          "No networking activity this week (NYUI log or JasonOS)."
+        )}
         ${businessHoursHtml(bhWeek)}
       </section>`;
     })
     .join("");
 
-  return `<!doctype html><html><head><meta charset="utf-8" />
+  const idStamp = workSearchId || "—— set NYUI_WORK_SEARCH_ID to stamp ——";
+  const hoursLine =
+    rangeTotals.length > 0 ? rangeTotals.join(" · ") : "none logged";
+
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8" />
     <title>NYS DOL Work Search Ledger</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
     <style>
-      *{box-sizing:border-box} body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111;margin:32px;font-size:12px}
-      h1{font-size:18px;margin:0 0 4px} .meta{color:#444;font-size:12px;margin:0 0 2px}
-      .week{margin-top:24px;page-break-inside:avoid} .week>h2{font-size:14px;border-bottom:2px solid #111;padding-bottom:4px}
-      h3.tier{font-size:12px;margin:14px 0 6px;text-transform:uppercase;letter-spacing:.04em;color:#222}
-      .count{color:#666;font-weight:400}
-      table{width:100%;border-collapse:collapse;margin-bottom:8px} th,td{border:1px solid #bbb;padding:5px 7px;text-align:left;vertical-align:top}
-      th{background:#f1f1f1;font-size:10px;text-transform:uppercase;letter-spacing:.03em}
-      .empty{color:#888;font-style:italic;margin:2px 0 8px}
-      .foot{margin-top:28px;color:#888;font-size:10px;border-top:1px solid #ddd;padding-top:8px}
-      @media print{body{margin:12mm}}
+      :root{
+        --ink:#1c1917; --muted:#57534e; --line:#d6d3d1; --paper:#fafaf9;
+        --band:#f5f5f4; --accent:#0f766e; --net:#9a3412;
+      }
+      *{box-sizing:border-box}
+      body{
+        font-family:"IBM Plex Sans",Segoe UI,Helvetica,Arial,sans-serif;
+        color:var(--ink); margin:0; background:#e7e5e4; font-size:11.5px; line-height:1.45;
+      }
+      .sheet{
+        max-width:960px; margin:24px auto; background:#fff; padding:36px 40px 48px;
+        box-shadow:0 4px 24px rgba(28,25,23,.08);
+      }
+      .masthead{border-bottom:3px solid var(--ink); padding-bottom:14px; margin-bottom:18px}
+      .eyebrow{
+        font-size:11px; letter-spacing:.16em; text-transform:uppercase;
+        color:var(--muted); font-weight:600; margin:0 0 6px;
+      }
+      h1{
+        font-family:"Source Serif 4",Georgia,serif; font-size:26px; font-weight:600;
+        margin:0 0 12px; letter-spacing:-.01em; line-height:1.15;
+      }
+      .meta-grid{
+        display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:6px 24px;
+      }
+      .meta{margin:0; color:var(--muted); font-size:12px}
+      .meta strong{color:var(--ink); font-weight:600}
+      .id-stamp{
+        display:inline-block; margin-top:10px; padding:4px 10px; border:1px solid var(--ink);
+        font-family:"IBM Plex Sans",sans-serif; font-size:12px; font-weight:600; letter-spacing:.04em;
+      }
+      .range-band{
+        display:flex; flex-wrap:wrap; gap:10px 18px; margin:16px 0 8px; padding:12px 14px;
+        background:var(--band); border:1px solid var(--line);
+      }
+      .range-band .fig{display:flex; flex-direction:column; gap:1px; min-width:88px}
+      .range-band .fig .n{
+        font-family:"Source Serif 4",Georgia,serif; font-size:22px; font-weight:600; line-height:1;
+      }
+      .range-band .fig .l{font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted)}
+      .week{margin-top:28px; page-break-inside:avoid}
+      .week-head{
+        display:flex; flex-wrap:wrap; justify-content:space-between; align-items:baseline;
+        gap:8px 16px; border-bottom:2px solid var(--ink); padding-bottom:6px; margin-bottom:10px;
+      }
+      .week-head h2{
+        font-family:"Source Serif 4",Georgia,serif; font-size:16px; font-weight:600; margin:0;
+      }
+      .week-dates{font-weight:500}
+      .week-stats{display:flex; flex-wrap:wrap; gap:10px 14px; font-size:11px; color:var(--ink)}
+      .week-stats .muted{color:var(--muted)}
+      .section{margin-top:12px}
+      h3.tier{
+        font-size:11px; margin:0 0 6px; text-transform:uppercase; letter-spacing:.08em;
+        color:var(--ink); font-weight:600;
+      }
+      .count{color:var(--muted); font-weight:500; letter-spacing:0; text-transform:none}
+      table{width:100%; border-collapse:collapse; margin-bottom:10px}
+      th,td{border:1px solid var(--line); padding:6px 8px; text-align:left; vertical-align:top}
+      th{
+        background:var(--band); font-size:9.5px; text-transform:uppercase; letter-spacing:.04em;
+        font-weight:600; color:var(--muted);
+      }
+      td.date{white-space:nowrap; font-variant-numeric:tabular-nums}
+      td.loc{word-break:break-word; max-width:140px}
+      tr.from-net td{background:#fff7ed}
+      .next{margin-top:3px; color:var(--muted); font-size:10.5px}
+      .src{
+        display:inline-block; font-size:9px; font-weight:600; letter-spacing:.04em;
+        text-transform:uppercase; padding:2px 5px; border-radius:2px;
+      }
+      .src-log{background:#ecfdf5; color:var(--accent)}
+      .src-net{background:#ffedd5; color:var(--net)}
+      .src-cell{width:72px}
+      .summary-table{max-width:360px}
+      .total-row td{font-weight:600; background:var(--band)}
+      .empty{color:var(--muted); font-style:italic; margin:2px 0 10px}
+      .foot{
+        margin-top:32px; color:var(--muted); font-size:10px; border-top:1px solid var(--line);
+        padding-top:10px; line-height:1.5;
+      }
+      @media print{
+        body{background:#fff; margin:0}
+        .sheet{margin:0; box-shadow:none; max-width:none; padding:0}
+        a{color:inherit; text-decoration:none}
+      }
+      @page{margin:12mm}
     </style></head><body>
-    <h1>NYS DOL — Work Search Proof-of-Effort Ledger</h1>
-    <p class="meta"><strong>Work Search ID:</strong> ${escHtml(workSearchId || "—— set NYUI_WORK_SEARCH_ID to stamp ——")}</p>
-    <p class="meta"><strong>Range:</strong> ${escHtml(fmtLong(startDate))} – ${escHtml(fmtLong(endDate))}</p>
-    <p class="meta"><strong>Generated:</strong> ${escHtml(new Date().toLocaleString())}</p>
-    ${rangeSummaryHtml}
-    ${weeksHtml || `<p class="empty">No work-search or business-hours activity in this range.</p>`}
-    <p class="foot">Claim weeks shown Sunday–Saturday. Business hours shown when logged against Kuperman Ventures LLC or Kuperman Advisors LLC. SSN intentionally omitted; identity is matched by Work Search ID only.</p>
+    <div class="sheet">
+      <header class="masthead">
+        <p class="eyebrow">New York State Department of Labor</p>
+        <h1>Work Search Proof-of-Effort Ledger</h1>
+        <div class="meta-grid">
+          <p class="meta"><strong>Range</strong> ${escHtml(fmtLong(startDate))} – ${escHtml(fmtLong(endDate))}</p>
+          <p class="meta"><strong>Generated</strong> ${escHtml(new Date().toLocaleString())}</p>
+          <p class="meta"><strong>Business hours</strong> ${escHtml(hoursLine)}</p>
+          <p class="meta"><strong>Claim weeks</strong> Monday–Sunday</p>
+        </div>
+        <div class="id-stamp">Work Search ID: ${escHtml(idStamp)}</div>
+      </header>
+      <div class="range-band">
+        <div class="fig"><span class="n">${tierAAll.length}</span><span class="l">Tier A</span></div>
+        <div class="fig"><span class="n">${tierBTotal}</span><span class="l">Tier B</span></div>
+        <div class="fig"><span class="n">${networkingTierB.length}</span><span class="l">From networking</span></div>
+        <div class="fig"><span class="n">${businessHours.length}</span><span class="l">Hours entries</span></div>
+      </div>
+      ${weeksHtml || `<p class="empty">No work-search, networking, or business-hours activity in this range.</p>`}
+      <p class="foot">
+        Tier B includes activities logged in NYUI plus qualifying JasonOS networking activity
+        (held conversations and fresh outreach to industry contacts not already logged).
+        Source column marks each row. Business hours shown for Kuperman Ventures LLC /
+        Kuperman Advisors LLC when logged. SSN intentionally omitted — identity is matched
+        by Work Search ID only.
+      </p>
+    </div>
     </body></html>`;
 }
 
@@ -505,6 +733,7 @@ function writeLedgerToWindow(
   win: Window,
   workSearches: WorkSearch[],
   businessHours: BusinessHour[],
+  networkingTierB: AuditNetworkingRow[],
   startDate: string,
   endDate: string,
   workSearchId: string | null
@@ -512,6 +741,7 @@ function writeLedgerToWindow(
   const html = buildLedgerHtml(
     workSearches,
     businessHours,
+    networkingTierB,
     startDate,
     endDate,
     workSearchId
@@ -534,6 +764,7 @@ function writeLedgerToWindow(
 function openPrintableLedger(
   workSearches: WorkSearch[],
   businessHours: BusinessHour[],
+  networkingTierB: AuditNetworkingRow[],
   startDate: string,
   endDate: string,
   workSearchId: string | null
@@ -541,6 +772,7 @@ function openPrintableLedger(
   const html = buildLedgerHtml(
     workSearches,
     businessHours,
+    networkingTierB,
     startDate,
     endDate,
     workSearchId
@@ -706,6 +938,7 @@ function ExportModal({
       const wsCols = [
         { key: "date", label: "Date" },
         { key: "tier_label", label: "Tier" },
+        { key: "source", label: "Source" },
         { key: "company_name", label: "Company / Organization" },
         { key: "company_location", label: "Location / URL" },
         { key: "contact_method", label: "Contact Method" },
@@ -727,10 +960,28 @@ function ExportModal({
         { key: "created_at", label: "Date Logged" },
       ];
 
-      const ws = result.workSearches.map((w) => ({
+      const wsLogged = result.workSearches.map((w) => ({
         ...w,
         tier_label: TIER_SHORT[tierOf(w)],
+        source: "NYUI log",
       })) as unknown as Record<string, unknown>[];
+      const wsNetworking = (result.networkingTierB ?? []).map((n) => ({
+        date: n.date,
+        tier_label: "Tier B",
+        source: "JasonOS networking",
+        company_name: n.company_name,
+        company_location: n.company_location,
+        contact_method: n.contact_method,
+        contact_person: n.contact_person,
+        position_applied: n.position_applied,
+        result: n.result,
+        outcome_next_step: n.outcome_next_step,
+        next_contact_date: n.next_contact_date,
+        created_at: "",
+      })) as unknown as Record<string, unknown>[];
+      const ws = [...wsLogged, ...wsNetworking].sort((a, b) =>
+        String(a.date).localeCompare(String(b.date))
+      );
       const bhEntries = result.businessHours;
       const bh = bhEntries as unknown as Record<string, unknown>[];
       const workSearchIdLine = result.workSearchId
@@ -776,11 +1027,13 @@ function ExportModal({
         });
       }
       const weeklySummaryCols = [
-        { key: "week", label: "Claim Week (Sun–Sat)" },
+        { key: "week", label: "Claim Week (Mon–Sun)" },
         { key: "ventures", label: "Kuperman Ventures LLC" },
         { key: "advisors", label: "Kuperman Advisors LLC" },
         { key: "combined", label: "Combined" },
       ];
+
+      const netCount = result.networkingTierB?.length ?? 0;
 
       // UTF-8 BOM helps Excel open the multi-section CSV with correct encoding.
       const report =
@@ -790,9 +1043,10 @@ function ExportModal({
           `"Date Range: ${startDate} to ${endDate}"`,
           workSearchIdLine,
           `"Generated: ${new Date().toLocaleString()}"`,
+          `"Tier B fill from JasonOS networking: ${netCount} rows"`,
           "",
           "",
-          `"=== SECTION 1: WORK SEARCH LOG (${ws.length} records) ==="`,
+          `"=== SECTION 1: WORK SEARCH LOG (${ws.length} records; includes JasonOS networking Tier B) ==="`,
           buildCSV(wsCols, ws),
           "",
           "",
@@ -854,11 +1108,13 @@ function ExportModal({
     try {
       const result = await getExportData(startDate, endDate);
       if (result.error) throw new Error(result.error);
+      const networkingTierB = result.networkingTierB ?? [];
       if (placeholder && !placeholder.closed) {
         writeLedgerToWindow(
           placeholder,
           result.workSearches,
           result.businessHours,
+          networkingTierB,
           startDate,
           endDate,
           result.workSearchId
@@ -867,6 +1123,7 @@ function ExportModal({
         const mode = openPrintableLedger(
           result.workSearches,
           result.businessHours,
+          networkingTierB,
           startDate,
           endDate,
           result.workSearchId
@@ -895,8 +1152,8 @@ function ExportModal({
           <div>
             <h3 className="font-semibold text-foreground">Generate NYS DOL Audit Report</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Dates default to this claim week. Includes work searches plus Kuperman
-              Ventures / Advisors hours when logged.
+              Dates default to this claim week. Includes work searches, JasonOS
+              networking for Tier B, and Kuperman Ventures / Advisors hours when logged.
             </p>
           </div>
           <button
@@ -962,9 +1219,9 @@ function ExportModal({
             </button>
             <p className="text-[11px] text-muted-foreground pt-0.5">
               The printable ledger groups by claim week with Tier A (Employer Contacts), Tier B
-              (Networking), and Business Hours (Kuperman Ventures / Advisors) when present,
-              stamped with your Work Search ID. Use your browser&apos;s &ldquo;Save as PDF&rdquo;
-              for a one-week audit.
+              (NYUI networking log plus JasonOS meetings / fresh outreach), and Business Hours
+              when present, stamped with your Work Search ID. Use your browser&apos;s
+              &ldquo;Save as PDF&rdquo; for a one-week audit.
             </p>
           </div>
         </div>
@@ -1017,15 +1274,7 @@ function NYUIDashboard({
     onLogApplication({ ...app, url: res.ok ? res.url : null });
   }
 
-  const startDisplay = new Date(weekStart + "T12:00:00").toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-  });
-  const endDisplay = new Date(weekEnd + "T12:00:00").toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const weekRangeDisplay = fmtWeekRange(weekStart, weekEnd);
 
   // Work search analysis
   const uniqueDays = new Set(workSearches.map((w) => w.date)).size;
@@ -1065,7 +1314,7 @@ function NYUIDashboard({
         <div>
           <h2 className="text-lg font-bold text-foreground">NYS DOL — Weekly Dashboard</h2>
           <p className="text-sm text-muted-foreground">
-            {startDisplay} – {endDisplay}
+            {weekRangeDisplay}
           </p>
         </div>
         <button
@@ -2352,7 +2601,7 @@ function AllActivity({
       )
     : businessHours;
 
-  // Group into Sunday-start claim weeks (same boundary as dashboard / audit).
+  // Group into Monday-start claim weeks (same boundary as dashboard / audit).
   // Weeks with only hours (no applications) still appear.
   type WeekBucket = { workSearches: WorkSearch[]; businessHours: BusinessHour[] };
   const weeks = new Map<string, WeekBucket>();
@@ -2468,22 +2717,12 @@ function AllActivity({
           .slice()
           .sort((a, b) => a.date.localeCompare(b.date) || a.created_at.localeCompare(b.created_at));
 
-        const startShort = new Date(start + "T12:00:00").toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-        });
-        const endShort = new Date(end + "T12:00:00").toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        });
-
         return (
           <div key={key} className="rounded-xl border border-border bg-card p-5 shadow-sm">
             <div className="flex items-start justify-between gap-3 mb-3">
               <div>
                 <h3 className="font-semibold text-foreground flex items-center gap-2">
-                  Week of {startShort} – {endShort}
+                  Week of {fmtWeekRange(start, end)}
                   {isCurrent && (
                     <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-foreground text-background">
                       This week

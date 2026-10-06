@@ -5,18 +5,14 @@ import {
 } from "@/lib/server-actions/nyui";
 import { getResumeApplicationQueue } from "@/lib/server-actions/resume-applications";
 import { NyuiClient } from "@/components/jasonos/nyui/nyui-client";
+import { etToday, weekRangeMonSun } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "NYUI · JasonOS" };
 
 function getWeekBounds(): { start: string; end: string } {
-  const now = new Date();
-  const sunday = new Date(now);
-  sunday.setDate(now.getDate() - now.getDay());
-  const saturday = new Date(sunday);
-  saturday.setDate(sunday.getDate() + 6);
-  const fmt = (d: Date) => d.toISOString().split("T")[0];
-  return { start: fmt(sunday), end: fmt(saturday) };
+  // Universal JasonOS reporting week: Monday → Sunday.
+  return weekRangeMonSun(etToday());
 }
 
 export default async function NyuiPage() {
