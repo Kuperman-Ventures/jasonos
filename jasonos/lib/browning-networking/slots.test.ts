@@ -83,4 +83,18 @@ describe("slot proposal", () => {
     );
     assert.equal(hour, 14);
   });
+
+  it("skips times already offered on other Browning handoffs", () => {
+    const first = proposeSlots({ now: MONDAY, busy: [] });
+    assert.equal(first.length, 3);
+    const second = proposeSlots({
+      now: MONDAY,
+      busy: first.map((slot) => ({ start: slot.start, end: slot.end })),
+    });
+    assert.equal(second.length, 3);
+    const firstStarts = new Set(first.map((slot) => slot.start));
+    for (const slot of second) {
+      assert.equal(firstStarts.has(slot.start), false);
+    }
+  });
 });

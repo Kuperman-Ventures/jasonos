@@ -137,6 +137,38 @@ export async function markHandoffActedOn(handoffId: string): Promise<ActionResul
   return { ok: true };
 }
 
+/** Remove a false-positive handoff. Stays dismissed so Check will not add them again. */
+export async function dismissHandoff(handoffId: string): Promise<ActionResult> {
+  const guard = configured();
+  if (guard) return guard;
+  const sb = createServiceRoleClient();
+  const { data, error } = await sb
+    .from("browning_handoffs")
+    .select("status, call_starts_at, card_id")
+    .eq("id", handoffId)
+    .maybeSingle();
+  if (error || !data) return { ok: false, error: error?.message || "Handoff not found." };
+  if (data.status === "dismissed") return { ok: true };
+  const meetingSet =
+    Boolean(data.call_starts_at) ||
+    data.status === "booked" ||
+    data.status === "brief_ready" ||
+    data.status === "thank_you_ready";
+  if (meetingSet) {
+    return { ok: false, error: "This meeting is already on your calendar. Clear it there first." };
+  }
+  const { error: updateError } = await sb
+    .from("browning_handoffs")
+    .update({ status: "dismissed" })
+    .eq("id", handoffId);
+  if (updateError) return { ok: false, error: updateError.message };
+  if (data.card_id) {
+    await sb.from("cards").update({ state: "dismissed" }).eq("id", data.card_id as string);
+  }
+  revalidate();
+  return { ok: true };
+}
+
 export async function saveHandoffContactEmail(
   handoffId: string,
   email: string
