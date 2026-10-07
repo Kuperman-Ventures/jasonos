@@ -686,7 +686,7 @@ function buildLedgerHtml(
         font-family:"Source Serif 4",Georgia,serif; font-size:22px; font-weight:600; line-height:1;
       }
       .range-band .fig .l{font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted)}
-      .week{margin-top:28px; page-break-inside:avoid}
+      .week{margin-top:28px}
       .week-head{
         display:flex; flex-wrap:wrap; justify-content:space-between; align-items:baseline;
         gap:8px 16px; border-bottom:2px solid var(--ink); padding-bottom:6px; margin-bottom:10px;
@@ -728,14 +728,19 @@ function buildLedgerHtml(
         padding-top:10px; line-height:1.5;
       }
       .foot-print{display:none}
-      /* Letter (8.5×11) — keep a one-week audit on a single printed page. */
-      @page{size:letter; margin:0.35in}
+      /* Letter (8.5×11). Do not use page-break-inside:avoid on .week / .section /
+         table — Chrome moves the whole block to page 2 and leaves the masthead
+         alone on a nearly blank first page (the user's 1/3 PDF). */
+      @page{size:letter; margin:0.4in}
       @media print{
         *{-webkit-print-color-adjust:exact; print-color-adjust:exact}
         html,body{background:#fff !important; margin:0; font-size:8.5px; line-height:1.25}
         .sheet{margin:0; box-shadow:none; max-width:none; padding:0}
         a{color:inherit; text-decoration:none}
-        .masthead{padding-bottom:5px; margin-bottom:6px; border-bottom-width:1.5px}
+        .masthead{
+          padding-bottom:5px; margin-bottom:6px; border-bottom-width:1.5px;
+          page-break-after:avoid; break-after:avoid-page;
+        }
         .eyebrow{font-size:7.5px; margin:0 0 2px; letter-spacing:.12em}
         h1{font-size:14px; margin:0 0 4px}
         .meta-grid{gap:1px 12px}
@@ -743,11 +748,21 @@ function buildLedgerHtml(
         .meta-print-hide{display:none !important}
         .id-stamp{margin-top:3px; padding:1px 5px; font-size:8.5px}
         .range-band{display:none !important}
-        .week{margin-top:6px; page-break-inside:auto; break-inside:auto}
+        .week,.section,table{
+          page-break-inside:auto !important; break-inside:auto !important;
+        }
+        .week{
+          margin-top:4px;
+          page-break-before:avoid; break-before:avoid-page;
+        }
         .week-head{display:none !important}
-        .section{margin-top:5px; page-break-inside:avoid; break-inside:avoid}
-        h3.tier{font-size:7.5px; margin:0 0 2px; letter-spacing:.06em}
+        .section{margin-top:5px}
+        h3.tier{
+          font-size:7.5px; margin:0 0 2px; letter-spacing:.06em;
+          page-break-after:avoid; break-after:avoid-page;
+        }
         table{margin-bottom:3px; font-size:8px}
+        thead{display:table-header-group}
         th,td{padding:2px 3px}
         th{font-size:7px; letter-spacing:.02em}
         td.loc{max-width:110px}
@@ -759,6 +774,7 @@ function buildLedgerHtml(
         .foot{margin-top:6px; font-size:6.5px; padding-top:3px; line-height:1.3}
         .foot-screen{display:none !important}
         .foot-print{display:block !important}
+        /* Keep individual rows intact; never wrap avoid around whole sections. */
         tr{page-break-inside:avoid; break-inside:avoid}
       }
     </style></head><body>
