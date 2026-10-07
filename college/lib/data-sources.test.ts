@@ -117,6 +117,19 @@ test("computeStatus: live source never checked is untested", () => {
   assert.equal(computeStatus(source({ type: "platform" }), check(), NOW).status, "untested");
 });
 
+test("computeStatus: untestable live source with no calls says Never used", () => {
+  const r = computeStatus(source({ type: "live", id: "perplexity", testable: false }), null, NOW);
+  assert.deepEqual(r, { status: "untested", statusLabel: "Never used" });
+});
+
+test("perplexity registry has no key and points at AI Gateway", () => {
+  const row = SOURCE_REGISTRY.find((s) => s.id === "perplexity")!;
+  assert.equal(row.testable, false);
+  assert.equal(row.env?.notNeeded, true);
+  assert.match(row.notes ?? "", /No Perplexity API key/i);
+  assert.match(row.setupHint ?? "", /AI Gateway/i);
+});
+
 test("computeStatus: live source whose last error is newer than last success is failing", () => {
   const r = computeStatus(
     source({ type: "live" }),

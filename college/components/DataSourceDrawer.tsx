@@ -22,6 +22,7 @@ type Props = {
   linkOverrides: Record<string, Record<string, string>>;
   onClose: () => void;
   onFeature: (feature: Feature) => void;
+  onSelectSource?: (id: string) => void;
   onPayload: (payload: DataSourcesPayload) => void;
 };
 
@@ -64,7 +65,16 @@ async function readJson<T>(response: Response): Promise<T & { error?: string }> 
   }
 }
 
-export function DataSourceDrawer({ source, canEdit, schools, linkOverrides, onClose, onFeature, onPayload }: Props) {
+export function DataSourceDrawer({
+  source,
+  canEdit,
+  schools,
+  linkOverrides,
+  onClose,
+  onFeature,
+  onSelectSource,
+  onPayload,
+}: Props) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
@@ -228,7 +238,25 @@ export function DataSourceDrawer({ source, canEdit, schools, linkOverrides, onCl
           <Field label="API key">
             <span className="ds-strong">{KEY_LABELS[source.apiKey]}</span>
             {source.apiKey === "not_needed" ? (
-              <span className="ds-subtle">This source does not use a key of its own.</span>
+              <>
+                <span className="ds-subtle">
+                  {source.id === "perplexity"
+                    ? "No Perplexity key in this app. Auth and billing go through Vercel AI Gateway."
+                    : "This source does not use a key of its own."}
+                </span>
+                {source.setupHint ? (
+                  <span className="ds-muted">{linkifyText(source.setupHint)}</span>
+                ) : null}
+                {source.id === "perplexity" && onSelectSource ? (
+                  <button
+                    type="button"
+                    className="ds-outline-btn"
+                    onClick={() => onSelectSource("ai-gateway")}
+                  >
+                    Open Vercel AI Gateway
+                  </button>
+                ) : null}
+              </>
             ) : (
               <>
                 {source.envKeys.length > 0 ? (
@@ -546,6 +574,15 @@ export function DataSourceDrawer({ source, canEdit, schools, linkOverrides, onCl
             </span>
           ) : null}
         </div>
+      ) : null}
+
+      {isLive && !source.testable ? (
+        <p className="ds-subtle">
+          No Test connection on this source
+          {source.id === "perplexity"
+            ? " — status updates after a real Add-school lookup that calls Perplexity through AI Gateway."
+            : "."}
+        </p>
       ) : null}
 
       {error ? (

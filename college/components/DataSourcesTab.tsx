@@ -265,6 +265,7 @@ export function DataSourcesTab() {
           linkOverrides={data.linkOverrides}
           onClose={closeDrawer}
           onFeature={(f) => setFeature(f)}
+          onSelectSource={setSelectedId}
           onPayload={setData}
         />
       ) : null}

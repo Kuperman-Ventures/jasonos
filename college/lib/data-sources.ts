@@ -280,7 +280,9 @@ export const SOURCE_REGISTRY: DataSourceDef[] = [
     provider: "Perplexity",
     docsUrl: "https://docs.perplexity.ai",
     notes:
-      "Used only when adding a school: the AI Gateway model calls perplexity_search for public admissions facts. No key of its own and no Test connection — every call is billed. Status comes from recorded real calls. Does not replace College Scorecard for federal stats.",
+      "Used only when adding a school: the AI Gateway model calls perplexity_search for public admissions facts. There is no Perplexity API key in this app — billing and auth go through Vercel AI Gateway. There is no Test connection here (each call is billed); status flips after a real Add-school lookup that used the search tool. Does not replace College Scorecard for federal stats.",
+    setupHint:
+      "Open Vercel AI Gateway on this page for the key and Test connection. Or add a school from College List to force a real Perplexity call.",
     env: { notNeeded: true },
     testable: false,
   },
@@ -751,7 +753,12 @@ export function computeStatus(
   if (source.type === "platform" || source.type === "live") {
     if (source.apiKey === "missing") return result("failing", "Key missing");
     if (check && errorIsCurrent(check)) return result("failing");
-    if (!check || checkIsOld(check, now)) return result("untested");
+    if (!check || checkIsOld(check, now)) {
+      // Untestable sources (e.g. Perplexity) only move after a real call — say so.
+      if (!source.testable && !check) return result("untested", "Never used");
+      if (!source.testable) return result("untested", "No recent call");
+      return result("untested");
+    }
     return result("ok");
   }
 
