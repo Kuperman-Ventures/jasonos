@@ -5,6 +5,7 @@ import {
   formatScorecardNetPrice,
   formatScorecardSat,
   mapScorecardByIdRow,
+  scorecardCoreProgramOffers,
   scorecardProgramsToOptions,
   ScorecardUnsupportedError,
   type ScorecardByIdRow,
@@ -115,7 +116,7 @@ test("mapScorecardByIdRow maps fields and rejects for-profit", () => {
 });
 
 test("scorecardProgramsToOptions keeps bachelor's 14xx and drops excluded codes", () => {
-  const options = scorecardProgramsToOptions("tufts-university", 168148, [
+  const rows = [
     { code: "1442", title: "Robotics Engineering.", credential: { level: 3 } },
     { code: "1419", title: "Mechanical Engineering.", credential: { level: 3 } },
     { code: "1402", title: "Aerospace.", credential: { level: 3 } },
@@ -124,7 +125,8 @@ test("scorecardProgramsToOptions keeps bachelor's 14xx and drops excluded codes"
     { code: "1407", title: "Chemical Engineering.", credential: { level: 5 } },
     { code: "1107", title: "Computer Science.", credential: { level: 3 } },
     { code: "1442", title: "Robotics Engineering duplicate.", credential: { level: 3 } },
-  ]);
+  ];
+  const options = scorecardProgramsToOptions("tufts-university", 168148, rows);
   assert.deepEqual(
     options.map((row) => ({ id: row.id, name: row.name, category: row.category, source: row.source })),
     [
@@ -143,4 +145,14 @@ test("scorecardProgramsToOptions keeps bachelor's 14xx and drops excluded codes"
     ],
   );
   assert.equal(options[0]?.sourceUrl, "https://collegescorecard.ed.gov/school/?168148");
+  assert.deepEqual(scorecardCoreProgramOffers(rows), {
+    mechanicalEngineering: "Yes",
+    materials: "Yes",
+    aerospaceEngineering: "Yes",
+  });
+  assert.deepEqual(scorecardCoreProgramOffers([{ code: "1408", title: "Civil.", credential: { level: 3 } }]), {
+    mechanicalEngineering: "",
+    materials: "",
+    aerospaceEngineering: "",
+  });
 });

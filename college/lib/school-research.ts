@@ -10,6 +10,7 @@ export type FoundFacts = {
   mechanicalEngineering: string;
   materials: string;
   materialsOffering: string;
+  aerospaceEngineering: string;
   admissionsContext: string;
   satContext: string;
   testPolicy: string;
@@ -32,6 +33,7 @@ export type SearchFacts = {
   mechanicalEngineering: string;
   materials: string;
   materialsOffering: string;
+  aerospaceEngineering: string;
   testPolicy: string;
   applicationPlatform: string;
   requiredEssays: string;
@@ -75,6 +77,7 @@ export function emptyFacts(): FoundFacts {
     mechanicalEngineering: "",
     materials: "",
     materialsOffering: "",
+    aerospaceEngineering: "",
     admissionsContext: "",
     satContext: "",
     testPolicy: "",
@@ -330,6 +333,7 @@ export function parseSearchJson(text: string, today: string): SearchFacts | null
     mechanicalEngineering: yesNo(row.mechanicalEngineering),
     materials: yesNo(row.materials),
     materialsOffering: clip(row.materialsOffering, 180),
+    aerospaceEngineering: yesNo(row.aerospaceEngineering),
     testPolicy: clip(row.testPolicy, 180),
     applicationPlatform: clip(row.applicationPlatform, 180),
     requiredEssays: clip(row.requiredEssays, 500),
@@ -351,6 +355,7 @@ export function mergeFacts(scorecard: FoundFacts | null, search: SearchFacts | n
   facts.mechanicalEngineering = fillBlank(facts.mechanicalEngineering, search.mechanicalEngineering);
   facts.materials = fillBlank(facts.materials, search.materials);
   facts.materialsOffering = fillBlank(facts.materialsOffering, search.materialsOffering);
+  facts.aerospaceEngineering = fillBlank(facts.aerospaceEngineering, search.aerospaceEngineering);
   facts.testPolicy = fillBlank(facts.testPolicy, search.testPolicy);
   facts.applicationPlatform = fillBlank(facts.applicationPlatform, search.applicationPlatform);
   facts.requiredEssays = fillBlank(facts.requiredEssays, search.requiredEssays);
@@ -422,7 +427,13 @@ export function lookupSummary(input: {
   if (input.facts.applicationPlatform) searchBits.push("application platform");
   if (input.facts.requiredEssays) searchBits.push("essays");
   if (input.facts.teacherRecs) searchBits.push("teacher recommendations");
-  if (input.facts.mechanicalEngineering || input.facts.materials) searchBits.push("engineering programs");
+  if (
+    input.facts.mechanicalEngineering ||
+    input.facts.materials ||
+    input.facts.aerospaceEngineering
+  ) {
+    searchBits.push("engineering programs");
+  }
   if (input.facts.deadlines.length === 1) searchBits.push("1 deadline");
   if (input.facts.deadlines.length > 1) searchBits.push(`${input.facts.deadlines.length} deadlines`);
 

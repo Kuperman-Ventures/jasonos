@@ -14,6 +14,13 @@ import {
 /** CIP codes dropped because they match the three core snapshot programs (or materials). */
 const EXCLUDED_ENGINEERING_CIPS = new Set(["1402", "1406", "1418", "1419", "1420"]);
 
+/** Bachelor's CIP-4 codes that map onto Snapshot Yes/No program offers. */
+const CORE_CIP = {
+  mechanical: new Set(["1419"]),
+  materials: new Set(["1406", "1418", "1420"]),
+  aerospace: new Set(["1402"]),
+} as const;
+
 const CIP_CATEGORY: Record<string, string> = {
   "1401": "General Engineering",
   "1403": "Biological and Agricultural Engineering",
@@ -50,6 +57,41 @@ export type ScorecardCipRow = {
   title?: string | null;
   credential?: { level?: number | null } | null;
 };
+
+function bachelorEngineeringCipCodes(rows: unknown): Set<string> {
+  const codes = new Set<string>();
+  if (!Array.isArray(rows)) return codes;
+  for (const row of rows) {
+    if (!row || typeof row !== "object") continue;
+    const item = row as ScorecardCipRow;
+    const codeRaw = typeof item.code === "string" ? item.code.trim() : "";
+    const code = codeRaw.padStart(4, "0").slice(-4);
+    if (!/^\d{4}$/.test(code) || !code.startsWith("14")) continue;
+    if (item.credential?.level !== 3) continue;
+    codes.add(code);
+  }
+  return codes;
+}
+
+export type ScorecardCoreProgramOffers = {
+  mechanicalEngineering: string;
+  materials: string;
+  aerospaceEngineering: string;
+};
+
+/**
+ * Map Scorecard bachelor's CIP rows onto the three Snapshot program Yes/No fields.
+ * Blank means Scorecard did not list that CIP (still "Not Checked" until web lookup or manual set).
+ */
+export function scorecardCoreProgramOffers(rows: unknown): ScorecardCoreProgramOffers {
+  const codes = bachelorEngineeringCipCodes(rows);
+  const has = (wanted: ReadonlySet<string>) => [...wanted].some((code) => codes.has(code));
+  return {
+    mechanicalEngineering: has(CORE_CIP.mechanical) ? "Yes" : "",
+    materials: has(CORE_CIP.materials) ? "Yes" : "",
+    aerospaceEngineering: has(CORE_CIP.aerospace) ? "Yes" : "",
+  };
+}
 
 /** Map Scorecard CIP-4 rows to engineering ProgramOption entries. */
 export function scorecardProgramsToOptions(
@@ -284,17 +326,7 @@ export function mapScorecardByIdRow(
   };
 }
 
-/** Bachelor's engineering CIP programs from College Scorecard for one school. */
-export async function fetchScorecardEngineeringPrograms(
-  unitId: number,
-  schoolId: string,
-): Promise<ProgramOption[]> {
-  if (!Number.isFinite(unitId) || unitId <= 0) {
-    throw new Error("unitId must be a positive number");
-  }
-  const id = schoolId.trim();
-  if (!id) throw new Error("schoolId is required");
-
+async function fetchScorecardCipRows(unitId: number): Promise<unknown> {
   const url = new URL(SCORECARD_API_URL);
   url.searchParams.set("id", String(Math.round(unitId)));
   url.searchParams.set("per_page", "1");
@@ -304,8 +336,35 @@ export async function fetchScorecardEngineeringPrograms(
   const body = (await response.json()) as {
     results?: Array<{ "latest.programs.cip_4_digit"?: unknown }>;
   };
-  const rows = body.results?.[0]?.["latest.programs.cip_4_digit"];
-  return scorecardProgramsToOptions(id, Math.round(unitId), rows);
+  return body.results?.[0]?.["latest.programs.cip_4_digit"];
+}
+
+/** Bachelor's engineering CIP programs from College Scorecard for one school. */
+export async function fetchScorecardEngineeringPrograms(
+  unitId: number,
+  schoolId: string,
+): Promise<ProgramOption[]> {
+  const bundle = await fetchScorecardEngineeringBundle(unitId, schoolId);
+  return bundle.options;
+}
+
+/** Additional programs list plus Snapshot ME / materials / aerospace Yes offers from one CIP fetch. */
+export async function fetchScorecardEngineeringBundle(
+  unitId: number,
+  schoolId: string,
+): Promise<{ options: ProgramOption[]; coreOffers: ScorecardCoreProgramOffers }> {
+  if (!Number.isFinite(unitId) || unitId <= 0) {
+    throw new Error("unitId must be a positive number");
+  }
+  const id = schoolId.trim();
+  if (!id) throw new Error("schoolId is required");
+
+  const rounded = Math.round(unitId);
+  const rows = await fetchScorecardCipRows(rounded);
+  return {
+    options: scorecardProgramsToOptions(id, rounded, rows),
+    coreOffers: scorecardCoreProgramOffers(rows),
+  };
 }
 
 /** Fetch one operating school by College Scorecard / IPEDS unit ID. */

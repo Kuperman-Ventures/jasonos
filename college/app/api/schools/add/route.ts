@@ -6,13 +6,14 @@ import {
   getRateThatAppliesToKyle,
   getRegion,
 } from "@/lib/campus-size";
-import { createSchool, listSchools, supabaseConfigured, updateSchool } from "@/lib/db";
+import { applySchoolFacts, createSchool, listSchools, supabaseConfigured, updateSchool } from "@/lib/db";
 import { lookupMetro } from "@/lib/metro";
 import {
   fetchScorecardByUnitId,
-  fetchScorecardEngineeringPrograms,
+  fetchScorecardEngineeringBundle,
   ScorecardUnsupportedError,
 } from "@/lib/scorecard";
+import { lookupSchool } from "@/lib/school-lookup";
 
 function todayIsoDate(now = new Date()): string {
   return now.toISOString().slice(0, 10);
@@ -144,16 +145,31 @@ export async function POST(request: Request) {
     });
 
     try {
-      const programOptions = await fetchScorecardEngineeringPrograms(
+      const { options, coreOffers } = await fetchScorecardEngineeringBundle(
         scorecard.unitId,
         school.id,
       );
       school = await updateSchool(school.id, {
-        programOptions,
+        programOptions: options,
         programOptionsCheckedDate: todayIsoDate(),
+        ...(coreOffers.mechanicalEngineering
+          ? { mechanicalEngineering: coreOffers.mechanicalEngineering }
+          : {}),
+        ...(coreOffers.materials ? { materials: coreOffers.materials } : {}),
+        ...(coreOffers.aerospaceEngineering
+          ? { aerospaceEngineering: coreOffers.aerospaceEngineering }
+          : {}),
       });
     } catch (error) {
       console.error("Scorecard engineering programs lookup failed", error);
+    }
+
+    // Web search fills essays / recs / deadlines / Partial program notes Scorecard cannot see.
+    try {
+      const lookup = await lookupSchool(school.name);
+      school = await applySchoolFacts(school.id, lookup.facts, { onlyBlank: true });
+    } catch (error) {
+      console.error("School web lookup failed", error);
     }
 
     let driveStatus: "ready" | "pending" | "failed" = "pending";
