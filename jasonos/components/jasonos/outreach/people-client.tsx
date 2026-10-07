@@ -73,7 +73,7 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
   const [activeFilters, setActiveFilters] = useState<Set<RelFilter>>(
     () => new Set()
   );
-  const [sort, setSort] = useState<PeopleSortKey>("relevance");
+  const [sort, setSort] = useState<PeopleSortKey>("added");
   const [modalTarget, setModalTarget] = useState<OutreachPerson | null>(null);
 
   const clearFirmFilter = () => {
