@@ -203,10 +203,12 @@ export const SOURCE_REGISTRY: DataSourceDef[] = [
     id: "ai-gateway",
     type: "platform",
     name: "Vercel AI Gateway",
-    subtitle: "ingest extraction, school lookup",
+    subtitle: "ingest, school lookup, activity icons",
     feeds: ["ingest", "schools"],
     provider: "Vercel",
     docsUrl: "https://vercel.com/docs/ai-gateway",
+    notes:
+      "Runs three jobs: Ingest to-do/calendar extraction, Add-school web lookup (with Perplexity), and activity icon suggestions. Model is chosen here. Family still reviews every extracted row and school fact before trusting it.",
     env: GATEWAY_ENV,
     testable: true,
   },
@@ -278,7 +280,7 @@ export const SOURCE_REGISTRY: DataSourceDef[] = [
     provider: "Perplexity",
     docsUrl: "https://docs.perplexity.ai",
     notes:
-      "Runs as an AI Gateway tool (gateway.tools.perplexitySearch). No key of its own and no Test connection — every call is billed. Status comes from recorded real calls.",
+      "Used only when adding a school: the AI Gateway model calls perplexity_search for public admissions facts. No key of its own and no Test connection — every call is billed. Status comes from recorded real calls. Does not replace College Scorecard for federal stats.",
     env: { notNeeded: true },
     testable: false,
   },

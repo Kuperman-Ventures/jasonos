@@ -13,6 +13,7 @@ import {
 } from "@/lib/data-sources-view";
 import { useViewportMode } from "@/lib/use-viewport-mode";
 import { DataSourceDrawer } from "./DataSourceDrawer";
+import { DataSourcesAiPanel } from "./DataSourcesAiPanel";
 import { DataSourcesDiagram } from "./DataSourcesDiagram";
 import { DataSourcesList } from "./DataSourcesList";
 
@@ -160,8 +161,15 @@ export function DataSourcesTab() {
         <p className="ds-blurb">
           Where every number in the app comes from: live APIs, dated snapshots checked into the repo, link-outs,
           and the calendar feed we send out. Pick a feature to see what feeds it; click any source for details.
+          The AI section below lists the three places a model runs, and what still needs a human.
         </p>
       </header>
+
+      <DataSourcesAiPanel
+        selectedId={selectedId}
+        onSelect={setSelectedId}
+        onFeature={setFeature}
+      />
 
       <div className="ds-controls">
         <div className="ds-view-toggle" role="group" aria-label="View">

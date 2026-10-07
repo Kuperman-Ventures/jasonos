@@ -202,3 +202,53 @@ export function feedsLabel(source: DataSource): string {
   if (source.feeds.length === FEATURES.length) return "All features";
   return source.feeds.map((f) => FEATURE_LABELS[f]).join(", ");
 }
+
+/** Where generative AI runs in the college tracker, mapped to Data Sources nodes. */
+export type AiWorkflowUse = {
+  id: string;
+  title: string;
+  where: string;
+  how: string;
+  review: string;
+  /** Feature chip to highlight, if any. */
+  feature: Feature | null;
+  /** Source ids on this page (ai-gateway, perplexity, …). */
+  sourceIds: string[];
+};
+
+export const AI_WORKFLOW_USES: AiWorkflowUse[] = [
+  {
+    id: "ingest-extract",
+    title: "Ingest extraction",
+    where: "Project Management › Ingest → Find to-dos / calendar events",
+    how: "A model reads the pasted text, PDF, email, or rich-text note and proposes concrete to-dos and calendar events as structured rows.",
+    review: "Nothing is saved until you keep, edit, or skip each row.",
+    feature: "ingest",
+    sourceIds: ["ai-gateway"],
+  },
+  {
+    id: "school-lookup",
+    title: "Add-school lookup",
+    where: "College List › Add school",
+    how: "A model calls Perplexity search to fill public admissions facts (platform, essays, recommendations, majors, deadlines). Federal stats still come from College Scorecard and dated snapshots — not from the model inventing numbers.",
+    review: "Facts land on the school record for the family to edit. The prompt forbids inventing dates or counts.",
+    feature: "schools",
+    sourceIds: ["ai-gateway", "perplexity", "college-scorecard"],
+  },
+  {
+    id: "activity-icon",
+    title: "Activity icons",
+    where: "Activities › new activity without an icon",
+    how: "A short model call picks a Phosphor icon from a fixed allowlist. Keyword rules cover common names if the gateway is down.",
+    review: "Cosmetic only. You can change the icon anytime.",
+    feature: null,
+    sourceIds: ["ai-gateway"],
+  },
+];
+
+export const AI_WORKFLOW_BOUNDARIES = [
+  "AI does not score admit chances, rank schools, or decide where to apply.",
+  "AI does not submit applications, pay fees, or send email for you.",
+  "Live APIs, dated snapshots, and link-outs still own the numbers on Finances and Requirements.",
+  "Prompt text (document contents, school names, activity titles) goes to the selected model through Vercel AI Gateway for that call only.",
+] as const;
