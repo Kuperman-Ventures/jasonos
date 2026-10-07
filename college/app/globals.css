@@ -7999,25 +7999,52 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
 .ds-ai {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-  padding: 18px 0 4px;
+  gap: 0;
   border-top: 1px solid var(--color-border, color-mix(in srgb, var(--color-text) 12%, transparent));
   border-bottom: 1px solid var(--color-border, color-mix(in srgb, var(--color-text) 12%, transparent));
 }
-.ds-ai-head {
+.ds-ai-toggle {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-width: 78ch;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 0;
+  text-align: left;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
 }
-.ds-ai-head h3 {
-  margin: 0;
-  font-size: 18px;
+.ds-ai-toggle:hover .ds-ai-toggle-title {
+  color: var(--text-accent);
+}
+.ds-ai-toggle-copy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 14px;
+  min-width: 0;
+}
+.ds-ai-toggle-title {
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
-.ds-ai-head p {
+.ds-ai-toggle-meta {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--text-subtle);
+}
+.ds-ai-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: 0 0 16px;
+}
+.ds-ai-lede {
   margin: 0;
+  max-width: 78ch;
   font-size: 14px;
   line-height: 1.5;
   color: var(--text-muted);
@@ -8095,9 +8122,47 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   line-height: 1.45;
   color: var(--text-muted);
 }
+.ds-ai-mark {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 16px;
+  padding: 0 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  color: var(--text-on-tint);
+  background: var(--color-accent-tint);
+  border: 1px solid var(--color-accent-border, color-mix(in srgb, var(--color-accent) 40%, transparent));
+  border-radius: 2px;
+}
+.ds-ai-caption {
+  position: absolute;
+  left: 535px;
+  right: 290px;
+  bottom: 18px;
+  z-index: 2;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--color-text);
+  background: var(--color-raised, var(--color-surface));
+  border: 1px solid var(--color-accent-border, color-mix(in srgb, var(--color-accent) 40%, transparent));
+  border-left: 3px solid var(--color-accent);
+  border-radius: 2px;
+  text-wrap: pretty;
+  pointer-events: none;
+}
 @media (max-width: 720px) {
   .ds-ai-row {
     padding: 12px 12px;
+  }
+  .ds-ai-caption {
+    left: 12px;
+    right: 12px;
   }
 }
 .ds-controls {
@@ -8254,6 +8319,10 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
   stroke: var(--color-accent);
   stroke-width: 2;
 }
+.ds-line.is-on.is-ai {
+  stroke: var(--color-accent);
+  stroke-width: 2.25;
+}
 .ds-platform-row {
   position: absolute;
   top: 0;
@@ -8312,6 +8381,9 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
 .ds-node.is-selected {
   background: var(--color-accent-tint);
   border-color: var(--color-accent);
+}
+.ds-node.is-ai:not(.is-dim) {
+  box-shadow: inset 3px 0 0 var(--color-accent);
 }
 .ds-node-name {
   flex: 1;
@@ -8386,6 +8458,9 @@ table.schools tbody tr.archived-row td { opacity: 0.62; }
 .ds-chip:hover,
 .ds-chip.is-lit {
   border-color: var(--color-accent);
+}
+.ds-chip.is-ai:not(.is-faded) {
+  box-shadow: inset 3px 0 0 var(--color-accent);
 }
 .ds-chip.is-on {
   color: var(--text-on-tint);

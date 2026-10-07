@@ -161,7 +161,7 @@ export function DataSourcesTab() {
         <p className="ds-blurb">
           Where every number in the app comes from: live APIs, dated snapshots checked into the repo, link-outs,
           and the calendar feed we send out. Pick a feature to see what feeds it; click any source for details.
-          The AI section below lists the three places a model runs, and what still needs a human.
+          AI paths are marked on the diagram; expand Where AI is used for the full how and review notes.
         </p>
       </header>
 
@@ -220,6 +220,12 @@ export function DataSourcesTab() {
             {row.label}
           </span>
         ))}
+        <span>
+          <span className="ds-ai-mark" aria-hidden="true">
+            AI
+          </span>
+          Model path (Gateway or Perplexity)
+        </span>
       </div>
 
       {notice ? <p className="ds-notice">{notice}</p> : null}

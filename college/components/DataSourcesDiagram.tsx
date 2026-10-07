@@ -6,9 +6,12 @@ import {
   DIAGRAM_HEIGHT,
   DIAGRAM_WIDTH,
   FEATURES,
+  aiDiagramCaption,
   chipY,
   diagramLines,
   diagramPositions,
+  featureUsesAi,
+  isAiSource,
   nodeMeta,
   statusTone,
   worstStatus,
@@ -59,6 +62,10 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
   const emphasizeFeature = hoverFeature ?? feature;
   const anyOn = Boolean(active || emphasizeFeature);
   const now = new Date();
+  const caption = aiDiagramCaption({
+    sourceId: activeSource && isAiSource(activeSource.id) ? activeSource.id : null,
+    feature: emphasizeFeature && featureUsesAi(emphasizeFeature) ? emphasizeFeature : null,
+  });
 
   function nodeState(s: DataSource) {
     const dim =
@@ -77,6 +84,7 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
       st.dim ? "is-dim" : "",
       st.highlighted ? "is-highlighted" : "",
       st.selected ? "is-selected" : "",
+      isAiSource(s.id) ? "is-ai" : "",
     ]
       .filter(Boolean)
       .join(" ");
@@ -90,6 +98,9 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
   });
 
   const platformOn = activeSource?.type === "platform";
+  const aiLineOn =
+    Boolean(activeSource && isAiSource(activeSource.id)) ||
+    Boolean(emphasizeFeature && featureUsesAi(emphasizeFeature));
 
   return (
     <div ref={wrapRef} className="ds-diagram-wrap" style={{ height: DIAGRAM_HEIGHT * scale }}>
@@ -111,18 +122,29 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
               (emphasizeFeature != null &&
                 emphasizeFeature === line.feature &&
                 matches(source));
+            const aiEdge = isAiSource(line.sourceId);
             const opacity = on ? 1 : anyOn ? 0.12 : matches(source) ? 0.45 : 0.12;
             return (
               <path
                 key={line.key}
                 d={line.d}
-                className={on ? "ds-line is-on" : "ds-line"}
-                strokeDasharray={line.dashed ? "4 4" : undefined}
+                className={[
+                  "ds-line",
+                  on ? "is-on" : "",
+                  aiEdge && on ? "is-ai" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                strokeDasharray={line.dashed ? "4 4" : aiEdge && on ? "5 4" : undefined}
                 opacity={opacity}
               />
             );
           })}
-          <path d="M660 56 L660 110" className={platformOn ? "ds-line is-on" : "ds-line"} opacity={platformOn ? 1 : 0.45} />
+          <path
+            d="M660 56 L660 110"
+            className={platformOn || aiLineOn ? "ds-line is-on" : "ds-line"}
+            opacity={platformOn || aiLineOn ? 1 : 0.45}
+          />
         </svg>
 
         <div className="ds-platform-row">
@@ -137,6 +159,11 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
             >
               <span className={`ds-dot ds-dot--${statusTone(s.status)}`} aria-hidden="true" />
               <span className="ds-node-name">{s.name}</span>
+              {isAiSource(s.id) ? (
+                <span className="ds-ai-mark" title="Uses a model">
+                  AI
+                </span>
+              ) : null}
               {s.subtitle ? <span className="ds-node-sub">{s.subtitle}</span> : null}
               <span className="sr-only">{s.statusLabel}</span>
             </button>
@@ -163,12 +190,19 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
               hoverFeature === f.id ||
               Boolean(activeSource?.feeds.includes(f.id));
             const faded = emphasizeFeature != null && emphasizeFeature !== f.id;
+            const usesAi = featureUsesAi(f.id);
             return (
               <button
                 key={f.id}
                 type="button"
                 aria-pressed={selected}
-                className={["ds-chip", selected ? "is-on" : "", lit ? "is-lit" : "", faded ? "is-faded" : ""]
+                className={[
+                  "ds-chip",
+                  selected ? "is-on" : "",
+                  lit ? "is-lit" : "",
+                  faded ? "is-faded" : "",
+                  usesAi ? "is-ai" : "",
+                ]
                   .filter(Boolean)
                   .join(" ")}
                 style={{ top: chipY(i) - APP_COLUMN_TOP }}
@@ -184,6 +218,11 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
               >
                 <span className={`ds-dot ds-dot--${statusTone(worstStatus(feeding))}`} aria-hidden="true" />
                 <span className="ds-chip-name">{f.name}</span>
+                {usesAi ? (
+                  <span className="ds-ai-mark" title="Feature uses a model">
+                    AI
+                  </span>
+                ) : null}
                 <span className="ds-chip-count">{feeding.length}</span>
               </button>
             );
@@ -201,15 +240,26 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
                 className={nodeClass("ds-node", s)}
                 style={{ left: p.x, top: p.y, width: p.w }}
                 onClick={() => onSelect(s.id)}
-                title={`${s.name}: ${s.statusLabel}`}
+                title={`${s.name}: ${s.statusLabel}${isAiSource(s.id) ? " · AI" : ""}`}
                 {...hoverProps(s.id)}
               >
                 <span className={`ds-dot ds-dot--${statusTone(s.status)}`} aria-hidden="true" />
                 <span className="ds-node-name">{s.name}</span>
+                {isAiSource(s.id) ? (
+                  <span className="ds-ai-mark" title="Uses a model">
+                    AI
+                  </span>
+                ) : null}
                 <span className="ds-node-meta">{nodeMeta(s, now)}</span>
               </button>
             );
           })}
+
+        {caption ? (
+          <div className="ds-ai-caption" role="status">
+            {caption}
+          </div>
+        ) : null}
       </div>
     </div>
   );

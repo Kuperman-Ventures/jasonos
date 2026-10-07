@@ -1,11 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  AI_MODEL_SOURCE_IDS,
   AI_WORKFLOW_BOUNDARIES,
   AI_WORKFLOW_USES,
+  DS_FILTERS,
   FEATURES,
+  aiDiagramCaption,
+  featureUsesAi,
+  isAiSource,
+  matchesFilter,
 } from "./data-sources-view";
-import { SOURCE_REGISTRY } from "./data-sources";
+import { SOURCE_REGISTRY, type DataSource } from "./data-sources";
 
 test("AI_WORKFLOW_USES covers ingest, school lookup, and activity icons", () => {
   assert.deepEqual(
@@ -50,4 +56,28 @@ test("ai-gateway notes name the three jobs", () => {
   assert.match(gateway.notes ?? "", /Ingest/i);
   assert.match(gateway.notes ?? "", /Add-school/i);
   assert.match(gateway.notes ?? "", /activity icon/i);
+});
+
+test("AI model sources and feature tags for the diagram", () => {
+  assert.deepEqual([...AI_MODEL_SOURCE_IDS].sort(), ["ai-gateway", "perplexity"]);
+  assert.equal(isAiSource("ai-gateway"), true);
+  assert.equal(isAiSource("college-scorecard"), false);
+  assert.equal(featureUsesAi("ingest"), true);
+  assert.equal(featureUsesAi("schools"), true);
+  assert.equal(featureUsesAi("finances"), false);
+});
+
+test("AI filter keeps only Gateway and Perplexity", () => {
+  assert.ok(DS_FILTERS.includes("AI"));
+  const gateway = { id: "ai-gateway", type: "platform" } as DataSource;
+  const scorecard = { id: "college-scorecard", type: "live" } as DataSource;
+  assert.equal(matchesFilter(gateway, "AI"), true);
+  assert.equal(matchesFilter(scorecard, "AI"), false);
+});
+
+test("aiDiagramCaption names the active AI job", () => {
+  assert.match(aiDiagramCaption({ sourceId: "ai-gateway" }) ?? "", /AI ·/);
+  assert.match(aiDiagramCaption({ feature: "ingest" }) ?? "", /Ingest extraction/);
+  assert.equal(aiDiagramCaption({ sourceId: "supabase" }), null);
+  assert.equal(aiDiagramCaption({ feature: "finances" }), null);
 });

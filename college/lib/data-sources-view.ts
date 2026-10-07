@@ -82,7 +82,7 @@ export function worstStatus(sources: DataSource[]): Status {
   return worst;
 }
 
-export const DS_FILTERS = ["All", "Live", "Snapshot", "Link-out", "Outbound", "Needs attention"] as const;
+export const DS_FILTERS = ["All", "Live", "Snapshot", "Link-out", "Outbound", "AI", "Needs attention"] as const;
 export type DsFilter = (typeof DS_FILTERS)[number];
 
 export function matchesFilter(source: DataSource, filter: DsFilter): boolean {
@@ -97,6 +97,8 @@ export function matchesFilter(source: DataSource, filter: DsFilter): boolean {
       return source.type === "linkout";
     case "Outbound":
       return source.type === "outbound";
+    case "AI":
+      return isAiSource(source.id);
     default:
       return needsAttention(source);
   }
@@ -252,3 +254,44 @@ export const AI_WORKFLOW_BOUNDARIES = [
   "Live APIs, dated snapshots, and link-outs still own the numbers on Finances and Requirements.",
   "Prompt text (document contents, school names, activity titles) goes to the selected model through Vercel AI Gateway for that call only.",
 ] as const;
+
+/** Sources that are themselves AI (Gateway + Perplexity tool). Scorecard is listed on school-lookup as companion data, not AI. */
+export const AI_MODEL_SOURCE_IDS = new Set(["ai-gateway", "perplexity"]);
+
+export function isAiSource(sourceId: string): boolean {
+  return AI_MODEL_SOURCE_IDS.has(sourceId);
+}
+
+export function featureUsesAi(feature: Feature): boolean {
+  return AI_WORKFLOW_USES.some((use) => use.feature === feature);
+}
+
+export function aiUsesForSource(sourceId: string): AiWorkflowUse[] {
+  return AI_WORKFLOW_USES.filter((use) => use.sourceIds.includes(sourceId));
+}
+
+export function aiUsesForFeature(feature: Feature): AiWorkflowUse[] {
+  return AI_WORKFLOW_USES.filter((use) => use.feature === feature);
+}
+
+/** Short caption when an AI path is selected or hovered on the diagram. */
+export function aiDiagramCaption(input: {
+  sourceId?: string | null;
+  feature?: Feature | null;
+}): string | null {
+  const fromSource = input.sourceId ? aiUsesForSource(input.sourceId) : [];
+  const fromFeature = input.feature ? aiUsesForFeature(input.feature) : [];
+  const uses =
+    fromSource.length > 0
+      ? fromSource
+      : fromFeature.length > 0
+        ? fromFeature
+        : [];
+  if (!uses.length) return null;
+  const titles = [...new Set(uses.map((use) => use.title))];
+  if (titles.length === 1) {
+    const use = uses[0]!;
+    return `AI · ${use.title} — ${use.review}`;
+  }
+  return `AI · ${titles.join(" · ")}`;
+}
