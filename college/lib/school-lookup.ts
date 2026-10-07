@@ -49,8 +49,17 @@ function collectSources(result: {
   return out;
 }
 
+function isPerplexityToolName(name: string | undefined): boolean {
+  return name === "perplexity_search" || name === "gateway.perplexity_search";
+}
+
 /** Perplexity result for a finished run: null when the model never called the search tool. */
-export function perplexityOutcome(steps: ReadonlyArray<{ content?: ReadonlyArray<unknown> }>): {
+export function perplexityOutcome(
+  steps: ReadonlyArray<{
+    content?: ReadonlyArray<unknown>;
+    toolResults?: ReadonlyArray<{ toolName?: string; output?: unknown; type?: string }>;
+  }>,
+): {
   ok: boolean;
   error?: string;
 } | null {
@@ -58,12 +67,20 @@ export function perplexityOutcome(steps: ReadonlyArray<{ content?: ReadonlyArray
   for (const step of steps) {
     for (const part of step.content ?? []) {
       const row = part as { type?: string; toolName?: string; error?: unknown };
-      if (row.toolName !== "perplexity_search") continue;
+      if (!isPerplexityToolName(row.toolName)) continue;
       if (row.type === "tool-error") {
         const error = row.error instanceof Error ? row.error.message : String(row.error ?? "Search tool failed");
         return { ok: false, error };
       }
       if (row.type === "tool-result") called = true;
+    }
+    for (const tool of step.toolResults ?? []) {
+      if (!isPerplexityToolName(tool.toolName)) continue;
+      const output = tool.output as { error?: string; message?: string } | undefined;
+      if (output && typeof output === "object" && typeof output.error === "string") {
+        return { ok: false, error: output.message || output.error };
+      }
+      called = true;
     }
   }
   return called ? { ok: true } : null;
@@ -97,18 +114,23 @@ async function searchWeb(
             searchLanguageFilter: ["en"],
           }),
         },
+        // Step 0 must call Perplexity; later steps answer from those results only.
+        prepareStep: ({ stepNumber }) =>
+          stepNumber === 0
+            ? { toolChoice: { type: "tool" as const, toolName: "perplexity_search" as const } }
+            : { toolChoice: "none" as const },
         stopWhen: stepCountIs(6),
         maxOutputTokens: 1400,
         system: `You fill a college record from web search only. Use the perplexity_search tool. Never invent a number, date, major, or requirement. If a fact is not in the search results, use an empty string.
 
 Return ONLY JSON:
-{"officialName":"","location":"","campusSetting":"","mechanicalEngineering":"","materials":"","materialsOffering":"","testPolicy":"","applicationPlatform":"","requiredEssays":"","teacherRecs":"","meritAidNotes":"","deadlines":[{"title":"","dueDate":""}]}
+{"officialName":"","location":"","campusSetting":"","mechanicalEngineering":"","materials":"","materialsOffering":"","aerospaceEngineering":"","testPolicy":"","applicationPlatform":"","requiredEssays":"","teacherRecs":"","meritAidNotes":"","deadlines":[{"title":"","dueDate":""}]}
 
-mechanicalEngineering and materials are Yes, Partial, No, or "". Yes only if a result says that undergraduate major is offered standalone. Partial if only a concentration, track, minor, or certificate exists. No only if a result says it is not offered.
+mechanicalEngineering, materials, and aerospaceEngineering are Yes, Partial, No, or "". Yes only if a result says that undergraduate major is offered standalone. Partial if only a concentration, track, minor, or certificate exists. No only if a result says it is not offered.
 campusSetting is one of Urban, Suburban, Small city, College town, Small town, or "".
 dueDate is YYYY-MM-DD only when the result states that exact date, including the year. If the year is missing, put the month and day in the title and leave dueDate empty.
 Do not include SAT scores, admit rates, or prices. Do not choose a plan for the family.`,
-        prompt: `Look up undergraduate admissions facts for ${name}. Kyle is a junior at Columbia High School in Maplewood, NJ, interested in mechanical engineering and materials, enrolling in fall 2028. Find the application platform, required essays, teacher recommendation count, whether mechanical engineering and materials are offered, merit scholarships that are publicly described, and application deadline dates.`,
+        prompt: `Look up undergraduate admissions facts for ${name}. Kyle is a junior at Columbia High School in Maplewood, NJ, interested in mechanical engineering, materials, and aerospace, enrolling in fall 2028. Find the application platform, required essays, teacher recommendation count, whether mechanical engineering, materials, and aerospace are offered, merit scholarships that are publicly described, and application deadline dates.`,
       }));
       const searchOutcome = perplexityOutcome(result.steps ?? []);
       if (searchOutcome) {
@@ -124,6 +146,7 @@ Do not include SAT scores, admit rates, or prices. Do not choose a plan for the 
           facts.teacherRecs ||
           facts.mechanicalEngineering ||
           facts.materials ||
+          facts.aerospaceEngineering ||
           facts.deadlines.length ||
           facts.meritAidNotes ||
           facts.testPolicy,

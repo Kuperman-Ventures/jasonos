@@ -80,4 +80,20 @@ test("perplexityOutcome: null when not called, error on tool-error, ok on result
     ]),
     { ok: false, error: "429 quota" },
   );
+  assert.deepEqual(
+    perplexityOutcome([
+      { toolResults: [{ toolName: "gateway.perplexity_search", output: { results: [], id: "x" } }] },
+    ]),
+    { ok: true },
+  );
+  assert.deepEqual(
+    perplexityOutcome([
+      {
+        toolResults: [
+          { toolName: "gateway.perplexity_search", output: { error: "rate_limit", message: "slow down" } },
+        ],
+      },
+    ]),
+    { ok: false, error: "slow down" },
+  );
 });

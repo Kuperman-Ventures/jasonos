@@ -634,6 +634,7 @@ export async function applySchoolFacts(
     ["mechanicalEngineering", "mechanicalEngineering"],
     ["materials", "materials"],
     ["materialsOffering", "materialsOffering"],
+    ["aerospaceEngineering", "aerospaceEngineering"],
     ["admissionsContext", "admissionsContext"],
     ["satContext", "satContext"],
     ["testPolicy", "testPolicy"],
