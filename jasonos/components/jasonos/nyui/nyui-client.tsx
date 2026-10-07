@@ -640,8 +640,12 @@ function buildLedgerHtml(
     ? `Jason Kuperman · Work Search ID: ${workSearchId}`
     : "Jason Kuperman";
 
+  // Chrome "Save as PDF" uses <title> as the default filename — include the
+  // claim period so downloads are distinguishable (e.g. …_2026-09-07_to_2026-09-13).
+  const pdfTitle = `NYS DOL Work Search Ledger ${startDate} to ${endDate}`;
+
   return `<!doctype html><html lang="en"><head><meta charset="utf-8" />
-    <title>NYS DOL Work Search Ledger</title>
+    <title>${escHtml(pdfTitle)}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
