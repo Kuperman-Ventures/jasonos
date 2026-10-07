@@ -103,11 +103,17 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
     Boolean(emphasizeFeature && featureUsesAi(emphasizeFeature));
 
   return (
-    <div ref={wrapRef} className="ds-diagram-wrap" style={{ height: DIAGRAM_HEIGHT * scale }}>
-      <div
-        className="ds-diagram"
-        style={{ width: DIAGRAM_WIDTH, height: DIAGRAM_HEIGHT, transform: `scale(${scale})` }}
-      >
+    <div className="ds-diagram-block">
+      {caption ? (
+        <div className="ds-ai-caption" role="status">
+          {caption}
+        </div>
+      ) : null}
+      <div ref={wrapRef} className="ds-diagram-wrap" style={{ height: DIAGRAM_HEIGHT * scale }}>
+        <div
+          className="ds-diagram"
+          style={{ width: DIAGRAM_WIDTH, height: DIAGRAM_HEIGHT, transform: `scale(${scale})` }}
+        >
         <svg
           className="ds-lines"
           width={DIAGRAM_WIDTH}
@@ -142,7 +148,13 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
           })}
           <path
             d="M660 56 L660 110"
-            className={platformOn || aiLineOn ? "ds-line is-on" : "ds-line"}
+            className={[
+              "ds-line",
+              platformOn || aiLineOn ? "is-on" : "",
+              aiLineOn ? "is-ai" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
             opacity={platformOn || aiLineOn ? 1 : 0.45}
           />
         </svg>
@@ -255,12 +267,8 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
             );
           })}
 
-        {caption ? (
-          <div className="ds-ai-caption" role="status">
-            {caption}
-          </div>
-        ) : null}
       </div>
+    </div>
     </div>
   );
 }

@@ -198,7 +198,13 @@ export function DataSourcesTab() {
               key={label}
               type="button"
               aria-pressed={filter === label}
-              className={filter === label ? "ds-filter is-on" : "ds-filter"}
+              className={[
+                "ds-filter",
+                filter === label ? "is-on" : "",
+                filter === label && label === "AI" ? "is-ai" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
               onClick={() => setFilter(label)}
             >
               {label}
