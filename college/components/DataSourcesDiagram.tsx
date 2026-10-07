@@ -104,11 +104,14 @@ export function DataSourcesDiagram({ sources, matches, feature, onFeature, selec
 
   return (
     <div className="ds-diagram-block">
-      {caption ? (
-        <div className="ds-ai-caption" role="status">
-          {caption}
-        </div>
-      ) : null}
+      {/* Always rendered so show/hide does not shift the diagram under the cursor. */}
+      <div
+        className={caption ? "ds-ai-caption" : "ds-ai-caption is-empty"}
+        role="status"
+        aria-hidden={!caption}
+      >
+        {caption || "\u00a0"}
+      </div>
       <div ref={wrapRef} className="ds-diagram-wrap" style={{ height: DIAGRAM_HEIGHT * scale }}>
         <div
           className="ds-diagram"

@@ -8157,6 +8157,8 @@ html[data-mode="dark"] .ds-page {
 }
 .ds-ai-caption {
   position: static;
+  box-sizing: border-box;
+  min-height: 3.4em;
   max-width: 78ch;
   padding: 10px 12px;
   font-size: 13px;
@@ -8167,6 +8169,10 @@ html[data-mode="dark"] .ds-page {
   border-left: 3px solid var(--ds-ai);
   border-radius: 2px;
   text-wrap: pretty;
+  pointer-events: none;
+}
+.ds-ai-caption.is-empty {
+  visibility: hidden;
 }
 @media (max-width: 720px) {
   .ds-ai-row {
