@@ -187,16 +187,39 @@ export function mergePeerFromParticipants(chat: BeeperMatchChat): {
     names.find(Boolean) ??
     title;
 
+  const titlePhone = title ? normalizePhone(title) : null;
   let phone: string | null = null;
-  for (const person of others) {
-    if (normalizePhone(person.phoneNumber)) {
-      phone = person.phoneNumber?.trim() || null;
-      break;
+  // Prefer the number that matches a phone-titled iMessage thread. When Beeper
+  // omits isSelf, "others" can include Jason's line first and we'd otherwise
+  // attach the wrong phone (Jeff stays unmatched).
+  if (titlePhone) {
+    for (const person of others) {
+      if (normalizePhone(person.phoneNumber) === titlePhone) {
+        phone = person.phoneNumber?.trim() || null;
+        break;
+      }
+      const labeled = person.fullName?.trim() || null;
+      if (
+        labeled &&
+        !looksLikePersonName(labeled) &&
+        normalizePhone(labeled) === titlePhone
+      ) {
+        phone = labeled;
+        break;
+      }
     }
-    const labeled = person.fullName?.trim() || null;
-    if (labeled && !looksLikePersonName(labeled) && normalizePhone(labeled)) {
-      phone = labeled;
-      break;
+  }
+  if (!phone) {
+    for (const person of others) {
+      if (normalizePhone(person.phoneNumber)) {
+        phone = person.phoneNumber?.trim() || null;
+        break;
+      }
+      const labeled = person.fullName?.trim() || null;
+      if (labeled && !looksLikePersonName(labeled) && normalizePhone(labeled)) {
+        phone = labeled;
+        break;
+      }
     }
   }
   if (!phone && title && !looksLikePersonName(title) && normalizePhone(title)) {

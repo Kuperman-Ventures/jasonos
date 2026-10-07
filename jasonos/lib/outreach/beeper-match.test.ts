@@ -171,6 +171,49 @@ describe("pickBeeperChatForContact", () => {
       "merged-jeff"
     );
   });
+
+  it("prefers the phone-titled iMessage over empty Matrix/WhatsApp name shells", () => {
+    const jeff = { name: "Jeff Wernecke", phone: "+1 917-617-0561" };
+    const matrixShell = {
+      id: "matrix-jeff",
+      type: "single",
+      network: "Beeper (Matrix)",
+      title: "Jeff Wernecke",
+      peerName: "Jeff Wernecke",
+      peerPhone: null,
+      participants: { total: 1, items: [{ isSelf: true }] },
+    };
+    const whatsappShell = {
+      id: "wa-jeff",
+      type: "single",
+      network: "WhatsApp",
+      title: "Jeffrey Wernecke",
+      peerName: "Jeffrey Wernecke",
+      peerPhone: "+19176170561",
+      participants: {
+        total: 2,
+        items: [
+          { fullName: "Jeffrey Wernecke", phoneNumber: "+19176170561" },
+          { isSelf: true },
+        ],
+      },
+    };
+    const imessageJeff = {
+      id: "im-jeff",
+      type: "single",
+      network: "iMessage",
+      title: "+1 917-617-0561",
+      peerName: "+1 917-617-0561",
+      peerPhone: "+19176170561",
+    };
+    assert.equal(
+      pickBeeperChatForContact(
+        [matrixShell, whatsappShell, imessageJeff],
+        jeff
+      )?.id,
+      "im-jeff"
+    );
+  });
 });
 
 describe("isPersonBeeperChat", () => {
@@ -233,6 +276,25 @@ describe("mergePeerFromParticipants", () => {
         name: "Jeff Wernecke",
         phone: "+1 917-617-0561",
         email: "jeff.wernecke@aclion.com",
+      }
+    );
+  });
+
+  it("prefers the phone-titled number when isSelf is missing and Jason's line is listed first", () => {
+    assert.deepEqual(
+      mergePeerFromParticipants({
+        title: "+1 917-617-0561",
+        participants: {
+          items: [
+            { phoneNumber: "+18624001149" },
+            { phoneNumber: "+19176170561" },
+          ],
+        },
+      }),
+      {
+        name: "+1 917-617-0561",
+        phone: "+19176170561",
+        email: null,
       }
     );
   });

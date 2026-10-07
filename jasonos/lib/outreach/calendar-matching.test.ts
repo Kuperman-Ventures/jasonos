@@ -118,6 +118,24 @@ describe("resolveBeeperPeer", () => {
       undefined
     );
   });
+
+  it("attaches Jeff when the chat title is his number even if peer.phone is Jason's line", () => {
+    const jeff = contact({
+      id: "jeff",
+      name: "Jeff Wernecke",
+      emails: ["jeff.wernecke@aclion.com"],
+      phone: "+1 917-617-0561",
+    });
+    const lookup = createContactLookup([david, jane, dara, jeff]);
+    assert.equal(
+      resolveBeeperPeer(lookup, {
+        name: "+1 917-617-0561",
+        phone: "+1 862-400-1149",
+        chatTitle: "+1 917-617-0561",
+      })?.id,
+      "jeff"
+    );
+  });
 });
 
 describe("matchCalendarEventToContacts", () => {

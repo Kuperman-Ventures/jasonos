@@ -4,6 +4,7 @@
 import {
   looksLikePersonName,
   normalizeName,
+  normalizePhone,
   preferPersonName,
   type ContactLookup,
   type ContactLookupRow,
@@ -72,6 +73,15 @@ export function resolveBeeperPeer(
   }
 ): ContactLookupRow | undefined {
   const preferredName = preferPersonName(peer.name, peer.chatTitle);
+  // iMessage 1:1s are often titled with the number. Try every phone-shaped
+  // label — peer.phone can be Jason's line when isSelf is missing.
+  const phoneLabels = [peer.phone, peer.chatTitle, peer.name];
+  for (const raw of phoneLabels) {
+    if (!normalizePhone(raw)) continue;
+    const hit = lookup.resolvePeer({ phone: raw });
+    if (hit) return hit;
+  }
+
   const byIdentity = lookup.resolvePeer({
     name: preferredName,
     phone: peer.phone,

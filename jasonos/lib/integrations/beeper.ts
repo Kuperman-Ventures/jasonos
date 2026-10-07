@@ -104,6 +104,11 @@ let cachedAccounts:
   | { at: number; accounts: BeeperAccount[] }
   | null = null;
 
+/** Reuse the recent-chat list across bulk sync + per-contact named lookups. */
+let cachedRecentChats:
+  | { at: number; dateAfter: string; limit: number; chats: BeeperChat[] }
+  | null = null;
+
 async function loadBeeperConnectionConfig(): Promise<BeeperConnectionConfig> {
   try {
     const { createPublicServiceRoleClient } = await import("@/lib/supabase/server");
@@ -327,6 +332,15 @@ async function searchRecentSingleChats(opts: {
   dateAfter: string;
   limit: number;
 }): Promise<BeeperChat[]> {
+  if (
+    cachedRecentChats &&
+    cachedRecentChats.dateAfter === opts.dateAfter &&
+    cachedRecentChats.limit >= opts.limit &&
+    Date.now() - cachedRecentChats.at < 90_000
+  ) {
+    return cachedRecentChats.chats.slice(0, opts.limit);
+  }
+
   const base = {
     lastActivityAfter: opts.dateAfter,
     limit: String(opts.limit),
@@ -344,23 +358,31 @@ async function searchRecentSingleChats(opts: {
       })
     ),
   ]);
-  const chats = mergeChats([singles, groups]);
-  if (chats.length) return chats;
-
-  // Fallback: list chats without activity filter.
-  const listRes = await beeperFetch(
-    `/v1/chats?${new URLSearchParams({
-      type: "any",
-      limit: String(opts.limit),
-    })}`,
-    { timeoutMs: 12_000 }
-  );
-  await throwIfAuthFailed(listRes);
-  if (!listRes.ok) {
-    throw new BeeperApiError(listRes.status, await readErrorDetail(listRes));
+  let chats = mergeChats([singles, groups]);
+  if (!chats.length) {
+    // Fallback: list chats without activity filter.
+    const listRes = await beeperFetch(
+      `/v1/chats?${new URLSearchParams({
+        type: "any",
+        limit: String(opts.limit),
+      })}`,
+      { timeoutMs: 12_000 }
+    );
+    await throwIfAuthFailed(listRes);
+    if (!listRes.ok) {
+      throw new BeeperApiError(listRes.status, await readErrorDetail(listRes));
+    }
+    const listBody = (await listRes.json()) as CursorPage<BeeperChat>;
+    chats = pageItems(listBody).filter(isPersonBeeperChat);
   }
-  const listBody = (await listRes.json()) as CursorPage<BeeperChat>;
-  return pageItems(listBody).filter(isPersonBeeperChat);
+
+  cachedRecentChats = {
+    at: Date.now(),
+    dateAfter: opts.dateAfter,
+    limit: opts.limit,
+    chats,
+  };
+  return chats;
 }
 
 async function listChatMessages(
@@ -760,15 +782,23 @@ async function findBeeperChatForContact(contact: {
   emails?: string[] | null;
 }): Promise<BeeperChat | undefined> {
   const matchContact = asBeeperMatchContact(contact);
-  const fromSearch = pickBeeperChatForContact(
-    (await searchChatsForContact(contact)).map(withMatchFields),
+  const after = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const [searched, merged, recent] = await Promise.all([
+    searchChatsForContact(contact),
+    resolveChatsViaMergedContacts(contact),
+    searchRecentSingleChats({ dateAfter: after, limit: 200 }),
+  ]);
+  // Prefer a chat that actually has recent messages over empty shells that
+  // only match the name (Matrix/WhatsApp leftovers for Jeff Wernecke).
+  const ranked = rankBeeperChatsForContact(
+    mergeChats([searched, merged, recent]).map(withMatchFields),
     matchContact
   );
-  if (fromSearch) return fromSearch;
-  return pickBeeperChatForContact(
-    (await resolveChatsViaMergedContacts(contact)).map(withMatchFields),
-    matchContact
-  );
+  for (const chat of ranked.slice(0, 6)) {
+    const messages = await listChatMessages(chat.id, 1);
+    if (messages.length) return chat;
+  }
+  return ranked[0];
 }
 
 function hrefsForContact(
@@ -791,6 +821,10 @@ function hrefsForContact(
  * chats (LinkedIn + iMessage as one conversation). Pull recent messages from
  * the first ranked 1:1 that actually has a timeline — leftover iMessage
  * shells after a merge often match the number but return no messages.
+ *
+ * Chat search frequently returns Matrix/WhatsApp shells with Jeff's name and
+ * zero messages, while the live iMessage thread is only in the recent list
+ * (titled `+1 917-…`). Fall back to that list when search/merged yield nothing.
  */
 export async function fetchBeeperTouchCandidatesForContact(
   contact: { name?: string | null; phone?: string | null; emails?: string[] | null },
@@ -849,9 +883,15 @@ export async function fetchBeeperTouchCandidatesForContact(
     return null;
   };
 
-  const fromSearch = await tryChats(await searchChatsForContact(contact));
-  if (fromSearch) return fromSearch;
-  return tryChats(await resolveChatsViaMergedContacts(contact));
+  // Search alone often returns empty Matrix/WhatsApp shells for Jeff while the
+  // live phone-titled iMessage only appears in the recent list. Merge pools so
+  // network ranking can prefer iMessage once a timeline exists.
+  const [searched, merged, recent] = await Promise.all([
+    searchChatsForContact(contact),
+    resolveChatsViaMergedContacts(contact),
+    searchRecentSingleChats({ dateAfter: afterIso, limit: 200 }),
+  ]);
+  return tryChats(mergeChats([searched, merged, recent]));
 }
 
 /**
