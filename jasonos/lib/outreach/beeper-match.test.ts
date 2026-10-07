@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  beeperChatActivityAfterMs,
   beeperPhoneSearchQueries,
   chatLabelsMatchContact,
   contactMatchesBeeperUser,
@@ -44,6 +45,25 @@ describe("hasFullPersonName", () => {
     assert.equal(hasFullPersonName("Jamie Valencour"), true);
     assert.equal(hasFullPersonName("Jamie"), false);
     assert.equal(hasFullPersonName("+1 864-270-7048"), false);
+  });
+});
+
+describe("beeperChatActivityAfterMs", () => {
+  it("keeps Jeff's iMessage when lastActivity is inside the sync window", () => {
+    const afterMs = Date.parse("2026-09-07T00:00:00.000Z");
+    assert.equal(
+      beeperChatActivityAfterMs(
+        { lastActivity: "2026-10-06T18:30:38.915Z" },
+        afterMs
+      ),
+      true
+    );
+  });
+
+  it("drops shells with no lastActivity so list-union does not re-add them", () => {
+    const afterMs = Date.parse("2026-09-07T00:00:00.000Z");
+    assert.equal(beeperChatActivityAfterMs({ lastActivity: null }, afterMs), false);
+    assert.equal(beeperChatActivityAfterMs({}, afterMs), false);
   });
 });
 
