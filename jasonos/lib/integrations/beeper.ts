@@ -14,6 +14,7 @@ import {
   preferPersonName,
 } from "@/lib/outreach/contact-lookup";
 import {
+  beeperChatActivityAfterMs,
   beeperPhoneSearchQueries,
   contactMatchesBeeperUser,
   isPersonBeeperChat,
@@ -328,6 +329,14 @@ function mergeChats(groups: BeeperChat[][]): BeeperChat[] {
   return [...byId.values()];
 }
 
+async function listChatsPage(qs: URLSearchParams): Promise<BeeperChat[]> {
+  const res = await beeperFetch(`/v1/chats?${qs}`, { timeoutMs: 12_000 });
+  await throwIfAuthFailed(res);
+  if (!res.ok) return [];
+  const body = (await res.json()) as CursorPage<BeeperChat>;
+  return pageItems(body).filter(isPersonBeeperChat);
+}
+
 async function searchRecentSingleChats(opts: {
   dateAfter: string;
   limit: number;
@@ -341,15 +350,18 @@ async function searchRecentSingleChats(opts: {
     return cachedRecentChats.chats.slice(0, opts.limit);
   }
 
+  const afterMs = Date.parse(opts.dateAfter);
   const base = {
     lastActivityAfter: opts.dateAfter,
     limit: String(opts.limit),
     includeMuted: "true",
   };
-  const [singles, groups] = await Promise.all([
-    searchChatsPage(
-      new URLSearchParams({ ...base, type: "single" })
-    ),
+  const listBase = {
+    limit: String(opts.limit),
+    includeMuted: "true",
+  };
+  const [singles, groups, listedSingles, listedGroups] = await Promise.all([
+    searchChatsPage(new URLSearchParams({ ...base, type: "single" })),
     searchChatsPage(
       new URLSearchParams({
         ...base,
@@ -357,23 +369,24 @@ async function searchRecentSingleChats(opts: {
         limit: String(Math.min(80, opts.limit)),
       })
     ),
+    listChatsPage(new URLSearchParams({ ...listBase, type: "single" })),
+    listChatsPage(
+      new URLSearchParams({
+        ...listBase,
+        type: "group",
+        limit: String(Math.min(80, opts.limit)),
+      })
+    ),
   ]);
-  let chats = mergeChats([singles, groups]);
+
+  // Search alone is incomplete for some iMessage 1:1s; always union /v1/chats.
+  const fromSearch = mergeChats([singles, groups]);
+  const fromList = mergeChats([listedSingles, listedGroups]).filter((chat) =>
+    Number.isFinite(afterMs) ? beeperChatActivityAfterMs(chat, afterMs) : true
+  );
+  let chats = mergeChats([fromSearch, fromList]);
   if (!chats.length) {
-    // Fallback: list chats without activity filter.
-    const listRes = await beeperFetch(
-      `/v1/chats?${new URLSearchParams({
-        type: "any",
-        limit: String(opts.limit),
-      })}`,
-      { timeoutMs: 12_000 }
-    );
-    await throwIfAuthFailed(listRes);
-    if (!listRes.ok) {
-      throw new BeeperApiError(listRes.status, await readErrorDetail(listRes));
-    }
-    const listBody = (await listRes.json()) as CursorPage<BeeperChat>;
-    chats = pageItems(listBody).filter(isPersonBeeperChat);
+    chats = mergeChats([listedSingles, listedGroups]);
   }
 
   cachedRecentChats = {

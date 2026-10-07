@@ -244,6 +244,20 @@ export function isPhoneOnlyChat(chat: BeeperMatchChat): boolean {
   );
 }
 
+/**
+ * Beeper `/v1/chats/search?lastActivityAfter=` often drops active iMessage
+ * threads that still appear on `/v1/chats` (Jeff · +1 917-617-0561). Sync
+ * unions the list for chats whose lastActivity is still in-window.
+ */
+export function beeperChatActivityAfterMs(
+  chat: { lastActivity?: string | null },
+  afterMs: number
+): boolean {
+  if (!chat.lastActivity) return false;
+  const ms = Date.parse(chat.lastActivity);
+  return Number.isFinite(ms) && ms >= afterMs;
+}
+
 /** Phone or an exact/contained person name on the chat labels. */
 export function chatLabelsMatchContact(
   chat: BeeperMatchChat,
