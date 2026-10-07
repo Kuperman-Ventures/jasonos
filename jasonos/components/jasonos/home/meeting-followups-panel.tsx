@@ -96,12 +96,16 @@ export function MeetingFollowupsPanel({ rows }: { rows: MeetingFollowup[] }) {
         type="button"
         onClick={toggleCollapsed}
         aria-expanded={!collapsed}
-        aria-label={collapsed ? "Expand Follow Up" : "Collapse Follow Up"}
+        aria-label={
+          collapsed ? "Expand Meeting follow-ups" : "Collapse Meeting follow-ups"
+        }
         className="w-full text-left"
       >
         <StatusBand rung={3}>
           <Calendar className="h-5 w-5" />
-          <h2 className="text-[17px] font-bold tracking-tight">Follow Up</h2>
+          <h2 className="text-[17px] font-bold tracking-tight">
+            Meeting follow-ups
+          </h2>
           <StatusPill rung={4} className="ml-auto">
             {visible.length}
           </StatusPill>
