@@ -12,6 +12,14 @@ import {
   formatActivityWhen,
   type ActivityEntry,
 } from "@/lib/activity-log";
+import {
+  FEEDBACK_STATUSES,
+  feedbackKindLabel,
+  feedbackStatusLabel,
+  formatFeedbackWhen,
+  type FeedbackStatus,
+  type SiteFeedback,
+} from "@/lib/site-feedback";
 
 type Overview = {
   members: AdminMemberRow[];
@@ -57,6 +65,19 @@ export function AdminTab({ dateline }: { dateline: string }) {
   const [notice, setNotice] = useState("");
   const [draftEmails, setDraftEmails] = useState<Record<string, string>>({});
   const [magicLinks, setMagicLinks] = useState<Record<string, string>>({});
+  const [feedback, setFeedback] = useState<SiteFeedback[]>([]);
+  const [feedbackBusyId, setFeedbackBusyId] = useState("");
+
+  const loadFeedback = useCallback(async () => {
+    try {
+      const response = await fetch("/api/feedback?scope=all");
+      const body = (await response.json()) as { items?: SiteFeedback[]; error?: string };
+      if (!response.ok) throw new Error(body.error || "Could not load feedback");
+      setFeedback(body.items ?? []);
+    } catch {
+      setFeedback([]);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -71,16 +92,39 @@ export function AdminTab({ dateline }: { dateline: string }) {
         emails[member.id] = member.email ?? "";
       }
       setDraftEmails(emails);
+      await loadFeedback();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load admin");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadFeedback]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function setFeedbackStatus(id: string, status: FeedbackStatus) {
+    setFeedbackBusyId(id);
+    setNotice("");
+    try {
+      const response = await fetch(`/api/feedback/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const body = (await response.json()) as { item?: SiteFeedback; error?: string };
+      if (!response.ok || !body.item) throw new Error(body.error || "Could not update feedback");
+      setFeedback((current) =>
+        current.map((row) => (row.id === id ? body.item! : row)),
+      );
+      setNotice(`Feedback marked ${feedbackStatusLabel(status)}.`);
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : "Could not update feedback");
+    } finally {
+      setFeedbackBusyId("");
+    }
+  }
 
   async function saveMember(memberId: string, patch: { email?: string; uiVisible?: boolean }) {
     setBusyId(memberId);
@@ -273,6 +317,59 @@ export function AdminTab({ dateline }: { dateline: string }) {
                 </tbody>
               </table>
             </div>
+          </section>
+
+          <section className="admin-section" aria-labelledby="admin-feedback-h">
+            <h3 id="admin-feedback-h">
+              Feedback{" "}
+              <span className="mono">
+                {feedback.filter((row) => row.status === "new").length} new
+              </span>
+            </h3>
+            <p className="section-sub">
+              Bugs, ideas, and questions from the household account menu. Set status so the
+              submitter can see progress.
+            </p>
+            {!feedback.length ? (
+              <p className="todo-empty">No feedback yet.</p>
+            ) : (
+              <ul className="feedback-admin-list">
+                {feedback.map((item) => (
+                  <li key={item.id}>
+                    <div className="feedback-list-meta">
+                      <strong>{item.memberName}</strong>
+                      <span className="feedback-pill">{feedbackKindLabel(item.kind)}</span>
+                      <span className={`feedback-status status-${item.status}`}>
+                        {feedbackStatusLabel(item.status)}
+                      </span>
+                      <span className="muted mono">{formatFeedbackWhen(item.createdAt)}</span>
+                    </div>
+                    <p>{item.body}</p>
+                    {(item.pageTab || item.schoolName) && (
+                      <p className="muted mono feedback-context">
+                        {[item.pageTab ? `Tab: ${item.pageTab}` : null, item.schoolName ? `School: ${item.schoolName}` : null]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                    )}
+                    <div className="feedback-admin-actions" role="group" aria-label="Set status">
+                      {FEEDBACK_STATUSES.map((status) => (
+                        <button
+                          key={status}
+                          type="button"
+                          className="btn btn-ghost"
+                          aria-pressed={item.status === status}
+                          disabled={feedbackBusyId === item.id || item.status === status}
+                          onClick={() => void setFeedbackStatus(item.id, status)}
+                        >
+                          {feedbackStatusLabel(status)}
+                        </button>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
           <section className="admin-section" aria-labelledby="admin-pulse-h">

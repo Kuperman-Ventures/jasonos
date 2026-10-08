@@ -9,6 +9,7 @@ import { ConsultantsTab } from "./ConsultantsTab";
 import { DashboardTab } from "./DashboardTab";
 import { FaqTab } from "./FaqTab";
 import { LeftRail } from "./LeftRail";
+import { FeedbackDialog } from "./FeedbackDialog";
 import { useViewportMode } from "@/lib/use-viewport-mode";
 import { LogTab } from "./LogTab";
 import { AdminTab } from "./AdminTab";
@@ -241,6 +242,7 @@ export function Portal({
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [calendarFocusDate, setCalendarFocusDate] = useState<string | null>(null);
   const [openNoteId, setOpenNoteId] = useState<string | null>(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [projectSteps, setProjectSteps] = useState<PersistedProjectStep[]>([]);
   const [ingestSources, setIngestSources] = useState<PersistedIngestSource[]>([]);
   const [ingestHandoff, setIngestHandoff] = useState<IngestHandoff | null>(null);
@@ -1532,12 +1534,24 @@ export function Portal({
             current.map((row) => (row.id === member.id ? { ...row, avatarUrl } : row)),
           );
         }}
+        onOpenFeedback={() => setFeedbackOpen(true)}
         schoolCount={schools.length}
         projectCount={phases.length}
         questionCount={appQuestions.essay.prompts.length}
         consultantCount={consultantFirms.length}
         faqCount={faqCount}
         testingCount={testingCount}
+      />
+      <FeedbackDialog
+        open={feedbackOpen}
+        onClose={() => setFeedbackOpen(false)}
+        page={{
+          tab,
+          schoolId,
+          schoolName: schoolId
+            ? schools.find((row) => row.id === schoolId)?.name ?? null
+            : null,
+        }}
       />
       <main className="main">
         {tab === "dashboard" ? (
