@@ -10,6 +10,16 @@
     "completedAt": null
   },
   {
+    "id": "college-list-s12",
+    "projectId": "college-list",
+    "name": "North East Visit List",
+    "start": "2026-09-26",
+    "end": "2026-10-16",
+    "phase": "Explore",
+    "isMilestone": false,
+    "completedAt": null
+  },
+  {
     "id": "college-list-s2",
     "projectId": "college-list",
     "name": "Build a long list of 25–30",

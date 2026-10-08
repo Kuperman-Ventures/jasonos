@@ -91,6 +91,19 @@ test("milestones are excluded from stage totals", () => {
   assert.equal(summary.total + milestones, list.length);
 });
 
+test("Explore includes North East Visit List before November visit decisions", () => {
+  const stage = stagesForProject("college-list").find(
+    (row) => row.id === "college-list-s12",
+  );
+  assert.ok(stage);
+  assert.equal(stage!.name, "North East Visit List");
+  assert.equal(stage!.phase, "Explore");
+  assert.equal(stage!.start, "2026-09-26");
+  assert.equal(stage!.end, "2026-10-16");
+  assert.equal(stageStatus(stage!, new Date(2026, 8, 26)), "now");
+  assert.equal(stageStatus(stage!, new Date(2026, 9, 20)), "overdue");
+});
+
 test("resolveProjectStages uses an edited to-do's dates and label", () => {
   const seed = stagesForProject("visits").find((row) => row.id === "visits-s1");
   assert.ok(seed);
