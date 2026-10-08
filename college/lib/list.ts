@@ -2,10 +2,12 @@ import type { Plan, School } from "./types";
 import { interestRank, planLabel, tierRank, trackLabel } from "./types";
 import { campusSettingRank } from "./campus-size";
 import { scoirNewJerseyPct } from "./scoir";
+import { parseSchoolLocation } from "./visit-planning";
 
 export type SortKey =
   | "list"
   | "name"
+  | "location"
   | "status"
   | "selectivity"
   | "interest"
@@ -18,6 +20,7 @@ export type SortKey =
 export const SORT_KEYS: readonly SortKey[] = [
   "list",
   "name",
+  "location",
   "status",
   "selectivity",
   "interest",
@@ -75,6 +78,23 @@ function dateValue(iso: string | null): number {
 
 export function compareSchools(a: School, b: School, sort: SortKey): number {
   if (sort === "name") return a.name.localeCompare(b.name);
+  if (sort === "location") {
+    const aLoc = parseSchoolLocation(a.location);
+    const bLoc = parseSchoolLocation(b.location);
+    const aState = aLoc.state.toUpperCase();
+    const bState = bLoc.state.toUpperCase();
+    if (!aState && !bState) {
+      return aLoc.city.localeCompare(bLoc.city) || a.listOrder - b.listOrder;
+    }
+    if (!aState) return 1;
+    if (!bState) return -1;
+    return (
+      aState.localeCompare(bState) ||
+      aLoc.city.localeCompare(bLoc.city) ||
+      a.name.localeCompare(b.name) ||
+      a.listOrder - b.listOrder
+    );
+  }
   if (sort === "interest") {
     const byInterest = interestRank(a.interestLevel) - interestRank(b.interestLevel);
     return byInterest || a.listOrder - b.listOrder;

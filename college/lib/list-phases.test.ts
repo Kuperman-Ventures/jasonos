@@ -263,9 +263,11 @@ test("listSortVisible hides sorts for off columns", () => {
   assert.equal(listSortVisible("list", cols), true);
   assert.equal(listSortVisible("name", cols), true);
   assert.equal(listSortVisible("selectivity", cols), true);
+  assert.equal(listSortVisible("location", cols), false);
   assert.equal(listSortVisible("size", cols), false);
   assert.equal(listSortVisible("drive", cols), false);
   assert.equal(listSortVisible("setting", cols), false);
+  assert.equal(listSortVisible("location", ["school", "location"]), true);
 });
 
 test("mergeListPrefs fills missing phases", () => {

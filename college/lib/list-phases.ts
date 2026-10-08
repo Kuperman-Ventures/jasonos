@@ -227,6 +227,7 @@ export function listFilterVisible(
 
 /** Sort keys tied to a column — hide the option when that column is off. */
 export const LIST_SORT_COLUMN: Partial<Record<string, ListColumnId>> = {
+  location: "location",
   drive: "travel",
   setting: "setting",
   size: "size",
