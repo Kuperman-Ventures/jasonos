@@ -65,10 +65,25 @@ export interface OutlookMessage {
   cc: string;
   subject: string | null;
   date: string;
-  snippet: string;
+  /** Graph sentDateTime. Empty when the message was never sent. */
+  sentAt: string | null;
   webLink: string | null;
   conversationId: string | null;
   internetMessageId: string | null;
+}
+
+/**
+ * Drafts and unsent outbound mail do not count as completed outreach.
+ * Inbound mail can arrive with only receivedDateTime.
+ */
+export function shouldCountOutlookMessage(msg: {
+  isDraft?: boolean | null;
+  sentDateTime?: string | null;
+  fromMe: boolean;
+}): boolean {
+  if (msg.isDraft) return false;
+  if (msg.fromMe && !msg.sentDateTime?.trim()) return false;
+  return true;
 }
 
 /**
@@ -184,6 +199,8 @@ export function mapGraphMessage(raw: GraphMessage): OutlookMessage | null {
   if (Number.isNaN(parsed.getTime())) return null;
   const from = formatGraphAddress(raw.from);
   if (!from) return null;
+  const sentRaw = raw.sentDateTime?.trim() || "";
+  const sentParsed = sentRaw ? new Date(sentRaw) : null;
   return {
     id: raw.id,
     from,
@@ -191,6 +208,10 @@ export function mapGraphMessage(raw: GraphMessage): OutlookMessage | null {
     cc: joinGraphAddresses(raw.ccRecipients),
     subject: raw.subject?.trim() || null,
     date: parsed.toISOString(),
+    sentAt:
+      sentParsed && !Number.isNaN(sentParsed.getTime())
+        ? sentParsed.toISOString()
+        : null,
     snippet: (raw.bodyPreview ?? "").replace(/\s+/g, " ").trim(),
     webLink: raw.webLink?.trim() || null,
     conversationId: raw.conversationId?.trim() || null,

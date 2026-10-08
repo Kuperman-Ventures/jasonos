@@ -148,7 +148,7 @@ async function getAssociatedActivities(
 
   const propertiesByType: Record<HubSpotActivity["type"], string[]> = {
     note: ["hs_note_body", "hs_timestamp"],
-    email: ["hs_email_subject", "hs_email_text", "hs_timestamp"],
+    email: ["hs_email_subject", "hs_email_text", "hs_email_status", "hs_timestamp"],
     call: ["hs_call_title", "hs_call_body", "hs_timestamp"],
     meeting: ["hs_meeting_title", "hs_meeting_body", "hs_timestamp"],
   };
@@ -163,16 +163,27 @@ async function getAssociatedActivities(
     }),
   });
 
-  return (batch.results ?? []).map((item) => {
+  return (batch.results ?? []).flatMap((item) => {
     const props = item.properties ?? {};
-    return {
-      id: item.id,
-      type,
-      createdAt: props.hs_timestamp,
-      subject: props.hs_email_subject ?? props.hs_call_title ?? props.hs_meeting_title,
-      body: props.hs_note_body ?? props.hs_email_text ?? props.hs_call_body ?? props.hs_meeting_body,
-    };
+    if (type === "email" && isUnsentHubSpotEmail(props.hs_email_status)) {
+      return [];
+    }
+    return [
+      {
+        id: item.id,
+        type,
+        createdAt: props.hs_timestamp,
+        subject: props.hs_email_subject ?? props.hs_call_title ?? props.hs_meeting_title,
+        body: props.hs_note_body ?? props.hs_email_text ?? props.hs_call_body ?? props.hs_meeting_body,
+      },
+    ];
   });
+}
+
+/** HubSpot drafts and queued sends are not completed outreach. */
+function isUnsentHubSpotEmail(status: string | undefined): boolean {
+  const value = (status ?? "").trim().toUpperCase();
+  return value === "DRAFT" || value === "SCHEDULED" || value === "SENDING";
 }
 
 function withHubSpotUrl(contact: HubSpotContact | null): HubSpotContact | null {

@@ -377,7 +377,7 @@ export async function listOutlookSentMailHits(opts?: {
     for (const message of messages.slice(0, max)) {
       if (message.isDraft) continue;
       const mapped = mapGraphMessage(message);
-      if (!mapped) continue;
+      if (!mapped?.sentAt) continue;
       const qualified = qualifySentMessage({
         subject: mapped.subject,
         to: mapped.to,
@@ -390,7 +390,7 @@ export async function listOutlookSentMailHits(opts?: {
         threadId,
         messageId: outlookTouchExternalId(mapped.id),
         subject: (mapped.subject ?? "").trim() || "(no subject)",
-        sentAt: mapped.date,
+        sentAt: mapped.sentAt,
         snippet: mapped.snippet.slice(0, 240),
         toLine: qualified.toLine,
         recipients: qualified.recipients,
@@ -488,14 +488,14 @@ export async function listOutlookSentRecipientTouches(opts?: {
     for (const message of messages.slice(0, max)) {
       if (message.isDraft) continue;
       const mapped = mapGraphMessage(message);
-      if (!mapped) continue;
+      if (!mapped?.sentAt) continue;
       const qualified = qualifySentMessage({
         subject: mapped.subject,
         to: mapped.to,
         cc: mapped.cc,
       });
       if (!qualified.ok) continue;
-      const sentAt = mapped.date;
+      const sentAt = mapped.sentAt;
       for (const recipient of qualified.recipients) {
         touches.push({ email: recipient.email, sentAt });
       }

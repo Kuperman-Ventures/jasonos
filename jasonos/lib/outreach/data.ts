@@ -8,6 +8,7 @@ import {
   createServiceRoleClient,
 } from "@/lib/supabase/server";
 import { daysBetweenYmd, etToday } from "@/lib/dates";
+import { purgeUnsentGmailTouches } from "@/lib/outreach/touch-capture";
 import { CADENCE_DAYS } from "@/lib/outreach/types";
 import type {
   CadenceInterval,
@@ -145,6 +146,12 @@ function inferFirmFromTags(tags: string[]): string | null {
 
 export async function getOutreachPeople(): Promise<OutreachPerson[]> {
   if (!hasServiceRole()) return [];
+
+  // Drop unsent Gmail drafts before last_touch is read, so a draft does
+  // not show up as completed outreach on People, Home, or the queue.
+  await purgeUnsentGmailTouches().catch((err) => {
+    console.error("[outreach.getOutreachPeople] draft purge failed", err);
+  });
 
   try {
     const sb = createServiceRoleClient();
