@@ -14,6 +14,7 @@ export function useSchoolPipeline() {
   const [loaded, setLoaded] = useState(false);
   const scorecardBackfillStarted = useRef(false);
   const commonAppBackfillStarted = useRef(false);
+  const catalogEnrichStarted = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,6 +93,48 @@ export function useSchoolPipeline() {
         if (next.schools?.length) setSchools(next.schools);
       } catch {
         // Common App backfill is best-effort; the list still loads without it.
+      }
+    }
+    void backfill();
+    return () => {
+      cancelled = true;
+    };
+  }, [loaded, persisted, schools]);
+
+  // Local catalogs (engineering programs, submissions, seed Yes/No, research flags).
+  // No web/Perplexity — add-school already ran that; this catches schools added before enrich.
+  useEffect(() => {
+    if (!loaded || !persisted || catalogEnrichStarted.current) return;
+    const needsCatalog = schools.some(
+      (school) =>
+        !school.archived &&
+        (!school.submissions ||
+          !school.submissionsCheckedDate?.trim() ||
+          !school.programOptions?.some((p) => p.source === "catalog") ||
+          !(school.researchCompleted?.length)),
+    );
+    if (!needsCatalog) return;
+    catalogEnrichStarted.current = true;
+    let cancelled = false;
+    async function backfill() {
+      try {
+        const response = await fetch("/api/schools/enrich", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ backfill: true, webLookup: false }),
+        });
+        if (!response.ok || cancelled) return;
+        const body = (await response.json()) as {
+          results?: Array<{ id: string; applied: string[] }>;
+        };
+        const hits = (body.results ?? []).filter((item) => item.applied.length > 0);
+        if (!hits.length) return;
+        const refresh = await fetch("/api/schools");
+        if (!refresh.ok || cancelled) return;
+        const next = (await refresh.json()) as { schools?: School[] };
+        if (next.schools?.length) setSchools(next.schools);
+      } catch {
+        // Catalog enrich is best-effort.
       }
     }
     void backfill();

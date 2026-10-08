@@ -6,14 +6,15 @@ import {
   getRateThatAppliesToKyle,
   getRegion,
 } from "@/lib/campus-size";
-import { applySchoolFacts, createSchool, listSchools, supabaseConfigured, updateSchool } from "@/lib/db";
+import { createSchool, listSchools, supabaseConfigured, updateSchool } from "@/lib/db";
 import { lookupMetro } from "@/lib/metro";
 import {
   fetchScorecardByUnitId,
   fetchScorecardEngineeringBundle,
   ScorecardUnsupportedError,
 } from "@/lib/scorecard";
-import { lookupSchool } from "@/lib/school-lookup";
+import { canonicalForUnitId } from "@/lib/school-canonical";
+import { enrichSchoolRecord } from "@/lib/school-enrich";
 
 function todayIsoDate(now = new Date()): string {
   return now.toISOString().slice(0, 10);
@@ -93,7 +94,10 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    const created = await createSchool(scorecard.name);
+    const canonical = canonicalForUnitId(scorecard.unitId);
+    const created = await createSchool(canonical?.name ?? scorecard.name, {
+      preferredId: canonical?.id,
+    });
     const state = stateFromLocation(scorecard.location);
     const kyleResidency = getKyleResidency(scorecard.control, state);
     const region = getRegion(state);
@@ -164,12 +168,13 @@ export async function POST(request: Request) {
       console.error("Scorecard engineering programs lookup failed", error);
     }
 
-    // Web search fills essays / recs / deadlines / Partial program notes Scorecard cannot see.
+    // Same catalogs + research pass existing schools got offline (Common App,
+    // engineering catalog, submissions, seed program fields, web lookup).
     try {
-      const lookup = await lookupSchool(school.name);
-      school = await applySchoolFacts(school.id, lookup.facts, { onlyBlank: true });
+      const enriched = await enrichSchoolRecord(school.id, { webLookup: true });
+      school = enriched.school;
     } catch (error) {
-      console.error("School web lookup failed", error);
+      console.error("School enrich failed", error);
     }
 
     let driveStatus: "ready" | "pending" | "failed" = "pending";

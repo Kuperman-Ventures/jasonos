@@ -364,12 +364,16 @@ export function slugify(name: string): string {
     .replace(/^-|-$/g, "");
 }
 
-export async function createSchool(name: string): Promise<School> {
+export async function createSchool(
+  name: string,
+  options?: { preferredId?: string },
+): Promise<School> {
   const trimmed = name.trim();
   if (!trimmed) throw new Error("School name is required");
+  const preferred = options?.preferredId?.trim() || "";
   if (!supabaseConfigured()) {
     return fromSeed({
-      id: slugify(trimmed) || "school",
+      id: preferred || slugify(trimmed) || "school",
       name: trimmed,
       location: "",
       campusSetting: "",
@@ -388,11 +392,18 @@ export async function createSchool(name: string): Promise<School> {
   const db = collegeDb();
   const { data: existing } = await db.from("schools").select("id, list_order");
   const ids = new Set((existing ?? []).map((row) => row.id as string));
-  let id = slugify(trimmed) || "school";
-  let n = 2;
-  while (ids.has(id)) {
-    id = `${slugify(trimmed) || "school"}-${n}`;
-    n += 1;
+  let id =
+    preferred && !ids.has(preferred)
+      ? preferred
+      : slugify(trimmed) || "school";
+  if (ids.has(id)) {
+    let n = 2;
+    const base = slugify(trimmed) || "school";
+    id = `${base}-${n}`;
+    while (ids.has(id)) {
+      n += 1;
+      id = `${base}-${n}`;
+    }
   }
   const listOrder =
     Math.max(0, ...(existing ?? []).map((row) => Number(row.list_order) || 0)) + 1;
