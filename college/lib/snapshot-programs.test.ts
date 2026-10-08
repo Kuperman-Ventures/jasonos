@@ -46,14 +46,14 @@ test("programsOfferedHeadline matches snapshot copy", () => {
   );
 });
 
-test("programsOfferedHeadline counts blank statuses as not checked", () => {
+test("programsOfferedHeadline counts blank statuses as undetermined", () => {
   assert.equal(
     programsOfferedHeadline([...CORE], {
       "Mechanical engineering": "yes",
       "Material sciences": "yes",
       "Aerospace engineering": null,
     }),
-    "2 of 3 offered, 1 not checked",
+    "2 of 3 offered, 1 undetermined",
   );
   assert.equal(
     programsOfferedHeadline([...CORE], {
@@ -61,7 +61,7 @@ test("programsOfferedHeadline counts blank statuses as not checked", () => {
       "Material sciences": null,
       "Aerospace engineering": null,
     }),
-    "0 of 3 offered, 3 not checked",
+    "0 of 3 offered, 3 undetermined",
   );
 });
 

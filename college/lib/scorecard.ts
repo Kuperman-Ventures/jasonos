@@ -81,7 +81,7 @@ export type ScorecardCoreProgramOffers = {
 
 /**
  * Map Scorecard bachelor's CIP rows onto the three Snapshot program Yes/No fields.
- * Blank means Scorecard did not list that CIP (still "Not Checked" until web lookup or manual set).
+ * Blank means Scorecard did not list that CIP (still "Undetermined" until web lookup or manual set).
  */
 export function scorecardCoreProgramOffers(rows: unknown): ScorecardCoreProgramOffers {
   const codes = bachelorEngineeringCipCodes(rows);

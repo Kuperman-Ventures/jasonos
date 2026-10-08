@@ -584,7 +584,7 @@ export function SchoolSnapshotSummary({
                     ? "Partial"
                     : status === "no"
                       ? "Not offered"
-                      : "Not checked";
+                      : "Undetermined";
               const offerIcon =
                 status === "yes" ? "✓" : status === "partial" ? "·" : status === "no" ? "–" : null;
               return (

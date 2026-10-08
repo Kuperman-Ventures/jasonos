@@ -690,7 +690,7 @@ export function programsOfferedHeadline(
   } else {
     base = `${yes} of ${total} offered`;
   }
-  if (unchecked > 0) return `${base}, ${unchecked} not checked`;
+  if (unchecked > 0) return `${base}, ${unchecked} undetermined`;
   return base;
 }
 
