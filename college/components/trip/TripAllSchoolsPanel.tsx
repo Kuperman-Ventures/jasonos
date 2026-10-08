@@ -348,11 +348,9 @@ export function TripAllSchoolsPanel({
                   aria-controls={`trip-rg-schools-${region.id}`}
                   onMouseEnter={() => setFocus(region.id)}
                   onClick={() => {
-                    setExpanded((current) => {
-                      const next = current === region.id ? null : region.id;
-                      setFocus(next ?? region.id);
-                      return next;
-                    });
+                    const next = expanded === region.id ? null : region.id;
+                    setExpanded(next);
+                    setFocus(next ?? region.id);
                   }}
                 >
                   <div className="trip-rg-top">
