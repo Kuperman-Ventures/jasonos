@@ -15791,6 +15791,129 @@ html[data-mode="dark"] .trip-cell.kbreak {
   font-size: 11px;
   font-family: var(--font-mono);
 }
+.trip-region-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.trip-region-hint {
+  margin: 10px 0 0;
+  font-size: 13px;
+}
+.trip-usmap .dot.picked {
+  stroke: var(--color-text);
+  stroke-width: 2.5;
+}
+.trip-usmap .trip-region-route {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.9;
+}
+.trip-usmap .trip-region-leg {
+  font: 600 11px var(--font-mono);
+  fill: var(--color-text);
+  paint-order: stroke;
+  stroke: var(--color-raised);
+  stroke-width: 3px;
+}
+.trip-usmap .trip-region-name {
+  font: 600 12px var(--font-ui, inherit);
+  fill: var(--color-text);
+  paint-order: stroke;
+  stroke: var(--color-raised);
+  stroke-width: 3px;
+}
+.trip-usmap .trip-region-step {
+  font: 700 11px var(--font-mono);
+  fill: var(--color-bg);
+  pointer-events: none;
+}
+.trip-region-detail-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.trip-region-route-sum {
+  padding: 12px 14px;
+  background: var(--color-surface);
+  border-radius: 3px;
+}
+.trip-region-route-sum strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+.trip-region-chain {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.trip-region-chain li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.trip-region-chain-stop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.trip-region-chain-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--color-text);
+  color: var(--color-bg);
+  font: 700 11px var(--font-mono);
+  flex-shrink: 0;
+}
+.trip-region-chain-leg {
+  margin-left: 26px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+.trip-rg-schools-pick {
+  padding: 0;
+}
+.trip-rg-school-btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.trip-rg-school-btn.on .trip-rg-school-name {
+  font-weight: 700;
+}
+.trip-nat-layout.is-detail {
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+}
 .travel-cell.travel-fly {
   color: var(--text-subtle);
 }
