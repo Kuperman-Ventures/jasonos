@@ -38,11 +38,14 @@ export function TripAllSchoolsPanel({
 }) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [focus, setFocus] = useState<TripRegionId | null>(null);
+  const [expanded, setExpanded] = useState<TripRegionId | null>(null);
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(
     null,
   );
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
+
+  const highlight = expanded ?? focus;
 
   const live = useMemo(
     () => listSchools.filter((s) => !s.archived),
@@ -275,13 +278,15 @@ export function TripAllSchoolsPanel({
       | null;
     if (!svg?.__regionEls) return;
     for (const [id, els] of svg.__regionEls) {
-      els.path.classed("on", id === focus).classed("off", Boolean(focus) && id !== focus);
-      els.lab.classed("on", id === focus);
+      els.path
+        .classed("on", id === highlight)
+        .classed("off", Boolean(highlight) && id !== highlight);
+      els.lab.classed("on", id === highlight);
     }
     d3.select(svg)
       .selectAll<SVGCircleElement, { region: TripRegionId }>("circle.dot")
-      .attr("opacity", (d) => (!focus || d.region === focus ? 1 : 0.18));
-  }, [focus]);
+      .attr("opacity", (d) => (!highlight || d.region === highlight ? 1 : 0.18));
+  }, [highlight]);
 
   return (
     <div className="trip-panel" role="tabpanel">
@@ -323,31 +328,73 @@ export function TripAllSchoolsPanel({
 
         <div
           className="trip-regions"
-          onMouseLeave={() => setFocus(null)}
+          onMouseLeave={() => {
+            if (!expanded) setFocus(null);
+          }}
         >
-          {regionLists.map((region) => (
-            <div
-              key={region.id}
-              className={`trip-rg${focus === region.id ? " on" : ""}`}
-              data-rg={region.id}
-              onMouseEnter={() => setFocus(region.id)}
-            >
-              <div className="trip-rg-top">
-                <b>{region.id}</b>
-                <span>{region.schools.length}</span>
+          {regionLists.map((region) => {
+            const isOpen = expanded === region.id;
+            const isOn = highlight === region.id;
+            return (
+              <div
+                key={region.id}
+                className={`trip-rg${isOn ? " on" : ""}${isOpen ? " open" : ""}`}
+                data-rg={region.id}
+              >
+                <button
+                  type="button"
+                  className="trip-rg-toggle"
+                  aria-expanded={isOpen}
+                  aria-controls={`trip-rg-schools-${region.id}`}
+                  onMouseEnter={() => setFocus(region.id)}
+                  onClick={() => {
+                    const next = expanded === region.id ? null : region.id;
+                    setExpanded(next);
+                    setFocus(next ?? region.id);
+                  }}
+                >
+                  <div className="trip-rg-top">
+                    <b>{region.id}</b>
+                    <span>
+                      {region.schools.length}
+                      <span className="trip-rg-caret" aria-hidden="true">
+                        {isOpen ? " ▴" : " ▾"}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="trip-rg-bar">
+                    {region.schools.map((s) => (
+                      <i
+                        key={s.id}
+                        title={`${s.name} · ${TRIP_INTEREST_LABEL[s.interest]}`}
+                        data-level={s.interest}
+                      />
+                    ))}
+                  </div>
+                  <span className="trip-rg-note">{region.note}</span>
+                </button>
+                {isOpen ? (
+                  <ul
+                    id={`trip-rg-schools-${region.id}`}
+                    className="trip-rg-schools"
+                  >
+                    {region.schools.length === 0 ? (
+                      <li className="muted">No schools in this region.</li>
+                    ) : (
+                      region.schools.map((s) => (
+                        <li key={s.id} data-level={s.interest}>
+                          <span className="trip-rg-school-name">{s.name}</span>
+                          <span className="trip-rg-school-lvl muted">
+                            {TRIP_INTEREST_LABEL[s.interest]}
+                          </span>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                ) : null}
               </div>
-              <div className="trip-rg-bar">
-                {region.schools.map((s) => (
-                  <i
-                    key={s.id}
-                    title={`${s.name} · ${TRIP_INTEREST_LABEL[s.interest]}`}
-                    data-level={s.interest}
-                  />
-                ))}
-              </div>
-              <span className="trip-rg-note">{region.note}</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

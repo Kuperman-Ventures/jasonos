@@ -58,6 +58,20 @@ test("interest sort puts top choice ahead of the sheet order", () => {
   assert.equal(sorted[0].id, second.id);
 });
 
+test("location sort orders by state then city", () => {
+  const [a, b, c] = file.schools.slice(0, 3).map(fromSeed);
+  const texas = { ...a, location: "Austin, TX", listOrder: 3 };
+  const mass = { ...b, location: "Medford, MA", listOrder: 1 };
+  const massB = { ...c, location: "Cambridge, MA", listOrder: 2 };
+  const sorted = [texas, mass, massB].sort((left, right) =>
+    compareSchools(left, right, "location"),
+  );
+  assert.deepEqual(
+    sorted.map((school) => school.location),
+    ["Cambridge, MA", "Medford, MA", "Austin, TX"],
+  );
+});
+
 test("selectivity tier only uses the admissions lines that fit", () => {
   const tiers = file.schools.map((school) => selectivityTierFromContext(school.admissionsContext));
   assert.equal(tiers.filter((tier) => tier === "extremely_selective").length, 9);

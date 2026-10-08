@@ -562,6 +562,7 @@ export function CollegesTab({
 
   function sortKeyForColumn(column: ListColumnId): SortKey | null {
     if (column === "school") return "name";
+    if (column === "location") return "location";
     if (column === "status") return "status";
     if (column === "selectivity") return "selectivity";
     if (column === "interest") return "interest";
@@ -863,6 +864,9 @@ export function CollegesTab({
           >
             <option value="list">Sheet order</option>
             <option value="name">School name</option>
+            {listSortVisible("location", columns) ? (
+              <option value="location">State</option>
+            ) : null}
             {listSortVisible("drive", columns) ? <option value="drive">Drive time</option> : null}
             {listSortVisible("setting", columns) ? (
               <option value="setting">Campus setting</option>
