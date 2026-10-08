@@ -46,7 +46,7 @@ const LEGEND: { key: VisitInterestKey; label: string }[] = [
   { key: "high", label: "High interest" },
   { key: "moderate", label: "Moderate interest" },
   { key: "safety", label: "Safety / backup" },
-  { key: "none", label: "Not on list" },
+  { key: "none", label: "Interest not set" },
 ];
 
 function StopChip({
