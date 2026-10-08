@@ -67,6 +67,7 @@ export interface OutlookMessage {
   date: string;
   /** Graph sentDateTime. Empty when the message was never sent. */
   sentAt: string | null;
+  snippet: string;
   webLink: string | null;
   conversationId: string | null;
   internetMessageId: string | null;
