@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   Bank,
   BookOpenText,
+  ChatCircleText,
   ClockCounterClockwise,
   Coins,
   DotsThree,
@@ -131,6 +132,7 @@ export function LeftRail({
   onAppsSectionChange,
   member,
   onAvatarChange,
+  onOpenFeedback,
   schoolCount,
   projectCount,
   questionCount,
@@ -146,6 +148,7 @@ export function LeftRail({
   onAppsSectionChange: (section: AppsSectionId) => void;
   member: { id: string; displayName: string; role: string; avatarUrl: string | null };
   onAvatarChange: (avatarUrl: string | null) => void;
+  onOpenFeedback: () => void;
   schoolCount: number;
   projectCount: number;
   questionCount: number;
@@ -570,6 +573,17 @@ export function LeftRail({
           </div>
 
           <div className="rail-account-links">
+            <button
+              type="button"
+              className="rail-item"
+              onClick={() => {
+                setMenuOpen(false);
+                onOpenFeedback();
+              }}
+            >
+              <ChatCircleText weight="duotone" size={18} aria-hidden="true" />
+              Feedback
+            </button>
             {showAdmin ? (
               <button type="button" className="rail-item" onClick={() => select("admin")}>
                 <GearSix weight="duotone" size={18} aria-hidden="true" />
