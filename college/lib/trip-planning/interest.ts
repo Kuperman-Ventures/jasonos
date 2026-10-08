@@ -17,7 +17,7 @@ export const TRIP_INTEREST_LABEL: Record<TripInterestKey, string> = {
   high: "High interest",
   moderate: "Moderate interest",
   safety: "Safety / backup",
-  none: "Not on list",
+  none: "Interest not set",
 };
 
 export function tripInterestKey(level: InterestLevel | undefined): TripInterestKey {

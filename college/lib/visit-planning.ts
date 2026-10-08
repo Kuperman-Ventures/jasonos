@@ -109,7 +109,7 @@ const INTEREST_CHIP_LABEL: Record<VisitInterestKey, string> = {
   high: "High interest",
   moderate: "Moderate interest",
   safety: "Safety / backup",
-  none: "Not on list",
+  none: "Interest not set",
 };
 
 export const VISIT_FILTER_STORAGE_KEY = "track-visit-interest-filter";
