@@ -7,6 +7,7 @@ import {
 } from "@/lib/integrations/gmail";
 import {
   GMAIL_EXCLUDE_DRAFTS_QUERY,
+  isGmailDraftMessage,
   shouldCountGmailMessageForTouch,
 } from "@/lib/integrations/gmail-labels";
 import { gmailThreadUrl } from "@/lib/integrations/gmail-links";
@@ -16,7 +17,10 @@ import {
   getOutlookAccountAccess,
   getOutlookConnectionStatus,
 } from "@/lib/integrations/outlook-tokens";
-import { outlookTouchExternalId } from "@/lib/integrations/outlook-mail";
+import {
+  outlookTouchExternalId,
+  shouldCountOutlookMessage,
+} from "@/lib/integrations/outlook-mail";
 import {
   calendarEventGuests,
   fetchAccountCalendarEvents,
@@ -51,6 +55,7 @@ import {
 } from "@/lib/outreach/email-matching";
 import {
   insertContactTouches,
+  purgeUnsentGmailTouches,
   recordSyncState,
   type ContactTouchInput,
   type InsertTouchesResult,
@@ -338,6 +343,7 @@ export async function syncOutreachFromGmail(opts?: {
 
   const lookup = await buildContactLookup();
   const afterDate = gmailAfterSlashDate(daysBack);
+  const unsentGmailIds = new Set<string>();
   const enrich: EnrichMap = new Map();
   const combined = emptyInsertResult();
   let matchedTotal = 0;
@@ -384,6 +390,12 @@ export async function syncOutreachFromGmail(opts?: {
               fromMe: outbound,
             })
           ) {
+            if (
+              m.id &&
+              (outbound || isGmailDraftMessage({ labelIds: m.labelIds }))
+            ) {
+              unsentGmailIds.add(m.id);
+            }
             continue;
           }
           if (new Date(m.date).getTime() < Date.now() - daysBack * 86_400_000) {
@@ -472,6 +484,12 @@ export async function syncOutreachFromGmail(opts?: {
   }
 
   await applyEmailEnrichments(enrich);
+  await purgeUnsentGmailTouches({
+    extraMessageIds: [...unsentGmailIds],
+    force: true,
+  }).catch((err) => {
+    console.error("[outreach-sync.gmail] draft purge failed", err);
+  });
   revalidatePaths();
 
   if (!mailboxTokens.length) {
@@ -1046,6 +1064,14 @@ export async function syncOutreachFromOutlook(opts?: {
     if (!m.from || !m.date) continue;
     const touchedAt = new Date(m.date).toISOString();
     const outbound = isFromMe(m.from);
+    if (
+      !shouldCountOutlookMessage({
+        sentDateTime: m.sentAt,
+        fromMe: outbound,
+      })
+    ) {
+      continue;
+    }
     const counterparties = outbound
       ? splitRecipientHeaders(m.to, m.cc)
       : [m.from];

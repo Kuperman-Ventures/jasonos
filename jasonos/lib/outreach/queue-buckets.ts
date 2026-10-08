@@ -56,6 +56,7 @@ import {
 import { getReconnectDashboardData } from "@/lib/reconnect/data";
 import type { ReconnectContact } from "@/lib/reconnect/types";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { purgeUnsentGmailTouches } from "@/lib/outreach/touch-capture";
 import type { FirstContactStage } from "@/lib/first-contact/types";
 import type {
   CadenceInterval,
@@ -198,6 +199,9 @@ interface TouchSignal {
 
 export async function getThreeColumnQueue(): Promise<ThreeColumnQueue> {
   const caveats: string[] = [];
+  await purgeUnsentGmailTouches().catch((err) => {
+    console.error("[queue] draft purge failed", err);
+  });
   const [people, dashboard, contactRpidMap, touchSignals] = await Promise.all([
     getOutreachPeople(),
     getReconnectDashboardData(),

@@ -1021,7 +1021,14 @@ async function fetchGmailLatest(email: string | null): Promise<LastContactConten
       const full = await getGmailThread(threads[0].id, token);
       if (!full?.messages?.length) continue;
 
-      const last = full.messages[full.messages.length - 1];
+      const countable = full.messages.filter((message) =>
+        shouldCountGmailMessageForTouch({
+          labelIds: message.labelIds,
+          fromMe: Boolean(message.from && isFromMe(message.from)),
+        })
+      );
+      const last = countable[countable.length - 1];
+      if (!last) continue;
       const ts = last.date ? new Date(last.date).getTime() : 0;
       if (ts < bestTs) continue;
       bestTs = ts;

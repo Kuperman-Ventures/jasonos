@@ -11,6 +11,7 @@ import {
   createPublicServiceRoleClient,
 } from "@/lib/supabase/server";
 import { getOutreachPeople } from "@/lib/outreach/data";
+import { purgeUnsentGmailTouches } from "@/lib/outreach/touch-capture";
 import { getUpcomingCalendarMeetings } from "@/lib/server-actions/outreach-sync";
 import { NETWORK_ROLE_SHORT } from "@/lib/outreach/types";
 import {
@@ -297,6 +298,10 @@ export async function getNetworkingActivity(): Promise<NetworkingActivity> {
       goalTarget: WEEKLY_OUTREACH_GOAL,
     };
   }
+
+  await purgeUnsentGmailTouches().catch((err) => {
+    console.error("[networking.activity] draft purge failed", err);
+  });
 
   const sb = createServiceRoleClient();
   // work_searches (NYUI job applications) live in the public schema.
@@ -1087,6 +1092,10 @@ export async function getNetworkingReport(opts?: {
     applications: [],
   };
   if (!hasConfig()) return report;
+
+  await purgeUnsentGmailTouches().catch((err) => {
+    console.error("[networking.report] draft purge failed", err);
+  });
 
   const sb = createServiceRoleClient();
   const pub = createPublicServiceRoleClient();

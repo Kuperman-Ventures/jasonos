@@ -8,6 +8,7 @@ import {
   mapGraphMessage,
   outlookTouchExternalId,
   rankOutlookFolders,
+  shouldCountOutlookMessage,
   shouldSkipOutlookFolder,
   type OutlookMessage,
 } from "./outlook-mail.ts";
@@ -123,6 +124,7 @@ describe("mapGraphMessage", () => {
     assert.equal(mapped.subject, "Hello");
     assert.equal(mapped.snippet, "See you soon");
     assert.equal(mapped.date, "2026-03-01T15:04:05.000Z");
+    assert.equal(mapped.sentAt, "2026-03-01T15:04:05.000Z");
     assert.equal(
       mapGraphMessage({
         id: "draft",
@@ -131,6 +133,41 @@ describe("mapGraphMessage", () => {
         from: { emailAddress: { address: "jason.kuperman@outlook.com" } },
       }),
       null
+    );
+  });
+});
+
+describe("shouldCountOutlookMessage", () => {
+  it("drops drafts and outbound mail that was never sent", () => {
+    assert.equal(
+      shouldCountOutlookMessage({
+        isDraft: true,
+        sentDateTime: "2026-03-01T15:04:05.000Z",
+        fromMe: true,
+      }),
+      false
+    );
+    assert.equal(
+      shouldCountOutlookMessage({
+        isDraft: false,
+        sentDateTime: null,
+        fromMe: true,
+      }),
+      false
+    );
+    assert.equal(
+      shouldCountOutlookMessage({
+        sentDateTime: "2026-03-01T15:04:05.000Z",
+        fromMe: true,
+      }),
+      true
+    );
+    assert.equal(
+      shouldCountOutlookMessage({
+        sentDateTime: null,
+        fromMe: false,
+      }),
+      true
     );
   });
 });
@@ -144,6 +181,7 @@ describe("dedupeOutlookMessages", () => {
       cc: "",
       subject: "first",
       date: "2026-03-01T00:00:00.000Z",
+      sentAt: "2026-03-01T00:00:00.000Z",
       snippet: "",
       webLink: null,
       conversationId: null,

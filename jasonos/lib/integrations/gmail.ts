@@ -268,6 +268,15 @@ export interface EmailCounterparty {
   accountEmail: string;
 }
 
+/** Open Gmail drafts. These must not count as sent outreach. */
+export async function listGmailDraftMessageIds(
+  accessToken: string,
+  max = 200
+): Promise<string[]> {
+  const messages = await listMessageIds(accessToken, "in:drafts", max);
+  return messages.map((message) => message.id);
+}
+
 async function listMessageIds(
   access: string,
   query: string,
@@ -489,7 +498,7 @@ export async function listGoogleSentMailHits(opts?: {
       for (const message of detailed) {
         const mapped = mapGmailMessage(message);
         const qualified = qualifySentMessage({
-          labelIds: mapped.labelIds,
+          labelIds: mapped.labelIds ?? [],
           subject: mapped.subject,
           to: mapped.to,
           cc: mapped.cc,
@@ -565,7 +574,7 @@ export async function listSentRecipientTouches(opts?: {
       for (const message of detailed) {
         const mapped = mapGmailMessage(message);
         const qualified = qualifySentMessage({
-          labelIds: mapped.labelIds,
+          labelIds: mapped.labelIds ?? [],
           subject: mapped.subject,
           to: mapped.to,
           cc: mapped.cc,

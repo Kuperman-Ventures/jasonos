@@ -6,6 +6,7 @@ import {
   createServiceRoleClient,
 } from "@/lib/supabase/server";
 import { getOutreachPeople } from "@/lib/outreach/data";
+import { purgeUnsentGmailTouches } from "@/lib/outreach/touch-capture";
 import {
   buildAuditNetworkingRows,
   type AuditNetworkingRow,
@@ -141,6 +142,10 @@ async function loadNetworkingTierB(
     const lookback = new Date(`${startDate}T12:00:00Z`);
     lookback.setUTCDate(lookback.getUTCDate() - 100);
     const touchSince = lookback.toISOString();
+
+    await purgeUnsentGmailTouches().catch((err) => {
+      console.error("[nyui.loadNetworkingTierB] draft purge failed", err);
+    });
 
     // getOutreachPeople already resolves firm / title / LinkedIn / intent with
     // schema fallbacks — reuse it instead of a fragile parallel contacts select.

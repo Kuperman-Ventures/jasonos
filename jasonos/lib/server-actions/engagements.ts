@@ -13,9 +13,11 @@
 
 import { revalidatePath } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { etYmd } from "@/lib/dates";
-import { CADENCE_DAYS, type CadenceInterval } from "@/lib/outreach/types";
-import type { TouchChannel, TouchDirection } from "@/lib/outreach/touch-capture";
+import {
+  restampContactTouchState,
+  type TouchChannel,
+  type TouchDirection,
+} from "@/lib/outreach/touch-capture";
 
 type OkResult = { ok: true } | { ok: false; error: string };
 
@@ -33,60 +35,8 @@ export interface EngagementPatch {
   outcome?: string | null;
 }
 
-// Re-stamp a contact's touch state from whatever engagements remain. Preserves
-// a manual next-touch override when one is set.
-async function recomputeContactTouchState(
-  sb: ReturnType<typeof createServiceRoleClient>,
-  contactId: string
-): Promise<void> {
-  const { data: latest } = await sb
-    .from("contact_touches")
-    .select("touched_at,channel")
-    .eq("contact_id", contactId)
-    .order("touched_at", { ascending: false })
-    .limit(1);
-
-  let cadence: CadenceInterval = "none";
-  let manual = false;
-  const read = await sb
-    .from("contacts")
-    .select("cadence_interval,next_touch_is_manual")
-    .eq("id", contactId)
-    .maybeSingle();
-  if (read.error && /next_touch_is_manual/i.test(read.error.message)) {
-    const fb = await sb
-      .from("contacts")
-      .select("cadence_interval")
-      .eq("id", contactId)
-      .maybeSingle();
-    cadence = (fb.data?.cadence_interval as CadenceInterval | null) ?? "none";
-  } else {
-    cadence = (read.data?.cadence_interval as CadenceInterval | null) ?? "none";
-    manual = Boolean(read.data?.next_touch_is_manual);
-  }
-
-  const payload: Record<string, unknown> = {};
-  if (!latest?.length) {
-    payload.last_touch_date = null;
-    payload.last_touch_channel = null;
-    if (!manual) payload.next_touch_date = null;
-  } else {
-    const lastDate = etYmd(latest[0].touched_at as string);
-    payload.last_touch_date = lastDate;
-    payload.last_touch_channel = (latest[0].channel as string) ?? null;
-    if (!manual) {
-      if (cadence !== "none") {
-        const anchor = new Date(`${lastDate}T00:00:00`);
-        anchor.setDate(anchor.getDate() + CADENCE_DAYS[cadence]);
-        payload.next_touch_date = anchor.toISOString().split("T")[0];
-      } else {
-        payload.next_touch_date = null;
-      }
-    }
-  }
-
-  const { error } = await sb.from("contacts").update(payload).eq("id", contactId);
-  if (error) console.error("[engagements.recompute]", error);
+async function recomputeContactTouchState(contactId: string): Promise<void> {
+  await restampContactTouchState(contactId);
 }
 
 export async function updateEngagement(
@@ -119,7 +69,7 @@ export async function updateEngagement(
     .eq("id", id);
   if (error) return { ok: false, error: error.message };
 
-  await recomputeContactTouchState(sb, existing.contact_id as string);
+  await recomputeContactTouchState(existing.contact_id as string);
   revalidatePath("/activity");
   return { ok: true };
 }
@@ -146,7 +96,7 @@ export async function deleteEngagement(id: string): Promise<OkResult> {
   const { error } = await sb.from("contact_touches").delete().eq("id", id);
   if (error) return { ok: false, error: error.message };
 
-  await recomputeContactTouchState(sb, existing.contact_id as string);
+  await recomputeContactTouchState(existing.contact_id as string);
   revalidatePath("/activity");
   return { ok: true };
 }

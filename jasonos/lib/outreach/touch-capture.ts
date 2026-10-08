@@ -5,7 +5,13 @@
 // the loop with the cadence system.
 
 import "server-only";
-import { createServiceRoleClient } from "@/lib/supabase/server";
+import {
+  createPublicServiceRoleClient,
+  createServiceRoleClient,
+} from "@/lib/supabase/server";
+import { listGmailDraftMessageIds } from "@/lib/integrations/gmail";
+import { gmailTouchExternalIdMatches } from "@/lib/integrations/gmail-labels";
+import { listGoogleAccessTokens } from "@/lib/integrations/google-tokens";
 import { etYmd } from "@/lib/dates";
 import {
   CADENCE_DAYS,
@@ -307,6 +313,182 @@ export async function insertContactTouches(
   );
 
   return result;
+}
+
+/**
+ * Re-stamp last_touch / next_touch from the newest remaining engagement.
+ * A manual next-touch date is left alone.
+ */
+export async function restampContactTouchState(contactId: string): Promise<void> {
+  const sb = createServiceRoleClient();
+  const { data: latest } = await sb
+    .from("contact_touches")
+    .select("touched_at,channel")
+    .eq("contact_id", contactId)
+    .order("touched_at", { ascending: false })
+    .limit(1);
+
+  let cadence: CadenceInterval = "none";
+  let manual = false;
+  const read = await sb
+    .from("contacts")
+    .select("cadence_interval,next_touch_is_manual")
+    .eq("id", contactId)
+    .maybeSingle();
+  if (read.error && /next_touch_is_manual/i.test(read.error.message)) {
+    const fb = await sb
+      .from("contacts")
+      .select("cadence_interval")
+      .eq("id", contactId)
+      .maybeSingle();
+    cadence = (fb.data?.cadence_interval as CadenceInterval | null) ?? "none";
+  } else {
+    cadence = (read.data?.cadence_interval as CadenceInterval | null) ?? "none";
+    manual = Boolean(read.data?.next_touch_is_manual);
+  }
+
+  const payload: Record<string, unknown> = {};
+  if (!latest?.length) {
+    payload.last_touch_date = null;
+    payload.last_touch_channel = null;
+    if (!manual) payload.next_touch_date = null;
+  } else {
+    const lastDate = etYmd(latest[0].touched_at as string);
+    payload.last_touch_date = lastDate;
+    payload.last_touch_channel = (latest[0].channel as string) ?? null;
+    if (!manual) {
+      if (cadence !== "none") {
+        const anchor = new Date(`${lastDate}T00:00:00`);
+        anchor.setDate(anchor.getDate() + CADENCE_DAYS[cadence]);
+        payload.next_touch_date = anchor.toISOString().split("T")[0];
+      } else {
+        payload.next_touch_date = null;
+      }
+    }
+  }
+
+  const { error } = await sb.from("contacts").update(payload).eq("id", contactId);
+  if (error) console.error("[touches.restamp]", error);
+}
+
+const PURGE_TTL_MS = 10 * 60 * 1000;
+let purgedAt = 0;
+let purgeInflight: Promise<number> | null = null;
+
+/**
+ * Drop stored Gmail touches whose messages are still drafts, then restamp
+ * those contacts so a draft does not count as completed outreach.
+ * Page loads share one result for a few minutes. Sync passes force.
+ */
+export async function purgeUnsentGmailTouches(opts?: {
+  extraMessageIds?: string[];
+  force?: boolean;
+}): Promise<number> {
+  const extra = (opts?.extraMessageIds ?? []).filter((id) =>
+    /^[a-zA-Z0-9]+$/.test(id)
+  );
+  if (!opts?.force && extra.length === 0 && Date.now() - purgedAt < PURGE_TTL_MS) {
+    return 0;
+  }
+  if (!opts?.force && extra.length === 0 && purgeInflight) return purgeInflight;
+
+  const run = purgeUnsentGmailTouchesNow(extra).then((result) => {
+    // A failed draft listing must not freeze the cache, or the next page
+    // load would keep counting those drafts for the whole TTL.
+    if (!extra.length && result.listed) purgedAt = Date.now();
+    return result.removed;
+  });
+  if (!opts?.force && extra.length === 0) {
+    purgeInflight = run.finally(() => {
+      purgeInflight = null;
+    });
+    return purgeInflight;
+  }
+  return run;
+}
+
+async function purgeUnsentGmailTouchesNow(
+  extraMessageIds: string[]
+): Promise<{ removed: number; listed: boolean }> {
+  const ids = new Set<string>();
+  for (const id of extraMessageIds) {
+    if (/^[a-zA-Z0-9]+$/.test(id)) ids.add(id);
+  }
+  let listed = true;
+  try {
+    const tokens = await listGoogleAccessTokens();
+    for (const { token } of tokens) {
+      try {
+        const drafts = await listGmailDraftMessageIds(token);
+        for (const id of drafts) {
+          if (/^[a-zA-Z0-9]+$/.test(id)) ids.add(id);
+        }
+      } catch (err) {
+        listed = false;
+        console.error("[touches.purgeDrafts] gmail list failed", err);
+      }
+    }
+  } catch (err) {
+    listed = false;
+    console.error("[touches.purgeDrafts] gmail list failed", err);
+  }
+  if (!ids.size) return { removed: 0, listed };
+
+  const sb = createServiceRoleClient();
+  const contactIds = new Set<string>();
+  let removed = 0;
+  const idList = [...ids];
+
+  for (let i = 0; i < idList.length; i += 8) {
+    const chunk = idList.slice(i, i + 8);
+    const or = chunk
+      .map(
+        (id) =>
+          `external_id.eq.${id},external_id.like.${id}::%,external_id.eq.gmail:${id},external_id.like.gmail:${id}::%`
+      )
+      .join(",");
+    const { data, error } = await sb
+      .from("contact_touches")
+      .select("id,contact_id,external_id")
+      .eq("source", "gmail")
+      .or(or);
+    if (error) {
+      console.error("[touches.purgeDrafts] read", error.message);
+    } else {
+      const rows = (data ?? []).filter((row) =>
+        chunk.some((id) =>
+          gmailTouchExternalIdMatches(row.external_id as string | null, id)
+        )
+      );
+      if (rows.length) {
+        const touchIds = rows.map((row) => row.id as string);
+        const { error: delErr } = await sb
+          .from("contact_touches")
+          .delete()
+          .in("id", touchIds);
+        if (delErr) {
+          console.error("[touches.purgeDrafts] delete", delErr.message);
+        } else {
+          removed += touchIds.length;
+          for (const row of rows) {
+            if (row.contact_id) contactIds.add(row.contact_id as string);
+          }
+        }
+      }
+    }
+
+    // Sent Today reads rr_touches, which sync can write without a
+    // contact_touches row. Drop draft matches there too.
+    try {
+      const pub = createPublicServiceRoleClient();
+      await pub.from("rr_touches").delete().eq("source", "gmail").or(or);
+    } catch (err) {
+      console.error("[touches.purgeDrafts] rr_touches", err);
+    }
+  }
+
+  await Promise.all([...contactIds].map((id) => restampContactTouchState(id)));
+  return { removed, listed };
 }
 
 /**
