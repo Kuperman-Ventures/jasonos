@@ -168,6 +168,14 @@ export function TripAllSchoolsPanel({
     }
   }
 
+  function nudgeDetailZoom(direction: 1 | -1) {
+    const svg = svgRef.current;
+    const zoom = detailZoomBehaviorRef.current;
+    if (!svg || !zoom) return;
+    const factor = direction > 0 ? 1.4 : 1 / 1.4;
+    d3.select(svg).transition().duration(180).call(zoom.scaleBy, factor);
+  }
+
   openRegionRef.current = openRegion;
   pickSchoolRef.current = pickSchool;
 
@@ -679,9 +687,33 @@ export function TripAllSchoolsPanel({
             </div>
           ) : null}
           {detailRegion ? (
+            <div
+              className="trip-region-zoom-controls"
+              role="group"
+              aria-label="Map zoom"
+            >
+              <button
+                type="button"
+                className="trip-region-zoom-btn"
+                aria-label="Zoom in"
+                onClick={() => nudgeDetailZoom(1)}
+              >
+                +
+              </button>
+              <button
+                type="button"
+                className="trip-region-zoom-btn"
+                aria-label="Zoom out"
+                onClick={() => nudgeDetailZoom(-1)}
+              >
+                −
+              </button>
+            </div>
+          ) : null}
+          {detailRegion ? (
             <p className="trip-region-hint muted">
-              Scroll to zoom · drag to pan · click schools in order for drive times.
-              Click an earlier stop to truncate.
+              Use +/− or scroll to zoom · drag to pan · click schools in order for
+              drive times. Click an earlier stop to truncate.
             </p>
           ) : null}
         </div>

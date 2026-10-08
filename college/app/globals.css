@@ -15808,6 +15808,42 @@ html[data-mode="dark"] .trip-cell.kbreak {
   margin: 10px 0 0;
   font-size: 13px;
 }
+.trip-region-zoom-controls {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--color-dash);
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--color-raised);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--color-text) 12%, transparent);
+}
+.trip-region-zoom-btn {
+  width: 34px;
+  height: 34px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid var(--color-dash);
+  background: transparent;
+  color: var(--color-text);
+  font: 600 20px/1 var(--font-mono, ui-monospace, monospace);
+  cursor: pointer;
+}
+.trip-region-zoom-btn:last-child {
+  border-bottom: none;
+}
+.trip-region-zoom-btn:hover {
+  background: var(--color-surface);
+}
+.trip-region-zoom-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
 .trip-usmap .dot.picked {
   stroke: var(--color-text);
   stroke-width: 2.5;

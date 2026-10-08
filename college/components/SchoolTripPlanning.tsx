@@ -88,6 +88,8 @@ export function SchoolTripPlanning({
   const [cmpId, setCmpId] = useState("home");
   const [toast, setToast] = useState<string | null>(null);
 
+  // Reload plan + land on Nearby only when switching school or member.
+  // Do not depend on `clusters` — list rebuilds bounce the All-schools tab.
   useEffect(() => {
     const stored = readTripPlanState(memberId, school.id);
     const available = new Set<string>(clusters.map((c) => c.id));
@@ -104,7 +106,25 @@ export function SchoolTripPlanning({
     }
     setActiveClusterId(clusters[0]?.id ?? "same");
     setSubtab("nearby");
-  }, [memberId, school.id, clusters]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- school/member switch only
+  }, [memberId, school.id]);
+
+  // Keep selected clusters valid when the cluster list rebuilds (coords, list edits).
+  useEffect(() => {
+    const available = new Set<string>(clusters.map((c) => c.id));
+    const seed = clusters[0]?.id ?? "same";
+    setPlan((prev) => {
+      const nextIds = prev.clusterIds.filter((id) => available.has(id));
+      if (
+        nextIds.length === prev.clusterIds.length &&
+        nextIds.every((id, i) => id === prev.clusterIds[i])
+      ) {
+        return prev;
+      }
+      return { ...prev, clusterIds: nextIds.length ? nextIds : [seed] };
+    });
+    setActiveClusterId((prev) => (available.has(prev) ? prev : seed));
+  }, [clusters]);
 
   useEffect(() => {
     writeTripPlanState(memberId, school.id, plan);
