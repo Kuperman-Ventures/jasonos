@@ -29,10 +29,35 @@ const W = 700;
 const H = 440;
 const PAD = 15;
 const DETAIL_PAD = 48;
+const DETAIL_ZOOM_MIN = 1;
+const DETAIL_ZOOM_MAX = 8;
 
 // world-atlas countries-110m shape (loose typing — topojson Topology generics vary by package).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type TopoCountries = any;
+
+let worldAtlasCache: TopoCountries | null = null;
+let worldAtlasPromise: Promise<TopoCountries> | null = null;
+
+async function loadWorldAtlas(): Promise<TopoCountries> {
+  if (worldAtlasCache) return worldAtlasCache;
+  if (!worldAtlasPromise) {
+    worldAtlasPromise = fetch(WORLD_ATLAS_URL)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Atlas HTTP ${res.status}`);
+        return res.json() as Promise<TopoCountries>;
+      })
+      .then((topo) => {
+        worldAtlasCache = topo;
+        return topo;
+      })
+      .catch((error) => {
+        worldAtlasPromise = null;
+        throw error;
+      });
+  }
+  return worldAtlasPromise;
+}
 
 function levelFill(lv: TripInterestKey): string {
   if (lv === "top") return "var(--lvl-4)";
@@ -65,6 +90,11 @@ export function TripAllSchoolsPanel({
   const chainRef = useRef<string[]>([]);
   const openRegionRef = useRef<(regionId: TripRegionId) => void>(() => {});
   const pickSchoolRef = useRef<(id: string) => void>(() => {});
+  const detailZoomRef = useRef<d3.ZoomTransform>(d3.zoomIdentity);
+  const detailZoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(
+    null,
+  );
+  const detailZoomRegionRef = useRef<TripRegionId | null>(null);
   detailRef.current = detailRegion;
   chainRef.current = chain;
 
@@ -113,9 +143,13 @@ export function TripAllSchoolsPanel({
     setDetailRegion((current) => {
       if (current === regionId) {
         setChain([]);
+        detailZoomRef.current = d3.zoomIdentity;
+        detailZoomRegionRef.current = null;
         return null;
       }
       setChain([]);
+      detailZoomRef.current = d3.zoomIdentity;
+      detailZoomRegionRef.current = regionId;
       return regionId;
     });
     setFocus(regionId);
@@ -123,6 +157,15 @@ export function TripAllSchoolsPanel({
 
   function pickSchool(id: string) {
     setChain((current) => appendRegionRouteStop(current, id));
+  }
+
+  function resetDetailView() {
+    const svg = svgRef.current;
+    const zoom = detailZoomBehaviorRef.current;
+    detailZoomRef.current = d3.zoomIdentity;
+    if (svg && zoom) {
+      d3.select(svg).transition().duration(200).call(zoom.transform, d3.zoomIdentity);
+    }
   }
 
   openRegionRef.current = openRegion;
@@ -140,8 +183,7 @@ export function TripAllSchoolsPanel({
     void (async () => {
       let topo: TopoCountries;
       try {
-        const res = await fetch(WORLD_ATLAS_URL);
-        topo = (await res.json()) as TopoCountries;
+        topo = await loadWorldAtlas();
       } catch {
         if (!cancelled) setLoadError(true);
         return;
@@ -331,26 +373,39 @@ export function TripAllSchoolsPanel({
     };
   }, [dots, schoolId, detailRegion]);
 
-  // Region detail map (zoomed + labels + route chain)
+  // Region detail map (labels + route chain + pan/zoom)
   useEffect(() => {
-    if (!detailRegion) return;
+    if (!detailRegion) {
+      detailZoomBehaviorRef.current = null;
+      return;
+    }
     let cancelled = false;
-    const svg = d3.select(svgRef.current);
-    svg.selectAll("*").remove();
+    const initialNode = svgRef.current;
+    if (initialNode) {
+      const clear = d3.select(initialNode);
+      clear.selectAll("*").remove();
+      clear.on(".zoom", null);
+    }
     setReady(false);
     setLoadError(false);
     setTip(null);
 
+    if (detailZoomRegionRef.current !== detailRegion) {
+      detailZoomRef.current = d3.zoomIdentity;
+      detailZoomRegionRef.current = detailRegion;
+    }
+
     void (async () => {
       let topo: TopoCountries;
       try {
-        const res = await fetch(WORLD_ATLAS_URL);
-        topo = (await res.json()) as TopoCountries;
+        topo = await loadWorldAtlas();
       } catch {
         if (!cancelled) setLoadError(true);
         return;
       }
-      if (cancelled || !svgRef.current) return;
+      const svgNode = svgRef.current;
+      if (cancelled || !svgNode) return;
+      const svg = d3.select(svgNode);
 
       const regionDots = dots.filter((d) => d.region === detailRegion);
       if (!regionDots.length) {
@@ -376,12 +431,10 @@ export function TripAllSchoolsPanel({
           { type: "MultiPoint", coordinates: coords },
         );
       const path = d3.geoPath(proj);
-      const g = svg.append("g");
+      const g = svg.append("g").attr("class", "trip-region-zoom");
 
       g.selectAll("path.land-o")
-        .data(
-          feats.filter((f) => ["124", "484"].includes(String(f.id))),
-        )
+        .data(feats.filter((f) => ["124", "484"].includes(String(f.id))))
         .join("path")
         .attr("class", "land-o")
         .attr("d", (d) => path(d as d3.GeoPermissibleObjects) ?? "");
@@ -412,10 +465,7 @@ export function TripAllSchoolsPanel({
       if (chainPts.length >= 2) {
         g.append("path")
           .attr("class", "trip-region-route")
-          .attr(
-            "d",
-            d3.line()(chainPts) ?? "",
-          );
+          .attr("d", d3.line()(chainPts) ?? "");
       }
 
       const routeSummary = buildRegionRouteLegs(chainIds, namesById);
@@ -461,13 +511,14 @@ export function TripAllSchoolsPanel({
             event.stopPropagation();
             pickSchoolRef.current(d.id);
           })
-          .on("mouseenter", () => {
+          .on("mouseenter", (event) => {
             const node = svgRef.current;
             if (!node) return;
             const rect = node.getBoundingClientRect();
+            const [px, py] = d3.pointer(event, node);
             setTip({
-              x: (d.xy[0] / W) * rect.width,
-              y: (d.xy[1] / H) * rect.height,
+              x: (px / W) * rect.width,
+              y: (py / H) * rect.height,
               text: `${d.name} · ${TRIP_INTEREST_LABEL[d.interest]}`,
             });
           })
@@ -491,11 +542,42 @@ export function TripAllSchoolsPanel({
           .text(shortSchoolName(d.name));
       }
 
+      const zoom = d3
+        .zoom<SVGSVGElement, unknown>()
+        .scaleExtent([DETAIL_ZOOM_MIN, DETAIL_ZOOM_MAX])
+        .extent([
+          [0, 0],
+          [W, H],
+        ])
+        .translateExtent([
+          [-W * 0.5, -H * 0.5],
+          [W * 1.5, H * 1.5],
+        ])
+        .filter((event) => {
+          if (event.type === "wheel") return true;
+          if (event.type === "mousedown" || event.type === "touchstart") {
+            const target = event.target as Element | null;
+            if (target?.closest?.("circle.dot")) return false;
+          }
+          return !event.ctrlKey && event.button === 0;
+        })
+        .on("zoom", (event) => {
+          detailZoomRef.current = event.transform;
+          g.attr("transform", event.transform.toString());
+          setTip(null);
+        });
+
+      detailZoomBehaviorRef.current = zoom;
+      svg.call(zoom).on("dblclick.zoom", null);
+      svg.call(zoom.transform, detailZoomRef.current);
+
       if (!cancelled && detailRef.current === detailRegion) setReady(true);
     })();
 
     return () => {
       cancelled = true;
+      detailZoomBehaviorRef.current = null;
+      if (svgRef.current) d3.select(svgRef.current).on(".zoom", null);
     };
   }, [detailRegion, dots, schoolId, chain, namesById]);
 
@@ -546,9 +628,14 @@ export function TripAllSchoolsPanel({
                 setDetailRegion(null);
                 setChain([]);
                 setFocus(null);
+                detailZoomRef.current = d3.zoomIdentity;
+                detailZoomRegionRef.current = null;
               }}
             >
               Back to map
+            </button>
+            <button type="button" className="btn btn-ghost" onClick={() => resetDetailView()}>
+              Reset view
             </button>
             {chain.length ? (
               <button
@@ -593,8 +680,8 @@ export function TripAllSchoolsPanel({
           ) : null}
           {detailRegion ? (
             <p className="trip-region-hint muted">
-              Click schools in order to build a drive path. Click an earlier stop to
-              truncate.
+              Scroll to zoom · drag to pan · click schools in order for drive times.
+              Click an earlier stop to truncate.
             </p>
           ) : null}
         </div>

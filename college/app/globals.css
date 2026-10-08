@@ -15634,6 +15634,13 @@ html[data-mode="dark"] .trip-cell.kbreak {
   background: var(--color-surface);
   border-radius: 2px;
 }
+.trip-usmap.is-detail {
+  cursor: grab;
+  touch-action: none;
+}
+.trip-usmap.is-detail:active {
+  cursor: grabbing;
+}
 .trip-usmap .land-o {
   fill: var(--color-surface-2);
   stroke: var(--color-bg);
