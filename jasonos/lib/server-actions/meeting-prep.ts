@@ -245,16 +245,15 @@ export async function getTodaysMeetingPreps(): Promise<
       for (const meeting of loaded.meetings) {
         if (existingByEvent.has(meeting.gcalEventId)) continue;
         const purpose = purposeFromCalendarDescription(meeting.description);
+        // Every row needs the same keys. A bulk insert turns a missing key
+        // into null, which rejects purpose_confirmed.
         toInsert.push({
           ...refreshPayload(meeting, nowIso),
           gcal_event_id: meeting.gcalEventId,
-          ...(purpose
-            ? {
-                purpose,
-                purpose_source: "calendar",
-                purpose_confirmed: false,
-              }
-            : {}),
+          purpose,
+          purpose_source: purpose ? "calendar" : null,
+          purpose_confirmed: false,
+          status: "new",
         });
       }
 
