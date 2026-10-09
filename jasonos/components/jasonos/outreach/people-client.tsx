@@ -68,6 +68,7 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
   const searchParams = useSearchParams();
   const firmFilter = searchParams.get("firm");
   const firmFilterNormalized = firmFilter?.trim().toLowerCase() ?? null;
+  const linkedContactId = searchParams.get("id");
 
   const [query, setQuery] = useState("");
   const [activeFilters, setActiveFilters] = useState<Set<RelFilter>>(
@@ -75,6 +76,17 @@ export function OutreachPeopleClient({ people }: { people: OutreachPerson[] }) {
   );
   const [sort, setSort] = useState<PeopleSortKey>("added");
   const [modalTarget, setModalTarget] = useState<OutreachPerson | null>(null);
+  const [openedLinkedContactId, setOpenedLinkedContactId] = useState<string | null>(null);
+  if (
+    linkedContactId &&
+    linkedContactId !== openedLinkedContactId
+  ) {
+    const linked = people.find((person) => person.id === linkedContactId);
+    if (linked) {
+      setModalTarget(linked);
+      setOpenedLinkedContactId(linkedContactId);
+    }
+  }
 
   const clearFirmFilter = () => {
     const params = new URLSearchParams(searchParams.toString());

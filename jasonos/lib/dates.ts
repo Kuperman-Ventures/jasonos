@@ -17,6 +17,58 @@ export function etToday(): string {
 }
 
 /**
+ * Start and end of a YYYY-MM-DD calendar day in America/New_York, as UTC
+ * instants. 00:00:00 through 23:59:59 Eastern, including the daylight-saving
+ * offset. Do not build this with `new Date("YYYY-MM-DDT00:00:00")` — that is
+ * UTC on Vercel.
+ */
+export function easternDayBounds(ymd: string): { start: Date; end: Date } {
+  return {
+    start: easternWallTime(ymd, 0, 0, 0),
+    end: easternWallTime(ymd, 23, 59, 59),
+  };
+}
+
+function easternWallTime(
+  ymd: string,
+  hour: number,
+  minute: number,
+  second: number
+): Date {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const guess = new Date(Date.UTC(y, m - 1, d, hour, minute, second));
+  const offset = tzOffsetMinutes(APP_TZ, guess);
+  const corrected = new Date(guess.getTime() - offset * 60_000);
+  const check = tzOffsetMinutes(APP_TZ, corrected);
+  if (check !== offset) return new Date(guess.getTime() - check * 60_000);
+  return corrected;
+}
+
+function tzOffsetMinutes(timeZone: string, date: Date): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(date);
+  const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const hour = Number(map.hour) % 24;
+  const asUtc = Date.UTC(
+    Number(map.year),
+    Number(map.month) - 1,
+    Number(map.day),
+    hour,
+    Number(map.minute),
+    Number(map.second)
+  );
+  return Math.round((asUtc - date.getTime()) / 60_000);
+}
+
+/**
  * Coming Friday (inclusive) for a YYYY-MM-DD calendar day. Weekend → next
  * Friday. Pure date-math (UTC noon) so Home / Queue / Drift agree regardless
  * of the server's local timezone.

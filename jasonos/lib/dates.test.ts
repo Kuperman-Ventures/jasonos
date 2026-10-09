@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   addDaysYmd,
+  easternDayBounds,
   etEndOfWorkWeekYmd,
   formatMonSunWeekLabel,
   gmailAfterSlashDate,
@@ -13,6 +14,24 @@ describe("gmailAfterSlashDate", () => {
   it("emits YYYY/MM/DD so Gmail after: actually filters Sent", () => {
     const now = new Date("2026-09-15T18:00:00Z");
     assert.equal(gmailAfterSlashDate(7, now), "2026/09/08");
+  });
+});
+
+describe("easternDayBounds", () => {
+  it("uses the Eastern offset, not UTC midnight", () => {
+    const summer = easternDayBounds("2026-10-09");
+    assert.equal(summer.start.toISOString(), "2026-10-09T04:00:00.000Z");
+    assert.equal(summer.end.toISOString(), "2026-10-10T03:59:59.000Z");
+
+    const winter = easternDayBounds("2026-01-15");
+    assert.equal(winter.start.toISOString(), "2026-01-15T05:00:00.000Z");
+    assert.equal(winter.end.toISOString(), "2026-01-16T04:59:59.000Z");
+  });
+
+  it("lets the start and end of a daylight-saving day use different offsets", () => {
+    const spring = easternDayBounds("2026-03-08");
+    assert.equal(spring.start.toISOString(), "2026-03-08T05:00:00.000Z");
+    assert.equal(spring.end.toISOString(), "2026-03-09T03:59:59.000Z");
   });
 });
 

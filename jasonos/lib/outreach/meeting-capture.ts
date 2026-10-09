@@ -25,7 +25,8 @@ export interface UpsertCalendarMeetingsResult {
 /**
  * Upsert Google Calendar events onto jasonos.meetings so they appear in the
  * contact Meetings tab. Dedupes on (contact_id, gcal_event_id). Does not
- * clobber prep/debrief fields the user already filled in.
+ * clobber prep/debrief fields the user already filled in, and does not copy
+ * the calendar title into prep_goal. The title already lives on title.
  */
 export async function upsertMeetingsFromCalendar(
   rows: CalendarMeetingUpsert[]
@@ -50,7 +51,7 @@ export async function upsertMeetingsFromCalendar(
   const { data: existingRows, error: preErr } = await sb
     .from("meetings")
     .select(
-      "id,contact_id,gcal_event_id,status,debrief_notes,prep_goal,prep_notes,title"
+      "id,contact_id,gcal_event_id,status,debrief_notes,prep_notes,title"
     )
     .in("gcal_event_id", eventIds)
     .in("contact_id", contactIds);
@@ -98,7 +99,6 @@ export async function upsertMeetingsFromCalendar(
         title: row.title,
         calendar_url: row.calendarUrl,
         gcal_event_id: row.gcalEventId,
-        prep_goal: row.title,
         held_at: row.status === "held" ? row.scheduledAt : null,
         prep_research: research?.brief ?? null,
         prep_research_at: research?.researchedAt ?? null,
@@ -112,12 +112,7 @@ export async function upsertMeetingsFromCalendar(
       calendar_url: row.calendarUrl,
       updated_at: nowIso,
     };
-    if (row.title) {
-      payload.title = row.title;
-      if (!(existing.prep_goal as string | null)) {
-        payload.prep_goal = row.title;
-      }
-    }
+    if (row.title) payload.title = row.title;
 
     const existingStatus = (existing.status as MeetingStatus) ?? "scheduled";
     if (existingStatus === "scheduled" && row.status === "held") {
