@@ -170,16 +170,8 @@ function toConnection(row: HandoffRow): MeetingContextConnection {
     why: brief.why,
     overlap: brief.overlap,
     emailUrl: account && threadId ? gmailThreadUrl(account, threadId) : null,
-    resumeUrl: resumeHref(row),
     attachmentLabel: attachmentLabel(row.resume_filename),
   };
-}
-
-function resumeHref(row: HandoffRow): string | null {
-  const contactId = text(row.existing_contact_id) || text(row.created_contact_id);
-  if (!contactId) return null;
-  if (!text(row.resume_message_id) && !text(row.resume_filename)) return null;
-  return `/api/browning-networking/resume?contactId=${encodeURIComponent(contactId)}`;
 }
 
 type Db = ReturnType<typeof createServiceRoleClient>;
@@ -468,11 +460,8 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
     history: groupCommunicationHistory(touchRows),
     documents: connections.map((connection) => ({
       id: connection.id,
-      label:
-        connection.attachmentLabel === "Attachment on the introduction email" && connection.resumeUrl
-          ? "Resume"
-          : connection.attachmentLabel,
-      url: connection.resumeUrl || connection.emailUrl,
+      label: connection.attachmentLabel,
+      url: connection.emailUrl,
     })),
     pastMeetings,
     jobSearch: [

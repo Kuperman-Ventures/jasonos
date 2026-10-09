@@ -44,25 +44,28 @@ export interface HistoryEntry {
 }
 
 export function gmailThreadUrl(account: string, threadId: string): string {
-  // Gmail matches the mailbox on the raw address. Encoding @ as %40 opens a dead page.
-  const mailbox = decodeURIComponent(account);
-  return `https://mail.google.com/mail/u/${mailbox}/#all/${threadId}`;
+  // /mail/u/<email>/ with @ encoded as %40 opens a dead Gmail page.
+  // authuser selects the mailbox and #all opens the conversation.
+  let mailbox = account;
+  try {
+    mailbox = decodeURIComponent(account);
+  } catch {
+    mailbox = account;
+  }
+  return `https://mail.google.com/mail/?authuser=${encodeURIComponent(mailbox)}#all/${threadId}`;
 }
 
 /** Stored touch links sometimes encode @ in the mailbox. Gmail will not open those. */
 export function repairGmailUrl(url: string | null | undefined): string | null {
   const value = url?.trim();
-  if (!value) return null;
-  return value.replace(
-    /^(https:\/\/mail\.google\.com\/mail\/u\/)([^/#]+)(\/)/i,
-    (_match, prefix: string, account: string, slash: string) => {
-      try {
-        return `${prefix}${decodeURIComponent(account)}${slash}`;
-      } catch {
-        return `${prefix}${account}${slash}`;
-      }
-    }
-  );
+  if (!value || !/mail\.google\.com\/mail\//i.test(value)) return value || null;
+  const thread = value.match(/#(?:all|inbox|sent)\/([A-Za-z0-9_-]+)/);
+  if (!thread) return value;
+  const account = value.match(/\/mail\/u\/([^/#]+)\//i);
+  const authuser = value.match(/[?&]authuser=([^&#]+)/i);
+  const raw = account?.[1] || authuser?.[1];
+  if (!raw) return value;
+  return gmailThreadUrl(raw, thread[1]);
 }
 
 const URL_IN_TEXT = /https?:\/\/[^\s<>"']+/gi;
@@ -295,7 +298,6 @@ export interface MeetingContextConnection {
   why: string | null;
   overlap: string | null;
   emailUrl: string | null;
-  resumeUrl: string | null;
   attachmentLabel: string;
 }
 

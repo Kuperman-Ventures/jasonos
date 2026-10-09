@@ -55,11 +55,11 @@ describe("gmail and profile links", () => {
   it("keeps @ in the Gmail mailbox so the thread opens", () => {
     assert.equal(
       gmailThreadUrl("jskuperman@gmail.com", "1a0ceea9a0d11bab"),
-      "https://mail.google.com/mail/u/jskuperman@gmail.com/#all/1a0ceea9a0d11bab"
+      "https://mail.google.com/mail/?authuser=jskuperman%40gmail.com#all/1a0ceea9a0d11bab"
     );
     assert.equal(
       repairGmailUrl("https://mail.google.com/mail/u/jason%40kupermanadvisors.com/#all/abc"),
-      "https://mail.google.com/mail/u/jason@kupermanadvisors.com/#all/abc"
+      "https://mail.google.com/mail/?authuser=jason%40kupermanadvisors.com#all/abc"
     );
   });
 
