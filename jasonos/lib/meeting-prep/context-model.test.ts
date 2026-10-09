@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  gmailThreadUrl,
   groupCommunicationHistory,
+  linkify,
   meetingContextLine,
+  repairGmailUrl,
   type HistoryTouch,
 } from "./context-model.ts";
 
@@ -45,6 +48,29 @@ describe("groupCommunicationHistory", () => {
     assert.equal(entries[0].title, "Re: Matt/Jason Connect");
     assert.equal(entries[1].channelLabel, "LinkedIn");
     assert.equal(entries[1].messageCount, 1);
+  });
+});
+
+describe("gmail and profile links", () => {
+  it("keeps @ in the Gmail mailbox so the thread opens", () => {
+    assert.equal(
+      gmailThreadUrl("jskuperman@gmail.com", "1a0ceea9a0d11bab"),
+      "https://mail.google.com/mail/u/jskuperman@gmail.com/#all/1a0ceea9a0d11bab"
+    );
+    assert.equal(
+      repairGmailUrl("https://mail.google.com/mail/u/jason%40kupermanadvisors.com/#all/abc"),
+      "https://mail.google.com/mail/u/jason@kupermanadvisors.com/#all/abc"
+    );
+  });
+
+  it("turns a LinkedIn address in a sentence into a link", () => {
+    const parts = linkify(
+      "Matt Ramerman. LinkedIn https://www.linkedin.com/in/ramerman. Phone (206) 399-3559."
+    );
+    assert.deepEqual(
+      parts.filter((part) => part.href),
+      [{ text: "https://www.linkedin.com/in/ramerman", href: "https://www.linkedin.com/in/ramerman" }]
+    );
   });
 });
 

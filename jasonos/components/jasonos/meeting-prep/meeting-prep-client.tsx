@@ -10,6 +10,7 @@ import { ContactCreateModal } from "@/components/jasonos/outreach/contact-create
 import {
   collapseText,
   easternDateLong,
+  linkify,
   type MeetingContext,
   type MeetingContextConnection,
   type MeetingContextPerson,
@@ -79,7 +80,9 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
       <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
       </p>
-      <div className="text-sm leading-relaxed">{children}</div>
+      <div className="text-sm leading-relaxed">
+        {typeof children === "string" ? <Prose text={children} /> : children}
+      </div>
     </div>
   );
 }
@@ -91,15 +94,31 @@ function sameText(a: string | null, b: string | null): boolean {
 }
 
 function ExternalLink({ href, children }: { href: string; children: ReactNode }) {
+  const external = /^https?:/i.test(href);
   return (
     <a
       href={href}
-      target="_blank"
-      rel="noreferrer"
-      className="font-medium text-rung-ink hover:underline"
+      {...(external ? { target: "_blank", rel: "noreferrer" } : {})}
+      className="font-medium text-rung-ink underline decoration-[var(--jos-line)] underline-offset-2"
     >
       {children}
     </a>
+  );
+}
+
+function Prose({ text, className }: { text: string; className?: string }) {
+  return (
+    <span className={className}>
+      {linkify(text).map((part, index) =>
+        part.href ? (
+          <ExternalLink key={`${part.href}-${index}`} href={part.href}>
+            {part.text}
+          </ExternalLink>
+        ) : (
+          <span key={index}>{part.text}</span>
+        )
+      )}
+    </span>
   );
 }
 
@@ -146,17 +165,17 @@ function PersonCard({ person }: { person: MeetingContextPerson }) {
       ) : null}
       {person.personalGoal ? (
         <Fact label="Goal">
-          <p className="whitespace-pre-wrap">{person.personalGoal}</p>
+          <Prose className="whitespace-pre-wrap" text={person.personalGoal} />
         </Fact>
       ) : null}
       {person.notes ? (
         <Fact label="Notes">
-          <p className="whitespace-pre-wrap text-muted-foreground">{person.notes}</p>
+          <Prose className="whitespace-pre-wrap text-muted-foreground" text={person.notes} />
         </Fact>
       ) : null}
       {person.researchLead || person.researchBullets.length ? (
         <Fact label="Research">
-          {person.researchLead ? <p>{person.researchLead}</p> : null}
+          {person.researchLead ? <Prose text={person.researchLead} /> : null}
           {person.researchBullets.length ? (
             <ul className="mt-1 list-disc space-y-1 pl-5">
               {person.researchBullets.map((bullet) => (
@@ -309,7 +328,7 @@ export function MeetingPrepClient({
             .map((person) => (
               <div key={`${person.contactId}-prep`} className="rounded-lg border bg-card px-4 py-4">
                 <Fact label="Tracy's note">
-                  <p className="whitespace-pre-wrap">{person.browningPrep}</p>
+                  <Prose className="whitespace-pre-wrap" text={person.browningPrep ?? ""} />
                 </Fact>
               </div>
             ))}
@@ -354,7 +373,13 @@ export function MeetingPrepClient({
       {context.history.length ? (
         <Section title="Conversation History">
           <ul className="divide-y divide-border rounded-lg border bg-card">
-            {context.history.map((entry) => (
+            {context.history.map((entry) => {
+              const openUrl =
+                entry.url ||
+                (entry.channelLabel === "LinkedIn"
+                  ? context.people.find((person) => person.linkedinUrl)?.linkedinUrl ?? null
+                  : null);
+              return (
               <li key={entry.id} className="grid gap-2 px-4 py-3 sm:grid-cols-[7.5rem_minmax(0,1fr)_auto] sm:gap-4">
                 <div className="space-y-1">
                   <p className="text-[11px] text-muted-foreground">{easternDateLong(entry.lastAt)}</p>
@@ -364,7 +389,7 @@ export function MeetingPrepClient({
                   <p className="text-sm font-medium">{entry.title}</p>
                   {entry.preview && entry.preview !== entry.title ? (
                     <p className="line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
-                      {entry.preview}
+                      <Prose text={entry.preview} />
                     </p>
                   ) : null}
                   {entry.direction || entry.messageCount > 1 ? (
@@ -378,15 +403,16 @@ export function MeetingPrepClient({
                     </p>
                   ) : null}
                 </div>
-                {entry.url ? (
+                {openUrl ? (
                   <div className="sm:pt-0.5">
-                    <ExternalLink href={entry.url}>Open</ExternalLink>
+                    <ExternalLink href={openUrl}>Open</ExternalLink>
                   </div>
                 ) : (
                   <span className="hidden sm:block" />
                 )}
               </li>
-            ))}
+              );
+            })}
           </ul>
         </Section>
       ) : null}

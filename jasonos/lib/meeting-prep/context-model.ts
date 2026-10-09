@@ -44,7 +44,45 @@ export interface HistoryEntry {
 }
 
 export function gmailThreadUrl(account: string, threadId: string): string {
-  return `https://mail.google.com/mail/u/${encodeURIComponent(account)}/#all/${threadId}`;
+  // Gmail matches the mailbox on the raw address. Encoding @ as %40 opens a dead page.
+  const mailbox = decodeURIComponent(account);
+  return `https://mail.google.com/mail/u/${mailbox}/#all/${threadId}`;
+}
+
+/** Stored touch links sometimes encode @ in the mailbox. Gmail will not open those. */
+export function repairGmailUrl(url: string | null | undefined): string | null {
+  const value = url?.trim();
+  if (!value) return null;
+  return value.replace(
+    /^(https:\/\/mail\.google\.com\/mail\/u\/)([^/#]+)(\/)/i,
+    (_match, prefix: string, account: string, slash: string) => {
+      try {
+        return `${prefix}${decodeURIComponent(account)}${slash}`;
+      } catch {
+        return `${prefix}${account}${slash}`;
+      }
+    }
+  );
+}
+
+const URL_IN_TEXT = /https?:\/\/[^\s<>"']+/gi;
+
+export function linkify(text: string): Array<{ text: string; href: string | null }> {
+  const parts: Array<{ text: string; href: string | null }> = [];
+  let last = 0;
+  for (const match of text.matchAll(URL_IN_TEXT)) {
+    const start = match.index ?? 0;
+    const raw = match[0];
+    const href = raw.replace(/[),.;]+$/, "");
+    const trailing = raw.slice(href.length);
+    if (start > last) parts.push({ text: text.slice(last, start), href: null });
+    parts.push({ text: href, href });
+    if (trailing) parts.push({ text: trailing, href: null });
+    last = start + raw.length;
+  }
+  if (last < text.length) parts.push({ text: text.slice(last), href: null });
+  if (!parts.length) parts.push({ text, href: null });
+  return parts;
 }
 
 export function collapseText(value: string | null | undefined): string | null {
@@ -102,7 +140,7 @@ function entryFromTouches(touches: HistoryTouch[]): HistoryEntry {
     direction: directionLabel(newest.direction),
     title,
     preview: previewText(newest.brief),
-    url: newest.threadUrl,
+    url: repairGmailUrl(newest.threadUrl),
     messageCount: ordered.length,
     firstAt: oldest.touchedAt,
     lastAt: newest.touchedAt,
@@ -257,6 +295,7 @@ export interface MeetingContextConnection {
   why: string | null;
   overlap: string | null;
   emailUrl: string | null;
+  resumeUrl: string | null;
   attachmentLabel: string;
 }
 
