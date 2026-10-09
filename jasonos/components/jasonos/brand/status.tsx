@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-/** 1 magenta, 2 yellow, 3 cyan, 4 ink, ok success green. Idle is surface. */
+/** 1 magenta, 2 yellow, 3 dark teal, 4 ink, ok success green, next bright cyan. Idle is surface. */
 export type StatusRung = 1 | 2 | 3 | 4 | "ok" | "idle" | "next";
 
 const RUNG_CLASS: Record<StatusRung, string> = {
