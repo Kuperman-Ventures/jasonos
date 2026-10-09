@@ -177,8 +177,8 @@ function toConnection(row: HandoffRow): MeetingContextConnection {
 
 function resumeHref(row: HandoffRow): string | null {
   const contactId = text(row.existing_contact_id) || text(row.created_contact_id);
-  const messageId = text(row.resume_message_id) || text(row.gmail_message_id);
-  if (!contactId || !messageId) return null;
+  if (!contactId) return null;
+  if (!text(row.resume_message_id) && !text(row.resume_filename)) return null;
   return `/api/browning-networking/resume?contactId=${encodeURIComponent(contactId)}`;
 }
 
