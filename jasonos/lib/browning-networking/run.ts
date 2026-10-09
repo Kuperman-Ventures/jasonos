@@ -10,7 +10,11 @@ import {
   renameGoogleCalendarEvent,
   type CalendarApiEvent,
 } from "@/lib/integrations/google-calendar";
-import { ADVISORS_ACCOUNT_EMAIL, listGoogleAccessTokens } from "@/lib/integrations/google-tokens";
+import {
+  ADVISORS_ACCOUNT_EMAIL,
+  isPersonalGmailAccount,
+  listGoogleAccessTokens,
+} from "@/lib/integrations/google-tokens";
 import { searchFirefliesForContact } from "@/lib/integrations/fireflies";
 import { searchGranolaForContact } from "@/lib/integrations/granola";
 import { canonicalEmail } from "@/lib/outreach/contact-lookup";
@@ -734,7 +738,12 @@ async function gmailResume(
   contactName?: string | null
 ) {
   const google = await listGoogleAccessTokens();
-  const token = google.find((account) => account.accountEmail === accountEmail)?.token;
+  const wanted = accountEmail.trim().toLowerCase();
+  const token = google.find((account) => {
+    const stored = account.accountEmail.trim().toLowerCase();
+    if (stored === wanted) return true;
+    return isPersonalGmailAccount(stored) && isPersonalGmailAccount(wanted);
+  })?.token;
   if (!token) return null;
   return downloadGmailResume(token, messageId, contactName);
 }
