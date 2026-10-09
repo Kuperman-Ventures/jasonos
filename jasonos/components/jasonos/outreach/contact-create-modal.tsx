@@ -67,6 +67,8 @@ export interface ContactCreateModalProps {
   onOpenChange: (open: boolean) => void;
   /** Optional callback fired with the created contact id. */
   onCreated?: (payload: { contactId: string }) => void;
+  /** Prefill when opening from a meeting attendee who is not a contact yet. */
+  initial?: { name?: string; email?: string };
 }
 
 interface CreatedContact {
@@ -82,9 +84,14 @@ export function ContactCreateModal({
   open,
   onOpenChange,
   onCreated,
+  initial,
 }: ContactCreateModalProps) {
   const router = useRouter();
-  const [form, setForm] = useState<FormState>(INITIAL);
+  const [form, setForm] = useState<FormState>({
+    ...INITIAL,
+    name: initial?.name ?? "",
+    email: initial?.email ?? "",
+  });
   const [isPending, startTransition] = useTransition();
   const [classifyTarget, setClassifyTarget] = useState<CreatedContact | null>(
     null

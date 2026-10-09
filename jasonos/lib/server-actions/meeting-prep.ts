@@ -1,6 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { loadHomeContextsForPreps } from "@/lib/meeting-prep/context";
+import {
+  EMPTY_HOME_CONTEXT,
+  type MeetingHomeContext,
+} from "@/lib/meeting-prep/context-model";
 import {
   loadTodaysMeetings,
   type TodaysMeeting,
@@ -37,6 +42,7 @@ export interface MeetingPrepSummary {
   purposeConfirmed: boolean;
   status: MeetingPrepStatus;
   sourceCount: number;
+  home: MeetingHomeContext;
 }
 
 export interface MeetingPrepSource {
@@ -156,6 +162,7 @@ function toSummary(row: PrepRow, sourceCount: number): MeetingPrepSummary {
     purposeConfirmed: Boolean(row.purpose_confirmed),
     status: asStatus(row.status),
     sourceCount,
+    home: EMPTY_HOME_CONTEXT,
   };
 }
 
@@ -290,10 +297,31 @@ export async function getTodaysMeetingPreps(): Promise<
       sb,
       rows.map((row) => row.id)
     );
+    const meetings = rows.map((row) => toSummary(row, counts.get(row.id) ?? 0));
+    const warnings = [...loaded.warnings];
+    try {
+      const homes = await loadHomeContextsForPreps(
+        meetings.map((meeting) => ({
+          id: meeting.id,
+          gcalEventId: meeting.gcalEventId,
+          attendees: meeting.attendees.map((attendee) => ({
+            email: attendee.email,
+            contactId: attendee.contactId,
+          })),
+        }))
+      );
+      for (const meeting of meetings) {
+        meeting.home = homes.get(meeting.id) ?? EMPTY_HOME_CONTEXT;
+      }
+    } catch (err) {
+      warnings.push(
+        err instanceof Error ? err.message : "Could not load meeting history."
+      );
+    }
     return {
       ok: true,
-      warnings: loaded.warnings,
-      meetings: rows.map((row) => toSummary(row, counts.get(row.id) ?? 0)),
+      warnings,
+      meetings,
     };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };

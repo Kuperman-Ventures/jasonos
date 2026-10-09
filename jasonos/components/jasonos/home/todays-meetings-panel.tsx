@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Calendar, ChevronDown } from "lucide-react";
 import { StatusBand, StatusPill, type StatusRung } from "@/components/jasonos/brand/status";
+import { meetingContextLine } from "@/lib/meeting-prep/context-model";
 import type { MeetingPrepSummary } from "@/lib/server-actions/meeting-prep";
 
 const STORAGE_KEY = "jasonos.todays-meetings.collapsed";
@@ -26,14 +27,13 @@ function attendeeLine(attendees: MeetingPrepSummary["attendees"]): string {
   return `${labels.slice(0, 3).join(", ")} +${labels.length - 3}`;
 }
 
-function prepPill(row: MeetingPrepSummary): { label: string; rung: StatusRung } {
+function prepPill(row: MeetingPrepSummary): { label: string; rung: StatusRung } | null {
+  if (row.status === "ready") return { label: "Brief ready", rung: "ok" };
+  if (row.status === "gathering" || row.status === "building") {
+    return { label: "Building", rung: 3 };
+  }
   if (row.status === "error") return { label: "Error", rung: 1 };
-  if (!row.purposeConfirmed) return { label: "Purpose needed", rung: 2 };
-  if (row.status === "ready") return { label: "Prepared", rung: "ok" };
-  if (row.status === "gathering") return { label: "Gathering", rung: 3 };
-  if (row.status === "building") return { label: "Building", rung: 3 };
-  if (row.status === "gathered") return { label: "Gathered", rung: 4 };
-  return { label: "Not prepared", rung: 4 };
+  return null;
 }
 
 export function TodaysMeetingsPanel({
@@ -118,10 +118,15 @@ export function TodaysMeetingsPanel({
                           </span>
                           {row.title}
                         </p>
-                        <StatusPill rung={pill.rung} className="shrink-0">
-                          {pill.label}
-                        </StatusPill>
+                        {pill ? (
+                          <StatusPill rung={pill.rung} className="shrink-0">
+                            {pill.label}
+                          </StatusPill>
+                        ) : null}
                       </div>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        {meetingContextLine(row.home, nowIso)}
+                      </p>
                       <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
                         {attendeeLine(row.attendees)}
                       </p>
