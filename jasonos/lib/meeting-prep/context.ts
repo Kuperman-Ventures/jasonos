@@ -17,7 +17,7 @@ import {
 } from "@/lib/meeting-prep/context-model";
 
 const HANDOFF_COLUMNS =
-  "id, subject, received_at, source_kind, contact_title, contact_company, linkedin_url, why_they_replied, brief, gmail_account, gmail_thread_id, resume_message_id, resume_filename, call_event_id, existing_contact_id, created_contact_id, contact_email";
+  "id, subject, received_at, source_kind, contact_title, contact_company, linkedin_url, why_they_replied, brief, gmail_account, gmail_thread_id, gmail_message_id, resume_message_id, resume_filename, call_event_id, existing_contact_id, created_contact_id, contact_email";
 
 const TOUCH_COLUMNS =
   "id, contact_id, channel, source, direction, touched_at, subject, brief, thread_url";
@@ -34,6 +34,7 @@ interface HandoffRow {
   brief: unknown;
   gmail_account: string | null;
   gmail_thread_id: string | null;
+  gmail_message_id: string | null;
   resume_message_id: string | null;
   resume_filename: string | null;
   call_event_id: string | null;
