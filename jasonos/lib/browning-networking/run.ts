@@ -2,7 +2,13 @@ import "server-only";
 
 import { etToday, etYmd } from "@/lib/dates";
 import { BROWNING_SOURCE_NAME, findReferralSourceId } from "@/lib/referral-sources";
-import { createGmailDraft, downloadGmailResume, getGmailMessagesFull, listGmailMessages } from "@/lib/integrations/gmail";
+import {
+  createGmailDraft,
+  downloadGmailResume,
+  getGmailMessagesFull,
+  getGmailThread,
+  listGmailMessages,
+} from "@/lib/integrations/gmail";
 import { downloadOutlookResume, latestOutlookSentTo, listOutlookTracyMessages, searchOutlookMessages } from "@/lib/integrations/outlook";
 import { getOutlookAccountAccess } from "@/lib/integrations/outlook-tokens";
 import {
@@ -711,7 +717,7 @@ export async function downloadHandoffResume(contactId: string): Promise<{
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("browning_handoffs")
-    .select("gmail_account, gmail_message_id, resume_message_id, resume_filename")
+    .select("gmail_account, gmail_message_id, gmail_thread_id, resume_message_id, resume_filename")
     .or(`created_contact_id.eq.${contactId},existing_contact_id.eq.${contactId}`)
     .order("received_at", { ascending: false })
     .limit(1)
@@ -720,9 +726,10 @@ export async function downloadHandoffResume(contactId: string): Promise<{
   const accountEmail = data.gmail_account as string;
   const messageId = (data.resume_message_id as string | null) || (data.gmail_message_id as string);
   if (!messageId) return null;
+  const threadId = (data.gmail_thread_id as string | null) || null;
   const file = /@(outlook|hotmail|live)\.com$/i.test(accountEmail)
     ? await outlookResume(messageId)
-    : await gmailResume(accountEmail, messageId);
+    : await gmailResume(accountEmail, messageId, null, threadId);
   return file;
 }
 
@@ -735,7 +742,8 @@ async function outlookResume(messageId: string, contactName?: string | null) {
 async function gmailResume(
   accountEmail: string,
   messageId: string,
-  contactName?: string | null
+  contactName?: string | null,
+  threadId?: string | null
 ) {
   const google = await listGoogleAccessTokens();
   const wanted = accountEmail.trim().toLowerCase();
@@ -745,7 +753,20 @@ async function gmailResume(
     return isPersonalGmailAccount(stored) && isPersonalGmailAccount(wanted);
   })?.token;
   if (!token) return null;
-  return downloadGmailResume(token, messageId, contactName);
+  const messageIds = [messageId];
+  const thread = threadId ? await getGmailThread(threadId, token) : null;
+  for (const message of thread?.messages ?? []) {
+    if (message.id && !messageIds.includes(message.id)) messageIds.push(message.id);
+  }
+  for (const id of messageIds) {
+    try {
+      const file = await downloadGmailResume(token, id, contactName);
+      if (file) return file;
+    } catch (err) {
+      console.error("[browning-networking] resume message", err);
+    }
+  }
+  return null;
 }
 
 async function lastOutreachTo(

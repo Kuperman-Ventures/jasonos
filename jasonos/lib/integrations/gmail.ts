@@ -1016,9 +1016,16 @@ function collectResumeParts(part: GmailFilePart | undefined): GmailFilePart[] {
   if (!part) return [];
   const out: GmailFilePart[] = [];
   const name = `${part.filename ?? ""} ${part.mimeType ?? ""}`.toLowerCase();
-  if (part.filename && (name.includes(".docx") || name.includes(".pdf") || name.includes("wordprocessingml"))) {
-    out.push(part);
-  }
+  const mime = (part.mimeType ?? "").toLowerCase();
+  const resume =
+    Boolean(part.filename) &&
+    (name.includes(".docx") ||
+      name.includes(".doc") ||
+      name.includes(".pdf") ||
+      mime === "application/pdf" ||
+      mime === "application/msword" ||
+      mime.includes("wordprocessingml"));
+  if (resume) out.push(part);
   for (const child of part.parts ?? []) {
     out.push(...collectResumeParts(child));
   }
