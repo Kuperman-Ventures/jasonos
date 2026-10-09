@@ -983,9 +983,34 @@ export async function createGmailDraft(input: {
 type GmailFilePart = {
   filename?: string;
   mimeType?: string;
-  body?: { attachmentId?: string; data?: string };
+  headers?: { name?: string; value?: string }[];
+  body?: { attachmentId?: string; data?: string; size?: number };
   parts?: GmailFilePart[];
 };
+
+function partFilename(part: GmailFilePart): string {
+  const named = part.filename?.trim();
+  if (named) return named;
+  const disposition =
+    part.headers?.find((header) => header.name?.toLowerCase() === "content-disposition")?.value ??
+    "";
+  const match = disposition.match(/filename\*=UTF-8''([^;]+)|filename="([^"]+)"|filename=([^;]+)/i);
+  const raw = (match?.[1] || match?.[2] || match?.[3] || "").trim();
+  if (!raw) return "";
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+function resumeScore(part: GmailFilePart): number {
+  const name = partFilename(part).toLowerCase();
+  const mime = (part.mimeType ?? "").toLowerCase();
+  if (mime === "application/pdf" || name.endsWith(".pdf")) return 3;
+  if (name.endsWith(".docx") || name.endsWith(".doc") || mime.includes("word")) return 2;
+  return 1;
+}
 
 export async function downloadGmailResume(
   accessToken: string,
@@ -999,7 +1024,7 @@ export async function downloadGmailResume(
   const parts = collectResumeParts(message.payload);
   const part = pickResumePart(parts, nameHint);
   if (!part) return null;
-  const filename = part.filename || "resume.docx";
+  const filename = partFilename(part) || "resume.pdf";
   if (part.body?.data) {
     return { filename, bytes: Buffer.from(part.body.data.replace(/-/g, "+").replace(/_/g, "/"), "base64") };
   }
@@ -1012,20 +1037,27 @@ export async function downloadGmailResume(
   return { filename, bytes: Buffer.from(file.data.replace(/-/g, "+").replace(/_/g, "/"), "base64") };
 }
 
+function isSkippedAttachment(filename: string, mime: string): boolean {
+  const name = filename.toLowerCase();
+  if (mime.startsWith("image/") || mime.startsWith("text/") || mime.startsWith("multipart/")) {
+    return true;
+  }
+  if (name.endsWith(".ics") || name.endsWith(".vcf") || mime.includes("calendar")) return true;
+  if (/^(image\d+|logo|signature|icon)/.test(name)) return true;
+  return false;
+}
+
 function collectResumeParts(part: GmailFilePart | undefined): GmailFilePart[] {
   if (!part) return [];
   const out: GmailFilePart[] = [];
-  const name = `${part.filename ?? ""} ${part.mimeType ?? ""}`.toLowerCase();
+  const filename = partFilename(part);
   const mime = (part.mimeType ?? "").toLowerCase();
-  const resume =
-    Boolean(part.filename) &&
-    (name.includes(".docx") ||
-      name.includes(".doc") ||
-      name.includes(".pdf") ||
-      mime === "application/pdf" ||
-      mime === "application/msword" ||
-      mime.includes("wordprocessingml"));
-  if (resume) out.push(part);
+  const namedFile = Boolean(filename) && !isSkippedAttachment(filename, mime);
+  const resumeMime =
+    mime === "application/pdf" || mime === "application/msword" || mime.includes("word");
+  if ((namedFile || resumeMime) && (filename || part.body?.attachmentId || part.body?.data)) {
+    out.push(filename && filename !== part.filename ? { ...part, filename } : part);
+  }
   for (const child of part.parts ?? []) {
     out.push(...collectResumeParts(child));
   }
@@ -1037,12 +1069,13 @@ function pickResumePart(
   nameHint?: string | null
 ): GmailFilePart | null {
   if (!parts.length) return null;
+  const ranked = [...parts].sort((a, b) => resumeScore(b) - resumeScore(a));
   const needle = lastNameNeedle(nameHint);
   if (needle) {
-    const hit = parts.find((part) => (part.filename ?? "").toLowerCase().includes(needle));
+    const hit = ranked.find((part) => partFilename(part).toLowerCase().includes(needle));
     if (hit) return hit;
   }
-  return parts[0] ?? null;
+  return ranked[0] ?? null;
 }
 
 function lastNameNeedle(nameHint?: string | null): string | null {

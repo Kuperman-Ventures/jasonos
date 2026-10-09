@@ -26,6 +26,7 @@ import { searchGranolaForContact } from "@/lib/integrations/granola";
 import { canonicalEmail } from "@/lib/outreach/contact-lookup";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { findBookedCall, type CalendarGuestEvent } from "./booking";
+import { pickResumeHandoff, type ResumeHandoffRow } from "./resume-source";
 import {
   planDuplicateDismissals,
   type DedupeHandoff,
@@ -709,27 +710,51 @@ async function enrichParsedFromResume(
 
 const CONTACT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function downloadHandoffResume(contactId: string): Promise<{
-  filename: string;
-  bytes: Buffer;
-} | null> {
+const RESUME_HANDOFF_COLUMNS =
+  "gmail_account, gmail_message_id, gmail_thread_id, resume_message_id, resume_filename, contact_name, received_at";
+
+export async function findHandoffResumeSource(contactId: string): Promise<ResumeHandoffRow | null> {
   if (!CONTACT_ID.test(contactId)) return null;
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("browning_handoffs")
-    .select("gmail_account, gmail_message_id, gmail_thread_id, resume_message_id, resume_filename")
+    .select(RESUME_HANDOFF_COLUMNS)
     .or(`created_contact_id.eq.${contactId},existing_contact_id.eq.${contactId}`)
+    .order("received_at", { ascending: false });
+  if (error) return null;
+  const linked = (data ?? []) as ResumeHandoffRow[];
+  if (linked.some((row) => row.resume_filename)) return pickResumeHandoff(linked, []);
+
+  let name = linked.find((row) => row.contact_name?.trim())?.contact_name?.trim() ?? null;
+  if (!name) {
+    const contact = await sb.from("contacts").select("name").eq("id", contactId).maybeSingle();
+    name = (contact.data?.name as string | null)?.trim() || null;
+  }
+  if (!name) return null;
+
+  const named = await sb
+    .from("browning_handoffs")
+    .select(RESUME_HANDOFF_COLUMNS)
+    .eq("contact_name", name)
+    .not("resume_filename", "is", null)
     .order("received_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error || !data) return null;
-  const accountEmail = data.gmail_account as string;
-  const messageId = (data.resume_message_id as string | null) || (data.gmail_message_id as string);
+    .limit(5);
+  if (named.error) return null;
+  return pickResumeHandoff(linked, (named.data ?? []) as ResumeHandoffRow[]);
+}
+
+export async function downloadHandoffResume(contactId: string): Promise<{
+  filename: string;
+  bytes: Buffer;
+} | null> {
+  const data = await findHandoffResumeSource(contactId);
+  if (!data?.gmail_account) return null;
+  const messageId = data.resume_message_id || data.gmail_message_id;
   if (!messageId) return null;
-  const threadId = (data.gmail_thread_id as string | null) || null;
-  const file = /@(outlook|hotmail|live)\.com$/i.test(accountEmail)
+  const threadId = data.gmail_thread_id || null;
+  const file = /@(outlook|hotmail|live)\.com$/i.test(data.gmail_account)
     ? await outlookResume(messageId)
-    : await gmailResume(accountEmail, messageId, null, threadId);
+    : await gmailResume(data.gmail_account, messageId, data.contact_name, threadId);
   return file;
 }
 

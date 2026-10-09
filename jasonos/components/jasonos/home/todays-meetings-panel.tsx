@@ -68,6 +68,13 @@ export function TodaysMeetingsPanel({
     });
   };
 
+  const visible = rows.filter((row) => {
+    const end = Date.parse(row.endsAt);
+    const now = Date.parse(nowIso);
+    if (Number.isNaN(end) || Number.isNaN(now)) return true;
+    return end >= now;
+  });
+
   return (
     <section className="overflow-hidden">
       <button
@@ -81,7 +88,7 @@ export function TodaysMeetingsPanel({
           <Calendar className="h-5 w-5" />
           <h2 className="text-[17px] font-bold tracking-tight">Today&apos;s Meetings</h2>
           <StatusPill rung={4} className="ml-auto">
-            {rows.length}
+            {visible.length}
           </StatusPill>
           <ChevronDown
             className={`h-4 w-4 shrink-0 transition-transform ${
@@ -98,17 +105,16 @@ export function TodaysMeetingsPanel({
       ) : null}
 
       {!collapsed ? (
-        rows.length === 0 ? (
+        visible.length === 0 ? (
           <p className="px-4 py-8 text-center text-xs text-muted-foreground">
-            No meetings with other people today.
+            {rows.length ? "No meetings left today." : "No meetings with other people today."}
           </p>
         ) : (
           <ul className="divide-y divide-border">
-            {rows.map((row) => {
-              const ended = Date.parse(row.endsAt) < Date.parse(nowIso);
+            {visible.map((row) => {
               const pill = prepPill(row);
               return (
-                <li key={row.id} className={ended ? "opacity-60" : undefined}>
+                <li key={row.id}>
                   <div className="flex items-start gap-3 px-4 py-3">
                     <Link href={`/meetings/${row.id}`} className="min-w-0 flex-1">
                       <div className="flex items-start gap-2">

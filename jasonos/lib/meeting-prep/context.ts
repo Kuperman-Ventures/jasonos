@@ -1,10 +1,10 @@
 import "server-only";
 
 import { parseResearchBrief } from "@/lib/ai/research-brief";
+import { findHandoffResumeSource } from "@/lib/browning-networking/run";
 import { normalizeIntroWish } from "@/lib/outreach/intro-email";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import {
-  attachmentLabel,
   gmailThreadUrl,
   groupCommunicationHistory,
   summarizeHome,
@@ -170,8 +170,27 @@ function toConnection(row: HandoffRow): MeetingContextConnection {
     why: brief.why,
     overlap: brief.overlap,
     emailUrl: account && threadId ? gmailThreadUrl(account, threadId) : null,
-    attachmentLabel: attachmentLabel(row.resume_filename),
+    attachmentLabel: text(row.resume_filename) || "Resume",
   };
+}
+
+async function resumeDocuments(handoffs: HandoffRow[]): Promise<MeetingContext["documents"]> {
+  const documents: MeetingContext["documents"] = [];
+  const seen = new Set<string>();
+  for (const row of handoffs) {
+    const contactId = text(row.existing_contact_id) || text(row.created_contact_id);
+    if (!contactId || seen.has(contactId)) continue;
+    seen.add(contactId);
+    const source = await findHandoffResumeSource(contactId);
+    const filename = source?.resume_filename?.trim();
+    if (!filename) continue;
+    documents.push({
+      id: row.id,
+      label: filename,
+      url: `/api/browning-networking/resume?contactId=${encodeURIComponent(contactId)}`,
+    });
+  }
+  return documents;
 }
 
 type Db = ReturnType<typeof createServiceRoleClient>;
@@ -458,11 +477,7 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
     unmatched,
     connections,
     history: groupCommunicationHistory(touchRows),
-    documents: connections.map((connection) => ({
-      id: connection.id,
-      label: connection.attachmentLabel,
-      url: connection.emailUrl,
-    })),
+    documents: await resumeDocuments(handoffs),
     pastMeetings,
     jobSearch: [
       ...((interviews?.data ?? []) as Record<string, unknown>[]).map((row) => ({

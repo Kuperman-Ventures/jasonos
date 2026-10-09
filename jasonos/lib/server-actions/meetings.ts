@@ -10,6 +10,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { insertContactTouches, type TouchChannel } from "@/lib/outreach/touch-capture";
 import type { TouchObjective } from "@/lib/outreach/types";
 import { getContactResearch } from "@/lib/outreach/contact-research-store";
+import { findHandoffResumeSource } from "@/lib/browning-networking/run";
 
 export type {
   IntroWishFields as IntroWish,
@@ -114,19 +115,13 @@ export async function getBrowningPrep(contactId: string): Promise<BrowningPrepVi
   }
   const text = (data?.browning_prep as string | null)?.trim() || null;
   if (!/^[0-9a-f-]{36}$/i.test(contactId)) return { brief: text, resumeFilename: null };
-  const handoff = await sb
-    .from("browning_handoffs")
-    .select("resume_filename")
-    .or(`created_contact_id.eq.${contactId},existing_contact_id.eq.${contactId}`)
-    .order("received_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (handoff.error) {
-    console.error("[meetings.getBrowningPrep.file]", handoff.error);
-  }
+  const handoff = await findHandoffResumeSource(contactId).catch((err) => {
+    console.error("[meetings.getBrowningPrep.file]", err);
+    return null;
+  });
   return {
     brief: text,
-    resumeFilename: (handoff.data?.resume_filename as string | null) ?? null,
+    resumeFilename: handoff?.resume_filename ?? null,
   };
 }
 

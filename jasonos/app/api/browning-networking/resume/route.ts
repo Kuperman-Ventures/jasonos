@@ -17,13 +17,18 @@ export async function GET(req: Request) {
     if (!file) {
       return NextResponse.json({ error: "No resume on file." }, { status: 404 });
     }
-    const filename = file.filename.replace(/[^\w.\- ()]+/g, "") || "resume.docx";
-    const pdf = filename.toLowerCase().endsWith(".pdf");
+    const filename = file.filename.replace(/[^\w.\- ()]+/g, "") || "resume.pdf";
+    const pdf =
+      filename.toLowerCase().endsWith(".pdf") ||
+      file.bytes.subarray(0, 5).toString() === "%PDF-";
+    const doc = filename.toLowerCase().endsWith(".doc") && !filename.toLowerCase().endsWith(".docx");
     return new NextResponse(new Uint8Array(file.bytes), {
       headers: {
         "Content-Type": pdf
           ? "application/pdf"
-          : "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          : doc
+            ? "application/msword"
+            : "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "Content-Disposition": `attachment; filename="${filename}"`,
         "Cache-Control": "no-store",
       },
