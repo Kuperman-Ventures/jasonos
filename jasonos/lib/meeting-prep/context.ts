@@ -301,8 +301,9 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
       emails.map((email) =>
         sb
           .from("meeting_followups")
-          .select("id, gcal_event_id, title, starts_at, granola_summary, granola_url, attendees")
-          .contains("attendees", [{ email }])
+          .select("id, gcal_event_id, title, starts_at, granola_summary, granola_url")
+          // Pass JSON text. An array of objects is sent as "{[object Object]}" and Postgres rejects it.
+          .contains("attendees", JSON.stringify([{ email }]))
       )
     ),
   ]);
