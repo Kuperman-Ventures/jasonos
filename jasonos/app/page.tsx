@@ -28,6 +28,7 @@ export default async function Dashboard({
   return (
     <HomeClient data={data}>
       <MorningBriefCard selectedDate={brief} />
+      <InboxDispatchCard />
       <TodaysMeetingsPanel
         nowIso={new Date().toISOString()}
         rows={todaysMeetings.ok ? todaysMeetings.meetings : []}
@@ -37,7 +38,6 @@ export default async function Dashboard({
             : [todaysMeetings.error]
         }
       />
-      <InboxDispatchCard />
       <MeetingFollowupsPanel rows={dueMeetings} />
       <SentFollowupsPanel rows={sentFollowups} />
     </HomeClient>
