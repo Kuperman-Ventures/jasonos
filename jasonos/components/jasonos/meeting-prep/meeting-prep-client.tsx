@@ -8,8 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ContactCreateModal } from "@/components/jasonos/outreach/contact-create-modal";
 import {
+  collapseText,
   easternDateLong,
   type MeetingContext,
+  type MeetingContextConnection,
   type MeetingContextPerson,
 } from "@/lib/meeting-prep/context-model";
 import { plainTextFromHtml } from "@/lib/meeting-prep/text";
@@ -62,11 +64,30 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-2">
-      <h2 className="text-sm font-bold">{title}</h2>
+    <section className="space-y-3 border-t border-border pt-6">
+      <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {title}
+      </h2>
       {children}
     </section>
   );
+}
+
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </p>
+      <div className="text-sm leading-relaxed">{children}</div>
+    </div>
+  );
+}
+
+function sameText(a: string | null, b: string | null): boolean {
+  const left = collapseText(a)?.toLowerCase();
+  const right = collapseText(b)?.toLowerCase();
+  return Boolean(left && right && left === right);
 }
 
 function ExternalLink({ href, children }: { href: string; children: ReactNode }) {
@@ -82,52 +103,114 @@ function ExternalLink({ href, children }: { href: string; children: ReactNode })
   );
 }
 
+function MetaChip({ children }: { children: ReactNode }) {
+  return (
+    <span className="inline-flex rounded-full border border-border bg-[var(--color-surface)] px-2 py-0.5 text-[11px] font-medium text-foreground/80">
+      {children}
+    </span>
+  );
+}
+
 function PersonCard({ person }: { person: MeetingContextPerson }) {
   const relationship = knownLabel(RELATIONSHIP_TYPE_LABELS, person.relationshipType);
   const intent = knownLabel(CONTACT_INTENT_LABELS, person.intent);
   const role = knownLabel(NETWORK_ROLE_LABELS, person.networkRole);
-  const labels = [relationship, intent, role].filter(Boolean);
+  const labels = [relationship, intent, role].filter((label): label is string => Boolean(label));
+  const roleLine = [person.title, person.company].filter(Boolean).join(" · ");
   return (
-    <article className="space-y-1 rounded-lg border px-3 py-3">
-      <p className="text-sm font-medium">
-        <Link
-          href={`/outreach/people?id=${person.contactId}`}
-          className="text-rung-ink hover:underline"
-        >
-          {person.name}
-        </Link>
-        {person.email ? (
-          <span className="ml-2 font-normal text-muted-foreground">{person.email}</span>
-        ) : null}
-      </p>
-      {person.title || person.company ? (
-        <p className="text-sm text-muted-foreground">
-          {[person.title, person.company].filter(Boolean).join(" · ")}
+    <article className="space-y-3 rounded-lg border bg-card px-4 py-4">
+      <div className="space-y-1">
+        <p className="text-base font-semibold">
+          <Link
+            href={`/outreach/people?id=${person.contactId}`}
+            className="text-rung-ink hover:underline"
+          >
+            {person.name}
+          </Link>
         </p>
-      ) : null}
-      {person.linkedinUrl ? (
-        <p className="text-sm">
-          <ExternalLink href={person.linkedinUrl}>LinkedIn</ExternalLink>
-        </p>
-      ) : null}
+        {roleLine ? <p className="text-sm text-muted-foreground">{roleLine}</p> : null}
+        {person.email ? <p className="text-sm text-muted-foreground">{person.email}</p> : null}
+      </div>
       {labels.length ? (
-        <p className="text-sm text-muted-foreground">{labels.join(" · ")}</p>
+        <div className="flex flex-wrap gap-1.5">
+          {labels.map((label) => (
+            <MetaChip key={label}>{label}</MetaChip>
+          ))}
+        </div>
       ) : null}
-      {person.phone ? <p className="text-sm">{person.phone}</p> : null}
+      {person.linkedinUrl || person.phone ? (
+        <p className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+          {person.linkedinUrl ? <ExternalLink href={person.linkedinUrl}>LinkedIn</ExternalLink> : null}
+          {person.phone ? <span>{person.phone}</span> : null}
+        </p>
+      ) : null}
       {person.personalGoal ? (
-        <p className="whitespace-pre-wrap text-sm">{person.personalGoal}</p>
+        <Fact label="Goal">
+          <p className="whitespace-pre-wrap">{person.personalGoal}</p>
+        </Fact>
       ) : null}
       {person.notes ? (
-        <p className="whitespace-pre-wrap text-sm text-muted-foreground">{person.notes}</p>
+        <Fact label="Notes">
+          <p className="whitespace-pre-wrap text-muted-foreground">{person.notes}</p>
+        </Fact>
       ) : null}
-      {person.researchLead ? <p className="text-sm">{person.researchLead}</p> : null}
-      {person.researchBullets.length ? (
-        <ul className="list-disc space-y-1 pl-5 text-sm">
-          {person.researchBullets.map((bullet) => (
-            <li key={bullet}>{bullet}</li>
-          ))}
-        </ul>
+      {person.researchLead || person.researchBullets.length ? (
+        <Fact label="Research">
+          {person.researchLead ? <p>{person.researchLead}</p> : null}
+          {person.researchBullets.length ? (
+            <ul className="mt-1 list-disc space-y-1 pl-5">
+              {person.researchBullets.map((bullet) => (
+                <li key={bullet}>{bullet}</li>
+              ))}
+            </ul>
+          ) : null}
+        </Fact>
       ) : null}
+    </article>
+  );
+}
+
+function ConnectionCard({ connection }: { connection: MeetingContextConnection }) {
+  const showWhy = connection.why && !sameText(connection.why, connection.whyTheyReplied);
+  return (
+    <article className="space-y-4 rounded-lg border bg-card px-4 py-4">
+      <div className="space-y-1">
+        <p className="text-sm font-semibold">Introduced by Tracy SantaMaria</p>
+        <p className="text-sm text-muted-foreground">
+          Browning Associates
+          {connection.receivedAt ? ` · ${easternDateLong(connection.receivedAt)}` : ""}
+        </p>
+        {connection.subject ? (
+          <p className="text-sm">
+            {connection.emailUrl ? (
+              <ExternalLink href={connection.emailUrl}>{connection.subject}</ExternalLink>
+            ) : (
+              connection.subject
+            )}
+          </p>
+        ) : null}
+      </div>
+      {connection.ask || connection.overlap ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {connection.ask ? (
+            <div className="rounded-md border border-border bg-background px-3 py-3">
+              <Fact label="Ask">{connection.ask}</Fact>
+            </div>
+          ) : null}
+          {connection.overlap ? (
+            <div className="rounded-md border border-border bg-background px-3 py-3">
+              <Fact label="Overlap">{connection.overlap}</Fact>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="space-y-3">
+        {connection.whyTheyReplied ? (
+          <Fact label="Why they agreed">{connection.whyTheyReplied}</Fact>
+        ) : null}
+        {connection.who ? <Fact label="Who">{connection.who}</Fact> : null}
+        {showWhy ? <Fact label="Why">{connection.why}</Fact> : null}
+      </div>
     </article>
   );
 }
@@ -188,7 +271,7 @@ export function MeetingPrepClient({
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
+    <div className="mx-auto max-w-3xl space-y-8 px-4 py-6">
       <p className="text-xs">
         <Link href="/" className="font-medium text-rung-ink hover:underline">
           Home
@@ -211,74 +294,36 @@ export function MeetingPrepClient({
       </header>
 
       <Section title="Brief">
-        <p className="text-sm text-muted-foreground">The brief is added in the next update.</p>
+        <p className="rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
+          The brief is added in the next update.
+        </p>
       </Section>
 
       <Section title="How You Are Connected">
-        {context.connections.map((connection) => (
-          <div key={connection.id} className="space-y-1 text-sm">
-            <p>
-              Introduced by Tracy SantaMaria (Browning Associates)
-              {connection.receivedAt ? ` on ${easternDateLong(connection.receivedAt)}` : ""}
-            </p>
-            {connection.subject ? (
-              <p>
-                {connection.emailUrl ? (
-                  <ExternalLink href={connection.emailUrl}>{connection.subject}</ExternalLink>
-                ) : (
-                  connection.subject
-                )}
-              </p>
-            ) : null}
-            {connection.whyTheyReplied ? (
-              <p>
-                <span className="font-medium">Why they agreed. </span>
-                {connection.whyTheyReplied}
-              </p>
-            ) : null}
-            {connection.who ? (
-              <p>
-                <span className="font-medium">Who. </span>
-                {connection.who}
-              </p>
-            ) : null}
-            {connection.why ? (
-              <p>
-                <span className="font-medium">Why. </span>
-                {connection.why}
-              </p>
-            ) : null}
-            {connection.ask ? (
-              <p>
-                <span className="font-medium">Ask. </span>
-                {connection.ask}
-              </p>
-            ) : null}
-            {connection.overlap ? (
-              <p>
-                <span className="font-medium">Overlap. </span>
-                {connection.overlap}
-              </p>
-            ) : null}
-          </div>
-        ))}
-        {context.people
-          .filter((person) => person.browningPrep)
-          .map((person) => (
-            <p key={`${person.contactId}-prep`} className="whitespace-pre-wrap text-sm">
-              {person.browningPrep}
-            </p>
+        <div className="space-y-3">
+          {context.connections.map((connection) => (
+            <ConnectionCard key={connection.id} connection={connection} />
           ))}
-        {context.people
-          .filter((person) => person.referredByName)
-          .map((person) => (
-            <p key={`${person.contactId}-referrer`} className="text-sm">
-              Referred by {person.referredByName}
-            </p>
-          ))}
-        {hasConnection ? null : (
-          <p className="text-sm text-muted-foreground">No introduction record found.</p>
-        )}
+          {context.people
+            .filter((person) => person.browningPrep)
+            .map((person) => (
+              <div key={`${person.contactId}-prep`} className="rounded-lg border bg-card px-4 py-4">
+                <Fact label="Tracy's note">
+                  <p className="whitespace-pre-wrap">{person.browningPrep}</p>
+                </Fact>
+              </div>
+            ))}
+          {context.people
+            .filter((person) => person.referredByName)
+            .map((person) => (
+              <p key={`${person.contactId}-referrer`} className="text-sm">
+                Referred by <span className="font-medium">{person.referredByName}</span>
+              </p>
+            ))}
+          {hasConnection ? null : (
+            <p className="text-sm text-muted-foreground">No introduction record found.</p>
+          )}
+        </div>
       </Section>
 
       {context.people.length || context.unmatched.length ? (
@@ -288,8 +333,8 @@ export function MeetingPrepClient({
               <PersonCard key={person.contactId} person={person} />
             ))}
             {context.unmatched.map((person) => (
-              <article key={person.email} className="space-y-1 rounded-lg border px-3 py-3">
-                <p className="text-sm font-medium">{person.name || person.email}</p>
+              <article key={person.email} className="space-y-2 rounded-lg border bg-card px-4 py-4">
+                <p className="text-base font-semibold">{person.name || person.email}</p>
                 {person.name ? (
                   <p className="text-sm text-muted-foreground">{person.email}</p>
                 ) : null}
@@ -308,25 +353,38 @@ export function MeetingPrepClient({
 
       {context.history.length ? (
         <Section title="Conversation History">
-          <ul className="space-y-3">
+          <ul className="divide-y divide-border rounded-lg border bg-card">
             {context.history.map((entry) => (
-              <li key={entry.id} className="text-sm">
-                <p>
-                  <span className="text-muted-foreground">{easternDateLong(entry.lastAt)}</span>
-                  <span className="mx-1.5 text-muted-foreground">·</span>
-                  <span className="font-medium">{entry.channelLabel}</span>
-                  {entry.direction ? (
-                    <span className="text-muted-foreground"> · {entry.direction}</span>
+              <li key={entry.id} className="grid gap-2 px-4 py-3 sm:grid-cols-[7.5rem_minmax(0,1fr)_auto] sm:gap-4">
+                <div className="space-y-1">
+                  <p className="text-[11px] text-muted-foreground">{easternDateLong(entry.lastAt)}</p>
+                  <MetaChip>{entry.channelLabel}</MetaChip>
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <p className="text-sm font-medium">{entry.title}</p>
+                  {entry.preview && entry.preview !== entry.title ? (
+                    <p className="line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
+                      {entry.preview}
+                    </p>
                   ) : null}
-                  {entry.messageCount > 1 ? (
-                    <span className="text-muted-foreground"> · {entry.messageCount} messages</span>
+                  {entry.direction || entry.messageCount > 1 ? (
+                    <p className="text-[11px] text-muted-foreground">
+                      {[
+                        entry.direction,
+                        entry.messageCount > 1 ? `${entry.messageCount} messages` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
                   ) : null}
-                </p>
-                <p>{entry.title}</p>
-                {entry.preview && entry.preview !== entry.title ? (
-                  <p className="text-muted-foreground">{entry.preview}</p>
-                ) : null}
-                {entry.url ? <ExternalLink href={entry.url}>Open</ExternalLink> : null}
+                </div>
+                {entry.url ? (
+                  <div className="sm:pt-0.5">
+                    <ExternalLink href={entry.url}>Open</ExternalLink>
+                  </div>
+                ) : (
+                  <span className="hidden sm:block" />
+                )}
               </li>
             ))}
           </ul>
@@ -335,9 +393,9 @@ export function MeetingPrepClient({
 
       {context.documents.length ? (
         <Section title="Documents">
-          <ul className="space-y-1 text-sm">
+          <ul className="divide-y divide-border rounded-lg border bg-card">
             {context.documents.map((document) => (
-              <li key={document.id}>
+              <li key={document.id} className="px-4 py-3 text-sm">
                 {document.url ? (
                   <ExternalLink href={document.url}>{document.label}</ExternalLink>
                 ) : (
@@ -353,27 +411,31 @@ export function MeetingPrepClient({
         <Section title="Past Meetings">
           <ul className="space-y-3">
             {context.pastMeetings.map((meeting) => (
-              <li key={meeting.id} className="space-y-1 text-sm">
-                <p className="font-medium">
+              <li key={meeting.id} className="space-y-3 rounded-lg border bg-card px-4 py-4">
+                <p className="text-sm font-semibold">
                   {meeting.when ? easternDateLong(meeting.when) : "Past meeting"}
                   {meeting.title ? ` · ${meeting.title}` : ""}
                 </p>
                 {meeting.debriefNotes ? (
-                  <p className="whitespace-pre-wrap">{meeting.debriefNotes}</p>
+                  <Fact label="Debrief">
+                    <p className="whitespace-pre-wrap">{meeting.debriefNotes}</p>
+                  </Fact>
                 ) : null}
-                {meeting.nextStep ? <p>Next step: {meeting.nextStep}</p> : null}
+                {meeting.nextStep ? <Fact label="Next step">{meeting.nextStep}</Fact> : null}
                 {meeting.prepNotes ? (
-                  <p className="whitespace-pre-wrap text-muted-foreground">{meeting.prepNotes}</p>
+                  <Fact label="Prep notes">
+                    <p className="whitespace-pre-wrap">{meeting.prepNotes}</p>
+                  </Fact>
                 ) : null}
                 {meeting.introAsks.length ? (
-                  <p>Intros: {meeting.introAsks.join("; ")}</p>
+                  <Fact label="Intros">{meeting.introAsks.join("; ")}</Fact>
                 ) : null}
                 {meeting.granolaSummary ? (
-                  <p className="whitespace-pre-wrap">{meeting.granolaSummary}</p>
+                  <Fact label="Granola">
+                    <p className="whitespace-pre-wrap">{meeting.granolaSummary}</p>
+                  </Fact>
                 ) : null}
-                {meeting.granolaUrl ? (
-                  <ExternalLink href={meeting.granolaUrl}>Granola</ExternalLink>
-                ) : null}
+                {meeting.granolaUrl ? <ExternalLink href={meeting.granolaUrl}>Open in Granola</ExternalLink> : null}
               </li>
             ))}
           </ul>
@@ -382,9 +444,9 @@ export function MeetingPrepClient({
 
       {context.jobSearch.length ? (
         <Section title="Job Search">
-          <ul className="space-y-1 text-sm">
+          <ul className="divide-y divide-border rounded-lg border bg-card">
             {context.jobSearch.map((job) => (
-              <li key={`${job.kind}-${job.id}`}>
+              <li key={`${job.kind}-${job.id}`} className="px-4 py-3 text-sm">
                 <Link href={job.href} className="font-medium text-rung-ink hover:underline">
                   {job.title}
                   {job.company ? ` · ${job.company}` : ""}
@@ -396,29 +458,33 @@ export function MeetingPrepClient({
       ) : null}
 
       <Section title="Your Focus for This Meeting (Optional)">
-        <div className="flex flex-wrap items-baseline gap-2">
-          {label ? <p className="text-xs text-muted-foreground">{label}</p> : null}
-          {prep.purposeConfirmed ? (
-            <p className="text-xs font-medium text-muted-foreground">Confirmed</p>
+        <div className="space-y-3 rounded-lg border bg-card px-4 py-4">
+          {label || prep.purposeConfirmed ? (
+            <div className="flex flex-wrap items-baseline gap-2">
+              {label ? <p className="text-xs text-muted-foreground">{label}</p> : null}
+              {prep.purposeConfirmed ? (
+                <p className="text-xs font-medium text-muted-foreground">Confirmed</p>
+              ) : null}
+            </div>
           ) : null}
-        </div>
-        <Textarea
-          value={text}
-          placeholder="What do you want out of this meeting?"
-          onChange={(event) => setText(event.target.value)}
-          rows={4}
-        />
-        <div className="flex flex-wrap gap-2">
-          {canConfirm ? (
-            <Button type="button" size="sm" disabled={pending} onClick={confirm}>
-              Confirm
-            </Button>
-          ) : null}
-          {dirty ? (
-            <Button type="button" size="sm" disabled={pending || !text.trim()} onClick={save}>
-              Save
-            </Button>
-          ) : null}
+          <Textarea
+            value={text}
+            placeholder="What do you want out of this meeting?"
+            onChange={(event) => setText(event.target.value)}
+            rows={4}
+          />
+          <div className="flex flex-wrap gap-2">
+            {canConfirm ? (
+              <Button type="button" size="sm" disabled={pending} onClick={confirm}>
+                Confirm
+              </Button>
+            ) : null}
+            {dirty ? (
+              <Button type="button" size="sm" disabled={pending || !text.trim()} onClick={save}>
+                Save
+              </Button>
+            ) : null}
+          </div>
         </div>
       </Section>
 
