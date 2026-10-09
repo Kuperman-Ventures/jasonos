@@ -101,6 +101,7 @@ export function SentFollowupsPanel({ rows }: { rows: SentEmailFollowup[] }) {
         }
         className="w-full text-left"
       >
+        {/* Dark teal. Meeting banners on Home use rung "next" (bright cyan). */}
         <StatusBand rung={3}>
           <Mail className="h-5 w-5" />
           <h2 className="text-[17px] font-bold tracking-tight">Email follow-ups</h2>
