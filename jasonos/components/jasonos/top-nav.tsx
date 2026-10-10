@@ -97,6 +97,10 @@ const NAV: NavItem[] = [
         label: "Ski Tracker",
       },
       {
+        href: "/projects/fuck-you-batman",
+        label: "Fuck You Batman",
+      },
+      {
         href: "/iugr",
         label: "IUGR",
       },
