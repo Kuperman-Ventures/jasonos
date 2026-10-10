@@ -208,6 +208,63 @@ describe("findNameMatch for Suggested merge", () => {
       null
     );
   });
+
+  it("treats Mike Adler and Michael Adler as the same person", () => {
+    assert.equal(namesLookLikeSamePerson("Mike Adler", "Michael Adler"), true);
+    const lookup = createContactLookup([
+      contact({
+        id: "adler",
+        name: "Michael Adler",
+        emails: [],
+        company: "AC Lions (+)",
+      }),
+    ]);
+    assert.deepEqual(
+      findNameMatch({ email: "mike@aclion.com", name: "Mike Adler" }, lookup),
+      { id: "adler", name: "Michael Adler", kind: "close" }
+    );
+  });
+
+  it("merges a nameless mike@aclion.com onto Michael Adler at AC Lions", () => {
+    const lookup = createContactLookup([
+      contact({
+        id: "adler",
+        name: "Michael Adler",
+        emails: [],
+        company: "AC Lions (+)",
+      }),
+      contact({
+        id: "perlow",
+        name: "Mike Perlow",
+        emails: ["mike@perlowproductions.com"],
+        company: "Perlow Productions",
+      }),
+      contact({
+        id: "wernecke",
+        name: "Jeff Wernecke",
+        emails: ["jeff.wernecke@aclion.com"],
+        company: "AC Lions",
+      }),
+    ]);
+    assert.deepEqual(
+      findNameMatch(
+        { email: "mike@aclion.com", name: "", company: "Aclion" },
+        lookup
+      ),
+      { id: "adler", name: "Michael Adler", kind: "close" }
+    );
+  });
+
+  it("does not merge a nameless mike@ onto every Mike without a firm match", () => {
+    const lookup = createContactLookup([
+      contact({ id: "adler", name: "Michael Adler", emails: [], company: "AC Lions (+)" }),
+      contact({ id: "perlow", name: "Mike Perlow", emails: ["mike@perlowproductions.com"] }),
+    ]);
+    assert.equal(
+      findNameMatch({ email: "mike@gmail.com", name: "" }, lookup),
+      null
+    );
+  });
 });
 
 describe("email stuck in the phone field", () => {

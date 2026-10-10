@@ -42,11 +42,33 @@ export async function buildContactLookup(): Promise<ContactLookup> {
   const sb = createServiceRoleClient();
   const { data, error } = await sb
     .from("contacts")
-    .select("id,name,emails,phone");
+    .select("id,name,emails,phone,company_id");
 
   if (error) {
     console.error("[outreach.buildContactLookup]", error);
     return emptyLookup();
+  }
+
+  const companyIds = [
+    ...new Set(
+      (data ?? [])
+        .map((row) => row.company_id as string | null)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ];
+  const companyName = new Map<string, string>();
+  if (companyIds.length) {
+    const { data: companies, error: companyErr } = await sb
+      .from("companies")
+      .select("id,name")
+      .in("id", companyIds);
+    if (companyErr) {
+      console.error("[outreach.buildContactLookup.companies]", companyErr);
+    } else {
+      for (const company of companies ?? []) {
+        companyName.set(company.id as string, company.name as string);
+      }
+    }
   }
 
   const rows: ContactLookupRow[] = (data ?? []).map((row) => ({
@@ -54,6 +76,7 @@ export async function buildContactLookup(): Promise<ContactLookup> {
     name: row.name as string,
     emails: (row.emails as string[] | null) ?? [],
     phone: (row.phone as string | null) ?? null,
+    company: companyName.get(row.company_id as string) ?? null,
   }));
 
   return createContactLookup(rows);
