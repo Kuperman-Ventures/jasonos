@@ -101,8 +101,8 @@ export function MeetingFollowupsPanel({ rows }: { rows: MeetingFollowup[] }) {
         }
         className="w-full text-left"
       >
-        {/* Bright cyan, not the dark teal on Email follow-ups. */}
-        <StatusBand rung="next">
+        {/* Green, not the teal on Email follow-ups. */}
+        <StatusBand rung="ok">
           <Calendar className="h-5 w-5" />
           <h2 className="text-[17px] font-bold tracking-tight">
             Meeting follow-ups
