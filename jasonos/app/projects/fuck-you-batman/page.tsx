@@ -26,20 +26,20 @@ type Phase = {
 };
 
 const PHASES: Phase[] = [
-  { number: 1, name: "Voice", startWeek: 1, endWeek: 2, start: "2026-10-12", end: "2026-10-25", output: "Style Profile, AI Tells Checklist, calibration test results" },
-  { number: 2, name: "Story foundation", startWeek: 3, endWeek: 5, start: "2026-10-26", end: "2026-11-15", output: "Premise, Story Bible, Drift Map, ending" },
-  { number: 3, name: "Outline", startWeek: 6, endWeek: 7, start: "2026-11-16", end: "2026-11-29", output: "Scene Outline for the whole book" },
-  { number: 4, name: "Sample chapters", startWeek: 8, endWeek: 8, start: "2026-11-30", end: "2026-12-06", output: "Chapters 1-3 drafted, Style Profile adjusted" },
-  { number: 5, name: "First draft", startWeek: 9, endWeek: 24, start: "2026-12-07", end: "2027-03-28", output: "Complete first draft, 80,000 words at 5,000 per week" },
-  { number: 6, name: "Revision", startWeek: 25, endWeek: 34, start: "2027-03-29", end: "2027-06-06", output: "Five revision passes" },
-  { number: 7, name: "Outside readers", startWeek: 35, endWeek: 38, start: "2027-06-07", end: "2027-07-04", output: "Reader feedback, final fixes list" },
-  { number: 8, name: "Final polish", startWeek: 39, endWeek: 40, start: "2027-07-05", end: "2027-07-18", output: "Finished manuscript" },
+  { number: 1, name: "Voice", startWeek: -1, endWeek: -1, start: "2026-10-10", end: "2026-10-10", output: "Style Profile, AI Tells Checklist, two calibration rounds. Finished early." },
+  { number: 2, name: "Story foundation", startWeek: 1, endWeek: 3, start: "2026-10-12", end: "2026-11-01", output: "Ending, hidden purpose, Story Bible, Drift Map, tense" },
+  { number: 3, name: "Outline", startWeek: 4, endWeek: 5, start: "2026-11-02", end: "2026-11-15", output: "Scene Outline for the whole book" },
+  { number: 4, name: "Sample chapters", startWeek: 6, endWeek: 6, start: "2026-11-16", end: "2026-11-22", output: "Chapters 1-3 drafted, Style Profile checked on real prose" },
+  { number: 5, name: "First draft", startWeek: 7, endWeek: 22, start: "2026-11-23", end: "2027-03-14", output: "Complete first draft, 80,000 words at 5,000 per week" },
+  { number: 6, name: "Revision", startWeek: 23, endWeek: 32, start: "2027-03-15", end: "2027-05-23", output: "Five revision passes" },
+  { number: 7, name: "Outside readers", startWeek: 33, endWeek: 36, start: "2027-05-24", end: "2027-06-20", output: "Reader feedback, final fixes list" },
+  { number: 8, name: "Final polish", startWeek: 37, endWeek: 38, start: "2027-06-21", end: "2027-07-04", output: "Finished manuscript" },
 ];
 
 const CADENCE = [
-  { when: "Monday", what: "Claude sets the week's goals and adds them as JasonOS to-dos (personal track)." },
-  { when: "Writing sessions", what: "Jason writes about 1,000 words per session, 5 sessions a week, in Google Docs." },
-  { when: "Sunday", what: "Claude reviews the week's pages against the Style Profile, Drift Map and AI Tells Checklist, then emails a status." },
+  { when: "Monday, 8:58 AM", what: "A scheduled Claude task posts the week's FYB cards and to-dos in JasonOS (personal track), with links." },
+  { when: "During the week", what: "Phases 2-3: Jason makes the week's decisions. Phase 5: about 1,000 words per session, 5 sessions a week, in Google Docs." },
+  { when: "Sunday, 6:59 PM", what: "A scheduled Claude task reviews the week's work against the Style Profile, Drift Map and AI Tells Checklist, updates the Decision Log, and emails a status." },
   { when: "Every 4 weeks", what: "Jason reads the month's chapters in one sitting." },
 ];
 
@@ -48,6 +48,8 @@ const DECISIONS = [
   "Length: 80,000 words.",
   "The computer's voice deliberately picks up machine-like patterns as it degrades. Each one is planned in the Drift Map. Any machine-like line not in the Drift Map is an error.",
   "Publishing: likely self-publishing. Drafts stay in their original Google Docs, so version history records which text Jason wrote.",
+  "The computer narrates in Jason's voice, with machine traits added on top.",
+  "Unreliability clues are short, factual qualifiers inside an otherwise helpful sentence, with no comment from the narrator.",
 ];
 
 function weekNumber(today: Date): number {
@@ -68,7 +70,7 @@ export default async function FuckYouBatmanPage() {
   const week = weekNumber(new Date());
   const current = PHASES.find((p) => week >= p.startWeek && week <= p.endWeek);
   const statusLabel =
-    week < 1 ? "Starts Monday, Oct 12, 2026" : current ? `Week ${week} of 40` : "Plan complete";
+    week < 1 ? "Phase 2 starts Monday, Oct 12, 2026" : current ? `Week ${week} of 38` : "Plan complete";
   const { openTodos, doneTodos, openCards } = await getFybStatus();
   const hasOpenItems = openCards.length > 0 || openTodos.length > 0;
 
@@ -104,7 +106,7 @@ export default async function FuckYouBatmanPage() {
         ) : (
           <p className="mt-1 text-sm text-foreground/80">
             {week < 1
-              ? "Phase 1 (Voice) starts Monday. First task: put 3 to 5 writing samples in the manuscript Drive folder."
+              ? "Phase 1 (Voice) is done. Phase 2 (Story foundation) starts Monday, Oct 12, with the ending and the hidden purpose."
               : "All phases complete."}
           </p>
         )}
@@ -192,7 +194,7 @@ export default async function FuckYouBatmanPage() {
         <ol className="mt-2 divide-y text-xs">
           {PHASES.map((p) => {
             const isCurrent = current?.number === p.number;
-            const isDone = week > p.endWeek;
+            const isDone = week > p.endWeek || p.endWeek < 0;
             return (
               <li key={p.number} className="flex items-start justify-between gap-3 py-2">
                 <div>
@@ -203,7 +205,7 @@ export default async function FuckYouBatmanPage() {
                   <p className="mt-0.5 text-muted-foreground">{p.output}</p>
                 </div>
                 <p className="num-mono shrink-0 text-muted-foreground">
-                  Wk {p.startWeek === p.endWeek ? p.startWeek : `${p.startWeek}-${p.endWeek}`}
+                  {p.endWeek < 0 ? "Done" : `Wk ${p.startWeek === p.endWeek ? p.startWeek : `${p.startWeek}-${p.endWeek}`}`}
                 </p>
               </li>
             );
