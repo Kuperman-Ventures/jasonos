@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 import {
   AlertCircle,
   BarChart3,
+  ChevronDown,
   Clock,
   ExternalLink,
   ArrowUpRight,
@@ -16,7 +17,11 @@ import { ContactAvatar } from "@/components/jasonos/outreach/contact-avatar";
 import { TierDegreeBadge } from "@/components/jasonos/outreach/tier-degree-badge";
 import { Logo } from "@/components/jasonos/logo";
 import { PageHeader } from "@/components/jasonos/brand/page-header";
-import { StatusBand, StatusPill } from "@/components/jasonos/brand/status";
+import {
+  StatusBand,
+  StatusPill,
+  type StatusRung,
+} from "@/components/jasonos/brand/status";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -272,14 +277,13 @@ export function HomeClient({
 
       {children}
 
-      <section className="overflow-hidden">
-        <StatusBand rung={2}>
-          <Clock className="h-5 w-5" />
-          <h2 className="text-[17px] font-bold tracking-tight">Due This Week</h2>
-          <StatusPill rung={4} className="ml-auto">
-            {data.dueThisWeek.length}
-          </StatusPill>
-        </StatusBand>
+      <CollapsibleHomeBand
+        storageKey="jasonos.due-this-week.collapsed"
+        label="Due This Week"
+        rung={2}
+        icon={<Clock className="h-5 w-5" />}
+        count={data.dueThisWeek.length}
+      >
         <p className="border-b px-4 py-1.5 text-[11px] text-muted-foreground">
           Due today or by Friday. Open, draft, text, or log from here.
         </p>
@@ -297,16 +301,15 @@ export function HomeClient({
             )}
           </ul>
         )}
-      </section>
+      </CollapsibleHomeBand>
 
-      <section className="overflow-hidden">
-        <StatusBand rung={1}>
-          <AlertCircle className="h-5 w-5" />
-          <h2 className="text-[17px] font-bold tracking-tight">Overdue</h2>
-          <StatusPill rung={4} className="ml-auto">
-            {data.overdue.length}
-          </StatusPill>
-        </StatusBand>
+      <CollapsibleHomeBand
+        storageKey="jasonos.overdue.collapsed"
+        label="Overdue"
+        rung={1}
+        icon={<AlertCircle className="h-5 w-5" />}
+        count={data.overdue.length}
+      >
         <p className="border-b px-4 py-1.5 text-[11px] text-muted-foreground">
           Past their next-touch date. Open, draft, text, or log from here.
         </p>
@@ -320,7 +323,7 @@ export function HomeClient({
             {data.overdue.map((c) => renderRow(c, { kind: "overdue" }))}
           </ul>
         )}
-      </section>
+      </CollapsibleHomeBand>
 
       <section>
         <div className="mb-2 flex items-center gap-2">
@@ -415,6 +418,72 @@ export function HomeClient({
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function CollapsibleHomeBand({
+  storageKey,
+  label,
+  rung,
+  icon,
+  count,
+  children,
+}: {
+  storageKey: string;
+  label: string;
+  rung: StatusRung;
+  icon: ReactNode;
+  count: number;
+  children: ReactNode;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    // Read after mount so SSR and first paint match (expanded).
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (window.localStorage.getItem(storageKey) === "1") setCollapsed(true);
+    } catch {
+      // private mode / quota
+    }
+  }, [storageKey]);
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(storageKey, next ? "1" : "0");
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  return (
+    <section className="overflow-hidden">
+      <button
+        type="button"
+        onClick={toggleCollapsed}
+        aria-expanded={!collapsed}
+        aria-label={collapsed ? `Expand ${label}` : `Collapse ${label}`}
+        className="w-full text-left"
+      >
+        <StatusBand rung={rung}>
+          {icon}
+          <h2 className="text-[17px] font-bold tracking-tight">{label}</h2>
+          <StatusPill rung={4} className="ml-auto">
+            {count}
+          </StatusPill>
+          <ChevronDown
+            className={`h-4 w-4 shrink-0 transition-transform ${
+              collapsed ? "-rotate-90" : ""
+            }`}
+          />
+        </StatusBand>
+      </button>
+      {!collapsed ? children : null}
+    </section>
   );
 }
 
