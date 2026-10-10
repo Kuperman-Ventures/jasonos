@@ -277,6 +277,49 @@ export async function completeTodo(input: { id: string; completion_note?: string
   return { ok: true, todo: data };
 }
 
+export type ActionCardLink = { label: string; href: string };
+
+export function assertSafeCardLinks(links: ActionCardLink[]): ActionCardLink[] {
+  for (const link of links) {
+    const href = link.href;
+    if (
+      !href.startsWith("https://") &&
+      !href.startsWith("/") &&
+      !href.startsWith("mailto:")
+    ) {
+      throw new Error(
+        `Card link href must start with https://, /, or mailto:. Rejected: ${href}`
+      );
+    }
+  }
+  return links;
+}
+
+export function actionCardBody(input: {
+  draft?: string;
+  links?: ActionCardLink[];
+}): Record<string, unknown> | null {
+  if (input.links?.length) assertSafeCardLinks(input.links);
+  return input.draft || input.links?.length
+    ? {
+        ...(input.draft ? { draft: input.draft } : {}),
+        ...(input.links?.length ? { links: input.links } : {}),
+      }
+    : null;
+}
+
+export function mergeActionCardLinks(
+  existingBody: unknown,
+  links: ActionCardLink[]
+): Record<string, unknown> {
+  const safe = assertSafeCardLinks(links);
+  const base =
+    existingBody && typeof existingBody === "object" && !Array.isArray(existingBody)
+      ? { ...(existingBody as Record<string, unknown>) }
+      : {};
+  return { ...base, links: safe };
+}
+
 export async function addActionCard(input: {
   title: string;
   track?: string;
@@ -284,6 +327,7 @@ export async function addActionCard(input: {
   why_now?: string;
   draft?: string;
   module?: string;
+  links?: ActionCardLink[];
 }) {
   const sb = jasonosDb();
   const track: Track = isTrack(input.track) ? input.track : "advisors";
@@ -295,7 +339,7 @@ export async function addActionCard(input: {
       object_type: "outreach",
       title: input.title.trim(),
       subtitle: input.subtitle?.trim() || null,
-      body: input.draft ? { draft: input.draft } : null,
+      body: actionCardBody(input),
       linked_object_ids: { source: "claude_desktop_mcp" },
       state: "open",
       vip: false,
@@ -312,6 +356,7 @@ export async function updateCard(input: {
   id: string;
   state: "actioned" | "dismissed" | "snoozed" | "open" | "archived";
   snoozed_until?: string;
+  links?: ActionCardLink[];
 }) {
   const sb = jasonosDb();
   const patch: Record<string, unknown> = { state: input.state };
@@ -319,6 +364,17 @@ export async function updateCard(input: {
   if (input.state === "snoozed") {
     if (!input.snoozed_until) throw new Error("snoozed_until (ISO date) is required when state is snoozed.");
     patch.snoozed_until = input.snoozed_until;
+  }
+  if (input.links !== undefined) {
+    assertSafeCardLinks(input.links);
+    const { data: existing, error: readErr } = await sb
+      .from("cards")
+      .select("body")
+      .eq("id", input.id)
+      .maybeSingle();
+    if (readErr) throw new Error(readErr.message);
+    if (!existing) throw new Error(`No card found for id ${input.id}`);
+    patch.body = mergeActionCardLinks(existing.body, input.links);
   }
   const { data, error } = await sb
     .from("cards")

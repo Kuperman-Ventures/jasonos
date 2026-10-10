@@ -21,7 +21,11 @@ import {
 import { registerJasonosTools } from "./register.ts";
 import { listJasonosAreas } from "./reads.ts";
 import { errorResult, jsonResult, sanitizeSearch, uniqueAlerts, uniqueIssueCount } from "./result.ts";
-import { TODAY_TASK_COLUMNS } from "./operations.ts";
+import {
+  TODAY_TASK_COLUMNS,
+  actionCardBody,
+  mergeActionCardLinks,
+} from "./operations.ts";
 import {
   normalizeBriefMarkdown,
   parseInboxPayload,
@@ -308,5 +312,66 @@ describe("Today task columns", () => {
   it("does not select sub_track on today_task_instances", () => {
     assert.equal(TODAY_TASK_COLUMNS.includes("sub_track"), false);
     assert.match(TODAY_TASK_COLUMNS, /name_snapshot/);
+  });
+});
+
+describe("add_action_card / update_card links", () => {
+  it("add_action_card with links only", () => {
+    const body = actionCardBody({
+      links: [{ label: "Fuck You Batman", href: "/projects/fuck-you-batman" }],
+    });
+    assert.deepEqual(body, {
+      links: [{ label: "Fuck You Batman", href: "/projects/fuck-you-batman" }],
+    });
+  });
+
+  it("add_action_card with draft and links", () => {
+    const body = actionCardBody({
+      draft: "Open the project",
+      links: [
+        { label: "Live", href: "https://jasonos.vercel.app/projects/fuck-you-batman" },
+        { label: "Email Jason", href: "mailto:jason@kupermanadvisors.com" },
+      ],
+    });
+    assert.deepEqual(body, {
+      draft: "Open the project",
+      links: [
+        { label: "Live", href: "https://jasonos.vercel.app/projects/fuck-you-batman" },
+        { label: "Email Jason", href: "mailto:jason@kupermanadvisors.com" },
+      ],
+    });
+  });
+
+  it("update_card replacing links while keeping draft", () => {
+    const merged = mergeActionCardLinks(
+      {
+        draft: "Keep this draft",
+        context: "other key",
+        links: [{ label: "Old", href: "https://example.com/old" }],
+      },
+      [{ label: "New", href: "/projects/fuck-you-batman" }]
+    );
+    assert.equal(merged.draft, "Keep this draft");
+    assert.equal(merged.context, "other key");
+    assert.deepEqual(merged.links, [
+      { label: "New", href: "/projects/fuck-you-batman" },
+    ]);
+  });
+
+  it("an href starting with javascript: is rejected", () => {
+    assert.throws(
+      () =>
+        actionCardBody({
+          links: [{ label: "xss", href: "javascript:alert(1)" }],
+        }),
+      /https:\/\/, \/, or mailto/
+    );
+    assert.throws(
+      () =>
+        mergeActionCardLinks({ draft: "safe" }, [
+          { label: "xss", href: "javascript:alert(1)" },
+        ]),
+      /Rejected: javascript:alert\(1\)/
+    );
   });
 });
