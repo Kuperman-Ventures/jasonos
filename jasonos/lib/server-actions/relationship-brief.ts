@@ -500,7 +500,7 @@ Sections to fill: ${Object.entries(sections)
     parsed
   );
 
-  const dropUnknown = (items: BriefCitedItem[]) =>
+  const dropUnknown = <T extends BriefCitedItem>(items: T[]) =>
     items.filter((item) => knownIds.has(item.source.id));
   filtered.helped = dropUnknown(filtered.helped);
   filtered.topics = dropUnknown(filtered.topics);

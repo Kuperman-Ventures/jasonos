@@ -120,8 +120,6 @@ export function DashboardTab({
 
   useEffect(() => {
     let cancelled = false;
-    setLoaded(false);
-    setError(null);
     getRelationshipBrief(contactId)
       .then((res) => {
         if (cancelled) return;
