@@ -117,17 +117,12 @@ export function SentFollowupsPanel({ rows }: { rows: SentEmailFollowup[] }) {
       </button>
 
       {!collapsed ? (
-        <>
-          <p className="border-b px-4 py-1.5 text-[11px] text-muted-foreground">
-            Same queue as Networking → Follow Up. Set 1 / 3 / 5 days, or skip.
-            Sync clears threads that already got a reply.
+        visible.length === 0 ? (
+          <p className="px-4 py-8 text-center text-xs text-muted-foreground">
+            No sent emails waiting for a follow-up day.
           </p>
-          {visible.length === 0 ? (
-            <p className="px-4 py-8 text-center text-xs text-muted-foreground">
-              No sent emails waiting for a follow-up day.
-            </p>
-          ) : (
-            <ul className="max-h-[calc(10*5.5rem)] divide-y divide-border overflow-y-auto overscroll-contain">
+        ) : (
+          <ul className="max-h-[calc(10*5.5rem)] divide-y divide-border overflow-y-auto overscroll-contain">
               {visible.map((row) => (
                 <li key={row.id} className="px-4 py-3">
                   <div className="flex items-start gap-3">
@@ -173,9 +168,8 @@ export function SentFollowupsPanel({ rows }: { rows: SentEmailFollowup[] }) {
                   </div>
                 </li>
               ))}
-            </ul>
-          )}
-        </>
+          </ul>
+        )
       ) : null}
     </section>
   );
