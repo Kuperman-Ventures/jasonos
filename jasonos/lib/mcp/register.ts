@@ -154,6 +154,15 @@ export function registerJasonosTools(server: McpServer) {
         why_now: z.string().max(280).optional(),
         draft: z.string().max(4000).optional(),
         module: z.string().max(80).optional(),
+        links: z
+          .array(
+            z.object({
+              label: z.string().min(1).max(80),
+              href: z.string().min(1).max(2000),
+            })
+          )
+          .max(8)
+          .optional(),
       }),
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
@@ -164,11 +173,21 @@ export function registerJasonosTools(server: McpServer) {
     "update_card",
     {
       title: "Update card state",
-      description: "Mark a card actioned, dismissed, snoozed, archived, or reopen it.",
+      description:
+        "Mark a card actioned, dismissed, snoozed, archived, or reopen it. Optional links replace body.links.",
       inputSchema: z.object({
         id: z.string().uuid(),
         state: z.enum(["actioned", "dismissed", "snoozed", "open", "archived"]),
         snoozed_until: z.string().describe("ISO datetime, required when state is snoozed").optional(),
+        links: z
+          .array(
+            z.object({
+              label: z.string().min(1).max(80),
+              href: z.string().min(1).max(2000),
+            })
+          )
+          .max(8)
+          .optional(),
       }),
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
