@@ -9,6 +9,15 @@ import {
   resolveMeetingFollowupPrompt,
 } from "@/lib/outreach/meeting-followup-prompt";
 import {
+  DEFAULT_BRIEF_SECTIONS,
+  DEFAULT_RELATIONSHIP_BRIEF_PROMPT,
+  normalizeRelationshipBriefPrompt,
+  parseBriefSections,
+  resolveRelationshipBriefPrompt,
+  unknownBriefVariables,
+  type BriefSectionFlags,
+} from "@/lib/outreach/relationship-brief";
+import {
   DEFAULT_ALERT_THRESHOLDS,
   DEFAULT_MODEL_PREFERENCES,
   SERVICE_DEFINITIONS,
@@ -65,6 +74,21 @@ export const SaveMeetingFollowupPromptSchema = z.object({
 
 export const SaveAboutJasonSchema = z.object({
   aboutJason: z.string().max(20_000),
+});
+
+export const SaveRelationshipBriefPromptSchema = z.object({
+  prompt: z.string().max(20_000),
+  reset: z.boolean().optional(),
+  sections: z
+    .object({
+      summary: z.boolean(),
+      helped: z.boolean(),
+      topics: z.boolean(),
+      commitments: z.boolean(),
+      remember: z.boolean(),
+      next_move: z.boolean(),
+    })
+    .optional(),
 });
 
 export interface ConnectionTestResult {
@@ -683,6 +707,51 @@ export async function saveMeetingFollowupPrompt(
     prompt: resolveMeetingFollowupPrompt(stored),
     custom: Boolean(stored),
     defaultPrompt: DEFAULT_MEETING_FOLLOWUP_PROMPT,
+  };
+}
+
+export async function saveRelationshipBriefPrompt(
+  input: z.infer<typeof SaveRelationshipBriefPromptSchema>
+) {
+  const { supabase, userId } = await getUserContext();
+  const unknown = input.reset ? [] : unknownBriefVariables(input.prompt);
+  if (unknown.length) {
+    throw new Error(`Unknown variables: ${unknown.map((n) => `{{${n}}}`).join(", ")}`);
+  }
+  const { data: current } = await supabase
+    .from("user_preferences")
+    .select("relationship_brief_prompt_version")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const nextVersion =
+    (Number((current as { relationship_brief_prompt_version?: number } | null)
+      ?.relationship_brief_prompt_version) || 0) + 1;
+  const stored = input.reset
+    ? null
+    : normalizeRelationshipBriefPrompt(input.prompt);
+  const sections: BriefSectionFlags = input.sections
+    ? parseBriefSections(input.sections)
+    : { ...DEFAULT_BRIEF_SECTIONS };
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("user_preferences").upsert(
+    {
+      user_id: userId,
+      relationship_brief_prompt: stored,
+      relationship_brief_prompt_version: nextVersion,
+      relationship_brief_sections: sections,
+      relationship_brief_prompt_updated_at: now,
+      updated_at: now,
+    },
+    { onConflict: "user_id" }
+  );
+  if (error) throw new Error(error.message);
+  return {
+    prompt: resolveRelationshipBriefPrompt(stored),
+    custom: Boolean(stored),
+    defaultPrompt: DEFAULT_RELATIONSHIP_BRIEF_PROMPT,
+    version: nextVersion,
+    sections,
+    updatedAt: now,
   };
 }
 

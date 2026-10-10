@@ -39,33 +39,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   Loader2,
-  Mail,
-  Link2,
   Star,
   CheckCircle2,
-  CalendarClock,
-  History,
   ExternalLink,
-  Snowflake,
-  Sparkles,
-  Flame,
-  Archive,
-  Phone,
   Pencil,
   UserPlus,
   RefreshCw,
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { RelationshipBadge } from "@/components/jasonos/outreach/relationship-badge";
 import dynamic from "next/dynamic";
 import { EngagementsList } from "@/components/jasonos/outreach/engagements-list";
-import { TierDegreeBadge } from "@/components/jasonos/outreach/tier-degree-badge";
-import { ReplyStatusLight } from "@/components/jasonos/outreach/reply-status-light";
 import type { ReplyStatusOverride } from "@/lib/outreach/reply-status";
 import {
   CADENCE_DAYS,
-  CADENCE_HELPERS,
   CADENCE_INTERVALS,
   CADENCE_LABELS,
   CONTACT_INTENT_HELPERS,
@@ -76,6 +63,7 @@ import {
   NETWORK_ROLE_HELPERS,
   NETWORK_ROLE_LABELS,
   PRIMARY_CONTACT_INTENTS,
+  relationshipTypeLabel,
   RELATIONSHIP_TYPES,
   RELATIONSHIP_TYPE_HELPERS,
   RELATIONSHIP_TYPE_LABELS,
@@ -115,6 +103,24 @@ import {
 } from "@/lib/server-actions/outreach";
 import { refreshContactPhotoFromLeadDelta } from "@/lib/server-actions/contact-photo";
 import { ContactAvatar } from "@/components/jasonos/outreach/contact-avatar";
+import {
+  CadenceBlock,
+  ChoiceCard,
+  ModalSectionTitle,
+  PillChip,
+  RequiredMark,
+  WordPill,
+  modalEmptyClass,
+  modalFieldClass,
+  modalGhostLinkClass,
+  modalHelperClass,
+  modalLabelClass,
+  modalSecondaryClass,
+} from "@/components/jasonos/contact-modal/parts";
+import { scheduleWordPill } from "@/components/jasonos/contact-modal/status";
+import { DashboardTab } from "@/components/jasonos/contact-modal/dashboard-tab";
+import { markRelationshipBriefStale } from "@/lib/server-actions/relationship-brief";
+import { resolveReplyStatus } from "@/lib/outreach/reply-status";
 import type { OutreachPerson } from "@/lib/outreach/data";
 import {
   LOG_TOUCH_CHANNELS,
@@ -150,6 +156,36 @@ const MeetingsTab = dynamic(
 // Props
 // ---------------------------------------------------------------------------
 
+export type ContactModalTab = "dashboard" | "engage" | "meetings" | "contact";
+
+const LAST_TAB_KEY = "jasonos.contact-modal.last-tab";
+
+function isContactModalTab(value: string | null): value is ContactModalTab {
+  return (
+    value === "dashboard" ||
+    value === "engage" ||
+    value === "meetings" ||
+    value === "contact"
+  );
+}
+
+function readLastContactTab(): ContactModalTab | null {
+  try {
+    const value = sessionStorage.getItem(LAST_TAB_KEY);
+    return isContactModalTab(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeLastContactTab(tab: ContactModalTab) {
+  try {
+    sessionStorage.setItem(LAST_TAB_KEY, tab);
+  } catch {
+    // private mode
+  }
+}
+
 export interface OutreachModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -170,7 +206,7 @@ export interface OutreachModalProps {
    *  and the local-state callbacks let the parent mirror server mutations. */
   recruiterPipeline?: RecruiterPipelineProps;
   /** Tab to show when the modal opens. Home "Log contact" uses engage. */
-  initialTab?: "engage" | "contact" | "meetings";
+  initialTab?: ContactModalTab;
   /** Open the Contact info editor immediately (name / email / phone). */
   initialIdentityEditing?: boolean;
 }
@@ -202,7 +238,7 @@ export function OutreachModal({
   contactId,
   recruiterId,
   initialDisplay,
-  initialTab = "engage",
+  initialTab,
   initialIdentityEditing = false,
 }: OutreachModalProps) {
   const router = useRouter();
@@ -282,9 +318,9 @@ export function OutreachModal({
   } | null>(null);
   const [browningDismissed, setBrowningDismissed] = useState(false);
 
-  // Which body tab is showing. "engage" = classify/schedule/log + the
-  // communication history at the bottom. Reset to "engage" on each open.
-  const [tab, setTab] = useState<"engage" | "contact" | "meetings">("engage");
+  // Which body tab is showing. Default Dashboard; Home Log still passes engage.
+  const [tab, setTab] = useState<ContactModalTab>("dashboard");
+  const [focusSection, setFocusSection] = useState<string | null>(null);
 
   // Whether the identity editor (name / firm / email / phone) is open. Toggled
   // from the Edit button in the header, next to the name and company.
@@ -321,7 +357,8 @@ export function OutreachModal({
       setContextRecentTouches([]);
       setBrowningPrompt(null);
       setBrowningDismissed(false);
-      setTab(initialTab);
+      setTab(initialTab ?? readLastContactTab() ?? "dashboard");
+      setFocusSection(null);
       setEditingIdentity(initialIdentityEditing);
       setReferredBy(null);
       setReferrals([]);
@@ -560,6 +597,7 @@ export function OutreachModal({
       }
       setSources(ctxResult.sources);
       setContextRecentTouches(ctxResult.recentTouches);
+      void markRelationshipBriefStale(effectiveContactId);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to load context");
     } finally {
@@ -845,6 +883,7 @@ export function OutreachModal({
       setLogDate(todayISODate());
       setNextTouchOverride(null);
       if (effectiveNextTouch) setNextTouchState(effectiveNextTouch);
+      void markRelationshipBriefStale(targetId);
       router.refresh();
 
       // Browning module: if this contact is Browning-tagged AND the user
@@ -875,54 +914,65 @@ export function OutreachModal({
     });
   };
 
+  const selectTab = (next: ContactModalTab, section?: string | null) => {
+    setTab(next);
+    writeLastContactTab(next);
+    setFocusSection(section ?? null);
+  };
+
+  useEffect(() => {
+    if (!focusSection) return;
+    const id = `contact-modal-${focusSection}`;
+    const timer = window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [tab, focusSection]);
+
   // ------------------------------------------------------------------
   // Render
   // ------------------------------------------------------------------
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] w-full max-w-3xl flex-col gap-0 p-0 sm:max-w-3xl">
+      <DialogContent className="flex max-h-[90vh] w-[640px] max-w-[calc(100vw-32px)] flex-col gap-0 rounded-[2px] bg-[var(--color-bg)] p-0 text-[var(--color-text)] shadow-[var(--shadow-lg)] sm:max-w-[640px] max-[640px]:h-[100dvh] max-[640px]:max-h-[100dvh] max-[640px]:w-full max-[640px]:max-w-full max-[640px]:rounded-none">
         {/* HEADER */}
-        <DialogHeader className="shrink-0 border-b px-5 py-4 pr-12">
+        <DialogHeader className="shrink-0 px-6 pt-5 pr-12 pb-0">
           <div className="flex items-start gap-3">
             <ContactAvatar
               name={header.name}
               photoUrl={
                 card.status === "ready" ? card.contact.photo_url : null
               }
-              size="md"
-              className="mt-0.5"
+              size="lg"
             />
             <div className="min-w-0 flex-1">
-              <DialogTitle className="flex flex-wrap items-center gap-2">
+              <DialogTitle className="flex flex-wrap items-center gap-2 text-[28px] font-extrabold tracking-[-0.02em] text-[var(--color-text)]">
                 <span className="truncate">{header.name}</span>
                 {card.status === "loading" ? (
-                  <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[var(--jos-muted)]" />
                 ) : null}
                 <button
                   type="button"
                   onClick={handleVipToggle}
                   title={vipState ? "Unmark VIP" : "Mark as VIP"}
-                  className={cn(
-                    "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors",
-                    vipState
-                      ? "border-[var(--jos-line)] bg-rung-2 "
-                      : "border-border text-muted-foreground hover:border-[var(--jos-line)] hover:text-rung-ink"
-                  )}
+                  className="inline-flex h-5 w-5 shrink-0 items-center justify-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--jos-focus)]"
                 >
                   <Star
                     className={cn(
-                      "h-3 w-3",
-                      vipState ? "fill-[var(--jos-line)] text-rung-ink" : ""
+                      "h-5 w-5",
+                      vipState
+                        ? "fill-[var(--color-text)] text-[var(--color-text)]"
+                        : "text-[var(--jos-muted)]"
                     )}
                   />
                 </button>
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     title="Change relationship type"
-                    className="rounded-full outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring"
+                    className="rounded-[99px] bg-[var(--color-surface)] px-2.5 py-0.5 text-[12px] font-semibold uppercase tracking-[0.06em] text-[var(--jos-muted)] outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--jos-focus)]"
                   >
-                    <RelationshipBadge type={relationshipState} />
+                    {relationshipTypeLabel(relationshipState)}
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="min-w-56">
                     {RELATIONSHIP_TYPES.map((value) => (
@@ -950,49 +1000,38 @@ export function OutreachModal({
                   </DropdownMenuContent>
                 </DropdownMenu>
               </DialogTitle>
-              <DialogDescription className="mt-0.5 truncate text-xs">
-                {[header.title, header.firm].filter(Boolean).join(" · ") ||
-                  "No title or firm on file"}
+              <DialogDescription className="mt-0.5 truncate text-[16px] font-normal text-[var(--jos-muted)]">
+                {header.firm || header.title || "No firm on file"}
               </DialogDescription>
             </div>
             {effectiveContactId ? (
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                className={cn(modalSecondaryClass, "h-9")}
                 onClick={() => {
-                  setTab("contact");
+                  selectTab("contact");
                   setEditingIdentity(true);
                 }}
                 title="Edit name, firm, email, and phone"
-                className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
-                <Pencil className="h-3 w-3" />
+                <Pencil className="h-4 w-4" />
                 Edit
-              </button>
+              </Button>
             ) : null}
           </div>
 
           {header.primary_email ||
-          header.phone ||
           header.linkedin_url ||
           cardRelevance ||
           cardDegree ? (
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1">
               {header.primary_email ? (
                 <a
                   href={`mailto:${header.primary_email}`}
-                  className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                  className={modalGhostLinkClass}
                 >
-                  <Mail className="h-3 w-3" />
                   {header.primary_email}
-                </a>
-              ) : null}
-              {header.phone ? (
-                <a
-                  href={`tel:${header.phone}`}
-                  className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
-                >
-                  <Phone className="h-3 w-3" />
-                  {header.phone}
                 </a>
               ) : null}
               {header.linkedin_url ? (
@@ -1000,14 +1039,16 @@ export function OutreachModal({
                   href={header.linkedin_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                  className={modalGhostLinkClass}
                 >
-                  <Link2 className="h-3 w-3" />
                   LinkedIn
+                  <ExternalLink className="h-3.5 w-3.5" />
                 </a>
               ) : null}
               {cardRelevance || cardDegree ? (
-                <TierDegreeBadge tier={cardRelevance} degree={cardDegree} />
+                <span className="inline-flex items-center rounded-[2px] border border-[var(--color-text)] px-2 py-0.5 text-[13px] font-semibold tabular-nums">
+                  {`${cardRelevance ?? ""}${cardDegree ?? ""}`}
+                </span>
               ) : null}
             </div>
           ) : null}
@@ -1046,30 +1087,45 @@ export function OutreachModal({
         </DialogHeader>
 
         {/* TABS */}
-        <div className="shrink-0 border-b px-5">
-          <div className="-mb-px flex gap-5">
-            <TabBtn active={tab === "engage"} onClick={() => setTab("engage")}>
+        <div className="shrink-0 border-b border-[var(--color-text)] pl-6">
+          <div className="-mb-px flex gap-7">
+            <TabBtn active={tab === "dashboard"} onClick={() => selectTab("dashboard")}>
+              Dashboard
+            </TabBtn>
+            <TabBtn active={tab === "engage"} onClick={() => selectTab("engage")}>
               Engage
             </TabBtn>
-            <TabBtn active={tab === "meetings"} onClick={() => setTab("meetings")}>
+            <TabBtn active={tab === "meetings"} onClick={() => selectTab("meetings")}>
               Meetings
             </TabBtn>
-            <TabBtn active={tab === "contact"} onClick={() => setTab("contact")}>
+            <TabBtn active={tab === "contact"} onClick={() => selectTab("contact")}>
               Contact info
             </TabBtn>
           </div>
         </div>
 
         {/* BODY */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div className="flex-1 overflow-y-auto px-6 py-6">
           {card.status === "error" ? (
-            <div className="mb-4 rounded-md border border-rung-1 bg-rung-1 p-3 text-xs ">
+            <div className="mb-4 bg-rung-1 px-3.5 py-2.5 text-[13px] font-semibold">
               {card.message}
             </div>
           ) : null}
 
-          {tab === "engage" ? (
-            <div className="space-y-4">
+          {tab === "dashboard" ? (
+            effectiveContactId ? (
+              <DashboardTab
+                key={effectiveContactId}
+                contactId={effectiveContactId}
+                onJump={(jump) => selectTab(jump.tab, jump.section)}
+              />
+            ) : (
+              <p className="text-[13px] text-[var(--jos-muted)]">
+                Dashboard will appear once this contact is linked.
+              </p>
+            )
+          ) : tab === "engage" ? (
+            <div className="flex flex-col gap-7">
               <ClassificationControls
                 relevance={relevanceState}
                 degree={degreeState}
@@ -1103,6 +1159,7 @@ export function OutreachModal({
               ) : null}
 
               <LogTouchPanel
+                id="contact-modal-log-touch"
                 channel={logChannel}
                 setChannel={setLogChannel}
                 brief={logBrief}
@@ -1124,7 +1181,7 @@ export function OutreachModal({
               {/* Engagements — the editable interaction history lives at the
                   bottom of Engage rather than in its own tab, so the full
                   thread reads on one page. */}
-              <div className="border-t pt-4">
+              <div id="contact-modal-engagements">
                 <RecentContextSection
                   loading={loadingCtx}
                   sources={sources}
@@ -1141,6 +1198,9 @@ export function OutreachModal({
               <MeetingsTab
                 contactId={effectiveContactId}
                 contactName={header.name}
+                onMeetingHeld={() =>
+                  void markRelationshipBriefStale(effectiveContactId)
+                }
               />
             ) : (
               <p className="text-xs text-muted-foreground">
@@ -1148,7 +1208,7 @@ export function OutreachModal({
               </p>
             )
           ) : effectiveContactId ? (
-            <div className="space-y-4">
+            <div className="flex flex-col gap-7">
               <IdentityCard
                 key={effectiveContactId}
                 contactId={effectiveContactId}
@@ -1213,9 +1273,6 @@ export function OutreachModal({
 // lockstep. A/B/C = relevance, 1/2/3 = network degree ("closeness").
 // ---------------------------------------------------------------------------
 
-const CLASSIFY_SELECT_CLS =
-  "h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-60";
-
 function ClassificationControls({
   relevance,
   degree,
@@ -1231,19 +1288,17 @@ function ClassificationControls({
 }) {
   return (
     <section>
-      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <ModalSectionTitle className="mb-3">
         Relevance &amp; closeness
-      </h3>
-      <div className="flex flex-wrap gap-4">
+      </ModalSectionTitle>
+      <div className="grid grid-cols-2 gap-4">
         <label
           className="flex flex-col gap-1"
           title="Relevance — A most relevant → C least"
         >
-          <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
-            Relevance (A/B/C)
-          </span>
+          <span className={modalLabelClass}>Relevance (A/B/C)</span>
           <select
-            className={CLASSIFY_SELECT_CLS}
+            className={cn(modalFieldClass, "appearance-auto")}
             value={relevance ?? ""}
             disabled={pending}
             onChange={(e) =>
@@ -1263,11 +1318,9 @@ function ClassificationControls({
           className="flex flex-col gap-1"
           title="Closeness / network degree — 1 know well, 2 intro'd by a 1, 3 by a 2"
         >
-          <span className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
-            Closeness (1/2/3)
-          </span>
+          <span className={modalLabelClass}>Closeness (1/2/3)</span>
           <select
-            className={CLASSIFY_SELECT_CLS}
+            className={cn(modalFieldClass, "appearance-auto")}
             value={degree != null ? String(degree) : ""}
             disabled={pending}
             onChange={(e) =>
@@ -1414,22 +1467,18 @@ function ReferralsCard({
   };
 
   return (
-    <section className="rounded-lg border bg-card/40 p-3">
-      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Referrals
-      </h3>
+    <section>
+      <ModalSectionTitle className="mb-3">Referrals</ModalSectionTitle>
 
-      <div className="space-y-1 text-xs">
-        <div className="text-muted-foreground">
+      <div className="space-y-2 text-[16px]">
+        <div>
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span>Referred by:</span>
-            {referredBy ? (
-              <span className="font-medium text-foreground">
-                {referredBy.name}
-              </span>
-            ) : (
-              <span>—</span>
-            )}
+            <span>
+              Referred by {referredBy ? referredBy.name : ""}
+              {!referredBy ? (
+                <span className={modalEmptyClass}> Not set</span>
+              ) : null}
+            </span>
             <button
               type="button"
               onClick={() => {
@@ -1438,7 +1487,7 @@ function ReferralsCard({
                 setRefResults([]);
               }}
               disabled={refPending}
-              className="text-[11px] font-medium text-muted-foreground underline underline-offset-2 hover:text-foreground"
+              className={modalGhostLinkClass}
             >
               {referredBy ? "Change" : "Set"}
             </button>
@@ -1447,7 +1496,7 @@ function ReferralsCard({
                 type="button"
                 onClick={clearReferrer}
                 disabled={refPending}
-                className="text-[11px] text-muted-foreground/70 hover:text-destructive"
+                className="text-[13px] text-[var(--jos-muted)] hover:text-[var(--color-text)]"
               >
                 Clear
               </button>
@@ -1520,12 +1569,12 @@ function ReferralsCard({
             </div>
           ) : null}
         </div>
-        <div className="text-muted-foreground">
-          Introduced you to:{" "}
+        <div>
+          Introduced you to{" "}
           {referrals.length === 0 ? (
-            <span>—</span>
+            <span className={modalEmptyClass}>Not set</span>
           ) : (
-            <span className="font-medium text-foreground">
+            <span className="font-medium">
               {referrals.map((r) => r.name).join(", ")}
             </span>
           )}
@@ -1584,13 +1633,14 @@ function ReferralsCard({
           </div>
         </div>
       ) : (
-        <button
-          type="button"
-          onClick={() => setAdding(true)}
-          className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
-        >
-          <UserPlus className="h-3 w-3" /> They introduced me to someone
-        </button>
+          <Button
+            type="button"
+            variant="outline"
+            className={cn(modalSecondaryClass, "mt-3")}
+            onClick={() => setAdding(true)}
+          >
+            <UserPlus className="h-4 w-4" /> They introduced me to someone
+          </Button>
       )}
     </section>
   );
@@ -1628,17 +1678,17 @@ function DeleteContactBlock({
   };
 
   return (
-    <div className="border-t pt-4">
+    <div className="border-t-2 border-[var(--color-text)] pt-4">
       <button
         type="button"
         disabled={pending}
         onClick={run}
-        className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 text-[15px] font-bold text-[var(--color-accent-2-700)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--jos-focus)] disabled:opacity-45"
       >
-        <Trash2 className="h-3 w-3" />
+        <Trash2 className="h-4 w-4" />
         {pending ? "Deleting…" : "Delete contact"}
       </button>
-      <p className="mt-1 text-[10px] text-muted-foreground/70">
+      <p className="mt-1 text-[13px] text-[var(--jos-muted)]">
         Permanent. Backrow on Engage keeps them in People and only drops them
         from the queue.
       </p>
@@ -1737,9 +1787,6 @@ function IdentityCard({
     onCancel();
   };
 
-  const fieldLabel =
-    "text-[10px] font-medium uppercase tracking-wider text-muted-foreground";
-
   // ── Read view ──────────────────────────────────────────────────────────
   if (!editing) {
     const rows: { label: string; value: string | null; href?: string }[] = [
@@ -1765,30 +1812,35 @@ function IdentityCard({
     return (
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Contact information
-          </h3>
-          <button
+          <ModalSectionTitle>Contact information</ModalSectionTitle>
+          <Button
             type="button"
+            variant="outline"
+            className={modalSecondaryClass}
             onClick={onEdit}
-            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            <Pencil className="h-3 w-3" /> Edit
-          </button>
+            <Pencil className="h-4 w-4" /> Edit
+          </Button>
         </div>
-        <dl className="divide-y divide-border/50 rounded-lg border">
+        <dl>
           {rows.map((r) => (
             <div
               key={r.label}
-              className="flex items-baseline gap-3 px-3 py-2 text-xs"
+              className="flex items-baseline gap-3 border-b border-[var(--color-divider)] py-3 last:border-b-0"
             >
-              <dt className={`${fieldLabel} w-28 shrink-0`}>{r.label}</dt>
-              <dd className="min-w-0 flex-1 break-words text-foreground">
+              <dt className="w-[130px] shrink-0 text-[12px] font-bold uppercase tracking-[0.06em] text-[var(--jos-muted)]">
+                {r.label}
+              </dt>
+              <dd className="min-w-0 flex-1 break-words text-[16px] font-medium">
                 {r.value ? (
                   r.href ? (
                     <a
                       href={r.href}
-                      className="text-foreground hover:underline"
+                      className={
+                        r.label === "LinkedIn"
+                          ? modalGhostLinkClass
+                          : "text-[var(--color-text)] hover:underline"
+                      }
                     >
                       {r.value}
                     </a>
@@ -1796,7 +1848,7 @@ function IdentityCard({
                     r.value
                   )
                 ) : (
-                  <span className="text-muted-foreground">—</span>
+                  <span className={modalEmptyClass}>Not set</span>
                 )}
               </dd>
             </div>
@@ -1808,74 +1860,72 @@ function IdentityCard({
 
   // ── Edit view ──────────────────────────────────────────────────────────
   return (
-    <section className="rounded-lg border bg-card/40 p-3">
-      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Contact information
-      </h3>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+    <section>
+      <ModalSectionTitle className="mb-3">Contact information</ModalSectionTitle>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1">
-          <span className={fieldLabel}>Name</span>
+          <span className={modalLabelClass}>Name</span>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="h-8 text-xs"
+            className={modalFieldClass}
             placeholder="Full name"
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className={fieldLabel}>Title</span>
+          <span className={modalLabelClass}>Title</span>
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="h-8 text-xs"
+            className={modalFieldClass}
             placeholder="e.g. VP of Marketing"
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className={fieldLabel}>Firm / Company</span>
+          <span className={modalLabelClass}>Firm / Company</span>
           <Input
             value={firm}
             onChange={(e) => setFirm(e.target.value)}
-            className="h-8 text-xs"
+            className={modalFieldClass}
             placeholder="Company they work at"
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className={fieldLabel}>Email</span>
+          <span className={modalLabelClass}>Email</span>
           <Input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="h-8 text-xs"
+            className={modalFieldClass}
             placeholder="name@company.com"
             autoFocus={!initialEmail}
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className={fieldLabel}>Phone</span>
+          <span className={modalLabelClass}>Phone</span>
           <Input
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className="h-8 text-xs"
+            className={modalFieldClass}
             placeholder="+1 555 123 4567"
           />
         </label>
         <label className="flex flex-col gap-1 sm:col-span-2">
-          <span className={fieldLabel}>LinkedIn URL</span>
+          <span className={modalLabelClass}>LinkedIn URL</span>
           <Input
             value={linkedin}
             onChange={(e) => setLinkedin(e.target.value)}
-            className="h-8 text-xs"
+            className={modalFieldClass}
             placeholder="https://linkedin.com/in/…"
           />
         </label>
       </div>
-      <div className="mt-2 flex items-center justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={cancel} disabled={saving}>
+      <div className="mt-3 flex items-center justify-end gap-2">
+        <Button variant="outline" className={modalSecondaryClass} onClick={cancel} disabled={saving}>
           Cancel
         </Button>
-        <Button size="sm" onClick={save} disabled={saving || !dirty || !name.trim()}>
+        <Button onClick={save} disabled={saving || !dirty || !name.trim()}>
           {saving ? (
             <Loader2 className="h-3 w-3 animate-spin" />
           ) : (
@@ -1903,51 +1953,30 @@ function NetworkRoleControl({
 }) {
   return (
     <section>
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Role in my search
-        </h3>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <ModalSectionTitle>Role in my search</ModalSectionTitle>
         {role ? (
           <button
             type="button"
             onClick={() => onChange(null)}
             title="Clear the role"
-            className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground"
+            className={modalGhostLinkClass}
           >
             Clear
           </button>
         ) : null}
       </div>
       <div className={cn("grid grid-cols-3 gap-1.5", pending && "opacity-60")}>
-        {NETWORK_ROLES.map((value) => {
-          const active = role === value;
-          return (
-            <button
-              key={value}
-              type="button"
-              onClick={() => onChange(active ? null : value)}
-              title={NETWORK_ROLE_HELPERS[value]}
-              className={cn(
-                "flex flex-col gap-0.5 rounded-md border px-3 py-2 text-left transition-colors",
-                active
-                  ? "border-foreground/60 bg-foreground text-background"
-                  : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <span className="text-sm font-medium">
-                {NETWORK_ROLE_LABELS[value]}
-              </span>
-              <span
-                className={cn(
-                  "text-[10px] font-normal",
-                  active ? "text-background/70" : "text-muted-foreground/70"
-                )}
-              >
-                {NETWORK_ROLE_HELPERS[value]}
-              </span>
-            </button>
-          );
-        })}
+        {NETWORK_ROLES.map((value) => (
+          <ChoiceCard
+            key={value}
+            title={NETWORK_ROLE_LABELS[value]}
+            description={NETWORK_ROLE_HELPERS[value]}
+            selected={role === value}
+            onClick={() => onChange(role === value ? null : value)}
+            disabled={pending}
+          />
+        ))}
       </div>
     </section>
   );
@@ -1963,74 +1992,41 @@ function IntentControl({
   const backrowActive = intent === "backrow";
   return (
     <section>
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Intent
-        </h3>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <ModalSectionTitle>Intent</ModalSectionTitle>
         {intent ? (
           <button
             type="button"
             onClick={() => onChange(null)}
             title="Clear the intent pin — queue-buckets derivation rules will decide again."
-            className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground"
+            className={modalGhostLinkClass}
           >
             Reset intent
           </button>
         ) : null}
       </div>
       <div className="grid grid-cols-3 gap-1.5">
-        {PRIMARY_CONTACT_INTENTS.map((value) => {
-          const Icon =
-            value === "network_growth"
-              ? Sparkles
-              : value === "network_maintenance"
-              ? Flame
-              : Snowflake;
-          const active = intent === value;
-          return (
-            <button
-              key={value}
-              type="button"
-              onClick={() => onChange(value)}
-              className={cn(
-                "flex flex-col gap-0.5 rounded-md border px-3 py-2 text-left transition-colors",
-                active
-                  ? "border-foreground/60 bg-foreground text-background"
-                  : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <span className="flex items-center gap-1.5 text-sm font-medium">
-                <Icon className="h-3.5 w-3.5" />
-                {CONTACT_INTENT_LABELS[value]}
-              </span>
-              <span
-                className={cn(
-                  "text-[10px] font-normal",
-                  active ? "text-background/70" : "text-muted-foreground/70"
-                )}
-              >
-                {CONTACT_INTENT_HELPERS[value]}
-              </span>
-            </button>
-          );
-        })}
+        {PRIMARY_CONTACT_INTENTS.map((value) => (
+          <ChoiceCard
+            key={value}
+            title={CONTACT_INTENT_LABELS[value]}
+            description={CONTACT_INTENT_HELPERS[value]}
+            selected={intent === value}
+            onClick={() => onChange(value)}
+          />
+        ))}
       </div>
       <button
         type="button"
         onClick={() => onChange("backrow")}
         title="Remove from queue — kept in your contacts list."
         className={cn(
-          "mt-1.5 flex w-full items-center justify-between gap-2 rounded-md border border-dashed px-3 py-1.5 text-left text-[11px] transition-colors",
-          backrowActive
-            ? "border-foreground/60 bg-muted text-foreground"
-            : "border-border/80 text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+          "mt-2 flex w-full items-center justify-between gap-2 px-1 py-1.5 text-left text-[13px] text-[var(--jos-muted)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--jos-focus)]",
+          backrowActive && "font-semibold text-[var(--color-text)]"
         )}
       >
-        <span className="flex items-center gap-1.5 font-medium">
-          <Archive className="h-3 w-3" />
-          {CONTACT_INTENT_LABELS.backrow}
-        </span>
-        <span className="text-[10px] font-normal opacity-80">
+        <span className="font-medium">{CONTACT_INTENT_LABELS.backrow}</span>
+        <span className="text-[13px] font-normal">
           {CONTACT_INTENT_HELPERS.backrow}
         </span>
       </button>
@@ -2044,42 +2040,10 @@ function IntentControl({
 
 const INTENT_DOT: Record<ContactIntent, string> = {
   network_growth: "bg-rung-2",
-  network_maintenance: "bg-rung-1",
-  browning_cold: "bg-rung-3",
-  backrow: "bg-muted-foreground",
+  network_maintenance: "bg-[var(--color-accent-700)]",
+  browning_cold: "bg-[var(--color-text)]",
+  backrow: "bg-[var(--jos-muted)]",
 };
-
-function nextTouchPill(
-  date: string | null,
-  today: string
-): { label: string; cls: string } {
-  if (!date)
-    return { label: "No next touch", cls: "border-border text-muted-foreground" };
-  const days = Math.round(
-    (new Date(`${date}T00:00:00`).getTime() -
-      new Date(`${today}T00:00:00`).getTime()) /
-      86_400_000
-  );
-  if (days < 0)
-    return {
-      label: `Overdue ${Math.abs(days)}d`,
-      cls: "border-rung-1 bg-rung-1 ",
-    };
-  if (days === 0)
-    return {
-      label: "Due today",
-      cls: "border-[var(--jos-line)] bg-rung-2 ",
-    };
-  if (days <= 7)
-    return {
-      label: `Due in ${days}d`,
-      cls: "border-[var(--jos-line)] bg-rung-2 ",
-    };
-  return {
-    label: `In ${days}d`,
-    cls: "border-rung-3 bg-rung-3 ",
-  };
-}
 
 function StatusBar({
   intent,
@@ -2098,38 +2062,33 @@ function StatusBar({
   replyOverrideAt: string | null;
   onReplyOverrideChange: (next: ReplyStatusOverride) => void;
 }) {
-  const nt = nextTouchPill(nextTouchDate, todayISODate());
+  const schedule = scheduleWordPill(nextTouchDate, todayISODate());
+  const reply = resolveReplyStatus({
+    lastTouch,
+    override: replyOverride,
+    overrideAt: replyOverrideAt,
+  });
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[11px]">
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5 font-medium text-muted-foreground">
-        <span
-          className={cn(
-            "h-1.5 w-1.5 rounded-full",
-            intent ? INTENT_DOT[intent] : "bg-muted-foreground/50"
-          )}
-        />
-        {intent ? CONTACT_INTENT_LABELS[intent] : "Unclassified"}
-      </span>
-      <span
-        className={cn(
-          "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium",
-          nt.cls
-        )}
-      >
-        <CalendarClock className="h-3 w-3" />
-        {nt.label}
-      </span>
-      {contactId ? (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2 py-0.5 font-medium text-muted-foreground">
-          <ReplyStatusLight
-            size="md"
-            contactId={contactId}
-            lastTouch={lastTouch}
-            override={replyOverride}
-            overrideAt={replyOverrideAt}
-            onOverrideChange={onReplyOverrideChange}
+    <div className="mt-3.5 flex flex-wrap items-center gap-2">
+      {intent ? (
+        <span className="inline-flex items-center gap-1.5 text-[13px] font-bold uppercase tracking-[0.06em]">
+          <span
+            className={cn("h-2.5 w-2.5 rounded-full", INTENT_DOT[intent])}
           />
+          {CONTACT_INTENT_LABELS[intent]}
         </span>
+      ) : null}
+      {schedule ? (
+        <WordPill tone={schedule.tone}>{schedule.label}</WordPill>
+      ) : null}
+      {reply.status === "replied" ? (
+        <button
+          type="button"
+          onClick={() => contactId && onReplyOverrideChange(null)}
+          title="They replied"
+        >
+          <WordPill tone="yellow">They replied</WordPill>
+        </button>
       ) : null}
     </div>
   );
@@ -2149,10 +2108,10 @@ function TabBtn({
       type="button"
       onClick={onClick}
       className={cn(
-        "border-b-2 px-1 py-2.5 text-sm font-medium transition-colors",
+        "border-b-[3px] px-0 py-2.5 text-[16px] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--jos-focus)]",
         active
-          ? "border-foreground text-foreground"
-          : "border-transparent text-muted-foreground hover:text-foreground"
+          ? "border-[var(--color-accent)] font-bold text-[var(--color-text)]"
+          : "border-transparent font-medium text-[var(--jos-muted)] hover:text-[var(--color-text)]"
       )}
     >
       {children}
@@ -2166,26 +2125,19 @@ function TabBtn({
 
 function PickIntentHint() {
   return (
-    <div className="rounded-md border border-dashed bg-muted/20 p-3 text-xs text-muted-foreground">
+    <p className="text-[13px] text-[var(--jos-muted)]">
       Pick an intent above to get started. Warm sets a steady cadence, Specific
       drives an active next-step, Cold runs a first-contact sequence.
-    </div>
+    </p>
   );
 }
 
 function BackrowExplainer() {
   return (
-    <div className="rounded-md border border-dashed bg-muted/20 p-3 text-xs text-muted-foreground">
-      <div className="flex items-center gap-1.5 font-medium text-foreground/80">
-        <Archive className="h-3.5 w-3.5" />
-        This contact is in Backrow — not in your queue.
-      </div>
-      <p className="mt-1 leading-relaxed">
-        They&rsquo;re still in your contacts list. Pick Warm, Specific, or Cold
-        above to bring them back into the queue, or use &ldquo;Reset
-        intent&rdquo; to let the derivation rules decide.
-      </p>
-    </div>
+    <p className="text-[13px] text-[var(--jos-muted)]">
+      Removed from queue, still in your contacts list. Pick an intent above to
+      bring them back, or use Reset intent to let the queue rules decide.
+    </p>
   );
 }
 
@@ -2197,21 +2149,17 @@ function NextStepCard({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="rounded-lg border bg-card/40 p-3">
-      <h3 className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        <Sparkles className="h-3 w-3" />
-        Next step
-      </h3>
+    <div>
+      <ModalSectionTitle className="mb-2">Next step</ModalSectionTitle>
       <Textarea
-        placeholder="What's the outcome you're driving? (saved as the touch outcome when you log below)"
+        placeholder="What's the outcome you're driving?"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        rows={3}
-        className="text-xs"
+        rows={2}
+        className={cn(modalFieldClass, "min-h-[44px]")}
       />
-      <p className="mt-1 text-[10px] text-muted-foreground">
-        Writes to the next touch&rsquo;s outcome field, keeping the follow-up
-        thread legible from History.
+      <p className={modalHelperClass}>
+        Saved as the touch outcome when you log.
       </p>
     </div>
   );
@@ -2232,98 +2180,70 @@ function ScheduleCard({
   reschedulePending: boolean;
 }) {
   const today = todayISODate();
-  const chip =
-    "rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50";
   return (
-    <section className="rounded-lg border bg-card/40 p-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          <CalendarClock className="h-3 w-3" />
-          Schedule
-        </h3>
+    <section>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <ModalSectionTitle>Schedule</ModalSectionTitle>
         {reschedulePending ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+          <Loader2 className="h-4 w-4 animate-spin text-[var(--jos-muted)]" />
         ) : null}
       </div>
 
-      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-        Cadence
-      </div>
-      <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+      <p className={modalLabelClass}>Cadence</p>
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
         {CADENCE_INTERVALS.map((value) => (
-          <button
+          <CadenceBlock
             key={value}
-            type="button"
+            selected={cadenceInterval === value}
             onClick={() => onCadenceChange(value)}
-            className={cn(
-              "rounded-md border px-2 py-1.5 text-left text-[11px] transition-colors",
-              cadenceInterval === value
-                ? "border-foreground/60 bg-foreground text-background"
-                : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-            )}
+            disabled={reschedulePending}
           >
-            <div className="font-medium">{CADENCE_LABELS[value]}</div>
-            <div
-              className={cn(
-                "text-[10px] font-normal",
-                cadenceInterval === value
-                  ? "text-background/70"
-                  : "text-muted-foreground/70"
-              )}
-            >
-              {CADENCE_HELPERS[value]}
-            </div>
-          </button>
+            {CADENCE_LABELS[value]}
+          </CadenceBlock>
         ))}
       </div>
 
-      <div className="mb-1 mt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-        Next touch
-      </div>
-      <div className="flex flex-wrap items-center gap-1.5">
+      <p className={cn(modalLabelClass, "mt-4")}>Next touch</p>
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
         <Input
           type="date"
           value={nextTouchDate ?? ""}
           disabled={reschedulePending}
           onChange={(e) => onNextTouchChange(e.target.value || null)}
-          className="h-8 w-auto text-xs"
+          className={cn(modalFieldClass, "w-auto tabular-nums")}
         />
-        <button
-          type="button"
+        <PillChip
+          selected={false}
           disabled={reschedulePending}
           onClick={() => onNextTouchChange(addDaysISO(today, 7))}
-          className={chip}
         >
           Next week
-        </button>
-        <button
-          type="button"
+        </PillChip>
+        <PillChip
+          selected={false}
           disabled={reschedulePending}
           onClick={() => onNextTouchChange(addDaysISO(today, 14))}
-          className={chip}
         >
           +2 weeks
-        </button>
-        <button
-          type="button"
+        </PillChip>
+        <PillChip
+          selected={false}
           disabled={reschedulePending}
           onClick={() => onNextTouchChange(addDaysISO(today, 30))}
-          className={chip}
         >
           +1 month
-        </button>
+        </PillChip>
         {nextTouchDate ? (
-          <button
-            type="button"
+          <PillChip
+            selected={false}
             disabled={reschedulePending}
             onClick={() => onNextTouchChange(null)}
-            className={chip}
           >
             Clear
-          </button>
+          </PillChip>
         ) : null}
       </div>
-      <p className="mt-1.5 text-[11px] text-muted-foreground">
+      <p className={modalHelperClass}>
         {nextTouchScheduleStatus(nextTouchDate, today)}
       </p>
     </section>
@@ -2379,6 +2299,7 @@ function endOfWorkWeekFrom(baseYmd: string): string {
 // ---------------------------------------------------------------------------
 
 function LogTouchPanel({
+  id,
   channel,
   setChannel,
   brief,
@@ -2396,6 +2317,7 @@ function LogTouchPanel({
   nextTouchOverride,
   setNextTouchOverride,
 }: {
+  id?: string;
   channel: LogTouchChannel;
   setChannel: (c: LogTouchChannel) => void;
   brief: string;
@@ -2424,50 +2346,36 @@ function LogTouchPanel({
     Boolean(autoNext) &&
     effectiveNext > autoNext;
   return (
-    <section>
-      <h3 className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        <CheckCircle2 className="h-3 w-3" />
-        Log a touch
-      </h3>
-      <div className="space-y-3 rounded-md border bg-card/40 p-3">
+    <section id={id}>
+      <ModalSectionTitle className="mb-3">Log a touch</ModalSectionTitle>
+      <div className="space-y-4">
         <div>
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            How
-          </div>
-          <div className="flex flex-wrap gap-1.5">
+          <p className={modalLabelClass}>How</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
             {LOG_TOUCH_CHANNELS.map((c) => (
-              <button
+              <PillChip
                 key={c.value}
-                type="button"
+                selected={channel === c.value}
                 onClick={() => setChannel(c.value)}
-                title={c.hint}
-                className={cn(
-                  "rounded-full border px-2 py-0.5 text-[10px] transition-colors",
-                  channel === c.value
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-border text-muted-foreground hover:text-foreground"
-                )}
               >
                 {c.label}
-              </button>
+              </PillChip>
             ))}
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              When
-            </div>
+            <p className={modalLabelClass}>When</p>
             <Input
               type="date"
               value={logDate}
               max={todayStr}
               onChange={(e) => setLogDate(e.target.value || todayStr)}
-              className="h-8 w-full text-xs"
+              className={cn(modalFieldClass, "mt-1 tabular-nums")}
             />
             {logDate !== todayStr && (
-              <p className="mt-1 text-[10px] text-muted-foreground">
+              <p className={modalHelperClass}>
                 Backdated — cadence counts from this date.
               </p>
             )}
@@ -2475,14 +2383,12 @@ function LogTouchPanel({
 
           <div>
             <div className="mb-1 flex items-center justify-between gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Next touch
-              </span>
+              <span className={modalLabelClass}>Next touch</span>
               {nextTouchOverride && autoNext && (
                 <button
                   type="button"
                   onClick={() => setNextTouchOverride(null)}
-                  className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                  className={modalGhostLinkClass}
                   title="Revert to the cadence-derived date"
                 >
                   Reset
@@ -2497,65 +2403,44 @@ function LogTouchPanel({
               onChange={(e) =>
                 setNextTouchOverride(e.target.value || null)
               }
-              className="h-8 w-full text-xs"
+              className={cn(modalFieldClass, "tabular-nums")}
             />
             {cadenceInterval === "none" && !nextTouchOverride ? (
-              <p className="mt-1 text-[10px] text-muted-foreground">
+              <p className={modalHelperClass}>
                 No cadence set — pick a date to schedule the next touch.
               </p>
             ) : nextTouchOverride ? (
-              <p className="mt-1 text-[10px] text-muted-foreground">
+              <p className={modalHelperClass}>
                 Manually set{autoNext ? ` (cadence: ${autoNext})` : ""}.
               </p>
             ) : (
-              <p className="mt-1 text-[10px] text-muted-foreground">
-                Auto from cadence — editable.
-              </p>
+              <p className={modalHelperClass}>Auto from cadence, editable.</p>
             )}
           </div>
         </div>
 
         {tooLong && (
-          <p className="rounded-md border border-[var(--jos-line)] bg-rung-2 px-2.5 py-1.5 text-[10px] ">
-            Heads up: this next-touch date is later than your{" "}
+          <p className="bg-rung-2 px-3.5 py-2 text-[13px] font-semibold">
+            This next-touch date is later than your{" "}
             {CADENCE_LABELS[cadenceInterval]?.toLowerCase()} cadence
-            ({autoNext}). That&rsquo;s a longer gap than intended — you can still
-            save it.
+            ({autoNext}). You can still save it.
           </p>
         )}
 
         <div>
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Did this touch achieve its goal?{" "}
-            <span className="font-normal text-muted-foreground/60">required</span>
-          </div>
-          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+          <p className={modalLabelClass}>
+            Did this touch achieve its goal?
+            <RequiredMark />
+          </p>
+          <div className="mt-1.5 grid grid-cols-1 gap-1.5 sm:grid-cols-3">
             {TOUCH_OBJECTIVES.map((value) => (
-              <button
+              <ChoiceCard
                 key={value}
-                type="button"
+                title={TOUCH_OBJECTIVE_LABELS[value]}
+                description={TOUCH_OBJECTIVE_HELPERS[value]}
+                selected={objective === value}
                 onClick={() => setObjective(value)}
-                className={cn(
-                  "rounded-md border px-2 py-1.5 text-left text-[11px] transition-colors",
-                  objective === value
-                    ? value === "yes"
-                      ? "border-[var(--jos-line)] bg-rung-ok "
-                      : value === "no"
-                      ? "border-[var(--jos-line)] bg-rung-2 "
-                      : "border-border bg-muted text-foreground"
-                    : "border-border text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <div className="font-medium">{TOUCH_OBJECTIVE_LABELS[value]}</div>
-                <div
-                  className={cn(
-                    "text-[10px] font-normal opacity-80",
-                    objective === value ? "" : "text-muted-foreground/70"
-                  )}
-                >
-                  {TOUCH_OBJECTIVE_HELPERS[value]}
-                </div>
-              </button>
+              />
             ))}
           </div>
         </div>
@@ -2564,7 +2449,7 @@ function LogTouchPanel({
           placeholder="One-line summary (optional)"
           value={brief}
           onChange={(e) => setBrief(e.target.value)}
-          className="h-8 text-xs"
+          className={modalFieldClass}
         />
 
         {hideOutcomeField ? null : (
@@ -2573,24 +2458,20 @@ function LogTouchPanel({
             value={outcome}
             onChange={(e) => setOutcome(e.target.value)}
             rows={2}
-            className="text-xs"
+            className={modalFieldClass}
           />
         )}
 
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-[13px] text-[var(--jos-muted)]">
             {cadenceInterval === "none"
               ? "No cadence set — will only stamp last-touch."
               : objective === "yes"
               ? `Advances cadence stage and pushes next touch out by ${CADENCE_LABELS[cadenceInterval]?.toLowerCase()}.`
-              : `Resets cadence clock by ${CADENCE_LABELS[cadenceInterval]?.toLowerCase()}.`}
+              : `Resets the cadence clock to ${CADENCE_LABELS[cadenceInterval]?.toLowerCase()}.`}
           </p>
-          <Button onClick={onLog} disabled={logging || !objective} size="sm">
-            {logging ? (
-              <Loader2 className="h-3 w-3 animate-spin" />
-            ) : (
-              <CheckCircle2 className="h-3 w-3" />
-            )}
+          <Button onClick={onLog} disabled={logging || !objective}>
+            {logging ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             Log touch
           </Button>
         </div>
@@ -2620,10 +2501,7 @@ function RecentContextSection({
 
   return (
     <div className="space-y-2">
-      <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        <History className="h-3 w-3" />
-        Engagements
-      </h3>
+      <ModalSectionTitle className="mb-2">Engagements</ModalSectionTitle>
 
       {/* Engagement records — always from the database, shown immediately. */}
       {recentTouches.length > 0 ? (
@@ -2642,9 +2520,9 @@ function RecentContextSection({
           reaches out to Gmail / HubSpot / Granola / Fireflies). */}
       <div className="pt-1">
         {loading ? (
-          <div className="flex items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Loading Gmail / HubSpot / Granola / Fireflies…
+          <div className="flex min-w-[18rem] items-center gap-2 px-3 py-2 text-[13px] text-[var(--jos-muted)]">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading...
           </div>
         ) : sources ? (
           <div className="space-y-2">
@@ -2676,14 +2554,15 @@ function RecentContextSection({
             )}
           </div>
         ) : contactId ? (
-          <button
+          <Button
             type="button"
+            variant="outline"
+            className={modalSecondaryClass}
             onClick={onLoadContext}
-            className="inline-flex items-center gap-1.5 rounded-md border border-dashed px-3 py-1.5 text-xs text-muted-foreground hover:border-foreground/40 hover:text-foreground"
           >
-            <RefreshCw className="h-3.5 w-3.5" />
+            <RefreshCw className="h-4 w-4" />
             Load latest context (Gmail, HubSpot, Granola, Fireflies)
-          </button>
+          </Button>
         ) : null}
       </div>
     </div>
@@ -2694,8 +2573,8 @@ function SourceCard({ source }: { source: DraftSource }) {
   return (
     <div
       className={cn(
-        "rounded-md border p-2.5 text-[11px]",
-        source.found ? "bg-card/40" : "border-dashed bg-transparent opacity-60"
+        "bg-[var(--color-surface)] p-2.5 text-[13px]",
+        !source.found && "opacity-60"
       )}
     >
       <div className="flex items-center justify-between gap-2">

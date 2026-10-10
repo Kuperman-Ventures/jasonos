@@ -8,12 +8,12 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   CalendarPlus,
+  ChevronDown,
   Copy,
   ExternalLink,
   FileText,
   Loader2,
   Mail,
-  Pencil,
   Search,
   Trash2,
   UserPlus,
@@ -39,6 +39,14 @@ import { addReferredContact } from "@/lib/server-actions/outreach";
 import { ResearchBriefView } from "@/components/jasonos/research-brief";
 import { prepSections } from "@/lib/browning-networking/meeting-brief";
 import { extractForwardBlock } from "@/lib/outreach/intro-email";
+import {
+  ModalSectionTitle,
+  StepChip,
+  WordPill,
+  modalGhostLinkClass,
+  modalKickerClass,
+  modalSecondaryClass,
+} from "@/components/jasonos/contact-modal/parts";
 
 const CHANNELS: { value: MeetingChannel; label: string }[] = [
   { value: "video", label: "Video" },
@@ -91,15 +99,18 @@ function defaultLocal(): string {
 export function MeetingsTab({
   contactId,
   contactName,
+  onMeetingHeld,
 }: {
   contactId: string;
   contactName: string;
+  onMeetingHeld?: () => void;
 }) {
   const router = useRouter();
   const [meetings, setMeetings] = useState<Meeting[] | null>(null);
   const [research, setResearch] = useState<string | null>(null);
   const [researchAt, setResearchAt] = useState<string | null>(null);
   const [scheduling, setScheduling] = useState(false);
+  const [expandedHeld, setExpandedHeld] = useState<Set<string>>(new Set());
   const [browningPrep, setBrowningPrep] = useState<string | null>(null);
   const [resumeFilename, setResumeFilename] = useState<string | null>(null);
 
@@ -155,15 +166,18 @@ export function MeetingsTab({
     );
   }
 
+  const heldIds = (meetings ?? [])
+    .filter((m) => m.status === "held")
+    .map((m) => m.id);
+  const autoCollapsedHeld = new Set(heldIds.slice(3));
+
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Meetings with {contactName}
-        </h3>
+        <ModalSectionTitle>Meetings with {contactName}</ModalSectionTitle>
         {!scheduling ? (
-          <Button variant="outline" size="sm" onClick={() => setScheduling(true)}>
-            <CalendarPlus className="h-3.5 w-3.5" /> Schedule
+          <Button onClick={() => setScheduling(true)}>
+            <CalendarPlus className="h-4 w-4" /> Schedule
           </Button>
         ) : null}
       </div>
@@ -244,22 +258,35 @@ export function MeetingsTab({
         </p>
       ) : null}
 
-      {meetings.map((m) => (
-        <MeetingRow
-          key={m.id}
-          meeting={m}
-          contactId={contactId}
-          contactName={contactName}
-          onChange={(next) => {
-            upsertLocal(next);
-            router.refresh();
-          }}
-          onDeleted={() => {
-            setMeetings((prev) => (prev ?? []).filter((x) => x.id !== m.id));
-            router.refresh();
-          }}
-        />
-      ))}
+      {meetings.map((m) => {
+        const collapsed =
+          m.status === "held" &&
+          autoCollapsedHeld.has(m.id) &&
+          !expandedHeld.has(m.id);
+        return (
+          <MeetingRow
+            key={m.id}
+            meeting={m}
+            contactId={contactId}
+            contactName={contactName}
+            collapsed={collapsed}
+            onExpand={() =>
+              setExpandedHeld((prev) => new Set(prev).add(m.id))
+            }
+            onChange={(next) => {
+              if (next.status === "held" && m.status !== "held") {
+                onMeetingHeld?.();
+              }
+              upsertLocal(next);
+              router.refresh();
+            }}
+            onDeleted={() => {
+              setMeetings((prev) => (prev ?? []).filter((x) => x.id !== m.id));
+              router.refresh();
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -388,12 +415,12 @@ function ContactResearchPanel({
   };
 
   return (
-    <section className="space-y-2 rounded-lg border bg-card/40 p-3">
+    <section className="bg-[var(--color-surface)] px-[18px] py-4">
       <div className="flex items-center justify-between gap-2">
-        <span className={fieldLabel}>Recent news (AI web search)</span>
+        <span className={modalKickerClass}>Recent news (AI web search)</span>
         <Button
           variant="outline"
-          size="sm"
+          className={modalSecondaryClass}
           onClick={runResearch}
           disabled={researching}
         >
@@ -408,7 +435,7 @@ function ContactResearchPanel({
       {research ? (
         <ResearchBriefView raw={research} searchedAt={researchAt} compact />
       ) : (
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-[14px] text-[var(--jos-muted)]">
           Pulls news from the last ~30 days about this person and their company.
           Works with or without a meeting on the calendar.
         </p>
@@ -421,12 +448,16 @@ function MeetingRow({
   meeting,
   contactId,
   contactName,
+  collapsed,
+  onExpand,
   onChange,
   onDeleted,
 }: {
   meeting: Meeting;
   contactId: string;
   contactName: string;
+  collapsed?: boolean;
+  onExpand?: () => void;
   onChange: (m: Meeting) => void;
   onDeleted: () => void;
 }) {
@@ -435,35 +466,55 @@ function MeetingRow({
   const [referrals, setReferrals] = useState<string[]>([]);
   const held = meeting.status === "held";
 
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        onClick={onExpand}
+        className="flex w-full items-center justify-between gap-3 border-t-2 border-[var(--color-text)] pt-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--jos-focus)]"
+      >
+        <div className="min-w-0">
+          <p className="truncate text-[16px] font-extrabold">
+            {meeting.title || meeting.prepGoal || "Meeting"}
+          </p>
+          <p className="text-[14px] font-semibold tabular-nums text-[var(--jos-muted)]">
+            {fmtDateTime(meeting.scheduledAt)}
+          </p>
+        </div>
+        <span className="inline-flex items-center gap-2">
+          <WordPill tone="ink">Held</WordPill>
+          <ChevronDown className="h-4 w-4 text-[var(--jos-muted)]" />
+        </span>
+      </button>
+    );
+  }
+
   return (
-    <section className="rounded-lg border bg-card/40 p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <section className="border-t-2 border-[var(--color-text)] pt-4">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 space-y-1">
-          {meeting.title || meeting.prepGoal ? (
-            <div className="truncate text-sm font-medium text-foreground">
-              {meeting.title || meeting.prepGoal}
-            </div>
-          ) : null}
+          <div className="truncate text-[20px] font-extrabold tracking-tight">
+            {meeting.title || meeting.prepGoal || "Meeting"}
+          </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium">{fmtDateTime(meeting.scheduledAt)}</span>
-            <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground">
-              {channelLabel(meeting.channel)}
+            <span className="text-[16px] font-semibold tabular-nums">
+              {fmtDateTime(meeting.scheduledAt)}
             </span>
-            <span
-              className={cn(
-                "rounded-full px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider",
+            <WordPill tone="surface">{channelLabel(meeting.channel)}</WordPill>
+            <WordPill
+              tone={
                 held
-                  ? "bg-rung-ok "
+                  ? "ink"
                   : meeting.status === "cancelled"
-                  ? "bg-muted text-muted-foreground"
-                  : "bg-rung-3 "
-              )}
+                    ? "surface"
+                    : "cyan"
+              }
             >
               {meeting.status}
-            </span>
+            </WordPill>
             {meeting.gcalEventId ? (
-              <span className="text-[9px] uppercase tracking-wider text-muted-foreground/70">
-                synced
+              <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[var(--jos-muted)]">
+                Synced
               </span>
             ) : null}
           </div>
@@ -474,19 +525,19 @@ function MeetingRow({
               href={meeting.calendarUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+              className={modalGhostLinkClass}
               title="Open in Google Calendar"
             >
-              <ExternalLink className="h-3 w-3" />
               Calendar
+              <ExternalLink className="h-3.5 w-3.5" />
             </a>
           ) : null}
           <button
             type="button"
             onClick={() => setMode(mode === "prep" ? "view" : "prep")}
-            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+            className={modalGhostLinkClass}
           >
-            <Pencil className="h-3 w-3" /> Meeting Prep
+            Meeting prep
           </button>
           {!held ? (
             <Button
@@ -523,10 +574,10 @@ function MeetingRow({
               }
               onDeleted();
             }}
-            className="text-muted-foreground hover:text-destructive"
+            className="text-[var(--jos-muted)] hover:text-[var(--color-accent-2-700)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--jos-focus)]"
             title="Delete meeting"
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash2 className="h-4 w-4" />
           </button>
         </div>
       </div>
@@ -1008,69 +1059,69 @@ function HeldIntroActions({
 
   return (
     <div className="space-y-2 pt-2">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Intro emails
-      </p>
+      <p className={modalKickerClass}>Intro emails</p>
       <ul className="space-y-2">
         {intros.map(({ w, index }) => (
-          <li key={`${w.name}-${index}`} className="rounded-md border px-2.5 py-2">
+          <li key={`${w.name}-${index}`} className="border-b border-[var(--color-divider)] py-3 last:border-b-0">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <span className="font-medium text-foreground">{w.name || "—"}</span>
+                <span className="text-[17px] font-bold">{w.name || "—"}</span>
                 {w.company ? (
-                  <span className="text-muted-foreground"> · {w.company}</span>
+                  <span className="text-[15px] font-normal text-[var(--jos-muted)]">
+                    {" "}
+                    {w.company}
+                  </span>
                 ) : null}
               </div>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(w.agreed)}
-                    onChange={(e) =>
-                      patchIntroFlag(
-                        meeting,
-                        index,
-                        "agreed",
-                        e.target.checked,
-                        onChange
-                      )
-                    }
-                  />
-                  They agreed
-                </label>
-                <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(w.requestEmailSent)}
-                    onChange={(e) =>
-                      patchIntroFlag(
-                        meeting,
-                        index,
-                        "requestEmailSent",
-                        e.target.checked,
-                        onChange
-                      )
-                    }
-                  />
-                  Request email sent
-                </label>
-                <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(w.introMade)}
-                    onChange={(e) =>
-                      patchIntroFlag(
-                        meeting,
-                        index,
-                        "introMade",
-                        e.target.checked,
-                        onChange
-                      )
-                    }
-                  />
-                  Intro made
-                </label>
-              </div>
+              {w.linkedinUrl ? (
+                <a
+                  href={w.linkedinUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={modalGhostLinkClass}
+                >
+                  LinkedIn
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              ) : null}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <StepChip
+                done={Boolean(w.agreed)}
+                onClick={() =>
+                  patchIntroFlag(meeting, index, "agreed", !w.agreed, onChange)
+                }
+              >
+                They agreed
+              </StepChip>
+              <StepChip
+                done={Boolean(w.requestEmailSent)}
+                onClick={() =>
+                  patchIntroFlag(
+                    meeting,
+                    index,
+                    "requestEmailSent",
+                    !w.requestEmailSent,
+                    onChange
+                  )
+                }
+              >
+                Request email sent
+              </StepChip>
+              <StepChip
+                done={Boolean(w.introMade)}
+                onClick={() =>
+                  patchIntroFlag(
+                    meeting,
+                    index,
+                    "introMade",
+                    !w.introMade,
+                    onChange
+                  )
+                }
+              >
+                Intro made
+              </StepChip>
             </div>
             <div className="mt-1.5">
               <IntroLinkedInField
@@ -1080,10 +1131,9 @@ function HeldIntroActions({
                 onChange={onChange}
               />
             </div>
-            <div className="mt-2 flex flex-wrap gap-2">
+            <div id="contact-modal-generate-intro" className="mt-2 flex flex-wrap gap-2">
               <Button
-                size="sm"
-                className="h-7 text-[11px]"
+                className="h-9"
                 disabled={!w.agreed || !w.linkedinUrl || busyIndex !== null}
                 onClick={() => {
                   setBusyIndex(index);

@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils";
 import { Logo } from "@/components/jasonos/logo";
 import { Banner } from "@/components/jasonos/brand/status";
 import { PageHeader } from "@/components/jasonos/brand/page-header";
+import { RelationshipBriefSection } from "@/components/jasonos/settings/relationship-brief-section";
 import {
   AVAILABLE_MODELS,
   SERVICE_DEFINITIONS,
@@ -508,6 +509,8 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
           </p>
         </div>
       </section>
+
+      <RelationshipBriefSection initial={initialSettings} />
 
       <section className="rounded-xl border bg-card p-4">
         <SectionHeading
