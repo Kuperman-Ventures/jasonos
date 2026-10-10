@@ -19,6 +19,14 @@ import {
 } from "@/lib/outreach/meeting-followup-prompt";
 import { normalizeAboutJason } from "@/lib/outreach/about-jason";
 import {
+  DEFAULT_BRIEF_SECTIONS,
+  DEFAULT_RELATIONSHIP_BRIEF_PROMPT,
+  normalizeRelationshipBriefPrompt,
+  parseBriefSections,
+  resolveRelationshipBriefPrompt,
+  type BriefSectionFlags,
+} from "@/lib/outreach/relationship-brief";
+import {
   DEFAULT_ALERT_THRESHOLDS,
   DEFAULT_MODEL_PREFERENCES,
   SERVICE_DEFINITIONS,
@@ -55,6 +63,12 @@ export interface SettingsPayload {
   meetingFollowupPromptDefault: string;
   /** Freeform About Jason for intro emails (Settings). */
   aboutJason: string;
+  relationshipBriefPrompt: string;
+  relationshipBriefPromptCustom: boolean;
+  relationshipBriefPromptDefault: string;
+  relationshipBriefPromptVersion: number;
+  relationshipBriefSections: BriefSectionFlags;
+  relationshipBriefPromptUpdatedAt: string | null;
   lastChecked: string | null;
   authRequired: boolean;
   supabaseConfigured: boolean;
@@ -109,7 +123,7 @@ export async function getSettingsPayload(): Promise<SettingsPayload> {
       .eq("user_id", user.id),
     supabase
       .from("user_preferences")
-      .select("alert_thresholds,model_preferences,meeting_followup_prompt,about_jason")
+      .select("alert_thresholds,model_preferences,meeting_followup_prompt,about_jason,relationship_brief_prompt,relationship_brief_prompt_version,relationship_brief_sections,relationship_brief_prompt_updated_at")
       .eq("user_id", user.id)
       .maybeSingle(),
     getDispatchSummary(user.id),
@@ -140,6 +154,9 @@ export async function getSettingsPayload(): Promise<SettingsPayload> {
   const storedPrompt = normalizeMeetingFollowupPrompt(
     (prefs as PreferencesRow | null)?.meeting_followup_prompt
   );
+  const storedBriefPrompt = normalizeRelationshipBriefPrompt(
+    (prefs as PreferencesRow | null)?.relationship_brief_prompt
+  );
 
   return attachMailboxStatus(
     {
@@ -150,6 +167,16 @@ export async function getSettingsPayload(): Promise<SettingsPayload> {
       meetingFollowupPromptCustom: Boolean(storedPrompt),
       meetingFollowupPromptDefault: DEFAULT_MEETING_FOLLOWUP_PROMPT,
       aboutJason: normalizeAboutJason((prefs as PreferencesRow | null)?.about_jason) ?? "",
+      relationshipBriefPrompt: resolveRelationshipBriefPrompt(storedBriefPrompt),
+      relationshipBriefPromptCustom: Boolean(storedBriefPrompt),
+      relationshipBriefPromptDefault: DEFAULT_RELATIONSHIP_BRIEF_PROMPT,
+      relationshipBriefPromptVersion:
+        Number((prefs as PreferencesRow | null)?.relationship_brief_prompt_version) || 0,
+      relationshipBriefSections: parseBriefSections(
+        (prefs as PreferencesRow | null)?.relationship_brief_sections
+      ),
+      relationshipBriefPromptUpdatedAt:
+        (prefs as PreferencesRow | null)?.relationship_brief_prompt_updated_at ?? null,
       lastChecked: services
         .map((service) => service.last_health_check)
         .filter((value): value is string => !!value)
@@ -184,6 +211,10 @@ interface PreferencesRow {
   model_preferences: unknown;
   meeting_followup_prompt?: string | null;
   about_jason?: string | null;
+  relationship_brief_prompt?: string | null;
+  relationship_brief_prompt_version?: number | null;
+  relationship_brief_sections?: unknown;
+  relationship_brief_prompt_updated_at?: string | null;
 }
 
 async function seedConnections(userId: string) {
@@ -259,6 +290,12 @@ function fallbackPayload(authRequired: boolean): SettingsPayload {
     meetingFollowupPromptCustom: false,
     meetingFollowupPromptDefault: DEFAULT_MEETING_FOLLOWUP_PROMPT,
     aboutJason: "",
+    relationshipBriefPrompt: DEFAULT_RELATIONSHIP_BRIEF_PROMPT,
+    relationshipBriefPromptCustom: false,
+    relationshipBriefPromptDefault: DEFAULT_RELATIONSHIP_BRIEF_PROMPT,
+    relationshipBriefPromptVersion: 0,
+    relationshipBriefSections: { ...DEFAULT_BRIEF_SECTIONS },
+    relationshipBriefPromptUpdatedAt: null,
     lastChecked: null,
     authRequired,
     supabaseConfigured: publicSupabaseConfigured(),

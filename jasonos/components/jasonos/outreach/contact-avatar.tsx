@@ -11,7 +11,7 @@ export function ContactAvatar({
 }: {
   name: string;
   photoUrl?: string | null;
-  size?: "sm" | "md";
+  size?: "sm" | "md" | "lg";
   className?: string;
 }) {
   const initials =
@@ -21,7 +21,12 @@ export function ContactAvatar({
       .slice(0, 2)
       .map((w) => w[0]?.toUpperCase() ?? "")
       .join("") || "?";
-  const sizeCls = size === "sm" ? "h-7 w-7 text-[10px]" : "h-9 w-9 text-xs";
+  const sizeCls =
+    size === "sm"
+      ? "h-7 w-7 text-[10px]"
+      : size === "lg"
+        ? "h-14 w-14 text-[18px] font-extrabold"
+        : "h-9 w-9 text-xs";
 
   if (photoUrl) {
     return (
@@ -42,7 +47,9 @@ export function ContactAvatar({
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center justify-center rounded-full border border-border bg-muted font-semibold text-muted-foreground",
+        size === "lg"
+          ? "flex shrink-0 items-center justify-center rounded-full bg-[var(--color-text)] font-extrabold text-[var(--color-bg)]"
+          : "flex shrink-0 items-center justify-center rounded-full border border-border bg-muted font-semibold text-muted-foreground",
         sizeCls,
         className
       )}

@@ -65,6 +65,7 @@ export function EngagementsList({
   const router = useRouter();
   const [items, setItems] = useState<RecentTouch[]>(initial);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -267,37 +268,42 @@ export function EngagementsList({
           );
         }
 
+        const open = expandedId === t.id;
+        const subject = t.brief || t.outcome || "no note";
         return (
           <li
             key={t.id}
-            className="group flex items-start gap-2 rounded-md border border-transparent px-1 py-1 text-[11px] text-muted-foreground hover:border-border hover:bg-card/40"
+            className="group border-b border-[var(--color-divider)] py-3 last:border-b-0"
           >
-            <span
-              className={cn(
-                "mt-[1px] shrink-0 rounded-sm border px-1 py-0.5 text-[9px] uppercase",
-                t.direction === "outbound"
-                  ? "border-[var(--jos-line)] text-rung-ink"
-                  : "border-rung-3 text-rung-3"
-              )}
+            <button
+              type="button"
+              onClick={() => setExpandedId(open ? null : t.id)}
+              className="flex w-full items-baseline gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--jos-focus)]"
             >
-              {channelLabel(t.channel)}
-            </span>
-            <span className="mt-[1px] shrink-0 font-mono text-[10px]">
-              {fmtDate(t.touched_at)}
-            </span>
-            <span className="min-w-0 flex-1 truncate">
-              {t.brief || t.outcome || (
-                <span className="italic opacity-60">no note</span>
-              )}
-            </span>
+              <span className="shrink-0 text-[11px] font-bold uppercase tracking-[0.06em] text-[var(--jos-muted)]">
+                {channelLabel(t.channel)}
+              </span>
+              <span className="shrink-0 text-[14px] font-medium tabular-nums text-[var(--jos-muted)]">
+                {fmtDate(t.touched_at)}
+              </span>
+              <span
+                className={cn(
+                  "min-w-0 flex-1 text-[15px] font-normal text-[var(--color-text)]",
+                  open ? "whitespace-pre-wrap" : "truncate"
+                )}
+              >
+                {subject}
+              </span>
+            </button>
             {contactId ? (
               <button
                 type="button"
                 onClick={() => startEdit(t)}
                 title="Edit engagement"
-                className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100"
+                className="mt-1 inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--jos-muted)] hover:text-[var(--color-text)]"
               >
                 <Pencil className="h-3 w-3" />
+                Edit
               </button>
             ) : null}
           </li>
