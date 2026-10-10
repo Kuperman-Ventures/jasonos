@@ -32,7 +32,7 @@ export function MeetingFollowupControls({
           key={days}
           type="button"
           size="sm"
-          variant="outline"
+          variant="okOutline"
           disabled={busy}
           onClick={() => onSnooze(days)}
         >
@@ -58,12 +58,12 @@ export function MeetingFollowupControls({
           className="h-8 w-16 px-2 text-xs"
           disabled={busy}
         />
-        <Button type="submit" size="sm" variant="outline" disabled={busy || !custom.trim()}>
+        <Button type="submit" size="sm" variant="okOutline" disabled={busy || !custom.trim()}>
           Snooze
         </Button>
       </form>
       {onDone ? (
-        <Button type="button" size="sm" disabled={busy} onClick={onDone}>
+        <Button type="button" size="sm" variant="ok" disabled={busy} onClick={onDone}>
           Done
         </Button>
       ) : null}

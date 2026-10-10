@@ -147,6 +147,7 @@ export function MeetingFollowupsPanel({ rows }: { rows: MeetingFollowup[] }) {
                     <Button
                       type="button"
                       size="sm"
+                      variant="ok"
                       disabled={busyId === row.id}
                       onClick={() => void openDraft(row.id)}
                     >
@@ -155,7 +156,7 @@ export function MeetingFollowupsPanel({ rows }: { rows: MeetingFollowup[] }) {
                     {row.calendarUrl ? (
                       <Button
                         size="sm"
-                        variant="ghost"
+                        variant="okGhost"
                         render={
                           <a
                             href={row.calendarUrl}
@@ -170,7 +171,7 @@ export function MeetingFollowupsPanel({ rows }: { rows: MeetingFollowup[] }) {
                     {row.granolaUrl ? (
                       <Button
                         size="sm"
-                        variant="ghost"
+                        variant="okGhost"
                         render={
                           <a
                             href={row.granolaUrl}
