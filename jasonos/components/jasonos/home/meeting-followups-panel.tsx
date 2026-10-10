@@ -119,18 +119,12 @@ export function MeetingFollowupsPanel({ rows }: { rows: MeetingFollowup[] }) {
       </button>
 
       {!collapsed ? (
-        <>
-          <p className="border-b px-4 py-1.5 text-[11px] text-muted-foreground">
-            Past meetings with a JasonOS contact where you have not emailed one
-            or more attendees since. Draft pulls Granola and opens Apple Mail —
-            nothing sends itself.
+        visible.length === 0 ? (
+          <p className="px-4 py-8 text-center text-xs text-muted-foreground">
+            No meeting follow-ups waiting.
           </p>
-          {visible.length === 0 ? (
-            <p className="px-4 py-8 text-center text-xs text-muted-foreground">
-              No meeting follow-ups waiting.
-            </p>
-          ) : (
-            <ul className="max-h-[calc(10*5.5rem)] divide-y divide-border overflow-y-auto overscroll-contain">
+        ) : (
+          <ul className="max-h-[calc(10*5.5rem)] divide-y divide-border overflow-y-auto overscroll-contain">
               {visible.map((row) => (
                 <li key={row.id} className="px-4 py-3">
                   <p className="truncate text-sm font-medium">{row.title}</p>
@@ -205,9 +199,8 @@ export function MeetingFollowupsPanel({ rows }: { rows: MeetingFollowup[] }) {
                   </div>
                 </li>
               ))}
-            </ul>
-          )}
-        </>
+          </ul>
+        )
       ) : null}
     </section>
   );
