@@ -1,3 +1,6 @@
+import { format } from "date-fns";
+import { getFybStatus } from "@/lib/fuck-you-batman/status";
+
 export const metadata = {
   title: "Fuck You Batman · JasonOS",
   description:
@@ -5,6 +8,10 @@ export const metadata = {
 };
 
 export const dynamic = "force-dynamic";
+
+function displayCardTitle(title: string): string {
+  return title.replace(/^FYB:\s*/, "");
+}
 
 const PROJECT_START = "2026-10-12";
 
@@ -57,11 +64,13 @@ function formatDate(iso: string): string {
   });
 }
 
-export default function FuckYouBatmanPage() {
+export default async function FuckYouBatmanPage() {
   const week = weekNumber(new Date());
   const current = PHASES.find((p) => week >= p.startWeek && week <= p.endWeek);
   const statusLabel =
     week < 1 ? "Starts Monday, Oct 12, 2026" : current ? `Week ${week} of 40` : "Plan complete";
+  const { openTodos, doneTodos, openCards } = await getFybStatus();
+  const hasOpenItems = openCards.length > 0 || openTodos.length > 0;
 
   return (
     <div className="mx-auto max-w-[720px] space-y-4 px-4 py-6">
@@ -99,6 +108,81 @@ export default function FuckYouBatmanPage() {
               : "All phases complete."}
           </p>
         )}
+      </section>
+
+      <section className="rounded-xl border bg-card p-4">
+        <h2 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          This week
+        </h2>
+        {!hasOpenItems ? (
+          <p className="mt-1 text-sm text-foreground/80">No open Fuck You Batman items.</p>
+        ) : (
+          <>
+            {openCards.length > 0 ? (
+              <ul className="mt-2 space-y-3">
+                {openCards.map((card) => (
+                  <li key={card.id}>
+                    <p className="text-sm font-semibold">{displayCardTitle(card.title)}</p>
+                    {card.subtitle ? (
+                      <p className="mt-0.5 text-xs text-muted-foreground">{card.subtitle}</p>
+                    ) : null}
+                    {card.body?.links?.length ? (
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        {card.body.links.map((link) =>
+                          link.href.startsWith("/") || link.href.startsWith("mailto:") ? (
+                            <a key={link.href} href={link.href} className="text-[11px] underline">
+                              {link.label}
+                            </a>
+                          ) : (
+                            <a
+                              key={link.href}
+                              href={link.href}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[11px] underline"
+                            >
+                              {link.label}
+                            </a>
+                          )
+                        )}
+                      </div>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {openTodos.length > 0 ? (
+              <ul className="mt-3 space-y-1.5 text-xs">
+                {openTodos.map((todo) => (
+                  <li key={todo.id} className="flex items-center justify-between gap-2">
+                    <span>{todo.title}</span>
+                    {todo.due_date ? (
+                      <span className="num-mono text-[10px] text-muted-foreground">
+                        {format(new Date(todo.due_date), "MMM d")}
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </>
+        )}
+      </section>
+
+      <section className="rounded-xl border bg-card p-4">
+        <h2 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          Recently done
+        </h2>
+        <ul className="mt-2 space-y-1.5 text-xs">
+          {doneTodos.map((todo) => (
+            <li key={todo.id} className="flex items-center justify-between gap-2">
+              <span>{todo.title}</span>
+              <span className="num-mono text-[10px] text-muted-foreground">
+                {format(new Date(todo.updated_at), "MMM d")}
+              </span>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="rounded-xl border bg-card p-4">
