@@ -152,6 +152,8 @@ export interface ContactLookupRow {
   name: string;
   emails: string[];
   phone: string | null;
+  /** Firm name from People, when we have it. Used to merge nameless emails. */
+  company?: string | null;
 }
 
 export interface ContactLookup {
@@ -232,6 +234,7 @@ export function createContactLookup(rows: ContactLookupRow[]): ContactLookup {
   const normalized: ContactLookupRow[] = rows.map((row) => ({
     ...row,
     emails: asEmailList(row.emails),
+    company: row.company ?? null,
   }));
 
   for (const row of normalized) {
@@ -343,6 +346,121 @@ function levenshtein(a: string, b: string): number {
   return prev[b.length] ?? 0;
 }
 
+/**
+ * Nickname → canonical first name. Mike vs Michael is the common miss
+ * (Levenshtein is 4, so the typo check never catches it).
+ */
+const FIRST_NAME_CANON: Record<string, string> = {
+  mike: "michael",
+  mikey: "michael",
+  bob: "robert",
+  rob: "robert",
+  bobby: "robert",
+  bill: "william",
+  will: "william",
+  billy: "william",
+  jim: "james",
+  jimmy: "james",
+  joe: "joseph",
+  tom: "thomas",
+  tommy: "thomas",
+  dan: "daniel",
+  danny: "daniel",
+  dave: "david",
+  chris: "christopher",
+  matt: "matthew",
+  nick: "nicholas",
+  steve: "steven",
+  liz: "elizabeth",
+  beth: "elizabeth",
+  kate: "katherine",
+  kathy: "katherine",
+  jen: "jennifer",
+  alex: "alexander",
+  tony: "anthony",
+  rick: "richard",
+  ben: "benjamin",
+  sam: "samuel",
+  jon: "jonathan",
+};
+
+function firstToken(name: string): string {
+  return normalizeName(name).split(" ").filter(Boolean)[0] ?? "";
+}
+
+function canonicalFirstName(name: string): string {
+  const first = firstToken(name);
+  return FIRST_NAME_CANON[first] ?? first;
+}
+
+/** Mike/Michael, plus 1–2 letter typos on longer first names. */
+export function firstNamesMatch(a: string, b: string): boolean {
+  const fa = firstToken(a);
+  const fb = firstToken(b);
+  if (!fa || !fb) return false;
+  if (fa === fb) return true;
+  if (canonicalFirstName(fa) === canonicalFirstName(fb)) return true;
+  return Math.min(fa.length, fb.length) >= 4 && levenshtein(fa, fb) <= 2;
+}
+
+const PERSONAL_EMAIL_LABELS = new Set([
+  "gmail",
+  "googlemail",
+  "yahoo",
+  "hotmail",
+  "outlook",
+  "icloud",
+  "aol",
+  "me",
+  "proton",
+  "protonmail",
+  "msn",
+  "live",
+]);
+
+/** "AC Lions (+)" → "aclions". "aclion.com" → "aclion". */
+export function compactCompanyLabel(raw: string): string {
+  return raw.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function emailDomainCompanyKey(email: string): string | null {
+  const domain = extractEmail(email).split("@")[1] ?? "";
+  const parts = domain.toLowerCase().split(".").filter(Boolean);
+  if (parts.length < 2) return null;
+  const last = parts[parts.length - 1] ?? "";
+  const label =
+    parts.length >= 3 && last.length <= 2
+      ? (parts[parts.length - 2] ?? "")
+      : parts.slice(0, -1).join("");
+  if (!label || label.length < 4) return null;
+  if (PERSONAL_EMAIL_LABELS.has(parts[0] ?? "") || PERSONAL_EMAIL_LABELS.has(label)) {
+    return null;
+  }
+  return label;
+}
+
+/** Aclion vs AC Lions (+): same stem, or one-letter firm typo. */
+export function companiesLookRelated(a: string, b: string): boolean {
+  const ca = compactCompanyLabel(a);
+  const cb = compactCompanyLabel(b);
+  if (!ca || !cb) return false;
+  if (ca === cb) return true;
+  if (ca.length >= 5 && cb.length >= 5) {
+    if (ca.startsWith(cb) || cb.startsWith(ca)) return true;
+    if (levenshtein(ca, cb) <= 1) return true;
+  }
+  return false;
+}
+
+function contactMatchesCompanyHint(row: ContactLookupRow, hint: string): boolean {
+  if (row.company && companiesLookRelated(hint, row.company)) return true;
+  for (const email of row.emails) {
+    const key = emailDomainCompanyKey(email);
+    if (key && companiesLookRelated(hint, key)) return true;
+  }
+  return false;
+}
+
 /** First+last close enough to offer a merge, not auto-collapse. */
 export function namesLookLikeSamePerson(a: string, b: string): boolean {
   const na = normalizeName(a);
@@ -352,11 +470,9 @@ export function namesLookLikeSamePerson(a: string, b: string): boolean {
   const ta = na.split(" ").filter(Boolean);
   const tb = nb.split(" ").filter(Boolean);
   if (ta.length < 2 || tb.length < 2) return false;
-  const firstA = ta[0] ?? "";
-  const firstB = tb[0] ?? "";
   const lastA = ta[ta.length - 1] ?? "";
   const lastB = tb[tb.length - 1] ?? "";
-  if (levenshtein(firstA, firstB) > 2) return false;
+  if (!firstNamesMatch(ta[0] ?? "", tb[0] ?? "")) return false;
   const lastDist = levenshtein(lastA, lastB);
   if (lastA === lastB) return true;
   // Tight on last-name typos so "Chris Hall" ≠ "Chris Hill".
@@ -366,9 +482,13 @@ export function namesLookLikeSamePerson(a: string, b: string): boolean {
 /**
  * Name-only match for Suggested → Merge. Skips when the email is already
  * on file (those rows are hidden, not merged).
+ *
+ * Nameless emails (mike@aclion.com with a blank display name) can still
+ * merge when the local-part first name plus firm/domain uniquely hit one
+ * People row. Bare first name without a firm does not — too many Mikes.
  */
 export function findNameMatch(
-  candidate: { email: string; name?: string | null },
+  candidate: { email: string; name?: string | null; company?: string | null },
   lookup: ContactLookup
 ): SuggestedNameMatch | null {
   if (lookup.resolveEmail(candidate.email)) return null;
@@ -394,5 +514,21 @@ export function findNameMatch(
       }
     }
   }
-  return null;
+
+  const first = firstToken(candidate.name ?? "") || firstToken(guessed);
+  if (!first) return null;
+
+  const hints: string[] = [];
+  if (candidate.company?.trim()) hints.push(candidate.company.trim());
+  const fromDomain = emailDomainCompanyKey(candidate.email);
+  if (fromDomain) hints.push(fromDomain);
+  if (!hints.length) return null;
+
+  const hits = lookup.rows.filter((row) => {
+    if (!firstNamesMatch(first, row.name)) return false;
+    return hints.some((hint) => contactMatchesCompanyHint(row, hint));
+  });
+  if (hits.length !== 1) return null;
+  const hit = hits[0]!;
+  return { id: hit.id, name: hit.name, kind: "close" };
 }

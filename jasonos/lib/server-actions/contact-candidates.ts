@@ -313,7 +313,10 @@ export async function getContactCandidates(): Promise<ContactCandidate[]> {
     })
     .map((r) => ({
       ...r,
-      nameMatch: findNameMatch({ email: r.email, name: r.name }, lookup),
+      nameMatch: findNameMatch(
+        { email: r.email, name: r.name, company: r.company },
+        lookup
+      ),
     }));
   // Rank: merge candidates first, then two-way, then volume, then recent.
   return rows.sort((a, b) => {
