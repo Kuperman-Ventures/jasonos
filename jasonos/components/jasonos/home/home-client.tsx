@@ -197,11 +197,7 @@ export function HomeClient({
     return (
     <li
       key={c.id}
-      className={
-        dueToday
-          ? "flex min-h-[4.125rem] flex-col gap-2 border-l-[3px] border-l-[var(--color-process-yellow)] bg-[var(--color-process-yellow)]/20 px-4 py-3 sm:flex-row sm:items-center sm:gap-3"
-          : "flex min-h-[4.125rem] flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3"
-      }
+      className="flex min-h-[4.125rem] flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3"
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <ContactAvatar name={c.name} photoUrl={c.photoUrl} size="md" />
@@ -220,11 +216,11 @@ export function HomeClient({
               {COLUMN_LABEL[c.column] ?? c.column}
             </span>
             {timing.kind === "overdue" ? (
-              <span className="ml-1.5 text-rung-1">
+              <span className="ml-1.5 inline-flex items-center rounded-[2px] bg-rung-1 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
                 {`${c.daysOverdue}d overdue`}
               </span>
             ) : dueToday ? (
-              <span className="ml-1.5 inline-flex items-center rounded-sm bg-[var(--color-process-yellow)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text)]">
+              <span className="ml-1.5 inline-flex items-center rounded-[2px] bg-rung-2 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
                 Due today
               </span>
             ) : (

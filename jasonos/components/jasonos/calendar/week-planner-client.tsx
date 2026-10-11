@@ -300,8 +300,8 @@ function HealthBars({
         const scheduled = totals[track]?.total ?? 0;
         const color = healthColor(scheduled, cfg.weekly);
         const pct = cfg.weekly > 0 ? Math.min(100, (scheduled / cfg.weekly) * 100) : 0;
-        const barCls = color === "green" ? "bg-rung-4" : color === "yellow" ? "bg-rung-2" : "bg-rung-1";
-        const textCls = color === "green" ? "text-rung-ink" : color === "yellow" ? "text-rung-ink" : "text-rung-1";
+        const barCls = color === "green" ? "bg-rung-done" : color === "yellow" ? "bg-rung-2" : "bg-rung-1";
+        const textCls = color === "green" ? "text-rung-done" : color === "yellow" ? "text-rung-ink" : "text-rung-1";
         return (
           <div key={track}>
             <button type="button" onClick={() => onOpenDetail({ title: `${TRACK_LABELS[track]} — all calendar time`, targetMins: cfg.weekly, items: contributors[track]?.all ?? [] })}
@@ -318,7 +318,7 @@ function HealthBars({
               const stSched = totals[track]?.sub[st] ?? 0;
               const stColor = healthColor(stSched, tgt);
               const stPct = tgt > 0 ? Math.min(100, (stSched / tgt) * 100) : 0;
-              const stBar = stColor === "green" ? "bg-rung-4" : stColor === "yellow" ? "bg-rung-2" : "bg-rung-1";
+              const stBar = stColor === "green" ? "bg-rung-done" : stColor === "yellow" ? "bg-rung-2" : "bg-rung-1";
               return (
                 <div key={st} className="ml-2 mt-1">
                   <button type="button" onClick={() => onOpenDetail({ title: `${TRACK_LABELS[track]} — ${st}`, targetMins: tgt, items: contributors[track]?.bySub[st] ?? [] })}
@@ -997,6 +997,9 @@ export function WeekPlannerClient({
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border bg-card px-4 py-2">
         <div className="flex items-center gap-2">
+          <span className="rounded-[2px] bg-domain-calendar px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.08em]">
+            Calendar
+          </span>
           <button type="button" onClick={() => setWeekOffset((w) => w - 1)} className="rounded-md p-1 hover:bg-muted text-muted-foreground"><ChevronLeft size={16} /></button>
           <span className="text-sm font-semibold text-foreground">{formatWeekLabel(mondayStr)}</span>
           <button type="button" onClick={() => setWeekOffset((w) => w + 1)} className="rounded-md p-1 hover:bg-muted text-muted-foreground"><ChevronRight size={16} /></button>

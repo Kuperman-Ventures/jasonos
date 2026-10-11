@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Calendar, ChevronDown } from "lucide-react";
-import { StatusBand, StatusPill, type StatusRung } from "@/components/jasonos/brand/status";
+import { DomainBand, StatusPill, type StatusRung } from "@/components/jasonos/brand/status";
 import { meetingContextLine } from "@/lib/meeting-prep/context-model";
 import type { MeetingPrepSummary } from "@/lib/server-actions/meeting-prep";
 
@@ -28,7 +28,7 @@ function attendeeLine(attendees: MeetingPrepSummary["attendees"]): string {
 }
 
 function prepPill(row: MeetingPrepSummary): { label: string; rung: StatusRung } | null {
-  if (row.status === "ready") return { label: "Brief ready", rung: "ok" };
+  if (row.status === "ready") return { label: "Brief ready", rung: "done" };
   if (row.status === "gathering" || row.status === "building") {
     return { label: "Building", rung: 3 };
   }
@@ -84,8 +84,7 @@ export function TodaysMeetingsPanel({
         aria-label={collapsed ? "Expand Today's Meetings" : "Collapse Today's Meetings"}
         className="w-full text-left"
       >
-        {/* Green, not the teal on Email follow-ups. */}
-        <StatusBand rung="ok">
+        <DomainBand domain="calendar">
           <Calendar className="h-5 w-5" />
           <h2 className="text-[17px] font-bold tracking-tight">Today&apos;s Meetings</h2>
           <StatusPill rung={4} className="ml-auto">
@@ -96,7 +95,7 @@ export function TodaysMeetingsPanel({
               collapsed ? "-rotate-90" : ""
             }`}
           />
-        </StatusBand>
+        </DomainBand>
       </button>
 
       {warnings.length > 0 ? (

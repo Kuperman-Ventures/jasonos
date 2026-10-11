@@ -20,12 +20,14 @@ const buttonVariants = cva(
           "bg-rung-1 font-bold hover:bg-[var(--color-accent-2-800)]",
         urgent: "bg-rung-1 font-bold hover:bg-[var(--color-accent-2-800)]",
         soon: "bg-rung-2 font-bold",
+        /* Ink calm button (not the Done green — use `ok` / `markDone` for that). */
         done: "bg-rung-4 font-bold hover:bg-[var(--color-neutral-700)]",
-        ok: "bg-rung-ok font-bold text-[var(--color-on-action)] hover:bg-[var(--color-success-800)]",
+        ok: "bg-rung-done font-bold text-[var(--color-on-action)] hover:bg-[var(--color-done-800)]",
+        markDone: "bg-rung-done font-bold text-[var(--color-on-action)] hover:bg-[var(--color-done-800)]",
         okOutline:
-          "border-2 border-[var(--color-success)] bg-transparent font-bold text-[var(--color-success)] hover:bg-[var(--color-success)] hover:text-[var(--color-on-action)]",
+          "border-2 border-[var(--color-done)] bg-transparent font-bold text-[var(--color-done)] hover:bg-[var(--color-done)] hover:text-[var(--color-on-action)]",
         okGhost:
-          "font-bold text-[var(--color-success)] hover:bg-[color-mix(in_srgb,var(--color-success)_12%,transparent)] hover:text-[var(--color-success-800)]",
+          "font-bold text-[var(--color-done)] hover:bg-[color-mix(in_srgb,var(--color-done)_12%,transparent)] hover:text-[var(--color-done-800)]",
         link: "font-bold text-[var(--color-accent-700)] underline underline-offset-2 hover:text-[var(--color-accent-800)]",
       },
       size: {

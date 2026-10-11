@@ -190,14 +190,14 @@ export function nodeRoles(
 }
 
 /** JasonOS StatusPill rung for a grant status. */
-export function statusRung(status: GrantStatus): 1 | 2 | 4 | "ok" | "idle" {
+export function statusRung(status: GrantStatus): 1 | 2 | 4 | "done" | "idle" {
   switch (status) {
     case "no_use_found":
       return 1;
     case "unverified":
       return 2;
     case "in_use":
-      return "ok";
+      return "done";
     case "turned_off":
       return "idle";
     case "revoked":

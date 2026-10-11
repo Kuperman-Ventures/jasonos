@@ -82,7 +82,7 @@ export function NodeDetailPanel({
           <ul className="divide-y divide-[var(--jos-line)]">
             {orderedItems.map((item) => (
               <li key={item.name} className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-0.5 py-2 text-sm">
-                <StatusPill rung={item.used ? "ok" : "idle"}>{item.used ? "Used" : "Not used"}</StatusPill>
+                <StatusPill rung={item.used ? "done" : "idle"}>{item.used ? "Used" : "Not used"}</StatusPill>
                 <span>{item.name}</span>
                 {item.note ? <span className="col-start-2 text-[12px] text-[var(--jos-muted)]">{item.note}</span> : null}
               </li>

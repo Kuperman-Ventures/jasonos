@@ -36,6 +36,9 @@ export function EmailClient() {
 
   return (
     <div className="space-y-5">
+      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-domain-email">
+        Email
+      </p>
       <div className="inline-flex items-center gap-1 rounded-lg border bg-card p-1">
         {SECTIONS.map((s) => (
           <button

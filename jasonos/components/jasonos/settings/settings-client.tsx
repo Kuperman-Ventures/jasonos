@@ -451,7 +451,7 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
                 Follow Up draft prompt
               </h2>
               {followupPromptCustom ? (
-                <Badge variant="outline" className="border-[var(--jos-line)] bg-rung-ok">
+                <Badge variant="outline" className="border-[var(--jos-line)] bg-rung-done">
                   Custom
                 </Badge>
               ) : (
@@ -712,7 +712,7 @@ function MailAccountRow({
               sign-in expired
             </Badge>
           ) : health === "connected" ? (
-            <Badge variant="outline" className="border-[var(--jos-line)] bg-rung-ok">
+            <Badge variant="outline" className="border-[var(--jos-line)] bg-rung-done">
               connected
             </Badge>
           ) : (
@@ -778,7 +778,7 @@ function HealthBar({
           <div
             className={cn(
               "grid h-10 w-10 place-items-center rounded-full border",
-              status === "healthy" && "border-[var(--jos-line)] bg-rung-ok ",
+              status === "healthy" && "border-[var(--jos-line)] bg-rung-done ",
               status === "issues" && "border-[var(--jos-line)] bg-rung-2 ",
               status === "critical" && "border-rung-1 bg-rung-1 "
             )}
@@ -1229,7 +1229,7 @@ function MetricRows({ rows }: { rows: [string, string][] }) {
 
 function StatusBadge({ status }: { status: ServiceConnection["status"] }) {
   const classes = {
-    connected: "border-[var(--jos-line)] bg-rung-ok",
+    connected: "border-[var(--jos-line)] bg-rung-done",
     not_configured: "border-[var(--jos-line)] bg-rung-2 ",
     error: "border-rung-1 bg-rung-1 ",
     expired: "border-[var(--jos-line)] bg-rung-2 ",
