@@ -38,13 +38,18 @@ export function LoginForm({
     const stamp = await fetch("/auth/stamp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ method: "passkey" }),
+      body: "{}",
     });
     if (!stamp.ok) {
       const body = (await stamp.json().catch(() => null)) as { error?: string } | null;
       if (body?.error === "not_jason") throw new Error("This account cannot open JasonOS.");
       if (body?.error === "unlock_secret_missing") {
         throw new Error("Unlock secret is not configured on this deployment.");
+      }
+      if (body?.error === "passkey_required") {
+        throw new Error(
+          "Face ID / Touch ID did not create a passkey session. Try Add Face ID or Touch ID again."
+        );
       }
       throw new Error("Could not finish sign-in.");
     }
@@ -75,9 +80,19 @@ export function LoginForm({
     setMessage("");
     try {
       const supabase = createAuthBrowserClient();
-      const { error } = await registerPlatformPasskey(supabase);
-      if (error) {
-        setMessage(error.message || "Could not add Face ID / Touch ID.");
+      const { error: registerError } = await registerPlatformPasskey(supabase);
+      if (registerError) {
+        setMessage(registerError.message || "Could not add Face ID / Touch ID.");
+        return;
+      }
+      // Registration alone leaves the Google/oauth session. Unlock requires a
+      // recent `passkey` amr claim — sign in with the new credential next.
+      const { error: signInError } = await signInWithPlatformPasskey(supabase);
+      if (signInError) {
+        setMessage(
+          signInError.message ||
+            "Passkey was added, but Face ID / Touch ID sign-in did not finish. Tap Unlock and try again."
+        );
         return;
       }
       await stampAndGo();

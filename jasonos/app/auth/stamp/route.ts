@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isJasonosEmail } from "@/lib/auth/allowlist";
+import { hasRecentPasskeyAmr } from "@/lib/auth/passkey-amr";
 import {
   JASONOS_UNLOCK_COOKIE,
   unlockCookieOptions,
@@ -8,29 +9,44 @@ import {
 import { createAuthServerClient } from "@/lib/supabase/server";
 
 /**
- * Sets the signed 7-day unlock cookie. Only called after Face ID / Touch ID
- * sign-in or after registering a passkey on this device.
+ * Sets the signed 7-day unlock cookie only after a recent passkey / WebAuthn
+ * authentication (JWT `amr`). The request body is ignored — clients cannot
+ * self-attest "method: passkey".
  */
 export async function POST(request: Request) {
-  let method = "";
+  // Discard body so a forged `{ method: "passkey" }` cannot unlock.
   try {
-    const body = (await request.json()) as { method?: string };
-    method = body.method?.trim() || "";
+    await request.json();
   } catch {
-    method = "";
-  }
-  if (method !== "passkey") {
-    return NextResponse.json({ error: "passkey_required" }, { status: 403 });
+    // empty body is fine
   }
 
   const auth = await createAuthServerClient();
-  const { data, error } = await auth.auth.getUser();
-  if (error || !data.user) {
+  const { data: userData, error: userError } = await auth.auth.getUser();
+  if (userError || !userData.user) {
     return NextResponse.json({ error: "not_authenticated" }, { status: 401 });
   }
-  if (!isJasonosEmail(data.user.email)) {
+  if (!isJasonosEmail(userData.user.email)) {
     await auth.auth.signOut();
     return NextResponse.json({ error: "not_jason" }, { status: 403 });
+  }
+
+  const { data: claimsData, error: claimsError } = await auth.auth.getClaims();
+  if (claimsError || !claimsData?.claims) {
+    return NextResponse.json({ error: "passkey_required" }, { status: 403 });
+  }
+
+  const claims = claimsData.claims as {
+    amr?: unknown;
+    iat?: number;
+  };
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (
+    !hasRecentPasskeyAmr(claims.amr, nowSeconds, {
+      tokenIssuedAt: typeof claims.iat === "number" ? claims.iat : null,
+    })
+  ) {
+    return NextResponse.json({ error: "passkey_required" }, { status: 403 });
   }
 
   const stamp = await unlockCookieValue();
