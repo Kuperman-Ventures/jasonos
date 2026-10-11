@@ -57,6 +57,10 @@ The dashboard only renders live values or explicit empty states. The Tell Claude
 command palette (`⌘K`) needs `AI_GATEWAY_API_KEY` to respond; without it,
 clicking it shows a "needs configuration" toast.
 
+## Login
+
+Locked JasonOS pages use Face ID / Touch ID (passkeys) with a 7-day stamp. IUGR, Ski Tracker, and the College tracker are not behind this login. Dashboard setup: [Login](docs/login.md).
+
 ## Cursor & Claude
 
 Cursor pastes a password. Claude Cowork opens a JasonOS login page and asks for the same password. Walkthrough:

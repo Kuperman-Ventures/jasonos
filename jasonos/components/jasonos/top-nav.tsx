@@ -264,8 +264,16 @@ export function TopNav({
             );
           })}
         </nav>
-        <div className="shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
           <SyncNowButton />
+          <form action="/auth/signout" method="post">
+            <button
+              type="submit"
+              className="h-10 rounded-[2px] px-3 text-[14px] font-medium text-[var(--jos-ink)] hover:bg-[var(--jos-surface)]"
+            >
+              Sign out
+            </button>
+          </form>
         </div>
       </div>
     </header>

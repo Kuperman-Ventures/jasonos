@@ -6,6 +6,7 @@
 
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
+import { isAuthorizedCronRequest } from "@/lib/auth/cron";
 import { runBrowningNetworking } from "@/lib/browning-networking/run";
 
 export const runtime = "nodejs";
@@ -23,12 +24,8 @@ async function run(req: Request) {
     );
   }
 
-  const secret = process.env.CRON_SECRET;
-  if (isCron && secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
+  if (isCron && !isAuthorizedCronRequest(req)) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   const result = await runBrowningNetworking();

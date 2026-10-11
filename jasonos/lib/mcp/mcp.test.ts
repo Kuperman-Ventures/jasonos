@@ -3,7 +3,12 @@ import { describe, it } from "node:test";
 import { McpServer } from "@modelcontextprotocol/server";
 import {
   authorizeMcpRequest,
+  bearerMatches,
   extractBearer,
+  hashMcpToken,
+  mcpSecretFromConfig,
+  mcpSecretFromEnv,
+  mcpSigningSecret,
   pickMcpToken,
   tokensEqual,
 } from "./auth.ts";
@@ -136,6 +141,23 @@ describe("authorizeMcpRequest", () => {
       if (previous === undefined) delete process.env.JASONOS_MCP_TOKEN;
       else process.env.JASONOS_MCP_TOKEN = previous;
     }
+  });
+});
+
+describe("MCP token hashing", () => {
+  it("stores a hash and still accepts the plaintext bearer", () => {
+    const secret = mcpSecretFromConfig({ access_token_hash: hashMcpToken("settings-token") });
+    assert.ok(secret);
+    assert.equal(secret.plaintext, undefined);
+    assert.equal(bearerMatches(secret, "settings-token"), true);
+    assert.equal(bearerMatches(secret, "wrong"), false);
+  });
+
+  it("accepts a JWT signed with the hash", () => {
+    const secret = mcpSecretFromEnv("test-token-value");
+    assert.ok(secret);
+    const { access_token } = issueAccessToken(mcpSigningSecret(secret));
+    assert.equal(bearerMatches(secret, access_token), true);
   });
 });
 

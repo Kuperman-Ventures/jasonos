@@ -1,8 +1,17 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { JASONOS_PRM_URL, OAUTH_CORS, verifyJwt, wwwAuthenticate } from "./oauth";
 
 export const JASONOS_MCP_RESOURCE_URL = "https://jasonos.vercel.app/api/mcp";
 export const JASONOS_MCP_SERVICE_NAME = "jasonos_mcp";
+
+export type McpSecret = {
+  hash: string;
+  plaintext?: string;
+};
+
+export function hashMcpToken(token: string): string {
+  return createHash("sha256").update(token, "utf8").digest("hex");
+}
 
 export function tokensEqual(expected: string, provided: string): boolean {
   const a = Buffer.from(expected);
@@ -24,7 +33,34 @@ export function extractBearer(header: string | null | undefined): string | undef
   return match?.[1];
 }
 
-async function loadSettingsMcpToken(): Promise<string | undefined> {
+export function mcpSecretFromConfig(config: unknown): McpSecret | undefined {
+  const cfg = (config ?? {}) as { access_token?: unknown; access_token_hash?: unknown };
+  const hash = typeof cfg.access_token_hash === "string" ? cfg.access_token_hash.trim() : "";
+  const plaintext = typeof cfg.access_token === "string" ? cfg.access_token.trim() : "";
+  if (hash) return { hash };
+  if (plaintext) return { hash: hashMcpToken(plaintext), plaintext };
+  return undefined;
+}
+
+export function mcpSecretFromEnv(fromEnv?: string | null): McpSecret | undefined {
+  const env = fromEnv?.trim();
+  if (!env) return undefined;
+  return { hash: hashMcpToken(env), plaintext: env };
+}
+
+export function bearerMatches(secret: McpSecret, provided: string): boolean {
+  if (tokensEqual(secret.hash, hashMcpToken(provided))) return true;
+  if (secret.plaintext && tokensEqual(secret.plaintext, provided)) return true;
+  if (verifyJwt(provided, secret.hash)?.typ === "access") return true;
+  if (secret.plaintext && verifyJwt(provided, secret.plaintext)?.typ === "access") return true;
+  return false;
+}
+
+export function mcpSigningSecret(secret: McpSecret): string {
+  return secret.hash;
+}
+
+async function loadSettingsMcpSecret(): Promise<McpSecret | undefined> {
   try {
     const { publicDb } = await import("./db");
     const db = publicDb();
@@ -35,26 +71,25 @@ async function loadSettingsMcpToken(): Promise<string | undefined> {
       .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    const token = (data?.config as { access_token?: string } | null)?.access_token;
-    return typeof token === "string" ? token.trim() : undefined;
+    return mcpSecretFromConfig(data?.config);
   } catch {
     return undefined;
   }
 }
 
-/** Settings token first, then JASONOS_MCP_TOKEN. */
+/** Settings hash/token first, then JASONOS_MCP_TOKEN. */
+export async function resolveMcpSecret(): Promise<McpSecret | undefined> {
+  return (await loadSettingsMcpSecret()) ?? mcpSecretFromEnv(process.env.JASONOS_MCP_TOKEN);
+}
+
+/** Signing material for MCP JWTs. Prefer the stored hash so plaintext need not sit in memory. */
 export async function resolveMcpToken(): Promise<string | undefined> {
-  return pickMcpToken(await loadSettingsMcpToken(), process.env.JASONOS_MCP_TOKEN);
+  const secret = await resolveMcpSecret();
+  return secret ? mcpSigningSecret(secret) : undefined;
 }
 
 export async function mcpTokenConfigured(): Promise<boolean> {
-  return Boolean(await resolveMcpToken());
-}
-
-function bearerOk(expected: string, provided: string) {
-  if (tokensEqual(expected, provided)) return true;
-  const jwt = verifyJwt(provided, expected);
-  return jwt?.typ === "access";
+  return Boolean(await resolveMcpSecret());
 }
 
 /**
@@ -63,7 +98,7 @@ function bearerOk(expected: string, provided: string) {
  * so Cursor's root well-known probe still 404s and keeps using its header).
  */
 export async function authorizeMcpRequest(request: Request): Promise<Response | null> {
-  const expected = await resolveMcpToken();
+  const expected = await resolveMcpSecret();
   if (!expected) {
     return Response.json(
       {
@@ -74,7 +109,7 @@ export async function authorizeMcpRequest(request: Request): Promise<Response | 
     );
   }
   const provided = extractBearer(request.headers.get("authorization"));
-  if (provided && bearerOk(expected, provided)) return null;
+  if (provided && bearerMatches(expected, provided)) return null;
   return Response.json(
     { error: "Unauthorized", resource_metadata: JASONOS_PRM_URL },
     { status: 401, headers: { ...OAUTH_CORS, "WWW-Authenticate": wwwAuthenticate() } }

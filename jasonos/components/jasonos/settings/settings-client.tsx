@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils";
 import { Logo } from "@/components/jasonos/logo";
 import { Banner } from "@/components/jasonos/brand/status";
 import { PageHeader } from "@/components/jasonos/brand/page-header";
+import { PasskeysCard } from "@/components/jasonos/settings/passkeys-card";
 import { RelationshipBriefSection } from "@/components/jasonos/settings/relationship-brief-section";
 import {
   AVAILABLE_MODELS,
@@ -284,10 +285,11 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
 
       {settings.authRequired ? (
         <Banner rung={2}>
-          Sign in to persist Settings changes. Mail account status below is live —
-          you can reconnect Gmail or Outlook without signing in first.
+          Sign in is required to save Settings. If you still see this, unlock JasonOS again.
         </Banner>
-      ) : null}
+      ) : (
+        <PasskeysCard />
+      )}
 
       <HealthBar
         connected={summary.connected}

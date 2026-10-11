@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { Hanken_Grotesk } from "next/font/google";
 import "./globals.css";
+import { headers } from "next/headers";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { JasonOsChrome } from "@/components/jasonos/jasonos-chrome";
+import { PUBLIC_SURFACE_HEADER } from "@/lib/auth/public-routes";
 import { getNetworkingNavCounts } from "@/lib/data/networking-nav-counts";
 
 const hanken = Hanken_Grotesk({
@@ -31,7 +33,9 @@ export const dynamic = "force-dynamic";
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const networkingCounts = await getNetworkingNavCounts();
+  const headerStore = await headers();
+  const publicSurface = headerStore.get(PUBLIC_SURFACE_HEADER) === "1";
+  const networkingCounts = publicSurface ? undefined : await getNetworkingNavCounts();
   return (
     <html
       lang="en"
