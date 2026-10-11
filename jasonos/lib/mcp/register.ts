@@ -31,6 +31,7 @@ import {
   listSuggestedContacts,
 } from "./reads";
 import { publishInboxDispatch, publishMorningBrief } from "./publish";
+import { registerCommitmentTools } from "./commitments-tools";
 import { registerConnectionsTools } from "./connections-tools";
 import { jsonResult, runTool } from "./result";
 
@@ -45,6 +46,8 @@ To publish today's morning brief or inbox dispatch, use publish_morning_brief / 
 If these tools are missing from a scheduled run, search for "jasonos" or "publish_morning_brief" first. As a fallback, POST the same payload to https://jasonos.vercel.app/api/morning-brief/publish or /api/inbox-dispatch/publish with the JasonOS Bearer password.
 
 Connections Register (Settings -> Connections) tracks every access grant across Jason's accounts, automation tools and apps. Read it with get_connections_register and list_connection_changes. Keep it current with upsert_connection_grant, update_connection_grant, upsert_connection_node and upsert_connection_coverage; use import_connections_register for bulk loads. When access is removed, set status to revoked rather than deleting the row.
+
+The weekday Commitment Check publishes to the Commitments panel on Home with publish_commitment_check. Call get_commitment_check first and leave out items Jason marked done or dismissed. Read it later with get_commitment_check; mark items with set_commitment_item_state.
 
 Do not dump full JSON back to Jason. Summarize in plain English.`;
 
@@ -458,4 +461,5 @@ export function registerJasonosTools(server: McpServer) {
   );
 
   registerConnectionsTools(server);
+  registerCommitmentTools(server);
 }
