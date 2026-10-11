@@ -1,7 +1,9 @@
 import "server-only";
 
 import { z } from "zod";
-import { createPublicClient, createPublicServiceRoleClient } from "@/lib/supabase/server";
+import { requireJasonosUser } from "@/lib/auth/require";
+import { hashMcpToken } from "@/lib/mcp/auth";
+import { createPublicServiceRoleClient } from "@/lib/supabase/server";
 import { getGoogleConnectionStatus } from "@/lib/integrations/google-tokens";
 import {
   DEFAULT_MEETING_FOLLOWUP_PROMPT,
@@ -101,30 +103,13 @@ export interface ConnectionTestResult {
 }
 
 async function getUserId() {
-  const supabase = await createPublicClient();
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) throw new Error("not_authenticated");
-  return data.user.id;
+  const { userId } = await requireJasonosUser();
+  return userId;
 }
 
 async function getUserContext() {
-  const supabase = await createPublicClient();
-  const { data, error } = await supabase.auth.getUser();
-  if (!error && data.user) return { supabase, userId: data.user.id };
-
-  const serviceSupabase = createPublicServiceRoleClient();
-  const ownerId = await getSingleUserOwnerId(serviceSupabase);
-  return { supabase: serviceSupabase, userId: ownerId };
-}
-
-async function getSingleUserOwnerId(supabase: ReturnType<typeof createPublicServiceRoleClient>) {
-  const configuredOwnerId = stringCredential(process.env.JASONOS_OWNER_USER_ID);
-  if (configuredOwnerId) return configuredOwnerId;
-
-  const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1 });
-  const owner = data?.users[0];
-  if (error || !owner) throw new Error("not_authenticated");
-  return owner.id;
+  const { supabase, userId } = await requireJasonosUser();
+  return { supabase, userId };
 }
 
 export async function testServiceConnection(
@@ -523,8 +508,8 @@ export async function testServiceConnection(
           .order("updated_at", { ascending: false })
           .limit(1)
           .maybeSingle();
-        const cfg = (data?.config ?? {}) as { access_token?: string };
-        token = cfg.access_token?.trim() || undefined;
+        const cfg = (data?.config ?? {}) as { access_token?: string; access_token_hash?: string };
+        token = cfg.access_token?.trim() || cfg.access_token_hash?.trim() || undefined;
       } catch {
         // ignore
       }
@@ -598,11 +583,18 @@ export async function saveServiceConnection(input: z.infer<typeof SaveConnection
       .eq("user_id", userId)
       .eq("service_name", service.name)
       .maybeSingle();
-    const prev = (existing?.config ?? {}) as { access_token?: string; base_url?: string };
+    const prev = (existing?.config ?? {}) as {
+      access_token?: string;
+      access_token_hash?: string;
+      base_url?: string;
+    };
     safeConfig = {
       ...prev,
       ...safeConfig,
     };
+    if (service.name === "jasonos_mcp" && safeConfig.access_token_hash) {
+      delete safeConfig.access_token;
+    }
   }
 
   const { error } = await supabase.from("service_connections").upsert(
@@ -788,12 +780,13 @@ function sanitizeConfig(credentials: Record<string, string | number | boolean>, 
     if (token) out.access_token = token;
     return out;
   }
-  if (
-    serviceName === "jasonos_mcp" ||
-    serviceName === "firecrawl" ||
-    serviceName === "granola" ||
-    serviceName === "leaddelta"
-  ) {
+  if (serviceName === "jasonos_mcp") {
+    const out: Record<string, string> = {};
+    const token = stringCredential(credentials.api_key);
+    if (token) out.access_token_hash = hashMcpToken(token);
+    return out;
+  }
+  if (serviceName === "firecrawl" || serviceName === "granola" || serviceName === "leaddelta") {
     const out: Record<string, string> = {};
     const token = stringCredential(credentials.api_key);
     if (token) out.access_token = token;

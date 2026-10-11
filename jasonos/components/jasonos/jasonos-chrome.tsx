@@ -4,17 +4,17 @@ import { usePathname } from "next/navigation";
 import { SlidersHorizontal } from "lucide-react";
 import { TopNav } from "@/components/jasonos/top-nav";
 import { TellClaudePalette } from "@/components/jasonos/tell-claude-palette";
+import { hidesJasonosChrome } from "@/lib/auth/public-routes";
 import type { NetworkingNavCounts } from "@/lib/data/networking-nav-counts";
 
-/** Hide JasonOS chrome on standalone IUGR routes. */
+/** Hide JasonOS chrome on standalone public tools and the login page. */
 export function JasonOsChrome({
   networkingCounts,
 }: {
   networkingCounts?: NetworkingNavCounts;
 }) {
   const pathname = usePathname();
-  const isIugr = pathname === "/iugr" || pathname.startsWith("/iugr/");
-  if (isIugr) return null;
+  if (hidesJasonosChrome(pathname ?? "")) return null;
   return (
     <>
       <TopNav networkingCounts={networkingCounts} />

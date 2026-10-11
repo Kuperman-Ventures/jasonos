@@ -5,7 +5,8 @@ import {
   parseAuthorizeParams,
   withOAuthCors,
 } from "@/lib/mcp/oauth";
-import { resolveMcpToken, tokensEqual } from "@/lib/mcp/auth";
+import { bearerMatches, mcpSigningSecret, resolveMcpSecret } from "@/lib/mcp/auth";
+import { clientIp, mcpLoginAllowed } from "@/lib/mcp/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -93,6 +94,13 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!mcpLoginAllowed(clientIp(request))) {
+    return htmlPage(
+      "<h1>Too many tries</h1><p>Wait a few minutes, then paste the JasonOS password again.</p>",
+      429
+    );
+  }
+
   const form = await request.formData();
   const params = new URLSearchParams();
   for (const [key, value] of form.entries()) {
@@ -104,7 +112,7 @@ export async function POST(request: NextRequest) {
     return htmlPage(`<h1>Can't connect Claude</h1><p>${escapeHtml(parsed.error)}</p>`, 400);
   }
 
-  const secret = await resolveMcpToken();
+  const secret = await resolveMcpSecret();
   if (!secret) {
     return htmlPage(
       loginForm(params, "JasonOS is not open yet. Open Settings, find Cursor & Claude, Generate password, Save."),
@@ -113,11 +121,11 @@ export async function POST(request: NextRequest) {
   }
 
   const password = String(form.get("password") || "");
-  if (!tokensEqual(secret, password)) {
+  if (!bearerMatches(secret, password)) {
     return htmlPage(loginForm(params, "That password didn't match. Copy it again from JasonOS Settings."), 401);
   }
 
-  const issued = buildAuthorizeRedirect(secret, parsed.value);
+  const issued = buildAuthorizeRedirect(mcpSigningSecret(secret), parsed.value);
   if (!issued.ok) {
     return htmlPage(`<h1>Can't connect Claude</h1><p>${escapeHtml(issued.error)}</p>`, 400);
   }

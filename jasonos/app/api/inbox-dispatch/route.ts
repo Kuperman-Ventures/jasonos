@@ -19,6 +19,7 @@
 
 import { NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
+import { isAuthorizedCronRequest } from "@/lib/auth/cron";
 import { computeInboxDispatch } from "@/lib/integrations/inbox-triage";
 import { getPublishedInboxDispatch } from "@/lib/data/inbox-dispatch";
 
@@ -36,14 +37,8 @@ export async function GET(req: Request) {
   const isCron = url.searchParams.get("source") === "cron";
   const fresh = isCron || url.searchParams.get("refresh") === "1";
 
-  // When CRON_SECRET is set, gate cron invocations (Vercel sends it as a
-  // Bearer token). No secret configured → open, same posture as health-check.
-  const secret = process.env.CRON_SECRET;
-  if (isCron && secret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
+  if (isCron && !isAuthorizedCronRequest(req)) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   // Prefer the published dispatch on ordinary reads; refresh/cron force live.

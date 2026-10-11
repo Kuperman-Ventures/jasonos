@@ -15,7 +15,7 @@ Do the steps in order. Skip the apps you do not use.
 5. Click **Copy password**. It is now on your clipboard.
 6. Click **Save**.
 
-Keep that password handy.
+Keep that password handy. The saved copy in Settings is hashed. Cursor still pastes the original password. If Claude’s old login token stops working after a JasonOS login deploy, open the Claude connect page and paste that same password again.
 
 ## 2. Give the password to Cursor
 

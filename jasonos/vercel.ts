@@ -50,7 +50,7 @@ export const config: VercelConfig = {
     // Daily 8am ET BNA run.
     { path: "/api/bna?source=cron", schedule: "0 12 * * *" },
     // Product Health — every 2 minutes. Requires Vercel Pro (per-minute
-    // crons). The route is gated by CRON_SECRET when that env var is set.
+    // crons). The route requires CRON_SECRET (Vercel sends it as a Bearer token).
     {
       path: "/api/monitoring/health-check?source=cron",
       schedule: "*/2 * * * *",

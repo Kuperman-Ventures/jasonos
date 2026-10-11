@@ -5,6 +5,7 @@
 // Schedule lives in vercel.ts (runs every 2 minutes).
 
 import { NextResponse } from "next/server";
+import { isAuthorizedCronRequest } from "@/lib/auth/cron";
 import { MONITORING_TARGETS, type MonitoringTarget } from "@/lib/monitoring/targets";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { notify } from "@/lib/notify";
@@ -67,10 +68,7 @@ async function probe(target: MonitoringTarget): Promise<ProbeResult> {
 }
 
 function isAuthorizedCron(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  if (!secret) return true; // dev / local — allow
-  const auth = req.headers.get("authorization");
-  return auth === `Bearer ${secret}`;
+  return isAuthorizedCronRequest(req);
 }
 
 async function persist(results: ProbeResult[]): Promise<{ persisted: boolean; note?: string }> {
