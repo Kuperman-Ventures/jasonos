@@ -116,7 +116,7 @@ export async function getToday() {
     sub_track: null as string | null,
   }));
 
-  let sessions: Record<string, unknown> = {};
+  const sessions: Record<string, unknown> = {};
   if (tasks.length) {
     const { data: sessionRows, error: sessionError } = await db
       .from("timer_sessions")

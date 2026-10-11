@@ -48,6 +48,19 @@ export function listJasonosAreas() {
       { area: "alerts", tools: ["get_status", "get_alerts", "list_alerts"] },
       { area: "post_master", tools: ["list_post_master_projects"] },
       { area: "connections", tools: ["get_connection_status"] },
+      {
+        area: "connections_register",
+        tools: [
+          "get_connections_register",
+          "list_connection_changes",
+          "upsert_connection_grant",
+          "update_connection_grant",
+          "delete_connection_grant",
+          "upsert_connection_node",
+          "upsert_connection_coverage",
+          "import_connections_register",
+        ],
+      },
     ],
   };
 }
