@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { registerPlatformPasskey } from "@/lib/auth/passkeys-browser";
+import {
+  registerPlatformPasskey,
+  signInWithPlatformPasskey,
+} from "@/lib/auth/passkeys-browser";
 import { createAuthBrowserClient } from "@/lib/supabase/client";
 
 type PasskeyRow = {
@@ -41,10 +44,17 @@ export function PasskeysCard() {
     setMessage("");
     try {
       const supabase = createAuthBrowserClient();
-      const { error } = await registerPlatformPasskey(supabase);
-      if (error) {
-        setMessage(error.message);
+      const { error: registerError } = await registerPlatformPasskey(supabase);
+      if (registerError) {
+        setMessage(registerError.message);
         return;
+      }
+      // Refresh the session amr so a later unlock stamp can see passkey.
+      const { error: signInError } = await signInWithPlatformPasskey(supabase);
+      if (signInError) {
+        setMessage(
+          `Passkey added. Sign-in with it failed (${signInError.message}). Unlock may need a fresh Face ID / Touch ID.`
+        );
       }
       await load();
     } catch (error) {

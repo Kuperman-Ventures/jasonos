@@ -23,6 +23,7 @@ describe("JasonOS email allowlist", () => {
 
   it("maps login error codes", () => {
     assert.match(loginErrorMessage("not_jason") ?? "", /cannot open JasonOS/);
+    assert.match(loginErrorMessage("passkey_required") ?? "", /Face ID \/ Touch ID/);
     assert.equal(loginErrorMessage("nope"), null);
   });
 });
