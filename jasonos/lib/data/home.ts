@@ -1,7 +1,7 @@
 // Home dashboard data — due-this-week and overdue contacts that need a
-// touch, plus site traffic. Both bands use the same people set and Eastern
-// "today" as the Outreach Queue, including Schedule contacts that never
-// landed in a classified column.
+// touch. Both bands use the same people set and Eastern "today" as the
+// Outreach Queue, including Schedule contacts that never landed in a
+// classified column.
 
 import "server-only";
 import { daysBetweenYmd, etToday } from "@/lib/dates";
@@ -13,7 +13,6 @@ import {
   indexQueueComms,
 } from "@/lib/outreach/queue-urgency";
 import { getCommunicationsData } from "@/lib/server-actions/communications";
-import { getSiteTraffic, type SiteTraffic } from "@/lib/integrations/vercel-analytics";
 import type {
   ContactIntent,
   NetworkDegree,
@@ -39,17 +38,9 @@ export interface AttentionContact {
   photoUrl: string | null;
 }
 
-export interface SitePanel {
-  key: string;
-  label: string;
-  url: string | null;
-  traffic: SiteTraffic;
-}
-
 export interface HomeData {
   dueThisWeek: AttentionContact[];
   overdue: AttentionContact[];
-  sites: SitePanel[];
 }
 
 function resolveNextTouch(
@@ -93,23 +84,10 @@ function cardToAttention(
 export async function getHomeData(): Promise<HomeData> {
   const today = etToday();
 
-  const [queue, scheduleContacts, gtmtools, heavenly, encoreos] =
-    await Promise.all([
-      getThreeColumnQueue(),
-      getCommunicationsData(),
-      getSiteTraffic({
-        projectId: process.env.VERCEL_PROJECT_GTMTOOLS,
-        sinceDays: 30,
-      }),
-      getSiteTraffic({
-        projectId: process.env.VERCEL_PROJECT_HEAVENLY,
-        sinceDays: 30,
-      }),
-      getSiteTraffic({
-        projectId: process.env.VERCEL_PROJECT_ENCOREOS,
-        sinceDays: 30,
-      }),
-    ]);
+  const [queue, scheduleContacts] = await Promise.all([
+    getThreeColumnQueue(),
+    getCommunicationsData(),
+  ]);
 
   const peopleById = new Map(
     queue.outreachPeople.map((person) => [person.id, person])
@@ -149,16 +127,5 @@ export async function getHomeData(): Promise<HomeData> {
     .filter((c): c is AttentionContact => Boolean(c))
     .sort((a, b) => b.daysOverdue - a.daysOverdue);
 
-  const sites: SitePanel[] = [
-    {
-      key: "gtmtools",
-      label: "GTMTools.io",
-      url: "https://gtmtools.io",
-      traffic: gtmtools,
-    },
-    { key: "heavenly", label: "Heavenly", url: null, traffic: heavenly },
-    { key: "encoreos", label: "EncoreOS", url: null, traffic: encoreos },
-  ];
-
-  return { dueThisWeek, overdue, sites };
+  return { dueThisWeek, overdue };
 }

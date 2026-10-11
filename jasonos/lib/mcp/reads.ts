@@ -42,6 +42,10 @@ export function listJasonosAreas() {
       { area: "todos_and_projects", tools: ["list_todos", "list_projects"] },
       { area: "morning_brief", tools: ["get_morning_brief", "publish_morning_brief"] },
       { area: "inbox", tools: ["get_inbox_dispatch", "publish_inbox_dispatch"] },
+      {
+        area: "commitments",
+        tools: ["get_commitment_check", "publish_commitment_check", "set_commitment_item_state"],
+      },
       { area: "outreach", tools: ["get_outreach_queue", "list_outreach_people", "get_contact", "list_suggested_contacts"] },
       { area: "meetings", tools: ["list_meetings"] },
       { area: "jobs", tools: ["get_scoreboard", "get_job_alerts", "list_interview_preps"] },

@@ -283,6 +283,8 @@ describe("JasonOS area map", () => {
     assert.ok(tools.includes("publish_inbox_dispatch"));
     assert.ok(tools.includes("get_alerts"));
     assert.ok(tools.includes("list_alerts"));
+    assert.ok(tools.includes("publish_commitment_check"));
+    assert.ok(tools.includes("get_commitment_check"));
     assert.ok(tools.includes("get_connections_register"));
     assert.ok(tools.includes("upsert_connection_grant"));
   });
