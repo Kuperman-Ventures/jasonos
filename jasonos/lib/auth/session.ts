@@ -1,6 +1,9 @@
 export const JASONOS_UNLOCK_COOKIE = "jasonos_unlocked_at";
+/** Where to send Jason after Google / magic-link returns (no query on redirectTo). */
+export const JASONOS_AUTH_RETURN_COOKIE = "jasonos_auth_return";
 export const JASONOS_SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 export const JASONOS_SESSION_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+export const JASONOS_AUTH_RETURN_MAX_AGE_SECONDS = 10 * 60;
 
 /** Emergency switch: Google/email can stamp a 7-day unlock without a passkey. Off by default. */
 export function googleUnlockAllowed(): boolean {
@@ -80,6 +83,21 @@ export function unlockCookieOptions(secure: boolean) {
     path: "/",
     maxAge: JASONOS_SESSION_MAX_AGE_SECONDS,
   };
+}
+
+export function authReturnCookieOptions(secure: boolean) {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure,
+    path: "/",
+    maxAge: JASONOS_AUTH_RETURN_MAX_AGE_SECONDS,
+  };
+}
+
+/** Clean Auth callback URL — query params break Supabase redirect allowlists. */
+export function authCallbackUrl(origin: string): string {
+  return `${origin.replace(/\/$/, "")}/auth/callback`;
 }
 
 export function authConfigured(): boolean {

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { registerPlatformPasskey } from "@/lib/auth/passkeys-browser";
 import { createAuthBrowserClient } from "@/lib/supabase/client";
 
 type PasskeyRow = {
@@ -40,7 +41,7 @@ export function PasskeysCard() {
     setMessage("");
     try {
       const supabase = createAuthBrowserClient();
-      const { error } = await supabase.auth.registerPasskey();
+      const { error } = await registerPlatformPasskey(supabase);
       if (error) {
         setMessage(error.message);
         return;

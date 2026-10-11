@@ -8,10 +8,12 @@ College login is unchanged on `kyle-college.vercel.app`. Do not turn on project-
 
 These are additive. They do not replace Google or magic-link for College.
 
-1. Authentication → URL configuration → Redirect URLs: add
+1. Authentication → URL configuration → Redirect URLs: add **exactly**
    - `https://jasonos.vercel.app/auth/callback`
    - `http://localhost:3000/auth/callback`
    Leave `https://kyle-college.vercel.app/auth/callback` in place.
+   Do **not** put query strings on those redirect URLs. JasonOS remembers `next`
+   in a short-lived cookie so Google never falls back to the College Site URL.
 2. Authentication → Passkeys: enable passkeys.
    - Relying Party Display Name: `JasonOS`
    - Relying Party ID: `jasonos.vercel.app` (not `vercel.app`)
@@ -19,12 +21,14 @@ These are additive. They do not replace Google or magic-link for College.
      (Do not add localhost here. Passkeys on this project are for the live site.)
 
 Face ID / Touch ID buttons need that Passkeys toggle. Google alone does **not** unlock JasonOS for 7 days (see below).
+Registration/unlock forces a platform authenticator (`client-device`) so macOS
+Touch ID / iPhone Face ID is offered instead of a QR security-key sheet.
 
 ## First time on a computer
 
 1. Open JasonOS. You land on `/login`.
-2. Continue with Google (Jason emails only). That only creates a session and sends you to “Add Face ID or Touch ID.”
-3. Add Face ID or Touch ID when asked. That is what writes the signed 7-day unlock cookie.
+2. Continue with Google (Jason emails only). That only creates a session and sends you back to JasonOS on “Add Face ID or Touch ID.”
+3. Add Face ID or Touch ID when asked (this Mac’s Touch ID, not a phone QR). That is what writes the signed 7-day unlock cookie.
 4. That browser stays unlocked for 7 days.
 
 Allowed emails (app-level, not a Supabase dashboard allowlist): `jason@kupermanadvisors.com`, `jskuperman@gmail.com`, `jason.kuperman@outlook.com`.

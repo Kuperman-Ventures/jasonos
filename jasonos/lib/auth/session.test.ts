@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   JASONOS_SESSION_MAX_AGE_MS,
+  authCallbackUrl,
   isUnlockStampFresh,
   safeNextPath,
   unlockCookieValue,
@@ -56,4 +57,10 @@ describe("JasonOS unlock stamp", () => {
     assert.equal(safeNextPath("//evil.example"), "/");
     assert.equal(safeNextPath(null), "/");
   });
+
+  it("keeps Auth callback URLs query-free", () => {
+    assert.equal(authCallbackUrl("https://jasonos.vercel.app"), "https://jasonos.vercel.app/auth/callback");
+    assert.equal(authCallbackUrl("https://jasonos.vercel.app/"), "https://jasonos.vercel.app/auth/callback");
+  });
 });
+
