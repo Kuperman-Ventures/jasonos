@@ -114,6 +114,7 @@ const NAV: NavItem[] = [
       { href: "/settings", label: "General" },
       { href: "/ai-usage", label: "AI Usage" },
       { href: "/settings/sync-log", label: "Sync Log" },
+      { href: "/settings/connections", label: "Connections" },
     ],
   },
 ];

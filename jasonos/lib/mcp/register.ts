@@ -31,6 +31,7 @@ import {
   listSuggestedContacts,
 } from "./reads";
 import { publishInboxDispatch, publishMorningBrief } from "./publish";
+import { registerConnectionsTools } from "./connections-tools";
 import { jsonResult, runTool } from "./result";
 
 export const JASONOS_MCP_INSTRUCTIONS = `JasonOS is Jason Kuperman's personal command center. Four tracks: venture, advisors, job_search, personal.
@@ -42,6 +43,8 @@ Writes (add_todo, complete_todo, add_action_card, update_card, pin_card, publish
 To publish today's morning brief or inbox dispatch, use publish_morning_brief / publish_inbox_dispatch. Do not use a separate Supabase execute_sql connector.
 
 If these tools are missing from a scheduled run, search for "jasonos" or "publish_morning_brief" first. As a fallback, POST the same payload to https://jasonos.vercel.app/api/morning-brief/publish or /api/inbox-dispatch/publish with the JasonOS Bearer password.
+
+Connections Register (Settings -> Connections) tracks every access grant across Jason's accounts, automation tools and apps. Read it with get_connections_register and list_connection_changes. Keep it current with upsert_connection_grant, update_connection_grant, upsert_connection_node and upsert_connection_coverage; use import_connections_register for bulk loads. When access is removed, set status to revoked rather than deleting the row.
 
 Do not dump full JSON back to Jason. Summarize in plain English.`;
 
@@ -453,4 +456,6 @@ export function registerJasonosTools(server: McpServer) {
     },
     async () => runTool(getConnectionStatus)
   );
+
+  registerConnectionsTools(server);
 }
