@@ -3,12 +3,8 @@
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 import {
   AlertCircle,
-  BarChart3,
   ChevronDown,
   Clock,
-  ExternalLink,
-  ArrowUpRight,
-  PlugZap,
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -35,7 +31,7 @@ import {
   openBeeperText,
 } from "@/lib/server-actions/beeper-compose";
 import { nativeMessagesHref } from "@/lib/integrations/beeper-links";
-import type { AttentionContact, HomeData, SitePanel } from "@/lib/data/home";
+import type { AttentionContact, HomeData } from "@/lib/data/home";
 import { useRouter } from "next/navigation";
 
 const COLUMN_LABEL: Record<string, string> = {
@@ -272,7 +268,7 @@ export function HomeClient({
       <PageHeader
         mark={<Logo size={40} />}
         title="Home"
-        description="Due this week, overdue outreach, sent-mail follow-ups, and site traffic."
+        description="Due this week, overdue outreach, sent-mail follow-ups, and commitments."
       />
 
       {children}
@@ -324,19 +320,6 @@ export function HomeClient({
           </ul>
         )}
       </CollapsibleHomeBand>
-
-      <section>
-        <div className="mb-2 flex items-center gap-2">
-          <BarChart3 className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold tracking-tight">Site traffic</h2>
-          <span className="text-[11px] text-muted-foreground">last 30 days</span>
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          {data.sites.map((s) => (
-            <TrafficPanel key={s.key} site={s} />
-          ))}
-        </div>
-      </section>
 
       <OutreachModal
         open={!!target}
@@ -484,114 +467,5 @@ function CollapsibleHomeBand({
       </button>
       {!collapsed ? children : null}
     </section>
-  );
-}
-
-function TrafficPanel({ site }: { site: SitePanel }) {
-  const t = site.traffic;
-  return (
-    <section className="flex flex-col overflow-hidden rounded-xl border bg-card">
-      <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5">
-        <h3 className="text-sm font-semibold tracking-tight">{site.label}</h3>
-        {site.url ? (
-          <a
-            href={site.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-muted-foreground hover:text-foreground"
-            title={site.url}
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-        ) : null}
-      </div>
-
-      {!t.configured ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-1.5 px-4 py-8 text-center">
-          <PlugZap className="h-6 w-6 text-muted-foreground/50" />
-          <p className="text-xs font-medium">Connect Web Analytics</p>
-          <p className="text-[11px] text-muted-foreground">
-            Add the Vercel token + this project&rsquo;s ID to show traffic.
-          </p>
-        </div>
-      ) : !t.ok ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-1.5 px-4 py-8 text-center">
-          <AlertCircle className="h-6 w-6 text-rung-ink" />
-          <p className="text-[11px] text-muted-foreground">{t.error}</p>
-        </div>
-      ) : (
-        <div className="flex-1 space-y-3 p-4">
-          <div className="grid grid-cols-2 gap-2">
-            <Stat label="Visitors" value={t.visitors} />
-            <Stat label="Page views" value={t.pageViews} />
-          </div>
-
-          <TrafficList
-            title="Top pages"
-            rows={t.topPages.map((p) => ({
-              label: p.path,
-              value: p.pageViews,
-            }))}
-          />
-          <TrafficList
-            title="Top referrers"
-            rows={t.topReferrers.map((r) => ({
-              label: r.referrer,
-              value: r.pageViews,
-            }))}
-          />
-          {t.topEvents.length > 0 ? (
-            <TrafficList
-              title="What they do (events)"
-              rows={t.topEvents.map((e) => ({ label: e.name, value: e.count }))}
-            />
-          ) : null}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-lg border bg-background/60 p-2.5">
-      <p className="flex items-center gap-1 text-xl font-semibold tabular-nums leading-none">
-        <ArrowUpRight className="h-3.5 w-3.5 text-rung-ink" />
-        {value.toLocaleString()}
-      </p>
-      <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-        {label}
-      </p>
-    </div>
-  );
-}
-
-function TrafficList({
-  title,
-  rows,
-}: {
-  title: string;
-  rows: { label: string; value: number }[];
-}) {
-  if (rows.length === 0) return null;
-  return (
-    <div>
-      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {title}
-      </p>
-      <ul className="space-y-0.5">
-        {rows.map((r, i) => (
-          <li
-            key={`${r.label}-${i}`}
-            className="flex items-center justify-between gap-2 text-[11px]"
-          >
-            <span className="min-w-0 truncate text-foreground/80">{r.label}</span>
-            <span className="shrink-0 tabular-nums text-muted-foreground">
-              {r.value.toLocaleString()}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
   );
 }

@@ -5,9 +5,11 @@ import { SentFollowupsPanel } from "@/components/jasonos/home/sent-followups-pan
 import { MorningBriefCard } from "@/components/jasonos/home/morning-brief-card";
 import { TodaysMeetingsPanel } from "@/components/jasonos/home/todays-meetings-panel";
 import { InboxDispatchCard } from "@/components/jasonos/home/inbox-dispatch-card";
+import { CommitmentCheckPanel } from "@/components/jasonos/home/commitment-check-panel";
 import { getDueMeetingFollowups } from "@/lib/server-actions/meeting-followups";
 import { getTodaysMeetingPreps } from "@/lib/server-actions/meeting-prep";
 import { getSentEmailFollowups } from "@/lib/server-actions/sent-followups";
+import { getCommitmentCheckHome } from "@/lib/server-actions/commitments";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -18,17 +20,22 @@ export default async function Dashboard({
   searchParams: Promise<{ brief?: string }>;
 }) {
   // Email follow-ups on Home use the same loader as Networking → Follow Up.
-  const [data, dueMeetings, sentFollowups, todaysMeetings, { brief }] = await Promise.all([
+  const [data, dueMeetings, sentFollowups, todaysMeetings, commitments, { brief }] = await Promise.all([
     getHomeData(),
     getDueMeetingFollowups(),
     getSentEmailFollowups(),
     getTodaysMeetingPreps(),
+    getCommitmentCheckHome(),
     searchParams,
   ]);
   return (
     <HomeClient data={data}>
       <MorningBriefCard selectedDate={brief} />
       <InboxDispatchCard />
+      <CommitmentCheckPanel
+        check={commitments.ok ? commitments.check : null}
+        error={commitments.ok ? null : commitments.error}
+      />
       <TodaysMeetingsPanel
         nowIso={new Date().toISOString()}
         rows={todaysMeetings.ok ? todaysMeetings.meetings : []}
