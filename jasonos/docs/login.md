@@ -37,11 +37,16 @@ Allowed emails (app-level, not a Supabase dashboard allowlist): `jason@kupermana
 
 The `jasonos_unlocked_at` cookie is an HMAC of the unlock timestamp. Signing secret order:
 
-1. `JASONOS_UNLOCK_SECRET` (preferred)
+1. `JASONOS_UNLOCK_SECRET` (preferred — **set a dedicated value in Vercel Production**)
 2. else `CRON_SECRET`
 3. else `SUPABASE_SERVICE_ROLE_KEY`
 
-Without one of those, unlock fails closed.
+`/auth/stamp` ignores the request body. It only stamps after `auth.getClaims()` shows a
+recent `amr` method of `passkey` (or `mfa/webauthn`). After Google enrollment, the login
+form signs in with the new passkey before calling stamp.
+
+Without a signing secret, unlock fails closed. Keep `CRON_SECRET` set on the JasonOS
+Vercel project as well (cron auth); do not rely on it as the unlock secret.
 
 ## Google unlock emergency switch
 
