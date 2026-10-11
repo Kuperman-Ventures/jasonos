@@ -28,6 +28,19 @@ const buttonVariants = cva(
           "border-2 border-[var(--color-done)] bg-transparent font-bold text-[var(--color-done)] hover:bg-[var(--color-done)] hover:text-[var(--color-on-action)]",
         okGhost:
           "font-bold text-[var(--color-done)] hover:bg-[color-mix(in_srgb,var(--color-done)_12%,transparent)] hover:text-[var(--color-done-800)]",
+        /* Domain: calendar purple / email blue — actions that belong to that surface. */
+        calendar:
+          "bg-domain-calendar font-bold text-[var(--color-on-action)] hover:bg-[var(--color-calendar-700)]",
+        calendarOutline:
+          "border-2 border-[var(--color-calendar)] bg-transparent font-bold text-[var(--color-calendar-700)] hover:bg-[var(--color-calendar)] hover:text-[var(--color-on-action)]",
+        calendarGhost:
+          "font-bold text-[var(--color-calendar-700)] hover:bg-[var(--color-calendar-100)] hover:text-[var(--color-calendar-700)]",
+        email:
+          "bg-domain-email font-bold text-[var(--color-on-action)] hover:bg-[var(--color-email-700)]",
+        emailOutline:
+          "border-2 border-[var(--color-email)] bg-transparent font-bold text-[var(--color-email-700)] hover:bg-[var(--color-email)] hover:text-[var(--color-on-action)]",
+        emailGhost:
+          "font-bold text-[var(--color-email-700)] hover:bg-[var(--color-email-100)] hover:text-[var(--color-email-700)]",
         link: "font-bold text-[var(--color-accent-700)] underline underline-offset-2 hover:text-[var(--color-accent-800)]",
       },
       size: {

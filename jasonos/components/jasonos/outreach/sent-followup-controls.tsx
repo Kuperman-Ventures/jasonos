@@ -32,7 +32,7 @@ export function SentFollowupControls({
           key={days}
           type="button"
           size="sm"
-          variant="outline"
+          variant="emailOutline"
           disabled={busy}
           onClick={() => onSchedule(days)}
         >
@@ -58,12 +58,12 @@ export function SentFollowupControls({
           className="h-8 w-16 px-2 text-xs"
           disabled={busy}
         />
-        <Button type="submit" size="sm" variant="outline" disabled={busy || !custom.trim()}>
+        <Button type="submit" size="sm" variant="emailOutline" disabled={busy || !custom.trim()}>
           Set
         </Button>
       </form>
       {onDone ? (
-        <Button type="button" size="sm" disabled={busy} onClick={onDone}>
+        <Button type="button" size="sm" variant="email" disabled={busy} onClick={onDone}>
           Done
         </Button>
       ) : null}
