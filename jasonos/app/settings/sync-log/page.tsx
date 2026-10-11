@@ -73,7 +73,7 @@ export default async function SyncLogPage() {
                           ? "bg-rung-1"
                           : instance.hasUnavailable
                             ? "bg-rung-2"
-                            : "bg-rung-ok"
+                            : "bg-rung-done"
                       )}
                       aria-hidden
                     />
@@ -106,7 +106,7 @@ export default async function SyncLogPage() {
                                 row.unavailable
                                   ? "bg-rung-2"
                                   : row.ok
-                                    ? "bg-rung-ok"
+                                    ? "bg-rung-done"
                                     : "bg-rung-1"
                               )}
                               aria-hidden

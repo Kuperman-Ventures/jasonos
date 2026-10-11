@@ -343,7 +343,7 @@ function FunnelSummary({ data }: { data: NetworkingActivity }) {
 
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-border">
         <div
-          className={`h-full rounded-full ${goalMet ? "bg-rung-ok" : "bg-rung-3"}`}
+          className={`h-full rounded-full ${goalMet ? "bg-rung-done" : "bg-rung-3"}`}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -964,7 +964,7 @@ function resultTone(result: string): ResultTone {
   return "neutral";
 }
 const RESULT_PILL: Record<ResultTone, string> = {
-  ok: "border-[var(--jos-line)] bg-rung-ok ",
+  ok: "border-[var(--jos-line)] bg-rung-done ",
   warn: "border-[var(--jos-line)] bg-rung-2 ",
   bad: "border-rung-1 bg-rung-1 ",
   neutral: "border-border text-muted-foreground",

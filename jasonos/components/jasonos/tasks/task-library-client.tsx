@@ -607,6 +607,9 @@ export function TaskLibraryClient({
 
       {/* ── Right panel: editor ── */}
       <article className="overflow-y-auto p-6">
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-domain-todo">
+          To-do
+        </p>
         <h2 className="text-lg font-semibold text-foreground">Task Library</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Library edits update template data only. They do not retroactively change current Today tasks.

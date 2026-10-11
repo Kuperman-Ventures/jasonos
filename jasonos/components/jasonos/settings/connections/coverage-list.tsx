@@ -7,8 +7,8 @@ import { StatusPill } from "@/components/jasonos/brand/status";
 import { COVERAGE_STATES, type CoverageRow, type CoverageState } from "@/lib/connections/types";
 import { setCoverageAction } from "@/lib/server-actions/connections";
 
-function rungFor(state: CoverageState): "ok" | 2 | 1 {
-  return state === "Done" ? "ok" : state === "Partial" ? 2 : 1;
+function rungFor(state: CoverageState): "done" | 2 | 1 {
+  return state === "Done" ? "done" : state === "Partial" ? 2 : 1;
 }
 
 export function CoverageList({ rows }: { rows: CoverageRow[] }) {

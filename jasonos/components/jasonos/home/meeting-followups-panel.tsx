@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Calendar, ChevronDown } from "lucide-react";
-import { StatusBand, StatusPill } from "@/components/jasonos/brand/status";
+import { DomainBand, StatusPill } from "@/components/jasonos/brand/status";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { MeetingFollowupControls } from "@/components/jasonos/outreach/meeting-followup-controls";
@@ -101,8 +101,7 @@ export function MeetingFollowupsPanel({ rows }: { rows: MeetingFollowup[] }) {
         }
         className="w-full text-left"
       >
-        {/* Green, not the teal on Email follow-ups. */}
-        <StatusBand rung="ok">
+        <DomainBand domain="calendar">
           <Calendar className="h-5 w-5" />
           <h2 className="text-[17px] font-bold tracking-tight">
             Meeting follow-ups
@@ -115,7 +114,7 @@ export function MeetingFollowupsPanel({ rows }: { rows: MeetingFollowup[] }) {
               collapsed ? "-rotate-90" : ""
             }`}
           />
-        </StatusBand>
+        </DomainBand>
       </button>
 
       {!collapsed ? (

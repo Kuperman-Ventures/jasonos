@@ -113,7 +113,7 @@ const BANDS: BandDef[] = [
     helper: "Outbound touches recorded today",
     icon: Mail,
     textColor: "text-inherit",
-    headerBg: "bg-rung-ok",
+    headerBg: "bg-rung-done",
     defaultCollapsed: false,
   },
   {

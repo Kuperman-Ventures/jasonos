@@ -536,7 +536,7 @@ export function InboxDispatchCard() {
           }
           className="flex min-w-0 flex-1 items-center gap-2 text-left transition-colors hover:opacity-90"
         >
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-rung-2 ">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[2px] bg-domain-email">
             <Inbox className="h-3.5 w-3.5" />
           </span>
           <div className="min-w-0">
@@ -545,12 +545,12 @@ export function InboxDispatchCard() {
                 Inbox Dispatch
               </h2>
               {!loading && data?.configured && headerCount > 0 ? (
-                <span className="rounded-full bg-rung-2 px-1.5 py-0.5 text-[10px] font-medium tabular-nums ">
+                <span className="rounded-[2px] bg-domain-email px-1.5 py-0.5 text-[10px] font-bold uppercase tabular-nums">
                   {headerCount}
                 </span>
               ) : null}
               {!loading && visibleSaved.length > 0 ? (
-                <span className="rounded-full border border-rung-3 bg-rung-3 px-1.5 py-0.5 text-[10px] font-medium tabular-nums ">
+                <span className="rounded-[2px] bg-rung-3 px-1.5 py-0.5 text-[10px] font-bold uppercase tabular-nums">
                   {visibleSaved.length} saved
                 </span>
               ) : null}

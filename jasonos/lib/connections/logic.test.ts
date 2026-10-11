@@ -109,6 +109,6 @@ describe("map helpers", () => {
 
   it("maps statuses to JasonOS rungs", () => {
     assert.equal(statusRung("no_use_found"), 1);
-    assert.equal(statusRung("in_use"), "ok");
+    assert.equal(statusRung("in_use"), "done");
   });
 });

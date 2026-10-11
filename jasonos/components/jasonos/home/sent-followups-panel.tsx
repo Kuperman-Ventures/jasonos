@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, Mail } from "lucide-react";
-import { StatusBand, StatusPill } from "@/components/jasonos/brand/status";
+import { DomainBand, StatusPill } from "@/components/jasonos/brand/status";
 import { toast } from "sonner";
 import { SentFollowupControls } from "@/components/jasonos/outreach/sent-followup-controls";
 import { SentThreadPanel } from "@/components/jasonos/outreach/sent-thread-panel";
@@ -101,8 +101,7 @@ export function SentFollowupsPanel({ rows }: { rows: SentEmailFollowup[] }) {
         }
         className="w-full text-left"
       >
-        {/* Dark teal. Meeting banners on Home use green. */}
-        <StatusBand rung={3}>
+        <DomainBand domain="email">
           <Mail className="h-5 w-5" />
           <h2 className="text-[17px] font-bold tracking-tight">Email follow-ups</h2>
           <StatusPill rung={4} className="ml-auto">
@@ -113,7 +112,7 @@ export function SentFollowupsPanel({ rows }: { rows: SentEmailFollowup[] }) {
               collapsed ? "-rotate-90" : ""
             }`}
           />
-        </StatusBand>
+        </DomainBand>
       </button>
 
       {!collapsed ? (
