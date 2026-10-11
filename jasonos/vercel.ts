@@ -26,6 +26,7 @@ export const config: VercelConfig = {
     "app/api/mcp/route.ts": { maxDuration: 60 },
     "app/api/morning-brief/publish/route.ts": { maxDuration: 60 },
     "app/api/inbox-dispatch/publish/route.ts": { maxDuration: 60 },
+    "app/api/commitment-check/publish/route.ts": { maxDuration: 60 },
     "app/api/post-master/hooks/route.ts": { maxDuration: 60 },
     "app/api/post-master/generate/route.ts": { maxDuration: 120 },
     "app/api/post-master/research/route.ts": { maxDuration: 120 },

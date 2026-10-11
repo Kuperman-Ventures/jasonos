@@ -125,7 +125,7 @@ export function SentFollowupsPanel({ rows }: { rows: SentEmailFollowup[] }) {
               {visible.map((row) => (
                 <li key={row.id} className="px-4 py-3">
                   <div className="flex items-start gap-3">
-                    <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <Mail className="mt-0.5 h-4 w-4 shrink-0 text-domain-email" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{row.subject}</p>
                       <p className="truncate text-[11px] text-muted-foreground">
