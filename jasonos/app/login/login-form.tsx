@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { Logo } from "@/components/jasonos/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  registerPlatformPasskey,
+  signInWithPlatformPasskey,
+} from "@/lib/auth/passkeys-browser";
+import { authCallbackUrl } from "@/lib/auth/session";
 import { createAuthBrowserClient } from "@/lib/supabase/client";
 
 export function LoginForm({
@@ -21,9 +26,12 @@ export function LoginForm({
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
-  function callbackUrl(extra: Record<string, string> = {}) {
-    const params = new URLSearchParams({ next: nextPath, ...extra });
-    return `${window.location.origin}/auth/callback?${params.toString()}`;
+  async function rememberReturnPath() {
+    await fetch("/auth/return", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ next: nextPath }),
+    });
   }
 
   async function stampAndGo() {
@@ -49,7 +57,7 @@ export function LoginForm({
     setMessage("");
     try {
       const supabase = createAuthBrowserClient();
-      const { error } = await supabase.auth.signInWithPasskey();
+      const { error } = await signInWithPlatformPasskey(supabase);
       if (error) {
         setMessage(error.message || "Face ID / Touch ID did not complete.");
         return;
@@ -67,7 +75,7 @@ export function LoginForm({
     setMessage("");
     try {
       const supabase = createAuthBrowserClient();
-      const { error } = await supabase.auth.registerPasskey();
+      const { error } = await registerPlatformPasskey(supabase);
       if (error) {
         setMessage(error.message || "Could not add Face ID / Touch ID.");
         return;
@@ -84,12 +92,16 @@ export function LoginForm({
     setBusy(true);
     setMessage("");
     try {
+      await rememberReturnPath();
       const supabase = createAuthBrowserClient();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: callbackUrl({ enroll: "1" }) },
+        options: { redirectTo: authCallbackUrl(window.location.origin) },
       });
-      if (error) setMessage(error.message);
+      if (error) {
+        setMessage(error.message);
+        setBusy(false);
+      }
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not start Google sign-in");
       setBusy(false);
@@ -101,10 +113,11 @@ export function LoginForm({
     setBusy(true);
     setMessage("");
     try {
+      await rememberReturnPath();
       const supabase = createAuthBrowserClient();
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
-        options: { emailRedirectTo: callbackUrl({ enroll: "1" }) },
+        options: { emailRedirectTo: authCallbackUrl(window.location.origin) },
       });
       if (error) setMessage(error.message);
       else setMessage("Check your email for a sign-in link.");
@@ -126,7 +139,7 @@ export function LoginForm({
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
         {enroll
-          ? "Add Face ID or Touch ID on this device. That is what unlocks JasonOS for 7 days. Google alone does not."
+          ? "Add Face ID or Touch ID on this Mac or phone. That unlocks JasonOS for 7 days. Google alone does not."
           : "Face ID or Touch ID on this device. Google is only to get you to the passkey screen."}
       </p>
 
