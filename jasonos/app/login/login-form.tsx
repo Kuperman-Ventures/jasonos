@@ -27,10 +27,18 @@ export function LoginForm({
   }
 
   async function stampAndGo() {
-    const stamp = await fetch("/auth/stamp", { method: "POST" });
+    const stamp = await fetch("/auth/stamp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ method: "passkey" }),
+    });
     if (!stamp.ok) {
       const body = (await stamp.json().catch(() => null)) as { error?: string } | null;
-      throw new Error(body?.error === "not_jason" ? "This account cannot open JasonOS." : "Could not finish sign-in.");
+      if (body?.error === "not_jason") throw new Error("This account cannot open JasonOS.");
+      if (body?.error === "unlock_secret_missing") {
+        throw new Error("Unlock secret is not configured on this deployment.");
+      }
+      throw new Error("Could not finish sign-in.");
     }
     router.replace(nextPath);
     router.refresh();
@@ -118,8 +126,8 @@ export function LoginForm({
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
         {enroll
-          ? "This computer will remember you for 7 days. You can add a phone and a Mac separately."
-          : "Face ID or Touch ID on this device. Google is only for the first time or a new computer."}
+          ? "Add Face ID or Touch ID on this device. That is what unlocks JasonOS for 7 days. Google alone does not."
+          : "Face ID or Touch ID on this device. Google is only to get you to the passkey screen."}
       </p>
 
       {errorText ? <p className="mt-3 text-sm text-destructive">{errorText}</p> : null}
@@ -159,17 +167,6 @@ export function LoginForm({
           {busy ? "Sending…" : "Email me a link"}
         </Button>
       </form>
-
-      {enroll ? (
-        <button
-          type="button"
-          className="mt-4 text-sm text-muted-foreground hover:underline"
-          disabled={busy}
-          onClick={() => router.replace(nextPath)}
-        >
-          Skip for now
-        </button>
-      ) : null}
 
       {message ? <p className="mt-4 text-sm text-muted-foreground">{message}</p> : null}
     </div>

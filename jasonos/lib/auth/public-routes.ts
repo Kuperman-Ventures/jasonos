@@ -11,7 +11,7 @@ const PUBLIC_EXACT = new Set([
 
 const PUBLIC_PREFIXES = [
   "/login",
-  "/auth/",
+  "/auth",
   "/iugr",
   "/projects/ski-tracker",
   "/api/ski-tracker",
@@ -21,6 +21,7 @@ const PUBLIC_PREFIXES = [
   "/api/auth/microsoft/callback",
   "/api/morning-brief/publish",
   "/api/inbox-dispatch/publish",
+  "/api/commitment-check/publish",
 ];
 
 const CRON_PATHS = new Set([
@@ -39,11 +40,17 @@ export function normalizePathname(pathname: string): string {
   return pathname;
 }
 
+/** Exact match, or prefix followed by `/` (path boundary). */
+export function matchesPathPrefix(path: string, prefix: string): boolean {
+  const normalizedPrefix = normalizePathname(prefix);
+  return path === normalizedPrefix || path.startsWith(`${normalizedPrefix}/`);
+}
+
 export function isPublicJasonosPath(pathname: string): boolean {
   const path = normalizePathname(pathname);
   if (PUBLIC_EXACT.has(path)) return true;
-  if (path.startsWith("/_next")) return true;
-  return PUBLIC_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`) || path.startsWith(prefix));
+  if (matchesPathPrefix(path, "/_next")) return true;
+  return PUBLIC_PREFIXES.some((prefix) => matchesPathPrefix(path, prefix));
 }
 
 export function isCronPath(pathname: string): boolean {
@@ -53,12 +60,9 @@ export function isCronPath(pathname: string): boolean {
 export function hidesJasonosChrome(pathname: string): boolean {
   const path = normalizePathname(pathname);
   return (
-    path === "/login" ||
-    path.startsWith("/login/") ||
-    path.startsWith("/auth/") ||
-    path === "/iugr" ||
-    path.startsWith("/iugr/") ||
-    path === "/projects/ski-tracker" ||
-    path.startsWith("/projects/ski-tracker/")
+    matchesPathPrefix(path, "/login") ||
+    matchesPathPrefix(path, "/auth") ||
+    matchesPathPrefix(path, "/iugr") ||
+    matchesPathPrefix(path, "/projects/ski-tracker")
   );
 }

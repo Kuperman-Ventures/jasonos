@@ -3,11 +3,11 @@ import { describe, it } from "node:test";
 import { isJasonosEmail, loginErrorMessage, normalizeEmail } from "./allowlist.ts";
 
 describe("JasonOS email allowlist", () => {
-  it("accepts Jason's Advisors and Gmail aliases", () => {
+  it("accepts Jason's Advisors, Outlook, and the confirmed Gmail alias", () => {
     assert.equal(isJasonosEmail("jason@kupermanadvisors.com"), true);
-    assert.equal(isJasonosEmail("JasonKuperman@gmail.com"), true);
     assert.equal(isJasonosEmail(" jskuperman@gmail.com "), true);
     assert.equal(isJasonosEmail("jason.kuperman@outlook.com"), true);
+    assert.equal(isJasonosEmail("jasonkuperman@gmail.com"), false);
   });
 
   it("rejects College household accounts", () => {

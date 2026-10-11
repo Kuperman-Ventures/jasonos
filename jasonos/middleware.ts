@@ -83,7 +83,7 @@ export async function middleware(request: NextRequest) {
     await supabase.auth.signOut();
     return redirectToLogin(request, "not_jason");
   }
-  if (!isUnlockStampFresh(request.cookies.get(JASONOS_UNLOCK_COOKIE)?.value)) {
+  if (!(await isUnlockStampFresh(request.cookies.get(JASONOS_UNLOCK_COOKIE)?.value))) {
     return redirectToLogin(request, "expired");
   }
 

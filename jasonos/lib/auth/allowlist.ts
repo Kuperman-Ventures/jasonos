@@ -2,7 +2,6 @@
 
 export const JASONOS_LOGIN_EMAILS = [
   "jason@kupermanadvisors.com",
-  "jasonkuperman@gmail.com",
   "jskuperman@gmail.com",
   "jason.kuperman@outlook.com",
 ] as const;
@@ -28,7 +27,9 @@ export function loginErrorMessage(code: string | null | undefined): string | nul
     case "expired":
       return "Unlock again with Face ID or Touch ID.";
     case "passkey":
-      return "Face ID / Touch ID did not complete. Try again, or use Google.";
+      return "Face ID / Touch ID did not complete. Try again, or use Google to add a passkey.";
+    case "enroll_required":
+      return "Add Face ID or Touch ID to unlock JasonOS. Google alone is not enough.";
     default:
       return null;
   }

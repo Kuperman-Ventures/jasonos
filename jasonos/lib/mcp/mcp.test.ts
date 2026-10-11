@@ -153,6 +153,18 @@ describe("MCP token hashing", () => {
     assert.equal(bearerMatches(secret, "wrong"), false);
   });
 
+  it("when hash and plaintext disagree, trusts plaintext and marks rewrite", () => {
+    const secret = mcpSecretFromConfig({
+      access_token: "real-token",
+      access_token_hash: hashMcpToken("stale-token"),
+    });
+    assert.ok(secret);
+    assert.equal(secret.rewriteHash, true);
+    assert.equal(secret.hash, hashMcpToken("real-token"));
+    assert.equal(bearerMatches(secret, "real-token"), true);
+    assert.equal(bearerMatches(secret, "stale-token"), false);
+  });
+
   it("accepts a JWT signed with the hash", () => {
     const secret = mcpSecretFromEnv("test-token-value");
     assert.ok(secret);

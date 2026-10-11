@@ -3,6 +3,21 @@
 JasonOS doesn't have the Supabase CLI linked locally yet, so until that
 happens migrations are applied manually via the Supabase Dashboard.
 
+## Login hardening migrations (renamed on disk)
+
+These two were applied to production under the temporary names `0085_*` and
+`0086_*` during the passkey-login PR. Main already had
+[`0085_connections_register.sql`](../supabase/migrations/0085_connections_register.sql),
+and `0086` is reserved, so the files in git were renamed only:
+
+| Applied name (production) | Repo file name now |
+|---|---|
+| `0085_lock_down_authenticated_jasonos` | [`0087_lock_down_authenticated_jasonos.sql`](../supabase/migrations/0087_lock_down_authenticated_jasonos.sql) |
+| `0086_hash_mcp_tokens` | [`0088_hash_mcp_tokens.sql`](../supabase/migrations/0088_hash_mcp_tokens.sql) |
+
+Do **not** re-run them. The SQL already ran; only the filenames changed to
+clear the collision with Connections Register and keep `0086` free.
+
 ## What's pending (as of 2026-04-22)
 
 - [`0002_user_integrations.sql`](../supabase/migrations/0002_user_integrations.sql)

@@ -7,6 +7,8 @@ export const JASONOS_MCP_SERVICE_NAME = "jasonos_mcp";
 export type McpSecret = {
   hash: string;
   plaintext?: string;
+  /** When true, Settings should rewrite access_token_hash from the trusted plaintext. */
+  rewriteHash?: boolean;
 };
 
 export function hashMcpToken(token: string): string {
@@ -33,12 +35,22 @@ export function extractBearer(header: string | null | undefined): string | undef
   return match?.[1];
 }
 
+/**
+ * Prefer a stored hash. If both plaintext and hash are present and disagree,
+ * trust the plaintext and ask the loader to rewrite the row as a hash of it.
+ */
 export function mcpSecretFromConfig(config: unknown): McpSecret | undefined {
   const cfg = (config ?? {}) as { access_token?: unknown; access_token_hash?: unknown };
   const hash = typeof cfg.access_token_hash === "string" ? cfg.access_token_hash.trim() : "";
   const plaintext = typeof cfg.access_token === "string" ? cfg.access_token.trim() : "";
+
+  if (plaintext && hash) {
+    const fromPlain = hashMcpToken(plaintext);
+    if (tokensEqual(hash, fromPlain)) return { hash };
+    return { hash: fromPlain, plaintext, rewriteHash: true };
+  }
   if (hash) return { hash };
-  if (plaintext) return { hash: hashMcpToken(plaintext), plaintext };
+  if (plaintext) return { hash: hashMcpToken(plaintext), plaintext, rewriteHash: true };
   return undefined;
 }
 
@@ -60,18 +72,44 @@ export function mcpSigningSecret(secret: McpSecret): string {
   return secret.hash;
 }
 
+async function rewriteMcpHash(
+  db: ReturnType<Awaited<typeof import("./db")>["publicDb"]>,
+  rowId: string,
+  hash: string
+) {
+  const { data } = await db
+    .from("service_connections")
+    .select("config")
+    .eq("id", rowId)
+    .maybeSingle();
+  const prev = (data?.config ?? {}) as Record<string, unknown>;
+  const next: Record<string, unknown> = { ...prev, access_token_hash: hash };
+  delete next.access_token;
+  await db
+    .from("service_connections")
+    .update({ config: next, updated_at: new Date().toISOString() })
+    .eq("id", rowId);
+}
+
 async function loadSettingsMcpSecret(): Promise<McpSecret | undefined> {
   try {
     const { publicDb } = await import("./db");
     const db = publicDb();
     const { data } = await db
       .from("service_connections")
-      .select("config")
+      .select("id,config")
       .eq("service_name", JASONOS_MCP_SERVICE_NAME)
       .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    return mcpSecretFromConfig(data?.config);
+    if (!data) return undefined;
+    const secret = mcpSecretFromConfig(data.config);
+    if (secret?.rewriteHash && secret.plaintext && typeof data.id === "string") {
+      await rewriteMcpHash(db, data.id, secret.hash).catch(() => {
+        // Auth still works from in-memory plaintext; rewrite is best-effort.
+      });
+    }
+    return secret;
   } catch {
     return undefined;
   }

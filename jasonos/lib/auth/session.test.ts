@@ -4,23 +4,50 @@ import {
   JASONOS_SESSION_MAX_AGE_MS,
   isUnlockStampFresh,
   safeNextPath,
+  unlockCookieValue,
 } from "./session.ts";
 
 describe("JasonOS unlock stamp", () => {
-  it("accepts a stamp from a few minutes ago", () => {
-    const now = 1_700_000_000_000;
-    assert.equal(isUnlockStampFresh(String(now - 5 * 60_000), now), true);
+  it("accepts a signed stamp from a few minutes ago", async () => {
+    const previous = process.env.JASONOS_UNLOCK_SECRET;
+    process.env.JASONOS_UNLOCK_SECRET = "test-unlock-secret";
+    try {
+      const now = 1_700_000_000_000;
+      const value = await unlockCookieValue(now - 5 * 60_000);
+      assert.ok(value);
+      assert.equal(await isUnlockStampFresh(value, now), true);
+    } finally {
+      if (previous === undefined) delete process.env.JASONOS_UNLOCK_SECRET;
+      else process.env.JASONOS_UNLOCK_SECRET = previous;
+    }
   });
 
-  it("rejects a stamp older than 7 days", () => {
-    const now = 1_700_000_000_000;
-    assert.equal(isUnlockStampFresh(String(now - JASONOS_SESSION_MAX_AGE_MS - 1), now), false);
+  it("rejects a stamp older than 7 days", async () => {
+    const previous = process.env.JASONOS_UNLOCK_SECRET;
+    process.env.JASONOS_UNLOCK_SECRET = "test-unlock-secret";
+    try {
+      const now = 1_700_000_000_000;
+      const value = await unlockCookieValue(now - JASONOS_SESSION_MAX_AGE_MS - 1);
+      assert.ok(value);
+      assert.equal(await isUnlockStampFresh(value, now), false);
+    } finally {
+      if (previous === undefined) delete process.env.JASONOS_UNLOCK_SECRET;
+      else process.env.JASONOS_UNLOCK_SECRET = previous;
+    }
   });
 
-  it("rejects missing or junk stamps", () => {
-    assert.equal(isUnlockStampFresh(undefined), false);
-    assert.equal(isUnlockStampFresh("nope"), false);
-    assert.equal(isUnlockStampFresh("-1"), false);
+  it("rejects a forged stamp", async () => {
+    const previous = process.env.JASONOS_UNLOCK_SECRET;
+    process.env.JASONOS_UNLOCK_SECRET = "test-unlock-secret";
+    try {
+      const now = 1_700_000_000_000;
+      assert.equal(await isUnlockStampFresh(`${now}.deadbeef`, now), false);
+      assert.equal(await isUnlockStampFresh(String(now), now), false);
+      assert.equal(await isUnlockStampFresh(undefined), false);
+    } finally {
+      if (previous === undefined) delete process.env.JASONOS_UNLOCK_SECRET;
+      else process.env.JASONOS_UNLOCK_SECRET = previous;
+    }
   });
 
   it("only follows in-app next paths", () => {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isJasonosEmail } from "@/lib/auth/allowlist";
 import {
   JASONOS_UNLOCK_COOKIE,
+  googleUnlockAllowed,
   safeNextPath,
   unlockCookieOptions,
   unlockCookieValue,
@@ -11,7 +12,6 @@ import { createAuthServerClient } from "@/lib/supabase/server";
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const enroll = url.searchParams.get("enroll") === "1";
   const next = safeNextPath(url.searchParams.get("next"));
 
   if (!code) {
@@ -29,10 +29,23 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/login?error=not_jason", url.origin));
   }
 
-  const dest = enroll
-    ? new URL(`/login?enroll=1&next=${encodeURIComponent(next)}`, url.origin)
-    : new URL(next, url.origin);
-  const response = NextResponse.redirect(dest);
-  response.cookies.set(JASONOS_UNLOCK_COOKIE, unlockCookieValue(), unlockCookieOptions(url.protocol === "https:"));
-  return response;
+  // Google / magic link only create a session. Passkey enrollment unlocks
+  // for 7 days, unless the emergency Google unlock switch is on.
+  if (googleUnlockAllowed()) {
+    const stamp = await unlockCookieValue();
+    const dest = new URL(next, url.origin);
+    const response = NextResponse.redirect(dest);
+    if (stamp) {
+      response.cookies.set(
+        JASONOS_UNLOCK_COOKIE,
+        stamp,
+        unlockCookieOptions(url.protocol === "https:")
+      );
+    }
+    return response;
+  }
+
+  const enroll = new URL(`/login?enroll=1&next=${encodeURIComponent(next)}`, url.origin);
+  enroll.searchParams.set("error", "enroll_required");
+  return NextResponse.redirect(enroll);
 }
