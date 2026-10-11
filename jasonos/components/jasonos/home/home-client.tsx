@@ -54,9 +54,12 @@ function dueLabel(daysUntilDue: number): string {
 export function HomeClient({
   data,
   children,
+  bottom,
 }: {
   data: HomeData;
   children?: React.ReactNode;
+  /** Rendered after Due This Week / Overdue (page bottom). */
+  bottom?: React.ReactNode;
 }) {
   const [target, setTarget] = useState<ModalMode | null>(null);
   const [draftFor, setDraftFor] = useState<AttentionContact | null>(null);
@@ -316,6 +319,8 @@ export function HomeClient({
           </ul>
         )}
       </CollapsibleHomeBand>
+
+      {bottom}
 
       <OutreachModal
         open={!!target}

@@ -29,13 +29,17 @@ export default async function Dashboard({
     searchParams,
   ]);
   return (
-    <HomeClient data={data}>
+    <HomeClient
+      data={data}
+      bottom={
+        <CommitmentCheckPanel
+          check={commitments.ok ? commitments.check : null}
+          error={commitments.ok ? null : commitments.error}
+        />
+      }
+    >
       <MorningBriefCard selectedDate={brief} />
       <InboxDispatchCard />
-      <CommitmentCheckPanel
-        check={commitments.ok ? commitments.check : null}
-        error={commitments.ok ? null : commitments.error}
-      />
       <TodaysMeetingsPanel
         nowIso={new Date().toISOString()}
         rows={todaysMeetings.ok ? todaysMeetings.meetings : []}

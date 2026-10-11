@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, ExternalLink, Handshake } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { StatusBand, StatusPill } from "@/components/jasonos/brand/status";
+import { DomainBand, StatusBand, StatusPill } from "@/components/jasonos/brand/status";
 import { formatDue } from "@/lib/commitments/logic";
 import {
   COMMITMENT_SECTIONS,
@@ -111,15 +111,26 @@ export function CommitmentCheckPanel({
         aria-label={collapsed ? "Expand Commitments" : "Collapse Commitments"}
         className="w-full text-left"
       >
-        <StatusBand rung={overdue > 0 ? 1 : 3}>
-          <Handshake className="h-5 w-5" />
-          <h2 className="text-[17px] font-bold tracking-tight">Commitments</h2>
-          {overdue > 0 ? <StatusPill rung={4}>{overdue} overdue</StatusPill> : null}
-          <StatusPill rung={4} className="ml-auto">
-            {items.length}
-          </StatusPill>
-          <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${collapsed ? "-rotate-90" : ""}`} />
-        </StatusBand>
+        {overdue > 0 ? (
+          <StatusBand rung={1}>
+            <Handshake className="h-5 w-5" />
+            <h2 className="text-[17px] font-bold tracking-tight">Commitments</h2>
+            <StatusPill rung={4}>{overdue} overdue</StatusPill>
+            <StatusPill rung={4} className="ml-auto">
+              {items.length}
+            </StatusPill>
+            <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${collapsed ? "-rotate-90" : ""}`} />
+          </StatusBand>
+        ) : (
+          <DomainBand domain="todo">
+            <Handshake className="h-5 w-5" />
+            <h2 className="text-[17px] font-bold tracking-tight">Commitments</h2>
+            <StatusPill rung={4} className="ml-auto">
+              {items.length}
+            </StatusPill>
+            <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${collapsed ? "-rotate-90" : ""}`} />
+          </DomainBand>
+        )}
       </button>
 
       {!collapsed ? (
