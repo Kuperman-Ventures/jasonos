@@ -15,7 +15,8 @@ These are additive. They do not replace Google or magic-link for College.
 2. Authentication → Passkeys: enable passkeys.
    - Relying Party Display Name: `JasonOS`
    - Relying Party ID: `jasonos.vercel.app` (not `vercel.app`)
-   - Origins: `https://jasonos.vercel.app` and `http://localhost:3000`
+   - Origins: `https://jasonos.vercel.app` only  
+     (Do not add localhost here. Passkeys on this project are for the live site.)
 
 Face ID / Touch ID buttons need that Passkeys toggle. Google alone does **not** unlock JasonOS for 7 days (see below).
 
