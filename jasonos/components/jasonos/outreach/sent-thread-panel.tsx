@@ -72,7 +72,7 @@ export function SentThreadPanel({
         <button
           type="button"
           onClick={() => openInAppleMail(appleMailUrl)}
-          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+          className="inline-flex items-center gap-1 text-[11px] font-semibold text-domain-email hover:text-[var(--color-email-700)]"
         >
           <Mail className="h-3 w-3" />
           Open in Apple Mail
