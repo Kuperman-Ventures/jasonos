@@ -33,6 +33,7 @@ import {
 import { publishInboxDispatch, publishMorningBrief } from "./publish";
 import { registerCommitmentTools } from "./commitments-tools";
 import { registerConnectionsTools } from "./connections-tools";
+import { registerFybTools } from "./fyb-tools";
 import { jsonResult, runTool } from "./result";
 
 export const JASONOS_MCP_INSTRUCTIONS = `JasonOS is Jason Kuperman's personal command center. Four tracks: venture, advisors, job_search, personal.
@@ -48,6 +49,8 @@ If these tools are missing from a scheduled run, search for "jasonos" or "publis
 Connections Register (Settings -> Connections) tracks every access grant across Jason's accounts, automation tools and apps. Read it with get_connections_register and list_connection_changes. Keep it current with upsert_connection_grant, update_connection_grant, upsert_connection_node and upsert_connection_coverage; use import_connections_register for bulk loads. When access is removed, set status to revoked rather than deleting the row.
 
 The weekday Commitment Check publishes to the Commitments panel on Home with publish_commitment_check. Call get_commitment_check first and leave out items Jason marked done or dismissed. Read it later with get_commitment_check; mark items with set_commitment_item_state.
+
+Fuck You Batman story state lives in JasonOS. Call get_fyb_state before any story work. Publish weekly decision options with upsert_fyb_decision. Record Jason's pick with record_fyb_decision only when he has stated it; never record a decision he has not made. Publish reference and later bible/drift/scene rows with upsert_fyb_entry. If these tools are missing from a scheduled run, GET or POST https://jasonos.vercel.app/api/fyb with the JasonOS Bearer password.
 
 Do not dump full JSON back to Jason. Summarize in plain English.`;
 
@@ -462,4 +465,5 @@ export function registerJasonosTools(server: McpServer) {
 
   registerConnectionsTools(server);
   registerCommitmentTools(server);
+  registerFybTools(server);
 }

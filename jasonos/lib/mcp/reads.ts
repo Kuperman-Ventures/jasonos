@@ -46,6 +46,16 @@ export function listJasonosAreas() {
         area: "commitments",
         tools: ["get_commitment_check", "publish_commitment_check", "set_commitment_item_state"],
       },
+      {
+        area: "fuck_you_batman",
+        tools: [
+          "get_fyb_state",
+          "upsert_fyb_decision",
+          "record_fyb_decision",
+          "upsert_fyb_entry",
+          "approve_fyb_entry",
+        ],
+      },
       { area: "outreach", tools: ["get_outreach_queue", "list_outreach_people", "get_contact", "list_suggested_contacts"] },
       { area: "meetings", tools: ["list_meetings"] },
       { area: "jobs", tools: ["get_scoreboard", "get_job_alerts", "list_interview_preps"] },

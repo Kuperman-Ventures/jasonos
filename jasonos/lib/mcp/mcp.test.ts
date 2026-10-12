@@ -23,6 +23,7 @@ import {
   protectedResourceMetadata,
   wwwAuthenticate,
 } from "./oauth.ts";
+import { FYB_TOOL_NAMES } from "./fyb-tools.ts";
 import { registerJasonosTools } from "./register.ts";
 import { listJasonosAreas } from "./reads.ts";
 import { errorResult, jsonResult, sanitizeSearch, uniqueAlerts, uniqueIssueCount } from "./result.ts";
@@ -267,6 +268,12 @@ describe("registerJasonosTools", () => {
   it("registers tools on a server without throwing", () => {
     const server = new McpServer({ name: "jasonos-test", version: "0.0.0" });
     registerJasonosTools(server);
+    const registered = Object.keys(
+      (server as unknown as { _registeredTools: Record<string, unknown> })._registeredTools
+    );
+    for (const name of FYB_TOOL_NAMES) {
+      assert.ok(registered.includes(name), `missing ${name}`);
+    }
   });
 });
 
@@ -285,6 +292,11 @@ describe("JasonOS area map", () => {
     assert.ok(tools.includes("list_alerts"));
     assert.ok(tools.includes("publish_commitment_check"));
     assert.ok(tools.includes("get_commitment_check"));
+    assert.ok(tools.includes("get_fyb_state"));
+    assert.ok(tools.includes("upsert_fyb_decision"));
+    assert.ok(tools.includes("record_fyb_decision"));
+    assert.ok(tools.includes("upsert_fyb_entry"));
+    assert.ok(tools.includes("approve_fyb_entry"));
     assert.ok(tools.includes("get_connections_register"));
     assert.ok(tools.includes("upsert_connection_grant"));
   });
