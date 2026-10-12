@@ -22,6 +22,7 @@ const PUBLIC_PREFIXES = [
   "/api/morning-brief/publish",
   "/api/inbox-dispatch/publish",
   "/api/commitment-check/publish",
+  "/api/fyb",
 ];
 
 const CRON_PATHS = new Set([
