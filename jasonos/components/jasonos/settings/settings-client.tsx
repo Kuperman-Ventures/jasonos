@@ -38,11 +38,8 @@ import { PageHeader } from "@/components/jasonos/brand/page-header";
 import { PasskeysCard } from "@/components/jasonos/settings/passkeys-card";
 import { RelationshipBriefSection } from "@/components/jasonos/settings/relationship-brief-section";
 import {
-  AVAILABLE_MODELS,
   SERVICE_DEFINITIONS,
   serviceLogoUrl,
-  type AlertThresholds,
-  type ModelPreferences,
   type ServiceDefinition,
 } from "@/lib/settings/services";
 import type { SettingsPayload, ServiceConnection } from "@/lib/settings/data";
@@ -81,60 +78,8 @@ interface SettingsClientProps {
   billing: BillingPreview;
 }
 
-const THRESHOLD_FIELDS: Array<{
-  key: keyof AlertThresholds;
-  label: string;
-  suffix: string;
-  description: string;
-}> = [
-  {
-    key: "site_uptime_check_interval_minutes",
-    label: "Site uptime check interval",
-    suffix: "minutes",
-    description: "How often Product Health should probe monitored endpoints.",
-  },
-  {
-    key: "email_reply_rate_drop_pct",
-    label: "Email reply-rate drop",
-    suffix: "%",
-    description: "Alert when reply rate falls against the trailing baseline.",
-  },
-  {
-    key: "email_open_rate_drop_pct",
-    label: "Email open-rate drop",
-    suffix: "%",
-    description: "Alert when campaign open rates materially decline.",
-  },
-  {
-    key: "site_traffic_drop_pct",
-    label: "Site traffic drop",
-    suffix: "%",
-    description: "Alert when daily product traffic falls sharply.",
-  },
-  {
-    key: "trial_to_paid_drop_pct",
-    label: "Trial-to-paid conversion drop",
-    suffix: "%",
-    description: "Alert when GTMTools conversion softens.",
-  },
-  {
-    key: "deal_stage_aging_days",
-    label: "Deal stage aging",
-    suffix: "days",
-    description: "Flag opportunities stuck in the same stage too long.",
-  },
-  {
-    key: "pipeline_reply_wait_days",
-    label: "Pipeline reply wait",
-    suffix: "days",
-    description: "Flag outreach that needs follow-up after no response.",
-  },
-];
-
 export function SettingsClient({ initialSettings, billing }: SettingsClientProps) {
   const [settings, setSettings] = useState(initialSettings);
-  const [thresholds, setThresholds] = useState(initialSettings.thresholds);
-  const [models, setModels] = useState(initialSettings.models);
   const [followupPrompt, setFollowupPrompt] = useState(
     initialSettings.meetingFollowupPrompt
   );
@@ -143,7 +88,6 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
   );
   const [aboutJason, setAboutJason] = useState(initialSettings.aboutJason ?? "");
   const [isChecking, startChecking] = useTransition();
-  const [isSavingPrefs, startSavingPrefs] = useTransition();
   const [isSavingFollowupPrompt, startSavingFollowupPrompt] = useTransition();
   const [isSavingAboutJason, startSavingAboutJason] = useTransition();
   const searchParams = useSearchParams();
@@ -221,29 +165,6 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
     });
   };
 
-  const savePreferences = () => {
-    startSavingPrefs(async () => {
-      const res = await fetch("/api/settings/save-thresholds", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ thresholds, models }),
-      });
-      const payload = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        thresholds?: AlertThresholds;
-        models?: ModelPreferences;
-        error?: string;
-      };
-      if (!res.ok || !payload.ok) {
-        toast.error("Settings save failed", { description: payload.error ?? "Please try again." });
-        return;
-      }
-      if (payload.thresholds) setThresholds(payload.thresholds);
-      if (payload.models) setModels(payload.models);
-      toast.success("Settings saved");
-    });
-  };
-
   const saveFollowupPrompt = (opts?: { reset?: boolean }) => {
     startSavingFollowupPrompt(async () => {
       const res = await fetch("/api/settings/save-meeting-followup-prompt", {
@@ -280,7 +201,7 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
       <PageHeader
         mark={<Logo size={40} className="mt-1" />}
         title="Settings"
-        description="Manage JasonOS integrations, Dispatch, alert thresholds, and model routing from one control panel."
+        description="Manage JasonOS integrations, Dispatch, and your saved prompts."
       />
 
       {settings.authRequired ? (
@@ -328,67 +249,6 @@ export function SettingsClient({ initialSettings, billing }: SettingsClientProps
               }
             />
           ))}
-        </div>
-      </section>
-
-      <section className="rounded-xl border bg-card">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-          <div>
-            <h2 className="text-sm font-semibold tracking-tight">Alert Thresholds</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Tune the alert triggers that drive Product Health and daily triage.
-            </p>
-          </div>
-          <Button size="sm" onClick={savePreferences} disabled={isSavingPrefs}>
-            {isSavingPrefs ? "Saving..." : "Save thresholds"}
-          </Button>
-        </header>
-        <div className="grid gap-3 p-4 md:grid-cols-2">
-          {THRESHOLD_FIELDS.map((field) => (
-            <label key={field.key} className="rounded-lg border bg-background/40 p-3">
-              <span className="text-sm font-medium">{field.label}</span>
-              <span className="mt-1 block text-xs text-muted-foreground">{field.description}</span>
-              <div className="mt-3 flex items-center gap-2">
-                <Input
-                  type="number"
-                  value={thresholds[field.key]}
-                  onChange={(event) =>
-                    setThresholds((current) => ({
-                      ...current,
-                      [field.key]: Number(event.target.value),
-                    }))
-                  }
-                />
-                <span className="w-16 text-xs text-muted-foreground">{field.suffix}</span>
-              </div>
-            </label>
-          ))}
-        </div>
-      </section>
-
-      <section className="rounded-xl border bg-card">
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
-          <div>
-            <h2 className="text-sm font-semibold tracking-tight">Models</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Model choices are saved to preferences for the next routing pass.
-            </p>
-          </div>
-          <Button size="sm" variant="outline" onClick={savePreferences} disabled={isSavingPrefs}>
-            Save models
-          </Button>
-        </header>
-        <div className="grid gap-3 p-4 md:grid-cols-2">
-          <ModelSelect
-            label="Best Next Action"
-            value={models.best_next_action}
-            onChange={(value) => setModels((current) => ({ ...current, best_next_action: value }))}
-          />
-          <ModelSelect
-            label="Tell Claude / Goal to Plan"
-            value={models.tell_claude_goal_plan}
-            onChange={(value) => setModels((current) => ({ ...current, tell_claude_goal_plan: value }))}
-          />
         </div>
       </section>
 
@@ -1174,34 +1034,6 @@ function ServiceCard({
         ) : null}
       </div>
     </article>
-  );
-}
-
-function ModelSelect({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className="rounded-lg border bg-background/40 p-3">
-      <span className="text-sm font-medium">{label}</span>
-      <Select value={value} onValueChange={(next) => next && onChange(next)}>
-        <SelectTrigger className="mt-3">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {AVAILABLE_MODELS.map((model) => (
-            <SelectItem key={model} value={model}>
-              {model}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </label>
   );
 }
 

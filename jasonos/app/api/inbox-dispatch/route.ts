@@ -10,16 +10,14 @@
 //      for days the publisher didn't run. Served through a 15-minute cache so
 //      page loads stay cheap.
 //
-// ?refresh=1 (the card's Refresh button) and ?source=cron always recompute
-// live, bypassing both the published row and the cache. When CRON_SECRET is set
-// the cron path is gated (Vercel sends it as a Bearer token).
+// ?refresh=1 (the card's Refresh button) always recomputes live, bypassing
+// both the published row and the cache.
 //
 // Read-only: this route never creates or sends mail. The published row's
 // drafts were saved by the publisher, which holds that scope; nothing here does.
 
 import { NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
-import { isAuthorizedCronRequest } from "@/lib/auth/cron";
 import { computeInboxDispatch } from "@/lib/integrations/inbox-triage";
 import { getPublishedInboxDispatch } from "@/lib/data/inbox-dispatch";
 
@@ -34,14 +32,9 @@ const getCachedDispatch = unstable_cache(computeInboxDispatch, ["inbox-dispatch"
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const isCron = url.searchParams.get("source") === "cron";
-  const fresh = isCron || url.searchParams.get("refresh") === "1";
+  const fresh = url.searchParams.get("refresh") === "1";
 
-  if (isCron && !isAuthorizedCronRequest(req)) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
-  // Prefer the published dispatch on ordinary reads; refresh/cron force live.
+  // Prefer the published dispatch on ordinary reads; refresh forces live.
   if (!fresh) {
     const published = await getPublishedInboxDispatch();
     if (published) {

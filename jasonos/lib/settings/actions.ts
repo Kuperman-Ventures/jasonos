@@ -20,8 +20,6 @@ import {
   type BriefSectionFlags,
 } from "@/lib/outreach/relationship-brief";
 import {
-  DEFAULT_ALERT_THRESHOLDS,
-  DEFAULT_MODEL_PREFERENCES,
   SERVICE_DEFINITIONS,
   envStatus,
   getServiceDefinition,
@@ -48,24 +46,6 @@ export const SaveConnectionSchema = z.object({
   service_name: ServiceNameSchema,
   credentials: CredentialsSchema.optional(),
   disconnect: z.boolean().optional(),
-});
-
-export const SaveThresholdsSchema = z.object({
-  thresholds: z.object({
-    site_uptime_check_interval_minutes: z.coerce.number().min(1).max(1440),
-    email_reply_rate_drop_pct: z.coerce.number().min(0).max(100),
-    email_open_rate_drop_pct: z.coerce.number().min(0).max(100),
-    site_traffic_drop_pct: z.coerce.number().min(0).max(100),
-    trial_to_paid_drop_pct: z.coerce.number().min(0).max(100),
-    deal_stage_aging_days: z.coerce.number().min(1).max(365),
-    pipeline_reply_wait_days: z.coerce.number().min(1).max(60),
-  }),
-  models: z
-    .object({
-      best_next_action: z.string().min(1),
-      tell_claude_goal_plan: z.string().min(1),
-    })
-    .optional(),
 });
 
 export const SaveMeetingFollowupPromptSchema = z.object({
@@ -660,23 +640,6 @@ export async function healthCheckAll() {
     down: results.filter((result) => result.health_status === "down").length,
     checked_at: now,
   };
-}
-
-export async function saveUserSettings(input: z.infer<typeof SaveThresholdsSchema>) {
-  const { supabase, userId } = await getUserContext();
-  const thresholds = { ...DEFAULT_ALERT_THRESHOLDS, ...input.thresholds };
-  const models = { ...DEFAULT_MODEL_PREFERENCES, ...(input.models ?? {}) };
-  const { error } = await supabase.from("user_preferences").upsert(
-    {
-      user_id: userId,
-      alert_thresholds: thresholds,
-      model_preferences: models,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id" }
-  );
-  if (error) throw new Error(error.message);
-  return { thresholds, models };
 }
 
 export async function saveMeetingFollowupPrompt(

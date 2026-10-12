@@ -96,7 +96,7 @@ export function registerJasonosTools(server: McpServer) {
     "get_must_dos",
     {
       title: "Must-dos",
-      description: "Latest Best Next Action ranking plus the linked cards.",
+      description: "Open to-dos (soonest due first) and pinned open cards.",
       inputSchema: z.object({}),
       annotations: { readOnlyHint: true, openWorldHint: false },
     },

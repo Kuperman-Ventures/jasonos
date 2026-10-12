@@ -24,43 +24,6 @@ export interface ServiceDefinition {
   }>;
 }
 
-export interface AlertThresholds {
-  site_uptime_check_interval_minutes: number;
-  email_reply_rate_drop_pct: number;
-  email_open_rate_drop_pct: number;
-  site_traffic_drop_pct: number;
-  trial_to_paid_drop_pct: number;
-  deal_stage_aging_days: number;
-  pipeline_reply_wait_days: number;
-}
-
-export interface ModelPreferences {
-  best_next_action: string;
-  tell_claude_goal_plan: string;
-}
-
-export const DEFAULT_ALERT_THRESHOLDS: AlertThresholds = {
-  site_uptime_check_interval_minutes: 30,
-  email_reply_rate_drop_pct: 20,
-  email_open_rate_drop_pct: 15,
-  site_traffic_drop_pct: 25,
-  trial_to_paid_drop_pct: 10,
-  deal_stage_aging_days: 14,
-  pipeline_reply_wait_days: 7,
-};
-
-export const DEFAULT_MODEL_PREFERENCES: ModelPreferences = {
-  best_next_action: "anthropic/claude-opus-4-7",
-  tell_claude_goal_plan: "anthropic/claude-sonnet-4-6",
-};
-
-export const AVAILABLE_MODELS = [
-  "anthropic/claude-opus-4-7",
-  "anthropic/claude-sonnet-4-6",
-  "anthropic/claude-4-6-sonnet",
-  "anthropic/claude-haiku-4-5",
-];
-
 export const SERVICE_DEFINITIONS: ServiceDefinition[] = [
   {
     name: "supabase",

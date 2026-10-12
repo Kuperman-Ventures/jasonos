@@ -4,15 +4,19 @@ import { SentFollowupsClient } from "@/components/jasonos/outreach/sent-followup
 import { getGoogleConnectionStatus } from "@/lib/integrations/google-tokens";
 import { getOutlookConnectionStatus } from "@/lib/integrations/outlook-tokens";
 import { getOpenMeetingFollowups } from "@/lib/server-actions/meeting-followups";
-import { getSentEmailFollowups } from "@/lib/server-actions/sent-followups";
+import {
+  getDueSentEmailFollowups,
+  getSentEmailFollowups,
+} from "@/lib/server-actions/sent-followups";
 
 export const metadata = { title: "Outreach · Follow Up" };
 export const dynamic = "force-dynamic";
 
 export default async function OutreachFollowUpPage() {
-  const [meetingRows, sentRows, google, outlook] = await Promise.all([
+  const [meetingRows, sentRows, dueSentRows, google, outlook] = await Promise.all([
     getOpenMeetingFollowups(),
     getSentEmailFollowups(),
+    getDueSentEmailFollowups(),
     getGoogleConnectionStatus(),
     getOutlookConnectionStatus(),
   ]);
@@ -32,7 +36,11 @@ export default async function OutreachFollowUpPage() {
           rows={meetingRows}
           calendarConnected={calendarConnected}
         />
-        <SentFollowupsClient rows={sentRows} mailConnected={mailConnected} />
+        <SentFollowupsClient
+          rows={sentRows}
+          dueRows={dueSentRows}
+          mailConnected={mailConnected}
+        />
       </div>
     </Suspense>
   );
