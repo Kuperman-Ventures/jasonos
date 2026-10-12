@@ -2,10 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import {
+  approveEntry,
   listDecisions,
   listEntries,
   recordDecision,
   reopenDecision as reopenDecisionRow,
+  requestEntryChanges,
 } from "@/lib/fuck-you-batman/store";
 import type { FybDecision, FybEntry, FybEntryKind } from "@/lib/fuck-you-batman/types";
 
@@ -83,4 +85,16 @@ export async function chooseCustom(
 
 export async function reopenDecision(decisionKey: string): Promise<ActionResult> {
   return run(() => reopenDecisionRow(decisionKey));
+}
+
+export async function approveFybEntry(kind: FybEntryKind, entryKey: string): Promise<ActionResult> {
+  return run(() => approveEntry({ kind, entry_key: entryKey, actor: "jasonos" }));
+}
+
+export async function requestFybEntryChanges(
+  kind: FybEntryKind,
+  entryKey: string,
+  note: string
+): Promise<ActionResult> {
+  return run(() => requestEntryChanges({ kind, entry_key: entryKey, note, actor: "jasonos" }));
 }

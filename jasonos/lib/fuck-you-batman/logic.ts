@@ -1,15 +1,20 @@
 /**
- * Fuck You Batman: payload parsing and snapshot markdown.
+ * Fuck You Batman: payload parsing, snapshot markdown, and outline/drift checks.
  * No database or Next.js imports, so the MCP stdio process and tests can use it.
  */
 import { z } from "zod";
 import {
+  ENTRY_CARD_FIELDS,
   FYB_DECISION_STATUSES,
   FYB_ENTRY_KIND_LABEL,
   FYB_ENTRY_KINDS,
+  FYB_ENTRY_STATUSES,
+  FYB_SCENE_DRAFT_STATUSES,
+  type FybCheck,
   type FybDecision,
   type FybEntry,
   type FybEntryKind,
+  type FybEntryStatus,
   type FybOption,
 } from "./types";
 
@@ -19,6 +24,8 @@ const SLUG = /^[a-z0-9][a-z0-9-]{0,79}$/;
 const text = (max: number) => z.string().trim().max(max);
 const requiredText = (max: number, missing: string) =>
   z.string({ error: missing }).trim().min(1, missing).max(max);
+const chapterInt = (name: string) =>
+  z.number({ error: `${name} must be a number.` }).int().min(1, `${name} must be 1 or higher`);
 
 const OptionSchema = z.object({
   key: z.string().trim().regex(SLUG, "option key: lowercase letters, numbers, hyphens"),
@@ -67,18 +74,103 @@ const DecisionInputSchema = z
     }
   });
 
-const EntryInputSchema = z.object({
-  kind: z.enum(FYB_ENTRY_KINDS),
-  entry_key: z
+const CharacterDataSchema = z.object({
+  role: requiredText(200, "role is required."),
+  voice: requiredText(2000, "voice is required (how they talk)."),
+  first_chapter: chapterInt("first_chapter").optional(),
+});
+
+const TimelineDataSchema = z.object({
+  when: requiredText(300, "when is required (the label shown on the timeline)."),
+});
+
+const DriftStageDataSchema = z
+  .object({
+    stage_number: z.number({ error: "stage_number must be a number." }).int().min(1, "stage_number must be 1 or higher"),
+    name: requiredText(200, "name is required."),
+    chapter_from: chapterInt("chapter_from"),
+    chapter_to: chapterInt("chapter_to"),
+    reader_believes: requiredText(4000, "reader_believes is required."),
+    actually_true: requiredText(4000, "actually_true is required."),
+  })
+  .superRefine((value, ctx) => {
+    if (value.chapter_to < value.chapter_from) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["chapter_to"],
+        message: "chapter_to must be greater than or equal to chapter_from.",
+      });
+    }
+  });
+
+const DriftClueDataSchema = z.object({
+  stage_key: requiredText(80, "stage_key is required."),
+  chapter: chapterInt("chapter"),
+  example_line: text(2000).optional(),
+  what_it_hides: requiredText(4000, "what_it_hides is required."),
+});
+
+const DriftPatternDataSchema = z.object({
+  stage_key: requiredText(80, "stage_key is required."),
+  first_chapter: chapterInt("first_chapter"),
+  pattern: requiredText(2000, "pattern is required."),
+  example: text(2000).optional(),
+});
+
+const SceneDataSchema = z.object({
+  chapter: chapterInt("chapter"),
+  scene_number: chapterInt("scene_number"),
+  track: requiredText(200, "track is required (plot track name)."),
+  drift_stage_key: requiredText(80, "drift_stage_key is required."),
+  purpose: requiredText(2000, "purpose is required."),
+  what_happens: requiredText(8000, "what_happens is required."),
+  computer_reports: requiredText(8000, "computer_reports is required."),
+  actually_true: requiredText(8000, "actually_true is required."),
+  place_and_time: text(500).optional(),
+  word_target: z.number().int().min(1).optional(),
+  draft_status: z.enum(FYB_SCENE_DRAFT_STATUSES, {
+    error: "draft_status must be outlined, drafted, or revised.",
+  }),
+  doc_url: z
     .string()
     .trim()
-    .regex(SLUG, "entry_key: lowercase letters, numbers, hyphens"),
-  title: requiredText(300, "Title is required."),
-  body_md: text(100_000).optional(),
-  data: z.record(z.string(), z.unknown()).optional(),
-  links: z.array(text(160)).max(50).optional(),
-  sort_order: z.number().int().min(0).max(10_000).optional(),
+    .optional()
+    .refine((value) => !value || /^https:\/\//i.test(value), "doc_url must be an https link."),
 });
+
+const KIND_DATA_SCHEMA: Partial<Record<FybEntryKind, z.ZodType>> = {
+  bible_character: CharacterDataSchema,
+  bible_timeline: TimelineDataSchema,
+  drift_stage: DriftStageDataSchema,
+  drift_clue: DriftClueDataSchema,
+  drift_pattern: DriftPatternDataSchema,
+  scene: SceneDataSchema,
+};
+
+const EntryInputSchema = z
+  .object({
+    kind: z.enum(FYB_ENTRY_KINDS),
+    entry_key: z
+      .string()
+      .trim()
+      .regex(SLUG, "entry_key: lowercase letters, numbers, hyphens"),
+    title: requiredText(300, "Title is required."),
+    body_md: text(100_000).optional(),
+    data: z.record(z.string(), z.unknown()).optional(),
+    links: z.array(text(160)).max(50).optional(),
+    sort_order: z.number().int().min(0).max(10_000).optional(),
+  })
+  .superRefine((value, ctx) => {
+    const schema = KIND_DATA_SCHEMA[value.kind];
+    if (!schema) return;
+    const parsed = schema.safeParse(value.data ?? {});
+    if (parsed.success) return;
+    const first = parsed.error.issues[0];
+    const path = ["data", ...(first?.path ?? [])];
+    let message = first?.message ?? "invalid data";
+    if (/expected string, received undefined/i.test(message)) message = "this field is required.";
+    ctx.addIssue({ code: "custom", path, message });
+  });
 
 export type DecisionInput = z.infer<typeof DecisionInputSchema>;
 export type EntryInput = z.infer<typeof EntryInputSchema>;
@@ -177,6 +269,12 @@ export function asDecision(row: Record<string, unknown>): FybDecision {
   };
 }
 
+function asStatus(value: unknown): FybEntryStatus {
+  return (FYB_ENTRY_STATUSES as readonly string[]).includes(String(value))
+    ? (value as FybEntryStatus)
+    : "draft";
+}
+
 export function asEntry(row: Record<string, unknown>): FybEntry {
   const kind = FYB_ENTRY_KINDS.includes(row.kind as FybEntryKind)
     ? (row.kind as FybEntryKind)
@@ -193,13 +291,222 @@ export function asEntry(row: Record<string, unknown>): FybEntry {
     body_md: typeof row.body_md === "string" ? row.body_md : "",
     data,
     links: Array.isArray(row.links) ? row.links.map((item) => String(item)) : [],
-    status: row.status === "approved" ? "approved" : "draft",
+    status: asStatus(row.status),
     approved_at: typeof row.approved_at === "string" ? row.approved_at : null,
+    change_request: typeof row.change_request === "string" ? row.change_request : null,
+    change_requested_at: typeof row.change_requested_at === "string" ? row.change_requested_at : null,
     sort_order: Number(row.sort_order ?? 0),
     updated_by: typeof row.updated_by === "string" ? row.updated_by : "jasonos",
     created_at: String(row.created_at ?? ""),
     updated_at: String(row.updated_at ?? ""),
   };
+}
+
+export function intField(data: Record<string, unknown>, key: string): number | null {
+  const value = data[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+export function strField(data: Record<string, unknown>, key: string): string {
+  return typeof data[key] === "string" ? data[key].trim() : "";
+}
+
+export function stageNameByKey(entries: readonly FybEntry[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const entry of entries) {
+    if (entry.kind !== "drift_stage") continue;
+    map.set(entry.entry_key, strField(entry.data, "name") || entry.title);
+  }
+  return map;
+}
+
+export function dataFieldValue(
+  entry: FybEntry,
+  key: string,
+  names: Map<string, string> = new Map()
+): string {
+  if (key === "chapters") {
+    const from = intField(entry.data, "chapter_from");
+    const to = intField(entry.data, "chapter_to");
+    if (from == null) return "";
+    if (to == null || to === from) return String(from);
+    return `${from}-${to}`;
+  }
+  if (key === "drift_stage_key") {
+    const stageKey = strField(entry.data, "drift_stage_key");
+    return names.get(stageKey) || stageKey;
+  }
+  const value = entry.data[key];
+  if (value == null || value === "") return "";
+  return String(value);
+}
+
+export function entryDataRows(
+  entry: FybEntry,
+  names: Map<string, string> = new Map()
+): { label: string; value: string }[] {
+  const fields = ENTRY_CARD_FIELDS[entry.kind] ?? [];
+  return fields
+    .map((field) => ({ label: field.label, value: dataFieldValue(entry, field.key, names) }))
+    .filter((row) => row.value !== "");
+}
+
+type StageRow = {
+  entry: FybEntry;
+  number: number;
+  from: number;
+  to: number;
+};
+
+function stagesOf(entries: readonly FybEntry[]): StageRow[] {
+  return entries
+    .filter((e) => e.kind === "drift_stage")
+    .map((entry) => ({
+      entry,
+      number: intField(entry.data, "stage_number") ?? 0,
+      from: intField(entry.data, "chapter_from") ?? 0,
+      to: intField(entry.data, "chapter_to") ?? 0,
+    }))
+    .sort((a, b) => a.number - b.number || a.from - b.from);
+}
+
+function covering(stages: StageRow[], chapter: number): StageRow[] {
+  return stages.filter((stage) => chapter >= stage.from && chapter <= stage.to);
+}
+
+/** Drift Map coverage and escalation checks. */
+export function driftChecks(entries: readonly FybEntry[]): FybCheck[] {
+  const checks: FybCheck[] = [];
+  const stages = stagesOf(entries);
+  const clues = entries.filter((e) => e.kind === "drift_clue");
+  const patterns = entries.filter((e) => e.kind === "drift_pattern");
+  const keys = new Set(stages.map((s) => s.entry.entry_key));
+  const highest = stages.reduce((max, stage) => Math.max(max, stage.to), 0);
+
+  for (let chapter = 1; chapter <= highest; chapter += 1) {
+    const cover = covering(stages, chapter);
+    if (cover.length === 0) {
+      checks.push({ level: "problem", message: `Chapter ${chapter} has no drift stage.` });
+    } else if (cover.length > 1) {
+      checks.push({
+        level: "problem",
+        message: `Chapter ${chapter} is covered by more than one stage.`,
+      });
+    }
+  }
+
+  for (const stage of stages) {
+    const key = stage.entry.entry_key;
+    const stageClues = clues.filter((c) => strField(c.data, "stage_key") === key);
+    if (stageClues.length === 0) {
+      checks.push({ level: "warning", message: `Stage ${stage.number} has no clues.` });
+    }
+    if (stage.number > 1) {
+      const hasPattern = patterns.some((p) => {
+        if (strField(p.data, "stage_key") !== key) return false;
+        const first = intField(p.data, "first_chapter");
+        return first != null && first >= stage.from && first <= stage.to;
+      });
+      if (!hasPattern) {
+        checks.push({
+          level: "warning",
+          message: `Stage ${stage.number} adds no new machine pattern - escalation may read as flat`,
+        });
+      }
+    }
+  }
+
+  for (const clue of clues) {
+    const key = strField(clue.data, "stage_key");
+    if (key && !keys.has(key)) {
+      checks.push({
+        level: "problem",
+        message: `Clue "${clue.title}" points at unknown stage ${key}.`,
+      });
+    }
+  }
+  for (const pattern of patterns) {
+    const key = strField(pattern.data, "stage_key");
+    if (key && !keys.has(key)) {
+      checks.push({
+        level: "problem",
+        message: `Pattern "${pattern.title}" points at unknown stage ${key}.`,
+      });
+    }
+  }
+
+  return checks;
+}
+
+function sceneLabel(entry: FybEntry): string {
+  const chapter = intField(entry.data, "chapter");
+  const number = intField(entry.data, "scene_number");
+  if (chapter != null && number != null) return `Chapter ${chapter} scene ${number}`;
+  return entry.title;
+}
+
+/** Scene outline checks against the Drift Map. */
+export function outlineChecks(entries: readonly FybEntry[]): FybCheck[] {
+  const checks: FybCheck[] = [];
+  const stages = stagesOf(entries);
+  const byKey = new Map(stages.map((s) => [s.entry.entry_key, s]));
+  const scenes = entries.filter((e) => e.kind === "scene");
+  const highest = scenes.reduce((max, scene) => Math.max(max, intField(scene.data, "chapter") ?? 0), 0);
+
+  for (const scene of scenes) {
+    const chapter = intField(scene.data, "chapter");
+    const stageKey = strField(scene.data, "drift_stage_key");
+    const stage = byKey.get(stageKey);
+    if (!stage) {
+      checks.push({
+        level: "problem",
+        message: `${sceneLabel(scene)} points at unknown drift stage ${stageKey || "(none)"}.`,
+      });
+    } else if (chapter != null && (chapter < stage.from || chapter > stage.to)) {
+      checks.push({
+        level: "problem",
+        message: `${sceneLabel(scene)} sits outside its drift stage's chapter range.`,
+      });
+    }
+    if (!strField(scene.data, "computer_reports")) {
+      checks.push({
+        level: "problem",
+        message: `${sceneLabel(scene)} is missing computer_reports.`,
+      });
+    }
+    if (!strField(scene.data, "actually_true")) {
+      checks.push({
+        level: "problem",
+        message: `${sceneLabel(scene)} is missing actually_true.`,
+      });
+    }
+  }
+
+  const byChapter = new Map<number, FybEntry[]>();
+  for (const scene of scenes) {
+    const chapter = intField(scene.data, "chapter");
+    if (chapter == null) continue;
+    const list = byChapter.get(chapter) ?? [];
+    list.push(scene);
+    byChapter.set(chapter, list);
+  }
+
+  for (let chapter = 1; chapter <= highest; chapter += 1) {
+    const group = byChapter.get(chapter) ?? [];
+    if (group.length === 0) {
+      checks.push({ level: "problem", message: `Chapter ${chapter} has no scenes.` });
+      continue;
+    }
+    const tracks = new Set(group.map((s) => strField(s.data, "track")).filter(Boolean));
+    if (tracks.size === 1) {
+      checks.push({
+        level: "warning",
+        message: `Chapter ${chapter} runs a single plot track`,
+      });
+    }
+  }
+
+  return checks;
 }
 
 /** One markdown document: decided, then open, then entries grouped by kind. */
@@ -212,6 +519,7 @@ export function buildSnapshotMarkdown(decisions: readonly FybDecision[], entries
     .filter((d) => d.status === "open")
     .slice()
     .sort((a, b) => a.week - b.week || a.sort_order - b.sort_order);
+  const names = stageNameByKey(entries);
 
   const lines: string[] = ["# Fuck You Batman snapshot", ""];
 
@@ -233,7 +541,7 @@ export function buildSnapshotMarkdown(decisions: readonly FybDecision[], entries
   } else {
     lines.push("");
     for (const d of open) {
-      lines.push(`- **${d.decision_key}** (week ${d.week}, phase ${d.phase}) — ${d.question}`);
+      lines.push(`- **${d.decision_key}** (week ${d.week}, phase ${d.phase}) - ${d.question}`);
     }
   }
 
@@ -246,6 +554,12 @@ export function buildSnapshotMarkdown(decisions: readonly FybDecision[], entries
     lines.push("", `## ${FYB_ENTRY_KIND_LABEL[kind]}`);
     for (const entry of group) {
       lines.push("", `### ${entry.title} (${entry.status})`);
+      for (const row of entryDataRows(entry, names)) {
+        lines.push(`- ${row.label}: ${row.value}`);
+      }
+      if (entry.change_request?.trim()) {
+        lines.push(`- Change request: ${entry.change_request.trim()}`);
+      }
       if (entry.body_md.trim()) {
         lines.push("", entry.body_md.trim());
       }

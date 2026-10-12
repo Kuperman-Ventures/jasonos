@@ -5,6 +5,7 @@ import {
   approveEntry,
   getSnapshot,
   recordDecision,
+  requestEntryChanges,
   upsertDecision,
   upsertEntry,
 } from "../fuck-you-batman/store";
@@ -17,6 +18,7 @@ export const FYB_TOOL_NAMES = [
   "record_fyb_decision",
   "upsert_fyb_entry",
   "approve_fyb_entry",
+  "request_fyb_entry_changes",
 ] as const;
 
 const kindEnum = z.enum(FYB_ENTRY_KINDS);
@@ -77,7 +79,7 @@ export function registerFybTools(server: McpServer) {
     {
       title: "Publish a Fuck You Batman entry",
       description:
-        "Create or update one story entry (reference, bible, drift, or scene). Does not approve it. entry_json is a JSON object: { kind, entry_key, title, body_md?, data?: object, links?: string[] (kind:entry_key), sort_order? }. HTTP fallback: POST https://jasonos.vercel.app/api/fyb { action: 'upsert_entry', payload }.",
+        "Create or update one story entry. Saving always sets status to draft and clears any change_request, so call get_fyb_state first and read change_request before revising. Does not approve it. entry_json: { kind, entry_key, title, body_md?, data?, links?: string[] (kind:entry_key), sort_order? }. data by kind: reference / bible_world / bible_rule free-form; bible_character { role, voice, first_chapter? }; bible_timeline { when }; drift_stage { stage_number, name, chapter_from, chapter_to, reader_believes, actually_true }; drift_clue { stage_key, chapter, example_line?, what_it_hides }; drift_pattern { stage_key, first_chapter, pattern, example? }; scene { chapter, scene_number, track, drift_stage_key, purpose, what_happens, computer_reports, actually_true, place_and_time?, word_target?, draft_status: outlined|drafted|revised, doc_url? (https only) }. HTTP fallback: POST https://jasonos.vercel.app/api/fyb { action: 'upsert_entry', payload }.",
       inputSchema: z.object({
         entry_json: z.string().min(2).max(200_000),
       }),
@@ -99,5 +101,21 @@ export function registerFybTools(server: McpServer) {
       annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
     },
     async (args) => runTool(() => approveEntry({ ...args, actor: "claude" }))
+  );
+
+  server.registerTool(
+    "request_fyb_entry_changes",
+    {
+      title: "Request Fuck You Batman entry changes",
+      description:
+        "Mark one story entry changes_requested with Jason's note. Only call this when Jason has asked for changes in this chat. kind and entry_key come from get_fyb_state. note is required.",
+      inputSchema: z.object({
+        kind: kindEnum,
+        entry_key: z.string().min(1).max(80),
+        note: z.string().min(1).max(8000),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false },
+    },
+    async (args) => runTool(() => requestEntryChanges({ ...args, actor: "claude" }))
   );
 }

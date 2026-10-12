@@ -7,6 +7,9 @@ import { cn } from "@/lib/utils";
 const LINKS = [
   { href: "/projects/fuck-you-batman", label: "Overview", exact: true },
   { href: "/projects/fuck-you-batman/decisions", label: "Decisions", exact: false },
+  { href: "/projects/fuck-you-batman/bible", label: "Story Bible", exact: false },
+  { href: "/projects/fuck-you-batman/drift", label: "Drift Map", exact: false },
+  { href: "/projects/fuck-you-batman/scenes", label: "Scenes", exact: false },
   { href: "/projects/fuck-you-batman/reference", label: "Reference", exact: false },
 ] as const;
 

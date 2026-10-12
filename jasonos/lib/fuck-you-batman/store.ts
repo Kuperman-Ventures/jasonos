@@ -22,7 +22,7 @@ import type {
 const DECISION_COLS =
   "id,decision_key,week,phase,question,context,options,status,chosen_option_key,custom_answer,jason_note,decided_at,decided_by,sort_order,created_at,updated_at";
 const ENTRY_COLS =
-  "id,kind,entry_key,title,body_md,data,links,status,approved_at,sort_order,updated_by,created_at,updated_at";
+  "id,kind,entry_key,title,body_md,data,links,status,approved_at,change_request,change_requested_at,sort_order,updated_by,created_at,updated_at";
 
 function fail(error: { message: string }): never {
   throw new Error(error.message);
@@ -179,6 +179,10 @@ export async function upsertEntry(
     data: input.data ?? {},
     links: input.links ?? [],
     sort_order: input.sort_order ?? 0,
+    status: "draft",
+    approved_at: null,
+    change_request: null,
+    change_requested_at: null,
     updated_by: actor,
   };
   const { data, error } = await jasonosDb()
@@ -202,6 +206,35 @@ export async function approveEntry(input: {
     .update({
       status: "approved",
       approved_at: new Date().toISOString(),
+      change_request: null,
+      change_requested_at: null,
+      updated_by: input.actor,
+    })
+    .eq("kind", input.kind)
+    .eq("entry_key", entry_key)
+    .select(ENTRY_COLS)
+    .maybeSingle();
+  if (error) fail(error);
+  if (!data) throw new Error(`No ${input.kind} entry with key "${entry_key}".`);
+  return { ok: true, entry: asEntry(data as Record<string, unknown>) };
+}
+
+export async function requestEntryChanges(input: {
+  kind: FybEntryKind;
+  entry_key: string;
+  note: string;
+  actor: FybActor;
+}): Promise<{ ok: true; entry: FybEntry }> {
+  const entry_key = input.entry_key.trim();
+  const note = input.note.trim();
+  if (!entry_key) throw new Error("entry_key is required.");
+  if (!note) throw new Error("Write the change you want.");
+  const { data, error } = await jasonosDb()
+    .from("fyb_entries")
+    .update({
+      status: "changes_requested",
+      change_request: note,
+      change_requested_at: new Date().toISOString(),
       updated_by: input.actor,
     })
     .eq("kind", input.kind)

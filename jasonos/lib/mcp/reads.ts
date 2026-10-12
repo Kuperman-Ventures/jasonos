@@ -54,6 +54,7 @@ export function listJasonosAreas() {
           "record_fyb_decision",
           "upsert_fyb_entry",
           "approve_fyb_entry",
+          "request_fyb_entry_changes",
         ],
       },
       { area: "outreach", tools: ["get_outreach_queue", "list_outreach_people", "get_contact", "list_suggested_contacts"] },

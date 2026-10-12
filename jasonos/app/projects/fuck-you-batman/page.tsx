@@ -3,7 +3,8 @@ import { format } from "date-fns";
 import { chosenAnswerLabel } from "@/lib/fuck-you-batman/logic";
 import { PHASES, TOTAL_WEEKS, currentPhase, isPhaseDone, weekNumber } from "@/lib/fuck-you-batman/plan";
 import { getFybStatus } from "@/lib/fuck-you-batman/status";
-import { loadFybDecisions } from "@/lib/server-actions/fuck-you-batman";
+import { FYB_BIBLE_KINDS, FYB_DRIFT_KINDS, FYB_SCENE_KINDS, type FybEntry, type FybEntryKind } from "@/lib/fuck-you-batman/types";
+import { loadFybDecisions, loadFybEntries } from "@/lib/server-actions/fuck-you-batman";
 
 export const metadata = {
   title: "Fuck You Batman · JasonOS",
@@ -24,6 +25,38 @@ const CADENCE = [
   { when: "Every 4 weeks", what: "Jason reads the month's chapters in one sitting." },
 ];
 
+function WaitingCounts({
+  href,
+  label,
+  counts,
+}: {
+  href: string;
+  label: string;
+  counts: { draft: number; changes: number };
+}) {
+  const parts: string[] = [];
+  if (counts.draft) parts.push(`${counts.draft} draft${counts.draft === 1 ? "" : "s"}`);
+  if (counts.changes) {
+    parts.push(`${counts.changes} change${counts.changes === 1 ? "" : "s"} requested`);
+  }
+  if (!parts.length) return null;
+  return (
+    <li>
+      <Link href={href} className="underline">
+        {label}: {parts.join(", ")}
+      </Link>
+    </li>
+  );
+}
+
+function reviewCounts(entries: FybEntry[], kinds: FybEntryKind[]) {
+  const subset = entries.filter((entry) => kinds.includes(entry.kind));
+  return {
+    draft: subset.filter((entry) => entry.status === "draft").length,
+    changes: subset.filter((entry) => entry.status === "changes_requested").length,
+  };
+}
+
 function formatDate(iso: string): string {
   return new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", {
     month: "short",
@@ -37,12 +70,19 @@ export default async function FuckYouBatmanPage() {
   const current = currentPhase(week);
   const statusLabel =
     week < 1 ? "Starts Monday, Oct 12, 2026" : current ? `Week ${week} of ${TOTAL_WEEKS}` : "Plan complete";
-  const [{ openTodos, doneTodos, openCards }, decisions] = await Promise.all([
+  const [{ openTodos, doneTodos, openCards }, decisions, entries] = await Promise.all([
     getFybStatus(),
     loadFybDecisions(),
+    loadFybEntries(),
   ]);
   const hasOpenItems = openCards.length > 0 || openTodos.length > 0;
   const dueThisWeek = decisions.filter((d) => d.status === "open" && d.week === week);
+  const bibleCounts = reviewCounts(entries, FYB_BIBLE_KINDS);
+  const driftCounts = reviewCounts(entries, FYB_DRIFT_KINDS);
+  const sceneCounts = reviewCounts(entries, FYB_SCENE_KINDS);
+  const waitingEmpty =
+    dueThisWeek.length === 0 &&
+    bibleCounts.draft + bibleCounts.changes + driftCounts.draft + driftCounts.changes + sceneCounts.draft + sceneCounts.changes === 0;
   const decided = decisions
     .filter((d) => d.status === "decided")
     .slice()
@@ -88,19 +128,22 @@ export default async function FuckYouBatmanPage() {
 
       <section className="rounded-xl border bg-card p-4">
         <h2 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-          Decisions due this week
+          Waiting on you
         </h2>
-        {dueThisWeek.length === 0 ? (
-          <p className="mt-1 text-sm text-foreground/80">No open decisions for this week.</p>
+        {waitingEmpty ? (
+          <p className="mt-1 text-sm text-foreground/80">Nothing waiting on you.</p>
         ) : (
-          <ul className="mt-2 space-y-2">
+          <ul className="mt-2 space-y-2 text-sm">
             {dueThisWeek.map((decision) => (
               <li key={decision.id}>
-                <Link href="/projects/fuck-you-batman/decisions" className="text-sm underline">
+                <Link href="/projects/fuck-you-batman/decisions" className="underline">
                   {decision.question}
                 </Link>
               </li>
             ))}
+            <WaitingCounts href="/projects/fuck-you-batman/bible" label="Story Bible" counts={bibleCounts} />
+            <WaitingCounts href="/projects/fuck-you-batman/drift" label="Drift Map" counts={driftCounts} />
+            <WaitingCounts href="/projects/fuck-you-batman/scenes" label="Scenes" counts={sceneCounts} />
           </ul>
         )}
       </section>
