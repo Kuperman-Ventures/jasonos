@@ -27,76 +27,98 @@ export const maxDuration = 300;
 
 const DAYS_BACK = 7;
 
+type StepPayload = Record<string, unknown> & {
+  ok: boolean;
+  error?: string;
+  unavailable?: boolean;
+};
+
+function asStep(result: object): StepPayload {
+  return { ...(result as Record<string, unknown>), ok: Boolean((result as { ok?: unknown }).ok) };
+}
+
 async function runDailySync() {
   const runId = crypto.randomUUID();
   const targets = await listSyncTargets();
 
-  const jobs: Array<{ step: string; run: () => Promise<Record<string, unknown>> }> = [
+  const jobs: Array<{ step: string; run: () => Promise<StepPayload> }> = [
     ...(targets.gmailAccounts.length > 0
       ? targets.gmailAccounts.map((account) => ({
           step: `gmail:${account.email}`,
-          run: () =>
-            syncOutreachFromGmail({
-              daysBack: DAYS_BACK,
-              runId,
-              accountEmail: account.email,
-            }) as Promise<Record<string, unknown>>,
+          run: async () =>
+            asStep(
+              await syncOutreachFromGmail({
+                daysBack: DAYS_BACK,
+                runId,
+                accountEmail: account.email,
+              })
+            ),
         }))
       : [
           {
             step: "gmail",
-            run: () =>
-              syncOutreachFromGmail({
-                daysBack: DAYS_BACK,
-                runId,
-              }) as Promise<Record<string, unknown>>,
+            run: async () =>
+              asStep(
+                await syncOutreachFromGmail({
+                  daysBack: DAYS_BACK,
+                  runId,
+                })
+              ),
           },
         ]),
     ...(targets.outlook
       ? [
           {
             step: "outlook",
-            run: () =>
-              syncOutreachFromOutlook({
-                daysBack: DAYS_BACK,
-                runId,
-              }) as Promise<Record<string, unknown>>,
+            run: async () =>
+              asStep(
+                await syncOutreachFromOutlook({
+                  daysBack: DAYS_BACK,
+                  runId,
+                })
+              ),
           },
         ]
       : []),
     {
       step: "calendar",
-      run: () =>
-        syncOutreachFromCalendar({
-          daysBack: DAYS_BACK,
-          daysForward: SUGGESTED_SCAN_DAYS_FORWARD,
-          runId,
-        }) as Promise<Record<string, unknown>>,
+      run: async () =>
+        asStep(
+          await syncOutreachFromCalendar({
+            daysBack: DAYS_BACK,
+            daysForward: SUGGESTED_SCAN_DAYS_FORWARD,
+            runId,
+          })
+        ),
     },
     {
       step: "beeper",
-      run: () => syncOutreachFromBeeper({ runId }) as Promise<Record<string, unknown>>,
+      run: async () => asStep(await syncOutreachFromBeeper({ runId })),
     },
     {
       step: "suggested",
-      run: () =>
-        captureEmailCandidates({
-          days: DAYS_BACK,
-          max: 250,
-          runId,
-        }) as Promise<Record<string, unknown>>,
+      run: async () =>
+        asStep(
+          await captureEmailCandidates({
+            days: DAYS_BACK,
+            max: 250,
+            runId,
+          })
+        ),
     },
     {
       step: "meeting-followups",
-      run: () => captureMeetingFollowups({ runId }) as Promise<Record<string, unknown>>,
+      run: async () => asStep(await captureMeetingFollowups({ runId })),
     },
     {
       step: "sent-followups",
-      run: () =>
-        captureSentEmailFollowups({
-          daysBack: DAYS_BACK,
-          runId,
-        }) as Promise<Record<string, unknown>>,
+      run: async () =>
+        asStep(
+          await captureSentEmailFollowups({
+            daysBack: DAYS_BACK,
+            runId,
+          })
+        ),
     },
   ];
 
@@ -108,7 +130,7 @@ async function runDailySync() {
     }
     return {
       step,
-      ok: false,
+      ok: false as const,
       error:
         result.reason instanceof Error
           ? result.reason.message
@@ -121,9 +143,7 @@ async function runDailySync() {
   revalidatePath("/outreach/sent");
 
   return {
-    ok: steps.every(
-      (step) => step.ok === true || step.unavailable === true
-    ),
+    ok: steps.every((step) => step.ok || Boolean(step.unavailable)),
     runId,
     steps,
   };
