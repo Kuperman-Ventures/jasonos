@@ -58,7 +58,7 @@ export function HomeClient({
 }: {
   data: HomeData;
   children?: React.ReactNode;
-  /** Rendered after Due This Week / Overdue (page bottom). */
+  /** Rendered after Networking Due this Week / Networking Overdue (page bottom). */
   bottom?: React.ReactNode;
 }) {
   const [target, setTarget] = useState<ModalMode | null>(null);
@@ -274,7 +274,7 @@ export function HomeClient({
 
       <CollapsibleHomeBand
         storageKey="jasonos.due-this-week.collapsed"
-        label="Due This Week"
+        label="Networking Due this Week"
         rung={2}
         icon={<Clock className="h-5 w-5" />}
         count={data.dueThisWeek.length}
@@ -300,7 +300,7 @@ export function HomeClient({
 
       <CollapsibleHomeBand
         storageKey="jasonos.overdue.collapsed"
-        label="Overdue"
+        label="Networking Overdue"
         rung={1}
         icon={<AlertCircle className="h-5 w-5" />}
         count={data.overdue.length}
