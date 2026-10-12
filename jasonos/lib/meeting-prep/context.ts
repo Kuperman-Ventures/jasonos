@@ -2,6 +2,11 @@ import "server-only";
 
 import { parseResearchBrief } from "@/lib/ai/research-brief";
 import { findHandoffResumeSource } from "@/lib/browning-networking/run";
+import {
+  hasResumeFile,
+  resumeAttachmentLabel,
+  type ResumeHandoffRow,
+} from "@/lib/browning-networking/resume-source";
 import { searchGranolaForContact } from "@/lib/integrations/granola";
 import { normalizeIntroWish } from "@/lib/outreach/intro-email";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -23,7 +28,7 @@ import {
 } from "@/lib/meeting-prep/context-model";
 
 const HANDOFF_COLUMNS =
-  "id, subject, received_at, source_kind, contact_title, contact_company, linkedin_url, why_they_replied, brief, meeting_brief, gmail_account, gmail_thread_id, resume_message_id, resume_filename, call_event_id, existing_contact_id, created_contact_id, contact_email";
+  "id, subject, received_at, source_kind, contact_title, contact_company, linkedin_url, why_they_replied, brief, meeting_brief, gmail_account, gmail_message_id, gmail_thread_id, resume_message_id, resume_filename, call_event_id, existing_contact_id, created_contact_id, contact_email";
 
 const TOUCH_COLUMNS =
   "id, contact_id, channel, source, direction, touched_at, subject, brief, outcome, thread_url";
@@ -40,6 +45,7 @@ interface HandoffRow {
   brief: unknown;
   meeting_brief: string | null;
   gmail_account: string | null;
+  gmail_message_id: string | null;
   gmail_thread_id: string | null;
   resume_message_id: string | null;
   resume_filename: string | null;
@@ -193,27 +199,50 @@ function toConnection(row: HandoffRow): MeetingContextConnection {
     questions: brief.questions,
     meetingBrief: text(row.meeting_brief),
     emailUrl: account && threadId ? gmailThreadUrl(account, threadId) : null,
-    attachmentLabel: text(row.resume_filename) || "Resume",
+    attachmentLabel: null,
+    attachmentUrl: null,
   };
 }
 
-async function resumeDocuments(handoffs: HandoffRow[]): Promise<MeetingContext["documents"]> {
+/** Word/PDF on the intro or a separate Tracy resume packet — show even without stored filename. */
+async function attachResumeFiles(
+  handoffs: HandoffRow[],
+  connections: MeetingContextConnection[]
+): Promise<{
+  connections: MeetingContextConnection[];
+  documents: MeetingContext["documents"];
+}> {
   const documents: MeetingContext["documents"] = [];
-  const seen = new Set<string>();
-  for (const row of handoffs) {
+  const sourceByContact = new Map<string, ResumeHandoffRow | null>();
+  const next = connections.map((connection) => ({ ...connection }));
+  for (let i = 0; i < handoffs.length; i++) {
+    const row = handoffs[i];
     const contactId = text(row.existing_contact_id) || text(row.created_contact_id);
-    if (!contactId || seen.has(contactId)) continue;
-    seen.add(contactId);
-    const source = await findHandoffResumeSource(contactId);
-    const filename = source?.resume_filename?.trim();
-    if (!filename) continue;
-    documents.push({
-      id: row.id,
-      label: filename,
-      url: `/api/browning-networking/resume?contactId=${encodeURIComponent(contactId)}`,
-    });
+    if (!contactId) continue;
+    if (!sourceByContact.has(contactId)) {
+      sourceByContact.set(contactId, await findHandoffResumeSource(contactId));
+    }
+    const source = sourceByContact.get(contactId) ?? null;
+    const fromRow: ResumeHandoffRow = {
+      gmail_account: row.gmail_account,
+      gmail_message_id: row.gmail_message_id,
+      gmail_thread_id: row.gmail_thread_id,
+      resume_message_id: row.resume_message_id,
+      resume_filename: row.resume_filename,
+      contact_name: null,
+    };
+    const resume =
+      (source && hasResumeFile(source) ? source : null) ||
+      (hasResumeFile(fromRow) ? fromRow : null);
+    if (!resume) continue;
+    const label = resumeAttachmentLabel(resume.resume_filename ?? row.resume_filename);
+    const url = `/api/browning-networking/resume?contactId=${encodeURIComponent(contactId)}`;
+    next[i] = { ...next[i], attachmentLabel: label, attachmentUrl: url };
+    if (!documents.some((doc) => doc.url === url)) {
+      documents.push({ id: row.id, label, url });
+    }
   }
-  return documents;
+  return { connections: next, documents };
 }
 
 type Db = ReturnType<typeof createServiceRoleClient>;
@@ -371,7 +400,10 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
   );
 
   const handoffs = matchedHandoffs(handoffRows, eventId, attendees);
-  const connections = handoffs.map(toConnection);
+  const { connections, documents } = await attachResumeFiles(
+    handoffs,
+    handoffs.map(toConnection)
+  );
 
   const { data: contactRows, error: contactError } = contactIds.length
     ? await sb
@@ -630,7 +662,7 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
     unmatched,
     connections,
     history: groupCommunicationHistory(touchRows),
-    documents: await resumeDocuments(handoffs),
+    documents,
     pastMeetings,
     jobSearch: [
       ...((interviews?.data ?? []) as Record<string, unknown>[]).map((row) => ({

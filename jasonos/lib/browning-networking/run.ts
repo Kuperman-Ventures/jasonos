@@ -26,7 +26,7 @@ import { searchGranolaForContact } from "@/lib/integrations/granola";
 import { canonicalEmail } from "@/lib/outreach/contact-lookup";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { findBookedCall, type CalendarGuestEvent } from "./booking";
-import { pickResumeHandoff, type ResumeHandoffRow } from "./resume-source";
+import { hasResumeFile, pickResumeHandoff, type ResumeHandoffRow } from "./resume-source";
 import {
   planDuplicateDismissals,
   type DedupeHandoff,
@@ -723,7 +723,7 @@ export async function findHandoffResumeSource(contactId: string): Promise<Resume
     .order("received_at", { ascending: false });
   if (error) return null;
   const linked = (data ?? []) as ResumeHandoffRow[];
-  if (linked.some((row) => row.resume_filename)) return pickResumeHandoff(linked, []);
+  if (linked.some((row) => hasResumeFile(row))) return pickResumeHandoff(linked, []);
 
   let name = linked.find((row) => row.contact_name?.trim())?.contact_name?.trim() ?? null;
   if (!name) {
@@ -732,11 +732,13 @@ export async function findHandoffResumeSource(contactId: string): Promise<Resume
   }
   if (!name) return null;
 
+  // Prefer rows that already stored a filename; also allow resume_message_id
+  // so we can still fetch the Word/PDF from Gmail/Outlook.
   const named = await sb
     .from("browning_handoffs")
     .select(RESUME_HANDOFF_COLUMNS)
     .eq("contact_name", name)
-    .not("resume_filename", "is", null)
+    .or("resume_filename.not.is.null,resume_message_id.not.is.null")
     .order("received_at", { ascending: false })
     .limit(5);
   if (named.error) return null;
@@ -750,10 +752,14 @@ export async function downloadHandoffResume(contactId: string): Promise<{
   const data = await findHandoffResumeSource(contactId);
   if (!data?.gmail_account) return null;
   const messageId = data.resume_message_id || data.gmail_message_id;
-  if (!messageId) return null;
   const threadId = data.gmail_thread_id || null;
+  // Filename may be missing; scan the resume message and/or the whole thread
+  // for Word (.doc/.docx) or PDF attachments Tracy sent with the intro.
+  if (!messageId && !threadId) return null;
   const file = /@(outlook|hotmail|live)\.com$/i.test(data.gmail_account)
-    ? await outlookResume(messageId)
+    ? messageId
+      ? await outlookResume(messageId)
+      : null
     : await gmailResume(data.gmail_account, messageId, data.contact_name, threadId);
   return file;
 }
@@ -766,7 +772,7 @@ async function outlookResume(messageId: string, contactName?: string | null) {
 
 async function gmailResume(
   accountEmail: string,
-  messageId: string,
+  messageId: string | null,
   contactName?: string | null,
   threadId?: string | null
 ) {
@@ -778,7 +784,8 @@ async function gmailResume(
     return isPersonalGmailAccount(stored) && isPersonalGmailAccount(wanted);
   })?.token;
   if (!token) return null;
-  const messageIds = [messageId];
+  const messageIds: string[] = [];
+  if (messageId) messageIds.push(messageId);
   const thread = threadId ? await getGmailThread(threadId, token) : null;
   for (const message of thread?.messages ?? []) {
     if (message.id && !messageIds.includes(message.id)) messageIds.push(message.id);
