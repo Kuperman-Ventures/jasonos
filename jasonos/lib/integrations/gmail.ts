@@ -277,6 +277,49 @@ export async function listGmailDraftMessageIds(
   return messages.map((message) => message.id);
 }
 
+export type GmailMessageLabelsResult =
+  | { status: "ok"; labelIds: string[] }
+  | { status: "missing" }
+  | { status: "error"; message: string };
+
+/**
+ * Read labels for one message. 404 → missing (discarded draft / deleted).
+ * Used to scrub Engaged Today when a draft autosave left an orphan touch.
+ */
+export async function getGmailMessageLabels(
+  messageId: string,
+  accessToken: string
+): Promise<GmailMessageLabelsResult> {
+  const id = messageId.trim();
+  if (!id || !/^[a-zA-Z0-9]+$/.test(id)) {
+    return { status: "error", message: "invalid message id" };
+  }
+  try {
+    const res = await fetch(
+      `${GMAIL_BASE}/users/me/messages/${encodeURIComponent(id)}?format=metadata&metadataHeaders=From`,
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: "no-store",
+      }
+    );
+    if (res.status === 404) return { status: "missing" };
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      return {
+        status: "error",
+        message: `Gmail ${res.status}: ${txt.slice(0, 120)}`,
+      };
+    }
+    const body = (await res.json()) as { labelIds?: string[] };
+    return { status: "ok", labelIds: body.labelIds ?? [] };
+  } catch (err) {
+    return {
+      status: "error",
+      message: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
 async function listMessageIds(
   access: string,
   query: string,

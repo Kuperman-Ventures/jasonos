@@ -9,9 +9,22 @@ import {
   createPublicServiceRoleClient,
   createServiceRoleClient,
 } from "@/lib/supabase/server";
-import { listGmailDraftMessageIds } from "@/lib/integrations/gmail";
-import { gmailTouchExternalIdMatches } from "@/lib/integrations/gmail-labels";
-import { listGoogleAccessTokens } from "@/lib/integrations/google-tokens";
+import {
+  getGmailMessageLabels,
+  listGmailDraftMessageIds,
+} from "@/lib/integrations/gmail";
+import {
+  gmailTouchExternalIdMatches,
+  gmailTouchMailboxKind,
+  parseGmailTouchMessageId,
+  shouldCountGmailMessageForTouch,
+} from "@/lib/integrations/gmail-labels";
+import {
+  GOOGLE_ADVISORS,
+  GOOGLE_GMAIL,
+  listGoogleAccessTokens,
+  type GoogleAccessToken,
+} from "@/lib/integrations/google-tokens";
 import { etYmd } from "@/lib/dates";
 import {
   CADENCE_DAYS,
@@ -415,8 +428,9 @@ async function purgeUnsentGmailTouchesNow(
     if (/^[a-zA-Z0-9]+$/.test(id)) ids.add(id);
   }
   let listed = true;
+  let tokens: GoogleAccessToken[] = [];
   try {
-    const tokens = await listGoogleAccessTokens();
+    tokens = await listGoogleAccessTokens();
     for (const { token } of tokens) {
       try {
         const drafts = await listGmailDraftMessageIds(token);
@@ -432,11 +446,21 @@ async function purgeUnsentGmailTouchesNow(
     listed = false;
     console.error("[touches.purgeDrafts] gmail list failed", err);
   }
-  if (!ids.size) return { removed: 0, listed };
 
   const sb = createServiceRoleClient();
   const contactIds = new Set<string>();
   let removed = 0;
+
+  // Draft autosaves rotate message ids. An older touch can point at a
+  // discarded draft that is no longer in drafts.list — re-check recent
+  // outbound Gmail rows against live labels so Engaged Today drops them.
+  if (tokens.length) {
+    const verified = await collectUnsentRecentGmailTouchIds(sb, tokens);
+    for (const id of verified) ids.add(id);
+  }
+
+  if (!ids.size) return { removed: 0, listed };
+
   const idList = [...ids];
 
   for (let i = 0; i < idList.length; i += 8) {
@@ -477,8 +501,7 @@ async function purgeUnsentGmailTouchesNow(
       }
     }
 
-    // Sent Today reads rr_touches, which sync can write without a
-    // contact_touches row. Drop draft matches there too.
+    // Sent Today / Engaged Today also read rr_touches.
     try {
       const pub = createPublicServiceRoleClient();
       await pub.from("rr_touches").delete().eq("source", "gmail").or(or);
@@ -489,6 +512,100 @@ async function purgeUnsentGmailTouchesNow(
 
   await Promise.all([...contactIds].map((id) => restampContactTouchState(id)));
   return { removed, listed };
+}
+
+const RECENT_TOUCH_VERIFY_MS = 48 * 60 * 60 * 1000;
+
+/**
+ * Find message ids for recent outbound Gmail touches that should not count:
+ * still a draft, never landed in Sent, or the message was discarded (404)
+ * after a draft autosave rotated the id.
+ */
+async function collectUnsentRecentGmailTouchIds(
+  sb: ReturnType<typeof createServiceRoleClient>,
+  tokens: GoogleAccessToken[]
+): Promise<string[]> {
+  const since = new Date(Date.now() - RECENT_TOUCH_VERIFY_MS).toISOString();
+  const { data, error } = await sb
+    .from("contact_touches")
+    .select("id,external_id")
+    .eq("source", "gmail")
+    .eq("channel", "email")
+    .eq("direction", "outbound")
+    .gte("touched_at", since)
+    .limit(200);
+  if (error) {
+    console.error("[touches.purgeDrafts] recent read", error.message);
+    return [];
+  }
+
+  const byMessage = new Map<
+    string,
+    { externalIds: string[]; mailbox: "advisors" | "personal" }
+  >();
+  for (const row of data ?? []) {
+    const externalId = row.external_id as string | null;
+    const messageId = parseGmailTouchMessageId(externalId);
+    if (!messageId) continue;
+    const existing = byMessage.get(messageId);
+    if (existing) {
+      if (externalId) existing.externalIds.push(externalId);
+    } else {
+      byMessage.set(messageId, {
+        externalIds: externalId ? [externalId] : [],
+        mailbox: gmailTouchMailboxKind(externalId),
+      });
+    }
+  }
+  if (!byMessage.size) return [];
+
+  const dropIds: string[] = [];
+  for (const [messageId, meta] of byMessage) {
+    const verdict = await classifyRecentGmailTouch(
+      messageId,
+      meta.mailbox,
+      tokens
+    );
+    if (verdict === "drop") dropIds.push(messageId);
+  }
+  return dropIds;
+}
+
+async function classifyRecentGmailTouch(
+  messageId: string,
+  mailbox: "advisors" | "personal",
+  tokens: GoogleAccessToken[]
+): Promise<"keep" | "drop" | "unknown"> {
+  const preferredProvider =
+    mailbox === "personal" ? GOOGLE_GMAIL : GOOGLE_ADVISORS;
+  const ordered = [
+    ...tokens.filter((t) => t.provider === preferredProvider),
+    ...tokens.filter((t) => t.provider !== preferredProvider),
+  ];
+  if (!ordered.length) return "unknown";
+
+  let preferredMissing = false;
+  for (const account of ordered) {
+    const result = await getGmailMessageLabels(messageId, account.token);
+    if (result.status === "ok") {
+      return shouldCountGmailMessageForTouch({
+        labelIds: result.labelIds,
+        fromMe: true,
+      })
+        ? "keep"
+        : "drop";
+    }
+    if (result.status === "missing") {
+      if (account.provider === preferredProvider) preferredMissing = true;
+      continue;
+    }
+    // Auth / rate-limit errors: do not guess.
+    return "unknown";
+  }
+
+  // Gone from the mailbox that owns this id encoding (discarded draft).
+  if (preferredMissing) return "drop";
+  return "unknown";
 }
 
 /**

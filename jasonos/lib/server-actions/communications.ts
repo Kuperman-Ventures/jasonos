@@ -10,6 +10,7 @@ import {
   searchGmailThreads,
   getGmailThread,
   isGmailConnected,
+  listGmailDraftMessageIds,
 } from "@/lib/integrations/gmail";
 import {
   GMAIL_EXCLUDE_DRAFTS_QUERY,
@@ -795,6 +796,14 @@ export async function syncSentToday(): Promise<SyncSentTodayResult> {
   try {
     const mailboxTokens = await listGoogleAccessTokens();
     for (const { provider, token } of mailboxTokens) {
+      const openDraftIds = new Set<string>();
+      try {
+        for (const id of await listGmailDraftMessageIds(token)) {
+          openDraftIds.add(id);
+        }
+      } catch (err) {
+        console.error("[communications] draft list failed", err);
+      }
       const sent = await searchGmailThreads({
         query: `in:sent ${GMAIL_EXCLUDE_DRAFTS_QUERY} after:${todayEpoch}`,
         pageSize: 50,
@@ -816,6 +825,7 @@ export async function syncSentToday(): Promise<SyncSentTodayResult> {
         for (const m of full.messages) {
           // Only my outbound messages sent today (fixed: must have from header AND be from me)
           if (!m.from || !isFromMe(m.from)) continue;
+          if (m.id && openDraftIds.has(m.id)) continue;
           if (
             !shouldCountGmailMessageForTouch({
               labelIds: m.labelIds,

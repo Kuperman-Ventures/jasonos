@@ -3,8 +3,10 @@ import { describe, it } from "node:test";
 import {
   GMAIL_EXCLUDE_DRAFTS_QUERY,
   gmailTouchExternalIdMatches,
+  gmailTouchMailboxKind,
   isGmailDraftMessage,
   isGmailSentMessage,
+  parseGmailTouchMessageId,
   shouldCountGmailMessageForTouch,
 } from "./gmail-labels.ts";
 
@@ -104,6 +106,29 @@ describe("gmailTouchExternalIdMatches", () => {
     );
     assert.equal(gmailTouchExternalIdMatches("gmail:other", "abc123"), false);
     assert.equal(gmailTouchExternalIdMatches("abc123::contact", "abc123"), true);
+  });
+});
+
+describe("parseGmailTouchMessageId", () => {
+  it("reads bare Advisors ids and gmail: personal ids", () => {
+    assert.equal(parseGmailTouchMessageId("1a1318bdf1a574da"), "1a1318bdf1a574da");
+    assert.equal(
+      parseGmailTouchMessageId("gmail:1a1318bdf1a574da"),
+      "1a1318bdf1a574da"
+    );
+    assert.equal(
+      parseGmailTouchMessageId("gmail:1a1318bdf1a574da::contact-id"),
+      "1a1318bdf1a574da"
+    );
+    assert.equal(parseGmailTouchMessageId("1a1318bdf1a574da::x"), "1a1318bdf1a574da");
+    assert.equal(parseGmailTouchMessageId("beeper:xyz"), null);
+  });
+});
+
+describe("gmailTouchMailboxKind", () => {
+  it("maps id encoding to Advisors vs personal mailbox", () => {
+    assert.equal(gmailTouchMailboxKind("1a1318bdf1a574da"), "advisors");
+    assert.equal(gmailTouchMailboxKind("gmail:1a1318bdf1a574da"), "personal");
   });
 });
 
