@@ -44,7 +44,7 @@ export function CommitmentCheckPanel({
   error: string | null;
 }) {
   const router = useRouter();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
   const [busyKey, setBusyKey] = useState<string | null>(null);
 
@@ -52,17 +52,13 @@ export function CommitmentCheckPanel({
   const overdue = items.filter((i) => i.section === "overdue").length;
 
   useEffect(() => {
-    if (items.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setCollapsed(false);
-      return;
-    }
     try {
-      if (window.localStorage.getItem(STORAGE_KEY) === "1") setCollapsed(true);
+      // Default collapsed; only expand if Jason previously chose open.
+      if (window.localStorage.getItem(STORAGE_KEY) === "0") setCollapsed(false);
     } catch {
       // private mode / quota
     }
-  }, [items.length]);
+  }, []);
 
   const toggleCollapsed = () => {
     setCollapsed((prev) => {
