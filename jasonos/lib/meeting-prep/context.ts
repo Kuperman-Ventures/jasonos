@@ -2,9 +2,13 @@ import "server-only";
 
 import { parseResearchBrief } from "@/lib/ai/research-brief";
 import { findHandoffResumeSource } from "@/lib/browning-networking/run";
+import { searchGranolaForContact } from "@/lib/integrations/granola";
 import { normalizeIntroWish } from "@/lib/outreach/intro-email";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { gatherGmailHistory } from "@/lib/server-actions/draft-from-history";
+import { getRelationshipBrief } from "@/lib/server-actions/relationship-brief";
 import {
+  composeMeetingBrief,
   gmailThreadUrl,
   groupCommunicationHistory,
   summarizeHome,
@@ -12,15 +16,17 @@ import {
   type HomeContextMeeting,
   type MeetingContext,
   type MeetingContextConnection,
+  type MeetingContextGranolaNote,
   type MeetingContextPerson,
+  type MeetingContextRecentEmail,
   type MeetingHomeContext,
 } from "@/lib/meeting-prep/context-model";
 
 const HANDOFF_COLUMNS =
-  "id, subject, received_at, source_kind, contact_title, contact_company, linkedin_url, why_they_replied, brief, gmail_account, gmail_thread_id, resume_message_id, resume_filename, call_event_id, existing_contact_id, created_contact_id, contact_email";
+  "id, subject, received_at, source_kind, contact_title, contact_company, linkedin_url, why_they_replied, brief, meeting_brief, gmail_account, gmail_thread_id, resume_message_id, resume_filename, call_event_id, existing_contact_id, created_contact_id, contact_email";
 
 const TOUCH_COLUMNS =
-  "id, contact_id, channel, source, direction, touched_at, subject, brief, thread_url";
+  "id, contact_id, channel, source, direction, touched_at, subject, brief, outcome, thread_url";
 
 interface HandoffRow {
   id: string;
@@ -32,6 +38,7 @@ interface HandoffRow {
   linkedin_url: string | null;
   why_they_replied: string | null;
   brief: unknown;
+  meeting_brief: string | null;
   gmail_account: string | null;
   gmail_thread_id: string | null;
   resume_message_id: string | null;
@@ -67,16 +74,24 @@ function briefFields(value: unknown): {
   who: string | null;
   why: string | null;
   overlap: string | null;
+  questions: string[];
 } {
   if (!value || typeof value !== "object") {
-    return { ask: null, who: null, why: null, overlap: null };
+    return { ask: null, who: null, why: null, overlap: null, questions: [] };
   }
   const row = value as Record<string, unknown>;
+  const questions = Array.isArray(row.questions)
+    ? row.questions
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
   return {
     ask: text(row.ask),
     who: text(row.who),
     why: text(row.why),
     overlap: text(row.overlap),
+    questions,
   };
 }
 
@@ -98,6 +113,12 @@ function asAttendees(value: unknown): PrepAttendee[] {
 }
 
 function toTouch(row: Record<string, unknown>): HistoryTouch {
+  const brief = text(row.brief);
+  const outcome = text(row.outcome);
+  const combined =
+    brief && outcome && !brief.includes(outcome)
+      ? `${brief} · ${outcome}`
+      : brief || outcome;
   return {
     id: String(row.id),
     contactId: String(row.contact_id),
@@ -106,7 +127,7 @@ function toTouch(row: Record<string, unknown>): HistoryTouch {
     direction: text(row.direction),
     touchedAt: text(row.touched_at) ?? "",
     subject: text(row.subject),
-    brief: text(row.brief),
+    brief: combined,
     threadUrl: text(row.thread_url),
   };
 }
@@ -169,6 +190,8 @@ function toConnection(row: HandoffRow): MeetingContextConnection {
     who: brief.who,
     why: brief.why,
     overlap: brief.overlap,
+    questions: brief.questions,
+    meetingBrief: text(row.meeting_brief),
     emailUrl: account && threadId ? gmailThreadUrl(account, threadId) : null,
     attachmentLabel: text(row.resume_filename) || "Resume",
   };
@@ -289,7 +312,7 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
   const sb = createServiceRoleClient();
   const { data: prep, error: prepError } = await sb
     .from("meeting_preps")
-    .select("id, gcal_event_id, attendees")
+    .select("id, gcal_event_id, attendees, title, starts_at")
     .eq("id", id)
     .maybeSingle();
   if (prepError) throw new Error(prepError.message);
@@ -297,6 +320,8 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
 
   const attendees = asAttendees(prep.attendees);
   const eventId = text(prep.gcal_event_id) ?? "";
+  const meetingTitle = text(prep.title);
+  const startsAt = text(prep.starts_at);
   const contactIds = [
     ...new Set(
       attendees.map((attendee) => attendee.contactId).filter((value): value is string => Boolean(value))
@@ -304,32 +329,46 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
   ];
   const emails = attendees.map((attendee) => attendee.email);
 
-  const [touchRows, handoffRows, meetingRows, followupGroups] = await Promise.all([
-    fetchTouches(sb, contactIds),
-    fetchHandoffs(sb, eventId ? [eventId] : [], contactIds, emails),
-    contactIds.length
-      ? sb
-          .from("meetings")
-          .select(
-            "id, contact_id, scheduled_at, gcal_event_id, debrief_notes, next_step, prep_notes, intro_wishlist, granola_url"
-          )
-          .in("contact_id", contactIds)
-          .order("scheduled_at", { ascending: false })
-      : Promise.resolve({ data: [], error: null }),
-    Promise.all(
-      emails.map((email) =>
-        sb
-          .from("meeting_followups")
-          .select("id, gcal_event_id, title, starts_at, granola_summary, granola_url")
-          // Pass JSON text. An array of objects is sent as "{[object Object]}" and Postgres rejects it.
-          .contains("attendees", JSON.stringify([{ email }]))
-      )
-    ),
-  ]);
+  const [touchRows, handoffRows, meetingRows, followupGroups, relationshipBriefs] =
+    await Promise.all([
+      fetchTouches(sb, contactIds),
+      fetchHandoffs(sb, eventId ? [eventId] : [], contactIds, emails),
+      contactIds.length
+        ? sb
+            .from("meetings")
+            .select(
+              "id, contact_id, scheduled_at, gcal_event_id, debrief_notes, next_step, prep_notes, prep_goal, prep_short_ask, prep_research, intro_wishlist, granola_url"
+            )
+            .in("contact_id", contactIds)
+            .order("scheduled_at", { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
+      Promise.all(
+        emails.map((email) =>
+          sb
+            .from("meeting_followups")
+            .select("id, gcal_event_id, title, starts_at, granola_summary, granola_url")
+            // Pass JSON text. An array of objects is sent as "{[object Object]}" and Postgres rejects it.
+            .contains("attendees", JSON.stringify([{ email }]))
+        )
+      ),
+      Promise.all(
+        contactIds.map(async (contactId) => {
+          try {
+            const result = await getRelationshipBrief(contactId);
+            return { contactId, brief: result.brief };
+          } catch {
+            return { contactId, brief: null };
+          }
+        })
+      ),
+    ]);
   if (meetingRows.error) throw new Error(meetingRows.error.message);
   for (const group of followupGroups) {
     if (group.error) throw new Error(group.error.message);
   }
+  const briefsByContact = new Map(
+    relationshipBriefs.map((row) => [row.contactId, row.brief] as const)
+  );
 
   const handoffs = matchedHandoffs(handoffRows, eventId, attendees);
   const connections = handoffs.map(toConnection);
@@ -338,7 +377,7 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
     ? await sb
         .from("contacts")
         .select(
-          "id, name, title, linkedin_url, relationship_type, intent, network_role, notes, personal_goal, phone, referred_by_contact_id, research_brief, browning_prep, companies(name)"
+          "id, name, title, linkedin_url, relationship_type, intent, network_role, notes, personal_goal, phone, referred_by_contact_id, research_brief, browning_prep, emails, companies(name)"
         )
         .in("id", contactIds)
     : { data: [], error: null };
@@ -377,6 +416,15 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
     );
     if (company) companyNames.push(company);
     const referrerId = text(row.referred_by_contact_id);
+    const relBrief = briefsByContact.get(contactId);
+    const openCommitments = (relBrief?.commitments ?? [])
+      .filter((item) => item.status !== "done")
+      .map((item) => ({
+        text: item.text,
+        direction: item.direction,
+        status: item.status,
+        due: item.due ?? null,
+      }));
     contactsById.set(contactId, {
       contactId,
       email: attendee?.email ?? "",
@@ -395,6 +443,12 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
       researchBullets: research.empty ? [] : research.bullets,
       researchEmpty: research.empty,
       browningPrep: text(row.browning_prep),
+      openCommitments,
+      remember: (relBrief?.remember ?? []).map((item) => item.text),
+      helped: (relBrief?.helped ?? []).map((item) => item.text),
+      topics: (relBrief?.topics ?? []).map((item) => item.text),
+      nextMove: relBrief?.nextMove?.text ?? null,
+      relationshipSummary: relBrief?.summary ?? null,
     });
   }
 
@@ -436,12 +490,15 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
     .map((row) => ({
       id: String(row.id),
       when: text(row.scheduled_at),
-      title: null,
+      title: text(row.prep_goal),
       debriefNotes: text(row.debrief_notes),
       nextStep: text(row.next_step),
       prepNotes: text(row.prep_notes),
+      prepGoal: text(row.prep_goal),
+      prepShortAsk: text(row.prep_short_ask),
+      prepResearch: text(row.prep_research),
       introAsks: introAsks(row.intro_wishlist),
-      granolaSummary: null,
+      granolaSummary: null as string | null,
       granolaUrl: text(row.granola_url),
     }));
 
@@ -460,7 +517,10 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
           debriefNotes: null,
           nextStep: null,
           prepNotes: null,
-          introAsks: [],
+          prepGoal: null,
+          prepShortAsk: null,
+          prepResearch: null,
+          introAsks: [] as string[],
           granolaSummary: text(row.granola_summary),
           granolaUrl: text(row.granola_url),
         },
@@ -471,6 +531,99 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
   const pastMeetings = [...pastFromMeetings, ...pastFromFollowups].sort(
     (a, b) => Date.parse(b.when ?? "") - Date.parse(a.when ?? "")
   );
+
+  // Live Granola for this calendar event + a recent note with the primary person.
+  const primaryPerson = people[0];
+  const granolaNotes: MeetingContextGranolaNote[] = [];
+  if (primaryPerson || attendees[0]) {
+    const name = primaryPerson?.name || attendees[0]?.name || attendees[0]?.email || "";
+    const emailList = [
+      ...new Set(
+        [
+          primaryPerson?.email,
+          ...attendees.map((attendee) => attendee.email),
+        ].filter((value): value is string => Boolean(value))
+      ),
+    ];
+    try {
+      const granola = await searchGranolaForContact({
+        contactName: name,
+        email: emailList[0] ?? null,
+        emails: emailList,
+        aroundIso: startsAt,
+        calendarEventId: eventId || null,
+        meetingTitle,
+      });
+      if (granola.found && granola.summary) {
+        const meeting = granola.meetings?.[0];
+        granolaNotes.push({
+          id: meeting?.id || `granola-${eventId || primaryPerson?.contactId || "note"}`,
+          title: meeting?.title ?? meetingTitle,
+          summary: granola.summary,
+          url: granola.url ?? meeting?.notesUrl ?? null,
+          when: meeting?.endedAt ?? startsAt,
+          kind: "this_meeting",
+        });
+      }
+    } catch {
+      // Granola is optional; prep still works without it.
+    }
+  }
+
+  // One recent Gmail thread preview for the primary contact (bodies, not just touch snippets).
+  let recentEmail: MeetingContextRecentEmail | null = null;
+  if (primaryPerson) {
+    const contactRow = (contactRows ?? []).find(
+      (row) => String((row as { id: string }).id) === primaryPerson.contactId
+    ) as { emails?: unknown } | undefined;
+    const contactEmails = Array.isArray(contactRow?.emails)
+      ? contactRow.emails.filter((item): item is string => typeof item === "string")
+      : [];
+    const emailSet = [
+      ...new Set(
+        [primaryPerson.email, ...contactEmails]
+          .map((value) => value.trim().toLowerCase())
+          .filter((value) => value.includes("@"))
+      ),
+    ];
+    if (emailSet.length) {
+      try {
+        const gmail = await gatherGmailHistory(
+          {
+            id: primaryPerson.contactId,
+            name: primaryPerson.name,
+            emails: emailSet,
+            linkedin_url: primaryPerson.linkedinUrl,
+            title: primaryPerson.title,
+            intent: null,
+            personal_goal: primaryPerson.personalGoal,
+            last_touch_date: null,
+            source_ids: {},
+            tags: [],
+            firm: primaryPerson.company,
+            specialty: null,
+            recruiterStrategicNotes: null,
+            recruiterScores: null,
+            hubspotContactId: null,
+            primaryEmail: emailSet[0] ?? null,
+          },
+          { depth: "preview" }
+        );
+        if (gmail.found && (gmail.summary || gmail.fullMostRecentBody)) {
+          recentEmail = {
+            subject: null,
+            summary: (gmail.summary || gmail.fullMostRecentBody || "").slice(0, 1200),
+            threadUrl: gmail.threadUrl ?? null,
+            personName: primaryPerson.name,
+          };
+        }
+      } catch {
+        // Mail preview is best-effort.
+      }
+    }
+  }
+
+  const brief = composeMeetingBrief({ people, connections });
 
   return {
     people,
@@ -496,5 +649,8 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
       })),
     ],
     home: summarizeHome(touchRows, connections.length > 0),
+    brief,
+    granolaNotes,
+    recentEmail,
   };
 }
