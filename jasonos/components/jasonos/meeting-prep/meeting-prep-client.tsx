@@ -185,6 +185,40 @@ function PersonCard({ person }: { person: MeetingContextPerson }) {
           ) : null}
         </Fact>
       ) : null}
+      {person.relationshipSummary ? (
+        <Fact label="Relationship">
+          <Prose className="whitespace-pre-wrap" text={person.relationshipSummary} />
+        </Fact>
+      ) : null}
+      {person.openCommitments.length ? (
+        <Fact label="Open commitments">
+          <ul className="list-disc space-y-1 pl-5">
+            {person.openCommitments.map((item) => (
+              <li key={`${item.text}-${item.status}`}>
+                {item.direction === "mine" ? "You: " : "Them: "}
+                {item.text}
+                {item.due ? ` · due ${item.due}` : ""}
+                {item.status !== "open" ? ` · ${item.status}` : ""}
+              </li>
+            ))}
+          </ul>
+        </Fact>
+      ) : null}
+      {person.remember.length ? (
+        <Fact label="Remember">
+          <ul className="list-disc space-y-1 pl-5">
+            {person.remember.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        </Fact>
+      ) : null}
+      {person.topics.length ? (
+        <Fact label="Topics">
+          <p>{person.topics.join(" · ")}</p>
+        </Fact>
+      ) : null}
+      {person.nextMove ? <Fact label="Suggested next move">{person.nextMove}</Fact> : null}
     </article>
   );
 }
@@ -229,6 +263,20 @@ function ConnectionCard({ connection }: { connection: MeetingContextConnection }
         ) : null}
         {connection.who ? <Fact label="Who">{connection.who}</Fact> : null}
         {showWhy ? <Fact label="Why">{connection.why}</Fact> : null}
+        {connection.meetingBrief ? (
+          <Fact label="Call brief">
+            <Prose className="whitespace-pre-wrap" text={connection.meetingBrief} />
+          </Fact>
+        ) : null}
+        {connection.questions.length ? (
+          <Fact label="Questions Tracy suggested">
+            <ul className="list-disc space-y-1 pl-5">
+              {connection.questions.map((question) => (
+                <li key={question}>{question}</li>
+              ))}
+            </ul>
+          </Fact>
+        ) : null}
       </div>
     </article>
   );
@@ -313,9 +361,100 @@ export function MeetingPrepClient({
       </header>
 
       <Section title="Brief">
-        <p className="rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
-          The brief is added in the next update.
-        </p>
+        {context.brief.summary ||
+        context.brief.nextMove ||
+        context.brief.commitments.length ||
+        context.brief.remember.length ||
+        context.brief.helped.length ||
+        context.brief.topics.length ||
+        context.granolaNotes.length ||
+        context.recentEmail ? (
+          <div className="space-y-4 rounded-lg border bg-card px-4 py-4">
+            {context.brief.summary ? (
+              <Fact label="Where things stand">
+                <Prose className="whitespace-pre-wrap" text={context.brief.summary} />
+              </Fact>
+            ) : null}
+            {context.brief.nextMove ? (
+              <Fact label="Suggested next move">{context.brief.nextMove}</Fact>
+            ) : null}
+            {context.brief.commitments.length ? (
+              <Fact label="Open commitments">
+                <ul className="list-disc space-y-1 pl-5">
+                  {context.brief.commitments.map((item) => (
+                    <li key={`${item.personName}-${item.text}`}>
+                      <span className="font-medium">{item.personName}</span>
+                      {" · "}
+                      {item.direction === "mine" ? "You: " : "Them: "}
+                      {item.text}
+                      {item.due ? ` · due ${item.due}` : ""}
+                    </li>
+                  ))}
+                </ul>
+              </Fact>
+            ) : null}
+            {context.brief.remember.length ? (
+              <Fact label="Remember">
+                <ul className="list-disc space-y-1 pl-5">
+                  {context.brief.remember.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              </Fact>
+            ) : null}
+            {context.brief.helped.length ? (
+              <Fact label="How you've helped">
+                <ul className="list-disc space-y-1 pl-5">
+                  {context.brief.helped.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              </Fact>
+            ) : null}
+            {context.brief.topics.length ? (
+              <Fact label="Topics in play">
+                <p>{context.brief.topics.join(" · ")}</p>
+              </Fact>
+            ) : null}
+            {context.granolaNotes.map((note) => (
+              <Fact
+                key={note.id}
+                label={note.kind === "this_meeting" ? "Granola for this meeting" : "Recent Granola"}
+              >
+                <p className="whitespace-pre-wrap">{note.summary}</p>
+                {note.url ? (
+                  <p className="mt-1">
+                    <ExternalLink href={note.url}>Open in Granola</ExternalLink>
+                  </p>
+                ) : null}
+              </Fact>
+            ))}
+            {context.recentEmail ? (
+              <Fact label={`Recent email with ${context.recentEmail.personName}`}>
+                <p className="whitespace-pre-wrap text-muted-foreground">
+                  {context.recentEmail.summary}
+                </p>
+                {context.recentEmail.threadUrl ? (
+                  <p className="mt-1">
+                    <ExternalLink href={context.recentEmail.threadUrl}>Open thread</ExternalLink>
+                  </p>
+                ) : null}
+              </Fact>
+            ) : null}
+            {context.brief.provenance.length ? (
+              <p className="text-[11px] text-muted-foreground">
+                Pulled from {context.brief.provenance.join(" · ")}
+                {context.granolaNotes.length ? " · Granola" : ""}
+                {context.recentEmail ? " · Gmail" : ""}.
+              </p>
+            ) : null}
+          </div>
+        ) : (
+          <p className="rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
+            No relationship brief, Granola note, or recent email yet for these attendees.
+            Add them as contacts and sync, or generate a relationship brief on their People card.
+          </p>
+        )}
       </Section>
 
       <Section title="How You Are Connected">
@@ -448,9 +587,18 @@ export function MeetingPrepClient({
                   </Fact>
                 ) : null}
                 {meeting.nextStep ? <Fact label="Next step">{meeting.nextStep}</Fact> : null}
+                {meeting.prepGoal && meeting.prepGoal !== meeting.title ? (
+                  <Fact label="Goal">{meeting.prepGoal}</Fact>
+                ) : null}
+                {meeting.prepShortAsk ? <Fact label="Short ask">{meeting.prepShortAsk}</Fact> : null}
                 {meeting.prepNotes ? (
                   <Fact label="Prep notes">
                     <p className="whitespace-pre-wrap">{meeting.prepNotes}</p>
+                  </Fact>
+                ) : null}
+                {meeting.prepResearch ? (
+                  <Fact label="Prep research">
+                    <p className="whitespace-pre-wrap">{meeting.prepResearch}</p>
                   </Fact>
                 ) : null}
                 {meeting.introAsks.length ? (

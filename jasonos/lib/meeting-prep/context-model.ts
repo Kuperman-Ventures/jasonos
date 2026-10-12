@@ -286,6 +286,18 @@ export interface MeetingContextPerson {
   researchBullets: string[];
   researchEmpty: boolean;
   browningPrep: string | null;
+  /** Open / overdue / awaiting commitments from the relationship brief. */
+  openCommitments: Array<{
+    text: string;
+    direction: "mine" | "theirs";
+    status: string;
+    due: string | null;
+  }>;
+  remember: string[];
+  helped: string[];
+  topics: string[];
+  nextMove: string | null;
+  relationshipSummary: string | null;
 }
 
 export interface MeetingContextConnection {
@@ -297,6 +309,8 @@ export interface MeetingContextConnection {
   who: string | null;
   why: string | null;
   overlap: string | null;
+  questions: string[];
+  meetingBrief: string | null;
   emailUrl: string | null;
   attachmentLabel: string;
 }
@@ -314,9 +328,46 @@ export interface MeetingContextPast {
   debriefNotes: string | null;
   nextStep: string | null;
   prepNotes: string | null;
+  prepGoal: string | null;
+  prepShortAsk: string | null;
+  prepResearch: string | null;
   introAsks: string[];
   granolaSummary: string | null;
   granolaUrl: string | null;
+}
+
+export interface MeetingContextGranolaNote {
+  id: string;
+  title: string | null;
+  summary: string;
+  url: string | null;
+  when: string | null;
+  kind: "this_meeting" | "recent";
+}
+
+export interface MeetingContextBrief {
+  /** One or two paragraphs assembled from JasonOS sources. */
+  summary: string | null;
+  nextMove: string | null;
+  commitments: Array<{
+    text: string;
+    direction: "mine" | "theirs";
+    status: string;
+    due: string | null;
+    personName: string;
+  }>;
+  remember: string[];
+  helped: string[];
+  topics: string[];
+  /** Where the brief bits came from. */
+  provenance: string[];
+}
+
+export interface MeetingContextRecentEmail {
+  subject: string | null;
+  summary: string;
+  threadUrl: string | null;
+  personName: string;
 }
 
 export interface MeetingContextJob {
@@ -341,6 +392,70 @@ export interface MeetingContext {
   pastMeetings: MeetingContextPast[];
   jobSearch: MeetingContextJob[];
   home: MeetingHomeContext;
+  brief: MeetingContextBrief;
+  granolaNotes: MeetingContextGranolaNote[];
+  recentEmail: MeetingContextRecentEmail | null;
+}
+
+/** Build the Brief strip from people + Browning connection already loaded. */
+export function composeMeetingBrief(input: {
+  people: MeetingContextPerson[];
+  connections: MeetingContextConnection[];
+}): MeetingContextBrief {
+  const provenance: string[] = [];
+  const commitments: MeetingContextBrief["commitments"] = [];
+  const remember: string[] = [];
+  const helped: string[] = [];
+  const topics: string[] = [];
+  const summaryParts: string[] = [];
+  let nextMove: string | null = null;
+
+  for (const person of input.people) {
+    if (person.relationshipSummary) {
+      summaryParts.push(person.relationshipSummary);
+      provenance.push(`Relationship brief · ${person.name}`);
+    }
+    if (!nextMove && person.nextMove) nextMove = person.nextMove;
+    for (const item of person.openCommitments) {
+      commitments.push({ ...item, personName: person.name });
+    }
+    for (const line of person.remember) {
+      if (!remember.includes(line)) remember.push(line);
+    }
+    for (const line of person.helped) {
+      if (!helped.includes(line)) helped.push(line);
+    }
+    for (const line of person.topics) {
+      if (!topics.includes(line)) topics.push(line);
+    }
+  }
+
+  const connection = input.connections[0];
+  if (connection?.ask && !summaryParts.length) {
+    summaryParts.push(connection.ask);
+    provenance.push("Browning introduction");
+  } else if (connection?.ask) {
+    provenance.push("Browning introduction");
+  }
+  if (connection?.meetingBrief) {
+    summaryParts.push(connection.meetingBrief);
+    if (!provenance.includes("Browning call brief")) {
+      provenance.push("Browning call brief");
+    }
+  }
+
+  if (commitments.length) provenance.push("Open commitments");
+  if (remember.length) provenance.push("Remember");
+
+  return {
+    summary: summaryParts.length ? summaryParts.join("\n\n") : null,
+    nextMove,
+    commitments,
+    remember: remember.slice(0, 6),
+    helped: helped.slice(0, 4),
+    topics: topics.slice(0, 6),
+    provenance: [...new Set(provenance)],
+  };
 }
 
 export interface HomeContextMeeting {

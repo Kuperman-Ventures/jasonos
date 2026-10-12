@@ -1,12 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  composeMeetingBrief,
   gmailThreadUrl,
   groupCommunicationHistory,
   linkify,
   meetingContextLine,
   repairGmailUrl,
   type HistoryTouch,
+  type MeetingContextConnection,
+  type MeetingContextPerson,
 } from "./context-model.ts";
 
 const GMAIL = "https://mail.google.com/mail/u/jason%40kupermanadvisors.com/#all/1a11264b966d935c";
@@ -108,5 +111,62 @@ describe("meetingContextLine", () => {
       ),
       "No history in JasonOS."
     );
+  });
+});
+
+describe("composeMeetingBrief", () => {
+  it("pulls relationship summary, commitments, and Browning ask into one brief", () => {
+    const people = [
+      {
+        contactId: "c1",
+        email: "a@b.com",
+        name: "Alex",
+        title: null,
+        company: null,
+        linkedinUrl: null,
+        relationshipType: null,
+        intent: null,
+        networkRole: null,
+        notes: null,
+        personalGoal: null,
+        phone: null,
+        referredByName: null,
+        researchLead: null,
+        researchBullets: [],
+        researchEmpty: true,
+        browningPrep: null,
+        openCommitments: [
+          { text: "Send intro to Sam", direction: "mine" as const, status: "open", due: "2026-10-15" },
+        ],
+        remember: ["Kid just started college"],
+        helped: ["Warm intro to Tracy"],
+        topics: ["search"],
+        nextMove: "Confirm times this week",
+        relationshipSummary: "Alex replied after Tracy's intro and wants a short call.",
+      },
+    ] satisfies MeetingContextPerson[];
+    const connections = [
+      {
+        id: "h1",
+        subject: "Intro",
+        receivedAt: null,
+        whyTheyReplied: null,
+        ask: "Find mutual overlap",
+        who: null,
+        why: null,
+        overlap: null,
+        questions: ["What are you hunting?"],
+        meetingBrief: null,
+        emailUrl: null,
+        attachmentLabel: "Resume",
+      },
+    ] satisfies MeetingContextConnection[];
+    const brief = composeMeetingBrief({ people, connections });
+    assert.match(brief.summary ?? "", /Alex replied/);
+    assert.equal(brief.nextMove, "Confirm times this week");
+    assert.equal(brief.commitments.length, 1);
+    assert.equal(brief.remember[0], "Kid just started college");
+    assert.ok(brief.provenance.includes("Relationship brief · Alex"));
+    assert.ok(brief.provenance.includes("Browning introduction"));
   });
 });
