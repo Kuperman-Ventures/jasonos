@@ -242,6 +242,13 @@ function ConnectionCard({ connection }: { connection: MeetingContextConnection }
             )}
           </p>
         ) : null}
+        {connection.attachmentUrl ? (
+          <p className="text-sm">
+            <ExternalLink href={connection.attachmentUrl}>
+              {connection.attachmentLabel || "Attached resume (Word or PDF)"}
+            </ExternalLink>
+          </p>
+        ) : null}
       </div>
       {connection.ask || connection.overlap ? (
         <div className="grid gap-3 sm:grid-cols-2">

@@ -193,7 +193,7 @@ export function emailThreadKey(touch: {
 }
 
 export function attachmentLabel(filename: string | null | undefined): string {
-  return collapseText(filename) || "Attachment on the introduction email";
+  return collapseText(filename) || "Attached resume (Word or PDF)";
 }
 
 /** Counts Home prints under a meeting title. */
@@ -312,7 +312,9 @@ export interface MeetingContextConnection {
   questions: string[];
   meetingBrief: string | null;
   emailUrl: string | null;
-  attachmentLabel: string;
+  /** Word/PDF Tracy attached — label even when filename not stored yet. */
+  attachmentLabel: string | null;
+  attachmentUrl: string | null;
 }
 
 export interface MeetingContextDocument {

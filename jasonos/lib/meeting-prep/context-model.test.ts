@@ -159,6 +159,7 @@ describe("composeMeetingBrief", () => {
         meetingBrief: null,
         emailUrl: null,
         attachmentLabel: "Resume",
+        attachmentUrl: "/api/browning-networking/resume?contactId=c1",
       },
     ] satisfies MeetingContextConnection[];
     const brief = composeMeetingBrief({ people, connections });
