@@ -17,6 +17,7 @@ import {
   meetingFollowupDraft,
   meetingHasKnownContact,
   meetingWhenPhrase,
+  notesLookLikeFirstMeeting,
   pendingAttendeesForMeeting,
   planMeetingFollowup,
   qualifyMeetingAttendees,
@@ -24,6 +25,7 @@ import {
   resolveMeetingFollowupPrompt,
   snoozeUntilYmd,
   soundsLikePitchFollowup,
+  soundsLikeWrongReconnect,
   type PastMeetingCandidate,
 } from "./meeting-followups";
 
@@ -266,8 +268,9 @@ describe("helpers", () => {
       title: "Catch up",
       summary: note,
     });
-    assert.match(draft.subject, /catching up/i);
+    assert.match(draft.subject, /good talking|catching up/i);
     assert.match(draft.body, /^Shawn,/);
+    assert.equal(/\breconnect\b/i.test(draft.body), false);
     assert.equal(draft.body.includes(note), false);
     assert.equal(draft.body.includes("(Shawn)"), false);
     assert.equal(looksLikeGranolaNoteFragment(note), true);
@@ -404,10 +407,78 @@ describe("isHollowFollowupBody", () => {
     );
     assert.equal(
       isHollowFollowupBody(
+        "Hardik,\n\nIt was good to reconnect today. Thanks again for the conversation.\n\nJason"
+      ),
+      true
+    );
+    assert.equal(
+      isHollowFollowupBody(
         "Tuomas,\n\nIt was good to catch up last week. I liked hearing how Accenture is approaching the Equity Labs work — especially the implementer angle.\n\nLet's not wait another decade.\n\nJason"
       ),
       false
     );
+  });
+});
+
+describe("notesLookLikeFirstMeeting", () => {
+  it("treats missing notes and intro language as first meetings", () => {
+    assert.equal(notesLookLikeFirstMeeting(null), true);
+    assert.equal(
+      notesLookLikeFirstMeeting(
+        "About Hardik. Franchise locations. Great to meet you. Send franchise contacts."
+      ),
+      true
+    );
+    assert.equal(
+      notesLookLikeFirstMeeting(
+        "Jason and Tuomas catching up after ~10 years, last connected during TBWA days"
+      ),
+      false
+    );
+  });
+});
+
+describe("soundsLikeWrongReconnect", () => {
+  it("rejects reconnect wording on a first-meeting note", () => {
+    const hardikNotes =
+      "About Hardik. Owns Subway and Tropical Smoothie. Great to meet you. Send franchise contacts and QSR samples.";
+    assert.equal(
+      soundsLikeWrongReconnect(
+        "Hardik,\n\nIt was good to reconnect today. Thanks again for the conversation.\n\nJason",
+        hardikNotes
+      ),
+      true
+    );
+    assert.equal(
+      soundsLikeWrongReconnect(
+        "Hardik,\n\nGood talking today. I'll send those franchise contacts and the QSR samples.\n\nJason",
+        hardikNotes
+      ),
+      false
+    );
+  });
+});
+
+describe("meetingFollowupDraft first meeting", () => {
+  it("does not say reconnect when notes are missing or look like an intro", () => {
+    const empty = meetingFollowupDraft({
+      name: "Hardik Patel",
+      title: "Meeting with Jason",
+      summary: null,
+      startsAt: "2026-10-12T18:00:00.000Z",
+    });
+    assert.equal(/\breconnect\b/i.test(empty.body), false);
+    assert.match(empty.body, /^Hardik,/);
+    assert.match(empty.subject, /good talking/i);
+
+    const first = meetingFollowupDraft({
+      name: "Hardik Patel",
+      title: "Meeting with Jason",
+      summary:
+        "About Hardik. Franchise consulting. Great to meet you. Send franchise contacts.",
+      startsAt: "2026-10-12T18:00:00.000Z",
+    });
+    assert.equal(/\breconnect\b/i.test(first.body), false);
   });
 });
 
@@ -422,6 +493,9 @@ describe("resolveMeetingFollowupPrompt", () => {
       "Open with Tuomas,. Meeting was last week. Hi Tuomas."
     );
     assert.ok(resolveMeetingFollowupPrompt(null).includes("DATE AWARENESS"));
+    assert.ok(
+      resolveMeetingFollowupPrompt(null).includes("FIRST MEETING vs RECONNECT")
+    );
     assert.ok(resolveMeetingFollowupPrompt("  Custom rules  ").startsWith("Custom"));
   });
 });

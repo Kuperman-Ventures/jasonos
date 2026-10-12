@@ -63,6 +63,8 @@ export function pickGranolaNote(
 
   // 2) Require a strong identity signal.
   // With a missed calendar id: email (8) or name+title (4+5) must contribute.
+  // Name-in-summary/attendees + near-time also qualifies (Hardik / "Meeting with
+  // Jason" — generic titles strip to empty after normalize).
   // Without a calendar id: email or name+time is enough.
   const minScore = hadEventId
     ? emailSet.size
@@ -94,12 +96,15 @@ function pickBest(
   for (const note of notes) {
     const score = scoreNote(note, query);
     if (score < minScore) continue;
-    // When a calendar id was expected and missed, reject pure name+time hits.
+    // When a calendar id was expected and missed, reject pure title-less
+    // name+time hits unless the person is on the note (email, attendees,
+    // summary) or titles actually overlap (including identical generic titles).
     if (
       query.eventIds.size &&
       !noteHasEventId(note, query.eventIds) &&
       !hasEmailHit(note, query.emailSet) &&
-      !hasTitleOverlap(note, query.meetingTitle)
+      !hasTitleOverlap(note, query.meetingTitle) &&
+      !hasPersonOnNote(note, query.name)
     ) {
       continue;
     }
@@ -134,6 +139,15 @@ function scoreNote(
     score += 4;
   } else if (looseNameHit(query.name, title, summary, query.emailSet)) {
     score += 4;
+  } else if (firstNameOnNote(query.name, note)) {
+    // "Hardik Patel" when summary only says "Hardik" but attendees list him.
+    score += 4;
+  }
+
+  // Attendee-list / summary identity when calendar title is generic
+  // ("Meeting with Jason") and the event id missed.
+  if (personListedAsAttendee(query.name, note)) {
+    score += 5;
   }
 
   if (hasEmailHit(note, query.emailSet)) score += 8;
@@ -263,7 +277,58 @@ function hasTitleOverlap(
   );
 }
 
+/** Person appears on the note via attendees or summary (not just title time). */
+function hasPersonOnNote(note: GranolaNoteCandidate, name: string): boolean {
+  if (personListedAsAttendee(name, note)) return true;
+  if (firstNameOnNote(name, note)) return true;
+  const summary = note.summaryText ?? "";
+  return Boolean(summary && nameInText(name, summary));
+}
+
+/** Full or first name matches a Granola attendee card. */
+function personListedAsAttendee(
+  name: string,
+  note: GranolaNoteCandidate
+): boolean {
+  const attendees = note.attendeeNames ?? [];
+  if (!attendees.length) return false;
+  if (attendees.some((value) => nameInText(name, value))) return true;
+  return firstNameOnNote(name, { ...note, summaryText: null, title: null });
+}
+
+/**
+ * First name (length ≥ 4) appears as a whole word on attendees or summary.
+ * Covers "Hardik Patel" when Granola summary only says "Hardik".
+ */
+function firstNameOnNote(name: string, note: GranolaNoteCandidate): boolean {
+  const parts = normalizePersonName(name)
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((part) => part.length > 1);
+  if (!parts.length) return false;
+  const first = parts[0]!;
+  if (first.length < 4) return false;
+  const hay = [
+    note.summaryText ?? "",
+    ...(note.attendeeNames ?? []),
+    note.title ?? "",
+  ]
+    .join("\n")
+    .toLowerCase();
+  if (!hay) return false;
+  const re = new RegExp(`(?:^|[^a-z])${escapeRegExp(first)}(?:[^a-z]|$)`);
+  return re.test(hay);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function titlesLooselyMatch(a: string, b: string): boolean {
+  const rawA = a.trim().toLowerCase().replace(/\s+/g, " ");
+  const rawB = b.trim().toLowerCase().replace(/\s+/g, " ");
+  // "Meeting with Jason" ↔ "Meeting with Jason" — normalize strips every token.
+  if (rawA && rawA === rawB) return true;
   const left = normalizeTitle(a);
   const right = normalizeTitle(b);
   if (!left || !right) return false;

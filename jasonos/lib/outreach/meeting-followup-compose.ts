@@ -21,7 +21,9 @@ import {
   isUnacceptableFollowupBody,
   meetingFollowupDraft,
   meetingWhenPhrase,
+  notesLookLikeFirstMeeting,
   soundsLikePitchFollowup,
+  soundsLikeWrongReconnect,
 } from "@/lib/outreach/meeting-followups";
 
 export { isUnacceptableFollowupBody, soundsLikePitchFollowup };
@@ -80,7 +82,8 @@ function hardFail(
   return (
     isUnacceptableFollowupBody(body, summary) ||
     soundsLikePitchFollowup(body) ||
-    hasWrongMeetingDayLanguage(body, whenPhrase)
+    hasWrongMeetingDayLanguage(body, whenPhrase) ||
+    soundsLikeWrongReconnect(body, summary)
   );
 }
 
@@ -118,6 +121,7 @@ export async function composeMeetingFollowupDraft(
   const who = firstName(resolvedName);
   const greeting = who === "there" ? "Hi," : `${who},`;
   const displayName = who === "there" ? "Name" : who;
+  const firstMeet = notesLookLikeFirstMeeting(summary);
   const guidance = fillMeetingFollowupPrompt(
     await loadMeetingFollowupPromptGuidance(),
     {
@@ -135,8 +139,12 @@ ${NO_AI_SLOP_WRITING_RULES}
 
 ${guidance}`;
 
+  const meetingKind = firstMeet
+    ? "FIRST MEETING (do not say reconnect / catch up after years)"
+    : "RECONNECT / catch-up (notes show prior relationship)";
   const user = `Recipient first name: ${who === "there" ? "(unknown)" : who}
 Meeting title: ${input.title || "Meeting"}
+Meeting kind: ${meetingKind}
 WHEN the meeting happened (use this; do not invent a different day): ${whenPhrase}
 
 MEETING NOTES (Granola — rewrite into a warm email, do not paste, do not pitch):
@@ -148,7 +156,9 @@ Write the follow-up email JSON now. Include one concrete takeaway from the notes
     ? { anthropic: { thinking: { type: "disabled" as const } } }
     : undefined;
 
-  const rewriteHint = `Rewrite. Keep it warm and personal like a real reconnect note. The meeting was ${whenPhrase} — do not say today/this morning unless that is exact. Include one concrete takeaway from the meeting notes (something they said or that came up — for example a project, offer, or next step in the notes). Do not send hollow "good to reconnect / thanks for the conversation" fluff. Do not paste meeting notes. Do not pitch Jason's work or clients. First name greeting ("${greeting}"). JSON only.`;
+  const rewriteHint = firstMeet
+    ? `Rewrite. This was a first meeting — never say reconnect or catch up after years. Keep it warm like a real thank-you after meeting someone. The meeting was ${whenPhrase} — do not say today/this morning unless that is exact. Include one concrete takeaway from the meeting notes (something they said or that came up — for example a project, offer, or next step in the notes). Do not send hollow fluff. Do not paste meeting notes. Do not pitch Jason's work or clients. First name greeting ("${greeting}"). JSON only.`
+    : `Rewrite. Keep it warm and personal like a real catch-up note. The meeting was ${whenPhrase} — do not say today/this morning unless that is exact. Include one concrete takeaway from the meeting notes (something they said or that came up — for example a project, offer, or next step in the notes). Do not send hollow "good to reconnect / thanks for the conversation" fluff. Do not paste meeting notes. Do not pitch Jason's work or clients. First name greeting ("${greeting}"). JSON only.`;
 
   try {
     const { text } = await generateText({
