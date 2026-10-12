@@ -297,6 +297,7 @@ describe("JasonOS area map", () => {
     assert.ok(tools.includes("record_fyb_decision"));
     assert.ok(tools.includes("upsert_fyb_entry"));
     assert.ok(tools.includes("approve_fyb_entry"));
+    assert.ok(tools.includes("request_fyb_entry_changes"));
     assert.ok(tools.includes("get_connections_register"));
     assert.ok(tools.includes("upsert_connection_grant"));
   });

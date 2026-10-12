@@ -28,11 +28,29 @@ export const FYB_ENTRY_KIND_LABEL: Record<FybEntryKind, string> = {
 export const FYB_DECISION_STATUSES = ["open", "decided"] as const;
 export type FybDecisionStatus = (typeof FYB_DECISION_STATUSES)[number];
 
-export const FYB_ENTRY_STATUSES = ["draft", "approved"] as const;
+export const FYB_ENTRY_STATUSES = ["draft", "approved", "changes_requested"] as const;
 export type FybEntryStatus = (typeof FYB_ENTRY_STATUSES)[number];
+
+export const FYB_ENTRY_STATUS_LABEL: Record<FybEntryStatus, string> = {
+  draft: "Draft",
+  approved: "Approved",
+  changes_requested: "Changes requested",
+};
+
+export const FYB_SCENE_DRAFT_STATUSES = ["outlined", "drafted", "revised"] as const;
+export type FybSceneDraftStatus = (typeof FYB_SCENE_DRAFT_STATUSES)[number];
 
 export const FYB_ACTORS = ["jasonos", "claude"] as const;
 export type FybActor = (typeof FYB_ACTORS)[number];
+
+export const FYB_BIBLE_KINDS: FybEntryKind[] = [
+  "bible_character",
+  "bible_world",
+  "bible_rule",
+  "bible_timeline",
+];
+export const FYB_DRIFT_KINDS: FybEntryKind[] = ["drift_stage", "drift_clue", "drift_pattern"];
+export const FYB_SCENE_KINDS: FybEntryKind[] = ["scene"];
 
 export interface FybOption {
   key: string;
@@ -71,6 +89,8 @@ export interface FybEntry {
   links: string[];
   status: FybEntryStatus;
   approved_at: string | null;
+  change_request: string | null;
+  change_requested_at: string | null;
   sort_order: number;
   updated_by: string;
   created_at: string;
@@ -94,3 +114,48 @@ export interface FybSnapshot {
   entries: FybEntry[];
   markdown: string;
 }
+
+export type FybCheckLevel = "problem" | "warning";
+
+export interface FybCheck {
+  level: FybCheckLevel;
+  message: string;
+}
+
+export type FybDataField = { label: string; key: string };
+
+export const ENTRY_CARD_FIELDS: Partial<Record<FybEntryKind, FybDataField[]>> = {
+  bible_character: [
+    { label: "Role", key: "role" },
+    { label: "Voice", key: "voice" },
+    { label: "First chapter", key: "first_chapter" },
+  ],
+  bible_timeline: [{ label: "When", key: "when" }],
+  drift_stage: [
+    { label: "Stage number", key: "stage_number" },
+    { label: "Chapters", key: "chapters" },
+    { label: "Reader believes", key: "reader_believes" },
+    { label: "Actually true", key: "actually_true" },
+  ],
+  drift_clue: [
+    { label: "Chapter", key: "chapter" },
+    { label: "Example line", key: "example_line" },
+    { label: "What it hides", key: "what_it_hides" },
+  ],
+  drift_pattern: [
+    { label: "First chapter", key: "first_chapter" },
+    { label: "Pattern", key: "pattern" },
+    { label: "Example", key: "example" },
+  ],
+  scene: [
+    { label: "Track", key: "track" },
+    { label: "Drift stage", key: "drift_stage_key" },
+    { label: "Purpose", key: "purpose" },
+    { label: "What happens", key: "what_happens" },
+    { label: "Computer reports", key: "computer_reports" },
+    { label: "Actually true", key: "actually_true" },
+    { label: "Place and time", key: "place_and_time" },
+    { label: "Word target", key: "word_target" },
+    { label: "Draft status", key: "draft_status" },
+  ],
+};
