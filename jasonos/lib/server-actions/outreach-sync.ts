@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import {
   searchGmailThreads,
   getGmailThread,
+  listGmailDraftMessageIds,
 } from "@/lib/integrations/gmail";
 import {
   GMAIL_EXCLUDE_DRAFTS_QUERY,
@@ -364,6 +365,18 @@ export async function syncOutreachFromGmail(opts?: {
     let skipped = 0;
 
     try {
+      // Preload open drafts so a draft reply inside an in:sent thread never
+      // becomes an Engaged Today touch, even when labels look wrong.
+      const openDraftIds = new Set<string>();
+      try {
+        for (const id of await listGmailDraftMessageIds(token)) {
+          openDraftIds.add(id);
+          unsentGmailIds.add(id);
+        }
+      } catch (err) {
+        console.error("[outreach-sync.gmail] draft list failed", err);
+      }
+
       const sent = await searchGmailThreads({
         query: `in:sent ${GMAIL_EXCLUDE_DRAFTS_QUERY} after:${afterDate}`,
         pageSize: 100,
@@ -383,6 +396,10 @@ export async function syncOutreachFromGmail(opts?: {
         for (const m of full.messages) {
           if (!m.from || !m.date) continue;
           const outbound = isFromMe(m.from);
+          if (m.id && openDraftIds.has(m.id)) {
+            unsentGmailIds.add(m.id);
+            continue;
+          }
           // Full-thread fetch includes draft replies sitting in Sent threads.
           if (
             !shouldCountGmailMessageForTouch({

@@ -63,5 +63,33 @@ export function gmailTouchExternalIdMatches(
   );
 }
 
+/**
+ * Pull the Gmail message id out of a contact_touches / rr_touches external_id.
+ * Advisors rows are bare ids; personal Gmail uses `gmail:` prefixes.
+ */
+export function parseGmailTouchMessageId(
+  externalId: string | null | undefined
+): string | null {
+  const external = (externalId ?? "").trim();
+  if (!external) return null;
+  const bare = external.startsWith("gmail:")
+    ? external.slice("gmail:".length)
+    : external;
+  const messageId = bare.split("::")[0]?.trim() ?? "";
+  if (!messageId || !/^[a-zA-Z0-9]+$/.test(messageId)) return null;
+  return messageId;
+}
+
+/**
+ * Which Google mailbox owns this touch id encoding.
+ * Bare ids → Advisors (`google`). Prefixed → personal (`google_gmail`).
+ */
+export function gmailTouchMailboxKind(
+  externalId: string | null | undefined
+): "advisors" | "personal" {
+  const external = (externalId ?? "").trim();
+  return external.startsWith("gmail:") ? "personal" : "advisors";
+}
+
 /** Appended to Gmail search queries so draft threads are not preferred hits. */
 export const GMAIL_EXCLUDE_DRAFTS_QUERY = "-in:drafts";
