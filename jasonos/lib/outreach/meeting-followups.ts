@@ -331,8 +331,52 @@ export function attendeeLine(attendees: MeetingAttendee[], limit = 3): string {
 }
 
 /**
+ * Notes look like a first conversation (intro / "great to meet you") rather
+ * than catching up with someone Jason already knew.
+ */
+export function notesLookLikeFirstMeeting(
+  summary: string | null | undefined
+): boolean {
+  const note = (summary ?? "").replace(/\s+/g, " ").trim();
+  if (!note) return true; // no notes → never invent "reconnect"
+  const lower = note.toLowerCase();
+  if (
+    /\b(great|nice|good|glad)\s+to\s+meet\b/.test(lower) ||
+    /\bfirst\s+(time|meeting|conversation|call|chat)\b/.test(lower) ||
+    /\b(intro(duction)?|introduced|getting to know)\b/.test(lower)
+  ) {
+    return true;
+  }
+  if (
+    /\b(reconnect|catching up|catch up|years since|decade since|last connected|old firm|tbwa|all these years)\b/i.test(
+      note
+    )
+  ) {
+    return false;
+  }
+  // Substance without shared-history cues → treat as first meet.
+  return true;
+}
+
+/**
+ * Draft claims a prior relationship ("reconnect", decade language) when the
+ * notes look like a first meeting. Mild "catching up" is allowed — "reconnect"
+ * on a first conversation is the failure mode Jason keeps hitting.
+ */
+export function soundsLikeWrongReconnect(
+  body: string,
+  summary: string | null | undefined
+): boolean {
+  if (!notesLookLikeFirstMeeting(summary)) return false;
+  return /\b(reconnect|after all these years|another (ten|10) years|decade since)\b/i.test(
+    body
+  );
+}
+
+/**
  * Safe local draft when Claude is unavailable. Never pastes Granola note
  * fragments into the body — those read like action items, not email.
+ * Never says "reconnect" on a first meeting (or when notes are missing).
  */
 export function meetingFollowupDraft(input: {
   name: string | null;
@@ -343,14 +387,18 @@ export function meetingFollowupDraft(input: {
   const who = firstName(input.name);
   const hello = who === "there" ? "Hi," : `${who},`;
   const when = meetingWhenPhrase(input.startsAt);
-  const lead =
-    when === "today"
-      ? "It was good to reconnect today."
+  const firstMeet = notesLookLikeFirstMeeting(input.summary);
+  const whenBit =
+    when === "today" || when === "yesterday" ? ` ${when}` : when === "recently" ? "" : ` ${when}`;
+  const lead = firstMeet
+    ? `Good talking${whenBit}.`
+    : when === "today"
+      ? "It was good to catch up today."
       : when === "yesterday"
-        ? "It was good to reconnect yesterday."
-        : `It was good to reconnect ${when}.`;
+        ? "It was good to catch up yesterday."
+        : `It was good to catch up${whenBit}.`;
   return {
-    subject: "Good catching up",
+    subject: firstMeet ? "Good talking" : "Good catching up",
     body: `${hello}
 
 ${lead} Thanks again for the conversation.

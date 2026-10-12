@@ -34,6 +34,7 @@ type NoteSummary = {
 type NoteDetail = NoteSummary & {
   web_url?: string;
   summary_text?: string | null;
+  summary_markdown?: string | null;
   attendees?: Array<{ name?: string | null; email?: string }>;
   calendar_event?: {
     calendar_event_id?: string | null;
@@ -229,11 +230,15 @@ function toCandidate(detail: NoteDetail, fallback: NoteSummary): GranolaNoteCand
   for (const invitee of detail.calendar_event?.invitees ?? []) {
     if (invitee.email) emails.add(invitee.email);
   }
+  const summaryText =
+    detail.summary_text?.trim() ||
+    detail.summary_markdown?.trim() ||
+    null;
   return {
     id: detail.id || (fallback.id as string),
     title: detail.title ?? fallback.title ?? null,
     createdAt: detail.created_at || fallback.created_at || new Date().toISOString(),
-    summaryText: detail.summary_text,
+    summaryText,
     webUrl: detail.web_url,
     attendeeEmails: [...emails],
     attendeeNames: names,

@@ -143,6 +143,53 @@ describe("pickGranolaNote", () => {
     });
     assert.equal(hit, null);
   });
+
+  it("matches Hardik when calendar title is generic Meeting with Jason", () => {
+    const hardik: GranolaNoteCandidate = {
+      id: "c4f1fe60-a88b-4ac4-b284-a03fb4165799",
+      title: "Meeting with Jason",
+      createdAt: "2026-10-12T17:59:08.000Z",
+      summaryText:
+        "About Hardik. Owns Subway and Tropical Smoothie Café. Franchise consulting. Great to meet you. Send franchise contacts and QSR samples.",
+      attendeeEmails: [
+        "jason@kupermanadvisors.com",
+        "hardik11266@gmail.com",
+      ],
+      attendeeNames: ["Jason Kuperman", "Hardik Patel"],
+      scheduledStart: "2026-10-12T18:00:00.000Z",
+      calendarEventId: null,
+    };
+    const hit = pickGranolaNote([hardik, other], {
+      name: "Hardik Patel",
+      email: "hardik11266@gmail.com",
+      aroundIso: "2026-10-12T18:00:00.000Z",
+      calendarEventId: "93e6cndh3nn15i7emap4iv6crk",
+      meetingTitle: "Meeting with Jason",
+    });
+    assert.equal(hit?.id, hardik.id);
+  });
+
+  it("matches Hardik by attendee name when guest email is missing from the note", () => {
+    const hardik: GranolaNoteCandidate = {
+      id: "c4f1fe60-no-email",
+      title: "Meeting with Jason",
+      createdAt: "2026-10-12T17:59:08.000Z",
+      summaryText:
+        "About Hardik. Franchise locations and QSR marketing. Send franchise contacts.",
+      attendeeEmails: ["jason@kupermanadvisors.com"],
+      attendeeNames: ["Jason Kuperman", "Hardik Patel"],
+      scheduledStart: "2026-10-12T18:00:00.000Z",
+      calendarEventId: null,
+    };
+    const hit = pickGranolaNote([hardik], {
+      name: "Hardik Patel",
+      email: "hardik11266@gmail.com",
+      aroundIso: "2026-10-12T18:00:00.000Z",
+      calendarEventId: "93e6cndh3nn15i7emap4iv6crk",
+      meetingTitle: "Meeting with Jason",
+    });
+    assert.equal(hit?.id, hardik.id);
+  });
 });
 
 describe("normalizePersonName", () => {

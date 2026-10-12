@@ -17,14 +17,26 @@ export const MEETING_FOLLOWUP_PROMPT_PLACEHOLDERS = [
 
 export const DEFAULT_MEETING_FOLLOWUP_PROMPT = `You write a short post-meeting follow-up email for Jason to send in Apple Mail.
 
-This is usually a reconnect / catch-up note, not a sales email.
+This is a thank-you / follow-up after a real conversation — not a sales email.
 
-Tone target (match this energy, do not copy wording):
+FIRST MEETING vs RECONNECT (critical — read the notes before you write):
+- FIRST MEETING when the notes show an intro, first conversation, "great to meet you", no prior working history, or no language about catching up after years. Open with glad we met / good talking {{whenPhrase}}. NEVER say reconnect, catch up after years, or "after all this time".
+- RECONNECT only when the notes clearly show prior relationship (old firm, years apart, "catching up", last connected at X). Then reconnect / catch-up language is fine.
+- When unsure, treat it as a first meeting. Wrong "reconnect" is worse than wrong "good to meet you".
+
+Tone targets (match energy, do not copy wording):
+
+First meeting:
+"{{firstName}}, good talking {{whenPhrase}}. Thanks for walking me through what you're building on the franchise side.
+
+I'll send over those company contacts we discussed.
+
+Jason"
+
+Reconnect (only when notes support it):
 "{{firstName}}, it was so good to catch up after all these years. Hard to believe it has been a decade since we last worked together.
 
-I really enjoyed hearing about what you are building, and your perspective on where things are headed. Our conversation left me with a lot to think about.
-
-More than anything, it was just great to reconnect. Let's not wait another ten years to do this again.
+I really enjoyed hearing about what you are building. Let's not wait another ten years to do this again.
 
 Jason"
 
@@ -33,14 +45,14 @@ Hard rules:
 - Use the person's first name. Never greet with a last name alone.
 - Open with "{{greeting}}" on its own line (comma is fine; no em dash).
 - 3-5 short sentences across 2-3 short paragraphs.
-- DATE AWARENESS (critical): the meeting was {{whenPhrase}}. Never say "today", "this morning", "this afternoon", or "this evening" unless WHEN is exactly "today". Prefer natural phrasing that matches WHEN (e.g. "yesterday", "earlier this week", "last week", "the other day", or just "good to catch up" with no day word).
-- Lead with warmth: glad to reconnect / catch up. If the notes mention shared history (old firm, years apart), reference that lightly.
+- DATE AWARENESS (critical): the meeting was {{whenPhrase}}. Never say "today", "this morning", "this afternoon", or "this evening" unless WHEN is exactly "today". Prefer natural phrasing that matches WHEN (e.g. "yesterday", "earlier this week", "last week", "the other day", or just "good talking" with no day word).
+- Lead with warmth that matches first-meet vs reconnect above. If the notes mention shared history, reference that lightly.
 - Then one human takeaway THEY said or that came out of the conversation — their work, a view they shared, something personal from the notes. Not a thesis pitch about Jason's business. When the notes have any substance, this takeaway is required. Do not send a hollow "good to reconnect / thanks for the conversation" note.
-- Soft close: personal detail from the notes when present (city, family, "let's not wait N years"). Only add a concrete next step if the notes clearly support one both people owned.
+- Soft close: personal detail from the notes when present, or a concrete next step both people owned. Only invent a next step if the notes clearly support one.
 - Do NOT pivot into Jason's clients, products, Equity Labs, Refactor Sprint, or "I'll keep X in mind given your role…" unless the notes show they asked for that or agreed a specific follow-up.
 - Sign off with "Jason" on its own line. No exclamation points. No em dashes.
 - Return JSON only: {"subject":"...","body":"..."}
-- Subject: warm and short (e.g. "Good catching up", "Great to reconnect"). Avoid "Following up:" plus the calendar title.`;
+- Subject: warm and short. First meeting → "Good to meet you" / "Good talking". Reconnect → "Good catching up". Avoid "Following up:" plus the calendar title.`;
 
 export type MeetingFollowupPromptVars = {
   firstName: string;
@@ -90,12 +102,15 @@ export function isHollowFollowupBody(body: string): boolean {
 
   const withoutBoilerplate = stripped
     .replace(
-      /\bit was (so )?good to (reconnect|catch up|talk|speak)( (to you|with you))?( (today|yesterday|last week|earlier this week|recently|a few weeks ago|a while back|the other day))?\b\.?/g,
+      /\bit was (so )?good to (reconnect|catch up|talk|speak|meet( you)?)( (to you|with you))?( (today|yesterday|last week|earlier this week|recently|a few weeks ago|a while back|the other day))?\b\.?/g,
       " "
     )
     .replace(/\bthanks again for the conversation\b\.?/g, " ")
     .replace(/\bgood (catching|to catch) up\b\.?/g, " ")
-    .replace(/\bgreat to reconnect\b\.?/g, " ")
+    .replace(/\bgreat to (reconnect|meet you)\b\.?/g, " ")
+    .replace(/\bgood talking( through)?\b\.?/g, " ")
+    .replace(/\bi always enjoy our conversations\b\.?/g, " ")
+    .replace(/\blooking forward to staying in touch\b\.?/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
