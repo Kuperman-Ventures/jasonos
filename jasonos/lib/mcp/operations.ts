@@ -180,40 +180,6 @@ export async function listActionCards(input: {
   return { state, track: input.track ?? "all", cards: (data ?? []).map((row) => slimCard(row as Record<string, unknown>)) };
 }
 
-export async function getMustDos() {
-  const sb = jasonosDb();
-  const { data: run, error } = await sb
-    .from("bna_runs")
-    .select("items,run_at")
-    .order("run_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) throw new Error(error.message);
-  const items = Array.isArray(run?.items) ? run.items : [];
-  if (!items.length) return { run_at: run?.run_at ?? null, items: [] };
-
-  const cardIds = items
-    .map((item: { card_id?: string }) => item.card_id)
-    .filter((id): id is string => Boolean(id));
-
-  const { data: cards } = cardIds.length
-    ? await sb
-        .from("cards")
-        .select("id,track,module,title,subtitle,why_now,state,vip,priority_score,verbs")
-        .in("id", cardIds)
-    : { data: [] as Record<string, unknown>[] };
-
-  const byId = new Map((cards ?? []).map((card) => [card.id, card]));
-  return {
-    run_at: run?.run_at ?? null,
-    items: items.map((item: { card_id?: string; rank?: number; rationale?: string }) => ({
-      ...item,
-      card: item.card_id ? byId.get(item.card_id) ?? null : null,
-    })),
-  };
-}
-
 export async function listTodos(input: { track?: string; state?: string; limit?: number }) {
   const sb = jasonosDb();
   const state = input.state && (TODO_STATES as readonly string[]).includes(input.state)
@@ -233,6 +199,25 @@ export async function listTodos(input: { track?: string; state?: string; limit?:
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   return { state, track: input.track ?? "all", todos: data ?? [] };
+}
+
+export async function getMustDos() {
+  const { todos } = await listTodos({ state: "open", limit: 15 });
+  const sb = jasonosDb();
+  const { data, error } = await sb
+    .from("cards")
+    .select(
+      "id,track,module,title,subtitle,why_now,state,vip,priority_score,verbs,pinned_at,snoozed_until,created_at,body"
+    )
+    .eq("state", "open")
+    .not("pinned_at", "is", null)
+    .order("pinned_at", { ascending: false })
+    .limit(10);
+  if (error) throw new Error(error.message);
+  return {
+    todos,
+    pinned_cards: (data ?? []).map((row) => slimCard(row as Record<string, unknown>)),
+  };
 }
 
 export async function addTodo(input: {

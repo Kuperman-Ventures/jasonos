@@ -27,13 +27,9 @@ import {
   type BriefSectionFlags,
 } from "@/lib/outreach/relationship-brief";
 import {
-  DEFAULT_ALERT_THRESHOLDS,
-  DEFAULT_MODEL_PREFERENCES,
   SERVICE_DEFINITIONS,
   envStatus,
-  type AlertThresholds,
   type HealthStatus,
-  type ModelPreferences,
   type ServiceStatus,
 } from "./services";
 
@@ -53,8 +49,6 @@ export interface ServiceConnection {
 
 export interface SettingsPayload {
   services: ServiceConnection[];
-  thresholds: AlertThresholds;
-  models: ModelPreferences;
   /** Effective Follow Up guidance (stored override or default). */
   meetingFollowupPrompt: string;
   /** True when meetingFollowupPrompt is a saved override, not the default. */
@@ -82,14 +76,6 @@ export interface SettingsPayload {
 
 function publicSupabaseConfigured() {
   return !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-}
-
-function normalizeThresholds(value: unknown): AlertThresholds {
-  return { ...DEFAULT_ALERT_THRESHOLDS, ...(isRecord(value) ? value : {}) };
-}
-
-function normalizeModels(value: unknown): ModelPreferences {
-  return { ...DEFAULT_MODEL_PREFERENCES, ...(isRecord(value) ? value : {}) };
 }
 
 export async function getSettingsPayload(): Promise<SettingsPayload> {
@@ -123,7 +109,7 @@ export async function getSettingsPayload(): Promise<SettingsPayload> {
       .eq("user_id", user.id),
     supabase
       .from("user_preferences")
-      .select("alert_thresholds,model_preferences,meeting_followup_prompt,about_jason,relationship_brief_prompt,relationship_brief_prompt_version,relationship_brief_sections,relationship_brief_prompt_updated_at")
+      .select("meeting_followup_prompt,about_jason,relationship_brief_prompt,relationship_brief_prompt_version,relationship_brief_sections,relationship_brief_prompt_updated_at")
       .eq("user_id", user.id)
       .maybeSingle(),
     getDispatchSummary(user.id),
@@ -161,8 +147,6 @@ export async function getSettingsPayload(): Promise<SettingsPayload> {
   return attachMailboxStatus(
     {
       services,
-      thresholds: normalizeThresholds((prefs as PreferencesRow | null)?.alert_thresholds),
-      models: normalizeModels((prefs as PreferencesRow | null)?.model_preferences),
       meetingFollowupPrompt: resolveMeetingFollowupPrompt(storedPrompt),
       meetingFollowupPromptCustom: Boolean(storedPrompt),
       meetingFollowupPromptDefault: DEFAULT_MEETING_FOLLOWUP_PROMPT,
@@ -207,8 +191,6 @@ function attachMailboxStatus(
 }
 
 interface PreferencesRow {
-  alert_thresholds: unknown;
-  model_preferences: unknown;
   meeting_followup_prompt?: string | null;
   about_jason?: string | null;
   relationship_brief_prompt?: string | null;
@@ -284,8 +266,6 @@ function fallbackPayload(authRequired: boolean): SettingsPayload {
 
   return {
     services,
-    thresholds: DEFAULT_ALERT_THRESHOLDS,
-    models: DEFAULT_MODEL_PREFERENCES,
     meetingFollowupPrompt: DEFAULT_MEETING_FOLLOWUP_PROMPT,
     meetingFollowupPromptCustom: false,
     meetingFollowupPromptDefault: DEFAULT_MEETING_FOLLOWUP_PROMPT,
@@ -305,6 +285,3 @@ function fallbackPayload(authRequired: boolean): SettingsPayload {
   };
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}

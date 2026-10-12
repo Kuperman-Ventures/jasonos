@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { SentFollowupControls } from "@/components/jasonos/outreach/sent-followup-controls";
 import { SentThreadPanel } from "@/components/jasonos/outreach/sent-thread-panel";
 import {
+  completeSentEmailFollowup,
   dismissSentEmailFollowup,
   scheduleSentEmailFollowup,
   type SentEmailFollowup,
@@ -15,6 +16,16 @@ import {
 function sentLabel(iso: string): string {
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return "";
+  return new Date(t).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function dueLabel(ymd: string | null): string {
+  if (!ymd) return "";
+  const t = Date.parse(`${ymd}T12:00:00`);
+  if (!Number.isFinite(t)) return ymd;
   return new Date(t).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
@@ -30,15 +41,19 @@ function accountShort(email: string): string {
 
 export function SentFollowupsClient({
   rows,
+  dueRows,
   mailConnected,
 }: {
   rows: SentEmailFollowup[];
+  dueRows: SentEmailFollowup[];
   mailConnected: boolean;
 }) {
   const router = useRouter();
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
   const [busyId, setBusyId] = useState<string | null>(null);
-  const visible = rows.filter((row) => !hidden.has(row.id));
+  const visibleDue = dueRows.filter((row) => !hidden.has(row.id));
+  const visiblePick = rows.filter((row) => !hidden.has(row.id));
+  const totalVisible = visibleDue.length + visiblePick.length;
 
   const run = async (id: string, action: () => Promise<{ ok: boolean; error?: string }>) => {
     setBusyId(id);
@@ -57,6 +72,14 @@ export function SentFollowupsClient({
     router.refresh();
   };
 
+  const metaLine = (row: SentEmailFollowup) => (
+    <p className="truncate text-[11px] text-muted-foreground">
+      To {row.toLine}
+      {row.sentAt ? ` · sent ${sentLabel(row.sentAt)}` : ""}
+      {row.accountEmail ? ` · ${accountShort(row.accountEmail)}` : ""}
+    </p>
+  );
+
   return (
     <div className="mx-auto max-w-3xl px-4">
       <header className="mb-4">
@@ -66,9 +89,9 @@ export function SentFollowupsClient({
         </div>
         <p className="mt-1 text-sm text-muted-foreground">
           Outbound from Advisors Gmail, personal Gmail, and Outlook to a JasonOS
-          contact, with no follow-up day set yet. Sync pulls new ones and clears
-          threads that already got a reply. Open in Apple Mail — set 1 / 3 / 5
-          days (or a custom number). Home shows this same queue.
+          contact. Due rows need a reply; new rows still need a follow-up day.
+          Sync pulls new ones and clears threads that already got a reply. Home
+          shows this same queue.
         </p>
       </header>
 
@@ -79,50 +102,105 @@ export function SentFollowupsClient({
       ) : null}
 
       <div className="rounded-lg border bg-card">
-        {visible.length === 0 ? (
+        {totalVisible === 0 ? (
           <div className="px-4 py-12 text-center text-sm text-muted-foreground">
             {mailConnected
               ? "No sent emails waiting for a follow-up day. Hit Sync to look again."
               : "Connect mail, then hit Sync."}
           </div>
         ) : (
-          <ul className="divide-y">
-            {visible.map((row) => (
-              <li key={row.id} className="px-4 py-3">
-                <div className="flex items-start gap-3">
-                  <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{row.subject}</p>
-                    <p className="truncate text-[11px] text-muted-foreground">
-                      To {row.toLine}
-                      {row.sentAt ? ` · sent ${sentLabel(row.sentAt)}` : ""}
-                      {row.accountEmail
-                        ? ` · ${accountShort(row.accountEmail)}`
-                        : ""}
-                    </p>
-                    {row.snippet ? (
-                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                        {row.snippet}
-                      </p>
-                    ) : null}
-                    <SentThreadPanel
-                      followupId={row.id}
-                      appleMailUrl={row.appleMailUrl}
-                    />
-                    <div className="mt-2">
-                      <SentFollowupControls
-                        busy={busyId === row.id}
-                        onSchedule={(days) =>
-                          void run(row.id, () => scheduleSentEmailFollowup(row.id, days))
-                        }
-                        onDismiss={() => void run(row.id, () => dismissSentEmailFollowup(row.id))}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div>
+            {visibleDue.length > 0 ? (
+              <div>
+                <h3 className="border-b bg-muted/40 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  Due to follow up · {visibleDue.length}
+                </h3>
+                <ul className="divide-y">
+                  {visibleDue.map((row) => (
+                    <li key={row.id} className="px-4 py-3">
+                      <div className="flex items-start gap-3">
+                        <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{row.subject}</p>
+                          {metaLine(row)}
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">
+                            Due {dueLabel(row.followUpDue)}
+                            {row.daysOverdue > 0
+                              ? ` · ${row.daysOverdue} day${row.daysOverdue === 1 ? "" : "s"} overdue`
+                              : ""}
+                          </p>
+                          {row.snippet ? (
+                            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                              {row.snippet}
+                            </p>
+                          ) : null}
+                          <SentThreadPanel
+                            followupId={row.id}
+                            appleMailUrl={row.appleMailUrl}
+                          />
+                          <div className="mt-2">
+                            <SentFollowupControls
+                              busy={busyId === row.id}
+                              onSchedule={(days) =>
+                                void run(row.id, () => scheduleSentEmailFollowup(row.id, days))
+                              }
+                              onDone={() =>
+                                void run(row.id, () => completeSentEmailFollowup(row.id))
+                              }
+                              onDismiss={() =>
+                                void run(row.id, () => dismissSentEmailFollowup(row.id))
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {visiblePick.length > 0 ? (
+              <div>
+                <h3 className="border-b bg-muted/40 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  Pick a follow-up day · {visiblePick.length}
+                </h3>
+                <ul className="divide-y">
+                  {visiblePick.map((row) => (
+                    <li key={row.id} className="px-4 py-3">
+                      <div className="flex items-start gap-3">
+                        <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">{row.subject}</p>
+                          {metaLine(row)}
+                          {row.snippet ? (
+                            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                              {row.snippet}
+                            </p>
+                          ) : null}
+                          <SentThreadPanel
+                            followupId={row.id}
+                            appleMailUrl={row.appleMailUrl}
+                          />
+                          <div className="mt-2">
+                            <SentFollowupControls
+                              busy={busyId === row.id}
+                              onSchedule={(days) =>
+                                void run(row.id, () => scheduleSentEmailFollowup(row.id, days))
+                              }
+                              onDismiss={() =>
+                                void run(row.id, () => dismissSentEmailFollowup(row.id))
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
         )}
       </div>
     </div>

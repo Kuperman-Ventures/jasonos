@@ -25,9 +25,8 @@ const PUBLIC_PREFIXES = [
 ];
 
 const CRON_PATHS = new Set([
-  "/api/bna",
   "/api/monitoring/health-check",
-  "/api/inbox-dispatch",
+  "/api/sync/daily",
   "/api/job-alerts/harvest",
   "/api/browning-networking/run",
 ]);

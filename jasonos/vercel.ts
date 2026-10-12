@@ -20,8 +20,6 @@ export const config: VercelConfig = {
   ignoreCommand:
     'if [ "$VERCEL_GIT_COMMIT_REF" = "main" ]; then exit 1; fi; cd "$(git rev-parse --show-toplevel)" && git diff --quiet HEAD^ HEAD -- jasonos',
   functions: {
-    // BNA engine can take its time once we feed it real state.
-    "app/api/bna/route.ts": { maxDuration: 300 },
     "app/api/tell-claude/route.ts": { maxDuration: 60 },
     "app/api/mcp/route.ts": { maxDuration: 60 },
     "app/api/morning-brief/publish/route.ts": { maxDuration: 60 },
@@ -32,7 +30,7 @@ export const config: VercelConfig = {
     "app/api/post-master/research/route.ts": { maxDuration: 120 },
 
 
-    // Product Health probes 9 targets in parallel with a 10s timeout each;
+    // Product Health probes targets in parallel with a 10s timeout each;
     // give the function some slack so a single slow site doesn't trip the
     // function timeout.
     "app/api/monitoring/health-check/route.ts": { maxDuration: 60 },
@@ -42,23 +40,22 @@ export const config: VercelConfig = {
     // Job Alerts harvest opens Gmail threads from a labeled folder.
     "app/api/job-alerts/harvest/route.ts": { maxDuration: 60 },
     "app/api/browning-networking/run/route.ts": { maxDuration: 60 },
+    // Daily Sync: Gmail/Outlook/Calendar/Beeper + follow-up capture.
+    "app/api/sync/daily/route.ts": { maxDuration: 300 },
     // Suggested Scan: 90-day Gmail + calendar + Beeper. Needs a long window.
     "app/api/outreach/scan-suggested/route.ts": { maxDuration: 300 },
     // Home Overdue "Draft email" reads multiple Gmail threads then calls Claude.
     "app/api/outreach/draft/route.ts": { maxDuration: 60 },
   },
   crons: [
-    // Daily 8am ET BNA run.
-    { path: "/api/bna?source=cron", schedule: "0 12 * * *" },
     // Product Health — every 2 minutes. Requires Vercel Pro (per-minute
     // crons). The route requires CRON_SECRET (Vercel sends it as a Bearer token).
     {
       path: "/api/monitoring/health-check?source=cron",
       schedule: "*/2 * * * *",
     },
-    // Inbox Dispatch — weekday 7am ET (11:00 UTC during EDT). Warms the day's
-    // reply triage so it's ready when Jason opens Home.
-    { path: "/api/inbox-dispatch?source=cron", schedule: "0 11 * * 1-5" },
+    // Daily Sync - 6:30am ET during EDT, 5:30am ET after Nov 1.
+    { path: "/api/sync/daily?source=cron", schedule: "30 10 * * *" },
     // Job Alerts — weekday 7:15am / noon / 5pm ET (EDT). Scans the Gmail
     // Job Alerts folder for new listing emails.
     {
