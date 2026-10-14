@@ -45,7 +45,7 @@ export async function searchContactsForEmailTemplate(
 
   let q = sb
     .from("contacts")
-    .select("id,name,title,tags,emails")
+    .select("id,name,title,tags,emails,companies(name)")
     .order("name", { ascending: true })
     .limit(limit);
 
@@ -62,11 +62,14 @@ export async function searchContactsForEmailTemplate(
 
   return (data ?? []).map((row) => {
     const emails = (row.emails as string[] | null) ?? [];
+    const tags = (row.tags as string[] | null) ?? [];
+    const linked = row.companies as { name?: string } | { name?: string }[] | null;
+    const linkedName = (Array.isArray(linked) ? linked[0]?.name : linked?.name)?.trim();
     return {
       id: row.id as string,
       name: (row.name as string) ?? "Unknown",
       title: (row.title as string | null) ?? null,
-      firm: firmFromTags((row.tags as string[] | null) ?? []),
+      firm: linkedName || firmFromTags(tags),
       email: emails[0]?.trim() || null,
     };
   });

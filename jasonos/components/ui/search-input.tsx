@@ -15,6 +15,8 @@ type SearchInputProps = Omit<
   className?: string;
   /** Classes on the input element. */
   inputClassName?: string;
+  /** Classes on the magnifying-glass icon. */
+  iconClassName?: string;
 };
 
 /**
@@ -27,6 +29,7 @@ function SearchInput({
   onValueChange,
   className,
   inputClassName,
+  iconClassName,
   placeholder = "Search…",
   disabled,
   ...props
@@ -35,7 +38,12 @@ function SearchInput({
 
   return (
     <div className={cn("relative", className)}>
-      <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+      <Search
+        className={cn(
+          "pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground",
+          iconClassName
+        )}
+      />
       <Input
         type="search"
         value={value}

@@ -8,7 +8,7 @@ export function PageHeader({
   mark,
   className,
 }: {
-  kicker?: string;
+  kicker?: React.ReactNode;
   title: string;
   description?: string;
   actions?: React.ReactNode;
@@ -21,7 +21,7 @@ export function PageHeader({
         {mark}
         <div className="min-w-0">
           {kicker ? (
-            <p className="text-[13px] font-bold tracking-[0.1em] text-[var(--color-accent-700)] uppercase">
+            <p className="inline-flex items-center gap-2 text-[13px] font-bold tracking-[0.14em] text-[var(--color-accent-700)] uppercase">
               {kicker}
             </p>
           ) : null}
