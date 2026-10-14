@@ -20,4 +20,18 @@ export const fybMarkdownComponents = {
   strong: ({ children }: { children?: ReactNode }) => (
     <strong className="font-semibold text-foreground">{children}</strong>
   ),
+  table: ({ children }: { children?: ReactNode }) => (
+    <div className="mt-2 overflow-x-auto">
+      <table className="w-full border-collapse text-xs">{children}</table>
+    </div>
+  ),
+  thead: ({ children }: { children?: ReactNode }) => <thead>{children}</thead>,
+  tbody: ({ children }: { children?: ReactNode }) => <tbody>{children}</tbody>,
+  tr: ({ children }: { children?: ReactNode }) => <tr className="border-b">{children}</tr>,
+  th: ({ children }: { children?: ReactNode }) => (
+    <th className="px-2 py-1.5 text-left font-semibold text-foreground align-top">{children}</th>
+  ),
+  td: ({ children }: { children?: ReactNode }) => (
+    <td className="px-2 py-1.5 text-foreground/80 align-top">{children}</td>
+  ),
 };

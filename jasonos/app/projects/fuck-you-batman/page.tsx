@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { format } from "date-fns";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { fybMarkdownComponents } from "@/components/jasonos/fuck-you-batman/markdown";
 import { chosenAnswerLabel } from "@/lib/fuck-you-batman/logic";
 import { PHASES, TOTAL_WEEKS, currentPhase, isPhaseDone, weekNumber } from "@/lib/fuck-you-batman/plan";
 import { getFybStatus } from "@/lib/fuck-you-batman/status";
@@ -17,13 +20,6 @@ export const dynamic = "force-dynamic";
 function displayCardTitle(title: string): string {
   return title.replace(/^FYB:\s*/, "");
 }
-
-const CADENCE = [
-  { when: "Monday", what: "Claude sets the week's goals and adds them as JasonOS to-dos (personal track)." },
-  { when: "Writing sessions", what: "Jason writes about 1,000 words per session, 5 sessions a week, in Google Docs." },
-  { when: "Sunday", what: "Claude reviews the week's pages against the Style Profile, Drift Map and AI Tells Checklist, then emails a status." },
-  { when: "Every 4 weeks", what: "Jason reads the month's chapters in one sitting." },
-];
 
 function WaitingCounts({
   href,
@@ -70,11 +66,13 @@ export default async function FuckYouBatmanPage() {
   const current = currentPhase(week);
   const statusLabel =
     week < 1 ? "Starts Monday, Oct 12, 2026" : current ? `Week ${week} of ${TOTAL_WEEKS}` : "Plan complete";
-  const [{ openTodos, doneTodos, openCards }, decisions, entries] = await Promise.all([
+  const [{ openTodos, doneTodos, openCards }, decisions, entries, referenceEntries] = await Promise.all([
     getFybStatus(),
     loadFybDecisions(),
     loadFybEntries(),
+    loadFybEntries("reference"),
   ]);
+  const processGuide = referenceEntries.find((entry) => entry.entry_key === "process-guide");
   const hasOpenItems = openCards.length > 0 || openTodos.length > 0;
   const dueThisWeek = decisions.filter((d) => d.status === "open" && d.week === week);
   const bibleCounts = reviewCounts(entries, FYB_BIBLE_KINDS);
@@ -147,6 +145,22 @@ export default async function FuckYouBatmanPage() {
           </ul>
         )}
       </section>
+
+      {processGuide ? (
+        <section className="rounded-xl border bg-card p-4">
+          <h2 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+            How the book gets made
+          </h2>
+          <details open className="mt-2">
+            <summary className="cursor-pointer text-xs text-muted-foreground">
+              Show or hide the process
+            </summary>
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={fybMarkdownComponents}>
+              {processGuide.body_md}
+            </ReactMarkdown>
+          </details>
+        </section>
+      ) : null}
 
       <section className="rounded-xl border bg-card p-4">
         <h2 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -262,20 +276,6 @@ export default async function FuckYouBatmanPage() {
 
       <section className="rounded-xl border bg-card p-4">
         <h2 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-          Weekly cadence
-        </h2>
-        <dl className="mt-2 space-y-2 text-xs">
-          {CADENCE.map((c) => (
-            <div key={c.when}>
-              <dt className="font-semibold text-foreground">{c.when}</dt>
-              <dd className="mt-0.5 text-foreground/80">{c.what}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-
-      <section className="rounded-xl border bg-card p-4">
-        <h2 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
           Decisions made
         </h2>
         {decided.length === 0 ? (
@@ -308,7 +308,10 @@ export default async function FuckYouBatmanPage() {
             </Link>
             ).
           </li>
-          <li>Manuscript: Google Drive folder &quot;Fuck You Batman - Manuscript&quot;, one doc per chapter.</li>
+          <li>
+            Manuscript: Google Docs. Early sketches are in the &quot;FYB&quot; doc; chapters go in the Drive
+            folder &quot;Fuck You Batman - Manuscript&quot;, one doc per chapter, from Phase 4.
+          </li>
           <li>Weekly snapshot: the Drive Planning folder.</li>
           <li>To-dos: JasonOS To-Dos, personal track, titles start with &quot;FYB:&quot;.</li>
         </ul>
