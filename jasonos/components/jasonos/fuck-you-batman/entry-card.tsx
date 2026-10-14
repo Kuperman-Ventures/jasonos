@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
 import { fybMarkdownComponents } from "@/components/jasonos/fuck-you-batman/markdown";
 import { Button } from "@/components/ui/button";
@@ -107,7 +108,9 @@ export function EntryCard({
 
       {entry.body_md.trim() ? (
         <div className="mt-2">
-          <ReactMarkdown components={fybMarkdownComponents}>{entry.body_md}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={fybMarkdownComponents}>
+            {entry.body_md}
+          </ReactMarkdown>
         </div>
       ) : null}
 
