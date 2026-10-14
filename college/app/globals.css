@@ -799,19 +799,20 @@ table.rubric tr.total td { font-weight: 500; background: var(--color-surface); }
 }
 .faq-toc {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
 }
 .faq-toc-item {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 14px 16px;
+  padding: 12px 10px;
   text-decoration: none;
   color: inherit;
   background: var(--color-surface);
   border-radius: 2px;
   min-height: 88px;
+  min-width: 0;
 }
 .faq-toc-item:hover {
   background: var(--color-accent-100);
@@ -823,7 +824,7 @@ table.rubric tr.total td { font-weight: 500; background: var(--color-surface); }
   color: var(--text-subtle);
 }
 .faq-toc-name {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.3;
   text-wrap: pretty;
@@ -927,10 +928,15 @@ table.rubric tr.total td { font-weight: 500; background: var(--color-surface); }
   color: var(--text-muted);
   text-wrap: pretty;
 }
+@media (max-width: 1100px) {
+  .faq-toc { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
 @media (max-width: 760px) {
   .faq-page { gap: 56px; }
   .faq-sec-head h2 { font-size: 28px; }
   .faq-toc { grid-template-columns: 1fr 1fr; }
+  .faq-toc-name { font-size: 15px; }
+  .faq-toc-item { padding: 14px 12px; }
 }
 
 .appq-subhead {
@@ -11750,18 +11756,19 @@ html[data-mode="dark"] .ds-page {
 }
 .appq-toc {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
 }
 .appq-toc-item {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 14px 14px 16px;
+  padding: 12px 10px 14px;
   background: var(--color-surface);
   border: 0;
   color: var(--color-text);
   text-decoration: none;
+  min-width: 0;
   border-radius: var(--radius-sm);
 }
 .appq-toc-item:hover {
@@ -11777,9 +11784,10 @@ html[data-mode="dark"] .ds-page {
 }
 .appq-toc-num.is-accent { color: var(--color-accent); }
 .appq-toc-name {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 1.25;
+  text-wrap: pretty;
 }
 .appq-toc-meta {
   font-family: var(--font-mono);
