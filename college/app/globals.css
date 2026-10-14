@@ -12279,8 +12279,14 @@ html[data-mode="dark"] .ds-page {
 }
 .appq-bank h3 { font-size: 20px; }
 
+@media (max-width: 1100px) {
+  .appq-toc { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
 @media (max-width: 720px) {
   .appq-page { --appq-cols: 32px minmax(0, 1fr) repeat(6, 26px); }
+  .appq-toc { grid-template-columns: 1fr 1fr; }
+  .appq-toc-name { font-size: 15px; }
+  .appq-toc-item { padding: 14px 12px 16px; }
   .appq-matrix-head span {
     writing-mode: vertical-rl;
     transform: rotate(180deg);
