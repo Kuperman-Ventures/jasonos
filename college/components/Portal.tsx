@@ -1697,7 +1697,17 @@ export function Portal({
             onConfirmIngest={confirmIngest}
           />
         ) : null}
-        {tab === "faq" ? <FaqTab categories={faqCategories} dateline={phaseLabel} /> : null}
+        {tab === "faq" ? (
+          <section>
+            <header className="page-head">
+              <div>
+                <div className="dateline">{phaseLabel}</div>
+                <h2>Frequently Asked Questions</h2>
+              </div>
+            </header>
+            <FaqTab categories={faqCategories} />
+          </section>
+        ) : null}
         {tab === "guide" ? (
           <section>
             <header className="page-head">
