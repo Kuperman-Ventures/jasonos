@@ -27,3 +27,20 @@ export function purposeFromCalendarDescription(
   if (!text) return null;
   return text.slice(0, 300);
 }
+
+/** Zoom / Teams / Meet join boilerplate is not a meeting purpose. */
+export function isJoinBoilerplate(value: string | null | undefined): boolean {
+  const text = (value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+  if (!text) return false;
+  const markers = [
+    "join zoom",
+    "zoom meeting",
+    "meeting id:",
+    "passcode:",
+    "teams.microsoft",
+    "meet.google.com",
+    "one tap mobile",
+  ];
+  const hits = markers.filter((marker) => text.includes(marker)).length;
+  return hits >= 2 || (hits >= 1 && text.length < 80);
+}

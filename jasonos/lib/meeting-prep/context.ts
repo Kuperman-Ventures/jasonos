@@ -13,7 +13,9 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { gatherGmailHistory } from "@/lib/server-actions/draft-from-history";
 import { getRelationshipBrief } from "@/lib/server-actions/relationship-brief";
 import {
+  buildMeetingBriefing,
   composeMeetingBrief,
+  enrichPeopleFromTouches,
   gmailThreadUrl,
   groupCommunicationHistory,
   summarizeHome,
@@ -449,6 +451,13 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
     if (company) companyNames.push(company);
     const referrerId = text(row.referred_by_contact_id);
     const relBrief = briefsByContact.get(contactId);
+    const personTouches = touchRows.filter(
+      (touch) => touch.contactId === contactId && touch.channel !== "calendar"
+    );
+    const lastPersonTouch = personTouches.reduce<HistoryTouch | null>((best, touch) => {
+      if (!best || Date.parse(touch.touchedAt) > Date.parse(best.touchedAt)) return touch;
+      return best;
+    }, null);
     const openCommitments = (relBrief?.commitments ?? [])
       .filter((item) => item.status !== "done")
       .map((item) => ({
@@ -481,14 +490,19 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
       topics: (relBrief?.topics ?? []).map((item) => item.text),
       nextMove: relBrief?.nextMove?.text ?? null,
       relationshipSummary: relBrief?.summary ?? null,
+      directTouchCount: personTouches.length,
+      lastTouchAt: lastPersonTouch?.touchedAt ?? null,
     });
   }
 
-  const people = attendees.flatMap((attendee) => {
-    if (!attendee.contactId) return [];
-    const person = contactsById.get(attendee.contactId);
-    return person ? [person] : [];
-  });
+  const people = enrichPeopleFromTouches(
+    attendees.flatMap((attendee) => {
+      if (!attendee.contactId) return [];
+      const person = contactsById.get(attendee.contactId);
+      return person ? [person] : [];
+    }),
+    touchRows
+  );
   const unmatched = attendees
     .filter((attendee) => !attendee.contactId || !contactsById.has(attendee.contactId))
     .map((attendee) => ({ email: attendee.email, name: attendee.name }));
@@ -656,6 +670,15 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
   }
 
   const brief = composeMeetingBrief({ people, connections });
+  const briefing = buildMeetingBriefing({
+    title: meetingTitle ?? "",
+    people: people.map((person) => ({
+      contactId: person.contactId,
+      name: person.name,
+      email: person.email,
+    })),
+    touches: touchRows,
+  });
 
   return {
     people,
@@ -682,6 +705,7 @@ export async function loadMeetingContext(prepId: string): Promise<MeetingContext
     ],
     home: summarizeHome(touchRows, connections.length > 0),
     brief,
+    briefing,
     granolaNotes,
     recentEmail,
   };

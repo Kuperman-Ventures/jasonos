@@ -298,6 +298,9 @@ export interface MeetingContextPerson {
   topics: string[];
   nextMove: string | null;
   relationshipSummary: string | null;
+  /** Email/text/call rows. Calendar holds are not counted. */
+  directTouchCount: number;
+  lastTouchAt: string | null;
 }
 
 export interface MeetingContextConnection {
@@ -395,6 +398,7 @@ export interface MeetingContext {
   jobSearch: MeetingContextJob[];
   home: MeetingHomeContext;
   brief: MeetingContextBrief;
+  briefing: MeetingBriefing;
   granolaNotes: MeetingContextGranolaNote[];
   recentEmail: MeetingContextRecentEmail | null;
 }
@@ -464,4 +468,378 @@ export interface HomeContextMeeting {
   id: string;
   gcalEventId: string;
   attendees: Array<{ email: string; contactId: string | null }>;
+}
+
+export interface BriefingPersonRef {
+  contactId: string;
+  name: string;
+  email: string;
+}
+
+export interface BriefingBeat {
+  id: string;
+  at: string;
+  contactId: string;
+  name: string;
+  direction: "inbound" | "outbound" | null;
+  /** Readable sentence. Links and signatures stripped. */
+  text: string;
+  url: string | null;
+  subject: string | null;
+}
+
+export interface BriefingThread {
+  id: string;
+  title: string;
+  url: string | null;
+  firstAt: string;
+  lastAt: string;
+  messageCount: number;
+  schedulingCount: number;
+}
+
+export interface OtherThread {
+  id: string;
+  title: string;
+  channelLabel: string;
+  url: string | null;
+  lastAt: string;
+  messageCount: number;
+  preview: string | null;
+  names: string[];
+}
+
+/** What to read before the call, assembled from touches already in JasonOS. */
+export interface MeetingBriefing {
+  whereItStands: BriefingBeat | null;
+  yourStake: BriefingBeat | null;
+  introduction: BriefingBeat | null;
+  meetingThread: BriefingThread | null;
+  otherThreads: OtherThread[];
+}
+
+const COMPANY_STOP = new Set([
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
+  "the",
+  "meet",
+  "email",
+  "sent",
+  "outlook",
+  "gmail",
+  "linkedin",
+  "phone",
+  "thanks",
+  "regards",
+  "inc",
+  "llc",
+]);
+
+/** "Re: Re: Foo" and "Foo" are the same conversation subject. */
+export function subjectKey(subject: string | null | undefined): string {
+  return (subject ?? "")
+    .replace(/^(?:(?:re|fw|fwd)\s*:\s*)+/gi, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function decodeEntities(value: string): string {
+  return value
+    .replace(/&#(\d+);/g, (_, code: string) => {
+      const n = Number(code);
+      return n > 0 && n < 65536 ? String.fromCharCode(n) : "";
+    })
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'");
+}
+
+/** Decode, drop quoted replies and mobile signatures, keep URLs. */
+export function normalizeTouchText(value: string | null | undefined): string | null {
+  const raw = (value ?? "").trim();
+  if (!raw) return null;
+  let text = decodeEntities(raw);
+  text = text.replace(/<((?:https?:\/\/)[^>\s]+)>/gi, " $1 ");
+  // Stored notes are clipped at 200 characters, sometimes mid-link: "<https://…"
+  text = text.replace(/<https?:\/\/\S*/gi, " ");
+  text = text.split(/\bOn\s+.{0,80}\bwrote:/i)[0] ?? text;
+  text = text.split(/_{5,}/)[0] ?? text;
+  text = text.split(/\bFrom:\s+\S+@/i)[0] ?? text;
+  text = text.replace(/\bSent from (?:my |the )?.*/i, "");
+  const signoff = text.match(/^(.*\S)\s+looking forward\b[\s\S]*$/i);
+  if (signoff && signoff[1].length >= 40) text = signoff[1];
+  text = text.replace(/\s+/g, " ").trim();
+  return text || null;
+}
+
+/** Sentence you can read. URLs removed. Trailing cut marked when the stored note was clipped. */
+export function displayTouchText(value: string | null | undefined): string | null {
+  const normalized = normalizeTouchText(value);
+  if (!normalized) return null;
+  let text = normalized.replace(/https?:\/\/\S+/gi, " ");
+  text = text
+    .replace(/\s+,/g, ",")
+    .replace(/\(\s*\)/g, "")
+    .replace(/\s+([,.;])/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .replace(/^[,.\s]+/, "")
+    .replace(/[,:\s]+$/, "")
+    .trim();
+  if (!text) return null;
+  const raw = (value ?? "").trim();
+  const clipped = raw.length >= 199 && !/looking forward\b/i.test(raw);
+  if (clipped && !/[.!?…]$/.test(text)) text = `${text}…`;
+  return text;
+}
+
+function beatDirection(value: string | null): "inbound" | "outbound" | null {
+  if (value === "inbound" || value === "outbound") return value;
+  return null;
+}
+
+function isCalendarStub(touch: HistoryTouch, text: string | null): boolean {
+  if (touch.channel === "calendar") return true;
+  const subject = collapseText(touch.subject)?.toLowerCase();
+  const brief = text?.toLowerCase();
+  if (subject && brief && subject === brief) return true;
+  return false;
+}
+
+const SUBSTANCE_RE =
+  /\b(i would start|start with|i can help|from my review|strategy|opportunity|\d\))/i;
+const SCHEDULE_RE =
+  /\b(works for me|that works|next week|this week|same time|send (?:out )?an invite|updated invite|reschedul|running late|\d+\s*min late|unwell|sorry|apolog|this afternoon|calendar invite|monday|tuesday|wednesday|thursday|friday)\b/i;
+
+export function isSchedulingNote(text: string): boolean {
+  if (SUBSTANCE_RE.test(text)) return false;
+  return SCHEDULE_RE.test(text);
+}
+
+function isSubstance(text: string): boolean {
+  if (SUBSTANCE_RE.test(text)) return true;
+  if (SCHEDULE_RE.test(text)) return false;
+  return text.length >= 140;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export function mentionedPeople(
+  text: string,
+  people: BriefingPersonRef[]
+): BriefingPersonRef[] {
+  const hay = text.toLowerCase();
+  return people.filter((person) => {
+    const email = person.email.trim().toLowerCase();
+    if (email && hay.includes(email)) return true;
+    const last = person.name.trim().split(/\s+/).pop()?.toLowerCase() ?? "";
+    return last.length >= 3 && hay.includes(last);
+  });
+}
+
+function toBeat(
+  touch: HistoryTouch,
+  peopleById: Map<string, BriefingPersonRef>,
+  text: string
+): BriefingBeat {
+  const person = peopleById.get(touch.contactId);
+  return {
+    id: touch.id,
+    at: touch.touchedAt,
+    contactId: touch.contactId,
+    name: person?.name || "Someone",
+    direction: beatDirection(touch.direction),
+    text,
+    url: repairGmailUrl(touch.threadUrl),
+    subject: collapseText(touch.subject),
+  };
+}
+
+/**
+ * Pull the three things worth reading before a call out of stored touch notes.
+ * Does not invent text. Scheduling back-and-forth stays a count, not a list.
+ */
+export function buildMeetingBriefing(input: {
+  title: string;
+  people: BriefingPersonRef[];
+  touches: HistoryTouch[];
+}): MeetingBriefing {
+  const peopleById = new Map(input.people.map((person) => [person.contactId, person]));
+  const prepared = input.touches.flatMap((touch) => {
+    const display = displayTouchText(touch.brief);
+    const normalized = normalizeTouchText(touch.brief);
+    if (!display || !normalized || isCalendarStub(touch, display)) return [];
+    return [{ touch, display, normalized }];
+  });
+  prepared.sort((a, b) => Date.parse(a.touch.touchedAt) - Date.parse(b.touch.touchedAt));
+
+  const seen = new Set<string>();
+  const unique = prepared.filter((row) => {
+    const key = `${row.touch.touchedAt}|${row.display.toLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const meetingKey = subjectKey(input.title);
+  const onMeeting =
+    meetingKey.length >= 12
+      ? unique.filter((row) => subjectKey(row.touch.subject) === meetingKey)
+      : [];
+
+  const latestOnMeeting = onMeeting[onMeeting.length - 1] ?? null;
+  const whereItStands = latestOnMeeting
+    ? toBeat(latestOnMeeting.touch, peopleById, latestOnMeeting.display)
+    : null;
+
+  const stakeRow = [...unique]
+    .reverse()
+    .find(
+      (row) =>
+        row.touch.direction === "outbound" &&
+        isSubstance(row.display) &&
+        row.touch.id !== whereItStands?.id
+    );
+  const yourStake = stakeRow
+    ? toBeat(stakeRow.touch, peopleById, stakeRow.display)
+    : null;
+
+  const introRow = unique.find((row) => {
+    if (row.touch.id === whereItStands?.id || row.touch.id === yourStake?.id) return false;
+    const others = mentionedPeople(row.normalized, input.people).filter(
+      (person) => person.contactId !== row.touch.contactId
+    );
+    if (!others.length) return false;
+    return /\bmeet\b/i.test(row.normalized) || /\bintroduc/i.test(row.normalized) || others.length >= 2;
+  });
+  const introduction = introRow
+    ? toBeat(introRow.touch, peopleById, introRow.display)
+    : null;
+
+  const meetingThread: BriefingThread | null = onMeeting.length
+    ? {
+        id: onMeeting[0].touch.threadUrl || onMeeting[0].touch.id,
+        title: collapseText(onMeeting[onMeeting.length - 1].touch.subject) || input.title,
+        url: repairGmailUrl(
+          [...onMeeting].reverse().find((row) => row.touch.threadUrl)?.touch.threadUrl
+        ),
+        firstAt: onMeeting[0].touch.touchedAt,
+        lastAt: onMeeting[onMeeting.length - 1].touch.touchedAt,
+        messageCount: onMeeting.length,
+        schedulingCount: onMeeting.filter((row) => isSchedulingNote(row.display)).length,
+      }
+    : null;
+
+  const meetingIds = new Set(onMeeting.map((row) => row.touch.id));
+  const featured = new Set(
+    [whereItStands?.text, yourStake?.text, introduction?.text]
+      .filter((value): value is string => Boolean(value))
+      .map((value) => value.toLowerCase())
+  );
+  const groups = new Map<string, typeof unique>();
+  for (const row of unique) {
+    if (meetingIds.has(row.touch.id)) continue;
+    const thread = row.touch.channel === "email" ? row.touch.threadUrl?.trim() : "";
+    const key = thread || `touch:${row.touch.id}`;
+    const group = groups.get(key) ?? [];
+    group.push(row);
+    groups.set(key, group);
+  }
+  const otherThreads: OtherThread[] = [...groups.values()]
+    .map((group) => {
+      const newest = group[group.length - 1];
+      const names = [
+        ...new Set(
+          group
+            .map((row) => peopleById.get(row.touch.contactId)?.name)
+            .filter((name): name is string => Boolean(name))
+        ),
+      ];
+      const preview = newest.display;
+      return {
+        id: newest.touch.id,
+        title:
+          collapseText(newest.touch.subject) ||
+          preview ||
+          touchChannelLabel(newest.touch),
+        channelLabel: touchChannelLabel(newest.touch),
+        url: repairGmailUrl(newest.touch.threadUrl),
+        lastAt: newest.touch.touchedAt,
+        messageCount: group.length,
+        preview: featured.has(preview.toLowerCase()) ? null : preview,
+        names,
+      };
+    })
+    .sort((a, b) => Date.parse(b.lastAt) - Date.parse(a.lastAt))
+    .slice(0, 6);
+
+  return { whereItStands, yourStake, introduction, meetingThread, otherThreads };
+}
+
+/**
+ * Fill a missing company or LinkedIn when an email note already states them.
+ * Does not overwrite a value stored on the contact.
+ */
+export function enrichPeopleFromTouches(
+  people: MeetingContextPerson[],
+  touches: HistoryTouch[]
+): MeetingContextPerson[] {
+  const blobs = touches
+    .map((touch) => normalizeTouchText(touch.brief))
+    .filter((value): value is string => Boolean(value));
+  const refs: BriefingPersonRef[] = people.map((person) => ({
+    contactId: person.contactId,
+    name: person.name,
+    email: person.email,
+  }));
+  const companyById = new Map<string, string>();
+  const linkedinById = new Map<string, string>();
+
+  for (const blob of blobs) {
+    const companyMatch = blob.match(/\bof\s+([A-Z][A-Za-z0-9&]+(?:\s+[A-Z][A-Za-z0-9&]+){0,2})/);
+    const company = companyMatch?.[1]?.trim();
+    if (company && !COMPANY_STOP.has(company.toLowerCase())) {
+      for (const person of mentionedPeople(blob, refs)) {
+        if (!companyById.has(person.contactId)) companyById.set(person.contactId, company);
+      }
+    }
+    for (const person of refs) {
+      if (linkedinById.has(person.contactId)) continue;
+      const match = blob.match(
+        new RegExp(
+          `${escapeRegExp(person.name)}\\s+(https?:\\/\\/(?:www\\.)?linkedin\\.com\\/in\\/[^\\s,]+)`,
+          "i"
+        )
+      );
+      if (match) linkedinById.set(person.contactId, match[1].replace(/[),.;]+$/, ""));
+    }
+  }
+
+  return people.map((person) => ({
+    ...person,
+    company: person.company || companyById.get(person.contactId) || null,
+    linkedinUrl: person.linkedinUrl || linkedinById.get(person.contactId) || null,
+  }));
 }
