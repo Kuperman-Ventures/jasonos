@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { chosenAnswerLabel } from "@/lib/fuck-you-batman/logic";
+import { displayQuestion, isProvisional } from "@/lib/fuck-you-batman/process";
 import type { FybDecision } from "@/lib/fuck-you-batman/types";
 import {
   chooseCustom,
@@ -38,21 +39,37 @@ const markdownComponents = {
   ),
 };
 
-export function DecisionCard({ decision }: { decision: FybDecision }) {
+export function DecisionCard({
+  decision,
+  stepIndex,
+  stepTotal,
+}: {
+  decision: FybDecision;
+  stepIndex?: number;
+  stepTotal?: number;
+}) {
   const router = useRouter();
   const [picked, setPicked] = useState<string | null>(null);
   const [custom, setCustom] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const question = displayQuestion(decision);
 
   if (decision.status === "decided") {
     const date = decidedDate(decision.decided_at);
     return (
-      <section className="rounded-xl border bg-card p-4">
+      <section id={decision.decision_key} className="scroll-mt-20 rounded-xl border bg-card p-4">
         <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
           Decided{date ? ` · ${date}` : ""}
         </p>
-        <h2 className="mt-1 text-sm font-semibold">{decision.question}</h2>
+        <h2 className="mt-1 text-sm font-semibold">
+          {question}
+          {isProvisional(decision) ? (
+            <span className="ml-1 rounded-full border px-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+              Provisional
+            </span>
+          ) : null}
+        </h2>
         <p className="mt-2 text-sm text-foreground/80">
           <span className="font-semibold text-foreground">Answer: </span>
           {chosenAnswerLabel(decision) || "(none)"}
@@ -106,16 +123,22 @@ export function DecisionCard({ decision }: { decision: FybDecision }) {
       toast.error(result.error);
       return;
     }
-    toast.success("Decision recorded.");
+    toast.success(
+      stepTotal != null && stepTotal > 1
+        ? "Decision recorded. Next one is at the top."
+        : "Decision recorded."
+    );
     router.refresh();
   };
 
   return (
-    <section className="rounded-xl border bg-card p-4">
+    <section id={decision.decision_key} className="scroll-mt-20 rounded-xl border bg-card p-4">
       <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-        Week {decision.week} · Phase {decision.phase}
+        {stepIndex != null && stepTotal != null
+          ? `Step ${stepIndex} of ${stepTotal} · Week ${decision.week} · Phase ${decision.phase}`
+          : `Week ${decision.week} · Phase ${decision.phase}`}
       </p>
-      <h2 className="mt-1 text-sm font-semibold">{decision.question}</h2>
+      <h2 className="mt-1 text-sm font-semibold">{question}</h2>
       {decision.context ? (
         <div className="mt-2">
           <ReactMarkdown components={markdownComponents}>{decision.context}</ReactMarkdown>
