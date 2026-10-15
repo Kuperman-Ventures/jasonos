@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { format } from "date-fns";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { fybMarkdownComponents } from "@/components/jasonos/fuck-you-batman/markdown";
+import { NextStepCard } from "@/components/jasonos/fuck-you-batman/next-step-card";
+import { ProcessGuide } from "@/components/jasonos/fuck-you-batman/process-guide";
 import { chosenAnswerLabel } from "@/lib/fuck-you-batman/logic";
-import { PHASES, TOTAL_WEEKS, currentPhase, isPhaseDone, weekNumber } from "@/lib/fuck-you-batman/plan";
+import { TOTAL_WEEKS, currentPhase, weekNumber } from "@/lib/fuck-you-batman/plan";
+import { displayQuestion, isProvisional } from "@/lib/fuck-you-batman/process";
 import { getFybStatus } from "@/lib/fuck-you-batman/status";
 import { FYB_BIBLE_KINDS, FYB_DRIFT_KINDS, FYB_SCENE_KINDS, type FybEntry, type FybEntryKind } from "@/lib/fuck-you-batman/types";
 import { loadFybDecisions, loadFybEntries } from "@/lib/server-actions/fuck-you-batman";
@@ -53,26 +53,16 @@ function reviewCounts(entries: FybEntry[], kinds: FybEntryKind[]) {
   };
 }
 
-function formatDate(iso: string): string {
-  return new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
 export default async function FuckYouBatmanPage() {
   const week = weekNumber();
   const current = currentPhase(week);
   const statusLabel =
     week < 1 ? "Starts Monday, Oct 12, 2026" : current ? `Week ${week} of ${TOTAL_WEEKS}` : "Plan complete";
-  const [{ openTodos, doneTodos, openCards }, decisions, entries, referenceEntries] = await Promise.all([
+  const [{ openTodos, doneTodos, openCards }, decisions, entries] = await Promise.all([
     getFybStatus(),
     loadFybDecisions(),
     loadFybEntries(),
-    loadFybEntries("reference"),
   ]);
-  const processGuide = referenceEntries.find((entry) => entry.entry_key === "process-guide");
   const hasOpenItems = openCards.length > 0 || openTodos.length > 0;
   const dueThisWeek = decisions.filter((d) => d.status === "open" && d.week === week);
   const bibleCounts = reviewCounts(entries, FYB_BIBLE_KINDS);
@@ -99,30 +89,7 @@ export default async function FuckYouBatmanPage() {
         </p>
       </header>
 
-      <section className="rounded-xl border bg-card p-4">
-        <h2 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-          Current phase
-        </h2>
-        {current ? (
-          <>
-            <p className="mt-1 text-sm font-semibold">
-              Phase {current.number}: {current.name}
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {formatDate(current.start)} - {formatDate(current.end)}
-            </p>
-            <p className="mt-2 text-sm leading-relaxed text-foreground/80">
-              Output: {current.output}
-            </p>
-          </>
-        ) : (
-          <p className="mt-1 text-sm text-foreground/80">
-            {week < 1
-              ? "Phase 1 (Voice) is done. Story foundation starts Monday. First story work: ending, hidden purpose, Story Bible, Drift Map, tense."
-              : "All phases complete."}
-          </p>
-        )}
-      </section>
+      <NextStepCard week={week} decisions={decisions} entries={entries} />
 
       <section className="rounded-xl border bg-card p-4">
         <h2 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -146,21 +113,9 @@ export default async function FuckYouBatmanPage() {
         )}
       </section>
 
-      {processGuide ? (
-        <section className="rounded-xl border bg-card p-4">
-          <h2 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-            How the book gets made
-          </h2>
-          <details open className="mt-2">
-            <summary className="cursor-pointer text-xs text-muted-foreground">
-              Show or hide the process
-            </summary>
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={fybMarkdownComponents}>
-              {processGuide.body_md}
-            </ReactMarkdown>
-          </details>
-        </section>
-      ) : null}
+      <section className="rounded-xl border bg-card p-4">
+        <ProcessGuide week={week} decisions={decisions} entries={entries} />
+      </section>
 
       <section className="rounded-xl border bg-card p-4">
         <h2 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -243,39 +198,6 @@ export default async function FuckYouBatmanPage() {
 
       <section className="rounded-xl border bg-card p-4">
         <h2 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-          Phases
-        </h2>
-        <ol className="mt-2 divide-y text-xs">
-          {PHASES.map((p) => {
-            const isCurrent = current?.number === p.number;
-            const isDone = isPhaseDone(p, week);
-            return (
-              <li key={p.number} className="flex items-start justify-between gap-3 py-2">
-                <div>
-                  <p className={isCurrent ? "font-semibold text-foreground" : "text-foreground/80"}>
-                    {p.number}. {p.name}
-                    {isCurrent ? " (current)" : isDone ? " (done)" : ""}
-                  </p>
-                  <p className="mt-0.5 text-muted-foreground">{p.output}</p>
-                </div>
-                <p className="num-mono shrink-0 text-muted-foreground">
-                  {p.startWeek === 0
-                    ? "done"
-                    : p.startWeek === p.endWeek
-                      ? `Wk ${p.startWeek}`
-                      : `Wk ${p.startWeek}-${p.endWeek}`}
-                </p>
-              </li>
-            );
-          })}
-        </ol>
-        <p className="mt-2 text-xs text-muted-foreground">
-          A missed drafting week moves the end date out by a week. Later phases are not compressed.
-        </p>
-      </section>
-
-      <section className="rounded-xl border bg-card p-4">
-        <h2 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
           Decisions made
         </h2>
         {decided.length === 0 ? (
@@ -284,7 +206,14 @@ export default async function FuckYouBatmanPage() {
           <ul className="mt-2 space-y-2 text-xs text-foreground/80">
             {decided.map((d) => (
               <li key={d.id}>
-                <p className="font-semibold text-foreground">{d.question}</p>
+                <p className="font-semibold text-foreground">
+                  {displayQuestion(d)}
+                  {isProvisional(d) ? (
+                    <span className="ml-1 rounded-full border px-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                      Provisional
+                    </span>
+                  ) : null}
+                </p>
                 <p className="mt-0.5">{chosenAnswerLabel(d)}</p>
               </li>
             ))}
