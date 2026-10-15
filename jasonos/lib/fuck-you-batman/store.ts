@@ -142,7 +142,7 @@ export async function reopenDecision(decision_key: string): Promise<{ ok: true; 
     .update({
       status: "open",
       chosen_option_key: null,
-      custom_answer: null,
+      custom_answer: existing.options.length === 0 ? existing.custom_answer : null,
       jason_note: null,
       decided_at: null,
       decided_by: null,

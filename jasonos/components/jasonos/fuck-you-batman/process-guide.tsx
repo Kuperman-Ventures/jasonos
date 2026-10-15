@@ -10,7 +10,7 @@ import {
   phaseDateLabel,
   stepStatus,
   weekMonday,
-  weekRangeLabel,
+  weekRange,
   type ProcessPart,
   type ProcessStepStatus,
 } from "@/lib/fuck-you-batman/process";
@@ -78,7 +78,13 @@ function PartRow({
   decisions: FybDecision[];
   entries: FybEntry[];
 }) {
-  const status = partStatus(part, decisions, entries);
+  const result = partStatus(part, decisions, entries);
+  const status = result.status;
+  const doneLabel = part.questionSet ? "Answered" : part.entryKinds?.length ? "Approved" : "Decided";
+  const waitingLabel =
+    part.questionSet && result.total != null
+      ? `${result.answered ?? 0} of ${result.total} answered`
+      : "Waiting on you";
   return (
     <div className="flex gap-2 border-b py-1.5 last:border-0">
       <span
@@ -96,13 +102,13 @@ function PartRow({
       </div>
       <p className="shrink-0 text-[10px] whitespace-nowrap text-muted-foreground">
         {status === "done" ? (
-          "Decided"
+          doneLabel
         ) : status === "waiting" ? (
           <Link href={partWaitingHref(part)} className="underline">
-            Waiting on you
+            {waitingLabel}
           </Link>
         ) : (
-          `Posted ${weekMonday(part.week)}`
+          `Arrives ${weekMonday(part.week)}`
         )}
       </p>
     </div>
@@ -124,8 +130,8 @@ export function ProcessGuide({
         How the Book Gets Made
       </p>
       <p className="mt-1 text-sm text-foreground/80">
-        Built from the ending backward, then written from the start forward. Each step needs the one
-        before it.
+        You make every story decision by answering questions. The story is worked out from the ending
+        backward, then written from the start forward.
       </p>
 
       <div className="relative mt-3">
@@ -216,7 +222,7 @@ export function ProcessGuide({
                     ? groupPartsByWeek(step.parts).map((group) => (
                         <div key={group.week}>
                           <p className="mt-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                            Week {group.week} · {weekRangeLabel(group.week)}
+                            Week {group.week} · {weekRange(group.week)}
                           </p>
                           {group.parts.map((part) => (
                             <PartRow
@@ -249,7 +255,7 @@ export function ProcessGuide({
       </aside>
 
       <p className="mt-3 text-[11px] text-muted-foreground">
-        A missed drafting week moves the end date out by a week. Later phases are not compressed.
+        A missed week moves the end date out by a week. Later phases are not compressed.
       </p>
     </div>
   );
