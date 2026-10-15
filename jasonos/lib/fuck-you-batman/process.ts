@@ -6,6 +6,7 @@ import { currentPhase, isPhaseDone, PHASES, PROJECT_START } from "./plan";
 import {
   FYB_BIBLE_KINDS,
   FYB_DRIFT_KINDS,
+  FYB_SCENE_KINDS,
   type FybDecision,
   type FybEntry,
   type FybEntryKind,
@@ -17,15 +18,26 @@ export const SKETCH_NOTE =
   "Scenes written before Phase 4 are sketches. Any story fact a sketch commits to is logged as a provisional decision. After the outline, each sketch is kept, rewritten or cut to fit it.";
 export const PROVISIONAL_SUFFIX = " (Provisional, from the opening scene draft)";
 
+export const QUESTION_SETS: Record<string, string> = {
+  hero: "The Hero",
+  computer: "The Computer (Moon)",
+  relationship: "Hero and Moon Before the Drift",
+  "second-track": "The Detective",
+  tense: "Tense and Narration Frame",
+  drift: "The Drift Map",
+  outline: "The Outline",
+};
+
 export type ProcessStepStatus = "done" | "now" | "next" | "later";
 export type ProcessPartStatus = "done" | "waiting" | "not-posted";
-export type NextStepKind = "decide" | "wait" | "review" | "write" | "none";
+export type NextStepKind = "answer" | "decide" | "wait" | "review" | "write" | "none";
 
 export type ProcessPart = {
   week: number;
   label: string;
   why: string;
   decisionKey?: string;
+  questionSet?: string;
   entryKinds?: FybEntryKind[];
 };
 
@@ -47,6 +59,12 @@ export type NextStep = {
   stepOf?: { index: number; total: number };
 };
 
+export type PartStatusResult = {
+  status: ProcessPartStatus;
+  answered?: number;
+  total?: number;
+};
+
 export const PROCESS_STEPS: ProcessStep[] = [
   {
     phase: 1,
@@ -57,10 +75,10 @@ export const PROCESS_STEPS: ProcessStep[] = [
   },
   {
     phase: 2,
-    purpose: "Decide the story from the ending backward: the ending first, then the people, then the rules.",
-    you: "Pick an option on each decision card, or write your own, and press Record. Approve or request changes on the Story Bible and Drift Map.",
+    purpose: "Work out the story from the ending backward: the ending first, then the people, then the rules of the world.",
+    you: "Answer each question in your own words on the Decisions tab. Approve the Story Bible, or request changes.",
     claude:
-      "Posts 3-4 options per decision each Monday, with holes and a recommendation. Drafts the Story Bible and Drift Map in Week 3.",
+      "Posts the week's questions each Monday, with why each one matters. Asks follow-up questions where answers conflict or leave gaps. Builds the Story Bible from your answers, in your words.",
     inApp: { label: "Decisions", href: "/projects/fuck-you-batman/decisions" },
     parts: [
       {
@@ -77,91 +95,133 @@ export const PROCESS_STEPS: ProcessStep[] = [
       },
       {
         week: 2,
-        label: "Hero",
-        why: "Who he is, and why he relies on the computer without checking its work.",
-        decisionKey: "hero",
+        label: "The Hero",
+        why: "Who Dustin is, what he wants, what shaped him, and why he trusts Moon without checking.",
+        questionSet: "hero",
       },
       {
         week: 2,
-        label: "Computer",
-        why: "Its original job, what it can sense, and how it talks.",
-        decisionKey: "computer",
-      },
-      {
-        week: 2,
-        label: "Relationship before the drift",
-        why: "What the reader watches go wrong.",
-        decisionKey: "relationship",
-      },
-      {
-        week: 2,
-        label: "Second story track",
-        why: "The detective whose view does not match the computer's account.",
-        decisionKey: "second-track",
-      },
-      {
-        week: 2,
-        label: "Tense and narration frame",
-        why: "When and why the computer is telling the story.",
-        decisionKey: "tense",
+        label: "The Computer (Moon)",
+        why: "Who built Moon, what it can sense, what it values, and how it talks.",
+        questionSet: "computer",
       },
       {
         week: 3,
+        label: "Hero and Moon Before the Drift",
+        why: "What the reader watches go wrong.",
+        questionSet: "relationship",
+      },
+      {
+        week: 3,
+        label: "The Detective",
+        why: "The second story track, whose view does not match Moon's account.",
+        questionSet: "second-track",
+      },
+      {
+        week: 3,
+        label: "Tense and Narration Frame",
+        why: "When, why and to whom Moon is telling the story.",
+        questionSet: "tense",
+      },
+      {
+        week: 4,
         label: "Story Bible",
-        why: "Characters, places, technology rules and timeline, kept consistent.",
+        why: "Your answers, organized so the facts stay consistent across the book.",
         entryKinds: FYB_BIBLE_KINDS,
       },
       {
-        week: 3,
-        label: "Drift Map",
-        why: "The stages of the madness by chapter, with the clues and machine patterns in each.",
-        entryKinds: FYB_DRIFT_KINDS,
+        week: 4,
+        label: "Drift Map questions",
+        why: "The stages of Moon's madness, and what the reader believes at each one.",
+        questionSet: "drift",
       },
     ],
   },
   {
     phase: 3,
-    purpose: "Turn the Drift Map into a writing plan.",
-    you: "Approve or request changes on each scene card.",
-    claude: "Drafts one card per scene: what happens, what the computer reports, what is actually true, and its drift stage.",
-    inApp: { label: "Scenes", href: "/projects/fuck-you-batman/scenes" },
+    purpose: "Turn your answers into a chapter-by-chapter writing plan.",
+    you: "Answer the outline questions. Approve the Drift Map and the scene cards, or request changes.",
+    claude: "Builds the Drift Map and the scene cards from your answers, in your words, and asks about the gaps.",
+    inApp: { label: "Decisions", href: "/projects/fuck-you-batman/decisions" },
+    parts: [
+      {
+        week: 5,
+        label: "Drift Map",
+        why: "Your stages, clues and voice changes, organized by chapter.",
+        entryKinds: FYB_DRIFT_KINDS,
+      },
+      {
+        week: 5,
+        label: "Outline questions",
+        why: "For each chapter: what happens, what Moon reports, and what is actually true.",
+        questionSet: "outline",
+      },
+      {
+        week: 6,
+        label: "Scene cards",
+        why: "One card per scene, built from your outline answers.",
+        entryKinds: FYB_SCENE_KINDS,
+      },
+    ],
   },
   {
     phase: 4,
     purpose: "Test the voice on real chapters before the full draft.",
     you: "Write chapters 1-3 in Google Docs.",
-    claude: "Reviews them against the Style Profile and proposes any rule changes for you to approve.",
+    claude: "Reviews them against the Style Profile and asks questions about anything that breaks a rule.",
     inApp: { label: "Scenes", href: "/projects/fuck-you-batman/scenes" },
   },
   {
     phase: 5,
     purpose: "Write the full first draft, in order, against the outline.",
     you: "Write about 1,000 words a session, 5 sessions a week, in Google Docs.",
-    claude: "Reviews each week's pages on Sunday and emails up to 8 findings.",
+    claude: "Reviews each week's pages on Sunday and emails up to 8 questions about specific lines.",
     inApp: { label: "Scenes", href: "/projects/fuck-you-batman/scenes" },
   },
   {
     phase: 6,
     purpose: "Revise in five passes, one problem at a time: structure, drift and clues, character, language, AI tells.",
     you: "Revise in Google Docs, one pass at a time.",
-    claude: "Lists the issues for each pass before you start it.",
+    claude: "Asks questions about the places each pass should look at, before you start it.",
     inApp: { label: "Scenes", href: "/projects/fuck-you-batman/scenes" },
   },
   {
     phase: 7,
     purpose: "Find out when readers stop trusting the computer.",
-    you: "Send the draft to 3 to 5 readers.",
-    claude: "Turns their feedback into one list of fixes.",
+    you: "Send the draft to 3 to 5 readers and decide which feedback to act on.",
+    claude: "Groups their feedback by chapter and by problem.",
     inApp: { label: "Google Docs", href: null },
   },
   {
     phase: 8,
     purpose: "Finish the manuscript.",
     you: "Make the final fixes.",
-    claude: "Runs the last AI tells check.",
+    claude: "Runs the last AI tells check and lists the lines it flags.",
     inApp: { label: "Google Docs", href: null },
   },
 ];
+
+export function questionSet(decision: Pick<FybDecision, "decision_key">): string | null {
+  const match = decision.decision_key.match(/^(.*)-(\d+)$/);
+  if (!match) return null;
+  const prefix = match[1];
+  return Object.prototype.hasOwnProperty.call(QUESTION_SETS, prefix) ? prefix : null;
+}
+
+export function isQuestion(decision: Pick<FybDecision, "decision_key" | "options">): boolean {
+  return decision.options.length === 0 && questionSet(decision) !== null;
+}
+
+export function setProgress(
+  decisions: FybDecision[],
+  set: string
+): { answered: number; total: number } {
+  const cards = decisions.filter((d) => isQuestion(d) && questionSet(d) === set);
+  return {
+    answered: cards.filter((d) => d.status === "decided").length,
+    total: cards.length,
+  };
+}
 
 export function isProvisional(decision: Pick<FybDecision, "question">): boolean {
   return decision.question.endsWith(PROVISIONAL_SUFFIX);
@@ -189,7 +249,8 @@ export function weekMonday(week: number): string {
   return `${weekday} ${shortMonthDay(date)}`;
 }
 
-export function weekRangeLabel(week: number): string {
+/** Inclusive Mon-Sun range for a plan week, e.g. "Oct 19 - Oct 25". */
+export function weekRange(week: number): string {
   const monday = mondayUtc(week);
   const sunday = new Date(monday.getTime() + 6 * 86_400_000);
   return `${shortMonthDay(monday)} - ${shortMonthDay(sunday)}`;
@@ -220,18 +281,26 @@ export function partStatus(
   part: ProcessPart,
   decisions: FybDecision[],
   entries: FybEntry[]
-): ProcessPartStatus {
+): PartStatusResult {
   if (part.decisionKey) {
     const row = decisions.find((d) => d.decision_key === part.decisionKey);
-    if (!row) return "not-posted";
-    return row.status === "decided" ? "done" : "waiting";
+    if (!row) return { status: "not-posted" };
+    return { status: row.status === "decided" ? "done" : "waiting" };
+  }
+  if (part.questionSet) {
+    const progress = setProgress(decisions, part.questionSet);
+    if (progress.total === 0) return { status: "not-posted", answered: 0, total: 0 };
+    if (progress.answered === progress.total) {
+      return { status: "done", answered: progress.answered, total: progress.total };
+    }
+    return { status: "waiting", answered: progress.answered, total: progress.total };
   }
   if (part.entryKinds?.length) {
     const rows = entries.filter((entry) => part.entryKinds!.includes(entry.kind));
-    if (rows.length === 0) return "not-posted";
-    return rows.every((entry) => entry.status === "approved") ? "done" : "waiting";
+    if (rows.length === 0) return { status: "not-posted" };
+    return { status: rows.every((entry) => entry.status === "approved") ? "done" : "waiting" };
   }
-  return "not-posted";
+  return { status: "not-posted" };
 }
 
 export function entryTabHref(kind: FybEntryKind): string {
@@ -243,21 +312,9 @@ export function entryTabHref(kind: FybEntryKind): string {
 
 export function partWaitingHref(part: ProcessPart): string {
   if (part.decisionKey) return `/projects/fuck-you-batman/decisions#${part.decisionKey}`;
+  if (part.questionSet) return `/projects/fuck-you-batman/decisions#set-${part.questionSet}`;
   const kind = part.entryKinds?.[0];
   return kind ? entryTabHref(kind) : "/projects/fuck-you-batman";
-}
-
-function firstChapterDocUrl(entries: FybEntry[]): string | null {
-  for (const entry of entries) {
-    if (entry.kind !== "scene") continue;
-    const url = entry.data.doc_url;
-    if (typeof url === "string" && /^https:\/\//i.test(url)) return url;
-  }
-  return null;
-}
-
-function writeHref(entries: FybEntry[]): string {
-  return firstChapterDocUrl(entries) ?? SKETCH_DOC_URL;
 }
 
 function writeDetail(phaseNumber: number): string {
@@ -273,16 +330,25 @@ export function nextStep(week: number, decisions: FybDecision[], entries: FybEnt
     .sort((a, b) => a.week - b.week || a.sort_order - b.sort_order);
   if (due.length > 0) {
     const first = due[0];
-    const thisWeek = decisions.filter((d) => d.week === week);
-    const total = thisWeek.length;
-    const index = thisWeek.filter((d) => d.status === "decided").length + 1;
+    const href = `/projects/fuck-you-batman/decisions#${first.decision_key}`;
+    if (isQuestion(first)) {
+      const set = questionSet(first)!;
+      const progress = setProgress(decisions, set);
+      return {
+        kind: "answer",
+        title: displayQuestion(first),
+        detail: `Question ${progress.answered + 1} of ${progress.total} in ${QUESTION_SETS[set]}. Answer in your own words.`,
+        href,
+        hrefLabel: "Answer this question",
+        stepOf: { index: progress.answered + 1, total: progress.total },
+      };
+    }
     return {
       kind: "decide",
       title: `Decide: ${displayQuestion(first)}`,
-      detail: `Decision ${index} of ${total} this week. Pick an option or write your own, then press Record.`,
-      href: `/projects/fuck-you-batman/decisions#${first.decision_key}`,
+      detail: "Pick an option or write your own, then press Record.",
+      href,
       hrefLabel: "Open decision",
-      stepOf: { index, total },
     };
   }
 
@@ -303,9 +369,9 @@ export function nextStep(week: number, decisions: FybDecision[], entries: FybEnt
     return {
       kind: "review",
       title: `Review: ${first.title}`,
-      detail: `${drafts.length} draft${drafts.length === 1 ? "" : "s"} waiting. Approve each one, or request changes with a note.`,
+      detail: `${drafts.length} entries built from your answers are waiting. Approve each one, or request changes with a note.`,
       href: entryTabHref(first.kind),
-      hrefLabel: "Review drafts",
+      hrefLabel: "Review",
     };
   }
 
@@ -315,12 +381,12 @@ export function nextStep(week: number, decisions: FybDecision[], entries: FybEnt
       kind: "write",
       title: "Write today",
       detail: writeDetail(phase.number),
-      href: writeHref(entries),
+      href: SKETCH_DOC_URL,
       hrefLabel: "Open Google Docs",
     };
   }
 
-  let detail = `Claude posts the Week ${week + 1} work on ${weekMonday(week + 1)}.`;
+  let detail = `Your next questions arrive ${weekMonday(week + 1)}.`;
   let href: string | null = null;
   let hrefLabel: string | undefined;
   if (phase && (phase.number === 2 || phase.number === 3)) {

@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { chosenAnswerLabel } from "@/lib/fuck-you-batman/logic";
-import { displayQuestion, isProvisional } from "@/lib/fuck-you-batman/process";
+import { QUESTION_SETS, displayQuestion, isProvisional, isQuestion, questionSet } from "@/lib/fuck-you-batman/process";
 import type { FybDecision } from "@/lib/fuck-you-batman/types";
 import {
   chooseCustom,
@@ -39,6 +39,15 @@ const markdownComponents = {
   ),
 };
 
+function ProvisionalBadge({ decision }: { decision: FybDecision }) {
+  if (!isProvisional(decision)) return null;
+  return (
+    <span className="ml-1 rounded-full border px-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+      Provisional
+    </span>
+  );
+}
+
 export function DecisionCard({
   decision,
   stepIndex,
@@ -49,11 +58,108 @@ export function DecisionCard({
   stepTotal?: number;
 }) {
   const router = useRouter();
-  const [picked, setPicked] = useState<string | null>(null);
-  const [custom, setCustom] = useState("");
+  const questionMode = isQuestion(decision);
+  const setKey = questionSet(decision);
+  const setLabel = setKey ? QUESTION_SETS[setKey] : null;
+  const [picked, setPicked] = useState<string | null>(questionMode ? "custom" : null);
+  const [custom, setCustom] = useState(questionMode ? decision.custom_answer ?? "" : "");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const question = displayQuestion(decision);
+
+  const reopen = async (confirmMessage: string, successMessage: string) => {
+    if (!window.confirm(confirmMessage)) return;
+    setBusy(true);
+    const result = await reopenDecision(decision.decision_key);
+    setBusy(false);
+    if (!result.ok) {
+      toast.error(result.error);
+      return;
+    }
+    toast.success(successMessage);
+    router.refresh();
+  };
+
+  if (questionMode && decision.status === "decided") {
+    const date = decidedDate(decision.decided_at);
+    return (
+      <section id={decision.decision_key} className="scroll-mt-20 rounded-xl border bg-card p-4">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          Answered{date ? ` · ${date}` : ""}
+        </p>
+        <h2 className="mt-1 text-sm font-semibold">
+          {question}
+          <ProvisionalBadge decision={decision} />
+        </h2>
+        <p className="mt-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Your answer</p>
+        <p className="mt-1 whitespace-pre-wrap text-sm text-foreground/80">
+          {decision.custom_answer?.trim() || chosenAnswerLabel(decision) || "(none)"}
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="mt-3"
+          disabled={busy}
+          onClick={() =>
+            void reopen(
+              "Edit this answer? The recorded version stays until you save again.",
+              "Answer opened for editing."
+            )
+          }
+        >
+          Edit answer
+        </Button>
+      </section>
+    );
+  }
+
+  if (questionMode) {
+    const save = async () => {
+      if (!custom.trim()) {
+        toast.error("Answer in your own words.");
+        return;
+      }
+      setBusy(true);
+      const result = await chooseCustom(decision.decision_key, custom, "");
+      setBusy(false);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      toast.success("Answer saved.");
+      router.refresh();
+    };
+
+    return (
+      <section id={decision.decision_key} className="scroll-mt-20 rounded-xl border bg-card p-4">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          {stepIndex != null && stepTotal != null
+            ? `Question ${stepIndex} of ${stepTotal}${setLabel ? ` · ${setLabel}` : ""}`
+            : setLabel ?? "Question"}
+        </p>
+        <h2 className="mt-1 text-base font-semibold">{question}</h2>
+        {decision.context ? (
+          <div className="mt-2">
+            <ReactMarkdown components={markdownComponents}>{decision.context}</ReactMarkdown>
+          </div>
+        ) : null}
+        <label className="mt-3 block text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+          Your answer
+          <Textarea
+            className="mt-1"
+            rows={8}
+            value={custom}
+            placeholder="Answer in your own words. Notes, fragments and lists are fine."
+            onChange={(event) => setCustom(event.target.value)}
+          />
+        </label>
+        <Button type="button" size="sm" className="mt-3" disabled={busy} onClick={() => void save()}>
+          Save answer
+        </Button>
+      </section>
+    );
+  }
 
   if (decision.status === "decided") {
     const date = decidedDate(decision.decided_at);
@@ -64,11 +170,7 @@ export function DecisionCard({
         </p>
         <h2 className="mt-1 text-sm font-semibold">
           {question}
-          {isProvisional(decision) ? (
-            <span className="ml-1 rounded-full border px-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
-              Provisional
-            </span>
-          ) : null}
+          <ProvisionalBadge decision={decision} />
         </h2>
         <p className="mt-2 text-sm text-foreground/80">
           <span className="font-semibold text-foreground">Answer: </span>
@@ -83,20 +185,12 @@ export function DecisionCard({
           size="sm"
           className="mt-3"
           disabled={busy}
-          onClick={async () => {
-            if (!window.confirm("Reopen this decision? The recorded answer stays in history only until you pick again.")) {
-              return;
-            }
-            setBusy(true);
-            const result = await reopenDecision(decision.decision_key);
-            setBusy(false);
-            if (!result.ok) {
-              toast.error(result.error);
-              return;
-            }
-            toast.success("Decision reopened.");
-            router.refresh();
-          }}
+          onClick={() =>
+            void reopen(
+              "Reopen this decision? The recorded answer stays in history only until you pick again.",
+              "Decision reopened."
+            )
+          }
         >
           Reopen
         </Button>
@@ -207,7 +301,7 @@ export function DecisionCard({
         />
       </label>
 
-      <Button type="button" size="sm" className="mt-3" disabled={busy} onClick={record}>
+      <Button type="button" size="sm" className="mt-3" disabled={busy} onClick={() => void record()}>
         Record decision
       </Button>
     </section>

@@ -1,11 +1,11 @@
 /**
  * Fuck You Batman plan Version 3. Week 1 starts Monday 2026-10-12.
- * Voice finished before week 1. Total 38 weeks, manuscript due 2027-07-04.
+ * Voice finished before week 1. Total 39 weeks, manuscript due 2027-07-11.
  */
 import type { FybPhase } from "./types";
 
 export const PROJECT_START = "2026-10-12";
-export const TOTAL_WEEKS = 38;
+export const TOTAL_WEEKS = 39;
 
 export const PHASES: FybPhase[] = [
   {
@@ -21,63 +21,63 @@ export const PHASES: FybPhase[] = [
     number: 2,
     name: "Story foundation",
     startWeek: 1,
-    endWeek: 3,
+    endWeek: 4,
     start: "2026-10-12",
-    end: "2026-11-01",
-    output: "Ending, hidden purpose, Story Bible, Drift Map, tense",
+    end: "2026-11-08",
+    output: "Your answers on the hero, Moon, their relationship, the detective and the tense; the Story Bible",
   },
   {
     number: 3,
     name: "Outline",
-    startWeek: 4,
-    endWeek: 5,
-    start: "2026-11-02",
-    end: "2026-11-15",
-    output: "Scene Outline for the whole book",
+    startWeek: 5,
+    endWeek: 6,
+    start: "2026-11-09",
+    end: "2026-11-22",
+    output: "Drift Map and Scene Outline, built from your answers",
   },
   {
     number: 4,
     name: "Sample chapters",
-    startWeek: 6,
-    endWeek: 6,
-    start: "2026-11-16",
-    end: "2026-11-22",
+    startWeek: 7,
+    endWeek: 7,
+    start: "2026-11-23",
+    end: "2026-11-29",
     output: "Chapters 1-3 drafted, Style Profile checked on real prose",
   },
   {
     number: 5,
     name: "First draft",
-    startWeek: 7,
-    endWeek: 22,
-    start: "2026-11-23",
-    end: "2027-03-14",
+    startWeek: 8,
+    endWeek: 23,
+    start: "2026-11-30",
+    end: "2027-03-21",
     output: "Complete first draft, 80,000 words at 5,000 per week",
   },
   {
     number: 6,
     name: "Revision",
-    startWeek: 23,
-    endWeek: 32,
-    start: "2027-03-15",
-    end: "2027-05-23",
+    startWeek: 24,
+    endWeek: 33,
+    start: "2027-03-22",
+    end: "2027-05-30",
     output: "Five revision passes",
   },
   {
     number: 7,
     name: "Outside readers",
-    startWeek: 33,
-    endWeek: 36,
-    start: "2027-05-24",
-    end: "2027-06-20",
+    startWeek: 34,
+    endWeek: 37,
+    start: "2027-05-31",
+    end: "2027-06-27",
     output: "Reader feedback, final fixes list",
   },
   {
     number: 8,
     name: "Final polish",
-    startWeek: 37,
-    endWeek: 38,
-    start: "2027-06-21",
-    end: "2027-07-04",
+    startWeek: 38,
+    endWeek: 39,
+    start: "2027-06-28",
+    end: "2027-07-11",
     output: "Finished manuscript",
   },
 ];
@@ -96,7 +96,7 @@ export function weekNumber(today: Date = new Date()): number {
   return Math.floor(days / 7) + 1;
 }
 
-/** Current drafting phase, or null before week 1 / after week 38. Voice is already done. */
+/** Current drafting phase, or null before week 1 / after week 39. Voice is already done. */
 export function currentPhase(week = weekNumber()): FybPhase | null {
   if (week < 1) return null;
   return PHASES.find((p) => p.startWeek >= 1 && week >= p.startWeek && week <= p.endWeek) ?? null;

@@ -4,7 +4,13 @@ import { NextStepCard } from "@/components/jasonos/fuck-you-batman/next-step-car
 import { ProcessGuide } from "@/components/jasonos/fuck-you-batman/process-guide";
 import { chosenAnswerLabel } from "@/lib/fuck-you-batman/logic";
 import { TOTAL_WEEKS, currentPhase, weekNumber } from "@/lib/fuck-you-batman/plan";
-import { displayQuestion, isProvisional } from "@/lib/fuck-you-batman/process";
+import {
+  QUESTION_SETS,
+  displayQuestion,
+  isProvisional,
+  isQuestion,
+  questionSet,
+} from "@/lib/fuck-you-batman/process";
 import { getFybStatus } from "@/lib/fuck-you-batman/status";
 import { FYB_BIBLE_KINDS, FYB_DRIFT_KINDS, FYB_SCENE_KINDS, type FybEntry, type FybEntryKind } from "@/lib/fuck-you-batman/types";
 import { loadFybDecisions, loadFybEntries } from "@/lib/server-actions/fuck-you-batman";
@@ -64,17 +70,26 @@ export default async function FuckYouBatmanPage() {
     loadFybEntries(),
   ]);
   const hasOpenItems = openCards.length > 0 || openTodos.length > 0;
-  const dueThisWeek = decisions.filter((d) => d.status === "open" && d.week === week);
+  const openQuestionGroups = Object.keys(QUESTION_SETS)
+    .map((set) => {
+      const cards = decisions.filter((d) => isQuestion(d) && questionSet(d) === set);
+      const open = cards.filter((d) => d.status === "open").length;
+      return { set, label: QUESTION_SETS[set], open, total: cards.length };
+    })
+    .filter((group) => group.open > 0);
+  const dueThisWeek = decisions.filter((d) => d.status === "open" && !isQuestion(d) && d.week === week);
   const bibleCounts = reviewCounts(entries, FYB_BIBLE_KINDS);
   const driftCounts = reviewCounts(entries, FYB_DRIFT_KINDS);
   const sceneCounts = reviewCounts(entries, FYB_SCENE_KINDS);
   const waitingEmpty =
+    openQuestionGroups.length === 0 &&
     dueThisWeek.length === 0 &&
     bibleCounts.draft + bibleCounts.changes + driftCounts.draft + driftCounts.changes + sceneCounts.draft + sceneCounts.changes === 0;
   const decided = decisions
-    .filter((d) => d.status === "decided")
+    .filter((d) => d.status === "decided" && !isQuestion(d))
     .slice()
     .sort((a, b) => (b.decided_at ?? "").localeCompare(a.decided_at ?? ""));
+  const questionsAnswered = decisions.filter((d) => isQuestion(d) && d.status === "decided").length;
 
   return (
     <>
@@ -99,10 +114,17 @@ export default async function FuckYouBatmanPage() {
           <p className="mt-1 text-sm text-foreground/80">Nothing waiting on you.</p>
         ) : (
           <ul className="mt-2 space-y-2 text-sm">
+            {openQuestionGroups.map((group) => (
+              <li key={group.set}>
+                <Link href={`/projects/fuck-you-batman/decisions#set-${group.set}`} className="underline">
+                  {group.label}: {group.open} of {group.total} questions open
+                </Link>
+              </li>
+            ))}
             {dueThisWeek.map((decision) => (
               <li key={decision.id}>
-                <Link href="/projects/fuck-you-batman/decisions" className="underline">
-                  {decision.question}
+                <Link href={`/projects/fuck-you-batman/decisions#${decision.decision_key}`} className="underline">
+                  {displayQuestion(decision)}
                 </Link>
               </li>
             ))}
@@ -200,24 +222,34 @@ export default async function FuckYouBatmanPage() {
         <h2 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
           Decisions made
         </h2>
-        {decided.length === 0 ? (
+        {decided.length === 0 && questionsAnswered === 0 ? (
           <p className="mt-1 text-sm text-foreground/80">None recorded yet.</p>
         ) : (
-          <ul className="mt-2 space-y-2 text-xs text-foreground/80">
-            {decided.map((d) => (
-              <li key={d.id}>
-                <p className="font-semibold text-foreground">
-                  {displayQuestion(d)}
-                  {isProvisional(d) ? (
-                    <span className="ml-1 rounded-full border px-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
-                      Provisional
-                    </span>
-                  ) : null}
-                </p>
-                <p className="mt-0.5">{chosenAnswerLabel(d)}</p>
-              </li>
-            ))}
-          </ul>
+          <>
+            {decided.length > 0 ? (
+              <ul className="mt-2 space-y-2 text-xs text-foreground/80">
+                {decided.map((d) => (
+                  <li key={d.id}>
+                    <p className="font-semibold text-foreground">
+                      {displayQuestion(d)}
+                      {isProvisional(d) ? (
+                        <span className="ml-1 rounded-full border px-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                          Provisional
+                        </span>
+                      ) : null}
+                    </p>
+                    <p className="mt-0.5">{chosenAnswerLabel(d)}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <p className={decided.length > 0 ? "mt-2 text-xs text-muted-foreground" : "mt-1 text-xs text-muted-foreground"}>
+              {questionsAnswered} questions answered.{" "}
+              <Link href="/projects/fuck-you-batman/decisions" className="underline">
+                See your answers
+              </Link>
+            </p>
+          </>
         )}
       </section>
 

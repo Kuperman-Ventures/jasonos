@@ -3,9 +3,11 @@ import { describe, it } from "node:test";
 import {
   displayQuestion,
   isProvisional,
+  isQuestion,
   nextStep,
   partStatus,
   PROVISIONAL_SUFFIX,
+  questionSet,
   SKETCH_DOC_URL,
   stepStatus,
   weekMonday,
@@ -58,19 +60,36 @@ function sampleEntry(
   };
 }
 
-const endingPart: ProcessPart = {
-  week: 1,
-  label: "Ending and hidden purpose",
-  why: "Every clue and every stage of the drift points at it.",
-  decisionKey: "ending-and-hidden-purpose",
+const heroPart: ProcessPart = {
+  week: 2,
+  label: "The Hero",
+  why: "Who Dustin is.",
+  questionSet: "hero",
 };
 
-const biblePart: ProcessPart = {
-  week: 3,
-  label: "Story Bible",
-  why: "Characters, places, technology rules and timeline, kept consistent.",
-  entryKinds: FYB_BIBLE_KINDS,
-};
+describe("questionSet and isQuestion", () => {
+  it("treats hero-3 with no options as a question", () => {
+    const card = sampleDecision({ decision_key: "hero-3", status: "open" });
+    assert.equal(questionSet(card), "hero");
+    assert.equal(isQuestion(card), true);
+  });
+
+  it("does not treat hero as a question set key by itself", () => {
+    const card = sampleDecision({ decision_key: "hero", status: "open" });
+    assert.equal(questionSet(card), null);
+    assert.equal(isQuestion(card), false);
+  });
+
+  it("does not treat ending-and-hidden-purpose as a question", () => {
+    const card = sampleDecision({
+      decision_key: "ending-and-hidden-purpose",
+      status: "open",
+      options: [{ key: "a", label: "A", summary: "", strengths: [], holes: [] }],
+    });
+    assert.equal(questionSet(card), null);
+    assert.equal(isQuestion(card), false);
+  });
+});
 
 describe("stepStatus", () => {
   it("marks Voice done, Story foundation now, Outline next in week 1", () => {
@@ -78,89 +97,114 @@ describe("stepStatus", () => {
     assert.equal(stepStatus(2, 1), "now");
     assert.equal(stepStatus(3, 1), "next");
     assert.equal(stepStatus(4, 1), "later");
-    assert.equal(stepStatus(8, 1), "later");
   });
 
-  it("stays on Story foundation through week 3", () => {
-    assert.equal(stepStatus(1, 3), "done");
-    assert.equal(stepStatus(2, 3), "now");
-    assert.equal(stepStatus(3, 3), "next");
-    assert.equal(stepStatus(4, 3), "later");
-  });
-
-  it("moves to Outline in week 4", () => {
+  it("stays on Story foundation through week 4", () => {
     assert.equal(stepStatus(1, 4), "done");
-    assert.equal(stepStatus(2, 4), "done");
-    assert.equal(stepStatus(3, 4), "now");
-    assert.equal(stepStatus(4, 4), "next");
+    assert.equal(stepStatus(2, 4), "now");
+    assert.equal(stepStatus(3, 4), "next");
     assert.equal(stepStatus(5, 4), "later");
+  });
+
+  it("moves to Outline in week 5", () => {
+    assert.equal(stepStatus(1, 5), "done");
+    assert.equal(stepStatus(2, 5), "done");
+    assert.equal(stepStatus(3, 5), "now");
+    assert.equal(stepStatus(4, 5), "next");
+    assert.equal(stepStatus(5, 5), "later");
   });
 
   it("marks every phase done after the plan ends", () => {
     for (const phase of [1, 2, 3, 4, 5, 6, 7, 8]) {
-      assert.equal(stepStatus(phase, 39), "done");
+      assert.equal(stepStatus(phase, 40), "done");
     }
   });
 });
 
 describe("partStatus", () => {
-  it("treats a decided decision as done, an open one as waiting, and a missing one as not-posted", () => {
-    const decided = sampleDecision({ decision_key: "ending-and-hidden-purpose", status: "decided" });
-    const open = sampleDecision({ decision_key: "ending-and-hidden-purpose", status: "open" });
-    assert.equal(partStatus(endingPart, [decided], []), "done");
-    assert.equal(partStatus(endingPart, [open], []), "waiting");
-    assert.equal(partStatus(endingPart, [], []), "not-posted");
+  it("treats question sets with 0, some, and all answered", () => {
+    assert.deepEqual(partStatus(heroPart, [], []), { status: "not-posted", answered: 0, total: 0 });
+    const some = [
+      sampleDecision({ decision_key: "hero-1", status: "decided", week: 2, sort_order: 0 }),
+      sampleDecision({ decision_key: "hero-2", status: "open", week: 2, sort_order: 1 }),
+    ];
+    assert.deepEqual(partStatus(heroPart, some, []), { status: "waiting", answered: 1, total: 2 });
+    const all = [
+      sampleDecision({ decision_key: "hero-1", status: "decided", week: 2, sort_order: 0 }),
+      sampleDecision({ decision_key: "hero-2", status: "decided", week: 2, sort_order: 1 }),
+    ];
+    assert.deepEqual(partStatus(heroPart, all, []), { status: "done", answered: 2, total: 2 });
   });
 
-  it("treats entry-kind parts as not-posted, done, or waiting", () => {
-    assert.equal(partStatus(biblePart, [], []), "not-posted");
-    const approved = [
-      sampleEntry("bible_character", "hero", "Hero", "approved"),
-      sampleEntry("bible_world", "city", "City", "approved"),
-    ];
-    assert.equal(partStatus(biblePart, [], approved), "done");
-    const mixed = [
-      sampleEntry("bible_character", "hero", "Hero", "approved"),
-      sampleEntry("bible_world", "city", "City", "draft"),
-    ];
-    assert.equal(partStatus(biblePart, [], mixed), "waiting");
+  it("treats a decided decision as done and entry kinds by approval", () => {
+    const ending: ProcessPart = {
+      week: 1,
+      label: "Ending",
+      why: "It",
+      decisionKey: "ending-and-hidden-purpose",
+    };
+    const bible: ProcessPart = {
+      week: 4,
+      label: "Story Bible",
+      why: "Facts",
+      entryKinds: FYB_BIBLE_KINDS,
+    };
+    assert.deepEqual(
+      partStatus(ending, [sampleDecision({ decision_key: "ending-and-hidden-purpose", status: "decided" })], []),
+      { status: "done" }
+    );
+    assert.deepEqual(partStatus(bible, [], []), { status: "not-posted" });
+    assert.deepEqual(
+      partStatus(bible, [], [sampleEntry("bible_character", "hero", "Hero", "approved")]),
+      { status: "done" }
+    );
+    assert.deepEqual(
+      partStatus(bible, [], [
+        sampleEntry("bible_character", "hero", "Hero", "approved"),
+        sampleEntry("bible_world", "city", "City", "draft"),
+      ]),
+      { status: "waiting" }
+    );
   });
 });
 
 describe("nextStep", () => {
-  it("returns decide when an open decision exists", () => {
-    const open = sampleDecision({
-      decision_key: "ending-and-hidden-purpose",
-      status: "open",
-      week: 1,
+  it("returns answer when an open question exists", () => {
+    const answered = sampleDecision({
+      decision_key: "hero-1",
+      status: "decided",
+      week: 2,
       sort_order: 0,
-      question: "How does the book end?",
+      question: "Who is Dustin?",
     });
-    const later = sampleDecision({
-      decision_key: "reading-pick",
+    const open = sampleDecision({
+      decision_key: "hero-2",
       status: "open",
-      week: 1,
+      week: 2,
       sort_order: 1,
-      question: "What should I read?",
+      question: "What does he want?",
     });
-    const step = nextStep(1, [later, open], []);
-    assert.equal(step.kind, "decide");
-    assert.equal(step.title, "Decide: How does the book end?");
-    assert.equal(step.detail, "Decision 1 of 2 this week. Pick an option or write your own, then press Record.");
-    assert.equal(step.href, "/projects/fuck-you-batman/decisions#ending-and-hidden-purpose");
-    assert.equal(step.hrefLabel, "Open decision");
-    assert.deepEqual(step.stepOf, { index: 1, total: 2 });
+    const step = nextStep(2, [answered, open], []);
+    assert.equal(step.kind, "answer");
+    assert.equal(step.title, "What does he want?");
+    assert.equal(step.detail, "Question 2 of 2 in The Hero. Answer in your own words.");
+    assert.equal(step.href, "/projects/fuck-you-batman/decisions#hero-2");
+    assert.equal(step.hrefLabel, "Answer this question");
+    assert.deepEqual(step.stepOf, { index: 2, total: 2 });
   });
 
-  it("returns review when only drafts exist", () => {
+  it("returns review when only draft entries exist", () => {
     const draft = sampleEntry("bible_character", "hero", "The hero", "draft");
     const reference = sampleEntry("reference", "style-profile", "Style Profile", "draft");
     const step = nextStep(3, [], [reference, draft]);
     assert.equal(step.kind, "review");
     assert.equal(step.title, "Review: The hero");
-    assert.equal(step.detail, "1 draft waiting. Approve each one, or request changes with a note.");
+    assert.equal(
+      step.detail,
+      "1 entries built from your answers are waiting. Approve each one, or request changes with a note."
+    );
     assert.equal(step.href, "/projects/fuck-you-batman/bible");
-    assert.equal(step.hrefLabel, "Review drafts");
+    assert.equal(step.hrefLabel, "Review");
   });
 
   it("returns write in week 10 with nothing open", () => {
@@ -176,7 +220,7 @@ describe("nextStep", () => {
     const step = nextStep(2, [], []);
     assert.equal(step.kind, "none");
     assert.equal(step.title, "Nothing waiting on you");
-    assert.match(step.detail, /Claude posts the Week 3 work on Mon Oct 26/);
+    assert.match(step.detail, /Your next questions arrive Mon Oct 26/);
     assert.match(step.detail, /You can sketch scenes in the FYB doc in the meantime/);
     assert.equal(step.href, SKETCH_DOC_URL);
     assert.equal(step.hrefLabel, "Open sketch doc");
