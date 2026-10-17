@@ -116,6 +116,43 @@ export function InlineField({
   );
 }
 
+function DetailBox({
+  value,
+  onSave,
+}: {
+  value: string;
+  onSave: (next: string) => void;
+}) {
+  const [seen, setSeen] = useState(value);
+  const [text, setText] = useState(value);
+
+  if (value !== seen) {
+    setSeen(value);
+    setText(value);
+  }
+
+  return (
+    <label className="mt-2 block">
+      <span className="text-[12px] font-bold uppercase tracking-[0.12em] text-[var(--jos-muted)]">
+        What you want to say
+      </span>
+      <textarea
+        value={text}
+        maxLength={400}
+        rows={8}
+        placeholder="What you want to say"
+        aria-label="What you want to say"
+        className="mt-1 min-h-40 w-full resize-y rounded-[2px] border border-[var(--jos-line)] bg-[var(--jos-surface)] px-3.5 py-3 text-[16px] leading-relaxed text-[var(--jos-ink)] outline-none placeholder:text-[var(--jos-muted)] focus:border-[var(--color-calendar-700)]"
+        onChange={(event) => setText(event.target.value)}
+        onBlur={() => {
+          if (text.trim() === value.trim()) return;
+          onSave(text);
+        }}
+      />
+    </label>
+  );
+}
+
 export function PointsEditor({
   points,
   error,
@@ -123,6 +160,7 @@ export function PointsEditor({
   draft,
   footer,
   note,
+  detailBox = false,
 }: {
   points: EditorPoint[];
   error?: string | null;
@@ -133,6 +171,7 @@ export function PointsEditor({
   };
   footer?: ReactNode | ((pointCount: number) => ReactNode);
   note?: ReactNode;
+  detailBox?: boolean;
 }) {
   const router = useRouter();
   const signature = pointSignature(points);
@@ -330,14 +369,21 @@ export function PointsEditor({
                     savePatch(point, { headline: next });
                   }}
                 />
-                <InlineField
-                  value={point.detail ?? ""}
-                  placeholder="What you want to say"
-                  emptyLabel="What you want to say"
-                  maxLength={400}
-                  className="text-[14px] font-medium text-[var(--jos-muted)]"
-                  onSave={(next) => savePatch(point, { detail: next.trim() ? next : null })}
-                />
+                {detailBox ? (
+                  <DetailBox
+                    value={point.detail ?? ""}
+                    onSave={(next) => savePatch(point, { detail: next.trim() ? next : null })}
+                  />
+                ) : (
+                  <InlineField
+                    value={point.detail ?? ""}
+                    placeholder="What you want to say"
+                    emptyLabel="What you want to say"
+                    maxLength={400}
+                    className="text-[14px] font-medium text-[var(--jos-muted)]"
+                    onSave={(next) => savePatch(point, { detail: next.trim() ? next : null })}
+                  />
+                )}
               </div>
               <button
                 type="button"

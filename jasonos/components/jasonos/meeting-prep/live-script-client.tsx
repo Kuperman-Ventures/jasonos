@@ -200,6 +200,7 @@ export function LiveScriptClient({
           remove: (id) => deleteLiveScriptItem(id),
           reorder: (ids) => reorderLiveScriptItems(script.id, ids),
         }}
+        detailBox
         draft={{
           label: "Draft points",
           run: () =>

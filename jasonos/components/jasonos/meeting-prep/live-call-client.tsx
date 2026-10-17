@@ -538,7 +538,7 @@ function CurrentPoint({
       {spoken ? (
         <>
           {point.detail ? (
-            <p className="mt-5 max-w-[46rem] text-[22px] leading-snug text-[var(--color-accent-800)] italic min-[900px]:text-[26px]">
+            <p className="mt-5 max-w-[46rem] whitespace-pre-wrap text-[22px] leading-snug text-[var(--color-accent-800)] italic min-[900px]:text-[26px]">
               {point.detail}
             </p>
           ) : null}
@@ -561,7 +561,7 @@ function CurrentPoint({
             {point.headline}
           </h2>
           {point.detail ? (
-            <p className="mt-8 max-w-[46rem] text-[24px] leading-snug text-[var(--jos-ink)] min-[900px]:text-[30px]">
+            <p className="mt-8 max-w-[46rem] whitespace-pre-wrap text-[24px] leading-snug text-[var(--jos-ink)] min-[900px]:text-[30px]">
               {point.detail}
             </p>
           ) : null}

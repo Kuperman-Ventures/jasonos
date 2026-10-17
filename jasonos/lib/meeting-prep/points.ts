@@ -59,7 +59,13 @@ export function fillScriptPlaceholders(
 }
 
 export function clampDetail(value: string): string {
-  const trimmed = value.trim().replace(/\s+/g, " ");
+  const trimmed = value
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trim().replace(/[ \t]+/g, " "))
+    .join("\n")
+    .trim()
+    .replace(/\n{3,}/g, "\n\n");
   if (trimmed.length <= 400) return trimmed;
   return trimmed.slice(0, 400).trim();
 }

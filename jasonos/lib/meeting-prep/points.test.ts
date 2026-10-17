@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildMeetingPointsUserMessage,
+  clampDetail,
   coveredTally,
   fillScriptPlaceholders,
   firstOpenIndex,
@@ -88,6 +89,12 @@ describe("live navigation", () => {
     assert.equal(formatElapsed(65), "01:05");
     assert.equal(formatElapsed(3599), "59:59");
     assert.equal(formatElapsed(3600), "60:00");
+  });
+});
+
+describe("clampDetail", () => {
+  it("keeps line breaks and drops extra blank lines", () => {
+    assert.equal(clampDetail("  First line.  \n\n\nSecond line.  "), "First line.\n\nSecond line.");
   });
 });
 
