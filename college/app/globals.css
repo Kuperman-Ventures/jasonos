@@ -5285,8 +5285,11 @@ html[data-mode="dark"] .multi-filter > summary {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 17px;
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
   line-height: 1.3;
+  color: var(--color-text);
   min-width: 0;
 }
 .todos-panel .task-fam-icon {
@@ -5729,7 +5732,8 @@ html[data-mode="dark"] .multi-filter > summary {
   flex-wrap: wrap;
   gap: 12px;
   max-width: 100%;
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 400;
   color: var(--text-subtle);
 }
 .todos-panel .task-ptag {
@@ -5738,13 +5742,13 @@ html[data-mode="dark"] .multi-filter > summary {
   gap: 7px;
   min-width: 0;
   max-width: 220px;
-  padding: 4px 9px;
-  border: 1px solid rgba(32, 30, 29, 0.2);
+  padding: 2px 8px;
+  border: 1px solid rgba(32, 30, 29, 0.1);
   border-radius: var(--radius-md);
-  background: var(--color-neutral-100);
+  background: transparent;
   font-family: var(--font-body);
-  font-size: 13px;
-  color: var(--color-text);
+  font-size: 12px;
+  color: var(--text-subtle);
   cursor: pointer;
 }
 .todos-panel .task-ptag:hover,
