@@ -21,6 +21,7 @@ import {
   composeRecipientEmails,
   type NudgeCatalog,
 } from "./nudge";
+import { mailtoHref } from "./nudge-mail";
 
 const TODAY = new Date("2026-10-17T15:00:00.000Z");
 
@@ -161,4 +162,11 @@ test("each recipient gets only their to-dos plus the shared stages", () => {
   assert.equal(kyle.email.stages.length, 1);
   assert.equal(kyle.email.trackerUrl, "https://kyle-college.vercel.app/?tab=projects&pm=todos");
   assert.equal(emails.find((row) => row.personId === "kat")!.email.todos[0]?.title.includes("PSAT"), true);
+  const href = mailtoHref(kyle.email);
+  const decoded = decodeURIComponent(href);
+  assert.match(href, /^mailto:kyle%40example\.com\?/);
+  assert.match(decoded, /Hi Kyle/);
+  assert.match(decoded, /Develop Your College List/);
+  assert.match(decoded, /Open the tracker|kyle-college\.vercel\.app/);
+  assert.equal(decoded.includes("RESEND"), false);
 });

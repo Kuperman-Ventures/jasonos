@@ -1,7 +1,7 @@
 /** Compose one email per recipient and persist the nudge record. */
 
 import { randomUUID } from "node:crypto";
-import { sendNudgeEmail } from "@/lib/nudge-mail";
+import { mailtoHref, resendConfigured, sendNudgeEmail } from "@/lib/nudge-mail";
 import { generateNudgeBlurb } from "@/lib/nudge-ai";
 import { appendNudge, markNudgeSent, patchNudge, saveNudgeBlurb } from "@/lib/nudge-store";
 import {
@@ -25,12 +25,17 @@ export type NudgeSendInput = {
   now?: Date;
 };
 
+export type NudgeMailLink = { toName: string; href: string };
+
 export type NudgeSendResult = {
   ok: boolean;
   status: "sent" | "scheduled";
+  delivery?: "resend" | "mailto";
   nudgeId: string;
   sent: number;
   skipped: { id: string; reason: string }[];
+  messages?: NudgeMailLink[];
+  warning?: string;
   error?: string;
 };
 
@@ -100,7 +105,32 @@ export async function executeNudgeSend(input: NudgeSendInput): Promise<NudgeSend
 
   if (input.choice !== "now") {
     await appendNudge(record);
-    return { ok: true, status: "scheduled", nudgeId: record.id, sent: 0, skipped };
+    return {
+      ok: true,
+      status: "scheduled",
+      nudgeId: record.id,
+      sent: 0,
+      skipped,
+      warning: resendConfigured()
+        ? undefined
+        : "Saved. Friday delivery needs a mail provider, so use Send now and open each message in your mail app.",
+    };
+  }
+
+  if (!resendConfigured()) {
+    record.status = "sent";
+    record.sentAt = now.toISOString();
+    record.lastError = "Opened in your mail app";
+    await appendNudge(record);
+    return {
+      ok: true,
+      status: "sent",
+      delivery: "mailto",
+      nudgeId: record.id,
+      sent: 0,
+      skipped,
+      messages: emails.map((row) => ({ toName: row.email.toName, href: mailtoHref(row.email) })),
+    };
   }
 
   const failures: string[] = [];
@@ -126,6 +156,7 @@ export async function executeNudgeSend(input: NudgeSendInput): Promise<NudgeSend
   return {
     ok: failures.length === 0,
     status: "sent",
+    delivery: "resend",
     nudgeId: record.id,
     sent,
     skipped,
@@ -160,8 +191,11 @@ export async function dispatchStoredNudge(record: NudgeRecord, catalog: NudgeCat
     else failures.push(`${row.email.toName}: ${result.error}`);
   }
   if (sent === 0) {
-    await patchNudge(record.id, { lastError: failures[0] || "Could not send" });
-    return { ok: false, status: "scheduled", nudgeId: record.id, sent: 0, skipped, error: failures[0] };
+    const error = resendConfigured()
+      ? failures[0] || "Could not send"
+      : "Mail provider is not set up, so this Friday nudge was not sent.";
+    await patchNudge(record.id, { lastError: error });
+    return { ok: false, status: "scheduled", nudgeId: record.id, sent: 0, skipped, error };
   }
   const next = markNudgeSent(
     { ...record, stageIds: input.stageIds, todoIds: input.todoIds, lastError: failures.join("; ") || null },
