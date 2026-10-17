@@ -218,6 +218,8 @@ export type FaqItem = { q: string; a: string };
 export type FaqCategory = { cat: string; items: FaqItem[] };
 export type TextBlock = { h: string; p: string };
 export type Supplemental = { name: string; example: string; note: string };
+export type ConsultantSupport = "applications" | "testing" | "both";
+
 export type Firm = {
   id: string;
   name: string;
@@ -225,7 +227,9 @@ export type Firm = {
   location: string;
   people: string;
   pricing: string;
+  price: string;
   model: string;
+  support: ConsultantSupport | "";
 };
 export type Criterion = { id: string; name: string; weight: number; desc: string };
 export type Scores = Record<string, Record<string, number>>;

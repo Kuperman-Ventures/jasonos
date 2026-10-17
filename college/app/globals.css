@@ -659,6 +659,37 @@ nav.tabs button.active:active { background: var(--color-accent-pressed); }
 }
 .firm-card { display: flex; flex-direction: column; gap: var(--space-2); }
 .firm-card h3 { font-size: 22px; }
+.firm-support {
+  align-self: flex-start;
+  padding: 3px 8px;
+  border-radius: var(--radius-md);
+  background: var(--color-accent-tint);
+  color: var(--text-accent);
+  font-size: 12px;
+  font-weight: 650;
+}
+.firm-support.is-unset { background: var(--color-bg); color: var(--text-subtle); }
+.firm-add {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3);
+  align-items: end;
+  margin: var(--space-4) 0;
+}
+.firm-add h3 { grid-column: 1 / -1; margin: 0; font-size: 18px; }
+.firm-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-subtle); }
+.firm-field input,
+.firm-field select {
+  width: 100%;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.firm-remove { align-self: flex-start; }
 .firm-fact { font-size: 16px; line-height: 1.55; color: var(--text-muted); }
 .firm-fact b { color: var(--color-text); font-weight: 600; }
 .firm-score {
