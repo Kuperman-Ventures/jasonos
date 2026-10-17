@@ -18,6 +18,7 @@ import { setClientLinkOverrides } from "@/lib/link-overrides";
 import { NotesTab } from "./NotesTab";
 import { ProjectManagementTab } from "./ProjectManagementTab";
 import { TestingTab, testingItems } from "./TestingTab";
+import { consultantFirmsFromState } from "@/lib/consultants";
 import {
   consultantCriteria,
   consultantFirms,
@@ -118,6 +119,7 @@ import {
   normalizeTabId,
   ownerLabel,
   type ContactPatch,
+  type Firm,
   type DeadlinePatch,
   type Owner,
   type School,
@@ -237,6 +239,7 @@ export function Portal({
   const [memberProfiles, setMemberProfiles] = useState<MemberProfile[]>([]);
   const [checklist, setChecklist] = useState<Record<string, boolean>>({});
   const [scores, setScores] = useState<Scores>(seedScores);
+  const [firms, setFirms] = useState<Firm[]>(() => consultantFirmsFromState(null, consultantFirms));
   const [notes, setNotes] = useState("");
   const [noteItems, setNoteItems] = useState<PinNote[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
@@ -312,6 +315,7 @@ export function Portal({
           activitiesJournal?: ActivitiesJournal;
           requirementProgress?: RequirementProgressMap;
           finances?: HouseholdFinances;
+          consultantFirms?: Firm[];
           linkOverrides?: unknown;
           persisted?: boolean;
         };
@@ -326,6 +330,7 @@ export function Portal({
         setClientLinkOverrides(state.linkOverrides);
         if (state.checklist) setChecklist(state.checklist);
         if (state.scores) setScores({ ...seedScores, ...state.scores });
+        if (Array.isArray(state.consultantFirms)) setFirms(consultantFirmsFromState(state.consultantFirms, consultantFirms));
         if (typeof state.notes === "string") setNotes(state.notes);
         const loadedSteps = Array.isArray(state.projectSteps) ? state.projectSteps : [];
         const loadedEdits =
@@ -747,6 +752,7 @@ export function Portal({
       activitiesJournal?: ActivitiesJournal;
       requirementProgress?: RequirementProgressMap;
       finances?: HouseholdFinances;
+      consultantFirms?: Firm[];
     },
     opts?: { keepalive?: boolean },
   ) {
@@ -1242,6 +1248,11 @@ export function Portal({
     void patchState({ scores: next });
   }
 
+  function changeFirms(next: Firm[]) {
+    setFirms(next);
+    void patchState({ consultantFirms: next });
+  }
+
   function replaceSchool(school: School) {
     setSchools((current) => current.map((item) => (item.id === school.id ? school : item)));
   }
@@ -1538,7 +1549,7 @@ export function Portal({
         schoolCount={schools.length}
         projectCount={phases.length}
         questionCount={appQuestions.essay.prompts.length}
-        consultantCount={consultantFirms.length}
+        consultantCount={firms.length}
         faqCount={faqCount}
         testingCount={testingCount}
       />
@@ -1736,11 +1747,12 @@ export function Portal({
         ) : null}
         {tab === "consultants" ? (
           <ConsultantsTab
-            firms={consultantFirms}
+            firms={firms}
             criteria={consultantCriteria}
             questions={consultantQuestions}
             scores={scores}
             onScore={changeScore}
+            onFirms={changeFirms}
             dateline={phaseLabel}
           />
         ) : null}

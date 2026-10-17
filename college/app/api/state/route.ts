@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isSession, requireCollegeSession } from "@/lib/auth";
-import { seedScores } from "@/lib/content";
+import { consultantFirmsFromState } from "@/lib/consultants";
+import { consultantFirms, seedScores } from "@/lib/content";
 import { loadLinkOverrides } from "@/lib/data-source-settings";
 import { collegeDb, supabaseConfigured } from "@/lib/db";
 import {
@@ -32,7 +33,7 @@ import {
 } from "@/lib/project-todos";
 import { normalizeTodoProjects, type TodoProject } from "@/lib/todo-projects";
 import { clampScore } from "@/lib/scores";
-import type { Scores } from "@/lib/types";
+import type { Firm, Scores } from "@/lib/types";
 import {
   normalizeRequirementProgress,
   type RequirementProgressMap,
@@ -57,6 +58,7 @@ type StateRow = {
   activities_journal?: unknown;
   requirement_progress?: unknown;
   finances?: unknown;
+  consultant_firms?: unknown;
 };
 
 function localDemoPins(): PinNote[] {
@@ -197,6 +199,7 @@ function emptyState() {
     activitiesJournal: emptyJournal(),
     requirementProgress: {} as RequirementProgressMap,
     finances: emptyHouseholdFinances(),
+    consultantFirms: consultantFirmsFromState(null, consultantFirms),
     linkOverrides: {},
   };
 }
@@ -211,7 +214,7 @@ export async function GET() {
       db
         .from("app_state")
         .select(
-          "checklist, scores, notes, project_steps, ingest_sources, todo_subtasks, todo_edits, todo_projects, note_items, calendar_events, activities_journal, requirement_progress, finances",
+          "checklist, scores, notes, project_steps, ingest_sources, todo_subtasks, todo_edits, todo_projects, note_items, calendar_events, activities_journal, requirement_progress, finances, consultant_firms",
         )
         .eq("id", "kyle-college")
         .maybeSingle(),
@@ -234,6 +237,7 @@ export async function GET() {
       activitiesJournal: normalizeJournal(row?.activities_journal),
       requirementProgress: normalizeRequirementProgress(row?.requirement_progress),
       finances: normalizeHouseholdFinances(row?.finances),
+      consultantFirms: consultantFirmsFromState(row?.consultant_firms, consultantFirms),
       linkOverrides,
     });
   } catch (error) {
@@ -262,6 +266,7 @@ export async function PATCH(request: Request) {
     activitiesJournal?: ActivitiesJournal;
     requirementProgress?: RequirementProgressMap;
     finances?: HouseholdFinances;
+    consultantFirms?: Firm[];
   };
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
   const db = collegeDb();
@@ -376,6 +381,9 @@ export async function PATCH(request: Request) {
   }
   if (body.finances !== undefined) {
     patch.finances = normalizeHouseholdFinances(body.finances);
+  }
+  if (Array.isArray(body.consultantFirms)) {
+    patch.consultant_firms = consultantFirmsFromState(body.consultantFirms, []);
   }
 
   // Don't persist internal meta on the row.

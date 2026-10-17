@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
+import { createConsultant, SUPPORT_CHOICES, supportLabel } from "@/lib/consultants";
 import { clampScore, weightedTotal } from "@/lib/scores";
-import type { Criterion, Firm, Scores } from "@/lib/types";
+import type { ConsultantSupport, Criterion, Firm, Scores } from "@/lib/types";
 
 export function ConsultantsTab({
   firms,
@@ -9,6 +11,7 @@ export function ConsultantsTab({
   questions,
   scores,
   onScore,
+  onFirms,
   dateline,
 }: {
   firms: Firm[];
@@ -16,6 +19,7 @@ export function ConsultantsTab({
   questions: string[];
   scores: Scores;
   onScore: (firmId: string, criterionId: string, value: number) => void;
+  onFirms: (firms: Firm[]) => void;
   dateline: string;
 }) {
   const totals = firms.map((firm) => ({ id: firm.id, total: weightedTotal(scores[firm.id], criteria) }));
@@ -38,35 +42,87 @@ export function ConsultantsTab({
         firm&apos;s own website and public listings only — nobody has been called yet. Treat every number as a
         starting point to argue with, not a verdict.
       </p>
+      <AddConsultant
+        onAdd={(firm) => {
+          onFirms([...firms, firm]);
+        }}
+        taken={firms.map((firm) => firm.id)}
+      />
       <div className="firm-grid">
         {firms.map((firm) => {
           const total = weightedTotal(scores[firm.id], criteria);
           return (
             <div key={firm.id} className="firm-card">
               <h3>{firm.name}</h3>
-              <a href={firm.url} target="_blank" rel="noopener noreferrer">
-                {firm.url.replace("https://", "")}
-              </a>
-              <div className="firm-fact">
-                <b>Location: </b>
-                {firm.location}
-              </div>
-              <div className="firm-fact">
-                <b>Who: </b>
-                {firm.people}
-              </div>
-              <div className="firm-fact">
-                <b>Pricing: </b>
-                {firm.pricing}
-              </div>
-              <div className="firm-fact">
-                <b>Model: </b>
-                {firm.model}
-              </div>
+              <span className={`firm-support is-${firm.support || "unset"}`}>{supportLabel(firm.support)}</span>
+              {firm.url ? (
+                <a href={firm.url} target="_blank" rel="noopener noreferrer">
+                  {firm.url.replace("https://", "")}
+                </a>
+              ) : null}
+              <label className="firm-field">
+                Price
+                <input
+                  value={firm.price}
+                  aria-label={`${firm.name} price`}
+                  onChange={(event) =>
+                    onFirms(firms.map((row) => (row.id === firm.id ? { ...row, price: event.target.value } : row)))
+                  }
+                />
+              </label>
+              <label className="firm-field">
+                Support
+                <select
+                  value={firm.support}
+                  aria-label={`${firm.name} support`}
+                  onChange={(event) => {
+                    const support = event.target.value as ConsultantSupport | "";
+                    onFirms(firms.map((row) => (row.id === firm.id ? { ...row, support } : row)));
+                  }}
+                >
+                  <option value="">Choose support</option>
+                  {SUPPORT_CHOICES.map((choice) => (
+                    <option key={choice.id} value={choice.id}>
+                      {choice.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {firm.location ? (
+                <div className="firm-fact">
+                  <b>Location: </b>
+                  {firm.location}
+                </div>
+              ) : null}
+              {firm.people ? (
+                <div className="firm-fact">
+                  <b>Who: </b>
+                  {firm.people}
+                </div>
+              ) : null}
+              {firm.pricing && firm.pricing !== firm.price ? (
+                <div className="firm-fact">
+                  <b>Pricing note: </b>
+                  {firm.pricing}
+                </div>
+              ) : null}
+              {firm.model ? (
+                <div className="firm-fact">
+                  <b>Model: </b>
+                  {firm.model}
+                </div>
+              ) : null}
               <div className="firm-score">
                 <span className="label">Weighted Score</span>
                 <span className={firm.id === leaderId ? "val accent" : "val"}>{total.toFixed(2)}</span>
               </div>
+              <button
+                type="button"
+                className="btn btn-ghost firm-remove"
+                onClick={() => onFirms(firms.filter((row) => row.id !== firm.id))}
+              >
+                Remove
+              </button>
             </div>
           );
         })}
@@ -133,5 +189,72 @@ export function ConsultantsTab({
         </ol>
       </div>
     </section>
+  );
+}
+
+function AddConsultant({
+  taken,
+  onAdd,
+}: {
+  taken: string[];
+  onAdd: (firm: Firm) => void;
+}) {
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const [location, setLocation] = useState("");
+  const [price, setPrice] = useState("");
+  const [support, setSupport] = useState<ConsultantSupport | "">("");
+
+  return (
+    <form
+      className="firm-add"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const firm = createConsultant({ name, url, location, price, support }, taken);
+        if (!firm) return;
+        onAdd(firm);
+        setName("");
+        setUrl("");
+        setLocation("");
+        setPrice("");
+        setSupport("");
+      }}
+    >
+      <h3>Add a consultant</h3>
+      <label className="firm-field">
+        Name
+        <input value={name} aria-label="New consultant name" onChange={(event) => setName(event.target.value)} required />
+      </label>
+      <label className="firm-field">
+        Website
+        <input value={url} aria-label="New consultant website" onChange={(event) => setUrl(event.target.value)} />
+      </label>
+      <label className="firm-field">
+        Location
+        <input value={location} aria-label="New consultant location" onChange={(event) => setLocation(event.target.value)} />
+      </label>
+      <label className="firm-field">
+        Price
+        <input value={price} aria-label="New consultant price" onChange={(event) => setPrice(event.target.value)} />
+      </label>
+      <label className="firm-field">
+        Support
+        <select
+          value={support}
+          aria-label="New consultant support"
+          onChange={(event) => setSupport(event.target.value as ConsultantSupport | "")}
+        >
+          <option value="">Choose support</option>
+          {SUPPORT_CHOICES.map((choice) => (
+            <option key={choice.id} value={choice.id}>
+              {choice.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button type="submit" className="btn btn-primary">
+        Add consultant
+      </button>
+    </form>
   );
 }
