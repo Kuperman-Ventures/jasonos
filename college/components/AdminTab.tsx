@@ -20,6 +20,7 @@ import {
   type FeedbackStatus,
   type SiteFeedback,
 } from "@/lib/site-feedback";
+import { NudgePanel } from "./NudgePanel";
 
 type Overview = {
   members: AdminMemberRow[];
@@ -67,6 +68,7 @@ export function AdminTab({ dateline }: { dateline: string }) {
   const [magicLinks, setMagicLinks] = useState<Record<string, string>>({});
   const [feedback, setFeedback] = useState<SiteFeedback[]>([]);
   const [feedbackBusyId, setFeedbackBusyId] = useState("");
+  const [view, setView] = useState<"household" | "nudge">("household");
 
   const loadFeedback = useCallback(async () => {
     try {
@@ -189,6 +191,10 @@ export function AdminTab({ dateline }: { dateline: string }) {
   const pulse = data?.pulse;
   const hygiene = data?.hygiene;
 
+  if (view === "nudge") {
+    return <NudgePanel onBack={() => setView("household")} />;
+  }
+
   return (
     <section className="admin-panel">
       <header className="page-head">
@@ -196,6 +202,9 @@ export function AdminTab({ dateline }: { dateline: string }) {
           <div className="dateline">{dateline}</div>
           <h2>Admin</h2>
         </div>
+        <button type="button" className="btn btn-primary" onClick={() => setView("nudge")}>
+          Send a nudge
+        </button>
       </header>
       <p className="section-sub">
         Creator tools for household access, site health, data hygiene, and the activity trail. Only

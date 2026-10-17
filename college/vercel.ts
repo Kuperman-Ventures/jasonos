@@ -7,4 +7,5 @@ export const config: VercelConfig = {
   buildCommand: "next build",
   ignoreCommand:
     'if [ "$VERCEL_GIT_COMMIT_REF" = "main" ]; then exit 1; fi; cd "$(git rev-parse --show-toplevel)" && git diff --quiet HEAD^ HEAD -- college',
+  crons: [{ path: "/api/cron/nudges", schedule: "0 12,13 * * 5" }],
 };
