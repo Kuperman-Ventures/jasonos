@@ -51,12 +51,45 @@ export function renderNudgeEmail(email: NudgeEmail): string {
   </body></html>`;
 }
 
-export type MailResult = { ok: true; id: string | null } | { ok: false; error: string };
+export type MailResult = { ok: true; id: string | null } | { ok: false; error: string; code?: "unconfigured" };
+
+export function resendConfigured(): boolean {
+  return Boolean(process.env.RESEND_API_KEY?.trim());
+}
+
+export function renderNudgePlainText(email: NudgeEmail): string {
+  const lines: string[] = [`Hi ${email.firstName},`, ""];
+  if (email.note.trim()) lines.push(email.note.trim(), "");
+  if (email.stages.length) {
+    lines.push("On the timeline", "");
+    for (const item of email.stages) lines.push(item.title, item.sub, item.blurb, "");
+  }
+  if (email.todos.length) {
+    lines.push("Your to-dos", "");
+    for (const item of email.todos) {
+      lines.push(item.date ? `${item.title} (${item.date})` : item.title, item.sub, item.blurb, "");
+    }
+  }
+  lines.push(email.trackerUrl);
+  return lines.join("\n").trim();
+}
+
+/** Opens the admin's own mail app. Used when no mail provider is configured. */
+export function mailtoHref(email: NudgeEmail): string {
+  let text = renderNudgePlainText(email);
+  const build = () =>
+    `mailto:${encodeURIComponent(email.to)}?subject=${encodeURIComponent(email.subject)}&body=${encodeURIComponent(text)}`;
+  if (build().length > 1800) {
+    const short = { ...email, stages: email.stages.map((item) => ({ ...item, blurb: "" })), todos: email.todos.map((item) => ({ ...item, blurb: "" })) };
+    text = renderNudgePlainText(short);
+  }
+  return build();
+}
 
 export async function sendNudgeEmail(email: NudgeEmail): Promise<MailResult> {
   const key = process.env.RESEND_API_KEY?.trim();
   if (!key) {
-    return { ok: false, error: "Email is not configured. Add RESEND_API_KEY to send nudges." };
+    return { ok: false, code: "unconfigured", error: "Mail provider is not set up." };
   }
   const from = process.env.NUDGE_FROM_EMAIL?.trim() || "College Launch Plan <reminders@kyle-college.vercel.app>";
   const response = await fetch("https://api.resend.com/emails", {
