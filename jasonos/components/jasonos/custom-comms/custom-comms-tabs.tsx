@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, Library, Mail, Megaphone } from "lucide-react";
+import { FileText, Library, Mail, Megaphone, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TABS = [
@@ -10,6 +10,7 @@ const TABS = [
   { href: "/resume-customizer", label: "Resume", icon: FileText },
   { href: "/post-master", label: "Post Master", icon: Megaphone },
   { href: "/library", label: "Library", icon: Library },
+  { href: "/live", label: "Live", icon: Radio },
 ] as const;
 
 function tabActive(pathname: string, href: string) {
