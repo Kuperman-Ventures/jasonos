@@ -137,15 +137,27 @@ export function TodaysMeetingsPanel({
                         {attendeeLine(row.attendees)}
                       </p>
                     </Link>
-                    {row.conferenceUrl ? (
-                      <a
-                        href={row.conferenceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="shrink-0 pt-0.5 text-[11px] font-medium text-rung-ink hover:underline"
-                      >
-                        Join
-                      </a>
+                    {row.pointCount > 0 || row.conferenceUrl ? (
+                      <div className="flex shrink-0 items-center gap-3 pt-0.5">
+                        {row.pointCount > 0 ? (
+                          <Link
+                            href={`/meetings/${row.id}/live`}
+                            className="text-[11px] font-medium text-rung-ink hover:underline"
+                          >
+                            Live
+                          </Link>
+                        ) : null}
+                        {row.conferenceUrl ? (
+                          <a
+                            href={row.conferenceUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[11px] font-medium text-rung-ink hover:underline"
+                          >
+                            Join
+                          </a>
+                        ) : null}
+                      </div>
                     ) : null}
                   </div>
                 </li>

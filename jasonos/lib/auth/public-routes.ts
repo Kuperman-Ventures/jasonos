@@ -57,6 +57,11 @@ export function isCronPath(pathname: string): boolean {
   return CRON_PATHS.has(normalizePathname(pathname));
 }
 
+/** Live call screen hides the top nav so the agenda stays on one viewport. */
+export function isLiveCallPath(pathname: string): boolean {
+  return /^\/meetings\/[^/]+\/live$/.test(normalizePathname(pathname));
+}
+
 export function hidesJasonosChrome(pathname: string): boolean {
   const path = normalizePathname(pathname);
   return (

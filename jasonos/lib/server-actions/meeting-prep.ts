@@ -42,6 +42,7 @@ export interface MeetingPrepSummary {
   purposeConfirmed: boolean;
   status: MeetingPrepStatus;
   sourceCount: number;
+  pointCount: number;
   home: MeetingHomeContext;
 }
 
@@ -71,6 +72,8 @@ export interface MeetingPrepDetail extends MeetingPrepSummary {
   error: string | null;
   gatheredAt: string | null;
   builtAt: string | null;
+  liveStartedAt: string | null;
+  liveEndedAt: string | null;
   sources: MeetingPrepSource[];
 }
 
@@ -96,6 +99,16 @@ interface PrepRow {
   error: string | null;
   gathered_at: string | null;
   built_at: string | null;
+  live_started_at?: string | null;
+  live_ended_at?: string | null;
+}
+
+const PREP_COLUMNS =
+  "id, gcal_event_id, ical_uid, calendar_source, title, starts_at, ends_at, calendar_url, conference_url, location, description, attendees, purpose, purpose_source, purpose_confirmed, status, error, gathered_at, built_at";
+const PREP_COLUMNS_WITH_LIVE = `${PREP_COLUMNS}, live_started_at, live_ended_at`;
+
+function missingLiveColumn(message: string): boolean {
+  return /live_started_at|live_ended_at/.test(message);
 }
 
 const STATUSES = new Set<MeetingPrepStatus>([
@@ -150,7 +163,7 @@ function asAttendees(value: unknown): MeetingPrepAttendee[] {
   return out;
 }
 
-function toSummary(row: PrepRow, sourceCount: number): MeetingPrepSummary {
+function toSummary(row: PrepRow, sourceCount: number, pointCount = 0): MeetingPrepSummary {
   return {
     id: row.id,
     gcalEventId: row.gcal_event_id,
@@ -162,6 +175,7 @@ function toSummary(row: PrepRow, sourceCount: number): MeetingPrepSummary {
     purposeConfirmed: Boolean(row.purpose_confirmed),
     status: asStatus(row.status),
     sourceCount,
+    pointCount,
     home: EMPTY_HOME_CONTEXT,
   };
 }
@@ -179,6 +193,8 @@ function toDetail(row: PrepRow, sources: MeetingPrepSource[], sourceCount: numbe
     error: row.error,
     gatheredAt: row.gathered_at,
     builtAt: row.built_at,
+    liveStartedAt: row.live_started_at ?? null,
+    liveEndedAt: row.live_ended_at ?? null,
     sources,
   };
 }
@@ -223,6 +239,31 @@ async function sourceCounts(
     counts.set(id, (counts.get(id) ?? 0) + 1);
   }
   return counts;
+}
+
+function missingPointsTable(message: string): boolean {
+  return /meeting_points/i.test(message) && /does not exist|schema cache|could not find/i.test(message);
+}
+
+async function pointCounts(
+  sb: ReturnType<typeof createServiceRoleClient>,
+  prepIds: string[]
+): Promise<{ counts: Map<string, number>; missing: boolean }> {
+  const counts = new Map<string, number>();
+  if (!prepIds.length) return { counts, missing: false };
+  const { data, error } = await sb
+    .from("meeting_points")
+    .select("prep_id")
+    .in("prep_id", prepIds);
+  if (error) {
+    if (missingPointsTable(error.message)) return { counts, missing: true };
+    throw new Error(error.message);
+  }
+  for (const row of data ?? []) {
+    const id = row.prep_id as string;
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+  }
+  return { counts, missing: false };
 }
 
 export async function getTodaysMeetingPreps(): Promise<
@@ -283,9 +324,7 @@ export async function getTodaysMeetingPreps(): Promise<
     const { data, error } = eventIds.length
       ? await sb
           .from("meeting_preps")
-          .select(
-            "id, gcal_event_id, ical_uid, calendar_source, title, starts_at, ends_at, calendar_url, conference_url, location, description, attendees, purpose, purpose_source, purpose_confirmed, status, error, gathered_at, built_at"
-          )
+          .select(PREP_COLUMNS)
           .in("gcal_event_id", eventIds)
       : { data: [], error: null };
     if (error) return { ok: false, error: error.message };
@@ -293,12 +332,14 @@ export async function getTodaysMeetingPreps(): Promise<
     const rows = ((data ?? []) as PrepRow[]).sort(
       (a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at)
     );
-    const counts = await sourceCounts(
-      sb,
-      rows.map((row) => row.id)
+    const prepIds = rows.map((row) => row.id);
+    const counts = await sourceCounts(sb, prepIds);
+    const points = await pointCounts(sb, prepIds);
+    const meetings = rows.map((row) =>
+      toSummary(row, counts.get(row.id) ?? 0, points.counts.get(row.id) ?? 0)
     );
-    const meetings = rows.map((row) => toSummary(row, counts.get(row.id) ?? 0));
     const warnings = [...loaded.warnings];
+    if (points.missing) warnings.push("Meeting points are not in the database yet.");
     try {
       const homes = await loadHomeContextsForPreps(
         meetings.map((meeting) => ({
@@ -336,13 +377,18 @@ export async function getMeetingPrep(
   if (!id) return { ok: false, error: "Meeting prep not found." };
 
   const sb = createServiceRoleClient();
-  const { data, error } = await sb
+  let { data, error } = await sb
     .from("meeting_preps")
-    .select(
-      "id, gcal_event_id, ical_uid, calendar_source, title, starts_at, ends_at, calendar_url, conference_url, location, description, attendees, purpose, purpose_source, purpose_confirmed, status, error, gathered_at, built_at"
-    )
+    .select(PREP_COLUMNS_WITH_LIVE)
     .eq("id", id)
     .maybeSingle();
+  if (error && missingLiveColumn(error.message)) {
+    ({ data, error } = await sb
+      .from("meeting_preps")
+      .select(PREP_COLUMNS)
+      .eq("id", id)
+      .maybeSingle());
+  }
   if (error) return { ok: false, error: error.message };
   if (!data) return { ok: false, error: "Meeting prep not found." };
 

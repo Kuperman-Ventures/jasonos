@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   hidesJasonosChrome,
+  isLiveCallPath,
   isCronPath,
   isPublicJasonosPath,
   matchesPathPrefix,
@@ -43,6 +44,13 @@ describe("public JasonOS paths", () => {
     assert.equal(matchesPathPrefix("/api/mcp", "/api/mcp"), true);
     assert.equal(matchesPathPrefix("/api/mcp/oauth", "/api/mcp"), true);
     assert.equal(matchesPathPrefix("/api/mcpish", "/api/mcp"), false);
+  });
+
+  it("recognizes the live call screen", () => {
+    assert.equal(isLiveCallPath("/meetings/abc/live"), true);
+    assert.equal(isLiveCallPath("/meetings/abc/live/"), true);
+    assert.equal(isLiveCallPath("/meetings/abc"), false);
+    assert.equal(isLiveCallPath("/meetings/abc/live/extra"), false);
   });
 
   it("hides chrome on login, IUGR, and Ski Tracker", () => {
