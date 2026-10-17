@@ -179,7 +179,7 @@ export function buildNudgeCatalog(input: {
     people,
     stages: nudgeStagesFromTimeline(stages, input.blurbs, now),
     todos: openNudgeTodos(input.checklist, input.projectSteps, input.todoEdits, people, input.blurbs, now),
-    noteDefault: NUDGE_NOTE_DEFAULT,
+    noteDefault: input.blurbs.opening?.trim() || NUDGE_NOTE_DEFAULT,
     trackerBase: input.siteUrl ?? adminSiteUrl(),
   };
 }
