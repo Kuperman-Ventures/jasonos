@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Minus } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Minus } from "lucide-react";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -151,9 +151,6 @@ export function LiveCallClient({
   const markable = rows.filter((point) => point.kind !== "agenda");
   const openLeft = markable.some((point) => point.state === "open");
   const showAllCovered = finished && !openLeft && markable.length > 0;
-  const nextIndex = nextOpenIndex(rows, currentIndex);
-  const nextPoint = nextIndex >= 0 ? rows[nextIndex] : null;
-
   const select = (id: string) => {
     setFinished(false);
     setCurrentId(id);
@@ -280,32 +277,54 @@ export function LiveCallClient({
   const pills = rows.flatMap((point, index) => {
     if (point.kind === "agenda") return [];
     const number = rows.slice(0, index + 1).filter((item) => item.kind !== "agenda").length;
-    return [{ point, number }];
+    return [{ point, number, index }];
   });
+  const currentSlot = pills.find((item) => item.point.id === currentId) ?? null;
+  const previousPoint = currentSlot
+    ? (pills[pills.findIndex((item) => item.point.id === currentId) - 1]?.point ?? null)
+    : null;
+  const followingPoint = currentSlot
+    ? (pills[pills.findIndex((item) => item.point.id === currentId) + 1]?.point ?? null)
+    : null;
+  const progress =
+    currentSlot && pills.length ? Math.round((currentSlot.number / pills.length) * 100) : 0;
 
   return (
     <div className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-[var(--jos-bg)] text-[var(--jos-ink)]">
-      <header className="flex h-[var(--jos-nav-h)] shrink-0 items-center gap-3 border-b border-[var(--jos-line)] px-4">
-        <h1 className="min-w-0 flex-1 truncate text-[15px] font-bold tracking-tight">{session.title}</h1>
-        {session.timeLabel ? (
-          <p className="shrink-0 text-[13px] font-medium text-[var(--jos-muted)]">{session.timeLabel}</p>
-        ) : session.badge === "rehearsal" ? (
-          <p className="shrink-0 text-[13px] font-semibold text-[var(--color-accent-2-text)]">Rehearsal</p>
-        ) : null}
-        <p className="shrink-0 text-[13px] font-semibold">
+      <header className="grid shrink-0 grid-cols-1 items-center gap-2 border-b border-[var(--jos-line)] px-4 py-2 min-[900px]:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] min-[900px]:gap-4">
+        <div className="min-w-0">
+          <h1 className="truncate text-[14px] font-medium text-[var(--jos-muted)]">{session.title}</h1>
+          {session.badge === "rehearsal" ? (
+            <p className="text-[12px] font-semibold text-[var(--color-accent-2-text)]">Rehearsal</p>
+          ) : session.timeLabel ? (
+            <p className="text-[12px] font-medium text-[var(--jos-muted)]">{session.timeLabel}</p>
+          ) : null}
+        </div>
+        <p className="justify-self-start bg-[var(--color-done-100)] px-4 py-1 text-[32px] font-semibold leading-none tracking-tight text-[var(--color-done)] tabular-nums min-[900px]:justify-self-center">
           <Elapsed startedAt={startedAt} />
         </p>
-        {session.joinHref ? (
-          <a
-            href={session.joinHref}
-            target="_blank"
-            rel="noreferrer"
-            className={buttonVariants({ variant: "calendar", size: "sm" })}
-          >
-            Join the call
-          </a>
-        ) : null}
-        {extraControls}
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          {pills.length ? (
+            <p className="text-[13px] font-medium text-[var(--jos-muted)]">
+              <span className="font-semibold text-[var(--color-accent-700)]">
+                {currentSlot ? currentSlot.number : 0}
+              </span>
+              {" of "}
+              {pills.length}
+            </p>
+          ) : null}
+          {session.joinHref ? (
+            <a
+              href={session.joinHref}
+              target="_blank"
+              rel="noreferrer"
+              className={buttonVariants({ variant: "calendar", size: "sm" })}
+            >
+              Join the call
+            </a>
+          ) : null}
+          {extraControls}
+        </div>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col min-[900px]:flex-row">
@@ -396,39 +415,70 @@ export function LiveCallClient({
           </div>
         </aside>
 
-        <section className="flex min-h-0 min-w-0 flex-1 flex-col px-5 py-6 min-[900px]:px-10 min-[900px]:py-8">
+        <section className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {showAllCovered ? (
-              <div className="max-w-[60ch]">
-                <h2 className="text-[40px] font-extrabold leading-[1.05] tracking-[-0.03em]">
-                  All points covered
+            <div className="flex min-h-full flex-col px-5 py-6 min-[900px]:px-14 min-[900px]:py-8">
+              {showAllCovered ? (
+                <div className="mx-auto flex w-full max-w-[46rem] flex-1 flex-col justify-center">
+                  <h2 className="text-[44px] font-extrabold leading-[0.98] tracking-[-0.03em] min-[900px]:text-[76px]">
+                    All points covered
+                  </h2>
+                  <Button type="button" variant="ok" className="mt-8" onClick={finish}>
+                    Done
+                  </Button>
+                </div>
+              ) : current && current.kind !== "agenda" ? (
+                <CurrentPoint
+                  key={current.id}
+                  point={current}
+                  noteRef={noteRef}
+                  onMark={(state) => mark(current.id, state)}
+                  onNote={(note) => {
+                    setRows((list) => list.map((row) => (row.id === current.id ? { ...row, note } : row)));
+                  }}
+                  saveNote={(note) => actions.setNote(current.id, note)}
+                />
+              ) : (
+                <h2 className="my-auto text-[44px] font-extrabold leading-[0.98] tracking-[-0.03em] min-[900px]:text-[76px]">
+                  No points to mark
                 </h2>
-                <Button type="button" variant="ok" className="mt-6" onClick={finish}>
-                  Done
-                </Button>
-              </div>
-            ) : current && current.kind !== "agenda" ? (
-              <CurrentPoint
-                key={current.id}
-                point={current}
-                noteRef={noteRef}
-                nextPoint={nextPoint}
-                onSelect={select}
-                onMark={(state) => mark(current.id, state)}
-                onNote={(note) => {
-                  setRows((list) => list.map((row) => (row.id === current.id ? { ...row, note } : row)));
-                }}
-                saveNote={(note) => actions.setNote(current.id, note)}
-              />
-            ) : (
-              <h2 className="text-[40px] font-extrabold leading-[1.05] tracking-[-0.03em]">
-                No points to mark
-              </h2>
-            )}
+              )}
+            </div>
           </div>
-          <div className="pt-4 text-[12px] text-[var(--jos-muted)]">
-            <p>j/k move · Enter covered · s skip · u reopen · n note · 1-9 jump</p>
-            {session.badge === "rehearsal" ? <p>Nothing here is saved.</p> : null}
+          <div>
+            <div className="h-1 bg-[var(--jos-line)]">
+              <div className="h-full bg-[var(--color-accent)]" style={{ width: `${progress}%` }} />
+            </div>
+            <div className="flex items-center gap-3 px-4 py-3">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!previousPoint}
+                onClick={() => previousPoint && select(previousPoint.id)}
+              >
+                <ChevronLeft />
+                Previous
+              </Button>
+              <div className="min-w-0 flex-1 text-center text-[12px] text-[var(--jos-muted)]">
+                <p>
+                  {currentSlot ? `${currentSlot.number} of ${pills.length}` : "No points"}
+                  <span className="hidden sm:inline">
+                    {" "}
+                    · j/k move · Enter covered · s skip · u reopen · n note · 1-9 jump
+                  </span>
+                </p>
+                {session.badge === "rehearsal" ? <p>Nothing here is saved.</p> : null}
+              </div>
+              <Button
+                type="button"
+                variant="calendar"
+                disabled={!followingPoint}
+                onClick={() => followingPoint && select(followingPoint.id)}
+              >
+                Next
+                <ChevronRight />
+              </Button>
+            </div>
           </div>
         </section>
       </div>
@@ -439,16 +489,12 @@ export function LiveCallClient({
 function CurrentPoint({
   point,
   noteRef,
-  nextPoint,
-  onSelect,
   onMark,
   onNote,
   saveNote,
 }: {
   point: MeetingPoint;
   noteRef: React.RefObject<HTMLTextAreaElement | null>;
-  nextPoint: MeetingPoint | null;
-  onSelect: (id: string) => void;
   onMark: (state: PointState) => void;
   onNote: (note: string | null) => void;
   saveNote: (note: string) => Promise<PointResult<object>>;
@@ -481,29 +527,54 @@ function CurrentPoint({
     });
   };
 
+  const spoken = point.kind === "question" || point.kind === "ask";
+
   return (
-    <div className="max-w-[70ch]">
-      <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--jos-muted)]">
+    <div className="mx-auto flex w-full max-w-[52rem] flex-1 flex-col">
+      <div className="flex flex-1 flex-col justify-center">
+      <p className="text-[13px] font-bold uppercase tracking-[0.16em] text-[var(--color-accent-700)]">
         {KIND_LABEL[point.kind]}
       </p>
-      <h2
-        className={cn(
-          "mt-2 text-[40px] font-extrabold leading-[1.05] tracking-[-0.03em]",
-          point.kind === "ask" && "text-[var(--color-accent-700)]"
-        )}
-      >
-        {point.kind === "question" ? `? ${point.headline}` : point.headline}
-      </h2>
-      {point.detail ? (
-        <p className="mt-4 max-w-[60ch] text-[20px] leading-snug text-[var(--jos-muted)]">{point.detail}</p>
-      ) : null}
-      <label className="mt-8 block max-w-[60ch]">
+      {spoken ? (
+        <>
+          {point.detail ? (
+            <p className="mt-5 max-w-[46rem] text-[22px] leading-snug text-[var(--color-accent-800)] italic min-[900px]:text-[26px]">
+              {point.detail}
+            </p>
+          ) : null}
+          <div
+            className={cn(
+              "mt-8 border-l-4 px-6 py-5",
+              point.kind === "ask"
+                ? "border-[var(--color-calendar)] bg-[var(--color-calendar-100)]"
+                : "border-[var(--color-accent)] bg-[var(--color-accent-100)]"
+            )}
+          >
+            <h2 className="text-[36px] font-extrabold leading-[1.05] tracking-[-0.03em] min-[900px]:text-[54px]">
+              {point.kind === "question" ? `? ${point.headline}` : point.headline}
+            </h2>
+          </div>
+        </>
+      ) : (
+        <>
+          <h2 className="mt-3 text-[44px] font-extrabold leading-[0.98] tracking-[-0.03em] min-[900px]:text-[76px]">
+            {point.headline}
+          </h2>
+          {point.detail ? (
+            <p className="mt-8 max-w-[46rem] text-[24px] leading-snug text-[var(--jos-ink)] min-[900px]:text-[30px]">
+              {point.detail}
+            </p>
+          ) : null}
+        </>
+      )}
+      </div>
+      <label className="mt-6 block max-w-[40rem]">
         <span className="text-[12px] font-bold uppercase tracking-[0.12em] text-[var(--jos-muted)]">Note</span>
         <Textarea
           ref={noteRef}
           value={text}
           placeholder="What they said"
-          className="mt-2 min-h-24 rounded-[2px] text-[16px]"
+          className="mt-2 min-h-16 rounded-[2px] text-[16px]"
           onChange={(event) => setText(event.target.value)}
           onBlur={save}
           onKeyDown={(event) => {
@@ -532,15 +603,6 @@ function CurrentPoint({
           </Button>
         ) : null}
       </div>
-      {nextPoint ? (
-        <button
-          type="button"
-          className="mt-6 block text-[14px] text-[var(--jos-muted)] hover:underline"
-          onClick={() => onSelect(nextPoint.id)}
-        >
-          Next: {nextPoint.headline}
-        </button>
-      ) : null}
     </div>
   );
 }
